@@ -1,0 +1,450 @@
+// Prisma schema for Milk Reception & Process Logs Application
+// Configured for PostgreSQL 18 with multi-relational ERD schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                    BigInt             @id @default(autoincrement())
+  full_name             String?            @map("full_name") @db.VarChar(255)
+  username              String             @unique @db.VarChar(255)
+  password_hash         String?            @map("password_hash") @db.Text
+  role                  String             @db.VarChar(255)
+  department            String?            @map("department") @db.VarChar(150)
+  scope_type            String             @default("ALL") @map("scope_type") @db.VarChar(50)
+  procurement_source_id BigInt?            @map("procurement_source_id")
+  is_active             Boolean            @default(true) @map("is_active")
+  last_login_at         DateTime?          @map("last_login_at") @db.Timestamp(6)
+  created_at            DateTime           @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at            DateTime           @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  procurement_source     ProcurementSource?      @relation("SourceUsers", fields: [procurement_source_id], references: [id], onDelete: SetNull)
+  created_visits         VehicleVisit[]          @relation("CreatedBy")
+  recorded_dispatches    DispatchInfo[]          @relation("RecordedBy")
+  handled_entry_gates    GateLog[]               @relation("EntryGuard")
+  handled_exit_gates     GateLog[]               @relation("ExitGuard")
+  dispatch_lab_results   DispatchLabResult[]     @relation("DispatchTestedBy")
+  plant_lab_results      PlantLabResult[]        @relation("PlantTestedBy")
+  plant_decided_portions VisitPortion[]          @relation("PlantDecidedBy")
+  gross_weight_tickets   WeightTicket[]          @relation("GrossRecordedBy")
+  tare_weight_tickets    WeightTicket[]          @relation("TareRecordedBy")
+  started_unloadings     UnloadingLog[]          @relation("StartedBy")
+  completed_unloadings   UnloadingLog[]          @relation("CompletedBy")
+  audit_logs             AuditLog[]              @relation("AuditUser")
+  started_qa_sessions    QATestingSession[]      @relation("QAStartedBy")
+  completed_qa_sessions  QATestingSession[]      @relation("QACompletedBy")
+  qa_session_events      QATestingSessionEvent[] @relation("QASessionEventUser")
+  created_silos          Silo[]                  @relation("SiloCreatedBy")
+  updated_silos          Silo[]                  @relation("SiloUpdatedBy")
+  inventory_transactions SiloInventoryTransaction[] @relation("InventoryPerformedBy")
+  created_warnings       QAWarning[]             @relation("WarningCreatedBy")
+  acknowledged_warnings  QAWarning[]             @relation("WarningAcknowledgedBy")
+
+  @@map("users")
+}
+
+model VehicleVisit {
+  id                    BigInt             @id @default(autoincrement())
+  visit_number          String             @unique @map("visit_number") @db.VarChar(255)
+  reception_number      String?            @unique @map("reception_number") @db.VarChar(255)
+  vehicle_number        String             @map("vehicle_number") @db.VarChar(255)
+  token_number          String?            @map("token_number") @db.VarChar(255)
+  operational_date      DateTime?          @map("operational_date") @db.Date
+  current_status        String             @default("DISPATCHED") @map("current_status") @db.VarChar(255)
+  created_by            BigInt?            @map("created_by")
+  procurement_source_id BigInt?            @map("procurement_source_id")
+  created_at            DateTime           @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at            DateTime           @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  procurement_source     ProcurementSource? @relation("VisitSource", fields: [procurement_source_id], references: [id], onDelete: SetNull)
+  creator              User?                      @relation("CreatedBy", fields: [created_by], references: [id])
+  portions             VisitPortion[]
+  gate_log             GateLog?
+  weight_ticket        WeightTicket?
+  dispatch_lab_results DispatchLabResult[]
+  plant_lab_results    PlantLabResult[]
+  qa_session           QATestingSession?
+  inventory_transactions SiloInventoryTransaction[]
+  qa_warnings          QAWarning[]
+
+  @@index([current_status, created_at])
+  @@index([created_at])
+  @@map("vehicle_visit")
+}
+
+model VisitPortion {
+  id                     BigInt    @id @default(autoincrement())
+  visit_id               BigInt    @map("visit_id")
+  portion_number         Int       @map("portion_number") @db.SmallInt
+  current_status         String    @default("DISPATCHED") @map("current_status") @db.VarChar(255)
+  declared_quantity_kg   Decimal?  @map("declared_quantity_kg") @db.Decimal(10, 2)
+  plant_decision         String?   @map("plant_decision") @db.VarChar(255)
+  plant_rejection_reason String?   @map("plant_rejection_reason") @db.Text
+  plant_decided_by       BigInt?   @map("plant_decided_by")
+  plant_decided_at       DateTime? @map("plant_decided_at") @db.Timestamp(6)
+  created_at             DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at             DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  visit                VehicleVisit               @relation(fields: [visit_id], references: [id], onDelete: Cascade)
+  decided_by           User?                      @relation("PlantDecidedBy", fields: [plant_decided_by], references: [id])
+  dispatch_info        DispatchInfo?
+  dispatch_lab_results DispatchLabResult[]
+  plant_lab_results    PlantLabResult[]
+  unloading_log        UnloadingLog?
+  inventory_transactions SiloInventoryTransaction[]
+  qa_warnings          QAWarning[]
+
+  @@unique([visit_id, portion_number])
+  @@index([plant_decision])
+  @@map("visit_portion")
+}
+
+model DispatchInfo {
+  id                 BigInt    @id @default(autoincrement())
+  portion_id         BigInt    @unique @map("portion_id")
+  dispatch_number    String?   @map("dispatch_number") @db.VarChar(255)
+  dispatch_timestamp DateTime? @map("dispatch_timestamp") @db.Timestamp(6)
+  recorded_by        BigInt?   @map("recorded_by")
+  created_at         DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at         DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  portion  VisitPortion @relation(fields: [portion_id], references: [id], onDelete: Cascade)
+  recorder User?        @relation("RecordedBy", fields: [recorded_by], references: [id])
+
+  @@map("dispatch_info")
+}
+
+model GateLog {
+  id              BigInt    @id @default(autoincrement())
+  visit_id        BigInt    @unique @map("visit_id")
+  entry_timestamp DateTime? @map("entry_timestamp") @db.Timestamp(6)
+  exit_timestamp  DateTime? @map("exit_timestamp") @db.Timestamp(6)
+  entry_guard_id     BigInt?   @map("entry_guard_id")
+  entry_submitted_at DateTime? @map("entry_submitted_at") @db.Timestamp(6)
+  exit_guard_id      BigInt?   @map("exit_guard_id")
+  exit_submitted_at  DateTime? @map("exit_submitted_at") @db.Timestamp(6)
+  created_at         DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at      DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  visit       VehicleVisit @relation(fields: [visit_id], references: [id], onDelete: Cascade)
+  entry_guard User?        @relation("EntryGuard", fields: [entry_guard_id], references: [id])
+  exit_guard  User?        @relation("ExitGuard", fields: [exit_guard_id], references: [id])
+
+  @@map("gate_log")
+}
+
+model LabTest {
+  id           BigInt   @id @default(autoincrement())
+  testCode     String   @unique @map("test_code") @db.VarChar(50)
+  testName     String   @map("test_name") @db.VarChar(150)
+  resultType   String   @map("result_type") @db.VarChar(20)
+  unit         String?  @db.VarChar(30)
+  testScope    String   @map("test_scope") @db.VarChar(20)
+  isRequired   Boolean  @default(true) @map("is_required")
+  isActive     Boolean  @default(true) @map("is_active")
+  displayOrder Int      @default(0) @map("display_order")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  dispatchResults DispatchLabResult[]
+  plantResults    PlantLabResult[]
+  testRules       LabTestRule[]
+  qa_warnings     QAWarning[]
+
+  @@index([testScope, isActive, displayOrder])
+  @@map("lab_test")
+}
+
+model LabTestRule {
+  id                   BigInt    @id @default(autoincrement())
+  lab_test_id          BigInt    @map("lab_test_id")
+  version              Int       @default(1)
+  rule_category        String    @default("RELEASE") @map("rule_category") @db.VarChar(50) // RELEASE or MONITORING
+  effective_from       DateTime  @default(now()) @map("effective_from") @db.Timestamp(6)
+  effective_to         DateTime? @map("effective_to") @db.Timestamp(6)
+  min_value            Decimal?  @map("min_value") @db.Decimal(10, 2)
+  max_value            Decimal?  @map("max_value") @db.Decimal(10, 2)
+  acceptable_option    String?   @map("acceptable_option") @db.VarChar(50)
+  warning_trigger      String?   @map("warning_trigger") @db.VarChar(50)
+  decision_consequence String?   @map("decision_consequence") @db.VarChar(50)
+  is_active            Boolean   @default(true) @map("is_active")
+  created_by           BigInt?   @map("created_by")
+  created_at           DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+
+  lab_test    LabTest     @relation(fields: [lab_test_id], references: [id], onDelete: Cascade)
+  qa_warnings QAWarning[]
+
+  @@index([lab_test_id, is_active])
+  @@map("lab_test_rule")
+}
+
+model ProcurementSource {
+  id          BigInt   @id @default(autoincrement())
+  code        String   @unique @db.VarChar(50)
+  name        String   @db.VarChar(150)
+  source_type String   @map("source_type") @db.VarChar(50) // ZMCC or CONTRACTOR
+  is_active   Boolean  @default(true) @map("is_active")
+  created_at  DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at  DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  users    User[]      @relation("SourceUsers")
+  warnings QAWarning[] @relation("SourceWarnings")
+  visits   VehicleVisit[] @relation("VisitSource")
+
+  @@map("procurement_source")
+}
+
+model DispatchLabResult {
+  id               BigInt    @id @default(autoincrement())
+  visit_id         BigInt    @map("visit_id")
+  portion_id       BigInt    @map("portion_id")
+  test_id          BigInt    @map("test_id")
+  sample_timestamp DateTime? @map("sample_timestamp") @db.Timestamp(6)
+  result_timestamp DateTime? @map("result_timestamp") @db.Timestamp(6)
+  numeric_value    Decimal?  @map("numeric_value") @db.Decimal(10, 2)
+  text_value       String?   @map("text_value") @db.VarChar(255)
+  is_passed        Boolean?  @map("is_passed")
+  tested_by        BigInt?   @map("tested_by")
+  created_at       DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at       DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  visit    VehicleVisit @relation(fields: [visit_id], references: [id], onDelete: Cascade)
+  portion  VisitPortion @relation(fields: [portion_id], references: [id], onDelete: Cascade)
+  lab_test LabTest      @relation(fields: [test_id], references: [id])
+  tester   User?        @relation("DispatchTestedBy", fields: [tested_by], references: [id])
+
+  @@index([portion_id])
+  @@index([visit_id])
+  @@map("dispatch_lab_result")
+}
+
+model PlantLabResult {
+  id               BigInt    @id @default(autoincrement())
+  visit_id         BigInt    @map("visit_id")
+  portion_id       BigInt    @map("portion_id")
+  test_id          BigInt    @map("test_id")
+  sample_timestamp DateTime? @map("sample_timestamp") @db.Timestamp(6)
+  result_timestamp DateTime? @map("result_timestamp") @db.Timestamp(6)
+  numeric_value    Decimal?  @map("numeric_value") @db.Decimal(10, 2)
+  text_value       String?   @map("text_value") @db.VarChar(255)
+  is_passed        Boolean?  @map("is_passed")
+  tested_by        BigInt?   @map("tested_by")
+  created_at       DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at       DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  visit    VehicleVisit @relation(fields: [visit_id], references: [id], onDelete: Cascade)
+  portion  VisitPortion @relation(fields: [portion_id], references: [id], onDelete: Cascade)
+  lab_test LabTest      @relation(fields: [test_id], references: [id])
+  tester   User?        @relation("PlantTestedBy", fields: [tested_by], references: [id])
+
+  @@index([portion_id])
+  @@index([visit_id])
+  @@map("plant_lab_result")
+}
+
+model WeightTicket {
+  id                BigInt    @id @default(autoincrement())
+  visit_id          BigInt    @unique @map("visit_id")
+  ticket_number     String    @unique @map("ticket_number") @db.VarChar(255)
+  gross_weight_kg   Decimal?  @map("gross_weight_kg") @db.Decimal(10, 2)
+  gross_timestamp   DateTime? @map("gross_timestamp") @db.Timestamp(6)
+  gross_recorded_by  BigInt?   @map("gross_recorded_by")
+  gross_submitted_at DateTime? @map("gross_submitted_at") @db.Timestamp(6)
+  tare_weight_kg     Decimal?  @map("tare_weight_kg") @db.Decimal(10, 2)
+  tare_timestamp     DateTime? @map("tare_timestamp") @db.Timestamp(6)
+  tare_recorded_by   BigInt?   @map("tare_recorded_by")
+  tare_submitted_at  DateTime? @map("tare_submitted_at") @db.Timestamp(6)
+  net_weight_kg     Decimal?  @map("net_weight_kg") @db.Decimal(10, 2)
+  created_at        DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at        DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  visit          VehicleVisit @relation(fields: [visit_id], references: [id], onDelete: Cascade)
+  gross_recorder User?        @relation("GrossRecordedBy", fields: [gross_recorded_by], references: [id])
+  tare_recorder  User?        @relation("TareRecordedBy", fields: [tare_recorded_by], references: [id])
+
+  @@map("weight_ticket")
+}
+
+model UnloadingLog {
+  id                   BigInt    @id @default(autoincrement())
+  portion_id           BigInt    @unique @map("portion_id")
+  silo_number          String?   @map("silo_number") @db.VarChar(255)
+  silo_id              BigInt?   @map("silo_id")
+  pump_start_timestamp DateTime? @map("pump_start_timestamp") @db.Timestamp(6)
+  start_submitted_at   DateTime? @map("start_submitted_at") @db.Timestamp(6)
+  pump_end_timestamp   DateTime? @map("pump_end_timestamp") @db.Timestamp(6)
+  complete_submitted_at DateTime? @map("complete_submitted_at") @db.Timestamp(6)
+  started_by           BigInt?   @map("started_by")
+  completed_by         BigInt?   @map("completed_by")
+  created_at           DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at           DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  portion   VisitPortion @relation(fields: [portion_id], references: [id], onDelete: Cascade)
+  silo      Silo?        @relation(fields: [silo_id], references: [id], onDelete: SetNull)
+  starter   User?        @relation("StartedBy", fields: [started_by], references: [id])
+  completer User?        @relation("CompletedBy", fields: [completed_by], references: [id])
+
+  @@index([silo_id])
+  @@map("unloading_log")
+}
+
+model AuditLog {
+  id         BigInt   @id @default(autoincrement())
+  table_name String   @map("table_name") @db.VarChar(255)
+  record_id  BigInt   @map("record_id")
+  action     String   @db.VarChar(255)
+  old_values Json?    @map("old_values") @db.JsonB
+  new_values Json?    @map("new_values") @db.JsonB
+  user_id    BigInt?  @map("user_id")
+  created_at DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  // Relations
+  user User? @relation("AuditUser", fields: [user_id], references: [id])
+
+  @@index([table_name, record_id])
+  @@index([created_at])
+  @@map("audit_log")
+}
+
+model QATestingSession {
+  id           BigInt    @id @default(autoincrement())
+  visit_id     BigInt    @unique @map("visit_id")
+  started_by   BigInt    @map("started_by")
+  started_at   DateTime  @default(now()) @map("started_at") @db.Timestamp(6)
+  completed_by BigInt?   @map("completed_by")
+  completed_at DateTime? @map("completed_at") @db.Timestamp(6)
+  status       String    @default("IN_PROGRESS") @map("status") @db.VarChar(50)
+  created_at   DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at   DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  visit     VehicleVisit            @relation(fields: [visit_id], references: [id], onDelete: Cascade)
+  starter   User                    @relation("QAStartedBy", fields: [started_by], references: [id])
+  completer User?                   @relation("QACompletedBy", fields: [completed_by], references: [id])
+  events    QATestingSessionEvent[]
+
+  @@map("qa_testing_session")
+}
+
+model QATestingSessionEvent {
+  id         BigInt   @id @default(autoincrement())
+  session_id BigInt   @map("session_id")
+  event_type String   @map("event_type") @db.VarChar(50)
+  timestamp  DateTime @default(now()) @map("timestamp") @db.Timestamp(6)
+  user_id    BigInt   @map("user_id")
+  note       String?  @db.Text
+  created_at DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  // Relations
+  session QATestingSession @relation(fields: [session_id], references: [id], onDelete: Cascade)
+  user    User             @relation("QASessionEventUser", fields: [user_id], references: [id])
+
+  @@map("qa_testing_session_event")
+}
+
+model MonthlyReceptionCounter {
+  year_month String   @id @map("year_month") @db.VarChar(6)
+  last_seq   Int      @default(0) @map("last_seq")
+  updated_at DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  @@map("monthly_reception_counter")
+}
+
+model Silo {
+  id              BigInt   @id @default(autoincrement())
+  silo_code       String   @unique @map("silo_code") @db.VarChar(50)
+  silo_name       String   @map("silo_name") @db.VarChar(150)
+  capacity_liters Decimal  @map("capacity_liters") @db.Decimal(10, 2)
+  is_active       Boolean  @default(true) @map("is_active")
+  created_by      BigInt?  @map("created_by")
+  updated_by      BigInt?  @map("updated_by")
+  created_at      DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at      DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  creator        User?                      @relation("SiloCreatedBy", fields: [created_by], references: [id])
+  updater        User?                      @relation("SiloUpdatedBy", fields: [updated_by], references: [id])
+  transactions   SiloInventoryTransaction[]
+  unloading_logs UnloadingLog[]
+
+  @@map("silo")
+}
+
+enum SiloTransactionType {
+  RECEIPT
+  ISSUE
+}
+
+model SiloInventoryTransaction {
+  id                    BigInt              @id @default(autoincrement())
+  silo_id               BigInt              @map("silo_id")
+  transaction_type      SiloTransactionType @map("transaction_type")
+  quantity_kg           Decimal?            @map("quantity_kg") @db.Decimal(10, 2)
+  quantity_liters       Decimal?            @map("quantity_liters") @db.Decimal(10, 2)
+  operational_timestamp DateTime            @map("operational_timestamp") @db.Timestamp(6)
+  visit_id              BigInt?             @map("visit_id")
+  portion_id            BigInt?             @map("portion_id")
+  reference_type        String?             @map("reference_type") @db.VarChar(50)
+  reference_id          String?             @map("reference_id") @db.VarChar(255)
+  idempotency_key       String?             @unique @map("idempotency_key") @db.VarChar(255)
+  performed_by          BigInt?             @map("performed_by")
+  notes                 String?             @db.Text
+  created_at            DateTime            @default(now()) @map("created_at") @db.Timestamp(6)
+
+  // Relations
+  silo      Silo          @relation(fields: [silo_id], references: [id], onDelete: Restrict)
+  visit     VehicleVisit? @relation(fields: [visit_id], references: [id], onDelete: SetNull)
+  portion   VisitPortion? @relation(fields: [portion_id], references: [id], onDelete: SetNull)
+  performer User?         @relation("InventoryPerformedBy", fields: [performed_by], references: [id])
+
+  @@index([silo_id, operational_timestamp])
+  @@index([visit_id])
+  @@index([portion_id])
+  @@index([transaction_type])
+  @@map("silo_inventory_transaction")
+}
+
+model QAWarning {
+  id                    BigInt             @id @default(autoincrement())
+  procurement_source_id BigInt             @map("procurement_source_id")
+  visit_id              BigInt?            @map("visit_id")
+  portion_id            BigInt?            @map("portion_id")
+  lab_test_id           BigInt?            @map("lab_test_id")
+  lab_test_rule_id      BigInt?            @map("lab_test_rule_id")
+  reason                String             @db.Text
+  operational_timestamp DateTime?          @map("operational_timestamp") @db.Timestamp(6)
+  status                String             @default("ACTIVE") @map("status") @db.VarChar(50)
+  created_by            BigInt?            @map("created_by")
+  acknowledged_by       BigInt?            @map("acknowledged_by")
+  created_at            DateTime           @default(now()) @map("created_at") @db.Timestamp(6)
+  acknowledged_at       DateTime?          @map("acknowledged_at") @db.Timestamp(6)
+  resolution_notes      String?            @db.Text
+
+  procurement_source    ProcurementSource  @relation("SourceWarnings", fields: [procurement_source_id], references: [id], onDelete: Cascade)
+  visit                 VehicleVisit?      @relation(fields: [visit_id], references: [id], onDelete: SetNull)
+  portion               VisitPortion?      @relation(fields: [portion_id], references: [id], onDelete: SetNull)
+  lab_test              LabTest?           @relation(fields: [lab_test_id], references: [id], onDelete: SetNull)
+  lab_test_rule         LabTestRule?       @relation(fields: [lab_test_rule_id], references: [id], onDelete: SetNull)
+  creator               User?              @relation("WarningCreatedBy", fields: [created_by], references: [id])
+  acknowledger          User?              @relation("WarningAcknowledgedBy", fields: [acknowledged_by], references: [id])
+
+  @@index([procurement_source_id, created_at])
+  @@map("qa_warning")
+}

@@ -1,0 +1,49 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { SecurityGatewayWorkspace } from '@modules/dashboard/SecurityGatewayWorkspace';
+import { Header } from '@modules/shared/Header';
+import { User } from '@core/types';
+
+export default function SecurityDepartmentPage() {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadUser() {
+      try {
+        const res = await fetch('/api/auth/me');
+        if (res.ok) {
+          const data = await res.json();
+          setUser(data.user);
+        }
+      } catch (err) {
+        console.error('Failed to load user', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadUser();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="p-8 text-center text-xs font-bold text-slate-500">
+        Loading Security Gate...
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#FDFBF9] text-[#111311] flex flex-col font-sans">
+      <Header
+        currentUser={user}
+        title="Security Gate"
+        showBranding={true}
+      />
+      <main className="flex-1 p-6 overflow-y-auto">
+        <SecurityGatewayWorkspace currentUser={user} />
+      </main>
+    </div>
+  );
+}
