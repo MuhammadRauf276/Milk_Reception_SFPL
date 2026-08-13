@@ -1,90 +1,242 @@
-# Milk Reception & Process Logs Management Application
+# Milk_Reception_SFPL
 
-A production-grade, highly scalable **Next.js** full-stack web application designed for dairy plant operations. Features a **Creamy Minimalist aesthetic** (`#FDFBF7` canvas, `#F4F0E6` panels, `#1E201E` charcoal text) with toggleable **Deep Night mode**, **3D Isometric Icons** for physical steps, a **5-stage vertical Kanban pipeline**, **10-second automatic polling background sync**, **PostgreSQL storage via Prisma ORM (Decimal precision schema)**, **JWT multi-role authentication** (`MPD`, `QA`, `Security_Weight`, `Production`), and real-time stage duration trackers.
+Milk Reception Management System for **Shakarganj Food Products Ltd. (SFPL)**.
 
----
+This application manages the complete milk reception workflow from dispatch through plant reception, quality testing, weighing, unloading, silo receipt, and gate exit.
 
-## Key Features
+## Technology Stack
 
-1. **Styling Theme (Creamy Minimalist & Isometric 3D Components)**:
-   - **Default Creamy Theme**: `#FDFBF7` background canvas, `#F4F0E6` Oatmeal Sand panels, `#EAE4D5` hairline borders, `#1E201E` ultra-dark Charcoal text for direct sunlight readability.
-   - **Night Theme**: Deep Charcoal `#1E201E` canvas, Slate `#2C302E` panels, Cream text.
-   - **3D Isometric Icons**: Glossy, layered 3D-shaded floating isometric shapes for physical steps (`Truck Container`, `Security Pass Badge`, `QA Chemical Flask`, `Balance Scale`, `Unloading Storage Tank`).
-   - **Automatic Sync (10s Polling)**: No manual refresh button required; background polling updates the UI every 10 seconds.
+* Next.js
+* TypeScript
+* PostgreSQL
+* Prisma ORM
+* Tailwind CSS
+* JWT-based authentication
 
-2. **System Architecture & 5-Stage Kanban Pipeline**:
-   - Permanent left-hand navigation sidebar containing user authentication badges, department role switcher, theme toggle, and live operational stats.
-   - 5 distinct vertical Kanban tracking lanes:
-     * Lane 1: "En-Route / Dispatched" (3D Truck Container)
-     * Lane 2: "Gate 2 Token Desk" (3D Security Pass Badge)
-     * Lane 3: "QA Lab Sampling" (3D Chemical Testing Flask)
-     * Lane 4: "Weighbridge Scale" (3D Balance Scale)
-     * Lane 5: "Silo Milk Reception" (3D Unloading Storage Tank)
+## Current Architecture
 
-3. **Prisma PostgreSQL Schema (`milk_process_logs`)**:
-   - Native Decimal / Int / String fields formatted for direct Power BI querying and SQL reporting.
+```text
+Next.js Application
+        ↓
+Backend APIs / Services
+        ↓
+Prisma ORM
+        ↓
+PostgreSQL
+```
 
-4. **Multi-Role JWT Column Security**:
-   - Role-restricted update permissions (`/api/logs/[id]`).
-   - Token Modal layout notice:
-     > **"Ensure Token is issued in the physical presence of the designated MPD Officer."**
+PostgreSQL is the authoritative source of truth for operational data.
 
-5. **Automated Formulas & Stage Duration Trackers**:
-   - `SNF % = (LR / 4) + (0.2 * Fat) + 0.36`
-   - `Total Solids (TS %) = Fat % + SNF %`
-   - `13% TS Equivalent Liters = (Gross Liters * TS %) / 13.0`
-   - `Net Weight = 1st Weight - 2nd Weight`
-   - Real-time Stage Durations: Waiting Before Sampling, Sampling Duration, Waiting Before 1st Weight, Waiting Before Reception, Unloading Duration, Gate-to-Gate Total Time.
+## Main Operational Modules
 
-6. **Mock Fallback Engine**:
-   - In-memory database store allows `npm run dev` to work out-of-the-box instantly before connecting a remote PostgreSQL connection string in `.env`.
+* MPD Dispatch
+* Security / Gate Entry & Exit
+* Plant QA
+* Weighbridge
+* Production / Unloading
+* Silo Inventory
+* Super Admin
 
----
+## Vehicle Reception Workflow
 
-## Local Development Quickstart
+```text
+DISPATCHED
+→ TOKEN_ISSUED
+→ PLANT_QA
+→ READY_FOR_GROSS
+→ GROSS_WEIGHED
+→ READY_FOR_UNLOADING
+→ UNLOADING
+→ READY_FOR_TARE
+→ TARE_WEIGHED
+→ READY_FOR_GATE_EXIT
+→ COMPLETED
+```
 
-1. Navigate to project root:
-   ```bash
-   cd D:\MilkReceptionApp
-   ```
+All-rejected vehicles bypass weighing, unloading, tare, and final silo receipt and may proceed directly to gate exit after QA completion.
 
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
+## Operational Time Model
 
-3. Run Next.js dev server:
-   ```bash
-   npm run dev
-   ```
+The system keeps the following concepts separate:
 
-4. Open `http://localhost:3000` in your web browser.
+* **Operational Date & Time** — actual physical event time
+* **Submitted At** — server timestamp when the event was saved
+* **Performed By** — authenticated user who performed/submitted the action
+* **Business Date** — plant reporting date based on the 08:00 AM cutoff
 
----
+Plant timezone:
 
-## Connecting Cloud PostgreSQL (Neon / Supabase / RDS)
+```text
+Asia/Karachi
+```
 
-1. Set `DATABASE_URL` in `D:\MilkReceptionApp\.env`:
-   ```env
-   DATABASE_URL="postgresql://username:password@ep-your-db-host.neon.tech/milk_reception_db?sslmode=require"
-   JWT_SECRET="your-jwt-secret-key-at-least-32-chars-long"
-   ```
+Business day:
 
-2. Push schema to database:
-   ```bash
-   npx prisma db push
-   ```
+```text
+08:00 AM
+to
+07:59:59.999 AM next calendar day
+```
 
----
+## Milk Formula Authority
 
-## Initializing Git & Pushing to GitHub
+The application uses a centralized backend formula helper.
+
+```text
+SNF % = LR / 4 + (0.22 × Fat %) + 0.72
+
+TS % = Fat % + SNF %
+
+SNF : Fat Ratio = SNF % / Fat %
+
+Density = 1 + LR / 1000
+
+Physical Liters = Quantity Kg / Density
+
+@13 TS Liters = Physical Liters × TS / 13
+```
+
+## Final Silo Receipt
+
+Final milk receipt is recorded at vehicle level.
+
+Canonical idempotency key:
+
+```text
+FINAL_RECEIPT:VISIT:<visitId>
+```
+
+Gross, Tare, Net Kg, Physical Liters, and Final Silo Receipt belong to the vehicle reception process.
+
+## Procurement Sources
+
+Current operational source configuration includes:
+
+* ZMCC Hasilpur
+* ZMCC Jhang
+* ZMCC Kabirwala
+* Al Mehmood Dairy
+* Al Khair Dairy
+
+Visits use a real `procurement_source_id` relation rather than hardcoded source names.
+
+## Development Database
+
+Development currently uses local PostgreSQL.
+
+The project contains versioned Prisma migrations and can recreate the database schema using:
 
 ```bash
-cd D:\MilkReceptionApp
-git init
-git add .
-git commit -m "Initial commit: Creamy Minimalist 5-Stage Kanban Milk Reception App"
-git branch -M main
-git remote add origin https://github.com/YOUR_USERNAME/MilkReceptionApp.git
-git push -u origin main
+npx prisma migrate deploy
 ```
+
+For development schema changes, use:
+
+```bash
+npx prisma migrate dev
+```
+
+Do not use `prisma db push` as the normal deployment workflow.
+
+## Local Development
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Generate Prisma client:
+
+```bash
+npx prisma generate
+```
+
+Run database migrations:
+
+```bash
+npx prisma migrate deploy
+```
+
+Start development server:
+
+```bash
+npm run dev
+```
+
+Open:
+
+```text
+http://localhost:3000
+```
+
+## Environment Variables
+
+Create a local `.env` file.
+
+Example structure:
+
+```env
+DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DATABASE"
+JWT_SECRET="your-secret"
+```
+
+The real `.env` file must not be committed to GitHub.
+
+Use `.env.example` for documenting required environment variables.
+
+## Development Safety
+
+The following should not be committed:
+
+```text
+.env
+node_modules/
+.next/
+log files
+local build/cache files
+```
+
+These are excluded through `.gitignore`.
+
+## Testing
+
+The project includes regression and integrity test scripts covering areas such as:
+
+* workflow status transitions
+* QA chronology
+* business-date handling
+* dispatch validation
+* source relationships
+* silo receipt
+* formula consistency
+* authentication
+* operational audit timestamps
+
+Common checks:
+
+```bash
+npx tsx scripts/run_all_regressions.ts
+npx prisma validate
+npx prisma generate
+npm run lint
+npx next build
+```
+
+## Deployment
+
+Production deployment has not been finalized.
+
+The application is intentionally kept PostgreSQL/Prisma based and provider-neutral so it can later run against:
+
+* company-hosted PostgreSQL
+* managed PostgreSQL for staging/testing
+* standard Next.js Node/Docker deployment
+
+Cloud-specific infrastructure is not required for current local development.
+
+## Repository
+
+This repository contains the development source code for the SFPL Milk Reception Management System.
+
+The application is currently under active development.
