@@ -40,8 +40,8 @@ async function runSecurityOperatorVerification() {
       created_by: securityGuard.id,
       portions: {
         create: [
-          { portion_number: 1, declared_quantity_value: 5000, current_status: 'DISPATCHED' },
-          { portion_number: 2, declared_quantity_value: 4000, current_status: 'DISPATCHED' },
+          { portion_number: 1, dispatch_quantity_value: 5000, dispatch_quantity_unit: 'KG', dispatch_quantity_basis: 'MEASURED', dispatch_measurement_method: 'WEIGHING', current_status: 'DISPATCHED' },
+          { portion_number: 2, dispatch_quantity_value: 4000, dispatch_quantity_unit: 'KG', dispatch_quantity_basis: 'MEASURED', dispatch_measurement_method: 'WEIGHING', current_status: 'DISPATCHED' },
         ],
       },
     },

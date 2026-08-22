@@ -444,8 +444,10 @@ async function runStableAssignmentTests() {
     data: {
       visit_id: legacyVisit.id,
       portion_number: 1,
-      declared_quantity_value: 5000,
-      declared_quantity_unit: 'KG',
+      dispatch_quantity_value: 5000,
+      dispatch_quantity_unit: 'KG',
+      dispatch_quantity_basis: 'MEASURED',
+      dispatch_measurement_method: 'WEIGHING',
     },
   });
 

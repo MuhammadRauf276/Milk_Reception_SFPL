@@ -216,7 +216,10 @@ export async function seedOperationalData() {
         data: {
           visit_id: visit.id,
           portion_number: pIdx,
-          declared_quantity_value: portionKg,
+          dispatch_quantity_value: portionKg,
+          dispatch_quantity_unit: 'KG',
+          dispatch_quantity_basis: 'MEASURED',
+          dispatch_measurement_method: 'WEIGHING',
           current_status: portionStatus,
           plant_decision: targetStatus === 'TOKEN_ISSUED' || targetStatus === 'PLANT_QA' ? 'PENDING' : portionDecision,
           plant_rejection_reason: portionDecision === 'REJECTED' ? 'COB Positive & High Acidity. Off-flavor detected during organoleptic testing.' : null,
@@ -234,6 +237,10 @@ export async function seedOperationalData() {
           portion_id: portion.id,
           dispatch_timestamp: dispatchTime,
           recorded_by: mpdUser.id,
+          vehicle_quantity_value: totalDeclaredKg,
+          vehicle_quantity_unit: 'KG',
+          vehicle_quantity_basis: 'MEASURED',
+          vehicle_measurement_method: 'WEIGHING',
           created_at: new Date(dispatchTime.getTime() + 120000), // 2 min delay
         },
       });
