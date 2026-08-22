@@ -175,7 +175,7 @@ async function runTests() {
     assert(!content.includes('26.5'), `Case M1 (${baseName}): Zero hardcoded 26.5 fallback in ${baseName}`);
     assert(!content.includes('3.8') || baseName.includes('test'), `Case M2 (${baseName}): Zero hardcoded 3.8 fallback in ${baseName}`);
     assert(!content.includes('dispatch_lab_results') || baseName === 'route.ts' && !content.includes('dispatchLr'), `Case M3 (${baseName}): Zero operational Dispatch QA fallback in ${baseName}`);
-    assert(!content.includes('declaredKg') || content.includes('declared_quantity_value'), `Case M4 (${baseName}): Correct unit-aware variable semantics in ${baseName}`);
+    assert(!content.includes('declaredKg') || content.includes('dispatch_quantity_value'), `Case M4 (${baseName}): Correct unit-aware variable semantics in ${baseName}`);
   }
 
   console.log('\n==================================================');

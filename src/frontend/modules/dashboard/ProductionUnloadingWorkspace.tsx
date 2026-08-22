@@ -22,8 +22,8 @@ interface PortionDef {
   portion_number: number;
   dispatch_quantity_value?: number | null;
   dispatch_quantity_unit?: string;
-  declared_quantity_value?: number | null;
-  declared_quantity_unit?: string;
+  dispatch_quantity_basis?: string;
+  dispatch_measurement_method?: string;
   plant_decision: 'ACCEPTED' | 'REJECTED' | 'PENDING';
   plant_rejection_reason: string | null;
   current_status: string;
@@ -55,8 +55,10 @@ interface ReadyVisitDef {
   portion_count: number;
   accepted_portion_count: number;
   rejected_portion_count: number;
-  total_accepted_declared_value: number | null;
-  total_accepted_declared_unit: string | null;
+  vehicle_dispatch_quantity_value?: number | null;
+  vehicle_dispatch_quantity_unit?: string | null;
+  total_accepted_dispatch_value: number | null;
+  total_accepted_dispatch_unit: string | null;
   total_accepted_physical_liters: number | null;
   total_accepted_at13_ts_liters: number | null;
   waiting_minutes: number;
@@ -73,8 +75,10 @@ interface UnloadingVisitDef {
   portion_count: number;
   accepted_portion_count: number;
   rejected_portion_count: number;
-  total_accepted_declared_value: number | null;
-  total_accepted_declared_unit: string | null;
+  vehicle_dispatch_quantity_value?: number | null;
+  vehicle_dispatch_quantity_unit?: string | null;
+  total_accepted_dispatch_value: number | null;
+  total_accepted_dispatch_unit: string | null;
   total_accepted_physical_liters: number | null;
   total_accepted_at13_ts_liters: number | null;
   started_at: string | null;
@@ -742,7 +746,7 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
                     <div key={p.id} className="p-4 bg-gray-50 rounded-xl border border-gray-200 space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-gray-900 text-sm">
-                          Portion #{p.portion_number} ({(p.dispatch_quantity_value ?? p.declared_quantity_value) !== null && (p.dispatch_quantity_value ?? p.declared_quantity_value) !== undefined ? (p.dispatch_quantity_value ?? p.declared_quantity_value)!.toLocaleString() : '—'} {(p.dispatch_quantity_unit ?? p.declared_quantity_unit) === 'LITER' ? 'L' : 'kg'})
+                          Portion #{p.portion_number} ({p.dispatch_quantity_value !== null && p.dispatch_quantity_value !== undefined ? p.dispatch_quantity_value.toLocaleString() : '—'} {p.dispatch_quantity_unit === 'LITER' ? 'L' : 'kg'})
                         </span>
                         <span className="text-xs font-mono font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded">
                           Expected: {p.expected_physical_liters !== null ? `~${p.expected_physical_liters.toLocaleString()} L` : '—'}
@@ -822,7 +826,7 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
                     <div key={p.id} className="p-4 bg-emerald-50/50 rounded-xl border border-emerald-200 flex items-center justify-between text-xs">
                       <div>
                         <span className="font-bold text-gray-900 block">
-                          Portion #{p.portion_number} ({(p.dispatch_quantity_value ?? p.declared_quantity_value) !== null && (p.dispatch_quantity_value ?? p.declared_quantity_value) !== undefined ? (p.dispatch_quantity_value ?? p.declared_quantity_value)!.toLocaleString() : '—'} {(p.dispatch_quantity_unit ?? p.declared_quantity_unit) === 'LITER' ? 'L' : 'kg'})
+                          Portion #{p.portion_number} ({p.dispatch_quantity_value !== null && p.dispatch_quantity_value !== undefined ? p.dispatch_quantity_value.toLocaleString() : '—'} {p.dispatch_quantity_unit === 'LITER' ? 'L' : 'kg'})
                         </span>
                         <span className="text-gray-600">Assigned Silo: <strong className="text-emerald-900 font-bold">{p.unloading_log?.silo_code || p.unloading_log?.silo_number || 'Silo 1'}</strong></span>
                       </div>

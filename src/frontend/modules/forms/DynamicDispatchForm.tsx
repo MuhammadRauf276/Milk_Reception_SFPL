@@ -17,6 +17,16 @@ import {
 } from '@/backend/utils/milkFormulas';
 import { getScopedDraftKey } from '@/lib/validations/dispatch';
 
+import {
+  QuantityUnit,
+  MeasurementBasis,
+  MeasurementMethod,
+  DispatchQuantityPolicySnapshotDTO,
+  getAllowedUnits,
+  getAllowedBases,
+  getAllowedMethods,
+} from '@/backend/modules/dispatch/quantity-policy/types';
+
 interface LabTestDef {
   id: string;
   testCode: string;
@@ -32,18 +42,18 @@ interface TestResultState {
   numericValue: string;
   textValue: string;
   performanceStatus: 'PERFORMED' | 'NOT_PERFORMED';
-  notPerformedReason?: string;
+  notPerformedReason: string;
 }
 
-export type QuantityUnitType = 'KG' | 'LITER';
-export type MeasurementBasisType = 'ESTIMATED' | 'MEASURED';
-export type MeasurementMethodType = 'MANUAL_ESTIMATE' | 'WEIGHING' | 'FLOW_METER' | 'OTHER';
+export type QuantityUnitType = QuantityUnit;
+export type MeasurementBasisType = MeasurementBasis;
+export type MeasurementMethodType = MeasurementMethod;
 
 export interface QuantityState {
   value: string;
-  unit: QuantityUnitType;
-  basis: MeasurementBasisType;
-  method: MeasurementMethodType;
+  unit: QuantityUnit;
+  basis: MeasurementBasis;
+  method: MeasurementMethod;
 }
 
 interface PortionFormState {
@@ -57,32 +67,6 @@ interface PortionFormState {
 interface DynamicDispatchFormProps {
   currentUser: User | null;
   onSuccess?: () => void;
-}
-
-function getAllowedUnits(allowedMeasurements?: Array<{ unit: QuantityUnitType; basis: MeasurementBasisType; methods: MeasurementMethodType[] }>): QuantityUnitType[] {
-  if (!allowedMeasurements || allowedMeasurements.length === 0) return ['KG', 'LITER'];
-  const units = Array.from(new Set(allowedMeasurements.map((m) => m.unit))) as QuantityUnitType[];
-  return units.length > 0 ? units : ['KG'];
-}
-
-function getAllowedBases(
-  allowedMeasurements?: Array<{ unit: QuantityUnitType; basis: MeasurementBasisType; methods: MeasurementMethodType[] }>,
-  unit?: QuantityUnitType
-): MeasurementBasisType[] {
-  if (!allowedMeasurements || allowedMeasurements.length === 0) return ['MEASURED', 'ESTIMATED'];
-  const filtered = unit ? allowedMeasurements.filter((m) => m.unit === unit) : allowedMeasurements;
-  const bases = Array.from(new Set(filtered.map((m) => m.basis))) as MeasurementBasisType[];
-  return bases.length > 0 ? bases : ['MEASURED'];
-}
-
-function getAllowedMethods(
-  allowedMeasurements?: Array<{ unit: QuantityUnitType; basis: MeasurementBasisType; methods: MeasurementMethodType[] }>,
-  unit?: QuantityUnitType,
-  basis?: MeasurementBasisType
-): MeasurementMethodType[] {
-  if (!allowedMeasurements || allowedMeasurements.length === 0) return ['WEIGHING', 'MANUAL_ESTIMATE', 'FLOW_METER', 'OTHER'];
-  const match = allowedMeasurements.find((m) => m.unit === unit && m.basis === basis);
-  return (match?.methods as MeasurementMethodType[]) || ['WEIGHING'];
 }
 
 export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ currentUser, onSuccess }) => {

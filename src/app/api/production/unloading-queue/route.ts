@@ -204,10 +204,14 @@ export async function GET(req: NextRequest) {
         portion_count: v.portions.length,
         accepted_portion_count: acceptedPortions.length,
         rejected_portion_count: rejectedPortions.length,
+        vehicle_dispatch_quantity_value: v.vehicle_dispatch_quantity_value !== null && v.vehicle_dispatch_quantity_value !== undefined
+          ? Number(v.vehicle_dispatch_quantity_value)
+          : null,
+        vehicle_dispatch_quantity_unit: v.vehicle_dispatch_quantity_unit || null,
+        vehicle_dispatch_quantity_basis: v.vehicle_dispatch_quantity_basis || null,
+        vehicle_dispatch_measurement_method: v.vehicle_dispatch_measurement_method || null,
         total_accepted_dispatch_value: totalAcceptedDispatchValue,
         total_accepted_dispatch_unit: totalAcceptedDispatchUnit,
-        total_accepted_declared_value: totalAcceptedDispatchValue,
-        total_accepted_declared_unit: totalAcceptedDispatchUnit,
         total_accepted_physical_liters: allAcceptedHavePhysicalLiters ? Math.round(totalAcceptedPhysicalLiters) : null,
         total_accepted_at13_ts_liters: allAcceptedHaveAt13TS ? Math.round(totalAcceptedAt13TSLiters) : null,
         started_at: earliestStartTime ? (earliestStartTime as Date).toISOString() : null,

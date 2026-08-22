@@ -257,9 +257,9 @@ async function runRegressionTests() {
     where: { visit_id: BigInt(dataContLiter.visitId) },
   });
   assert(
-    createdPortion?.declared_quantity_unit === 'LITER' && Number(createdPortion?.declared_quantity_value) === 9800,
+    createdPortion?.dispatch_quantity_unit === 'LITER' && Number(createdPortion?.dispatch_quantity_value) === 9800,
     'TEST-3.4: DB VisitPortion retains original declared quantity value (9,800) and unit ("LITER")',
-    `Stored Unit = ${createdPortion?.declared_quantity_unit}, Value = ${createdPortion?.declared_quantity_value}`
+    `Stored Unit = ${createdPortion?.dispatch_quantity_unit}, Value = ${createdPortion?.dispatch_quantity_value}`
   );
 
   // 5. Contractor Test Accountability Workflow Tests

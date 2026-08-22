@@ -1,4 +1,4 @@
-﻿import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
   validateQuantityAgainstPolicy,
   QuantityMeasurementError,
@@ -8,11 +8,11 @@ import {
   validateDispatchQuantities,
   formatQuantityDisplay,
 } from '@/backend/modules/dispatch/quantity/dispatchQuantityService';
-import { DispatchQuantityPolicy } from '@/backend/modules/dispatch/quantity-policy/types';
+import { DispatchQuantityPolicyConfig } from '@/backend/modules/dispatch/quantity-policy/types';
 import { calculatePhysicalLiters } from '@/backend/utils/milkFormulas';
 
 describe('Stage 4C-4: Dispatch Quantity Domain (Unit Tests)', () => {
-  const samplePolicy: DispatchQuantityPolicy = {
+  const samplePolicy: DispatchQuantityPolicyConfig = {
     version: 1,
     vehicleRules: {
       allowedMeasurements: [
@@ -28,6 +28,7 @@ describe('Stage 4C-4: Dispatch Quantity Domain (Unit Tests)', () => {
       ],
       default: { unit: 'LITER', basis: 'ESTIMATED', method: 'MANUAL_ESTIMATE' },
     },
+    allowSameUnitPortionPrefill: false,
   };
 
   it('[TEST-A] Validates valid KG/MEASURED/WEIGHING vehicle and portion facts', () => {

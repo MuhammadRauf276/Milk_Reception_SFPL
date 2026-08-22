@@ -18,12 +18,12 @@ function serializeDispatch(visit: any) {
   const firstDispatchInfo = firstPortion?.dispatch_info;
   const gateLog = visit.gate_log;
 
-  const vehicleQuantityValue = firstDispatchInfo?.vehicle_quantity_value !== null && firstDispatchInfo?.vehicle_quantity_value !== undefined
-    ? Number(firstDispatchInfo.vehicle_quantity_value)
+  const vehicleQuantityValue = visit.vehicle_dispatch_quantity_value !== null && visit.vehicle_dispatch_quantity_value !== undefined
+    ? Number(visit.vehicle_dispatch_quantity_value)
     : null;
-  const vehicleQuantityUnit = firstDispatchInfo?.vehicle_quantity_unit || null;
-  const vehicleQuantityBasis = firstDispatchInfo?.vehicle_quantity_basis || null;
-  const vehicleMeasurementMethod = firstDispatchInfo?.vehicle_measurement_method || null;
+  const vehicleQuantityUnit = visit.vehicle_dispatch_quantity_unit || null;
+  const vehicleQuantityBasis = visit.vehicle_dispatch_quantity_basis || null;
+  const vehicleMeasurementMethod = visit.vehicle_dispatch_measurement_method || null;
 
   return {
     id: visit.id.toString(),
@@ -34,12 +34,10 @@ function serializeDispatch(visit: any) {
     operational_date: visit.operational_date ? visit.operational_date.toISOString().split('T')[0] : null,
     current_status: visit.current_status,
     portion_count: portions.length,
-    vehicle_quantity_value: vehicleQuantityValue,
-    vehicle_quantity_unit: vehicleQuantityUnit,
-    vehicle_quantity_basis: vehicleQuantityBasis,
-    vehicle_measurement_method: vehicleMeasurementMethod,
-    total_declared_kg: vehicleQuantityValue,
-    declared_quantity_unit: vehicleQuantityUnit || 'KG',
+    vehicle_dispatch_quantity_value: vehicleQuantityValue,
+    vehicle_dispatch_quantity_unit: vehicleQuantityUnit,
+    vehicle_dispatch_quantity_basis: vehicleQuantityBasis,
+    vehicle_dispatch_measurement_method: vehicleMeasurementMethod,
     procurement_source_id: visit.procurement_source_id ? visit.procurement_source_id.toString() : null,
     zonal_contractor_name: visit.procurement_source?.name || 'Source unavailable',
     procurement_source_type: visit.procurement_source?.source_type || 'UNKNOWN',
@@ -58,10 +56,6 @@ function serializeDispatch(visit: any) {
       dispatch_quantity_unit: p.dispatch_quantity_unit || null,
       dispatch_quantity_basis: p.dispatch_quantity_basis || null,
       dispatch_measurement_method: p.dispatch_measurement_method || null,
-      declared_quantity_kg: p.dispatch_quantity_value !== null && p.dispatch_quantity_value !== undefined
-        ? Number(p.dispatch_quantity_value)
-        : null,
-      declared_quantity_unit: p.dispatch_quantity_unit || null,
       plant_decision: p.plant_decision || 'PENDING',
       current_status: p.current_status,
     })),
@@ -75,6 +69,10 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const { searchParams } = new URL(req.url);
+  const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
+  const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get('pageSize') || '20', 10)));
+
   const dbUser = await prisma.user.findFirst({
     where: {
       OR: [{ username: authUser.username }, { id: BigInt(authUser.id) }],
@@ -84,59 +82,31 @@ export async function GET(req: Request) {
   });
 
   if (!dbUser) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json({ error: 'User not found' }, { status: 404 });
   }
 
-  const searchParams = new URL(req.url).searchParams;
-  const range = searchParams.get('range') || '7d';
-  const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
-  const pageSize = Math.max(1, Math.min(100, parseInt(searchParams.get('pageSize') || '20', 10)));
-  const fromDateParam = searchParams.get('fromDate');
-  const toDateParam = searchParams.get('toDate');
-  const statusFilter = searchParams.get('status');
+  // Filter Dispatches by Date or Procurement Source
+  const startDateStr = searchParams.get('startDate');
+  const endDateStr = searchParams.get('endDate');
 
   let gteDate: Date | undefined;
   let lteDate: Date | undefined;
 
-  if (range === 'today') {
-    gteDate = new Date();
-    gteDate.setHours(0, 0, 0, 0);
-    lteDate = new Date();
-    lteDate.setHours(23, 59, 59, 999);
-  } else if (range === '7d') {
-    gteDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  } else if (range === '30d') {
-    gteDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  } else if (range === 'custom') {
-    if (fromDateParam) {
-      gteDate = new Date(fromDateParam);
-    }
-    if (toDateParam) {
-      const d = new Date(toDateParam);
-      d.setHours(23, 59, 59, 999);
-      lteDate = d;
-    }
-    if (gteDate && lteDate && gteDate > lteDate) {
-      return NextResponse.json({ error: 'From Date cannot be after To Date' }, { status: 400 });
-    }
+  if (startDateStr) {
+    const sDate = new Date(startDateStr);
+    sDate.setUTCHours(0, 0, 0, 0);
+    gteDate = sDate;
+  }
+  if (endDateStr) {
+    const eDate = new Date(endDateStr);
+    eDate.setUTCHours(23, 59, 59, 999);
+    lteDate = eDate;
   }
 
-  const whereClause: any = {
-    current_status: statusFilter ? statusFilter : { notIn: ['CANCELLED', 'DRAFT_DISPATCH'] },
-  };
-
-  // SOURCE AUTHORIZATION FILTERING:
-  // For ordinary MPD operators, strictly scope dispatches to their assigned procurement source at DB level
-  const isOrdinaryOperator = dbUser.role === 'MPD_Operator' || dbUser.role === 'MPD';
-  if (isOrdinaryOperator) {
-    if (dbUser.procurement_source_id) {
-      whereClause.procurement_source_id = dbUser.procurement_source_id;
-    } else {
-      // Unbound operator gets zero dispatches
-      whereClause.procurement_source_id = -1;
-    }
+  const whereClause: any = {};
+  if (dbUser.procurement_source_id) {
+    whereClause.procurement_source_id = dbUser.procurement_source_id;
   } else {
-    // Privileged/Global roles may specify optional procurementSourceId query param
     const sourceParam = searchParams.get('procurementSourceId');
     if (sourceParam) {
       whereClause.procurement_source_id = BigInt(sourceParam);
@@ -216,6 +186,13 @@ export async function POST(req: Request) {
     const body = await req.json();
     const validated = createDispatchSchema.parse(body);
 
+    if (!validated.visitId) {
+      return NextResponse.json(
+        { error: 'Draft visitId is required for dispatch creation.', code: 'DRAFT_VISIT_REQUIRED' },
+        { status: 400 }
+      );
+    }
+
     // Validate Vehicle Number
     const vehValidation = validateRequiredString(validated.vehicleNumber, 'Vehicle Number', 50);
     if (!vehValidation.isValid) {
@@ -278,71 +255,36 @@ export async function POST(req: Request) {
 
     const sourceType = sourceRecord.source_type || 'ZMCC';
 
-    // 1. Resolve or establish visit assignments for validation
-    let existingVisit: any = null;
-    let assignedDispatchTests: any[] = [];
-    let frozenPolicySnapshot: any;
-
-    if (validated.visitId) {
-      existingVisit = await prisma.vehicleVisit.findUnique({
-        where: { id: BigInt(validated.visitId) },
-      });
-      if (!existingVisit) {
-        return NextResponse.json({ error: 'Referenced dispatch draft visit not found.', code: 'DRAFT_NOT_FOUND' }, { status: 404 });
-      }
-      if (existingVisit.current_status !== 'DRAFT_DISPATCH' && existingVisit.current_status !== 'DISPATCHED') {
-        return NextResponse.json(
-          { error: `Cannot submit dispatch for vehicle in status ${existingVisit.current_status}.`, code: 'DRAFT_ALREADY_PROGRESSED' },
-          { status: 400 }
-        );
-      }
-      // Validate draft ownership
-      if (existingVisit.created_by?.toString() !== dbUser.id.toString()) {
-        return NextResponse.json(
-          { error: 'Unauthorized. Draft visit belongs to another user.', code: 'DRAFT_OWNER_MISMATCH' },
-          { status: 403 }
-        );
-      }
-
-      // Validate draft source match
-      if (existingVisit.procurement_source_id.toString() !== resolvedSourceId.toString()) {
-        return NextResponse.json(
-          { error: 'Draft visit belongs to a different procurement source.', code: 'DRAFT_SOURCE_MISMATCH' },
-          { status: 400 }
-        );
-      }
-      assignedDispatchTests = await getOrAssignDispatchTests(prisma, existingVisit.id);
-      frozenPolicySnapshot = await getOrFreezeDispatchQuantityPolicy(prisma, existingVisit.id, resolvedSourceId);
-    } else {
-
-      // Query active master tests if no pre-started visit was supplied
-      const activeTests = await prisma.labTest.findMany({
-        where: {
-          isActive: true,
-          testScope: { in: ['DISPATCH', 'BOTH'] },
-        },
-        orderBy: [{ displayOrder: 'asc' }, { testName: 'asc' }],
-      });
-      assignedDispatchTests = activeTests.map((t) => ({
-        id: t.id,
-        test_id: t.id,
-        test_code_snapshot: t.testCode,
-        test_name_snapshot: t.testName,
-        result_type_snapshot: t.resultType,
-        unit_snapshot: t.unit,
-        test_scope_snapshot: t.testScope,
-        is_required_snapshot: t.isRequired,
-        display_order_snapshot: t.displayOrder,
-      }));
-
-      const resolvedPolicy = await resolveSourceQuantityPolicy(prisma, resolvedSourceId);
-      frozenPolicySnapshot = {
-        visitId: '0',
-        sourceId: resolvedSourceId.toString(),
-        policyVersion: resolvedPolicy.version,
-        policy: resolvedPolicy,
-      };
+    // 1. Resolve visit assignments and FROZEN quantity policy snapshot from draft
+    const existingVisit = await prisma.vehicleVisit.findUnique({
+      where: { id: BigInt(validated.visitId) },
+    });
+    if (!existingVisit) {
+      return NextResponse.json({ error: 'Referenced dispatch draft visit not found.', code: 'DRAFT_NOT_FOUND' }, { status: 404 });
     }
+    if (existingVisit.current_status !== 'DRAFT_DISPATCH' && existingVisit.current_status !== 'DISPATCHED') {
+      return NextResponse.json(
+        { error: `Cannot submit dispatch for vehicle in status ${existingVisit.current_status}.`, code: 'DRAFT_ALREADY_PROGRESSED' },
+        { status: 400 }
+      );
+    }
+    // Validate draft ownership
+    if (existingVisit.created_by?.toString() !== dbUser.id.toString()) {
+      return NextResponse.json(
+        { error: 'Unauthorized. Draft visit belongs to another user.', code: 'DRAFT_OWNER_MISMATCH' },
+        { status: 403 }
+      );
+    }
+
+    // Validate draft source match
+    if (existingVisit.procurement_source_id?.toString() !== resolvedSourceId.toString()) {
+      return NextResponse.json(
+        { error: 'Draft visit belongs to a different procurement source.', code: 'DRAFT_SOURCE_MISMATCH' },
+        { status: 400 }
+      );
+    }
+    const assignedDispatchTests = await getOrAssignDispatchTests(prisma, existingVisit.id);
+    const frozenPolicySnapshot = await getOrFreezeDispatchQuantityPolicy(prisma, existingVisit.id, resolvedSourceId);
 
     // 2. Validate Vehicle and Portion Quantity Facts against the visit's FROZEN policy snapshot
     const validatedQuantities = validateDispatchQuantities(
@@ -393,9 +335,17 @@ export async function POST(req: Request) {
             );
           }
         } else if (submitted.performanceStatus === 'PERFORMED') {
-          // PERFORMED status validation
-          if (reqTest.result_type_snapshot === 'OPTIONS') {
-            const snapshotOptions = (reqTest.result_options_snapshot as any[]) || [];
+          // Contradiction Check: PERFORMED must not have notPerformedReason
+          if (submitted.notPerformedReason && submitted.notPerformedReason.trim() !== '') {
+            return NextResponse.json(
+              { error: `Contradictory test result: PERFORMED test "${reqTest.test_name_snapshot}" cannot have a not_performed_reason.` },
+              { status: 400 }
+            );
+          }
+
+          // Genuine Result Validation
+          const snapshotOptions = (reqTest.result_options_snapshot as any[]) || null;
+          if (Array.isArray(snapshotOptions) && snapshotOptions.length > 0) {
             const val = (submitted.textValue || '').trim().toUpperCase();
             const match = snapshotOptions.find((opt: any) => opt.value.trim().toUpperCase() === val);
             if (!match) {
@@ -470,61 +420,28 @@ export async function POST(req: Request) {
 
     // Execute Prisma Transaction for atomic creation or draft finalization
     const result = await prisma.$transaction(async (tx) => {
-      const dateStr = validated.operationalDate;
       const now = new Date();
-
       const receptionNumber = await generateReceptionNumber(tx, validated.operationalDate);
 
-      let visit: any;
-      let visitNumber: string;
+      const visitNumber = existingVisit.visit_number;
+      const visit = await tx.vehicleVisit.update({
+        where: { id: existingVisit.id },
+        data: {
+          vehicle_number: validated.vehicleNumber,
+          reception_number: receptionNumber,
+          operational_date: new Date(validated.operationalDate),
+          current_status: 'DISPATCHED',
+          procurement_source_id: resolvedSourceId,
+          vehicle_dispatch_quantity_value: new Prisma.Decimal(validatedQuantities.vehicleQuantity.value),
+          vehicle_dispatch_quantity_unit: validatedQuantities.vehicleQuantity.unit,
+          vehicle_dispatch_quantity_basis: validatedQuantities.vehicleQuantity.basis,
+          vehicle_dispatch_measurement_method: validatedQuantities.vehicleQuantity.method,
+        },
+      });
 
-      if (existingVisit) {
-        // Update the existing draft visit
-        visitNumber = existingVisit.visit_number;
-        visit = await tx.vehicleVisit.update({
-          where: { id: existingVisit.id },
-          data: {
-            vehicle_number: validated.vehicleNumber,
-            reception_number: receptionNumber,
-            operational_date: new Date(validated.operationalDate),
-            current_status: 'DISPATCHED',
-            procurement_source_id: resolvedSourceId,
-          },
-        });
-        // Ensure assignments & policy snapshot are present
-        await getOrAssignDispatchTests(tx, visit.id);
-        await getOrFreezeDispatchQuantityPolicy(tx, visit.id, resolvedSourceId!);
-      } else {
-        const dateCode = dateStr.replace(/-/g, '');
-        const countToday = await tx.vehicleVisit.count({
-          where: {
-            visit_number: { startsWith: `VV-${dateCode}` },
-          },
-        });
-        let seq = countToday + 1;
-        visitNumber = `VV-${dateCode}-${String(seq).padStart(4, '0')}`;
-        while (await tx.vehicleVisit.findUnique({ where: { visit_number: visitNumber } })) {
-          seq++;
-          visitNumber = `VV-${dateCode}-${String(seq).padStart(4, '0')}`;
-        }
-
-        // 1. Create VehicleVisit
-        visit = await tx.vehicleVisit.create({
-          data: {
-            visit_number: visitNumber,
-            reception_number: receptionNumber,
-            vehicle_number: validated.vehicleNumber,
-            operational_date: new Date(validated.operationalDate),
-            current_status: 'DISPATCHED',
-            created_by: userIdBigInt,
-            procurement_source_id: resolvedSourceId,
-          },
-        });
-
-        // Atomically create and freeze Dispatch LabTestAssignment and Quantity Policy snapshot
-        await getOrAssignDispatchTests(tx, visit.id);
-        await getOrFreezeDispatchQuantityPolicy(tx, visit.id, resolvedSourceId!);
-      }
+      // Ensure assignments & policy snapshot are present
+      await getOrAssignDispatchTests(tx, visit.id);
+      await getOrFreezeDispatchQuantityPolicy(tx, visit.id, resolvedSourceId!);
 
       // 2. Create VisitPortion, DispatchInfo, and DispatchLabResult rows for each portion
       for (const portionInput of validated.portions) {
@@ -545,7 +462,7 @@ export async function POST(req: Request) {
           },
         });
 
-        // Create DispatchInfo with vehicle quantity and testing mode/reasons
+        // Create DispatchInfo with testing mode & reasons (portion-level)
         const portionChrono = validateOperationalTimestamp(portionInput.dispatchTimestamp || validated.operationalDate, null, 'Dispatch', 'Baseline');
         await tx.dispatchInfo.create({
           data: {
@@ -555,10 +472,6 @@ export async function POST(req: Request) {
             dispatch_testing_mode: testingMode,
             dispatch_testing_reason: testingReason,
             dispatch_testing_remarks: testingRemarks,
-            vehicle_quantity_value: new Prisma.Decimal(validatedQuantities.vehicleQuantity.value),
-            vehicle_quantity_unit: validatedQuantities.vehicleQuantity.unit,
-            vehicle_quantity_basis: validatedQuantities.vehicleQuantity.basis,
-            vehicle_measurement_method: validatedQuantities.vehicleQuantity.method,
             recorded_by: userIdBigInt,
           },
         });
@@ -596,17 +509,17 @@ export async function POST(req: Request) {
           let notPerfReason: string | null = null;
 
           if (testDef.result_type_snapshot === 'CALCULATED') {
+            // Server-side authoritative derivation for CALCULATED tests
             if (submittedFat !== null && submittedLr !== null) {
               const snf = calculateSNF(submittedLr, submittedFat);
               const ratio = calculateRatio(snf, submittedFat);
-              if (testDef.test_code_snapshot === 'CALC_SNF') {
-                numVal = snf;
-                perfStatus = 'PERFORMED';
-              } else if (testDef.test_code_snapshot === 'CALC_RATIO') {
-                numVal = ratio;
-                perfStatus = 'PERFORMED';
-              }
+              numVal = ratio;
+              textVal = ratio.toFixed(3);
+              perfStatus = 'PERFORMED';
+              notPerfReason = null;
             } else {
+              numVal = null;
+              textVal = null;
               perfStatus = 'NOT_PERFORMED';
               notPerfReason = 'Prerequisite tests (Fat / LR) not performed';
             }

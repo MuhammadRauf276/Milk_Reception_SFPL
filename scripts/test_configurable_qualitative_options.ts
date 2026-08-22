@@ -596,8 +596,8 @@ async function runConfigurableQualitativeOptionsTests() {
     data: {
       visit_id: visit3AD.id,
       portion_number: 1,
-      declared_quantity_value: 5000,
-      declared_quantity_unit: 'KG',
+      dispatch_quantity_value: 5000,
+      dispatch_quantity_unit: 'KG',
       current_status: 'UNDER_TESTING',
     },
   });
@@ -674,8 +674,8 @@ async function runConfigurableQualitativeOptionsTests() {
     data: {
       visit_id: visit3AE.id,
       portion_number: 1,
-      declared_quantity_value: 5000,
-      declared_quantity_unit: 'KG',
+      dispatch_quantity_value: 5000,
+      dispatch_quantity_unit: 'KG',
       current_status: 'UNDER_TESTING',
     },
   });

@@ -1,6 +1,6 @@
 import {
   DispatchQuantityPolicySnapshotDTO,
-  DispatchQuantityPolicy,
+  DispatchQuantityPolicyConfig,
 } from '../quantity-policy/types';
 import {
   ValidatedQuantityMeasurement,
@@ -21,8 +21,8 @@ export interface DispatchQuantitiesValidationResult {
 export interface ValidateDispatchQuantitiesInput {
   vehicleQuantity: unknown;
   portions: Array<{ portionNumber: number; quantity: unknown }>;
-  policy?: DispatchQuantityPolicySnapshotDTO | DispatchQuantityPolicy | null;
-  frozenPolicy?: DispatchQuantityPolicySnapshotDTO | DispatchQuantityPolicy | null;
+  policy?: DispatchQuantityPolicySnapshotDTO | DispatchQuantityPolicyConfig | null;
+  frozenPolicy?: DispatchQuantityPolicySnapshotDTO | DispatchQuantityPolicyConfig | null;
 }
 
 /**
@@ -30,11 +30,11 @@ export interface ValidateDispatchQuantitiesInput {
  * FROZEN policy snapshot.
  */
 export function validateDispatchQuantities(
-  frozenPolicyOrArgs: DispatchQuantityPolicySnapshotDTO | DispatchQuantityPolicy | ValidateDispatchQuantitiesInput,
+  frozenPolicyOrArgs: DispatchQuantityPolicySnapshotDTO | DispatchQuantityPolicyConfig | ValidateDispatchQuantitiesInput,
   vehicleQuantityInput?: unknown,
   portionsInput?: Array<{ portionNumber: number; quantity: unknown }>
 ): DispatchQuantitiesValidationResult {
-  let policy: DispatchQuantityPolicy;
+  let policy: DispatchQuantityPolicyConfig;
   let vehicleQtyRaw: unknown;
   let portionsRaw: Array<{ portionNumber: number; quantity: unknown }> | undefined;
 
@@ -49,15 +49,15 @@ export function validateDispatchQuantities(
     if (!policyInput) {
       throw new QuantityMeasurementError('Frozen quantity policy is required for validation.', 'POLICY_REQUIRED');
     }
-    policy = 'policy' in policyInput ? (policyInput as DispatchQuantityPolicySnapshotDTO).policy : (policyInput as DispatchQuantityPolicy);
+    policy = 'policy' in policyInput ? (policyInput as DispatchQuantityPolicySnapshotDTO).policy : (policyInput as DispatchQuantityPolicyConfig);
     vehicleQtyRaw = args.vehicleQuantity;
     portionsRaw = args.portions;
   } else {
-    const rawPolicy = frozenPolicyOrArgs as (DispatchQuantityPolicySnapshotDTO | DispatchQuantityPolicy);
+    const rawPolicy = frozenPolicyOrArgs as (DispatchQuantityPolicySnapshotDTO | DispatchQuantityPolicyConfig);
     if (!rawPolicy) {
       throw new QuantityMeasurementError('Frozen quantity policy is required for validation.', 'POLICY_REQUIRED');
     }
-    policy = 'policy' in rawPolicy ? (rawPolicy as DispatchQuantityPolicySnapshotDTO).policy : (rawPolicy as DispatchQuantityPolicy);
+    policy = 'policy' in rawPolicy ? (rawPolicy as DispatchQuantityPolicySnapshotDTO).policy : (rawPolicy as DispatchQuantityPolicyConfig);
     vehicleQtyRaw = vehicleQuantityInput;
     portionsRaw = portionsInput;
   }

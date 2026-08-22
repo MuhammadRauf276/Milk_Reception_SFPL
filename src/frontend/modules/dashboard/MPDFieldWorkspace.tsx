@@ -14,11 +14,8 @@ interface DispatchRecord {
   operational_date: string | null;
   current_status: string;
   portion_count: number;
-  total_declared_kg: number;
-  total_quantity_value?: number | null;
-  total_quantity_unit?: string | null;
-  vehicle_quantity_value?: number | null;
-  vehicle_quantity_unit?: string | null;
+  vehicle_dispatch_quantity_value?: number | null;
+  vehicle_dispatch_quantity_unit?: string | null;
   zonal_contractor_name: string;
   zonal_contractor_dispatch_time: string | null;
   has_gate_entry: boolean;
@@ -27,7 +24,6 @@ interface DispatchRecord {
     portion_number: number;
     dispatch_quantity_value?: number | null;
     dispatch_quantity_unit?: string | null;
-    declared_quantity_kg?: number;
     plant_decision: string;
     current_status: string;
   }>;
@@ -296,11 +292,9 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
                     <div>
                       <span className="text-slate-500 font-sans block text-[9px]">Vehicle Quantity</span>
                       <span>
-                        {log.vehicle_quantity_value != null
-                          ? `${Number(log.vehicle_quantity_value).toLocaleString()} ${log.vehicle_quantity_unit || 'KG'}`
-                          : log.total_quantity_value != null
-                          ? `${Number(log.total_quantity_value).toLocaleString()} ${log.total_quantity_unit || 'KG'}`
-                          : `${log.total_declared_kg.toLocaleString()} ${(log as any).declared_quantity_unit === 'LITER' ? 'L' : 'KG'}`}
+                        {log.vehicle_dispatch_quantity_value != null
+                          ? `${Number(log.vehicle_dispatch_quantity_value).toLocaleString()} ${log.vehicle_dispatch_quantity_unit || 'KG'}`
+                          : '—'}
                       </span>
                     </div>
                     <div>

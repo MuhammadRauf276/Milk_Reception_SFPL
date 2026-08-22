@@ -123,7 +123,7 @@ async function seedDatabase() {
         // Insert Visit Portion
         const grossKg = 12000 + (dayOffset * 350 + idx * 800) % 7000;
         await client.query(`
-          INSERT INTO visit_portion (id, visit_id, portion_number, current_status, declared_quantity_kg, plant_decision, plant_rejection_reason, plant_decided_by, plant_decided_at, created_at, updated_at)
+          INSERT INTO visit_portion (id, visit_id, portion_number, current_status, dispatch_quantity_value, plant_decision, plant_rejection_reason, plant_decided_by, plant_decided_at, created_at, updated_at)
           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
         `, [portionIdCounter, visitIdCounter, portionNum, status, grossKg, plantDecision, rejectionReason, plantDecision === 'Rejected' ? 5 : 5, logDate, logDate, logDate]);
 

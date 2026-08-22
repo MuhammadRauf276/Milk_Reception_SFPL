@@ -163,7 +163,6 @@ describe('Stage 4C-4: Dispatch Quantity Capture & Persistence (Integration)', ()
     const savedVisit = await prisma.vehicleVisit.findUnique({
       where: { id: BigInt(draftVisitId) },
       include: {
-        dispatch_info: true,
         portions: {
           include: { dispatch_info: true, dispatch_lab_results: true },
           orderBy: { portion_number: 'asc' },
@@ -174,11 +173,11 @@ describe('Stage 4C-4: Dispatch Quantity Capture & Persistence (Integration)', ()
     expect(savedVisit).toBeDefined();
     expect(savedVisit?.current_status).toBe('DISPATCHED');
 
-    // Vehicle facts in DispatchInfo
-    expect(Number(savedVisit?.dispatch_info?.vehicle_quantity_value)).toBe(19500);
-    expect(savedVisit?.dispatch_info?.vehicle_quantity_unit).toBe('KG');
-    expect(savedVisit?.dispatch_info?.vehicle_quantity_basis).toBe('MEASURED');
-    expect(savedVisit?.dispatch_info?.vehicle_measurement_method).toBe('WEIGHING');
+    // Vehicle facts on VehicleVisit
+    expect(Number(savedVisit?.vehicle_dispatch_quantity_value)).toBe(19500);
+    expect(savedVisit?.vehicle_dispatch_quantity_unit).toBe('KG');
+    expect(savedVisit?.vehicle_dispatch_quantity_basis).toBe('MEASURED');
+    expect(savedVisit?.vehicle_dispatch_measurement_method).toBe('WEIGHING');
 
     // Portion facts in VisitPortions
     expect(savedVisit?.portions.length).toBe(2);

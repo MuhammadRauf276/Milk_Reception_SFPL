@@ -44,8 +44,8 @@ interface PortionDetail {
   current_status: string;
   dispatch_quantity_value?: number | null;
   dispatch_quantity_unit?: string;
-  declared_quantity_value?: number | null;
-  declared_quantity_unit?: string;
+  dispatch_quantity_basis?: string;
+  dispatch_measurement_method?: string;
   plant_decision: string;
   plant_rejection_reason: string | null;
   plant_decided_at: string | null;
@@ -61,6 +61,8 @@ interface VisitDetail {
   operational_date: string | null;
   current_status: string;
   visit_decision_summary: string;
+  vehicle_dispatch_quantity_value?: number | null;
+  vehicle_dispatch_quantity_unit?: string | null;
   portions: PortionDetail[];
   active_plant_tests: LabTestDef[];
 }
@@ -416,7 +418,7 @@ export const DynamicQALabForm: React.FC<DynamicQALabFormProps> = ({ currentUser,
                   }`}
                 >
                   <span>
-                    Portion #{p.portion_number} ({((p.dispatch_quantity_value ?? p.declared_quantity_value) != null ? Number(p.dispatch_quantity_value ?? p.declared_quantity_value).toLocaleString() : '—')} {p.dispatch_quantity_unit ?? p.declared_quantity_unit ?? 'KG'})
+                    Portion #{p.portion_number} ({p.dispatch_quantity_value != null ? Number(p.dispatch_quantity_value).toLocaleString() : '—'} {p.dispatch_quantity_unit || 'KG'})
                   </span>
                   <span
                     className={`px-2 py-0.5 rounded text-[9.5px] font-black font-mono ${

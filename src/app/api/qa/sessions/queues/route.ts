@@ -34,7 +34,6 @@ export async function GET(req: Request) {
       include: {
         portions: true,
         gate_log: true,
-        dispatch_info: true,
       },
       orderBy: { gate_log: { entry_timestamp: 'asc' } },
     });
@@ -43,12 +42,10 @@ export async function GET(req: Request) {
       const entryTime = v.gate_log?.entry_timestamp ? new Date(v.gate_log.entry_timestamp) : null;
       const waitingMinutes = entryTime ? Math.max(0, Math.floor((now.getTime() - entryTime.getTime()) / (1000 * 60))) : 0;
       const portions = v.portions || [];
-      const totalVehicleQty = v.dispatch_info?.vehicle_quantity_value
-        ? Number(v.dispatch_info.vehicle_quantity_value)
-        : portions.reduce(
-            (sum, p) => sum + (p.dispatch_quantity_value ? Number(p.dispatch_quantity_value) : 0),
-            0
-          );
+      const totalVehicleQty = v.vehicle_dispatch_quantity_value !== null && v.vehicle_dispatch_quantity_value !== undefined
+        ? Number(v.vehicle_dispatch_quantity_value)
+        : null;
+      const totalVehicleUnit = v.vehicle_dispatch_quantity_unit || 'KG';
 
       return {
         id: v.id.toString(),
@@ -57,9 +54,10 @@ export async function GET(req: Request) {
         vehicle_number: v.vehicle_number,
         token_number: v.token_number || null,
         portion_count: portions.length,
+        vehicle_dispatch_quantity_value: totalVehicleQty,
+        vehicle_dispatch_quantity_unit: totalVehicleUnit,
         total_quantity_value: totalVehicleQty,
-        total_quantity_unit: v.dispatch_info?.vehicle_quantity_unit || 'KG',
-        total_declared_kg: totalVehicleQty,
+        total_quantity_unit: totalVehicleUnit,
         entry_timestamp: entryTime ? entryTime.toISOString() : null,
         waiting_minutes: waitingMinutes,
       };

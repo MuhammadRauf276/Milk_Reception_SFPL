@@ -65,10 +65,14 @@ export async function GET(
       portion_count: v.portions.length,
       accepted_portion_count: acceptedPortions.length,
       rejected_portion_count: rejectedPortions.length,
+      vehicle_dispatch_quantity_value: v.vehicle_dispatch_quantity_value !== null && v.vehicle_dispatch_quantity_value !== undefined
+        ? Number(v.vehicle_dispatch_quantity_value)
+        : null,
+      vehicle_dispatch_quantity_unit: v.vehicle_dispatch_quantity_unit || null,
+      vehicle_dispatch_quantity_basis: v.vehicle_dispatch_quantity_basis || null,
+      vehicle_dispatch_measurement_method: v.vehicle_dispatch_measurement_method || null,
       total_accepted_dispatch_value: totalAcceptedDispatchValue,
       total_accepted_dispatch_unit: totalAcceptedDispatchUnit,
-      total_accepted_declared_value: totalAcceptedDispatchValue,
-      total_accepted_declared_unit: totalAcceptedDispatchUnit,
       portions: v.portions.map((p) => ({
         id: String(p.id),
         portion_number: p.portion_number,
@@ -76,8 +80,6 @@ export async function GET(
         dispatch_quantity_unit: (p.dispatch_quantity_unit || 'KG').toUpperCase(),
         dispatch_quantity_basis: p.dispatch_quantity_basis,
         dispatch_measurement_method: p.dispatch_measurement_method,
-        declared_quantity_value: p.dispatch_quantity_value !== null && p.dispatch_quantity_value !== undefined ? Number(p.dispatch_quantity_value) : null,
-        declared_quantity_unit: (p.dispatch_quantity_unit || 'KG').toUpperCase(),
         plant_decision: p.plant_decision || 'PENDING',
         plant_rejection_reason: p.plant_rejection_reason || null,
         current_status: p.current_status,

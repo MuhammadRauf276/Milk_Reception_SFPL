@@ -19,7 +19,6 @@ export async function GET() {
       include: {
         portions: true,
         gate_log: true,
-        dispatch_info: true,
       },
       orderBy: {
         gate_log: {
@@ -30,12 +29,10 @@ export async function GET() {
 
     const formatted = visits.map((v) => {
       const portions = v.portions || [];
-      const totalDeclaredKg = v.dispatch_info?.vehicle_quantity_value
-        ? Number(v.dispatch_info.vehicle_quantity_value)
-        : portions.reduce(
-            (sum, p) => sum + (p.dispatch_quantity_value ? Number(p.dispatch_quantity_value) : 0),
-            0
-          );
+      const totalVehicleQty = v.vehicle_dispatch_quantity_value !== null && v.vehicle_dispatch_quantity_value !== undefined
+        ? Number(v.vehicle_dispatch_quantity_value)
+        : null;
+      const totalVehicleUnit = v.vehicle_dispatch_quantity_unit || 'KG';
 
       // Determine plant decision summary
       const decisions = portions.map((p) => p.plant_decision || 'PENDING');
@@ -57,7 +54,10 @@ export async function GET() {
         token_number: v.token_number || null,
         entry_timestamp: v.gate_log?.entry_timestamp ? v.gate_log.entry_timestamp.toISOString() : null,
         portion_count: portions.length,
-        total_declared_kg: totalDeclaredKg,
+        vehicle_dispatch_quantity_value: totalVehicleQty,
+        vehicle_dispatch_quantity_unit: totalVehicleUnit,
+        total_quantity_value: totalVehicleQty,
+        total_quantity_unit: totalVehicleUnit,
         current_status: v.current_status,
         plant_decision_summary: plantDecisionSummary,
       };

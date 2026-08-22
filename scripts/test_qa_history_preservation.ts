@@ -41,7 +41,7 @@ async function runQAHistoryPreservationTest() {
       created_by: chemistUser.id,
       portions: {
         create: [
-          { portion_number: 1, declared_quantity_value: 10000, current_status: 'DISPATCHED' },
+          { portion_number: 1, dispatch_quantity_value: 10000, current_status: 'DISPATCHED' },
         ],
       },
       gate_log: {
@@ -120,7 +120,7 @@ async function runQAHistoryPreservationTest() {
       created_by: chemistUser.id,
       portions: {
         create: [
-          { portion_number: 1, declared_quantity_value: 8000, current_status: 'DISPATCHED' },
+          { portion_number: 1, dispatch_quantity_value: 8000, current_status: 'DISPATCHED' },
         ],
       },
       gate_log: {

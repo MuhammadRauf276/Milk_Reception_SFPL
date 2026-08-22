@@ -126,7 +126,7 @@ async function runContractorAccountabilityTests() {
     where: { visit_id: BigInt(dataCaseB.visitId) },
   });
   assert(
-    portionB?.declared_quantity_unit === 'KG' && Number(portionB?.declared_quantity_value) === 9500,
+    portionB?.dispatch_quantity_unit === 'KG' && Number(portionB?.dispatch_quantity_value) === 9500,
     'Case B (DB): Declared quantity remains KG (9,500 KG) after creation and reload'
   );
 
@@ -156,7 +156,7 @@ async function runContractorAccountabilityTests() {
     where: { visit_id: BigInt(dataCaseC.visitId) },
   });
   assert(
-    portionC?.declared_quantity_unit === 'LITER' && Number(portionC?.declared_quantity_value) === 10000,
+    portionC?.dispatch_quantity_unit === 'LITER' && Number(portionC?.dispatch_quantity_value) === 10000,
     'Case C (DB): Declared quantity remains LITER (10,000 LITER) without conversion to KG'
   );
 
@@ -511,13 +511,13 @@ async function runContractorAccountabilityTests() {
   const p2Lr = p2?.dispatch_lab_results.find((r) => r.test_id === lrTest.id);
 
   assert(
-    p1?.declared_quantity_unit === 'KG' &&
-      Number(p1?.declared_quantity_value) === 9500 &&
+    p1?.dispatch_quantity_unit === 'KG' &&
+      Number(p1?.dispatch_quantity_value) === 9500 &&
       p1Fat?.performance_status === 'PERFORMED' &&
       Number(p1Fat?.numeric_value) === 3.7 &&
       p1Lr?.performance_status === 'NOT_PERFORMED' &&
-      p2?.declared_quantity_unit === 'LITER' &&
-      Number(p2?.declared_quantity_value) === 10000 &&
+      p2?.dispatch_quantity_unit === 'LITER' &&
+      Number(p2?.dispatch_quantity_value) === 10000 &&
       p2Fat?.performance_status === 'NOT_PERFORMED' &&
       p2Lr?.performance_status === 'PERFORMED' &&
       Number(p2Lr?.numeric_value) === 28.0,
