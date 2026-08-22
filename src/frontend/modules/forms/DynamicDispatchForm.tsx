@@ -16,6 +16,7 @@ import {
   calculateEquivalentKgFromLiters,
 } from '@/backend/utils/milkFormulas';
 import { getScopedDraftKey } from '@/lib/validations/dispatch';
+import { getOperationalBusinessDate } from '@/backend/core/business-day';
 
 import {
   QuantityUnit,
@@ -229,9 +230,9 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
 
       if (data.assignedTests) {
         setDraftVisitId(data.visitId);
-        if (data.quantityPolicy) {
+        if (data.quantityPolicy?.policy) {
           setFrozenQuantityPolicy(data.quantityPolicy);
-          const vDef = data.quantityPolicy.policy?.vehicleRules?.default;
+          const vDef = data.quantityPolicy.policy.vehicleRules?.default;
           if (vDef) {
             setVehicleQuantity({
               value: '',
@@ -249,26 +250,25 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
         const isContractor = effectiveSource?.source_type === 'CONTRACTOR';
         const initialResults = buildInitialPortionResults(data.assignedTests, isContractor);
 
-        const pDef = data.quantityPolicy?.policy?.portionRules?.default || {
-          unit: 'KG',
-          basis: 'MEASURED',
-          method: 'WEIGHING',
-        };
-
-        setPortions([
-          {
-            clientId: 'portion-1',
-            portionNumber: 1,
-            quantity: {
-              value: '',
-              unit: pDef.unit,
-              basis: pDef.basis,
-              method: pDef.method,
-            },
-            results: initialResults,
-            isSaved: false,
-          },
-        ]);
+        if (data.quantityPolicy?.policy) {
+          const pDef = data.quantityPolicy.policy.portionRules?.default;
+          if (pDef) {
+            setPortions([
+              {
+                clientId: 'portion-1',
+                portionNumber: 1,
+                quantity: {
+                  value: '',
+                  unit: pDef.unit,
+                  basis: pDef.basis,
+                  method: pDef.method,
+                },
+                results: initialResults,
+                isSaved: false,
+              },
+            ]);
+          }
+        }
       }
     } catch (err: any) {
       if (initSeqRef.current === currentSeq) {
@@ -293,23 +293,29 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     }
   }, [currentUser?.id, effectiveSourceId]);
 
-  // Derived allowed options for Vehicle
-  const vehicleAllowedMeasurements = frozenQuantityPolicy?.policy?.vehicleRules?.allowedMeasurements;
-  const vehicleAllowedUnits = getAllowedUnits(vehicleAllowedMeasurements);
-  const vehicleAllowedBases = getAllowedBases(vehicleAllowedMeasurements, vehicleQuantity.unit);
-  const vehicleAllowedMethods = getAllowedMethods(vehicleAllowedMeasurements, vehicleQuantity.unit, vehicleQuantity.basis);
+  // Explicit frozen-policy readiness condition
+  const isPolicyReady = !!frozenQuantityPolicy?.policy;
 
-  // Derived allowed options for Portion
+  // Derived allowed options for Vehicle (strictly guarded against undefined)
+  const vehicleAllowedMeasurements = frozenQuantityPolicy?.policy?.vehicleRules?.allowedMeasurements;
+  const vehicleAllowedUnits = isPolicyReady && vehicleAllowedMeasurements ? getAllowedUnits(vehicleAllowedMeasurements) : [];
+  const vehicleAllowedBases = isPolicyReady && vehicleAllowedMeasurements && vehicleQuantity.unit
+    ? getAllowedBases(vehicleAllowedMeasurements, vehicleQuantity.unit)
+    : [];
+  const vehicleAllowedMethods = isPolicyReady && vehicleAllowedMeasurements && vehicleQuantity.unit && vehicleQuantity.basis
+    ? getAllowedMethods(vehicleAllowedMeasurements, vehicleQuantity.unit, vehicleQuantity.basis)
+    : [];
+
+  // Derived allowed options for Portion (strictly guarded against undefined)
   const portionAllowedMeasurements = frozenQuantityPolicy?.policy?.portionRules?.allowedMeasurements;
-  const portionAllowedUnits = getAllowedUnits(portionAllowedMeasurements);
+  const portionAllowedUnits = isPolicyReady && portionAllowedMeasurements ? getAllowedUnits(portionAllowedMeasurements) : [];
 
   const createFreshPortion = (portionNumber: number): PortionFormState => {
     const freshResults = buildInitialPortionResults(labTests, isContractorSource);
-    const pDef = frozenQuantityPolicy?.policy?.portionRules?.default || {
-      unit: 'KG',
-      basis: 'MEASURED',
-      method: 'WEIGHING',
-    };
+    const pDef = frozenQuantityPolicy?.policy?.portionRules?.default;
+    if (!pDef) {
+      throw new Error('Cannot create portion: frozen quantity policy snapshot is not loaded.');
+    }
 
     const clientId =
       typeof window !== 'undefined' && window.crypto?.randomUUID
@@ -873,14 +879,27 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
       return;
     }
 
+    if (!draftVisitId) {
+      toast.showError('Dispatch draft is not initialized. Please select a procurement source.', 'Validation Error');
+      return;
+    }
+
+    if (!isPolicyReady) {
+      toast.showError('Quantity policy snapshot is still loading. Please wait before submitting.', 'Validation Error');
+      return;
+    }
+
     try {
+      const effectiveDispatchDate = isoDispatchTimestamp || new Date().toISOString();
+      const derivedBusinessDate = getOperationalBusinessDate(effectiveDispatchDate);
+
       const res = await fetch('/api/dispatches', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          visitId: draftVisitId || undefined,
+          visitId: draftVisitId,
           vehicleNumber: vehicleNumber.trim().toUpperCase(),
-          operationalDate: (isoDispatchTimestamp || new Date().toISOString()).split('T')[0],
+          operationalDate: derivedBusinessDate,
           procurementSourceId: effectiveSource.id,
           zonalContractorName: effectiveSource.name,
           dispatchTestingMode,
@@ -1016,74 +1035,82 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
           </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
-          <div>
-            <label className="block text-[11px] font-bold mb-1">Value *</label>
-            <input
-              id="vehicle-quantity-input"
-              type="number"
-              min="0.01"
-              step="0.01"
-              value={vehicleQuantity.value}
-              onChange={(e) => handleVehicleQuantityValueChange(e.target.value)}
-              placeholder="e.g. 19500"
-              className={`w-full px-3 py-2 text-sm font-mono font-bold rounded-xl border bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none ${
-                vehicleQuantityError ? 'border-rose-500 bg-rose-50/20 ring-1 ring-rose-500' : 'border-[#C4B9A3]'
-              }`}
-              required
-            />
+        {!isPolicyReady ? (
+          <div className="p-3 text-center rounded-xl bg-white border border-dashed border-[#C4B9A3] text-xs font-semibold text-slate-500">
+            Loading frozen quantity policy snapshot...
           </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+              <div>
+                <label className="block text-[11px] font-bold mb-1">Value *</label>
+                <input
+                  id="vehicle-quantity-input"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={vehicleQuantity.value}
+                  onChange={(e) => handleVehicleQuantityValueChange(e.target.value)}
+                  placeholder="e.g. 19500"
+                  className={`w-full px-3 py-2 text-sm font-mono font-bold rounded-xl border bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none ${
+                    vehicleQuantityError ? 'border-rose-500 bg-rose-50/20 ring-1 ring-rose-500' : 'border-[#C4B9A3]'
+                  }`}
+                  required
+                />
+              </div>
 
-          <div>
-            <label className="block text-[11px] font-bold mb-1">Unit *</label>
-            <select
-              value={vehicleQuantity.unit}
-              onChange={(e) => handleVehicleUnitChange(e.target.value as QuantityUnitType)}
-              className="w-full px-3 py-2 text-xs font-mono font-black rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none"
-            >
-              {vehicleAllowedUnits.map((u) => (
-                <option key={u} value={u}>
-                  {u}
-                </option>
-              ))}
-            </select>
-          </div>
+              <div>
+                <label className="block text-[11px] font-bold mb-1">Unit *</label>
+                <select
+                  value={vehicleQuantity.unit}
+                  onChange={(e) => handleVehicleUnitChange(e.target.value as QuantityUnitType)}
+                  className="w-full px-3 py-2 text-xs font-mono font-black rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none"
+                >
+                  {vehicleAllowedUnits.map((u) => (
+                    <option key={u} value={u}>
+                      {u}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-          <div>
-            <label className="block text-[11px] font-bold mb-1">Basis *</label>
-            <select
-              value={vehicleQuantity.basis}
-              onChange={(e) => handleVehicleBasisChange(e.target.value as MeasurementBasisType)}
-              className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none"
-            >
-              {vehicleAllowedBases.map((b) => (
-                <option key={b} value={b}>
-                  {b}
-                </option>
-              ))}
-            </select>
-          </div>
+              <div>
+                <label className="block text-[11px] font-bold mb-1">Basis *</label>
+                <select
+                  value={vehicleQuantity.basis}
+                  onChange={(e) => handleVehicleBasisChange(e.target.value as MeasurementBasisType)}
+                  className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none"
+                >
+                  {vehicleAllowedBases.map((b) => (
+                    <option key={b} value={b}>
+                      {b}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-          <div>
-            <label className="block text-[11px] font-bold mb-1">Measurement Method *</label>
-            <select
-              value={vehicleQuantity.method}
-              onChange={(e) => handleVehicleMethodChange(e.target.value as MeasurementMethodType)}
-              className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none"
-            >
-              {vehicleAllowedMethods.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+              <div>
+                <label className="block text-[11px] font-bold mb-1">Measurement Method *</label>
+                <select
+                  value={vehicleQuantity.method}
+                  onChange={(e) => handleVehicleMethodChange(e.target.value as MeasurementMethodType)}
+                  className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none"
+                >
+                  {vehicleAllowedMethods.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
 
-        {vehicleQuantityError && (
-          <p className="text-xs font-bold text-rose-600 mt-1" id="vehicle-quantity-error">
-            {vehicleQuantityError}
-          </p>
+            {vehicleQuantityError && (
+              <p className="text-xs font-bold text-rose-600 mt-1" id="vehicle-quantity-error">
+                {vehicleQuantityError}
+              </p>
+            )}
+          </>
         )}
       </div>
 

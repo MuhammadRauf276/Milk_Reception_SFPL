@@ -188,6 +188,10 @@ export async function seedOperationalData() {
         current_status: targetStatus,
         created_by: mpdUser.id,
         procurement_source_id: sourceObj.id,
+        vehicle_dispatch_quantity_value: totalDeclaredKg,
+        vehicle_dispatch_quantity_unit: 'KG',
+        vehicle_dispatch_quantity_basis: 'MEASURED',
+        vehicle_dispatch_measurement_method: 'WEIGHING',
         created_at: dispatchTime,
         updated_at: targetStatus === 'COMPLETED' ? gateExitTime : qaCompleteTime,
       },
@@ -237,10 +241,6 @@ export async function seedOperationalData() {
           portion_id: portion.id,
           dispatch_timestamp: dispatchTime,
           recorded_by: mpdUser.id,
-          vehicle_quantity_value: totalDeclaredKg,
-          vehicle_quantity_unit: 'KG',
-          vehicle_quantity_basis: 'MEASURED',
-          vehicle_measurement_method: 'WEIGHING',
           created_at: new Date(dispatchTime.getTime() + 120000), // 2 min delay
         },
       });

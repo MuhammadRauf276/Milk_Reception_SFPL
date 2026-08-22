@@ -11,6 +11,7 @@ import { calculateSNF, calculateRatio } from '@/backend/utils/milkFormulas';
 import { getOrAssignDispatchTests } from '@/backend/services/labTestAssignmentService';
 import { getOrFreezeDispatchQuantityPolicy, resolveSourceQuantityPolicy } from '@/backend/modules/dispatch/quantity-policy/quantityPolicyService';
 import { validateDispatchQuantities, QuantityMeasurementError } from '@/backend/modules/dispatch/quantity/dispatchQuantityService';
+import { getOperationalBusinessDate } from '@/backend/core/business-day';
 
 function serializeDispatch(visit: any) {
   const portions = visit.portions || [];
@@ -262,7 +263,7 @@ export async function POST(req: Request) {
     if (!existingVisit) {
       return NextResponse.json({ error: 'Referenced dispatch draft visit not found.', code: 'DRAFT_NOT_FOUND' }, { status: 404 });
     }
-    if (existingVisit.current_status !== 'DRAFT_DISPATCH' && existingVisit.current_status !== 'DISPATCHED') {
+    if (existingVisit.current_status !== 'DRAFT_DISPATCH') {
       return NextResponse.json(
         { error: `Cannot submit dispatch for vehicle in status ${existingVisit.current_status}.`, code: 'DRAFT_ALREADY_PROGRESSED' },
         { status: 400 }
@@ -418,10 +419,16 @@ export async function POST(req: Request) {
       testingReason = sourceType === 'CONTRACTOR' ? 'Contract Vehicle' : 'No dispatch testing provided';
     }
 
+    // Authoritative Business Date derived on backend from authoritative dispatch timestamp (08:00 cutoff)
+    const firstPortionTs = validated.portions[0]?.dispatchTimestamp || new Date().toISOString();
+    const chronoVal = validateOperationalTimestamp(firstPortionTs, null, 'Dispatch', 'Baseline');
+    const effectiveDispatchDate = chronoVal.isValid && chronoVal.date ? chronoVal.date : new Date(firstPortionTs);
+    const canonicalBusinessDateStr = getOperationalBusinessDate(effectiveDispatchDate);
+
     // Execute Prisma Transaction for atomic creation or draft finalization
     const result = await prisma.$transaction(async (tx) => {
       const now = new Date();
-      const receptionNumber = await generateReceptionNumber(tx, validated.operationalDate);
+      const receptionNumber = await generateReceptionNumber(tx, canonicalBusinessDateStr);
 
       const visitNumber = existingVisit.visit_number;
       const visit = await tx.vehicleVisit.update({
@@ -429,7 +436,7 @@ export async function POST(req: Request) {
         data: {
           vehicle_number: validated.vehicleNumber,
           reception_number: receptionNumber,
-          operational_date: new Date(validated.operationalDate),
+          operational_date: new Date(canonicalBusinessDateStr),
           current_status: 'DISPATCHED',
           procurement_source_id: resolvedSourceId,
           vehicle_dispatch_quantity_value: new Prisma.Decimal(validatedQuantities.vehicleQuantity.value),

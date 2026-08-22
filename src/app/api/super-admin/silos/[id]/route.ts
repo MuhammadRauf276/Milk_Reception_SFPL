@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
+import { getSiloCurrentStockLiters, getSiloActiveReservedLiters } from '@/backend/services/siloInventoryService';
 
 export async function PATCH(
   req: Request,
@@ -27,39 +28,9 @@ export async function PATCH(
       return NextResponse.json({ error: 'Silo capacity must be greater than 0 Liters.' }, { status: 400 });
     }
 
-    // SILO CAPACITY VALIDATION AGAINST LEDGER STOCK AND RESERVATIONS
-    // Calculate current ledger stock
-    const txs = await prisma.siloInventoryTransaction.findMany({
-      where: { silo_id: siloId },
-    });
-
-    let currentStockLiters = 0;
-    for (const tx of txs) {
-      const qty = Number(tx.quantity_liters || 0);
-      if (tx.transaction_type === 'RECEIPT') {
-        currentStockLiters += qty;
-      } else if (tx.transaction_type === 'ISSUE') {
-        currentStockLiters -= qty;
-      }
-    }
-    currentStockLiters = Math.max(0, currentStockLiters);
-
-    // Calculate active reservations
-    const activeUnloadings = await prisma.unloadingLog.findMany({
-      where: {
-        silo_id: siloId,
-        pump_end_timestamp: null,
-      },
-      include: {
-        portion: true,
-      },
-    });
-
-    let activeReservationsLiters = 0;
-    for (const ul of activeUnloadings) {
-      activeReservationsLiters += Number(ul.portion.dispatch_quantity_value || 0);
-    }
-
+    // SILO CAPACITY VALIDATION AGAINST AUTHORITATIVE LEDGER STOCK AND PROVISIONAL RESERVATIONS
+    const currentStockLiters = await getSiloCurrentStockLiters(siloId);
+    const activeReservationsLiters = await getSiloActiveReservedLiters(siloId);
     const totalCommittedLiters = currentStockLiters + activeReservationsLiters;
 
     if (newCapacity < totalCommittedLiters) {

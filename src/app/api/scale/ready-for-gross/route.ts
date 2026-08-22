@@ -46,10 +46,6 @@ export async function GET(req: Request) {
       const portions = v.portions || [];
       const acceptedPortions = portions.filter((p) => (p.plant_decision || '').toUpperCase() === 'ACCEPTED');
       const rejectedPortions = portions.filter((p) => (p.plant_decision || '').toUpperCase() === 'REJECTED');
-      const acceptedDeclaredKg = acceptedPortions.reduce(
-        (sum, p) => sum + (p.dispatch_quantity_value ? Number(p.dispatch_quantity_value) : 0),
-        0
-      );
 
       // Determine plant decision summary
       const decisions = portions.map((p) => (p.plant_decision || 'PENDING').toUpperCase());
