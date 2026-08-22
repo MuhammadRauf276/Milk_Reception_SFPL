@@ -2,7 +2,11 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
 import { z } from 'zod';
+
 import { getOrAssignDispatchTests, serializeAssignment } from '@/backend/services/labTestAssignmentService';
+import { getOrFreezeDispatchQuantityPolicy } from '@/backend/modules/dispatch/quantity-policy/quantityPolicyService';
+
+
 
 const startDispatchSchema = z.object({
   visitId: z.string().optional(),
@@ -93,11 +97,18 @@ export async function POST(req: Request) {
       }
 
       const assigned = await getOrAssignDispatchTests(prisma, existingVisit.id);
+      const quantityPolicy = await getOrFreezeDispatchQuantityPolicy(
+        prisma,
+        existingVisit.id,
+        existingVisit.procurement_source_id!
+      );
+
       return NextResponse.json({
         success: true,
         visitId: existingVisit.id.toString(),
         visitNumber: existingVisit.visit_number,
         assignedTests: assigned.map(serializeAssignment),
+        quantityPolicy: quantityPolicy,
       });
     }
 
@@ -140,7 +151,7 @@ export async function POST(req: Request) {
     const dateStr = validated.operationalDate || new Date().toISOString().split('T')[0];
     const dateCode = dateStr.replace(/-/g, '');
 
-    // 3. Create persistent DRAFT_DISPATCH work item with frozen assignment
+    // 3. Create persistent DRAFT_DISPATCH work item with frozen assignment and quantity policy
     const result = await prisma.$transaction(async (tx) => {
       const countToday = await tx.vehicleVisit.count({
         where: {
@@ -168,7 +179,10 @@ export async function POST(req: Request) {
       // Atomically snapshot active DISPATCH/BOTH tests
       const assigned = await getOrAssignDispatchTests(tx, visit.id);
 
-      return { visit, assigned };
+      // Atomically freeze resolved Dispatch Quantity Policy snapshot
+      const quantityPolicy = await getOrFreezeDispatchQuantityPolicy(tx, visit.id, resolvedSourceId!);
+
+      return { visit, assigned, quantityPolicy };
     });
 
     return NextResponse.json(
@@ -177,11 +191,32 @@ export async function POST(req: Request) {
         visitId: result.visit.id.toString(),
         visitNumber: result.visit.visit_number,
         assignedTests: result.assigned.map(serializeAssignment),
+        quantityPolicy: result.quantityPolicy,
       },
       { status: 201 }
     );
   } catch (error: any) {
+    if (error?.code === 'DISPATCH_QUANTITY_POLICY_INVALID') {
+      return NextResponse.json(
+        {
+          error: 'Configured dispatch quantity policy for this procurement source is invalid.',
+          code: 'DISPATCH_QUANTITY_POLICY_INVALID',
+        },
+        { status: 400 }
+      );
+    }
+    if (error?.code === 'SNAPSHOT_SOURCE_MISMATCH' || error?.code === 'VISIT_SOURCE_MISMATCH') {
+      return NextResponse.json(
+        {
+          error: error.message || 'Procurement source mismatch.',
+          code: error.code,
+        },
+        { status: 400 }
+      );
+    }
     return NextResponse.json({ error: error?.message || 'Failed to start dispatch work item' }, { status: 500 });
   }
 }
+
+
 
