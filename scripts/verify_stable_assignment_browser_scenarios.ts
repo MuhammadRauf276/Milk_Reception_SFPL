@@ -5,6 +5,7 @@ import { POST as startDispatch } from '../src/app/api/dispatches/start/route';
 import { POST as createDispatch } from '../src/app/api/dispatches/route';
 import { createSessionToken } from '../src/backend/core/auth';
 import { User, Role } from '../src/backend/core/types';
+import { getOperationalBusinessDate } from '../src/backend/core/business-day';
 
 async function makeReq(url: string, method = 'GET', body: any = null, u: any = null) {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -99,6 +100,7 @@ async function verifyBrowserScenarios() {
   const reqSubmitA = await makeReq('http://localhost:3000/api/dispatches', 'POST', {
     visitId: visitIdA.toString(),
     vehicleNumber: 'BRW-DISP-A-' + nowA,
+    operationalDate: regressionBusinessDate,
     procurementSourceId: effectiveSourceId,
     vehicleQuantity: { value: '8000', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
     portions: [{ portionNumber: 1, quantity: { value: '8000', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' }, results: manualA }],
@@ -129,6 +131,7 @@ async function verifyBrowserScenarios() {
   const reqSubmitB = await makeReq('http://localhost:3000/api/dispatches', 'POST', {
     visitId: visitIdB.toString(),
     vehicleNumber: 'BRW-DISP-B-' + nowB,
+    operationalDate: regressionBusinessDate,
     procurementSourceId: effectiveSourceId,
     vehicleQuantity: { value: '8200', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
     portions: [{ portionNumber: 1, quantity: { value: '8200', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' }, results: manualB }],
@@ -166,6 +169,7 @@ async function verifyBrowserScenarios() {
   const reqSubmitC = await makeReq('http://localhost:3000/api/dispatches', 'POST', {
     visitId: visitIdC.toString(),
     vehicleNumber: 'BRW-DISP-C-' + nowC,
+    operationalDate: regressionBusinessDate,
     procurementSourceId: effectiveSourceId,
     vehicleQuantity: { value: '8500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
     portions: [{ portionNumber: 1, quantity: { value: '8500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' }, results: manualC }],

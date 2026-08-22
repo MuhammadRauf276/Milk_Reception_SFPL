@@ -9,9 +9,12 @@ import {
 import { createSessionToken } from '../src/backend/core/auth';
 import { POST as startDispatchPost } from '../src/app/api/dispatches/start/route';
 import { POST as dispatchPost } from '../src/app/api/dispatches/route';
+import { getOperationalBusinessDate } from '../src/backend/core/business-day';
 
 async function runStableAssignmentTests() {
   console.log('--- STARTING STABLE LAB TEST ASSIGNMENT TEST SUITE ---');
+
+  const regressionBusinessDate = getOperationalBusinessDate(new Date());
 
   const superAdminUser = await prisma.user.findFirst({ where: { role: 'SUPER_ADMIN', is_active: true } });
   const zmccSource = await prisma.procurementSource.findFirst({ where: { source_type: 'ZMCC', is_active: true } });
@@ -581,6 +584,7 @@ async function runStableAssignmentTests() {
     body: JSON.stringify({
       visitId: draftVisitIdA,
       vehicleNumber: 'STAGE2A-VEH-A',
+      operationalDate: regressionBusinessDate,
       procurementSourceId: mpdSourceId,
       vehicleQuantity: { value: '8500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
       portions: [
@@ -665,6 +669,7 @@ async function runStableAssignmentTests() {
     body: JSON.stringify({
       visitId: draftVisitIdB,
       vehicleNumber: 'STAGE2A-VEH-B',
+      operationalDate: regressionBusinessDate,
       procurementSourceId: mpdSourceId,
       vehicleQuantity: { value: '8500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
       portions: [

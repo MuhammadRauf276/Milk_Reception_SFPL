@@ -3,11 +3,14 @@ import { GET, POST } from '../src/app/api/dispatches/route';
 import { POST as startDispatchPost } from '../src/app/api/dispatches/start/route';
 import { createSessionToken } from '../src/backend/core/auth';
 import { User, Role } from '../src/backend/core/types';
+import { getOperationalBusinessDate } from '../src/backend/core/business-day';
 
 async function runRegressionTests() {
   console.log('==================================================');
   console.log('STARTING MPD SOURCE VISIBILITY & TESTING RULES SUITE');
   console.log('==================================================\n');
+
+  const regressionBusinessDate = getOperationalBusinessDate(new Date());
 
   let passed = 0;
   let failed = 0;
@@ -144,6 +147,7 @@ async function runRegressionTests() {
     {
       visitId: draftTamper.visitId,
       vehicleNumber: 'TEST-9999',
+      operationalDate: regressionBusinessDate,
       procurementSourceId: jhangSource?.id.toString(), // Tampered source ID
       zonalContractorName: 'ZMCC Jhang',
       vehicleQuantity: { value: '8500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
@@ -176,6 +180,7 @@ async function runRegressionTests() {
     {
       visitId: draftNeg.visitId,
       vehicleNumber: 'TEST-8888',
+      operationalDate: regressionBusinessDate,
       vehicleQuantity: { value: '8500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
       portions: [
         {
@@ -203,6 +208,7 @@ async function runRegressionTests() {
     {
       visitId: draftZero.visitId,
       vehicleNumber: 'TEST-8887',
+      operationalDate: regressionBusinessDate,
       vehicleQuantity: { value: '8500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
       portions: [
         {
@@ -238,6 +244,7 @@ async function runRegressionTests() {
     {
       visitId: draftContLiter.visitId,
       vehicleNumber: 'CONT-9800',
+      operationalDate: regressionBusinessDate,
       dispatchTestingMode: 'NOT_PERFORMED',
       dispatchTestingReason: 'Contract Vehicle',
       vehicleQuantity: { value: '9800', unit: 'LITER', basis: 'ESTIMATED', method: 'MANUAL_ESTIMATE' },
@@ -290,6 +297,7 @@ async function runRegressionTests() {
     {
       visitId: draftContAllNotPerf.visitId,
       vehicleNumber: 'CONT-NOT-PERF',
+      operationalDate: regressionBusinessDate,
       dispatchTestingMode: 'NOT_PERFORMED',
       dispatchTestingReason: 'Contract Vehicle',
       vehicleQuantity: { value: '9500', unit: 'LITER', basis: 'ESTIMATED', method: 'MANUAL_ESTIMATE' },
@@ -345,6 +353,7 @@ async function runRegressionTests() {
       {
         visitId: draftContPartial.visitId,
         vehicleNumber: 'CONT-PARTIAL',
+        operationalDate: regressionBusinessDate,
         dispatchTestingMode: 'PARTIAL',
         vehicleQuantity: { value: '8900', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
         portions: [

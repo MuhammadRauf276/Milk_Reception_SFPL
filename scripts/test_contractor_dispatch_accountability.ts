@@ -3,11 +3,14 @@ import { GET, POST } from '../src/app/api/dispatches/route';
 import { POST as startDispatchPost } from '../src/app/api/dispatches/start/route';
 import { createSessionToken } from '../src/backend/core/auth';
 import { User, Role } from '../src/backend/core/types';
+import { getOperationalBusinessDate } from '../src/backend/core/business-day';
 
 async function runContractorAccountabilityTests() {
   console.log('==================================================');
   console.log('RUNNING CONTRACTOR DISPATCH TEST ACCOUNTABILITY SUITE (CASES A-O)');
   console.log('==================================================\n');
+
+  const regressionBusinessDate = getOperationalBusinessDate(new Date());
 
   let passed = 0;
   let failed = 0;
@@ -116,6 +119,7 @@ async function runContractorAccountabilityTests() {
     {
       visitId: draftB.visitId,
       vehicleNumber: 'CONT-KG-9500',
+      operationalDate: regressionBusinessDate,
       dispatchTestingMode: 'NOT_PERFORMED',
       dispatchTestingReason: 'Contract Vehicle',
       vehicleQuantity: { value: '9500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
@@ -149,6 +153,7 @@ async function runContractorAccountabilityTests() {
     {
       visitId: draftC.visitId,
       vehicleNumber: 'CONT-LT-10000',
+      operationalDate: regressionBusinessDate,
       dispatchTestingMode: 'NOT_PERFORMED',
       dispatchTestingReason: 'Contract Vehicle',
       vehicleQuantity: { value: '10000', unit: 'LITER', basis: 'ESTIMATED', method: 'MANUAL_ESTIMATE' },
@@ -214,6 +219,7 @@ async function runContractorAccountabilityTests() {
     {
       visitId: draftF.visitId,
       vehicleNumber: 'CONT-CUSTOM-REASON',
+      operationalDate: regressionBusinessDate,
       dispatchTestingMode: 'NOT_PERFORMED',
       dispatchTestingReason: 'Testing kit unavailable',
       vehicleQuantity: { value: '8500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
@@ -255,6 +261,7 @@ async function runContractorAccountabilityTests() {
     {
       visitId: draftG.visitId,
       vehicleNumber: 'CONT-EMPTY-REASON',
+      operationalDate: regressionBusinessDate,
       dispatchTestingMode: 'NOT_PERFORMED',
       dispatchTestingReason: 'Contract Vehicle',
       vehicleQuantity: { value: '8500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
@@ -303,6 +310,7 @@ async function runContractorAccountabilityTests() {
     {
       visitId: draftH.visitId,
       vehicleNumber: 'CONT-NUM-PERF',
+      operationalDate: regressionBusinessDate,
       dispatchTestingMode: 'PARTIAL',
       vehicleQuantity: { value: '8500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
       portions: [
@@ -317,6 +325,18 @@ async function runContractorAccountabilityTests() {
   );
   const resCaseH = await POST(reqCaseH);
   const dataCaseH = await resCaseH.json();
+  assert(resCaseH.ok && !!dataCaseH.visitId, 'Case H: Numeric test PERFORMED with valid value succeeds', `Visit ID = ${dataCaseH.visitId}`);
+
+  const fatPerf = await prisma.dispatchLabResult.findFirst({
+    where: { visit_id: BigInt(dataCaseH.visitId), test_id: fatTest.id },
+  });
+  assert(
+    fatPerf?.performance_status === 'PERFORMED' &&
+      Number(fatPerf?.numeric_value) === 3.75 &&
+      fatPerf?.not_performed_reason === null,
+    'Case H (DB): PERFORMED numeric result (3.75) persisted with no active not_performed_reason'
+  );
+
   // CASE I: Numeric PERFORMED without result rejected
   const numericMissingResults = manualTests.map((t) => {
     if (t.id === fatTest.id) {
@@ -344,6 +364,7 @@ async function runContractorAccountabilityTests() {
     {
       visitId: draftI.visitId,
       vehicleNumber: 'CONT-NUM-MISSING',
+      operationalDate: regressionBusinessDate,
       dispatchTestingMode: 'PARTIAL',
       vehicleQuantity: { value: '8500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
       portions: [
@@ -391,6 +412,7 @@ async function runContractorAccountabilityTests() {
     {
       visitId: draftJ.visitId,
       vehicleNumber: 'CONT-QUAL-PERF',
+      operationalDate: regressionBusinessDate,
       dispatchTestingMode: 'PARTIAL',
       vehicleQuantity: { value: '8500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
       portions: [
@@ -430,6 +452,7 @@ async function runContractorAccountabilityTests() {
     {
       visitId: draftK.visitId,
       vehicleNumber: 'CONT-TRANS-K',
+      operationalDate: regressionBusinessDate,
       dispatchTestingMode: 'NOT_PERFORMED',
       dispatchTestingReason: 'Contract Vehicle',
       vehicleQuantity: { value: '8500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
@@ -466,6 +489,7 @@ async function runContractorAccountabilityTests() {
     {
       visitId: draftL.visitId,
       vehicleNumber: 'CONT-TRANS-L',
+      operationalDate: regressionBusinessDate,
       dispatchTestingMode: 'PARTIAL',
       vehicleQuantity: { value: '8500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
       portions: [{ portionNumber: 1, quantity: { value: '8500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' }, results: transitionedL }],
@@ -497,6 +521,7 @@ async function runContractorAccountabilityTests() {
     {
       visitId: draftM.visitId,
       vehicleNumber: 'CONT-MULTI-PORTION',
+      operationalDate: regressionBusinessDate,
       dispatchTestingMode: 'PARTIAL',
       vehicleQuantity: { value: '19500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
       portions: [
@@ -573,6 +598,7 @@ async function runContractorAccountabilityTests() {
     {
       visitId: draftN.visitId,
       vehicleNumber: 'CONT-CONTRADICT',
+      operationalDate: regressionBusinessDate,
       dispatchTestingMode: 'NOT_PERFORMED',
       dispatchTestingReason: 'Contract Vehicle',
       vehicleQuantity: { value: '8500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
@@ -613,6 +639,7 @@ async function runContractorAccountabilityTests() {
     {
       visitId: draftO.visitId,
       vehicleNumber: 'ZMCC-ISOLATION-01',
+      operationalDate: regressionBusinessDate,
       dispatchTestingMode: 'FULL',
       vehicleQuantity: { value: '12000', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
       portions: [
