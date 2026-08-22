@@ -7,11 +7,13 @@ import {
   resolveSourceQuantityPolicy,
   updateSourceQuantityPolicy,
   getOrFreezeDispatchQuantityPolicy,
+  DispatchQuantityPolicyInvalidError,
+  SnapshotSourceMismatchError,
 } from '@/backend/modules/dispatch/quantity-policy/quantityPolicyService';
 import { DEFAULT_DISPATCH_QUANTITY_POLICY } from '@/backend/modules/dispatch/quantity-policy/types';
 import { createSessionToken } from '@/backend/core/auth';
 
-describe('Stage 4C-3: Dispatch Quantity Policy Snapshot (Integration)', () => {
+describe('Stage 4C-3A: Dispatch Quantity Policy Snapshot Hardening (Integration)', () => {
   const prisma = getTestPrisma();
   let zmccSource: any;
   let contractorSource: any;
@@ -77,7 +79,7 @@ describe('Stage 4C-3: Dispatch Quantity Policy Snapshot (Integration)', () => {
     });
   };
 
-  it('[TEST-A & I] Both ZMCC and Contractor sources resolve policy through the SAME engine', async () => {
+  it('[TEST-A & I] Both ZMCC and Contractor sources resolve policy through the SAME engine and receive default', async () => {
     const zmccPolicy = await resolveSourceQuantityPolicy(prisma, zmccSource.id);
     const contractorPolicy = await resolveSourceQuantityPolicy(prisma, contractorSource.id);
 
@@ -93,7 +95,9 @@ describe('Stage 4C-3: Dispatch Quantity Policy Snapshot (Integration)', () => {
     expect(res.status).toBe(201);
     expect(json.quantityPolicy).toBeDefined();
     expect(json.quantityPolicy.policyVersion).toBe(1);
-    expect(json.quantityPolicy.policy.vehicleRules.defaultUnit).toBe('KG');
+    expect(json.quantityPolicy.policy.vehicleRules.default.unit).toBe('KG');
+    expect(json.quantityPolicy.policy.vehicleRules.default.basis).toBe('ESTIMATED');
+    expect(json.quantityPolicy.policy.vehicleRules.default.method).toBe('MANUAL_ESTIMATE');
 
     // Verify DB snapshot record
     const snapshot = await prisma.dispatchQuantityPolicySnapshot.findUnique({
@@ -130,26 +134,31 @@ describe('Stage 4C-3: Dispatch Quantity Policy Snapshot (Integration)', () => {
     const jsonA = await resA.json();
     const draftAId = jsonA.visitId;
     expect(jsonA.quantityPolicy.policyVersion).toBe(1);
-    expect(jsonA.quantityPolicy.policy.vehicleRules.defaultUnit).toBe('KG');
+    expect(jsonA.quantityPolicy.policy.vehicleRules.default.unit).toBe('KG');
 
-    // 2. Super Admin updates source quantity policy to V2 (defaultUnit = LITER)
+    // 2. Super Admin updates source quantity policy to V2 (default: LITER, MEASURED, FLOW_METER)
     const customPolicyV2 = {
       version: 2,
       vehicleRules: {
-        allowedUnits: ['KG', 'LITER'],
-        allowedBases: ['MEASURED'],
-        allowedMethods: ['FLOW_METER'],
-        defaultUnit: 'LITER',
-        defaultBasis: 'MEASURED',
-        defaultMethod: 'FLOW_METER',
+        allowedMeasurements: [
+          { unit: 'KG', basis: 'MEASURED', methods: ['WEIGHING'] },
+          { unit: 'LITER', basis: 'MEASURED', methods: ['FLOW_METER'] },
+        ],
+        default: {
+          unit: 'LITER',
+          basis: 'MEASURED',
+          method: 'FLOW_METER',
+        },
       },
       portionRules: {
-        allowedUnits: ['LITER'],
-        allowedBases: ['MEASURED'],
-        allowedMethods: ['FLOW_METER'],
-        defaultUnit: 'LITER',
-        defaultBasis: 'MEASURED',
-        defaultMethod: 'FLOW_METER',
+        allowedMeasurements: [
+          { unit: 'LITER', basis: 'MEASURED', methods: ['FLOW_METER'] },
+        ],
+        default: {
+          unit: 'LITER',
+          basis: 'MEASURED',
+          method: 'FLOW_METER',
+        },
       },
       allowSameUnitPortionPrefill: false,
     };
@@ -162,7 +171,7 @@ describe('Stage 4C-3: Dispatch Quantity Policy Snapshot (Integration)', () => {
     const reloadJsonA = await reloadResA.json();
 
     expect(reloadJsonA.quantityPolicy.policyVersion).toBe(1);
-    expect(reloadJsonA.quantityPolicy.policy.vehicleRules.defaultUnit).toBe('KG');
+    expect(reloadJsonA.quantityPolicy.policy.vehicleRules.default.unit).toBe('KG');
     expect(reloadJsonA.quantityPolicy.policy.allowSameUnitPortionPrefill).toBe(true);
 
     // 4. Start Draft B -> must receive newly configured V2
@@ -171,27 +180,51 @@ describe('Stage 4C-3: Dispatch Quantity Policy Snapshot (Integration)', () => {
     const jsonB = await resB.json();
 
     expect(jsonB.quantityPolicy.policyVersion).toBe(2);
-    expect(jsonB.quantityPolicy.policy.vehicleRules.defaultUnit).toBe('LITER');
-    expect(jsonB.quantityPolicy.policy.vehicleRules.defaultMethod).toBe('FLOW_METER');
+    expect(jsonB.quantityPolicy.policy.vehicleRules.default.unit).toBe('LITER');
+    expect(jsonB.quantityPolicy.policy.vehicleRules.default.method).toBe('FLOW_METER');
     expect(jsonB.quantityPolicy.policy.allowSameUnitPortionPrefill).toBe(false);
   });
 
-  it('[TEST-G] Database enforces unique policy snapshot per visit', async () => {
+  it('[TEST-F2] Source with malformed configured policy fails explicitly (DISPATCH_QUANTITY_POLICY_INVALID)', async () => {
+    // 1. Corrupt source policy directly in DB (e.g. invalid json / missing default)
+    await prisma.procurementSource.update({
+      where: { id: zmccSource.id },
+      data: {
+        dispatch_quantity_policy: {
+          version: 1,
+          vehicleRules: {
+            allowedMeasurements: [],
+            default: { unit: 'KG', basis: 'ESTIMATED', method: 'MANUAL_ESTIMATE' },
+          },
+        } as any,
+      },
+    });
+
+    // 2. Direct service call must throw DispatchQuantityPolicyInvalidError
+    await expect(
+      resolveSourceQuantityPolicy(prisma, zmccSource.id)
+    ).rejects.toThrowError(DispatchQuantityPolicyInvalidError);
+
+    // 3. /api/dispatches/start must return HTTP 400 with DISPATCH_QUANTITY_POLICY_INVALID
+    const req = await createMockRequest(operatorZmcc, {});
+    const res = await startDispatchPost(req);
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json.code).toBe('DISPATCH_QUANTITY_POLICY_INVALID');
+    expect(json.error).toBe('Configured dispatch quantity policy for this procurement source is invalid.');
+  });
+
+  it('[TEST-G] Snapshot source protection rejects existing snapshot with wrong source', async () => {
+    // 1. Create a visit under zmccSource
     const req = await createMockRequest(operatorZmcc, {});
     const res = await startDispatchPost(req);
     const json = await res.json();
     const visitId = BigInt(json.visitId);
 
-    // Attempting to duplicate snapshot directly in DB triggers unique constraint violation
+    // 2. Calling getOrFreezeDispatchQuantityPolicy for the same visit but supplying contractorSource.id must fail
     await expect(
-      prisma.dispatchQuantityPolicySnapshot.create({
-        data: {
-          visit_id: visitId,
-          source_id: zmccSource.id,
-          policy_version: 1,
-          policy_snapshot: DEFAULT_DISPATCH_QUANTITY_POLICY as any,
-        },
-      })
+      getOrFreezeDispatchQuantityPolicy(prisma, visitId, contractorSource.id)
     ).rejects.toThrow();
   });
 

@@ -44,10 +44,12 @@ This document records the authoritative business rules approved for the Milk Rec
 ---
 
 ## 6. Plant Final Receipt
-- **Vehicle-Wise Finalization**: Final Net KG is calculated strictly at the vehicle level as `Gross Weight - Second Weight (Tare)`.
+- **Vehicle-Wise Finalization**: Final Net KG is calculated strictly at the vehicle level as `Gross Weight - Second Weight`.
+- **Second Weight Definition**: Second Weight is the post-unloading vehicle weight. Rejected milk may remain onboard. Do not describe it as an empty tare vehicle.
 - **Quality Averaging**: Accepted Plant QA quantitative results are averaged arithmetically across accepted compartments/portions.
 - **No Fallback**: Zero fallback to Dispatch lab results or Dispatch quantities for plant inventory receipts.
-- **Silo Allocation**: Multi-silo unallocated receipts remain blocked until explicit allocation.
+- **Silo Allocation**: If accepted portions map to more than one destination silo, final receipt remains blocked with `MULTI_SILO_ALLOCATION_REQUIRED` even when individual portion destinations are known, because actual received Net KG exists only at vehicle level and no authoritative per-portion received mass exists. Do not invent allocation.
+
 
 ---
 

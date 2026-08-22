@@ -8,6 +8,30 @@ import { validateQuantityPolicy } from './validation';
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
+export class DispatchQuantityPolicyInvalidError extends Error {
+  readonly code = 'DISPATCH_QUANTITY_POLICY_INVALID';
+  constructor(message = 'Configured dispatch quantity policy for this procurement source is invalid.') {
+    super(message);
+    this.name = 'DispatchQuantityPolicyInvalidError';
+  }
+}
+
+export class SnapshotSourceMismatchError extends Error {
+  readonly code = 'SNAPSHOT_SOURCE_MISMATCH';
+  constructor(message = 'Existing policy snapshot source does not match requested source.') {
+    super(message);
+    this.name = 'SnapshotSourceMismatchError';
+  }
+}
+
+export class VisitSourceMismatchError extends Error {
+  readonly code = 'VISIT_SOURCE_MISMATCH';
+  constructor(message = 'Procurement source does not match visit source.') {
+    super(message);
+    this.name = 'VisitSourceMismatchError';
+  }
+}
+
 export function serializeQuantityPolicySnapshot(
   snapshot: any
 ): DispatchQuantityPolicySnapshotDTO {
@@ -23,7 +47,8 @@ export function serializeQuantityPolicySnapshot(
 
 /**
  * Resolves the active Dispatch Quantity Policy for a given procurement source.
- * Falls back to DEFAULT_DISPATCH_QUANTITY_POLICY if the source has not defined a custom policy.
+ * Falls back to DEFAULT_DISPATCH_QUANTITY_POLICY ONLY if the source has not defined a custom policy.
+ * If a custom policy exists but is malformed/invalid, throws DispatchQuantityPolicyInvalidError.
  * Operates purely on configuration without source-type branching.
  */
 export async function resolveSourceQuantityPolicy(
@@ -39,15 +64,11 @@ export async function resolveSourceQuantityPolicy(
     throw new Error(`Procurement source with ID ${parsedSourceId} not found.`);
   }
 
-  if (source.dispatch_quantity_policy) {
+  if (source.dispatch_quantity_policy !== null && source.dispatch_quantity_policy !== undefined) {
     try {
       return validateQuantityPolicy(source.dispatch_quantity_policy);
-    } catch (e: any) {
-      console.warn(
-        `[QuantityPolicyService] Source ${parsedSourceId} has malformed quantity policy. Falling back to default. Error:`,
-        e.message
-      );
-      return DEFAULT_DISPATCH_QUANTITY_POLICY;
+    } catch {
+      throw new DispatchQuantityPolicyInvalidError();
     }
   }
 
@@ -57,6 +78,10 @@ export async function resolveSourceQuantityPolicy(
 /**
  * Retrieves an existing frozen policy snapshot for a visit, or creates a new immutable
  * snapshot based on the source's current policy configuration.
+ *
+ * Enforces domain invariants:
+ * 1. If an existing snapshot exists, its source_id must match the requested sourceId.
+ * 2. If the visit exists in the database, its procurement_source_id must match the requested sourceId.
  */
 export async function getOrFreezeDispatchQuantityPolicy(
   db: DbClient,
@@ -66,12 +91,27 @@ export async function getOrFreezeDispatchQuantityPolicy(
   const parsedVisitId = typeof visitId === 'bigint' ? visitId : BigInt(visitId);
   const parsedSourceId = typeof sourceId === 'bigint' ? sourceId : BigInt(sourceId);
 
+  // Invariant check: if visit already exists in DB, ensure its procurement_source_id matches supplied sourceId
+  const visit = await db.vehicleVisit.findUnique({
+    where: { id: parsedVisitId },
+    select: { procurement_source_id: true },
+  });
+
+  if (visit && visit.procurement_source_id !== null && visit.procurement_source_id !== undefined) {
+    if (visit.procurement_source_id !== parsedSourceId) {
+      throw new VisitSourceMismatchError();
+    }
+  }
+
   // 1. Check for existing frozen snapshot
   const existing = await db.dispatchQuantityPolicySnapshot.findUnique({
     where: { visit_id: parsedVisitId },
   });
 
   if (existing) {
+    if (existing.source_id !== parsedSourceId) {
+      throw new SnapshotSourceMismatchError();
+    }
     return serializeQuantityPolicySnapshot(existing);
   }
 

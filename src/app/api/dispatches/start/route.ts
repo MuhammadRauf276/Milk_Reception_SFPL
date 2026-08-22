@@ -196,8 +196,27 @@ export async function POST(req: Request) {
       { status: 201 }
     );
   } catch (error: any) {
+    if (error?.code === 'DISPATCH_QUANTITY_POLICY_INVALID') {
+      return NextResponse.json(
+        {
+          error: 'Configured dispatch quantity policy for this procurement source is invalid.',
+          code: 'DISPATCH_QUANTITY_POLICY_INVALID',
+        },
+        { status: 400 }
+      );
+    }
+    if (error?.code === 'SNAPSHOT_SOURCE_MISMATCH' || error?.code === 'VISIT_SOURCE_MISMATCH') {
+      return NextResponse.json(
+        {
+          error: error.message || 'Procurement source mismatch.',
+          code: error.code,
+        },
+        { status: 400 }
+      );
+    }
     return NextResponse.json({ error: error?.message || 'Failed to start dispatch work item' }, { status: 500 });
   }
 }
+
 
 

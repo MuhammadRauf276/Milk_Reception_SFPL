@@ -1,68 +1,47 @@
 import { z } from 'zod';
-import { DispatchQuantityPolicyConfig, QuantityUnit, MeasurementBasis, MeasurementMethod } from './types';
+import {
+  DispatchQuantityPolicyConfig,
+  isCombinationAllowed,
+} from './types';
 
 export const quantityUnitSchema = z.enum(['KG', 'LITER']);
 export const measurementBasisSchema = z.enum(['ESTIMATED', 'MEASURED']);
 export const measurementMethodSchema = z.enum(['MANUAL_ESTIMATE', 'WEIGHING', 'FLOW_METER', 'OTHER']);
 
+export const measurementCombinationSchema = z.object({
+  unit: quantityUnitSchema,
+  basis: measurementBasisSchema,
+  method: measurementMethodSchema,
+});
+
+export const allowedMeasurementSchema = z.object({
+  unit: quantityUnitSchema,
+  basis: measurementBasisSchema,
+  methods: z.array(measurementMethodSchema).min(1, 'At least one method must be configured for each allowed unit/basis pair.'),
+});
+
 export const vehicleQuantityRuleSchema = z.object({
-  allowedUnits: z.array(quantityUnitSchema).min(1, 'At least one allowed unit must be configured.'),
-  allowedBases: z.array(measurementBasisSchema).min(1, 'At least one allowed basis must be configured.'),
-  allowedMethods: z.array(measurementMethodSchema).min(1, 'At least one allowed method must be configured.'),
-  defaultUnit: quantityUnitSchema,
-  defaultBasis: measurementBasisSchema,
-  defaultMethod: measurementMethodSchema,
+  allowedMeasurements: z.array(allowedMeasurementSchema).min(1, 'At least one allowed measurement combination must be configured.'),
+  default: measurementCombinationSchema,
 }).superRefine((data, ctx) => {
-  if (!data.allowedUnits.includes(data.defaultUnit)) {
+  if (!isCombinationAllowed(data.allowedMeasurements, data.default)) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: `Default vehicle unit "${data.defaultUnit}" must be one of allowedUnits [${data.allowedUnits.join(', ')}].`,
-      path: ['defaultUnit'],
-    });
-  }
-  if (!data.allowedBases.includes(data.defaultBasis)) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: `Default vehicle basis "${data.defaultBasis}" must be one of allowedBases [${data.allowedBases.join(', ')}].`,
-      path: ['defaultBasis'],
-    });
-  }
-  if (!data.allowedMethods.includes(data.defaultMethod)) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: `Default vehicle method "${data.defaultMethod}" must be one of allowedMethods [${data.allowedMethods.join(', ')}].`,
-      path: ['defaultMethod'],
+      message: `Default vehicle measurement (${data.default.unit}, ${data.default.basis}, ${data.default.method}) is not in allowed combinations.`,
+      path: ['default'],
     });
   }
 });
 
 export const portionQuantityRuleSchema = z.object({
-  allowedUnits: z.array(quantityUnitSchema).min(1, 'At least one allowed unit must be configured.'),
-  allowedBases: z.array(measurementBasisSchema).min(1, 'At least one allowed basis must be configured.'),
-  allowedMethods: z.array(measurementMethodSchema).min(1, 'At least one allowed method must be configured.'),
-  defaultUnit: quantityUnitSchema,
-  defaultBasis: measurementBasisSchema,
-  defaultMethod: measurementMethodSchema,
+  allowedMeasurements: z.array(allowedMeasurementSchema).min(1, 'At least one allowed measurement combination must be configured.'),
+  default: measurementCombinationSchema,
 }).superRefine((data, ctx) => {
-  if (!data.allowedUnits.includes(data.defaultUnit)) {
+  if (!isCombinationAllowed(data.allowedMeasurements, data.default)) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: `Default portion unit "${data.defaultUnit}" must be one of allowedUnits [${data.allowedUnits.join(', ')}].`,
-      path: ['defaultUnit'],
-    });
-  }
-  if (!data.allowedBases.includes(data.defaultBasis)) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: `Default portion basis "${data.defaultBasis}" must be one of allowedBases [${data.allowedBases.join(', ')}].`,
-      path: ['defaultBasis'],
-    });
-  }
-  if (!data.allowedMethods.includes(data.defaultMethod)) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: `Default portion method "${data.defaultMethod}" must be one of allowedMethods [${data.allowedMethods.join(', ')}].`,
-      path: ['defaultMethod'],
+      message: `Default portion measurement (${data.default.unit}, ${data.default.basis}, ${data.default.method}) is not in allowed combinations.`,
+      path: ['default'],
     });
   }
 });
