@@ -32,6 +32,9 @@ interface TestResultState {
   numericValue: string;
   textValue: string;
   performanceStatus: 'PERFORMED' | 'NOT_PERFORMED';
+  notPerformedReason?: string;
+}
+
 export type QuantityUnitType = 'KG' | 'LITER';
 export type MeasurementBasisType = 'ESTIMATED' | 'MEASURED';
 export type MeasurementMethodType = 'MANUAL_ESTIMATE' | 'WEIGHING' | 'FLOW_METER' | 'OTHER';
