@@ -1,4 +1,5 @@
-import { getAuditLogsForLog, revertLogField, getAllLogs } from '@core/db';
+import { getAuditLogsForLog, revertLogField } from '@core/db';
+import { getOperationalLogs } from '@backend/services/operationalReadModelService';
 import { User } from '@core/types';
 
 export async function fetchAuditLogs(logId: number) {
@@ -10,7 +11,7 @@ export async function performRollback(logId: number, auditLogId: number, adminUs
 }
 
 export async function calculateQueueAnalytics() {
-  const logs = await getAllLogs();
+  const logs = await getOperationalLogs();
   const activeInPlant = logs.filter((l) => l.status !== 'Completed');
 
   const laneCounts = {

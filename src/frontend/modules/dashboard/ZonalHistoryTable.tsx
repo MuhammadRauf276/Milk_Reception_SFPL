@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { MilkProcessLog } from '@core/types';
-import { computeVehicleDecisionSummary, computeRuntimeMetrics } from '@backend/services/dairyCalculations';
+import { computeVehicleDecisionSummary, computeRuntimeMetrics } from '@backend/services/operationalCalculations';
 import { warnDuplicateKeys } from '@/lib/key-utils';
 import {
   Truck,
@@ -866,7 +866,7 @@ export const ZonalHistoryTable: React.FC<ZonalHistoryTableProps> = ({
                     <div>
                       <h4 className="text-xs font-black text-[#1E40AF] font-sans">Vehicle Weighbridge Scale Summary</h4>
                       <p className="text-[10.5px] font-semibold text-[#1E40AF]/80 font-sans">
-                        Measured ONCE at Weighbridge Scale 1 (Gross) & Scale 2 (Tare) for full vehicle.
+                        Measured at Weighbridge Scale 1 (Gross) & Scale 2 (Second Weight) for vehicle.
                       </p>
                     </div>
                   </div>
@@ -879,13 +879,13 @@ export const ZonalHistoryTable: React.FC<ZonalHistoryTableProps> = ({
                       </span>
                     </div>
                     <div>
-                      <span className="text-[9.5px] uppercase font-bold text-slate-500 block">Tare Weight:</span>
+                      <span className="text-[9.5px] uppercase font-bold text-slate-500 block">Second Weight:</span>
                       <span className="font-black text-[#111311]">
                         {targetedGroup.tareWeightKg != null ? `${targetedGroup.tareWeightKg.toLocaleString()} kg` : 'N/A'}
                       </span>
                     </div>
                     <div>
-                      <span className="text-[9.5px] uppercase font-bold text-[#1E40AF] block">Net Milk Weight:</span>
+                      <span className="text-[9.5px] uppercase font-bold text-[#1E40AF] block">Net Milk Received:</span>
                       <span className="font-black text-[#1E40AF] text-sm">
                         {targetedGroup.netWeightKg != null ? `${targetedGroup.netWeightKg.toLocaleString()} kg` : 'N/A'}
                       </span>
@@ -1180,19 +1180,19 @@ export const ZonalHistoryTable: React.FC<ZonalHistoryTableProps> = ({
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-slate-700 font-bold">
                     <div>
-                      <span className="text-[9.5px] text-slate-500 block font-sans">Vehicle Net Weight:</span>
+                      <span className="text-[9.5px] text-slate-500 block font-sans">Net Milk Received:</span>
                       <span className="font-black text-[#1E40AF]">
                         {targetedGroup.netWeightKg != null ? `${targetedGroup.netWeightKg.toLocaleString()} kg` : 'N/A'}
                       </span>
                     </div>
                     <div>
-                      <span className="text-[9.5px] text-slate-500 block font-sans">Vehicle Gross Weight:</span>
+                      <span className="text-[9.5px] text-slate-500 block font-sans">Gross Weight:</span>
                       <span className="font-black text-[#111311]">
                         {targetedGroup.grossWeightKg != null ? `${targetedGroup.grossWeightKg.toLocaleString()} kg` : 'N/A'}
                       </span>
                     </div>
                     <div>
-                      <span className="text-[9.5px] text-slate-500 block font-sans">Vehicle Tare Weight:</span>
+                      <span className="text-[9.5px] text-slate-500 block font-sans">Second Weight:</span>
                       <span className="font-black text-[#111311]">
                         {targetedGroup.tareWeightKg != null ? `${targetedGroup.tareWeightKg.toLocaleString()} kg` : 'N/A'}
                       </span>

@@ -57,7 +57,7 @@ export async function PATCH(
 
     let activeReservationsLiters = 0;
     for (const ul of activeUnloadings) {
-      activeReservationsLiters += Number(ul.portion.declared_quantity_kg || 0);
+      activeReservationsLiters += Number(ul.portion.declared_quantity_value || 0);
     }
 
     const totalCommittedLiters = currentStockLiters + activeReservationsLiters;

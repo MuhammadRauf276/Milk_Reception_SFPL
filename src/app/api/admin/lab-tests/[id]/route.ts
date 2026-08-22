@@ -49,7 +49,7 @@ export async function PATCH(
 
     const updated = await prisma.labTest.update({
       where: { id: testId },
-      data: updateData,
+      data: updateData as any,
     });
 
     return NextResponse.json({ test: serializeLabTest(updated) });

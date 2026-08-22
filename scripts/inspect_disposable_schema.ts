@@ -2,7 +2,7 @@ import { Client } from 'pg';
 
 async function main() {
   const client = new Client({
-    connectionString: 'postgresql://postgres:rauf@localhost:5432/milk_reception_disposable_test?schema=public',
+    connectionString: process.env.DATABASE_URL,
   });
 
   await client.connect();

@@ -64,6 +64,7 @@ export async function POST(req: Request) {
         isRequired: validated.isRequired,
         isActive: validated.isActive,
         displayOrder: validated.displayOrder,
+        resultOptions: validated.resultOptions ? (validated.resultOptions as any) : undefined,
       },
     });
 

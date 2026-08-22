@@ -17,4 +17,4 @@ function findMpdFiles(dir: string) {
   }
 }
 
-findMpdFiles('D:\\MilkReceptionApp\\src');
+findMpdFiles(path.join(path.resolve(__dirname, '..'), 'src'));

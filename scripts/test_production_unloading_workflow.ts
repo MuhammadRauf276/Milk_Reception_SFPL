@@ -122,8 +122,8 @@ async function runProductionUnloadingWorkflowVerification() {
         created_by: opUserA.id,
         portions: {
           create: [
-            { portion_number: 1, declared_quantity_kg: 8000, plant_decision: 'ACCEPTED', current_status: 'PLANT_QA' },
-            { portion_number: 2, declared_quantity_kg: 5000, plant_decision: 'REJECTED', plant_rejection_reason: 'High acidity', current_status: 'PLANT_QA' },
+            { portion_number: 1, declared_quantity_value: 8000, plant_decision: 'ACCEPTED', current_status: 'PLANT_QA' },
+            { portion_number: 2, declared_quantity_value: 5000, plant_decision: 'REJECTED', plant_rejection_reason: 'High acidity', current_status: 'PLANT_QA' },
           ],
         },
         weight_ticket: {
@@ -174,7 +174,7 @@ async function runProductionUnloadingWorkflowVerification() {
     const expectedLitersP1 = calculatePhysicalLiters(8000, 26.3); // ~7,795 L
 
     assert(
-      acceptedPortion.declared_quantity_kg ? Number(acceptedPortion.declared_quantity_kg) === 8000 : false,
+      acceptedPortion.declared_quantity_value ? Number(acceptedPortion.declared_quantity_value) === 8000 : false,
       'PROD-DATA-A..E: Queue Data & Portion Calculations',
       `Accepted Portion 1 (8,000 kg) yields ~${Math.round(expectedLitersP1)} L; Rejected Portion 2 (5,000 kg) excluded from accepted sum`
     );

@@ -1,9 +1,9 @@
 import { fetchAllMilkLogs } from '../src/backend/actions/logActions';
-import { computeVehicleDecisionSummary } from '../src/backend/services/dairyCalculations';
+import { computeVehicleDecisionSummary } from '../src/backend/services/operationalReadModelService';
 import { Pool } from 'pg';
 
 const pool = new Pool({
-  connectionString: 'postgresql://postgres:rauf@localhost:5432/milk_reception_db',
+  connectionString: process.env.DATABASE_URL,
 });
 
 async function runTests() {

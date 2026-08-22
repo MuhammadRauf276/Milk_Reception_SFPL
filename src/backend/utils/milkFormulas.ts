@@ -58,3 +58,13 @@ export function calculateAt13TSLiters(physicalLiters: number, tsPercent: number)
   if (isNaN(physicalLiters) || isNaN(tsPercent) || physicalLiters <= 0) return 0;
   return (physicalLiters * tsPercent) / 13;
 }
+
+/**
+ * Calculates Informational Equivalent Mass in Kg from Volume in Liters and Density
+ * Formula: Kg = Liters * Density
+ * NOTE: Informational/derived metric ONLY for contractor liter declarations. Original liters remain authoritative.
+ */
+export function calculateEquivalentKgFromLiters(liters: number, density: number): number {
+  if (isNaN(liters) || isNaN(density) || liters <= 0) return 0;
+  return Number((liters * density).toFixed(2));
+}

@@ -43,7 +43,7 @@ export async function GET(req: Request) {
       const waitingMinutes = entryTime ? Math.max(0, Math.floor((now.getTime() - entryTime.getTime()) / (1000 * 60))) : 0;
       const portions = v.portions || [];
       const totalDeclaredKg = portions.reduce(
-        (sum, p) => sum + (p.declared_quantity_kg ? Number(p.declared_quantity_kg) : 0),
+        (sum, p) => sum + (p.declared_quantity_value ? Number(p.declared_quantity_value) : 0),
         0
       );
 

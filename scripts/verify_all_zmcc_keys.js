@@ -1,7 +1,7 @@
 const { Pool } = require('pg');
 
 const pool = new Pool({
-  connectionString: 'postgresql://postgres:rauf@localhost:5432/milk_reception_db',
+  connectionString: process.env.DATABASE_URL,
 });
 
 async function test() {

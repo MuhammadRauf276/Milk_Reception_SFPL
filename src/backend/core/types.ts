@@ -32,6 +32,12 @@ export interface User {
   zone?: string | null; // For ZMCC Zone Managers
   scope_type?: string;
   procurement_source_id?: string | null;
+  procurement_source?: {
+    id: string;
+    code: string;
+    name: string;
+    source_type: string;
+  } | null;
   last_login_at?: string | null;
 }
 

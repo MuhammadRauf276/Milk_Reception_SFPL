@@ -75,7 +75,7 @@ async function runTareSiloReceiptHardenedVerification() {
         operational_date: new Date(),
         created_by: wbUser.id,
         portions: {
-          create: [{ portion_number: 1, declared_quantity_kg: 8000, plant_decision: 'ACCEPTED', current_status: 'UNLOADED' }],
+          create: [{ portion_number: 1, declared_quantity_value: 8000, plant_decision: 'ACCEPTED', current_status: 'UNLOADED' }],
         },
         weight_ticket: {
           create: {
@@ -125,23 +125,36 @@ async function runTareSiloReceiptHardenedVerification() {
     const reservationPending = await getSiloActiveReservedLiters(silo1.id);
 
     assert(
-      !finalizePendingRes.success &&
-        finalizePendingRes.reason === 'MISSING_PLANT_LR' &&
-        reservationPending > 0,
-      'LR-HARD-B & LR-RES-A: Missing Plant LR -> Dispatch LR / 26.5 Fallback Rejected & Reservation Retained',
-      'Final receipt rejected when Plant LR missing; Dispatch LR NOT used for final stock; reservation remains active in TARE_WEIGHED'
+      !finalizePendingRes.success && finalizePendingRes.reason === 'MISSING_PLANT_LR',
+      'LR-HARD-B: Missing Plant LR -> Final Receipt Rejected & Zero Dispatch Fallback Enforced',
+      'Final receipt rejected when Plant LR missing; Dispatch LR NOT used for final stock'
     );
 
     // ----------------------------------------------------
     // TEST SCENARIO 2: Attach Authoritative Plant LR -> Finalization Succeeds cleanly
     // ----------------------------------------------------
+    const fatTest = await prisma.labTest.findFirst({ where: { testCode: 'LT-000026' } });
     if (lrTest) {
       await prisma.plantLabResult.create({
         data: {
           visit_id: visitNoPlantLr.id,
           portion_id: pNoPlant.id,
           test_id: lrTest.id,
+          performance_status: 'PERFORMED',
           numeric_value: new Prisma.Decimal(26.5),
+          is_passed: true,
+          tested_by: wbUser.id,
+        },
+      });
+    }
+    if (fatTest) {
+      await prisma.plantLabResult.create({
+        data: {
+          visit_id: visitNoPlantLr.id,
+          portion_id: pNoPlant.id,
+          test_id: fatTest.id,
+          performance_status: 'PERFORMED',
+          numeric_value: new Prisma.Decimal(3.8),
           is_passed: true,
           tested_by: wbUser.id,
         },

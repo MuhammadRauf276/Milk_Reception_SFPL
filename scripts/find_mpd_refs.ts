@@ -18,5 +18,6 @@ function searchString(dir: string, pattern: string) {
   }
 }
 
-searchString('D:\\MilkReceptionApp\\src', 'MPDFieldWorkspace');
-searchString('D:\\MilkReceptionApp\\src', 'DynamicDispatchForm');
+const srcDir = path.join(path.resolve(__dirname, '..'), 'src');
+searchString(srcDir, 'MPDFieldWorkspace');
+searchString(srcDir, 'DynamicDispatchForm');

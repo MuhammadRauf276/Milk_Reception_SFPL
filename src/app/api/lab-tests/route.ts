@@ -11,6 +11,7 @@ function serializeLabTest(test: any) {
     testScope: test.testScope,
     isRequired: test.isRequired,
     displayOrder: test.displayOrder,
+    resultOptions: test.resultOptions || null,
   };
 }
 

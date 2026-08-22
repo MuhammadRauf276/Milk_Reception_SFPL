@@ -2,6 +2,7 @@ import { prisma } from '../src/backend/core/db';
 import { NORMAL_SESSION_TTL, REMEMBERED_SESSION_TTL } from '../src/backend/core/auth';
 import bcrypt from 'bcryptjs';
 import fs from 'fs';
+import path from 'path';
 
 async function runFinalAuthAndDevSelectorTests() {
   console.log('🧪 RUNNING COMPREHENSIVE FINAL AUTH & DEV SELECTOR TEST SUITE...\n');
@@ -68,11 +69,11 @@ async function runFinalAuthAndDevSelectorTests() {
     // ====================================================
     console.log('\n--- GROUP 2: SEED PASSWORD PROTECTION & RESET MECHANISM ---');
 
-    const resetScriptContent = fs.readFileSync('D:/MilkReceptionApp/prisma/reset-dev-login-passwords.ts', 'utf-8');
+    const resetScriptContent = fs.readFileSync(path.join(process.cwd(), 'prisma/reset-dev-login-passwords.ts'), 'utf-8');
     const hasProdGuard = resetScriptContent.includes("process.env.NODE_ENV === 'production'");
     assert(hasProdGuard, 'SEED-PASS-C: Explicit dev password reset script contains production environment guard');
 
-    const seedScriptContent = fs.readFileSync('D:/MilkReceptionApp/prisma/seed.ts', 'utf-8');
+    const seedScriptContent = fs.readFileSync(path.join(process.cwd(), 'prisma/seed.ts'), 'utf-8');
     const hasSeedPassGuard = seedScriptContent.includes('RESET_DEV_PASSWORDS') && seedScriptContent.includes('!existingUser.password_hash');
     assert(hasSeedPassGuard, 'SEED-PASS-A & B: Normal seed protects existing password_hash values unless RESET_DEV_PASSWORDS=true');
 
@@ -105,7 +106,7 @@ async function runFinalAuthAndDevSelectorTests() {
     assert(NORMAL_SESSION_TTL === 43200, 'REMEMBER-TTL-A: NORMAL_SESSION_TTL is 12 hours (43,200s)');
     assert(REMEMBERED_SESSION_TTL === 2592000, 'REMEMBER-TTL-B: REMEMBERED_SESSION_TTL is 30 days (2,592,000s)');
 
-    const authFileContent = fs.readFileSync('D:/MilkReceptionApp/src/backend/core/auth.ts', 'utf-8');
+    const authFileContent = fs.readFileSync(path.join(process.cwd(), 'src/backend/core/auth.ts'), 'utf-8');
     assert(authFileContent.includes("'30d'") && authFileContent.includes("'12h'"), 'REM-01 & 02: auth.ts sets JWT expiration matching session TTL');
 
     // ====================================================
@@ -113,11 +114,11 @@ async function runFinalAuthAndDevSelectorTests() {
     // ====================================================
     console.log('\n--- GROUP 5: BUNDLE SECRET SAFETY & DEV PROFILES GATING ---');
 
-    const devProfilesRouteContent = fs.readFileSync('D:/MilkReceptionApp/src/app/api/auth/dev-profiles/route.ts', 'utf-8');
+    const devProfilesRouteContent = fs.readFileSync(path.join(process.cwd(), 'src/app/api/auth/dev-profiles/route.ts'), 'utf-8');
     const hasDoubleGating = devProfilesRouteContent.includes("process.env.NODE_ENV !== 'production'") && devProfilesRouteContent.includes("NEXT_PUBLIC_ENABLE_DEV_LOGIN_PROFILES === 'true'");
     assert(hasDoubleGating, 'DEV-LOGIN-01 & 03: dev-profiles route enforces strict double gating');
 
-    const loginPageContent = fs.readFileSync('D:/MilkReceptionApp/src/frontend/modules/auth/LoginPage.tsx', 'utf-8');
+    const loginPageContent = fs.readFileSync(path.join(process.cwd(), 'src/frontend/modules/auth/LoginPage.tsx'), 'utf-8');
     const noHardcodedSecretInClient = !loginPageContent.includes('weighbridge123') && !loginPageContent.includes('admin123');
     assert(noHardcodedSecretInClient, 'BUNDLE-SECRET-A: LoginPage.tsx client code contains zero hardcoded credential secrets');
 

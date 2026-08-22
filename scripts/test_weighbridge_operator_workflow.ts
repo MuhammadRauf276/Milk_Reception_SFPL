@@ -106,7 +106,7 @@ async function runWeighbridgeVerification() {
           create: [
             {
               portion_number: 1,
-              declared_quantity_kg: 10000,
+              declared_quantity_value: 10000,
               plant_decision: 'ACCEPTED',
               dispatch_info: {
                 create: {

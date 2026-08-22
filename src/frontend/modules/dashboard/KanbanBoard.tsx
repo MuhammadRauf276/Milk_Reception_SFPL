@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { MilkProcessLog, User, KANBAN_STAGES, Role, DEFAULT_USERS } from '@core/types';
 import { getLiveWaitStatus } from '@core/durations';
-import { computeZonalCrossVerification } from '@backend/services/dairyCalculations';
+import { computeAuthoritativeZonalAnalytics } from '@backend/services/operationalCalculations';
 import { warnDuplicateKeys } from '@/lib/key-utils';
 import { Sidebar } from '@modules/shared/Sidebar';
 import { Header } from '@modules/shared/Header';
@@ -11,11 +11,6 @@ import { IsometricIcon } from '@modules/shared/IsometricIcon';
 import { AdaptiveVehicleCard } from '@modules/cards/AdaptiveVehicleCard';
 import { LogDetailModal } from '@modules/dashboard/LogDetailModal';
 import { AuditRevertModal } from '@modules/shared/AuditRevertModal';
-import { TokenGenerationModal } from '@modules/forms/TokenGenerationModal';
-import { MPDDispatchForm } from '@modules/forms/MPDDispatchForm';
-import { QASamplingForm } from '@modules/forms/QASamplingForm';
-import { SecurityWeightForm } from '@modules/forms/SecurityWeightForm';
-import { ProductionReceptionForm } from '@modules/forms/ProductionReceptionForm';
 import { SecurityGatewayWorkspace } from '@modules/dashboard/SecurityGatewayWorkspace';
 import { MPDFieldWorkspace } from '@modules/dashboard/MPDFieldWorkspace';
 import { QALaboratoryWorkspace } from '@modules/dashboard/QALaboratoryWorkspace';
@@ -43,13 +38,6 @@ export const KanbanBoard: React.FC = () => {
   // Modals & Slideovers
   const [selectedLog, setSelectedLog] = useState<MilkProcessLog | null>(null);
   const [auditLogToInspect, setAuditLogToInspect] = useState<MilkProcessLog | null>(null);
-  const [isTokenModalOpen, setIsTokenModalOpen] = useState(false);
-  const [isDispatchModalOpen, setIsDispatchModalOpen] = useState(false);
-  
-  // Department Action Forms
-  const [qaLogToEdit, setQaLogToEdit] = useState<MilkProcessLog | null>(null);
-  const [weightLogToEdit, setWeightLogToEdit] = useState<MilkProcessLog | null>(null);
-  const [receptionLogToEdit, setReceptionLogToEdit] = useState<MilkProcessLog | null>(null);
 
   // High Volume Collapsed State map per stage
   const [expandedLanes, setExpandedLanes] = useState<Record<string, boolean>>({});
@@ -133,7 +121,7 @@ export const KanbanBoard: React.FC = () => {
   });
 
   // TOP 4 ZMCC Cross-Verification cards filter dynamically by summaryDateRange
-  const zonalAnalytics = computeZonalCrossVerification(summaryScopedLogs, targetZone);
+  const zonalAnalytics = computeAuthoritativeZonalAnalytics(summaryScopedLogs, targetZone);
 
   // Filtered dataset incorporating search queries & quick status toggles
   const filteredLogs = zoneScopedLogs.filter((log) => {
@@ -179,65 +167,12 @@ export const KanbanBoard: React.FC = () => {
   const weighbridgeBottleneckCount = zoneScopedLogs.filter((l) => l.status === 'First Weight' || l.status === 'Second Weight').length;
   const dailyDispatchesCompleted = zoneScopedLogs.filter((l) => l.status === 'Completed' && (l.dispatch_date || l.created_at.split('T')[0]) === todayStr).length;
 
-  const handleSaveDispatch = async (data: Partial<MilkProcessLog>) => {
-    const res = await fetch('/api/logs', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) throw new Error('Failed to create dispatch');
-    fetchLogs();
-  };
-
-  const handleIssueToken = async (logId: number, tokenNumber: string, igpDate: string, igpTime: string) => {
-    const res = await fetch(`/api/logs/${logId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        token_number: tokenNumber,
-        igp_date: igpDate,
-        igp_time: igpTime,
-        status: 'Token Issued',
-      }),
-    });
-    if (!res.ok) throw new Error('Failed to issue token');
-    fetchLogs();
-  };
-
-  const handleLogGateOut = async (logId: number, outTime: string) => {
-    const res = await fetch(`/api/logs/${logId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        out_from_gate_time: outTime,
-        status: 'Completed',
-      }),
-    });
-    if (!res.ok) throw new Error('Failed to clear gate out');
-    fetchLogs();
-  };
-
-  const handleUpdateLog = async (id: number, updates: Partial<MilkProcessLog>) => {
-    const res = await fetch(`/api/logs/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates),
-    });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || 'Failed to update log');
-    }
-    fetchLogs();
-  };
-
   return (
     <div className="min-h-screen w-screen overflow-x-hidden bg-[#FDFBF9] text-[#111311] flex flex-row font-sans">
       {/* Sidebar rendered only for multi-workspace roles (Manager/Admin) */}
       {!isMPDOperator && !isSecurityOperator && !isQAChemist && (
         <Sidebar
           currentUser={currentUser}
-          onOpenDispatchModal={() => setIsDispatchModalOpen(true)}
-          onOpenTokenModal={() => setIsTokenModalOpen(true)}
           activeCount={activeInPlantCount}
         />
       )}
@@ -258,15 +193,13 @@ export const KanbanBoard: React.FC = () => {
             <MPDFieldWorkspace
               logs={logs}
               currentUser={currentUser}
-              onSaveDispatch={handleSaveDispatch}
               onRefresh={fetchLogs}
             />
           ) : isSecurityOperator ? (
             /* CONDITIONAL RENDERING 2: RESTRICTED SECURITY OPERATOR WORKSPACE */
             <SecurityGatewayWorkspace
               logs={logs}
-              onIssueToken={handleIssueToken}
-              onLogGateOut={handleLogGateOut}
+              currentUser={currentUser}
             />
           ) : isQAChemist ? (
             /* CONDITIONAL RENDERING 3: DEDICATED QA CHEMIST LABORATORY WORKSPACE */
@@ -347,15 +280,6 @@ export const KanbanBoard: React.FC = () => {
                     <RefreshCw className="w-3.5 h-3.5 text-[#1E3A8A]" />
                     <span>Refresh Board</span>
                   </button>
-
-                  {(currentUser?.role === 'Correction_Officer' || currentUser?.role === 'Admin') && (
-                    <button
-                      onClick={() => setIsDispatchModalOpen(true)}
-                      className="px-4 py-2 rounded-xl bg-[#1E3A8A] hover:bg-blue-900 text-white font-extrabold text-xs shadow-sm border border-indigo-950 transition-all duration-200 ease-in-out"
-                    >
-                      + Record Dispatch
-                    </button>
-                  )}
                 </div>
               </div>
 
@@ -655,9 +579,6 @@ export const KanbanBoard: React.FC = () => {
                                     }
                                     onInspectDetails={(l) => setSelectedLog(l)}
                                     onOpenAuditHistory={(l) => setAuditLogToInspect(l)}
-                                    onOpenQASampling={(l) => setQaLogToEdit(l)}
-                                    onOpenWeight={(l) => setWeightLogToEdit(l)}
-                                    onOpenReception={(l) => setReceptionLogToEdit(l)}
                                   />
                                 );
                               });
@@ -690,41 +611,6 @@ export const KanbanBoard: React.FC = () => {
         onRollbackComplete={async () => {
           fetchLogs();
         }}
-      />
-
-      <TokenGenerationModal
-        isOpen={isTokenModalOpen}
-        onClose={() => setIsTokenModalOpen(false)}
-        dispatchedLogs={logs.filter((l) => l.status === 'Dispatched')}
-        onTokenSubmitted={handleIssueToken}
-      />
-
-      <MPDDispatchForm
-        isOpen={isDispatchModalOpen}
-        onClose={() => setIsDispatchModalOpen(false)}
-        onSave={handleSaveDispatch}
-        currentUser={currentUser}
-      />
-
-      <QASamplingForm
-        isOpen={!!qaLogToEdit}
-        onClose={() => setQaLogToEdit(null)}
-        log={qaLogToEdit}
-        onSave={handleUpdateLog}
-      />
-
-      <SecurityWeightForm
-        isOpen={!!weightLogToEdit}
-        onClose={() => setWeightLogToEdit(null)}
-        log={weightLogToEdit}
-        onSave={handleUpdateLog}
-      />
-
-      <ProductionReceptionForm
-        isOpen={!!receptionLogToEdit}
-        onClose={() => setReceptionLogToEdit(null)}
-        log={receptionLogToEdit}
-        onSave={handleUpdateLog}
       />
     </div>
   );

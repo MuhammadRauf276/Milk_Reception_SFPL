@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchAllMilkLogs, createNewDispatch } from '@backend/actions/logActions';
+import { getCurrentUser } from '@backend/core/auth';
+import { getOperationalLogs } from '@backend/services/operationalReadModelService';
 
 export async function GET(req: NextRequest) {
   try {
+    const user = await getCurrentUser(req);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized: Authentication required.' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(req.url);
     const fromDate = searchParams.get('fromDate') || undefined;
     const toDate = searchParams.get('toDate') || undefined;
@@ -18,19 +24,25 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const logs = await fetchAllMilkLogs({ fromDate, toDate, contractor, status, search });
+    const logs = await getOperationalLogs({ fromDate, toDate, contractor, status, search }, user);
     return NextResponse.json({ logs });
   } catch (err: unknown) {
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Failed to fetch logs' }, { status: 500 });
   }
 }
 
-export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json();
-    const created = await createNewDispatch(body);
-    return NextResponse.json({ log: created }, { status: 201 });
-  } catch (err: unknown) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : 'Failed to create log' }, { status: 400 });
-  }
+export async function POST() {
+  return NextResponse.json(
+    { error: 'Legacy POST /api/logs is deprecated. Use POST /api/dispatches for operational submissions.' },
+    { status: 405 }
+  );
 }
+
+export async function PATCH() {
+  return NextResponse.json(
+    { error: 'Legacy PATCH /api/logs is deprecated. Use departmental APIs for state transitions.' },
+    { status: 405 }
+  );
+}
+
+

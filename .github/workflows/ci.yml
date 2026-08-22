@@ -1,0 +1,77 @@
+﻿name: CI
+
+on:
+  push:
+    branches: [ main, develop, 'stage-**' ]
+  pull_request:
+    branches: [ main, develop, 'stage-**' ]
+
+jobs:
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgrespassword
+          POSTGRES_DB: ci_dev_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgrespassword@localhost:5432/ci_dev_db?schema=public
+      TEST_DATABASE_URL: postgresql://postgres:postgrespassword@localhost:5432/ci_test_db?schema=public
+      JWT_SECRET: ci-dummy-jwt-secret-for-testing-only-12345
+      NODE_ENV: test
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Apply tracked Prisma migrations to CI database
+        run: npx prisma migrate deploy
+
+      - name: Seed CI development & operational data
+        run: |
+          npx prisma db seed
+          npx tsx scripts/seed_demo_operational_data.ts
+
+      - name: Setup disposable CI test database
+        run: npm run test:db:setup
+
+      - name: Validate Prisma schema and migration status
+        run: |
+          npx prisma validate
+          npx prisma migrate status
+
+      - name: Run TypeScript typecheck
+        run: npm run typecheck
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Run Vitest test suites (Unit & Integration)
+        run: npm run test
+
+      - name: Run Legacy regression suites
+        run: npm run test:legacy
+
+      - name: Run Next.js production build
+        run: npm run build

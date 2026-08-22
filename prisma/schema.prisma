@@ -74,9 +74,11 @@ model VehicleVisit {
   qa_session           QATestingSession?
   inventory_transactions SiloInventoryTransaction[]
   qa_warnings          QAWarning[]
+  test_assignments     LabTestAssignment[]
 
   @@index([current_status, created_at])
   @@index([created_at])
+  @@index([procurement_source_id, created_at])
   @@map("vehicle_visit")
 }
 
@@ -85,7 +87,8 @@ model VisitPortion {
   visit_id               BigInt    @map("visit_id")
   portion_number         Int       @map("portion_number") @db.SmallInt
   current_status         String    @default("DISPATCHED") @map("current_status") @db.VarChar(255)
-  declared_quantity_kg   Decimal?  @map("declared_quantity_kg") @db.Decimal(10, 2)
+  declared_quantity_value Decimal?  @map("declared_quantity_value") @db.Decimal(10, 2)
+  declared_quantity_unit  String    @default("KG") @map("declared_quantity_unit") @db.VarChar(20)
   plant_decision         String?   @map("plant_decision") @db.VarChar(255)
   plant_rejection_reason String?   @map("plant_rejection_reason") @db.Text
   plant_decided_by       BigInt?   @map("plant_decided_by")
@@ -109,13 +112,16 @@ model VisitPortion {
 }
 
 model DispatchInfo {
-  id                 BigInt    @id @default(autoincrement())
-  portion_id         BigInt    @unique @map("portion_id")
-  dispatch_number    String?   @map("dispatch_number") @db.VarChar(255)
-  dispatch_timestamp DateTime? @map("dispatch_timestamp") @db.Timestamp(6)
-  recorded_by        BigInt?   @map("recorded_by")
-  created_at         DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
-  updated_at         DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
+  id                       BigInt    @id @default(autoincrement())
+  portion_id               BigInt    @unique @map("portion_id")
+  dispatch_number          String?   @map("dispatch_number") @db.VarChar(255)
+  dispatch_timestamp       DateTime? @map("dispatch_timestamp") @db.Timestamp(6)
+  dispatch_testing_mode    String?   @default("FULL") @map("dispatch_testing_mode") @db.VarChar(50)
+  dispatch_testing_reason  String?   @map("dispatch_testing_reason") @db.Text
+  dispatch_testing_remarks String?   @map("dispatch_testing_remarks") @db.Text
+  recorded_by              BigInt?   @map("recorded_by")
+  created_at               DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at               DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
 
   // Relations
   portion  VisitPortion @relation(fields: [portion_id], references: [id], onDelete: Cascade)
@@ -154,14 +160,16 @@ model LabTest {
   isRequired   Boolean  @default(true) @map("is_required")
   isActive     Boolean  @default(true) @map("is_active")
   displayOrder Int      @default(0) @map("display_order")
+  resultOptions Json?   @map("result_options")
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   // Relations
-  dispatchResults DispatchLabResult[]
-  plantResults    PlantLabResult[]
-  testRules       LabTestRule[]
-  qa_warnings     QAWarning[]
+  dispatchResults  DispatchLabResult[]
+  plantResults     PlantLabResult[]
+  testRules        LabTestRule[]
+  qa_warnings      QAWarning[]
+  test_assignments LabTestAssignment[]
 
   @@index([testScope, isActive, displayOrder])
   @@map("lab_test")
@@ -208,18 +216,20 @@ model ProcurementSource {
 }
 
 model DispatchLabResult {
-  id               BigInt    @id @default(autoincrement())
-  visit_id         BigInt    @map("visit_id")
-  portion_id       BigInt    @map("portion_id")
-  test_id          BigInt    @map("test_id")
-  sample_timestamp DateTime? @map("sample_timestamp") @db.Timestamp(6)
-  result_timestamp DateTime? @map("result_timestamp") @db.Timestamp(6)
-  numeric_value    Decimal?  @map("numeric_value") @db.Decimal(10, 2)
-  text_value       String?   @map("text_value") @db.VarChar(255)
-  is_passed        Boolean?  @map("is_passed")
-  tested_by        BigInt?   @map("tested_by")
-  created_at       DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
-  updated_at       DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
+  id                   BigInt    @id @default(autoincrement())
+  visit_id             BigInt    @map("visit_id")
+  portion_id           BigInt    @map("portion_id")
+  test_id              BigInt    @map("test_id")
+  sample_timestamp     DateTime? @map("sample_timestamp") @db.Timestamp(6)
+  result_timestamp     DateTime? @map("result_timestamp") @db.Timestamp(6)
+  numeric_value        Decimal?  @map("numeric_value") @db.Decimal(10, 2)
+  text_value           String?   @map("text_value") @db.VarChar(255)
+  performance_status   String    @default("PERFORMED") @map("performance_status") @db.VarChar(50)
+  not_performed_reason String?   @map("not_performed_reason") @db.Text
+  is_passed            Boolean?  @map("is_passed")
+  tested_by            BigInt?   @map("tested_by")
+  created_at           DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at           DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
 
   // Relations
   visit    VehicleVisit @relation(fields: [visit_id], references: [id], onDelete: Cascade)
@@ -233,18 +243,20 @@ model DispatchLabResult {
 }
 
 model PlantLabResult {
-  id               BigInt    @id @default(autoincrement())
-  visit_id         BigInt    @map("visit_id")
-  portion_id       BigInt    @map("portion_id")
-  test_id          BigInt    @map("test_id")
-  sample_timestamp DateTime? @map("sample_timestamp") @db.Timestamp(6)
-  result_timestamp DateTime? @map("result_timestamp") @db.Timestamp(6)
-  numeric_value    Decimal?  @map("numeric_value") @db.Decimal(10, 2)
-  text_value       String?   @map("text_value") @db.VarChar(255)
-  is_passed        Boolean?  @map("is_passed")
-  tested_by        BigInt?   @map("tested_by")
-  created_at       DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
-  updated_at       DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
+  id                   BigInt    @id @default(autoincrement())
+  visit_id             BigInt    @map("visit_id")
+  portion_id           BigInt    @map("portion_id")
+  test_id              BigInt    @map("test_id")
+  sample_timestamp     DateTime? @map("sample_timestamp") @db.Timestamp(6)
+  result_timestamp     DateTime? @map("result_timestamp") @db.Timestamp(6)
+  numeric_value        Decimal?  @map("numeric_value") @db.Decimal(10, 2)
+  text_value           String?   @map("text_value") @db.VarChar(255)
+  performance_status   String    @default("PERFORMED") @map("performance_status") @db.VarChar(50)
+  not_performed_reason String?   @map("not_performed_reason") @db.Text
+  is_passed            Boolean?  @map("is_passed")
+  tested_by            BigInt?   @map("tested_by")
+  created_at           DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at           DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
 
   // Relations
   visit    VehicleVisit @relation(fields: [visit_id], references: [id], onDelete: Cascade)
@@ -448,3 +460,28 @@ model QAWarning {
   @@index([procurement_source_id, created_at])
   @@map("qa_warning")
 }
+
+model LabTestAssignment {
+  id                     BigInt   @id @default(autoincrement())
+  visit_id               BigInt   @map("visit_id")
+  workflow               String   @db.VarChar(50) // DISPATCH or PLANT_QA
+  test_id                BigInt   @map("test_id")
+  test_code_snapshot     String   @map("test_code_snapshot") @db.VarChar(50)
+  test_name_snapshot     String   @map("test_name_snapshot") @db.VarChar(150)
+  result_type_snapshot   String   @map("result_type_snapshot") @db.VarChar(20)
+  unit_snapshot          String?  @map("unit_snapshot") @db.VarChar(30)
+  test_scope_snapshot    String?  @map("test_scope_snapshot") @db.VarChar(20)
+  is_required_snapshot   Boolean  @default(true) @map("is_required_snapshot")
+  display_order_snapshot Int      @default(0) @map("display_order_snapshot")
+  result_options_snapshot Json?   @map("result_options_snapshot")
+  assigned_at            DateTime @default(now()) @map("assigned_at") @db.Timestamp(6)
+
+  // Relations
+  visit    VehicleVisit @relation(fields: [visit_id], references: [id], onDelete: Cascade)
+  lab_test LabTest      @relation(fields: [test_id], references: [id])
+
+  @@unique([visit_id, workflow, test_id])
+  @@index([visit_id, workflow])
+  @@map("lab_test_assignment")
+}
+

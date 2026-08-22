@@ -288,8 +288,8 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
 
                   <div className="grid grid-cols-2 gap-2 p-2 rounded-lg bg-[#F4EFE3] border border-[#C4B9A3] text-[10.5px] font-mono font-bold">
                     <div>
-                      <span className="text-slate-500 font-sans block text-[9px]">Total Volume</span>
-                      <span>{log.total_declared_kg.toLocaleString()} KG</span>
+                      <span className="text-slate-500 font-sans block text-[9px]">Total Quantity</span>
+                      <span>{log.total_declared_kg.toLocaleString()} {(log as any).declared_quantity_unit === 'LITER' ? 'L' : 'KG'}</span>
                     </div>
                     <div>
                       <span className="text-slate-500 font-sans block text-[9px]">Date</span>

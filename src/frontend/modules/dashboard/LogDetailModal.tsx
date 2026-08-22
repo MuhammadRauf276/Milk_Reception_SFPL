@@ -96,19 +96,19 @@ export const LogDetailModal: React.FC<LogDetailModalProps> = ({
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-black font-black">
                 <div>
                   <span className="text-slate-600 text-[10px] font-sans font-bold block">Dispatch Date/Time</span>
-                  <span className="text-black">{log.dispatch_date || 'N/A'} {log.zonal_contractor_dispatch_time || ''}</span>
+                  <span className="text-black">{log.dispatch_date || '—'} {log.zonal_contractor_dispatch_time || ''}</span>
                 </div>
                 <div>
                   <span className="text-slate-600 text-[10px] font-sans font-bold block">Gross Liters</span>
-                  <span className="text-black">{log.dispatch_liters_gross || 0} L</span>
+                  <span className="text-black">{log.dispatch_liters_gross != null ? `${log.dispatch_liters_gross.toLocaleString()} L` : '—'}</span>
                 </div>
                 <div>
                   <span className="text-slate-600 text-[10px] font-sans font-bold block">Dispatch Fat / LR</span>
-                  <span className="text-black">{log.dispatch_fat || 0}% / {log.dispatch_lr || 0}</span>
+                  <span className="text-black">{log.dispatch_fat != null ? `${log.dispatch_fat}%` : '—'} / {log.dispatch_lr != null ? `${log.dispatch_lr}` : '—'}</span>
                 </div>
                 <div>
-                  <span className="text-slate-600 text-[10px] font-sans font-bold block">Dynamic SNF / 13% TS</span>
-                  <span className="text-black">{log.computed_dispatch_snf || 0}% / {log.computed_dispatch_13ts_liters || 0} L</span>
+                  <span className="text-slate-600 text-[10px] font-sans font-bold block">SNF % / 13 TS</span>
+                  <span className="text-black">{log.computed_dispatch_snf != null ? `${log.computed_dispatch_snf}%` : '—'} / {log.computed_dispatch_13ts_liters != null ? `${log.computed_dispatch_13ts_liters.toLocaleString()} L` : '—'}</span>
                 </div>
               </div>
             </div>
@@ -126,7 +126,7 @@ export const LogDetailModal: React.FC<LogDetailModalProps> = ({
                 </div>
                 <div>
                   <span className="text-slate-600 text-[10px] font-sans font-bold block">IGP Timestamp</span>
-                  <span className="text-black">{log.igp_date || ''} {log.igp_time || 'N/A'}</span>
+                  <span className="text-black">{log.igp_date || ''} {log.igp_time || '—'}</span>
                 </div>
                 <div>
                   <span className="text-slate-600 text-[10px] font-sans font-bold block">Gate Out Timestamp</span>
@@ -148,20 +148,20 @@ export const LogDetailModal: React.FC<LogDetailModalProps> = ({
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-black font-black">
                 <div>
                   <span className="text-slate-600 text-[10px] font-sans font-bold block">Lab Fat / LR</span>
-                  <span className="text-black">{log.sampling_fat || log.dispatch_fat || 0}% / {log.sampling_lr || log.dispatch_lr || 0}</span>
+                  <span className="text-black">{log.sampling_fat != null ? `${log.sampling_fat}%` : '—'} / {log.sampling_lr != null ? `${log.sampling_lr}` : '—'}</span>
                 </div>
                 <div>
                   <span className="text-slate-600 text-[10px] font-sans font-bold block">SNF % / TS %</span>
-                  <span className="text-black">{log.computed_sampling_snf || log.computed_dispatch_snf || 0}% / {log.computed_sampling_ts || log.computed_dispatch_ts || 0}%</span>
+                  <span className="text-black">{log.computed_sampling_snf != null ? `${log.computed_sampling_snf}%` : '—'} / {log.computed_sampling_ts != null ? `${log.computed_sampling_ts}%` : '—'}</span>
                 </div>
                 <div>
                   <span className="text-slate-600 text-[10px] font-sans font-bold block">MBRT Minutes</span>
-                  <span className="text-black">{log.b_mbrt_minutes_test || 0} mins</span>
+                  <span className="text-black">{log.b_mbrt_minutes_test != null ? `${log.b_mbrt_minutes_test} mins` : '—'}</span>
                 </div>
                 <div>
                   <span className="text-slate-600 text-[10px] font-sans font-bold block">QA Disposition</span>
                   <span className={isQARejected ? 'text-[#991B1B] font-black' : 'text-[#166534] font-black'}>
-                    {log.calculated_status || 'Accepted'}
+                    {log.calculated_status || 'PENDING'}
                   </span>
                 </div>
               </div>
@@ -175,24 +175,24 @@ export const LogDetailModal: React.FC<LogDetailModalProps> = ({
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-black font-black">
                 <div>
-                  <span className="text-slate-600 text-[10px] font-sans font-bold block">1st Weight (Gross)</span>
-                  <span className="text-black">{log.first_weight_of_vehicle || 0} KG</span>
+                  <span className="text-slate-600 text-[10px] font-sans font-bold block">Gross Weight</span>
+                  <span className="text-black">{log.first_weight_of_vehicle != null ? `${log.first_weight_of_vehicle.toLocaleString()} KG` : '—'}</span>
                 </div>
                 <div>
-                  <span className="text-slate-600 text-[10px] font-sans font-bold block">2nd Weight (Tare)</span>
-                  <span className="text-black">{log.second_weight_of_vehicle || 0} KG</span>
+                  <span className="text-slate-600 text-[10px] font-sans font-bold block">Second Weight</span>
+                  <span className="text-black">{log.second_weight_of_vehicle != null ? `${log.second_weight_of_vehicle.toLocaleString()} KG` : '—'}</span>
                 </div>
                 <div>
-                  <span className="text-slate-600 text-[10px] font-sans font-bold block">Net Milk Weight</span>
-                  <span className="text-[#1E3A8A] font-black">{log.computed_net_milk_weight || 0} KG</span>
+                  <span className="text-slate-600 text-[10px] font-sans font-bold block">Net Milk Received</span>
+                  <span className="text-[#1E3A8A] font-black">{log.computed_net_milk_weight != null ? `${log.computed_net_milk_weight.toLocaleString()} KG` : '—'}</span>
                 </div>
                 <div>
-                  <span className="text-slate-600 text-[10px] font-sans font-bold block">Computed Plant Liters</span>
-                  <span className="text-[#166534] font-black">{log.computed_plant_liters || log.dispatch_liters_gross || 0} L</span>
+                  <span className="text-slate-600 text-[10px] font-sans font-bold block">Physical Liters</span>
+                  <span className="text-[#166534] font-black">{log.computed_plant_liters != null ? `${log.computed_plant_liters.toLocaleString()} L` : '—'}</span>
                 </div>
                 <div>
-                  <span className="text-slate-600 text-[10px] font-sans font-bold block">Plant 13% TS Liters</span>
-                  <span className="text-[#6B21A8] font-black">{log.computed_plant_13ts_liters || 0} L</span>
+                  <span className="text-slate-600 text-[10px] font-sans font-bold block">13 TS</span>
+                  <span className="text-[#6B21A8] font-black">{log.computed_plant_13ts_liters != null ? `${log.computed_plant_13ts_liters.toLocaleString()} L` : '—'}</span>
                 </div>
               </div>
             </div>
@@ -207,15 +207,15 @@ export const LogDetailModal: React.FC<LogDetailModalProps> = ({
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-black font-black">
                   <div>
                     <span className="text-slate-600 text-[10px] font-sans font-bold block">Storage Silo ID</span>
-                    <span className="text-[#1E3A8A] font-black">{log.silo_storage_id || 'Silo #3 / Tank A'}</span>
+                    <span className="text-[#1E3A8A] font-black">{log.silo_storage_id || '—'}</span>
                   </div>
                   <div>
                     <span className="text-slate-600 text-[10px] font-sans font-bold block">Reception Start/End</span>
-                    <span className="text-black">{log.reception_start_time || 'N/A'} - {log.reception_end_time || 'N/A'}</span>
+                    <span className="text-black">{log.reception_start_time || '—'} - {log.reception_end_time || '—'}</span>
                   </div>
                   <div>
                     <span className="text-slate-600 text-[10px] font-sans font-bold block">Unloading Duration</span>
-                    <span className="text-black">{durations.unloadingDuration || 'N/A'}</span>
+                    <span className="text-black">{durations.unloadingDuration || '—'}</span>
                   </div>
                 </div>
               </div>

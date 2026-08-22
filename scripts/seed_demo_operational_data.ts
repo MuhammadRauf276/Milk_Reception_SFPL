@@ -216,7 +216,7 @@ export async function seedOperationalData() {
         data: {
           visit_id: visit.id,
           portion_number: pIdx,
-          declared_quantity_kg: portionKg,
+          declared_quantity_value: portionKg,
           current_status: portionStatus,
           plant_decision: targetStatus === 'TOKEN_ISSUED' || targetStatus === 'PLANT_QA' ? 'PENDING' : portionDecision,
           plant_rejection_reason: portionDecision === 'REJECTED' ? 'COB Positive & High Acidity. Off-flavor detected during organoleptic testing.' : null,

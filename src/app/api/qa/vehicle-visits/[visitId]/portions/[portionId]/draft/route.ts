@@ -3,12 +3,13 @@ import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
 import { saveQADraftSchema } from '@/lib/validations/qa';
 import { evaluateLabResult } from '@/lib/lab-rules';
+import { getOrAssignPlantQATests } from '@/backend/services/labTestAssignmentService';
 
 export async function PUT(
   req: Request,
   { params }: { params: Promise<{ visitId: string; portionId: string }> }
 ) {
-  const authUser = await getCurrentUser();
+  const authUser = await getCurrentUser(req);
   if (!authUser) {
     return NextResponse.json({ error: 'Unauthorized. Authentication required.' }, { status: 401 });
   }
@@ -23,7 +24,7 @@ export async function PUT(
     },
   });
 
-  const allowedRoles = ['QA_Operator', 'QA', 'QA_Manager', 'Admin', 'Correction_Officer'];
+  const allowedRoles = ['QA_Operator', 'QA', 'QA_Manager', 'Admin', 'SUPER_ADMIN', 'Correction_Officer'];
   if (!dbUser || !allowedRoles.includes(dbUser.role)) {
     return NextResponse.json({ error: 'Unauthorized. QA Chemist or QA Manager role required.' }, { status: 403 });
   }
@@ -52,18 +53,15 @@ export async function PUT(
       return NextResponse.json({ error: 'Portion testing has already been completed and finalized.' }, { status: 400 });
     }
 
-    // Fetch lab test definitions for evaluation
-    const testIds = validated.results.map((r) => BigInt(r.testId));
-    const testDefs = await prisma.labTest.findMany({
-      where: { id: { in: testIds } },
-    });
-    const testDefMap = new Map(testDefs.map((t) => [t.id.toString(), t]));
-
     const now = new Date();
 
     // Prisma Transaction for saving draft
     await prisma.$transaction(async (tx) => {
-      // 1. Update portion status
+      // Fetch or assign snapshot for this visit
+      const assignedTests = await getOrAssignPlantQATests(tx, visitId);
+      const testDefMap = new Map(assignedTests.map((t) => [t.test_id.toString(), t]));
+
+      // 1. Update portion status to UNDER_TEST (does not finalize)
       await tx.visitPortion.update({
         where: { id: portionId },
         data: {
@@ -72,23 +70,43 @@ export async function PUT(
         },
       });
 
-      // Update visit current status if Dispatched or Token Issued
+      // Update visit current status
       await tx.vehicleVisit.update({
         where: { id: visitId },
         data: { current_status: 'LAB' },
       });
 
-      // 2. Upsert draft PlantLabResult rows
+      // 2. Upsert draft PlantLabResult rows with full performance tracking
       for (const res of validated.results) {
         const testDef = testDefMap.get(res.testId);
         if (!testDef) continue;
 
-        const numVal = res.numericValue !== undefined && res.numericValue !== null ? res.numericValue : null;
-        const textVal = res.textValue ? res.textValue.trim() : null;
+        const performanceStatus = res.performanceStatus || 'PERFORMED';
+        const notPerformedReason = performanceStatus === 'NOT_PERFORMED'
+          ? (res.notPerformedReason?.trim() || null)
+          : null;
 
-        const evalRes = evaluateLabResult(testDef.testCode, numVal, textVal, 'PLANT');
+        // For NOT_PERFORMED: numeric_value and text_value are null; is_passed is null
+        const numVal = performanceStatus === 'PERFORMED'
+          ? (res.numericValue !== undefined && res.numericValue !== null ? res.numericValue : null)
+          : null;
+        const textVal = performanceStatus === 'PERFORMED'
+          ? (res.textValue ? res.textValue.trim() : null)
+          : null;
 
-        // Check if existing record
+        let isPassed: boolean | null = null;
+        if (performanceStatus === 'PERFORMED') {
+          const snapshotOptions = (testDef.result_options_snapshot as any[]) || null;
+          const evalRes = evaluateLabResult(
+            testDef.test_code_snapshot,
+            numVal,
+            textVal,
+            testDef.result_type_snapshot || 'PLANT',
+            snapshotOptions
+          );
+          isPassed = evalRes.isPassed;
+        }
+
         const existing = await tx.plantLabResult.findFirst({
           where: { portion_id: portionId, test_id: BigInt(res.testId) },
         });
@@ -98,9 +116,11 @@ export async function PUT(
             where: { id: existing.id },
             data: {
               result_timestamp: now,
+              performance_status: performanceStatus,
+              not_performed_reason: notPerformedReason,
               numeric_value: numVal,
               text_value: textVal,
-              is_passed: evalRes.isPassed,
+              is_passed: isPassed,
               tested_by: userIdBigInt,
             },
           });
@@ -112,9 +132,11 @@ export async function PUT(
               test_id: BigInt(res.testId),
               sample_timestamp: now,
               result_timestamp: now,
+              performance_status: performanceStatus,
+              not_performed_reason: notPerformedReason,
               numeric_value: numVal,
               text_value: textVal,
-              is_passed: evalRes.isPassed,
+              is_passed: isPassed,
               tested_by: userIdBigInt,
             },
           });

@@ -36,5 +36,6 @@ function searchStatuses(dir: string) {
 }
 
 console.log('Auditing codebase for workflow status usages...\n');
-searchStatuses('D:\\MilkReceptionApp\\src');
-searchStatuses('D:\\MilkReceptionApp\\prisma');
+const repoRoot = path.resolve(__dirname, '..');
+searchStatuses(path.join(repoRoot, 'src'));
+searchStatuses(path.join(repoRoot, 'prisma'));

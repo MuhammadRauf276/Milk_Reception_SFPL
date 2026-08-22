@@ -34,10 +34,24 @@ export async function GET(
 
     const acceptedPortions = v.portions.filter((p) => p.plant_decision === 'ACCEPTED');
     const rejectedPortions = v.portions.filter((p) => p.plant_decision === 'REJECTED');
-    const totalAcceptedDeclaredKg = acceptedPortions.reduce(
-      (sum, p) => sum + (p.declared_quantity_kg ? Number(p.declared_quantity_kg) : 0),
-      0
-    );
+    
+    // Unit-safe declared total across accepted portions
+    const acceptedUnits = new Set(acceptedPortions.map((p) => (p.declared_quantity_unit || 'KG').toUpperCase()));
+    let totalAcceptedDeclaredValue: number | null = null;
+    let totalAcceptedDeclaredUnit: string | null = null;
+
+    if (acceptedPortions.length > 0) {
+      if (acceptedUnits.size === 1) {
+        totalAcceptedDeclaredUnit = Array.from(acceptedUnits)[0];
+        totalAcceptedDeclaredValue = acceptedPortions.reduce(
+          (sum, p) => sum + (p.declared_quantity_value ? Number(p.declared_quantity_value) : 0),
+          0
+        );
+      } else {
+        totalAcceptedDeclaredUnit = 'MIXED';
+        totalAcceptedDeclaredValue = null;
+      }
+    }
 
     const formatted = {
       id: String(v.id),
@@ -51,11 +65,13 @@ export async function GET(
       portion_count: v.portions.length,
       accepted_portion_count: acceptedPortions.length,
       rejected_portion_count: rejectedPortions.length,
-      total_accepted_declared_kg: totalAcceptedDeclaredKg,
+      total_accepted_declared_value: totalAcceptedDeclaredValue,
+      total_accepted_declared_unit: totalAcceptedDeclaredUnit,
       portions: v.portions.map((p) => ({
         id: String(p.id),
         portion_number: p.portion_number,
-        declared_quantity_kg: p.declared_quantity_kg ? Number(p.declared_quantity_kg) : 0,
+        declared_quantity_value: p.declared_quantity_value !== null && p.declared_quantity_value !== undefined ? Number(p.declared_quantity_value) : null,
+        declared_quantity_unit: (p.declared_quantity_unit || 'KG').toUpperCase(),
         plant_decision: p.plant_decision || 'PENDING',
         plant_rejection_reason: p.plant_rejection_reason || null,
         current_status: p.current_status,

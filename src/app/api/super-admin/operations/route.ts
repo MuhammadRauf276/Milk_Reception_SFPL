@@ -72,7 +72,7 @@ export async function GET(req: Request) {
         id: p.id.toString(),
         portionNumber: p.portion_number,
         contractorName: `Portion #${p.portion_number}`,
-        grossLiters: p.declared_quantity_kg ? Number(p.declared_quantity_kg) : null,
+        grossLiters: p.declared_quantity_value ? Number(p.declared_quantity_value) : null,
         plantDecision: p.plant_decision,
         rejectionReason: p.plant_rejection_reason,
         unloadingLog: p.unloading_log
@@ -82,7 +82,7 @@ export async function GET(req: Request) {
               status: p.unloading_log.pump_end_timestamp ? 'COMPLETED' : 'IN_PROGRESS',
               startTimestamp: p.unloading_log.pump_start_timestamp ? p.unloading_log.pump_start_timestamp.toISOString() : null,
               completeTimestamp: p.unloading_log.pump_end_timestamp ? p.unloading_log.pump_end_timestamp.toISOString() : null,
-              litersUnloaded: p.declared_quantity_kg ? Number(p.declared_quantity_kg) : null,
+              litersUnloaded: p.declared_quantity_value ? Number(p.declared_quantity_value) : null,
             }
           : null,
       })),

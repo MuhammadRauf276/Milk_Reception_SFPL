@@ -60,15 +60,27 @@ export async function verifySessionToken(token: string): Promise<User | null> {
 /**
  * Next.js 15 Asynchronous Cookies Helper
  */
-export async function getCurrentUser(): Promise<User | null> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get('auth_token')?.value;
-
-  if (!token) {
-    return null;
+export async function getCurrentUser(req?: Request): Promise<User | null> {
+  if (req) {
+    const cookieHeader = req.headers.get('cookie') || '';
+    const tokenMatch = cookieHeader.match(/auth_token=([^;]+)/);
+    if (tokenMatch && tokenMatch[1]) {
+      return await verifySessionToken(tokenMatch[1]);
+    }
+    const authHeader = req.headers.get('authorization') || '';
+    if (authHeader.startsWith('Bearer ')) {
+      return await verifySessionToken(authHeader.substring(7));
+    }
   }
 
-  return await verifySessionToken(token);
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth_token')?.value;
+    if (!token) return null;
+    return await verifySessionToken(token);
+  } catch (_err) {
+    return null;
+  }
 }
 
 /**

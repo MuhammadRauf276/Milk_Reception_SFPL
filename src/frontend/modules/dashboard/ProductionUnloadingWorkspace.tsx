@@ -20,16 +20,17 @@ interface SiloOption {
 interface PortionDef {
   id: string;
   portion_number: number;
-  declared_quantity_kg: number;
+  declared_quantity_value: number | null;
+  declared_quantity_unit?: string;
   plant_decision: 'ACCEPTED' | 'REJECTED' | 'PENDING';
   plant_rejection_reason: string | null;
   current_status: string;
-  lr: number;
-  fat: number;
-  snf?: number;
-  ts?: number;
-  expected_physical_liters: number;
-  expected_at13_ts_liters: number;
+  lr: number | null;
+  fat: number | null;
+  snf?: number | null;
+  ts?: number | null;
+  expected_physical_liters: number | null;
+  expected_at13_ts_liters: number | null;
   unloading_log?: {
     id: string;
     silo_id: string | null;
@@ -52,9 +53,10 @@ interface ReadyVisitDef {
   portion_count: number;
   accepted_portion_count: number;
   rejected_portion_count: number;
-  total_accepted_kg: number;
-  total_accepted_physical_liters: number;
-  total_accepted_at13_ts_liters: number;
+  total_accepted_declared_value: number | null;
+  total_accepted_declared_unit: string | null;
+  total_accepted_physical_liters: number | null;
+  total_accepted_at13_ts_liters: number | null;
   waiting_minutes: number;
   portions: PortionDef[];
 }
@@ -69,9 +71,10 @@ interface UnloadingVisitDef {
   portion_count: number;
   accepted_portion_count: number;
   rejected_portion_count: number;
-  total_accepted_kg: number;
-  total_accepted_physical_liters: number;
-  total_accepted_at13_ts_liters: number;
+  total_accepted_declared_value: number | null;
+  total_accepted_declared_unit: string | null;
+  total_accepted_physical_liters: number | null;
+  total_accepted_at13_ts_liters: number | null;
   started_at: string | null;
   started_by_name: string;
   elapsed_minutes: number;
@@ -610,7 +613,7 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
                       </div>
                       <div>
                         <span className="text-gray-500 font-sans block text-[11px]">Expected Volume:</span>
-                        <span className="font-bold text-amber-700">~{v.total_accepted_physical_liters.toLocaleString()} L</span>
+                        <span className="font-bold text-amber-700">{v.total_accepted_physical_liters !== null ? `~${v.total_accepted_physical_liters.toLocaleString()} L` : '—'}</span>
                       </div>
                     </div>
                   </div>
@@ -654,7 +657,7 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
                     <div className="grid grid-cols-2 gap-2 text-xs bg-gray-50 p-2.5 rounded-lg border border-gray-100 font-mono">
                       <div>
                         <span className="text-gray-500 font-sans block text-[11px]">Unloading Volume:</span>
-                        <span className="font-bold text-amber-900">~{v.total_accepted_physical_liters.toLocaleString()} L</span>
+                        <span className="font-bold text-amber-900">{v.total_accepted_physical_liters !== null ? `~${v.total_accepted_physical_liters.toLocaleString()} L` : '—'}</span>
                       </div>
                       <div>
                         <span className="text-gray-500 font-sans block text-[11px]">Started By:</span>
@@ -736,9 +739,11 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
                   {selectedReadyVisit.portions.filter((p) => p.plant_decision === 'ACCEPTED').map((p) => (
                     <div key={p.id} className="p-4 bg-gray-50 rounded-xl border border-gray-200 space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="font-bold text-gray-900 text-sm">Portion #{p.portion_number} ({p.declared_quantity_kg.toLocaleString()} kg)</span>
+                        <span className="font-bold text-gray-900 text-sm">
+                          Portion #{p.portion_number} ({p.declared_quantity_value !== null ? p.declared_quantity_value.toLocaleString() : '—'} {p.declared_quantity_unit === 'LITER' ? 'L' : 'kg'})
+                        </span>
                         <span className="text-xs font-mono font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded">
-                          Expected: ~{p.expected_physical_liters.toLocaleString()} L
+                          Expected: {p.expected_physical_liters !== null ? `~${p.expected_physical_liters.toLocaleString()} L` : '—'}
                         </span>
                       </div>
 
@@ -766,7 +771,7 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
                 {/* Operational Timestamp */}
                 <div className="space-y-1.5">
                   <label className="block text-xs font-bold text-gray-700">
-                    Unloading Start Operational Date & Time <span className="text-rose-600">*</span>
+                    Unloading Start Time <span className="text-rose-600">*</span>
                   </label>
                   <input
                     type="datetime-local"
@@ -814,11 +819,13 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
                   {selectedUnloadingVisit.portions.filter((p) => p.plant_decision === 'ACCEPTED').map((p) => (
                     <div key={p.id} className="p-4 bg-emerald-50/50 rounded-xl border border-emerald-200 flex items-center justify-between text-xs">
                       <div>
-                        <span className="font-bold text-gray-900 block">Portion #{p.portion_number} ({p.declared_quantity_kg.toLocaleString()} kg)</span>
+                        <span className="font-bold text-gray-900 block">
+                          Portion #{p.portion_number} ({p.declared_quantity_value !== null ? p.declared_quantity_value.toLocaleString() : '—'} {p.declared_quantity_unit === 'LITER' ? 'L' : 'kg'})
+                        </span>
                         <span className="text-gray-600">Assigned Silo: <strong className="text-emerald-900 font-bold">{p.unloading_log?.silo_code || p.unloading_log?.silo_number || 'Silo 1'}</strong></span>
                       </div>
                       <span className="font-mono font-bold text-emerald-800">
-                        ~{p.expected_physical_liters.toLocaleString()} L
+                        {p.expected_physical_liters !== null ? `~${p.expected_physical_liters.toLocaleString()} L` : '—'}
                       </span>
                     </div>
                   ))}
@@ -827,7 +834,7 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
                 {/* Operational Timestamp */}
                 <div className="space-y-1.5">
                   <label className="block text-xs font-bold text-gray-700">
-                    Unloading Complete Operational Date & Time <span className="text-rose-600">*</span>
+                    Unloading Complete Time <span className="text-rose-600">*</span>
                   </label>
                   <input
                     type="datetime-local"

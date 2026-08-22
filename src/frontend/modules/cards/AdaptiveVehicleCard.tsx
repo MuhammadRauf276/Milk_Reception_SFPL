@@ -138,24 +138,27 @@ export const AdaptiveVehicleCard: React.FC<AdaptiveVehicleCardProps> = ({
           <>
             <div>
               <span className="text-slate-500 font-sans block text-[9px]">Gross Liters</span>
-              <span>{log.dispatch_liters_gross || 0} L</span>
+              <span>{log.dispatch_liters_gross != null ? `${log.dispatch_liters_gross.toLocaleString()} L` : '—'}</span>
             </div>
             <div>
-              <span className="text-slate-500 font-sans block text-[9px]">Sched Arrival</span>
-              <span>{log.scheduled_arrival_time || '08:30'}</span>
+              <span className="text-slate-500 font-sans block text-[9px]">Dispatch Time</span>
+              <span>{log.zonal_contractor_dispatch_time || '—'}</span>
             </div>
             <div>
               <span className="text-slate-500 font-sans block text-[9px]">Dispatch Fat/SNF</span>
-              <span>{log.dispatch_fat || 0}% / {log.computed_dispatch_snf || 0}%</span>
+              <span>
+                {log.dispatch_fat != null ? `${log.dispatch_fat}%` : '—'} /{' '}
+                {log.computed_dispatch_snf != null ? `${log.computed_dispatch_snf}%` : '—'}
+              </span>
             </div>
             <div>
-              <span className="text-slate-500 font-sans block text-[9px]">13% TS Eq Liters</span>
-              <span>{log.computed_dispatch_13ts_liters || 0} L</span>
+              <span className="text-slate-500 font-sans block text-[9px]">13 TS</span>
+              <span>{log.computed_dispatch_13ts_liters != null ? `${log.computed_dispatch_13ts_liters.toLocaleString()} L` : '—'}</span>
             </div>
           </>
         )}
 
-        {(log.status === 'Token Issued' || log.status === 'Sampling' || log.status === 'Sampling_In_Progress') && (
+        {(log.status === 'Token Issued' || log.status === 'Sampling' || log.status === 'Sampling_In_Progress' || log.status === 'PLANT_QA') && (
           <>
             <div>
               <span className="text-slate-500 font-sans block text-[9px]">Token #</span>
@@ -163,59 +166,65 @@ export const AdaptiveVehicleCard: React.FC<AdaptiveVehicleCardProps> = ({
             </div>
             <div>
               <span className="text-slate-500 font-sans block text-[9px]">IGP Arrival</span>
-              <span>{log.igp_time || '08:10'}</span>
+              <span>{log.igp_time || '—'}</span>
             </div>
             <div>
               <span className="text-slate-500 font-sans block text-[9px]">Lab Fat / LR</span>
-              <span>{log.sampling_fat || log.dispatch_fat || 0}% / {log.sampling_lr || log.dispatch_lr || 0}</span>
-            </div>
-            <div>
-              <span className="text-slate-500 font-sans block text-[9px]">SNF / TS %</span>
-              <span>{log.computed_sampling_snf || log.computed_dispatch_snf || 0}% / {log.computed_sampling_ts || log.computed_dispatch_ts || 0}%</span>
-            </div>
-          </>
-        )}
-
-        {log.status === 'First Weight' && (
-          <>
-            <div>
-              <span className="text-slate-500 font-sans block text-[9px]">1st Weight (Gross)</span>
-              <span>{log.first_weight_of_vehicle || 0} KG</span>
-            </div>
-            <div>
-              <span className="text-slate-500 font-sans block text-[9px]">QA Disposition</span>
-              <span className={isQAAccepted ? 'text-[#166534] font-extrabold' : 'text-[#991B1B] font-extrabold'}>
-                {log.calculated_status || 'PASSED'}
+              <span>
+                {log.sampling_fat != null ? `${log.sampling_fat}%` : '—'} /{' '}
+                {log.sampling_lr != null ? `${log.sampling_lr}` : '—'}
               </span>
             </div>
             <div>
-              <span className="text-slate-500 font-sans block text-[9px]">Plant Liters</span>
-              <span>{log.computed_plant_liters || log.dispatch_liters_gross || 0} L</span>
-            </div>
-            <div>
-              <span className="text-slate-500 font-sans block text-[9px]">Plant 13% TS Eq</span>
-              <span>{log.computed_plant_13ts_liters || 0} L</span>
+              <span className="text-slate-500 font-sans block text-[9px]">SNF / TS %</span>
+              <span>
+                {log.computed_sampling_snf != null ? `${log.computed_sampling_snf}%` : '—'} /{' '}
+                {log.computed_sampling_ts != null ? `${log.computed_sampling_ts}%` : '—'}
+              </span>
             </div>
           </>
         )}
 
-        {(log.status === 'Silo Reception' || log.status === 'Second Weight' || log.status === 'Completed') && (
+        {(log.status === 'First Weight' || log.status === 'READY_FOR_GROSS' || log.status === 'GROSS_WEIGHED') && (
+          <>
+            <div>
+              <span className="text-slate-500 font-sans block text-[9px]">Gross Weight</span>
+              <span>{log.first_weight_of_vehicle != null ? `${log.first_weight_of_vehicle.toLocaleString()} KG` : '—'}</span>
+            </div>
+            <div>
+              <span className="text-slate-500 font-sans block text-[9px]">QA Disposition</span>
+              <span className={isQAAccepted ? 'text-[#166534] font-extrabold' : isQARejected ? 'text-[#991B1B] font-extrabold' : 'text-slate-600 font-semibold'}>
+                {log.calculated_status || 'PENDING'}
+              </span>
+            </div>
+            <div>
+              <span className="text-slate-500 font-sans block text-[9px]">Physical Liters</span>
+              <span>{log.computed_plant_liters != null ? `${log.computed_plant_liters.toLocaleString()} L` : '—'}</span>
+            </div>
+            <div>
+              <span className="text-slate-500 font-sans block text-[9px]">13 TS</span>
+              <span>{log.computed_plant_13ts_liters != null ? `${log.computed_plant_13ts_liters.toLocaleString()} L` : '—'}</span>
+            </div>
+          </>
+        )}
+
+        {(log.status === 'Silo Reception' || log.status === 'Second Weight' || log.status === 'READY_FOR_UNLOADING' || log.status === 'UNLOADING' || log.status === 'READY_FOR_TARE' || log.status === 'TARE_WEIGHED' || log.status === 'READY_FOR_GATE_EXIT' || log.status === 'Completed' || log.status === 'COMPLETED') && (
           <>
             <div>
               <span className="text-slate-500 font-sans block text-[9px]">Storage Tank ID</span>
-              <span className="text-[#1E3A8A]">{log.silo_storage_id || 'Silo #3 / Tank A'}</span>
+              <span className="text-[#1E3A8A]">{log.silo_storage_id || '—'}</span>
             </div>
             <div>
-              <span className="text-slate-500 font-sans block text-[9px]">Plant Liters</span>
-              <span>{log.computed_plant_liters || log.dispatch_liters_gross || 0} L</span>
+              <span className="text-slate-500 font-sans block text-[9px]">Physical Liters</span>
+              <span>{log.computed_plant_liters != null ? `${log.computed_plant_liters.toLocaleString()} L` : '—'}</span>
             </div>
             <div>
-              <span className="text-slate-500 font-sans block text-[9px]">13% TS Liters</span>
-              <span>{log.computed_plant_13ts_liters || 0} L</span>
+              <span className="text-slate-500 font-sans block text-[9px]">13 TS</span>
+              <span>{log.computed_plant_13ts_liters != null ? `${log.computed_plant_13ts_liters.toLocaleString()} L` : '—'}</span>
             </div>
             <div>
-              <span className="text-slate-500 font-sans block text-[9px]">Net Milk Weight</span>
-              <span>{log.computed_net_milk_weight || 0} KG</span>
+              <span className="text-slate-500 font-sans block text-[9px]">Net Milk Received</span>
+              <span>{log.computed_net_milk_weight != null ? `${log.computed_net_milk_weight.toLocaleString()} KG` : '—'}</span>
             </div>
           </>
         )}

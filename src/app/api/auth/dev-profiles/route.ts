@@ -15,7 +15,11 @@ export async function GET() {
     {
       group: 'OPERATORS',
       items: [
-        { label: 'MPD Field Operator', department: 'Milk Procurement', username: 'zmcc.operator', password: 'mpd123' },
+        { label: 'MPD Operator — ZMCC Hasilpur', department: 'Milk Procurement (Hasilpur)', username: 'zmcc.operator', password: 'mpd123' },
+        { label: 'MPD Operator — ZMCC Jhang', department: 'Milk Procurement (Jhang)', username: 'zmcc.operator.jhang', password: 'mpd123' },
+        { label: 'MPD Operator — ZMCC Kabirwala', department: 'Milk Procurement (Kabirwala)', username: 'zmcc.operator.kabirwala', password: 'mpd123' },
+        { label: 'MPD Operator — Contractor Al Khair', department: 'Milk Procurement (Al Khair)', username: 'contractor.operator.alkhair', password: 'mpd123' },
+        { label: 'MPD Operator — Contractor Al Mehmood', department: 'Milk Procurement (Al Mehmood)', username: 'contractor.operator.almehmood', password: 'mpd123' },
         { label: 'Security Gate Operator', department: 'Security & Weighbridge', username: 'security.gate', password: 'security123' },
         { label: 'QA Lab Chemist', department: 'Quality Assurance Lab', username: 'qa.chemist', password: 'qa123' },
         { label: 'Weighbridge Operator — Shift 1', department: 'Production & Weighbridge', username: 'weighbridge.operator', password: 'weighbridge123' },

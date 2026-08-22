@@ -98,22 +98,6 @@ export async function GET(req: Request) {
         isMultiSiloDifferent = true;
       }
 
-      // STRICT Authoritative Plant LR Only (No Dispatch LR, No 26.5 fallback!)
-      let plantLrVal: number | null = null;
-      for (const p of acceptedPortions) {
-        const plantLrRes = p.plant_lab_results.find(
-          (r) => r.lab_test.testCode === 'LT-000008' || r.lab_test.testCode === 'LT-000027' || r.lab_test.testName.toUpperCase().includes('LR')
-        );
-
-        if (plantLrRes?.numeric_value) {
-          const val = Number(plantLrRes.numeric_value);
-          if (!isNaN(val) && val > 0) {
-            plantLrVal = val;
-            break;
-          }
-        }
-      }
-
       return {
         id: v.id.toString(),
         vehicle_number: v.vehicle_number,
@@ -129,8 +113,6 @@ export async function GET(req: Request) {
         waiting_minutes: waitingMinutes,
         destination_silo_text: destinationSiloText,
         is_multi_silo_different: isMultiSiloDifferent,
-        has_plant_lr: plantLrVal !== null,
-        plant_lr: plantLrVal,
       };
     });
 

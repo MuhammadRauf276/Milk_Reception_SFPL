@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { MilkProcessLog, User } from '@core/types';
-import { computeRuntimeMetrics, computeVehicleDecisionSummary } from '@backend/services/dairyCalculations';
+import { computeRuntimeMetrics, computeVehicleDecisionSummary } from '@backend/services/operationalCalculations';
 import { Sidebar } from '@modules/shared/Sidebar';
 import { Header } from '@modules/shared/Header';
 import { LogDetailModal } from '@modules/dashboard/LogDetailModal';
@@ -945,7 +945,7 @@ export const CrossVerification: React.FC = () => {
                           </span>
                           <p className="text-sm font-black text-[#111311]">{dL.toLocaleString()} L</p>
                           <span className="text-[9.5px] font-semibold text-slate-500 block">
-                            13% TS Eq: {d13.toLocaleString()} L
+                            13 TS: {d13.toLocaleString()} L
                           </span>
                         </div>
 
@@ -967,7 +967,7 @@ export const CrossVerification: React.FC = () => {
                             Volume: {pVolDiff >= 0 ? `+${pVolDiff}L (+${pVolDiffPct}%)` : `${pVolDiff}L (${pVolDiffPct}%)`}
                           </p>
                           <span className={`text-[10px] font-bold block ${pTsDiff >= 0 ? 'text-emerald-700' : 'text-[#991B1B]'}`}>
-                            13% TS Diff: {pTsDiff >= 0 ? `+${pTsDiff}L` : `${pTsDiff}L`}
+                            13 TS Diff: {pTsDiff >= 0 ? `+${pTsDiff}L` : `${pTsDiff}L`}
                           </span>
                         </div>
                       </div>

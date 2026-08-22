@@ -47,7 +47,7 @@ export async function GET(req: Request) {
       const acceptedPortions = portions.filter((p) => (p.plant_decision || '').toUpperCase() === 'ACCEPTED');
       const rejectedPortions = portions.filter((p) => (p.plant_decision || '').toUpperCase() === 'REJECTED');
       const acceptedDeclaredKg = acceptedPortions.reduce(
-        (sum, p) => sum + (p.declared_quantity_kg ? Number(p.declared_quantity_kg) : 0),
+        (sum, p) => sum + (p.declared_quantity_value ? Number(p.declared_quantity_value) : 0),
         0
       );
 
@@ -100,7 +100,7 @@ export async function GET(req: Request) {
         portions: portions.map((p) => ({
           id: p.id.toString(),
           portion_number: p.portion_number,
-          declared_quantity_kg: p.declared_quantity_kg ? Number(p.declared_quantity_kg) : 0,
+          declared_quantity_kg: p.declared_quantity_value ? Number(p.declared_quantity_value) : 0,
           plant_decision: p.plant_decision || 'PENDING',
           plant_rejection_reason: p.plant_rejection_reason || null,
         })),

@@ -392,7 +392,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
 
                   <div>
                     <label className="block text-xs font-bold mb-1 text-[#111311] flex items-center justify-between">
-                      <span>Gate Entry Operational Date & Time *</span>
+                      <span>Gate Entry Time *</span>
                       <Clock className="w-3.5 h-3.5 text-[#1E3A8A]" />
                     </label>
                     <input
@@ -567,7 +567,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                   </div>
 
                   <div>
-                    <span className="text-slate-500 font-sans block text-[9px]">Net Milk Weight</span>
+                    <span className="text-slate-500 font-sans block text-[9px]">Net Milk Received</span>
                     <span>{selectedExitVisit.net_weight_kg ? `${selectedExitVisit.net_weight_kg.toLocaleString()} KG` : '—'}</span>
                   </div>
                 </div>
@@ -579,7 +579,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                       <span>{selectedExitVisit.gross_weight_kg ? `${selectedExitVisit.gross_weight_kg.toLocaleString()} KG` : '—'}</span>
                     </div>
                     <div>
-                      <span className="text-slate-500 font-sans block text-[9px]">Tare Weight</span>
+                      <span className="text-slate-500 font-sans block text-[9px]">Second Weight</span>
                       <span>{selectedExitVisit.tare_weight_kg ? `${selectedExitVisit.tare_weight_kg.toLocaleString()} KG` : '—'}</span>
                     </div>
                   </div>
@@ -594,7 +594,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                 <form onSubmit={handleConfirmExit} className="space-y-4">
                   <div className="space-y-1.5">
                     <label className="block text-xs font-black uppercase tracking-wider text-[#111311] flex items-center justify-between">
-                      <span>Gate Exit Operational Date & Time <span className="text-rose-600">*</span></span>
+                      <span>Gate Exit Time <span className="text-rose-600">*</span></span>
                       <Clock className="w-3.5 h-3.5 text-[#1E3A8A]" />
                     </label>
                     <input

@@ -2,7 +2,7 @@ import { Client } from 'pg';
 
 async function main() {
   const masterClient = new Client({
-    connectionString: 'postgresql://postgres:rauf@localhost:5432/postgres',
+    connectionString: process.env.DATABASE_URL,
   });
 
   await masterClient.connect();

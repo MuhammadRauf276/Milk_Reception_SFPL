@@ -3,6 +3,7 @@ import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
 import { z } from 'zod';
 import { validateOperationalTimestamp } from '@/backend/services/chronology-validator';
+import { getOrAssignPlantQATests } from '@/backend/services/labTestAssignmentService';
 
 const startSessionSchema = z.object({
   visitId: z.string().min(1, 'Visit ID is required'),
@@ -10,7 +11,7 @@ const startSessionSchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const authUser = await getCurrentUser();
+  const authUser = await getCurrentUser(req);
   if (!authUser) {
     return NextResponse.json({ error: 'Unauthorized. Authentication required.' }, { status: 401 });
   }
@@ -81,6 +82,9 @@ export async function POST(req: Request) {
           status: 'IN_PROGRESS',
         },
       });
+
+      // Atomically create and freeze Plant QA LabTestAssignment snapshot
+      await getOrAssignPlantQATests(tx, visitId);
 
       // Create START Event
       await tx.qATestingSessionEvent.create({

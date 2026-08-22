@@ -2,7 +2,7 @@ const { Client } = require('pg');
 
 async function seedDatabase() {
   const client = new Client({
-    connectionString: process.env.DATABASE_URL || 'postgresql://postgres:rauf@localhost:5432/milk_reception_db'
+    connectionString: process.env.DATABASE_URL
   });
 
   try {

@@ -23,5 +23,6 @@ function findMatches(dir: string) {
   }
 }
 
-console.log('Searching for systemKey and system_key in D:\\MilkReceptionApp...');
-findMatches('D:\\MilkReceptionApp');
+const repoRoot = path.resolve(__dirname, '..');
+console.log(`Searching for systemKey and system_key in ${repoRoot}...`);
+findMatches(repoRoot);

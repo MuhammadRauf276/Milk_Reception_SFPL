@@ -8,6 +8,7 @@ import {
   calculatePhysicalLiters,
   calculateAt13TSLiters,
 } from '@/backend/utils/milkFormulas';
+import { isPlantLrTest, isPlantFatTest } from '@/backend/services/vehicleQuantityService';
 
 export async function GET(req: NextRequest) {
   try {
@@ -60,42 +61,70 @@ export async function GET(req: NextRequest) {
       const acceptedPortions = v.portions.filter((p) => p.plant_decision === 'ACCEPTED');
       const rejectedPortions = v.portions.filter((p) => p.plant_decision === 'REJECTED');
 
-      let totalAcceptedKg = 0;
+      let allAcceptedHavePhysicalLiters = acceptedPortions.length > 0;
       let totalAcceptedPhysicalLiters = 0;
+      let allAcceptedHaveAt13TS = acceptedPortions.length > 0;
       let totalAcceptedAt13TSLiters = 0;
       let earliestStartTime: Date | null = null;
       let starterName: string | null = null;
 
       const formattedPortions = v.portions.map((p) => {
-        const declaredKg = p.declared_quantity_kg ? Number(p.declared_quantity_kg) : 0;
+        const declaredQuantityValue = p.declared_quantity_value !== null && p.declared_quantity_value !== undefined ? Number(p.declared_quantity_value) : null;
+        const declaredQuantityUnit = (p.declared_quantity_unit || 'KG').toUpperCase();
         const isAccepted = p.plant_decision === 'ACCEPTED';
 
-        // Extract LR and Fat values
-        const plantLr = p.plant_lab_results.find(
-          (r) => r.lab_test.testCode === 'LT-000008' || r.lab_test.testCode === 'LT-000027' || r.lab_test.testName.toUpperCase().includes('LR')
+        // Extract Plant LR (genuine PERFORMED only, no Dispatch or fake fallback)
+        const performedPlantLr = p.plant_lab_results.filter(
+          (r) => isPlantLrTest(r.lab_test.testCode, r.lab_test.testName) && r.performance_status === 'PERFORMED' && r.numeric_value !== null
         );
-        const dispatchLr = p.dispatch_lab_results.find(
-          (r) => r.lab_test.testCode === 'LT-000008' || r.lab_test.testCode === 'LT-000027' || r.lab_test.testName.toUpperCase().includes('LR')
-        );
-        const lrVal = plantLr?.numeric_value ? Number(plantLr.numeric_value) : dispatchLr?.numeric_value ? Number(dispatchLr.numeric_value) : 26.5;
+        const plantLrVal = performedPlantLr.length === 1 && Number(performedPlantLr[0].numeric_value) > 0 ? Number(performedPlantLr[0].numeric_value) : null;
 
-        const plantFat = p.plant_lab_results.find(
-          (r) => r.lab_test.testCode === 'LT-000026' || r.lab_test.testName.toUpperCase().includes('FAT')
+        // Extract Plant Fat (genuine PERFORMED only, no Dispatch or fake fallback)
+        const performedPlantFat = p.plant_lab_results.filter(
+          (r) => isPlantFatTest(r.lab_test.testCode, r.lab_test.testName) && r.performance_status === 'PERFORMED' && r.numeric_value !== null
         );
-        const dispatchFat = p.dispatch_lab_results.find(
-          (r) => r.lab_test.testCode === 'LT-000026' || r.lab_test.testName.toUpperCase().includes('FAT')
-        );
-        const fatVal = plantFat?.numeric_value ? Number(plantFat.numeric_value) : dispatchFat?.numeric_value ? Number(dispatchFat.numeric_value) : 3.8;
+        const plantFatVal = performedPlantFat.length === 1 && Number(performedPlantFat[0].numeric_value) >= 0 ? Number(performedPlantFat[0].numeric_value) : null;
 
-        const snfVal = calculateSNF(lrVal, fatVal);
-        const tsVal = calculateTS(fatVal, snfVal);
-        const physicalLiters = calculatePhysicalLiters(declaredKg, lrVal);
-        const at13TSLiters = calculateAt13TSLiters(physicalLiters, tsVal);
+        // Calculate provisional physical volume
+        let provisionalPhysicalLiters: number | null = null;
+        if (isAccepted && declaredQuantityValue !== null && declaredQuantityValue > 0) {
+          if (declaredQuantityUnit === 'LITER') {
+            provisionalPhysicalLiters = declaredQuantityValue;
+          } else {
+            // KG requires valid performed Plant LR
+            if (plantLrVal !== null) {
+              provisionalPhysicalLiters = calculatePhysicalLiters(declaredQuantityValue, plantLrVal);
+            }
+          }
+        }
+
+        // Calculate derived quality metrics
+        let snfVal: number | null = null;
+        let tsVal: number | null = null;
+        let ratioVal: number | null = null;
+        let at13TSLiters: number | null = null;
+
+        if (plantLrVal !== null && plantFatVal !== null) {
+          snfVal = calculateSNF(plantLrVal, plantFatVal);
+          tsVal = calculateTS(plantFatVal, snfVal);
+          ratioVal = calculateRatio(snfVal, plantFatVal);
+          if (provisionalPhysicalLiters !== null) {
+            at13TSLiters = calculateAt13TSLiters(provisionalPhysicalLiters, tsVal);
+          }
+        }
 
         if (isAccepted) {
-          totalAcceptedKg += declaredKg;
-          totalAcceptedPhysicalLiters += physicalLiters;
-          totalAcceptedAt13TSLiters += at13TSLiters;
+          if (provisionalPhysicalLiters !== null) {
+            totalAcceptedPhysicalLiters += provisionalPhysicalLiters;
+          } else {
+            allAcceptedHavePhysicalLiters = false;
+          }
+
+          if (at13TSLiters !== null) {
+            totalAcceptedAt13TSLiters += at13TSLiters;
+          } else {
+            allAcceptedHaveAt13TS = false;
+          }
         }
 
         if (p.unloading_log?.pump_start_timestamp) {
@@ -111,14 +140,18 @@ export async function GET(req: NextRequest) {
         return {
           id: String(p.id),
           portion_number: p.portion_number,
-          declared_quantity_kg: declaredKg,
+          declared_quantity_value: declaredQuantityValue,
+          declared_quantity_unit: declaredQuantityUnit,
           plant_decision: p.plant_decision || 'PENDING',
           plant_rejection_reason: p.plant_rejection_reason || null,
           current_status: p.current_status,
-          lr: lrVal,
-          fat: fatVal,
-          expected_physical_liters: Math.round(physicalLiters),
-          expected_at13_ts_liters: Math.round(at13TSLiters),
+          lr: plantLrVal,
+          fat: plantFatVal,
+          snf: snfVal !== null ? Math.round(snfVal * 1000) / 1000 : null,
+          ts: tsVal !== null ? Math.round(tsVal * 1000) / 1000 : null,
+          snf_fat_ratio: ratioVal !== null ? Math.round(ratioVal * 1000) / 1000 : null,
+          expected_physical_liters: provisionalPhysicalLiters !== null ? Math.round(provisionalPhysicalLiters) : null,
+          expected_at13_ts_liters: at13TSLiters !== null ? Math.round(at13TSLiters) : null,
           unloading_log: p.unloading_log
             ? {
                 id: String(p.unloading_log.id),
@@ -137,6 +170,24 @@ export async function GET(req: NextRequest) {
         };
       });
 
+      // Unit-safe declared total across accepted portions
+      const acceptedUnits = new Set(acceptedPortions.map((p) => (p.declared_quantity_unit || 'KG').toUpperCase()));
+      let totalAcceptedDeclaredValue: number | null = null;
+      let totalAcceptedDeclaredUnit: string | null = null;
+
+      if (acceptedPortions.length > 0) {
+        if (acceptedUnits.size === 1) {
+          totalAcceptedDeclaredUnit = Array.from(acceptedUnits)[0];
+          totalAcceptedDeclaredValue = acceptedPortions.reduce(
+            (sum, p) => sum + (p.declared_quantity_value ? Number(p.declared_quantity_value) : 0),
+            0
+          );
+        } else {
+          totalAcceptedDeclaredUnit = 'MIXED';
+          totalAcceptedDeclaredValue = null;
+        }
+      }
+
       const elapsedMinutes = earliestStartTime
         ? Math.max(0, Math.floor((Date.now() - (earliestStartTime as Date).getTime()) / 60000))
         : 0;
@@ -151,9 +202,10 @@ export async function GET(req: NextRequest) {
         portion_count: v.portions.length,
         accepted_portion_count: acceptedPortions.length,
         rejected_portion_count: rejectedPortions.length,
-        total_accepted_kg: totalAcceptedKg,
-        total_accepted_physical_liters: Math.round(totalAcceptedPhysicalLiters),
-        total_accepted_at13_ts_liters: Math.round(totalAcceptedAt13TSLiters),
+        total_accepted_declared_value: totalAcceptedDeclaredValue,
+        total_accepted_declared_unit: totalAcceptedDeclaredUnit,
+        total_accepted_physical_liters: allAcceptedHavePhysicalLiters ? Math.round(totalAcceptedPhysicalLiters) : null,
+        total_accepted_at13_ts_liters: allAcceptedHaveAt13TS ? Math.round(totalAcceptedAt13TSLiters) : null,
         started_at: earliestStartTime ? (earliestStartTime as Date).toISOString() : null,
         started_by_name: starterName || 'Operator',
         elapsed_minutes: elapsedMinutes,

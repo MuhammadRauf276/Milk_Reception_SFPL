@@ -37,8 +37,6 @@ interface SecondWeightVisit {
   min_allowed_timestamp: string;
   destination_silo_text?: string;
   is_multi_silo_different?: boolean;
-  has_plant_lr?: boolean;
-  plant_lr?: number | null;
 }
 
 import { toDatetimeLocalInput, datetimeLocalToIso } from '@/lib/datetime-utils';
@@ -542,7 +540,7 @@ export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({ curr
 
                     <div className="space-y-1.5">
                       <label className="block text-xs font-black uppercase tracking-wider text-[#111311] flex items-center justify-between">
-                        <span>Gross Operational Date & Time <span className="text-rose-600">*</span></span>
+                        <span>Gross Weighment Time <span className="text-rose-600">*</span></span>
                         <Clock className="w-3.5 h-3.5 text-[#1E3A8A]" />
                       </label>
                       <input
@@ -695,7 +693,7 @@ export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({ curr
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
                     <div className="space-y-1.5">
                       <label className="block text-xs font-black uppercase tracking-wider text-[#111311]">
-                        Tare Weight (kg) <span className="text-rose-600">*</span>
+                        Second Weight (kg) <span className="text-rose-600">*</span>
                       </label>
                       <div className="relative">
                         <input
@@ -714,7 +712,7 @@ export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({ curr
 
                     <div className="space-y-1.5">
                       <label className="block text-xs font-black uppercase tracking-wider text-[#111311] flex items-center justify-between">
-                        <span>Tare Operational Date & Time <span className="text-rose-600">*</span></span>
+                        <span>Second Weighment Time <span className="text-rose-600">*</span></span>
                         <Clock className="w-3.5 h-3.5 text-[#1E3A8A]" />
                       </label>
                       <input
@@ -728,33 +726,20 @@ export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({ curr
                     </div>
                   </div>
 
-                  {/* Calculated Net Weight & Final Receipt Preview */}
+                  {/* Calculated Net Weight */}
                   {previewNetKg !== null && (
                     <div className="space-y-2 pt-1">
                       <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-300 flex items-center justify-between text-emerald-900 font-mono font-bold text-xs">
-                        <span>Calculated Net Milk Weight:</span>
+                        <span>Net Milk Received:</span>
                         <span className="text-base font-black text-emerald-800">{previewNetKg.toLocaleString()} kg</span>
                       </div>
 
                       {selectedSecondVisit.destination_silo_text && (
-                        <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-200 text-xs font-mono font-bold space-y-1.5 text-blue-950">
-                          <div className="flex items-center justify-between">
-                            <span className="font-sans text-[11px] text-slate-600">Final Receipt Preview:</span>
-                            <span className="px-2 py-0.5 rounded bg-blue-200 text-blue-900 font-extrabold text-[10px]">
-                              {selectedSecondVisit.is_multi_silo_different ? 'Multi-Silo Allocation Required' : `Silo: ${selectedSecondVisit.destination_silo_text}`}
-                            </span>
-                          </div>
-
-                          {selectedSecondVisit.has_plant_lr && selectedSecondVisit.plant_lr ? (
-                            <div className="flex items-center justify-between text-slate-700 font-normal">
-                              <span>Plant LR Basis: <strong className="font-mono text-slate-900">{selectedSecondVisit.plant_lr}</strong></span>
-                              <span>Physical Volume: <strong className="font-mono text-[#1E3A8A] font-extrabold">~{Math.round(previewNetKg / (1 + selectedSecondVisit.plant_lr / 1000)).toLocaleString()} L</strong></span>
-                            </div>
-                          ) : (
-                            <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-[#92400E] text-[11px] font-sans font-semibold">
-                              Authoritative Plant QA LR is not available. Tare weight will be recorded cleanly, but final silo inventory receipt will remain pending until Plant LR is recorded.
-                            </div>
-                          )}
+                        <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-xs font-mono font-bold flex items-center justify-between text-blue-950">
+                          <span className="font-sans text-[11px] text-slate-600">Destination Silo:</span>
+                          <span className="px-2 py-0.5 rounded bg-blue-200 text-blue-900 font-extrabold text-[10px]">
+                            {selectedSecondVisit.is_multi_silo_different ? 'Multi-Silo Allocation Required' : `Silo: ${selectedSecondVisit.destination_silo_text}`}
+                          </span>
                         </div>
                       )}
                     </div>
