@@ -24,25 +24,34 @@ export class QuantityMeasurementError extends Error {
   }
 }
 
-const positiveDecimalRegex = /^(0*[1-9]\d*(\.\d+)?|0+\.\d*[1-9]\d*)$/;
+const DECIMAL_10_2_REGEX = /^(0|[1-9]\d{0,7})(\.\d{1,2})?$/;
 
 export function parsePositiveDecimalString(val: unknown, fieldName = 'Quantity'): string {
   if (val === null || val === undefined || val === '') {
     throw new QuantityMeasurementError(`${fieldName} value is required.`, 'QUANTITY_VALUE_REQUIRED');
   }
 
+  if (typeof val === 'number') {
+    if (isNaN(val) || !isFinite(val) || val <= 0) {
+      throw new QuantityMeasurementError(
+        `${fieldName} must be a valid positive number between 0.01 and 99,999,999.99. Received: "${val}"`,
+        'QUANTITY_VALUE_INVALID'
+      );
+    }
+  }
+
   const strVal = String(val).trim();
-  if (!positiveDecimalRegex.test(strVal)) {
+  if (!DECIMAL_10_2_REGEX.test(strVal)) {
     throw new QuantityMeasurementError(
-      `${fieldName} must be a valid positive number greater than 0. Received: "${strVal}"`,
+      `${fieldName} must be a valid positive number between 0.01 and 99,999,999.99 with at most 2 decimal places. Received: "${strVal}"`,
       'QUANTITY_VALUE_INVALID'
     );
   }
 
   const numVal = Number(strVal);
-  if (isNaN(numVal) || !isFinite(numVal) || numVal <= 0) {
+  if (isNaN(numVal) || !isFinite(numVal) || numVal < 0.01 || numVal > 99999999.99) {
     throw new QuantityMeasurementError(
-      `${fieldName} must be greater than 0.`,
+      `${fieldName} must be between 0.01 and 99,999,999.99. Received: "${strVal}"`,
       'QUANTITY_VALUE_INVALID'
     );
   }
@@ -50,8 +59,22 @@ export function parsePositiveDecimalString(val: unknown, fieldName = 'Quantity')
   return strVal;
 }
 
+export const quantityValueSchema = z.union([z.string(), z.number()]).refine(
+  (val) => {
+    try {
+      parsePositiveDecimalString(val);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  {
+    message: 'Quantity must be a positive number between 0.01 and 99,999,999.99 with at most 2 decimal places',
+  }
+);
+
 export const quantityMeasurementSchema = z.object({
-  value: z.union([z.string(), z.number()]),
+  value: quantityValueSchema,
   unit: quantityUnitSchema,
   basis: measurementBasisSchema,
   method: measurementMethodSchema,

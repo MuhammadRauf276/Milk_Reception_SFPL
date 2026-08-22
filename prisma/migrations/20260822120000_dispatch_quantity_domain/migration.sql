@@ -25,6 +25,17 @@ ALTER TABLE "visit_portion" ADD COLUMN IF NOT EXISTS "dispatch_quantity_unit" "Q
 ALTER TABLE "visit_portion" ADD COLUMN IF NOT EXISTS "dispatch_quantity_basis" "MeasurementBasis";
 ALTER TABLE "visit_portion" ADD COLUMN IF NOT EXISTS "dispatch_measurement_method" "MeasurementMethod";
 
+-- Data Preservation: Copy legacy portion quantity facts to canonical columns before dropping
+UPDATE "visit_portion"
+SET
+  "dispatch_quantity_value" = "declared_quantity_value",
+  "dispatch_quantity_unit" = CASE
+    WHEN UPPER(TRIM("declared_quantity_unit")) = 'KG' THEN 'KG'::"QuantityUnit"
+    WHEN UPPER(TRIM("declared_quantity_unit")) = 'LITER' THEN 'LITER'::"QuantityUnit"
+    ELSE NULL
+  END
+WHERE "declared_quantity_value" IS NOT NULL OR "declared_quantity_unit" IS NOT NULL;
+
 ALTER TABLE "visit_portion" DROP COLUMN IF EXISTS "declared_quantity_value";
 ALTER TABLE "visit_portion" DROP COLUMN IF EXISTS "declared_quantity_unit";
 

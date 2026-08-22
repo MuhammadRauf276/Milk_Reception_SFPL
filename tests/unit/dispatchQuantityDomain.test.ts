@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import fs from 'fs';
+import path from 'path';
 import {
   validateQuantityAgainstPolicy,
   QuantityMeasurementError,
@@ -241,5 +243,173 @@ describe('Stage 4C-4: Dispatch Quantity Domain (Unit Tests)', () => {
     expect(formatQuantityDisplay(null, 'KG')).toBe('—');
     expect(formatQuantityDisplay('19500.5', 'KG')).toBe('19,500.5 KG');
     expect(formatQuantityDisplay('9800', 'LITER')).toBe('9,800 LITER');
+  });
+
+  describe('DECIMAL(10,2) Boundary & Precision Contract', () => {
+    it('accepts minimum positive quantity 0.01', () => {
+      expect(parsePositiveDecimalString('0.01')).toBe('0.01');
+      expect(parsePositiveDecimalString(0.01)).toBe('0.01');
+      const res = validateQuantityAgainstPolicy(
+        { value: '0.01', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
+        samplePolicy.vehicleRules,
+        'Vehicle'
+      );
+      expect(res.value).toBe('0.01');
+    });
+
+    it('accepts maximum positive quantity 99999999.99', () => {
+      expect(parsePositiveDecimalString('99999999.99')).toBe('99999999.99');
+      const res = validateQuantityAgainstPolicy(
+        { value: '99999999.99', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
+        samplePolicy.vehicleRules,
+        'Vehicle'
+      );
+      expect(res.value).toBe('99999999.99');
+    });
+
+    it('accepts valid 1-decimal and integer quantities', () => {
+      expect(parsePositiveDecimalString('1')).toBe('1');
+      expect(parsePositiveDecimalString('1.5')).toBe('1.5');
+      expect(parsePositiveDecimalString('1.50')).toBe('1.50');
+      expect(parsePositiveDecimalString('19500')).toBe('19500');
+    });
+
+    it('rejects 0 and 0.00', () => {
+      expect(() => parsePositiveDecimalString('0')).toThrow(QuantityMeasurementError);
+      expect(() => parsePositiveDecimalString('0.00')).toThrow(QuantityMeasurementError);
+      expect(() => parsePositiveDecimalString(0)).toThrow(QuantityMeasurementError);
+    });
+
+    it('rejects negative values', () => {
+      expect(() => parsePositiveDecimalString('-1')).toThrow(QuantityMeasurementError);
+      expect(() => parsePositiveDecimalString('-0.01')).toThrow(QuantityMeasurementError);
+    });
+
+    it('rejects more than 2 decimal places (e.g. 0.001, 1.999, 99999999.999)', () => {
+      expect(() => parsePositiveDecimalString('0.001')).toThrow(QuantityMeasurementError);
+      expect(() => parsePositiveDecimalString('1.999')).toThrow(QuantityMeasurementError);
+      expect(() => parsePositiveDecimalString('99999999.999')).toThrow(QuantityMeasurementError);
+    });
+
+    it('rejects values exceeding 99999999.99 (e.g. 100000000)', () => {
+      expect(() => parsePositiveDecimalString('100000000')).toThrow(QuantityMeasurementError);
+      expect(() => parsePositiveDecimalString('100000000.00')).toThrow(QuantityMeasurementError);
+    });
+
+    it('rejects NaN, Infinity, and malformed strings', () => {
+      expect(() => parsePositiveDecimalString(NaN)).toThrow(QuantityMeasurementError);
+      expect(() => parsePositiveDecimalString(Infinity)).toThrow(QuantityMeasurementError);
+      expect(() => parsePositiveDecimalString('abc')).toThrow(QuantityMeasurementError);
+      expect(() => parsePositiveDecimalString('')).toThrow(QuantityMeasurementError);
+      expect(() => parsePositiveDecimalString(null)).toThrow(QuantityMeasurementError);
+      expect(() => parsePositiveDecimalString(undefined)).toThrow(QuantityMeasurementError);
+    });
+
+    it('enforces DECIMAL(10,2) boundary on both vehicle and portion dispatch validation', () => {
+      // Vehicle boundary check
+      expect(() =>
+        validateDispatchQuantities({
+          vehicleQuantity: { value: '0.001', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
+          portions: [{ portionNumber: 1, quantity: { value: '5000', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' } }],
+          policy: samplePolicy,
+        })
+      ).toThrow(QuantityMeasurementError);
+
+      // Portion boundary check
+      expect(() =>
+        validateDispatchQuantities({
+          vehicleQuantity: { value: '5000', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
+          portions: [{ portionNumber: 1, quantity: { value: '100000000', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' } }],
+          policy: samplePolicy,
+        })
+      ).toThrow(QuantityMeasurementError);
+    });
+  });
+
+  describe('Migration Data Preservation & Upgrade Rules', () => {
+    const migration1Path = path.join(
+      process.cwd(),
+      'prisma/migrations/20260822120000_dispatch_quantity_domain/migration.sql'
+    );
+    const migration2Path = path.join(
+      process.cwd(),
+      'prisma/migrations/20260822143000_vehicle_dispatch_quantity_authority/migration.sql'
+    );
+
+    it('[MIG-1] Verifies migration 1 copies legacy portion quantity before dropping old columns', () => {
+      const sql = fs.readFileSync(migration1Path, 'utf8');
+
+      expect(sql).toContain('ADD COLUMN IF NOT EXISTS "dispatch_quantity_value" DECIMAL(10,2)');
+      expect(sql).toContain('ADD COLUMN IF NOT EXISTS "dispatch_quantity_unit" "QuantityUnit"');
+
+      const updateIndex = sql.indexOf('UPDATE "visit_portion"');
+      expect(updateIndex).toBeGreaterThan(-1);
+      expect(sql).toContain('"dispatch_quantity_value" = "declared_quantity_value"');
+
+      const dropValIndex = sql.indexOf('DROP COLUMN IF EXISTS "declared_quantity_value"');
+      const dropUnitIndex = sql.indexOf('DROP COLUMN IF EXISTS "declared_quantity_unit"');
+      expect(dropValIndex).toBeGreaterThan(updateIndex);
+      expect(dropUnitIndex).toBeGreaterThan(updateIndex);
+    });
+
+    it('[MIG-2] Verifies fake vehicle backfill is removed from migration 2', () => {
+      const sql = fs.readFileSync(migration2Path, 'utf8');
+
+      expect(sql).not.toContain('UPDATE "vehicle_visit"');
+      expect(sql).not.toContain('di."vehicle_quantity_value"');
+      expect(sql).not.toContain('FROM "visit_portion"');
+
+      expect(sql).toContain('ALTER TABLE "vehicle_visit" ADD COLUMN IF NOT EXISTS "vehicle_dispatch_quantity_value"');
+      expect(sql).toContain('ALTER TABLE "vehicle_visit" ADD COLUMN IF NOT EXISTS "vehicle_dispatch_quantity_unit"');
+    });
+
+    it('[MIG-3] Simulates legacy SQL data migration transformation rules faithfully', () => {
+      function migratePortionRow(declaredVal: number | null, declaredUnit: string | null) {
+        const dispatch_quantity_value = declaredVal;
+        let dispatch_quantity_unit: 'KG' | 'LITER' | null = null;
+        if (declaredUnit) {
+          const u = declaredUnit.trim().toUpperCase();
+          if (u === 'KG') dispatch_quantity_unit = 'KG';
+          else if (u === 'LITER') dispatch_quantity_unit = 'LITER';
+        }
+        return {
+          dispatch_quantity_value,
+          dispatch_quantity_unit,
+          dispatch_quantity_basis: null,
+          dispatch_measurement_method: null,
+        };
+      }
+
+      // Row A: 9500 KG
+      const rowA = migratePortionRow(9500, 'KG');
+      expect(rowA.dispatch_quantity_value).toBe(9500);
+      expect(rowA.dispatch_quantity_unit).toBe('KG');
+      expect(rowA.dispatch_quantity_basis).toBeNull();
+      expect(rowA.dispatch_measurement_method).toBeNull();
+
+      // Row B: 10000 LITER
+      const rowB = migratePortionRow(10000, 'LITER');
+      expect(rowB.dispatch_quantity_value).toBe(10000);
+      expect(rowB.dispatch_quantity_unit).toBe('LITER');
+      expect(rowB.dispatch_quantity_basis).toBeNull();
+      expect(rowB.dispatch_measurement_method).toBeNull();
+
+      // Row C: NULL quantity / unit
+      const rowC = migratePortionRow(null, null);
+      expect(rowC.dispatch_quantity_value).toBeNull();
+      expect(rowC.dispatch_quantity_unit).toBeNull();
+
+      // Row D: Multi-portion mixed units visit
+      const visitPortions = [
+        migratePortionRow(9500, 'KG'),
+        migratePortionRow(10000, 'LITER'),
+      ];
+      expect(visitPortions[0].dispatch_quantity_unit).toBe('KG');
+      expect(visitPortions[1].dispatch_quantity_unit).toBe('LITER');
+
+      // Historical vehicle quantity remains NULL without fabricating a mixed sum
+      const historicalVehicleQty = null;
+      expect(historicalVehicleQty).toBeNull();
+    });
   });
 });

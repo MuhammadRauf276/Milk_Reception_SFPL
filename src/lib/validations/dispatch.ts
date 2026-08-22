@@ -1,4 +1,10 @@
 import { z } from 'zod';
+import {
+  parsePositiveDecimalString,
+  quantityValueSchema,
+} from '@/backend/modules/dispatch/quantity/validation';
+
+export { parsePositiveDecimalString, quantityValueSchema };
 
 export const dispatchTestResultSchema = z.object({
   testId: z.string().min(1, 'Test ID is required'),
@@ -13,7 +19,7 @@ export const measurementBasisSchema = z.enum(['ESTIMATED', 'MEASURED']);
 export const measurementMethodSchema = z.enum(['MANUAL_ESTIMATE', 'WEIGHING', 'FLOW_METER', 'OTHER']);
 
 export const quantityMeasurementInputSchema = z.object({
-  value: z.union([z.string(), z.number()]),
+  value: quantityValueSchema,
   unit: quantityUnitSchema,
   basis: measurementBasisSchema,
   method: measurementMethodSchema,

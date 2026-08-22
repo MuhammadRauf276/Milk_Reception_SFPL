@@ -348,9 +348,65 @@ async function runRegressionTests() {
   const resZeroQty = await POST(reqZeroQty);
   const dataZeroQty = await resZeroQty.json();
   assert(
-    resZeroQty.status === 400 && (dataZeroQty.error.includes('greater than 0') || dataZeroQty.error.includes('positive')),
+    resZeroQty.status === 400 && (dataZeroQty.error.includes('greater than 0') || dataZeroQty.error.includes('positive') || dataZeroQty.error.includes('0.01')),
     'TEST-3.2: Zero declared quantity (0) is strictly rejected',
     `Status = ${resZeroQty.status}, Error = "${dataZeroQty.error}"`
+  );
+
+  // Test 3.2b: More than 2 decimal places (e.g. 0.001) is rejected at API level before DB
+  const draftDecPlaces = await startDraft(hasilpurUser);
+  const reqDecPlaces = await createAuthRequest(
+    'http://localhost:3000/api/dispatches',
+    'POST',
+    {
+      visitId: draftDecPlaces.visitId,
+      vehicleNumber: 'TEST-8886',
+      operationalDate: regressionBusinessDate,
+      vehicleQuantity: { value: '8500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
+      portions: [
+        {
+          portionNumber: 1,
+          quantity: { value: '0.001', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
+          results: [],
+        },
+      ],
+    },
+    hasilpurUser
+  );
+  const resDecPlaces = await POST(reqDecPlaces);
+  const dataDecPlaces = await resDecPlaces.json();
+  assert(
+    resDecPlaces.status === 400,
+    'TEST-3.2b: Portion quantity with >2 decimal places (0.001) is rejected with 400 at API level',
+    `Status = ${resDecPlaces.status}, Error = "${dataDecPlaces.error}"`
+  );
+
+  // Test 3.2c: Vehicle quantity exceeding maximum (100,000,000) is rejected at API level
+  const draftMaxExceeded = await startDraft(hasilpurUser);
+  const reqMaxExceeded = await createAuthRequest(
+    'http://localhost:3000/api/dispatches',
+    'POST',
+    {
+      visitId: draftMaxExceeded.visitId,
+      vehicleNumber: 'TEST-8885',
+      operationalDate: regressionBusinessDate,
+      vehicleQuantity: { value: '100000000', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
+      portions: [
+        {
+          portionNumber: 1,
+          quantity: { value: '8500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
+          results: [],
+        },
+      ],
+    },
+    hasilpurUser
+  );
+  const resMaxExceeded = await POST(reqMaxExceeded);
+  const dataMaxExceeded = await resMaxExceeded.json();
+  assert(
+    resMaxExceeded.status === 400,
+    'TEST-3.2c: Vehicle quantity exceeding 99,999,999.99 (100000000) is rejected with 400 at API level',
+    `Status = ${resMaxExceeded.status}, Error = "${dataMaxExceeded.error}"`
   );
 
   // Fetch active lab tests for accountability
