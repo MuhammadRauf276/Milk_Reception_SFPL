@@ -144,7 +144,7 @@ describe('Stage 4C-4: Dispatch Quantity Domain (Unit Tests)', () => {
   });
 
   it('[TEST-I] Validates against frozen snapshot policy even if source configuration changes', () => {
-    const historicalSnapshotPolicy: DispatchQuantityPolicy = {
+    const historicalSnapshotPolicy: DispatchQuantityPolicyConfig = {
       version: 1,
       vehicleRules: {
         allowedMeasurements: [{ unit: 'LITER', basis: 'MEASURED', methods: ['FLOW_METER'] }],
@@ -154,6 +154,7 @@ describe('Stage 4C-4: Dispatch Quantity Domain (Unit Tests)', () => {
         allowedMeasurements: [{ unit: 'LITER', basis: 'MEASURED', methods: ['FLOW_METER'] }],
         default: { unit: 'LITER', basis: 'MEASURED', method: 'FLOW_METER' },
       },
+      allowSameUnitPortionPrefill: false,
     };
 
     const validated = validateDispatchQuantities({
@@ -191,7 +192,7 @@ describe('Stage 4C-4: Dispatch Quantity Domain (Unit Tests)', () => {
   });
 
   it('[TEST-N] Tests enum values across domain types', () => {
-    const permissivePolicy: DispatchQuantityPolicy = {
+    const permissivePolicy: DispatchQuantityPolicyConfig = {
       version: 1,
       vehicleRules: {
         allowedMeasurements: [
@@ -207,6 +208,7 @@ describe('Stage 4C-4: Dispatch Quantity Domain (Unit Tests)', () => {
         ],
         default: { unit: 'KG', basis: 'ESTIMATED', method: 'MANUAL_ESTIMATE' },
       },
+      allowSameUnitPortionPrefill: false,
     };
 
     const res1 = validateQuantityAgainstPolicy(

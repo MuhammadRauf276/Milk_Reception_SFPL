@@ -9,7 +9,7 @@ import { validateRequiredString } from '@/lib/validation-helpers';
 import { validateOperationalTimestamp } from '@/backend/services/chronology-validator';
 import { calculateSNF, calculateRatio } from '@/backend/utils/milkFormulas';
 import { getOrAssignDispatchTests } from '@/backend/services/labTestAssignmentService';
-import { getOrFreezeDispatchQuantityPolicy, resolveSourceQuantityPolicy } from '@/backend/modules/dispatch/quantity-policy/quantityPolicyService';
+import { getOrFreezeDispatchQuantityPolicy } from '@/backend/modules/dispatch/quantity-policy/quantityPolicyService';
 import { validateDispatchQuantities, QuantityMeasurementError } from '@/backend/modules/dispatch/quantity/dispatchQuantityService';
 import { getOperationalBusinessDate } from '@/backend/core/business-day';
 
@@ -420,9 +420,7 @@ export async function POST(req: Request) {
     }
 
     // Authoritative Business Date derived on backend from authoritative dispatch timestamp (08:00 cutoff)
-    const firstPortionTs = validated.portions[0]?.dispatchTimestamp || new Date().toISOString();
-    const chronoVal = validateOperationalTimestamp(firstPortionTs, null, 'Dispatch', 'Baseline');
-    const effectiveDispatchDate = chronoVal.isValid && chronoVal.date ? chronoVal.date : new Date(firstPortionTs);
+    const effectiveDispatchDate = chronoVal.date || new Date(firstPortionTs);
     const canonicalBusinessDateStr = getOperationalBusinessDate(effectiveDispatchDate);
 
     // Execute Prisma Transaction for atomic creation or draft finalization
