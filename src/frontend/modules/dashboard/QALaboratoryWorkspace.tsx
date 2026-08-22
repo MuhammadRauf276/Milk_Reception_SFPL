@@ -623,8 +623,8 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
     if (!portion) return '—';
     const val = portion.dispatch_quantity_value;
     const unit = portion.dispatch_quantity_unit;
-    if (val === null || val === undefined) return '—';
-    return `${Number(val).toLocaleString()} ${unit || 'KG'}`;
+    if (val === null || val === undefined || !unit) return '—';
+    return `${Number(val).toLocaleString()} ${unit}`;
   };
 
   return (
@@ -746,10 +746,10 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
                       <div className={`flex items-center justify-between text-xs font-bold ${isSelected ? 'text-slate-200' : 'text-[#334155]'}`}>
                         <span>
                           {v.portion_count} Portion{v.portion_count > 1 ? 's' : ''}
-                          {v.vehicle_dispatch_quantity_value != null
-                            ? ` (${Number(v.vehicle_dispatch_quantity_value).toLocaleString()} ${v.vehicle_dispatch_quantity_unit || 'KG'})`
-                            : v.total_quantity_value != null
-                            ? ` (${Number(v.total_quantity_value).toLocaleString()} ${v.total_quantity_unit || 'KG'})`
+                          {v.vehicle_dispatch_quantity_value != null && v.vehicle_dispatch_quantity_unit
+                            ? ` (${Number(v.vehicle_dispatch_quantity_value).toLocaleString()} ${v.vehicle_dispatch_quantity_unit})`
+                            : v.total_quantity_value != null && v.total_quantity_unit
+                            ? ` (${Number(v.total_quantity_value).toLocaleString()} ${v.total_quantity_unit})`
                             : ''}
                         </span>
                         <span>Waiting: {v.waiting_minutes} min</span>
@@ -878,10 +878,10 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
                   <div>
                     <span className="text-slate-500 font-sans block text-[9px]">Vehicle Quantity</span>
                     <span>
-                      {selectedWaitingVisit.vehicle_dispatch_quantity_value != null
-                        ? `${Number(selectedWaitingVisit.vehicle_dispatch_quantity_value).toLocaleString()} ${selectedWaitingVisit.vehicle_dispatch_quantity_unit || 'KG'}`
-                        : selectedWaitingVisit.total_quantity_value != null
-                        ? `${Number(selectedWaitingVisit.total_quantity_value).toLocaleString()} ${selectedWaitingVisit.total_quantity_unit || 'KG'}`
+                      {selectedWaitingVisit.vehicle_dispatch_quantity_value != null && selectedWaitingVisit.vehicle_dispatch_quantity_unit
+                        ? `${Number(selectedWaitingVisit.vehicle_dispatch_quantity_value).toLocaleString()} ${selectedWaitingVisit.vehicle_dispatch_quantity_unit}`
+                        : selectedWaitingVisit.total_quantity_value != null && selectedWaitingVisit.total_quantity_unit
+                        ? `${Number(selectedWaitingVisit.total_quantity_value).toLocaleString()} ${selectedWaitingVisit.total_quantity_unit}`
                         : '—'} ({selectedWaitingVisit.portion_count} Portion{selectedWaitingVisit.portion_count > 1 ? 's' : ''})
                     </span>
                   </div>

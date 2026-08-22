@@ -206,7 +206,7 @@ export async function getOperationalLogs(
     for (const portion of visit.portions) {
       const portionStr = `P-${String(portion.portion_number).padStart(2, '0')}`;
       const declaredVal = portion.dispatch_quantity_value ? Number(portion.dispatch_quantity_value) : null;
-      const declaredUnit = portion.dispatch_quantity_unit || 'KG';
+      const declaredUnit = portion.dispatch_quantity_unit ? portion.dispatch_quantity_unit.toUpperCase() : null;
 
       // Dispatch QA
       const dFat = extractTestNumericValue(portion.dispatch_lab_results, isDispatchFatTest);

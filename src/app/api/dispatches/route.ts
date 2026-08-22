@@ -70,10 +70,6 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { searchParams } = new URL(req.url);
-  const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
-  const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get('pageSize') || '20', 10)));
-
   const dbUser = await prisma.user.findFirst({
     where: {
       OR: [{ username: authUser.username }, { id: BigInt(authUser.id) }],
@@ -83,31 +79,59 @@ export async function GET(req: Request) {
   });
 
   if (!dbUser) {
-    return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Filter Dispatches by Date or Procurement Source
-  const startDateStr = searchParams.get('startDate');
-  const endDateStr = searchParams.get('endDate');
+  const searchParams = new URL(req.url).searchParams;
+  const range = searchParams.get('range') || '7d';
+  const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
+  const pageSize = Math.max(1, Math.min(100, parseInt(searchParams.get('pageSize') || '20', 10)));
+  const fromDateParam = searchParams.get('fromDate');
+  const toDateParam = searchParams.get('toDate');
+  const statusFilter = searchParams.get('status');
 
   let gteDate: Date | undefined;
   let lteDate: Date | undefined;
 
-  if (startDateStr) {
-    const sDate = new Date(startDateStr);
-    sDate.setUTCHours(0, 0, 0, 0);
-    gteDate = sDate;
-  }
-  if (endDateStr) {
-    const eDate = new Date(endDateStr);
-    eDate.setUTCHours(23, 59, 59, 999);
-    lteDate = eDate;
+  if (range === 'today') {
+    gteDate = new Date();
+    gteDate.setHours(0, 0, 0, 0);
+    lteDate = new Date();
+    lteDate.setHours(23, 59, 59, 999);
+  } else if (range === '7d') {
+    gteDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  } else if (range === '30d') {
+    gteDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  } else if (range === 'custom') {
+    if (fromDateParam) {
+      gteDate = new Date(fromDateParam);
+    }
+    if (toDateParam) {
+      const d = new Date(toDateParam);
+      d.setHours(23, 59, 59, 999);
+      lteDate = d;
+    }
+    if (gteDate && lteDate && gteDate > lteDate) {
+      return NextResponse.json({ error: 'From Date cannot be after To Date' }, { status: 400 });
+    }
   }
 
-  const whereClause: any = {};
-  if (dbUser.procurement_source_id) {
-    whereClause.procurement_source_id = dbUser.procurement_source_id;
+  const whereClause: any = {
+    current_status: statusFilter ? statusFilter : { notIn: ['CANCELLED', 'DRAFT_DISPATCH'] },
+  };
+
+  // SOURCE AUTHORIZATION FILTERING:
+  // For ordinary MPD operators, strictly scope dispatches to their assigned procurement source at DB level
+  const isOrdinaryOperator = dbUser.role === 'MPD_Operator' || dbUser.role === 'MPD';
+  if (isOrdinaryOperator) {
+    if (dbUser.procurement_source_id) {
+      whereClause.procurement_source_id = dbUser.procurement_source_id;
+    } else {
+      // Unbound operator gets zero dispatches
+      whereClause.procurement_source_id = -1;
+    }
   } else {
+    // Privileged/Global roles may specify optional procurementSourceId query param
     const sourceParam = searchParams.get('procurementSourceId');
     if (sourceParam) {
       whereClause.procurement_source_id = BigInt(sourceParam);

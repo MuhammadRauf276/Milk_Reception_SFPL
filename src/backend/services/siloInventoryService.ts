@@ -174,12 +174,12 @@ export async function getSiloActiveReservedLiters(
   let totalReservedLiters = 0;
   for (const log of activeLogs) {
     const declVal = log.portion.dispatch_quantity_value ? Number(log.portion.dispatch_quantity_value) : 0;
-    const declUnit = (log.portion.dispatch_quantity_unit || 'KG').toUpperCase();
+    const declUnit = log.portion.dispatch_quantity_unit ? log.portion.dispatch_quantity_unit.toUpperCase() : null;
     if (declVal <= 0) continue;
 
     if (declUnit === 'LITER') {
       totalReservedLiters += declVal;
-    } else {
+    } else if (declUnit === 'KG') {
       // Primary: Plant QA LR (only genuine PERFORMED, no dispatch/fake fallback)
       const performedPlantLr = log.portion.plant_lab_results.filter(
         (r) => isPlantLrTest(r.lab_test.testCode, r.lab_test.testName) && r.performance_status === 'PERFORMED' && r.numeric_value !== null

@@ -292,8 +292,8 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
                     <div>
                       <span className="text-slate-500 font-sans block text-[9px]">Vehicle Quantity</span>
                       <span>
-                        {log.vehicle_dispatch_quantity_value != null
-                          ? `${Number(log.vehicle_dispatch_quantity_value).toLocaleString()} ${log.vehicle_dispatch_quantity_unit || 'KG'}`
+                        {log.vehicle_dispatch_quantity_value != null && log.vehicle_dispatch_quantity_unit
+                          ? `${Number(log.vehicle_dispatch_quantity_value).toLocaleString()} ${log.vehicle_dispatch_quantity_unit}`
                           : '—'}
                       </span>
                     </div>

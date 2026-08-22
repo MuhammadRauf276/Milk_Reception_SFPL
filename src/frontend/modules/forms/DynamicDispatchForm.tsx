@@ -1453,58 +1453,35 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                   ) : (
                     /* ZMCC Mode Dispatch Tests Grid */
                     <div className="space-y-3 pt-1 border-t border-slate-100">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between border-b pb-1">
                         <label className="block text-xs font-extrabold uppercase text-[#111311]">
-                          ZMCC Dispatch Tests ({labTests.length} Tests)
+                          Lab Tests ({manualLabTests.length} Manual Observations)
                         </label>
                         <span className="text-[10px] font-bold text-slate-500">
-                          Accountability Required
+                          ZMCC Strict Mode Testing
                         </span>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
-                        {labTests.map((test) => {
-                          const resultState = portion.results[test.id] || {
-                            numericValue: '',
-                            textValue: '',
-                            performanceStatus: 'PERFORMED',
-                            notPerformedReason: '',
-                          };
-                          const testError = portionErrors[index]?.tests?.[test.id];
-
-                          if (test.resultType === 'CALCULATED') {
-                            let calcDisplay = '—';
-                            if (test.testCode === 'CALC_SNF') {
-                              calcDisplay = calcValues.snf !== null ? `${calcValues.snf.toFixed(3)} %` : '—';
-                            } else if (test.testCode === 'CALC_RATIO') {
-                              calcDisplay = calcValues.ratio !== null ? calcValues.ratio.toFixed(3) : '—';
-                            }
+                      {isLoadingTests ? (
+                        <p className="text-xs text-slate-500">Loading lab tests...</p>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          {manualLabTests.map((test) => {
+                            const resultState = portion.results[test.id] || {
+                              numericValue: '',
+                              textValue: '',
+                              performanceStatus: 'PERFORMED',
+                              notPerformedReason: '',
+                            };
+                            const testError = portionErrors[index]?.tests?.[test.id];
 
                             return (
                               <div
-                                key={`test-calc-${portion.clientId}-${test.id}`}
-                                className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1 opacity-90"
+                                key={`test-input-${portion.clientId}-${test.id}`}
+                                className={`p-2.5 rounded-xl bg-[#F4EFE3] border space-y-1.5 ${
+                                  testError ? 'border-rose-500 bg-rose-50/20' : 'border-[#C4B9A3]'
+                                }`}
                               >
-                                <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-                                  <span>{test.testName}</span>
-                                  <span className="text-[10px] font-mono uppercase bg-slate-200 px-1.5 py-0.5 rounded text-slate-600 font-bold">
-                                    CALCULATED
-                                  </span>
-                                </div>
-                                <div className="p-1.5 rounded-lg bg-white border border-slate-200 font-mono font-bold text-xs text-[#1E40AF]\">
-                                  {calcDisplay}
-                                </div>
-                              </div>
-                            );
-                          }
-
-                          return (
-                            <div
-                              key={`test-input-${portion.clientId}-${test.id}`}
-                              className={`p-2.5 rounded-xl bg-[#F4EFE3] border space-y-1.5 ${
-                                testError ? 'border-rose-500 bg-rose-50/20' : 'border-[#C4B9A3]'
-                              }`}
-                            >
                               <div className="flex items-center justify-between text-xs font-bold">
                                 <span>
                                   {test.testName} {test.isRequired && <span className="text-rose-600">*</span>}

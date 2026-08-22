@@ -38,7 +38,7 @@ export async function GET(req: Request) {
       const totalVehicleQty = v.vehicle_dispatch_quantity_value !== null && v.vehicle_dispatch_quantity_value !== undefined
         ? Number(v.vehicle_dispatch_quantity_value)
         : null;
-      const totalVehicleUnit = v.vehicle_dispatch_quantity_unit || 'KG';
+      const totalVehicleUnit = v.vehicle_dispatch_quantity_unit || null;
 
       // Determine visit decision summary
       const decisions = portions.map((p) => p.plant_decision || 'PENDING');

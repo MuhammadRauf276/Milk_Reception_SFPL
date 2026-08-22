@@ -136,6 +136,52 @@ async function runRegressionTests() {
     `Total Admin Visible = ${adminVisits.length}`
   );
 
+  // Test 1.6: GET /api/dispatches?range=7d honors range parameter
+  const req7d = await createAuthRequest('http://localhost:3000/api/dispatches?range=7d', 'GET', undefined, hasilpurUser);
+  const res7d = await GET(req7d);
+  const data7d = await res7d.json();
+  assert(
+    res7d.ok && Array.isArray(data7d.dispatches),
+    'TEST-1.6: GET /api/dispatches?range=7d honors range parameter',
+    `Status = ${res7d.status}, Count = ${data7d.dispatches?.length}`
+  );
+
+  // Test 1.7: GET /api/dispatches?range=custom&fromDate=...&toDate=... honors custom bounds
+  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const today = new Date().toISOString().split('T')[0];
+  const reqCustom = await createAuthRequest(`http://localhost:3000/api/dispatches?range=custom&fromDate=${yesterday}&toDate=${today}`, 'GET', undefined, hasilpurUser);
+  const resCustom = await GET(reqCustom);
+  const dataCustom = await resCustom.json();
+  assert(
+    resCustom.ok && Array.isArray(dataCustom.dispatches),
+    'TEST-1.7: GET /api/dispatches?range=custom with valid fromDate & toDate succeeds',
+    `Status = ${resCustom.status}, Count = ${dataCustom.dispatches?.length}`
+  );
+
+  // Test 1.8: fromDate > toDate returns 400 with "From Date cannot be after To Date"
+  const reqInvalidCustom = await createAuthRequest(`http://localhost:3000/api/dispatches?range=custom&fromDate=2026-08-30&toDate=2026-08-01`, 'GET', undefined, hasilpurUser);
+  const resInvalidCustom = await GET(reqInvalidCustom);
+  const dataInvalidCustom = await resInvalidCustom.json();
+  assert(
+    resInvalidCustom.status === 400 && dataInvalidCustom.error === 'From Date cannot be after To Date',
+    'TEST-1.8: Custom range with fromDate > toDate returns 400 "From Date cannot be after To Date"',
+    `Status = ${resInvalidCustom.status}, Error = "${dataInvalidCustom.error}"`
+  );
+
+  // Test 1.9: Normal Recent Dispatches query strictly excludes DRAFT_DISPATCH and CANCELLED
+  const draftForExclusion = await startDraft(hasilpurUser);
+  const reqRecent = await createAuthRequest('http://localhost:3000/api/dispatches?range=30d', 'GET', undefined, hasilpurUser);
+  const resRecent = await GET(reqRecent);
+  const dataRecent = await resRecent.json();
+  const recentVisits = dataRecent.dispatches || [];
+  const containsDraft = recentVisits.some((v: any) => v.id === draftForExclusion.visitId || v.current_status === 'DRAFT_DISPATCH');
+  const containsCancelled = recentVisits.some((v: any) => v.current_status === 'CANCELLED');
+  assert(
+    resRecent.ok && !containsDraft && !containsCancelled,
+    'TEST-1.9: Recent dispatches query strictly excludes DRAFT_DISPATCH and CANCELLED records',
+    `Contains Draft = ${containsDraft}, Contains Cancelled = ${containsCancelled}`
+  );
+
   // 3. POST /api/dispatches Source Authorization & Tampering Tests
   console.log('\n--- 2. POST API Source Tampering & Authorization Tests ---');
 

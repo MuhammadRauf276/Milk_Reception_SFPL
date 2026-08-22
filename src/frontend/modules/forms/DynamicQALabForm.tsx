@@ -418,7 +418,7 @@ export const DynamicQALabForm: React.FC<DynamicQALabFormProps> = ({ currentUser,
                   }`}
                 >
                   <span>
-                    Portion #{p.portion_number} ({p.dispatch_quantity_value != null ? Number(p.dispatch_quantity_value).toLocaleString() : '—'} {p.dispatch_quantity_unit || 'KG'})
+                    Portion #{p.portion_number} ({p.dispatch_quantity_value != null && p.dispatch_quantity_unit ? `${Number(p.dispatch_quantity_value).toLocaleString()} ${p.dispatch_quantity_unit}` : '—'})
                   </span>
                   <span
                     className={`px-2 py-0.5 rounded text-[9.5px] font-black font-mono ${

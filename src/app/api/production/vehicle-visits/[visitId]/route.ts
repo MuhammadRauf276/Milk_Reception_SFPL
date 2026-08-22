@@ -36,18 +36,23 @@ export async function GET(
     const rejectedPortions = v.portions.filter((p) => p.plant_decision === 'REJECTED');
     
     // Unit-safe dispatch total across accepted portions
-    const acceptedUnits = new Set(acceptedPortions.map((p) => (p.dispatch_quantity_unit || 'KG').toUpperCase()));
+    const acceptedUnits = new Set(
+      acceptedPortions
+        .map((p) => (p.dispatch_quantity_unit ? p.dispatch_quantity_unit.toUpperCase() : null))
+        .filter(Boolean)
+    );
     let totalAcceptedDispatchValue: number | null = null;
     let totalAcceptedDispatchUnit: string | null = null;
 
     if (acceptedPortions.length > 0) {
-      if (acceptedUnits.size === 1) {
-        totalAcceptedDispatchUnit = Array.from(acceptedUnits)[0];
+      const hasMissingUnit = acceptedPortions.some((p) => !p.dispatch_quantity_unit);
+      if (!hasMissingUnit && acceptedUnits.size === 1) {
+        totalAcceptedDispatchUnit = Array.from(acceptedUnits)[0] as string;
         totalAcceptedDispatchValue = acceptedPortions.reduce(
           (sum, p) => sum + (p.dispatch_quantity_value ? Number(p.dispatch_quantity_value) : 0),
           0
         );
-      } else {
+      } else if (acceptedUnits.size > 1) {
         totalAcceptedDispatchUnit = 'MIXED';
         totalAcceptedDispatchValue = null;
       }
@@ -77,9 +82,9 @@ export async function GET(
         id: String(p.id),
         portion_number: p.portion_number,
         dispatch_quantity_value: p.dispatch_quantity_value !== null && p.dispatch_quantity_value !== undefined ? Number(p.dispatch_quantity_value) : null,
-        dispatch_quantity_unit: (p.dispatch_quantity_unit || 'KG').toUpperCase(),
-        dispatch_quantity_basis: p.dispatch_quantity_basis,
-        dispatch_measurement_method: p.dispatch_measurement_method,
+        dispatch_quantity_unit: p.dispatch_quantity_unit ? p.dispatch_quantity_unit.toUpperCase() : null,
+        dispatch_quantity_basis: p.dispatch_quantity_basis || null,
+        dispatch_measurement_method: p.dispatch_measurement_method || null,
         plant_decision: p.plant_decision || 'PENDING',
         plant_rejection_reason: p.plant_rejection_reason || null,
         current_status: p.current_status,
