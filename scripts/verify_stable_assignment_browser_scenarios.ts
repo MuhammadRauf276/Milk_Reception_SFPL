@@ -42,6 +42,7 @@ async function verifyBrowserScenarios() {
   }
 
   const effectiveSourceId = (zmccUser.procurement_source_id || zmccSource.id).toString();
+  const regressionBusinessDate = getOperationalBusinessDate(new Date());
 
   // =========================================================================
   // BROWSER SCENARIO 1: DISPATCH FORM & REFRESH STABILITY
