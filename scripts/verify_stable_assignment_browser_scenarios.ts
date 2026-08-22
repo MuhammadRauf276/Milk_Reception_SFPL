@@ -99,9 +99,9 @@ async function verifyBrowserScenarios() {
   const reqSubmitA = await makeReq('http://localhost:3000/api/dispatches', 'POST', {
     visitId: visitIdA.toString(),
     vehicleNumber: 'BRW-DISP-A-' + nowA,
-    operationalDate: new Date().toISOString().split('T')[0],
     procurementSourceId: effectiveSourceId,
-    portions: [{ portionNumber: 1, declaredQuantityKg: 8000, declaredQuantityUnit: 'KG', results: manualA }],
+    vehicleQuantity: { value: '8000', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
+    portions: [{ portionNumber: 1, quantity: { value: '8000', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' }, results: manualA }],
   }, zmccUser);
   const resSubmitA = await createDispatch(reqSubmitA);
   const dataSubmitA = await resSubmitA.json();
@@ -129,9 +129,9 @@ async function verifyBrowserScenarios() {
   const reqSubmitB = await makeReq('http://localhost:3000/api/dispatches', 'POST', {
     visitId: visitIdB.toString(),
     vehicleNumber: 'BRW-DISP-B-' + nowB,
-    operationalDate: new Date().toISOString().split('T')[0],
     procurementSourceId: effectiveSourceId,
-    portions: [{ portionNumber: 1, declaredQuantityKg: 8200, declaredQuantityUnit: 'KG', results: manualB }],
+    vehicleQuantity: { value: '8200', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
+    portions: [{ portionNumber: 1, quantity: { value: '8200', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' }, results: manualB }],
   }, zmccUser);
   const resSubmitB = await createDispatch(reqSubmitB);
   console.log('[Step 5] Dispatch B submitted with status: ' + resSubmitB.status);
@@ -166,9 +166,9 @@ async function verifyBrowserScenarios() {
   const reqSubmitC = await makeReq('http://localhost:3000/api/dispatches', 'POST', {
     visitId: visitIdC.toString(),
     vehicleNumber: 'BRW-DISP-C-' + nowC,
-    operationalDate: new Date().toISOString().split('T')[0],
     procurementSourceId: effectiveSourceId,
-    portions: [{ portionNumber: 1, declaredQuantityKg: 8500, declaredQuantityUnit: 'KG', results: manualC }],
+    vehicleQuantity: { value: '8500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
+    portions: [{ portionNumber: 1, quantity: { value: '8500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' }, results: manualC }],
   }, zmccUser);
   const resSubmitC = await createDispatch(reqSubmitC);
   console.log('[Step 6] Dispatch C submitted with status: ' + resSubmitC.status);

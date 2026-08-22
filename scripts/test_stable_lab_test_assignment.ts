@@ -581,13 +581,12 @@ async function runStableAssignmentTests() {
     body: JSON.stringify({
       visitId: draftVisitIdA,
       vehicleNumber: 'STAGE2A-VEH-A',
-      operationalDate: '2026-08-21',
       procurementSourceId: mpdSourceId,
+      vehicleQuantity: { value: '8500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
       portions: [
         {
           portionNumber: 1,
-          declaredQuantityKg: 8500,
-          declaredQuantityUnit: 'KG',
+          quantity: { value: '8500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
           results: resultsA,
         },
       ],
@@ -666,13 +665,12 @@ async function runStableAssignmentTests() {
     body: JSON.stringify({
       visitId: draftVisitIdB,
       vehicleNumber: 'STAGE2A-VEH-B',
-      operationalDate: '2026-08-21',
       procurementSourceId: mpdSourceId,
+      vehicleQuantity: { value: '8500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
       portions: [
         {
           portionNumber: 1,
-          declaredQuantityKg: 8500,
-          declaredQuantityUnit: 'KG',
+          quantity: { value: '8500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
           results: resultsBWithoutDummy,
         },
       ],

@@ -1,5 +1,6 @@
 import { prisma } from '../src/backend/core/db';
 import { GET, POST } from '../src/app/api/dispatches/route';
+import { POST as startDispatchPost } from '../src/app/api/dispatches/start/route';
 import { createSessionToken } from '../src/backend/core/auth';
 import { User, Role } from '../src/backend/core/types';
 
@@ -60,6 +61,13 @@ async function runRegressionTests() {
       headers,
       body: bodyObj ? JSON.stringify(bodyObj) : undefined,
     });
+  }
+
+  async function startDraft(user: any, sourceId?: string) {
+    const req = await createAuthRequest('http://localhost:3000/api/dispatches/start', 'POST', { procurementSourceId: sourceId }, user);
+    const res = await startDispatchPost(req);
+    const data = await res.json();
+    return data;
   }
 
   // 2. Source Visibility Scoping Tests (GET /api/dispatches)
@@ -129,19 +137,20 @@ async function runRegressionTests() {
   console.log('\n--- 2. POST API Source Tampering & Authorization Tests ---');
 
   // Test 2.1: Source-bound operator attempts to create a visit for unauthorized source
+  const draftTamper = await startDraft(hasilpurUser);
   const reqPostTamper = await createAuthRequest(
     'http://localhost:3000/api/dispatches',
     'POST',
     {
+      visitId: draftTamper.visitId,
       vehicleNumber: 'TEST-9999',
-      operationalDate: new Date().toISOString().split('T')[0],
       procurementSourceId: jhangSource?.id.toString(), // Tampered source ID
       zonalContractorName: 'ZMCC Jhang',
+      vehicleQuantity: { value: '8500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
       portions: [
         {
           portionNumber: 1,
-          declaredQuantityKg: 8500,
-          declaredQuantityUnit: 'KG',
+          quantity: { value: '8500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
           results: [],
         },
       ],
@@ -160,17 +169,18 @@ async function runRegressionTests() {
   console.log('\n--- 3. Declared Quantity & Unit Validation Tests ---');
 
   // Test 3.1: Negative declared quantity (-500)
+  const draftNeg = await startDraft(hasilpurUser);
   const reqNegQty = await createAuthRequest(
     'http://localhost:3000/api/dispatches',
     'POST',
     {
+      visitId: draftNeg.visitId,
       vehicleNumber: 'TEST-8888',
-      operationalDate: new Date().toISOString().split('T')[0],
+      vehicleQuantity: { value: '8500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
       portions: [
         {
           portionNumber: 1,
-          declaredQuantityKg: -500,
-          declaredQuantityUnit: 'KG',
+          quantity: { value: '-500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
           results: [],
         },
       ],
@@ -180,23 +190,24 @@ async function runRegressionTests() {
   const resNegQty = await POST(reqNegQty);
   const dataNegQty = await resNegQty.json();
   assert(
-    resNegQty.status === 400 && dataNegQty.error.includes('greater than 0'),
+    resNegQty.status === 400 && (dataNegQty.error.includes('greater than 0') || dataNegQty.error.includes('positive')),
     'TEST-3.1: Negative declared quantity (-500) is strictly rejected',
     `Status = ${resNegQty.status}, Error = "${dataNegQty.error}"`
   );
 
   // Test 3.2: Zero declared quantity (0)
+  const draftZero = await startDraft(hasilpurUser);
   const reqZeroQty = await createAuthRequest(
     'http://localhost:3000/api/dispatches',
     'POST',
     {
+      visitId: draftZero.visitId,
       vehicleNumber: 'TEST-8887',
-      operationalDate: new Date().toISOString().split('T')[0],
+      vehicleQuantity: { value: '8500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
       portions: [
         {
           portionNumber: 1,
-          declaredQuantityKg: 0,
-          declaredQuantityUnit: 'KG',
+          quantity: { value: '0', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
           results: [],
         },
       ],
@@ -206,35 +217,34 @@ async function runRegressionTests() {
   const resZeroQty = await POST(reqZeroQty);
   const dataZeroQty = await resZeroQty.json();
   assert(
-    resZeroQty.status === 400 && dataZeroQty.error.includes('greater than 0'),
+    resZeroQty.status === 400 && (dataZeroQty.error.includes('greater than 0') || dataZeroQty.error.includes('positive')),
     'TEST-3.2: Zero declared quantity (0) is strictly rejected',
     `Status = ${resZeroQty.status}, Error = "${dataZeroQty.error}"`
   );
 
   // Fetch active lab tests for accountability
-  const allActiveTests = await prisma.labTest.findMany({
-    where: { isActive: true, testScope: { in: ['DISPATCH', 'BOTH'] } },
-  });
-  const defaultContResults = allActiveTests
-    .filter((t) => t.resultType !== 'CALCULATED')
-    .map((t) => ({
-      testId: t.id.toString(),
-      performanceStatus: 'NOT_PERFORMED' as const,
-      notPerformedReason: 'Contract Vehicle',
-    }));
+  const draftContLiter = await startDraft(alkhairUser);
+  const assignedContTests = (draftContLiter.assignedTests || []).filter((t: any) => t.resultType !== 'CALCULATED');
+  const defaultContResults = assignedContTests.map((t: any) => ({
+    testId: t.testId,
+    performanceStatus: 'NOT_PERFORMED' as const,
+    notPerformedReason: 'Contract Vehicle',
+  }));
 
   // Test 3.3: Contractor declares quantity in LITERS
   const reqContLiter = await createAuthRequest(
     'http://localhost:3000/api/dispatches',
     'POST',
     {
+      visitId: draftContLiter.visitId,
       vehicleNumber: 'CONT-9800',
-      operationalDate: new Date().toISOString().split('T')[0],
+      dispatchTestingMode: 'NOT_PERFORMED',
+      dispatchTestingReason: 'Contract Vehicle',
+      vehicleQuantity: { value: '9800', unit: 'LITER', basis: 'ESTIMATED', method: 'MANUAL_ESTIMATE' },
       portions: [
         {
           portionNumber: 1,
-          declaredQuantityKg: 9800,
-          declaredQuantityUnit: 'LITER',
+          quantity: { value: '9800', unit: 'LITER', basis: 'ESTIMATED', method: 'MANUAL_ESTIMATE' },
           results: defaultContResults,
         },
       ],
@@ -265,17 +275,11 @@ async function runRegressionTests() {
   // 5. Contractor Test Accountability Workflow Tests
   console.log('\n--- 4. Contractor Test Accountability Workflow Tests ---');
 
-  // Fetch active lab tests
-  const activeTests = await prisma.labTest.findMany({
-    where: { isActive: true, testScope: { in: ['DISPATCH', 'BOTH'] } },
-  });
-  const manualTests = activeTests.filter((t) => t.resultType !== 'CALCULATED');
-  const tempTest = activeTests.find((t) => t.testName.toLowerCase().includes('temperature'));
-  const fatTest = activeTests.find((t) => t.testName.toLowerCase().includes('fat') && !t.testName.toLowerCase().includes('snf'));
-
   // Test 4.1: Contractor Default All NOT_PERFORMED Case
-  const allNotPerfResults = manualTests.map((t) => ({
-    testId: t.id.toString(),
+  const draftContAllNotPerf = await startDraft(alkhairUser);
+  const assignedNotPerf = (draftContAllNotPerf.assignedTests || []).filter((t: any) => t.resultType !== 'CALCULATED');
+  const allNotPerfResults = assignedNotPerf.map((t: any) => ({
+    testId: t.testId,
     performanceStatus: 'NOT_PERFORMED' as const,
     notPerformedReason: 'Contract Vehicle',
   }));
@@ -284,13 +288,15 @@ async function runRegressionTests() {
     'http://localhost:3000/api/dispatches',
     'POST',
     {
+      visitId: draftContAllNotPerf.visitId,
       vehicleNumber: 'CONT-NOT-PERF',
-      operationalDate: new Date().toISOString().split('T')[0],
+      dispatchTestingMode: 'NOT_PERFORMED',
+      dispatchTestingReason: 'Contract Vehicle',
+      vehicleQuantity: { value: '9500', unit: 'LITER', basis: 'ESTIMATED', method: 'MANUAL_ESTIMATE' },
       portions: [
         {
           portionNumber: 1,
-          declaredQuantityKg: 9500,
-          declaredQuantityUnit: 'LITER',
+          quantity: { value: '9500', unit: 'LITER', basis: 'ESTIMATED', method: 'MANUAL_ESTIMATE' },
           results: allNotPerfResults,
         },
       ],
@@ -309,34 +315,42 @@ async function runRegressionTests() {
     where: { visit_id: BigInt(dataContAllNotPerf.visitId), performance_status: 'NOT_PERFORMED' },
   });
   assert(
-    notPerfResultsCount >= manualTests.length,
+    notPerfResultsCount >= assignedNotPerf.length,
     'TEST-4.2: Full accountability rows created in DB with status NOT_PERFORMED and reason "Contract Vehicle"',
     `NOT_PERFORMED Results in DB = ${notPerfResultsCount}`
   );
 
   // Test 4.3: Contractor PARTIAL mode with subset of PERFORMED tests + remaining NOT_PERFORMED
-  if (tempTest && fatTest) {
-    const partialResults = manualTests.map((t) => {
-      if (t.id === tempTest.id) {
-        return { testId: t.id.toString(), performanceStatus: 'PERFORMED' as const, notPerformedReason: null, numericValue: 5.2 };
-      }
-      if (t.id === fatTest.id) {
-        return { testId: t.id.toString(), performanceStatus: 'PERFORMED' as const, notPerformedReason: null, numericValue: 3.8 };
-      }
-      return { testId: t.id.toString(), performanceStatus: 'NOT_PERFORMED' as const, notPerformedReason: 'Contract Vehicle' };
-    });
+  const draftContPartial = await startDraft(alkhairUser);
+  const assignedPartial = draftContPartial.assignedTests || [];
+  const tempTestAssigned = assignedPartial.find((t: any) => t.testName.toLowerCase().includes('temperature'));
+  const fatTestAssigned = assignedPartial.find((t: any) => t.testName.toLowerCase().includes('fat') && !t.testName.toLowerCase().includes('snf'));
+
+  if (tempTestAssigned && fatTestAssigned) {
+    const partialResults = assignedPartial
+      .filter((t: any) => t.resultType !== 'CALCULATED')
+      .map((t: any) => {
+        if (t.testId === tempTestAssigned.testId) {
+          return { testId: t.testId, performanceStatus: 'PERFORMED' as const, notPerformedReason: null, numericValue: 5.2 };
+        }
+        if (t.testId === fatTestAssigned.testId) {
+          return { testId: t.testId, performanceStatus: 'PERFORMED' as const, notPerformedReason: null, numericValue: 3.8 };
+        }
+        return { testId: t.testId, performanceStatus: 'NOT_PERFORMED' as const, notPerformedReason: 'Contract Vehicle' };
+      });
 
     const reqContPartial = await createAuthRequest(
       'http://localhost:3000/api/dispatches',
       'POST',
       {
+        visitId: draftContPartial.visitId,
         vehicleNumber: 'CONT-PARTIAL',
-        operationalDate: new Date().toISOString().split('T')[0],
+        dispatchTestingMode: 'PARTIAL',
+        vehicleQuantity: { value: '8900', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
         portions: [
           {
             portionNumber: 1,
-            declaredQuantityKg: 8900,
-            declaredQuantityUnit: 'KG',
+            quantity: { value: '8900', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
             results: partialResults,
           },
         ],

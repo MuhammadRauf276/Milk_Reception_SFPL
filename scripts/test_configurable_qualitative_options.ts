@@ -307,11 +307,11 @@ async function runConfigurableQualitativeOptionsTests() {
       sourceType: 'ZMCC',
       procurementSourceId: zmccSource.id.toString(),
       vehicleNumber: `DISP-SNAP-H-${nowC}`,
-      operationalDate: '2026-08-21',
+      vehicleQuantity: { value: '5000', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
       portions: [
         {
           portionNumber: 1,
-          declaredQuantityKg: 5000,
+          quantity: { value: '5000', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
           results: portionResultsJ,
         },
       ],
@@ -365,11 +365,11 @@ async function runConfigurableQualitativeOptionsTests() {
       sourceType: 'ZMCC',
       procurementSourceId: zmccSource.id.toString(),
       vehicleNumber: `DISP-INVALID-K-${nowC}`,
-      operationalDate: '2026-08-21',
+      vehicleQuantity: { value: '5000', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
       portions: [
         {
           portionNumber: 1,
-          declaredQuantityKg: 5000,
+          quantity: { value: '5000', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
           results: portionResultsK,
         },
       ],
@@ -400,11 +400,11 @@ async function runConfigurableQualitativeOptionsTests() {
       sourceType: 'ZMCC',
       procurementSourceId: zmccSource.id.toString(),
       vehicleNumber: `DISP-INVALID-K-${nowC}`,
-      operationalDate: '2026-08-21',
+      vehicleQuantity: { value: '5000', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
       portions: [
         {
           portionNumber: 1,
-          declaredQuantityKg: 5000,
+          quantity: { value: '5000', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
           results: portionResultsL,
         },
       ],
@@ -801,11 +801,11 @@ async function runConfigurableQualitativeOptionsTests() {
       sourceType: 'ZMCC',
       procurementSourceId: zmccSource.id.toString(),
       vehicleNumber: `VEH-3AF-${now3AD}`,
-      operationalDate: '2026-08-21',
+      vehicleQuantity: { value: '5000', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
       portions: [
         {
           portionNumber: 1,
-          declaredQuantityKg: 5000,
+          quantity: { value: '5000', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
           results: dispatchResults3AF,
         },
       ],

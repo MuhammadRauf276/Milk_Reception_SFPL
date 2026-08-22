@@ -187,12 +187,12 @@ async function runQAPlantAccountabilityVerification() {
       'performanceStatus state management present'
     );
 
-    // ─── QA-CRASH-05: formatDeclaredQty guard — null returns dash ───
-    const hasCrashGuard = workspaceSource.includes('formatDeclaredQty') &&
-      workspaceSource.includes('portion.dispatch_quantity_value === null') &&
-      !workspaceSource.includes('dispatch_quantity_value.toLocaleString()'); // direct unsafe call must be gone
+    // ─── QA-CRASH-05: formatDispatchQty guard — null returns dash ───
+    const hasCrashGuard = workspaceSource.includes('formatDispatchQty') &&
+      (workspaceSource.includes('val === null') || workspaceSource.includes('portion.dispatch_quantity_value === null')) &&
+      !workspaceSource.includes('portion.dispatch_quantity_value.toLocaleString()'); // direct unsafe call must be gone
     report(
-      'QA-CRASH-05: dispatch_quantity_value.toLocaleString() crash eliminated — formatDeclaredQty guard in place',
+      'QA-CRASH-05: dispatch_quantity_value.toLocaleString() crash eliminated — formatDispatchQty guard in place',
       hasCrashGuard,
       'Null-safe display helper present, direct .toLocaleString() call removed'
     );
@@ -373,11 +373,11 @@ async function runQAPlantAccountabilityVerification() {
       'utf8'
     );
     const emitsDeclaredValue = visitRouteSource.includes('dispatch_quantity_value:') &&
-      !visitRouteSource.includes('dispatch_quantity_value:');
+      !visitRouteSource.includes('declared_quantity_value:');
     const emitsDeclaredUnit = visitRouteSource.includes('dispatch_quantity_unit:');
     const emitsPerformanceStatus = visitRouteSource.includes('performanceStatus: pr.performance_status');
     report(
-      'QA-FIELD-01: Visit detail API emits dispatch_quantity_value (not dispatch_quantity_value), dispatch_quantity_unit, and performanceStatus',
+      'QA-FIELD-01: Visit detail API emits dispatch_quantity_value (not declared_quantity_value), dispatch_quantity_unit, and performanceStatus',
       emitsDeclaredValue && emitsDeclaredUnit && emitsPerformanceStatus,
       `value=${emitsDeclaredValue}, unit=${emitsDeclaredUnit}, perf=${emitsPerformanceStatus}`
     );

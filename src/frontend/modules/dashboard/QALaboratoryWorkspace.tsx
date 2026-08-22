@@ -619,7 +619,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
   const canAccept = performedCount === requiredManualPlantTests.length && notPerformedCount === 0 && unresolvedCount === 0;
 
   // Format dispatch quantity display — never crash on null
-  const formatDeclaredQty = (portion: VisitDetailPortion | null): string => {
+  const formatDispatchQty = (portion: VisitDetailPortion | null): string => {
     if (!portion) return '—';
     const val = portion.dispatch_quantity_value;
     const unit = portion.dispatch_quantity_unit;
@@ -976,7 +976,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
                     {/* Declared Quantity & Accountability Counter — crash-safe */}
                     <div className="flex items-center justify-between text-xs font-bold text-[#334155]">
                       <span>
-                        Declared Quantity: <strong className="font-mono text-[#111311]">{formatDeclaredQty(currentPortion)}</strong>
+                        Dispatch Quantity: <strong className="font-mono text-[#111311]">{formatDispatchQty(currentPortion)}</strong>
                       </span>
                       <span>{performedCount} of {requiredManualPlantTests.length} required tests PERFORMED</span>
                     </div>
