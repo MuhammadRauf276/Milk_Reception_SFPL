@@ -14,7 +14,8 @@ interface DispatchedVisit {
   operational_date: string | null;
   current_status: string;
   portion_count: number;
-  total_declared_kg: number;
+  vehicle_dispatch_quantity_value?: number | null;
+  vehicle_dispatch_quantity_unit?: string | null;
   dispatch_timestamp: string | null;
   zonal_contractor_name: string;
 }
@@ -27,9 +28,16 @@ interface ActiveInPlantVisit {
   token_number: string | null;
   entry_timestamp: string | null;
   portion_count: number;
-  total_declared_kg: number;
+  vehicle_dispatch_quantity_value?: number | null;
+  vehicle_dispatch_quantity_unit?: string | null;
   current_status: string;
   plant_decision_summary: string;
+}
+
+function formatVehicleQuantity(val?: number | null, unit?: string | null): string {
+  if (val === null || val === undefined || isNaN(val)) return '—';
+  const formatted = val.toLocaleString('en-US');
+  return unit ? `${formatted} ${unit}` : formatted;
 }
 
 interface ReadyForExitVisit {
@@ -339,7 +347,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                       </div>
 
                       <div className={`flex items-center justify-between text-[11px] font-bold ${isSelected ? 'text-slate-200' : 'text-[#334155]'}`}>
-                        <span>Portions: {v.portion_count} ({v.total_declared_kg.toLocaleString()} KG)</span>
+                        <span>Portions: {v.portion_count} ({formatVehicleQuantity(v.vehicle_dispatch_quantity_value, v.vehicle_dispatch_quantity_unit)})</span>
                         <span>{v.zonal_contractor_name}</span>
                       </div>
                     </div>
@@ -367,7 +375,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                 <div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-[#F4EFE3] border border-[#C4B9A3] text-xs font-mono font-bold">
                   <div>
                     <span className="text-slate-500 font-sans block text-[9px]">Declared Volume</span>
-                    <span>{selectedEntryVisit.total_declared_kg.toLocaleString()} KG ({selectedEntryVisit.portion_count} Portion{selectedEntryVisit.portion_count > 1 ? 's' : ''})</span>
+                    <span>{formatVehicleQuantity(selectedEntryVisit.vehicle_dispatch_quantity_value, selectedEntryVisit.vehicle_dispatch_quantity_unit)} ({selectedEntryVisit.portion_count} Portion{selectedEntryVisit.portion_count > 1 ? 's' : ''})</span>
                   </div>
                   <div>
                     <span className="text-slate-500 font-sans block text-[9px]">Operational Date</span>
@@ -462,7 +470,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                         {v.entry_timestamp ? new Date(v.entry_timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '-'}
                       </td>
                       <td className="py-3 px-4 font-mono">
-                        {v.portion_count} ({v.total_declared_kg.toLocaleString()} KG)
+                        {v.portion_count} ({formatVehicleQuantity(v.vehicle_dispatch_quantity_value, v.vehicle_dispatch_quantity_unit)})
                       </td>
                       <td className="py-3 px-4 font-bold">
                         <span className="px-2.5 py-0.5 rounded-full text-[10px] uppercase font-mono bg-blue-100 text-[#1E3A8A] border border-blue-300">

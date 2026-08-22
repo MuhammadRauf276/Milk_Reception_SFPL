@@ -114,17 +114,26 @@ async function seedDatabase() {
         const visitNum = `VISIT-2026-${String(visitIdCounter).padStart(4, '0')}`;
         const tokenNum = status === 'Dispatched' ? null : `TK-${9000 + visitIdCounter}`;
 
+        const grossKg = 12000 + (dayOffset * 350 + idx * 800) % 7000;
+
         // Insert Vehicle Visit
         await client.query(`
-          INSERT INTO vehicle_visit (id, visit_number, vehicle_number, token_number, operational_date, current_status, created_by, created_at, updated_at)
-          VALUES ($1, $2, $3, $4, $5, $6, 1, $7, $8);
-        `, [visitIdCounter, visitNum, vNum, tokenNum, dateStr, status, logDate, logDate]);
+          INSERT INTO vehicle_visit (
+            id, visit_number, vehicle_number, token_number, operational_date, current_status, created_by,
+            vehicle_dispatch_quantity_value, vehicle_dispatch_quantity_unit, vehicle_dispatch_quantity_basis, vehicle_dispatch_measurement_method,
+            created_at, updated_at
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, 1, $7, 'KG', 'MEASURED', 'WEIGHING', $8, $9);
+        `, [visitIdCounter, visitNum, vNum, tokenNum, dateStr, status, grossKg, logDate, logDate]);
 
         // Insert Visit Portion
-        const grossKg = 12000 + (dayOffset * 350 + idx * 800) % 7000;
         await client.query(`
-          INSERT INTO visit_portion (id, visit_id, portion_number, current_status, dispatch_quantity_value, plant_decision, plant_rejection_reason, plant_decided_by, plant_decided_at, created_at, updated_at)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
+          INSERT INTO visit_portion (
+            id, visit_id, portion_number, current_status,
+            dispatch_quantity_value, dispatch_quantity_unit, dispatch_quantity_basis, dispatch_measurement_method,
+            plant_decision, plant_rejection_reason, plant_decided_by, plant_decided_at, created_at, updated_at
+          )
+          VALUES ($1, $2, $3, $4, $5, 'KG', 'MEASURED', 'WEIGHING', $6, $7, $8, $9, $10, $11);
         `, [portionIdCounter, visitIdCounter, portionNum, status, grossKg, plantDecision, rejectionReason, plantDecision === 'Rejected' ? 5 : 5, logDate, logDate, logDate]);
 
         // Insert Dispatch Info

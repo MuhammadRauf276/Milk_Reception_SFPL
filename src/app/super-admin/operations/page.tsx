@@ -7,14 +7,18 @@ interface Portion {
   id: string;
   portionNumber: number;
   contractorName: string;
-  grossLiters: number | null;
+  dispatchQuantityValue: number | null;
+  dispatchQuantityUnit: string | null;
+  dispatchQuantityBasis?: string | null;
+  dispatchMeasurementMethod?: string | null;
+  provisionalPhysicalLiters?: number | null;
   plantDecision: string | null;
   rejectionReason: string | null;
   unloadingLog: {
     siloCode: string;
     siloName: string;
     status: string;
-    litersUnloaded: number | null;
+    provisionalPhysicalLiters?: number | null;
   } | null;
 }
 
@@ -25,6 +29,8 @@ interface Visit {
   tokenNumber: string | null;
   currentStatus: string;
   createdAt: string;
+  vehicleDispatchQuantityValue?: number | null;
+  vehicleDispatchQuantityUnit?: string | null;
   gateLog: {
     entryTimestamp: string | null;
     exitTimestamp: string | null;
@@ -37,6 +43,12 @@ interface Visit {
     netWeightKg: number | null;
   } | null;
   portions: Portion[];
+}
+
+function formatQuantity(val?: number | null, unit?: string | null): string {
+  if (val === null || val === undefined || isNaN(val)) return '—';
+  const formatted = val.toLocaleString('en-US');
+  return unit ? `${formatted} ${unit}` : formatted;
 }
 
 export default function SuperAdminOperationsPage() {
@@ -193,7 +205,7 @@ export default function SuperAdminOperationsPage() {
                         </span>
                       </div>
                       <div className="text-[11px] text-slate-600">
-                        Dispatch Vol: <strong>{p.grossLiters ? `${p.grossLiters.toLocaleString()} L` : 'N/A'}</strong>
+                        Dispatch Qty: <strong>{formatQuantity(p.dispatchQuantityValue, p.dispatchQuantityUnit)}</strong>
                       </div>
                       {p.unloadingLog && (
                         <div className="text-[11px] text-slate-600">

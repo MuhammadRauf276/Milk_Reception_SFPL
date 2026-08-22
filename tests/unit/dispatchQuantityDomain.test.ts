@@ -412,4 +412,150 @@ describe('Stage 4C-4: Dispatch Quantity Domain (Unit Tests)', () => {
       expect(historicalVehicleQty).toBeNull();
     });
   });
+
+  describe('Quantity Consumers Contract Migration (Security, Weighbridge, Super Admin, Seed)', () => {
+    it('[SECURITY-CONTRACT] Formats security quantities safely without total_declared_kg dependency', () => {
+      const formatVehicleQuantity = (val?: number | null, unit?: string | null): string => {
+        if (val === null || val === undefined || isNaN(val)) return '—';
+        const formatted = val.toLocaleString('en-US');
+        return unit ? `${formatted} ${unit}` : formatted;
+      };
+
+      // KG response
+      expect(formatVehicleQuantity(19500, 'KG')).toBe('19,500 KG');
+      // LITER response
+      expect(formatVehicleQuantity(10000, 'LITER')).toBe('10,000 LITER');
+      // Missing quantity / unit
+      expect(formatVehicleQuantity(null, null)).toBe('—');
+      expect(formatVehicleQuantity(undefined, undefined)).toBe('—');
+
+      // Static check: Security workspace contains 0 total_declared_kg
+      const secFile = fs.readFileSync(
+        path.join(process.cwd(), 'src/frontend/modules/dashboard/SecurityGatewayWorkspace.tsx'),
+        'utf8'
+      );
+      expect(secFile).not.toContain('total_declared_kg');
+    });
+
+    it('[WEIGHBRIDGE-CONTRACT] Formats accepted quantities safely without accepted_declared_kg and without mixed-unit summing', () => {
+      interface FirstWeightPortion {
+        portion_number: number;
+        dispatch_quantity_value: number | null;
+        dispatch_quantity_unit: string | null;
+        plant_decision: string;
+      }
+      interface FirstWeightVisit {
+        vehicle_dispatch_quantity_value?: number | null;
+        vehicle_dispatch_quantity_unit?: string | null;
+        portions?: FirstWeightPortion[];
+      }
+
+      function formatAcceptedQuantity(v: FirstWeightVisit): string {
+        const portions = v.portions || [];
+        const accepted = portions.filter((p) => (p.plant_decision || '').toUpperCase() === 'ACCEPTED');
+
+        if (accepted.length === 0) {
+          if (v.vehicle_dispatch_quantity_value !== null && v.vehicle_dispatch_quantity_value !== undefined) {
+            return `${v.vehicle_dispatch_quantity_value.toLocaleString('en-US')} ${v.vehicle_dispatch_quantity_unit || ''}`.trim();
+          }
+          return '—';
+        }
+
+        const portionsWithQty = accepted.filter((p) => p.dispatch_quantity_value !== null && p.dispatch_quantity_value !== undefined);
+        if (portionsWithQty.length === 0) return '—';
+
+        const units = Array.from(new Set(portionsWithQty.map((p) => p.dispatch_quantity_unit).filter(Boolean)));
+
+        if (units.length === 1) {
+          const unit = units[0];
+          const total = portionsWithQty.reduce((sum, p) => sum + (p.dispatch_quantity_value || 0), 0);
+          return `${total.toLocaleString('en-US')} ${unit}`;
+        }
+
+        // Mixed units across accepted portions
+        return portionsWithQty
+          .map((p) => `P${p.portion_number}: ${p.dispatch_quantity_value?.toLocaleString('en-US')} ${p.dispatch_quantity_unit || '—'}`)
+          .join(', ');
+      }
+
+      // 1. Same-unit KG portions
+      const sameUnitVisit: FirstWeightVisit = {
+        portions: [
+          { portion_number: 1, dispatch_quantity_value: 10000, dispatch_quantity_unit: 'KG', plant_decision: 'ACCEPTED' },
+          { portion_number: 2, dispatch_quantity_value: 8000, dispatch_quantity_unit: 'KG', plant_decision: 'ACCEPTED' },
+        ],
+      };
+      expect(formatAcceptedQuantity(sameUnitVisit)).toBe('18,000 KG');
+
+      // 2. Same-unit LITER portions
+      const literVisit: FirstWeightVisit = {
+        portions: [
+          { portion_number: 1, dispatch_quantity_value: 5000, dispatch_quantity_unit: 'LITER', plant_decision: 'ACCEPTED' },
+          { portion_number: 2, dispatch_quantity_value: 5000, dispatch_quantity_unit: 'LITER', plant_decision: 'ACCEPTED' },
+        ],
+      };
+      expect(formatAcceptedQuantity(literVisit)).toBe('10,000 LITER');
+
+      // 3. Mixed-unit portions: NO raw summation, NO fake KG label
+      const mixedVisit: FirstWeightVisit = {
+        portions: [
+          { portion_number: 1, dispatch_quantity_value: 8000, dispatch_quantity_unit: 'KG', plant_decision: 'ACCEPTED' },
+          { portion_number: 2, dispatch_quantity_value: 5000, dispatch_quantity_unit: 'LITER', plant_decision: 'ACCEPTED' },
+        ],
+      };
+      const mixedResult = formatAcceptedQuantity(mixedVisit);
+      expect(mixedResult).toBe('P1: 8,000 KG, P2: 5,000 LITER');
+      expect(mixedResult).not.toBe('13,000 KG');
+      expect(mixedResult).not.toBe('13,000');
+
+      // 4. Missing quantity
+      const missingVisit: FirstWeightVisit = { portions: [] };
+      expect(formatAcceptedQuantity(missingVisit)).toBe('—');
+
+      // Static check: Weighbridge workspace contains 0 accepted_declared_kg
+      const wbFile = fs.readFileSync(
+        path.join(process.cwd(), 'src/frontend/modules/dashboard/WeighbridgeWorkspace.tsx'),
+        'utf8'
+      );
+      expect(wbFile).not.toContain('accepted_declared_kg');
+    });
+
+    it('[SUPER-ADMIN-CONTRACT] Formats operations journey without grossLiters dependency', () => {
+      function formatQuantity(val?: number | null, unit?: string | null): string {
+        if (val === null || val === undefined || isNaN(val)) return '—';
+        const formatted = val.toLocaleString('en-US');
+        return unit ? `${formatted} ${unit}` : formatted;
+      }
+
+      expect(formatQuantity(19500, 'KG')).toBe('19,500 KG');
+      expect(formatQuantity(10000, 'LITER')).toBe('10,000 LITER');
+      expect(formatQuantity(null, null)).toBe('—');
+
+      // Static check: Super Admin page contains 0 grossLiters
+      const saFile = fs.readFileSync(
+        path.join(process.cwd(), 'src/app/super-admin/operations/page.tsx'),
+        'utf8'
+      );
+      expect(saFile).not.toContain('grossLiters');
+    });
+
+    it('[SEED-CONTRACT] Confirms seed_postgres.js seeds complete canonical quantity facts', () => {
+      const seedSql = fs.readFileSync(
+        path.join(process.cwd(), 'scripts/seed_postgres.js'),
+        'utf8'
+      );
+
+      // VehicleVisit quantity columns
+      expect(seedSql).toContain('vehicle_dispatch_quantity_value');
+      expect(seedSql).toContain('vehicle_dispatch_quantity_unit');
+      expect(seedSql).toContain('vehicle_dispatch_quantity_basis');
+      expect(seedSql).toContain('vehicle_dispatch_measurement_method');
+
+      // VisitPortion quantity columns
+      expect(seedSql).toContain('dispatch_quantity_value');
+      expect(seedSql).toContain('dispatch_quantity_unit');
+      expect(seedSql).toContain('dispatch_quantity_basis');
+      expect(seedSql).toContain('dispatch_measurement_method');
+    });
+  });
 });
