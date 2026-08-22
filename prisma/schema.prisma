@@ -75,8 +75,10 @@ model VehicleVisit {
   inventory_transactions SiloInventoryTransaction[]
   qa_warnings          QAWarning[]
   test_assignments     LabTestAssignment[]
+  quantity_policy_snapshot DispatchQuantityPolicySnapshot?
 
   @@index([current_status, created_at])
+
   @@index([created_at])
   @@index([procurement_source_id, created_at])
   @@map("vehicle_visit")
@@ -199,21 +201,40 @@ model LabTestRule {
 }
 
 model ProcurementSource {
-  id          BigInt   @id @default(autoincrement())
-  code        String   @unique @db.VarChar(50)
-  name        String   @db.VarChar(150)
-  source_type String   @map("source_type") @db.VarChar(50) // ZMCC or CONTRACTOR
-  is_active   Boolean  @default(true) @map("is_active")
-  created_at  DateTime @default(now()) @map("created_at") @db.Timestamp(6)
-  updated_at  DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
+  id                       BigInt   @id @default(autoincrement())
+  code                     String   @unique @db.VarChar(50)
+  name                     String   @db.VarChar(150)
+  source_type              String   @map("source_type") @db.VarChar(50) // ZMCC or CONTRACTOR
+  dispatch_quantity_policy Json?    @map("dispatch_quantity_policy")
+  is_active                Boolean  @default(true) @map("is_active")
+  created_at               DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at               DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
 
   // Relations
-  users    User[]      @relation("SourceUsers")
-  warnings QAWarning[] @relation("SourceWarnings")
-  visits   VehicleVisit[] @relation("VisitSource")
+  users                      User[]                           @relation("SourceUsers")
+  warnings                   QAWarning[]                      @relation("SourceWarnings")
+  visits                     VehicleVisit[]                   @relation("VisitSource")
+  quantity_policy_snapshots  DispatchQuantityPolicySnapshot[] @relation("SourcePolicySnapshots")
 
   @@map("procurement_source")
 }
+
+model DispatchQuantityPolicySnapshot {
+  id              BigInt            @id @default(autoincrement())
+  visit_id        BigInt            @unique @map("visit_id")
+  source_id       BigInt            @map("source_id")
+  policy_version  Int               @default(1) @map("policy_version")
+  policy_snapshot Json              @map("policy_snapshot")
+  created_at      DateTime          @default(now()) @map("created_at") @db.Timestamp(6)
+
+  // Relations
+  visit           VehicleVisit      @relation(fields: [visit_id], references: [id], onDelete: Cascade)
+  source          ProcurementSource @relation("SourcePolicySnapshots", fields: [source_id], references: [id], onDelete: Restrict)
+
+  @@index([source_id])
+  @@map("dispatch_quantity_policy_snapshot")
+}
+
 
 model DispatchLabResult {
   id                   BigInt    @id @default(autoincrement())

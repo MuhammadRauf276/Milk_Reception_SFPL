@@ -54,9 +54,10 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
   const [labTests, setLabTests] = useState<LabTestDef[]>([]);
   const [isLoadingTests, setIsLoadingTests] = useState(false);
 
-  // Available sources list for global admins
   const [availableSources, setAvailableSources] = useState<Array<{ id: string; name: string; source_type: string }>>([]);
   const [selectedSourceId, setSelectedSourceId] = useState<string>('');
+  const [frozenQuantityPolicy, setFrozenQuantityPolicy] = useState<any>(null);
+
 
   // Vehicle Header Fields
   const [vehicleNumber, setVehicleNumber] = useState('');
@@ -200,9 +201,13 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
 
       if (data.assignedTests) {
         setDraftVisitId(data.visitId);
+        if (data.quantityPolicy) {
+          setFrozenQuantityPolicy(data.quantityPolicy);
+        }
         if (typeof window !== 'undefined' && data.visitId && scopedKey) {
           sessionStorage.setItem(scopedKey, data.visitId);
         }
+
         setLabTests(data.assignedTests);
         const isContractor = effectiveSource?.source_type === 'CONTRACTOR';
         const initialResults = buildInitialPortionResults(data.assignedTests, isContractor);
