@@ -150,8 +150,8 @@ export async function POST(
           throw new Error(`Silo "${silo.silo_name}" (${silo.silo_code}) is INACTIVE and cannot receive new milk.`);
         }
 
-        const declVal = portion.declared_quantity_value !== null && portion.declared_quantity_value !== undefined ? Number(portion.declared_quantity_value) : 0;
-        const declUnit = (portion.declared_quantity_unit || 'KG').toUpperCase();
+        const declVal = portion.dispatch_quantity_value !== null && portion.dispatch_quantity_value !== undefined ? Number(portion.dispatch_quantity_value) : 0;
+        const declUnit = (portion.dispatch_quantity_unit || 'KG').toUpperCase();
         let expectedLiters: number;
 
         if (declUnit === 'LITER') {

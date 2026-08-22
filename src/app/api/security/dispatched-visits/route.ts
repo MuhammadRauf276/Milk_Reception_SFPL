@@ -35,6 +35,7 @@ export async function GET(req: Request) {
           },
           orderBy: { portion_number: 'asc' },
         },
+        dispatch_info: true,
         creator: true,
         procurement_source: true,
       },
@@ -43,10 +44,12 @@ export async function GET(req: Request) {
 
     const formatted = visits.map((v) => {
       const portions = v.portions || [];
-      const totalDeclaredKg = portions.reduce(
-        (sum, p) => sum + (p.declared_quantity_value ? Number(p.declared_quantity_value) : 0),
-        0
-      );
+      const totalDeclaredKg = v.dispatch_info?.vehicle_quantity_value
+        ? Number(v.dispatch_info.vehicle_quantity_value)
+        : portions.reduce(
+            (sum, p) => sum + (p.dispatch_quantity_value ? Number(p.dispatch_quantity_value) : 0),
+            0
+          );
       const firstDispatchInfo = portions[0]?.dispatch_info;
 
       return {

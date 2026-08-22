@@ -28,6 +28,7 @@ export async function GET(req: Request) {
       include: {
         portions: true,
         gate_log: true,
+        dispatch_info: true,
       },
       orderBy: { created_at: 'desc' },
       take: 20,
@@ -35,10 +36,12 @@ export async function GET(req: Request) {
 
     const formatted = visits.map((v) => {
       const portions = v.portions || [];
-      const totalDeclaredKg = portions.reduce(
-        (sum, p) => sum + (p.declared_quantity_value ? Number(p.declared_quantity_value) : 0),
-        0
-      );
+      const totalVehicleQty = v.dispatch_info?.vehicle_quantity_value
+        ? Number(v.dispatch_info.vehicle_quantity_value)
+        : portions.reduce(
+            (sum, p) => sum + (p.dispatch_quantity_value ? Number(p.dispatch_quantity_value) : 0),
+            0
+          );
 
       // Determine visit decision summary
       const decisions = portions.map((p) => p.plant_decision || 'PENDING');

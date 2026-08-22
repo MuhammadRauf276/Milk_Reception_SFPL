@@ -173,8 +173,8 @@ export async function getSiloActiveReservedLiters(
 
   let totalReservedLiters = 0;
   for (const log of activeLogs) {
-    const declVal = log.portion.declared_quantity_value ? Number(log.portion.declared_quantity_value) : 0;
-    const declUnit = (log.portion.declared_quantity_unit || 'KG').toUpperCase();
+    const declVal = log.portion.dispatch_quantity_value ? Number(log.portion.dispatch_quantity_value) : 0;
+    const declUnit = (log.portion.dispatch_quantity_unit || 'KG').toUpperCase();
     if (declVal <= 0) continue;
 
     if (declUnit === 'LITER') {

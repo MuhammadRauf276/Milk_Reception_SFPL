@@ -82,8 +82,12 @@ interface VisitDetailPortion {
   portion_number: number;
   current_status: string;
   // null is preserved — no || 0 fallback
-  declared_quantity_value: number | null;
-  declared_quantity_unit: string;
+  dispatch_quantity_value?: number | null;
+  dispatch_quantity_unit?: string;
+  dispatch_quantity_basis?: string;
+  dispatch_measurement_method?: string;
+  declared_quantity_value?: number | null;
+  declared_quantity_unit?: string;
   plant_decision: string;
   plant_rejection_reason: string | null;
   dispatch_results: any[];
@@ -613,11 +617,13 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
 
   const canAccept = performedCount === requiredManualPlantTests.length && notPerformedCount === 0 && unresolvedCount === 0;
 
-  // Format declared quantity display — never crash on null
+  // Format dispatch/declared quantity display — never crash on null
   const formatDeclaredQty = (portion: VisitDetailPortion | null): string => {
     if (!portion) return '—';
-    if (portion.declared_quantity_value === null || portion.declared_quantity_value === undefined) return '—';
-    return `${Number(portion.declared_quantity_value).toLocaleString()} ${portion.declared_quantity_unit || 'KG'}`;
+    const val = portion.dispatch_quantity_value ?? portion.declared_quantity_value;
+    const unit = portion.dispatch_quantity_unit ?? portion.declared_quantity_unit;
+    if (val === null || val === undefined) return '—';
+    return `${Number(val).toLocaleString()} ${unit || 'KG'}`;
   };
 
   return (

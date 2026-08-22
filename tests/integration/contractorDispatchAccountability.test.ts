@@ -47,8 +47,10 @@ describe('Contractor Dispatch Accountability & Business Rules (Vitest Integratio
       data: {
         visit_id: visit.id,
         portion_number: 1,
-        declared_quantity_value: 10000,
-        declared_quantity_unit: 'LITER',
+        dispatch_quantity_value: 10000,
+        dispatch_quantity_unit: 'LITER',
+        dispatch_quantity_basis: 'ESTIMATED',
+        dispatch_measurement_method: 'MANUAL_ESTIMATE',
         current_status: 'DISPATCHED',
       },
     });
@@ -117,8 +119,10 @@ describe('Contractor Dispatch Accountability & Business Rules (Vitest Integratio
       data: {
         visit_id: visit.id,
         portion_number: 1,
-        declared_quantity_value: 8000,
-        declared_quantity_unit: 'LITER',
+        dispatch_quantity_value: 8000,
+        dispatch_quantity_unit: 'LITER',
+        dispatch_quantity_basis: 'ESTIMATED',
+        dispatch_measurement_method: 'MANUAL_ESTIMATE',
         current_status: 'DISPATCHED',
       },
     });
@@ -169,8 +173,10 @@ describe('Contractor Dispatch Accountability & Business Rules (Vitest Integratio
       data: {
         visit_id: visit.id,
         portion_number: 1,
-        declared_quantity_value: 6000,
-        declared_quantity_unit: 'LITER',
+        dispatch_quantity_value: 6000,
+        dispatch_quantity_unit: 'LITER',
+        dispatch_quantity_basis: 'ESTIMATED',
+        dispatch_measurement_method: 'MANUAL_ESTIMATE',
         current_status: 'DISPATCHED',
       },
     });
@@ -216,11 +222,21 @@ describe('Contractor Dispatch Accountability & Business Rules (Vitest Integratio
       operationalDate: '2026-08-22',
       procurementSourceId: zmcc.id.toString(),
       dispatchTestingMode: 'FULL' as const,
+      vehicleQuantity: {
+        value: '5000',
+        unit: 'KG' as const,
+        basis: 'MEASURED' as const,
+        method: 'WEIGHING' as const,
+      },
       portions: [
         {
           portionNumber: 1,
-          declaredQuantityKg: 5000,
-          declaredQuantityUnit: 'KG' as const,
+          quantity: {
+            value: '5000',
+            unit: 'KG' as const,
+            basis: 'MEASURED' as const,
+            method: 'WEIGHING' as const,
+          },
           results: assignments.map((a) => ({
             testId: a.test_id.toString(),
             performanceStatus: 'PERFORMED' as const,

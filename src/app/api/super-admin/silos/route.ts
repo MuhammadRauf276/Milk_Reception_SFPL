@@ -43,7 +43,7 @@ export async function GET() {
 
         let activeReservationsLiters = 0;
         for (const ul of activeUnloadingLogs) {
-          activeReservationsLiters += Number(ul.portion.declared_quantity_value || 0);
+          activeReservationsLiters += Number(ul.portion.dispatch_quantity_value || 0);
         }
 
         return {

@@ -293,11 +293,21 @@ describe('Stage 4C-2: Dispatch Initialization Reliability (Integration)', () => 
         vehicleNumber: 'KBL-9999',
         operationalDate: '2026-08-22',
         procurementSourceId: sourceA.id.toString(),
+        vehicleQuantity: {
+          value: '5000',
+          unit: 'KG',
+          basis: 'MEASURED',
+          method: 'WEIGHING',
+        },
         portions: [
           {
             portionNumber: 1,
-            declaredQuantityKg: 5000,
-            declaredQuantityUnit: 'KG',
+            quantity: {
+              value: '5000',
+              unit: 'KG',
+              basis: 'MEASURED',
+              method: 'WEIGHING',
+            },
             results: [],
           },
         ],
@@ -338,11 +348,21 @@ describe('Stage 4C-2: Dispatch Initialization Reliability (Integration)', () => 
         vehicleNumber: 'KBL-8888',
         operationalDate: '2026-08-22',
         procurementSourceId: sourceB.id.toString(),
+        vehicleQuantity: {
+          value: '5000',
+          unit: 'KG',
+          basis: 'MEASURED',
+          method: 'WEIGHING',
+        },
         portions: [
           {
             portionNumber: 1,
-            declaredQuantityKg: 5000,
-            declaredQuantityUnit: 'KG',
+            quantity: {
+              value: '5000',
+              unit: 'KG',
+              basis: 'MEASURED',
+              method: 'WEIGHING',
+            },
             results: [],
           },
         ],
@@ -390,11 +410,21 @@ describe('Stage 4C-2: Dispatch Initialization Reliability (Integration)', () => 
         vehicleNumber: 'KBL-7777',
         operationalDate: '2026-08-22',
         procurementSourceId: sourceA.id.toString(),
+        vehicleQuantity: {
+          value: '6000',
+          unit: 'KG',
+          basis: 'MEASURED',
+          method: 'WEIGHING',
+        },
         portions: [
           {
             portionNumber: 1,
-            declaredQuantityKg: 6000,
-            declaredQuantityUnit: 'KG',
+            quantity: {
+              value: '6000',
+              unit: 'KG',
+              basis: 'MEASURED',
+              method: 'WEIGHING',
+            },
             results: portionResults,
           },
         ],
