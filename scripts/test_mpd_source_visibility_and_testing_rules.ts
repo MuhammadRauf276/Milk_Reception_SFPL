@@ -136,27 +136,102 @@ async function runRegressionTests() {
     `Total Admin Visible = ${adminVisits.length}`
   );
 
-  // Test 1.6: GET /api/dispatches?range=7d honors range parameter
-  const req7d = await createAuthRequest('http://localhost:3000/api/dispatches?range=7d', 'GET', undefined, hasilpurUser);
+  // Create controlled temporary fixtures with deterministic dates to prove range filtering:
+  // 1. Recent fixture: 2 days old (within 7d, within 30d)
+  // 2. Medium fixture: 10 days old (outside 7d, within 30d)
+  // 3. Old fixture: 40 days old (outside 7d, outside 30d)
+  const nowMs = Date.now();
+  const dateRecent = new Date(nowMs - 2 * 24 * 60 * 60 * 1000);
+  const dateMedium = new Date(nowMs - 10 * 24 * 60 * 60 * 1000);
+  const dateOld = new Date(nowMs - 40 * 24 * 60 * 60 * 1000);
+
+  const fixtureRecent = await prisma.vehicleVisit.create({
+    data: {
+      visit_number: `VV-TEST-REC-${nowMs}`,
+      reception_number: `REC-TEST-REC-${nowMs}`,
+      vehicle_number: 'TEST-REC-01',
+      operational_date: dateRecent,
+      current_status: 'DISPATCHED',
+      procurement_source_id: hasilpurUser.procurement_source_id,
+      created_by: hasilpurUser.id,
+      created_at: dateRecent,
+      vehicle_dispatch_quantity_value: 5000,
+      vehicle_dispatch_quantity_unit: 'KG',
+      vehicle_dispatch_quantity_basis: 'MEASURED',
+      vehicle_dispatch_measurement_method: 'WEIGHING',
+    },
+  });
+
+  const fixtureMedium = await prisma.vehicleVisit.create({
+    data: {
+      visit_number: `VV-TEST-MED-${nowMs}`,
+      reception_number: `REC-TEST-MED-${nowMs}`,
+      vehicle_number: 'TEST-MED-01',
+      operational_date: dateMedium,
+      current_status: 'DISPATCHED',
+      procurement_source_id: hasilpurUser.procurement_source_id,
+      created_by: hasilpurUser.id,
+      created_at: dateMedium,
+      vehicle_dispatch_quantity_value: 6000,
+      vehicle_dispatch_quantity_unit: 'KG',
+      vehicle_dispatch_quantity_basis: 'MEASURED',
+      vehicle_dispatch_measurement_method: 'WEIGHING',
+    },
+  });
+
+  const fixtureOld = await prisma.vehicleVisit.create({
+    data: {
+      visit_number: `VV-TEST-OLD-${nowMs}`,
+      reception_number: `REC-TEST-OLD-${nowMs}`,
+      vehicle_number: 'TEST-OLD-01',
+      operational_date: dateOld,
+      current_status: 'DISPATCHED',
+      procurement_source_id: hasilpurUser.procurement_source_id,
+      created_by: hasilpurUser.id,
+      created_at: dateOld,
+      vehicle_dispatch_quantity_value: 7000,
+      vehicle_dispatch_quantity_unit: 'KG',
+      vehicle_dispatch_quantity_basis: 'MEASURED',
+      vehicle_dispatch_measurement_method: 'WEIGHING',
+    },
+  });
+
+  // Test 1.6: GET /api/dispatches?range=7d includes recent fixture, excludes medium (10d) and old (40d)
+  const req7d = await createAuthRequest('http://localhost:3000/api/dispatches?range=7d&pageSize=100', 'GET', undefined, hasilpurUser);
   const res7d = await GET(req7d);
   const data7d = await res7d.json();
+  const list7d = data7d.dispatches || [];
+  const includesRecent7d = list7d.some((v: any) => v.id === fixtureRecent.id.toString());
+  const excludesMedium7d = !list7d.some((v: any) => v.id === fixtureMedium.id.toString());
+  const excludesOld7d = !list7d.some((v: any) => v.id === fixtureOld.id.toString());
   assert(
-    res7d.ok && Array.isArray(data7d.dispatches),
-    'TEST-1.6: GET /api/dispatches?range=7d honors range parameter',
-    `Status = ${res7d.status}, Count = ${data7d.dispatches?.length}`
+    res7d.ok && includesRecent7d && excludesMedium7d && excludesOld7d,
+    'TEST-1.6: GET /api/dispatches?range=7d proves inclusion of 2-day fixture and exclusion of 10-day & 40-day fixtures',
+    `includesRecent=${includesRecent7d}, excludesMed=${excludesMedium7d}, excludesOld=${excludesOld7d}`
   );
 
-  // Test 1.7: GET /api/dispatches?range=custom&fromDate=...&toDate=... honors custom bounds
-  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-  const today = new Date().toISOString().split('T')[0];
-  const reqCustom = await createAuthRequest(`http://localhost:3000/api/dispatches?range=custom&fromDate=${yesterday}&toDate=${today}`, 'GET', undefined, hasilpurUser);
+  // Test 1.7: GET /api/dispatches?range=custom with 8d-12d bounds includes 10-day fixture, excludes 2-day & 40-day
+  const customFrom = new Date(nowMs - 12 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const customTo = new Date(nowMs - 8 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const reqCustom = await createAuthRequest(`http://localhost:3000/api/dispatches?range=custom&fromDate=${customFrom}&toDate=${customTo}&pageSize=100`, 'GET', undefined, hasilpurUser);
   const resCustom = await GET(reqCustom);
   const dataCustom = await resCustom.json();
+  const listCustom = dataCustom.dispatches || [];
+  const includesMediumCustom = listCustom.some((v: any) => v.id === fixtureMedium.id.toString());
+  const excludesRecentCustom = !listCustom.some((v: any) => v.id === fixtureRecent.id.toString());
+  const excludesOldCustom = !listCustom.some((v: any) => v.id === fixtureOld.id.toString());
   assert(
-    resCustom.ok && Array.isArray(dataCustom.dispatches),
-    'TEST-1.7: GET /api/dispatches?range=custom with valid fromDate & toDate succeeds',
-    `Status = ${resCustom.status}, Count = ${dataCustom.dispatches?.length}`
+    resCustom.ok && includesMediumCustom && excludesRecentCustom && excludesOldCustom,
+    'TEST-1.7: GET /api/dispatches?range=custom proves inclusion of 10-day fixture and exclusion of out-of-range fixtures',
+    `includesMed=${includesMediumCustom}, excludesRecent=${excludesRecentCustom}, excludesOld=${excludesOldCustom}`
   );
+
+  // Cleanup temporary date-range fixtures
+  await prisma.vehicleVisit.deleteMany({
+    where: {
+      id: { in: [fixtureRecent.id, fixtureMedium.id, fixtureOld.id] },
+    },
+  });
 
   // Test 1.8: fromDate > toDate returns 400 with "From Date cannot be after To Date"
   const reqInvalidCustom = await createAuthRequest(`http://localhost:3000/api/dispatches?range=custom&fromDate=2026-08-30&toDate=2026-08-01`, 'GET', undefined, hasilpurUser);
@@ -181,6 +256,10 @@ async function runRegressionTests() {
     'TEST-1.9: Recent dispatches query strictly excludes DRAFT_DISPATCH and CANCELLED records',
     `Contains Draft = ${containsDraft}, Contains Cancelled = ${containsCancelled}`
   );
+
+  if (draftForExclusion?.visitId) {
+    await prisma.vehicleVisit.deleteMany({ where: { id: BigInt(draftForExclusion.visitId) } });
+  }
 
   // 3. POST /api/dispatches Source Authorization & Tampering Tests
   console.log('\n--- 2. POST API Source Tampering & Authorization Tests ---');

@@ -1313,7 +1313,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                     )}
                   </div>
 
-                  {/* Contractor Dispatch Tests Grid */}
+                  {/* Contractor Dispatch Tests Grid (Explicit Performance Status) */}
                   {isContractorSource ? (
                     <div className="space-y-3 pt-1 border-t border-slate-100">
                       <div className="flex items-center justify-between">
@@ -1325,13 +1325,13 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                         </span>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
                         {manualLabTests.map((test) => {
                           const resultState = portion.results[test.id] || {
                             numericValue: '',
                             textValue: '',
-                            performanceStatus: 'NOT_PERFORMED',
-                            notPerformedReason: 'Contract Vehicle',
+                            performanceStatus: 'PERFORMED',
+                            notPerformedReason: '',
                           };
                           const testError = portionErrors[index]?.tests?.[test.id];
                           const isPerformed = resultState.performanceStatus === 'PERFORMED';
@@ -1339,12 +1339,12 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                           return (
                             <div
                               key={`contractor-test-${portion.clientId}-${test.id}`}
-                              className={`p-3 rounded-xl border space-y-2 transition ${
+                              className={`p-2.5 rounded-xl border space-y-2 transition ${
                                 testError
-                                  ? 'border-rose-500 bg-rose-50/20 ring-1 ring-rose-500'
+                                  ? 'border-rose-500 bg-rose-50/30 ring-1 ring-rose-400'
                                   : isPerformed
-                                  ? 'bg-blue-50/30 border-blue-200'
-                                  : 'bg-[#F4EFE3] border-[#C4B9A3]'
+                                  ? 'border-[#C4B9A3] bg-[#F4EFE3]'
+                                  : 'border-slate-300 bg-slate-100/70'
                               }`}
                             >
                               <div className="flex items-center justify-between text-xs font-bold">
@@ -1356,6 +1356,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                                 )}
                               </div>
 
+                              {/* Performance Status Toggle */}
                               <div className="flex items-center space-x-1.5">
                                 <button
                                   type="button"
@@ -1381,6 +1382,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                                 </button>
                               </div>
 
+                              {/* Dynamic Input Control: Result when PERFORMED, Reason when NOT_PERFORMED */}
                               {isPerformed ? (
                                 <div className="space-y-1">
                                   {test.resultType === 'NUMERIC' ? (
@@ -1388,18 +1390,19 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                                       id={`test-input-field-${index}-${test.id}`}
                                       type="number"
                                       step="0.01"
+                                      min="0"
                                       value={resultState.numericValue}
                                       onChange={(e) =>
                                         handleTestResultChange(index, test.id, 'numericValue', e.target.value)
                                       }
-                                      placeholder="Enter result value"
-                                      className={`w-full px-3 py-1.5 text-xs font-mono font-bold rounded-lg border bg-white text-[#111311] ${
-                                        testError ? 'border-rose-500 focus:ring-2 focus:ring-rose-500' : 'border-[#C4B9A3]'
+                                      placeholder="Enter numeric value"
+                                      className={`w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none ${
+                                        testError ? 'border-rose-500' : 'border-[#C4B9A3]'
                                       }`}
                                     />
                                   ) : Array.isArray(test.resultOptions) && test.resultOptions.length > 0 ? (
                                     <QualitativeResultRadioGroup
-                                      name={`dispatch-${portion.clientId}-${test.id}`}
+                                      name={`dispatch-contractor-${portion.clientId}-${test.id}`}
                                       value={resultState.textValue || null}
                                       options={test.resultOptions}
                                       onChange={(val) =>
@@ -1416,9 +1419,9 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                                       onChange={(e) =>
                                         handleTestResultChange(index, test.id, 'textValue', e.target.value)
                                       }
-                                      placeholder="Enter result text"
-                                      className={`w-full px-3 py-1.5 text-xs font-mono font-bold rounded-lg border bg-white text-[#111311] ${
-                                        testError ? 'border-rose-500 focus:ring-2 focus:ring-rose-500' : 'border-[#C4B9A3]'
+                                      placeholder="Enter result"
+                                      className={`w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none ${
+                                        testError ? 'border-rose-500' : 'border-[#C4B9A3]'
                                       }`}
                                     />
                                   )}
@@ -1432,16 +1435,16 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                                     onChange={(e) =>
                                       handleTestResultChange(index, test.id, 'notPerformedReason', e.target.value)
                                     }
-                                    placeholder="Enter reason for not performing"
-                                    className={`w-full px-3 py-1.5 text-xs font-mono font-bold rounded-lg border bg-rose-50 text-rose-900 border-rose-300 ${
-                                      testError ? 'border-rose-500 focus:ring-2 focus:ring-rose-500' : ''
+                                    placeholder="Reason (e.g. Contract Vehicle)"
+                                    className={`w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border bg-rose-50/40 text-rose-900 border-rose-300 focus:ring-2 focus:ring-rose-500 outline-none ${
+                                      testError ? 'border-rose-500' : ''
                                     }`}
                                   />
                                 </div>
                               )}
 
                               {testError && (
-                                <p className="text-[11px] font-bold text-rose-600 mt-1" id={`test-error-${index}-${test.id}`}>
+                                <p className="text-[11px] font-bold text-rose-600 mt-0.5" id={`test-error-${index}-${test.id}`}>
                                   {testError}
                                 </p>
                               )}
@@ -1451,8 +1454,8 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                       </div>
                     </div>
                   ) : (
-                    /* ZMCC Mode Dispatch Tests Grid */
-                    <div className="space-y-3 pt-1 border-t border-slate-100">
+                    /* ZMCC Full Manual Lab Tests Input Grid (UNCHANGED) */
+                    <div className="space-y-2 pt-1">
                       <div className="flex items-center justify-between border-b pb-1">
                         <label className="block text-xs font-extrabold uppercase text-[#111311]">
                           Lab Tests ({manualLabTests.length} Manual Observations)
@@ -1482,152 +1485,153 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                                   testError ? 'border-rose-500 bg-rose-50/20' : 'border-[#C4B9A3]'
                                 }`}
                               >
-                              <div className="flex items-center justify-between text-xs font-bold">
-                                <span>
-                                  {test.testName} {test.isRequired && <span className="text-rose-600">*</span>}
-                                </span>
-                                {test.unit && (
-                                  <span className="text-[10px] font-mono text-slate-500">({test.unit})</span>
+                                <div className="flex items-center justify-between text-xs font-bold">
+                                  <span>
+                                    {test.testName} {test.isRequired && <span className="text-rose-600">*</span>}
+                                  </span>
+                                  {test.unit && (
+                                    <span className="text-[10px] font-mono text-slate-500">({test.unit})</span>
+                                  )}
+                                </div>
+
+                                {test.resultType === 'NUMERIC' ? (
+                                  <div className="space-y-1">
+                                    <div className="flex items-center justify-between text-[10px] font-bold text-slate-600">
+                                      <div className="flex items-center space-x-1">
+                                        <button
+                                          type="button"
+                                          onClick={() => handlePerformanceStatusChange(index, test.id, 'PERFORMED')}
+                                          className={`px-2 py-0.5 rounded font-black transition ${
+                                            resultState.performanceStatus === 'PERFORMED'
+                                              ? 'bg-blue-700 text-white'
+                                              : 'bg-slate-200 text-slate-700'
+                                          }`}
+                                        >
+                                          PERFORMED
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handlePerformanceStatusChange(index, test.id, 'NOT_PERFORMED')}
+                                          className={`px-2 py-0.5 rounded font-black transition ${
+                                            resultState.performanceStatus === 'NOT_PERFORMED'
+                                              ? 'bg-rose-700 text-white'
+                                              : 'bg-slate-200 text-slate-700'
+                                          }`}
+                                        >
+                                          NOT PERFORMED
+                                        </button>
+                                      </div>
+                                    </div>
+
+                                    {resultState.performanceStatus === 'PERFORMED' ? (
+                                      <input
+                                        id={`test-input-field-${index}-${test.id}`}
+                                        type="number"
+                                        step="0.01"
+                                        value={resultState.numericValue}
+                                        onChange={(e) =>
+                                          handleTestResultChange(index, test.id, 'numericValue', e.target.value)
+                                        }
+                                        placeholder="Enter value"
+                                        className={`w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border bg-white text-[#111311] ${
+                                          testError ? 'border-rose-500 focus:ring-2 focus:ring-rose-500' : 'border-[#C4B9A3]'
+                                        }`}
+                                      />
+                                    ) : (
+                                      <input
+                                        id={`test-input-field-${index}-${test.id}`}
+                                        type="text"
+                                        value={resultState.notPerformedReason}
+                                        onChange={(e) =>
+                                          handleTestResultChange(index, test.id, 'notPerformedReason', e.target.value)
+                                        }
+                                        placeholder="Enter reason for not performing"
+                                        className={`w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border bg-rose-50 text-rose-900 border-rose-300 ${
+                                          testError ? 'border-rose-500 focus:ring-2 focus:ring-rose-500' : ''
+                                        }`}
+                                      />
+                                    )}
+                                  </div>
+                                ) : Array.isArray(test.resultOptions) && test.resultOptions.length > 0 ? (
+                                  <div className="space-y-1">
+                                    <div className="flex items-center justify-between text-[10px] font-bold text-slate-600">
+                                      <div className="flex items-center space-x-1">
+                                        <button
+                                          type="button"
+                                          onClick={() => handlePerformanceStatusChange(index, test.id, 'PERFORMED')}
+                                          className={`px-2 py-0.5 rounded font-black transition ${
+                                            resultState.performanceStatus === 'PERFORMED'
+                                              ? 'bg-blue-700 text-white'
+                                              : 'bg-slate-200 text-slate-700'
+                                          }`}
+                                        >
+                                          PERFORMED
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handlePerformanceStatusChange(index, test.id, 'NOT_PERFORMED')}
+                                          className={`px-2 py-0.5 rounded font-black transition ${
+                                            resultState.performanceStatus === 'NOT_PERFORMED'
+                                              ? 'bg-rose-700 text-white'
+                                              : 'bg-slate-200 text-slate-700'
+                                          }`}
+                                        >
+                                          NOT PERFORMED
+                                        </button>
+                                      </div>
+                                    </div>
+
+                                    {resultState.performanceStatus === 'PERFORMED' ? (
+                                      <QualitativeResultRadioGroup
+                                        name={`dispatch-zmcc-${portion.clientId}-${test.id}`}
+                                        value={resultState.textValue || null}
+                                        options={test.resultOptions}
+                                        onChange={(val) =>
+                                          handleTestResultChange(index, test.id, 'textValue', val)
+                                        }
+                                        error={testError}
+                                        ariaLabel={`${test.testName} result for Portion ${portion.portionNumber}`}
+                                      />
+                                    ) : (
+                                      <input
+                                        id={`test-input-field-${index}-${test.id}`}
+                                        type="text"
+                                        value={resultState.notPerformedReason}
+                                        onChange={(e) =>
+                                          handleTestResultChange(index, test.id, 'notPerformedReason', e.target.value)
+                                        }
+                                        placeholder="Enter reason for not performing"
+                                        className={`w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border bg-rose-50 text-rose-900 border-rose-300 ${
+                                          testError ? 'border-rose-500 focus:ring-2 focus:ring-rose-500' : ''
+                                        }`}
+                                      />
+                                    )}
+                                  </div>
+                                ) : (
+                                  <input
+                                    id={`test-input-field-${index}-${test.id}`}
+                                    type="text"
+                                    value={resultState.textValue}
+                                    onChange={(e) =>
+                                      handleTestResultChange(index, test.id, 'textValue', e.target.value)
+                                    }
+                                    placeholder="Enter result"
+                                    className={`w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border bg-white text-[#111311] ${
+                                      testError ? 'border-rose-500 focus:ring-2 focus:ring-rose-500' : 'border-[#C4B9A3]'
+                                    }`}
+                                  />
+                                )}
+
+                                {testError && (
+                                  <p className="text-[11px] font-bold text-rose-600 mt-1" id={`test-error-${index}-${test.id}`}>
+                                    {testError}
+                                  </p>
                                 )}
                               </div>
-
-                              {test.resultType === 'NUMERIC' ? (
-                                <div className="space-y-1">
-                                  <div className="flex items-center justify-between text-[10px] font-bold text-slate-600">
-                                    <div className="flex items-center space-x-1">
-                                      <button
-                                        type="button"
-                                        onClick={() => handlePerformanceStatusChange(index, test.id, 'PERFORMED')}
-                                        className={`px-2 py-0.5 rounded font-black transition ${
-                                          resultState.performanceStatus === 'PERFORMED'
-                                            ? 'bg-blue-700 text-white'
-                                            : 'bg-slate-200 text-slate-700'
-                                        }`}
-                                      >
-                                        PERFORMED
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => handlePerformanceStatusChange(index, test.id, 'NOT_PERFORMED')}
-                                        className={`px-2 py-0.5 rounded font-black transition ${
-                                          resultState.performanceStatus === 'NOT_PERFORMED'
-                                            ? 'bg-rose-700 text-white'
-                                            : 'bg-slate-200 text-slate-700'
-                                        }`}
-                                      >
-                                        NOT PERFORMED
-                                      </button>
-                                    </div>
-                                  </div>
-
-                                  {resultState.performanceStatus === 'PERFORMED' ? (
-                                    <input
-                                      id={`test-input-field-${index}-${test.id}`}
-                                      type="number"
-                                      step="0.01"
-                                      value={resultState.numericValue}
-                                      onChange={(e) =>
-                                        handleTestResultChange(index, test.id, 'numericValue', e.target.value)
-                                      }
-                                      placeholder="Enter value"
-                                      className={`w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border bg-white text-[#111311] ${
-                                        testError ? 'border-rose-500 focus:ring-2 focus:ring-rose-500' : 'border-[#C4B9A3]'
-                                      }`}
-                                    />
-                                  ) : (
-                                    <input
-                                      id={`test-input-field-${index}-${test.id}`}
-                                      type="text"
-                                      value={resultState.notPerformedReason}
-                                      onChange={(e) =>
-                                        handleTestResultChange(index, test.id, 'notPerformedReason', e.target.value)
-                                      }
-                                      placeholder="Enter reason for not performing"
-                                      className={`w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border bg-rose-50 text-rose-900 border-rose-300 ${
-                                        testError ? 'border-rose-500 focus:ring-2 focus:ring-rose-500' : ''
-                                      }`}
-                                    />
-                                  )}
-                                </div>
-                              ) : Array.isArray(test.resultOptions) && test.resultOptions.length > 0 ? (
-                                <div className="space-y-1">
-                                  <div className="flex items-center justify-between text-[10px] font-bold text-slate-600">
-                                    <div className="flex items-center space-x-1">
-                                      <button
-                                        type="button"
-                                        onClick={() => handlePerformanceStatusChange(index, test.id, 'PERFORMED')}
-                                        className={`px-2 py-0.5 rounded font-black transition ${
-                                          resultState.performanceStatus === 'PERFORMED'
-                                            ? 'bg-blue-700 text-white'
-                                            : 'bg-slate-200 text-slate-700'
-                                        }`}
-                                      >
-                                        PERFORMED
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => handlePerformanceStatusChange(index, test.id, 'NOT_PERFORMED')}
-                                        className={`px-2 py-0.5 rounded font-black transition ${
-                                          resultState.performanceStatus === 'NOT_PERFORMED'
-                                            ? 'bg-rose-700 text-white'
-                                            : 'bg-slate-200 text-slate-700'
-                                        }`}
-                                      >
-                                        NOT PERFORMED
-                                      </button>
-                                    </div>
-                                  </div>
-
-                                  {resultState.performanceStatus === 'PERFORMED' ? (
-                                    <QualitativeResultRadioGroup
-                                      name={`dispatch-zmcc-${portion.clientId}-${test.id}`}
-                                      value={resultState.textValue || null}
-                                      options={test.resultOptions}
-                                      onChange={(val) =>
-                                        handleTestResultChange(index, test.id, 'textValue', val)
-                                      }
-                                      error={testError}
-                                      ariaLabel={`${test.testName} result for Portion ${portion.portionNumber}`}
-                                    />
-                                  ) : (
-                                    <input
-                                      id={`test-input-field-${index}-${test.id}`}
-                                      type="text"
-                                      value={resultState.notPerformedReason}
-                                      onChange={(e) =>
-                                        handleTestResultChange(index, test.id, 'notPerformedReason', e.target.value)
-                                      }
-                                      placeholder="Enter reason for not performing"
-                                      className={`w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border bg-rose-50 text-rose-900 border-rose-300 ${
-                                        testError ? 'border-rose-500 focus:ring-2 focus:ring-rose-500' : ''
-                                      }`}
-                                    />
-                                  )}
-                                </div>
-                              ) : (
-                                <input
-                                  id={`test-input-field-${index}-${test.id}`}
-                                  type="text"
-                                  value={resultState.textValue}
-                                  onChange={(e) =>
-                                    handleTestResultChange(index, test.id, 'textValue', e.target.value)
-                                  }
-                                  placeholder="Enter result"
-                                  className={`w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border bg-white text-[#111311] ${
-                                    testError ? 'border-rose-500 focus:ring-2 focus:ring-rose-500' : 'border-[#C4B9A3]'
-                                  }`}
-                                />
-                              )}
-
-                              {testError && (
-                                <p className="text-[11px] font-bold text-rose-600 mt-1" id={`test-error-${index}-${test.id}`}>
-                                  {testError}
-                                </p>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   )}
 
