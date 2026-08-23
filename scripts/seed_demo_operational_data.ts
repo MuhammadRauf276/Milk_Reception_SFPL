@@ -7,6 +7,10 @@ import {
   calculatePhysicalLiters,
   calculateAt13TSLiters,
 } from '../src/backend/utils/milkFormulas';
+import {
+  calculateVehicleReceivedQuantity,
+  VehicleCalculationPortion,
+} from '../src/backend/services/vehicleQuantityService';
 
 export async function seedOperationalData() {
   console.log('==================================================');
@@ -461,10 +465,18 @@ export async function seedOperationalData() {
 
       // Unloading Log & Silo Receipt for Completed Accepted Visits
       if (targetStatus === 'COMPLETED') {
-        const visitPortions = await prisma.visitPortion.findMany({ where: { visit_id: visit.id } });
+        const visitPortionsWithLab = await prisma.visitPortion.findMany({
+          where: { visit_id: visit.id },
+          include: {
+            plant_lab_results: {
+              include: { lab_test: true },
+            },
+          },
+          orderBy: { portion_number: 'asc' },
+        });
         const targetSilo = activeSilos[(i - 1) % activeSilos.length];
 
-        for (const p of visitPortions) {
+        for (const p of visitPortionsWithLab) {
           if (p.plant_decision === 'ACCEPTED') {
             await prisma.unloadingLog.create({
               data: {
@@ -484,11 +496,29 @@ export async function seedOperationalData() {
           }
         }
 
+        // Authoritative calculation using the production calculateVehicleReceivedQuantity service
+        const calcPortions: VehicleCalculationPortion[] = visitPortionsWithLab.map((p) => ({
+          portionId: p.id,
+          portionNumber: p.portion_number,
+          plantDecision: p.plant_decision,
+          plantLabResults: p.plant_lab_results.map((r) => ({
+            testCode: r.lab_test?.testCode,
+            testName: r.lab_test?.testName,
+            numericValue: r.numeric_value ? Number(r.numeric_value) : null,
+            performanceStatus: r.performance_status,
+          })),
+        }));
+
+        const calcResult = calculateVehicleReceivedQuantity({
+          grossWeightKg: grossKg,
+          secondWeightKg: tareKg,
+          portions: calcPortions,
+        });
+
         // Exactly ONE Vehicle-Level Final Silo Receipt for eligible accepted visits
-        const acceptedPortions = visitPortions.filter((p) => p.plant_decision === 'ACCEPTED');
-        if (acceptedPortions.length > 0) {
-          const plantLr = 28.5;
-          const receiptLiters = Math.round(calculatePhysicalLiters(netKg, plantLr));
+        const acceptedPortions = visitPortionsWithLab.filter((p) => p.plant_decision === 'ACCEPTED');
+        if (acceptedPortions.length > 0 && calcResult.isCalculable && calcResult.finalPhysicalLiters !== null) {
+          const receiptLiters = Math.round(calcResult.finalPhysicalLiters);
 
           await prisma.siloInventoryTransaction.create({
             data: {

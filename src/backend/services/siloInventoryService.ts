@@ -67,13 +67,16 @@ export async function getSiloCurrentStockLiters(siloIdInput: bigint | string, tx
   let totalOutLiters = 0;
 
   for (const tx of transactions) {
-    // If quantity_liters is stored, use it; fallback to mass / 1.0265 if unpopulated on legacy test rows
-    const liters = tx.quantity_liters !== null ? Number(tx.quantity_liters) : Number(tx.quantity_kg) / 1.0265;
-
-    if (tx.transaction_type === SiloTransactionType.RECEIPT) {
-      totalInLiters += liters;
-    } else if (tx.transaction_type === SiloTransactionType.ISSUE) {
-      totalOutLiters += liters;
+    // Physical liters must come strictly from stored/authoritative quantity_liters. No fixed-density fallback.
+    if (tx.quantity_liters !== null && tx.quantity_liters !== undefined) {
+      const liters = Number(tx.quantity_liters);
+      if (!isNaN(liters) && isFinite(liters)) {
+        if (tx.transaction_type === SiloTransactionType.RECEIPT) {
+          totalInLiters += liters;
+        } else if (tx.transaction_type === SiloTransactionType.ISSUE) {
+          totalOutLiters += liters;
+        }
+      }
     }
   }
 
@@ -513,8 +516,8 @@ export async function recordSiloTransaction(params: RecordTransactionParams) {
     const currentStockLiters = await getSiloCurrentStockLiters(siloId, tx);
     const capacityLiters = Number(silo.capacity_liters);
     const txLiters = params.quantity_liters !== undefined && params.quantity_liters !== null
-      ? params.quantity_liters
-      : params.quantity_kg / 1.0265;
+      ? Number(params.quantity_liters)
+      : null;
 
     // Validation 3: RECEIPT Inactive Check (New milk receipts require active silo)
     if (params.transaction_type === SiloTransactionType.RECEIPT) {
@@ -522,7 +525,7 @@ export async function recordSiloTransaction(params: RecordTransactionParams) {
         throw new Error(`Silo "${silo.silo_name}" (${silo.silo_code}) is INACTIVE. New milk receipts are blocked.`);
       }
 
-      if (currentStockLiters + txLiters > capacityLiters) {
+      if (txLiters !== null && currentStockLiters + txLiters > capacityLiters) {
         const available = capacityLiters - currentStockLiters;
         throw new Error(`Receipt quantity (${Math.round(txLiters)} L) exceeds available silo capacity (${Math.round(available)} L).`);
       }
@@ -530,7 +533,7 @@ export async function recordSiloTransaction(params: RecordTransactionParams) {
 
     // Validation 4: ISSUE Check (Allows inactive silo provided existing stock is sufficient)
     if (params.transaction_type === SiloTransactionType.ISSUE) {
-      if (currentStockLiters - txLiters < 0) {
+      if (txLiters !== null && currentStockLiters - txLiters < 0) {
         throw new Error(`Issue quantity (${Math.round(txLiters)} L) exceeds current stock balance (${Math.round(currentStockLiters)} L).`);
       }
     }
@@ -541,7 +544,7 @@ export async function recordSiloTransaction(params: RecordTransactionParams) {
         silo_id: siloId,
         transaction_type: params.transaction_type,
         quantity_kg: new Prisma.Decimal(params.quantity_kg),
-        quantity_liters: new Prisma.Decimal(txLiters),
+        quantity_liters: txLiters !== null ? new Prisma.Decimal(txLiters) : null,
         operational_timestamp: params.operational_timestamp,
         visit_id: visitId,
         portion_id: portionId,

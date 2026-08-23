@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { MilkProcessLog, User, KANBAN_STAGES, Role, DEFAULT_USERS } from '@core/types';
 import { getLiveWaitStatus } from '@core/durations';
+import { getOperationalBusinessDate } from '@/backend/core/business-day';
 import { computeAuthoritativeZonalAnalytics } from '@backend/services/operationalCalculations';
 import { warnDuplicateKeys } from '@/lib/key-utils';
 import { Sidebar } from '@modules/shared/Sidebar';
@@ -19,6 +20,18 @@ import { ZonalHistoryTable } from '@modules/dashboard/ZonalHistoryTable';
 import { SecurityWorkforceTable } from '@modules/dashboard/SecurityWorkforceTable';
 
 import { Search, Filter, Truck, FlaskConical, Scale, Factory, Layers, RefreshCw, CheckCircle2, XCircle, ArrowRightLeft, Lock, Calendar, ShieldCheck } from 'lucide-react';
+
+/**
+ * Deduplicate log rows to distinct vehicles (VehicleVisit level)
+ */
+function getDistinctVehicleCount(logs: MilkProcessLog[]): number {
+  const visitIds = new Set<string | number>();
+  for (const log of logs) {
+    const key = log.visit_number || (log.id ? String(log.id) : null);
+    if (key) visitIds.add(key);
+  }
+  return visitIds.size;
+}
 
 export const KanbanBoard: React.FC = () => {
   const [theme, setTheme] = useState<'creamy' | 'night'>('creamy');
@@ -99,23 +112,29 @@ export const KanbanBoard: React.FC = () => {
     ? logs.filter((l) => l.zonal_contractor_name === targetZone)
     : logs;
 
-  // Filter logs by Date Range for the TOP 4 Cross-Verification Cards
-  const todayStr = new Date().toISOString().split('T')[0];
+  // Canonical Plant Business Date (08:00 AM PKT cutover)
+  const currentBusinessDate = getOperationalBusinessDate(new Date());
 
   const summaryScopedLogs = zoneScopedLogs.filter((l) => {
-    const logDate = l.dispatch_date || l.created_at.split('T')[0];
-    if (summaryDateRange === 'TODAY') return logDate === todayStr;
+    const logDate = l.dispatch_date || (l.created_at ? getOperationalBusinessDate(l.created_at) : '');
+    if (!logDate) return false;
+
+    if (summaryDateRange === 'TODAY') return logDate === currentBusinessDate;
     if (summaryDateRange === 'YESTERDAY') {
-      const yesterdayStr = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-      return logDate === yesterdayStr;
+      const yesterdayDate = new Date();
+      yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+      const yesterdayBusinessDate = getOperationalBusinessDate(yesterdayDate);
+      return logDate === yesterdayBusinessDate;
     }
     if (summaryDateRange === 'LAST_7') {
-      const diffDays = Math.floor((Date.now() - new Date(logDate).getTime()) / (1000 * 3600 * 24));
-      return diffDays <= 7;
+      const diffMs = new Date(currentBusinessDate).getTime() - new Date(logDate).getTime();
+      const diffDays = Math.floor(diffMs / (1000 * 3600 * 24));
+      return diffDays >= 0 && diffDays <= 7;
     }
     if (summaryDateRange === 'LAST_15') {
-      const diffDays = Math.floor((Date.now() - new Date(logDate).getTime()) / (1000 * 3600 * 24));
-      return diffDays <= 15;
+      const diffMs = new Date(currentBusinessDate).getTime() - new Date(logDate).getTime();
+      const diffDays = Math.floor(diffMs / (1000 * 3600 * 24));
+      return diffDays >= 0 && diffDays <= 15;
     }
     return true;
   });
@@ -138,20 +157,19 @@ export const KanbanBoard: React.FC = () => {
       return false;
     }
 
+    const s = String(log.status).toUpperCase();
     if (quickFilter === 'PLANNED') {
-      const s = String(log.status).toUpperCase();
-      if (s !== 'DISPATCHED' && s !== 'PLANNED') return false;
+      const isPlanned = s === 'DISPATCHED' || s === 'SCHEDULED' || s === 'DRAFT_DISPATCH' || s === 'PLANNED';
+      if (!isPlanned) return false;
     }
     if (quickFilter === 'IN_PLANT') {
-      const s = String(log.status).toUpperCase();
-      const isEnRoute = s === 'DISPATCHED' || s === 'PLANNED';
-      const isDone = s === 'COMPLETED' || s === 'EXIT' || s === 'SCALE_2_READY';
+      const isEnRoute = s === 'DISPATCHED' || s === 'SCHEDULED' || s === 'DRAFT_DISPATCH' || s === 'PLANNED';
+      const isDone = s === 'COMPLETED' || s === 'CANCELLED' || s === 'EXIT';
       if (isEnRoute || isDone) return false;
     }
     if (quickFilter === 'COMPLETED') {
-      const s = String(log.status).toUpperCase();
       const calc = String(log.calculated_status || '').toUpperCase();
-      const isDone = s === 'COMPLETED' || s === 'EXIT' || s === 'SCALE_2_READY' || calc === 'REJECTED';
+      const isDone = s === 'COMPLETED' || s === 'EXIT' || calc === 'REJECTED';
       if (!isDone) return false;
     }
 
@@ -161,11 +179,50 @@ export const KanbanBoard: React.FC = () => {
   // Zone list for dropdown filter
   const uniqueZones = Array.from(new Set(logs.map((l) => l.zonal_contractor_name))).filter(Boolean);
 
-  // BOTTOM 4 LIVE PIPELINE METRIC CARDS (Always reflects live active pipeline status)
-  const activeInPlantCount = zoneScopedLogs.filter((l) => l.status !== 'Dispatched' && l.status !== 'Completed').length;
-  const qaTestingQueueCount = zoneScopedLogs.filter((l) => l.status === 'Sampling' || l.status === 'Sampling_In_Progress').length;
-  const weighbridgeBottleneckCount = zoneScopedLogs.filter((l) => l.status === 'First Weight' || l.status === 'Second Weight').length;
-  const dailyDispatchesCompleted = zoneScopedLogs.filter((l) => l.status === 'Completed' && (l.dispatch_date || l.created_at.split('T')[0]) === todayStr).length;
+  // BOTTOM 4 LIVE PIPELINE METRIC CARDS (Canonical status and distinct vehicle counting)
+  const activeInPlantLogs = zoneScopedLogs.filter((l) => {
+    const s = String(l.status).toUpperCase();
+    return s !== 'DISPATCHED' && s !== 'SCHEDULED' && s !== 'DRAFT_DISPATCH' && s !== 'COMPLETED' && s !== 'CANCELLED';
+  });
+  const activeInPlantCount = getDistinctVehicleCount(activeInPlantLogs);
+
+  const qaTestingQueueLogs = zoneScopedLogs.filter((l) => {
+    const s = String(l.status).toUpperCase();
+    return (
+      s === 'PLANT_QA' ||
+      s === 'QA_PENDING' ||
+      s === 'TOKEN_ISSUED' ||
+      s === 'ARRIVED' ||
+      s === 'GATE_IN_PROGRESS' ||
+      s === 'UNDER_TEST' ||
+      s === 'UNDER_TESTING' ||
+      s === 'SAMPLING' ||
+      s === 'SAMPLING_IN_PROGRESS'
+    );
+  });
+  const qaTestingQueueCount = getDistinctVehicleCount(qaTestingQueueLogs);
+
+  const weighbridgeQueueLogs = zoneScopedLogs.filter((l) => {
+    const s = String(l.status).toUpperCase();
+    return (
+      s === 'READY_FOR_GROSS' ||
+      s === 'GROSS_WEIGHED' ||
+      s === 'GROSS_RECORDED' ||
+      s === 'READY_FOR_TARE' ||
+      s === 'TARE_WEIGHED' ||
+      s === 'TARE_RECORDED' ||
+      s === 'FIRST WEIGHT' ||
+      s === 'SECOND WEIGHT'
+    );
+  });
+  const weighbridgeBottleneckCount = getDistinctVehicleCount(weighbridgeQueueLogs);
+
+  const completedDispatchesLogs = zoneScopedLogs.filter((l) => {
+    const s = String(l.status).toUpperCase();
+    const logDate = l.dispatch_date || (l.created_at ? getOperationalBusinessDate(l.created_at) : '');
+    return (s === 'COMPLETED' || s === 'EXIT') && logDate === currentBusinessDate;
+  });
+  const dailyDispatchesCompleted = getDistinctVehicleCount(completedDispatchesLogs);
 
   return (
     <div className="min-h-screen w-screen overflow-x-hidden bg-[#FDFBF9] text-[#111311] flex flex-row font-sans">
@@ -304,7 +361,7 @@ export const KanbanBoard: React.FC = () => {
                         onChange={(e) => setSummaryDateRange(e.target.value as any)}
                         className="px-3 py-1.5 text-xs font-extrabold rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/80 text-[#111311] focus:ring-2 focus:ring-[#1E3A8A] outline-none shadow-sm"
                       >
-                        <option value="TODAY">Today ({todayStr})</option>
+                        <option value="TODAY">Today ({currentBusinessDate})</option>
                         <option value="YESTERDAY">Yesterday</option>
                         <option value="LAST_7">Last 7 Days</option>
                         <option value="LAST_15">Last 15 Days</option>
@@ -489,16 +546,24 @@ export const KanbanBoard: React.FC = () => {
                 <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-5 w-full items-start">
                   {KANBAN_STAGES.map((stageConfig) => {
                     const laneLogs = filteredLogs
-                      .filter((l) => l.status === stageConfig.status || (stageConfig.status === 'Sampling' && l.status === 'Sampling_In_Progress'))
+                      .filter((l) => {
+                        const s = String(l.status).toUpperCase();
+                        return (
+                          stageConfig.canonicalStatuses?.some((cs) => cs.toUpperCase() === s) ||
+                          l.status === stageConfig.status ||
+                          (stageConfig.status === 'Sampling' && (s === 'SAMPLING' || s === 'SAMPLING_IN_PROGRESS'))
+                        );
+                      })
                       .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
-                    const isHighVolume = laneLogs.length > 5;
+                    const distinctVehicleCount = getDistinctVehicleCount(laneLogs);
+                    const isHighVolume = distinctVehicleCount > 5;
                     const isLaneExpanded = !!expandedLanes[stageConfig.status];
                     const avgWaitMins = Math.round(
                       laneLogs.reduce((acc, curr) => acc + getLiveWaitStatus(curr, currentTime).minutes, 0) /
                         (laneLogs.length || 1)
                     );
-                    const isQueueBottleneck = laneLogs.length > 3 || avgWaitMins > 30;
+                    const isQueueBottleneck = distinctVehicleCount > 3 || avgWaitMins > 30;
 
                     return (
                       <div
@@ -519,7 +584,7 @@ export const KanbanBoard: React.FC = () => {
                             </div>
 
                             <span className="px-2.5 py-1 rounded-full text-xs font-mono font-black bg-[#FDFBF9] border border-[#EAE4D5]/80 text-[#111311]">
-                              {laneLogs.length}
+                              {distinctVehicleCount}
                             </span>
                           </div>
 

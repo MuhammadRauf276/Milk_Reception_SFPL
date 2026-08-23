@@ -173,25 +173,44 @@ export async function GET(req: NextRequest) {
       });
 
       // Unit-safe dispatch total across accepted portions
-      const acceptedUnits = new Set(
-        acceptedPortions
-          .map((p) => (p.dispatch_quantity_unit ? p.dispatch_quantity_unit.toUpperCase() : null))
-          .filter(Boolean)
-      );
       let totalAcceptedDispatchValue: number | null = null;
       let totalAcceptedDispatchUnit: string | null = null;
 
       if (acceptedPortions.length > 0) {
-        const hasMissingUnit = acceptedPortions.some((p) => !p.dispatch_quantity_unit);
-        if (!hasMissingUnit && acceptedUnits.size === 1) {
-          totalAcceptedDispatchUnit = Array.from(acceptedUnits)[0] as string;
-          totalAcceptedDispatchValue = acceptedPortions.reduce(
-            (sum, p) => sum + (p.dispatch_quantity_value ? Number(p.dispatch_quantity_value) : 0),
-            0
-          );
-        } else if (acceptedUnits.size > 1) {
-          totalAcceptedDispatchUnit = 'MIXED';
+        let allValid = true;
+        let runningSum = 0;
+        let singleUnit: string | null = null;
+        const acceptedUnits = new Set<string>();
+
+        for (const p of acceptedPortions) {
+          const val = p.dispatch_quantity_value !== null && p.dispatch_quantity_value !== undefined ? Number(p.dispatch_quantity_value) : null;
+          const unit = typeof p.dispatch_quantity_unit === 'string' ? p.dispatch_quantity_unit.trim().toUpperCase() : null;
+
+          if (unit) acceptedUnits.add(unit);
+
+          if (val === null || isNaN(val) || !isFinite(val) || val <= 0) {
+            allValid = false;
+          }
+          if (unit !== 'KG' && unit !== 'LITER') {
+            allValid = false;
+          }
+          if (singleUnit === null) {
+            singleUnit = unit;
+          } else if (singleUnit !== unit) {
+            allValid = false;
+          }
+
+          if (val !== null && !isNaN(val)) {
+            runningSum += val;
+          }
+        }
+
+        if (allValid && singleUnit !== null) {
+          totalAcceptedDispatchValue = runningSum;
+          totalAcceptedDispatchUnit = singleUnit;
+        } else {
           totalAcceptedDispatchValue = null;
+          totalAcceptedDispatchUnit = acceptedUnits.size > 1 ? 'MIXED' : null;
         }
       }
 

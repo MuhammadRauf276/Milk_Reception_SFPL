@@ -304,12 +304,50 @@ export interface DataAuditLog {
   timestamp: string;
 }
 
-export const KANBAN_STAGES: { status: ProcessStatus; title: string; subtitle: string; iconType: string }[] = [
-  { status: 'Dispatched', title: 'En-Route / Dispatched', subtitle: 'On the road to plant', iconType: 'truck' },
-  { status: 'Token Issued', title: 'Gate 2 Token Desk', subtitle: 'IGP & Security Entry', iconType: 'badge' },
-  { status: 'Sampling', title: 'QA Lab Sampling', subtitle: 'Chemical & MBRT Tests', iconType: 'flask' },
-  { status: 'First Weight', title: 'Weighbridge Scale', subtitle: 'Gross & Tare Weighing', iconType: 'scale' },
-  { status: 'Silo Reception', title: 'Silo Milk Reception', subtitle: 'Unloading into Storage', iconType: 'tank' },
+export interface KanbanStageConfig {
+  status: ProcessStatus;
+  canonicalStatuses: string[];
+  title: string;
+  subtitle: string;
+  iconType: string;
+}
+
+export const KANBAN_STAGES: KanbanStageConfig[] = [
+  {
+    status: 'DISPATCHED',
+    canonicalStatuses: ['DISPATCHED', 'SCHEDULED', 'PLANNED', 'Dispatched'],
+    title: 'En-Route / Dispatched',
+    subtitle: 'On the road to plant',
+    iconType: 'truck',
+  },
+  {
+    status: 'TOKEN_ISSUED',
+    canonicalStatuses: ['TOKEN_ISSUED', 'ARRIVED', 'GATE_IN_PROGRESS', 'Token Issued'],
+    title: 'Gate 2 Token Desk',
+    subtitle: 'IGP & Security Entry',
+    iconType: 'badge',
+  },
+  {
+    status: 'PLANT_QA',
+    canonicalStatuses: ['PLANT_QA', 'QA_PENDING', 'UNDER_TEST', 'UNDER_TESTING', 'Sampling', 'Sampling_In_Progress'],
+    title: 'QA Lab Sampling',
+    subtitle: 'Chemical & MBRT Tests',
+    iconType: 'flask',
+  },
+  {
+    status: 'READY_FOR_GROSS',
+    canonicalStatuses: ['READY_FOR_GROSS', 'GROSS_WEIGHED', 'GROSS_RECORDED', 'READY_FOR_TARE', 'TARE_WEIGHED', 'TARE_RECORDED', 'First Weight', 'Second Weight'],
+    title: 'Weighbridge Scale',
+    subtitle: 'Gross & Tare Weighing',
+    iconType: 'scale',
+  },
+  {
+    status: 'READY_FOR_UNLOADING',
+    canonicalStatuses: ['READY_FOR_UNLOADING', 'READY_FOR_UNLOAD', 'UNLOADING', 'UNLOADED', 'Silo Reception'],
+    title: 'Silo Milk Reception',
+    subtitle: 'Unloading into Storage',
+    iconType: 'tank',
+  },
 ];
 
 export interface StageDurations {

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { MilkProcessLog, User } from '@core/types';
+import { getOperationalBusinessDate } from '@/backend/core/business-day';
 import { Search, ShieldCheck, Ticket, Truck, Eye } from 'lucide-react';
 
 interface SecurityWorkforceTableProps {
@@ -21,7 +22,7 @@ export const SecurityWorkforceTable: React.FC<SecurityWorkforceTableProps> = ({
 
   const isSecurityManager = propIsSecurityManager ?? (currentUser?.role === 'Security_Manager');
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getOperationalBusinessDate(new Date());
 
   // Helper to calculate minutes between two HH:mm strings
   const getMinutesBetween = (timeA?: string | null, timeB?: string | null): number | null => {

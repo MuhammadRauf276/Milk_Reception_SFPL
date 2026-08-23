@@ -1,6 +1,24 @@
+/**
+ * ==============================================================================
+ * DEPRECATED / LEGACY SEED SCRIPT — QUARANTINED
+ * ==============================================================================
+ * This raw SQL seed script is retained strictly for historical regression auditing.
+ * DO NOT RUN IN ACTIVE OPERATIONAL OR TEST WORKFLOWS.
+ *
+ * Canonical seeding pipelines:
+ * - Master Data Seed:  npx tsx prisma/seed.ts (or `npm run db:seed`)
+ * - Demo/Test Seed:    npx tsx scripts/seed_demo_operational_data.ts
+ * ==============================================================================
+ */
+
 const { Client } = require('pg');
 
 async function seedDatabase() {
+  if (process.env.ALLOW_LEGACY_RAW_SEED !== 'true') {
+    console.warn('⚠️  [DEPRECATED] scripts/seed_postgres.js is quarantined. Use `npm run db:seed` or `npx tsx scripts/seed_demo_operational_data.ts` instead. Set ALLOW_LEGACY_RAW_SEED=true to force execution.');
+    return;
+  }
+
   const client = new Client({
     connectionString: process.env.DATABASE_URL
   });
