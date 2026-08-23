@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import fs from 'fs';
 import path from 'path';
+import { prisma } from '@/backend/core/db';
 import { getOperationalBusinessDate } from '@/backend/core/business-day';
 import { MilkProcessLog, KANBAN_STAGES } from '@/backend/core/types';
 import {
@@ -17,6 +18,7 @@ import {
   getSiloAvailableCapacity,
   getSiloProvisionalAvailableCapacity,
   getSiloStockVolumeState,
+  recordSiloIssueTransaction,
 } from '@/backend/services/siloInventoryService';
 import {
   isPlantLrTest,
@@ -379,72 +381,141 @@ describe('Stage 4C-Stabilization: Post-Merge Operational Corrections', () => {
       );
     });
 
-    it('[CASE-C] Unknown-liter ISSUE exists => issue sufficiency / capacity fails closed', async () => {
+    it('[CASE-C] Unknown-liter ISSUE exists => recordSiloIssueTransaction fails closed and creates NO new issue', async () => {
       const mockSilo = { id: BigInt(1), silo_code: 'SILO-01', silo_name: 'Raw Milk Silo 1', capacity_liters: 50000, is_active: true };
       const mockTransactions = [
         { transaction_type: 'RECEIPT', quantity_liters: 10000, quantity_kg: 10280 },
         { transaction_type: 'ISSUE', quantity_liters: null, quantity_kg: 3000 },
       ];
 
-      const mockDb: any = {
-        silo: {
-          findUnique: async () => mockSilo,
-        },
+      const createSpy = vi.fn();
+      const mockTx: any = {
+        $executeRaw: vi.fn().mockResolvedValue(1),
+        silo: { findUnique: async () => mockSilo },
         siloInventoryTransaction: {
+          findUnique: vi.fn().mockResolvedValue(null),
           findMany: async () => mockTransactions,
+          create: createSpy,
         },
+        auditLog: { create: vi.fn().mockResolvedValue({ id: BigInt(1) }) },
       };
 
-      const stockState = await getSiloStockVolumeState(BigInt(1), mockDb);
-      expect(stockState.isComplete).toBe(false);
-      expect(stockState.unknownVolumeTransactionCount).toBe(1);
+      const txSpy = vi.spyOn(prisma, '$transaction').mockImplementation(async (cb: any) => {
+        return await cb(mockTx);
+      });
 
-      await expect(getSiloAvailableCapacity(BigInt(1), mockDb)).rejects.toThrow(
-        /unknown physical volume/
-      );
+      try {
+        await expect(
+          recordSiloIssueTransaction({
+            silo_id: BigInt(1),
+            quantity_liters: 2000,
+            operational_timestamp: new Date(),
+            performed_by: BigInt(1),
+          })
+        ).rejects.toThrow(/unknown physical volume/);
+
+        expect(createSpy).not.toHaveBeenCalled();
+      } finally {
+        txSpy.mockRestore();
+      }
     });
 
-    it('[CASE-D & E] Existing ISSUE idempotency key + incomplete stock fails closed, complete stock creates no second movement', async () => {
+    it('[CASE-D] Existing ISSUE idempotency key + INCOMPLETE stock ledger fails closed on retry with no second movement', async () => {
+      const mockSilo = { id: BigInt(1), silo_code: 'SILO-01', silo_name: 'Raw Milk Silo 1', capacity_liters: 50000, is_active: true };
       const existingTx = {
         id: BigInt(99),
         silo_id: BigInt(1),
         transaction_type: 'ISSUE',
         quantity_liters: 5000,
-        idempotency_key: 'ISSUE-KEY-123',
-        silo: { id: BigInt(1), silo_code: 'SILO-01', silo_name: 'Raw Milk Silo 1' },
+        idempotency_key: 'IDEM-INCOMPLETE-KEY',
+        silo: mockSilo,
       };
-
-      // Incomplete ledger on retry:
       const incompleteTransactions = [
         { transaction_type: 'RECEIPT', quantity_liters: 10000, quantity_kg: 10280 },
         { transaction_type: 'RECEIPT', quantity_liters: null, quantity_kg: 3000 },
       ];
-      const mockDbIncomplete: any = {
-        silo: { findUnique: async () => existingTx.silo },
+
+      const createSpy = vi.fn();
+      const mockTx: any = {
+        $executeRaw: vi.fn().mockResolvedValue(1),
+        silo: { findUnique: async () => mockSilo },
         siloInventoryTransaction: {
           findUnique: async () => existingTx,
           findMany: async () => incompleteTransactions,
+          create: createSpy,
         },
+        auditLog: { create: vi.fn().mockResolvedValue({ id: BigInt(1) }) },
       };
 
-      const incompleteState = await getSiloStockVolumeState(BigInt(1), mockDbIncomplete);
-      expect(incompleteState.isComplete).toBe(false);
+      const txSpy = vi.spyOn(prisma, '$transaction').mockImplementation(async (cb: any) => {
+        return await cb(mockTx);
+      });
 
-      // Complete ledger on retry:
+      try {
+        await expect(
+          recordSiloIssueTransaction({
+            silo_id: BigInt(1),
+            quantity_liters: 5000,
+            operational_timestamp: new Date(),
+            performed_by: BigInt(1),
+            idempotency_key: 'IDEM-INCOMPLETE-KEY',
+          })
+        ).rejects.toThrow(/unknown physical volume/);
+
+        expect(createSpy).not.toHaveBeenCalled();
+      } finally {
+        txSpy.mockRestore();
+      }
+    });
+
+    it('[CASE-E] Existing ISSUE idempotency key + COMPLETE stock ledger returns existing transaction with NO second movement', async () => {
+      const mockSilo = { id: BigInt(1), silo_code: 'SILO-01', silo_name: 'Raw Milk Silo 1', capacity_liters: 50000, is_active: true };
+      const existingTx = {
+        id: BigInt(99),
+        silo_id: BigInt(1),
+        transaction_type: 'ISSUE',
+        quantity_liters: 5000,
+        idempotency_key: 'IDEM-COMPLETE-KEY',
+        silo: mockSilo,
+      };
       const completeTransactions = [
         { transaction_type: 'RECEIPT', quantity_liters: 10000, quantity_kg: 10280 },
         { transaction_type: 'ISSUE', quantity_liters: 5000, quantity_kg: 5140 },
       ];
-      const mockDbComplete: any = {
-        silo: { findUnique: async () => existingTx.silo },
+
+      const createSpy = vi.fn();
+      const mockTx: any = {
+        $executeRaw: vi.fn().mockResolvedValue(1),
+        silo: { findUnique: async () => mockSilo },
         siloInventoryTransaction: {
           findUnique: async () => existingTx,
           findMany: async () => completeTransactions,
+          create: createSpy,
         },
+        auditLog: { create: vi.fn().mockResolvedValue({ id: BigInt(1) }) },
       };
-      const completeState = await getSiloStockVolumeState(BigInt(1), mockDbComplete);
-      expect(completeState.isComplete).toBe(true);
-      expect(completeState.knownLiters).toBe(5000);
+
+      const txSpy = vi.spyOn(prisma, '$transaction').mockImplementation(async (cb: any) => {
+        return await cb(mockTx);
+      });
+
+      try {
+        const result = await recordSiloIssueTransaction({
+          silo_id: BigInt(1),
+          quantity_liters: 5000,
+          operational_timestamp: new Date(),
+          performed_by: BigInt(1),
+          idempotency_key: 'IDEM-COMPLETE-KEY',
+        });
+
+        expect(result.alreadyProcessed).toBe(true);
+        expect(result.transaction.id).toBe(BigInt(99));
+        expect(result.stockBefore).toBe(10000);
+        expect(result.stockAfter).toBe(5000);
+        expect(createSpy).not.toHaveBeenCalled();
+      } finally {
+        txSpy.mockRestore();
+      }
     });
 
     it('[NO-1.0265-FALLBACK] Proves fixed 1.0265 density fallback is removed from production services', () => {
