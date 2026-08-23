@@ -310,6 +310,267 @@ export function computeDispatchPortionCalculatedValues(
   };
 }
 
+export interface PortionQuantitySummary {
+  complete: boolean;
+  totalValue: number | null;
+  formattedTotal: string | null;
+  unit: QuantityUnit | null;
+  basis: MeasurementBasis | null;
+  totalKind: 'MEASURED' | 'ESTIMATED' | null;
+  label: string | null;
+  isAboveLimit: boolean;
+}
+
+export interface VehiclePortionComparison {
+  eligibleForDifference: boolean;
+  difference: number | null;
+  formattedDifference: string | null;
+  isDifferentUnits: boolean;
+  message: string | null;
+}
+
+/**
+ * Parses exact numeric string or number to integer hundredths (cents).
+ * Accepts up to 2 decimal places. Returns null if invalid, empty, NaN, or non-positive.
+ */
+function parseExactHundredths(val: unknown): number | null {
+  if (val === null || val === undefined || val === '') return null;
+  const str = String(val).trim();
+  if (!str) return null;
+  // Strict decimal(10, 2) check: digits with optional up to 2 decimals
+  if (!/^\d+(\.\d{1,2})?$/.test(str)) {
+    return null;
+  }
+  const num = Number(str);
+  if (isNaN(num) || !isFinite(num) || num <= 0) return null;
+
+  const parts = str.split('.');
+  const whole = parseInt(parts[0], 10);
+  const frac = parts[1] ? parseInt(parts[1].padEnd(2, '0'), 10) : 0;
+  return whole * 100 + frac;
+}
+
+export function formatDecimalQuantity(value: number): string {
+  return value.toLocaleString('en-US', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
+}
+
+/**
+ * Pure production helper: Computes the exact Portion Quantity Total across all portions.
+ * - All portions share Unit and Basis (established by Portion 1).
+ * - Complete ONLY when every portion has a valid, non-empty, positive numeric value.
+ * - Uses exact integer hundredths arithmetic to prevent binary floating-point artifacts.
+ */
+export function computePortionQuantitySummary(
+  portions: Array<{
+    quantity?: {
+      value?: string | number | null;
+      unit?: QuantityUnit | string | null;
+      basis?: MeasurementBasis | string | null;
+    } | null;
+  }> | undefined | null
+): PortionQuantitySummary {
+  const portionList = portions || [];
+  if (portionList.length === 0) {
+    return {
+      complete: false,
+      totalValue: null,
+      formattedTotal: null,
+      unit: null,
+      basis: null,
+      totalKind: null,
+      label: null,
+      isAboveLimit: false,
+    };
+  }
+
+  const p1 = portionList[0]?.quantity;
+  const rawUnit = p1?.unit ? String(p1.unit).trim().toUpperCase() : null;
+  const unit: QuantityUnit | null = rawUnit === 'KG' || rawUnit === 'LITER' ? (rawUnit as QuantityUnit) : null;
+  const rawBasis = p1?.basis ? String(p1.basis).trim().toUpperCase() : null;
+  const basis: MeasurementBasis | null =
+    rawBasis === 'MEASURED' || rawBasis === 'ESTIMATED' ? (rawBasis as MeasurementBasis) : null;
+
+  const totalKind: 'MEASURED' | 'ESTIMATED' | null =
+    basis === 'MEASURED' ? 'MEASURED' : basis === 'ESTIMATED' ? 'ESTIMATED' : null;
+  const label =
+    totalKind === 'MEASURED'
+      ? 'Measured Portion Total'
+      : totalKind === 'ESTIMATED'
+      ? 'Estimated Portion Total'
+      : 'Portion Quantity Total';
+
+  let allComplete = true;
+  let totalHundredths = 0;
+
+  for (const p of portionList) {
+    const val = p?.quantity?.value;
+    const hundredths = parseExactHundredths(val);
+    if (hundredths === null) {
+      allComplete = false;
+      break;
+    }
+    totalHundredths += hundredths;
+  }
+
+  if (!allComplete) {
+    return {
+      complete: false,
+      totalValue: null,
+      formattedTotal: null,
+      unit,
+      basis,
+      totalKind,
+      label,
+      isAboveLimit: false,
+    };
+  }
+
+  const totalValue = totalHundredths / 100;
+  const isAboveLimit = totalHundredths > 9999999999; // 99,999,999.99
+  const formattedTotal = unit ? `${formatDecimalQuantity(totalValue)} ${unit}` : `${formatDecimalQuantity(totalValue)}`;
+
+  return {
+    complete: true,
+    totalValue,
+    formattedTotal,
+    unit,
+    basis,
+    totalKind,
+    label,
+    isAboveLimit,
+  };
+}
+
+/**
+ * Pure production helper: Determines if the user can use the Measured Portion Total to prefill an empty Vehicle Quantity.
+ * Requires:
+ * 1. Portion Total is complete
+ * 2. Portion Basis is MEASURED
+ * 3. Vehicle Quantity Value is empty/blank
+ * 4. Vehicle Unit == Portion Unit
+ * 5. Vehicle Basis == MEASURED
+ * 6. Portion Total is within allowable positive decimal range (<= 99,999,999.99)
+ */
+export function canUseMeasuredPortionTotalForVehicle(
+  vehicleQuantity: {
+    value?: string | number | null;
+    unit?: QuantityUnit | string | null;
+    basis?: MeasurementBasis | string | null;
+  } | undefined | null,
+  portionSummary: PortionQuantitySummary
+): boolean {
+  if (!portionSummary.complete || portionSummary.totalValue === null || portionSummary.isAboveLimit) {
+    return false;
+  }
+  if (portionSummary.basis !== 'MEASURED' || portionSummary.totalKind !== 'MEASURED') {
+    return false;
+  }
+  if (portionSummary.totalValue <= 0 || portionSummary.totalValue > 99999999.99) {
+    return false;
+  }
+
+  if (!vehicleQuantity) return false;
+  const vehVal = vehicleQuantity.value !== undefined && vehicleQuantity.value !== null ? String(vehicleQuantity.value).trim() : '';
+  if (vehVal !== '') {
+    return false;
+  }
+
+  const vehUnit = (vehicleQuantity.unit || '').trim().toUpperCase();
+  const portionUnit = (portionSummary.unit || '').trim().toUpperCase();
+  if (!vehUnit || !portionUnit || vehUnit !== portionUnit) {
+    return false;
+  }
+
+  const vehBasis = (vehicleQuantity.basis || '').trim().toUpperCase();
+  if (vehBasis !== 'MEASURED') {
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * Pure production helper: Computes the same-unit Difference between Vehicle Dispatch Quantity and Portion Quantity Total.
+ * - If units differ, returns comparison message "Different units — no direct comparison" and null difference.
+ * - If units match and both vehicle & portion total are valid, returns exact arithmetic difference (Vehicle - Portions).
+ */
+export function computeVehiclePortionDifference(
+  vehicleQuantity: {
+    value?: string | number | null;
+    unit?: QuantityUnit | string | null;
+    basis?: MeasurementBasis | string | null;
+  } | undefined | null,
+  portionSummary: PortionQuantitySummary
+): VehiclePortionComparison {
+  if (!portionSummary.complete || portionSummary.totalValue === null) {
+    return {
+      eligibleForDifference: false,
+      difference: null,
+      formattedDifference: null,
+      isDifferentUnits: false,
+      message: null,
+    };
+  }
+
+  if (!vehicleQuantity) {
+    return {
+      eligibleForDifference: false,
+      difference: null,
+      formattedDifference: null,
+      isDifferentUnits: false,
+      message: null,
+    };
+  }
+
+  const vehHundredths = parseExactHundredths(vehicleQuantity.value);
+  if (vehHundredths === null) {
+    return {
+      eligibleForDifference: false,
+      difference: null,
+      formattedDifference: null,
+      isDifferentUnits: false,
+      message: null,
+    };
+  }
+
+  const vehUnit = (vehicleQuantity.unit || '').trim().toUpperCase();
+  const portionUnit = (portionSummary.unit || '').trim().toUpperCase();
+
+  if (vehUnit !== portionUnit) {
+    return {
+      eligibleForDifference: false,
+      difference: null,
+      formattedDifference: null,
+      isDifferentUnits: true,
+      message: 'Different units — no direct comparison',
+    };
+  }
+
+  const portionHundredths = Math.round(portionSummary.totalValue * 100);
+  const diffHundredths = vehHundredths - portionHundredths;
+  const difference = diffHundredths / 100;
+
+  let formattedDifference: string;
+  if (diffHundredths > 0) {
+    formattedDifference = `+${formatDecimalQuantity(difference)} ${vehUnit}`;
+  } else if (diffHundredths < 0) {
+    formattedDifference = `-${formatDecimalQuantity(Math.abs(difference))} ${vehUnit}`;
+  } else {
+    formattedDifference = `0 ${vehUnit}`;
+  }
+
+  return {
+    eligibleForDifference: true,
+    difference,
+    formattedDifference,
+    isDifferentUnits: false,
+    message: null,
+  };
+}
+
 export interface PortionQuantityFact {
   portionNumber?: number;
   dispatchQuantityValue?: number | string | null;

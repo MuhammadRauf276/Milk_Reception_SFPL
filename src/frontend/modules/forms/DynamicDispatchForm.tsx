@@ -32,6 +32,9 @@ import {
   applySharedPortionBasis,
   createPortionQuantityFromSharedProfile,
   computeDispatchPortionCalculatedValues,
+  computePortionQuantitySummary,
+  canUseMeasuredPortionTotalForVehicle,
+  computeVehiclePortionDifference,
 } from '@/backend/modules/dispatch/quantity/dispatchQuantityService';
 
 interface LabTestDef {
@@ -1077,6 +1080,69 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                 {vehicleQuantityError}
               </p>
             )}
+
+            {/* Portion Quantity Summary & Assistance Strip */}
+            {(() => {
+              const portionSummary = computePortionQuantitySummary(portions);
+              const isEligibleForAssistance = canUseMeasuredPortionTotalForVehicle(vehicleQuantity, portionSummary);
+              const vehiclePortionComparison = computeVehiclePortionDifference(vehicleQuantity, portionSummary);
+
+              return (
+                <div className="mt-2 p-2.5 rounded-xl bg-white border border-[#C4B9A3] space-y-1.5 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="font-extrabold uppercase tracking-wider text-slate-500 text-[10px]">
+                      Portion Quantity Summary
+                    </span>
+                    {isEligibleForAssistance && portionSummary.totalValue !== null && (
+                      <button
+                        type="button"
+                        id="btn-use-measured-portion-total"
+                        onClick={() => {
+                          handleVehicleQuantityValueChange(portionSummary.totalValue!.toString());
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-[#1E40AF] text-white text-[11px] font-bold shadow-sm hover:bg-blue-800 transition flex items-center space-x-1"
+                      >
+                        <span>Use Measured Portion Total</span>
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-mono font-bold text-slate-800">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-slate-500 font-sans text-[11px]">
+                        {portionSummary.label || 'Portion Total'}:
+                      </span>
+                      <span>
+                        {portionSummary.complete && portionSummary.formattedTotal
+                          ? portionSummary.formattedTotal
+                          : '— (incomplete)'}
+                      </span>
+                    </div>
+
+                    {vehiclePortionComparison.isDifferentUnits ? (
+                      <div className="text-amber-700 font-sans text-[11px] font-semibold">
+                        {vehiclePortionComparison.message}
+                      </div>
+                    ) : vehiclePortionComparison.eligibleForDifference && vehiclePortionComparison.formattedDifference !== null ? (
+                      <div className="flex items-center space-x-1">
+                        <span className="text-slate-500 font-sans text-[11px]">Difference:</span>
+                        <span
+                          className={
+                            vehiclePortionComparison.difference === 0
+                              ? 'text-emerald-700'
+                              : vehiclePortionComparison.difference! > 0
+                              ? 'text-blue-700'
+                              : 'text-amber-700'
+                          }
+                        >
+                          {vehiclePortionComparison.formattedDifference}
+                        </span>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })()}
           </>
         )}
       </div>
