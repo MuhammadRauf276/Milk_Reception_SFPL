@@ -42,7 +42,7 @@ export async function GET(req: Request) {
       return {
         id: tx.id.toString(),
         time_formatted: `${dateStr} ${timeStr}`.trim(),
-        quantity_liters: tx.quantity_liters ? Number(tx.quantity_liters) : Math.round(Number(tx.quantity_kg) / 1.0265),
+        quantity_liters: tx.quantity_liters ? Number(tx.quantity_liters) : null,
         purpose: tx.notes || 'Production Issue',
         flow_meter_reference: tx.reference_id || null,
         operator_name: operatorName,

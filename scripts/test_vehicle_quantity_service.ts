@@ -577,7 +577,7 @@ if (resR4.isCalculable) {
   assert(resR4.internalCalculationBasis.averagePlantFat === 3.8, 'Case R4: Unique performed Fat 3.8 selected');
 }
 
-// Case R5: Duplicate recognized aliases both PERFORMED (e.g. LT-000008 and LT-000027)
+// Case R5: LT-000027 does not create final-receipt LR ambiguity (LT-000008 is the sole LR authority)
 const inputCaseR5: VehicleCalculationInput = {
   grossWeightKg: 25000,
   secondWeightKg: 10000,
@@ -595,9 +595,10 @@ const inputCaseR5: VehicleCalculationInput = {
   ],
 };
 const resR5 = calculateVehicleReceivedQuantity(inputCaseR5);
-assert(resR5.isCalculable === false, 'Case R5: Multiple performed LR aliases trigger ambiguity');
-if (!resR5.isCalculable) {
-  assert(resR5.reason === 'AMBIGUOUS_PLANT_LR', 'Case R5: Reason is AMBIGUOUS_PLANT_LR');
+assert(resR5.isCalculable === true, 'Case R5: LT-000027 does not create final-receipt LR ambiguity');
+if (resR5.isCalculable) {
+  assert(resR5.internalCalculationBasis.averagePlantLr === 28.0, 'Case R5: Authoritative Plant LR from LT-000008 is 28.0');
+  assert(resR5.internalCalculationBasis.averagePlantFat === 3.8, 'Case R5: Authoritative Plant Fat from LT-000026 is 3.8');
 }
 
 // Case R6: Different portions are NOT duplicates (P1 has 1 LR, P2 has 1 LR)

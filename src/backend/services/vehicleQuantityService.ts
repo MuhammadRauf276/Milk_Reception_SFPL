@@ -72,30 +72,36 @@ export type VehicleCalculationResult = VehicleCalculationSuccessResult | Vehicle
 
 /**
  * Checks whether a lab test represents the authoritative Plant Lactometer Reading (LR).
+ * Authoritative Plant LR test code: LT-000008 ("LR at 20 Celsius").
+ * LT-000027 ("Lactometer Reading") is distinct and not used as the final received quantity LR authority.
  */
 export function isPlantLrTest(testCode?: string | null, testName?: string | null): boolean {
   if (testCode) {
     const codeUpper = testCode.trim().toUpperCase();
-    if (codeUpper === 'LT-000008' || codeUpper === 'LT-000027') return true;
+    if (codeUpper === 'LT-000008') return true;
+    if (codeUpper === 'LT-000027') return false;
   }
   if (testName) {
     const nameUpper = testName.trim().toUpperCase();
-    if (nameUpper.includes('LACTOMETER') || nameUpper.includes('LR')) return true;
+    if (nameUpper === 'LR AT 20 CELSIUS' || nameUpper === 'LR AT 20°C' || nameUpper === 'LR AT 20 C' || nameUpper === 'LACTOMETER READING (LR)') return true;
   }
   return false;
 }
 
 /**
  * Checks whether a lab test represents the authoritative Plant Fat Percentage (Fat %).
+ * Authoritative Plant Fat test code: LT-000026 ("Fat").
+ * LT-000001 is Temperature and must NEVER be recognized as Fat.
  */
 export function isPlantFatTest(testCode?: string | null, testName?: string | null): boolean {
   if (testCode) {
     const codeUpper = testCode.trim().toUpperCase();
-    if (codeUpper === 'LT-000026' || codeUpper === 'LT-000001') return true;
+    if (codeUpper === 'LT-000026') return true;
+    if (codeUpper === 'LT-000001') return false;
   }
   if (testName) {
     const nameUpper = testName.trim().toUpperCase();
-    if (nameUpper.includes('FAT') && !nameUpper.includes('RATIO') && !nameUpper.includes('SNF')) return true;
+    if (nameUpper === 'FAT' || nameUpper === 'FAT %' || nameUpper === 'FAT PERCENTAGE') return true;
   }
   return false;
 }

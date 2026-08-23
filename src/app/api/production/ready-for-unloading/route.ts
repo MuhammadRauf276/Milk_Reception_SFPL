@@ -5,7 +5,9 @@ import {
   getSiloCurrentStockLiters,
   getSiloActiveReservedLiters,
   getSiloProvisionalAvailableCapacity,
+  getSiloStockVolumeState,
 } from '@/backend/services/siloInventoryService';
+import { aggregateAcceptedPortionQuantities } from '@/lib/portion-quantity-aggregator';
 import {
   calculateSNF,
   calculateTS,
@@ -173,28 +175,9 @@ export async function GET(req: NextRequest) {
         };
       });
 
-      // Unit-safe dispatch total across accepted portions
-      const acceptedUnits = new Set(
-        acceptedPortions
-          .map((p) => (p.dispatch_quantity_unit ? p.dispatch_quantity_unit.toUpperCase() : null))
-          .filter(Boolean)
-      );
-      let totalAcceptedDispatchValue: number | null = null;
-      let totalAcceptedDispatchUnit: string | null = null;
-
-      if (acceptedPortions.length > 0) {
-        const hasMissingUnit = acceptedPortions.some((p) => !p.dispatch_quantity_unit);
-        if (!hasMissingUnit && acceptedUnits.size === 1) {
-          totalAcceptedDispatchUnit = Array.from(acceptedUnits)[0] as string;
-          totalAcceptedDispatchValue = acceptedPortions.reduce(
-            (sum, p) => sum + (p.dispatch_quantity_value ? Number(p.dispatch_quantity_value) : 0),
-            0
-          );
-        } else if (acceptedUnits.size > 1) {
-          totalAcceptedDispatchUnit = 'MIXED';
-          totalAcceptedDispatchValue = null;
-        }
-      }
+      // Unit-safe dispatch total across accepted portions via shared production helper
+      const { totalAcceptedDispatchValue, totalAcceptedDispatchUnit } =
+        aggregateAcceptedPortionQuantities(acceptedPortions);
 
       // Calculate waiting minutes from Gross timestamp or Entry timestamp
       const refTime = v.weight_ticket?.gross_timestamp || v.gate_log?.entry_timestamp || v.created_at;
@@ -234,18 +217,23 @@ export async function GET(req: NextRequest) {
     const activeSilos = await Promise.all(
       allSilosInDb.map(async (silo) => {
         const capacity = Number(silo.capacity_liters);
-        const currentStock = await getSiloCurrentStockLiters(silo.id);
+        const stockState = await getSiloStockVolumeState(silo.id);
         const activeReservedLiters = await getSiloActiveReservedLiters(silo.id);
-        const provisionalAvailable = await getSiloProvisionalAvailableCapacity(silo.id);
+        let provisionalAvailable: number | null = null;
+        if (stockState.isComplete) {
+          provisionalAvailable = Math.max(0, capacity - stockState.knownLiters - activeReservedLiters);
+        }
 
         return {
           id: String(silo.id),
           silo_code: silo.silo_code,
           silo_name: silo.silo_name,
           capacity_liters: capacity,
-          current_stock_liters: Math.round(currentStock),
+          current_stock_liters: Math.round(stockState.knownLiters),
+          is_stock_complete: stockState.isComplete,
+          unknown_volume_transaction_count: stockState.unknownVolumeTransactionCount,
           active_reserved_liters: Math.round(activeReservedLiters),
-          provisional_available_liters: Math.round(provisionalAvailable),
+          provisional_available_liters: provisionalAvailable !== null ? Math.round(provisionalAvailable) : null,
           is_active: silo.is_active,
         };
       })

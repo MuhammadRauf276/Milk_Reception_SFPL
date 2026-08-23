@@ -19,7 +19,7 @@ describe('Authoritative Vehicle Quantity Engine (vehicleQuantityService.ts)', ()
             plantDecision: 'ACCEPTED',
             plantLabResults: [
               { testCode: 'LT-000008', testName: 'Lactometer Reading (LR)', numericValue: 28.0, performanceStatus: 'PERFORMED' },
-              { testCode: 'LT-000001', testName: 'Fat %', numericValue: 3.8, performanceStatus: 'PERFORMED' },
+              { testCode: 'LT-000026', testName: 'Fat %', numericValue: 3.8, performanceStatus: 'PERFORMED' },
             ],
           },
         ],
@@ -44,7 +44,7 @@ describe('Authoritative Vehicle Quantity Engine (vehicleQuantityService.ts)', ()
             plantDecision: 'ACCEPTED',
             plantLabResults: [
               { testCode: 'LT-000008', testName: 'Lactometer Reading (LR)', numericValue: 28.0, performanceStatus: 'PERFORMED' },
-              { testCode: 'LT-000001', testName: 'Fat %', numericValue: 3.8, performanceStatus: 'PERFORMED' },
+              { testCode: 'LT-000026', testName: 'Fat %', numericValue: 3.8, performanceStatus: 'PERFORMED' },
             ],
           },
         ],
@@ -70,7 +70,7 @@ describe('Authoritative Vehicle Quantity Engine (vehicleQuantityService.ts)', ()
             plantDecision: 'ACCEPTED',
             plantLabResults: [
               { testCode: 'LT-000008', testName: 'Lactometer Reading (LR)', numericValue: 27.0, performanceStatus: 'PERFORMED' },
-              { testCode: 'LT-000001', testName: 'Fat %', numericValue: 3.5, performanceStatus: 'PERFORMED' },
+              { testCode: 'LT-000026', testName: 'Fat %', numericValue: 3.5, performanceStatus: 'PERFORMED' },
             ],
           },
           // Accepted portion 2: LR 29.0, Fat 3.9
@@ -79,7 +79,7 @@ describe('Authoritative Vehicle Quantity Engine (vehicleQuantityService.ts)', ()
             plantDecision: 'ACCEPTED',
             plantLabResults: [
               { testCode: 'LT-000008', testName: 'Lactometer Reading (LR)', numericValue: 29.0, performanceStatus: 'PERFORMED' },
-              { testCode: 'LT-000001', testName: 'Fat %', numericValue: 3.9, performanceStatus: 'PERFORMED' },
+              { testCode: 'LT-000026', testName: 'Fat %', numericValue: 3.9, performanceStatus: 'PERFORMED' },
             ],
           },
           // Rejected portion: LR 20.0, Fat 1.0 (Must be completely excluded)
@@ -88,7 +88,7 @@ describe('Authoritative Vehicle Quantity Engine (vehicleQuantityService.ts)', ()
             plantDecision: 'REJECTED',
             plantLabResults: [
               { testCode: 'LT-000008', testName: 'Lactometer Reading (LR)', numericValue: 20.0, performanceStatus: 'PERFORMED' },
-              { testCode: 'LT-000001', testName: 'Fat %', numericValue: 1.0, performanceStatus: 'PERFORMED' },
+              { testCode: 'LT-000026', testName: 'Fat %', numericValue: 1.0, performanceStatus: 'PERFORMED' },
             ],
           },
           // On-hold portion: LR 32.0, Fat 5.0 (Must be completely excluded)
@@ -97,7 +97,7 @@ describe('Authoritative Vehicle Quantity Engine (vehicleQuantityService.ts)', ()
             plantDecision: 'ON_HOLD',
             plantLabResults: [
               { testCode: 'LT-000008', testName: 'Lactometer Reading (LR)', numericValue: 32.0, performanceStatus: 'PERFORMED' },
-              { testCode: 'LT-000001', testName: 'Fat %', numericValue: 5.0, performanceStatus: 'PERFORMED' },
+              { testCode: 'LT-000026', testName: 'Fat %', numericValue: 5.0, performanceStatus: 'PERFORMED' },
             ],
           },
         ],
@@ -136,7 +136,7 @@ describe('Authoritative Vehicle Quantity Engine (vehicleQuantityService.ts)', ()
             plantDecision: 'REJECTED',
             plantLabResults: [
               { testCode: 'LT-000008', testName: 'Lactometer Reading (LR)', numericValue: 28.0, performanceStatus: 'PERFORMED' },
-              { testCode: 'LT-000001', testName: 'Fat %', numericValue: 3.8, performanceStatus: 'PERFORMED' },
+              { testCode: 'LT-000026', testName: 'Fat %', numericValue: 3.8, performanceStatus: 'PERFORMED' },
             ],
           },
         ],
@@ -159,7 +159,7 @@ describe('Authoritative Vehicle Quantity Engine (vehicleQuantityService.ts)', ()
             plantDecision: 'ACCEPTED',
             plantLabResults: [
               // LR missing, Fat present
-              { testCode: 'LT-000001', testName: 'Fat %', numericValue: 3.8, performanceStatus: 'PERFORMED' },
+              { testCode: 'LT-000026', testName: 'Fat %', numericValue: 3.8, performanceStatus: 'PERFORMED' },
             ],
           },
         ],
@@ -205,7 +205,7 @@ describe('Authoritative Vehicle Quantity Engine (vehicleQuantityService.ts)', ()
             plantDecision: 'ACCEPTED',
             plantLabResults: [
               { testCode: 'LT-000008', numericValue: null, performanceStatus: 'NOT_PERFORMED' },
-              { testCode: 'LT-000001', numericValue: 3.8, performanceStatus: 'PERFORMED' },
+              { testCode: 'LT-000026', numericValue: 3.8, performanceStatus: 'PERFORMED' },
             ],
           },
         ],
@@ -228,7 +228,7 @@ describe('Authoritative Vehicle Quantity Engine (vehicleQuantityService.ts)', ()
             plantDecision: 'ACCEPTED',
             plantLabResults: [
               { testCode: 'LT-000008', numericValue: 28.0, performanceStatus: 'PERFORMED' },
-              { testCode: 'LT-000001', numericValue: null, performanceStatus: 'NOT_PERFORMED' },
+              { testCode: 'LT-000026', numericValue: null, performanceStatus: 'NOT_PERFORMED' },
             ],
           },
         ],
@@ -272,7 +272,7 @@ describe('Authoritative Vehicle Quantity Engine (vehicleQuantityService.ts)', ()
             plantLabResults: [
               { testCode: 'LT-000008', numericValue: 28.0, performanceStatus: 'PERFORMED' },
               { testCode: 'LT-000008', numericValue: 29.0, performanceStatus: 'PERFORMED' },
-              { testCode: 'LT-000001', numericValue: 3.8, performanceStatus: 'PERFORMED' },
+              { testCode: 'LT-000026', numericValue: 3.8, performanceStatus: 'PERFORMED' },
             ],
           },
         ],
@@ -295,7 +295,7 @@ describe('Authoritative Vehicle Quantity Engine (vehicleQuantityService.ts)', ()
             plantDecision: 'ACCEPTED',
             plantLabResults: [
               { testCode: 'LT-000008', numericValue: -5.0, performanceStatus: 'PERFORMED' },
-              { testCode: 'LT-000001', numericValue: 3.8, performanceStatus: 'PERFORMED' },
+              { testCode: 'LT-000026', numericValue: 3.8, performanceStatus: 'PERFORMED' },
             ],
           },
         ],
@@ -315,7 +315,7 @@ describe('Authoritative Vehicle Quantity Engine (vehicleQuantityService.ts)', ()
             plantDecision: 'ACCEPTED',
             plantLabResults: [
               { testCode: 'LT-000008', numericValue: 28.0, performanceStatus: 'PERFORMED' },
-              { testCode: 'LT-000001', numericValue: -1.0, performanceStatus: 'PERFORMED' },
+              { testCode: 'LT-000026', numericValue: -1.0, performanceStatus: 'PERFORMED' },
             ],
           },
         ],
@@ -337,7 +337,7 @@ describe('Authoritative Vehicle Quantity Engine (vehicleQuantityService.ts)', ()
             plantDecision: 'ACCEPTED',
             plantLabResults: [
               { testCode: 'LT-000008', numericValue: 28.0, performanceStatus: 'PERFORMED' },
-              { testCode: 'LT-000001', numericValue: 3.8, performanceStatus: 'PERFORMED' },
+              { testCode: 'LT-000026', numericValue: 3.8, performanceStatus: 'PERFORMED' },
             ],
           },
         ],
@@ -358,7 +358,7 @@ describe('Authoritative Vehicle Quantity Engine (vehicleQuantityService.ts)', ()
             plantDecision: 'ACCEPTED',
             plantLabResults: [
               { testCode: 'LT-000008', testName: 'Lactometer Reading (LR)', numericValue: 28.5, performanceStatus: 'PERFORMED' },
-              { testCode: 'LT-000001', testName: 'Fat %', numericValue: 3.9, performanceStatus: 'PERFORMED' },
+              { testCode: 'LT-000026', testName: 'Fat %', numericValue: 3.9, performanceStatus: 'PERFORMED' },
             ],
           },
         ],

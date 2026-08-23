@@ -9,6 +9,7 @@ import {
   calculateAt13TSLiters,
 } from '@/backend/utils/milkFormulas';
 import { isPlantLrTest, isPlantFatTest } from '@/backend/services/vehicleQuantityService';
+import { aggregateAcceptedPortionQuantities } from '@/lib/portion-quantity-aggregator';
 
 export async function GET(req: NextRequest) {
   try {
@@ -172,28 +173,9 @@ export async function GET(req: NextRequest) {
         };
       });
 
-      // Unit-safe dispatch total across accepted portions
-      const acceptedUnits = new Set(
-        acceptedPortions
-          .map((p) => (p.dispatch_quantity_unit ? p.dispatch_quantity_unit.toUpperCase() : null))
-          .filter(Boolean)
-      );
-      let totalAcceptedDispatchValue: number | null = null;
-      let totalAcceptedDispatchUnit: string | null = null;
-
-      if (acceptedPortions.length > 0) {
-        const hasMissingUnit = acceptedPortions.some((p) => !p.dispatch_quantity_unit);
-        if (!hasMissingUnit && acceptedUnits.size === 1) {
-          totalAcceptedDispatchUnit = Array.from(acceptedUnits)[0] as string;
-          totalAcceptedDispatchValue = acceptedPortions.reduce(
-            (sum, p) => sum + (p.dispatch_quantity_value ? Number(p.dispatch_quantity_value) : 0),
-            0
-          );
-        } else if (acceptedUnits.size > 1) {
-          totalAcceptedDispatchUnit = 'MIXED';
-          totalAcceptedDispatchValue = null;
-        }
-      }
+      // Unit-safe dispatch total across accepted portions via shared production helper
+      const { totalAcceptedDispatchValue, totalAcceptedDispatchUnit } =
+        aggregateAcceptedPortionQuantities(acceptedPortions);
 
       const elapsedMinutes = earliestStartTime
         ? Math.max(0, Math.floor((Date.now() - (earliestStartTime as Date).getTime()) / 60000))

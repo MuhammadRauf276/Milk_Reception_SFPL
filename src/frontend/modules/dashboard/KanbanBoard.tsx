@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { MilkProcessLog, User, KANBAN_STAGES, Role, DEFAULT_USERS } from '@core/types';
 import { getLiveWaitStatus } from '@core/durations';
+import { getDistinctVehicleCount, classifyDashboardStatus } from '@/lib/dashboard-helpers';
 import { computeAuthoritativeZonalAnalytics } from '@backend/services/operationalCalculations';
 import { warnDuplicateKeys } from '@/lib/key-utils';
 import { Sidebar } from '@modules/shared/Sidebar';
@@ -24,6 +25,7 @@ export const KanbanBoard: React.FC = () => {
   const [theme, setTheme] = useState<'creamy' | 'night'>('creamy');
   const [currentUser, setCurrentUser] = useState<User | null>(DEFAULT_USERS.MPD_Operator);
   const [logs, setLogs] = useState<MilkProcessLog[]>([]);
+  const [serverBusinessDate, setServerBusinessDate] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
 
@@ -66,6 +68,11 @@ export const KanbanBoard: React.FC = () => {
       if (data.logs) {
         setLogs(data.logs);
       }
+      if (data.serverBusinessDate) {
+        setServerBusinessDate(data.serverBusinessDate);
+      } else if (data.metadata?.serverBusinessDate) {
+        setServerBusinessDate(data.metadata.serverBusinessDate);
+      }
     } catch (_err) {
       // Handled
     } finally {
@@ -99,23 +106,34 @@ export const KanbanBoard: React.FC = () => {
     ? logs.filter((l) => l.zonal_contractor_name === targetZone)
     : logs;
 
-  // Filter logs by Date Range for the TOP 4 Cross-Verification Cards
-  const todayStr = new Date().toISOString().split('T')[0];
+  // Canonical Plant Business Date (Server-provided)
+  const currentBusinessDate = serverBusinessDate;
 
   const summaryScopedLogs = zoneScopedLogs.filter((l) => {
-    const logDate = l.dispatch_date || l.created_at.split('T')[0];
-    if (summaryDateRange === 'TODAY') return logDate === todayStr;
+    const logDate = l.dispatch_date || '';
+    if (!logDate) return false;
+
+    if (summaryDateRange === 'TODAY') {
+      return !currentBusinessDate || logDate === currentBusinessDate;
+    }
     if (summaryDateRange === 'YESTERDAY') {
-      const yesterdayStr = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+      if (!currentBusinessDate) return true;
+      const refDate = new Date(currentBusinessDate);
+      refDate.setDate(refDate.getDate() - 1);
+      const yesterdayStr = refDate.toISOString().split('T')[0];
       return logDate === yesterdayStr;
     }
     if (summaryDateRange === 'LAST_7') {
-      const diffDays = Math.floor((Date.now() - new Date(logDate).getTime()) / (1000 * 3600 * 24));
-      return diffDays <= 7;
+      if (!currentBusinessDate) return true;
+      const diffMs = new Date(currentBusinessDate).getTime() - new Date(logDate).getTime();
+      const diffDays = Math.floor(diffMs / (1000 * 3600 * 24));
+      return diffDays >= 0 && diffDays <= 7;
     }
     if (summaryDateRange === 'LAST_15') {
-      const diffDays = Math.floor((Date.now() - new Date(logDate).getTime()) / (1000 * 3600 * 24));
-      return diffDays <= 15;
+      if (!currentBusinessDate) return true;
+      const diffMs = new Date(currentBusinessDate).getTime() - new Date(logDate).getTime();
+      const diffDays = Math.floor(diffMs / (1000 * 3600 * 24));
+      return diffDays >= 0 && diffDays <= 15;
     }
     return true;
   });
@@ -138,21 +156,15 @@ export const KanbanBoard: React.FC = () => {
       return false;
     }
 
+    const s = String(log.status).toUpperCase();
     if (quickFilter === 'PLANNED') {
-      const s = String(log.status).toUpperCase();
-      if (s !== 'DISPATCHED' && s !== 'PLANNED') return false;
+      if (s !== 'DISPATCHED') return false;
     }
     if (quickFilter === 'IN_PLANT') {
-      const s = String(log.status).toUpperCase();
-      const isEnRoute = s === 'DISPATCHED' || s === 'PLANNED';
-      const isDone = s === 'COMPLETED' || s === 'EXIT' || s === 'SCALE_2_READY';
-      if (isEnRoute || isDone) return false;
+      if (!classifyDashboardStatus(s).isActiveInPlant) return false;
     }
     if (quickFilter === 'COMPLETED') {
-      const s = String(log.status).toUpperCase();
-      const calc = String(log.calculated_status || '').toUpperCase();
-      const isDone = s === 'COMPLETED' || s === 'EXIT' || s === 'SCALE_2_READY' || calc === 'REJECTED';
-      if (!isDone) return false;
+      if (!classifyDashboardStatus(s).isCompleted) return false;
     }
 
     return true;
@@ -161,11 +173,20 @@ export const KanbanBoard: React.FC = () => {
   // Zone list for dropdown filter
   const uniqueZones = Array.from(new Set(logs.map((l) => l.zonal_contractor_name))).filter(Boolean);
 
-  // BOTTOM 4 LIVE PIPELINE METRIC CARDS (Always reflects live active pipeline status)
-  const activeInPlantCount = zoneScopedLogs.filter((l) => l.status !== 'Dispatched' && l.status !== 'Completed').length;
-  const qaTestingQueueCount = zoneScopedLogs.filter((l) => l.status === 'Sampling' || l.status === 'Sampling_In_Progress').length;
-  const weighbridgeBottleneckCount = zoneScopedLogs.filter((l) => l.status === 'First Weight' || l.status === 'Second Weight').length;
-  const dailyDispatchesCompleted = zoneScopedLogs.filter((l) => l.status === 'Completed' && (l.dispatch_date || l.created_at.split('T')[0]) === todayStr).length;
+  // BOTTOM 4 LIVE PIPELINE METRIC CARDS (Canonical status and distinct vehicle counting)
+  const activeInPlantLogs = zoneScopedLogs.filter((l) => classifyDashboardStatus(l.status).isActiveInPlant);
+  const activeInPlantCount = getDistinctVehicleCount(activeInPlantLogs);
+
+  const qaTestingQueueLogs = zoneScopedLogs.filter((l) => classifyDashboardStatus(l.status).isQaLabQueue);
+  const qaTestingQueueCount = getDistinctVehicleCount(qaTestingQueueLogs);
+
+  const weighbridgeQueueLogs = zoneScopedLogs.filter((l) => classifyDashboardStatus(l.status).isWeighbridgeQueue);
+  const weighbridgeBottleneckCount = getDistinctVehicleCount(weighbridgeQueueLogs);
+
+  const completedDispatchesLogs = zoneScopedLogs.filter(
+    (l) => classifyDashboardStatus(l.status).isCompleted && (!currentBusinessDate || l.dispatch_date === currentBusinessDate)
+  );
+  const dailyDispatchesCompleted = getDistinctVehicleCount(completedDispatchesLogs);
 
   return (
     <div className="min-h-screen w-screen overflow-x-hidden bg-[#FDFBF9] text-[#111311] flex flex-row font-sans">
@@ -244,6 +265,7 @@ export const KanbanBoard: React.FC = () => {
                 logs={logs}
                 currentUser={currentUser}
                 isSecurityManager={true}
+                serverBusinessDate={serverBusinessDate}
               />
             </div>
           ) : (
@@ -304,7 +326,7 @@ export const KanbanBoard: React.FC = () => {
                         onChange={(e) => setSummaryDateRange(e.target.value as any)}
                         className="px-3 py-1.5 text-xs font-extrabold rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/80 text-[#111311] focus:ring-2 focus:ring-[#1E3A8A] outline-none shadow-sm"
                       >
-                        <option value="TODAY">Today ({todayStr})</option>
+                        <option value="TODAY">Today ({currentBusinessDate})</option>
                         <option value="YESTERDAY">Yesterday</option>
                         <option value="LAST_7">Last 7 Days</option>
                         <option value="LAST_15">Last 15 Days</option>
@@ -489,16 +511,17 @@ export const KanbanBoard: React.FC = () => {
                 <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-5 w-full items-start">
                   {KANBAN_STAGES.map((stageConfig) => {
                     const laneLogs = filteredLogs
-                      .filter((l) => l.status === stageConfig.status || (stageConfig.status === 'Sampling' && l.status === 'Sampling_In_Progress'))
+                      .filter((l) => stageConfig.canonicalStatuses.includes(String(l.status).toUpperCase()))
                       .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
-                    const isHighVolume = laneLogs.length > 5;
+                    const distinctVehicleCount = getDistinctVehicleCount(laneLogs);
+                    const isHighVolume = distinctVehicleCount > 5;
                     const isLaneExpanded = !!expandedLanes[stageConfig.status];
                     const avgWaitMins = Math.round(
                       laneLogs.reduce((acc, curr) => acc + getLiveWaitStatus(curr, currentTime).minutes, 0) /
                         (laneLogs.length || 1)
                     );
-                    const isQueueBottleneck = laneLogs.length > 3 || avgWaitMins > 30;
+                    const isQueueBottleneck = distinctVehicleCount > 3 || avgWaitMins > 30;
 
                     return (
                       <div
@@ -519,7 +542,7 @@ export const KanbanBoard: React.FC = () => {
                             </div>
 
                             <span className="px-2.5 py-1 rounded-full text-xs font-mono font-black bg-[#FDFBF9] border border-[#EAE4D5]/80 text-[#111311]">
-                              {laneLogs.length}
+                              {distinctVehicleCount}
                             </span>
                           </div>
 

@@ -195,15 +195,6 @@ export type ProcessStatus =
   | 'TARE_WEIGHED'
   | 'READY_FOR_GATE_EXIT'
   | 'COMPLETED'
-  // Legacy aliases for backward compatibility
-  | 'Dispatched' 
-  | 'Token Issued' 
-  | 'Sampling' 
-  | 'Sampling_In_Progress' 
-  | 'First Weight' 
-  | 'Silo Reception' 
-  | 'Second Weight'
-  | 'Completed'
   | string;
 
 export const STAGES: ProcessStatus[] = [
@@ -304,12 +295,50 @@ export interface DataAuditLog {
   timestamp: string;
 }
 
-export const KANBAN_STAGES: { status: ProcessStatus; title: string; subtitle: string; iconType: string }[] = [
-  { status: 'Dispatched', title: 'En-Route / Dispatched', subtitle: 'On the road to plant', iconType: 'truck' },
-  { status: 'Token Issued', title: 'Gate 2 Token Desk', subtitle: 'IGP & Security Entry', iconType: 'badge' },
-  { status: 'Sampling', title: 'QA Lab Sampling', subtitle: 'Chemical & MBRT Tests', iconType: 'flask' },
-  { status: 'First Weight', title: 'Weighbridge Scale', subtitle: 'Gross & Tare Weighing', iconType: 'scale' },
-  { status: 'Silo Reception', title: 'Silo Milk Reception', subtitle: 'Unloading into Storage', iconType: 'tank' },
+export interface KanbanStageConfig {
+  status: ProcessStatus;
+  canonicalStatuses: string[];
+  title: string;
+  subtitle: string;
+  iconType: string;
+}
+
+export const KANBAN_STAGES: KanbanStageConfig[] = [
+  {
+    status: 'DISPATCHED',
+    canonicalStatuses: ['DISPATCHED'],
+    title: 'En-Route / Dispatched',
+    subtitle: 'On the road to plant',
+    iconType: 'truck',
+  },
+  {
+    status: 'TOKEN_ISSUED',
+    canonicalStatuses: ['TOKEN_ISSUED'],
+    title: 'Gate 2 Token Desk',
+    subtitle: 'IGP & Security Entry',
+    iconType: 'badge',
+  },
+  {
+    status: 'PLANT_QA',
+    canonicalStatuses: ['PLANT_QA'],
+    title: 'QA Lab Sampling',
+    subtitle: 'Chemical & MBRT Tests',
+    iconType: 'flask',
+  },
+  {
+    status: 'READY_FOR_GROSS',
+    canonicalStatuses: ['READY_FOR_GROSS', 'GROSS_WEIGHED', 'READY_FOR_TARE', 'TARE_WEIGHED'],
+    title: 'Weighbridge Scale',
+    subtitle: 'Gross & Tare Weighing',
+    iconType: 'scale',
+  },
+  {
+    status: 'READY_FOR_UNLOADING',
+    canonicalStatuses: ['READY_FOR_UNLOADING', 'UNLOADING'],
+    title: 'Silo Milk Reception',
+    subtitle: 'Unloading into Storage',
+    iconType: 'tank',
+  },
 ];
 
 export interface StageDurations {

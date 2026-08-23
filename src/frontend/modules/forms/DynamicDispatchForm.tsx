@@ -16,7 +16,6 @@ import {
   calculateEquivalentKgFromLiters,
 } from '@/backend/utils/milkFormulas';
 import { getScopedDraftKey } from '@/lib/validations/dispatch';
-import { getOperationalBusinessDate } from '@/backend/core/business-day';
 
 import {
   QuantityUnit,
@@ -896,7 +895,6 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
 
     try {
       const effectiveDispatchDate = isoDispatchTimestamp || new Date().toISOString();
-      const derivedBusinessDate = getOperationalBusinessDate(effectiveDispatchDate);
 
       const res = await fetch('/api/dispatches', {
         method: 'POST',
@@ -904,7 +902,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
         body: JSON.stringify({
           visitId: draftVisitId,
           vehicleNumber: vehicleNumber.trim().toUpperCase(),
-          operationalDate: derivedBusinessDate,
+          operationalDate: effectiveDispatchDate,
           procurementSourceId: effectiveSource.id,
           zonalContractorName: effectiveSource.name,
           dispatchTestingMode,
