@@ -9,6 +9,8 @@ import {
 import {
   validateDispatchQuantities,
   formatQuantityDisplay,
+  formatDispatchQuantity,
+  formatAcceptedQuantitySummary,
 } from '@/backend/modules/dispatch/quantity/dispatchQuantityService';
 import { DispatchQuantityPolicyConfig } from '@/backend/modules/dispatch/quantity-policy/types';
 import { calculatePhysicalLiters } from '@/backend/utils/milkFormulas';
@@ -414,20 +416,17 @@ describe('Stage 4C-4: Dispatch Quantity Domain (Unit Tests)', () => {
   });
 
   describe('Quantity Consumers Contract Migration (Security, Weighbridge, Super Admin, Seed)', () => {
-    it('[SECURITY-CONTRACT] Formats security quantities safely without total_declared_kg dependency', () => {
-      const formatVehicleQuantity = (val?: number | null, unit?: string | null): string => {
-        if (val === null || val === undefined || isNaN(val)) return '—';
-        const formatted = val.toLocaleString('en-US');
-        return unit ? `${formatted} ${unit}` : formatted;
-      };
-
+    it('[SECURITY-CONTRACT] Formats security quantities safely using production formatDispatchQuantity without total_declared_kg dependency', () => {
       // KG response
-      expect(formatVehicleQuantity(19500, 'KG')).toBe('19,500 KG');
+      expect(formatDispatchQuantity(19500, 'KG')).toBe('19,500 KG');
       // LITER response
-      expect(formatVehicleQuantity(10000, 'LITER')).toBe('10,000 LITER');
+      expect(formatDispatchQuantity(10000, 'LITER')).toBe('10,000 LITER');
       // Missing quantity / unit
-      expect(formatVehicleQuantity(null, null)).toBe('—');
-      expect(formatVehicleQuantity(undefined, undefined)).toBe('—');
+      expect(formatDispatchQuantity(null, null)).toBe('—');
+      expect(formatDispatchQuantity(undefined, undefined)).toBe('—');
+      expect(formatDispatchQuantity(19500, null)).toBe('—');
+      expect(formatDispatchQuantity(null, 'KG')).toBe('—');
+      expect(formatDispatchQuantity(19500, 'INVALID')).toBe('—');
 
       // Static check: Security workspace contains 0 total_declared_kg
       const secFile = fs.readFileSync(
@@ -437,80 +436,53 @@ describe('Stage 4C-4: Dispatch Quantity Domain (Unit Tests)', () => {
       expect(secFile).not.toContain('total_declared_kg');
     });
 
-    it('[WEIGHBRIDGE-CONTRACT] Formats accepted quantities safely without accepted_declared_kg and without mixed-unit summing', () => {
-      interface FirstWeightPortion {
-        portion_number: number;
-        dispatch_quantity_value: number | null;
-        dispatch_quantity_unit: string | null;
-        plant_decision: string;
-      }
-      interface FirstWeightVisit {
-        vehicle_dispatch_quantity_value?: number | null;
-        vehicle_dispatch_quantity_unit?: string | null;
-        portions?: FirstWeightPortion[];
-      }
-
-      function formatAcceptedQuantity(v: FirstWeightVisit): string {
-        const portions = v.portions || [];
-        const accepted = portions.filter((p) => (p.plant_decision || '').toUpperCase() === 'ACCEPTED');
-
-        if (accepted.length === 0) {
-          if (v.vehicle_dispatch_quantity_value !== null && v.vehicle_dispatch_quantity_value !== undefined) {
-            return `${v.vehicle_dispatch_quantity_value.toLocaleString('en-US')} ${v.vehicle_dispatch_quantity_unit || ''}`.trim();
-          }
-          return '—';
-        }
-
-        const portionsWithQty = accepted.filter((p) => p.dispatch_quantity_value !== null && p.dispatch_quantity_value !== undefined);
-        if (portionsWithQty.length === 0) return '—';
-
-        const units = Array.from(new Set(portionsWithQty.map((p) => p.dispatch_quantity_unit).filter(Boolean)));
-
-        if (units.length === 1) {
-          const unit = units[0];
-          const total = portionsWithQty.reduce((sum, p) => sum + (p.dispatch_quantity_value || 0), 0);
-          return `${total.toLocaleString('en-US')} ${unit}`;
-        }
-
-        // Mixed units across accepted portions
-        return portionsWithQty
-          .map((p) => `P${p.portion_number}: ${p.dispatch_quantity_value?.toLocaleString('en-US')} ${p.dispatch_quantity_unit || '—'}`)
-          .join(', ');
-      }
-
-      // 1. Same-unit KG portions
-      const sameUnitVisit: FirstWeightVisit = {
-        portions: [
-          { portion_number: 1, dispatch_quantity_value: 10000, dispatch_quantity_unit: 'KG', plant_decision: 'ACCEPTED' },
-          { portion_number: 2, dispatch_quantity_value: 8000, dispatch_quantity_unit: 'KG', plant_decision: 'ACCEPTED' },
-        ],
-      };
-      expect(formatAcceptedQuantity(sameUnitVisit)).toBe('18,000 KG');
+    it('[WEIGHBRIDGE-CONTRACT] Formats accepted quantities safely using production formatAcceptedQuantitySummary without accepted_declared_kg and without mixed-unit summing', () => {
+      // 1. Same-unit KG portions (8000 + 5000 = 13000 KG)
+      const sameUnitKg = [
+        { portion_number: 1, dispatch_quantity_value: 8000, dispatch_quantity_unit: 'KG', plant_decision: 'ACCEPTED' },
+        { portion_number: 2, dispatch_quantity_value: 5000, dispatch_quantity_unit: 'KG', plant_decision: 'ACCEPTED' },
+      ];
+      expect(formatAcceptedQuantitySummary(sameUnitKg)).toBe('13,000 KG');
 
       // 2. Same-unit LITER portions
-      const literVisit: FirstWeightVisit = {
-        portions: [
-          { portion_number: 1, dispatch_quantity_value: 5000, dispatch_quantity_unit: 'LITER', plant_decision: 'ACCEPTED' },
-          { portion_number: 2, dispatch_quantity_value: 5000, dispatch_quantity_unit: 'LITER', plant_decision: 'ACCEPTED' },
-        ],
-      };
-      expect(formatAcceptedQuantity(literVisit)).toBe('10,000 LITER');
+      const sameUnitLiter = [
+        { portion_number: 1, dispatch_quantity_value: 8000, dispatch_quantity_unit: 'LITER', plant_decision: 'ACCEPTED' },
+        { portion_number: 2, dispatch_quantity_value: 5000, dispatch_quantity_unit: 'LITER', plant_decision: 'ACCEPTED' },
+      ];
+      expect(formatAcceptedQuantitySummary(sameUnitLiter)).toBe('13,000 LITER');
 
       // 3. Mixed-unit portions: NO raw summation, NO fake KG label
-      const mixedVisit: FirstWeightVisit = {
-        portions: [
-          { portion_number: 1, dispatch_quantity_value: 8000, dispatch_quantity_unit: 'KG', plant_decision: 'ACCEPTED' },
-          { portion_number: 2, dispatch_quantity_value: 5000, dispatch_quantity_unit: 'LITER', plant_decision: 'ACCEPTED' },
-        ],
-      };
-      const mixedResult = formatAcceptedQuantity(mixedVisit);
+      const mixedKgLiter = [
+        { portion_number: 1, dispatch_quantity_value: 8000, dispatch_quantity_unit: 'KG', plant_decision: 'ACCEPTED' },
+        { portion_number: 2, dispatch_quantity_value: 5000, dispatch_quantity_unit: 'LITER', plant_decision: 'ACCEPTED' },
+      ];
+      const mixedResult = formatAcceptedQuantitySummary(mixedKgLiter);
       expect(mixedResult).toBe('P1: 8,000 KG, P2: 5,000 LITER');
       expect(mixedResult).not.toBe('13,000 KG');
       expect(mixedResult).not.toBe('13,000');
 
-      // 4. Missing quantity
-      const missingVisit: FirstWeightVisit = { portions: [] };
-      expect(formatAcceptedQuantity(missingVisit)).toBe('—');
+      // 4. Missing unit on one portion: 8000 KG + 5000 (missing unit) must NOT sum into 13000 KG!
+      const missingUnitPortion = [
+        { portion_number: 1, dispatch_quantity_value: 8000, dispatch_quantity_unit: 'KG', plant_decision: 'ACCEPTED' },
+        { portion_number: 2, dispatch_quantity_value: 5000, dispatch_quantity_unit: null, plant_decision: 'ACCEPTED' },
+      ];
+      const missingUnitResult = formatAcceptedQuantitySummary(missingUnitPortion);
+      expect(missingUnitResult).toBe('P1: 8,000 KG, P2: —');
+      expect(missingUnitResult).not.toBe('13,000 KG');
+      expect(missingUnitResult).not.toBe('13,000');
+
+      // 5. Missing value on one portion: 8000 KG + missing quantity must NOT fabricate a total!
+      const missingValuePortion = [
+        { portion_number: 1, dispatch_quantity_value: 8000, dispatch_quantity_unit: 'KG', plant_decision: 'ACCEPTED' },
+        { portion_number: 2, dispatch_quantity_value: null, dispatch_quantity_unit: 'KG', plant_decision: 'ACCEPTED' },
+      ];
+      const missingValueResult = formatAcceptedQuantitySummary(missingValuePortion);
+      expect(missingValueResult).toBe('P1: 8,000 KG, P2: —');
+
+      // 6. Missing / empty portions
+      expect(formatAcceptedQuantitySummary([])).toBe('—');
+      expect(formatAcceptedQuantitySummary(null)).toBe('—');
+      expect(formatAcceptedQuantitySummary([], 19500, 'KG')).toBe('19,500 KG');
 
       // Static check: Weighbridge workspace contains 0 accepted_declared_kg
       const wbFile = fs.readFileSync(
@@ -520,16 +492,11 @@ describe('Stage 4C-4: Dispatch Quantity Domain (Unit Tests)', () => {
       expect(wbFile).not.toContain('accepted_declared_kg');
     });
 
-    it('[SUPER-ADMIN-CONTRACT] Formats operations journey without grossLiters dependency', () => {
-      function formatQuantity(val?: number | null, unit?: string | null): string {
-        if (val === null || val === undefined || isNaN(val)) return '—';
-        const formatted = val.toLocaleString('en-US');
-        return unit ? `${formatted} ${unit}` : formatted;
-      }
-
-      expect(formatQuantity(19500, 'KG')).toBe('19,500 KG');
-      expect(formatQuantity(10000, 'LITER')).toBe('10,000 LITER');
-      expect(formatQuantity(null, null)).toBe('—');
+    it('[SUPER-ADMIN-CONTRACT] Formats operations journey using production formatDispatchQuantity without grossLiters dependency', () => {
+      expect(formatDispatchQuantity(19500, 'KG')).toBe('19,500 KG');
+      expect(formatDispatchQuantity(10000, 'LITER')).toBe('10,000 LITER');
+      expect(formatDispatchQuantity(null, null)).toBe('—');
+      expect(formatDispatchQuantity(19500, null)).toBe('—');
 
       // Static check: Super Admin page contains 0 grossLiters
       const saFile = fs.readFileSync(

@@ -3,6 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import { Activity, Search, ShieldAlert, Truck, ChevronRight } from 'lucide-react';
 
+import { formatDispatchQuantity } from '@/backend/modules/dispatch/quantity/dispatchQuantityService';
+
 interface Portion {
   id: string;
   portionNumber: number;
@@ -43,12 +45,6 @@ interface Visit {
     netWeightKg: number | null;
   } | null;
   portions: Portion[];
-}
-
-function formatQuantity(val?: number | null, unit?: string | null): string {
-  if (val === null || val === undefined || isNaN(val)) return '—';
-  const formatted = val.toLocaleString('en-US');
-  return unit ? `${formatted} ${unit}` : formatted;
 }
 
 export default function SuperAdminOperationsPage() {
@@ -205,7 +201,7 @@ export default function SuperAdminOperationsPage() {
                         </span>
                       </div>
                       <div className="text-[11px] text-slate-600">
-                        Dispatch Qty: <strong>{formatQuantity(p.dispatchQuantityValue, p.dispatchQuantityUnit)}</strong>
+                        Dispatch Qty: <strong>{formatDispatchQuantity(p.dispatchQuantityValue, p.dispatchQuantityUnit)}</strong>
                       </div>
                       {p.unloadingLog && (
                         <div className="text-[11px] text-slate-600">

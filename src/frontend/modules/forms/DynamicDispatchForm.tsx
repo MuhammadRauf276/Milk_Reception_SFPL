@@ -838,7 +838,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
             };
 
             return {
-              testId: t.id,
+              testId: (t as any).testId || t.id,
               performanceStatus: res.performanceStatus,
               notPerformedReason: res.performanceStatus === 'NOT_PERFORMED' ? (res.notPerformedReason?.trim() || 'Contract Vehicle') : null,
               numericValue:

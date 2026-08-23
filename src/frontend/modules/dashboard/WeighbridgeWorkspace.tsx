@@ -3,6 +3,8 @@ import { useToast } from '@/frontend/context/ToastContext';
 import { User } from '@core/types';
 import { Search, Scale, RefreshCw, CheckCircle2, Clock } from 'lucide-react';
 
+import { formatAcceptedQuantitySummary } from '@/backend/modules/dispatch/quantity/dispatchQuantityService';
+
 interface WeighbridgeWorkspaceProps {
   currentUser?: User | null;
 }
@@ -38,31 +40,11 @@ interface FirstWeightVisit {
 }
 
 function formatAcceptedQuantity(v: FirstWeightVisit): string {
-  const portions = v.portions || [];
-  const accepted = portions.filter((p) => (p.plant_decision || '').toUpperCase() === 'ACCEPTED');
-
-  if (accepted.length === 0) {
-    if (v.vehicle_dispatch_quantity_value !== null && v.vehicle_dispatch_quantity_value !== undefined) {
-      return `${v.vehicle_dispatch_quantity_value.toLocaleString('en-US')} ${v.vehicle_dispatch_quantity_unit || ''}`.trim();
-    }
-    return '—';
-  }
-
-  const portionsWithQty = accepted.filter((p) => p.dispatch_quantity_value !== null && p.dispatch_quantity_value !== undefined);
-  if (portionsWithQty.length === 0) return '—';
-
-  const units = Array.from(new Set(portionsWithQty.map((p) => p.dispatch_quantity_unit).filter(Boolean)));
-
-  if (units.length === 1) {
-    const unit = units[0];
-    const total = portionsWithQty.reduce((sum, p) => sum + (p.dispatch_quantity_value || 0), 0);
-    return `${total.toLocaleString('en-US')} ${unit}`;
-  }
-
-  // Mixed units across accepted portions
-  return portionsWithQty
-    .map((p) => `P${p.portion_number}: ${p.dispatch_quantity_value?.toLocaleString('en-US')} ${p.dispatch_quantity_unit || '—'}`)
-    .join(', ');
+  return formatAcceptedQuantitySummary(
+    v.portions,
+    v.vehicle_dispatch_quantity_value,
+    v.vehicle_dispatch_quantity_unit
+  );
 }
 
 interface SecondWeightVisit {

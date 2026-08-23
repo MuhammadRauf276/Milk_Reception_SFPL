@@ -98,20 +98,118 @@ export function validateDispatchQuantities(
   };
 }
 
+export interface PortionQuantityFact {
+  portionNumber?: number;
+  dispatchQuantityValue?: number | string | null;
+  dispatchQuantityUnit?: string | null;
+  dispatch_quantity_value?: number | string | null;
+  dispatch_quantity_unit?: string | null;
+  plantDecision?: string | null;
+  plant_decision?: string | null;
+}
+
 /**
- * Formats quantity display safely. If quantity is missing or null, returns em-dash (—).
+ * Formats a single dispatch quantity fact.
+ * Returns formatted string WITH unit (e.g. "19,500 KG" or "10,000 LITER")
+ * ONLY when BOTH value is a finite valid number and unit is a valid 'KG' or 'LITER'.
+ * Otherwise returns "—" (em-dash).
+ */
+export function formatDispatchQuantity(
+  value: number | string | null | undefined,
+  unit: string | null | undefined
+): string {
+  if (value === null || value === undefined || value === '') return '—';
+  const num = typeof value === 'number' ? value : Number(value);
+  if (isNaN(num) || !isFinite(num)) return '—';
+
+  const normalizedUnit = (unit || '').trim().toUpperCase();
+  if (normalizedUnit !== 'KG' && normalizedUnit !== 'LITER') {
+    return '—';
+  }
+
+  return `${num.toLocaleString('en-US')} ${normalizedUnit}`;
+}
+
+/**
+ * Formats quantity display safely using canonical rules.
  */
 export function formatQuantityDisplay(
   value: string | number | null | undefined,
   unit?: string | null
 ): string {
-  if (value === null || value === undefined || value === '') {
+  return formatDispatchQuantity(value, unit);
+}
+
+/**
+ * Formats accepted portions total or breakdown safely:
+ * - A single summed total is produced ONLY when every accepted portion has a valid finite numeric value
+ *   and every accepted portion has the SAME valid unit ('KG' or 'LITER').
+ * - If units are mixed, missing, or any quantity is missing, produces a per-portion breakdown without fabricating a total.
+ */
+export function formatAcceptedQuantitySummary(
+  portions: PortionQuantityFact[] | undefined | null,
+  fallbackVehicleValue?: number | string | null,
+  fallbackVehicleUnit?: string | null
+): string {
+  const portionList = portions || [];
+  const accepted = portionList.filter((p) => {
+    const dec = (p.plantDecision || p.plant_decision || '').toUpperCase();
+    return dec === 'ACCEPTED';
+  });
+
+  if (accepted.length === 0) {
+    if (fallbackVehicleValue !== null && fallbackVehicleValue !== undefined) {
+      return formatDispatchQuantity(fallbackVehicleValue, fallbackVehicleUnit);
+    }
     return '—';
   }
-  const num = Number(value);
-  if (isNaN(num)) {
-    return String(value);
+
+  // Check every accepted portion
+  let allHaveValidQuantity = true;
+  let allUnitsIdentical = true;
+  let firstUnit: string | null = null;
+  let runningSum = 0;
+
+  for (const p of accepted) {
+    const val = p.dispatchQuantityValue !== undefined ? p.dispatchQuantityValue : p.dispatch_quantity_value;
+    const unit = (p.dispatchQuantityUnit !== undefined ? p.dispatchQuantityUnit : p.dispatch_quantity_unit || '').trim().toUpperCase();
+
+    if (val === null || val === undefined || val === '') {
+      allHaveValidQuantity = false;
+      break;
+    }
+    const num = typeof val === 'number' ? val : Number(val);
+    if (isNaN(num) || !isFinite(num)) {
+      allHaveValidQuantity = false;
+      break;
+    }
+
+    if (unit !== 'KG' && unit !== 'LITER') {
+      allHaveValidQuantity = false;
+      break;
+    }
+
+    if (firstUnit === null) {
+      firstUnit = unit;
+    } else if (firstUnit !== unit) {
+      allUnitsIdentical = false;
+    }
+
+    runningSum += num;
   }
-  const formattedNum = num.toLocaleString('en-US', { maximumFractionDigits: 4 });
-  return unit ? `${formattedNum} ${unit}` : formattedNum;
+
+  if (allHaveValidQuantity && allUnitsIdentical && firstUnit !== null) {
+    return `${runningSum.toLocaleString('en-US')} ${firstUnit}`;
+  }
+
+  // If not summable, return per-portion breakdown
+  return accepted
+    .map((p, idx) => {
+      const pNum = p.portionNumber ?? (idx + 1);
+      const val = p.dispatchQuantityValue !== undefined ? p.dispatchQuantityValue : p.dispatch_quantity_value;
+      const unit = p.dispatchQuantityUnit !== undefined ? p.dispatchQuantityUnit : p.dispatch_quantity_unit;
+      const formatted = formatDispatchQuantity(val, unit);
+      return `P${pNum}: ${formatted}`;
+    })
+    .join(', ');
 }

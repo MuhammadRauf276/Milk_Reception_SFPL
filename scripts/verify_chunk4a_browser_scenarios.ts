@@ -59,7 +59,7 @@ async function main() {
 
     const formattedPortions = v.portions.map((p) => {
       const declaredQuantityValue = p.dispatch_quantity_value !== null && p.dispatch_quantity_value !== undefined ? Number(p.dispatch_quantity_value) : null;
-      const declaredQuantityUnit = (p.dispatch_quantity_unit || 'KG').toUpperCase();
+      const declaredQuantityUnit = p.dispatch_quantity_unit ? p.dispatch_quantity_unit.toUpperCase() : null;
       const isAccepted = p.plant_decision === 'ACCEPTED';
 
       const performedPlantLr = p.plant_lab_results.filter(
@@ -76,7 +76,7 @@ async function main() {
       if (isAccepted && declaredQuantityValue !== null && declaredQuantityValue > 0) {
         if (declaredQuantityUnit === 'LITER') {
           provisionalPhysicalLiters = declaredQuantityValue;
-        } else {
+        } else if (declaredQuantityUnit === 'KG') {
           if (plantLrVal !== null) {
             provisionalPhysicalLiters = calculatePhysicalLiters(declaredQuantityValue, plantLrVal);
           }
@@ -129,7 +129,11 @@ async function main() {
       };
     });
 
-    const acceptedUnits = new Set(acceptedPortions.map((p) => (p.dispatch_quantity_unit || 'KG').toUpperCase()));
+    const acceptedUnits = new Set(
+      acceptedPortions
+        .map((p) => p.dispatch_quantity_unit?.toUpperCase())
+        .filter((u): u is string => Boolean(u))
+    );
     let totalAcceptedDeclaredValue: number | null = null;
     let totalAcceptedDeclaredUnit: string | null = null;
 
