@@ -1,6 +1,12 @@
 import {
   DispatchQuantityPolicySnapshotDTO,
   DispatchQuantityPolicyConfig,
+  QuantityUnit,
+  MeasurementBasis,
+  MeasurementMethod,
+  AllowedMeasurementConfig,
+  getAllowedBases,
+  getAllowedMethods,
 } from '../quantity-policy/types';
 import {
   ValidatedQuantityMeasurement,
@@ -91,10 +97,127 @@ export function validateDispatchQuantities(
     };
   });
 
+  // 3. Enforce shared portion Unit and Basis across all portions (matching Portion 1)
+  if (validatedPortions.length > 1) {
+    const p1 = validatedPortions[0];
+    for (let i = 1; i < validatedPortions.length; i++) {
+      const p = validatedPortions[i];
+      if (p.unit !== p1.unit) {
+        throw new QuantityMeasurementError(
+          `Portion ${p.portionNumber} quantity unit (${p.unit}) must match Portion 1 unit (${p1.unit}).`,
+          'PORTION_UNIT_MISMATCH'
+        );
+      }
+      if (p.basis !== p1.basis) {
+        throw new QuantityMeasurementError(
+          `Portion ${p.portionNumber} measurement basis (${p.basis}) must match Portion 1 basis (${p1.basis}).`,
+          'PORTION_BASIS_MISMATCH'
+        );
+      }
+    }
+  }
+
   return {
     vehicleQuantity,
     portionQuantities: validatedPortions,
     portions: validatedPortions,
+  };
+}
+
+/**
+ * Pure helper: Applies a new shared Unit to all portions.
+ * Requirement: Changing shared Unit must clear existing numeric values across all portions
+ * to prevent silent numeric reinterpretation (e.g. 9,800 LITER becoming 9,800 KG).
+ */
+export function applySharedPortionUnit<
+  T extends {
+    quantity: {
+      value: string | number | null | undefined;
+      unit: QuantityUnit;
+      basis: MeasurementBasis;
+      method: MeasurementMethod;
+    };
+  }
+>(
+  portions: T[],
+  newUnit: QuantityUnit,
+  allowedMeasurements?: AllowedMeasurementConfig[]
+): T[] {
+  const bases: MeasurementBasis[] = allowedMeasurements ? getAllowedBases(allowedMeasurements, newUnit) : ['ESTIMATED', 'MEASURED'];
+  const p1CurrentBasis = portions[0]?.quantity.basis;
+  const newBasis = bases.includes(p1CurrentBasis) ? p1CurrentBasis : (bases[0] || 'ESTIMATED');
+  const methods: MeasurementMethod[] = allowedMeasurements ? getAllowedMethods(allowedMeasurements, newUnit, newBasis) : ['MANUAL_ESTIMATE', 'WEIGHING', 'FLOW_METER', 'OTHER'];
+
+  return portions.map((portion) => {
+    const newMethod = methods.includes(portion.quantity.method) ? portion.quantity.method : (methods[0] || 'MANUAL_ESTIMATE');
+    return {
+      ...portion,
+      quantity: {
+        ...portion.quantity,
+        value: '', // Strictly clear entered quantity value on Unit change
+        unit: newUnit,
+        basis: newBasis,
+        method: newMethod,
+      },
+    };
+  });
+}
+
+/**
+ * Pure helper: Propagates a new shared Basis to all portions.
+ * Requirement: Changing Basis preserves existing numeric quantity values.
+ */
+export function applySharedPortionBasis<
+  T extends {
+    quantity: {
+      value: string | number | null | undefined;
+      unit: QuantityUnit;
+      basis: MeasurementBasis;
+      method: MeasurementMethod;
+    };
+  }
+>(
+  portions: T[],
+  newBasis: MeasurementBasis,
+  allowedMeasurements?: AllowedMeasurementConfig[]
+): T[] {
+  const sharedUnit = portions[0]?.quantity.unit || 'LITER';
+  const methods: MeasurementMethod[] = allowedMeasurements ? getAllowedMethods(allowedMeasurements, sharedUnit, newBasis) : ['MANUAL_ESTIMATE', 'WEIGHING', 'FLOW_METER', 'OTHER'];
+
+  return portions.map((portion) => {
+    const newMethod = methods.includes(portion.quantity.method) ? portion.quantity.method : (methods[0] || 'MANUAL_ESTIMATE');
+    return {
+      ...portion,
+      quantity: {
+        ...portion.quantity,
+        basis: newBasis,
+        method: newMethod,
+      },
+    };
+  });
+}
+
+/**
+ * Pure helper: Creates the initial quantity configuration for a newly added portion,
+ * inheriting the shared Unit and Basis from Portion 1 (if Portion 1 exists).
+ */
+export function createPortionQuantityFromSharedProfile(
+  p1Quantity: { unit: QuantityUnit; basis: MeasurementBasis; method?: MeasurementMethod } | undefined | null,
+  defaultRules: { unit: QuantityUnit; basis: MeasurementBasis; method: MeasurementMethod },
+  allowedMeasurements?: AllowedMeasurementConfig[]
+): { value: string; unit: QuantityUnit; basis: MeasurementBasis; method: MeasurementMethod } {
+  const unit = p1Quantity ? p1Quantity.unit : defaultRules.unit;
+  const basis = p1Quantity ? p1Quantity.basis : defaultRules.basis;
+  const methods: MeasurementMethod[] = allowedMeasurements ? getAllowedMethods(allowedMeasurements, unit, basis) : ['MANUAL_ESTIMATE', 'WEIGHING', 'FLOW_METER', 'OTHER'];
+  const method = p1Quantity && p1Quantity.method && methods.includes(p1Quantity.method)
+    ? p1Quantity.method
+    : (methods[0] || defaultRules.method);
+
+  return {
+    value: '',
+    unit,
+    basis,
+    method,
   };
 }
 

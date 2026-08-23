@@ -26,6 +26,11 @@ import {
   getAllowedBases,
   getAllowedMethods,
 } from '@/backend/modules/dispatch/quantity-policy/types';
+import {
+  applySharedPortionUnit,
+  applySharedPortionBasis,
+  createPortionQuantityFromSharedProfile,
+} from '@/backend/modules/dispatch/quantity/dispatchQuantityService';
 
 interface LabTestDef {
   id: string;
@@ -323,15 +328,17 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
         ? window.crypto.randomUUID()
         : `portion-${Date.now()}-${portionNumber}`;
 
+    const p1 = portions[0];
+    const initialQty = createPortionQuantityFromSharedProfile(
+      p1 ? p1.quantity : null,
+      pDef,
+      portionAllowedMeasurements
+    );
+
     return {
       clientId,
       portionNumber,
-      quantity: {
-        value: '',
-        unit: pDef.unit,
-        basis: pDef.basis,
-        method: pDef.method,
-      },
+      quantity: initialQty,
       results: freshResults,
       isSaved: false,
     };
@@ -396,37 +403,33 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
   };
 
   const handlePortionUnitChange = (index: number, newUnit: QuantityUnitType) => {
-    const updated = [...portions];
-    const currentPortion = updated[index];
-    const bases = getAllowedBases(portionAllowedMeasurements, newUnit);
-    const newBasis = bases.includes(currentPortion.quantity.basis) ? currentPortion.quantity.basis : bases[0];
-    const methods = getAllowedMethods(portionAllowedMeasurements, newUnit, newBasis);
-    const newMethod = methods.includes(currentPortion.quantity.method) ? currentPortion.quantity.method : methods[0];
+    // Only Portion 1 establishes and can modify the shared portion Unit
+    if (index !== 0) return;
 
-    updated[index].quantity = {
-      value: '', // clear entered quantity on unit change
-      unit: newUnit,
-      basis: newBasis,
-      method: newMethod,
-    };
+    const updated = applySharedPortionUnit(portions, newUnit, portionAllowedMeasurements);
     setPortions(updated);
 
+    // Clear quantity validation errors across all portions on unit change
     setPortionErrors((prev) => {
-      if (!prev[index]?.quantity) return prev;
-      const copy = { ...prev[index] };
-      delete copy.quantity;
-      return { ...prev, [index]: copy };
+      const nextErrors: Record<number, { quantity?: string; tests?: Record<string, string> }> = {};
+      Object.keys(prev).forEach((keyStr) => {
+        const k = Number(keyStr);
+        if (prev[k]) {
+          const { quantity, ...rest } = prev[k];
+          if (Object.keys(rest.tests || {}).length > 0) {
+            nextErrors[k] = rest;
+          }
+        }
+      });
+      return nextErrors;
     });
   };
 
   const handlePortionBasisChange = (index: number, newBasis: MeasurementBasisType) => {
-    const updated = [...portions];
-    const currentPortion = updated[index];
-    const methods = getAllowedMethods(portionAllowedMeasurements, currentPortion.quantity.unit, newBasis);
-    const newMethod = methods.includes(currentPortion.quantity.method) ? currentPortion.quantity.method : methods[0];
+    // Only Portion 1 establishes and can modify the shared portion Basis
+    if (index !== 0) return;
 
-    updated[index].quantity.basis = newBasis;
-    updated[index].quantity.method = newMethod;
+    const updated = applySharedPortionBasis(portions, newBasis, portionAllowedMeasurements);
     setPortions(updated);
   };
 
@@ -1264,33 +1267,59 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                       </div>
 
                       <div>
-                        <label className="block text-[10px] font-bold text-slate-600 mb-1">Unit *</label>
-                        <select
-                          value={portion.quantity.unit}
-                          onChange={(e) => handlePortionUnitChange(index, e.target.value as QuantityUnitType)}
-                          className="w-full px-3 py-2 text-xs font-mono font-black rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none"
-                        >
-                          {portionAllowedUnits.map((u) => (
-                            <option key={u} value={u}>
-                              {u}
-                            </option>
-                          ))}
-                        </select>
+                        <label className="block text-[10px] font-bold text-slate-600 mb-1">
+                          Unit * {index > 0 && <span className="text-[9px] font-normal text-slate-400">(Shared from P1)</span>}
+                        </label>
+                        {index === 0 ? (
+                          <select
+                            id="portion-unit-select-0"
+                            value={portion.quantity.unit}
+                            onChange={(e) => handlePortionUnitChange(index, e.target.value as QuantityUnitType)}
+                            className="w-full px-3 py-2 text-xs font-mono font-black rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none"
+                          >
+                            {portionAllowedUnits.map((u) => (
+                              <option key={u} value={u}>
+                                {u}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            type="text"
+                            readOnly
+                            disabled
+                            value={portion.quantity.unit}
+                            className="w-full px-3 py-2 text-xs font-mono font-black rounded-xl border border-slate-200 bg-slate-100 text-slate-500 cursor-not-allowed outline-none select-none"
+                          />
+                        )}
                       </div>
 
                       <div>
-                        <label className="block text-[10px] font-bold text-slate-600 mb-1">Basis *</label>
-                        <select
-                          value={portion.quantity.basis}
-                          onChange={(e) => handlePortionBasisChange(index, e.target.value as MeasurementBasisType)}
-                          className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none"
-                        >
-                          {pAllowedBases.map((b) => (
-                            <option key={b} value={b}>
-                              {b}
-                            </option>
-                          ))}
-                        </select>
+                        <label className="block text-[10px] font-bold text-slate-600 mb-1">
+                          Basis * {index > 0 && <span className="text-[9px] font-normal text-slate-400">(Shared from P1)</span>}
+                        </label>
+                        {index === 0 ? (
+                          <select
+                            id="portion-basis-select-0"
+                            value={portion.quantity.basis}
+                            onChange={(e) => handlePortionBasisChange(index, e.target.value as MeasurementBasisType)}
+                            className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none"
+                          >
+                            {pAllowedBases.map((b) => (
+                              <option key={b} value={b}>
+                                {b}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            type="text"
+                            readOnly
+                            disabled
+                            value={portion.quantity.basis}
+                            className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-slate-200 bg-slate-100 text-slate-500 cursor-not-allowed outline-none select-none"
+                          />
+                        )}
                       </div>
 
                       <div>
