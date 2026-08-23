@@ -63,6 +63,11 @@ jobs:
           npx prisma validate
           npx prisma migrate status
 
+      - name: Run Real PostgreSQL migration upgrade regression
+        env:
+          DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
+        run: npm run test:migration-upgrade
+
       - name: Run TypeScript typecheck
         run: npm run typecheck
 

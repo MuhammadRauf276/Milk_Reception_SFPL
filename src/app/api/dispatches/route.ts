@@ -517,7 +517,7 @@ export async function POST(req: Request) {
         assignedDispatchTests.forEach((t) => {
           const idStr = t.test_id.toString();
           const tName = t.test_name_snapshot.toLowerCase();
-          const res = submittedResultsMap.get(idStr) || submittedResultsMap.get(t.id.toString());
+          const res = submittedResultsMap.get(idStr);
           if (res && res.numericValue !== null && res.numericValue !== undefined && !isNaN(res.numericValue) && res.performanceStatus === 'PERFORMED') {
             if (tName.includes('fat') && !tName.includes('ratio') && !tName.includes('snf')) {
               submittedFat = res.numericValue;
@@ -530,7 +530,7 @@ export async function POST(req: Request) {
         // Create DispatchLabResult for every assigned test (manual + server-calculated)
         for (const testDef of assignedDispatchTests) {
           const testIdStr = testDef.test_id.toString();
-          const submittedRes = submittedResultsMap.get(testIdStr) || submittedResultsMap.get(testDef.id.toString());
+          const submittedRes = submittedResultsMap.get(testIdStr);
 
           let numVal: number | null = null;
           let textVal: string | null = null;

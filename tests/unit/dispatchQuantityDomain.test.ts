@@ -524,5 +524,78 @@ describe('Stage 4C-4: Dispatch Quantity Domain (Unit Tests)', () => {
       expect(seedSql).toContain('dispatch_quantity_basis');
       expect(seedSql).toContain('dispatch_measurement_method');
     });
+
+    it('[LAB-IDENTITY-COLLISION] Proves results resolve strictly by canonical LabTest definition ID and reject assignment primary key collisions or unassigned test IDs', () => {
+      // Setup:
+      // Assignment row 1: id = 10, test_id = 101 (Fat)
+      // Assignment row 2: id = 20, test_id = 102 (LR)
+      // Unassigned LabTest definition: id = 10 (Temperature)
+      const assignedDispatchTests = [
+        { id: BigInt(10), test_id: BigInt(101), test_code_snapshot: 'LT-FAT', test_name_snapshot: 'Fat', result_type_snapshot: 'NUMERIC', result_options_snapshot: null },
+        { id: BigInt(20), test_id: BigInt(102), test_code_snapshot: 'LT-LR', test_name_snapshot: 'Lactometer Reading', result_type_snapshot: 'NUMERIC', result_options_snapshot: null },
+      ];
+
+      // Matcher function replicating production route resolution logic
+      function matchSubmittedResults(
+        assigned: typeof assignedDispatchTests,
+        submittedResults: Array<{ testId: string; numericValue?: number | null; performanceStatus?: string }>
+      ) {
+        const submittedResultsMap = new Map<string, (typeof submittedResults)[0]>();
+        submittedResults.forEach((r) => {
+          submittedResultsMap.set(r.testId, r);
+        });
+
+        const matchedResults: Array<{ testId: bigint; testCode: string; numVal: number | null }> = [];
+
+        for (const testDef of assigned) {
+          const testIdStr = testDef.test_id.toString();
+          const submittedRes = submittedResultsMap.get(testIdStr);
+          if (!submittedRes) continue;
+
+          matchedResults.push({
+            testId: testDef.test_id,
+            testCode: testDef.test_code_snapshot,
+            numVal: submittedRes.numericValue ?? null,
+          });
+        }
+        return matchedResults;
+      }
+
+      // Case 1: Caller submits assignment row primary key "10" instead of canonical test_id "101"
+      // Expected: Must NOT match assignment 1 (test_id 101)
+      const subAssignmentKey = [{ testId: '10', numericValue: 4.5, performanceStatus: 'PERFORMED' }];
+      const matchedKey = matchSubmittedResults(assignedDispatchTests, subAssignmentKey);
+      expect(matchedKey).toHaveLength(0);
+
+      // Case 2: Caller submits canonical LabTest definition ID "101" for Fat
+      // Expected: Successfully matches Fat (test_id 101)
+      const subCanonical = [{ testId: '101', numericValue: 4.5, performanceStatus: 'PERFORMED' }];
+      const matchedCanonical = matchSubmittedResults(assignedDispatchTests, subCanonical);
+      expect(matchedCanonical).toHaveLength(1);
+      expect(matchedCanonical[0].testId.toString()).toBe('101');
+      expect(matchedCanonical[0].testCode).toBe('LT-FAT');
+      expect(matchedCanonical[0].numVal).toBe(4.5);
+
+      // Case 3: Caller submits unassigned LabTest definition ID "999"
+      // Expected: Must NOT be matched or created
+      const subUnassigned = [{ testId: '999', numericValue: 4.0, performanceStatus: 'PERFORMED' }];
+      const matchedUnassigned = matchSubmittedResults(assignedDispatchTests, subUnassigned);
+      expect(matchedUnassigned).toHaveLength(0);
+
+      // Static checks:
+      const routeFile = fs.readFileSync(
+        path.join(process.cwd(), 'src/app/api/dispatches/route.ts'),
+        'utf8'
+      );
+      expect(routeFile).not.toContain('submittedResultsMap.get(t.id.toString())');
+      expect(routeFile).not.toContain('submittedResultsMap.get(testDef.id.toString())');
+
+      const formFile = fs.readFileSync(
+        path.join(process.cwd(), 'src/frontend/modules/forms/DynamicDispatchForm.tsx'),
+        'utf8'
+      );
+      expect(formFile).not.toContain('(t as any).testId');
+      expect(formFile).not.toContain('testId: (t as any)');
+    });
   });
 });

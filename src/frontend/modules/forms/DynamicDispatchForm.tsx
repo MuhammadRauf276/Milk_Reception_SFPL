@@ -30,6 +30,7 @@ import {
 
 interface LabTestDef {
   id: string;
+  testId: string;
   testCode: string;
   testName: string;
   resultType: 'NUMERIC' | 'TEXT' | 'QUALITATIVE' | 'BOOLEAN' | 'OK_NOT_OK' | 'POSITIVE_NEGATIVE' | 'CALCULATED' | string;
@@ -145,9 +146,10 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     const results: Record<string, TestResultState> = {};
 
     tests.forEach((t) => {
+      const key = t.testId;
       if (isContractor) {
         // Contractor Default: NOT_PERFORMED (Contract Vehicle)
-        results[t.id] = {
+        results[key] = {
           numericValue: '',
           textValue: '',
           performanceStatus: 'NOT_PERFORMED',
@@ -155,7 +157,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
         };
       } else {
         // ZMCC Dispatch: Initialized as PERFORMED without claiming automatic results
-        results[t.id] = {
+        results[key] = {
           numericValue: '',
           textValue: '',
           performanceStatus: 'PERFORMED',
@@ -830,7 +832,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
         results: labTests
           .filter((t) => t.resultType !== 'CALCULATED')
           .map((t) => {
-            const res = p.results[t.id] || {
+            const res = p.results[t.testId] || {
               numericValue: '',
               textValue: '',
               performanceStatus: isContractorSource ? 'NOT_PERFORMED' : 'PERFORMED',
@@ -838,7 +840,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
             };
 
             return {
-              testId: (t as any).testId || t.id,
+              testId: t.testId,
               performanceStatus: res.performanceStatus,
               notPerformedReason: res.performanceStatus === 'NOT_PERFORMED' ? (res.notPerformedReason?.trim() || 'Contract Vehicle') : null,
               numericValue:

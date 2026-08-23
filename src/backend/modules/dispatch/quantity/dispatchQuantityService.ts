@@ -172,7 +172,8 @@ export function formatAcceptedQuantitySummary(
 
   for (const p of accepted) {
     const val = p.dispatchQuantityValue !== undefined ? p.dispatchQuantityValue : p.dispatch_quantity_value;
-    const unit = (p.dispatchQuantityUnit !== undefined ? p.dispatchQuantityUnit : p.dispatch_quantity_unit || '').trim().toUpperCase();
+    const rawUnit = p.dispatchQuantityUnit !== undefined ? p.dispatchQuantityUnit : p.dispatch_quantity_unit;
+    const unit = typeof rawUnit === 'string' ? rawUnit.trim().toUpperCase() : '';
 
     if (val === null || val === undefined || val === '') {
       allHaveValidQuantity = false;

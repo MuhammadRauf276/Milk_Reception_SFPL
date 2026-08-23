@@ -12,6 +12,7 @@
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration --fileParallelism=false",
     "test:legacy": "tsx scripts/run_all_regressions.ts",
+    "test:migration-upgrade": "tsx scripts/test_real_postgres_migration_upgrade.ts",
     "test:all": "npm run typecheck && npm run test && npm run test:legacy",
     "test:db:setup": "tsx scripts/setup_test_db.ts",
     "db:seed": "prisma db seed",
