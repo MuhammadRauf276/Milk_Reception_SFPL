@@ -249,4 +249,40 @@ describe('Stage 4C-5B: Shared Portion Quantity Profile (Unit & Basis)', () => {
     expect(summary).toContain('P2: —');
     expect(summary).not.toContain('9,800 LITER (Total)');
   });
+
+  it('[CASE B10] New portion inherits Unit and Basis from P1 but NOT P1 Method (keeps independent/default Method)', () => {
+    // P1 configured with non-default method OTHER
+    const p1State = {
+      portionNumber: 1,
+      quantity: {
+        value: '9800',
+        unit: 'LITER' as const,
+        basis: 'ESTIMATED' as const,
+        method: 'OTHER' as const,
+      },
+    };
+
+    // Default portion policy specifies MANUAL_ESTIMATE
+    const defaultRules = {
+      unit: 'KG' as const,
+      basis: 'ESTIMATED' as const,
+      method: 'MANUAL_ESTIMATE' as const,
+    };
+    const allowed = policy.portionRules.allowedMeasurements;
+
+    const newPortionQty = createPortionQuantityFromSharedProfile(
+      p1State.quantity,
+      defaultRules,
+      allowed
+    );
+
+    // Inherits P1 Unit & Basis
+    expect(newPortionQty.unit).toBe('LITER');
+    expect(newPortionQty.basis).toBe('ESTIMATED');
+    expect(newPortionQty.value).toBe('');
+
+    // Does NOT inherit P1 Method (OTHER); uses independent/default Method (MANUAL_ESTIMATE)
+    expect(newPortionQty.method).toBe('MANUAL_ESTIMATE');
+    expect(newPortionQty.method).not.toBe('OTHER');
+  });
 });

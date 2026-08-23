@@ -199,7 +199,9 @@ export function applySharedPortionBasis<
 
 /**
  * Pure helper: Creates the initial quantity configuration for a newly added portion,
- * inheriting the shared Unit and Basis from Portion 1 (if Portion 1 exists).
+ * inheriting the shared Unit and Basis from Portion 1 (if Portion 1 exists),
+ * while keeping Measurement Method independent (using defaultRules.method if compatible with inherited Unit/Basis,
+ * otherwise falling back to the first compatible method from allowed measurements).
  */
 export function createPortionQuantityFromSharedProfile(
   p1Quantity: { unit: QuantityUnit; basis: MeasurementBasis; method?: MeasurementMethod } | undefined | null,
@@ -209,8 +211,8 @@ export function createPortionQuantityFromSharedProfile(
   const unit = p1Quantity ? p1Quantity.unit : defaultRules.unit;
   const basis = p1Quantity ? p1Quantity.basis : defaultRules.basis;
   const methods: MeasurementMethod[] = allowedMeasurements ? getAllowedMethods(allowedMeasurements, unit, basis) : ['MANUAL_ESTIMATE', 'WEIGHING', 'FLOW_METER', 'OTHER'];
-  const method = p1Quantity && p1Quantity.method && methods.includes(p1Quantity.method)
-    ? p1Quantity.method
+  const method = methods.includes(defaultRules.method)
+    ? defaultRules.method
     : (methods[0] || defaultRules.method);
 
   return {
