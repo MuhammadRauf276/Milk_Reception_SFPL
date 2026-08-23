@@ -15,6 +15,14 @@ import {
   validateQuantityAgainstPolicy,
   QuantityMeasurementError,
 } from './validation';
+import {
+  calculateDensity,
+  calculateSNF,
+  calculateTS,
+  calculateRatio,
+  calculateAt13TSLiters,
+  calculateGrossLiters,
+} from '@/backend/utils/milkFormulas';
 
 export { QuantityMeasurementError };
 
@@ -220,6 +228,85 @@ export function createPortionQuantityFromSharedProfile(
     unit,
     basis,
     method,
+  };
+}
+
+export interface DispatchPortionCalculatedValues {
+  declaredVal: number | null;
+  unit: string | null;
+  density: number | null;
+  grossLiters: number | null;
+  physicalLiters: number | null;
+  snf: number | null;
+  ts: number | null;
+  totalSolids: number | null;
+  ratio: number | null;
+  at13TsLiters: number | null;
+  litersAt13TS: number | null;
+}
+
+/**
+ * Pure production helper: Orchestrates live calculated milk metrics for a single Dispatch portion.
+ * Operates strictly on declared quantity, unit, and authoritative/performed LR and Fat values.
+ * Uses canonical milk formulas; never fabricates fake quality metrics when inputs are missing.
+ */
+export function computeDispatchPortionCalculatedValues(
+  quantity: number | string | null | undefined,
+  unit: QuantityUnit | string | null | undefined,
+  lr?: number | string | null | undefined,
+  fat?: number | string | null | undefined
+): DispatchPortionCalculatedValues {
+  const qtyNum =
+    quantity !== null && quantity !== undefined && quantity !== '' && !isNaN(Number(quantity)) && Number(quantity) > 0
+      ? Number(quantity)
+      : null;
+  const normalizedUnit = (unit || '').trim().toUpperCase();
+  const lrNum =
+    lr !== null && lr !== undefined && lr !== '' && !isNaN(Number(lr)) && Number(lr) > 0
+      ? Number(lr)
+      : null;
+  const fatNum =
+    fat !== null && fat !== undefined && fat !== '' && !isNaN(Number(fat)) && Number(fat) >= 0
+      ? Number(fat)
+      : null;
+
+  let densityVal: number | null = null;
+  let snfVal: number | null = null;
+  let tsVal: number | null = null;
+  let ratioVal: number | null = null;
+  let grossLitersVal: number | null = null;
+  let at13TsLitersVal: number | null = null;
+
+  if (lrNum !== null) {
+    densityVal = calculateDensity(lrNum);
+  }
+
+  if (lrNum !== null && fatNum !== null) {
+    snfVal = calculateSNF(lrNum, fatNum);
+    tsVal = calculateTS(fatNum, snfVal);
+    ratioVal = calculateRatio(snfVal, fatNum);
+  }
+
+  if (qtyNum !== null && (normalizedUnit === 'KG' || normalizedUnit === 'LITER')) {
+    grossLitersVal = calculateGrossLiters(qtyNum, normalizedUnit, lrNum);
+
+    if (grossLitersVal !== null && tsVal !== null) {
+      at13TsLitersVal = calculateAt13TSLiters(grossLitersVal, tsVal);
+    }
+  }
+
+  return {
+    declaredVal: qtyNum,
+    unit: normalizedUnit || null,
+    density: densityVal,
+    grossLiters: grossLitersVal,
+    physicalLiters: grossLitersVal,
+    snf: snfVal,
+    ts: tsVal,
+    totalSolids: tsVal,
+    ratio: ratioVal,
+    at13TsLiters: at13TsLitersVal,
+    litersAt13TS: at13TsLitersVal,
   };
 }
 

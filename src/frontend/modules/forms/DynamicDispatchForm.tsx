@@ -31,6 +31,7 @@ import {
   applySharedPortionUnit,
   applySharedPortionBasis,
   createPortionQuantityFromSharedProfile,
+  computeDispatchPortionCalculatedValues,
 } from '@/backend/modules/dispatch/quantity/dispatchQuantityService';
 
 interface LabTestDef {
@@ -731,49 +732,13 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
 
     const rawLr = lrRes && lrRes.performanceStatus === 'PERFORMED' ? lrRes.numericValue : '';
     const rawFat = fatRes && fatRes.performanceStatus === 'PERFORMED' ? fatRes.numericValue : '';
-    const rawDeclared = Number(portion.quantity.value);
 
-    const lrNum = rawLr !== '' && rawLr !== undefined && !isNaN(Number(rawLr)) ? Number(rawLr) : null;
-    const fatNum = rawFat !== '' && rawFat !== undefined && !isNaN(Number(rawFat)) ? Number(rawFat) : null;
-    const qtyNum = !isNaN(rawDeclared) && rawDeclared > 0 ? rawDeclared : null;
-    const unit = portion.quantity.unit;
-
-    let snfVal: number | null = null;
-    let tsVal: number | null = null;
-    let ratioVal: number | null = null;
-    let densityVal: number | null = null;
-    let grossLitersVal: number | null = null;
-    let at13TsLitersVal: number | null = null;
-
-    if (lrNum !== null) {
-      densityVal = calculateDensity(lrNum);
-    }
-
-    if (lrNum !== null && fatNum !== null) {
-      snfVal = calculateSNF(lrNum, fatNum);
-      tsVal = calculateTS(fatNum, snfVal);
-      ratioVal = calculateRatio(snfVal, fatNum);
-    }
-
-    if (qtyNum !== null) {
-      grossLitersVal = calculateGrossLiters(qtyNum, unit, lrNum);
-
-      if (grossLitersVal !== null && tsVal !== null) {
-        at13TsLitersVal = calculateAt13TSLiters(grossLitersVal, tsVal);
-      }
-    }
-
-    return {
-      declaredVal: qtyNum,
-      unit,
-      snf: snfVal,
-      ts: tsVal,
-      ratio: ratioVal,
-      density: densityVal,
-      grossLiters: grossLitersVal,
-      physicalLiters: grossLitersVal,
-      at13TsLiters: at13TsLitersVal,
-    };
+    return computeDispatchPortionCalculatedValues(
+      portion.quantity.value,
+      portion.quantity.unit,
+      rawLr,
+      rawFat
+    );
   };
 
   const savedCount = portions.filter((p) => p.isSaved).length;

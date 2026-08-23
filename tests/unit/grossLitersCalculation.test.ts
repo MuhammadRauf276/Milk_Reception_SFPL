@@ -2,11 +2,10 @@ import { describe, it, expect } from 'vitest';
 import {
   calculateGrossLiters,
   calculateDensity,
-  calculateSNF,
-  calculateTS,
-  calculateRatio,
-  calculateAt13TSLiters,
 } from '@/backend/utils/milkFormulas';
+import {
+  computeDispatchPortionCalculatedValues,
+} from '@/backend/modules/dispatch/quantity/dispatchQuantityService';
 
 describe('Stage 4C-5C: Gross Liters & Dispatch Calculation Terminology', () => {
   it('[CASE C1] LITER direct: Returns declared quantity directly as Gross Liters without density conversion', () => {
@@ -41,63 +40,44 @@ describe('Stage 4C-5C: Gross Liters & Dispatch Calculation Terminology', () => {
     expect(grossLiters).toBe(9800);
   });
 
-  it('[CASE C5] LITER + full quality: Canonical calculation of Gross Liters and Liters @ 13% TS', () => {
-    const qty = 9800;
-    const lr = 28.0;
-    const fat = 3.8;
+  it('[CASE C5] LITER + full quality: Production orchestration of Gross Liters and Liters @ 13% TS', () => {
+    const res = computeDispatchPortionCalculatedValues(9800, 'LITER', 28.0, 3.8);
 
-    const density = calculateDensity(lr);
-    const snf = calculateSNF(lr, fat);
-    const ts = calculateTS(fat, snf);
-    const ratio = calculateRatio(snf, fat);
-    const grossLiters = calculateGrossLiters(qty, 'LITER', lr);
-
-    expect(density).toBeCloseTo(1.028, 4);
-    expect(snf).toBeCloseTo(8.556, 4); // 28/4 + 0.22*3.8 + 0.72 = 8.556
-    expect(ts).toBeCloseTo(12.356, 4); // 3.8 + 8.556 = 12.356
-    expect(ratio).toBeCloseTo(8.556 / 3.8, 4);
-    expect(grossLiters).toBe(9800);
-
-    const at13TsLiters = grossLiters !== null ? calculateAt13TSLiters(grossLiters, ts) : null;
-    expect(at13TsLiters).not.toBeNull();
-    expect(at13TsLiters).toBeCloseTo((9800 * 12.356) / 13, 4);
-    expect(at13TsLiters).toBeCloseTo(9314.523, 2);
+    expect(res.density).toBeCloseTo(1.028, 4);
+    expect(res.snf).toBeCloseTo(8.556, 4); // 28/4 + 0.22*3.8 + 0.72 = 8.556
+    expect(res.ts).toBeCloseTo(12.356, 4); // 3.8 + 8.556 = 12.356
+    expect(res.ratio).toBeCloseTo(8.556 / 3.8, 4);
+    expect(res.grossLiters).toBe(9800);
+    expect(res.at13TsLiters).not.toBeNull();
+    expect(res.at13TsLiters).toBeCloseTo((9800 * 12.356) / 13, 4);
+    expect(res.at13TsLiters).toBeCloseTo(9314.523, 2);
+    expect(res.litersAt13TS).toBe(res.at13TsLiters);
   });
 
-  it('[CASE C6] KG + full quality: Canonical calculation of Gross Liters from KG and Liters @ 13% TS', () => {
-    const qty = 10000;
-    const lr = 28.0;
-    const fat = 3.8;
+  it('[CASE C6] KG + full quality: Production orchestration of Gross Liters from KG and Liters @ 13% TS', () => {
+    const res = computeDispatchPortionCalculatedValues(10000, 'KG', 28.0, 3.8);
 
-    const density = calculateDensity(lr);
-    const snf = calculateSNF(lr, fat);
-    const ts = calculateTS(fat, snf);
-    const grossLiters = calculateGrossLiters(qty, 'KG', lr);
-
-    expect(density).toBeCloseTo(1.028, 4);
-    expect(snf).toBeCloseTo(8.556, 4);
-    expect(ts).toBeCloseTo(12.356, 4);
-    expect(grossLiters).toBeCloseTo(10000 / 1.028, 4);
-
-    const at13TsLiters = grossLiters !== null ? calculateAt13TSLiters(grossLiters, ts) : null;
-    expect(at13TsLiters).not.toBeNull();
-    expect(at13TsLiters).toBeCloseTo(((10000 / 1.028) * 12.356) / 13, 4);
-    expect(at13TsLiters).toBeCloseTo(9245.735, 2);
+    expect(res.density).toBeCloseTo(1.028, 4);
+    expect(res.snf).toBeCloseTo(8.556, 4);
+    expect(res.ts).toBeCloseTo(12.356, 4);
+    expect(res.grossLiters).toBeCloseTo(10000 / 1.028, 4);
+    expect(res.at13TsLiters).not.toBeNull();
+    expect(res.at13TsLiters).toBeCloseTo(((10000 / 1.028) * 12.356) / 13, 4);
+    expect(res.at13TsLiters).toBeCloseTo(9245.735, 2);
+    expect(res.litersAt13TS).toBe(res.at13TsLiters);
   });
 
-  it('[CASE C7] Invalid/missing Fat: Gross Liters remains available for LITER, quality metrics remain unavailable', () => {
-    const qty = 9800;
-    const grossLiters = calculateGrossLiters(qty, 'LITER', null);
-    expect(grossLiters).toBe(9800);
+  it('[CASE C7] Invalid/missing Fat: Real production path maintains Gross Liters for LITER while quality metrics remain null', () => {
+    const res = computeDispatchPortionCalculatedValues(9800, 'LITER', null, null);
 
-    // Without Fat/LR, TS cannot be computed, so Liters @ 13% TS is unavailable
-    const fatNum = null;
-    const lrNum = null;
-    const tsVal = (fatNum !== null && lrNum !== null) ? calculateTS(fatNum, calculateSNF(lrNum, fatNum)) : null;
-    expect(tsVal).toBeNull();
-
-    const at13TsLiters = (grossLiters !== null && tsVal !== null) ? calculateAt13TSLiters(grossLiters, tsVal) : null;
-    expect(at13TsLiters).toBeNull();
+    expect(res.grossLiters).toBe(9800);
+    expect(res.density).toBeNull();
+    expect(res.snf).toBeNull();
+    expect(res.ts).toBeNull();
+    expect(res.totalSolids).toBeNull();
+    expect(res.ratio).toBeNull();
+    expect(res.at13TsLiters).toBeNull();
+    expect(res.litersAt13TS).toBeNull();
   });
 
   it('[CASE C8] Canonical formulas and null guards for negative or invalid quantities', () => {
