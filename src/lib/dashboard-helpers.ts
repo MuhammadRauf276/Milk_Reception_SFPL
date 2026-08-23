@@ -5,6 +5,7 @@ import { MilkProcessLog } from '@/backend/core/types';
  * Obsolete presentation-era or temporary test aliases are NOT permitted.
  */
 export const CANONICAL_VEHICLE_STATUSES = [
+  'DRAFT_DISPATCH',
   'DISPATCHED',
   'TOKEN_ISSUED',
   'PLANT_QA',
@@ -106,7 +107,7 @@ export function classifyDashboardStatus(status: string | null | undefined): Dash
   }
 
   return {
-    isActiveInPlant: status !== 'DISPATCHED' && status !== 'COMPLETED',
+    isActiveInPlant: status !== 'DRAFT_DISPATCH' && status !== 'DISPATCHED' && status !== 'COMPLETED',
     isQaLabQueue: status === 'PLANT_QA' || status === 'TOKEN_ISSUED',
     isWeighbridgeQueue:
       status === 'READY_FOR_GROSS' ||

@@ -686,6 +686,11 @@ export async function recordSiloIssueTransaction(params: RecordSiloIssueParams) 
       });
       if (existing) {
         const stockState = await getSiloStockVolumeState(siloId, tx);
+        if (!stockState.isComplete) {
+          throw new Error(
+            `Cannot determine stock for Silo "${existing.silo.silo_name}" (${existing.silo.silo_code}) because stock ledger contains ${stockState.unknownVolumeTransactionCount} transaction(s) with unknown physical volume.`
+          );
+        }
         const currentStock = stockState.knownLiters;
         return {
           transaction: existing,

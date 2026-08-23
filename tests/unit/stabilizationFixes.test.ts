@@ -16,8 +16,14 @@ import {
   getSiloCurrentStockLiters,
   getSiloAvailableCapacity,
   getSiloProvisionalAvailableCapacity,
+  getSiloStockVolumeState,
 } from '@/backend/services/siloInventoryService';
-import { calculateVehicleReceivedQuantity, VehicleCalculationPortion } from '@/backend/services/vehicleQuantityService';
+import {
+  isPlantLrTest,
+  isPlantFatTest,
+  calculateVehicleReceivedQuantity,
+  VehicleCalculationPortion,
+} from '@/backend/services/vehicleQuantityService';
 
 describe('Stage 4C-Stabilization: Post-Merge Operational Corrections', () => {
   describe('1. Business Date Range & Boundary Rules', () => {
@@ -45,8 +51,9 @@ describe('Stage 4C-Stabilization: Post-Merge Operational Corrections', () => {
   });
 
   describe('2. Canonical Dashboard Statuses & Vehicle Deduplication (Production Helpers)', () => {
-    it('[CANONICAL-STATUSES] Recognizes all 11 authoritative statuses and rejects obsolete aliases', () => {
+    it('[CANONICAL-STATUSES] Recognizes all 12 authoritative statuses (including DRAFT_DISPATCH) and rejects obsolete aliases', () => {
       const canonicals = [
+        'DRAFT_DISPATCH',
         'DISPATCHED',
         'TOKEN_ISSUED',
         'PLANT_QA',
@@ -64,6 +71,16 @@ describe('Stage 4C-Stabilization: Post-Merge Operational Corrections', () => {
         expect(isCanonicalVehicleStatus(s)).toBe(true);
         expect(CANONICAL_VEHICLE_STATUSES).toContain(s);
       }
+
+      // DRAFT_DISPATCH is canonical workflow status but invisible in live pipeline metrics and Kanban lanes
+      expect(isCanonicalVehicleStatus('DRAFT_DISPATCH')).toBe(true);
+      const draftClassification = classifyDashboardStatus('DRAFT_DISPATCH');
+      expect(draftClassification.isActiveInPlant).toBe(false);
+      expect(draftClassification.isQaLabQueue).toBe(false);
+      expect(draftClassification.isWeighbridgeQueue).toBe(false);
+      expect(draftClassification.isSiloQueue).toBe(false);
+      expect(draftClassification.isCompleted).toBe(false);
+      expect(getKanbanLaneForStatus('DRAFT_DISPATCH')).toBeNull();
 
       const obsoleteAliases = [
         'SCHEDULED',
@@ -207,7 +224,57 @@ describe('Stage 4C-Stabilization: Post-Merge Operational Corrections', () => {
     });
   });
 
-  describe('3. Shared Production Accepted-Quantity Aggregator', () => {
+  describe('3. Authoritative Lab Test Identity & Vehicle Received Quantity Calculation', () => {
+    it('[LAB-TEST-IDENTITY] Validates single authoritative identities for LR and Fat and rejects non-authoritative tests', () => {
+      // LT-000001 is Temperature -> NEVER Fat, NEVER LR
+      expect(isPlantFatTest('LT-000001', 'Temperature')).toBe(false);
+      expect(isPlantLrTest('LT-000001', 'Temperature')).toBe(false);
+
+      // LT-000008 is authoritative Plant LR ("LR at 20 Celsius")
+      expect(isPlantLrTest('LT-000008', 'LR at 20 Celsius')).toBe(true);
+      expect(isPlantFatTest('LT-000008', 'LR at 20 Celsius')).toBe(false);
+
+      // LT-000026 is authoritative Plant Fat ("Fat")
+      expect(isPlantFatTest('LT-000026', 'Fat')).toBe(true);
+      expect(isPlantLrTest('LT-000026', 'Fat')).toBe(false);
+
+      // LT-000027 is "Lactometer Reading" -> distinct and NOT the final received quantity LR authority
+      expect(isPlantLrTest('LT-000027', 'Lactometer Reading')).toBe(false);
+      expect(isPlantFatTest('LT-000027', 'Lactometer Reading')).toBe(false);
+    });
+
+    it('[FULL-CATALOG-CALC] Full realistic Plant QA collection with Temperature + both LR entries + Fat calculates cleanly without ambiguity', () => {
+      const portion: VehicleCalculationPortion = {
+        portionId: '101',
+        portionNumber: 1,
+        plantDecision: 'ACCEPTED',
+        plantLabResults: [
+          { testCode: 'LT-000001', testName: 'Temperature', numericValue: 4.0, performanceStatus: 'PERFORMED' },
+          { testCode: 'LT-000005', testName: 'Acidity', numericValue: 0.13, performanceStatus: 'PERFORMED' },
+          { testCode: 'LT-000008', testName: 'LR at 20 Celsius', numericValue: 28.0, performanceStatus: 'PERFORMED' },
+          { testCode: 'LT-000025', testName: 'MBRT', numericValue: 45.0, performanceStatus: 'PERFORMED' },
+          { testCode: 'LT-000026', testName: 'Fat', numericValue: 4.0, performanceStatus: 'PERFORMED' },
+          { testCode: 'LT-000027', testName: 'Lactometer Reading', numericValue: 28.5, performanceStatus: 'PERFORMED' },
+        ],
+      };
+
+      const calcResult = calculateVehicleReceivedQuantity({
+        grossWeightKg: 22500,
+        secondWeightKg: 14500,
+        portions: [portion],
+      });
+
+      expect(calcResult.isCalculable).toBe(true);
+      if (calcResult.isCalculable) {
+        expect(calcResult.netWeightKg).toBe(8000);
+        expect(calcResult.internalCalculationBasis.averagePlantLr).toBe(28.0);
+        expect(Math.round(calcResult.finalPhysicalLiters)).toBe(7782);
+        expect(calcResult.finalPhysicalLiters).toBeCloseTo(7782.10, 1);
+      }
+    });
+  });
+
+  describe('4. Shared Production Accepted-Quantity Aggregator', () => {
     it('8000 KG + 5000 KG => 13000 KG', () => {
       const res = aggregateAcceptedPortionQuantities([
         { dispatch_quantity_value: 8000, dispatch_quantity_unit: 'KG' },
@@ -260,50 +327,124 @@ describe('Stage 4C-Stabilization: Post-Merge Operational Corrections', () => {
     });
   });
 
-  describe('4. Silo Inventory Safety & Unknown-Volume Fail-Closed Semantics', () => {
-    it('[SCENARIO-A] Ledger with +10,000 L authoritative => stock complete, 10,000 L', () => {
-      const transactions = [
+  describe('5. Silo Inventory Safety, Real Service Paths & Unknown-Volume Fail-Closed Semantics', () => {
+    it('[CASE-A] Authoritative complete ledger => capacity operation allowed', async () => {
+      const mockSilo = { id: BigInt(1), silo_code: 'SILO-01', silo_name: 'Raw Milk Silo 1', capacity_liters: 50000, is_active: true };
+      const mockTransactions = [
         { transaction_type: 'RECEIPT', quantity_liters: 10000, quantity_kg: 10280 },
       ];
-      const state = evaluateSiloStockVolumeState(transactions);
-      expect(state.isComplete).toBe(true);
-      expect(state.knownLiters).toBe(10000);
-      expect(state.unknownVolumeTransactionCount).toBe(0);
+
+      const mockDb: any = {
+        silo: {
+          findUnique: async () => mockSilo,
+        },
+        siloInventoryTransaction: {
+          findMany: async () => mockTransactions,
+        },
+      };
+
+      const stockState = await getSiloStockVolumeState(BigInt(1), mockDb);
+      expect(stockState.isComplete).toBe(true);
+      expect(stockState.knownLiters).toBe(10000);
+
+      const availableCapacity = await getSiloAvailableCapacity(BigInt(1), mockDb);
+      expect(availableCapacity).toBe(40000);
     });
 
-    it('[SCENARIO-B] Ledger with +10,000 L + NULL liters receipt => isComplete = false', () => {
-      const transactions = [
+    it('[CASE-B] Unknown-liter RECEIPT exists => capacity operation fails closed', async () => {
+      const mockSilo = { id: BigInt(1), silo_code: 'SILO-01', silo_name: 'Raw Milk Silo 1', capacity_liters: 50000, is_active: true };
+      const mockTransactions = [
         { transaction_type: 'RECEIPT', quantity_liters: 10000, quantity_kg: 10280 },
         { transaction_type: 'RECEIPT', quantity_liters: null, quantity_kg: 8000 },
       ];
-      const state = evaluateSiloStockVolumeState(transactions);
-      expect(state.isComplete).toBe(false);
-      expect(state.knownLiters).toBe(10000);
-      expect(state.unknownVolumeTransactionCount).toBe(1);
+
+      const mockDb: any = {
+        silo: {
+          findUnique: async () => mockSilo,
+        },
+        siloInventoryTransaction: {
+          findMany: async () => mockTransactions,
+        },
+      };
+
+      const stockState = await getSiloStockVolumeState(BigInt(1), mockDb);
+      expect(stockState.isComplete).toBe(false);
+      expect(stockState.unknownVolumeTransactionCount).toBe(1);
+
+      await expect(getSiloAvailableCapacity(BigInt(1), mockDb)).rejects.toThrow(
+        /unknown physical volume/
+      );
+      await expect(getSiloCurrentStockLiters(BigInt(1), mockDb)).rejects.toThrow(
+        /unknown physical liters/
+      );
     });
 
-    it('[SCENARIO-C] Ledger with +10,000 L + unknown liters ISSUE => isComplete = false', () => {
-      const transactions = [
+    it('[CASE-C] Unknown-liter ISSUE exists => issue sufficiency / capacity fails closed', async () => {
+      const mockSilo = { id: BigInt(1), silo_code: 'SILO-01', silo_name: 'Raw Milk Silo 1', capacity_liters: 50000, is_active: true };
+      const mockTransactions = [
         { transaction_type: 'RECEIPT', quantity_liters: 10000, quantity_kg: 10280 },
         { transaction_type: 'ISSUE', quantity_liters: null, quantity_kg: 3000 },
       ];
-      const state = evaluateSiloStockVolumeState(transactions);
-      expect(state.isComplete).toBe(false);
-      expect(state.knownLiters).toBe(10000);
-      expect(state.unknownVolumeTransactionCount).toBe(1);
+
+      const mockDb: any = {
+        silo: {
+          findUnique: async () => mockSilo,
+        },
+        siloInventoryTransaction: {
+          findMany: async () => mockTransactions,
+        },
+      };
+
+      const stockState = await getSiloStockVolumeState(BigInt(1), mockDb);
+      expect(stockState.isComplete).toBe(false);
+      expect(stockState.unknownVolumeTransactionCount).toBe(1);
+
+      await expect(getSiloAvailableCapacity(BigInt(1), mockDb)).rejects.toThrow(
+        /unknown physical volume/
+      );
     });
 
-    it('[SCENARIO-D & E] Fail-closed capacity and sufficiency behavior when isComplete is false', () => {
+    it('[CASE-D & E] Existing ISSUE idempotency key + incomplete stock fails closed, complete stock creates no second movement', async () => {
+      const existingTx = {
+        id: BigInt(99),
+        silo_id: BigInt(1),
+        transaction_type: 'ISSUE',
+        quantity_liters: 5000,
+        idempotency_key: 'ISSUE-KEY-123',
+        silo: { id: BigInt(1), silo_code: 'SILO-01', silo_name: 'Raw Milk Silo 1' },
+      };
+
+      // Incomplete ledger on retry:
       const incompleteTransactions = [
         { transaction_type: 'RECEIPT', quantity_liters: 10000, quantity_kg: 10280 },
-        { transaction_type: 'RECEIPT', quantity_liters: null, quantity_kg: 5000 },
+        { transaction_type: 'RECEIPT', quantity_liters: null, quantity_kg: 3000 },
       ];
-      const state = evaluateSiloStockVolumeState(incompleteTransactions);
-      expect(state.isComplete).toBe(false);
+      const mockDbIncomplete: any = {
+        silo: { findUnique: async () => existingTx.silo },
+        siloInventoryTransaction: {
+          findUnique: async () => existingTx,
+          findMany: async () => incompleteTransactions,
+        },
+      };
 
-      // Business rule: Any operation requiring authoritative physical stock must not assume knownLiters is complete
-      const canProceedWithAuthoritativeCapacityCheck = state.isComplete;
-      expect(canProceedWithAuthoritativeCapacityCheck).toBe(false);
+      const incompleteState = await getSiloStockVolumeState(BigInt(1), mockDbIncomplete);
+      expect(incompleteState.isComplete).toBe(false);
+
+      // Complete ledger on retry:
+      const completeTransactions = [
+        { transaction_type: 'RECEIPT', quantity_liters: 10000, quantity_kg: 10280 },
+        { transaction_type: 'ISSUE', quantity_liters: 5000, quantity_kg: 5140 },
+      ];
+      const mockDbComplete: any = {
+        silo: { findUnique: async () => existingTx.silo },
+        siloInventoryTransaction: {
+          findUnique: async () => existingTx,
+          findMany: async () => completeTransactions,
+        },
+      };
+      const completeState = await getSiloStockVolumeState(BigInt(1), mockDbComplete);
+      expect(completeState.isComplete).toBe(true);
+      expect(completeState.knownLiters).toBe(5000);
     });
 
     it('[NO-1.0265-FALLBACK] Proves fixed 1.0265 density fallback is removed from production services', () => {
@@ -322,7 +463,7 @@ describe('Stage 4C-Stabilization: Post-Merge Operational Corrections', () => {
     });
   });
 
-  describe('5. Synthetic Seed Authoritative Final Receipt Consistency', () => {
+  describe('6. Synthetic Seed Authoritative Final Receipt Consistency', () => {
     it('[SEED-RECEIPT-CONSISTENCY] Computes final receipt using actual authoritative Plant QA facts', () => {
       // 1-portion vehicle with Net 8,000 kg and Plant LR 28.0 (Density = 1.02796)
       const portion: VehicleCalculationPortion = {
@@ -330,7 +471,7 @@ describe('Stage 4C-Stabilization: Post-Merge Operational Corrections', () => {
         portionNumber: 1,
         plantDecision: 'ACCEPTED',
         plantLabResults: [
-          { testCode: 'LT-000027', testName: 'Lactometer Reading', numericValue: 28.0, performanceStatus: 'PERFORMED' },
+          { testCode: 'LT-000008', testName: 'LR at 20 Celsius', numericValue: 28.0, performanceStatus: 'PERFORMED' },
           { testCode: 'LT-000026', testName: 'Fat', numericValue: 4.0, performanceStatus: 'PERFORMED' },
         ],
       };
