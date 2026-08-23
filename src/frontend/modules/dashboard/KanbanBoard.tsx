@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { MilkProcessLog, User, KANBAN_STAGES, Role, DEFAULT_USERS } from '@core/types';
 import { getLiveWaitStatus } from '@core/durations';
-import { getOperationalBusinessDate } from '@/backend/core/business-day';
+import { getDistinctVehicleCount, classifyDashboardStatus } from '@/lib/dashboard-helpers';
 import { computeAuthoritativeZonalAnalytics } from '@backend/services/operationalCalculations';
 import { warnDuplicateKeys } from '@/lib/key-utils';
 import { Sidebar } from '@modules/shared/Sidebar';
@@ -21,22 +21,11 @@ import { SecurityWorkforceTable } from '@modules/dashboard/SecurityWorkforceTabl
 
 import { Search, Filter, Truck, FlaskConical, Scale, Factory, Layers, RefreshCw, CheckCircle2, XCircle, ArrowRightLeft, Lock, Calendar, ShieldCheck } from 'lucide-react';
 
-/**
- * Deduplicate log rows to distinct vehicles (VehicleVisit level)
- */
-function getDistinctVehicleCount(logs: MilkProcessLog[]): number {
-  const visitIds = new Set<string | number>();
-  for (const log of logs) {
-    const key = log.visit_number || (log.id ? String(log.id) : null);
-    if (key) visitIds.add(key);
-  }
-  return visitIds.size;
-}
-
 export const KanbanBoard: React.FC = () => {
   const [theme, setTheme] = useState<'creamy' | 'night'>('creamy');
   const [currentUser, setCurrentUser] = useState<User | null>(DEFAULT_USERS.MPD_Operator);
   const [logs, setLogs] = useState<MilkProcessLog[]>([]);
+  const [serverBusinessDate, setServerBusinessDate] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
 
@@ -79,6 +68,11 @@ export const KanbanBoard: React.FC = () => {
       if (data.logs) {
         setLogs(data.logs);
       }
+      if (data.serverBusinessDate) {
+        setServerBusinessDate(data.serverBusinessDate);
+      } else if (data.metadata?.serverBusinessDate) {
+        setServerBusinessDate(data.metadata.serverBusinessDate);
+      }
     } catch (_err) {
       // Handled
     } finally {
@@ -112,26 +106,31 @@ export const KanbanBoard: React.FC = () => {
     ? logs.filter((l) => l.zonal_contractor_name === targetZone)
     : logs;
 
-  // Canonical Plant Business Date (08:00 AM PKT cutover)
-  const currentBusinessDate = getOperationalBusinessDate(new Date());
+  // Canonical Plant Business Date (Server-provided)
+  const currentBusinessDate = serverBusinessDate;
 
   const summaryScopedLogs = zoneScopedLogs.filter((l) => {
-    const logDate = l.dispatch_date || (l.created_at ? getOperationalBusinessDate(l.created_at) : '');
+    const logDate = l.dispatch_date || '';
     if (!logDate) return false;
 
-    if (summaryDateRange === 'TODAY') return logDate === currentBusinessDate;
+    if (summaryDateRange === 'TODAY') {
+      return !currentBusinessDate || logDate === currentBusinessDate;
+    }
     if (summaryDateRange === 'YESTERDAY') {
-      const yesterdayDate = new Date();
-      yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-      const yesterdayBusinessDate = getOperationalBusinessDate(yesterdayDate);
-      return logDate === yesterdayBusinessDate;
+      if (!currentBusinessDate) return true;
+      const refDate = new Date(currentBusinessDate);
+      refDate.setDate(refDate.getDate() - 1);
+      const yesterdayStr = refDate.toISOString().split('T')[0];
+      return logDate === yesterdayStr;
     }
     if (summaryDateRange === 'LAST_7') {
+      if (!currentBusinessDate) return true;
       const diffMs = new Date(currentBusinessDate).getTime() - new Date(logDate).getTime();
       const diffDays = Math.floor(diffMs / (1000 * 3600 * 24));
       return diffDays >= 0 && diffDays <= 7;
     }
     if (summaryDateRange === 'LAST_15') {
+      if (!currentBusinessDate) return true;
       const diffMs = new Date(currentBusinessDate).getTime() - new Date(logDate).getTime();
       const diffDays = Math.floor(diffMs / (1000 * 3600 * 24));
       return diffDays >= 0 && diffDays <= 15;
@@ -159,18 +158,13 @@ export const KanbanBoard: React.FC = () => {
 
     const s = String(log.status).toUpperCase();
     if (quickFilter === 'PLANNED') {
-      const isPlanned = s === 'DISPATCHED' || s === 'SCHEDULED' || s === 'DRAFT_DISPATCH' || s === 'PLANNED';
-      if (!isPlanned) return false;
+      if (s !== 'DISPATCHED') return false;
     }
     if (quickFilter === 'IN_PLANT') {
-      const isEnRoute = s === 'DISPATCHED' || s === 'SCHEDULED' || s === 'DRAFT_DISPATCH' || s === 'PLANNED';
-      const isDone = s === 'COMPLETED' || s === 'CANCELLED' || s === 'EXIT';
-      if (isEnRoute || isDone) return false;
+      if (!classifyDashboardStatus(s).isActiveInPlant) return false;
     }
     if (quickFilter === 'COMPLETED') {
-      const calc = String(log.calculated_status || '').toUpperCase();
-      const isDone = s === 'COMPLETED' || s === 'EXIT' || calc === 'REJECTED';
-      if (!isDone) return false;
+      if (!classifyDashboardStatus(s).isCompleted) return false;
     }
 
     return true;
@@ -180,48 +174,18 @@ export const KanbanBoard: React.FC = () => {
   const uniqueZones = Array.from(new Set(logs.map((l) => l.zonal_contractor_name))).filter(Boolean);
 
   // BOTTOM 4 LIVE PIPELINE METRIC CARDS (Canonical status and distinct vehicle counting)
-  const activeInPlantLogs = zoneScopedLogs.filter((l) => {
-    const s = String(l.status).toUpperCase();
-    return s !== 'DISPATCHED' && s !== 'SCHEDULED' && s !== 'DRAFT_DISPATCH' && s !== 'COMPLETED' && s !== 'CANCELLED';
-  });
+  const activeInPlantLogs = zoneScopedLogs.filter((l) => classifyDashboardStatus(l.status).isActiveInPlant);
   const activeInPlantCount = getDistinctVehicleCount(activeInPlantLogs);
 
-  const qaTestingQueueLogs = zoneScopedLogs.filter((l) => {
-    const s = String(l.status).toUpperCase();
-    return (
-      s === 'PLANT_QA' ||
-      s === 'QA_PENDING' ||
-      s === 'TOKEN_ISSUED' ||
-      s === 'ARRIVED' ||
-      s === 'GATE_IN_PROGRESS' ||
-      s === 'UNDER_TEST' ||
-      s === 'UNDER_TESTING' ||
-      s === 'SAMPLING' ||
-      s === 'SAMPLING_IN_PROGRESS'
-    );
-  });
+  const qaTestingQueueLogs = zoneScopedLogs.filter((l) => classifyDashboardStatus(l.status).isQaLabQueue);
   const qaTestingQueueCount = getDistinctVehicleCount(qaTestingQueueLogs);
 
-  const weighbridgeQueueLogs = zoneScopedLogs.filter((l) => {
-    const s = String(l.status).toUpperCase();
-    return (
-      s === 'READY_FOR_GROSS' ||
-      s === 'GROSS_WEIGHED' ||
-      s === 'GROSS_RECORDED' ||
-      s === 'READY_FOR_TARE' ||
-      s === 'TARE_WEIGHED' ||
-      s === 'TARE_RECORDED' ||
-      s === 'FIRST WEIGHT' ||
-      s === 'SECOND WEIGHT'
-    );
-  });
+  const weighbridgeQueueLogs = zoneScopedLogs.filter((l) => classifyDashboardStatus(l.status).isWeighbridgeQueue);
   const weighbridgeBottleneckCount = getDistinctVehicleCount(weighbridgeQueueLogs);
 
-  const completedDispatchesLogs = zoneScopedLogs.filter((l) => {
-    const s = String(l.status).toUpperCase();
-    const logDate = l.dispatch_date || (l.created_at ? getOperationalBusinessDate(l.created_at) : '');
-    return (s === 'COMPLETED' || s === 'EXIT') && logDate === currentBusinessDate;
-  });
+  const completedDispatchesLogs = zoneScopedLogs.filter(
+    (l) => classifyDashboardStatus(l.status).isCompleted && (!currentBusinessDate || l.dispatch_date === currentBusinessDate)
+  );
   const dailyDispatchesCompleted = getDistinctVehicleCount(completedDispatchesLogs);
 
   return (
@@ -301,6 +265,7 @@ export const KanbanBoard: React.FC = () => {
                 logs={logs}
                 currentUser={currentUser}
                 isSecurityManager={true}
+                serverBusinessDate={serverBusinessDate}
               />
             </div>
           ) : (
@@ -546,14 +511,7 @@ export const KanbanBoard: React.FC = () => {
                 <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-5 w-full items-start">
                   {KANBAN_STAGES.map((stageConfig) => {
                     const laneLogs = filteredLogs
-                      .filter((l) => {
-                        const s = String(l.status).toUpperCase();
-                        return (
-                          stageConfig.canonicalStatuses?.some((cs) => cs.toUpperCase() === s) ||
-                          l.status === stageConfig.status ||
-                          (stageConfig.status === 'Sampling' && (s === 'SAMPLING' || s === 'SAMPLING_IN_PROGRESS'))
-                        );
-                      })
+                      .filter((l) => stageConfig.canonicalStatuses.includes(String(l.status).toUpperCase()))
                       .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
                     const distinctVehicleCount = getDistinctVehicleCount(laneLogs);

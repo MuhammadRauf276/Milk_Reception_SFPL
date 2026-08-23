@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@backend/core/auth';
 import { getOperationalLogs } from '@backend/services/operationalReadModelService';
+import { getOperationalBusinessDate } from '@backend/core/business-day';
 
 export async function GET(req: NextRequest) {
   try {
@@ -25,7 +26,16 @@ export async function GET(req: NextRequest) {
     }
 
     const logs = await getOperationalLogs({ fromDate, toDate, contractor, status, search }, user);
-    return NextResponse.json({ logs });
+    const serverBusinessDate = getOperationalBusinessDate(new Date());
+
+    return NextResponse.json({
+      logs,
+      serverBusinessDate,
+      metadata: {
+        serverBusinessDate,
+        serverTimestamp: new Date().toISOString(),
+      },
+    });
   } catch (err: unknown) {
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Failed to fetch logs' }, { status: 500 });
   }

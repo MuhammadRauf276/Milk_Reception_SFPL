@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { MilkProcessLog, User } from '@core/types';
-import { getOperationalBusinessDate } from '@/backend/core/business-day';
+import { getDistinctVehicleCount } from '@/lib/dashboard-helpers';
 import { Search, ShieldCheck, Ticket, Truck, Eye } from 'lucide-react';
 
 interface SecurityWorkforceTableProps {
@@ -10,6 +10,7 @@ interface SecurityWorkforceTableProps {
   onInspectDetails?: (log: MilkProcessLog) => void;
   currentUser?: User | null;
   isSecurityManager?: boolean;
+  serverBusinessDate?: string;
 }
 
 export const SecurityWorkforceTable: React.FC<SecurityWorkforceTableProps> = ({
@@ -17,12 +18,11 @@ export const SecurityWorkforceTable: React.FC<SecurityWorkforceTableProps> = ({
   onInspectDetails,
   currentUser,
   isSecurityManager: propIsSecurityManager,
+  serverBusinessDate,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
 
   const isSecurityManager = propIsSecurityManager ?? (currentUser?.role === 'Security_Manager');
-
-  const todayStr = getOperationalBusinessDate(new Date());
 
   // Helper to calculate minutes between two HH:mm strings
   const getMinutesBetween = (timeA?: string | null, timeB?: string | null): number | null => {
@@ -37,14 +37,18 @@ export const SecurityWorkforceTable: React.FC<SecurityWorkforceTableProps> = ({
     return diff >= 0 ? diff : diff + 1440;
   };
 
-  // Metrics for Isolated Gate Delay Summary Banner
-  const totalTokensIssuedToday = logs.filter(
-    (l) => l.token_number && (l.igp_date === todayStr || l.dispatch_date === todayStr || l.created_at.split('T')[0] === todayStr)
-  ).length;
+  // Metrics for Isolated Gate Delay Summary Banner (Deduplicated by Distinct VehicleVisit)
+  const todayTokensLogs = logs.filter(
+    (l) =>
+      l.token_number &&
+      (serverBusinessDate ? l.dispatch_date === serverBusinessDate || l.igp_date === serverBusinessDate : true)
+  );
+  const totalTokensIssuedToday = getDistinctVehicleCount(todayTokensLogs);
 
-  const totalActiveVehiclesInsideGates = logs.filter(
+  const activeInsideGatesLogs = logs.filter(
     (l) => l.token_number && !l.out_from_gate_time
-  ).length;
+  );
+  const totalActiveVehiclesInsideGates = getDistinctVehicleCount(activeInsideGatesLogs);
 
   const filteredLogs = logs.filter((log) => {
     if (searchQuery.trim()) {

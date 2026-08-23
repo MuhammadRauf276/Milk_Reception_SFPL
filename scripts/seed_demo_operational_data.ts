@@ -518,8 +518,6 @@ export async function seedOperationalData() {
         // Exactly ONE Vehicle-Level Final Silo Receipt for eligible accepted visits
         const acceptedPortions = visitPortionsWithLab.filter((p) => p.plant_decision === 'ACCEPTED');
         if (acceptedPortions.length > 0 && calcResult.isCalculable && calcResult.finalPhysicalLiters !== null) {
-          const receiptLiters = Math.round(calcResult.finalPhysicalLiters);
-
           await prisma.siloInventoryTransaction.create({
             data: {
               silo_id: targetSilo.id,
@@ -527,7 +525,7 @@ export async function seedOperationalData() {
               portion_id: acceptedPortions.length === 1 ? acceptedPortions[0].id : null,
               transaction_type: 'RECEIPT',
               quantity_kg: netKg,
-              quantity_liters: receiptLiters,
+              quantity_liters: calcResult.finalPhysicalLiters,
               operational_timestamp: tareTime,
               performed_by: weighUser.id,
               idempotency_key: `FINAL_RECEIPT:VISIT:${visit.id}`,

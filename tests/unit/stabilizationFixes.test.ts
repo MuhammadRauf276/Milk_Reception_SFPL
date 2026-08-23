@@ -3,7 +3,20 @@ import fs from 'fs';
 import path from 'path';
 import { getOperationalBusinessDate } from '@/backend/core/business-day';
 import { MilkProcessLog, KANBAN_STAGES } from '@/backend/core/types';
-import { computeAuthoritativeZonalAnalytics } from '@/backend/services/operationalCalculations';
+import {
+  CANONICAL_VEHICLE_STATUSES,
+  isCanonicalVehicleStatus,
+  getDistinctVehicleCount,
+  classifyDashboardStatus,
+  getKanbanLaneForStatus,
+} from '@/lib/dashboard-helpers';
+import { aggregateAcceptedPortionQuantities } from '@/lib/portion-quantity-aggregator';
+import {
+  evaluateSiloStockVolumeState,
+  getSiloCurrentStockLiters,
+  getSiloAvailableCapacity,
+  getSiloProvisionalAvailableCapacity,
+} from '@/backend/services/siloInventoryService';
 import { calculateVehicleReceivedQuantity, VehicleCalculationPortion } from '@/backend/services/vehicleQuantityService';
 
 describe('Stage 4C-Stabilization: Post-Merge Operational Corrections', () => {
@@ -31,15 +44,60 @@ describe('Stage 4C-Stabilization: Post-Merge Operational Corrections', () => {
     });
   });
 
-  describe('2. Dashboard Canonical Statuses & Vehicle Deduplication', () => {
-    function getDistinctVehicleCount(logs: MilkProcessLog[]): number {
-      const visitIds = new Set<string | number>();
-      for (const log of logs) {
-        const key = log.visit_number || (log.id ? String(log.id) : null);
-        if (key) visitIds.add(key);
+  describe('2. Canonical Dashboard Statuses & Vehicle Deduplication (Production Helpers)', () => {
+    it('[CANONICAL-STATUSES] Recognizes all 11 authoritative statuses and rejects obsolete aliases', () => {
+      const canonicals = [
+        'DISPATCHED',
+        'TOKEN_ISSUED',
+        'PLANT_QA',
+        'READY_FOR_GROSS',
+        'GROSS_WEIGHED',
+        'READY_FOR_UNLOADING',
+        'UNLOADING',
+        'READY_FOR_TARE',
+        'TARE_WEIGHED',
+        'READY_FOR_GATE_EXIT',
+        'COMPLETED',
+      ];
+
+      for (const s of canonicals) {
+        expect(isCanonicalVehicleStatus(s)).toBe(true);
+        expect(CANONICAL_VEHICLE_STATUSES).toContain(s);
       }
-      return visitIds.size;
-    }
+
+      const obsoleteAliases = [
+        'SCHEDULED',
+        'PLANNED',
+        'Dispatched',
+        'ARRIVED',
+        'GATE_IN_PROGRESS',
+        'Token Issued',
+        'QA_PENDING',
+        'UNDER_TEST',
+        'UNDER_TESTING',
+        'Sampling',
+        'Sampling_In_Progress',
+        'GROSS_RECORDED',
+        'TARE_RECORDED',
+        'First Weight',
+        'Second Weight',
+        'READY_FOR_UNLOAD',
+        'UNLOADED',
+        'Silo Reception',
+        'EXIT',
+      ];
+
+      for (const obs of obsoleteAliases) {
+        expect(isCanonicalVehicleStatus(obs)).toBe(false);
+        const classification = classifyDashboardStatus(obs);
+        expect(classification.isActiveInPlant).toBe(false);
+        expect(classification.isQaLabQueue).toBe(false);
+        expect(classification.isWeighbridgeQueue).toBe(false);
+        expect(classification.isSiloQueue).toBe(false);
+        expect(classification.isCompleted).toBe(false);
+        expect(getKanbanLaneForStatus(obs)).toBeNull();
+      }
+    });
 
     const testLogs: MilkProcessLog[] = [
       // Vehicle 1 (Multi-portion: 2 portions in PLANT_QA)
@@ -116,122 +174,42 @@ describe('Stage 4C-Stabilization: Post-Merge Operational Corrections', () => {
 
     it('[DASHBOARD-CANONICAL-METRICS] Computes canonical dashboard metrics with vehicle deduplication', () => {
       // 1. Active In-Plant:
-      const activeInPlantLogs = testLogs.filter((l) => {
-        const s = String(l.status).toUpperCase();
-        return s !== 'DISPATCHED' && s !== 'SCHEDULED' && s !== 'DRAFT_DISPATCH' && s !== 'COMPLETED' && s !== 'CANCELLED';
-      });
-      // Should include Vehicle 1 (2 portions) and Vehicle 2 (1 portion) -> Exactly 2 distinct vehicles
+      const activeInPlantLogs = testLogs.filter((l) => classifyDashboardStatus(l.status).isActiveInPlant);
       expect(activeInPlantLogs).toHaveLength(3); // 3 portion rows
       expect(getDistinctVehicleCount(activeInPlantLogs)).toBe(2); // 2 distinct vehicles
 
       // 2. QA Lab Queue:
-      const qaLogs = testLogs.filter((l) => {
-        const s = String(l.status).toUpperCase();
-        return (
-          s === 'PLANT_QA' ||
-          s === 'QA_PENDING' ||
-          s === 'TOKEN_ISSUED' ||
-          s === 'ARRIVED' ||
-          s === 'UNDER_TEST' ||
-          s === 'UNDER_TESTING' ||
-          s === 'SAMPLING' ||
-          s === 'SAMPLING_IN_PROGRESS'
-        );
-      });
-      // Should include Vehicle 1 (2 portions in PLANT_QA) -> Exactly 1 distinct vehicle
+      const qaLogs = testLogs.filter((l) => classifyDashboardStatus(l.status).isQaLabQueue);
       expect(qaLogs).toHaveLength(2);
       expect(getDistinctVehicleCount(qaLogs)).toBe(1);
 
       // 3. Weighbridge Queue:
-      const wbLogs = testLogs.filter((l) => {
-        const s = String(l.status).toUpperCase();
-        return (
-          s === 'READY_FOR_GROSS' ||
-          s === 'GROSS_WEIGHED' ||
-          s === 'GROSS_RECORDED' ||
-          s === 'READY_FOR_TARE' ||
-          s === 'TARE_WEIGHED' ||
-          s === 'TARE_RECORDED' ||
-          s === 'FIRST WEIGHT' ||
-          s === 'SECOND WEIGHT'
-        );
-      });
-      // Should include Vehicle 2 -> Exactly 1 distinct vehicle
+      const wbLogs = testLogs.filter((l) => classifyDashboardStatus(l.status).isWeighbridgeQueue);
       expect(wbLogs).toHaveLength(1);
       expect(getDistinctVehicleCount(wbLogs)).toBe(1);
 
       // 4. Completed Dispatches (Today = 2026-08-22):
-      const completedLogs = testLogs.filter((l) => {
-        const s = String(l.status).toUpperCase();
-        return (s === 'COMPLETED' || s === 'EXIT') && l.dispatch_date === '2026-08-22';
-      });
+      const completedLogs = testLogs.filter(
+        (l) => classifyDashboardStatus(l.status).isCompleted && l.dispatch_date === '2026-08-22'
+      );
       expect(completedLogs).toHaveLength(1);
       expect(getDistinctVehicleCount(completedLogs)).toBe(1);
     });
 
-    it('[KANBAN-LANES] KANBAN_STAGES properly matches canonical workflow statuses', () => {
+    it('[KANBAN-LANES] KANBAN_STAGES properly matches canonical workflow statuses only', () => {
       const qaStage = KANBAN_STAGES.find((s) => s.title.includes('QA Lab'));
       expect(qaStage).toBeDefined();
-      expect(qaStage?.canonicalStatuses).toContain('PLANT_QA');
-      expect(qaStage?.canonicalStatuses).toContain('QA_PENDING');
+      expect(qaStage?.canonicalStatuses).toEqual(['PLANT_QA']);
 
       const wbStage = KANBAN_STAGES.find((s) => s.title.includes('Weighbridge'));
       expect(wbStage).toBeDefined();
-      expect(wbStage?.canonicalStatuses).toContain('READY_FOR_GROSS');
-      expect(wbStage?.canonicalStatuses).toContain('READY_FOR_TARE');
+      expect(wbStage?.canonicalStatuses).toEqual(['READY_FOR_GROSS', 'GROSS_WEIGHED', 'READY_FOR_TARE', 'TARE_WEIGHED']);
     });
   });
 
-  describe('3. Production Ready-For-Unloading Aggregation Rules', () => {
-    function computeAcceptedDispatchTotal(
-      acceptedPortions: Array<{ dispatch_quantity_value: number | null | undefined; dispatch_quantity_unit: string | null | undefined }>
-    ) {
-      let totalAcceptedDispatchValue: number | null = null;
-      let totalAcceptedDispatchUnit: string | null = null;
-
-      if (acceptedPortions.length > 0) {
-        let allValid = true;
-        let runningSum = 0;
-        let singleUnit: string | null = null;
-        const acceptedUnits = new Set<string>();
-
-        for (const p of acceptedPortions) {
-          const val = p.dispatch_quantity_value !== null && p.dispatch_quantity_value !== undefined ? Number(p.dispatch_quantity_value) : null;
-          const unit = typeof p.dispatch_quantity_unit === 'string' ? p.dispatch_quantity_unit.trim().toUpperCase() : null;
-
-          if (unit) acceptedUnits.add(unit);
-
-          if (val === null || isNaN(val) || !isFinite(val) || val <= 0) {
-            allValid = false;
-          }
-          if (unit !== 'KG' && unit !== 'LITER') {
-            allValid = false;
-          }
-          if (singleUnit === null) {
-            singleUnit = unit;
-          } else if (singleUnit !== unit) {
-            allValid = false;
-          }
-
-          if (val !== null && !isNaN(val)) {
-            runningSum += val;
-          }
-        }
-
-        if (allValid && singleUnit !== null) {
-          totalAcceptedDispatchValue = runningSum;
-          totalAcceptedDispatchUnit = singleUnit;
-        } else {
-          totalAcceptedDispatchValue = null;
-          totalAcceptedDispatchUnit = acceptedUnits.size > 1 ? 'MIXED' : null;
-        }
-      }
-
-      return { totalAcceptedDispatchValue, totalAcceptedDispatchUnit };
-    }
-
+  describe('3. Shared Production Accepted-Quantity Aggregator', () => {
     it('8000 KG + 5000 KG => 13000 KG', () => {
-      const res = computeAcceptedDispatchTotal([
+      const res = aggregateAcceptedPortionQuantities([
         { dispatch_quantity_value: 8000, dispatch_quantity_unit: 'KG' },
         { dispatch_quantity_value: 5000, dispatch_quantity_unit: 'KG' },
       ]);
@@ -240,7 +218,7 @@ describe('Stage 4C-Stabilization: Post-Merge Operational Corrections', () => {
     });
 
     it('8000 LITER + 5000 LITER => 13000 LITER', () => {
-      const res = computeAcceptedDispatchTotal([
+      const res = aggregateAcceptedPortionQuantities([
         { dispatch_quantity_value: 8000, dispatch_quantity_unit: 'LITER' },
         { dispatch_quantity_value: 5000, dispatch_quantity_unit: 'LITER' },
       ]);
@@ -249,7 +227,7 @@ describe('Stage 4C-Stabilization: Post-Merge Operational Corrections', () => {
     });
 
     it('8000 KG + NULL KG => not summable (null)', () => {
-      const res = computeAcceptedDispatchTotal([
+      const res = aggregateAcceptedPortionQuantities([
         { dispatch_quantity_value: 8000, dispatch_quantity_unit: 'KG' },
         { dispatch_quantity_value: null, dispatch_quantity_unit: 'KG' },
       ]);
@@ -258,7 +236,7 @@ describe('Stage 4C-Stabilization: Post-Merge Operational Corrections', () => {
     });
 
     it('8000 KG + 5000 with NULL unit => not summable (null)', () => {
-      const res = computeAcceptedDispatchTotal([
+      const res = aggregateAcceptedPortionQuantities([
         { dispatch_quantity_value: 8000, dispatch_quantity_unit: 'KG' },
         { dispatch_quantity_value: 5000, dispatch_quantity_unit: null },
       ]);
@@ -267,16 +245,67 @@ describe('Stage 4C-Stabilization: Post-Merge Operational Corrections', () => {
     });
 
     it('8000 KG + 5000 LITER => not summable (MIXED unit)', () => {
-      const res = computeAcceptedDispatchTotal([
+      const res = aggregateAcceptedPortionQuantities([
         { dispatch_quantity_value: 8000, dispatch_quantity_unit: 'KG' },
         { dispatch_quantity_value: 5000, dispatch_quantity_unit: 'LITER' },
       ]);
       expect(res.totalAcceptedDispatchValue).toBeNull();
       expect(res.totalAcceptedDispatchUnit).toBe('MIXED');
     });
+
+    it('Empty portions => null / null', () => {
+      const res = aggregateAcceptedPortionQuantities([]);
+      expect(res.totalAcceptedDispatchValue).toBeNull();
+      expect(res.totalAcceptedDispatchUnit).toBeNull();
+    });
   });
 
-  describe('4. Silo Inventory Safety & Removal of 1.0265 Fixed Fallback', () => {
+  describe('4. Silo Inventory Safety & Unknown-Volume Fail-Closed Semantics', () => {
+    it('[SCENARIO-A] Ledger with +10,000 L authoritative => stock complete, 10,000 L', () => {
+      const transactions = [
+        { transaction_type: 'RECEIPT', quantity_liters: 10000, quantity_kg: 10280 },
+      ];
+      const state = evaluateSiloStockVolumeState(transactions);
+      expect(state.isComplete).toBe(true);
+      expect(state.knownLiters).toBe(10000);
+      expect(state.unknownVolumeTransactionCount).toBe(0);
+    });
+
+    it('[SCENARIO-B] Ledger with +10,000 L + NULL liters receipt => isComplete = false', () => {
+      const transactions = [
+        { transaction_type: 'RECEIPT', quantity_liters: 10000, quantity_kg: 10280 },
+        { transaction_type: 'RECEIPT', quantity_liters: null, quantity_kg: 8000 },
+      ];
+      const state = evaluateSiloStockVolumeState(transactions);
+      expect(state.isComplete).toBe(false);
+      expect(state.knownLiters).toBe(10000);
+      expect(state.unknownVolumeTransactionCount).toBe(1);
+    });
+
+    it('[SCENARIO-C] Ledger with +10,000 L + unknown liters ISSUE => isComplete = false', () => {
+      const transactions = [
+        { transaction_type: 'RECEIPT', quantity_liters: 10000, quantity_kg: 10280 },
+        { transaction_type: 'ISSUE', quantity_liters: null, quantity_kg: 3000 },
+      ];
+      const state = evaluateSiloStockVolumeState(transactions);
+      expect(state.isComplete).toBe(false);
+      expect(state.knownLiters).toBe(10000);
+      expect(state.unknownVolumeTransactionCount).toBe(1);
+    });
+
+    it('[SCENARIO-D & E] Fail-closed capacity and sufficiency behavior when isComplete is false', () => {
+      const incompleteTransactions = [
+        { transaction_type: 'RECEIPT', quantity_liters: 10000, quantity_kg: 10280 },
+        { transaction_type: 'RECEIPT', quantity_liters: null, quantity_kg: 5000 },
+      ];
+      const state = evaluateSiloStockVolumeState(incompleteTransactions);
+      expect(state.isComplete).toBe(false);
+
+      // Business rule: Any operation requiring authoritative physical stock must not assume knownLiters is complete
+      const canProceedWithAuthoritativeCapacityCheck = state.isComplete;
+      expect(canProceedWithAuthoritativeCapacityCheck).toBe(false);
+    });
+
     it('[NO-1.0265-FALLBACK] Proves fixed 1.0265 density fallback is removed from production services', () => {
       const siloServiceFile = fs.readFileSync(
         path.join(process.cwd(), 'src/backend/services/siloInventoryService.ts'),

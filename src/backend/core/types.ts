@@ -195,15 +195,6 @@ export type ProcessStatus =
   | 'TARE_WEIGHED'
   | 'READY_FOR_GATE_EXIT'
   | 'COMPLETED'
-  // Legacy aliases for backward compatibility
-  | 'Dispatched' 
-  | 'Token Issued' 
-  | 'Sampling' 
-  | 'Sampling_In_Progress' 
-  | 'First Weight' 
-  | 'Silo Reception' 
-  | 'Second Weight'
-  | 'Completed'
   | string;
 
 export const STAGES: ProcessStatus[] = [
@@ -315,35 +306,35 @@ export interface KanbanStageConfig {
 export const KANBAN_STAGES: KanbanStageConfig[] = [
   {
     status: 'DISPATCHED',
-    canonicalStatuses: ['DISPATCHED', 'SCHEDULED', 'PLANNED', 'Dispatched'],
+    canonicalStatuses: ['DISPATCHED'],
     title: 'En-Route / Dispatched',
     subtitle: 'On the road to plant',
     iconType: 'truck',
   },
   {
     status: 'TOKEN_ISSUED',
-    canonicalStatuses: ['TOKEN_ISSUED', 'ARRIVED', 'GATE_IN_PROGRESS', 'Token Issued'],
+    canonicalStatuses: ['TOKEN_ISSUED'],
     title: 'Gate 2 Token Desk',
     subtitle: 'IGP & Security Entry',
     iconType: 'badge',
   },
   {
     status: 'PLANT_QA',
-    canonicalStatuses: ['PLANT_QA', 'QA_PENDING', 'UNDER_TEST', 'UNDER_TESTING', 'Sampling', 'Sampling_In_Progress'],
+    canonicalStatuses: ['PLANT_QA'],
     title: 'QA Lab Sampling',
     subtitle: 'Chemical & MBRT Tests',
     iconType: 'flask',
   },
   {
     status: 'READY_FOR_GROSS',
-    canonicalStatuses: ['READY_FOR_GROSS', 'GROSS_WEIGHED', 'GROSS_RECORDED', 'READY_FOR_TARE', 'TARE_WEIGHED', 'TARE_RECORDED', 'First Weight', 'Second Weight'],
+    canonicalStatuses: ['READY_FOR_GROSS', 'GROSS_WEIGHED', 'READY_FOR_TARE', 'TARE_WEIGHED'],
     title: 'Weighbridge Scale',
     subtitle: 'Gross & Tare Weighing',
     iconType: 'scale',
   },
   {
     status: 'READY_FOR_UNLOADING',
-    canonicalStatuses: ['READY_FOR_UNLOADING', 'READY_FOR_UNLOAD', 'UNLOADING', 'UNLOADED', 'Silo Reception'],
+    canonicalStatuses: ['READY_FOR_UNLOADING', 'UNLOADING'],
     title: 'Silo Milk Reception',
     subtitle: 'Unloading into Storage',
     iconType: 'tank',

@@ -9,6 +9,7 @@ import {
   calculateAt13TSLiters,
 } from '@/backend/utils/milkFormulas';
 import { isPlantLrTest, isPlantFatTest } from '@/backend/services/vehicleQuantityService';
+import { aggregateAcceptedPortionQuantities } from '@/lib/portion-quantity-aggregator';
 
 export async function GET(req: NextRequest) {
   try {
@@ -172,47 +173,9 @@ export async function GET(req: NextRequest) {
         };
       });
 
-      // Unit-safe dispatch total across accepted portions
-      let totalAcceptedDispatchValue: number | null = null;
-      let totalAcceptedDispatchUnit: string | null = null;
-
-      if (acceptedPortions.length > 0) {
-        let allValid = true;
-        let runningSum = 0;
-        let singleUnit: string | null = null;
-        const acceptedUnits = new Set<string>();
-
-        for (const p of acceptedPortions) {
-          const val = p.dispatch_quantity_value !== null && p.dispatch_quantity_value !== undefined ? Number(p.dispatch_quantity_value) : null;
-          const unit = typeof p.dispatch_quantity_unit === 'string' ? p.dispatch_quantity_unit.trim().toUpperCase() : null;
-
-          if (unit) acceptedUnits.add(unit);
-
-          if (val === null || isNaN(val) || !isFinite(val) || val <= 0) {
-            allValid = false;
-          }
-          if (unit !== 'KG' && unit !== 'LITER') {
-            allValid = false;
-          }
-          if (singleUnit === null) {
-            singleUnit = unit;
-          } else if (singleUnit !== unit) {
-            allValid = false;
-          }
-
-          if (val !== null && !isNaN(val)) {
-            runningSum += val;
-          }
-        }
-
-        if (allValid && singleUnit !== null) {
-          totalAcceptedDispatchValue = runningSum;
-          totalAcceptedDispatchUnit = singleUnit;
-        } else {
-          totalAcceptedDispatchValue = null;
-          totalAcceptedDispatchUnit = acceptedUnits.size > 1 ? 'MIXED' : null;
-        }
-      }
+      // Unit-safe dispatch total across accepted portions via shared production helper
+      const { totalAcceptedDispatchValue, totalAcceptedDispatchUnit } =
+        aggregateAcceptedPortionQuantities(acceptedPortions);
 
       const elapsedMinutes = earliestStartTime
         ? Math.max(0, Math.floor((Date.now() - (earliestStartTime as Date).getTime()) / 60000))
