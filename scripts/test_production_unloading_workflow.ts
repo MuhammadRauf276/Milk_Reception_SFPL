@@ -120,10 +120,31 @@ async function runProductionUnloadingWorkflowVerification() {
         current_status: 'READY_FOR_UNLOADING',
         operational_date: new Date(),
         created_by: opUserA.id,
+        vehicle_dispatch_quantity_value: 13000,
+        vehicle_dispatch_quantity_unit: 'KG',
+        vehicle_dispatch_quantity_basis: 'MEASURED',
+        vehicle_dispatch_measurement_method: 'WEIGHING',
         portions: {
           create: [
-            { portion_number: 1, declared_quantity_value: 8000, plant_decision: 'ACCEPTED', current_status: 'PLANT_QA' },
-            { portion_number: 2, declared_quantity_value: 5000, plant_decision: 'REJECTED', plant_rejection_reason: 'High acidity', current_status: 'PLANT_QA' },
+            {
+              portion_number: 1,
+              dispatch_quantity_value: 8000,
+              dispatch_quantity_unit: 'KG',
+              dispatch_quantity_basis: 'MEASURED',
+              dispatch_measurement_method: 'WEIGHING',
+              plant_decision: 'ACCEPTED',
+              current_status: 'PLANT_QA',
+            },
+            {
+              portion_number: 2,
+              dispatch_quantity_value: 5000,
+              dispatch_quantity_unit: 'KG',
+              dispatch_quantity_basis: 'MEASURED',
+              dispatch_measurement_method: 'WEIGHING',
+              plant_decision: 'REJECTED',
+              plant_rejection_reason: 'High acidity',
+              current_status: 'PLANT_QA',
+            },
           ],
         },
         weight_ticket: {
@@ -152,6 +173,7 @@ async function runProductionUnloadingWorkflowVerification() {
           portion_id: acceptedPortion.id,
           test_id: lrTest.id,
           numeric_value: new Prisma.Decimal(26.3),
+          performance_status: 'PERFORMED',
           is_passed: true,
           tested_by: opUserA.id,
         },
@@ -165,6 +187,7 @@ async function runProductionUnloadingWorkflowVerification() {
           portion_id: acceptedPortion.id,
           test_id: fatTest.id,
           numeric_value: new Prisma.Decimal(3.8),
+          performance_status: 'PERFORMED',
           is_passed: true,
           tested_by: opUserA.id,
         },
@@ -174,7 +197,7 @@ async function runProductionUnloadingWorkflowVerification() {
     const expectedLitersP1 = calculatePhysicalLiters(8000, 26.3); // ~7,795 L
 
     assert(
-      acceptedPortion.declared_quantity_value ? Number(acceptedPortion.declared_quantity_value) === 8000 : false,
+      acceptedPortion.dispatch_quantity_value ? Number(acceptedPortion.dispatch_quantity_value) === 8000 : false,
       'PROD-DATA-A..E: Queue Data & Portion Calculations',
       `Accepted Portion 1 (8,000 kg) yields ~${Math.round(expectedLitersP1)} L; Rejected Portion 2 (5,000 kg) excluded from accepted sum`
     );

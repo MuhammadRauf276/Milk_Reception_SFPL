@@ -16,9 +16,21 @@ import {
   calculateEquivalentKgFromLiters,
 } from '@/backend/utils/milkFormulas';
 import { getScopedDraftKey } from '@/lib/validations/dispatch';
+import { getOperationalBusinessDate } from '@/backend/core/business-day';
+
+import {
+  QuantityUnit,
+  MeasurementBasis,
+  MeasurementMethod,
+  DispatchQuantityPolicySnapshotDTO,
+  getAllowedUnits,
+  getAllowedBases,
+  getAllowedMethods,
+} from '@/backend/modules/dispatch/quantity-policy/types';
 
 interface LabTestDef {
   id: string;
+  testId: string;
   testCode: string;
   testName: string;
   resultType: 'NUMERIC' | 'TEXT' | 'QUALITATIVE' | 'BOOLEAN' | 'OK_NOT_OK' | 'POSITIVE_NEGATIVE' | 'CALCULATED' | string;
@@ -35,11 +47,21 @@ interface TestResultState {
   notPerformedReason: string;
 }
 
+export type QuantityUnitType = QuantityUnit;
+export type MeasurementBasisType = MeasurementBasis;
+export type MeasurementMethodType = MeasurementMethod;
+
+export interface QuantityState {
+  value: string;
+  unit: QuantityUnit;
+  basis: MeasurementBasis;
+  method: MeasurementMethod;
+}
+
 interface PortionFormState {
   clientId: string;
   portionNumber: number;
-  declaredQuantityKg: number | '';
-  declaredQuantityUnit: 'KG' | 'LITER';
+  quantity: QuantityState;
   results: Record<string, TestResultState>;
   isSaved: boolean;
 }
@@ -58,19 +80,27 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
   const [selectedSourceId, setSelectedSourceId] = useState<string>('');
   const [frozenQuantityPolicy, setFrozenQuantityPolicy] = useState<any>(null);
 
-
   // Vehicle Header Fields
   const [vehicleNumber, setVehicleNumber] = useState('');
   const [vehicleNumberError, setVehicleNumberError] = useState<string | null>(null);
   const [dispatchOpDatetime, setDispatchOpDatetime] = useState<string>(toDatetimeLocalInput(new Date()));
 
+  // Authoritative Vehicle Quantity State
+  const [vehicleQuantity, setVehicleQuantity] = useState<QuantityState>({
+    value: '',
+    unit: 'KG',
+    basis: 'MEASURED',
+    method: 'WEIGHING',
+  });
+  const [vehicleQuantityError, setVehicleQuantityError] = useState<string | null>(null);
+
   // Portions Draft State
   const [portions, setPortions] = useState<PortionFormState[]>([]);
   const [editingPortionIndex, setEditingPortionIndex] = useState<number | null>(0);
 
-  // Per-portion inline errors state: index -> { declaredQuantityKg?: string, tests: Record<testId, errorMsg> }
+  // Per-portion inline errors state
   const [portionErrors, setPortionErrors] = useState<
-    Record<number, { declaredQuantityKg?: string; tests?: Record<string, string> }>
+    Record<number, { quantity?: string; tests?: Record<string, string> }>
   >({});
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -116,9 +146,10 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     const results: Record<string, TestResultState> = {};
 
     tests.forEach((t) => {
+      const key = t.testId;
       if (isContractor) {
         // Contractor Default: NOT_PERFORMED (Contract Vehicle)
-        results[t.id] = {
+        results[key] = {
           numericValue: '',
           textValue: '',
           performanceStatus: 'NOT_PERFORMED',
@@ -126,7 +157,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
         };
       } else {
         // ZMCC Dispatch: Initialized as PERFORMED without claiming automatic results
-        results[t.id] = {
+        results[key] = {
           numericValue: '',
           textValue: '',
           performanceStatus: 'PERFORMED',
@@ -201,8 +232,17 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
 
       if (data.assignedTests) {
         setDraftVisitId(data.visitId);
-        if (data.quantityPolicy) {
+        if (data.quantityPolicy?.policy) {
           setFrozenQuantityPolicy(data.quantityPolicy);
+          const vDef = data.quantityPolicy.policy.vehicleRules?.default;
+          if (vDef) {
+            setVehicleQuantity({
+              value: '',
+              unit: vDef.unit,
+              basis: vDef.basis,
+              method: vDef.method,
+            });
+          }
         }
         if (typeof window !== 'undefined' && data.visitId && scopedKey) {
           sessionStorage.setItem(scopedKey, data.visitId);
@@ -212,16 +252,25 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
         const isContractor = effectiveSource?.source_type === 'CONTRACTOR';
         const initialResults = buildInitialPortionResults(data.assignedTests, isContractor);
 
-        setPortions([
-          {
-            clientId: 'portion-1',
-            portionNumber: 1,
-            declaredQuantityKg: '',
-            declaredQuantityUnit: isContractor ? 'LITER' : 'KG',
-            results: initialResults,
-            isSaved: false,
-          },
-        ]);
+        if (data.quantityPolicy?.policy) {
+          const pDef = data.quantityPolicy.policy.portionRules?.default;
+          if (pDef) {
+            setPortions([
+              {
+                clientId: 'portion-1',
+                portionNumber: 1,
+                quantity: {
+                  value: '',
+                  unit: pDef.unit,
+                  basis: pDef.basis,
+                  method: pDef.method,
+                },
+                results: initialResults,
+                isSaved: false,
+              },
+            ]);
+          }
+        }
       }
     } catch (err: any) {
       if (initSeqRef.current === currentSeq) {
@@ -246,10 +295,29 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     }
   }, [currentUser?.id, effectiveSourceId]);
 
+  // Explicit frozen-policy readiness condition
+  const isPolicyReady = !!frozenQuantityPolicy?.policy;
 
+  // Derived allowed options for Vehicle (strictly guarded against undefined)
+  const vehicleAllowedMeasurements = frozenQuantityPolicy?.policy?.vehicleRules?.allowedMeasurements;
+  const vehicleAllowedUnits = isPolicyReady && vehicleAllowedMeasurements ? getAllowedUnits(vehicleAllowedMeasurements) : [];
+  const vehicleAllowedBases = isPolicyReady && vehicleAllowedMeasurements && vehicleQuantity.unit
+    ? getAllowedBases(vehicleAllowedMeasurements, vehicleQuantity.unit)
+    : [];
+  const vehicleAllowedMethods = isPolicyReady && vehicleAllowedMeasurements && vehicleQuantity.unit && vehicleQuantity.basis
+    ? getAllowedMethods(vehicleAllowedMeasurements, vehicleQuantity.unit, vehicleQuantity.basis)
+    : [];
+
+  // Derived allowed options for Portion (strictly guarded against undefined)
+  const portionAllowedMeasurements = frozenQuantityPolicy?.policy?.portionRules?.allowedMeasurements;
+  const portionAllowedUnits = isPolicyReady && portionAllowedMeasurements ? getAllowedUnits(portionAllowedMeasurements) : [];
 
   const createFreshPortion = (portionNumber: number): PortionFormState => {
     const freshResults = buildInitialPortionResults(labTests, isContractorSource);
+    const pDef = frozenQuantityPolicy?.policy?.portionRules?.default;
+    if (!pDef) {
+      throw new Error('Cannot create portion: frozen quantity policy snapshot is not loaded.');
+    }
 
     const clientId =
       typeof window !== 'undefined' && window.crypto?.randomUUID
@@ -259,8 +327,12 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     return {
       clientId,
       portionNumber,
-      declaredQuantityKg: '',
-      declaredQuantityUnit: isContractorSource ? 'LITER' : 'KG',
+      quantity: {
+        value: '',
+        unit: pDef.unit,
+        basis: pDef.basis,
+        method: pDef.method,
+      },
       results: freshResults,
       isSaved: false,
     };
@@ -273,10 +345,102 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     }
   };
 
+  const handleVehicleQuantityValueChange = (val: string) => {
+    setVehicleQuantity((prev) => ({ ...prev, value: val }));
+    if (val && Number(val) > 0) {
+      setVehicleQuantityError(null);
+    }
+  };
+
+  const handleVehicleUnitChange = (newUnit: QuantityUnitType) => {
+    const bases = getAllowedBases(vehicleAllowedMeasurements, newUnit);
+    const newBasis = bases.includes(vehicleQuantity.basis) ? vehicleQuantity.basis : bases[0];
+    const methods = getAllowedMethods(vehicleAllowedMeasurements, newUnit, newBasis);
+    const newMethod = methods.includes(vehicleQuantity.method) ? vehicleQuantity.method : methods[0];
+
+    setVehicleQuantity({
+      value: '', // clear entered quantity on unit change
+      unit: newUnit,
+      basis: newBasis,
+      method: newMethod,
+    });
+    setVehicleQuantityError(null);
+  };
+
+  const handleVehicleBasisChange = (newBasis: MeasurementBasisType) => {
+    const methods = getAllowedMethods(vehicleAllowedMeasurements, vehicleQuantity.unit, newBasis);
+    const newMethod = methods.includes(vehicleQuantity.method) ? vehicleQuantity.method : methods[0];
+    setVehicleQuantity((prev) => ({
+      ...prev,
+      basis: newBasis,
+      method: newMethod,
+    }));
+  };
+
+  const handleVehicleMethodChange = (newMethod: MeasurementMethodType) => {
+    setVehicleQuantity((prev) => ({ ...prev, method: newMethod }));
+  };
+
+  const handlePortionQuantityValueChange = (index: number, val: string) => {
+    const updated = [...portions];
+    updated[index].quantity.value = val;
+    setPortions(updated);
+
+    if (val && Number(val) > 0) {
+      setPortionErrors((prev) => {
+        if (!prev[index]?.quantity) return prev;
+        const copy = { ...prev[index] };
+        delete copy.quantity;
+        return { ...prev, [index]: copy };
+      });
+    }
+  };
+
+  const handlePortionUnitChange = (index: number, newUnit: QuantityUnitType) => {
+    const updated = [...portions];
+    const currentPortion = updated[index];
+    const bases = getAllowedBases(portionAllowedMeasurements, newUnit);
+    const newBasis = bases.includes(currentPortion.quantity.basis) ? currentPortion.quantity.basis : bases[0];
+    const methods = getAllowedMethods(portionAllowedMeasurements, newUnit, newBasis);
+    const newMethod = methods.includes(currentPortion.quantity.method) ? currentPortion.quantity.method : methods[0];
+
+    updated[index].quantity = {
+      value: '', // clear entered quantity on unit change
+      unit: newUnit,
+      basis: newBasis,
+      method: newMethod,
+    };
+    setPortions(updated);
+
+    setPortionErrors((prev) => {
+      if (!prev[index]?.quantity) return prev;
+      const copy = { ...prev[index] };
+      delete copy.quantity;
+      return { ...prev, [index]: copy };
+    });
+  };
+
+  const handlePortionBasisChange = (index: number, newBasis: MeasurementBasisType) => {
+    const updated = [...portions];
+    const currentPortion = updated[index];
+    const methods = getAllowedMethods(portionAllowedMeasurements, currentPortion.quantity.unit, newBasis);
+    const newMethod = methods.includes(currentPortion.quantity.method) ? currentPortion.quantity.method : methods[0];
+
+    updated[index].quantity.basis = newBasis;
+    updated[index].quantity.method = newMethod;
+    setPortions(updated);
+  };
+
+  const handlePortionMethodChange = (index: number, newMethod: MeasurementMethodType) => {
+    const updated = [...portions];
+    updated[index].quantity.method = newMethod;
+    setPortions(updated);
+  };
+
   const handleAddPortionClick = () => {
     if (editingPortionIndex !== null) {
       const currentEditing = portions[editingPortionIndex];
-      if (currentEditing && (!currentEditing.declaredQuantityKg || Number(currentEditing.declaredQuantityKg) <= 0)) {
+      if (currentEditing && (!currentEditing.quantity.value || Number(currentEditing.quantity.value) <= 0)) {
         toast.showError(`Please enter a valid quantity for Portion ${currentEditing.portionNumber} before adding another.`, 'Validation Error');
         return;
       }
@@ -387,16 +551,16 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     const target = portions[index];
     if (!target) return false;
 
-    const errors: { declaredQuantityKg?: string; tests: Record<string, string> } = { tests: {} };
+    const errors: { quantity?: string; tests: Record<string, string> } = { tests: {} };
     let firstInvalidId: string | null = null;
 
-    // 1. Declared Quantity Validation (strictly positive)
-    const qty = Number(target.declaredQuantityKg);
-    const unitLabel = target.declaredQuantityUnit === 'LITER' ? 'L' : 'kg';
-    if (!target.declaredQuantityKg || isNaN(qty) || qty <= 0) {
-      errors.declaredQuantityKg = `Enter a quantity greater than 0 ${unitLabel}.`;
+    // 1. Portion Quantity Validation (strictly positive)
+    const qty = Number(target.quantity.value);
+    const unitLabel = target.quantity.unit === 'LITER' ? 'L' : 'kg';
+    if (!target.quantity.value || isNaN(qty) || qty <= 0) {
+      errors.quantity = `Enter a quantity greater than 0 ${unitLabel}.`;
       if (!firstInvalidId) {
-        firstInvalidId = `declared-qty-input-${index}`;
+        firstInvalidId = `portion-qty-input-${index}`;
       }
     }
 
@@ -404,14 +568,14 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     const manualTests = labTests.filter((t) => t.resultType !== 'CALCULATED');
 
     for (const testDef of manualTests) {
-      const res = target.results[testDef.id];
+      const res = target.results[testDef.testId];
 
       if (!res) {
-        errors.tests[testDef.id] = `Status for ${testDef.testName} is required.`;
+        errors.tests[testDef.testId] = `Status for ${testDef.testName} is required.`;
         if (!firstInvalidId) firstInvalidId = `test-input-field-${index}-${testDef.id}`;
       } else if (res.performanceStatus === 'NOT_PERFORMED') {
         if (!res.notPerformedReason || !res.notPerformedReason.trim()) {
-          errors.tests[testDef.id] = `Reason required for unperformed test ${testDef.testName}.`;
+          errors.tests[testDef.testId] = `Reason required for unperformed test ${testDef.testName}.`;
           if (!firstInvalidId) {
             firstInvalidId = isContractorSource
               ? `test-reason-field-${index}-${testDef.id}`
@@ -421,19 +585,19 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
       } else if (res.performanceStatus === 'PERFORMED') {
         if (testDef.resultType === 'NUMERIC') {
           if (res.numericValue === '' || isNaN(Number(res.numericValue)) || Number(res.numericValue) < 0) {
-            errors.tests[testDef.id] = `Enter a valid numeric value for ${testDef.testName}.`;
+            errors.tests[testDef.testId] = `Enter a valid numeric value for ${testDef.testName}.`;
             if (!firstInvalidId) firstInvalidId = `test-input-field-${index}-${testDef.id}`;
           }
         } else {
           if (!res.textValue || res.textValue.trim() === '' || res.textValue === 'NOT_PERFORMED') {
-            errors.tests[testDef.id] = `Result for ${testDef.testName} is required.`;
+            errors.tests[testDef.testId] = `Result for ${testDef.testName} is required.`;
             if (!firstInvalidId) firstInvalidId = `test-input-field-${index}-${testDef.id}`;
           }
         }
       }
     }
 
-    const hasErrors = !!errors.declaredQuantityKg || Object.keys(errors.tests).length > 0;
+    const hasErrors = !!errors.quantity || Object.keys(errors.tests).length > 0;
 
     if (hasErrors) {
       setPortionErrors((prev) => ({ ...prev, [index]: errors }));
@@ -485,7 +649,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     setPortions(updated);
 
     setPortionErrors((prev) => {
-      const nextErrors: Record<number, { declaredQuantityKg?: string; tests?: Record<string, string> }> = {};
+      const nextErrors: Record<number, { quantity?: string; tests?: Record<string, string> }> = {};
       Object.keys(prev).forEach((keyStr) => {
         const k = Number(keyStr);
         if (k < index) nextErrors[k] = prev[k];
@@ -501,57 +665,23 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     }
   };
 
-  const handlePortionQtyChange = (index: number, val: string) => {
-    const num = Number(val);
-    const updated = [...portions];
-
-    if (val === '' || isNaN(num)) {
-      updated[index].declaredQuantityKg = '';
-    } else if (num < 0) {
-      updated[index].declaredQuantityKg = num;
-      const unitLabel = updated[index].declaredQuantityUnit === 'LITER' ? 'L' : 'kg';
-      setPortionErrors((prev) => ({
-        ...prev,
-        [index]: { ...prev[index], declaredQuantityKg: `Enter a quantity greater than 0 ${unitLabel}.` },
-      }));
-      setPortions(updated);
-      return;
-    } else {
-      updated[index].declaredQuantityKg = num;
-    }
-
-    setPortions(updated);
-
-    if (val && num > 0) {
-      setPortionErrors((prev) => {
-        if (!prev[index]?.declaredQuantityKg) return prev;
-        const copy = { ...prev[index] };
-        delete copy.declaredQuantityKg;
-        return { ...prev, [index]: copy };
-      });
-    }
-  };
-
-  const handlePortionUnitChange = (index: number, unit: 'KG' | 'LITER') => {
-    const updated = [...portions];
-    updated[index].declaredQuantityUnit = unit;
-    setPortions(updated);
-  };
-
   const manualLabTests = labTests.filter((t) => t.resultType !== 'CALCULATED');
 
   // Completeness counter helper: Handles ZMCC vs Contractor Modes
   const getPortionProgress = (portion: PortionFormState) => {
     if (isContractorSource) {
+      const manualLabTests = labTests.filter((t) => t.resultType !== 'CALCULATED');
       const performedCount = manualLabTests.filter((t) => {
-        const res = portion.results[t.id];
-        if (!res || res.performanceStatus !== 'PERFORMED') return false;
-        if (t.resultType === 'NUMERIC') return res.numericValue !== '' && !isNaN(Number(res.numericValue));
-        return !!res.textValue && res.textValue.trim() !== '';
+        const res = portion.results[t.testId];
+        return res?.performanceStatus === 'PERFORMED' && (
+          t.resultType === 'NUMERIC'
+            ? res.numericValue !== '' && !isNaN(Number(res.numericValue))
+            : res.textValue !== '' && res.textValue !== null && res.textValue !== undefined
+        );
       }).length;
 
       const notPerformedCount = manualLabTests.filter((t) => {
-        const res = portion.results[t.id];
+        const res = portion.results[t.testId];
         return res?.performanceStatus === 'NOT_PERFORMED' && !!res.notPerformedReason?.trim();
       }).length;
 
@@ -567,7 +697,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     // ZMCC Strict Mode
     const requiredManualTests = labTests.filter((t) => t.isRequired && t.resultType !== 'CALCULATED');
     const accountedCount = requiredManualTests.filter((t) => {
-      const res = portion.results[t.id];
+      const res = portion.results[t.testId];
       if (!res) return false;
       if (res.performanceStatus === 'NOT_PERFORMED') return !!res.notPerformedReason;
       if (t.resultType === 'NUMERIC') return res.numericValue !== '' && !isNaN(Number(res.numericValue));
@@ -593,17 +723,17 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
         !t.testName.toLowerCase().includes('snf')
     );
 
-    const lrRes = lrTest ? portion.results[lrTest.id] : null;
-    const fatRes = fatTest ? portion.results[fatTest.id] : null;
+    const lrRes = lrTest ? portion.results[lrTest.testId] : null;
+    const fatRes = fatTest ? portion.results[fatTest.testId] : null;
 
     const rawLr = lrRes && lrRes.performanceStatus === 'PERFORMED' ? lrRes.numericValue : '';
     const rawFat = fatRes && fatRes.performanceStatus === 'PERFORMED' ? fatRes.numericValue : '';
-    const rawDeclared = Number(portion.declaredQuantityKg);
+    const rawDeclared = Number(portion.quantity.value);
 
     const lrNum = rawLr !== '' && rawLr !== undefined && !isNaN(Number(rawLr)) ? Number(rawLr) : null;
     const fatNum = rawFat !== '' && rawFat !== undefined && !isNaN(Number(rawFat)) ? Number(rawFat) : null;
     const qtyNum = !isNaN(rawDeclared) && rawDeclared > 0 ? rawDeclared : null;
-    const unit = portion.declaredQuantityUnit;
+    const unit = portion.quantity.unit;
 
     let snfVal: number | null = null;
     let tsVal: number | null = null;
@@ -648,11 +778,6 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     };
   };
 
-  const totalDeclaredKg = portions.reduce(
-    (sum, p) => sum + (p.isSaved && p.declaredQuantityKg && Number(p.declaredQuantityKg) > 0 ? Number(p.declaredQuantityKg) : 0),
-    0
-  );
-
   const savedCount = portions.filter((p) => p.isSaved).length;
 
   const handleSubmitDispatch = async (e: React.FormEvent) => {
@@ -662,6 +787,18 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
       setVehicleNumberError('Vehicle No. is required.');
       toast.showError('Vehicle No. is required.', 'Validation Error');
       const el = document.getElementById('vehicle-number-input');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.focus();
+      }
+      return;
+    }
+
+    const vehQtyNum = Number(vehicleQuantity.value);
+    if (!vehicleQuantity.value || isNaN(vehQtyNum) || vehQtyNum <= 0) {
+      setVehicleQuantityError('Valid vehicle dispatch quantity greater than 0 is required.');
+      toast.showError('Please enter a valid Vehicle Dispatch Quantity.', 'Validation Error');
+      const el = document.getElementById('vehicle-quantity-input');
       if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         el.focus();
@@ -688,13 +825,17 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     const payloadPortions = portions.map((p) => {
       return {
         portionNumber: p.portionNumber,
-        declaredQuantityKg: Number(p.declaredQuantityKg) || 0,
-        declaredQuantityUnit: p.declaredQuantityUnit,
+        quantity: {
+          value: p.quantity.value,
+          unit: p.quantity.unit,
+          basis: p.quantity.basis,
+          method: p.quantity.method,
+        },
         dispatchTimestamp: isoDispatchTimestamp,
         results: labTests
           .filter((t) => t.resultType !== 'CALCULATED')
           .map((t) => {
-            const res = p.results[t.id] || {
+            const res = p.results[t.testId] || {
               numericValue: '',
               textValue: '',
               performanceStatus: isContractorSource ? 'NOT_PERFORMED' : 'PERFORMED',
@@ -702,7 +843,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
             };
 
             return {
-              testId: t.id,
+              testId: t.testId,
               performanceStatus: res.performanceStatus,
               notPerformedReason: res.performanceStatus === 'NOT_PERFORMED' ? (res.notPerformedReason?.trim() || 'Contract Vehicle') : null,
               numericValue:
@@ -743,19 +884,37 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
       return;
     }
 
+    if (!draftVisitId) {
+      toast.showError('Dispatch draft is not initialized. Please select a procurement source.', 'Validation Error');
+      return;
+    }
+
+    if (!isPolicyReady) {
+      toast.showError('Quantity policy snapshot is still loading. Please wait before submitting.', 'Validation Error');
+      return;
+    }
 
     try {
+      const effectiveDispatchDate = isoDispatchTimestamp || new Date().toISOString();
+      const derivedBusinessDate = getOperationalBusinessDate(effectiveDispatchDate);
+
       const res = await fetch('/api/dispatches', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          visitId: draftVisitId || undefined,
+          visitId: draftVisitId,
           vehicleNumber: vehicleNumber.trim().toUpperCase(),
-          operationalDate: (isoDispatchTimestamp || new Date().toISOString()).split('T')[0],
+          operationalDate: derivedBusinessDate,
           procurementSourceId: effectiveSource.id,
           zonalContractorName: effectiveSource.name,
           dispatchTestingMode,
           dispatchTestingReason: isContractorSource && allNotPerformed ? 'Contract Vehicle' : null,
+          vehicleQuantity: {
+            value: vehicleQuantity.value,
+            unit: vehicleQuantity.unit,
+            basis: vehicleQuantity.basis,
+            method: vehicleQuantity.method,
+          },
           portions: payloadPortions,
         }),
       });
@@ -771,6 +930,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
       setDraftVisitId(null);
       setVehicleNumber('');
       setVehicleNumberError(null);
+      setVehicleQuantityError(null);
       setPortionErrors({});
       setEditingPortionIndex(0);
 
@@ -829,7 +989,6 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
         </div>
       )}
 
-
       {/* Vehicle Header Fields */}
       <div className="p-3.5 rounded-xl bg-[#F4EFE3] border border-[#C4B9A3] space-y-3">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -868,6 +1027,96 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
             />
           </div>
         </div>
+      </div>
+
+      {/* Vehicle Dispatch Quantity Section */}
+      <div className="p-3.5 rounded-xl bg-[#F4EFE3] border border-[#C4B9A3] space-y-2.5">
+        <div className="flex items-center justify-between">
+          <label className="text-xs font-extrabold uppercase tracking-wider text-[#111311]">
+            Vehicle Dispatch Quantity *
+          </label>
+          <span className="text-[10px] font-bold text-slate-500">
+            Authoritative Vehicle Measurement
+          </span>
+        </div>
+
+        {!isPolicyReady ? (
+          <div className="p-3 text-center rounded-xl bg-white border border-dashed border-[#C4B9A3] text-xs font-semibold text-slate-500">
+            Loading frozen quantity policy snapshot...
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+              <div>
+                <label className="block text-[11px] font-bold mb-1">Value *</label>
+                <input
+                  id="vehicle-quantity-input"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={vehicleQuantity.value}
+                  onChange={(e) => handleVehicleQuantityValueChange(e.target.value)}
+                  placeholder="e.g. 19500"
+                  className={`w-full px-3 py-2 text-sm font-mono font-bold rounded-xl border bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none ${
+                    vehicleQuantityError ? 'border-rose-500 bg-rose-50/20 ring-1 ring-rose-500' : 'border-[#C4B9A3]'
+                  }`}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold mb-1">Unit *</label>
+                <select
+                  value={vehicleQuantity.unit}
+                  onChange={(e) => handleVehicleUnitChange(e.target.value as QuantityUnitType)}
+                  className="w-full px-3 py-2 text-xs font-mono font-black rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none"
+                >
+                  {vehicleAllowedUnits.map((u) => (
+                    <option key={u} value={u}>
+                      {u}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold mb-1">Basis *</label>
+                <select
+                  value={vehicleQuantity.basis}
+                  onChange={(e) => handleVehicleBasisChange(e.target.value as MeasurementBasisType)}
+                  className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none"
+                >
+                  {vehicleAllowedBases.map((b) => (
+                    <option key={b} value={b}>
+                      {b}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold mb-1">Measurement Method *</label>
+                <select
+                  value={vehicleQuantity.method}
+                  onChange={(e) => handleVehicleMethodChange(e.target.value as MeasurementMethodType)}
+                  className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none"
+                >
+                  {vehicleAllowedMethods.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {vehicleQuantityError && (
+              <p className="text-xs font-bold text-rose-600 mt-1" id="vehicle-quantity-error">
+                {vehicleQuantityError}
+              </p>
+            )}
+          </>
+        )}
       </div>
 
       {/* Milk Portions Section */}
@@ -912,7 +1161,10 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                         <div className="flex items-center space-x-2">
                           <span className="font-extrabold text-sm text-[#111311]">Portion {portion.portionNumber}</span>
                           <span className="px-2 py-0.5 rounded text-xs font-black bg-blue-100 text-[#1E40AF] font-mono">
-                            {Number(portion.declaredQuantityKg).toLocaleString()} {portion.declaredQuantityUnit}
+                            {portion.quantity.value ? `${Number(portion.quantity.value).toLocaleString()} ${portion.quantity.unit}` : '—'}
+                          </span>
+                          <span className="text-[10px] font-bold text-slate-500">
+                            ({portion.quantity.basis} • {portion.quantity.method})
                           </span>
                         </div>
                         <p className="text-[11px] font-bold text-slate-600 mt-0.5">
@@ -967,6 +1219,10 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
 
             // Expanded Portion Editor View
             if (isEditing) {
+              const pAllowedBases = getAllowedBases(portionAllowedMeasurements, portion.quantity.unit);
+              const pAllowedMethods = getAllowedMethods(portionAllowedMeasurements, portion.quantity.unit, portion.quantity.basis);
+              const portionLabel = portion.quantity.basis === 'ESTIMATED' ? 'Estimated Portion Quantity' : 'Measured Portion Quantity';
+
               return (
                 <div
                   key={`portion-editor-${portion.clientId}`}
@@ -981,54 +1237,85 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                     </span>
                   </div>
 
-                  {/* Declared Quantity & Unit Controls */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="sm:col-span-2">
-                      <label className="block text-xs font-bold text-[#111311] mb-1">
-                        Declared Quantity *
+                  {/* Portion Quantity & Controls */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-bold text-[#111311]">
+                        {portionLabel} *
                       </label>
-                      <input
-                        id={`declared-qty-input-${index}`}
-                        type="number"
-                        min="0.01"
-                        step="0.01"
-                        value={portion.declaredQuantityKg}
-                        onChange={(e) => handlePortionQtyChange(index, e.target.value)}
-                        placeholder="e.g. 8500"
-                        className={`w-full px-3.5 py-2 text-sm font-mono font-bold rounded-xl border bg-[#F4EFE3] text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none ${
-                          portionErrors[index]?.declaredQuantityKg
-                            ? 'border-rose-500 bg-rose-50/20 ring-1 ring-rose-500'
-                            : 'border-[#C4B9A3]'
-                        }`}
-                        required
-                      />
-                      {portionErrors[index]?.declaredQuantityKg && (
-                        <p className="text-xs font-bold text-rose-600 mt-1" id={`declared-qty-error-${index}`}>
-                          {portionErrors[index].declaredQuantityKg}
-                        </p>
-                      )}
                     </div>
 
-                    <div>
-                      <label className="block text-xs font-bold text-[#111311] mb-1">
-                        Unit *
-                      </label>
-                      {isContractorSource ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-600 mb-1">Value *</label>
+                        <input
+                          id={`portion-qty-input-${index}`}
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          value={portion.quantity.value}
+                          onChange={(e) => handlePortionQuantityValueChange(index, e.target.value)}
+                          placeholder="e.g. 8500"
+                          className={`w-full px-3 py-2 text-sm font-mono font-bold rounded-xl border bg-[#F4EFE3] text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none ${
+                            portionErrors[index]?.quantity
+                              ? 'border-rose-500 bg-rose-50/20 ring-1 ring-rose-500'
+                              : 'border-[#C4B9A3]'
+                          }`}
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-600 mb-1">Unit *</label>
                         <select
-                          value={portion.declaredQuantityUnit}
-                          onChange={(e) => handlePortionUnitChange(index, e.target.value as 'KG' | 'LITER')}
+                          value={portion.quantity.unit}
+                          onChange={(e) => handlePortionUnitChange(index, e.target.value as QuantityUnitType)}
                           className="w-full px-3 py-2 text-xs font-mono font-black rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none"
                         >
-                          <option value="KG">KG (Mass)</option>
-                          <option value="LITER">LITER (Volume)</option>
+                          {portionAllowedUnits.map((u) => (
+                            <option key={u} value={u}>
+                              {u}
+                            </option>
+                          ))}
                         </select>
-                      ) : (
-                        <div className="w-full px-3 py-2 text-xs font-mono font-black rounded-xl border border-[#C4B9A3] bg-[#F4EFE3] text-slate-700 flex items-center justify-between">
-                          <span>KG</span>
-                          <span className="text-[10px] text-slate-500 uppercase font-sans">ZMCC Standard</span>
-                        </div>
-                      )}
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-600 mb-1">Basis *</label>
+                        <select
+                          value={portion.quantity.basis}
+                          onChange={(e) => handlePortionBasisChange(index, e.target.value as MeasurementBasisType)}
+                          className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none"
+                        >
+                          {pAllowedBases.map((b) => (
+                            <option key={b} value={b}>
+                              {b}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-600 mb-1">Method *</label>
+                        <select
+                          value={portion.quantity.method}
+                          onChange={(e) => handlePortionMethodChange(index, e.target.value as MeasurementMethodType)}
+                          className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none"
+                        >
+                          {pAllowedMethods.map((m) => (
+                            <option key={m} value={m}>
+                              {m}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
+
+                    {portionErrors[index]?.quantity && (
+                      <p className="text-xs font-bold text-rose-600 mt-1" id={`portion-qty-error-${index}`}>
+                        {portionErrors[index].quantity}
+                      </p>
+                    )}
                   </div>
 
                   {/* Contractor Dispatch Tests Grid (Explicit Performance Status) */}
@@ -1043,29 +1330,28 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                         </span>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
                         {manualLabTests.map((test) => {
-                          const resultState = portion.results[test.id] || {
+                          const resultState = portion.results[test.testId] || {
                             numericValue: '',
                             textValue: '',
-                            performanceStatus: 'NOT_PERFORMED',
-                            notPerformedReason: 'Contract Vehicle',
+                            performanceStatus: 'PERFORMED',
+                            notPerformedReason: '',
                           };
-                          const testError = portionErrors[index]?.tests?.[test.id];
+                          const testError = portionErrors[index]?.tests?.[test.testId];
                           const isPerformed = resultState.performanceStatus === 'PERFORMED';
 
                           return (
                             <div
                               key={`contractor-test-${portion.clientId}-${test.id}`}
-                              className={`p-3 rounded-xl border space-y-2 transition ${
+                              className={`p-2.5 rounded-xl border space-y-2 transition ${
                                 testError
-                                  ? 'border-rose-500 bg-rose-50/20 ring-1 ring-rose-500'
+                                  ? 'border-rose-500 bg-rose-50/30 ring-1 ring-rose-400'
                                   : isPerformed
-                                  ? 'bg-blue-50/30 border-blue-200'
-                                  : 'bg-[#F4EFE3] border-[#C4B9A3]'
+                                  ? 'border-[#C4B9A3] bg-[#F4EFE3]'
+                                  : 'border-slate-300 bg-slate-100/70'
                               }`}
                             >
-                              {/* Test Header */}
                               <div className="flex items-center justify-between text-xs font-bold">
                                 <span className="text-[#111311] font-extrabold">
                                   {test.testName}
@@ -1079,7 +1365,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                               <div className="flex items-center space-x-1.5">
                                 <button
                                   type="button"
-                                  onClick={() => handlePerformanceStatusChange(index, test.id, 'PERFORMED')}
+                                  onClick={() => handlePerformanceStatusChange(index, test.testId, 'PERFORMED')}
                                   className={`px-2.5 py-1 rounded-lg text-[10.5px] font-black transition ${
                                     isPerformed
                                       ? 'bg-[#1E40AF] text-white shadow-sm'
@@ -1090,7 +1376,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => handlePerformanceStatusChange(index, test.id, 'NOT_PERFORMED')}
+                                  onClick={() => handlePerformanceStatusChange(index, test.testId, 'NOT_PERFORMED')}
                                   className={`px-2.5 py-1 rounded-lg text-[10.5px] font-black transition ${
                                     !isPerformed
                                       ? 'bg-rose-700 text-white shadow-sm'
@@ -1112,7 +1398,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                                       min="0"
                                       value={resultState.numericValue}
                                       onChange={(e) =>
-                                        handleTestResultChange(index, test.id, 'numericValue', e.target.value)
+                                        handleTestResultChange(index, test.testId, 'numericValue', e.target.value)
                                       }
                                       placeholder="Enter numeric value"
                                       className={`w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none ${
@@ -1125,7 +1411,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                                       value={resultState.textValue || null}
                                       options={test.resultOptions}
                                       onChange={(val) =>
-                                        handleTestResultChange(index, test.id, 'textValue', val)
+                                        handleTestResultChange(index, test.testId, 'textValue', val)
                                       }
                                       error={testError}
                                       ariaLabel={`${test.testName} result for Portion ${portion.portionNumber}`}
@@ -1136,7 +1422,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                                       type="text"
                                       value={resultState.textValue}
                                       onChange={(e) =>
-                                        handleTestResultChange(index, test.id, 'textValue', e.target.value)
+                                        handleTestResultChange(index, test.testId, 'textValue', e.target.value)
                                       }
                                       placeholder="Enter result"
                                       className={`w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none ${
@@ -1152,7 +1438,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                                     type="text"
                                     value={resultState.notPerformedReason}
                                     onChange={(e) =>
-                                      handleTestResultChange(index, test.id, 'notPerformedReason', e.target.value)
+                                      handleTestResultChange(index, test.testId, 'notPerformedReason', e.target.value)
                                     }
                                     placeholder="Reason (e.g. Contract Vehicle)"
                                     className={`w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border bg-rose-50/40 text-rose-900 border-rose-300 focus:ring-2 focus:ring-rose-500 outline-none ${
@@ -1189,13 +1475,13 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                       ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                           {manualLabTests.map((test) => {
-                            const resultState = portion.results[test.id] || {
+                            const resultState = portion.results[test.testId] || {
                               numericValue: '',
                               textValue: '',
                               performanceStatus: 'PERFORMED',
                               notPerformedReason: '',
                             };
-                            const testError = portionErrors[index]?.tests?.[test.id];
+                            const testError = portionErrors[index]?.tests?.[test.testId];
 
                             return (
                               <div
@@ -1219,7 +1505,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                                       <div className="flex items-center space-x-1">
                                         <button
                                           type="button"
-                                          onClick={() => handlePerformanceStatusChange(index, test.id, 'PERFORMED')}
+                                          onClick={() => handlePerformanceStatusChange(index, test.testId, 'PERFORMED')}
                                           className={`px-2 py-0.5 rounded font-black transition ${
                                             resultState.performanceStatus === 'PERFORMED'
                                               ? 'bg-blue-700 text-white'
@@ -1230,7 +1516,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                                         </button>
                                         <button
                                           type="button"
-                                          onClick={() => handlePerformanceStatusChange(index, test.id, 'NOT_PERFORMED')}
+                                          onClick={() => handlePerformanceStatusChange(index, test.testId, 'NOT_PERFORMED')}
                                           className={`px-2 py-0.5 rounded font-black transition ${
                                             resultState.performanceStatus === 'NOT_PERFORMED'
                                               ? 'bg-rose-700 text-white'
@@ -1249,7 +1535,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                                         step="0.01"
                                         value={resultState.numericValue}
                                         onChange={(e) =>
-                                          handleTestResultChange(index, test.id, 'numericValue', e.target.value)
+                                          handleTestResultChange(index, test.testId, 'numericValue', e.target.value)
                                         }
                                         placeholder="Enter value"
                                         className={`w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border bg-white text-[#111311] ${
@@ -1262,7 +1548,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                                         type="text"
                                         value={resultState.notPerformedReason}
                                         onChange={(e) =>
-                                          handleTestResultChange(index, test.id, 'notPerformedReason', e.target.value)
+                                          handleTestResultChange(index, test.testId, 'notPerformedReason', e.target.value)
                                         }
                                         placeholder="Enter reason for not performing"
                                         className={`w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border bg-rose-50 text-rose-900 border-rose-300 ${
@@ -1277,7 +1563,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                                       <div className="flex items-center space-x-1">
                                         <button
                                           type="button"
-                                          onClick={() => handlePerformanceStatusChange(index, test.id, 'PERFORMED')}
+                                          onClick={() => handlePerformanceStatusChange(index, test.testId, 'PERFORMED')}
                                           className={`px-2 py-0.5 rounded font-black transition ${
                                             resultState.performanceStatus === 'PERFORMED'
                                               ? 'bg-blue-700 text-white'
@@ -1288,7 +1574,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                                         </button>
                                         <button
                                           type="button"
-                                          onClick={() => handlePerformanceStatusChange(index, test.id, 'NOT_PERFORMED')}
+                                          onClick={() => handlePerformanceStatusChange(index, test.testId, 'NOT_PERFORMED')}
                                           className={`px-2 py-0.5 rounded font-black transition ${
                                             resultState.performanceStatus === 'NOT_PERFORMED'
                                               ? 'bg-rose-700 text-white'
@@ -1306,7 +1592,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                                         value={resultState.textValue || null}
                                         options={test.resultOptions}
                                         onChange={(val) =>
-                                          handleTestResultChange(index, test.id, 'textValue', val)
+                                          handleTestResultChange(index, test.testId, 'textValue', val)
                                         }
                                         error={testError}
                                         ariaLabel={`${test.testName} result for Portion ${portion.portionNumber}`}
@@ -1317,7 +1603,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                                         type="text"
                                         value={resultState.notPerformedReason}
                                         onChange={(e) =>
-                                          handleTestResultChange(index, test.id, 'notPerformedReason', e.target.value)
+                                          handleTestResultChange(index, test.testId, 'notPerformedReason', e.target.value)
                                         }
                                         placeholder="Enter reason for not performing"
                                         className={`w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border bg-rose-50 text-rose-900 border-rose-300 ${
@@ -1332,7 +1618,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                                     type="text"
                                     value={resultState.textValue}
                                     onChange={(e) =>
-                                      handleTestResultChange(index, test.id, 'textValue', e.target.value)
+                                      handleTestResultChange(index, test.testId, 'textValue', e.target.value)
                                     }
                                     placeholder="Enter result"
                                     className={`w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border bg-white text-[#111311] ${
@@ -1463,19 +1749,19 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
         <div className="flex items-center justify-between text-xs font-extrabold text-[#111311]">
           <span>Portions: <span className="font-mono text-[#1E40AF]">{portions.length}</span> ({savedCount} Saved)</span>
           <span>
-            Total Volume:{' '}
+            Vehicle Quantity:{' '}
             <span className="font-mono text-[#1E40AF]">
-              {totalDeclaredKg.toLocaleString()} {portions[0]?.declaredQuantityUnit || 'KG'}
+              {vehicleQuantity.value ? `${vehicleQuantity.value} ${vehicleQuantity.unit}` : '—'}
             </span>
           </span>
         </div>
 
         <button
           type="submit"
-          disabled={isSubmitting || savedCount === 0 || editingPortionIndex !== null || !vehicleNumber.trim()}
+          disabled={isSubmitting || savedCount === 0 || editingPortionIndex !== null || !vehicleNumber.trim() || !vehicleQuantity.value || Number(vehicleQuantity.value) <= 0}
           className="w-full py-3 rounded-xl bg-[#1E40AF] text-white font-extrabold text-sm shadow-md hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition"
         >
-          {isSubmitting ? 'Submitting Dispatch...' : `Submit Dispatch (${totalDeclaredKg.toLocaleString()} ${portions[0]?.declaredQuantityUnit || 'KG'})`}
+          {isSubmitting ? 'Submitting Dispatch...' : `Submit Dispatch (${vehicleQuantity.value ? `${vehicleQuantity.value} ${vehicleQuantity.unit}` : '—'})`}
         </button>
       </div>
     </form>

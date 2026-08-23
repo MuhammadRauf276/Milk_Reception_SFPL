@@ -1,4 +1,10 @@
 import { z } from 'zod';
+import {
+  parsePositiveDecimalString,
+  quantityValueSchema,
+} from '@/backend/modules/dispatch/quantity/validation';
+
+export { parsePositiveDecimalString, quantityValueSchema };
 
 export const dispatchTestResultSchema = z.object({
   testId: z.string().min(1, 'Test ID is required'),
@@ -8,10 +14,20 @@ export const dispatchTestResultSchema = z.object({
   notPerformedReason: z.string().nullable().optional(),
 });
 
+export const quantityUnitSchema = z.enum(['KG', 'LITER']);
+export const measurementBasisSchema = z.enum(['ESTIMATED', 'MEASURED']);
+export const measurementMethodSchema = z.enum(['MANUAL_ESTIMATE', 'WEIGHING', 'FLOW_METER', 'OTHER']);
+
+export const quantityMeasurementInputSchema = z.object({
+  value: quantityValueSchema,
+  unit: quantityUnitSchema,
+  basis: measurementBasisSchema,
+  method: measurementMethodSchema,
+});
+
 export const dispatchPortionSchema = z.object({
   portionNumber: z.number().int().min(1, 'Portion number must be 1 or greater'),
-  declaredQuantityKg: z.number().positive('Enter a quantity greater than 0.'),
-  declaredQuantityUnit: z.enum(['KG', 'LITER']).optional().default('KG'),
+  quantity: quantityMeasurementInputSchema,
   dispatchTimestamp: z.string().optional(),
   results: z.array(dispatchTestResultSchema).optional().default([]),
 });
@@ -30,6 +46,7 @@ export const createDispatchSchema = z
     dispatchTestingMode: z.enum(['FULL', 'PARTIAL', 'NOT_PERFORMED']).optional().default('FULL'),
     dispatchTestingReason: z.string().nullable().optional(),
     dispatchTestingRemarks: z.string().nullable().optional(),
+    vehicleQuantity: quantityMeasurementInputSchema,
     portions: z.array(dispatchPortionSchema).min(1, 'At least one portion is required'),
   })
   .refine(
@@ -44,6 +61,7 @@ export const createDispatchSchema = z
   );
 
 export type CreateDispatchInput = z.infer<typeof createDispatchSchema>;
+
 
 /**
  * Scoped sessionStorage draft key for MPD Dispatch draft isolation

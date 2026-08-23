@@ -46,10 +46,6 @@ export async function GET(req: Request) {
       const portions = v.portions || [];
       const acceptedPortions = portions.filter((p) => (p.plant_decision || '').toUpperCase() === 'ACCEPTED');
       const rejectedPortions = portions.filter((p) => (p.plant_decision || '').toUpperCase() === 'REJECTED');
-      const acceptedDeclaredKg = acceptedPortions.reduce(
-        (sum, p) => sum + (p.declared_quantity_value ? Number(p.declared_quantity_value) : 0),
-        0
-      );
 
       // Determine plant decision summary
       const decisions = portions.map((p) => (p.plant_decision || 'PENDING').toUpperCase());
@@ -94,13 +90,21 @@ export async function GET(req: Request) {
         portion_count: portions.length,
         accepted_portion_count: acceptedPortions.length,
         rejected_portion_count: rejectedPortions.length,
-        accepted_declared_kg: acceptedDeclaredKg,
+        vehicle_dispatch_quantity_value: v.vehicle_dispatch_quantity_value !== null && v.vehicle_dispatch_quantity_value !== undefined
+          ? Number(v.vehicle_dispatch_quantity_value)
+          : null,
+        vehicle_dispatch_quantity_unit: v.vehicle_dispatch_quantity_unit || null,
+        vehicle_dispatch_quantity_basis: v.vehicle_dispatch_quantity_basis || null,
+        vehicle_dispatch_measurement_method: v.vehicle_dispatch_measurement_method || null,
         waiting_minutes: waitingMinutes,
         plant_decision_summary: plantDecisionSummary,
         portions: portions.map((p) => ({
           id: p.id.toString(),
           portion_number: p.portion_number,
-          declared_quantity_kg: p.declared_quantity_value ? Number(p.declared_quantity_value) : 0,
+          dispatch_quantity_value: p.dispatch_quantity_value !== null && p.dispatch_quantity_value !== undefined ? Number(p.dispatch_quantity_value) : null,
+          dispatch_quantity_unit: p.dispatch_quantity_unit || null,
+          dispatch_quantity_basis: p.dispatch_quantity_basis || null,
+          dispatch_measurement_method: p.dispatch_measurement_method || null,
           plant_decision: p.plant_decision || 'PENDING',
           plant_rejection_reason: p.plant_rejection_reason || null,
         })),

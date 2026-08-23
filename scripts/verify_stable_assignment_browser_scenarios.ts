@@ -5,6 +5,7 @@ import { POST as startDispatch } from '../src/app/api/dispatches/start/route';
 import { POST as createDispatch } from '../src/app/api/dispatches/route';
 import { createSessionToken } from '../src/backend/core/auth';
 import { User, Role } from '../src/backend/core/types';
+import { getOperationalBusinessDate } from '../src/backend/core/business-day';
 
 async function makeReq(url: string, method = 'GET', body: any = null, u: any = null) {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -41,6 +42,7 @@ async function verifyBrowserScenarios() {
   }
 
   const effectiveSourceId = (zmccUser.procurement_source_id || zmccSource.id).toString();
+  const regressionBusinessDate = getOperationalBusinessDate(new Date());
 
   // =========================================================================
   // BROWSER SCENARIO 1: DISPATCH FORM & REFRESH STABILITY
@@ -99,9 +101,10 @@ async function verifyBrowserScenarios() {
   const reqSubmitA = await makeReq('http://localhost:3000/api/dispatches', 'POST', {
     visitId: visitIdA.toString(),
     vehicleNumber: 'BRW-DISP-A-' + nowA,
-    operationalDate: new Date().toISOString().split('T')[0],
+    operationalDate: regressionBusinessDate,
     procurementSourceId: effectiveSourceId,
-    portions: [{ portionNumber: 1, declaredQuantityKg: 8000, declaredQuantityUnit: 'KG', results: manualA }],
+    vehicleQuantity: { value: '8000', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
+    portions: [{ portionNumber: 1, quantity: { value: '8000', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' }, results: manualA }],
   }, zmccUser);
   const resSubmitA = await createDispatch(reqSubmitA);
   const dataSubmitA = await resSubmitA.json();
@@ -129,9 +132,10 @@ async function verifyBrowserScenarios() {
   const reqSubmitB = await makeReq('http://localhost:3000/api/dispatches', 'POST', {
     visitId: visitIdB.toString(),
     vehicleNumber: 'BRW-DISP-B-' + nowB,
-    operationalDate: new Date().toISOString().split('T')[0],
+    operationalDate: regressionBusinessDate,
     procurementSourceId: effectiveSourceId,
-    portions: [{ portionNumber: 1, declaredQuantityKg: 8200, declaredQuantityUnit: 'KG', results: manualB }],
+    vehicleQuantity: { value: '8200', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
+    portions: [{ portionNumber: 1, quantity: { value: '8200', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' }, results: manualB }],
   }, zmccUser);
   const resSubmitB = await createDispatch(reqSubmitB);
   console.log('[Step 5] Dispatch B submitted with status: ' + resSubmitB.status);
@@ -166,9 +170,10 @@ async function verifyBrowserScenarios() {
   const reqSubmitC = await makeReq('http://localhost:3000/api/dispatches', 'POST', {
     visitId: visitIdC.toString(),
     vehicleNumber: 'BRW-DISP-C-' + nowC,
-    operationalDate: new Date().toISOString().split('T')[0],
+    operationalDate: regressionBusinessDate,
     procurementSourceId: effectiveSourceId,
-    portions: [{ portionNumber: 1, declaredQuantityKg: 8500, declaredQuantityUnit: 'KG', results: manualC }],
+    vehicleQuantity: { value: '8500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
+    portions: [{ portionNumber: 1, quantity: { value: '8500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' }, results: manualC }],
   }, zmccUser);
   const resSubmitC = await createDispatch(reqSubmitC);
   console.log('[Step 6] Dispatch C submitted with status: ' + resSubmitC.status);

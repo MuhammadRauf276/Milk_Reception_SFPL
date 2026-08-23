@@ -1,12 +1,16 @@
 import { prisma } from '../src/backend/core/db';
 import { GET, POST } from '../src/app/api/dispatches/route';
+import { POST as startDispatchPost } from '../src/app/api/dispatches/start/route';
 import { createSessionToken } from '../src/backend/core/auth';
 import { User, Role } from '../src/backend/core/types';
+import { getOperationalBusinessDate } from '../src/backend/core/business-day';
 
 async function runRegressionTests() {
   console.log('==================================================');
   console.log('STARTING MPD SOURCE VISIBILITY & TESTING RULES SUITE');
   console.log('==================================================\n');
+
+  const regressionBusinessDate = getOperationalBusinessDate(new Date());
 
   let passed = 0;
   let failed = 0;
@@ -60,6 +64,13 @@ async function runRegressionTests() {
       headers,
       body: bodyObj ? JSON.stringify(bodyObj) : undefined,
     });
+  }
+
+  async function startDraft(user: any, sourceId?: string) {
+    const req = await createAuthRequest('http://localhost:3000/api/dispatches/start', 'POST', { procurementSourceId: sourceId }, user);
+    const res = await startDispatchPost(req);
+    const data = await res.json();
+    return data;
   }
 
   // 2. Source Visibility Scoping Tests (GET /api/dispatches)
@@ -125,23 +136,150 @@ async function runRegressionTests() {
     `Total Admin Visible = ${adminVisits.length}`
   );
 
+  // Create controlled temporary fixtures with deterministic dates to prove range filtering:
+  // 1. Recent fixture: 2 days old (within 7d, within 30d)
+  // 2. Medium fixture: 10 days old (outside 7d, within 30d)
+  // 3. Old fixture: 40 days old (outside 7d, outside 30d)
+  const nowMs = Date.now();
+  const dateRecent = new Date(nowMs - 2 * 24 * 60 * 60 * 1000);
+  const dateMedium = new Date(nowMs - 10 * 24 * 60 * 60 * 1000);
+  const dateOld = new Date(nowMs - 40 * 24 * 60 * 60 * 1000);
+
+  const fixtureRecent = await prisma.vehicleVisit.create({
+    data: {
+      visit_number: `VV-TEST-REC-${nowMs}`,
+      reception_number: `REC-TEST-REC-${nowMs}`,
+      vehicle_number: 'TEST-REC-01',
+      operational_date: dateRecent,
+      current_status: 'DISPATCHED',
+      procurement_source_id: hasilpurUser.procurement_source_id,
+      created_by: hasilpurUser.id,
+      created_at: dateRecent,
+      vehicle_dispatch_quantity_value: 5000,
+      vehicle_dispatch_quantity_unit: 'KG',
+      vehicle_dispatch_quantity_basis: 'MEASURED',
+      vehicle_dispatch_measurement_method: 'WEIGHING',
+    },
+  });
+
+  const fixtureMedium = await prisma.vehicleVisit.create({
+    data: {
+      visit_number: `VV-TEST-MED-${nowMs}`,
+      reception_number: `REC-TEST-MED-${nowMs}`,
+      vehicle_number: 'TEST-MED-01',
+      operational_date: dateMedium,
+      current_status: 'DISPATCHED',
+      procurement_source_id: hasilpurUser.procurement_source_id,
+      created_by: hasilpurUser.id,
+      created_at: dateMedium,
+      vehicle_dispatch_quantity_value: 6000,
+      vehicle_dispatch_quantity_unit: 'KG',
+      vehicle_dispatch_quantity_basis: 'MEASURED',
+      vehicle_dispatch_measurement_method: 'WEIGHING',
+    },
+  });
+
+  const fixtureOld = await prisma.vehicleVisit.create({
+    data: {
+      visit_number: `VV-TEST-OLD-${nowMs}`,
+      reception_number: `REC-TEST-OLD-${nowMs}`,
+      vehicle_number: 'TEST-OLD-01',
+      operational_date: dateOld,
+      current_status: 'DISPATCHED',
+      procurement_source_id: hasilpurUser.procurement_source_id,
+      created_by: hasilpurUser.id,
+      created_at: dateOld,
+      vehicle_dispatch_quantity_value: 7000,
+      vehicle_dispatch_quantity_unit: 'KG',
+      vehicle_dispatch_quantity_basis: 'MEASURED',
+      vehicle_dispatch_measurement_method: 'WEIGHING',
+    },
+  });
+
+  // Test 1.6: GET /api/dispatches?range=7d includes recent fixture, excludes medium (10d) and old (40d)
+  const req7d = await createAuthRequest('http://localhost:3000/api/dispatches?range=7d&pageSize=100', 'GET', undefined, hasilpurUser);
+  const res7d = await GET(req7d);
+  const data7d = await res7d.json();
+  const list7d = data7d.dispatches || [];
+  const includesRecent7d = list7d.some((v: any) => v.id === fixtureRecent.id.toString());
+  const excludesMedium7d = !list7d.some((v: any) => v.id === fixtureMedium.id.toString());
+  const excludesOld7d = !list7d.some((v: any) => v.id === fixtureOld.id.toString());
+  assert(
+    res7d.ok && includesRecent7d && excludesMedium7d && excludesOld7d,
+    'TEST-1.6: GET /api/dispatches?range=7d proves inclusion of 2-day fixture and exclusion of 10-day & 40-day fixtures',
+    `includesRecent=${includesRecent7d}, excludesMed=${excludesMedium7d}, excludesOld=${excludesOld7d}`
+  );
+
+  // Test 1.7: GET /api/dispatches?range=custom with 8d-12d bounds includes 10-day fixture, excludes 2-day & 40-day
+  const customFrom = new Date(nowMs - 12 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const customTo = new Date(nowMs - 8 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const reqCustom = await createAuthRequest(`http://localhost:3000/api/dispatches?range=custom&fromDate=${customFrom}&toDate=${customTo}&pageSize=100`, 'GET', undefined, hasilpurUser);
+  const resCustom = await GET(reqCustom);
+  const dataCustom = await resCustom.json();
+  const listCustom = dataCustom.dispatches || [];
+  const includesMediumCustom = listCustom.some((v: any) => v.id === fixtureMedium.id.toString());
+  const excludesRecentCustom = !listCustom.some((v: any) => v.id === fixtureRecent.id.toString());
+  const excludesOldCustom = !listCustom.some((v: any) => v.id === fixtureOld.id.toString());
+  assert(
+    resCustom.ok && includesMediumCustom && excludesRecentCustom && excludesOldCustom,
+    'TEST-1.7: GET /api/dispatches?range=custom proves inclusion of 10-day fixture and exclusion of out-of-range fixtures',
+    `includesMed=${includesMediumCustom}, excludesRecent=${excludesRecentCustom}, excludesOld=${excludesOldCustom}`
+  );
+
+  // Cleanup temporary date-range fixtures
+  await prisma.vehicleVisit.deleteMany({
+    where: {
+      id: { in: [fixtureRecent.id, fixtureMedium.id, fixtureOld.id] },
+    },
+  });
+
+  // Test 1.8: fromDate > toDate returns 400 with "From Date cannot be after To Date"
+  const reqInvalidCustom = await createAuthRequest(`http://localhost:3000/api/dispatches?range=custom&fromDate=2026-08-30&toDate=2026-08-01`, 'GET', undefined, hasilpurUser);
+  const resInvalidCustom = await GET(reqInvalidCustom);
+  const dataInvalidCustom = await resInvalidCustom.json();
+  assert(
+    resInvalidCustom.status === 400 && dataInvalidCustom.error === 'From Date cannot be after To Date',
+    'TEST-1.8: Custom range with fromDate > toDate returns 400 "From Date cannot be after To Date"',
+    `Status = ${resInvalidCustom.status}, Error = "${dataInvalidCustom.error}"`
+  );
+
+  // Test 1.9: Normal Recent Dispatches query strictly excludes DRAFT_DISPATCH and CANCELLED
+  const draftForExclusion = await startDraft(hasilpurUser);
+  const reqRecent = await createAuthRequest('http://localhost:3000/api/dispatches?range=30d', 'GET', undefined, hasilpurUser);
+  const resRecent = await GET(reqRecent);
+  const dataRecent = await resRecent.json();
+  const recentVisits = dataRecent.dispatches || [];
+  const containsDraft = recentVisits.some((v: any) => v.id === draftForExclusion.visitId || v.current_status === 'DRAFT_DISPATCH');
+  const containsCancelled = recentVisits.some((v: any) => v.current_status === 'CANCELLED');
+  assert(
+    resRecent.ok && !containsDraft && !containsCancelled,
+    'TEST-1.9: Recent dispatches query strictly excludes DRAFT_DISPATCH and CANCELLED records',
+    `Contains Draft = ${containsDraft}, Contains Cancelled = ${containsCancelled}`
+  );
+
+  if (draftForExclusion?.visitId) {
+    await prisma.vehicleVisit.deleteMany({ where: { id: BigInt(draftForExclusion.visitId) } });
+  }
+
   // 3. POST /api/dispatches Source Authorization & Tampering Tests
   console.log('\n--- 2. POST API Source Tampering & Authorization Tests ---');
 
   // Test 2.1: Source-bound operator attempts to create a visit for unauthorized source
+  const draftTamper = await startDraft(hasilpurUser);
   const reqPostTamper = await createAuthRequest(
     'http://localhost:3000/api/dispatches',
     'POST',
     {
+      visitId: draftTamper.visitId,
       vehicleNumber: 'TEST-9999',
-      operationalDate: new Date().toISOString().split('T')[0],
+      operationalDate: regressionBusinessDate,
       procurementSourceId: jhangSource?.id.toString(), // Tampered source ID
       zonalContractorName: 'ZMCC Jhang',
+      vehicleQuantity: { value: '8500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
       portions: [
         {
           portionNumber: 1,
-          declaredQuantityKg: 8500,
-          declaredQuantityUnit: 'KG',
+          quantity: { value: '8500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
           results: [],
         },
       ],
@@ -160,17 +298,19 @@ async function runRegressionTests() {
   console.log('\n--- 3. Declared Quantity & Unit Validation Tests ---');
 
   // Test 3.1: Negative declared quantity (-500)
+  const draftNeg = await startDraft(hasilpurUser);
   const reqNegQty = await createAuthRequest(
     'http://localhost:3000/api/dispatches',
     'POST',
     {
+      visitId: draftNeg.visitId,
       vehicleNumber: 'TEST-8888',
-      operationalDate: new Date().toISOString().split('T')[0],
+      operationalDate: regressionBusinessDate,
+      vehicleQuantity: { value: '8500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
       portions: [
         {
           portionNumber: 1,
-          declaredQuantityKg: -500,
-          declaredQuantityUnit: 'KG',
+          quantity: { value: '-500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
           results: [],
         },
       ],
@@ -180,23 +320,25 @@ async function runRegressionTests() {
   const resNegQty = await POST(reqNegQty);
   const dataNegQty = await resNegQty.json();
   assert(
-    resNegQty.status === 400 && dataNegQty.error.includes('greater than 0'),
+    resNegQty.status === 400 && (dataNegQty.error.includes('greater than 0') || dataNegQty.error.includes('positive')),
     'TEST-3.1: Negative declared quantity (-500) is strictly rejected',
     `Status = ${resNegQty.status}, Error = "${dataNegQty.error}"`
   );
 
   // Test 3.2: Zero declared quantity (0)
+  const draftZero = await startDraft(hasilpurUser);
   const reqZeroQty = await createAuthRequest(
     'http://localhost:3000/api/dispatches',
     'POST',
     {
+      visitId: draftZero.visitId,
       vehicleNumber: 'TEST-8887',
-      operationalDate: new Date().toISOString().split('T')[0],
+      operationalDate: regressionBusinessDate,
+      vehicleQuantity: { value: '8500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
       portions: [
         {
           portionNumber: 1,
-          declaredQuantityKg: 0,
-          declaredQuantityUnit: 'KG',
+          quantity: { value: '0', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
           results: [],
         },
       ],
@@ -206,35 +348,91 @@ async function runRegressionTests() {
   const resZeroQty = await POST(reqZeroQty);
   const dataZeroQty = await resZeroQty.json();
   assert(
-    resZeroQty.status === 400 && dataZeroQty.error.includes('greater than 0'),
+    resZeroQty.status === 400 && (dataZeroQty.error.includes('greater than 0') || dataZeroQty.error.includes('positive') || dataZeroQty.error.includes('0.01')),
     'TEST-3.2: Zero declared quantity (0) is strictly rejected',
     `Status = ${resZeroQty.status}, Error = "${dataZeroQty.error}"`
   );
 
+  // Test 3.2b: More than 2 decimal places (e.g. 0.001) is rejected at API level before DB
+  const draftDecPlaces = await startDraft(hasilpurUser);
+  const reqDecPlaces = await createAuthRequest(
+    'http://localhost:3000/api/dispatches',
+    'POST',
+    {
+      visitId: draftDecPlaces.visitId,
+      vehicleNumber: 'TEST-8886',
+      operationalDate: regressionBusinessDate,
+      vehicleQuantity: { value: '8500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
+      portions: [
+        {
+          portionNumber: 1,
+          quantity: { value: '0.001', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
+          results: [],
+        },
+      ],
+    },
+    hasilpurUser
+  );
+  const resDecPlaces = await POST(reqDecPlaces);
+  const dataDecPlaces = await resDecPlaces.json();
+  assert(
+    resDecPlaces.status === 400,
+    'TEST-3.2b: Portion quantity with >2 decimal places (0.001) is rejected with 400 at API level',
+    `Status = ${resDecPlaces.status}, Error = "${dataDecPlaces.error}"`
+  );
+
+  // Test 3.2c: Vehicle quantity exceeding maximum (100,000,000) is rejected at API level
+  const draftMaxExceeded = await startDraft(hasilpurUser);
+  const reqMaxExceeded = await createAuthRequest(
+    'http://localhost:3000/api/dispatches',
+    'POST',
+    {
+      visitId: draftMaxExceeded.visitId,
+      vehicleNumber: 'TEST-8885',
+      operationalDate: regressionBusinessDate,
+      vehicleQuantity: { value: '100000000', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
+      portions: [
+        {
+          portionNumber: 1,
+          quantity: { value: '8500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
+          results: [],
+        },
+      ],
+    },
+    hasilpurUser
+  );
+  const resMaxExceeded = await POST(reqMaxExceeded);
+  const dataMaxExceeded = await resMaxExceeded.json();
+  assert(
+    resMaxExceeded.status === 400,
+    'TEST-3.2c: Vehicle quantity exceeding 99,999,999.99 (100000000) is rejected with 400 at API level',
+    `Status = ${resMaxExceeded.status}, Error = "${dataMaxExceeded.error}"`
+  );
+
   // Fetch active lab tests for accountability
-  const allActiveTests = await prisma.labTest.findMany({
-    where: { isActive: true, testScope: { in: ['DISPATCH', 'BOTH'] } },
-  });
-  const defaultContResults = allActiveTests
-    .filter((t) => t.resultType !== 'CALCULATED')
-    .map((t) => ({
-      testId: t.id.toString(),
-      performanceStatus: 'NOT_PERFORMED' as const,
-      notPerformedReason: 'Contract Vehicle',
-    }));
+  const draftContLiter = await startDraft(alkhairUser);
+  const assignedContTests = (draftContLiter.assignedTests || []).filter((t: any) => t.resultType !== 'CALCULATED');
+  const defaultContResults = assignedContTests.map((t: any) => ({
+    testId: t.testId,
+    performanceStatus: 'NOT_PERFORMED' as const,
+    notPerformedReason: 'Contract Vehicle',
+  }));
 
   // Test 3.3: Contractor declares quantity in LITERS
   const reqContLiter = await createAuthRequest(
     'http://localhost:3000/api/dispatches',
     'POST',
     {
+      visitId: draftContLiter.visitId,
       vehicleNumber: 'CONT-9800',
-      operationalDate: new Date().toISOString().split('T')[0],
+      operationalDate: regressionBusinessDate,
+      dispatchTestingMode: 'NOT_PERFORMED',
+      dispatchTestingReason: 'Contract Vehicle',
+      vehicleQuantity: { value: '9800', unit: 'LITER', basis: 'ESTIMATED', method: 'MANUAL_ESTIMATE' },
       portions: [
         {
           portionNumber: 1,
-          declaredQuantityKg: 9800,
-          declaredQuantityUnit: 'LITER',
+          quantity: { value: '9800', unit: 'LITER', basis: 'ESTIMATED', method: 'MANUAL_ESTIMATE' },
           results: defaultContResults,
         },
       ],
@@ -257,25 +455,19 @@ async function runRegressionTests() {
     where: { visit_id: BigInt(dataContLiter.visitId) },
   });
   assert(
-    createdPortion?.declared_quantity_unit === 'LITER' && Number(createdPortion?.declared_quantity_value) === 9800,
+    createdPortion?.dispatch_quantity_unit === 'LITER' && Number(createdPortion?.dispatch_quantity_value) === 9800,
     'TEST-3.4: DB VisitPortion retains original declared quantity value (9,800) and unit ("LITER")',
-    `Stored Unit = ${createdPortion?.declared_quantity_unit}, Value = ${createdPortion?.declared_quantity_value}`
+    `Stored Unit = ${createdPortion?.dispatch_quantity_unit}, Value = ${createdPortion?.dispatch_quantity_value}`
   );
 
   // 5. Contractor Test Accountability Workflow Tests
   console.log('\n--- 4. Contractor Test Accountability Workflow Tests ---');
 
-  // Fetch active lab tests
-  const activeTests = await prisma.labTest.findMany({
-    where: { isActive: true, testScope: { in: ['DISPATCH', 'BOTH'] } },
-  });
-  const manualTests = activeTests.filter((t) => t.resultType !== 'CALCULATED');
-  const tempTest = activeTests.find((t) => t.testName.toLowerCase().includes('temperature'));
-  const fatTest = activeTests.find((t) => t.testName.toLowerCase().includes('fat') && !t.testName.toLowerCase().includes('snf'));
-
   // Test 4.1: Contractor Default All NOT_PERFORMED Case
-  const allNotPerfResults = manualTests.map((t) => ({
-    testId: t.id.toString(),
+  const draftContAllNotPerf = await startDraft(alkhairUser);
+  const assignedNotPerf = (draftContAllNotPerf.assignedTests || []).filter((t: any) => t.resultType !== 'CALCULATED');
+  const allNotPerfResults = assignedNotPerf.map((t: any) => ({
+    testId: t.testId,
     performanceStatus: 'NOT_PERFORMED' as const,
     notPerformedReason: 'Contract Vehicle',
   }));
@@ -284,13 +476,16 @@ async function runRegressionTests() {
     'http://localhost:3000/api/dispatches',
     'POST',
     {
+      visitId: draftContAllNotPerf.visitId,
       vehicleNumber: 'CONT-NOT-PERF',
-      operationalDate: new Date().toISOString().split('T')[0],
+      operationalDate: regressionBusinessDate,
+      dispatchTestingMode: 'NOT_PERFORMED',
+      dispatchTestingReason: 'Contract Vehicle',
+      vehicleQuantity: { value: '9500', unit: 'LITER', basis: 'ESTIMATED', method: 'MANUAL_ESTIMATE' },
       portions: [
         {
           portionNumber: 1,
-          declaredQuantityKg: 9500,
-          declaredQuantityUnit: 'LITER',
+          quantity: { value: '9500', unit: 'LITER', basis: 'ESTIMATED', method: 'MANUAL_ESTIMATE' },
           results: allNotPerfResults,
         },
       ],
@@ -309,34 +504,43 @@ async function runRegressionTests() {
     where: { visit_id: BigInt(dataContAllNotPerf.visitId), performance_status: 'NOT_PERFORMED' },
   });
   assert(
-    notPerfResultsCount >= manualTests.length,
+    notPerfResultsCount >= assignedNotPerf.length,
     'TEST-4.2: Full accountability rows created in DB with status NOT_PERFORMED and reason "Contract Vehicle"',
     `NOT_PERFORMED Results in DB = ${notPerfResultsCount}`
   );
 
   // Test 4.3: Contractor PARTIAL mode with subset of PERFORMED tests + remaining NOT_PERFORMED
-  if (tempTest && fatTest) {
-    const partialResults = manualTests.map((t) => {
-      if (t.id === tempTest.id) {
-        return { testId: t.id.toString(), performanceStatus: 'PERFORMED' as const, notPerformedReason: null, numericValue: 5.2 };
-      }
-      if (t.id === fatTest.id) {
-        return { testId: t.id.toString(), performanceStatus: 'PERFORMED' as const, notPerformedReason: null, numericValue: 3.8 };
-      }
-      return { testId: t.id.toString(), performanceStatus: 'NOT_PERFORMED' as const, notPerformedReason: 'Contract Vehicle' };
-    });
+  const draftContPartial = await startDraft(alkhairUser);
+  const assignedPartial = draftContPartial.assignedTests || [];
+  const tempTestAssigned = assignedPartial.find((t: any) => t.testName.toLowerCase().includes('temperature'));
+  const fatTestAssigned = assignedPartial.find((t: any) => t.testName.toLowerCase().includes('fat') && !t.testName.toLowerCase().includes('snf'));
+
+  if (tempTestAssigned && fatTestAssigned) {
+    const partialResults = assignedPartial
+      .filter((t: any) => t.resultType !== 'CALCULATED')
+      .map((t: any) => {
+        if (t.testId === tempTestAssigned.testId) {
+          return { testId: t.testId, performanceStatus: 'PERFORMED' as const, notPerformedReason: null, numericValue: 5.2 };
+        }
+        if (t.testId === fatTestAssigned.testId) {
+          return { testId: t.testId, performanceStatus: 'PERFORMED' as const, notPerformedReason: null, numericValue: 3.8 };
+        }
+        return { testId: t.testId, performanceStatus: 'NOT_PERFORMED' as const, notPerformedReason: 'Contract Vehicle' };
+      });
 
     const reqContPartial = await createAuthRequest(
       'http://localhost:3000/api/dispatches',
       'POST',
       {
+        visitId: draftContPartial.visitId,
         vehicleNumber: 'CONT-PARTIAL',
-        operationalDate: new Date().toISOString().split('T')[0],
+        operationalDate: regressionBusinessDate,
+        dispatchTestingMode: 'PARTIAL',
+        vehicleQuantity: { value: '8900', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
         portions: [
           {
             portionNumber: 1,
-            declaredQuantityKg: 8900,
-            declaredQuantityUnit: 'KG',
+            quantity: { value: '8900', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
             results: partialResults,
           },
         ],

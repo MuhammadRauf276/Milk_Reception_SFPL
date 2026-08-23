@@ -1,23 +1,30 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
+import { Prisma } from '@prisma/client';
 import { createDispatchSchema } from '@/lib/validations/dispatch';
 import { evaluateLabResult } from '@/lib/lab-rules';
 import { generateReceptionNumber } from '@/lib/reception-number';
-import { validatePositiveDecimal, validateRequiredString } from '@/lib/validation-helpers';
+import { validateRequiredString } from '@/lib/validation-helpers';
 import { validateOperationalTimestamp } from '@/backend/services/chronology-validator';
 import { calculateSNF, calculateRatio } from '@/backend/utils/milkFormulas';
 import { getOrAssignDispatchTests } from '@/backend/services/labTestAssignmentService';
+import { getOrFreezeDispatchQuantityPolicy } from '@/backend/modules/dispatch/quantity-policy/quantityPolicyService';
+import { validateDispatchQuantities, QuantityMeasurementError } from '@/backend/modules/dispatch/quantity/dispatchQuantityService';
+import { getOperationalBusinessDate } from '@/backend/core/business-day';
 
 function serializeDispatch(visit: any) {
   const portions = visit.portions || [];
-  const totalDeclaredKg = portions.reduce(
-    (sum: number, p: any) => sum + (p.declared_quantity_value ? Number(p.declared_quantity_value) : 0),
-    0
-  );
   const firstPortion = portions[0];
   const firstDispatchInfo = firstPortion?.dispatch_info;
   const gateLog = visit.gate_log;
+
+  const vehicleQuantityValue = visit.vehicle_dispatch_quantity_value !== null && visit.vehicle_dispatch_quantity_value !== undefined
+    ? Number(visit.vehicle_dispatch_quantity_value)
+    : null;
+  const vehicleQuantityUnit = visit.vehicle_dispatch_quantity_unit || null;
+  const vehicleQuantityBasis = visit.vehicle_dispatch_quantity_basis || null;
+  const vehicleMeasurementMethod = visit.vehicle_dispatch_measurement_method || null;
 
   return {
     id: visit.id.toString(),
@@ -28,8 +35,10 @@ function serializeDispatch(visit: any) {
     operational_date: visit.operational_date ? visit.operational_date.toISOString().split('T')[0] : null,
     current_status: visit.current_status,
     portion_count: portions.length,
-    total_declared_kg: totalDeclaredKg,
-    declared_quantity_unit: firstPortion?.declared_quantity_unit || 'KG',
+    vehicle_dispatch_quantity_value: vehicleQuantityValue,
+    vehicle_dispatch_quantity_unit: vehicleQuantityUnit,
+    vehicle_dispatch_quantity_basis: vehicleQuantityBasis,
+    vehicle_dispatch_measurement_method: vehicleMeasurementMethod,
     procurement_source_id: visit.procurement_source_id ? visit.procurement_source_id.toString() : null,
     zonal_contractor_name: visit.procurement_source?.name || 'Source unavailable',
     procurement_source_type: visit.procurement_source?.source_type || 'UNKNOWN',
@@ -42,13 +51,18 @@ function serializeDispatch(visit: any) {
     portions: portions.map((p: any) => ({
       id: p.id.toString(),
       portion_number: p.portion_number,
-      declared_quantity_kg: p.declared_quantity_value ? Number(p.declared_quantity_value) : 0,
-      declared_quantity_unit: p.declared_quantity_unit || 'KG',
+      dispatch_quantity_value: p.dispatch_quantity_value !== null && p.dispatch_quantity_value !== undefined
+        ? Number(p.dispatch_quantity_value)
+        : null,
+      dispatch_quantity_unit: p.dispatch_quantity_unit || null,
+      dispatch_quantity_basis: p.dispatch_quantity_basis || null,
+      dispatch_measurement_method: p.dispatch_measurement_method || null,
       plant_decision: p.plant_decision || 'PENDING',
       current_status: p.current_status,
     })),
   };
 }
+
 
 export async function GET(req: Request) {
   const authUser = await getCurrentUser(req);
@@ -197,18 +211,17 @@ export async function POST(req: Request) {
     const body = await req.json();
     const validated = createDispatchSchema.parse(body);
 
+    if (!validated.visitId) {
+      return NextResponse.json(
+        { error: 'Draft visitId is required for dispatch creation.', code: 'DRAFT_VISIT_REQUIRED' },
+        { status: 400 }
+      );
+    }
+
     // Validate Vehicle Number
     const vehValidation = validateRequiredString(validated.vehicleNumber, 'Vehicle Number', 50);
     if (!vehValidation.isValid) {
       return NextResponse.json({ error: vehValidation.error }, { status: 400 });
-    }
-
-    // Validate Portion Quantities (> 0 & finite)
-    for (const portion of validated.portions) {
-      const qtyVal = validatePositiveDecimal(portion.declaredQuantityKg, `Portion ${portion.portionNumber} Quantity`);
-      if (!qtyVal.isValid) {
-        return NextResponse.json({ error: 'Enter a quantity greater than 0.' }, { status: 400 });
-      }
     }
 
     // Validate Operational Timestamp
@@ -267,61 +280,43 @@ export async function POST(req: Request) {
 
     const sourceType = sourceRecord.source_type || 'ZMCC';
 
-    // 1. Resolve or establish visit assignments for validation
-    let existingVisit: any = null;
-    let assignedDispatchTests: any[] = [];
-
-    if (validated.visitId) {
-      existingVisit = await prisma.vehicleVisit.findUnique({
-        where: { id: BigInt(validated.visitId) },
-      });
-      if (!existingVisit) {
-        return NextResponse.json({ error: 'Referenced dispatch draft visit not found.', code: 'DRAFT_NOT_FOUND' }, { status: 404 });
-      }
-      if (existingVisit.current_status !== 'DRAFT_DISPATCH' && existingVisit.current_status !== 'DISPATCHED') {
-        return NextResponse.json(
-          { error: `Cannot submit dispatch for vehicle in status ${existingVisit.current_status}.`, code: 'DRAFT_ALREADY_PROGRESSED' },
-          { status: 400 }
-        );
-      }
-      // Validate draft ownership (Requirement C/D)
-      if (existingVisit.created_by?.toString() !== dbUser.id.toString()) {
-        return NextResponse.json(
-          { error: 'Unauthorized. Draft visit belongs to another user.', code: 'DRAFT_OWNER_MISMATCH' },
-          { status: 403 }
-        );
-      }
-
-      // Validate draft source match (Requirement D)
-      if (existingVisit.procurement_source_id.toString() !== resolvedSourceId.toString()) {
-        return NextResponse.json(
-          { error: 'Draft visit belongs to a different procurement source.', code: 'DRAFT_SOURCE_MISMATCH' },
-          { status: 400 }
-        );
-      }
-      assignedDispatchTests = await getOrAssignDispatchTests(prisma, existingVisit.id);
-    } else {
-
-      // Query active master tests if no pre-started visit was supplied
-      const activeTests = await prisma.labTest.findMany({
-        where: {
-          isActive: true,
-          testScope: { in: ['DISPATCH', 'BOTH'] },
-        },
-        orderBy: [{ displayOrder: 'asc' }, { testName: 'asc' }],
-      });
-      assignedDispatchTests = activeTests.map((t) => ({
-        id: t.id,
-        test_id: t.id,
-        test_code_snapshot: t.testCode,
-        test_name_snapshot: t.testName,
-        result_type_snapshot: t.resultType,
-        unit_snapshot: t.unit,
-        test_scope_snapshot: t.testScope,
-        is_required_snapshot: t.isRequired,
-        display_order_snapshot: t.displayOrder,
-      }));
+    // 1. Resolve visit assignments and FROZEN quantity policy snapshot from draft
+    const existingVisit = await prisma.vehicleVisit.findUnique({
+      where: { id: BigInt(validated.visitId) },
+    });
+    if (!existingVisit) {
+      return NextResponse.json({ error: 'Referenced dispatch draft visit not found.', code: 'DRAFT_NOT_FOUND' }, { status: 404 });
     }
+    if (existingVisit.current_status !== 'DRAFT_DISPATCH') {
+      return NextResponse.json(
+        { error: `Cannot submit dispatch for vehicle in status ${existingVisit.current_status}.`, code: 'DRAFT_ALREADY_PROGRESSED' },
+        { status: 400 }
+      );
+    }
+    // Validate draft ownership
+    if (existingVisit.created_by?.toString() !== dbUser.id.toString()) {
+      return NextResponse.json(
+        { error: 'Unauthorized. Draft visit belongs to another user.', code: 'DRAFT_OWNER_MISMATCH' },
+        { status: 403 }
+      );
+    }
+
+    // Validate draft source match
+    if (existingVisit.procurement_source_id?.toString() !== resolvedSourceId.toString()) {
+      return NextResponse.json(
+        { error: 'Draft visit belongs to a different procurement source.', code: 'DRAFT_SOURCE_MISMATCH' },
+        { status: 400 }
+      );
+    }
+    const assignedDispatchTests = await getOrAssignDispatchTests(prisma, existingVisit.id);
+    const frozenPolicySnapshot = await getOrFreezeDispatchQuantityPolicy(prisma, existingVisit.id, resolvedSourceId);
+
+    // 2. Validate Vehicle and Portion Quantity Facts against the visit's FROZEN policy snapshot
+    const validatedQuantities = validateDispatchQuantities(
+      frozenPolicySnapshot,
+      validated.vehicleQuantity,
+      validated.portions
+    );
 
     const manualAssignedTests = assignedDispatchTests.filter((t) => t.result_type_snapshot !== 'CALCULATED');
 
@@ -448,77 +443,55 @@ export async function POST(req: Request) {
       testingReason = sourceType === 'CONTRACTOR' ? 'Contract Vehicle' : 'No dispatch testing provided';
     }
 
+    // Authoritative Business Date derived on backend from authoritative dispatch timestamp (08:00 cutoff)
+    const effectiveDispatchDate = chronoVal.date || new Date(firstPortionTs);
+    const canonicalBusinessDateStr = getOperationalBusinessDate(effectiveDispatchDate);
+
     // Execute Prisma Transaction for atomic creation or draft finalization
     const result = await prisma.$transaction(async (tx) => {
-      const dateStr = validated.operationalDate;
       const now = new Date();
+      const receptionNumber = await generateReceptionNumber(tx, canonicalBusinessDateStr);
 
-      const receptionNumber = await generateReceptionNumber(tx, validated.operationalDate);
+      const visitNumber = existingVisit.visit_number;
+      const visit = await tx.vehicleVisit.update({
+        where: { id: existingVisit.id },
+        data: {
+          vehicle_number: validated.vehicleNumber,
+          reception_number: receptionNumber,
+          operational_date: new Date(canonicalBusinessDateStr),
+          current_status: 'DISPATCHED',
+          procurement_source_id: resolvedSourceId,
+          vehicle_dispatch_quantity_value: new Prisma.Decimal(validatedQuantities.vehicleQuantity.value),
+          vehicle_dispatch_quantity_unit: validatedQuantities.vehicleQuantity.unit,
+          vehicle_dispatch_quantity_basis: validatedQuantities.vehicleQuantity.basis,
+          vehicle_dispatch_measurement_method: validatedQuantities.vehicleQuantity.method,
+        },
+      });
 
-      let visit: any;
-      let visitNumber: string;
-
-      if (existingVisit) {
-        // Update the existing draft visit
-        visitNumber = existingVisit.visit_number;
-        visit = await tx.vehicleVisit.update({
-          where: { id: existingVisit.id },
-          data: {
-            vehicle_number: validated.vehicleNumber,
-            reception_number: receptionNumber,
-            operational_date: new Date(validated.operationalDate),
-            current_status: 'DISPATCHED',
-            procurement_source_id: resolvedSourceId,
-          },
-        });
-        // Ensure assignments are present
-        await getOrAssignDispatchTests(tx, visit.id);
-      } else {
-        const dateCode = dateStr.replace(/-/g, '');
-        const countToday = await tx.vehicleVisit.count({
-          where: {
-            visit_number: { startsWith: `VV-${dateCode}` },
-          },
-        });
-        let seq = countToday + 1;
-        visitNumber = `VV-${dateCode}-${String(seq).padStart(4, '0')}`;
-        while (await tx.vehicleVisit.findUnique({ where: { visit_number: visitNumber } })) {
-          seq++;
-          visitNumber = `VV-${dateCode}-${String(seq).padStart(4, '0')}`;
-        }
-
-        // 1. Create VehicleVisit
-        visit = await tx.vehicleVisit.create({
-          data: {
-            visit_number: visitNumber,
-            reception_number: receptionNumber,
-            vehicle_number: validated.vehicleNumber,
-            operational_date: new Date(validated.operationalDate),
-            current_status: 'DISPATCHED',
-            created_by: userIdBigInt,
-            procurement_source_id: resolvedSourceId,
-          },
-        });
-
-        // Atomically create and freeze Dispatch LabTestAssignment snapshot for this visit
-        await getOrAssignDispatchTests(tx, visit.id);
-      }
+      // Ensure assignments & policy snapshot are present
+      await getOrAssignDispatchTests(tx, visit.id);
+      await getOrFreezeDispatchQuantityPolicy(tx, visit.id, resolvedSourceId!);
 
       // 2. Create VisitPortion, DispatchInfo, and DispatchLabResult rows for each portion
       for (const portionInput of validated.portions) {
-        const portionUnit = sourceType === 'ZMCC' ? 'KG' : (portionInput.declaredQuantityUnit || 'KG');
+        const portionQty = validatedQuantities.portionQuantities.find(
+          (p) => p.portionNumber === portionInput.portionNumber
+        )!;
+
         const portion = await tx.visitPortion.create({
           data: {
             visit_id: visit.id,
             portion_number: portionInput.portionNumber,
-            declared_quantity_value: portionInput.declaredQuantityKg,
-            declared_quantity_unit: portionUnit,
+            dispatch_quantity_value: new Prisma.Decimal(portionQty.value),
+            dispatch_quantity_unit: portionQty.unit,
+            dispatch_quantity_basis: portionQty.basis,
+            dispatch_measurement_method: portionQty.method,
             current_status: 'DISPATCHED',
             plant_decision: 'PENDING',
           },
         });
 
-        // Create DispatchInfo with testing mode & reasons
+        // Create DispatchInfo with testing mode & reasons (portion-level)
         const portionChrono = validateOperationalTimestamp(portionInput.dispatchTimestamp || validated.operationalDate, null, 'Dispatch', 'Baseline');
         await tx.dispatchInfo.create({
           data: {
@@ -615,6 +588,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, visitId: result.id.toString(), visitNumber: result.visit_number }, { status: 201 });
   } catch (error: any) {
+    if (error instanceof QuantityMeasurementError || error?.name === 'QuantityMeasurementError' || error?.code?.startsWith('QUANTITY_') || error?.code?.startsWith('MISSING_') || error?.code === 'ZERO_PORTIONS_PROHIBITED') {
+      return NextResponse.json({ error: error.message, code: error.code || 'QUANTITY_ERROR' }, { status: 400 });
+    }
     if (error?.name === 'ZodError' || Array.isArray(error?.issues)) {
       const firstMsg = error.issues?.[0]?.message || error.errors?.[0]?.message || 'Validation failed';
       return NextResponse.json({ error: firstMsg }, { status: 400 });

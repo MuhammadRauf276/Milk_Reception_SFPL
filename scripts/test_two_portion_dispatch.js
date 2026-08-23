@@ -43,14 +43,14 @@ async function runTwoPortionTest() {
     const activeTests = testRes.rows;
 
     const portion1Res = await client.query(`
-      INSERT INTO visit_portion (visit_id, portion_number, current_status, declared_quantity_kg, plant_decision, created_at, updated_at)
+      INSERT INTO visit_portion (visit_id, portion_number, current_status, dispatch_quantity_value, plant_decision, created_at, updated_at)
       VALUES ($1, 1, 'DISPATCHED', 15000, 'PENDING', NOW(), NOW())
       RETURNING id, portion_number;
     `, [visitId]);
     const portion1 = portion1Res.rows[0];
 
     const portion2Res = await client.query(`
-      INSERT INTO visit_portion (visit_id, portion_number, current_status, declared_quantity_kg, plant_decision, created_at, updated_at)
+      INSERT INTO visit_portion (visit_id, portion_number, current_status, dispatch_quantity_value, plant_decision, created_at, updated_at)
       VALUES ($1, 2, 'DISPATCHED', 12000, 'PENDING', NOW(), NOW())
       RETURNING id, portion_number;
     `, [visitId]);
@@ -91,7 +91,7 @@ async function runTwoPortionTest() {
 
     // Verify created rows in database
     const verifyVisits = await client.query('SELECT id, visit_number, vehicle_number FROM vehicle_visit WHERE id = $1', [visitId]);
-    const verifyPortions = await client.query('SELECT id, portion_number, declared_quantity_kg FROM visit_portion WHERE visit_id = $1 ORDER BY portion_number ASC', [visitId]);
+    const verifyPortions = await client.query('SELECT id, portion_number, dispatch_quantity_value FROM visit_portion WHERE visit_id = $1 ORDER BY portion_number ASC', [visitId]);
     const verifyResultsP1 = await client.query('SELECT COUNT(*) FROM dispatch_lab_result WHERE portion_id = $1', [portion1.id]);
     const verifyResultsP2 = await client.query('SELECT COUNT(*) FROM dispatch_lab_result WHERE portion_id = $1', [portion2.id]);
 

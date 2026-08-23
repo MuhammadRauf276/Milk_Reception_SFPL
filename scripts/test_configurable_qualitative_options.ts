@@ -12,11 +12,14 @@ import { POST as dispatchPost } from '../src/app/api/dispatches/route';
 import { POST as completePortionPost } from '../src/app/api/qa/vehicle-visits/[visitId]/portions/[portionId]/complete/route';
 import { evaluateLabResult, validateCategoricalOption } from '../src/lib/lab-rules';
 import { calculateSNF, calculateRatio } from '../src/backend/utils/milkFormulas';
+import { getOperationalBusinessDate } from '../src/backend/core/business-day';
 
 async function runConfigurableQualitativeOptionsTests() {
   console.log('========================================================================');
   console.log('--- STARTING STAGE 3 CONFIGURABLE QUALITATIVE OPTIONS TEST SUITE ---');
   console.log('========================================================================\n');
+
+  const regressionBusinessDate = getOperationalBusinessDate(new Date());
 
   const superAdminUser = await prisma.user.findFirst({ where: { role: 'SUPER_ADMIN', is_active: true } });
   const zmccSource = await prisma.procurementSource.findFirst({ where: { source_type: 'ZMCC', is_active: true } });
@@ -307,11 +310,12 @@ async function runConfigurableQualitativeOptionsTests() {
       sourceType: 'ZMCC',
       procurementSourceId: zmccSource.id.toString(),
       vehicleNumber: `DISP-SNAP-H-${nowC}`,
-      operationalDate: '2026-08-21',
+      operationalDate: regressionBusinessDate,
+      vehicleQuantity: { value: '5000', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
       portions: [
         {
           portionNumber: 1,
-          declaredQuantityKg: 5000,
+          quantity: { value: '5000', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
           results: portionResultsJ,
         },
       ],
@@ -365,11 +369,12 @@ async function runConfigurableQualitativeOptionsTests() {
       sourceType: 'ZMCC',
       procurementSourceId: zmccSource.id.toString(),
       vehicleNumber: `DISP-INVALID-K-${nowC}`,
-      operationalDate: '2026-08-21',
+      operationalDate: regressionBusinessDate,
+      vehicleQuantity: { value: '5000', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
       portions: [
         {
           portionNumber: 1,
-          declaredQuantityKg: 5000,
+          quantity: { value: '5000', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
           results: portionResultsK,
         },
       ],
@@ -400,11 +405,12 @@ async function runConfigurableQualitativeOptionsTests() {
       sourceType: 'ZMCC',
       procurementSourceId: zmccSource.id.toString(),
       vehicleNumber: `DISP-INVALID-K-${nowC}`,
-      operationalDate: '2026-08-21',
+      operationalDate: regressionBusinessDate,
+      vehicleQuantity: { value: '5000', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
       portions: [
         {
           portionNumber: 1,
-          declaredQuantityKg: 5000,
+          quantity: { value: '5000', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
           results: portionResultsL,
         },
       ],
@@ -596,8 +602,8 @@ async function runConfigurableQualitativeOptionsTests() {
     data: {
       visit_id: visit3AD.id,
       portion_number: 1,
-      declared_quantity_value: 5000,
-      declared_quantity_unit: 'KG',
+      dispatch_quantity_value: 5000,
+      dispatch_quantity_unit: 'KG',
       current_status: 'UNDER_TESTING',
     },
   });
@@ -674,8 +680,8 @@ async function runConfigurableQualitativeOptionsTests() {
     data: {
       visit_id: visit3AE.id,
       portion_number: 1,
-      declared_quantity_value: 5000,
-      declared_quantity_unit: 'KG',
+      dispatch_quantity_value: 5000,
+      dispatch_quantity_unit: 'KG',
       current_status: 'UNDER_TESTING',
     },
   });
@@ -801,11 +807,12 @@ async function runConfigurableQualitativeOptionsTests() {
       sourceType: 'ZMCC',
       procurementSourceId: zmccSource.id.toString(),
       vehicleNumber: `VEH-3AF-${now3AD}`,
-      operationalDate: '2026-08-21',
+      operationalDate: regressionBusinessDate,
+      vehicleQuantity: { value: '5000', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
       portions: [
         {
           portionNumber: 1,
-          declaredQuantityKg: 5000,
+          quantity: { value: '5000', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
           results: dispatchResults3AF,
         },
       ],

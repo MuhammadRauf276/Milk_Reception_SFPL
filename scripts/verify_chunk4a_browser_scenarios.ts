@@ -58,8 +58,8 @@ async function main() {
     let totalAcceptedAt13TSLiters = 0;
 
     const formattedPortions = v.portions.map((p) => {
-      const declaredQuantityValue = p.declared_quantity_value !== null && p.declared_quantity_value !== undefined ? Number(p.declared_quantity_value) : null;
-      const declaredQuantityUnit = (p.declared_quantity_unit || 'KG').toUpperCase();
+      const declaredQuantityValue = p.dispatch_quantity_value !== null && p.dispatch_quantity_value !== undefined ? Number(p.dispatch_quantity_value) : null;
+      const declaredQuantityUnit = p.dispatch_quantity_unit ? p.dispatch_quantity_unit.toUpperCase() : null;
       const isAccepted = p.plant_decision === 'ACCEPTED';
 
       const performedPlantLr = p.plant_lab_results.filter(
@@ -76,7 +76,7 @@ async function main() {
       if (isAccepted && declaredQuantityValue !== null && declaredQuantityValue > 0) {
         if (declaredQuantityUnit === 'LITER') {
           provisionalPhysicalLiters = declaredQuantityValue;
-        } else {
+        } else if (declaredQuantityUnit === 'KG') {
           if (plantLrVal !== null) {
             provisionalPhysicalLiters = calculatePhysicalLiters(declaredQuantityValue, plantLrVal);
           }
@@ -114,8 +114,8 @@ async function main() {
       return {
         id: String(p.id),
         portion_number: p.portion_number,
-        declared_quantity_value: declaredQuantityValue,
-        declared_quantity_unit: declaredQuantityUnit,
+        dispatch_quantity_value: declaredQuantityValue,
+        dispatch_quantity_unit: declaredQuantityUnit,
         plant_decision: p.plant_decision || 'PENDING',
         plant_rejection_reason: p.plant_rejection_reason || null,
         current_status: p.current_status,
@@ -129,7 +129,11 @@ async function main() {
       };
     });
 
-    const acceptedUnits = new Set(acceptedPortions.map((p) => (p.declared_quantity_unit || 'KG').toUpperCase()));
+    const acceptedUnits = new Set(
+      acceptedPortions
+        .map((p) => p.dispatch_quantity_unit?.toUpperCase())
+        .filter((u): u is string => Boolean(u))
+    );
     let totalAcceptedDeclaredValue: number | null = null;
     let totalAcceptedDeclaredUnit: string | null = null;
 
@@ -137,7 +141,7 @@ async function main() {
       if (acceptedUnits.size === 1) {
         totalAcceptedDeclaredUnit = Array.from(acceptedUnits)[0];
         totalAcceptedDeclaredValue = acceptedPortions.reduce(
-          (sum, p) => sum + (p.declared_quantity_value ? Number(p.declared_quantity_value) : 0),
+          (sum, p) => sum + (p.dispatch_quantity_value ? Number(p.dispatch_quantity_value) : 0),
           0
         );
       } else {
@@ -189,8 +193,10 @@ async function main() {
         create: [
           {
             portion_number: 1,
-            declared_quantity_value: 10000,
-            declared_quantity_unit: 'LITER',
+            dispatch_quantity_value: 10000,
+            dispatch_quantity_unit: 'LITER',
+            dispatch_quantity_basis: 'ESTIMATED',
+            dispatch_measurement_method: 'FLOW_METER',
             plant_decision: 'ACCEPTED',
             current_status: 'PENDING_UNLOAD',
           },
@@ -227,8 +233,8 @@ async function main() {
   const v1 = await formatVisitForProduction(visitLiter.id);
   console.log('Scenario 1 Result:', {
     vehicle_number: v1?.vehicle_number,
-    declared_quantity_value: v1?.portions[0].declared_quantity_value,
-    declared_quantity_unit: v1?.portions[0].declared_quantity_unit,
+    dispatch_quantity_value: v1?.portions[0].dispatch_quantity_value,
+    dispatch_quantity_unit: v1?.portions[0].dispatch_quantity_unit,
     expected_physical_liters: v1?.portions[0].expected_physical_liters,
     total_accepted_declared_value: v1?.total_accepted_declared_value,
     total_accepted_declared_unit: v1?.total_accepted_declared_unit,
@@ -260,8 +266,10 @@ async function main() {
         create: [
           {
             portion_number: 1,
-            declared_quantity_value: 9500,
-            declared_quantity_unit: 'KG',
+            dispatch_quantity_value: 9500,
+            dispatch_quantity_unit: 'KG',
+            dispatch_quantity_basis: 'MEASURED',
+            dispatch_measurement_method: 'WEIGHING',
             plant_decision: 'ACCEPTED',
             current_status: 'PENDING_UNLOAD',
           },
@@ -298,8 +306,8 @@ async function main() {
   const v2 = await formatVisitForProduction(visitKg.id);
   console.log('Scenario 2 Result:', {
     vehicle_number: v2?.vehicle_number,
-    declared_quantity_value: v2?.portions[0].declared_quantity_value,
-    declared_quantity_unit: v2?.portions[0].declared_quantity_unit,
+    dispatch_quantity_value: v2?.portions[0].dispatch_quantity_value,
+    dispatch_quantity_unit: v2?.portions[0].dispatch_quantity_unit,
     expected_physical_liters: v2?.portions[0].expected_physical_liters,
     total_accepted_declared_value: v2?.total_accepted_declared_value,
     total_accepted_declared_unit: v2?.total_accepted_declared_unit,
@@ -331,15 +339,19 @@ async function main() {
         create: [
           {
             portion_number: 1,
-            declared_quantity_value: 9500,
-            declared_quantity_unit: 'KG',
+            dispatch_quantity_value: 9500,
+            dispatch_quantity_unit: 'KG',
+            dispatch_quantity_basis: 'MEASURED',
+            dispatch_measurement_method: 'WEIGHING',
             plant_decision: 'ACCEPTED',
             current_status: 'PENDING_UNLOAD',
           },
           {
             portion_number: 2,
-            declared_quantity_value: 10000,
-            declared_quantity_unit: 'LITER',
+            dispatch_quantity_value: 10000,
+            dispatch_quantity_unit: 'LITER',
+            dispatch_quantity_basis: 'ESTIMATED',
+            dispatch_measurement_method: 'FLOW_METER',
             plant_decision: 'ACCEPTED',
             current_status: 'PENDING_UNLOAD',
           },
@@ -378,13 +390,13 @@ async function main() {
   console.log('Scenario 3 Result:', {
     vehicle_number: v3?.vehicle_number,
     p1: {
-      declared_value: v3?.portions[0].declared_quantity_value,
-      declared_unit: v3?.portions[0].declared_quantity_unit,
+      dispatch_value: v3?.portions[0].dispatch_quantity_value,
+      dispatch_unit: v3?.portions[0].dispatch_quantity_unit,
       expected_liters: v3?.portions[0].expected_physical_liters,
     },
     p2: {
-      declared_value: v3?.portions[1].declared_quantity_value,
-      declared_unit: v3?.portions[1].declared_quantity_unit,
+      dispatch_value: v3?.portions[1].dispatch_quantity_value,
+      dispatch_unit: v3?.portions[1].dispatch_quantity_unit,
       expected_liters: v3?.portions[1].expected_physical_liters,
     },
     total_accepted_declared_value: v3?.total_accepted_declared_value,
@@ -417,15 +429,19 @@ async function main() {
         create: [
           {
             portion_number: 1,
-            declared_quantity_value: 9500,
-            declared_quantity_unit: 'KG',
+            dispatch_quantity_value: 9500,
+            dispatch_quantity_unit: 'KG',
+            dispatch_quantity_basis: 'MEASURED',
+            dispatch_measurement_method: 'WEIGHING',
             plant_decision: 'ACCEPTED',
             current_status: 'PENDING_UNLOAD',
           },
           {
             portion_number: 2,
-            declared_quantity_value: 50000,
-            declared_quantity_unit: 'LITER',
+            dispatch_quantity_value: 50000,
+            dispatch_quantity_unit: 'LITER',
+            dispatch_quantity_basis: 'ESTIMATED',
+            dispatch_measurement_method: 'FLOW_METER',
             plant_decision: 'REJECTED',
             plant_rejection_reason: 'High Temperature / Adulteration',
             current_status: 'REJECTED',
@@ -487,8 +503,10 @@ async function main() {
         create: [
           {
             portion_number: 1,
-            declared_quantity_value: 9500,
-            declared_quantity_unit: 'KG',
+            dispatch_quantity_value: 9500,
+            dispatch_quantity_unit: 'KG',
+            dispatch_quantity_basis: 'MEASURED',
+            dispatch_measurement_method: 'WEIGHING',
             plant_decision: 'ACCEPTED',
             current_status: 'PENDING_UNLOAD',
           },
@@ -530,8 +548,10 @@ async function main() {
         create: [
           {
             portion_number: 1,
-            declared_quantity_value: 10000,
-            declared_quantity_unit: 'LITER',
+            dispatch_quantity_value: 10000,
+            dispatch_quantity_unit: 'LITER',
+            dispatch_quantity_basis: 'ESTIMATED',
+            dispatch_measurement_method: 'FLOW_METER',
             plant_decision: 'ACCEPTED',
             current_status: 'PENDING_UNLOAD',
           },
@@ -544,8 +564,8 @@ async function main() {
   const v6 = await formatVisitForProduction(visitMissingLrLiter.id);
   console.log('Scenario 6 Result:', {
     vehicle_number: v6?.vehicle_number,
-    declared_quantity_value: v6?.portions[0].declared_quantity_value,
-    declared_quantity_unit: v6?.portions[0].declared_quantity_unit,
+    dispatch_quantity_value: v6?.portions[0].dispatch_quantity_value,
+    dispatch_quantity_unit: v6?.portions[0].dispatch_quantity_unit,
     expected_physical_liters: v6?.portions[0].expected_physical_liters,
     lr: v6?.portions[0].lr,
     fat: v6?.portions[0].fat,

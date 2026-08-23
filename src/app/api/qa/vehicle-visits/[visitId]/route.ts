@@ -97,15 +97,23 @@ export async function GET(
       entry_timestamp: visit.gate_log?.entry_timestamp ? visit.gate_log.entry_timestamp.toISOString() : null,
       current_status: visit.current_status,
       visit_decision_summary: visitDecisionSummary,
+      vehicle_dispatch_quantity_value: visit.vehicle_dispatch_quantity_value !== null && visit.vehicle_dispatch_quantity_value !== undefined
+        ? Number(visit.vehicle_dispatch_quantity_value)
+        : null,
+      vehicle_dispatch_quantity_unit: visit.vehicle_dispatch_quantity_unit || null,
+      vehicle_dispatch_quantity_basis: visit.vehicle_dispatch_quantity_basis || null,
+      vehicle_dispatch_measurement_method: visit.vehicle_dispatch_measurement_method || null,
       portions: portions.map((p) => ({
         id: p.id.toString(),
         visit_id: p.visit_id.toString(),
         portion_number: p.portion_number,
         current_status: p.current_status,
-        declared_quantity_value: p.declared_quantity_value !== null && p.declared_quantity_value !== undefined
-          ? Number(p.declared_quantity_value)
+        dispatch_quantity_value: p.dispatch_quantity_value !== null && p.dispatch_quantity_value !== undefined
+          ? Number(p.dispatch_quantity_value)
           : null,
-        declared_quantity_unit: p.declared_quantity_unit || 'KG',
+        dispatch_quantity_unit: p.dispatch_quantity_unit || null,
+        dispatch_quantity_basis: p.dispatch_quantity_basis || null,
+        dispatch_measurement_method: p.dispatch_measurement_method || null,
         plant_decision: p.plant_decision || 'PENDING',
         plant_rejection_reason: p.plant_rejection_reason || null,
         plant_decided_at: p.plant_decided_at ? p.plant_decided_at.toISOString() : null,

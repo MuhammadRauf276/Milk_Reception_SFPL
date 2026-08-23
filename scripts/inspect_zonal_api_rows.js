@@ -13,7 +13,7 @@ async function test() {
       vv.vehicle_number,
       vp.id AS portion_id,
       vp.portion_number,
-      vp.declared_quantity_kg
+      vp.dispatch_quantity_value
     FROM vehicle_visit vv
     JOIN visit_portion vp ON vv.id = vp.visit_id
     ORDER BY vv.id DESC, vp.portion_number ASC;
@@ -31,7 +31,7 @@ async function test() {
   for (const [visitId, rows] of visitCounts.entries()) {
     console.log(`Visit ID: ${visitId} (${rows[0].visit_number}, Vehicle: ${rows[0].vehicle_number}) -> ${rows.length} Portion Row(s):`);
     for (const r of rows) {
-      console.log(`  - Portion ID: ${r.portion_id}, Portion Number: ${r.portion_number}, Quantity: ${r.declared_quantity_kg} kg`);
+      console.log(`  - Portion ID: ${r.portion_id}, Portion Number: ${r.portion_number}, Quantity: ${r.dispatch_quantity_value} kg`);
     }
   }
 }

@@ -54,14 +54,14 @@ async function runQAPlantAccountabilityVerification() {
         create: [
           {
             portion_number: 1,
-            declared_quantity_value: 8500,
-            declared_quantity_unit: 'KG',
+            dispatch_quantity_value: 8500,
+            dispatch_quantity_unit: 'KG',
             current_status: 'TOKEN_ISSUED',
           },
           {
             portion_number: 2,
-            declared_quantity_value: 6200,
-            declared_quantity_unit: 'LITER',
+            dispatch_quantity_value: 6200,
+            dispatch_quantity_unit: 'LITER',
             current_status: 'TOKEN_ISSUED',
           },
         ],
@@ -79,37 +79,37 @@ async function runQAPlantAccountabilityVerification() {
   const p2 = visit.portions[1]; // LITER portion
 
   try {
-    // ─── QA-CRASH-01: API emits declared_quantity_value (not declared_quantity_kg) ───
+    // ─── QA-CRASH-01: API emits dispatch_quantity_value (not dispatch_quantity_value) ───
     const visitFromDb = await prisma.visitPortion.findUnique({ where: { id: p1.id } });
-    const hasQtyValue = visitFromDb !== null && visitFromDb.declared_quantity_value !== undefined;
+    const hasQtyValue = visitFromDb !== null && visitFromDb.dispatch_quantity_value !== undefined;
     report(
-      'QA-CRASH-01: declared_quantity_value field exists on VisitPortion in DB',
+      'QA-CRASH-01: dispatch_quantity_value field exists on VisitPortion in DB',
       hasQtyValue,
-      `Value = ${visitFromDb?.declared_quantity_value}`
+      `Value = ${visitFromDb?.dispatch_quantity_value}`
     );
 
-    // ─── QA-CRASH-02: declared_quantity_unit exists ───
-    const hasQtyUnit = visitFromDb !== null && visitFromDb.declared_quantity_unit !== undefined;
+    // ─── QA-CRASH-02: dispatch_quantity_unit exists ───
+    const hasQtyUnit = visitFromDb !== null && visitFromDb.dispatch_quantity_unit !== undefined;
     report(
-      'QA-CRASH-02: declared_quantity_unit field exists on VisitPortion in DB',
+      'QA-CRASH-02: dispatch_quantity_unit field exists on VisitPortion in DB',
       hasQtyUnit,
-      `Unit = ${visitFromDb?.declared_quantity_unit}`
+      `Unit = ${visitFromDb?.dispatch_quantity_unit}`
     );
 
     // ─── QA-CRASH-03: KG portion stores value without || 0 corruption ───
-    const p1Qty = visitFromDb?.declared_quantity_value;
+    const p1Qty = visitFromDb?.dispatch_quantity_value;
     report(
-      'QA-CRASH-03: KG portion declared_quantity_value is exactly 8500 (no || 0 applied)',
+      'QA-CRASH-03: KG portion dispatch_quantity_value is exactly 8500 (no || 0 applied)',
       p1Qty !== null && Number(p1Qty) === 8500,
       `Stored = ${p1Qty}`
     );
 
-    // ─── QA-CRASH-04: LITER portion declared_quantity_unit preserved ───
+    // ─── QA-CRASH-04: LITER portion dispatch_quantity_unit preserved ───
     const p2FromDb = await prisma.visitPortion.findUnique({ where: { id: p2.id } });
     report(
-      'QA-CRASH-04: LITER portion declared_quantity_unit = LITER (not forced to KG)',
-      p2FromDb?.declared_quantity_unit === 'LITER',
-      `Unit = ${p2FromDb?.declared_quantity_unit}`
+      'QA-CRASH-04: LITER portion dispatch_quantity_unit = LITER (not forced to KG)',
+      p2FromDb?.dispatch_quantity_unit === 'LITER',
+      `Unit = ${p2FromDb?.dispatch_quantity_unit}`
     );
 
     // ─── SCHEMA-02: PlantLabResult now has performance_status column ───
@@ -187,12 +187,12 @@ async function runQAPlantAccountabilityVerification() {
       'performanceStatus state management present'
     );
 
-    // ─── QA-CRASH-05: formatDeclaredQty guard — null returns dash ───
-    const hasCrashGuard = workspaceSource.includes('formatDeclaredQty') &&
-      workspaceSource.includes('portion.declared_quantity_value === null') &&
-      !workspaceSource.includes('declared_quantity_value.toLocaleString()'); // direct unsafe call must be gone
+    // ─── QA-CRASH-05: formatDispatchQty guard — null returns dash ───
+    const hasCrashGuard = workspaceSource.includes('formatDispatchQty') &&
+      (workspaceSource.includes('val === null') || workspaceSource.includes('portion.dispatch_quantity_value === null')) &&
+      !workspaceSource.includes('portion.dispatch_quantity_value.toLocaleString()'); // direct unsafe call must be gone
     report(
-      'QA-CRASH-05: declared_quantity_value.toLocaleString() crash eliminated — formatDeclaredQty guard in place',
+      'QA-CRASH-05: dispatch_quantity_value.toLocaleString() crash eliminated — formatDispatchQty guard in place',
       hasCrashGuard,
       'Null-safe display helper present, direct .toLocaleString() call removed'
     );
@@ -372,12 +372,12 @@ async function runQAPlantAccountabilityVerification() {
       path.join(process.cwd(), 'src/app/api/qa/vehicle-visits/[visitId]/route.ts'),
       'utf8'
     );
-    const emitsDeclaredValue = visitRouteSource.includes('declared_quantity_value:') &&
-      !visitRouteSource.includes('declared_quantity_kg:');
-    const emitsDeclaredUnit = visitRouteSource.includes('declared_quantity_unit:');
+    const emitsDeclaredValue = visitRouteSource.includes('dispatch_quantity_value:') &&
+      !visitRouteSource.includes('declared_quantity_value:');
+    const emitsDeclaredUnit = visitRouteSource.includes('dispatch_quantity_unit:');
     const emitsPerformanceStatus = visitRouteSource.includes('performanceStatus: pr.performance_status');
     report(
-      'QA-FIELD-01: Visit detail API emits declared_quantity_value (not declared_quantity_kg), declared_quantity_unit, and performanceStatus',
+      'QA-FIELD-01: Visit detail API emits dispatch_quantity_value (not declared_quantity_value), dispatch_quantity_unit, and performanceStatus',
       emitsDeclaredValue && emitsDeclaredUnit && emitsPerformanceStatus,
       `value=${emitsDeclaredValue}, unit=${emitsDeclaredUnit}, perf=${emitsPerformanceStatus}`
     );

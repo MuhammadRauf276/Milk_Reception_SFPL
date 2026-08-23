@@ -42,7 +42,10 @@ interface PortionDetail {
   visit_id: string;
   portion_number: number;
   current_status: string;
-  declared_quantity_value: number;
+  dispatch_quantity_value?: number | null;
+  dispatch_quantity_unit?: string;
+  dispatch_quantity_basis?: string;
+  dispatch_measurement_method?: string;
   plant_decision: string;
   plant_rejection_reason: string | null;
   plant_decided_at: string | null;
@@ -58,6 +61,8 @@ interface VisitDetail {
   operational_date: string | null;
   current_status: string;
   visit_decision_summary: string;
+  vehicle_dispatch_quantity_value?: number | null;
+  vehicle_dispatch_quantity_unit?: string | null;
   portions: PortionDetail[];
   active_plant_tests: LabTestDef[];
 }
@@ -412,7 +417,9 @@ export const DynamicQALabForm: React.FC<DynamicQALabFormProps> = ({ currentUser,
                       : 'bg-[#F4EFE3] text-slate-700 border border-[#C4B9A3] hover:bg-amber-100/50'
                   }`}
                 >
-                  <span>Portion #{p.portion_number} ({p.declared_quantity_value} KG)</span>
+                  <span>
+                    Portion #{p.portion_number} ({p.dispatch_quantity_value != null && p.dispatch_quantity_unit ? `${Number(p.dispatch_quantity_value).toLocaleString()} ${p.dispatch_quantity_unit}` : '—'})
+                  </span>
                   <span
                     className={`px-2 py-0.5 rounded text-[9.5px] font-black font-mono ${
                       p.plant_decision === 'ACCEPTED'

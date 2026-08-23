@@ -35,21 +35,26 @@ export async function GET(
     const acceptedPortions = v.portions.filter((p) => p.plant_decision === 'ACCEPTED');
     const rejectedPortions = v.portions.filter((p) => p.plant_decision === 'REJECTED');
     
-    // Unit-safe declared total across accepted portions
-    const acceptedUnits = new Set(acceptedPortions.map((p) => (p.declared_quantity_unit || 'KG').toUpperCase()));
-    let totalAcceptedDeclaredValue: number | null = null;
-    let totalAcceptedDeclaredUnit: string | null = null;
+    // Unit-safe dispatch total across accepted portions
+    const acceptedUnits = new Set(
+      acceptedPortions
+        .map((p) => (p.dispatch_quantity_unit ? p.dispatch_quantity_unit.toUpperCase() : null))
+        .filter(Boolean)
+    );
+    let totalAcceptedDispatchValue: number | null = null;
+    let totalAcceptedDispatchUnit: string | null = null;
 
     if (acceptedPortions.length > 0) {
-      if (acceptedUnits.size === 1) {
-        totalAcceptedDeclaredUnit = Array.from(acceptedUnits)[0];
-        totalAcceptedDeclaredValue = acceptedPortions.reduce(
-          (sum, p) => sum + (p.declared_quantity_value ? Number(p.declared_quantity_value) : 0),
+      const hasMissingUnit = acceptedPortions.some((p) => !p.dispatch_quantity_unit);
+      if (!hasMissingUnit && acceptedUnits.size === 1) {
+        totalAcceptedDispatchUnit = Array.from(acceptedUnits)[0] as string;
+        totalAcceptedDispatchValue = acceptedPortions.reduce(
+          (sum, p) => sum + (p.dispatch_quantity_value ? Number(p.dispatch_quantity_value) : 0),
           0
         );
-      } else {
-        totalAcceptedDeclaredUnit = 'MIXED';
-        totalAcceptedDeclaredValue = null;
+      } else if (acceptedUnits.size > 1) {
+        totalAcceptedDispatchUnit = 'MIXED';
+        totalAcceptedDispatchValue = null;
       }
     }
 
@@ -65,13 +70,21 @@ export async function GET(
       portion_count: v.portions.length,
       accepted_portion_count: acceptedPortions.length,
       rejected_portion_count: rejectedPortions.length,
-      total_accepted_declared_value: totalAcceptedDeclaredValue,
-      total_accepted_declared_unit: totalAcceptedDeclaredUnit,
+      vehicle_dispatch_quantity_value: v.vehicle_dispatch_quantity_value !== null && v.vehicle_dispatch_quantity_value !== undefined
+        ? Number(v.vehicle_dispatch_quantity_value)
+        : null,
+      vehicle_dispatch_quantity_unit: v.vehicle_dispatch_quantity_unit || null,
+      vehicle_dispatch_quantity_basis: v.vehicle_dispatch_quantity_basis || null,
+      vehicle_dispatch_measurement_method: v.vehicle_dispatch_measurement_method || null,
+      total_accepted_dispatch_value: totalAcceptedDispatchValue,
+      total_accepted_dispatch_unit: totalAcceptedDispatchUnit,
       portions: v.portions.map((p) => ({
         id: String(p.id),
         portion_number: p.portion_number,
-        declared_quantity_value: p.declared_quantity_value !== null && p.declared_quantity_value !== undefined ? Number(p.declared_quantity_value) : null,
-        declared_quantity_unit: (p.declared_quantity_unit || 'KG').toUpperCase(),
+        dispatch_quantity_value: p.dispatch_quantity_value !== null && p.dispatch_quantity_value !== undefined ? Number(p.dispatch_quantity_value) : null,
+        dispatch_quantity_unit: p.dispatch_quantity_unit ? p.dispatch_quantity_unit.toUpperCase() : null,
+        dispatch_quantity_basis: p.dispatch_quantity_basis || null,
+        dispatch_measurement_method: p.dispatch_measurement_method || null,
         plant_decision: p.plant_decision || 'PENDING',
         plant_rejection_reason: p.plant_rejection_reason || null,
         current_status: p.current_status,

@@ -150,13 +150,13 @@ export async function POST(
           throw new Error(`Silo "${silo.silo_name}" (${silo.silo_code}) is INACTIVE and cannot receive new milk.`);
         }
 
-        const declVal = portion.declared_quantity_value !== null && portion.declared_quantity_value !== undefined ? Number(portion.declared_quantity_value) : 0;
-        const declUnit = (portion.declared_quantity_unit || 'KG').toUpperCase();
+        const declVal = portion.dispatch_quantity_value !== null && portion.dispatch_quantity_value !== undefined ? Number(portion.dispatch_quantity_value) : 0;
+        const declUnit = portion.dispatch_quantity_unit ? portion.dispatch_quantity_unit.toUpperCase() : null;
         let expectedLiters: number;
 
         if (declUnit === 'LITER') {
           expectedLiters = declVal;
-        } else {
+        } else if (declUnit === 'KG') {
           // For KG declaration, require valid performed Plant LR
           const performedPlantLr = portion.plant_lab_results.filter(
             (r) => isPlantLrTest(r.lab_test?.testCode, r.lab_test?.testName) && r.performance_status === 'PERFORMED' && r.numeric_value !== null
@@ -166,6 +166,8 @@ export async function POST(
           }
           const lrVal = Number(performedPlantLr[0].numeric_value);
           expectedLiters = calculatePhysicalLiters(declVal, lrVal);
+        } else {
+          throw new Error(`Cannot verify silo capacity: Portion #${portion.portion_number} has an unknown or missing quantity unit.`);
         }
 
         const currentSum = siloExpectedLitersMap.get(assign.silo_id) || 0;

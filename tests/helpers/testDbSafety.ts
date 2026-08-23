@@ -28,8 +28,22 @@ export function assertSafeTestDatabase(options?: TestDbSafetyCheckOptions): {
   testDbName: string;
   isSafe: boolean;
 } {
-  const testDbUrl = options?.testDbUrl ?? process.env.TEST_DATABASE_URL;
-  const devDbUrl = options?.devDbUrl ?? (process.env.DEV_DATABASE_URL || '');
+  const hasExplicitTestDbUrl =
+    options != null &&
+    Object.prototype.hasOwnProperty.call(options, 'testDbUrl');
+
+  const testDbUrl = hasExplicitTestDbUrl
+    ? options!.testDbUrl
+    : process.env.TEST_DATABASE_URL;
+
+  const hasExplicitDevDbUrl =
+    options != null &&
+    Object.prototype.hasOwnProperty.call(options, 'devDbUrl');
+
+  const devDbUrl = hasExplicitDevDbUrl
+    ? (options!.devDbUrl || '')
+    : (process.env.DEV_DATABASE_URL || '');
+
   const nodeEnv = options?.nodeEnv ?? process.env.NODE_ENV;
   const isDestructive = options?.isDestructive ?? false;
 

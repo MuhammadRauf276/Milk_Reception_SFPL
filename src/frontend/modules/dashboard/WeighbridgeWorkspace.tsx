@@ -3,8 +3,21 @@ import { useToast } from '@/frontend/context/ToastContext';
 import { User } from '@core/types';
 import { Search, Scale, RefreshCw, CheckCircle2, Clock } from 'lucide-react';
 
+import { formatAcceptedQuantitySummary } from '@/backend/modules/dispatch/quantity/dispatchQuantityService';
+
 interface WeighbridgeWorkspaceProps {
   currentUser?: User | null;
+}
+
+interface FirstWeightPortion {
+  id: string;
+  portion_number: number;
+  dispatch_quantity_value: number | null;
+  dispatch_quantity_unit: string | null;
+  dispatch_quantity_basis: string | null;
+  dispatch_measurement_method: string | null;
+  plant_decision: string;
+  plant_rejection_reason: string | null;
 }
 
 interface FirstWeightVisit {
@@ -16,10 +29,22 @@ interface FirstWeightVisit {
   portion_count: number;
   accepted_portion_count: number;
   rejected_portion_count: number;
-  accepted_declared_kg: number;
+  vehicle_dispatch_quantity_value?: number | null;
+  vehicle_dispatch_quantity_unit?: string | null;
+  vehicle_dispatch_quantity_basis?: string | null;
+  vehicle_dispatch_measurement_method?: string | null;
+  portions?: FirstWeightPortion[];
   waiting_minutes: number;
   plant_decision_summary: string;
   min_allowed_timestamp: string;
+}
+
+function formatAcceptedQuantity(v: FirstWeightVisit): string {
+  return formatAcceptedQuantitySummary(
+    v.portions,
+    v.vehicle_dispatch_quantity_value,
+    v.vehicle_dispatch_quantity_unit
+  );
 }
 
 interface SecondWeightVisit {
@@ -473,7 +498,7 @@ export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({ curr
 
                         <div className={`text-xs font-bold ${isSelected ? 'text-slate-200' : 'text-[#334155]'}`}>
                           <div>{portionSummaryStr}</div>
-                          <div className="text-[11px] font-mono mt-0.5">Accepted Qty: {v.accepted_declared_kg.toLocaleString()} kg</div>
+                          <div className="text-[11px] font-mono mt-0.5">Accepted Qty: {formatAcceptedQuantity(v)}</div>
                         </div>
 
                         <div className={`flex items-center justify-between text-[11px] font-mono ${isSelected ? 'text-blue-100' : 'text-slate-600'}`}>
@@ -508,8 +533,8 @@ export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({ curr
                       <span>{selectedFirstVisit.portion_count} Portions ({selectedFirstVisit.accepted_portion_count} Accepted)</span>
                     </div>
                     <div>
-                      <span className="text-slate-500 font-sans block text-[9.5px]">Accepted Volume</span>
-                      <span className="text-[#1E3A8A]">{selectedFirstVisit.accepted_declared_kg.toLocaleString()} kg</span>
+                      <span className="text-slate-500 font-sans block text-[9.5px]">Accepted Quantity</span>
+                      <span className="text-[#1E3A8A]">{formatAcceptedQuantity(selectedFirstVisit)}</span>
                     </div>
                     <div>
                       <span className="text-slate-500 font-sans block text-[9.5px]">Waiting Time</span>

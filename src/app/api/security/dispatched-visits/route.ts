@@ -43,10 +43,10 @@ export async function GET(req: Request) {
 
     const formatted = visits.map((v) => {
       const portions = v.portions || [];
-      const totalDeclaredKg = portions.reduce(
-        (sum, p) => sum + (p.declared_quantity_value ? Number(p.declared_quantity_value) : 0),
-        0
-      );
+      const totalVehicleQty = v.vehicle_dispatch_quantity_value !== null && v.vehicle_dispatch_quantity_value !== undefined
+        ? Number(v.vehicle_dispatch_quantity_value)
+        : null;
+      const totalVehicleUnit = v.vehicle_dispatch_quantity_unit || null;
       const firstDispatchInfo = portions[0]?.dispatch_info;
 
       return {
@@ -57,7 +57,10 @@ export async function GET(req: Request) {
         operational_date: v.operational_date ? v.operational_date.toISOString().split('T')[0] : null,
         current_status: v.current_status,
         portion_count: portions.length,
-        total_declared_kg: totalDeclaredKg,
+        vehicle_dispatch_quantity_value: totalVehicleQty,
+        vehicle_dispatch_quantity_unit: totalVehicleUnit,
+        total_quantity_value: totalVehicleQty,
+        total_quantity_unit: totalVehicleUnit,
         dispatch_timestamp: firstDispatchInfo?.dispatch_timestamp ? firstDispatchInfo.dispatch_timestamp.toISOString() : null,
         zonal_contractor_name: v.procurement_source?.name || 'Source unavailable',
       };

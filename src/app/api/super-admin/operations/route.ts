@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
+import { calculatePhysicalLiters } from '@/backend/utils/milkFormulas';
+import { isPlantLrTest } from '@/backend/services/vehicleQuantityService';
 
 export async function GET(req: Request) {
   const authUser = await getCurrentUser();
@@ -51,6 +53,10 @@ export async function GET(req: Request) {
       procurementSource: v.procurement_source?.name || 'Source unavailable',
       currentStatus: v.current_status,
       createdAt: v.created_at.toISOString(),
+      vehicleDispatchQuantityValue: v.vehicle_dispatch_quantity_value ? Number(v.vehicle_dispatch_quantity_value) : null,
+      vehicleDispatchQuantityUnit: v.vehicle_dispatch_quantity_unit || null,
+      vehicleDispatchQuantityBasis: v.vehicle_dispatch_quantity_basis || null,
+      vehicleDispatchMeasurementMethod: v.vehicle_dispatch_measurement_method || null,
       gateLog: v.gate_log
         ? {
             entryTimestamp: v.gate_log.entry_timestamp ? v.gate_log.entry_timestamp.toISOString() : null,
@@ -68,24 +74,46 @@ export async function GET(req: Request) {
             netWeightKg: v.weight_ticket.net_weight_kg ? Number(v.weight_ticket.net_weight_kg) : null,
           }
         : null,
-      portions: v.portions.map((p) => ({
-        id: p.id.toString(),
-        portionNumber: p.portion_number,
-        contractorName: `Portion #${p.portion_number}`,
-        grossLiters: p.declared_quantity_value ? Number(p.declared_quantity_value) : null,
-        plantDecision: p.plant_decision,
-        rejectionReason: p.plant_rejection_reason,
-        unloadingLog: p.unloading_log
-          ? {
-              siloCode: p.unloading_log.silo?.silo_code || p.unloading_log.silo_number || 'N/A',
-              siloName: p.unloading_log.silo?.silo_name || 'N/A',
-              status: p.unloading_log.pump_end_timestamp ? 'COMPLETED' : 'IN_PROGRESS',
-              startTimestamp: p.unloading_log.pump_start_timestamp ? p.unloading_log.pump_start_timestamp.toISOString() : null,
-              completeTimestamp: p.unloading_log.pump_end_timestamp ? p.unloading_log.pump_end_timestamp.toISOString() : null,
-              litersUnloaded: p.declared_quantity_value ? Number(p.declared_quantity_value) : null,
+      portions: v.portions.map((p) => {
+        const dVal = p.dispatch_quantity_value ? Number(p.dispatch_quantity_value) : null;
+        const dUnit = (p.dispatch_quantity_unit || '').toUpperCase();
+        let provLiters: number | null = null;
+        if (dVal !== null && dVal > 0) {
+          if (dUnit === 'LITER') {
+            provLiters = dVal;
+          } else if (dUnit === 'KG') {
+            const plantLrRes = p.plant_lab_results?.find(
+              (r: any) => isPlantLrTest(r.lab_test?.testCode, r.lab_test?.testName) && r.performance_status === 'PERFORMED' && r.numeric_value !== null
+            );
+            if (plantLrRes && Number(plantLrRes.numeric_value) > 0) {
+              provLiters = calculatePhysicalLiters(dVal, Number(plantLrRes.numeric_value));
             }
-          : null,
-      })),
+          }
+        }
+
+        return {
+          id: p.id.toString(),
+          portionNumber: p.portion_number,
+          contractorName: `Portion #${p.portion_number}`,
+          dispatchQuantityValue: dVal,
+          dispatchQuantityUnit: p.dispatch_quantity_unit || null,
+          dispatchQuantityBasis: p.dispatch_quantity_basis || null,
+          dispatchMeasurementMethod: p.dispatch_measurement_method || null,
+          provisionalPhysicalLiters: provLiters,
+          plantDecision: p.plant_decision,
+          rejectionReason: p.plant_rejection_reason,
+          unloadingLog: p.unloading_log
+            ? {
+                siloCode: p.unloading_log.silo?.silo_code || p.unloading_log.silo_number || 'N/A',
+                siloName: p.unloading_log.silo?.silo_name || 'N/A',
+                status: p.unloading_log.pump_end_timestamp ? 'COMPLETED' : 'IN_PROGRESS',
+                startTimestamp: p.unloading_log.pump_start_timestamp ? p.unloading_log.pump_start_timestamp.toISOString() : null,
+                completeTimestamp: p.unloading_log.pump_end_timestamp ? p.unloading_log.pump_end_timestamp.toISOString() : null,
+                provisionalPhysicalLiters: provLiters,
+              }
+            : null,
+        };
+      }),
     }));
 
     return NextResponse.json({ visits: serialized });

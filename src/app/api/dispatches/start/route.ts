@@ -5,6 +5,7 @@ import { z } from 'zod';
 
 import { getOrAssignDispatchTests, serializeAssignment } from '@/backend/services/labTestAssignmentService';
 import { getOrFreezeDispatchQuantityPolicy } from '@/backend/modules/dispatch/quantity-policy/quantityPolicyService';
+import { getOperationalBusinessDate } from '@/backend/core/business-day';
 
 
 
@@ -148,7 +149,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const dateStr = validated.operationalDate || new Date().toISOString().split('T')[0];
+    const dateStr = validated.operationalDate || getOperationalBusinessDate(new Date());
     const dateCode = dateStr.replace(/-/g, '');
 
     // 3. Create persistent DRAFT_DISPATCH work item with frozen assignment and quantity policy

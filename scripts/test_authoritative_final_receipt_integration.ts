@@ -89,8 +89,8 @@ async function runChunk5IntegrationTests() {
           create: [
             {
               portion_number: 1,
-              declared_quantity_value: 15000,
-              declared_quantity_unit: 'KG',
+              dispatch_quantity_value: 15000,
+              dispatch_quantity_unit: 'KG',
               plant_decision: 'ACCEPTED',
               current_status: 'UNLOADED',
             },
@@ -184,15 +184,15 @@ async function runChunk5IntegrationTests() {
           create: [
             {
               portion_number: 1,
-              declared_quantity_value: 5000,
-              declared_quantity_unit: 'KG',
+              dispatch_quantity_value: 5000,
+              dispatch_quantity_unit: 'KG',
               plant_decision: 'ACCEPTED',
               current_status: 'UNLOADED',
             },
             {
               portion_number: 2,
-              declared_quantity_value: 5000,
-              declared_quantity_unit: 'KG',
+              dispatch_quantity_value: 5000,
+              dispatch_quantity_unit: 'KG',
               plant_decision: 'ACCEPTED',
               current_status: 'UNLOADED',
             },
@@ -265,9 +265,9 @@ async function runChunk5IntegrationTests() {
         },
         portions: {
           create: [
-            { portion_number: 1, declared_quantity_value: 5000, plant_decision: 'ACCEPTED', current_status: 'UNLOADED' },
-            { portion_number: 2, declared_quantity_value: 5000, plant_decision: 'ACCEPTED', current_status: 'UNLOADED' },
-            { portion_number: 3, declared_quantity_value: 5000, plant_decision: 'REJECTED', plant_rejection_reason: 'High LR', current_status: 'REJECTED' },
+            { portion_number: 1, dispatch_quantity_value: 5000, plant_decision: 'ACCEPTED', current_status: 'UNLOADED' },
+            { portion_number: 2, dispatch_quantity_value: 5000, plant_decision: 'ACCEPTED', current_status: 'UNLOADED' },
+            { portion_number: 3, dispatch_quantity_value: 5000, plant_decision: 'REJECTED', plant_rejection_reason: 'High LR', current_status: 'REJECTED' },
           ],
         },
       },
@@ -338,8 +338,8 @@ async function runChunk5IntegrationTests() {
         },
         portions: {
           create: [
-            { portion_number: 1, declared_quantity_value: 5000, plant_decision: 'ACCEPTED', current_status: 'UNLOADED' },
-            { portion_number: 2, declared_quantity_value: 5000, plant_decision: 'ACCEPTED', current_status: 'UNLOADED' },
+            { portion_number: 1, dispatch_quantity_value: 5000, plant_decision: 'ACCEPTED', current_status: 'UNLOADED' },
+            { portion_number: 2, dispatch_quantity_value: 5000, plant_decision: 'ACCEPTED', current_status: 'UNLOADED' },
           ],
         },
       },
@@ -410,7 +410,7 @@ async function runChunk5IntegrationTests() {
           },
         },
         portions: {
-          create: [{ portion_number: 1, declared_quantity_value: 10000, declared_quantity_unit: 'KG', plant_decision: 'ACCEPTED', current_status: 'UNLOADED' }],
+          create: [{ portion_number: 1, dispatch_quantity_value: 10000, dispatch_quantity_unit: 'KG', plant_decision: 'ACCEPTED', current_status: 'UNLOADED' }],
         },
       },
       include: { portions: true, weight_ticket: true },
@@ -439,7 +439,7 @@ async function runChunk5IntegrationTests() {
           },
         },
         portions: {
-          create: [{ portion_number: 1, declared_quantity_value: 9728, declared_quantity_unit: 'LITER', plant_decision: 'ACCEPTED', current_status: 'UNLOADED' }],
+          create: [{ portion_number: 1, dispatch_quantity_value: 9728, dispatch_quantity_unit: 'LITER', plant_decision: 'ACCEPTED', current_status: 'UNLOADED' }],
         },
       },
       include: { portions: true, weight_ticket: true },
@@ -502,7 +502,7 @@ async function runChunk5IntegrationTests() {
           },
         },
         portions: {
-          create: [{ portion_number: 1, declared_quantity_value: 10000, plant_decision: 'ACCEPTED', current_status: 'UNLOADED' }],
+          create: [{ portion_number: 1, dispatch_quantity_value: 10000, plant_decision: 'ACCEPTED', current_status: 'UNLOADED' }],
         },
       },
       include: { portions: true, weight_ticket: true },
@@ -560,7 +560,7 @@ async function runChunk5IntegrationTests() {
           },
         },
         portions: {
-          create: [{ portion_number: 1, declared_quantity_value: 10000, plant_decision: 'ACCEPTED', current_status: 'UNLOADED' }],
+          create: [{ portion_number: 1, dispatch_quantity_value: 10000, plant_decision: 'ACCEPTED', current_status: 'UNLOADED' }],
         },
       },
       include: { portions: true, weight_ticket: true },
@@ -618,7 +618,7 @@ async function runChunk5IntegrationTests() {
           },
         },
         portions: {
-          create: [{ portion_number: 1, declared_quantity_value: 10000, plant_decision: 'ACCEPTED', current_status: 'UNLOADED' }],
+          create: [{ portion_number: 1, dispatch_quantity_value: 10000, plant_decision: 'ACCEPTED', current_status: 'UNLOADED' }],
         },
       },
       include: { portions: true, weight_ticket: true },
@@ -680,7 +680,7 @@ async function runChunk5IntegrationTests() {
           },
         },
         portions: {
-          create: [{ portion_number: 1, declared_quantity_value: 10000, plant_decision: 'ACCEPTED', current_status: 'UNLOADED' }],
+          create: [{ portion_number: 1, dispatch_quantity_value: 10000, plant_decision: 'ACCEPTED', current_status: 'UNLOADED' }],
         },
       },
       include: { portions: true, weight_ticket: true },
@@ -742,7 +742,7 @@ async function runChunk5IntegrationTests() {
           },
         },
         portions: {
-          create: [{ portion_number: 1, declared_quantity_value: 10000, plant_decision: 'ACCEPTED', current_status: 'UNLOADED' }],
+          create: [{ portion_number: 1, dispatch_quantity_value: 10000, plant_decision: 'ACCEPTED', current_status: 'UNLOADED' }],
         },
       },
       include: { portions: true, weight_ticket: true },
@@ -810,8 +810,8 @@ async function runChunk5IntegrationTests() {
         },
         portions: {
           create: [
-            { portion_number: 1, declared_quantity_value: 5000, plant_decision: 'ACCEPTED', current_status: 'UNLOADED' },
-            { portion_number: 2, declared_quantity_value: 5000, plant_decision: 'ACCEPTED', current_status: 'UNLOADED' },
+            { portion_number: 1, dispatch_quantity_value: 5000, plant_decision: 'ACCEPTED', current_status: 'UNLOADED' },
+            { portion_number: 2, dispatch_quantity_value: 5000, plant_decision: 'ACCEPTED', current_status: 'UNLOADED' },
           ],
         },
       },

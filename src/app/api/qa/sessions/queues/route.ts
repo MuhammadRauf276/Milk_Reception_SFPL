@@ -42,10 +42,10 @@ export async function GET(req: Request) {
       const entryTime = v.gate_log?.entry_timestamp ? new Date(v.gate_log.entry_timestamp) : null;
       const waitingMinutes = entryTime ? Math.max(0, Math.floor((now.getTime() - entryTime.getTime()) / (1000 * 60))) : 0;
       const portions = v.portions || [];
-      const totalDeclaredKg = portions.reduce(
-        (sum, p) => sum + (p.declared_quantity_value ? Number(p.declared_quantity_value) : 0),
-        0
-      );
+      const totalVehicleQty = v.vehicle_dispatch_quantity_value !== null && v.vehicle_dispatch_quantity_value !== undefined
+        ? Number(v.vehicle_dispatch_quantity_value)
+        : null;
+      const totalVehicleUnit = v.vehicle_dispatch_quantity_unit || null;
 
       return {
         id: v.id.toString(),
@@ -54,7 +54,10 @@ export async function GET(req: Request) {
         vehicle_number: v.vehicle_number,
         token_number: v.token_number || null,
         portion_count: portions.length,
-        total_declared_kg: totalDeclaredKg,
+        vehicle_dispatch_quantity_value: totalVehicleQty,
+        vehicle_dispatch_quantity_unit: totalVehicleUnit,
+        total_quantity_value: totalVehicleQty,
+        total_quantity_unit: totalVehicleUnit,
         entry_timestamp: entryTime ? entryTime.toISOString() : null,
         waiting_minutes: waitingMinutes,
       };

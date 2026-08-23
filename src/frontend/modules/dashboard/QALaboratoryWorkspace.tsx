@@ -17,7 +17,10 @@ interface WaitingVisit {
   vehicle_number: string;
   token_number: string | null;
   portion_count: number;
-  total_declared_kg: number;
+  vehicle_dispatch_quantity_value?: number | null;
+  vehicle_dispatch_quantity_unit?: string | null;
+  total_quantity_value?: number | null;
+  total_quantity_unit?: string | null;
   entry_timestamp: string | null;
   waiting_minutes: number;
 }
@@ -82,8 +85,10 @@ interface VisitDetailPortion {
   portion_number: number;
   current_status: string;
   // null is preserved — no || 0 fallback
-  declared_quantity_value: number | null;
-  declared_quantity_unit: string;
+  dispatch_quantity_value?: number | null;
+  dispatch_quantity_unit?: string;
+  dispatch_quantity_basis?: string;
+  dispatch_measurement_method?: string;
   plant_decision: string;
   plant_rejection_reason: string | null;
   dispatch_results: any[];
@@ -613,11 +618,13 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
 
   const canAccept = performedCount === requiredManualPlantTests.length && notPerformedCount === 0 && unresolvedCount === 0;
 
-  // Format declared quantity display — never crash on null
-  const formatDeclaredQty = (portion: VisitDetailPortion | null): string => {
+  // Format dispatch quantity display — never crash on null
+  const formatDispatchQty = (portion: VisitDetailPortion | null): string => {
     if (!portion) return '—';
-    if (portion.declared_quantity_value === null || portion.declared_quantity_value === undefined) return '—';
-    return `${Number(portion.declared_quantity_value).toLocaleString()} ${portion.declared_quantity_unit || 'KG'}`;
+    const val = portion.dispatch_quantity_value;
+    const unit = portion.dispatch_quantity_unit;
+    if (val === null || val === undefined || !unit) return '—';
+    return `${Number(val).toLocaleString()} ${unit}`;
   };
 
   return (
@@ -737,7 +744,14 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
                       </div>
 
                       <div className={`flex items-center justify-between text-xs font-bold ${isSelected ? 'text-slate-200' : 'text-[#334155]'}`}>
-                        <span>{v.portion_count} Portion{v.portion_count > 1 ? 's' : ''} ({v.total_declared_kg.toLocaleString()} KG)</span>
+                        <span>
+                          {v.portion_count} Portion{v.portion_count > 1 ? 's' : ''}
+                          {v.vehicle_dispatch_quantity_value != null && v.vehicle_dispatch_quantity_unit
+                            ? ` (${Number(v.vehicle_dispatch_quantity_value).toLocaleString()} ${v.vehicle_dispatch_quantity_unit})`
+                            : v.total_quantity_value != null && v.total_quantity_unit
+                            ? ` (${Number(v.total_quantity_value).toLocaleString()} ${v.total_quantity_unit})`
+                            : ''}
+                        </span>
                         <span>Waiting: {v.waiting_minutes} min</span>
                       </div>
 
@@ -862,8 +876,14 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
 
                 <div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-[#F4EFE3] border border-[#C4B9A3] text-xs font-mono font-bold">
                   <div>
-                    <span className="text-slate-500 font-sans block text-[9px]">Declared Volume</span>
-                    <span>{selectedWaitingVisit.total_declared_kg.toLocaleString()} KG ({selectedWaitingVisit.portion_count} Portion{selectedWaitingVisit.portion_count > 1 ? 's' : ''})</span>
+                    <span className="text-slate-500 font-sans block text-[9px]">Vehicle Quantity</span>
+                    <span>
+                      {selectedWaitingVisit.vehicle_dispatch_quantity_value != null && selectedWaitingVisit.vehicle_dispatch_quantity_unit
+                        ? `${Number(selectedWaitingVisit.vehicle_dispatch_quantity_value).toLocaleString()} ${selectedWaitingVisit.vehicle_dispatch_quantity_unit}`
+                        : selectedWaitingVisit.total_quantity_value != null && selectedWaitingVisit.total_quantity_unit
+                        ? `${Number(selectedWaitingVisit.total_quantity_value).toLocaleString()} ${selectedWaitingVisit.total_quantity_unit}`
+                        : '—'} ({selectedWaitingVisit.portion_count} Portion{selectedWaitingVisit.portion_count > 1 ? 's' : ''})
+                    </span>
                   </div>
                   <div>
                     <span className="text-slate-500 font-sans block text-[9px]">Gate Entry Time</span>
@@ -956,7 +976,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
                     {/* Declared Quantity & Accountability Counter — crash-safe */}
                     <div className="flex items-center justify-between text-xs font-bold text-[#334155]">
                       <span>
-                        Declared Quantity: <strong className="font-mono text-[#111311]">{formatDeclaredQty(currentPortion)}</strong>
+                        Dispatch Quantity: <strong className="font-mono text-[#111311]">{formatDispatchQty(currentPortion)}</strong>
                       </span>
                       <span>{performedCount} of {requiredManualPlantTests.length} required tests PERFORMED</span>
                     </div>

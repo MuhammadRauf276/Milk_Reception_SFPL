@@ -69,8 +69,8 @@ export async function GET(req: NextRequest) {
       let starterName: string | null = null;
 
       const formattedPortions = v.portions.map((p) => {
-        const declaredQuantityValue = p.declared_quantity_value !== null && p.declared_quantity_value !== undefined ? Number(p.declared_quantity_value) : null;
-        const declaredQuantityUnit = (p.declared_quantity_unit || 'KG').toUpperCase();
+        const dispatchQuantityValue = p.dispatch_quantity_value !== null && p.dispatch_quantity_value !== undefined ? Number(p.dispatch_quantity_value) : null;
+        const dispatchQuantityUnit = p.dispatch_quantity_unit ? p.dispatch_quantity_unit.toUpperCase() : null;
         const isAccepted = p.plant_decision === 'ACCEPTED';
 
         // Extract Plant LR (genuine PERFORMED only, no Dispatch or fake fallback)
@@ -87,13 +87,13 @@ export async function GET(req: NextRequest) {
 
         // Calculate provisional physical volume
         let provisionalPhysicalLiters: number | null = null;
-        if (isAccepted && declaredQuantityValue !== null && declaredQuantityValue > 0) {
-          if (declaredQuantityUnit === 'LITER') {
-            provisionalPhysicalLiters = declaredQuantityValue;
-          } else {
+        if (isAccepted && dispatchQuantityValue !== null && dispatchQuantityValue > 0) {
+          if (dispatchQuantityUnit === 'LITER') {
+            provisionalPhysicalLiters = dispatchQuantityValue;
+          } else if (dispatchQuantityUnit === 'KG') {
             // KG requires valid performed Plant LR
             if (plantLrVal !== null) {
-              provisionalPhysicalLiters = calculatePhysicalLiters(declaredQuantityValue, plantLrVal);
+              provisionalPhysicalLiters = calculatePhysicalLiters(dispatchQuantityValue, plantLrVal);
             }
           }
         }
@@ -140,8 +140,10 @@ export async function GET(req: NextRequest) {
         return {
           id: String(p.id),
           portion_number: p.portion_number,
-          declared_quantity_value: declaredQuantityValue,
-          declared_quantity_unit: declaredQuantityUnit,
+          dispatch_quantity_value: dispatchQuantityValue,
+          dispatch_quantity_unit: dispatchQuantityUnit,
+          dispatch_quantity_basis: p.dispatch_quantity_basis || null,
+          dispatch_measurement_method: p.dispatch_measurement_method || null,
           plant_decision: p.plant_decision || 'PENDING',
           plant_rejection_reason: p.plant_rejection_reason || null,
           current_status: p.current_status,
@@ -170,21 +172,26 @@ export async function GET(req: NextRequest) {
         };
       });
 
-      // Unit-safe declared total across accepted portions
-      const acceptedUnits = new Set(acceptedPortions.map((p) => (p.declared_quantity_unit || 'KG').toUpperCase()));
-      let totalAcceptedDeclaredValue: number | null = null;
-      let totalAcceptedDeclaredUnit: string | null = null;
+      // Unit-safe dispatch total across accepted portions
+      const acceptedUnits = new Set(
+        acceptedPortions
+          .map((p) => (p.dispatch_quantity_unit ? p.dispatch_quantity_unit.toUpperCase() : null))
+          .filter(Boolean)
+      );
+      let totalAcceptedDispatchValue: number | null = null;
+      let totalAcceptedDispatchUnit: string | null = null;
 
       if (acceptedPortions.length > 0) {
-        if (acceptedUnits.size === 1) {
-          totalAcceptedDeclaredUnit = Array.from(acceptedUnits)[0];
-          totalAcceptedDeclaredValue = acceptedPortions.reduce(
-            (sum, p) => sum + (p.declared_quantity_value ? Number(p.declared_quantity_value) : 0),
+        const hasMissingUnit = acceptedPortions.some((p) => !p.dispatch_quantity_unit);
+        if (!hasMissingUnit && acceptedUnits.size === 1) {
+          totalAcceptedDispatchUnit = Array.from(acceptedUnits)[0] as string;
+          totalAcceptedDispatchValue = acceptedPortions.reduce(
+            (sum, p) => sum + (p.dispatch_quantity_value ? Number(p.dispatch_quantity_value) : 0),
             0
           );
-        } else {
-          totalAcceptedDeclaredUnit = 'MIXED';
-          totalAcceptedDeclaredValue = null;
+        } else if (acceptedUnits.size > 1) {
+          totalAcceptedDispatchUnit = 'MIXED';
+          totalAcceptedDispatchValue = null;
         }
       }
 
@@ -202,8 +209,14 @@ export async function GET(req: NextRequest) {
         portion_count: v.portions.length,
         accepted_portion_count: acceptedPortions.length,
         rejected_portion_count: rejectedPortions.length,
-        total_accepted_declared_value: totalAcceptedDeclaredValue,
-        total_accepted_declared_unit: totalAcceptedDeclaredUnit,
+        vehicle_dispatch_quantity_value: v.vehicle_dispatch_quantity_value !== null && v.vehicle_dispatch_quantity_value !== undefined
+          ? Number(v.vehicle_dispatch_quantity_value)
+          : null,
+        vehicle_dispatch_quantity_unit: v.vehicle_dispatch_quantity_unit || null,
+        vehicle_dispatch_quantity_basis: v.vehicle_dispatch_quantity_basis || null,
+        vehicle_dispatch_measurement_method: v.vehicle_dispatch_measurement_method || null,
+        total_accepted_dispatch_value: totalAcceptedDispatchValue,
+        total_accepted_dispatch_unit: totalAcceptedDispatchUnit,
         total_accepted_physical_liters: allAcceptedHavePhysicalLiters ? Math.round(totalAcceptedPhysicalLiters) : null,
         total_accepted_at13_ts_liters: allAcceptedHaveAt13TS ? Math.round(totalAcceptedAt13TSLiters) : null,
         started_at: earliestStartTime ? (earliestStartTime as Date).toISOString() : null,

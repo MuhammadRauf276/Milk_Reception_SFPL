@@ -51,8 +51,8 @@ async function runQAChemistWorkflowVerification() {
       created_by: qaChemist1.id,
       portions: {
         create: [
-          { portion_number: 1, declared_quantity_value: 6000, current_status: 'TOKEN_ISSUED' },
-          { portion_number: 2, declared_quantity_value: 5000, current_status: 'TOKEN_ISSUED' },
+          { portion_number: 1, dispatch_quantity_value: 6000, current_status: 'TOKEN_ISSUED' },
+          { portion_number: 2, dispatch_quantity_value: 5000, current_status: 'TOKEN_ISSUED' },
         ],
       },
     },
