@@ -14,6 +14,7 @@ import {
   calculatePhysicalLiters,
   calculateAt13TSLiters,
   calculateEquivalentKgFromLiters,
+  calculateGrossLiters,
 } from '@/backend/utils/milkFormulas';
 import { getScopedDraftKey } from '@/lib/validations/dispatch';
 
@@ -741,7 +742,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     let tsVal: number | null = null;
     let ratioVal: number | null = null;
     let densityVal: number | null = null;
-    let physicalLitersVal: number | null = null;
+    let grossLitersVal: number | null = null;
     let at13TsLitersVal: number | null = null;
 
     if (lrNum !== null) {
@@ -755,16 +756,10 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     }
 
     if (qtyNum !== null) {
-      if (unit === 'KG') {
-        if (lrNum !== null) {
-          physicalLitersVal = calculatePhysicalLiters(qtyNum, lrNum);
-        }
-      } else if (unit === 'LITER') {
-        physicalLitersVal = qtyNum;
-      }
+      grossLitersVal = calculateGrossLiters(qtyNum, unit, lrNum);
 
-      if (physicalLitersVal !== null && tsVal !== null) {
-        at13TsLitersVal = calculateAt13TSLiters(physicalLitersVal, tsVal);
+      if (grossLitersVal !== null && tsVal !== null) {
+        at13TsLitersVal = calculateAt13TSLiters(grossLitersVal, tsVal);
       }
     }
 
@@ -775,7 +770,8 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
       ts: tsVal,
       ratio: ratioVal,
       density: densityVal,
-      physicalLiters: physicalLitersVal,
+      grossLiters: grossLitersVal,
+      physicalLiters: grossLitersVal,
       at13TsLiters: at13TsLitersVal,
     };
   };
@@ -1206,11 +1202,11 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                       <span>{calcValues.ts !== null ? `${calcValues.ts.toFixed(2)}%` : '—'}</span>
                     </div>
                     <div>
-                      <span className="text-[9px] font-sans text-slate-500 block">Physical Liters</span>
-                      <span>{calcValues.physicalLiters !== null ? `${Math.round(calcValues.physicalLiters).toLocaleString()} L` : '—'}</span>
+                      <span className="text-[9px] font-sans text-slate-500 block">Gross Liters</span>
+                      <span>{calcValues.grossLiters !== null ? `${Math.round(calcValues.grossLiters).toLocaleString()} L` : '—'}</span>
                     </div>
                     <div>
-                      <span className="text-[9px] font-sans text-slate-500 block">13 TS</span>
+                      <span className="text-[9px] font-sans text-slate-500 block">Liters @ 13% TS</span>
                       <span>{calcValues.at13TsLiters !== null ? `${Math.round(calcValues.at13TsLiters).toLocaleString()} L` : '—'}</span>
                     </div>
                   </div>
@@ -1693,10 +1689,10 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
 
                       <div className="p-2 rounded-lg bg-white border border-slate-200">
                         <span className="text-[9px] font-sans text-slate-500 block uppercase">
-                          Physical Liters
+                          Gross Liters
                         </span>
                         <span className="text-emerald-900">
-                          {calcValues.physicalLiters !== null ? `${Math.round(calcValues.physicalLiters).toLocaleString()} L` : '—'}
+                          {calcValues.grossLiters !== null ? `${Math.round(calcValues.grossLiters).toLocaleString()} L` : '—'}
                         </span>
                       </div>
 
@@ -1722,7 +1718,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                       </div>
 
                       <div className="p-2 rounded-lg bg-white border border-slate-200 col-span-2">
-                        <span className="text-[9px] font-sans text-slate-500 block uppercase">13 TS</span>
+                        <span className="text-[9px] font-sans text-slate-500 block uppercase">Liters @ 13% TS</span>
                         <span className="text-emerald-900">
                           {calcValues.at13TsLiters !== null ? `${Math.round(calcValues.at13TsLiters).toLocaleString()} L` : '—'}
                         </span>
