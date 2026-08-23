@@ -596,6 +596,167 @@ describe('Stage 4C-4: Dispatch Quantity Domain (Unit Tests)', () => {
       );
       expect(formFile).not.toContain('(t as any).testId');
       expect(formFile).not.toContain('testId: (t as any)');
+      expect(formFile).not.toContain('portion.results[test.id]');
+      expect(formFile).not.toContain('portion.results[t.id]');
+      expect(formFile).not.toContain('target.results[testDef.id]');
+      expect(formFile).not.toContain('errors.tests[testDef.id]');
+      expect(formFile).not.toContain('errors.tests[test.id]');
+      expect(formFile).not.toContain('portionErrors[index]?.tests?.[test.id]');
+    });
+
+    it('[FRONTEND-LAB-STATE-CONTRACT] Proves frontend state, validation, and payload remain 100% unified under canonical testId when assignment.id != testId', () => {
+      // 1. Fixture with intentionally differing IDs:
+      // Assignment row 1: id = "100", testId = "200" (Temperature)
+      // Assignment row 2: id = "101", testId = "201" (Fat)
+      const labTests = [
+        {
+          id: '100',
+          testId: '200',
+          testCode: 'LT-TEMP',
+          testName: 'Temperature',
+          resultType: 'NUMERIC',
+          unit: '°C',
+          isRequired: true,
+          displayOrder: 1,
+        },
+        {
+          id: '101',
+          testId: '201',
+          testCode: 'LT-FAT',
+          testName: 'Fat',
+          resultType: 'NUMERIC',
+          unit: '%',
+          isRequired: true,
+          displayOrder: 2,
+        },
+      ];
+
+      // A. Initial portion results builder (replicating DynamicDispatchForm logic)
+      function buildInitialPortionResults(tests: typeof labTests, isContractor = false) {
+        const results: Record<string, { numericValue: string; textValue: string; performanceStatus: 'PERFORMED' | 'NOT_PERFORMED'; notPerformedReason: string }> = {};
+        tests.forEach((t) => {
+          const key = t.testId;
+          if (isContractor) {
+            results[key] = {
+              numericValue: '',
+              textValue: '',
+              performanceStatus: 'NOT_PERFORMED',
+              notPerformedReason: 'Contract Vehicle',
+            };
+          } else {
+            results[key] = {
+              numericValue: '',
+              textValue: '',
+              performanceStatus: 'PERFORMED',
+              notPerformedReason: '',
+            };
+          }
+        });
+        return results;
+      }
+
+      // Assert A: Initial state keys by canonical testId "200" and "201", NOT assignment ID "100" or "101"
+      const zmccResults = buildInitialPortionResults(labTests, false);
+      expect(zmccResults['200']).toBeDefined();
+      expect(zmccResults['201']).toBeDefined();
+      expect(zmccResults['100']).toBeUndefined();
+      expect(zmccResults['101']).toBeUndefined();
+
+      // B. User enters numeric Temperature value 4.5 via edit handler
+      function handleTestResultChange(
+        results: typeof zmccResults,
+        testId: string,
+        field: 'numericValue' | 'textValue' | 'notPerformedReason',
+        value: string
+      ) {
+        const current = results[testId] || {
+          numericValue: '',
+          textValue: '',
+          performanceStatus: 'PERFORMED',
+          notPerformedReason: '',
+        };
+        results[testId] = { ...current, [field]: value };
+      }
+
+      handleTestResultChange(zmccResults, '200', 'numericValue', '4.5');
+      handleTestResultChange(zmccResults, '201', 'numericValue', '4.2');
+
+      // Assert B & C: State is written under "200" and "201", never "100"
+      expect(zmccResults['200'].numericValue).toBe('4.5');
+      expect(zmccResults['201'].numericValue).toBe('4.2');
+      expect(zmccResults['100']).toBeUndefined();
+
+      // D. Save Portion validation reads canonical testId
+      function validatePortionResults(
+        tests: typeof labTests,
+        results: typeof zmccResults
+      ) {
+        const errors: Record<string, string> = {};
+        for (const testDef of tests) {
+          const res = results[testDef.testId];
+          if (!res) {
+            errors[testDef.testId] = `Status for ${testDef.testName} is required.`;
+          } else if (res.performanceStatus === 'PERFORMED' && testDef.resultType === 'NUMERIC') {
+            if (res.numericValue === '' || isNaN(Number(res.numericValue)) || Number(res.numericValue) < 0) {
+              errors[testDef.testId] = `Enter a valid numeric value for ${testDef.testName}.`;
+            }
+          }
+        }
+        return errors;
+      }
+
+      const errors = validatePortionResults(labTests, zmccResults);
+      // Assert D & E: Save validation passes with 0 errors
+      expect(Object.keys(errors)).toHaveLength(0);
+
+      // F. Final payload generation
+      const payloadResults = labTests.map((t) => {
+        const res = zmccResults[t.testId];
+        return {
+          testId: t.testId,
+          performanceStatus: res.performanceStatus,
+          notPerformedReason: null,
+          numericValue: res.numericValue !== '' ? Number(res.numericValue) : null,
+          textValue: null,
+        };
+      });
+
+      // Assert F & G: Payload contains testId "200" with 4.5 and never sends "100"
+      expect(payloadResults).toHaveLength(2);
+      expect(payloadResults[0]).toEqual({
+        testId: '200',
+        performanceStatus: 'PERFORMED',
+        notPerformedReason: null,
+        numericValue: 4.5,
+        textValue: null,
+      });
+      expect(payloadResults.find((r) => r.testId === '100')).toBeUndefined();
+
+      // H. Contractor Mode with differing IDs
+      const contractorResults = buildInitialPortionResults(labTests, true);
+      expect(contractorResults['200'].performanceStatus).toBe('NOT_PERFORMED');
+      expect(contractorResults['200'].notPerformedReason).toBe('Contract Vehicle');
+      expect(contractorResults['100']).toBeUndefined();
+
+      const contractorPayload = labTests.map((t) => {
+        const res = contractorResults[t.testId];
+        return {
+          testId: t.testId,
+          performanceStatus: res.performanceStatus,
+          notPerformedReason: res.notPerformedReason,
+          numericValue: null,
+          textValue: null,
+        };
+      });
+
+      expect(contractorPayload[0]).toEqual({
+        testId: '200',
+        performanceStatus: 'NOT_PERFORMED',
+        notPerformedReason: 'Contract Vehicle',
+        numericValue: null,
+        textValue: null,
+      });
+      expect(contractorPayload.find((r) => r.testId === '100')).toBeUndefined();
     });
   });
 });

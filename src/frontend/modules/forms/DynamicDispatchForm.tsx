@@ -568,14 +568,14 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     const manualTests = labTests.filter((t) => t.resultType !== 'CALCULATED');
 
     for (const testDef of manualTests) {
-      const res = target.results[testDef.id];
+      const res = target.results[testDef.testId];
 
       if (!res) {
-        errors.tests[testDef.id] = `Status for ${testDef.testName} is required.`;
+        errors.tests[testDef.testId] = `Status for ${testDef.testName} is required.`;
         if (!firstInvalidId) firstInvalidId = `test-input-field-${index}-${testDef.id}`;
       } else if (res.performanceStatus === 'NOT_PERFORMED') {
         if (!res.notPerformedReason || !res.notPerformedReason.trim()) {
-          errors.tests[testDef.id] = `Reason required for unperformed test ${testDef.testName}.`;
+          errors.tests[testDef.testId] = `Reason required for unperformed test ${testDef.testName}.`;
           if (!firstInvalidId) {
             firstInvalidId = isContractorSource
               ? `test-reason-field-${index}-${testDef.id}`
@@ -585,12 +585,12 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
       } else if (res.performanceStatus === 'PERFORMED') {
         if (testDef.resultType === 'NUMERIC') {
           if (res.numericValue === '' || isNaN(Number(res.numericValue)) || Number(res.numericValue) < 0) {
-            errors.tests[testDef.id] = `Enter a valid numeric value for ${testDef.testName}.`;
+            errors.tests[testDef.testId] = `Enter a valid numeric value for ${testDef.testName}.`;
             if (!firstInvalidId) firstInvalidId = `test-input-field-${index}-${testDef.id}`;
           }
         } else {
           if (!res.textValue || res.textValue.trim() === '' || res.textValue === 'NOT_PERFORMED') {
-            errors.tests[testDef.id] = `Result for ${testDef.testName} is required.`;
+            errors.tests[testDef.testId] = `Result for ${testDef.testName} is required.`;
             if (!firstInvalidId) firstInvalidId = `test-input-field-${index}-${testDef.id}`;
           }
         }
@@ -670,15 +670,18 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
   // Completeness counter helper: Handles ZMCC vs Contractor Modes
   const getPortionProgress = (portion: PortionFormState) => {
     if (isContractorSource) {
+      const manualLabTests = labTests.filter((t) => t.resultType !== 'CALCULATED');
       const performedCount = manualLabTests.filter((t) => {
-        const res = portion.results[t.id];
-        if (!res || res.performanceStatus !== 'PERFORMED') return false;
-        if (t.resultType === 'NUMERIC') return res.numericValue !== '' && !isNaN(Number(res.numericValue));
-        return !!res.textValue && res.textValue.trim() !== '';
+        const res = portion.results[t.testId];
+        return res?.performanceStatus === 'PERFORMED' && (
+          t.resultType === 'NUMERIC'
+            ? res.numericValue !== '' && !isNaN(Number(res.numericValue))
+            : res.textValue !== '' && res.textValue !== null && res.textValue !== undefined
+        );
       }).length;
 
       const notPerformedCount = manualLabTests.filter((t) => {
-        const res = portion.results[t.id];
+        const res = portion.results[t.testId];
         return res?.performanceStatus === 'NOT_PERFORMED' && !!res.notPerformedReason?.trim();
       }).length;
 
@@ -694,7 +697,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     // ZMCC Strict Mode
     const requiredManualTests = labTests.filter((t) => t.isRequired && t.resultType !== 'CALCULATED');
     const accountedCount = requiredManualTests.filter((t) => {
-      const res = portion.results[t.id];
+      const res = portion.results[t.testId];
       if (!res) return false;
       if (res.performanceStatus === 'NOT_PERFORMED') return !!res.notPerformedReason;
       if (t.resultType === 'NUMERIC') return res.numericValue !== '' && !isNaN(Number(res.numericValue));
@@ -720,8 +723,8 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
         !t.testName.toLowerCase().includes('snf')
     );
 
-    const lrRes = lrTest ? portion.results[lrTest.id] : null;
-    const fatRes = fatTest ? portion.results[fatTest.id] : null;
+    const lrRes = lrTest ? portion.results[lrTest.testId] : null;
+    const fatRes = fatTest ? portion.results[fatTest.testId] : null;
 
     const rawLr = lrRes && lrRes.performanceStatus === 'PERFORMED' ? lrRes.numericValue : '';
     const rawFat = fatRes && fatRes.performanceStatus === 'PERFORMED' ? fatRes.numericValue : '';
@@ -1329,13 +1332,13 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
                         {manualLabTests.map((test) => {
-                          const resultState = portion.results[test.id] || {
+                          const resultState = portion.results[test.testId] || {
                             numericValue: '',
                             textValue: '',
                             performanceStatus: 'PERFORMED',
                             notPerformedReason: '',
                           };
-                          const testError = portionErrors[index]?.tests?.[test.id];
+                          const testError = portionErrors[index]?.tests?.[test.testId];
                           const isPerformed = resultState.performanceStatus === 'PERFORMED';
 
                           return (
@@ -1362,7 +1365,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                               <div className="flex items-center space-x-1.5">
                                 <button
                                   type="button"
-                                  onClick={() => handlePerformanceStatusChange(index, test.id, 'PERFORMED')}
+                                  onClick={() => handlePerformanceStatusChange(index, test.testId, 'PERFORMED')}
                                   className={`px-2.5 py-1 rounded-lg text-[10.5px] font-black transition ${
                                     isPerformed
                                       ? 'bg-[#1E40AF] text-white shadow-sm'
@@ -1373,7 +1376,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => handlePerformanceStatusChange(index, test.id, 'NOT_PERFORMED')}
+                                  onClick={() => handlePerformanceStatusChange(index, test.testId, 'NOT_PERFORMED')}
                                   className={`px-2.5 py-1 rounded-lg text-[10.5px] font-black transition ${
                                     !isPerformed
                                       ? 'bg-rose-700 text-white shadow-sm'
@@ -1395,7 +1398,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                                       min="0"
                                       value={resultState.numericValue}
                                       onChange={(e) =>
-                                        handleTestResultChange(index, test.id, 'numericValue', e.target.value)
+                                        handleTestResultChange(index, test.testId, 'numericValue', e.target.value)
                                       }
                                       placeholder="Enter numeric value"
                                       className={`w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none ${
@@ -1408,7 +1411,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                                       value={resultState.textValue || null}
                                       options={test.resultOptions}
                                       onChange={(val) =>
-                                        handleTestResultChange(index, test.id, 'textValue', val)
+                                        handleTestResultChange(index, test.testId, 'textValue', val)
                                       }
                                       error={testError}
                                       ariaLabel={`${test.testName} result for Portion ${portion.portionNumber}`}
@@ -1419,7 +1422,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                                       type="text"
                                       value={resultState.textValue}
                                       onChange={(e) =>
-                                        handleTestResultChange(index, test.id, 'textValue', e.target.value)
+                                        handleTestResultChange(index, test.testId, 'textValue', e.target.value)
                                       }
                                       placeholder="Enter result"
                                       className={`w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none ${
@@ -1435,7 +1438,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                                     type="text"
                                     value={resultState.notPerformedReason}
                                     onChange={(e) =>
-                                      handleTestResultChange(index, test.id, 'notPerformedReason', e.target.value)
+                                      handleTestResultChange(index, test.testId, 'notPerformedReason', e.target.value)
                                     }
                                     placeholder="Reason (e.g. Contract Vehicle)"
                                     className={`w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border bg-rose-50/40 text-rose-900 border-rose-300 focus:ring-2 focus:ring-rose-500 outline-none ${
@@ -1472,13 +1475,13 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                       ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                           {manualLabTests.map((test) => {
-                            const resultState = portion.results[test.id] || {
+                            const resultState = portion.results[test.testId] || {
                               numericValue: '',
                               textValue: '',
                               performanceStatus: 'PERFORMED',
                               notPerformedReason: '',
                             };
-                            const testError = portionErrors[index]?.tests?.[test.id];
+                            const testError = portionErrors[index]?.tests?.[test.testId];
 
                             return (
                               <div
@@ -1502,7 +1505,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                                       <div className="flex items-center space-x-1">
                                         <button
                                           type="button"
-                                          onClick={() => handlePerformanceStatusChange(index, test.id, 'PERFORMED')}
+                                          onClick={() => handlePerformanceStatusChange(index, test.testId, 'PERFORMED')}
                                           className={`px-2 py-0.5 rounded font-black transition ${
                                             resultState.performanceStatus === 'PERFORMED'
                                               ? 'bg-blue-700 text-white'
@@ -1513,7 +1516,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                                         </button>
                                         <button
                                           type="button"
-                                          onClick={() => handlePerformanceStatusChange(index, test.id, 'NOT_PERFORMED')}
+                                          onClick={() => handlePerformanceStatusChange(index, test.testId, 'NOT_PERFORMED')}
                                           className={`px-2 py-0.5 rounded font-black transition ${
                                             resultState.performanceStatus === 'NOT_PERFORMED'
                                               ? 'bg-rose-700 text-white'
@@ -1532,7 +1535,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                                         step="0.01"
                                         value={resultState.numericValue}
                                         onChange={(e) =>
-                                          handleTestResultChange(index, test.id, 'numericValue', e.target.value)
+                                          handleTestResultChange(index, test.testId, 'numericValue', e.target.value)
                                         }
                                         placeholder="Enter value"
                                         className={`w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border bg-white text-[#111311] ${
@@ -1545,7 +1548,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                                         type="text"
                                         value={resultState.notPerformedReason}
                                         onChange={(e) =>
-                                          handleTestResultChange(index, test.id, 'notPerformedReason', e.target.value)
+                                          handleTestResultChange(index, test.testId, 'notPerformedReason', e.target.value)
                                         }
                                         placeholder="Enter reason for not performing"
                                         className={`w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border bg-rose-50 text-rose-900 border-rose-300 ${
@@ -1560,7 +1563,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                                       <div className="flex items-center space-x-1">
                                         <button
                                           type="button"
-                                          onClick={() => handlePerformanceStatusChange(index, test.id, 'PERFORMED')}
+                                          onClick={() => handlePerformanceStatusChange(index, test.testId, 'PERFORMED')}
                                           className={`px-2 py-0.5 rounded font-black transition ${
                                             resultState.performanceStatus === 'PERFORMED'
                                               ? 'bg-blue-700 text-white'
@@ -1571,7 +1574,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                                         </button>
                                         <button
                                           type="button"
-                                          onClick={() => handlePerformanceStatusChange(index, test.id, 'NOT_PERFORMED')}
+                                          onClick={() => handlePerformanceStatusChange(index, test.testId, 'NOT_PERFORMED')}
                                           className={`px-2 py-0.5 rounded font-black transition ${
                                             resultState.performanceStatus === 'NOT_PERFORMED'
                                               ? 'bg-rose-700 text-white'
@@ -1589,7 +1592,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                                         value={resultState.textValue || null}
                                         options={test.resultOptions}
                                         onChange={(val) =>
-                                          handleTestResultChange(index, test.id, 'textValue', val)
+                                          handleTestResultChange(index, test.testId, 'textValue', val)
                                         }
                                         error={testError}
                                         ariaLabel={`${test.testName} result for Portion ${portion.portionNumber}`}
@@ -1600,7 +1603,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                                         type="text"
                                         value={resultState.notPerformedReason}
                                         onChange={(e) =>
-                                          handleTestResultChange(index, test.id, 'notPerformedReason', e.target.value)
+                                          handleTestResultChange(index, test.testId, 'notPerformedReason', e.target.value)
                                         }
                                         placeholder="Enter reason for not performing"
                                         className={`w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border bg-rose-50 text-rose-900 border-rose-300 ${
@@ -1615,7 +1618,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                                     type="text"
                                     value={resultState.textValue}
                                     onChange={(e) =>
-                                      handleTestResultChange(index, test.id, 'textValue', e.target.value)
+                                      handleTestResultChange(index, test.testId, 'textValue', e.target.value)
                                     }
                                     placeholder="Enter result"
                                     className={`w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border bg-white text-[#111311] ${
