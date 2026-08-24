@@ -418,33 +418,6 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
     }
   };
 
-  const handleSaveDraft = async () => {
-    if (!visitDetail) return;
-    const currentPortion = visitDetail.portions[activePortionIndex];
-    if (!currentPortion) return;
-
-    setIsSubmitting(true);
-
-    try {
-      const res = await fetch(`/api/qa/vehicle-visits/${visitDetail.id}/portions/${currentPortion.id}/draft`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ results: buildResultsPayload() }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to save draft');
-
-      toast.showSuccess(`Draft saved for Portion ${currentPortion.portion_number}.`, 'Draft Saved');
-      await fetchVisitDetail(visitDetail.id);
-      await fetchQueues();
-    } catch (err: any) {
-      toast.showError(err.message || 'Failed to save draft', 'QA Error');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const handleAcceptPortionConfirm = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!visitDetail) return;
@@ -1145,16 +1118,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
                     </div>
 
                     {/* Actions Bar */}
-                    <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-[#C4B9A3]">
-                      <button
-                        type="button"
-                        disabled={isSubmitting}
-                        onClick={handleSaveDraft}
-                        className="px-4 py-2 rounded-xl bg-white border border-[#C4B9A3] text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
-                      >
-                        Save Draft
-                      </button>
-
+                    <div className="flex flex-wrap items-center justify-end gap-3 pt-3 border-t border-[#C4B9A3]">
                       <div className="flex items-center space-x-2">
                         <button
                           type="button"
