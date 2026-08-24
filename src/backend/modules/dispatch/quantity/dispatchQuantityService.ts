@@ -571,6 +571,74 @@ export function computeVehiclePortionDifference(
   };
 }
 
+export interface DispatchSafeSummaryTotals {
+  hasPortions: boolean;
+  totalGrossLiters: number | null;
+  formattedTotalGrossLiters: string | null;
+  totalLitersAt13TS: number | null;
+  formattedTotalLitersAt13TS: string | null;
+}
+
+/**
+ * Pure production helper: Computes safe aggregate totals across all portions.
+ * - Total Gross Liters: Sum of portion gross liters ONLY when every portion has a valid numeric Gross Liters.
+ * - Total Liters @ 13% TS: Sum of portion liters @ 13% TS ONLY when every portion has a valid numeric Liters @ 13% TS.
+ * - If any portion is unavailable, the respective total is strictly unavailable (null).
+ * - Never computes averages (no average LR, Fat, Density, SNF, TS, Ratio).
+ */
+export function computeDispatchSafeSummaryTotals(
+  portionCalculatedValues: Array<{
+    grossLiters?: number | null;
+    litersAt13TS?: number | null;
+    at13TsLiters?: number | null;
+  }> | undefined | null
+): DispatchSafeSummaryTotals {
+  const list = portionCalculatedValues || [];
+  if (list.length === 0) {
+    return {
+      hasPortions: false,
+      totalGrossLiters: null,
+      formattedTotalGrossLiters: null,
+      totalLitersAt13TS: null,
+      formattedTotalLitersAt13TS: null,
+    };
+  }
+
+  let allGrossLitersAvailable = true;
+  let totalGrossLiters = 0;
+
+  let allAt13Available = true;
+  let totalAt13 = 0;
+
+  for (const p of list) {
+    const gl = p?.grossLiters;
+    if (gl === null || gl === undefined || isNaN(gl) || gl <= 0) {
+      allGrossLitersAvailable = false;
+    } else {
+      totalGrossLiters += gl;
+    }
+
+    const at13 = p?.litersAt13TS !== undefined ? p.litersAt13TS : p?.at13TsLiters;
+    if (at13 === null || at13 === undefined || isNaN(at13) || at13 <= 0) {
+      allAt13Available = false;
+    } else {
+      totalAt13 += at13;
+    }
+  }
+
+  const finalGrossLiters = allGrossLitersAvailable ? totalGrossLiters : null;
+  const finalAt13 = allAt13Available ? totalAt13 : null;
+
+  return {
+    hasPortions: true,
+    totalGrossLiters: finalGrossLiters,
+    formattedTotalGrossLiters:
+      finalGrossLiters !== null ? `${Math.round(finalGrossLiters).toLocaleString()} L` : null,
+    totalLitersAt13TS: finalAt13,
+    formattedTotalLitersAt13TS: finalAt13 !== null ? `${Math.round(finalAt13).toLocaleString()} L` : null,
+  };
+}
+
 export interface PortionQuantityFact {
   portionNumber?: number;
   dispatchQuantityValue?: number | string | null;
