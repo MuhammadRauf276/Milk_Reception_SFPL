@@ -1106,11 +1106,15 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                     </div>
                     <div className="p-1.5 rounded-lg bg-white border border-[#C4B9A3]">
                       <span className="text-[9px] font-sans text-slate-500 block">SNF %</span>
-                      <span className="text-blue-900">{calc.snf !== null ? `${calc.snf.toFixed(2)}%` : '—'}</span>
+                      <span className="text-blue-900">{calc.snf !== null ? `${calc.snf.toFixed(3)} %` : '—'}</span>
                     </div>
                     <div className="p-1.5 rounded-lg bg-white border border-[#C4B9A3]">
                       <span className="text-[9px] font-sans text-slate-500 block">Total Solids (TS %)</span>
-                      <span className="text-blue-900">{calc.ts !== null ? `${calc.ts.toFixed(2)}%` : '—'}</span>
+                      <span className="text-blue-900">{calc.ts !== null ? `${calc.ts.toFixed(3)} %` : '—'}</span>
+                    </div>
+                    <div className="p-1.5 rounded-lg bg-white border border-[#C4B9A3] col-span-2">
+                      <span className="text-[9px] font-sans text-slate-500 block">SNF : Fat</span>
+                      <span className="text-blue-900">{calc.ratio !== null ? calc.ratio.toFixed(3) : '—'}</span>
                     </div>
                   </div>
                 </div>
