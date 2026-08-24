@@ -208,4 +208,25 @@ describe('Stage 4C-5D: Portion Quantity Total, Measured Assistance, and Differen
     // Ensure no binary floating point artifact (e.g. 18950.599999999995)
     expect(summary.totalValue?.toString()).toBe('18950.6');
   });
+
+  it('[CASE D15] Over-max measured portion total: Displayable as mathematical total but blocks Vehicle assistance', () => {
+    const portions = [
+      { quantity: { value: '60000000.00', unit: 'KG' as const, basis: 'MEASURED' as const } },
+      { quantity: { value: '50000000.00', unit: 'KG' as const, basis: 'MEASURED' as const } },
+    ];
+
+    const summary = computePortionQuantitySummary(portions);
+    expect(summary.complete).toBe(true);
+    expect(summary.totalValue).toBe(110000000);
+    expect(summary.isAboveLimit).toBe(true);
+    expect(summary.unit).toBe('KG');
+    expect(summary.basis).toBe('MEASURED');
+    expect(summary.totalKind).toBe('MEASURED');
+    expect(summary.label).toBe('Measured Portion Total');
+    expect(summary.formattedTotal).toBe('110,000,000 KG');
+
+    const vehicleQty = { value: '', unit: 'KG' as const, basis: 'MEASURED' as const };
+    const canUse = canUseMeasuredPortionTotalForVehicle(vehicleQty, summary);
+    expect(canUse).toBe(false);
+  });
 });
