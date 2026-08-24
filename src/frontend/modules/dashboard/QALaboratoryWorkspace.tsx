@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { FlaskConical, CheckCircle2, XCircle, PauseCircle, Clock, Search, Radio, Play, RefreshCw, AlertCircle, ShieldCheck, Ban, HelpCircle } from 'lucide-react';
 import { useToast } from '@/frontend/context/ToastContext';
-import { toDatetimeLocalInput, datetimeLocalToIso } from '@/lib/datetime-utils';
+import { toDatetimeLocalInput, datetimeLocalToIso, formatOperationalTime } from '@/lib/datetime-utils';
 import { QualitativeResultRadioGroup } from '@/frontend/modules/shared/QualitativeResultRadioGroup';
 import { User } from '@core/types';
 
@@ -837,7 +837,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
 
                       <div className={`flex items-center justify-between text-[11px] font-bold ${isSelected ? 'text-amber-200' : 'text-amber-800'}`}>
                         <span>Chemist: {v.chemist_name}</span>
-                        <span>Held since: {new Date(v.held_since).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span>
+                        <span>Held since: {formatOperationalTime(v.held_since)}</span>
                       </div>
 
                       <button
@@ -886,7 +886,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
                   </div>
                   <div>
                     <span className="text-slate-500 font-sans block text-[9px]">Gate Entry Time</span>
-                    <span>{selectedWaitingVisit.entry_timestamp ? new Date(selectedWaitingVisit.entry_timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : 'Just arrived'}</span>
+                    <span>{selectedWaitingVisit.entry_timestamp ? formatOperationalTime(selectedWaitingVisit.entry_timestamp) : 'Just arrived'}</span>
                   </div>
                   <div>
                     <span className="text-slate-500 font-sans block text-[9px]">Waiting Time</span>
@@ -1215,7 +1215,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
                 <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs font-bold space-y-2 text-amber-950">
                   <div className="flex items-center justify-between">
                     <span>Chemist: <strong>{selectedHeldVisit.chemist_name}</strong></span>
-                    <span>Held Since: <strong>{new Date(selectedHeldVisit.held_since).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</strong></span>
+                    <span>Held Since: <strong>{formatOperationalTime(selectedHeldVisit.held_since)}</strong></span>
                   </div>
                   <div>
                     <span className="text-slate-500 text-[10px] uppercase font-mono block">Hold Reason</span>
@@ -1262,7 +1262,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
                 required
               />
               <p className="text-[11px] text-slate-600 font-medium mt-1">
-                Min: Gate Entry timestamp ({selectedWaitingVisit?.entry_timestamp ? new Date(selectedWaitingVisit.entry_timestamp).toLocaleTimeString() : 'N/A'})
+                Min: Gate Entry timestamp ({selectedWaitingVisit?.entry_timestamp ? formatOperationalTime(selectedWaitingVisit.entry_timestamp) : 'N/A'})
               </p>
             </div>
 
@@ -1298,7 +1298,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
                 required
               />
               <p className="text-[11px] text-slate-600 font-medium mt-1">
-                Min: Latest HOLD timestamp ({selectedHeldVisit?.held_since ? new Date(selectedHeldVisit.held_since).toLocaleTimeString() : 'N/A'})
+                Min: Latest HOLD timestamp ({selectedHeldVisit?.held_since ? formatOperationalTime(selectedHeldVisit.held_since) : 'N/A'})
               </p>
             </div>
 
