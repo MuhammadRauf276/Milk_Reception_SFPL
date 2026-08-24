@@ -158,8 +158,7 @@ async function runRealPostgresMigrationUpgradeTest() {
         "portion_number",
         "dispatch_quantity_value"::text as val,
         "dispatch_quantity_unit"::text as unit,
-        "dispatch_quantity_basis"::text as basis,
-        "dispatch_measurement_method"::text as method
+        "dispatch_quantity_basis"::text as basis
       FROM "${testSchemaName}"."visit_portion"
       ORDER BY "id" ASC;
     `);
@@ -239,6 +238,10 @@ async function runRealPostgresMigrationUpgradeTest() {
     assert(
       colNames.includes('dispatch_quantity_value') && colNames.includes('dispatch_quantity_unit'),
       'MIG-SCHEMA-2: Canonical dispatch_quantity_* columns exist on visit_portion'
+    );
+    assert(
+      !colNames.includes('dispatch_measurement_method'),
+      'MIG-SCHEMA-2B: dispatch_measurement_method column successfully dropped from visit_portion'
     );
 
     // Assert Column Schema: dispatch_info has NO vehicle_quantity_* columns

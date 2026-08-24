@@ -6,18 +6,15 @@ import {
 
 export const quantityUnitSchema = z.enum(['KG', 'LITER']);
 export const measurementBasisSchema = z.enum(['ESTIMATED', 'MEASURED']);
-export const measurementMethodSchema = z.enum(['MANUAL_ESTIMATE', 'WEIGHING', 'FLOW_METER', 'OTHER']);
 
 export const measurementCombinationSchema = z.object({
   unit: quantityUnitSchema,
   basis: measurementBasisSchema,
-  method: measurementMethodSchema,
 });
 
 export const allowedMeasurementSchema = z.object({
   unit: quantityUnitSchema,
   basis: measurementBasisSchema,
-  methods: z.array(measurementMethodSchema).min(1, 'At least one method must be configured for each allowed unit/basis pair.'),
 });
 
 export const vehicleQuantityRuleSchema = z.object({
@@ -27,7 +24,7 @@ export const vehicleQuantityRuleSchema = z.object({
   if (!isCombinationAllowed(data.allowedMeasurements, data.default)) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: `Default vehicle measurement (${data.default.unit}, ${data.default.basis}, ${data.default.method}) is not in allowed combinations.`,
+      message: `Default vehicle measurement (${data.default.unit}, ${data.default.basis}) is not in allowed combinations.`,
       path: ['default'],
     });
   }
@@ -40,7 +37,7 @@ export const portionQuantityRuleSchema = z.object({
   if (!isCombinationAllowed(data.allowedMeasurements, data.default)) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: `Default portion measurement (${data.default.unit}, ${data.default.basis}, ${data.default.method}) is not in allowed combinations.`,
+      message: `Default portion measurement (${data.default.unit}, ${data.default.basis}) is not in allowed combinations.`,
       path: ['default'],
     });
   }

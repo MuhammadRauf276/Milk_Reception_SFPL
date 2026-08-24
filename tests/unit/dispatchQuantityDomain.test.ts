@@ -15,56 +15,54 @@ import {
 import { DispatchQuantityPolicyConfig } from '@/backend/modules/dispatch/quantity-policy/types';
 import { calculatePhysicalLiters } from '@/backend/utils/milkFormulas';
 
-describe('Stage 4C-4: Dispatch Quantity Domain (Unit Tests)', () => {
+describe('Stage 4C-4/4C-5F: Dispatch Quantity Domain (Unit Tests)', () => {
   const samplePolicy: DispatchQuantityPolicyConfig = {
     version: 1,
     vehicleRules: {
       allowedMeasurements: [
-        { unit: 'KG', basis: 'MEASURED', methods: ['WEIGHING'] },
-        { unit: 'LITER', basis: 'ESTIMATED', methods: ['MANUAL_ESTIMATE'] },
+        { unit: 'KG', basis: 'MEASURED' },
+        { unit: 'LITER', basis: 'ESTIMATED' },
       ],
-      default: { unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
+      default: { unit: 'KG', basis: 'MEASURED' },
     },
     portionRules: {
       allowedMeasurements: [
-        { unit: 'KG', basis: 'MEASURED', methods: ['WEIGHING'] },
-        { unit: 'LITER', basis: 'ESTIMATED', methods: ['MANUAL_ESTIMATE', 'FLOW_METER'] },
+        { unit: 'KG', basis: 'MEASURED' },
+        { unit: 'LITER', basis: 'ESTIMATED' },
       ],
-      default: { unit: 'LITER', basis: 'ESTIMATED', method: 'MANUAL_ESTIMATE' },
+      default: { unit: 'LITER', basis: 'ESTIMATED' },
     },
     allowSameUnitPortionPrefill: false,
   };
 
-  it('[TEST-A] Validates valid KG/MEASURED/WEIGHING vehicle and portion facts', () => {
+  it('[TEST-A] Validates valid KG/MEASURED vehicle and portion facts', () => {
     const vResult = validateQuantityAgainstPolicy(
-      { value: '19500.50', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
+      { value: '19500.50', unit: 'KG', basis: 'MEASURED' },
       samplePolicy.vehicleRules,
       'Vehicle'
     );
     expect(vResult.value.toString()).toBe('19500.50');
     expect(vResult.unit).toBe('KG');
     expect(vResult.basis).toBe('MEASURED');
-    expect(vResult.method).toBe('WEIGHING');
   });
 
-  it('[TEST-B] Validates valid LITER/ESTIMATED/MANUAL_ESTIMATE facts', () => {
+  it('[TEST-B] Validates valid LITER/ESTIMATED facts', () => {
     const pResult = validateQuantityAgainstPolicy(
-      { value: '9800', unit: 'LITER', basis: 'ESTIMATED', method: 'MANUAL_ESTIMATE' },
+      { value: '9800', unit: 'LITER', basis: 'ESTIMATED' },
       samplePolicy.portionRules,
       'Portion 1'
     );
     expect(pResult.value.toString()).toBe('9800');
     expect(pResult.unit).toBe('LITER');
     expect(pResult.basis).toBe('ESTIMATED');
-    expect(pResult.method).toBe('MANUAL_ESTIMATE');
   });
 
   it('[TEST-C] Allows mixed units between vehicle and portion without converting', () => {
     const validated = validateDispatchQuantities({
-      vehicleQuantity: { value: '19500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
+      vehicleQuantity: { value: '19500', unit: 'KG', basis: 'MEASURED' },
       portions: [
-        { portionNumber: 1, quantity: { value: '9800', unit: 'LITER', basis: 'ESTIMATED', method: 'MANUAL_ESTIMATE' } },
-        { portionNumber: 2, quantity: { value: '9150', unit: 'LITER', basis: 'ESTIMATED', method: 'MANUAL_ESTIMATE' } },
+        { portionNumber: 1, quantity: { value: '9800', unit: 'LITER', basis: 'ESTIMATED' } },
+        { portionNumber: 2, quantity: { value: '9150', unit: 'LITER', basis: 'ESTIMATED' } },
       ],
       policy: samplePolicy,
     });
@@ -76,10 +74,10 @@ describe('Stage 4C-4: Dispatch Quantity Domain (Unit Tests)', () => {
 
   it('[TEST-D] Allows portion quantities that do not sum or reconcile with vehicle quantity', () => {
     const validated = validateDispatchQuantities({
-      vehicleQuantity: { value: '19500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
+      vehicleQuantity: { value: '19500', unit: 'KG', basis: 'MEASURED' },
       portions: [
-        { portionNumber: 1, quantity: { value: '12000', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' } },
-        { portionNumber: 2, quantity: { value: '15000', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' } },
+        { portionNumber: 1, quantity: { value: '12000', unit: 'KG', basis: 'MEASURED' } },
+        { portionNumber: 2, quantity: { value: '15000', unit: 'KG', basis: 'MEASURED' } },
       ],
       policy: samplePolicy,
     });
@@ -92,7 +90,7 @@ describe('Stage 4C-4: Dispatch Quantity Domain (Unit Tests)', () => {
   it('[TEST-E] Rejects vehicle quantity combination not allowed in frozen policy', () => {
     expect(() =>
       validateQuantityAgainstPolicy(
-        { value: '15000', unit: 'KG', basis: 'ESTIMATED', method: 'MANUAL_ESTIMATE' },
+        { value: '15000', unit: 'KG', basis: 'ESTIMATED' },
         samplePolicy.vehicleRules,
         'Vehicle'
       )
@@ -100,7 +98,7 @@ describe('Stage 4C-4: Dispatch Quantity Domain (Unit Tests)', () => {
 
     try {
       validateQuantityAgainstPolicy(
-        { value: '15000', unit: 'KG', basis: 'ESTIMATED', method: 'MANUAL_ESTIMATE' },
+        { value: '15000', unit: 'KG', basis: 'ESTIMATED' },
         samplePolicy.vehicleRules,
         'Vehicle'
       );
@@ -112,17 +110,17 @@ describe('Stage 4C-4: Dispatch Quantity Domain (Unit Tests)', () => {
   it('[TEST-F] Rejects portion quantity combination not allowed in frozen policy', () => {
     expect(() =>
       validateQuantityAgainstPolicy(
-        { value: '5000', unit: 'KG', basis: 'MEASURED', method: 'FLOW_METER' },
+        { value: '5000', unit: 'KG', basis: 'ESTIMATED' },
         samplePolicy.portionRules,
         'Portion 1'
       )
     ).toThrow(QuantityMeasurementError);
   });
 
-  it('[TEST-G] Rejects zero, negative, or invalid vehicle quantity numbers', () => {
+  it('[TEST-G] Rejects zero quantity for vehicle and portion', () => {
     expect(() =>
       validateQuantityAgainstPolicy(
-        { value: '0', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
+        { value: '0', unit: 'KG', basis: 'MEASURED' },
         samplePolicy.vehicleRules,
         'Vehicle'
       )
@@ -130,7 +128,7 @@ describe('Stage 4C-4: Dispatch Quantity Domain (Unit Tests)', () => {
 
     expect(() =>
       validateQuantityAgainstPolicy(
-        { value: '-500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
+        { value: '-500', unit: 'KG', basis: 'MEASURED' },
         samplePolicy.vehicleRules,
         'Vehicle'
       )
@@ -140,7 +138,7 @@ describe('Stage 4C-4: Dispatch Quantity Domain (Unit Tests)', () => {
   it('[TEST-H] Rejects zero or negative portion quantity', () => {
     expect(() =>
       validateQuantityAgainstPolicy(
-        { value: '0', unit: 'LITER', basis: 'ESTIMATED', method: 'MANUAL_ESTIMATE' },
+        { value: '0', unit: 'LITER', basis: 'ESTIMATED' },
         samplePolicy.portionRules,
         'Portion 1'
       )
@@ -151,19 +149,19 @@ describe('Stage 4C-4: Dispatch Quantity Domain (Unit Tests)', () => {
     const historicalSnapshotPolicy: DispatchQuantityPolicyConfig = {
       version: 1,
       vehicleRules: {
-        allowedMeasurements: [{ unit: 'LITER', basis: 'MEASURED', methods: ['FLOW_METER'] }],
-        default: { unit: 'LITER', basis: 'MEASURED', method: 'FLOW_METER' },
+        allowedMeasurements: [{ unit: 'LITER', basis: 'MEASURED' }],
+        default: { unit: 'LITER', basis: 'MEASURED' },
       },
       portionRules: {
-        allowedMeasurements: [{ unit: 'LITER', basis: 'MEASURED', methods: ['FLOW_METER'] }],
-        default: { unit: 'LITER', basis: 'MEASURED', method: 'FLOW_METER' },
+        allowedMeasurements: [{ unit: 'LITER', basis: 'MEASURED' }],
+        default: { unit: 'LITER', basis: 'MEASURED' },
       },
       allowSameUnitPortionPrefill: false,
     };
 
     const validated = validateDispatchQuantities({
-      vehicleQuantity: { value: '18000', unit: 'LITER', basis: 'MEASURED', method: 'FLOW_METER' },
-      portions: [{ portionNumber: 1, quantity: { value: '18000', unit: 'LITER', basis: 'MEASURED', method: 'FLOW_METER' } }],
+      vehicleQuantity: { value: '18000', unit: 'LITER', basis: 'MEASURED' },
+      portions: [{ portionNumber: 1, quantity: { value: '18000', unit: 'LITER', basis: 'MEASURED' } }],
       policy: historicalSnapshotPolicy,
     });
 
@@ -179,7 +177,7 @@ describe('Stage 4C-4: Dispatch Quantity Domain (Unit Tests)', () => {
     expect(() =>
       validateDispatchQuantities({
         vehicleQuantity: null as any,
-        portions: [{ portionNumber: 1, quantity: { value: '5000', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' } }],
+        portions: [{ portionNumber: 1, quantity: { value: '5000', unit: 'KG', basis: 'MEASURED' } }],
         policy: samplePolicy,
       })
     ).toThrow(QuantityMeasurementError);
@@ -188,42 +186,42 @@ describe('Stage 4C-4: Dispatch Quantity Domain (Unit Tests)', () => {
   it('[TEST-L] Rejects dispatch submission with 0 portions', () => {
     expect(() =>
       validateDispatchQuantities({
-        vehicleQuantity: { value: '19500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
+        vehicleQuantity: { value: '19500', unit: 'KG', basis: 'MEASURED' },
         portions: [],
         policy: samplePolicy,
       })
     ).toThrow(QuantityMeasurementError);
   });
 
-  it('[TEST-N] Tests enum values across domain types', () => {
+  it('[TEST-N] Tests combinations across domain types', () => {
     const permissivePolicy: DispatchQuantityPolicyConfig = {
       version: 1,
       vehicleRules: {
         allowedMeasurements: [
-          { unit: 'KG', basis: 'MEASURED', methods: ['WEIGHING', 'OTHER'] },
-          { unit: 'LITER', basis: 'ESTIMATED', methods: ['MANUAL_ESTIMATE', 'FLOW_METER'] },
+          { unit: 'KG', basis: 'MEASURED' },
+          { unit: 'LITER', basis: 'ESTIMATED' },
         ],
-        default: { unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
+        default: { unit: 'KG', basis: 'MEASURED' },
       },
       portionRules: {
         allowedMeasurements: [
-          { unit: 'KG', basis: 'ESTIMATED', methods: ['MANUAL_ESTIMATE', 'OTHER'] },
-          { unit: 'LITER', basis: 'MEASURED', methods: ['FLOW_METER', 'WEIGHING'] },
+          { unit: 'KG', basis: 'ESTIMATED' },
+          { unit: 'LITER', basis: 'MEASURED' },
         ],
-        default: { unit: 'KG', basis: 'ESTIMATED', method: 'MANUAL_ESTIMATE' },
+        default: { unit: 'KG', basis: 'ESTIMATED' },
       },
       allowSameUnitPortionPrefill: false,
     };
 
     const res1 = validateQuantityAgainstPolicy(
-      { value: '100', unit: 'KG', basis: 'MEASURED', method: 'OTHER' },
+      { value: '100', unit: 'KG', basis: 'MEASURED' },
       permissivePolicy.vehicleRules,
       'Vehicle'
     );
-    expect(res1.method).toBe('OTHER');
+    expect(res1.basis).toBe('MEASURED');
 
     const res2 = validateQuantityAgainstPolicy(
-      { value: '200', unit: 'LITER', basis: 'MEASURED', method: 'FLOW_METER' },
+      { value: '200', unit: 'LITER', basis: 'MEASURED' },
       permissivePolicy.portionRules,
       'Portion'
     );
@@ -252,7 +250,7 @@ describe('Stage 4C-4: Dispatch Quantity Domain (Unit Tests)', () => {
       expect(parsePositiveDecimalString('0.01')).toBe('0.01');
       expect(parsePositiveDecimalString(0.01)).toBe('0.01');
       const res = validateQuantityAgainstPolicy(
-        { value: '0.01', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
+        { value: '0.01', unit: 'KG', basis: 'MEASURED' },
         samplePolicy.vehicleRules,
         'Vehicle'
       );
@@ -262,7 +260,7 @@ describe('Stage 4C-4: Dispatch Quantity Domain (Unit Tests)', () => {
     it('accepts maximum positive quantity 99999999.99', () => {
       expect(parsePositiveDecimalString('99999999.99')).toBe('99999999.99');
       const res = validateQuantityAgainstPolicy(
-        { value: '99999999.99', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
+        { value: '99999999.99', unit: 'KG', basis: 'MEASURED' },
         samplePolicy.vehicleRules,
         'Vehicle'
       );
@@ -311,8 +309,8 @@ describe('Stage 4C-4: Dispatch Quantity Domain (Unit Tests)', () => {
       // Vehicle boundary check
       expect(() =>
         validateDispatchQuantities({
-          vehicleQuantity: { value: '0.001', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
-          portions: [{ portionNumber: 1, quantity: { value: '5000', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' } }],
+          vehicleQuantity: { value: '0.001', unit: 'KG', basis: 'MEASURED' },
+          portions: [{ portionNumber: 1, quantity: { value: '5000', unit: 'KG', basis: 'MEASURED' } }],
           policy: samplePolicy,
         })
       ).toThrow(QuantityMeasurementError);
@@ -320,8 +318,8 @@ describe('Stage 4C-4: Dispatch Quantity Domain (Unit Tests)', () => {
       // Portion boundary check
       expect(() =>
         validateDispatchQuantities({
-          vehicleQuantity: { value: '5000', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
-          portions: [{ portionNumber: 1, quantity: { value: '100000000', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' } }],
+          vehicleQuantity: { value: '5000', unit: 'KG', basis: 'MEASURED' },
+          portions: [{ portionNumber: 1, quantity: { value: '100000000', unit: 'KG', basis: 'MEASURED' } }],
           policy: samplePolicy,
         })
       ).toThrow(QuantityMeasurementError);
@@ -378,7 +376,6 @@ describe('Stage 4C-4: Dispatch Quantity Domain (Unit Tests)', () => {
           dispatch_quantity_value,
           dispatch_quantity_unit,
           dispatch_quantity_basis: null,
-          dispatch_measurement_method: null,
         };
       }
 
@@ -387,14 +384,12 @@ describe('Stage 4C-4: Dispatch Quantity Domain (Unit Tests)', () => {
       expect(rowA.dispatch_quantity_value).toBe(9500);
       expect(rowA.dispatch_quantity_unit).toBe('KG');
       expect(rowA.dispatch_quantity_basis).toBeNull();
-      expect(rowA.dispatch_measurement_method).toBeNull();
 
       // Row B: 10000 LITER
       const rowB = migratePortionRow(10000, 'LITER');
       expect(rowB.dispatch_quantity_value).toBe(10000);
       expect(rowB.dispatch_quantity_unit).toBe('LITER');
       expect(rowB.dispatch_quantity_basis).toBeNull();
-      expect(rowB.dispatch_measurement_method).toBeNull();
 
       // Row C: NULL quantity / unit
       const rowC = migratePortionRow(null, null);
@@ -516,13 +511,13 @@ describe('Stage 4C-4: Dispatch Quantity Domain (Unit Tests)', () => {
       expect(seedSql).toContain('vehicle_dispatch_quantity_value');
       expect(seedSql).toContain('vehicle_dispatch_quantity_unit');
       expect(seedSql).toContain('vehicle_dispatch_quantity_basis');
-      expect(seedSql).toContain('vehicle_dispatch_measurement_method');
+      expect(seedSql).not.toContain('vehicle_dispatch_measurement_method');
 
       // VisitPortion quantity columns
       expect(seedSql).toContain('dispatch_quantity_value');
       expect(seedSql).toContain('dispatch_quantity_unit');
       expect(seedSql).toContain('dispatch_quantity_basis');
-      expect(seedSql).toContain('dispatch_measurement_method');
+      expect(seedSql).not.toContain('dispatch_measurement_method');
     });
 
     it('[LAB-IDENTITY-COLLISION] Proves results resolve strictly by canonical LabTest definition ID and reject assignment primary key collisions or unassigned test IDs', () => {

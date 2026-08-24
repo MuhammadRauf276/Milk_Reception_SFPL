@@ -21,11 +21,9 @@ import { getScopedDraftKey } from '@/lib/validations/dispatch';
 import {
   QuantityUnit,
   MeasurementBasis,
-  MeasurementMethod,
   DispatchQuantityPolicySnapshotDTO,
   getAllowedUnits,
   getAllowedBases,
-  getAllowedMethods,
 } from '@/backend/modules/dispatch/quantity-policy/types';
 import {
   applySharedPortionUnit,
@@ -59,13 +57,11 @@ interface TestResultState {
 
 export type QuantityUnitType = QuantityUnit;
 export type MeasurementBasisType = MeasurementBasis;
-export type MeasurementMethodType = MeasurementMethod;
 
 export interface QuantityState {
   value: string;
   unit: QuantityUnit;
   basis: MeasurementBasis;
-  method: MeasurementMethod;
 }
 
 interface PortionFormState {
@@ -100,7 +96,6 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     value: '',
     unit: 'KG',
     basis: 'MEASURED',
-    method: 'WEIGHING',
   });
   const [vehicleQuantityError, setVehicleQuantityError] = useState<string | null>(null);
 
@@ -250,7 +245,6 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
               value: '',
               unit: vDef.unit,
               basis: vDef.basis,
-              method: vDef.method,
             });
           }
         }
@@ -273,7 +267,6 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                   value: '',
                   unit: pDef.unit,
                   basis: pDef.basis,
-                  method: pDef.method,
                 },
                 results: initialResults,
                 isSaved: false,
@@ -314,9 +307,6 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
   const vehicleAllowedBases = isPolicyReady && vehicleAllowedMeasurements && vehicleQuantity.unit
     ? getAllowedBases(vehicleAllowedMeasurements, vehicleQuantity.unit)
     : [];
-  const vehicleAllowedMethods = isPolicyReady && vehicleAllowedMeasurements && vehicleQuantity.unit && vehicleQuantity.basis
-    ? getAllowedMethods(vehicleAllowedMeasurements, vehicleQuantity.unit, vehicleQuantity.basis)
-    : [];
 
   // Derived allowed options for Portion (strictly guarded against undefined)
   const portionAllowedMeasurements = frozenQuantityPolicy?.policy?.portionRules?.allowedMeasurements;
@@ -337,8 +327,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     const p1 = portions[0];
     const initialQty = createPortionQuantityFromSharedProfile(
       p1 ? p1.quantity : null,
-      pDef,
-      portionAllowedMeasurements
+      pDef
     );
 
     return {
@@ -367,30 +356,20 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
   const handleVehicleUnitChange = (newUnit: QuantityUnitType) => {
     const bases = getAllowedBases(vehicleAllowedMeasurements, newUnit);
     const newBasis = bases.includes(vehicleQuantity.basis) ? vehicleQuantity.basis : bases[0];
-    const methods = getAllowedMethods(vehicleAllowedMeasurements, newUnit, newBasis);
-    const newMethod = methods.includes(vehicleQuantity.method) ? vehicleQuantity.method : methods[0];
 
     setVehicleQuantity({
       value: '', // clear entered quantity on unit change
       unit: newUnit,
       basis: newBasis,
-      method: newMethod,
     });
     setVehicleQuantityError(null);
   };
 
   const handleVehicleBasisChange = (newBasis: MeasurementBasisType) => {
-    const methods = getAllowedMethods(vehicleAllowedMeasurements, vehicleQuantity.unit, newBasis);
-    const newMethod = methods.includes(vehicleQuantity.method) ? vehicleQuantity.method : methods[0];
     setVehicleQuantity((prev) => ({
       ...prev,
       basis: newBasis,
-      method: newMethod,
     }));
-  };
-
-  const handleVehicleMethodChange = (newMethod: MeasurementMethodType) => {
-    setVehicleQuantity((prev) => ({ ...prev, method: newMethod }));
   };
 
   const handlePortionQuantityValueChange = (index: number, val: string) => {
@@ -435,13 +414,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     // Only Portion 1 establishes and can modify the shared portion Basis
     if (index !== 0) return;
 
-    const updated = applySharedPortionBasis(portions, newBasis, portionAllowedMeasurements);
-    setPortions(updated);
-  };
-
-  const handlePortionMethodChange = (index: number, newMethod: MeasurementMethodType) => {
-    const updated = [...portions];
-    updated[index].quantity.method = newMethod;
+    const updated = applySharedPortionBasis(portions, newBasis);
     setPortions(updated);
   };
 
@@ -796,7 +769,6 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
           value: p.quantity.value,
           unit: p.quantity.unit,
           basis: p.quantity.basis,
-          method: p.quantity.method,
         },
         dispatchTimestamp: isoDispatchTimestamp,
         results: labTests
@@ -879,7 +851,6 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
             value: vehicleQuantity.value,
             unit: vehicleQuantity.unit,
             basis: vehicleQuantity.basis,
-            method: vehicleQuantity.method,
           },
           portions: payloadPortions,
         }),
@@ -1208,7 +1179,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                   <div>
                     <label className="block text-[11px] font-bold mb-1">Value *</label>
                     <input
@@ -1251,21 +1222,6 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                       {vehicleAllowedBases.map((b) => (
                         <option key={b} value={b}>
                           {b}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold mb-1">Measurement Method *</label>
-                    <select
-                      value={vehicleQuantity.method}
-                      onChange={(e) => handleVehicleMethodChange(e.target.value as MeasurementMethodType)}
-                      className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none"
-                    >
-                      {vehicleAllowedMethods.map((m) => (
-                        <option key={m} value={m}>
-                          {m}
                         </option>
                       ))}
                     </select>
@@ -1326,7 +1282,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                             {portion.quantity.value ? `${Number(portion.quantity.value).toLocaleString()} ${portion.quantity.unit}` : '—'}
                           </span>
                           <span className="text-[10px] font-bold text-slate-500">
-                            ({portion.quantity.basis} • {portion.quantity.method})
+                            ({portion.quantity.basis})
                           </span>
                         </div>
                         <p className="text-[11px] font-bold text-slate-600 mt-0.5">
@@ -1382,7 +1338,6 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
             // Expanded Portion Editor View
             if (isEditing) {
               const pAllowedBases = getAllowedBases(portionAllowedMeasurements, portion.quantity.unit);
-              const pAllowedMethods = getAllowedMethods(portionAllowedMeasurements, portion.quantity.unit, portion.quantity.basis);
               const portionLabel = portion.quantity.basis === 'ESTIMATED' ? 'Estimated Portion Quantity' : 'Measured Portion Quantity';
 
               return (
@@ -1407,7 +1362,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                       </label>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                       <div>
                         <label className="block text-[10px] font-bold text-slate-600 mb-1">Value *</label>
                         <input
@@ -1481,21 +1436,6 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                             className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-slate-200 bg-slate-100 text-slate-500 cursor-not-allowed outline-none select-none"
                           />
                         )}
-                      </div>
-
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-600 mb-1">Method *</label>
-                        <select
-                          value={portion.quantity.method}
-                          onChange={(e) => handlePortionMethodChange(index, e.target.value as MeasurementMethodType)}
-                          className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none"
-                        >
-                          {pAllowedMethods.map((m) => (
-                            <option key={m} value={m}>
-                              {m}
-                            </option>
-                          ))}
-                        </select>
                       </div>
                     </div>
 

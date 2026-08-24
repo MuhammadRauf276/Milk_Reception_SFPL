@@ -196,7 +196,6 @@ async function main() {
             dispatch_quantity_value: 10000,
             dispatch_quantity_unit: 'LITER',
             dispatch_quantity_basis: 'ESTIMATED',
-            dispatch_measurement_method: 'FLOW_METER',
             plant_decision: 'ACCEPTED',
             current_status: 'PENDING_UNLOAD',
           },
@@ -242,14 +241,14 @@ async function main() {
   });
 
   // ----------------------------------------------------
-  // SCENARIO 2: Contractor KG (9,500 KG) with Plant LR 28.0
+  // SCENARIO 2: Single-Portion KG Vehicle (9,500 KG)
   // ----------------------------------------------------
-  console.log('\n--- SCENARIO 2: CONTRACTOR KG (9,500 KG) ---');
+  console.log('\n--- SCENARIO 2: SINGLE PORTION KG VEHICLE ---');
   const visitKg = await prisma.vehicleVisit.create({
     data: {
       visit_number: `VV-KG-${timestamp}`,
-      vehicle_number: `TK-9500`,
-      token_number: `TK-KG`,
+      vehicle_number: `TM-KG-01`,
+      token_number: `TK-KG-01`,
       current_status: 'READY_FOR_UNLOADING',
       procurement_source_id: contractorSource.id,
       operational_date: new Date(),
@@ -257,7 +256,7 @@ async function main() {
       weight_ticket: {
         create: {
           ticket_number: `WT-KG-${timestamp}`,
-          gross_weight_kg: new Prisma.Decimal(31500),
+          gross_weight_kg: new Prisma.Decimal(30000),
           gross_timestamp: new Date(Date.now() - 30 * 60 * 1000),
           gross_recorded_by: prodUser.id,
         },
@@ -269,7 +268,6 @@ async function main() {
             dispatch_quantity_value: 9500,
             dispatch_quantity_unit: 'KG',
             dispatch_quantity_basis: 'MEASURED',
-            dispatch_measurement_method: 'WEIGHING',
             plant_decision: 'ACCEPTED',
             current_status: 'PENDING_UNLOAD',
           },
@@ -342,7 +340,6 @@ async function main() {
             dispatch_quantity_value: 9500,
             dispatch_quantity_unit: 'KG',
             dispatch_quantity_basis: 'MEASURED',
-            dispatch_measurement_method: 'WEIGHING',
             plant_decision: 'ACCEPTED',
             current_status: 'PENDING_UNLOAD',
           },
@@ -351,7 +348,6 @@ async function main() {
             dispatch_quantity_value: 10000,
             dispatch_quantity_unit: 'LITER',
             dispatch_quantity_basis: 'ESTIMATED',
-            dispatch_measurement_method: 'FLOW_METER',
             plant_decision: 'ACCEPTED',
             current_status: 'PENDING_UNLOAD',
           },
@@ -432,7 +428,6 @@ async function main() {
             dispatch_quantity_value: 9500,
             dispatch_quantity_unit: 'KG',
             dispatch_quantity_basis: 'MEASURED',
-            dispatch_measurement_method: 'WEIGHING',
             plant_decision: 'ACCEPTED',
             current_status: 'PENDING_UNLOAD',
           },
@@ -441,7 +436,6 @@ async function main() {
             dispatch_quantity_value: 50000,
             dispatch_quantity_unit: 'LITER',
             dispatch_quantity_basis: 'ESTIMATED',
-            dispatch_measurement_method: 'FLOW_METER',
             plant_decision: 'REJECTED',
             plant_rejection_reason: 'High Temperature / Adulteration',
             current_status: 'REJECTED',
@@ -506,7 +500,6 @@ async function main() {
             dispatch_quantity_value: 9500,
             dispatch_quantity_unit: 'KG',
             dispatch_quantity_basis: 'MEASURED',
-            dispatch_measurement_method: 'WEIGHING',
             plant_decision: 'ACCEPTED',
             current_status: 'PENDING_UNLOAD',
           },
@@ -551,7 +544,6 @@ async function main() {
             dispatch_quantity_value: 10000,
             dispatch_quantity_unit: 'LITER',
             dispatch_quantity_basis: 'ESTIMATED',
-            dispatch_measurement_method: 'FLOW_METER',
             plant_decision: 'ACCEPTED',
             current_status: 'PENDING_UNLOAD',
           },

@@ -158,7 +158,6 @@ async function runRegressionTests() {
       vehicle_dispatch_quantity_value: 5000,
       vehicle_dispatch_quantity_unit: 'KG',
       vehicle_dispatch_quantity_basis: 'MEASURED',
-      vehicle_dispatch_measurement_method: 'WEIGHING',
     },
   });
 
@@ -175,7 +174,6 @@ async function runRegressionTests() {
       vehicle_dispatch_quantity_value: 6000,
       vehicle_dispatch_quantity_unit: 'KG',
       vehicle_dispatch_quantity_basis: 'MEASURED',
-      vehicle_dispatch_measurement_method: 'WEIGHING',
     },
   });
 
@@ -192,7 +190,6 @@ async function runRegressionTests() {
       vehicle_dispatch_quantity_value: 7000,
       vehicle_dispatch_quantity_unit: 'KG',
       vehicle_dispatch_quantity_basis: 'MEASURED',
-      vehicle_dispatch_measurement_method: 'WEIGHING',
     },
   });
 

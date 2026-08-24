@@ -123,7 +123,6 @@ async function runProductionUnloadingWorkflowVerification() {
         vehicle_dispatch_quantity_value: 13000,
         vehicle_dispatch_quantity_unit: 'KG',
         vehicle_dispatch_quantity_basis: 'MEASURED',
-        vehicle_dispatch_measurement_method: 'WEIGHING',
         portions: {
           create: [
             {
@@ -131,7 +130,6 @@ async function runProductionUnloadingWorkflowVerification() {
               dispatch_quantity_value: 8000,
               dispatch_quantity_unit: 'KG',
               dispatch_quantity_basis: 'MEASURED',
-              dispatch_measurement_method: 'WEIGHING',
               plant_decision: 'ACCEPTED',
               current_status: 'PLANT_QA',
             },
@@ -140,7 +138,6 @@ async function runProductionUnloadingWorkflowVerification() {
               dispatch_quantity_value: 5000,
               dispatch_quantity_unit: 'KG',
               dispatch_quantity_basis: 'MEASURED',
-              dispatch_measurement_method: 'WEIGHING',
               plant_decision: 'REJECTED',
               plant_rejection_reason: 'High acidity',
               current_status: 'PLANT_QA',

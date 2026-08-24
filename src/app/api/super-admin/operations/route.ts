@@ -56,7 +56,6 @@ export async function GET(req: Request) {
       vehicleDispatchQuantityValue: v.vehicle_dispatch_quantity_value ? Number(v.vehicle_dispatch_quantity_value) : null,
       vehicleDispatchQuantityUnit: v.vehicle_dispatch_quantity_unit || null,
       vehicleDispatchQuantityBasis: v.vehicle_dispatch_quantity_basis || null,
-      vehicleDispatchMeasurementMethod: v.vehicle_dispatch_measurement_method || null,
       gateLog: v.gate_log
         ? {
             entryTimestamp: v.gate_log.entry_timestamp ? v.gate_log.entry_timestamp.toISOString() : null,
@@ -98,7 +97,6 @@ export async function GET(req: Request) {
           dispatchQuantityValue: dVal,
           dispatchQuantityUnit: p.dispatch_quantity_unit || null,
           dispatchQuantityBasis: p.dispatch_quantity_basis || null,
-          dispatchMeasurementMethod: p.dispatch_measurement_method || null,
           provisionalPhysicalLiters: provLiters,
           plantDecision: p.plant_decision,
           rejectionReason: p.plant_rejection_reason,

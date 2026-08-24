@@ -15,7 +15,6 @@ interface FirstWeightPortion {
   dispatch_quantity_value: number | null;
   dispatch_quantity_unit: string | null;
   dispatch_quantity_basis: string | null;
-  dispatch_measurement_method: string | null;
   plant_decision: string;
   plant_rejection_reason: string | null;
 }
@@ -32,7 +31,6 @@ interface FirstWeightVisit {
   vehicle_dispatch_quantity_value?: number | null;
   vehicle_dispatch_quantity_unit?: string | null;
   vehicle_dispatch_quantity_basis?: string | null;
-  vehicle_dispatch_measurement_method?: string | null;
   portions?: FirstWeightPortion[];
   waiting_minutes: number;
   plant_decision_summary: string;

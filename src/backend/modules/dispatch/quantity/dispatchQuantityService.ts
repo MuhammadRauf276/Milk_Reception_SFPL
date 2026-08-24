@@ -3,10 +3,8 @@ import {
   DispatchQuantityPolicyConfig,
   QuantityUnit,
   MeasurementBasis,
-  MeasurementMethod,
   AllowedMeasurementConfig,
   getAllowedBases,
-  getAllowedMethods,
 } from '../quantity-policy/types';
 import {
   ValidatedQuantityMeasurement,
@@ -143,7 +141,6 @@ export function applySharedPortionUnit<
       value: string | number | null | undefined;
       unit: QuantityUnit;
       basis: MeasurementBasis;
-      method: MeasurementMethod;
     };
   }
 >(
@@ -154,10 +151,8 @@ export function applySharedPortionUnit<
   const bases: MeasurementBasis[] = allowedMeasurements ? getAllowedBases(allowedMeasurements, newUnit) : ['ESTIMATED', 'MEASURED'];
   const p1CurrentBasis = portions[0]?.quantity.basis;
   const newBasis = bases.includes(p1CurrentBasis) ? p1CurrentBasis : (bases[0] || 'ESTIMATED');
-  const methods: MeasurementMethod[] = allowedMeasurements ? getAllowedMethods(allowedMeasurements, newUnit, newBasis) : ['MANUAL_ESTIMATE', 'WEIGHING', 'FLOW_METER', 'OTHER'];
 
   return portions.map((portion) => {
-    const newMethod = methods.includes(portion.quantity.method) ? portion.quantity.method : (methods[0] || 'MANUAL_ESTIMATE');
     return {
       ...portion,
       quantity: {
@@ -165,7 +160,6 @@ export function applySharedPortionUnit<
         value: '', // Strictly clear entered quantity value on Unit change
         unit: newUnit,
         basis: newBasis,
-        method: newMethod,
       },
     };
   });
@@ -181,25 +175,18 @@ export function applySharedPortionBasis<
       value: string | number | null | undefined;
       unit: QuantityUnit;
       basis: MeasurementBasis;
-      method: MeasurementMethod;
     };
   }
 >(
   portions: T[],
-  newBasis: MeasurementBasis,
-  allowedMeasurements?: AllowedMeasurementConfig[]
+  newBasis: MeasurementBasis
 ): T[] {
-  const sharedUnit = portions[0]?.quantity.unit || 'LITER';
-  const methods: MeasurementMethod[] = allowedMeasurements ? getAllowedMethods(allowedMeasurements, sharedUnit, newBasis) : ['MANUAL_ESTIMATE', 'WEIGHING', 'FLOW_METER', 'OTHER'];
-
   return portions.map((portion) => {
-    const newMethod = methods.includes(portion.quantity.method) ? portion.quantity.method : (methods[0] || 'MANUAL_ESTIMATE');
     return {
       ...portion,
       quantity: {
         ...portion.quantity,
         basis: newBasis,
-        method: newMethod,
       },
     };
   });
@@ -207,27 +194,19 @@ export function applySharedPortionBasis<
 
 /**
  * Pure helper: Creates the initial quantity configuration for a newly added portion,
- * inheriting the shared Unit and Basis from Portion 1 (if Portion 1 exists),
- * while keeping Measurement Method independent (using defaultRules.method if compatible with inherited Unit/Basis,
- * otherwise falling back to the first compatible method from allowed measurements).
+ * inheriting the shared Unit and Basis from Portion 1 (if Portion 1 exists).
  */
 export function createPortionQuantityFromSharedProfile(
-  p1Quantity: { unit: QuantityUnit; basis: MeasurementBasis; method?: MeasurementMethod } | undefined | null,
-  defaultRules: { unit: QuantityUnit; basis: MeasurementBasis; method: MeasurementMethod },
-  allowedMeasurements?: AllowedMeasurementConfig[]
-): { value: string; unit: QuantityUnit; basis: MeasurementBasis; method: MeasurementMethod } {
+  p1Quantity: { unit: QuantityUnit; basis: MeasurementBasis } | undefined | null,
+  defaultRules: { unit: QuantityUnit; basis: MeasurementBasis }
+): { value: string; unit: QuantityUnit; basis: MeasurementBasis } {
   const unit = p1Quantity ? p1Quantity.unit : defaultRules.unit;
   const basis = p1Quantity ? p1Quantity.basis : defaultRules.basis;
-  const methods: MeasurementMethod[] = allowedMeasurements ? getAllowedMethods(allowedMeasurements, unit, basis) : ['MANUAL_ESTIMATE', 'WEIGHING', 'FLOW_METER', 'OTHER'];
-  const method = methods.includes(defaultRules.method)
-    ? defaultRules.method
-    : (methods[0] || defaultRules.method);
 
   return {
     value: '',
     unit,
     basis,
-    method,
   };
 }
 

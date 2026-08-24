@@ -24,7 +24,6 @@ function serializeDispatch(visit: any) {
     : null;
   const vehicleQuantityUnit = visit.vehicle_dispatch_quantity_unit || null;
   const vehicleQuantityBasis = visit.vehicle_dispatch_quantity_basis || null;
-  const vehicleMeasurementMethod = visit.vehicle_dispatch_measurement_method || null;
 
   return {
     id: visit.id.toString(),
@@ -38,7 +37,6 @@ function serializeDispatch(visit: any) {
     vehicle_dispatch_quantity_value: vehicleQuantityValue,
     vehicle_dispatch_quantity_unit: vehicleQuantityUnit,
     vehicle_dispatch_quantity_basis: vehicleQuantityBasis,
-    vehicle_dispatch_measurement_method: vehicleMeasurementMethod,
     procurement_source_id: visit.procurement_source_id ? visit.procurement_source_id.toString() : null,
     zonal_contractor_name: visit.procurement_source?.name || 'Source unavailable',
     procurement_source_type: visit.procurement_source?.source_type || 'UNKNOWN',
@@ -56,7 +54,6 @@ function serializeDispatch(visit: any) {
         : null,
       dispatch_quantity_unit: p.dispatch_quantity_unit || null,
       dispatch_quantity_basis: p.dispatch_quantity_basis || null,
-      dispatch_measurement_method: p.dispatch_measurement_method || null,
       plant_decision: p.plant_decision || 'PENDING',
       current_status: p.current_status,
     })),
@@ -464,7 +461,6 @@ export async function POST(req: Request) {
           vehicle_dispatch_quantity_value: new Prisma.Decimal(validatedQuantities.vehicleQuantity.value),
           vehicle_dispatch_quantity_unit: validatedQuantities.vehicleQuantity.unit,
           vehicle_dispatch_quantity_basis: validatedQuantities.vehicleQuantity.basis,
-          vehicle_dispatch_measurement_method: validatedQuantities.vehicleQuantity.method,
         },
       });
 
@@ -485,7 +481,6 @@ export async function POST(req: Request) {
             dispatch_quantity_value: new Prisma.Decimal(portionQty.value),
             dispatch_quantity_unit: portionQty.unit,
             dispatch_quantity_basis: portionQty.basis,
-            dispatch_measurement_method: portionQty.method,
             current_status: 'DISPATCHED',
             plant_decision: 'PENDING',
           },

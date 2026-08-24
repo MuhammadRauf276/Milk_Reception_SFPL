@@ -45,7 +45,6 @@ interface PortionDetail {
   dispatch_quantity_value?: number | null;
   dispatch_quantity_unit?: string;
   dispatch_quantity_basis?: string;
-  dispatch_measurement_method?: string;
   plant_decision: string;
   plant_rejection_reason: string | null;
   plant_decided_at: string | null;

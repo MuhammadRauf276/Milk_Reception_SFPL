@@ -23,7 +23,6 @@ interface PortionDef {
   dispatch_quantity_value?: number | null;
   dispatch_quantity_unit?: string;
   dispatch_quantity_basis?: string;
-  dispatch_measurement_method?: string;
   plant_decision: 'ACCEPTED' | 'REJECTED' | 'PENDING';
   plant_rejection_reason: string | null;
   current_status: string;

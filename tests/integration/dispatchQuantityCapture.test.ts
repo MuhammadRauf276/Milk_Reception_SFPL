@@ -31,17 +31,17 @@ describe('Stage 4C-4: Dispatch Quantity Capture & Persistence (Integration)', ()
           version: 1,
           vehicleRules: {
             allowedMeasurements: [
-              { unit: 'KG', basis: 'MEASURED', methods: ['WEIGHING'] },
-              { unit: 'LITER', basis: 'MEASURED', methods: ['FLOW_METER'] },
+              { unit: 'KG', basis: 'MEASURED' },
+              { unit: 'LITER', basis: 'MEASURED' },
             ],
-            default: { unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
+            default: { unit: 'KG', basis: 'MEASURED' },
           },
           portionRules: {
             allowedMeasurements: [
-              { unit: 'KG', basis: 'MEASURED', methods: ['WEIGHING'] },
-              { unit: 'LITER', basis: 'ESTIMATED', methods: ['MANUAL_ESTIMATE', 'FLOW_METER'] },
+              { unit: 'KG', basis: 'MEASURED' },
+              { unit: 'LITER', basis: 'ESTIMATED' },
             ],
-            default: { unit: 'LITER', basis: 'ESTIMATED', method: 'MANUAL_ESTIMATE' },
+            default: { unit: 'LITER', basis: 'ESTIMATED' },
           },
           allowSameUnitPortionPrefill: false,
         },
@@ -127,7 +127,6 @@ describe('Stage 4C-4: Dispatch Quantity Capture & Persistence (Integration)', ()
           value: '19500.00',
           unit: 'KG',
           basis: 'MEASURED',
-          method: 'WEIGHING',
         },
         portions: [
           {
@@ -136,7 +135,6 @@ describe('Stage 4C-4: Dispatch Quantity Capture & Persistence (Integration)', ()
               value: '9800.00',
               unit: 'LITER',
               basis: 'ESTIMATED',
-              method: 'MANUAL_ESTIMATE',
             },
             results: makeResults(),
           },
@@ -146,7 +144,6 @@ describe('Stage 4C-4: Dispatch Quantity Capture & Persistence (Integration)', ()
               value: '9150.00',
               unit: 'LITER',
               basis: 'ESTIMATED',
-              method: 'MANUAL_ESTIMATE',
             },
             results: makeResults(),
           },
@@ -177,19 +174,16 @@ describe('Stage 4C-4: Dispatch Quantity Capture & Persistence (Integration)', ()
     expect(Number(savedVisit?.vehicle_dispatch_quantity_value)).toBe(19500);
     expect(savedVisit?.vehicle_dispatch_quantity_unit).toBe('KG');
     expect(savedVisit?.vehicle_dispatch_quantity_basis).toBe('MEASURED');
-    expect(savedVisit?.vehicle_dispatch_measurement_method).toBe('WEIGHING');
 
     // Portion facts in VisitPortions
     expect(savedVisit?.portions.length).toBe(2);
     expect(Number(savedVisit?.portions[0].dispatch_quantity_value)).toBe(9800);
     expect(savedVisit?.portions[0].dispatch_quantity_unit).toBe('LITER');
     expect(savedVisit?.portions[0].dispatch_quantity_basis).toBe('ESTIMATED');
-    expect(savedVisit?.portions[0].dispatch_measurement_method).toBe('MANUAL_ESTIMATE');
 
     expect(Number(savedVisit?.portions[1].dispatch_quantity_value)).toBe(9150);
     expect(savedVisit?.portions[1].dispatch_quantity_unit).toBe('LITER');
     expect(savedVisit?.portions[1].dispatch_quantity_basis).toBe('ESTIMATED');
-    expect(savedVisit?.portions[1].dispatch_measurement_method).toBe('MANUAL_ESTIMATE');
   });
 
   it('Rejects submission when vehicle measurement combination is not permitted by frozen policy', async () => {
@@ -240,7 +234,6 @@ describe('Stage 4C-4: Dispatch Quantity Capture & Persistence (Integration)', ()
           value: '19500.00',
           unit: 'KG',
           basis: 'ESTIMATED', // Not in vehicleRules
-          method: 'MANUAL_ESTIMATE',
         },
         portions: [
           {
@@ -249,7 +242,6 @@ describe('Stage 4C-4: Dispatch Quantity Capture & Persistence (Integration)', ()
               value: '9800.00',
               unit: 'KG',
               basis: 'MEASURED',
-              method: 'WEIGHING',
             },
             results: makeResults(),
           },

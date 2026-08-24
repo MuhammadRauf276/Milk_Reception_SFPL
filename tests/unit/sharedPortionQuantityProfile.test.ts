@@ -10,15 +10,15 @@ import {
 import { createDispatchSchema } from '@/lib/validations/dispatch';
 import { DEFAULT_DISPATCH_QUANTITY_POLICY } from '@/backend/modules/dispatch/quantity-policy/types';
 
-describe('Stage 4C-5B: Shared Portion Quantity Profile (Unit & Basis)', () => {
+describe('Stage 4C-5B/4C-5F: Shared Portion Quantity Profile (Unit & Basis without Method)', () => {
   const policy = DEFAULT_DISPATCH_QUANTITY_POLICY;
 
   it('[CASE B1] Accepts multi-portion dispatch when all portions share Unit and Basis (KG / MEASURED)', () => {
     const input = {
-      vehicleQuantity: { value: '19500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
+      vehicleQuantity: { value: '19500', unit: 'KG', basis: 'MEASURED' },
       portions: [
-        { portionNumber: 1, quantity: { value: '9800', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' } },
-        { portionNumber: 2, quantity: { value: '9150', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' } },
+        { portionNumber: 1, quantity: { value: '9800', unit: 'KG', basis: 'MEASURED' } },
+        { portionNumber: 2, quantity: { value: '9150', unit: 'KG', basis: 'MEASURED' } },
       ],
       policy,
     };
@@ -34,10 +34,10 @@ describe('Stage 4C-5B: Shared Portion Quantity Profile (Unit & Basis)', () => {
     const schemaResult = createDispatchSchema.safeParse({
       vehicleNumber: 'TEST-01',
       operationalDate: '2026-08-23',
-      vehicleQuantity: { value: 19500, unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
+      vehicleQuantity: { value: 19500, unit: 'KG', basis: 'MEASURED' },
       portions: [
-        { portionNumber: 1, quantity: { value: 9800, unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' } },
-        { portionNumber: 2, quantity: { value: 9150, unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' } },
+        { portionNumber: 1, quantity: { value: 9800, unit: 'KG', basis: 'MEASURED' } },
+        { portionNumber: 2, quantity: { value: 9150, unit: 'KG', basis: 'MEASURED' } },
       ],
     });
     expect(schemaResult.success).toBe(true);
@@ -45,10 +45,10 @@ describe('Stage 4C-5B: Shared Portion Quantity Profile (Unit & Basis)', () => {
 
   it('[CASE B2] Backend rejects dispatch when portion Unit mismatches Portion 1 (P1=KG, P2=LITER)', () => {
     const input = {
-      vehicleQuantity: { value: '19500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
+      vehicleQuantity: { value: '19500', unit: 'KG', basis: 'MEASURED' },
       portions: [
-        { portionNumber: 1, quantity: { value: '9800', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' } },
-        { portionNumber: 2, quantity: { value: '9150', unit: 'LITER', basis: 'MEASURED', method: 'FLOW_METER' } },
+        { portionNumber: 1, quantity: { value: '9800', unit: 'KG', basis: 'MEASURED' } },
+        { portionNumber: 2, quantity: { value: '9150', unit: 'LITER', basis: 'MEASURED' } },
       ],
       policy,
     };
@@ -65,10 +65,10 @@ describe('Stage 4C-5B: Shared Portion Quantity Profile (Unit & Basis)', () => {
     const schemaResult = createDispatchSchema.safeParse({
       vehicleNumber: 'TEST-01',
       operationalDate: '2026-08-23',
-      vehicleQuantity: { value: 19500, unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
+      vehicleQuantity: { value: 19500, unit: 'KG', basis: 'MEASURED' },
       portions: [
-        { portionNumber: 1, quantity: { value: 9800, unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' } },
-        { portionNumber: 2, quantity: { value: 9150, unit: 'LITER', basis: 'MEASURED', method: 'FLOW_METER' } },
+        { portionNumber: 1, quantity: { value: 9800, unit: 'KG', basis: 'MEASURED' } },
+        { portionNumber: 2, quantity: { value: 9150, unit: 'LITER', basis: 'MEASURED' } },
       ],
     });
     expect(schemaResult.success).toBe(false);
@@ -76,10 +76,10 @@ describe('Stage 4C-5B: Shared Portion Quantity Profile (Unit & Basis)', () => {
 
   it('[CASE B3] Backend rejects dispatch when portion Basis mismatches Portion 1 (P1=MEASURED, P2=ESTIMATED)', () => {
     const input = {
-      vehicleQuantity: { value: '19500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
+      vehicleQuantity: { value: '19500', unit: 'KG', basis: 'MEASURED' },
       portions: [
-        { portionNumber: 1, quantity: { value: '9800', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' } },
-        { portionNumber: 2, quantity: { value: '9150', unit: 'KG', basis: 'ESTIMATED', method: 'MANUAL_ESTIMATE' } },
+        { portionNumber: 1, quantity: { value: '9800', unit: 'KG', basis: 'MEASURED' } },
+        { portionNumber: 2, quantity: { value: '9150', unit: 'KG', basis: 'ESTIMATED' } },
       ],
       policy,
     };
@@ -96,10 +96,10 @@ describe('Stage 4C-5B: Shared Portion Quantity Profile (Unit & Basis)', () => {
     const schemaResult = createDispatchSchema.safeParse({
       vehicleNumber: 'TEST-01',
       operationalDate: '2026-08-23',
-      vehicleQuantity: { value: 19500, unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
+      vehicleQuantity: { value: 19500, unit: 'KG', basis: 'MEASURED' },
       portions: [
-        { portionNumber: 1, quantity: { value: 9800, unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' } },
-        { portionNumber: 2, quantity: { value: 9150, unit: 'KG', basis: 'ESTIMATED', method: 'MANUAL_ESTIMATE' } },
+        { portionNumber: 1, quantity: { value: 9800, unit: 'KG', basis: 'MEASURED' } },
+        { portionNumber: 2, quantity: { value: 9150, unit: 'KG', basis: 'ESTIMATED' } },
       ],
     });
     expect(schemaResult.success).toBe(false);
@@ -107,10 +107,10 @@ describe('Stage 4C-5B: Shared Portion Quantity Profile (Unit & Basis)', () => {
 
   it('[CASE B4] Proves Vehicle quantity remains independent: Vehicle (KG / MEASURED) with Portions (LITER / ESTIMATED) is VALID', () => {
     const input = {
-      vehicleQuantity: { value: '19500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
+      vehicleQuantity: { value: '19500', unit: 'KG', basis: 'MEASURED' },
       portions: [
-        { portionNumber: 1, quantity: { value: '9800', unit: 'LITER', basis: 'ESTIMATED', method: 'MANUAL_ESTIMATE' } },
-        { portionNumber: 2, quantity: { value: '9150', unit: 'LITER', basis: 'ESTIMATED', method: 'MANUAL_ESTIMATE' } },
+        { portionNumber: 1, quantity: { value: '9800', unit: 'LITER', basis: 'ESTIMATED' } },
+        { portionNumber: 2, quantity: { value: '9150', unit: 'LITER', basis: 'ESTIMATED' } },
       ],
       policy,
     };
@@ -126,10 +126,10 @@ describe('Stage 4C-5B: Shared Portion Quantity Profile (Unit & Basis)', () => {
     const schemaResult = createDispatchSchema.safeParse({
       vehicleNumber: 'TEST-01',
       operationalDate: '2026-08-23',
-      vehicleQuantity: { value: 19500, unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
+      vehicleQuantity: { value: 19500, unit: 'KG', basis: 'MEASURED' },
       portions: [
-        { portionNumber: 1, quantity: { value: 9800, unit: 'LITER', basis: 'ESTIMATED', method: 'MANUAL_ESTIMATE' } },
-        { portionNumber: 2, quantity: { value: 9150, unit: 'LITER', basis: 'ESTIMATED', method: 'MANUAL_ESTIMATE' } },
+        { portionNumber: 1, quantity: { value: 9800, unit: 'LITER', basis: 'ESTIMATED' } },
+        { portionNumber: 2, quantity: { value: 9150, unit: 'LITER', basis: 'ESTIMATED' } },
       ],
     });
     expect(schemaResult.success).toBe(true);
@@ -142,17 +142,14 @@ describe('Stage 4C-5B: Shared Portion Quantity Profile (Unit & Basis)', () => {
         value: '9800',
         unit: 'LITER' as const,
         basis: 'ESTIMATED' as const,
-        method: 'MANUAL_ESTIMATE' as const,
       },
     };
 
     const defaultRules = policy.portionRules.default;
-    const allowed = policy.portionRules.allowedMeasurements;
 
     const newPortionQty = createPortionQuantityFromSharedProfile(
       p1State.quantity,
-      defaultRules,
-      allowed
+      defaultRules
     );
 
     expect(newPortionQty.unit).toBe('LITER');
@@ -164,11 +161,11 @@ describe('Stage 4C-5B: Shared Portion Quantity Profile (Unit & Basis)', () => {
     const portions = [
       {
         portionNumber: 1,
-        quantity: { value: '9800', unit: 'LITER' as const, basis: 'ESTIMATED' as const, method: 'MANUAL_ESTIMATE' as const },
+        quantity: { value: '9800', unit: 'LITER' as const, basis: 'ESTIMATED' as const },
       },
       {
         portionNumber: 2,
-        quantity: { value: '9150', unit: 'LITER' as const, basis: 'ESTIMATED' as const, method: 'MANUAL_ESTIMATE' as const },
+        quantity: { value: '9150', unit: 'LITER' as const, basis: 'ESTIMATED' as const },
       },
     ];
 
@@ -190,15 +187,15 @@ describe('Stage 4C-5B: Shared Portion Quantity Profile (Unit & Basis)', () => {
     const portions = [
       {
         portionNumber: 1,
-        quantity: { value: '9800', unit: 'LITER' as const, basis: 'ESTIMATED' as const, method: 'MANUAL_ESTIMATE' as const },
+        quantity: { value: '9800', unit: 'LITER' as const, basis: 'ESTIMATED' as const },
       },
       {
         portionNumber: 2,
-        quantity: { value: '9150', unit: 'LITER' as const, basis: 'ESTIMATED' as const, method: 'MANUAL_ESTIMATE' as const },
+        quantity: { value: '9150', unit: 'LITER' as const, basis: 'ESTIMATED' as const },
       },
     ];
 
-    const updated = applySharedPortionBasis(portions, 'MEASURED', policy.portionRules.allowedMeasurements);
+    const updated = applySharedPortionBasis(portions, 'MEASURED');
 
     expect(updated).toHaveLength(2);
     // Values must remain intact
@@ -217,13 +214,12 @@ describe('Stage 4C-5B: Shared Portion Quantity Profile (Unit & Basis)', () => {
       value: '19500',
       unit: 'KG' as const,
       basis: 'MEASURED' as const,
-      method: 'WEIGHING' as const,
     };
 
     const portions = [
       {
         portionNumber: 1,
-        quantity: { value: '9800', unit: 'LITER' as const, basis: 'ESTIMATED' as const, method: 'MANUAL_ESTIMATE' as const },
+        quantity: { value: '9800', unit: 'LITER' as const, basis: 'ESTIMATED' as const },
       },
     ];
 
@@ -250,30 +246,24 @@ describe('Stage 4C-5B: Shared Portion Quantity Profile (Unit & Basis)', () => {
     expect(summary).not.toContain('9,800 LITER (Total)');
   });
 
-  it('[CASE B10] New portion inherits Unit and Basis from P1 but NOT P1 Method (keeps independent/default Method)', () => {
-    // P1 configured with non-default method OTHER
+  it('[CASE B10/F1] Fresh portion quantity profile contains strictly value, unit, and basis (No Method)', () => {
     const p1State = {
       portionNumber: 1,
       quantity: {
         value: '9800',
         unit: 'LITER' as const,
         basis: 'ESTIMATED' as const,
-        method: 'OTHER' as const,
       },
     };
 
-    // Default portion policy specifies MANUAL_ESTIMATE
     const defaultRules = {
       unit: 'KG' as const,
       basis: 'ESTIMATED' as const,
-      method: 'MANUAL_ESTIMATE' as const,
     };
-    const allowed = policy.portionRules.allowedMeasurements;
 
     const newPortionQty = createPortionQuantityFromSharedProfile(
       p1State.quantity,
-      defaultRules,
-      allowed
+      defaultRules
     );
 
     // Inherits P1 Unit & Basis
@@ -281,8 +271,8 @@ describe('Stage 4C-5B: Shared Portion Quantity Profile (Unit & Basis)', () => {
     expect(newPortionQty.basis).toBe('ESTIMATED');
     expect(newPortionQty.value).toBe('');
 
-    // Does NOT inherit P1 Method (OTHER); uses independent/default Method (MANUAL_ESTIMATE)
-    expect(newPortionQty.method).toBe('MANUAL_ESTIMATE');
-    expect(newPortionQty.method).not.toBe('OTHER');
+    // Must NOT contain method property
+    expect((newPortionQty as any).method).toBeUndefined();
+    expect(Object.keys(newPortionQty).sort()).toEqual(['basis', 'unit', 'value']);
   });
 });

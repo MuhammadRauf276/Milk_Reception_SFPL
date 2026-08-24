@@ -16,13 +16,11 @@ export const dispatchTestResultSchema = z.object({
 
 export const quantityUnitSchema = z.enum(['KG', 'LITER']);
 export const measurementBasisSchema = z.enum(['ESTIMATED', 'MEASURED']);
-export const measurementMethodSchema = z.enum(['MANUAL_ESTIMATE', 'WEIGHING', 'FLOW_METER', 'OTHER']);
 
 export const quantityMeasurementInputSchema = z.object({
   value: quantityValueSchema,
   unit: quantityUnitSchema,
   basis: measurementBasisSchema,
-  method: measurementMethodSchema,
 });
 
 export const dispatchPortionSchema = z.object({

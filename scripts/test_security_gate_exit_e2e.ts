@@ -82,7 +82,7 @@ async function runSecurityGateExitE2EVerification() {
         created_by: secUser.id,
         portions: {
           create: [
-            { portion_number: 1, dispatch_quantity_value: 10000, dispatch_quantity_unit: 'KG', dispatch_quantity_basis: 'MEASURED', dispatch_measurement_method: 'WEIGHING', plant_decision: 'ACCEPTED', current_status: 'DISPATCHED' },
+            { portion_number: 1, dispatch_quantity_value: 10000, dispatch_quantity_unit: 'KG', dispatch_quantity_basis: 'MEASURED', plant_decision: 'ACCEPTED', current_status: 'DISPATCHED' },
           ],
         },
       },
@@ -224,7 +224,7 @@ async function runSecurityGateExitE2EVerification() {
         operational_date: new Date(),
         created_by: secUser.id,
         portions: {
-          create: [{ portion_number: 1, dispatch_quantity_value: 5000, dispatch_quantity_unit: 'KG', dispatch_quantity_basis: 'MEASURED', dispatch_measurement_method: 'WEIGHING', plant_decision: 'ACCEPTED', current_status: 'UNLOADED' }],
+          create: [{ portion_number: 1, dispatch_quantity_value: 5000, dispatch_quantity_unit: 'KG', dispatch_quantity_basis: 'MEASURED', plant_decision: 'ACCEPTED', current_status: 'UNLOADED' }],
         },
         gate_log: {
           create: { entry_timestamp: new Date(Date.now() - 30 * 60 * 1000), entry_guard_id: secUser.id },
@@ -268,8 +268,8 @@ async function runSecurityGateExitE2EVerification() {
         created_by: secUser.id,
         portions: {
           create: [
-            { portion_number: 1, dispatch_quantity_value: 6000, dispatch_quantity_unit: 'KG', dispatch_quantity_basis: 'MEASURED', dispatch_measurement_method: 'WEIGHING', plant_decision: 'REJECTED', current_status: 'PLANT_QA' },
-            { portion_number: 2, dispatch_quantity_value: 4000, dispatch_quantity_unit: 'KG', dispatch_quantity_basis: 'MEASURED', dispatch_measurement_method: 'WEIGHING', plant_decision: 'REJECTED', current_status: 'PLANT_QA' },
+            { portion_number: 1, dispatch_quantity_value: 6000, dispatch_quantity_unit: 'KG', dispatch_quantity_basis: 'MEASURED', plant_decision: 'REJECTED', current_status: 'PLANT_QA' },
+            { portion_number: 2, dispatch_quantity_value: 4000, dispatch_quantity_unit: 'KG', dispatch_quantity_basis: 'MEASURED', plant_decision: 'REJECTED', current_status: 'PLANT_QA' },
           ],
         },
         gate_log: {
