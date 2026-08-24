@@ -5,37 +5,34 @@ import {
   DEFAULT_DISPATCH_QUANTITY_POLICY,
   getAllowedUnits,
   getAllowedBases,
-  getAllowedMethods,
   isCombinationAllowed,
 } from '@/backend/modules/dispatch/quantity-policy/types';
 import {
   validateQuantityPolicy,
 } from '@/backend/modules/dispatch/quantity-policy/validation';
 
-describe('Stage 4C-3A: Dispatch Quantity Policy Contract Hardening (Unit)', () => {
+describe('Stage 4C-3A/4C-5F: Dispatch Quantity Policy Contract (Unit & Basis)', () => {
   it('[TEST-A] Exact allowed measurement combinations succeed validation', () => {
     const validPolicy = {
       version: 1,
       vehicleRules: {
         allowedMeasurements: [
-          { unit: 'KG', basis: 'MEASURED', methods: ['WEIGHING'] },
-          { unit: 'LITER', basis: 'MEASURED', methods: ['FLOW_METER'] },
-          { unit: 'KG', basis: 'ESTIMATED', methods: ['MANUAL_ESTIMATE'] },
+          { unit: 'KG', basis: 'MEASURED' },
+          { unit: 'LITER', basis: 'MEASURED' },
+          { unit: 'KG', basis: 'ESTIMATED' },
         ],
         default: {
           unit: 'KG',
           basis: 'MEASURED',
-          method: 'WEIGHING',
         },
       },
       portionRules: {
         allowedMeasurements: [
-          { unit: 'KG', basis: 'MEASURED', methods: ['WEIGHING'] },
+          { unit: 'KG', basis: 'MEASURED' },
         ],
         default: {
           unit: 'KG',
           basis: 'MEASURED',
-          method: 'WEIGHING',
         },
       },
       allowSameUnitPortionPrefill: true,
@@ -45,29 +42,26 @@ describe('Stage 4C-3A: Dispatch Quantity Policy Contract Hardening (Unit)', () =
     expect(validated.version).toBe(1);
     expect(validated.vehicleRules.default.unit).toBe('KG');
     expect(validated.vehicleRules.default.basis).toBe('MEASURED');
-    expect(validated.vehicleRules.default.method).toBe('WEIGHING');
 
     // Derived helpers
     expect(getAllowedUnits(validated.vehicleRules.allowedMeasurements)).toEqual(['KG', 'LITER']);
     expect(getAllowedBases(validated.vehicleRules.allowedMeasurements, 'KG')).toEqual(['MEASURED', 'ESTIMATED']);
-    expect(getAllowedMethods(validated.vehicleRules.allowedMeasurements, 'KG', 'MEASURED')).toEqual(['WEIGHING']);
-    expect(getAllowedMethods(validated.vehicleRules.allowedMeasurements, 'LITER', 'MEASURED')).toEqual(['FLOW_METER']);
+    expect(getAllowedBases(validated.vehicleRules.allowedMeasurements, 'LITER')).toEqual(['MEASURED']);
   });
 
   it('[TEST-B] Unconfigured measurement combination is rejected by combination checker', () => {
     const allowed = [
-      { unit: 'KG' as const, basis: 'MEASURED' as const, methods: ['WEIGHING' as const] },
-      { unit: 'LITER' as const, basis: 'MEASURED' as const, methods: ['FLOW_METER' as const] },
+      { unit: 'KG' as const, basis: 'MEASURED' as const },
+      { unit: 'LITER' as const, basis: 'MEASURED' as const },
     ];
 
     // Allowed
-    expect(isCombinationAllowed(allowed, { unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' })).toBe(true);
-    expect(isCombinationAllowed(allowed, { unit: 'LITER', basis: 'MEASURED', method: 'FLOW_METER' })).toBe(true);
+    expect(isCombinationAllowed(allowed, { unit: 'KG', basis: 'MEASURED' })).toBe(true);
+    expect(isCombinationAllowed(allowed, { unit: 'LITER', basis: 'MEASURED' })).toBe(true);
 
     // Unconfigured combinations
-    expect(isCombinationAllowed(allowed, { unit: 'KG', basis: 'MEASURED', method: 'FLOW_METER' })).toBe(false);
-    expect(isCombinationAllowed(allowed, { unit: 'KG', basis: 'ESTIMATED', method: 'MANUAL_ESTIMATE' })).toBe(false);
-    expect(isCombinationAllowed(allowed, { unit: 'LITER', basis: 'MEASURED', method: 'WEIGHING' })).toBe(false);
+    expect(isCombinationAllowed(allowed, { unit: 'KG', basis: 'ESTIMATED' })).toBe(false);
+    expect(isCombinationAllowed(allowed, { unit: 'LITER', basis: 'ESTIMATED' })).toBe(false);
   });
 
   it('[TEST-C] Validation rejects default vehicle combination if not in allowed combinations', () => {
@@ -75,22 +69,20 @@ describe('Stage 4C-3A: Dispatch Quantity Policy Contract Hardening (Unit)', () =
       version: 1,
       vehicleRules: {
         allowedMeasurements: [
-          { unit: 'KG', basis: 'MEASURED', methods: ['WEIGHING'] },
+          { unit: 'KG', basis: 'MEASURED' },
         ],
         default: {
           unit: 'LITER', // Invalid: LITER not in allowedMeasurements
           basis: 'MEASURED',
-          method: 'WEIGHING',
         },
       },
       portionRules: {
         allowedMeasurements: [
-          { unit: 'KG', basis: 'MEASURED', methods: ['WEIGHING'] },
+          { unit: 'KG', basis: 'MEASURED' },
         ],
         default: {
           unit: 'KG',
           basis: 'MEASURED',
-          method: 'WEIGHING',
         },
       },
       allowSameUnitPortionPrefill: true,
@@ -104,22 +96,20 @@ describe('Stage 4C-3A: Dispatch Quantity Policy Contract Hardening (Unit)', () =
       version: 1,
       vehicleRules: {
         allowedMeasurements: [
-          { unit: 'KG', basis: 'MEASURED', methods: ['WEIGHING'] },
+          { unit: 'KG', basis: 'MEASURED' },
         ],
         default: {
           unit: 'KG',
           basis: 'MEASURED',
-          method: 'WEIGHING',
         },
       },
       portionRules: {
         allowedMeasurements: [
-          { unit: 'KG', basis: 'MEASURED', methods: ['WEIGHING'] },
+          { unit: 'KG', basis: 'MEASURED' },
         ],
         default: {
-          unit: 'KG',
+          unit: 'LITER', // Invalid: LITER not in portion allowedMeasurements
           basis: 'MEASURED',
-          method: 'FLOW_METER', // Invalid: FLOW_METER not in portion allowed methods
         },
       },
       allowSameUnitPortionPrefill: true,

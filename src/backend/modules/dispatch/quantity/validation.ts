@@ -2,7 +2,6 @@ import { z } from 'zod';
 import {
   QuantityUnit,
   MeasurementBasis,
-  MeasurementMethod,
   ValidatedQuantityMeasurement,
 } from './types';
 import {
@@ -12,7 +11,6 @@ import {
 import {
   quantityUnitSchema,
   measurementBasisSchema,
-  measurementMethodSchema,
 } from '../quantity-policy/validation';
 
 export class QuantityMeasurementError extends Error {
@@ -77,7 +75,6 @@ export const quantityMeasurementSchema = z.object({
   value: quantityValueSchema,
   unit: quantityUnitSchema,
   basis: measurementBasisSchema,
-  method: measurementMethodSchema,
 });
 
 export function validateQuantityAgainstPolicy(
@@ -108,7 +105,6 @@ export function validateQuantityAgainstPolicy(
   const combination = {
     unit: parsed.data.unit as QuantityUnit,
     basis: parsed.data.basis as MeasurementBasis,
-    method: parsed.data.method as MeasurementMethod,
   };
 
   const allowedList = Array.isArray(allowedMeasurementsOrRules)
@@ -118,7 +114,7 @@ export function validateQuantityAgainstPolicy(
   const allowed = isCombinationAllowed(allowedList, combination);
   if (!allowed) {
     throw new QuantityMeasurementError(
-      `${contextPrefix} quantity combination (${combination.unit}, ${combination.basis}, ${combination.method}) is not allowed by the frozen policy snapshot.`,
+      `${contextPrefix} quantity combination (${combination.unit}, ${combination.basis}) is not allowed by the frozen policy snapshot.`,
       'QUANTITY_COMBINATION_NOT_ALLOWED'
     );
   }
@@ -127,7 +123,6 @@ export function validateQuantityAgainstPolicy(
     value: normalizedValue,
     unit: combination.unit,
     basis: combination.basis,
-    method: combination.method,
   };
 }
 

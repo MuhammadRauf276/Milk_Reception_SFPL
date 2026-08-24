@@ -15,7 +15,6 @@ interface FirstWeightPortion {
   dispatch_quantity_value: number | null;
   dispatch_quantity_unit: string | null;
   dispatch_quantity_basis: string | null;
-  dispatch_measurement_method: string | null;
   plant_decision: string;
   plant_rejection_reason: string | null;
 }
@@ -32,7 +31,6 @@ interface FirstWeightVisit {
   vehicle_dispatch_quantity_value?: number | null;
   vehicle_dispatch_quantity_unit?: string | null;
   vehicle_dispatch_quantity_basis?: string | null;
-  vehicle_dispatch_measurement_method?: string | null;
   portions?: FirstWeightPortion[];
   waiting_minutes: number;
   plant_decision_summary: string;
@@ -211,7 +209,7 @@ export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({ curr
     if (!selectedFirstVisit) return;
     const grossVal = Number(grossInputKg);
     if (isNaN(grossVal) || grossVal <= 0) {
-      const errText = 'Please enter a valid gross weight greater than 0 kg.';
+      const errText = 'Please enter a valid first weight (loaded vehicle) greater than 0 kg.';
       setStatusMsg({ type: 'error', text: errText });
       toast.showError(errText, 'Validation Error');
       return;
@@ -226,7 +224,7 @@ export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({ curr
 
     const now = new Date();
     if (selectedOpDate.getTime() > now.getTime() + 60000) {
-      const errText = 'Gross weight operational timestamp cannot be in the future.';
+      const errText = 'First weight operational timestamp cannot be in the future.';
       setStatusMsg({ type: 'error', text: errText });
       toast.showError(errText, 'Timestamp Error');
       return;
@@ -235,7 +233,7 @@ export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({ curr
     if (selectedFirstVisit.min_allowed_timestamp) {
       const minAllowed = new Date(selectedFirstVisit.min_allowed_timestamp);
       if (selectedOpDate.getTime() < minAllowed.getTime() - 5000) {
-        const errText = `Gross timestamp cannot be earlier than previous workflow event (${minAllowed.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}).`;
+        const errText = `First weight timestamp cannot be earlier than previous workflow event (${minAllowed.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}).`;
         setStatusMsg({ type: 'error', text: errText });
         toast.showError(errText, 'Chronology Error');
         return;
@@ -278,14 +276,14 @@ export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({ curr
     if (!selectedSecondVisit) return;
     const tareVal = Number(tareInputKg);
     if (isNaN(tareVal) || tareVal <= 0) {
-      const errText = 'Please enter a valid tare weight greater than 0 kg.';
+      const errText = 'Please enter a valid second weight (after unloading) greater than 0 kg.';
       setStatusMsg({ type: 'error', text: errText });
       toast.showError(errText, 'Validation Error');
       return;
     }
 
     if (tareVal >= selectedSecondVisit.gross_weight_kg) {
-      const errText = `Tare weight (${tareVal.toLocaleString()} kg) must be less than Gross weight (${selectedSecondVisit.gross_weight_kg.toLocaleString()} kg).`;
+      const errText = `Second weight (${tareVal.toLocaleString()} kg) must be less than First weight (${selectedSecondVisit.gross_weight_kg.toLocaleString()} kg).`;
       setStatusMsg({ type: 'error', text: errText });
       toast.showError(errText, 'Validation Error');
       return;
@@ -300,7 +298,7 @@ export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({ curr
 
     const now = new Date();
     if (selectedOpDate.getTime() > now.getTime() + 60000) {
-      const errText = 'Tare weight operational timestamp cannot be in the future.';
+      const errText = 'Second weight operational timestamp cannot be in the future.';
       setStatusMsg({ type: 'error', text: errText });
       toast.showError(errText, 'Timestamp Error');
       return;
@@ -309,7 +307,7 @@ export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({ curr
     if (selectedSecondVisit.min_allowed_timestamp) {
       const minAllowed = new Date(selectedSecondVisit.min_allowed_timestamp);
       if (selectedOpDate.getTime() < minAllowed.getTime() - 5000) {
-        const errText = `Tare timestamp cannot be earlier than Gross weight or unloading completion (${minAllowed.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}).`;
+        const errText = `Second weight timestamp cannot be earlier than First weight or unloading completion (${minAllowed.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}).`;
         setStatusMsg({ type: 'error', text: errText });
         toast.showError(errText, 'Chronology Error');
         return;
@@ -336,7 +334,7 @@ export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({ curr
       }
 
       if (data.pendingInventoryReceipt) {
-        const warnText = 'Tare recorded. Plant LR missing — Silo Receipt pending.';
+        const warnText = 'Second weight recorded. Plant LR missing — Silo Receipt pending.';
         toast.showWarning(warnText, 'Silo Receipt Pending');
       } else {
         const successText = `Second weight (${tareVal.toLocaleString()} kg) recorded & Final Silo Receipt posted!`;
@@ -517,7 +515,7 @@ export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({ curr
               {selectedFirstVisit && (
                 <div className="p-6 rounded-2xl bg-[#EFE9D9] border border-[#C4B9A3] shadow-md space-y-5 text-[#111311]">
                   <div className="pb-3 border-b border-[#C4B9A3]">
-                    <h3 className="text-base font-extrabold text-[#111311]">Record First Weight (Gross)</h3>
+                    <h3 className="text-base font-extrabold text-[#111311]">Record First Weight (Loaded Vehicle)</h3>
                     <p className="text-xs text-[#334155] font-semibold mt-0.5">
                       Vehicle: <strong className="font-mono text-[#111311]">{selectedFirstVisit.vehicle_number}</strong> | Token: <strong className="font-mono text-[#1E3A8A]">{selectedFirstVisit.token_number || 'NO-TOKEN'}</strong>
                     </p>
@@ -546,7 +544,7 @@ export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({ curr
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
                     <div className="space-y-1.5">
                       <label className="block text-xs font-black uppercase tracking-wider text-[#111311]">
-                        Gross Weight (kg) <span className="text-rose-600">*</span>
+                        First Weight (Loaded Vehicle) (kg) <span className="text-rose-600">*</span>
                       </label>
                       <div className="relative">
                         <input
@@ -565,7 +563,7 @@ export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({ curr
 
                     <div className="space-y-1.5">
                       <label className="block text-xs font-black uppercase tracking-wider text-[#111311] flex items-center justify-between">
-                        <span>Gross Weighment Time <span className="text-rose-600">*</span></span>
+                        <span>First Weighment Time <span className="text-rose-600">*</span></span>
                         <Clock className="w-3.5 h-3.5 text-[#1E3A8A]" />
                       </label>
                       <input
@@ -670,7 +668,7 @@ export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({ curr
                         </div>
 
                         <div className={`flex items-center justify-between text-xs font-bold ${isSelected ? 'text-slate-200' : 'text-[#334155]'}`}>
-                          <span>Gross: {v.gross_weight_kg.toLocaleString()} kg</span>
+                          <span>First Weight: {v.gross_weight_kg.toLocaleString()} kg</span>
                           <span>Date: {v.operational_date}</span>
                         </div>
 
@@ -689,7 +687,7 @@ export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({ curr
               {selectedSecondVisit && (
                 <div className="p-6 rounded-2xl bg-[#EFE9D9] border border-[#C4B9A3] shadow-md space-y-5 text-[#111311]">
                   <div className="pb-3 border-b border-[#C4B9A3]">
-                    <h3 className="text-base font-extrabold text-[#111311]">Record Second Weight (Tare)</h3>
+                    <h3 className="text-base font-extrabold text-[#111311]">Record Second Weight (After Unloading)</h3>
                     <p className="text-xs text-[#334155] font-semibold mt-0.5">
                       Vehicle: <strong className="font-mono text-[#111311]">{selectedSecondVisit.vehicle_number}</strong> | Token: <strong className="font-mono text-[#1E3A8A]">{selectedSecondVisit.token_number || 'NO-TOKEN'}</strong>
                     </p>
@@ -697,15 +695,15 @@ export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({ curr
 
                   <div className="grid grid-cols-2 gap-3 p-3.5 rounded-xl bg-[#F4EFE3] border border-[#C4B9A3] text-xs font-mono font-bold">
                     <div>
-                      <span className="text-slate-500 font-sans block text-[9.5px]">Gross Weight (First Weight)</span>
+                      <span className="text-slate-500 font-sans block text-[9.5px]">First Weight (Loaded Vehicle)</span>
                       <span className="text-lg text-[#1E3A8A] font-black">{selectedSecondVisit.gross_weight_kg.toLocaleString()} kg</span>
                     </div>
                     <div>
-                      <span className="text-slate-500 font-sans block text-[9.5px]">Gross Time</span>
+                      <span className="text-slate-500 font-sans block text-[9.5px]">First Weight Time</span>
                       <span>{selectedSecondVisit.gross_timestamp ? new Date(selectedSecondVisit.gross_timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '-'}</span>
                     </div>
                     <div>
-                      <span className="text-slate-500 font-sans block text-[9.5px]">Recorded By (Gross)</span>
+                      <span className="text-slate-500 font-sans block text-[9.5px]">Recorded By (First Weight)</span>
                       <span>{selectedSecondVisit.gross_recorded_by_name}</span>
                     </div>
                     <div>
@@ -718,7 +716,7 @@ export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({ curr
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
                     <div className="space-y-1.5">
                       <label className="block text-xs font-black uppercase tracking-wider text-[#111311]">
-                        Second Weight (kg) <span className="text-rose-600">*</span>
+                        Second Weight (After Unloading) (kg) <span className="text-rose-600">*</span>
                       </label>
                       <div className="relative">
                         <input
@@ -755,7 +753,7 @@ export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({ curr
                   {previewNetKg !== null && (
                     <div className="space-y-2 pt-1">
                       <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-300 flex items-center justify-between text-emerald-900 font-mono font-bold text-xs">
-                        <span>Net Milk Received:</span>
+                        <span>Net Milk Weight:</span>
                         <span className="text-base font-black text-emerald-800">{previewNetKg.toLocaleString()} kg</span>
                       </div>
 

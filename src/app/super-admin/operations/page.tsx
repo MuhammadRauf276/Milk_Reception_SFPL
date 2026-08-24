@@ -12,7 +12,6 @@ interface Portion {
   dispatchQuantityValue: number | null;
   dispatchQuantityUnit: string | null;
   dispatchQuantityBasis?: string | null;
-  dispatchMeasurementMethod?: string | null;
   provisionalPhysicalLiters?: number | null;
   plantDecision: string | null;
   rejectionReason: string | null;

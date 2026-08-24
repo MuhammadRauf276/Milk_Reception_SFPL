@@ -97,7 +97,6 @@ describe('Stage 4C-3A: Dispatch Quantity Policy Snapshot Hardening (Integration)
     expect(json.quantityPolicy.policyVersion).toBe(1);
     expect(json.quantityPolicy.policy.vehicleRules.default.unit).toBe('KG');
     expect(json.quantityPolicy.policy.vehicleRules.default.basis).toBe('ESTIMATED');
-    expect(json.quantityPolicy.policy.vehicleRules.default.method).toBe('MANUAL_ESTIMATE');
 
     // Verify DB snapshot record
     const snapshot = await prisma.dispatchQuantityPolicySnapshot.findUnique({
@@ -136,28 +135,26 @@ describe('Stage 4C-3A: Dispatch Quantity Policy Snapshot Hardening (Integration)
     expect(jsonA.quantityPolicy.policyVersion).toBe(1);
     expect(jsonA.quantityPolicy.policy.vehicleRules.default.unit).toBe('KG');
 
-    // 2. Super Admin updates source quantity policy to V2 (default: LITER, MEASURED, FLOW_METER)
+    // 2. Super Admin updates source quantity policy to V2 (default: LITER, MEASURED)
     const customPolicyV2 = {
       version: 2,
       vehicleRules: {
         allowedMeasurements: [
-          { unit: 'KG', basis: 'MEASURED', methods: ['WEIGHING'] },
-          { unit: 'LITER', basis: 'MEASURED', methods: ['FLOW_METER'] },
+          { unit: 'KG', basis: 'MEASURED' },
+          { unit: 'LITER', basis: 'MEASURED' },
         ],
         default: {
           unit: 'LITER',
           basis: 'MEASURED',
-          method: 'FLOW_METER',
         },
       },
       portionRules: {
         allowedMeasurements: [
-          { unit: 'LITER', basis: 'MEASURED', methods: ['FLOW_METER'] },
+          { unit: 'LITER', basis: 'MEASURED' },
         ],
         default: {
           unit: 'LITER',
           basis: 'MEASURED',
-          method: 'FLOW_METER',
         },
       },
       allowSameUnitPortionPrefill: false,
@@ -181,7 +178,6 @@ describe('Stage 4C-3A: Dispatch Quantity Policy Snapshot Hardening (Integration)
 
     expect(jsonB.quantityPolicy.policyVersion).toBe(2);
     expect(jsonB.quantityPolicy.policy.vehicleRules.default.unit).toBe('LITER');
-    expect(jsonB.quantityPolicy.policy.vehicleRules.default.method).toBe('FLOW_METER');
     expect(jsonB.quantityPolicy.policy.allowSameUnitPortionPrefill).toBe(false);
   });
 
@@ -194,7 +190,7 @@ describe('Stage 4C-3A: Dispatch Quantity Policy Snapshot Hardening (Integration)
           version: 1,
           vehicleRules: {
             allowedMeasurements: [],
-            default: { unit: 'KG', basis: 'ESTIMATED', method: 'MANUAL_ESTIMATE' },
+            default: { unit: 'KG', basis: 'ESTIMATED' },
           },
         } as any,
       },

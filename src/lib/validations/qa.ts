@@ -8,10 +8,6 @@ export const qaTestResultInputSchema = z.object({
   textValue: z.string().nullable().optional(),
 });
 
-export const saveQADraftSchema = z.object({
-  results: z.array(qaTestResultInputSchema).min(1, 'At least one lab result entry is required'),
-});
-
 export const completeQATestSchema = z.object({
   results: z.array(qaTestResultInputSchema).default([]),
   decision: z.enum(['ACCEPTED', 'REJECTED']).optional(),
@@ -20,5 +16,4 @@ export const completeQATestSchema = z.object({
   operationalTimestamp: z.string().nullable().optional(),
 });
 
-export type SaveQADraftInput = z.infer<typeof saveQADraftSchema>;
 export type CompleteQATestInput = z.infer<typeof completeQATestSchema>;

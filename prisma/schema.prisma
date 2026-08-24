@@ -66,7 +66,6 @@ model VehicleVisit {
   vehicle_dispatch_quantity_value     Decimal?           @map("vehicle_dispatch_quantity_value") @db.Decimal(10, 2)
   vehicle_dispatch_quantity_unit      QuantityUnit?      @map("vehicle_dispatch_quantity_unit")
   vehicle_dispatch_quantity_basis     MeasurementBasis?  @map("vehicle_dispatch_quantity_basis")
-  vehicle_dispatch_measurement_method MeasurementMethod? @map("vehicle_dispatch_measurement_method")
 
   // Relations
   procurement_source     ProcurementSource? @relation("VisitSource", fields: [procurement_source_id], references: [id], onDelete: SetNull)
@@ -97,7 +96,6 @@ model VisitPortion {
   dispatch_quantity_value     Decimal?           @map("dispatch_quantity_value") @db.Decimal(10, 2)
   dispatch_quantity_unit      QuantityUnit?      @map("dispatch_quantity_unit")
   dispatch_quantity_basis     MeasurementBasis?  @map("dispatch_quantity_basis")
-  dispatch_measurement_method MeasurementMethod? @map("dispatch_measurement_method")
   plant_decision              String?            @map("plant_decision") @db.VarChar(255)
   plant_rejection_reason      String?            @map("plant_rejection_reason") @db.Text
   plant_decided_by            BigInt?            @map("plant_decided_by")
@@ -523,11 +521,3 @@ enum MeasurementBasis {
   ESTIMATED
   MEASURED
 }
-
-enum MeasurementMethod {
-  MANUAL_ESTIMATE
-  WEIGHING
-  FLOW_METER
-  OTHER
-}
-

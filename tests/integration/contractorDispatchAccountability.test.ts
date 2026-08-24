@@ -50,7 +50,6 @@ describe('Contractor Dispatch Accountability & Business Rules (Vitest Integratio
         dispatch_quantity_value: 10000,
         dispatch_quantity_unit: 'LITER',
         dispatch_quantity_basis: 'ESTIMATED',
-        dispatch_measurement_method: 'MANUAL_ESTIMATE',
         current_status: 'DISPATCHED',
       },
     });
@@ -122,7 +121,6 @@ describe('Contractor Dispatch Accountability & Business Rules (Vitest Integratio
         dispatch_quantity_value: 8000,
         dispatch_quantity_unit: 'LITER',
         dispatch_quantity_basis: 'ESTIMATED',
-        dispatch_measurement_method: 'MANUAL_ESTIMATE',
         current_status: 'DISPATCHED',
       },
     });
@@ -176,7 +174,6 @@ describe('Contractor Dispatch Accountability & Business Rules (Vitest Integratio
         dispatch_quantity_value: 6000,
         dispatch_quantity_unit: 'LITER',
         dispatch_quantity_basis: 'ESTIMATED',
-        dispatch_measurement_method: 'MANUAL_ESTIMATE',
         current_status: 'DISPATCHED',
       },
     });
@@ -226,7 +223,6 @@ describe('Contractor Dispatch Accountability & Business Rules (Vitest Integratio
         value: '5000',
         unit: 'KG' as const,
         basis: 'MEASURED' as const,
-        method: 'WEIGHING' as const,
       },
       portions: [
         {
@@ -235,7 +231,6 @@ describe('Contractor Dispatch Accountability & Business Rules (Vitest Integratio
             value: '5000',
             unit: 'KG' as const,
             basis: 'MEASURED' as const,
-            method: 'WEIGHING' as const,
           },
           results: assignments.map((a) => ({
             testId: a.test_id.toString(),

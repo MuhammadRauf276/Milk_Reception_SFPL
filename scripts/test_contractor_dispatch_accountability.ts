@@ -499,7 +499,7 @@ async function runContractorAccountabilityTests() {
   const resCaseL = await POST(reqCaseL);
   assert(resCaseL.ok, 'Case L: Transition NOT_PERFORMED -> PERFORMED yields valid PERFORMED dispatch with cleared reason');
 
-  // CASE M: Multiple portions isolation (Portion 1: KG, Fat 3.7; Portion 2: LITER, LR 28.0)
+  // CASE M: Multiple portions isolation (Portion 1: KG, Fat 3.7; Portion 2: KG, LR 28.0)
   const draftM = await startDraft(alkhairUser);
   const portion1Results = manualTests.map((t) => {
     if (t.id === fatTest.id) {
@@ -532,7 +532,7 @@ async function runContractorAccountabilityTests() {
         },
         {
           portionNumber: 2,
-          quantity: { value: '10000', unit: 'LITER', basis: 'ESTIMATED', method: 'MANUAL_ESTIMATE' },
+          quantity: { value: '10000', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
           results: portion2Results,
         },
       ],
@@ -541,35 +541,42 @@ async function runContractorAccountabilityTests() {
   );
   const resCaseM = await POST(reqCaseM);
   const dataCaseM = await resCaseM.json();
-  assert(resCaseM.ok && !!dataCaseM.visitId, 'Case M: Multi-portion Contractor dispatch created successfully', `Visit ID = ${dataCaseM.visitId}`);
-
-  const portionsM = await prisma.visitPortion.findMany({
-    where: { visit_id: BigInt(dataCaseM.visitId) },
-    include: { dispatch_lab_results: true },
-    orderBy: { portion_number: 'asc' },
-  });
-
-  const p1 = portionsM[0];
-  const p2 = portionsM[1];
-
-  const p1Fat = p1?.dispatch_lab_results.find((r) => r.test_id === fatTest.id);
-  const p1Lr = p1?.dispatch_lab_results.find((r) => r.test_id === lrTest.id);
-  const p2Fat = p2?.dispatch_lab_results.find((r) => r.test_id === fatTest.id);
-  const p2Lr = p2?.dispatch_lab_results.find((r) => r.test_id === lrTest.id);
-
+  const isCaseMOk = resCaseM.ok && !!dataCaseM?.visitId;
   assert(
-    p1?.dispatch_quantity_unit === 'KG' &&
-      Number(p1?.dispatch_quantity_value) === 9500 &&
-      p1Fat?.performance_status === 'PERFORMED' &&
-      Number(p1Fat?.numeric_value) === 3.7 &&
-      p1Lr?.performance_status === 'NOT_PERFORMED' &&
-      p2?.dispatch_quantity_unit === 'LITER' &&
-      Number(p2?.dispatch_quantity_value) === 10000 &&
-      p2Fat?.performance_status === 'NOT_PERFORMED' &&
-      p2Lr?.performance_status === 'PERFORMED' &&
-      Number(p2Lr?.numeric_value) === 28.0,
-    'Case M (DB): Portion 1 (KG, Fat 3.7, LR NOT_PERFORMED) and Portion 2 (LITER, Fat NOT_PERFORMED, LR 28.0) are completely isolated'
+    isCaseMOk,
+    'Case M: Multi-portion Contractor dispatch created successfully',
+    isCaseMOk ? `Visit ID = ${dataCaseM.visitId}` : `Status = ${resCaseM.status}, Error = ${JSON.stringify(dataCaseM?.error || dataCaseM)}`
   );
+
+  if (isCaseMOk) {
+    const portionsM = await prisma.visitPortion.findMany({
+      where: { visit_id: BigInt(dataCaseM.visitId) },
+      include: { dispatch_lab_results: true },
+      orderBy: { portion_number: 'asc' },
+    });
+
+    const p1 = portionsM[0];
+    const p2 = portionsM[1];
+
+    const p1Fat = p1?.dispatch_lab_results.find((r) => r.test_id === fatTest.id);
+    const p1Lr = p1?.dispatch_lab_results.find((r) => r.test_id === lrTest.id);
+    const p2Fat = p2?.dispatch_lab_results.find((r) => r.test_id === fatTest.id);
+    const p2Lr = p2?.dispatch_lab_results.find((r) => r.test_id === lrTest.id);
+
+    assert(
+      p1?.dispatch_quantity_unit === 'KG' &&
+        Number(p1?.dispatch_quantity_value) === 9500 &&
+        p1Fat?.performance_status === 'PERFORMED' &&
+        Number(p1Fat?.numeric_value) === 3.7 &&
+        p1Lr?.performance_status === 'NOT_PERFORMED' &&
+        p2?.dispatch_quantity_unit === 'KG' &&
+        Number(p2?.dispatch_quantity_value) === 10000 &&
+        p2Fat?.performance_status === 'NOT_PERFORMED' &&
+        p2Lr?.performance_status === 'PERFORMED' &&
+        Number(p2Lr?.numeric_value) === 28.0,
+      'Case M (DB): Portion 1 (KG, Fat 3.7, LR NOT_PERFORMED) and Portion 2 (KG, Fat NOT_PERFORMED, LR 28.0) are completely isolated'
+    );
+  }
 
   // CASE N: Direct API contradiction (NOT_PERFORMED + numeric result) rejected
   const contradictoryResults = manualTests.map((t) => {

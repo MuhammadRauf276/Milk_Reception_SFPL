@@ -75,7 +75,6 @@ export async function GET(
         : null,
       vehicle_dispatch_quantity_unit: v.vehicle_dispatch_quantity_unit || null,
       vehicle_dispatch_quantity_basis: v.vehicle_dispatch_quantity_basis || null,
-      vehicle_dispatch_measurement_method: v.vehicle_dispatch_measurement_method || null,
       total_accepted_dispatch_value: totalAcceptedDispatchValue,
       total_accepted_dispatch_unit: totalAcceptedDispatchUnit,
       portions: v.portions.map((p) => ({
@@ -84,7 +83,6 @@ export async function GET(
         dispatch_quantity_value: p.dispatch_quantity_value !== null && p.dispatch_quantity_value !== undefined ? Number(p.dispatch_quantity_value) : null,
         dispatch_quantity_unit: p.dispatch_quantity_unit ? p.dispatch_quantity_unit.toUpperCase() : null,
         dispatch_quantity_basis: p.dispatch_quantity_basis || null,
-        dispatch_measurement_method: p.dispatch_measurement_method || null,
         plant_decision: p.plant_decision || 'PENDING',
         plant_rejection_reason: p.plant_rejection_reason || null,
         current_status: p.current_status,

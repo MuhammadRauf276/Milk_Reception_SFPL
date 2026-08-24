@@ -109,7 +109,6 @@ async function runWeighbridgeVerification() {
               dispatch_quantity_value: 10000,
               dispatch_quantity_unit: 'KG',
               dispatch_quantity_basis: 'MEASURED',
-              dispatch_measurement_method: 'WEIGHING',
               plant_decision: 'ACCEPTED',
               dispatch_info: {
                 create: {

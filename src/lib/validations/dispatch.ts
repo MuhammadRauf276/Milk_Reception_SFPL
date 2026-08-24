@@ -16,13 +16,11 @@ export const dispatchTestResultSchema = z.object({
 
 export const quantityUnitSchema = z.enum(['KG', 'LITER']);
 export const measurementBasisSchema = z.enum(['ESTIMATED', 'MEASURED']);
-export const measurementMethodSchema = z.enum(['MANUAL_ESTIMATE', 'WEIGHING', 'FLOW_METER', 'OTHER']);
 
 export const quantityMeasurementInputSchema = z.object({
   value: quantityValueSchema,
   unit: quantityUnitSchema,
   basis: measurementBasisSchema,
-  method: measurementMethodSchema,
 });
 
 export const dispatchPortionSchema = z.object({
@@ -56,6 +54,28 @@ export const createDispatchSchema = z
     },
     {
       message: 'Portion numbers must be unique within one vehicle',
+      path: ['portions'],
+    }
+  )
+  .refine(
+    (data) => {
+      if (data.portions.length <= 1) return true;
+      const p1Unit = data.portions[0].quantity.unit;
+      return data.portions.every((p) => p.quantity.unit === p1Unit);
+    },
+    {
+      message: 'All portions must share the same quantity unit (matching Portion 1)',
+      path: ['portions'],
+    }
+  )
+  .refine(
+    (data) => {
+      if (data.portions.length <= 1) return true;
+      const p1Basis = data.portions[0].quantity.basis;
+      return data.portions.every((p) => p.quantity.basis === p1Basis);
+    },
+    {
+      message: 'All portions must share the same measurement basis (matching Portion 1)',
       path: ['portions'],
     }
   );

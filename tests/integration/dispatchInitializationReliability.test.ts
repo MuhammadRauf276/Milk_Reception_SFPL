@@ -297,7 +297,6 @@ describe('Stage 4C-2: Dispatch Initialization Reliability (Integration)', () => 
           value: '5000',
           unit: 'KG',
           basis: 'MEASURED',
-          method: 'WEIGHING',
         },
         portions: [
           {
@@ -306,7 +305,6 @@ describe('Stage 4C-2: Dispatch Initialization Reliability (Integration)', () => 
               value: '5000',
               unit: 'KG',
               basis: 'MEASURED',
-              method: 'WEIGHING',
             },
             results: [],
           },
@@ -352,7 +350,6 @@ describe('Stage 4C-2: Dispatch Initialization Reliability (Integration)', () => 
           value: '5000',
           unit: 'KG',
           basis: 'MEASURED',
-          method: 'WEIGHING',
         },
         portions: [
           {
@@ -361,7 +358,6 @@ describe('Stage 4C-2: Dispatch Initialization Reliability (Integration)', () => 
               value: '5000',
               unit: 'KG',
               basis: 'MEASURED',
-              method: 'WEIGHING',
             },
             results: [],
           },
@@ -414,7 +410,6 @@ describe('Stage 4C-2: Dispatch Initialization Reliability (Integration)', () => 
           value: '6000',
           unit: 'KG',
           basis: 'MEASURED',
-          method: 'WEIGHING',
         },
         portions: [
           {
@@ -423,7 +418,6 @@ describe('Stage 4C-2: Dispatch Initialization Reliability (Integration)', () => 
               value: '6000',
               unit: 'KG',
               basis: 'MEASURED',
-              method: 'WEIGHING',
             },
             results: portionResults,
           },

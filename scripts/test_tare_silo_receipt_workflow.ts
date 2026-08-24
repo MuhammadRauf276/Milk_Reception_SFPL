@@ -75,7 +75,7 @@ async function runTareSiloReceiptHardenedVerification() {
         operational_date: new Date(),
         created_by: wbUser.id,
         portions: {
-          create: [{ portion_number: 1, dispatch_quantity_value: 8000, dispatch_quantity_unit: 'KG', dispatch_quantity_basis: 'MEASURED', dispatch_measurement_method: 'WEIGHING', plant_decision: 'ACCEPTED', current_status: 'UNLOADED' }],
+          create: [{ portion_number: 1, dispatch_quantity_value: 8000, dispatch_quantity_unit: 'KG', dispatch_quantity_basis: 'MEASURED', plant_decision: 'ACCEPTED', current_status: 'UNLOADED' }],
         },
         weight_ticket: {
           create: {

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { FlaskConical, Search, CheckCircle2, ShieldAlert, Save, RefreshCw, X, AlertTriangle, Lock } from 'lucide-react';
+import { FlaskConical, Search, CheckCircle2, ShieldAlert, RefreshCw, X, AlertTriangle, Lock } from 'lucide-react';
 import { User } from '@core/types';
 
 interface LabTestDef {
@@ -45,7 +45,6 @@ interface PortionDetail {
   dispatch_quantity_value?: number | null;
   dispatch_quantity_unit?: string;
   dispatch_quantity_basis?: string;
-  dispatch_measurement_method?: string;
   plant_decision: string;
   plant_rejection_reason: string | null;
   plant_decided_at: string | null;
@@ -197,39 +196,6 @@ export const DynamicQALabForm: React.FC<DynamicQALabFormProps> = ({ currentUser,
     }).length;
 
     return { completed: completedCount, total: reqTests.length };
-  };
-
-  const handleSaveDraft = async () => {
-    if (!visit || !currentPortion) return;
-    setIsSubmitting(true);
-    setErrorMsg(null);
-    setSuccessMsg(null);
-
-    const payloadResults = visit.active_plant_tests.map((t) => {
-      const inp = plantInputs[t.id] || { numericValue: '', textValue: '' };
-      return {
-        testId: t.id,
-        numericValue: t.resultType === 'NUMERIC' ? (inp.numericValue !== '' ? Number(inp.numericValue) : null) : null,
-        textValue: t.resultType !== 'NUMERIC' ? (inp.textValue ? inp.textValue : null) : null,
-      };
-    }).filter((r) => r.numericValue !== null || r.textValue !== null);
-
-    try {
-      const res = await fetch(`/api/qa/vehicle-visits/${visit.id}/portions/${currentPortion.id}/draft`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ results: payloadResults }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to save QA draft');
-
-      setSuccessMsg(`Draft saved for Portion #${currentPortion.portion_number}.`);
-      loadVisitDetail(visit.id);
-    } catch (err: any) {
-      setErrorMsg(err.message);
-    } finally {
-      setIsSubmitting(false);
-    }
   };
 
   const handleCompleteLabTest = async () => {
@@ -573,15 +539,6 @@ export const DynamicQALabForm: React.FC<DynamicQALabFormProps> = ({ currentUser,
           {/* Action Buttons */}
           {!isPortionFinalized && (
             <div className="flex items-center justify-end space-x-3 pt-4 border-t border-[#C4B9A3]">
-              <button
-                type="button"
-                onClick={handleSaveDraft}
-                disabled={isSubmitting}
-                className="flex items-center space-x-1.5 px-4 py-2.5 rounded-xl bg-[#F4EFE3] hover:bg-amber-100 text-slate-800 font-extrabold text-xs border border-[#C4B9A3] transition"
-              >
-                <Save className="w-4 h-4 text-slate-700" />
-                <span>Save Draft</span>
-              </button>
               <button
                 type="button"
                 onClick={handleCompleteLabTest}

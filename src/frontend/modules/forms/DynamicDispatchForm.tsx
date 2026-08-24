@@ -14,18 +14,27 @@ import {
   calculatePhysicalLiters,
   calculateAt13TSLiters,
   calculateEquivalentKgFromLiters,
+  calculateGrossLiters,
 } from '@/backend/utils/milkFormulas';
 import { getScopedDraftKey } from '@/lib/validations/dispatch';
 
 import {
   QuantityUnit,
   MeasurementBasis,
-  MeasurementMethod,
   DispatchQuantityPolicySnapshotDTO,
   getAllowedUnits,
   getAllowedBases,
-  getAllowedMethods,
 } from '@/backend/modules/dispatch/quantity-policy/types';
+import {
+  applySharedPortionUnit,
+  applySharedPortionBasis,
+  createPortionQuantityFromSharedProfile,
+  computeDispatchPortionCalculatedValues,
+  computePortionQuantitySummary,
+  canUseMeasuredPortionTotalForVehicle,
+  computeVehiclePortionDifference,
+  computeDispatchSafeSummaryTotals,
+} from '@/backend/modules/dispatch/quantity/dispatchQuantityService';
 
 interface LabTestDef {
   id: string;
@@ -48,13 +57,11 @@ interface TestResultState {
 
 export type QuantityUnitType = QuantityUnit;
 export type MeasurementBasisType = MeasurementBasis;
-export type MeasurementMethodType = MeasurementMethod;
 
 export interface QuantityState {
   value: string;
   unit: QuantityUnit;
   basis: MeasurementBasis;
-  method: MeasurementMethod;
 }
 
 interface PortionFormState {
@@ -89,7 +96,6 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     value: '',
     unit: 'KG',
     basis: 'MEASURED',
-    method: 'WEIGHING',
   });
   const [vehicleQuantityError, setVehicleQuantityError] = useState<string | null>(null);
 
@@ -239,7 +245,6 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
               value: '',
               unit: vDef.unit,
               basis: vDef.basis,
-              method: vDef.method,
             });
           }
         }
@@ -262,7 +267,6 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                   value: '',
                   unit: pDef.unit,
                   basis: pDef.basis,
-                  method: pDef.method,
                 },
                 results: initialResults,
                 isSaved: false,
@@ -303,9 +307,6 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
   const vehicleAllowedBases = isPolicyReady && vehicleAllowedMeasurements && vehicleQuantity.unit
     ? getAllowedBases(vehicleAllowedMeasurements, vehicleQuantity.unit)
     : [];
-  const vehicleAllowedMethods = isPolicyReady && vehicleAllowedMeasurements && vehicleQuantity.unit && vehicleQuantity.basis
-    ? getAllowedMethods(vehicleAllowedMeasurements, vehicleQuantity.unit, vehicleQuantity.basis)
-    : [];
 
   // Derived allowed options for Portion (strictly guarded against undefined)
   const portionAllowedMeasurements = frozenQuantityPolicy?.policy?.portionRules?.allowedMeasurements;
@@ -323,15 +324,16 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
         ? window.crypto.randomUUID()
         : `portion-${Date.now()}-${portionNumber}`;
 
+    const p1 = portions[0];
+    const initialQty = createPortionQuantityFromSharedProfile(
+      p1 ? p1.quantity : null,
+      pDef
+    );
+
     return {
       clientId,
       portionNumber,
-      quantity: {
-        value: '',
-        unit: pDef.unit,
-        basis: pDef.basis,
-        method: pDef.method,
-      },
+      quantity: initialQty,
       results: freshResults,
       isSaved: false,
     };
@@ -354,30 +356,20 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
   const handleVehicleUnitChange = (newUnit: QuantityUnitType) => {
     const bases = getAllowedBases(vehicleAllowedMeasurements, newUnit);
     const newBasis = bases.includes(vehicleQuantity.basis) ? vehicleQuantity.basis : bases[0];
-    const methods = getAllowedMethods(vehicleAllowedMeasurements, newUnit, newBasis);
-    const newMethod = methods.includes(vehicleQuantity.method) ? vehicleQuantity.method : methods[0];
 
     setVehicleQuantity({
       value: '', // clear entered quantity on unit change
       unit: newUnit,
       basis: newBasis,
-      method: newMethod,
     });
     setVehicleQuantityError(null);
   };
 
   const handleVehicleBasisChange = (newBasis: MeasurementBasisType) => {
-    const methods = getAllowedMethods(vehicleAllowedMeasurements, vehicleQuantity.unit, newBasis);
-    const newMethod = methods.includes(vehicleQuantity.method) ? vehicleQuantity.method : methods[0];
     setVehicleQuantity((prev) => ({
       ...prev,
       basis: newBasis,
-      method: newMethod,
     }));
-  };
-
-  const handleVehicleMethodChange = (newMethod: MeasurementMethodType) => {
-    setVehicleQuantity((prev) => ({ ...prev, method: newMethod }));
   };
 
   const handlePortionQuantityValueChange = (index: number, val: string) => {
@@ -396,43 +388,33 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
   };
 
   const handlePortionUnitChange = (index: number, newUnit: QuantityUnitType) => {
-    const updated = [...portions];
-    const currentPortion = updated[index];
-    const bases = getAllowedBases(portionAllowedMeasurements, newUnit);
-    const newBasis = bases.includes(currentPortion.quantity.basis) ? currentPortion.quantity.basis : bases[0];
-    const methods = getAllowedMethods(portionAllowedMeasurements, newUnit, newBasis);
-    const newMethod = methods.includes(currentPortion.quantity.method) ? currentPortion.quantity.method : methods[0];
+    // Only Portion 1 establishes and can modify the shared portion Unit
+    if (index !== 0) return;
 
-    updated[index].quantity = {
-      value: '', // clear entered quantity on unit change
-      unit: newUnit,
-      basis: newBasis,
-      method: newMethod,
-    };
+    const updated = applySharedPortionUnit(portions, newUnit, portionAllowedMeasurements);
     setPortions(updated);
 
+    // Clear quantity validation errors across all portions on unit change
     setPortionErrors((prev) => {
-      if (!prev[index]?.quantity) return prev;
-      const copy = { ...prev[index] };
-      delete copy.quantity;
-      return { ...prev, [index]: copy };
+      const nextErrors: Record<number, { quantity?: string; tests?: Record<string, string> }> = {};
+      Object.keys(prev).forEach((keyStr) => {
+        const k = Number(keyStr);
+        if (prev[k]) {
+          const { quantity, ...rest } = prev[k];
+          if (Object.keys(rest.tests || {}).length > 0) {
+            nextErrors[k] = rest;
+          }
+        }
+      });
+      return nextErrors;
     });
   };
 
   const handlePortionBasisChange = (index: number, newBasis: MeasurementBasisType) => {
-    const updated = [...portions];
-    const currentPortion = updated[index];
-    const methods = getAllowedMethods(portionAllowedMeasurements, currentPortion.quantity.unit, newBasis);
-    const newMethod = methods.includes(currentPortion.quantity.method) ? currentPortion.quantity.method : methods[0];
+    // Only Portion 1 establishes and can modify the shared portion Basis
+    if (index !== 0) return;
 
-    updated[index].quantity.basis = newBasis;
-    updated[index].quantity.method = newMethod;
-    setPortions(updated);
-  };
-
-  const handlePortionMethodChange = (index: number, newMethod: MeasurementMethodType) => {
-    const updated = [...portions];
-    updated[index].quantity.method = newMethod;
+    const updated = applySharedPortionBasis(portions, newBasis);
     setPortions(updated);
   };
 
@@ -727,54 +709,13 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
 
     const rawLr = lrRes && lrRes.performanceStatus === 'PERFORMED' ? lrRes.numericValue : '';
     const rawFat = fatRes && fatRes.performanceStatus === 'PERFORMED' ? fatRes.numericValue : '';
-    const rawDeclared = Number(portion.quantity.value);
 
-    const lrNum = rawLr !== '' && rawLr !== undefined && !isNaN(Number(rawLr)) ? Number(rawLr) : null;
-    const fatNum = rawFat !== '' && rawFat !== undefined && !isNaN(Number(rawFat)) ? Number(rawFat) : null;
-    const qtyNum = !isNaN(rawDeclared) && rawDeclared > 0 ? rawDeclared : null;
-    const unit = portion.quantity.unit;
-
-    let snfVal: number | null = null;
-    let tsVal: number | null = null;
-    let ratioVal: number | null = null;
-    let densityVal: number | null = null;
-    let physicalLitersVal: number | null = null;
-    let at13TsLitersVal: number | null = null;
-
-    if (lrNum !== null) {
-      densityVal = calculateDensity(lrNum);
-    }
-
-    if (lrNum !== null && fatNum !== null) {
-      snfVal = calculateSNF(lrNum, fatNum);
-      tsVal = calculateTS(fatNum, snfVal);
-      ratioVal = calculateRatio(snfVal, fatNum);
-    }
-
-    if (qtyNum !== null) {
-      if (unit === 'KG') {
-        if (lrNum !== null) {
-          physicalLitersVal = calculatePhysicalLiters(qtyNum, lrNum);
-        }
-      } else if (unit === 'LITER') {
-        physicalLitersVal = qtyNum;
-      }
-
-      if (physicalLitersVal !== null && tsVal !== null) {
-        at13TsLitersVal = calculateAt13TSLiters(physicalLitersVal, tsVal);
-      }
-    }
-
-    return {
-      declaredVal: qtyNum,
-      unit,
-      snf: snfVal,
-      ts: tsVal,
-      ratio: ratioVal,
-      density: densityVal,
-      physicalLiters: physicalLitersVal,
-      at13TsLiters: at13TsLitersVal,
-    };
+    return computeDispatchPortionCalculatedValues(
+      portion.quantity.value,
+      portion.quantity.unit,
+      rawLr,
+      rawFat
+    );
   };
 
   const savedCount = portions.filter((p) => p.isSaved).length;
@@ -828,7 +769,6 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
           value: p.quantity.value,
           unit: p.quantity.unit,
           basis: p.quantity.basis,
-          method: p.quantity.method,
         },
         dispatchTimestamp: isoDispatchTimestamp,
         results: labTests
@@ -911,7 +851,6 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
             value: vehicleQuantity.value,
             unit: vehicleQuantity.unit,
             basis: vehicleQuantity.basis,
-            method: vehicleQuantity.method,
           },
           portions: payloadPortions,
         }),
@@ -944,9 +883,17 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     }
   };
 
+  // 4C-5D & 4C-5E Aggregations & Calculations
+  const portionSummary = computePortionQuantitySummary(portions);
+  const isEligibleForAssistance = canUseMeasuredPortionTotalForVehicle(vehicleQuantity, portionSummary);
+  const vehiclePortionComparison = computeVehiclePortionDifference(vehicleQuantity, portionSummary);
+
+  const calculatedPortionsList = portions.map((p) => computeCalculatedMilkValues(p));
+  const safeTotals = computeDispatchSafeSummaryTotals(calculatedPortionsList);
+
   return (
-    <form onSubmit={handleSubmitDispatch} className="p-6 rounded-2xl bg-[#EFE9D9] border border-[#C4B9A3] shadow-sm space-y-5 text-[#111311]">
-      <div className="pb-2 border-b border-[#C4B9A3] flex items-center justify-between">
+    <form onSubmit={handleSubmitDispatch} className="p-4 sm:p-6 rounded-2xl bg-[#EFE9D9] border border-[#C4B9A3] shadow-sm space-y-5 text-[#111311]">
+      <div className="pb-3 border-b border-[#C4B9A3] flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-lg font-extrabold text-[#111311]">New Dispatch</h2>
 
         {/* Read-Only Source Identity Block for Source-Bound Operators */}
@@ -961,163 +908,336 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
         </div>
       </div>
 
-      {/* Global Source Selector if user is NOT source-bound (e.g. Admin) */}
-      {!isSourceBound && availableSources.length > 0 && (
-        <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs space-y-1">
-          <label className="block font-bold text-amber-900">Select Operating Procurement Source (Admin Override):</label>
-          <select
-            value={selectedSourceId}
-            onChange={(e) => setSelectedSourceId(e.target.value)}
-            className="w-full px-3 py-1.5 font-bold rounded-lg border border-amber-300 bg-white text-slate-900"
-          >
-            <option value="">-- Select Procurement Source --</option>
-            {availableSources.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name} ({s.source_type})
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
+      {/* Main 2-Column Responsive Workspace */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* LEFT COLUMN (5/12): STICKY DISPATCH & PORTIONS SUMMARY */}
+        <div className="lg:col-span-5 space-y-4 lg:sticky lg:top-4 self-start order-2 lg:order-1">
+          {/* 1. Vehicle Summary Card */}
+          <div className="p-4 rounded-2xl bg-[#F4EFE3] border border-[#C4B9A3] shadow-sm space-y-3">
+            <div className="flex items-center justify-between border-b border-[#C4B9A3] pb-2">
+              <div className="flex items-center space-x-1.5 text-xs font-black uppercase tracking-wider text-[#111311]">
+                <Calculator className="w-4 h-4 text-[#1E40AF]" />
+                <span>Vehicle Summary</span>
+              </div>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-white text-slate-700 border border-[#C4B9A3]">
+                {portions.length} Portion{portions.length > 1 ? 's' : ''}
+              </span>
+            </div>
 
-      {/* Notice when unbound admin has not yet selected a source */}
-      {!isSourceBound && !selectedSourceId && (
-        <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 text-xs font-semibold">
-          Please select an operating procurement source from the dropdown above to initialize the dispatch draft.
-        </div>
-      )}
-
-      {/* Vehicle Header Fields */}
-      <div className="p-3.5 rounded-xl bg-[#F4EFE3] border border-[#C4B9A3] space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-bold mb-1">Vehicle No. *</label>
-            <input
-              id="vehicle-number-input"
-              type="text"
-              value={vehicleNumber}
-              onChange={(e) => handleVehicleNumberChange(e.target.value)}
-              placeholder="e.g. KBL-8492"
-              className={`w-full px-3 py-2 text-sm font-mono font-bold rounded-xl border bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none ${
-                vehicleNumberError ? 'border-rose-500 bg-rose-50/20 ring-1 ring-rose-500' : 'border-[#C4B9A3]'
-              }`}
-              required
-            />
-            {vehicleNumberError && (
-              <p className="text-xs font-bold text-rose-600 mt-1" id="vehicle-number-error">
-                {vehicleNumberError}
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold mb-1 flex items-center justify-between">
-              <span>Dispatch Time *</span>
-              <Clock className="w-3.5 h-3.5 text-[#1E40AF]" />
-            </label>
-            <input
-              type="datetime-local"
-              value={dispatchOpDatetime}
-              max={toDatetimeLocalInput(new Date())}
-              onChange={(e) => setDispatchOpDatetime(e.target.value)}
-              className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none"
-              required
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Vehicle Dispatch Quantity Section */}
-      <div className="p-3.5 rounded-xl bg-[#F4EFE3] border border-[#C4B9A3] space-y-2.5">
-        <div className="flex items-center justify-between">
-          <label className="text-xs font-extrabold uppercase tracking-wider text-[#111311]">
-            Vehicle Dispatch Quantity *
-          </label>
-          <span className="text-[10px] font-bold text-slate-500">
-            Authoritative Vehicle Measurement
-          </span>
-        </div>
-
-        {!isPolicyReady ? (
-          <div className="p-3 text-center rounded-xl bg-white border border-dashed border-[#C4B9A3] text-xs font-semibold text-slate-500">
-            Loading frozen quantity policy snapshot...
-          </div>
-        ) : (
-          <>
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
-              <div>
-                <label className="block text-[11px] font-bold mb-1">Value *</label>
-                <input
-                  id="vehicle-quantity-input"
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  value={vehicleQuantity.value}
-                  onChange={(e) => handleVehicleQuantityValueChange(e.target.value)}
-                  placeholder="e.g. 19500"
-                  className={`w-full px-3 py-2 text-sm font-mono font-bold rounded-xl border bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none ${
-                    vehicleQuantityError ? 'border-rose-500 bg-rose-50/20 ring-1 ring-rose-500' : 'border-[#C4B9A3]'
-                  }`}
-                  required
-                />
+            <div className="grid grid-cols-2 gap-2 text-xs font-mono font-bold">
+              <div className="p-2.5 rounded-xl bg-white border border-[#C4B9A3]">
+                <span className="text-[9px] font-sans text-slate-500 block uppercase">Vehicle Dispatch Qty</span>
+                <span className="text-slate-900 text-sm block">
+                  {vehicleQuantity.value ? `${Number(vehicleQuantity.value).toLocaleString()} ${vehicleQuantity.unit}` : '—'}
+                </span>
+                <span className="text-[9px] font-sans text-slate-500 block font-medium mt-0.5">
+                  {vehicleQuantity.basis}
+                </span>
               </div>
 
-              <div>
-                <label className="block text-[11px] font-bold mb-1">Unit *</label>
-                <select
-                  value={vehicleQuantity.unit}
-                  onChange={(e) => handleVehicleUnitChange(e.target.value as QuantityUnitType)}
-                  className="w-full px-3 py-2 text-xs font-mono font-black rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none"
-                >
-                  {vehicleAllowedUnits.map((u) => (
-                    <option key={u} value={u}>
-                      {u}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold mb-1">Basis *</label>
-                <select
-                  value={vehicleQuantity.basis}
-                  onChange={(e) => handleVehicleBasisChange(e.target.value as MeasurementBasisType)}
-                  className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none"
-                >
-                  {vehicleAllowedBases.map((b) => (
-                    <option key={b} value={b}>
-                      {b}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold mb-1">Measurement Method *</label>
-                <select
-                  value={vehicleQuantity.method}
-                  onChange={(e) => handleVehicleMethodChange(e.target.value as MeasurementMethodType)}
-                  className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none"
-                >
-                  {vehicleAllowedMethods.map((m) => (
-                    <option key={m} value={m}>
-                      {m}
-                    </option>
-                  ))}
-                </select>
+              <div className="p-2.5 rounded-xl bg-white border border-[#C4B9A3]">
+                <span className="text-[9px] font-sans text-slate-500 block uppercase">
+                  {portionSummary.label || 'Portion Total'}
+                </span>
+                <span className="text-slate-900 text-sm block">
+                  {portionSummary.complete && portionSummary.formattedTotal
+                    ? portionSummary.formattedTotal
+                    : '— (incomplete)'}
+                </span>
+                <span className="text-[9px] font-sans text-slate-500 block font-medium mt-0.5">
+                  {portionSummary.basis || '—'}
+                </span>
               </div>
             </div>
 
-            {vehicleQuantityError && (
-              <p className="text-xs font-bold text-rose-600 mt-1" id="vehicle-quantity-error">
-                {vehicleQuantityError}
-              </p>
-            )}
-          </>
-        )}
-      </div>
+            {/* Difference / Comparison Strip with Assistance button */}
+            <div className="p-2.5 rounded-xl bg-white border border-[#C4B9A3] text-xs font-bold space-y-1.5">
+              <div className="flex items-center justify-between text-[10px] font-sans uppercase tracking-wider text-slate-500">
+                <span>Vehicle vs Portions</span>
+                {isEligibleForAssistance && portionSummary.totalValue !== null && (
+                  <button
+                    type="button"
+                    id="btn-use-measured-portion-total"
+                    onClick={() => {
+                      handleVehicleQuantityValueChange(portionSummary.totalValue!.toString());
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-[#1E40AF] text-white text-[11px] font-bold shadow-sm hover:bg-blue-800 transition flex items-center space-x-1"
+                  >
+                    <span>Use Measured Portion Total</span>
+                  </button>
+                )}
+              </div>
 
-      {/* Milk Portions Section */}
+              <div className="font-mono text-xs">
+                {vehiclePortionComparison.isDifferentUnits ? (
+                  <span className="text-amber-700 font-sans text-[11px] font-semibold">
+                    {vehiclePortionComparison.message}
+                  </span>
+                ) : vehiclePortionComparison.eligibleForDifference && vehiclePortionComparison.formattedDifference !== null ? (
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-600 font-sans text-xs">Difference:</span>
+                    <span
+                      className={
+                        vehiclePortionComparison.difference === 0
+                          ? 'text-emerald-700 font-bold'
+                          : vehiclePortionComparison.difference! > 0
+                          ? 'text-blue-700 font-bold'
+                          : 'text-amber-700 font-bold'
+                      }
+                    >
+                      {vehiclePortionComparison.formattedDifference}
+                    </span>
+                  </div>
+                ) : (
+                  <span className="text-slate-400 font-sans text-[11px]">
+                    Enter vehicle & portion quantities to view difference
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Safe Calculated Totals (Gross Liters & Liters @ 13% TS) */}
+            <div className="grid grid-cols-2 gap-2 text-xs font-mono font-bold pt-1 border-t border-[#C4B9A3]">
+              <div className="p-2 rounded-xl bg-white border border-[#C4B9A3]">
+                <span className="text-[9px] font-sans text-slate-500 block uppercase">Total Gross Liters</span>
+                <span className="text-emerald-900 text-sm">
+                  {safeTotals.formattedTotalGrossLiters || '—'}
+                </span>
+              </div>
+
+              <div className="p-2 rounded-xl bg-white border border-[#C4B9A3]">
+                <span className="text-[9px] font-sans text-slate-500 block uppercase">Total Liters @ 13% TS</span>
+                <span className="text-emerald-900 text-sm">
+                  {safeTotals.formattedTotalLitersAt13TS || '—'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* 2. Dynamic Portion Summaries */}
+          <div className="space-y-3">
+            {portions.map((p, idx) => {
+              const calc = calculatedPortionsList[idx];
+              const lrTest = labTests.find(
+                (t) => t.testName.toLowerCase().includes('lactometer') || t.testName.toLowerCase().includes('lr')
+              );
+              const fatTest = labTests.find(
+                (t) =>
+                  t.testName.toLowerCase().includes('fat') &&
+                  !t.testName.toLowerCase().includes('ratio') &&
+                  !t.testName.toLowerCase().includes('snf')
+              );
+              const lrRes = lrTest ? p.results[lrTest.testId] : null;
+              const fatRes = fatTest ? p.results[fatTest.testId] : null;
+              const lrDisplay =
+                lrRes && lrRes.performanceStatus === 'PERFORMED' && lrRes.numericValue !== ''
+                  ? `${lrRes.numericValue}`
+                  : '—';
+              const fatDisplay =
+                fatRes && fatRes.performanceStatus === 'PERFORMED' && fatRes.numericValue !== ''
+                  ? `${fatRes.numericValue}%`
+                  : '—';
+
+              return (
+                <div
+                  key={`portion-summary-card-${idx}`}
+                  className="p-3.5 rounded-2xl bg-[#F4EFE3] border border-[#C4B9A3] shadow-sm space-y-2.5"
+                >
+                  <div className="flex items-center justify-between border-b border-[#C4B9A3] pb-1.5">
+                    <span className="text-xs font-black text-[#111311] uppercase tracking-wider">
+                      Portion {idx + 1} Summary
+                    </span>
+                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-white text-slate-700 border border-[#C4B9A3]">
+                      {p.quantity.value ? `${Number(p.quantity.value).toLocaleString()} ${p.quantity.unit}` : '—'} ({p.quantity.basis})
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-1.5 text-[11px] font-mono font-bold">
+                    <div className="p-1.5 rounded-lg bg-white border border-[#C4B9A3]">
+                      <span className="text-[9px] font-sans text-slate-500 block">LR / Fat</span>
+                      <span>
+                        {lrDisplay} / {fatDisplay}
+                      </span>
+                    </div>
+                    <div className="p-1.5 rounded-lg bg-white border border-[#C4B9A3]">
+                      <span className="text-[9px] font-sans text-slate-500 block">Density</span>
+                      <span>{calc.density !== null ? `${calc.density.toFixed(4)} g/mL` : '—'}</span>
+                    </div>
+                    <div className="p-1.5 rounded-lg bg-white border border-[#C4B9A3]">
+                      <span className="text-[9px] font-sans text-slate-500 block">Gross Liters</span>
+                      <span className="text-emerald-900">
+                        {calc.grossLiters !== null ? `${Math.round(calc.grossLiters).toLocaleString()} L` : '—'}
+                      </span>
+                    </div>
+                    <div className="p-1.5 rounded-lg bg-white border border-[#C4B9A3]">
+                      <span className="text-[9px] font-sans text-slate-500 block">Liters @ 13% TS</span>
+                      <span className="text-emerald-900">
+                        {calc.at13TsLiters !== null ? `${Math.round(calc.at13TsLiters).toLocaleString()} L` : '—'}
+                      </span>
+                    </div>
+                    <div className="p-1.5 rounded-lg bg-white border border-[#C4B9A3]">
+                      <span className="text-[9px] font-sans text-slate-500 block">SNF %</span>
+                      <span className="text-blue-900">{calc.snf !== null ? `${calc.snf.toFixed(3)} %` : '—'}</span>
+                    </div>
+                    <div className="p-1.5 rounded-lg bg-white border border-[#C4B9A3]">
+                      <span className="text-[9px] font-sans text-slate-500 block">Total Solids (TS %)</span>
+                      <span className="text-blue-900">{calc.ts !== null ? `${calc.ts.toFixed(3)} %` : '—'}</span>
+                    </div>
+                    <div className="p-1.5 rounded-lg bg-white border border-[#C4B9A3] col-span-2">
+                      <span className="text-[9px] font-sans text-slate-500 block">SNF : Fat</span>
+                      <span className="text-blue-900">{calc.ratio !== null ? calc.ratio.toFixed(3) : '—'}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* RIGHT COLUMN (7/12): INPUT FORM */}
+        <div className="lg:col-span-7 space-y-4 order-1 lg:order-2">
+          {/* Global Source Selector if user is NOT source-bound (e.g. Admin) */}
+          {!isSourceBound && availableSources.length > 0 && (
+            <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs space-y-1">
+              <label className="block font-bold text-amber-900">Select Operating Procurement Source (Admin Override):</label>
+              <select
+                value={selectedSourceId}
+                onChange={(e) => setSelectedSourceId(e.target.value)}
+                className="w-full px-3 py-1.5 font-bold rounded-lg border border-amber-300 bg-white text-slate-900"
+              >
+                <option value="">-- Select Procurement Source --</option>
+                {availableSources.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({s.source_type})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Notice when unbound admin has not yet selected a source */}
+          {!isSourceBound && !selectedSourceId && (
+            <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 text-xs font-semibold">
+              Please select an operating procurement source from the dropdown above to initialize the dispatch draft.
+            </div>
+          )}
+
+          {/* Vehicle Header Fields */}
+          <div className="p-3.5 rounded-xl bg-[#F4EFE3] border border-[#C4B9A3] space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold mb-1">Vehicle No. *</label>
+                <input
+                  id="vehicle-number-input"
+                  type="text"
+                  value={vehicleNumber}
+                  onChange={(e) => handleVehicleNumberChange(e.target.value)}
+                  placeholder="e.g. KBL-8492"
+                  className={`w-full px-3 py-2 text-sm font-mono font-bold rounded-xl border bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none ${
+                    vehicleNumberError ? 'border-rose-500 bg-rose-50/20 ring-1 ring-rose-500' : 'border-[#C4B9A3]'
+                  }`}
+                  required
+                />
+                {vehicleNumberError && (
+                  <p className="text-xs font-bold text-rose-600 mt-1" id="vehicle-number-error">
+                    {vehicleNumberError}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold mb-1 flex items-center justify-between">
+                  <span>Dispatch Time *</span>
+                  <Clock className="w-3.5 h-3.5 text-[#1E40AF]" />
+                </label>
+                <input
+                  type="datetime-local"
+                  value={dispatchOpDatetime}
+                  max={toDatetimeLocalInput(new Date())}
+                  onChange={(e) => setDispatchOpDatetime(e.target.value)}
+                  className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none"
+                  required
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Vehicle Dispatch Quantity Section */}
+          <div className="p-3.5 rounded-xl bg-[#F4EFE3] border border-[#C4B9A3] space-y-2.5">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-extrabold uppercase tracking-wider text-[#111311]">
+                Vehicle Dispatch Quantity *
+              </label>
+              <span className="text-[10px] font-bold text-slate-500">
+                Authoritative Vehicle Measurement
+              </span>
+            </div>
+
+            {!isPolicyReady ? (
+              <div className="p-3 text-center rounded-xl bg-white border border-dashed border-[#C4B9A3] text-xs font-semibold text-slate-500">
+                Loading frozen quantity policy snapshot...
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <div>
+                    <label className="block text-[11px] font-bold mb-1">Value *</label>
+                    <input
+                      id="vehicle-quantity-input"
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      value={vehicleQuantity.value}
+                      onChange={(e) => handleVehicleQuantityValueChange(e.target.value)}
+                      placeholder="e.g. 19500"
+                      className={`w-full px-3 py-2 text-sm font-mono font-bold rounded-xl border bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none ${
+                        vehicleQuantityError ? 'border-rose-500 bg-rose-50/20 ring-1 ring-rose-500' : 'border-[#C4B9A3]'
+                      }`}
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold mb-1">Unit *</label>
+                    <select
+                      value={vehicleQuantity.unit}
+                      onChange={(e) => handleVehicleUnitChange(e.target.value as QuantityUnitType)}
+                      className="w-full px-3 py-2 text-xs font-mono font-black rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none"
+                    >
+                      {vehicleAllowedUnits.map((u) => (
+                        <option key={u} value={u}>
+                          {u}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold mb-1">Basis *</label>
+                    <select
+                      value={vehicleQuantity.basis}
+                      onChange={(e) => handleVehicleBasisChange(e.target.value as MeasurementBasisType)}
+                      className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none"
+                    >
+                      {vehicleAllowedBases.map((b) => (
+                        <option key={b} value={b}>
+                          {b}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {vehicleQuantityError && (
+                  <p className="text-xs font-bold text-rose-600 mt-1" id="vehicle-quantity-error">
+                    {vehicleQuantityError}
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Milk Portions Section */}
       <div className="space-y-3 pt-1">
         <div className="flex items-center justify-between">
           <label className="text-xs font-extrabold uppercase tracking-wider text-[#111311]">
@@ -1162,7 +1282,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                             {portion.quantity.value ? `${Number(portion.quantity.value).toLocaleString()} ${portion.quantity.unit}` : '—'}
                           </span>
                           <span className="text-[10px] font-bold text-slate-500">
-                            ({portion.quantity.basis} • {portion.quantity.method})
+                            ({portion.quantity.basis})
                           </span>
                         </div>
                         <p className="text-[11px] font-bold text-slate-600 mt-0.5">
@@ -1203,11 +1323,11 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                       <span>{calcValues.ts !== null ? `${calcValues.ts.toFixed(2)}%` : '—'}</span>
                     </div>
                     <div>
-                      <span className="text-[9px] font-sans text-slate-500 block">Physical Liters</span>
-                      <span>{calcValues.physicalLiters !== null ? `${Math.round(calcValues.physicalLiters).toLocaleString()} L` : '—'}</span>
+                      <span className="text-[9px] font-sans text-slate-500 block">Gross Liters</span>
+                      <span>{calcValues.grossLiters !== null ? `${Math.round(calcValues.grossLiters).toLocaleString()} L` : '—'}</span>
                     </div>
                     <div>
-                      <span className="text-[9px] font-sans text-slate-500 block">13 TS</span>
+                      <span className="text-[9px] font-sans text-slate-500 block">Liters @ 13% TS</span>
                       <span>{calcValues.at13TsLiters !== null ? `${Math.round(calcValues.at13TsLiters).toLocaleString()} L` : '—'}</span>
                     </div>
                   </div>
@@ -1218,7 +1338,6 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
             // Expanded Portion Editor View
             if (isEditing) {
               const pAllowedBases = getAllowedBases(portionAllowedMeasurements, portion.quantity.unit);
-              const pAllowedMethods = getAllowedMethods(portionAllowedMeasurements, portion.quantity.unit, portion.quantity.basis);
               const portionLabel = portion.quantity.basis === 'ESTIMATED' ? 'Estimated Portion Quantity' : 'Measured Portion Quantity';
 
               return (
@@ -1243,7 +1362,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                       </label>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                       <div>
                         <label className="block text-[10px] font-bold text-slate-600 mb-1">Value *</label>
                         <input
@@ -1264,48 +1383,59 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                       </div>
 
                       <div>
-                        <label className="block text-[10px] font-bold text-slate-600 mb-1">Unit *</label>
-                        <select
-                          value={portion.quantity.unit}
-                          onChange={(e) => handlePortionUnitChange(index, e.target.value as QuantityUnitType)}
-                          className="w-full px-3 py-2 text-xs font-mono font-black rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none"
-                        >
-                          {portionAllowedUnits.map((u) => (
-                            <option key={u} value={u}>
-                              {u}
-                            </option>
-                          ))}
-                        </select>
+                        <label className="block text-[10px] font-bold text-slate-600 mb-1">
+                          Unit * {index > 0 && <span className="text-[9px] font-normal text-slate-400">(Shared from P1)</span>}
+                        </label>
+                        {index === 0 ? (
+                          <select
+                            id="portion-unit-select-0"
+                            value={portion.quantity.unit}
+                            onChange={(e) => handlePortionUnitChange(index, e.target.value as QuantityUnitType)}
+                            className="w-full px-3 py-2 text-xs font-mono font-black rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none"
+                          >
+                            {portionAllowedUnits.map((u) => (
+                              <option key={u} value={u}>
+                                {u}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            type="text"
+                            readOnly
+                            disabled
+                            value={portion.quantity.unit}
+                            className="w-full px-3 py-2 text-xs font-mono font-black rounded-xl border border-slate-200 bg-slate-100 text-slate-500 cursor-not-allowed outline-none select-none"
+                          />
+                        )}
                       </div>
 
                       <div>
-                        <label className="block text-[10px] font-bold text-slate-600 mb-1">Basis *</label>
-                        <select
-                          value={portion.quantity.basis}
-                          onChange={(e) => handlePortionBasisChange(index, e.target.value as MeasurementBasisType)}
-                          className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none"
-                        >
-                          {pAllowedBases.map((b) => (
-                            <option key={b} value={b}>
-                              {b}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-600 mb-1">Method *</label>
-                        <select
-                          value={portion.quantity.method}
-                          onChange={(e) => handlePortionMethodChange(index, e.target.value as MeasurementMethodType)}
-                          className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none"
-                        >
-                          {pAllowedMethods.map((m) => (
-                            <option key={m} value={m}>
-                              {m}
-                            </option>
-                          ))}
-                        </select>
+                        <label className="block text-[10px] font-bold text-slate-600 mb-1">
+                          Basis * {index > 0 && <span className="text-[9px] font-normal text-slate-400">(Shared from P1)</span>}
+                        </label>
+                        {index === 0 ? (
+                          <select
+                            id="portion-basis-select-0"
+                            value={portion.quantity.basis}
+                            onChange={(e) => handlePortionBasisChange(index, e.target.value as MeasurementBasisType)}
+                            className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none"
+                          >
+                            {pAllowedBases.map((b) => (
+                              <option key={b} value={b}>
+                                {b}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            type="text"
+                            readOnly
+                            disabled
+                            value={portion.quantity.basis}
+                            className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-slate-200 bg-slate-100 text-slate-500 cursor-not-allowed outline-none select-none"
+                          />
+                        )}
                       </div>
                     </div>
 
@@ -1638,67 +1768,10 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                     </div>
                   )}
 
-                  {/* Dynamic Calculation Strip */}
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-                    <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-                      <span className="flex items-center space-x-1">
-                        <Calculator className="w-3.5 h-3.5 text-[#1E40AF]" />
-                        <span>Live Calculation Summary (Canonical Formulae)</span>
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono font-bold">
-                      <div className="p-2 rounded-lg bg-white border border-slate-200">
-                        <span className="text-[9px] font-sans text-slate-500 block uppercase">Declared Quantity</span>
-                        <span className="text-slate-900">
-                          {calcValues.declaredVal !== null ? `${calcValues.declaredVal.toLocaleString()} ${calcValues.unit}` : '—'}
-                        </span>
-                      </div>
-
-                      <div className="p-2 rounded-lg bg-white border border-slate-200">
-                        <span className="text-[9px] font-sans text-slate-500 block uppercase">Density</span>
-                        <span className="text-slate-900">
-                          {calcValues.density !== null ? `${calcValues.density.toFixed(4)} g/mL` : '—'}
-                        </span>
-                      </div>
-
-                      <div className="p-2 rounded-lg bg-white border border-slate-200">
-                        <span className="text-[9px] font-sans text-slate-500 block uppercase">
-                          Physical Liters
-                        </span>
-                        <span className="text-emerald-900">
-                          {calcValues.physicalLiters !== null ? `${Math.round(calcValues.physicalLiters).toLocaleString()} L` : '—'}
-                        </span>
-                      </div>
-
-                      <div className="p-2 rounded-lg bg-white border border-slate-200">
-                        <span className="text-[9px] font-sans text-slate-500 block uppercase">SNF %</span>
-                        <span className="text-blue-900">
-                          {calcValues.snf !== null ? `${calcValues.snf.toFixed(3)} %` : '—'}
-                        </span>
-                      </div>
-
-                      <div className="p-2 rounded-lg bg-white border border-slate-200">
-                        <span className="text-[9px] font-sans text-slate-500 block uppercase">Total Solids (TS %)</span>
-                        <span className="text-blue-900">
-                          {calcValues.ts !== null ? `${calcValues.ts.toFixed(3)} %` : '—'}
-                        </span>
-                      </div>
-
-                      <div className="p-2 rounded-lg bg-white border border-slate-200">
-                        <span className="text-[9px] font-sans text-slate-500 block uppercase">SNF : Fat Ratio</span>
-                        <span className="text-blue-900">
-                          {calcValues.ratio !== null ? calcValues.ratio.toFixed(3) : '—'}
-                        </span>
-                      </div>
-
-                      <div className="p-2 rounded-lg bg-white border border-slate-200 col-span-2">
-                        <span className="text-[9px] font-sans text-slate-500 block uppercase">13 TS</span>
-                        <span className="text-emerald-900">
-                          {calcValues.at13TsLiters !== null ? `${Math.round(calcValues.at13TsLiters).toLocaleString()} L` : '—'}
-                        </span>
-                      </div>
-                    </div>
+                  {/* Calculation summary notice */}
+                  <div className="flex items-center space-x-1.5 text-[11px] font-bold text-slate-500 bg-white/60 p-2 rounded-lg border border-[#C4B9A3]">
+                    <Calculator className="w-3.5 h-3.5 text-[#1E40AF]" />
+                    <span>Live canonical calculations updated in Left Summary</span>
                   </div>
 
                   {/* Save Portion Action Controls */}
@@ -1761,6 +1834,8 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
         >
           {isSubmitting ? 'Submitting Dispatch...' : `Submit Dispatch (${vehicleQuantity.value ? `${vehicleQuantity.value} ${vehicleQuantity.unit}` : '—'})`}
         </button>
+      </div>
+        </div>
       </div>
     </form>
   );

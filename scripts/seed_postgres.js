@@ -138,20 +138,20 @@ async function seedDatabase() {
         await client.query(`
           INSERT INTO vehicle_visit (
             id, visit_number, vehicle_number, token_number, operational_date, current_status, created_by,
-            vehicle_dispatch_quantity_value, vehicle_dispatch_quantity_unit, vehicle_dispatch_quantity_basis, vehicle_dispatch_measurement_method,
+            vehicle_dispatch_quantity_value, vehicle_dispatch_quantity_unit, vehicle_dispatch_quantity_basis,
             created_at, updated_at
           )
-          VALUES ($1, $2, $3, $4, $5, $6, 1, $7, 'KG', 'MEASURED', 'WEIGHING', $8, $9);
+          VALUES ($1, $2, $3, $4, $5, $6, 1, $7, 'KG', 'MEASURED', $8, $9);
         `, [visitIdCounter, visitNum, vNum, tokenNum, dateStr, status, grossKg, logDate, logDate]);
 
         // Insert Visit Portion
         await client.query(`
           INSERT INTO visit_portion (
             id, visit_id, portion_number, current_status,
-            dispatch_quantity_value, dispatch_quantity_unit, dispatch_quantity_basis, dispatch_measurement_method,
+            dispatch_quantity_value, dispatch_quantity_unit, dispatch_quantity_basis,
             plant_decision, plant_rejection_reason, plant_decided_by, plant_decided_at, created_at, updated_at
           )
-          VALUES ($1, $2, $3, $4, $5, 'KG', 'MEASURED', 'WEIGHING', $6, $7, $8, $9, $10, $11);
+          VALUES ($1, $2, $3, $4, $5, 'KG', 'MEASURED', $6, $7, $8, $9, $10, $11);
         `, [portionIdCounter, visitIdCounter, portionNum, status, grossKg, plantDecision, rejectionReason, plantDecision === 'Rejected' ? 5 : 5, logDate, logDate, logDate]);
 
         // Insert Dispatch Info

@@ -9,7 +9,7 @@ const prisma = new PrismaClient({
 
 async function runRealPostgresMigrationUpgradeTest() {
   console.log('==================================================');
-  console.log('REAL POSTGRESQL MIGRATION UPGRADE TEST');
+  console.log('REAL POSTGRESQL MIGRATION UPGRADE TEST (13/13)');
   console.log('==================================================\n');
 
   let passed = 0;
@@ -56,6 +56,7 @@ async function runRealPostgresMigrationUpgradeTest() {
   try {
     // 1. Create an isolated temporary test schema
     await prisma.$executeRawUnsafe(`CREATE SCHEMA "${testSchemaName}";`);
+    await prisma.$executeRawUnsafe(`SET search_path TO "${testSchemaName}", public;`);
 
     // 2. Build legacy pre-migration schema inside testSchemaName
     await executeMultiStatementSql(`
@@ -132,25 +133,80 @@ async function runRealPostgresMigrationUpgradeTest() {
       process.cwd(),
       'prisma/migrations/20260822143000_vehicle_dispatch_quantity_authority/migration.sql'
     );
+    const mig3Path = path.join(
+      process.cwd(),
+      'prisma/migrations/20260824120000_remove_dispatch_measurement_method/migration.sql'
+    );
 
     const mig1SqlRaw = fs.readFileSync(mig1Path, 'utf8');
     const mig2SqlRaw = fs.readFileSync(mig2Path, 'utf8');
+    const mig3SqlRaw = fs.readFileSync(mig3Path, 'utf8');
 
-    // Adapt table references in migration SQL to target testSchemaName
+    // Adapt table and type references in migration SQL to target testSchemaName
     const adaptSql = (sql: string) => {
       return sql
         .replace(/"visit_portion"/g, `"${testSchemaName}"."visit_portion"`)
         .replace(/"dispatch_info"/g, `"${testSchemaName}"."dispatch_info"`)
-        .replace(/"vehicle_visit"/g, `"${testSchemaName}"."vehicle_visit"`);
+        .replace(/"vehicle_visit"/g, `"${testSchemaName}"."vehicle_visit"`)
+        .replace(/"QuantityUnit"/g, `"${testSchemaName}"."QuantityUnit"`)
+        .replace(/"MeasurementBasis"/g, `"${testSchemaName}"."MeasurementBasis"`)
+        .replace(/"MeasurementMethod"/g, `"${testSchemaName}"."MeasurementMethod"`);
     };
 
-    // 5. Execute Migration 1
+    // 5. Execute Migration 11
     await executeMultiStatementSql(adaptSql(mig1SqlRaw));
 
-    // 6. Execute Migration 2
+    // 6. Execute Migration 12
     await executeMultiStatementSql(adaptSql(mig2SqlRaw));
 
-    // 7. Query migrated rows directly from PostgreSQL and assert all requirements
+    // 7. PRE-MIGRATION 13 HISTORICAL STATE VERIFICATION
+    const pre13Enum: any[] = await prisma.$queryRawUnsafe(`
+      SELECT t.typname
+      FROM pg_type t
+      JOIN pg_namespace n ON t.typnamespace = n.oid
+      WHERE t.typname = 'MeasurementMethod' AND n.nspname = '${testSchemaName}';
+    `);
+    assert(
+      pre13Enum.length > 0,
+      'PRE-MIG-13-1: MeasurementMethod enum exists in database after migration 12'
+    );
+
+    const pre13PortionCols: any[] = await prisma.$queryRawUnsafe(`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_schema = '${testSchemaName}' AND table_name = 'visit_portion';
+    `);
+    const pre13PColNames = pre13PortionCols.map((c) => c.column_name);
+    assert(
+      pre13PColNames.includes('dispatch_measurement_method'),
+      'PRE-MIG-13-2: visit_portion.dispatch_measurement_method exists after migration 12'
+    );
+    assert(
+      pre13PColNames.includes('dispatch_quantity_value') &&
+      pre13PColNames.includes('dispatch_quantity_unit') &&
+      pre13PColNames.includes('dispatch_quantity_basis'),
+      'PRE-MIG-13-3: visit_portion canonical quantity columns (value/unit/basis) exist after migration 12'
+    );
+
+    const pre13VisitCols: any[] = await prisma.$queryRawUnsafe(`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_schema = '${testSchemaName}' AND table_name = 'vehicle_visit';
+    `);
+    const pre13VColNames = pre13VisitCols.map((c) => c.column_name);
+    assert(
+      pre13VColNames.includes('vehicle_dispatch_measurement_method'),
+      'PRE-MIG-13-4: vehicle_visit.vehicle_dispatch_measurement_method exists after migration 12'
+    );
+    assert(
+      pre13VColNames.includes('vehicle_dispatch_quantity_value') &&
+      pre13VColNames.includes('vehicle_dispatch_quantity_unit') &&
+      pre13VColNames.includes('vehicle_dispatch_quantity_basis'),
+      'PRE-MIG-13-5: vehicle_visit canonical quantity columns (value/unit/basis) exist after migration 12'
+    );
+
+    // 8. Execute Migration 13 (remove_dispatch_measurement_method)
+    await executeMultiStatementSql(adaptSql(mig3SqlRaw));
+
+    // 9. Query migrated rows directly from PostgreSQL and assert all post-13 requirements
     const portions: any[] = await prisma.$queryRawUnsafe(`
       SELECT
         "id",
@@ -158,8 +214,7 @@ async function runRealPostgresMigrationUpgradeTest() {
         "portion_number",
         "dispatch_quantity_value"::text as val,
         "dispatch_quantity_unit"::text as unit,
-        "dispatch_quantity_basis"::text as basis,
-        "dispatch_measurement_method"::text as method
+        "dispatch_quantity_basis"::text as basis
       FROM "${testSchemaName}"."visit_portion"
       ORDER BY "id" ASC;
     `);
@@ -173,20 +228,20 @@ async function runRealPostgresMigrationUpgradeTest() {
 
     // Assert Fixture A: 9500 KG preserved exactly
     assert(
-      pA && pA.val === '9500.00' && pA.unit === 'KG' && pA.basis === null && pA.method === null,
-      'MIG-PRESERVE-A: 9500 KG preserved as 9500.00 KG with null basis/method'
+      pA && pA.val === '9500.00' && pA.unit === 'KG' && pA.basis === null,
+      'MIG-PRESERVE-A: 9500 KG preserved as 9500.00 KG with null basis after migration 13'
     );
 
     // Assert Fixture B: 10000 LITER preserved exactly
     assert(
-      pB && pB.val === '10000.00' && pB.unit === 'LITER' && pB.basis === null && pB.method === null,
-      'MIG-PRESERVE-B: 10000 LITER preserved as 10000.00 LITER with null basis/method'
+      pB && pB.val === '10000.00' && pB.unit === 'LITER' && pB.basis === null,
+      'MIG-PRESERVE-B: 10000 LITER preserved as 10000.00 LITER with null basis after migration 13'
     );
 
     // Assert Fixture C: NULL remains NULL
     assert(
-      pC && pC.val === null && pC.unit === null && pC.basis === null && pC.method === null,
-      'MIG-PRESERVE-C: NULL quantity/unit remains NULL'
+      pC && pC.val === null && pC.unit === null && pC.basis === null,
+      'MIG-PRESERVE-C: NULL quantity/unit remains NULL after migration 13'
     );
 
     // Assert Fixture D: Value 8500 with NULL unit preserved as 8500 with NULL unit (NOT forced to KG)
@@ -207,7 +262,8 @@ async function runRealPostgresMigrationUpgradeTest() {
       SELECT
         "id",
         "vehicle_dispatch_quantity_value"::text as val,
-        "vehicle_dispatch_quantity_unit"::text as unit
+        "vehicle_dispatch_quantity_unit"::text as unit,
+        "vehicle_dispatch_quantity_basis"::text as basis
       FROM "${testSchemaName}"."vehicle_visit"
       ORDER BY "id" ASC;
     `);
@@ -216,11 +272,11 @@ async function runRealPostgresMigrationUpgradeTest() {
     const v2 = visits.find((v) => v.id.toString() === '1002');
 
     assert(
-      v1 && v1.val === null && v1.unit === null,
+      v1 && v1.val === null && v1.unit === null && v1.basis === null,
       'MIG-VEHICLE-1: Historical vehicle quantity remains NULL when no vehicle-level quantity existed'
     );
     assert(
-      v2 && v2.val === null && v2.unit === null,
+      v2 && v2.val === null && v2.unit === null && v2.basis === null,
       'MIG-VEHICLE-2: Multi-portion visit does NOT fabricate a vehicle total from mixed portions'
     );
 
@@ -237,8 +293,43 @@ async function runRealPostgresMigrationUpgradeTest() {
       'MIG-SCHEMA-1: Legacy declared_quantity_* columns successfully dropped from visit_portion'
     );
     assert(
-      colNames.includes('dispatch_quantity_value') && colNames.includes('dispatch_quantity_unit'),
-      'MIG-SCHEMA-2: Canonical dispatch_quantity_* columns exist on visit_portion'
+      colNames.includes('dispatch_quantity_value') &&
+      colNames.includes('dispatch_quantity_unit') &&
+      colNames.includes('dispatch_quantity_basis'),
+      'MIG-SCHEMA-2: Canonical dispatch_quantity_* columns (value/unit/basis) exist on visit_portion'
+    );
+    assert(
+      !colNames.includes('dispatch_measurement_method'),
+      'MIG-SCHEMA-2B: dispatch_measurement_method column successfully dropped from visit_portion'
+    );
+
+    const vehicleCols: any[] = await prisma.$queryRawUnsafe(`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_schema = '${testSchemaName}' AND table_name = 'vehicle_visit';
+    `);
+    const vehColNames = vehicleCols.map((c) => c.column_name);
+    assert(
+      vehColNames.includes('vehicle_dispatch_quantity_value') &&
+      vehColNames.includes('vehicle_dispatch_quantity_unit') &&
+      vehColNames.includes('vehicle_dispatch_quantity_basis'),
+      'MIG-SCHEMA-2C: Canonical vehicle_dispatch_quantity_* columns (value/unit/basis) exist on vehicle_visit'
+    );
+    assert(
+      !vehColNames.includes('vehicle_dispatch_measurement_method'),
+      'MIG-SCHEMA-2D: vehicle_dispatch_measurement_method column successfully dropped from vehicle_visit'
+    );
+
+    // Check enum MeasurementMethod is dropped
+    const post13Enum: any[] = await prisma.$queryRawUnsafe(`
+      SELECT t.typname
+      FROM pg_type t
+      JOIN pg_namespace n ON t.typnamespace = n.oid
+      WHERE t.typname = 'MeasurementMethod' AND n.nspname = '${testSchemaName}';
+    `);
+    assert(
+      post13Enum.length === 0,
+      'MIG-SCHEMA-2E: MeasurementMethod enum type successfully dropped from PostgreSQL'
     );
 
     // Assert Column Schema: dispatch_info has NO vehicle_quantity_* columns
@@ -255,6 +346,15 @@ async function runRealPostgresMigrationUpgradeTest() {
       !dispColNames.includes('vehicle_quantity_basis') &&
       !dispColNames.includes('vehicle_measurement_method'),
       'MIG-SCHEMA-3: Temporary vehicle quantity columns successfully dropped from dispatch_info'
+    );
+
+    // Migration count check (13 tracked migrations)
+    const migrationDirs = fs.readdirSync(path.join(process.cwd(), 'prisma/migrations'))
+      .filter((f) => fs.statSync(path.join(process.cwd(), 'prisma/migrations', f)).isDirectory());
+    assert(
+      migrationDirs.length === 13,
+      'MIG-COUNT-1: Repository contains exactly 13 tracked migrations',
+      `Found ${migrationDirs.length} migrations`
     );
 
     console.log(`\n========================================`);

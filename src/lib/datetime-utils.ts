@@ -70,7 +70,7 @@ export function datetimeLocalToIso(localStr: string): string | null {
 /**
  * Formats an operational timestamp into human-readable plant local time string for UI display.
  */
-export function formatOperationalDatetime(dateInput?: Date | string | null): string {
+export function formatOperationalDatetime(dateInput?: Date | string | number | null): string {
   if (!dateInput) return '—';
   const date = new Date(dateInput);
   if (isNaN(date.getTime())) return '—';
@@ -83,5 +83,21 @@ export function formatOperationalDatetime(dateInput?: Date | string | null): str
     hour: '2-digit',
     minute: '2-digit',
     hour12: true,
+  }).format(date);
+}
+
+/**
+ * Formats an operational timestamp into a 24-hour plant local time string (`HH:mm`) for UI display.
+ */
+export function formatOperationalTime(dateInput?: Date | string | number | null): string {
+  if (!dateInput) return '—';
+  const date = new Date(dateInput);
+  if (isNaN(date.getTime())) return '—';
+
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: PLANT_TIMEZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
   }).format(date);
 }

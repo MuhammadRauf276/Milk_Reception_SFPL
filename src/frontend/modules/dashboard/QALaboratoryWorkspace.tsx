@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { FlaskConical, CheckCircle2, XCircle, PauseCircle, Clock, Search, Radio, Play, RefreshCw, AlertCircle, ShieldCheck, Ban, HelpCircle } from 'lucide-react';
 import { useToast } from '@/frontend/context/ToastContext';
-import { toDatetimeLocalInput, datetimeLocalToIso } from '@/lib/datetime-utils';
+import { toDatetimeLocalInput, datetimeLocalToIso, formatOperationalTime } from '@/lib/datetime-utils';
 import { QualitativeResultRadioGroup } from '@/frontend/modules/shared/QualitativeResultRadioGroup';
 import { User } from '@core/types';
 
@@ -88,7 +88,6 @@ interface VisitDetailPortion {
   dispatch_quantity_value?: number | null;
   dispatch_quantity_unit?: string;
   dispatch_quantity_basis?: string;
-  dispatch_measurement_method?: string;
   plant_decision: string;
   plant_rejection_reason: string | null;
   dispatch_results: any[];
@@ -414,33 +413,6 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
       await fetchQueues();
     } catch (err: any) {
       toast.showError(err.message || 'Failed to resume testing', 'QA Error');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleSaveDraft = async () => {
-    if (!visitDetail) return;
-    const currentPortion = visitDetail.portions[activePortionIndex];
-    if (!currentPortion) return;
-
-    setIsSubmitting(true);
-
-    try {
-      const res = await fetch(`/api/qa/vehicle-visits/${visitDetail.id}/portions/${currentPortion.id}/draft`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ results: buildResultsPayload() }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to save draft');
-
-      toast.showSuccess(`Draft saved for Portion ${currentPortion.portion_number}.`, 'Draft Saved');
-      await fetchVisitDetail(visitDetail.id);
-      await fetchQueues();
-    } catch (err: any) {
-      toast.showError(err.message || 'Failed to save draft', 'QA Error');
     } finally {
       setIsSubmitting(false);
     }
@@ -838,7 +810,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
 
                       <div className={`flex items-center justify-between text-[11px] font-bold ${isSelected ? 'text-amber-200' : 'text-amber-800'}`}>
                         <span>Chemist: {v.chemist_name}</span>
-                        <span>Held since: {new Date(v.held_since).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span>
+                        <span>Held since: {formatOperationalTime(v.held_since)}</span>
                       </div>
 
                       <button
@@ -887,7 +859,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
                   </div>
                   <div>
                     <span className="text-slate-500 font-sans block text-[9px]">Gate Entry Time</span>
-                    <span>{selectedWaitingVisit.entry_timestamp ? new Date(selectedWaitingVisit.entry_timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : 'Just arrived'}</span>
+                    <span>{selectedWaitingVisit.entry_timestamp ? formatOperationalTime(selectedWaitingVisit.entry_timestamp) : 'Just arrived'}</span>
                   </div>
                   <div>
                     <span className="text-slate-500 font-sans block text-[9px]">Waiting Time</span>
@@ -1146,16 +1118,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
                     </div>
 
                     {/* Actions Bar */}
-                    <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-[#C4B9A3]">
-                      <button
-                        type="button"
-                        disabled={isSubmitting}
-                        onClick={handleSaveDraft}
-                        className="px-4 py-2 rounded-xl bg-white border border-[#C4B9A3] text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
-                      >
-                        Save Draft
-                      </button>
-
+                    <div className="flex flex-wrap items-center justify-end gap-3 pt-3 border-t border-[#C4B9A3]">
                       <div className="flex items-center space-x-2">
                         <button
                           type="button"
@@ -1216,7 +1179,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
                 <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs font-bold space-y-2 text-amber-950">
                   <div className="flex items-center justify-between">
                     <span>Chemist: <strong>{selectedHeldVisit.chemist_name}</strong></span>
-                    <span>Held Since: <strong>{new Date(selectedHeldVisit.held_since).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</strong></span>
+                    <span>Held Since: <strong>{formatOperationalTime(selectedHeldVisit.held_since)}</strong></span>
                   </div>
                   <div>
                     <span className="text-slate-500 text-[10px] uppercase font-mono block">Hold Reason</span>
@@ -1263,7 +1226,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
                 required
               />
               <p className="text-[11px] text-slate-600 font-medium mt-1">
-                Min: Gate Entry timestamp ({selectedWaitingVisit?.entry_timestamp ? new Date(selectedWaitingVisit.entry_timestamp).toLocaleTimeString() : 'N/A'})
+                Min: Gate Entry timestamp ({selectedWaitingVisit?.entry_timestamp ? formatOperationalTime(selectedWaitingVisit.entry_timestamp) : 'N/A'})
               </p>
             </div>
 
@@ -1299,7 +1262,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
                 required
               />
               <p className="text-[11px] text-slate-600 font-medium mt-1">
-                Min: Latest HOLD timestamp ({selectedHeldVisit?.held_since ? new Date(selectedHeldVisit.held_since).toLocaleTimeString() : 'N/A'})
+                Min: Latest HOLD timestamp ({selectedHeldVisit?.held_since ? formatOperationalTime(selectedHeldVisit.held_since) : 'N/A'})
               </p>
             </div>
 
