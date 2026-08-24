@@ -241,14 +241,14 @@ async function main() {
   });
 
   // ----------------------------------------------------
-  // SCENARIO 2: Single-Portion KG Vehicle (9,500 KG)
+  // SCENARIO 2: Contractor KG (9,500 KG) with Plant LR 28.0
   // ----------------------------------------------------
-  console.log('\n--- SCENARIO 2: SINGLE PORTION KG VEHICLE ---');
+  console.log('\n--- SCENARIO 2: CONTRACTOR KG (9,500 KG) ---');
   const visitKg = await prisma.vehicleVisit.create({
     data: {
       visit_number: `VV-KG-${timestamp}`,
-      vehicle_number: `TM-KG-01`,
-      token_number: `TK-KG-01`,
+      vehicle_number: `TK-9500`,
+      token_number: `TK-KG`,
       current_status: 'READY_FOR_UNLOADING',
       procurement_source_id: contractorSource.id,
       operational_date: new Date(),
@@ -256,7 +256,7 @@ async function main() {
       weight_ticket: {
         create: {
           ticket_number: `WT-KG-${timestamp}`,
-          gross_weight_kg: new Prisma.Decimal(30000),
+          gross_weight_kg: new Prisma.Decimal(31500),
           gross_timestamp: new Date(Date.now() - 30 * 60 * 1000),
           gross_recorded_by: prodUser.id,
         },
