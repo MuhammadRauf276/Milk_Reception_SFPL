@@ -84,9 +84,12 @@ This document records the authoritative business rules approved for the Milk Rec
 
 ---
 
-## 7. Removal of Measurement Method (Future Dedicated Chunk)
-- **Target Model**: Quantity is defined by `Value`, `Unit`, and `Basis` (removing `Measurement Method`).
-- **Execution Governance**: Measurement Method is NOT removed in Stage 4C-5A. Removal will occur in a dedicated, controlled chunk following comprehensive impact analysis across database schema, Prisma migrations, APIs, types, frontend components, test suites, and legacy compatibility.
+## 7. Removal of Measurement Method
+- **Canonical Model**: Quantity is defined strictly by `Value`, `Unit` (`KG` or `LITER`), and `Basis` (`ESTIMATED` or `MEASURED`).
+- **Removal**: Dispatch Measurement Method has been completely removed from active production.
+- **Database & Schema**: Vehicle and Portion `measurement_method` columns and the PostgreSQL `MeasurementMethod` enum were dropped by migration 13 (`20260824120000_remove_dispatch_measurement_method`).
+- **Production Independence**: No active Dispatch UI, API, domain, or validation dependencies remain on measurement method.
+- **Historical Immutability**: Historical migrations may still mention the legacy column names because migration history remains immutable.
 
 ---
 
@@ -99,16 +102,21 @@ This document records the authoritative business rules approved for the Milk Rec
 
 ---
 
-## 9. QA Save Draft & Testing Workflow
-- **Save Draft Semantics**: Entering partial QA test results -> `Save Draft` -> results persist to database with NO Accept/Reject decision -> portion remains discoverable in QA queue -> chemist reopens later -> saved values restore -> testing continues -> final `Accept`, `Reject`, or `Hold` decision.
-- **Save Draft != Hold**: Draft is an in-progress work item; Hold is an explicit quarantine state with rationale.
-- **QA Chemist Queues**: Target queue navigation includes `[ Pending QA ]`, `[ Drafts / In Progress ]`, and `[ Completed ]`.
+## 9. QA Workflow & Save Draft Resolution
+- **Save Draft Unsupported**: Save Draft is intentionally unsupported based on approved operational review (Chemists complete QA entry in the same working session).
+- **Production Surface**: No operator "Save Draft" button exists, no production QA `/draft` endpoint exists, and no autosave mechanism exists.
+- **Workflow Lifecycle**: Normal workflow is `Pending` -> `IN_PROGRESS` -> `Accept` / `Reject` / `Hold`.
+- **HOLD State**: HOLD is a genuine, explicit QA business quarantine state with mandatory rationale and is NOT a draft substitute.
+- **Historical Compatibility**: Existing historical partial `PlantLabResult` rows remain readable and finalizable for backwards compatibility.
 
 ---
 
-## 10. QA Pakistan Local Time Display Defect
-- **Defect**: Plant QA UI minimum constraint label (`Min: Gate Entry timestamp`) formats using browser timezone without specifying `timeZone: 'Asia/Karachi'`, causing raw UTC timestamps to display on non-PKT systems.
-- **Target Fix**: Format UI minimum label using plant local time (`formatOperationalDatetime` / `PLANT_TIMEZONE`), ensuring validation and display consistently reflect Pakistan local time without altering Business Date cutoff logic.
+## 10. QA Pakistan Local Time Display
+- **Authoritative Timezone**: Company and plant timezone is `Asia/Karachi` (PKT, UTC+5).
+- **Operator Event Display**: All operator-visible QA event timestamps (Gate Entry, Hold since, Start/Resume/Accept/Reject/Hold modals) explicitly format using Pakistan local time via `formatOperationalTime` / `formatOperationalDatetime`.
+- **Form Inputs & Submission**: `<input type="datetime-local">` minimums and values use Pakistan wall time (`toDatetimeLocalInput`), which converts deterministically to authoritative UTC ISO instants on submission (`datetimeLocalToIso`).
+- **Chronology & Validation**: Chronology validation and future-event checks remain instant-based (`Date.getTime()`).
+- **Business Date**: Business Date remains an independent DATE-only concept (`operational_date`) and was not altered.
 
 ---
 
