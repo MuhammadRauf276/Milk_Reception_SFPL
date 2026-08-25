@@ -279,6 +279,21 @@ export interface MilkProcessLog {
   computed_net_milk_weight?: number | null;
   computed_plant_13ts_liters?: number | null;
 
+  // AUTHORITATIVE EVENT TIMESTAMPS (ISO INSTANTS)
+  dispatch_timestamp?: string | null;
+  gate_entry_timestamp?: string | null;
+  gate_exit_timestamp?: string | null;
+  first_weight_timestamp?: string | null;
+  second_weight_timestamp?: string | null;
+  unloading_start_timestamp?: string | null;
+  unloading_end_timestamp?: string | null;
+
+  // AUTHORITATIVE FINAL RECEIPT (SILO TRANSACTION EVIDENCE)
+  final_receipt_exists?: boolean;
+  final_receipt_transaction_id?: number | null;
+  final_receipt_timestamp?: string | null;
+  authoritative_final_liters?: number | null;
+
   created_at: string;
   updated_at: string;
 }

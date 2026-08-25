@@ -300,6 +300,9 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({ curr
                   setToDate(t || '');
                   fetchLogs(f, t);
                 }}
+                isLoading={isLoading}
+                error={error}
+                onRetry={() => fetchLogs(fromDate, toDate)}
               />
             </div>
           )}
@@ -311,6 +314,9 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({ curr
                 logs={filteredLogs}
                 assignedSourceName={assignedSourceName}
                 onInspectDetails={(l) => setSelectedLog(l)}
+                isLoading={isLoading}
+                error={error}
+                onRetry={() => fetchLogs(fromDate, toDate)}
               />
             </div>
           )}

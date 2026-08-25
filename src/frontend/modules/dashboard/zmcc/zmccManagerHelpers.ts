@@ -27,7 +27,9 @@ export function groupLogsByVisit(logs: MilkProcessLog[]): Map<number, MilkProces
 }
 
 /**
- * Summarize portion-level QA decisions for a vehicle visit
+ * Summarize portion-level QA decisions for a vehicle visit.
+ * Plant QA stage is complete ONLY when EVERY portion is definitively ACCEPTED or REJECTED.
+ * If any portion is HOLD or PENDING, Plant QA remains incomplete.
  */
 export function summarizePortionQA(portions: MilkProcessLog[]): PortionQASummary {
   const total = portions.length;
@@ -68,6 +70,9 @@ export function summarizePortionQA(portions: MilkProcessLog[]): PortionQASummary
   } else if (pending === total) {
     summaryText = `${total} Pending`;
     badgeType = 'ALL_PENDING';
+  } else if (hold === total) {
+    summaryText = `${total} Hold`;
+    badgeType = 'HAS_HOLD';
   } else {
     const parts: string[] = [];
     if (accepted > 0) parts.push(`${accepted} Accepted`);
@@ -90,32 +95,15 @@ export function summarizePortionQA(portions: MilkProcessLog[]): PortionQASummary
 }
 
 /**
- * Pure calculation of in-plant elapsed duration
+ * Pure calculation of in-plant elapsed duration.
+ * Starts ONLY from authoritative gate entry timestamp (ISO instant).
+ * No fallback to dispatch created_at, no timezone-less Date string reconstruction.
  */
-export function computeElapsedInPlant(
-  igpDate?: string | null,
-  igpTime?: string | null,
-  createdAt?: string | null
-): string | null {
-  let entryDateObj: Date | null = null;
+export function computeElapsedInPlant(gateEntryTimestamp?: string | null): string | null {
+  if (!gateEntryTimestamp) return null;
 
-  if (igpDate && igpTime) {
-    // Attempt parse
-    const isoString = `${igpDate}T${igpTime.length === 5 ? `${igpTime}:00` : igpTime}`;
-    const parsed = new Date(isoString);
-    if (!isNaN(parsed.getTime())) {
-      entryDateObj = parsed;
-    }
-  }
-
-  if (!entryDateObj && createdAt) {
-    const parsed = new Date(createdAt);
-    if (!isNaN(parsed.getTime())) {
-      entryDateObj = parsed;
-    }
-  }
-
-  if (!entryDateObj) return null;
+  const entryDateObj = new Date(gateEntryTimestamp);
+  if (isNaN(entryDateObj.getTime())) return null;
 
   const nowMs = Date.now();
   const entryMs = entryDateObj.getTime();
@@ -133,7 +121,9 @@ export function computeElapsedInPlant(
 }
 
 /**
- * Pure helper to derive the 7-stage manager lifecycle for a vehicle visit
+ * Pure helper to derive the 7-stage manager lifecycle for a vehicle visit.
+ * Plant QA complete: Every portion is definitive ACCEPTED or REJECTED (no HOLD, no PENDING).
+ * Final Receipt complete: Authoritative SiloInventoryTransaction RECEIPT exists.
  */
 export function deriveManagerLifecycle(portions: MilkProcessLog[]): ManagerLifecycleSummary {
   const primary = portions[0] || ({} as MilkProcessLog);
@@ -147,7 +137,7 @@ export function deriveManagerLifecycle(portions: MilkProcessLog[]): ManagerLifec
 
   // Raw milestones
   const hasGateEntry =
-    Boolean(primary.igp_time || primary.igp_date) ||
+    Boolean(primary.gate_entry_timestamp || primary.igp_time || primary.igp_date) ||
     [
       'GATE_IN',
       'IN_QA',
@@ -163,34 +153,43 @@ export function deriveManagerLifecycle(portions: MilkProcessLog[]): ManagerLifec
     ].includes(overallStatus);
 
   const hasFirstWeight = primary.first_weight_of_vehicle != null;
-  const hasUnloadingStart = Boolean(primary.reception_start_time);
+  const hasUnloadingStart = Boolean(primary.unloading_start_timestamp || primary.reception_start_time);
   const hasUnloadingComplete =
-    Boolean(primary.reception_end_time) ||
+    Boolean(primary.unloading_end_timestamp || primary.reception_end_time) ||
     ['UNLOADED', 'READY_FOR_TARE', 'TARE_WEIGHED', 'READY_FOR_GATE_EXIT', 'COMPLETED', 'GATE_OUT'].includes(
       overallStatus
     );
   const hasSecondWeight = primary.second_weight_of_vehicle != null;
-  const hasFinalReceipt =
-    primary.computed_plant_liters != null &&
-    ['READY_FOR_GATE_EXIT', 'COMPLETED', 'GATE_OUT'].includes(overallStatus);
 
-  const isAllQaEvaluated = portionQA.totalPortions > 0 && portionQA.pendingCount === 0;
+  // Authoritative Final Receipt: requires SiloInventoryTransaction RECEIPT existence
+  const hasFinalReceipt = Boolean(primary.final_receipt_exists);
 
-  // Build the 7 stages
+  // Definitive QA Completion: Every portion is either ACCEPTED or REJECTED
+  const isAllQaDefinitive =
+    portionQA.totalPortions > 0 &&
+    portionQA.acceptedCount + portionQA.rejectedCount === portionQA.totalPortions;
+
+  // Build the 7 stages with locked labels and authoritative timestamps
   const stages: LifecycleStageInfo[] = [
     {
       id: 'DISPATCH',
       label: 'Dispatch',
       shortLabel: 'Dispatch',
       status: 'COMPLETED',
-      eventTimestamp: primary.dispatch_date || (primary.created_at ? formatOperationalDatetime(primary.created_at) : null),
+      eventTimestamp: primary.dispatch_timestamp
+        ? formatOperationalDatetime(primary.dispatch_timestamp)
+        : primary.dispatch_date || null,
     },
     {
       id: 'GATE_ENTRY',
       label: 'Gate Entry',
       shortLabel: 'Gate Entry',
       status: hasGateEntry ? 'COMPLETED' : 'CURRENT',
-      eventTimestamp: primary.igp_date && primary.igp_time ? `${primary.igp_date} ${primary.igp_time}` : null,
+      eventTimestamp: primary.gate_entry_timestamp
+        ? formatOperationalDatetime(primary.gate_entry_timestamp)
+        : primary.igp_date && primary.igp_time
+        ? `${primary.igp_date} ${primary.igp_time}`
+        : null,
     },
     {
       id: 'PLANT_QA',
@@ -198,7 +197,7 @@ export function deriveManagerLifecycle(portions: MilkProcessLog[]): ManagerLifec
       shortLabel: 'QA',
       status: !hasGateEntry
         ? 'UPCOMING'
-        : isAllQaEvaluated
+        : isAllQaDefinitive
         ? 'COMPLETED'
         : 'CURRENT',
       detailText: portionQA.summaryText,
@@ -206,14 +205,19 @@ export function deriveManagerLifecycle(portions: MilkProcessLog[]): ManagerLifec
     {
       id: 'FIRST_WEIGHT',
       label: 'First Weight (Loaded Vehicle)',
-      shortLabel: 'First Weight',
-      status: !hasGateEntry || !isAllQaEvaluated
+      shortLabel: 'First Weight (Loaded Vehicle)',
+      status: !hasGateEntry || !isAllQaDefinitive
         ? 'UPCOMING'
         : hasFirstWeight
         ? 'COMPLETED'
         : 'CURRENT',
-      metricText: primary.first_weight_of_vehicle != null ? `${primary.first_weight_of_vehicle.toLocaleString()} KG` : null,
-      eventTimestamp: primary.first_weight_time || null,
+      metricText:
+        primary.first_weight_of_vehicle != null
+          ? `${primary.first_weight_of_vehicle.toLocaleString()} KG`
+          : null,
+      eventTimestamp: primary.first_weight_timestamp
+        ? formatOperationalDatetime(primary.first_weight_timestamp)
+        : primary.first_weight_time || null,
     },
     {
       id: 'UNLOADING',
@@ -227,19 +231,26 @@ export function deriveManagerLifecycle(portions: MilkProcessLog[]): ManagerLifec
         ? 'CURRENT'
         : 'UPCOMING',
       detailText: primary.silo_storage_id ? `Silo ${primary.silo_storage_id}` : null,
-      eventTimestamp: primary.reception_start_time || null,
+      eventTimestamp: primary.unloading_start_timestamp
+        ? formatOperationalDatetime(primary.unloading_start_timestamp)
+        : primary.reception_start_time || null,
     },
     {
       id: 'SECOND_WEIGHT',
       label: 'Second Weight (After Unloading)',
-      shortLabel: 'Second Weight',
+      shortLabel: 'Second Weight (After Unloading)',
       status: !hasUnloadingComplete
         ? 'UPCOMING'
         : hasSecondWeight
         ? 'COMPLETED'
         : 'CURRENT',
-      metricText: primary.second_weight_of_vehicle != null ? `${primary.second_weight_of_vehicle.toLocaleString()} KG` : null,
-      eventTimestamp: primary.second_weight_time || null,
+      metricText:
+        primary.second_weight_of_vehicle != null
+          ? `${primary.second_weight_of_vehicle.toLocaleString()} KG`
+          : null,
+      eventTimestamp: primary.second_weight_timestamp
+        ? formatOperationalDatetime(primary.second_weight_timestamp)
+        : primary.second_weight_time || null,
     },
     {
       id: 'FINAL_RECEIPT',
@@ -250,7 +261,15 @@ export function deriveManagerLifecycle(portions: MilkProcessLog[]): ManagerLifec
         : hasFinalReceipt
         ? 'COMPLETED'
         : 'CURRENT',
-      metricText: primary.computed_plant_liters != null ? `${primary.computed_plant_liters.toLocaleString()} L` : null,
+      metricText:
+        primary.authoritative_final_liters != null
+          ? `${primary.authoritative_final_liters.toLocaleString()} L`
+          : hasFinalReceipt && primary.computed_plant_liters != null
+          ? `${primary.computed_plant_liters.toLocaleString()} L`
+          : null,
+      eventTimestamp: primary.final_receipt_timestamp
+        ? formatOperationalDatetime(primary.final_receipt_timestamp)
+        : null,
     },
   ];
 
@@ -273,7 +292,7 @@ export function deriveManagerLifecycle(portions: MilkProcessLog[]): ManagerLifec
   } else if (hasFirstWeight) {
     currentStageId = 'UNLOADING';
     currentStageLabel = 'Awaiting Unloading';
-  } else if (isAllQaEvaluated) {
+  } else if (isAllQaDefinitive) {
     currentStageId = 'FIRST_WEIGHT';
     currentStageLabel = 'First Weight (Loaded Vehicle)';
   } else if (hasGateEntry) {
@@ -283,25 +302,47 @@ export function deriveManagerLifecycle(portions: MilkProcessLog[]): ManagerLifec
 
   // Derive latest event label and timestamp
   let latestEventLabel = 'Dispatch Recorded';
-  let latestEventTimestamp: string | null = primary.created_at ? formatOperationalDatetime(primary.created_at) : null;
+  let latestEventTimestamp: string | null = primary.dispatch_timestamp
+    ? formatOperationalDatetime(primary.dispatch_timestamp)
+    : primary.created_at
+    ? formatOperationalDatetime(primary.created_at)
+    : null;
 
-  if (primary.second_weight_time) {
+  if (hasFinalReceipt && primary.final_receipt_timestamp) {
+    latestEventLabel = 'Final Receipt Posted';
+    latestEventTimestamp = formatOperationalDatetime(primary.final_receipt_timestamp);
+  } else if (primary.second_weight_timestamp) {
+    latestEventLabel = 'Second Weight (After Unloading)';
+    latestEventTimestamp = formatOperationalDatetime(primary.second_weight_timestamp);
+  } else if (primary.second_weight_time) {
     latestEventLabel = 'Second Weight (After Unloading)';
     latestEventTimestamp = primary.second_weight_time;
+  } else if (primary.unloading_end_timestamp) {
+    latestEventLabel = 'Unloading Completed';
+    latestEventTimestamp = formatOperationalDatetime(primary.unloading_end_timestamp);
+  } else if (primary.unloading_start_timestamp) {
+    latestEventLabel = 'Unloading Started';
+    latestEventTimestamp = formatOperationalDatetime(primary.unloading_start_timestamp);
   } else if (primary.reception_start_time) {
     latestEventLabel = 'Unloading Started';
     latestEventTimestamp = primary.reception_start_time;
+  } else if (primary.first_weight_timestamp) {
+    latestEventLabel = 'First Weight (Loaded Vehicle)';
+    latestEventTimestamp = formatOperationalDatetime(primary.first_weight_timestamp);
   } else if (primary.first_weight_time) {
     latestEventLabel = 'First Weight (Loaded Vehicle)';
     latestEventTimestamp = primary.first_weight_time;
+  } else if (primary.gate_entry_timestamp) {
+    latestEventLabel = 'Gate Entry';
+    latestEventTimestamp = formatOperationalDatetime(primary.gate_entry_timestamp);
   } else if (primary.igp_time) {
     latestEventLabel = 'Gate Entry';
     latestEventTimestamp = primary.igp_date && primary.igp_time ? `${primary.igp_date} ${primary.igp_time}` : primary.igp_time;
   }
 
-  const isComplete = hasFinalReceipt || ['COMPLETED', 'GATE_OUT'].includes(overallStatus);
-  const isInPlant = hasGateEntry && !isComplete;
-  const elapsedInPlant = isInPlant ? computeElapsedInPlant(primary.igp_date, primary.igp_time, primary.created_at) : null;
+  const isComplete = hasFinalReceipt;
+  const isInPlant = hasGateEntry && !isComplete && overallStatus !== 'GATE_OUT';
+  const elapsedInPlant = isInPlant ? computeElapsedInPlant(primary.gate_entry_timestamp) : null;
 
   return {
     visitId,
@@ -334,22 +375,27 @@ export function buildVehicleVisitGroups(logs: MilkProcessLog[]): VehicleVisitGro
 
     const lifecycle = deriveManagerLifecycle(portions);
 
-    // Sum portion dispatch quantities
+    // Sum portion dispatch quantities strictly without fabrication
     let sumGrossLiters = 0;
     let sum13TsLiters = 0;
-    let hasGross = false;
-    let has13Ts = false;
+    let allGrossPresent = portions.length > 0;
+    let all13TsPresent = portions.length > 0;
 
     for (const p of portions) {
       if (p.dispatch_liters_gross != null) {
         sumGrossLiters += p.dispatch_liters_gross;
-        hasGross = true;
+      } else {
+        allGrossPresent = false;
       }
       if (p.computed_dispatch_13ts_liters != null) {
         sum13TsLiters += p.computed_dispatch_13ts_liters;
-        has13Ts = true;
+      } else {
+        all13TsPresent = false;
       }
     }
+
+    const authoritativePhysicalLiters =
+      primary.authoritative_final_liters ?? (lifecycle.isComplete ? primary.computed_plant_liters ?? null : null);
 
     groups.push({
       visitId,
@@ -365,14 +411,14 @@ export function buildVehicleVisitGroups(logs: MilkProcessLog[]): VehicleVisitGro
       vehicleDispatchQuantityValue: primary.dispatch_liters_gross ?? primary.dispatch_kg_gross ?? null,
       vehicleDispatchQuantityUnit: primary.dispatch_liters_gross != null ? 'LITER' : primary.dispatch_kg_gross != null ? 'KG' : null,
       vehicleDispatchQuantityBasis: 'GROSS',
-      totalDispatchGrossLiters: hasGross ? Number(sumGrossLiters.toFixed(2)) : null,
-      totalDispatch13TsLiters: has13Ts ? Number(sum13TsLiters.toFixed(2)) : null,
+      totalDispatchGrossLiters: allGrossPresent ? Number(sumGrossLiters.toFixed(2)) : null,
+      totalDispatch13TsLiters: all13TsPresent ? Number(sum13TsLiters.toFixed(2)) : null,
 
       firstWeightKg: primary.first_weight_of_vehicle ?? null,
       secondWeightKg: primary.second_weight_of_vehicle ?? null,
       netMilkWeightKg: primary.computed_net_milk_weight ?? null,
-      physicalReceivedLiters: primary.computed_plant_liters ?? null,
-      plant13TsLiters: primary.computed_plant_13ts_liters ?? null,
+      physicalReceivedLiters: authoritativePhysicalLiters,
+      plant13TsLiters: lifecycle.isComplete ? primary.computed_plant_13ts_liters ?? null : null,
 
       destinationSilo: primary.silo_storage_id || null,
       lifecycle,
@@ -383,7 +429,9 @@ export function buildVehicleVisitGroups(logs: MilkProcessLog[]): VehicleVisitGro
 }
 
 /**
- * Filter groups by date range using the server business date
+ * Filter groups by date range using the server business date.
+ * LAST_7 = exactly 7 Business Dates (today + 6 prior).
+ * LAST_15 = exactly 15 Business Dates (today + 14 prior).
  */
 export function filterGroupsByDateRange(
   groups: VehicleVisitGroup[],
@@ -410,20 +458,21 @@ export function filterGroupsByDateRange(
       if (!serverBusinessDate) return true;
       const diffMs = new Date(serverBusinessDate).getTime() - new Date(logDate).getTime();
       const diffDays = Math.floor(diffMs / (1000 * 3600 * 24));
-      return diffDays >= 0 && diffDays <= 7;
+      return diffDays >= 0 && diffDays < 7;
     }
     if (range === 'LAST_15') {
       if (!serverBusinessDate) return true;
       const diffMs = new Date(serverBusinessDate).getTime() - new Date(logDate).getTime();
       const diffDays = Math.floor(diffMs / (1000 * 3600 * 24));
-      return diffDays >= 0 && diffDays <= 15;
+      return diffDays >= 0 && diffDays < 15;
     }
     return true;
   });
 }
 
 /**
- * Compute the 4 primary operational KPI cards and secondary volume metrics
+ * Compute the 4 primary operational KPI cards and secondary volume metrics.
+ * Missing != Zero: An aggregate quantity is available ONLY when all required authoritative members are available.
  */
 export function computeManagerOverview(
   logs: MilkProcessLog[],
@@ -436,11 +485,12 @@ export function computeManagerOverview(
   // A. Dispatched in period (distinct visits)
   const dispatchedCount = periodGroups.length;
 
-  // B. Currently in plant (all active visits that entered and have not exited, irrespective of date boundary)
+  // B. Currently in plant (all active visits that entered and have not completed reception/exited)
   const currentlyInPlantCount = allGroups.filter((g) => g.lifecycle.isInPlant).length;
 
-  // C. Completed in period (reached final receipt)
-  const completedCount = periodGroups.filter((g) => g.lifecycle.isComplete).length;
+  // C. Completed in period: authoritative Final Receipt exists in this period
+  const completedGroups = periodGroups.filter((g) => g.primaryLog.final_receipt_exists === true);
+  const completedCount = completedGroups.length;
 
   // D. Plant QA Rejected Portions count in period
   let rejectedPortionsCount = 0;
@@ -452,53 +502,113 @@ export function computeManagerOverview(
     }
   }
 
-  // Secondary Volume & 13% TS
-  let totalDispatchGrossLiters = 0;
-  let totalPhysicalReceivedLiters = 0;
-  let totalDispatch13TsLiters = 0;
-  let totalPlant13TsLiters = 0;
+  // Secondary Volume & 13% TS (Missing != Zero rule)
+  let totalDispatchGrossLiters: number | null = 0;
+  let totalPhysicalReceivedLiters: number | null = 0;
+  let totalDispatch13TsLiters: number | null = 0;
+  let totalPlant13TsLiters: number | null = 0;
 
-  for (const g of periodGroups) {
-    if (g.totalDispatchGrossLiters != null) {
-      totalDispatchGrossLiters += g.totalDispatchGrossLiters;
+  if (periodGroups.length === 0) {
+    totalDispatchGrossLiters = 0;
+    totalPhysicalReceivedLiters = 0;
+    totalDispatch13TsLiters = 0;
+    totalPlant13TsLiters = 0;
+  } else {
+    // 1. Dispatch Gross Liters
+    let sumGross = 0;
+    for (const g of periodGroups) {
+      if (g.totalDispatchGrossLiters == null) {
+        totalDispatchGrossLiters = null;
+        break;
+      }
+      sumGross += g.totalDispatchGrossLiters;
     }
-    if (g.physicalReceivedLiters != null) {
-      totalPhysicalReceivedLiters += g.physicalReceivedLiters;
+    if (totalDispatchGrossLiters !== null) {
+      totalDispatchGrossLiters = Number(sumGross.toFixed(2));
     }
-    if (g.totalDispatch13TsLiters != null) {
-      totalDispatch13TsLiters += g.totalDispatch13TsLiters;
+
+    // 2. Physical Received Liters (evaluated for completed visits in period)
+    if (completedGroups.length === 0) {
+      totalPhysicalReceivedLiters = 0;
+    } else {
+      let sumRecv = 0;
+      for (const g of completedGroups) {
+        if (g.physicalReceivedLiters == null) {
+          totalPhysicalReceivedLiters = null;
+          break;
+        }
+        sumRecv += g.physicalReceivedLiters;
+      }
+      if (totalPhysicalReceivedLiters !== null) {
+        totalPhysicalReceivedLiters = Number(sumRecv.toFixed(2));
+      }
     }
-    if (g.plant13TsLiters != null) {
-      totalPlant13TsLiters += g.plant13TsLiters;
+
+    // 3. Dispatch 13% TS Liters
+    let sumD13 = 0;
+    for (const g of periodGroups) {
+      if (g.totalDispatch13TsLiters == null) {
+        totalDispatch13TsLiters = null;
+        break;
+      }
+      sumD13 += g.totalDispatch13TsLiters;
+    }
+    if (totalDispatch13TsLiters !== null) {
+      totalDispatch13TsLiters = Number(sumD13.toFixed(2));
+    }
+
+    // 4. Plant 13% TS Liters (for completed visits)
+    if (completedGroups.length === 0) {
+      totalPlant13TsLiters = 0;
+    } else {
+      let sumP13 = 0;
+      for (const g of completedGroups) {
+        if (g.plant13TsLiters == null) {
+          totalPlant13TsLiters = null;
+          break;
+        }
+        sumP13 += g.plant13TsLiters;
+      }
+      if (totalPlant13TsLiters !== null) {
+        totalPlant13TsLiters = Number(sumP13.toFixed(2));
+      }
     }
   }
 
-  const quantityDifferenceLiters = Number((totalPhysicalReceivedLiters - totalDispatchGrossLiters).toFixed(2));
-  const tsDifferenceLiters = Number((totalPlant13TsLiters - totalDispatch13TsLiters).toFixed(2));
+  const quantityDifferenceLiters =
+    totalDispatchGrossLiters !== null && totalPhysicalReceivedLiters !== null
+      ? Number((totalPhysicalReceivedLiters - totalDispatchGrossLiters).toFixed(2))
+      : null;
+
+  const tsDifferenceLiters =
+    totalDispatch13TsLiters !== null && totalPlant13TsLiters !== null
+      ? Number((totalPlant13TsLiters - totalDispatch13TsLiters).toFixed(2))
+      : null;
 
   return {
     dispatchedCount,
     currentlyInPlantCount,
     completedCount,
     rejectedPortionsCount,
-    totalDispatchGrossLiters: Number(totalDispatchGrossLiters.toFixed(2)),
-    totalPhysicalReceivedLiters: Number(totalPhysicalReceivedLiters.toFixed(2)),
+    totalDispatchGrossLiters,
+    totalPhysicalReceivedLiters,
     quantityDifferenceLiters,
-    totalDispatch13TsLiters: Number(totalDispatch13TsLiters.toFixed(2)),
-    totalPlant13TsLiters: Number(totalPlant13TsLiters.toFixed(2)),
+    totalDispatch13TsLiters,
+    totalPlant13TsLiters,
     tsDifferenceLiters,
   };
 }
 
 /**
- * Derive manager attention items purely from read-model data
+ * Derive manager attention items purely from read-model data.
+ * Zero tolerances: Exact non-zero differences are shown; zero differences produce no attention item.
  */
 export function deriveManagerAttention(logs: MilkProcessLog[]): ZMCCAttentionItem[] {
   const groups = buildVehicleVisitGroups(logs);
   const items: ZMCCAttentionItem[] = [];
 
   for (const g of groups) {
-    // 1. Plant QA Rejection
+    // 1. Plant QA Rejection (Portion-level)
     for (const p of g.portions) {
       if (String(p.calculated_status).toUpperCase() === 'REJECTED') {
         items.push({
@@ -521,13 +631,13 @@ export function deriveManagerAttention(logs: MilkProcessLog[]): ZMCCAttentionIte
       }
     }
 
-    // 2. Receipt Pending (Second Weight recorded, but final receipt absent)
-    if (g.secondWeightKg != null && g.physicalReceivedLiters == null) {
+    // 2. Receipt Pending (Second Weight recorded, but authoritative final receipt absent)
+    if (g.secondWeightKg != null && !g.primaryLog.final_receipt_exists) {
       items.push({
         id: `receipt-pending-${g.visitId}`,
         type: 'RECEIPT_PENDING',
         title: 'Receipt Pending',
-        description: 'Second Weight (After Unloading) completed. Awaiting final silo receipt recording.',
+        description: 'Second Weight (After Unloading) completed. Awaiting authoritative silo receipt transaction.',
         vehicleNumber: g.vehicleNumber,
         visitId: g.visitId,
         eventDate: g.primaryLog.dispatch_date || null,
@@ -541,9 +651,11 @@ export function deriveManagerAttention(logs: MilkProcessLog[]): ZMCCAttentionIte
     }
 
     // 3. Quantity Difference (Completed visit with comparable dispatch and received liters)
+    // Convention: Final Physical Received Liters - Dispatch Gross Liters. NO tolerance.
     if (g.lifecycle.isComplete && g.totalDispatchGrossLiters != null && g.physicalReceivedLiters != null) {
-      const diff = Number((g.physicalReceivedLiters - g.totalDispatchGrossLiters).toFixed(2));
-      if (Math.abs(diff) > 0.01) {
+      const rawDiff = g.physicalReceivedLiters - g.totalDispatchGrossLiters;
+      const diff = Number(rawDiff.toFixed(2));
+      if (rawDiff !== 0) {
         items.push({
           id: `qty-diff-${g.visitId}`,
           type: 'QUANTITY_DIFFERENCE',
@@ -556,13 +668,14 @@ export function deriveManagerAttention(logs: MilkProcessLog[]): ZMCCAttentionIte
           metrics: [
             { label: 'Dispatch Gross', value: `${g.totalDispatchGrossLiters.toLocaleString()} L` },
             { label: 'Physical Received', value: `${g.physicalReceivedLiters.toLocaleString()} L` },
-            { label: 'Difference', value: `${diff > 0 ? `+${diff}` : diff} L` },
+            { label: 'Difference', value: `${diff !== 0 ? (diff > 0 ? `+${diff}` : diff) : rawDiff > 0 ? `+${rawDiff}` : rawDiff} L` },
           ],
         });
       }
     }
 
     // 4. Quality Difference (Portion-level Dispatch vs Plant LR / Fat difference)
+    // Convention: Plant LR - Dispatch LR, Plant Fat - Dispatch Fat. NO tolerance.
     for (const p of g.portions) {
       if (
         p.dispatch_lr != null &&
@@ -573,7 +686,7 @@ export function deriveManagerAttention(logs: MilkProcessLog[]): ZMCCAttentionIte
         const lrDiff = Number((p.sampling_lr - p.dispatch_lr).toFixed(1));
         const fatDiff = Number((p.sampling_fat - p.dispatch_fat).toFixed(2));
 
-        if (Math.abs(lrDiff) >= 0.5 || Math.abs(fatDiff) >= 0.2) {
+        if (lrDiff !== 0 || fatDiff !== 0) {
           items.push({
             id: `qual-diff-${g.visitId}-${p.portion_id || p.portion_number}`,
             type: 'QUALITY_DIFFERENCE',

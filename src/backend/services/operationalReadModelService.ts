@@ -334,6 +334,43 @@ export async function getOperationalLogs(
         computed_net_milk_weight: netWeightKg,
         computed_plant_13ts_liters: finalAt13TsLiters,
 
+        // Authoritative Event Timestamps (ISO Instants)
+        dispatch_timestamp: portion.dispatch_info?.dispatch_timestamp
+          ? new Date(portion.dispatch_info.dispatch_timestamp).toISOString()
+          : visit.created_at
+          ? new Date(visit.created_at).toISOString()
+          : null,
+        gate_entry_timestamp: visit.gate_log?.entry_timestamp
+          ? new Date(visit.gate_log.entry_timestamp).toISOString()
+          : null,
+        gate_exit_timestamp: visit.gate_log?.exit_timestamp
+          ? new Date(visit.gate_log.exit_timestamp).toISOString()
+          : null,
+        first_weight_timestamp: visit.weight_ticket?.gross_timestamp
+          ? new Date(visit.weight_ticket.gross_timestamp).toISOString()
+          : null,
+        second_weight_timestamp: visit.weight_ticket?.tare_timestamp
+          ? new Date(visit.weight_ticket.tare_timestamp).toISOString()
+          : null,
+        unloading_start_timestamp: unloadingLog?.pump_start_timestamp
+          ? new Date(unloadingLog.pump_start_timestamp).toISOString()
+          : null,
+        unloading_end_timestamp: unloadingLog?.pump_end_timestamp
+          ? new Date(unloadingLog.pump_end_timestamp).toISOString()
+          : null,
+
+        // Authoritative Final Receipt (Silo Transaction Evidence)
+        final_receipt_exists: Boolean(finalizedReceipt),
+        final_receipt_transaction_id: finalizedReceipt ? Number(finalizedReceipt.id) : null,
+        final_receipt_timestamp: finalizedReceipt
+          ? finalizedReceipt.operational_timestamp
+            ? new Date(finalizedReceipt.operational_timestamp).toISOString()
+            : new Date(finalizedReceipt.created_at).toISOString()
+          : null,
+        authoritative_final_liters: finalizedReceipt?.quantity_liters
+          ? Number(finalizedReceipt.quantity_liters)
+          : null,
+
         created_at: visit.created_at ? new Date(visit.created_at).toISOString() : new Date().toISOString(),
         updated_at: visit.updated_at ? new Date(visit.updated_at).toISOString() : new Date().toISOString(),
       };

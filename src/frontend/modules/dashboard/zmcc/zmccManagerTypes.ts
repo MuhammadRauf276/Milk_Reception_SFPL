@@ -119,11 +119,11 @@ export interface ZMCCManagerOverviewMetrics {
   completedCount: number;
   rejectedPortionsCount: number;
   
-  totalDispatchGrossLiters: number;
-  totalPhysicalReceivedLiters: number;
-  quantityDifferenceLiters: number;
+  totalDispatchGrossLiters: number | null;
+  totalPhysicalReceivedLiters: number | null;
+  quantityDifferenceLiters: number | null;
   
-  totalDispatch13TsLiters: number;
-  totalPlant13TsLiters: number;
-  tsDifferenceLiters: number;
+  totalDispatch13TsLiters: number | null;
+  totalPlant13TsLiters: number | null;
+  tsDifferenceLiters: number | null;
 }
