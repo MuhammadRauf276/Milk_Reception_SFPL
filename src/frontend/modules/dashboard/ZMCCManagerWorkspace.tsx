@@ -12,6 +12,9 @@ import { ZonalHistoryTable } from '@modules/dashboard/ZonalHistoryTable';
 import { LogDetailModal } from '@modules/dashboard/LogDetailModal';
 import { Sidebar } from '@modules/shared/Sidebar';
 import { Header } from '@modules/shared/Header';
+import { ZMCCManagerOverview } from './zmcc/ZMCCManagerOverview';
+import { ZMCCManagerLiveDispatches } from './zmcc/ZMCCManagerLiveDispatches';
+import { OverviewDateRange } from './zmcc/zmccManagerTypes';
 import {
   LayoutDashboard,
   Truck,
@@ -282,194 +285,14 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({ curr
           {/* TAB 1: OVERVIEW */}
           {activeTab === 'OVERVIEW' && (
             <div id="tabpanel-OVERVIEW" role="tabpanel" aria-labelledby="tab-OVERVIEW" className="space-y-6">
-              {/* ZMCC Cross-Verification Cards with Date Range Filter */}
-              <div className="p-5 rounded-xl bg-[#FFFFFF] border border-[#EAE4D5]/80 shadow-sm space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-[#EAE4D5]/80">
-                  <div className="flex items-center space-x-2">
-                    <ArrowRightLeft className="w-5 h-5 text-[#1E3A8A]" />
-                    <h3 className="text-sm font-extrabold text-[#111311]">
-                      Source Dispatch vs Plant Receipt Summary ({assignedSourceName})
-                    </h3>
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <span className="text-xs font-extrabold text-[#334155] flex items-center gap-1">
-                      <Calendar className="w-3.5 h-3.5 text-[#1E3A8A]" /> Date Filter:
-                    </span>
-                    <select
-                      value={summaryDateRange}
-                      onChange={(e) => setSummaryDateRange(e.target.value as any)}
-                      className="px-3 py-1.5 text-xs font-extrabold rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/80 text-[#111311] focus:ring-2 focus:ring-[#1E3A8A] outline-none shadow-sm"
-                    >
-                      <option value="TODAY">Today ({serverBusinessDate || 'Live'})</option>
-                      <option value="YESTERDAY">Yesterday</option>
-                      <option value="LAST_7">Last 7 Days</option>
-                      <option value="LAST_15">Last 15 Days</option>
-                      <option value="ALL">All Time</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs font-mono">
-                  <div className="p-3.5 rounded-lg bg-[#EFF6FF] border border-[#BFDBFE] text-[#1E40AF]">
-                    <span className="text-[#1E40AF]/80 font-sans block text-[10px] uppercase font-bold">
-                      Dispatched Gross vs Physical Received ({summaryDateRange})
-                    </span>
-                    <span className="text-sm font-black text-[#111311]">
-                      {zonalAnalytics.totalZonalDispatchedLiters} L / {zonalAnalytics.plantReceivedFromThisZone} L
-                    </span>
-                    <span
-                      className={`block text-[10px] font-bold mt-1 ${
-                        zonalAnalytics.volumeVarianceLiters >= 0 ? 'text-[#166534]' : 'text-[#991B1B]'
-                      }`}
-                    >
-                      Variance: {zonalAnalytics.volumeVarianceLiters > 0 ? `+${zonalAnalytics.volumeVarianceLiters}` : zonalAnalytics.volumeVarianceLiters} L ({zonalAnalytics.volumeVariancePercent}%)
-                    </span>
-                  </div>
-
-                  <div className="p-3.5 rounded-lg bg-[#FAF5FF] border border-[#E9D5FF] text-[#6B21A8]">
-                    <span className="text-[#6B21A8]/80 font-sans block text-[10px] uppercase font-bold">
-                      13% TS Equivalent Liters ({summaryDateRange})
-                    </span>
-                    <span className="text-sm font-black text-[#111311]">
-                      {zonalAnalytics.totalDispatch13TSLiters} L / {zonalAnalytics.totalPlant13TSLiters} L
-                    </span>
-                    <span
-                      className={`block text-[10px] font-bold mt-1 ${
-                        zonalAnalytics.tsVariance >= 0 ? 'text-[#166534]' : 'text-[#991B1B]'
-                      }`}
-                    >
-                      TS Variance: {zonalAnalytics.tsVariance > 0 ? `+${zonalAnalytics.tsVariance}` : zonalAnalytics.tsVariance} L ({zonalAnalytics.tsVariancePercent}%)
-                    </span>
-                  </div>
-
-                  <div className="p-3.5 rounded-lg bg-[#F0FDF4] border border-[#BBF7D0] text-[#166534]">
-                    <span className="text-[#166534]/80 font-sans block text-[10px] uppercase font-bold">
-                      Portion QA Acceptances ({summaryDateRange})
-                    </span>
-                    <span className="text-sm font-black text-[#166534] flex items-center gap-1 mt-1">
-                      <CheckCircle2 className="w-4 h-4 text-[#166534]" />
-                      {zonalAnalytics.acceptedCount} Portions Accepted
-                    </span>
-                  </div>
-
-                  <div className="p-3.5 rounded-lg bg-[#FEF2F2] border border-[#FECACA] text-[#991B1B]">
-                    <span className="text-[#991B1B]/80 font-sans block text-[10px] uppercase font-bold">
-                      Portion QA Rejections ({summaryDateRange})
-                    </span>
-                    <span className="text-sm font-black text-[#991B1B] flex items-center gap-1 mt-1">
-                      <XCircle className="w-4 h-4 text-[#991B1B]" />
-                      {zonalAnalytics.rejectedCount} Portions Rejected
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* 4 Pipeline Metric Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="p-5 rounded-xl bg-[#EFF6FF] border border-[#BFDBFE] shadow-sm flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-extrabold text-[#1E40AF]">Active In-Plant</p>
-                    <h2 className="text-3xl font-black font-mono text-[#111311] mt-1">{activeInPlantCount}</h2>
-                    <span className="text-[10px] font-bold text-[#1E40AF]">Vehicles in Pipeline</span>
-                  </div>
-                  <div className="p-3 rounded-xl bg-[#FFFFFF] border border-[#BFDBFE] text-[#1E40AF]">
-                    <Truck className="w-6 h-6" />
-                  </div>
-                </div>
-
-                <div className="p-5 rounded-xl bg-[#F0FDF4] border border-[#BBF7D0] shadow-sm flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-extrabold text-[#166534]">QA Lab Queue</p>
-                    <h2 className="text-3xl font-black font-mono text-[#111311] mt-1">{qaTestingQueueCount}</h2>
-                    <span className="text-[10px] font-bold text-[#166534]">Testing & Chemistry</span>
-                  </div>
-                  <div className="p-3 rounded-xl bg-[#FFFFFF] border border-[#BBF7D0] text-[#166534]">
-                    <FlaskConical className="w-6 h-6" />
-                  </div>
-                </div>
-
-                <div className="p-5 rounded-xl bg-[#FAF5FF] border border-[#E9D5FF] shadow-sm flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-extrabold text-[#6B21A8]">Weighbridge Queue</p>
-                    <h2 className="text-3xl font-black font-mono text-[#111311] mt-1">{weighbridgeQueueCount}</h2>
-                    <span className="text-[10px] font-bold text-[#6B21A8]">First / Second Scale</span>
-                  </div>
-                  <div className="p-3 rounded-xl bg-[#FFFFFF] border border-[#E9D5FF] text-[#6B21A8]">
-                    <Scale className="w-6 h-6" />
-                  </div>
-                </div>
-
-                <div className="p-5 rounded-xl bg-[#F0FDF4] border border-[#BBF7D0] shadow-sm flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-extrabold text-[#166534]">Completed (Today)</p>
-                    <h2 className="text-3xl font-black font-mono text-[#111311] mt-1">{completedTodayCount}</h2>
-                    <span className="text-[10px] font-bold text-[#166534]">Received in Silos</span>
-                  </div>
-                  <div className="p-3 rounded-xl bg-[#FFFFFF] border border-[#BBF7D0] text-[#166534]">
-                    <Factory className="w-6 h-6" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Quick History Preview */}
-              <div className="p-5 rounded-xl bg-[#FFFFFF] border border-[#EAE4D5]/80 shadow-sm space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-extrabold text-[#111311] flex items-center gap-2">
-                    <History className="w-4 h-4 text-[#1E3A8A]" />
-                    <span>Recent Dispatches ({filteredLogs.length} Total)</span>
-                  </h3>
-                  <button
-                    onClick={() => setActiveTab('HISTORY')}
-                    className="text-xs font-extrabold text-[#1E3A8A] hover:underline flex items-center gap-1"
-                  >
-                    <span>View Full History</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
-                <ZonalHistoryTable
-                  logs={filteredLogs.slice(0, 10)}
-                  targetZone={assignedSourceName}
-                  onInspectDetails={(l) => setSelectedLog(l)}
-                  currentFromDate={fromDate}
-                  currentToDate={toDate}
-                  onDateFilterChange={(f, t) => {
-                    setFromDate(f || '');
-                    setToDate(t || '');
-                    fetchLogs(f, t);
-                  }}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* TAB 2: LIVE DISPATCHES (4D-B Foundation) */}
-          {activeTab === 'LIVE' && (
-            <div id="tabpanel-LIVE" role="tabpanel" aria-labelledby="tab-LIVE" className="space-y-6">
-              <div className="p-6 rounded-xl bg-[#FFFFFF] border border-[#EAE4D5]/80 shadow-sm space-y-3">
-                <div className="flex items-center space-x-2 text-[#1E3A8A]">
-                  <Truck className="w-5 h-5" />
-                  <h3 className="text-sm font-extrabold text-[#111311]">Live Vehicle Reception Pipeline</h3>
-                </div>
-                <p className="text-xs text-slate-600">
-                  Tracking active vehicle dispatches from <strong>{assignedSourceName}</strong> currently inside the factory receiving pipeline.
-                </p>
-                <div className="p-4 rounded-lg bg-blue-50/60 border border-blue-200 text-xs font-semibold text-blue-900 flex items-start gap-2.5">
-                  <Info className="w-4 h-4 text-blue-700 shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-bold">Live Dispatches View</span>
-                    <p className="text-[11px] text-blue-800 mt-0.5">
-                      Shows vehicles transitioning through Security Gate In → QA Lab → Weighbridge First Weight → Silo Offloading → Weighbridge Second Weight. Detailed milestone timing and exception management will be expanded in Stage 4D-B.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <ZonalHistoryTable
-                logs={filteredLogs.filter((l) => ['DISPATCHED', 'GATE_IN', 'IN_QA', 'QA_ACCEPTED', 'WEIGHED_IN', 'UNLOADING', 'UNLOADED', 'READY_FOR_TARE', 'TARE_WEIGHED'].includes(String(l.status).toUpperCase()))}
-                targetZone={assignedSourceName}
+              <ZMCCManagerOverview
+                logs={filteredLogs}
+                serverBusinessDate={serverBusinessDate}
+                assignedSourceName={assignedSourceName}
+                dateRange={summaryDateRange}
+                onDateRangeChange={(r) => setSummaryDateRange(r)}
                 onInspectDetails={(l) => setSelectedLog(l)}
+                onNavigateToTab={(tab) => setActiveTab(tab)}
                 currentFromDate={fromDate}
                 currentToDate={toDate}
                 onDateFilterChange={(f, t) => {
@@ -477,6 +300,17 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({ curr
                   setToDate(t || '');
                   fetchLogs(f, t);
                 }}
+              />
+            </div>
+          )}
+
+          {/* TAB 2: LIVE DISPATCHES */}
+          {activeTab === 'LIVE' && (
+            <div id="tabpanel-LIVE" role="tabpanel" aria-labelledby="tab-LIVE" className="space-y-6">
+              <ZMCCManagerLiveDispatches
+                logs={filteredLogs}
+                assignedSourceName={assignedSourceName}
+                onInspectDetails={(l) => setSelectedLog(l)}
               />
             </div>
           )}
