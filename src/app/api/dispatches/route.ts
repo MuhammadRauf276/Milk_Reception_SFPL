@@ -118,13 +118,19 @@ export async function GET(req: Request) {
   };
 
   // SOURCE AUTHORIZATION FILTERING:
-  // For ordinary MPD operators, strictly scope dispatches to their assigned procurement source at DB level
-  const isOrdinaryOperator = dbUser.role === 'MPD_Operator' || dbUser.role === 'MPD';
-  if (isOrdinaryOperator) {
+  // For ordinary MPD operators and source-scoped managers (ZMCC_MANAGER, CONTRACTOR_MANAGER),
+  // strictly scope dispatches to their assigned procurement source at DB level (fail-closed if unbound).
+  const isSourceScoped =
+    dbUser.role === 'MPD_Operator' ||
+    dbUser.role === 'MPD' ||
+    dbUser.role === 'ZMCC_MANAGER' ||
+    dbUser.role === 'CONTRACTOR_MANAGER';
+
+  if (isSourceScoped) {
     if (dbUser.procurement_source_id) {
       whereClause.procurement_source_id = dbUser.procurement_source_id;
     } else {
-      // Unbound operator gets zero dispatches
+      // Unbound source-scoped role gets zero dispatches (fail closed)
       whereClause.procurement_source_id = -1;
     }
   } else {

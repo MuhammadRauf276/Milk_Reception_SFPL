@@ -36,6 +36,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     role === 'Production');
 
   const isZoneManager = !isSecurityManager && role === 'MPD_Zone_Manager';
+  const isZmccManager = !isSecurityManager && role === 'ZMCC_MANAGER';
 
   const isMainAdmin =
     !isSecurityManager &&
@@ -168,6 +169,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </span>
                 <span className={`px-1.5 py-0.5 rounded font-mono text-[9px] ${getBadgeStyle('/')}`}>
                   ARCHIVE
+                </span>
+              </Link>
+
+              <Link
+                href="/cross-verification"
+                className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition ${getLinkStyle('/cross-verification')}`}
+              >
+                <span className="flex items-center gap-2">
+                  <ArrowRightLeft className="w-4 h-4" />
+                  <span>Cross-Verification</span>
+                </span>
+                <span className={`px-1.5 py-0.5 rounded font-mono text-[9px] ${getBadgeStyle('/cross-verification')}`}>
+                  SUMMARY
+                </span>
+              </Link>
+            </>
+          )}
+
+          {/* 2B. ZMCC SOURCE MANAGER VIEW */}
+          {isZmccManager && (
+            <>
+              <Link
+                href="/department/zmcc-manager"
+                className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition ${getLinkStyle('/department/zmcc-manager')}`}
+              >
+                <span className="flex items-center gap-2">
+                  <LayoutDashboard className="w-4 h-4" />
+                  <span>ZMCC Manager Station</span>
+                </span>
+                <span className={`px-1.5 py-0.5 rounded font-mono text-[9px] ${getBadgeStyle('/department/zmcc-manager')}`}>
+                  MANAGER
                 </span>
               </Link>
 
