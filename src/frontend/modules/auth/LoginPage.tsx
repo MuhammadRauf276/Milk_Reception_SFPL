@@ -106,7 +106,7 @@ export const LoginPage: React.FC = () => {
       } else if (role === 'WEIGHBRIDGE_OPERATOR' || role === 'Weighbridge_Operator') {
         router.push('/department/weighbridge');
       } else if (role === 'ZMCC_MANAGER') {
-        router.push('/department/zmcc-manager');
+        router.push('/mpd/zmcc-manager');
       } else if (
         role === 'MPD_Zone_Manager' ||
         role === 'General_Plant_Manager' ||
