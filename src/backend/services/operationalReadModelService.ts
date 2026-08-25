@@ -1,5 +1,6 @@
 import { prisma } from '../core/db';
 import { MilkProcessLog, User, ProcessStatus } from '../core/types';
+import { PLANT_TIMEZONE } from '@/lib/datetime-utils';
 import {
   calculateDensity,
   calculateSNF,
@@ -37,9 +38,12 @@ function formatTimeOnly(ts?: Date | string | null): string | null {
   if (!ts) return null;
   const d = new Date(ts);
   if (isNaN(d.getTime())) return null;
-  const h = d.getHours().toString().padStart(2, '0');
-  const m = d.getMinutes().toString().padStart(2, '0');
-  return `${h}:${m}`;
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: PLANT_TIMEZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(d);
 }
 
 function extractTestNumericValue(
@@ -94,9 +98,17 @@ export async function getOperationalLogs(
     whereClause.procurement_source = {
       name: { contains: cleanZone, mode: 'insensitive' },
     };
-  } else if (currentUser?.role === 'ZMCC_MANAGER' || currentUser?.role === 'CONTRACTOR_MANAGER') {
+  } else if (
+    currentUser?.role === 'ZMCC_MANAGER' ||
+    currentUser?.role === 'CONTRACTOR_MANAGER' ||
+    currentUser?.role === 'MPD_Operator' ||
+    currentUser?.role === 'MPD'
+  ) {
     if (currentUser.procurement_source_id) {
-      whereClause.procurement_source_id = currentUser.procurement_source_id;
+      whereClause.procurement_source_id = BigInt(currentUser.procurement_source_id);
+    } else {
+      // Fail closed: Unbound source-scoped role receives zero records
+      whereClause.procurement_source_id = BigInt(-1);
     }
   }
 

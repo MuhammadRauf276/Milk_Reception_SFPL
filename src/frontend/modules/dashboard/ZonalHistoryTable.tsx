@@ -169,9 +169,9 @@ export function buildPortionDynamicTests(log: MilkProcessLog): DynamicTestCompar
       testScope: 'BOTH',
       unit: '%',
       resultType: 'NUMERIC',
-      dispatchResult: { status: 'AVAILABLE', value: 0.14 },
-      plantResult: { status: 'AVAILABLE', value: 0.14 },
-      difference: { numericValue: 0, displayText: '0.00%' },
+      dispatchResult: { status: 'NOT_TESTED', value: null },
+      plantResult: { status: 'NOT_TESTED', value: null },
+      difference: { numericValue: null, displayText: '--' },
     },
     {
       testId: 'temperature',
@@ -181,9 +181,9 @@ export function buildPortionDynamicTests(log: MilkProcessLog): DynamicTestCompar
       testScope: 'BOTH',
       unit: '°C',
       resultType: 'NUMERIC',
-      dispatchResult: { status: 'AVAILABLE', value: 4.5 },
-      plantResult: { status: 'AVAILABLE', value: 4.8 },
-      difference: { numericValue: 0.3, displayText: '+0.3°C' },
+      dispatchResult: { status: 'NOT_TESTED', value: null },
+      plantResult: { status: 'NOT_TESTED', value: null },
+      difference: { numericValue: null, displayText: '--' },
     },
   ];
 }
@@ -291,11 +291,10 @@ export const ZonalHistoryTable: React.FC<ZonalHistoryTableProps> = ({
       let netW = grossW != null && tareW != null ? grossW - tareW : null;
 
       let visitPlantRecv: number | null = null;
-      if (netW != null) {
-        const activeLr = computed.sampling_lr || computed.dispatch_lr || 28.0;
-        visitPlantRecv = Number((netW / (1 + (activeLr / 1000))).toFixed(2));
-      } else if (computed.computed_plant_liters != null) {
+      if (computed.computed_plant_liters != null) {
         visitPlantRecv = computed.computed_plant_liters;
+      } else if (netW != null && computed.sampling_lr != null) {
+        visitPlantRecv = Number((netW / (1 + (computed.sampling_lr / 1000))).toFixed(2));
       }
 
       visitGroupsMap.set(visitId, {
@@ -416,12 +415,12 @@ export const ZonalHistoryTable: React.FC<ZonalHistoryTableProps> = ({
         </div>
       </div>
 
-      {/* Authoritative Operational Date Filter Bar */}
+      {/* Authoritative Business Date Filter Bar */}
       <div className="p-3.5 rounded-xl bg-[#FDFBF9] border border-[#EAE4D5]/80 space-y-2">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
           <div className="flex items-center space-x-2">
             <Calendar className="w-4 h-4 text-[#1E3A8A]" />
-            <span className="text-xs font-bold text-[#111311]">Filter by Dispatch / Operational Date:</span>
+            <span className="text-xs font-bold text-[#111311]">Filter by Dispatch / Business Date:</span>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
@@ -655,11 +654,11 @@ export const ZonalHistoryTable: React.FC<ZonalHistoryTableProps> = ({
                                   const isPortionPassed = portionDecision === 'ACCEPTED';
                                   const isPortionRejected = portionDecision === 'REJECTED';
 
-                                  const dFat = portion.dispatch_fat || 3.8;
-                                  const lFat = portion.sampling_fat || dFat;
+                                  const dFatStr = portion.dispatch_fat != null ? `${portion.dispatch_fat}%` : '—';
+                                  const lFatStr = portion.sampling_fat != null ? `${portion.sampling_fat}%` : '—';
 
-                                  const dSnf = portion.computed_dispatch_snf || 8.5;
-                                  const lSnf = portion.computed_sampling_snf || dSnf;
+                                  const dSnfStr = portion.computed_dispatch_snf != null ? `${portion.computed_dispatch_snf}%` : '—';
+                                  const lSnfStr = portion.computed_sampling_snf != null ? `${portion.computed_sampling_snf}%` : '—';
 
                                   return (
                                     <tr key={subRowKey} className="hover:bg-[#F4F0E6]/60 transition">
@@ -672,7 +671,7 @@ export const ZonalHistoryTable: React.FC<ZonalHistoryTableProps> = ({
 
                                       {/* Dispatch Quantity */}
                                       <td className="py-2 px-3 text-right text-slate-700">
-                                        {(portion.dispatch_liters_gross || 0).toLocaleString()} L
+                                        {portion.dispatch_liters_gross != null ? `${portion.dispatch_liters_gross.toLocaleString()} L` : '—'}
                                       </td>
 
                                       {/* Plant Received Quantity (Model B Rule) */}
@@ -684,12 +683,12 @@ export const ZonalHistoryTable: React.FC<ZonalHistoryTableProps> = ({
 
                                       {/* Fat % (Disp / Plant) */}
                                       <td className="py-2 px-3 text-right text-slate-700 font-mono">
-                                        <span>{dFat}% / {lFat}%</span>
+                                        <span>{dFatStr} / {lFatStr}</span>
                                       </td>
 
                                       {/* SNF % (Disp / Plant) */}
                                       <td className="py-2 px-3 text-right text-slate-700 font-mono">
-                                        <span>{dSnf}% / {lSnf}%</span>
+                                        <span>{dSnfStr} / {lSnfStr}</span>
                                       </td>
 
                                       {/* Plant QA Decision */}
@@ -971,7 +970,7 @@ export const ZonalHistoryTable: React.FC<ZonalHistoryTableProps> = ({
                           <div className="grid grid-cols-2 gap-2 text-xs font-mono">
                             <div>
                               <span className="text-[9.5px] text-slate-500 font-sans block">Dispatch Liters:</span>
-                              <span className="font-bold text-[#111311]">{(p.dispatch_liters_gross || 0).toLocaleString()} L</span>
+                              <span className="font-bold text-[#111311]">{p.dispatch_liters_gross != null ? `${p.dispatch_liters_gross.toLocaleString()} L` : '—'}</span>
                             </div>
                             <div>
                               <span className="text-[9.5px] text-slate-500 font-sans block">Plant Receipt:</span>
@@ -979,11 +978,11 @@ export const ZonalHistoryTable: React.FC<ZonalHistoryTableProps> = ({
                             </div>
                             <div>
                               <span className="text-[9.5px] text-slate-500 font-sans block">Fat / LR:</span>
-                              <span className="font-bold text-[#111311]">{p.dispatch_fat || 3.8}% / {p.dispatch_lr || 28}</span>
+                              <span className="font-bold text-[#111311]">{p.dispatch_fat != null ? `${p.dispatch_fat}%` : '—'} / {p.dispatch_lr != null ? `${p.dispatch_lr}` : '—'}</span>
                             </div>
                             <div>
                               <span className="text-[9.5px] text-slate-500 font-sans block">SNF %:</span>
-                              <span className="font-bold text-[#111311]">{p.computed_dispatch_snf || 8.5}%</span>
+                              <span className="font-bold text-[#111311]">{p.computed_dispatch_snf != null ? `${p.computed_dispatch_snf}%` : '—'}</span>
                             </div>
                           </div>
 

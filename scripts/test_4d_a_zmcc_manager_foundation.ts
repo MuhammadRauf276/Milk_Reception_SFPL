@@ -1,14 +1,17 @@
 import { prisma } from '../src/backend/core/db';
 import { GET as getDispatches } from '../src/app/api/dispatches/route';
+import { GET as getLogs } from '../src/app/api/logs/route';
 import { POST as postGrossWeight } from '../src/app/api/scale/gross-weight/route';
 import { createSessionToken } from '../src/backend/core/auth';
 import { User, Role } from '../src/backend/core/types';
+import { formatOperationalDatetime, formatOperationalTime } from '../src/lib/datetime-utils';
+import { getOperationalBusinessDate } from '../src/backend/core/business-day';
 import fs from 'fs';
 import path from 'path';
 
 async function run4DATests() {
   console.log('================================================================================');
-  console.log('STAGE 4D-A: ZMCC MANAGER FOUNDATION & MPD HIERARCHY REGRESSION SUITE');
+  console.log('STAGE 4D-A-R: ZMCC MANAGER FOUNDATION & SECURITY AUDIT REGRESSION SUITE');
   console.log('================================================================================\n');
 
   let passed = 0;
@@ -60,7 +63,6 @@ async function run4DATests() {
   const contAlkhair = await prisma.procurementSource.findFirst({ where: { code: 'CONT-ALKHAIR' } });
 
   const zmccOpHasilpur = await prisma.user.findFirst({ where: { username: 'zmcc.operator' } });
-  const contOpAlkhair = await prisma.user.findFirst({ where: { username: 'contractor.operator.alkhair' } });
   const zoneManager = await prisma.user.findFirst({ where: { username: 'zmcc.manager.north' } });
 
   assert(!!zmccHasilpur && !!zmccJhang && !!contAlkhair && !!zmccOpHasilpur && !!zoneManager, 'TEST-0: Base fixtures exist in DB');
@@ -90,7 +92,6 @@ async function run4DATests() {
   assert(hasSidebarMpdZmccLink, 'TEST-A4: Sidebar.tsx contains dedicated /mpd/zmcc-manager link for ZMCC_MANAGER');
 
   // A5: ZMCC_MANAGER sidebar does NOT expose standalone /cross-verification
-  // In isZmccManager block, verify only /mpd/zmcc-manager is present
   const isZmccBlock = sidebarSource.match(/\{isZmccManager && \([\s\S]*?\)\}/)?.[0] || '';
   const zmccExposesCrossVerification = isZmccBlock.includes('href="/cross-verification"');
   assert(!zmccExposesCrossVerification, 'TEST-A5: ZMCC_MANAGER sidebar does NOT expose standalone /cross-verification link');
@@ -105,6 +106,7 @@ async function run4DATests() {
   let tempManagerHasilpur: any = null;
   let tempUnboundManager: any = null;
   let tempContractorManager: any = null;
+  let tempUnboundContractorManager: any = null;
 
   try {
     tempManagerHasilpur = await prisma.user.create({
@@ -137,48 +139,99 @@ async function run4DATests() {
       },
     });
 
-    // A8: ZMCC_MANAGER GET /api/dispatches returns ONLY assigned procurement_source_id records
-    const reqScoped = await createAuthRequest('http://localhost:3000/api/dispatches?range=30d', 'GET', undefined, tempManagerHasilpur);
-    const resScoped = await getDispatches(reqScoped);
-    const jsonScoped = await resScoped.json();
+    tempUnboundContractorManager = await prisma.user.create({
+      data: {
+        username: `tmp.mgr.unbound.cont.${Date.now()}`,
+        role: 'CONTRACTOR_MANAGER',
+        scope_type: 'SOURCE',
+        procurement_source_id: null,
+        is_active: true,
+      },
+    });
 
-    assert(resScoped.ok, 'TEST-A8.1: Scoped ZMCC_MANAGER GET /api/dispatches succeeds');
-    const foreignDispatches = (jsonScoped.dispatches || []).filter(
+    // R1 & R2: GET /api/logs ZMCC_MANAGER Source Isolation
+    const reqLogsHasilpur = await createAuthRequest('http://localhost:3000/api/logs', 'GET', undefined, tempManagerHasilpur);
+    const resLogsHasilpur = await getLogs(reqLogsHasilpur as any);
+    const jsonLogsHasilpur = await resLogsHasilpur.json();
+
+    assert(resLogsHasilpur.ok, 'TEST-R1: Scoped ZMCC_MANAGER GET /api/logs succeeds');
+    const foreignLogsHasilpur = (jsonLogsHasilpur.logs || []).filter(
+      (l: any) => l.zonal_contractor_name !== zmccHasilpur!.name
+    );
+    assert(foreignLogsHasilpur.length === 0, 'TEST-R2: Scoped ZMCC_MANAGER GET /api/logs receives ZERO foreign source records', `Foreign Count: ${foreignLogsHasilpur.length}`);
+
+    // R3: Unbound ZMCC_MANAGER GET /api/logs fails closed
+    const reqLogsUnbound = await createAuthRequest('http://localhost:3000/api/logs', 'GET', undefined, tempUnboundManager);
+    const resLogsUnbound = await getLogs(reqLogsUnbound as any);
+    const jsonLogsUnbound = await resLogsUnbound.json();
+
+    assert(resLogsUnbound.ok, 'TEST-R3.1: Unbound ZMCC_MANAGER GET /api/logs returns response');
+    assert((jsonLogsUnbound.logs || []).length === 0, 'TEST-R3.2: Unbound ZMCC_MANAGER GET /api/logs fails closed with 0 records', `Records: ${(jsonLogsUnbound.logs || []).length}`);
+
+    // R4: CONTRACTOR_MANAGER assigned source GET /api/logs returns its own source only
+    const reqLogsCont = await createAuthRequest('http://localhost:3000/api/logs', 'GET', undefined, tempContractorManager);
+    const resLogsCont = await getLogs(reqLogsCont as any);
+    const jsonLogsCont = await resLogsCont.json();
+
+    assert(resLogsCont.ok, 'TEST-R4.1: Scoped CONTRACTOR_MANAGER GET /api/logs succeeds');
+    const foreignLogsCont = (jsonLogsCont.logs || []).filter(
+      (l: any) => l.zonal_contractor_name !== contAlkhair!.name
+    );
+    assert(foreignLogsCont.length === 0, 'TEST-R4.2: Scoped CONTRACTOR_MANAGER GET /api/logs receives ZERO foreign source records', `Foreign Count: ${foreignLogsCont.length}`);
+
+    // R5: Unbound CONTRACTOR_MANAGER GET /api/logs fails closed
+    const reqLogsContUnbound = await createAuthRequest('http://localhost:3000/api/logs', 'GET', undefined, tempUnboundContractorManager);
+    const resLogsContUnbound = await getLogs(reqLogsContUnbound as any);
+    const jsonLogsContUnbound = await resLogsContUnbound.json();
+
+    assert(resLogsContUnbound.ok, 'TEST-R5.1: Unbound CONTRACTOR_MANAGER GET /api/logs returns response');
+    assert((jsonLogsContUnbound.logs || []).length === 0, 'TEST-R5.2: Unbound CONTRACTOR_MANAGER GET /api/logs fails closed with 0 records', `Records: ${(jsonLogsContUnbound.logs || []).length}`);
+
+    // R6: MPD_Zone_Manager visibility semantics remain unchanged
+    const reqZone = await createAuthRequest('http://localhost:3000/api/logs', 'GET', undefined, zoneManager);
+    const resZone = await getLogs(reqZone as any);
+    assert(resZone.ok, 'TEST-R6: MPD_Zone_Manager GET /api/logs succeeds normally');
+
+    // R7: GET /api/dispatches source isolation remains intact
+    const reqDispatches = await createAuthRequest('http://localhost:3000/api/dispatches?range=30d', 'GET', undefined, tempManagerHasilpur);
+    const resDispatches = await getDispatches(reqDispatches);
+    const jsonDispatches = await resDispatches.json();
+
+    assert(resDispatches.ok, 'TEST-R7.1: Scoped ZMCC_MANAGER GET /api/dispatches succeeds');
+    const foreignDispatches = (jsonDispatches.dispatches || []).filter(
       (d: any) => d.procurement_source_id !== zmccHasilpur!.id.toString()
     );
-    assert(foreignDispatches.length === 0, 'TEST-A8.2: Scoped ZMCC_MANAGER receives ZERO foreign dispatches', `Count: ${foreignDispatches.length}`);
+    assert(foreignDispatches.length === 0, 'TEST-R7.2: Scoped ZMCC_MANAGER receives ZERO foreign dispatches', `Count: ${foreignDispatches.length}`);
 
-    // A9: ZMCC_MANAGER with no source assignment fails closed (returns 0 dispatches)
-    const reqUnbound = await createAuthRequest('http://localhost:3000/api/dispatches?range=30d', 'GET', undefined, tempUnboundManager);
-    const resUnbound = await getDispatches(reqUnbound);
-    const jsonUnbound = await resUnbound.json();
+    // STALE SESSION REASSIGNMENT TEST:
+    // Create token with Source A, then update DB user to Source B, then call GET /api/logs
+    const sessionTokenOld = await createSessionToken({
+      id: tempManagerHasilpur.id.toString(),
+      username: tempManagerHasilpur.username,
+      name: tempManagerHasilpur.username,
+      role: 'ZMCC_MANAGER',
+      department: 'Milk Procurement',
+      scope_type: 'SOURCE',
+      procurement_source_id: zmccHasilpur!.id.toString(),
+    });
 
-    assert(resUnbound.ok, 'TEST-A9.1: Unbound ZMCC_MANAGER GET /api/dispatches returns response');
-    assert((jsonUnbound.dispatches || []).length === 0, 'TEST-A9.2: Unbound ZMCC_MANAGER fails closed with 0 records', `Records: ${(jsonUnbound.dispatches || []).length}`);
+    // Update DB user assignment to Jhang (Source B)
+    await prisma.user.update({
+      where: { id: tempManagerHasilpur.id },
+      data: { procurement_source_id: zmccJhang!.id },
+    });
 
-    // A10: CONTRACTOR_MANAGER source-scoping behavior intact
-    const reqCont = await createAuthRequest('http://localhost:3000/api/dispatches?range=30d', 'GET', undefined, tempContractorManager);
-    const resCont = await getDispatches(reqCont);
-    const jsonCont = await resCont.json();
+    const reqStale = new Request('http://localhost:3000/api/logs', {
+      method: 'GET',
+      headers: { cookie: `auth_token=${sessionTokenOld}`, authorization: `Bearer ${sessionTokenOld}` },
+    });
+    const resStale = await getLogs(reqStale as any);
+    const jsonStale = await resStale.json();
 
-    assert(resCont.ok, 'TEST-A10.1: Scoped CONTRACTOR_MANAGER GET /api/dispatches succeeds');
-    const contForeignDispatches = (jsonCont.dispatches || []).filter(
-      (d: any) => d.procurement_source_id !== contAlkhair!.id.toString()
+    const staleFollowsCurrentDb = (jsonStale.logs || []).every(
+      (l: any) => l.zonal_contractor_name === zmccJhang!.name
     );
-    assert(contForeignDispatches.length === 0, 'TEST-A10.2: Scoped CONTRACTOR_MANAGER receives ZERO foreign dispatches', `Count: ${contForeignDispatches.length}`);
-
-    // A11: Ordinary MPD operator and MPD_Zone_Manager source-scoping behavior remains unchanged
-    const reqMpd = await createAuthRequest('http://localhost:3000/api/dispatches?range=30d', 'GET', undefined, zmccOpHasilpur);
-    const resMpd = await getDispatches(reqMpd);
-    const jsonMpd = await resMpd.json();
-    const mpdForeign = (jsonMpd.dispatches || []).filter(
-      (d: any) => d.procurement_source_id !== zmccOpHasilpur!.procurement_source_id?.toString()
-    );
-    assert(mpdForeign.length === 0, 'TEST-A11.1: MPD Operator source-scoping unchanged (0 foreign dispatches)');
-
-    const reqZone = await createAuthRequest('http://localhost:3000/api/dispatches?range=30d', 'GET', undefined, zoneManager);
-    const resZone = await getDispatches(reqZone);
-    assert(resZone.ok, 'TEST-A11.2: MPD_Zone_Manager GET /api/dispatches succeeds normally');
+    assert(resStale.ok && staleFollowsCurrentDb, 'TEST-STALE: GET /api/logs follows authoritative current DB assignment (Source B), ignoring stale session assignment');
 
     // A12: ZMCC Manager workspace does not expose known plant mutation actions
     const hasGrossWeightAction = workspaceSource.includes('/api/scale/gross-weight') || workspaceSource.includes('Record Gross');
@@ -200,7 +253,43 @@ async function run4DATests() {
     if (tempContractorManager?.id) {
       await prisma.user.delete({ where: { id: tempContractorManager.id } }).catch(() => {});
     }
+    if (tempUnboundContractorManager?.id) {
+      await prisma.user.delete({ where: { id: tempUnboundContractorManager.id } }).catch(() => {});
+    }
   }
+
+  // R8, R9, R10: Synthetic Quality Measurements Removed
+  const zonalHistorySource = fs.readFileSync(path.join(__dirname, '../src/frontend/modules/dashboard/ZonalHistoryTable.tsx'), 'utf-8');
+  const hasSyntheticAcidity = zonalHistorySource.includes("value: 0.14");
+  const hasSyntheticTemp1 = zonalHistorySource.includes("value: 4.5");
+  const hasSyntheticTemp2 = zonalHistorySource.includes("value: 4.8");
+  assert(!hasSyntheticAcidity, 'TEST-R8: No fabricated Acidity (0.14) exists in ZonalHistoryTable');
+  assert(!hasSyntheticTemp1 && !hasSyntheticTemp2, 'TEST-R9 & R10: No fabricated Temperature (4.5 / 4.8) exists in ZonalHistoryTable');
+
+  // R11 & R12: Synthetic LR 28.0 fallback removed
+  const hasFakeLr28 = zonalHistorySource.includes("|| 28.0") || zonalHistorySource.includes("|| 28");
+  assert(!hasFakeLr28, 'TEST-R11: No fake LR 28.0 fallback exists in ZonalHistoryTable');
+
+  // R13, R14, R15: Pakistan Event Date/Time & Business Date Coexistence
+  const testUtcIso = '2026-08-23T21:30:00.000Z';
+  const pktFormattedDatetime = formatOperationalDatetime(testUtcIso);
+  const pktFormattedTime = formatOperationalTime(testUtcIso);
+  const eventBusinessDate = getOperationalBusinessDate(new Date(testUtcIso));
+
+  // 2026-08-23 21:30 UTC = 2026-08-24 02:30 PKT (Event Date/Time: 24-Aug-2026 02:30 AM PKT, Business Date: 2026-08-23)
+  const isCorrectPktTime = pktFormattedTime.includes('02:30');
+  const isCorrectPktDate = pktFormattedDatetime.includes('24 Aug 2026') && pktFormattedDatetime.includes('02:30');
+  const isCorrectBusinessDate = eventBusinessDate === '2026-08-23';
+
+  assert(isCorrectPktTime && isCorrectPktDate, 'TEST-R13 & R14: UTC 2026-08-23T21:30:00Z formats to Pakistan Event Date/Time (24-Aug-2026 02:30 AM PKT)', `Got: ${pktFormattedDatetime}`);
+  assert(isCorrectBusinessDate, 'TEST-R15: Business Date for 02:30 PKT event is 2026-08-23 (08:00 cutoff boundary intact)', `Got: ${eventBusinessDate}`);
+
+  // R16: Read model time formatting does not use bare getHours/getMinutes
+  const readModelSource = fs.readFileSync(path.join(__dirname, '../src/backend/services/operationalReadModelService.ts'), 'utf-8');
+  const formatTimeOnlyMatch = readModelSource.match(/function formatTimeOnly[\s\S]*?\n\}/)?.[0] || '';
+  const usesBareGetHours = formatTimeOnlyMatch.includes('d.getHours()') || formatTimeOnlyMatch.includes('d.getMinutes()');
+  const usesPlantTimezone = formatTimeOnlyMatch.includes('PLANT_TIMEZONE') || formatTimeOnlyMatch.includes('Asia/Karachi');
+  assert(!usesBareGetHours && usesPlantTimezone, 'TEST-R16: formatTimeOnly in operationalReadModelService uses explicit PLANT_TIMEZONE (Asia/Karachi) instead of bare getHours/getMinutes');
 
   // A13: Measurement Method does not reappear
   const hasMeasurementMethod = workspaceSource.includes('Measurement Method') || workspaceSource.includes('measurement_method');

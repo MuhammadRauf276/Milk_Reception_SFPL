@@ -1,14 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@backend/core/auth';
+import { prisma } from '@backend/core/db';
+import { User, Role } from '@backend/core/types';
 import { getOperationalLogs } from '@backend/services/operationalReadModelService';
 import { getOperationalBusinessDate } from '@backend/core/business-day';
 
 export async function GET(req: NextRequest) {
   try {
-    const user = await getCurrentUser(req);
-    if (!user) {
+    const authUser = await getCurrentUser(req);
+    if (!authUser) {
       return NextResponse.json({ error: 'Unauthorized: Authentication required.' }, { status: 401 });
     }
+
+    const dbUser = await prisma.user.findFirst({
+      where: {
+        OR: [{ username: authUser.username }, { id: BigInt(authUser.id) }],
+        is_active: true,
+      },
+      include: { procurement_source: true },
+    });
+
+    if (!dbUser) {
+      return NextResponse.json({ error: 'Unauthorized: User not found or inactive.' }, { status: 401 });
+    }
+
+    const authoritativeUser: User = {
+      id: dbUser.id.toString(),
+      username: dbUser.username,
+      name: dbUser.full_name || dbUser.username,
+      role: dbUser.role as Role,
+      department: dbUser.department || '',
+      zone: authUser.zone || dbUser.procurement_source?.name || null,
+      scope_type: dbUser.scope_type || 'SOURCE',
+      procurement_source_id: dbUser.procurement_source_id ? dbUser.procurement_source_id.toString() : null,
+    };
 
     const { searchParams } = new URL(req.url);
     const fromDate = searchParams.get('fromDate') || undefined;
@@ -25,7 +50,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const logs = await getOperationalLogs({ fromDate, toDate, contractor, status, search }, user);
+    const logs = await getOperationalLogs({ fromDate, toDate, contractor, status, search }, authoritativeUser);
     const serverBusinessDate = getOperationalBusinessDate(new Date());
 
     return NextResponse.json({
