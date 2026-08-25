@@ -6,6 +6,7 @@ import {
   deriveManagerAttention,
   buildVehicleVisitGroups,
   filterGroupsByDateRange,
+  isBusinessDateInPeriod,
 } from '../src/frontend/modules/dashboard/zmcc/zmccManagerHelpers';
 import { MilkProcessLog } from '../src/backend/core/types';
 import { formatOperationalDatetime, formatOperationalTime } from '../src/lib/datetime-utils';
@@ -13,7 +14,7 @@ import { getOperationalBusinessDate } from '../src/backend/core/business-day';
 
 async function run4DBTests() {
   console.log('================================================================================');
-  console.log('STAGE 4D-B-R: ZMCC MANAGER LIFECYCLE & RECEIPT AUTHORITY REGRESSION SUITE');
+  console.log('STAGE 4D-B-R2: ZMCC MANAGER LIFECYCLE & RECEIPT AUTHORITY REGRESSION SUITE');
   console.log('================================================================================\n');
 
   let passed = 0;
@@ -166,6 +167,14 @@ async function run4DBTests() {
   const hasReceiptPending = attRB7.some((a) => a.type === 'RECEIPT_PENDING' && a.visitId === 107);
   assert(hasReceiptPending, 'R-B7: Second Weight without authoritative receipt produces RECEIPT_PENDING attention item');
 
+  // Check full locked labels in Receipt Pending item
+  const rpItem = attRB7.find((a) => a.type === 'RECEIPT_PENDING' && a.visitId === 107);
+  const rpLabels = rpItem?.metrics?.map((m) => m.label) || [];
+  assert(
+    rpLabels.includes('First Weight (Loaded Vehicle)') && rpLabels.includes('Second Weight (After Unloading)'),
+    'R-B7.1: Receipt Pending attention metrics use full locked Weighbridge labels'
+  );
+
   // R-B8: Authoritative RECEIPT transaction exists -> Final Receipt complete
   const logRB8 = createMockLog({
     id: 108,
@@ -202,8 +211,8 @@ async function run4DBTests() {
 
   // R-B10: All authoritative quantities present -> aggregate total available
   const logsComplete = [
-    createMockLog({ id: 201, dispatch_liters_gross: 10000, final_receipt_exists: true, authoritative_final_liters: 9800 }),
-    createMockLog({ id: 202, dispatch_liters_gross: 5000, final_receipt_exists: true, authoritative_final_liters: 4900 }),
+    createMockLog({ id: 201, dispatch_liters_gross: 10000, final_receipt_exists: true, authoritative_final_liters: 9800, final_receipt_timestamp: '2026-08-25T06:00:00.000Z' }),
+    createMockLog({ id: 202, dispatch_liters_gross: 5000, final_receipt_exists: true, authoritative_final_liters: 4900, final_receipt_timestamp: '2026-08-25T06:30:00.000Z' }),
   ];
   const metricsRB10 = computeManagerOverview(logsComplete, '2026-08-25', 'TODAY');
   assert(
@@ -226,7 +235,7 @@ async function run4DBTests() {
 
   // R-B12: Missing final quantity -> difference unavailable (null)
   const logsMissingFinal = [
-    createMockLog({ id: 205, dispatch_liters_gross: 10000, final_receipt_exists: true, authoritative_final_liters: null }),
+    createMockLog({ id: 205, dispatch_liters_gross: 10000, final_receipt_exists: true, authoritative_final_liters: null, final_receipt_timestamp: '2026-08-25T06:00:00.000Z' }),
   ];
   const metricsRB12 = computeManagerOverview(logsMissingFinal, '2026-08-25', 'TODAY');
   assert(
@@ -240,6 +249,7 @@ async function run4DBTests() {
     dispatch_liters_gross: 10000,
     final_receipt_exists: true,
     authoritative_final_liters: 10000.005,
+    final_receipt_timestamp: '2026-08-25T06:00:00.000Z',
     status: 'COMPLETED',
   });
   const attRB13 = deriveManagerAttention([logRB13]);
@@ -252,6 +262,7 @@ async function run4DBTests() {
     dispatch_liters_gross: 10000,
     final_receipt_exists: true,
     authoritative_final_liters: 10000,
+    final_receipt_timestamp: '2026-08-25T06:00:00.000Z',
     status: 'COMPLETED',
   });
   const attRB14 = deriveManagerAttention([logRB14]);
@@ -262,7 +273,7 @@ async function run4DBTests() {
   // 4. QUALITY DIFFERENCE & ZERO TOLERANCE (R-B15 to R-B19)
   // ================================================================================
 
-  // R-B15: LR difference +0.1 -> informational difference visible (no >= 0.5 threshold)
+  // R-B15: LR difference +0.1 -> informational difference visible (no arbitrary >= 0.5 threshold)
   const logRB15 = createMockLog({
     id: 315,
     portion_number: '1',
@@ -275,7 +286,7 @@ async function run4DBTests() {
   const hasQualDiff15 = attRB15.some((a) => a.type === 'QUALITY_DIFFERENCE' && a.visitId === 315);
   assert(hasQualDiff15, 'R-B15: LR difference +0.1 is visible (no arbitrary >= 0.5 threshold)');
 
-  // R-B16: Fat difference +0.05 -> informational difference visible (no >= 0.2 threshold)
+  // R-B16: Fat difference +0.05 -> informational difference visible (no arbitrary >= 0.2 threshold)
   const logRB16 = createMockLog({
     id: 316,
     portion_number: '1',
@@ -372,7 +383,7 @@ async function run4DBTests() {
   assert(bDate === '2026-08-23', 'R-B29: Business Date for 02:30 AM PKT event is 2026-08-23');
 
   // ================================================================================
-  // 7. FINAL RECEIPT TIMESTAMP & COMPLETED TODAY (R-B30 to R-B31)
+  // 7. FINAL RECEIPT TIMESTAMP & COMPLETED TODAY VIA FINAL RECEIPT BUSINESS DATE (R-B30 to R-B31)
   // ================================================================================
 
   const logRB30 = createMockLog({
@@ -385,6 +396,25 @@ async function run4DBTests() {
   assert(
     lcRB30.stages[6].eventTimestamp !== null && lcRB30.latestEventLabel === 'Final Receipt Posted',
     'R-B30: Authoritative receipt transaction timestamp is exposed and used as Final Receipt Date/Time'
+  );
+
+  // R-B31: Completed Today follows Final Receipt Business Date (not Dispatch Business Date)
+  const crossDateLog = createMockLog({
+    id: 531,
+    dispatch_date: '2026-08-24', // Dispatched yesterday
+    status: 'COMPLETED',
+    dispatch_liters_gross: 10000,
+    final_receipt_exists: true,
+    final_receipt_transaction_id: 999,
+    final_receipt_timestamp: '2026-08-25T05:00:00.000Z', // Finalized today (Business Date 2026-08-25)
+    authoritative_final_liters: 9850,
+  });
+  const overviewCrossDate = computeManagerOverview([crossDateLog], '2026-08-25', 'TODAY');
+  assert(
+    overviewCrossDate.dispatchedCount === 0 &&
+    overviewCrossDate.completedCount === 1 &&
+    overviewCrossDate.totalPhysicalReceivedLiters === 9850,
+    'R-B31: Vehicle dispatched yesterday but finalized today counts 0 in Dispatched Today, 1 in Completed Today, with 9,850 L Received'
   );
 
   // R-B32: Locked Weighbridge Labels

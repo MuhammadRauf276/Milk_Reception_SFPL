@@ -114,6 +114,13 @@ export const ManagerLifecycleTracker: React.FC<ManagerLifecycleTrackerProps> = (
                   {stage.detailText}
                 </span>
               )}
+
+              {/* Authoritative Milestone Event Date/Time */}
+              {stage.eventTimestamp && (
+                <span className="mt-0.5 text-[8.5px] font-mono text-slate-500 block leading-tight">
+                  {stage.eventTimestamp}
+                </span>
+              )}
             </div>
           );
         })}

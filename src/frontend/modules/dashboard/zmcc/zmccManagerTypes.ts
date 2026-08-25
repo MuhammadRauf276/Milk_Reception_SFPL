@@ -65,6 +65,7 @@ export interface VehicleVisitGroup {
   sourceName: string;
   procurementSourceId: string | null;
   businessDate: string;
+  finalReceiptBusinessDate: string | null;
   overallStatus: string;
   portions: MilkProcessLog[];
   primaryLog: MilkProcessLog;

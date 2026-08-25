@@ -10,6 +10,7 @@ import {
   OverviewDateRange,
 } from './zmccManagerTypes';
 import { formatOperationalDatetime, formatOperationalTime } from '@/lib/datetime-utils';
+import { getOperationalBusinessDate } from '@backend/core/business-day';
 
 /**
  * Group flat portion-level MilkProcessLog rows by visit ID
@@ -397,6 +398,11 @@ export function buildVehicleVisitGroups(logs: MilkProcessLog[]): VehicleVisitGro
     const authoritativePhysicalLiters =
       primary.authoritative_final_liters ?? (lifecycle.isComplete ? primary.computed_plant_liters ?? null : null);
 
+    let finalReceiptBusinessDate: string | null = null;
+    if (primary.final_receipt_exists && primary.final_receipt_timestamp) {
+      finalReceiptBusinessDate = getOperationalBusinessDate(new Date(primary.final_receipt_timestamp));
+    }
+
     groups.push({
       visitId,
       vehicleNumber: primary.vehicle_number,
@@ -404,6 +410,7 @@ export function buildVehicleVisitGroups(logs: MilkProcessLog[]): VehicleVisitGro
       sourceName: primary.zonal_contractor_name,
       procurementSourceId: null,
       businessDate: primary.dispatch_date || (primary.created_at ? primary.created_at.split('T')[0] : ''),
+      finalReceiptBusinessDate,
       overallStatus: primary.status,
       portions,
       primaryLog: primary,
@@ -429,7 +436,43 @@ export function buildVehicleVisitGroups(logs: MilkProcessLog[]): VehicleVisitGro
 }
 
 /**
- * Filter groups by date range using the server business date.
+ * Check if a target Business Date string belongs to the selected OverviewDateRange
+ */
+export function isBusinessDateInPeriod(
+  targetBusinessDate: string | null | undefined,
+  serverBusinessDate: string,
+  range: OverviewDateRange
+): boolean {
+  if (range === 'ALL') return true;
+  if (!targetBusinessDate) return false;
+
+  if (range === 'TODAY') {
+    return !serverBusinessDate || targetBusinessDate === serverBusinessDate;
+  }
+  if (range === 'YESTERDAY') {
+    if (!serverBusinessDate) return true;
+    const refDate = new Date(serverBusinessDate);
+    refDate.setDate(refDate.getDate() - 1);
+    const yStr = refDate.toISOString().split('T')[0];
+    return targetBusinessDate === yStr;
+  }
+  if (range === 'LAST_7') {
+    if (!serverBusinessDate) return true;
+    const diffMs = new Date(serverBusinessDate).getTime() - new Date(targetBusinessDate).getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 3600 * 24));
+    return diffDays >= 0 && diffDays < 7;
+  }
+  if (range === 'LAST_15') {
+    if (!serverBusinessDate) return true;
+    const diffMs = new Date(serverBusinessDate).getTime() - new Date(targetBusinessDate).getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 3600 * 24));
+    return diffDays >= 0 && diffDays < 15;
+  }
+  return true;
+}
+
+/**
+ * Filter groups by dispatch business date range using the server business date.
  * LAST_7 = exactly 7 Business Dates (today + 6 prior).
  * LAST_15 = exactly 15 Business Dates (today + 14 prior).
  */
@@ -438,41 +481,14 @@ export function filterGroupsByDateRange(
   serverBusinessDate: string,
   range: OverviewDateRange
 ): VehicleVisitGroup[] {
-  if (range === 'ALL') return groups;
-
-  return groups.filter((g) => {
-    const logDate = g.businessDate;
-    if (!logDate) return false;
-
-    if (range === 'TODAY') {
-      return !serverBusinessDate || logDate === serverBusinessDate;
-    }
-    if (range === 'YESTERDAY') {
-      if (!serverBusinessDate) return true;
-      const refDate = new Date(serverBusinessDate);
-      refDate.setDate(refDate.getDate() - 1);
-      const yStr = refDate.toISOString().split('T')[0];
-      return logDate === yStr;
-    }
-    if (range === 'LAST_7') {
-      if (!serverBusinessDate) return true;
-      const diffMs = new Date(serverBusinessDate).getTime() - new Date(logDate).getTime();
-      const diffDays = Math.floor(diffMs / (1000 * 3600 * 24));
-      return diffDays >= 0 && diffDays < 7;
-    }
-    if (range === 'LAST_15') {
-      if (!serverBusinessDate) return true;
-      const diffMs = new Date(serverBusinessDate).getTime() - new Date(logDate).getTime();
-      const diffDays = Math.floor(diffMs / (1000 * 3600 * 24));
-      return diffDays >= 0 && diffDays < 15;
-    }
-    return true;
-  });
+  return groups.filter((g) => isBusinessDateInPeriod(g.businessDate, serverBusinessDate, range));
 }
 
 /**
  * Compute the 4 primary operational KPI cards and secondary volume metrics.
- * Missing != Zero: An aggregate quantity is available ONLY when all required authoritative members are available.
+ * 1. Dispatched: Visits whose dispatch Business Date falls in period.
+ * 2. Completed: Authoritative final receipts whose Final Receipt Business Date falls in period.
+ * 3. Missing != Zero: An aggregate volume is available ONLY when all required members are available.
  */
 export function computeManagerOverview(
   logs: MilkProcessLog[],
@@ -480,21 +496,27 @@ export function computeManagerOverview(
   dateRange: OverviewDateRange
 ): ZMCCManagerOverviewMetrics {
   const allGroups = buildVehicleVisitGroups(logs);
-  const periodGroups = filterGroupsByDateRange(allGroups, serverBusinessDate, dateRange);
 
-  // A. Dispatched in period (distinct visits)
-  const dispatchedCount = periodGroups.length;
+  // A. Dispatched in period (distinct visits by dispatch business date)
+  const dispatchPeriodGroups = allGroups.filter((g) =>
+    isBusinessDateInPeriod(g.businessDate, serverBusinessDate, dateRange)
+  );
+  const dispatchedCount = dispatchPeriodGroups.length;
 
-  // B. Currently in plant (all active visits that entered and have not completed reception/exited)
+  // B. Currently in plant (all active visits currently inside factory)
   const currentlyInPlantCount = allGroups.filter((g) => g.lifecycle.isInPlant).length;
 
-  // C. Completed in period: authoritative Final Receipt exists in this period
-  const completedGroups = periodGroups.filter((g) => g.primaryLog.final_receipt_exists === true);
-  const completedCount = completedGroups.length;
+  // C. Completed in period: authoritative Final Receipt whose Final Receipt Business Date falls in period
+  const receiptPeriodGroups = allGroups.filter(
+    (g) =>
+      g.lifecycle.isComplete &&
+      isBusinessDateInPeriod(g.finalReceiptBusinessDate, serverBusinessDate, dateRange)
+  );
+  const completedCount = receiptPeriodGroups.length;
 
-  // D. Plant QA Rejected Portions count in period
+  // D. Plant QA Rejected Portions count for visits dispatched in period
   let rejectedPortionsCount = 0;
-  for (const g of periodGroups) {
+  for (const g of dispatchPeriodGroups) {
     for (const p of g.portions) {
       if (String(p.calculated_status).toUpperCase() === 'REJECTED') {
         rejectedPortionsCount++;
@@ -508,15 +530,13 @@ export function computeManagerOverview(
   let totalDispatch13TsLiters: number | null = 0;
   let totalPlant13TsLiters: number | null = 0;
 
-  if (periodGroups.length === 0) {
+  // Dispatch Side: aggregate from dispatchPeriodGroups
+  if (dispatchPeriodGroups.length === 0) {
     totalDispatchGrossLiters = 0;
-    totalPhysicalReceivedLiters = 0;
     totalDispatch13TsLiters = 0;
-    totalPlant13TsLiters = 0;
   } else {
-    // 1. Dispatch Gross Liters
     let sumGross = 0;
-    for (const g of periodGroups) {
+    for (const g of dispatchPeriodGroups) {
       if (g.totalDispatchGrossLiters == null) {
         totalDispatchGrossLiters = null;
         break;
@@ -527,26 +547,8 @@ export function computeManagerOverview(
       totalDispatchGrossLiters = Number(sumGross.toFixed(2));
     }
 
-    // 2. Physical Received Liters (evaluated for completed visits in period)
-    if (completedGroups.length === 0) {
-      totalPhysicalReceivedLiters = 0;
-    } else {
-      let sumRecv = 0;
-      for (const g of completedGroups) {
-        if (g.physicalReceivedLiters == null) {
-          totalPhysicalReceivedLiters = null;
-          break;
-        }
-        sumRecv += g.physicalReceivedLiters;
-      }
-      if (totalPhysicalReceivedLiters !== null) {
-        totalPhysicalReceivedLiters = Number(sumRecv.toFixed(2));
-      }
-    }
-
-    // 3. Dispatch 13% TS Liters
     let sumD13 = 0;
-    for (const g of periodGroups) {
+    for (const g of dispatchPeriodGroups) {
       if (g.totalDispatch13TsLiters == null) {
         totalDispatch13TsLiters = null;
         break;
@@ -556,22 +558,35 @@ export function computeManagerOverview(
     if (totalDispatch13TsLiters !== null) {
       totalDispatch13TsLiters = Number(sumD13.toFixed(2));
     }
+  }
 
-    // 4. Plant 13% TS Liters (for completed visits)
-    if (completedGroups.length === 0) {
-      totalPlant13TsLiters = 0;
-    } else {
-      let sumP13 = 0;
-      for (const g of completedGroups) {
-        if (g.plant13TsLiters == null) {
-          totalPlant13TsLiters = null;
-          break;
-        }
-        sumP13 += g.plant13TsLiters;
+  // Plant Receipt Side: aggregate from receiptPeriodGroups
+  if (receiptPeriodGroups.length === 0) {
+    totalPhysicalReceivedLiters = 0;
+    totalPlant13TsLiters = 0;
+  } else {
+    let sumRecv = 0;
+    for (const g of receiptPeriodGroups) {
+      if (g.physicalReceivedLiters == null) {
+        totalPhysicalReceivedLiters = null;
+        break;
       }
-      if (totalPlant13TsLiters !== null) {
-        totalPlant13TsLiters = Number(sumP13.toFixed(2));
+      sumRecv += g.physicalReceivedLiters;
+    }
+    if (totalPhysicalReceivedLiters !== null) {
+      totalPhysicalReceivedLiters = Number(sumRecv.toFixed(2));
+    }
+
+    let sumP13 = 0;
+    for (const g of receiptPeriodGroups) {
+      if (g.plant13TsLiters == null) {
+        totalPlant13TsLiters = null;
+        break;
       }
+      sumP13 += g.plant13TsLiters;
+    }
+    if (totalPlant13TsLiters !== null) {
+      totalPlant13TsLiters = Number(sumP13.toFixed(2));
     }
   }
 
@@ -643,8 +658,8 @@ export function deriveManagerAttention(logs: MilkProcessLog[]): ZMCCAttentionIte
         eventDate: g.primaryLog.dispatch_date || null,
         log: g.primaryLog,
         metrics: [
-          { label: 'First Weight', value: g.firstWeightKg != null ? `${g.firstWeightKg.toLocaleString()} KG` : '—' },
-          { label: 'Second Weight', value: `${g.secondWeightKg.toLocaleString()} KG` },
+          { label: 'First Weight (Loaded Vehicle)', value: g.firstWeightKg != null ? `${g.firstWeightKg.toLocaleString()} KG` : '—' },
+          { label: 'Second Weight (After Unloading)', value: `${g.secondWeightKg.toLocaleString()} KG` },
           { label: 'Net Milk Weight', value: g.netMilkWeightKg != null ? `${g.netMilkWeightKg.toLocaleString()} KG` : '—' },
         ],
       });
@@ -683,10 +698,12 @@ export function deriveManagerAttention(logs: MilkProcessLog[]): ZMCCAttentionIte
         p.dispatch_fat != null &&
         p.sampling_fat != null
       ) {
-        const lrDiff = Number((p.sampling_lr - p.dispatch_lr).toFixed(1));
-        const fatDiff = Number((p.sampling_fat - p.dispatch_fat).toFixed(2));
+        const rawLrDiff = p.sampling_lr - p.dispatch_lr;
+        const rawFatDiff = p.sampling_fat - p.dispatch_fat;
 
-        if (lrDiff !== 0 || fatDiff !== 0) {
+        if (Math.abs(rawLrDiff) > 1e-9 || Math.abs(rawFatDiff) > 1e-9) {
+          const lrDiff = Number(rawLrDiff.toFixed(2));
+          const fatDiff = Number(rawFatDiff.toFixed(2));
           items.push({
             id: `qual-diff-${g.visitId}-${p.portion_id || p.portion_number}`,
             type: 'QUALITY_DIFFERENCE',

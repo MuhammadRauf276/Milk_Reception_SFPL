@@ -114,52 +114,15 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({ curr
   );
 
   useEffect(() => {
-    fetchLogs(fromDate, toDate);
+    fetchLogs();
     const interval = setInterval(() => {
-      fetchLogs(fromDate, toDate);
+      fetchLogs();
     }, 15000);
     return () => clearInterval(interval);
-  }, [fetchLogs, fromDate, toDate]);
+  }, [fetchLogs]);
 
   // Scoped logs (server-side scoped, safe on client)
   const scopedLogs = logs;
-
-  // Filtered logs for summary cards by date range
-  const summaryScopedLogs = useMemo(() => {
-    return scopedLogs.filter((l) => {
-      const logDate = l.dispatch_date || (l.created_at ? l.created_at.split('T')[0] : '');
-      if (!logDate) return false;
-
-      if (summaryDateRange === 'TODAY') {
-        return !serverBusinessDate || logDate === serverBusinessDate;
-      }
-      if (summaryDateRange === 'YESTERDAY') {
-        if (!serverBusinessDate) return true;
-        const refDate = new Date(serverBusinessDate);
-        refDate.setDate(refDate.getDate() - 1);
-        const yesterdayStr = refDate.toISOString().split('T')[0];
-        return logDate === yesterdayStr;
-      }
-      if (summaryDateRange === 'LAST_7') {
-        if (!serverBusinessDate) return true;
-        const diffMs = new Date(serverBusinessDate).getTime() - new Date(logDate).getTime();
-        const diffDays = Math.floor(diffMs / (1000 * 3600 * 24));
-        return diffDays >= 0 && diffDays <= 7;
-      }
-      if (summaryDateRange === 'LAST_15') {
-        if (!serverBusinessDate) return true;
-        const diffMs = new Date(serverBusinessDate).getTime() - new Date(logDate).getTime();
-        const diffDays = Math.floor(diffMs / (1000 * 3600 * 24));
-        return diffDays >= 0 && diffDays <= 15;
-      }
-      return true;
-    });
-  }, [scopedLogs, summaryDateRange, serverBusinessDate]);
-
-  // Analytics for the source
-  const zonalAnalytics = useMemo(() => {
-    return computeAuthoritativeZonalAnalytics(summaryScopedLogs, assignedSourceName);
-  }, [summaryScopedLogs, assignedSourceName]);
 
   // Filtered logs for tables
   const filteredLogs = useMemo(() => {
@@ -176,32 +139,12 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({ curr
     });
   }, [scopedLogs, searchQuery]);
 
-  // Distinct pipeline counts
+  // Distinct pipeline count for sidebar
   const activeInPlantCount = useMemo(() => {
     const inPlantStatuses = ['GATE_IN', 'IN_QA', 'QA_ACCEPTED', 'WEIGHED_IN', 'UNLOADING', 'UNLOADED', 'READY_FOR_TARE', 'TARE_WEIGHED'];
     const matching = scopedLogs.filter((l) => inPlantStatuses.includes(String(l.status).toUpperCase()));
     return new Set(matching.map((l) => l.vehicle_number)).size;
   }, [scopedLogs]);
-
-  const qaTestingQueueCount = useMemo(() => {
-    const qaStatuses = ['GATE_IN', 'IN_QA'];
-    const matching = scopedLogs.filter((l) => qaStatuses.includes(String(l.status).toUpperCase()));
-    return new Set(matching.map((l) => l.vehicle_number)).size;
-  }, [scopedLogs]);
-
-  const weighbridgeQueueCount = useMemo(() => {
-    const wbStatuses = ['QA_ACCEPTED', 'UNLOADED', 'READY_FOR_TARE'];
-    const matching = scopedLogs.filter((l) => wbStatuses.includes(String(l.status).toUpperCase()));
-    return new Set(matching.map((l) => l.vehicle_number)).size;
-  }, [scopedLogs]);
-
-  const completedTodayCount = useMemo(() => {
-    const completedStatuses = ['READY_FOR_GATE_EXIT', 'COMPLETED', 'GATE_OUT'];
-    const matching = scopedLogs.filter(
-      (l) => completedStatuses.includes(String(l.status).toUpperCase()) && (!serverBusinessDate || l.dispatch_date === serverBusinessDate)
-    );
-    return new Set(matching.map((l) => l.vehicle_number)).size;
-  }, [scopedLogs, serverBusinessDate]);
 
   return (
     <div className="min-h-screen w-screen overflow-x-hidden bg-[#FDFBF9] text-[#111311] flex flex-row font-sans">
