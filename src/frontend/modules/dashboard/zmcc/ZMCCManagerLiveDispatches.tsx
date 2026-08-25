@@ -330,6 +330,11 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
                       <span className="font-bold text-[#1E3A8A] block truncate" title={lc.latestEventLabel}>
                         {lc.latestEventLabel}
                       </span>
+                      {lc.latestEventTimestamp && (
+                        <span className="text-[9px] text-slate-500 font-normal block leading-tight mt-0.5">
+                          {lc.latestEventTimestamp}
+                        </span>
+                      )}
                     </div>
                   </div>
 

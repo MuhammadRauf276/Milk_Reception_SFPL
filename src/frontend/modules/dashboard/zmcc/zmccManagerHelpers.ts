@@ -8,6 +8,7 @@ import {
   ZMCCAttentionItem,
   ZMCCManagerOverviewMetrics,
   OverviewDateRange,
+  CompletedReceiptQuantityComparison,
 } from './zmccManagerTypes';
 import { formatOperationalDatetime, formatOperationalTime } from '@/lib/datetime-utils';
 import { getOperationalBusinessDate } from '@backend/core/business-day';
@@ -235,6 +236,9 @@ export function deriveManagerLifecycle(portions: MilkProcessLog[]): ManagerLifec
       eventTimestamp: primary.unloading_start_timestamp
         ? formatOperationalDatetime(primary.unloading_start_timestamp)
         : primary.reception_start_time || null,
+      eventTimestampEnd: primary.unloading_end_timestamp
+        ? formatOperationalDatetime(primary.unloading_end_timestamp)
+        : primary.reception_end_time || null,
     },
     {
       id: 'SECOND_WEIGHT',
@@ -485,10 +489,88 @@ export function filterGroupsByDateRange(
 }
 
 /**
- * Compute the 4 primary operational KPI cards and secondary volume metrics.
+ * Compute the paired quantity comparison across EXACTLY the same completed receipt vehicles.
+ * Population: receiptPeriodGroups (vehicles whose Final Receipt Business Date falls in period).
+ * Complete paired aggregate rule:
+ * - If receiptPeriodGroups is empty: all paired aggregates are null (never 0 L).
+ * - For all visits: require BOTH Dispatch Gross Liters and Final Physical Received Liters.
+ * - If ANY member lacks either side: paired aggregates and difference are null.
+ */
+export function computeCompletedReceiptQuantityComparison(
+  receiptPeriodGroups: VehicleVisitGroup[]
+): CompletedReceiptQuantityComparison {
+  if (receiptPeriodGroups.length === 0) {
+    return {
+      comparableVisitCount: 0,
+      dispatchGrossLiters: null,
+      finalPhysicalReceivedLiters: null,
+      differenceLiters: null,
+      quantityDifferenceLiters: null,
+      dispatch13TsLiters: null,
+      plant13TsLiters: null,
+      tsDifferenceLiters: null,
+    };
+  }
+
+  // Check physical liters complete population
+  let sumDispatchGross = 0;
+  let sumFinalReceived = 0;
+  let allPhysicalPresent = true;
+
+  for (const g of receiptPeriodGroups) {
+    if (g.totalDispatchGrossLiters == null || g.physicalReceivedLiters == null) {
+      allPhysicalPresent = false;
+      break;
+    }
+    sumDispatchGross += g.totalDispatchGrossLiters;
+    sumFinalReceived += g.physicalReceivedLiters;
+  }
+
+  // Check 13% TS complete population
+  let sumDispatch13Ts = 0;
+  let sumPlant13Ts = 0;
+  let all13TsPresent = true;
+
+  for (const g of receiptPeriodGroups) {
+    if (g.totalDispatch13TsLiters == null || g.plant13TsLiters == null) {
+      all13TsPresent = false;
+      break;
+    }
+    sumDispatch13Ts += g.totalDispatch13TsLiters;
+    sumPlant13Ts += g.plant13TsLiters;
+  }
+
+  const dispatchGrossLiters = allPhysicalPresent ? Number(sumDispatchGross.toFixed(2)) : null;
+  const finalPhysicalReceivedLiters = allPhysicalPresent ? Number(sumFinalReceived.toFixed(2)) : null;
+  const differenceLiters =
+    dispatchGrossLiters !== null && finalPhysicalReceivedLiters !== null
+      ? Number((finalPhysicalReceivedLiters - dispatchGrossLiters).toFixed(2))
+      : null;
+
+  const dispatch13TsLiters = all13TsPresent ? Number(sumDispatch13Ts.toFixed(2)) : null;
+  const plant13TsLiters = all13TsPresent ? Number(sumPlant13Ts.toFixed(2)) : null;
+  const tsDifferenceLiters =
+    dispatch13TsLiters !== null && plant13TsLiters !== null
+      ? Number((plant13TsLiters - dispatch13TsLiters).toFixed(2))
+      : null;
+
+  return {
+    comparableVisitCount: receiptPeriodGroups.length,
+    dispatchGrossLiters,
+    finalPhysicalReceivedLiters,
+    differenceLiters,
+    quantityDifferenceLiters: differenceLiters,
+    dispatch13TsLiters,
+    plant13TsLiters,
+    tsDifferenceLiters,
+  };
+}
+
+/**
+ * Compute the 4 primary operational KPI cards and paired volume metrics.
  * 1. Dispatched: Visits whose dispatch Business Date falls in period.
  * 2. Completed: Authoritative final receipts whose Final Receipt Business Date falls in period.
- * 3. Missing != Zero: An aggregate volume is available ONLY when all required members are available.
+ * 3. Paired Quantity Comparison: Uses receiptPeriodGroups for BOTH dispatch and received sides.
  */
 export function computeManagerOverview(
   logs: MilkProcessLog[],
@@ -524,99 +606,36 @@ export function computeManagerOverview(
     }
   }
 
-  // Secondary Volume & 13% TS (Missing != Zero rule)
-  let totalDispatchGrossLiters: number | null = 0;
-  let totalPhysicalReceivedLiters: number | null = 0;
-  let totalDispatch13TsLiters: number | null = 0;
-  let totalPlant13TsLiters: number | null = 0;
-
-  // Dispatch Side: aggregate from dispatchPeriodGroups
-  if (dispatchPeriodGroups.length === 0) {
-    totalDispatchGrossLiters = 0;
-    totalDispatch13TsLiters = 0;
-  } else {
-    let sumGross = 0;
-    for (const g of dispatchPeriodGroups) {
-      if (g.totalDispatchGrossLiters == null) {
-        totalDispatchGrossLiters = null;
-        break;
-      }
-      sumGross += g.totalDispatchGrossLiters;
-    }
-    if (totalDispatchGrossLiters !== null) {
-      totalDispatchGrossLiters = Number(sumGross.toFixed(2));
-    }
-
-    let sumD13 = 0;
-    for (const g of dispatchPeriodGroups) {
-      if (g.totalDispatch13TsLiters == null) {
-        totalDispatch13TsLiters = null;
-        break;
-      }
-      sumD13 += g.totalDispatch13TsLiters;
-    }
-    if (totalDispatch13TsLiters !== null) {
-      totalDispatch13TsLiters = Number(sumD13.toFixed(2));
-    }
-  }
-
-  // Plant Receipt Side: aggregate from receiptPeriodGroups
-  if (receiptPeriodGroups.length === 0) {
-    totalPhysicalReceivedLiters = 0;
-    totalPlant13TsLiters = 0;
-  } else {
-    let sumRecv = 0;
-    for (const g of receiptPeriodGroups) {
-      if (g.physicalReceivedLiters == null) {
-        totalPhysicalReceivedLiters = null;
-        break;
-      }
-      sumRecv += g.physicalReceivedLiters;
-    }
-    if (totalPhysicalReceivedLiters !== null) {
-      totalPhysicalReceivedLiters = Number(sumRecv.toFixed(2));
-    }
-
-    let sumP13 = 0;
-    for (const g of receiptPeriodGroups) {
-      if (g.plant13TsLiters == null) {
-        totalPlant13TsLiters = null;
-        break;
-      }
-      sumP13 += g.plant13TsLiters;
-    }
-    if (totalPlant13TsLiters !== null) {
-      totalPlant13TsLiters = Number(sumP13.toFixed(2));
-    }
-  }
-
-  const quantityDifferenceLiters =
-    totalDispatchGrossLiters !== null && totalPhysicalReceivedLiters !== null
-      ? Number((totalPhysicalReceivedLiters - totalDispatchGrossLiters).toFixed(2))
-      : null;
-
-  const tsDifferenceLiters =
-    totalDispatch13TsLiters !== null && totalPlant13TsLiters !== null
-      ? Number((totalPlant13TsLiters - totalDispatch13TsLiters).toFixed(2))
-      : null;
+  // E. Paired Quantity and 13% TS Comparison (Across EXACT same receiptPeriodGroups)
+  const paired = computeCompletedReceiptQuantityComparison(receiptPeriodGroups);
 
   return {
     dispatchedCount,
     currentlyInPlantCount,
     completedCount,
     rejectedPortionsCount,
-    totalDispatchGrossLiters,
-    totalPhysicalReceivedLiters,
-    quantityDifferenceLiters,
-    totalDispatch13TsLiters,
-    totalPlant13TsLiters,
-    tsDifferenceLiters,
+    totalDispatchGrossLiters: paired.dispatchGrossLiters,
+    totalPhysicalReceivedLiters: paired.finalPhysicalReceivedLiters,
+    quantityDifferenceLiters: paired.differenceLiters,
+    totalDispatch13TsLiters: paired.dispatch13TsLiters,
+    totalPlant13TsLiters: paired.plant13TsLiters,
+    tsDifferenceLiters: paired.tsDifferenceLiters,
   };
 }
 
 /**
+ * Format a non-zero metric difference with sufficient precision so small non-zeros are not displayed as "0".
+ */
+export function formatMetricDiff(diff: number): string {
+  if (diff === 0) return '0';
+  // Strip trailing zeros after up to 4 decimals of precision
+  const formatted = Number(diff.toFixed(4)).toString();
+  return diff > 0 ? `+${formatted}` : formatted;
+}
+
+/**
  * Derive manager attention items purely from read-model data.
- * Zero tolerances: Exact non-zero differences are shown; zero differences produce no attention item.
+ * Zero tolerances: Exact non-zero differences are shown; exact zero differences produce no attention item.
  */
 export function deriveManagerAttention(logs: MilkProcessLog[]): ZMCCAttentionItem[] {
   const groups = buildVehicleVisitGroups(logs);
@@ -666,7 +685,7 @@ export function deriveManagerAttention(logs: MilkProcessLog[]): ZMCCAttentionIte
     }
 
     // 3. Quantity Difference (Completed visit with comparable dispatch and received liters)
-    // Convention: Final Physical Received Liters - Dispatch Gross Liters. NO tolerance.
+    // Convention: Final Physical Received Liters - Dispatch Gross Liters. NO tolerance, NO epsilon.
     if (g.lifecycle.isComplete && g.totalDispatchGrossLiters != null && g.physicalReceivedLiters != null) {
       const rawDiff = g.physicalReceivedLiters - g.totalDispatchGrossLiters;
       const diff = Number(rawDiff.toFixed(2));
@@ -690,7 +709,7 @@ export function deriveManagerAttention(logs: MilkProcessLog[]): ZMCCAttentionIte
     }
 
     // 4. Quality Difference (Portion-level Dispatch vs Plant LR / Fat difference)
-    // Convention: Plant LR - Dispatch LR, Plant Fat - Dispatch Fat. NO tolerance.
+    // Convention: Plant LR - Dispatch LR, Plant Fat - Dispatch Fat. EXACT zero check, NO epsilon.
     for (const p of g.portions) {
       if (
         p.dispatch_lr != null &&
@@ -701,9 +720,9 @@ export function deriveManagerAttention(logs: MilkProcessLog[]): ZMCCAttentionIte
         const rawLrDiff = p.sampling_lr - p.dispatch_lr;
         const rawFatDiff = p.sampling_fat - p.dispatch_fat;
 
-        if (Math.abs(rawLrDiff) > 1e-9 || Math.abs(rawFatDiff) > 1e-9) {
-          const lrDiff = Number(rawLrDiff.toFixed(2));
-          const fatDiff = Number(rawFatDiff.toFixed(2));
+        if (rawLrDiff !== 0 || rawFatDiff !== 0) {
+          const lrDiffStr = formatMetricDiff(rawLrDiff);
+          const fatDiffStr = formatMetricDiff(rawFatDiff);
           items.push({
             id: `qual-diff-${g.visitId}-${p.portion_id || p.portion_number}`,
             type: 'QUALITY_DIFFERENCE',
@@ -715,8 +734,8 @@ export function deriveManagerAttention(logs: MilkProcessLog[]): ZMCCAttentionIte
             eventDate: p.dispatch_date || null,
             log: p,
             metrics: [
-              { label: 'LR (Disp / Plant)', value: `${p.dispatch_lr} / ${p.sampling_lr} (${lrDiff > 0 ? `+${lrDiff}` : lrDiff})` },
-              { label: 'Fat (Disp / Plant)', value: `${p.dispatch_fat}% / ${p.sampling_fat}% (${fatDiff > 0 ? `+${fatDiff}` : fatDiff}%)` },
+              { label: 'LR (Disp / Plant)', value: `${p.dispatch_lr} / ${p.sampling_lr} (${lrDiffStr})` },
+              { label: 'Fat (Disp / Plant)', value: `${p.dispatch_fat}% / ${p.sampling_fat}% (${fatDiffStr}%)` },
             ],
           });
         }

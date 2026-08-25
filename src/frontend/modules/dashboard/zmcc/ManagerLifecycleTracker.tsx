@@ -116,10 +116,25 @@ export const ManagerLifecycleTracker: React.FC<ManagerLifecycleTrackerProps> = (
               )}
 
               {/* Authoritative Milestone Event Date/Time */}
-              {stage.eventTimestamp && (
-                <span className="mt-0.5 text-[8.5px] font-mono text-slate-500 block leading-tight">
-                  {stage.eventTimestamp}
-                </span>
+              {stage.id === 'UNLOADING' ? (
+                <div className="mt-0.5 space-y-0.5">
+                  {stage.eventTimestamp && (
+                    <span className="text-[8.5px] font-mono text-slate-500 block leading-tight">
+                      Started: {stage.eventTimestamp}
+                    </span>
+                  )}
+                  {stage.eventTimestampEnd && (
+                    <span className="text-[8.5px] font-mono text-slate-500 block leading-tight">
+                      Completed: {stage.eventTimestampEnd}
+                    </span>
+                  )}
+                </div>
+              ) : (
+                stage.eventTimestamp && (
+                  <span className="mt-0.5 text-[8.5px] font-mono text-slate-500 block leading-tight">
+                    {stage.eventTimestamp}
+                  </span>
+                )
               )}
             </div>
           );

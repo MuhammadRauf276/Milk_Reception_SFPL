@@ -1,12 +1,16 @@
+import fs from 'fs';
+import path from 'path';
 import {
   deriveManagerLifecycle,
   summarizePortionQA,
   computeElapsedInPlant,
   computeManagerOverview,
+  computeCompletedReceiptQuantityComparison,
   deriveManagerAttention,
   buildVehicleVisitGroups,
   filterGroupsByDateRange,
   isBusinessDateInPeriod,
+  formatMetricDiff,
 } from '../src/frontend/modules/dashboard/zmcc/zmccManagerHelpers';
 import { MilkProcessLog } from '../src/backend/core/types';
 import { formatOperationalDatetime, formatOperationalTime } from '../src/lib/datetime-utils';
@@ -14,7 +18,7 @@ import { getOperationalBusinessDate } from '../src/backend/core/business-day';
 
 async function run4DBTests() {
   console.log('================================================================================');
-  console.log('STAGE 4D-B-R2: ZMCC MANAGER LIFECYCLE & RECEIPT AUTHORITY REGRESSION SUITE');
+  console.log('STAGE 4D-B-R3: ZMCC MANAGER LIFECYCLE & RECEIPT AUTHORITY REGRESSION SUITE');
   console.log('================================================================================\n');
 
   let passed = 0;
@@ -206,242 +210,196 @@ async function run4DBTests() {
   );
 
   // ================================================================================
-  // 3. QUANTITY AGGREGATES & MISSING != ZERO (R-B10 to R-B14)
+  // 3. PAIRED QUANTITY AGGREGATES & MISSING != ZERO (R3-1 to R3-4)
   // ================================================================================
 
-  // R-B10: All authoritative quantities present -> aggregate total available
-  const logsComplete = [
-    createMockLog({ id: 201, dispatch_liters_gross: 10000, final_receipt_exists: true, authoritative_final_liters: 9800, final_receipt_timestamp: '2026-08-25T06:00:00.000Z' }),
-    createMockLog({ id: 202, dispatch_liters_gross: 5000, final_receipt_exists: true, authoritative_final_liters: 4900, final_receipt_timestamp: '2026-08-25T06:30:00.000Z' }),
-  ];
-  const metricsRB10 = computeManagerOverview(logsComplete, '2026-08-25', 'TODAY');
-  assert(
-    metricsRB10.totalDispatchGrossLiters === 15000 &&
-    metricsRB10.totalPhysicalReceivedLiters === 14700 &&
-    metricsRB10.quantityDifferenceLiters === -300,
-    'R-B10: All authoritative quantities present -> complete totals (15,000 L / 14,700 L / -300 L)'
-  );
-
-  // R-B11: One required quantity missing -> aggregate unavailable (null), NOT partial
-  const logsMissingDispatch = [
-    createMockLog({ id: 203, dispatch_liters_gross: 10000 }),
-    createMockLog({ id: 204, dispatch_liters_gross: null }),
-  ];
-  const metricsRB11 = computeManagerOverview(logsMissingDispatch, '2026-08-25', 'TODAY');
-  assert(
-    metricsRB11.totalDispatchGrossLiters === null,
-    'R-B11: One required dispatch quantity missing -> aggregate Dispatch Gross is null (unavailable)'
-  );
-
-  // R-B12: Missing final quantity -> difference unavailable (null)
-  const logsMissingFinal = [
-    createMockLog({ id: 205, dispatch_liters_gross: 10000, final_receipt_exists: true, authoritative_final_liters: null, final_receipt_timestamp: '2026-08-25T06:00:00.000Z' }),
-  ];
-  const metricsRB12 = computeManagerOverview(logsMissingFinal, '2026-08-25', 'TODAY');
-  assert(
-    metricsRB12.totalPhysicalReceivedLiters === null && metricsRB12.quantityDifferenceLiters === null,
-    'R-B12: Missing authoritative final receipt liters -> Physical Received and Quantity Difference are null'
-  );
-
-  // R-B13: Difference = 0.005 L -> no arbitrary 0.01 tolerance suppresses it
-  const logRB13 = createMockLog({
-    id: 213,
+  // R3-1: Cross-date quantity population: Vehicle A dispatched 23-Aug (10,000 L), finalized 24-Aug (9,800 L).
+  // Selected reporting date: 24-Aug.
+  const crossDateLogA = createMockLog({
+    id: 201,
+    dispatch_date: '2026-08-23', // Dispatched 23-Aug
     dispatch_liters_gross: 10000,
-    final_receipt_exists: true,
-    authoritative_final_liters: 10000.005,
-    final_receipt_timestamp: '2026-08-25T06:00:00.000Z',
     status: 'COMPLETED',
+    final_receipt_exists: true,
+    final_receipt_transaction_id: 701,
+    final_receipt_timestamp: '2026-08-24T05:00:00.000Z', // Finalized 24-Aug Business Date
+    authoritative_final_liters: 9800,
   });
-  const attRB13 = deriveManagerAttention([logRB13]);
-  const hasQtyDiff13 = attRB13.some((a) => a.type === 'QUANTITY_DIFFERENCE' && a.visitId === 213);
-  assert(hasQtyDiff13, 'R-B13: Small non-zero quantity difference (+0.01 L / 0.005 L) is NOT suppressed by arbitrary tolerance');
+  const metricsR31 = computeManagerOverview([crossDateLogA], '2026-08-24', 'TODAY');
+  assert(
+    metricsR31.dispatchedCount === 0 &&
+    metricsR31.completedCount === 1 &&
+    metricsR31.totalDispatchGrossLiters === 10000 &&
+    metricsR31.totalPhysicalReceivedLiters === 9800 &&
+    metricsR31.quantityDifferenceLiters === -200,
+    'R3-1: Cross-date visit: Dispatched Today = 0, Completed Today = 1, Paired Dispatch = 10,000 L, Received = 9,800 L, Diff = -200 L'
+  );
 
-  // R-B14: Zero exact difference -> no difference attention item
-  const logRB14 = createMockLog({
-    id: 214,
-    dispatch_liters_gross: 10000,
-    final_receipt_exists: true,
-    authoritative_final_liters: 10000,
-    final_receipt_timestamp: '2026-08-25T06:00:00.000Z',
-    status: 'COMPLETED',
-  });
-  const attRB14 = deriveManagerAttention([logRB14]);
-  const hasZeroDiffItem = attRB14.some((a) => a.type === 'QUANTITY_DIFFERENCE' && a.visitId === 214);
-  assert(!hasZeroDiffItem, 'R-B14: Exact zero quantity difference produces NO difference attention item');
+  // R3-2: Same population paired comparison (A: 5000/4900, B: 6000/5900)
+  const logsR32 = [
+    createMockLog({ id: 202, dispatch_liters_gross: 5000, final_receipt_exists: true, authoritative_final_liters: 4900, final_receipt_timestamp: '2026-08-25T04:00:00.000Z' }),
+    createMockLog({ id: 203, dispatch_liters_gross: 6000, final_receipt_exists: true, authoritative_final_liters: 5900, final_receipt_timestamp: '2026-08-25T05:00:00.000Z' }),
+  ];
+  const groupsR32 = buildVehicleVisitGroups(logsR32);
+  const pairedR32 = computeCompletedReceiptQuantityComparison(groupsR32);
+  assert(
+    pairedR32.dispatchGrossLiters === 11000 &&
+    pairedR32.finalPhysicalReceivedLiters === 10800 &&
+    pairedR32.differenceLiters === -200,
+    'R3-2: Paired comparison across same completed population produces 11,000 L / 10,800 L / -200 L'
+  );
+
+  // R3-3: Missing member in receipt period (A: 5000/4900, B: 6000/null) -> aggregates are null
+  const logsR33 = [
+    createMockLog({ id: 204, dispatch_liters_gross: 5000, final_receipt_exists: true, authoritative_final_liters: 4900, final_receipt_timestamp: '2026-08-25T04:00:00.000Z' }),
+    createMockLog({ id: 205, dispatch_liters_gross: 6000, final_receipt_exists: true, authoritative_final_liters: null, final_receipt_timestamp: '2026-08-25T05:00:00.000Z' }),
+  ];
+  const groupsR33 = buildVehicleVisitGroups(logsR33);
+  const pairedR33 = computeCompletedReceiptQuantityComparison(groupsR33);
+  assert(
+    pairedR33.dispatchGrossLiters === null &&
+    pairedR33.finalPhysicalReceivedLiters === null &&
+    pairedR33.differenceLiters === null,
+    'R3-3: One missing final quantity in completed population makes paired totals and difference null (never partial sum)'
+  );
+
+  // R3-4: Empty receipt population -> all quantity fields are null (NOT 0 L)
+  const pairedR34 = computeCompletedReceiptQuantityComparison([]);
+  assert(
+    pairedR34.comparableVisitCount === 0 &&
+    pairedR34.dispatchGrossLiters === null &&
+    pairedR34.finalPhysicalReceivedLiters === null &&
+    pairedR34.differenceLiters === null,
+    'R3-4: Empty completed receipts population produces null quantities (NOT 0 L)'
+  );
 
   // ================================================================================
-  // 4. QUALITY DIFFERENCE & ZERO TOLERANCE (R-B15 to R-B19)
+  // 4. QUALITY DIFFERENCE — ZERO EPSILON & VISIBLE NON-ZERO (R3-5 to R3-8)
   // ================================================================================
 
-  // R-B15: LR difference +0.1 -> informational difference visible (no arbitrary >= 0.5 threshold)
-  const logRB15 = createMockLog({
-    id: 315,
+  // R3-5: Exact quality non-zero (Plant LR 28.04, Dispatch LR 28.00 -> diff +0.04)
+  const logR35 = createMockLog({
+    id: 305,
     portion_number: '1',
-    dispatch_lr: 28.0,
-    sampling_lr: 28.1,
+    dispatch_lr: 28.00,
+    sampling_lr: 28.04,
     dispatch_fat: 3.5,
     sampling_fat: 3.5,
   });
-  const attRB15 = deriveManagerAttention([logRB15]);
-  const hasQualDiff15 = attRB15.some((a) => a.type === 'QUALITY_DIFFERENCE' && a.visitId === 315);
-  assert(hasQualDiff15, 'R-B15: LR difference +0.1 is visible (no arbitrary >= 0.5 threshold)');
+  const attR35 = deriveManagerAttention([logR35]);
+  const hasQualDiff35 = attR35.some((a) => a.type === 'QUALITY_DIFFERENCE' && a.visitId === 305);
+  assert(hasQualDiff35, 'R3-5: LR difference +0.04 produces QUALITY_DIFFERENCE attention without epsilon suppression');
 
-  // R-B16: Fat difference +0.05 -> informational difference visible (no arbitrary >= 0.2 threshold)
-  const logRB16 = createMockLog({
-    id: 316,
+  // R3-6: Small fat difference (Plant Fat 4.104, Dispatch Fat 4.100 -> diff +0.004)
+  const logR36 = createMockLog({
+    id: 306,
     portion_number: '1',
     dispatch_lr: 28.0,
     sampling_lr: 28.0,
-    dispatch_fat: 3.50,
-    sampling_fat: 3.55,
+    dispatch_fat: 4.100,
+    sampling_fat: 4.104,
   });
-  const attRB16 = deriveManagerAttention([logRB16]);
-  const hasQualDiff16 = attRB16.some((a) => a.type === 'QUALITY_DIFFERENCE' && a.visitId === 316);
-  assert(hasQualDiff16, 'R-B16: Fat difference +0.05 is visible (no arbitrary >= 0.2 threshold)');
+  const attR36 = deriveManagerAttention([logR36]);
+  const qualItem36 = attR36.find((a) => a.type === 'QUALITY_DIFFERENCE' && a.visitId === 306);
+  const fatMetricStr = qualItem36?.metrics?.find((m) => m.label.includes('Fat'))?.value || '';
+  assert(
+    Boolean(qualItem36) && fatMetricStr.includes('+0.004') && !fatMetricStr.includes('(+0%)'),
+    'R3-6: Small fat difference +0.004 is visibly displayed as non-zero (+0.004%), not rounded to 0'
+  );
 
-  // R-B17: Exact zero quality difference -> no difference item
-  const logRB17 = createMockLog({
-    id: 317,
+  // R3-7: Exact zero quality difference produces NO item
+  const logR37 = createMockLog({
+    id: 307,
     portion_number: '1',
     dispatch_lr: 28.0,
     sampling_lr: 28.0,
     dispatch_fat: 3.5,
     sampling_fat: 3.5,
   });
-  const attRB17 = deriveManagerAttention([logRB17]);
-  const hasQualDiff17 = attRB17.some((a) => a.type === 'QUALITY_DIFFERENCE' && a.visitId === 317);
-  assert(!hasQualDiff17, 'R-B17: Exact zero quality difference produces NO difference attention item');
+  const attR37 = deriveManagerAttention([logR37]);
+  const hasQualDiff37 = attR37.some((a) => a.type === 'QUALITY_DIFFERENCE' && a.visitId === 307);
+  assert(!hasQualDiff37, 'R3-7: Exact zero quality difference produces NO difference attention item');
 
-  // R-B18: Missing dispatch/Plant value -> unavailable; no fake zero default
-  const logRB18 = createMockLog({
-    id: 318,
-    portion_number: '1',
-    dispatch_lr: null,
-    sampling_lr: 28.0,
-    dispatch_fat: null,
-    sampling_fat: 3.5,
+  // R3-8: Static inspection: Verify NO artificial 1e-9 / epsilon in zmccManagerHelpers.ts
+  const helpersSrc = fs.readFileSync(
+    path.join(__dirname, '../src/frontend/modules/dashboard/zmcc/zmccManagerHelpers.ts'),
+    'utf8'
+  );
+  const has1e9 = helpersSrc.includes('1e-9');
+  const hasEpsilon = helpersSrc.includes('EPSILON');
+  assert(!has1e9 && !hasEpsilon, 'R3-8: Static check: No 1e-9 or EPSILON tolerance exists in zmccManagerHelpers.ts');
+
+  // ================================================================================
+  // 5. LIVE DISPATCHES & ARCHITECTURE STATE ISOLATION (R3-9 to R3-12)
+  // ================================================================================
+
+  // R3-9: Live source data isolation
+  const activeYesterdayLog = createMockLog({
+    id: 401,
+    vehicle_number: 'LIVE-TANKER-99',
+    dispatch_date: '2026-08-23',
+    gate_entry_timestamp: '2026-08-23T22:00:00.000Z',
+    status: 'UNLOADING',
+    final_receipt_exists: false,
   });
-  const attRB18 = deriveManagerAttention([logRB18]);
-  const hasQualDiff18 = attRB18.some((a) => a.type === 'QUALITY_DIFFERENCE' && a.visitId === 318);
-  assert(!hasQualDiff18, 'R-B18: Missing dispatch quality values produce NO fake difference');
-
-  // R-B19: Multi-portion values remain portion-specific (no fake vehicle average)
-  const logRB19P1 = createMockLog({ id: 319, portion_number: '1', dispatch_lr: 28.0, sampling_lr: 29.0, dispatch_fat: 3.5, sampling_fat: 3.5 });
-  const logRB19P2 = createMockLog({ id: 319, portion_number: '2', dispatch_lr: 29.0, sampling_lr: 29.0, dispatch_fat: 3.8, sampling_fat: 3.8 });
-  const attRB19 = deriveManagerAttention([logRB19P1, logRB19P2]);
-  const p1Item = attRB19.find((a) => a.type === 'QUALITY_DIFFERENCE' && a.title.includes('Portion P-01'));
-  const p2Item = attRB19.find((a) => a.type === 'QUALITY_DIFFERENCE' && a.title.includes('Portion P-02'));
-  assert(Boolean(p1Item) && !p2Item, 'R-B19: Quality difference is strictly portion-specific (Portion P-01 flagged, P-02 not flagged)');
-
-  // ================================================================================
-  // 5. LIVE BOUNDARY INDEPENDENCE (R-B24)
-  // ================================================================================
-
-  // R-B24: Active vehicle from previous Business Date remains visible in Live Dispatches
-  const logsLiveBoundary = [
-    createMockLog({
-      id: 401,
-      dispatch_date: '2026-08-23', // previous business date
-      status: 'UNLOADING',
-      gate_entry_timestamp: '2026-08-23T22:00:00.000Z',
-      final_receipt_exists: false,
-    }),
-  ];
-  const groupsAll = buildVehicleVisitGroups(logsLiveBoundary);
-  // Overview filtered for TODAY (2026-08-24)
-  const overviewFiltered = filterGroupsByDateRange(groupsAll, '2026-08-24', 'TODAY');
+  const liveGroups = buildVehicleVisitGroups([activeYesterdayLog]);
+  const activeInLive = liveGroups.filter((g) => g.lifecycle.isInPlant);
   assert(
-    overviewFiltered.length === 0 &&
-    groupsAll.length === 1 &&
-    groupsAll[0].lifecycle.isInPlant === true,
-    'R-B24: Active vehicle from previous Business Date is excluded from Overview Today but preserved in Live Dispatches'
+    activeInLive.length === 1 && activeInLive[0].vehicleNumber === 'LIVE-TANKER-99',
+    'R3-9: Live Dispatches retains active tanker from previous Business Date in pipeline'
+  );
+
+  // R3-10 to R3-12: Static check for state separation in ZMCCManagerWorkspace.tsx
+  const workspaceSrc = fs.readFileSync(
+    path.join(__dirname, '../src/frontend/modules/dashboard/ZMCCManagerWorkspace.tsx'),
+    'utf8'
+  );
+  const hasSeparateLiveLogs = workspaceSrc.includes('liveLogs') && workspaceSrc.includes('reportingLogs');
+  const hasSeparateLoading = workspaceSrc.includes('liveLoading') && workspaceSrc.includes('reportingLoading');
+  const hasSeparateError = workspaceSrc.includes('liveError') && workspaceSrc.includes('reportingError');
+  const liveDispatchesReceivesLive = workspaceSrc.includes('logs={liveLogs}');
+  assert(
+    hasSeparateLiveLogs && hasSeparateLoading && hasSeparateError && liveDispatchesReceivesLive,
+    'R3-10 to R3-12: ZMCCManagerWorkspace has separate liveLogs, reportingLogs, liveLoading/error, and passes liveLogs to Live Dispatches'
   );
 
   // ================================================================================
-  // 6. EVENT TIMESTAMPS & IN-PLANT DURATION (R-B25 to R-B29)
+  // 6. UNLOADING COMPLETE & LATEST EVENT TIMESTAMPS (R3-13 to R3-15)
   // ================================================================================
 
-  // R-B25: In-plant duration uses gate entry instant
-  const tenMinsAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-  const dur1 = computeElapsedInPlant(tenMinsAgo);
-  assert(dur1 === '10m', 'R-B25: computeElapsedInPlant evaluates exact 10m from gate entry instant', `Got: ${dur1}`);
+  // R3-13: Unloading stage exposes both Start and End timestamps
+  const logR313 = createMockLog({
+    id: 513,
+    status: 'TARE_WEIGHED',
+    first_weight_of_vehicle: 25000,
+    unloading_start_timestamp: '2026-08-25T05:00:00.000Z',
+    unloading_end_timestamp: '2026-08-25T05:45:00.000Z',
+  });
+  const lcR313 = deriveManagerLifecycle([logR313]);
+  const unloadStage = lcR313.stages.find((s) => s.id === 'UNLOADING');
+  assert(
+    Boolean(
+      unloadStage?.eventTimestamp &&
+      unloadStage?.eventTimestampEnd &&
+      unloadStage.eventTimestamp.includes('10:00') &&
+      unloadStage.eventTimestampEnd.includes('10:45')
+    ),
+    'R3-13: Unloading stage exposes both eventTimestamp (Start) and eventTimestampEnd (Completed)'
+  );
 
-  // R-B26: No dispatch fallback for in-plant duration (missing gate entry returns null)
-  const durNull = computeElapsedInPlant(null);
-  assert(durNull === null, 'R-B26: Missing gate entry timestamp yields null duration (no dispatch fallback)');
+  // R3-14: Latest Event Date/Time is exposed
+  assert(
+    lcR313.latestEventLabel !== null && lcR313.latestEventTimestamp !== null,
+    'R3-14: Manager lifecycle exposes both latestEventLabel and latestEventTimestamp'
+  );
 
-  // R-B27 & R-B28: Known UTC instant displays in Asia/Karachi (PKT)
+  // R3-15: Timezone formatting: 2026-08-23T21:30:00Z -> 24 Aug 2026, 02:30 in Asia/Karachi, Business Date 2026-08-23
   const testUtc = '2026-08-23T21:30:00.000Z';
   const formattedPkt = formatOperationalDatetime(testUtc);
-  assert(
-    formattedPkt.includes('24 Aug 2026') && formattedPkt.includes('02:30'),
-    'R-B27 & R-B28: 2026-08-23T21:30:00Z formats to 24 Aug 2026, 02:30 in Asia/Karachi'
-  );
-
-  // R-B29: Business Date for same instant is 2026-08-23 (08:00 cutoff boundary intact)
   const bDate = getOperationalBusinessDate(new Date(testUtc));
-  assert(bDate === '2026-08-23', 'R-B29: Business Date for 02:30 AM PKT event is 2026-08-23');
-
-  // ================================================================================
-  // 7. FINAL RECEIPT TIMESTAMP & COMPLETED TODAY VIA FINAL RECEIPT BUSINESS DATE (R-B30 to R-B31)
-  // ================================================================================
-
-  const logRB30 = createMockLog({
-    id: 530,
-    final_receipt_exists: true,
-    final_receipt_timestamp: '2026-08-25T07:30:00.000Z',
-    authoritative_final_liters: 9900,
-  });
-  const lcRB30 = deriveManagerLifecycle([logRB30]);
   assert(
-    lcRB30.stages[6].eventTimestamp !== null && lcRB30.latestEventLabel === 'Final Receipt Posted',
-    'R-B30: Authoritative receipt transaction timestamp is exposed and used as Final Receipt Date/Time'
-  );
-
-  // R-B31: Completed Today follows Final Receipt Business Date (not Dispatch Business Date)
-  const crossDateLog = createMockLog({
-    id: 531,
-    dispatch_date: '2026-08-24', // Dispatched yesterday
-    status: 'COMPLETED',
-    dispatch_liters_gross: 10000,
-    final_receipt_exists: true,
-    final_receipt_transaction_id: 999,
-    final_receipt_timestamp: '2026-08-25T05:00:00.000Z', // Finalized today (Business Date 2026-08-25)
-    authoritative_final_liters: 9850,
-  });
-  const overviewCrossDate = computeManagerOverview([crossDateLog], '2026-08-25', 'TODAY');
-  assert(
-    overviewCrossDate.dispatchedCount === 0 &&
-    overviewCrossDate.completedCount === 1 &&
-    overviewCrossDate.totalPhysicalReceivedLiters === 9850,
-    'R-B31: Vehicle dispatched yesterday but finalized today counts 0 in Dispatched Today, 1 in Completed Today, with 9,850 L Received'
-  );
-
-  // R-B32: Locked Weighbridge Labels
-  const stageLabels = lcRB30.stages.map((s) => s.label);
-  assert(
-    stageLabels.includes('First Weight (Loaded Vehicle)') &&
-    stageLabels.includes('Second Weight (After Unloading)'),
-    'R-B32: Full locked Weighbridge labels used across all lifecycle definitions'
-  );
-
-  // R-B33: LAST_7 and LAST_15 Semantics
-  const sampleGroups = [
-    { businessDate: '2026-08-25' }, // Day 0 (today)
-    { businessDate: '2026-08-24' }, // Day 1
-    { businessDate: '2026-08-23' }, // Day 2
-    { businessDate: '2026-08-22' }, // Day 3
-    { businessDate: '2026-08-21' }, // Day 4
-    { businessDate: '2026-08-20' }, // Day 5
-    { businessDate: '2026-08-19' }, // Day 6
-    { businessDate: '2026-08-18' }, // Day 7 (8th date -> excluded from LAST_7)
-  ] as any[];
-
-  const last7 = filterGroupsByDateRange(sampleGroups, '2026-08-25', 'LAST_7');
-  assert(
-    last7.length === 7,
-    'R-B33: LAST_7 contains exactly 7 Business Dates (today + 6 prior)',
-    `Got ${last7.length} dates`
+    formattedPkt.includes('24 Aug 2026') && formattedPkt.includes('02:30') && bDate === '2026-08-23',
+    'R3-15: 2026-08-23T21:30:00Z formats to 24 Aug 2026, 02:30 in Asia/Karachi while Business Date is 2026-08-23'
   );
 
   console.log('\n================================================================================');

@@ -1,82 +1,65 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { MilkProcessLog, User } from '@core/types';
-import {
-  computeAuthoritativeZonalAnalytics,
-  computeRuntimeMetrics,
-  computeVehicleDecisionSummary,
-} from '@backend/services/operationalCalculations';
-import { formatOperationalDatetime, formatOperationalTime } from '@/lib/datetime-utils';
-import { ZonalHistoryTable } from '@modules/dashboard/ZonalHistoryTable';
-import { LogDetailModal } from '@modules/dashboard/LogDetailModal';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { MilkProcessLog, User } from '@backend/core/types';
 import { Sidebar } from '@modules/shared/Sidebar';
 import { Header } from '@modules/shared/Header';
 import { ZMCCManagerOverview } from './zmcc/ZMCCManagerOverview';
 import { ZMCCManagerLiveDispatches } from './zmcc/ZMCCManagerLiveDispatches';
-import { OverviewDateRange } from './zmcc/zmccManagerTypes';
+import { ZonalHistoryTable } from '@modules/dashboard/ZonalHistoryTable';
+import { LogDetailModal } from '@modules/dashboard/LogDetailModal';
+import {
+  ZMCCManagerTab,
+  OverviewDateRange,
+} from './zmcc/zmccManagerTypes';
+import { buildVehicleVisitGroups } from './zmcc/zmccManagerHelpers';
 import {
   LayoutDashboard,
   Truck,
   ArrowRightLeft,
-  AlertTriangle,
-  TrendingUp,
-  History,
-  Lock,
-  RefreshCw,
-  Calendar,
-  ShieldCheck,
-  CheckCircle2,
-  XCircle,
-  Scale,
   FlaskConical,
-  Factory,
-  Search,
-  Eye,
-  Filter,
-  Clock,
-  Layers,
-  ChevronDown,
-  ChevronRight,
+  Receipt,
+  History,
+  ShieldCheck,
+  RefreshCw,
+  Lock,
+  AlertTriangle,
   Info,
+  TrendingUp,
+  Search,
 } from 'lucide-react';
-
-export type ZMCCManagerTab =
-  | 'OVERVIEW'
-  | 'LIVE'
-  | 'CROSS_VERIFICATION'
-  | 'QUALITY'
-  | 'RECEIPTS'
-  | 'HISTORY';
-
-interface TabConfig {
-  id: ZMCCManagerTab;
-  label: string;
-  icon: React.ElementType;
-}
-
-const TABS: TabConfig[] = [
-  { id: 'OVERVIEW', label: 'Overview', icon: LayoutDashboard },
-  { id: 'LIVE', label: 'Live Dispatches', icon: Truck },
-  { id: 'CROSS_VERIFICATION', label: 'Cross Verification', icon: ArrowRightLeft },
-  { id: 'QUALITY', label: 'Quality & Rejections', icon: AlertTriangle },
-  { id: 'RECEIPTS', label: 'Receipts & Performance', icon: TrendingUp },
-  { id: 'HISTORY', label: 'History & Reports', icon: History },
-];
 
 interface ZMCCManagerWorkspaceProps {
   currentUser: User | null;
 }
 
-export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({ currentUser }) => {
-  const [activeTab, setActiveTab] = useState<ZMCCManagerTab>('OVERVIEW');
-  const [logs, setLogs] = useState<MilkProcessLog[]>([]);
-  const [serverBusinessDate, setServerBusinessDate] = useState<string>('');
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+const TABS: { id: ZMCCManagerTab; label: string; icon: React.FC<any> }[] = [
+  { id: 'OVERVIEW', label: 'Overview', icon: LayoutDashboard },
+  { id: 'LIVE', label: 'Live Dispatches', icon: Truck },
+  { id: 'CROSS_VERIFICATION', label: 'Cross Verification', icon: ArrowRightLeft },
+  { id: 'QUALITY', label: 'Quality & Rejections', icon: FlaskConical },
+  { id: 'RECEIPTS', label: 'Receipts & Performance', icon: Receipt },
+  { id: 'HISTORY', label: 'History & Reports', icon: History },
+];
 
-  // Filters & State
-  const [summaryDateRange, setSummaryDateRange] = useState<'TODAY' | 'YESTERDAY' | 'LAST_7' | 'LAST_15' | 'ALL'>('TODAY');
+export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
+  currentUser,
+}) => {
+  const [activeTab, setActiveTab] = useState<ZMCCManagerTab>('OVERVIEW');
+  const [summaryDateRange, setSummaryDateRange] = useState<OverviewDateRange>('TODAY');
+  const [serverBusinessDate, setServerBusinessDate] = useState<string>('');
+
+  // 1. Independent Live State
+  const [liveLogs, setLiveLogs] = useState<MilkProcessLog[]>([]);
+  const [liveLoading, setLiveLoading] = useState<boolean>(true);
+  const [liveError, setLiveError] = useState<string | null>(null);
+
+  // 2. Independent Reporting State
+  const [reportingLogs, setReportingLogs] = useState<MilkProcessLog[]>([]);
+  const [reportingLoading, setReportingLoading] = useState<boolean>(true);
+  const [reportingError, setReportingError] = useState<string | null>(null);
+
+  // History & Table search/filter state (isolated to historical reporting tables)
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [fromDate, setFromDate] = useState<string>('');
   const [toDate, setToDate] = useState<string>('');
@@ -87,10 +70,29 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({ curr
     currentUser?.zone ||
     (currentUser?.role === 'ZMCC_MANAGER' ? 'Assigned ZMCC Source' : 'ZMCC Source');
 
-  const fetchLogs = useCallback(
+  // Fetch Live Logs: Unbounded source-scoped fetch without date or search filters
+  const fetchLiveLogs = useCallback(async () => {
+    setLiveLoading(true);
+    setLiveError(null);
+    try {
+      const res = await fetch('/api/logs');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to fetch live logs');
+
+      if (data.logs) setLiveLogs(data.logs);
+      if (data.serverBusinessDate) setServerBusinessDate(data.serverBusinessDate);
+    } catch (err: any) {
+      setLiveError(err.message || 'Failed to load live pipeline logs');
+    } finally {
+      setLiveLoading(false);
+    }
+  }, []);
+
+  // Fetch Reporting Logs: Parameterized fetch for Overview / History date queries
+  const fetchReportingLogs = useCallback(
     async (fDate?: string, tDate?: string) => {
-      setIsLoading(true);
-      setError(null);
+      setReportingLoading(true);
+      setReportingError(null);
       try {
         let url = '/api/logs';
         const params = new URLSearchParams();
@@ -100,33 +102,35 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({ curr
 
         const res = await fetch(url);
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Failed to fetch logs');
+        if (!res.ok) throw new Error(data.error || 'Failed to fetch reporting logs');
 
-        if (data.logs) setLogs(data.logs);
+        if (data.logs) setReportingLogs(data.logs);
         if (data.serverBusinessDate) setServerBusinessDate(data.serverBusinessDate);
       } catch (err: any) {
-        setError(err.message || 'Failed to load manager logs');
+        setReportingError(err.message || 'Failed to load reporting logs');
       } finally {
-        setIsLoading(false);
+        setReportingLoading(false);
       }
     },
     []
   );
 
+  // Initial loads and Live polling
   useEffect(() => {
-    fetchLogs();
+    fetchLiveLogs();
+    fetchReportingLogs(fromDate, toDate);
+
+    // Live polling strictly updates liveLogs without overwriting reportingLogs
     const interval = setInterval(() => {
-      fetchLogs();
+      fetchLiveLogs();
     }, 15000);
     return () => clearInterval(interval);
-  }, [fetchLogs]);
+  }, [fetchLiveLogs, fetchReportingLogs, fromDate, toDate]);
 
-  // Scoped logs (server-side scoped, safe on client)
-  const scopedLogs = logs;
-
-  // Filtered logs for tables
-  const filteredLogs = useMemo(() => {
-    return scopedLogs.filter((log) => {
+  // Filtered reporting logs for historical tables (search query does NOT affect liveLogs)
+  const filteredReportingLogs = useMemo(() => {
+    const base = reportingLogs.length > 0 ? reportingLogs : liveLogs;
+    return base.filter((log) => {
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const match =
@@ -137,14 +141,12 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({ curr
       }
       return true;
     });
-  }, [scopedLogs, searchQuery]);
+  }, [reportingLogs, liveLogs, searchQuery]);
 
-  // Distinct pipeline count for sidebar
+  // Distinct active pipeline count for sidebar (derived from unbounded liveLogs)
   const activeInPlantCount = useMemo(() => {
-    const inPlantStatuses = ['GATE_IN', 'IN_QA', 'QA_ACCEPTED', 'WEIGHED_IN', 'UNLOADING', 'UNLOADED', 'READY_FOR_TARE', 'TARE_WEIGHED'];
-    const matching = scopedLogs.filter((l) => inPlantStatuses.includes(String(l.status).toUpperCase()));
-    return new Set(matching.map((l) => l.vehicle_number)).size;
-  }, [scopedLogs]);
+    return buildVehicleVisitGroups(liveLogs).filter((g) => g.lifecycle.isInPlant).length;
+  }, [liveLogs]);
 
   return (
     <div className="min-h-screen w-screen overflow-x-hidden bg-[#FDFBF9] text-[#111311] flex flex-row font-sans">
@@ -180,22 +182,18 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({ curr
 
             <div className="flex items-center space-x-3">
               <button
-                onClick={() => fetchLogs(fromDate, toDate)}
-                disabled={isLoading}
+                onClick={() => {
+                  fetchLiveLogs();
+                  fetchReportingLogs(fromDate, toDate);
+                }}
+                disabled={liveLoading || reportingLoading}
                 className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-[#FDFBF9] border border-[#EAE4D5]/80 text-xs font-bold text-[#111311] hover:bg-[#F4F0E6]/60 transition-all shadow-sm disabled:opacity-50"
               >
-                <RefreshCw className={`w-3.5 h-3.5 text-[#1E3A8A] ${isLoading ? 'animate-spin' : ''}`} />
-                <span>{isLoading ? 'Syncing...' : 'Refresh Logs'}</span>
+                <RefreshCw className={`w-3.5 h-3.5 text-[#1E3A8A] ${liveLoading || reportingLoading ? 'animate-spin' : ''}`} />
+                <span>{liveLoading || reportingLoading ? 'Syncing...' : 'Refresh Logs'}</span>
               </button>
             </div>
           </div>
-
-          {error && (
-            <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs font-bold flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-red-600" />
-              <span>{error}</span>
-            </div>
-          )}
 
           {/* Accessible Tab Navigation */}
           <div className="border-b border-[#EAE4D5]/80 pb-px">
@@ -229,7 +227,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({ curr
           {activeTab === 'OVERVIEW' && (
             <div id="tabpanel-OVERVIEW" role="tabpanel" aria-labelledby="tab-OVERVIEW" className="space-y-6">
               <ZMCCManagerOverview
-                logs={filteredLogs}
+                logs={reportingLogs.length > 0 ? reportingLogs : liveLogs}
                 serverBusinessDate={serverBusinessDate}
                 assignedSourceName={assignedSourceName}
                 dateRange={summaryDateRange}
@@ -241,25 +239,25 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({ curr
                 onDateFilterChange={(f, t) => {
                   setFromDate(f || '');
                   setToDate(t || '');
-                  fetchLogs(f, t);
+                  fetchReportingLogs(f, t);
                 }}
-                isLoading={isLoading}
-                error={error}
-                onRetry={() => fetchLogs(fromDate, toDate)}
+                isLoading={reportingLoading}
+                error={reportingError}
+                onRetry={() => fetchReportingLogs(fromDate, toDate)}
               />
             </div>
           )}
 
-          {/* TAB 2: LIVE DISPATCHES */}
+          {/* TAB 2: LIVE DISPATCHES (Uses independent liveLogs, liveLoading, liveError) */}
           {activeTab === 'LIVE' && (
             <div id="tabpanel-LIVE" role="tabpanel" aria-labelledby="tab-LIVE" className="space-y-6">
               <ZMCCManagerLiveDispatches
-                logs={filteredLogs}
+                logs={liveLogs}
                 assignedSourceName={assignedSourceName}
                 onInspectDetails={(l) => setSelectedLog(l)}
-                isLoading={isLoading}
-                error={error}
-                onRetry={() => fetchLogs(fromDate, toDate)}
+                isLoading={liveLoading}
+                error={liveError}
+                onRetry={() => fetchLiveLogs()}
               />
             </div>
           )}
@@ -276,7 +274,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({ curr
                     </h3>
                   </div>
                   <span className="text-xs font-mono font-bold text-slate-500">
-                    Source-Locked ({filteredLogs.length} Records)
+                    Source-Locked ({filteredReportingLogs.length} Records)
                   </span>
                 </div>
                 <p className="text-xs text-[#334155] font-semibold">
@@ -285,7 +283,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({ curr
               </div>
 
               <ZonalHistoryTable
-                logs={filteredLogs}
+                logs={filteredReportingLogs}
                 targetZone={assignedSourceName}
                 onInspectDetails={(l) => setSelectedLog(l)}
                 currentFromDate={fromDate}
@@ -293,7 +291,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({ curr
                 onDateFilterChange={(f, t) => {
                   setFromDate(f || '');
                   setToDate(t || '');
-                  fetchLogs(f, t);
+                  fetchReportingLogs(f, t);
                 }}
               />
             </div>
@@ -322,7 +320,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({ curr
               </div>
 
               <ZonalHistoryTable
-                logs={filteredLogs.filter((l) => String(l.calculated_status).toUpperCase() === 'REJECTED' || String(l.status).toUpperCase().includes('REJECT'))}
+                logs={filteredReportingLogs.filter((l) => String(l.calculated_status).toUpperCase() === 'REJECTED' || String(l.status).toUpperCase().includes('REJECT'))}
                 targetZone={assignedSourceName}
                 onInspectDetails={(l) => setSelectedLog(l)}
                 currentFromDate={fromDate}
@@ -330,7 +328,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({ curr
                 onDateFilterChange={(f, t) => {
                   setFromDate(f || '');
                   setToDate(t || '');
-                  fetchLogs(f, t);
+                  fetchReportingLogs(f, t);
                 }}
               />
             </div>
@@ -359,7 +357,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({ curr
               </div>
 
               <ZonalHistoryTable
-                logs={filteredLogs.filter((l) => ['READY_FOR_GATE_EXIT', 'COMPLETED', 'GATE_OUT'].includes(String(l.status).toUpperCase()))}
+                logs={filteredReportingLogs.filter((l) => ['READY_FOR_GATE_EXIT', 'COMPLETED', 'GATE_OUT'].includes(String(l.status).toUpperCase()))}
                 targetZone={assignedSourceName}
                 onInspectDetails={(l) => setSelectedLog(l)}
                 currentFromDate={fromDate}
@@ -367,7 +365,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({ curr
                 onDateFilterChange={(f, t) => {
                   setFromDate(f || '');
                   setToDate(t || '');
-                  fetchLogs(f, t);
+                  fetchReportingLogs(f, t);
                 }}
               />
             </div>
@@ -385,7 +383,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({ curr
                     </h3>
                   </div>
                   <span className="text-xs font-mono font-bold text-slate-500">
-                    Total Dispatches: {filteredLogs.length}
+                    Total Dispatches: {filteredReportingLogs.length}
                   </span>
                 </div>
 
@@ -402,7 +400,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({ curr
               </div>
 
               <ZonalHistoryTable
-                logs={filteredLogs}
+                logs={filteredReportingLogs}
                 targetZone={assignedSourceName}
                 onInspectDetails={(l) => setSelectedLog(l)}
                 currentFromDate={fromDate}
@@ -410,7 +408,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({ curr
                 onDateFilterChange={(f, t) => {
                   setFromDate(f || '');
                   setToDate(t || '');
-                  fetchLogs(f, t);
+                  fetchReportingLogs(f, t);
                 }}
               />
             </div>

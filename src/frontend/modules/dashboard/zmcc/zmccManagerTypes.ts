@@ -28,6 +28,7 @@ export interface LifecycleStageInfo {
   status: LifecycleStageStatus;
   detailText?: string | null;
   eventTimestamp?: string | null;
+  eventTimestampEnd?: string | null;
   metricText?: string | null;
 }
 
@@ -112,6 +113,17 @@ export interface ZMCCAttentionItem {
     label: string;
     value: string;
   }[];
+}
+
+export interface CompletedReceiptQuantityComparison {
+  comparableVisitCount: number;
+  dispatchGrossLiters: number | null;
+  finalPhysicalReceivedLiters: number | null;
+  quantityDifferenceLiters: number | null;
+  differenceLiters: number | null;
+  dispatch13TsLiters: number | null;
+  plant13TsLiters: number | null;
+  tsDifferenceLiters: number | null;
 }
 
 export interface ZMCCManagerOverviewMetrics {
