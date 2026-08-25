@@ -399,8 +399,7 @@ export function buildVehicleVisitGroups(logs: MilkProcessLog[]): VehicleVisitGro
       }
     }
 
-    const authoritativePhysicalLiters =
-      primary.authoritative_final_liters ?? (lifecycle.isComplete ? primary.computed_plant_liters ?? null : null);
+    const authoritativePhysicalLiters = primary.authoritative_final_liters ?? null;
 
     let finalReceiptBusinessDate: string | null = null;
     if (primary.final_receipt_exists && primary.final_receipt_timestamp) {

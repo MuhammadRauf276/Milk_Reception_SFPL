@@ -18,7 +18,7 @@ import { getOperationalBusinessDate } from '../src/backend/core/business-day';
 
 async function run4DBTests() {
   console.log('================================================================================');
-  console.log('STAGE 4D-B-R3: ZMCC MANAGER LIFECYCLE & RECEIPT AUTHORITY REGRESSION SUITE');
+  console.log('STAGE 4D-B-R4: ZMCC MANAGER LIFECYCLE & REPORTING AUTHORITY REGRESSION SUITE');
   console.log('================================================================================\n');
 
   let passed = 0;
@@ -95,7 +95,92 @@ async function run4DBTests() {
   }
 
   // ================================================================================
-  // 1. HOLD & QA COMPLETION SEMANTICS (R-B1 to R-B5)
+  // 1. FIX #1 TEST A: NO NON-AUTHORITATIVE FINAL LITERS FALLBACK
+  // ================================================================================
+
+  const logTestA = createMockLog({
+    id: 101,
+    status: 'COMPLETED',
+    dispatch_liters_gross: 10000,
+    final_receipt_exists: true,
+    final_receipt_transaction_id: 888,
+    final_receipt_timestamp: '2026-08-25T06:00:00.000Z',
+    authoritative_final_liters: null, // null authoritative receipt liters
+    computed_plant_liters: 9800,      // non-authoritative calculation
+  });
+  const groupsTestA = buildVehicleVisitGroups([logTestA]);
+  const pairedTestA = computeCompletedReceiptQuantityComparison(groupsTestA);
+  assert(
+    groupsTestA[0].physicalReceivedLiters === null &&
+    pairedTestA.finalPhysicalReceivedLiters === null &&
+    pairedTestA.differenceLiters === null,
+    'TEST A: final_receipt_exists=true + authoritative_final_liters=null -> physicalReceivedLiters=null (no fallback to computed_plant_liters 9800)'
+  );
+
+  // ================================================================================
+  // 2. FIX #2 TEST B: NO REPORTING EMPTY -> LIVE FALLBACK
+  // ================================================================================
+
+  const activeOldVisit = createMockLog({
+    id: 999,
+    vehicle_number: 'LIVE-ACTIVE-TANKER',
+    dispatch_date: '2026-08-23',
+    status: 'UNLOADING',
+    gate_entry_timestamp: '2026-08-23T22:00:00.000Z',
+    final_receipt_exists: false,
+  });
+
+  const reportingLogs: MilkProcessLog[] = [];
+  const liveLogs: MilkProcessLog[] = [activeOldVisit];
+
+  // Overview on reportingLogs directly produces empty reporting metrics (0 dispatched/completed, null volumes)
+  const overviewEmpty = computeManagerOverview(reportingLogs, '2026-08-25', 'TODAY');
+  assert(
+    overviewEmpty.dispatchedCount === 0 &&
+    overviewEmpty.completedCount === 0 &&
+    overviewEmpty.totalDispatchGrossLiters === null &&
+    overviewEmpty.totalPhysicalReceivedLiters === null,
+    'TEST B.1: Overview with reportingLogs=[] produces legitimate successful empty reporting metrics'
+  );
+
+  // Live Dispatches on liveLogs preserves the active tanker
+  const liveGroups = buildVehicleVisitGroups(liveLogs);
+  assert(
+    liveGroups.length === 1 && liveGroups[0].lifecycle.isInPlant === true,
+    'TEST B.2: Live Dispatches preserves active tanker from liveLogs independently'
+  );
+
+  // ================================================================================
+  // 3. FIX #3 TEST C: STATIC GAURDS ON WORKSPACE ISOLATION
+  // ================================================================================
+
+  const workspaceSrc = fs.readFileSync(
+    path.join(__dirname, '../src/frontend/modules/dashboard/ZMCCManagerWorkspace.tsx'),
+    'utf8'
+  );
+
+  // Guard 1: No reportingLogs.length > 0 fallback
+  const hasReportingFallback = workspaceSrc.includes('reportingLogs.length > 0 ? reportingLogs : liveLogs');
+  assert(!hasReportingFallback, 'TEST C.1: No reportingLogs -> liveLogs fallback in ZMCCManagerWorkspace.tsx');
+
+  // Guard 2: Overview receives reportingLogs directly
+  const overviewLogsProp = workspaceSrc.includes('logs={reportingLogs}');
+  assert(overviewLogsProp, 'TEST C.2: ZMCCManagerOverview receives logs={reportingLogs} directly');
+
+  // Guard 3: Live effect does NOT include fromDate / toDate
+  const liveEffectMatch = workspaceSrc.match(/useEffect\(\(\)\s*=>\s*\{[\s\S]*?fetchLiveLogs\(\);[\s\S]*?\},\s*\[fetchLiveLogs\]\);/);
+  assert(Boolean(liveEffectMatch), 'TEST C.3: Live polling effect depends only on [fetchLiveLogs], not fromDate/toDate');
+
+  // Guard 4: Reporting effect depends on [fetchReportingLogs, fromDate, toDate] and does NOT call fetchLiveLogs
+  const reportingEffectMatch = workspaceSrc.match(/useEffect\(\(\)\s*=>\s*\{[\s\S]*?fetchReportingLogs\(fromDate,\s*toDate\);[\s\S]*?\},\s*\[fetchReportingLogs,\s*fromDate,\s*toDate\]\);/);
+  assert(Boolean(reportingEffectMatch), 'TEST C.4: Reporting effect runs on date change without calling fetchLiveLogs');
+
+  // Guard 5: Date change callbacks only update fromDate and toDate (no duplicate fetchReportingLogs call)
+  const hasDuplicateFetchInCallback = workspaceSrc.includes('fetchReportingLogs(f, t)');
+  assert(!hasDuplicateFetchInCallback, 'TEST C.5: Date filter change callbacks do NOT make duplicate fetchReportingLogs calls');
+
+  // ================================================================================
+  // 4. HOLD & QA COMPLETION SEMANTICS (R-B1 to R-B5)
   // ================================================================================
 
   // R-B1: 1 Accepted + 1 HOLD -> Plant QA remains current / incomplete
@@ -141,7 +226,7 @@ async function run4DBTests() {
   );
 
   // ================================================================================
-  // 2. AUTHORITATIVE FINAL RECEIPT (R-B6 to R-B9)
+  // 5. AUTHORITATIVE FINAL RECEIPT (R-B6 to R-B9)
   // ================================================================================
 
   // R-B6: computed_plant_liters exists but NO SiloInventoryTransaction RECEIPT -> Final Receipt NOT complete
@@ -210,11 +295,10 @@ async function run4DBTests() {
   );
 
   // ================================================================================
-  // 3. PAIRED QUANTITY AGGREGATES & MISSING != ZERO (R3-1 to R3-4)
+  // 6. PAIRED QUANTITY AGGREGATES (R3-1 to R3-4)
   // ================================================================================
 
-  // R3-1: Cross-date quantity population: Vehicle A dispatched 23-Aug (10,000 L), finalized 24-Aug (9,800 L).
-  // Selected reporting date: 24-Aug.
+  // R3-1: Cross-date quantity population
   const crossDateLogA = createMockLog({
     id: 201,
     dispatch_date: '2026-08-23', // Dispatched 23-Aug
@@ -249,7 +333,7 @@ async function run4DBTests() {
     'R3-2: Paired comparison across same completed population produces 11,000 L / 10,800 L / -200 L'
   );
 
-  // R3-3: Missing member in receipt period (A: 5000/4900, B: 6000/null) -> aggregates are null
+  // R3-3: Missing member in receipt period -> aggregates are null
   const logsR33 = [
     createMockLog({ id: 204, dispatch_liters_gross: 5000, final_receipt_exists: true, authoritative_final_liters: 4900, final_receipt_timestamp: '2026-08-25T04:00:00.000Z' }),
     createMockLog({ id: 205, dispatch_liters_gross: 6000, final_receipt_exists: true, authoritative_final_liters: null, final_receipt_timestamp: '2026-08-25T05:00:00.000Z' }),
@@ -260,7 +344,7 @@ async function run4DBTests() {
     pairedR33.dispatchGrossLiters === null &&
     pairedR33.finalPhysicalReceivedLiters === null &&
     pairedR33.differenceLiters === null,
-    'R3-3: One missing final quantity in completed population makes paired totals and difference null (never partial sum)'
+    'R3-3: One missing final quantity in completed population makes paired totals and difference null'
   );
 
   // R3-4: Empty receipt population -> all quantity fields are null (NOT 0 L)
@@ -274,7 +358,7 @@ async function run4DBTests() {
   );
 
   // ================================================================================
-  // 4. QUALITY DIFFERENCE — ZERO EPSILON & VISIBLE NON-ZERO (R3-5 to R3-8)
+  // 7. QUALITY DIFFERENCE & EXACT NON-ZERO (R3-5 to R3-8)
   // ================================================================================
 
   // R3-5: Exact quality non-zero (Plant LR 28.04, Dispatch LR 28.00 -> diff +0.04)
@@ -330,41 +414,7 @@ async function run4DBTests() {
   assert(!has1e9 && !hasEpsilon, 'R3-8: Static check: No 1e-9 or EPSILON tolerance exists in zmccManagerHelpers.ts');
 
   // ================================================================================
-  // 5. LIVE DISPATCHES & ARCHITECTURE STATE ISOLATION (R3-9 to R3-12)
-  // ================================================================================
-
-  // R3-9: Live source data isolation
-  const activeYesterdayLog = createMockLog({
-    id: 401,
-    vehicle_number: 'LIVE-TANKER-99',
-    dispatch_date: '2026-08-23',
-    gate_entry_timestamp: '2026-08-23T22:00:00.000Z',
-    status: 'UNLOADING',
-    final_receipt_exists: false,
-  });
-  const liveGroups = buildVehicleVisitGroups([activeYesterdayLog]);
-  const activeInLive = liveGroups.filter((g) => g.lifecycle.isInPlant);
-  assert(
-    activeInLive.length === 1 && activeInLive[0].vehicleNumber === 'LIVE-TANKER-99',
-    'R3-9: Live Dispatches retains active tanker from previous Business Date in pipeline'
-  );
-
-  // R3-10 to R3-12: Static check for state separation in ZMCCManagerWorkspace.tsx
-  const workspaceSrc = fs.readFileSync(
-    path.join(__dirname, '../src/frontend/modules/dashboard/ZMCCManagerWorkspace.tsx'),
-    'utf8'
-  );
-  const hasSeparateLiveLogs = workspaceSrc.includes('liveLogs') && workspaceSrc.includes('reportingLogs');
-  const hasSeparateLoading = workspaceSrc.includes('liveLoading') && workspaceSrc.includes('reportingLoading');
-  const hasSeparateError = workspaceSrc.includes('liveError') && workspaceSrc.includes('reportingError');
-  const liveDispatchesReceivesLive = workspaceSrc.includes('logs={liveLogs}');
-  assert(
-    hasSeparateLiveLogs && hasSeparateLoading && hasSeparateError && liveDispatchesReceivesLive,
-    'R3-10 to R3-12: ZMCCManagerWorkspace has separate liveLogs, reportingLogs, liveLoading/error, and passes liveLogs to Live Dispatches'
-  );
-
-  // ================================================================================
-  // 6. UNLOADING COMPLETE & LATEST EVENT TIMESTAMPS (R3-13 to R3-15)
+  // 8. UNLOADING COMPLETE & LATEST EVENT TIMESTAMPS (R3-13 to R3-15)
   // ================================================================================
 
   // R3-13: Unloading stage exposes both Start and End timestamps

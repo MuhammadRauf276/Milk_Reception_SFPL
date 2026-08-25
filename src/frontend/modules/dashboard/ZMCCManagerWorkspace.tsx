@@ -115,22 +115,23 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
     []
   );
 
-  // Initial loads and Live polling
+  // A. Live Flow: Initial mount and interval polling (NO fromDate/toDate dependency)
   useEffect(() => {
     fetchLiveLogs();
-    fetchReportingLogs(fromDate, toDate);
-
-    // Live polling strictly updates liveLogs without overwriting reportingLogs
     const interval = setInterval(() => {
       fetchLiveLogs();
     }, 15000);
     return () => clearInterval(interval);
-  }, [fetchLiveLogs, fetchReportingLogs, fromDate, toDate]);
+  }, [fetchLiveLogs]);
+
+  // B. Reporting Flow: Initial load and when fromDate/toDate changes
+  useEffect(() => {
+    fetchReportingLogs(fromDate, toDate);
+  }, [fetchReportingLogs, fromDate, toDate]);
 
   // Filtered reporting logs for historical tables (search query does NOT affect liveLogs)
   const filteredReportingLogs = useMemo(() => {
-    const base = reportingLogs.length > 0 ? reportingLogs : liveLogs;
-    return base.filter((log) => {
+    return reportingLogs.filter((log) => {
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const match =
@@ -141,7 +142,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
       }
       return true;
     });
-  }, [reportingLogs, liveLogs, searchQuery]);
+  }, [reportingLogs, searchQuery]);
 
   // Distinct active pipeline count for sidebar (derived from unbounded liveLogs)
   const activeInPlantCount = useMemo(() => {
@@ -223,11 +224,11 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
             </nav>
           </div>
 
-          {/* TAB 1: OVERVIEW */}
+          {/* TAB 1: OVERVIEW (Receives reportingLogs directly) */}
           {activeTab === 'OVERVIEW' && (
             <div id="tabpanel-OVERVIEW" role="tabpanel" aria-labelledby="tab-OVERVIEW" className="space-y-6">
               <ZMCCManagerOverview
-                logs={reportingLogs.length > 0 ? reportingLogs : liveLogs}
+                logs={reportingLogs}
                 serverBusinessDate={serverBusinessDate}
                 assignedSourceName={assignedSourceName}
                 dateRange={summaryDateRange}
@@ -239,7 +240,6 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
                 onDateFilterChange={(f, t) => {
                   setFromDate(f || '');
                   setToDate(t || '');
-                  fetchReportingLogs(f, t);
                 }}
                 isLoading={reportingLoading}
                 error={reportingError}
@@ -291,7 +291,6 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
                 onDateFilterChange={(f, t) => {
                   setFromDate(f || '');
                   setToDate(t || '');
-                  fetchReportingLogs(f, t);
                 }}
               />
             </div>
@@ -328,7 +327,6 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
                 onDateFilterChange={(f, t) => {
                   setFromDate(f || '');
                   setToDate(t || '');
-                  fetchReportingLogs(f, t);
                 }}
               />
             </div>
@@ -365,7 +363,6 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
                 onDateFilterChange={(f, t) => {
                   setFromDate(f || '');
                   setToDate(t || '');
-                  fetchReportingLogs(f, t);
                 }}
               />
             </div>
@@ -408,7 +405,6 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
                 onDateFilterChange={(f, t) => {
                   setFromDate(f || '');
                   setToDate(t || '');
-                  fetchReportingLogs(f, t);
                 }}
               />
             </div>
