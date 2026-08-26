@@ -260,15 +260,51 @@ async function run4DFTests() {
     csvOut.includes('LES-9999') &&
     csvOut.includes('10000') &&
     csvOut.includes('9800'),
-    'F18: CSV export output correctly formats filtered transaction records with authoritative data'
+    'F18.1: CSV export helper correctly formats filtered transaction records with authoritative data'
   );
 
-  // F19: Loading/error/empty states are distinct in component
+  const exportsFilteredPopulation =
+    histCompSrc.includes('generateHistoryCsv(filteredItems, assignedSourceName)') &&
+    !histCompSrc.includes('generateHistoryCsv(items, assignedSourceName)');
   assert(
-    histCompSrc.includes('Loading historical transactions...') &&
-    histCompSrc.includes('No historical records found') &&
-    histCompSrc.includes('AlertTriangle'),
-    'F19: Loading, empty, and error states are distinctly implemented in component'
+    exportsFilteredPopulation,
+    'F18.2: History component explicitly exports filteredItems population (not unfiltered items)'
+  );
+
+  // F19: Loading/error/empty safety in component
+  const loadingOrErrorCountSafe =
+    histCompSrc.includes('isLoading || error != null ? (') &&
+    histCompSrc.includes('Showing <strong>{filteredItems.length}</strong> of <strong>{items.length}</strong>');
+  assert(
+    loadingOrErrorCountSafe,
+    'F19.1: Record count displays placeholder during loading or error rather than numeric X/Y'
+  );
+
+  const exportDisabledOnError =
+    histCompSrc.includes('disabled={isLoading || error != null || filteredItems.length === 0}');
+  assert(
+    exportDisabledOnError,
+    'F19.2: Export button is disabled during loading, error, or empty filtered list'
+  );
+
+  const printDisabledOnError =
+    histCompSrc.includes('disabled={isLoading || error != null || filteredItems.length === 0}');
+  assert(
+    printDisabledOnError,
+    'F19.3: Print button is disabled during loading, error, or empty filtered list'
+  );
+
+  const lockedHeadingsPresent =
+    histCompSrc.includes('First Weight (Loaded Vehicle)') &&
+    histCompSrc.includes('Second Weight (After Unloading)') &&
+    histCompSrc.includes('Net Milk Weight') &&
+    histCompSrc.includes('Final Receipt Date/Time') &&
+    !histCompSrc.includes('First Wt (Loaded)') &&
+    !histCompSrc.includes('Second Wt (Empty)') &&
+    !histCompSrc.includes('Net Milk Wt');
+  assert(
+    lockedHeadingsPresent,
+    'F19.4: Table headings strictly use full locked Weighbridge and Receipt terminology'
   );
 
   // F20: History & Reports appears as the sixth workspace tab

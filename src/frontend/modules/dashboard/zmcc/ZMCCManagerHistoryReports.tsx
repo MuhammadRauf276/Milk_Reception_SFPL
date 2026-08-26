@@ -117,7 +117,7 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
           <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={handleExportCsv}
-              disabled={isLoading || filteredItems.length === 0}
+              disabled={isLoading || error != null || filteredItems.length === 0}
               className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0] text-xs font-bold text-[#1E3A8A] hover:bg-[#EFF6FF] hover:border-[#BFDBFE] transition-all disabled:opacity-50"
             >
               <Download className="w-3.5 h-3.5" />
@@ -126,7 +126,7 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
 
             <button
               onClick={handlePrint}
-              disabled={isLoading || filteredItems.length === 0}
+              disabled={isLoading || error != null || filteredItems.length === 0}
               className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0] text-xs font-bold text-slate-700 hover:bg-slate-100 transition-all disabled:opacity-50"
             >
               <Printer className="w-3.5 h-3.5" />
@@ -149,9 +149,15 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
         {/* Record Count Badge */}
         <div className="flex items-center justify-between text-xs text-slate-500 font-mono">
           <span>
-            Showing <strong>{filteredItems.length}</strong> of <strong>{items.length}</strong> historical transactions
+            {isLoading || error != null ? (
+              <span>—</span>
+            ) : (
+              <>
+                Showing <strong>{filteredItems.length}</strong> of <strong>{items.length}</strong> historical transactions
+              </>
+            )}
           </span>
-          {currentFromDate || currentToDate ? (
+          {!isLoading && !error && (currentFromDate || currentToDate) ? (
             <span className="text-[11px] font-bold text-[#1E3A8A]">
               Filtered by Business Date: {currentFromDate || 'Start'} to {currentToDate || 'End'}
             </span>
@@ -300,12 +306,12 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
                 <th className="py-2.5 px-3 font-sans">Current Stage</th>
                 <th className="py-2.5 px-3 font-sans">Portion QA</th>
                 <th className="py-2.5 px-3">Dispatch Gross</th>
-                <th className="py-2.5 px-3">First Wt (Loaded)</th>
-                <th className="py-2.5 px-3">Second Wt (Empty)</th>
-                <th className="py-2.5 px-3">Net Milk Wt</th>
+                <th className="py-2.5 px-3">First Weight (Loaded Vehicle)</th>
+                <th className="py-2.5 px-3">Second Weight (After Unloading)</th>
+                <th className="py-2.5 px-3">Net Milk Weight</th>
                 <th className="py-2.5 px-3">Physical Received</th>
                 <th className="py-2.5 px-3">Silo</th>
-                <th className="py-2.5 px-3 font-sans">Final Receipt Time</th>
+                <th className="py-2.5 px-3 font-sans">Final Receipt Date/Time</th>
                 <th className="py-2.5 px-3 text-right font-sans">Actions</th>
               </tr>
             </thead>
