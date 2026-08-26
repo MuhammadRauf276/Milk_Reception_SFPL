@@ -10,6 +10,7 @@ import {
   deriveReceiptPerformanceItems,
   deriveReceiptsPerformanceSummary,
   filterReceiptPerformanceItems,
+  filterReceiptPerformanceItemsByDate,
 } from './zmccManagerHelpers';
 import { formatOperationalDatetime } from '@/lib/datetime-utils';
 import {
@@ -67,9 +68,15 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
     [items, currentFromDate, currentToDate]
   );
 
+  // Filter items by authoritative date basis (Final Receipt Business Date for completed, Visit / Dispatch Business Date for pending)
+  const dateFilteredItems = useMemo(
+    () => filterReceiptPerformanceItemsByDate(items, currentFromDate, currentToDate),
+    [items, currentFromDate, currentToDate]
+  );
+
   const filteredItems = useMemo(
-    () => filterReceiptPerformanceItems(items, searchQuery, filterState),
-    [items, searchQuery, filterState]
+    () => filterReceiptPerformanceItems(dateFilteredItems, searchQuery, filterState),
+    [dateFilteredItems, searchQuery, filterState]
   );
 
   const showKpiPlaceholders = isLoading || error != null;
@@ -187,31 +194,36 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
             />
           </div>
 
-          {/* Date Filter (Filters Completed Receipts by Final Receipt Business Date) */}
+          {/* Date Filter */}
           {onDateFilterChange && (
-            <div className="flex items-center gap-2 text-xs">
-              <span className="font-bold text-slate-600 text-[11px]">Final Receipt From:</span>
-              <input
-                type="date"
-                value={currentFromDate}
-                onChange={(e) => onDateFilterChange(e.target.value || null, currentToDate || null)}
-                className="px-2.5 py-1 text-xs font-mono font-bold rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/80 text-[#111311]"
-              />
-              <span className="font-bold text-slate-600 text-[11px]">To:</span>
-              <input
-                type="date"
-                value={currentToDate}
-                onChange={(e) => onDateFilterChange(currentFromDate || null, e.target.value || null)}
-                className="px-2.5 py-1 text-xs font-mono font-bold rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/80 text-[#111311]"
-              />
-              {(currentFromDate || currentToDate) && (
-                <button
-                  onClick={() => onDateFilterChange(null, null)}
-                  className="px-2 py-1 text-[11px] font-bold text-red-600 hover:bg-red-50 rounded"
-                >
-                  Clear
-                </button>
-              )}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-slate-600 text-[11px]">From:</span>
+                <input
+                  type="date"
+                  value={currentFromDate}
+                  onChange={(e) => onDateFilterChange(e.target.value || null, currentToDate || null)}
+                  className="px-2.5 py-1 text-xs font-mono font-bold rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/80 text-[#111311]"
+                />
+                <span className="font-bold text-slate-600 text-[11px]">To:</span>
+                <input
+                  type="date"
+                  value={currentToDate}
+                  onChange={(e) => onDateFilterChange(currentFromDate || null, e.target.value || null)}
+                  className="px-2.5 py-1 text-xs font-mono font-bold rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/80 text-[#111311]"
+                />
+                {(currentFromDate || currentToDate) && (
+                  <button
+                    onClick={() => onDateFilterChange(null, null)}
+                    className="px-2 py-1 text-[11px] font-bold text-red-600 hover:bg-red-50 rounded"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <span className="text-[10px] text-slate-400 font-sans hidden md:inline">
+                (Completed receipts use Final Receipt Business Date; Pending receipts use Visit / Dispatch Business Date)
+              </span>
             </div>
           )}
         </div>
@@ -297,13 +309,13 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
                       Token: {item.tokenNumber}
                     </span>
                   )}
-                  {item.finalReceiptBusinessDate ? (
+                  {item.isCompletedReceipt && item.finalReceiptBusinessDate ? (
                     <span className="text-xs font-mono font-bold text-emerald-800">
                       Final Receipt Business Date: {item.finalReceiptBusinessDate}
                     </span>
                   ) : (
                     <span className="text-xs font-mono font-bold text-slate-600">
-                      Dispatch Business Date: {item.dispatchBusinessDate}
+                      Visit / Dispatch Business Date: {item.dispatchBusinessDate}
                     </span>
                   )}
                   <span

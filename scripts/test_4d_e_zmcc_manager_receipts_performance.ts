@@ -5,6 +5,7 @@ import {
   deriveReceiptPerformanceItems,
   deriveReceiptsPerformanceSummary,
   filterReceiptPerformanceItems,
+  filterReceiptPerformanceItemsByDate,
   filterCompletedReceiptsByDateRange,
   computeCompletedReceiptQuantityComparison,
 } from '../src/frontend/modules/dashboard/zmcc/zmccManagerHelpers';
@@ -14,7 +15,7 @@ import { getOperationalBusinessDate } from '../src/backend/core/business-day';
 
 async function run4DETests() {
   console.log('================================================================================');
-  console.log('STAGE 4D-E: ZMCC MANAGER RECEIPTS & PERFORMANCE TEST SUITE');
+  console.log('STAGE 4D-E-R1: ZMCC MANAGER RECEIPTS & PERFORMANCE TEST SUITE');
   console.log('================================================================================\n');
 
   let passed = 0;
@@ -186,18 +187,15 @@ async function run4DETests() {
   );
 
   // E9: Two complete comparable vehicles -> paired aggregate correct
-  const logE9A = createMockLog({ id: 91, vehicle_dispatch_gross_liters: 5000, authoritative_final_liters: 4900, computed_dispatch_13ts_liters: 4800, computed_plant_13ts_liters: 4700 });
-  const logE9B = createMockLog({ id: 92, vehicle_dispatch_gross_liters: 6000, authoritative_final_liters: 5900, computed_dispatch_13ts_liters: 5800, computed_plant_13ts_liters: 5700 });
+  const logE9A = createMockLog({ id: 91, vehicle_dispatch_gross_liters: 5000, authoritative_final_liters: 4900 });
+  const logE9B = createMockLog({ id: 92, vehicle_dispatch_gross_liters: 6000, authoritative_final_liters: 5900 });
   const itemsE9 = deriveReceiptPerformanceItems(buildVehicleVisitGroups([logE9A, logE9B]));
   const summaryE9 = deriveReceiptsPerformanceSummary(itemsE9, '2026-08-24', '2026-08-24');
   assert(
     summaryE9.completedReceiptCount === 2 &&
     summaryE9.pairedComparison.dispatchGrossLiters === 11000 &&
     summaryE9.pairedComparison.finalPhysicalReceivedLiters === 10800 &&
-    summaryE9.pairedComparison.differenceLiters === -200 &&
-    summaryE9.pairedComparison.dispatch13TsLiters === 10600 &&
-    summaryE9.pairedComparison.plant13TsLiters === 10400 &&
-    summaryE9.pairedComparison.tsDifferenceLiters === -200,
+    summaryE9.pairedComparison.differenceLiters === -200,
     'E9: Two complete comparable vehicles produce correct paired aggregates (11,000 L vs 10,800 L -> -200 L)'
   );
 
@@ -221,29 +219,6 @@ async function run4DETests() {
     summaryEmpty.pairedComparison.finalPhysicalReceivedLiters === null &&
     summaryEmpty.pairedComparison.differenceLiters === null,
     'E11: Zero completed receipts produces count = 0 and null quantity totals (NOT 0 L)'
-  );
-
-  // E12: Dispatch @13 and Final @13 both present -> difference computed for same completed vehicle population
-  const logE12 = createMockLog({ id: 12, computed_dispatch_13ts_liters: 9700, computed_plant_13ts_liters: 9500 });
-  const itemsE12 = deriveReceiptPerformanceItems(buildVehicleVisitGroups([logE12]));
-  assert(
-    itemsE12[0].dispatch13TsLiters === 9700 &&
-    itemsE12[0].plant13TsLiters === 9500 &&
-    itemsE12[0].tsDifferenceLiters === -200 &&
-    itemsE12[0].tsDifferenceText === '-200 L',
-    'E12: Dispatch @13 and Final @13 produce difference -200 L'
-  );
-
-  // E13: Missing @13 member -> aggregate unavailable / no partial aggregation
-  const logE13A = createMockLog({ id: 131, computed_dispatch_13ts_liters: 5000, computed_plant_13ts_liters: 4900 });
-  const logE13B = createMockLog({ id: 132, computed_dispatch_13ts_liters: 6000, computed_plant_13ts_liters: null }); // Missing plant @13
-  const itemsE13 = deriveReceiptPerformanceItems(buildVehicleVisitGroups([logE13A, logE13B]));
-  const summaryE13 = deriveReceiptsPerformanceSummary(itemsE13, '2026-08-24', '2026-08-24');
-  assert(
-    summaryE13.pairedComparison.dispatch13TsLiters === null &&
-    summaryE13.pairedComparison.plant13TsLiters === null &&
-    summaryE13.pairedComparison.tsDifferenceLiters === null,
-    'E13: Missing @13 member in completed population makes paired @13 TS aggregates null'
   );
 
   // E14: Destination silo displays authoritative value only
@@ -302,6 +277,114 @@ async function run4DETests() {
   assert(
     completedOnly.length === 2 && pendingOnly.length === 1 && diffOnly.length === 2,
     'E20: Filtering by receipt state correctly filters items without mutation'
+  );
+
+  // ================================================================================
+  // R1 — CROSS-DATE COMPLETED RECEIPT
+  // ================================================================================
+  const logCrossDate = createMockLog({
+    id: 501,
+    dispatch_date: '2026-08-23',
+    final_receipt_exists: true,
+    final_receipt_timestamp: '2026-08-25T04:00:00.000Z', // 25 Aug 09:00 AM PKT -> Final Receipt Business Date 2026-08-25
+    authoritative_final_liters: 9800,
+  });
+  const itemsCrossDate = deriveReceiptPerformanceItems(buildVehicleVisitGroups([logCrossDate]));
+  const filteredCrossDate = filterReceiptPerformanceItemsByDate(itemsCrossDate, '2026-08-25', '2026-08-25');
+  assert(
+    itemsCrossDate[0].dispatchBusinessDate === '2026-08-23' &&
+    itemsCrossDate[0].finalReceiptBusinessDate === '2026-08-25' &&
+    filteredCrossDate.length === 1 &&
+    filteredCrossDate[0].isCompletedReceipt === true,
+    'R1: Cross-date completed receipt (Dispatch 23-Aug, Receipt 25-Aug) is included when selected range is 25-Aug'
+  );
+
+  // ================================================================================
+  // R2 — COMPLETED CARD OUTSIDE RECEIPT RANGE
+  // ================================================================================
+  const logDate24 = createMockLog({
+    id: 502,
+    final_receipt_exists: true,
+    final_receipt_timestamp: '2026-08-24T05:00:00.000Z', // Business Date 2026-08-24
+    authoritative_final_liters: 9800,
+  });
+  const itemsDate24 = deriveReceiptPerformanceItems(buildVehicleVisitGroups([logDate24]));
+  const filteredOutDate25 = filterReceiptPerformanceItemsByDate(itemsDate24, '2026-08-25', '2026-08-25');
+  assert(
+    filteredOutDate25.length === 0,
+    'R2: Completed receipt from 24-Aug is excluded from displayed cards and summary when 25-Aug is selected'
+  );
+
+  // ================================================================================
+  // R3 — PENDING DATE BASIS (VISIT / DISPATCH BUSINESS DATE)
+  // ================================================================================
+  const logPending25 = createMockLog({
+    id: 503,
+    dispatch_date: '2026-08-25',
+    second_weight_of_vehicle: 14000,
+    final_receipt_exists: false,
+    final_receipt_timestamp: null,
+    authoritative_final_liters: null,
+  });
+  const itemsPending25 = deriveReceiptPerformanceItems(buildVehicleVisitGroups([logPending25]));
+  const filteredPending25 = filterReceiptPerformanceItemsByDate(itemsPending25, '2026-08-25', '2026-08-25');
+  assert(
+    itemsPending25[0].isReceiptPending === true &&
+    itemsPending25[0].finalReceiptBusinessDate === null &&
+    itemsPending25[0].dispatchBusinessDate === '2026-08-25' &&
+    filteredPending25.length === 1,
+    'R3: Pending receipt uses Visit / Dispatch Business Date (2026-08-25) without fake Final Receipt Business Date'
+  );
+
+  // ================================================================================
+  // R4 — FINAL @13 AUTHORITY (computed_plant_13ts_liters is NOT authoritative Final @13)
+  // ================================================================================
+  const logFinal13Check = createMockLog({
+    id: 504,
+    final_receipt_exists: true,
+    computed_plant_13ts_liters: 9750,
+    computed_dispatch_13ts_liters: 9800,
+  });
+  const itemsFinal13 = deriveReceiptPerformanceItems(buildVehicleVisitGroups([logFinal13Check]));
+  assert(
+    itemsFinal13[0].plant13TsLiters === null,
+    'R4: computed_plant_13ts_liters (9750) is NOT treated as authoritative Final @13 TS (plant13TsLiters is null)'
+  );
+
+  // ================================================================================
+  // R5 — @13 AGGREGATE (strict all-or-nothing: missing Final @13 yields null aggregates)
+  // ================================================================================
+  const summaryFinal13 = deriveReceiptsPerformanceSummary(itemsFinal13, '2026-08-24', '2026-08-24');
+  assert(
+    summaryFinal13.pairedComparison.dispatch13TsLiters === null &&
+    summaryFinal13.pairedComparison.plant13TsLiters === null &&
+    summaryFinal13.pairedComparison.tsDifferenceLiters === null,
+    'R5: Completed vehicle with Dispatch @13 but unavailable Final @13 yields null paired @13 aggregates'
+  );
+
+  // ================================================================================
+  // R6 — PHYSICAL RECEIPT REGRESSION (authoritative_final_liters only)
+  // ================================================================================
+  const logPhysReg = createMockLog({
+    id: 506,
+    authoritative_final_liters: 9800,
+    computed_plant_liters: 9700,
+  });
+  const itemsPhysReg = deriveReceiptPerformanceItems(buildVehicleVisitGroups([logPhysReg]));
+  assert(
+    itemsPhysReg[0].physicalReceivedLiters === 9800,
+    'R6: Physical Received Liters strictly equals authoritative_final_liters (9800, NOT computed_plant_liters 9700)'
+  );
+
+  // ================================================================================
+  // R7 — VEHICLE GROSS REGRESSION (vehicle_dispatch_gross_liters only, no portion fallback)
+  // ================================================================================
+  const logGrossRegP1 = createMockLog({ id: 507, portion_number: '1', dispatch_liters_gross: 4500, vehicle_dispatch_gross_liters: null });
+  const logGrossRegP2 = createMockLog({ id: 507, portion_number: '2', dispatch_liters_gross: 4500, vehicle_dispatch_gross_liters: null });
+  const itemsGrossReg = deriveReceiptPerformanceItems(buildVehicleVisitGroups([logGrossRegP1, logGrossRegP2]));
+  assert(
+    itemsGrossReg[0].dispatchGrossLiters === null,
+    'R7: When vehicle_dispatch_gross_liters is null, dispatchGrossLiters is null (no portion-sum 9000 fallback)'
   );
 
   console.log('\n================================================================================');

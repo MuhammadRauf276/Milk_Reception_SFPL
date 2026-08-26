@@ -445,7 +445,7 @@ export function buildVehicleVisitGroups(logs: MilkProcessLog[]): VehicleVisitGro
       secondWeightKg: primary.second_weight_of_vehicle ?? null,
       netMilkWeightKg: primary.computed_net_milk_weight ?? null,
       physicalReceivedLiters: authoritativePhysicalLiters,
-      plant13TsLiters: lifecycle.isComplete ? primary.computed_plant_13ts_liters ?? null : null,
+      plant13TsLiters: null,
 
       destinationSilo: primary.silo_storage_id || null,
       lifecycle,
@@ -1221,5 +1221,33 @@ export function filterReceiptPerformanceItems(
       default:
         return true;
     }
+  });
+}
+
+/**
+ * Filters receipt performance items by date range according to their authoritative date basis:
+ * - Completed receipts: filtered strictly by Final Receipt Business Date (finalReceiptBusinessDate)
+ * - Receipt pending vehicles: filtered by Visit / Dispatch Business Date (dispatchBusinessDate)
+ */
+export function filterReceiptPerformanceItemsByDate(
+  items: ReceiptPerformanceItem[],
+  fromDate?: string | null,
+  toDate?: string | null
+): ReceiptPerformanceItem[] {
+  return items.filter((item) => {
+    if (item.isCompletedReceipt) {
+      if (!item.finalReceiptBusinessDate) return false;
+      if (fromDate && item.finalReceiptBusinessDate < fromDate) return false;
+      if (toDate && item.finalReceiptBusinessDate > toDate) return false;
+      return true;
+    }
+    if (item.isReceiptPending) {
+      if (fromDate && item.dispatchBusinessDate < fromDate) return false;
+      if (toDate && item.dispatchBusinessDate > toDate) return false;
+      return true;
+    }
+    if (fromDate && item.dispatchBusinessDate < fromDate) return false;
+    if (toDate && item.dispatchBusinessDate > toDate) return false;
+    return true;
   });
 }

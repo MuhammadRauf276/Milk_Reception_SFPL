@@ -62,6 +62,11 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
   const [reportingLoading, setReportingLoading] = useState<boolean>(true);
   const [reportingError, setReportingError] = useState<string | null>(null);
 
+  // 3. Independent Receipts & Performance State (Unbounded source-scoped fetch for complete receipt lifecycle)
+  const [receiptLogs, setReceiptLogs] = useState<MilkProcessLog[]>([]);
+  const [receiptLoading, setReceiptLoading] = useState<boolean>(true);
+  const [receiptError, setReceiptError] = useState<string | null>(null);
+
   // History & Table search/filter state (isolated to historical reporting tables)
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [fromDate, setFromDate] = useState<string>('');
@@ -88,6 +93,24 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
       setLiveError(err.message || 'Failed to load live pipeline logs');
     } finally {
       setLiveLoading(false);
+    }
+  }, []);
+
+  // Fetch Receipt Logs: Unbounded source-scoped fetch without Dispatch Business Date filtering
+  const fetchReceiptLogs = useCallback(async () => {
+    setReceiptLoading(true);
+    setReceiptError(null);
+    try {
+      const res = await fetch('/api/logs');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to fetch receipt logs');
+
+      if (data.logs) setReceiptLogs(data.logs);
+      if (data.serverBusinessDate) setServerBusinessDate(data.serverBusinessDate);
+    } catch (err: any) {
+      setReceiptError(err.message || 'Failed to load receipt logs');
+    } finally {
+      setReceiptLoading(false);
     }
   }, []);
 
@@ -121,11 +144,13 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
   // A. Live Flow: Initial mount and interval polling (NO fromDate/toDate dependency)
   useEffect(() => {
     fetchLiveLogs();
+    fetchReceiptLogs();
     const interval = setInterval(() => {
       fetchLiveLogs();
+      fetchReceiptLogs();
     }, 15000);
     return () => clearInterval(interval);
-  }, [fetchLiveLogs]);
+  }, [fetchLiveLogs, fetchReceiptLogs]);
 
   // B. Reporting Flow: Initial load and when fromDate/toDate changes
   useEffect(() => {
@@ -309,12 +334,12 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
           {activeTab === 'RECEIPTS' && (
             <div id="tabpanel-RECEIPTS" role="tabpanel" aria-labelledby="tab-RECEIPTS" className="space-y-6">
               <ZMCCManagerReceiptsPerformance
-                logs={reportingLogs}
+                logs={receiptLogs}
                 assignedSourceName={assignedSourceName}
                 onInspectDetails={(l) => setSelectedLog(l)}
-                isLoading={reportingLoading}
-                error={reportingError}
-                onRetry={() => fetchReportingLogs(fromDate, toDate)}
+                isLoading={receiptLoading}
+                error={receiptError}
+                onRetry={() => fetchReceiptLogs()}
                 currentFromDate={fromDate}
                 currentToDate={toDate}
                 onDateFilterChange={(f, t) => {
