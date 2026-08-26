@@ -184,6 +184,50 @@ async function run4EATests() {
     'A20: Future roles are explicitly marked NOT YET READY'
   );
 
+  // A21: GET /api/logs is documented as canonical read authority
+  assert(
+    mapSrc.includes('`GET /api/logs` — Canonical source-scoped operational read-model endpoint') ||
+    mapSrc.includes('`GET /api/logs`'),
+    'A21: GET /api/logs is documented as canonical read endpoint'
+  );
+
+  // A22: /api/logs/[id] is NOT documented as a canonical read endpoint
+  const canonicalApiSection = mapSrc.split('### Canonical APIs')[1]?.split('###')[0] || '';
+  assert(
+    !canonicalApiSection.includes('/api/logs/[id]'),
+    'A22: /api/logs/[id] is NOT listed under Canonical APIs'
+  );
+
+  // A23: deprecated log mutation routes are identified as deprecated tombstones
+  assert(
+    mapSrc.includes('DEPRECATED / MUTATION TOMBSTONES') &&
+    mapSrc.includes('POST /api/logs') &&
+    mapSrc.includes('PATCH /api/logs/[id]'),
+    'A23: POST/PATCH /api/logs and PATCH /api/logs/[id] are classified as deprecated mutation tombstones'
+  );
+
+  // A24: /api/auth/dev-profiles is classified DEV-ONLY
+  assert(
+    mapSrc.includes('/api/auth/dev-profiles') &&
+    mapSrc.includes('DEV-ONLY'),
+    'A24: /api/auth/dev-profiles is explicitly classified as DEV-ONLY'
+  );
+
+  // A25: CONTRACTOR_MANAGER documentation distinguishes assigned vs unassigned fail-closed
+  assert(
+    mapSrc.includes('Assigned `CONTRACTOR_MANAGER`') &&
+    mapSrc.includes('Unassigned `CONTRACTOR_MANAGER`') &&
+    mapSrc.includes('`-1` scope'),
+    'A25: CONTRACTOR_MANAGER documentation distinguishes assigned vs unassigned fail-closed'
+  );
+
+  // A26: /weighbridge is documented as a redirect to /department/weighbridge
+  assert(
+    mapSrc.includes('/weighbridge') &&
+    mapSrc.includes('Redirects to `/department/weighbridge`'),
+    'A26: /weighbridge is documented as a redirect to /department/weighbridge'
+  );
+
   console.log('\n================================================================================');
   console.log(`SUMMARY: ${passed} PASSED, ${failed} FAILED`);
   console.log('================================================================================\n');

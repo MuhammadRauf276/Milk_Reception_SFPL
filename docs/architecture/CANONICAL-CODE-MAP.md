@@ -45,7 +45,7 @@ Being located under `src/app` does **NOT** mean code is current. Every route, AP
 | `/super-admin/audit` | **CANONICAL** | `SUPER_ADMIN`, `Admin` | `.../audit/page.tsx` | CURRENT | System data audit log explorer. |
 | `/super-admin/master-data` | **CANONICAL** | `SUPER_ADMIN`, `Admin` | `.../master-data/page.tsx` | CURRENT | Directory navigation hub linking to sources, silos, tests. |
 | `/super-admin/settings` | **CANONICAL** | `SUPER_ADMIN`, `Admin` | `.../settings/page.tsx` | CURRENT | Security, session, and infrastructure status display. |
-| `/weighbridge` | **COMPATIBILITY** | `WEIGHBRIDGE_OPERATOR` | `WeighbridgeWorkspace.tsx` | COMPATIBILITY | Alias route rendering WeighbridgeWorkspace. |
+| `/weighbridge` | **COMPATIBILITY** | `WEIGHBRIDGE_OPERATOR` | `WeighbridgeWorkspace.tsx` | COMPATIBILITY | Redirects to `/department/weighbridge` (which renders `WeighbridgeWorkspace`). |
 | `/admin/lab-tests` | **COMPATIBILITY** | `Admin` | `src/app/admin/lab-tests/page.tsx` | LEGACY (4E-B TARGET) | Redirects to `/super-admin/lab-tests`. |
 | `/management/dashboard` | **LEGACY ACTIVE** | `Management`, `Admin` | `KanbanBoard.tsx` | LEGACY ACTIVE | Legacy multi-lane Kanban board with outdated calculations. |
 | `/cross-verification` | **LEGACY ACTIVE** | `Management`, `Admin` | `CrossVerification.tsx` | LEGACY ACTIVE | Standalone multi-zone cross verification view. |
@@ -65,17 +65,21 @@ Being located under `src/app` does **NOT** mean code is current. Every route, AP
 ## 4. API Ownership Map
 
 ### Canonical APIs (Current Production)
-- `/api/auth/*` — Session login, logout, me, and dev-profiles.
-- `/api/dispatches`, `/api/dispatches/start` — MPD dispatch creation.
+- `/api/auth/login`, `/api/auth/logout`, `/api/auth/me` — Production session authentication, logout, and token inspection.
+- `/api/dispatches`, `/api/dispatches/start` — MPD dispatch creation and portion initialization.
 - `/api/security/*` — Gate entry, active visits, ready-for-exit, gate exit.
 - `/api/qa/*` — Session management (queues, start, resume), portion QA completion, hold, visit search.
 - `/api/scale/*` — Ready-for-gross, gross-weight, ready-for-tare, tare-weight, open-tickets.
 - `/api/production/*` — Unloading queue, start unloading, complete unloading, ready-for-unloading, silo-issue, silo-issue history.
-- `/api/logs`, `/api/logs/[id]` — Source-scoped operational read-model logs.
+- `GET /api/logs` — Canonical source-scoped operational read-model endpoint.
 - `/api/lab-tests` — Public active lab test definitions for dispatch and plant forms.
 - `/api/super-admin/*` — Full administration endpoints (users, sources, silos, lab-tests, sop-rules, qa-warnings, operations, audit, overview).
 
-### Legacy / Duplicate APIs
+### Dev-Only APIs
+- `/api/auth/dev-profiles` — **DEV-ONLY**: Double-gated development profile switch endpoint (strictly blocked in production mode; never to be treated as a production authentication surface).
+
+### Deprecated / Compatibility / Mutation Tombstones
+- `POST /api/logs`, `PATCH /api/logs`, `PATCH /api/logs/[id]` — **DEPRECATED / MUTATION TOMBSTONES**: Deprecated operational log mutation surfaces. They do NOT represent current canonical manager read architecture.
 - `/api/admin/lab-tests`, `/api/admin/lab-tests/[id]` — **DUPLICATE / LEGACY**: Superseded by `/api/super-admin/lab-tests`.
 - `/api/logs/[id]/audit` (POST) — **BUSINESS DECISION / FAKE REVERT**: Inserts audit log without actual table mutation.
 
@@ -92,9 +96,9 @@ Being located under `src/app` does **NOT** mean code is current. Every route, AP
 | **QA Lab** | `/department/qa` | `QALaboratoryWorkspace.tsx` | `/api/qa/*` | `qaSessionService.ts`, `sopRuleEngine.ts` | Session lock, portion-level decisions, LT-000008 / LT-000026 |
 | **Weighbridge** | `/department/weighbridge` | `WeighbridgeWorkspace.tsx` | `/api/scale/*` | `weighbridgeScaleService.ts`, `vehicleQuantityService.ts` | First weight (gross), second weight (tare), net milk weight |
 | **Production** | `/department/production`| `ProductionUnloadingWorkspace.tsx` | `/api/production/*` | `productionUnloadingService.ts`, `siloInventoryService.ts`| Silo provisional allocation, physical liters receipt |
-| **Final Receipt** | Read Model | `operationalReadModelService.ts` | `/api/logs` | `operationalReadModelService.ts` | `final_receipt_exists` backed by `SiloInventoryTransaction` `RECEIPT` |
-| **Read Model** | Read Model | `operationalReadModelService.ts` | `/api/logs` | `operationalReadModelService.ts` | `authoritative_final_liters`, source-scoped filtering |
-| **ZMCC Manager** | `/mpd/zmcc-manager` | `ZMCCManagerWorkspace.tsx` | `/api/logs` | `zmccManagerHelpers.ts`, `zmccManagerTypes.ts` | Assigned source isolation, read-only supervision, 6 tabs |
+| **Final Receipt** | Read Model | `operationalReadModelService.ts` | `GET /api/logs` | `operationalReadModelService.ts` | `final_receipt_exists` backed by `SiloInventoryTransaction` `RECEIPT` |
+| **Read Model** | Read Model | `operationalReadModelService.ts` | `GET /api/logs` | `operationalReadModelService.ts` | `authoritative_final_liters`, source-scoped filtering |
+| **ZMCC Manager** | `/mpd/zmcc-manager` | `ZMCCManagerWorkspace.tsx` | `GET /api/logs` | `zmccManagerHelpers.ts`, `zmccManagerTypes.ts` | Assigned source isolation, read-only supervision, 6 tabs |
 | **Super Admin** | `/super-admin` | `src/app/super-admin/page.tsx` | `/api/super-admin/*` | Prisma Client direct queries | Master data management, SOP rules, user administration |
 
 ---
@@ -120,7 +124,10 @@ The following modules represent older architectural iterations. They remain in t
 
 The following roles exist in domain type definitions but do not yet have completed canonical frontend workspaces:
 
-- `CONTRACTOR_MANAGER` — Backend security fails closed (`procurement_source_id: -1`). Dedicated contractor workspace will be built in Stage 4F.
+- `CONTRACTOR_MANAGER` —
+  - **Assigned `CONTRACTOR_MANAGER`**: Scoped strictly to the procurement source assigned in the current DB user record (`assigned_source_id`).
+  - **Unassigned `CONTRACTOR_MANAGER`**: Fails closed using the existing no-source behavior / `-1` scope.
+  - Dedicated contractor workspace will be built in Stage 4F.
 - `EXECUTIVE_MANAGEMENT` — Dedicated multi-plant executive overview not yet implemented.
 - `MPD_Zone_Manager` (Multi-Source Zonal Concept) — Legacy role; future MPD Manager workspace will supersede it.
 
