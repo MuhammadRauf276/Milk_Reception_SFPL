@@ -125,7 +125,7 @@ The following modules represent older architectural iterations. They remain in t
 The following roles exist in domain type definitions but do not yet have completed canonical frontend workspaces:
 
 - `CONTRACTOR_MANAGER` —
-  - **Assigned `CONTRACTOR_MANAGER`**: Scoped strictly to the procurement source assigned in the current DB user record (`assigned_source_id`).
+  - **Assigned `CONTRACTOR_MANAGER`**: Scoped strictly to the procurement source assigned in the current DB user record (`procurement_source_id`).
   - **Unassigned `CONTRACTOR_MANAGER`**: Fails closed using the existing no-source behavior / `-1` scope.
   - Dedicated contractor workspace will be built in Stage 4F.
 - `EXECUTIVE_MANAGEMENT` — Dedicated multi-plant executive overview not yet implemented.

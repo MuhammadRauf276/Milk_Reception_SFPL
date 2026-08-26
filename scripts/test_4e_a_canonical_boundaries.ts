@@ -199,11 +199,13 @@ async function run4EATests() {
   );
 
   // A23: deprecated log mutation routes are identified as deprecated tombstones
+  const hasPostLogs = mapSrc.includes('POST /api/logs');
+  const hasPatchLogs = mapSrc.includes('PATCH /api/logs');
+  const hasPatchLogsId = mapSrc.includes('PATCH /api/logs/[id]');
+  const hasTombstoneHeading = mapSrc.includes('DEPRECATED / MUTATION TOMBSTONES');
   assert(
-    mapSrc.includes('DEPRECATED / MUTATION TOMBSTONES') &&
-    mapSrc.includes('POST /api/logs') &&
-    mapSrc.includes('PATCH /api/logs/[id]'),
-    'A23: POST/PATCH /api/logs and PATCH /api/logs/[id] are classified as deprecated mutation tombstones'
+    hasPostLogs && hasPatchLogs && hasPatchLogsId && hasTombstoneHeading,
+    'A23: Full deprecated mutation tombstone set (POST /api/logs, PATCH /api/logs, PATCH /api/logs/[id]) is protected'
   );
 
   // A24: /api/auth/dev-profiles is classified DEV-ONLY
@@ -213,12 +215,19 @@ async function run4EATests() {
     'A24: /api/auth/dev-profiles is explicitly classified as DEV-ONLY'
   );
 
-  // A25: CONTRACTOR_MANAGER documentation distinguishes assigned vs unassigned fail-closed
+  // A25: CONTRACTOR_MANAGER documentation distinguishes assigned vs unassigned fail-closed with exact field procurement_source_id
+  const hasProcurementSourceField = mapSrc.includes('procurement_source_id');
+  const hasNoInventedAssignedField = !mapSrc.includes('assigned_source_id');
+  const hasAssignedManager = mapSrc.includes('Assigned `CONTRACTOR_MANAGER`');
+  const hasUnassignedManager = mapSrc.includes('Unassigned `CONTRACTOR_MANAGER`');
+  const hasFailClosedScope = mapSrc.includes('`-1` scope');
   assert(
-    mapSrc.includes('Assigned `CONTRACTOR_MANAGER`') &&
-    mapSrc.includes('Unassigned `CONTRACTOR_MANAGER`') &&
-    mapSrc.includes('`-1` scope'),
-    'A25: CONTRACTOR_MANAGER documentation distinguishes assigned vs unassigned fail-closed'
+    hasProcurementSourceField &&
+    hasNoInventedAssignedField &&
+    hasAssignedManager &&
+    hasUnassignedManager &&
+    hasFailClosedScope,
+    'A25: CONTRACTOR_MANAGER uses exact procurement_source_id and distinguishes assigned vs unassigned fail-closed'
   );
 
   // A26: /weighbridge is documented as a redirect to /department/weighbridge
