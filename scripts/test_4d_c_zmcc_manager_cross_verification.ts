@@ -131,6 +131,41 @@ async function run4DCTests() {
     'FIX #1.2: Difference against 9,800 L Final Receipt is 9,800 - 10,000 = -200 L (NOT +800 L)'
   );
 
+  // R2 REGRESSION: vehicle_dispatch_gross_liters = null with portions 4000L + 5000L and final 9800L
+  const logNullVP1 = createMockLog({
+    id: 101,
+    portion_number: '1',
+    dispatch_liters_gross: 4000,
+    vehicle_dispatch_gross_liters: null,
+    status: 'COMPLETED',
+    final_receipt_exists: true,
+    final_receipt_transaction_id: 602,
+    final_receipt_timestamp: '2026-08-25T06:00:00.000Z',
+    authoritative_final_liters: 9800,
+  });
+  const logNullVP2 = createMockLog({
+    id: 101,
+    portion_number: '2',
+    dispatch_liters_gross: 5000,
+    vehicle_dispatch_gross_liters: null,
+    status: 'COMPLETED',
+    final_receipt_exists: true,
+    final_receipt_transaction_id: 602,
+    final_receipt_timestamp: '2026-08-25T06:00:00.000Z',
+    authoritative_final_liters: 9800,
+  });
+  const groupsNullV = buildVehicleVisitGroups([logNullVP1, logNullVP2]);
+  const reconNullV = deriveVehicleReconciliationItems(groupsNullV);
+
+  assert(
+    reconNullV[0].dispatchGrossLiters === null,
+    'R2 REGRESSION: vehicle_dispatch_gross_liters=null yields null dispatchGrossLiters (NOT portion sum 9,000 L)'
+  );
+  assert(
+    reconNullV[0].quantityDifferenceLiters === null && reconNullV[0].quantityDifferenceText === '—',
+    'R2 REGRESSION: Quantity difference is null / "—" (NOT +800 L)'
+  );
+
   // ================================================================================
   // 2. FIX #2 & SECTION 6: NO VEHICLE STATUS QA OVERWRITE (HOLD CONTAMINATION)
   // ================================================================================

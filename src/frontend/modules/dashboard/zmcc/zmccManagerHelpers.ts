@@ -405,8 +405,6 @@ export function buildVehicleVisitGroups(logs: MilkProcessLog[]): VehicleVisitGro
     const vehicleAuthoritativeGrossLiters =
       primary.vehicle_dispatch_gross_liters != null
         ? primary.vehicle_dispatch_gross_liters
-        : allGrossPresent
-        ? Number(sumGrossLiters.toFixed(2))
         : null;
 
     const authoritativePhysicalLiters = primary.authoritative_final_liters ?? null;
