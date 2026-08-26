@@ -10,7 +10,7 @@ import { ZMCCManagerCrossVerification } from './zmcc/ZMCCManagerCrossVerificatio
 import { ZMCCManagerQualityRejections } from './zmcc/ZMCCManagerQualityRejections';
 import { ZMCCManagerReceiptsPerformance } from './zmcc/ZMCCManagerReceiptsPerformance';
 import { ZMCCManagerHistoryReports } from './zmcc/ZMCCManagerHistoryReports';
-import { LogDetailModal } from '@modules/dashboard/LogDetailModal';
+import { ZMCCManagerVisitDetailModal } from './zmcc/ZMCCManagerVisitDetailModal';
 import {
   ZMCCManagerTab,
   OverviewDateRange,
@@ -372,11 +372,11 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
 
           {/* Detail Inspection Modal */}
           {selectedLog && (
-            <LogDetailModal
+            <ZMCCManagerVisitDetailModal
               isOpen={!!selectedLog}
               log={selectedLog}
               onClose={() => setSelectedLog(null)}
-              currentUser={currentUser}
+              assignedSourceName={assignedSourceName}
             />
           )}
         </main>

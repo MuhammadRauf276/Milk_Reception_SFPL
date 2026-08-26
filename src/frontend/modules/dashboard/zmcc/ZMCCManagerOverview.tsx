@@ -11,7 +11,6 @@ import {
   deriveManagerAttention,
 } from './zmccManagerHelpers';
 import { ManagerAttentionPanel } from './ManagerAttentionPanel';
-import { ZonalHistoryTable } from '@modules/dashboard/ZonalHistoryTable';
 import {
   Truck,
   FlaskConical,
@@ -312,7 +311,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
 
       {/* 5. Quick Recent Dispatches Preview */}
       <div className="p-5 rounded-xl bg-[#FFFFFF] border border-[#EAE4D5]/80 shadow-sm space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between pb-3 border-b border-[#EAE4D5]/80">
           <div className="flex items-center space-x-2">
             <History className="w-4 h-4 text-[#1E3A8A]" />
             <h3 className="text-sm font-extrabold text-[#111311]">
@@ -323,19 +322,51 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
             onClick={() => onNavigateToTab('HISTORY')}
             className="text-xs font-extrabold text-[#1E3A8A] hover:underline flex items-center gap-1"
           >
-            <span>View Full History</span>
+            <span>View Full History Archive</span>
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>
 
-        <ZonalHistoryTable
-          logs={logs.slice(0, 10)}
-          targetZone={assignedSourceName}
-          onInspectDetails={onInspectDetails}
-          currentFromDate={currentFromDate}
-          currentToDate={currentToDate}
-          onDateFilterChange={onDateFilterChange}
-        />
+        {logs.length === 0 ? (
+          <div className="py-6 text-center text-xs text-slate-500 font-semibold">
+            No dispatches recorded for the selected period.
+          </div>
+        ) : (
+          <div className="divide-y divide-[#EAE4D5]/40 text-xs">
+            {logs.slice(0, 5).map((log) => (
+              <div
+                key={log.id}
+                className="py-2.5 flex items-center justify-between hover:bg-[#FDFBF9] transition-colors rounded px-2"
+              >
+                <div className="flex items-center space-x-3">
+                  <span className="font-extrabold text-slate-900 font-mono">
+                    {log.vehicle_number}
+                  </span>
+                  {log.token_number && (
+                    <span className="text-[11px] font-mono text-slate-500">
+                      Token: {log.token_number}
+                    </span>
+                  )}
+                  <span className="text-[11px] text-slate-600">
+                    Date: {log.dispatch_date || '—'}
+                  </span>
+                </div>
+
+                <div className="flex items-center space-x-3">
+                  <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-slate-100 text-slate-800">
+                    {log.status || 'In Progress'}
+                  </span>
+                  <button
+                    onClick={() => onInspectDetails(log)}
+                    className="text-xs font-bold text-[#1E3A8A] hover:underline"
+                  >
+                    View Details
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
