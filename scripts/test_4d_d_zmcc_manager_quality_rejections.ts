@@ -11,7 +11,7 @@ import { formatOperationalDatetime } from '../src/lib/datetime-utils';
 
 async function run4DDTests() {
   console.log('================================================================================');
-  console.log('STAGE 4D-D: ZMCC MANAGER QUALITY & REJECTIONS TEST SUITE');
+  console.log('STAGE 4D-D-R1: ZMCC MANAGER QUALITY & REJECTIONS TEST SUITE');
   console.log('================================================================================\n');
 
   let passed = 0;
@@ -75,6 +75,9 @@ async function run4DDTests() {
       b_mbrt_minutes_test: null,
       igp_date: null,
       igp_time: null,
+      sampling_date: null,
+      sampling_time_start: null,
+      sampling_time_end: null,
       dispatch_timestamp: '2026-08-25T04:00:00.000Z',
       gate_entry_timestamp: null,
       gate_exit_timestamp: null,
@@ -285,6 +288,61 @@ async function run4DDTests() {
     compSrc.includes('handleFinalize') ||
     compSrc.includes('onApprove');
   assert(!hasMutationControls, 'D23: Quality & Rejections component contains no mutation action controls');
+
+  // ================================================================================
+  // R1 REGRESSION #1: QA EVENT TIMESTAMP AUTHORITY (NO RECONSTRUCTION / NO CREATED_AT)
+  // ================================================================================
+  const logNoQaIso = createMockLog({
+    id: 101,
+    portion_number: '1',
+    sampling_date: '2026-08-25',
+    sampling_time_end: '14:30:00',
+    sampling_time_start: '14:00:00',
+    created_at: '2026-08-25T04:00:00.000Z',
+  });
+  const itemsNoQaIso = deriveQualityRejectionItems([logNoQaIso]);
+  assert(
+    itemsNoQaIso[0].qaEventTimestamp === null,
+    'R1.1: When no authoritative QA ISO instant exists, qaEventTimestamp is null (no date+time string reconstruction and no created_at fallback)'
+  );
+
+  const testIsoInstant = '2026-08-23T21:30:00.000Z'; // 24 Aug 2026, 02:30 AM PKT
+  const formattedPkTime = formatOperationalDatetime(testIsoInstant);
+  assert(
+    formattedPkTime.includes('24 Aug 2026') && formattedPkTime.includes('02:30'),
+    'R1.2: Known UTC ISO instant (2026-08-23T21:30:00Z) formats to 24 Aug 2026, 02:30 in Asia/Karachi'
+  );
+
+  // ================================================================================
+  // R1 REGRESSION #2: OFFICIAL REJECTION REASON AUTHORITY (rejectionReasons only)
+  // ================================================================================
+  const logRejectionWithGenericRemarksOnly = createMockLog({
+    id: 201,
+    portion_number: '1',
+    calculated_status: 'REJECTED',
+    rejection_reasons: null,
+    remarks: 'Operator checked sample',
+  });
+  const itemsRejectionGeneric = deriveQualityRejectionItems([logRejectionWithGenericRemarksOnly]);
+  assert(
+    itemsRejectionGeneric[0].rejectionReasons === null &&
+    itemsRejectionGeneric[0].qaDecisionRemarks === 'Operator checked sample',
+    'R1.3: Portion rejection with no official rejection_reasons has rejectionReasons = null (generic remarks NOT promoted)'
+  );
+
+  const logRejectionWithAuthoritativeReason = createMockLog({
+    id: 202,
+    portion_number: '1',
+    calculated_status: 'REJECTED',
+    rejection_reasons: 'Plant LR outside accepted decision criteria',
+    remarks: 'Sample tested twice',
+  });
+  const itemsRejectionAuth = deriveQualityRejectionItems([logRejectionWithAuthoritativeReason]);
+  assert(
+    itemsRejectionAuth[0].rejectionReasons === 'Plant LR outside accepted decision criteria' &&
+    itemsRejectionAuth[0].qaDecisionRemarks === 'Sample tested twice',
+    'R1.4: Portion rejection with authoritative rejection_reasons preserves exact official reason'
+  );
 
   // Filter testing
   const allItems = [...itemsD1, ...itemsD2, ...itemsD3, ...itemsD4];

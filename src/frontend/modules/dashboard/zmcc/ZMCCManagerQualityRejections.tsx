@@ -301,23 +301,34 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
                   </div>
                 </div>
 
-                {/* Rejection / Remarks Alert Banner */}
-                {(item.rejectionReasons || item.qaDecisionRemarks) && (
+                {/* Official Rejection Reason Banner for REJECTED portions */}
+                {isRejected && (
+                  <div className="p-2.5 rounded-lg text-xs font-semibold flex items-start gap-2 bg-red-100/70 border border-red-200 text-red-900">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-red-700" />
+                    <div>
+                      <span className="font-extrabold uppercase text-[10px] block">
+                        Official Plant Rejection Reason:
+                      </span>
+                      <span>{item.rejectionReasons || '—'}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Non-rejection decision remarks / neutral QA remarks */}
+                {!isRejected && item.qaDecisionRemarks && (
                   <div
                     className={`p-2.5 rounded-lg text-xs font-semibold flex items-start gap-2 ${
-                      isRejected
-                        ? 'bg-red-100/70 border border-red-200 text-red-900'
-                        : isHold
+                      isHold
                         ? 'bg-amber-100/70 border border-amber-200 text-amber-900'
                         : 'bg-slate-100 border border-slate-200 text-slate-800'
                     }`}
                   >
-                    <AlertTriangle className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${isRejected ? 'text-red-700' : 'text-amber-700'}`} />
+                    <AlertTriangle className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${isHold ? 'text-amber-700' : 'text-slate-600'}`} />
                     <div>
                       <span className="font-extrabold uppercase text-[10px] block">
-                        {isRejected ? 'Official Plant Rejection Reason:' : 'Quality Decision Remarks:'}
+                        {isHold ? 'Hold Remarks:' : 'QA Remarks:'}
                       </span>
-                      <span>{item.rejectionReasons || item.qaDecisionRemarks}</span>
+                      <span>{item.qaDecisionRemarks}</span>
                     </div>
                   </div>
                 )}

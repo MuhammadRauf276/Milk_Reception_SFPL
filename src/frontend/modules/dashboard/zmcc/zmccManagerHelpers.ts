@@ -955,7 +955,7 @@ export function deriveQualityRejectionItems(logs: MilkProcessLog[]): QualityReje
       qaDecision = 'HOLD';
     }
 
-    const qaDecisionRemarks = p.rejection_reasons || p.remarks || null;
+    const qaDecisionRemarks = p.remarks || null;
     const rejectionReasons = p.rejection_reasons || null;
 
     // LR comparison (Plant LR LT-000008)
@@ -980,15 +980,8 @@ export function deriveQualityRejectionItems(logs: MilkProcessLog[]): QualityReje
 
     const hasQualityDifference = (lrDiff != null && lrDiff !== 0) || (fatDiff != null && fatDiff !== 0);
 
-    // QA Event Timestamp (Sampling / testing completion)
-    let qaEventTimestamp: string | null = null;
-    if (p.sampling_date && p.sampling_time_end) {
-      qaEventTimestamp = `${p.sampling_date}T${p.sampling_time_end}`;
-    } else if (p.sampling_date && p.sampling_time_start) {
-      qaEventTimestamp = `${p.sampling_date}T${p.sampling_time_start}`;
-    } else if (p.created_at) {
-      qaEventTimestamp = p.created_at;
-    }
+    // Authoritative QA Event Timestamp (strict ISO instant or null when unavailable; no date+time reconstruction or created_at fallback)
+    const qaEventTimestamp: string | null = null;
 
     return {
       visitId,
