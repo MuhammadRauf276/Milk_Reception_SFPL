@@ -15,6 +15,9 @@ import {
   QualityRejectionFilter,
   QualityRejectionItem,
   QualityRejectionSummary,
+  ReceiptsPerformanceFilter,
+  ReceiptPerformanceItem,
+  ReceiptsPerformanceSummary,
 } from './zmccManagerTypes';
 import { formatOperationalDatetime, formatOperationalTime } from '@/lib/datetime-utils';
 import { getOperationalBusinessDate } from '@backend/core/business-day';
@@ -1081,6 +1084,139 @@ export function filterQualityRejectionItems(
         return item.qaDecision === 'PENDING';
       case 'HAS_QUALITY_DIFF':
         return item.hasQualityDifference;
+      case 'ALL':
+      default:
+        return true;
+    }
+  });
+}
+
+/**
+ * Derives Receipts & Performance items from VehicleVisitGroup records.
+ * Preserves strict Final Receipt authority and locked whole-vehicle quantity authority.
+ */
+export function deriveReceiptPerformanceItems(groups: VehicleVisitGroup[]): ReceiptPerformanceItem[] {
+  return groups.map((g) => {
+    const primary = g.primaryLog;
+    const isCompletedReceipt = Boolean(primary.final_receipt_exists && primary.final_receipt_timestamp);
+    const isReceiptPending = Boolean(g.secondWeightKg != null && !primary.final_receipt_exists);
+
+    const dispatchGrossLiters = g.totalDispatchGrossLiters;
+    const physicalReceivedLiters = g.physicalReceivedLiters;
+
+    let quantityDifferenceLiters: number | null = null;
+    let quantityDifferenceText = '—';
+    if (physicalReceivedLiters != null && dispatchGrossLiters != null) {
+      quantityDifferenceLiters = Number((physicalReceivedLiters - dispatchGrossLiters).toFixed(2));
+      quantityDifferenceText =
+        quantityDifferenceLiters === 0 ? '0 L' : `${formatMetricDiff(quantityDifferenceLiters)} L`;
+    }
+
+    const dispatch13TsLiters = g.totalDispatch13TsLiters;
+    const plant13TsLiters = g.plant13TsLiters;
+
+    let tsDifferenceLiters: number | null = null;
+    let tsDifferenceText = '—';
+    if (plant13TsLiters != null && dispatch13TsLiters != null) {
+      tsDifferenceLiters = Number((plant13TsLiters - dispatch13TsLiters).toFixed(2));
+      tsDifferenceText = tsDifferenceLiters === 0 ? '0 L' : `${formatMetricDiff(tsDifferenceLiters)} L`;
+    }
+
+    return {
+      group: g,
+      visitId: g.visitId,
+      vehicleNumber: g.vehicleNumber,
+      tokenNumber: g.tokenNumber,
+      dispatchBusinessDate: g.businessDate,
+      finalReceiptBusinessDate: g.finalReceiptBusinessDate,
+      finalReceiptTimestamp: primary.final_receipt_timestamp || null,
+      lifecycleStatus: g.lifecycle.currentStageLabel,
+      isCompletedReceipt,
+      isReceiptPending,
+      dispatchGrossLiters,
+      physicalReceivedLiters,
+      quantityDifferenceLiters,
+      quantityDifferenceText,
+      hasQuantityDifference: quantityDifferenceLiters != null && quantityDifferenceLiters !== 0,
+      dispatch13TsLiters,
+      plant13TsLiters,
+      tsDifferenceLiters,
+      tsDifferenceText,
+      hasTsDifference: tsDifferenceLiters != null && tsDifferenceLiters !== 0,
+      firstWeightKg: g.firstWeightKg,
+      secondWeightKg: g.secondWeightKg,
+      netMilkWeightKg: g.netMilkWeightKg,
+      destinationSilo: g.destinationSilo,
+      receiptTransactionId: primary.final_receipt_transaction_id || null,
+    };
+  });
+}
+
+/**
+ * Filters completed receipts strictly by Final Receipt Business Date.
+ */
+export function filterCompletedReceiptsByDateRange(
+  items: ReceiptPerformanceItem[],
+  fromDate?: string | null,
+  toDate?: string | null
+): ReceiptPerformanceItem[] {
+  return items.filter((item) => {
+    if (!item.isCompletedReceipt) return false;
+    if (!item.finalReceiptBusinessDate) return false;
+    if (fromDate && item.finalReceiptBusinessDate < fromDate) return false;
+    if (toDate && item.finalReceiptBusinessDate > toDate) return false;
+    return true;
+  });
+}
+
+/**
+ * Computes summary KPI metrics for Receipts & Performance view.
+ */
+export function deriveReceiptsPerformanceSummary(
+  items: ReceiptPerformanceItem[],
+  fromDate?: string | null,
+  toDate?: string | null
+): ReceiptsPerformanceSummary {
+  const completedInPeriod = filterCompletedReceiptsByDateRange(items, fromDate, toDate);
+  const completedGroups = completedInPeriod.map((i) => i.group);
+  const pairedComparison = computeCompletedReceiptQuantityComparison(completedGroups);
+  const receiptPendingCount = items.filter((i) => i.isReceiptPending).length;
+
+  return {
+    completedReceiptCount: completedInPeriod.length,
+    receiptPendingCount,
+    pairedComparison,
+  };
+}
+
+/**
+ * Filters receipt performance items based on search query and active tab filter.
+ */
+export function filterReceiptPerformanceItems(
+  items: ReceiptPerformanceItem[],
+  searchQuery: string,
+  filterState: ReceiptsPerformanceFilter
+): ReceiptPerformanceItem[] {
+  return items.filter((item) => {
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const match =
+        item.vehicleNumber.toLowerCase().includes(q) ||
+        (item.tokenNumber && item.tokenNumber.toLowerCase().includes(q)) ||
+        (item.destinationSilo && item.destinationSilo.toLowerCase().includes(q)) ||
+        (item.receiptTransactionId && String(item.receiptTransactionId).includes(q));
+      if (!match) return false;
+    }
+
+    switch (filterState) {
+      case 'COMPLETED':
+        return item.isCompletedReceipt;
+      case 'RECEIPT_PENDING':
+        return item.isReceiptPending;
+      case 'HAS_QUANTITY_DIFF':
+        return item.hasQuantityDifference;
+      case 'HAS_TS_DIFF':
+        return item.hasTsDifference;
       case 'ALL':
       default:
         return true;

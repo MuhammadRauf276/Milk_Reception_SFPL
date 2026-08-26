@@ -8,6 +8,7 @@ import { ZMCCManagerOverview } from './zmcc/ZMCCManagerOverview';
 import { ZMCCManagerLiveDispatches } from './zmcc/ZMCCManagerLiveDispatches';
 import { ZMCCManagerCrossVerification } from './zmcc/ZMCCManagerCrossVerification';
 import { ZMCCManagerQualityRejections } from './zmcc/ZMCCManagerQualityRejections';
+import { ZMCCManagerReceiptsPerformance } from './zmcc/ZMCCManagerReceiptsPerformance';
 import { ZonalHistoryTable } from '@modules/dashboard/ZonalHistoryTable';
 import { LogDetailModal } from '@modules/dashboard/LogDetailModal';
 import {
@@ -304,32 +305,16 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
             </div>
           )}
 
-          {/* TAB 5: RECEIPTS & PERFORMANCE (4D-E Foundation) */}
+          {/* TAB 5: RECEIPTS & PERFORMANCE */}
           {activeTab === 'RECEIPTS' && (
             <div id="tabpanel-RECEIPTS" role="tabpanel" aria-labelledby="tab-RECEIPTS" className="space-y-6">
-              <div className="p-6 rounded-xl bg-[#FFFFFF] border border-[#EAE4D5]/80 shadow-sm space-y-3">
-                <div className="flex items-center space-x-2 text-[#166534]">
-                  <TrendingUp className="w-5 h-5" />
-                  <h3 className="text-sm font-extrabold text-[#111311]">Final Silo Receipts & Quantity Performance</h3>
-                </div>
-                <p className="text-xs text-slate-600">
-                  Authoritative weighbridge receipts, net milk weight reconciliations, and silo allocation performance for <strong>{assignedSourceName}</strong>.
-                </p>
-                <div className="p-4 rounded-lg bg-emerald-50/60 border border-emerald-200 text-xs font-semibold text-emerald-900 flex items-start gap-2.5">
-                  <Info className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-bold">Receipts & Performance Workspace</span>
-                    <p className="text-[11px] text-emerald-800 mt-0.5">
-                      Physical Received Liters and @13% TS volume metrics computed from official First Weight and Second Weight weighbridge scale operations. Detailed trend reports will be expanded in Stage 4D-E.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <ZonalHistoryTable
-                logs={filteredReportingLogs.filter((l) => ['READY_FOR_GATE_EXIT', 'COMPLETED', 'GATE_OUT'].includes(String(l.status).toUpperCase()))}
-                targetZone={assignedSourceName}
+              <ZMCCManagerReceiptsPerformance
+                logs={reportingLogs}
+                assignedSourceName={assignedSourceName}
                 onInspectDetails={(l) => setSelectedLog(l)}
+                isLoading={reportingLoading}
+                error={reportingError}
+                onRetry={() => fetchReportingLogs(fromDate, toDate)}
                 currentFromDate={fromDate}
                 currentToDate={toDate}
                 onDateFilterChange={(f, t) => {

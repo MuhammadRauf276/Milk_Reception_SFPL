@@ -249,3 +249,50 @@ export interface QualityRejectionSummary {
   vehiclesWithRejectionsCount: number;
   qualityDiffCount: number;
 }
+
+export type ReceiptsPerformanceFilter =
+  | 'ALL'
+  | 'COMPLETED'
+  | 'RECEIPT_PENDING'
+  | 'HAS_QUANTITY_DIFF'
+  | 'HAS_TS_DIFF';
+
+export interface ReceiptPerformanceItem {
+  group: VehicleVisitGroup;
+  visitId: number;
+  vehicleNumber: string;
+  tokenNumber: string | null;
+  dispatchBusinessDate: string;
+  finalReceiptBusinessDate: string | null;
+  finalReceiptTimestamp: string | null;
+  lifecycleStatus: string;
+  isCompletedReceipt: boolean;
+  isReceiptPending: boolean;
+
+  // Quantities
+  dispatchGrossLiters: number | null;
+  physicalReceivedLiters: number | null;
+  quantityDifferenceLiters: number | null;
+  quantityDifferenceText: string;
+  hasQuantityDifference: boolean;
+
+  // 13% TS
+  dispatch13TsLiters: number | null;
+  plant13TsLiters: number | null;
+  tsDifferenceLiters: number | null;
+  tsDifferenceText: string;
+  hasTsDifference: boolean;
+
+  // Scale & Storage
+  firstWeightKg: number | null;
+  secondWeightKg: number | null;
+  netMilkWeightKg: number | null;
+  destinationSilo: string | null;
+  receiptTransactionId: number | null;
+}
+
+export interface ReceiptsPerformanceSummary {
+  completedReceiptCount: number;
+  receiptPendingCount: number;
+  pairedComparison: CompletedReceiptQuantityComparison;
+}
