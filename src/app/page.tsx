@@ -36,5 +36,9 @@ export default async function HomePage() {
     redirect('/department/security-manager');
   }
 
+  if (role === 'ZMCC_MANAGER') {
+    redirect('/mpd/zmcc-manager');
+  }
+
   return <KanbanBoard />;
 }

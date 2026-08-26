@@ -161,9 +161,9 @@ export function buildDynamicTestComparisons(log: MilkProcessLog): DynamicTestCom
       testScope: 'BOTH',
       unit: '%',
       resultType: 'NUMERIC',
-      dispatchResult: { status: 'AVAILABLE', value: 0.14 },
-      plantResult: { status: 'AVAILABLE', value: 0.14 },
-      difference: { numericValue: 0, displayText: '0.00%' },
+      dispatchResult: { status: 'NOT_TESTED', value: null },
+      plantResult: { status: 'NOT_TESTED', value: null },
+      difference: { numericValue: null, displayText: '--' },
     },
     {
       testId: 'temperature',
@@ -173,9 +173,9 @@ export function buildDynamicTestComparisons(log: MilkProcessLog): DynamicTestCom
       testScope: 'BOTH',
       unit: '°C',
       resultType: 'NUMERIC',
-      dispatchResult: { status: 'AVAILABLE', value: 4.5 },
-      plantResult: { status: 'AVAILABLE', value: 4.8 },
-      difference: { numericValue: 0.3, displayText: '+0.3°C' },
+      dispatchResult: { status: 'NOT_TESTED', value: null },
+      plantResult: { status: 'NOT_TESTED', value: null },
+      difference: { numericValue: null, displayText: '--' },
     },
   ];
 
@@ -345,11 +345,10 @@ export const CrossVerification: React.FC = () => {
       let netW = grossW != null && tareW != null ? grossW - tareW : null;
 
       let visitPlantRecv: number | null = null;
-      if (netW != null) {
-        const activeLr = computed.sampling_lr || computed.dispatch_lr || 28.0;
-        visitPlantRecv = Number((netW / (1 + (activeLr / 1000))).toFixed(2));
-      } else if (computed.computed_plant_liters != null) {
+      if (computed.computed_plant_liters != null) {
         visitPlantRecv = computed.computed_plant_liters;
+      } else if (netW != null && computed.sampling_lr != null) {
+        visitPlantRecv = Number((netW / (1 + (computed.sampling_lr / 1000))).toFixed(2));
       }
 
       vehicleGroupsMap.set(visitId, {

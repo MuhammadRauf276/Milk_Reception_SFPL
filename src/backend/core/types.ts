@@ -229,9 +229,12 @@ export interface MilkProcessLog {
   dispatch_month?: string | null;
   dispatch_year?: number | null;
   zonal_contractor_dispatch_time?: string | null;
-  scheduled_arrival_time?: string | null;
   dispatch_kg_gross?: number | null;
   dispatch_liters_gross?: number | null;
+  vehicle_dispatch_quantity_value?: number | null;
+  vehicle_dispatch_quantity_unit?: string | null;
+  vehicle_dispatch_quantity_basis?: string | null;
+  vehicle_dispatch_gross_liters?: number | null;
   dispatch_tests?: string | null;
   dispatch_fat?: number | null;
   dispatch_lr?: number | null;
@@ -278,6 +281,21 @@ export interface MilkProcessLog {
   computed_plant_liters?: number | null;
   computed_net_milk_weight?: number | null;
   computed_plant_13ts_liters?: number | null;
+
+  // AUTHORITATIVE EVENT TIMESTAMPS (ISO INSTANTS)
+  dispatch_timestamp?: string | null;
+  gate_entry_timestamp?: string | null;
+  gate_exit_timestamp?: string | null;
+  first_weight_timestamp?: string | null;
+  second_weight_timestamp?: string | null;
+  unloading_start_timestamp?: string | null;
+  unloading_end_timestamp?: string | null;
+
+  // AUTHORITATIVE FINAL RECEIPT (SILO TRANSACTION EVIDENCE)
+  final_receipt_exists?: boolean;
+  final_receipt_transaction_id?: number | null;
+  final_receipt_timestamp?: string | null;
+  authoritative_final_liters?: number | null;
 
   created_at: string;
   updated_at: string;

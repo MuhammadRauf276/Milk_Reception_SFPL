@@ -1,5 +1,6 @@
 import { prisma } from '../core/db';
 import { MilkProcessLog, User, ProcessStatus } from '../core/types';
+import { PLANT_TIMEZONE } from '@/lib/datetime-utils';
 import {
   calculateDensity,
   calculateSNF,
@@ -37,9 +38,12 @@ function formatTimeOnly(ts?: Date | string | null): string | null {
   if (!ts) return null;
   const d = new Date(ts);
   if (isNaN(d.getTime())) return null;
-  const h = d.getHours().toString().padStart(2, '0');
-  const m = d.getMinutes().toString().padStart(2, '0');
-  return `${h}:${m}`;
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: PLANT_TIMEZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(d);
 }
 
 function extractTestNumericValue(
@@ -94,9 +98,17 @@ export async function getOperationalLogs(
     whereClause.procurement_source = {
       name: { contains: cleanZone, mode: 'insensitive' },
     };
-  } else if (currentUser?.role === 'ZMCC_MANAGER' || currentUser?.role === 'CONTRACTOR_MANAGER') {
+  } else if (
+    currentUser?.role === 'ZMCC_MANAGER' ||
+    currentUser?.role === 'CONTRACTOR_MANAGER' ||
+    currentUser?.role === 'MPD_Operator' ||
+    currentUser?.role === 'MPD'
+  ) {
     if (currentUser.procurement_source_id) {
-      whereClause.procurement_source_id = currentUser.procurement_source_id;
+      whereClause.procurement_source_id = BigInt(currentUser.procurement_source_id);
+    } else {
+      // Fail closed: Unbound source-scoped role receives zero records
+      whereClause.procurement_source_id = BigInt(-1);
     }
   }
 
@@ -203,6 +215,29 @@ export async function getOperationalLogs(
       ? vehicleCalcResult.finalAt13TSLiters
       : null;
 
+    // Authoritative Whole-Vehicle Dispatch Quantity
+    const vDeclaredVal = visit.vehicle_dispatch_quantity_value != null ? Number(visit.vehicle_dispatch_quantity_value) : null;
+    const vDeclaredUnit = visit.vehicle_dispatch_quantity_unit ? visit.vehicle_dispatch_quantity_unit.toUpperCase() : null;
+    const vDeclaredBasis = visit.vehicle_dispatch_quantity_basis || null;
+
+    let vehicleDispatchGrossLiters: number | null = null;
+    if (vDeclaredVal != null) {
+      if (vDeclaredUnit === 'LITER') {
+        vehicleDispatchGrossLiters = vDeclaredVal;
+      } else if (vDeclaredUnit === 'KG') {
+        const firstPortionWithLr = visit.portions.find((p) =>
+          extractTestNumericValue(p.dispatch_lab_results, isDispatchLrTest) != null
+        );
+        const vLr = firstPortionWithLr
+          ? extractTestNumericValue(firstPortionWithLr.dispatch_lab_results, isDispatchLrTest)
+          : null;
+        if (vLr != null) {
+          const density = calculateDensity(vLr);
+          vehicleDispatchGrossLiters = Number((vDeclaredVal / density).toFixed(2));
+        }
+      }
+    }
+
     for (const portion of visit.portions) {
       const portionStr = `P-${String(portion.portion_number).padStart(2, '0')}`;
       const declaredVal = portion.dispatch_quantity_value ? Number(portion.dispatch_quantity_value) : null;
@@ -280,9 +315,12 @@ export async function getOperationalLogs(
         dispatch_month: monthsOfYear[opDate.getMonth()],
         dispatch_year: opDate.getFullYear(),
         zonal_contractor_dispatch_time: formatTimeOnly(portion.dispatch_info?.dispatch_timestamp),
-        scheduled_arrival_time: null,
         dispatch_kg_gross: declaredUnit === 'KG' ? declaredVal : null,
         dispatch_liters_gross: dispatchGrossLiters,
+        vehicle_dispatch_quantity_value: vDeclaredVal,
+        vehicle_dispatch_quantity_unit: vDeclaredUnit,
+        vehicle_dispatch_quantity_basis: vDeclaredBasis,
+        vehicle_dispatch_gross_liters: vehicleDispatchGrossLiters,
         dispatch_tests: null,
         dispatch_fat: dFat,
         dispatch_lr: dLr,
@@ -321,6 +359,43 @@ export async function getOperationalLogs(
         computed_plant_liters: finalPhysicalLiters,
         computed_net_milk_weight: netWeightKg,
         computed_plant_13ts_liters: finalAt13TsLiters,
+
+        // Authoritative Event Timestamps (ISO Instants)
+        dispatch_timestamp: portion.dispatch_info?.dispatch_timestamp
+          ? new Date(portion.dispatch_info.dispatch_timestamp).toISOString()
+          : visit.created_at
+          ? new Date(visit.created_at).toISOString()
+          : null,
+        gate_entry_timestamp: visit.gate_log?.entry_timestamp
+          ? new Date(visit.gate_log.entry_timestamp).toISOString()
+          : null,
+        gate_exit_timestamp: visit.gate_log?.exit_timestamp
+          ? new Date(visit.gate_log.exit_timestamp).toISOString()
+          : null,
+        first_weight_timestamp: visit.weight_ticket?.gross_timestamp
+          ? new Date(visit.weight_ticket.gross_timestamp).toISOString()
+          : null,
+        second_weight_timestamp: visit.weight_ticket?.tare_timestamp
+          ? new Date(visit.weight_ticket.tare_timestamp).toISOString()
+          : null,
+        unloading_start_timestamp: unloadingLog?.pump_start_timestamp
+          ? new Date(unloadingLog.pump_start_timestamp).toISOString()
+          : null,
+        unloading_end_timestamp: unloadingLog?.pump_end_timestamp
+          ? new Date(unloadingLog.pump_end_timestamp).toISOString()
+          : null,
+
+        // Authoritative Final Receipt (Silo Transaction Evidence)
+        final_receipt_exists: Boolean(finalizedReceipt),
+        final_receipt_transaction_id: finalizedReceipt ? Number(finalizedReceipt.id) : null,
+        final_receipt_timestamp: finalizedReceipt
+          ? finalizedReceipt.operational_timestamp
+            ? new Date(finalizedReceipt.operational_timestamp).toISOString()
+            : new Date(finalizedReceipt.created_at).toISOString()
+          : null,
+        authoritative_final_liters: finalizedReceipt?.quantity_liters
+          ? Number(finalizedReceipt.quantity_liters)
+          : null,
 
         created_at: visit.created_at ? new Date(visit.created_at).toISOString() : new Date().toISOString(),
         updated_at: visit.updated_at ? new Date(visit.updated_at).toISOString() : new Date().toISOString(),
