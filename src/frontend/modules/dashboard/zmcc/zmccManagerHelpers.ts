@@ -1180,7 +1180,13 @@ export function deriveReceiptsPerformanceSummary(
   const completedInPeriod = filterCompletedReceiptsByDateRange(items, fromDate, toDate);
   const completedGroups = completedInPeriod.map((i) => i.group);
   const pairedComparison = computeCompletedReceiptQuantityComparison(completedGroups);
-  const receiptPendingCount = items.filter((i) => i.isReceiptPending).length;
+
+  const receiptPendingCount = items.filter((i) => {
+    if (!i.isReceiptPending) return false;
+    if (fromDate && i.dispatchBusinessDate < fromDate) return false;
+    if (toDate && i.dispatchBusinessDate > toDate) return false;
+    return true;
+  }).length;
 
   return {
     completedReceiptCount: completedInPeriod.length,

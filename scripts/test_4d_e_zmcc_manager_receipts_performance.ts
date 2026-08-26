@@ -387,6 +387,49 @@ async function run4DETests() {
     'R7: When vehicle_dispatch_gross_liters is null, dispatchGrossLiters is null (no portion-sum 9000 fallback)'
   );
 
+  // ================================================================================
+  // R8 — PENDING RECEIPT KPI DATE FILTER (SUMMARY KPI & CARDS MATCH)
+  // ================================================================================
+  const logPending25A = createMockLog({
+    id: 508,
+    dispatch_date: '2026-08-25',
+    second_weight_of_vehicle: 14000,
+    final_receipt_exists: false,
+    final_receipt_timestamp: null,
+    authoritative_final_liters: null,
+  });
+  const logPending24B = createMockLog({
+    id: 509,
+    dispatch_date: '2026-08-24',
+    second_weight_of_vehicle: 14200,
+    final_receipt_exists: false,
+    final_receipt_timestamp: null,
+    authoritative_final_liters: null,
+  });
+  const logCompleted25C = createMockLog({
+    id: 510,
+    dispatch_date: '2026-08-23',
+    final_receipt_exists: true,
+    final_receipt_timestamp: '2026-08-25T04:00:00.000Z',
+    authoritative_final_liters: 9800,
+  });
+  const itemsPendingRange = deriveReceiptPerformanceItems(
+    buildVehicleVisitGroups([logPending25A, logPending24B, logCompleted25C])
+  );
+  const summaryPending25 = deriveReceiptsPerformanceSummary(itemsPendingRange, '2026-08-25', '2026-08-25');
+  const cardsPending25 = filterReceiptPerformanceItems(
+    filterReceiptPerformanceItemsByDate(itemsPendingRange, '2026-08-25', '2026-08-25'),
+    '',
+    'RECEIPT_PENDING'
+  );
+  assert(
+    summaryPending25.receiptPendingCount === 1 &&
+    cardsPending25.length === 1 &&
+    cardsPending25[0].visitId === 508 &&
+    cardsPending25[0].finalReceiptBusinessDate === null,
+    'R8: Pending receipt summary KPI (1) and pending cards (1) match exactly for selected date range (2026-08-25)'
+  );
+
   console.log('\n================================================================================');
   console.log(`SUMMARY: ${passed} PASSED, ${failed} FAILED`);
   console.log('================================================================================\n');
