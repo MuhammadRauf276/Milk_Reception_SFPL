@@ -154,16 +154,16 @@ async function run4EBTests() {
     'B17: Future roles receive /workspace-unavailable'
   );
 
-  // B18: Genuine legacy roles are explicitly mapped
-  const legacyMpd = resolveRoleHome('MPD_Zone_Manager') === '/management/dashboard';
-  const legacyMgmt = resolveRoleHome('Management') === '/management/dashboard';
-  const legacyGpm = resolveRoleHome('General_Plant_Manager') === '/management/dashboard';
-  const legacyQaM = resolveRoleHome('QA_Manager') === '/management/dashboard';
-  const legacyProdM = resolveRoleHome('Production_Manager') === '/management/dashboard';
-  const legacyCorr = resolveRoleHome('Correction_Officer') === '/management/dashboard';
+  // B18: Retired legacy roles safely route to /workspace-unavailable (4E-D)
+  const legacyMpd = resolveRoleHome('MPD_Zone_Manager') === '/workspace-unavailable';
+  const legacyMgmt = resolveRoleHome('Management') === '/workspace-unavailable';
+  const legacyGpm = resolveRoleHome('General_Plant_Manager') === '/workspace-unavailable';
+  const legacyQaM = resolveRoleHome('QA_Manager') === '/workspace-unavailable';
+  const legacyProdM = resolveRoleHome('Production_Manager') === '/workspace-unavailable';
+  const legacyCorr = resolveRoleHome('Correction_Officer') === '/workspace-unavailable';
   assert(
     legacyMpd && legacyMgmt && legacyGpm && legacyQaM && legacyProdM && legacyCorr,
-    'B18: Genuine legacy roles explicitly map to /management/dashboard'
+    'B18: Retired legacy roles (MPD_Zone_Manager, Management, General_Plant_Manager, QA_Manager, Production_Manager, Correction_Officer) fail closed to /workspace-unavailable'
   );
 
   // B19: Sidebar does not give future roles legacy management navigation

@@ -3,9 +3,8 @@
  *
  * Single source of truth for role-home resolution.
  * Directs current canonical roles to their dedicated workspaces,
- * explicitly routes legacy roles to legacy views, and
- * fails closed to /workspace-unavailable for any invalid, unknown,
- * or future/unready roles.
+ * and fails closed to /workspace-unavailable for legacy, future,
+ * invalid, or unrecognized roles.
  */
 
 export function resolveRoleHome(role?: string | null | unknown): string {
@@ -50,15 +49,13 @@ export function resolveRoleHome(role?: string | null | unknown): string {
     case 'Production':
       return '/department/production';
 
-    // Explicit Legacy Roles (Temporary routing to legacy dashboard until retired in 4E)
+    // Retired Legacy Roles (Fails closed to /workspace-unavailable in 4E-D)
     case 'MPD_Zone_Manager':
     case 'Management':
     case 'General_Plant_Manager':
     case 'QA_Manager':
     case 'Production_Manager':
     case 'Correction_Officer':
-      return '/management/dashboard';
-
     // Future Roles (Not Ready) & Fail-Closed Unknown Roles
     case 'CONTRACTOR_MANAGER':
     case 'EXECUTIVE_MANAGEMENT':

@@ -156,36 +156,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </>
           )}
 
-          {/* 2. ZMCC MINOR MANAGER / CONTRACTOR VIEW */}
-          {isZoneManager && (
-            <>
-              <Link
-                href="/"
-                className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition ${getLinkStyle('/')}`}
-              >
-                <span className="flex items-center gap-2">
-                  <History className="w-4 h-4" />
-                  <span>Zonal Historical Archive</span>
-                </span>
-                <span className={`px-1.5 py-0.5 rounded font-mono text-[9px] ${getBadgeStyle('/')}`}>
-                  ARCHIVE
-                </span>
-              </Link>
-
-              <Link
-                href="/cross-verification"
-                className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition ${getLinkStyle('/cross-verification')}`}
-              >
-                <span className="flex items-center gap-2">
-                  <ArrowRightLeft className="w-4 h-4" />
-                  <span>Cross-Verification</span>
-                </span>
-                <span className={`px-1.5 py-0.5 rounded font-mono text-[9px] ${getBadgeStyle('/cross-verification')}`}>
-                  SUMMARY
-                </span>
-              </Link>
-            </>
-          )}
 
           {/* 2B. ZMCC SOURCE MANAGER VIEW */}
           {isZmccManager && (
@@ -207,19 +177,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {isMainAdmin && (
             <>
               <Link
-                href="/"
-                className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition ${getLinkStyle('/')}`}
-              >
-                <span className="flex items-center gap-2">
-                  <LayoutDashboard className="w-4 h-4" />
-                  <span>5-Stage Reception Kanban</span>
-                </span>
-                <span className={`px-1.5 py-0.5 rounded font-mono text-[9px] ${getBadgeStyle('/')}`}>
-                  KANBAN
-                </span>
-              </Link>
-
-              <Link
                 href="/fleet-tracking"
                 className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition ${getLinkStyle('/fleet-tracking')}`}
               >
@@ -229,32 +186,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </span>
                 <span className={`px-1.5 py-0.5 rounded font-mono text-[9px] ${getBadgeStyle('/fleet-tracking')}`}>
                   /fleet
-                </span>
-              </Link>
-
-              <Link
-                href="/cross-verification"
-                className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition ${getLinkStyle('/cross-verification')}`}
-              >
-                <span className="flex items-center gap-2">
-                  <ArrowRightLeft className="w-4 h-4" />
-                  <span>Cross-Verification</span>
-                </span>
-                <span className={`px-1.5 py-0.5 rounded font-mono text-[9px] ${getBadgeStyle('/cross-verification')}`}>
-                  AUDIT
-                </span>
-              </Link>
-
-              <Link
-                href="/management/dashboard"
-                className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition ${getLinkStyle('/management/dashboard')}`}
-              >
-                <span className="flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4" />
-                  <span>Management Dashboard</span>
-                </span>
-                <span className={`px-1.5 py-0.5 rounded font-mono text-[9px] ${getBadgeStyle('/management/dashboard')}`}>
-                  /admin
                 </span>
               </Link>
 

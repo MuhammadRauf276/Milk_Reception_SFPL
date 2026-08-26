@@ -48,8 +48,6 @@ Being located under `src/app` does **NOT** mean code is current. Every route, AP
 | `/super-admin/settings` | **CANONICAL** | `SUPER_ADMIN`, `Admin` | `.../settings/page.tsx` | CURRENT | Security, session, and infrastructure status display. |
 | `/weighbridge` | **COMPATIBILITY** | `WEIGHBRIDGE_OPERATOR` | `WeighbridgeWorkspace.tsx` | COMPATIBILITY | Redirects to `/department/weighbridge` (which renders `WeighbridgeWorkspace`). |
 | `/admin/lab-tests` | **COMPATIBILITY** | `Admin` | `src/app/admin/lab-tests/page.tsx` | LEGACY (4E-B TARGET) | Redirects to `/super-admin/lab-tests`. |
-| `/management/dashboard` | **LEGACY ACTIVE** | `Management`, `Admin` | `KanbanBoard.tsx` | LEGACY ACTIVE | Legacy multi-lane Kanban board with outdated calculations. |
-| `/cross-verification` | **LEGACY ACTIVE** | `Management`, `Admin` | `CrossVerification.tsx` | LEGACY ACTIVE | Standalone multi-zone cross verification view. |
 | `/fleet-tracking` | **LEGACY ACTIVE** | `Management`, `Admin` | `src/app/fleet-tracking/page.tsx` | LEGACY ACTIVE | Legacy fleet tracking view with audit revert controls. |
 | `/tv-board` | **BUSINESS DECISION**| Plant Displays | `src/app/tv-board/page.tsx` | BUSINESS DECISION | Read-only wall-board screen for factory reception lanes. |
 
@@ -58,9 +56,9 @@ Being located under `src/app` does **NOT** mean code is current. Every route, AP
 ## 3. Root Route & Role-Home Policy (`src/lib/role-routing.ts`)
 
 > [!NOTE]
-> **CANONICAL ROUTING GATEWAY (STAGE 4E-B)**
+> **CANONICAL ROUTING GATEWAY (STAGE 4E-B / 4E-D)**
 > `src/app/page.tsx` is a pure routing gateway. It inspects `currentUser.role` and executes a server-side redirect via `resolveRoleHome(role)`.
-> **NO DEFAULT BUSINESS WORKSPACE FALLBACK**: Unknown, unmapped, and future roles fail closed to `/workspace-unavailable`. Legacy roles are explicitly and temporarily routed to `/management/dashboard` while legacy views remain in the codebase.
+> **NO DEFAULT BUSINESS WORKSPACE FALLBACK**: Unknown, unmapped, future, and retired legacy roles fail closed to `/workspace-unavailable`.
 
 ### Role Home Ownership Matrix
 
@@ -80,12 +78,12 @@ Being located under `src/app` does **NOT** mean code is current. Every route, AP
 | `Weighbridge_Operator` | **CURRENT (Alias)** | `/department/weighbridge` | Weighbridge Operator Alias |
 | `Production_Operator` | **CURRENT** | `/department/production` | Silo Unloading Station |
 | `Production` | **CURRENT (Alias)** | `/department/production` | Production Operator Alias |
-| `MPD_Zone_Manager` | **LEGACY ACTIVE** | `/management/dashboard` | Legacy Zonal Dashboard |
-| `Management` | **LEGACY ACTIVE** | `/management/dashboard` | Legacy Management Dashboard |
-| `General_Plant_Manager` | **LEGACY ACTIVE** | `/management/dashboard` | Legacy Plant Dashboard |
-| `QA_Manager` | **LEGACY ACTIVE** | `/management/dashboard` | Legacy QA Dashboard |
-| `Production_Manager` | **LEGACY ACTIVE** | `/management/dashboard` | Legacy Production Dashboard |
-| `Correction_Officer` | **LEGACY ACTIVE** | `/management/dashboard` | Legacy Correction Dashboard |
+| `MPD_Zone_Manager` | **RETIRED (4E-D)** | `/workspace-unavailable` | Legacy Zonal Dashboard Retired |
+| `Management` | **RETIRED (4E-D)** | `/workspace-unavailable` | Legacy Management Dashboard Retired |
+| `General_Plant_Manager` | **RETIRED (4E-D)** | `/workspace-unavailable` | Legacy Plant Dashboard Retired |
+| `QA_Manager` | **RETIRED (4E-D)** | `/workspace-unavailable` | Legacy QA Dashboard Retired |
+| `Production_Manager` | **RETIRED (4E-D)** | `/workspace-unavailable` | Legacy Production Dashboard Retired |
+| `Correction_Officer` | **RETIRED (4E-D)** | `/workspace-unavailable` | Legacy Correction Dashboard Retired |
 | `CONTRACTOR_MANAGER` | **FUTURE NOT READY** | `/workspace-unavailable` | Fails closed until Stage 4F |
 | `EXECUTIVE_MANAGEMENT` | **FUTURE NOT READY** | `/workspace-unavailable` | Fails closed until implemented |
 | *Any Unknown Role* | **FAIL CLOSED** | `/workspace-unavailable` | Rejects unauthorized access |
@@ -137,16 +135,10 @@ Being located under `src/app` does **NOT** mean code is current. Every route, AP
 
 The following modules represent older architectural iterations. They remain in the codebase until formally retired in subsequent Stage 4E cleanup chunks, but **NEW OR CURRENT CODE MUST NOT IMPORT THEM**:
 
-- `src/frontend/modules/dashboard/KanbanBoard.tsx`
-- `src/frontend/modules/dashboard/CrossVerification.tsx`
-- `src/frontend/modules/dashboard/ZonalHistoryTable.tsx`
-- `src/frontend/modules/dashboard/LogDetailModal.tsx`
-- `src/frontend/modules/cards/AdaptiveVehicleCard.tsx`
-- `src/backend/services/operationalCalculations.ts`
-- `src/app/management/dashboard/page.tsx`
-- `src/app/cross-verification/page.tsx`
 - `src/app/fleet-tracking/page.tsx`
 - `src/frontend/modules/shared/AuditRevertModal.tsx`
+- `src/frontend/modules/dashboard/LogDetailModal.tsx`
+- `src/backend/services/operationalCalculations.ts`
 
 ---
 
@@ -160,7 +152,7 @@ The following roles exist in domain type definitions but do not yet have complet
   - Landing destination: `/workspace-unavailable`. Dedicated contractor workspace will be built in Stage 4F.
 - `EXECUTIVE_MANAGEMENT` —
   - Landing destination: `/workspace-unavailable`. Dedicated multi-plant executive overview not yet implemented.
-- `MPD_Zone_Manager` (Multi-Source Zonal Concept) — Legacy role; temporarily routes to `/management/dashboard`. Future MPD Manager workspace will supersede it.
+- `MPD_Zone_Manager` (Multi-Source Zonal Concept) — Legacy role; fails closed to `/workspace-unavailable`. Future MPD Manager workspace will supersede it.
 
 > [!IMPORTANT]
 > Do not expose a future role as if its application is complete. Do not route future roles into unrelated operator pages or legacy Kanban as a permanent solution.
@@ -178,3 +170,22 @@ The following modules were proven dead (zero active runtime consumers, not route
 
 ### Retained Candidate Notes
 - `src/backend/actions/logActions.ts` — **RETAINED**: Currently referenced by test script `scripts/test_date_filters_and_decisions.ts`. Preserved to avoid test regression until script retirement.
+
+---
+
+## 9. Stage 4E-D Retired Legacy Management Subsystem
+
+The legacy Kanban management application and standalone cross-verification routes have been retired:
+
+- `src/app/management/dashboard/page.tsx` — **DELETED**: Retired legacy management dashboard route.
+- `src/app/cross-verification/page.tsx` — **DELETED**: Retired standalone cross-verification route.
+- `src/frontend/modules/dashboard/KanbanBoard.tsx` — **DELETED**: Retired 5-stage legacy Kanban component.
+- `src/frontend/modules/dashboard/CrossVerification.tsx` — **DELETED**: Retired standalone cross-verification component.
+- `src/frontend/modules/dashboard/ZonalHistoryTable.tsx` — **DELETED**: Retired legacy zonal table.
+- `src/frontend/modules/cards/AdaptiveVehicleCard.tsx` — **DELETED**: Retired legacy vehicle card.
+
+### Key Architectural Baseline
+- The Legacy Kanban management application is no longer an active application surface.
+- Current ZMCC Cross Verification is NOT the retired standalone `/cross-verification` route; it is an independent, source-scoped component (`ZMCCManagerCrossVerification.tsx`).
+- Legacy roles (`MPD_Zone_Manager`, `Management`, `General_Plant_Manager`, `QA_Manager`, `Production_Manager`, `Correction_Officer`) fail closed to `/workspace-unavailable`.
+- `LogDetailModal.tsx` and `operationalCalculations.ts` are retained as dependencies of `SecurityManager.tsx`, `fleet-tracking/page.tsx`, `operationalReadModelService.ts`, and test scripts.
