@@ -9,7 +9,7 @@ import { ZMCCManagerLiveDispatches } from './zmcc/ZMCCManagerLiveDispatches';
 import { ZMCCManagerCrossVerification } from './zmcc/ZMCCManagerCrossVerification';
 import { ZMCCManagerQualityRejections } from './zmcc/ZMCCManagerQualityRejections';
 import { ZMCCManagerReceiptsPerformance } from './zmcc/ZMCCManagerReceiptsPerformance';
-import { ZonalHistoryTable } from '@modules/dashboard/ZonalHistoryTable';
+import { ZMCCManagerHistoryReports } from './zmcc/ZMCCManagerHistoryReports';
 import { LogDetailModal } from '@modules/dashboard/LogDetailModal';
 import {
   ZMCCManagerTab,
@@ -353,35 +353,13 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
           {/* TAB 6: HISTORY & REPORTS */}
           {activeTab === 'HISTORY' && (
             <div id="tabpanel-HISTORY" role="tabpanel" aria-labelledby="tab-HISTORY" className="space-y-6">
-              <div className="p-5 rounded-xl bg-[#FFFFFF] border border-[#EAE4D5]/80 shadow-sm space-y-4">
-                <div className="flex items-center justify-between pb-2 border-b border-[#EAE4D5]/80">
-                  <div className="flex items-center space-x-2">
-                    <History className="w-5 h-5 text-[#1E3A8A]" />
-                    <h3 className="text-sm font-extrabold text-[#111311]">
-                      Historical Dispatch & Milestone Archive: {assignedSourceName}
-                    </h3>
-                  </div>
-                  <span className="text-xs font-mono font-bold text-slate-500">
-                    Total Dispatches: {filteredReportingLogs.length}
-                  </span>
-                </div>
-
-                <div className="relative w-full md:w-80">
-                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search vehicle #, token #..."
-                    className="w-full pl-10 pr-4 py-2 text-xs font-semibold rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/80 text-[#111311] focus:ring-2 focus:ring-[#1E3A8A] outline-none"
-                  />
-                </div>
-              </div>
-
-              <ZonalHistoryTable
-                logs={filteredReportingLogs}
-                targetZone={assignedSourceName}
+              <ZMCCManagerHistoryReports
+                logs={reportingLogs}
+                assignedSourceName={assignedSourceName}
                 onInspectDetails={(l) => setSelectedLog(l)}
+                isLoading={reportingLoading}
+                error={reportingError}
+                onRetry={() => fetchReportingLogs(fromDate, toDate)}
                 currentFromDate={fromDate}
                 currentToDate={toDate}
                 onDateFilterChange={(f, t) => {

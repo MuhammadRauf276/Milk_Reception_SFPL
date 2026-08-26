@@ -18,6 +18,10 @@ import {
   ReceiptsPerformanceFilter,
   ReceiptPerformanceItem,
   ReceiptsPerformanceSummary,
+  HistoryLifecycleFilter,
+  HistoryQAFilter,
+  HistoryReceiptFilter,
+  HistoryTransactionItem,
 } from './zmccManagerTypes';
 import { formatOperationalDatetime, formatOperationalTime } from '@/lib/datetime-utils';
 import { getOperationalBusinessDate } from '@backend/core/business-day';
@@ -1256,4 +1260,188 @@ export function filterReceiptPerformanceItemsByDate(
     if (toDate && item.dispatchBusinessDate > toDate) return false;
     return true;
   });
+}
+
+/**
+ * Derives History & Reports transaction items from VehicleVisitGroup records.
+ * Primary lookup basis: Visit / Dispatch Business Date (group.businessDate).
+ */
+export function deriveHistoryTransactionItems(groups: VehicleVisitGroup[]): HistoryTransactionItem[] {
+  return groups.map((g) => {
+    const primary = g.primaryLog;
+    const isCompletedReceipt = Boolean(primary.final_receipt_exists && primary.final_receipt_timestamp);
+    const isReceiptPending = Boolean(g.secondWeightKg != null && !primary.final_receipt_exists);
+
+    const portionQA = g.lifecycle.portionQA;
+
+    return {
+      group: g,
+      visitId: g.visitId,
+      vehicleNumber: g.vehicleNumber,
+      tokenNumber: g.tokenNumber,
+      businessDate: g.businessDate, // Primary lookup basis
+      finalReceiptBusinessDate: g.finalReceiptBusinessDate,
+      overallStatus: g.lifecycle.overallStatus,
+      lifecycleStageLabel: g.lifecycle.currentStageLabel,
+      isComplete: g.lifecycle.isComplete,
+      isInPlant: g.lifecycle.isInPlant,
+
+      // Portion QA
+      portionCount: g.portions.length,
+      portionQASummaryText: portionQA.summaryText,
+      hasRejection: portionQA.rejectedCount > 0,
+      hasHold: portionQA.holdCount > 0,
+      hasAccepted: portionQA.acceptedCount > 0,
+      hasPending: portionQA.pendingCount > 0,
+
+      // Scale & Quantities
+      dispatchGrossLiters: g.totalDispatchGrossLiters,
+      firstWeightKg: g.firstWeightKg,
+      secondWeightKg: g.secondWeightKg,
+      netMilkWeightKg: g.netMilkWeightKg,
+      physicalReceivedLiters: g.physicalReceivedLiters,
+      destinationSilo: g.destinationSilo,
+
+      // Timestamps
+      finalReceiptTimestamp: primary.final_receipt_timestamp || null,
+      gateEntryTimestamp: primary.gate_entry_timestamp || null,
+      dispatchTimestamp: primary.dispatch_timestamp || null,
+      isCompletedReceipt,
+      isReceiptPending,
+    };
+  });
+}
+
+/**
+ * Filters History & Reports transaction items based on search query, date range, and filter states.
+ * Date filtering operates strictly on Visit / Dispatch Business Date (item.businessDate).
+ */
+export function filterHistoryTransactionItems(
+  items: HistoryTransactionItem[],
+  searchQuery: string,
+  lifecycleFilter: HistoryLifecycleFilter,
+  qaFilter: HistoryQAFilter,
+  receiptFilter: HistoryReceiptFilter,
+  fromDate?: string | null,
+  toDate?: string | null
+): HistoryTransactionItem[] {
+  return items.filter((item) => {
+    // 1. Date Range Filter on Visit / Dispatch Business Date
+    if (fromDate && item.businessDate < fromDate) return false;
+    if (toDate && item.businessDate > toDate) return false;
+
+    // 2. Search Query Filter
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const match =
+        item.vehicleNumber.toLowerCase().includes(q) ||
+        (item.tokenNumber && item.tokenNumber.toLowerCase().includes(q)) ||
+        (item.destinationSilo && item.destinationSilo.toLowerCase().includes(q)) ||
+        item.businessDate.includes(q) ||
+        item.lifecycleStageLabel.toLowerCase().includes(q);
+      if (!match) return false;
+    }
+
+    // 3. Lifecycle State Filter
+    if (lifecycleFilter !== 'ALL') {
+      switch (lifecycleFilter) {
+        case 'IN_TRANSIT':
+          if (item.overallStatus !== 'DISPATCHED' && item.lifecycleStageLabel !== 'Dispatch') return false;
+          break;
+        case 'IN_PLANT':
+          if (!item.isInPlant) return false;
+          break;
+        case 'COMPLETED':
+          if (!item.isComplete) return false;
+          break;
+        case 'REJECTED':
+          if (!item.hasRejection) return false;
+          break;
+        case 'HOLD':
+          if (!item.hasHold) return false;
+          break;
+      }
+    }
+
+    // 4. Portion QA Filter
+    if (qaFilter !== 'ALL') {
+      switch (qaFilter) {
+        case 'ACCEPTED':
+          if (!item.hasAccepted) return false;
+          break;
+        case 'REJECTED':
+          if (!item.hasRejection) return false;
+          break;
+        case 'HOLD':
+          if (!item.hasHold) return false;
+          break;
+        case 'PENDING':
+          if (!item.hasPending) return false;
+          break;
+      }
+    }
+
+    // 5. Receipt Filter
+    if (receiptFilter !== 'ALL') {
+      switch (receiptFilter) {
+        case 'FINAL_RECEIPT_EXISTS':
+          if (!item.isCompletedReceipt) return false;
+          break;
+        case 'RECEIPT_PENDING':
+          if (!item.isReceiptPending) return false;
+          break;
+      }
+    }
+
+    return true;
+  });
+}
+
+/**
+ * Generates CSV content from filtered HistoryTransactionItem records.
+ * Strictly adheres to authoritative fields (no computed plant liters fallback, no fake 13% TS).
+ */
+export function generateHistoryCsv(items: HistoryTransactionItem[], sourceName: string): string {
+  const headers = [
+    'Business Date',
+    'Vehicle Number',
+    'Token Number',
+    'Lifecycle Stage',
+    'Portion Count',
+    'Portion QA Summary',
+    'Dispatch Gross Liters',
+    'First Weight (kg)',
+    'Second Weight (kg)',
+    'Net Milk Weight (kg)',
+    'Physical Received Liters',
+    'Destination Silo',
+    'Final Receipt Date/Time',
+  ];
+
+  const escapeCsv = (val: string | number | null | undefined): string => {
+    if (val == null) return '—';
+    const str = String(val);
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  };
+
+  const rows = items.map((item) => [
+    escapeCsv(item.businessDate),
+    escapeCsv(item.vehicleNumber),
+    escapeCsv(item.tokenNumber),
+    escapeCsv(item.lifecycleStageLabel),
+    escapeCsv(item.portionCount),
+    escapeCsv(item.portionQASummaryText),
+    escapeCsv(item.dispatchGrossLiters),
+    escapeCsv(item.firstWeightKg),
+    escapeCsv(item.secondWeightKg),
+    escapeCsv(item.netMilkWeightKg),
+    escapeCsv(item.physicalReceivedLiters),
+    escapeCsv(item.destinationSilo),
+    escapeCsv(item.finalReceiptTimestamp ? formatOperationalDatetime(item.finalReceiptTimestamp) : '—'),
+  ]);
+
+  return [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
 }

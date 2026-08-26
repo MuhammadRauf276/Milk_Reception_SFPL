@@ -296,3 +296,59 @@ export interface ReceiptsPerformanceSummary {
   receiptPendingCount: number;
   pairedComparison: CompletedReceiptQuantityComparison;
 }
+
+export type HistoryLifecycleFilter =
+  | 'ALL'
+  | 'IN_TRANSIT'
+  | 'IN_PLANT'
+  | 'COMPLETED'
+  | 'REJECTED'
+  | 'HOLD';
+
+export type HistoryQAFilter =
+  | 'ALL'
+  | 'ACCEPTED'
+  | 'REJECTED'
+  | 'HOLD'
+  | 'PENDING';
+
+export type HistoryReceiptFilter =
+  | 'ALL'
+  | 'FINAL_RECEIPT_EXISTS'
+  | 'RECEIPT_PENDING';
+
+export interface HistoryTransactionItem {
+  group: VehicleVisitGroup;
+  visitId: number;
+  vehicleNumber: string;
+  tokenNumber: string | null;
+  businessDate: string;
+  finalReceiptBusinessDate: string | null;
+  overallStatus: string;
+  lifecycleStageLabel: string;
+  isComplete: boolean;
+  isInPlant: boolean;
+
+  // Portion QA
+  portionCount: number;
+  portionQASummaryText: string;
+  hasRejection: boolean;
+  hasHold: boolean;
+  hasAccepted: boolean;
+  hasPending: boolean;
+
+  // Weights & Quantities
+  dispatchGrossLiters: number | null;
+  firstWeightKg: number | null;
+  secondWeightKg: number | null;
+  netMilkWeightKg: number | null;
+  physicalReceivedLiters: number | null;
+  destinationSilo: string | null;
+
+  // Timestamps
+  finalReceiptTimestamp: string | null;
+  gateEntryTimestamp: string | null;
+  dispatchTimestamp: string | null;
+  isCompletedReceipt: boolean;
+  isReceiptPending: boolean;
+}

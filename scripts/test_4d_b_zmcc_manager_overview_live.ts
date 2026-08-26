@@ -69,7 +69,11 @@ async function run4DBTests() {
       computed_plant_liters: null,
       computed_net_milk_weight: null,
       computed_plant_13ts_liters: null,
-      dispatch_liters_gross: 10000,
+      dispatch_liters_gross: overrides.dispatch_liters_gross !== undefined ? overrides.dispatch_liters_gross : 10000,
+      vehicle_dispatch_quantity_value: overrides.vehicle_dispatch_quantity_value !== undefined ? overrides.vehicle_dispatch_quantity_value : (overrides.dispatch_liters_gross ?? 10000),
+      vehicle_dispatch_quantity_unit: 'LITER',
+      vehicle_dispatch_quantity_basis: 'GROSS',
+      vehicle_dispatch_gross_liters: overrides.vehicle_dispatch_gross_liters !== undefined ? overrides.vehicle_dispatch_gross_liters : (overrides.dispatch_liters_gross ?? 10000),
       dispatch_fat: 3.8,
       dispatch_lr: 28.5,
       sampling_fat: null,
@@ -168,7 +172,7 @@ async function run4DBTests() {
   assert(overviewLogsProp, 'TEST C.2: ZMCCManagerOverview receives logs={reportingLogs} directly');
 
   // Guard 3: Live effect does NOT include fromDate / toDate
-  const liveEffectMatch = workspaceSrc.match(/useEffect\(\(\)\s*=>\s*\{[\s\S]*?fetchLiveLogs\(\);[\s\S]*?\},\s*\[fetchLiveLogs\]\);/);
+  const liveEffectMatch = workspaceSrc.match(/useEffect\(\(\)\s*=>\s*\{[\s\S]*?fetchLiveLogs\(\);[\s\S]*?\},\s*\[fetchLiveLogs(?:,\s*fetchReceiptLogs)?\]\);/);
   assert(Boolean(liveEffectMatch), 'TEST C.3: Live polling effect depends only on [fetchLiveLogs], not fromDate/toDate');
 
   // Guard 4: Reporting effect depends on [fetchReportingLogs, fromDate, toDate] and does NOT call fetchLiveLogs
