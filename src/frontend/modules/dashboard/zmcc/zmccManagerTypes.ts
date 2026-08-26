@@ -140,3 +140,64 @@ export interface ZMCCManagerOverviewMetrics {
   totalPlant13TsLiters: number | null;
   tsDifferenceLiters: number | null;
 }
+
+export type CrossVerificationFilter =
+  | 'ALL'
+  | 'COMPLETED'
+  | 'RECEIPT_PENDING'
+  | 'HAS_QUANTITY_DIFF'
+  | 'HAS_QUALITY_DIFF'
+  | 'HAS_REJECTION';
+
+export interface PortionQualityReconciliation {
+  portionNumber: string;
+  log: MilkProcessLog;
+  dispatchLr: number | null;
+  plantLr: number | null;
+  lrDiff: number | null;
+  lrDiffText: string;
+  dispatchFat: number | null;
+  plantFat: number | null;
+  fatDiff: number | null;
+  fatDiffText: string;
+  qaDecision: 'ACCEPTED' | 'REJECTED' | 'HOLD' | 'PENDING';
+  qaDecisionRemarks?: string | null;
+}
+
+export interface VehicleReconciliationItem {
+  group: VehicleVisitGroup;
+  visitId: number;
+  vehicleNumber: string;
+  tokenNumber: string | null;
+  businessDate: string;
+  portionCount: number;
+  lifecycleStatus: string;
+  isCompletedReceipt: boolean;
+  isReceiptPending: boolean;
+
+  // Quantities
+  dispatchGrossLiters: number | null;
+  dispatch13TsLiters: number | null;
+  netMilkWeightKg: number | null;
+  physicalReceivedLiters: number | null;
+  plant13TsLiters: number | null;
+  quantityDifferenceLiters: number | null;
+  quantityDifferenceText: string;
+  hasQuantityDifference: boolean;
+
+  // Silo & Receipt Event
+  destinationSilo: string | null;
+  finalReceiptTimestamp: string | null;
+
+  // Weighbridge timestamps & Weights
+  firstWeightTimestamp: string | null;
+  secondWeightTimestamp: string | null;
+  firstWeightKg: number | null;
+  secondWeightKg: number | null;
+
+  // Portion Quality
+  portions: PortionQualityReconciliation[];
+  hasQualityDifference: boolean;
+  hasRejection: boolean;
+  hasHold: boolean;
+}

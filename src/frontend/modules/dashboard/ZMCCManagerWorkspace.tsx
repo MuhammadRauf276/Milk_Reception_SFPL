@@ -6,6 +6,7 @@ import { Sidebar } from '@modules/shared/Sidebar';
 import { Header } from '@modules/shared/Header';
 import { ZMCCManagerOverview } from './zmcc/ZMCCManagerOverview';
 import { ZMCCManagerLiveDispatches } from './zmcc/ZMCCManagerLiveDispatches';
+import { ZMCCManagerCrossVerification } from './zmcc/ZMCCManagerCrossVerification';
 import { ZonalHistoryTable } from '@modules/dashboard/ZonalHistoryTable';
 import { LogDetailModal } from '@modules/dashboard/LogDetailModal';
 import {
@@ -265,27 +266,13 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
           {/* TAB 3: CROSS VERIFICATION */}
           {activeTab === 'CROSS_VERIFICATION' && (
             <div id="tabpanel-CROSS_VERIFICATION" role="tabpanel" aria-labelledby="tab-CROSS_VERIFICATION" className="space-y-6">
-              <div className="p-5 rounded-xl bg-[#FFFFFF] border border-[#EAE4D5]/80 shadow-sm space-y-4">
-                <div className="flex items-center justify-between pb-2 border-b border-[#EAE4D5]/80">
-                  <div className="flex items-center space-x-2">
-                    <ArrowRightLeft className="w-5 h-5 text-[#1E3A8A]" />
-                    <h3 className="text-sm font-extrabold text-[#111311]">
-                      Authoritative Cross-Verification Ledger: {assignedSourceName}
-                    </h3>
-                  </div>
-                  <span className="text-xs font-mono font-bold text-slate-500">
-                    Source-Locked ({filteredReportingLogs.length} Records)
-                  </span>
-                </div>
-                <p className="text-xs text-[#334155] font-semibold">
-                  Comparing declared ZMCC dispatch figures (Gross Liters, LR, Fat, 13% TS) against official plant scale and laboratory measurements.
-                </p>
-              </div>
-
-              <ZonalHistoryTable
-                logs={filteredReportingLogs}
-                targetZone={assignedSourceName}
+              <ZMCCManagerCrossVerification
+                logs={reportingLogs}
+                assignedSourceName={assignedSourceName}
                 onInspectDetails={(l) => setSelectedLog(l)}
+                isLoading={reportingLoading}
+                error={reportingError}
+                onRetry={() => fetchReportingLogs(fromDate, toDate)}
                 currentFromDate={fromDate}
                 currentToDate={toDate}
                 onDateFilterChange={(f, t) => {

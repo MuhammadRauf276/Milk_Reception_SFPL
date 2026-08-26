@@ -9,6 +9,9 @@ import {
   ZMCCManagerOverviewMetrics,
   OverviewDateRange,
   CompletedReceiptQuantityComparison,
+  PortionQualityReconciliation,
+  VehicleReconciliationItem,
+  CrossVerificationFilter,
 } from './zmccManagerTypes';
 import { formatOperationalDatetime, formatOperationalTime } from '@/lib/datetime-utils';
 import { getOperationalBusinessDate } from '@backend/core/business-day';
@@ -762,4 +765,158 @@ export function deriveManagerAttention(logs: MilkProcessLog[]): ZMCCAttentionIte
   }
 
   return items;
+}
+
+/**
+ * Derives Cross Verification reconciliation items for each VehicleVisitGroup
+ */
+export function deriveVehicleReconciliationItems(
+  groups: VehicleVisitGroup[]
+): VehicleReconciliationItem[] {
+  return groups.map((g) => {
+    // 1. Portion-level quality reconciliation
+    const portions: PortionQualityReconciliation[] = g.portions.map((p) => {
+      const pNum = p.portion_number ? `P-${String(p.portion_number).padStart(2, '0')}` : 'P-01';
+
+      const dispatchLr = p.dispatch_lr != null ? p.dispatch_lr : null;
+      const plantLr = p.sampling_lr != null ? p.sampling_lr : null;
+      let lrDiff: number | null = null;
+      let lrDiffText = '—';
+      if (plantLr != null && dispatchLr != null) {
+        lrDiff = Number((plantLr - dispatchLr).toFixed(4));
+        lrDiffText = lrDiff === 0 ? '0' : formatMetricDiff(lrDiff);
+      }
+
+      const dispatchFat = p.dispatch_fat != null ? p.dispatch_fat : null;
+      const plantFat = p.sampling_fat != null ? p.sampling_fat : null;
+      let fatDiff: number | null = null;
+      let fatDiffText = '—';
+      if (plantFat != null && dispatchFat != null) {
+        fatDiff = Number((plantFat - dispatchFat).toFixed(4));
+        fatDiffText = fatDiff === 0 ? '0%' : `${formatMetricDiff(fatDiff)}%`;
+      }
+
+      const rawCalc = String(p.calculated_status || '').toUpperCase();
+      const rawStat = String(p.status || '').toUpperCase();
+      let qaDecision: 'ACCEPTED' | 'REJECTED' | 'HOLD' | 'PENDING' = 'PENDING';
+      if (rawCalc === 'ACCEPTED' || rawStat === 'QA_ACCEPTED') {
+        qaDecision = 'ACCEPTED';
+      } else if (rawCalc === 'REJECTED' || rawStat.includes('REJECT')) {
+        qaDecision = 'REJECTED';
+      } else if (rawCalc === 'HOLD' || rawStat === 'HOLD') {
+        qaDecision = 'HOLD';
+      }
+
+      return {
+        portionNumber: pNum,
+        log: p,
+        dispatchLr,
+        plantLr,
+        lrDiff,
+        lrDiffText,
+        dispatchFat,
+        plantFat,
+        fatDiff,
+        fatDiffText,
+        qaDecision,
+        qaDecisionRemarks: p.rejection_reasons || p.remarks || null,
+      };
+    });
+
+    // 2. Vehicle-level quantity reconciliation
+    const dispatchGrossLiters = g.totalDispatchGrossLiters;
+    const physicalReceivedLiters = g.physicalReceivedLiters; // strictly authoritative_final_liters
+    let quantityDifferenceLiters: number | null = null;
+    let quantityDifferenceText = '—';
+    let hasQuantityDifference = false;
+
+    if (dispatchGrossLiters != null && physicalReceivedLiters != null) {
+      quantityDifferenceLiters = Number((physicalReceivedLiters - dispatchGrossLiters).toFixed(2));
+      hasQuantityDifference = quantityDifferenceLiters !== 0;
+      if (quantityDifferenceLiters === 0) {
+        quantityDifferenceText = '0 L';
+      } else if (quantityDifferenceLiters > 0) {
+        quantityDifferenceText = `+${quantityDifferenceLiters.toLocaleString()} L`;
+      } else {
+        quantityDifferenceText = `${quantityDifferenceLiters.toLocaleString()} L`;
+      }
+    }
+
+    const hasQualityDifference = portions.some(
+      (p) => (p.lrDiff != null && p.lrDiff !== 0) || (p.fatDiff != null && p.fatDiff !== 0)
+    );
+    const hasRejection = portions.some((p) => p.qaDecision === 'REJECTED');
+    const hasHold = portions.some((p) => p.qaDecision === 'HOLD');
+    const isCompletedReceipt = g.lifecycle.isComplete;
+    const isReceiptPending = g.secondWeightKg != null && !g.lifecycle.isComplete;
+
+    return {
+      group: g,
+      visitId: g.visitId,
+      vehicleNumber: g.vehicleNumber,
+      tokenNumber: g.tokenNumber,
+      businessDate: g.businessDate,
+      portionCount: g.portions.length,
+      lifecycleStatus: g.lifecycle.currentStageLabel,
+      isCompletedReceipt,
+      isReceiptPending,
+
+      dispatchGrossLiters,
+      dispatch13TsLiters: g.totalDispatch13TsLiters,
+      netMilkWeightKg: g.netMilkWeightKg,
+      physicalReceivedLiters,
+      plant13TsLiters: g.plant13TsLiters,
+      quantityDifferenceLiters,
+      quantityDifferenceText,
+      hasQuantityDifference,
+
+      destinationSilo: g.destinationSilo,
+      finalReceiptTimestamp: g.primaryLog.final_receipt_timestamp || null,
+
+      firstWeightTimestamp: g.primaryLog.first_weight_timestamp || null,
+      secondWeightTimestamp: g.primaryLog.second_weight_timestamp || null,
+      firstWeightKg: g.firstWeightKg,
+      secondWeightKg: g.secondWeightKg,
+
+      portions,
+      hasQualityDifference,
+      hasRejection,
+      hasHold,
+    };
+  });
+}
+
+/**
+ * Filter Cross Verification reconciliation items by search query and reconciliation state
+ */
+export function filterVehicleReconciliationItems(
+  items: VehicleReconciliationItem[],
+  searchQuery: string,
+  filterState: CrossVerificationFilter
+): VehicleReconciliationItem[] {
+  return items.filter((item) => {
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const match =
+        item.vehicleNumber.toLowerCase().includes(q) ||
+        (item.tokenNumber && item.tokenNumber.toLowerCase().includes(q));
+      if (!match) return false;
+    }
+
+    switch (filterState) {
+      case 'COMPLETED':
+        return item.isCompletedReceipt;
+      case 'RECEIPT_PENDING':
+        return item.isReceiptPending;
+      case 'HAS_QUANTITY_DIFF':
+        return item.hasQuantityDifference;
+      case 'HAS_QUALITY_DIFF':
+        return item.hasQualityDifference;
+      case 'HAS_REJECTION':
+        return item.hasRejection;
+      case 'ALL':
+      default:
+        return true;
+    }
+  });
 }
