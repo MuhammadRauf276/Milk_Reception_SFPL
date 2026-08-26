@@ -7,6 +7,7 @@ import { Header } from '@modules/shared/Header';
 import { ZMCCManagerOverview } from './zmcc/ZMCCManagerOverview';
 import { ZMCCManagerLiveDispatches } from './zmcc/ZMCCManagerLiveDispatches';
 import { ZMCCManagerCrossVerification } from './zmcc/ZMCCManagerCrossVerification';
+import { ZMCCManagerQualityRejections } from './zmcc/ZMCCManagerQualityRejections';
 import { ZonalHistoryTable } from '@modules/dashboard/ZonalHistoryTable';
 import { LogDetailModal } from '@modules/dashboard/LogDetailModal';
 import {
@@ -283,32 +284,16 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
             </div>
           )}
 
-          {/* TAB 4: QUALITY & REJECTIONS (4D-D Foundation) */}
+          {/* TAB 4: QUALITY & REJECTIONS */}
           {activeTab === 'QUALITY' && (
             <div id="tabpanel-QUALITY" role="tabpanel" aria-labelledby="tab-QUALITY" className="space-y-6">
-              <div className="p-6 rounded-xl bg-[#FFFFFF] border border-[#EAE4D5]/80 shadow-sm space-y-3">
-                <div className="flex items-center space-x-2 text-[#991B1B]">
-                  <AlertTriangle className="w-5 h-5" />
-                  <h3 className="text-sm font-extrabold text-[#111311]">Quality Analysis & Portion Rejections</h3>
-                </div>
-                <p className="text-xs text-slate-600">
-                  Detailed quality comparison breakdown and quarantine/rejection root-cause tracking for <strong>{assignedSourceName}</strong>.
-                </p>
-                <div className="p-4 rounded-lg bg-amber-50/60 border border-amber-200 text-xs font-semibold text-amber-900 flex items-start gap-2.5">
-                  <Info className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-bold">Quality & Rejections Workspace</span>
-                    <p className="text-[11px] text-amber-800 mt-0.5">
-                      Highlights rejected portions, test deviations (LR, Fat, Acidity, Temperature, Adulteration), and QA rejection rationales. Full analytical charts will be expanded in Stage 4D-D.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <ZonalHistoryTable
-                logs={filteredReportingLogs.filter((l) => String(l.calculated_status).toUpperCase() === 'REJECTED' || String(l.status).toUpperCase().includes('REJECT'))}
-                targetZone={assignedSourceName}
+              <ZMCCManagerQualityRejections
+                logs={reportingLogs}
+                assignedSourceName={assignedSourceName}
                 onInspectDetails={(l) => setSelectedLog(l)}
+                isLoading={reportingLoading}
+                error={reportingError}
+                onRetry={() => fetchReportingLogs(fromDate, toDate)}
                 currentFromDate={fromDate}
                 currentToDate={toDate}
                 onDateFilterChange={(f, t) => {

@@ -201,3 +201,51 @@ export interface VehicleReconciliationItem {
   hasRejection: boolean;
   hasHold: boolean;
 }
+
+export type QualityRejectionFilter =
+  | 'ALL'
+  | 'ACCEPTED'
+  | 'REJECTED'
+  | 'HOLD'
+  | 'PENDING'
+  | 'HAS_QUALITY_DIFF';
+
+export interface QualityRejectionItem {
+  visitId: number;
+  vehicleNumber: string;
+  tokenNumber: string | null;
+  businessDate: string;
+  portionNumber: string;
+  log: MilkProcessLog;
+
+  // QA Decisions
+  qaDecision: 'ACCEPTED' | 'REJECTED' | 'HOLD' | 'PENDING';
+  qaDecisionRemarks: string | null;
+  rejectionReasons: string | null;
+
+  // Lab Tests & Differences
+  dispatchLr: number | null;
+  plantLr: number | null;
+  lrDiff: number | null;
+  lrDiffText: string;
+
+  dispatchFat: number | null;
+  plantFat: number | null;
+  fatDiff: number | null;
+  fatDiffText: string;
+
+  hasQualityDifference: boolean;
+
+  // Authoritative QA Event Timestamp
+  qaEventTimestamp: string | null;
+}
+
+export interface QualityRejectionSummary {
+  totalPortions: number;
+  acceptedCount: number;
+  rejectedCount: number;
+  holdCount: number;
+  pendingCount: number;
+  vehiclesWithRejectionsCount: number;
+  qualityDiffCount: number;
+}

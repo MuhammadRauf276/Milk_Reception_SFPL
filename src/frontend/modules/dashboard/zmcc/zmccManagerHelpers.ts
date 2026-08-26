@@ -12,6 +12,9 @@ import {
   PortionQualityReconciliation,
   VehicleReconciliationItem,
   CrossVerificationFilter,
+  QualityRejectionFilter,
+  QualityRejectionItem,
+  QualityRejectionSummary,
 } from './zmccManagerTypes';
 import { formatOperationalDatetime, formatOperationalTime } from '@/lib/datetime-utils';
 import { getOperationalBusinessDate } from '@backend/core/business-day';
@@ -921,6 +924,170 @@ export function filterVehicleReconciliationItems(
         return item.hasQualityDifference;
       case 'HAS_REJECTION':
         return item.hasRejection;
+      case 'ALL':
+      default:
+        return true;
+    }
+  });
+}
+
+/**
+ * Derives flat portion-level Quality & Rejection items from source-scoped MilkProcessLog rows.
+ * Preserves strict portion QA decision authority (no fallback to vehicle workflow status).
+ */
+export function deriveQualityRejectionItems(logs: MilkProcessLog[]): QualityRejectionItem[] {
+  return logs.map((p) => {
+    const visitId = p.id;
+    const vehicleNumber = p.vehicle_number;
+    const tokenNumber = p.token_number || null;
+    const businessDate = p.dispatch_date || (p.created_at ? p.created_at.split('T')[0] : '');
+    const rawPortion = p.portion_number || '1';
+    const portionNumber = rawPortion.startsWith('P-') ? rawPortion : `P-${rawPortion.padStart(2, '0')}`;
+
+    // Portion QA Authority: calculated_status derived from VisitPortion.plant_decision
+    const rawCalc = String(p.calculated_status || '').toUpperCase();
+    let qaDecision: 'ACCEPTED' | 'REJECTED' | 'HOLD' | 'PENDING' = 'PENDING';
+    if (rawCalc === 'ACCEPTED') {
+      qaDecision = 'ACCEPTED';
+    } else if (rawCalc === 'REJECTED') {
+      qaDecision = 'REJECTED';
+    } else if (rawCalc === 'HOLD') {
+      qaDecision = 'HOLD';
+    }
+
+    const qaDecisionRemarks = p.rejection_reasons || p.remarks || null;
+    const rejectionReasons = p.rejection_reasons || null;
+
+    // LR comparison (Plant LR LT-000008)
+    const dispatchLr = p.dispatch_lr != null ? p.dispatch_lr : null;
+    const plantLr = p.sampling_lr != null ? p.sampling_lr : null;
+    let lrDiff: number | null = null;
+    let lrDiffText = '—';
+    if (plantLr != null && dispatchLr != null) {
+      lrDiff = Number((plantLr - dispatchLr).toFixed(2));
+      lrDiffText = lrDiff === 0 ? '0' : formatMetricDiff(lrDiff);
+    }
+
+    // Fat comparison (Plant Fat LT-000026)
+    const dispatchFat = p.dispatch_fat != null ? p.dispatch_fat : null;
+    const plantFat = p.sampling_fat != null ? p.sampling_fat : null;
+    let fatDiff: number | null = null;
+    let fatDiffText = '—';
+    if (plantFat != null && dispatchFat != null) {
+      fatDiff = Number((plantFat - dispatchFat).toFixed(4));
+      fatDiffText = fatDiff === 0 ? '0%' : `${formatMetricDiff(fatDiff)}%`;
+    }
+
+    const hasQualityDifference = (lrDiff != null && lrDiff !== 0) || (fatDiff != null && fatDiff !== 0);
+
+    // QA Event Timestamp (Sampling / testing completion)
+    let qaEventTimestamp: string | null = null;
+    if (p.sampling_date && p.sampling_time_end) {
+      qaEventTimestamp = `${p.sampling_date}T${p.sampling_time_end}`;
+    } else if (p.sampling_date && p.sampling_time_start) {
+      qaEventTimestamp = `${p.sampling_date}T${p.sampling_time_start}`;
+    } else if (p.created_at) {
+      qaEventTimestamp = p.created_at;
+    }
+
+    return {
+      visitId,
+      vehicleNumber,
+      tokenNumber,
+      businessDate,
+      portionNumber,
+      log: p,
+      qaDecision,
+      qaDecisionRemarks,
+      rejectionReasons,
+      dispatchLr,
+      plantLr,
+      lrDiff,
+      lrDiffText,
+      dispatchFat,
+      plantFat,
+      fatDiff,
+      fatDiffText,
+      hasQualityDifference,
+      qaEventTimestamp,
+    };
+  });
+}
+
+/**
+ * Computes summary KPI metrics across the selected Quality & Rejection items.
+ */
+export function deriveQualityRejectionSummary(items: QualityRejectionItem[]): QualityRejectionSummary {
+  const totalPortions = items.length;
+  let acceptedCount = 0;
+  let rejectedCount = 0;
+  let holdCount = 0;
+  let pendingCount = 0;
+  let qualityDiffCount = 0;
+  const vehiclesWithRejections = new Set<string>();
+
+  for (const item of items) {
+    switch (item.qaDecision) {
+      case 'ACCEPTED':
+        acceptedCount++;
+        break;
+      case 'REJECTED':
+        rejectedCount++;
+        vehiclesWithRejections.add(item.vehicleNumber);
+        break;
+      case 'HOLD':
+        holdCount++;
+        break;
+      case 'PENDING':
+      default:
+        pendingCount++;
+        break;
+    }
+    if (item.hasQualityDifference) {
+      qualityDiffCount++;
+    }
+  }
+
+  return {
+    totalPortions,
+    acceptedCount,
+    rejectedCount,
+    holdCount,
+    pendingCount,
+    vehiclesWithRejectionsCount: vehiclesWithRejections.size,
+    qualityDiffCount,
+  };
+}
+
+/**
+ * Filters Quality & Rejection items based on search query and active tab filter.
+ */
+export function filterQualityRejectionItems(
+  items: QualityRejectionItem[],
+  searchQuery: string,
+  filterState: QualityRejectionFilter
+): QualityRejectionItem[] {
+  return items.filter((item) => {
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const match =
+        item.vehicleNumber.toLowerCase().includes(q) ||
+        (item.tokenNumber && item.tokenNumber.toLowerCase().includes(q)) ||
+        item.portionNumber.toLowerCase().includes(q);
+      if (!match) return false;
+    }
+
+    switch (filterState) {
+      case 'ACCEPTED':
+        return item.qaDecision === 'ACCEPTED';
+      case 'REJECTED':
+        return item.qaDecision === 'REJECTED';
+      case 'HOLD':
+        return item.qaDecision === 'HOLD';
+      case 'PENDING':
+        return item.qaDecision === 'PENDING';
+      case 'HAS_QUALITY_DIFF':
+        return item.hasQualityDifference;
       case 'ALL':
       default:
         return true;
