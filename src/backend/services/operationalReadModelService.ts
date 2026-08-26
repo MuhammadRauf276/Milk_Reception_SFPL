@@ -215,6 +215,29 @@ export async function getOperationalLogs(
       ? vehicleCalcResult.finalAt13TSLiters
       : null;
 
+    // Authoritative Whole-Vehicle Dispatch Quantity
+    const vDeclaredVal = visit.vehicle_dispatch_quantity_value != null ? Number(visit.vehicle_dispatch_quantity_value) : null;
+    const vDeclaredUnit = visit.vehicle_dispatch_quantity_unit ? visit.vehicle_dispatch_quantity_unit.toUpperCase() : null;
+    const vDeclaredBasis = visit.vehicle_dispatch_quantity_basis || null;
+
+    let vehicleDispatchGrossLiters: number | null = null;
+    if (vDeclaredVal != null) {
+      if (vDeclaredUnit === 'LITER') {
+        vehicleDispatchGrossLiters = vDeclaredVal;
+      } else if (vDeclaredUnit === 'KG') {
+        const firstPortionWithLr = visit.portions.find((p) =>
+          extractTestNumericValue(p.dispatch_lab_results, isDispatchLrTest) != null
+        );
+        const vLr = firstPortionWithLr
+          ? extractTestNumericValue(firstPortionWithLr.dispatch_lab_results, isDispatchLrTest)
+          : null;
+        if (vLr != null) {
+          const density = calculateDensity(vLr);
+          vehicleDispatchGrossLiters = Number((vDeclaredVal / density).toFixed(2));
+        }
+      }
+    }
+
     for (const portion of visit.portions) {
       const portionStr = `P-${String(portion.portion_number).padStart(2, '0')}`;
       const declaredVal = portion.dispatch_quantity_value ? Number(portion.dispatch_quantity_value) : null;
@@ -292,9 +315,12 @@ export async function getOperationalLogs(
         dispatch_month: monthsOfYear[opDate.getMonth()],
         dispatch_year: opDate.getFullYear(),
         zonal_contractor_dispatch_time: formatTimeOnly(portion.dispatch_info?.dispatch_timestamp),
-        scheduled_arrival_time: null,
         dispatch_kg_gross: declaredUnit === 'KG' ? declaredVal : null,
         dispatch_liters_gross: dispatchGrossLiters,
+        vehicle_dispatch_quantity_value: vDeclaredVal,
+        vehicle_dispatch_quantity_unit: vDeclaredUnit,
+        vehicle_dispatch_quantity_basis: vDeclaredBasis,
+        vehicle_dispatch_gross_liters: vehicleDispatchGrossLiters,
         dispatch_tests: null,
         dispatch_fat: dFat,
         dispatch_lr: dLr,

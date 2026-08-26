@@ -402,6 +402,13 @@ export function buildVehicleVisitGroups(logs: MilkProcessLog[]): VehicleVisitGro
       }
     }
 
+    const vehicleAuthoritativeGrossLiters =
+      primary.vehicle_dispatch_gross_liters != null
+        ? primary.vehicle_dispatch_gross_liters
+        : allGrossPresent
+        ? Number(sumGrossLiters.toFixed(2))
+        : null;
+
     const authoritativePhysicalLiters = primary.authoritative_final_liters ?? null;
 
     let finalReceiptBusinessDate: string | null = null;
@@ -421,10 +428,13 @@ export function buildVehicleVisitGroups(logs: MilkProcessLog[]): VehicleVisitGro
       portions,
       primaryLog: primary,
 
-      vehicleDispatchQuantityValue: primary.dispatch_liters_gross ?? primary.dispatch_kg_gross ?? null,
-      vehicleDispatchQuantityUnit: primary.dispatch_liters_gross != null ? 'LITER' : primary.dispatch_kg_gross != null ? 'KG' : null,
-      vehicleDispatchQuantityBasis: 'GROSS',
-      totalDispatchGrossLiters: allGrossPresent ? Number(sumGrossLiters.toFixed(2)) : null,
+      vehicleDispatchQuantityValue:
+        primary.vehicle_dispatch_quantity_value ?? primary.dispatch_liters_gross ?? primary.dispatch_kg_gross ?? null,
+      vehicleDispatchQuantityUnit:
+        primary.vehicle_dispatch_quantity_unit ??
+        (primary.dispatch_liters_gross != null ? 'LITER' : primary.dispatch_kg_gross != null ? 'KG' : null),
+      vehicleDispatchQuantityBasis: primary.vehicle_dispatch_quantity_basis ?? 'GROSS',
+      totalDispatchGrossLiters: vehicleAuthoritativeGrossLiters,
       totalDispatch13TsLiters: all13TsPresent ? Number(sum13TsLiters.toFixed(2)) : null,
 
       firstWeightKg: primary.first_weight_of_vehicle ?? null,
@@ -797,13 +807,12 @@ export function deriveVehicleReconciliationItems(
       }
 
       const rawCalc = String(p.calculated_status || '').toUpperCase();
-      const rawStat = String(p.status || '').toUpperCase();
       let qaDecision: 'ACCEPTED' | 'REJECTED' | 'HOLD' | 'PENDING' = 'PENDING';
-      if (rawCalc === 'ACCEPTED' || rawStat === 'QA_ACCEPTED') {
+      if (rawCalc === 'ACCEPTED') {
         qaDecision = 'ACCEPTED';
-      } else if (rawCalc === 'REJECTED' || rawStat.includes('REJECT')) {
+      } else if (rawCalc === 'REJECTED') {
         qaDecision = 'REJECTED';
-      } else if (rawCalc === 'HOLD' || rawStat === 'HOLD') {
+      } else if (rawCalc === 'HOLD') {
         qaDecision = 'HOLD';
       }
 

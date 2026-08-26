@@ -229,9 +229,12 @@ export interface MilkProcessLog {
   dispatch_month?: string | null;
   dispatch_year?: number | null;
   zonal_contractor_dispatch_time?: string | null;
-  scheduled_arrival_time?: string | null;
   dispatch_kg_gross?: number | null;
   dispatch_liters_gross?: number | null;
+  vehicle_dispatch_quantity_value?: number | null;
+  vehicle_dispatch_quantity_unit?: string | null;
+  vehicle_dispatch_quantity_basis?: string | null;
+  vehicle_dispatch_gross_liters?: number | null;
   dispatch_tests?: string | null;
   dispatch_fat?: number | null;
   dispatch_lr?: number | null;

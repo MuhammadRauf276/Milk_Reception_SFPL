@@ -4,8 +4,6 @@ import React, { useState, useMemo } from 'react';
 import { MilkProcessLog } from '@backend/core/types';
 import {
   CrossVerificationFilter,
-  VehicleReconciliationItem,
-  PortionQualityReconciliation,
 } from './zmccManagerTypes';
 import {
   buildVehicleVisitGroups,
@@ -20,14 +18,9 @@ import {
   AlertTriangle,
   Scale,
   FlaskConical,
-  CheckCircle2,
-  XCircle,
-  Clock,
   ExternalLink,
-  ChevronDown,
   Warehouse,
   FileSpreadsheet,
-  Info,
 } from 'lucide-react';
 
 interface ZMCCManagerCrossVerificationProps {
@@ -73,7 +66,7 @@ export const ZMCCManagerCrossVerification: React.FC<ZMCCManagerCrossVerification
     [reconciliationItems, searchQuery, filterState]
   );
 
-  // Summary Metrics
+  // Summary Metrics (Computed only for valid data display)
   const summary = useMemo(() => {
     const total = reconciliationItems.length;
     const completed = reconciliationItems.filter((i) => i.isCompletedReceipt).length;
@@ -83,6 +76,8 @@ export const ZMCCManagerCrossVerification: React.FC<ZMCCManagerCrossVerification
     const rejectedCount = reconciliationItems.filter((i) => i.hasRejection).length;
     return { total, completed, pendingReceipt, qtyDiffCount, qualDiffCount, rejectedCount };
   }, [reconciliationItems]);
+
+  const showKpiPlaceholders = isLoading || error != null;
 
   return (
     <div className="space-y-6">
@@ -117,31 +112,43 @@ export const ZMCCManagerCrossVerification: React.FC<ZMCCManagerCrossVerification
           </div>
         </div>
 
-        {/* Quick Summary KPI Cards */}
+        {/* Quick Summary KPI Cards (Shows placeholder '—' during loading/error) */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 font-mono">
           <div className="p-3 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0]">
             <span className="text-[10px] font-sans text-slate-500 block uppercase font-bold">Total Visits</span>
-            <span className="text-lg font-black text-slate-900">{summary.total}</span>
+            <span className="text-lg font-black text-slate-900">
+              {showKpiPlaceholders ? '—' : summary.total}
+            </span>
           </div>
           <div className="p-3 rounded-lg bg-[#F0FDF4] border border-[#BBF7D0]">
             <span className="text-[10px] font-sans text-emerald-700 block uppercase font-bold">Completed</span>
-            <span className="text-lg font-black text-emerald-800">{summary.completed}</span>
+            <span className="text-lg font-black text-emerald-800">
+              {showKpiPlaceholders ? '—' : summary.completed}
+            </span>
           </div>
           <div className="p-3 rounded-lg bg-[#FFFBEB] border border-[#FDE68A]">
             <span className="text-[10px] font-sans text-amber-700 block uppercase font-bold">Receipt Pending</span>
-            <span className="text-lg font-black text-amber-800">{summary.pendingReceipt}</span>
+            <span className="text-lg font-black text-amber-800">
+              {showKpiPlaceholders ? '—' : summary.pendingReceipt}
+            </span>
           </div>
           <div className="p-3 rounded-lg bg-[#EFF6FF] border border-[#BFDBFE]">
             <span className="text-[10px] font-sans text-blue-700 block uppercase font-bold">Qty Diff</span>
-            <span className="text-lg font-black text-blue-800">{summary.qtyDiffCount}</span>
+            <span className="text-lg font-black text-blue-800">
+              {showKpiPlaceholders ? '—' : summary.qtyDiffCount}
+            </span>
           </div>
           <div className="p-3 rounded-lg bg-[#FAF5FF] border border-[#E9D5FF]">
             <span className="text-[10px] font-sans text-purple-700 block uppercase font-bold">Quality Diff</span>
-            <span className="text-lg font-black text-purple-800">{summary.qualDiffCount}</span>
+            <span className="text-lg font-black text-purple-800">
+              {showKpiPlaceholders ? '—' : summary.qualDiffCount}
+            </span>
           </div>
           <div className="p-3 rounded-lg bg-[#FEF2F2] border border-[#FECACA]">
             <span className="text-[10px] font-sans text-red-700 block uppercase font-bold">QA Rejected</span>
-            <span className="text-lg font-black text-red-800">{summary.rejectedCount}</span>
+            <span className="text-lg font-black text-red-800">
+              {showKpiPlaceholders ? '—' : summary.rejectedCount}
+            </span>
           </div>
         </div>
       </div>
@@ -266,7 +273,7 @@ export const ZMCCManagerCrossVerification: React.FC<ZMCCManagerCrossVerification
                     </span>
                   )}
                   <span className="text-xs font-mono font-bold text-slate-600">
-                    Date: {item.businessDate}
+                    Business Date: {item.businessDate}
                   </span>
                   <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-[#F1F5F9] text-slate-700">
                     {item.portionCount} {item.portionCount === 1 ? 'Portion' : 'Portions'}
@@ -315,7 +322,7 @@ export const ZMCCManagerCrossVerification: React.FC<ZMCCManagerCrossVerification
                       </span>
                     </div>
                     <div>
-                      <span className="text-[9.5px] font-sans text-slate-500 block">Final Physical Received:</span>
+                      <span className="text-[9.5px] font-sans text-slate-500 block">Physical Received Liters:</span>
                       <span className="font-black text-[#166534]">
                         {item.physicalReceivedLiters != null ? `${item.physicalReceivedLiters.toLocaleString()} L` : '—'}
                       </span>
@@ -338,13 +345,13 @@ export const ZMCCManagerCrossVerification: React.FC<ZMCCManagerCrossVerification
 
                   <div className="grid grid-cols-3 gap-2 pt-2 border-t border-[#EAE4D5]/40 text-[11px]">
                     <div>
-                      <span className="text-[9px] font-sans text-slate-500 block">Dispatch @ 13% TS:</span>
+                      <span className="text-[9px] font-sans text-slate-500 block">Dispatch Liters @ 13% TS:</span>
                       <span className="font-bold text-slate-800">
                         {item.dispatch13TsLiters != null ? `${item.dispatch13TsLiters.toLocaleString()} L` : '—'}
                       </span>
                     </div>
                     <div>
-                      <span className="text-[9px] font-sans text-slate-500 block">Plant @ 13% TS:</span>
+                      <span className="text-[9px] font-sans text-slate-500 block">Final Liters @ 13% TS:</span>
                       <span className="font-bold text-[#6B21A8]">
                         {item.plant13TsLiters != null ? `${item.plant13TsLiters.toLocaleString()} L` : '—'}
                       </span>
