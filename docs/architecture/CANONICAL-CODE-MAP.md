@@ -164,3 +164,17 @@ The following roles exist in domain type definitions but do not yet have complet
 
 > [!IMPORTANT]
 > Do not expose a future role as if its application is complete. Do not route future roles into unrelated operator pages or legacy Kanban as a permanent solution.
+
+---
+
+## 8. Stage 4E-C Retired Dead Code
+
+The following modules were proven dead (zero active runtime consumers, not route-owned, and unreferenced across canonical workflows) and were safely retired in Stage 4E-C:
+
+- `src/frontend/modules/forms/DynamicQALabForm.tsx` — **DELETED**: Superseded by canonical `QALaboratoryWorkspace.tsx`; zero runtime consumers.
+- `src/frontend/modules/shared/StageTimeline.tsx` — **DELETED**: Superseded by `ManagerLifecycleTracker.tsx`; zero runtime consumers.
+- `src/backend/controllers/auditController.ts` — **DELETED**: Obsolete standalone controller with zero consumers across repo.
+- `src/lib/validations/production.ts` — **DELETED**: Superseded by route/service level validations; zero consumers across repo.
+
+### Retained Candidate Notes
+- `src/backend/actions/logActions.ts` — **RETAINED**: Currently referenced by test script `scripts/test_date_filters_and_decisions.ts`. Preserved to avoid test regression until script retirement.
