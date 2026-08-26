@@ -198,14 +198,22 @@ async function run4EATests() {
     'A22: /api/logs/[id] is NOT listed under Canonical APIs'
   );
 
-  // A23: deprecated log mutation routes are identified as deprecated tombstones
-  const hasPostLogs = mapSrc.includes('POST /api/logs');
-  const hasPatchLogs = mapSrc.includes('PATCH /api/logs');
-  const hasPatchLogsId = mapSrc.includes('PATCH /api/logs/[id]');
-  const hasTombstoneHeading = mapSrc.includes('DEPRECATED / MUTATION TOMBSTONES');
+  // A23: deprecated log mutation routes are identified as deprecated tombstones with exact non-colliding bounded checks
   assert(
-    hasPostLogs && hasPatchLogs && hasPatchLogsId && hasTombstoneHeading,
-    'A23: Full deprecated mutation tombstone set (POST /api/logs, PATCH /api/logs, PATCH /api/logs/[id]) is protected'
+    mapSrc.includes('`POST /api/logs`'),
+    'A23.1: `POST /api/logs` is explicitly documented as deprecated mutation tombstone'
+  );
+  assert(
+    mapSrc.includes('`PATCH /api/logs`'),
+    'A23.2: `PATCH /api/logs` is explicitly documented as deprecated mutation tombstone (exact match)'
+  );
+  assert(
+    mapSrc.includes('`PATCH /api/logs/[id]`'),
+    'A23.3: `PATCH /api/logs/[id]` is explicitly documented as deprecated mutation tombstone (exact match)'
+  );
+  assert(
+    mapSrc.includes('DEPRECATED / MUTATION TOMBSTONES'),
+    'A23.4: Section header DEPRECATED / MUTATION TOMBSTONES is present'
   );
 
   // A24: /api/auth/dev-profiles is classified DEV-ONLY
