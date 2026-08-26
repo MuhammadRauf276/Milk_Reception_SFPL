@@ -12,7 +12,7 @@ Being located under `src/app` does **NOT** mean code is current. Every route, AP
 - `src/app/` — Routing, layouts, and HTTP entry layer (Next.js App Router).
 - `src/frontend/` — UI components, workspace views, modals, cards, and frontend state.
 - `src/backend/` — Core business logic, services, database interfaces, validation engines, and calculations.
-- `src/lib/` — Shared utility libraries (datetime, reception numbering, validations, key utilities).
+- `src/lib/` — Shared utility libraries (datetime, reception numbering, validations, role routing, key utilities).
 - `src/types/` & `src/backend/core/types.ts` — Canonical domain and database types.
 - `src/constants/` — Current shared constants.
 - `prisma/` — Database schema definitions and migration history.
@@ -25,8 +25,9 @@ Being located under `src/app` does **NOT** mean code is current. Every route, AP
 
 | Route | Classification | Role Owner | Main Component | Current / Legacy Status | Notes |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `/login` | **CANONICAL** | All Users | `LoginPage.tsx` | CURRENT | Authenticates users and issues secure session token. |
-| `/` | **LEGACY FALLBACK** | Unmapped Roles | `src/app/page.tsx` -> `KanbanBoard.tsx` | LEGACY (4E-B TARGET) | Unmatched roles fall back to legacy Kanban. **MUST BE REMOVED IN 4E-B**. |
+| `/login` | **CANONICAL** | All Users | `LoginPage.tsx` | CURRENT | Authenticates users, sets secure cookie, and routes to role home via `resolveRoleHome`. |
+| `/` | **CANONICAL GATEWAY** | All Authenticated Users | `src/app/page.tsx` | CURRENT | Pure routing gateway using `resolveRoleHome`. Zero legacy component imports or render fallback. |
+| `/workspace-unavailable` | **CANONICAL** | Unready / Unmapped Roles | `.../workspace-unavailable/page.tsx` | CURRENT | Safe fail-closed landing page for future or unrecognized roles. |
 | `/department/mpd` | **CANONICAL** | `MPD_Operator`, `MPD` | `MPDDispatchWorkspace.tsx` | CURRENT | ZMCC milk dispatch creation and portion entry. |
 | `/department/security` | **CANONICAL** | `Security_Operator`, `Security_Weight` | `SecurityGatewayWorkspace.tsx` | CURRENT | Plant gate entry, token issuance, and gate exit. |
 | `/department/security-manager`| **CANONICAL** | `Security_Manager` | `SecurityManager.tsx` | CURRENT | Security supervisory and gate exit audit. |
@@ -54,11 +55,41 @@ Being located under `src/app` does **NOT** mean code is current. Every route, AP
 
 ---
 
-## 3. Root Route Warning (`src/app/page.tsx`)
+## 3. Root Route & Role-Home Policy (`src/lib/role-routing.ts`)
 
-> [!WARNING]
-> **LEGACY FALLBACK — MUST BE REMOVED IN 4E-B**  
-> `src/app/page.tsx` currently inspects `currentUser.role` and redirects operational roles to `/department/*` or `/mpd/zmcc-manager`. Any unmapped or legacy role currently falls through and renders `<KanbanBoard />`. In Stage 4E-B, this fallback must be replaced with explicit authorized redirection or a clean 403 / unmapped role boundary.
+> [!NOTE]
+> **CANONICAL ROUTING GATEWAY (STAGE 4E-B)**
+> `src/app/page.tsx` is a pure routing gateway. It inspects `currentUser.role` and executes a server-side redirect via `resolveRoleHome(role)`.
+> **NO DEFAULT BUSINESS WORKSPACE FALLBACK**: Unknown, unmapped, and future roles fail closed to `/workspace-unavailable`. Legacy roles are explicitly and temporarily routed to `/management/dashboard` while legacy views remain in the codebase.
+
+### Role Home Ownership Matrix
+
+| Role / Alias | Classification | Destination | Notes |
+| :--- | :--- | :--- | :--- |
+| `SUPER_ADMIN` | **CURRENT** | `/super-admin` | Super Admin Master Portal |
+| `Admin` | **CURRENT (Alias)** | `/super-admin` | Administrator Alias |
+| `ZMCC_MANAGER` | **CURRENT** | `/mpd/zmcc-manager` | ZMCC Source Manager Workspace |
+| `MPD_Operator` | **CURRENT** | `/department/mpd` | MPD Field Station |
+| `MPD` | **CURRENT (Alias)** | `/department/mpd` | MPD Operator Alias |
+| `Security_Operator` | **CURRENT** | `/department/security` | Gate Security Station |
+| `Security_Weight` | **CURRENT (Alias)** | `/department/security` | Gate Security Alias |
+| `Security_Manager` | **CURRENT** | `/department/security-manager` | Security Supervisor Console |
+| `QA_Operator` | **CURRENT** | `/department/qa` | QA Laboratory Testing |
+| `QA` | **CURRENT (Alias)** | `/department/qa` | QA Chemist Alias |
+| `Lab_Chemist` | **CURRENT (Alias)** | `/department/qa` | QA Chemist Alias |
+| `WEIGHBRIDGE_OPERATOR` | **CURRENT** | `/department/weighbridge` | Weighbridge Scale Station |
+| `Weighbridge_Operator` | **CURRENT (Alias)** | `/department/weighbridge` | Weighbridge Operator Alias |
+| `Production_Operator` | **CURRENT** | `/department/production` | Silo Unloading Station |
+| `Production` | **CURRENT (Alias)** | `/department/production` | Production Operator Alias |
+| `MPD_Zone_Manager` | **LEGACY ACTIVE** | `/management/dashboard` | Legacy Zonal Dashboard |
+| `Management` | **LEGACY ACTIVE** | `/management/dashboard` | Legacy Management Dashboard |
+| `General_Plant_Manager` | **LEGACY ACTIVE** | `/management/dashboard` | Legacy Plant Dashboard |
+| `QA_Manager` | **LEGACY ACTIVE** | `/management/dashboard` | Legacy QA Dashboard |
+| `Production_Manager` | **LEGACY ACTIVE** | `/management/dashboard` | Legacy Production Dashboard |
+| `Correction_Officer` | **LEGACY ACTIVE** | `/management/dashboard` | Legacy Correction Dashboard |
+| `CONTRACTOR_MANAGER` | **FUTURE NOT READY** | `/workspace-unavailable` | Fails closed until Stage 4F |
+| `EXECUTIVE_MANAGEMENT` | **FUTURE NOT READY** | `/workspace-unavailable` | Fails closed until implemented |
+| *Any Unknown Role* | **FAIL CLOSED** | `/workspace-unavailable` | Rejects unauthorized access |
 
 ---
 
@@ -89,7 +120,7 @@ Being located under `src/app` does **NOT** mean code is current. Every route, AP
 
 | Business Area | Main Route | Main UI Component | Main API Group | Main Service / Helper | Important Authority Contract |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Auth** | `/login` | `LoginPage.tsx` | `/api/auth/*` | `auth.ts`, `jwt-secret.ts` | Secure JWT cookie, strict role matching |
+| **Auth** | `/login` | `LoginPage.tsx` | `/api/auth/*` | `auth.ts`, `jwt-secret.ts`, `role-routing.ts` | Secure JWT cookie, strict role matching |
 | **Business Date** | Core Helper | N/A | Embedded in APIs | `business-day.ts`, `datetime-utils.ts` | 08:00 PKT boundary, Asia/Karachi display |
 | **MPD Dispatch** | `/department/mpd` | `MPDDispatchWorkspace.tsx` | `/api/dispatches*` | `dispatchService.ts`, `validations/dispatch.ts` | ZMCC declared quantities, dispatch test results |
 | **Security** | `/department/security` | `SecurityGatewayWorkspace.tsx` | `/api/security/*` | `securityGatewayService.ts`, `reception-number.ts` | Token issuance, chronological gate milestones |
@@ -127,9 +158,10 @@ The following roles exist in domain type definitions but do not yet have complet
 - `CONTRACTOR_MANAGER` —
   - **Assigned `CONTRACTOR_MANAGER`**: Scoped strictly to the procurement source assigned in the current DB user record (`procurement_source_id`).
   - **Unassigned `CONTRACTOR_MANAGER`**: Fails closed using the existing no-source behavior / `-1` scope.
-  - Dedicated contractor workspace will be built in Stage 4F.
-- `EXECUTIVE_MANAGEMENT` — Dedicated multi-plant executive overview not yet implemented.
-- `MPD_Zone_Manager` (Multi-Source Zonal Concept) — Legacy role; future MPD Manager workspace will supersede it.
+  - Landing destination: `/workspace-unavailable`. Dedicated contractor workspace will be built in Stage 4F.
+- `EXECUTIVE_MANAGEMENT` —
+  - Landing destination: `/workspace-unavailable`. Dedicated multi-plant executive overview not yet implemented.
+- `MPD_Zone_Manager` (Multi-Source Zonal Concept) — Legacy role; temporarily routes to `/management/dashboard`. Future MPD Manager workspace will supersede it.
 
 > [!IMPORTANT]
 > Do not expose a future role as if its application is complete. Do not route future roles into unrelated operator pages or legacy Kanban as a permanent solution.

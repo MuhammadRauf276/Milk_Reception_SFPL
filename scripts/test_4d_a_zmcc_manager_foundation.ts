@@ -71,9 +71,15 @@ async function run4DATests() {
   const loginPageSource = fs.readFileSync(path.join(__dirname, '../src/frontend/modules/auth/LoginPage.tsx'), 'utf-8');
   const rootPageSource = fs.readFileSync(path.join(__dirname, '../src/app/page.tsx'), 'utf-8');
 
-  const hasZmccManagerLoginRoute = loginPageSource.includes("role === 'ZMCC_MANAGER'") && loginPageSource.includes("router.push('/mpd/zmcc-manager')");
+  const { resolveRoleHome } = require('../src/lib/role-routing');
+  const hasZmccManagerResolved = resolveRoleHome('ZMCC_MANAGER') === '/mpd/zmcc-manager';
+  const hasZmccManagerLoginRoute =
+    (loginPageSource.includes('resolveRoleHome') || loginPageSource.includes("router.push('/mpd/zmcc-manager')")) &&
+    hasZmccManagerResolved;
   const hasNoOldLoginRoute = !loginPageSource.includes("router.push('/department/zmcc-manager')");
-  const hasZmccManagerRootRoute = rootPageSource.includes("role === 'ZMCC_MANAGER'") && rootPageSource.includes("redirect('/mpd/zmcc-manager')");
+  const hasZmccManagerRootRoute =
+    (rootPageSource.includes('resolveRoleHome') || rootPageSource.includes("redirect('/mpd/zmcc-manager')")) &&
+    hasZmccManagerResolved;
   const hasNoOldRootRoute = !rootPageSource.includes("redirect('/department/zmcc-manager')");
 
   assert(hasZmccManagerLoginRoute && hasNoOldLoginRoute && hasZmccManagerRootRoute && hasNoOldRootRoute, 'TEST-A1: ZMCC_MANAGER canonical destination is /mpd/zmcc-manager in LoginPage and root page');

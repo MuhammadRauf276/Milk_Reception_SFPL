@@ -20,7 +20,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activeCount
 }) => {
   const pathname = usePathname();
-  const role = currentUser?.role || 'MPD_Operator';
+  const role = currentUser?.role || '';
 
   const isSecurityManager = role === 'Security_Manager';
 
