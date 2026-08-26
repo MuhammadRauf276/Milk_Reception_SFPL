@@ -4,15 +4,19 @@
  * Single source of truth for role-home resolution.
  * Directs current canonical roles to their dedicated workspaces,
  * explicitly routes legacy roles to legacy views, and
- * fails closed for future/unready or unknown roles.
+ * fails closed to /workspace-unavailable for any invalid, unknown,
+ * or future/unready roles.
  */
 
-export function resolveRoleHome(role?: string | null): string {
-  if (!role || typeof role !== 'string') {
-    return '/login';
+export function resolveRoleHome(role?: string | null | unknown): string {
+  if (typeof role !== 'string') {
+    return '/workspace-unavailable';
   }
 
   const normalized = role.trim();
+  if (!normalized) {
+    return '/workspace-unavailable';
+  }
 
   switch (normalized) {
     // Current Canonical Roles
@@ -36,7 +40,6 @@ export function resolveRoleHome(role?: string | null): string {
 
     case 'QA_Operator':
     case 'QA':
-    case 'Lab_Chemist':
       return '/department/qa';
 
     case 'WEIGHBRIDGE_OPERATOR':

@@ -31,7 +31,7 @@ Being located under `src/app` does **NOT** mean code is current. Every route, AP
 | `/department/mpd` | **CANONICAL** | `MPD_Operator`, `MPD` | `MPDDispatchWorkspace.tsx` | CURRENT | ZMCC milk dispatch creation and portion entry. |
 | `/department/security` | **CANONICAL** | `Security_Operator`, `Security_Weight` | `SecurityGatewayWorkspace.tsx` | CURRENT | Plant gate entry, token issuance, and gate exit. |
 | `/department/security-manager`| **CANONICAL** | `Security_Manager` | `SecurityManager.tsx` | CURRENT | Security supervisory and gate exit audit. |
-| `/department/qa` | **CANONICAL** | `QA_Operator`, `QA`, `Lab_Chemist` | `QALaboratoryWorkspace.tsx` | CURRENT | QA session management and portion lab result entry. |
+| `/department/qa` | **CANONICAL** | `QA_Operator`, `QA` | `QALaboratoryWorkspace.tsx` | CURRENT | QA session management and portion lab result entry. |
 | `/department/weighbridge` | **CANONICAL** | `WEIGHBRIDGE_OPERATOR` | `WeighbridgeWorkspace.tsx` | CURRENT | First weight (gross) and second weight (tare) scale recording. |
 | `/department/production` | **CANONICAL** | `Production_Operator`, `Production` | `ProductionUnloadingWorkspace.tsx`| CURRENT | Silo allocation, unloading, and silo issue management. |
 | `/mpd/zmcc-manager` | **CANONICAL** | `ZMCC_MANAGER` | `ZMCCManagerWorkspace.tsx` | CURRENT | Source-scoped supervisory workspace (Overview, Live, Cross-Verif, Quality, Receipts, History). |
@@ -76,7 +76,6 @@ Being located under `src/app` does **NOT** mean code is current. Every route, AP
 | `Security_Manager` | **CURRENT** | `/department/security-manager` | Security Supervisor Console |
 | `QA_Operator` | **CURRENT** | `/department/qa` | QA Laboratory Testing |
 | `QA` | **CURRENT (Alias)** | `/department/qa` | QA Chemist Alias |
-| `Lab_Chemist` | **CURRENT (Alias)** | `/department/qa` | QA Chemist Alias |
 | `WEIGHBRIDGE_OPERATOR` | **CURRENT** | `/department/weighbridge` | Weighbridge Scale Station |
 | `Weighbridge_Operator` | **CURRENT (Alias)** | `/department/weighbridge` | Weighbridge Operator Alias |
 | `Production_Operator` | **CURRENT** | `/department/production` | Silo Unloading Station |

@@ -44,11 +44,15 @@ async function run4EBTests() {
     'B4: Security_Manager routes to /department/security-manager'
   );
 
-  // B5: QA_Operator -> /department/qa
+  // B5: QA_Operator and QA -> /department/qa, Lab_Chemist -> /workspace-unavailable
   assert(
     resolveRoleHome('QA_Operator') === '/department/qa' &&
-    resolveRoleHome('Lab_Chemist') === '/department/qa',
-    'B5: QA_Operator and Lab_Chemist route to /department/qa'
+    resolveRoleHome('QA') === '/department/qa',
+    'B5: QA_Operator and QA route to /department/qa'
+  );
+  assert(
+    resolveRoleHome('Lab_Chemist') === '/workspace-unavailable',
+    'B5.1: Lab_Chemist is not a supported role and fails closed to /workspace-unavailable'
   );
 
   // B6: WEIGHBRIDGE_OPERATOR -> /department/weighbridge
@@ -101,17 +105,25 @@ async function run4EBTests() {
     'B12 & B13: EXECUTIVE_MANAGEMENT does NOT route to Kanban or operator workspace (routes to /workspace-unavailable)'
   );
 
-  // B14: Unknown role fails closed
+  // B14: All invalid, null, undefined, whitespace, non-string, or unknown roles fail closed to /workspace-unavailable
   const unknown1 = resolveRoleHome('UNKNOWN_ROLE_XYZ');
   const unknown2 = resolveRoleHome('SuperHacker');
   const unknownNull = resolveRoleHome(null);
+  const unknownUndefined = resolveRoleHome(undefined);
   const unknownEmpty = resolveRoleHome('');
+  const unknownWhitespace = resolveRoleHome('   ');
+  const unknownNumber = resolveRoleHome(12345 as any);
+  const unknownObject = resolveRoleHome({ role: 'Admin' } as any);
   assert(
     unknown1 === '/workspace-unavailable' &&
     unknown2 === '/workspace-unavailable' &&
-    unknownNull === '/login' &&
-    unknownEmpty === '/login',
-    'B14: Unknown roles fail closed to /workspace-unavailable, unauthenticated to /login'
+    unknownNull === '/workspace-unavailable' &&
+    unknownUndefined === '/workspace-unavailable' &&
+    unknownEmpty === '/workspace-unavailable' &&
+    unknownWhitespace === '/workspace-unavailable' &&
+    unknownNumber === '/workspace-unavailable' &&
+    unknownObject === '/workspace-unavailable',
+    'B14: All invalid, null, undefined, whitespace, non-string, and unknown inputs fail closed to /workspace-unavailable'
   );
 
   // B15: Root page contains no KanbanBoard import or render fallback
