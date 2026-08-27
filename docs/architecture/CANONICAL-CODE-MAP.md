@@ -99,7 +99,7 @@ Being located under `src/app` does **NOT** mean code is current. Every route, AP
 - `/api/qa/*` — Session management (queues, start, resume), portion QA completion, hold, visit search.
 - `/api/scale/*` — Ready-for-gross, gross-weight, ready-for-tare, tare-weight, open-tickets.
 - `/api/production/*` — Unloading queue, start unloading, complete unloading, ready-for-unloading, silo-issue, silo-issue history.
-- `GET /api/logs` — Canonical source-scoped operational read-model endpoint (Business Date filtered; rejects malformed fromDate/toDate with HTTP 400).
+- `GET /api/logs` — Canonical source-scoped operational read-model endpoint (Business Date filtered; strictly validates YYYY-MM-DD calendar dates and rejects malformed fromDate/toDate with HTTP 400).
 - `/api/lab-tests` — Public active lab test definitions for dispatch and plant forms.
 - `/api/super-admin/*` — Full administration endpoints (users, sources, silos, lab-tests, sop-rules, qa-warnings, operations, audit, overview).
 

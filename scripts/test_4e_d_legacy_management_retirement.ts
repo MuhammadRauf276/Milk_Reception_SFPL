@@ -254,9 +254,10 @@ async function run4EDTests() {
   // D30: api/logs/route.ts contains explicit invalid fromDate/toDate 400 validation
   const apiLogsSrc = fs.readFileSync(path.join(__dirname, '../src/app/api/logs/route.ts'), 'utf8');
   assert(
-    apiLogsSrc.includes("error: 'Invalid fromDate parameter.'") &&
-    apiLogsSrc.includes("error: 'Invalid toDate parameter.'"),
-    'D30: api/logs/route.ts explicitly rejects malformed fromDate and toDate with HTTP 400'
+    apiLogsSrc.includes('Invalid fromDate parameter') &&
+    apiLogsSrc.includes('Invalid toDate parameter') &&
+    apiLogsSrc.includes('isValidDateOnly'),
+    'D30: api/logs/route.ts explicitly rejects malformed fromDate and toDate with HTTP 400 using isValidDateOnly'
   );
 
   // D31: test_date_filters_and_decisions.ts asserts dispatch_date (Business Date)
@@ -271,6 +272,21 @@ async function run4EDTests() {
     stage4ScriptSrc.includes("calculateGrossLiters(10000, 'LITER', null) === 10000") &&
     !stage4ScriptSrc.includes('isContractorSource || calculatePhysicalLiters'),
     'D32: test_stage4_radio_and_terminology maintains strict Contractor LITER authority contract'
+  );
+
+  // D33: Shared isValidDateOnly rejects rollover/malformed dates and accepts valid calendar dates
+  const { isValidDateOnly } = require('../src/lib/datetime-utils');
+  assert(
+    isValidDateOnly('2024-02-29') === true &&
+    isValidDateOnly('2026-08-01') === true &&
+    isValidDateOnly('2026-02-30') === false &&
+    isValidDateOnly('2026-04-31') === false &&
+    isValidDateOnly('2025-02-29') === false &&
+    isValidDateOnly('1') === false &&
+    isValidDateOnly('') === false &&
+    isValidDateOnly(' ') === false &&
+    isValidDateOnly('2026-2-03') === false,
+    'D33: Shared isValidDateOnly rejects calendar rollover, noncanonical strings, and empty/whitespace inputs'
   );
 
   console.log('\n================================================================================');

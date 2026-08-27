@@ -1,6 +1,6 @@
 import { prisma } from '../core/db';
 import { MilkProcessLog, User, ProcessStatus } from '../core/types';
-import { PLANT_TIMEZONE } from '@/lib/datetime-utils';
+import { PLANT_TIMEZONE, isValidDateOnly, parseStrictDateOnly } from '@/lib/datetime-utils';
 import {
   calculateDensity,
   calculateSNF,
@@ -111,20 +111,19 @@ export async function getOperationalLogs(
   }
 
   // Date filters
-  if (filters?.fromDate || filters?.toDate) {
+  if (filters?.fromDate !== undefined || filters?.toDate !== undefined) {
     whereClause.operational_date = {};
-    if (filters.fromDate) {
-      const fromDateObj = new Date(filters.fromDate);
-      if (isNaN(fromDateObj.getTime())) {
+    if (filters.fromDate !== undefined) {
+      if (!isValidDateOnly(filters.fromDate)) {
         throw new Error('Invalid fromDate parameter');
       }
-      whereClause.operational_date.gte = fromDateObj;
+      whereClause.operational_date.gte = parseStrictDateOnly(filters.fromDate)!;
     }
-    if (filters.toDate) {
-      const toDateObj = new Date(filters.toDate);
-      if (isNaN(toDateObj.getTime())) {
+    if (filters.toDate !== undefined) {
+      if (!isValidDateOnly(filters.toDate)) {
         throw new Error('Invalid toDate parameter');
       }
+      const toDateObj = parseStrictDateOnly(filters.toDate)!;
       toDateObj.setHours(23, 59, 59, 999);
       whereClause.operational_date.lte = toDateObj;
     }

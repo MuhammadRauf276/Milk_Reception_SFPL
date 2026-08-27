@@ -4,6 +4,7 @@ import { prisma } from '@backend/core/db';
 import { User, Role } from '@backend/core/types';
 import { getOperationalLogs } from '@backend/services/operationalReadModelService';
 import { getOperationalBusinessDate } from '@backend/core/business-day';
+import { isValidDateOnly } from '@/lib/datetime-utils';
 
 export async function GET(req: NextRequest) {
   try {
@@ -36,31 +37,35 @@ export async function GET(req: NextRequest) {
     };
 
     const { searchParams } = new URL(req.url);
-    const fromDate = searchParams.get('fromDate') || undefined;
-    const toDate = searchParams.get('toDate') || undefined;
+    const hasFromDate = searchParams.has('fromDate');
+    const hasToDate = searchParams.has('toDate');
+    const fromDateRaw = searchParams.get('fromDate');
+    const toDateRaw = searchParams.get('toDate');
     const contractor = searchParams.get('contractor') || undefined;
     const status = searchParams.get('status') || undefined;
     const search = searchParams.get('search') || undefined;
 
     // Date validation
-    if (fromDate) {
-      const fromDateObj = new Date(fromDate);
-      if (isNaN(fromDateObj.getTime())) {
+    if (hasFromDate) {
+      if (!fromDateRaw || !isValidDateOnly(fromDateRaw)) {
         return NextResponse.json(
-          { error: 'Invalid fromDate parameter.' },
+          { error: 'Invalid fromDate parameter. Expected valid calendar date in YYYY-MM-DD format.' },
           { status: 400 }
         );
       }
     }
-    if (toDate) {
-      const toDateObj = new Date(toDate);
-      if (isNaN(toDateObj.getTime())) {
+    if (hasToDate) {
+      if (!toDateRaw || !isValidDateOnly(toDateRaw)) {
         return NextResponse.json(
-          { error: 'Invalid toDate parameter.' },
+          { error: 'Invalid toDate parameter. Expected valid calendar date in YYYY-MM-DD format.' },
           { status: 400 }
         );
       }
     }
+
+    const fromDate = hasFromDate ? fromDateRaw! : undefined;
+    const toDate = hasToDate ? toDateRaw! : undefined;
+
     if (fromDate && toDate && fromDate > toDate) {
       return NextResponse.json(
         { error: 'From Date cannot be after To Date.' },
