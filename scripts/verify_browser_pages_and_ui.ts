@@ -71,16 +71,19 @@ async function runBrowserVerification() {
   const prodAuth = await loginUser('production.operator', 'production123');
   assert(prodAuth.user.role === 'Production_Operator' || prodAuth.user.role === 'PRODUCTION_OPERATOR', 'production.operator authenticated');
 
-  // 2. CROSS VERIFICATION PAGE (/cross-verification)
-  console.log('\n--- 2. CROSS VERIFICATION UI (/cross-verification) ---');
-  const cvPage = await fetchPage('/cross-verification', adminAuth.cookie);
-  assert(cvPage.status === 200, 'GET /cross-verification returned HTTP 200 OK');
-  assert(cvPage.text.includes('Cross Verification') || cvPage.text.includes('Vehicle-First Zonal Dispatch vs Plant Comparison Table') || cvPage.text.includes('cross-visit'), 'Cross verification page loaded HTML cleanly');
-  assert(!cvPage.text.includes('Plant LR Basis'), 'Cross verification HTML contains NO Plant LR Basis');
-  assert(!cvPage.text.includes('Average Plant LR'), 'Cross verification HTML contains NO Average Plant LR');
-  assert(!cvPage.text.includes('Composite QA'), 'Cross verification HTML contains NO Composite QA');
+  // 2. ZMCC WORKSPACE & OPERATIONAL READ-MODEL (/mpd/zmcc-manager & /api/logs)
+  console.log('\n--- 2. ZMCC WORKSPACE & OPERATIONAL READ-MODEL (/mpd/zmcc-manager & /api/logs) ---');
+  const zmccPage = await fetchPage('/mpd/zmcc-manager', adminAuth.cookie);
+  assert(zmccPage.status === 200, 'GET /mpd/zmcc-manager returned HTTP 200 OK');
+  assert(
+    zmccPage.text.includes('ZMCC') ||
+    zmccPage.text.includes('Manager') ||
+    zmccPage.text.includes('Overview') ||
+    zmccPage.text.includes('Dispatches'),
+    'ZMCC Manager workspace loaded cleanly'
+  );
 
-  // Verify API backing Cross Verification
+  // Verify API backing Operational Logs & Cross Verification
   const logsRes = await fetch(BASE_URL + '/api/logs', { headers: { cookie: adminAuth.cookie } });
   assert(logsRes.status === 200, 'GET /api/logs returns HTTP 200');
   const data = await logsRes.json();
@@ -94,14 +97,8 @@ async function runBrowserVerification() {
     assert(multiPortionVisit.computed_net_milk_weight !== undefined, 'Representative vehicle Net KG is present: ' + multiPortionVisit.computed_net_milk_weight + ' kg');
   }
 
-  // 3. ZONAL HISTORY PAGE (/management/dashboard & /cross-verification)
-  console.log('\n--- 3. ZONAL HISTORY UI ---');
-  const dashPage = await fetchPage('/management/dashboard', adminAuth.cookie);
-  assert(dashPage.status === 200, 'GET /management/dashboard returned HTTP 200 OK');
-  assert(!dashPage.text.includes('3.8 fallback'), 'No fake 3.8 fallback in dashboard HTML');
-  assert(!dashPage.text.includes('28.0 fallback'), 'No fake 28.0 fallback in dashboard HTML');
-
-  // Scoped ZMCC logs
+  // 3. SOURCE-SCOPED ZMCC READ-MODEL (/api/logs)
+  console.log('\n--- 3. SOURCE-SCOPED ZMCC READ-MODEL (/api/logs) ---');
   const scopedLogsRes = await fetch(BASE_URL + '/api/logs', { headers: { cookie: northManagerAuth.cookie } });
   const scopedData = await scopedLogsRes.json();
   const scopedLogs = scopedData.logs || [];

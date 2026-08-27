@@ -168,15 +168,9 @@ async function run4EATests() {
   );
 
   // A19: Retired/legacy routes are explicitly documented and classified in CANONICAL-CODE-MAP
-  const hasRetiredDashboard =
-    mapSrc.includes('src/app/management/dashboard/page.tsx') &&
-    mapSrc.includes('Retired legacy management dashboard route');
-  const hasRetiredCrossVerif =
-    mapSrc.includes('src/app/cross-verification/page.tsx') &&
-    mapSrc.includes('Retired standalone cross-verification route');
-  const hasRetiredFleetTracking =
-    mapSrc.includes('| `/fleet-tracking` | **RETIRED (4E-E)**') ||
-    (mapSrc.includes('src/app/fleet-tracking/page.tsx') && mapSrc.includes('Unowned legacy monitoring board'));
+  const hasRetiredDashboard = mapSrc.includes('`src/app/management/dashboard/page.tsx` — **DELETED**: Retired legacy management dashboard route');
+  const hasRetiredCrossVerif = mapSrc.includes('`src/app/cross-verification/page.tsx` — **DELETED**: Retired standalone cross-verification route');
+  const hasRetiredFleetTracking = mapSrc.includes('| `/fleet-tracking` | **RETIRED (4E-E)**');
 
   assert(
     hasRetiredDashboard && hasRetiredCrossVerif && hasRetiredFleetTracking,
