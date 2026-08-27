@@ -49,6 +49,7 @@ const suites: string[] = isProbeMode
       'scripts/test_production_quantity_stabilization.ts',
       'scripts/test_authoritative_final_receipt_integration.ts',
       'scripts/test_date_filters_and_decisions.ts',
+      'scripts/test_canonical_architecture.ts',
       'scripts/test_stable_lab_test_assignment.ts',
       'scripts/test_configurable_qualitative_options.ts',
     ];

@@ -203,6 +203,26 @@ async function runCanonicalArchitectureTests() {
     'ARCH-12: CANONICAL-CODE-MAP.md exists and defines authoritative role, route, and API governance'
   );
 
+  // 13. Zero Quantity and Business Date Fallbacks in Current Architecture
+  const readModelPath = path.join(__dirname, '../src/backend/services/operationalReadModelService.ts');
+  const readModelSrc = fs.existsSync(readModelPath) ? fs.readFileSync(readModelPath, 'utf8') : '';
+  const noReceiptFallback = !zmccHelpersSrc.includes('hasFinalReceipt && primary.computed_plant_liters');
+  const noPortionQtyFallback = !zmccHelpersSrc.includes('primary.dispatch_liters_gross ?? primary.dispatch_kg_gross');
+  const noZmccDateFallback = !zmccHelpersSrc.includes('primary.dispatch_date || (primary.created_at');
+  const noReadModelDateFallback = !readModelSrc.includes('visit.operational_date ? new Date(visit.operational_date) : new Date(visit.created_at)');
+  assert(
+    noReceiptFallback && noPortionQtyFallback && noZmccDateFallback && noReadModelDateFallback,
+    'ARCH-13: Current architecture contains zero quantity/portion fallbacks and zero created_at Business Date fallbacks'
+  );
+
+  // 14. Architecture Suite Wires to Master Regression Runner
+  const runnerPath = path.join(__dirname, '../scripts/run_all_regressions.ts');
+  const runnerSrc = fs.existsSync(runnerPath) ? fs.readFileSync(runnerPath, 'utf8') : '';
+  assert(
+    runnerSrc.includes('scripts/test_canonical_architecture.ts'),
+    'ARCH-14: test_canonical_architecture.ts is permanently registered in run_all_regressions.ts'
+  );
+
   console.log('\n================================================================================');
   console.log(`SUMMARY: ${passed} PASSED, ${failed} FAILED`);
   console.log('================================================================================\n');

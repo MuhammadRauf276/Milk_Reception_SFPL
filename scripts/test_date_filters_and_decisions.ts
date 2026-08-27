@@ -156,9 +156,16 @@ async function runTests() {
   }
   assert(invalidMixedError, 'Mixed invalid fromDate ("2026-02-30") with valid toDate is rejected completely, not partially filtered');
 
-  // 7. From Date after To Date (Handled by API endpoint validation)
-  const fromAfterToValidation = 'From Date cannot be after To Date.';
-  assert(true, `From Date after To Date produces clean validation message: "${fromAfterToValidation}"`);
+  // 7. From Date after To Date (Service and API Level Contract)
+  let fromAfterToError = false;
+  try {
+    await fetchAllMilkLogs({ fromDate: '2026-08-10', toDate: '2026-08-01' });
+  } catch (_err: any) {
+    if (_err?.message?.includes('From Date cannot be after To Date.')) {
+      fromAfterToError = true;
+    }
+  }
+  assert(fromAfterToError, 'Service: fromDate > toDate ("2026-08-10" > "2026-08-01") throws "From Date cannot be after To Date." error');
 
   // 8. Clear filter
   const clearedLogs = await fetchAllMilkLogs({});
@@ -202,49 +209,55 @@ async function runTests() {
   const adminUser = await prisma.user.findFirst({
     where: { role: 'SUPER_ADMIN', is_active: true },
   });
-  if (adminUser) {
-    const token = await createSessionToken({
-      id: adminUser.id.toString(),
-      username: adminUser.username,
-      name: adminUser.full_name || adminUser.username,
-      role: adminUser.role as any,
-      department: adminUser.department || '',
-      zone: null,
-      scope_type: 'PLANT',
-      procurement_source_id: null,
-    });
-
-    const makeRequest = (query: string) => {
-      return new Request(`http://localhost:3000/api/logs${query}`, {
-        method: 'GET',
-        headers: {
-          cookie: `auth_token=${token}`,
-          authorization: `Bearer ${token}`,
-        },
-      }) as any;
-    };
-
-    const resEmptyFrom = await getLogsRoute(makeRequest('?fromDate='));
-    assert(resEmptyFrom.status === 400, 'HTTP: GET /api/logs?fromDate= returns 400 Bad Request');
-
-    const resEmptyTo = await getLogsRoute(makeRequest('?toDate='));
-    assert(resEmptyTo.status === 400, 'HTTP: GET /api/logs?toDate= returns 400 Bad Request');
-
-    const resNoncanonicalFrom = await getLogsRoute(makeRequest('?fromDate=1'));
-    assert(resNoncanonicalFrom.status === 400, 'HTTP: GET /api/logs?fromDate=1 returns 400 Bad Request');
-
-    const resRolloverFrom = await getLogsRoute(makeRequest('?fromDate=2026-02-30'));
-    assert(resRolloverFrom.status === 400, 'HTTP: GET /api/logs?fromDate=2026-02-30 returns 400 Bad Request');
-
-    const resRolloverTo = await getLogsRoute(makeRequest('?toDate=2026-04-31'));
-    assert(resRolloverTo.status === 400, 'HTTP: GET /api/logs?toDate=2026-04-31 returns 400 Bad Request');
-
-    const resMixed = await getLogsRoute(makeRequest('?fromDate=2026-08-01&toDate=2026-02-30'));
-    assert(resMixed.status === 400, 'HTTP: GET /api/logs?fromDate=2026-08-01&toDate=2026-02-30 returns 400 Bad Request');
-
-    const resValid = await getLogsRoute(makeRequest('?fromDate=2026-08-01&toDate=2026-08-10'));
-    assert(resValid.status === 200, 'HTTP: GET /api/logs?fromDate=2026-08-01&toDate=2026-08-10 returns 200 OK');
+  assert(Boolean(adminUser), 'Active SUPER_ADMIN user fixture exists in DB for HTTP route testing');
+  if (!adminUser) {
+    throw new Error('FATAL: Active SUPER_ADMIN user fixture missing in test environment');
   }
+
+  const token = await createSessionToken({
+    id: adminUser.id.toString(),
+    username: adminUser.username,
+    name: adminUser.full_name || adminUser.username,
+    role: adminUser.role as any,
+    department: adminUser.department || '',
+    zone: null,
+    scope_type: 'PLANT',
+    procurement_source_id: null,
+  });
+
+  const makeRequest = (query: string) => {
+    return new Request(`http://localhost:3000/api/logs${query}`, {
+      method: 'GET',
+      headers: {
+        cookie: `auth_token=${token}`,
+        authorization: `Bearer ${token}`,
+      },
+    }) as any;
+  };
+
+  const resEmptyFrom = await getLogsRoute(makeRequest('?fromDate='));
+  assert(resEmptyFrom.status === 400, 'HTTP: GET /api/logs?fromDate= returns 400 Bad Request');
+
+  const resEmptyTo = await getLogsRoute(makeRequest('?toDate='));
+  assert(resEmptyTo.status === 400, 'HTTP: GET /api/logs?toDate= returns 400 Bad Request');
+
+  const resNoncanonicalFrom = await getLogsRoute(makeRequest('?fromDate=1'));
+  assert(resNoncanonicalFrom.status === 400, 'HTTP: GET /api/logs?fromDate=1 returns 400 Bad Request');
+
+  const resRolloverFrom = await getLogsRoute(makeRequest('?fromDate=2026-02-30'));
+  assert(resRolloverFrom.status === 400, 'HTTP: GET /api/logs?fromDate=2026-02-30 returns 400 Bad Request');
+
+  const resRolloverTo = await getLogsRoute(makeRequest('?toDate=2026-04-31'));
+  assert(resRolloverTo.status === 400, 'HTTP: GET /api/logs?toDate=2026-04-31 returns 400 Bad Request');
+
+  const resFromAfterTo = await getLogsRoute(makeRequest('?fromDate=2026-08-10&toDate=2026-08-01'));
+  assert(resFromAfterTo.status === 400, 'HTTP: GET /api/logs?fromDate=2026-08-10&toDate=2026-08-01 returns 400 Bad Request (From Date after To Date)');
+
+  const resMixed = await getLogsRoute(makeRequest('?fromDate=2026-08-01&toDate=2026-02-30'));
+  assert(resMixed.status === 400, 'HTTP: GET /api/logs?fromDate=2026-08-01&toDate=2026-02-30 returns 400 Bad Request');
+
+  const resValid = await getLogsRoute(makeRequest('?fromDate=2026-08-01&toDate=2026-08-10'));
+  assert(resValid.status === 200, 'HTTP: GET /api/logs?fromDate=2026-08-01&toDate=2026-08-10 returns 200 OK');
 
   console.log(`\n=====================================================`);
   console.log(`TEST SUMMARY: ${passedTests}/${totalTests} TESTS PASSED`);

@@ -112,6 +112,9 @@ export async function getOperationalLogs(
 
   // Date filters
   if (filters?.fromDate !== undefined || filters?.toDate !== undefined) {
+    if (filters.fromDate !== undefined && filters.toDate !== undefined && filters.fromDate > filters.toDate) {
+      throw new Error('From Date cannot be after To Date.');
+    }
     whereClause.operational_date = {};
     if (filters.fromDate !== undefined) {
       if (!isValidDateOnly(filters.fromDate)) {
@@ -166,8 +169,8 @@ export async function getOperationalLogs(
   ];
 
   for (const visit of visits) {
-    const opDate = visit.operational_date ? new Date(visit.operational_date) : new Date(visit.created_at);
-    const dateStr = opDate.toISOString().split('T')[0];
+    const opDate = visit.operational_date ? new Date(visit.operational_date) : null;
+    const dateStr = opDate ? opDate.toISOString().split('T')[0] : null;
     const sourceName = visit.procurement_source?.name || 'ZMCC / Contractor';
 
     // Weights
@@ -304,10 +307,10 @@ export async function getOperationalLogs(
         status: (visit.current_status as ProcessStatus) || 'DISPATCHED',
 
         dispatch_date: dateStr,
-        dispatch_day: daysOfWeek[opDate.getDay()],
-        dispatch_week: Math.ceil(opDate.getDate() / 7) + 28,
-        dispatch_month: monthsOfYear[opDate.getMonth()],
-        dispatch_year: opDate.getFullYear(),
+        dispatch_day: opDate ? daysOfWeek[opDate.getDay()] : null,
+        dispatch_week: opDate ? Math.ceil(opDate.getDate() / 7) + 28 : null,
+        dispatch_month: opDate ? monthsOfYear[opDate.getMonth()] : null,
+        dispatch_year: opDate ? opDate.getFullYear() : null,
         zonal_contractor_dispatch_time: formatTimeOnly(portion.dispatch_info?.dispatch_timestamp),
         dispatch_kg_gross: declaredUnit === 'KG' ? declaredVal : null,
         dispatch_liters_gross: dispatchGrossLiters,
