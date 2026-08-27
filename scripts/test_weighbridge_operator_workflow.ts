@@ -42,8 +42,8 @@ async function runWeighbridgeVerification() {
       'Account weighbridge.operator registered with department Production & Weighbridge'
     );
 
-    const loginPageContent = fs.readFileSync(path.join(process.cwd(), 'src/frontend/modules/auth/LoginPage.tsx'), 'utf8');
-    const redirectsToDepartment = loginPageContent.includes('/department/weighbridge');
+    const { resolveRoleHome } = require('../src/lib/role-routing');
+    const redirectsToDepartment = resolveRoleHome('WEIGHBRIDGE_OPERATOR') === '/department/weighbridge';
     assert(
       redirectsToDepartment,
       'Test C: Login routing',

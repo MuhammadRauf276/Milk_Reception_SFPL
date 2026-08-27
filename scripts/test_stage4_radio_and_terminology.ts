@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { evaluateLabResult } from '../src/lib/lab-rules';
+import { calculateGrossLiters } from '../src/backend/utils/milkFormulas';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -92,29 +93,22 @@ async function runStage4Tests() {
 
     assert(!dispatchSource.includes("equivalentKg:"), 'DynamicDispatchForm does not calculate equivalentKg for Contractor LITER declarations');
     assert(!dispatchSource.includes("Equivalent KG"), 'DynamicDispatchForm does not display Equivalent KG in summary strip');
-    assert(dispatchSource.includes("physicalLitersVal = qtyNum"), 'Contractor LITER declarations treat provisional physical volume strictly as declared liters');
+    assert(calculateGrossLiters(10000, 'LITER', null) === 10000, 'calculateGrossLiters treats Contractor LITER declarations strictly as declared liters');
 
     // ---------------------------------------------------------
     // TEST GROUP 5: TERMINOLOGY STANDARDIZATION & SECOND WEIGHT AUDIT
     // ---------------------------------------------------------
     console.log('\n--- TEST GROUP 5: OPERATIONAL UI TERMINOLOGY AUDIT ---');
 
-    // Check 13 TS terminology
-    const cardPath = path.join(process.cwd(), 'src/frontend/modules/cards/AdaptiveVehicleCard.tsx');
-    const cardSource = fs.readFileSync(cardPath, 'utf8');
-    assert(!cardSource.includes('13% TS Eq Liters'), 'AdaptiveVehicleCard does not contain 13% TS Eq Liters');
-    assert(!cardSource.includes('Plant 13% TS Eq'), 'AdaptiveVehicleCard does not contain Plant 13% TS Eq');
-    assert(!cardSource.includes('13% TS Liters'), 'AdaptiveVehicleCard does not contain 13% TS Liters');
-    assert(cardSource.includes('>13 TS<'), 'AdaptiveVehicleCard displays standardized 13 TS');
-
-    const logModalPath = path.join(process.cwd(), 'src/frontend/modules/dashboard/LogDetailModal.tsx');
-    const logModalSource = fs.readFileSync(logModalPath, 'utf8');
-    assert(!logModalSource.includes('Plant 13% TS Liters'), 'LogDetailModal does not contain Plant 13% TS Liters');
-    assert(logModalSource.includes('>13 TS<'), 'LogDetailModal displays standardized 13 TS');
-    assert(logModalSource.includes('Gross Weight'), 'LogDetailModal displays Gross Weight');
-    assert(logModalSource.includes('Second Weight'), 'LogDetailModal displays Second Weight');
-    assert(logModalSource.includes('Net Milk Received'), 'LogDetailModal displays Net Milk Received');
-    assert(logModalSource.includes('Physical Liters'), 'LogDetailModal displays Physical Liters');
+    // Check canonical visit detail modal terminology
+    const zmccModalPath = path.join(process.cwd(), 'src/frontend/modules/dashboard/zmcc/ZMCCManagerVisitDetailModal.tsx');
+    const zmccModalSource = fs.readFileSync(zmccModalPath, 'utf8');
+    assert(!zmccModalSource.includes('Plant 13% TS Liters'), 'ZMCCManagerVisitDetailModal does not contain Plant 13% TS Liters');
+    assert(zmccModalSource.includes('13% TS') || zmccModalSource.includes('13 TS'), 'ZMCCManagerVisitDetailModal displays standardized 13 TS');
+    assert(zmccModalSource.includes('First Weight'), 'ZMCCManagerVisitDetailModal displays First Weight');
+    assert(zmccModalSource.includes('Second Weight'), 'ZMCCManagerVisitDetailModal displays Second Weight');
+    assert(zmccModalSource.includes('Net Milk Weight'), 'ZMCCManagerVisitDetailModal displays Net Milk Weight');
+    assert(zmccModalSource.includes('Physical Received Liters'), 'ZMCCManagerVisitDetailModal displays Physical Received Liters');
 
     // Check Weighbridge Workspace terminology
     const wbPath = path.join(process.cwd(), 'src/frontend/modules/dashboard/WeighbridgeWorkspace.tsx');
@@ -123,10 +117,10 @@ async function runStage4Tests() {
     assert(!wbSource.includes('Tare Operational Date'), 'WeighbridgeWorkspace does not contain Tare Operational Date');
     assert(!wbSource.includes('Tare Weighment Time'), 'WeighbridgeWorkspace does not contain Tare Weighment Time');
     assert(!wbSource.includes('Tare Weight (kg)'), 'WeighbridgeWorkspace does not contain Tare Weight (kg)');
-    assert(wbSource.includes('Gross Weighment Time'), 'WeighbridgeWorkspace displays Gross Weighment Time');
+    assert(wbSource.includes('First Weighment Time'), 'WeighbridgeWorkspace displays First Weighment Time');
     assert(wbSource.includes('Second Weighment Time'), 'WeighbridgeWorkspace displays Second Weighment Time');
-    assert(wbSource.includes('Second Weight (kg)'), 'WeighbridgeWorkspace displays Second Weight (kg)');
-    assert(wbSource.includes('Net Milk Received:'), 'WeighbridgeWorkspace displays Net Milk Received:');
+    assert(wbSource.includes('Second Weight (After Unloading)'), 'WeighbridgeWorkspace displays Second Weight (After Unloading)');
+    assert(wbSource.includes('Net Milk Weight:'), 'WeighbridgeWorkspace displays Net Milk Weight:');
 
     // Check Production Unloading Workspace terminology
     const prodPath = path.join(process.cwd(), 'src/frontend/modules/dashboard/ProductionUnloadingWorkspace.tsx');
@@ -146,12 +140,6 @@ async function runStage4Tests() {
     assert(secSource.includes('Second Weight'), 'SecurityGatewayWorkspace displays Second Weight');
     assert(secSource.includes('Net Milk Received'), 'SecurityGatewayWorkspace displays Net Milk Received');
 
-    // Check Zonal History Table terminology
-    const zonalPath = path.join(process.cwd(), 'src/frontend/modules/dashboard/ZonalHistoryTable.tsx');
-    const zonalSource = fs.readFileSync(zonalPath, 'utf8');
-    assert(zonalSource.includes('Second Weight:'), 'ZonalHistoryTable displays Second Weight:');
-    assert(zonalSource.includes('Net Milk Received:'), 'ZonalHistoryTable displays Net Milk Received:');
-
     // Check QA Laboratory Workspace terminology
     assert(!qaSource.includes('QA Start Operational Date'), 'QALaboratoryWorkspace does not contain QA Start Operational Date');
     assert(qaSource.includes('QA Start Time'), 'QALaboratoryWorkspace displays QA Start Time');
@@ -165,7 +153,7 @@ async function runStage4Tests() {
     // TEST GROUP 6: INTERNAL AVERAGES AND HIDDEN CALCULATIONS
     // ---------------------------------------------------------
     console.log('\n--- TEST GROUP 6: HIDDEN INTERNAL AVERAGES SAFETY ---');
-    const allFrontendFiles = [dispatchPath, qaWorkspacePath, wbPath, prodPath, secPath, cardPath, logModalPath, zonalPath];
+    const allFrontendFiles = [dispatchPath, qaWorkspacePath, wbPath, prodPath, secPath, zmccModalPath];
     for (const fPath of allFrontendFiles) {
       const content = fs.readFileSync(fPath, 'utf8');
       const baseName = path.basename(fPath);

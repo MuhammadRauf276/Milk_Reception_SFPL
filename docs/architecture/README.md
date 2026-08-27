@@ -23,7 +23,6 @@ All technical contributors, developers, and AI coding agents must understand the
 | [ADR-003](./ADR-003-configurable-lab-result-options.md) | Configurable Qualitative Options | **Accepted** | Metadata-driven options, Pass/Fail/Neutral semantics, accessible radio controls. |
 | [ADR-004](./ADR-004-development-data-lifecycle.md) | Development Data Lifecycle | **Accepted** | Development data is disposable; no fake legacy compatibility states; test DB isolation. |
 | [ADR-005](./ADR-005-numeric-precision-and-rounding.md) | Numeric Precision, Calculation Chains & Rounding | **Accepted** | Unrounded intermediate chains, canonical formula authority, display-only visual rounding. |
-| [ADR-DRAFT](./ADR-DRAFT-dispatch-quantity-measurement.md) | Multi-Mode Dispatch Quantity | **Draft** | Candidate concepts for vehicle/portion modes and measurement precision (Non-authoritative). |
 
 ---
 

@@ -282,8 +282,6 @@ export function deriveManagerLifecycle(portions: MilkProcessLog[]): ManagerLifec
       metricText:
         primary.authoritative_final_liters != null
           ? `${primary.authoritative_final_liters.toLocaleString()} L`
-          : hasFinalReceipt && primary.computed_plant_liters != null
-          ? `${primary.computed_plant_liters.toLocaleString()} L`
           : null,
       eventTimestamp: primary.final_receipt_timestamp
         ? formatOperationalDatetime(primary.final_receipt_timestamp)
@@ -430,17 +428,14 @@ export function buildVehicleVisitGroups(logs: MilkProcessLog[]): VehicleVisitGro
       tokenNumber: primary.token_number || null,
       sourceName: primary.zonal_contractor_name,
       procurementSourceId: null,
-      businessDate: primary.dispatch_date || (primary.created_at ? primary.created_at.split('T')[0] : ''),
+      businessDate: primary.dispatch_date || '',
       finalReceiptBusinessDate,
       overallStatus: primary.status,
       portions,
       primaryLog: primary,
 
-      vehicleDispatchQuantityValue:
-        primary.vehicle_dispatch_quantity_value ?? primary.dispatch_liters_gross ?? primary.dispatch_kg_gross ?? null,
-      vehicleDispatchQuantityUnit:
-        primary.vehicle_dispatch_quantity_unit ??
-        (primary.dispatch_liters_gross != null ? 'LITER' : primary.dispatch_kg_gross != null ? 'KG' : null),
+      vehicleDispatchQuantityValue: primary.vehicle_dispatch_quantity_value ?? null,
+      vehicleDispatchQuantityUnit: primary.vehicle_dispatch_quantity_unit ?? null,
       vehicleDispatchQuantityBasis: primary.vehicle_dispatch_quantity_basis ?? 'GROSS',
       totalDispatchGrossLiters: vehicleAuthoritativeGrossLiters,
       totalDispatch13TsLiters: all13TsPresent ? Number(sum13TsLiters.toFixed(2)) : null,

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Milk, ShieldCheck, ArrowRight, CheckCircle2, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { resolveRoleHome } from '@/lib/role-routing';
 
 interface DevItem {
   label: string;
@@ -90,35 +91,8 @@ export const LoginPage: React.FC = () => {
         throw new Error(data.error || 'Invalid username or password');
       }
 
-      const role = data.user?.role;
-      if (role === 'SUPER_ADMIN') {
-        router.push('/super-admin');
-      } else if (role === 'Production_Operator' || role === 'PRODUCTION_OPERATOR' || role === 'Production') {
-        router.push('/department/production');
-      } else if (role === 'MPD_Operator' || role === 'MPD') {
-        router.push('/department/mpd');
-      } else if (role === 'Security_Operator' || role === 'Security_Weight') {
-        router.push('/department/security');
-      } else if (role === 'Security_Manager') {
-        router.push('/department/security-manager');
-      } else if (role === 'QA_Operator' || role === 'QA') {
-        router.push('/department/qa');
-      } else if (role === 'WEIGHBRIDGE_OPERATOR' || role === 'Weighbridge_Operator') {
-        router.push('/department/weighbridge');
-      } else if (role === 'ZMCC_MANAGER') {
-        router.push('/mpd/zmcc-manager');
-      } else if (
-        role === 'MPD_Zone_Manager' ||
-        role === 'General_Plant_Manager' ||
-        role === 'Management' ||
-        role === 'QA_Manager' ||
-        role === 'Production_Manager' ||
-        role === 'Admin'
-      ) {
-        router.push('/management/dashboard');
-      } else {
-        router.push('/department/production');
-      }
+      const destination = resolveRoleHome(data.user?.role);
+      router.push(destination);
     } catch (err: unknown) {
       setErrorMsg(err instanceof Error ? err.message : 'Invalid username or password');
     } finally {
