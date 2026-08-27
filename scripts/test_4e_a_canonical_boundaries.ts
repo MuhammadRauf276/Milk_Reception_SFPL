@@ -167,13 +167,13 @@ async function run4EATests() {
     'A18: CANONICAL-CODE-MAP contains route ownership map'
   );
 
-  // A19: legacy routes are explicitly marked LEGACY
+  // A19: legacy routes are explicitly marked LEGACY / RETIRED
   assert(
     mapSrc.includes('/management/dashboard') &&
-    mapSrc.includes('LEGACY ACTIVE') &&
+    mapSrc.includes('LEGACY') &&
     mapSrc.includes('/cross-verification') &&
     mapSrc.includes('/fleet-tracking'),
-    'A19: Legacy routes are explicitly marked LEGACY ACTIVE'
+    'A19: Legacy routes are explicitly documented in CANONICAL-CODE-MAP'
   );
 
   // A20: future roles are explicitly marked NOT READY

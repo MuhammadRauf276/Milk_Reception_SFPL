@@ -48,7 +48,7 @@ Being located under `src/app` does **NOT** mean code is current. Every route, AP
 | `/super-admin/settings` | **CANONICAL** | `SUPER_ADMIN`, `Admin` | `.../settings/page.tsx` | CURRENT | Security, session, and infrastructure status display. |
 | `/weighbridge` | **COMPATIBILITY** | `WEIGHBRIDGE_OPERATOR` | `WeighbridgeWorkspace.tsx` | COMPATIBILITY | Redirects to `/department/weighbridge` (which renders `WeighbridgeWorkspace`). |
 | `/admin/lab-tests` | **COMPATIBILITY** | `Admin` | `src/app/admin/lab-tests/page.tsx` | LEGACY (4E-B TARGET) | Redirects to `/super-admin/lab-tests`. |
-| `/fleet-tracking` | **LEGACY ACTIVE** | `Management`, `Admin` | `src/app/fleet-tracking/page.tsx` | LEGACY ACTIVE | Legacy fleet tracking view with audit revert controls. |
+| `/fleet-tracking` | **RETIRED (4E-E)** | None | N/A | RETIRED | Unowned legacy monitoring board retired in Stage 4E-E. |
 | `/tv-board` | **BUSINESS DECISION**| Plant Displays | `src/app/tv-board/page.tsx` | BUSINESS DECISION | Read-only wall-board screen for factory reception lanes. |
 
 ---
@@ -56,7 +56,7 @@ Being located under `src/app` does **NOT** mean code is current. Every route, AP
 ## 3. Root Route & Role-Home Policy (`src/lib/role-routing.ts`)
 
 > [!NOTE]
-> **CANONICAL ROUTING GATEWAY (STAGE 4E-B / 4E-D)**
+> **CANONICAL ROUTING GATEWAY (STAGE 4E-B / 4E-D / 4E-E)**
 > `src/app/page.tsx` is a pure routing gateway. It inspects `currentUser.role` and executes a server-side redirect via `resolveRoleHome(role)`.
 > **NO DEFAULT BUSINESS WORKSPACE FALLBACK**: Unknown, unmapped, future, and retired legacy roles fail closed to `/workspace-unavailable`.
 
@@ -109,7 +109,7 @@ Being located under `src/app` does **NOT** mean code is current. Every route, AP
 ### Deprecated / Compatibility / Mutation Tombstones
 - `POST /api/logs`, `PATCH /api/logs`, `PATCH /api/logs/[id]` — **DEPRECATED / MUTATION TOMBSTONES**: Deprecated operational log mutation surfaces. They do NOT represent current canonical manager read architecture.
 - `/api/admin/lab-tests`, `/api/admin/lab-tests/[id]` — **DUPLICATE / LEGACY**: Superseded by `/api/super-admin/lab-tests`.
-- `/api/logs/[id]/audit` (POST) — **BUSINESS DECISION / FAKE REVERT**: Inserts audit log without actual table mutation.
+- `/api/logs/[id]/audit` — **RETIRED IN 4E-E**: Fake generic revert mutation and ownerless per-log audit endpoint removed. Canonical audit evidence remains immutable and read-only via `/api/super-admin/audit` and `/super-admin/audit`.
 
 ---
 
@@ -133,12 +133,9 @@ Being located under `src/app` does **NOT** mean code is current. Every route, AP
 
 ## 6. Legacy Modules (DO NOT USE IN NEW DEVELOPMENT)
 
-The following modules represent older architectural iterations. They remain in the codebase until formally retired in subsequent Stage 4E cleanup chunks, but **NEW OR CURRENT CODE MUST NOT IMPORT THEM**:
+The following modules represent older architectural iterations. They remain in the codebase until formally retired, but **NEW OR CURRENT CODE MUST NOT IMPORT THEM**:
 
-- `src/app/fleet-tracking/page.tsx`
-- `src/frontend/modules/shared/AuditRevertModal.tsx`
-- `src/frontend/modules/dashboard/LogDetailModal.tsx`
-- `src/backend/services/operationalCalculations.ts`
+- `src/backend/services/operationalCalculations.ts` — Retained only for legacy validation scripts, which import it directly.
 
 ---
 
@@ -189,5 +186,18 @@ The legacy Kanban management application and standalone cross-verification route
 - Legacy roles (`MPD_Zone_Manager`, `Management`, `General_Plant_Manager`, `QA_Manager`, `Production_Manager`, `Correction_Officer`) fail closed to `/workspace-unavailable`.
 - Canonical `SecurityManager.tsx` has zero dependency on legacy `LogDetailModal.tsx`.
 - Canonical `operationalReadModelService.ts` has zero dependency on or re-exports of `operationalCalculations.ts`.
-- `LogDetailModal.tsx` is retained only for the legacy `/fleet-tracking` surface pending Stage 4E-E.
 - `operationalCalculations.ts` is retained only for legacy validation scripts, which import it directly.
+
+---
+
+## 10. Stage 4E-E Retired Fleet Tracking & Generic Revert Subsystem
+
+The unowned legacy fleet tracking page and misleading generic audit-revert mechanism have been retired:
+
+- `src/app/fleet-tracking/page.tsx` — **DELETED**: Unowned legacy monitoring board with zero active role owners.
+- `src/frontend/modules/dashboard/LogDetailModal.tsx` — **DELETED**: Legacy modal with zero remaining runtime consumers.
+- `src/frontend/modules/shared/AuditRevertModal.tsx` — **DELETED**: Legacy modal with zero remaining runtime consumers.
+- `src/app/api/logs/[id]/audit/route.ts` — **DELETED**: Fake revert mutation endpoint and unowned per-log audit endpoint removed.
+- `revertLogField` and `getAuditLogsForLog` in `src/backend/core/db.ts` — **DELETED**: Unused/fake revert helpers removed.
+- Canonical system audit evidence remains strictly read-only and immutable through Super Admin Audit (`/super-admin/audit` and `/api/super-admin/audit`).
+- `Correction_Officer` role definition remains in domain types (routing safely fails closed to `/workspace-unavailable`).

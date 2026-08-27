@@ -177,19 +177,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {isMainAdmin && (
             <>
               <Link
-                href="/fleet-tracking"
-                className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition ${getLinkStyle('/fleet-tracking')}`}
-              >
-                <span className="flex items-center gap-2">
-                  <Grid className="w-4 h-4" />
-                  <span>Compact Fleet Matrix</span>
-                </span>
-                <span className={`px-1.5 py-0.5 rounded font-mono text-[9px] ${getBadgeStyle('/fleet-tracking')}`}>
-                  /fleet
-                </span>
-              </Link>
-
-              <Link
                 href="/admin/lab-tests"
                 className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition ${getLinkStyle('/admin/lab-tests')}`}
               >

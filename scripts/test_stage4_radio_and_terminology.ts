@@ -100,15 +100,15 @@ async function runStage4Tests() {
     // ---------------------------------------------------------
     console.log('\n--- TEST GROUP 5: OPERATIONAL UI TERMINOLOGY AUDIT ---');
 
-    // Check 13 TS terminology
-    const logModalPath = path.join(process.cwd(), 'src/frontend/modules/dashboard/LogDetailModal.tsx');
-    const logModalSource = fs.readFileSync(logModalPath, 'utf8');
-    assert(!logModalSource.includes('Plant 13% TS Liters'), 'LogDetailModal does not contain Plant 13% TS Liters');
-    assert(logModalSource.includes('13 TS'), 'LogDetailModal displays standardized 13 TS');
-    assert(logModalSource.includes('First Weight'), 'LogDetailModal displays First Weight');
-    assert(logModalSource.includes('Second Weight'), 'LogDetailModal displays Second Weight');
-    assert(logModalSource.includes('Net Milk Weight'), 'LogDetailModal displays Net Milk Weight');
-    assert(logModalSource.includes('Physical Received Liters'), 'LogDetailModal displays Physical Received Liters');
+    // Check canonical visit detail modal terminology
+    const zmccModalPath = path.join(process.cwd(), 'src/frontend/modules/dashboard/zmcc/ZMCCManagerVisitDetailModal.tsx');
+    const zmccModalSource = fs.readFileSync(zmccModalPath, 'utf8');
+    assert(!zmccModalSource.includes('Plant 13% TS Liters'), 'ZMCCManagerVisitDetailModal does not contain Plant 13% TS Liters');
+    assert(zmccModalSource.includes('13% TS') || zmccModalSource.includes('13 TS'), 'ZMCCManagerVisitDetailModal displays standardized 13 TS');
+    assert(zmccModalSource.includes('First Weight'), 'ZMCCManagerVisitDetailModal displays First Weight');
+    assert(zmccModalSource.includes('Second Weight'), 'ZMCCManagerVisitDetailModal displays Second Weight');
+    assert(zmccModalSource.includes('Net Milk Weight'), 'ZMCCManagerVisitDetailModal displays Net Milk Weight');
+    assert(zmccModalSource.includes('Physical Received Liters'), 'ZMCCManagerVisitDetailModal displays Physical Received Liters');
 
     // Check Weighbridge Workspace terminology
     const wbPath = path.join(process.cwd(), 'src/frontend/modules/dashboard/WeighbridgeWorkspace.tsx');
@@ -153,7 +153,7 @@ async function runStage4Tests() {
     // TEST GROUP 6: INTERNAL AVERAGES AND HIDDEN CALCULATIONS
     // ---------------------------------------------------------
     console.log('\n--- TEST GROUP 6: HIDDEN INTERNAL AVERAGES SAFETY ---');
-    const allFrontendFiles = [dispatchPath, qaWorkspacePath, wbPath, prodPath, secPath, logModalPath];
+    const allFrontendFiles = [dispatchPath, qaWorkspacePath, wbPath, prodPath, secPath, zmccModalPath];
     for (const fPath of allFrontendFiles) {
       const content = fs.readFileSync(fPath, 'utf8');
       const baseName = path.basename(fPath);
