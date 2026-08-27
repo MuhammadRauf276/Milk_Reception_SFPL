@@ -47,7 +47,7 @@ Being located under `src/app` does **NOT** mean code is current. Every route, AP
 | `/super-admin/master-data` | **CANONICAL** | `SUPER_ADMIN`, `Admin` | `.../master-data/page.tsx` | CURRENT | Directory navigation hub linking to sources, silos, tests. |
 | `/super-admin/settings` | **CANONICAL** | `SUPER_ADMIN`, `Admin` | `.../settings/page.tsx` | CURRENT | Security, session, and infrastructure status display. |
 | `/weighbridge` | **COMPATIBILITY** | `WEIGHBRIDGE_OPERATOR` | `WeighbridgeWorkspace.tsx` | COMPATIBILITY | Redirects to `/department/weighbridge` (which renders `WeighbridgeWorkspace`). |
-| `/admin/lab-tests` | **COMPATIBILITY** | `Admin` | `src/app/admin/lab-tests/page.tsx` | LEGACY (4E-B TARGET) | Redirects to `/super-admin/lab-tests`. |
+| `/admin/lab-tests` | **COMPATIBILITY** | `Admin` | `src/app/admin/lab-tests/page.tsx` | COMPATIBILITY | Client-side compatibility redirect to `/super-admin/lab-tests`. |
 | `/fleet-tracking` | **RETIRED (4E-E)** | None | N/A | RETIRED | Unowned legacy monitoring board retired in Stage 4E-E. |
 | `/tv-board` | **BUSINESS DECISION**| Plant Displays | `src/app/tv-board/page.tsx` | BUSINESS DECISION | Read-only wall-board screen for factory reception lanes. |
 
@@ -108,7 +108,7 @@ Being located under `src/app` does **NOT** mean code is current. Every route, AP
 
 ### Deprecated / Compatibility / Mutation Tombstones
 - `POST /api/logs`, `PATCH /api/logs`, `PATCH /api/logs/[id]` — **DEPRECATED / MUTATION TOMBSTONES**: Deprecated operational log mutation surfaces. They do NOT represent current canonical manager read architecture.
-- `/api/admin/lab-tests`, `/api/admin/lab-tests/[id]` — **DUPLICATE / LEGACY**: Superseded by `/api/super-admin/lab-tests`.
+- `/api/admin/lab-tests`, `/api/admin/lab-tests/[id]` — **RETIRED IN 4E-F**: Duplicate legacy Admin endpoints physically removed; canonical administration is unified at `/api/super-admin/lab-tests`.
 - `/api/logs/[id]/audit` — **RETIRED IN 4E-E**: Fake generic revert mutation and ownerless per-log audit endpoint removed. Canonical audit evidence remains immutable and read-only via `/api/super-admin/audit` and `/super-admin/audit`.
 
 ---
@@ -201,3 +201,17 @@ The unowned legacy fleet tracking page and misleading generic audit-revert mecha
 - `revertLogField` and `getAuditLogsForLog` in `src/backend/core/db.ts` — **DELETED**: Unused/fake revert helpers removed.
 - Canonical system audit evidence remains strictly read-only and immutable through Super Admin Audit (`/super-admin/audit` and `/api/super-admin/audit`).
 - `Correction_Officer` role definition remains in domain types (routing safely fails closed to `/workspace-unavailable`).
+
+---
+
+## 11. Stage 4E-F Duplicate API / Super Admin Consolidation
+
+The duplicate legacy Admin Lab Tests API has been consolidated into the canonical Super Admin API:
+
+- `src/app/api/admin/lab-tests/route.ts` — **DELETED**: Duplicate legacy API with outdated authorization and missing audit logging.
+- `src/app/api/admin/lab-tests/[id]/route.ts` — **DELETED**: Duplicate legacy API with outdated authorization and missing audit logging.
+- `src/app/api/admin` directory — **REMOVED**: Directory tree cleaned after endpoint removal.
+- Canonical Lab Test Master Data management is unified at `/api/super-admin/lab-tests` and `/api/super-admin/lab-tests/[id]`.
+- Operational field test definitions remain served by `/api/lab-tests`.
+- `/admin/lab-tests` (`src/app/admin/lab-tests/page.tsx`) is preserved strictly as a **COMPATIBILITY** redirect to `/super-admin/lab-tests`.
+- Sidebar navigation for `isMainAdmin` points directly to canonical `/super-admin/lab-tests`.

@@ -177,14 +177,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {isMainAdmin && (
             <>
               <Link
-                href="/admin/lab-tests"
-                className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition ${getLinkStyle('/admin/lab-tests')}`}
+                href="/super-admin/lab-tests"
+                className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition ${getLinkStyle('/super-admin/lab-tests')}`}
               >
                 <span className="flex items-center gap-2">
                   <FlaskConical className="w-4 h-4 text-[#1E3A8A]" />
                   <span>Lab Tests</span>
                 </span>
-                <span className={`px-1.5 py-0.5 rounded font-mono text-[9px] ${getBadgeStyle('/admin/lab-tests')}`}>
+                <span className={`px-1.5 py-0.5 rounded font-mono text-[9px] ${getBadgeStyle('/super-admin/lab-tests')}`}>
                   LABS
                 </span>
               </Link>
