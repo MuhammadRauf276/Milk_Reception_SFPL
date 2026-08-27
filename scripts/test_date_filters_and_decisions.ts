@@ -30,34 +30,31 @@ async function runTests() {
   console.log(`Loaded ${baseLogs.length} base logs from database.\n`);
 
   // 1. Single-day filter
-  const sampleDate = baseLogs[0]?.created_at?.split('T')[0] || '2026-08-05';
+  const sampleDate = baseLogs[0]?.dispatch_date || '2026-08-05';
   const singleDayLogs = await fetchAllMilkLogs({ fromDate: sampleDate, toDate: sampleDate });
   assert(
-    singleDayLogs.every((l) => (l.created_at.split('T')[0]) === sampleDate),
+    singleDayLogs.every((l) => l.dispatch_date === sampleDate),
     `Single-day filter returned ${singleDayLogs.length} logs for ${sampleDate}`
   );
 
   // 2. Multi-day range
   const multiDayLogs = await fetchAllMilkLogs({ fromDate: '2026-08-01', toDate: '2026-08-10' });
   assert(
-    multiDayLogs.every((l) => {
-      const d = l.dispatch_date || l.created_at.split('T')[0];
-      return d >= '2026-08-01' && d <= '2026-08-10';
-    }),
+    multiDayLogs.every((l) => (l.dispatch_date || '') >= '2026-08-01' && (l.dispatch_date || '') <= '2026-08-10'),
     `Multi-day range returned ${multiDayLogs.length} logs within 2026-08-01 to 2026-08-10`
   );
 
   // 3. From Date only
   const fromOnlyLogs = await fetchAllMilkLogs({ fromDate: '2026-08-05' });
   assert(
-    fromOnlyLogs.every((l) => (l.dispatch_date || l.created_at.split('T')[0]) >= '2026-08-05'),
+    fromOnlyLogs.every((l) => (l.dispatch_date || '') >= '2026-08-05'),
     `From Date only returned ${fromOnlyLogs.length} logs from 2026-08-05 onwards`
   );
 
   // 4. To Date only
   const toOnlyLogs = await fetchAllMilkLogs({ toDate: '2026-08-05' });
   assert(
-    toOnlyLogs.every((l) => (l.dispatch_date || l.created_at.split('T')[0]) <= '2026-08-05'),
+    toOnlyLogs.every((l) => (l.dispatch_date || '') <= '2026-08-05'),
     `To Date only returned ${toOnlyLogs.length} logs up to 2026-08-05`
   );
 
@@ -65,9 +62,30 @@ async function runTests() {
   const sameDayLogs = await fetchAllMilkLogs({ fromDate: sampleDate, toDate: sampleDate });
   assert(sameDayLogs.length === singleDayLogs.length, `Same From and To date returned ${sameDayLogs.length} logs`);
 
-  // 6. Invalid date format check
-  const invalidDateLogs = await fetchAllMilkLogs({ fromDate: 'invalid-date' });
-  assert(Array.isArray(invalidDateLogs), 'Invalid date format handled gracefully without crashing');
+  // 6. Invalid date format checks (Service & API Level Contract)
+  let invalidFromError = false;
+  try {
+    await fetchAllMilkLogs({ fromDate: 'invalid-date' });
+  } catch (_err) {
+    invalidFromError = true;
+  }
+  assert(invalidFromError, 'Invalid fromDate is rejected deterministically (does NOT silently broaden query)');
+
+  let invalidToError = false;
+  try {
+    await fetchAllMilkLogs({ toDate: 'not-a-date' });
+  } catch (_err) {
+    invalidToError = true;
+  }
+  assert(invalidToError, 'Invalid toDate is rejected deterministically (does NOT silently broaden query)');
+
+  let invalidMixedError = false;
+  try {
+    await fetchAllMilkLogs({ fromDate: 'malformed-date', toDate: '2026-08-10' });
+  } catch (_err) {
+    invalidMixedError = true;
+  }
+  assert(invalidMixedError, 'Invalid fromDate with valid toDate is rejected completely, not partially filtered');
 
   // 7. From Date after To Date (Handled by API endpoint validation)
   const fromAfterToValidation = 'From Date cannot be after To Date.';

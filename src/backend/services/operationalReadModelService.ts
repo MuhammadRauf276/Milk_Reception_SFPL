@@ -115,19 +115,18 @@ export async function getOperationalLogs(
     whereClause.operational_date = {};
     if (filters.fromDate) {
       const fromDateObj = new Date(filters.fromDate);
-      if (!isNaN(fromDateObj.getTime())) {
-        whereClause.operational_date.gte = fromDateObj;
+      if (isNaN(fromDateObj.getTime())) {
+        throw new Error('Invalid fromDate parameter');
       }
+      whereClause.operational_date.gte = fromDateObj;
     }
     if (filters.toDate) {
       const toDateObj = new Date(filters.toDate);
-      if (!isNaN(toDateObj.getTime())) {
-        toDateObj.setHours(23, 59, 59, 999);
-        whereClause.operational_date.lte = toDateObj;
+      if (isNaN(toDateObj.getTime())) {
+        throw new Error('Invalid toDate parameter');
       }
-    }
-    if (Object.keys(whereClause.operational_date).length === 0) {
-      delete whereClause.operational_date;
+      toDateObj.setHours(23, 59, 59, 999);
+      whereClause.operational_date.lte = toDateObj;
     }
   }
 

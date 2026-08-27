@@ -243,6 +243,36 @@ async function run4EDTests() {
     'D28: LogDetailModal.tsx remains present because /fleet-tracking still consumes it'
   );
 
+  // D29: operationalReadModelService contains no silent invalid-date filter deletion
+  assert(
+    !readModelSrc.includes('delete whereClause.operational_date') &&
+    readModelSrc.includes("throw new Error('Invalid fromDate parameter')") &&
+    readModelSrc.includes("throw new Error('Invalid toDate parameter')"),
+    'D29: operationalReadModelService contains no silent invalid-date filter deletion and throws deterministic errors'
+  );
+
+  // D30: api/logs/route.ts contains explicit invalid fromDate/toDate 400 validation
+  const apiLogsSrc = fs.readFileSync(path.join(__dirname, '../src/app/api/logs/route.ts'), 'utf8');
+  assert(
+    apiLogsSrc.includes("error: 'Invalid fromDate parameter.'") &&
+    apiLogsSrc.includes("error: 'Invalid toDate parameter.'"),
+    'D30: api/logs/route.ts explicitly rejects malformed fromDate and toDate with HTTP 400'
+  );
+
+  // D31: test_date_filters_and_decisions.ts asserts dispatch_date (Business Date)
+  assert(
+    dateFilterScriptSrc.includes("sampleDate = baseLogs[0]?.dispatch_date") &&
+    dateFilterScriptSrc.includes("l.dispatch_date === sampleDate"),
+    'D31: test_date_filters_and_decisions asserts dispatch_date (Business Date)'
+  );
+
+  // D32: test_stage4_radio_and_terminology.ts maintains strict Contractor LITER authority assertion
+  assert(
+    stage4ScriptSrc.includes("calculateGrossLiters(10000, 'LITER', null) === 10000") &&
+    !stage4ScriptSrc.includes('isContractorSource || calculatePhysicalLiters'),
+    'D32: test_stage4_radio_and_terminology maintains strict Contractor LITER authority contract'
+  );
+
   console.log('\n================================================================================');
   console.log(`SUMMARY: ${passed} PASSED, ${failed} FAILED`);
   console.log('================================================================================\n');

@@ -43,6 +43,24 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get('search') || undefined;
 
     // Date validation
+    if (fromDate) {
+      const fromDateObj = new Date(fromDate);
+      if (isNaN(fromDateObj.getTime())) {
+        return NextResponse.json(
+          { error: 'Invalid fromDate parameter.' },
+          { status: 400 }
+        );
+      }
+    }
+    if (toDate) {
+      const toDateObj = new Date(toDate);
+      if (isNaN(toDateObj.getTime())) {
+        return NextResponse.json(
+          { error: 'Invalid toDate parameter.' },
+          { status: 400 }
+        );
+      }
+    }
     if (fromDate && toDate && fromDate > toDate) {
       return NextResponse.json(
         { error: 'From Date cannot be after To Date.' },

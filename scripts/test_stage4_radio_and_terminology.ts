@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { evaluateLabResult } from '../src/lib/lab-rules';
+import { calculateGrossLiters } from '../src/backend/utils/milkFormulas';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -92,7 +93,7 @@ async function runStage4Tests() {
 
     assert(!dispatchSource.includes("equivalentKg:"), 'DynamicDispatchForm does not calculate equivalentKg for Contractor LITER declarations');
     assert(!dispatchSource.includes("Equivalent KG"), 'DynamicDispatchForm does not display Equivalent KG in summary strip');
-    assert(dispatchSource.includes("isContractorSource") || dispatchSource.includes("calculatePhysicalLiters"), 'Contractor LITER declarations treat provisional physical volume strictly as declared liters');
+    assert(calculateGrossLiters(10000, 'LITER', null) === 10000, 'calculateGrossLiters treats Contractor LITER declarations strictly as declared liters');
 
     // ---------------------------------------------------------
     // TEST GROUP 5: TERMINOLOGY STANDARDIZATION & SECOND WEIGHT AUDIT
@@ -103,11 +104,11 @@ async function runStage4Tests() {
     const logModalPath = path.join(process.cwd(), 'src/frontend/modules/dashboard/LogDetailModal.tsx');
     const logModalSource = fs.readFileSync(logModalPath, 'utf8');
     assert(!logModalSource.includes('Plant 13% TS Liters'), 'LogDetailModal does not contain Plant 13% TS Liters');
-    assert(logModalSource.includes('13 TS') || logModalSource.includes('13% TS'), 'LogDetailModal displays standardized 13 TS');
-    assert(logModalSource.includes('First Weight') || logModalSource.includes('Gross Weight'), 'LogDetailModal displays First Weight / Gross Weight');
+    assert(logModalSource.includes('13 TS'), 'LogDetailModal displays standardized 13 TS');
+    assert(logModalSource.includes('First Weight'), 'LogDetailModal displays First Weight');
     assert(logModalSource.includes('Second Weight'), 'LogDetailModal displays Second Weight');
-    assert(logModalSource.includes('Net Milk Weight') || logModalSource.includes('Net Milk Received'), 'LogDetailModal displays Net Milk Weight / Received');
-    assert(logModalSource.includes('Physical Received Liters') || logModalSource.includes('Physical Liters'), 'LogDetailModal displays Physical Received Liters');
+    assert(logModalSource.includes('Net Milk Weight'), 'LogDetailModal displays Net Milk Weight');
+    assert(logModalSource.includes('Physical Received Liters'), 'LogDetailModal displays Physical Received Liters');
 
     // Check Weighbridge Workspace terminology
     const wbPath = path.join(process.cwd(), 'src/frontend/modules/dashboard/WeighbridgeWorkspace.tsx');
@@ -116,10 +117,10 @@ async function runStage4Tests() {
     assert(!wbSource.includes('Tare Operational Date'), 'WeighbridgeWorkspace does not contain Tare Operational Date');
     assert(!wbSource.includes('Tare Weighment Time'), 'WeighbridgeWorkspace does not contain Tare Weighment Time');
     assert(!wbSource.includes('Tare Weight (kg)'), 'WeighbridgeWorkspace does not contain Tare Weight (kg)');
-    assert(wbSource.includes('First Weighment Time') || wbSource.includes('Gross Weighment Time'), 'WeighbridgeWorkspace displays First/Gross Weighment Time');
+    assert(wbSource.includes('First Weighment Time'), 'WeighbridgeWorkspace displays First Weighment Time');
     assert(wbSource.includes('Second Weighment Time'), 'WeighbridgeWorkspace displays Second Weighment Time');
-    assert(wbSource.includes('Second Weight'), 'WeighbridgeWorkspace displays Second Weight');
-    assert(wbSource.includes('Net Milk Weight:') || wbSource.includes('Net Milk Received:'), 'WeighbridgeWorkspace displays Net Milk Weight:');
+    assert(wbSource.includes('Second Weight (After Unloading)'), 'WeighbridgeWorkspace displays Second Weight (After Unloading)');
+    assert(wbSource.includes('Net Milk Weight:'), 'WeighbridgeWorkspace displays Net Milk Weight:');
 
     // Check Production Unloading Workspace terminology
     const prodPath = path.join(process.cwd(), 'src/frontend/modules/dashboard/ProductionUnloadingWorkspace.tsx');
