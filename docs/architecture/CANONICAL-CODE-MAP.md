@@ -215,3 +215,18 @@ The duplicate legacy Admin Lab Tests API has been consolidated into the canonica
 - Operational field test definitions remain served by `/api/lab-tests`.
 - `/admin/lab-tests` (`src/app/admin/lab-tests/page.tsx`) is preserved strictly as a **COMPATIBILITY** redirect to `/super-admin/lab-tests`.
 - Sidebar navigation for `isMainAdmin` points directly to canonical `/super-admin/lab-tests`.
+
+---
+
+## 12. Stage 4E-G1 Repository-Wide Cleanup & Proven Leftover Removal
+
+Tracked repository leftovers with zero runtime consumers have been removed:
+
+- `next.config.mjs` — **DELETED**: Redundant duplicate of `next.config.js`.
+- `src/backend/core/durations.ts` — **DELETED**: Unused duration calculation helpers operating on old schema.
+- `src/frontend/modules/dashboard/SecurityWorkforceTable.tsx` — **DELETED**: Ownerless component superseded by SecurityManager milestone ledger.
+- `src/frontend/modules/shared/IsometricIcon.tsx` — **DELETED**: Ownerless component from retired StageTimeline.
+- `src/lib/key-utils.ts` — **DELETED**: Unused key helper.
+- `scratch/*` tracked files — **DELETED**: Tracked scratch investigative scripts removed.
+- `docs/architecture/ADR-DRAFT-dispatch-quantity-measurement.md` — **DELETED**: Non-authoritative draft superseded by ADR-001.
+- `src/backend/services/operationalCalculations.ts` — **RETAINED (TRANSITIONAL SCRIPT SUPPORT)**: 0 runtime consumers, retained for historical test suites in G2.
