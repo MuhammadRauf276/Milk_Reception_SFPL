@@ -145,8 +145,12 @@ async function run4EDTests() {
     'D12 & D13: Sidebar contains no links to retired /management/dashboard or /cross-verification'
   );
 
-  // D14: /fleet-tracking evaluated for 4E-E
-  assert(true, 'D14: /fleet-tracking legacy route was preserved in 4E-D for 4E-E evaluation');
+  // D14: /fleet-tracking route is retired and deleted
+  const fleetTrackingPath = path.join(__dirname, '../src/app/fleet-tracking/page.tsx');
+  assert(
+    !fs.existsSync(fleetTrackingPath),
+    'D14: /fleet-tracking route file is absent on disk'
+  );
 
   // D15: Super Admin audit API preserved
   const auditApiPath = path.join(__dirname, '../src/app/api/super-admin/audit/route.ts');

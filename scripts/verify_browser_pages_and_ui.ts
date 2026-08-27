@@ -114,11 +114,11 @@ async function runBrowserVerification() {
   assert(!prodPage.text.includes('TokenGenerationModal'), 'No obsolete TokenGenerationModal in production UI');
   assert(!prodPage.text.includes('MPDDispatchForm'), 'No obsolete MPDDispatchForm in production UI');
 
-  // 5. FLEET TRACKING (/fleet-tracking)
-  console.log('\n--- 5. FLEET TRACKING UI (/fleet-tracking) ---');
-  const ftPage = await fetchPage('/fleet-tracking', adminAuth.cookie);
-  assert(ftPage.status === 200, 'GET /fleet-tracking returned HTTP 200 OK');
-  assert(ftPage.text.includes('Fleet Tracking') || ftPage.text.includes('Fleet') || ftPage.text.includes('Tracking'), 'Fleet tracking rendered cleanly');
+  // 5. SECURITY MANAGER WORKSPACE (/department/security-manager)
+  console.log('\n--- 5. SECURITY MANAGER WORKSPACE (/department/security-manager) ---');
+  const secMgrPage = await fetchPage('/department/security-manager', adminAuth.cookie);
+  assert(secMgrPage.status === 200, 'GET /department/security-manager returned HTTP 200 OK');
+  assert(secMgrPage.text.includes('Security') || secMgrPage.text.includes('Gate') || secMgrPage.text.includes('Milestone') || secMgrPage.text.includes('Ledger'), 'Security Manager workspace rendered cleanly');
 
   // 6. TV BOARD (/tv-board)
   console.log('\n--- 6. TV BOARD UI (/tv-board) ---');
