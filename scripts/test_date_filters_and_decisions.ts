@@ -1,5 +1,5 @@
 import { fetchAllMilkLogs } from '../src/backend/actions/logActions';
-import { computeVehicleDecisionSummary } from '../src/backend/services/operationalReadModelService';
+import { computeVehicleDecisionSummary } from '../src/backend/services/operationalCalculations';
 import { Pool } from 'pg';
 
 const pool = new Pool({
@@ -30,10 +30,10 @@ async function runTests() {
   console.log(`Loaded ${baseLogs.length} base logs from database.\n`);
 
   // 1. Single-day filter
-  const sampleDate = baseLogs[0]?.dispatch_date || '2026-08-05';
+  const sampleDate = baseLogs[0]?.created_at?.split('T')[0] || '2026-08-05';
   const singleDayLogs = await fetchAllMilkLogs({ fromDate: sampleDate, toDate: sampleDate });
   assert(
-    singleDayLogs.every((l) => (l.dispatch_date || l.created_at.split('T')[0]) === sampleDate),
+    singleDayLogs.every((l) => (l.created_at.split('T')[0]) === sampleDate),
     `Single-day filter returned ${singleDayLogs.length} logs for ${sampleDate}`
   );
 

@@ -4,15 +4,13 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { MilkProcessLog, User } from '@core/types';
 import { Sidebar } from '@modules/shared/Sidebar';
 import { Header } from '@modules/shared/Header';
-import { LogDetailModal } from '@modules/dashboard/LogDetailModal';
-import { ShieldCheck, Search, AlertTriangle, Lock, RefreshCw, Eye } from 'lucide-react';
+import { ShieldCheck, Search, AlertTriangle, Lock, RefreshCw } from 'lucide-react';
 
 export const SecurityManager: React.FC = () => {
   const [theme, setTheme] = useState<'creamy' | 'night'>('creamy');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [logs, setLogs] = useState<MilkProcessLog[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedDetailLog, setSelectedDetailLog] = useState<MilkProcessLog | null>(null);
 
   const fetchUser = async () => {
     try {
@@ -198,13 +196,12 @@ export const SecurityManager: React.FC = () => {
                     <th className="p-3">Out-from-Gate</th>
                     <th className="p-3 text-right">Gate-to-Gate Duration</th>
                     <th className="p-3 text-center">Transit Delay Alert</th>
-                    <th className="p-3 text-center">Inspect</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#EAE4D5]/80 font-bold text-[#111311]">
                   {filteredLogs.length === 0 ? (
                     <tr>
-                      <td colSpan={10} className="p-8 text-center text-slate-500 font-sans">
+                      <td colSpan={9} className="p-8 text-center text-slate-500 font-sans">
                         No security audit records found.
                       </td>
                     </tr>
@@ -276,17 +273,6 @@ export const SecurityManager: React.FC = () => {
                               <span className="text-[10px] text-slate-400 font-sans font-semibold">Normal</span>
                             )}
                           </td>
-
-                          {/* Action (Read-only inspect) */}
-                          <td className="p-3 text-center">
-                            <button
-                              onClick={() => setSelectedDetailLog(log)}
-                              className="px-2.5 py-1 rounded-lg bg-[#FDFBF9] hover:bg-[#F4F0E6]/60 text-[#111311] border border-[#EAE4D5]/80 font-sans text-[10px] font-extrabold transition-all duration-200 ease-in-out inline-flex items-center gap-1"
-                            >
-                              <Eye className="w-3.5 h-3.5 text-[#1E3A8A]" />
-                              <span>Audit</span>
-                            </button>
-                          </td>
                         </tr>
                       );
                     })
@@ -297,13 +283,6 @@ export const SecurityManager: React.FC = () => {
           </div>
         </main>
       </div>
-
-      <LogDetailModal
-        isOpen={!!selectedDetailLog}
-        onClose={() => setSelectedDetailLog(null)}
-        log={selectedDetailLog}
-        currentUser={currentUser}
-      />
     </div>
   );
 };

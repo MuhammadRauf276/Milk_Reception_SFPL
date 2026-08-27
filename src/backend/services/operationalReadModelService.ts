@@ -22,18 +22,6 @@ export interface OperationalLogFilters {
   search?: string;
 }
 
-export type {
-  DynamicTestComparison,
-  VehicleDecisionSummary,
-  AuthoritativeZonalAnalytics,
-} from './operationalCalculations';
-
-export {
-  computeRuntimeMetrics,
-  computeVehicleDecisionSummary,
-  computeAuthoritativeZonalAnalytics,
-} from './operationalCalculations';
-
 function formatTimeOnly(ts?: Date | string | null): string | null {
   if (!ts) return null;
   const d = new Date(ts);
@@ -126,12 +114,20 @@ export async function getOperationalLogs(
   if (filters?.fromDate || filters?.toDate) {
     whereClause.operational_date = {};
     if (filters.fromDate) {
-      whereClause.operational_date.gte = new Date(filters.fromDate);
+      const fromDateObj = new Date(filters.fromDate);
+      if (!isNaN(fromDateObj.getTime())) {
+        whereClause.operational_date.gte = fromDateObj;
+      }
     }
     if (filters.toDate) {
       const toDateObj = new Date(filters.toDate);
-      toDateObj.setHours(23, 59, 59, 999);
-      whereClause.operational_date.lte = toDateObj;
+      if (!isNaN(toDateObj.getTime())) {
+        toDateObj.setHours(23, 59, 59, 999);
+        whereClause.operational_date.lte = toDateObj;
+      }
+    }
+    if (Object.keys(whereClause.operational_date).length === 0) {
+      delete whereClause.operational_date;
     }
   }
 

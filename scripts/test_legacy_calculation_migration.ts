@@ -1,10 +1,12 @@
 import {
   getOperationalLogs,
   getOperationalLogById,
+} from '../src/backend/services/operationalReadModelService';
+import {
   computeRuntimeMetrics,
   computeVehicleDecisionSummary,
   computeAuthoritativeZonalAnalytics,
-} from '../src/backend/services/operationalReadModelService';
+} from '../src/backend/services/operationalCalculations';
 import { calculateSNF, calculateTS, calculateDensity, calculatePhysicalLiters } from '../src/backend/utils/milkFormulas';
 import { calculateVehicleReceivedQuantity } from '../src/backend/services/vehicleQuantityService';
 import { MilkProcessLog, User } from '../src/backend/core/types';

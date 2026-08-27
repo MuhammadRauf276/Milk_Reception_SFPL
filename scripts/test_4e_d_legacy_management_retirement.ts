@@ -176,6 +176,73 @@ async function run4EDTests() {
     'D17: Retained candidate dependencies (LogDetailModal.tsx and operationalCalculations.ts) remain on disk'
   );
 
+  // D20: SecurityManager does NOT import LogDetailModal
+  const secMgrSrc = fs.readFileSync(path.join(__dirname, '../src/frontend/modules/dashboard/SecurityManager.tsx'), 'utf8');
+  assert(
+    !secMgrSrc.includes('LogDetailModal'),
+    'D20: SecurityManager does NOT import LogDetailModal'
+  );
+
+  // D21: SecurityManager does NOT render/reference LogDetailModal
+  assert(
+    !secMgrSrc.includes('<LogDetailModal') && !secMgrSrc.includes('selectedDetailLog'),
+    'D21: SecurityManager does NOT render or reference LogDetailModal'
+  );
+
+  // D22: operationalReadModelService does NOT import operationalCalculations
+  const readModelSrc = fs.readFileSync(path.join(__dirname, '../src/backend/services/operationalReadModelService.ts'), 'utf8');
+  assert(
+    !readModelSrc.includes('operationalCalculations'),
+    'D22: operationalReadModelService does NOT import operationalCalculations'
+  );
+
+  // D23: operationalReadModelService does NOT re-export operationalCalculations symbols
+  assert(
+    !readModelSrc.includes('computeRuntimeMetrics') &&
+    !readModelSrc.includes('computeVehicleDecisionSummary') &&
+    !readModelSrc.includes('computeAuthoritativeZonalAnalytics'),
+    'D23: operationalReadModelService does NOT re-export operationalCalculations symbols'
+  );
+
+  // D24: Retained legacy calculation scripts import legacy calculation helpers directly
+  const dateFilterScriptSrc = fs.readFileSync(path.join(__dirname, '../scripts/test_date_filters_and_decisions.ts'), 'utf8');
+  const legacyCalcScriptSrc = fs.readFileSync(path.join(__dirname, '../scripts/test_legacy_calculation_migration.ts'), 'utf8');
+  assert(
+    dateFilterScriptSrc.includes("from '../src/backend/services/operationalCalculations'") &&
+    !dateFilterScriptSrc.includes("computeVehicleDecisionSummary } from '../src/backend/services/operationalReadModelService'"),
+    'D24.1: test_date_filters_and_decisions imports calculations directly from operationalCalculations'
+  );
+  assert(
+    legacyCalcScriptSrc.includes("from '../src/backend/services/operationalCalculations'") &&
+    !legacyCalcScriptSrc.includes("computeVehicleDecisionSummary,\n  computeAuthoritativeZonalAnalytics,\n} from '../src/backend/services/operationalReadModelService'"),
+    'D24.2: test_legacy_calculation_migration imports calculations directly from operationalCalculations'
+  );
+
+  // D25: test_stage4_radio_and_terminology.ts does NOT read/reference retired AdaptiveVehicleCard.tsx
+  const stage4ScriptSrc = fs.readFileSync(path.join(__dirname, '../scripts/test_stage4_radio_and_terminology.ts'), 'utf8');
+  assert(
+    !stage4ScriptSrc.includes('AdaptiveVehicleCard.tsx'),
+    'D25: test_stage4_radio_and_terminology.ts does NOT read or reference retired AdaptiveVehicleCard.tsx'
+  );
+
+  // D26: test_stage4_radio_and_terminology.ts does NOT read/reference retired ZonalHistoryTable.tsx
+  assert(
+    !stage4ScriptSrc.includes('ZonalHistoryTable.tsx'),
+    'D26: test_stage4_radio_and_terminology.ts does NOT read or reference retired ZonalHistoryTable.tsx'
+  );
+
+  // D27: /fleet-tracking remains present
+  assert(
+    fs.existsSync(fleetTrackingPath),
+    'D27: /fleet-tracking route remains present on disk'
+  );
+
+  // D28: LogDetailModal remains present because /fleet-tracking is still retained
+  assert(
+    fs.existsSync(logDetailModalPath),
+    'D28: LogDetailModal.tsx remains present because /fleet-tracking still consumes it'
+  );
+
   console.log('\n================================================================================');
   console.log(`SUMMARY: ${passed} PASSED, ${failed} FAILED`);
   console.log('================================================================================\n');

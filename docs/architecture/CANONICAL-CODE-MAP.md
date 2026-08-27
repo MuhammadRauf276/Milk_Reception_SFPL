@@ -184,8 +184,10 @@ The legacy Kanban management application and standalone cross-verification route
 - `src/frontend/modules/dashboard/ZonalHistoryTable.tsx` — **DELETED**: Retired legacy zonal table.
 - `src/frontend/modules/cards/AdaptiveVehicleCard.tsx` — **DELETED**: Retired legacy vehicle card.
 
-### Key Architectural Baseline
 - The Legacy Kanban management application is no longer an active application surface.
 - Current ZMCC Cross Verification is NOT the retired standalone `/cross-verification` route; it is an independent, source-scoped component (`ZMCCManagerCrossVerification.tsx`).
 - Legacy roles (`MPD_Zone_Manager`, `Management`, `General_Plant_Manager`, `QA_Manager`, `Production_Manager`, `Correction_Officer`) fail closed to `/workspace-unavailable`.
-- `LogDetailModal.tsx` and `operationalCalculations.ts` are retained as dependencies of `SecurityManager.tsx`, `fleet-tracking/page.tsx`, `operationalReadModelService.ts`, and test scripts.
+- Canonical `SecurityManager.tsx` has zero dependency on legacy `LogDetailModal.tsx`.
+- Canonical `operationalReadModelService.ts` has zero dependency on or re-exports of `operationalCalculations.ts`.
+- `LogDetailModal.tsx` is retained only for the legacy `/fleet-tracking` surface pending Stage 4E-E.
+- `operationalCalculations.ts` is retained only for legacy validation scripts, which import it directly.
