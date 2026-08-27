@@ -1,8 +1,26 @@
+/**
+ * ==============================================================================
+ * DEPRECATED / LEGACY SEED SCRIPT — QUARANTINED
+ * ==============================================================================
+ * This raw SQL seed script is retained strictly for historical regression auditing.
+ * DO NOT RUN IN ACTIVE OPERATIONAL OR TEST WORKFLOWS.
+ *
+ * Canonical seeding pipelines:
+ * - Master Data Seed:  npx tsx prisma/seed.ts (or `npm run db:seed`)
+ * - Demo/Test Seed:    npx tsx scripts/seed_demo_operational_data.ts
+ * ==============================================================================
+ */
+
 const { Client } = require('pg');
 
 async function seedDatabase() {
+  if (process.env.ALLOW_LEGACY_RAW_SEED !== 'true') {
+    console.warn('⚠️  [DEPRECATED] scripts/seed_postgres.js is quarantined. Use `npm run db:seed` or `npx tsx scripts/seed_demo_operational_data.ts` instead. Set ALLOW_LEGACY_RAW_SEED=true to force execution.');
+    return;
+  }
+
   const client = new Client({
-    connectionString: process.env.DATABASE_URL || 'postgresql://postgres:rauf@localhost:5432/milk_reception_db'
+    connectionString: process.env.DATABASE_URL
   });
 
   try {
@@ -114,17 +132,26 @@ async function seedDatabase() {
         const visitNum = `VISIT-2026-${String(visitIdCounter).padStart(4, '0')}`;
         const tokenNum = status === 'Dispatched' ? null : `TK-${9000 + visitIdCounter}`;
 
+        const grossKg = 12000 + (dayOffset * 350 + idx * 800) % 7000;
+
         // Insert Vehicle Visit
         await client.query(`
-          INSERT INTO vehicle_visit (id, visit_number, vehicle_number, token_number, operational_date, current_status, created_by, created_at, updated_at)
-          VALUES ($1, $2, $3, $4, $5, $6, 1, $7, $8);
-        `, [visitIdCounter, visitNum, vNum, tokenNum, dateStr, status, logDate, logDate]);
+          INSERT INTO vehicle_visit (
+            id, visit_number, vehicle_number, token_number, operational_date, current_status, created_by,
+            vehicle_dispatch_quantity_value, vehicle_dispatch_quantity_unit, vehicle_dispatch_quantity_basis,
+            created_at, updated_at
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, 1, $7, 'KG', 'MEASURED', $8, $9);
+        `, [visitIdCounter, visitNum, vNum, tokenNum, dateStr, status, grossKg, logDate, logDate]);
 
         // Insert Visit Portion
-        const grossKg = 12000 + (dayOffset * 350 + idx * 800) % 7000;
         await client.query(`
-          INSERT INTO visit_portion (id, visit_id, portion_number, current_status, declared_quantity_kg, plant_decision, plant_rejection_reason, plant_decided_by, plant_decided_at, created_at, updated_at)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
+          INSERT INTO visit_portion (
+            id, visit_id, portion_number, current_status,
+            dispatch_quantity_value, dispatch_quantity_unit, dispatch_quantity_basis,
+            plant_decision, plant_rejection_reason, plant_decided_by, plant_decided_at, created_at, updated_at
+          )
+          VALUES ($1, $2, $3, $4, $5, 'KG', 'MEASURED', $6, $7, $8, $9, $10, $11);
         `, [portionIdCounter, visitIdCounter, portionNum, status, grossKg, plantDecision, rejectionReason, plantDecision === 'Rejected' ? 5 : 5, logDate, logDate, logDate]);
 
         // Insert Dispatch Info

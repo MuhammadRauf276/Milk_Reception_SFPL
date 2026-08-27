@@ -8,7 +8,7 @@
 const { Pool } = require('pg');
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:rauf@localhost:5432/milk_reception_db'
+  connectionString: process.env.DATABASE_URL
 });
 
 async function runPhase7Tests() {
@@ -41,7 +41,7 @@ async function runPhase7Tests() {
 
     // Create Accepted Portion
     const p1Res = await client.query(
-      `INSERT INTO visit_portion (visit_id, portion_number, current_status, declared_quantity_kg, plant_decision, created_at, updated_at)
+      `INSERT INTO visit_portion (visit_id, portion_number, current_status, dispatch_quantity_value, plant_decision, created_at, updated_at)
        VALUES ($1, 1, 'Dispatched', 18500, 'ACCEPTED', NOW(), NOW()) RETURNING id;`,
       [v1Id]
     );
@@ -89,14 +89,14 @@ async function runPhase7Tests() {
     );
 
     const s2p1Res = await client.query(
-      `INSERT INTO visit_portion (visit_id, portion_number, current_status, declared_quantity_kg, plant_decision, created_at, updated_at)
+      `INSERT INTO visit_portion (visit_id, portion_number, current_status, dispatch_quantity_value, plant_decision, created_at, updated_at)
        VALUES ($1, 1, 'Dispatched', 15000, 'ACCEPTED', NOW(), NOW()) RETURNING id;`,
       [v2Id]
     );
     const s2p1Id = s2p1Res.rows[0].id;
 
     const s2p2Res = await client.query(
-      `INSERT INTO visit_portion (visit_id, portion_number, current_status, declared_quantity_kg, plant_decision, created_at, updated_at)
+      `INSERT INTO visit_portion (visit_id, portion_number, current_status, dispatch_quantity_value, plant_decision, created_at, updated_at)
        VALUES ($1, 2, 'Dispatched', 13000, 'ACCEPTED', NOW(), NOW()) RETURNING id;`,
       [v2Id]
     );
@@ -143,14 +143,14 @@ async function runPhase7Tests() {
     );
 
     const s3p1Res = await client.query(
-      `INSERT INTO visit_portion (visit_id, portion_number, current_status, declared_quantity_kg, plant_decision, created_at, updated_at)
+      `INSERT INTO visit_portion (visit_id, portion_number, current_status, dispatch_quantity_value, plant_decision, created_at, updated_at)
        VALUES ($1, 1, 'Dispatched', 12000, 'ACCEPTED', NOW(), NOW()) RETURNING id;`,
       [v3Id]
     );
     const s3p1Id = s3p1Res.rows[0].id;
 
     const s3p2Res = await client.query(
-      `INSERT INTO visit_portion (visit_id, portion_number, current_status, declared_quantity_kg, plant_decision, plant_rejection_reason, created_at, updated_at)
+      `INSERT INTO visit_portion (visit_id, portion_number, current_status, dispatch_quantity_value, plant_decision, plant_rejection_reason, created_at, updated_at)
        VALUES ($1, 2, 'Dispatched', 10000, 'REJECTED', 'High Acidity > 0.18%', NOW(), NOW()) RETURNING id;`,
       [v3Id]
     );

@@ -72,7 +72,7 @@ async function runReceptionNumberVerification() {
         current_status: 'DISPATCHED',
         created_by: testUser.id,
         portions: {
-          create: [{ portion_number: 1, declared_quantity_kg: 5000 }],
+          create: [{ portion_number: 1, dispatch_quantity_value: 5000, dispatch_quantity_unit: 'KG', dispatch_quantity_basis: 'MEASURED' }],
         },
       },
       include: { portions: true },

@@ -67,7 +67,8 @@ async function runFinalAuthMigrationTests() {
 
     // FINAL-AUTH-K: Runtime login route contains no AUTHENTICATED_USERS credential fallback
     const loginRouteFs = await import('fs');
-    const loginRouteContent = loginRouteFs.readFileSync('D:/MilkReceptionApp/src/app/api/auth/login/route.ts', 'utf-8');
+    const loginRoutePath = (await import('path')).join(process.cwd(), 'src/app/api/auth/login/route.ts');
+    const loginRouteContent = loginRouteFs.readFileSync(loginRoutePath, 'utf-8');
     const hasFallbackMatch = loginRouteContent.includes('AUTHENTICATED_USERS[');
     assert(!hasFallbackMatch, 'FINAL-AUTH-K: Runtime login route contains zero AUTHENTICATED_USERS fallback');
 

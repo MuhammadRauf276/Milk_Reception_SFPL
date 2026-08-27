@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
+import { getSiloCurrentStockLiters, getSiloActiveReservedLiters } from '@/backend/services/siloInventoryService';
 
 export async function GET() {
   const authUser = await getCurrentUser();
@@ -15,43 +16,15 @@ export async function GET() {
 
     const serialized = await Promise.all(
       silos.map(async (s) => {
-        // Calculate ledger stock from SiloInventoryTransaction
-        const txs = await prisma.siloInventoryTransaction.findMany({
-          where: { silo_id: s.id },
-        });
-
-        let currentStockLiters = 0;
-        for (const tx of txs) {
-          const qty = Number(tx.quantity_liters || 0);
-          if (tx.transaction_type === 'RECEIPT') {
-            currentStockLiters += qty;
-          } else if (tx.transaction_type === 'ISSUE') {
-            currentStockLiters -= qty;
-          }
-        }
-
-        // Active reservations: UnloadingLogs that are IN_PROGRESS or COMPLETED without final silo receipt
-        const activeUnloadingLogs = await prisma.unloadingLog.findMany({
-          where: {
-            silo_id: s.id,
-            pump_end_timestamp: null,
-          },
-          include: {
-            portion: true,
-          },
-        });
-
-        let activeReservationsLiters = 0;
-        for (const ul of activeUnloadingLogs) {
-          activeReservationsLiters += Number(ul.portion.declared_quantity_kg || 0);
-        }
+        const currentStockLiters = await getSiloCurrentStockLiters(s.id);
+        const activeReservationsLiters = await getSiloActiveReservedLiters(s.id);
 
         return {
           id: s.id.toString(),
           siloCode: s.silo_code,
           siloName: s.silo_name,
           capacityLiters: Number(s.capacity_liters),
-          currentStockLiters: Math.max(0, currentStockLiters),
+          currentStockLiters,
           activeReservationsLiters,
           isActive: s.is_active,
           createdAt: s.created_at.toISOString(),

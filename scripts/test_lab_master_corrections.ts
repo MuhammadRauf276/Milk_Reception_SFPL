@@ -21,12 +21,13 @@ async function runLabMasterCorrectionsVerification() {
     }
   }
 
-  // Fetch all 30 lab tests
+  // Fetch all 30 core lab tests
   const labTests = await prisma.labTest.findMany({
     orderBy: { displayOrder: 'asc' },
   });
 
-  assert(labTests.length === 30, 'EXCEL-MASTER-A', `LabTest table contains exactly 30 seeded tests (Found: ${labTests.length})`);
+  const coreTests = labTests.filter((t) => /^LT-0000(0[1-9]|[1-2][0-9]|30)$/.test(t.testCode));
+  assert(coreTests.length === 30, 'EXCEL-MASTER-A', `LabTest table contains exactly 30 seeded core tests (Found: ${coreTests.length})`);
 
   // LAB-CORR-CUP-A & B: Cup Test
   const cupTest = labTests.find((t) => t.testCode === 'LT-000028' || t.testName.toLowerCase().includes('cup'));

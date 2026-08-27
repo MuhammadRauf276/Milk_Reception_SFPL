@@ -58,6 +58,7 @@ async function runSecurityGateExitE2EVerification() {
     });
 
     const lrTest = await prisma.labTest.findFirst({ where: { testCode: 'LT-000008' } });
+    const fatTest = await prisma.labTest.findFirst({ where: { testCode: 'LT-000026' } });
 
     // ----------------------------------------------------
     // TEST 1: END-TO-END NORMAL ACCEPTED VEHICLE LIFECYCLE
@@ -81,7 +82,7 @@ async function runSecurityGateExitE2EVerification() {
         created_by: secUser.id,
         portions: {
           create: [
-            { portion_number: 1, declared_quantity_kg: 10000, plant_decision: 'ACCEPTED', current_status: 'DISPATCHED' },
+            { portion_number: 1, dispatch_quantity_value: 10000, dispatch_quantity_unit: 'KG', dispatch_quantity_basis: 'MEASURED', plant_decision: 'ACCEPTED', current_status: 'DISPATCHED' },
           ],
         },
       },
@@ -111,7 +112,21 @@ async function runSecurityGateExitE2EVerification() {
           visit_id: visitNorm.id,
           portion_id: portionNorm.id,
           test_id: lrTest.id,
+          performance_status: 'PERFORMED',
           numeric_value: new Prisma.Decimal(26.5),
+          is_passed: true,
+          tested_by: wbUser.id,
+        },
+      });
+    }
+    if (fatTest) {
+      await prisma.plantLabResult.create({
+        data: {
+          visit_id: visitNorm.id,
+          portion_id: portionNorm.id,
+          test_id: fatTest.id,
+          performance_status: 'PERFORMED',
+          numeric_value: new Prisma.Decimal(3.8),
           is_passed: true,
           tested_by: wbUser.id,
         },
@@ -180,7 +195,7 @@ async function runSecurityGateExitE2EVerification() {
     assert(
       finalizeNormRes.success && visitNormReady?.current_status === 'READY_FOR_GATE_EXIT',
       'SEC-EXIT-FLOW-A: End-to-End Normal Accepted Vehicle Readiness',
-      `Full reception milestone sequence succeeded; vehicle status = READY_FOR_GATE_EXIT; Final Silo Receipt created (~${finalizeNormRes.finalLiters} L)`
+      `Full reception milestone sequence succeeded; vehicle status = READY_FOR_GATE_EXIT; Final Silo Receipt created (~${Math.round(finalizeNormRes.finalPhysicalLiters || 0)} L)`
     );
 
     // ----------------------------------------------------
@@ -209,7 +224,7 @@ async function runSecurityGateExitE2EVerification() {
         operational_date: new Date(),
         created_by: secUser.id,
         portions: {
-          create: [{ portion_number: 1, declared_quantity_kg: 5000, plant_decision: 'ACCEPTED', current_status: 'UNLOADED' }],
+          create: [{ portion_number: 1, dispatch_quantity_value: 5000, dispatch_quantity_unit: 'KG', dispatch_quantity_basis: 'MEASURED', plant_decision: 'ACCEPTED', current_status: 'UNLOADED' }],
         },
         gate_log: {
           create: { entry_timestamp: new Date(Date.now() - 30 * 60 * 1000), entry_guard_id: secUser.id },
@@ -253,8 +268,8 @@ async function runSecurityGateExitE2EVerification() {
         created_by: secUser.id,
         portions: {
           create: [
-            { portion_number: 1, declared_quantity_kg: 6000, plant_decision: 'REJECTED', current_status: 'PLANT_QA' },
-            { portion_number: 2, declared_quantity_kg: 4000, plant_decision: 'REJECTED', current_status: 'PLANT_QA' },
+            { portion_number: 1, dispatch_quantity_value: 6000, dispatch_quantity_unit: 'KG', dispatch_quantity_basis: 'MEASURED', plant_decision: 'REJECTED', current_status: 'PLANT_QA' },
+            { portion_number: 2, dispatch_quantity_value: 4000, dispatch_quantity_unit: 'KG', dispatch_quantity_basis: 'MEASURED', plant_decision: 'REJECTED', current_status: 'PLANT_QA' },
           ],
         },
         gate_log: {

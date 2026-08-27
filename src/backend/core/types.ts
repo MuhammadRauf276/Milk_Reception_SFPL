@@ -32,6 +32,12 @@ export interface User {
   zone?: string | null; // For ZMCC Zone Managers
   scope_type?: string;
   procurement_source_id?: string | null;
+  procurement_source?: {
+    id: string;
+    code: string;
+    name: string;
+    source_type: string;
+  } | null;
   last_login_at?: string | null;
 }
 
@@ -189,15 +195,6 @@ export type ProcessStatus =
   | 'TARE_WEIGHED'
   | 'READY_FOR_GATE_EXIT'
   | 'COMPLETED'
-  // Legacy aliases for backward compatibility
-  | 'Dispatched' 
-  | 'Token Issued' 
-  | 'Sampling' 
-  | 'Sampling_In_Progress' 
-  | 'First Weight' 
-  | 'Silo Reception' 
-  | 'Second Weight'
-  | 'Completed'
   | string;
 
 export const STAGES: ProcessStatus[] = [
@@ -232,9 +229,12 @@ export interface MilkProcessLog {
   dispatch_month?: string | null;
   dispatch_year?: number | null;
   zonal_contractor_dispatch_time?: string | null;
-  scheduled_arrival_time?: string | null;
   dispatch_kg_gross?: number | null;
   dispatch_liters_gross?: number | null;
+  vehicle_dispatch_quantity_value?: number | null;
+  vehicle_dispatch_quantity_unit?: string | null;
+  vehicle_dispatch_quantity_basis?: string | null;
+  vehicle_dispatch_gross_liters?: number | null;
   dispatch_tests?: string | null;
   dispatch_fat?: number | null;
   dispatch_lr?: number | null;
@@ -282,6 +282,21 @@ export interface MilkProcessLog {
   computed_net_milk_weight?: number | null;
   computed_plant_13ts_liters?: number | null;
 
+  // AUTHORITATIVE EVENT TIMESTAMPS (ISO INSTANTS)
+  dispatch_timestamp?: string | null;
+  gate_entry_timestamp?: string | null;
+  gate_exit_timestamp?: string | null;
+  first_weight_timestamp?: string | null;
+  second_weight_timestamp?: string | null;
+  unloading_start_timestamp?: string | null;
+  unloading_end_timestamp?: string | null;
+
+  // AUTHORITATIVE FINAL RECEIPT (SILO TRANSACTION EVIDENCE)
+  final_receipt_exists?: boolean;
+  final_receipt_transaction_id?: number | null;
+  final_receipt_timestamp?: string | null;
+  authoritative_final_liters?: number | null;
+
   created_at: string;
   updated_at: string;
 }
@@ -298,12 +313,50 @@ export interface DataAuditLog {
   timestamp: string;
 }
 
-export const KANBAN_STAGES: { status: ProcessStatus; title: string; subtitle: string; iconType: string }[] = [
-  { status: 'Dispatched', title: 'En-Route / Dispatched', subtitle: 'On the road to plant', iconType: 'truck' },
-  { status: 'Token Issued', title: 'Gate 2 Token Desk', subtitle: 'IGP & Security Entry', iconType: 'badge' },
-  { status: 'Sampling', title: 'QA Lab Sampling', subtitle: 'Chemical & MBRT Tests', iconType: 'flask' },
-  { status: 'First Weight', title: 'Weighbridge Scale', subtitle: 'Gross & Tare Weighing', iconType: 'scale' },
-  { status: 'Silo Reception', title: 'Silo Milk Reception', subtitle: 'Unloading into Storage', iconType: 'tank' },
+export interface KanbanStageConfig {
+  status: ProcessStatus;
+  canonicalStatuses: string[];
+  title: string;
+  subtitle: string;
+  iconType: string;
+}
+
+export const KANBAN_STAGES: KanbanStageConfig[] = [
+  {
+    status: 'DISPATCHED',
+    canonicalStatuses: ['DISPATCHED'],
+    title: 'En-Route / Dispatched',
+    subtitle: 'On the road to plant',
+    iconType: 'truck',
+  },
+  {
+    status: 'TOKEN_ISSUED',
+    canonicalStatuses: ['TOKEN_ISSUED'],
+    title: 'Gate 2 Token Desk',
+    subtitle: 'IGP & Security Entry',
+    iconType: 'badge',
+  },
+  {
+    status: 'PLANT_QA',
+    canonicalStatuses: ['PLANT_QA'],
+    title: 'QA Lab Sampling',
+    subtitle: 'Chemical & MBRT Tests',
+    iconType: 'flask',
+  },
+  {
+    status: 'READY_FOR_GROSS',
+    canonicalStatuses: ['READY_FOR_GROSS', 'GROSS_WEIGHED', 'READY_FOR_TARE', 'TARE_WEIGHED'],
+    title: 'Weighbridge Scale',
+    subtitle: 'Gross & Tare Weighing',
+    iconType: 'scale',
+  },
+  {
+    status: 'READY_FOR_UNLOADING',
+    canonicalStatuses: ['READY_FOR_UNLOADING', 'UNLOADING'],
+    title: 'Silo Milk Reception',
+    subtitle: 'Unloading into Storage',
+    iconType: 'tank',
+  },
 ];
 
 export interface StageDurations {

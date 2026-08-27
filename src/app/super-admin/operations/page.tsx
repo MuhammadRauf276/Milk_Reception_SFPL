@@ -3,18 +3,23 @@
 import React, { useEffect, useState } from 'react';
 import { Activity, Search, ShieldAlert, Truck, ChevronRight } from 'lucide-react';
 
+import { formatDispatchQuantity } from '@/backend/modules/dispatch/quantity/dispatchQuantityService';
+
 interface Portion {
   id: string;
   portionNumber: number;
   contractorName: string;
-  grossLiters: number | null;
+  dispatchQuantityValue: number | null;
+  dispatchQuantityUnit: string | null;
+  dispatchQuantityBasis?: string | null;
+  provisionalPhysicalLiters?: number | null;
   plantDecision: string | null;
   rejectionReason: string | null;
   unloadingLog: {
     siloCode: string;
     siloName: string;
     status: string;
-    litersUnloaded: number | null;
+    provisionalPhysicalLiters?: number | null;
   } | null;
 }
 
@@ -25,6 +30,8 @@ interface Visit {
   tokenNumber: string | null;
   currentStatus: string;
   createdAt: string;
+  vehicleDispatchQuantityValue?: number | null;
+  vehicleDispatchQuantityUnit?: string | null;
   gateLog: {
     entryTimestamp: string | null;
     exitTimestamp: string | null;
@@ -193,7 +200,7 @@ export default function SuperAdminOperationsPage() {
                         </span>
                       </div>
                       <div className="text-[11px] text-slate-600">
-                        Dispatch Vol: <strong>{p.grossLiters ? `${p.grossLiters.toLocaleString()} L` : 'N/A'}</strong>
+                        Dispatch Qty: <strong>{formatDispatchQuantity(p.dispatchQuantityValue, p.dispatchQuantityUnit)}</strong>
                       </div>
                       {p.unloadingLog && (
                         <div className="text-[11px] text-slate-600">

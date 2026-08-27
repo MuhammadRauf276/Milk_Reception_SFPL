@@ -35,10 +35,10 @@ export async function GET(req: Request) {
 
     const formatted = visits.map((v) => {
       const portions = v.portions || [];
-      const totalDeclaredKg = portions.reduce(
-        (sum, p) => sum + (p.declared_quantity_kg ? Number(p.declared_quantity_kg) : 0),
-        0
-      );
+      const totalVehicleQty = v.vehicle_dispatch_quantity_value !== null && v.vehicle_dispatch_quantity_value !== undefined
+        ? Number(v.vehicle_dispatch_quantity_value)
+        : null;
+      const totalVehicleUnit = v.vehicle_dispatch_quantity_unit || null;
 
       // Determine visit decision summary
       const decisions = portions.map((p) => p.plant_decision || 'PENDING');
@@ -59,7 +59,10 @@ export async function GET(req: Request) {
         token_number: v.token_number || null,
         current_status: v.current_status,
         portion_count: portions.length,
-        total_declared_kg: totalDeclaredKg,
+        vehicle_dispatch_quantity_value: totalVehicleQty,
+        vehicle_dispatch_quantity_unit: totalVehicleUnit,
+        total_quantity_value: totalVehicleQty,
+        total_quantity_unit: totalVehicleUnit,
         visit_decision_summary: visitDecisionSummary,
       };
     });

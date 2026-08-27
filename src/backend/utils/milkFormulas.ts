@@ -58,3 +58,41 @@ export function calculateAt13TSLiters(physicalLiters: number, tsPercent: number)
   if (isNaN(physicalLiters) || isNaN(tsPercent) || physicalLiters <= 0) return 0;
   return (physicalLiters * tsPercent) / 13;
 }
+
+/**
+ * Calculates Informational Equivalent Mass in Kg from Volume in Liters and Density
+ * Formula: Kg = Liters * Density
+ * NOTE: Informational/derived metric ONLY for contractor liter declarations. Original liters remain authoritative.
+ */
+export function calculateEquivalentKgFromLiters(liters: number, density: number): number {
+  if (isNaN(liters) || isNaN(density) || liters <= 0) return 0;
+  return Number((liters * density).toFixed(2));
+}
+
+/**
+ * Calculates Dispatch Gross Liters from declared quantity, unit, and optional LR.
+ * - For LITER: Returns declared liters directly (no density conversion required).
+ * - For KG: Returns declared KG / Density (where Density = 1 + LR / 1000). If LR is missing/invalid, returns null.
+ */
+export function calculateGrossLiters(
+  quantity: number | null | undefined,
+  unit: 'KG' | 'LITER' | string | null | undefined,
+  lr?: number | null | undefined
+): number | null {
+  if (quantity === null || quantity === undefined || isNaN(quantity) || quantity <= 0) {
+    return null;
+  }
+  const normalizedUnit = (unit || '').trim().toUpperCase();
+  if (normalizedUnit === 'LITER') {
+    return quantity;
+  }
+  if (normalizedUnit === 'KG') {
+    if (lr === null || lr === undefined || isNaN(lr) || lr <= 0) {
+      return null;
+    }
+    const density = calculateDensity(lr);
+    if (density <= 0) return null;
+    return quantity / density;
+  }
+  return null;
+}

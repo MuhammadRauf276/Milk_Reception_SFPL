@@ -3,6 +3,7 @@ import { prisma } from '@core/db';
 import { getCurrentUser } from '@core/auth';
 import { getSiloProvisionalAvailableCapacity } from '@/backend/services/siloInventoryService';
 import { calculatePhysicalLiters } from '@/backend/utils/milkFormulas';
+import { isPlantLrTest } from '@/backend/services/vehicleQuantityService';
 import { validateOperationalTimestamp } from '@/backend/services/chronology-validator';
 
 export async function POST(
@@ -149,16 +150,26 @@ export async function POST(
           throw new Error(`Silo "${silo.silo_name}" (${silo.silo_code}) is INACTIVE and cannot receive new milk.`);
         }
 
-        const declaredKg = portion.declared_quantity_kg ? Number(portion.declared_quantity_kg) : 0;
-        const plantLr = portion.plant_lab_results.find(
-          (r) => r.lab_test.testCode === 'LT-000008' || r.lab_test.testCode === 'LT-000027' || r.lab_test.testName.toUpperCase().includes('LR')
-        );
-        const dispatchLr = portion.dispatch_lab_results.find(
-          (r) => r.lab_test.testCode === 'LT-000008' || r.lab_test.testCode === 'LT-000027' || r.lab_test.testName.toUpperCase().includes('LR')
-        );
-        const lrVal = plantLr?.numeric_value ? Number(plantLr.numeric_value) : dispatchLr?.numeric_value ? Number(dispatchLr.numeric_value) : 26.5;
+        const declVal = portion.dispatch_quantity_value !== null && portion.dispatch_quantity_value !== undefined ? Number(portion.dispatch_quantity_value) : 0;
+        const declUnit = portion.dispatch_quantity_unit ? portion.dispatch_quantity_unit.toUpperCase() : null;
+        let expectedLiters: number;
 
-        const expectedLiters = calculatePhysicalLiters(declaredKg, lrVal);
+        if (declUnit === 'LITER') {
+          expectedLiters = declVal;
+        } else if (declUnit === 'KG') {
+          // For KG declaration, require valid performed Plant LR
+          const performedPlantLr = portion.plant_lab_results.filter(
+            (r) => isPlantLrTest(r.lab_test?.testCode, r.lab_test?.testName) && r.performance_status === 'PERFORMED' && r.numeric_value !== null
+          );
+          if (performedPlantLr.length !== 1 || Number(performedPlantLr[0].numeric_value) <= 0) {
+            throw new Error(`Cannot verify silo capacity: Portion #${portion.portion_number} is declared in KG (${declVal} kg) but lacks an authoritative performed Plant LR reading.`);
+          }
+          const lrVal = Number(performedPlantLr[0].numeric_value);
+          expectedLiters = calculatePhysicalLiters(declVal, lrVal);
+        } else {
+          throw new Error(`Cannot verify silo capacity: Portion #${portion.portion_number} has an unknown or missing quantity unit.`);
+        }
+
         const currentSum = siloExpectedLitersMap.get(assign.silo_id) || 0;
         siloExpectedLitersMap.set(assign.silo_id, currentSum + expectedLiters);
       }

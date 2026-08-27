@@ -39,7 +39,8 @@ export function getOperationalBusinessDate(timestamp: Date | string | number | n
   let year = parseInt(partMap.year, 10);
   let month = parseInt(partMap.month, 10);
   let day = parseInt(partMap.day, 10);
-  const hour = parseInt(partMap.hour, 10);
+  const parsedHour = parseInt(partMap.hour, 10);
+  const hour = parsedHour === 24 ? 0 : parsedHour;
 
   // 08:00 AM cutoff: If local time is before 08:00:00 AM, the business day started on the PREVIOUS calendar day
   if (hour < 8) {

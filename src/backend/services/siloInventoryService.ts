@@ -1,6 +1,12 @@
 import { prisma } from '../core/db';
 import { Prisma, SiloTransactionType } from '@prisma/client';
 import { calculatePhysicalLiters } from '../utils/milkFormulas';
+import {
+  calculateVehicleReceivedQuantity,
+  VehicleCalculationPortion,
+  VehicleCalculationFailureReason,
+  isPlantLrTest,
+} from './vehicleQuantityService';
 
 export interface RecordTransactionParams {
   silo_id: bigint | string;
@@ -29,18 +35,69 @@ export interface FinalizeReceiptResult {
   success: boolean;
   receiptCreated: boolean;
   alreadyFinalized?: boolean;
-  finalLiters?: number;
+  netWeightKg?: number;
+  finalPhysicalLiters?: number;
+  finalAt13TSLiters?: number;
   targetSiloCode?: string;
-  plantLrVal?: number;
-  reason?: 'MISSING_PLANT_LR' | 'NO_ACCEPTED_PORTIONS' | 'NO_DESTINATION_SILO' | 'MULTI_SILO_ALLOCATION_REQUIRED' | 'CAPACITY_EXCEEDED' | 'ALREADY_FINALIZED';
+  reason?: VehicleCalculationFailureReason | 'NO_DESTINATION_SILO' | 'MULTI_SILO_ALLOCATION_REQUIRED' | 'CAPACITY_EXCEEDED' | 'ALREADY_FINALIZED';
   message: string;
 }
 
+export interface SiloStockVolumeState {
+  knownLiters: number;
+  isComplete: boolean;
+  unknownVolumeTransactionCount: number;
+}
+
 /**
- * Calculates current stock of a silo in PHYSICAL LITERS purely from immutable inventory ledger transactions.
- * Formula: sum(RECEIPT quantity_liters) - sum(ISSUE quantity_liters)
+ * Pure evaluator of ledger transactions to determine physical stock in LITERS and stock integrity.
+ * If any inventory-affecting transaction has null, undefined, or non-finite quantity_liters,
+ * isComplete becomes false and physical volume is marked incomplete.
  */
-export async function getSiloCurrentStockLiters(siloIdInput: bigint | string, txPrisma?: Prisma.TransactionClient): Promise<number> {
+export function evaluateSiloStockVolumeState(
+  transactions: Array<{
+    transaction_type: SiloTransactionType | string;
+    quantity_liters?: Prisma.Decimal | number | null;
+    quantity_kg?: Prisma.Decimal | number | null;
+  }>
+): SiloStockVolumeState {
+  let totalInLiters = 0;
+  let totalOutLiters = 0;
+  let unknownCount = 0;
+  let isComplete = true;
+
+  for (const tx of transactions) {
+    const rawLiters =
+      tx.quantity_liters !== null && tx.quantity_liters !== undefined ? Number(tx.quantity_liters) : null;
+
+    if (rawLiters === null || isNaN(rawLiters) || !isFinite(rawLiters)) {
+      unknownCount++;
+      isComplete = false;
+    } else {
+      const typeStr = String(tx.transaction_type);
+      if (typeStr === SiloTransactionType.RECEIPT || typeStr === 'RECEIPT') {
+        totalInLiters += rawLiters;
+      } else if (typeStr === SiloTransactionType.ISSUE || typeStr === 'ISSUE') {
+        totalOutLiters += rawLiters;
+      }
+    }
+  }
+
+  const knownLiters = Math.max(0, totalInLiters - totalOutLiters);
+  return {
+    knownLiters,
+    isComplete,
+    unknownVolumeTransactionCount: unknownCount,
+  };
+}
+
+/**
+ * Retrieves the complete stock volume state for a silo directly from its ledger.
+ */
+export async function getSiloStockVolumeState(
+  siloIdInput: bigint | string,
+  txPrisma?: Prisma.TransactionClient
+): Promise<SiloStockVolumeState> {
   const db = txPrisma || prisma;
   const siloId = typeof siloIdInput === 'string' ? BigInt(siloIdInput) : siloIdInput;
 
@@ -56,22 +113,25 @@ export async function getSiloCurrentStockLiters(siloIdInput: bigint | string, tx
     where: { silo_id: siloId },
   });
 
-  let totalInLiters = 0;
-  let totalOutLiters = 0;
+  return evaluateSiloStockVolumeState(transactions);
+}
 
-  for (const tx of transactions) {
-    // If quantity_liters is stored, use it; fallback to mass / 1.0265 if unpopulated on legacy test rows
-    const liters = tx.quantity_liters !== null ? Number(tx.quantity_liters) : Number(tx.quantity_kg) / 1.0265;
-
-    if (tx.transaction_type === SiloTransactionType.RECEIPT) {
-      totalInLiters += liters;
-    } else if (tx.transaction_type === SiloTransactionType.ISSUE) {
-      totalOutLiters += liters;
-    }
+/**
+ * Calculates current stock of a silo in PHYSICAL LITERS purely from immutable inventory ledger transactions.
+ * FAILS CLOSED if stock ledger contains transactions with unknown physical liters, unless allowIncomplete is true.
+ */
+export async function getSiloCurrentStockLiters(
+  siloIdInput: bigint | string,
+  txPrisma?: Prisma.TransactionClient,
+  options?: { allowIncomplete?: boolean }
+): Promise<number> {
+  const stockState = await getSiloStockVolumeState(siloIdInput, txPrisma);
+  if (!stockState.isComplete && !options?.allowIncomplete) {
+    throw new Error(
+      `Silo (ID: ${siloIdInput}) has ${stockState.unknownVolumeTransactionCount} transaction(s) with unknown physical liters; stock completeness is compromised.`
+    );
   }
-
-  const currentStockLiters = totalInLiters - totalOutLiters;
-  return Math.max(0, currentStockLiters);
+  return stockState.knownLiters;
 }
 
 /**
@@ -100,6 +160,7 @@ export async function getSiloCurrentStock(siloIdInput: bigint | string, txPrisma
 /**
  * Calculates remaining available physical capacity of a silo in LITERS.
  * Formula: capacity_liters - current_stock_liters
+ * FAILS CLOSED if stock completeness is compromised.
  */
 export async function getSiloAvailableCapacity(siloIdInput: bigint | string, txPrisma?: Prisma.TransactionClient): Promise<number> {
   const db = txPrisma || prisma;
@@ -113,9 +174,15 @@ export async function getSiloAvailableCapacity(siloIdInput: bigint | string, txP
     throw new Error(`Silo record not found (ID: ${siloIdInput}).`);
   }
 
+  const stockState = await getSiloStockVolumeState(siloId, db);
+  if (!stockState.isComplete) {
+    throw new Error(
+      `Cannot calculate available capacity for Silo "${silo.silo_name}" (${silo.silo_code}) because stock ledger contains ${stockState.unknownVolumeTransactionCount} transaction(s) with unknown physical volume.`
+    );
+  }
+
   const capacityLiters = Number(silo.capacity_liters);
-  const currentStockLiters = await getSiloCurrentStockLiters(siloId, db);
-  const availableCapacity = capacityLiters - currentStockLiters;
+  const availableCapacity = capacityLiters - stockState.knownLiters;
 
   return Math.max(0, availableCapacity);
 }
@@ -166,22 +233,22 @@ export async function getSiloActiveReservedLiters(
 
   let totalReservedLiters = 0;
   for (const log of activeLogs) {
-    const declaredKg = log.portion.declared_quantity_kg ? Number(log.portion.declared_quantity_kg) : 0;
-    if (declaredKg <= 0) continue;
+    const declVal = log.portion.dispatch_quantity_value ? Number(log.portion.dispatch_quantity_value) : 0;
+    const declUnit = log.portion.dispatch_quantity_unit ? log.portion.dispatch_quantity_unit.toUpperCase() : null;
+    if (declVal <= 0) continue;
 
-    // Primary: Plant QA LR; Fallback: Dispatch LR for provisional planning
-    const plantLrRes = log.portion.plant_lab_results.find(
-      (r) => r.lab_test.testCode === 'LT-000008' || r.lab_test.testCode === 'LT-000027' || r.lab_test.testName.toUpperCase().includes('LR')
-    );
-    const dispatchLrRes = log.portion.dispatch_lab_results.find(
-      (r) => r.lab_test.testCode === 'LT-000008' || r.lab_test.testCode === 'LT-000027' || r.lab_test.testName.toUpperCase().includes('LR')
-    );
-
-    const lrVal = plantLrRes?.numeric_value ? Number(plantLrRes.numeric_value) : dispatchLrRes?.numeric_value ? Number(dispatchLrRes.numeric_value) : 26.5;
-    const density = 1 + lrVal / 1000;
-    const physicalLiters = declaredKg / density;
-
-    totalReservedLiters += physicalLiters;
+    if (declUnit === 'LITER') {
+      totalReservedLiters += declVal;
+    } else if (declUnit === 'KG') {
+      // Primary: Plant QA LR (only genuine PERFORMED, no dispatch/fake fallback)
+      const performedPlantLr = log.portion.plant_lab_results.filter(
+        (r) => isPlantLrTest(r.lab_test.testCode, r.lab_test.testName) && r.performance_status === 'PERFORMED' && r.numeric_value !== null
+      );
+      if (performedPlantLr.length === 1 && Number(performedPlantLr[0].numeric_value) > 0) {
+        const lrVal = Number(performedPlantLr[0].numeric_value);
+        totalReservedLiters += calculatePhysicalLiters(declVal, lrVal);
+      }
+    }
   }
 
   return totalReservedLiters;
@@ -190,6 +257,7 @@ export async function getSiloActiveReservedLiters(
 /**
  * Calculates provisional available capacity in LITERS for new unloading assignments.
  * Formula: Maximum Capacity Liters - Finalized Stock Liters - Active Reserved Liters
+ * FAILS CLOSED if stock completeness is compromised.
  */
 export async function getSiloProvisionalAvailableCapacity(siloIdInput: bigint | string, txPrisma?: Prisma.TransactionClient): Promise<number> {
   const db = txPrisma || prisma;
@@ -203,17 +271,24 @@ export async function getSiloProvisionalAvailableCapacity(siloIdInput: bigint | 
     throw new Error(`Silo record not found (ID: ${siloIdInput}).`);
   }
 
+  const stockState = await getSiloStockVolumeState(siloId, db);
+  if (!stockState.isComplete) {
+    throw new Error(
+      `Cannot calculate provisional available capacity for Silo "${silo.silo_name}" (${silo.silo_code}) because stock ledger contains ${stockState.unknownVolumeTransactionCount} transaction(s) with unknown physical volume.`
+    );
+  }
+
   const capacityLiters = Number(silo.capacity_liters);
-  const currentStockLiters = await getSiloCurrentStockLiters(siloId, db);
   const reservedLiters = await getSiloActiveReservedLiters(siloId, db);
 
-  const provisionalAvailable = capacityLiters - currentStockLiters - reservedLiters;
+  const provisionalAvailable = capacityLiters - stockState.knownLiters - reservedLiters;
   return Math.max(0, provisionalAvailable);
 }
 
 /**
  * Reusable finalization service to post final audited SiloInventoryTransaction RECEIPT for a vehicle visit.
- * HARDENING RULE: Requires AUTHORITATIVE Plant QA LR (LT-000008 / LT-000027). Zero Dispatch or 26.5 fallbacks allowed for final stock!
+ * AUTHORITATIVE RULE: Uses calculateVehicleReceivedQuantity engine.
+ * QA remains portion-wise, final Plant received quantity remains vehicle-wise.
  */
 export async function finalizeSiloReceiptForVisit(
   visitIdInput: bigint | string,
@@ -243,7 +318,8 @@ export async function finalizeSiloReceiptForVisit(
       success: true,
       receiptCreated: false,
       alreadyFinalized: true,
-      finalLiters: Number(existingReceipt.quantity_liters || 0),
+      netWeightKg: Number(existingReceipt.quantity_kg || 0),
+      finalPhysicalLiters: Number(existingReceipt.quantity_liters || 0),
       targetSiloCode: existingReceipt.silo.silo_code,
       message: `Final silo inventory receipt has already been created for vehicle visit #${visitId.toString()}.`,
     };
@@ -267,26 +343,43 @@ export async function finalizeSiloReceiptForVisit(
     throw new Error(`Vehicle visit record not found (ID ${visitId.toString()}).`);
   }
 
-  if (!visit.weight_ticket || visit.weight_ticket.net_weight_kg === null) {
-    throw new Error(`Net weight has not been calculated yet for vehicle visit #${visit.visit_number}.`);
+  if (!visit.weight_ticket || visit.weight_ticket.gross_weight_kg === null || visit.weight_ticket.tare_weight_kg === null) {
+    throw new Error(`Gross or Tare weight has not been recorded yet for vehicle visit #${visit.visit_number}.`);
   }
 
-  const netWeightKg = Number(visit.weight_ticket.net_weight_kg);
-  if (netWeightKg <= 0) {
-    throw new Error(`Invalid net weight (${netWeightKg} kg) for vehicle visit #${visit.visit_number}.`);
-  }
+  const grossWeightKg = Number(visit.weight_ticket.gross_weight_kg);
+  const tareWeightKg = Number(visit.weight_ticket.tare_weight_kg);
 
-  const acceptedPortions = (visit.portions || []).filter((p) => p.plant_decision === 'ACCEPTED');
-  if (acceptedPortions.length === 0) {
+  // 3. Map portions to VehicleCalculationPortion and execute authoritative engine
+  const portionInputs: VehicleCalculationPortion[] = (visit.portions || []).map((p) => ({
+    portionId: p.id,
+    portionNumber: p.portion_number,
+    plantDecision: p.plant_decision,
+    plantLabResults: (p.plant_lab_results || []).map((r) => ({
+      testCode: r.lab_test?.testCode || null,
+      testName: r.lab_test?.testName || null,
+      numericValue: r.numeric_value !== null && r.numeric_value !== undefined ? Number(r.numeric_value) : null,
+      performanceStatus: r.performance_status || null,
+    })),
+  }));
+
+  const calcResult = calculateVehicleReceivedQuantity({
+    grossWeightKg,
+    secondWeightKg: tareWeightKg,
+    portions: portionInputs,
+  });
+
+  if (!calcResult.isCalculable) {
     return {
       success: false,
       receiptCreated: false,
-      reason: 'NO_ACCEPTED_PORTIONS',
-      message: 'No accepted portions exist for this vehicle.',
+      reason: calcResult.reason,
+      message: calcResult.message,
     };
   }
 
-  // Collect destination silos from unloading logs
+  // 4. Collect destination silos from accepted portions
+  const acceptedPortions = (visit.portions || []).filter((p) => p.plant_decision === 'ACCEPTED');
   const siloIdsSet = new Set<bigint>();
   for (const p of acceptedPortions) {
     if (p.unloading_log?.silo_id) {
@@ -305,8 +398,8 @@ export async function finalizeSiloReceiptForVisit(
   }
 
   if (uniqueSiloIds.length > 1) {
-    // Case B: Multiple accepted portions with DIFFERENT destination silos
-    // V1 Safety Rule: Do not guess unapproved allocation rules.
+    // Multiple accepted portions with DIFFERENT destination silos
+    // Multi-Silo Guard: Do not guess unapproved allocation rules.
     return {
       success: false,
       receiptCreated: false,
@@ -316,36 +409,9 @@ export async function finalizeSiloReceiptForVisit(
   }
 
   const targetSiloId = uniqueSiloIds[0];
-
-  // 3. STRICT AUTHORITATIVE PLANT LR CHECK (No Dispatch LR, No 26.5 fallback!)
-  let plantLrVal: number | null = null;
-  for (const p of acceptedPortions) {
-    const plantLrRes = p.plant_lab_results.find(
-      (r) => r.lab_test.testCode === 'LT-000008' || r.lab_test.testCode === 'LT-000027' || r.lab_test.testName.toUpperCase().includes('LR')
-    );
-    if (plantLrRes?.numeric_value) {
-      const val = Number(plantLrRes.numeric_value);
-      if (!isNaN(val) && val > 0) {
-        plantLrVal = val;
-        break;
-      }
-    }
-  }
-
-  if (plantLrVal === null) {
-    return {
-      success: false,
-      receiptCreated: false,
-      reason: 'MISSING_PLANT_LR',
-      message: 'Authoritative Plant QA LR is missing. Final physical silo receipt cannot be calculated.',
-    };
-  }
-
-  // Calculate final physical received liters
-  const finalLiters = calculatePhysicalLiters(netWeightKg, plantLrVal);
   const opTimestamp = opTimestampInput || visit.weight_ticket.tare_timestamp || new Date();
 
-  // 4. Lock Silo row for atomic inventory update & validate capacity
+  // 5. Lock Silo row for atomic inventory update & validate capacity
   await db.$executeRaw`SELECT id FROM silo WHERE id = ${targetSiloId} FOR UPDATE`;
 
   const silo = await db.silo.findUnique({ where: { id: targetSiloId } });
@@ -362,27 +428,38 @@ export async function finalizeSiloReceiptForVisit(
     };
   }
 
-  const currentStockLiters = await getSiloCurrentStockLiters(targetSiloId, db);
-  const otherReservedLiters = await getSiloActiveReservedLiters(targetSiloId, db, visitId);
-  const capacityLiters = Number(silo.capacity_liters);
-  const availableCapacityLiters = capacityLiters - currentStockLiters - otherReservedLiters;
-
-  if (finalLiters > availableCapacityLiters) {
+  const stockState = await getSiloStockVolumeState(targetSiloId, db);
+  if (!stockState.isComplete) {
     return {
       success: false,
       receiptCreated: false,
       reason: 'CAPACITY_EXCEEDED',
-      message: `Final received milk volume (${Math.round(finalLiters)} L) exceeds available capacity in Silo "${silo.silo_name}" (${Math.round(availableCapacityLiters)} L available).`,
+      message: `Target Silo "${silo.silo_name}" (${silo.silo_code}) has incomplete stock ledger (${stockState.unknownVolumeTransactionCount} transaction(s) with unknown physical volume); receipt finalization blocked.`,
     };
   }
 
-  // 5. Create Database-Level Idempotent SiloInventoryTransaction RECEIPT
+  const currentStockLiters = stockState.knownLiters;
+  const otherReservedLiters = await getSiloActiveReservedLiters(targetSiloId, db, visitId);
+  const capacityLiters = Number(silo.capacity_liters);
+  const availableCapacityLiters = capacityLiters - currentStockLiters - otherReservedLiters;
+
+  if (calcResult.finalPhysicalLiters > availableCapacityLiters) {
+    return {
+      success: false,
+      receiptCreated: false,
+      reason: 'CAPACITY_EXCEEDED',
+      message: `Final received milk volume (${Math.round(calcResult.finalPhysicalLiters)} L) exceeds available capacity in Silo "${silo.silo_name}" (${Math.round(availableCapacityLiters)} L available).`,
+    };
+  }
+
+  // 6. Create Database-Level Idempotent SiloInventoryTransaction RECEIPT
+  // quantity_kg uses vehicle netWeightKg; quantity_liters uses vehicle finalPhysicalLiters
   await db.siloInventoryTransaction.create({
     data: {
       silo_id: targetSiloId,
       transaction_type: SiloTransactionType.RECEIPT,
-      quantity_kg: new Prisma.Decimal(netWeightKg),
-      quantity_liters: new Prisma.Decimal(finalLiters),
+      quantity_kg: new Prisma.Decimal(calcResult.netWeightKg),
+      quantity_liters: new Prisma.Decimal(calcResult.finalPhysicalLiters),
       operational_timestamp: opTimestamp,
       visit_id: visitId,
       portion_id: acceptedPortions.length === 1 ? acceptedPortions[0].id : null,
@@ -390,11 +467,11 @@ export async function finalizeSiloReceiptForVisit(
       reference_id: visit.weight_ticket.ticket_number || `TK-${visitId}`,
       idempotency_key: idempotencyKey,
       performed_by: performedByUserId,
-      notes: `Final milk receipt upon Scale 2 Tare weighing (${visit.vehicle_number}). Authoritative Plant LR: ${plantLrVal}`,
+      notes: `Final milk receipt upon Scale 2 Tare weighing (${visit.vehicle_number}).`,
     },
   });
 
-  // 6. Log Immutable Audit Record for Final Silo Receipt
+  // 7. Log Immutable Audit Record for Final Silo Receipt
   await db.auditLog.create({
     data: {
       table_name: 'silo_inventory_transaction',
@@ -406,16 +483,16 @@ export async function finalizeSiloReceiptForVisit(
         vehicle_number: visit.vehicle_number,
         silo_id: targetSiloId.toString(),
         silo_code: silo.silo_code,
-        net_weight_kg: netWeightKg,
-        final_physical_liters: Math.round(finalLiters),
-        plant_lr: plantLrVal,
+        net_weight_kg: calcResult.netWeightKg,
+        final_physical_liters: calcResult.finalPhysicalLiters,
+        final_at13_ts_liters: calcResult.finalAt13TSLiters,
         op_timestamp: opTimestamp.toISOString(),
         submitted_at: new Date().toISOString(),
       },
     },
   });
 
-  // 7. Advance VehicleVisit status to READY_FOR_GATE_EXIT
+  // 8. Advance VehicleVisit status to READY_FOR_GATE_EXIT
   await db.vehicleVisit.update({
     where: { id: visitId },
     data: { current_status: 'READY_FOR_GATE_EXIT' },
@@ -424,10 +501,11 @@ export async function finalizeSiloReceiptForVisit(
   return {
     success: true,
     receiptCreated: true,
-    finalLiters: Math.round(finalLiters),
+    netWeightKg: calcResult.netWeightKg,
+    finalPhysicalLiters: calcResult.finalPhysicalLiters,
+    finalAt13TSLiters: calcResult.finalAt13TSLiters,
     targetSiloCode: silo.silo_code,
-    plantLrVal,
-    message: `Final Silo Receipt created (~${Math.round(finalLiters).toLocaleString()} L in ${silo.silo_code}). Vehicle is ready for gate exit.`,
+    message: `Final Silo Receipt created (~${Math.round(calcResult.finalPhysicalLiters).toLocaleString()} L in ${silo.silo_code}). Vehicle is ready for gate exit.`,
   };
 }
 
@@ -457,9 +535,14 @@ export async function updateSiloConfiguration(params: UpdateSiloConfigParams) {
       }
 
       // Safety Rule: New maximum capacity cannot be reduced below current calculated stock!
-      const currentStockLiters = await getSiloCurrentStockLiters(siloId, tx);
-      if (params.capacity_liters < currentStockLiters) {
-        throw new Error(`New capacity (${params.capacity_liters} L) cannot be less than current calculated stock (${currentStockLiters} L).`);
+      const stockState = await getSiloStockVolumeState(siloId, tx);
+      if (!stockState.isComplete) {
+        throw new Error(
+          `Cannot resize Silo "${silo.silo_name}" (${silo.silo_code}) because stock ledger contains ${stockState.unknownVolumeTransactionCount} transaction(s) with unknown physical volume.`
+        );
+      }
+      if (params.capacity_liters < stockState.knownLiters) {
+        throw new Error(`New capacity (${params.capacity_liters} L) cannot be less than current calculated stock (${stockState.knownLiters} L).`);
       }
     }
 
@@ -479,6 +562,7 @@ export async function updateSiloConfiguration(params: UpdateSiloConfigParams) {
 
 /**
  * Records an auditable inventory transaction in the ledger with strict safety checks and PostgreSQL row-level locking.
+ * Active transactions modifying physical stock REQUIRE an authoritative, positive quantity_liters volume.
  */
 export async function recordSiloTransaction(params: RecordTransactionParams) {
   const siloId = typeof params.silo_id === 'string' ? BigInt(params.silo_id) : params.silo_id;
@@ -497,6 +581,15 @@ export async function recordSiloTransaction(params: RecordTransactionParams) {
     throw new Error('Operational timestamp cannot be in the future.');
   }
 
+  // Active production transactions modifying physical stock REQUIRE authoritative quantity_liters
+  if (params.quantity_liters === undefined || params.quantity_liters === null) {
+    throw new Error('Active silo transaction requires a valid, positive quantity_liters volume.');
+  }
+  const txLiters = Number(params.quantity_liters);
+  if (isNaN(txLiters) || !isFinite(txLiters) || txLiters <= 0) {
+    throw new Error('Transaction quantity_liters must be a positive number greater than 0 Liters.');
+  }
+
   return await prisma.$transaction(async (tx) => {
     // Database Concurrency: Acquire PostgreSQL Row-Level Lock (FOR UPDATE)
     await tx.$executeRaw`SELECT id FROM silo WHERE id = ${siloId} FOR UPDATE`;
@@ -509,11 +602,14 @@ export async function recordSiloTransaction(params: RecordTransactionParams) {
       throw new Error(`Silo record not found (ID: ${params.silo_id}).`);
     }
 
-    const currentStockLiters = await getSiloCurrentStockLiters(siloId, tx);
+    const stockState = await getSiloStockVolumeState(siloId, tx);
+    if (!stockState.isComplete) {
+      throw new Error(
+        `Silo "${silo.silo_name}" (${silo.silo_code}) stock ledger contains ${stockState.unknownVolumeTransactionCount} transaction(s) with unknown physical volume; ${params.transaction_type} is blocked.`
+      );
+    }
+    const currentStockLiters = stockState.knownLiters;
     const capacityLiters = Number(silo.capacity_liters);
-    const txLiters = params.quantity_liters !== undefined && params.quantity_liters !== null
-      ? params.quantity_liters
-      : params.quantity_kg / 1.0265;
 
     // Validation 3: RECEIPT Inactive Check (New milk receipts require active silo)
     if (params.transaction_type === SiloTransactionType.RECEIPT) {
@@ -589,7 +685,13 @@ export async function recordSiloIssueTransaction(params: RecordSiloIssueParams) 
         include: { silo: true },
       });
       if (existing) {
-        const currentStock = await getSiloCurrentStockLiters(siloId, tx);
+        const stockState = await getSiloStockVolumeState(siloId, tx);
+        if (!stockState.isComplete) {
+          throw new Error(
+            `Cannot determine stock for Silo "${existing.silo.silo_name}" (${existing.silo.silo_code}) because stock ledger contains ${stockState.unknownVolumeTransactionCount} transaction(s) with unknown physical volume.`
+          );
+        }
+        const currentStock = stockState.knownLiters;
         return {
           transaction: existing,
           stockBefore: currentStock + Number(existing.quantity_liters || 0),
@@ -611,7 +713,13 @@ export async function recordSiloIssueTransaction(params: RecordSiloIssueParams) 
     }
 
     // Physical stock calculation from ledger (RECEIPTS - ISSUES)
-    const currentStockLiters = await getSiloCurrentStockLiters(siloId, tx);
+    const stockState = await getSiloStockVolumeState(siloId, tx);
+    if (!stockState.isComplete) {
+      throw new Error(
+        `Cannot issue milk from Silo "${silo.silo_name}" (${silo.silo_code}) because stock ledger contains ${stockState.unknownVolumeTransactionCount} transaction(s) with unknown physical volume.`
+      );
+    }
+    const currentStockLiters = stockState.knownLiters;
 
     // Stock sufficiency check (Applies to both Active and Inactive silos!)
     if (params.quantity_liters > currentStockLiters) {

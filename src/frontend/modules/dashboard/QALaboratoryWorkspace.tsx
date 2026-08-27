@@ -1,10 +1,14 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { FlaskConical, CheckCircle2, XCircle, PauseCircle, Clock, Search, Radio, Play, RefreshCw, AlertCircle, ShieldCheck } from 'lucide-react';
+import { FlaskConical, CheckCircle2, XCircle, PauseCircle, Clock, Search, Radio, Play, RefreshCw, AlertCircle, ShieldCheck, Ban, HelpCircle } from 'lucide-react';
 import { useToast } from '@/frontend/context/ToastContext';
-import { toDatetimeLocalInput, datetimeLocalToIso } from '@/lib/datetime-utils';
+import { toDatetimeLocalInput, datetimeLocalToIso, formatOperationalTime } from '@/lib/datetime-utils';
+import { QualitativeResultRadioGroup } from '@/frontend/modules/shared/QualitativeResultRadioGroup';
 import { User } from '@core/types';
+
+// Performance status for a single test result in the form
+type TestPerformanceStatus = 'PERFORMED' | 'NOT_PERFORMED';
 
 interface WaitingVisit {
   id: string;
@@ -13,7 +17,10 @@ interface WaitingVisit {
   vehicle_number: string;
   token_number: string | null;
   portion_count: number;
-  total_declared_kg: number;
+  vehicle_dispatch_quantity_value?: number | null;
+  vehicle_dispatch_quantity_unit?: string | null;
+  total_quantity_value?: number | null;
+  total_quantity_unit?: string | null;
   entry_timestamp: string | null;
   waiting_minutes: number;
 }
@@ -56,6 +63,20 @@ interface LabTestDef {
   testScope: string;
   isRequired: boolean;
   displayOrder: number;
+  resultOptions?: Array<{ value: string; label: string; isPassing: boolean | null }> | null;
+}
+
+interface SavedPlantResult {
+  testId: string;
+  testCode: string;
+  testName: string;
+  resultType: string;
+  unit: string | null;
+  performanceStatus: string;
+  notPerformedReason: string | null;
+  numericValue: number | null;
+  textValue: string | null;
+  isPassed: boolean | null;
 }
 
 interface VisitDetailPortion {
@@ -63,20 +84,14 @@ interface VisitDetailPortion {
   visit_id: string;
   portion_number: number;
   current_status: string;
-  declared_quantity_kg: number;
+  // null is preserved — no || 0 fallback
+  dispatch_quantity_value?: number | null;
+  dispatch_quantity_unit?: string;
+  dispatch_quantity_basis?: string;
   plant_decision: string;
   plant_rejection_reason: string | null;
   dispatch_results: any[];
-  plant_results: Array<{
-    testId: string;
-    testCode: string;
-    testName: string;
-    resultType: string;
-    unit: string | null;
-    numericValue: number | null;
-    textValue: string | null;
-    isPassed: boolean | null;
-  }>;
+  plant_results: SavedPlantResult[];
 }
 
 interface VisitDetail {
@@ -91,6 +106,14 @@ interface VisitDetail {
   visit_decision_summary: string;
   portions: VisitDetailPortion[];
   active_plant_tests: LabTestDef[];
+}
+
+// Per-test form state
+interface TestInputState {
+  performanceStatus: TestPerformanceStatus;
+  notPerformedReason: string;
+  numericValue: string;
+  textValue: string;
 }
 
 interface QALaboratoryWorkspaceProps {
@@ -117,8 +140,8 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
   const [visitDetail, setVisitDetail] = useState<VisitDetail | null>(null);
   const [activePortionIndex, setActivePortionIndex] = useState<number>(0);
 
-  // Form input state per test (testId -> { numericValue, textValue })
-  const [testInputs, setTestInputs] = useState<Record<string, { numericValue: string; textValue: string }>>({});
+  // Per-test form state: testId → TestInputState
+  const [testInputs, setTestInputs] = useState<Record<string, TestInputState>>({});
   const [isFormDirty, setIsFormDirty] = useState(false);
 
   // Action Inputs for Reject / Hold / Datetime
@@ -143,11 +166,9 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [msg, setMsg] = useState<{ text: string; isError: boolean } | null>(null);
 
-  // Ref tracking for initial queue fetch
   const isInitialQueuesFetch = React.useRef(true);
   const previousTestingVisitId = React.useRef<string | null>(null);
 
-  // Derived selected visit objects per queue
   const selectedWaitingVisit = useMemo(
     () => waitingVisits.find((v) => v.id === selectedWaitingVisitId) || null,
     [waitingVisits, selectedWaitingVisitId]
@@ -187,7 +208,6 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
           if (!isCancelled) {
             if (data.visit) {
               setVisitDetail(data.visit);
-              // Only populate draft inputs if switching visits or form is clean (not dirty)
               if (isSwitchingVisit || !isFormDirty) {
                 if (data.visit.portions && data.visit.portions.length > 0) {
                   populateInputsForPortion(data.visit.portions[0], data.visit.active_plant_tests || []);
@@ -237,30 +257,19 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
         setInTestingVisits(inTesting);
         setOnHoldVisits(onHold);
 
-        // Auto-selection & repair for Waiting queue
         setSelectedWaitingVisitId((prev) => {
-          if (prev && waiting.some((v: any) => v.id === prev)) {
-            return prev;
-          }
+          if (prev && waiting.some((v: any) => v.id === prev)) return prev;
           return waiting.length > 0 ? waiting[0].id : null;
         });
 
-        // Auto-selection & repair for In Testing queue (preserve existing selection if eligible)
         setSelectedTestingVisitId((prev) => {
-          if (prev && inTesting.some((v: any) => v.id === prev)) {
-            return prev;
-          }
-          if (inTesting.length === 0) {
-            return null;
-          }
+          if (prev && inTesting.some((v: any) => v.id === prev)) return prev;
+          if (inTesting.length === 0) return null;
           return inTesting[0].id;
         });
 
-        // Auto-selection & repair for On Hold queue
         setSelectedHeldVisitId((prev) => {
-          if (prev && onHold.some((v: any) => v.id === prev)) {
-            return prev;
-          }
+          if (prev && onHold.some((v: any) => v.id === prev)) return prev;
           return onHold.length > 0 ? onHold[0].id : null;
         });
       }
@@ -293,30 +302,33 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
     }
   };
 
+  // Populate per-test form state from saved plant_results.
+  // NO fake defaults — if no saved result exists, the test starts as PERFORMED with empty values.
+  // The chemist must explicitly set values or mark NOT_PERFORMED.
   const populateInputsForPortion = (portion: VisitDetailPortion, plantTests: LabTestDef[]) => {
     const existingMap = new Map(portion.plant_results.map((pr) => [pr.testId, pr]));
-    const newInputs: Record<string, { numericValue: string; textValue: string }> = {};
+    const newInputs: Record<string, TestInputState> = {};
 
     plantTests.forEach((t) => {
       const existing = existingMap.get(t.id);
-      const lowerName = t.testName.toLowerCase();
 
-      let defaultNum = existing?.numericValue !== null && existing?.numericValue !== undefined ? String(existing.numericValue) : '';
-      let defaultText = existing?.textValue !== null && existing?.textValue !== undefined ? String(existing.textValue) : '';
-
-      if (!existing) {
-        if (lowerName.includes('fat')) defaultNum = '3.8';
-        else if (lowerName.includes('lactometer') || lowerName.includes('lr')) defaultNum = '28.5';
-        else if (lowerName.includes('snf')) defaultNum = '8.5';
-        else if (lowerName.includes('temperature') || lowerName.includes('temp')) defaultNum = '4.5';
-        else if (t.resultType === 'QUALITATIVE') defaultText = 'OK';
-        else if (t.resultType === 'BOOLEAN') defaultText = 'NO';
+      if (existing) {
+        // Restore from saved PlantLabResult
+        newInputs[t.id] = {
+          performanceStatus: (existing.performanceStatus === 'NOT_PERFORMED' ? 'NOT_PERFORMED' : 'PERFORMED') as TestPerformanceStatus,
+          notPerformedReason: existing.notPerformedReason || '',
+          numericValue: existing.numericValue !== null && existing.numericValue !== undefined ? String(existing.numericValue) : '',
+          textValue: existing.textValue !== null && existing.textValue !== undefined ? String(existing.textValue) : '',
+        };
+      } else {
+        // No saved result — start clean, no fake defaults
+        newInputs[t.id] = {
+          performanceStatus: 'PERFORMED',
+          notPerformedReason: '',
+          numericValue: '',
+          textValue: '',
+        };
       }
-
-      newInputs[t.id] = {
-        numericValue: defaultNum,
-        textValue: defaultText,
-      };
     });
 
     setTestInputs(newInputs);
@@ -329,6 +341,17 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
     if (targetPortion) {
       populateInputsForPortion(targetPortion, visitDetail.active_plant_tests);
     }
+  };
+
+  // Build the results payload for API calls
+  const buildResultsPayload = () => {
+    return Object.entries(testInputs).map(([testId, state]) => ({
+      testId,
+      performanceStatus: state.performanceStatus,
+      notPerformedReason: state.performanceStatus === 'NOT_PERFORMED' ? (state.notPerformedReason || null) : null,
+      numericValue: state.performanceStatus === 'PERFORMED' && state.numericValue !== '' ? Number(state.numericValue) : null,
+      textValue: state.performanceStatus === 'PERFORMED' && state.textValue !== '' ? state.textValue : null,
+    }));
   };
 
   const handleStartTestingConfirm = async (e: React.FormEvent) => {
@@ -395,40 +418,6 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
     }
   };
 
-  const handleSaveDraft = async () => {
-    if (!visitDetail) return;
-    const currentPortion = visitDetail.portions[activePortionIndex];
-    if (!currentPortion) return;
-
-    setIsSubmitting(true);
-
-    const payloadResults = Object.entries(testInputs).map(([testId, val]) => ({
-      testId,
-      numericValue: val.numericValue !== '' ? Number(val.numericValue) : null,
-      textValue: val.textValue !== '' ? val.textValue : null,
-    }));
-
-    try {
-      const res = await fetch(`/api/qa/vehicle-visits/${visitDetail.id}/portions/${currentPortion.id}/draft`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ results: payloadResults }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to save draft');
-
-      const msgText = `Draft saved for Portion ${currentPortion.portion_number}.`;
-      toast.showSuccess(msgText, 'Draft Saved');
-      await fetchVisitDetail(visitDetail.id);
-      await fetchQueues();
-    } catch (err: any) {
-      toast.showError(err.message || 'Failed to save draft', 'QA Error');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const handleAcceptPortionConfirm = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!visitDetail) return;
@@ -437,19 +426,13 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
 
     setIsSubmitting(true);
 
-    const payloadResults = Object.entries(testInputs).map(([testId, val]) => ({
-      testId,
-      numericValue: val.numericValue !== '' ? Number(val.numericValue) : null,
-      textValue: val.textValue !== '' ? val.textValue : null,
-    }));
-
     try {
       const res = await fetch(`/api/qa/vehicle-visits/${visitDetail.id}/portions/${currentPortion.id}/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           decision: 'ACCEPTED',
-          results: payloadResults,
+          results: buildResultsPayload(),
           operationalTimestamp: datetimeLocalToIso(qaOpTimestamp) || undefined,
         }),
       });
@@ -457,14 +440,12 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to accept portion');
 
-      const msgText = `Portion ${currentPortion.portion_number} ACCEPTED.`;
-      toast.showSuccess(msgText, 'Portion Accepted');
+      toast.showSuccess(`Portion ${currentPortion.portion_number} ACCEPTED.`, 'Portion Accepted');
       setActiveActionModal(null);
 
       await fetchVisitDetail(visitDetail.id);
       await fetchQueues();
 
-      // If next portion exists, move to next portion
       if (activePortionIndex < visitDetail.portions.length - 1) {
         handleSelectPortionTab(activePortionIndex + 1);
       }
@@ -481,17 +462,11 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
     const currentPortion = visitDetail.portions[activePortionIndex];
     if (!currentPortion) return;
 
-    // Filter to only actual entered results
-    const payloadResults = Object.entries(testInputs)
-      .filter(([_, val]) => val.numericValue !== '' || (val.textValue !== '' && val.textValue !== null))
-      .map(([testId, val]) => ({
-        testId,
-        numericValue: val.numericValue !== '' ? Number(val.numericValue) : null,
-        textValue: val.textValue !== '' ? val.textValue : null,
-      }));
+    // At least one PERFORMED result is required to reject
+    const performedResults = buildResultsPayload().filter((r) => r.performanceStatus === 'PERFORMED');
 
-    if (payloadResults.length === 0) {
-      const errText = 'At least one valid Plant QA test result must be recorded before rejecting a portion.';
+    if (performedResults.length === 0) {
+      const errText = 'At least one PERFORMED Plant QA test result must be recorded before rejecting. NOT_PERFORMED alone is not sufficient rejection evidence.';
       setMsg({ text: errText, isError: true });
       toast.showError(errText, 'Validation Error');
       return;
@@ -513,7 +488,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           decision: 'REJECTED',
-          results: payloadResults,
+          results: buildResultsPayload(),
           rejectionReason: rejectionReason.trim(),
           rejectionRemarks: rejectionRemarks.trim(),
           operationalTimestamp: datetimeLocalToIso(qaOpTimestamp) || undefined,
@@ -562,7 +537,6 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
       setActiveActionModal(null);
       setHoldReason('');
 
-      // Move UI to On Hold tab and select held visit
       const heldVisitId = visitDetail.id;
       setSelectedTestingVisitId(null);
       setVisitDetail(null);
@@ -576,14 +550,54 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
     }
   };
 
+  // ─── Derived accountability metrics ────────────────────────────────────────
   const currentPortion = visitDetail?.portions[activePortionIndex] || null;
-  const requiredPlantTests = visitDetail?.active_plant_tests.filter((t) => t.isRequired) || [];
-  const completedTestCount = visitDetail
-    ? visitDetail.active_plant_tests.filter((t) => {
-        const val = testInputs[t.id];
-        return val && (val.numericValue !== '' || val.textValue !== '');
-      }).length
-    : 0;
+
+  // Only non-CALCULATED required tests count toward mandatory accountability
+  const requiredManualPlantTests = useMemo(
+    () => (visitDetail?.active_plant_tests || []).filter((t) => t.isRequired && t.resultType !== 'CALCULATED'),
+    [visitDetail]
+  );
+
+  // PERFORMED: has a valid value set
+  const performedCount = useMemo(() => {
+    return requiredManualPlantTests.filter((t) => {
+      const state = testInputs[t.id];
+      if (!state || state.performanceStatus !== 'PERFORMED') return false;
+      if (t.resultType === 'NUMERIC') return state.numericValue !== '' && !isNaN(Number(state.numericValue));
+      return state.textValue !== '';
+    }).length;
+  }, [requiredManualPlantTests, testInputs]);
+
+  // NOT_PERFORMED: explicitly marked
+  const notPerformedCount = useMemo(() => {
+    return requiredManualPlantTests.filter((t) => {
+      const state = testInputs[t.id];
+      return state?.performanceStatus === 'NOT_PERFORMED';
+    }).length;
+  }, [requiredManualPlantTests, testInputs]);
+
+  // UNRESOLVED: in form but neither PERFORMED with value nor NOT_PERFORMED
+  const unresolvedCount = useMemo(() => {
+    return requiredManualPlantTests.filter((t) => {
+      const state = testInputs[t.id];
+      if (!state) return true; // no form entry
+      if (state.performanceStatus === 'NOT_PERFORMED') return false;
+      if (t.resultType === 'NUMERIC') return state.numericValue === '' || isNaN(Number(state.numericValue));
+      return state.textValue === '';
+    }).length;
+  }, [requiredManualPlantTests, testInputs]);
+
+  const canAccept = performedCount === requiredManualPlantTests.length && notPerformedCount === 0 && unresolvedCount === 0;
+
+  // Format dispatch quantity display — never crash on null
+  const formatDispatchQty = (portion: VisitDetailPortion | null): string => {
+    if (!portion) return '—';
+    const val = portion.dispatch_quantity_value;
+    const unit = portion.dispatch_quantity_unit;
+    if (val === null || val === undefined || !unit) return '—';
+    return `${Number(val).toLocaleString()} ${unit}`;
+  };
 
   return (
     <div className="space-y-6">
@@ -602,15 +616,8 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
         <div className="flex items-center space-x-2 bg-[#EFE9D9] p-1.5 rounded-2xl border border-[#C4B9A3]">
           <button
             type="button"
-            onClick={() => {
-              setActiveTab('WAITING');
-              fetchQueues();
-            }}
-            className={`px-4 py-2.5 rounded-xl text-xs font-extrabold transition flex items-center space-x-2 ${
-              activeTab === 'WAITING'
-                ? 'bg-[#1E3A8A] text-white shadow-sm'
-                : 'text-[#334155] hover:bg-amber-100/50'
-            }`}
+            onClick={() => { setActiveTab('WAITING'); fetchQueues(); }}
+            className={`px-4 py-2.5 rounded-xl text-xs font-extrabold transition flex items-center space-x-2 ${activeTab === 'WAITING' ? 'bg-[#1E3A8A] text-white shadow-sm' : 'text-[#334155] hover:bg-amber-100/50'}`}
           >
             <Clock className="w-4 h-4" />
             <span>Waiting for Testing</span>
@@ -621,15 +628,8 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
 
           <button
             type="button"
-            onClick={() => {
-              setActiveTab('IN_TESTING');
-              fetchQueues();
-            }}
-            className={`px-4 py-2.5 rounded-xl text-xs font-extrabold transition flex items-center space-x-2 ${
-              activeTab === 'IN_TESTING'
-                ? 'bg-[#1E3A8A] text-white shadow-sm'
-                : 'text-[#334155] hover:bg-amber-100/50'
-            }`}
+            onClick={() => { setActiveTab('IN_TESTING'); fetchQueues(); }}
+            className={`px-4 py-2.5 rounded-xl text-xs font-extrabold transition flex items-center space-x-2 ${activeTab === 'IN_TESTING' ? 'bg-[#1E3A8A] text-white shadow-sm' : 'text-[#334155] hover:bg-amber-100/50'}`}
           >
             <FlaskConical className="w-4 h-4" />
             <span>In Testing</span>
@@ -640,15 +640,8 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
 
           <button
             type="button"
-            onClick={() => {
-              setActiveTab('ON_HOLD');
-              fetchQueues();
-            }}
-            className={`px-4 py-2.5 rounded-xl text-xs font-extrabold transition flex items-center space-x-2 ${
-              activeTab === 'ON_HOLD'
-                ? 'bg-[#1E3A8A] text-white shadow-sm'
-                : 'text-[#334155] hover:bg-amber-100/50'
-            }`}
+            onClick={() => { setActiveTab('ON_HOLD'); fetchQueues(); }}
+            className={`px-4 py-2.5 rounded-xl text-xs font-extrabold transition flex items-center space-x-2 ${activeTab === 'ON_HOLD' ? 'bg-[#1E3A8A] text-white shadow-sm' : 'text-[#334155] hover:bg-amber-100/50'}`}
           >
             <PauseCircle className="w-4 h-4" />
             <span>On Hold</span>
@@ -683,10 +676,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                fetchQueues(e.target.value);
-              }}
+              onChange={(e) => { setSearchQuery(e.target.value); fetchQueues(e.target.value); }}
               placeholder="Search vehicle or token..."
               className="w-full pl-9 pr-3 py-2 text-xs font-mono font-bold rounded-xl border border-[#C4B9A3] bg-[#EFE9D9] text-[#111311]"
             />
@@ -711,11 +701,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
                     <div
                       key={`waiting-${v.id}`}
                       onClick={() => setSelectedWaitingVisitId(v.id)}
-                      className={`p-4 rounded-xl border transition cursor-pointer space-y-2 ${
-                        isSelected
-                          ? 'bg-[#1E3A8A] text-white border-blue-900 shadow-md ring-2 ring-blue-500/30'
-                          : 'bg-[#EFE9D9] text-[#111311] border-[#C4B9A3] hover:bg-amber-100/60'
-                      }`}
+                      className={`p-4 rounded-xl border transition cursor-pointer space-y-2 ${isSelected ? 'bg-[#1E3A8A] text-white border-blue-900 shadow-md ring-2 ring-blue-500/30' : 'bg-[#EFE9D9] text-[#111311] border-[#C4B9A3] hover:bg-amber-100/60'}`}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-2">
@@ -730,17 +716,21 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
                       </div>
 
                       <div className={`flex items-center justify-between text-xs font-bold ${isSelected ? 'text-slate-200' : 'text-[#334155]'}`}>
-                        <span>{v.portion_count} Portion{v.portion_count > 1 ? 's' : ''} ({v.total_declared_kg.toLocaleString()} KG)</span>
+                        <span>
+                          {v.portion_count} Portion{v.portion_count > 1 ? 's' : ''}
+                          {v.vehicle_dispatch_quantity_value != null && v.vehicle_dispatch_quantity_unit
+                            ? ` (${Number(v.vehicle_dispatch_quantity_value).toLocaleString()} ${v.vehicle_dispatch_quantity_unit})`
+                            : v.total_quantity_value != null && v.total_quantity_unit
+                            ? ` (${Number(v.total_quantity_value).toLocaleString()} ${v.total_quantity_unit})`
+                            : ''}
+                        </span>
                         <span>Waiting: {v.waiting_minutes} min</span>
                       </div>
 
                       <button
                         type="button"
                         disabled={isSubmitting}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openActionModal('START', v.id);
-                        }}
+                        onClick={(e) => { e.stopPropagation(); openActionModal('START', v.id); }}
                         className="w-full mt-1 py-2 px-3 rounded-lg bg-[#1E3A8A] hover:bg-blue-800 text-white text-xs font-extrabold transition flex items-center justify-center space-x-1.5 shadow-sm"
                       >
                         <Play className="w-3.5 h-3.5 fill-current" />
@@ -762,11 +752,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
                     <div
                       key={`in-testing-${v.id}`}
                       onClick={() => setSelectedTestingVisitId(v.id)}
-                      className={`p-4 rounded-xl border transition cursor-pointer space-y-2 ${
-                        isSelected
-                          ? 'bg-[#1E3A8A] text-white border-blue-900 shadow-md ring-2 ring-blue-500/30'
-                          : 'bg-[#EFE9D9] text-[#111311] border-[#C4B9A3] hover:bg-amber-100/60'
-                      }`}
+                      className={`p-4 rounded-xl border transition cursor-pointer space-y-2 ${isSelected ? 'bg-[#1E3A8A] text-white border-blue-900 shadow-md ring-2 ring-blue-500/30' : 'bg-[#EFE9D9] text-[#111311] border-[#C4B9A3] hover:bg-amber-100/60'}`}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-2">
@@ -804,11 +790,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
                     <div
                       key={`on-hold-${v.id}`}
                       onClick={() => setSelectedHeldVisitId(v.id)}
-                      className={`p-4 rounded-xl border transition cursor-pointer space-y-2 ${
-                        isSelected
-                          ? 'bg-amber-900 text-white border-amber-950 shadow-md ring-2 ring-amber-500/30'
-                          : 'bg-amber-50 text-[#111311] border-amber-200 hover:bg-amber-100/80'
-                      }`}
+                      className={`p-4 rounded-xl border transition cursor-pointer space-y-2 ${isSelected ? 'bg-amber-900 text-white border-amber-950 shadow-md ring-2 ring-amber-500/30' : 'bg-amber-50 text-[#111311] border-amber-200 hover:bg-amber-100/80'}`}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-2">
@@ -828,16 +810,13 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
 
                       <div className={`flex items-center justify-between text-[11px] font-bold ${isSelected ? 'text-amber-200' : 'text-amber-800'}`}>
                         <span>Chemist: {v.chemist_name}</span>
-                        <span>Held since: {new Date(v.held_since).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span>
+                        <span>Held since: {formatOperationalTime(v.held_since)}</span>
                       </div>
 
                       <button
                         type="button"
                         disabled={isSubmitting}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openActionModal('RESUME', v.id);
-                        }}
+                        onClick={(e) => { e.stopPropagation(); openActionModal('RESUME', v.id); }}
                         className="w-full mt-1 py-2 px-3 rounded-lg bg-amber-700 hover:bg-amber-800 text-white text-xs font-extrabold transition flex items-center justify-center space-x-1.5 shadow-sm"
                       >
                         <Play className="w-3.5 h-3.5 fill-current" />
@@ -869,12 +848,18 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
 
                 <div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-[#F4EFE3] border border-[#C4B9A3] text-xs font-mono font-bold">
                   <div>
-                    <span className="text-slate-500 font-sans block text-[9px]">Declared Volume</span>
-                    <span>{selectedWaitingVisit.total_declared_kg.toLocaleString()} KG ({selectedWaitingVisit.portion_count} Portion{selectedWaitingVisit.portion_count > 1 ? 's' : ''})</span>
+                    <span className="text-slate-500 font-sans block text-[9px]">Vehicle Quantity</span>
+                    <span>
+                      {selectedWaitingVisit.vehicle_dispatch_quantity_value != null && selectedWaitingVisit.vehicle_dispatch_quantity_unit
+                        ? `${Number(selectedWaitingVisit.vehicle_dispatch_quantity_value).toLocaleString()} ${selectedWaitingVisit.vehicle_dispatch_quantity_unit}`
+                        : selectedWaitingVisit.total_quantity_value != null && selectedWaitingVisit.total_quantity_unit
+                        ? `${Number(selectedWaitingVisit.total_quantity_value).toLocaleString()} ${selectedWaitingVisit.total_quantity_unit}`
+                        : '—'} ({selectedWaitingVisit.portion_count} Portion{selectedWaitingVisit.portion_count > 1 ? 's' : ''})
+                    </span>
                   </div>
                   <div>
                     <span className="text-slate-500 font-sans block text-[9px]">Gate Entry Time</span>
-                    <span>{selectedWaitingVisit.entry_timestamp ? new Date(selectedWaitingVisit.entry_timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : 'Just arrived'}</span>
+                    <span>{selectedWaitingVisit.entry_timestamp ? formatOperationalTime(selectedWaitingVisit.entry_timestamp) : 'Just arrived'}</span>
                   </div>
                   <div>
                     <span className="text-slate-500 font-sans block text-[9px]">Waiting Time</span>
@@ -916,7 +901,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
                       {visitDetail.vehicle_number} • {visitDetail.token_number || 'NO-TOKEN'} • Portion {activePortionIndex + 1} of {visitDetail.portions.length}
                     </h3>
                     <p className="text-xs text-[#334155] font-semibold mt-0.5">
-                      Date: {visitDetail.operational_date || 'Today'}
+                      Operational Date: {visitDetail.operational_date || 'Today'}
                     </p>
                   </div>
                   <span className="px-2.5 py-1 rounded-full text-xs font-extrabold uppercase bg-blue-100 text-[#1E3A8A] font-mono border border-blue-300">
@@ -937,11 +922,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
                         key={`portion-tab-${p.id}`}
                         type="button"
                         onClick={() => handleSelectPortionTab(idx)}
-                        className={`px-3.5 py-2 rounded-xl text-xs font-extrabold transition flex items-center space-x-1.5 ${
-                          isSelected
-                            ? 'bg-[#1E3A8A] text-white shadow-sm'
-                            : 'bg-[#F4EFE3] text-[#334155] border border-[#C4B9A3] hover:bg-amber-100/50'
-                        }`}
+                        className={`px-3.5 py-2 rounded-xl text-xs font-extrabold transition flex items-center space-x-1.5 ${isSelected ? 'bg-[#1E3A8A] text-white shadow-sm' : 'bg-[#F4EFE3] text-[#334155] border border-[#C4B9A3] hover:bg-amber-100/50'}`}
                       >
                         {isAccepted ? (
                           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
@@ -961,17 +942,43 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
                   })}
                 </div>
 
-                {/* Active Portion Details Header */}
+                {/* Active Portion Details */}
                 {currentPortion && (
                   <div className="space-y-4">
+                    {/* Declared Quantity & Accountability Counter — crash-safe */}
                     <div className="flex items-center justify-between text-xs font-bold text-[#334155]">
-                      <span>Declared Quantity: <strong className="font-mono text-[#111311]">{currentPortion.declared_quantity_kg.toLocaleString()} KG</strong></span>
-                      <span>{completedTestCount} of {requiredPlantTests.length} required tests filled</span>
+                      <span>
+                        Dispatch Quantity: <strong className="font-mono text-[#111311]">{formatDispatchQty(currentPortion)}</strong>
+                      </span>
+                      <span>{performedCount} of {requiredManualPlantTests.length} required tests PERFORMED</span>
+                    </div>
+
+                    {/* Accountability summary badges */}
+                    <div className="flex items-center gap-2 text-[10px] font-mono font-bold">
+                      <span className="px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" />
+                        {performedCount} PERFORMED
+                      </span>
+                      <span className={`px-2 py-0.5 rounded-lg flex items-center gap-1 ${notPerformedCount > 0 ? 'bg-rose-50 text-rose-800 border border-rose-200' : 'bg-slate-50 text-slate-500 border border-slate-200'}`}>
+                        <Ban className="w-3 h-3" />
+                        {notPerformedCount} NOT PERFORMED
+                      </span>
+                      <span className={`px-2 py-0.5 rounded-lg flex items-center gap-1 ${unresolvedCount > 0 ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-slate-50 text-slate-500 border border-slate-200'}`}>
+                        <HelpCircle className="w-3 h-3" />
+                        {unresolvedCount} UNRESOLVED
+                      </span>
                     </div>
 
                     {currentPortion.plant_rejection_reason && (
                       <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-bold">
                         Note: {currentPortion.plant_rejection_reason}
+                      </div>
+                    )}
+
+                    {msg && (
+                      <div className={`p-3 rounded-xl text-xs font-bold flex items-center gap-2 ${msg.isError ? 'bg-rose-50 border border-rose-200 text-rose-800' : 'bg-emerald-50 border border-emerald-200 text-emerald-800'}`}>
+                        <AlertCircle className="w-4 h-4 shrink-0" />
+                        {msg.text}
                       </div>
                     )}
 
@@ -983,13 +990,15 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[360px] overflow-y-auto pr-1">
                         {visitDetail.active_plant_tests.map((test) => {
-                          const val = testInputs[test.id] || { numericValue: '', textValue: '' };
+                          const state = testInputs[test.id] || { performanceStatus: 'PERFORMED', notPerformedReason: '', numericValue: '', textValue: '' };
+                          const isNotPerformed = state.performanceStatus === 'NOT_PERFORMED';
 
                           return (
                             <div
                               key={`plant-test-${test.id}`}
-                              className="p-3 rounded-xl bg-[#F4EFE3] border border-[#C4B9A3] space-y-1.5"
+                              className={`p-3 rounded-xl border space-y-2 ${isNotPerformed ? 'bg-rose-50 border-rose-200' : 'bg-[#F4EFE3] border-[#C4B9A3]'}`}
                             >
+                              {/* Test header */}
                               <div className="flex items-center justify-between text-xs font-bold">
                                 <span>
                                   {test.testName} {test.isRequired && <span className="text-rose-600">*</span>}
@@ -999,70 +1008,108 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
                                 )}
                               </div>
 
-                              {test.resultType === 'NUMERIC' ? (
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  value={val.numericValue}
-                                  onChange={(e) => {
-                                    setIsFormDirty(true);
-                                    setTestInputs({
-                                      ...testInputs,
-                                      [test.id]: { ...val, numericValue: e.target.value },
-                                    });
-                                  }}
-                                  placeholder="Enter value"
-                                  className="w-full px-3 py-1.5 text-xs font-mono font-bold rounded-lg border border-[#C4B9A3] bg-white text-[#111311]"
-                                />
-                              ) : test.resultType === 'OK_NOT_OK' ? (
-                                <select
-                                  value={val.textValue || 'OK'}
-                                  onChange={(e) => {
-                                    setIsFormDirty(true);
-                                    setTestInputs({
-                                      ...testInputs,
-                                      [test.id]: { ...val, textValue: e.target.value },
-                                    });
-                                  }}
-                                  className="w-full px-3 py-1.5 text-xs font-mono font-bold rounded-lg border border-[#C4B9A3] bg-white text-[#111311]"
-                                >
-                                  <option value="OK">OK</option>
-                                  <option value="NOT_OK">NOT_OK</option>
-                                </select>
-                              ) : test.resultType === 'POSITIVE_NEGATIVE' ? (
-                                <select
-                                  value={val.textValue || 'NEGATIVE'}
-                                  onChange={(e) => {
-                                    setIsFormDirty(true);
-                                    setTestInputs({
-                                      ...testInputs,
-                                      [test.id]: { ...val, textValue: e.target.value },
-                                    });
-                                  }}
-                                  className="w-full px-3 py-1.5 text-xs font-mono font-bold rounded-lg border border-[#C4B9A3] bg-white text-[#111311]"
-                                >
-                                  <option value="NEGATIVE">NEGATIVE</option>
-                                  <option value="POSITIVE">POSITIVE</option>
-                                </select>
-                              ) : test.resultType === 'CALCULATED' ? (
-                                <div className="w-full px-3 py-1.5 text-xs font-mono font-bold rounded-lg border border-[#C4B9A3] bg-slate-100 text-slate-700 flex items-center justify-between">
-                                  <span>{val.numericValue || 'Auto-Calculated'}</span>
-                                  <span className="text-[9px] uppercase tracking-wider font-extrabold text-blue-700">Calculated</span>
+                              {/* PERFORMED / NOT_PERFORMED toggle — hidden for CALCULATED tests */}
+                              {test.resultType !== 'CALCULATED' && (
+                                <div className="flex items-center space-x-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setIsFormDirty(true);
+                                      setTestInputs((prev) => ({
+                                        ...prev,
+                                        [test.id]: { ...state, performanceStatus: 'PERFORMED' },
+                                      }));
+                                    }}
+                                    className={`px-2 py-0.5 rounded text-[10px] font-black transition ${state.performanceStatus === 'PERFORMED' ? 'bg-blue-700 text-white' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}
+                                  >
+                                    PERFORMED
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setIsFormDirty(true);
+                                      setTestInputs((prev) => ({
+                                        ...prev,
+                                        [test.id]: { ...state, performanceStatus: 'NOT_PERFORMED', numericValue: '', textValue: '' },
+                                      }));
+                                    }}
+                                    className={`px-2 py-0.5 rounded text-[10px] font-black transition ${state.performanceStatus === 'NOT_PERFORMED' ? 'bg-rose-700 text-white' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}
+                                  >
+                                    NOT PERFORMED
+                                  </button>
                                 </div>
-                              ) : (
-                                <input
-                                  type="text"
-                                  value={val.textValue}
+                              )}
+
+                              {/* NOT_PERFORMED reason textarea */}
+                              {isNotPerformed && test.resultType !== 'CALCULATED' && (
+                                <textarea
+                                  value={state.notPerformedReason}
                                   onChange={(e) => {
                                     setIsFormDirty(true);
-                                    setTestInputs({
-                                      ...testInputs,
-                                      [test.id]: { ...val, textValue: e.target.value },
-                                    });
+                                    setTestInputs((prev) => ({
+                                      ...prev,
+                                      [test.id]: { ...state, notPerformedReason: e.target.value },
+                                    }));
                                   }}
-                                  placeholder="Enter text result"
-                                  className="w-full px-3 py-1.5 text-xs font-mono font-bold rounded-lg border border-[#C4B9A3] bg-white text-[#111311]"
+                                  placeholder="Reason not performed..."
+                                  rows={2}
+                                  className="w-full px-2 py-1.5 text-[10px] font-mono font-bold rounded-lg border border-rose-300 bg-white text-rose-900 resize-none focus:outline-none focus:ring-1 focus:ring-rose-400"
                                 />
+                              )}
+
+                              {/* Value input — only when PERFORMED */}
+                              {!isNotPerformed && (
+                                <>
+                                  {test.resultType === 'NUMERIC' ? (
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      value={state.numericValue}
+                                      onChange={(e) => {
+                                        setIsFormDirty(true);
+                                        setTestInputs((prev) => ({
+                                          ...prev,
+                                          [test.id]: { ...state, numericValue: e.target.value },
+                                        }));
+                                      }}
+                                      placeholder="Enter value"
+                                      className="w-full px-3 py-1.5 text-xs font-mono font-bold rounded-lg border border-[#C4B9A3] bg-white text-[#111311]"
+                                    />
+                                  ) : Array.isArray(test.resultOptions) && test.resultOptions.length > 0 ? (
+                                    <QualitativeResultRadioGroup
+                                      name={`qa-${visitDetail.id}-${currentPortion.id}-${test.id}`}
+                                      value={state.textValue || null}
+                                      options={test.resultOptions}
+                                      onChange={(val) => {
+                                        setIsFormDirty(true);
+                                        setTestInputs((prev) => ({
+                                          ...prev,
+                                          [test.id]: { ...state, textValue: val },
+                                        }));
+                                      }}
+                                      ariaLabel={`${test.testName} result for Portion ${currentPortion.portion_number}`}
+                                    />
+                                  ) : test.resultType === 'CALCULATED' ? (
+                                    <div className="w-full px-3 py-1.5 text-xs font-mono font-bold rounded-lg border border-[#C4B9A3] bg-slate-100 text-slate-700 flex items-center justify-between">
+                                      <span>{state.numericValue || 'Auto-Calculated'}</span>
+                                      <span className="text-[9px] uppercase tracking-wider font-extrabold text-blue-700">Calculated</span>
+                                    </div>
+                                  ) : (
+                                    <input
+                                      type="text"
+                                      value={state.textValue}
+                                      onChange={(e) => {
+                                        setIsFormDirty(true);
+                                        setTestInputs((prev) => ({
+                                          ...prev,
+                                          [test.id]: { ...state, textValue: e.target.value },
+                                        }));
+                                      }}
+                                      placeholder="Enter text result"
+                                      className="w-full px-3 py-1.5 text-xs font-mono font-bold rounded-lg border border-[#C4B9A3] bg-white text-[#111311]"
+                                    />
+                                  )}
+                                </>
                               )}
                             </div>
                           );
@@ -1071,16 +1118,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
                     </div>
 
                     {/* Actions Bar */}
-                    <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-[#C4B9A3]">
-                      <button
-                        type="button"
-                        disabled={isSubmitting}
-                        onClick={handleSaveDraft}
-                        className="px-4 py-2 rounded-xl bg-white border border-[#C4B9A3] text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
-                      >
-                        Save Draft
-                      </button>
-
+                    <div className="flex flex-wrap items-center justify-end gap-3 pt-3 border-t border-[#C4B9A3]">
                       <div className="flex items-center space-x-2">
                         <button
                           type="button"
@@ -1102,9 +1140,10 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
 
                         <button
                           type="button"
-                          disabled={isSubmitting}
+                          disabled={isSubmitting || !canAccept}
                           onClick={() => openActionModal('ACCEPT')}
-                          className="px-5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-extrabold transition shadow-md"
+                          title={!canAccept ? 'All required tests must be PERFORMED with valid values to accept.' : undefined}
+                          className={`px-5 py-2 rounded-xl text-white text-xs font-extrabold transition shadow-md ${canAccept ? 'bg-emerald-700 hover:bg-emerald-800' : 'bg-slate-400 cursor-not-allowed'}`}
                         >
                           Accept Portion
                         </button>
@@ -1140,7 +1179,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
                 <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs font-bold space-y-2 text-amber-950">
                   <div className="flex items-center justify-between">
                     <span>Chemist: <strong>{selectedHeldVisit.chemist_name}</strong></span>
-                    <span>Held Since: <strong>{new Date(selectedHeldVisit.held_since).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</strong></span>
+                    <span>Held Since: <strong>{formatOperationalTime(selectedHeldVisit.held_since)}</strong></span>
                   </div>
                   <div>
                     <span className="text-slate-500 text-[10px] uppercase font-mono block">Hold Reason</span>
@@ -1174,7 +1213,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
 
             <div>
               <label className="block text-xs font-bold mb-1 flex items-center justify-between">
-                <span>QA Start Operational Date & Time *</span>
+                <span>QA Start Time *</span>
                 <Clock className="w-3.5 h-3.5 text-blue-700" />
               </label>
               <input
@@ -1187,25 +1226,13 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
                 required
               />
               <p className="text-[11px] text-slate-600 font-medium mt-1">
-                Min: Gate Entry timestamp ({selectedWaitingVisit?.entry_timestamp ? new Date(selectedWaitingVisit.entry_timestamp).toLocaleTimeString() : 'N/A'})
+                Min: Gate Entry timestamp ({selectedWaitingVisit?.entry_timestamp ? formatOperationalTime(selectedWaitingVisit.entry_timestamp) : 'N/A'})
               </p>
             </div>
 
             <div className="flex items-center justify-end space-x-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setActiveActionModal(null)}
-                className="px-4 py-2 rounded-xl bg-white border border-[#C4B9A3] text-xs font-bold"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="px-5 py-2 rounded-xl bg-[#1E3A8A] text-white text-xs font-extrabold shadow-md hover:bg-blue-900 disabled:opacity-50"
-              >
-                Start Session
-              </button>
+              <button type="button" onClick={() => setActiveActionModal(null)} className="px-4 py-2 rounded-xl bg-white border border-[#C4B9A3] text-xs font-bold">Cancel</button>
+              <button type="submit" disabled={isSubmitting} className="px-5 py-2 rounded-xl bg-[#1E3A8A] text-white text-xs font-extrabold shadow-md hover:bg-blue-900 disabled:opacity-50">Start Session</button>
             </div>
           </form>
         </div>
@@ -1222,7 +1249,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
 
             <div>
               <label className="block text-xs font-bold mb-1 flex items-center justify-between">
-                <span>QA Resume Operational Date & Time *</span>
+                <span>QA Resume Time *</span>
                 <Clock className="w-3.5 h-3.5 text-amber-700" />
               </label>
               <input
@@ -1235,25 +1262,13 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
                 required
               />
               <p className="text-[11px] text-slate-600 font-medium mt-1">
-                Min: Latest HOLD timestamp ({selectedHeldVisit?.held_since ? new Date(selectedHeldVisit.held_since).toLocaleTimeString() : 'N/A'})
+                Min: Latest HOLD timestamp ({selectedHeldVisit?.held_since ? formatOperationalTime(selectedHeldVisit.held_since) : 'N/A'})
               </p>
             </div>
 
             <div className="flex items-center justify-end space-x-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setActiveActionModal(null)}
-                className="px-4 py-2 rounded-xl bg-white border border-[#C4B9A3] text-xs font-bold"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="px-5 py-2 rounded-xl bg-amber-700 text-white text-xs font-extrabold shadow-md hover:bg-amber-800 disabled:opacity-50"
-              >
-                Resume Session
-              </button>
+              <button type="button" onClick={() => setActiveActionModal(null)} className="px-4 py-2 rounded-xl bg-white border border-[#C4B9A3] text-xs font-bold">Cancel</button>
+              <button type="submit" disabled={isSubmitting} className="px-5 py-2 rounded-xl bg-amber-700 text-white text-xs font-extrabold shadow-md hover:bg-amber-800 disabled:opacity-50">Resume Session</button>
             </div>
           </form>
         </div>
@@ -1268,14 +1283,16 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
               Accept Portion #{currentPortion?.portion_number}
             </h3>
 
-            <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-xs font-bold text-emerald-900 space-y-1">
-              <div>Required Tests Progress: {completedTestCount} / {requiredPlantTests.length} recorded</div>
-              <div className="text-[11px] text-emerald-700">All required plant lab tests passed laboratory thresholds.</div>
+            <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-xs font-bold text-emerald-900 space-y-1.5">
+              <div>PERFORMED: {performedCount} / {requiredManualPlantTests.length} required tests</div>
+              {notPerformedCount > 0 && <div className="text-rose-700">⚠ NOT PERFORMED: {notPerformedCount} (blocks ACCEPT)</div>}
+              {unresolvedCount > 0 && <div className="text-amber-700">⚠ UNRESOLVED: {unresolvedCount} (blocks ACCEPT)</div>}
+              {canAccept && <div className="text-emerald-700 text-[11px]">All required plant lab tests are PERFORMED. Ready to accept.</div>}
             </div>
 
             <div>
               <label className="block text-xs font-bold mb-1 flex items-center justify-between">
-                <span>QA Decision Operational Date & Time *</span>
+                <span>Acceptance Time *</span>
                 <Clock className="w-3.5 h-3.5 text-emerald-700" />
               </label>
               <input
@@ -1290,18 +1307,8 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
             </div>
 
             <div className="flex items-center justify-end space-x-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setActiveActionModal(null)}
-                className="px-4 py-2 rounded-xl bg-white border border-[#C4B9A3] text-xs font-bold"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="px-5 py-2 rounded-xl bg-emerald-700 text-white text-xs font-extrabold shadow-md hover:bg-emerald-800 disabled:opacity-50"
-              >
+              <button type="button" onClick={() => setActiveActionModal(null)} className="px-4 py-2 rounded-xl bg-white border border-[#C4B9A3] text-xs font-bold">Cancel</button>
+              <button type="submit" disabled={isSubmitting || !canAccept} className="px-5 py-2 rounded-xl bg-emerald-700 text-white text-xs font-extrabold shadow-md hover:bg-emerald-800 disabled:opacity-50">
                 Confirm Accept
               </button>
             </div>
@@ -1309,7 +1316,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
         </div>
       )}
 
-      {/* Reject Action Reason Modal */}
+      {/* Reject Action Modal */}
       {activeActionModal === 'REJECT' && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <form onSubmit={handleRejectPortionConfirm} className="bg-[#EFE9D9] border border-[#C4B9A3] p-6 rounded-2xl max-w-md w-full space-y-4 text-[#111311]">
@@ -1317,6 +1324,13 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
               <XCircle className="w-5 h-5" />
               Confirm Portion Rejection
             </h3>
+
+            <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs font-bold text-amber-900 space-y-1">
+              <div>PERFORMED: {performedCount} (genuine evidence required)</div>
+              <div className="text-[11px] text-amber-700">
+                Unresolved required tests will be auto-finalized as NOT_PERFORMED (VEHICLE_REJECTED_BEFORE_TEST_COMPLETION).
+              </div>
+            </div>
 
             <div>
               <label className="block text-xs font-bold mb-1">Rejection Reason *</label>
@@ -1342,7 +1356,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
 
             <div>
               <label className="block text-xs font-bold mb-1 flex items-center justify-between">
-                <span>QA Decision Operational Date & Time *</span>
+                <span>Rejection Time *</span>
                 <Clock className="w-3.5 h-3.5 text-rose-700" />
               </label>
               <input
@@ -1357,13 +1371,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
             </div>
 
             <div className="flex items-center justify-end space-x-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setActiveActionModal(null)}
-                className="px-4 py-2 rounded-xl bg-white border border-[#C4B9A3] text-xs font-bold"
-              >
-                Cancel
-              </button>
+              <button type="button" onClick={() => setActiveActionModal(null)} className="px-4 py-2 rounded-xl bg-white border border-[#C4B9A3] text-xs font-bold">Cancel</button>
               <button
                 type="submit"
                 disabled={isSubmitting || !rejectionReason.trim() || !rejectionRemarks.trim()}
@@ -1376,7 +1384,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
         </div>
       )}
 
-      {/* Hold Action Reason Modal */}
+      {/* Hold Action Modal */}
       {activeActionModal === 'HOLD' && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <form onSubmit={handleHoldPortionConfirm} className="bg-[#EFE9D9] border border-[#C4B9A3] p-6 rounded-2xl max-w-md w-full space-y-4 text-[#111311]">
@@ -1384,6 +1392,13 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
               <PauseCircle className="w-5 h-5" />
               Place Portion on Hold
             </h3>
+
+            <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs font-bold text-amber-900">
+              <div className="text-[11px]">
+                Current test state will be preserved: {performedCount} PERFORMED, {notPerformedCount} NOT_PERFORMED, {unresolvedCount} UNRESOLVED.
+                No auto-finalization occurs on HOLD.
+              </div>
+            </div>
 
             <div>
               <label className="block text-xs font-bold mb-1">Hold Reason *</label>
@@ -1398,7 +1413,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
 
             <div>
               <label className="block text-xs font-bold mb-1 flex items-center justify-between">
-                <span>QA Hold Operational Date & Time *</span>
+                <span>Hold Time *</span>
                 <Clock className="w-3.5 h-3.5 text-amber-700" />
               </label>
               <input
@@ -1413,13 +1428,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
             </div>
 
             <div className="flex items-center justify-end space-x-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setActiveActionModal(null)}
-                className="px-4 py-2 rounded-xl bg-white border border-[#C4B9A3] text-xs font-bold"
-              >
-                Cancel
-              </button>
+              <button type="button" onClick={() => setActiveActionModal(null)} className="px-4 py-2 rounded-xl bg-white border border-[#C4B9A3] text-xs font-bold">Cancel</button>
               <button
                 type="submit"
                 disabled={isSubmitting || !holdReason.trim()}

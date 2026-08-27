@@ -156,24 +156,23 @@ export async function POST(req: Request) {
       const finalizeRes = await finalizeSiloReceiptForVisit(visitId, userIdBigInt, opTimestamp, tx);
 
       if (!finalizeRes.success) {
-        if (finalizeRes.reason === 'MISSING_PLANT_LR') {
-          // Log Pending Audit Event (Vehicle remains in TARE_WEIGHED status)
-          await tx.auditLog.create({
-            data: {
-              table_name: 'vehicle_visit',
-              record_id: visitId,
-              action: 'SILO_RECEIPT_PENDING_PLANT_LR',
-              user_id: userIdBigInt,
-              new_values: {
-                visit_id: visitId.toString(),
-                vehicle_number: visit.vehicle_number,
-                net_weight_kg: netWeightKg,
-                op_timestamp: opTimestamp.toISOString(),
-                reason: 'Authoritative Plant LR unavailable at Tare weighing',
-              },
+        // Log Pending Audit Event (Vehicle remains in TARE_WEIGHED status)
+        await tx.auditLog.create({
+          data: {
+            table_name: 'vehicle_visit',
+            record_id: visitId,
+            action: 'SILO_RECEIPT_PENDING_PREREQUISITES',
+            user_id: userIdBigInt,
+            new_values: {
+              visit_id: visitId.toString(),
+              vehicle_number: visit.vehicle_number,
+              net_weight_kg: netWeightKg,
+              op_timestamp: opTimestamp.toISOString(),
+              reason: finalizeRes.reason || 'Prerequisites incomplete',
+              message: finalizeRes.message,
             },
-          });
-        }
+          },
+        });
       }
 
       return {
@@ -185,13 +184,14 @@ export async function POST(req: Request) {
     });
 
     const isFinalized = result.finalizeRes.success && result.finalizeRes.receiptCreated;
-    const isPendingPlantLr = result.finalizeRes.reason === 'MISSING_PLANT_LR';
+    const finalPhysicalLiters = result.finalizeRes.finalPhysicalLiters !== undefined ? Math.round(result.finalizeRes.finalPhysicalLiters) : null;
+    const finalAt13TSLiters = result.finalizeRes.finalAt13TSLiters !== undefined ? Math.round(result.finalizeRes.finalAt13TSLiters) : null;
 
     let msg = `Second Weight (Tare: ${tareWeightKg} kg) recorded successfully. Net Milk Weight: ${result.netWeightKg.toLocaleString()} kg.`;
     if (isFinalized) {
-      msg += ` Final Silo Receipt created (~${result.finalizeRes.finalLiters?.toLocaleString()} L in ${result.finalizeRes.targetSiloCode}). Vehicle is ready for gate exit.`;
-    } else if (isPendingPlantLr) {
-      msg += ` Final silo inventory receipt is PENDING authoritative Plant QA LR. Vehicle remains in TARE_WEIGHED status.`;
+      msg += ` Final Silo Receipt created (~${finalPhysicalLiters?.toLocaleString()} L in ${result.finalizeRes.targetSiloCode}). Vehicle is ready for gate exit.`;
+    } else {
+      msg += ` Final silo inventory receipt is PENDING (${result.finalizeRes.message}). Vehicle remains in TARE_WEIGHED status.`;
     }
 
     return NextResponse.json({
@@ -200,9 +200,11 @@ export async function POST(req: Request) {
       tareWeightKg: Number(result.ticket.tare_weight_kg),
       netWeightKg: result.netWeightKg,
       receiptCreated: isFinalized,
-      isPendingPlantLr,
-      finalLiters: result.finalizeRes.finalLiters || null,
+      isPendingFinalReceipt: !isFinalized,
+      finalPhysicalLiters,
+      finalAt13TSLiters,
       targetSiloCode: result.finalizeRes.targetSiloCode || null,
+      reason: result.finalizeRes.reason || null,
       message: msg,
     });
   } catch (error: any) {

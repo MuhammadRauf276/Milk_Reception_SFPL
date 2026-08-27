@@ -14,14 +14,16 @@ interface DispatchRecord {
   operational_date: string | null;
   current_status: string;
   portion_count: number;
-  total_declared_kg: number;
+  vehicle_dispatch_quantity_value?: number | null;
+  vehicle_dispatch_quantity_unit?: string | null;
   zonal_contractor_name: string;
   zonal_contractor_dispatch_time: string | null;
   has_gate_entry: boolean;
   portions: Array<{
     id: string;
     portion_number: number;
-    declared_quantity_kg: number;
+    dispatch_quantity_value?: number | null;
+    dispatch_quantity_unit?: string | null;
     plant_decision: string;
     current_status: string;
   }>;
@@ -45,6 +47,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
   currentUser,
   onRefresh,
 }) => {
+  const [activeTab, setActiveTab] = useState<'recent' | 'new'>('new');
   const [dbDispatches, setDbDispatches] = useState<DispatchRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -132,10 +135,68 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
-      {/* Two-Column Workspace Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* LEFT COLUMN (5/12): RECENT DISPATCHES */}
-        <div className="lg:col-span-5 space-y-4">
+      {/* Top-Level Dispatch Workspace Tabs */}
+      <div className="flex items-center space-x-2 border-b border-[#C4B9A3] pb-3" role="tablist">
+        <button
+          type="button"
+          role="tab"
+          id="tab-new-dispatch"
+          aria-selected={activeTab === 'new'}
+          aria-controls="panel-new-dispatch"
+          onClick={() => setActiveTab('new')}
+          className={`px-4 py-2 rounded-xl text-xs font-black transition flex items-center space-x-1.5 ${
+            activeTab === 'new'
+              ? 'bg-[#1E40AF] text-white shadow-sm ring-2 ring-[#1E40AF]/20'
+              : 'bg-[#EFE9D9] text-slate-700 hover:bg-[#E5DEC9] border border-[#C4B9A3]'
+          }`}
+        >
+          <span>New Dispatch</span>
+        </button>
+
+        <button
+          type="button"
+          role="tab"
+          id="tab-recent-dispatches"
+          aria-selected={activeTab === 'recent'}
+          aria-controls="panel-recent-dispatches"
+          onClick={() => setActiveTab('recent')}
+          className={`px-4 py-2 rounded-xl text-xs font-black transition flex items-center space-x-1.5 ${
+            activeTab === 'recent'
+              ? 'bg-[#1E40AF] text-white shadow-sm ring-2 ring-[#1E40AF]/20'
+              : 'bg-[#EFE9D9] text-slate-700 hover:bg-[#E5DEC9] border border-[#C4B9A3]'
+          }`}
+        >
+          <span>Recent Dispatches</span>
+          {pagination.totalRecords > 0 && (
+            <span
+              className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                activeTab === 'recent' ? 'bg-blue-800 text-white' : 'bg-[#F4EFE3] text-slate-700 border border-[#C4B9A3]'
+              }`}
+            >
+              {pagination.totalRecords}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* Tab Panels: New Dispatch Panel (state preserved when hidden) */}
+      <div
+        id="panel-new-dispatch"
+        role="tabpanel"
+        aria-labelledby="tab-new-dispatch"
+        className={activeTab === 'new' ? 'block' : 'hidden'}
+      >
+        <DynamicDispatchForm currentUser={currentUser} onSuccess={() => fetchDbDispatches(1, dateRange)} />
+      </div>
+
+      {/* Tab Panels: Recent Dispatches Panel */}
+      <div
+        id="panel-recent-dispatches"
+        role="tabpanel"
+        aria-labelledby="tab-recent-dispatches"
+        className={activeTab === 'recent' ? 'block' : 'hidden'}
+      >
+        <div className="max-w-4xl mx-auto space-y-4">
           {/* Header & Date Controls */}
           <div className="p-4 rounded-2xl bg-[#EFE9D9] border border-[#C4B9A3] shadow-sm space-y-3">
             <div className="flex items-center justify-between">
@@ -250,7 +311,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
           </div>
 
           {/* Records List */}
-          <div className="space-y-2.5 max-h-[520px] overflow-y-auto pr-1">
+          <div className="space-y-2.5 max-h-[580px] overflow-y-auto pr-1">
             {isLoading ? (
               <div className="p-8 text-center border border-dashed border-[#C4B9A3] rounded-2xl bg-[#EFE9D9] text-xs font-bold text-slate-500">
                 <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-blue-700" />
@@ -288,8 +349,12 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
 
                   <div className="grid grid-cols-2 gap-2 p-2 rounded-lg bg-[#F4EFE3] border border-[#C4B9A3] text-[10.5px] font-mono font-bold">
                     <div>
-                      <span className="text-slate-500 font-sans block text-[9px]">Total Volume</span>
-                      <span>{log.total_declared_kg.toLocaleString()} KG</span>
+                      <span className="text-slate-500 font-sans block text-[9px]">Vehicle Quantity</span>
+                      <span>
+                        {log.vehicle_dispatch_quantity_value != null && log.vehicle_dispatch_quantity_unit
+                          ? `${Number(log.vehicle_dispatch_quantity_value).toLocaleString()} ${log.vehicle_dispatch_quantity_unit}`
+                          : '—'}
+                      </span>
                     </div>
                     <div>
                       <span className="text-slate-500 font-sans block text-[9px]">Date</span>
@@ -329,11 +394,6 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
               </button>
             </div>
           )}
-        </div>
-
-        {/* RIGHT COLUMN (7/12): NEW DISPATCH FORM */}
-        <div className="lg:col-span-7">
-          <DynamicDispatchForm currentUser={currentUser} onSuccess={() => fetchDbDispatches(1, dateRange)} />
         </div>
       </div>
     </div>

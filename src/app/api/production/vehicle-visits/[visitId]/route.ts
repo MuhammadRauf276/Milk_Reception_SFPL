@@ -34,10 +34,29 @@ export async function GET(
 
     const acceptedPortions = v.portions.filter((p) => p.plant_decision === 'ACCEPTED');
     const rejectedPortions = v.portions.filter((p) => p.plant_decision === 'REJECTED');
-    const totalAcceptedDeclaredKg = acceptedPortions.reduce(
-      (sum, p) => sum + (p.declared_quantity_kg ? Number(p.declared_quantity_kg) : 0),
-      0
+    
+    // Unit-safe dispatch total across accepted portions
+    const acceptedUnits = new Set(
+      acceptedPortions
+        .map((p) => (p.dispatch_quantity_unit ? p.dispatch_quantity_unit.toUpperCase() : null))
+        .filter(Boolean)
     );
+    let totalAcceptedDispatchValue: number | null = null;
+    let totalAcceptedDispatchUnit: string | null = null;
+
+    if (acceptedPortions.length > 0) {
+      const hasMissingUnit = acceptedPortions.some((p) => !p.dispatch_quantity_unit);
+      if (!hasMissingUnit && acceptedUnits.size === 1) {
+        totalAcceptedDispatchUnit = Array.from(acceptedUnits)[0] as string;
+        totalAcceptedDispatchValue = acceptedPortions.reduce(
+          (sum, p) => sum + (p.dispatch_quantity_value ? Number(p.dispatch_quantity_value) : 0),
+          0
+        );
+      } else if (acceptedUnits.size > 1) {
+        totalAcceptedDispatchUnit = 'MIXED';
+        totalAcceptedDispatchValue = null;
+      }
+    }
 
     const formatted = {
       id: String(v.id),
@@ -51,11 +70,19 @@ export async function GET(
       portion_count: v.portions.length,
       accepted_portion_count: acceptedPortions.length,
       rejected_portion_count: rejectedPortions.length,
-      total_accepted_declared_kg: totalAcceptedDeclaredKg,
+      vehicle_dispatch_quantity_value: v.vehicle_dispatch_quantity_value !== null && v.vehicle_dispatch_quantity_value !== undefined
+        ? Number(v.vehicle_dispatch_quantity_value)
+        : null,
+      vehicle_dispatch_quantity_unit: v.vehicle_dispatch_quantity_unit || null,
+      vehicle_dispatch_quantity_basis: v.vehicle_dispatch_quantity_basis || null,
+      total_accepted_dispatch_value: totalAcceptedDispatchValue,
+      total_accepted_dispatch_unit: totalAcceptedDispatchUnit,
       portions: v.portions.map((p) => ({
         id: String(p.id),
         portion_number: p.portion_number,
-        declared_quantity_kg: p.declared_quantity_kg ? Number(p.declared_quantity_kg) : 0,
+        dispatch_quantity_value: p.dispatch_quantity_value !== null && p.dispatch_quantity_value !== undefined ? Number(p.dispatch_quantity_value) : null,
+        dispatch_quantity_unit: p.dispatch_quantity_unit ? p.dispatch_quantity_unit.toUpperCase() : null,
+        dispatch_quantity_basis: p.dispatch_quantity_basis || null,
         plant_decision: p.plant_decision || 'PENDING',
         plant_rejection_reason: p.plant_rejection_reason || null,
         current_status: p.current_status,

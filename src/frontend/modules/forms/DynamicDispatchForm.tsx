@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { toDatetimeLocalInput, datetimeLocalToIso } from '@/lib/datetime-utils';
-import { PlusCircle, Trash2, Check, Edit2, Clock, Calculator } from 'lucide-react';
+import { PlusCircle, Check, Clock, Calculator } from 'lucide-react';
 import { useToast } from '@/frontend/context/ToastContext';
+import { QualitativeResultRadioGroup } from '@/frontend/modules/shared/QualitativeResultRadioGroup';
 import { User } from '@core/types';
 import {
   calculateSNF,
@@ -12,23 +13,62 @@ import {
   calculateDensity,
   calculatePhysicalLiters,
   calculateAt13TSLiters,
+  calculateEquivalentKgFromLiters,
+  calculateGrossLiters,
 } from '@/backend/utils/milkFormulas';
+import { getScopedDraftKey } from '@/lib/validations/dispatch';
+
+import {
+  QuantityUnit,
+  MeasurementBasis,
+  DispatchQuantityPolicySnapshotDTO,
+  getAllowedUnits,
+  getAllowedBases,
+} from '@/backend/modules/dispatch/quantity-policy/types';
+import {
+  applySharedPortionUnit,
+  applySharedPortionBasis,
+  createPortionQuantityFromSharedProfile,
+  computeDispatchPortionCalculatedValues,
+  computePortionQuantitySummary,
+  canUseMeasuredPortionTotalForVehicle,
+  computeVehiclePortionDifference,
+  computeDispatchSafeSummaryTotals,
+} from '@/backend/modules/dispatch/quantity/dispatchQuantityService';
 
 interface LabTestDef {
   id: string;
+  testId: string;
   testCode: string;
   testName: string;
   resultType: 'NUMERIC' | 'TEXT' | 'QUALITATIVE' | 'BOOLEAN' | 'OK_NOT_OK' | 'POSITIVE_NEGATIVE' | 'CALCULATED' | string;
   unit: string | null;
   isRequired: boolean;
   displayOrder: number;
+  resultOptions?: Array<{ value: string; label: string; isPassing: boolean | null }> | null;
+}
+
+interface TestResultState {
+  numericValue: string;
+  textValue: string;
+  performanceStatus: 'PERFORMED' | 'NOT_PERFORMED';
+  notPerformedReason: string;
+}
+
+export type QuantityUnitType = QuantityUnit;
+export type MeasurementBasisType = MeasurementBasis;
+
+export interface QuantityState {
+  value: string;
+  unit: QuantityUnit;
+  basis: MeasurementBasis;
 }
 
 interface PortionFormState {
   clientId: string;
   portionNumber: number;
-  declaredQuantityKg: number | '';
-  results: Record<string, { numericValue: string; textValue: string }>;
+  quantity: QuantityState;
+  results: Record<string, TestResultState>;
   isSaved: boolean;
 }
 
@@ -40,87 +80,260 @@ interface DynamicDispatchFormProps {
 export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ currentUser, onSuccess }) => {
   const toast = useToast();
   const [labTests, setLabTests] = useState<LabTestDef[]>([]);
-  const [isLoadingTests, setIsLoadingTests] = useState(true);
+  const [isLoadingTests, setIsLoadingTests] = useState(false);
+
+  const [availableSources, setAvailableSources] = useState<Array<{ id: string; name: string; source_type: string }>>([]);
+  const [selectedSourceId, setSelectedSourceId] = useState<string>('');
+  const [frozenQuantityPolicy, setFrozenQuantityPolicy] = useState<any>(null);
 
   // Vehicle Header Fields
   const [vehicleNumber, setVehicleNumber] = useState('');
   const [vehicleNumberError, setVehicleNumberError] = useState<string | null>(null);
   const [dispatchOpDatetime, setDispatchOpDatetime] = useState<string>(toDatetimeLocalInput(new Date()));
 
+  // Authoritative Vehicle Quantity State
+  const [vehicleQuantity, setVehicleQuantity] = useState<QuantityState>({
+    value: '',
+    unit: 'KG',
+    basis: 'MEASURED',
+  });
+  const [vehicleQuantityError, setVehicleQuantityError] = useState<string | null>(null);
+
   // Portions Draft State
   const [portions, setPortions] = useState<PortionFormState[]>([]);
-  // Currently expanded portion editor index (null if all collapsed)
   const [editingPortionIndex, setEditingPortionIndex] = useState<number | null>(0);
 
-  // Per-portion inline errors state: index -> { declaredQuantityKg?: string, tests: Record<testId, errorMsg> }
+  // Per-portion inline errors state
   const [portionErrors, setPortionErrors] = useState<
-    Record<number, { declaredQuantityKg?: string; tests?: Record<string, string> }>
+    Record<number, { quantity?: string; tests?: Record<string, string> }>
   >({});
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const boundContractor = currentUser?.zone || 'ZMCC / Contractor';
 
+  // Determine user procurement source
+  const userSource = currentUser?.procurement_source || null;
+  const isSourceBound = !!currentUser?.procurement_source_id && !!userSource;
+  const effectiveSource = isSourceBound
+    ? userSource
+    : availableSources.find((s) => s.id === selectedSourceId) || null;
+
+  const effectiveSourceId = isSourceBound
+    ? (userSource?.id ? String(userSource.id) : '')
+    : selectedSourceId;
+
+  const isContractorSource = effectiveSource?.source_type === 'CONTRACTOR';
+
+  // Fetch active sources for global users if needed
   useEffect(() => {
-    async function loadActiveDispatchTests() {
-      try {
-        const res = await fetch('/api/lab-tests?scope=DISPATCH');
-        const data = await res.json();
-        if (data.tests) {
-          setLabTests(data.tests);
-          const initialResults = buildInitialPortionResults(data.tests);
+    // Safely remove legacy un-scoped singleton key from storage on mount
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('mpd_active_draft_visit_id');
+    }
 
-          setPortions([
-            {
-              clientId: 'portion-1',
-              portionNumber: 1,
-              declaredQuantityKg: '',
-              results: initialResults,
-              isSaved: false,
-            },
-          ]);
+    async function loadSources() {
+      if (!isSourceBound) {
+        try {
+          const res = await fetch('/api/super-admin/procurement-sources');
+          const data = await res.json();
+          if (data.sources) {
+            setAvailableSources(data.sources);
+            // Requirement A: Leave selectedSourceId empty initially; do NOT auto-select first source
+          }
+        } catch (_err) {
+          // Fallback handled silently
         }
-      } catch (err: any) {
-        toast.showError('Failed to load lab test definitions', 'Load Error');
-      } finally {
-        setIsLoadingTests(false);
       }
     }
-    loadActiveDispatchTests();
-  }, []);
+    loadSources();
+  }, [isSourceBound]);
 
-  const buildInitialPortionResults = (tests: LabTestDef[]): Record<string, { numericValue: string; textValue: string }> => {
-    const results: Record<string, { numericValue: string; textValue: string }> = {};
+  const buildInitialPortionResults = (tests: LabTestDef[], isContractor = isContractorSource): Record<string, TestResultState> => {
+    const results: Record<string, TestResultState> = {};
 
     tests.forEach((t) => {
-      if (t.resultType === 'OK_NOT_OK') {
-        results[t.id] = { numericValue: '', textValue: 'OK' };
-      } else if (t.resultType === 'POSITIVE_NEGATIVE') {
-        results[t.id] = { numericValue: '', textValue: 'NEGATIVE' };
-      } else if (t.resultType === 'QUALITATIVE') {
-        results[t.id] = { numericValue: '', textValue: 'OK' };
-      } else if (t.resultType === 'BOOLEAN') {
-        results[t.id] = { numericValue: '', textValue: 'NO' };
+      const key = t.testId;
+      if (isContractor) {
+        // Contractor Default: NOT_PERFORMED (Contract Vehicle)
+        results[key] = {
+          numericValue: '',
+          textValue: '',
+          performanceStatus: 'NOT_PERFORMED',
+          notPerformedReason: 'Contract Vehicle',
+        };
       } else {
-        // Manual NUMERIC & CALCULATED tests start empty
-        results[t.id] = { numericValue: '', textValue: '' };
+        // ZMCC Dispatch: Initialized as PERFORMED without claiming automatic results
+        results[key] = {
+          numericValue: '',
+          textValue: '',
+          performanceStatus: 'PERFORMED',
+          notPerformedReason: '',
+        };
       }
     });
 
     return results;
   };
 
+  const [draftVisitId, setDraftVisitId] = useState<string | null>(null);
+  const inFlightInitRef = useRef<{ userId: string; sourceId: string } | null>(null);
+  const initSeqRef = useRef(0);
+
+  const initializeDispatchWorkItem = async (targetSourceId: string, forceNew = false) => {
+    if (!targetSourceId || !currentUser?.id) {
+      setIsLoadingTests(false);
+      return;
+    }
+
+    // Requirement B: In-flight deduplication guard for same user + source context
+    if (!forceNew && inFlightInitRef.current && inFlightInitRef.current.userId === currentUser.id && inFlightInitRef.current.sourceId === targetSourceId) {
+      return;
+    }
+
+    inFlightInitRef.current = { userId: currentUser.id, sourceId: targetSourceId };
+    const currentSeq = ++initSeqRef.current;
+    setIsLoadingTests(true);
+
+    const scopedKey = getScopedDraftKey(currentUser.id, targetSourceId);
+
+    try {
+      const savedDraftId = !forceNew && scopedKey && typeof window !== 'undefined'
+        ? sessionStorage.getItem(scopedKey)
+        : null;
+
+      let res = await fetch('/api/dispatches/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          visitId: savedDraftId || undefined,
+          procurementSourceId: targetSourceId,
+        }),
+      });
+
+      let data = await res.json();
+
+      // Stale draft recovery: if saved draft is invalid (404/400/403), remove stale key and create fresh draft
+      if (!res.ok && savedDraftId && (res.status === 404 || res.status === 400 || res.status === 403)) {
+        if (scopedKey && typeof window !== 'undefined') {
+          sessionStorage.removeItem(scopedKey);
+        }
+        res = await fetch('/api/dispatches/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            procurementSourceId: targetSourceId,
+          }),
+        });
+        data = await res.json();
+      }
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to start dispatch work item');
+      }
+
+      // If a newer initialization request began, ignore this outdated response
+      if (initSeqRef.current !== currentSeq) {
+        return;
+      }
+
+      if (data.assignedTests) {
+        setDraftVisitId(data.visitId);
+        if (data.quantityPolicy?.policy) {
+          setFrozenQuantityPolicy(data.quantityPolicy);
+          const vDef = data.quantityPolicy.policy.vehicleRules?.default;
+          if (vDef) {
+            setVehicleQuantity({
+              value: '',
+              unit: vDef.unit,
+              basis: vDef.basis,
+            });
+          }
+        }
+        if (typeof window !== 'undefined' && data.visitId && scopedKey) {
+          sessionStorage.setItem(scopedKey, data.visitId);
+        }
+
+        setLabTests(data.assignedTests);
+        const isContractor = effectiveSource?.source_type === 'CONTRACTOR';
+        const initialResults = buildInitialPortionResults(data.assignedTests, isContractor);
+
+        if (data.quantityPolicy?.policy) {
+          const pDef = data.quantityPolicy.policy.portionRules?.default;
+          if (pDef) {
+            setPortions([
+              {
+                clientId: 'portion-1',
+                portionNumber: 1,
+                quantity: {
+                  value: '',
+                  unit: pDef.unit,
+                  basis: pDef.basis,
+                },
+                results: initialResults,
+                isSaved: false,
+              },
+            ]);
+          }
+        }
+      }
+    } catch (err: any) {
+      if (initSeqRef.current === currentSeq) {
+        toast.showError(err.message || 'Failed to initialize dispatch test catalog', 'Load Error');
+      }
+    } finally {
+      if (inFlightInitRef.current?.userId === currentUser.id && inFlightInitRef.current?.sourceId === targetSourceId) {
+        inFlightInitRef.current = null;
+      }
+      if (initSeqRef.current === currentSeq) {
+        setIsLoadingTests(false);
+      }
+    }
+  };
+
+  // Wait for authoritative user and source context before initializing
+  useEffect(() => {
+    if (currentUser?.id && effectiveSourceId) {
+      initializeDispatchWorkItem(effectiveSourceId);
+    } else {
+      setIsLoadingTests(false);
+    }
+  }, [currentUser?.id, effectiveSourceId]);
+
+  // Explicit frozen-policy readiness condition
+  const isPolicyReady = !!frozenQuantityPolicy?.policy;
+
+  // Derived allowed options for Vehicle (strictly guarded against undefined)
+  const vehicleAllowedMeasurements = frozenQuantityPolicy?.policy?.vehicleRules?.allowedMeasurements;
+  const vehicleAllowedUnits = isPolicyReady && vehicleAllowedMeasurements ? getAllowedUnits(vehicleAllowedMeasurements) : [];
+  const vehicleAllowedBases = isPolicyReady && vehicleAllowedMeasurements && vehicleQuantity.unit
+    ? getAllowedBases(vehicleAllowedMeasurements, vehicleQuantity.unit)
+    : [];
+
+  // Derived allowed options for Portion (strictly guarded against undefined)
+  const portionAllowedMeasurements = frozenQuantityPolicy?.policy?.portionRules?.allowedMeasurements;
+  const portionAllowedUnits = isPolicyReady && portionAllowedMeasurements ? getAllowedUnits(portionAllowedMeasurements) : [];
+
   const createFreshPortion = (portionNumber: number): PortionFormState => {
-    const freshResults = buildInitialPortionResults(labTests);
+    const freshResults = buildInitialPortionResults(labTests, isContractorSource);
+    const pDef = frozenQuantityPolicy?.policy?.portionRules?.default;
+    if (!pDef) {
+      throw new Error('Cannot create portion: frozen quantity policy snapshot is not loaded.');
+    }
 
     const clientId =
       typeof window !== 'undefined' && window.crypto?.randomUUID
         ? window.crypto.randomUUID()
         : `portion-${Date.now()}-${portionNumber}`;
 
+    const p1 = portions[0];
+    const initialQty = createPortionQuantityFromSharedProfile(
+      p1 ? p1.quantity : null,
+      pDef
+    );
+
     return {
       clientId,
       portionNumber,
-      declaredQuantityKg: '',
+      quantity: initialQty,
       results: freshResults,
       isSaved: false,
     };
@@ -133,10 +346,82 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     }
   };
 
+  const handleVehicleQuantityValueChange = (val: string) => {
+    setVehicleQuantity((prev) => ({ ...prev, value: val }));
+    if (val && Number(val) > 0) {
+      setVehicleQuantityError(null);
+    }
+  };
+
+  const handleVehicleUnitChange = (newUnit: QuantityUnitType) => {
+    const bases = getAllowedBases(vehicleAllowedMeasurements, newUnit);
+    const newBasis = bases.includes(vehicleQuantity.basis) ? vehicleQuantity.basis : bases[0];
+
+    setVehicleQuantity({
+      value: '', // clear entered quantity on unit change
+      unit: newUnit,
+      basis: newBasis,
+    });
+    setVehicleQuantityError(null);
+  };
+
+  const handleVehicleBasisChange = (newBasis: MeasurementBasisType) => {
+    setVehicleQuantity((prev) => ({
+      ...prev,
+      basis: newBasis,
+    }));
+  };
+
+  const handlePortionQuantityValueChange = (index: number, val: string) => {
+    const updated = [...portions];
+    updated[index].quantity.value = val;
+    setPortions(updated);
+
+    if (val && Number(val) > 0) {
+      setPortionErrors((prev) => {
+        if (!prev[index]?.quantity) return prev;
+        const copy = { ...prev[index] };
+        delete copy.quantity;
+        return { ...prev, [index]: copy };
+      });
+    }
+  };
+
+  const handlePortionUnitChange = (index: number, newUnit: QuantityUnitType) => {
+    // Only Portion 1 establishes and can modify the shared portion Unit
+    if (index !== 0) return;
+
+    const updated = applySharedPortionUnit(portions, newUnit, portionAllowedMeasurements);
+    setPortions(updated);
+
+    // Clear quantity validation errors across all portions on unit change
+    setPortionErrors((prev) => {
+      const nextErrors: Record<number, { quantity?: string; tests?: Record<string, string> }> = {};
+      Object.keys(prev).forEach((keyStr) => {
+        const k = Number(keyStr);
+        if (prev[k]) {
+          const { quantity, ...rest } = prev[k];
+          if (Object.keys(rest.tests || {}).length > 0) {
+            nextErrors[k] = rest;
+          }
+        }
+      });
+      return nextErrors;
+    });
+  };
+
+  const handlePortionBasisChange = (index: number, newBasis: MeasurementBasisType) => {
+    // Only Portion 1 establishes and can modify the shared portion Basis
+    if (index !== 0) return;
+
+    const updated = applySharedPortionBasis(portions, newBasis);
+    setPortions(updated);
+  };
+
   const handleAddPortionClick = () => {
     if (editingPortionIndex !== null) {
       const currentEditing = portions[editingPortionIndex];
-      if (currentEditing && (!currentEditing.declaredQuantityKg || Number(currentEditing.declaredQuantityKg) <= 0)) {
+      if (currentEditing && (!currentEditing.quantity.value || Number(currentEditing.quantity.value) <= 0)) {
         toast.showError(`Please enter a valid quantity for Portion ${currentEditing.portionNumber} before adding another.`, 'Validation Error');
         return;
       }
@@ -149,49 +434,151 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     setEditingPortionIndex(updated.length - 1);
   };
 
+  const handlePerformanceStatusChange = (
+    portionIndex: number,
+    testId: string,
+    newStatus: 'PERFORMED' | 'NOT_PERFORMED'
+  ) => {
+    const updated = [...portions];
+    const currentRes = updated[portionIndex].results[testId] || {
+      numericValue: '',
+      textValue: '',
+      performanceStatus: isContractorSource ? 'NOT_PERFORMED' : 'PERFORMED',
+      notPerformedReason: isContractorSource ? 'Contract Vehicle' : '',
+    };
+
+    if (newStatus === 'PERFORMED') {
+      updated[portionIndex].results[testId] = {
+        ...currentRes,
+        performanceStatus: 'PERFORMED',
+        notPerformedReason: '', // Clear reason from active state
+        // Genuine result required - no fake default
+      };
+    } else {
+      updated[portionIndex].results[testId] = {
+        ...currentRes,
+        performanceStatus: 'NOT_PERFORMED',
+        numericValue: '', // Clear numeric result
+        textValue: '',    // Clear categorical result
+        notPerformedReason: currentRes.notPerformedReason?.trim() || (isContractorSource ? 'Contract Vehicle' : 'Testing not performed at dispatch'),
+      };
+    }
+
+    setPortions(updated);
+
+    // Clear inline errors for this test on status change
+    setPortionErrors((prev) => {
+      if (!prev[portionIndex]?.tests?.[testId]) return prev;
+      const testsCopy = { ...prev[portionIndex].tests };
+      delete testsCopy[testId];
+      return {
+        ...prev,
+        [portionIndex]: {
+          ...prev[portionIndex],
+          tests: testsCopy,
+        },
+      };
+    });
+  };
+
+  const handleTestResultChange = (
+    portionIndex: number,
+    testId: string,
+    field: keyof TestResultState,
+    value: string
+  ) => {
+    const updated = [...portions];
+    const currentRes = updated[portionIndex].results[testId] || {
+      numericValue: '',
+      textValue: '',
+      performanceStatus: isContractorSource ? 'NOT_PERFORMED' : 'PERFORMED',
+      notPerformedReason: isContractorSource ? 'Contract Vehicle' : '',
+    };
+
+    const newRes = { ...currentRes, [field]: value };
+
+    // For ZMCC select dropdowns that include NOT_PERFORMED option
+    if (!isContractorSource && field === 'textValue') {
+      if (value === 'NOT_PERFORMED') {
+        newRes.performanceStatus = 'NOT_PERFORMED';
+        newRes.textValue = '';
+        if (!newRes.notPerformedReason) {
+          newRes.notPerformedReason = 'Testing not performed at dispatch';
+        }
+      } else {
+        newRes.performanceStatus = 'PERFORMED';
+        newRes.notPerformedReason = '';
+      }
+    }
+
+    updated[portionIndex].results[testId] = newRes;
+    setPortions(updated);
+
+    setPortionErrors((prev) => {
+      if (!prev[portionIndex]?.tests?.[testId]) return prev;
+      const testsCopy = { ...prev[portionIndex].tests };
+      delete testsCopy[testId];
+      return {
+        ...prev,
+        [portionIndex]: {
+          ...prev[portionIndex],
+          tests: testsCopy,
+        },
+      };
+    });
+  };
+
   const handleSavePortion = (index: number): boolean => {
     const target = portions[index];
     if (!target) return false;
 
-    const errors: { declaredQuantityKg?: string; tests: Record<string, string> } = { tests: {} };
+    const errors: { quantity?: string; tests: Record<string, string> } = { tests: {} };
     let firstInvalidId: string | null = null;
 
-    // 1. Declared Quantity Validation
-    const qty = Number(target.declaredQuantityKg);
-    if (!target.declaredQuantityKg || isNaN(qty) || qty <= 0) {
-      errors.declaredQuantityKg = 'Enter a valid quantity greater than 0 kg.';
+    // 1. Portion Quantity Validation (strictly positive)
+    const qty = Number(target.quantity.value);
+    const unitLabel = target.quantity.unit === 'LITER' ? 'L' : 'kg';
+    if (!target.quantity.value || isNaN(qty) || qty <= 0) {
+      errors.quantity = `Enter a quantity greater than 0 ${unitLabel}.`;
       if (!firstInvalidId) {
-        firstInvalidId = `declared-qty-input-${index}`;
+        firstInvalidId = `portion-qty-input-${index}`;
       }
     }
 
-    // 2. Required Manual Lab Tests Validation (Excludes CALCULATED tests)
-    const requiredManualTests = labTests.filter((t) => t.isRequired && t.resultType !== 'CALCULATED');
-    for (const reqTest of requiredManualTests) {
-      const res = target.results[reqTest.id];
+    // 2. Lab Test Validation for all manual tests
+    const manualTests = labTests.filter((t) => t.resultType !== 'CALCULATED');
+
+    for (const testDef of manualTests) {
+      const res = target.results[testDef.testId];
+
       if (!res) {
-        errors.tests[reqTest.id] = `Result for ${reqTest.testName} is required.`;
-        if (!firstInvalidId) {
-          firstInvalidId = `test-input-field-${index}-${reqTest.id}`;
-        }
-      } else if (reqTest.resultType === 'NUMERIC') {
-        if (res.numericValue === '' || isNaN(Number(res.numericValue)) || Number(res.numericValue) < 0) {
-          errors.tests[reqTest.id] = `Enter a valid numeric value for ${reqTest.testName}.`;
+        errors.tests[testDef.testId] = `Status for ${testDef.testName} is required.`;
+        if (!firstInvalidId) firstInvalidId = `test-input-field-${index}-${testDef.id}`;
+      } else if (res.performanceStatus === 'NOT_PERFORMED') {
+        if (!res.notPerformedReason || !res.notPerformedReason.trim()) {
+          errors.tests[testDef.testId] = `Reason required for unperformed test ${testDef.testName}.`;
           if (!firstInvalidId) {
-            firstInvalidId = `test-input-field-${index}-${reqTest.id}`;
+            firstInvalidId = isContractorSource
+              ? `test-reason-field-${index}-${testDef.id}`
+              : `test-input-field-${index}-${testDef.id}`;
           }
         }
-      } else {
-        if (!res.textValue || res.textValue.trim() === '') {
-          errors.tests[reqTest.id] = `Result for ${reqTest.testName} is required.`;
-          if (!firstInvalidId) {
-            firstInvalidId = `test-input-field-${index}-${reqTest.id}`;
+      } else if (res.performanceStatus === 'PERFORMED') {
+        if (testDef.resultType === 'NUMERIC') {
+          if (res.numericValue === '' || isNaN(Number(res.numericValue)) || Number(res.numericValue) < 0) {
+            errors.tests[testDef.testId] = `Enter a valid numeric value for ${testDef.testName}.`;
+            if (!firstInvalidId) firstInvalidId = `test-input-field-${index}-${testDef.id}`;
+          }
+        } else {
+          if (!res.textValue || res.textValue.trim() === '' || res.textValue === 'NOT_PERFORMED') {
+            errors.tests[testDef.testId] = `Result for ${testDef.testName} is required.`;
+            if (!firstInvalidId) firstInvalidId = `test-input-field-${index}-${testDef.id}`;
           }
         }
       }
     }
 
-    const hasErrors = !!errors.declaredQuantityKg || Object.keys(errors.tests).length > 0;
+    const hasErrors = !!errors.quantity || Object.keys(errors.tests).length > 0;
 
     if (hasErrors) {
       setPortionErrors((prev) => ({ ...prev, [index]: errors }));
@@ -242,9 +629,8 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
 
     setPortions(updated);
 
-    // Clear portion errors for deleted index and adjust shifted indices
     setPortionErrors((prev) => {
-      const nextErrors: Record<number, { declaredQuantityKg?: string; tests?: Record<string, string> }> = {};
+      const nextErrors: Record<number, { quantity?: string; tests?: Record<string, string> }> = {};
       Object.keys(prev).forEach((keyStr) => {
         const k = Number(keyStr);
         if (k < index) nextErrors[k] = prev[k];
@@ -260,75 +646,53 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     }
   };
 
-  const handlePortionQtyChange = (index: number, val: string) => {
-    const updated = [...portions];
-    updated[index].declaredQuantityKg = val ? Number(val) : '';
-    setPortions(updated);
+  const manualLabTests = labTests.filter((t) => t.resultType !== 'CALCULATED');
 
-    // Clear inline quantity error as soon as a valid value > 0 is provided
-    if (val && Number(val) > 0) {
-      setPortionErrors((prev) => {
-        if (!prev[index]?.declaredQuantityKg) return prev;
-        const copy = { ...prev[index] };
-        delete copy.declaredQuantityKg;
-        return { ...prev, [index]: copy };
-      });
-    }
-  };
-
-  const handleTestResultChange = (
-    portionIndex: number,
-    testId: string,
-    field: 'numericValue' | 'textValue',
-    value: string
-  ) => {
-    const updated = [...portions];
-    const currentRes = updated[portionIndex].results[testId] || { numericValue: '', textValue: '' };
-    const newRes = { ...currentRes, [field]: value };
-    updated[portionIndex].results[testId] = newRes;
-    setPortions(updated);
-
-    // Clear lab test error as soon as a valid value is provided
-    setPortionErrors((prev) => {
-      if (!prev[portionIndex]?.tests?.[testId]) return prev;
-      const testDef = labTests.find((t) => t.id === testId);
-      let isNowValid = false;
-
-      if (field === 'numericValue') {
-        isNowValid = value !== '' && !isNaN(Number(value)) && Number(value) >= 0;
-      } else {
-        isNowValid = !!value && value.trim() !== '';
-      }
-
-      if (isNowValid) {
-        const testsCopy = { ...prev[portionIndex].tests };
-        delete testsCopy[testId];
-        return {
-          ...prev,
-          [portionIndex]: {
-            ...prev[portionIndex],
-            tests: testsCopy,
-          },
-        };
-      }
-      return prev;
-    });
-  };
-
-  // Completeness counter: Counts required MANUAL / OBSERVED tests only (excludes CALCULATED tests)
+  // Completeness counter helper: Handles ZMCC vs Contractor Modes
   const getPortionProgress = (portion: PortionFormState) => {
-    const manualRequiredTests = labTests.filter((t) => t.isRequired && t.resultType !== 'CALCULATED');
-    const completedCount = manualRequiredTests.filter((t) => {
-      const res = portion.results[t.id];
+    if (isContractorSource) {
+      const manualLabTests = labTests.filter((t) => t.resultType !== 'CALCULATED');
+      const performedCount = manualLabTests.filter((t) => {
+        const res = portion.results[t.testId];
+        return res?.performanceStatus === 'PERFORMED' && (
+          t.resultType === 'NUMERIC'
+            ? res.numericValue !== '' && !isNaN(Number(res.numericValue))
+            : res.textValue !== '' && res.textValue !== null && res.textValue !== undefined
+        );
+      }).length;
+
+      const notPerformedCount = manualLabTests.filter((t) => {
+        const res = portion.results[t.testId];
+        return res?.performanceStatus === 'NOT_PERFORMED' && !!res.notPerformedReason?.trim();
+      }).length;
+
+      return {
+        isContractor: true,
+        performedCount,
+        notPerformedCount,
+        total: manualLabTests.length,
+        label: `${performedCount} PERFORMED, ${notPerformedCount} NOT_PERFORMED (${manualLabTests.length} tests)`,
+      };
+    }
+
+    // ZMCC Strict Mode
+    const requiredManualTests = labTests.filter((t) => t.isRequired && t.resultType !== 'CALCULATED');
+    const accountedCount = requiredManualTests.filter((t) => {
+      const res = portion.results[t.testId];
       if (!res) return false;
+      if (res.performanceStatus === 'NOT_PERFORMED') return !!res.notPerformedReason;
       if (t.resultType === 'NUMERIC') return res.numericValue !== '' && !isNaN(Number(res.numericValue));
       return res.textValue !== '' && res.textValue !== null && res.textValue !== undefined;
     }).length;
 
-    return { completed: completedCount, total: manualRequiredTests.length };
+    return {
+      completed: accountedCount,
+      total: requiredManualTests.length,
+      label: `${accountedCount} of ${requiredManualTests.length} required tests accounted for`,
+    };
   };
 
-  // Helper to compute live calculated milk metrics for a portion
+  // Helper to compute live calculated milk metrics for a portion (Unit-Safe)
   const computeCalculatedMilkValues = (portion: PortionFormState) => {
     const lrTest = labTests.find(
       (t) => t.testName.toLowerCase().includes('lactometer') || t.testName.toLowerCase().includes('lr')
@@ -340,53 +704,21 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
         !t.testName.toLowerCase().includes('snf')
     );
 
-    const rawLr = lrTest ? portion.results[lrTest.id]?.numericValue : '';
-    const rawFat = fatTest ? portion.results[fatTest.id]?.numericValue : '';
-    const declaredKg = Number(portion.declaredQuantityKg);
+    const lrRes = lrTest ? portion.results[lrTest.testId] : null;
+    const fatRes = fatTest ? portion.results[fatTest.testId] : null;
 
-    const lrNum = rawLr !== '' && rawLr !== undefined && !isNaN(Number(rawLr)) ? Number(rawLr) : null;
-    const fatNum = rawFat !== '' && rawFat !== undefined && !isNaN(Number(rawFat)) ? Number(rawFat) : null;
-    const kgNum = !isNaN(declaredKg) && declaredKg > 0 ? declaredKg : null;
+    const rawLr = lrRes && lrRes.performanceStatus === 'PERFORMED' ? lrRes.numericValue : '';
+    const rawFat = fatRes && fatRes.performanceStatus === 'PERFORMED' ? fatRes.numericValue : '';
 
-    let snfVal: number | null = null;
-    let tsVal: number | null = null;
-    let ratioVal: number | null = null;
-    let densityVal: number | null = null;
-    let physLitersVal: number | null = null;
-    let at13TsLitersVal: number | null = null;
-
-    if (lrNum !== null && fatNum !== null) {
-      snfVal = calculateSNF(lrNum, fatNum);
-      tsVal = calculateTS(fatNum, snfVal);
-      ratioVal = calculateRatio(snfVal, fatNum);
-      densityVal = calculateDensity(lrNum);
-
-      if (kgNum !== null) {
-        physLitersVal = calculatePhysicalLiters(kgNum, lrNum);
-        at13TsLitersVal = calculateAt13TSLiters(physLitersVal, tsVal);
-      }
-    }
-
-    return {
-      declaredKg: kgNum,
-      snf: snfVal,
-      ts: tsVal,
-      ratio: ratioVal,
-      density: densityVal,
-      physicalLiters: physLitersVal,
-      at13TsLiters: at13TsLitersVal,
-    };
+    return computeDispatchPortionCalculatedValues(
+      portion.quantity.value,
+      portion.quantity.unit,
+      rawLr,
+      rawFat
+    );
   };
 
-  const totalDeclaredKg = portions.reduce(
-    (sum, p) => sum + (p.isSaved && p.declaredQuantityKg ? Number(p.declaredQuantityKg) : 0),
-    0
-  );
-
   const savedCount = portions.filter((p) => p.isSaved).length;
-
-  // Filter out CALCULATED tests from the editable LAB TESTS input grid
-  const manualLabTests = labTests.filter((t) => t.resultType !== 'CALCULATED');
 
   const handleSubmitDispatch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -395,6 +727,18 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
       setVehicleNumberError('Vehicle No. is required.');
       toast.showError('Vehicle No. is required.', 'Validation Error');
       const el = document.getElementById('vehicle-number-input');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.focus();
+      }
+      return;
+    }
+
+    const vehQtyNum = Number(vehicleQuantity.value);
+    if (!vehicleQuantity.value || isNaN(vehQtyNum) || vehQtyNum <= 0) {
+      setVehicleQuantityError('Valid vehicle dispatch quantity greater than 0 is required.');
+      toast.showError('Please enter a valid Vehicle Dispatch Quantity.', 'Validation Error');
+      const el = document.getElementById('vehicle-quantity-input');
       if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         el.focus();
@@ -418,28 +762,96 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
 
     const isoDispatchTimestamp = datetimeLocalToIso(dispatchOpDatetime) || undefined;
 
-    const payloadPortions = portions.map((p) => ({
-      portionNumber: p.portionNumber,
-      declaredQuantityKg: Number(p.declaredQuantityKg) || 0,
-      dispatchTimestamp: isoDispatchTimestamp,
-      results: labTests.map((t) => {
-        const res = p.results[t.id] || { numericValue: '', textValue: '' };
-        return {
-          testId: t.id,
-          numericValue: t.resultType === 'NUMERIC' ? (res.numericValue !== '' ? Number(res.numericValue) : null) : null,
-          textValue: t.resultType !== 'NUMERIC' ? (res.textValue ? res.textValue : null) : null,
-        };
-      }),
-    }));
+    const payloadPortions = portions.map((p) => {
+      return {
+        portionNumber: p.portionNumber,
+        quantity: {
+          value: p.quantity.value,
+          unit: p.quantity.unit,
+          basis: p.quantity.basis,
+        },
+        dispatchTimestamp: isoDispatchTimestamp,
+        results: labTests
+          .filter((t) => t.resultType !== 'CALCULATED')
+          .map((t) => {
+            const res = p.results[t.testId] || {
+              numericValue: '',
+              textValue: '',
+              performanceStatus: isContractorSource ? 'NOT_PERFORMED' : 'PERFORMED',
+              notPerformedReason: isContractorSource ? 'Contract Vehicle' : '',
+            };
+
+            return {
+              testId: t.testId,
+              performanceStatus: res.performanceStatus,
+              notPerformedReason: res.performanceStatus === 'NOT_PERFORMED' ? (res.notPerformedReason?.trim() || 'Contract Vehicle') : null,
+              numericValue:
+                res.performanceStatus === 'PERFORMED' && t.resultType === 'NUMERIC'
+                  ? res.numericValue !== '' ? Number(res.numericValue) : null
+                  : null,
+              textValue:
+                res.performanceStatus === 'PERFORMED' && t.resultType !== 'NUMERIC'
+                  ? res.textValue ? res.textValue.trim() : null
+                  : null,
+            };
+          }),
+      };
+    });
+
+    // Determine testing mode
+    let allPerformed = true;
+    let allNotPerformed = true;
+    for (const p of payloadPortions) {
+      for (const r of p.results) {
+        if (r.performanceStatus === 'PERFORMED') {
+          allNotPerformed = false;
+        } else {
+          allPerformed = false;
+        }
+      }
+    }
+
+    let dispatchTestingMode: 'FULL' | 'PARTIAL' | 'NOT_PERFORMED' = 'PARTIAL';
+    if (allNotPerformed) {
+      dispatchTestingMode = 'NOT_PERFORMED';
+    } else if (allPerformed) {
+      dispatchTestingMode = 'FULL';
+    }
+
+    if (!effectiveSource || !effectiveSource.id) {
+      toast.showError('Please select a valid procurement source before submitting.', 'Validation Error');
+      return;
+    }
+
+    if (!draftVisitId) {
+      toast.showError('Dispatch draft is not initialized. Please select a procurement source.', 'Validation Error');
+      return;
+    }
+
+    if (!isPolicyReady) {
+      toast.showError('Quantity policy snapshot is still loading. Please wait before submitting.', 'Validation Error');
+      return;
+    }
 
     try {
+      const effectiveDispatchDate = isoDispatchTimestamp || new Date().toISOString();
+
       const res = await fetch('/api/dispatches', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          visitId: draftVisitId,
           vehicleNumber: vehicleNumber.trim().toUpperCase(),
-          operationalDate: (isoDispatchTimestamp || new Date().toISOString()).split('T')[0],
-          zonalContractorName: boundContractor,
+          operationalDate: effectiveDispatchDate,
+          procurementSourceId: effectiveSource.id,
+          zonalContractorName: effectiveSource.name,
+          dispatchTestingMode,
+          dispatchTestingReason: isContractorSource && allNotPerformed ? 'Contract Vehicle' : null,
+          vehicleQuantity: {
+            value: vehicleQuantity.value,
+            unit: vehicleQuantity.unit,
+            basis: vehicleQuantity.basis,
+          },
           portions: payloadPortions,
         }),
       });
@@ -447,24 +859,21 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to submit dispatch');
 
-      const successText = `Vehicle dispatch created successfully for ${vehicleNumber.toUpperCase()}.`;
-      toast.showSuccess(successText, 'Dispatch Recorded');
-
-      // Reset Form to fresh initial state
+      // Clear scoped draft token and reset Form with fresh assignment for next dispatch
+      const scopedKey = getScopedDraftKey(currentUser?.id, effectiveSourceId);
+      if (typeof window !== 'undefined' && scopedKey) {
+        sessionStorage.removeItem(scopedKey);
+      }
+      setDraftVisitId(null);
       setVehicleNumber('');
       setVehicleNumberError(null);
+      setVehicleQuantityError(null);
       setPortionErrors({});
-      const initialResults = buildInitialPortionResults(labTests);
-      setPortions([
-        {
-          clientId: 'portion-1',
-          portionNumber: 1,
-          declaredQuantityKg: '',
-          results: initialResults,
-          isSaved: false,
-        },
-      ]);
       setEditingPortionIndex(0);
+
+      if (effectiveSourceId) {
+        await initializeDispatchWorkItem(effectiveSourceId, true);
+      }
 
       if (onSuccess) onSuccess();
     } catch (err: any) {
@@ -474,57 +883,361 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     }
   };
 
+  // 4C-5D & 4C-5E Aggregations & Calculations
+  const portionSummary = computePortionQuantitySummary(portions);
+  const isEligibleForAssistance = canUseMeasuredPortionTotalForVehicle(vehicleQuantity, portionSummary);
+  const vehiclePortionComparison = computeVehiclePortionDifference(vehicleQuantity, portionSummary);
+
+  const calculatedPortionsList = portions.map((p) => computeCalculatedMilkValues(p));
+  const safeTotals = computeDispatchSafeSummaryTotals(calculatedPortionsList);
+
   return (
-    <form onSubmit={handleSubmitDispatch} className="p-6 rounded-2xl bg-[#EFE9D9] border border-[#C4B9A3] shadow-sm space-y-5 text-[#111311]">
-      <div className="pb-2 border-b border-[#C4B9A3]">
+    <form onSubmit={handleSubmitDispatch} className="p-4 sm:p-6 rounded-2xl bg-[#EFE9D9] border border-[#C4B9A3] shadow-sm space-y-5 text-[#111311]">
+      <div className="pb-3 border-b border-[#C4B9A3] flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-lg font-extrabold text-[#111311]">New Dispatch</h2>
+
+        {/* Read-Only Source Identity Block for Source-Bound Operators */}
+        <div className="flex items-center space-x-2 bg-[#F4EFE3] px-3 py-1.5 rounded-xl border border-[#C4B9A3]">
+          <span className="text-[10px] uppercase font-bold text-slate-500">Procurement Source:</span>
+          <span className="text-xs font-black text-[#1E40AF] font-mono">
+            {effectiveSource ? effectiveSource.name : (isSourceBound ? 'Loading source...' : 'None Selected')}
+          </span>
+          <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-blue-100 text-blue-900 border border-blue-200">
+            Type: {effectiveSource?.source_type || '—'}
+          </span>
+        </div>
       </div>
 
-      {/* Zone Display & Vehicle Fields */}
-      <div className="p-3.5 rounded-xl bg-[#F4EFE3] border border-[#C4B9A3] space-y-3">
-        <div className="text-xs font-extrabold text-[#334155] border-b border-[#C4B9A3] pb-2">
-          Zone: <span className="text-[#111311] font-mono">{boundContractor}</span>
+      {/* Main 2-Column Responsive Workspace */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* LEFT COLUMN (5/12): STICKY DISPATCH & PORTIONS SUMMARY */}
+        <div className="lg:col-span-5 space-y-4 lg:sticky lg:top-4 self-start order-2 lg:order-1">
+          {/* 1. Vehicle Summary Card */}
+          <div className="p-4 rounded-2xl bg-[#F4EFE3] border border-[#C4B9A3] shadow-sm space-y-3">
+            <div className="flex items-center justify-between border-b border-[#C4B9A3] pb-2">
+              <div className="flex items-center space-x-1.5 text-xs font-black uppercase tracking-wider text-[#111311]">
+                <Calculator className="w-4 h-4 text-[#1E40AF]" />
+                <span>Vehicle Summary</span>
+              </div>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-white text-slate-700 border border-[#C4B9A3]">
+                {portions.length} Portion{portions.length > 1 ? 's' : ''}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-xs font-mono font-bold">
+              <div className="p-2.5 rounded-xl bg-white border border-[#C4B9A3]">
+                <span className="text-[9px] font-sans text-slate-500 block uppercase">Vehicle Dispatch Qty</span>
+                <span className="text-slate-900 text-sm block">
+                  {vehicleQuantity.value ? `${Number(vehicleQuantity.value).toLocaleString()} ${vehicleQuantity.unit}` : '—'}
+                </span>
+                <span className="text-[9px] font-sans text-slate-500 block font-medium mt-0.5">
+                  {vehicleQuantity.basis}
+                </span>
+              </div>
+
+              <div className="p-2.5 rounded-xl bg-white border border-[#C4B9A3]">
+                <span className="text-[9px] font-sans text-slate-500 block uppercase">
+                  {portionSummary.label || 'Portion Total'}
+                </span>
+                <span className="text-slate-900 text-sm block">
+                  {portionSummary.complete && portionSummary.formattedTotal
+                    ? portionSummary.formattedTotal
+                    : '— (incomplete)'}
+                </span>
+                <span className="text-[9px] font-sans text-slate-500 block font-medium mt-0.5">
+                  {portionSummary.basis || '—'}
+                </span>
+              </div>
+            </div>
+
+            {/* Difference / Comparison Strip with Assistance button */}
+            <div className="p-2.5 rounded-xl bg-white border border-[#C4B9A3] text-xs font-bold space-y-1.5">
+              <div className="flex items-center justify-between text-[10px] font-sans uppercase tracking-wider text-slate-500">
+                <span>Vehicle vs Portions</span>
+                {isEligibleForAssistance && portionSummary.totalValue !== null && (
+                  <button
+                    type="button"
+                    id="btn-use-measured-portion-total"
+                    onClick={() => {
+                      handleVehicleQuantityValueChange(portionSummary.totalValue!.toString());
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-[#1E40AF] text-white text-[11px] font-bold shadow-sm hover:bg-blue-800 transition flex items-center space-x-1"
+                  >
+                    <span>Use Measured Portion Total</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="font-mono text-xs">
+                {vehiclePortionComparison.isDifferentUnits ? (
+                  <span className="text-amber-700 font-sans text-[11px] font-semibold">
+                    {vehiclePortionComparison.message}
+                  </span>
+                ) : vehiclePortionComparison.eligibleForDifference && vehiclePortionComparison.formattedDifference !== null ? (
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-600 font-sans text-xs">Difference:</span>
+                    <span
+                      className={
+                        vehiclePortionComparison.difference === 0
+                          ? 'text-emerald-700 font-bold'
+                          : vehiclePortionComparison.difference! > 0
+                          ? 'text-blue-700 font-bold'
+                          : 'text-amber-700 font-bold'
+                      }
+                    >
+                      {vehiclePortionComparison.formattedDifference}
+                    </span>
+                  </div>
+                ) : (
+                  <span className="text-slate-400 font-sans text-[11px]">
+                    Enter vehicle & portion quantities to view difference
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Safe Calculated Totals (Gross Liters & Liters @ 13% TS) */}
+            <div className="grid grid-cols-2 gap-2 text-xs font-mono font-bold pt-1 border-t border-[#C4B9A3]">
+              <div className="p-2 rounded-xl bg-white border border-[#C4B9A3]">
+                <span className="text-[9px] font-sans text-slate-500 block uppercase">Total Gross Liters</span>
+                <span className="text-emerald-900 text-sm">
+                  {safeTotals.formattedTotalGrossLiters || '—'}
+                </span>
+              </div>
+
+              <div className="p-2 rounded-xl bg-white border border-[#C4B9A3]">
+                <span className="text-[9px] font-sans text-slate-500 block uppercase">Total Liters @ 13% TS</span>
+                <span className="text-emerald-900 text-sm">
+                  {safeTotals.formattedTotalLitersAt13TS || '—'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* 2. Dynamic Portion Summaries */}
+          <div className="space-y-3">
+            {portions.map((p, idx) => {
+              const calc = calculatedPortionsList[idx];
+              const lrTest = labTests.find(
+                (t) => t.testName.toLowerCase().includes('lactometer') || t.testName.toLowerCase().includes('lr')
+              );
+              const fatTest = labTests.find(
+                (t) =>
+                  t.testName.toLowerCase().includes('fat') &&
+                  !t.testName.toLowerCase().includes('ratio') &&
+                  !t.testName.toLowerCase().includes('snf')
+              );
+              const lrRes = lrTest ? p.results[lrTest.testId] : null;
+              const fatRes = fatTest ? p.results[fatTest.testId] : null;
+              const lrDisplay =
+                lrRes && lrRes.performanceStatus === 'PERFORMED' && lrRes.numericValue !== ''
+                  ? `${lrRes.numericValue}`
+                  : '—';
+              const fatDisplay =
+                fatRes && fatRes.performanceStatus === 'PERFORMED' && fatRes.numericValue !== ''
+                  ? `${fatRes.numericValue}%`
+                  : '—';
+
+              return (
+                <div
+                  key={`portion-summary-card-${idx}`}
+                  className="p-3.5 rounded-2xl bg-[#F4EFE3] border border-[#C4B9A3] shadow-sm space-y-2.5"
+                >
+                  <div className="flex items-center justify-between border-b border-[#C4B9A3] pb-1.5">
+                    <span className="text-xs font-black text-[#111311] uppercase tracking-wider">
+                      Portion {idx + 1} Summary
+                    </span>
+                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-white text-slate-700 border border-[#C4B9A3]">
+                      {p.quantity.value ? `${Number(p.quantity.value).toLocaleString()} ${p.quantity.unit}` : '—'} ({p.quantity.basis})
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-1.5 text-[11px] font-mono font-bold">
+                    <div className="p-1.5 rounded-lg bg-white border border-[#C4B9A3]">
+                      <span className="text-[9px] font-sans text-slate-500 block">LR / Fat</span>
+                      <span>
+                        {lrDisplay} / {fatDisplay}
+                      </span>
+                    </div>
+                    <div className="p-1.5 rounded-lg bg-white border border-[#C4B9A3]">
+                      <span className="text-[9px] font-sans text-slate-500 block">Density</span>
+                      <span>{calc.density !== null ? `${calc.density.toFixed(4)} g/mL` : '—'}</span>
+                    </div>
+                    <div className="p-1.5 rounded-lg bg-white border border-[#C4B9A3]">
+                      <span className="text-[9px] font-sans text-slate-500 block">Gross Liters</span>
+                      <span className="text-emerald-900">
+                        {calc.grossLiters !== null ? `${Math.round(calc.grossLiters).toLocaleString()} L` : '—'}
+                      </span>
+                    </div>
+                    <div className="p-1.5 rounded-lg bg-white border border-[#C4B9A3]">
+                      <span className="text-[9px] font-sans text-slate-500 block">Liters @ 13% TS</span>
+                      <span className="text-emerald-900">
+                        {calc.at13TsLiters !== null ? `${Math.round(calc.at13TsLiters).toLocaleString()} L` : '—'}
+                      </span>
+                    </div>
+                    <div className="p-1.5 rounded-lg bg-white border border-[#C4B9A3]">
+                      <span className="text-[9px] font-sans text-slate-500 block">SNF %</span>
+                      <span className="text-blue-900">{calc.snf !== null ? `${calc.snf.toFixed(3)} %` : '—'}</span>
+                    </div>
+                    <div className="p-1.5 rounded-lg bg-white border border-[#C4B9A3]">
+                      <span className="text-[9px] font-sans text-slate-500 block">Total Solids (TS %)</span>
+                      <span className="text-blue-900">{calc.ts !== null ? `${calc.ts.toFixed(3)} %` : '—'}</span>
+                    </div>
+                    <div className="p-1.5 rounded-lg bg-white border border-[#C4B9A3] col-span-2">
+                      <span className="text-[9px] font-sans text-slate-500 block">SNF : Fat</span>
+                      <span className="text-blue-900">{calc.ratio !== null ? calc.ratio.toFixed(3) : '—'}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-bold mb-1">Vehicle No. *</label>
-            <input
-              id="vehicle-number-input"
-              type="text"
-              value={vehicleNumber}
-              onChange={(e) => handleVehicleNumberChange(e.target.value)}
-              placeholder="e.g. KBL-8492"
-              className={`w-full px-3 py-2 text-sm font-mono font-bold rounded-xl border bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none ${
-                vehicleNumberError ? 'border-rose-500 bg-rose-50/20 ring-1 ring-rose-500' : 'border-[#C4B9A3]'
-              }`}
-              required
-            />
-            {vehicleNumberError && (
-              <p className="text-xs font-bold text-rose-600 mt-1" id="vehicle-number-error">
-                {vehicleNumberError}
-              </p>
+        {/* RIGHT COLUMN (7/12): INPUT FORM */}
+        <div className="lg:col-span-7 space-y-4 order-1 lg:order-2">
+          {/* Global Source Selector if user is NOT source-bound (e.g. Admin) */}
+          {!isSourceBound && availableSources.length > 0 && (
+            <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs space-y-1">
+              <label className="block font-bold text-amber-900">Select Operating Procurement Source (Admin Override):</label>
+              <select
+                value={selectedSourceId}
+                onChange={(e) => setSelectedSourceId(e.target.value)}
+                className="w-full px-3 py-1.5 font-bold rounded-lg border border-amber-300 bg-white text-slate-900"
+              >
+                <option value="">-- Select Procurement Source --</option>
+                {availableSources.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({s.source_type})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Notice when unbound admin has not yet selected a source */}
+          {!isSourceBound && !selectedSourceId && (
+            <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 text-xs font-semibold">
+              Please select an operating procurement source from the dropdown above to initialize the dispatch draft.
+            </div>
+          )}
+
+          {/* Vehicle Header Fields */}
+          <div className="p-3.5 rounded-xl bg-[#F4EFE3] border border-[#C4B9A3] space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold mb-1">Vehicle No. *</label>
+                <input
+                  id="vehicle-number-input"
+                  type="text"
+                  value={vehicleNumber}
+                  onChange={(e) => handleVehicleNumberChange(e.target.value)}
+                  placeholder="e.g. KBL-8492"
+                  className={`w-full px-3 py-2 text-sm font-mono font-bold rounded-xl border bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none ${
+                    vehicleNumberError ? 'border-rose-500 bg-rose-50/20 ring-1 ring-rose-500' : 'border-[#C4B9A3]'
+                  }`}
+                  required
+                />
+                {vehicleNumberError && (
+                  <p className="text-xs font-bold text-rose-600 mt-1" id="vehicle-number-error">
+                    {vehicleNumberError}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold mb-1 flex items-center justify-between">
+                  <span>Dispatch Time *</span>
+                  <Clock className="w-3.5 h-3.5 text-[#1E40AF]" />
+                </label>
+                <input
+                  type="datetime-local"
+                  value={dispatchOpDatetime}
+                  max={toDatetimeLocalInput(new Date())}
+                  onChange={(e) => setDispatchOpDatetime(e.target.value)}
+                  className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none"
+                  required
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Vehicle Dispatch Quantity Section */}
+          <div className="p-3.5 rounded-xl bg-[#F4EFE3] border border-[#C4B9A3] space-y-2.5">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-extrabold uppercase tracking-wider text-[#111311]">
+                Vehicle Dispatch Quantity *
+              </label>
+              <span className="text-[10px] font-bold text-slate-500">
+                Authoritative Vehicle Measurement
+              </span>
+            </div>
+
+            {!isPolicyReady ? (
+              <div className="p-3 text-center rounded-xl bg-white border border-dashed border-[#C4B9A3] text-xs font-semibold text-slate-500">
+                Loading frozen quantity policy snapshot...
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <div>
+                    <label className="block text-[11px] font-bold mb-1">Value *</label>
+                    <input
+                      id="vehicle-quantity-input"
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      value={vehicleQuantity.value}
+                      onChange={(e) => handleVehicleQuantityValueChange(e.target.value)}
+                      placeholder="e.g. 19500"
+                      className={`w-full px-3 py-2 text-sm font-mono font-bold rounded-xl border bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none ${
+                        vehicleQuantityError ? 'border-rose-500 bg-rose-50/20 ring-1 ring-rose-500' : 'border-[#C4B9A3]'
+                      }`}
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold mb-1">Unit *</label>
+                    <select
+                      value={vehicleQuantity.unit}
+                      onChange={(e) => handleVehicleUnitChange(e.target.value as QuantityUnitType)}
+                      className="w-full px-3 py-2 text-xs font-mono font-black rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none"
+                    >
+                      {vehicleAllowedUnits.map((u) => (
+                        <option key={u} value={u}>
+                          {u}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold mb-1">Basis *</label>
+                    <select
+                      value={vehicleQuantity.basis}
+                      onChange={(e) => handleVehicleBasisChange(e.target.value as MeasurementBasisType)}
+                      className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none"
+                    >
+                      {vehicleAllowedBases.map((b) => (
+                        <option key={b} value={b}>
+                          {b}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {vehicleQuantityError && (
+                  <p className="text-xs font-bold text-rose-600 mt-1" id="vehicle-quantity-error">
+                    {vehicleQuantityError}
+                  </p>
+                )}
+              </>
             )}
           </div>
 
-          <div>
-            <label className="block text-xs font-bold mb-1 flex items-center justify-between">
-              <span>Dispatch Operational Date & Time *</span>
-              <Clock className="w-3.5 h-3.5 text-[#1E40AF]" />
-            </label>
-            <input
-              type="datetime-local"
-              value={dispatchOpDatetime}
-              max={toDatetimeLocalInput(new Date())}
-              onChange={(e) => setDispatchOpDatetime(e.target.value)}
-              className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none"
-              required
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Milk Portions Section */}
+          {/* Milk Portions Section */}
       <div className="space-y-3 pt-1">
         <div className="flex items-center justify-between">
           <label className="text-xs font-extrabold uppercase tracking-wider text-[#111311]">
@@ -566,11 +1279,14 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                         <div className="flex items-center space-x-2">
                           <span className="font-extrabold text-sm text-[#111311]">Portion {portion.portionNumber}</span>
                           <span className="px-2 py-0.5 rounded text-xs font-black bg-blue-100 text-[#1E40AF] font-mono">
-                            {Number(portion.declaredQuantityKg).toLocaleString()} KG
+                            {portion.quantity.value ? `${Number(portion.quantity.value).toLocaleString()} ${portion.quantity.unit}` : '—'}
+                          </span>
+                          <span className="text-[10px] font-bold text-slate-500">
+                            ({portion.quantity.basis})
                           </span>
                         </div>
                         <p className="text-[11px] font-bold text-slate-600 mt-0.5">
-                          {progress.completed} of {progress.total} required tests completed
+                          {progress.label}
                         </p>
                       </div>
                     </div>
@@ -607,11 +1323,11 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                       <span>{calcValues.ts !== null ? `${calcValues.ts.toFixed(2)}%` : '—'}</span>
                     </div>
                     <div>
-                      <span className="text-[9px] font-sans text-slate-500 block">Physical Liters</span>
-                      <span>{calcValues.physicalLiters !== null ? `${Math.round(calcValues.physicalLiters).toLocaleString()} L` : '—'}</span>
+                      <span className="text-[9px] font-sans text-slate-500 block">Gross Liters</span>
+                      <span>{calcValues.grossLiters !== null ? `${Math.round(calcValues.grossLiters).toLocaleString()} L` : '—'}</span>
                     </div>
                     <div>
-                      <span className="text-[9px] font-sans text-slate-500 block">@13 TS Liters</span>
+                      <span className="text-[9px] font-sans text-slate-500 block">Liters @ 13% TS</span>
                       <span>{calcValues.at13TsLiters !== null ? `${Math.round(calcValues.at13TsLiters).toLocaleString()} L` : '—'}</span>
                     </div>
                   </div>
@@ -621,6 +1337,9 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
 
             // Expanded Portion Editor View
             if (isEditing) {
+              const pAllowedBases = getAllowedBases(portionAllowedMeasurements, portion.quantity.unit);
+              const portionLabel = portion.quantity.basis === 'ESTIMATED' ? 'Estimated Portion Quantity' : 'Measured Portion Quantity';
+
               return (
                 <div
                   key={`portion-editor-${portion.clientId}`}
@@ -631,130 +1350,234 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                       Portion {portion.portionNumber}
                     </span>
                     <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200">
-                      {progress.completed} of {progress.total} required tests completed
+                      {progress.label}
                     </span>
                   </div>
 
-                  {/* Declared Quantity Input */}
-                  <div>
-                    <label className="block text-xs font-bold text-[#111311] mb-1">
-                      Declared Quantity (KG) *
-                    </label>
-                    <input
-                      id={`declared-qty-input-${index}`}
-                      type="number"
-                      step="0.01"
-                      value={portion.declaredQuantityKg}
-                      onChange={(e) => handlePortionQtyChange(index, e.target.value)}
-                      placeholder="e.g. 8500"
-                      className={`w-full px-3.5 py-2 text-sm font-mono font-bold rounded-xl border bg-[#F4EFE3] text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none ${
-                        portionErrors[index]?.declaredQuantityKg
-                          ? 'border-rose-500 bg-rose-50/20 ring-1 ring-rose-500'
-                          : 'border-[#C4B9A3]'
-                      }`}
-                      required
-                    />
-                    {portionErrors[index]?.declaredQuantityKg && (
-                      <p className="text-xs font-bold text-rose-600 mt-1" id={`declared-qty-error-${index}`}>
-                        {portionErrors[index].declaredQuantityKg}
+                  {/* Portion Quantity & Controls */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-bold text-[#111311]">
+                        {portionLabel} *
+                      </label>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-600 mb-1">Value *</label>
+                        <input
+                          id={`portion-qty-input-${index}`}
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          value={portion.quantity.value}
+                          onChange={(e) => handlePortionQuantityValueChange(index, e.target.value)}
+                          placeholder="e.g. 8500"
+                          className={`w-full px-3 py-2 text-sm font-mono font-bold rounded-xl border bg-[#F4EFE3] text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none ${
+                            portionErrors[index]?.quantity
+                              ? 'border-rose-500 bg-rose-50/20 ring-1 ring-rose-500'
+                              : 'border-[#C4B9A3]'
+                          }`}
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-600 mb-1">
+                          Unit * {index > 0 && <span className="text-[9px] font-normal text-slate-400">(Shared from P1)</span>}
+                        </label>
+                        {index === 0 ? (
+                          <select
+                            id="portion-unit-select-0"
+                            value={portion.quantity.unit}
+                            onChange={(e) => handlePortionUnitChange(index, e.target.value as QuantityUnitType)}
+                            className="w-full px-3 py-2 text-xs font-mono font-black rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none"
+                          >
+                            {portionAllowedUnits.map((u) => (
+                              <option key={u} value={u}>
+                                {u}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            type="text"
+                            readOnly
+                            disabled
+                            value={portion.quantity.unit}
+                            className="w-full px-3 py-2 text-xs font-mono font-black rounded-xl border border-slate-200 bg-slate-100 text-slate-500 cursor-not-allowed outline-none select-none"
+                          />
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-600 mb-1">
+                          Basis * {index > 0 && <span className="text-[9px] font-normal text-slate-400">(Shared from P1)</span>}
+                        </label>
+                        {index === 0 ? (
+                          <select
+                            id="portion-basis-select-0"
+                            value={portion.quantity.basis}
+                            onChange={(e) => handlePortionBasisChange(index, e.target.value as MeasurementBasisType)}
+                            className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none"
+                          >
+                            {pAllowedBases.map((b) => (
+                              <option key={b} value={b}>
+                                {b}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            type="text"
+                            readOnly
+                            disabled
+                            value={portion.quantity.basis}
+                            className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-slate-200 bg-slate-100 text-slate-500 cursor-not-allowed outline-none select-none"
+                          />
+                        )}
+                      </div>
+                    </div>
+
+                    {portionErrors[index]?.quantity && (
+                      <p className="text-xs font-bold text-rose-600 mt-1" id={`portion-qty-error-${index}`}>
+                        {portionErrors[index].quantity}
                       </p>
                     )}
                   </div>
 
-                  {/* Manual Lab Tests Input Grid (Calculated tests excluded) */}
-                  <div className="space-y-2 pt-1">
-                    <div className="flex items-center justify-between border-b pb-1">
-                      <label className="block text-xs font-extrabold uppercase text-[#111311]">
-                        Lab Tests ({manualLabTests.length} Manual Observations)
-                      </label>
-                      <span className="text-[10px] font-bold text-slate-500">Qualitative defaults auto-selected</span>
-                    </div>
+                  {/* Contractor Dispatch Tests Grid (Explicit Performance Status) */}
+                  {isContractorSource ? (
+                    <div className="space-y-3 pt-1 border-t border-slate-100">
+                      <div className="flex items-center justify-between">
+                        <label className="block text-xs font-extrabold uppercase text-[#111311]">
+                          Contractor Dispatch Tests ({manualLabTests.length} Tests)
+                        </label>
+                        <span className="text-[10px] font-bold text-slate-500">
+                          Default: NOT_PERFORMED (Contract Vehicle)
+                        </span>
+                      </div>
 
-                    {isLoadingTests ? (
-                      <p className="text-xs text-slate-500">Loading lab tests...</p>
-                    ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
                         {manualLabTests.map((test) => {
-                          const resultState = portion.results[test.id] || { numericValue: '', textValue: '' };
-                          const testError = portionErrors[index]?.tests?.[test.id];
+                          const resultState = portion.results[test.testId] || {
+                            numericValue: '',
+                            textValue: '',
+                            performanceStatus: 'PERFORMED',
+                            notPerformedReason: '',
+                          };
+                          const testError = portionErrors[index]?.tests?.[test.testId];
+                          const isPerformed = resultState.performanceStatus === 'PERFORMED';
 
                           return (
                             <div
-                              key={`test-input-${portion.clientId}-${test.id}`}
-                              className={`p-2.5 rounded-xl bg-[#F4EFE3] border space-y-1 ${
-                                testError ? 'border-rose-500 bg-rose-50/20' : 'border-[#C4B9A3]'
+                              key={`contractor-test-${portion.clientId}-${test.id}`}
+                              className={`p-2.5 rounded-xl border space-y-2 transition ${
+                                testError
+                                  ? 'border-rose-500 bg-rose-50/30 ring-1 ring-rose-400'
+                                  : isPerformed
+                                  ? 'border-[#C4B9A3] bg-[#F4EFE3]'
+                                  : 'border-slate-300 bg-slate-100/70'
                               }`}
                             >
                               <div className="flex items-center justify-between text-xs font-bold">
-                                <span>
-                                  {test.testName} {test.isRequired && <span className="text-rose-600">*</span>}
+                                <span className="text-[#111311] font-extrabold">
+                                  {test.testName}
                                 </span>
                                 {test.unit && (
                                   <span className="text-[10px] font-mono text-slate-500">({test.unit})</span>
                                 )}
                               </div>
 
-                              {test.resultType === 'NUMERIC' ? (
-                                <input
-                                  id={`test-input-field-${index}-${test.id}`}
-                                  type="number"
-                                  step="0.01"
-                                  value={resultState.numericValue}
-                                  onChange={(e) =>
-                                    handleTestResultChange(index, test.id, 'numericValue', e.target.value)
-                                  }
-                                  placeholder="Enter value"
-                                  className={`w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border bg-white text-[#111311] ${
-                                    testError ? 'border-rose-500 focus:ring-2 focus:ring-rose-500' : 'border-[#C4B9A3]'
-                                  }`}
-                                  required={test.isRequired}
-                                />
-                              ) : test.resultType === 'OK_NOT_OK' ? (
-                                <select
-                                  id={`test-input-field-${index}-${test.id}`}
-                                  value={resultState.textValue || 'OK'}
-                                  onChange={(e) =>
-                                    handleTestResultChange(index, test.id, 'textValue', e.target.value)
-                                  }
-                                  className={`w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border bg-white text-[#111311] ${
-                                    testError ? 'border-rose-500 focus:ring-2 focus:ring-rose-500' : 'border-[#C4B9A3]'
+                              {/* Performance Status Toggle */}
+                              <div className="flex items-center space-x-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handlePerformanceStatusChange(index, test.testId, 'PERFORMED')}
+                                  className={`px-2.5 py-1 rounded-lg text-[10.5px] font-black transition ${
+                                    isPerformed
+                                      ? 'bg-[#1E40AF] text-white shadow-sm'
+                                      : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
                                   }`}
                                 >
-                                  <option value="OK">OK</option>
-                                  <option value="NOT_OK">NOT_OK</option>
-                                </select>
-                              ) : test.resultType === 'POSITIVE_NEGATIVE' ? (
-                                <select
-                                  id={`test-input-field-${index}-${test.id}`}
-                                  value={resultState.textValue || 'NEGATIVE'}
-                                  onChange={(e) =>
-                                    handleTestResultChange(index, test.id, 'textValue', e.target.value)
-                                  }
-                                  className={`w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border bg-white text-[#111311] ${
-                                    testError ? 'border-rose-500 focus:ring-2 focus:ring-rose-500' : 'border-[#C4B9A3]'
+                                  PERFORMED
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handlePerformanceStatusChange(index, test.testId, 'NOT_PERFORMED')}
+                                  className={`px-2.5 py-1 rounded-lg text-[10.5px] font-black transition ${
+                                    !isPerformed
+                                      ? 'bg-rose-700 text-white shadow-sm'
+                                      : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
                                   }`}
                                 >
-                                  <option value="NEGATIVE">NEGATIVE</option>
-                                  <option value="POSITIVE">POSITIVE</option>
-                                </select>
+                                  NOT PERFORMED
+                                </button>
+                              </div>
+
+                              {/* Dynamic Input Control: Result when PERFORMED, Reason when NOT_PERFORMED */}
+                              {isPerformed ? (
+                                <div className="space-y-1">
+                                  {test.resultType === 'NUMERIC' ? (
+                                    <input
+                                      id={`test-input-field-${index}-${test.id}`}
+                                      type="number"
+                                      step="0.01"
+                                      min="0"
+                                      value={resultState.numericValue}
+                                      onChange={(e) =>
+                                        handleTestResultChange(index, test.testId, 'numericValue', e.target.value)
+                                      }
+                                      placeholder="Enter numeric value"
+                                      className={`w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none ${
+                                        testError ? 'border-rose-500' : 'border-[#C4B9A3]'
+                                      }`}
+                                    />
+                                  ) : Array.isArray(test.resultOptions) && test.resultOptions.length > 0 ? (
+                                    <QualitativeResultRadioGroup
+                                      name={`dispatch-contractor-${portion.clientId}-${test.id}`}
+                                      value={resultState.textValue || null}
+                                      options={test.resultOptions}
+                                      onChange={(val) =>
+                                        handleTestResultChange(index, test.testId, 'textValue', val)
+                                      }
+                                      error={testError}
+                                      ariaLabel={`${test.testName} result for Portion ${portion.portionNumber}`}
+                                    />
+                                  ) : (
+                                    <input
+                                      id={`test-input-field-${index}-${test.id}`}
+                                      type="text"
+                                      value={resultState.textValue}
+                                      onChange={(e) =>
+                                        handleTestResultChange(index, test.testId, 'textValue', e.target.value)
+                                      }
+                                      placeholder="Enter result"
+                                      className={`w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none ${
+                                        testError ? 'border-rose-500' : 'border-[#C4B9A3]'
+                                      }`}
+                                    />
+                                  )}
+                                </div>
                               ) : (
-                                <input
-                                  id={`test-input-field-${index}-${test.id}`}
-                                  type="text"
-                                  value={resultState.textValue}
-                                  onChange={(e) =>
-                                    handleTestResultChange(index, test.id, 'textValue', e.target.value)
-                                  }
-                                  placeholder="Enter result"
-                                  className={`w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border bg-white text-[#111311] ${
-                                    testError ? 'border-rose-500 focus:ring-2 focus:ring-rose-500' : 'border-[#C4B9A3]'
-                                  }`}
-                                  required={test.isRequired}
-                                />
+                                <div className="space-y-1">
+                                  <input
+                                    id={`test-reason-field-${index}-${test.id}`}
+                                    type="text"
+                                    value={resultState.notPerformedReason}
+                                    onChange={(e) =>
+                                      handleTestResultChange(index, test.testId, 'notPerformedReason', e.target.value)
+                                    }
+                                    placeholder="Reason (e.g. Contract Vehicle)"
+                                    className={`w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border bg-rose-50/40 text-rose-900 border-rose-300 focus:ring-2 focus:ring-rose-500 outline-none ${
+                                      testError ? 'border-rose-500' : ''
+                                    }`}
+                                  />
+                                </div>
                               )}
 
                               {testError && (
-                                <p className="text-[11px] font-bold text-rose-600 mt-1" id={`test-error-${index}-${test.id}`}>
+                                <p className="text-[11px] font-bold text-rose-600 mt-0.5" id={`test-error-${index}-${test.id}`}>
                                   {testError}
                                 </p>
                               )}
@@ -762,73 +1585,193 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                           );
                         })}
                       </div>
-                    )}
-                  </div>
-
-                  {/* Compact Calculated Milk Values Card */}
-                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
-                    <div className="flex items-center justify-between border-b border-slate-200 pb-1.5">
-                      <div className="flex items-center space-x-1.5 text-slate-800">
-                        <Calculator className="w-3.5 h-3.5 text-blue-700" />
-                        <span className="text-xs font-black uppercase tracking-wider text-slate-700">
-                          Calculated Milk Values
-                        </span>
-                      </div>
-                      <span className="text-[10px] font-mono font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-                        Auto-Derived
-                      </span>
                     </div>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono font-bold">
-                      <div className="p-2 rounded-lg bg-white border border-slate-200">
-                        <span className="text-[9px] font-sans text-slate-500 block uppercase">Declared Volume</span>
-                        <span className="text-slate-900">
-                          {calcValues.declaredKg !== null ? `${calcValues.declaredKg.toLocaleString()} KG` : '—'}
+                  ) : (
+                    /* ZMCC Full Manual Lab Tests Input Grid (UNCHANGED) */
+                    <div className="space-y-2 pt-1">
+                      <div className="flex items-center justify-between border-b pb-1">
+                        <label className="block text-xs font-extrabold uppercase text-[#111311]">
+                          Lab Tests ({manualLabTests.length} Manual Observations)
+                        </label>
+                        <span className="text-[10px] font-bold text-slate-500">
+                          ZMCC Strict Mode Testing
                         </span>
                       </div>
 
-                      <div className="p-2 rounded-lg bg-white border border-slate-200">
-                        <span className="text-[9px] font-sans text-slate-500 block uppercase">SNF %</span>
-                        <span className="text-blue-900">
-                          {calcValues.snf !== null ? `${calcValues.snf.toFixed(3)} %` : '—'}
-                        </span>
-                      </div>
+                      {isLoadingTests ? (
+                        <p className="text-xs text-slate-500">Loading lab tests...</p>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          {manualLabTests.map((test) => {
+                            const resultState = portion.results[test.testId] || {
+                              numericValue: '',
+                              textValue: '',
+                              performanceStatus: 'PERFORMED',
+                              notPerformedReason: '',
+                            };
+                            const testError = portionErrors[index]?.tests?.[test.testId];
 
-                      <div className="p-2 rounded-lg bg-white border border-slate-200">
-                        <span className="text-[9px] font-sans text-slate-500 block uppercase">Total Solids (TS %)</span>
-                        <span className="text-blue-900">
-                          {calcValues.ts !== null ? `${calcValues.ts.toFixed(3)} %` : '—'}
-                        </span>
-                      </div>
+                            return (
+                              <div
+                                key={`test-input-${portion.clientId}-${test.id}`}
+                                className={`p-2.5 rounded-xl bg-[#F4EFE3] border space-y-1.5 ${
+                                  testError ? 'border-rose-500 bg-rose-50/20' : 'border-[#C4B9A3]'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between text-xs font-bold">
+                                  <span>
+                                    {test.testName} {test.isRequired && <span className="text-rose-600">*</span>}
+                                  </span>
+                                  {test.unit && (
+                                    <span className="text-[10px] font-mono text-slate-500">({test.unit})</span>
+                                  )}
+                                </div>
 
-                      <div className="p-2 rounded-lg bg-white border border-slate-200">
-                        <span className="text-[9px] font-sans text-slate-500 block uppercase">SNF : Fat Ratio</span>
-                        <span className="text-blue-900">
-                          {calcValues.ratio !== null ? calcValues.ratio.toFixed(3) : '—'}
-                        </span>
-                      </div>
+                                {test.resultType === 'NUMERIC' ? (
+                                  <div className="space-y-1">
+                                    <div className="flex items-center justify-between text-[10px] font-bold text-slate-600">
+                                      <div className="flex items-center space-x-1">
+                                        <button
+                                          type="button"
+                                          onClick={() => handlePerformanceStatusChange(index, test.testId, 'PERFORMED')}
+                                          className={`px-2 py-0.5 rounded font-black transition ${
+                                            resultState.performanceStatus === 'PERFORMED'
+                                              ? 'bg-blue-700 text-white'
+                                              : 'bg-slate-200 text-slate-700'
+                                          }`}
+                                        >
+                                          PERFORMED
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handlePerformanceStatusChange(index, test.testId, 'NOT_PERFORMED')}
+                                          className={`px-2 py-0.5 rounded font-black transition ${
+                                            resultState.performanceStatus === 'NOT_PERFORMED'
+                                              ? 'bg-rose-700 text-white'
+                                              : 'bg-slate-200 text-slate-700'
+                                          }`}
+                                        >
+                                          NOT PERFORMED
+                                        </button>
+                                      </div>
+                                    </div>
 
-                      <div className="p-2 rounded-lg bg-white border border-slate-200">
-                        <span className="text-[9px] font-sans text-slate-500 block uppercase">Density</span>
-                        <span className="text-slate-900">
-                          {calcValues.density !== null ? `${calcValues.density.toFixed(4)} g/mL` : '—'}
-                        </span>
-                      </div>
+                                    {resultState.performanceStatus === 'PERFORMED' ? (
+                                      <input
+                                        id={`test-input-field-${index}-${test.id}`}
+                                        type="number"
+                                        step="0.01"
+                                        value={resultState.numericValue}
+                                        onChange={(e) =>
+                                          handleTestResultChange(index, test.testId, 'numericValue', e.target.value)
+                                        }
+                                        placeholder="Enter value"
+                                        className={`w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border bg-white text-[#111311] ${
+                                          testError ? 'border-rose-500 focus:ring-2 focus:ring-rose-500' : 'border-[#C4B9A3]'
+                                        }`}
+                                      />
+                                    ) : (
+                                      <input
+                                        id={`test-input-field-${index}-${test.id}`}
+                                        type="text"
+                                        value={resultState.notPerformedReason}
+                                        onChange={(e) =>
+                                          handleTestResultChange(index, test.testId, 'notPerformedReason', e.target.value)
+                                        }
+                                        placeholder="Enter reason for not performing"
+                                        className={`w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border bg-rose-50 text-rose-900 border-rose-300 ${
+                                          testError ? 'border-rose-500 focus:ring-2 focus:ring-rose-500' : ''
+                                        }`}
+                                      />
+                                    )}
+                                  </div>
+                                ) : Array.isArray(test.resultOptions) && test.resultOptions.length > 0 ? (
+                                  <div className="space-y-1">
+                                    <div className="flex items-center justify-between text-[10px] font-bold text-slate-600">
+                                      <div className="flex items-center space-x-1">
+                                        <button
+                                          type="button"
+                                          onClick={() => handlePerformanceStatusChange(index, test.testId, 'PERFORMED')}
+                                          className={`px-2 py-0.5 rounded font-black transition ${
+                                            resultState.performanceStatus === 'PERFORMED'
+                                              ? 'bg-blue-700 text-white'
+                                              : 'bg-slate-200 text-slate-700'
+                                          }`}
+                                        >
+                                          PERFORMED
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handlePerformanceStatusChange(index, test.testId, 'NOT_PERFORMED')}
+                                          className={`px-2 py-0.5 rounded font-black transition ${
+                                            resultState.performanceStatus === 'NOT_PERFORMED'
+                                              ? 'bg-rose-700 text-white'
+                                              : 'bg-slate-200 text-slate-700'
+                                          }`}
+                                        >
+                                          NOT PERFORMED
+                                        </button>
+                                      </div>
+                                    </div>
 
-                      <div className="p-2 rounded-lg bg-white border border-slate-200">
-                        <span className="text-[9px] font-sans text-slate-500 block uppercase">Physical Liters</span>
-                        <span className="text-emerald-900">
-                          {calcValues.physicalLiters !== null ? `${Math.round(calcValues.physicalLiters).toLocaleString()} L` : '—'}
-                        </span>
-                      </div>
+                                    {resultState.performanceStatus === 'PERFORMED' ? (
+                                      <QualitativeResultRadioGroup
+                                        name={`dispatch-zmcc-${portion.clientId}-${test.id}`}
+                                        value={resultState.textValue || null}
+                                        options={test.resultOptions}
+                                        onChange={(val) =>
+                                          handleTestResultChange(index, test.testId, 'textValue', val)
+                                        }
+                                        error={testError}
+                                        ariaLabel={`${test.testName} result for Portion ${portion.portionNumber}`}
+                                      />
+                                    ) : (
+                                      <input
+                                        id={`test-input-field-${index}-${test.id}`}
+                                        type="text"
+                                        value={resultState.notPerformedReason}
+                                        onChange={(e) =>
+                                          handleTestResultChange(index, test.testId, 'notPerformedReason', e.target.value)
+                                        }
+                                        placeholder="Enter reason for not performing"
+                                        className={`w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border bg-rose-50 text-rose-900 border-rose-300 ${
+                                          testError ? 'border-rose-500 focus:ring-2 focus:ring-rose-500' : ''
+                                        }`}
+                                      />
+                                    )}
+                                  </div>
+                                ) : (
+                                  <input
+                                    id={`test-input-field-${index}-${test.id}`}
+                                    type="text"
+                                    value={resultState.textValue}
+                                    onChange={(e) =>
+                                      handleTestResultChange(index, test.testId, 'textValue', e.target.value)
+                                    }
+                                    placeholder="Enter result"
+                                    className={`w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border bg-white text-[#111311] ${
+                                      testError ? 'border-rose-500 focus:ring-2 focus:ring-rose-500' : 'border-[#C4B9A3]'
+                                    }`}
+                                  />
+                                )}
 
-                      <div className="p-2 rounded-lg bg-white border border-slate-200 col-span-2">
-                        <span className="text-[9px] font-sans text-slate-500 block uppercase">@13 TS Liters (Payment Std)</span>
-                        <span className="text-emerald-900">
-                          {calcValues.at13TsLiters !== null ? `${Math.round(calcValues.at13TsLiters).toLocaleString()} L` : '—'}
-                        </span>
-                      </div>
+                                {testError && (
+                                  <p className="text-[11px] font-bold text-rose-600 mt-1" id={`test-error-${index}-${test.id}`}>
+                                    {testError}
+                                  </p>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
+                  )}
+
+                  {/* Calculation summary notice */}
+                  <div className="flex items-center space-x-1.5 text-[11px] font-bold text-slate-500 bg-white/60 p-2 rounded-lg border border-[#C4B9A3]">
+                    <Calculator className="w-3.5 h-3.5 text-[#1E40AF]" />
+                    <span>Live canonical calculations updated in Left Summary</span>
                   </div>
 
                   {/* Save Portion Action Controls */}
@@ -876,16 +1819,23 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
       <div className="p-4 rounded-xl bg-[#F4EFE3] border border-[#C4B9A3] space-y-3 pt-3">
         <div className="flex items-center justify-between text-xs font-extrabold text-[#111311]">
           <span>Portions: <span className="font-mono text-[#1E40AF]">{portions.length}</span> ({savedCount} Saved)</span>
-          <span>Total Volume: <span className="font-mono text-[#1E40AF]">{totalDeclaredKg.toLocaleString()} KG</span></span>
+          <span>
+            Vehicle Quantity:{' '}
+            <span className="font-mono text-[#1E40AF]">
+              {vehicleQuantity.value ? `${vehicleQuantity.value} ${vehicleQuantity.unit}` : '—'}
+            </span>
+          </span>
         </div>
 
         <button
           type="submit"
-          disabled={isSubmitting || savedCount === 0 || editingPortionIndex !== null || !vehicleNumber.trim()}
+          disabled={isSubmitting || savedCount === 0 || editingPortionIndex !== null || !vehicleNumber.trim() || !vehicleQuantity.value || Number(vehicleQuantity.value) <= 0}
           className="w-full py-3 rounded-xl bg-[#1E40AF] text-white font-extrabold text-sm shadow-md hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition"
         >
-          {isSubmitting ? 'Submitting Dispatch...' : `Submit Dispatch (${totalDeclaredKg.toLocaleString()} KG)`}
+          {isSubmitting ? 'Submitting Dispatch...' : `Submit Dispatch (${vehicleQuantity.value ? `${vehicleQuantity.value} ${vehicleQuantity.unit}` : '—'})`}
         </button>
+      </div>
+        </div>
       </div>
     </form>
   );

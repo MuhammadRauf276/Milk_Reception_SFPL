@@ -33,10 +33,10 @@ async function runFinalReceiptPaymentDateTests() {
     assert(receiptTs.getTime() <= now.getTime(), 'RECEIPT-TIME-03', 'Final receipt operational timestamp <= serverNow');
 
     // PAYDATE-01..03: Payment Business Date derivation
-    // Case 1: Receipt at 2026-08-12 03:00 AM PKT (UTC 19:00 11 Aug) -> Business Date 2026-08-11
+    // Case 1: Receipt at 2026-08-12 00:00 AM PKT (midnight, UTC 19:00 11 Aug) -> Business Date 2026-08-11
     const r1 = new Date('2026-08-11T19:00:00.000Z');
     const b1 = getOperationalBusinessDate(r1);
-    assert(b1 === '2026-08-11', 'PAYDATE-01', `Final Receipt at 12 Aug 03:00 AM PKT maps to Payment Business Date 2026-08-11 (got ${b1})`);
+    assert(b1 === '2026-08-11', 'PAYDATE-01', `Final Receipt at 12 Aug 00:00 AM PKT maps to Payment Business Date 2026-08-11 (got ${b1})`);
 
     // Case 2: Receipt at 2026-08-12 07:59 AM PKT (UTC 02:59 12 Aug) -> Business Date 2026-08-11
     const r2 = new Date('2026-08-12T02:59:00.000Z');

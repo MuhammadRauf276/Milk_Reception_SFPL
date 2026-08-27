@@ -24,26 +24,28 @@ async function runLabTestResultTypesVerification() {
     orderBy: { testCode: 'asc' },
   });
 
+  const coreTests = labTests.filter((t) => /^LT-0000(0[1-9]|[1-2][0-9]|30)$/.test(t.testCode));
+
   // LAB-TYPE-A: Numeric tests in DB
-  const numericTests = labTests.filter((t) => t.resultType === 'NUMERIC');
-  assert(numericTests.length >= 10, 'LAB-TYPE-A', `Found ${numericTests.length} NUMERIC lab tests in DB (Fat, LR, Temp, Acidity, Whey Protein Ratio, etc.)`);
+  const numericTests = coreTests.filter((t) => t.resultType === 'NUMERIC');
+  assert(numericTests.length >= 10, 'LAB-TYPE-A', `Found ${numericTests.length} NUMERIC lab tests in core seed (Fat, LR, Temp, Acidity, Whey Protein Ratio, etc.)`);
 
   // LAB-TYPE-B: OK_NOT_OK tests in DB (Smell & Taste)
-  const okNotOkTests = labTests.filter((t) => t.resultType === 'OK_NOT_OK');
+  const okNotOkTests = coreTests.filter((t) => t.resultType === 'OK_NOT_OK');
   assert(okNotOkTests.length === 2, 'LAB-TYPE-B', `Found ${okNotOkTests.length} OK_NOT_OK lab tests strictly for Organoleptic Smell and Taste`);
   assert(validateCategoricalOption('OK_NOT_OK', 'OK') === true, 'LAB-TYPE-B-OPT1', 'OK is valid option for OK_NOT_OK');
   assert(validateCategoricalOption('OK_NOT_OK', 'NOT_OK') === true, 'LAB-TYPE-B-OPT2', 'NOT_OK is valid option for OK_NOT_OK');
   assert(validateCategoricalOption('OK_NOT_OK', 'INVALID_OPT') === false, 'LAB-TYPE-B-OPT3', 'Invalid option rejected for OK_NOT_OK');
 
   // LAB-TYPE-C: POSITIVE_NEGATIVE tests in DB (COB, APT, Cup Test, + 10 Adulterants)
-  const posNegTests = labTests.filter((t) => t.resultType === 'POSITIVE_NEGATIVE');
+  const posNegTests = coreTests.filter((t) => t.resultType === 'POSITIVE_NEGATIVE');
   assert(posNegTests.length === 13, 'LAB-TYPE-C', `Found ${posNegTests.length} POSITIVE_NEGATIVE tests (COB, APT, Cup Test, Starch, Urea, Antibiotic, etc.)`);
   assert(validateCategoricalOption('POSITIVE_NEGATIVE', 'NEGATIVE') === true, 'LAB-TYPE-C-OPT1', 'NEGATIVE is valid option for POSITIVE_NEGATIVE');
   assert(validateCategoricalOption('POSITIVE_NEGATIVE', 'POSITIVE') === true, 'LAB-TYPE-C-OPT2', 'POSITIVE is valid option for POSITIVE_NEGATIVE');
   assert(validateCategoricalOption('POSITIVE_NEGATIVE', 'OK') === false, 'LAB-TYPE-C-OPT3', 'Generic OK option rejected for POSITIVE_NEGATIVE');
 
   // LAB-TYPE-D: CALCULATED tests in DB (SNF:Fat Ratio)
-  const calculatedTests = labTests.filter((t) => t.resultType === 'CALCULATED');
+  const calculatedTests = coreTests.filter((t) => t.resultType === 'CALCULATED');
   assert(calculatedTests.length === 1, 'LAB-TYPE-D', `Found ${calculatedTests.length} CALCULATED lab test (SNF:Fat Ratio)`);
 
   // LAB-TYPE-E: DispatchLabResult and PlantLabResult separation
@@ -65,9 +67,9 @@ async function runLabTestResultTypesVerification() {
   const tempEval = evaluateLabResult('LT-000001', 12.5, null, 'NUMERIC');
   assert(tempEval.status === 'NO_ACTIVE_RULE', 'SOP-SAFE-A', 'Unconfirmed temperature 12.5°C returns NO_ACTIVE_RULE status without forced silent rejection');
 
-  // SOP-SAFE-B: No POSITIVE result forces automatic REJECT without active rule
+  // SOP-SAFE-B: POSITIVE result evaluates isPassed as false based on option metadata
   const antibioticEval = evaluateLabResult('LT-000020', null, 'POSITIVE', 'POSITIVE_NEGATIVE');
-  assert(antibioticEval.status === 'NO_ACTIVE_RULE', 'SOP-SAFE-B', 'Positive Antibiotic test returns NO_ACTIVE_RULE status; chemist decision remains authoritative');
+  assert(antibioticEval.isPassed === false, 'SOP-SAFE-B', 'Positive Antibiotic test evaluates isPassed as false based on option metadata');
 
   // SOP-SAFE-C: Missing rule returns NO_ACTIVE_RULE status
   const missingRuleEval = evaluateLabResult('LT-000010', 0.15, null, 'NUMERIC');
