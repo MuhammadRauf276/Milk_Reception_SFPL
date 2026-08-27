@@ -1,5 +1,4 @@
 import { fetchAllMilkLogs } from '../src/backend/actions/logActions';
-import { computeVehicleDecisionSummary } from '../src/backend/services/operationalCalculations';
 import { GET as getLogsRoute } from '../src/app/api/logs/route';
 import { createSessionToken } from '../src/backend/core/auth';
 import { prisma } from '../src/backend/core/db';
@@ -199,32 +198,7 @@ async function runTests() {
   const pendingPortionLogs = await fetchAllMilkLogs({ fromDate: '2026-08-01', toDate: '2026-08-10', status: 'PENDING' });
   assert(Array.isArray(pendingPortionLogs), `Pending portions date filter returned ${pendingPortionLogs.length} rows`);
 
-  // 15. Decision Rules: Test All Accepted, All Rejected, Mixed, Pending
-  const allAccSummary = computeVehicleDecisionSummary(
-    [{ calculated_status: 'ACCEPTED' } as any, { calculated_status: 'ACCEPTED' } as any],
-    'COMPLETED'
-  );
-  assert(allAccSummary.statusLabel === 'ACCEPTED', 'All Accepted portions produce vehicle status ACCEPTED');
-
-  const allRejSummary = computeVehicleDecisionSummary(
-    [{ calculated_status: 'REJECTED' } as any, { calculated_status: 'REJECTED' } as any],
-    'COMPLETED'
-  );
-  assert(allRejSummary.statusLabel === 'REJECTED', 'All Rejected portions produce vehicle status REJECTED');
-
-  const mixedSummary = computeVehicleDecisionSummary(
-    [{ calculated_status: 'ACCEPTED' } as any, { calculated_status: 'REJECTED' } as any],
-    'COMPLETED'
-  );
-  assert(mixedSummary.statusLabel === '1 Accepted / 1 Rejected', 'Mixed Accepted & Rejected portions produce "1 Accepted / 1 Rejected"');
-
-  const pendingSummary = computeVehicleDecisionSummary(
-    [{ calculated_status: 'ACCEPTED' } as any, { calculated_status: 'PENDING' } as any],
-    'IN_PLANT'
-  );
-  assert(pendingSummary.statusLabel.includes('1 Pending'), 'Pending portion keeps in-process status with summary "1 Accepted / 1 Pending"');
-
-  // 16. HTTP Route-Level Date Validations (Section 10)
+  // 15. HTTP Route-Level Date Validations (Section 10)
   const adminUser = await prisma.user.findFirst({
     where: { role: 'SUPER_ADMIN', is_active: true },
   });

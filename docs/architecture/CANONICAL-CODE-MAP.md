@@ -229,4 +229,13 @@ Tracked repository leftovers with zero runtime consumers have been removed:
 - `src/lib/key-utils.ts` — **DELETED**: Unused key helper.
 - `scratch/*` tracked files — **DELETED**: Tracked scratch investigative scripts removed.
 - `docs/architecture/ADR-DRAFT-dispatch-quantity-measurement.md` — **DELETED**: Non-authoritative draft superseded by ADR-001.
-- `src/backend/services/operationalCalculations.ts` — **RETAINED (TRANSITIONAL SCRIPT SUPPORT)**: 0 runtime consumers, retained for historical test suites in G2.
+- `src/backend/services/operationalCalculations.ts` — **DELETED (4E-G2)**: Zero runtime and test consumers; permanently retired.
+
+---
+
+## 13. Stage 4E-G2 Script & Test Consolidation + Legacy Calculation Retirement
+
+- `src/backend/services/operationalCalculations.ts` — **DELETED**: Retired calculation module with zero runtime consumers. Canonical read-model and vehicle quantity authorities (`operationalReadModelService.ts`, `vehicleQuantityService.ts`, `milkFormulas.ts`) remain canonical.
+- Obsolete one-off debug scripts, old completed migration files, and superseded temporary test scripts have been removed.
+- Stage 4E transitional test contracts are permanently consolidated into `scripts/test_canonical_architecture.ts`.
+- Master regression runner (`scripts/run_all_regressions.ts`) includes `scripts/test_date_filters_and_decisions.ts` for strict calendar date validation and HTTP filtering regressions.
