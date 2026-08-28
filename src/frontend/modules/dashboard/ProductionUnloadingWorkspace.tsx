@@ -476,16 +476,16 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
   return (
     <div className="space-y-6">
       {/* Top Banner & Tab Navigation */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-100 pb-4">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3.5 sm:p-5">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 border-b border-gray-100 pb-4">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-amber-50 rounded-lg text-amber-700">
+            <div className="p-2.5 bg-amber-50 rounded-lg text-amber-700 shrink-0">
               <Factory className="w-6 h-6" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-xl font-bold text-gray-900">Milk Operations</h1>
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <h1 className="text-lg sm:text-xl font-bold text-gray-900">Milk Operations</h1>
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                   Live
                 </span>
@@ -494,34 +494,35 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
           </div>
 
           {/* Search Box */}
-          <div className="relative min-w-[280px]">
+          <div className="relative w-full md:w-72 md:min-w-0">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
               placeholder={activeTab === 'SILO_ISSUE' ? "Search silo code or name..." : "Search vehicle or token..."}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+              className="w-full pl-9 pr-4 py-2 min-h-[44px] text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-medium"
             />
           </div>
         </div>
 
         {/* Tab Buttons */}
-        <div className="flex items-center gap-3 pt-4">
+        <div className="flex items-center gap-2 pt-4 overflow-x-auto pb-1 sm:pb-0 scrollbar-thin">
           <button
+            type="button"
             onClick={() => {
               setActiveTab('READY');
               setErrorMsg(null);
               setSuccessMsg(null);
             }}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+            className={`flex items-center gap-2 px-3.5 sm:px-4 py-2.5 min-h-[44px] shrink-0 rounded-lg text-xs sm:text-sm font-medium transition-all ${
               activeTab === 'READY'
-                ? 'bg-amber-600 text-white shadow-sm'
+                ? 'bg-amber-600 text-white shadow-sm font-bold'
                 : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
             }`}
           >
             <Clock className="w-4 h-4" />
-            Ready for Unloading
+            <span>Ready for Unloading</span>
             <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
               activeTab === 'READY' ? 'bg-amber-700 text-amber-100' : 'bg-gray-200 text-gray-700'
             }`}>
@@ -530,19 +531,20 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
           </button>
 
           <button
+            type="button"
             onClick={() => {
               setActiveTab('UNLOADING');
               setErrorMsg(null);
               setSuccessMsg(null);
             }}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+            className={`flex items-center gap-2 px-3.5 sm:px-4 py-2.5 min-h-[44px] shrink-0 rounded-lg text-xs sm:text-sm font-medium transition-all ${
               activeTab === 'UNLOADING'
-                ? 'bg-amber-600 text-white shadow-sm'
+                ? 'bg-amber-600 text-white shadow-sm font-bold'
                 : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
             }`}
           >
             <Play className="w-4 h-4" />
-            Unloading
+            <span>Unloading</span>
             <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
               activeTab === 'UNLOADING' ? 'bg-amber-700 text-amber-100' : 'bg-gray-200 text-gray-700'
             }`}>
@@ -551,19 +553,20 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
           </button>
 
           <button
+            type="button"
             onClick={() => {
               setActiveTab('SILO_ISSUE');
               setErrorMsg(null);
               setSuccessMsg(null);
             }}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+            className={`flex items-center gap-2 px-3.5 sm:px-4 py-2.5 min-h-[44px] shrink-0 rounded-lg text-xs sm:text-sm font-medium transition-all ${
               activeTab === 'SILO_ISSUE'
-                ? 'bg-amber-600 text-white shadow-sm'
+                ? 'bg-amber-600 text-white shadow-sm font-bold'
                 : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
             }`}
           >
             <MinusCircle className="w-4 h-4" />
-            Silo Issue
+            <span>Silo Issue</span>
             <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
               activeTab === 'SILO_ISSUE' ? 'bg-amber-700 text-amber-100' : 'bg-gray-200 text-gray-700'
             }`}>

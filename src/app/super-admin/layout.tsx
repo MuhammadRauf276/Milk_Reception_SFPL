@@ -38,6 +38,8 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
     checkAuth();
   }, [router]);
 
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen bg-[#FDFBF9] text-[#111311] font-mono text-xs font-bold">
@@ -52,10 +54,17 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
 
   return (
     <div className="flex h-screen bg-[#FDFBF9] text-[#111311] overflow-hidden">
-      <SuperAdminSidebar currentUser={currentUser} />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <SuperAdminHeader currentUser={currentUser} />
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+      <SuperAdminSidebar
+        currentUser={currentUser}
+        isOpen={mobileMenuOpen}
+        onClose={() => setMobileMenuOpen(false)}
+      />
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+        <SuperAdminHeader
+          currentUser={currentUser}
+          onOpenMobileMenu={() => setMobileMenuOpen(true)}
+        />
+        <main className="flex-1 overflow-y-auto p-3 sm:p-6">{children}</main>
       </div>
     </div>
   );

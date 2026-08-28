@@ -613,11 +613,11 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
           </p>
         </div>
 
-        <div className="flex items-center space-x-2 bg-[#EFE9D9] p-1.5 rounded-2xl border border-[#C4B9A3]">
+        <div className="flex items-center space-x-1.5 sm:space-x-2 bg-[#EFE9D9] p-1.5 rounded-2xl border border-[#C4B9A3] overflow-x-auto pb-1.5 sm:pb-1.5 scrollbar-thin">
           <button
             type="button"
             onClick={() => { setActiveTab('WAITING'); fetchQueues(); }}
-            className={`px-4 py-2.5 rounded-xl text-xs font-extrabold transition flex items-center space-x-2 ${activeTab === 'WAITING' ? 'bg-[#1E3A8A] text-white shadow-sm' : 'text-[#334155] hover:bg-amber-100/50'}`}
+            className={`px-3.5 sm:px-4 py-2.5 min-h-[44px] shrink-0 rounded-xl text-xs font-extrabold transition flex items-center space-x-2 ${activeTab === 'WAITING' ? 'bg-[#1E3A8A] text-white shadow-sm' : 'text-[#334155] hover:bg-amber-100/50'}`}
           >
             <Clock className="w-4 h-4" />
             <span>Waiting for Testing</span>
@@ -629,7 +629,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
           <button
             type="button"
             onClick={() => { setActiveTab('IN_TESTING'); fetchQueues(); }}
-            className={`px-4 py-2.5 rounded-xl text-xs font-extrabold transition flex items-center space-x-2 ${activeTab === 'IN_TESTING' ? 'bg-[#1E3A8A] text-white shadow-sm' : 'text-[#334155] hover:bg-amber-100/50'}`}
+            className={`px-3.5 sm:px-4 py-2.5 min-h-[44px] shrink-0 rounded-xl text-xs font-extrabold transition flex items-center space-x-2 ${activeTab === 'IN_TESTING' ? 'bg-[#1E3A8A] text-white shadow-sm' : 'text-[#334155] hover:bg-amber-100/50'}`}
           >
             <FlaskConical className="w-4 h-4" />
             <span>In Testing</span>
@@ -641,7 +641,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
           <button
             type="button"
             onClick={() => { setActiveTab('ON_HOLD'); fetchQueues(); }}
-            className={`px-4 py-2.5 rounded-xl text-xs font-extrabold transition flex items-center space-x-2 ${activeTab === 'ON_HOLD' ? 'bg-[#1E3A8A] text-white shadow-sm' : 'text-[#334155] hover:bg-amber-100/50'}`}
+            className={`px-3.5 sm:px-4 py-2.5 min-h-[44px] shrink-0 rounded-xl text-xs font-extrabold transition flex items-center space-x-2 ${activeTab === 'ON_HOLD' ? 'bg-[#1E3A8A] text-white shadow-sm' : 'text-[#334155] hover:bg-amber-100/50'}`}
           >
             <PauseCircle className="w-4 h-4" />
             <span>On Hold</span>
@@ -1010,7 +1010,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
 
                               {/* PERFORMED / NOT_PERFORMED toggle — hidden for CALCULATED tests */}
                               {test.resultType !== 'CALCULATED' && (
-                                <div className="flex items-center space-x-1.5">
+                                <div className="flex items-center space-x-2">
                                   <button
                                     type="button"
                                     onClick={() => {
@@ -1020,7 +1020,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
                                         [test.id]: { ...state, performanceStatus: 'PERFORMED' },
                                       }));
                                     }}
-                                    className={`px-2 py-0.5 rounded text-[10px] font-black transition ${state.performanceStatus === 'PERFORMED' ? 'bg-blue-700 text-white' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}
+                                    className={`px-3 py-2 min-h-[38px] rounded-lg text-xs font-black transition ${state.performanceStatus === 'PERFORMED' ? 'bg-blue-700 text-white shadow-sm' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}
                                   >
                                     PERFORMED
                                   </button>
@@ -1033,7 +1033,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
                                         [test.id]: { ...state, performanceStatus: 'NOT_PERFORMED', numericValue: '', textValue: '' },
                                       }));
                                     }}
-                                    className={`px-2 py-0.5 rounded text-[10px] font-black transition ${state.performanceStatus === 'NOT_PERFORMED' ? 'bg-rose-700 text-white' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}
+                                    className={`px-3 py-2 min-h-[38px] rounded-lg text-xs font-black transition ${state.performanceStatus === 'NOT_PERFORMED' ? 'bg-rose-700 text-white shadow-sm' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}
                                   >
                                     NOT PERFORMED
                                   </button>
@@ -1053,7 +1053,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
                                   }}
                                   placeholder="Reason not performed..."
                                   rows={2}
-                                  className="w-full px-2 py-1.5 text-[10px] font-mono font-bold rounded-lg border border-rose-300 bg-white text-rose-900 resize-none focus:outline-none focus:ring-1 focus:ring-rose-400"
+                                  className="w-full px-2.5 py-2 text-xs font-mono font-bold rounded-lg border border-rose-300 bg-white text-rose-900 resize-none focus:outline-none focus:ring-1 focus:ring-rose-400"
                                 />
                               )}
 
@@ -1073,7 +1073,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
                                         }));
                                       }}
                                       placeholder="Enter value"
-                                      className="w-full px-3 py-1.5 text-xs font-mono font-bold rounded-lg border border-[#C4B9A3] bg-white text-[#111311]"
+                                      className="w-full px-3 py-2.5 min-h-[44px] text-xs font-mono font-bold rounded-lg border border-[#C4B9A3] bg-white text-[#111311]"
                                     />
                                   ) : Array.isArray(test.resultOptions) && test.resultOptions.length > 0 ? (
                                     <QualitativeResultRadioGroup

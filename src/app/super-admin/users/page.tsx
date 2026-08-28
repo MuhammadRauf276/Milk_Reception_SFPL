@@ -299,8 +299,8 @@ export default function SuperAdminUsersPage() {
 
       {/* CREATE USER MODAL */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl border border-[#EAE4D5] p-6 w-full max-w-md space-y-4 shadow-xl">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-2xl border border-[#EAE4D5] p-5 sm:p-6 w-full max-w-md max-h-[90dvh] overflow-y-auto space-y-4 shadow-xl my-auto">
             <h3 className="text-base font-extrabold text-[#111311]">Create New User Account</h3>
 
             <form onSubmit={handleCreateUser} className="space-y-3 text-xs">
@@ -311,7 +311,7 @@ export default function SuperAdminUsersPage() {
                   required
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="w-full p-2 rounded-lg border border-[#C4B9A3] focus:outline-none focus:border-[#1E3A8A]"
+                  className="w-full p-2.5 min-h-[44px] rounded-lg border border-[#C4B9A3] focus:outline-none focus:border-[#1E3A8A]"
                   placeholder="e.g. john.doe"
                 />
               </div>
@@ -322,7 +322,7 @@ export default function SuperAdminUsersPage() {
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full p-2 rounded-lg border border-[#C4B9A3] focus:outline-none focus:border-[#1E3A8A]"
+                  className="w-full p-2.5 min-h-[44px] rounded-lg border border-[#C4B9A3] focus:outline-none focus:border-[#1E3A8A]"
                   placeholder="e.g. John Doe"
                 />
               </div>
@@ -334,7 +334,7 @@ export default function SuperAdminUsersPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full p-2 rounded-lg border border-[#C4B9A3] focus:outline-none focus:border-[#1E3A8A]"
+                  className="w-full p-2.5 min-h-[44px] rounded-lg border border-[#C4B9A3] focus:outline-none focus:border-[#1E3A8A]"
                   placeholder="At least 4 characters"
                 />
               </div>
@@ -344,7 +344,7 @@ export default function SuperAdminUsersPage() {
                 <select
                   value={role}
                   onChange={(e) => setRole(e.target.value)}
-                  className="w-full p-2 rounded-lg border border-[#C4B9A3] focus:outline-none focus:border-[#1E3A8A]"
+                  className="w-full p-2.5 min-h-[44px] rounded-lg border border-[#C4B9A3] focus:outline-none focus:border-[#1E3A8A]"
                 >
                   <option value="SUPER_ADMIN">SUPER_ADMIN (Super Admin)</option>
                   <option value="EXECUTIVE_MANAGEMENT">EXECUTIVE_MANAGEMENT (Plant Executive)</option>
@@ -365,7 +365,7 @@ export default function SuperAdminUsersPage() {
                   type="text"
                   value={department}
                   onChange={(e) => setDepartment(e.target.value)}
-                  className="w-full p-2 rounded-lg border border-[#C4B9A3] focus:outline-none focus:border-[#1E3A8A]"
+                  className="w-full p-2.5 min-h-[44px] rounded-lg border border-[#C4B9A3] focus:outline-none focus:border-[#1E3A8A]"
                   placeholder="e.g. QA Management"
                 />
               </div>
@@ -375,7 +375,7 @@ export default function SuperAdminUsersPage() {
                 <select
                   value={scopeType}
                   onChange={(e) => setScopeType(e.target.value)}
-                  className="w-full p-2 rounded-lg border border-[#C4B9A3] focus:outline-none focus:border-[#1E3A8A]"
+                  className="w-full p-2.5 min-h-[44px] rounded-lg border border-[#C4B9A3] focus:outline-none focus:border-[#1E3A8A]"
                 >
                   <option value="SYSTEM">SYSTEM (Super Admin Master)</option>
                   <option value="ALL">ALL (Complete Plant Access)</option>
@@ -390,7 +390,7 @@ export default function SuperAdminUsersPage() {
                   <select
                     value={procurementSourceId}
                     onChange={(e) => setProcurementSourceId(e.target.value)}
-                    className="w-full p-2 rounded-lg border border-[#C4B9A3] focus:outline-none focus:border-[#1E3A8A]"
+                    className="w-full p-2.5 min-h-[44px] rounded-lg border border-[#C4B9A3] focus:outline-none focus:border-[#1E3A8A]"
                   >
                     <option value="">Select Procurement Source...</option>
                     {sources.map((s) => (
@@ -406,13 +406,13 @@ export default function SuperAdminUsersPage() {
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 font-bold"
+                  className="px-3.5 py-2 min-h-[40px] rounded-lg border border-slate-300 text-slate-600 font-bold"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 rounded-lg bg-[#1E3A8A] text-white font-bold hover:bg-blue-900"
+                  className="px-4 py-2 min-h-[40px] rounded-lg bg-[#1E3A8A] text-white font-bold hover:bg-blue-900 shadow-sm"
                 >
                   Create User
                 </button>
@@ -424,8 +424,8 @@ export default function SuperAdminUsersPage() {
 
       {/* RESET PASSWORD MODAL */}
       {showResetModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl border border-[#EAE4D5] p-6 w-full max-w-md space-y-4 shadow-xl">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-2xl border border-[#EAE4D5] p-5 sm:p-6 w-full max-w-md max-h-[90dvh] overflow-y-auto space-y-4 shadow-xl my-auto">
             <h3 className="text-base font-extrabold text-[#111311]">
               Reset Password for "{showResetModal.username}"
             </h3>
@@ -441,7 +441,7 @@ export default function SuperAdminUsersPage() {
                   required
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full p-2 rounded-lg border border-[#C4B9A3] focus:outline-none focus:border-[#1E3A8A]"
+                  className="w-full p-2.5 min-h-[44px] rounded-lg border border-[#C4B9A3] focus:outline-none focus:border-[#1E3A8A]"
                   placeholder="Enter new password"
                 />
               </div>
@@ -450,13 +450,13 @@ export default function SuperAdminUsersPage() {
                 <button
                   type="button"
                   onClick={() => setShowResetModal(null)}
-                  className="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 font-bold"
+                  className="px-3.5 py-2 min-h-[40px] rounded-lg border border-slate-300 text-slate-600 font-bold"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 rounded-lg bg-rose-700 text-white font-bold hover:bg-rose-800"
+                  className="px-4 py-2 min-h-[40px] rounded-lg bg-rose-700 text-white font-bold hover:bg-rose-800 shadow-sm"
                 >
                   Reset Password
                 </button>

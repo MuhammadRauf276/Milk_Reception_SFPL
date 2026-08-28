@@ -11,6 +11,7 @@ export const SecurityManager: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [logs, setLogs] = useState<MilkProcessLog[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const fetchUser = async () => {
     try {
@@ -81,6 +82,8 @@ export const SecurityManager: React.FC = () => {
       <Sidebar
         currentUser={currentUser}
         activeCount={logs.filter((l) => l.status !== 'Completed').length}
+        isOpen={mobileMenuOpen}
+        onClose={() => setMobileMenuOpen(false)}
       />
 
       <div className="flex-1 flex flex-col min-w-0 min-h-screen">
@@ -89,9 +92,10 @@ export const SecurityManager: React.FC = () => {
           currentTheme={theme}
           onToggleTheme={() => setTheme(theme === 'creamy' ? 'night' : 'creamy')}
           title="Security Audit & Performance Monitor"
+          onOpenMobileMenu={() => setMobileMenuOpen(true)}
         />
 
-        <main className="flex-1 p-6 overflow-y-auto space-y-6">
+        <main className="flex-1 p-3 sm:p-6 overflow-y-auto space-y-6">
           {/* Top Header Panel */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-xl bg-[#FFFFFF] border border-[#EAE4D5]/80 shadow-sm">
             <div>

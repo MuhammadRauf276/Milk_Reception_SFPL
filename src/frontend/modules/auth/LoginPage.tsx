@@ -101,11 +101,11 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen w-screen bg-[#F4EFE3] text-[#111311] flex flex-col justify-between p-6 font-sans">
+    <div className="min-h-screen w-screen bg-[#F4EFE3] text-[#111311] flex flex-col justify-between p-4 sm:p-6 font-sans">
       {/* Top Brand Bar */}
-      <div className="flex items-center justify-between max-w-6xl mx-auto w-full pb-4 border-b border-[#C4B9A3]">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between max-w-6xl mx-auto w-full pb-4 border-b border-[#C4B9A3] gap-3">
         <div className="flex items-center space-x-3">
-          <div className="p-2.5 bg-[#1E3A8A] rounded-xl shadow-md text-white">
+          <div className="p-2.5 bg-[#1E3A8A] rounded-xl shadow-md text-white shrink-0">
             <Milk className="w-6 h-6" />
           </div>
           <div>
@@ -123,11 +123,11 @@ export const LoginPage: React.FC = () => {
       </div>
 
       {/* Main Container */}
-      <div className="max-w-6xl mx-auto w-full my-auto py-8">
-        <div className="flex flex-col lg:flex-row gap-8 items-start justify-center">
+      <div className="max-w-6xl mx-auto w-full my-auto py-6 sm:py-8">
+        <div className="flex flex-col lg:flex-row gap-6 sm:gap-8 items-start justify-center">
           {/* Main Visual Focus: Sign In Form (First on Mobile, Right on Desktop) */}
           <div className="w-full lg:w-[420px] shrink-0 order-1 lg:order-2">
-            <div className="p-7 rounded-2xl bg-[#EFE9D9] border border-[#C4B9A3] shadow-lg space-y-6 text-[#111311]">
+            <div className="p-5 sm:p-7 rounded-2xl bg-[#EFE9D9] border border-[#C4B9A3] shadow-lg space-y-6 text-[#111311]">
               <div className="space-y-1">
                 <h2 className="text-2xl font-black text-[#111311]">Sign In</h2>
                 <p className="text-xs text-[#334155] font-bold">Enter your operational account credentials</p>
@@ -153,7 +153,7 @@ export const LoginPage: React.FC = () => {
                     value={username}
                     onChange={handleUsernameChange}
                     placeholder="Enter your username"
-                    className="w-full px-3.5 py-2.5 text-xs font-mono font-extrabold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
+                    className="w-full px-3.5 py-3 min-h-[44px] text-sm font-mono font-extrabold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
                     required
                   />
                 </div>
@@ -171,14 +171,14 @@ export const LoginPage: React.FC = () => {
                       value={password}
                       onChange={handlePasswordChange}
                       placeholder="••••••••"
-                      className="w-full px-3.5 py-2.5 pr-10 text-xs font-mono font-extrabold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
+                      className="w-full px-3.5 py-3 pr-12 min-h-[44px] text-sm font-mono font-extrabold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
                       required
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
                       aria-label={showPassword ? 'Hide password' : 'Show password'}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-800 focus:outline-none"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 min-h-[40px] min-w-[40px] flex items-center justify-center text-slate-500 hover:text-slate-800 focus:outline-none"
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -186,7 +186,7 @@ export const LoginPage: React.FC = () => {
                 </div>
 
                 <div className="flex items-center justify-between pt-1">
-                  <label className="flex items-center space-x-2 text-xs font-bold text-[#334155] cursor-pointer select-none">
+                  <label className="flex items-center space-x-2 text-xs font-bold text-[#334155] cursor-pointer select-none min-h-[40px]">
                     <input
                       type="checkbox"
                       checked={rememberMe}
@@ -200,7 +200,7 @@ export const LoginPage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full flex items-center justify-center space-x-2 py-3 px-4 rounded-xl bg-[#1E3A8A] hover:bg-[#1E40AF] text-white font-extrabold text-xs shadow-md transition disabled:opacity-50"
+                  className="w-full flex items-center justify-center space-x-2 py-3 px-4 min-h-[44px] rounded-xl bg-[#1E3A8A] hover:bg-[#1E40AF] text-white font-extrabold text-sm shadow-md transition disabled:opacity-50"
                 >
                   <span>{isSubmitting ? 'Signing in...' : 'Sign In'}</span>
                   <ArrowRight className="w-4 h-4 text-white" />

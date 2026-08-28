@@ -343,7 +343,7 @@ export default function SuperAdminLabTestsPage() {
       {/* CREATE LAB TEST MODAL */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-2xl border border-[#EAE4D5] p-6 w-full max-w-lg space-y-4 shadow-xl my-8">
+          <div className="bg-white rounded-2xl border border-[#EAE4D5] p-5 sm:p-6 w-full max-w-lg max-h-[90dvh] overflow-y-auto space-y-4 shadow-xl my-auto">
             <h3 className="text-base font-extrabold text-[#111311]">
               Create New Laboratory Test
             </h3>
@@ -357,11 +357,11 @@ export default function SuperAdminLabTestsPage() {
                   value={createName}
                   onChange={(e) => setCreateName(e.target.value)}
                   placeholder="e.g. Alcohol Stability Test"
-                  className="w-full p-2 rounded-lg border border-[#C4B9A3] focus:outline-none focus:border-[#1E3A8A]"
+                  className="w-full p-2.5 min-h-[44px] rounded-lg border border-[#C4B9A3] focus:outline-none focus:border-[#1E3A8A]"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="font-bold text-slate-700 block mb-1">Result Type *</label>
                   <select
@@ -376,7 +376,7 @@ export default function SuperAdminLabTestsPage() {
                         ]);
                       }
                     }}
-                    className="w-full p-2 rounded-lg border border-[#C4B9A3] focus:outline-none focus:border-[#1E3A8A]"
+                    className="w-full p-2.5 min-h-[44px] rounded-lg border border-[#C4B9A3] focus:outline-none focus:border-[#1E3A8A]"
                   >
                     <option value="QUALITATIVE">QUALITATIVE (Configurable Choices)</option>
                     <option value="NUMERIC">NUMERIC (Decimal / Float)</option>
@@ -393,19 +393,19 @@ export default function SuperAdminLabTestsPage() {
                     type="text"
                     value={createUnit}
                     onChange={(e) => setCreateUnit(e.target.value)}
-                    className="w-full p-2 rounded-lg border border-[#C4B9A3] focus:outline-none focus:border-[#1E3A8A]"
+                    className="w-full p-2.5 min-h-[44px] rounded-lg border border-[#C4B9A3] focus:outline-none focus:border-[#1E3A8A]"
                     placeholder="e.g. % or °C (optional)"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="font-bold text-slate-700 block mb-1">Test Scope *</label>
                   <select
                     value={createScope}
                     onChange={(e) => setCreateScope(e.target.value)}
-                    className="w-full p-2 rounded-lg border border-[#C4B9A3] focus:outline-none focus:border-[#1E3A8A]"
+                    className="w-full p-2.5 min-h-[44px] rounded-lg border border-[#C4B9A3] focus:outline-none focus:border-[#1E3A8A]"
                   >
                     <option value="BOTH">BOTH (Dispatch + Plant QA)</option>
                     <option value="DISPATCH">DISPATCH (MPD Only)</option>
@@ -420,7 +420,7 @@ export default function SuperAdminLabTestsPage() {
                     required
                     value={createDisplayOrder}
                     onChange={(e) => setCreateDisplayOrder(Number(e.target.value))}
-                    className="w-full p-2 rounded-lg border border-[#C4B9A3] font-mono focus:outline-none focus:border-[#1E3A8A]"
+                    className="w-full p-2.5 min-h-[44px] rounded-lg border border-[#C4B9A3] font-mono focus:outline-none focus:border-[#1E3A8A]"
                   />
                 </div>
               </div>
@@ -447,9 +447,9 @@ export default function SuperAdminLabTestsPage() {
                     </button>
                   </div>
 
-                  <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
                     {createOptions.map((opt, idx) => (
-                      <div key={idx} className="flex items-center gap-1.5 bg-white p-2 rounded-lg border border-slate-200">
+                      <div key={idx} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 bg-white p-2.5 rounded-lg border border-slate-200">
                         <input
                           type="text"
                           required
@@ -460,7 +460,7 @@ export default function SuperAdminLabTestsPage() {
                             updated[idx].value = e.target.value;
                             setCreateOptions(updated);
                           }}
-                          className="w-1/3 p-1.5 text-[11px] font-mono rounded border border-slate-300"
+                          className="w-full sm:w-1/3 p-2 min-h-[40px] text-xs font-mono rounded border border-slate-300"
                         />
                         <input
                           type="text"
@@ -472,7 +472,7 @@ export default function SuperAdminLabTestsPage() {
                             updated[idx].label = e.target.value;
                             setCreateOptions(updated);
                           }}
-                          className="w-1/3 p-1.5 text-[11px] rounded border border-slate-300"
+                          className="w-full sm:w-1/3 p-2 min-h-[40px] text-xs rounded border border-slate-300"
                         />
                         <select
                           value={opt.isPassing === true ? 'PASS' : opt.isPassing === false ? 'FAIL' : 'NEUTRAL'}
@@ -482,7 +482,7 @@ export default function SuperAdminLabTestsPage() {
                             updated[idx].isPassing = val === 'PASS' ? true : val === 'FAIL' ? false : null;
                             setCreateOptions(updated);
                           }}
-                          className="w-1/4 p-1.5 text-[11px] font-bold rounded border border-slate-300"
+                          className="w-full sm:w-1/4 p-2 min-h-[40px] text-xs font-bold rounded border border-slate-300"
                         >
                           <option value="PASS">Pass</option>
                           <option value="FAIL">Fail</option>
@@ -494,9 +494,9 @@ export default function SuperAdminLabTestsPage() {
                             setCreateOptions(createOptions.filter((_, i) => i !== idx));
                           }}
                           disabled={createOptions.length <= 2}
-                          className="p-1 text-rose-600 hover:text-rose-800 disabled:opacity-30"
+                          className="p-2 min-h-[40px] min-w-[40px] flex items-center justify-center text-rose-600 hover:text-rose-800 disabled:opacity-30 self-end sm:self-auto"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     ))}
@@ -508,13 +508,13 @@ export default function SuperAdminLabTestsPage() {
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 font-bold"
+                  className="px-3.5 py-2 min-h-[40px] rounded-lg border border-slate-300 text-slate-600 font-bold"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 rounded-lg bg-[#1E3A8A] text-white font-bold hover:bg-blue-900"
+                  className="px-4 py-2 min-h-[40px] rounded-lg bg-[#1E3A8A] text-white font-bold hover:bg-blue-900 shadow-sm"
                 >
                   Create Lab Test
                 </button>
@@ -527,7 +527,7 @@ export default function SuperAdminLabTestsPage() {
       {/* EDIT LAB TEST METADATA MODAL */}
       {showEditModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-2xl border border-[#EAE4D5] p-6 w-full max-w-lg space-y-4 shadow-xl my-8">
+          <div className="bg-white rounded-2xl border border-[#EAE4D5] p-5 sm:p-6 w-full max-w-lg max-h-[90dvh] overflow-y-auto space-y-4 shadow-xl my-auto">
             <h3 className="text-base font-extrabold text-[#111311]">
               Edit Test Metadata ({showEditModal.testCode})
             </h3>
@@ -544,18 +544,18 @@ export default function SuperAdminLabTestsPage() {
                   required
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
-                  className="w-full p-2 rounded-lg border border-[#C4B9A3] focus:outline-none focus:border-[#1E3A8A]"
+                  className="w-full p-2.5 min-h-[44px] rounded-lg border border-[#C4B9A3] focus:outline-none focus:border-[#1E3A8A]"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="font-bold text-slate-700 block mb-1">Unit</label>
                   <input
                     type="text"
                     value={editUnit}
                     onChange={(e) => setEditUnit(e.target.value)}
-                    className="w-full p-2 rounded-lg border border-[#C4B9A3] focus:outline-none focus:border-[#1E3A8A]"
+                    className="w-full p-2.5 min-h-[44px] rounded-lg border border-[#C4B9A3] focus:outline-none focus:border-[#1E3A8A]"
                     placeholder="e.g. °C or % or leave blank"
                   />
                 </div>
@@ -567,7 +567,7 @@ export default function SuperAdminLabTestsPage() {
                     required
                     value={editDisplayOrder}
                     onChange={(e) => setEditDisplayOrder(Number(e.target.value))}
-                    className="w-full p-2 rounded-lg border border-[#C4B9A3] font-mono focus:outline-none focus:border-[#1E3A8A]"
+                    className="w-full p-2.5 min-h-[44px] rounded-lg border border-[#C4B9A3] font-mono focus:outline-none focus:border-[#1E3A8A]"
                   />
                 </div>
               </div>
@@ -577,7 +577,7 @@ export default function SuperAdminLabTestsPage() {
                 <select
                   value={editScope}
                   onChange={(e) => setEditScope(e.target.value)}
-                  className="w-full p-2 rounded-lg border border-[#C4B9A3] focus:outline-none focus:border-[#1E3A8A]"
+                  className="w-full p-2.5 min-h-[44px] rounded-lg border border-[#C4B9A3] focus:outline-none focus:border-[#1E3A8A]"
                 >
                   <option value="DISPATCH">DISPATCH (MPD Dispatch Only)</option>
                   <option value="PLANT">PLANT (Plant QA Only)</option>
@@ -607,9 +607,9 @@ export default function SuperAdminLabTestsPage() {
                     </button>
                   </div>
 
-                  <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
                     {editOptions.map((opt, idx) => (
-                      <div key={idx} className="flex items-center gap-1.5 bg-white p-2 rounded-lg border border-slate-200">
+                      <div key={idx} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 bg-white p-2.5 rounded-lg border border-slate-200">
                         <input
                           type="text"
                           required
@@ -620,7 +620,7 @@ export default function SuperAdminLabTestsPage() {
                             updated[idx].value = e.target.value;
                             setEditOptions(updated);
                           }}
-                          className="w-1/3 p-1.5 text-[11px] font-mono rounded border border-slate-300"
+                          className="w-full sm:w-1/3 p-2 min-h-[40px] text-xs font-mono rounded border border-slate-300"
                         />
                         <input
                           type="text"
@@ -632,7 +632,7 @@ export default function SuperAdminLabTestsPage() {
                             updated[idx].label = e.target.value;
                             setEditOptions(updated);
                           }}
-                          className="w-1/3 p-1.5 text-[11px] rounded border border-slate-300"
+                          className="w-full sm:w-1/3 p-2 min-h-[40px] text-xs rounded border border-slate-300"
                         />
                         <select
                           value={opt.isPassing === true ? 'PASS' : opt.isPassing === false ? 'FAIL' : 'NEUTRAL'}
@@ -642,7 +642,7 @@ export default function SuperAdminLabTestsPage() {
                             updated[idx].isPassing = val === 'PASS' ? true : val === 'FAIL' ? false : null;
                             setEditOptions(updated);
                           }}
-                          className="w-1/4 p-1.5 text-[11px] font-bold rounded border border-slate-300"
+                          className="w-full sm:w-1/4 p-2 min-h-[40px] text-xs font-bold rounded border border-slate-300"
                         >
                           <option value="PASS">Pass</option>
                           <option value="FAIL">Fail</option>
@@ -654,9 +654,9 @@ export default function SuperAdminLabTestsPage() {
                             setEditOptions(editOptions.filter((_, i) => i !== idx));
                           }}
                           disabled={editOptions.length <= 2}
-                          className="p-1 text-rose-600 hover:text-rose-800 disabled:opacity-30"
+                          className="p-2 min-h-[40px] min-w-[40px] flex items-center justify-center text-rose-600 hover:text-rose-800 disabled:opacity-30 self-end sm:self-auto"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     ))}
@@ -668,13 +668,13 @@ export default function SuperAdminLabTestsPage() {
                 <button
                   type="button"
                   onClick={() => setShowEditModal(null)}
-                  className="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 font-bold"
+                  className="px-3.5 py-2 min-h-[40px] rounded-lg border border-slate-300 text-slate-600 font-bold"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 rounded-lg bg-[#1E3A8A] text-white font-bold hover:bg-blue-900"
+                  className="px-4 py-2 min-h-[40px] rounded-lg bg-[#1E3A8A] text-white font-bold hover:bg-blue-900 shadow-sm"
                 >
                   Update Metadata
                 </button>

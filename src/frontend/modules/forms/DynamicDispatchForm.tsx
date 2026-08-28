@@ -1490,11 +1490,11 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                               </div>
 
                               {/* Performance Status Toggle */}
-                              <div className="flex items-center space-x-1.5">
+                              <div className="flex items-center space-x-2">
                                 <button
                                   type="button"
                                   onClick={() => handlePerformanceStatusChange(index, test.testId, 'PERFORMED')}
-                                  className={`px-2.5 py-1 rounded-lg text-[10.5px] font-black transition ${
+                                  className={`px-3 py-1.5 min-h-[38px] rounded-lg text-xs font-black transition ${
                                     isPerformed
                                       ? 'bg-[#1E40AF] text-white shadow-sm'
                                       : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
@@ -1505,7 +1505,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                                 <button
                                   type="button"
                                   onClick={() => handlePerformanceStatusChange(index, test.testId, 'NOT_PERFORMED')}
-                                  className={`px-2.5 py-1 rounded-lg text-[10.5px] font-black transition ${
+                                  className={`px-3 py-1.5 min-h-[38px] rounded-lg text-xs font-black transition ${
                                     !isPerformed
                                       ? 'bg-rose-700 text-white shadow-sm'
                                       : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
@@ -1529,7 +1529,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                                         handleTestResultChange(index, test.testId, 'numericValue', e.target.value)
                                       }
                                       placeholder="Enter numeric value"
-                                      className={`w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none ${
+                                      className={`w-full px-3 py-2 min-h-[44px] text-xs font-mono font-bold rounded-lg border bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none ${
                                         testError ? 'border-rose-500' : 'border-[#C4B9A3]'
                                       }`}
                                     />
@@ -1553,7 +1553,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                                         handleTestResultChange(index, test.testId, 'textValue', e.target.value)
                                       }
                                       placeholder="Enter result"
-                                      className={`w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none ${
+                                      className={`w-full px-3 py-2 min-h-[44px] text-xs font-mono font-bold rounded-lg border bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none ${
                                         testError ? 'border-rose-500' : 'border-[#C4B9A3]'
                                       }`}
                                     />
@@ -1568,10 +1568,8 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                                     onChange={(e) =>
                                       handleTestResultChange(index, test.testId, 'notPerformedReason', e.target.value)
                                     }
-                                    placeholder="Reason (e.g. Contract Vehicle)"
-                                    className={`w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border bg-rose-50/40 text-rose-900 border-rose-300 focus:ring-2 focus:ring-rose-500 outline-none ${
-                                      testError ? 'border-rose-500' : ''
-                                    }`}
+                                    placeholder="Reason test not performed..."
+                                    className={`w-full px-3 py-2 min-h-[44px] text-xs font-mono font-bold rounded-lg border border-rose-300 bg-white text-rose-900 focus:ring-2 focus:ring-rose-400 outline-none`}
                                   />
                                 </div>
                               )}
@@ -1630,14 +1628,14 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                                 {test.resultType === 'NUMERIC' ? (
                                   <div className="space-y-1">
                                     <div className="flex items-center justify-between text-[10px] font-bold text-slate-600">
-                                      <div className="flex items-center space-x-1">
+                                      <div className="flex items-center space-x-1.5">
                                         <button
                                           type="button"
                                           onClick={() => handlePerformanceStatusChange(index, test.testId, 'PERFORMED')}
-                                          className={`px-2 py-0.5 rounded font-black transition ${
+                                          className={`px-3 py-1.5 min-h-[36px] rounded-lg font-black transition ${
                                             resultState.performanceStatus === 'PERFORMED'
-                                              ? 'bg-blue-700 text-white'
-                                              : 'bg-slate-200 text-slate-700'
+                                              ? 'bg-blue-700 text-white shadow-sm'
+                                              : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
                                           }`}
                                         >
                                           PERFORMED
@@ -1645,10 +1643,10 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                                         <button
                                           type="button"
                                           onClick={() => handlePerformanceStatusChange(index, test.testId, 'NOT_PERFORMED')}
-                                          className={`px-2 py-0.5 rounded font-black transition ${
+                                          className={`px-3 py-1.5 min-h-[36px] rounded-lg font-black transition ${
                                             resultState.performanceStatus === 'NOT_PERFORMED'
-                                              ? 'bg-rose-700 text-white'
-                                              : 'bg-slate-200 text-slate-700'
+                                              ? 'bg-rose-700 text-white shadow-sm'
+                                              : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
                                           }`}
                                         >
                                           NOT PERFORMED
@@ -1666,7 +1664,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                                           handleTestResultChange(index, test.testId, 'numericValue', e.target.value)
                                         }
                                         placeholder="Enter value"
-                                        className={`w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border bg-white text-[#111311] ${
+                                        className={`w-full px-3 py-2 min-h-[44px] text-xs font-mono font-bold rounded-lg border bg-white text-[#111311] ${
                                           testError ? 'border-rose-500 focus:ring-2 focus:ring-rose-500' : 'border-[#C4B9A3]'
                                         }`}
                                       />

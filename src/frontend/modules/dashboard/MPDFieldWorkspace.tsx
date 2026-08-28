@@ -136,7 +136,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       {/* Top-Level Dispatch Workspace Tabs */}
-      <div className="flex items-center space-x-2 border-b border-[#C4B9A3] pb-3" role="tablist">
+      <div className="flex items-center space-x-2 border-b border-[#C4B9A3] pb-3 overflow-x-auto scrollbar-thin" role="tablist">
         <button
           type="button"
           role="tab"
@@ -144,7 +144,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
           aria-selected={activeTab === 'new'}
           aria-controls="panel-new-dispatch"
           onClick={() => setActiveTab('new')}
-          className={`px-4 py-2 rounded-xl text-xs font-black transition flex items-center space-x-1.5 ${
+          className={`px-4 py-2.5 min-h-[44px] shrink-0 rounded-xl text-xs font-black transition flex items-center space-x-1.5 ${
             activeTab === 'new'
               ? 'bg-[#1E40AF] text-white shadow-sm ring-2 ring-[#1E40AF]/20'
               : 'bg-[#EFE9D9] text-slate-700 hover:bg-[#E5DEC9] border border-[#C4B9A3]'
@@ -160,7 +160,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
           aria-selected={activeTab === 'recent'}
           aria-controls="panel-recent-dispatches"
           onClick={() => setActiveTab('recent')}
-          className={`px-4 py-2 rounded-xl text-xs font-black transition flex items-center space-x-1.5 ${
+          className={`px-4 py-2.5 min-h-[44px] shrink-0 rounded-xl text-xs font-black transition flex items-center space-x-1.5 ${
             activeTab === 'recent'
               ? 'bg-[#1E40AF] text-white shadow-sm ring-2 ring-[#1E40AF]/20'
               : 'bg-[#EFE9D9] text-slate-700 hover:bg-[#E5DEC9] border border-[#C4B9A3]'
@@ -198,7 +198,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
       >
         <div className="max-w-4xl mx-auto space-y-4">
           {/* Header & Date Controls */}
-          <div className="p-4 rounded-2xl bg-[#EFE9D9] border border-[#C4B9A3] shadow-sm space-y-3">
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-[#EFE9D9] border border-[#C4B9A3] shadow-sm space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <h2 className="text-base font-extrabold text-[#111311]">Recent Dispatches</h2>
@@ -212,12 +212,12 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
               </span>
             </div>
 
-            {/* Quick Date Window Filter Buttons */}
-            <div className="grid grid-cols-4 gap-1.5 p-1 rounded-xl bg-[#F4EFE3] border border-[#C4B9A3] text-xs font-bold">
+            {/* Quick Date Window Filter Buttons: 2x2 grid on mobile, 4 columns on sm+ */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 p-1 rounded-xl bg-[#F4EFE3] border border-[#C4B9A3] text-xs font-bold">
               <button
                 type="button"
                 onClick={() => handleRangeChange('today')}
-                className={`py-1.5 rounded-lg text-[11px] font-black transition ${
+                className={`py-2 min-h-[44px] flex items-center justify-center rounded-lg text-xs font-black transition ${
                   dateRange === 'today'
                     ? 'bg-[#1E40AF] text-white shadow-sm'
                     : 'text-[#334155] hover:bg-amber-100/50'
@@ -228,7 +228,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
               <button
                 type="button"
                 onClick={() => handleRangeChange('7d')}
-                className={`py-1.5 rounded-lg text-[11px] font-black transition ${
+                className={`py-2 min-h-[44px] flex items-center justify-center rounded-lg text-xs font-black transition ${
                   dateRange === '7d'
                     ? 'bg-[#1E40AF] text-white shadow-sm'
                     : 'text-[#334155] hover:bg-amber-100/50'
@@ -239,7 +239,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
               <button
                 type="button"
                 onClick={() => handleRangeChange('30d')}
-                className={`py-1.5 rounded-lg text-[11px] font-black transition ${
+                className={`py-2 min-h-[44px] flex items-center justify-center rounded-lg text-xs font-black transition ${
                   dateRange === '30d'
                     ? 'bg-[#1E40AF] text-white shadow-sm'
                     : 'text-[#334155] hover:bg-amber-100/50'
@@ -250,7 +250,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
               <button
                 type="button"
                 onClick={() => handleRangeChange('custom')}
-                className={`py-1.5 rounded-lg text-[11px] font-black transition ${
+                className={`py-2 min-h-[44px] flex items-center justify-center rounded-lg text-xs font-black transition ${
                   dateRange === 'custom'
                     ? 'bg-[#1E40AF] text-white shadow-sm'
                     : 'text-[#334155] hover:bg-amber-100/50'
@@ -327,17 +327,17 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
                   key={`mpd-dispatch-${String(log.id)}`}
                   className="p-4 rounded-xl border bg-[#EFE9D9] text-[#111311] border-[#C4B9A3] shadow-sm space-y-2"
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <span className="font-black font-mono text-base tracking-tight text-[#111311]">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center space-x-2 min-w-0">
+                      <span className="font-black font-mono text-sm sm:text-base tracking-tight text-[#111311] truncate">
                         {log.vehicle_number}
                       </span>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-black bg-[#F4EFE3] border border-[#C4B9A3] font-mono">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-black bg-[#F4EFE3] border border-[#C4B9A3] font-mono shrink-0">
                         {log.portion_count} Portion{log.portion_count > 1 ? 's' : ''}
                       </span>
                     </div>
 
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300 font-mono">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300 font-mono shrink-0">
                       Dispatched
                     </span>
                   </div>

@@ -51,6 +51,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
   const [activeTab, setActiveTab] = useState<ZMCCManagerTab>('OVERVIEW');
   const [summaryDateRange, setSummaryDateRange] = useState<OverviewDateRange>('TODAY');
   const [serverBusinessDate, setServerBusinessDate] = useState<string>('');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // 1. Independent Live State
   const [liveLogs, setLiveLogs] = useState<MilkProcessLog[]>([]);
@@ -62,23 +63,22 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
   const [reportingLoading, setReportingLoading] = useState<boolean>(true);
   const [reportingError, setReportingError] = useState<string | null>(null);
 
-  // 3. Independent Receipts & Performance State (Unbounded source-scoped fetch for complete receipt lifecycle)
+  // 3. Independent Receipts & Performance State
   const [receiptLogs, setReceiptLogs] = useState<MilkProcessLog[]>([]);
   const [receiptLoading, setReceiptLoading] = useState<boolean>(true);
   const [receiptError, setReceiptError] = useState<string | null>(null);
 
-  // History & Table search/filter state (isolated to historical reporting tables)
+  // History & Table search/filter state
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [fromDate, setFromDate] = useState<string>('');
   const [toDate, setToDate] = useState<string>('');
   const [selectedLog, setSelectedLog] = useState<MilkProcessLog | null>(null);
 
-  const assignedSourceName =
-    currentUser?.procurement_source?.name ||
-    currentUser?.zone ||
-    (currentUser?.role === 'ZMCC_MANAGER' ? 'Assigned ZMCC Source' : 'ZMCC Source');
+  const assignedSourceName = useMemo(() => {
+    return currentUser?.zone || currentUser?.department || 'Assigned ZMCC';
+  }, [currentUser]);
 
-  // Fetch Live Logs: Unbounded source-scoped fetch without date or search filters
+  // Fetch Live Logs
   const fetchLiveLogs = useCallback(async () => {
     setLiveLoading(true);
     setLiveError(null);
@@ -96,7 +96,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
     }
   }, []);
 
-  // Fetch Receipt Logs: Unbounded source-scoped fetch without Dispatch Business Date filtering
+  // Fetch Receipt Logs
   const fetchReceiptLogs = useCallback(async () => {
     setReceiptLoading(true);
     setReceiptError(null);
@@ -114,7 +114,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
     }
   }, []);
 
-  // Fetch Reporting Logs: Parameterized fetch for Overview / History date queries
+  // Fetch Reporting Logs
   const fetchReportingLogs = useCallback(
     async (fDate?: string, tDate?: string) => {
       setReportingLoading(true);
@@ -141,7 +141,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
     []
   );
 
-  // A. Live Flow: Initial mount and interval polling (NO fromDate/toDate dependency)
+  // A. Live Flow
   useEffect(() => {
     fetchLiveLogs();
     fetchReceiptLogs();
@@ -152,49 +152,40 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
     return () => clearInterval(interval);
   }, [fetchLiveLogs, fetchReceiptLogs]);
 
-  // B. Reporting Flow: Initial load and when fromDate/toDate changes
+  // B. Reporting Flow
   useEffect(() => {
     fetchReportingLogs(fromDate, toDate);
   }, [fetchReportingLogs, fromDate, toDate]);
 
-  // Filtered reporting logs for historical tables (search query does NOT affect liveLogs)
-  const filteredReportingLogs = useMemo(() => {
-    return reportingLogs.filter((log) => {
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const match =
-          log.vehicle_number.toLowerCase().includes(q) ||
-          (log.token_number && log.token_number.toLowerCase().includes(q)) ||
-          log.zonal_contractor_name.toLowerCase().includes(q);
-        if (!match) return false;
-      }
-      return true;
-    });
-  }, [reportingLogs, searchQuery]);
-
-  // Distinct active pipeline count for sidebar (derived from unbounded liveLogs)
+  // Distinct active pipeline count
   const activeInPlantCount = useMemo(() => {
     return buildVehicleVisitGroups(liveLogs).filter((g) => g.lifecycle.isInPlant).length;
   }, [liveLogs]);
 
   return (
     <div className="min-h-screen w-screen overflow-x-hidden bg-[#FDFBF9] text-[#111311] flex flex-row font-sans">
-      <Sidebar currentUser={currentUser} activeCount={activeInPlantCount} />
+      <Sidebar 
+        currentUser={currentUser} 
+        activeCount={activeInPlantCount} 
+        isOpen={mobileMenuOpen}
+        onClose={() => setMobileMenuOpen(false)}
+      />
 
       <div className="flex-1 flex flex-col min-w-0 min-h-screen">
         <Header
           currentUser={currentUser}
           title="ZMCC Manager Station"
           showBranding={false}
+          onOpenMobileMenu={() => setMobileMenuOpen(true)}
         />
 
-        <main className="flex-1 p-6 overflow-y-auto space-y-6">
+        <main className="flex-1 p-3 sm:p-6 overflow-y-auto space-y-6">
           {/* Top Supervisory Banner */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-xl bg-[#FFFFFF] border border-[#EAE4D5]/80 shadow-sm">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 sm:p-5 rounded-xl bg-[#FFFFFF] border border-[#EAE4D5]/80 shadow-sm">
             <div>
               <div className="flex items-center space-x-2.5 flex-wrap gap-y-1">
                 <ShieldCheck className="w-6 h-6 text-[#1E3A8A]" />
-                <h1 className="text-xl font-extrabold tracking-tight text-[#111311]">
+                <h1 className="text-lg sm:text-xl font-extrabold tracking-tight text-[#111311]">
                   ZMCC Source Station: {assignedSourceName}
                 </h1>
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-[#1E3A8A] text-white">
@@ -209,14 +200,15 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
               </p>
             </div>
 
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-3 shrink-0">
               <button
+                type="button"
                 onClick={() => {
                   fetchLiveLogs();
                   fetchReportingLogs(fromDate, toDate);
                 }}
                 disabled={liveLoading || reportingLoading}
-                className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-[#FDFBF9] border border-[#EAE4D5]/80 text-xs font-bold text-[#111311] hover:bg-[#F4F0E6]/60 transition-all shadow-sm disabled:opacity-50"
+                className="flex items-center space-x-1.5 min-h-[40px] sm:min-h-[44px] px-3.5 py-2 rounded-xl bg-[#FDFBF9] border border-[#EAE4D5]/80 text-xs font-bold text-[#111311] hover:bg-[#F4F0E6]/60 transition-all shadow-sm disabled:opacity-50"
               >
                 <RefreshCw className={`w-3.5 h-3.5 text-[#1E3A8A] ${liveLoading || reportingLoading ? 'animate-spin' : ''}`} />
                 <span>{liveLoading || reportingLoading ? 'Syncing...' : 'Refresh Logs'}</span>
@@ -226,19 +218,20 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
 
           {/* Accessible Tab Navigation */}
           <div className="border-b border-[#EAE4D5]/80 pb-px">
-            <nav className="flex space-x-2 overflow-x-auto" role="tablist" aria-label="ZMCC Manager Workspace Tabs">
+            <nav className="flex space-x-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-thin scroll-smooth -mb-px" role="tablist" aria-label="ZMCC Manager Workspace Tabs">
               {TABS.map((tab) => {
                 const IconComponent = tab.icon;
                 const isActive = activeTab === tab.id;
                 return (
                   <button
                     key={tab.id}
+                    type="button"
                     role="tab"
                     id={`tab-${tab.id}`}
                     aria-controls={`tabpanel-${tab.id}`}
                     aria-selected={isActive}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center space-x-2 px-4 py-2.5 rounded-t-xl text-xs font-extrabold transition-all border-t border-l border-r ${
+                    className={`flex items-center space-x-2 px-3.5 sm:px-4 py-2.5 min-h-[44px] shrink-0 rounded-t-xl text-xs font-extrabold transition-all border-t border-l border-r ${
                       isActive
                         ? 'bg-[#FFFFFF] text-[#1E3A8A] border-[#EAE4D5]/80 border-b-2 border-b-transparent -mb-px shadow-sm'
                         : 'bg-transparent text-slate-600 border-transparent hover:text-[#111311] hover:bg-[#F4F0E6]/40'
