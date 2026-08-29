@@ -31,6 +31,15 @@ export interface ContractorReceiptsMetrics {
   totalLitersVariance: number | null;
 }
 
+export interface ContractorHistoryMetrics {
+  totalHistoryVisits: number;
+  totalDispatchedGrossLiters: number;
+  totalReceivedLiters: number;
+  totalCompletedReceipts: number;
+  totalPendingReceipts: number;
+  netLitersVariance: number | null;
+}
+
 export type ContractorJourneyStage =
   | 'DISPATCHED'
   | 'GATE_ENTRY'
@@ -75,6 +84,8 @@ export interface ContractorVehicleVisit {
   finalReceiptTransactionId: number | null;
   authoritativeFinalLiters: number | null;
   finalReceiptTimestamp: string | null;
+  finalReceiptBusinessDate: string | null;
+  reportingBusinessDate: string;
   siloStorageId: string | null;
   firstWeightKg: number | null;
   secondWeightKg: number | null;

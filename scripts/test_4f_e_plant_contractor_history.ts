@@ -3,12 +3,13 @@ import { resolveRoleHome } from '../src/lib/role-routing';
 import { GET as getLogs } from '../src/app/api/logs/route';
 import { createSessionToken } from '../src/backend/core/auth';
 import { User, Role } from '../src/backend/core/types';
+import { getOperationalBusinessDate } from '../src/backend/core/business-day';
 import fs from 'fs';
 import path from 'path';
 
-async function run4FDTests() {
+async function run4FETests() {
   console.log('================================================================================');
-  console.log('STAGE 4F-D: PLANT CONTRACTOR MANAGER RECEIPTS & RECONCILIATION CONTRACT SUITE');
+  console.log('STAGE 4F-E: PLANT CONTRACTOR MANAGER HISTORY & REPORTS CONTRACT SUITE');
   console.log('================================================================================\n');
 
   let passed = 0;
@@ -58,8 +59,8 @@ async function run4FDTests() {
   let tempUnboundManager: any = null;
 
   try {
-    // --- SECTION A: FRONTEND CODE & COMPONENT STRUCTURE ---
-    console.log('--- SECTION A: Component Implementation & Tab Placeholders ---');
+    // --- SECTION A: FRONTEND CODE & ALL 5 TABS COMPLETION ---
+    console.log('--- SECTION A: Component Implementation & All 5 Tabs ---');
 
     // A1: Route remains /contractor/manager and technical role CONTRACTOR_MANAGER
     assert(
@@ -68,9 +69,9 @@ async function run4FDTests() {
     );
 
     // A2: Files exist
-    const receiptsPath = path.join(
+    const historyPath = path.join(
       __dirname,
-      '../src/frontend/modules/dashboard/contractor/ContractorReceiptsReconciliation.tsx'
+      '../src/frontend/modules/dashboard/contractor/ContractorHistoryReports.tsx'
     );
     const workspacePath = path.join(
       __dirname,
@@ -81,87 +82,81 @@ async function run4FDTests() {
       '../src/frontend/modules/dashboard/contractor/contractorManagerHelpers.ts'
     );
 
-    assert(fs.existsSync(receiptsPath), 'TEST-A2.1: ContractorReceiptsReconciliation.tsx exists');
+    assert(fs.existsSync(historyPath), 'TEST-A2.1: ContractorHistoryReports.tsx exists');
     assert(fs.existsSync(workspacePath), 'TEST-A2.2: PlantContractorManagerWorkspace.tsx exists');
     assert(fs.existsSync(helpersPath), 'TEST-A2.3: contractorManagerHelpers.ts exists');
 
-    // A3: Workspace mounts real Receipts component
+    // A3: Workspace mounts ALL 5 tabs with zero placeholders remaining
     const workspaceSource = fs.readFileSync(workspacePath, 'utf-8');
     assert(
-      workspaceSource.includes('<ContractorReceiptsReconciliation'),
-      'TEST-A3.1: Workspace renders real ContractorReceiptsReconciliation component'
+      workspaceSource.includes('<ContractorOverview') &&
+        workspaceSource.includes('<ContractorLivePipeline') &&
+        workspaceSource.includes('<ContractorQualityRejections') &&
+        workspaceSource.includes('<ContractorReceiptsReconciliation') &&
+        workspaceSource.includes('<ContractorHistoryReports'),
+      'TEST-A3.1: Workspace mounts all five dedicated contractor components'
     );
     assert(
-      workspaceSource.includes('<ContractorHistoryReports') ||
-        workspaceSource.includes('Available in the next Stage 4F implementation slice'),
-      'TEST-A3.2: History tab is either placeholder or implemented ContractorHistoryReports'
-    );
-
-    // --- SECTION B: FINAL RECEIPT AUTHORITY & INVARIANT COMPLIANCE ---
-    console.log('\n--- SECTION B: Final Receipt Authority & Invariant Compliance ---');
-
-    const receiptsSource = fs.readFileSync(receiptsPath, 'utf-8');
-    const helpersSource = fs.readFileSync(helpersPath, 'utf-8');
-
-    // B1: Final receipt authority uses canonical fields
-    assert(
-      receiptsSource.includes('v.finalReceiptExists') &&
-        receiptsSource.includes('v.authoritativeFinalLiters') &&
-        receiptsSource.includes('finalReceiptTransactionId'),
-      'TEST-B1: Final receipt presentation uses finalReceiptExists, authoritativeFinalLiters, and finalReceiptTransactionId'
+      !workspaceSource.includes('Available in the next Stage 4F implementation slice'),
+      'TEST-A3.2: Zero placeholder tab content remains in PlantContractorManagerWorkspace'
     );
 
-    // B2: Receipt Pending rule
+    // --- SECTION B: BUSINESS DATE & FINAL RECEIPT AUTHORITY ---
+    console.log('\n--- SECTION B: Reporting Business Date & 08:00 PKT Boundary ---');
+
+    // B1: 08:00 PKT boundary tests
+    // 07:59:59 PKT on 28-Aug is 02:59:59 UTC -> Business Date is 2026-08-27
+    const preCutoffDate = getOperationalBusinessDate('2026-08-28T02:59:59.000Z');
     assert(
-      helpersSource.includes('secondWeightTimestamp && !finalReceiptExists'),
-      'TEST-B2.1: Receipt Pending requires Second Weight exists AND final_receipt_exists is false'
-    );
-    assert(
-      receiptsSource.includes('BEFORE_RECEIPT') &&
-        receiptsSource.includes('!v.finalReceiptExists && !v.secondWeightTimestamp'),
-      'TEST-B2.2: Vehicles before Second Weight are NOT mislabeled Receipt Pending'
+      preCutoffDate === '2026-08-27',
+      'TEST-B1.1: 07:59:59 PKT event belongs to previous business date (2026-08-27)',
+      `Got: ${preCutoffDate}`
     );
 
-    // B3: Forbidden fallbacks absent
+    // 08:00:00 PKT on 28-Aug is 03:00:00 UTC -> Business Date is 2026-08-28
+    const postCutoffDate = getOperationalBusinessDate('2026-08-28T03:00:00.000Z');
     assert(
-      !receiptsSource.includes('computed_plant_liters') &&
-        !receiptsSource.includes('computed_plant_13ts_liters'),
-      'TEST-B3: Forbidden computed_plant_liters / computed_plant_13ts_liters are absent'
+      postCutoffDate === '2026-08-28',
+      'TEST-B1.2: 08:00:00 PKT event belongs to current business date (2026-08-28)',
+      `Got: ${postCutoffDate}`
     );
 
-    // B4: Whole-vehicle quantity uses vehicle_dispatch_gross_liters
+    // B2: Read-model contains final_receipt_business_date and reporting_business_date
+    const readModelSource = fs.readFileSync(
+      path.join(__dirname, '../src/backend/services/operationalReadModelService.ts'),
+      'utf-8'
+    );
     assert(
-      helpersSource.includes('vehicle_dispatch_gross_liters'),
-      'TEST-B4: Whole vehicle quantity authority uses vehicle_dispatch_gross_liters'
+      readModelSource.includes('final_receipt_business_date') &&
+        readModelSource.includes('reporting_business_date') &&
+        readModelSource.includes('getOperationalBusinessDate(finalReceiptTs)'),
+      'TEST-B2: Read-model derives final_receipt_business_date using canonical getOperationalBusinessDate'
     );
 
-    // B5: Liters variance calculation
+    // B3: History component uses reportingBusinessDate
+    const historySource = fs.readFileSync(historyPath, 'utf-8');
     assert(
-      helpersSource.includes('authoritativeFinalLiters - grossLiters'),
-      'TEST-B5.1: Liters variance is defined as authoritativeFinalLiters - grossLiters'
-    );
-    assert(
-      receiptsSource.includes('v.litersVariance < 0') &&
-        receiptsSource.includes('v.litersVariance > 0'),
-      'TEST-B5.2: Liters variance preserves arithmetic sign (+/-)'
+      historySource.includes('v.reportingBusinessDate') &&
+        historySource.includes('dateBasis'),
+      'TEST-B3: History & Reports requests and displays reportingBusinessDate'
     );
 
-    // B6: Zero client source selectors or mutations
+    // B4: Zero client source selectors or mutations
     assert(
-      !receiptsSource.includes('<select') &&
+      !historySource.includes('<select') &&
         !workspaceSource.includes('<select'),
-      'TEST-B6.1: Zero client-side source dropdowns or selectors exist'
+      'TEST-B4.1: Zero client-side source dropdowns or selectors exist'
     );
     assert(
-      !receiptsSource.includes('method: \'POST\'') &&
-        !receiptsSource.includes('method: \'PATCH\'') &&
-        !receiptsSource.includes('method: \'PUT\'') &&
-        !receiptsSource.includes('method: \'DELETE\''),
-      'TEST-B6.2: Receipts view contains ZERO mutation controls or mutation API calls'
+      !historySource.includes('method: \'POST\'') &&
+        !historySource.includes('method: \'PATCH\'') &&
+        !historySource.includes('method: \'PUT\'') &&
+        !historySource.includes('method: \'DELETE\''),
+      'TEST-B4.2: History view contains ZERO mutation controls or mutation API calls'
     );
 
-    // --- SECTION C: LIVE BACKEND SOURCE ISOLATION CONTRACT ---
-    console.log('\n--- SECTION C: Backend Source Isolation Verification ---');
+    // --- SECTION C: LIVE BACKEND API & SOURCE ISOLATION CONTRACT ---
+    console.log('\n--- SECTION C: Live Backend Source Isolation & Reporting Filter Verification ---');
 
     const contAlkhair = await prisma.procurementSource.findFirst({
       where: { code: 'CONT-ALKHAIR', source_type: 'CONTRACTOR' },
@@ -176,8 +171,8 @@ async function run4FDTests() {
       const ts = Date.now();
       tempAssignedManager = await prisma.user.create({
         data: {
-          username: `test.mgr.alkhair.4fd.${ts}`,
-          full_name: 'Test Al Khair 4FD Manager',
+          username: `test.mgr.alkhair.4fe.${ts}`,
+          full_name: 'Test Al Khair 4FE Manager',
           role: 'CONTRACTOR_MANAGER',
           scope_type: 'SOURCE',
           procurement_source_id: contAlkhair.id,
@@ -187,8 +182,8 @@ async function run4FDTests() {
 
       tempUnboundManager = await prisma.user.create({
         data: {
-          username: `test.mgr.unbound.4fd.${ts}`,
-          full_name: 'Test Unbound 4FD Manager',
+          username: `test.mgr.unbound.4fe.${ts}`,
+          full_name: 'Test Unbound 4FE Manager',
           role: 'CONTRACTOR_MANAGER',
           scope_type: 'SOURCE',
           procurement_source_id: null,
@@ -198,13 +193,13 @@ async function run4FDTests() {
 
       // C1: Assigned manager receives only their own records
       const reqAssigned = await createAuthRequest(
-        'http://localhost:3000/api/logs',
+        'http://localhost:3000/api/logs?dateBasis=reporting',
         'GET',
         undefined,
         tempAssignedManager
       );
       const resAssigned = await getLogs(reqAssigned as any);
-      assert(resAssigned.ok, 'TEST-C1.1: Assigned CONTRACTOR_MANAGER GET /api/logs returns HTTP 200');
+      assert(resAssigned.ok, 'TEST-C1.1: Assigned CONTRACTOR_MANAGER GET /api/logs?dateBasis=reporting returns HTTP 200');
 
       const jsonAssigned = await resAssigned.json();
       const foreignLogs = (jsonAssigned.logs || []).filter(
@@ -216,9 +211,32 @@ async function run4FDTests() {
         `Foreign count: ${foreignLogs.length}`
       );
 
+      // Verify records have final_receipt_business_date and reporting_business_date
+      for (const log of jsonAssigned.logs || []) {
+        if (log.final_receipt_exists) {
+          assert(
+            !!log.final_receipt_business_date,
+            `TEST-C1.3: Finalized receipt ${log.id} has valid final_receipt_business_date (${log.final_receipt_business_date})`
+          );
+          assert(
+            log.reporting_business_date === log.final_receipt_business_date,
+            `TEST-C1.4: Finalized receipt ${log.id} reporting_business_date matches final_receipt_business_date`
+          );
+        } else {
+          assert(
+            log.final_receipt_business_date === null || log.final_receipt_business_date === undefined,
+            `TEST-C1.5: Unfinalized visit ${log.id} has null final_receipt_business_date`
+          );
+          assert(
+            log.reporting_business_date === log.dispatch_date,
+            `TEST-C1.6: Unfinalized visit ${log.id} reporting_business_date matches dispatch_date`
+          );
+        }
+      }
+
       // C2: Unbound manager fails closed
       const reqUnbound = await createAuthRequest(
-        'http://localhost:3000/api/logs',
+        'http://localhost:3000/api/logs?dateBasis=reporting',
         'GET',
         undefined,
         tempUnboundManager
@@ -230,6 +248,16 @@ async function run4FDTests() {
         'TEST-C2: Unbound CONTRACTOR_MANAGER fails closed with 0 records',
         `Count: ${(jsonUnbound.logs || []).length}`
       );
+
+      // C3: Legacy/default API without dateBasis works identically
+      const reqLegacy = await createAuthRequest(
+        'http://localhost:3000/api/logs',
+        'GET',
+        undefined,
+        tempAssignedManager
+      );
+      const resLegacy = await getLogs(reqLegacy as any);
+      assert(resLegacy.ok, 'TEST-C3: Legacy GET /api/logs without dateBasis succeeds with backward compatibility');
     }
   } finally {
     if (tempAssignedManager) {
@@ -242,7 +270,7 @@ async function run4FDTests() {
 
   // --- SUMMARY ---
   console.log('\n================================================================================');
-  console.log(`STAGE 4F-D RESULTS: ${passed} PASSED, ${failed} FAILED`);
+  console.log(`STAGE 4F-E RESULTS: ${passed} PASSED, ${failed} FAILED`);
   console.log('================================================================================');
 
   if (failed > 0) {
@@ -250,9 +278,9 @@ async function run4FDTests() {
   }
 }
 
-run4FDTests()
+run4FETests()
   .catch((err) => {
-    console.error('Fatal error in Stage 4F-D test suite:', err);
+    console.error('Fatal error in Stage 4F-E test suite:', err);
     process.exit(1);
   })
   .finally(async () => {

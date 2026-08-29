@@ -1,6 +1,7 @@
 import { prisma } from '../core/db';
 import { MilkProcessLog, User, ProcessStatus } from '../core/types';
 import { PLANT_TIMEZONE, isValidDateOnly, parseStrictDateOnly } from '@/lib/datetime-utils';
+import { getOperationalBusinessDate } from '../core/business-day';
 import {
   calculateDensity,
   calculateSNF,
@@ -20,6 +21,7 @@ export interface OperationalLogFilters {
   contractor?: string;
   status?: string;
   search?: string;
+  dateBasis?: 'dispatch' | 'reporting';
 }
 
 function formatTimeOnly(ts?: Date | string | null): string | null {
@@ -115,20 +117,24 @@ export async function getOperationalLogs(
     if (filters.fromDate !== undefined && filters.toDate !== undefined && filters.fromDate > filters.toDate) {
       throw new Error('From Date cannot be after To Date.');
     }
-    whereClause.operational_date = {};
-    if (filters.fromDate !== undefined) {
-      if (!isValidDateOnly(filters.fromDate)) {
-        throw new Error('Invalid fromDate parameter');
-      }
-      whereClause.operational_date.gte = parseStrictDateOnly(filters.fromDate)!;
+    if (filters.fromDate !== undefined && !isValidDateOnly(filters.fromDate)) {
+      throw new Error('Invalid fromDate parameter');
     }
-    if (filters.toDate !== undefined) {
-      if (!isValidDateOnly(filters.toDate)) {
-        throw new Error('Invalid toDate parameter');
+    if (filters.toDate !== undefined && !isValidDateOnly(filters.toDate)) {
+      throw new Error('Invalid toDate parameter');
+    }
+
+    // When dateBasis is NOT 'reporting' (default/legacy), apply operational_date filter in SQL directly
+    if (filters?.dateBasis !== 'reporting') {
+      whereClause.operational_date = {};
+      if (filters.fromDate !== undefined) {
+        whereClause.operational_date.gte = parseStrictDateOnly(filters.fromDate)!;
       }
-      const toDateObj = parseStrictDateOnly(filters.toDate)!;
-      toDateObj.setHours(23, 59, 59, 999);
-      whereClause.operational_date.lte = toDateObj;
+      if (filters.toDate !== undefined) {
+        const toDateObj = parseStrictDateOnly(filters.toDate)!;
+        toDateObj.setHours(23, 59, 59, 999);
+        whereClause.operational_date.lte = toDateObj;
+      }
     }
   }
 
@@ -295,115 +301,137 @@ export async function getOperationalLogs(
       const activeSnf = computedPlantSnf ?? computedDispatchSnf;
       const isBorderline = activeSnf != null && activeSnf >= 8.5 && activeSnf <= 8.6;
 
+      // Authoritative Final Receipt (Silo Transaction Evidence)
+      const finalReceiptTs = finalizedReceipt
+        ? finalizedReceipt.operational_timestamp
+          ? new Date(finalizedReceipt.operational_timestamp).toISOString()
+          : new Date(finalizedReceipt.created_at).toISOString()
+        : null;
+
+      const finalReceiptBusinessDate = (Boolean(finalizedReceipt) && finalReceiptTs)
+        ? getOperationalBusinessDate(finalReceiptTs)
+        : null;
+
+      const reportingBusinessDate = (Boolean(finalizedReceipt) && finalReceiptBusinessDate)
+        ? finalReceiptBusinessDate
+        : dateStr;
+
       const logRow: MilkProcessLog = {
-        id: Number(visit.id) || 0,
-        portion_id: Number(portion.id) || null,
-        visit_number: visit.visit_number || null,
-        reception_number: visit.reception_number || null,
-        vehicle_number: visit.vehicle_number || '',
-        portion_number: portionStr,
-        token_number: visit.token_number || null,
-        zonal_contractor_name: sourceName,
-        status: (visit.current_status as ProcessStatus) || 'DISPATCHED',
+          id: Number(visit.id) || 0,
+          portion_id: Number(portion.id) || null,
+          visit_number: visit.visit_number || null,
+          reception_number: visit.reception_number || null,
+          vehicle_number: visit.vehicle_number || '',
+          portion_number: portionStr,
+          token_number: visit.token_number || null,
+          zonal_contractor_name: sourceName,
+          status: (visit.current_status as ProcessStatus) || 'DISPATCHED',
 
-        dispatch_date: dateStr,
-        dispatch_day: opDate ? daysOfWeek[opDate.getDay()] : null,
-        dispatch_week: opDate ? Math.ceil(opDate.getDate() / 7) + 28 : null,
-        dispatch_month: opDate ? monthsOfYear[opDate.getMonth()] : null,
-        dispatch_year: opDate ? opDate.getFullYear() : null,
-        zonal_contractor_dispatch_time: formatTimeOnly(portion.dispatch_info?.dispatch_timestamp),
-        dispatch_kg_gross: declaredUnit === 'KG' ? declaredVal : null,
-        dispatch_liters_gross: dispatchGrossLiters,
-        vehicle_dispatch_quantity_value: vDeclaredVal,
-        vehicle_dispatch_quantity_unit: vDeclaredUnit,
-        vehicle_dispatch_quantity_basis: vDeclaredBasis,
-        vehicle_dispatch_gross_liters: vehicleDispatchGrossLiters,
-        dispatch_tests: null,
-        dispatch_fat: dFat,
-        dispatch_lr: dLr,
+          dispatch_date: dateStr,
+          dispatch_day: opDate ? daysOfWeek[opDate.getDay()] : null,
+          dispatch_week: opDate ? Math.ceil(opDate.getDate() / 7) + 28 : null,
+          dispatch_month: opDate ? monthsOfYear[opDate.getMonth()] : null,
+          dispatch_year: opDate ? opDate.getFullYear() : null,
+          zonal_contractor_dispatch_time: formatTimeOnly(portion.dispatch_info?.dispatch_timestamp),
+          dispatch_kg_gross: declaredUnit === 'KG' ? declaredVal : null,
+          dispatch_liters_gross: dispatchGrossLiters,
+          vehicle_dispatch_quantity_value: vDeclaredVal,
+          vehicle_dispatch_quantity_unit: vDeclaredUnit,
+          vehicle_dispatch_quantity_basis: vDeclaredBasis,
+          vehicle_dispatch_gross_liters: vehicleDispatchGrossLiters,
+          dispatch_tests: null,
+          dispatch_fat: dFat,
+          dispatch_lr: dLr,
 
-        igp_date: visit.gate_log?.entry_timestamp ? new Date(visit.gate_log.entry_timestamp).toISOString().split('T')[0] : null,
-        igp_time: formatTimeOnly(visit.gate_log?.entry_timestamp),
-        out_from_gate_time: formatTimeOnly(visit.gate_log?.exit_timestamp),
+          igp_date: visit.gate_log?.entry_timestamp ? new Date(visit.gate_log.entry_timestamp).toISOString().split('T')[0] : null,
+          igp_time: formatTimeOnly(visit.gate_log?.entry_timestamp),
+          out_from_gate_time: formatTimeOnly(visit.gate_log?.exit_timestamp),
 
-        sampling_date: portion.plant_lab_results.length > 0 && portion.plant_lab_results[0].sample_timestamp
-          ? new Date(portion.plant_lab_results[0].sample_timestamp).toISOString().split('T')[0]
-          : null,
-        sampling_time_start: formatTimeOnly(portion.plant_lab_results[0]?.sample_timestamp),
-        sampling_time_end: formatTimeOnly(portion.plant_lab_results[0]?.result_timestamp),
-        sampling_fat: pFat,
-        sampling_lr: pLr,
-        b_mbrt_minutes_test: pMbrt,
-        calculated_status: plantDecision,
-        rejection_reasons: portion.plant_rejection_reason || null,
-        borderline_warning: isBorderline,
+          sampling_date: portion.plant_lab_results.length > 0 && portion.plant_lab_results[0].sample_timestamp
+            ? new Date(portion.plant_lab_results[0].sample_timestamp).toISOString().split('T')[0]
+            : null,
+          sampling_time_start: formatTimeOnly(portion.plant_lab_results[0]?.sample_timestamp),
+          sampling_time_end: formatTimeOnly(portion.plant_lab_results[0]?.result_timestamp),
+          sampling_fat: pFat,
+          sampling_lr: pLr,
+          b_mbrt_minutes_test: pMbrt,
+          calculated_status: plantDecision,
+          rejection_reasons: portion.plant_rejection_reason || null,
+          borderline_warning: isBorderline,
 
-        first_weight_time: formatTimeOnly(visit.weight_ticket?.gross_timestamp),
-        first_weight_of_vehicle: firstWeightKg,
-        second_weight_time: formatTimeOnly(visit.weight_ticket?.tare_timestamp),
-        second_weight_of_vehicle: secondWeightKg,
+          first_weight_time: formatTimeOnly(visit.weight_ticket?.gross_timestamp),
+          first_weight_of_vehicle: firstWeightKg,
+          second_weight_time: formatTimeOnly(visit.weight_ticket?.tare_timestamp),
+          second_weight_of_vehicle: secondWeightKg,
 
-        reception_date: unloadingLog?.pump_start_timestamp ? new Date(unloadingLog.pump_start_timestamp).toISOString().split('T')[0] : null,
-        reception_start_time: formatTimeOnly(unloadingLog?.pump_start_timestamp),
-        reception_end_time: formatTimeOnly(unloadingLog?.pump_end_timestamp),
-        silo_storage_id: siloStorageId,
+          reception_date: unloadingLog?.pump_start_timestamp ? new Date(unloadingLog.pump_start_timestamp).toISOString().split('T')[0] : null,
+          reception_start_time: formatTimeOnly(unloadingLog?.pump_start_timestamp),
+          reception_end_time: formatTimeOnly(unloadingLog?.pump_end_timestamp),
+          silo_storage_id: siloStorageId,
 
-        computed_dispatch_snf: computedDispatchSnf,
-        computed_dispatch_ts: computedDispatchTs,
-        computed_dispatch_13ts_liters: computedDispatch13tsLiters,
-        computed_sampling_snf: computedPlantSnf,
-        computed_sampling_ts: computedPlantTs,
-        computed_plant_liters: finalPhysicalLiters,
-        computed_net_milk_weight: netWeightKg,
-        computed_plant_13ts_liters: finalAt13TsLiters,
+          computed_dispatch_snf: computedDispatchSnf,
+          computed_dispatch_ts: computedDispatchTs,
+          computed_dispatch_13ts_liters: computedDispatch13tsLiters,
+          computed_sampling_snf: computedPlantSnf,
+          computed_sampling_ts: computedPlantTs,
+          computed_plant_liters: finalPhysicalLiters,
+          computed_net_milk_weight: netWeightKg,
+          computed_plant_13ts_liters: finalAt13TsLiters,
 
-        // Authoritative Event Timestamps (ISO Instants)
-        dispatch_timestamp: portion.dispatch_info?.dispatch_timestamp
-          ? new Date(portion.dispatch_info.dispatch_timestamp).toISOString()
-          : visit.created_at
-          ? new Date(visit.created_at).toISOString()
-          : null,
-        gate_entry_timestamp: visit.gate_log?.entry_timestamp
-          ? new Date(visit.gate_log.entry_timestamp).toISOString()
-          : null,
-        gate_exit_timestamp: visit.gate_log?.exit_timestamp
-          ? new Date(visit.gate_log.exit_timestamp).toISOString()
-          : null,
-        first_weight_timestamp: visit.weight_ticket?.gross_timestamp
-          ? new Date(visit.weight_ticket.gross_timestamp).toISOString()
-          : null,
-        second_weight_timestamp: visit.weight_ticket?.tare_timestamp
-          ? new Date(visit.weight_ticket.tare_timestamp).toISOString()
-          : null,
-        unloading_start_timestamp: unloadingLog?.pump_start_timestamp
-          ? new Date(unloadingLog.pump_start_timestamp).toISOString()
-          : null,
-        unloading_end_timestamp: unloadingLog?.pump_end_timestamp
-          ? new Date(unloadingLog.pump_end_timestamp).toISOString()
-          : null,
+          // Authoritative Event Timestamps (ISO Instants)
+          dispatch_timestamp: portion.dispatch_info?.dispatch_timestamp
+            ? new Date(portion.dispatch_info.dispatch_timestamp).toISOString()
+            : visit.created_at
+            ? new Date(visit.created_at).toISOString()
+            : null,
+          gate_entry_timestamp: visit.gate_log?.entry_timestamp
+            ? new Date(visit.gate_log.entry_timestamp).toISOString()
+            : null,
+          gate_exit_timestamp: visit.gate_log?.exit_timestamp
+            ? new Date(visit.gate_log.exit_timestamp).toISOString()
+            : null,
+          first_weight_timestamp: visit.weight_ticket?.gross_timestamp
+            ? new Date(visit.weight_ticket.gross_timestamp).toISOString()
+            : null,
+          second_weight_timestamp: visit.weight_ticket?.tare_timestamp
+            ? new Date(visit.weight_ticket.tare_timestamp).toISOString()
+            : null,
+          unloading_start_timestamp: unloadingLog?.pump_start_timestamp
+            ? new Date(unloadingLog.pump_start_timestamp).toISOString()
+            : null,
+          unloading_end_timestamp: unloadingLog?.pump_end_timestamp
+            ? new Date(unloadingLog.pump_end_timestamp).toISOString()
+            : null,
 
-        // Authoritative Final Receipt (Silo Transaction Evidence)
-        final_receipt_exists: Boolean(finalizedReceipt),
-        final_receipt_transaction_id: finalizedReceipt ? Number(finalizedReceipt.id) : null,
-        final_receipt_timestamp: finalizedReceipt
-          ? finalizedReceipt.operational_timestamp
-            ? new Date(finalizedReceipt.operational_timestamp).toISOString()
-            : new Date(finalizedReceipt.created_at).toISOString()
-          : null,
-        authoritative_final_liters: finalizedReceipt?.quantity_liters
-          ? Number(finalizedReceipt.quantity_liters)
-          : null,
+          // Authoritative Final Receipt (Silo Transaction Evidence)
+          final_receipt_exists: Boolean(finalizedReceipt),
+          final_receipt_transaction_id: finalizedReceipt ? Number(finalizedReceipt.id) : null,
+          final_receipt_timestamp: finalReceiptTs,
+          final_receipt_business_date: finalReceiptBusinessDate,
+          reporting_business_date: reportingBusinessDate,
+          authoritative_final_liters: finalizedReceipt?.quantity_liters
+            ? Number(finalizedReceipt.quantity_liters)
+            : null,
 
-        created_at: visit.created_at ? new Date(visit.created_at).toISOString() : new Date().toISOString(),
-        updated_at: visit.updated_at ? new Date(visit.updated_at).toISOString() : new Date().toISOString(),
-      };
+          created_at: visit.created_at ? new Date(visit.created_at).toISOString() : new Date().toISOString(),
+          updated_at: visit.updated_at ? new Date(visit.updated_at).toISOString() : new Date().toISOString(),
+        };
 
-      logs.push(logRow);
+        logs.push(logRow);
+      }
     }
-  }
 
-  // Apply in-memory search and status filters
-  let filtered = logs;
+    // Apply in-memory search and status filters
+    let filtered = logs;
+
+    if (filters?.dateBasis === 'reporting') {
+      if (filters.fromDate) {
+        filtered = filtered.filter((l) => l.reporting_business_date && l.reporting_business_date >= filters.fromDate!);
+      }
+      if (filters.toDate) {
+        filtered = filtered.filter((l) => l.reporting_business_date && l.reporting_business_date <= filters.toDate!);
+      }
+    }
 
   if (filters?.status && filters.status !== 'ALL') {
     const filterStatusUpper = filters.status.toUpperCase();

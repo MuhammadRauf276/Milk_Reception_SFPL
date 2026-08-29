@@ -3,6 +3,7 @@ import {
   ContractorOverviewMetrics,
   ContractorQualityMetrics,
   ContractorReceiptsMetrics,
+  ContractorHistoryMetrics,
   ContractorVehicleVisit,
   ContractorJourneyStage,
   ContractorPortionSummary,
@@ -175,6 +176,9 @@ export function buildContractorVehicleVisits(logs: MilkProcessLog[]): Contractor
 
     const litersVariance = computeLitersVariance(grossLiters, authoritativeFinalLiters, finalReceiptExists);
 
+    const finalReceiptBusinessDate = first.final_receipt_business_date || null;
+    const reportingBusinessDate = first.reporting_business_date || (finalReceiptExists && finalReceiptBusinessDate ? finalReceiptBusinessDate : first.dispatch_date || '');
+
     visits.push({
       visitId: vId,
       visitNumber: first.visit_number || `VISIT-${vId}`,
@@ -199,6 +203,8 @@ export function buildContractorVehicleVisits(logs: MilkProcessLog[]): Contractor
       finalReceiptTransactionId: first.final_receipt_transaction_id ?? null,
       authoritativeFinalLiters,
       finalReceiptTimestamp: first.final_receipt_timestamp || null,
+      finalReceiptBusinessDate,
+      reportingBusinessDate,
       siloStorageId: first.silo_storage_id || null,
       firstWeightKg: first.first_weight_of_vehicle ?? null,
       secondWeightKg: first.second_weight_of_vehicle ?? null,
@@ -300,5 +306,41 @@ export function computeContractorReceiptsMetrics(visits: ContractorVehicleVisit[
     totalAuthoritativeReceivedLiters: Math.round(totalAuthoritativeReceivedLiters * 100) / 100,
     totalGrossDispatchedLiters: Math.round(totalGrossDispatchedLiters * 100) / 100,
     totalLitersVariance: hasVarianceRecords ? Math.round(totalLitersVariance * 100) / 100 : null,
+  };
+}
+
+/**
+ * Compute history & reporting summary metrics
+ */
+export function computeContractorHistoryMetrics(visits: ContractorVehicleVisit[]): ContractorHistoryMetrics {
+  let totalDispatchedGrossLiters = 0;
+  let totalReceivedLiters = 0;
+  let totalCompletedReceipts = 0;
+  let totalPendingReceipts = 0;
+  let totalLitersVariance = 0;
+  let hasVarianceRecords = false;
+
+  for (const v of visits) {
+    totalDispatchedGrossLiters += v.grossLiters || 0;
+
+    if (v.finalReceiptExists && v.authoritativeFinalLiters != null) {
+      totalCompletedReceipts++;
+      totalReceivedLiters += v.authoritativeFinalLiters;
+      if (v.litersVariance != null) {
+        totalLitersVariance += v.litersVariance;
+        hasVarianceRecords = true;
+      }
+    } else if (v.secondWeightTimestamp && !v.finalReceiptExists) {
+      totalPendingReceipts++;
+    }
+  }
+
+  return {
+    totalHistoryVisits: visits.length,
+    totalDispatchedGrossLiters: Math.round(totalDispatchedGrossLiters * 100) / 100,
+    totalReceivedLiters: Math.round(totalReceivedLiters * 100) / 100,
+    totalCompletedReceipts,
+    totalPendingReceipts,
+    netLitersVariance: hasVarianceRecords ? Math.round(totalLitersVariance * 100) / 100 : null,
   };
 }
