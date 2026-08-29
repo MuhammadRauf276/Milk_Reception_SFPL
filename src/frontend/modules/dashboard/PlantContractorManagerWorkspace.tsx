@@ -47,6 +47,8 @@ export const PlantContractorManagerWorkspace: React.FC<PlantContractorManagerWor
     return currentUser?.zone || currentUser?.department || 'Assigned Plant Contractor';
   }, [currentUser]);
 
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+
   const activePipelineCount = useMemo(() => {
     return logs.filter((l) => !l.final_receipt_exists && l.status !== 'CANCELLED').length;
   }, [logs]);
@@ -78,19 +80,22 @@ export const PlantContractorManagerWorkspace: React.FC<PlantContractorManagerWor
   }, [fetchLogs]);
 
   return (
-    <div className="flex h-screen bg-[#FDFBF9] overflow-hidden">
+    <div className="w-full max-w-full flex h-screen bg-[#FDFBF9] overflow-hidden">
       {/* Shared Application Sidebar */}
       <Sidebar
         currentUser={currentUser}
         activeCount={activePipelineCount}
+        isMobileOpen={isMobileNavOpen}
+        onCloseMobile={() => setIsMobileNavOpen(false)}
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden w-full max-w-full">
         {/* Header */}
         <Header
           currentUser={currentUser}
           title="Plant Contractor Manager Station"
+          onMenuClick={() => setIsMobileNavOpen((prev) => !prev)}
         />
 
         {/* Workspace Toolbar */}

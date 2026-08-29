@@ -172,23 +172,31 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
     });
   }, [reportingLogs, searchQuery]);
 
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+
   // Distinct active pipeline count for sidebar (derived from unbounded liveLogs)
   const activeInPlantCount = useMemo(() => {
     return buildVehicleVisitGroups(liveLogs).filter((g) => g.lifecycle.isInPlant).length;
   }, [liveLogs]);
 
   return (
-    <div className="min-h-screen w-screen overflow-x-hidden bg-[#FDFBF9] text-[#111311] flex flex-row font-sans">
-      <Sidebar currentUser={currentUser} activeCount={activeInPlantCount} />
+    <div className="w-full max-w-full flex h-screen bg-[#FDFBF9] text-[#111311] overflow-hidden font-sans">
+      <Sidebar
+        currentUser={currentUser}
+        activeCount={activeInPlantCount}
+        isMobileOpen={isMobileNavOpen}
+        onCloseMobile={() => setIsMobileNavOpen(false)}
+      />
 
-      <div className="flex-1 flex flex-col min-w-0 min-h-screen">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden w-full max-w-full">
         <Header
           currentUser={currentUser}
           title="ZMCC Manager Station"
           showBranding={false}
+          onMenuClick={() => setIsMobileNavOpen((prev) => !prev)}
         />
 
-        <main className="flex-1 p-6 overflow-y-auto space-y-6">
+        <main className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-6 w-full max-w-full">
           {/* Top Supervisory Banner */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-xl bg-[#FFFFFF] border border-[#EAE4D5]/80 shadow-sm">
             <div>

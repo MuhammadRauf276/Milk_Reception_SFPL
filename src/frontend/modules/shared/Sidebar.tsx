@@ -1,8 +1,18 @@
 'use client';
 
-import React from 'react';
-import { Milk, ShieldCheck, PlusCircle, KeyRound, Radio, Tv, Grid, LayoutDashboard, History, ArrowRightLeft, FlaskConical } from 'lucide-react';
-import { Role, User } from '@core/types';
+import React, { useEffect } from 'react';
+import {
+  Milk,
+  ShieldCheck,
+  PlusCircle,
+  KeyRound,
+  Radio,
+  Tv,
+  LayoutDashboard,
+  FlaskConical,
+  X,
+} from 'lucide-react';
+import { User } from '@core/types';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -11,73 +21,121 @@ interface SidebarProps {
   onOpenDispatchModal?: () => void;
   onOpenTokenModal?: () => void;
   activeCount: number;
+  isMobileOpen?: boolean;
+  onCloseMobile?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   currentUser,
   onOpenDispatchModal,
   onOpenTokenModal,
-  activeCount
+  activeCount,
+  isMobileOpen = false,
+  onCloseMobile,
 }) => {
   const pathname = usePathname();
   const role = currentUser?.role || '';
+
+  // Close drawer on Escape key press
+  useEffect(() => {
+    if (!isMobileOpen || !onCloseMobile) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onCloseMobile();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isMobileOpen, onCloseMobile]);
+
+  // Lock body scroll when mobile drawer is open
+  useEffect(() => {
+    if (isMobileOpen) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [isMobileOpen]);
 
   const isSecurityManager = role === 'Security_Manager';
 
   const isStationOperator =
     !isSecurityManager &&
     (role === 'MPD_Operator' ||
-    role === 'MPD' ||
-    role === 'Security_Operator' ||
-    role === 'Security_Weight' ||
-    role === 'QA_Operator' ||
-    role === 'QA' ||
-    role === 'Production_Operator' ||
-    role === 'Production');
+      role === 'MPD' ||
+      role === 'Security_Operator' ||
+      role === 'Security_Weight' ||
+      role === 'QA_Operator' ||
+      role === 'QA' ||
+      role === 'Production_Operator' ||
+      role === 'Production');
 
-  const isZoneManager = !isSecurityManager && role === 'MPD_Zone_Manager';
   const isZmccManager = !isSecurityManager && role === 'ZMCC_MANAGER';
   const isContractorManager = !isSecurityManager && role === 'CONTRACTOR_MANAGER';
 
   const isMainAdmin =
     !isSecurityManager &&
     (role === 'Admin' ||
-    role === 'Correction_Officer' ||
-    role === 'General_Plant_Manager' ||
-    role === 'QA_Manager' ||
-    role === 'Production_Manager' ||
-    role === 'Management');
+      role === 'Correction_Officer' ||
+      role === 'General_Plant_Manager' ||
+      role === 'QA_Manager' ||
+      role === 'Production_Manager' ||
+      role === 'Management');
 
   const getLinkStyle = (href: string) => {
     const isActive = pathname === href;
     return isActive
       ? 'bg-[#1E3A8A] text-white font-extrabold border-[#1E3A8A] shadow-md'
-      : 'bg-[#FDFBF9] text-[#111311] border-[#EAE4D5]/80 hover:bg-[#F4F0E6]/60 transition-all duration-200 ease-in-out';
+      : 'bg-[#FDFBF9] dark:bg-slate-900 text-[#111311] dark:text-slate-200 border-[#EAE4D5]/80 dark:border-slate-800 hover:bg-[#F4F0E6]/60 dark:hover:bg-slate-800 transition-all duration-200 ease-in-out';
   };
 
   const getBadgeStyle = (href: string) => {
     const isActive = pathname === href;
     return isActive
       ? 'bg-white text-[#1E3A8A] font-black'
-      : 'bg-blue-100 text-[#1E3A8A] font-black';
+      : 'bg-blue-100 dark:bg-blue-950 text-[#1E3A8A] dark:text-blue-300 font-black';
   };
 
-  return (
-    <aside className="w-64 shrink-0 bg-[#FFFFFF] dark:bg-[#0F172A] border-r border-[#EAE4D5]/80 dark:border-slate-800 flex flex-col justify-between p-4 min-h-screen text-[#111311] dark:text-slate-100 transition-colors duration-200 shadow-sm">
+  const handleLinkClick = () => {
+    if (onCloseMobile) {
+      onCloseMobile();
+    }
+  };
+
+  const renderSidebarBody = (isDrawer: boolean = false) => (
+    <div className="flex flex-col justify-between h-full space-y-5">
       <div className="space-y-5">
         {/* OFFICIAL CORPORATE BRANDING HEADER */}
-        <div className="flex items-center space-x-3 pb-3 border-b border-[#EAE4D5]/80 dark:border-slate-800">
-          <div className="p-2.5 bg-[#1E3A8A] rounded-xl shadow-sm text-white">
-            <Milk className="w-6 h-6" />
+        <div className="flex items-center justify-between pb-3 border-b border-[#EAE4D5]/80 dark:border-slate-800">
+          <div className="flex items-center space-x-3">
+            <div className="p-2.5 bg-[#1E3A8A] rounded-xl shadow-sm text-white shrink-0">
+              <Milk className="w-5 h-5 sm:w-6 sm:h-6" />
+            </div>
+            <div>
+              <h1 className="font-bold tracking-tight text-[#111311] text-base leading-none dark:text-white">
+                Shakarganj
+              </h1>
+              <p className="text-xs uppercase font-medium text-slate-600 dark:text-slate-400 tracking-wider mt-1">
+                Food Products Ltd
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="font-bold tracking-tight text-[#111311] text-base leading-none dark:text-white">
-              Shakarganj
-            </h1>
-            <p className="text-xs uppercase font-medium text-slate-600 dark:text-slate-400 tracking-wider mt-1">
-              Food Products Ltd
-            </p>
-          </div>
+
+          {/* Close button for drawer */}
+          {isDrawer && onCloseMobile && (
+            <button
+              type="button"
+              onClick={onCloseMobile}
+              className="p-1.5 rounded-lg border border-[#EAE4D5]/80 dark:border-slate-800 text-slate-500 hover:text-slate-800 hover:bg-[#F4F0E6] dark:hover:bg-slate-800 transition"
+              aria-label="Close navigation drawer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
         </div>
 
         {/* Live System Status */}
@@ -92,7 +150,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </span>
           </div>
           <p className="text-[11px] font-semibold text-[#334155] dark:text-slate-300">
-            Active Pipeline: <strong className="font-mono text-[#111311] dark:text-white font-extrabold text-xs">{activeCount} Trucks</strong>
+            Active Pipeline:{' '}
+            <strong className="font-mono text-[#111311] dark:text-white font-extrabold text-xs">
+              {activeCount} Trucks
+            </strong>
           </p>
         </div>
 
@@ -106,6 +167,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {isSecurityManager && (
             <Link
               href="/"
+              onClick={handleLinkClick}
               className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition ${getLinkStyle('/')}`}
             >
               <span className="flex items-center gap-2">
@@ -123,6 +185,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <>
               <Link
                 href="/"
+                onClick={handleLinkClick}
                 className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition ${getLinkStyle('/')}`}
               >
                 <span className="flex items-center gap-2">
@@ -144,6 +207,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
               <Link
                 href="/tv-board"
+                onClick={handleLinkClick}
                 className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition ${getLinkStyle('/tv-board')}`}
               >
                 <span className="flex items-center gap-2">
@@ -157,11 +221,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </>
           )}
 
-
           {/* 2B. ZMCC SOURCE MANAGER VIEW */}
           {isZmccManager && (
             <Link
               href="/mpd/zmcc-manager"
+              onClick={handleLinkClick}
               className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition ${getLinkStyle('/mpd/zmcc-manager')}`}
             >
               <span className="flex items-center gap-2">
@@ -178,6 +242,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {isContractorManager && (
             <Link
               href="/contractor/manager"
+              onClick={handleLinkClick}
               className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition ${getLinkStyle('/contractor/manager')}`}
             >
               <span className="flex items-center gap-2">
@@ -195,6 +260,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <>
               <Link
                 href="/super-admin/lab-tests"
+                onClick={handleLinkClick}
                 className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition ${getLinkStyle('/super-admin/lab-tests')}`}
               >
                 <span className="flex items-center gap-2">
@@ -208,6 +274,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
               <Link
                 href="/tv-board"
+                onClick={handleLinkClick}
                 className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition ${getLinkStyle('/tv-board')}`}
               >
                 <span className="flex items-center gap-2">
@@ -230,7 +297,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {(role === 'Security_Operator' || role === 'Correction_Officer' || role === 'Admin') && onOpenTokenModal && (
             <button
-              onClick={onOpenTokenModal}
+              onClick={() => {
+                handleLinkClick();
+                onOpenTokenModal();
+              }}
               className="w-full flex items-center justify-center space-x-2 py-2 px-3 bg-[#1E3A8A] hover:bg-blue-900 text-white rounded-xl font-bold text-xs shadow-sm transition-all duration-200 ease-in-out active:scale-95 border border-indigo-950"
             >
               <KeyRound className="w-4 h-4 text-white" />
@@ -240,7 +310,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {(role === 'Correction_Officer' || role === 'Admin') && onOpenDispatchModal && (
             <button
-              onClick={onOpenDispatchModal}
+              onClick={() => {
+                handleLinkClick();
+                onOpenDispatchModal();
+              }}
               className="w-full flex items-center justify-center space-x-2 py-2 px-3 bg-[#111311] hover:bg-slate-800 text-white rounded-xl font-bold text-xs shadow-sm transition-all duration-200 ease-in-out active:scale-95 border border-slate-950"
             >
               <PlusCircle className="w-4 h-4" />
@@ -249,6 +322,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
         </div>
       </div>
-    </aside>
+    </div>
+  );
+
+  return (
+    <>
+      {/* Off-Canvas Drawer (Full-Width Workspace for Managers at All Viewports) */}
+      {isMobileOpen && (
+        <div>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40"
+            onClick={onCloseMobile}
+            aria-hidden="true"
+          />
+
+          {/* Drawer Panel */}
+          <aside
+            className="fixed inset-y-0 left-0 z-50 w-72 max-w-[80vw] sm:max-w-[280px] bg-[#FFFFFF] dark:bg-[#0F172A] border-r border-[#EAE4D5]/80 dark:border-slate-800 shadow-2xl flex flex-col justify-between p-4 text-[#111311] dark:text-slate-100 overflow-y-auto"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Navigation Drawer"
+          >
+            {renderSidebarBody(true)}
+          </aside>
+        </div>
+      )}
+    </>
   );
 };
