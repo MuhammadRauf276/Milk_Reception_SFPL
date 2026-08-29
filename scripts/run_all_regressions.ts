@@ -53,6 +53,7 @@ const suites: string[] = isProbeMode
       'scripts/test_zmcc_authority_contracts.ts',
       'scripts/test_stable_lab_test_assignment.ts',
       'scripts/test_configurable_qualitative_options.ts',
+      'scripts/test_4f_plant_contractor_manager_contracts.ts',
     ];
 
 console.log(`==================================================`);

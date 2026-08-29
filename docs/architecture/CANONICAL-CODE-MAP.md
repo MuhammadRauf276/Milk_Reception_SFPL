@@ -84,7 +84,7 @@ Being located under `src/app` does **NOT** mean code is current. Every route, AP
 | `QA_Manager` | **RETIRED (4E-D)** | `/workspace-unavailable` | Legacy QA Dashboard Retired |
 | `Production_Manager` | **RETIRED (4E-D)** | `/workspace-unavailable` | Legacy Production Dashboard Retired |
 | `Correction_Officer` | **RETIRED (4E-D)** | `/workspace-unavailable` | Legacy Correction Dashboard Retired |
-| `CONTRACTOR_MANAGER` | **FUTURE NOT READY** | `/workspace-unavailable` | Fails closed until Stage 4F |
+| `CONTRACTOR_MANAGER` | **CURRENT (4F)** | `/contractor/manager` | Plant Contractor Manager Workspace (Direct-to-Plant) |
 | `EXECUTIVE_MANAGEMENT` | **FUTURE NOT READY** | `/workspace-unavailable` | Fails closed until implemented |
 | *Any Unknown Role* | **FAIL CLOSED** | `/workspace-unavailable` | Rejects unauthorized access |
 
@@ -127,6 +127,7 @@ Being located under `src/app` does **NOT** mean code is current. Every route, AP
 | **Final Receipt** | Read Model | `operationalReadModelService.ts` | `GET /api/logs` | `operationalReadModelService.ts` | `final_receipt_exists` backed by `SiloInventoryTransaction` `RECEIPT` |
 | **Read Model** | Read Model | `operationalReadModelService.ts` | `GET /api/logs` | `operationalReadModelService.ts` | `authoritative_final_liters`, source-scoped filtering |
 | **ZMCC Manager** | `/mpd/zmcc-manager` | `ZMCCManagerWorkspace.tsx` | `GET /api/logs` | `zmccManagerHelpers.ts`, `zmccManagerTypes.ts` | Assigned source isolation, read-only supervision, 6 tabs |
+| **Plant Contractor Manager** | `/contractor/manager` | `PlantContractorManagerWorkspace.tsx` | `GET /api/logs` | `contractorManagerHelpers.ts`, `contractorManagerTypes.ts` | Direct-to-plant contractor, source-scoped read-only supervision, 5 tabs (Overview, Live Pipeline, Quality & Rejections, Receipts & Reconciliation, History & Reports). Assigned strictly to one CONTRACTOR procurement source. Unassigned or misbound non-CONTRACTOR sources FAIL CLOSED (0 records). Reporting Business Date: Final Receipt Business Date (from `final_receipt_timestamp` via canonical 08:00 PKT) for finalized receipts; Visit/Dispatch Date for non-final/pending; `created_at` is NEVER a Business Date fallback. |
 | **Super Admin** | `/super-admin` | `src/app/super-admin/page.tsx` | `/api/super-admin/*` | Prisma Client direct queries | Master data management, SOP rules, user administration |
 
 ---
@@ -143,10 +144,6 @@ The following modules represent older architectural iterations. They remain in t
 
 The following roles exist in domain type definitions but do not yet have completed canonical frontend workspaces:
 
-- `CONTRACTOR_MANAGER` —
-  - **Assigned `CONTRACTOR_MANAGER`**: Scoped strictly to the procurement source assigned in the current DB user record (`procurement_source_id`).
-  - **Unassigned `CONTRACTOR_MANAGER`**: Fails closed using the existing no-source behavior / `-1` scope.
-  - Landing destination: `/workspace-unavailable`. Dedicated contractor workspace will be built in Stage 4F.
 - `EXECUTIVE_MANAGEMENT` —
   - Landing destination: `/workspace-unavailable`. Dedicated multi-plant executive overview not yet implemented.
 - `MPD_Zone_Manager` (Multi-Source Zonal Concept) — Legacy role; fails closed to `/workspace-unavailable`. Future MPD Manager workspace will supersede it.

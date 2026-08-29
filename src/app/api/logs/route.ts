@@ -44,6 +44,8 @@ export async function GET(req: NextRequest) {
     const contractor = searchParams.get('contractor') || undefined;
     const status = searchParams.get('status') || undefined;
     const search = searchParams.get('search') || undefined;
+    const dateBasisRaw = searchParams.get('dateBasis') || searchParams.get('date_basis') || undefined;
+    const dateBasis = dateBasisRaw === 'reporting' || dateBasisRaw === 'dispatch' ? dateBasisRaw : undefined;
 
     // Date validation
     if (hasFromDate) {
@@ -73,7 +75,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const logs = await getOperationalLogs({ fromDate, toDate, contractor, status, search }, authoritativeUser);
+    const logs = await getOperationalLogs({ fromDate, toDate, contractor, status, search, dateBasis }, authoritativeUser);
     const serverBusinessDate = getOperationalBusinessDate(new Date());
 
     return NextResponse.json({

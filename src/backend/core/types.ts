@@ -295,6 +295,8 @@ export interface MilkProcessLog {
   final_receipt_exists?: boolean;
   final_receipt_transaction_id?: number | null;
   final_receipt_timestamp?: string | null;
+  final_receipt_business_date?: string | null;
+  reporting_business_date?: string | null;
   authoritative_final_liters?: number | null;
 
   created_at: string;
