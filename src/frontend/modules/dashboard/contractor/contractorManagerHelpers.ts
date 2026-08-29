@@ -176,7 +176,12 @@ export function buildContractorVehicleVisits(logs: MilkProcessLog[]): Contractor
     const litersVariance = computeLitersVariance(grossLiters, authoritativeFinalLiters, finalReceiptExists);
 
     const finalReceiptBusinessDate = first.final_receipt_business_date || null;
-    const reportingBusinessDate = first.reporting_business_date || (finalReceiptExists && finalReceiptBusinessDate ? finalReceiptBusinessDate : first.dispatch_date || '');
+    let reportingBusinessDate: string | null = null;
+    if (finalReceiptExists) {
+      reportingBusinessDate = first.final_receipt_business_date || first.reporting_business_date || null;
+    } else {
+      reportingBusinessDate = first.reporting_business_date || first.dispatch_date || null;
+    }
 
     visits.push({
       visitId: vId,

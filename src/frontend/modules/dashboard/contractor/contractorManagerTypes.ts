@@ -85,7 +85,7 @@ export interface ContractorVehicleVisit {
   authoritativeFinalLiters: number | null;
   finalReceiptTimestamp: string | null;
   finalReceiptBusinessDate: string | null;
-  reportingBusinessDate: string;
+  reportingBusinessDate: string | null;
   siloStorageId: string | null;
   firstWeightKg: number | null;
   secondWeightKg: number | null;

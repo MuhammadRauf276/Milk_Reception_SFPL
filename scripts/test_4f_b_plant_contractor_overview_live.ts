@@ -57,6 +57,9 @@ async function run4FBTests() {
   let tempAssignedManager: any = null;
   let tempUnboundManager: any = null;
   let tempMisboundManager: any = null;
+  let testVisitA: any = null;
+  let testVisitB: any = null;
+  let testVisitZMCC: any = null;
 
   try {
     // --- SECTION A: FRONTEND CODE & COMPONENT STRUCTURE ---
@@ -201,6 +204,55 @@ async function run4FBTests() {
 
     if (contAlkhair && contImran && zmccSource) {
       const ts = Date.now();
+      const vehicleA = `TEST-4FB-A-${ts}`;
+      const vehicleB = `TEST-4FB-B-${ts}`;
+      const vehicleZMCC = `TEST-4FB-Z-${ts}`;
+
+      testVisitA = await prisma.vehicleVisit.create({
+        data: {
+          visit_number: `VISIT-4FB-A-${ts}`,
+          vehicle_number: vehicleA,
+          procurement_source_id: contAlkhair.id,
+          current_status: 'DISPATCHED',
+          operational_date: new Date('2026-08-28T00:00:00.000Z'),
+          vehicle_dispatch_quantity_value: 5000,
+          vehicle_dispatch_quantity_unit: 'LITER',
+          portions: {
+            create: [{ portion_number: 1, dispatch_quantity_value: 5000, dispatch_quantity_unit: 'LITER' }],
+          },
+        },
+      });
+
+      testVisitB = await prisma.vehicleVisit.create({
+        data: {
+          visit_number: `VISIT-4FB-B-${ts}`,
+          vehicle_number: vehicleB,
+          procurement_source_id: contImran.id,
+          current_status: 'DISPATCHED',
+          operational_date: new Date('2026-08-28T00:00:00.000Z'),
+          vehicle_dispatch_quantity_value: 6000,
+          vehicle_dispatch_quantity_unit: 'LITER',
+          portions: {
+            create: [{ portion_number: 1, dispatch_quantity_value: 6000, dispatch_quantity_unit: 'LITER' }],
+          },
+        },
+      });
+
+      testVisitZMCC = await prisma.vehicleVisit.create({
+        data: {
+          visit_number: `VISIT-4FB-Z-${ts}`,
+          vehicle_number: vehicleZMCC,
+          procurement_source_id: zmccSource.id,
+          current_status: 'DISPATCHED',
+          operational_date: new Date('2026-08-28T00:00:00.000Z'),
+          vehicle_dispatch_quantity_value: 7000,
+          vehicle_dispatch_quantity_unit: 'LITER',
+          portions: {
+            create: [{ portion_number: 1, dispatch_quantity_value: 7000, dispatch_quantity_unit: 'LITER' }],
+          },
+        },
+      });
+
       tempAssignedManager = await prisma.user.create({
         data: {
           username: `test.mgr.alkhair.4fb.${ts}`,
@@ -234,7 +286,7 @@ async function run4FBTests() {
         },
       });
 
-      // C1: Assigned manager receives only their own records
+      // C1: Assigned manager receives only their own records with positive proof
       const reqAssigned = await createAuthRequest(
         'http://localhost:3000/api/logs',
         'GET',
@@ -245,14 +297,12 @@ async function run4FBTests() {
       assert(resAssigned.ok, 'TEST-C1.1: Assigned CONTRACTOR_MANAGER GET /api/logs returns HTTP 200');
 
       const jsonAssigned = await resAssigned.json();
-      const foreignLogs = (jsonAssigned.logs || []).filter(
-        (l: any) => l.zonal_contractor_name !== contAlkhair.name
-      );
-      assert(
-        foreignLogs.length === 0,
-        'TEST-C1.2: Assigned CONTRACTOR_MANAGER receives ZERO foreign contractor records',
-        `Foreign count: ${foreignLogs.length}`
-      );
+      const logs = jsonAssigned.logs || [];
+      assert(logs.length > 0, 'TEST-C1.2: Assigned CONTRACTOR_MANAGER receives positive record count (>0)', `Count: ${logs.length}`);
+      assert(logs.some((l: any) => l.vehicle_number === vehicleA), 'TEST-C1.3: Assigned contractor fixture vehicleA IS present');
+      assert(!logs.some((l: any) => l.vehicle_number === vehicleB), 'TEST-C1.4: Foreign contractor fixture vehicleB IS NOT present');
+      assert(!logs.some((l: any) => l.vehicle_number === vehicleZMCC), 'TEST-C1.5: ZMCC fixture vehicleZMCC IS NOT present');
+      assert(logs.every((l: any) => l.zonal_contractor_name === contAlkhair.name), 'TEST-C1.6: All returned records match assigned contractor name');
 
       // C2: Unbound manager fails closed
       const reqUnbound = await createAuthRequest(
@@ -302,6 +352,10 @@ async function run4FBTests() {
       );
     }
   } finally {
+    if (testVisitA || testVisitB || testVisitZMCC) {
+      const visitIds = [testVisitA?.id, testVisitB?.id, testVisitZMCC?.id].filter(Boolean);
+      await prisma.vehicleVisit.deleteMany({ where: { id: { in: visitIds } } }).catch(() => {});
+    }
     if (tempAssignedManager) {
       await prisma.user.delete({ where: { id: tempAssignedManager.id } }).catch(() => {});
     }

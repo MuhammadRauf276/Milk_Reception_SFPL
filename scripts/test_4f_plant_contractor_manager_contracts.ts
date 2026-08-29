@@ -63,6 +63,10 @@ async function runPlantContractorManagerContracts() {
   let tempUnboundManager: any = null;
   let tempMisboundManager: any = null;
 
+  let testVisitA: any = null;
+  let testVisitB: any = null;
+  let testVisitZMCC: any = null;
+
   try {
     // --- 1. ROLE ROUTING & FIVE WORKSPACE TABS ---
     console.log('--- 1. Role Routing & 5 Workspace Tabs ---');
@@ -218,6 +222,36 @@ async function runPlantContractorManagerContracts() {
       '4F-INVARIANT-08C: Final receipt timestamp derives ONLY from operational_timestamp with zero created_at fallback'
     );
 
+    // Behavioral tests for missing receipt timestamp vs non-final record
+    const mockLogFinalizedNoDate: MilkProcessLog = {
+      ...mockLogWithoutVehicleGross,
+      id: 99902,
+      final_receipt_exists: true,
+      final_receipt_timestamp: null,
+      final_receipt_business_date: null,
+      reporting_business_date: null,
+      dispatch_date: '2026-08-28',
+    };
+    const builtFinalizedVisits = buildContractorVehicleVisits([mockLogFinalizedNoDate]);
+    assert(
+      builtFinalizedVisits[0].reportingBusinessDate === null,
+      '4F-INVARIANT-08D: Finalized receipt with missing receipt business date maps to reportingBusinessDate=null (no dispatch_date fallback)'
+    );
+
+    const mockLogNonFinal: MilkProcessLog = {
+      ...mockLogWithoutVehicleGross,
+      id: 99903,
+      final_receipt_exists: false,
+      final_receipt_business_date: null,
+      reporting_business_date: '2026-08-28',
+      dispatch_date: '2026-08-28',
+    };
+    const builtNonFinalVisits = buildContractorVehicleVisits([mockLogNonFinal]);
+    assert(
+      builtNonFinalVisits[0].reportingBusinessDate === '2026-08-28',
+      '4F-INVARIANT-08E: Non-final visit uses dispatch_date for reportingBusinessDate'
+    );
+
     // --- 4. BACKEND SOURCE ISOLATION & FAIL CLOSED ---
     console.log('\n--- 4. Backend Source Isolation & Fail-Closed Contract ---');
     const contAlkhair = await prisma.procurementSource.findFirst({
@@ -234,6 +268,56 @@ async function runPlantContractorManagerContracts() {
 
     if (contAlkhair && contImran && zmccSource) {
       const ts = Date.now();
+      const vehicleA = `TEST-4F-A-${ts}`;
+      const vehicleB = `TEST-4F-B-${ts}`;
+      const vehicleZMCC = `TEST-4F-Z-${ts}`;
+
+      // Create positive recognizable fixtures
+      testVisitA = await prisma.vehicleVisit.create({
+        data: {
+          visit_number: `VISIT-4F-A-${ts}`,
+          vehicle_number: vehicleA,
+          procurement_source_id: contAlkhair.id,
+          current_status: 'DISPATCHED',
+          operational_date: new Date('2026-08-28T00:00:00.000Z'),
+          vehicle_dispatch_quantity_value: 5000,
+          vehicle_dispatch_quantity_unit: 'LITER',
+          portions: {
+            create: [{ portion_number: 1, dispatch_quantity_value: 5000, dispatch_quantity_unit: 'LITER' }],
+          },
+        },
+      });
+
+      testVisitB = await prisma.vehicleVisit.create({
+        data: {
+          visit_number: `VISIT-4F-B-${ts}`,
+          vehicle_number: vehicleB,
+          procurement_source_id: contImran.id,
+          current_status: 'DISPATCHED',
+          operational_date: new Date('2026-08-28T00:00:00.000Z'),
+          vehicle_dispatch_quantity_value: 6000,
+          vehicle_dispatch_quantity_unit: 'LITER',
+          portions: {
+            create: [{ portion_number: 1, dispatch_quantity_value: 6000, dispatch_quantity_unit: 'LITER' }],
+          },
+        },
+      });
+
+      testVisitZMCC = await prisma.vehicleVisit.create({
+        data: {
+          visit_number: `VISIT-4F-Z-${ts}`,
+          vehicle_number: vehicleZMCC,
+          procurement_source_id: zmccSource.id,
+          current_status: 'DISPATCHED',
+          operational_date: new Date('2026-08-28T00:00:00.000Z'),
+          vehicle_dispatch_quantity_value: 7000,
+          vehicle_dispatch_quantity_unit: 'LITER',
+          portions: {
+            create: [{ portion_number: 1, dispatch_quantity_value: 7000, dispatch_quantity_unit: 'LITER' }],
+          },
+        },
+      });
+
       tempAssignedManager = await prisma.user.create({
         data: {
           username: `test.mgr.alkhair.4f.${ts}`,
@@ -267,7 +351,7 @@ async function runPlantContractorManagerContracts() {
         },
       });
 
-      // 4.1 Assigned manager receives only assigned contractor records
+      // 4.1 Assigned manager receives only assigned contractor records with positive proof
       const reqAssigned = await createAuthRequest(
         'http://localhost:3000/api/logs?dateBasis=reporting',
         'GET',
@@ -278,14 +362,13 @@ async function runPlantContractorManagerContracts() {
       assert(resAssigned.ok, '4F-INVARIANT-10: Assigned CONTRACTOR_MANAGER GET /api/logs returns HTTP 200');
 
       const jsonAssigned = await resAssigned.json();
-      const foreignLogs = (jsonAssigned.logs || []).filter(
-        (l: any) => l.zonal_contractor_name !== contAlkhair.name
-      );
-      assert(
-        foreignLogs.length === 0,
-        '4F-INVARIANT-11: Assigned CONTRACTOR_MANAGER receives ZERO foreign contractor records',
-        `Foreign count: ${foreignLogs.length}`
-      );
+      const logs = jsonAssigned.logs || [];
+
+      assert(logs.length > 0, '4F-INVARIANT-11A: Assigned CONTRACTOR_MANAGER returns positive result count (>0)', `Count: ${logs.length}`);
+      assert(logs.some((l: any) => l.vehicle_number === vehicleA), '4F-INVARIANT-11B: Assigned contractor fixture vehicleA IS present in response');
+      assert(!logs.some((l: any) => l.vehicle_number === vehicleB), '4F-INVARIANT-11C: Foreign contractor fixture vehicleB IS NOT present in response');
+      assert(!logs.some((l: any) => l.vehicle_number === vehicleZMCC), '4F-INVARIANT-11D: ZMCC fixture vehicleZMCC IS NOT present in response');
+      assert(logs.every((l: any) => l.zonal_contractor_name === contAlkhair.name), '4F-INVARIANT-11E: All returned records match assigned contractor name');
 
       // 4.2 Unbound manager fails closed
       const reqUnbound = await createAuthRequest(
@@ -331,6 +414,10 @@ async function runPlantContractorManagerContracts() {
       '4F-INVARIANT-15: Workspace contains ZERO mutation controls'
     );
   } finally {
+    if (testVisitA || testVisitB || testVisitZMCC) {
+      const visitIds = [testVisitA?.id, testVisitB?.id, testVisitZMCC?.id].filter(Boolean);
+      await prisma.vehicleVisit.deleteMany({ where: { id: { in: visitIds } } }).catch(() => {});
+    }
     if (tempAssignedManager) {
       await prisma.user.delete({ where: { id: tempAssignedManager.id } }).catch(() => {});
     }
