@@ -92,8 +92,9 @@ async function run4FBTests() {
       'TEST-A3.1: Workspace renders real ContractorOverview and ContractorLivePipeline components'
     );
     assert(
-      workspaceSource.includes('Available in the next Stage 4F implementation slice'),
-      'TEST-A3.2: Remaining tabs (Quality, Receipts, History) remain explicit placeholders'
+      workspaceSource.includes('<ContractorQualityRejections') ||
+        workspaceSource.includes('Available in the next Stage 4F implementation slice'),
+      'TEST-A3.2: Quality, Receipts, and History are either placeholder or implemented'
     );
 
     // A4: Overview content inspection

@@ -235,7 +235,10 @@ export function computeContractorOverview(visits: ContractorVehicleVisit[]): Con
       completedReceiptsCount++;
       totalReceivedLiters += v.authoritativeFinalLiters;
     } else if (v.status !== 'CANCELLED') {
-      activeInPlantCount++;
+      const reachedPlant = v.gateEntryTimestamp != null || v.journeyStage !== 'DISPATCHED';
+      if (reachedPlant) {
+        activeInPlantCount++;
+      }
     }
   }
 

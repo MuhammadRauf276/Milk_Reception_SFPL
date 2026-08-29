@@ -212,27 +212,27 @@ async function run4FETests() {
       );
 
       // Verify records have final_receipt_business_date and reporting_business_date
-      for (const log of jsonAssigned.logs || []) {
-        if (log.final_receipt_exists) {
-          assert(
-            !!log.final_receipt_business_date,
-            `TEST-C1.3: Finalized receipt ${log.id} has valid final_receipt_business_date (${log.final_receipt_business_date})`
-          );
-          assert(
-            log.reporting_business_date === log.final_receipt_business_date,
-            `TEST-C1.4: Finalized receipt ${log.id} reporting_business_date matches final_receipt_business_date`
-          );
-        } else {
-          assert(
-            log.final_receipt_business_date === null || log.final_receipt_business_date === undefined,
-            `TEST-C1.5: Unfinalized visit ${log.id} has null final_receipt_business_date`
-          );
-          assert(
-            log.reporting_business_date === log.dispatch_date,
-            `TEST-C1.6: Unfinalized visit ${log.id} reporting_business_date matches dispatch_date`
-          );
-        }
-      }
+      const finalizedLogs = (jsonAssigned.logs || []).filter((l: any) => l.final_receipt_exists);
+      const unfinalizedLogs = (jsonAssigned.logs || []).filter((l: any) => !l.final_receipt_exists);
+
+      const allFinalizedValid = finalizedLogs.every(
+        (l: any) => !!l.final_receipt_business_date && l.reporting_business_date === l.final_receipt_business_date
+      );
+      assert(
+        allFinalizedValid && finalizedLogs.length > 0,
+        'TEST-C1.3: All finalized receipts have valid final_receipt_business_date equal to reporting_business_date',
+        `Finalized count: ${finalizedLogs.length}`
+      );
+
+      const allUnfinalizedValid = unfinalizedLogs.every(
+        (l: any) => (l.final_receipt_business_date === null || l.final_receipt_business_date === undefined) &&
+                    l.reporting_business_date === l.dispatch_date
+      );
+      assert(
+        allUnfinalizedValid && unfinalizedLogs.length > 0,
+        'TEST-C1.4: All unfinalized visits have null final_receipt_business_date and reporting_business_date matches dispatch_date',
+        `Unfinalized count: ${unfinalizedLogs.length}`
+      );
 
       // C2: Unbound manager fails closed
       const reqUnbound = await createAuthRequest(

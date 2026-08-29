@@ -92,8 +92,9 @@ async function run4FCTests() {
       'TEST-A3.1: Workspace renders real ContractorQualityRejections component'
     );
     assert(
-      workspaceSource.includes('Available in the next Stage 4F implementation slice'),
-      'TEST-A3.2: Remaining tabs (Receipts, History) remain explicit placeholders'
+      workspaceSource.includes('<ContractorReceiptsReconciliation') ||
+        workspaceSource.includes('Available in the next Stage 4F implementation slice'),
+      'TEST-A3.2: Receipts and History are either placeholder or implemented'
     );
 
     // --- SECTION B: STRICT QA AUTHORITY & IDENTITY INVARIANTS ---
