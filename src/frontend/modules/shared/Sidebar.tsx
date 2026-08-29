@@ -37,6 +37,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const isZoneManager = !isSecurityManager && role === 'MPD_Zone_Manager';
   const isZmccManager = !isSecurityManager && role === 'ZMCC_MANAGER';
+  const isContractorManager = !isSecurityManager && role === 'CONTRACTOR_MANAGER';
 
   const isMainAdmin =
     !isSecurityManager &&
@@ -168,6 +169,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <span>ZMCC Manager Station</span>
               </span>
               <span className={`px-1.5 py-0.5 rounded font-mono text-[9px] ${getBadgeStyle('/mpd/zmcc-manager')}`}>
+                MANAGER
+              </span>
+            </Link>
+          )}
+
+          {/* 2C. PLANT CONTRACTOR MANAGER VIEW */}
+          {isContractorManager && (
+            <Link
+              href="/contractor/manager"
+              className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition ${getLinkStyle('/contractor/manager')}`}
+            >
+              <span className="flex items-center gap-2">
+                <LayoutDashboard className="w-4 h-4" />
+                <span>Plant Contractor Station</span>
+              </span>
+              <span className={`px-1.5 py-0.5 rounded font-mono text-[9px] ${getBadgeStyle('/contractor/manager')}`}>
                 MANAGER
               </span>
             </Link>
