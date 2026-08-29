@@ -2,6 +2,7 @@ import { MilkProcessLog } from '@backend/core/types';
 import {
   ContractorOverviewMetrics,
   ContractorQualityMetrics,
+  ContractorReceiptsMetrics,
   ContractorVehicleVisit,
   ContractorJourneyStage,
   ContractorPortionSummary,
@@ -120,6 +121,21 @@ export function deriveContractorJourneyStage(
 }
 
 /**
+ * Calculate presentation-only liters variance where both authoritative liter values exist.
+ * Formula: authoritative_final_liters - vehicle_dispatch_gross_liters (Preserves +/- sign).
+ */
+export function computeLitersVariance(
+  grossLiters: number | null | undefined,
+  authoritativeFinalLiters: number | null | undefined,
+  finalReceiptExists: boolean
+): number | null {
+  if (!finalReceiptExists || authoritativeFinalLiters == null || grossLiters == null || grossLiters <= 0) {
+    return null;
+  }
+  return Math.round((authoritativeFinalLiters - grossLiters) * 100) / 100;
+}
+
+/**
  * Group flat portion logs into unified ContractorVehicleVisit records
  */
 export function buildContractorVehicleVisits(logs: MilkProcessLog[]): ContractorVehicleVisit[] {
@@ -157,6 +173,8 @@ export function buildContractorVehicleVisits(logs: MilkProcessLog[]): Contractor
       finalReceiptExists
     );
 
+    const litersVariance = computeLitersVariance(grossLiters, authoritativeFinalLiters, finalReceiptExists);
+
     visits.push({
       visitId: vId,
       visitNumber: first.visit_number || `VISIT-${vId}`,
@@ -178,11 +196,14 @@ export function buildContractorVehicleVisits(logs: MilkProcessLog[]): Contractor
       portions,
       qaSummary,
       finalReceiptExists,
+      finalReceiptTransactionId: first.final_receipt_transaction_id ?? null,
       authoritativeFinalLiters,
       finalReceiptTimestamp: first.final_receipt_timestamp || null,
+      siloStorageId: first.silo_storage_id || null,
       firstWeightKg: first.first_weight_of_vehicle ?? null,
       secondWeightKg: first.second_weight_of_vehicle ?? null,
       netWeightKg: first.computed_net_milk_weight ?? null,
+      litersVariance,
     });
   });
 
@@ -244,5 +265,40 @@ export function computeContractorQualityMetrics(logs: MilkProcessLog[]): Contrac
     rejectedPortions,
     holdPortions,
     pendingPortions,
+  };
+}
+
+/**
+ * Compute receipts and reconciliation summary metrics
+ */
+export function computeContractorReceiptsMetrics(visits: ContractorVehicleVisit[]): ContractorReceiptsMetrics {
+  let totalReceiptsCount = 0;
+  let receiptPendingCount = 0;
+  let totalAuthoritativeReceivedLiters = 0;
+  let totalGrossDispatchedLiters = 0;
+  let totalLitersVariance = 0;
+  let hasVarianceRecords = false;
+
+  for (const v of visits) {
+    totalGrossDispatchedLiters += v.grossLiters || 0;
+
+    if (v.finalReceiptExists && v.authoritativeFinalLiters != null) {
+      totalReceiptsCount++;
+      totalAuthoritativeReceivedLiters += v.authoritativeFinalLiters;
+      if (v.litersVariance != null) {
+        totalLitersVariance += v.litersVariance;
+        hasVarianceRecords = true;
+      }
+    } else if (v.secondWeightTimestamp && !v.finalReceiptExists) {
+      receiptPendingCount++;
+    }
+  }
+
+  return {
+    totalReceiptsCount,
+    receiptPendingCount,
+    totalAuthoritativeReceivedLiters: Math.round(totalAuthoritativeReceivedLiters * 100) / 100,
+    totalGrossDispatchedLiters: Math.round(totalGrossDispatchedLiters * 100) / 100,
+    totalLitersVariance: hasVarianceRecords ? Math.round(totalLitersVariance * 100) / 100 : null,
   };
 }

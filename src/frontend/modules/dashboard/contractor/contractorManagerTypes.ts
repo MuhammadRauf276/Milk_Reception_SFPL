@@ -23,6 +23,14 @@ export interface ContractorQualityMetrics {
   pendingPortions: number;
 }
 
+export interface ContractorReceiptsMetrics {
+  totalReceiptsCount: number;
+  receiptPendingCount: number;
+  totalAuthoritativeReceivedLiters: number;
+  totalGrossDispatchedLiters: number;
+  totalLitersVariance: number | null;
+}
+
 export type ContractorJourneyStage =
   | 'DISPATCHED'
   | 'GATE_ENTRY'
@@ -64,9 +72,12 @@ export interface ContractorVehicleVisit {
   portions: MilkProcessLog[];
   qaSummary: ContractorPortionSummary;
   finalReceiptExists: boolean;
+  finalReceiptTransactionId: number | null;
   authoritativeFinalLiters: number | null;
   finalReceiptTimestamp: string | null;
+  siloStorageId: string | null;
   firstWeightKg: number | null;
   secondWeightKg: number | null;
   netWeightKg: number | null;
+  litersVariance: number | null;
 }

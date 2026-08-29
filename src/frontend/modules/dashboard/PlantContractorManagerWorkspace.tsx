@@ -7,6 +7,7 @@ import { Header } from '@modules/shared/Header';
 import { ContractorOverview } from './contractor/ContractorOverview';
 import { ContractorLivePipeline } from './contractor/ContractorLivePipeline';
 import { ContractorQualityRejections } from './contractor/ContractorQualityRejections';
+import { ContractorReceiptsReconciliation } from './contractor/ContractorReceiptsReconciliation';
 import { PlantContractorTab } from './contractor/contractorManagerTypes';
 import {
   LayoutDashboard,
@@ -191,19 +192,32 @@ export const PlantContractorManagerWorkspace: React.FC<PlantContractorManagerWor
             />
           )}
 
-          {activeTab !== 'OVERVIEW' && activeTab !== 'LIVE' && activeTab !== 'QUALITY' && (
-            <div className="bg-white rounded-2xl border border-[#EAE4D5] p-8 text-center space-y-3 shadow-sm">
-              <div className="p-3 bg-blue-50 text-blue-800 rounded-full w-12 h-12 flex items-center justify-center mx-auto">
-                <Building2 className="w-6 h-6" />
-              </div>
-              <h3 className="text-base font-extrabold text-slate-900">
-                {TABS.find((t) => t.id === activeTab)?.label}
-              </h3>
-              <p className="text-xs text-slate-500 max-w-sm mx-auto font-medium">
-                Available in the next Stage 4F implementation slice.
-              </p>
-            </div>
+          {activeTab === 'RECEIPTS' && (
+            <ContractorReceiptsReconciliation
+              logs={logs}
+              serverBusinessDate={serverBusinessDate}
+              assignedSourceName={assignedSourceName}
+              isLoading={loading}
+              error={error}
+            />
           )}
+
+          {activeTab !== 'OVERVIEW' &&
+            activeTab !== 'LIVE' &&
+            activeTab !== 'QUALITY' &&
+            activeTab !== 'RECEIPTS' && (
+              <div className="bg-white rounded-2xl border border-[#EAE4D5] p-8 text-center space-y-3 shadow-sm">
+                <div className="p-3 bg-blue-50 text-blue-800 rounded-full w-12 h-12 flex items-center justify-center mx-auto">
+                  <Building2 className="w-6 h-6" />
+                </div>
+                <h3 className="text-base font-extrabold text-slate-900">
+                  {TABS.find((t) => t.id === activeTab)?.label}
+                </h3>
+                <p className="text-xs text-slate-500 max-w-sm mx-auto font-medium">
+                  Available in the next Stage 4F implementation slice.
+                </p>
+              </div>
+            )}
         </div>
       </div>
     </div>
