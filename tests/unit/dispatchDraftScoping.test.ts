@@ -48,6 +48,10 @@ describe('Stage 4C-2A: Dispatch Draft Scoping & Lifecycle Rules (Unit)', () => {
       path.join(process.cwd(), 'src/frontend/modules/forms/DynamicDispatchForm.tsx'),
       'utf8'
     );
+    const vehicleSectionFile = fs.readFileSync(
+      path.join(process.cwd(), 'src/frontend/modules/forms/components/DispatchVehicleSection.tsx'),
+      'utf8'
+    );
     const startRoute = fs.readFileSync(
       path.join(process.cwd(), 'src/app/api/dispatches/start/route.ts'),
       'utf8'
@@ -57,11 +61,16 @@ describe('Stage 4C-2A: Dispatch Draft Scoping & Lifecycle Rules (Unit)', () => {
       'utf8'
     );
 
-    // 1. Frontend must NOT auto-select first source
-    expect(formFile).not.toContain('setSelectedSourceId(data.sources[0]');
-    expect(formFile).toContain('-- Select Procurement Source --');
+    // 1. Frontend parent imports and renders DispatchVehicleSection
+    expect(formFile).toContain('DispatchVehicleSection');
 
-    // 2. Backend must NOT have findFirst fallback
+    // 2. Frontend must NOT auto-select first source
+    expect(formFile).not.toContain('setSelectedSourceId(data.sources[0]');
+
+    // 3. DispatchVehicleSection presents default prompt option
+    expect(vehicleSectionFile).toContain('-- Select Procurement Source --');
+
+    // 4. Backend must NOT have findFirst fallback
     expect(startRoute).not.toContain('findFirst({ where: { is_active: true }');
     expect(mainRoute).not.toContain('findFirst({ where: { is_active: true }');
     expect(startRoute).toContain('PROCUREMENT_SOURCE_REQUIRED');
