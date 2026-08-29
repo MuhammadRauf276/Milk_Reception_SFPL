@@ -1,10 +1,17 @@
 import { MilkProcessLog } from '@backend/core/types';
 import {
   ContractorOverviewMetrics,
+  ContractorQualityMetrics,
   ContractorVehicleVisit,
   ContractorJourneyStage,
   ContractorPortionSummary,
 } from './contractorManagerTypes';
+
+/**
+ * Strict canonical lab test IDs for Plant QA
+ */
+export const PLANT_LR_TEST_CODE = 'LT-000008';
+export const PLANT_FAT_TEST_CODE = 'LT-000026';
 
 /**
  * Summarize portion-level QA decisions for a vehicle visit
@@ -57,7 +64,7 @@ export function summarizeContractorPortions(portions: MilkProcessLog[]): Contrac
     if (rejected > 0) parts.push(`${rejected} Rej`);
     if (hold > 0) parts.push(`${hold} Hold`);
     if (pending > 0) parts.push(`${pending} Pend`);
-    summaryText = parts.join(' · ');
+    summaryText = `${parts.join(' · ')} (Mixed QA Outcomes)`;
     badgeType = hold > 0 ? 'HAS_HOLD' : 'MIXED';
   }
 
@@ -211,5 +218,31 @@ export function computeContractorOverview(visits: ContractorVehicleVisit[]): Con
     completedReceiptsCount,
     totalReceivedLiters: Math.round(totalReceivedLiters * 100) / 100,
     totalGrossLiters: Math.round(totalGrossLiters * 100) / 100,
+  };
+}
+
+/**
+ * Compute portion-level QA summary metrics across all portions
+ */
+export function computeContractorQualityMetrics(logs: MilkProcessLog[]): ContractorQualityMetrics {
+  let acceptedPortions = 0;
+  let rejectedPortions = 0;
+  let holdPortions = 0;
+  let pendingPortions = 0;
+
+  for (const log of logs) {
+    const st = String(log.calculated_status || 'PENDING').toUpperCase();
+    if (st === 'ACCEPTED') acceptedPortions++;
+    else if (st === 'REJECTED') rejectedPortions++;
+    else if (st === 'HOLD') holdPortions++;
+    else pendingPortions++;
+  }
+
+  return {
+    totalPortions: logs.length,
+    acceptedPortions,
+    rejectedPortions,
+    holdPortions,
+    pendingPortions,
   };
 }

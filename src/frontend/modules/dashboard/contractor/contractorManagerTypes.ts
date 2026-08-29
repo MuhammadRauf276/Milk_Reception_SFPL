@@ -15,6 +15,14 @@ export interface ContractorOverviewMetrics {
   totalGrossLiters: number;
 }
 
+export interface ContractorQualityMetrics {
+  totalPortions: number;
+  acceptedPortions: number;
+  rejectedPortions: number;
+  holdPortions: number;
+  pendingPortions: number;
+}
+
 export type ContractorJourneyStage =
   | 'DISPATCHED'
   | 'GATE_ENTRY'
