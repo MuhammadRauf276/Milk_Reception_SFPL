@@ -56,6 +56,7 @@ async function run4FBTests() {
 
   let tempAssignedManager: any = null;
   let tempUnboundManager: any = null;
+  let tempMisboundManager: any = null;
 
   try {
     // --- SECTION A: FRONTEND CODE & COMPONENT STRUCTURE ---
@@ -92,9 +93,10 @@ async function run4FBTests() {
       'TEST-A3.1: Workspace renders real ContractorOverview and ContractorLivePipeline components'
     );
     assert(
-      workspaceSource.includes('<ContractorQualityRejections') ||
-        workspaceSource.includes('Available in the next Stage 4F implementation slice'),
-      'TEST-A3.2: Quality, Receipts, and History are either placeholder or implemented'
+      workspaceSource.includes('<ContractorQualityRejections') &&
+        workspaceSource.includes('<ContractorReceiptsReconciliation') &&
+        workspaceSource.includes('<ContractorHistoryReports'),
+      'TEST-A3.2: Quality, Receipts, and History are all fully implemented components'
     );
 
     // A4: Overview content inspection
@@ -191,9 +193,13 @@ async function run4FBTests() {
       where: { code: 'CONT-IMRAN', source_type: 'CONTRACTOR' },
     });
 
-    assert(!!contAlkhair && !!contImran, 'TEST-C0: Contractor fixtures CONT-ALKHAIR and CONT-IMRAN exist');
+    const zmccSource = await prisma.procurementSource.findFirst({
+      where: { source_type: 'ZMCC' },
+    });
 
-    if (contAlkhair && contImran) {
+    assert(!!contAlkhair && !!contImran && !!zmccSource, 'TEST-C0: Contractor fixtures and ZMCC fixture exist');
+
+    if (contAlkhair && contImran && zmccSource) {
       const ts = Date.now();
       tempAssignedManager = await prisma.user.create({
         data: {
@@ -217,6 +223,17 @@ async function run4FBTests() {
         },
       });
 
+      tempMisboundManager = await prisma.user.create({
+        data: {
+          username: `test.mgr.misbound.4fb.${ts}`,
+          full_name: 'Test Misbound 4FB Manager',
+          role: 'CONTRACTOR_MANAGER',
+          scope_type: 'SOURCE',
+          procurement_source_id: zmccSource.id,
+          is_active: true,
+        },
+      });
+
       // C1: Assigned manager receives only their own records
       const reqAssigned = await createAuthRequest(
         'http://localhost:3000/api/logs',
@@ -229,7 +246,7 @@ async function run4FBTests() {
 
       const jsonAssigned = await resAssigned.json();
       const foreignLogs = (jsonAssigned.logs || []).filter(
-        (l: any) => l.procurement_source_id && l.procurement_source_id !== contAlkhair.id.toString()
+        (l: any) => l.zonal_contractor_name !== contAlkhair.name
       );
       assert(
         foreignLogs.length === 0,
@@ -252,7 +269,22 @@ async function run4FBTests() {
         `Count: ${(jsonUnbound.logs || []).length}`
       );
 
-      // C3: Tampered query params cannot widen scope
+      // C3: Misbound CONTRACTOR_MANAGER (assigned to ZMCC) fails closed
+      const reqMisbound = await createAuthRequest(
+        'http://localhost:3000/api/logs',
+        'GET',
+        undefined,
+        tempMisboundManager
+      );
+      const resMisbound = await getLogs(reqMisbound as any);
+      const jsonMisbound = await resMisbound.json();
+      assert(
+        (jsonMisbound.logs || []).length === 0,
+        'TEST-C3: Misbound CONTRACTOR_MANAGER (assigned to ZMCC) fails closed to 0 records',
+        `Count: ${(jsonMisbound.logs || []).length}`
+      );
+
+      // C4: Tampered query params cannot widen scope
       const reqTamper = await createAuthRequest(
         `http://localhost:3000/api/logs?procurementSourceId=${contImran.id}&contractor=${contImran.code}`,
         'GET',
@@ -262,11 +294,11 @@ async function run4FBTests() {
       const resTamper = await getLogs(reqTamper as any);
       const jsonTamper = await resTamper.json();
       const foreignTamperLogs = (jsonTamper.logs || []).filter(
-        (l: any) => l.procurement_source_id && l.procurement_source_id !== contAlkhair.id.toString()
+        (l: any) => l.zonal_contractor_name !== contAlkhair.name
       );
       assert(
         foreignTamperLogs.length === 0,
-        'TEST-C3: Client query param tampering receives ZERO foreign contractor records'
+        'TEST-C4: Client query param tampering receives ZERO foreign contractor records'
       );
     }
   } finally {
@@ -275,6 +307,9 @@ async function run4FBTests() {
     }
     if (tempUnboundManager) {
       await prisma.user.delete({ where: { id: tempUnboundManager.id } }).catch(() => {});
+    }
+    if (tempMisboundManager) {
+      await prisma.user.delete({ where: { id: tempMisboundManager.id } }).catch(() => {});
     }
   }
 

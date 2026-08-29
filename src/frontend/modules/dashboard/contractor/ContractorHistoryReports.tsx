@@ -335,7 +335,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
                       </div>
                     </td>
                     <td className="py-3.5 px-3 text-right font-mono font-bold text-slate-900">
-                      {v.grossLiters ? `${v.grossLiters.toLocaleString()} L` : '—'}
+                      {v.grossLiters != null ? `${v.grossLiters.toLocaleString()} L` : '—'}
                     </td>
                     <td className="py-3.5 px-3">
                       <span

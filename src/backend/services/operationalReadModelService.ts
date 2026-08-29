@@ -88,9 +88,27 @@ export async function getOperationalLogs(
     whereClause.procurement_source = {
       name: { contains: cleanZone, mode: 'insensitive' },
     };
+  } else if (currentUser?.role === 'CONTRACTOR_MANAGER') {
+    if (currentUser.procurement_source_id) {
+      whereClause.procurement_source = {
+        id: BigInt(currentUser.procurement_source_id),
+        source_type: 'CONTRACTOR',
+      };
+    } else {
+      // Fail closed: Unbound source-scoped role receives zero records
+      whereClause.procurement_source_id = BigInt(-1);
+    }
+  } else if (currentUser?.role === 'ZMCC_MANAGER') {
+    if (currentUser.procurement_source_id) {
+      whereClause.procurement_source = {
+        id: BigInt(currentUser.procurement_source_id),
+        source_type: 'ZMCC',
+      };
+    } else {
+      // Fail closed: Unbound source-scoped role receives zero records
+      whereClause.procurement_source_id = BigInt(-1);
+    }
   } else if (
-    currentUser?.role === 'ZMCC_MANAGER' ||
-    currentUser?.role === 'CONTRACTOR_MANAGER' ||
     currentUser?.role === 'MPD_Operator' ||
     currentUser?.role === 'MPD'
   ) {
@@ -102,14 +120,16 @@ export async function getOperationalLogs(
     }
   }
 
-  // Contractor filter
+  // Contractor filter for non-scoped roles (e.g. Super Admin)
   if (filters?.contractor && filters.contractor !== 'ALL') {
-    whereClause.procurement_source = {
-      OR: [
-        { code: filters.contractor },
-        { name: filters.contractor },
-      ],
-    };
+    if (!whereClause.procurement_source && !whereClause.procurement_source_id) {
+      whereClause.procurement_source = {
+        OR: [
+          { code: filters.contractor },
+          { name: filters.contractor },
+        ],
+      };
+    }
   }
 
   // Date filters
@@ -301,18 +321,16 @@ export async function getOperationalLogs(
       const activeSnf = computedPlantSnf ?? computedDispatchSnf;
       const isBorderline = activeSnf != null && activeSnf >= 8.5 && activeSnf <= 8.6;
 
-      // Authoritative Final Receipt (Silo Transaction Evidence)
-      const finalReceiptTs = finalizedReceipt
-        ? finalizedReceipt.operational_timestamp
-          ? new Date(finalizedReceipt.operational_timestamp).toISOString()
-          : new Date(finalizedReceipt.created_at).toISOString()
+      // Authoritative Final Receipt (Silo Transaction Evidence - No created_at fallback)
+      const finalReceiptTs = finalizedReceipt?.operational_timestamp
+        ? new Date(finalizedReceipt.operational_timestamp).toISOString()
         : null;
 
       const finalReceiptBusinessDate = (Boolean(finalizedReceipt) && finalReceiptTs)
         ? getOperationalBusinessDate(finalReceiptTs)
         : null;
 
-      const reportingBusinessDate = (Boolean(finalizedReceipt) && finalReceiptBusinessDate)
+      const reportingBusinessDate = Boolean(finalizedReceipt)
         ? finalReceiptBusinessDate
         : dateStr;
 

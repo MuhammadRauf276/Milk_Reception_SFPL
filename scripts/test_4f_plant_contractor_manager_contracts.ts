@@ -2,8 +2,12 @@ import { prisma } from '../src/backend/core/db';
 import { resolveRoleHome } from '../src/lib/role-routing';
 import { GET as getLogs } from '../src/app/api/logs/route';
 import { createSessionToken } from '../src/backend/core/auth';
-import { User, Role } from '../src/backend/core/types';
+import { User, Role, MilkProcessLog } from '../src/backend/core/types';
 import { getOperationalBusinessDate } from '../src/backend/core/business-day';
+import {
+  buildContractorVehicleVisits,
+  deriveContractorJourneyStage,
+} from '../src/frontend/modules/dashboard/contractor/contractorManagerHelpers';
 import fs from 'fs';
 import path from 'path';
 
@@ -57,6 +61,7 @@ async function runPlantContractorManagerContracts() {
 
   let tempAssignedManager: any = null;
   let tempUnboundManager: any = null;
+  let tempMisboundManager: any = null;
 
   try {
     // --- 1. ROLE ROUTING & FIVE WORKSPACE TABS ---
@@ -86,7 +91,84 @@ async function runPlantContractorManagerContracts() {
 
     assert(
       helpersSource.includes('vehicle_dispatch_gross_liters'),
-      '4F-INVARIANT-03: Whole vehicle dispatch authority strictly uses vehicle_dispatch_gross_liters (Gross Liters)'
+      '4F-INVARIANT-03A: Whole vehicle dispatch authority strictly uses vehicle_dispatch_gross_liters (Gross Liters)'
+    );
+
+    // Behavioral test for whole-vehicle quantity fallback absence
+    const mockLogWithoutVehicleGross: MilkProcessLog = {
+      id: 99901,
+      portion_id: 1,
+      visit_number: 'VISIT-99901',
+      reception_number: 'REC-99901',
+      vehicle_number: 'LES-9999',
+      portion_number: 'Portion 1',
+      token_number: 'T-999',
+      zonal_contractor_name: 'Test Contractor',
+      status: 'DISPATCHED',
+      dispatch_date: '2026-08-28',
+      dispatch_day: 'Friday',
+      dispatch_week: 32,
+      dispatch_month: 'August',
+      dispatch_year: 2026,
+      zonal_contractor_dispatch_time: '10:00',
+      dispatch_kg_gross: null,
+      dispatch_liters_gross: 1500, // portion has value
+      vehicle_dispatch_quantity_value: null,
+      vehicle_dispatch_quantity_unit: null,
+      vehicle_dispatch_quantity_basis: null,
+      vehicle_dispatch_gross_liters: null, // whole vehicle is null
+      dispatch_tests: null,
+      dispatch_fat: 4.5,
+      dispatch_lr: 28,
+      igp_date: null,
+      igp_time: null,
+      out_from_gate_time: null,
+      sampling_date: null,
+      sampling_time_start: null,
+      sampling_time_end: null,
+      sampling_fat: null,
+      sampling_lr: null,
+      b_mbrt_minutes_test: null,
+      calculated_status: 'PENDING',
+      rejection_reasons: null,
+      borderline_warning: false,
+      first_weight_time: null,
+      first_weight_of_vehicle: null,
+      second_weight_time: null,
+      second_weight_of_vehicle: null,
+      reception_date: null,
+      reception_start_time: null,
+      reception_end_time: null,
+      silo_storage_id: null,
+      computed_dispatch_snf: null,
+      computed_dispatch_ts: null,
+      computed_dispatch_13ts_liters: null,
+      computed_sampling_snf: null,
+      computed_sampling_ts: null,
+      computed_plant_liters: null,
+      computed_net_milk_weight: null,
+      computed_plant_13ts_liters: null,
+      dispatch_timestamp: '2026-08-28T10:00:00.000Z',
+      gate_entry_timestamp: null,
+      gate_exit_timestamp: null,
+      first_weight_timestamp: null,
+      second_weight_timestamp: null,
+      unloading_start_timestamp: null,
+      unloading_end_timestamp: null,
+      final_receipt_exists: false,
+      final_receipt_transaction_id: null,
+      final_receipt_timestamp: null,
+      final_receipt_business_date: null,
+      reporting_business_date: '2026-08-28',
+      authoritative_final_liters: null,
+      created_at: '2026-08-28T10:00:00.000Z',
+      updated_at: '2026-08-28T10:00:00.000Z',
+    };
+
+    const builtVisits = buildContractorVehicleVisits([mockLogWithoutVehicleGross]);
+    assert(
+      builtVisits[0].grossLiters === null,
+      '4F-INVARIANT-03B: Whole vehicle quantity returns null when vehicle_dispatch_gross_liters is null (no portion/0 fallback)'
     );
 
     assert(
@@ -94,9 +176,11 @@ async function runPlantContractorManagerContracts() {
       '4F-INVARIANT-04: Final receipt authority strictly uses final_receipt_exists and authoritative_final_liters'
     );
 
+    // Behavioral test for Receipt Pending outranking generic COMPLETED status
+    const stageResult = deriveContractorJourneyStage('COMPLETED', '2026-08-28T11:00:00Z', false);
     assert(
-      helpersSource.includes('secondWeightTimestamp && !finalReceiptExists'),
-      '4F-INVARIANT-05: Receipt Pending requires second_weight_timestamp exists AND !final_receipt_exists'
+      stageResult.stage === 'RECEIPT_PENDING' && stageResult.label === 'Receipt Pending',
+      '4F-INVARIANT-05: Receipt Pending strictly outranks generic status=COMPLETED when secondWeight exists and !finalReceiptExists'
     );
 
     assert(
@@ -126,6 +210,14 @@ async function runPlantContractorManagerContracts() {
       '4F-INVARIANT-08B: Event at 08:00:00 PKT belongs to current business date (2026-08-28)'
     );
 
+    const readModelPath = path.join(__dirname, '../src/backend/services/operationalReadModelService.ts');
+    const readModelSource = fs.readFileSync(readModelPath, 'utf-8');
+    assert(
+      !readModelSource.includes('finalizedReceipt.created_at') &&
+        readModelSource.includes('finalizedReceipt?.operational_timestamp'),
+      '4F-INVARIANT-08C: Final receipt timestamp derives ONLY from operational_timestamp with zero created_at fallback'
+    );
+
     // --- 4. BACKEND SOURCE ISOLATION & FAIL CLOSED ---
     console.log('\n--- 4. Backend Source Isolation & Fail-Closed Contract ---');
     const contAlkhair = await prisma.procurementSource.findFirst({
@@ -134,10 +226,13 @@ async function runPlantContractorManagerContracts() {
     const contImran = await prisma.procurementSource.findFirst({
       where: { code: 'CONT-IMRAN', source_type: 'CONTRACTOR' },
     });
+    const zmccSource = await prisma.procurementSource.findFirst({
+      where: { source_type: 'ZMCC' },
+    });
 
-    assert(!!contAlkhair && !!contImran, '4F-INVARIANT-09: Procurement source contractor fixtures exist');
+    assert(!!contAlkhair && !!contImran && !!zmccSource, '4F-INVARIANT-09: Procurement source fixtures exist');
 
-    if (contAlkhair && contImran) {
+    if (contAlkhair && contImran && zmccSource) {
       const ts = Date.now();
       tempAssignedManager = await prisma.user.create({
         data: {
@@ -161,6 +256,17 @@ async function runPlantContractorManagerContracts() {
         },
       });
 
+      tempMisboundManager = await prisma.user.create({
+        data: {
+          username: `test.mgr.misbound.4f.${ts}`,
+          full_name: 'Test Misbound 4F Final Manager',
+          role: 'CONTRACTOR_MANAGER',
+          scope_type: 'SOURCE',
+          procurement_source_id: zmccSource.id,
+          is_active: true,
+        },
+      });
+
       // 4.1 Assigned manager receives only assigned contractor records
       const reqAssigned = await createAuthRequest(
         'http://localhost:3000/api/logs?dateBasis=reporting',
@@ -173,7 +279,7 @@ async function runPlantContractorManagerContracts() {
 
       const jsonAssigned = await resAssigned.json();
       const foreignLogs = (jsonAssigned.logs || []).filter(
-        (l: any) => l.procurement_source_id && l.procurement_source_id !== contAlkhair.id.toString()
+        (l: any) => l.zonal_contractor_name !== contAlkhair.name
       );
       assert(
         foreignLogs.length === 0,
@@ -195,19 +301,34 @@ async function runPlantContractorManagerContracts() {
         '4F-INVARIANT-12: Unbound CONTRACTOR_MANAGER fails closed to ZERO records',
         `Count: ${(jsonUnbound.logs || []).length}`
       );
+
+      // 4.3 Misbound CONTRACTOR_MANAGER (assigned to ZMCC) fails closed
+      const reqMisbound = await createAuthRequest(
+        'http://localhost:3000/api/logs?dateBasis=reporting',
+        'GET',
+        undefined,
+        tempMisboundManager
+      );
+      const resMisbound = await getLogs(reqMisbound as any);
+      const jsonMisbound = await resMisbound.json();
+      assert(
+        (jsonMisbound.logs || []).length === 0,
+        '4F-INVARIANT-13: Misbound CONTRACTOR_MANAGER (assigned to ZMCC source) fails closed to ZERO records',
+        `Count: ${(jsonMisbound.logs || []).length}`
+      );
     }
 
     // --- 5. READ-ONLY & ZERO CLIENT SOURCE SELECTOR ---
     console.log('\n--- 5. Read-Only UI & Zero Source Selector ---');
     assert(
       !workspaceSource.includes('<select'),
-      '4F-INVARIANT-13: Workspace contains ZERO client-side source dropdowns or selectors'
+      '4F-INVARIANT-14: Workspace contains ZERO client-side source dropdowns or selectors'
     );
     assert(
       !workspaceSource.includes('method: \'POST\'') &&
         !workspaceSource.includes('method: \'PATCH\'') &&
         !workspaceSource.includes('method: \'DELETE\''),
-      '4F-INVARIANT-14: Workspace contains ZERO mutation controls'
+      '4F-INVARIANT-15: Workspace contains ZERO mutation controls'
     );
   } finally {
     if (tempAssignedManager) {
@@ -215,6 +336,9 @@ async function runPlantContractorManagerContracts() {
     }
     if (tempUnboundManager) {
       await prisma.user.delete({ where: { id: tempUnboundManager.id } }).catch(() => {});
+    }
+    if (tempMisboundManager) {
+      await prisma.user.delete({ where: { id: tempMisboundManager.id } }).catch(() => {});
     }
   }
 

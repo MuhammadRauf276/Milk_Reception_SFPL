@@ -56,6 +56,7 @@ async function run4FCTests() {
 
   let tempAssignedManager: any = null;
   let tempUnboundManager: any = null;
+  let tempMisboundManager: any = null;
 
   try {
     // --- SECTION A: FRONTEND CODE & COMPONENT STRUCTURE ---
@@ -92,9 +93,9 @@ async function run4FCTests() {
       'TEST-A3.1: Workspace renders real ContractorQualityRejections component'
     );
     assert(
-      workspaceSource.includes('<ContractorReceiptsReconciliation') ||
-        workspaceSource.includes('Available in the next Stage 4F implementation slice'),
-      'TEST-A3.2: Receipts and History are either placeholder or implemented'
+      workspaceSource.includes('<ContractorReceiptsReconciliation') &&
+        workspaceSource.includes('<ContractorHistoryReports'),
+      'TEST-A3.2: Receipts and History are all fully implemented components'
     );
 
     // --- SECTION B: STRICT QA AUTHORITY & IDENTITY INVARIANTS ---
@@ -186,10 +187,13 @@ async function run4FCTests() {
     const contImran = await prisma.procurementSource.findFirst({
       where: { code: 'CONT-IMRAN', source_type: 'CONTRACTOR' },
     });
+    const zmccSource = await prisma.procurementSource.findFirst({
+      where: { source_type: 'ZMCC' },
+    });
 
-    assert(!!contAlkhair && !!contImran, 'TEST-C0: Contractor fixtures CONT-ALKHAIR and CONT-IMRAN exist');
+    assert(!!contAlkhair && !!contImran && !!zmccSource, 'TEST-C0: Contractor fixtures and ZMCC fixture exist');
 
-    if (contAlkhair && contImran) {
+    if (contAlkhair && contImran && zmccSource) {
       const ts = Date.now();
       tempAssignedManager = await prisma.user.create({
         data: {
@@ -213,6 +217,17 @@ async function run4FCTests() {
         },
       });
 
+      tempMisboundManager = await prisma.user.create({
+        data: {
+          username: `test.mgr.misbound.4fc.${ts}`,
+          full_name: 'Test Misbound 4FC Manager',
+          role: 'CONTRACTOR_MANAGER',
+          scope_type: 'SOURCE',
+          procurement_source_id: zmccSource.id,
+          is_active: true,
+        },
+      });
+
       // C1: Assigned manager receives only their own records
       const reqAssigned = await createAuthRequest(
         'http://localhost:3000/api/logs',
@@ -225,7 +240,7 @@ async function run4FCTests() {
 
       const jsonAssigned = await resAssigned.json();
       const foreignLogs = (jsonAssigned.logs || []).filter(
-        (l: any) => l.procurement_source_id && l.procurement_source_id !== contAlkhair.id.toString()
+        (l: any) => l.zonal_contractor_name !== contAlkhair.name
       );
       assert(
         foreignLogs.length === 0,
@@ -247,6 +262,21 @@ async function run4FCTests() {
         'TEST-C2: Unbound CONTRACTOR_MANAGER fails closed with 0 records',
         `Count: ${(jsonUnbound.logs || []).length}`
       );
+
+      // C3: Misbound CONTRACTOR_MANAGER fails closed
+      const reqMisbound = await createAuthRequest(
+        'http://localhost:3000/api/logs',
+        'GET',
+        undefined,
+        tempMisboundManager
+      );
+      const resMisbound = await getLogs(reqMisbound as any);
+      const jsonMisbound = await resMisbound.json();
+      assert(
+        (jsonMisbound.logs || []).length === 0,
+        'TEST-C3: Misbound CONTRACTOR_MANAGER (assigned to ZMCC) fails closed to 0 records',
+        `Count: ${(jsonMisbound.logs || []).length}`
+      );
     }
   } finally {
     if (tempAssignedManager) {
@@ -254,6 +284,9 @@ async function run4FCTests() {
     }
     if (tempUnboundManager) {
       await prisma.user.delete({ where: { id: tempUnboundManager.id } }).catch(() => {});
+    }
+    if (tempMisboundManager) {
+      await prisma.user.delete({ where: { id: tempMisboundManager.id } }).catch(() => {});
     }
   }
 

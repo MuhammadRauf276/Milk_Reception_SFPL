@@ -93,7 +93,8 @@ export function deriveContractorJourneyStage(
     return { stage: 'CANCELLED', label: 'Cancelled' };
   }
 
-  if (finalReceiptExists || status === 'COMPLETED') {
+  // Authoritative Final Receipt rule
+  if (finalReceiptExists) {
     return { stage: 'COMPLETED', label: 'Completed' };
   }
 
@@ -156,13 +157,11 @@ export function buildContractorVehicleVisits(logs: MilkProcessLog[]): Contractor
     const first = portions[0];
     const qaSummary = summarizeContractorPortions(portions);
 
-    // Whole vehicle Gross Liters authority
+    // Whole vehicle Gross Liters authority (No portion or zero fallback)
     const grossLiters =
       first.vehicle_dispatch_gross_liters != null
         ? Number(first.vehicle_dispatch_gross_liters)
-        : first.dispatch_liters_gross != null
-        ? Number(first.dispatch_liters_gross)
-        : 0;
+        : null;
 
     const finalReceiptExists = Boolean(first.final_receipt_exists);
     const authoritativeFinalLiters =
@@ -229,7 +228,9 @@ export function computeContractorOverview(visits: ContractorVehicleVisit[]): Con
   let completedReceiptsCount = 0;
 
   for (const v of visits) {
-    totalGrossLiters += v.grossLiters || 0;
+    if (v.grossLiters != null) {
+      totalGrossLiters += v.grossLiters;
+    }
 
     if (v.finalReceiptExists && v.authoritativeFinalLiters != null) {
       completedReceiptsCount++;
@@ -289,7 +290,9 @@ export function computeContractorReceiptsMetrics(visits: ContractorVehicleVisit[
   let hasVarianceRecords = false;
 
   for (const v of visits) {
-    totalGrossDispatchedLiters += v.grossLiters || 0;
+    if (v.grossLiters != null) {
+      totalGrossDispatchedLiters += v.grossLiters;
+    }
 
     if (v.finalReceiptExists && v.authoritativeFinalLiters != null) {
       totalReceiptsCount++;
@@ -324,7 +327,9 @@ export function computeContractorHistoryMetrics(visits: ContractorVehicleVisit[]
   let hasVarianceRecords = false;
 
   for (const v of visits) {
-    totalDispatchedGrossLiters += v.grossLiters || 0;
+    if (v.grossLiters != null) {
+      totalDispatchedGrossLiters += v.grossLiters;
+    }
 
     if (v.finalReceiptExists && v.authoritativeFinalLiters != null) {
       totalCompletedReceipts++;

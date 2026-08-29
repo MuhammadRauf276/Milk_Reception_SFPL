@@ -74,7 +74,7 @@ export interface ContractorVehicleVisit {
   firstWeightTimestamp: string | null;
   secondWeightTimestamp: string | null;
   unloadingEndTimestamp: string | null;
-  grossLiters: number;
+  grossLiters: number | null;
   status: ProcessStatus;
   journeyStage: ContractorJourneyStage;
   journeyStageLabel: string;
