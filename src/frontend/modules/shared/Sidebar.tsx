@@ -90,14 +90,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
     const isActive = pathname === href;
     return isActive
       ? 'bg-[#1E3A8A] text-white font-extrabold border-[#1E3A8A] shadow-md'
-      : 'bg-[#FDFBF9] dark:bg-slate-900 text-[#111311] dark:text-slate-200 border-[#EAE4D5]/80 dark:border-slate-800 hover:bg-[#F4F0E6]/60 dark:hover:bg-slate-800 transition-all duration-200 ease-in-out';
+      : 'bg-[#FDFBF9] text-[#111311] border-[#EAE4D5] hover:bg-[#F4F0E6]/60 transition-all duration-200 ease-in-out';
   };
 
   const getBadgeStyle = (href: string) => {
     const isActive = pathname === href;
     return isActive
       ? 'bg-white text-[#1E3A8A] font-black'
-      : 'bg-blue-100 dark:bg-blue-950 text-[#1E3A8A] dark:text-blue-300 font-black';
+      : 'bg-blue-100 text-[#1E3A8A] font-black';
   };
 
   const handleLinkClick = () => {
@@ -110,16 +110,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <div className="flex flex-col justify-between h-full space-y-5">
       <div className="space-y-5">
         {/* OFFICIAL CORPORATE BRANDING HEADER */}
-        <div className="flex items-center justify-between pb-3 border-b border-[#EAE4D5]/80 dark:border-slate-800">
+        <div className="flex items-center justify-between pb-3 border-b border-[#EAE4D5]">
           <div className="flex items-center space-x-3">
             <div className="p-2.5 bg-[#1E3A8A] rounded-xl shadow-sm text-white shrink-0">
               <Milk className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
             <div>
-              <h1 className="font-bold tracking-tight text-[#111311] text-base leading-none dark:text-white">
+              <h1 className="font-bold tracking-tight text-[#111311] text-base leading-none">
                 Shakarganj
               </h1>
-              <p className="text-xs uppercase font-medium text-slate-600 dark:text-slate-400 tracking-wider mt-1">
+              <p className="text-xs uppercase font-medium text-slate-600 tracking-wider mt-1">
                 Food Products Ltd
               </p>
             </div>
@@ -130,7 +130,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               type="button"
               onClick={onCloseMobile}
-              className="p-1.5 rounded-lg border border-[#EAE4D5]/80 dark:border-slate-800 text-slate-500 hover:text-slate-800 hover:bg-[#F4F0E6] dark:hover:bg-slate-800 transition"
+              className="p-1.5 rounded-lg border border-[#EAE4D5] text-slate-500 hover:text-slate-800 hover:bg-[#F4F0E6] transition"
               aria-label="Close navigation drawer"
             >
               <X className="w-5 h-5" />
@@ -139,19 +139,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Live System Status */}
-        <div className="p-3 rounded-xl bg-[#FDFBF9] dark:bg-slate-900 border border-[#EAE4D5]/80 dark:border-slate-800 space-y-1">
+        <div className="p-3 rounded-xl bg-[#FDFBF9] border border-[#EAE4D5] space-y-1">
           <div className="flex items-center justify-between text-xs font-bold">
-            <span className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-extrabold">
+            <span className="flex items-center gap-1.5 text-emerald-700 font-extrabold">
               <Radio className="w-3.5 h-3.5 animate-pulse" />
               Auto-Sync (10s)
             </span>
-            <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-black">
+            <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-black">
               LIVE
             </span>
           </div>
-          <p className="text-[11px] font-semibold text-[#334155] dark:text-slate-300">
+          <p className="text-[11px] font-semibold text-[#334155]">
             Active Pipeline:{' '}
-            <strong className="font-mono text-[#111311] dark:text-white font-extrabold text-xs">
+            <strong className="font-mono text-[#111311] font-extrabold text-xs">
               {activeCount} Trucks
             </strong>
           </p>
@@ -159,7 +159,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* DYNAMIC NAVIGATION TIER WITH DYNAMIC PATHNAME HIGHLIGHTING */}
         <div className="space-y-1.5 pt-1">
-          <label className="text-[10px] font-black uppercase tracking-wider text-[#334155] dark:text-slate-400 block px-1">
+          <label className="text-[10px] font-black uppercase tracking-wider text-[#334155] block px-1">
             Authorized Departments
           </label>
 
@@ -290,8 +290,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Primary Action Buttons */}
-        <div className="space-y-1.5 pt-2 border-t border-[#EAE4D5]/80 dark:border-slate-800">
-          <label className="text-[10px] font-black uppercase tracking-wider text-[#334155] dark:text-slate-400 block px-1">
+        <div className="space-y-1.5 pt-2 border-t border-[#EAE4D5]">
+          <label className="text-[10px] font-black uppercase tracking-wider text-[#334155] block px-1">
             Station Actions
           </label>
 
@@ -339,7 +339,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {/* Drawer Panel */}
           <aside
-            className="fixed inset-y-0 left-0 z-50 w-72 max-w-[80vw] sm:max-w-[280px] bg-[#FFFFFF] dark:bg-[#0F172A] border-r border-[#EAE4D5]/80 dark:border-slate-800 shadow-2xl flex flex-col justify-between p-4 text-[#111311] dark:text-slate-100 overflow-y-auto"
+            className="fixed inset-y-0 left-0 z-50 w-72 max-w-[80vw] sm:max-w-[280px] bg-[#FFFFFF] border-r border-[#EAE4D5] shadow-2xl flex flex-col justify-between p-4 text-[#111311] overflow-y-auto"
             role="dialog"
             aria-modal="true"
             aria-label="Navigation Drawer"

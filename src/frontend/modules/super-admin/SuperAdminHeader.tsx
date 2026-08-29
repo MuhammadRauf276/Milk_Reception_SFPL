@@ -29,13 +29,13 @@ export const SuperAdminHeader: React.FC<SuperAdminHeaderProps> = ({
   };
 
   return (
-    <header className="bg-[#FFFFFF] border-b border-[#EAE4D5]/80 px-3 sm:px-6 py-2.5 sm:py-3.5 flex items-center justify-between shrink-0 w-full max-w-full">
+    <header className="bg-[#FFFFFF] border-b border-[#EAE4D5] px-3 sm:px-6 py-2.5 sm:py-3.5 flex items-center justify-between shrink-0 w-full max-w-full">
       <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1 mr-2">
         {onMenuClick && (
           <button
             type="button"
             onClick={onMenuClick}
-            className="xl:hidden p-1.5 rounded-lg border border-[#EAE4D5]/80 bg-[#FDFBF9] text-slate-700 hover:bg-[#F4F0E6] transition shrink-0"
+            className="xl:hidden p-1.5 rounded-lg border border-[#EAE4D5] bg-[#FDFBF9] text-slate-700 hover:bg-[#F4F0E6] transition shrink-0"
             aria-label="Open navigation drawer"
           >
             <Menu className="w-5 h-5" />

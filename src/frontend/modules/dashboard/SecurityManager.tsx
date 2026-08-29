@@ -7,10 +7,13 @@ import { Header } from '@modules/shared/Header';
 import { ShieldCheck, Search, AlertTriangle, Lock, RefreshCw } from 'lucide-react';
 
 export const SecurityManager: React.FC = () => {
-  const [theme, setTheme] = useState<'creamy' | 'night'>('creamy');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [logs, setLogs] = useState<MilkProcessLog[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedLog, setSelectedLog] = useState<MilkProcessLog | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
   const fetchUser = async () => {
     try {
@@ -28,20 +31,28 @@ export const SecurityManager: React.FC = () => {
       const data = await res.json();
       if (data.logs) setLogs(data.logs);
     } catch (_err) {
-      // Handled
+      // Error
     }
   }, []);
 
   useEffect(() => {
     fetchUser();
     fetchLogs();
-
-    const interval = setInterval(() => {
-      fetchLogs();
-    }, 10000);
-
+    const interval = setInterval(fetchLogs, 10000);
     return () => clearInterval(interval);
   }, [fetchLogs]);
+
+  const handleManualSync = async () => {
+    setIsLoading(true);
+    await fetchLogs();
+    setTimeout(() => setIsLoading(false), 500);
+  };
+
+  const calculateDwellMinutes = (entryTime: string | Date | null | undefined) => {
+    if (!entryTime) return 0;
+    const diff = new Date().getTime() - new Date(entryTime).getTime();
+    return Math.floor(diff / 60000);
+  };
 
   // Helper to calculate minutes between two HH:mm strings
   const getMinutesBetween = (timeA?: string | null, timeB?: string | null): number | null => {
@@ -56,19 +67,12 @@ export const SecurityManager: React.FC = () => {
     return diff >= 0 ? diff : diff + 1440; // Handle midnight wrap if needed
   };
 
-  const filteredLogs = logs.filter((log) => {
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      const match =
-        log.vehicle_number.toLowerCase().includes(q) ||
-        (log.token_number && log.token_number.toLowerCase().includes(q)) ||
-        log.zonal_contractor_name.toLowerCase().includes(q);
-      if (!match) return false;
-    }
-    return true;
-  });
-
-  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const filteredLogs = logs.filter(
+    (log) =>
+      log.vehicle_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (log.token_number && log.token_number.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      log.zonal_contractor_name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   // Calculate Security Performance Metrics
   const totalGateEntries = logs.filter((l) => l.igp_time).length;
@@ -90,8 +94,6 @@ export const SecurityManager: React.FC = () => {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden w-full max-w-full">
         <Header
           currentUser={currentUser}
-          currentTheme={theme}
-          onToggleTheme={() => setTheme(theme === 'creamy' ? 'night' : 'creamy')}
           title="Security Audit & Performance Monitor"
           onMenuClick={() => setIsMobileNavOpen((prev) => !prev)}
         />

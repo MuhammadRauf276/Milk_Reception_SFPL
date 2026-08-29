@@ -4,21 +4,59 @@
 
 :root {
   --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  /* SFPL Design System Tokens */
+  --sfpl-bg: #FDFBF9;
+  --sfpl-surface: #FFFFFF;
+  --sfpl-surface-muted: #F4EFE3;
+  --sfpl-surface-strong: #EFE9D9;
+  --sfpl-border: #EAE4D5;
+  --sfpl-border-strong: #C4B9A3;
+  --sfpl-primary: #1E3A8A;
+  --sfpl-primary-hover: #1E40AF;
+  --sfpl-text: #111311;
+  --sfpl-text-secondary: #475569;
+  --sfpl-text-muted: #64748B;
 }
 
 body {
   font-family: var(--font-sans);
-  background-color: #F8FAFC;
-  color: #0F172A;
+  background-color: var(--sfpl-bg);
+  color: var(--sfpl-text);
   margin: 0;
   padding: 0;
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
+/* Restrained Focus States */
+:focus-visible {
+  outline: 2px solid #1E3A8A;
+  outline-offset: 2px;
+}
+
+/* Custom Scrollbar Utilities */
 .scrollbar-none::-webkit-scrollbar {
   display: none;
 }
 .scrollbar-none {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #C4B9A3;
+  border-radius: 9999px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
 }

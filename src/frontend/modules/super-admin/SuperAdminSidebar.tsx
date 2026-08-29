@@ -82,7 +82,7 @@ export const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({
     <div className="flex flex-col justify-between h-full space-y-4">
       <div className="space-y-4">
         {/* BRANDING HEADER */}
-        <div className="flex items-center justify-between pb-3 border-b border-[#EAE4D5]/80">
+        <div className="flex items-center justify-between pb-3 border-b border-[#EAE4D5]">
           <div className="flex items-center space-x-3">
             <div className="p-2 bg-[#1E3A8A] rounded-xl shadow-sm text-white shrink-0">
               <ShieldCheck className="w-5 h-5" />
@@ -102,7 +102,7 @@ export const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({
             <button
               type="button"
               onClick={onCloseMobile}
-              className="xl:hidden p-1.5 rounded-lg border border-[#EAE4D5]/80 text-slate-500 hover:text-slate-800 hover:bg-[#F4F0E6] transition"
+              className="xl:hidden p-1.5 rounded-lg border border-[#EAE4D5] text-slate-500 hover:text-slate-800 hover:bg-[#F4F0E6] transition"
               aria-label="Close navigation drawer"
             >
               <X className="w-5 h-5" />
@@ -139,7 +139,7 @@ export const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({
       </div>
 
       {/* USER INFO FOOTER */}
-      <div className="pt-3 border-t border-[#EAE4D5]/80 text-[11px] text-slate-500 space-y-1">
+      <div className="pt-3 border-t border-[#EAE4D5] text-[11px] text-slate-500 space-y-1">
         <div className="font-extrabold text-[#111311] truncate">
           {currentUser?.name || 'Super Admin'}
         </div>
@@ -153,7 +153,7 @@ export const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({
   return (
     <>
       {/* Desktop Permanent Sidebar (>= 1280px) */}
-      <aside className="hidden xl:flex w-64 shrink-0 bg-[#FFFFFF] border-r border-[#EAE4D5]/80 flex-col justify-between p-4 min-h-screen text-[#111311]">
+      <aside className="hidden xl:flex w-64 shrink-0 bg-[#FFFFFF] border-r border-[#EAE4D5] flex-col justify-between p-4 min-h-screen text-[#111311]">
         {renderSidebarBody(false)}
       </aside>
 
@@ -169,7 +169,7 @@ export const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({
 
           {/* Drawer Panel */}
           <aside
-            className="fixed inset-y-0 left-0 z-50 w-72 max-w-[80vw] sm:max-w-[280px] bg-[#FFFFFF] border-r border-[#EAE4D5]/80 shadow-2xl flex flex-col justify-between p-4 text-[#111311] overflow-y-auto"
+            className="fixed inset-y-0 left-0 z-50 w-72 max-w-[80vw] sm:max-w-[280px] bg-[#FFFFFF] border-r border-[#EAE4D5] shadow-2xl flex flex-col justify-between p-4 text-[#111311] overflow-y-auto"
             role="dialog"
             aria-modal="true"
             aria-label="Navigation Drawer"
