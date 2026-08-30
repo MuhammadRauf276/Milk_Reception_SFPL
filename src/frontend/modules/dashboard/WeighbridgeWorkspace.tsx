@@ -209,7 +209,15 @@ export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({ curr
       return;
     }
 
-    const selectedOpDate = new Date(grossDateTimeInput);
+    const isoGrossTs = datetimeLocalToIso(grossDateTimeInput);
+    if (!isoGrossTs) {
+      const errText = 'Please select a valid operational date & time for the first weight.';
+      setStatusMsg({ type: 'error', text: errText });
+      toast.showError(errText, 'Invalid Timestamp');
+      return;
+    }
+
+    const selectedOpDate = new Date(isoGrossTs);
     const now = new Date();
     if (selectedOpDate.getTime() > now.getTime() + 60000) {
       const errText = 'First weight operational timestamp cannot be in the future.';
@@ -238,7 +246,7 @@ export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({ curr
         body: JSON.stringify({
           visitId: selectedFirstVisit.id,
           grossWeightKg: grossVal,
-          grossTimestamp: selectedOpDate.toISOString(),
+          grossTimestamp: isoGrossTs,
         }),
       });
 
@@ -286,7 +294,15 @@ export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({ curr
       return;
     }
 
-    const selectedOpDate = new Date(tareDateTimeInput);
+    const isoTareTs = datetimeLocalToIso(tareDateTimeInput);
+    if (!isoTareTs) {
+      const errText = 'Please select a valid operational date & time for the second weight.';
+      setStatusMsg({ type: 'error', text: errText });
+      toast.showError(errText, 'Invalid Timestamp');
+      return;
+    }
+
+    const selectedOpDate = new Date(isoTareTs);
     const now = new Date();
     if (selectedOpDate.getTime() > now.getTime() + 60000) {
       const errText = 'Second weight operational timestamp cannot be in the future.';
@@ -315,7 +331,7 @@ export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({ curr
         body: JSON.stringify({
           visitId: selectedSecondVisit.id,
           tareWeightKg: tareVal,
-          tareTimestamp: selectedOpDate.toISOString(),
+          tareTimestamp: isoTareTs,
         }),
       });
 

@@ -316,14 +316,15 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
 
             <div className="space-y-1.5">
               <label className="block text-xs font-extrabold text-[#111311]">
-                Remarks / Additional Details
+                Rejection Remarks *
               </label>
               <textarea
                 value={rejectionRemarks}
                 onChange={(e) => onRejectionRemarksChange(e.target.value)}
-                placeholder="Optional detailed remarks regarding the rejection decision..."
+                placeholder="Detailed chemist lab observations, sample retest notes..."
                 rows={2}
                 className="w-full p-3 text-xs font-bold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:outline-none focus:ring-2 focus:ring-rose-700"
+                required
               />
             </div>
 
@@ -351,7 +352,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
               </button>
               <button
                 type="submit"
-                disabled={isSubmitting || !rejectionReason}
+                disabled={isSubmitting || !rejectionReason.trim() || !rejectionRemarks.trim()}
                 className="min-h-[44px] px-5 py-2.5 bg-rose-700 hover:bg-rose-800 text-white font-extrabold text-xs rounded-xl shadow-md transition disabled:opacity-50"
               >
                 {isSubmitting ? 'Rejecting...' : 'Confirm Portion Rejection'}

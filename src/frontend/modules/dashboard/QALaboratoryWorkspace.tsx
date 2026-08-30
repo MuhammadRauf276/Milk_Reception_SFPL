@@ -169,24 +169,29 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
       const data = await res.json();
 
       if (res.ok) {
-        const fetchedWaiting: WaitingVisit[] = data.waiting || [];
-        const fetchedTesting: InTestingVisit[] = data.inTesting || [];
-        const fetchedOnHold: OnHoldVisit[] = data.onHold || [];
+        const waiting: WaitingVisit[] = data.waiting || [];
+        const inTesting: InTestingVisit[] = data.inTesting || [];
+        const onHold: OnHoldVisit[] = data.onHold || [];
 
-        setWaitingVisits(fetchedWaiting);
-        setInTestingVisits(fetchedTesting);
-        setOnHoldVisits(fetchedOnHold);
+        setWaitingVisits(waiting);
+        setInTestingVisits(inTesting);
+        setOnHoldVisits(onHold);
 
-        // Auto-select first item if current selection invalid
-        if (activeTab === 'WAITING' && fetchedWaiting.length > 0 && !selectedWaitingVisitId) {
-          setSelectedWaitingVisitId(fetchedWaiting[0].id);
-        }
-        if (activeTab === 'IN_TESTING' && fetchedTesting.length > 0 && !selectedTestingVisitId) {
-          setSelectedTestingVisitId(fetchedTesting[0].id);
-        }
-        if (activeTab === 'ON_HOLD' && fetchedOnHold.length > 0 && !selectedHeldVisitId) {
-          setSelectedHeldVisitId(fetchedOnHold[0].id);
-        }
+        setSelectedWaitingVisitId((prev) => {
+          if (prev && waiting.some((v: any) => v.id === prev)) return prev;
+          return waiting.length > 0 ? waiting[0].id : null;
+        });
+
+        setSelectedTestingVisitId((prev) => {
+          if (prev && inTesting.some((v: any) => v.id === prev)) return prev;
+          if (inTesting.length === 0) return null;
+          return inTesting[0].id;
+        });
+
+        setSelectedHeldVisitId((prev) => {
+          if (prev && onHold.some((v: any) => v.id === prev)) return prev;
+          return onHold.length > 0 ? onHold[0].id : null;
+        });
       }
     } catch (err: any) {
       console.error('Failed to fetch QA queues', err);
@@ -402,29 +407,45 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
 
   const handleRejectPortionConfirm = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!visitDetail || !rejectionReason) return;
+    if (!visitDetail || !rejectionReason.trim()) return;
     const currentPortion = visitDetail.portions[activePortionIndex];
     if (!currentPortion) return;
+
+    const resultsPayload = Object.entries(testInputs).map(([testId, state]) => ({
+      testId,
+      performanceStatus: state.performanceStatus,
+      notPerformedReason: state.performanceStatus === 'NOT_PERFORMED' ? state.notPerformedReason : null,
+      numericValue: state.performanceStatus === 'PERFORMED' && state.numericValue !== '' ? Number(state.numericValue) : null,
+      textValue: state.performanceStatus === 'PERFORMED' && state.textValue !== '' ? state.textValue : null,
+    }));
+
+    // At least one PERFORMED result is required to reject
+    const performedResults = resultsPayload.filter((r) => r.performanceStatus === 'PERFORMED');
+    if (performedResults.length === 0) {
+      const errText = 'At least one PERFORMED Plant QA test result must be recorded before rejecting. NOT_PERFORMED alone is not sufficient rejection evidence.';
+      setMsg({ text: errText, isError: true });
+      toast.showError(errText, 'Validation Error');
+      return;
+    }
+
+    if (!rejectionRemarks.trim()) {
+      const errText = 'Rejection remarks are required.';
+      setMsg({ text: errText, isError: true });
+      toast.showError(errText, 'Validation Error');
+      return;
+    }
 
     setIsSubmitting(true);
     setMsg(null);
 
     try {
-      const resultsPayload = Object.entries(testInputs).map(([testId, state]) => ({
-        testId,
-        performanceStatus: state.performanceStatus,
-        notPerformedReason: state.performanceStatus === 'NOT_PERFORMED' ? state.notPerformedReason : null,
-        numericValue: state.performanceStatus === 'PERFORMED' && state.numericValue !== '' ? Number(state.numericValue) : null,
-        textValue: state.performanceStatus === 'PERFORMED' && state.textValue !== '' ? state.textValue : null,
-      }));
-
       const res = await fetch(`/api/qa/vehicle-visits/${visitDetail.id}/portions/${currentPortion.id}/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           decision: 'REJECTED',
-          rejectionReason: rejectionReason,
-          rejectionRemarks: rejectionRemarks.trim() || undefined,
+          rejectionReason: rejectionReason.trim(),
+          rejectionRemarks: rejectionRemarks.trim(),
           results: resultsPayload,
           operationalTimestamp: datetimeLocalToIso(qaOpTimestamp) || undefined,
         }),

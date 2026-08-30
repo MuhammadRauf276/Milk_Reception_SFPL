@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import fs from 'fs';
 import path from 'path';
-import { getScopedDraftKey } from '@/lib/validations/dispatch';
+import { getScopedDraftKey, createDispatchSchema } from '@/lib/validations/dispatch';
 
 describe('Stage 4C-2A: Dispatch Draft Scoping & Lifecycle Rules (Unit)', () => {
   it('[TEST-I] Scoped storage-key generation (production helper) separates users and sources deterministically', () => {
@@ -110,5 +110,89 @@ describe('Stage 4C-2A: Dispatch Draft Scoping & Lifecycle Rules (Unit)', () => {
     expect(startApiCalls[0]).toEqual({ visitId: 'stale-visit-999', procurementSourceId: '1' });
     expect(startApiCalls[1]).toEqual({ procurementSourceId: '1' });
     expect(mockSessionStorage[scopedKey]).toBe('fresh-visit-1001');
+  });
+
+  it('[TEST-M] MPD Dispatch submission payload strictly satisfies backend createDispatchSchema contract', () => {
+    const validSubmissionPayload = {
+      visitId: 'vv-draft-123',
+      vehicleNumber: 'LES-1234',
+      operationalDate: '2026-08-30T10:00:00.000Z',
+      procurementSourceId: 'src-1',
+      zonalContractorName: 'ZMCC Sahiwal',
+      dispatchTestingMode: 'FULL',
+      dispatchTestingReason: null,
+      vehicleQuantity: {
+        value: 5000,
+        unit: 'LITER',
+        basis: 'MEASURED',
+      },
+      portions: [
+        {
+          portionNumber: 1,
+          quantity: {
+            value: 5000,
+            unit: 'LITER',
+            basis: 'MEASURED',
+          },
+          dispatchTimestamp: '2026-08-30T10:00:00.000Z',
+          results: [
+            {
+              testId: 'LT-000008',
+              performanceStatus: 'PERFORMED',
+              notPerformedReason: null,
+              numericValue: 28.5,
+              textValue: null,
+            },
+          ],
+        },
+      ],
+    };
+
+    const parseResult = createDispatchSchema.safeParse(validSubmissionPayload);
+    expect(parseResult.success).toBe(true);
+
+    // Broken payload using Stage 4G deprecated field names MUST fail
+    const brokenPayload = {
+      visitId: 'vv-draft-123',
+      vehicleNumber: 'LES-1234',
+      dispatchOpDatetime: '2026-08-30T10:00:00.000Z', // BROKEN
+      procurementSourceId: 'src-1',
+      vehicleDispatchQuantity: { // BROKEN
+        value: 5000,
+        unit: 'LITER',
+        basis: 'MEASURED',
+      },
+      portions: [
+        {
+          portionNumber: 1,
+          quantity: {
+            value: 5000,
+            unit: 'LITER',
+            basis: 'MEASURED',
+          },
+          tests: [ // BROKEN
+            {
+              testId: 'LT-000008',
+              numericValue: 28.5,
+            },
+          ],
+        },
+      ],
+    };
+
+    const brokenParseResult = createDispatchSchema.safeParse(brokenPayload);
+    expect(brokenParseResult.success).toBe(false);
+
+    // Static code verification that DynamicDispatchForm produces correct payload keys
+    const formFile = fs.readFileSync(
+      path.join(process.cwd(), 'src/frontend/modules/forms/DynamicDispatchForm.tsx'),
+      'utf8'
+    );
+    expect(formFile).toContain('vehicleQuantity: {');
+    expect(formFile).toContain('operationalDate: effectiveDispatchDate');
+    expect(formFile).toContain('results: labTests');
+    expect(formFile).toContain('dispatchTimestamp: isoDispatchTimestamp');
+    expect(formFile).not.toContain('vehicleDispatchQuantity:');
+    expect(formFile).not.toContain('dispatchOpDatetime: isoDispatchTimestamp');
   });
 });

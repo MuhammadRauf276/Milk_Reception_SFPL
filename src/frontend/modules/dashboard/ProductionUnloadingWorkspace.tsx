@@ -159,13 +159,22 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
         setReadyVisits(fetchedVisits);
         setActiveSilos(fetchedSilos);
 
-        if (fetchedVisits.length > 0 && !selectedReadyVisitId) {
-          setSelectedReadyVisitId(fetchedVisits[0].id);
-        }
-        if (fetchedSilos.length > 0 && !selectedIssueSiloId) {
-          const withStock = fetchedSilos.find((s) => s.current_stock_liters > 0);
-          setSelectedIssueSiloId(withStock ? withStock.id : fetchedSilos[0].id);
-        }
+        // Auto-selection repair for Ready queue
+        setSelectedReadyVisitId((prev) => {
+          if (prev && fetchedVisits.some((v) => v.id === prev)) {
+            return prev;
+          }
+          return fetchedVisits.length > 0 ? fetchedVisits[0].id : null;
+        });
+
+        // Auto-selection repair for Silo Issue queue
+        setSelectedIssueSiloId((prev) => {
+          if (prev && fetchedSilos.some((s) => s.id === prev)) {
+            return prev;
+          }
+          const eligible = fetchedSilos.filter((s) => s.current_stock_liters > 0);
+          return eligible.length > 0 ? eligible[0].id : fetchedSilos.length > 0 ? fetchedSilos[0].id : null;
+        });
       }
     } catch (_err) {
       // Handled silently
@@ -185,9 +194,12 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
       if (res.ok) {
         const fetchedVisits: UnloadingVisitDef[] = data.visits || [];
         setUnloadingVisits(fetchedVisits);
-        if (fetchedVisits.length > 0 && !selectedUnloadingVisitId) {
-          setSelectedUnloadingVisitId(fetchedVisits[0].id);
-        }
+        setSelectedUnloadingVisitId((prev) => {
+          if (prev && fetchedVisits.some((v) => v.id === prev)) {
+            return prev;
+          }
+          return fetchedVisits.length > 0 ? fetchedVisits[0].id : null;
+        });
       }
     } catch (_err) {
       // Handled silently

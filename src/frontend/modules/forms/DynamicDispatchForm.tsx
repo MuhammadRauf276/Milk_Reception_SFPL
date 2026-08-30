@@ -683,19 +683,6 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
       const isoDispatchTimestamp = datetimeLocalToIso(dispatchOpDatetime) || undefined;
 
       const payloadPortions = portions.map((p) => {
-        const testsPayload = Object.entries(p.results).map(([testId, r]) => {
-          const testDef = labTests.find((t) => t.testId === testId);
-          const isNumeric = testDef?.resultType === 'NUMERIC';
-
-          return {
-            testId,
-            numericValue: r.performanceStatus === 'PERFORMED' && isNumeric && r.numericValue !== '' ? Number(r.numericValue) : null,
-            textValue: r.performanceStatus === 'PERFORMED' && (!isNumeric || r.textValue !== '') ? r.textValue : null,
-            performanceStatus: r.performanceStatus,
-            notPerformedReason: r.performanceStatus === 'NOT_PERFORMED' ? r.notPerformedReason : null,
-          };
-        });
-
         return {
           portionNumber: p.portionNumber,
           quantity: {
@@ -703,24 +690,98 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
             unit: p.quantity.unit,
             basis: p.quantity.basis,
           },
-          tests: testsPayload,
+          dispatchTimestamp: isoDispatchTimestamp,
+          results: labTests
+            .filter((t) => t.resultType !== 'CALCULATED')
+            .map((t) => {
+              const res = p.results[t.testId] || {
+                numericValue: '',
+                textValue: '',
+                performanceStatus: isContractorSource ? 'NOT_PERFORMED' : 'PERFORMED',
+                notPerformedReason: isContractorSource ? 'Contract Vehicle' : '',
+              };
+
+              return {
+                testId: t.testId,
+                performanceStatus: res.performanceStatus,
+                notPerformedReason:
+                  res.performanceStatus === 'NOT_PERFORMED'
+                    ? res.notPerformedReason?.trim() || 'Contract Vehicle'
+                    : null,
+                numericValue:
+                  res.performanceStatus === 'PERFORMED' && t.resultType === 'NUMERIC'
+                    ? res.numericValue !== ''
+                      ? Number(res.numericValue)
+                      : null
+                    : null,
+                textValue:
+                  res.performanceStatus === 'PERFORMED' && t.resultType !== 'NUMERIC'
+                    ? res.textValue
+                      ? res.textValue.trim()
+                      : null
+                    : null,
+              };
+            }),
         };
       });
+
+      // Determine testing mode
+      let allPerformed = true;
+      let allNotPerformed = true;
+      for (const p of payloadPortions) {
+        for (const r of p.results) {
+          if (r.performanceStatus === 'PERFORMED') {
+            allNotPerformed = false;
+          } else {
+            allPerformed = false;
+          }
+        }
+      }
+
+      let dispatchTestingMode: 'FULL' | 'PARTIAL' | 'NOT_PERFORMED' = 'PARTIAL';
+      if (allNotPerformed) {
+        dispatchTestingMode = 'NOT_PERFORMED';
+      } else if (allPerformed) {
+        dispatchTestingMode = 'FULL';
+      }
+
+      if (!effectiveSource || !effectiveSource.id) {
+        toast.showError('Please select a valid procurement source before submitting.', 'Validation Error');
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (!draftVisitId) {
+        toast.showError('Dispatch draft is not initialized. Please select a procurement source.', 'Validation Error');
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (!isPolicyReady) {
+        toast.showError('Quantity policy snapshot is still loading. Please wait before submitting.', 'Validation Error');
+        setIsSubmitting(false);
+        return;
+      }
+
+      const effectiveDispatchDate = isoDispatchTimestamp || new Date().toISOString();
 
       const res = await fetch('/api/dispatches', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           visitId: draftVisitId,
-          vehicleNumber: vehicleNumber.trim(),
-          procurementSourceId: effectiveSourceId,
-          vehicleDispatchQuantity: {
+          vehicleNumber: vehicleNumber.trim().toUpperCase(),
+          operationalDate: effectiveDispatchDate,
+          procurementSourceId: effectiveSource.id,
+          zonalContractorName: effectiveSource.name,
+          dispatchTestingMode,
+          dispatchTestingReason: isContractorSource && allNotPerformed ? 'Contract Vehicle' : null,
+          vehicleQuantity: {
             value: Number(vehicleQuantity.value),
             unit: vehicleQuantity.unit,
             basis: vehicleQuantity.basis,
           },
           portions: payloadPortions,
-          dispatchOpDatetime: isoDispatchTimestamp,
         }),
       });
 
