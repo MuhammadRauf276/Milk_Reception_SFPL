@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Users, Truck, Database, FlaskConical, BookOpen, Clock, AlertCircle } from 'lucide-react';
+import { Users, Truck, Database, FlaskConical, AlertCircle } from 'lucide-react';
 
 interface OverviewMetrics {
   totalUsers: number;
@@ -70,108 +70,93 @@ export default function SuperAdminOverviewPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-black text-[#111311]">System Architecture & Master Overview</h1>
-        <p className="text-xs font-medium text-slate-500 mt-1">
+        <p className="text-xs font-semibold text-slate-500 mt-1">
           Real-time enterprise metric monitoring across database models and administration layers.
         </p>
       </div>
 
       {/* METRIC CARDS GRID */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-xl border border-[#EAE4D5]/80 shadow-sm space-y-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white p-5 rounded-2xl border border-[#C4B9A3] shadow-sm space-y-2">
           <div className="flex items-center justify-between text-slate-500">
-            <span className="text-xs font-bold">User Accounts</span>
+            <span className="text-xs font-black uppercase text-slate-600">User Accounts</span>
             <Users className="w-4 h-4 text-[#1E3A8A]" />
           </div>
-          <div className="text-2xl font-black text-[#111311]">{metrics?.totalUsers}</div>
-          <div className="text-[11px] font-semibold text-emerald-700">{metrics?.activeUsers} Active Accounts</div>
+          <div className="text-3xl font-black font-mono text-[#111311]">{metrics?.totalUsers ?? '—'}</div>
+          <div className="text-[11px] font-bold text-emerald-700">{metrics?.activeUsers ?? 0} Active Accounts</div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-[#EAE4D5]/80 shadow-sm space-y-2">
+        <div className="bg-white p-5 rounded-2xl border border-[#C4B9A3] shadow-sm space-y-2">
           <div className="flex items-center justify-between text-slate-500">
-            <span className="text-xs font-bold">Procurement Sources</span>
+            <span className="text-xs font-black uppercase text-slate-600">Procurement Sources</span>
             <Truck className="w-4 h-4 text-[#1E3A8A]" />
           </div>
-          <div className="text-2xl font-black text-[#111311]">{metrics?.totalSources}</div>
-          <div className="text-[11px] font-semibold text-slate-600">
-            {metrics?.activeZmccs} ZMCCs | {metrics?.activeContractors} Contractors
+          <div className="text-3xl font-black font-mono text-[#111311]">{metrics?.totalSources ?? '—'}</div>
+          <div className="text-[11px] font-bold text-slate-600">
+            {metrics?.activeZmccs ?? 0} ZMCCs | {metrics?.activeContractors ?? 0} Contractors
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-[#EAE4D5]/80 shadow-sm space-y-2">
+        <div className="bg-white p-5 rounded-2xl border border-[#C4B9A3] shadow-sm space-y-2">
           <div className="flex items-center justify-between text-slate-500">
-            <span className="text-xs font-bold">Silo Tanks</span>
+            <span className="text-xs font-black uppercase text-slate-600">Silo Tanks</span>
             <Database className="w-4 h-4 text-[#1E3A8A]" />
           </div>
-          <div className="text-2xl font-black text-[#111311]">{metrics?.totalSilos}</div>
-          <div className="text-[11px] font-semibold text-emerald-700">{metrics?.activeSilos} Active Storage Silos</div>
+          <div className="text-3xl font-black font-mono text-[#111311]">{metrics?.totalSilos ?? '—'}</div>
+          <div className="text-[11px] font-bold text-emerald-700">{metrics?.activeSilos ?? 0} Active Storage Silos</div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-[#EAE4D5]/80 shadow-sm space-y-2">
+        <div className="bg-white p-5 rounded-2xl border border-[#C4B9A3] shadow-sm space-y-2">
           <div className="flex items-center justify-between text-slate-500">
-            <span className="text-xs font-bold">Lab Tests & Rules</span>
+            <span className="text-xs font-black uppercase text-slate-600">Lab Tests & Rules</span>
             <FlaskConical className="w-4 h-4 text-[#1E3A8A]" />
           </div>
-          <div className="text-2xl font-black text-[#111311]">{metrics?.totalLabTests}</div>
-          <div className="text-[11px] font-semibold text-slate-600">
-            {metrics?.activeLabTests} Active Tests | {metrics?.activeRules} Active SOP Rules
+          <div className="text-3xl font-black font-mono text-[#111311]">{metrics?.totalLabTests ?? '—'}</div>
+          <div className="text-[11px] font-bold text-slate-600">
+            {metrics?.activeLabTests ?? 0} Active Tests | {metrics?.activeRules ?? 0} Active SOP Rules
           </div>
         </div>
       </div>
 
-      {/* PENDING FINALIZATIONS BANNER */}
-      <div className="p-4 bg-amber-50/80 border border-amber-200 rounded-xl flex items-center justify-between text-xs font-bold text-amber-900">
-        <div className="flex items-center space-x-2">
-          <Clock className="w-4 h-4 text-amber-700 shrink-0" />
-          <span>
-            Pending Inventory Finalizations (Vehicles in <code className="bg-amber-100 px-1 py-0.5 rounded font-mono">TARE_WEIGHED</code> status):
-          </span>
-        </div>
-        <span className="font-mono text-sm font-black px-2.5 py-1 bg-amber-200 text-amber-950 rounded-lg">
-          {metrics?.pendingInventoryCount} Vehicles
-        </span>
-      </div>
-
-      {/* RECENT AUDIT LOG ACTIVITY */}
-      <div className="bg-white rounded-xl border border-[#EAE4D5]/80 p-5 space-y-3 shadow-sm">
-        <h2 className="text-sm font-extrabold text-[#111311] flex items-center space-x-2">
-          <BookOpen className="w-4 h-4 text-[#1E3A8A]" />
-          <span>Recent Administrative Audit Activity</span>
-        </h2>
-
-        {recentAudit.length === 0 ? (
-          <p className="text-xs text-slate-400 font-medium py-4">No recent audit activity found.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[#FDFBF9] text-slate-600 border-b border-[#EAE4D5]">
+      {/* RECENT AUDIT LOG TABLE */}
+      <div className="bg-white rounded-2xl border border-[#C4B9A3] shadow-sm p-5 space-y-4">
+        <h2 className="text-sm font-black text-[#111311]">Recent System Events & Audit Trail</h2>
+        <div className="overflow-x-auto rounded-xl border border-[#C4B9A3]">
+          <table className="w-full text-left text-xs font-sans">
+            <thead className="bg-[#EFE9D9]/60 border-b border-[#C4B9A3] text-slate-700 uppercase font-black text-[10px] tracking-wider whitespace-nowrap">
+              <tr>
+                <th className="p-3">Timestamp</th>
+                <th className="p-3">User</th>
+                <th className="p-3">Action</th>
+                <th className="p-3">Entity</th>
+                <th className="p-3">Summary</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#EAE4D5] font-semibold text-[#111311]">
+              {recentAudit.length === 0 ? (
                 <tr>
-                  <th className="p-2.5 font-bold">Timestamp</th>
-                  <th className="p-2.5 font-bold">User</th>
-                  <th className="p-2.5 font-bold">Action</th>
-                  <th className="p-2.5 font-bold">Entity</th>
-                  <th className="p-2.5 font-bold">Summary</th>
+                  <td colSpan={5} className="p-6 text-center text-slate-500 font-bold">
+                    No recent audit events recorded.
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-[#EAE4D5]/60 font-medium">
-                {recentAudit.map((log) => (
-                  <tr key={log.id} className="hover:bg-slate-50">
-                    <td className="p-2.5 font-mono text-[11px] text-slate-500">
-                      {new Date(log.timestamp).toLocaleString()}
-                    </td>
-                    <td className="p-2.5 font-bold text-[#111311]">{log.user}</td>
-                    <td className="p-2.5">
-                      <span className="px-2 py-0.5 rounded bg-blue-50 text-[#1E3A8A] font-mono text-[10px] font-bold">
-                        {log.action}
+              ) : (
+                recentAudit.map((item) => (
+                  <tr key={item.id} className="hover:bg-[#EFE9D9]/30 transition-colors">
+                    <td className="p-3 font-mono text-slate-600 whitespace-nowrap">{item.timestamp}</td>
+                    <td className="p-3 font-bold text-[#111311] whitespace-nowrap">{item.user}</td>
+                    <td className="p-3 whitespace-nowrap">
+                      <span className="px-2 py-0.5 rounded-md bg-blue-100 text-[#1E3A8A] font-mono text-[10px] font-black">
+                        {item.action}
                       </span>
                     </td>
-                    <td className="p-2.5 font-mono text-slate-600">{log.entity}</td>
-                    <td className="p-2.5 text-slate-500 truncate max-w-xs">{log.summary}</td>
+                    <td className="p-3 font-mono text-slate-700 whitespace-nowrap">{item.entity}</td>
+                    <td className="p-3 text-slate-600">{item.summary}</td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

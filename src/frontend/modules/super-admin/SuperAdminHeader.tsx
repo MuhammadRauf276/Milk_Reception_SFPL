@@ -29,27 +29,27 @@ export const SuperAdminHeader: React.FC<SuperAdminHeaderProps> = ({
   };
 
   return (
-    <header className="bg-[#FFFFFF] border-b border-[#EAE4D5] px-3 sm:px-6 py-2.5 sm:py-3.5 flex items-center justify-between shrink-0 w-full max-w-full">
+    <header className="bg-white border-b border-[#C4B9A3] px-3 sm:px-6 py-3 flex items-center justify-between shrink-0 w-full max-w-full shadow-xs">
       <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1 mr-2">
         {onMenuClick && (
           <button
             type="button"
             onClick={onMenuClick}
-            className="xl:hidden p-1.5 rounded-lg border border-[#EAE4D5] bg-[#FDFBF9] text-slate-700 hover:bg-[#F4F0E6] transition shrink-0"
+            className="xl:hidden p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl border border-[#C4B9A3] bg-[#FDFBF9] text-[#111311] hover:bg-[#EFE9D9]/60 transition shrink-0"
             aria-label="Open navigation drawer"
           >
             <Menu className="w-5 h-5" />
           </button>
         )}
 
-        <div className="p-1.5 sm:p-2 bg-[#F4EFE3] rounded-lg border border-[#C4B9A3] shrink-0">
+        <div className="p-2 bg-[#EFE9D9]/60 rounded-xl border border-[#C4B9A3] shrink-0">
           <Shield className="w-4 h-4 text-[#1E3A8A]" />
         </div>
         <div className="min-w-0">
-          <h2 className="text-xs sm:text-base font-extrabold tracking-tight text-[#111311] truncate">
+          <h2 className="text-xs sm:text-base font-black tracking-tight text-[#111311] truncate">
             {title}
           </h2>
-          <p className="text-[10px] sm:text-[11px] text-slate-500 font-medium hidden sm:block truncate">
+          <p className="text-[10px] sm:text-[11px] text-slate-500 font-semibold hidden sm:block truncate">
             System Administration & Master Control
           </p>
         </div>
@@ -66,11 +66,12 @@ export const SuperAdminHeader: React.FC<SuperAdminHeaderProps> = ({
         </div>
 
         <button
+          type="button"
           onClick={handleLogout}
-          className="flex items-center space-x-1.5 p-1.5 sm:px-3 sm:py-1.5 rounded-lg border border-[#C4B9A3] bg-[#FDFBF9] hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300 text-xs font-bold text-slate-700 transition"
+          className="flex items-center space-x-1.5 px-3 py-2 min-h-[44px] rounded-xl border border-[#C4B9A3] bg-[#FDFBF9] hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300 text-xs font-bold text-slate-700 transition"
           title="Sign Out"
         >
-          <LogOut className="w-3.5 h-3.5" />
+          <LogOut className="w-4 h-4 text-[#1E3A8A]" />
           <span className="hidden sm:inline">Sign Out</span>
         </button>
       </div>
