@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { Factory, Search, CheckCircle2, AlertCircle, Clock, Database, Play, CheckCheck, RefreshCw, ShieldAlert, ArrowRight, MinusCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Factory, Search, Clock, Database, Play, CheckCheck, RefreshCw, Radio, MinusCircle } from 'lucide-react';
 import { useToast } from '@/frontend/context/ToastContext';
 import { toDatetimeLocalInput, datetimeLocalToIso } from '@/lib/datetime-utils';
 import { User } from '@core/types';
@@ -128,8 +128,8 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
 
   const [isLoading, setIsLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [_errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [_successMsg, setSuccessMsg] = useState<string | null>(null);
 
   // Local helper for local ISO datetime-local format
   const getLocalISOString = () => {
@@ -159,40 +159,24 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
         setReadyVisits(fetchedVisits);
         setActiveSilos(fetchedSilos);
 
-        // Auto-selection repair for Ready queue
-        setSelectedReadyVisitId((prev) => {
-          if (prev && fetchedVisits.some((v) => v.id === prev)) {
-            return prev;
-          }
-          return fetchedVisits.length > 0 ? fetchedVisits[0].id : null;
-        });
-
-        // Auto-selection repair for Silo Issue queue (first visible silo with stock or matching query)
-        setSelectedIssueSiloId((prev) => {
-          if (prev && fetchedSilos.some((s) => s.id === prev)) {
-            return prev;
-          }
-          const eligible = fetchedSilos.filter((s) => s.current_stock_liters > 0);
-          return eligible.length > 0 ? eligible[0].id : fetchedSilos.length > 0 ? fetchedSilos[0].id : null;
-        });
-      } else {
-        setErrorMsg(data.error || 'Failed to fetch ready for unloading vehicles');
+        if (fetchedVisits.length > 0 && !selectedReadyVisitId) {
+          setSelectedReadyVisitId(fetchedVisits[0].id);
+        }
+        if (fetchedSilos.length > 0 && !selectedIssueSiloId) {
+          const withStock = fetchedSilos.find((s) => s.current_stock_liters > 0);
+          setSelectedIssueSiloId(withStock ? withStock.id : fetchedSilos[0].id);
+        }
       }
-    } catch (err: any) {
-      if (!isCancelledFlag.current) {
-        setErrorMsg('Network error fetching ready queue');
-      }
+    } catch (_err) {
+      // Handled silently
     } finally {
-      if (!isCancelledFlag.current) {
-        setIsLoading(false);
-      }
+      if (!isCancelledFlag.current) setIsLoading(false);
     }
   };
 
-  // Fetch Unloading Queue Data
+  // Fetch Unloading Active Queue
   const fetchUnloadingData = async (query = searchQuery, isCancelledFlag = { current: false }) => {
     try {
-      setIsLoading(true);
       const res = await fetch(`/api/production/unloading-queue?search=${encodeURIComponent(query)}`);
       const data = await res.json();
 
@@ -201,101 +185,70 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
       if (res.ok) {
         const fetchedVisits: UnloadingVisitDef[] = data.visits || [];
         setUnloadingVisits(fetchedVisits);
-
-        // Auto-selection repair
-        setSelectedUnloadingVisitId((prev) => {
-          if (prev && fetchedVisits.some((v) => v.id === prev)) {
-            return prev;
-          }
-          return fetchedVisits.length > 0 ? fetchedVisits[0].id : null;
-        });
-      } else {
-        setErrorMsg(data.error || 'Failed to fetch unloading vehicles');
+        if (fetchedVisits.length > 0 && !selectedUnloadingVisitId) {
+          setSelectedUnloadingVisitId(fetchedVisits[0].id);
+        }
       }
-    } catch (err: any) {
-      if (!isCancelledFlag.current) {
-        setErrorMsg('Network error fetching unloading queue');
-      }
-    } finally {
-      if (!isCancelledFlag.current) {
-        setIsLoading(false);
-      }
+    } catch (_err) {
+      // Handled silently
     }
   };
 
   // Fetch Silo Issue History
   const fetchIssueHistory = async (siloId: string) => {
+    if (!siloId) return;
     try {
       setHistoryLoading(true);
-      const res = await fetch(`/api/production/silo-issue/history?siloId=${encodeURIComponent(siloId)}`);
+      const res = await fetch(`/api/production/silo-issue/history?siloId=${siloId}`);
       const data = await res.json();
       if (res.ok) {
-        setIssueHistory(data.issues || []);
+        setIssueHistory(data.history || []);
       }
-    } catch (err) {
-      console.error('Failed to fetch issue history:', err);
+    } catch (_err) {
+      // Handled silently
     } finally {
       setHistoryLoading(false);
     }
   };
 
-  // Fetch Silo Issue history when selected issue silo changes
-  useEffect(() => {
-    if (selectedIssueSiloId && activeTab === 'SILO_ISSUE') {
-      fetchIssueHistory(selectedIssueSiloId);
-    }
-  }, [selectedIssueSiloId, activeTab]);
-
-  // Load active tab data & set 5s live polling
+  // Polling intervals & query effect
   useEffect(() => {
     const isCancelledFlag = { current: false };
 
-    if (activeTab === 'READY' || activeTab === 'SILO_ISSUE') {
-      fetchReadyData(searchQuery, isCancelledFlag);
-    } else {
-      fetchUnloadingData(searchQuery, isCancelledFlag);
-    }
+    fetchReadyData(searchQuery, isCancelledFlag);
+    fetchUnloadingData(searchQuery, isCancelledFlag);
 
     const interval = setInterval(() => {
-      if (activeTab === 'READY' || activeTab === 'SILO_ISSUE') {
-        fetchReadyData(searchQuery, isCancelledFlag);
-      } else {
-        fetchUnloadingData(searchQuery, isCancelledFlag);
-      }
+      fetchReadyData(searchQuery, isCancelledFlag);
+      fetchUnloadingData(searchQuery, isCancelledFlag);
     }, 5000);
 
     return () => {
       isCancelledFlag.current = true;
       clearInterval(interval);
     };
-  }, [activeTab, searchQuery]);
+  }, [searchQuery]);
 
-  // Selected vehicle & silo helpers
-  const selectedReadyVisit = useMemo(
-    () => readyVisits.find((v) => v.id === selectedReadyVisitId) || null,
-    [readyVisits, selectedReadyVisitId]
-  );
+  // Load history when issue silo selection changes
+  useEffect(() => {
+    if (selectedIssueSiloId && activeTab === 'SILO_ISSUE') {
+      fetchIssueHistory(selectedIssueSiloId);
+    }
+  }, [selectedIssueSiloId, activeTab]);
 
-  const selectedUnloadingVisit = useMemo(
-    () => unloadingVisits.find((v) => v.id === selectedUnloadingVisitId) || null,
-    [unloadingVisits, selectedUnloadingVisitId]
-  );
+  // Active object references
+  const selectedReadyVisit = readyVisits.find((v) => v.id === selectedReadyVisitId) || null;
+  const selectedUnloadingVisit = unloadingVisits.find((v) => v.id === selectedUnloadingVisitId) || null;
+  const selectedIssueSilo = activeSilos.find((s) => s.id === selectedIssueSiloId) || null;
 
-  const selectedIssueSilo = useMemo(
-    () => activeSilos.find((s) => s.id === selectedIssueSiloId) || null,
-    [activeSilos, selectedIssueSiloId]
-  );
+  // Filtered Silo list for Issue tab
+  const siloIssueList = activeSilos.filter((s) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return s.silo_code.toLowerCase().includes(q) || s.silo_name.toLowerCase().includes(q);
+  });
 
-  // Silo list for Silo Issue tab (filter by search query, prioritize stock > 0)
-  const siloIssueList = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    return activeSilos.filter((s) => {
-      if (!query) return true;
-      return s.silo_code.toLowerCase().includes(query) || s.silo_name.toLowerCase().includes(query);
-    });
-  }, [activeSilos, searchQuery]);
-
-  // Pre-fill default Silo inputs when selected ready visit changes
+  // Auto-populate default silo mapping for selected ready visit
   useEffect(() => {
     if (selectedReadyVisit && activeSilos.length > 0) {
       const newMap: Record<string, string> = {};
@@ -356,7 +309,7 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
         setErrorMsg(errText);
         toast.showError(errText, 'Unloading Error');
       }
-    } catch (err: any) {
+    } catch (_err) {
       const errText = 'Network error starting unloading';
       setErrorMsg(errText);
       toast.showError(errText, 'Network Error');
@@ -398,7 +351,7 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
         setErrorMsg(errText);
         toast.showError(errText, 'Unloading Error');
       }
-    } catch (err: any) {
+    } catch (_err) {
       const errText = 'Network error completing unloading';
       setErrorMsg(errText);
       toast.showError(errText, 'Network Error');
@@ -458,7 +411,7 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
         setErrorMsg(errText);
         toast.showError(errText, 'Silo Issue Error');
       }
-    } catch (err: any) {
+    } catch (_err) {
       const errText = 'Network error recording silo milk issue';
       setErrorMsg(errText);
       toast.showError(errText, 'Network Error');
@@ -474,292 +427,321 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
   const isOverIssue = parsedIssueLiters > currentStock;
 
   return (
-    <div className="space-y-6">
-      {/* Top Banner & Tab Navigation */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-100 pb-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-amber-50 rounded-lg text-amber-700">
-              <Factory className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl font-bold text-gray-900">Milk Operations</h1>
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                  Live
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Search Box */}
-          <div className="relative min-w-[280px]">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder={activeTab === 'SILO_ISSUE' ? "Search silo code or name..." : "Search vehicle or token..."}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
-            />
-          </div>
+    <div className="w-full max-w-7xl mx-auto space-y-6 text-[#111311]">
+      {/* Top Header & Tab Navigation */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#C4B9A3]">
+        <div>
+          <h2 className="text-xl font-black tracking-tight text-[#111311] flex items-center gap-2">
+            <Factory className="w-6 h-6 text-[#1E3A8A]" />
+            Production & Silo Unloading
+          </h2>
+          <p className="text-xs text-[#334155] font-semibold mt-0.5">
+            Operator: <strong className="text-[#111311]">{currentUser?.name || 'Production Operator'}</strong> | Unloading Bays & Silo Stock Management
+          </p>
         </div>
 
-        {/* Tab Buttons */}
-        <div className="flex items-center gap-3 pt-4">
+        <div className="flex items-center space-x-2 bg-[#EFE9D9] p-1.5 rounded-2xl border border-[#C4B9A3] overflow-x-auto max-w-full">
           <button
+            type="button"
             onClick={() => {
               setActiveTab('READY');
               setErrorMsg(null);
               setSuccessMsg(null);
             }}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+            className={`px-4 py-2.5 rounded-xl text-xs font-extrabold transition flex items-center space-x-2 shrink-0 min-h-[44px] ${
               activeTab === 'READY'
-                ? 'bg-amber-600 text-white shadow-sm'
-                : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                ? 'bg-[#1E3A8A] text-white shadow-sm'
+                : 'text-[#334155] hover:bg-amber-100/50'
             }`}
           >
             <Clock className="w-4 h-4" />
-            Ready for Unloading
-            <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-              activeTab === 'READY' ? 'bg-amber-700 text-amber-100' : 'bg-gray-200 text-gray-700'
+            <span>Ready for Unloading</span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono ${
+              activeTab === 'READY' ? 'bg-white/20 text-white' : 'bg-[#F4EFE3] text-slate-700'
             }`}>
               {readyVisits.length}
             </span>
           </button>
 
           <button
+            type="button"
             onClick={() => {
               setActiveTab('UNLOADING');
               setErrorMsg(null);
               setSuccessMsg(null);
             }}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+            className={`px-4 py-2.5 rounded-xl text-xs font-extrabold transition flex items-center space-x-2 shrink-0 min-h-[44px] ${
               activeTab === 'UNLOADING'
-                ? 'bg-amber-600 text-white shadow-sm'
-                : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                ? 'bg-[#1E3A8A] text-white shadow-sm'
+                : 'text-[#334155] hover:bg-amber-100/50'
             }`}
           >
             <Play className="w-4 h-4" />
-            Unloading
-            <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-              activeTab === 'UNLOADING' ? 'bg-amber-700 text-amber-100' : 'bg-gray-200 text-gray-700'
+            <span>Unloading Active</span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono ${
+              activeTab === 'UNLOADING' ? 'bg-white/20 text-white' : 'bg-[#F4EFE3] text-slate-700'
             }`}>
               {unloadingVisits.length}
             </span>
           </button>
 
           <button
+            type="button"
             onClick={() => {
               setActiveTab('SILO_ISSUE');
               setErrorMsg(null);
               setSuccessMsg(null);
             }}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+            className={`px-4 py-2.5 rounded-xl text-xs font-extrabold transition flex items-center space-x-2 shrink-0 min-h-[44px] ${
               activeTab === 'SILO_ISSUE'
-                ? 'bg-amber-600 text-white shadow-sm'
-                : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                ? 'bg-[#1E3A8A] text-white shadow-sm'
+                : 'text-[#334155] hover:bg-amber-100/50'
             }`}
           >
             <MinusCircle className="w-4 h-4" />
-            Silo Issue
-            <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-              activeTab === 'SILO_ISSUE' ? 'bg-amber-700 text-amber-100' : 'bg-gray-200 text-gray-700'
+            <span>Silo Issue</span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono ${
+              activeTab === 'SILO_ISSUE' ? 'bg-white/20 text-white' : 'bg-[#F4EFE3] text-slate-700'
             }`}>
               {activeSilos.filter((s) => s.current_stock_liters > 0).length}
             </span>
           </button>
         </div>
+
+        <div className="hidden lg:flex items-center space-x-1.5 px-3 py-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 rounded-xl border border-emerald-200 shrink-0">
+          <Radio className="w-3 h-3 animate-pulse text-emerald-600" />
+          <span>Live Bays</span>
+        </div>
       </div>
 
       {/* Workspace Split Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left Column: Queue List / Silo List (5 cols) */}
         <div className="lg:col-span-5 space-y-3">
-          {activeTab === 'READY' && (
-            readyVisits.length === 0 ? (
-              <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
-                <Clock className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                <p className="text-sm text-gray-500 font-medium">No vehicles are ready for unloading.</p>
-              </div>
-            ) : (
-              readyVisits.map((v) => {
-                const isSelected = v.id === selectedReadyVisitId;
-                return (
-                  <div
-                    key={v.id}
-                    onClick={() => setSelectedReadyVisitId(v.id)}
-                    className={`bg-white rounded-xl border p-4 cursor-pointer transition-all ${
-                      isSelected
-                        ? 'border-amber-500 ring-2 ring-amber-500/20 shadow-md'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-gray-900 text-base">{v.vehicle_number}</span>
-                        {v.token_number && (
-                          <span className="px-2 py-0.5 text-xs font-semibold bg-gray-100 text-gray-700 rounded-md">
-                            Token: {v.token_number}
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-xs text-gray-500 flex items-center gap-1">
-                        <Clock className="w-3.5 h-3.5" />
-                        {v.waiting_minutes} min wait
-                      </span>
-                    </div>
+          <div className="flex items-center justify-between px-1">
+            <h3 className="text-sm font-extrabold text-[#111311]">
+              {activeTab === 'READY' ? 'Ready Queue' : activeTab === 'UNLOADING' ? 'In Unloading Queue' : 'Active Silos'}
+            </h3>
+            <span className="text-xs font-mono font-bold text-slate-500">
+              {activeTab === 'READY' ? `${readyVisits.length} ready` : activeTab === 'UNLOADING' ? `${unloadingVisits.length} unloading` : `${siloIssueList.length} silos`}
+            </span>
+          </div>
 
-                    <div className="grid grid-cols-2 gap-2 text-xs bg-gray-50 p-2.5 rounded-lg border border-gray-100 font-mono">
-                      <div>
-                        <span className="text-gray-500 font-sans block text-[11px]">Gross Weight:</span>
-                        <span className="font-bold text-gray-900">{v.gross_weight_kg ? v.gross_weight_kg.toLocaleString() : '—'} kg</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-500 font-sans block text-[11px]">Expected Volume:</span>
-                        <span className="font-bold text-amber-700">{v.total_accepted_physical_liters !== null ? `~${v.total_accepted_physical_liters.toLocaleString()} L` : '—'}</span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-            )
-          )}
+          {/* Search Box */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder={activeTab === 'SILO_ISSUE' ? 'Search silo code or name...' : 'Search vehicle or token...'}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full min-h-[44px] pl-9 pr-3 py-2 text-xs font-mono font-bold rounded-xl border border-[#C4B9A3] bg-[#EFE9D9] text-[#111311] focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
+            />
+          </div>
 
-          {activeTab === 'UNLOADING' && (
-            unloadingVisits.length === 0 ? (
-              <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
-                <Play className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                <p className="text-sm text-gray-500 font-medium">No vehicles are currently unloading.</p>
+          <div className="space-y-2.5 max-h-[520px] overflow-y-auto pr-1">
+            {isLoading ? (
+              <div className="p-8 text-center border border-dashed border-[#C4B9A3] rounded-2xl bg-[#EFE9D9] text-xs font-bold text-slate-500">
+                <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-blue-700" />
+                Loading production queue...
               </div>
-            ) : (
-              unloadingVisits.map((v) => {
-                const isSelected = v.id === selectedUnloadingVisitId;
-                return (
-                  <div
-                    key={v.id}
-                    onClick={() => setSelectedUnloadingVisitId(v.id)}
-                    className={`bg-white rounded-xl border p-4 cursor-pointer transition-all ${
-                      isSelected
-                        ? 'border-amber-500 ring-2 ring-amber-500/20 shadow-md'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-gray-900 text-base">{v.vehicle_number}</span>
-                        <span className="px-2 py-0.5 text-xs font-semibold bg-amber-100 text-amber-800 rounded-md animate-pulse">
-                          Unloading Active
+            ) : activeTab === 'READY' ? (
+              readyVisits.length === 0 ? (
+                <div className="p-8 text-center border border-dashed border-[#C4B9A3] rounded-2xl bg-[#EFE9D9] text-xs font-bold text-slate-500">
+                  No vehicles currently ready for unloading.
+                </div>
+              ) : (
+                readyVisits.map((v) => {
+                  const isSelected = v.id === selectedReadyVisitId;
+                  return (
+                    <div
+                      key={v.id}
+                      onClick={() => setSelectedReadyVisitId(v.id)}
+                      className={`p-4 rounded-xl border transition cursor-pointer space-y-2 ${
+                        isSelected
+                          ? 'bg-[#1E3A8A] text-white border-blue-900 shadow-md ring-2 ring-blue-500/30'
+                          : 'bg-[#EFE9D9] text-[#111311] border-[#C4B9A3] hover:bg-amber-100/60'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <span className="font-mono font-black text-sm">{v.vehicle_number}</span>
+                          {v.token_number && (
+                            <span className={`font-mono text-xs font-bold ${isSelected ? 'text-blue-200' : 'text-[#1E3A8A]'}`}>
+                              ({v.token_number})
+                            </span>
+                          )}
+                        </div>
+                        <span className={`text-[10px] font-mono font-bold flex items-center space-x-1 ${isSelected ? 'text-blue-200' : 'text-slate-500'}`}>
+                          <Clock className="w-3 h-3" />
+                          <span>{v.waiting_minutes}m wait</span>
                         </span>
                       </div>
-                      <span className="text-xs text-amber-700 font-bold flex items-center gap-1 font-mono">
-                        <Clock className="w-3.5 h-3.5" />
-                        {v.elapsed_minutes} min
-                      </span>
-                    </div>
 
-                    <div className="grid grid-cols-2 gap-2 text-xs bg-gray-50 p-2.5 rounded-lg border border-gray-100 font-mono">
-                      <div>
-                        <span className="text-gray-500 font-sans block text-[11px]">Unloading Volume:</span>
-                        <span className="font-bold text-amber-900">{v.total_accepted_physical_liters !== null ? `~${v.total_accepted_physical_liters.toLocaleString()} L` : '—'}</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-500 font-sans block text-[11px]">Started By:</span>
-                        <span className="font-medium text-gray-700">{v.started_by_name}</span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-            )
-          )}
-
-          {activeTab === 'SILO_ISSUE' && (
-            siloIssueList.length === 0 ? (
-              <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
-                <Database className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                <p className="text-sm text-gray-500 font-medium">No silos match search query or have stock available.</p>
-              </div>
-            ) : (
-              siloIssueList.map((silo) => {
-                const isSelected = silo.id === selectedIssueSiloId;
-                return (
-                  <div
-                    key={silo.id}
-                    onClick={() => setSelectedIssueSiloId(silo.id)}
-                    className={`bg-white rounded-xl border p-4 cursor-pointer transition-all ${
-                      isSelected
-                        ? 'border-amber-500 ring-2 ring-amber-500/20 shadow-md'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-gray-900 text-base">{silo.silo_code}</span>
-                        <span className="text-xs text-gray-500 font-medium">— {silo.silo_name}</span>
-                      </div>
-                      <span className={`px-2 py-0.5 text-xs font-bold rounded-md ${
-                        silo.is_active ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-800 border border-amber-200'
+                      <div className={`grid grid-cols-2 gap-2 text-xs p-2.5 rounded-lg font-mono font-bold ${
+                        isSelected ? 'bg-blue-900/60 text-slate-100 border border-blue-800' : 'bg-[#F4EFE3] text-[#334155] border border-[#C4B9A3]'
                       }`}>
-                        {silo.is_active ? 'Active' : 'Inactive'}
-                      </span>
+                        <div>
+                          <span className="font-sans block text-[9.5px] opacity-75">Gross Weight</span>
+                          <span>{v.gross_weight_kg ? `${v.gross_weight_kg.toLocaleString()} kg` : '—'}</span>
+                        </div>
+                        <div>
+                          <span className="font-sans block text-[9.5px] opacity-75">Expected Volume</span>
+                          <span>{v.total_accepted_physical_liters !== null ? `~${v.total_accepted_physical_liters.toLocaleString()} L` : '—'}</span>
+                        </div>
+                      </div>
                     </div>
+                  );
+                })
+              )
+            ) : activeTab === 'UNLOADING' ? (
+              unloadingVisits.length === 0 ? (
+                <div className="p-8 text-center border border-dashed border-[#C4B9A3] rounded-2xl bg-[#EFE9D9] text-xs font-bold text-slate-500">
+                  No vehicles are currently unloading.
+                </div>
+              ) : (
+                unloadingVisits.map((v) => {
+                  const isSelected = v.id === selectedUnloadingVisitId;
+                  return (
+                    <div
+                      key={v.id}
+                      onClick={() => setSelectedUnloadingVisitId(v.id)}
+                      className={`p-4 rounded-xl border transition cursor-pointer space-y-2 ${
+                        isSelected
+                          ? 'bg-[#1E3A8A] text-white border-blue-900 shadow-md ring-2 ring-blue-500/30'
+                          : 'bg-[#EFE9D9] text-[#111311] border-[#C4B9A3] hover:bg-amber-100/60'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <span className="font-mono font-black text-sm">{v.vehicle_number}</span>
+                          <span className={`px-2 py-0.5 rounded text-[9.5px] font-bold font-mono ${
+                            isSelected ? 'bg-white/20 text-white' : 'bg-blue-100 text-[#1E3A8A] border border-blue-300'
+                          }`}>
+                            Unloading Active
+                          </span>
+                        </div>
+                        <span className={`text-[10px] font-mono font-bold flex items-center space-x-1 ${isSelected ? 'text-blue-200' : 'text-amber-800'}`}>
+                          <Clock className="w-3 h-3" />
+                          <span>{v.elapsed_minutes}m</span>
+                        </span>
+                      </div>
 
-                    <div className="grid grid-cols-2 gap-2 text-xs bg-gray-50 p-2.5 rounded-lg border border-gray-100 font-mono">
-                      <div>
-                        <span className="text-gray-500 font-sans block text-[11px]">Current Physical Stock:</span>
-                        <span className="font-black text-amber-900 text-sm">{silo.current_stock_liters.toLocaleString()} L</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-500 font-sans block text-[11px]">Maximum Capacity:</span>
-                        <span className="font-medium text-gray-700">{silo.capacity_liters.toLocaleString()} L</span>
+                      <div className={`grid grid-cols-2 gap-2 text-xs p-2.5 rounded-lg font-mono font-bold ${
+                        isSelected ? 'bg-blue-900/60 text-slate-100 border border-blue-800' : 'bg-[#F4EFE3] text-[#334155] border border-[#C4B9A3]'
+                      }`}>
+                        <div>
+                          <span className="font-sans block text-[9.5px] opacity-75">Unloading Volume</span>
+                          <span>{v.total_accepted_physical_liters !== null ? `~${v.total_accepted_physical_liters.toLocaleString()} L` : '—'}</span>
+                        </div>
+                        <div>
+                          <span className="font-sans block text-[9.5px] opacity-75">Started By</span>
+                          <span className="truncate block">{v.started_by_name}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })
-            )
-          )}
+                  );
+                })
+              )
+            ) : (
+              siloIssueList.length === 0 ? (
+                <div className="p-8 text-center border border-dashed border-[#C4B9A3] rounded-2xl bg-[#EFE9D9] text-xs font-bold text-slate-500">
+                  No silos match query or have stock available.
+                </div>
+              ) : (
+                siloIssueList.map((silo) => {
+                  const isSelected = silo.id === selectedIssueSiloId;
+                  return (
+                    <div
+                      key={silo.id}
+                      onClick={() => setSelectedIssueSiloId(silo.id)}
+                      className={`p-4 rounded-xl border transition cursor-pointer space-y-2 ${
+                        isSelected
+                          ? 'bg-[#1E3A8A] text-white border-blue-900 shadow-md ring-2 ring-blue-500/30'
+                          : 'bg-[#EFE9D9] text-[#111311] border-[#C4B9A3] hover:bg-amber-100/60'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <span className="font-mono font-black text-sm">{silo.silo_code}</span>
+                          <span className={`text-xs font-bold ${isSelected ? 'text-blue-200' : 'text-[#334155]'}`}>
+                            ({silo.silo_name})
+                          </span>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded text-[9.5px] font-bold font-mono ${
+                          silo.is_active
+                            ? isSelected ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                            : isSelected ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-800 border border-amber-300'
+                        }`}>
+                          {silo.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
+
+                      <div className={`grid grid-cols-2 gap-2 text-xs p-2.5 rounded-lg font-mono font-bold ${
+                        isSelected ? 'bg-blue-900/60 text-slate-100 border border-blue-800' : 'bg-[#F4EFE3] text-[#334155] border border-[#C4B9A3]'
+                      }`}>
+                        <div>
+                          <span className="font-sans block text-[9.5px] opacity-75">Physical Stock</span>
+                          <span className="text-sm font-black">{silo.current_stock_liters.toLocaleString()} L</span>
+                        </div>
+                        <div>
+                          <span className="font-sans block text-[9.5px] opacity-75">Capacity</span>
+                          <span>{silo.capacity_liters.toLocaleString()} L</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )
+            )}
+          </div>
         </div>
 
         {/* Right Column: Action Form / Details (7 cols) */}
         <div className="lg:col-span-7">
           {activeTab === 'READY' && (
-            selectedReadyVisit ? (
-              <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-6 shadow-sm">
-                <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+            !selectedReadyVisit ? (
+              <div className="p-12 text-center border border-dashed border-[#C4B9A3] rounded-2xl bg-[#EFE9D9] text-xs font-bold text-slate-500">
+                Select a vehicle from the ready queue to assign silos and start unloading.
+              </div>
+            ) : (
+              <div className="p-6 rounded-2xl bg-[#EFE9D9] border border-[#C4B9A3] shadow-md space-y-6 text-[#111311]">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#C4B9A3] pb-4">
                   <div>
-                    <h2 className="text-lg font-bold text-gray-900">Start Unloading</h2>
-                    <p className="text-xs text-gray-500 font-mono">Vehicle: {selectedReadyVisit.vehicle_number} | Token: {selectedReadyVisit.token_number || '—'}</p>
+                    <h3 className="text-base font-extrabold text-[#111311]">Start Silo Unloading</h3>
+                    <p className="text-xs text-[#334155] font-semibold mt-0.5">
+                      Vehicle: <strong className="font-mono text-[#111311]">{selectedReadyVisit.vehicle_number}</strong> | Token: <strong className="font-mono text-[#1E3A8A]">{selectedReadyVisit.token_number || 'NO-TOKEN'}</strong>
+                    </p>
                   </div>
-                  <span className="px-3 py-1 bg-amber-50 text-amber-800 text-xs font-bold rounded-lg border border-amber-200">
+                  <span className="px-2.5 py-1 rounded-full text-[10px] uppercase font-mono font-bold bg-blue-100 text-[#1E3A8A] border border-blue-300 self-start sm:self-auto">
                     Ready for Unloading
                   </span>
                 </div>
 
                 {/* Portion Assignment Table */}
                 <div className="space-y-3">
-                  <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Accepted Portions & Destination Silos</h3>
+                  <h4 className="text-xs font-black uppercase tracking-wider text-[#111311]">
+                    Accepted Portions & Destination Silos
+                  </h4>
                   {selectedReadyVisit.portions.filter((p) => p.plant_decision === 'ACCEPTED').map((p) => (
-                    <div key={p.id} className="p-4 bg-gray-50 rounded-xl border border-gray-200 space-y-3">
+                    <div key={p.id} className="p-4 bg-[#F4EFE3] rounded-xl border border-[#C4B9A3] space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="font-bold text-gray-900 text-sm">
+                        <span className="font-mono font-extrabold text-sm text-[#111311]">
                           Portion #{p.portion_number} ({p.dispatch_quantity_value !== null && p.dispatch_quantity_value !== undefined ? p.dispatch_quantity_value.toLocaleString() : '—'} {p.dispatch_quantity_unit === 'LITER' ? 'L' : 'kg'})
                         </span>
-                        <span className="text-xs font-mono font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded">
+                        <span className="text-xs font-mono font-bold text-[#1E3A8A] bg-white px-2 py-0.5 rounded border border-[#C4B9A3]">
                           Expected: {p.expected_physical_liters !== null ? `~${p.expected_physical_liters.toLocaleString()} L` : '—'}
                         </span>
                       </div>
 
                       <div className="space-y-1.5">
-                        <label className="block text-xs font-bold text-gray-700">
+                        <label className="block text-xs font-bold text-[#111311]">
                           Destination Silo <span className="text-rose-600">*</span>
                         </label>
                         <select
                           value={portionSiloMap[p.id] || ''}
                           onChange={(e) => setPortionSiloMap((prev) => ({ ...prev, [p.id]: e.target.value }))}
-                          className="w-full px-3 py-2 text-xs font-medium rounded-lg border border-gray-300 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                          className="w-full min-h-[44px] px-3.5 py-2 text-xs font-bold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
                         >
                           <option value="">Select Target Silo...</option>
                           {activeSilos.filter((s) => s.is_active).map((s) => (
@@ -775,7 +757,7 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
 
                 {/* Operational Timestamp */}
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-bold text-gray-700">
+                  <label className="block text-xs font-black uppercase tracking-wider text-[#111311]">
                     Unloading Start Time <span className="text-rose-600">*</span>
                   </label>
                   <input
@@ -784,7 +766,7 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
                     min={selectedReadyVisit.gross_timestamp ? toDatetimeLocalInput(selectedReadyVisit.gross_timestamp) : undefined}
                     max={toDatetimeLocalInput(new Date())}
                     onChange={(e) => setStartOpTimestamp(e.target.value)}
-                    className="w-full px-3 py-2 text-xs font-mono font-medium rounded-lg border border-gray-300 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    className="w-full min-h-[44px] px-3.5 py-2 text-xs font-mono font-bold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
                   />
                 </div>
 
@@ -793,43 +775,49 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
                   type="button"
                   disabled={actionLoading}
                   onClick={handleStartUnloading}
-                  className="w-full py-3.5 px-4 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-bold text-sm rounded-xl transition shadow-md flex items-center justify-center gap-2"
+                  className="w-full min-h-[44px] py-3.5 px-4 bg-[#1E3A8A] hover:bg-blue-800 disabled:opacity-50 text-white font-extrabold text-xs rounded-xl transition shadow-md flex items-center justify-center space-x-2"
                 >
-                  {actionLoading ? <span>Starting Unloading...</span> : <> <Play className="w-4 h-4" /> <span>Start Unloading</span> </>}
+                  {actionLoading ? <span>Starting Unloading...</span> : <> <Play className="w-4 h-4" /> <span>Start Silo Unloading</span> </>}
                 </button>
-              </div>
-            ) : (
-              <div className="bg-white rounded-xl border border-gray-200 p-12 text-center text-gray-400">
-                Select a vehicle from the ready queue to assign silos and start unloading.
               </div>
             )
           )}
 
           {activeTab === 'UNLOADING' && (
-            selectedUnloadingVisit ? (
-              <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-6 shadow-sm">
-                <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+            !selectedUnloadingVisit ? (
+              <div className="p-12 text-center border border-dashed border-[#C4B9A3] rounded-2xl bg-[#EFE9D9] text-xs font-bold text-slate-500">
+                Select a vehicle from the unloading in-progress queue to record completion.
+              </div>
+            ) : (
+              <div className="p-6 rounded-2xl bg-[#EFE9D9] border border-[#C4B9A3] shadow-md space-y-6 text-[#111311]">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#C4B9A3] pb-4">
                   <div>
-                    <h2 className="text-lg font-bold text-gray-900">Complete Unloading</h2>
-                    <p className="text-xs text-gray-500 font-mono">Vehicle: {selectedUnloadingVisit.vehicle_number} | Started by: {selectedUnloadingVisit.started_by_name}</p>
+                    <h3 className="text-base font-extrabold text-[#111311]">Complete Silo Unloading</h3>
+                    <p className="text-xs text-[#334155] font-semibold mt-0.5">
+                      Vehicle: <strong className="font-mono text-[#111311]">{selectedUnloadingVisit.vehicle_number}</strong> | Started by: <strong className="text-[#1E3A8A]">{selectedUnloadingVisit.started_by_name}</strong>
+                    </p>
                   </div>
-                  <span className="px-3 py-1 bg-emerald-50 text-emerald-800 text-xs font-bold rounded-lg border border-emerald-200 animate-pulse">
-                    Unloading In Progress
+                  <span className="px-2.5 py-1 rounded-full text-[10px] uppercase font-mono font-bold bg-blue-100 text-[#1E3A8A] border border-blue-300 self-start sm:self-auto">
+                    Unloading Active
                   </span>
                 </div>
 
                 {/* Portion Silo Assignments Read-Only */}
                 <div className="space-y-3">
-                  <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Silo Assignment</h3>
+                  <h4 className="text-xs font-black uppercase tracking-wider text-[#111311]">
+                    Assigned Silo Allocation
+                  </h4>
                   {selectedUnloadingVisit.portions.filter((p) => p.plant_decision === 'ACCEPTED').map((p) => (
-                    <div key={p.id} className="p-4 bg-emerald-50/50 rounded-xl border border-emerald-200 flex items-center justify-between text-xs">
+                    <div key={p.id} className="p-4 bg-[#F4EFE3] rounded-xl border border-[#C4B9A3] flex items-center justify-between text-xs font-mono font-bold">
                       <div>
-                        <span className="font-bold text-gray-900 block">
+                        <span className="font-black text-[#111311] block">
                           Portion #{p.portion_number} ({p.dispatch_quantity_value !== null && p.dispatch_quantity_value !== undefined ? p.dispatch_quantity_value.toLocaleString() : '—'} {p.dispatch_quantity_unit === 'LITER' ? 'L' : 'kg'})
                         </span>
-                        <span className="text-gray-600">Assigned Silo: <strong className="text-emerald-900 font-bold">{p.unloading_log?.silo_code || p.unloading_log?.silo_number || 'Silo 1'}</strong></span>
+                        <span className="text-slate-600 font-sans text-[11px]">
+                          Destination: <strong className="text-[#1E3A8A]">{p.unloading_log?.silo_code || p.unloading_log?.silo_number || 'Silo 1'}</strong>
+                        </span>
                       </div>
-                      <span className="font-mono font-bold text-emerald-800">
+                      <span className="text-emerald-800 text-sm font-black">
                         {p.expected_physical_liters !== null ? `~${p.expected_physical_liters.toLocaleString()} L` : '—'}
                       </span>
                     </div>
@@ -838,8 +826,8 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
 
                 {/* Operational Timestamp */}
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-bold text-gray-700">
-                    Unloading Complete Time <span className="text-rose-600">*</span>
+                  <label className="block text-xs font-black uppercase tracking-wider text-[#111311]">
+                    Unloading Completion Time <span className="text-rose-600">*</span>
                   </label>
                   <input
                     type="datetime-local"
@@ -847,7 +835,7 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
                     min={selectedUnloadingVisit.started_at ? toDatetimeLocalInput(selectedUnloadingVisit.started_at) : undefined}
                     max={toDatetimeLocalInput(new Date())}
                     onChange={(e) => setCompleteOpTimestamp(e.target.value)}
-                    className="w-full px-3 py-2 text-xs font-mono font-medium rounded-lg border border-gray-300 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    className="w-full min-h-[44px] px-3.5 py-2 text-xs font-mono font-bold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
                   />
                 </div>
 
@@ -856,99 +844,142 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
                   type="button"
                   disabled={actionLoading}
                   onClick={handleCompleteUnloading}
-                  className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-sm rounded-xl transition shadow-md flex items-center justify-center gap-2"
+                  className="w-full min-h-[44px] py-3.5 px-4 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white font-extrabold text-xs rounded-xl transition shadow-md flex items-center justify-center space-x-2"
                 >
-                  {actionLoading ? <span>Completing Unloading...</span> : <> <CheckCheck className="w-4 h-4" /> <span>Complete Unloading</span> </>}
+                  {actionLoading ? <span>Completing Unloading...</span> : <> <CheckCheck className="w-4 h-4" /> <span>Confirm Unloading Completion</span> </>}
                 </button>
-              </div>
-            ) : (
-              <div className="bg-white rounded-xl border border-gray-200 p-12 text-center text-gray-400">
-                Select a vehicle from the unloading in-progress queue to record completion.
               </div>
             )
           )}
 
           {activeTab === 'SILO_ISSUE' && (
-            selectedIssueSilo ? (
+            !selectedIssueSilo ? (
+              <div className="p-12 text-center border border-dashed border-[#C4B9A3] rounded-2xl bg-[#EFE9D9] text-xs font-bold text-slate-500">
+                Select a silo from the list to record outbound milk issue.
+              </div>
+            ) : (
               <div className="space-y-6">
-                <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-6 shadow-sm">
-                  <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+                <div className="p-6 rounded-2xl bg-[#EFE9D9] border border-[#C4B9A3] shadow-md space-y-6 text-[#111311]">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#C4B9A3] pb-4">
                     <div>
-                      <h2 className="text-lg font-bold text-gray-900">Record Milk Issue</h2>
-                      <p className="text-xs text-gray-500 font-mono">Silo: {selectedIssueSilo.silo_code} ({selectedIssueSilo.silo_name})</p>
+                      <h3 className="text-base font-extrabold text-[#111311]">Record Outbound Milk Issue</h3>
+                      <p className="text-xs text-[#334155] font-semibold mt-0.5">
+                        Silo: <strong className="font-mono text-[#111311]">{selectedIssueSilo.silo_code}</strong> ({selectedIssueSilo.silo_name})
+                      </p>
                     </div>
-                    <span className={`px-3 py-1 text-xs font-bold rounded-lg border ${
-                      selectedIssueSilo.is_active ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-amber-50 text-amber-800 border-amber-200'
+                    <span className={`px-2.5 py-1 rounded-full text-[10px] uppercase font-mono font-bold ${
+                      selectedIssueSilo.is_active ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-amber-100 text-amber-800 border border-amber-300'
                     }`}>
                       {selectedIssueSilo.is_active ? 'Active Silo' : 'Inactive Silo'}
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 p-4 bg-gray-50 rounded-xl border border-gray-100 text-xs font-mono">
+                  <div className="grid grid-cols-2 gap-3 p-3.5 rounded-xl bg-[#F4EFE3] border border-[#C4B9A3] text-xs font-mono font-bold">
                     <div>
-                      <span className="text-gray-500 font-sans block text-[11px]">Current Physical Stock:</span>
-                      <span className="font-black text-amber-900 text-base">{selectedIssueSilo.current_stock_liters.toLocaleString()} L</span>
+                      <span className="text-slate-500 font-sans block text-[9.5px]">Physical Stock</span>
+                      <span className="text-base font-black text-[#1E3A8A]">{selectedIssueSilo.current_stock_liters.toLocaleString()} L</span>
                     </div>
                     <div>
-                      <span className="text-gray-500 font-sans block text-[11px]">Preview Remaining Stock:</span>
-                      <span className={`font-black text-base ${isOverIssue ? 'text-rose-600' : 'text-gray-900'}`}>
+                      <span className="text-slate-500 font-sans block text-[9.5px]">After-Issue Stock Preview</span>
+                      <span className={`text-base font-black ${isOverIssue ? 'text-rose-600' : 'text-emerald-800'}`}>
                         {previewRemaining.toLocaleString()} L
                       </span>
                     </div>
                   </div>
 
-                  {/* Stock Preview */}
-                  {parsedIssueLiters > 0 && (
-                    <div className={`p-4 rounded-xl border text-xs font-mono ${
-                      isOverIssue ? 'bg-red-50 border-red-300 text-red-900' : 'bg-blue-50 border-blue-200 text-blue-950'
-                    }`}>
-                      <div className="flex items-center justify-between font-bold">
-                        <span>After-Issue Stock Preview:</span>
-                        <span className={`text-sm ${isOverIssue ? 'text-red-700' : 'text-blue-900'}`}>
-                          {previewRemaining.toLocaleString()} L
-                        </span>
-                      </div>
-                      {isOverIssue && (
-                        <p className="mt-1 text-[11px] text-red-600 font-sans">
-                          Issue quantity exceeds current physical stock in {selectedIssueSilo.silo_code}!
-                        </p>
-                      )}
+                  {/* Form Inputs */}
+                  <div className="space-y-4">
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-black uppercase tracking-wider text-[#111311]">
+                        Issue Quantity (Liters) <span className="text-rose-600">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        step="1"
+                        value={issueQuantityLiters}
+                        onChange={(e) => setIssueQuantityLiters(e.target.value)}
+                        placeholder="e.g. 5000"
+                        className="w-full min-h-[44px] px-3.5 py-2 text-xs font-mono font-bold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
+                      />
                     </div>
-                  )}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-black uppercase tracking-wider text-[#111311]">
+                          Purpose / Destination
+                        </label>
+                        <input
+                          type="text"
+                          value={issuePurpose}
+                          onChange={(e) => setIssuePurpose(e.target.value)}
+                          placeholder="e.g. UHT Milk, Pasteurized Milk"
+                          className="w-full min-h-[44px] px-3.5 py-2 text-xs font-bold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-black uppercase tracking-wider text-[#111311]">
+                          Flow Meter Reference
+                        </label>
+                        <input
+                          type="text"
+                          value={issueFlowMeterRef}
+                          onChange={(e) => setIssueFlowMeterRef(e.target.value)}
+                          placeholder="e.g. FM-004"
+                          className="w-full min-h-[44px] px-3.5 py-2 text-xs font-mono font-bold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-black uppercase tracking-wider text-[#111311]">
+                        Operational Timestamp <span className="text-rose-600">*</span>
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={issueOpTimestamp}
+                        max={toDatetimeLocalInput(new Date())}
+                        onChange={(e) => setIssueOpTimestamp(e.target.value)}
+                        className="w-full min-h-[44px] px-3.5 py-2 text-xs font-mono font-bold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
+                      />
+                    </div>
+                  </div>
 
                   {/* Submit Button */}
                   <button
                     type="button"
                     disabled={actionLoading || !issueQuantityLiters || isOverIssue}
                     onClick={handleRecordSiloIssue}
-                    className="w-full py-3.5 px-4 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-bold text-sm rounded-xl transition shadow-md flex items-center justify-center gap-2"
+                    className="w-full min-h-[44px] py-3.5 px-4 bg-[#1E3A8A] hover:bg-blue-800 disabled:opacity-50 text-white font-extrabold text-xs rounded-xl transition shadow-md flex items-center justify-center space-x-2"
                   >
                     {actionLoading ? <span>Recording Issue...</span> : <> <MinusCircle className="w-4 h-4" /> <span>Record Silo Issue</span> </>}
                   </button>
                 </div>
 
                 {/* Compact Recent Issues Card */}
-                <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-3 shadow-sm">
-                  <div className="flex items-center justify-between border-b border-gray-100 pb-2">
-                    <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wider">Recent Issues — {selectedIssueSilo.silo_code}</h3>
-                    <span className="text-[11px] text-gray-400 font-mono">Last 10 Records</span>
+                <div className="p-5 rounded-2xl bg-[#EFE9D9] border border-[#C4B9A3] shadow-md space-y-3 text-[#111311]">
+                  <div className="flex items-center justify-between border-b border-[#C4B9A3] pb-2">
+                    <h4 className="text-xs font-black uppercase tracking-wider text-[#111311]">
+                      Recent Issues — {selectedIssueSilo.silo_code}
+                    </h4>
+                    <span className="text-[11px] text-slate-500 font-mono font-bold">Last 10 Records</span>
                   </div>
 
                   {historyLoading ? (
-                    <div className="p-4 text-center text-xs text-gray-400 font-mono">Loading issue history...</div>
+                    <div className="p-4 text-center text-xs text-slate-500 font-mono font-bold">Loading issue history...</div>
                   ) : issueHistory.length === 0 ? (
-                    <div className="p-4 text-center text-xs text-gray-400">No recent milk issues recorded for this silo.</div>
+                    <div className="p-4 text-center text-xs text-slate-500 font-bold">No recent milk issues recorded for this silo.</div>
                   ) : (
-                    <div className="space-y-2">
+                    <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
                       {issueHistory.map((h) => (
-                        <div key={h.id} className="p-3 bg-gray-50 rounded-lg border border-gray-100 flex items-center justify-between text-xs">
+                        <div key={h.id} className="p-3 bg-[#F4EFE3] rounded-xl border border-[#C4B9A3] flex items-center justify-between text-xs">
                           <div>
-                            <span className="font-bold text-gray-900 block">{h.purpose}</span>
-                            <span className="text-[11px] text-gray-500 font-mono">
+                            <span className="font-extrabold text-[#111311] block">{h.purpose}</span>
+                            <span className="text-[11px] text-slate-500 font-mono font-bold">
                               {h.time_formatted} | {h.operator_name} {h.flow_meter_reference ? `| ${h.flow_meter_reference}` : ''}
                             </span>
                           </div>
-                          <span className="font-mono font-bold text-amber-800 text-sm">
+                          <span className="font-mono font-black text-rose-700 text-sm">
                             -{h.quantity_liters.toLocaleString()} L
                           </span>
                         </div>
@@ -956,10 +987,6 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
                     </div>
                   )}
                 </div>
-              </div>
-            ) : (
-              <div className="bg-white rounded-xl border border-gray-200 p-12 text-center text-gray-400">
-                Select a silo from the list to record outbound milk issue.
               </div>
             )
           )}
