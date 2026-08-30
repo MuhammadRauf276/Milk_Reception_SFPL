@@ -11,6 +11,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   useEffect(() => {
     async function checkAuth() {
@@ -51,11 +52,18 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
   }
 
   return (
-    <div className="flex h-screen bg-[#FDFBF9] text-[#111311] overflow-hidden">
-      <SuperAdminSidebar currentUser={currentUser} />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <SuperAdminHeader currentUser={currentUser} />
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+    <div className="w-full max-w-full flex h-screen bg-[#FDFBF9] text-[#111311] overflow-hidden">
+      <SuperAdminSidebar
+        currentUser={currentUser}
+        isMobileOpen={isMobileOpen}
+        onCloseMobile={() => setIsMobileOpen(false)}
+      />
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden w-full max-w-full">
+        <SuperAdminHeader
+          currentUser={currentUser}
+          onMenuClick={() => setIsMobileOpen((prev) => !prev)}
+        />
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 w-full max-w-full">{children}</main>
       </div>
     </div>
   );

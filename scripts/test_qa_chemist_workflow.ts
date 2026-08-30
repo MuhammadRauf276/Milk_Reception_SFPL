@@ -251,12 +251,18 @@ async function runQAChemistWorkflowVerification() {
     // ----------------------------------------------------
     // QA AUTO-SELECTION & TAB UX VERIFICATION TESTS
     // ----------------------------------------------------
-    const qaComponentContent = fs.readFileSync(path.join(process.cwd(), 'src/frontend/modules/dashboard/QALaboratoryWorkspace.tsx'), 'utf8');
+    const qaWorkspacePath = path.join(process.cwd(), 'src/frontend/modules/dashboard/QALaboratoryWorkspace.tsx');
+    const qaQueuePanelPath = path.join(process.cwd(), 'src/frontend/modules/dashboard/qa/QAQueuePanel.tsx');
+    const qaTestingSectionPath = path.join(process.cwd(), 'src/frontend/modules/dashboard/qa/QATestingSection.tsx');
+
+    const qaWorkspaceContent = fs.readFileSync(qaWorkspacePath, 'utf8');
+    const qaQueuePanelContent = fs.existsSync(qaQueuePanelPath) ? fs.readFileSync(qaQueuePanelPath, 'utf8') : '';
+    const qaTestingSectionContent = fs.existsSync(qaTestingSectionPath) ? fs.readFileSync(qaTestingSectionPath, 'utf8') : '';
 
     // QA-AUTO-A..J: Auto-selection for Waiting, In Testing, On Hold, transitions, and empty states
-    const hasWaitingAutoSelect = qaComponentContent.includes('setSelectedWaitingVisitId') && qaComponentContent.includes('waiting[0].id');
-    const hasTestingAutoSelect = qaComponentContent.includes('setSelectedTestingVisitId') && qaComponentContent.includes('inTesting[0].id');
-    const hasHeldAutoSelect = qaComponentContent.includes('setSelectedHeldVisitId') && qaComponentContent.includes('onHold[0].id');
+    const hasWaitingAutoSelect = qaWorkspaceContent.includes('setSelectedWaitingVisitId') && qaWorkspaceContent.includes('waiting[0].id');
+    const hasTestingAutoSelect = qaWorkspaceContent.includes('setSelectedTestingVisitId') && qaWorkspaceContent.includes('inTesting[0].id');
+    const hasHeldAutoSelect = qaWorkspaceContent.includes('setSelectedHeldVisitId') && qaWorkspaceContent.includes('onHold[0].id');
 
     report(
       'QA-AUTO-A..J: Tab auto-selection & transitions',
@@ -265,15 +271,25 @@ async function runQAChemistWorkflowVerification() {
     );
 
     // QA-TAB-A..E: Tab Isolation & Single-Editor Condition
-    const hasStrictTabEditorCondition = qaComponentContent.includes("activeTab === 'IN_TESTING'") && qaComponentContent.includes("!selectedTestingVisitId || !visitDetail");
+    const hasTabIsolationInWorkspace = qaWorkspaceContent.includes('<QATestingSection') && qaWorkspaceContent.includes('activeTab={activeTab}');
+    const hasStrictTabEditorCondition =
+      (qaTestingSectionContent.includes("activeTab === 'WAITING'") &&
+        qaTestingSectionContent.includes("activeTab === 'ON_HOLD'") &&
+        qaTestingSectionContent.includes('!visitDetail')) ||
+      (qaTestingSectionContent.includes("activeTab === 'IN_TESTING'") && qaTestingSectionContent.includes('!visitDetail'));
+
     report(
       'QA-TAB-A..E: Tab isolation & single-editor rendering',
-      hasStrictTabEditorCondition,
+      hasTabIsolationInWorkspace && hasStrictTabEditorCondition,
       'Editable QA lab test form ONLY renders when activeTab === IN_TESTING and session.status === IN_PROGRESS'
     );
 
     // QA-SEARCH-A..D: Filtered Queue Auto-selection & Search Empty Message
-    const hasSearchEmptyState = qaComponentContent.includes("searchQuery ? 'No matching vehicles found.' : 'No vehicles are waiting for QA testing.'") || qaComponentContent.includes("searchQuery ? 'No matching QA sessions found.'");
+    const hasSearchEmptyState =
+      qaTestingSectionContent.includes("searchQuery ? 'No matching vehicles found.' : 'No vehicles are waiting for QA testing.'") &&
+      qaQueuePanelContent.includes('searchQuery') &&
+      qaQueuePanelContent.includes('No vehicles waiting for QA testing.');
+
     report(
       'QA-SEARCH-A..D: Search filtering & visible selection',
       hasSearchEmptyState,
@@ -281,8 +297,8 @@ async function runQAChemistWorkflowVerification() {
     );
 
     // QA-POLL-A..D: Live Polling & Stale Selection Repair
-    const hasPollingInterval = qaComponentContent.includes('setInterval') && qaComponentContent.includes('fetchQueues()');
-    const hasRaceCancellation = qaComponentContent.includes('isCancelled = true') || qaComponentContent.includes('isCancelled');
+    const hasPollingInterval = qaWorkspaceContent.includes('setInterval') && qaWorkspaceContent.includes('fetchQueues(');
+    const hasRaceCancellation = qaWorkspaceContent.includes('isCancelled = true') || qaWorkspaceContent.includes('isCancelled');
     report(
       'QA-POLL-A..D: Live polling repair & request race protection',
       hasPollingInterval && hasRaceCancellation,
@@ -302,8 +318,17 @@ async function runQAChemistWorkflowVerification() {
   console.log('\n==================================================');
   console.log(`VERIFICATION COMPLETE: ${passCount} PASSED, ${failCount} FAILED`);
   console.log('==================================================\n');
+
+  if (failCount > 0) {
+    process.exitCode = 1;
+  } else {
+    process.exitCode = 0;
+  }
 }
 
 runQAChemistWorkflowVerification()
-  .catch(console.error)
+  .catch((err) => {
+    console.error(err);
+    process.exitCode = 1;
+  })
   .finally(() => prisma.$disconnect());

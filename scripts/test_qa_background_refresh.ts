@@ -20,7 +20,13 @@ async function runQARefreshTests() {
   }
 
   const qaFilePath = path.join(process.cwd(), 'src/frontend/modules/dashboard/QALaboratoryWorkspace.tsx');
-  const fileContent = fs.readFileSync(qaFilePath, 'utf8');
+  const queuePanelPath = path.join(process.cwd(), 'src/frontend/modules/dashboard/qa/QAQueuePanel.tsx');
+  const testingSectionPath = path.join(process.cwd(), 'src/frontend/modules/dashboard/qa/QATestingSection.tsx');
+
+  const fileContent =
+    fs.readFileSync(qaFilePath, 'utf8') +
+    (fs.existsSync(queuePanelPath) ? fs.readFileSync(queuePanelPath, 'utf8') : '') +
+    (fs.existsSync(testingSectionPath) ? fs.readFileSync(testingSectionPath, 'utf8') : '');
 
   // QA-REFRESH-A: Initial page load shows loading state
   assert(fileContent.includes('isLoadingQueues') && fileContent.includes('isInitialQueuesFetch'), 'QA-REFRESH-A', 'Initial page load tracks isInitialQueuesFetch separately from background polling');
