@@ -65,6 +65,9 @@ async function runBrowserVerification() {
   const northManagerAuth = await loginUser('zmcc.manager.north', 'zone123');
   assert(northManagerAuth.user.role === 'ZMCC_MANAGER', 'zmcc.manager.north authenticated as ZMCC_MANAGER');
 
+  const contractorManagerAuth = await loginUser('contractor.manager.alkhair', 'contractor123');
+  assert(contractorManagerAuth.user.role === 'CONTRACTOR_MANAGER', 'contractor.manager.alkhair authenticated as CONTRACTOR_MANAGER');
+
   const wbAuth = await loginUser('weighbridge.operator', 'weighbridge123');
   assert(wbAuth.user.role === 'WEIGHBRIDGE_OPERATOR', 'weighbridge.operator authenticated');
 
