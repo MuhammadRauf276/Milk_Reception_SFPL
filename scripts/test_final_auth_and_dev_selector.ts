@@ -99,6 +99,20 @@ async function runFinalAuthAndDevSelectorTests() {
     assert(alMehmood?.name === 'Al Mehmood Dairy', 'LABEL-03B: Al Mehmood Dairy seeded as distinct contractor');
     assert(sources.length === 6, 'SOURCE-SAFE-C: No duplicate ProcurementSource rows created (exact 6 sources)');
 
+    // Runtime source-scope assertion for contractor.manager.alkhair
+    const contMgrUser = await prisma.user.findFirst({
+      where: { username: 'contractor.manager.alkhair' },
+      include: { procurement_source: true },
+    });
+    assert(
+      !!contMgrUser &&
+        contMgrUser.role === 'CONTRACTOR_MANAGER' &&
+        contMgrUser.scope_type === 'SOURCE' &&
+        contMgrUser.procurement_source_id !== null &&
+        contMgrUser.procurement_source?.code === 'CONT-ALKHAIR',
+      'SOURCE-SAFE-D: contractor.manager.alkhair is assigned CONTRACTOR_MANAGER with SOURCE scope and CONT-ALKHAIR procurement source'
+    );
+
     // ====================================================
     // GROUP 4: REMEMBER ME & TTL CONSTANTS
     // ====================================================

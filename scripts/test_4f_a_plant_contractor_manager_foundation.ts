@@ -180,16 +180,18 @@ async function run4FATests() {
       'TEST-B6: Sidebar.tsx contains dedicated /contractor/manager link for CONTRACTOR_MANAGER'
     );
 
-    // TEST-B7: Seed Profile definition for contractor.manager.alkhair
+    // TEST-B7: Exact Seed Profile definition for contractor.manager.alkhair
     const seedSource = fs.readFileSync(path.join(__dirname, '../prisma/seed.ts'), 'utf-8');
+    const seedMatches = seedSource.match(/\{\s*username:\s*['"]contractor\.manager\.alkhair['"][\s\S]*?\}/g);
+    const exactSeedEntry = seedMatches && seedMatches.length === 1 ? seedMatches[0] : '';
     const hasCanonicalSeed =
-      seedSource.includes("username: 'contractor.manager.alkhair'") &&
-      seedSource.includes("role: 'CONTRACTOR_MANAGER'") &&
-      seedSource.includes("scopeType: 'SOURCE'") &&
-      seedSource.includes("sourceCode: 'CONT-ALKHAIR'");
+      seedMatches?.length === 1 &&
+      exactSeedEntry.includes("role: 'CONTRACTOR_MANAGER'") &&
+      exactSeedEntry.includes("scopeType: 'SOURCE'") &&
+      exactSeedEntry.includes("sourceCode: 'CONT-ALKHAIR'");
     assert(
       hasCanonicalSeed,
-      'TEST-B7: prisma/seed.ts defines contractor.manager.alkhair with role CONTRACTOR_MANAGER, scopeType SOURCE, and sourceCode CONT-ALKHAIR'
+      'TEST-B7: prisma/seed.ts defines exact contractor.manager.alkhair entry with role CONTRACTOR_MANAGER, scopeType SOURCE, and sourceCode CONT-ALKHAIR'
     );
 
     // TEST-B8: Fixtures & DEFAULT_USERS for CONTRACTOR_MANAGER
@@ -204,17 +206,20 @@ async function run4FATests() {
       'TEST-B8: FIXTURE_USER_PROFILES and DEFAULT_USERS map contractor.manager.alkhair to canonical CONTRACTOR_MANAGER'
     );
 
-    // TEST-B9: DEV profiles route includes Al Khair Contractor Manager card
+    // TEST-B9: DEV profiles route includes exact Al Khair Contractor Manager card
     const devProfilesSource = fs.readFileSync(
       path.join(__dirname, '../src/app/api/auth/dev-profiles/route.ts'),
       'utf-8'
     );
+    const cardMatches = devProfilesSource.match(/\{\s*label:\s*['"]Plant Contractor Manager — Al Khair['"][\s\S]*?\}/g);
+    const exactCard = cardMatches && cardMatches.length === 1 ? cardMatches[0] : '';
     const hasDevCard =
-      devProfilesSource.includes("username: 'contractor.manager.alkhair'") &&
-      devProfilesSource.includes('Plant Contractor Manager — Al Khair');
+      cardMatches?.length === 1 &&
+      exactCard.includes("username: 'contractor.manager.alkhair'") &&
+      exactCard.includes("department: 'Milk Procurement (Al Khair)'");
     assert(
       hasDevCard,
-      'TEST-B9: /api/auth/dev-profiles route includes Plant Contractor Manager — Al Khair card'
+      'TEST-B9: /api/auth/dev-profiles route includes exact Plant Contractor Manager — Al Khair card in MANAGERS group'
     );
 
     // --- SECTION C: BACKEND SOURCE ISOLATION CONTRACT ---
