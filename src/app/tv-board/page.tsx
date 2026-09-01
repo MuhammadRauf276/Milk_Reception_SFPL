@@ -34,7 +34,7 @@ export default function PublicYardTVBoardPage() {
     .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
   return (
-    <div className="min-h-screen w-screen bg-[#0F172A] text-white p-6 font-sans flex flex-col justify-between">
+    <div className="min-h-screen w-full max-w-full bg-[#0F172A] text-white p-6 font-sans flex flex-col justify-between">
       {/* TV Header */}
       <div className="flex items-center justify-between pb-6 border-b border-slate-800">
         <div className="flex items-center space-x-4">

@@ -69,9 +69,19 @@ export const FIXTURE_USER_PROFILES: Record<string, User> = {
     id: 'usr_mpd_zm_n',
     username: 'zmcc.manager.north',
     name: 'ZMCC Minor Manager (Northern Zone)',
-    role: 'MPD_Zone_Manager',
+    role: 'ZMCC_MANAGER',
     department: 'Milk Procurement (Zone A)',
+    scope_type: 'SOURCE',
     zone: 'ZMCC Hasilpur'
+  },
+  'contractor.manager.alkhair': {
+    id: 'usr_cont_mgr_ak',
+    username: 'contractor.manager.alkhair',
+    name: 'Plant Contractor Manager (Al Khair)',
+    role: 'CONTRACTOR_MANAGER',
+    department: 'Milk Procurement (Al Khair)',
+    scope_type: 'SOURCE',
+    zone: 'Al Khair'
   },
   'security.gate': {
     id: 'usr_sec_op',
@@ -150,6 +160,7 @@ export const AUTHENTICATED_USERS: Record<string, { user: User }> = {
   'super.admin': { user: FIXTURE_USER_PROFILES['super.admin'] },
   'zmcc.operator': { user: FIXTURE_USER_PROFILES['zmcc.operator'] },
   'zmcc.manager.north': { user: FIXTURE_USER_PROFILES['zmcc.manager.north'] },
+  'contractor.manager.alkhair': { user: FIXTURE_USER_PROFILES['contractor.manager.alkhair'] },
   'security.gate': { user: FIXTURE_USER_PROFILES['security.gate'] },
   'security.head': { user: FIXTURE_USER_PROFILES['security.head'] },
   'qa.chemist': { user: FIXTURE_USER_PROFILES['qa.chemist'] },
@@ -165,7 +176,8 @@ export const AUTHENTICATED_USERS: Record<string, { user: User }> = {
 export const DEFAULT_USERS: Record<string, User> = {
   SUPER_ADMIN: FIXTURE_USER_PROFILES['admin.superuser'],
   MPD_Operator: FIXTURE_USER_PROFILES['zmcc.operator'],
-  MPD_Zone_Manager: FIXTURE_USER_PROFILES['zmcc.manager.north'],
+  ZMCC_MANAGER: FIXTURE_USER_PROFILES['zmcc.manager.north'],
+  CONTRACTOR_MANAGER: FIXTURE_USER_PROFILES['contractor.manager.alkhair'],
   Security_Operator: FIXTURE_USER_PROFILES['security.gate'],
   Security_Manager: FIXTURE_USER_PROFILES['security.head'],
   QA_Operator: FIXTURE_USER_PROFILES['qa.chemist'],
@@ -295,6 +307,8 @@ export interface MilkProcessLog {
   final_receipt_exists?: boolean;
   final_receipt_transaction_id?: number | null;
   final_receipt_timestamp?: string | null;
+  final_receipt_business_date?: string | null;
+  reporting_business_date?: string | null;
   authoritative_final_liters?: number | null;
 
   created_at: string;

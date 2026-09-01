@@ -148,6 +148,47 @@ async function runAuthorityTests() {
     'Case F.2: operationalReadModelService strictly uses nullable opDate from visit.operational_date'
   );
 
+  // Case G: Canonical Role-to-Home Routing Policy (ZMCC_MANAGER -> /mpd/zmcc-manager, MPD_Zone_Manager -> /workspace-unavailable)
+  const { resolveRoleHome } = require('../src/lib/role-routing');
+  const zmccManagerDest = resolveRoleHome('ZMCC_MANAGER');
+  const legacyZoneManagerDest = resolveRoleHome('MPD_Zone_Manager');
+  const upperZoneManagerDest = resolveRoleHome('MPD_ZONE_MANAGER');
+  assert(
+    zmccManagerDest === '/mpd/zmcc-manager' &&
+    legacyZoneManagerDest === '/workspace-unavailable' &&
+    upperZoneManagerDest === '/workspace-unavailable',
+    'Case G: resolveRoleHome routes canonical ZMCC_MANAGER to /mpd/zmcc-manager and fails closed on retired MPD_Zone_Manager',
+    `ZMCC_MANAGER=${zmccManagerDest}, MPD_Zone_Manager=${legacyZoneManagerDest}`
+  );
+
+  // Case H: Canonical ZMCC Manager Seed Configuration
+  const seedSrc = fs.readFileSync(path.join(__dirname, '../prisma/seed.ts'), 'utf8');
+  const hasCanonicalSeed =
+    seedSrc.includes("username: 'zmcc.manager.north'") &&
+    seedSrc.includes("role: 'ZMCC_MANAGER'") &&
+    seedSrc.includes("scopeType: 'SOURCE'") &&
+    seedSrc.includes("sourceCode: 'ZMCC-HASILPUR'");
+  assert(
+    hasCanonicalSeed,
+    'Case H: prisma/seed.ts assigns zmcc.manager.north canonical role ZMCC_MANAGER, scopeType SOURCE, and sourceCode ZMCC-HASILPUR'
+  );
+
+  // Case I: Core Types Fixture and DEFAULT_USERS Canonical Structure
+  const { FIXTURE_USER_PROFILES, DEFAULT_USERS } = require('../src/backend/core/types');
+  const zmccFixture = FIXTURE_USER_PROFILES['zmcc.manager.north'];
+  const hasCanonicalFixture =
+    zmccFixture?.role === 'ZMCC_MANAGER' &&
+    zmccFixture?.scope_type === 'SOURCE' &&
+    zmccFixture?.zone === 'ZMCC Hasilpur';
+  const hasCanonicalDefaultUsers =
+    DEFAULT_USERS['ZMCC_MANAGER']?.username === 'zmcc.manager.north' &&
+    DEFAULT_USERS['MPD_Zone_Manager'] === undefined;
+  assert(
+    hasCanonicalFixture && hasCanonicalDefaultUsers,
+    'Case I: FIXTURE_USER_PROFILES and DEFAULT_USERS map zmcc.manager.north to canonical ZMCC_MANAGER without active legacy alias',
+    `fixtureRole=${zmccFixture?.role}, defaultUsersZMCC=${DEFAULT_USERS['ZMCC_MANAGER']?.username}`
+  );
+
   console.log('\n================================================================================');
   console.log(`SUMMARY: ${passed} PASSED, ${failed} FAILED`);
   console.log('================================================================================\n');
