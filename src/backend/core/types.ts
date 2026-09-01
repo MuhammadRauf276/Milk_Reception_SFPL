@@ -74,6 +74,15 @@ export const FIXTURE_USER_PROFILES: Record<string, User> = {
     scope_type: 'SOURCE',
     zone: 'ZMCC Hasilpur'
   },
+  'contractor.manager.alkhair': {
+    id: 'usr_cont_mgr_ak',
+    username: 'contractor.manager.alkhair',
+    name: 'Plant Contractor Manager (Al Khair)',
+    role: 'CONTRACTOR_MANAGER',
+    department: 'Milk Procurement (Al Khair)',
+    scope_type: 'SOURCE',
+    zone: 'Al Khair'
+  },
   'security.gate': {
     id: 'usr_sec_op',
     username: 'security.gate',
@@ -151,6 +160,7 @@ export const AUTHENTICATED_USERS: Record<string, { user: User }> = {
   'super.admin': { user: FIXTURE_USER_PROFILES['super.admin'] },
   'zmcc.operator': { user: FIXTURE_USER_PROFILES['zmcc.operator'] },
   'zmcc.manager.north': { user: FIXTURE_USER_PROFILES['zmcc.manager.north'] },
+  'contractor.manager.alkhair': { user: FIXTURE_USER_PROFILES['contractor.manager.alkhair'] },
   'security.gate': { user: FIXTURE_USER_PROFILES['security.gate'] },
   'security.head': { user: FIXTURE_USER_PROFILES['security.head'] },
   'qa.chemist': { user: FIXTURE_USER_PROFILES['qa.chemist'] },
@@ -167,6 +177,7 @@ export const DEFAULT_USERS: Record<string, User> = {
   SUPER_ADMIN: FIXTURE_USER_PROFILES['admin.superuser'],
   MPD_Operator: FIXTURE_USER_PROFILES['zmcc.operator'],
   ZMCC_MANAGER: FIXTURE_USER_PROFILES['zmcc.manager.north'],
+  CONTRACTOR_MANAGER: FIXTURE_USER_PROFILES['contractor.manager.alkhair'],
   Security_Operator: FIXTURE_USER_PROFILES['security.gate'],
   Security_Manager: FIXTURE_USER_PROFILES['security.head'],
   QA_Operator: FIXTURE_USER_PROFILES['qa.chemist'],

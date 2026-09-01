@@ -180,6 +180,43 @@ async function run4FATests() {
       'TEST-B6: Sidebar.tsx contains dedicated /contractor/manager link for CONTRACTOR_MANAGER'
     );
 
+    // TEST-B7: Seed Profile definition for contractor.manager.alkhair
+    const seedSource = fs.readFileSync(path.join(__dirname, '../prisma/seed.ts'), 'utf-8');
+    const hasCanonicalSeed =
+      seedSource.includes("username: 'contractor.manager.alkhair'") &&
+      seedSource.includes("role: 'CONTRACTOR_MANAGER'") &&
+      seedSource.includes("scopeType: 'SOURCE'") &&
+      seedSource.includes("sourceCode: 'CONT-ALKHAIR'");
+    assert(
+      hasCanonicalSeed,
+      'TEST-B7: prisma/seed.ts defines contractor.manager.alkhair with role CONTRACTOR_MANAGER, scopeType SOURCE, and sourceCode CONT-ALKHAIR'
+    );
+
+    // TEST-B8: Fixtures & DEFAULT_USERS for CONTRACTOR_MANAGER
+    const { FIXTURE_USER_PROFILES, DEFAULT_USERS } = require('../src/backend/core/types');
+    const contFixture = FIXTURE_USER_PROFILES['contractor.manager.alkhair'];
+    const hasCanonicalFixture =
+      contFixture?.role === 'CONTRACTOR_MANAGER' &&
+      contFixture?.scope_type === 'SOURCE' &&
+      DEFAULT_USERS['CONTRACTOR_MANAGER']?.username === 'contractor.manager.alkhair';
+    assert(
+      hasCanonicalFixture,
+      'TEST-B8: FIXTURE_USER_PROFILES and DEFAULT_USERS map contractor.manager.alkhair to canonical CONTRACTOR_MANAGER'
+    );
+
+    // TEST-B9: DEV profiles route includes Al Khair Contractor Manager card
+    const devProfilesSource = fs.readFileSync(
+      path.join(__dirname, '../src/app/api/auth/dev-profiles/route.ts'),
+      'utf-8'
+    );
+    const hasDevCard =
+      devProfilesSource.includes("username: 'contractor.manager.alkhair'") &&
+      devProfilesSource.includes('Plant Contractor Manager — Al Khair');
+    assert(
+      hasDevCard,
+      'TEST-B9: /api/auth/dev-profiles route includes Plant Contractor Manager — Al Khair card'
+    );
+
     // --- SECTION C: BACKEND SOURCE ISOLATION CONTRACT ---
     console.log('\n--- SECTION C: Backend Source Isolation & Security ---');
 
