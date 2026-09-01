@@ -69,8 +69,9 @@ export const FIXTURE_USER_PROFILES: Record<string, User> = {
     id: 'usr_mpd_zm_n',
     username: 'zmcc.manager.north',
     name: 'ZMCC Minor Manager (Northern Zone)',
-    role: 'MPD_Zone_Manager',
+    role: 'ZMCC_MANAGER',
     department: 'Milk Procurement (Zone A)',
+    scope_type: 'SOURCE',
     zone: 'ZMCC Hasilpur'
   },
   'security.gate': {
@@ -165,7 +166,7 @@ export const AUTHENTICATED_USERS: Record<string, { user: User }> = {
 export const DEFAULT_USERS: Record<string, User> = {
   SUPER_ADMIN: FIXTURE_USER_PROFILES['admin.superuser'],
   MPD_Operator: FIXTURE_USER_PROFILES['zmcc.operator'],
-  MPD_Zone_Manager: FIXTURE_USER_PROFILES['zmcc.manager.north'],
+  ZMCC_MANAGER: FIXTURE_USER_PROFILES['zmcc.manager.north'],
   Security_Operator: FIXTURE_USER_PROFILES['security.gate'],
   Security_Manager: FIXTURE_USER_PROFILES['security.head'],
   QA_Operator: FIXTURE_USER_PROFILES['qa.chemist'],

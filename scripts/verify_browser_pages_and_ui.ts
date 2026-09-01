@@ -63,7 +63,7 @@ async function runBrowserVerification() {
   assert(adminAuth.user.role === 'SUPER_ADMIN', 'admin.superuser authenticated with role SUPER_ADMIN (cookie: ' + adminAuth.cookie.slice(0, 20) + '...)');
 
   const northManagerAuth = await loginUser('zmcc.manager.north', 'zone123');
-  assert(northManagerAuth.user.role === 'MPD_Zone_Manager' || northManagerAuth.user.role === 'MPD_OPERATOR', 'zmcc.manager.north authenticated as zone manager');
+  assert(northManagerAuth.user.role === 'ZMCC_MANAGER', 'zmcc.manager.north authenticated as ZMCC_MANAGER');
 
   const wbAuth = await loginUser('weighbridge.operator', 'weighbridge123');
   assert(wbAuth.user.role === 'WEIGHBRIDGE_OPERATOR', 'weighbridge.operator authenticated');
