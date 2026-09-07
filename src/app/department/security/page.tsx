@@ -35,13 +35,13 @@ export default function SecurityDepartmentPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FDFBF9] text-[#111311] flex flex-col font-sans">
+    <div className="min-h-screen bg-[#FDFBF9] text-[#111311] flex flex-col font-sans w-full max-w-full overflow-x-hidden">
       <Header
         currentUser={user}
         title="Security Gate"
         showBranding={true}
       />
-      <main className="flex-1 p-6 overflow-y-auto">
+      <main className="flex-1 p-4 sm:p-6 overflow-y-auto w-full max-w-full">
         <SecurityGatewayWorkspace currentUser={user} />
       </main>
     </div>

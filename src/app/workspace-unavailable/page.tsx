@@ -17,7 +17,7 @@ export default function WorkspaceUnavailablePage() {
   };
 
   return (
-    <div className="min-h-screen w-screen bg-[#F4EFE3] text-[#111311] flex flex-col justify-between p-6 font-sans">
+    <div className="min-h-screen w-full max-w-full bg-[#F4EFE3] text-[#111311] flex flex-col justify-between p-4 sm:p-6 font-sans overflow-x-hidden">
       {/* Top Brand Bar */}
       <div className="flex items-center justify-between max-w-4xl mx-auto w-full pb-4 border-b border-[#C4B9A3]">
         <div className="flex items-center space-x-3">

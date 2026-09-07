@@ -101,40 +101,40 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen w-screen bg-[#F4EFE3] text-[#111311] flex flex-col justify-between p-6 font-sans">
+    <div className="min-h-screen w-full max-w-full bg-[#F4EFE3] text-[#111311] flex flex-col justify-between p-4 sm:p-6 font-sans overflow-x-hidden">
       {/* Top Brand Bar */}
-      <div className="flex items-center justify-between max-w-6xl mx-auto w-full pb-4 border-b border-[#C4B9A3]">
+      <header className="flex items-center justify-between max-w-6xl mx-auto w-full pb-4 border-b border-[#C4B9A3]">
         <div className="flex items-center space-x-3">
-          <div className="p-2.5 bg-[#1E3A8A] rounded-xl shadow-md text-white">
+          <div className="p-2.5 bg-[#1E3A8A] rounded-xl shadow-sm text-white">
             <Milk className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="font-extrabold text-lg tracking-tight leading-none text-[#111311]">MilkReception</h1>
+            <h1 className="font-extrabold text-lg tracking-tight leading-none text-[#111311]">Milk Reception</h1>
             <p className="text-[10px] font-bold text-[#1E40AF] uppercase tracking-widest mt-0.5">
-              Shakarganj Milk Reception Management System
+              SFPL Milk Reception & Processing
             </p>
           </div>
         </div>
 
-        <div className="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-[#EFE9D9] border border-[#C4B9A3] text-xs font-mono font-extrabold text-[#111311]">
+        <div className="hidden sm:flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-white border border-[#C4B9A3] text-xs font-mono font-extrabold text-[#111311] shadow-sm">
           <ShieldCheck className="w-4 h-4 text-[#1E40AF]" />
           <span>Operational Security Console</span>
         </div>
-      </div>
+      </header>
 
       {/* Main Container */}
-      <div className="max-w-6xl mx-auto w-full my-auto py-8">
+      <main className="max-w-6xl mx-auto w-full my-auto py-8">
         <div className="flex flex-col lg:flex-row gap-8 items-start justify-center">
-          {/* Main Visual Focus: Sign In Form (First on Mobile, Right on Desktop) */}
-          <div className="w-full lg:w-[420px] shrink-0 order-1 lg:order-2">
-            <div className="p-7 rounded-2xl bg-[#EFE9D9] border border-[#C4B9A3] shadow-lg space-y-6 text-[#111311]">
-              <div className="space-y-1">
-                <h2 className="text-2xl font-black text-[#111311]">Sign In</h2>
-                <p className="text-xs text-[#334155] font-bold">Enter your operational account credentials</p>
+          {/* Main Sign In Form Card */}
+          <div className="w-full max-w-[420px] mx-auto lg:mx-0 shrink-0 order-1 lg:order-2">
+            <div className="p-6 sm:p-8 rounded-2xl bg-white border border-[#C4B9A3] shadow-md space-y-6 text-[#111311]">
+              <div className="space-y-1 text-center sm:text-left">
+                <h2 className="text-2xl font-black text-[#111311] tracking-tight">Sign In</h2>
+                <p className="text-xs text-slate-600 font-medium">Enter your operational account credentials</p>
               </div>
 
               {errorMsg && (
-                <div role="alert" className="p-3.5 rounded-xl bg-rose-100 border border-rose-300 text-rose-800 text-xs font-bold flex items-center space-x-2">
+                <div role="alert" className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold flex items-center space-x-2">
                   <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
                   <span>{errorMsg}</span>
                 </div>
@@ -142,7 +142,7 @@ export const LoginPage: React.FC = () => {
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-1.5">
-                  <label htmlFor="username-input" className="block text-xs font-extrabold text-[#111311]">
+                  <label htmlFor="username-input" className="block text-xs font-bold text-[#111311]">
                     Username
                   </label>
                   <input
@@ -153,13 +153,13 @@ export const LoginPage: React.FC = () => {
                     value={username}
                     onChange={handleUsernameChange}
                     placeholder="Enter your username"
-                    className="w-full px-3.5 py-2.5 text-xs font-mono font-extrabold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
+                    className="w-full h-11 px-3.5 text-sm font-mono font-bold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:outline-none focus:ring-2 focus:ring-[#1E3A8A] transition"
                     required
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label htmlFor="password-input" className="block text-xs font-extrabold text-[#111311]">
+                  <label htmlFor="password-input" className="block text-xs font-bold text-[#111311]">
                     Password
                   </label>
                   <div className="relative">
@@ -171,14 +171,14 @@ export const LoginPage: React.FC = () => {
                       value={password}
                       onChange={handlePasswordChange}
                       placeholder="••••••••"
-                      className="w-full px-3.5 py-2.5 pr-10 text-xs font-mono font-extrabold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
+                      className="w-full h-11 px-3.5 pr-11 text-sm font-mono font-bold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:outline-none focus:ring-2 focus:ring-[#1E3A8A] transition"
                       required
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
                       aria-label={showPassword ? 'Hide password' : 'Show password'}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-800 focus:outline-none"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition focus:outline-none"
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -186,7 +186,7 @@ export const LoginPage: React.FC = () => {
                 </div>
 
                 <div className="flex items-center justify-between pt-1">
-                  <label className="flex items-center space-x-2 text-xs font-bold text-[#334155] cursor-pointer select-none">
+                  <label className="flex items-center space-x-2 text-xs font-bold text-slate-600 cursor-pointer select-none">
                     <input
                       type="checkbox"
                       checked={rememberMe}
@@ -200,7 +200,7 @@ export const LoginPage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full flex items-center justify-center space-x-2 py-3 px-4 rounded-xl bg-[#1E3A8A] hover:bg-[#1E40AF] text-white font-extrabold text-xs shadow-md transition disabled:opacity-50"
+                  className="w-full h-11 flex items-center justify-center space-x-2 px-4 rounded-xl bg-[#1E3A8A] hover:bg-[#1E40AF] text-white font-extrabold text-xs shadow-sm transition disabled:opacity-50"
                 >
                   <span>{isSubmitting ? 'Signing in...' : 'Sign In'}</span>
                   <ArrowRight className="w-4 h-4 text-white" />
@@ -211,13 +211,13 @@ export const LoginPage: React.FC = () => {
 
           {/* Secondary Utility: Development Access Panel (Rendered ONLY in Dev Mode when flag enabled) */}
           {devGroups.length > 0 && (
-            <div className="flex-1 w-full space-y-4 order-2 lg:order-1">
+            <div className="flex-1 w-full max-w-[540px] mx-auto lg:mx-0 space-y-4 order-2 lg:order-1">
               <div className="space-y-1">
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 border border-amber-300 text-amber-900 inline-block uppercase tracking-wider">
                   Development Utility
                 </span>
                 <h3 className="text-xl font-black text-[#111311]">Development Access</h3>
-                <p className="text-xs text-[#334155] font-semibold">
+                <p className="text-xs text-slate-600 font-medium">
                   Select a test account to fill the sign-in form.
                 </p>
               </div>
@@ -245,7 +245,7 @@ export const LoginPage: React.FC = () => {
                             className={`p-3 rounded-xl border transition cursor-pointer space-y-1 flex flex-col justify-between ${
                               active
                                 ? 'bg-[#1E3A8A] text-white border-blue-900 shadow-md ring-2 ring-[#1E3A8A]'
-                                : 'bg-[#EFE9D9] text-[#111311] border-[#C4B9A3] hover:bg-amber-100/60'
+                                : 'bg-white text-[#111311] border-[#C4B9A3] hover:bg-amber-50/50 shadow-sm'
                             }`}
                           >
                             <div className="flex items-center justify-between">
@@ -260,7 +260,7 @@ export const LoginPage: React.FC = () => {
                             </div>
 
                             <div className="pt-1">
-                              <p className={`text-[10px] font-semibold truncate ${active ? 'text-slate-200' : 'text-[#334155]'}`}>
+                              <p className={`text-[10px] font-medium truncate ${active ? 'text-slate-200' : 'text-slate-600'}`}>
                                 {item.department}
                               </p>
                             </div>
@@ -281,12 +281,12 @@ export const LoginPage: React.FC = () => {
             </div>
           )}
         </div>
-      </div>
+      </main>
 
       {/* Footer */}
-      <div className="max-w-6xl mx-auto w-full pt-4 border-t border-[#C4B9A3] text-center text-xs font-bold text-slate-500">
-        Shakarganj Milk Reception Management System &copy; {new Date().getFullYear()} — Operational System Access
-      </div>
+      <footer className="max-w-6xl mx-auto w-full pt-4 border-t border-[#C4B9A3] text-center text-xs font-medium text-slate-500">
+        SFPL Milk Reception & Processing System &copy; {new Date().getFullYear()} — Operational System Access
+      </footer>
     </div>
   );
 };

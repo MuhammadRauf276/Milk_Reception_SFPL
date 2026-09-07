@@ -49,6 +49,9 @@ export function resolveRoleHome(role?: string | null | unknown): string {
     case 'Production':
       return '/department/production';
 
+    case 'CONTRACTOR_MANAGER':
+      return '/contractor/manager';
+
     // Retired Legacy Roles (Fails closed to /workspace-unavailable in 4E-D)
     case 'MPD_Zone_Manager':
     case 'Management':
@@ -57,7 +60,6 @@ export function resolveRoleHome(role?: string | null | unknown): string {
     case 'Production_Manager':
     case 'Correction_Officer':
     // Future Roles (Not Ready) & Fail-Closed Unknown Roles
-    case 'CONTRACTOR_MANAGER':
     case 'EXECUTIVE_MANAGEMENT':
     default:
       return '/workspace-unavailable';

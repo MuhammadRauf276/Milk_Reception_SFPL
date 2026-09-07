@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, KeyRound, CheckCircle2, Truck, Clock, ShieldAlert, Search, Radio, LogOut, ArrowRight } from 'lucide-react';
+import { ShieldCheck, Truck, Clock, Search, Radio, LogOut, CheckCircle2, ShieldAlert } from 'lucide-react';
 import { useToast } from '@/frontend/context/ToastContext';
 import { toDatetimeLocalInput, datetimeLocalToIso } from '@/lib/datetime-utils';
 import { User } from '@core/types';
@@ -82,7 +82,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [msg, setMsg] = useState<{ text: string; isError: boolean } | null>(null);
+  const [_msg, setMsg] = useState<{ text: string; isError: boolean } | null>(null);
 
   useEffect(() => {
     fetchSecurityData();
@@ -204,7 +204,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
       const successMsgText = `Gate Exit completed successfully for vehicle ${selectedExitVisit.vehicle_number}.`;
       toast.showSuccess(successMsgText, 'Gate Exit Completed');
       setSelectedExitVisitId(null);
-      setExitOpTimestamp('');
+      setExitOpTimestamp(toDatetimeLocalInput(new Date()));
       fetchSecurityData();
     } catch (err: any) {
       setMsg({ text: err.message, isError: true });
@@ -236,14 +236,24 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 text-[#111311]">
-      {/* Page-Level Three Tabs Navigation */}
-      <div className="flex items-center justify-between p-1.5 rounded-2xl bg-[#EFE9D9] border border-[#C4B9A3] shadow-sm">
-        <div className="flex items-center space-x-1.5 w-full sm:w-auto">
+    <div className="w-full max-w-7xl mx-auto space-y-6 text-[#111311]">
+      {/* Header & Status */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#C4B9A3]">
+        <div>
+          <h2 className="text-xl font-black tracking-tight text-[#111311] flex items-center gap-2">
+            <ShieldCheck className="w-6 h-6 text-[#1E3A8A]" />
+            Security Gateway Controller
+          </h2>
+          <p className="text-xs text-[#334155] font-semibold mt-0.5">
+            Operator: <strong className="text-[#111311]">{currentUser?.name || 'Security Officer'}</strong> | Plant Gate Entry & Exit Management
+          </p>
+        </div>
+
+        <div className="flex items-center space-x-2 bg-[#EFE9D9] p-1.5 rounded-2xl border border-[#C4B9A3] overflow-x-auto max-w-full">
           <button
             type="button"
             onClick={() => setActiveTab('WAITING_ENTRY')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-extrabold transition flex items-center space-x-2 ${
+            className={`px-4 py-2.5 rounded-xl text-xs font-extrabold transition flex items-center space-x-2 shrink-0 min-h-[44px] ${
               activeTab === 'WAITING_ENTRY'
                 ? 'bg-[#1E3A8A] text-white shadow-sm'
                 : 'text-[#334155] hover:bg-amber-100/50'
@@ -251,7 +261,9 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
           >
             <Truck className="w-4 h-4" />
             <span>Waiting for Entry</span>
-            <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono ${activeTab === 'WAITING_ENTRY' ? 'bg-white/20 text-white' : 'bg-[#F4EFE3] text-slate-700'}`}>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono ${
+              activeTab === 'WAITING_ENTRY' ? 'bg-white/20 text-white' : 'bg-[#F4EFE3] text-slate-700'
+            }`}>
               {dispatchedVisits.length}
             </span>
           </button>
@@ -259,7 +271,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
           <button
             type="button"
             onClick={() => setActiveTab('INSIDE_PLANT')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-extrabold transition flex items-center space-x-2 ${
+            className={`px-4 py-2.5 rounded-xl text-xs font-extrabold transition flex items-center space-x-2 shrink-0 min-h-[44px] ${
               activeTab === 'INSIDE_PLANT'
                 ? 'bg-[#1E3A8A] text-white shadow-sm'
                 : 'text-[#334155] hover:bg-amber-100/50'
@@ -267,7 +279,9 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
           >
             <ShieldCheck className="w-4 h-4" />
             <span>Inside Plant</span>
-            <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono ${activeTab === 'INSIDE_PLANT' ? 'bg-white/20 text-white' : 'bg-[#F4EFE3] text-slate-700'}`}>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono ${
+              activeTab === 'INSIDE_PLANT' ? 'bg-white/20 text-white' : 'bg-[#F4EFE3] text-slate-700'
+            }`}>
               {activeVisits.length}
             </span>
           </button>
@@ -275,7 +289,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
           <button
             type="button"
             onClick={() => setActiveTab('READY_EXIT')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-extrabold transition flex items-center space-x-2 ${
+            className={`px-4 py-2.5 rounded-xl text-xs font-extrabold transition flex items-center space-x-2 shrink-0 min-h-[44px] ${
               activeTab === 'READY_EXIT'
                 ? 'bg-[#1E3A8A] text-white shadow-sm'
                 : 'text-[#334155] hover:bg-amber-100/50'
@@ -283,21 +297,23 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
           >
             <LogOut className="w-4 h-4" />
             <span>Ready for Exit</span>
-            <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono ${activeTab === 'READY_EXIT' ? 'bg-white/20 text-white' : 'bg-[#F4EFE3] text-slate-700'}`}>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono ${
+              activeTab === 'READY_EXIT' ? 'bg-white/20 text-white' : 'bg-[#F4EFE3] text-slate-700'
+            }`}>
               {readyExitVisits.length}
             </span>
           </button>
         </div>
 
-        <div className="hidden sm:flex items-center space-x-1.5 px-3 py-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 rounded-xl border border-emerald-200">
+        <div className="hidden lg:flex items-center space-x-1.5 px-3 py-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 rounded-xl border border-emerald-200 shrink-0">
           <Radio className="w-3 h-3 animate-pulse text-emerald-600" />
-          <span>Live</span>
+          <span>Live Gateway</span>
         </div>
       </div>
 
       {/* TAB 1: WAITING FOR ENTRY */}
       {activeTab === 'WAITING_ENTRY' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* LEFT (5/12): WAITING FOR ENTRY QUEUE */}
           <div className="lg:col-span-5 space-y-3">
             <div className="flex items-center justify-between px-1">
@@ -313,12 +329,16 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                 value={entrySearchQuery}
                 onChange={(e) => handleEntrySearch(e.target.value)}
                 placeholder="Search vehicle number..."
-                className="w-full pl-9 pr-3 py-2 text-xs font-mono font-bold rounded-xl border border-[#C4B9A3] bg-[#EFE9D9] text-[#111311]"
+                className="w-full min-h-[44px] pl-9 pr-3 py-2 text-xs font-mono font-bold rounded-xl border border-[#C4B9A3] bg-[#EFE9D9] text-[#111311] focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
               />
             </div>
 
-            <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1">
-              {dispatchedVisits.length === 0 ? (
+            <div className="space-y-2.5 max-h-[520px] overflow-y-auto pr-1">
+              {isLoading ? (
+                <div className="p-8 text-center border border-dashed border-[#C4B9A3] rounded-2xl bg-[#EFE9D9] text-xs font-bold text-slate-500">
+                  Loading vehicles...
+                </div>
+              ) : dispatchedVisits.length === 0 ? (
                 <div className="p-8 text-center border border-dashed border-[#C4B9A3] rounded-2xl bg-[#EFE9D9] text-xs font-bold text-slate-500">
                   No vehicles currently waiting for entry.
                 </div>
@@ -329,7 +349,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                     <div
                       key={`waiting-entry-${String(v.id)}`}
                       onClick={() => setSelectedEntryVisitId(v.id)}
-                      className={`p-3.5 rounded-xl border transition cursor-pointer space-y-1 ${
+                      className={`p-4 rounded-xl border transition cursor-pointer space-y-2 ${
                         isSelected
                           ? 'bg-[#1E3A8A] text-white border-blue-900 shadow-md ring-2 ring-blue-500/30'
                           : 'bg-[#EFE9D9] text-[#111311] border-[#C4B9A3] hover:bg-amber-100/60'
@@ -337,14 +357,20 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                     >
                       <div className="flex items-center justify-between">
                         <span className="font-mono font-black text-sm">{v.vehicle_number}</span>
-                        <span className={`px-2 py-0.5 rounded text-[9.5px] font-black font-mono ${isSelected ? 'bg-white/20 text-white' : 'bg-[#F4EFE3] text-[#111311] border border-[#C4B9A3]'}`}>
-                          Waiting for Gate Entry
+                        <span className={`px-2 py-0.5 rounded text-[9.5px] font-black font-mono ${
+                          isSelected ? 'bg-white/20 text-white' : 'bg-[#F4EFE3] text-[#111311] border border-[#C4B9A3]'
+                        }`}>
+                          Waiting Entry
                         </span>
                       </div>
 
-                      <div className={`flex items-center justify-between text-[11px] font-bold ${isSelected ? 'text-slate-200' : 'text-[#334155]'}`}>
-                        <span>Portions: {v.portion_count} ({formatDispatchQuantity(v.vehicle_dispatch_quantity_value, v.vehicle_dispatch_quantity_unit)})</span>
-                        <span>{v.zonal_contractor_name}</span>
+                      <div className={`flex items-center justify-between text-xs font-bold ${
+                        isSelected ? 'text-slate-200' : 'text-[#334155]'
+                      }`}>
+                        <span>
+                          {v.portion_count} Portion{v.portion_count > 1 ? 's' : ''} ({formatDispatchQuantity(v.vehicle_dispatch_quantity_value, v.vehicle_dispatch_quantity_unit)})
+                        </span>
+                        <span className="truncate max-w-[150px]">{v.zonal_contractor_name}</span>
                       </div>
                     </div>
                   );
@@ -362,26 +388,26 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
             ) : (
               <div className="p-6 rounded-2xl bg-[#EFE9D9] border border-[#C4B9A3] shadow-md space-y-5 text-[#111311]">
                 <div className="pb-3 border-b border-[#C4B9A3]">
-                  <h3 className="text-base font-extrabold text-[#111311]">Gate Entry</h3>
+                  <h3 className="text-base font-extrabold text-[#111311]">Gate Entry Processing</h3>
                   <p className="text-xs text-[#334155] font-semibold mt-0.5">
-                    Vehicle: <strong className="font-mono text-[#111311]">{selectedEntryVisit.vehicle_number}</strong> | Contractor: <strong className="font-mono text-[#1E3A8A]">{selectedEntryVisit.zonal_contractor_name}</strong>
+                    Vehicle: <strong className="font-mono text-[#111311]">{selectedEntryVisit.vehicle_number}</strong> | Contractor: <strong className="text-[#1E3A8A]">{selectedEntryVisit.zonal_contractor_name}</strong>
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-[#F4EFE3] border border-[#C4B9A3] text-xs font-mono font-bold">
+                <div className="grid grid-cols-2 gap-3 p-3.5 rounded-xl bg-[#F4EFE3] border border-[#C4B9A3] text-xs font-mono font-bold">
                   <div>
-                    <span className="text-slate-500 font-sans block text-[9px]">Declared Volume</span>
+                    <span className="text-slate-500 font-sans block text-[10px]">Declared Volume</span>
                     <span>{formatDispatchQuantity(selectedEntryVisit.vehicle_dispatch_quantity_value, selectedEntryVisit.vehicle_dispatch_quantity_unit)} ({selectedEntryVisit.portion_count} Portion{selectedEntryVisit.portion_count > 1 ? 's' : ''})</span>
                   </div>
                   <div>
-                    <span className="text-slate-500 font-sans block text-[9px]">Operational Date</span>
+                    <span className="text-slate-500 font-sans block text-[10px]">Operational Date</span>
                     <span>{selectedEntryVisit.operational_date || 'Today'}</span>
                   </div>
                 </div>
 
                 <form onSubmit={handleConfirmEntry} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-bold mb-1.5 text-[#111311]">
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-black uppercase tracking-wider text-[#111311]">
                       Assign Security Token # *
                     </label>
                     <input
@@ -389,23 +415,23 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                       value={tokenNumber}
                       onChange={(e) => setTokenNumber(e.target.value.toUpperCase())}
                       placeholder="e.g. TK-9025"
-                      className="w-full px-4 py-2.5 text-sm font-mono font-black rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:ring-2 focus:ring-[#1E3A8A] outline-none"
+                      className="w-full min-h-[44px] px-4 py-2.5 text-sm font-mono font-black rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:ring-2 focus:ring-[#1E3A8A] outline-none"
                       required
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-bold mb-1 text-[#111311] flex items-center justify-between">
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-black uppercase tracking-wider text-[#111311] flex items-center justify-between">
                       <span>Gate Entry Time *</span>
                       <Clock className="w-3.5 h-3.5 text-[#1E3A8A]" />
                     </label>
                     <input
                       type="datetime-local"
                       value={entryOpTimestamp}
-                      min={toDatetimeLocalInput(selectedEntryVisit.dispatch_timestamp)}
+                      min={selectedEntryVisit.dispatch_timestamp ? toDatetimeLocalInput(selectedEntryVisit.dispatch_timestamp) : undefined}
                       max={toDatetimeLocalInput(new Date())}
                       onChange={(e) => setEntryOpTimestamp(e.target.value)}
-                      className="w-full px-4 py-2 text-xs font-mono font-bold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:ring-2 focus:ring-[#1E3A8A] outline-none"
+                      className="w-full min-h-[44px] px-4 py-2.5 text-xs font-mono font-bold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:ring-2 focus:ring-[#1E3A8A] outline-none"
                       required
                     />
                   </div>
@@ -413,10 +439,10 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="w-full flex items-center justify-center space-x-2 py-3 px-4 rounded-xl bg-[#1E3A8A] hover:bg-blue-800 text-white font-extrabold text-sm shadow-md transition disabled:opacity-50 mt-2"
+                    className="w-full min-h-[44px] flex items-center justify-center space-x-2 py-3 px-4 rounded-xl bg-[#1E3A8A] hover:bg-blue-800 text-white font-extrabold text-xs shadow-md transition disabled:opacity-50 mt-2"
                   >
                     <CheckCircle2 className="w-4 h-4 text-white" />
-                    <span>{isSubmitting ? 'Confirming Entry...' : 'Confirm Entry'}</span>
+                    <span>{isSubmitting ? 'Confirming Entry...' : 'Confirm Gate Entry'}</span>
                   </button>
                 </form>
               </div>
@@ -430,10 +456,10 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
         <div className="p-6 rounded-2xl bg-[#EFE9D9] border border-[#C4B9A3] shadow-md space-y-4">
           <div className="flex items-center justify-between pb-2 border-b border-[#C4B9A3]">
             <h3 className="text-sm font-extrabold text-[#111311]">
-              Inside Plant ({activeVisits.length} Vehicles)
+              Vehicles Inside Plant ({activeVisits.length})
             </h3>
             <span className="text-xs font-mono font-bold text-slate-500">
-              Physically inside gate
+              Physically inside security perimeter
             </span>
           </div>
 
@@ -442,8 +468,8 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
               No vehicles currently inside the plant.
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs font-medium">
+            <div className="overflow-x-auto max-w-full">
+              <table className="w-full text-left text-xs font-medium min-w-[600px]">
                 <thead className="bg-[#F4EFE3] text-slate-700 font-extrabold uppercase text-[10px] tracking-wider border-b border-[#C4B9A3]">
                   <tr>
                     <th className="py-3 px-4">Token #</th>
@@ -469,7 +495,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                         {v.portion_count} ({formatDispatchQuantity(v.vehicle_dispatch_quantity_value, v.vehicle_dispatch_quantity_unit)})
                       </td>
                       <td className="py-3 px-4 font-bold">
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] uppercase font-mono bg-blue-100 text-[#1E3A8A] border border-blue-300">
+                        <span className="px-2.5 py-1 rounded-full text-[10px] uppercase font-mono bg-blue-100 text-[#1E3A8A] border border-blue-300">
                           {formatFriendlyStage(v.current_status)}
                         </span>
                       </td>
@@ -484,7 +510,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
 
       {/* TAB 3: READY FOR EXIT */}
       {activeTab === 'READY_EXIT' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* LEFT (5/12): READY FOR EXIT QUEUE */}
           <div className="lg:col-span-5 space-y-3">
             <div className="flex items-center justify-between px-1">
@@ -500,11 +526,11 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                 value={exitSearchQuery}
                 onChange={(e) => handleExitSearch(e.target.value)}
                 placeholder="Search token or vehicle number..."
-                className="w-full pl-9 pr-3 py-2 text-xs font-mono font-bold rounded-xl border border-[#C4B9A3] bg-[#EFE9D9] text-[#111311]"
+                className="w-full min-h-[44px] pl-9 pr-3 py-2 text-xs font-mono font-bold rounded-xl border border-[#C4B9A3] bg-[#EFE9D9] text-[#111311] focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
               />
             </div>
 
-            <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1">
+            <div className="space-y-2.5 max-h-[520px] overflow-y-auto pr-1">
               {readyExitVisits.length === 0 ? (
                 <div className="p-8 text-center border border-dashed border-[#C4B9A3] rounded-2xl bg-[#EFE9D9] text-xs font-bold text-slate-500">
                   No vehicles currently waiting for gate exit.
@@ -516,7 +542,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                     <div
                       key={`ready-exit-${String(v.id)}`}
                       onClick={() => setSelectedExitVisitId(v.id)}
-                      className={`p-3.5 rounded-xl border transition cursor-pointer space-y-1 ${
+                      className={`p-4 rounded-xl border transition cursor-pointer space-y-2 ${
                         isSelected
                           ? 'bg-[#1E3A8A] text-white border-blue-900 shadow-md ring-2 ring-blue-500/30'
                           : 'bg-[#EFE9D9] text-[#111311] border-[#C4B9A3] hover:bg-amber-100/60'
@@ -525,7 +551,9 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-2">
                           <span className="font-mono font-black text-sm">{v.vehicle_number}</span>
-                          <span className="font-mono text-xs font-bold text-blue-200">({v.token_number})</span>
+                          <span className={`font-mono text-xs font-bold ${isSelected ? 'text-blue-200' : 'text-[#1E3A8A]'}`}>
+                            ({v.token_number || 'NO-TOKEN'})
+                          </span>
                         </div>
                         <span
                           className={`px-2 py-0.5 rounded text-[9.5px] font-extrabold ${
@@ -536,7 +564,9 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                         </span>
                       </div>
 
-                      <div className={`flex items-center justify-between text-[11px] font-bold ${isSelected ? 'text-slate-200' : 'text-[#334155]'}`}>
+                      <div className={`flex items-center justify-between text-xs font-bold ${
+                        isSelected ? 'text-slate-200' : 'text-[#334155]'
+                      }`}>
                         <span>Portions: {v.portion_count}</span>
                         <span>Net: {v.net_weight_kg ? `${v.net_weight_kg.toLocaleString()} KG` : '—'}</span>
                       </div>
@@ -556,42 +586,43 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
             ) : (
               <div className="p-6 rounded-2xl bg-[#EFE9D9] border border-[#C4B9A3] shadow-md space-y-5 text-[#111311]">
                 <div className="pb-3 border-b border-[#C4B9A3]">
-                  <h3 className="text-base font-extrabold text-[#111311]">Gate Exit</h3>
+                  <h3 className="text-base font-extrabold text-[#111311]">Gate Exit Clearance</h3>
                   <p className="text-xs text-[#334155] font-semibold mt-0.5">
-                    Vehicle: <strong className="font-mono text-[#111311]">{selectedExitVisit.vehicle_number}</strong> | Token: <strong className="font-mono text-[#1E40AF]">{selectedExitVisit.token_number}</strong> | Entry: <strong className="font-mono text-[#1E3A8A]">{selectedExitVisit.entry_timestamp ? new Date(selectedExitVisit.entry_timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '-'}</strong>
+                    Vehicle: <strong className="font-mono text-[#111311]">{selectedExitVisit.vehicle_number}</strong> | Token: <strong className="font-mono text-[#1E40AF]">{selectedExitVisit.token_number || 'NO-TOKEN'}</strong> | Entry: <strong className="font-mono text-[#1E3A8A]">{selectedExitVisit.entry_timestamp ? new Date(selectedExitVisit.entry_timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '-'}</strong>
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-[#F4EFE3] border border-[#C4B9A3] text-xs font-mono font-bold">
+                <div className="grid grid-cols-2 gap-3 p-3.5 rounded-xl bg-[#F4EFE3] border border-[#C4B9A3] text-xs font-mono font-bold">
                   <div>
-                    <span className="text-slate-500 font-sans block text-[9px]">Exit Reason</span>
-                    <span className={selectedExitVisit.is_all_rejected ? 'text-rose-700' : 'text-emerald-700'}>
+                    <span className="text-slate-500 font-sans block text-[10px]">Exit Reason</span>
+                    <span className={selectedExitVisit.is_all_rejected ? 'text-rose-700 font-extrabold' : 'text-emerald-700 font-extrabold'}>
                       {selectedExitVisit.exit_reason}
                     </span>
                   </div>
 
                   <div>
-                    <span className="text-slate-500 font-sans block text-[9px]">Net Milk Received</span>
+                    <span className="text-slate-500 font-sans block text-[10px]">Net Milk Received</span>
                     <span>{selectedExitVisit.net_weight_kg ? `${selectedExitVisit.net_weight_kg.toLocaleString()} KG` : '—'}</span>
                   </div>
                 </div>
 
                 {!selectedExitVisit.is_all_rejected && (
-                  <div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-[#F4EFE3] border border-[#C4B9A3] text-xs font-mono font-bold">
+                  <div className="grid grid-cols-2 gap-3 p-3.5 rounded-xl bg-[#F4EFE3] border border-[#C4B9A3] text-xs font-mono font-bold">
                     <div>
-                      <span className="text-slate-500 font-sans block text-[9px]">Gross Weight</span>
+                      <span className="text-slate-500 font-sans block text-[10px]">Gross Weight</span>
                       <span>{selectedExitVisit.gross_weight_kg ? `${selectedExitVisit.gross_weight_kg.toLocaleString()} KG` : '—'}</span>
                     </div>
                     <div>
-                      <span className="text-slate-500 font-sans block text-[9px]">Second Weight</span>
+                      <span className="text-slate-500 font-sans block text-[10px]">Second (Tare) Weight</span>
                       <span>{selectedExitVisit.tare_weight_kg ? `${selectedExitVisit.tare_weight_kg.toLocaleString()} KG` : '—'}</span>
                     </div>
                   </div>
                 )}
 
                 {selectedExitVisit.is_all_rejected && (
-                  <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold">
-                    ⚠️ QA Result: Rejected. All portions failed laboratory testing. Direct return exit authorised without weighment.
+                  <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold flex items-center space-x-2">
+                    <ShieldAlert className="w-5 h-5 text-rose-600 shrink-0" />
+                    <p>QA Result: Rejected. All portions failed laboratory testing. Direct return exit authorized without weighment.</p>
                   </div>
                 )}
 
@@ -606,17 +637,18 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                       value={exitOpTimestamp}
                       max={toDatetimeLocalInput(new Date())}
                       onChange={(e) => setExitOpTimestamp(e.target.value)}
-                      className="w-full px-3 py-2.5 text-xs font-mono font-bold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
+                      className="w-full min-h-[44px] px-4 py-2.5 text-xs font-mono font-bold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
+                      required
                     />
                   </div>
 
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="w-full flex items-center justify-center space-x-2 py-3 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-sm shadow-md transition disabled:opacity-50"
+                    className="w-full min-h-[44px] flex items-center justify-center space-x-2 py-3 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs shadow-md transition disabled:opacity-50"
                   >
                     <CheckCircle2 className="w-4 h-4 text-white" />
-                    <span>{isSubmitting ? 'Confirming Exit...' : 'Confirm Exit'}</span>
+                    <span>{isSubmitting ? 'Confirming Exit...' : 'Confirm Gate Exit Clearance'}</span>
                   </button>
                 </form>
               </div>

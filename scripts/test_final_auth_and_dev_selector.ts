@@ -28,7 +28,8 @@ async function runFinalAuthAndDevSelectorTests() {
     const DEV_CREDENTIALS = [
       { id: 'CRED-01', username: 'admin.superuser', pass: 'admin123', expectedRole: 'SUPER_ADMIN' },
       { id: 'CRED-02', username: 'zmcc.operator', pass: 'mpd123', expectedRole: 'MPD_Operator' },
-      { id: 'CRED-03', username: 'zmcc.manager.north', pass: 'zone123', expectedRole: 'MPD_Zone_Manager' },
+      { id: 'CRED-03', username: 'zmcc.manager.north', pass: 'zone123', expectedRole: 'ZMCC_MANAGER' },
+      { id: 'CRED-03B', username: 'contractor.manager.alkhair', pass: 'contractor123', expectedRole: 'CONTRACTOR_MANAGER' },
       { id: 'CRED-04', username: 'security.gate', pass: 'security123', expectedRole: 'Security_Operator' },
       { id: 'CRED-05', username: 'security.head', pass: 'sechead123', expectedRole: 'Security_Manager' },
       { id: 'CRED-06', username: 'qa.chemist', pass: 'qa123', expectedRole: 'QA_Operator' },
@@ -97,6 +98,20 @@ async function runFinalAuthAndDevSelectorTests() {
     assert(imran?.name === 'Imran Mehmood', 'SOURCE-SAFE-A: Imran Mehmood preserved separately (not merged)');
     assert(alMehmood?.name === 'Al Mehmood Dairy', 'LABEL-03B: Al Mehmood Dairy seeded as distinct contractor');
     assert(sources.length === 6, 'SOURCE-SAFE-C: No duplicate ProcurementSource rows created (exact 6 sources)');
+
+    // Runtime source-scope assertion for contractor.manager.alkhair
+    const contMgrUser = await prisma.user.findFirst({
+      where: { username: 'contractor.manager.alkhair' },
+      include: { procurement_source: true },
+    });
+    assert(
+      !!contMgrUser &&
+        contMgrUser.role === 'CONTRACTOR_MANAGER' &&
+        contMgrUser.scope_type === 'SOURCE' &&
+        contMgrUser.procurement_source_id !== null &&
+        contMgrUser.procurement_source?.code === 'CONT-ALKHAIR',
+      'SOURCE-SAFE-D: contractor.manager.alkhair is assigned CONTRACTOR_MANAGER with SOURCE scope and CONT-ALKHAIR procurement source'
+    );
 
     // ====================================================
     // GROUP 4: REMEMBER ME & TTL CONSTANTS

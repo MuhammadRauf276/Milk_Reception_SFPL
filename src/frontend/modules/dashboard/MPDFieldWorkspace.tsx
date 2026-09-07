@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { User } from '@core/types';
-import { ChevronLeft, ChevronRight, RefreshCw, Radio } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RefreshCw, Radio, Calendar, Truck } from 'lucide-react';
 import { DynamicDispatchForm } from '@modules/forms/DynamicDispatchForm';
 
 interface DispatchRecord {
@@ -47,7 +47,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
   currentUser,
   onRefresh,
 }) => {
-  const [activeTab, setActiveTab] = useState<'recent' | 'new'>('new');
+  const [activeTab, setActiveTab] = useState<'new' | 'recent'>('new');
   const [dbDispatches, setDbDispatches] = useState<DispatchRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -134,7 +134,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
+    <div className="max-w-7xl mx-auto space-y-6 w-full overflow-x-hidden">
       {/* Top-Level Dispatch Workspace Tabs */}
       <div className="flex items-center space-x-2 border-b border-[#C4B9A3] pb-3" role="tablist">
         <button
@@ -144,10 +144,10 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
           aria-selected={activeTab === 'new'}
           aria-controls="panel-new-dispatch"
           onClick={() => setActiveTab('new')}
-          className={`px-4 py-2 rounded-xl text-xs font-black transition flex items-center space-x-1.5 ${
+          className={`h-11 px-5 rounded-xl text-xs font-black transition flex items-center space-x-2 ${
             activeTab === 'new'
               ? 'bg-[#1E40AF] text-white shadow-sm ring-2 ring-[#1E40AF]/20'
-              : 'bg-[#EFE9D9] text-slate-700 hover:bg-[#E5DEC9] border border-[#C4B9A3]'
+              : 'bg-white text-slate-700 hover:bg-[#F4EFE3] border border-[#C4B9A3]'
           }`}
         >
           <span>New Dispatch</span>
@@ -160,17 +160,17 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
           aria-selected={activeTab === 'recent'}
           aria-controls="panel-recent-dispatches"
           onClick={() => setActiveTab('recent')}
-          className={`px-4 py-2 rounded-xl text-xs font-black transition flex items-center space-x-1.5 ${
+          className={`h-11 px-5 rounded-xl text-xs font-black transition flex items-center space-x-2 ${
             activeTab === 'recent'
               ? 'bg-[#1E40AF] text-white shadow-sm ring-2 ring-[#1E40AF]/20'
-              : 'bg-[#EFE9D9] text-slate-700 hover:bg-[#E5DEC9] border border-[#C4B9A3]'
+              : 'bg-white text-slate-700 hover:bg-[#F4EFE3] border border-[#C4B9A3]'
           }`}
         >
           <span>Recent Dispatches</span>
           {pagination.totalRecords > 0 && (
             <span
-              className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold ${
-                activeTab === 'recent' ? 'bg-blue-800 text-white' : 'bg-[#F4EFE3] text-slate-700 border border-[#C4B9A3]'
+              className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                activeTab === 'recent' ? 'bg-blue-900 text-white' : 'bg-[#F4EFE3] text-slate-700 border border-[#C4B9A3]'
               }`}
             >
               {pagination.totalRecords}
@@ -198,29 +198,29 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
       >
         <div className="max-w-4xl mx-auto space-y-4">
           {/* Header & Date Controls */}
-          <div className="p-4 rounded-2xl bg-[#EFE9D9] border border-[#C4B9A3] shadow-sm space-y-3">
-            <div className="flex items-center justify-between">
+          <div className="p-4 sm:p-5 rounded-2xl bg-white border border-[#C4B9A3] shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center space-x-2">
                 <h2 className="text-base font-extrabold text-[#111311]">Recent Dispatches</h2>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
                   <Radio className="w-2.5 h-2.5 animate-pulse text-emerald-600" />
                   Live
                 </span>
               </div>
-              <span className="text-xs font-mono font-bold text-slate-600 bg-[#F4EFE3] px-2 py-0.5 rounded border border-[#C4B9A3]">
+              <span className="text-xs font-mono font-bold text-slate-600 bg-[#F4EFE3] px-2.5 py-1 rounded-lg border border-[#C4B9A3]">
                 {pagination.totalRecords} records
               </span>
             </div>
 
             {/* Quick Date Window Filter Buttons */}
-            <div className="grid grid-cols-4 gap-1.5 p-1 rounded-xl bg-[#F4EFE3] border border-[#C4B9A3] text-xs font-bold">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-1.5 rounded-xl bg-[#F4EFE3] border border-[#C4B9A3] text-xs font-bold">
               <button
                 type="button"
                 onClick={() => handleRangeChange('today')}
-                className={`py-1.5 rounded-lg text-[11px] font-black transition ${
+                className={`h-9 rounded-lg text-xs font-black transition ${
                   dateRange === 'today'
                     ? 'bg-[#1E40AF] text-white shadow-sm'
-                    : 'text-[#334155] hover:bg-amber-100/50'
+                    : 'text-[#334155] hover:bg-white/60'
                 }`}
               >
                 Today
@@ -228,10 +228,10 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
               <button
                 type="button"
                 onClick={() => handleRangeChange('7d')}
-                className={`py-1.5 rounded-lg text-[11px] font-black transition ${
+                className={`h-9 rounded-lg text-xs font-black transition ${
                   dateRange === '7d'
                     ? 'bg-[#1E40AF] text-white shadow-sm'
-                    : 'text-[#334155] hover:bg-amber-100/50'
+                    : 'text-[#334155] hover:bg-white/60'
                 }`}
               >
                 Last 7 Days
@@ -239,10 +239,10 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
               <button
                 type="button"
                 onClick={() => handleRangeChange('30d')}
-                className={`py-1.5 rounded-lg text-[11px] font-black transition ${
+                className={`h-9 rounded-lg text-xs font-black transition ${
                   dateRange === '30d'
                     ? 'bg-[#1E40AF] text-white shadow-sm'
-                    : 'text-[#334155] hover:bg-amber-100/50'
+                    : 'text-[#334155] hover:bg-white/60'
                 }`}
               >
                 Last 30 Days
@@ -250,10 +250,10 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
               <button
                 type="button"
                 onClick={() => handleRangeChange('custom')}
-                className={`py-1.5 rounded-lg text-[11px] font-black transition ${
+                className={`h-9 rounded-lg text-xs font-black transition ${
                   dateRange === 'custom'
                     ? 'bg-[#1E40AF] text-white shadow-sm'
-                    : 'text-[#334155] hover:bg-amber-100/50'
+                    : 'text-[#334155] hover:bg-white/60'
                 }`}
               >
                 Custom
@@ -262,24 +262,24 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
 
             {/* Custom Date Controls */}
             {dateRange === 'custom' && (
-              <div className="pt-2 border-t border-[#C4B9A3] space-y-2">
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div>
-                    <label className="block text-[10px] font-bold text-[#334155] mb-1">From Date</label>
+              <div className="pt-3 border-t border-slate-100 space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div className="space-y-1">
+                    <label className="block text-xs font-bold text-slate-600">From Date</label>
                     <input
                       type="date"
                       value={fromDate}
                       onChange={(e) => setFromDate(e.target.value)}
-                      className="w-full px-2.5 py-1.5 rounded-lg border border-[#C4B9A3] bg-[#F4EFE3] font-mono text-xs text-[#111311]"
+                      className="w-full h-11 px-3.5 rounded-xl border border-[#C4B9A3] bg-white font-mono text-xs text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none"
                     />
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-[#334155] mb-1">To Date</label>
+                  <div className="space-y-1">
+                    <label className="block text-xs font-bold text-slate-600">To Date</label>
                     <input
                       type="date"
                       value={toDate}
                       onChange={(e) => setToDate(e.target.value)}
-                      className="w-full px-2.5 py-1.5 rounded-lg border border-[#C4B9A3] bg-[#F4EFE3] font-mono text-xs text-[#111311]"
+                      className="w-full h-11 px-3.5 rounded-xl border border-[#C4B9A3] bg-white font-mono text-xs text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none"
                     />
                   </div>
                 </div>
@@ -288,77 +288,84 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
                   <button
                     type="button"
                     onClick={handleClearCustomDate}
-                    className="px-2.5 py-1 text-xs font-bold text-slate-600 hover:text-slate-900"
+                    className="h-10 px-3.5 text-xs font-bold text-slate-600 hover:text-slate-900 rounded-xl hover:bg-slate-100 transition"
                   >
                     Clear
                   </button>
                   <button
                     type="button"
                     onClick={handleApplyCustomDate}
-                    className="px-3 py-1 bg-[#1E40AF] text-white font-bold text-xs rounded-lg shadow-sm hover:bg-blue-800"
+                    className="h-10 px-4 bg-[#1E40AF] text-white font-bold text-xs rounded-xl shadow-sm hover:bg-blue-800 transition"
                   >
-                    Apply
+                    Apply Filter
                   </button>
                 </div>
               </div>
             )}
 
             {dateError && (
-              <p className="text-xs font-bold text-rose-700 bg-rose-50 p-2 rounded-lg border border-rose-200">
+              <p className="text-xs font-bold text-rose-700 bg-rose-50 p-3 rounded-xl border border-rose-200">
                 {dateError}
               </p>
             )}
           </div>
 
           {/* Records List */}
-          <div className="space-y-2.5 max-h-[580px] overflow-y-auto pr-1">
+          <div className="space-y-3 max-h-[580px] overflow-y-auto pr-1">
             {isLoading ? (
-              <div className="p-8 text-center border border-dashed border-[#C4B9A3] rounded-2xl bg-[#EFE9D9] text-xs font-bold text-slate-500">
+              <div className="p-10 text-center border border-dashed border-[#C4B9A3] rounded-2xl bg-white text-xs font-bold text-slate-500">
                 <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-blue-700" />
                 Loading dispatches...
               </div>
             ) : dbDispatches.length === 0 ? (
-              <div className="p-8 text-center border border-dashed border-[#C4B9A3] rounded-2xl bg-[#EFE9D9] text-xs font-bold text-slate-500">
+              <div className="p-10 text-center border border-dashed border-[#C4B9A3] rounded-2xl bg-white text-xs font-bold text-slate-500">
                 No dispatches found for this period.
               </div>
             ) : (
               dbDispatches.map((log) => (
                 <div
                   key={`mpd-dispatch-${String(log.id)}`}
-                  className="p-4 rounded-xl border bg-[#EFE9D9] text-[#111311] border-[#C4B9A3] shadow-sm space-y-2"
+                  className="p-4 sm:p-5 rounded-2xl border bg-white text-[#111311] border-[#C4B9A3] shadow-sm space-y-3 transition"
                 >
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <span className="font-black font-mono text-base tracking-tight text-[#111311]">
-                        {log.vehicle_number}
-                      </span>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-black bg-[#F4EFE3] border border-[#C4B9A3] font-mono">
-                        {log.portion_count} Portion{log.portion_count > 1 ? 's' : ''}
-                      </span>
+                    <div className="flex items-center space-x-2.5">
+                      <div className="p-2 rounded-xl bg-[#F4EFE3] text-[#1E40AF]">
+                        <Truck className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="font-black font-mono text-base tracking-tight text-[#111311]">
+                          {log.vehicle_number}
+                        </span>
+                        <div className="flex items-center space-x-1.5 mt-0.5">
+                          <span className="px-2 py-0.5 rounded-lg text-[10px] font-black bg-[#F4EFE3] border border-[#C4B9A3] font-mono">
+                            {log.portion_count} Portion{log.portion_count > 1 ? 's' : ''}
+                          </span>
+                          <span className="text-[11px] font-medium text-slate-600">
+                            {log.zonal_contractor_name}
+                          </span>
+                        </div>
+                      </div>
                     </div>
 
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300 font-mono">
+                    <span className="px-3 py-1 rounded-full text-[10px] font-extrabold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300 font-mono">
                       Dispatched
                     </span>
                   </div>
 
-                  <div className="flex items-center justify-between text-xs font-bold text-[#334155]">
-                    <span>Date: {log.operational_date || 'Today'}</span>
-                    <span>{log.zonal_contractor_name}</span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2 p-2 rounded-lg bg-[#F4EFE3] border border-[#C4B9A3] text-[10.5px] font-mono font-bold">
+                  <div className="grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-[#F4EFE3]/70 border border-[#C4B9A3] text-xs font-mono font-bold">
                     <div>
-                      <span className="text-slate-500 font-sans block text-[9px]">Vehicle Quantity</span>
-                      <span>
+                      <span className="text-slate-500 font-sans block text-[9.5px]">Vehicle Quantity</span>
+                      <span className="text-slate-900 font-black text-sm">
                         {log.vehicle_dispatch_quantity_value != null && log.vehicle_dispatch_quantity_unit
                           ? `${Number(log.vehicle_dispatch_quantity_value).toLocaleString()} ${log.vehicle_dispatch_quantity_unit}`
                           : '—'}
                       </span>
                     </div>
                     <div>
-                      <span className="text-slate-500 font-sans block text-[9px]">Date</span>
-                      <span>{log.operational_date || 'Today'}</span>
+                      <span className="text-slate-500 font-sans block text-[9.5px]">Operational Date</span>
+                      <span className="text-slate-900 font-black text-sm">
+                        {log.operational_date || 'Today'}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -368,12 +375,12 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
 
           {/* Server-side Pagination Footer */}
           {pagination.totalPages > 1 && (
-            <div className="p-3 rounded-xl bg-[#EFE9D9] border border-[#C4B9A3] flex items-center justify-between text-xs font-bold">
+            <div className="p-3.5 rounded-2xl bg-white border border-[#C4B9A3] shadow-sm flex items-center justify-between text-xs font-bold">
               <button
                 type="button"
                 disabled={page <= 1 || isLoading}
                 onClick={() => handlePageChange(page - 1)}
-                className="flex items-center space-x-1 px-3 py-1.5 rounded-lg bg-[#F4EFE3] border border-[#C4B9A3] text-[#111311] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-amber-100/50"
+                className="h-10 flex items-center space-x-1 px-3.5 rounded-xl bg-[#F4EFE3] border border-[#C4B9A3] text-[#111311] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-amber-100/50 transition"
               >
                 <ChevronLeft className="w-4 h-4" />
                 <span>Prev</span>
@@ -387,7 +394,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
                 type="button"
                 disabled={page >= pagination.totalPages || isLoading}
                 onClick={() => handlePageChange(page + 1)}
-                className="flex items-center space-x-1 px-3 py-1.5 rounded-lg bg-[#F4EFE3] border border-[#C4B9A3] text-[#111311] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-amber-100/50"
+                className="h-10 flex items-center space-x-1 px-3.5 rounded-xl bg-[#F4EFE3] border border-[#C4B9A3] text-[#111311] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-amber-100/50 transition"
               >
                 <span>Next</span>
                 <ChevronRight className="w-4 h-4" />

@@ -57,12 +57,19 @@ export async function PATCH(
           return NextResponse.json({ error: 'Invalid Procurement Source assignment.' }, { status: 400 });
         }
         psId = ps.id;
+      }
+    }
 
-        if (newRole === 'ZMCC_MANAGER' && ps.source_type !== 'ZMCC') {
-          return NextResponse.json({ error: `Role ZMCC_MANAGER cannot be assigned to Contractor source "${ps.name}".` }, { status: 400 });
+    if (psId !== null) {
+      const effectivePs = await prisma.procurementSource.findUnique({
+        where: { id: psId },
+      });
+      if (effectivePs) {
+        if (newRole === 'ZMCC_MANAGER' && effectivePs.source_type !== 'ZMCC') {
+          return NextResponse.json({ error: `Role ZMCC_MANAGER cannot be assigned to Contractor source "${effectivePs.name}".` }, { status: 400 });
         }
-        if (newRole === 'CONTRACTOR_MANAGER' && ps.source_type !== 'CONTRACTOR') {
-          return NextResponse.json({ error: `Role CONTRACTOR_MANAGER cannot be assigned to ZMCC source "${ps.name}".` }, { status: 400 });
+        if (newRole === 'CONTRACTOR_MANAGER' && effectivePs.source_type !== 'CONTRACTOR') {
+          return NextResponse.json({ error: `Role CONTRACTOR_MANAGER cannot be assigned to ZMCC source "${effectivePs.name}".` }, { status: 400 });
         }
       }
     }

@@ -31,6 +31,7 @@ export async function GET() {
       group: 'MANAGERS',
       items: [
         { label: 'ZMCC / MPD Manager', department: 'Milk Procurement (Zone A)', username: 'zmcc.manager.north', password: 'zone123' },
+        { label: 'Plant Contractor Manager — Al Khair', department: 'Milk Procurement (Al Khair)', username: 'contractor.manager.alkhair', password: 'contractor123' },
         { label: 'Security Manager', department: 'Security Management', username: 'security.head', password: 'sechead123' },
         { label: 'QA Department Manager', department: 'QA Management', username: 'qa.head', password: 'qahead123' },
         { label: 'Production Manager', department: 'Production Management', username: 'production.head', password: 'prodhead123' },

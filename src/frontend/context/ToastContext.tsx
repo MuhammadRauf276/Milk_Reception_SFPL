@@ -60,21 +60,21 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       {/* Global Top-Right Toast Container */}
       <div className="fixed top-4 right-4 z-[9999] flex flex-col space-y-2.5 max-w-md w-full pointer-events-none pr-2">
         {toasts.map((toast) => {
-          let bgClass = 'bg-slate-900 text-white border-slate-700';
-          let icon = <Info className="w-5 h-5 text-blue-400 shrink-0" />;
+          let bgClass = 'bg-white text-[#111311] border-[#EAE4D5] shadow-lg';
+          let icon = <Info className="w-5 h-5 text-[#1E3A8A] shrink-0" />;
 
           if (toast.type === 'SUCCESS') {
-            bgClass = 'bg-emerald-950 text-emerald-100 border-emerald-700 shadow-emerald-950/30';
-            icon = <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />;
+            bgClass = 'bg-emerald-50 text-emerald-950 border-emerald-300 shadow-emerald-950/10 shadow-lg';
+            icon = <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />;
           } else if (toast.type === 'WARNING') {
-            bgClass = 'bg-amber-950 text-amber-100 border-amber-700 shadow-amber-950/30';
-            icon = <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />;
+            bgClass = 'bg-amber-50 text-amber-950 border-amber-300 shadow-amber-950/10 shadow-lg';
+            icon = <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />;
           } else if (toast.type === 'ERROR') {
-            bgClass = 'bg-rose-950 text-rose-100 border-rose-700 shadow-rose-950/30';
-            icon = <XCircle className="w-5 h-5 text-rose-400 shrink-0" />;
+            bgClass = 'bg-rose-50 text-rose-950 border-rose-300 shadow-rose-950/10 shadow-lg';
+            icon = <XCircle className="w-5 h-5 text-rose-600 shrink-0" />;
           } else if (toast.type === 'INFO') {
-            bgClass = 'bg-blue-950 text-blue-100 border-blue-700 shadow-blue-950/30';
-            icon = <Info className="w-5 h-5 text-blue-400 shrink-0" />;
+            bgClass = 'bg-blue-50 text-blue-950 border-blue-300 shadow-blue-950/10 shadow-lg';
+            icon = <Info className="w-5 h-5 text-[#1E3A8A] shrink-0" />;
           }
 
           return (
@@ -90,7 +90,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               <button
                 type="button"
                 onClick={() => dismissToast(toast.id)}
-                className="text-white/60 hover:text-white transition p-1 rounded-lg"
+                className="text-slate-500 hover:text-[#111311] hover:bg-black/5 transition p-1 rounded-lg"
               >
                 <X className="w-4 h-4" />
               </button>
