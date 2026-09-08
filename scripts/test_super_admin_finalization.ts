@@ -271,38 +271,94 @@ async function runSuperAdminFinalizationTests() {
         'FINAL-ATOMIC-PWD-RESET: Password reset and PASSWORD_RESET audit record committed atomically with zero password secrets'
       );
 
-      // FINAL-ATOMIC-ROLLBACK: Failed audit causes transaction rollback and leaves business data unchanged
+      // FINAL-ATOMIC-ROLLBACK: Failed audit in patchUser causes transaction rollback and leaves business data unchanged
       const baselineUser = await prisma.user.findUnique({ where: { id: createdAdminTestUserId } });
       const baselineAuditCount = await prisma.auditLog.count({
         where: { table_name: 'users', record_id: createdAdminTestUserId },
       });
 
-      let rollbackOccurred = false;
-      try {
-        await prisma.$transaction(async (tx) => {
-          await tx.user.update({
-            where: { id: createdAdminTestUserId! },
-            data: { full_name: 'SHOULD_ROLLBACK_USER' },
-          });
+      const origTransaction = prisma.$transaction.bind(prisma);
+      let patchStatus = 0;
+      let patchErrorMsg = '';
 
-          // Simulated audit failure (e.g. constraint or unexpected error)
-          throw new Error('SIMULATED_AUDIT_LOG_FAILURE');
+      try {
+        (prisma as any).$transaction = async (arg: any) => {
+          if (typeof arg === 'function') {
+            return await origTransaction(async (realTx: any) => {
+              const txProxy = new Proxy(realTx, {
+                get(target, prop, receiver) {
+                  if (prop === 'auditLog') {
+                    const realAuditLog = target.auditLog;
+                    return new Proxy(realAuditLog, {
+                      get(auditTarget, auditProp, auditReceiver) {
+                        if (auditProp === 'create') {
+                          return async () => {
+                            throw new Error('SIMULATED_AUDIT_LOG_FAILURE');
+                          };
+                        }
+                        return Reflect.get(auditTarget, auditProp, auditReceiver);
+                      },
+                    });
+                  }
+                  return Reflect.get(target, prop, receiver);
+                },
+              });
+              return await arg(txProxy);
+            });
+          }
+          return await origTransaction(arg);
+        };
+
+        const rollbackReq = new Request(`http://localhost/api/super-admin/users/${createdAdminTestUserId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            name: 'SHOULD_ROLLBACK_USER',
+          }),
         });
-      } catch (simErr: any) {
-        if (simErr.message === 'SIMULATED_AUDIT_LOG_FAILURE') {
-          rollbackOccurred = true;
-        }
+
+        const rollbackRes = await patchUser(rollbackReq, {
+          params: Promise.resolve({ id: createdAdminTestUserId.toString() }),
+        });
+        patchStatus = rollbackRes.status;
+        const rollbackBody = await rollbackRes.json();
+        patchErrorMsg = rollbackBody?.error || '';
+      } finally {
+        prisma.$transaction = origTransaction as any;
       }
 
       const userAfterRollback = await prisma.user.findUnique({ where: { id: createdAdminTestUserId } });
       const auditCountAfterRollback = await prisma.auditLog.count({
         where: { table_name: 'users', record_id: createdAdminTestUserId },
       });
+      const rollbackAuditRecord = await prisma.auditLog.findFirst({
+        where: {
+          table_name: 'users',
+          record_id: createdAdminTestUserId,
+          new_values: { path: ['username'], equals: 'SHOULD_ROLLBACK_USER' } as any,
+        },
+      });
+
+      const isMutationRolledBack =
+        userAfterRollback !== null &&
+        userAfterRollback.full_name === baselineUser?.full_name &&
+        userAfterRollback.full_name !== 'SHOULD_ROLLBACK_USER' &&
+        userAfterRollback.department === baselineUser?.department &&
+        userAfterRollback.role === baselineUser?.role &&
+        userAfterRollback.is_active === baselineUser?.is_active;
+
+      const isAuditUnchanged =
+        auditCountAfterRollback === baselineAuditCount &&
+        rollbackAuditRecord === null;
 
       assert(
-        rollbackOccurred &&
-          userAfterRollback?.full_name === baselineUser?.full_name &&
-          auditCountAfterRollback === baselineAuditCount,
+        patchStatus === 500 &&
+          patchErrorMsg.includes('SIMULATED_AUDIT_LOG_FAILURE') &&
+          isMutationRolledBack &&
+          isAuditUnchanged,
         'FINAL-ATOMIC-ROLLBACK: Transaction rollback on audit failure leaves user record and audit log unchanged'
       );
     } finally {
