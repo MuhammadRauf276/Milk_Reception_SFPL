@@ -1,7 +1,7 @@
 import { prisma } from '../src/backend/core/db';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const nextHeaders = require('next/headers');
-import { filterUpdatesByRole, createSessionToken } from '../src/backend/core/auth';
+import { filterUpdatesByRole, createSessionToken, getCurrentUser } from '../src/backend/core/auth';
 import { POST as postCreateUser } from '../src/app/api/super-admin/users/route';
 import { PATCH as patchUser } from '../src/app/api/super-admin/users/[id]/route';
 import { POST as postResetPassword } from '../src/app/api/super-admin/users/[id]/reset-password/route';
@@ -369,10 +369,334 @@ async function runSuperAdminFinalizationTests() {
         if (u) targetId = u.id;
       }
       if (targetId) {
-        await prisma.auditLog.deleteMany({
-          where: { table_name: 'users', record_id: targetId },
-        });
-        await prisma.user.deleteMany({ where: { id: targetId } });
+        try {
+          await prisma.auditLog.deleteMany({
+            where: { table_name: 'users', record_id: targetId },
+          });
+          await prisma.user.deleteMany({ where: { id: targetId } });
+        } catch (cleanupErr) {
+          console.error('CRITICAL: Failed to clean up audit test user:', cleanupErr);
+          throw cleanupErr;
+        }
+      }
+    }
+
+    // ----------------------------------------------------
+    // STAGE 5D-B2: EXTENDED BEHAVIORAL USER MANAGEMENT COVERAGE
+    // ----------------------------------------------------
+    console.log('\n--- STAGE 5D-B2: EXTENDED BEHAVIORAL USER MANAGEMENT SUITE ---');
+
+    const randB2 = Math.floor(Math.random() * 900000) + 100000;
+    const b2Username = `b2.test.user.${randB2}`;
+    const initialB2Password = `InitPass!${randomBytes(6).toString('hex')}`;
+    let createdB2UserId: bigint | null = null;
+
+    const testSuperAdmin = await prisma.user.findFirst({ where: { role: 'SUPER_ADMIN', is_active: true } });
+    if (!testSuperAdmin) {
+      throw new Error('No active SUPER_ADMIN found for 5D-B2 suite');
+    }
+
+    const saSessionToken = await createSessionToken({
+      id: testSuperAdmin.id.toString(),
+      username: testSuperAdmin.username,
+      name: testSuperAdmin.full_name || testSuperAdmin.username,
+      role: testSuperAdmin.role as any,
+      department: testSuperAdmin.department || 'Administration',
+    });
+
+    const saHeaders = {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${saSessionToken}`,
+    };
+
+    try {
+      // 1. Create user succeeds through real POST handler
+      const b2CreateReq = new Request('http://localhost/api/super-admin/users', {
+        method: 'POST',
+        headers: saHeaders,
+        body: JSON.stringify({
+          username: b2Username,
+          password: initialB2Password,
+          name: 'Stage 5D-B2 Test User',
+          role: 'MPD_Operator',
+          department: 'Field Operations',
+          scopeType: 'ALL',
+        }),
+      });
+      const b2CreateRes = await postCreateUser(b2CreateReq);
+      const b2CreateBody = await b2CreateRes.json();
+      assert(
+        b2CreateRes.status === 200 && b2CreateBody?.success === true && b2CreateBody?.user?.id,
+        '5D-B2-01: Create user succeeds through real POST handler'
+      );
+      createdB2UserId = BigInt(b2CreateBody.user.id);
+
+      // 2. Duplicate username is rejected
+      const dupReq = new Request('http://localhost/api/super-admin/users', {
+        method: 'POST',
+        headers: saHeaders,
+        body: JSON.stringify({
+          username: b2Username,
+          password: 'AnotherPassword123!',
+          name: 'Duplicate Username Attempt',
+          role: 'QA_Operator',
+        }),
+      });
+      const dupRes = await postCreateUser(dupReq);
+      const dupBody = await dupRes.json();
+      assert(
+        dupRes.status === 400 && dupBody?.error?.includes('already taken'),
+        '5D-B2-02: Duplicate username is rejected'
+      );
+
+      // 3. Edit name/role/department/scope succeeds through real PATCH handler
+      const editReq = new Request(`http://localhost/api/super-admin/users/${createdB2UserId}`, {
+        method: 'PATCH',
+        headers: saHeaders,
+        body: JSON.stringify({
+          name: 'Renamed 5D-B2 User',
+          role: 'QA_Operator',
+          department: 'Quality Assurance Unit',
+          scopeType: 'DEPARTMENT',
+        }),
+      });
+      const editRes = await patchUser(editReq, {
+        params: Promise.resolve({ id: createdB2UserId.toString() }),
+      });
+      const editBody = await editRes.json();
+      const userAfterEdit = await prisma.user.findUnique({ where: { id: createdB2UserId } });
+      assert(
+        editRes.status === 200 &&
+          editBody?.success === true &&
+          userAfterEdit?.full_name === 'Renamed 5D-B2 User' &&
+          userAfterEdit?.role === 'QA_Operator' &&
+          userAfterEdit?.department === 'Quality Assurance Unit' &&
+          userAfterEdit?.scope_type === 'DEPARTMENT',
+        '5D-B2-03: Edit name/role/department/scope succeeds through real PATCH handler'
+      );
+
+      // 4. SOURCE scope persists an exact procurement_source_id
+      const activeZmcc = await prisma.procurementSource.findFirst({ where: { source_type: 'ZMCC', is_active: true } });
+      if (!activeZmcc) throw new Error('Active ZMCC source required for 5D-B2-04');
+
+      const sourceScopeReq = new Request(`http://localhost/api/super-admin/users/${createdB2UserId}`, {
+        method: 'PATCH',
+        headers: saHeaders,
+        body: JSON.stringify({
+          scopeType: 'SOURCE',
+          procurementSourceId: activeZmcc.id.toString(),
+        }),
+      });
+      const sourceScopeRes = await patchUser(sourceScopeReq, {
+        params: Promise.resolve({ id: createdB2UserId.toString() }),
+      });
+      const sourceScopeBody = await sourceScopeRes.json();
+      const userAfterSourceScope = await prisma.user.findUnique({ where: { id: createdB2UserId } });
+      assert(
+        sourceScopeRes.status === 200 &&
+          sourceScopeBody?.success === true &&
+          userAfterSourceScope?.scope_type === 'SOURCE' &&
+          userAfterSourceScope?.procurement_source_id === activeZmcc.id,
+        '5D-B2-04: SOURCE scope persists an exact procurement_source_id'
+      );
+
+      // 5. Changing away from SOURCE clears procurement_source_id when null is sent
+      const clearSourceReq = new Request(`http://localhost/api/super-admin/users/${createdB2UserId}`, {
+        method: 'PATCH',
+        headers: saHeaders,
+        body: JSON.stringify({
+          scopeType: 'ALL',
+          procurementSourceId: null,
+        }),
+      });
+      const clearSourceRes = await patchUser(clearSourceReq, {
+        params: Promise.resolve({ id: createdB2UserId.toString() }),
+      });
+      const clearSourceBody = await clearSourceRes.json();
+      const userAfterClearSource = await prisma.user.findUnique({ where: { id: createdB2UserId } });
+      assert(
+        clearSourceRes.status === 200 &&
+          clearSourceBody?.success === true &&
+          userAfterClearSource?.scope_type === 'ALL' &&
+          userAfterClearSource?.procurement_source_id === null,
+        '5D-B2-05: Changing away from SOURCE clears procurement_source_id when null is sent'
+      );
+
+      // 6. Incompatible ZMCC_MANAGER/CONTRACTOR source assignment is rejected
+      const activeContractor = await prisma.procurementSource.findFirst({ where: { source_type: 'CONTRACTOR', is_active: true } });
+      if (!activeContractor) throw new Error('Active CONTRACTOR source required for 5D-B2-06');
+
+      const badAssignReq = new Request(`http://localhost/api/super-admin/users/${createdB2UserId}`, {
+        method: 'PATCH',
+        headers: saHeaders,
+        body: JSON.stringify({
+          role: 'ZMCC_MANAGER',
+          scopeType: 'SOURCE',
+          procurementSourceId: activeContractor.id.toString(),
+        }),
+      });
+      const badAssignRes = await patchUser(badAssignReq, {
+        params: Promise.resolve({ id: createdB2UserId.toString() }),
+      });
+      const badAssignBody = await badAssignRes.json();
+      assert(
+        badAssignRes.status === 400 &&
+          badAssignBody?.error?.includes('Role ZMCC_MANAGER cannot be assigned to Contractor source'),
+        '5D-B2-06: Incompatible ZMCC_MANAGER/CONTRACTOR source assignment is rejected'
+      );
+
+      // Issue token for test user to verify live authentication & deactivation
+      const b2UserToken = await createSessionToken({
+        id: createdB2UserId.toString(),
+        username: b2Username,
+        name: userAfterClearSource!.full_name || b2Username,
+        role: userAfterClearSource!.role as any,
+        department: userAfterClearSource!.department || '',
+      });
+
+      // 7. Deactivation succeeds
+      const deactReq = new Request(`http://localhost/api/super-admin/users/${createdB2UserId}`, {
+        method: 'PATCH',
+        headers: saHeaders,
+        body: JSON.stringify({ isActive: false }),
+      });
+      const deactRes = await patchUser(deactReq, {
+        params: Promise.resolve({ id: createdB2UserId.toString() }),
+      });
+      const deactBody = await deactRes.json();
+      const userAfterDeact = await prisma.user.findUnique({ where: { id: createdB2UserId } });
+      assert(
+        deactRes.status === 200 && deactBody?.user?.isActive === false && userAfterDeact?.is_active === false,
+        '5D-B2-07: Deactivation succeeds'
+      );
+
+      // 8. A deactivated user is rejected by live authentication
+      const liveAuthReq = new Request('http://localhost/api/auth/me', {
+        headers: { Authorization: `Bearer ${b2UserToken}` },
+      });
+      const authUserWhenDeactivated = await getCurrentUser(liveAuthReq);
+      assert(
+        authUserWhenDeactivated === null,
+        '5D-B2-08: A deactivated user is rejected by live authentication'
+      );
+
+      // 9. Reactivation succeeds
+      const reactReq = new Request(`http://localhost/api/super-admin/users/${createdB2UserId}`, {
+        method: 'PATCH',
+        headers: saHeaders,
+        body: JSON.stringify({ isActive: true }),
+      });
+      const reactRes = await patchUser(reactReq, {
+        params: Promise.resolve({ id: createdB2UserId.toString() }),
+      });
+      const reactBody = await reactRes.json();
+      const userAfterReact = await prisma.user.findUnique({ where: { id: createdB2UserId } });
+      const authUserWhenReactivated = await getCurrentUser(liveAuthReq);
+      assert(
+        reactRes.status === 200 &&
+          reactBody?.user?.isActive === true &&
+          userAfterReact?.is_active === true &&
+          authUserWhenReactivated !== null &&
+          authUserWhenReactivated.username === b2Username,
+        '5D-B2-09: Reactivation succeeds'
+      );
+
+      // 10. Password reset succeeds
+      const resetNewPassword = `Res3tP@ss!${randomBytes(6).toString('hex')}`;
+      const resetPassReq = new Request(`http://localhost/api/super-admin/users/${createdB2UserId}/reset-password`, {
+        method: 'POST',
+        headers: saHeaders,
+        body: JSON.stringify({ password: resetNewPassword }),
+      });
+      const resetPassRes = await postResetPassword(resetPassReq, {
+        params: Promise.resolve({ id: createdB2UserId.toString() }),
+      });
+      const resetPassBody = await resetPassRes.json();
+      assert(
+        resetPassRes.status === 200 && resetPassBody?.success === true,
+        '5D-B2-10: Password reset succeeds'
+      );
+
+      // 11. Old password fails after reset
+      const userRecordAfterReset = await prisma.user.findUnique({ where: { id: createdB2UserId } });
+      const isOldPasswordStillValid = userRecordAfterReset?.password_hash
+        ? await bcrypt.compare(initialB2Password, userRecordAfterReset.password_hash)
+        : false;
+      assert(
+        !isOldPasswordStillValid,
+        '5D-B2-11: Old password fails after reset'
+      );
+
+      // 12. New password succeeds after reset
+      const isNewPasswordNowValid = userRecordAfterReset?.password_hash
+        ? await bcrypt.compare(resetNewPassword, userRecordAfterReset.password_hash)
+        : false;
+      assert(
+        isNewPasswordNowValid,
+        '5D-B2-12: New password succeeds after reset'
+      );
+
+      // 13. Last-active-Super-Admin protection remains enforced
+      const lastSaDeactReq = new Request(`http://localhost/api/super-admin/users/${testSuperAdmin.id}`, {
+        method: 'PATCH',
+        headers: saHeaders,
+        body: JSON.stringify({ isActive: false }),
+      });
+      const lastSaDeactRes = await patchUser(lastSaDeactReq, {
+        params: Promise.resolve({ id: testSuperAdmin.id.toString() }),
+      });
+      const lastSaDeactBody = await lastSaDeactRes.json();
+      assert(
+        lastSaDeactRes.status === 400 &&
+          lastSaDeactBody?.error?.includes('Cannot deactivate or reassign the last active Super Admin account'),
+        '5D-B2-13: Last-active-Super-Admin protection remains enforced'
+      );
+
+      // 14. User and audit changes remain atomic
+      const b2UserAudits = await prisma.auditLog.findMany({
+        where: { table_name: 'users', record_id: createdB2UserId },
+      });
+      const auditActions = b2UserAudits.map((a) => a.action);
+      const hasCreateAudit = auditActions.includes('USER_CREATED');
+      const hasUpdateAudit = auditActions.includes('USER_UPDATED');
+      const hasDeactAudit = auditActions.includes('USER_DEACTIVATED');
+      const hasReactAudit = auditActions.includes('USER_ACTIVATED');
+      const hasResetAudit = auditActions.includes('PASSWORD_RESET');
+      assert(
+        hasCreateAudit && hasUpdateAudit && hasDeactAudit && hasReactAudit && hasResetAudit,
+        '5D-B2-14: User and audit changes remain atomic'
+      );
+
+      // 15. Password plaintext and hashes never appear in AuditLog
+      let hasAnySecretInB2Audits = false;
+      for (const log of b2UserAudits) {
+        const logStr = JSON.stringify(log, (k, v) => (typeof v === 'bigint' ? v.toString() : v));
+        if (
+          logStr.includes(initialB2Password) ||
+          logStr.includes(resetNewPassword) ||
+          logStr.includes('password_hash') ||
+          logStr.includes('$2a$') ||
+          logStr.includes('$2b$')
+        ) {
+          hasAnySecretInB2Audits = true;
+        }
+      }
+      assert(
+        !hasAnySecretInB2Audits,
+        '5D-B2-15: Password plaintext and hashes never appear in AuditLog'
+      );
+
+    } finally {
+      if (createdB2UserId) {
+        try {
+          await prisma.auditLog.deleteMany({
+            where: { table_name: 'users', record_id: createdB2UserId },
+          });
+          await prisma.user.deleteMany({ where: { id: createdB2UserId } });
+        } catch (cleanupErr) {
+          console.error('CRITICAL: Failed to clean up 5D-B2 test user:', cleanupErr);
+          throw cleanupErr;
+        }
       }
     }
 
