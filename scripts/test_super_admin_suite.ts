@@ -1,5 +1,6 @@
 import { prisma } from '../src/backend/core/db';
 import bcrypt from 'bcryptjs';
+import { assertSafeTestDatabase } from '../tests/helpers/testDbSafety';
 
 async function runSuperAdminTests() {
   console.log('🧪 RUNNING SUPER ADMIN AUTOMATED TEST SUITE...\n');
@@ -17,10 +18,14 @@ async function runSuperAdminTests() {
   }
 
   try {
+    const { testDbName } = assertSafeTestDatabase();
     const dbCheck = await prisma.$queryRaw<Array<{ current_database: string }>>`SELECT current_database()`;
     const currentDb = dbCheck[0]?.current_database;
-    if (currentDb !== 'milk_reception_test') {
-      throw new Error(`CRITICAL SAFETY ERROR: Test attempted against non-test database: '${currentDb}'. Refusing to execute.`);
+
+    if (currentDb !== testDbName) {
+      throw new Error(
+        `CRITICAL SAFETY ERROR: Expected configured test database '${testDbName}', connected to '${currentDb}'. Refusing to execute.`
+      );
     }
 
     // ----------------------------------------------------

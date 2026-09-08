@@ -3,6 +3,7 @@ import { filterUpdatesByRole, createSessionToken } from '../src/backend/core/aut
 import { POST as postCreateUser } from '../src/app/api/super-admin/users/route';
 import bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
+import { assertSafeTestDatabase } from '../tests/helpers/testDbSafety';
 
 async function runSuperAdminFinalizationTests() {
   console.log('🧪 RUNNING SUPER ADMIN FINALIZATION TEST SUITE...\n');
@@ -20,10 +21,14 @@ async function runSuperAdminFinalizationTests() {
   }
 
   try {
+    const { testDbName } = assertSafeTestDatabase();
     const dbCheck = await prisma.$queryRaw<Array<{ current_database: string }>>`SELECT current_database()`;
     const currentDb = dbCheck[0]?.current_database;
-    if (currentDb !== 'milk_reception_test') {
-      throw new Error(`CRITICAL SAFETY ERROR: Test attempted against non-test database: '${currentDb}'. Refusing to execute.`);
+
+    if (currentDb !== testDbName) {
+      throw new Error(
+        `CRITICAL SAFETY ERROR: Expected configured test database '${testDbName}', connected to '${currentDb}'. Refusing to execute.`
+      );
     }
 
     // FINAL-SA-A: admin.superuser role = SUPER_ADMIN

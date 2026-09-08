@@ -1,5 +1,6 @@
 import { prisma } from '../src/backend/core/db';
 import { getOperationalBusinessDate } from '../src/backend/core/business-day';
+import { assertSafeTestDatabase } from '../tests/helpers/testDbSafety';
 
 async function runFinalReceiptPaymentDateTests() {
   console.log('🧪 RUNNING FINAL RECEIPT & PAYMENT DATE TEST SUITE (RECEIPT-TIME-01..07, PAYDATE-01..05)...\n');
@@ -18,10 +19,14 @@ async function runFinalReceiptPaymentDateTests() {
   }
 
   try {
+    const { testDbName } = assertSafeTestDatabase();
     const dbCheck = await prisma.$queryRaw<Array<{ current_database: string }>>`SELECT current_database()`;
     const currentDb = dbCheck[0]?.current_database;
-    if (currentDb !== 'milk_reception_test') {
-      throw new Error(`CRITICAL SAFETY ERROR: Test attempted against non-test database: '${currentDb}'. Refusing to execute.`);
+
+    if (currentDb !== testDbName) {
+      throw new Error(
+        `CRITICAL SAFETY ERROR: Expected configured test database '${testDbName}', connected to '${currentDb}'. Refusing to execute.`
+      );
     }
 
     // RECEIPT-TIME-01: Final Silo Receipt transaction model exists and validates receipt posting

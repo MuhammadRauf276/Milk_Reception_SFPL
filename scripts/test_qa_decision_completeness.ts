@@ -4,8 +4,7 @@ const nextHeaders = require('next/headers');
 import { createSessionToken } from '../src/backend/core/auth';
 import { POST as postHold } from '../src/app/api/qa/vehicle-visits/[visitId]/portions/[portionId]/hold/route';
 import { POST as postResume } from '../src/app/api/qa/sessions/resume/route';
-
-
+import { assertSafeTestDatabase } from '../tests/helpers/testDbSafety';
 
 async function runQADecisionCompletenessTests() {
   console.log('🧪 RUNNING QA DECISION COMPLETENESS & PARTIAL REJECTION TEST SUITE...\n');
@@ -24,10 +23,14 @@ async function runQADecisionCompletenessTests() {
   }
 
   try {
+    const { testDbName } = assertSafeTestDatabase();
     const dbCheck = await prisma.$queryRaw<Array<{ current_database: string }>>`SELECT current_database()`;
     const currentDb = dbCheck[0]?.current_database;
-    if (currentDb !== 'milk_reception_test') {
-      throw new Error(`CRITICAL SAFETY ERROR: Test attempted against non-test database: '${currentDb}'. Refusing to execute.`);
+
+    if (currentDb !== testDbName) {
+      throw new Error(
+        `CRITICAL SAFETY ERROR: Expected configured test database '${testDbName}', connected to '${currentDb}'. Refusing to execute.`
+      );
     }
 
     // 1. CONFIG-TEST-01 & CONFIG-TEST-02: DB Configuration Driven Test Sets

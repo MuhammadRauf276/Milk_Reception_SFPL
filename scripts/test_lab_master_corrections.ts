@@ -2,6 +2,7 @@ import { prisma } from '../src/backend/core/db';
 import { validateCategoricalOption } from '../src/lib/lab-rules';
 import fs from 'fs';
 import path from 'path';
+import { assertSafeTestDatabase } from '../tests/helpers/testDbSafety';
 
 async function runLabMasterCorrectionsVerification() {
   console.log('==================================================');
@@ -21,10 +22,14 @@ async function runLabMasterCorrectionsVerification() {
     }
   }
 
+  const { testDbName } = assertSafeTestDatabase();
   const dbCheck = await prisma.$queryRaw<Array<{ current_database: string }>>`SELECT current_database()`;
   const currentDb = dbCheck[0]?.current_database;
-  if (currentDb !== 'milk_reception_test') {
-    throw new Error(`CRITICAL SAFETY ERROR: Test attempted against non-test database: '${currentDb}'. Refusing to execute.`);
+
+  if (currentDb !== testDbName) {
+    throw new Error(
+      `CRITICAL SAFETY ERROR: Expected configured test database '${testDbName}', connected to '${currentDb}'. Refusing to execute.`
+    );
   }
 
   // Fetch all 30 core lab tests
