@@ -229,19 +229,48 @@ export async function POST(
       ? rejectionReasonInput || `Failed tests: ${failedTestCodes.join(', ')}`
       : null;
 
+    let lockedPortionRecord: any = null;
+
     // Atomic Prisma Transaction
     await prisma.$transaction(async (tx) => {
-      // Validate chronology
+      // 0. Acquire PostgreSQL Row-Level Lock (FOR UPDATE) for the exact VehicleVisit to serialize QA mutations
+      await tx.$executeRaw`SELECT id FROM vehicle_visit WHERE id = ${visitId} FOR UPDATE`;
+
+      // 1. Re-read the VisitPortion within the locked transaction client
+      const lockedPortion = await tx.visitPortion.findFirst({
+        where: { id: portionId, visit_id: visitId },
+      });
+
+      if (!lockedPortion) {
+        throw new Error('Portion record not found for this vehicle visit');
+      }
+
+      if (lockedPortion.plant_decision === 'ACCEPTED' || lockedPortion.plant_decision === 'REJECTED') {
+        throw new Error('Portion testing has already been completed and finalized.');
+      }
+
+      lockedPortionRecord = lockedPortion;
+
+      // 2. Re-read the QATestingSession within the locked transaction client
       const session = await tx.qATestingSession.findUnique({
         where: { visit_id: visitId },
       });
 
-      const latestEvent = session ? await tx.qATestingSessionEvent.findFirst({
+      if (!session) {
+        throw new Error('QA testing session not found.');
+      }
+
+      if (session.status !== 'IN_PROGRESS') {
+        throw new Error(`QA testing session is not IN_PROGRESS (current status: ${session.status}).`);
+      }
+
+      // Validate chronology
+      const latestEvent = await tx.qATestingSessionEvent.findFirst({
         where: { session_id: session.id },
         orderBy: { timestamp: 'desc' },
-      }) : null;
+      });
 
-      const predTs = latestEvent?.timestamp ? new Date(latestEvent.timestamp) : (session?.started_at ? new Date(session.started_at) : null);
+      const predTs = latestEvent?.timestamp ? new Date(latestEvent.timestamp) : (session.started_at ? new Date(session.started_at) : null);
       const predLabel = latestEvent ? `QA ${latestEvent.event_type}` : 'QA Start';
 
       const chronoVal = validateOperationalTimestamp(targetOpTs.toISOString(), predTs, 'QA Decision', predLabel);
@@ -356,7 +385,7 @@ export async function POST(
             event_type: plantDecision === 'ACCEPTED' ? 'PORTION_ACCEPTED' : 'PORTION_REJECTED',
             timestamp: targetOpTs,
             user_id: userIdBigInt,
-            note: `Portion #${portion.portion_number} ${plantDecision}${finalRejectionReason ? `: ${finalRejectionReason}` : ''}`,
+            note: `Portion #${lockedPortion.portion_number} ${plantDecision}${finalRejectionReason ? `: ${finalRejectionReason}` : ''}`,
           },
         });
       }
@@ -421,13 +450,14 @@ export async function POST(
       portionId: portionIdStr,
       plantDecision,
       rejectionReason: finalRejectionReason,
-      message: `Portion #${portion.portion_number} testing completed. Decision: ${plantDecision}.`,
+      message: `Portion #${lockedPortionRecord?.portion_number ?? portion.portion_number} testing completed. Decision: ${plantDecision}.`,
     });
   } catch (error: any) {
     if (error?.name === 'ZodError' || error?.issues) {
       const msg = error.issues?.[0]?.message || error.errors?.[0]?.message || error.message || 'Validation failed';
       return NextResponse.json({ error: msg }, { status: 400 });
     }
-    return NextResponse.json({ error: error?.message || 'Failed to complete QA test' }, { status: 500 });
+    const message = error?.message || 'Failed to complete QA test';
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 }

@@ -52,7 +52,19 @@ export async function POST(
     }
 
     await prisma.$transaction(async (tx) => {
-      // Validate chronology against session start or latest RESUME event
+      // 0. Acquire PostgreSQL Row-Level Lock (FOR UPDATE) for the exact VehicleVisit to serialize QA mutations
+      await tx.$executeRaw`SELECT id FROM vehicle_visit WHERE id = ${visitId} FOR UPDATE`;
+
+      // 1. Re-read the VisitPortion within the locked transaction client
+      const lockedPortion = await tx.visitPortion.findFirst({
+        where: { id: portionId, visit_id: visitId },
+      });
+
+      if (!lockedPortion) {
+        throw new Error('Portion record not found for this vehicle visit');
+      }
+
+      // 2. Re-read the QATestingSession within the locked transaction client
       const session = await tx.qATestingSession.findUnique({
         where: { visit_id: visitId },
       });
@@ -61,6 +73,25 @@ export async function POST(
         throw new Error('QA testing session not found.');
       }
 
+      // A. Finalized portion: plant_decision = ACCEPTED or REJECTED
+      if (lockedPortion.plant_decision === 'ACCEPTED' || lockedPortion.plant_decision === 'REJECTED') {
+        throw new Error(`Cannot place portion on HOLD: Portion is already finalized as ${lockedPortion.plant_decision}.`);
+      }
+
+      // B. Exact idempotent HOLD replay: portion is HOLD and session is ON_HOLD
+      if (lockedPortion.plant_decision === 'HOLD' && session.status === 'ON_HOLD') {
+        return;
+      }
+
+      // C. New HOLD transition: portion is not finalized, not already HOLD, and session is IN_PROGRESS
+      if (lockedPortion.plant_decision !== 'HOLD' && session.status === 'IN_PROGRESS') {
+        // permitted new HOLD transition - proceed below
+      } else {
+        // D. Any other combination (e.g. session ON_HOLD but portion not HOLD, session COMPLETED, etc.)
+        throw new Error(`Cannot place portion on HOLD: Invalid state transition (portion decision: ${lockedPortion.plant_decision}, session status: ${session.status}).`);
+      }
+
+      // Validate chronology against session start or latest RESUME event
       const latestResumeEvent = await tx.qATestingSessionEvent.findFirst({
         where: { session_id: session.id, event_type: 'RESUME' },
         orderBy: { timestamp: 'desc' },
@@ -114,6 +145,7 @@ export async function POST(
       message: `Portion #${portion.portion_number} placed on HOLD.`,
     });
   } catch (error: any) {
-    return NextResponse.json({ error: error?.message || 'Failed to place portion on hold' }, { status: 500 });
+    const message = error?.message || 'Failed to place portion on hold';
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 }
