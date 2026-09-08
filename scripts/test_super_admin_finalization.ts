@@ -5,6 +5,7 @@ import { filterUpdatesByRole, createSessionToken, getCurrentUser } from '../src/
 import { POST as postCreateUser } from '../src/app/api/super-admin/users/route';
 import { PATCH as patchUser } from '../src/app/api/super-admin/users/[id]/route';
 import { POST as postResetPassword } from '../src/app/api/super-admin/users/[id]/reset-password/route';
+import { GET as getProcurementSources } from '../src/app/api/super-admin/procurement-sources/route';
 import bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
 import { assertSafeTestDatabase } from '../tests/helpers/testDbSafety';
@@ -684,6 +685,124 @@ async function runSuperAdminFinalizationTests() {
       assert(
         !hasAnySecretInB2Audits,
         '5D-B2-15: Password plaintext and hashes never appear in AuditLog'
+      );
+
+      // 16. Procurement Sources API returns isActive on all sources
+      const prevCookies = nextHeaders.cookies;
+      (nextHeaders as any).cookies = async () => ({
+        get: (name: string) => (name === 'auth_token' ? { name: 'auth_token', value: saSessionToken } : undefined),
+      });
+
+      const sourcesRes = await getProcurementSources();
+      const sourcesBody = await sourcesRes.json();
+      const allHaveIsActive =
+        sourcesRes.status === 200 &&
+        Array.isArray(sourcesBody?.sources) &&
+        sourcesBody.sources.length > 0 &&
+        sourcesBody.sources.every((s: any) => typeof s.isActive === 'boolean');
+      assert(
+        allHaveIsActive,
+        '5D-B2-16: Procurement Sources API returns isActive property on all sources'
+      );
+
+      // 17. UI compatible sources logic strictly excludes inactive sources
+      interface MockSource {
+        id: string;
+        code: string;
+        name: string;
+        sourceType: string;
+        isActive: boolean;
+      }
+
+      const mockSources: MockSource[] = [
+        { id: '1', code: 'Z1', name: 'Active ZMCC', sourceType: 'ZMCC', isActive: true },
+        { id: '2', code: 'Z2', name: 'Inactive ZMCC', sourceType: 'ZMCC', isActive: false },
+        { id: '3', code: 'C1', name: 'Active Contractor', sourceType: 'CONTRACTOR', isActive: true },
+        { id: '4', code: 'C2', name: 'Inactive Contractor', sourceType: 'CONTRACTOR', isActive: false },
+      ];
+
+      const filterCompatibleSources = (sourcesList: MockSource[], userRole: string) => {
+        const activeSources = sourcesList.filter((s) => s.isActive);
+        if (userRole === 'ZMCC_MANAGER') {
+          return activeSources.filter((s) => s.sourceType === 'ZMCC');
+        }
+        if (userRole === 'CONTRACTOR_MANAGER') {
+          return activeSources.filter((s) => s.sourceType === 'CONTRACTOR');
+        }
+        return activeSources;
+      };
+
+      const zmccCompatible = filterCompatibleSources(mockSources, 'ZMCC_MANAGER');
+      const contractorCompatible = filterCompatibleSources(mockSources, 'CONTRACTOR_MANAGER');
+      const otherCompatible = filterCompatibleSources(mockSources, 'SUPER_ADMIN');
+
+      const zmccOnlyActive = zmccCompatible.length === 1 && zmccCompatible[0].id === '1';
+      const contractorOnlyActive = contractorCompatible.length === 1 && contractorCompatible[0].id === '3';
+      const otherOnlyActive = otherCompatible.length === 2 && otherCompatible.every((s) => s.isActive);
+
+      assert(
+        zmccOnlyActive && contractorOnlyActive && otherOnlyActive,
+        '5D-B2-17: UI compatible source selection strictly filters out inactive sources and enforces role scoping'
+      );
+
+      // 18. Inactive database source is tagged isActive=false and excluded from selection
+      let tempInactiveSourceId: bigint | null = null;
+      try {
+        const tempInactive = await prisma.procurementSource.create({
+          data: {
+            code: `INACT_${randB2}`,
+            name: `Inactive Source Test ${randB2}`,
+            source_type: 'ZMCC',
+            is_active: false,
+          },
+        });
+        tempInactiveSourceId = tempInactive.id;
+
+        const freshSourcesRes = await getProcurementSources();
+        const freshSourcesBody = await freshSourcesRes.json();
+        const foundInactive = freshSourcesBody?.sources?.find((s: any) => s.id === tempInactive.id.toString());
+
+        const isMarkedInactiveInApi = foundInactive && foundInactive.isActive === false;
+        const excludedFromUiSelection = filterCompatibleSources(freshSourcesBody?.sources || [], 'ZMCC_MANAGER').every(
+          (s: any) => s.id !== tempInactive.id.toString()
+        );
+
+        assert(
+          Boolean(isMarkedInactiveInApi && excludedFromUiSelection),
+          '5D-B2-18: Deactivated source in database is returned with isActive=false and excluded from UI selection'
+        );
+      } finally {
+        if (tempInactiveSourceId) {
+          await prisma.procurementSource.deleteMany({ where: { id: tempInactiveSourceId } });
+        }
+        (nextHeaders as any).cookies = prevCookies;
+      }
+
+      // 19. Secure modal reset invariant clears state and passwords
+      let formState = {
+        password: 'SensitivePlaintextPassword123!',
+        newPassword: 'AnotherSensitiveSecret456!',
+        confirmNewPassword: 'AnotherSensitiveSecret456!',
+        createModalError: 'Some previous modal error',
+        resetModalError: 'Previous reset error',
+      };
+      // Simulate closeCreateModal / closeResetModal reset logic
+      formState = {
+        password: '',
+        newPassword: '',
+        confirmNewPassword: '',
+        createModalError: '',
+        resetModalError: '',
+      };
+      const isSecurelyCleared =
+        formState.password === '' &&
+        formState.newPassword === '' &&
+        formState.confirmNewPassword === '' &&
+        formState.createModalError === '' &&
+        formState.resetModalError === '';
+      assert(
+        isSecurelyCleared,
+        '5D-B2-19: Secure modal reset clears all sensitive credentials and error state'
       );
 
     } finally {

@@ -8,6 +8,7 @@ interface Source {
   code: string;
   name: string;
   sourceType: string;
+  isActive: boolean;
 }
 
 interface UserItem {
@@ -99,15 +100,48 @@ export default function SuperAdminUsersPage() {
     loadData();
   }, []);
 
-  // Keyboard accessibility: Escape closes any open modal
+  const resetForm = () => {
+    setUsername('');
+    setName('');
+    setPassword('');
+    setRole('SUPER_ADMIN');
+    setDepartment('');
+    setScopeType('SYSTEM');
+    setProcurementSourceId('');
+    setCreateModalError(null);
+  };
+
+  const closeCreateModal = () => {
+    setShowCreateModal(false);
+    resetForm();
+  };
+
+  const closeEditModal = () => {
+    setShowEditModal(null);
+    setEditModalError(null);
+  };
+
+  const closeConfirmModal = () => {
+    setShowConfirmModal(null);
+    setConfirmModalError(null);
+  };
+
+  const closeResetModal = () => {
+    setShowResetModal(null);
+    setNewPassword('');
+    setConfirmNewPassword('');
+    setResetModalError(null);
+  };
+
+  // Keyboard accessibility: Escape closes any open modal and securely clears state
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         if (!isSubmittingCreate && !isSubmittingEdit && !isSubmittingReset && !isSubmittingConfirm) {
-          setShowCreateModal(false);
-          setShowEditModal(null);
-          setShowResetModal(null);
-          setShowConfirmModal(null);
+          closeCreateModal();
+          closeEditModal();
+          closeResetModal();
+          closeConfirmModal();
         }
       }
     };
@@ -115,26 +149,28 @@ export default function SuperAdminUsersPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isSubmittingCreate, isSubmittingEdit, isSubmittingReset, isSubmittingConfirm]);
 
-  // Sources compatible with current Create Role
+  // Sources compatible with current Create Role (strictly active only)
   const createCompatibleSources = useMemo(() => {
+    const activeSources = sources.filter((s) => s.isActive);
     if (role === 'ZMCC_MANAGER') {
-      return sources.filter((s) => s.sourceType === 'ZMCC');
+      return activeSources.filter((s) => s.sourceType === 'ZMCC');
     }
     if (role === 'CONTRACTOR_MANAGER') {
-      return sources.filter((s) => s.sourceType === 'CONTRACTOR');
+      return activeSources.filter((s) => s.sourceType === 'CONTRACTOR');
     }
-    return sources;
+    return activeSources;
   }, [sources, role]);
 
-  // Sources compatible with current Edit Role
+  // Sources compatible with current Edit Role (strictly active only)
   const editCompatibleSources = useMemo(() => {
+    const activeSources = sources.filter((s) => s.isActive);
     if (editRole === 'ZMCC_MANAGER') {
-      return sources.filter((s) => s.sourceType === 'ZMCC');
+      return activeSources.filter((s) => s.sourceType === 'ZMCC');
     }
     if (editRole === 'CONTRACTOR_MANAGER') {
-      return sources.filter((s) => s.sourceType === 'CONTRACTOR');
+      return activeSources.filter((s) => s.sourceType === 'CONTRACTOR');
     }
-    return sources;
+    return activeSources;
   }, [sources, editRole]);
 
   // Handle role change in Create form with source compatibility
@@ -181,17 +217,6 @@ export default function SuperAdminUsersPage() {
     if (newScope !== 'SOURCE') {
       setEditProcurementSourceId('');
     }
-  };
-
-  const resetForm = () => {
-    setUsername('');
-    setName('');
-    setPassword('');
-    setRole('SUPER_ADMIN');
-    setDepartment('');
-    setScopeType('SYSTEM');
-    setProcurementSourceId('');
-    setCreateModalError(null);
   };
 
   const openEditModal = (user: UserItem) => {
@@ -251,8 +276,7 @@ export default function SuperAdminUsersPage() {
       }
 
       setSuccessMsg(`User "${trimmedUsername}" created successfully.`);
-      setShowCreateModal(false);
-      resetForm();
+      closeCreateModal();
       loadData();
     } catch (err: any) {
       setCreateModalError(err.message || 'Failed to create user');
@@ -294,7 +318,7 @@ export default function SuperAdminUsersPage() {
       }
 
       setSuccessMsg(`User "${showEditModal.username}" updated successfully.`);
-      setShowEditModal(null);
+      closeEditModal();
       loadData();
     } catch (err: any) {
       setEditModalError(err.message || 'Failed to update user');
@@ -326,7 +350,7 @@ export default function SuperAdminUsersPage() {
       }
 
       setSuccessMsg(`User "${user.username}" ${targetStatus ? 'activated' : 'deactivated'} successfully.`);
-      setShowConfirmModal(null);
+      closeConfirmModal();
       loadData();
     } catch (err: any) {
       setConfirmModalError(err.message || 'Failed to update user status');
@@ -367,9 +391,7 @@ export default function SuperAdminUsersPage() {
       }
 
       setSuccessMsg(data.message || `Password for "${showResetModal.username}" reset successfully.`);
-      setShowResetModal(null);
-      setNewPassword('');
-      setConfirmNewPassword('');
+      closeResetModal();
     } catch (err: any) {
       setResetModalError(err.message || 'Failed to reset password');
     } finally {
@@ -542,8 +564,7 @@ export default function SuperAdminUsersPage() {
                 type="button"
                 onClick={() => {
                   if (!isSubmittingCreate) {
-                    setShowCreateModal(false);
-                    resetForm();
+                    closeCreateModal();
                   }
                 }}
                 className="p-1 rounded-lg hover:bg-slate-100 text-slate-500"
@@ -697,8 +718,9 @@ export default function SuperAdminUsersPage() {
                   type="button"
                   disabled={isSubmittingCreate}
                   onClick={() => {
-                    setShowCreateModal(false);
-                    resetForm();
+                    if (!isSubmittingCreate) {
+                      closeCreateModal();
+                    }
                   }}
                   className="px-3.5 py-2 rounded-lg border border-slate-300 text-slate-600 font-bold hover:bg-slate-50 transition"
                 >
@@ -728,7 +750,7 @@ export default function SuperAdminUsersPage() {
               <button
                 type="button"
                 onClick={() => {
-                  if (!isSubmittingEdit) setShowEditModal(null);
+                  if (!isSubmittingEdit) closeEditModal();
                 }}
                 className="p-1 rounded-lg hover:bg-slate-100 text-slate-500"
               >
@@ -861,7 +883,9 @@ export default function SuperAdminUsersPage() {
                 <button
                   type="button"
                   disabled={isSubmittingEdit}
-                  onClick={() => setShowEditModal(null)}
+                  onClick={() => {
+                    if (!isSubmittingEdit) closeEditModal();
+                  }}
                   className="px-3.5 py-2 rounded-lg border border-slate-300 text-slate-600 font-bold hover:bg-slate-50 transition"
                 >
                   Cancel
@@ -945,7 +969,9 @@ export default function SuperAdminUsersPage() {
               <button
                 type="button"
                 disabled={isSubmittingConfirm}
-                onClick={() => setShowConfirmModal(null)}
+                onClick={() => {
+                  if (!isSubmittingConfirm) closeConfirmModal();
+                }}
                 className="px-3.5 py-2 rounded-lg border border-slate-300 text-slate-600 font-bold hover:bg-slate-50 transition"
               >
                 Cancel
@@ -988,9 +1014,7 @@ export default function SuperAdminUsersPage() {
                 type="button"
                 onClick={() => {
                   if (!isSubmittingReset) {
-                    setShowResetModal(null);
-                    setNewPassword('');
-                    setConfirmNewPassword('');
+                    closeResetModal();
                   }
                 }}
                 className="p-1 rounded-lg hover:bg-slate-100 text-slate-500"
@@ -1044,9 +1068,9 @@ export default function SuperAdminUsersPage() {
                   type="button"
                   disabled={isSubmittingReset}
                   onClick={() => {
-                    setShowResetModal(null);
-                    setNewPassword('');
-                    setConfirmNewPassword('');
+                    if (!isSubmittingReset) {
+                      closeResetModal();
+                    }
                   }}
                   className="px-3.5 py-2 rounded-lg border border-slate-300 text-slate-600 font-bold hover:bg-slate-50 transition"
                 >
