@@ -145,6 +145,16 @@ async function runFinalReceiptPaymentDateTests() {
         );
       } finally {
         if (testVisitId) {
+          await prisma.auditLog.deleteMany({
+            where: {
+              table_name: 'silo_inventory_transaction',
+              record_id: testVisitId,
+              action: 'SILO_RECEIPT_FINALIZED',
+            },
+          });
+          await prisma.siloInventoryTransaction.deleteMany({
+            where: { visit_id: testVisitId },
+          });
           await prisma.plantLabResult.deleteMany({ where: { portion: { visit_id: testVisitId } } });
           await prisma.unloadingLog.deleteMany({ where: { portion: { visit_id: testVisitId } } });
           await prisma.visitPortion.deleteMany({ where: { visit_id: testVisitId } });

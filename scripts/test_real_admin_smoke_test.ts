@@ -84,30 +84,41 @@ async function runSmokeTest() {
       assert(false, 'SMOKE-6: No active Silo found in test database');
     } else {
       const { getSiloCurrentStockLiters, updateSiloConfiguration } = await import('../src/backend/services/siloInventoryService');
+      const originalCapacity = Number(silo.capacity_liters);
       const currentStock = await getSiloCurrentStockLiters(silo.id, undefined, { allowIncomplete: true });
-      if (currentStock <= 0) {
-        assert(false, `SMOKE-6: Test requires active silo with positive stock (found ${currentStock} L)`);
+      if (currentStock <= 1) {
+        assert(false, `SMOKE-6: Test requires active silo with stock > 1 litre (found ${currentStock} L)`);
       } else {
         const invalidCapacity = Math.floor(currentStock / 2);
         let reductionRejected = false;
         try {
-          await updateSiloConfiguration({
-            silo_id: silo.id,
-            capacity_liters: invalidCapacity,
-          });
-        } catch (err: any) {
-          reductionRejected = err.message.includes('cannot be less than current calculated stock');
+          try {
+            await updateSiloConfiguration({
+              silo_id: silo.id,
+              capacity_liters: invalidCapacity,
+            });
+          } catch (err: any) {
+            reductionRejected = err.message.includes('cannot be less than current calculated stock');
+          }
+
+          const siloAfter = await prisma.silo.findUnique({ where: { id: silo.id } });
+          const stockAfter = await getSiloCurrentStockLiters(silo.id, undefined, { allowIncomplete: true });
+          const capacityUnchanged = Number(siloAfter?.capacity_liters) === originalCapacity;
+          const stockUnchanged = stockAfter === currentStock;
+
+          assert(
+            reductionRejected && capacityUnchanged && stockUnchanged,
+            `SMOKE-6: Proposed invalid silo capacity (${invalidCapacity} L) for current stock (${currentStock} L) is rejected and database state remains unchanged`
+          );
+        } finally {
+          const checkSilo = await prisma.silo.findUnique({ where: { id: silo.id } });
+          if (checkSilo && Number(checkSilo.capacity_liters) !== originalCapacity) {
+            await updateSiloConfiguration({
+              silo_id: silo.id,
+              capacity_liters: originalCapacity,
+            });
+          }
         }
-
-        const siloAfter = await prisma.silo.findUnique({ where: { id: silo.id } });
-        const stockAfter = await getSiloCurrentStockLiters(silo.id, undefined, { allowIncomplete: true });
-        const capacityUnchanged = Number(siloAfter?.capacity_liters) === Number(silo.capacity_liters);
-        const stockUnchanged = stockAfter === currentStock;
-
-        assert(
-          reductionRejected && capacityUnchanged && stockUnchanged,
-          `SMOKE-6: Proposed invalid silo capacity (${invalidCapacity} L) for current stock (${currentStock} L) is rejected and database state remains unchanged`
-        );
       }
     }
 

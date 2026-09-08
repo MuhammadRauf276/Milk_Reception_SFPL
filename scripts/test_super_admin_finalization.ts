@@ -2,6 +2,7 @@ import { prisma } from '../src/backend/core/db';
 import { filterUpdatesByRole, createSessionToken } from '../src/backend/core/auth';
 import { POST as postCreateUser } from '../src/app/api/super-admin/users/route';
 import bcrypt from 'bcryptjs';
+import { randomBytes } from 'crypto';
 
 async function runSuperAdminFinalizationTests() {
   console.log('🧪 RUNNING SUPER ADMIN FINALIZATION TEST SUITE...\n');
@@ -100,6 +101,7 @@ async function runSuperAdminFinalizationTests() {
 
     const randAdminAudit = Math.floor(Math.random() * 900000) + 100000;
     const testTargetUsername = `admin.audit.test.${randAdminAudit}`;
+    const testTempPassword = `TstP@ss!${randomBytes(8).toString('hex')}`;
     let createdAdminTestUserId: bigint | null = null;
 
     const token = await createSessionToken({
@@ -125,7 +127,7 @@ async function runSuperAdminFinalizationTests() {
         },
         body: JSON.stringify({
           username: testTargetUsername,
-          password: 'TempPassword123!',
+          password: testTempPassword,
           name: 'Admin Audit Test User',
           role: 'Viewer',
           department: 'Quality Assurance',
@@ -155,8 +157,10 @@ async function runSuperAdminFinalizationTests() {
       const auditStr = JSON.stringify(fetchedAudit, (_k, v) => (typeof v === 'bigint' ? v.toString() : v));
       const hasValidTimestamp = fetchedAudit?.created_at instanceof Date && !isNaN(fetchedAudit.created_at.getTime());
       const noSecretsInAudit =
+        !auditStr.includes(testTempPassword) &&
         !auditStr.includes('password') &&
-        !auditStr.includes('TempPassword123!') &&
+        !auditStr.includes('password_hash') &&
+        !auditStr.includes('$2a$') &&
         !auditStr.includes('$2b$');
 
       const auditMatchesTarget =
@@ -174,11 +178,20 @@ async function runSuperAdminFinalizationTests() {
       );
     } finally {
       (nextHeaders as any).cookies = origCookies;
-      if (createdAdminTestUserId) {
-        await prisma.auditLog.deleteMany({
-          where: { table_name: 'users', record_id: createdAdminTestUserId },
-        });
-        await prisma.user.deleteMany({ where: { id: createdAdminTestUserId } });
+      try {
+        let targetId = createdAdminTestUserId;
+        if (!targetId) {
+          const u = await prisma.user.findFirst({ where: { username: testTargetUsername } });
+          if (u) targetId = u.id;
+        }
+        if (targetId) {
+          await prisma.auditLog.deleteMany({
+            where: { table_name: 'users', record_id: targetId },
+          });
+          await prisma.user.deleteMany({ where: { id: targetId } });
+        }
+      } catch (cleanupErr) {
+        console.error('Error in test_super_admin_finalization cleanup:', cleanupErr);
       }
     }
 
