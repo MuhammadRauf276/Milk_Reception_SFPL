@@ -38,8 +38,23 @@ export async function GET(req: Request) {
       ],
     });
 
-    return NextResponse.json({ tests: tests.map(serializeLabTest) });
+    return NextResponse.json(
+      { tests: tests.map(serializeLabTest) },
+      {
+        headers: {
+          'Cache-Control': 'private, no-store, max-age=0',
+        },
+      }
+    );
   } catch (error: any) {
-    return NextResponse.json({ error: error?.message || 'Failed to fetch lab tests' }, { status: 500 });
+    return NextResponse.json(
+      { error: error?.message || 'Failed to fetch lab tests' },
+      {
+        status: 500,
+        headers: {
+          'Cache-Control': 'private, no-store, max-age=0',
+        },
+      }
+    );
   }
 }
