@@ -315,11 +315,11 @@ async function runQADecisionCompletenessTests() {
         ]);
 
         const statuses = [res1A.status, res1B.status].sort();
-        const exactlyOneSuccess = statuses[0] === 200 && statuses[1] >= 400;
+        const exactlyOneSuccess = statuses[0] === 200 && statuses[1] === 409;
         assert(
           exactlyOneSuccess,
           '5CA-CONC-SAME-PORTION-01',
-          `Concurrent completions for same portion: exactly one HTTP 200, one conflict/error (Got statuses: ${res1A.status}, ${res1B.status})`
+          `Concurrent completions for same portion: exactly one HTTP 200, one conflict HTTP 409 (Got statuses: ${res1A.status}, ${res1B.status})`
         );
 
         // Verify database state: portion decision is ACCEPTED and stable
@@ -506,9 +506,9 @@ async function runQADecisionCompletenessTests() {
         );
 
         assert(
-          holdOnAcceptedRes.status === 400,
+          holdOnAcceptedRes.status === 409,
           '5CA-HOLD-ON-ACCEPTED-01',
-          `HOLD against ACCEPTED portion is rejected with HTTP 400 (Got status: ${holdOnAcceptedRes.status})`
+          `HOLD against ACCEPTED portion is rejected with HTTP 409 (Got status: ${holdOnAcceptedRes.status})`
         );
 
         const v3PortionCheck = await prisma.visitPortion.findUnique({ where: { id: v3Portion.id } });
@@ -639,9 +639,9 @@ async function runQADecisionCompletenessTests() {
         );
 
         assert(
-          resumeCompletedRes.status === 400,
+          resumeCompletedRes.status === 409,
           '5CA-RESUME-COMPLETED-01',
-          `RESUME on a COMPLETED session is rejected with HTTP 400 (Got status: ${resumeCompletedRes.status})`
+          `RESUME on a COMPLETED session is rejected with HTTP 409 (Got status: ${resumeCompletedRes.status})`
         );
 
         const v5SessionCheck = await prisma.qATestingSession.findUnique({ where: { id: v5.qa_session!.id } });
@@ -820,9 +820,9 @@ async function runQADecisionCompletenessTests() {
         );
 
         assert(
-          holdSecondPortionRes.status === 400 || holdSecondPortionRes.status === 409,
+          holdSecondPortionRes.status === 409,
           '5CA-HOLD-WHEN-ON-HOLD-01',
-          `HOLD on second portion while session is ON_HOLD is rejected (Got status: ${holdSecondPortionRes.status})`
+          `HOLD on second portion while session is ON_HOLD is rejected with HTTP 409 (Got status: ${holdSecondPortionRes.status})`
         );
 
         const portion2Check = await prisma.visitPortion.findUnique({ where: { id: portion2.id } });
@@ -852,6 +852,205 @@ async function runQADecisionCompletenessTests() {
         await prisma.qATestingSession.deleteMany({ where: { id: v7.qa_session!.id } });
         await prisma.visitPortion.deleteMany({ where: { visit_id: v7.id } });
         await prisma.vehicleVisit.deleteMany({ where: { id: v7.id } });
+      }
+
+      // -------------------------------------------------------------------------
+      // TEST 5H: Arbitrary IN_PROGRESS session RESUME rejection
+      // Scenario:
+      // - Session is IN_PROGRESS
+      // - Immediately preceding event is NOT RESUME (e.g. START)
+      // - Calling resume returns HTTP 409
+      // - Session remains IN_PROGRESS
+      // - started_at remains unchanged
+      // - Zero new RESUME events created
+      // -------------------------------------------------------------------------
+      const v8Suffix = Math.floor(Math.random() * 900000) + 100000;
+      const v8SessionStart = new Date(Date.now() - 3600000);
+      const v8 = await prisma.vehicleVisit.create({
+        data: {
+          visit_number: `VV-5CA-8-${v8Suffix}`,
+          vehicle_number: `QA-CONC-8-${v8Suffix}`,
+          current_status: 'PLANT_QA',
+          procurement_source_id: source.id,
+          created_by: qaUser.id,
+          portions: {
+            create: [{ portion_number: 1, current_status: 'PLANT_QA' }],
+          },
+          qa_session: {
+            create: {
+              started_by: qaUser.id,
+              status: 'IN_PROGRESS',
+              started_at: v8SessionStart,
+              events: {
+                create: [
+                  {
+                    event_type: 'START',
+                    timestamp: v8SessionStart,
+                    user_id: qaUser.id,
+                    note: 'Session started normally',
+                  },
+                ],
+              },
+            },
+          },
+        },
+        include: { portions: true, qa_session: true },
+      });
+
+      try {
+        const arbitraryResumeRes = await postResume(
+          new Request('http://localhost:3000/api/qa/resume', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              visitId: v8.id.toString(),
+              operationalTimestamp: new Date().toISOString(),
+            }),
+          })
+        );
+
+        assert(
+          arbitraryResumeRes.status === 409,
+          '5CA-ARBITRARY-RESUME-01',
+          `Resume on arbitrary IN_PROGRESS session is rejected with HTTP 409 (Got status: ${arbitraryResumeRes.status})`
+        );
+
+        const v8SessionCheck = await prisma.qATestingSession.findUnique({ where: { id: v8.qa_session!.id } });
+        assert(
+          v8SessionCheck?.status === 'IN_PROGRESS',
+          '5CA-ARBITRARY-RESUME-02',
+          `Session remains IN_PROGRESS after rejected resume (status: ${v8SessionCheck?.status})`
+        );
+
+        const v8StartedAtPreserved = v8SessionCheck?.started_at
+          ? v8SessionCheck.started_at.getTime() === v8SessionStart.getTime()
+          : false;
+        assert(
+          v8StartedAtPreserved,
+          '5CA-ARBITRARY-RESUME-03',
+          'Session started_at preserved unchanged'
+        );
+
+        const resumeEventsV8 = await prisma.qATestingSessionEvent.findMany({
+          where: { session_id: v8.qa_session!.id, event_type: 'RESUME' },
+        });
+        assert(
+          resumeEventsV8.length === 0,
+          '5CA-ARBITRARY-RESUME-04',
+          `Zero RESUME events created on arbitrary IN_PROGRESS resume attempt (Found: ${resumeEventsV8.length})`
+        );
+      } finally {
+        await prisma.qATestingSessionEvent.deleteMany({ where: { session_id: v8.qa_session!.id } });
+        await prisma.qATestingSession.deleteMany({ where: { id: v8.qa_session!.id } });
+        await prisma.visitPortion.deleteMany({ where: { visit_id: v8.id } });
+        await prisma.vehicleVisit.deleteMany({ where: { id: v8.id } });
+      }
+
+      // -------------------------------------------------------------------------
+      // TEST 5I: Unexpected internal transaction failure behavior
+      // Scenario:
+      // - Simulate unexpected database transaction failure using safely restored mock
+      // - Verify complete, hold, and resume routes return HTTP 500
+      // - Verify generic error messages returned and internal error details NOT leaked
+      // -------------------------------------------------------------------------
+      const originalTransaction = prisma.$transaction;
+      try {
+        const simulatedInternalErrorText = 'FATAL_INTERNAL_DB_CRASH_UNIQUE_SIMULATION_STRING_xyz987';
+        // Intercept $transaction to simulate unexpected internal failure
+        (prisma as any).$transaction = async () => {
+          throw new Error(simulatedInternalErrorText);
+        };
+
+        // 1. Complete route unexpected failure
+        const fakeCompleteReq = new Request('http://localhost:3000/api/qa/complete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            decision: 'ACCEPTED',
+            results: buildAcceptResults(plantReqTests),
+            operationalTimestamp: new Date().toISOString(),
+          }),
+        });
+        const complete500Res = await postComplete(fakeCompleteReq, {
+          params: Promise.resolve({ visitId: visit.id.toString(), portionId: portion.id.toString() }),
+        });
+        const complete500Body = await complete500Res.json().catch(() => ({}));
+
+        assert(
+          complete500Res.status === 500,
+          '5CA-INTERNAL-500-COMPLETE-01',
+          `Complete route returns HTTP 500 on unexpected transaction failure (Got status: ${complete500Res.status})`
+        );
+        assert(
+          complete500Body.error === 'Failed to complete QA test',
+          '5CA-INTERNAL-500-COMPLETE-02',
+          `Complete route returns generic error message without leaking internal text (Got: "${complete500Body.error}")`
+        );
+        assert(
+          !JSON.stringify(complete500Body).includes(simulatedInternalErrorText),
+          '5CA-INTERNAL-500-COMPLETE-03',
+          'Complete route does not leak internal error details to client'
+        );
+
+        // 2. Hold route unexpected failure
+        const fakeHoldReq = new Request('http://localhost:3000/api/qa/hold', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            reason: 'Test hold',
+            operationalTimestamp: new Date().toISOString(),
+          }),
+        });
+        const hold500Res = await postHold(fakeHoldReq, {
+          params: Promise.resolve({ visitId: visit.id.toString(), portionId: portion.id.toString() }),
+        });
+        const hold500Body = await hold500Res.json().catch(() => ({}));
+
+        assert(
+          hold500Res.status === 500,
+          '5CA-INTERNAL-500-HOLD-01',
+          `Hold route returns HTTP 500 on unexpected transaction failure (Got status: ${hold500Res.status})`
+        );
+        assert(
+          hold500Body.error === 'Failed to place portion on hold',
+          '5CA-INTERNAL-500-HOLD-02',
+          `Hold route returns generic error message without leaking internal text (Got: "${hold500Body.error}")`
+        );
+        assert(
+          !JSON.stringify(hold500Body).includes(simulatedInternalErrorText),
+          '5CA-INTERNAL-500-HOLD-03',
+          'Hold route does not leak internal error details to client'
+        );
+
+        // 3. Resume route unexpected failure
+        const fakeResumeReq = new Request('http://localhost:3000/api/qa/resume', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            visitId: visit.id.toString(),
+            operationalTimestamp: new Date().toISOString(),
+          }),
+        });
+        const resume500Res = await postResume(fakeResumeReq);
+        const resume500Body = await resume500Res.json().catch(() => ({}));
+
+        assert(
+          resume500Res.status === 500,
+          '5CA-INTERNAL-500-RESUME-01',
+          `Resume route returns HTTP 500 on unexpected transaction failure (Got status: ${resume500Res.status})`
+        );
+        assert(
+          resume500Body.error === 'Failed to resume QA session',
+          '5CA-INTERNAL-500-RESUME-02',
+          `Resume route returns generic error message without leaking internal text (Got: "${resume500Body.error}")`
+        );
+        assert(
+          !JSON.stringify(resume500Body).includes(simulatedInternalErrorText),
+          '5CA-INTERNAL-500-RESUME-03',
+          'Resume route does not leak internal error details to client'
+        );
+      } finally {
+        prisma.$transaction = originalTransaction;
       }
     } finally {
       // Guaranteed cleanup in test DB

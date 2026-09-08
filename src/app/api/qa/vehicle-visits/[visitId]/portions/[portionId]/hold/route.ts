@@ -4,6 +4,14 @@ import { prisma } from '@core/db';
 
 import { validateOperationalTimestamp } from '@/backend/services/chronology-validator';
 
+class RouteError extends Error {
+  statusCode: number;
+  constructor(message?: string, statusCode: number = 400) {
+    super(message || 'Operation failed');
+    this.statusCode = statusCode;
+  }
+}
+
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ visitId: string; portionId: string }> }
@@ -61,7 +69,7 @@ export async function POST(
       });
 
       if (!lockedPortion) {
-        throw new Error('Portion record not found for this vehicle visit');
+        throw new RouteError('Portion record not found for this vehicle visit', 404);
       }
 
       // 2. Re-read the QATestingSession within the locked transaction client
@@ -70,12 +78,12 @@ export async function POST(
       });
 
       if (!session) {
-        throw new Error('QA testing session not found.');
+        throw new RouteError('QA testing session not found.', 404);
       }
 
       // A. Finalized portion: plant_decision = ACCEPTED or REJECTED
       if (lockedPortion.plant_decision === 'ACCEPTED' || lockedPortion.plant_decision === 'REJECTED') {
-        throw new Error(`Cannot place portion on HOLD: Portion is already finalized as ${lockedPortion.plant_decision}.`);
+        throw new RouteError(`Cannot place portion on HOLD: Portion is already finalized as ${lockedPortion.plant_decision}.`, 409);
       }
 
       // B. Exact idempotent HOLD replay: portion is HOLD and session is ON_HOLD
@@ -88,7 +96,7 @@ export async function POST(
         // permitted new HOLD transition - proceed below
       } else {
         // D. Any other combination (e.g. session ON_HOLD but portion not HOLD, session COMPLETED, etc.)
-        throw new Error(`Cannot place portion on HOLD: Invalid state transition (portion decision: ${lockedPortion.plant_decision}, session status: ${session.status}).`);
+        throw new RouteError(`Cannot place portion on HOLD: Invalid state transition (portion decision: ${lockedPortion.plant_decision}, session status: ${session.status}).`, 409);
       }
 
       // Validate chronology against session start or latest RESUME event
@@ -102,7 +110,7 @@ export async function POST(
 
       const chronoVal = validateOperationalTimestamp(targetOpTs.toISOString(), predTs, 'QA Hold', predLabel);
       if (!chronoVal.isValid) {
-        throw new Error(chronoVal.error);
+        throw new RouteError(chronoVal.error, 400);
       }
 
       await tx.visitPortion.update({
@@ -145,7 +153,10 @@ export async function POST(
       message: `Portion #${portion.portion_number} placed on HOLD.`,
     });
   } catch (error: any) {
-    const message = error?.message || 'Failed to place portion on hold';
-    return NextResponse.json({ error: message }, { status: 400 });
+    if (error instanceof RouteError) {
+      return NextResponse.json({ error: error.message }, { status: error.statusCode });
+    }
+    console.error('Unexpected error in QA hold route:', error);
+    return NextResponse.json({ error: 'Failed to place portion on hold' }, { status: 500 });
   }
 }

@@ -7,6 +7,14 @@ import { validateNonNegativeDecimal } from '@/lib/validation-helpers';
 import { validateOperationalTimestamp } from '@/backend/services/chronology-validator';
 import { getOrAssignPlantQATests } from '@/backend/services/labTestAssignmentService';
 
+class RouteError extends Error {
+  statusCode: number;
+  constructor(message?: string, statusCode: number = 400) {
+    super(message || 'Operation failed');
+    this.statusCode = statusCode;
+  }
+}
+
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ visitId: string; portionId: string }> }
@@ -52,7 +60,7 @@ export async function POST(
     }
 
     if (portion.plant_decision === 'ACCEPTED' || portion.plant_decision === 'REJECTED') {
-      return NextResponse.json({ error: 'Portion testing has already been completed and finalized.' }, { status: 400 });
+      return NextResponse.json({ error: 'Portion testing has already been completed and finalized.' }, { status: 409 });
     }
 
     const explicitDecision = validated.decision;
@@ -242,11 +250,11 @@ export async function POST(
       });
 
       if (!lockedPortion) {
-        throw new Error('Portion record not found for this vehicle visit');
+        throw new RouteError('Portion record not found for this vehicle visit', 404);
       }
 
       if (lockedPortion.plant_decision === 'ACCEPTED' || lockedPortion.plant_decision === 'REJECTED') {
-        throw new Error('Portion testing has already been completed and finalized.');
+        throw new RouteError('Portion testing has already been completed and finalized.', 409);
       }
 
       lockedPortionRecord = lockedPortion;
@@ -257,11 +265,11 @@ export async function POST(
       });
 
       if (!session) {
-        throw new Error('QA testing session not found.');
+        throw new RouteError('QA testing session not found.', 404);
       }
 
       if (session.status !== 'IN_PROGRESS') {
-        throw new Error(`QA testing session is not IN_PROGRESS (current status: ${session.status}).`);
+        throw new RouteError(`QA testing session is not IN_PROGRESS (current status: ${session.status}).`, 409);
       }
 
       // Validate chronology
@@ -275,7 +283,7 @@ export async function POST(
 
       const chronoVal = validateOperationalTimestamp(targetOpTs.toISOString(), predTs, 'QA Decision', predLabel);
       if (!chronoVal.isValid) {
-        throw new Error(chronoVal.error);
+        throw new RouteError(chronoVal.error, 400);
       }
 
       // 1. Upsert submitted PlantLabResult rows
@@ -457,7 +465,10 @@ export async function POST(
       const msg = error.issues?.[0]?.message || error.errors?.[0]?.message || error.message || 'Validation failed';
       return NextResponse.json({ error: msg }, { status: 400 });
     }
-    const message = error?.message || 'Failed to complete QA test';
-    return NextResponse.json({ error: message }, { status: 400 });
+    if (error instanceof RouteError) {
+      return NextResponse.json({ error: error.message }, { status: error.statusCode });
+    }
+    console.error('Unexpected error in QA complete route:', error);
+    return NextResponse.json({ error: 'Failed to complete QA test' }, { status: 500 });
   }
 }
