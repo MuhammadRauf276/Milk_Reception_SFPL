@@ -7,7 +7,7 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authUser = await getCurrentUser();
+  const authUser = await getCurrentUser(req);
   if (!authUser || (authUser.role !== 'SUPER_ADMIN' && authUser.role !== 'Admin')) {
     return NextResponse.json({ error: 'Unauthorized. Super Admin authorization required.' }, { status: 403 });
   }
