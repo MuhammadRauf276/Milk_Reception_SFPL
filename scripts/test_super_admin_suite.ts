@@ -2,7 +2,7 @@ import { prisma } from '../src/backend/core/db';
 import bcrypt from 'bcryptjs';
 import { assertSafeTestDatabase } from '../tests/helpers/testDbSafety';
 import { createSessionToken, getCurrentUser } from '../src/backend/core/auth';
-import { POST as postUser, GET as getUsers } from '../src/app/api/super-admin/users/route';
+import { POST as postUser } from '../src/app/api/super-admin/users/route';
 import { PATCH as patchUser } from '../src/app/api/super-admin/users/[id]/route';
 
 async function runSuperAdminTests() {
@@ -316,19 +316,21 @@ async function runSuperAdminTests() {
 
       // 6. Source reassignment is reflected live without issuing a replacement token
       const zmccSourceForTest = await prisma.procurementSource.findFirst({ where: { source_type: 'ZMCC', is_active: true } });
-      if (zmccSourceForTest) {
-        await prisma.user.update({
-          where: { id: createdLiveUserId },
-          data: { procurement_source_id: zmccSourceForTest.id, scope_type: 'PROCUREMENT_SOURCE' },
-        });
-        const sourceUpdatedUser = await getCurrentUser(userBearerReq);
-        assert(
-          !!sourceUpdatedUser &&
-            sourceUpdatedUser.procurement_source_id === zmccSourceForTest.id.toString() &&
-            sourceUpdatedUser.procurement_source?.code === zmccSourceForTest.code,
-          'SA-LIVE-08: Database procurement source reassignment immediately reflected using original token'
-        );
+      if (!zmccSourceForTest) {
+        throw new Error('CRITICAL TEST PREREQUISITE: Active ZMCC procurement source is required for SA-LIVE-08');
       }
+      await prisma.user.update({
+        where: { id: createdLiveUserId },
+        data: { procurement_source_id: zmccSourceForTest.id, scope_type: 'SOURCE' },
+      });
+      const sourceUpdatedUser = await getCurrentUser(userBearerReq);
+      assert(
+        !!sourceUpdatedUser &&
+          sourceUpdatedUser.scope_type === 'SOURCE' &&
+          sourceUpdatedUser.procurement_source_id === zmccSourceForTest.id.toString() &&
+          sourceUpdatedUser.procurement_source?.code === zmccSourceForTest.code,
+        'SA-LIVE-08: Database procurement source reassignment immediately reflected using original token'
+      );
 
       // 7. Missing database user is rejected
       const nonExistentToken = await createSessionToken({
@@ -343,13 +345,29 @@ async function runSuperAdminTests() {
       );
       assert(missingUserAttempt === null, 'SA-LIVE-09: Token referencing missing database user strictly yields null (UNAUTHORIZED)');
 
-      // 8. Malformed/invalid token is rejected
+      // 8. Token with nonexistent numeric ID but valid existing username strictly yields null (no username fallback)
+      const nonExistentIdToken = await createSessionToken({
+        id: '999999999999',
+        username: activeAdmin.username,
+        name: activeAdmin.full_name || activeAdmin.username,
+        role: activeAdmin.role as any,
+        department: activeAdmin.department || '',
+      });
+      const usernameFallbackAttempt = await getCurrentUser(
+        new Request('http://localhost:3000', { headers: { authorization: `Bearer ${nonExistentIdToken}` } })
+      );
+      assert(
+        usernameFallbackAttempt === null,
+        'SA-LIVE-10: Token with nonexistent numeric ID and valid username strictly yields null (no username fallback)'
+      );
+
+      // 9. Malformed/invalid token is rejected
       const malformedTokenAttempt = await getCurrentUser(
         new Request('http://localhost:3000', { headers: { authorization: 'Bearer invalid.malformed.token.payload' } })
       );
-      assert(malformedTokenAttempt === null, 'SA-LIVE-10: Malformed JWT token strictly yields null (UNAUTHORIZED)');
+      assert(malformedTokenAttempt === null, 'SA-LIVE-11: Malformed JWT token strictly yields null (UNAUTHORIZED)');
 
-      // 9. Last active Super Admin protection remains enforced via PATCH route
+      // 10. Last active Super Admin protection remains enforced via PATCH route
       const lastSaDeactReq = new Request(`http://localhost:3000/api/super-admin/users/${activeAdmin.id}`, {
         method: 'PATCH',
         headers: adminHeaders,
@@ -360,10 +378,7 @@ async function runSuperAdminTests() {
       });
       const lastSaData = await lastSaRes.json();
       const isLastSaProtected = lastSaRes.status === 400 && lastSaData.error?.includes('Cannot deactivate or reassign the last active Super Admin account');
-      assert(isLastSaProtected, 'SA-LIVE-11: Last active Super Admin protection strictly enforced with HTTP 400');
-
-      // 10. Password and token values are never printed
-      assert(true, 'SA-LIVE-12: Zero password or token secrets logged during live authority test suite execution');
+      assert(isLastSaProtected, 'SA-LIVE-12: Last active Super Admin protection strictly enforced with HTTP 400');
 
     } finally {
       if (createdLiveUserId) {

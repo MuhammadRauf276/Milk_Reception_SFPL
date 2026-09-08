@@ -95,67 +95,37 @@ export async function getCurrentUser(req?: Request): Promise<User | null> {
     return null;
   }
 
-  try {
-    let dbUser = null;
-    let idBigInt: bigint | null = null;
+    // Require a valid numeric persisted database user ID from the verified JWT
+    if (!sessionUser.id || !/^\d+$/.test(sessionUser.id.trim())) {
+      return null;
+    }
+
+    const idBigInt = BigInt(sessionUser.id.trim());
 
     try {
-      if (sessionUser.id && /^\d+$/.test(sessionUser.id.trim())) {
-        idBigInt = BigInt(sessionUser.id.trim());
-      }
-    } catch (_err) {
-      idBigInt = null;
-    }
 
-    if (idBigInt !== null) {
-      dbUser = await prisma.user.findUnique({
-        where: { id: idBigInt },
-        select: {
-          id: true,
-          username: true,
-          full_name: true,
-          role: true,
-          department: true,
-          scope_type: true,
-          procurement_source_id: true,
-          is_active: true,
-          last_login_at: true,
-          procurement_source: {
-            select: {
-              id: true,
-              code: true,
-              name: true,
-              source_type: true,
-            },
+    const dbUser = await prisma.user.findUnique({
+      where: { id: idBigInt },
+      select: {
+        id: true,
+        username: true,
+        full_name: true,
+        role: true,
+        department: true,
+        scope_type: true,
+        procurement_source_id: true,
+        is_active: true,
+        last_login_at: true,
+        procurement_source: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            source_type: true,
           },
         },
-      });
-    }
-
-    if (!dbUser && sessionUser.username) {
-      dbUser = await prisma.user.findUnique({
-        where: { username: sessionUser.username },
-        select: {
-          id: true,
-          username: true,
-          full_name: true,
-          role: true,
-          department: true,
-          scope_type: true,
-          procurement_source_id: true,
-          is_active: true,
-          last_login_at: true,
-          procurement_source: {
-            select: {
-              id: true,
-              code: true,
-              name: true,
-              source_type: true,
-            },
-          },
-        },
-      });
-    }
+      },
+    });
 
     // Missing database user: UNAUTHORIZED
     if (!dbUser) {
