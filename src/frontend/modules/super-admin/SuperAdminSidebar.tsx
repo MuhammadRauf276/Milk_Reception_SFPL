@@ -15,7 +15,6 @@ import {
   History,
   FolderTree,
   Settings,
-  ShieldCheck,
   X,
 } from 'lucide-react';
 import { User } from '@core/types';
@@ -66,7 +65,7 @@ export const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({
 
   const navItems = [
     { href: '/super-admin', label: 'Overview', icon: LayoutDashboard },
-    { href: '/super-admin/users', label: 'Users & Access', icon: Users },
+    { href: '/super-admin/users', label: 'Users', icon: Users },
     { href: '/super-admin/procurement-sources', label: 'Procurement Sources', icon: Truck },
     { href: '/super-admin/silos', label: 'Silos', icon: Database },
     { href: '/super-admin/lab-tests', label: 'Lab Test Master', icon: FlaskConical },
@@ -80,35 +79,20 @@ export const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({
 
   const renderSidebarBody = (isDrawer: boolean = false) => (
     <div className="flex flex-col justify-between h-full space-y-4">
-      <div className="space-y-4">
-        {/* BRANDING HEADER */}
-        <div className="flex items-center justify-between pb-3 border-b border-[#C4B9A3]">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-[#1E3A8A] rounded-xl shadow-xs text-white shrink-0">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-            <div>
-              <h1 className="font-black tracking-tight text-[#111311] text-sm leading-none">
-                Super Admin
-              </h1>
-              <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider mt-1">
-                Control Panel
-              </p>
-            </div>
-          </div>
-
-          {/* Close button for mobile drawer */}
-          {isDrawer && onCloseMobile && (
+      <div className="space-y-2">
+        {/* Mobile drawer close button */}
+        {isDrawer && onCloseMobile && (
+          <div className="flex items-center justify-end pb-2">
             <button
               type="button"
               onClick={onCloseMobile}
-              className="xl:hidden p-2 rounded-xl border border-[#C4B9A3] text-slate-600 hover:text-[#111311] hover:bg-[#EFE9D9]/60 transition"
+              className="xl:hidden p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl border border-[#C4B9A3] text-slate-600 hover:text-[#111311] hover:bg-[#EFE9D9]/60 transition"
               aria-label="Close navigation drawer"
             >
               <X className="w-5 h-5" />
             </button>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* NAVIGATION LINKS */}
         <nav className="space-y-1">
@@ -141,7 +125,7 @@ export const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({
       {/* USER INFO FOOTER */}
       <div className="pt-3 border-t border-[#C4B9A3] text-[11px] text-slate-500 space-y-0.5">
         <div className="font-black text-[#111311] truncate">
-          {currentUser?.name || 'Super Admin'}
+          {currentUser?.name || currentUser?.username || 'Administrator'}
         </div>
         <div className="text-[10px] text-slate-500 font-mono truncate">
           {currentUser?.department || 'System Operations'}
