@@ -29,22 +29,24 @@ export async function POST(
     }
 
     const passHash = await bcrypt.hash(newPassword, 10);
-    await prisma.user.update({
-      where: { id: targetUserId },
-      data: { password_hash: passHash },
-    });
-
     const adminUser = await prisma.user.findFirst({ where: { username: authUser.username } });
 
-    // Record AuditLog WITHOUT storing plaintext password or password hash!
-    await prisma.auditLog.create({
-      data: {
-        table_name: 'users',
-        record_id: targetUserId,
-        action: 'PASSWORD_RESET',
-        new_values: { username: targetUser.username, reset_timestamp: new Date().toISOString() },
-        user_id: adminUser?.id || null,
-      },
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: targetUserId },
+        data: { password_hash: passHash },
+      });
+
+      // Record AuditLog WITHOUT storing plaintext password or password hash!
+      await tx.auditLog.create({
+        data: {
+          table_name: 'users',
+          record_id: targetUserId,
+          action: 'PASSWORD_RESET',
+          new_values: { username: targetUser.username, reset_timestamp: new Date().toISOString() },
+          user_id: adminUser?.id || null,
+        },
+      });
     });
 
     return NextResponse.json({ success: true, message: `Password reset successfully for user "${targetUser.username}".` });

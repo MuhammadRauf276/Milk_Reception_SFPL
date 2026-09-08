@@ -21,26 +21,30 @@ export async function PATCH(
       return NextResponse.json({ error: 'Target procurement source record not found.' }, { status: 404 });
     }
 
-    const updatedSource = await prisma.procurementSource.update({
-      where: { id: sourceId },
-      data: {
-        name: body.name !== undefined ? body.name.trim() : targetSource.name,
-        is_active: body.isActive !== undefined ? Boolean(body.isActive) : targetSource.is_active,
-      },
-    });
-
     const adminUser = await prisma.user.findFirst({ where: { username: authUser.username } });
     const actionName = body.isActive === false ? 'PROCUREMENT_SOURCE_DEACTIVATED' : 'PROCUREMENT_SOURCE_UPDATED';
 
-    await prisma.auditLog.create({
-      data: {
-        table_name: 'procurement_source',
-        record_id: sourceId,
-        action: actionName,
-        old_values: { name: targetSource.name, is_active: targetSource.is_active },
-        new_values: { name: updatedSource.name, is_active: updatedSource.is_active },
-        user_id: adminUser?.id || null,
-      },
+    const updatedSource = await prisma.$transaction(async (tx) => {
+      const source = await tx.procurementSource.update({
+        where: { id: sourceId },
+        data: {
+          name: body.name !== undefined ? body.name.trim() : targetSource.name,
+          is_active: body.isActive !== undefined ? Boolean(body.isActive) : targetSource.is_active,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          table_name: 'procurement_source',
+          record_id: sourceId,
+          action: actionName,
+          old_values: { name: targetSource.name, is_active: targetSource.is_active },
+          new_values: { name: source.name, is_active: source.is_active },
+          user_id: adminUser?.id || null,
+        },
+      });
+
+      return source;
     });
 
     return NextResponse.json({

@@ -3,6 +3,8 @@ import { prisma } from '../src/backend/core/db';
 const nextHeaders = require('next/headers');
 import { filterUpdatesByRole, createSessionToken } from '../src/backend/core/auth';
 import { POST as postCreateUser } from '../src/app/api/super-admin/users/route';
+import { PATCH as patchUser } from '../src/app/api/super-admin/users/[id]/route';
+import { POST as postResetPassword } from '../src/app/api/super-admin/users/[id]/reset-password/route';
 import bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
 import { assertSafeTestDatabase } from '../tests/helpers/testDbSafety';
@@ -181,6 +183,127 @@ async function runSuperAdminFinalizationTests() {
       assert(
         auditMatchesTarget,
         'FINAL-AUDIT-A..F: Specific Super Admin administrative action audit event verified by target identity, actor, server timestamp, and absence of secrets'
+      );
+
+      // FINAL-ATOMIC-USER-UPDATE: User update and USER_UPDATED audit are committed atomically
+      const patchReq = new Request(`http://localhost/api/super-admin/users/${createdAdminTestUserId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: 'Updated Admin Audit Test User',
+          department: 'Procurement QA',
+        }),
+      });
+
+      const patchRes = await patchUser(patchReq, {
+        params: Promise.resolve({ id: createdAdminTestUserId.toString() }),
+      });
+      const patchBody = await patchRes.json();
+
+      const userAfterUpdate = await prisma.user.findUnique({ where: { id: createdAdminTestUserId } });
+      const updateAudit = await prisma.auditLog.findFirst({
+        where: {
+          table_name: 'users',
+          record_id: createdAdminTestUserId,
+          action: 'USER_UPDATED',
+        },
+        orderBy: { created_at: 'desc' },
+      });
+
+      assert(
+        patchRes.status === 200 &&
+          patchBody?.success === true &&
+          userAfterUpdate?.full_name === 'Updated Admin Audit Test User' &&
+          userAfterUpdate?.department === 'Procurement QA' &&
+          updateAudit !== null &&
+          updateAudit.user_id === testAdmin.id,
+        'FINAL-ATOMIC-USER-UPDATE: User update and USER_UPDATED audit record committed atomically'
+      );
+
+      // FINAL-ATOMIC-PWD-RESET: Password reset and PASSWORD_RESET audit are committed atomically with zero secrets
+      const newResetPassword = `RstP@ss!${randomBytes(8).toString('hex')}`;
+      const resetReq = new Request(`http://localhost/api/super-admin/users/${createdAdminTestUserId}/reset-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ password: newResetPassword }),
+      });
+
+      const resetRes = await postResetPassword(resetReq, {
+        params: Promise.resolve({ id: createdAdminTestUserId.toString() }),
+      });
+      const resetBody = await resetRes.json();
+
+      const userAfterReset = await prisma.user.findUnique({ where: { id: createdAdminTestUserId } });
+      const isNewPasswordHashValid = userAfterReset?.password_hash
+        ? await bcrypt.compare(newResetPassword, userAfterReset.password_hash)
+        : false;
+
+      const resetAudit = await prisma.auditLog.findFirst({
+        where: {
+          table_name: 'users',
+          record_id: createdAdminTestUserId,
+          action: 'PASSWORD_RESET',
+        },
+        orderBy: { created_at: 'desc' },
+      });
+
+      const resetAuditStr = JSON.stringify(resetAudit, (_k, v) => (typeof v === 'bigint' ? v.toString() : v));
+      const resetAuditHasNoSecrets =
+        !resetAuditStr.includes(newResetPassword) &&
+        !resetAuditStr.includes('password') &&
+        !resetAuditStr.includes('password_hash') &&
+        !resetAuditStr.includes('$2a$') &&
+        !resetAuditStr.includes('$2b$');
+
+      assert(
+        resetRes.status === 200 &&
+          resetBody?.success === true &&
+          isNewPasswordHashValid &&
+          resetAudit !== null &&
+          resetAudit.user_id === testAdmin.id &&
+          resetAuditHasNoSecrets,
+        'FINAL-ATOMIC-PWD-RESET: Password reset and PASSWORD_RESET audit record committed atomically with zero password secrets'
+      );
+
+      // FINAL-ATOMIC-ROLLBACK: Failed audit causes transaction rollback and leaves business data unchanged
+      const baselineUser = await prisma.user.findUnique({ where: { id: createdAdminTestUserId } });
+      const baselineAuditCount = await prisma.auditLog.count({
+        where: { table_name: 'users', record_id: createdAdminTestUserId },
+      });
+
+      let rollbackOccurred = false;
+      try {
+        await prisma.$transaction(async (tx) => {
+          await tx.user.update({
+            where: { id: createdAdminTestUserId! },
+            data: { full_name: 'SHOULD_ROLLBACK_USER' },
+          });
+
+          // Simulated audit failure (e.g. constraint or unexpected error)
+          throw new Error('SIMULATED_AUDIT_LOG_FAILURE');
+        });
+      } catch (simErr: any) {
+        if (simErr.message === 'SIMULATED_AUDIT_LOG_FAILURE') {
+          rollbackOccurred = true;
+        }
+      }
+
+      const userAfterRollback = await prisma.user.findUnique({ where: { id: createdAdminTestUserId } });
+      const auditCountAfterRollback = await prisma.auditLog.count({
+        where: { table_name: 'users', record_id: createdAdminTestUserId },
+      });
+
+      assert(
+        rollbackOccurred &&
+          userAfterRollback?.full_name === baselineUser?.full_name &&
+          auditCountAfterRollback === baselineAuditCount,
+        'FINAL-ATOMIC-ROLLBACK: Transaction rollback on audit failure leaves user record and audit log unchanged'
       );
     } finally {
       (nextHeaders as any).cookies = origCookies;

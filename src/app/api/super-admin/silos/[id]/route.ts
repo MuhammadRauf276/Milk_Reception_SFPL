@@ -44,25 +44,29 @@ export async function PATCH(
 
     const adminUser = await prisma.user.findFirst({ where: { username: authUser.username } });
 
-    const updatedSilo = await prisma.silo.update({
-      where: { id: siloId },
-      data: {
-        silo_name: body.siloName !== undefined ? body.siloName.trim() : targetSilo.silo_name,
-        capacity_liters: newCapacity,
-        is_active: body.isActive !== undefined ? Boolean(body.isActive) : targetSilo.is_active,
-        updated_by: adminUser?.id || null,
-      },
-    });
+    const updatedSilo = await prisma.$transaction(async (tx) => {
+      const silo = await tx.silo.update({
+        where: { id: siloId },
+        data: {
+          silo_name: body.siloName !== undefined ? body.siloName.trim() : targetSilo.silo_name,
+          capacity_liters: newCapacity,
+          is_active: body.isActive !== undefined ? Boolean(body.isActive) : targetSilo.is_active,
+          updated_by: adminUser?.id || null,
+        },
+      });
 
-    await prisma.auditLog.create({
-      data: {
-        table_name: 'silo',
-        record_id: siloId,
-        action: 'SILO_UPDATED',
-        old_values: { capacity_liters: Number(targetSilo.capacity_liters), is_active: targetSilo.is_active },
-        new_values: { capacity_liters: Number(updatedSilo.capacity_liters), is_active: updatedSilo.is_active },
-        user_id: adminUser?.id || null,
-      },
+      await tx.auditLog.create({
+        data: {
+          table_name: 'silo',
+          record_id: siloId,
+          action: 'SILO_UPDATED',
+          old_values: { capacity_liters: Number(targetSilo.capacity_liters), is_active: targetSilo.is_active },
+          new_values: { capacity_liters: Number(silo.capacity_liters), is_active: silo.is_active },
+          user_id: adminUser?.id || null,
+        },
+      });
+
+      return silo;
     });
 
     return NextResponse.json({
