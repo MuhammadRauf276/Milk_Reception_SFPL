@@ -1,8 +1,11 @@
+import fs from 'fs';
+import path from 'path';
 import { MilkProcessLog } from '../src/backend/core/types';
 import {
   deriveManagerLifecycle,
   buildVehicleVisitGroups,
 } from '../src/frontend/modules/dashboard/zmcc/zmccManagerHelpers';
+
 
 async function runAuthorityTests() {
   console.log('================================================================================');
@@ -136,8 +139,6 @@ async function runAuthorityTests() {
   // Case F: operational_date missing in read model input
   // Required: dispatch_date in read model output does NOT invent date from created_at
   // Static / structural check on operationalReadModelService
-  const fs = require('fs');
-  const path = require('path');
   const readModelSrc = fs.readFileSync(path.join(__dirname, '../src/backend/services/operationalReadModelService.ts'), 'utf8');
   assert(
     !readModelSrc.includes('visit.operational_date ? new Date(visit.operational_date) : new Date(visit.created_at)'),
@@ -187,6 +188,44 @@ async function runAuthorityTests() {
     hasCanonicalFixture && hasCanonicalDefaultUsers,
     'Case I: FIXTURE_USER_PROFILES and DEFAULT_USERS map zmcc.manager.north to canonical ZMCC_MANAGER without active legacy alias',
     `fixtureRole=${zmccFixture?.role}, defaultUsersZMCC=${DEFAULT_USERS['ZMCC_MANAGER']?.username}`
+  );
+
+  // Case J: Complete ZMCC Runtime Owner Boundary & Retired Component Physical Absence (Static Architecture Contract)
+  const zonalHistoryPath = path.join(__dirname, '../src/frontend/modules/dashboard/ZonalHistoryTable.tsx');
+  const zonalHistoryExists = fs.existsSync(zonalHistoryPath);
+  assert(!zonalHistoryExists, 'Case J.1: ZonalHistoryTable is retired and physically absent from codebase (static architecture contract)');
+
+  const zmccBoundaryFiles = [
+    path.join(__dirname, '../src/frontend/modules/dashboard/ZMCCManagerWorkspace.tsx'),
+    ...fs.readdirSync(path.join(__dirname, '../src/frontend/modules/dashboard/zmcc')).map((f: string) => path.join(__dirname, '../src/frontend/modules/dashboard/zmcc', f)),
+    path.join(__dirname, '../src/backend/services/operationalReadModelService.ts'),
+  ];
+
+  let boundaryHasFabricatedAcidity = false;
+  let boundaryHasFabricatedTemp = false;
+  let boundaryHasFabricatedLr = false;
+
+  for (const filePath of zmccBoundaryFiles) {
+    if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) continue;
+    const content = fs.readFileSync(filePath, 'utf8');
+    if (content.includes('0.14') && (content.includes('Acidity') || content.includes('acidity'))) {
+      boundaryHasFabricatedAcidity = true;
+    }
+    if ((content.includes('4.5') || content.includes('4.8')) && (content.includes('Temperature') || content.includes('temperature'))) {
+      boundaryHasFabricatedTemp = true;
+    }
+    if (content.includes('|| 28.0') || content.includes('|| 28') || content.includes('?? 28.0')) {
+      boundaryHasFabricatedLr = true;
+    }
+  }
+
+  assert(
+    !boundaryHasFabricatedAcidity && !boundaryHasFabricatedTemp,
+    'Case J.2: Complete ZMCC runtime boundary (workspace, zmcc modules, read-model) contains no fabricated Acidity (0.14) or Temperature (4.5/4.8) static architecture contract'
+  );
+  assert(
+    !boundaryHasFabricatedLr,
+    'Case J.3: Complete ZMCC runtime boundary contains no fake LR 28/28.0 fallback static architecture contract'
   );
 
   console.log('\n================================================================================');
