@@ -1,5 +1,7 @@
 import { prisma } from '../src/backend/core/db';
 import bcrypt from 'bcryptjs';
+import fs from 'fs';
+import path from 'path';
 
 async function runSmokeTest() {
   console.log('🧪 RUNNING REAL ADMIN ACTION SMOKE TEST...\n');
@@ -71,31 +73,34 @@ async function runSmokeTest() {
     assert(reactivatedUser.is_active, 'SMOKE-5: Reactivate test user succeeds');
 
     // 6. Silo capacity validation test
-    const silo = await prisma.silo.findFirst();
-    if (silo) {
-      const txs = await prisma.siloInventoryTransaction.findMany({ where: { silo_id: silo.id } });
-      let currentStock = 0;
-      for (const t of txs) {
-        if (t.transaction_type === 'RECEIPT') currentStock += Number(t.quantity_liters);
-        else if (t.transaction_type === 'ISSUE') currentStock -= Number(t.quantity_liters);
-      }
-      currentStock = Math.max(0, currentStock);
-
-      const proposedInvalidCapacity = currentStock > 0 ? currentStock - 100 : -100;
-      const isCapacityInvalid = proposedInvalidCapacity < currentStock || proposedInvalidCapacity <= 0;
-      assert(isCapacityInvalid, `SMOKE-6: Proposed invalid silo capacity (${proposedInvalidCapacity} L) for current stock (${currentStock} L) is correctly flagged invalid`);
+    const silo = await prisma.silo.findFirst({ where: { is_active: true } });
+    if (!silo) {
+      assert(false, 'SMOKE-6: No active Silo found in test database');
     } else {
-      assert(true, 'SMOKE-6: Silo capacity check verified');
+      const { getSiloCurrentStockLiters, updateSiloConfiguration } = await import('../src/backend/services/siloInventoryService');
+      const currentStock = await getSiloCurrentStockLiters(silo.id, undefined, { allowIncomplete: true });
+      const invalidCapacity = currentStock > 0 ? Math.floor(currentStock / 2) : -500;
+      let reductionRejected = false;
+      try {
+        await updateSiloConfiguration({
+          silo_id: silo.id,
+          capacity_liters: invalidCapacity,
+        });
+      } catch (err: any) {
+        reductionRejected = err.message.includes('cannot be less than current calculated stock') || err.message.includes('greater than 0 Liters');
+      }
+      assert(reductionRejected, `SMOKE-6: Proposed invalid silo capacity (${invalidCapacity} L) for current stock (${currentStock} L) is rejected by updateSiloConfiguration`);
     }
 
     // 7. LabTest unsafe resultType change rejection
     const testedResult = await prisma.dispatchLabResult.findFirst({ include: { lab_test: true } });
-    if (testedResult) {
-      const totalResults = await prisma.dispatchLabResult.count({ where: { test_id: testedResult.test_id } });
-      const isResultTypeChangeBlocked = totalResults > 0;
-      assert(isResultTypeChangeBlocked, `SMOKE-7: Result type change for ${testedResult.lab_test.testCode} blocked because ${totalResults} historical records exist`);
+    if (!testedResult) {
+      assert(false, 'SMOKE-7: No historical lab result found in test database for immutability check');
     } else {
-      assert(true, 'SMOKE-7: Lab test immutability rule verified');
+      const totalResults = await prisma.dispatchLabResult.count({ where: { test_id: testedResult.test_id } });
+      const patchRouteContent = fs.readFileSync(path.join(process.cwd(), 'src/app/api/super-admin/lab-tests/[id]/route.ts'), 'utf8');
+      const enforcesResultTypeImmutability = patchRouteContent.includes('dispatchCount + plantCount > 0') && patchRouteContent.includes('Result type change rejected');
+      assert(totalResults > 0 && enforcesResultTypeImmutability, `SMOKE-7: Result type change for ${testedResult.lab_test.testCode} blocked by PATCH route rule because ${totalResults} historical records exist`);
     }
 
     console.log(`\n========================================`);

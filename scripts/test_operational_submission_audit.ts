@@ -18,21 +18,23 @@ async function runOperationalSubmissionAuditTests() {
   }
 
   try {
+    const dbCheck = await prisma.$queryRaw<Array<{ current_database: string }>>`SELECT current_database()`;
+    const currentDb = dbCheck[0]?.current_database;
+    if (currentDb !== 'milk_reception_test') {
+      throw new Error(`CRITICAL SAFETY ERROR: Test attempted against non-test database: '${currentDb}'. Refusing to execute.`);
+    }
+
     // AUDIT-TIME-01: Vehicle Visit table maintains created_at (server submission) vs operational_date
     const visit = await prisma.vehicleVisit.findFirst();
     assert(!!visit?.created_at, 'AUDIT-TIME-01', 'VehicleVisit maintains server created_at timestamp');
 
     // AUDIT-TIME-02: GateLog table maintains entry_timestamp (operational) vs created_at (server submission)
     const gateLog = await prisma.gateLog.findFirst();
-    if (gateLog) {
-      assert(!!gateLog.entry_timestamp && !!gateLog.created_at, 'AUDIT-TIME-02', 'GateLog maintains operational entry_timestamp and server created_at');
-    } else {
-      assert(true, 'AUDIT-TIME-02', 'GateLog schema fields verified via Prisma model');
-    }
+    assert(gateLog !== null && !!gateLog.entry_timestamp && !!gateLog.created_at, 'AUDIT-TIME-02', 'GateLog maintains operational entry_timestamp and server created_at');
 
     // AUDIT-TIME-03: Performed by actor attribution
     const dispatch = await prisma.dispatchInfo.findFirst();
-    assert(dispatch === null ? true : dispatch.recorded_by !== undefined, 'AUDIT-TIME-03', 'DispatchInfo contains recorded_by performer attribution field');
+    assert(dispatch !== null && dispatch.recorded_by !== null && dispatch.recorded_by !== undefined, 'AUDIT-TIME-03', 'DispatchInfo contains recorded_by performer attribution field');
 
     // AUDIT-TIME-04: Data-entry delay calculation
     const op = new Date('2026-08-11T09:00:00.000Z');
@@ -41,8 +43,26 @@ async function runOperationalSubmissionAuditTests() {
     assert(delaySec === 750, 'AUDIT-TIME-04', `Calculated data-entry delay = 750s (12m 30s)`);
 
     // AUDIT-TIME-05..08: Schema immutability & server timestamps
-    const auditLog = await prisma.auditLog.findFirst();
-    assert(auditLog === null ? true : !!auditLog.created_at, 'AUDIT-TIME-05', 'AuditLog records immutable server timestamp created_at');
+    let auditLog = await prisma.auditLog.findFirst();
+    let tempAuditId: bigint | null = null;
+    if (!auditLog) {
+      const u = await prisma.user.findFirst({ where: { is_active: true } });
+      const created = await prisma.auditLog.create({
+        data: {
+          table_name: 'system',
+          record_id: u ? u.id : BigInt(1),
+          action: 'TEST_INIT',
+          user_id: u ? u.id : null,
+        },
+      });
+      tempAuditId = created.id;
+      auditLog = created;
+    }
+    assert(auditLog !== null && !!auditLog.created_at, 'AUDIT-TIME-05', 'AuditLog records immutable server timestamp created_at');
+
+    if (tempAuditId) {
+      await prisma.auditLog.deleteMany({ where: { id: tempAuditId } });
+    }
 
     console.log(`\n========================================`);
     console.log(`SUBMISSION AUDIT TEST SUMMARY: ${passed} PASSED, ${failed} FAILED`);

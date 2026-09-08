@@ -18,11 +18,16 @@ async function runFinalReceiptPaymentDateTests() {
   }
 
   try {
-    // RECEIPT-TIME-01: Final Silo Receipt transaction model exists
+    // RECEIPT-TIME-01: Final Silo Receipt transaction model exists and validates receipt posting
     const receiptTx = await prisma.siloInventoryTransaction.findFirst({
       where: { transaction_type: 'RECEIPT' },
     });
-    assert(true, 'RECEIPT-TIME-01', 'Final receipt inventory transaction model exists and validates receipt posting');
+    const hasValidReceiptTx =
+      receiptTx !== null &&
+      receiptTx.operational_timestamp instanceof Date &&
+      !isNaN(receiptTx.operational_timestamp.getTime()) &&
+      receiptTx.transaction_type === 'RECEIPT';
+    assert(hasValidReceiptTx, 'RECEIPT-TIME-01', 'Final receipt inventory transaction exists with valid operational timestamp');
 
     // RECEIPT-TIME-02 & 03: Receipt timestamp bounds
     const now = new Date();
@@ -53,8 +58,95 @@ async function runFinalReceiptPaymentDateTests() {
     const exitBizDate = getOperationalBusinessDate(exitTs);
     assert(b3 === '2026-08-12' && exitBizDate === '2026-08-12', 'PAYDATE-04 & 05', 'Payment Business Date derived strictly from Final Receipt operational timestamp');
 
-    // RECEIPT-TIME-04: Missing Plant LR results in NO SiloReceipt and NO Payment Business Date
-    assert(true, 'RECEIPT-TIME-04', 'Missing Plant LR prevents inventory receipt creation; payment date remains NULL');
+    // RECEIPT-TIME-04: Behavioral proof - Missing Plant LR prevents final receipt creation and leaves payment date unavailable
+    const { finalizeSiloReceiptForVisit } = await import('../src/backend/services/siloInventoryService');
+    const source = await prisma.procurementSource.findFirst({ where: { is_active: true } });
+    const silo = await prisma.silo.findFirst({ where: { is_active: true } });
+    const user = await prisma.user.findFirst({ where: { is_active: true } });
+    const fatTest = await prisma.labTest.findUnique({ where: { testCode: 'LT-000026' } });
+
+    if (!source || !silo || !user || !fatTest) {
+      assert(false, 'RECEIPT-TIME-04', 'Missing active source, silo, user, or fat test fixture in test database');
+    } else {
+      let testVisitId: bigint | null = null;
+      try {
+        const testVisit = await prisma.vehicleVisit.create({
+          data: {
+            visit_number: `TST-NOLR-${Date.now()}`,
+            vehicle_number: 'TEST-NOLR-01',
+            current_status: 'TARE_WEIGHED',
+            procurement_source_id: source.id,
+            created_by: user.id,
+          },
+        });
+        testVisitId = testVisit.id;
+
+        const portion = await prisma.visitPortion.create({
+          data: {
+            visit_id: testVisit.id,
+            portion_number: 1,
+            plant_decision: 'ACCEPTED',
+            current_status: 'ACCEPTED',
+          },
+        });
+
+        await prisma.unloadingLog.create({
+          data: {
+            portion_id: portion.id,
+            silo_id: silo.id,
+            pump_start_timestamp: new Date(),
+            pump_end_timestamp: new Date(),
+            started_by: user.id,
+            completed_by: user.id,
+          },
+        });
+
+        await prisma.weightTicket.create({
+          data: {
+            visit_id: testVisit.id,
+            ticket_number: `TK-NOLR-${Date.now()}`,
+            gross_weight_kg: 15000,
+            tare_weight_kg: 5000,
+            net_weight_kg: 10000,
+            tare_timestamp: new Date(),
+            tare_recorded_by: user.id,
+          },
+        });
+
+        // Plant Fat LT-000026 recorded, Plant LR LT-000008 omitted
+        await prisma.plantLabResult.create({
+          data: {
+            visit_id: testVisit.id,
+            portion_id: portion.id,
+            test_id: fatTest.id,
+            numeric_value: 4.2,
+            is_passed: true,
+          },
+        });
+
+        const finalizeRes = await finalizeSiloReceiptForVisit(testVisit.id, user.id);
+        const receiptTx = await prisma.siloInventoryTransaction.findFirst({
+          where: { visit_id: testVisit.id, transaction_type: 'RECEIPT' },
+        });
+
+        const isRefused = !finalizeRes.success && !finalizeRes.receiptCreated && finalizeRes.reason === 'MISSING_PLANT_LR';
+        const hasNoReceiptTx = receiptTx === null;
+
+        assert(
+          isRefused && hasNoReceiptTx,
+          'RECEIPT-TIME-04',
+          'Canonical finalizeSiloReceiptForVisit refuses receipt (MISSING_PLANT_LR), creates zero RECEIPT transactions, and leaves payment date unavailable'
+        );
+      } finally {
+        if (testVisitId) {
+          await prisma.plantLabResult.deleteMany({ where: { portion: { visit_id: testVisitId } } });
+          await prisma.unloadingLog.deleteMany({ where: { portion: { visit_id: testVisitId } } });
+          await prisma.visitPortion.deleteMany({ where: { visit_id: testVisitId } });
+          await prisma.weightTicket.deleteMany({ where: { visit_id: testVisitId } });
+          await prisma.vehicleVisit.delete({ where: { id: testVisitId } });
+        }
+      }
+    }
 
     console.log(`\n========================================`);
     console.log(`FINAL RECEIPT & PAYMENT DATE TEST SUMMARY: ${passed} PASSED, ${failed} FAILED`);

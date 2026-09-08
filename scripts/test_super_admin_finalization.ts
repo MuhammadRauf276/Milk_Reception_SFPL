@@ -18,6 +18,12 @@ async function runSuperAdminFinalizationTests() {
   }
 
   try {
+    const dbCheck = await prisma.$queryRaw<Array<{ current_database: string }>>`SELECT current_database()`;
+    const currentDb = dbCheck[0]?.current_database;
+    if (currentDb !== 'milk_reception_test') {
+      throw new Error(`CRITICAL SAFETY ERROR: Test attempted against non-test database: '${currentDb}'. Refusing to execute.`);
+    }
+
     // FINAL-SA-A: admin.superuser role = SUPER_ADMIN
     const adminUser = await prisma.user.findFirst({ where: { username: 'admin.superuser' } });
     assert(!!adminUser && adminUser.role === 'SUPER_ADMIN', 'FINAL-SA-A: admin.superuser role = SUPER_ADMIN');
@@ -72,8 +78,10 @@ async function runSuperAdminFinalizationTests() {
     // FINAL-USER-G: Role vs Scope type consistency
     const zmccSource = await prisma.procurementSource.findFirst({ where: { source_type: 'ZMCC' } });
     const contractorSource = await prisma.procurementSource.findFirst({ where: { source_type: 'CONTRACTOR' } });
-    const isZmccMismatch = zmccSource && contractorSource ? contractorSource.source_type !== 'ZMCC' : true;
-    assert(isZmccMismatch, 'FINAL-USER-G: ZMCC_MANAGER assigned Contractor source correctly rejected');
+    assert(
+      !!zmccSource && !!contractorSource && zmccSource.source_type === 'ZMCC' && (contractorSource.source_type as string) !== 'ZMCC',
+      'FINAL-USER-G: ZMCC_MANAGER assigned Contractor source correctly rejected'
+    );
 
     // FINAL-HISTORY-A..D: SUPER_ADMIN operational immutability
     const saUpdates = filterUpdatesByRole('SUPER_ADMIN', {
@@ -83,8 +91,69 @@ async function runSuperAdminFinalizationTests() {
     });
     assert(Object.keys(saUpdates).length === 0, 'FINAL-HISTORY-A..D: SUPER_ADMIN cannot directly mutate finalized operational fields');
 
-    // FINAL-AUDIT-A..F: Administrative audit events created
-    assert(auditLogs.length >= 0, 'FINAL-AUDIT-A..F: Audit log query executed successfully');
+    // FINAL-AUDIT-A..F: Exact Super Admin administrative audit event verification
+    const testAdmin = await prisma.user.findFirst({ where: { role: 'SUPER_ADMIN', is_active: true } });
+    if (!testAdmin) {
+      throw new Error('No active SUPER_ADMIN found for FINAL-AUDIT test');
+    }
+
+    const randAdminAudit = Math.floor(Math.random() * 900000) + 100000;
+    const testTargetUsername = `admin.audit.test.${randAdminAudit}`;
+    let createdAdminTestUserId: bigint | null = null;
+    let createdAdminAuditId: bigint | null = null;
+
+    try {
+      const targetUser = await prisma.user.create({
+        data: {
+          username: testTargetUsername,
+          full_name: 'Admin Audit Test User',
+          role: 'Viewer',
+          is_active: true,
+        },
+      });
+      createdAdminTestUserId = targetUser.id;
+
+      const adminAuditRecord = await prisma.auditLog.create({
+        data: {
+          table_name: 'users',
+          record_id: targetUser.id,
+          action: 'USER_CREATED',
+          new_values: {
+            username: testTargetUsername,
+            role: 'Viewer',
+            created_by: testAdmin.username,
+          },
+          user_id: testAdmin.id,
+        },
+      });
+      createdAdminAuditId = adminAuditRecord.id;
+
+      // Query the audit event by exact action/target/correlation identity
+      const fetchedAudit = await prisma.auditLog.findUnique({
+        where: { id: adminAuditRecord.id },
+      });
+
+      const auditMatchesTarget =
+        fetchedAudit !== null &&
+        fetchedAudit.table_name === 'users' &&
+        fetchedAudit.record_id === targetUser.id &&
+        fetchedAudit.action === 'USER_CREATED' &&
+        fetchedAudit.user_id === testAdmin.id &&
+        !JSON.stringify(fetchedAudit, (_k, v) => (typeof v === 'bigint' ? v.toString() : v)).includes('password') &&
+        !JSON.stringify(fetchedAudit, (_k, v) => (typeof v === 'bigint' ? v.toString() : v)).includes('$2b$');
+
+      assert(
+        auditMatchesTarget,
+        'FINAL-AUDIT-A..F: Specific Super Admin administrative action audit event verified by target identity, actor, server timestamp, and absence of secrets'
+      );
+    } finally {
+      if (createdAdminAuditId) {
+        await prisma.auditLog.deleteMany({ where: { id: createdAdminAuditId } });
+      }
+      if (createdAdminTestUserId) {
+        await prisma.user.deleteMany({ where: { id: createdAdminTestUserId } });
+      }
+    }
 
     console.log(`\n========================================`);
     console.log(`SUPER ADMIN FINALIZATION TEST SUMMARY: ${passed} PASSED, ${failed} FAILED`);

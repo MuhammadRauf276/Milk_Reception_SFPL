@@ -17,6 +17,12 @@ async function runSuperAdminTests() {
   }
 
   try {
+    const dbCheck = await prisma.$queryRaw<Array<{ current_database: string }>>`SELECT current_database()`;
+    const currentDb = dbCheck[0]?.current_database;
+    if (currentDb !== 'milk_reception_test') {
+      throw new Error(`CRITICAL SAFETY ERROR: Test attempted against non-test database: '${currentDb}'. Refusing to execute.`);
+    }
+
     // ----------------------------------------------------
     // TEST GROUP 1: AUTHENTICATION & DEACTIVATION LOCK
     // ----------------------------------------------------
@@ -95,8 +101,10 @@ async function runSuperAdminTests() {
     // ----------------------------------------------------
     console.log('\n--- TEST GROUP 4: SILO CAPACITY VALIDATION ---');
 
-    const silo = await prisma.silo.findFirst();
-    if (silo) {
+    const silo = await prisma.silo.findFirst({ where: { is_active: true } });
+    if (!silo) {
+      assert(false, 'SA-SILO-A: No active Silo found in test database');
+    } else {
       const txs = await prisma.siloInventoryTransaction.findMany({ where: { silo_id: silo.id } });
       let stock = 0;
       for (const t of txs) {
@@ -105,8 +113,6 @@ async function runSuperAdminTests() {
       }
       const capacityValid = Number(silo.capacity_liters) >= Math.max(0, stock);
       assert(capacityValid, `SA-SILO-A: Silo ${silo.silo_code} capacity (${silo.capacity_liters} L) >= current ledger stock (${stock} L)`);
-    } else {
-      assert(true, 'SA-SILO-A: Silo check skipped (No silos)');
     }
 
     // ----------------------------------------------------
@@ -115,11 +121,11 @@ async function runSuperAdminTests() {
     console.log('\n--- TEST GROUP 5: LAB TEST RESULT_TYPE IMMUTABILITY ---');
 
     const testWithResults = await prisma.dispatchLabResult.findFirst({ include: { lab_test: true } });
-    if (testWithResults) {
+    if (!testWithResults) {
+      assert(false, 'SA-LAB-A: No historical dispatch lab result found in test database');
+    } else {
       const dispatchCount = await prisma.dispatchLabResult.count({ where: { test_id: testWithResults.test_id } });
       assert(dispatchCount > 0, `SA-LAB-A: Lab test ${testWithResults.lab_test.testCode} has ${dispatchCount} historical results (resultType immutable)`);
-    } else {
-      assert(true, 'SA-LAB-A: Result type immutability check verified');
     }
 
     // ----------------------------------------------------
@@ -127,8 +133,48 @@ async function runSuperAdminTests() {
     // ----------------------------------------------------
     console.log('\n--- TEST GROUP 6: QA WARNING INDIVIDUAL EVENTS & DERIVED MONTHLY COUNT ---');
 
-    const warningCount = await prisma.qAWarning.count();
-    assert(warningCount >= 0, `SA-WARN-D: Dynamic COUNT(QAWarning) executed successfully (${warningCount} total warning events)`);
+    const warningSource = await prisma.procurementSource.findFirst({ where: { is_active: true } });
+    if (!warningSource) {
+      throw new Error('No active procurement source found for SA-WARN-D test');
+    }
+
+    const initialSourceWarnings = await prisma.qAWarning.count({
+      where: { procurement_source_id: warningSource.id, status: 'ACTIVE' },
+    });
+    const initialTotalWarnings = await prisma.qAWarning.count({
+      where: { status: 'ACTIVE' },
+    });
+
+    let tempWarningId: bigint | null = null;
+    try {
+      const creatorUser = await prisma.user.findFirst({ where: { is_active: true } });
+      const createdWarning = await prisma.qAWarning.create({
+        data: {
+          procurement_source_id: warningSource.id,
+          reason: 'Deterministic test warning event for aggregation contract',
+          status: 'ACTIVE',
+          created_by: creatorUser ? creatorUser.id : saUser!.id,
+        },
+      });
+      tempWarningId = createdWarning.id;
+
+      const updatedSourceWarnings = await prisma.qAWarning.count({
+        where: { procurement_source_id: warningSource.id, status: 'ACTIVE' },
+      });
+      const updatedTotalWarnings = await prisma.qAWarning.count({
+        where: { status: 'ACTIVE' },
+      });
+
+      const isWarningAggregated = updatedSourceWarnings === initialSourceWarnings + 1 && updatedTotalWarnings === initialTotalWarnings + 1;
+      assert(
+        isWarningAggregated,
+        `SA-WARN-D: Dynamic COUNT(QAWarning) strictly increments active warnings for source ${warningSource.code} (${initialSourceWarnings} -> ${updatedSourceWarnings})`
+      );
+    } finally {
+      if (tempWarningId) {
+        await prisma.qAWarning.delete({ where: { id: tempWarningId } });
+      }
+    }
 
     // ----------------------------------------------------
     // TEST GROUP 7: SUPER_ADMIN OPERATIONAL PERMISSION BOUNDARY
