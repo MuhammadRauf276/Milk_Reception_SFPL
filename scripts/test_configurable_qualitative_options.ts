@@ -426,11 +426,38 @@ async function runConfigurableQualitativeOptionsTests() {
 
   // --- CASE M: Plant QA Complete with Valid Option & Passed Derivation ---
   console.log('\n--- CASE M: Plant QA Evaluation with Passing Option ---');
-  // Complete visit H portion 1 in Plant QA
+  // Establish legitimate QA session fixture for visit H portion 1 in Plant QA
   const portionH = await prisma.visitPortion.findFirst({
     where: { visit_id: visitIdH, portion_number: 1 },
   });
   if (!portionH) throw new Error('Portion H not found');
+
+  await prisma.vehicleVisit.update({
+    where: { id: visitIdH },
+    data: { current_status: 'PLANT_QA' },
+  });
+
+  await prisma.visitPortion.update({
+    where: { id: portionH.id },
+    data: { current_status: 'PLANT_QA', plant_decision: null },
+  });
+
+  const existingSessionH = await prisma.qATestingSession.findUnique({
+    where: { visit_id: visitIdH },
+  });
+  if (existingSessionH) {
+    throw new Error(`Fixture error: QA testing session already exists unexpectedly for visit ${visitIdH}`);
+  }
+
+  const qaSessionStartH = new Date(Date.now() - 3600000);
+  await prisma.qATestingSession.create({
+    data: {
+      visit_id: visitIdH,
+      status: 'IN_PROGRESS',
+      started_by: superAdminUser.id,
+      started_at: qaSessionStartH,
+    },
+  });
 
   const plantAssignmentsH = await getOrAssignPlantQATests(prisma, visitIdH);
   const plantResultsM = plantAssignmentsH
@@ -685,6 +712,24 @@ async function runConfigurableQualitativeOptionsTests() {
       current_status: 'UNDER_TESTING',
     },
   });
+
+  const existingSession3AE = await prisma.qATestingSession.findUnique({
+    where: { visit_id: visit3AE.id },
+  });
+  if (existingSession3AE) {
+    throw new Error(`Fixture error: QA testing session already exists unexpectedly for visit ${visit3AE.id}`);
+  }
+
+  const qaSessionStart3AE = new Date(Date.now() - 3600000);
+  await prisma.qATestingSession.create({
+    data: {
+      visit_id: visit3AE.id,
+      status: 'IN_PROGRESS',
+      started_by: superAdminUser.id,
+      started_at: qaSessionStart3AE,
+    },
+  });
+
   const plantAssignments3AE = await getOrAssignPlantQATests(prisma, visit3AE.id);
 
   const results3AE = plantAssignments3AE

@@ -398,6 +398,7 @@ async function runQADecisionCompletenessTests() {
 
       const [p1, p2] = v2.portions;
       const validResultsV2 = buildAcceptResults(plantReqTests);
+      const concurrentDecisionTimestampV2 = new Date().toISOString();
 
       try {
         const [resP1, resP2] = await Promise.all([
@@ -408,7 +409,7 @@ async function runQADecisionCompletenessTests() {
               body: JSON.stringify({
                 decision: 'ACCEPTED',
                 results: validResultsV2,
-                operationalTimestamp: new Date().toISOString(),
+                operationalTimestamp: concurrentDecisionTimestampV2,
               }),
             }),
             { params: Promise.resolve({ visitId: v2.id.toString(), portionId: p1.id.toString() }) }
@@ -420,7 +421,7 @@ async function runQADecisionCompletenessTests() {
               body: JSON.stringify({
                 decision: 'ACCEPTED',
                 results: validResultsV2,
-                operationalTimestamp: new Date().toISOString(),
+                operationalTimestamp: concurrentDecisionTimestampV2,
               }),
             }),
             { params: Promise.resolve({ visitId: v2.id.toString(), portionId: p2.id.toString() }) }
