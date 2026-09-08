@@ -7,6 +7,14 @@ import { validateNonNegativeDecimal } from '@/lib/validation-helpers';
 import { validateOperationalTimestamp } from '@/backend/services/chronology-validator';
 import { getOrAssignPlantQATests } from '@/backend/services/labTestAssignmentService';
 
+class RouteError extends Error {
+  statusCode: number;
+  constructor(message?: string, statusCode: number = 400) {
+    super(message || 'Operation failed');
+    this.statusCode = statusCode;
+  }
+}
+
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ visitId: string; portionId: string }> }
@@ -52,7 +60,7 @@ export async function POST(
     }
 
     if (portion.plant_decision === 'ACCEPTED' || portion.plant_decision === 'REJECTED') {
-      return NextResponse.json({ error: 'Portion testing has already been completed and finalized.' }, { status: 400 });
+      return NextResponse.json({ error: 'Portion testing has already been completed and finalized.' }, { status: 409 });
     }
 
     const explicitDecision = validated.decision;
@@ -229,24 +237,53 @@ export async function POST(
       ? rejectionReasonInput || `Failed tests: ${failedTestCodes.join(', ')}`
       : null;
 
+    let lockedPortionRecord: any = null;
+
     // Atomic Prisma Transaction
     await prisma.$transaction(async (tx) => {
-      // Validate chronology
+      // 0. Acquire PostgreSQL Row-Level Lock (FOR UPDATE) for the exact VehicleVisit to serialize QA mutations
+      await tx.$executeRaw`SELECT id FROM vehicle_visit WHERE id = ${visitId} FOR UPDATE`;
+
+      // 1. Re-read the VisitPortion within the locked transaction client
+      const lockedPortion = await tx.visitPortion.findFirst({
+        where: { id: portionId, visit_id: visitId },
+      });
+
+      if (!lockedPortion) {
+        throw new RouteError('Portion record not found for this vehicle visit', 404);
+      }
+
+      if (lockedPortion.plant_decision === 'ACCEPTED' || lockedPortion.plant_decision === 'REJECTED') {
+        throw new RouteError('Portion testing has already been completed and finalized.', 409);
+      }
+
+      lockedPortionRecord = lockedPortion;
+
+      // 2. Re-read the QATestingSession within the locked transaction client
       const session = await tx.qATestingSession.findUnique({
         where: { visit_id: visitId },
       });
 
-      const latestEvent = session ? await tx.qATestingSessionEvent.findFirst({
+      if (!session) {
+        throw new RouteError('QA testing session not found.', 404);
+      }
+
+      if (session.status !== 'IN_PROGRESS') {
+        throw new RouteError(`QA testing session is not IN_PROGRESS (current status: ${session.status}).`, 409);
+      }
+
+      // Validate chronology
+      const latestEvent = await tx.qATestingSessionEvent.findFirst({
         where: { session_id: session.id },
         orderBy: { timestamp: 'desc' },
-      }) : null;
+      });
 
-      const predTs = latestEvent?.timestamp ? new Date(latestEvent.timestamp) : (session?.started_at ? new Date(session.started_at) : null);
+      const predTs = latestEvent?.timestamp ? new Date(latestEvent.timestamp) : (session.started_at ? new Date(session.started_at) : null);
       const predLabel = latestEvent ? `QA ${latestEvent.event_type}` : 'QA Start';
 
       const chronoVal = validateOperationalTimestamp(targetOpTs.toISOString(), predTs, 'QA Decision', predLabel);
       if (!chronoVal.isValid) {
-        throw new Error(chronoVal.error);
+        throw new RouteError(chronoVal.error, 400);
       }
 
       // 1. Upsert submitted PlantLabResult rows
@@ -356,7 +393,7 @@ export async function POST(
             event_type: plantDecision === 'ACCEPTED' ? 'PORTION_ACCEPTED' : 'PORTION_REJECTED',
             timestamp: targetOpTs,
             user_id: userIdBigInt,
-            note: `Portion #${portion.portion_number} ${plantDecision}${finalRejectionReason ? `: ${finalRejectionReason}` : ''}`,
+            note: `Portion #${lockedPortion.portion_number} ${plantDecision}${finalRejectionReason ? `: ${finalRejectionReason}` : ''}`,
           },
         });
       }
@@ -421,13 +458,17 @@ export async function POST(
       portionId: portionIdStr,
       plantDecision,
       rejectionReason: finalRejectionReason,
-      message: `Portion #${portion.portion_number} testing completed. Decision: ${plantDecision}.`,
+      message: `Portion #${lockedPortionRecord?.portion_number ?? portion.portion_number} testing completed. Decision: ${plantDecision}.`,
     });
   } catch (error: any) {
     if (error?.name === 'ZodError' || error?.issues) {
       const msg = error.issues?.[0]?.message || error.errors?.[0]?.message || error.message || 'Validation failed';
       return NextResponse.json({ error: msg }, { status: 400 });
     }
-    return NextResponse.json({ error: error?.message || 'Failed to complete QA test' }, { status: 500 });
+    if (error instanceof RouteError) {
+      return NextResponse.json({ error: error.message }, { status: error.statusCode });
+    }
+    console.error('Unexpected error in QA complete route:', error);
+    return NextResponse.json({ error: 'Failed to complete QA test' }, { status: 500 });
   }
 }
