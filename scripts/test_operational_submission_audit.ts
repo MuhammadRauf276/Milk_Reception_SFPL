@@ -43,26 +43,8 @@ async function runOperationalSubmissionAuditTests() {
     assert(delaySec === 750, 'AUDIT-TIME-04', `Calculated data-entry delay = 750s (12m 30s)`);
 
     // AUDIT-TIME-05..08: Schema immutability & server timestamps
-    let auditLog = await prisma.auditLog.findFirst();
-    let tempAuditId: bigint | null = null;
-    if (!auditLog) {
-      const u = await prisma.user.findFirst({ where: { is_active: true } });
-      const created = await prisma.auditLog.create({
-        data: {
-          table_name: 'system',
-          record_id: u ? u.id : BigInt(1),
-          action: 'TEST_INIT',
-          user_id: u ? u.id : null,
-        },
-      });
-      tempAuditId = created.id;
-      auditLog = created;
-    }
+    const auditLog = await prisma.auditLog.findFirst();
     assert(auditLog !== null && !!auditLog.created_at, 'AUDIT-TIME-05', 'AuditLog records immutable server timestamp created_at');
-
-    if (tempAuditId) {
-      await prisma.auditLog.deleteMany({ where: { id: tempAuditId } });
-    }
 
     console.log(`\n========================================`);
     console.log(`SUBMISSION AUDIT TEST SUMMARY: ${passed} PASSED, ${failed} FAILED`);

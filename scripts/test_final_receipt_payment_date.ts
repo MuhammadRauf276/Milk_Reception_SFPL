@@ -18,6 +18,12 @@ async function runFinalReceiptPaymentDateTests() {
   }
 
   try {
+    const dbCheck = await prisma.$queryRaw<Array<{ current_database: string }>>`SELECT current_database()`;
+    const currentDb = dbCheck[0]?.current_database;
+    if (currentDb !== 'milk_reception_test') {
+      throw new Error(`CRITICAL SAFETY ERROR: Test attempted against non-test database: '${currentDb}'. Refusing to execute.`);
+    }
+
     // RECEIPT-TIME-01: Final Silo Receipt transaction model exists and validates receipt posting
     const receiptTx = await prisma.siloInventoryTransaction.findFirst({
       where: { transaction_type: 'RECEIPT' },
@@ -135,7 +141,7 @@ async function runFinalReceiptPaymentDateTests() {
         assert(
           isRefused && hasNoReceiptTx,
           'RECEIPT-TIME-04',
-          'Canonical finalizeSiloReceiptForVisit refuses receipt (MISSING_PLANT_LR), creates zero RECEIPT transactions, and leaves payment date unavailable'
+          'Canonical finalizeSiloReceiptForVisit refuses receipt with MISSING_PLANT_LR, creates zero RECEIPT transactions, and receiptCreated is false'
         );
       } finally {
         if (testVisitId) {

@@ -1,7 +1,7 @@
 import { prisma } from '../src/backend/core/db';
 import bcrypt from 'bcryptjs';
-import fs from 'fs';
-import path from 'path';
+import { createSessionToken } from '../src/backend/core/auth';
+import { PATCH as patchLabTest } from '../src/app/api/super-admin/lab-tests/[id]/route';
 
 async function runSmokeTest() {
   console.log('🧪 RUNNING REAL ADMIN ACTION SMOKE TEST...\n');
@@ -21,6 +21,12 @@ async function runSmokeTest() {
   let tempUserId: bigint | null = null;
 
   try {
+    const dbCheck = await prisma.$queryRaw<Array<{ current_database: string }>>`SELECT current_database()`;
+    const currentDb = dbCheck[0]?.current_database;
+    if (currentDb !== 'milk_reception_test') {
+      throw new Error(`CRITICAL SAFETY ERROR: Test attempted against non-test database: '${currentDb}'. Refusing to execute.`);
+    }
+
     // 1. Fetch valid ZMCC and Contractor procurement sources
     const zmccSource = await prisma.procurementSource.findFirst({ where: { source_type: 'ZMCC' } });
     const contractorSource = await prisma.procurementSource.findFirst({ where: { source_type: 'CONTRACTOR' } });
@@ -79,28 +85,77 @@ async function runSmokeTest() {
     } else {
       const { getSiloCurrentStockLiters, updateSiloConfiguration } = await import('../src/backend/services/siloInventoryService');
       const currentStock = await getSiloCurrentStockLiters(silo.id, undefined, { allowIncomplete: true });
-      const invalidCapacity = currentStock > 0 ? Math.floor(currentStock / 2) : -500;
-      let reductionRejected = false;
-      try {
-        await updateSiloConfiguration({
-          silo_id: silo.id,
-          capacity_liters: invalidCapacity,
-        });
-      } catch (err: any) {
-        reductionRejected = err.message.includes('cannot be less than current calculated stock') || err.message.includes('greater than 0 Liters');
+      if (currentStock <= 0) {
+        assert(false, `SMOKE-6: Test requires active silo with positive stock (found ${currentStock} L)`);
+      } else {
+        const invalidCapacity = Math.floor(currentStock / 2);
+        let reductionRejected = false;
+        try {
+          await updateSiloConfiguration({
+            silo_id: silo.id,
+            capacity_liters: invalidCapacity,
+          });
+        } catch (err: any) {
+          reductionRejected = err.message.includes('cannot be less than current calculated stock');
+        }
+
+        const siloAfter = await prisma.silo.findUnique({ where: { id: silo.id } });
+        const stockAfter = await getSiloCurrentStockLiters(silo.id, undefined, { allowIncomplete: true });
+        const capacityUnchanged = Number(siloAfter?.capacity_liters) === Number(silo.capacity_liters);
+        const stockUnchanged = stockAfter === currentStock;
+
+        assert(
+          reductionRejected && capacityUnchanged && stockUnchanged,
+          `SMOKE-6: Proposed invalid silo capacity (${invalidCapacity} L) for current stock (${currentStock} L) is rejected and database state remains unchanged`
+        );
       }
-      assert(reductionRejected, `SMOKE-6: Proposed invalid silo capacity (${invalidCapacity} L) for current stock (${currentStock} L) is rejected by updateSiloConfiguration`);
     }
 
     // 7. LabTest unsafe resultType change rejection
     const testedResult = await prisma.dispatchLabResult.findFirst({ include: { lab_test: true } });
+    const superAdminUser = await prisma.user.findFirst({ where: { role: 'SUPER_ADMIN', is_active: true } });
     if (!testedResult) {
       assert(false, 'SMOKE-7: No historical lab result found in test database for immutability check');
+    } else if (!superAdminUser) {
+      assert(false, 'SMOKE-7: No active SUPER_ADMIN user found in test database');
     } else {
-      const totalResults = await prisma.dispatchLabResult.count({ where: { test_id: testedResult.test_id } });
-      const patchRouteContent = fs.readFileSync(path.join(process.cwd(), 'src/app/api/super-admin/lab-tests/[id]/route.ts'), 'utf8');
-      const enforcesResultTypeImmutability = patchRouteContent.includes('dispatchCount + plantCount > 0') && patchRouteContent.includes('Result type change rejected');
-      assert(totalResults > 0 && enforcesResultTypeImmutability, `SMOKE-7: Result type change for ${testedResult.lab_test.testCode} blocked by PATCH route rule because ${totalResults} historical records exist`);
+      const token = await createSessionToken({
+        id: superAdminUser.id.toString(),
+        username: superAdminUser.username,
+        name: superAdminUser.full_name || superAdminUser.username,
+        role: superAdminUser.role as any,
+        department: superAdminUser.department || 'Administration',
+      });
+
+      const targetTestId = testedResult.test_id;
+      const originalTest = testedResult.lab_test;
+      const proposedType = originalTest.resultType === 'NUMERIC' ? 'QUALITATIVE' : 'NUMERIC';
+
+      const patchReq = new Request(`http://localhost/api/super-admin/lab-tests/${targetTestId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ resultType: proposedType }),
+      });
+
+      const patchRes = await patchLabTest(patchReq, {
+        params: Promise.resolve({ id: targetTestId.toString() }),
+      });
+      const patchBody = await patchRes.json();
+
+      const testAfter = await prisma.labTest.findUnique({ where: { id: targetTestId } });
+      const wasBlocked =
+        patchRes.status === 400 &&
+        typeof patchBody?.error === 'string' &&
+        patchBody.error.includes('Result type change rejected');
+      const typeUnchanged = testAfter?.resultType === originalTest.resultType;
+
+      assert(
+        wasBlocked && typeUnchanged,
+        `SMOKE-7: Canonical PATCH handler rejects resultType change for ${originalTest.testCode} (HTTP 400) and preserves original type`
+      );
     }
 
     console.log(`\n========================================`);
