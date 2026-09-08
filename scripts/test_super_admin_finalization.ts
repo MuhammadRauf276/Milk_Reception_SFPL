@@ -8,6 +8,8 @@ import { POST as postResetPassword } from '../src/app/api/super-admin/users/[id]
 import { GET as getProcurementSources } from '../src/app/api/super-admin/procurement-sources/route';
 import bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
+import fs from 'fs';
+import path from 'path';
 import { assertSafeTestDatabase } from '../tests/helpers/testDbSafety';
 
 async function runSuperAdminFinalizationTests() {
@@ -818,6 +820,119 @@ async function runSuperAdminFinalizationTests() {
         }
       }
     }
+
+    // ----------------------------------------------------
+    // STAGE 5D-C1: SUPER ADMIN SHARED SHELL MODERNIZATION
+    // ----------------------------------------------------
+    console.log('\n--- STAGE 5D-C1: SUPER ADMIN SHARED SHELL MODERNIZATION ---');
+
+    const headerPath = path.join(process.cwd(), 'src', 'frontend', 'modules', 'super-admin', 'SuperAdminHeader.tsx');
+    const sidebarPath = path.join(process.cwd(), 'src', 'frontend', 'modules', 'super-admin', 'SuperAdminSidebar.tsx');
+    const layoutPath = path.join(process.cwd(), 'src', 'app', 'super-admin', 'layout.tsx');
+    const usersPagePath = path.join(process.cwd(), 'src', 'app', 'super-admin', 'users', 'page.tsx');
+
+    const headerContent = fs.readFileSync(headerPath, 'utf8');
+    const sidebarContent = fs.readFileSync(sidebarPath, 'utf8');
+    const layoutContent = fs.readFileSync(layoutPath, 'utf8');
+    const usersPageContent = fs.readFileSync(usersPagePath, 'utf8');
+
+    // 5D-C1-01: Exact company header title present
+    const hasCompanyTitle = headerContent.includes('Shakarganj Food Products Limited');
+    assert(
+      hasCompanyTitle,
+      '5D-C1-01: Company header title is exactly "Shakarganj Food Products Limited"'
+    );
+
+    // 5D-C1-02: Removed header labels are absent
+    const hasRemovedHeaderLabels =
+      headerContent.includes('System Administration & Master Control') ||
+      headerContent.includes('Milk Reception Management System') ||
+      headerContent.includes('User/Menu') ||
+      headerContent.includes("title = 'Super Admin'") ||
+      headerContent.includes('>Super Admin<') ||
+      headerContent.includes('>SUPER ADMIN<');
+    assert(
+      !hasRemovedHeaderLabels,
+      '5D-C1-02: Removed header labels and old title defaults are absent from SuperAdminHeader'
+    );
+
+    // 5D-C1-03: Sidebar branding block labels are absent
+    const hasSidebarBranding =
+      sidebarContent.includes('Control Panel') ||
+      sidebarContent.includes('Super Admin\n              </h1>') ||
+      sidebarContent.includes('Super Admin</h1>');
+    assert(
+      !hasSidebarBranding,
+      '5D-C1-03: Sidebar branding block (Control Panel / Super Admin header) is absent'
+    );
+
+    // 5D-C1-04: Sidebar navigation label is "Users" and "Users & Access" is absent
+    const hasUsersNav = sidebarContent.includes("label: 'Users'");
+    const hasOldUsersAccessNav = sidebarContent.includes("label: 'Users & Access'");
+    assert(
+      hasUsersNav && !hasOldUsersAccessNav,
+      '5D-C1-04: Sidebar navigation label is "Users" and old "Users & Access" label is absent'
+    );
+
+    // 5D-C1-05: Existing Super Admin navigation destinations remain present
+    const requiredDestinations = [
+      '/super-admin',
+      '/super-admin/users',
+      '/super-admin/procurement-sources',
+      '/super-admin/silos',
+      '/super-admin/lab-tests',
+      '/super-admin/sop-rules',
+      '/super-admin/qa-warnings',
+      '/super-admin/operations',
+      '/super-admin/audit',
+      '/super-admin/master-data',
+      '/super-admin/settings',
+    ];
+    const allDestinationsPresent = requiredDestinations.every((dest) =>
+      sidebarContent.includes(`href: '${dest}'`)
+    );
+    assert(
+      allDestinationsPresent,
+      '5D-C1-05: All 11 canonical Super Admin navigation destinations remain present in sidebar'
+    );
+
+    // 5D-C1-06: Compact Add user action retains accessible name and min touch target
+    const hasAddUserAria = usersPageContent.includes('aria-label="Add user"');
+    const hasAddUserTitle = usersPageContent.includes('title="Add user"');
+    const hasMinTouchTarget = usersPageContent.includes('min-h-[44px]') && usersPageContent.includes('min-w-[44px]');
+    const hasPlusIcon = usersPageContent.includes('<Plus className="w-4 h-4" />');
+    assert(
+      hasAddUserAria && hasAddUserTitle && hasMinTouchTarget && hasPlusIcon,
+      '5D-C1-06: Compact Add user action has aria-label="Add user", title="Add user", Plus icon, and minimum 44px touch target'
+    );
+
+    // 5D-C1-07: Create-user capability remains connected to the existing modal
+    const hasCreateModalTrigger =
+      usersPageContent.includes('setShowCreateModal(true)') &&
+      usersPageContent.includes('resetForm()') &&
+      usersPageContent.includes('handleCreateUser');
+    const hasRemovedLargeIntro =
+      !usersPageContent.includes('Users & Access Management') &&
+      !usersPageContent.includes('Create New User</span>') &&
+      !usersPageContent.includes('+ Add User') &&
+      !usersPageContent.includes('>Add User<');
+    assert(
+      hasCreateModalTrigger && hasRemovedLargeIntro,
+      '5D-C1-07: Create-user modal trigger is preserved while large intro and large text button are removed'
+    );
+
+    // 5D-C1-08: Architecture preserves single canonical shell components with no duplicates
+    const allSrcFiles = fs.readdirSync(path.join(process.cwd(), 'src', 'frontend', 'modules', 'super-admin'));
+    const noDuplicateHeader = allSrcFiles.filter((f) => f.toLowerCase().includes('header')).length === 1;
+    const noDuplicateSidebar = allSrcFiles.filter((f) => f.toLowerCase().includes('sidebar')).length === 1;
+    const layoutUsesCanonical =
+      layoutContent.includes('SuperAdminSidebar') &&
+      layoutContent.includes('SuperAdminHeader') &&
+      layoutContent.includes('isAuthorized');
+    assert(
+      noDuplicateHeader && noDuplicateSidebar && layoutUsesCanonical,
+      '5D-C1-08: Canonical layout, sidebar, and header preserved without duplicate or replacement shell components'
+    );
 
     console.log(`\n========================================`);
     console.log(`SUPER ADMIN FINALIZATION TEST SUMMARY: ${passed} PASSED, ${failed} FAILED`);

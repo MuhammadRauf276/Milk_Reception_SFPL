@@ -7,13 +7,11 @@ import { LogOut, Shield, Menu } from 'lucide-react';
 
 interface SuperAdminHeaderProps {
   currentUser: User | null;
-  title?: string;
   onMenuClick?: () => void;
 }
 
 export const SuperAdminHeader: React.FC<SuperAdminHeaderProps> = ({
   currentUser,
-  title = 'Super Admin',
   onMenuClick,
 }) => {
   const router = useRouter();
@@ -46,30 +44,30 @@ export const SuperAdminHeader: React.FC<SuperAdminHeaderProps> = ({
           <Shield className="w-4 h-4 text-[#1E3A8A]" />
         </div>
         <div className="min-w-0">
-          <h2 className="text-xs sm:text-base font-black tracking-tight text-[#111311] truncate">
-            {title}
-          </h2>
-          <p className="text-[10px] sm:text-[11px] text-slate-500 font-semibold hidden sm:block truncate">
-            System Administration & Master Control
-          </p>
+          <h1 className="text-xs sm:text-sm md:text-base font-black tracking-tight text-[#111311] truncate">
+            Shakarganj Food Products Limited
+          </h1>
         </div>
       </div>
 
       <div className="flex items-center space-x-2 sm:space-x-4 shrink-0">
         <div className="text-right text-xs font-semibold max-w-[120px] sm:max-w-none">
           <div className="text-[#111311] font-bold text-[11px] sm:text-xs truncate">
-            {currentUser?.name || 'Super Admin'}
+            {currentUser?.name || currentUser?.username || 'User'}
           </div>
-          <div className="text-[9px] sm:text-[10px] text-slate-500 font-mono hidden sm:block truncate">
-            {currentUser?.username || 'super.admin'}
-          </div>
+          {currentUser?.username && (
+            <div className="text-[9px] sm:text-[10px] text-slate-500 font-mono hidden sm:block truncate">
+              {currentUser.username}
+            </div>
+          )}
         </div>
 
         <button
           type="button"
           onClick={handleLogout}
-          className="flex items-center space-x-1.5 px-3 py-2 min-h-[44px] rounded-xl border border-[#C4B9A3] bg-[#FDFBF9] hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300 text-xs font-bold text-slate-700 transition"
+          className="flex items-center justify-center space-x-1.5 px-3 py-2 min-h-[44px] min-w-[44px] rounded-xl border border-[#C4B9A3] bg-[#FDFBF9] hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300 text-xs font-bold text-slate-700 transition"
           title="Sign Out"
+          aria-label="Sign Out"
         >
           <LogOut className="w-4 h-4 text-[#1E3A8A]" />
           <span className="hidden sm:inline">Sign Out</span>

@@ -400,27 +400,7 @@ export default function SuperAdminUsersPage() {
   };
 
   return (
-    <div className="space-y-6 w-full max-w-full overflow-x-hidden">
-      {/* HEADER BAR */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-black text-[#111311]">Users & Access Management</h1>
-          <p className="text-xs font-medium text-slate-500 mt-1">
-            Database-backed user administration with bcrypt password hashing, data scopes, and Last Super Admin protection.
-          </p>
-        </div>
-        <button
-          onClick={() => {
-            resetForm();
-            setShowCreateModal(true);
-          }}
-          className="flex items-center justify-center space-x-2 px-4 py-2.5 bg-[#1E3A8A] text-white rounded-xl text-xs font-bold shadow-sm hover:bg-blue-900 transition shrink-0"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Create New User</span>
-        </button>
-      </div>
-
+    <div className="space-y-4 w-full max-w-full overflow-x-hidden">
       {error && (
         <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs font-bold flex items-center space-x-2">
           <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
@@ -437,6 +417,26 @@ export default function SuperAdminUsersPage() {
 
       {/* USERS TABLE */}
       <div className="bg-white rounded-xl border border-[#EAE4D5]/80 shadow-sm overflow-hidden w-full max-w-full">
+        <div className="p-3 sm:px-4 sm:py-3 border-b border-[#EAE4D5] flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <h2 className="text-sm font-bold text-[#111311]">Users</h2>
+            <span className="text-[11px] font-mono px-2 py-0.5 bg-[#FDFBF9] border border-[#EAE4D5] text-slate-600 rounded-full">
+              {users.length}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              resetForm();
+              setShowCreateModal(true);
+            }}
+            aria-label="Add user"
+            title="Add user"
+            className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl bg-[#1E3A8A] text-white hover:bg-blue-900 transition shadow-xs"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+        </div>
         <div className="overflow-x-auto w-full">
           <table className="w-full text-left text-xs min-w-[700px]">
             <thead className="bg-[#FDFBF9] text-slate-600 border-b border-[#EAE4D5]">
