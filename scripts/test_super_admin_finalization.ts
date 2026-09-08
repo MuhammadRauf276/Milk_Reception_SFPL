@@ -178,20 +178,16 @@ async function runSuperAdminFinalizationTests() {
       );
     } finally {
       (nextHeaders as any).cookies = origCookies;
-      try {
-        let targetId = createdAdminTestUserId;
-        if (!targetId) {
-          const u = await prisma.user.findFirst({ where: { username: testTargetUsername } });
-          if (u) targetId = u.id;
-        }
-        if (targetId) {
-          await prisma.auditLog.deleteMany({
-            where: { table_name: 'users', record_id: targetId },
-          });
-          await prisma.user.deleteMany({ where: { id: targetId } });
-        }
-      } catch (cleanupErr) {
-        console.error('Error in test_super_admin_finalization cleanup:', cleanupErr);
+      let targetId = createdAdminTestUserId;
+      if (!targetId) {
+        const u = await prisma.user.findFirst({ where: { username: testTargetUsername } });
+        if (u) targetId = u.id;
+      }
+      if (targetId) {
+        await prisma.auditLog.deleteMany({
+          where: { table_name: 'users', record_id: targetId },
+        });
+        await prisma.user.deleteMany({ where: { id: targetId } });
       }
     }
 
