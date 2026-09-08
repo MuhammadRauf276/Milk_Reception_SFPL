@@ -74,30 +74,34 @@ export async function PATCH(
       }
     }
 
-    const updatedUser = await prisma.user.update({
-      where: { id: targetUserId },
-      data: {
-        full_name: body.name !== undefined ? body.name : targetUser.full_name,
-        role: newRole,
-        department: body.department !== undefined ? body.department : targetUser.department,
-        scope_type: body.scopeType !== undefined ? body.scopeType : targetUser.scope_type,
-        procurement_source_id: psId,
-        is_active: body.isActive !== undefined ? Boolean(body.isActive) : targetUser.is_active,
-      },
-    });
-
     const adminUser = await prisma.user.findFirst({ where: { username: authUser.username } });
     const actionName = body.isActive === false ? 'USER_DEACTIVATED' : body.isActive === true ? 'USER_ACTIVATED' : 'USER_UPDATED';
 
-    await prisma.auditLog.create({
-      data: {
-        table_name: 'users',
-        record_id: targetUserId,
-        action: actionName,
-        old_values: { username: targetUser.username, role: targetUser.role, is_active: targetUser.is_active },
-        new_values: { username: updatedUser.username, role: updatedUser.role, is_active: updatedUser.is_active },
-        user_id: adminUser?.id || null,
-      },
+    const updatedUser = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.update({
+        where: { id: targetUserId },
+        data: {
+          full_name: body.name !== undefined ? body.name : targetUser.full_name,
+          role: newRole,
+          department: body.department !== undefined ? body.department : targetUser.department,
+          scope_type: body.scopeType !== undefined ? body.scopeType : targetUser.scope_type,
+          procurement_source_id: psId,
+          is_active: body.isActive !== undefined ? Boolean(body.isActive) : targetUser.is_active,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          table_name: 'users',
+          record_id: targetUserId,
+          action: actionName,
+          old_values: { username: targetUser.username, role: targetUser.role, is_active: targetUser.is_active },
+          new_values: { username: user.username, role: user.role, is_active: user.is_active },
+          user_id: adminUser?.id || null,
+        },
+      });
+
+      return user;
     });
 
     return NextResponse.json({

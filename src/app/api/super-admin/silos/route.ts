@@ -61,24 +61,28 @@ export async function POST(req: Request) {
 
     const adminUser = await prisma.user.findFirst({ where: { username: authUser.username } });
 
-    const newSilo = await prisma.silo.create({
-      data: {
-        silo_code: siloCode,
-        silo_name: siloName,
-        capacity_liters: capacityLiters,
-        is_active: true,
-        created_by: adminUser?.id || null,
-      },
-    });
+    const newSilo = await prisma.$transaction(async (tx) => {
+      const createdSilo = await tx.silo.create({
+        data: {
+          silo_code: siloCode,
+          silo_name: siloName,
+          capacity_liters: capacityLiters,
+          is_active: true,
+          created_by: adminUser?.id || null,
+        },
+      });
 
-    await prisma.auditLog.create({
-      data: {
-        table_name: 'silo',
-        record_id: newSilo.id,
-        action: 'SILO_CREATED',
-        new_values: { silo_code: siloCode, silo_name: siloName, capacity_liters: capacityLiters },
-        user_id: adminUser?.id || null,
-      },
+      await tx.auditLog.create({
+        data: {
+          table_name: 'silo',
+          record_id: createdSilo.id,
+          action: 'SILO_CREATED',
+          new_values: { silo_code: siloCode, silo_name: siloName, capacity_liters: capacityLiters },
+          user_id: adminUser?.id || null,
+        },
+      });
+
+      return createdSilo;
     });
 
     return NextResponse.json({

@@ -92,28 +92,32 @@ export async function POST(req: Request) {
     const passHash = await bcrypt.hash(password, 10);
     const adminUser = await prisma.user.findFirst({ where: { username: authUser.username } });
 
-    const newUser = await prisma.user.create({
-      data: {
-        username,
-        full_name: fullName || username,
-        password_hash: passHash,
-        role,
-        department,
-        scope_type: scopeType,
-        procurement_source_id: psId,
-        is_active: true,
-      },
-    });
+    const newUser = await prisma.$transaction(async (tx) => {
+      const createdUser = await tx.user.create({
+        data: {
+          username,
+          full_name: fullName || username,
+          password_hash: passHash,
+          role,
+          department,
+          scope_type: scopeType,
+          procurement_source_id: psId,
+          is_active: true,
+        },
+      });
 
-    // Create AuditLog entry without password
-    await prisma.auditLog.create({
-      data: {
-        table_name: 'users',
-        record_id: newUser.id,
-        action: 'USER_CREATED',
-        new_values: { username, role, department, scope_type: scopeType },
-        user_id: adminUser?.id || null,
-      },
+      // Create AuditLog entry without password
+      await tx.auditLog.create({
+        data: {
+          table_name: 'users',
+          record_id: createdUser.id,
+          action: 'USER_CREATED',
+          new_values: { username, role, department, scope_type: scopeType },
+          user_id: adminUser?.id || null,
+        },
+      });
+
+      return createdUser;
     });
 
     return NextResponse.json({

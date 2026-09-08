@@ -53,25 +53,29 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: `Procurement Source Code "${code}" already exists.` }, { status: 400 });
     }
 
-    const newSource = await prisma.procurementSource.create({
-      data: {
-        code,
-        name,
-        source_type: sourceType,
-        is_active: true,
-      },
-    });
-
     const adminUser = await prisma.user.findFirst({ where: { username: authUser.username } });
 
-    await prisma.auditLog.create({
-      data: {
-        table_name: 'procurement_source',
-        record_id: newSource.id,
-        action: 'PROCUREMENT_SOURCE_CREATED',
-        new_values: { code, name, source_type: sourceType },
-        user_id: adminUser?.id || null,
-      },
+    const newSource = await prisma.$transaction(async (tx) => {
+      const createdSource = await tx.procurementSource.create({
+        data: {
+          code,
+          name,
+          source_type: sourceType,
+          is_active: true,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          table_name: 'procurement_source',
+          record_id: createdSource.id,
+          action: 'PROCUREMENT_SOURCE_CREATED',
+          new_values: { code, name, source_type: sourceType },
+          user_id: adminUser?.id || null,
+        },
+      });
+
+      return createdSource;
     });
 
     return NextResponse.json({
