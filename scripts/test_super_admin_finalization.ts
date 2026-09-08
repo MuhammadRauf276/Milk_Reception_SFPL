@@ -1,4 +1,6 @@
 import { prisma } from '../src/backend/core/db';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const nextHeaders = require('next/headers');
 import { filterUpdatesByRole, createSessionToken } from '../src/backend/core/auth';
 import { POST as postCreateUser } from '../src/app/api/super-admin/users/route';
 import bcrypt from 'bcryptjs';
@@ -117,7 +119,6 @@ async function runSuperAdminFinalizationTests() {
       department: testAdmin.department || 'Administration',
     });
 
-    const nextHeaders = await import('next/headers');
     const origCookies = nextHeaders.cookies;
     (nextHeaders as any).cookies = async () => ({
       get: (name: string) => (name === 'auth_token' ? { name: 'auth_token', value: token } : undefined),

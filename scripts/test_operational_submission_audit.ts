@@ -48,8 +48,24 @@ async function runOperationalSubmissionAuditTests() {
     assert(delaySec === 750, 'AUDIT-TIME-04', `Calculated data-entry delay = 750s (12m 30s)`);
 
     // AUDIT-TIME-05..08: Schema immutability & server timestamps
-    const auditLog = await prisma.auditLog.findFirst();
-    assert(auditLog !== null && !!auditLog.created_at, 'AUDIT-TIME-05', 'AuditLog records immutable server timestamp created_at');
+    const columns = await prisma.$queryRaw<Array<{ column_default: string | null; is_nullable: string }>>`
+      SELECT column_default, is_nullable
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'audit_log'
+        AND column_name = 'created_at'
+    `;
+
+    const column = columns[0];
+    const normalizedDefault = column?.column_default ? column.column_default.trim().toUpperCase() : '';
+    const isTimestampDefault = normalizedDefault === 'CURRENT_TIMESTAMP' || normalizedDefault.startsWith('CURRENT_TIMESTAMP');
+    const isNotNull = column?.is_nullable === 'NO';
+
+    assert(
+      columns.length === 1 && isNotNull && isTimestampDefault,
+      'AUDIT-TIME-05',
+      'AuditLog.created_at is NOT NULL with database default CURRENT_TIMESTAMP'
+    );
 
     console.log(`\n========================================`);
     console.log(`SUBMISSION AUDIT TEST SUMMARY: ${passed} PASSED, ${failed} FAILED`);
