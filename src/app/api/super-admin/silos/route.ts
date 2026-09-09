@@ -56,7 +56,7 @@ export async function POST(req: Request) {
   if (!authUser) {
     return NextResponse.json({ error: 'Unauthorized. Authentication required.' }, { status: 401 });
   }
-  if (authUser.role !== 'SUPER_ADMIN' && authUser.role !== 'Admin') {
+  if (authUser.role !== 'SUPER_ADMIN') {
     return NextResponse.json({ error: 'Unauthorized. Super Admin authorization required.' }, { status: 403 });
   }
 
