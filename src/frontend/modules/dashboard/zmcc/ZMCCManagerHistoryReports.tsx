@@ -319,7 +319,7 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
               {filteredItems.map((item) => (
                 <tr key={item.visitId} className="hover:bg-[#FDFBF9] transition-colors">
                   <td className="py-2.5 px-3 font-bold text-slate-800 whitespace-nowrap">
-                    {item.businessDate}
+                    {item.businessDate || 'Pending plant completion'}
                   </td>
                   <td className="py-2.5 px-3 font-extrabold text-[#111311] whitespace-nowrap">
                     {item.vehicleNumber}

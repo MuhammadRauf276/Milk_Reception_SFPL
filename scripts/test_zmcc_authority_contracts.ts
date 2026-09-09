@@ -1,6 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import { MilkProcessLog } from '../src/backend/core/types';
+import { prisma } from '../src/backend/core/db';
+import { getOperationalLogs } from '../src/backend/services/operationalReadModelService';
 import {
   deriveManagerLifecycle,
   buildVehicleVisitGroups,
@@ -297,29 +299,31 @@ async function runAuthorityTests() {
     'Case K.8: Corporate branding "Shakarganj Food Products Limited" is present in both Header and Drawer'
   );
 
-  // K.9: Actual logged-in full name, username, assigned ZMCC source name, and Sign Out
+  // K.9: Final UI Override: Header contains identity & Sign Out; Drawer contains ONLY branding, close button, and navigation (no duplicate user card, no duplicate Sign Out); Main page starts directly with content (no top banner)
   const headerHasIdentity =
     headerSrc.includes('currentUser?.name') &&
     headerSrc.includes('currentUser?.username') &&
     headerSrc.includes('resolvedSourceName') &&
     headerSrc.includes('Sign Out');
-  const drawerHasIdentity =
-    workspaceSrc.includes('currentUser?.name') &&
-    workspaceSrc.includes('currentUser?.username') &&
-    workspaceSrc.includes('assignedSourceName') &&
-    workspaceSrc.includes('Sign Out');
+  const drawerHasNoDuplicateIdentity =
+    !workspaceSrc.includes('aria-label="Sign Out"') &&
+    !workspaceSrc.includes('handleLogout');
+  const mainPageHasNoTopBanner =
+    !workspaceSrc.includes('Refresh Logs') &&
+    !workspaceSrc.includes('Station</h1>') &&
+    !workspaceSrc.includes('<ShieldCheck');
   assert(
-    headerHasIdentity && drawerHasIdentity,
-    'Case K.9: Header and Drawer both show actual full name, username, assigned source name, and Sign Out'
+    headerHasIdentity && drawerHasNoDuplicateIdentity && mainPageHasNoTopBanner,
+    'Case K.9: Final UI Override: Identity and Sign Out live exclusively in Header; Drawer is minimal and banner is eliminated'
   );
 
-  // K.10: Opt-in Header variant contract for ZMCC
+  // K.10: Opt-in Header variant contract for ZMCC with technical role badges removed
   const headerHasOptInProp = headerSrc.includes('isZmccVariant?: boolean') && headerSrc.includes('if (!isZmccVariant)');
   const workspaceUsesOptIn = workspaceSrc.includes('isZmccVariant={true}');
-  const headerRendersZmccManager = headerSrc.includes('ZMCC Manager') && !workspaceSrc.includes('>ZMCC_MANAGER<');
+  const noTechnicalBadgesInHeader = !headerSrc.includes('ZMCC Manager') && !headerSrc.includes('Super Admin');
   assert(
-    headerHasOptInProp && workspaceUsesOptIn && headerRendersZmccManager,
-    'Case K.10: Header changes are strictly opt-in for ZMCC via isZmccVariant; other callers remain unchanged'
+    headerHasOptInProp && workspaceUsesOptIn && noTechnicalBadgesInHeader,
+    'Case K.10: Header changes are strictly opt-in for ZMCC via isZmccVariant; technical role badges are removed'
   );
 
   // K.11: Exactly one navigation trigger in Header; duplicate Menu button removed from supervisory banner
@@ -355,16 +359,21 @@ async function runAuthorityTests() {
     'Case K.13: Header and Drawer interactive elements enforce minimum 44px touch targets'
   );
 
-  // K.14: Read-only authority and zero mutation controls preserved
-  const hasReadOnlyBanner = workspaceSrc.includes('Read-only supervisory workspace');
+  // K.14: Strict read-only authority preserved with internal technical labels removed from UI
+  const noInternalTechnicalLabels =
+    !workspaceSrc.includes('Read-only supervisory workspace') &&
+    !workspaceSrc.includes('Logged In Manager') &&
+    !workspaceSrc.includes('Access Mode:') &&
+    !workspaceSrc.includes('Navigation Sections') &&
+    !workspaceSrc.includes('Authoritative Scale & Quantity Ledger');
   const hasNoScaleOrQaMutation =
     !workspaceSrc.includes('/api/scale') &&
     !workspaceSrc.includes('/api/qa') &&
     !workspaceSrc.includes('Record Gross') &&
     !workspaceSrc.includes('Record Tare');
   assert(
-    hasReadOnlyBanner && hasNoScaleOrQaMutation,
-    'Case K.14: Strict read-only authority and zero mutation controls are preserved'
+    noInternalTechnicalLabels && hasNoScaleOrQaMutation,
+    'Case K.14: Internal technical labels are removed while zero mutation controls and read-only authority are preserved'
   );
 
   // K.15: Workspace is reused across all ZMCC locations without hardcoding
@@ -377,6 +386,78 @@ async function runAuthorityTests() {
     noHardcodedLocations,
     'Case K.15: Workspace dynamically resolves assigned source from authenticated data without location hardcoding'
   );
+
+  // K.16: Clean business sections and complete portion quality results in Visit Detail Modal
+  const modalPath = path.join(__dirname, '../src/frontend/modules/dashboard/zmcc/ZMCCManagerVisitDetailModal.tsx');
+  const modalSrc = fs.readFileSync(modalPath, 'utf8');
+  const modalHasCleanSections =
+    modalSrc.includes('Dispatch Details') &&
+    modalSrc.includes('Weight & Quantity') &&
+    modalSrc.includes('Portion Quality Results') &&
+    modalSrc.includes('Receipt Details');
+  const modalNoForbiddenLabels =
+    !modalSrc.includes('Authoritative Scale & Quantity Ledger') &&
+    !modalSrc.includes('Overall Lifecycle State') &&
+    !modalSrc.includes('Read-only supervisory ledger record') &&
+    !modalSrc.includes('final_receipt_transaction_id');
+  assert(
+    modalHasCleanSections && modalNoForbiddenLabels,
+    'Case K.16: ZMCCManagerVisitDetailModal defines four clean business sections and eliminates internal system terminology'
+  );
+
+  // K.17: Visit Detail Modal dynamically iterates over portion_lab_results
+  const modalHasDynamicTests =
+    modalSrc.includes('p.portion_lab_results') &&
+    modalSrc.includes('tr.test_name');
+  assert(
+    modalHasDynamicTests,
+    'Case K.17: ZMCCManagerVisitDetailModal dynamically iterates over portion_lab_results'
+  );
+
+  // K.18: Behavioral test - newly configured active lab test automatically appears in portion_lab_results
+  const tempTestCode = `LT-TMP-${Date.now()}`;
+  let tempCreated = false;
+  try {
+    await prisma.labTest.create({
+      data: {
+        testCode: tempTestCode,
+        testName: 'Automated Rapid Contaminant Test',
+        resultType: 'NUMERIC',
+        unit: 'ppm',
+        testScope: 'QA',
+        isRequired: false,
+        isActive: true,
+        displayOrder: 950,
+      },
+    });
+    const devUserCount = await prisma.user.count();
+    assert(devUserCount === 23, `Dev database user count is exactly 23 (got ${devUserCount})`);
+    tempCreated = true;
+
+    // Query operational logs for a ZMCC manager
+    const zmccManagerUser = {
+      id: 9999,
+      username: 'zmcc.manager.north',
+      role: 'ZMCC_MANAGER',
+      procurement_source_id: 1,
+    };
+    const logs = await getOperationalLogs({}, zmccManagerUser as any);
+    const hasDynamicTestInResults = logs.some((l) =>
+      l.portion_lab_results?.some((tr) => tr.test_code === tempTestCode && tr.test_name === 'Automated Rapid Contaminant Test')
+    );
+
+    assert(
+      hasDynamicTestInResults,
+      'Case K.18: Newly configured active lab test in prisma.labTest automatically appears in portion_lab_results without manual schema or modal edits'
+    );
+  } finally {
+    if (tempCreated) {
+      await prisma.labTest.deleteMany({
+        where: { testCode: tempTestCode },
+      });
+    }
+    await prisma.$disconnect();
+  }
 
   console.log('\n================================================================================');
   console.log(`SUMMARY: ${passed} PASSED, ${failed} FAILED`);

@@ -147,44 +147,29 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         )}
 
-        <div className="flex items-center space-x-2 min-w-0">
+        {resolvedSourceName && (
           <div className="min-w-0">
-            <h1 className="font-extrabold text-xs sm:text-base tracking-tight text-[#111311] truncate">
-              {title}
-            </h1>
-            {resolvedSourceName && (
-              <p className="text-[10px] text-slate-500 font-bold truncate hidden xs:block sm:block">
-                Station: <span className="font-extrabold text-[#1E3A8A]">{resolvedSourceName}</span>
-              </p>
-            )}
+            <span className="text-xs sm:text-sm font-extrabold text-[#111311] truncate block">
+              {resolvedSourceName}
+            </span>
           </div>
-          <span className="hidden md:inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300 shrink-0">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
-            <span>Live</span>
-          </span>
-        </div>
+        )}
       </div>
 
       {/* Right Placement: Cluster User Configuration Widgets */}
       <div className="flex items-center space-x-1.5 sm:space-x-3 shrink-0">
         {/* 1. User Profile Widget */}
-        <div className="flex items-center space-x-1.5 sm:space-x-2 px-2 py-1 sm:px-3 sm:py-1.5 rounded-xl bg-[#FDFBF9] border border-[#EAE4D5] shadow-xs max-w-[120px] sm:max-w-none">
+        <div className="flex items-center space-x-1.5 sm:space-x-2 px-2 py-1 sm:px-3 sm:py-1.5 rounded-xl bg-[#FDFBF9] border border-[#EAE4D5] shadow-xs max-w-[140px] sm:max-w-none">
           <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#1E3A8A] shrink-0" />
           <div className="text-left min-w-0">
             <p className="text-[11px] sm:text-xs font-black leading-tight text-[#111311] truncate">
               {currentUser?.name || 'Operator'}
             </p>
-            <div className="flex items-center gap-1 text-[9px] sm:text-[9.5px] leading-tight truncate font-bold text-slate-500">
-              {currentUser?.username && (
-                <span className="hidden sm:inline font-mono truncate">
-                  @{currentUser.username}
-                </span>
-              )}
-              {currentUser?.username && <span className="hidden sm:inline text-slate-400">•</span>}
-              <span className="text-[#1E3A8A] font-extrabold uppercase truncate">
-                ZMCC Manager
-              </span>
-            </div>
+            {currentUser?.username && (
+              <p className="hidden sm:block text-[9px] sm:text-[9.5px] leading-tight truncate font-bold text-slate-500 font-mono">
+                @{currentUser.username}
+              </p>
+            )}
           </div>
         </div>
 

@@ -4,7 +4,7 @@ import { GET as getLogs } from '../src/app/api/logs/route';
 import { POST as postGrossWeight } from '../src/app/api/scale/gross-weight/route';
 import { createSessionToken } from '../src/backend/core/auth';
 import { User, Role } from '../src/backend/core/types';
-import { formatOperationalDatetime, formatOperationalTime } from '../src/lib/datetime-utils';
+import { formatOperationalDatetime, formatOperationalTime, formatOperationalDate, parseStrictDateOnly } from '../src/lib/datetime-utils';
 import { getOperationalBusinessDate } from '../src/backend/core/business-day';
 import fs from 'fs';
 import path from 'path';
@@ -120,6 +120,18 @@ async function run4DATests() {
   const hasInternalCrossVerificationTab = workspaceSource.includes("id: 'CROSS_VERIFICATION'") && workspaceSource.includes("label: 'Cross Verification'");
   assert(allTabsPresent && hasInternalCrossVerificationTab, 'TEST-A6 & A7: ZMCCManagerWorkspace contains all 6 required tabs including Cross Verification internal tab');
 
+  // Safety Assertion: Database MUST be exactly milk_reception_test before any mutation
+  const dbCheck: any = await prisma.$queryRaw`SELECT current_database() as db_name`;
+  const currentDb = dbCheck[0]?.db_name;
+  assert(
+    currentDb === 'milk_reception_test',
+    'SAFETY-DB: Database is milk_reception_test before any mutation',
+    `current_database()=${currentDb}`
+  );
+  if (currentDb !== 'milk_reception_test') {
+    throw new Error(`SAFETY HALT: Attempted to run test suite against non-test database: "${currentDb}"!`);
+  }
+
   let tempManagerA: any = null;
   let tempManagerB: any = null;
   let tempUnboundManager: any = null;
@@ -127,6 +139,9 @@ async function run4DATests() {
   let tempUnboundContractorManager: any = null;
   let visitA: any = null;
   let visitB: any = null;
+  let tempBehavioralTest: any = null;
+  let behavioralVisitA: any = null;
+  let exitTestVisits: bigint[] = [];
 
   try {
     // Create Manager A assigned to distinct ZMCC Source A
@@ -189,7 +204,7 @@ async function run4DATests() {
         vehicle_number: `VEH-4DA-A-${isoTs}`,
         procurement_source_id: sourceA.id,
         current_status: 'DISPATCHED',
-        operational_date: new Date(),
+        operational_date: parseStrictDateOnly(getOperationalBusinessDate(new Date()))!,
         vehicle_dispatch_quantity_value: 5000,
         vehicle_dispatch_quantity_unit: 'LITER',
         portions: {
@@ -210,7 +225,7 @@ async function run4DATests() {
         vehicle_number: `VEH-4DA-B-${isoTs}`,
         procurement_source_id: sourceB.id,
         current_status: 'DISPATCHED',
-        operational_date: new Date(),
+        operational_date: parseStrictDateOnly(getOperationalBusinessDate(new Date()))!,
         vehicle_dispatch_quantity_value: 6000,
         vehicle_dispatch_quantity_unit: 'LITER',
         portions: {
@@ -388,6 +403,13 @@ async function run4DATests() {
       'TEST-STALE: GET /api/logs follows authoritative current DB assignment (Source B), receiving known Record B and ignoring stale session assignment'
     );
 
+    // Restore tempManagerA assignment back to Source A
+    await prisma.user.update({
+      where: { id: tempManagerA.id },
+      data: { procurement_source_id: sourceA.id },
+    });
+    tempManagerA.procurement_source_id = sourceA.id;
+
     // A12: ZMCC Manager workspace does not expose known plant mutation actions
     const hasGrossWeightAction = workspaceSource.includes('/api/scale/gross-weight') || workspaceSource.includes('Record Gross');
     const hasTareWeightAction = workspaceSource.includes('/api/scale/tare-weight') || workspaceSource.includes('Record Tare');
@@ -398,13 +420,299 @@ async function run4DATests() {
     const reqMut = await createAuthRequest('http://localhost:3000/api/scale/gross-weight', 'POST', { visitId: '1', grossWeightKg: 30000 }, tempManagerA);
     const resMut = await postGrossWeight(reqMut);
     assert(resMut.status === 403 || resMut.status === 401, 'TEST-A12.2: Backend blocks ZMCC_MANAGER from Gross Weight entry (403/401)');
+
+    // ============================================================================
+    // STAGE 5D-C4B: BEHAVIORAL PROOF - DYNAMIC LAB TEST LIFECYCLE & SOURCE ISOLATION
+    // ============================================================================
+
+    // 1. Create a temporary active lab-test configuration with a unique code
+    const uniqueBehCode = `LT-BEH-${Date.now()}`;
+    const uniqueBehName = `Quality Proof ${Date.now()}`;
+    const uniqueBehUnit = 'mg/L';
+    tempBehavioralTest = await prisma.labTest.create({
+      data: {
+        testCode: uniqueBehCode,
+        testName: uniqueBehName,
+        resultType: 'NUMERIC',
+        unit: uniqueBehUnit,
+        testScope: 'BOTH',
+        displayOrder: 890,
+        isActive: true,
+      },
+    });
+    assert(!!tempBehavioralTest?.id, 'BEHAVIORAL-1: Created temporary active lab-test configuration with unique code', uniqueBehCode);
+
+    // 2. Create/attach a recorded result for one disposable Source A portion
+    const behDispatchTime = new Date('2026-08-27T00:00:00.000Z'); // 27 Aug 2026 05:00 AM PKT
+    const behBusinessDateStr = getOperationalBusinessDate(behDispatchTime); // '2026-08-26'
+    const behOpDate = parseStrictDateOnly(behBusinessDateStr)!;
+
+    behavioralVisitA = await prisma.vehicleVisit.create({
+      data: {
+        visit_number: `VISIT-BEH-A-${Date.now()}`,
+        vehicle_number: `VEH-BEH-${Date.now()}`,
+        procurement_source_id: sourceA.id,
+        current_status: 'DISPATCHED',
+        operational_date: behOpDate,
+        created_by: tempManagerA.id,
+        vehicle_dispatch_quantity_value: 5500,
+        vehicle_dispatch_quantity_unit: 'LITER',
+      },
+    });
+
+    const behPortion = await prisma.visitPortion.create({
+      data: {
+        visit_id: behavioralVisitA.id,
+        portion_number: 1,
+        dispatch_quantity_value: 5500,
+        dispatch_quantity_unit: 'LITER',
+        current_status: 'DISPATCHED',
+      },
+    });
+
+    await prisma.dispatchInfo.create({
+      data: {
+        portion_id: behPortion.id,
+        dispatch_timestamp: behDispatchTime,
+        dispatch_testing_mode: 'FULL',
+      },
+    });
+
+    await prisma.dispatchLabResult.create({
+      data: {
+        visit_id: behavioralVisitA.id,
+        portion_id: behPortion.id,
+        test_id: tempBehavioralTest.id,
+        numeric_value: 45.67,
+        performance_status: 'PERFORMED',
+      },
+    });
+    assert(!!behavioralVisitA?.id, 'BEHAVIORAL-2: Created disposable Source A visit and attached recorded result for Portion 1');
+
+    // 3. Call canonical read-model/API (GET /api/logs) used by ZMCCManagerWorkspace
+    const reqBehA = await createAuthRequest('http://localhost:3000/api/logs', 'GET', undefined, tempManagerA);
+    const resBehA = await getLogs(reqBehA as any);
+    assert(resBehA.ok, 'BEHAVIORAL-3: Canonical read-model/API (GET /api/logs) returns 200 for Manager A');
+    const jsonBehA = await resBehA.json();
+    const foundLogA = (jsonBehA.logs || []).find((l: any) => l.vehicle_number === behavioralVisitA.vehicle_number);
+    assert(!!foundLogA, 'BEHAVIORAL-3b: Log entry for behavioral visit found in Manager A logs');
+
+    // 4. Assert Source A response contains:
+    //    - temporary test name
+    //    - performed state
+    //    - exact dispatch/plant value
+    //    - unit
+    //    - correct portion number
+    const behResultInA = foundLogA?.portion_lab_results?.find((r: any) => r.test_code === uniqueBehCode);
+    assert(!!behResultInA, 'BEHAVIORAL-4.0: portion_lab_results contains temporary test result entry');
+    assert(behResultInA?.test_name === uniqueBehName, 'BEHAVIORAL-4.1: Source A contains temporary test name', `name=${behResultInA?.test_name}`);
+    assert(behResultInA?.dispatch_performed === true, 'BEHAVIORAL-4.2: Source A performed state is true', `performed=${behResultInA?.dispatch_performed}`);
+    assert(behResultInA?.dispatch_numeric_value === 45.67, 'BEHAVIORAL-4.3: Exact dispatch value matches (45.67)', `value=${behResultInA?.dispatch_numeric_value}`);
+    assert(behResultInA?.unit === uniqueBehUnit, 'BEHAVIORAL-4.4: Unit matches configured lab test (mg/L)', `unit=${behResultInA?.unit}`);
+    assert(foundLogA?.portion_number === 'P-01', 'BEHAVIORAL-4.5: Correct portion number is P-01', `portion=${foundLogA?.portion_number}`);
+
+    // 5. Assert Source B response contains zero instances of that test result
+    const reqBehB = await createAuthRequest('http://localhost:3000/api/logs', 'GET', undefined, tempManagerB);
+    const resBehB = await getLogs(reqBehB as any);
+    assert(resBehB.ok, 'BEHAVIORAL-5a: Canonical read-model/API (GET /api/logs) returns 200 for Manager B');
+    const jsonBehB = await resBehB.json();
+    const hasRecordedResultInB = (jsonBehB.logs || []).some((l: any) =>
+      l.vehicle_number === behavioralVisitA.vehicle_number ||
+      (l.portion_lab_results || []).some((r: any) =>
+        r.test_code === uniqueBehCode && (r.dispatch_performed || r.dispatch_numeric_value != null || r.plant_performed || r.plant_numeric_value != null)
+      )
+    );
+    assert(!hasRecordedResultInB, 'BEHAVIORAL-5b: Source B response contains zero instances of temporary test result');
+
+    // 6. Deactivate the temporary test and assert its historical recorded result remains visible
+    await prisma.labTest.update({
+      where: { id: tempBehavioralTest.id },
+      data: { isActive: false },
+    });
+
+    const reqBehAAfter = await createAuthRequest('http://localhost:3000/api/logs', 'GET', undefined, tempManagerA);
+    const resBehAAfter = await getLogs(reqBehAAfter as any);
+    const jsonBehAAfter = await resBehAAfter.json();
+    const foundLogAAfter = (jsonBehAAfter.logs || []).find((l: any) => l.vehicle_number === behavioralVisitA.vehicle_number);
+    const behResultInAAfter = foundLogAAfter?.portion_lab_results?.find((r: any) => r.test_code === uniqueBehCode);
+    assert(!!behResultInAAfter, 'BEHAVIORAL-6.1: Historical recorded result remains visible after test is deactivated');
+    assert(behResultInAAfter?.dispatch_numeric_value === 45.67, 'BEHAVIORAL-6.2: Historical numeric value remains intact (45.67)', `value=${behResultInAAfter?.dispatch_numeric_value}`);
+    assert(behResultInAAfter?.is_active === false, 'BEHAVIORAL-6.3: Inactive flag reflected accurately on historical test', `is_active=${behResultInAAfter?.is_active}`);
+
+    // =========================================================================
+    // PLANT-EXIT BUSINESS DATE BEHAVIORAL VERIFICATION (STAGE 5D-C4B)
+    // Canonical rules:
+    // 1. Dispatch date/time records when the vehicle leaves its procurement source.
+    // 2. Business date applies only after the complete plant route finishes and the vehicle exits the plant.
+    // 3. A vehicle currently inside the plant or not yet exited must have no finalized business date.
+    // 4. On plant exit, calculate business date from authoritative plant-exit timestamp in Asia/Karachi (08:00 cutoff).
+    // 5. Source dispatch time does NOT determine business date.
+    // =========================================================================
+    exitTestVisits = [];
+
+    const createDisposableVisit = async (
+      vehicleNum: string,
+      status: string,
+      dispatchTs: Date,
+      gateInTs?: Date | null,
+      gateOutTs?: Date | null
+    ) => {
+      const v = await prisma.vehicleVisit.create({
+        data: {
+          visit_number: `VV-EXIT-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+          vehicle_number: vehicleNum,
+          current_status: status,
+          operational_date: null,
+          procurement_source_id: sourceA.id,
+          created_by: tempManagerA.id,
+        },
+      });
+      exitTestVisits.push(v.id);
+
+      const p = await prisma.visitPortion.create({
+        data: {
+          visit_id: v.id,
+          portion_number: 1,
+          dispatch_quantity_value: 4000,
+          dispatch_quantity_unit: 'LITER',
+          current_status: status,
+        },
+      });
+
+      await prisma.dispatchInfo.create({
+        data: {
+          portion_id: p.id,
+          dispatch_timestamp: dispatchTs,
+          dispatch_testing_mode: 'NOT_PERFORMED',
+        },
+      });
+
+      if (gateInTs || gateOutTs) {
+        await prisma.gateLog.create({
+          data: {
+            visit_id: v.id,
+            entry_timestamp: gateInTs || new Date(),
+            exit_timestamp: gateOutTs || null,
+          },
+        });
+      }
+
+      return v;
+    }
+
+    // 1. Dispatched vehicle with no plant exit has no finalized business date
+    const v1Dispatched = await createDisposableVisit(
+      `DISP-${Date.now()}`,
+      'DISPATCHED',
+      new Date('2026-08-27T00:00:00.000Z') // 27 Aug 2026 05:00 AM PKT
+    );
+    // 2. Vehicle currently inside plant (e.g. at QA) has no finalized business date
+    const v2InsidePlant = await createDisposableVisit(
+      `QA-${Date.now()}`,
+      'PLANT_QA',
+      new Date('2026-08-27T00:00:00.000Z'), // 27 Aug 2026 05:00 AM PKT
+      new Date('2026-08-27T01:30:00.000Z')  // Gate in: 27 Aug 2026 06:30 AM PKT
+    );
+    // 3. Vehicle exiting before 08:00 AM PKT (07:59:59 PKT = 02:59:59 UTC) -> 26 Aug 2026
+    const v3ExitBefore8 = await createDisposableVisit(
+      `EXIT-PRE8-${Date.now()}`,
+      'COMPLETED',
+      new Date('2026-08-27T00:00:00.000Z'), // 27 Aug 2026 05:00 AM PKT
+      new Date('2026-08-27T01:00:00.000Z'), // Gate in
+      new Date('2026-08-27T02:59:59.000Z')  // Gate exit: 27 Aug 2026 07:59:59 AM PKT
+    );
+    // 4. Vehicle exiting at or after 08:00 AM PKT (08:00:00 PKT = 03:00:00 UTC) -> 27 Aug 2026
+    const v4ExitPost8 = await createDisposableVisit(
+      `EXIT-POST8-${Date.now()}`,
+      'COMPLETED',
+      new Date('2026-08-27T00:00:00.000Z'), // 27 Aug 2026 05:00 AM PKT
+      new Date('2026-08-27T01:00:00.000Z'), // Gate in
+      new Date('2026-08-27T03:00:00.000Z')  // Gate exit: 27 Aug 2026 08:00:00 AM PKT
+    );
+
+    // Fetch via canonical read-model API
+    const reqExitTests = await createAuthRequest('http://localhost:3000/api/logs', 'GET', undefined, tempManagerA);
+    const resExitTests = await getLogs(reqExitTests as any);
+    assert(resExitTests.ok, 'BD-API: Canonical GET /api/logs returns 200 for exit business date tests');
+    const jsonExitTests = await resExitTests.json();
+    const logsList: any[] = jsonExitTests.logs || [];
+
+    const log1 = logsList.find((l) => l.vehicle_number === v1Dispatched.vehicle_number);
+    const log2 = logsList.find((l) => l.vehicle_number === v2InsidePlant.vehicle_number);
+    const log3 = logsList.find((l) => l.vehicle_number === v3ExitBefore8.vehicle_number);
+    const log4 = logsList.find((l) => l.vehicle_number === v4ExitPost8.vehicle_number);
+
+    // Assert Rule 1: Dispatched vehicle with no plant exit has no finalized business date
+    assert(!!log1 && log1.business_date === null, 'TEST-BD-1: Dispatched vehicle with no plant exit has NO finalized business date (business_date is null)', `Got: ${log1?.business_date}`);
+    assert(log1?.dispatch_date === '2026-08-27', 'TEST-BD-1b: Dispatched vehicle retains source dispatch date (2026-08-27)', `Got: ${log1?.dispatch_date}`);
+
+    // Assert Rule 2: Vehicle inside plant has no finalized business date
+    assert(!!log2 && log2.business_date === null, 'TEST-BD-2: Vehicle currently inside plant (PLANT_QA) has NO finalized business date (business_date is null)', `Got: ${log2?.business_date}`);
+
+    // Assert Rule 3: Plant exit before 08:00 AM gets previous business date
+    assert(!!log3 && log3.business_date === '2026-08-26', 'TEST-BD-3: Plant exit at 07:59:59 AM PKT assigns previous calendar day as business date (2026-08-26)', `Got: ${log3?.business_date}`);
+
+    // Assert Rule 4: Plant exit at or after 08:00 AM gets current business date
+    assert(!!log4 && log4.business_date === '2026-08-27', 'TEST-BD-4: Plant exit at 08:00:00 AM PKT assigns current calendar day as business date (2026-08-27)', `Got: ${log4?.business_date}`);
+
+    // Assert Rule 5: Source dispatch time does not determine business date
+    const sameDispatchDiffExit = (
+      log3?.dispatch_date === log4?.dispatch_date &&
+      log3?.business_date !== log4?.business_date &&
+      log1?.business_date === null
+    );
+    assert(sameDispatchDiffExit, 'TEST-BD-5: Source dispatch time does NOT determine business date (identical dispatch timestamp yields different business dates based on plant exit)', `Log3 BD: ${log3?.business_date}, Log4 BD: ${log4?.business_date}, Log1 BD: ${log1?.business_date}`);
   } finally {
     const cleanupErrors: any[] = [];
 
-    // Clean up disposable vehicle visits first
+    // Clean up behavioral visit and its portions/results
+    if (behavioralVisitA?.id) {
+      try {
+        await prisma.dispatchLabResult.deleteMany({
+          where: { portion: { visit_id: behavioralVisitA.id } },
+        });
+        await prisma.dispatchInfo.deleteMany({
+          where: { portion: { visit_id: behavioralVisitA.id } },
+        });
+        await prisma.visitPortion.deleteMany({
+          where: { visit_id: behavioralVisitA.id },
+        });
+        await prisma.vehicleVisit.delete({
+          where: { id: behavioralVisitA.id },
+        });
+      } catch (err) {
+        cleanupErrors.push(err);
+      }
+    }
+
+    // Clean up behavioral lab test
+    if (tempBehavioralTest?.id) {
+      try {
+        await prisma.labTest.delete({
+          where: { id: tempBehavioralTest.id },
+        });
+      } catch (err) {
+        cleanupErrors.push(err);
+      }
+    }
+
+    // Clean up exit test visits
+    for (const vId of exitTestVisits) {
+      try {
+        await prisma.gateLog.deleteMany({ where: { visit_id: vId } });
+        await prisma.dispatchInfo.deleteMany({ where: { portion: { visit_id: vId } } });
+        await prisma.visitPortion.deleteMany({ where: { visit_id: vId } });
+        await prisma.vehicleVisit.delete({ where: { id: vId } });
+      } catch (err) {
+        cleanupErrors.push(err);
+      }
+    }
+
+    // Clean up disposable vehicle visits
     const visitsToDelete = [visitA?.id, visitB?.id].filter(Boolean);
     for (const vId of visitsToDelete) {
       try {
+        await prisma.visitPortion.deleteMany({ where: { visit_id: vId } });
         await prisma.vehicleVisit.delete({ where: { id: vId } });
       } catch (err) {
         cleanupErrors.push(err);
@@ -429,6 +737,7 @@ async function run4DATests() {
 
     if (cleanupErrors.length > 0) {
       console.error('Fixture cleanup encountered failures:', cleanupErrors);
+      failed++;
       throw new Error(`Test fixture cleanup failed: ${cleanupErrors.map((e: any) => e.message || String(e)).join('; ')}`);
     }
   }
@@ -464,6 +773,37 @@ async function run4DATests() {
 
   assert(isCorrectPktTime && isCorrectPktDate, 'TEST-R13 & R14: UTC 2026-08-23T21:30:00Z formats to Pakistan Event Date/Time (24-Aug-2026 02:30 AM PKT)', `Got: ${pktFormattedDatetime}`);
   assert(isCorrectBusinessDate, 'TEST-R15: Business Date for 02:30 PKT event is 2026-08-23 (08:00 cutoff boundary intact)', `Got: ${eventBusinessDate}`);
+
+  // Canonical Business Date Boundary Tests (08:00 AM PKT boundary)
+  // 1. 26 Aug 2026 08:00:00 PKT (03:00:00 UTC) -> 2026-08-26
+  const boundaryDate1 = getOperationalBusinessDate('2026-08-26T03:00:00.000Z');
+  assert(boundaryDate1 === '2026-08-26', 'TEST-BOUNDARY-1: 26 Aug 2026 08:00:00 PKT belongs to business date 2026-08-26', `Got: ${boundaryDate1}`);
+
+  // 2. 27 Aug 2026 05:00:00 PKT (00:00:00 UTC) -> 2026-08-26
+  const boundaryDate2 = getOperationalBusinessDate('2026-08-27T00:00:00.000Z');
+  assert(boundaryDate2 === '2026-08-26', 'TEST-BOUNDARY-2: 27 Aug 2026 05:00:00 PKT belongs to business date 2026-08-26', `Got: ${boundaryDate2}`);
+
+  // 3. 27 Aug 2026 07:59:59 PKT (02:59:59 UTC) -> 2026-08-26
+  const boundaryDate3 = getOperationalBusinessDate('2026-08-27T02:59:59.000Z');
+  assert(boundaryDate3 === '2026-08-26', 'TEST-BOUNDARY-3: 27 Aug 2026 07:59:59 PKT belongs to business date 2026-08-26', `Got: ${boundaryDate3}`);
+
+  // 4. 27 Aug 2026 08:00:00 PKT (03:00:00 UTC) -> 2026-08-27
+  const boundaryDate4 = getOperationalBusinessDate('2026-08-27T03:00:00.000Z');
+  assert(boundaryDate4 === '2026-08-27', 'TEST-BOUNDARY-4: 27 Aug 2026 08:00:00 PKT transitions to business date 2026-08-27', `Got: ${boundaryDate4}`);
+
+  // UI Formatting check: Dispatch Time formats to '27 Aug 2026, 05:00 am', Business Date formats to '26 Aug 2026'
+  const uiFormattedTime = formatOperationalDatetime('2026-08-27T00:00:00.000Z');
+  const uiFormattedDate = formatOperationalDate(boundaryDate2);
+  assert(uiFormattedTime.includes('27 Aug 2026') && uiFormattedTime.toLowerCase().includes('05:00 am'), 'TEST-UI-1: Dispatch time formats to 27 Aug 2026, 05:00 am', `Got: ${uiFormattedTime}`);
+  assert(uiFormattedDate === '26 Aug 2026', 'TEST-UI-2: Business date formats to 26 Aug 2026', `Got: ${uiFormattedDate}`);
+
+  // Modal code check: ZMCCManagerVisitDetailModal uses formatOperationalDate and formatOperationalDatetime
+  const modalSource = fs.readFileSync(path.join(__dirname, '../src/frontend/modules/dashboard/zmcc/ZMCCManagerVisitDetailModal.tsx'), 'utf-8');
+  assert(
+    modalSource.includes('formatOperationalDate(log.dispatch_date)') &&
+    modalSource.includes('formatOperationalDatetime(log.dispatch_timestamp)'),
+    'TEST-UI-3: ZMCCManagerVisitDetailModal formats dispatch_date with formatOperationalDate and dispatch_timestamp with formatOperationalDatetime'
+  );
 
   // R16: Read model time formatting does not use bare getHours/getMinutes
   const readModelSource = fs.readFileSync(path.join(__dirname, '../src/backend/services/operationalReadModelService.ts'), 'utf-8');

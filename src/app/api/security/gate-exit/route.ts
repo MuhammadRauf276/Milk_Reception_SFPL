@@ -3,6 +3,8 @@ import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
 import { z } from 'zod';
 import { validateOperationalTimestamp } from '@/backend/services/chronology-validator';
+import { getOperationalBusinessDate } from '@/backend/core/business-day';
+import { parseStrictDateOnly } from '@/lib/datetime-utils';
 
 const gateExitSchema = z.object({
   visitId: z.string().min(1, 'Visit ID is required'),
@@ -115,6 +117,17 @@ export async function POST(req: Request) {
           exit_timestamp: opTimestamp,
           exit_guard_id: userIdBigInt,
           exit_submitted_at: new Date(),
+        },
+      });
+
+      // 5b. Calculate and assign authoritative Plant-Exit Business Date
+      const exitBusinessDateStr = getOperationalBusinessDate(opTimestamp);
+      const exitBusinessDate = parseStrictDateOnly(exitBusinessDateStr);
+
+      await tx.vehicleVisit.update({
+        where: { id: visitId },
+        data: {
+          operational_date: exitBusinessDate,
         },
       });
 

@@ -21,12 +21,8 @@ import {
   FlaskConical,
   Receipt,
   History,
-  ShieldCheck,
-  RefreshCw,
-  Lock,
   X,
   Menu,
-  LogOut,
   Milk,
 } from 'lucide-react';
 
@@ -79,18 +75,25 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
     currentUser?.zone ||
     'Assigned ZMCC Source';
 
-  const currentTabConfig = useMemo(() => {
-    return TABS.find((t) => t.id === activeTab) || TABS[0];
-  }, [activeTab]);
-
-  const handleLogout = async () => {
-    try {
-      await fetch('/api/auth/logout', { method: 'POST' });
-    } catch (_err) {
-      // Ignore
+  const selectedVisitPortions = useMemo(() => {
+    if (!selectedLog) return [];
+    const pool = [...liveLogs, ...reportingLogs, ...receiptLogs];
+    const matching = pool.filter(
+      (l) =>
+        l.id === selectedLog.id ||
+        (l.vehicle_number === selectedLog.vehicle_number &&
+          l.dispatch_date === selectedLog.dispatch_date)
+    );
+    const uniqueMap = new Map<string, MilkProcessLog>();
+    for (const m of matching) {
+      const key = m.portion_id != null ? String(m.portion_id) : (m.portion_number || '1');
+      if (!uniqueMap.has(key)) {
+        uniqueMap.set(key, m);
+      }
     }
-    window.location.href = '/login';
-  };
+    const result = Array.from(uniqueMap.values());
+    return result.length > 0 ? result : [selectedLog];
+  }, [selectedLog, liveLogs, reportingLogs, receiptLogs]);
 
   const openDrawer = useCallback(() => {
     setIsDrawerOpen(true);
@@ -246,7 +249,6 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
       {/* Header with Hamburger Trigger */}
       <Header
         currentUser={currentUser}
-        title="ZMCC Manager Station"
         sourceName={assignedSourceName}
         showBranding={true}
         onMenuClick={openDrawer}
@@ -273,7 +275,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
           {/* Drawer Panel */}
           <aside
             ref={drawerRef}
-            className="relative z-50 w-80 max-w-[85vw] sm:max-w-[320px] bg-[#FFFFFF] border-r border-[#C4B9A3] shadow-2xl flex flex-col justify-between p-4 sm:p-5 text-[#111311] overflow-y-auto h-full"
+            className="relative z-50 w-80 max-w-[85vw] sm:max-w-[320px] bg-[#FFFFFF] border-r border-[#C4B9A3] shadow-2xl flex flex-col p-4 sm:p-5 text-[#111311] overflow-y-auto h-full"
           >
             <div className="space-y-5">
               {/* Drawer Header: Corporate Branding + Close Button */}
@@ -302,41 +304,8 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
                 </button>
               </div>
 
-              {/* User & Assigned Source Identity Card */}
-              <div className="p-3.5 rounded-xl bg-[#FDFBF9] border border-[#EAE4D5] space-y-2.5">
-                <div className="flex items-center space-x-2">
-                  <ShieldCheck className="w-4 h-4 text-[#1E3A8A] shrink-0" />
-                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">
-                    Logged In Manager
-                  </span>
-                </div>
-                <div className="space-y-0.5">
-                  <p className="text-sm font-black text-[#111311] truncate">
-                    {currentUser?.name || currentUser?.username || 'ZMCC Manager'}
-                  </p>
-                  <p className="text-xs font-semibold text-slate-500 truncate">
-                    @{currentUser?.username || 'user'}
-                  </p>
-                </div>
-                <div className="pt-2 border-t border-[#EAE4D5] flex items-center justify-between gap-1.5 text-xs">
-                  <span className="text-slate-500 font-bold">Assigned ZMCC:</span>
-                  <span className="font-extrabold text-[#1E3A8A] truncate text-right">
-                    {assignedSourceName}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between gap-1.5 text-[10.5px] text-slate-500 font-bold">
-                  <span>Access Mode:</span>
-                  <span className="inline-flex items-center gap-1 font-extrabold text-slate-700">
-                    <Lock className="w-3 h-3 text-slate-500" /> Read-Only Supervisory
-                  </span>
-                </div>
-              </div>
-
-              {/* Navigation Sections */}
-              <nav aria-label="ZMCC Manager Navigation" className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block px-1 mb-2">
-                  Navigation Sections
-                </label>
+              {/* Navigation */}
+              <nav aria-label="Navigation" className="space-y-1.5">
                 {TABS.map((tab) => {
                   const IconComponent = tab.icon;
                   const isActive = activeTab === tab.id;
@@ -364,69 +333,12 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
                 })}
               </nav>
             </div>
-
-            {/* Drawer Footer: Sign Out Button */}
-            <div className="pt-4 border-t border-[#EAE4D5]">
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="w-full min-h-[44px] flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl bg-[#FEF2F2] text-[#991B1B] border border-[#FECACA] hover:bg-rose-100 font-black text-xs transition active:scale-95 shadow-xs focus:outline-none focus:ring-2 focus:ring-rose-500"
-                aria-label="Sign Out"
-              >
-                <LogOut className="w-4 h-4 text-[#991B1B]" />
-                <span>Sign Out</span>
-              </button>
-            </div>
           </aside>
         </div>
       )}
 
       {/* Main Content Area */}
       <main className="flex-1 p-3 sm:p-6 overflow-y-auto space-y-5 sm:space-y-6 w-full max-w-full">
-        {/* Top Supervisory Banner */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 sm:p-5 rounded-2xl bg-white border border-[#C4B9A3] shadow-xs">
-          <div className="min-w-0">
-            <div className="flex items-center space-x-2.5 flex-wrap gap-y-1.5">
-              <ShieldCheck className="w-6 h-6 text-[#1E3A8A] shrink-0" />
-              <h1 className="text-lg sm:text-xl font-black tracking-tight text-[#111311] truncate">
-                ZMCC Source Station: {assignedSourceName}
-              </h1>
-              <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-[#1E3A8A] text-white">
-                ZMCC Manager
-              </span>
-              <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-[#E2E8F0] text-slate-800 flex items-center gap-1">
-                <Lock className="w-3.5 h-3.5 text-slate-600" /> Read-only supervisory workspace
-              </span>
-            </div>
-            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-              <p className="text-xs text-slate-600 font-semibold">
-                Active View: <span className="font-extrabold text-[#1E3A8A]">{currentTabConfig.label}</span>
-              </p>
-              <span className="text-slate-300 hidden sm:inline">•</span>
-              <p className="text-xs text-slate-500 font-medium hidden sm:block">
-                Live dispatch monitoring, physical plant milestones, and authoritative cross-verification ledger.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center space-x-2.5 self-start md:self-auto shrink-0">
-            <button
-              type="button"
-              onClick={() => {
-                fetchLiveLogs();
-                fetchReportingLogs(fromDate, toDate);
-                fetchReceiptLogs();
-              }}
-              disabled={liveLoading || reportingLoading || receiptLoading}
-              className="flex items-center space-x-2 px-4 py-2.5 min-h-[44px] rounded-xl bg-[#1E3A8A] text-white hover:bg-blue-900 active:scale-95 transition-all shadow-xs disabled:opacity-50 text-xs font-black"
-              aria-label="Refresh logs"
-            >
-              <RefreshCw className={`w-4 h-4 text-white ${liveLoading || reportingLoading || receiptLoading ? 'animate-spin' : ''}`} />
-              <span>{liveLoading || reportingLoading || receiptLoading ? 'Syncing...' : 'Refresh Logs'}</span>
-            </button>
-          </div>
-        </div>
-
         {/* TAB 1: OVERVIEW */}
         {activeTab === 'OVERVIEW' && (
             <div id="tabpanel-OVERVIEW" role="tabpanel" aria-labelledby="tab-OVERVIEW" className="space-y-6">
@@ -550,6 +462,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
             <ZMCCManagerVisitDetailModal
               isOpen={!!selectedLog}
               log={selectedLog}
+              portions={selectedVisitPortions}
               onClose={() => setSelectedLog(null)}
               assignedSourceName={assignedSourceName}
             />
