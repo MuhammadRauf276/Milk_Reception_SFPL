@@ -13,15 +13,37 @@ export async function POST(
   }
 
   const { id: userIdStr } = await params;
-  const targetUserId = BigInt(userIdStr);
+  let targetUserId: bigint;
+  try {
+    targetUserId = BigInt(userIdStr);
+  } catch {
+    return NextResponse.json({ error: 'Invalid user ID.' }, { status: 400 });
+  }
 
   try {
-    const body = await req.json();
-    const newPassword = (body.password || '').trim();
-
-    if (!newPassword || newPassword.length < 4) {
-      return NextResponse.json({ error: 'Password must be at least 4 characters long.' }, { status: 400 });
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON request body.' }, { status: 400 });
     }
+
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return NextResponse.json({ error: 'Request body must be a plain object.' }, { status: 400 });
+    }
+
+    const payload = body as Record<string, unknown>;
+
+    for (const key of Object.keys(payload)) {
+      if (key !== 'password') {
+        return NextResponse.json({ error: `Unknown or disallowed field: ${key}` }, { status: 400 });
+      }
+    }
+
+    if (typeof payload.password !== 'string' || payload.password.length < 8) {
+      return NextResponse.json({ error: 'Password must be at least 8 characters long.' }, { status: 400 });
+    }
+    const newPassword = payload.password;
 
     const targetUser = await prisma.user.findUnique({ where: { id: targetUserId } });
     if (!targetUser) {
@@ -51,6 +73,7 @@ export async function POST(
 
     return NextResponse.json({ success: true, message: `Password reset successfully for user "${targetUser.username}".` });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error('[API_SUPER_ADMIN_USERS_RESET_PASSWORD_ERROR]', err);
+    return NextResponse.json({ error: 'Failed to reset password.' }, { status: 500 });
   }
 }
