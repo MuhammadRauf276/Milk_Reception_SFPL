@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { User } from '@core/types';
 import { SuperAdminSidebar } from '@/frontend/modules/super-admin/SuperAdminSidebar';
@@ -11,7 +11,8 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const hamburgerButtonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     async function checkAuth() {
@@ -52,19 +53,19 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
   }
 
   return (
-    <div className="w-full max-w-full flex h-screen bg-[#FDFBF9] text-[#111311] overflow-hidden">
-      <SuperAdminSidebar
+    <div className="w-full max-w-full flex flex-col h-screen bg-[#FDFBF9] text-[#111311] overflow-hidden font-sans">
+      <SuperAdminHeader
         currentUser={currentUser}
-        isMobileOpen={isMobileOpen}
-        onCloseMobile={() => setIsMobileOpen(false)}
+        isOpen={isDrawerOpen}
+        onMenuClick={() => setIsDrawerOpen(true)}
+        menuButtonRef={hamburgerButtonRef}
       />
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden w-full max-w-full">
-        <SuperAdminHeader
-          currentUser={currentUser}
-          onMenuClick={() => setIsMobileOpen((prev) => !prev)}
-        />
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 w-full max-w-full">{children}</main>
-      </div>
+      <SuperAdminSidebar
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+        triggerRef={hamburgerButtonRef}
+      />
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6 w-full max-w-full">{children}</main>
     </div>
   );
 }

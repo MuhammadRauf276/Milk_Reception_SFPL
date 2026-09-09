@@ -8,11 +8,15 @@ import { LogOut, Shield, Menu } from 'lucide-react';
 interface SuperAdminHeaderProps {
   currentUser: User | null;
   onMenuClick?: () => void;
+  isOpen?: boolean;
+  menuButtonRef?: React.RefObject<HTMLButtonElement | null>;
 }
 
 export const SuperAdminHeader: React.FC<SuperAdminHeaderProps> = ({
   currentUser,
   onMenuClick,
+  isOpen = false,
+  menuButtonRef,
 }) => {
   const router = useRouter();
 
@@ -31,10 +35,12 @@ export const SuperAdminHeader: React.FC<SuperAdminHeaderProps> = ({
       <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1 mr-2">
         {onMenuClick && (
           <button
+            ref={menuButtonRef}
             type="button"
             onClick={onMenuClick}
-            className="xl:hidden p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl border border-[#C4B9A3] bg-[#FDFBF9] text-[#111311] hover:bg-[#EFE9D9]/60 transition shrink-0"
+            className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl border border-[#C4B9A3] bg-[#FDFBF9] text-[#111311] hover:bg-[#EFE9D9]/60 transition shrink-0 focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
             aria-label="Open navigation drawer"
+            aria-expanded={isOpen}
           >
             <Menu className="w-5 h-5" />
           </button>

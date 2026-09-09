@@ -2924,6 +2924,247 @@ async function runSuperAdminFinalizationTests() {
         hasNoSeededUsersInCleanup && hasValidFixtureCount,
         '5D-C4A-27: Test fixtures are registered for clean removal in finally block without including seeded accounts'
       );
+
+      // =========================================================================
+      // --- STAGE 5D-C4C: SUPER ADMIN HAMBURGER DRAWER & ACCESSIBILITY SUITE ---
+      // =========================================================================
+      console.log('\n--- STAGE 5D-C4C: SUPER ADMIN HAMBURGER DRAWER & ACCESSIBILITY SUITE ---');
+
+      const saLayoutPath = path.join(__dirname, '../src/app/super-admin/layout.tsx');
+      const saHeaderPath = path.join(__dirname, '../src/frontend/modules/super-admin/SuperAdminHeader.tsx');
+      const saSidebarPath = path.join(__dirname, '../src/frontend/modules/super-admin/SuperAdminSidebar.tsx');
+      const saUsersPagePath = path.join(__dirname, '../src/app/super-admin/users/page.tsx');
+
+      const saLayoutSrc = fs.readFileSync(saLayoutPath, 'utf-8');
+      const saHeaderSrc = fs.readFileSync(saHeaderPath, 'utf-8');
+      const saSidebarSrc = fs.readFileSync(saSidebarPath, 'utf-8');
+      const saUsersPageSrc = fs.readFileSync(saUsersPagePath, 'utf-8');
+
+      // 1. No permanent sidebar remains
+      const hasNoPermanentSidebar =
+        !saSidebarSrc.includes('hidden xl:flex') &&
+        !saSidebarSrc.includes('aside className="hidden') &&
+        !saLayoutSrc.includes('<aside') &&
+        saLayoutSrc.includes('flex flex-col h-screen');
+      assert(
+        hasNoPermanentSidebar,
+        '5D-C4C-01: No permanent sidebar remains across viewports (layout is full-width column)'
+      );
+
+      // 2. Exactly one hamburger trigger exists in top header at every viewport
+      const hamburgerButtonMatch = saHeaderSrc.match(/<button[\s\S]*?<Menu[\s\S]*?<\/button>/);
+      const hamburgerCode = hamburgerButtonMatch ? hamburgerButtonMatch[0] : '';
+      const hasUniversalHamburger =
+        saHeaderSrc.includes('Menu') &&
+        !hamburgerCode.includes('xl:hidden') &&
+        !hamburgerCode.includes('lg:hidden') &&
+        !hamburgerCode.includes('md:hidden') &&
+        saHeaderSrc.includes('aria-label="Open navigation drawer"') &&
+        saHeaderSrc.includes('aria-expanded={isOpen}');
+      assert(
+        hasUniversalHamburger,
+        '5D-C4C-02: Exactly one hamburger trigger exists in header without viewport-hiding classes'
+      );
+
+      // 3. All eleven navigation items and routes remain present
+      const requiredSaNav = [
+        { href: '/super-admin', label: 'Overview' },
+        { href: '/super-admin/users', label: 'Users' },
+        { href: '/super-admin/procurement-sources', label: 'Procurement Sources' },
+        { href: '/super-admin/silos', label: 'Silos' },
+        { href: '/super-admin/lab-tests', label: 'Lab Test Master' },
+        { href: '/super-admin/sop-rules', label: 'SOP Rules' },
+        { href: '/super-admin/qa-warnings', label: 'QA Warnings' },
+        { href: '/super-admin/operations', label: 'Operations' },
+        { href: '/super-admin/audit', label: 'Audit & Corrections' },
+        { href: '/super-admin/master-data', label: 'Master Data' },
+        { href: '/super-admin/settings', label: 'System Settings' },
+      ];
+      const allElevenNavPresent = requiredSaNav.every(
+        (nav) => saSidebarSrc.includes(`href: '${nav.href}'`) && saSidebarSrc.includes(`label: '${nav.label}'`)
+      );
+      assert(
+        allElevenNavPresent,
+        '5D-C4C-03: All eleven Super Admin navigation items and exact routes remain present'
+      );
+
+      const retiredLongerLabels = [
+        'System Overview',
+        'User Management',
+        'Silo Infrastructure',
+        'Laboratory Catalog',
+        'SOP Parameters',
+        'Quality Thresholds',
+        'Operational Routes',
+        'System Audit Logs',
+        'Master Data Cache',
+        'Platform Configuration',
+      ];
+      const zeroRetiredLabelsPresent = retiredLongerLabels.every(
+        (label) => !saSidebarSrc.includes(`label: '${label}'`)
+      );
+      assert(
+        zeroRetiredLabelsPresent,
+        '5D-C4C-03.1: Longer technical labels are completely removed in favor of short labels'
+      );
+
+      // 4. Drawer has correct dialog semantics
+      const hasDialogSemantics =
+        saSidebarSrc.includes('role="dialog"') &&
+        saSidebarSrc.includes('aria-modal="true"') &&
+        saSidebarSrc.includes('aria-label="Super Admin Navigation Drawer"');
+      assert(
+        hasDialogSemantics,
+        '5D-C4C-04: Drawer implements role="dialog", aria-modal="true", and clear accessible drawer name'
+      );
+
+      // 5. Close behavior supports Escape, backdrop, Close button and navigation selection
+      const hasCloseBehaviors =
+        saSidebarSrc.includes("e.key === 'Escape'") &&
+        saSidebarSrc.includes('onClick={handleClose}') &&
+        saSidebarSrc.includes('aria-label="Close navigation drawer"') &&
+        saSidebarSrc.includes('onClick={handleLinkClick}');
+      assert(
+        hasCloseBehaviors,
+        '5D-C4C-05: Close behavior supports Escape key, backdrop click, Close button, and nav selection'
+      );
+
+      // 6. Focus moves into drawer, remains trapped and returns to hamburger
+      const hasFocusManagement =
+        saSidebarSrc.includes('closeButtonRef.current?.focus()') &&
+        saSidebarSrc.includes('handleDrawerKeyDown') &&
+        saSidebarSrc.includes('firstElement') &&
+        saSidebarSrc.includes('lastElement') &&
+        saSidebarSrc.includes('triggerRef?.current?.focus()');
+      assert(
+        hasFocusManagement,
+        '5D-C4C-06: Focus moves to close button on open, traps Tab/Shift+Tab, and returns to hamburger on close'
+      );
+
+      // 7. Body scroll lock works
+      const hasBodyScrollLock =
+        saSidebarSrc.includes("document.body.style.overflow = 'hidden'") &&
+        saSidebarSrc.includes('document.body.style.overflow = originalOverflow');
+      assert(
+        hasBodyScrollLock,
+        '5D-C4C-07: Body scroll lock engages on drawer open and restores original overflow on unmount/close'
+      );
+
+      // 8. Active route is highlighted with aria-current
+      const hasAriaCurrent = saSidebarSrc.includes("aria-current={isActive ? 'page' : undefined}");
+      assert(
+        hasAriaCurrent,
+        '5D-C4C-08: Active navigation link reflects aria-current="page"'
+      );
+
+      // 9. Drawer contains no duplicate identity or Sign Out section
+      const hasNoDuplicateIdentityInDrawer =
+        !saSidebarSrc.includes('Sign Out') &&
+        !saSidebarSrc.includes('handleLogout') &&
+        !saSidebarSrc.includes('currentUser?.department') &&
+        !saSidebarSrc.includes('currentUser?.role') &&
+        !saSidebarSrc.includes('Live');
+      assert(
+        hasNoDuplicateIdentityInDrawer,
+        '5D-C4C-09: Drawer contains only company branding, close button, and nav links (no duplicate user card or Sign Out)'
+      );
+
+      // 10. Header preserves actual user identity and one Sign Out action
+      const hasHeaderIdentityAndLogout =
+        saHeaderSrc.includes('currentUser?.name || currentUser?.username') &&
+        saHeaderSrc.includes('Sign Out') &&
+        saHeaderSrc.includes('handleLogout') &&
+        !saHeaderSrc.includes('“Super Admin”');
+      assert(
+        hasHeaderIdentityAndLogout,
+        '5D-C4C-10: Header preserves actual Super Admin full name, username, and exactly one Sign Out button'
+      );
+
+      // 11. Add User source guidance links to Procurement Sources
+      const hasAddUserSourceGuidance =
+        saUsersPageSrc.includes('Source not listed?') &&
+        saUsersPageSrc.includes('/super-admin/procurement-sources') &&
+        saUsersPageSrc.includes('Add it in Procurement Sources');
+      assert(
+        hasAddUserSourceGuidance,
+        '5D-C4C-11: Add User and Edit User source selection provides concise guidance link to Procurement Sources'
+      );
+
+      // 12. Safe Create/Edit/Deactivate/Reactivate lifecycle cycle against test DB
+      const c4cUsername = `c4c_user_${Date.now()}`;
+      const createCycleReq = new Request('http://localhost/api/super-admin/users', {
+        method: 'POST',
+        headers: saHeaders,
+        body: JSON.stringify({
+          username: c4cUsername,
+          name: 'Lifecycle Verification User',
+          password: 'ValidPassword123!',
+          role: 'QA_Operator',
+        }),
+      });
+      const createCycleRes = await postCreateUser(createCycleReq);
+      const createCycleData = await createCycleRes.json();
+      assert(
+        createCycleRes.status === 200 && createCycleData.success && createCycleData.user?.id,
+        '5D-C4C-12.1: Lifecycle user created via API'
+      );
+
+      const createdCycleUser = await prisma.user.findFirst({ where: { username: c4cUsername } });
+      assert(
+        createdCycleUser !== null && createdCycleUser.is_active === true && createdCycleUser.role === 'QA_Operator',
+        '5D-C4C-12.2: Created user verified in test database'
+      );
+      if (createdCycleUser) {
+        cleanupC4AUserIds.push(createdCycleUser.id);
+
+        // Edit user name
+        const editCycleReq = new Request(`http://localhost/api/super-admin/users/${createdCycleUser.id}`, {
+          method: 'PATCH',
+          headers: saHeaders,
+          body: JSON.stringify({
+            name: 'Updated Lifecycle Name',
+          }),
+        });
+        const editCycleRes = await patchUser(editCycleReq, { params: Promise.resolve({ id: createdCycleUser.id.toString() }) });
+        const editCycleData = await editCycleRes.json();
+        const editedDbUser = await prisma.user.findUnique({ where: { id: createdCycleUser.id } });
+        assert(
+          editCycleRes.status === 200 && editCycleData.success && editedDbUser?.full_name === 'Updated Lifecycle Name',
+          '5D-C4C-12.3: User edited via API and verified in test database'
+        );
+
+        // Deactivate user
+        const deactCycleReq = new Request(`http://localhost/api/super-admin/users/${createdCycleUser.id}`, {
+          method: 'PATCH',
+          headers: saHeaders,
+          body: JSON.stringify({
+            isActive: false,
+          }),
+        });
+        const deactCycleRes = await patchUser(deactCycleReq, { params: Promise.resolve({ id: createdCycleUser.id.toString() }) });
+        const deactCycleData = await deactCycleRes.json();
+        const deactDbUser = await prisma.user.findUnique({ where: { id: createdCycleUser.id } });
+        assert(
+          deactCycleRes.status === 200 && deactCycleData.success && deactDbUser?.is_active === false,
+          '5D-C4C-12.4: User deactivated via API and verified in test database'
+        );
+
+        // Reactivate user
+        const reactCycleReq = new Request(`http://localhost/api/super-admin/users/${createdCycleUser.id}`, {
+          method: 'PATCH',
+          headers: saHeaders,
+          body: JSON.stringify({
+            isActive: true,
+          }),
+        });
+        const reactCycleRes = await patchUser(reactCycleReq, { params: Promise.resolve({ id: createdCycleUser.id.toString() }) });
+        const reactCycleData = await reactCycleRes.json();
+        const reactDbUser = await prisma.user.findUnique({ where: { id: createdCycleUser.id } });
+        assert(
+          reactCycleRes.status === 200 && reactCycleData.success && reactDbUser?.is_active === true,
+          '5D-C4C-12.5: User reactivated via API and verified in test database'
+        );
+      }
     } finally {
       // 16. Clean up test entities strictly in finally without swallowing errors
       const cleanupErrors: any[] = [];
