@@ -226,6 +226,9 @@ async function runSuperAdminTests() {
     const tempTestUsername = `live.auth.${Date.now()}`;
     let createdLiveUserId: bigint | null = null;
 
+    const activeZmccForLive = await prisma.procurementSource.findFirst({ where: { source_type: 'ZMCC', is_active: true } });
+    if (!activeZmccForLive) throw new Error('Active ZMCC source required for live test suite');
+
     try {
       // 1. Create disposable user through canonical Super Admin POST API
       const createReq = new Request('http://localhost:3000/api/super-admin/users', {
@@ -236,8 +239,7 @@ async function runSuperAdminTests() {
           name: 'Live Auth Test User',
           password: 'LivePassword123!',
           role: 'MPD_Operator',
-          department: 'Operations',
-          scopeType: 'ALL',
+          procurementSourceId: activeZmccForLive.id.toString(),
         }),
       });
       const createRes = await postUser(createReq);

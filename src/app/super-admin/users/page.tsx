@@ -2,6 +2,12 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import { Users, Plus, KeyRound, Edit2, ShieldAlert, CheckCircle2, AlertTriangle, X } from 'lucide-react';
+import {
+  CREATABLE_ROLES,
+  CreatableRole,
+  ROLE_ASSIGNMENT_POLICIES,
+  getRoleAssignmentPolicy,
+} from '@/lib/user-assignment-policy';
 
 interface Source {
   id: string;
@@ -57,16 +63,12 @@ export default function SuperAdminUsersPage() {
   const [username, setUsername] = useState('');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState('SUPER_ADMIN');
-  const [department, setDepartment] = useState('');
-  const [scopeType, setScopeType] = useState('SYSTEM');
+  const [role, setRole] = useState<CreatableRole>('SUPER_ADMIN');
   const [procurementSourceId, setProcurementSourceId] = useState('');
 
   // Edit Form states
   const [editName, setEditName] = useState('');
-  const [editRole, setEditRole] = useState('SUPER_ADMIN');
-  const [editDepartment, setEditDepartment] = useState('');
-  const [editScopeType, setEditScopeType] = useState('SYSTEM');
+  const [editRole, setEditRole] = useState<CreatableRole>('SUPER_ADMIN');
   const [editProcurementSourceId, setEditProcurementSourceId] = useState('');
 
   // Password Reset state
@@ -105,8 +107,6 @@ export default function SuperAdminUsersPage() {
     setName('');
     setPassword('');
     setRole('SUPER_ADMIN');
-    setDepartment('');
-    setScopeType('SYSTEM');
     setProcurementSourceId('');
     setCreateModalError(null);
   };
@@ -149,72 +149,58 @@ export default function SuperAdminUsersPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isSubmittingCreate, isSubmittingEdit, isSubmittingReset, isSubmittingConfirm]);
 
+  const createPolicy = useMemo(
+    () => getRoleAssignmentPolicy(role) || ROLE_ASSIGNMENT_POLICIES.SUPER_ADMIN,
+    [role]
+  );
+
+  const editPolicy = useMemo(
+    () => getRoleAssignmentPolicy(editRole) || ROLE_ASSIGNMENT_POLICIES.SUPER_ADMIN,
+    [editRole]
+  );
+
   // Sources compatible with current Create Role (strictly active only)
   const createCompatibleSources = useMemo(() => {
     const activeSources = sources.filter((s) => s.isActive);
-    if (role === 'ZMCC_MANAGER') {
-      return activeSources.filter((s) => s.sourceType === 'ZMCC');
+    if (!createPolicy.requiresSource || !createPolicy.allowedSourceType) {
+      return [];
     }
-    if (role === 'CONTRACTOR_MANAGER') {
-      return activeSources.filter((s) => s.sourceType === 'CONTRACTOR');
-    }
-    return activeSources;
-  }, [sources, role]);
+    return activeSources.filter((s) => s.sourceType === createPolicy.allowedSourceType);
+  }, [sources, createPolicy]);
 
   // Sources compatible with current Edit Role (strictly active only)
   const editCompatibleSources = useMemo(() => {
     const activeSources = sources.filter((s) => s.isActive);
-    if (editRole === 'ZMCC_MANAGER') {
-      return activeSources.filter((s) => s.sourceType === 'ZMCC');
+    if (!editPolicy.requiresSource || !editPolicy.allowedSourceType) {
+      return [];
     }
-    if (editRole === 'CONTRACTOR_MANAGER') {
-      return activeSources.filter((s) => s.sourceType === 'CONTRACTOR');
-    }
-    return activeSources;
-  }, [sources, editRole]);
+    return activeSources.filter((s) => s.sourceType === editPolicy.allowedSourceType);
+  }, [sources, editPolicy]);
 
   // Handle role change in Create form with source compatibility
-  const handleCreateRoleChange = (newRole: string) => {
+  const handleCreateRoleChange = (newRole: CreatableRole) => {
     setRole(newRole);
-    if (scopeType === 'SOURCE' && procurementSourceId) {
+    const newPolicy = getRoleAssignmentPolicy(newRole);
+    if (newPolicy && newPolicy.requiresSource) {
       const currentSource = sources.find((s) => s.id === procurementSourceId);
-      if (currentSource) {
-        if (newRole === 'ZMCC_MANAGER' && currentSource.sourceType !== 'ZMCC') {
-          setProcurementSourceId('');
-        } else if (newRole === 'CONTRACTOR_MANAGER' && currentSource.sourceType !== 'CONTRACTOR') {
-          setProcurementSourceId('');
-        }
+      if (!currentSource || !currentSource.isActive || currentSource.sourceType !== newPolicy.allowedSourceType) {
+        setProcurementSourceId('');
       }
-    }
-  };
-
-  // Handle scope change in Create form
-  const handleCreateScopeChange = (newScope: string) => {
-    setScopeType(newScope);
-    if (newScope !== 'SOURCE') {
+    } else {
       setProcurementSourceId('');
     }
   };
 
   // Handle role change in Edit form with source compatibility
-  const handleEditRoleChange = (newRole: string) => {
+  const handleEditRoleChange = (newRole: CreatableRole) => {
     setEditRole(newRole);
-    if (editScopeType === 'SOURCE' && editProcurementSourceId) {
+    const newPolicy = getRoleAssignmentPolicy(newRole);
+    if (newPolicy && newPolicy.requiresSource) {
       const currentSource = sources.find((s) => s.id === editProcurementSourceId);
-      if (currentSource) {
-        if (newRole === 'ZMCC_MANAGER' && currentSource.sourceType !== 'ZMCC') {
-          setEditProcurementSourceId('');
-        } else if (newRole === 'CONTRACTOR_MANAGER' && currentSource.sourceType !== 'CONTRACTOR') {
-          setEditProcurementSourceId('');
-        }
+      if (!currentSource || !currentSource.isActive || currentSource.sourceType !== newPolicy.allowedSourceType) {
+        setEditProcurementSourceId('');
       }
-    }
-  };
-
-  // Handle scope change in Edit form
-  const handleEditScopeChange = (newScope: string) => {
-    setEditScopeType(newScope);
-    if (newScope !== 'SOURCE') {
+    } else {
       setEditProcurementSourceId('');
     }
   };
@@ -222,11 +208,21 @@ export default function SuperAdminUsersPage() {
   const openEditModal = (user: UserItem) => {
     setShowEditModal(user);
     setEditName(user.name || '');
-    setEditRole(user.role);
-    setEditDepartment(user.department || '');
-    const canonicalScope = user.scopeType === 'PROCUREMENT_SOURCE' ? 'SOURCE' : user.scopeType;
-    setEditScopeType(canonicalScope);
-    setEditProcurementSourceId(canonicalScope === 'SOURCE' && user.procurementSourceId ? user.procurementSourceId : '');
+    const validRole: CreatableRole = (CREATABLE_ROLES as readonly string[]).includes(user.role)
+      ? (user.role as CreatableRole)
+      : 'SUPER_ADMIN';
+    setEditRole(validRole);
+    const pol = getRoleAssignmentPolicy(validRole);
+    if (pol && pol.requiresSource && user.procurementSourceId) {
+      const currentSource = sources.find((s) => s.id === user.procurementSourceId);
+      if (currentSource && currentSource.isActive && currentSource.sourceType === pol.allowedSourceType) {
+        setEditProcurementSourceId(user.procurementSourceId);
+      } else {
+        setEditProcurementSourceId('');
+      }
+    } else {
+      setEditProcurementSourceId('');
+    }
     setEditModalError(null);
   };
 
@@ -244,13 +240,13 @@ export default function SuperAdminUsersPage() {
       return;
     }
 
-    if (!password || password.length < 4) {
-      setCreateModalError('Password must be at least 4 characters long.');
+    if (!password || password.length < 8) {
+      setCreateModalError('Password must be at least 8 characters long.');
       return;
     }
 
-    if (scopeType === 'SOURCE' && !procurementSourceId) {
-      setCreateModalError('Please select a valid Procurement Source for SOURCE scope.');
+    if (createPolicy.requiresSource && !procurementSourceId) {
+      setCreateModalError(`Please select an active ${createPolicy.allowedSourceType} source for ${createPolicy.label}.`);
       return;
     }
 
@@ -264,9 +260,7 @@ export default function SuperAdminUsersPage() {
           name: name.trim(),
           password,
           role,
-          department: department.trim(),
-          scopeType,
-          procurementSourceId: scopeType === 'SOURCE' ? procurementSourceId : null,
+          procurementSourceId: createPolicy.requiresSource ? procurementSourceId : null,
         }),
       });
 
@@ -293,8 +287,8 @@ export default function SuperAdminUsersPage() {
     setError(null);
     setSuccessMsg(null);
 
-    if (editScopeType === 'SOURCE' && !editProcurementSourceId) {
-      setEditModalError('Please select a valid Procurement Source for SOURCE scope.');
+    if (editPolicy.requiresSource && !editProcurementSourceId) {
+      setEditModalError(`Please select an active ${editPolicy.allowedSourceType} source for ${editPolicy.label}.`);
       return;
     }
 
@@ -306,9 +300,7 @@ export default function SuperAdminUsersPage() {
         body: JSON.stringify({
           name: editName.trim(),
           role: editRole,
-          department: editDepartment.trim(),
-          scopeType: editScopeType,
-          procurementSourceId: editScopeType === 'SOURCE' ? editProcurementSourceId : null,
+          procurementSourceId: editPolicy.requiresSource ? editProcurementSourceId : null,
         }),
       });
 
@@ -367,8 +359,8 @@ export default function SuperAdminUsersPage() {
     setError(null);
     setSuccessMsg(null);
 
-    if (!newPassword || newPassword.length < 4) {
-      setResetModalError('Password must be at least 4 characters long.');
+    if (!newPassword || newPassword.length < 8) {
+      setResetModalError('Password must be at least 8 characters long.');
       return;
     }
 
@@ -478,7 +470,7 @@ export default function SuperAdminUsersPage() {
                             u.role === 'SUPER_ADMIN' ? 'bg-indigo-100 text-indigo-900' : 'bg-slate-100 text-slate-800'
                           }`}
                         >
-                          {u.role}
+                          {u.role === 'MPD_Operator' ? 'ZMCC Lab Attendant' : u.role}
                         </span>
                       </td>
                       <td className="p-3 text-slate-600">{u.department || '—'}</td>
@@ -623,7 +615,7 @@ export default function SuperAdminUsersPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full p-2.5 rounded-lg border border-[#C4B9A3] focus:outline-none focus:border-[#1E3A8A]"
-                  placeholder="At least 4 characters"
+                  placeholder="At least 8 characters"
                   disabled={isSubmittingCreate}
                 />
               </div>
@@ -635,60 +627,22 @@ export default function SuperAdminUsersPage() {
                 <select
                   id="create-role"
                   value={role}
-                  onChange={(e) => handleCreateRoleChange(e.target.value)}
+                  onChange={(e) => handleCreateRoleChange(e.target.value as CreatableRole)}
                   className="w-full p-2.5 rounded-lg border border-[#C4B9A3] focus:outline-none focus:border-[#1E3A8A]"
                   disabled={isSubmittingCreate}
                 >
-                  <option value="SUPER_ADMIN">SUPER_ADMIN (Super Admin)</option>
-                  <option value="EXECUTIVE_MANAGEMENT">EXECUTIVE_MANAGEMENT (Plant Executive)</option>
-                  <option value="ZMCC_MANAGER">ZMCC_MANAGER (ZMCC Source Manager)</option>
-                  <option value="CONTRACTOR_MANAGER">CONTRACTOR_MANAGER (Contractor Source Manager)</option>
-                  <option value="MPD_Operator">MPD_Operator (MPD Field Operator)</option>
-                  <option value="Security_Operator">Security_Operator (Gate Security)</option>
-                  <option value="QA_Operator">QA_Operator (QA Chemist)</option>
-                  <option value="WEIGHBRIDGE_OPERATOR">WEIGHBRIDGE_OPERATOR (Weighbridge Operator)</option>
-                  <option value="Production_Operator">Production_Operator (Silo Operator)</option>
-                  <option value="Correction_Officer">Correction_Officer (Data Correction Officer)</option>
+                  {CREATABLE_ROLES.map((r) => (
+                    <option key={r} value={r}>
+                      {r === 'MPD_Operator' ? 'ZMCC Lab Attendant' : `${ROLE_ASSIGNMENT_POLICIES[r].label} (${r})`}
+                    </option>
+                  ))}
                 </select>
               </div>
 
-              <div>
-                <label htmlFor="create-dept" className="font-bold text-slate-700 block mb-1">
-                  Department
-                </label>
-                <input
-                  id="create-dept"
-                  type="text"
-                  value={department}
-                  onChange={(e) => setDepartment(e.target.value)}
-                  className="w-full p-2.5 rounded-lg border border-[#C4B9A3] focus:outline-none focus:border-[#1E3A8A]"
-                  placeholder="e.g. Quality Assurance"
-                  disabled={isSubmittingCreate}
-                />
-              </div>
-
-              <div>
-                <label htmlFor="create-scope" className="font-bold text-slate-700 block mb-1">
-                  Data Scope Level <span className="text-rose-600">*</span>
-                </label>
-                <select
-                  id="create-scope"
-                  value={scopeType}
-                  onChange={(e) => handleCreateScopeChange(e.target.value)}
-                  className="w-full p-2.5 rounded-lg border border-[#C4B9A3] focus:outline-none focus:border-[#1E3A8A]"
-                  disabled={isSubmittingCreate}
-                >
-                  <option value="SYSTEM">SYSTEM (Super Admin Master)</option>
-                  <option value="ALL">ALL (Complete Plant Access)</option>
-                  <option value="DEPARTMENT">DEPARTMENT (Department Restricted)</option>
-                  <option value="SOURCE">SOURCE (Single Source Restricted)</option>
-                </select>
-              </div>
-
-              {scopeType === 'SOURCE' && (
+              {createPolicy.requiresSource && (
                 <div>
                   <label htmlFor="create-source" className="font-bold text-slate-700 block mb-1">
-                    Assigned Procurement Source <span className="text-rose-600">*</span>
+                    Assigned Source <span className="text-rose-600">*</span>
                   </label>
                   <select
                     id="create-source"
@@ -698,7 +652,7 @@ export default function SuperAdminUsersPage() {
                     className="w-full p-2.5 rounded-lg border border-[#C4B9A3] focus:outline-none focus:border-[#1E3A8A]"
                     disabled={isSubmittingCreate}
                   >
-                    <option value="">Select Procurement Source...</option>
+                    <option value="">Select Assigned Source...</option>
                     {createCompatibleSources.map((s) => (
                       <option key={s.id} value={s.id}>
                         {s.name} ({s.sourceType} - {s.code})
@@ -707,11 +661,24 @@ export default function SuperAdminUsersPage() {
                   </select>
                   {createCompatibleSources.length === 0 && (
                     <p className="text-[11px] text-amber-700 mt-1">
-                      No compatible active sources found for role {role}.
+                      No active {createPolicy.allowedSourceType} sources found for role {role}.
                     </p>
                   )}
                 </div>
               )}
+
+              {/* Read-Only Role Assignment Summary */}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1 text-xs text-slate-600">
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Assignment Details</div>
+                <div className="flex justify-between items-center">
+                  <span className="font-medium text-slate-500">Department:</span>
+                  <span className="font-semibold text-slate-800">{createPolicy.department}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="font-medium text-slate-500">Data Scope:</span>
+                  <span className="font-semibold text-slate-800">{createPolicy.summaryLabel}</span>
+                </div>
+              </div>
 
               <div className="flex items-center justify-end space-x-2 pt-3 border-t border-[#EAE4D5]">
                 <button
@@ -801,60 +768,22 @@ export default function SuperAdminUsersPage() {
                 <select
                   id="edit-role"
                   value={editRole}
-                  onChange={(e) => handleEditRoleChange(e.target.value)}
+                  onChange={(e) => handleEditRoleChange(e.target.value as CreatableRole)}
                   className="w-full p-2.5 rounded-lg border border-[#C4B9A3] focus:outline-none focus:border-[#1E3A8A]"
                   disabled={isSubmittingEdit}
                 >
-                  <option value="SUPER_ADMIN">SUPER_ADMIN (Super Admin)</option>
-                  <option value="EXECUTIVE_MANAGEMENT">EXECUTIVE_MANAGEMENT (Plant Executive)</option>
-                  <option value="ZMCC_MANAGER">ZMCC_MANAGER (ZMCC Source Manager)</option>
-                  <option value="CONTRACTOR_MANAGER">CONTRACTOR_MANAGER (Contractor Source Manager)</option>
-                  <option value="MPD_Operator">MPD_Operator (MPD Field Operator)</option>
-                  <option value="Security_Operator">Security_Operator (Gate Security)</option>
-                  <option value="QA_Operator">QA_Operator (QA Chemist)</option>
-                  <option value="WEIGHBRIDGE_OPERATOR">WEIGHBRIDGE_OPERATOR (Weighbridge Operator)</option>
-                  <option value="Production_Operator">Production_Operator (Silo Operator)</option>
-                  <option value="Correction_Officer">Correction_Officer (Data Correction Officer)</option>
+                  {CREATABLE_ROLES.map((r) => (
+                    <option key={r} value={r}>
+                      {r === 'MPD_Operator' ? 'ZMCC Lab Attendant' : `${ROLE_ASSIGNMENT_POLICIES[r].label} (${r})`}
+                    </option>
+                  ))}
                 </select>
               </div>
 
-              <div>
-                <label htmlFor="edit-dept" className="font-bold text-slate-700 block mb-1">
-                  Department
-                </label>
-                <input
-                  id="edit-dept"
-                  type="text"
-                  value={editDepartment}
-                  onChange={(e) => setEditDepartment(e.target.value)}
-                  className="w-full p-2.5 rounded-lg border border-[#C4B9A3] focus:outline-none focus:border-[#1E3A8A]"
-                  placeholder="e.g. Quality Assurance"
-                  disabled={isSubmittingEdit}
-                />
-              </div>
-
-              <div>
-                <label htmlFor="edit-scope" className="font-bold text-slate-700 block mb-1">
-                  Data Scope Level <span className="text-rose-600">*</span>
-                </label>
-                <select
-                  id="edit-scope"
-                  value={editScopeType}
-                  onChange={(e) => handleEditScopeChange(e.target.value)}
-                  className="w-full p-2.5 rounded-lg border border-[#C4B9A3] focus:outline-none focus:border-[#1E3A8A]"
-                  disabled={isSubmittingEdit}
-                >
-                  <option value="SYSTEM">SYSTEM (Super Admin Master)</option>
-                  <option value="ALL">ALL (Complete Plant Access)</option>
-                  <option value="DEPARTMENT">DEPARTMENT (Department Restricted)</option>
-                  <option value="SOURCE">SOURCE (Single Source Restricted)</option>
-                </select>
-              </div>
-
-              {editScopeType === 'SOURCE' && (
+              {editPolicy.requiresSource && (
                 <div>
                   <label htmlFor="edit-source" className="font-bold text-slate-700 block mb-1">
-                    Assigned Procurement Source <span className="text-rose-600">*</span>
+                    Assigned Source <span className="text-rose-600">*</span>
                   </label>
                   <select
                     id="edit-source"
@@ -864,7 +793,7 @@ export default function SuperAdminUsersPage() {
                     className="w-full p-2.5 rounded-lg border border-[#C4B9A3] focus:outline-none focus:border-[#1E3A8A]"
                     disabled={isSubmittingEdit}
                   >
-                    <option value="">Select Procurement Source...</option>
+                    <option value="">Select Assigned Source...</option>
                     {editCompatibleSources.map((s) => (
                       <option key={s.id} value={s.id}>
                         {s.name} ({s.sourceType} - {s.code})
@@ -873,11 +802,24 @@ export default function SuperAdminUsersPage() {
                   </select>
                   {editCompatibleSources.length === 0 && (
                     <p className="text-[11px] text-amber-700 mt-1">
-                      No compatible active sources found for role {editRole}.
+                      No active {editPolicy.allowedSourceType} sources found for role {editRole}.
                     </p>
                   )}
                 </div>
               )}
+
+              {/* Read-Only Role Assignment Summary */}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1 text-xs text-slate-600">
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Assignment Details</div>
+                <div className="flex justify-between items-center">
+                  <span className="font-medium text-slate-500">Department:</span>
+                  <span className="font-semibold text-slate-800">{editPolicy.department}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="font-medium text-slate-500">Data Scope:</span>
+                  <span className="font-semibold text-slate-800">{editPolicy.summaryLabel}</span>
+                </div>
+              </div>
 
               <div className="flex items-center justify-end space-x-2 pt-3 border-t border-[#EAE4D5]">
                 <button
@@ -1042,7 +984,7 @@ export default function SuperAdminUsersPage() {
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   className="w-full p-2.5 rounded-lg border border-[#C4B9A3] focus:outline-none focus:border-[#1E3A8A]"
-                  placeholder="At least 4 characters"
+                  placeholder="At least 8 characters"
                   disabled={isSubmittingReset}
                 />
               </div>

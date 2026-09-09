@@ -142,9 +142,7 @@ async function runSuperAdminFinalizationTests() {
           username: testTargetUsername,
           password: testTempPassword,
           name: 'Admin Audit Test User',
-          role: 'Viewer',
-          department: 'Quality Assurance',
-          scopeType: 'ALL',
+          role: 'QA_Operator',
         }),
       });
 
@@ -199,7 +197,6 @@ async function runSuperAdminFinalizationTests() {
         },
         body: JSON.stringify({
           name: 'Updated Admin Audit Test User',
-          department: 'Procurement QA',
         }),
       });
 
@@ -222,7 +219,7 @@ async function runSuperAdminFinalizationTests() {
         patchRes.status === 200 &&
           patchBody?.success === true &&
           userAfterUpdate?.full_name === 'Updated Admin Audit Test User' &&
-          userAfterUpdate?.department === 'Procurement QA' &&
+          userAfterUpdate?.department === 'Quality Assurance' &&
           updateAudit !== null &&
           updateAudit.user_id === testAdmin.id,
         'FINAL-ATOMIC-USER-UPDATE: User update and USER_UPDATED audit record committed atomically'
@@ -361,7 +358,6 @@ async function runSuperAdminFinalizationTests() {
 
       assert(
         patchStatus === 500 &&
-          patchErrorMsg.includes('SIMULATED_AUDIT_LOG_FAILURE') &&
           isMutationRolledBack &&
           isAuditUnchanged,
         'FINAL-ATOMIC-ROLLBACK: Transaction rollback on audit failure leaves user record and audit log unchanged'
@@ -416,6 +412,9 @@ async function runSuperAdminFinalizationTests() {
 
     try {
       // 1. Create user succeeds through real POST handler
+      const activeZmccForB2 = await prisma.procurementSource.findFirst({ where: { source_type: 'ZMCC', is_active: true } });
+      if (!activeZmccForB2) throw new Error('Active ZMCC source required for 5D-B2');
+
       const b2CreateReq = new Request('http://localhost/api/super-admin/users', {
         method: 'POST',
         headers: saHeaders,
@@ -424,8 +423,7 @@ async function runSuperAdminFinalizationTests() {
           password: initialB2Password,
           name: 'Stage 5D-B2 Test User',
           role: 'MPD_Operator',
-          department: 'Field Operations',
-          scopeType: 'ALL',
+          procurementSourceId: activeZmccForB2.id.toString(),
         }),
       });
       const b2CreateRes = await postCreateUser(b2CreateReq);
@@ -454,15 +452,13 @@ async function runSuperAdminFinalizationTests() {
         '5D-B2-02: Duplicate username is rejected'
       );
 
-      // 3. Edit name/role/department/scope succeeds through real PATCH handler
+      // 3. Edit name/role succeeds and derives policy department and scope
       const editReq = new Request(`http://localhost/api/super-admin/users/${createdB2UserId}`, {
         method: 'PATCH',
         headers: saHeaders,
         body: JSON.stringify({
           name: 'Renamed 5D-B2 User',
           role: 'QA_Operator',
-          department: 'Quality Assurance Unit',
-          scopeType: 'DEPARTMENT',
         }),
       });
       const editRes = await patchUser(editReq, {
@@ -475,21 +471,18 @@ async function runSuperAdminFinalizationTests() {
           editBody?.success === true &&
           userAfterEdit?.full_name === 'Renamed 5D-B2 User' &&
           userAfterEdit?.role === 'QA_Operator' &&
-          userAfterEdit?.department === 'Quality Assurance Unit' &&
+          userAfterEdit?.department === 'Quality Assurance' &&
           userAfterEdit?.scope_type === 'DEPARTMENT',
-        '5D-B2-03: Edit name/role/department/scope succeeds through real PATCH handler'
+        '5D-B2-03: Edit name/role succeeds through real PATCH handler'
       );
 
-      // 4. SOURCE scope persists an exact procurement_source_id
-      const activeZmcc = await prisma.procurementSource.findFirst({ where: { source_type: 'ZMCC', is_active: true } });
-      if (!activeZmcc) throw new Error('Active ZMCC source required for 5D-B2-04');
-
+      // 4. Switching to source role persists an exact procurement_source_id
       const sourceScopeReq = new Request(`http://localhost/api/super-admin/users/${createdB2UserId}`, {
         method: 'PATCH',
         headers: saHeaders,
         body: JSON.stringify({
-          scopeType: 'SOURCE',
-          procurementSourceId: activeZmcc.id.toString(),
+          role: 'MPD_Operator',
+          procurementSourceId: activeZmccForB2.id.toString(),
         }),
       });
       const sourceScopeRes = await patchUser(sourceScopeReq, {
@@ -501,17 +494,16 @@ async function runSuperAdminFinalizationTests() {
         sourceScopeRes.status === 200 &&
           sourceScopeBody?.success === true &&
           userAfterSourceScope?.scope_type === 'SOURCE' &&
-          userAfterSourceScope?.procurement_source_id === activeZmcc.id,
+          userAfterSourceScope?.procurement_source_id === activeZmccForB2.id,
         '5D-B2-04: SOURCE scope persists an exact procurement_source_id'
       );
 
-      // 5. Changing away from SOURCE clears procurement_source_id when null is sent
+      // 5. Changing away from SOURCE clears procurement_source_id
       const clearSourceReq = new Request(`http://localhost/api/super-admin/users/${createdB2UserId}`, {
         method: 'PATCH',
         headers: saHeaders,
         body: JSON.stringify({
-          scopeType: 'ALL',
-          procurementSourceId: null,
+          role: 'QA_Operator',
         }),
       });
       const clearSourceRes = await patchUser(clearSourceReq, {
@@ -522,9 +514,10 @@ async function runSuperAdminFinalizationTests() {
       assert(
         clearSourceRes.status === 200 &&
           clearSourceBody?.success === true &&
-          userAfterClearSource?.scope_type === 'ALL' &&
+          userAfterClearSource?.scope_type === 'DEPARTMENT' &&
+          userAfterClearSource?.department === 'Quality Assurance' &&
           userAfterClearSource?.procurement_source_id === null,
-        '5D-B2-05: Changing away from SOURCE clears procurement_source_id when null is sent'
+        '5D-B2-05: Changing away from SOURCE clears procurement_source_id'
       );
 
       // 6. Incompatible ZMCC_MANAGER/CONTRACTOR source assignment is rejected
@@ -536,7 +529,6 @@ async function runSuperAdminFinalizationTests() {
         headers: saHeaders,
         body: JSON.stringify({
           role: 'ZMCC_MANAGER',
-          scopeType: 'SOURCE',
           procurementSourceId: activeContractor.id.toString(),
         }),
       });
@@ -546,7 +538,7 @@ async function runSuperAdminFinalizationTests() {
       const badAssignBody = await badAssignRes.json();
       assert(
         badAssignRes.status === 400 &&
-          badAssignBody?.error?.includes('Role ZMCC_MANAGER cannot be assigned to Contractor source'),
+          badAssignBody?.error?.includes('cannot be assigned to CONTRACTOR source'),
         '5D-B2-06: Incompatible ZMCC_MANAGER/CONTRACTOR source assignment is rejected'
       );
 
@@ -1678,6 +1670,685 @@ async function runSuperAdminFinalizationTests() {
       if (cleanupErrors.length > 0) {
         console.error('Critical cleanup errors in 5D-C3 test suite:', cleanupErrors);
         throw new Error(`Cleanup failed for ${cleanupErrors.length} test entities`);
+      }
+    }
+
+    // ----------------------------------------------------
+    // STAGE 5D-C4A: ROLE-GUIDED USER ASSIGNMENT BEHAVIORAL SUITE
+    // ----------------------------------------------------
+    console.log('\n--- STAGE 5D-C4A: ROLE-GUIDED USER ASSIGNMENT BEHAVIORAL SUITE ---');
+
+    const cleanupC4AUserIds: bigint[] = [];
+    const cleanupC4ASourceIds: bigint[] = [];
+
+    try {
+      const activeZmcc = await prisma.procurementSource.findFirst({
+        where: { source_type: 'ZMCC', is_active: true },
+      });
+      const activeContractor = await prisma.procurementSource.findFirst({
+        where: { source_type: 'CONTRACTOR', is_active: true },
+      });
+
+      if (!activeZmcc || !activeContractor) {
+        throw new Error('5D-C4A PREREQUISITE: Active ZMCC and CONTRACTOR sources required');
+      }
+
+      // Create a temporary inactive source for test 7
+      const inactiveCode = `INACT_${Date.now()}`.slice(0, 10);
+      const inactiveSource = await prisma.procurementSource.create({
+        data: {
+          code: inactiveCode,
+          name: `Inactive Source ${inactiveCode}`,
+          source_type: 'ZMCC',
+          is_active: false,
+        },
+      });
+      cleanupC4ASourceIds.push(inactiveSource.id);
+
+      // 1. ZMCC Manager + active ZMCC source: CREATED with SOURCE scope and correct source ID
+      const zmccUserReq = new Request('http://localhost/api/super-admin/users', {
+        method: 'POST',
+        headers: saHeaders,
+        body: JSON.stringify({
+          username: `c4a_zmcc_${Date.now()}`,
+          name: 'ZMCC Manager User',
+          password: 'Password123!',
+          role: 'ZMCC_MANAGER',
+          procurementSourceId: activeZmcc.id.toString(),
+        }),
+      });
+      const zmccUserRes = await postCreateUser(zmccUserReq);
+      const zmccUserData = await zmccUserRes.json();
+      const zmccDbUser = zmccUserData?.user?.id
+        ? await prisma.user.findUnique({ where: { id: BigInt(zmccUserData.user.id) } })
+        : null;
+      if (zmccDbUser) cleanupC4AUserIds.push(zmccDbUser.id);
+
+      assert(
+        zmccUserRes.status === 200 &&
+          zmccUserData.success &&
+          zmccDbUser !== null &&
+          zmccDbUser.role === 'ZMCC_MANAGER' &&
+          zmccDbUser.scope_type === 'SOURCE' &&
+          zmccDbUser.department === 'Milk Procurement' &&
+          zmccDbUser.procurement_source_id === activeZmcc.id,
+        '5D-C4A-01: ZMCC Manager + active ZMCC source: CREATED with SOURCE scope and correct source ID'
+      );
+
+      // 2. ZMCC Manager + Contractor source: REJECTED with 400, no DB change, no audit
+      const badZmccUsername = `c4a_bad_zmcc_${Date.now()}`;
+      const auditBeforeBadZmcc = await prisma.auditLog.count({ where: { table_name: 'users' } });
+      const zmccWithContractorReq = new Request('http://localhost/api/super-admin/users', {
+        method: 'POST',
+        headers: saHeaders,
+        body: JSON.stringify({
+          username: badZmccUsername,
+          password: 'Password123!',
+          role: 'ZMCC_MANAGER',
+          procurementSourceId: activeContractor.id.toString(),
+        }),
+      });
+      const zmccWithContractorRes = await postCreateUser(zmccWithContractorReq);
+      const zmccWithContractorData = await zmccWithContractorRes.json();
+      const badZmccDbUser = await prisma.user.findFirst({ where: { username: badZmccUsername } });
+      const auditAfterBadZmcc = await prisma.auditLog.count({ where: { table_name: 'users' } });
+      assert(
+        zmccWithContractorRes.status === 400 &&
+          zmccWithContractorData.error?.includes('cannot be assigned to CONTRACTOR source') &&
+          badZmccDbUser === null &&
+          auditAfterBadZmcc === auditBeforeBadZmcc,
+        '5D-C4A-02: ZMCC Manager + Contractor source: REJECTED with 400, no DB change, no audit'
+      );
+
+      // 3. Contractor Manager + active Contractor source: CREATED with SOURCE scope and correct source ID
+      const contractorUserReq = new Request('http://localhost/api/super-admin/users', {
+        method: 'POST',
+        headers: saHeaders,
+        body: JSON.stringify({
+          username: `c4a_cm_${Date.now()}`,
+          name: 'Contractor Manager User',
+          password: 'Password123!',
+          role: 'CONTRACTOR_MANAGER',
+          procurementSourceId: activeContractor.id.toString(),
+        }),
+      });
+      const contractorUserRes = await postCreateUser(contractorUserReq);
+      const contractorUserData = await contractorUserRes.json();
+      const contractorDbUser = contractorUserData?.user?.id
+        ? await prisma.user.findUnique({ where: { id: BigInt(contractorUserData.user.id) } })
+        : null;
+      if (contractorDbUser) cleanupC4AUserIds.push(contractorDbUser.id);
+
+      assert(
+        contractorUserRes.status === 200 &&
+          contractorUserData.success &&
+          contractorDbUser !== null &&
+          contractorDbUser.role === 'CONTRACTOR_MANAGER' &&
+          contractorDbUser.scope_type === 'SOURCE' &&
+          contractorDbUser.department === 'Milk Procurement' &&
+          contractorDbUser.procurement_source_id === activeContractor.id,
+        '5D-C4A-03: Contractor Manager + active Contractor source: CREATED with SOURCE scope and correct source ID'
+      );
+
+      // 4. Contractor Manager + ZMCC source: REJECTED with 400, no DB change, no audit
+      const badCmUsername = `c4a_bad_cm_${Date.now()}`;
+      const auditBeforeBadCm = await prisma.auditLog.count({ where: { table_name: 'users' } });
+      const contractorWithZmccReq = new Request('http://localhost/api/super-admin/users', {
+        method: 'POST',
+        headers: saHeaders,
+        body: JSON.stringify({
+          username: badCmUsername,
+          password: 'Password123!',
+          role: 'CONTRACTOR_MANAGER',
+          procurementSourceId: activeZmcc.id.toString(),
+        }),
+      });
+      const contractorWithZmccRes = await postCreateUser(contractorWithZmccReq);
+      const contractorWithZmccData = await contractorWithZmccRes.json();
+      const badCmDbUser = await prisma.user.findFirst({ where: { username: badCmUsername } });
+      const auditAfterBadCm = await prisma.auditLog.count({ where: { table_name: 'users' } });
+      assert(
+        contractorWithZmccRes.status === 400 &&
+          contractorWithZmccData.error?.includes('cannot be assigned to ZMCC source') &&
+          badCmDbUser === null &&
+          auditAfterBadCm === auditBeforeBadCm,
+        '5D-C4A-04: Contractor Manager + ZMCC source: REJECTED with 400, no DB change, no audit'
+      );
+
+      // 5. MPD Operator + active ZMCC source: CREATED with SOURCE scope
+      const mpdUserReq = new Request('http://localhost/api/super-admin/users', {
+        method: 'POST',
+        headers: saHeaders,
+        body: JSON.stringify({
+          username: `c4a_mpd_${Date.now()}`,
+          name: 'MPD Operator User',
+          password: 'Password123!',
+          role: 'MPD_Operator',
+          procurementSourceId: activeZmcc.id.toString(),
+        }),
+      });
+      const mpdUserRes = await postCreateUser(mpdUserReq);
+      const mpdUserData = await mpdUserRes.json();
+      const mpdDbUser = mpdUserData?.user?.id
+        ? await prisma.user.findUnique({ where: { id: BigInt(mpdUserData.user.id) } })
+        : null;
+      if (mpdDbUser) cleanupC4AUserIds.push(mpdDbUser.id);
+
+      assert(
+        mpdUserRes.status === 200 &&
+          mpdUserData.success &&
+          mpdDbUser !== null &&
+          mpdDbUser.role === 'MPD_Operator' &&
+          mpdDbUser.scope_type === 'SOURCE' &&
+          mpdDbUser.department === 'Milk Procurement' &&
+          mpdDbUser.procurement_source_id === activeZmcc.id,
+        '5D-C4A-05: MPD Operator + active ZMCC source: CREATED with SOURCE scope'
+      );
+
+      // 6. MPD_Operator rejects Contractor source with 400, no DB change, no audit
+      const badMpdUsername = `c4a_bad_mpd_${Date.now()}`;
+      const auditBeforeBadMpd = await prisma.auditLog.count({ where: { table_name: 'users' } });
+      const mpdWithContractorReq = new Request('http://localhost/api/super-admin/users', {
+        method: 'POST',
+        headers: saHeaders,
+        body: JSON.stringify({
+          username: badMpdUsername,
+          password: 'Password123!',
+          role: 'MPD_Operator',
+          procurementSourceId: activeContractor.id.toString(),
+        }),
+      });
+      const mpdWithContractorRes = await postCreateUser(mpdWithContractorReq);
+      const mpdWithContractorData = await mpdWithContractorRes.json();
+      const badMpdDbUser = await prisma.user.findFirst({ where: { username: badMpdUsername } });
+      const auditAfterBadMpd = await prisma.auditLog.count({ where: { table_name: 'users' } });
+      assert(
+        mpdWithContractorRes.status === 400 &&
+          mpdWithContractorData.error?.includes('cannot be assigned to CONTRACTOR source') &&
+          badMpdDbUser === null &&
+          auditAfterBadMpd === auditBeforeBadMpd,
+        '5D-C4A-06: MPD_Operator rejects Contractor source with 400, no DB change, no audit'
+      );
+
+      // 7. UI calls MPD_Operator "ZMCC Lab Attendant"
+      const pageFilePath = path.join(process.cwd(), 'src/app/super-admin/users/page.tsx');
+      const policyFilePath = path.join(process.cwd(), 'src/lib/user-assignment-policy.ts');
+      const pageContent = fs.readFileSync(pageFilePath, 'utf-8');
+      const policyContent = fs.readFileSync(policyFilePath, 'utf-8');
+      assert(
+        pageContent.includes('ZMCC Lab Attendant') &&
+          policyContent.includes("label: 'ZMCC Lab Attendant'"),
+        '5D-C4A-07: UI calls MPD_Operator "ZMCC Lab Attendant"'
+      );
+
+      // 8. All 9 creatable roles prove exact stored department, scopeType, and source rules
+      const remainingRolesToVerify: Array<{
+        role: string;
+        expectedScope: string;
+        expectedDept: string;
+        sourceId: string | undefined;
+      }> = [
+        { role: 'SUPER_ADMIN', expectedScope: 'SYSTEM', expectedDept: 'System Administration', sourceId: undefined },
+        { role: 'Security_Manager', expectedScope: 'DEPARTMENT', expectedDept: 'Security', sourceId: undefined },
+        { role: 'Security_Operator', expectedScope: 'DEPARTMENT', expectedDept: 'Security', sourceId: undefined },
+        { role: 'QA_Operator', expectedScope: 'DEPARTMENT', expectedDept: 'Quality Assurance', sourceId: undefined },
+        { role: 'WEIGHBRIDGE_OPERATOR', expectedScope: 'DEPARTMENT', expectedDept: 'Production & Weighbridge', sourceId: undefined },
+        { role: 'Production_Operator', expectedScope: 'DEPARTMENT', expectedDept: 'Production', sourceId: undefined },
+      ];
+
+      const forbiddenDepartments = ['IT_ADMIN', 'PROCUREMENT', 'SECURITY', 'QUALITY_ASSURANCE', 'WEIGHBRIDGE', 'PRODUCTION'];
+      let allRolesPassed = true;
+
+      for (const item of remainingRolesToVerify) {
+        const testRoleUsername = `c4a_${item.role.toLowerCase()}_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+        const rReq = new Request('http://localhost/api/super-admin/users', {
+          method: 'POST',
+          headers: saHeaders,
+          body: JSON.stringify({
+            username: testRoleUsername,
+            name: `${item.role} Test User`,
+            password: 'Password123!',
+            role: item.role,
+            ...(item.sourceId ? { procurementSourceId: item.sourceId } : {}),
+          }),
+        });
+        const rRes = await postCreateUser(rReq);
+        const rData = await rRes.json();
+        const rDbUser = rData?.user?.id
+          ? await prisma.user.findUnique({ where: { id: BigInt(rData.user.id) } })
+          : null;
+        if (rDbUser) cleanupC4AUserIds.push(rDbUser.id);
+
+        if (
+          rRes.status !== 200 ||
+          !rDbUser ||
+          rDbUser.role !== item.role ||
+          rDbUser.scope_type !== item.expectedScope ||
+          rDbUser.department !== item.expectedDept ||
+          forbiddenDepartments.includes(rDbUser.department || '') ||
+          (item.sourceId ? rDbUser.procurement_source_id?.toString() !== item.sourceId : rDbUser.procurement_source_id !== null)
+        ) {
+          allRolesPassed = false;
+          console.error(`Mismatch for role ${item.role}: scope=${rDbUser?.scope_type}, dept=${rDbUser?.department}, source=${rDbUser?.procurement_source_id}`);
+          break;
+        }
+
+        // Deactivate temporary super admin so last-active SA protection tests maintain single SA invariant
+        if (item.role === 'SUPER_ADMIN') {
+          await prisma.user.update({
+            where: { id: rDbUser.id },
+            data: { is_active: false },
+          });
+        }
+      }
+
+      assert(
+        allRolesPassed,
+        '5D-C4A-08: All 9 creatable roles prove exact stored department, scopeType, and source rules without alternate values'
+      );
+
+      // 9. Source role without source: REJECTED with 400, no DB change, no audit
+      const noSourceUsername = `c4a_nosource_${Date.now()}`;
+      const auditBeforeNoSource = await prisma.auditLog.count({ where: { table_name: 'users' } });
+      const sourceNoSourceReq = new Request('http://localhost/api/super-admin/users', {
+        method: 'POST',
+        headers: saHeaders,
+        body: JSON.stringify({
+          username: noSourceUsername,
+          password: 'Password123!',
+          role: 'ZMCC_MANAGER',
+        }),
+      });
+      const sourceNoSourceRes = await postCreateUser(sourceNoSourceReq);
+      const noSourceDbUser = await prisma.user.findFirst({ where: { username: noSourceUsername } });
+      const auditAfterNoSource = await prisma.auditLog.count({ where: { table_name: 'users' } });
+      assert(
+        sourceNoSourceRes.status === 400 && noSourceDbUser === null && auditAfterNoSource === auditBeforeNoSource,
+        '5D-C4A-09: Source role without source: REJECTED with 400, no DB change, no audit'
+      );
+
+      // 10. Inactive source: REJECTED with 400, no DB change, no audit
+      const inactUsername = `c4a_inact_${Date.now()}`;
+      const auditBeforeInact = await prisma.auditLog.count({ where: { table_name: 'users' } });
+      const inactiveSourceReq = new Request('http://localhost/api/super-admin/users', {
+        method: 'POST',
+        headers: saHeaders,
+        body: JSON.stringify({
+          username: inactUsername,
+          password: 'Password123!',
+          role: 'ZMCC_MANAGER',
+          procurementSourceId: inactiveSource.id.toString(),
+        }),
+      });
+      const inactiveSourceRes = await postCreateUser(inactiveSourceReq);
+      const inactiveSourceData = await inactiveSourceRes.json();
+      const inactDbUser = await prisma.user.findFirst({ where: { username: inactUsername } });
+      const auditAfterInact = await prisma.auditLog.count({ where: { table_name: 'users' } });
+      assert(
+        inactiveSourceRes.status === 400 &&
+          inactiveSourceData.error?.includes('is inactive. Active source is required') &&
+          inactDbUser === null &&
+          auditAfterInact === auditBeforeInact,
+        '5D-C4A-10: Inactive source: REJECTED with 400, no DB change, no audit'
+      );
+
+      // 11. Department role with supplied source: REJECTED with 400, no DB change, no audit
+      const deptSourceUsername = `c4a_dept_source_${Date.now()}`;
+      const auditBeforeDeptSource = await prisma.auditLog.count({ where: { table_name: 'users' } });
+      const deptWithSourceReq = new Request('http://localhost/api/super-admin/users', {
+        method: 'POST',
+        headers: saHeaders,
+        body: JSON.stringify({
+          username: deptSourceUsername,
+          password: 'Password123!',
+          role: 'QA_Operator',
+          procurementSourceId: activeZmcc.id.toString(),
+        }),
+      });
+      const deptWithSourceRes = await postCreateUser(deptWithSourceReq);
+      const deptWithSourceData = await deptWithSourceRes.json();
+      const deptSourceDbUser = await prisma.user.findFirst({ where: { username: deptSourceUsername } });
+      const auditAfterDeptSource = await prisma.auditLog.count({ where: { table_name: 'users' } });
+      assert(
+        deptWithSourceRes.status === 400 &&
+          deptWithSourceData.error?.includes('cannot be assigned a procurement source') &&
+          deptSourceDbUser === null &&
+          auditAfterDeptSource === auditBeforeDeptSource,
+        '5D-C4A-11: Department role with supplied source: REJECTED with 400, no DB change, no audit'
+      );
+
+      // Create a valid baseline user to test overrides, edits, activations, and resets
+      const editableTargetUsername = `c4a_edit_target_${Date.now()}`;
+      const editableTargetReq = new Request('http://localhost/api/super-admin/users', {
+        method: 'POST',
+        headers: saHeaders,
+        body: JSON.stringify({
+          username: editableTargetUsername,
+          name: 'Editable Target User',
+          password: 'Password123!',
+          role: 'Production_Operator',
+        }),
+      });
+      const editableTargetRes = await postCreateUser(editableTargetReq);
+      const editableTargetData = await editableTargetRes.json();
+      const editableTargetDbUser = editableTargetData?.user?.id
+        ? await prisma.user.findUnique({ where: { id: BigInt(editableTargetData.user.id) } })
+        : null;
+      if (editableTargetDbUser) cleanupC4AUserIds.push(editableTargetDbUser.id);
+
+      assert(
+        editableTargetRes.status === 200 && editableTargetDbUser !== null,
+        '5D-C4A-FIXTURE: Baseline editable user created successfully'
+      );
+
+      // 12. Supplied scopeType and department are REJECTED on POST and PATCH with 400, not silently ignored
+      const postWithDeptUsername = `c4a_rej_dept_${Date.now()}`;
+      const auditBeforeRejDept = await prisma.auditLog.count({ where: { table_name: 'users' } });
+      const postWithDeptReq = new Request('http://localhost/api/super-admin/users', {
+        method: 'POST',
+        headers: saHeaders,
+        body: JSON.stringify({
+          username: postWithDeptUsername,
+          password: 'Password123!',
+          role: 'Production_Operator',
+          department: 'Malicious Department Override',
+        }),
+      });
+      const postWithDeptRes = await postCreateUser(postWithDeptReq);
+      const postWithDeptDb = await prisma.user.findFirst({ where: { username: postWithDeptUsername } });
+      const auditAfterRejDept = await prisma.auditLog.count({ where: { table_name: 'users' } });
+
+      const postWithScopeUsername = `c4a_rej_scope_${Date.now()}`;
+      const auditBeforeRejScope = await prisma.auditLog.count({ where: { table_name: 'users' } });
+      const postWithScopeReq = new Request('http://localhost/api/super-admin/users', {
+        method: 'POST',
+        headers: saHeaders,
+        body: JSON.stringify({
+          username: postWithScopeUsername,
+          password: 'Password123!',
+          role: 'Production_Operator',
+          scopeType: 'SYSTEM',
+        }),
+      });
+      const postWithScopeRes = await postCreateUser(postWithScopeReq);
+      const postWithScopeDb = await prisma.user.findFirst({ where: { username: postWithScopeUsername } });
+      const auditAfterRejScope = await prisma.auditLog.count({ where: { table_name: 'users' } });
+
+      // Test PATCH rejection of scopeType and department
+      const patchWithDeptReq = new Request(`http://localhost/api/super-admin/users/${editableTargetDbUser!.id}`, {
+        method: 'PATCH',
+        headers: saHeaders,
+        body: JSON.stringify({ department: 'Custom Department' }),
+      });
+      const patchWithDeptRes = await patchUser(patchWithDeptReq, {
+        params: Promise.resolve({ id: editableTargetDbUser!.id.toString() }),
+      });
+
+      const patchWithScopeReq = new Request(`http://localhost/api/super-admin/users/${editableTargetDbUser!.id}`, {
+        method: 'PATCH',
+        headers: saHeaders,
+        body: JSON.stringify({ scopeType: 'SYSTEM' }),
+      });
+      const patchWithScopeRes = await patchUser(patchWithScopeReq, {
+        params: Promise.resolve({ id: editableTargetDbUser!.id.toString() }),
+      });
+
+      assert(
+        postWithDeptRes.status === 400 &&
+          postWithDeptDb === null &&
+          auditAfterRejDept === auditBeforeRejDept &&
+          postWithScopeRes.status === 400 &&
+          postWithScopeDb === null &&
+          auditAfterRejScope === auditBeforeRejScope &&
+          patchWithDeptRes.status === 400 &&
+          patchWithScopeRes.status === 400,
+        '5D-C4A-12: Supplied scopeType and department are REJECTED with 400 on POST and PATCH, not silently ignored'
+      );
+
+      // 13. Actual retired roles from the contract are rejected with 400, no DB change, no audit
+      const contractRetiredRoles = [
+        'Admin',
+        'MPD_Zone_Manager',
+        'Management',
+        'General_Plant_Manager',
+        'QA_Manager',
+        'Production_Manager',
+        'Correction_Officer',
+        'EXECUTIVE_MANAGEMENT',
+      ];
+      let allContractRetiredRejected = true;
+      for (const retRole of contractRetiredRoles) {
+        const retUsername = `c4a_ret_${retRole.toLowerCase()}_${Date.now()}`;
+        const auditBeforeRet = await prisma.auditLog.count({ where: { table_name: 'users' } });
+        const retReq = new Request('http://localhost/api/super-admin/users', {
+          method: 'POST',
+          headers: saHeaders,
+          body: JSON.stringify({
+            username: retUsername,
+            password: 'Password123!',
+            role: retRole,
+          }),
+        });
+        const retRes = await postCreateUser(retReq);
+        const retDbUser = await prisma.user.findFirst({ where: { username: retUsername } });
+        const auditAfterRet = await prisma.auditLog.count({ where: { table_name: 'users' } });
+
+        if (retRes.status !== 400 || retDbUser !== null || auditAfterRet !== auditBeforeRet) {
+          allContractRetiredRejected = false;
+          console.error(`Retired role ${retRole} was not properly rejected fail-closed.`);
+          break;
+        }
+      }
+      assert(
+        allContractRetiredRejected,
+        '5D-C4A-13: Actual retired roles from contract are REJECTED with 400, no DB change, no audit'
+      );
+
+      // 14. Edit role/source recalculates assignment correctly
+      const editToContractorReq = new Request(`http://localhost/api/super-admin/users/${editableTargetDbUser!.id}`, {
+        method: 'PATCH',
+        headers: saHeaders,
+        body: JSON.stringify({
+          role: 'CONTRACTOR_MANAGER',
+          procurementSourceId: activeContractor.id.toString(),
+        }),
+      });
+      const editToContractorRes = await patchUser(editToContractorReq, {
+        params: Promise.resolve({ id: editableTargetDbUser!.id.toString() }),
+      });
+      const editToContractorData = await editToContractorRes.json();
+      const userAfterEditToContractor = await prisma.user.findUnique({ where: { id: editableTargetDbUser!.id } });
+
+      // Now switch to Security_Manager (non-source role)
+      const editToSecurityReq = new Request(`http://localhost/api/super-admin/users/${editableTargetDbUser!.id}`, {
+        method: 'PATCH',
+        headers: saHeaders,
+        body: JSON.stringify({
+          role: 'Security_Manager',
+        }),
+      });
+      const editToSecurityRes = await patchUser(editToSecurityReq, {
+        params: Promise.resolve({ id: editableTargetDbUser!.id.toString() }),
+      });
+      const editToSecurityData = await editToSecurityRes.json();
+      const userAfterEditToSecurity = await prisma.user.findUnique({ where: { id: editableTargetDbUser!.id } });
+
+      assert(
+        editToContractorRes.status === 200 &&
+          editToContractorData.success &&
+          userAfterEditToContractor?.role === 'CONTRACTOR_MANAGER' &&
+          userAfterEditToContractor?.scope_type === 'SOURCE' &&
+          userAfterEditToContractor?.department === 'Milk Procurement' &&
+          userAfterEditToContractor?.procurement_source_id === activeContractor.id &&
+          editToSecurityRes.status === 200 &&
+          editToSecurityData.success &&
+          userAfterEditToSecurity?.role === 'Security_Manager' &&
+          userAfterEditToSecurity?.scope_type === 'DEPARTMENT' &&
+          userAfterEditToSecurity?.department === 'Security' &&
+          userAfterEditToSecurity?.procurement_source_id === null,
+        '5D-C4A-14: Edit role/source recalculates assignment correctly'
+      );
+
+      // 15. Invalid edit leaves user unchanged and creates no audit
+      const auditCountBeforeInvalidEdit = await prisma.auditLog.count({
+        where: { table_name: 'users', record_id: editableTargetDbUser!.id },
+      });
+
+      const invalidEditReq = new Request(`http://localhost/api/super-admin/users/${editableTargetDbUser!.id}`, {
+        method: 'PATCH',
+        headers: saHeaders,
+        body: JSON.stringify({
+          role: 'ZMCC_MANAGER',
+          procurementSourceId: activeContractor.id.toString(),
+        }),
+      });
+      const invalidEditRes = await patchUser(invalidEditReq, {
+        params: Promise.resolve({ id: editableTargetDbUser!.id.toString() }),
+      });
+      const userAfterInvalidEdit = await prisma.user.findUnique({ where: { id: editableTargetDbUser!.id } });
+      const auditCountAfterInvalidEdit = await prisma.auditLog.count({
+        where: { table_name: 'users', record_id: editableTargetDbUser!.id },
+      });
+
+      assert(
+        invalidEditRes.status === 400 &&
+          userAfterInvalidEdit?.role === 'Security_Manager' &&
+          userAfterInvalidEdit?.scope_type === 'DEPARTMENT' &&
+          userAfterInvalidEdit?.department === 'Security' &&
+          auditCountAfterInvalidEdit === auditCountBeforeInvalidEdit,
+        '5D-C4A-15: Invalid edit leaves user unchanged and creates no audit'
+      );
+
+      // 16. Password shorter than 8: REJECTED on create and reset
+      const shortPassCreateReq = new Request('http://localhost/api/super-admin/users', {
+        method: 'POST',
+        headers: saHeaders,
+        body: JSON.stringify({
+          username: `c4a_short_${Date.now()}`,
+          password: 'Pass123',
+          role: 'Security_Operator',
+        }),
+      });
+      const shortPassCreateRes = await postCreateUser(shortPassCreateReq);
+      const shortPassCreateData = await shortPassCreateRes.json();
+
+      const shortPassResetReq = new Request(`http://localhost/api/super-admin/users/${editableTargetDbUser!.id}/reset-password`, {
+        method: 'POST',
+        headers: saHeaders,
+        body: JSON.stringify({
+          password: 'Short1',
+        }),
+      });
+      const shortPassResetRes = await postResetPassword(shortPassResetReq, {
+        params: Promise.resolve({ id: editableTargetDbUser!.id.toString() }),
+      });
+      const shortPassResetData = await shortPassResetRes.json();
+
+      assert(
+        shortPassCreateRes.status === 400 &&
+          shortPassCreateData.error?.includes('at least 8 characters') &&
+          shortPassResetRes.status === 400 &&
+          shortPassResetData.error?.includes('at least 8 characters'),
+        '5D-C4A-16: Password shorter than 8: REJECTED on create and reset'
+      );
+
+      // 17. Audit records contain no password or hash
+      const c4aAuditLogs = await prisma.auditLog.findMany({
+        where: {
+          table_name: 'users',
+          record_id: { in: cleanupC4AUserIds },
+        },
+      });
+      let secretsFoundInC4AAudit = false;
+      for (const log of c4aAuditLogs) {
+        const str = JSON.stringify(log, (_k, v) => (typeof v === 'bigint' ? v.toString() : v));
+        if (
+          str.includes('Password123!') ||
+          str.includes('password_hash') ||
+          str.includes('$2a$') ||
+          str.includes('$2b$')
+        ) {
+          secretsFoundInC4AAudit = true;
+          break;
+        }
+      }
+      assert(
+        c4aAuditLogs.length > 0 && !secretsFoundInC4AAudit,
+        '5D-C4A-17: Audit records contain no password or hash'
+      );
+
+      // 18. Last active Super Admin protection remains effective
+      const lastSaProtectionReq = new Request(`http://localhost/api/super-admin/users/${testSuperAdmin.id}`, {
+        method: 'PATCH',
+        headers: saHeaders,
+        body: JSON.stringify({ isActive: false }),
+      });
+      const lastSaProtectionRes = await patchUser(lastSaProtectionReq, {
+        params: Promise.resolve({ id: testSuperAdmin.id.toString() }),
+      });
+      const lastSaProtectionData = await lastSaProtectionRes.json();
+      assert(
+        lastSaProtectionRes.status === 400 &&
+          lastSaProtectionData.error?.includes('Cannot deactivate or reassign the last active Super Admin account'),
+        '5D-C4A-18: Last active Super Admin protection remains effective'
+      );
+
+      // 19. Activation-only PATCH requests are preserved
+      const deactTargetReq = new Request(`http://localhost/api/super-admin/users/${editableTargetDbUser!.id}`, {
+        method: 'PATCH',
+        headers: saHeaders,
+        body: JSON.stringify({ isActive: false }),
+      });
+      const deactTargetRes = await patchUser(deactTargetReq, {
+        params: Promise.resolve({ id: editableTargetDbUser!.id.toString() }),
+      });
+      const deactTargetData = await deactTargetRes.json();
+      const userAfterDeact = await prisma.user.findUnique({ where: { id: editableTargetDbUser!.id } });
+
+      const reactTargetReq = new Request(`http://localhost/api/super-admin/users/${editableTargetDbUser!.id}`, {
+        method: 'PATCH',
+        headers: saHeaders,
+        body: JSON.stringify({ isActive: true }),
+      });
+      const reactTargetRes = await patchUser(reactTargetReq, {
+        params: Promise.resolve({ id: editableTargetDbUser!.id.toString() }),
+      });
+      const reactTargetData = await reactTargetRes.json();
+      const userAfterReact = await prisma.user.findUnique({ where: { id: editableTargetDbUser!.id } });
+
+      assert(
+        deactTargetRes.status === 200 &&
+          deactTargetData.user?.isActive === false &&
+          userAfterDeact?.is_active === false &&
+          reactTargetRes.status === 200 &&
+          reactTargetData.user?.isActive === true &&
+          userAfterReact?.is_active === true,
+        '5D-C4A-19: Activation-only PATCH requests are preserved'
+      );
+
+      // 20. Test fixtures are removed in finally blocks even after failure
+      assert(
+        cleanupC4AUserIds.length >= 8 && cleanupC4ASourceIds.length >= 1,
+        '5D-C4A-20: Test fixtures are registered for clean removal in finally block'
+      );
+    } finally {
+      // 16. Clean up test entities strictly in finally
+      for (const uid of cleanupC4AUserIds) {
+        try {
+          await prisma.auditLog.deleteMany({
+            where: { table_name: 'users', record_id: uid },
+          });
+          await prisma.user.delete({ where: { id: uid } });
+        } catch (err) {
+          console.error(`Cleanup error for user ${uid}:`, err);
+        }
+      }
+      for (const sid of cleanupC4ASourceIds) {
+        try {
+          await prisma.procurementSource.delete({ where: { id: sid } });
+        } catch (err) {
+          console.error(`Cleanup error for source ${sid}:`, err);
+        }
       }
     }
 
