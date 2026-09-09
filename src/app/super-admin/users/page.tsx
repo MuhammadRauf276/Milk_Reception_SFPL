@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useMemo } from 'react';
+import Link from 'next/link';
 import { Users, Plus, KeyRound, Edit2, ShieldAlert, CheckCircle2, AlertTriangle, X } from 'lucide-react';
 import {
   CREATABLE_ROLES,
@@ -664,6 +665,15 @@ export default function SuperAdminUsersPage() {
                       No active {createPolicy.allowedSourceType} sources found for role {role}.
                     </p>
                   )}
+                  <p className="text-[11px] text-slate-500 mt-1.5 flex items-center justify-between">
+                    <span>Source not listed?</span>
+                    <Link
+                      href="/super-admin/procurement-sources"
+                      className="text-[#1E3A8A] font-bold hover:underline shrink-0"
+                    >
+                      Add it in Procurement Sources →
+                    </Link>
+                  </p>
                 </div>
               )}
 
@@ -805,6 +815,15 @@ export default function SuperAdminUsersPage() {
                       No active {editPolicy.allowedSourceType} sources found for role {editRole}.
                     </p>
                   )}
+                  <p className="text-[11px] text-slate-500 mt-1.5 flex items-center justify-between">
+                    <span>Source not listed?</span>
+                    <Link
+                      href="/super-admin/procurement-sources"
+                      className="text-[#1E3A8A] font-bold hover:underline shrink-0"
+                    >
+                      Add it in Procurement Sources →
+                    </Link>
+                  </p>
                 </div>
               )}
 
