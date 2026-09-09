@@ -194,39 +194,54 @@ async function runProductionSiloIssueWorkflowVerification() {
     );
 
     // ----------------------------------------------------
-    // ISSUE-INACTIVE-A..C: Inactive Silo Issue Allowed
+    // ISSUE-INACTIVE-A..C: Inactive Silo Issue Strictly Rejected
     // ----------------------------------------------------
-    const inactiveIssueRes = await recordSiloIssueTransaction({
-      silo_id: inactiveSilo.id,
-      quantity_liters: 5000,
-      operational_timestamp: new Date(),
-      performed_by: prodUser.id,
-      purpose: 'Yogurt Processing',
+    const stockInactiveBeforeAttempt = await getSiloCurrentStockLiters(inactiveSilo.id);
+    const txCountBeforeInactiveIssue = await prisma.siloInventoryTransaction.count({
+      where: { silo_id: inactiveSilo.id, transaction_type: SiloTransactionType.ISSUE },
     });
 
-    const stockInactiveAfter = await getSiloCurrentStockLiters(inactiveSilo.id);
-
-    // Attempting a new RECEIPT into inactive silo must STILL be blocked
-    let inactiveReceiptBlocked = false;
+    let inactiveIssueErrorMsg = '';
+    let inactiveIssueRejected = false;
     try {
-      await prisma.siloInventoryTransaction.create({
-        data: {
-          silo_id: inactiveSilo.id,
-          transaction_type: SiloTransactionType.RECEIPT,
-          quantity_kg: new Prisma.Decimal(1000),
-          quantity_liters: new Prisma.Decimal(974),
-          operational_timestamp: new Date(),
-        },
+      await recordSiloIssueTransaction({
+        silo_id: inactiveSilo.id,
+        quantity_liters: 5000,
+        operational_timestamp: new Date(),
+        performed_by: prodUser.id,
+        purpose: 'Yogurt Processing',
       });
-    } catch (err) {
-      inactiveReceiptBlocked = true;
+    } catch (err: any) {
+      inactiveIssueRejected = true;
+      inactiveIssueErrorMsg = err?.message || '';
     }
 
+    const stockInactiveAfterAttempt = await getSiloCurrentStockLiters(inactiveSilo.id);
+    const txCountAfterInactiveIssue = await prisma.siloInventoryTransaction.count({
+      where: { silo_id: inactiveSilo.id, transaction_type: SiloTransactionType.ISSUE },
+    });
+
     assert(
-      inactiveIssueRes.transaction.id !== undefined && stockInactiveAfter === 7000,
-      'ISSUE-INACTIVE-A..C: Inactive Silo Issue Allowed (Stock 12,000 L -> 7,000 L)',
-      'Inactive silo permitted outbound issue of 5,000 L (Stock reduced to 7,000 L)'
+      inactiveIssueRejected &&
+        inactiveIssueErrorMsg.includes('INACTIVE') &&
+        txCountAfterInactiveIssue === txCountBeforeInactiveIssue &&
+        stockInactiveAfterAttempt === stockInactiveBeforeAttempt,
+      'ISSUE-INACTIVE-A..C: Inactive Silo Issue Strictly Rejected with Zero State Mutation',
+      `Inactive silo issue blocked with error containing INACTIVE; zero new ISSUE transactions; stock unchanged at ${stockInactiveAfterAttempt} L`
     );
+
+    // Replenish active silo stock (7,974 L) for subsequent operational tests
+    await prisma.siloInventoryTransaction.create({
+      data: {
+        silo_id: activeSilo.id,
+        transaction_type: SiloTransactionType.RECEIPT,
+        quantity_kg: new Prisma.Decimal(8200),
+        quantity_liters: new Prisma.Decimal(7974),
+        operational_timestamp: new Date(Date.now() - 30 * 60 * 1000),
+        reference_type: 'STOCK_REPLENISH_TEST',
+        performed_by: prodUser.id,
+      },
+    });
 
     // ----------------------------------------------------
     // ISSUE-TIME-A..C: Future Timestamp Protection
@@ -235,7 +250,7 @@ async function runProductionSiloIssueWorkflowVerification() {
     let futureTimeRejected = false;
     try {
       await recordSiloIssueTransaction({
-        silo_id: inactiveSilo.id,
+        silo_id: activeSilo.id,
         quantity_liters: 1000,
         operational_timestamp: futureOpTime,
         performed_by: prodUser.id,
@@ -249,8 +264,8 @@ async function runProductionSiloIssueWorkflowVerification() {
     // ----------------------------------------------------
     // ISSUE-CONC-A..B: Row-Level Locking & Concurrency Protection
     // ----------------------------------------------------
-    // Inactive Silo has 7,000 L left.
-    // Two simultaneous attempts to issue 5,000 L each (Total 10,000 L > 7,000 L)
+    // Active Silo has 7,974 L.
+    // Two simultaneous attempts to issue 5,000 L each (Total 10,000 L > 7,974 L)
     let concPassCount = 0;
     let concRejectCount = 0;
 
@@ -258,7 +273,7 @@ async function runProductionSiloIssueWorkflowVerification() {
       [1, 2].map(async (workerIdx) => {
         try {
           await recordSiloIssueTransaction({
-            silo_id: inactiveSilo.id,
+            silo_id: activeSilo.id,
             quantity_liters: 5000,
             operational_timestamp: new Date(),
             performed_by: prodUser.id,
@@ -271,10 +286,10 @@ async function runProductionSiloIssueWorkflowVerification() {
       })
     );
 
-    const stockInactiveFinalConc = await getSiloCurrentStockLiters(inactiveSilo.id);
+    const stockActiveFinalConc = await getSiloCurrentStockLiters(activeSilo.id);
 
     assert(
-      concPassCount === 1 && concRejectCount === 1 && stockInactiveFinalConc === 2974,
+      concPassCount === 1 && concRejectCount === 1 && stockActiveFinalConc === 2974,
       'ISSUE-CONC-A..B: Database Row-Level Lock Protection (SELECT FOR UPDATE)',
       'Simultaneous issues of 5,000 L on 7,974 L stock: 1 PASS / 1 REJECT; final stock = 2,974 L'
     );
@@ -284,7 +299,7 @@ async function runProductionSiloIssueWorkflowVerification() {
     // ----------------------------------------------------
     const testIdemKey = `PROD_ISSUE_IDEM_${timestamp}`;
     const idemFirst = await recordSiloIssueTransaction({
-      silo_id: inactiveSilo.id,
+      silo_id: activeSilo.id,
       quantity_liters: 1000,
       operational_timestamp: new Date(),
       performed_by: prodUser.id,
@@ -292,7 +307,7 @@ async function runProductionSiloIssueWorkflowVerification() {
     });
 
     const idemSecond = await recordSiloIssueTransaction({
-      silo_id: inactiveSilo.id,
+      silo_id: activeSilo.id,
       quantity_liters: 1000,
       operational_timestamp: new Date(),
       performed_by: prodUser.id,
