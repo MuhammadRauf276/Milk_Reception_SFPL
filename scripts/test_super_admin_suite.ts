@@ -72,22 +72,6 @@ async function runSuperAdminTests() {
 
     assert(activeSuperAdminCount >= 1, 'SA-USER-A: Active Super Admin count is >= 1');
 
-    // Test SA-USER-K: Deactivating or changing role of last active SUPER_ADMIN must be blocked
-    let lastSaBlocked = false;
-    if (activeSuperAdminCount === 1) {
-      const soleSa = await prisma.user.findFirst({ where: { role: 'SUPER_ADMIN', is_active: true } });
-      if (soleSa) {
-        const testCount = await prisma.user.count({ where: { role: 'SUPER_ADMIN', is_active: true } });
-        if (testCount <= 1) {
-          lastSaBlocked = true; // Business protection triggered
-        }
-      }
-    } else {
-      lastSaBlocked = true; // Multiple SAs exist
-    }
-
-    assert(lastSaBlocked, 'SA-USER-K: Last active SUPER_ADMIN protection logic correctly identifies single SA state');
-
     // ----------------------------------------------------
     // TEST GROUP 3: RELATIONAL DATA SCOPE & TYPE CONSISTENCY
     // ----------------------------------------------------
@@ -370,17 +354,270 @@ async function runSuperAdminTests() {
       assert(malformedTokenAttempt === null, 'SA-LIVE-11: Malformed JWT token strictly yields null (UNAUTHORIZED)');
 
       // 10. Last active Super Admin protection remains enforced via PATCH route
-      const lastSaDeactReq = new Request(`http://localhost:3000/api/super-admin/users/${activeAdmin.id}`, {
-        method: 'PATCH',
-        headers: adminHeaders,
-        body: JSON.stringify({ isActive: false }),
+      const suiteSaFixture = await prisma.user.create({
+        data: {
+          username: `suite_last_sa_${Date.now()}`,
+          full_name: 'Suite Last SA Fixture',
+          password_hash: await bcrypt.hash('Password123!', 10),
+          role: 'SUPER_ADMIN',
+          department: 'System Administration',
+          scope_type: 'SYSTEM',
+          is_active: true,
+        },
       });
-      const lastSaRes = await patchUser(lastSaDeactReq, {
-        params: Promise.resolve({ id: activeAdmin.id.toString() }),
-      });
-      const lastSaData = await lastSaRes.json();
+
+      const origSuiteSaTx = prisma.$transaction;
+      let lastSaRes: any;
+      let lastSaData: any;
+      try {
+        (prisma as any).$transaction = async (fn: any) => {
+          return await (origSuiteSaTx as any).call(prisma, async (tx: any) => {
+            const proxyTx = new Proxy(tx, {
+              get(target, prop, receiver) {
+                if (prop === 'user') {
+                  return new Proxy(target.user, {
+                    get(uTarget, uProp, uReceiver) {
+                      if (uProp === 'count') {
+                        return async (...args: any[]) => {
+                          if (args[0]?.where?.role === 'SUPER_ADMIN' && args[0]?.where?.is_active === true) {
+                            return 1;
+                          }
+                          return await uTarget.count(...args);
+                        };
+                      }
+                      return Reflect.get(uTarget, uProp, uReceiver);
+                    },
+                  });
+                }
+                return Reflect.get(target, prop, receiver);
+              },
+            });
+            return await fn(proxyTx);
+          });
+        };
+
+        const lastSaDeactReq = new Request(`http://localhost:3000/api/super-admin/users/${suiteSaFixture.id}`, {
+          method: 'PATCH',
+          headers: adminHeaders,
+          body: JSON.stringify({ isActive: false }),
+        });
+        lastSaRes = await patchUser(lastSaDeactReq, {
+          params: Promise.resolve({ id: suiteSaFixture.id.toString() }),
+        });
+        lastSaData = await lastSaRes.json();
+      } finally {
+        prisma.$transaction = origSuiteSaTx as any;
+        await prisma.auditLog.deleteMany({ where: { table_name: 'users', record_id: suiteSaFixture.id } });
+        await prisma.user.delete({ where: { id: suiteSaFixture.id } });
+      }
+
       const isLastSaProtected = lastSaRes.status === 400 && lastSaData.error?.includes('Cannot deactivate or reassign the last active Super Admin account');
       assert(isLastSaProtected, 'SA-LIVE-12: Last active Super Admin protection strictly enforced with HTTP 400');
+
+      // ----------------------------------------------------
+      // TEST GROUP 9: TRANSACTION & ACTIVATION SAFETY (5D-C4A)
+      // ----------------------------------------------------
+      console.log('\n--- TEST GROUP 9: TRANSACTION & ACTIVATION SAFETY (5D-C4A) ---');
+
+      // 1. Retired-role activation is rejected with zero mutation/audit
+      const retUser = await prisma.user.create({
+        data: {
+          username: `suite_ret_${Date.now()}`,
+          full_name: 'Retired Suite User',
+          password_hash: await bcrypt.hash('Password123!', 10),
+          role: 'Correction_Officer',
+          department: 'Operations',
+          scope_type: 'SYSTEM',
+          is_active: false,
+        },
+      });
+
+      try {
+        const auditBefore = await prisma.auditLog.count({ where: { table_name: 'users', record_id: retUser.id } });
+        const retActRes = await patchUser(
+          new Request(`http://localhost:3000/api/super-admin/users/${retUser.id}`, {
+            method: 'PATCH',
+            headers: adminHeaders,
+            body: JSON.stringify({ isActive: true }),
+          }),
+          { params: Promise.resolve({ id: retUser.id.toString() }) }
+        );
+        const retActData = await retActRes.json();
+        const retUserAfter = await prisma.user.findUnique({ where: { id: retUser.id } });
+        const auditAfter = await prisma.auditLog.count({ where: { table_name: 'users', record_id: retUser.id } });
+
+        assert(
+          retActRes.status === 400 &&
+            retActData.error?.includes('retired or invalid') &&
+            retUserAfter?.is_active === false &&
+            auditAfter === auditBefore,
+          'SA-C4A-01: Retired-role activation is rejected with 400 and zero mutation/audit'
+        );
+      } finally {
+        await prisma.auditLog.deleteMany({ where: { table_name: 'users', record_id: retUser.id } });
+        await prisma.user.delete({ where: { id: retUser.id } });
+      }
+
+      // 2. Source-role activation with inactive source is rejected
+      const inactSource = await prisma.procurementSource.create({
+        data: {
+          code: `INACT_ST_${Date.now().toString().slice(-4)}`,
+          name: 'Inactive Suite Source',
+          source_type: 'ZMCC',
+          is_active: false,
+        },
+      });
+
+      const inactSrcUser = await prisma.user.create({
+        data: {
+          username: `suite_inact_${Date.now()}`,
+          full_name: 'Inactive Source Suite User',
+          password_hash: await bcrypt.hash('Password123!', 10),
+          role: 'ZMCC_MANAGER',
+          department: 'Milk Procurement',
+          scope_type: 'SOURCE',
+          procurement_source_id: inactSource.id,
+          is_active: false,
+        },
+      });
+
+      try {
+        const inactActRes = await patchUser(
+          new Request(`http://localhost:3000/api/super-admin/users/${inactSrcUser.id}`, {
+            method: 'PATCH',
+            headers: adminHeaders,
+            body: JSON.stringify({ isActive: true }),
+          }),
+          { params: Promise.resolve({ id: inactSrcUser.id.toString() }) }
+        );
+        const inactActData = await inactActRes.json();
+        const inactUserAfter = await prisma.user.findUnique({ where: { id: inactSrcUser.id } });
+
+        assert(
+          inactActRes.status === 400 &&
+            inactActData.error?.includes('inactive') &&
+            inactUserAfter?.is_active === false,
+          'SA-C4A-02: Source-role activation with inactive source is rejected with 400'
+        );
+      } finally {
+        await prisma.auditLog.deleteMany({ where: { table_name: 'users', record_id: inactSrcUser.id } });
+        await prisma.user.delete({ where: { id: inactSrcUser.id } });
+        await prisma.procurementSource.delete({ where: { id: inactSource.id } });
+      }
+
+      // 3. Valid canonical inactive account can be activated
+      const canonUser = await prisma.user.create({
+        data: {
+          username: `suite_canon_${Date.now()}`,
+          full_name: 'Canonical Suite User',
+          password_hash: await bcrypt.hash('Password123!', 10),
+          role: 'ZMCC_MANAGER',
+          department: 'Milk Procurement',
+          scope_type: 'SOURCE',
+          procurement_source_id: activeZmccForLive.id,
+          is_active: false,
+        },
+      });
+
+      try {
+        const canonActRes = await patchUser(
+          new Request(`http://localhost:3000/api/super-admin/users/${canonUser.id}`, {
+            method: 'PATCH',
+            headers: adminHeaders,
+            body: JSON.stringify({ isActive: true }),
+          }),
+          { params: Promise.resolve({ id: canonUser.id.toString() }) }
+        );
+        const canonActData = await canonActRes.json();
+        const canonUserAfter = await prisma.user.findUnique({ where: { id: canonUser.id } });
+
+        assert(
+          canonActRes.status === 200 &&
+            canonActData.user?.isActive === true &&
+            canonUserAfter?.is_active === true,
+          'SA-C4A-03: Valid canonical inactive account is successfully activated'
+        );
+      } finally {
+        await prisma.auditLog.deleteMany({ where: { table_name: 'users', record_id: canonUser.id } });
+        await prisma.user.delete({ where: { id: canonUser.id } });
+      }
+
+      // 4. Advisory lock executes strictly before source lock and mutation in POST
+      const suiteExecutedOps: string[] = [];
+      const origSuiteTx = prisma.$transaction;
+      let suiteLockUserId: bigint | null = null;
+      try {
+        (prisma as any).$transaction = async (fn: any) => {
+          return await (origSuiteTx as any).call(prisma, async (tx: any) => {
+            const proxyTx = new Proxy(tx, {
+              get(target, prop, receiver) {
+                if (prop === '$queryRaw' || prop === '$executeRaw') {
+                  return async (...args: any[]) => {
+                    const rawSql = JSON.stringify(args, (_k, v) => (typeof v === 'bigint' ? v.toString() : v));
+                    if (rawSql.includes('pg_advisory_xact_lock')) {
+                      suiteExecutedOps.push('ADVISORY_LOCK');
+                    }
+                    if (rawSql.includes('procurement_source') && rawSql.includes('FOR UPDATE')) {
+                      suiteExecutedOps.push('LOCK_SOURCE_FOR_UPDATE');
+                    }
+                    return await (target as any)[prop](...args);
+                  };
+                }
+                if (prop === 'user') {
+                  return new Proxy(target.user, {
+                    get(uTarget, uProp, uReceiver) {
+                      if (uProp === 'create') {
+                        return async (...args: any[]) => {
+                          suiteExecutedOps.push('CREATE_USER');
+                          return await uTarget.create(...args);
+                        };
+                      }
+                      return Reflect.get(uTarget, uProp, uReceiver);
+                    },
+                  });
+                }
+                return Reflect.get(target, prop, receiver);
+              },
+            });
+            return await fn(proxyTx);
+          });
+        };
+
+        const lockPostRes = await postUser(
+          new Request('http://localhost:3000/api/super-admin/users', {
+            method: 'POST',
+            headers: adminHeaders,
+            body: JSON.stringify({
+              username: `suite_lock_${Date.now()}`,
+              password: 'Password123!',
+              role: 'ZMCC_MANAGER',
+              procurementSourceId: activeZmccForLive.id.toString(),
+            }),
+          })
+        );
+        const lockPostData = await lockPostRes.json();
+        if (lockPostData?.user?.id) suiteLockUserId = BigInt(lockPostData.user.id);
+
+        const advIdx = suiteExecutedOps.indexOf('ADVISORY_LOCK');
+        const srcLockIdx = suiteExecutedOps.indexOf('LOCK_SOURCE_FOR_UPDATE');
+        const createIdx = suiteExecutedOps.indexOf('CREATE_USER');
+
+        assert(
+          lockPostRes.status === 200 &&
+            advIdx !== -1 &&
+            srcLockIdx !== -1 &&
+            createIdx !== -1 &&
+            advIdx < srcLockIdx &&
+            srcLockIdx < createIdx,
+          'SA-C4A-04: Advisory lock executes strictly before source lock and user creation in POST'
+        );
+      } finally {
+        prisma.$transaction = origSuiteTx as any;
+        if (suiteLockUserId) {
+          await prisma.auditLog.deleteMany({ where: { table_name: 'users', record_id: suiteLockUserId } });
+          await prisma.user.delete({ where: { id: suiteLockUserId } });
+        }
+      }
 
     } finally {
       if (createdLiveUserId) {

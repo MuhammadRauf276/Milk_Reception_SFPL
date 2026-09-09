@@ -634,15 +634,63 @@ async function runSuperAdminFinalizationTests() {
       );
 
       // 13. Last-active-Super-Admin protection remains enforced
-      const lastSaDeactReq = new Request(`http://localhost/api/super-admin/users/${testSuperAdmin.id}`, {
-        method: 'PATCH',
-        headers: saHeaders,
-        body: JSON.stringify({ isActive: false }),
+      const disposableB2Sa = await prisma.user.create({
+        data: {
+          username: `b2_sa_prot_${Date.now()}`,
+          full_name: 'B2 Super Admin Fixture',
+          password_hash: await bcrypt.hash('Password123!', 10),
+          role: 'SUPER_ADMIN',
+          department: 'System Administration',
+          scope_type: 'SYSTEM',
+          is_active: true,
+        },
       });
-      const lastSaDeactRes = await patchUser(lastSaDeactReq, {
-        params: Promise.resolve({ id: testSuperAdmin.id.toString() }),
-      });
-      const lastSaDeactBody = await lastSaDeactRes.json();
+
+      const origTxB2 = prisma.$transaction;
+      let lastSaDeactRes: any;
+      let lastSaDeactBody: any;
+      try {
+        (prisma as any).$transaction = async (fn: any) => {
+          return await (origTxB2 as any).call(prisma, async (tx: any) => {
+            const proxyTx = new Proxy(tx, {
+              get(target, prop, receiver) {
+                if (prop === 'user') {
+                  return new Proxy(target.user, {
+                    get(uTarget, uProp, uReceiver) {
+                      if (uProp === 'count') {
+                        return async (...args: any[]) => {
+                          if (args[0]?.where?.role === 'SUPER_ADMIN' && args[0]?.where?.is_active === true) {
+                            return 1;
+                          }
+                          return await uTarget.count(...args);
+                        };
+                      }
+                      return Reflect.get(uTarget, uProp, uReceiver);
+                    },
+                  });
+                }
+                return Reflect.get(target, prop, receiver);
+              },
+            });
+            return await fn(proxyTx);
+          });
+        };
+
+        const lastSaDeactReq = new Request(`http://localhost/api/super-admin/users/${disposableB2Sa.id}`, {
+          method: 'PATCH',
+          headers: saHeaders,
+          body: JSON.stringify({ isActive: false }),
+        });
+        lastSaDeactRes = await patchUser(lastSaDeactReq, {
+          params: Promise.resolve({ id: disposableB2Sa.id.toString() }),
+        });
+        lastSaDeactBody = await lastSaDeactRes.json();
+      } finally {
+        prisma.$transaction = origTxB2 as any;
+        await prisma.auditLog.deleteMany({ where: { table_name: 'users', record_id: disposableB2Sa.id } });
+        await prisma.user.delete({ where: { id: disposableB2Sa.id } });
+      }
+
       assert(
         lastSaDeactRes.status === 400 &&
           lastSaDeactBody?.error?.includes('Cannot deactivate or reassign the last active Super Admin account'),
@@ -2277,21 +2325,100 @@ async function runSuperAdminFinalizationTests() {
         '5D-C4A-17: Audit records contain no password or hash'
       );
 
-      // 18. Last active Super Admin protection remains effective
-      const lastSaProtectionReq = new Request(`http://localhost/api/super-admin/users/${testSuperAdmin.id}`, {
-        method: 'PATCH',
-        headers: saHeaders,
-        body: JSON.stringify({ isActive: false }),
+      // 18. Last active Super Admin protection strictly blocks deactivation and reassignment with zero mutation/audit
+      const c4aSaUser = await prisma.user.create({
+        data: {
+          username: `c4a_sa_prot_${Date.now()}`,
+          full_name: 'C4A Super Admin Protection Fixture',
+          password_hash: await bcrypt.hash('Password123!', 10),
+          role: 'SUPER_ADMIN',
+          department: 'System Administration',
+          scope_type: 'SYSTEM',
+          is_active: true,
+        },
       });
-      const lastSaProtectionRes = await patchUser(lastSaProtectionReq, {
-        params: Promise.resolve({ id: testSuperAdmin.id.toString() }),
-      });
-      const lastSaProtectionData = await lastSaProtectionRes.json();
-      assert(
-        lastSaProtectionRes.status === 400 &&
-          lastSaProtectionData.error?.includes('Cannot deactivate or reassign the last active Super Admin account'),
-        '5D-C4A-18: Last active Super Admin protection remains effective'
-      );
+
+      try {
+        const auditCountBeforeLastSa = await prisma.auditLog.count({
+          where: { table_name: 'users', record_id: c4aSaUser.id },
+        });
+
+        let lastSaProtectionRes: any;
+        let lastSaProtectionData: any;
+        let lastSaRoleRes: any;
+        let lastSaRoleData: any;
+
+        const origTxC4A = prisma.$transaction;
+        try {
+          (prisma as any).$transaction = async (fn: any) => {
+            return await (origTxC4A as any).call(prisma, async (tx: any) => {
+              const proxyTx = new Proxy(tx, {
+                get(target, prop, receiver) {
+                  if (prop === 'user') {
+                    return new Proxy(target.user, {
+                      get(uTarget, uProp, uReceiver) {
+                        if (uProp === 'count') {
+                          return async (...args: any[]) => {
+                            if (args[0]?.where?.role === 'SUPER_ADMIN' && args[0]?.where?.is_active === true) {
+                              return 1;
+                            }
+                            return await uTarget.count(...args);
+                          };
+                        }
+                        return Reflect.get(uTarget, uProp, uReceiver);
+                      },
+                    });
+                  }
+                  return Reflect.get(target, prop, receiver);
+                },
+              });
+              return await fn(proxyTx);
+            });
+          };
+
+          const lastSaProtectionReq = new Request(`http://localhost/api/super-admin/users/${c4aSaUser.id}`, {
+            method: 'PATCH',
+            headers: saHeaders,
+            body: JSON.stringify({ isActive: false }),
+          });
+          lastSaProtectionRes = await patchUser(lastSaProtectionReq, {
+            params: Promise.resolve({ id: c4aSaUser.id.toString() }),
+          });
+          lastSaProtectionData = await lastSaProtectionRes.json();
+
+          const lastSaRoleReq = new Request(`http://localhost/api/super-admin/users/${c4aSaUser.id}`, {
+            method: 'PATCH',
+            headers: saHeaders,
+            body: JSON.stringify({ role: 'QA_Operator' }),
+          });
+          lastSaRoleRes = await patchUser(lastSaRoleReq, {
+            params: Promise.resolve({ id: c4aSaUser.id.toString() }),
+          });
+          lastSaRoleData = await lastSaRoleRes.json();
+        } finally {
+          prisma.$transaction = origTxC4A as any;
+        }
+
+        const saAfterAttempts = await prisma.user.findUnique({ where: { id: c4aSaUser.id } });
+        const auditCountAfterLastSa = await prisma.auditLog.count({
+          where: { table_name: 'users', record_id: c4aSaUser.id },
+        });
+
+        assert(
+          lastSaProtectionRes.status === 400 &&
+            lastSaProtectionData.error?.includes('Cannot deactivate or reassign the last active Super Admin account') &&
+            lastSaRoleRes.status === 400 &&
+            lastSaRoleData.error?.includes('Cannot deactivate or reassign the last active Super Admin account') &&
+            saAfterAttempts?.is_active === true &&
+            saAfterAttempts?.role === 'SUPER_ADMIN' &&
+            auditCountAfterLastSa === auditCountBeforeLastSa &&
+            auditCountAfterLastSa === 0,
+          '5D-C4A-18: Last active Super Admin protection strictly blocks deactivation and reassignment with zero mutation/audit'
+        );
+      } finally {
+        await prisma.auditLog.deleteMany({ where: { table_name: 'users', record_id: c4aSaUser.id } });
+        await prisma.user.delete({ where: { id: c4aSaUser.id } });
+      }
 
       // 19. Activation-only PATCH requests are preserved
       const deactTargetReq = new Request(`http://localhost/api/super-admin/users/${editableTargetDbUser!.id}`, {
@@ -2326,13 +2453,480 @@ async function runSuperAdminFinalizationTests() {
         '5D-C4A-19: Activation-only PATCH requests are preserved'
       );
 
-      // 20. Test fixtures are removed in finally blocks even after failure
+      // 21. Retired-role activation is rejected with zero mutation/audit
+      const retActUsername = `c4a_ret_act_${Date.now()}`;
+      const retActUser = await prisma.user.create({
+        data: {
+          username: retActUsername,
+          full_name: 'Retired Role User',
+          password_hash: await bcrypt.hash('Password123!', 10),
+          role: 'Correction_Officer',
+          department: 'Operations',
+          scope_type: 'SYSTEM',
+          is_active: false,
+        },
+      });
+      cleanupC4AUserIds.push(retActUser.id);
+
+      const auditBeforeRetAct = await prisma.auditLog.count({
+        where: { table_name: 'users', record_id: retActUser.id },
+      });
+
+      const retActReq = new Request(`http://localhost/api/super-admin/users/${retActUser.id}`, {
+        method: 'PATCH',
+        headers: saHeaders,
+        body: JSON.stringify({ isActive: true }),
+      });
+      const retActRes = await patchUser(retActReq, {
+        params: Promise.resolve({ id: retActUser.id.toString() }),
+      });
+      const retActBody = await retActRes.json();
+      const userAfterRetAct = await prisma.user.findUnique({ where: { id: retActUser.id } });
+      const auditAfterRetAct = await prisma.auditLog.count({
+        where: { table_name: 'users', record_id: retActUser.id },
+      });
+
       assert(
-        cleanupC4AUserIds.length >= 8 && cleanupC4ASourceIds.length >= 1,
-        '5D-C4A-20: Test fixtures are registered for clean removal in finally block'
+        retActRes.status === 400 &&
+          retActBody?.error?.includes('retired or invalid') &&
+          userAfterRetAct?.is_active === false &&
+          auditAfterRetAct === auditBeforeRetAct,
+        '5D-C4A-21: Retired-role activation is rejected with zero mutation/audit'
+      );
+
+      // 22. Source-role activation with inactive or wrong source is rejected
+      // 22a. Inactive source
+      const inactiveZmccSource = await prisma.procurementSource.create({
+        data: {
+          code: `INACT_ZMCC_${Date.now().toString().slice(-4)}`,
+          name: 'Inactive ZMCC For Test',
+          source_type: 'ZMCC',
+          is_active: false,
+        },
+      });
+      cleanupC4ASourceIds.push(inactiveZmccSource.id);
+
+      const inactSrcUser = await prisma.user.create({
+        data: {
+          username: `c4a_inact_src_${Date.now()}`,
+          full_name: 'Inactive Source User',
+          password_hash: await bcrypt.hash('Password123!', 10),
+          role: 'ZMCC_MANAGER',
+          department: 'Milk Procurement',
+          scope_type: 'SOURCE',
+          procurement_source_id: inactiveZmccSource.id,
+          is_active: false,
+        },
+      });
+      cleanupC4AUserIds.push(inactSrcUser.id);
+
+      const auditBeforeInactSrc = await prisma.auditLog.count({
+        where: { table_name: 'users', record_id: inactSrcUser.id },
+      });
+
+      const inactSrcReq = new Request(`http://localhost/api/super-admin/users/${inactSrcUser.id}`, {
+        method: 'PATCH',
+        headers: saHeaders,
+        body: JSON.stringify({ isActive: true }),
+      });
+      const inactSrcRes = await patchUser(inactSrcReq, {
+        params: Promise.resolve({ id: inactSrcUser.id.toString() }),
+      });
+      const inactSrcBody = await inactSrcRes.json();
+      const userAfterInactSrc = await prisma.user.findUnique({ where: { id: inactSrcUser.id } });
+      const auditAfterInactSrc = await prisma.auditLog.count({
+        where: { table_name: 'users', record_id: inactSrcUser.id },
+      });
+
+      // 22b. Wrong source type (CONTRACTOR assigned to ZMCC_MANAGER)
+      const wrongSrcUser = await prisma.user.create({
+        data: {
+          username: `c4a_wrong_src_${Date.now()}`,
+          full_name: 'Wrong Source User',
+          password_hash: await bcrypt.hash('Password123!', 10),
+          role: 'ZMCC_MANAGER',
+          department: 'Milk Procurement',
+          scope_type: 'SOURCE',
+          procurement_source_id: activeContractor.id,
+          is_active: false,
+        },
+      });
+      cleanupC4AUserIds.push(wrongSrcUser.id);
+
+      const wrongSrcReq = new Request(`http://localhost/api/super-admin/users/${wrongSrcUser.id}`, {
+        method: 'PATCH',
+        headers: saHeaders,
+        body: JSON.stringify({ isActive: true }),
+      });
+      const wrongSrcRes = await patchUser(wrongSrcReq, {
+        params: Promise.resolve({ id: wrongSrcUser.id.toString() }),
+      });
+      const wrongSrcBody = await wrongSrcRes.json();
+      const userAfterWrongSrc = await prisma.user.findUnique({ where: { id: wrongSrcUser.id } });
+
+      // 22c. Missing source on source role
+      const missingSrcUser = await prisma.user.create({
+        data: {
+          username: `c4a_missing_src_${Date.now()}`,
+          full_name: 'Missing Source User',
+          password_hash: await bcrypt.hash('Password123!', 10),
+          role: 'CONTRACTOR_MANAGER',
+          department: 'Milk Procurement',
+          scope_type: 'SOURCE',
+          procurement_source_id: null,
+          is_active: false,
+        },
+      });
+      cleanupC4AUserIds.push(missingSrcUser.id);
+
+      const missingSrcReq = new Request(`http://localhost/api/super-admin/users/${missingSrcUser.id}`, {
+        method: 'PATCH',
+        headers: saHeaders,
+        body: JSON.stringify({ isActive: true }),
+      });
+      const missingSrcRes = await patchUser(missingSrcReq, {
+        params: Promise.resolve({ id: missingSrcUser.id.toString() }),
+      });
+      const missingSrcBody = await missingSrcRes.json();
+      const userAfterMissingSrc = await prisma.user.findUnique({ where: { id: missingSrcUser.id } });
+
+      assert(
+        inactSrcRes.status === 400 &&
+          inactSrcBody?.error?.includes('inactive') &&
+          userAfterInactSrc?.is_active === false &&
+          auditAfterInactSrc === auditBeforeInactSrc &&
+          wrongSrcRes.status === 400 &&
+          wrongSrcBody?.error?.includes('CONTRACTOR') &&
+          userAfterWrongSrc?.is_active === false &&
+          missingSrcRes.status === 400 &&
+          missingSrcBody?.error?.includes('requires an assigned procurement source') &&
+          userAfterMissingSrc?.is_active === false,
+        '5D-C4A-22: Source-role activation with inactive or wrong source is rejected'
+      );
+
+      // 23. Valid canonical inactive account can be activated, legacy deactivation permitted
+      const canonicalInactiveUser = await prisma.user.create({
+        data: {
+          username: `c4a_canon_inact_${Date.now()}`,
+          full_name: 'Canonical Inactive User',
+          password_hash: await bcrypt.hash('Password123!', 10),
+          role: 'ZMCC_MANAGER',
+          department: 'Milk Procurement',
+          scope_type: 'SOURCE',
+          procurement_source_id: activeZmcc.id,
+          is_active: false,
+        },
+      });
+      cleanupC4AUserIds.push(canonicalInactiveUser.id);
+
+      const auditBeforeCanonAct = await prisma.auditLog.count({
+        where: { table_name: 'users', record_id: canonicalInactiveUser.id },
+      });
+
+      const canonActReq = new Request(`http://localhost/api/super-admin/users/${canonicalInactiveUser.id}`, {
+        method: 'PATCH',
+        headers: saHeaders,
+        body: JSON.stringify({ isActive: true }),
+      });
+      const canonActRes = await patchUser(canonActReq, {
+        params: Promise.resolve({ id: canonicalInactiveUser.id.toString() }),
+      });
+      const canonActBody = await canonActRes.json();
+      const userAfterCanonAct = await prisma.user.findUnique({ where: { id: canonicalInactiveUser.id } });
+      const auditAfterCanonAct = await prisma.auditLog.count({
+        where: { table_name: 'users', record_id: canonicalInactiveUser.id },
+      });
+
+      // Also verify deactivation of legacy/retired user remains permitted
+      const legacyActiveUser = await prisma.user.create({
+        data: {
+          username: `c4a_leg_act_${Date.now()}`,
+          full_name: 'Legacy Active User',
+          password_hash: await bcrypt.hash('Password123!', 10),
+          role: 'Correction_Officer',
+          department: 'Operations',
+          scope_type: 'SYSTEM',
+          is_active: true,
+        },
+      });
+      cleanupC4AUserIds.push(legacyActiveUser.id);
+
+      const legDeactReq = new Request(`http://localhost/api/super-admin/users/${legacyActiveUser.id}`, {
+        method: 'PATCH',
+        headers: saHeaders,
+        body: JSON.stringify({ isActive: false }),
+      });
+      const legDeactRes = await patchUser(legDeactReq, {
+        params: Promise.resolve({ id: legacyActiveUser.id.toString() }),
+      });
+      const legDeactBody = await legDeactRes.json();
+      const userAfterLegDeact = await prisma.user.findUnique({ where: { id: legacyActiveUser.id } });
+
+      assert(
+        canonActRes.status === 200 &&
+          canonActBody?.user?.isActive === true &&
+          userAfterCanonAct?.is_active === true &&
+          auditAfterCanonAct === auditBeforeCanonAct + 1 &&
+          legDeactRes.status === 200 &&
+          legDeactBody?.user?.isActive === false &&
+          userAfterLegDeact?.is_active === false,
+        '5D-C4A-23: Valid canonical inactive account can be activated and legacy deactivation permitted'
+      );
+
+      // 24. POST: Advisory lock executes strictly before source lock, validation, and mutation
+      const executedOpsPost: string[] = [];
+      const origTransaction = prisma.$transaction;
+      try {
+        (prisma as any).$transaction = async (fn: any) => {
+          return await (origTransaction as any).call(prisma, async (tx: any) => {
+            const proxyTx = new Proxy(tx, {
+              get(target, prop, receiver) {
+                if (prop === '$queryRaw' || prop === '$executeRaw') {
+                  return async (...args: any[]) => {
+                    const rawSql = JSON.stringify(args, (_k, v) => (typeof v === 'bigint' ? v.toString() : v));
+                    if (rawSql.includes('pg_advisory_xact_lock')) {
+                      executedOpsPost.push('ADVISORY_LOCK');
+                    }
+                    if (rawSql.includes('procurement_source') && rawSql.includes('FOR UPDATE')) {
+                      executedOpsPost.push('LOCK_SOURCE_FOR_UPDATE');
+                    }
+                    return await (target as any)[prop](...args);
+                  };
+                }
+                if (prop === 'procurementSource') {
+                  return new Proxy(target.procurementSource, {
+                    get(pTarget, pProp, pReceiver) {
+                      if (pProp === 'findUnique') {
+                        return async (...args: any[]) => {
+                          executedOpsPost.push('FIND_SOURCE');
+                          return await pTarget.findUnique(...args);
+                        };
+                      }
+                      return Reflect.get(pTarget, pProp, pReceiver);
+                    },
+                  });
+                }
+                if (prop === 'user') {
+                  return new Proxy(target.user, {
+                    get(uTarget, uProp, uReceiver) {
+                      if (uProp === 'create') {
+                        return async (...args: any[]) => {
+                          executedOpsPost.push('CREATE_USER');
+                          return await uTarget.create(...args);
+                        };
+                      }
+                      return Reflect.get(uTarget, uProp, uReceiver);
+                    },
+                  });
+                }
+                return Reflect.get(target, prop, receiver);
+              },
+            });
+            return await fn(proxyTx);
+          });
+        };
+
+        const postLockUsername = `c4a_lock_post_${Date.now()}`;
+        const postLockReq = new Request('http://localhost/api/super-admin/users', {
+          method: 'POST',
+          headers: saHeaders,
+          body: JSON.stringify({
+            username: postLockUsername,
+            password: 'Password123!',
+            role: 'ZMCC_MANAGER',
+            procurementSourceId: activeZmcc.id.toString(),
+          }),
+        });
+        const postLockRes = await postCreateUser(postLockReq);
+        const postLockData = await postLockRes.json();
+        if (postLockData?.user?.id) cleanupC4AUserIds.push(BigInt(postLockData.user.id));
+
+        const advisoryIdx = executedOpsPost.indexOf('ADVISORY_LOCK');
+        const lockIdx = executedOpsPost.indexOf('LOCK_SOURCE_FOR_UPDATE');
+        const findIdx = executedOpsPost.indexOf('FIND_SOURCE');
+        const createIdx = executedOpsPost.indexOf('CREATE_USER');
+
+        assert(
+          postLockRes.status === 200 &&
+            advisoryIdx !== -1 &&
+            lockIdx !== -1 &&
+            findIdx !== -1 &&
+            createIdx !== -1 &&
+            advisoryIdx < lockIdx &&
+            lockIdx < findIdx &&
+            findIdx < createIdx,
+          '5D-C4A-24: POST: Advisory lock executes strictly before source lock, validation, and mutation'
+        );
+      } finally {
+        prisma.$transaction = origTransaction as any;
+      }
+
+      // 25. PATCH: Advisory lock executes strictly before target lock, source lock, validation, and mutation
+      const executedOpsPatch: string[] = [];
+      try {
+        (prisma as any).$transaction = async (fn: any) => {
+          return await (origTransaction as any).call(prisma, async (tx: any) => {
+            const proxyTx = new Proxy(tx, {
+              get(target, prop, receiver) {
+                if (prop === '$queryRaw' || prop === '$executeRaw') {
+                  return async (...args: any[]) => {
+                    const rawSql = JSON.stringify(args, (_k, v) => (typeof v === 'bigint' ? v.toString() : v));
+                    if (rawSql.includes('pg_advisory_xact_lock')) {
+                      executedOpsPatch.push('ADVISORY_LOCK');
+                    }
+                    if (rawSql.includes('users') && rawSql.includes('FOR UPDATE')) {
+                      executedOpsPatch.push('LOCK_USER_FOR_UPDATE');
+                    }
+                    if (rawSql.includes('procurement_source') && rawSql.includes('FOR UPDATE')) {
+                      executedOpsPatch.push('LOCK_SOURCE_FOR_UPDATE');
+                    }
+                    return await (target as any)[prop](...args);
+                  };
+                }
+                if (prop === 'procurementSource') {
+                  return new Proxy(target.procurementSource, {
+                    get(pTarget, pProp, pReceiver) {
+                      if (pProp === 'findUnique') {
+                        return async (...args: any[]) => {
+                          executedOpsPatch.push('FIND_SOURCE');
+                          return await pTarget.findUnique(...args);
+                        };
+                      }
+                      return Reflect.get(pTarget, pProp, pReceiver);
+                    },
+                  });
+                }
+                if (prop === 'user') {
+                  return new Proxy(target.user, {
+                    get(uTarget, uProp, uReceiver) {
+                      if (uProp === 'update') {
+                        return async (...args: any[]) => {
+                          executedOpsPatch.push('UPDATE_USER');
+                          return await uTarget.update(...args);
+                        };
+                      }
+                      return Reflect.get(uTarget, uProp, uReceiver);
+                    },
+                  });
+                }
+                return Reflect.get(target, prop, receiver);
+              },
+            });
+            return await fn(proxyTx);
+          });
+        };
+
+        const patchLockReq = new Request(`http://localhost/api/super-admin/users/${editableTargetDbUser!.id}`, {
+          method: 'PATCH',
+          headers: saHeaders,
+          body: JSON.stringify({
+            role: 'CONTRACTOR_MANAGER',
+            procurementSourceId: activeContractor.id.toString(),
+          }),
+        });
+        const patchLockRes = await patchUser(patchLockReq, {
+          params: Promise.resolve({ id: editableTargetDbUser!.id.toString() }),
+        });
+
+        const patchAdvisoryIdx = executedOpsPatch.indexOf('ADVISORY_LOCK');
+        const userLockIdx = executedOpsPatch.indexOf('LOCK_USER_FOR_UPDATE');
+        const sourceLockIdx = executedOpsPatch.indexOf('LOCK_SOURCE_FOR_UPDATE');
+        const findIdx = executedOpsPatch.indexOf('FIND_SOURCE');
+        const updateIdx = executedOpsPatch.indexOf('UPDATE_USER');
+
+        assert(
+          patchLockRes.status === 200 &&
+            patchAdvisoryIdx !== -1 &&
+            userLockIdx !== -1 &&
+            sourceLockIdx !== -1 &&
+            findIdx !== -1 &&
+            updateIdx !== -1 &&
+            patchAdvisoryIdx < userLockIdx &&
+            userLockIdx < sourceLockIdx &&
+            sourceLockIdx < findIdx &&
+            findIdx < updateIdx,
+          '5D-C4A-25: PATCH: Advisory lock executes strictly before target lock, source lock, validation, and mutation'
+        );
+      } finally {
+        prisma.$transaction = origTransaction as any;
+      }
+
+      // 26. Simulated audit failure rolls back user mutation
+      try {
+        (prisma as any).$transaction = async (fn: any) => {
+          return await (origTransaction as any).call(prisma, async (tx: any) => {
+            const proxyTx = new Proxy(tx, {
+              get(target, prop, receiver) {
+                if (prop === 'auditLog') {
+                  return {
+                    create: async () => {
+                      throw new Error('Simulated Audit Failure for User Mutation Rollback');
+                    },
+                  };
+                }
+                return Reflect.get(target, prop, receiver);
+              },
+            });
+            return await fn(proxyTx);
+          });
+        };
+
+        // 26a. POST rollback
+        const rbPostUsername = `c4a_rb_user_${Date.now()}`;
+        const rbPostReq = new Request('http://localhost/api/super-admin/users', {
+          method: 'POST',
+          headers: saHeaders,
+          body: JSON.stringify({
+            username: rbPostUsername,
+            password: 'Password123!',
+            role: 'Security_Operator',
+          }),
+        });
+        const rbPostRes = await postCreateUser(rbPostReq);
+        const rbPostDbUser = await prisma.user.findFirst({ where: { username: rbPostUsername } });
+
+        // 26b. PATCH rollback
+        const beforeRbPatchUser = await prisma.user.findUnique({ where: { id: editableTargetDbUser!.id } });
+        const rbPatchReq = new Request(`http://localhost/api/super-admin/users/${editableTargetDbUser!.id}`, {
+          method: 'PATCH',
+          headers: saHeaders,
+          body: JSON.stringify({
+            name: 'Name Rolled Back',
+            role: 'QA_Operator',
+          }),
+        });
+        const rbPatchRes = await patchUser(rbPatchReq, {
+          params: Promise.resolve({ id: editableTargetDbUser!.id.toString() }),
+        });
+        const afterRbPatchUser = await prisma.user.findUnique({ where: { id: editableTargetDbUser!.id } });
+
+        assert(
+          rbPostRes.status === 500 &&
+            rbPostDbUser === null &&
+            rbPatchRes.status === 500 &&
+            afterRbPatchUser?.full_name === beforeRbPatchUser?.full_name &&
+            afterRbPatchUser?.role === beforeRbPatchUser?.role,
+          '5D-C4A-26: Simulated audit failure rolls back user mutation'
+        );
+      } finally {
+        prisma.$transaction = origTransaction as any;
+      }
+
+      // 27. Test fixtures are registered for clean removal in finally block without touching seeded users
+      const seededAdminUser = await prisma.user.findFirst({ where: { username: 'admin.superuser' } });
+      const seededSuperAdmin = await prisma.user.findFirst({ where: { username: 'super.admin' } });
+      const seededIds = [seededAdminUser?.id, seededSuperAdmin?.id].filter((id): id is bigint => id !== undefined);
+
+      const hasNoSeededUsersInCleanup = cleanupC4AUserIds.every((id) => !seededIds.includes(id));
+      const hasValidFixtureCount = cleanupC4AUserIds.length >= 6 && cleanupC4ASourceIds.length >= 1;
+
+      assert(
+        hasNoSeededUsersInCleanup && hasValidFixtureCount,
+        '5D-C4A-27: Test fixtures are registered for clean removal in finally block without including seeded accounts'
       );
     } finally {
-      // 16. Clean up test entities strictly in finally
+      // 16. Clean up test entities strictly in finally without swallowing errors
+      const cleanupErrors: any[] = [];
       for (const uid of cleanupC4AUserIds) {
         try {
           await prisma.auditLog.deleteMany({
@@ -2340,15 +2934,19 @@ async function runSuperAdminFinalizationTests() {
           });
           await prisma.user.delete({ where: { id: uid } });
         } catch (err) {
-          console.error(`Cleanup error for user ${uid}:`, err);
+          cleanupErrors.push({ entity: 'user', id: uid.toString(), error: err });
         }
       }
       for (const sid of cleanupC4ASourceIds) {
         try {
           await prisma.procurementSource.delete({ where: { id: sid } });
         } catch (err) {
-          console.error(`Cleanup error for source ${sid}:`, err);
+          cleanupErrors.push({ entity: 'procurementSource', id: sid.toString(), error: err });
         }
+      }
+      if (cleanupErrors.length > 0) {
+        console.error('Critical cleanup errors in 5D-C4A test suite:', cleanupErrors);
+        throw new Error(`Cleanup failed for ${cleanupErrors.length} test entities`);
       }
     }
 

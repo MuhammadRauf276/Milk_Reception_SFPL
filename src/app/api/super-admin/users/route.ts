@@ -4,6 +4,11 @@ import { prisma } from '@core/db';
 import bcrypt from 'bcryptjs';
 import { getRoleAssignmentPolicy } from '@/lib/user-assignment-policy';
 
+// Fixed documented PostgreSQL transaction-level advisory lock key used across
+// all user creation (POST) and mutation (PATCH) transactions to serialize
+// sensitive account operations and prevent cross-transaction deadlocks.
+const USER_MUTATION_ADVISORY_LOCK_KEY = BigInt(74829104);
+
 export async function GET(req: Request) {
   const authUser = await getCurrentUser(req);
   if (!authUser || (authUser.role !== 'SUPER_ADMIN' && authUser.role !== 'Admin')) {
@@ -45,6 +50,22 @@ export async function GET(req: Request) {
   } catch (err: any) {
     console.error('[API_SUPER_ADMIN_USERS_GET_ERROR]', err);
     return NextResponse.json({ error: 'Failed to retrieve users.' }, { status: 500 });
+  }
+}
+
+class ValidationError extends Error {
+  statusCode = 400;
+  constructor(message: string) {
+    super(message);
+    this.name = 'ValidationError';
+  }
+}
+
+class NotFoundError extends Error {
+  statusCode = 404;
+  constructor(message: string) {
+    super(message);
+    this.name = 'NotFoundError';
   }
 }
 
@@ -130,8 +151,8 @@ export async function POST(req: Request) {
       fullName = payload.fullName.trim() || username;
     }
 
-    let psId: bigint | null = null;
     const rawPsId = payload.procurementSourceId;
+    let candidatePsId: bigint | null = null;
 
     if (policy.requiresSource) {
       if (rawPsId === undefined || rawPsId === null || rawPsId === '') {
@@ -140,27 +161,11 @@ export async function POST(req: Request) {
           { status: 400 }
         );
       }
-      let parsedId: bigint;
       try {
-        parsedId = BigInt(String(rawPsId).trim());
+        candidatePsId = BigInt(String(rawPsId).trim());
       } catch {
         return NextResponse.json({ error: 'Invalid procurementSourceId format.' }, { status: 400 });
       }
-
-      const ps = await prisma.procurementSource.findUnique({ where: { id: parsedId } });
-      if (!ps) {
-        return NextResponse.json({ error: 'Assigned Procurement Source not found.' }, { status: 400 });
-      }
-      if (!ps.is_active) {
-        return NextResponse.json({ error: `Assigned Procurement Source "${ps.name}" is inactive. Active source is required.` }, { status: 400 });
-      }
-      if (ps.source_type !== policy.allowedSourceType) {
-        return NextResponse.json(
-          { error: `Role ${policy.role} cannot be assigned to ${ps.source_type} source "${ps.name}". Expected ${policy.allowedSourceType}.` },
-          { status: 400 }
-        );
-      }
-      psId = ps.id;
     } else {
       if (rawPsId !== undefined && rawPsId !== null && rawPsId !== '') {
         return NextResponse.json(
@@ -168,19 +173,50 @@ export async function POST(req: Request) {
           { status: 400 }
         );
       }
-      psId = null;
-    }
-
-    // Check duplicate username
-    const existing = await prisma.user.findFirst({ where: { username } });
-    if (existing) {
-      return NextResponse.json({ error: `Username "${username}" is already taken.` }, { status: 400 });
+      candidatePsId = null;
     }
 
     const passHash = await bcrypt.hash(password, 10);
     const adminUser = await prisma.user.findFirst({ where: { username: authUser.username } });
 
+    // Execute duplicate check, source lock & validation, user creation and audit in single transaction
     const newUser = await prisma.$transaction(async (tx) => {
+      // 1. Advisory transaction lock
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(${USER_MUTATION_ADVISORY_LOCK_KEY})`;
+
+      // 2. Source row lock (if source-bound)
+      if (policy.requiresSource && candidatePsId !== null) {
+        // Use SELECT ... FOR UPDATE on procurement_source before validating it
+        const lockedRows = await tx.$queryRaw<Array<{ id: bigint }>>`
+          SELECT id FROM procurement_source WHERE id = ${candidatePsId} FOR UPDATE
+        `;
+        if (!lockedRows || lockedRows.length === 0) {
+          throw new ValidationError('Assigned Procurement Source not found.');
+        }
+      }
+
+      // 3. Fresh reads and validation
+      const existing = await tx.user.findFirst({ where: { username } });
+      if (existing) {
+        throw new ValidationError(`Username "${username}" is already taken.`);
+      }
+
+      if (policy.requiresSource && candidatePsId !== null) {
+        const ps = await tx.procurementSource.findUnique({ where: { id: candidatePsId } });
+        if (!ps) {
+          throw new ValidationError('Assigned Procurement Source not found.');
+        }
+        if (!ps.is_active) {
+          throw new ValidationError(`Assigned Procurement Source "${ps.name}" is inactive. Active source is required.`);
+        }
+        if (ps.source_type !== policy.allowedSourceType) {
+          throw new ValidationError(
+            `Role ${policy.role} cannot be assigned to ${ps.source_type} source "${ps.name}". Expected ${policy.allowedSourceType}.`
+          );
+        }
+      }
+
+      // 3. Create User
       const createdUser = await tx.user.create({
         data: {
           username,
@@ -189,12 +225,12 @@ export async function POST(req: Request) {
           role: policy.role,
           department: policy.department,
           scope_type: policy.scopeType,
-          procurement_source_id: psId,
+          procurement_source_id: policy.requiresSource ? candidatePsId : null,
           is_active: true,
         },
       });
 
-      // Create AuditLog entry without password
+      // 4. Create AuditLog entry without password
       await tx.auditLog.create({
         data: {
           table_name: 'users',
@@ -205,7 +241,7 @@ export async function POST(req: Request) {
             role: policy.role,
             department: policy.department,
             scope_type: policy.scopeType,
-            procurement_source_id: psId ? psId.toString() : null,
+            procurement_source_id: policy.requiresSource && candidatePsId ? candidatePsId.toString() : null,
           },
           user_id: adminUser?.id || null,
         },
@@ -227,6 +263,13 @@ export async function POST(req: Request) {
       },
     });
   } catch (err: any) {
+    if (err instanceof ValidationError) {
+      return NextResponse.json({ error: err.message }, { status: 400 });
+    }
+    if (err instanceof NotFoundError) {
+      return NextResponse.json({ error: err.message }, { status: 404 });
+    }
+
     console.error('[API_SUPER_ADMIN_USERS_POST_ERROR]', err);
     return NextResponse.json({ error: 'Failed to create user record.' }, { status: 500 });
   }
