@@ -5,8 +5,9 @@ import {
   serializeAssignment,
 } from '../src/backend/services/labTestAssignmentService';
 import { createSessionToken } from '../src/backend/core/auth';
-import { POST as superAdminLabTestsPost } from '../src/app/api/super-admin/lab-tests/route';
+import { GET as superAdminLabTestsGet, POST as superAdminLabTestsPost } from '../src/app/api/super-admin/lab-tests/route';
 import { PATCH as superAdminLabTestsPatch } from '../src/app/api/super-admin/lab-tests/[id]/route';
+import { GET as publicLabTestsGet } from '../src/app/api/lab-tests/route';
 import { POST as startDispatchPost } from '../src/app/api/dispatches/start/route';
 import { POST as dispatchPost } from '../src/app/api/dispatches/route';
 import { POST as completePortionPost } from '../src/app/api/qa/vehicle-visits/[visitId]/portions/[portionId]/complete/route';
@@ -43,6 +44,8 @@ async function runConfigurableQualitativeOptionsTests() {
   };
 
   let passedCases = 0;
+  const cleanupTestIds: bigint[] = [];
+  const cleanupVisitIds: bigint[] = [];
 
   // --- CASE A: Master Test Categorical Backfill Verification ---
   console.log('--- CASE A: Master Test Categorical Backfill Verification ---');
@@ -930,9 +933,532 @@ async function runConfigurableQualitativeOptionsTests() {
   // Clean up test3ADId
   await prisma.labTest.update({ where: { id: test3ADId }, data: { isActive: false } });
 
-  console.log('\n========================================================================');
-  console.log(`--- ALL ${passedCases}/24 CONFIGURABLE QUALITATIVE OPTION TEST CASES PASSED (100%) ---`);
-  console.log('========================================================================\n');
+  try {
+    // ========================================================================
+    // --- STAGE 5D-C2: LAB TEST LIFECYCLE, SCOPE & LIVE CONFIGURATION ---
+    // ========================================================================
+    console.log('\n========================================================================');
+    console.log('--- STARTING STAGE 5D-C2 LAB TEST LIFECYCLE & SCOPE TESTS ---');
+    console.log('========================================================================\n');
+
+    // --- CASE 5DC2-1: Cache-Control Header on GET /api/super-admin/lab-tests ---
+    console.log('--- CASE 5DC2-1: Cache-Control on Super Admin Lab Tests ---');
+    const saGetReq = new Request('http://localhost:3000/api/super-admin/lab-tests', {
+      method: 'GET',
+      headers: authHeaders,
+    });
+    const saGetRes = await superAdminLabTestsGet(saGetReq);
+    if (saGetRes.headers.get('Cache-Control') !== 'private, no-store, max-age=0') {
+      throw new Error(
+        `Case 5DC2-1 Failed: Expected "private, no-store, max-age=0", got "${saGetRes.headers.get('Cache-Control')}"`
+      );
+    }
+    console.log('✓ Case 5DC2-1 Passed: Super Admin endpoint returns Cache-Control: private, no-store, max-age=0.');
+    passedCases++;
+
+    // --- CASE 5DC2-2: Cache-Control Header on GET /api/lab-tests ---
+    console.log('\n--- CASE 5DC2-2: Cache-Control on Public Lab Tests ---');
+    const pubGetReq = new Request('http://localhost:3000/api/lab-tests?scope=DISPATCH', {
+      method: 'GET',
+    });
+    const pubGetRes = await publicLabTestsGet(pubGetReq);
+    if (pubGetRes.headers.get('Cache-Control') !== 'private, no-store, max-age=0') {
+      throw new Error(
+        `Case 5DC2-2 Failed: Expected "private, no-store, max-age=0", got "${pubGetRes.headers.get('Cache-Control')}"`
+      );
+    }
+    console.log('✓ Case 5DC2-2 Passed: Public lab tests endpoint returns Cache-Control: private, no-store, max-age=0.');
+    passedCases++;
+
+    // --- Create 3 distinct scope test fixtures ---
+    const nowC2 = Date.now();
+    // 1. Dispatch scope test
+    const dispReq = new Request('http://localhost:3000/api/super-admin/lab-tests', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({
+        testName: `5DC2 Disp Test ${nowC2}`,
+        resultType: 'NUMERIC',
+        testScope: 'DISPATCH',
+        isRequired: false,
+        isActive: true,
+        displayOrder: 980,
+      }),
+    });
+    const dispRes = await superAdminLabTestsPost(dispReq);
+    const dispData = await dispRes.json();
+    if (dispRes.status !== 201) throw new Error(`Failed to create DISPATCH test: ${JSON.stringify(dispData)}`);
+    const dispTestId = BigInt(dispData.labTest.id);
+    cleanupTestIds.push(dispTestId);
+
+    // 2. Plant scope test
+    const plantReq = new Request('http://localhost:3000/api/super-admin/lab-tests', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({
+        testName: `5DC2 Plant Test ${nowC2}`,
+        resultType: 'NUMERIC',
+        testScope: 'PLANT',
+        isRequired: false,
+        isActive: true,
+        displayOrder: 981,
+      }),
+    });
+    const plantRes = await superAdminLabTestsPost(plantReq);
+    const plantData = await plantRes.json();
+    if (plantRes.status !== 201) throw new Error(`Failed to create PLANT test: ${JSON.stringify(plantData)}`);
+    const plantTestId = BigInt(plantData.labTest.id);
+    cleanupTestIds.push(plantTestId);
+
+    // 3. Both scope test
+    const bothReq = new Request('http://localhost:3000/api/super-admin/lab-tests', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({
+        testName: `5DC2 Both Test ${nowC2}`,
+        resultType: 'NUMERIC',
+        testScope: 'BOTH',
+        isRequired: false,
+        isActive: true,
+        displayOrder: 982,
+      }),
+    });
+    const bothRes = await superAdminLabTestsPost(bothReq);
+    const bothData = await bothRes.json();
+    if (bothRes.status !== 201) throw new Error(`Failed to create BOTH test: ${JSON.stringify(bothData)}`);
+    const bothTestId = BigInt(bothData.labTest.id);
+    cleanupTestIds.push(bothTestId);
+
+    // --- CASE 5DC2-3: Scope Filtering for DISPATCH ---
+    console.log('\n--- CASE 5DC2-3: Public Scope Filtering (DISPATCH) ---');
+    const reqScopeDisp = new Request('http://localhost:3000/api/lab-tests?scope=DISPATCH', { method: 'GET' });
+    const resScopeDisp = await publicLabTestsGet(reqScopeDisp);
+    const dataScopeDisp = await resScopeDisp.json();
+    const testsDisp = dataScopeDisp.tests as any[];
+    const hasDispTest = testsDisp.some((t) => t.id === dispTestId.toString());
+    const hasBothTestInDisp = testsDisp.some((t) => t.id === bothTestId.toString());
+    const hasPlantTestInDisp = testsDisp.some((t) => t.id === plantTestId.toString());
+    if (!hasDispTest || !hasBothTestInDisp || hasPlantTestInDisp) {
+      throw new Error(
+        `Case 5DC2-3 Failed: DISPATCH filter included invalid tests (disp=${hasDispTest}, both=${hasBothTestInDisp}, plant=${hasPlantTestInDisp})`
+      );
+    }
+    console.log('✓ Case 5DC2-3 Passed: DISPATCH scope includes DISPATCH and BOTH tests, excludes PLANT tests.');
+    passedCases++;
+
+    // --- CASE 5DC2-4: Scope Filtering for PLANT ---
+    console.log('\n--- CASE 5DC2-4: Public Scope Filtering (PLANT) ---');
+    const reqScopePlant = new Request('http://localhost:3000/api/lab-tests?scope=PLANT', { method: 'GET' });
+    const resScopePlant = await publicLabTestsGet(reqScopePlant);
+    const dataScopePlant = await resScopePlant.json();
+    const testsPlant = dataScopePlant.tests as any[];
+    const hasPlantTest = testsPlant.some((t) => t.id === plantTestId.toString());
+    const hasBothTestInPlant = testsPlant.some((t) => t.id === bothTestId.toString());
+    const hasDispTestInPlant = testsPlant.some((t) => t.id === dispTestId.toString());
+    if (!hasPlantTest || !hasBothTestInPlant || hasDispTestInPlant) {
+      throw new Error(
+        `Case 5DC2-4 Failed: PLANT filter included invalid tests (plant=${hasPlantTest}, both=${hasBothTestInPlant}, disp=${hasDispTestInPlant})`
+      );
+    }
+    console.log('✓ Case 5DC2-4 Passed: PLANT scope includes PLANT and BOTH tests, excludes DISPATCH tests.');
+    passedCases++;
+
+    // --- CASE 5DC2-5: Snapshot Stability (In-Flight Session Immunity for Dispatch & Plant QA) ---
+    console.log('\n--- CASE 5DC2-5: Snapshot Stability Before Deactivation (Dispatch & Plant QA) ---');
+    // Start an in-flight dispatch session with bothTestId and plantTestId active
+    const startReqStable = new Request('http://localhost:3000/api/dispatches/start', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({
+        procurementSourceId: zmccSource.id.toString(),
+        operationalDate: regressionBusinessDate,
+        vehicleNumber: `VEH-STABLE-${nowC2}`,
+      }),
+    });
+    const startResStable = await startDispatchPost(startReqStable);
+    const startDataStable = await startResStable.json();
+    const stableVisitId = BigInt(startDataStable.visitId);
+    cleanupVisitIds.push(stableVisitId);
+
+    const initialAssignments = await getOrAssignDispatchTests(prisma, stableVisitId);
+    const hasBothBefore = initialAssignments.some((a) => a.test_id.toString() === bothTestId.toString());
+    if (!hasBothBefore) {
+      throw new Error('Case 5DC2-5 Failed: BOTH test was not assigned to new dispatch session');
+    }
+
+    // Freeze Plant QA assignments for visit 1
+    const initialPlantAssignments = await getOrAssignPlantQATests(prisma, stableVisitId);
+    const hasPlantBefore = initialPlantAssignments.some((a) => a.test_id.toString() === plantTestId.toString());
+    const hasBothInPlantBefore = initialPlantAssignments.some((a) => a.test_id.toString() === bothTestId.toString());
+    if (!hasPlantBefore || !hasBothInPlantBefore) {
+      throw new Error('Case 5DC2-5 Failed: Plant QA test or BOTH test was not assigned to stable session');
+    }
+    const stablePlantAssignmentIds = initialPlantAssignments.map((a) => a.id.toString()).sort();
+
+    // Now deactivate bothTestId and plantTestId via Super Admin PATCH
+    const deactBothReq = new Request(`http://localhost:3000/api/super-admin/lab-tests/${bothTestId}`, {
+      method: 'PATCH',
+      headers: authHeaders,
+      body: JSON.stringify({ isActive: false }),
+    });
+    const deactBothRes = await superAdminLabTestsPatch(deactBothReq, {
+      params: Promise.resolve({ id: bothTestId.toString() }),
+    });
+    if (deactBothRes.status !== 200) throw new Error(`Failed to deactivate BOTH test: ${deactBothRes.status}`);
+
+    const deactPlantReq = new Request(`http://localhost:3000/api/super-admin/lab-tests/${plantTestId}`, {
+      method: 'PATCH',
+      headers: authHeaders,
+      body: JSON.stringify({ isActive: false }),
+    });
+    const deactPlantRes = await superAdminLabTestsPatch(deactPlantReq, {
+      params: Promise.resolve({ id: plantTestId.toString() }),
+    });
+    if (deactPlantRes.status !== 200) throw new Error(`Failed to deactivate PLANT test: ${deactPlantRes.status}`);
+
+    // Re-fetch assignments for the existing in-flight session
+    const postDeactAssignments = await getOrAssignDispatchTests(prisma, stableVisitId);
+    const hasBothAfter = postDeactAssignments.some((a) => a.test_id.toString() === bothTestId.toString());
+    if (!hasBothAfter) {
+      throw new Error('Case 5DC2-5 Failed: In-flight dispatch assignment snapshot was lost after test deactivation');
+    }
+
+    const postDeactPlantAssignments = await getOrAssignPlantQATests(prisma, stableVisitId);
+    const hasPlantAfter = postDeactPlantAssignments.some((a) => a.test_id.toString() === plantTestId.toString());
+    const hasBothInPlantAfter = postDeactPlantAssignments.some((a) => a.test_id.toString() === bothTestId.toString());
+    if (!hasPlantAfter || !hasBothInPlantAfter) {
+      throw new Error('Case 5DC2-5 Failed: In-flight Plant QA assignment snapshot was lost after test deactivation');
+    }
+    const postDeactPlantAssignmentIds = postDeactPlantAssignments.map((a) => a.id.toString()).sort();
+    if (JSON.stringify(stablePlantAssignmentIds) !== JSON.stringify(postDeactPlantAssignmentIds)) {
+      throw new Error('Case 5DC2-5 Failed: Plant QA assignment IDs mutated after test deactivation');
+    }
+    console.log('✓ Case 5DC2-5 Passed: In-flight Dispatch & Plant QA session snapshots remained intact after test deactivation.');
+    passedCases++;
+
+    // --- CASE 5DC2-6: Instant Operational Exclusion Upon Deactivation ---
+    console.log('\n--- CASE 5DC2-6: Instant Operational Exclusion on New Sessions (Dispatch & Plant QA) ---');
+    // Start a brand new session - bothTestId and plantTestId are inactive now
+    const startReqNew = new Request('http://localhost:3000/api/dispatches/start', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({
+        procurementSourceId: zmccSource.id.toString(),
+        operationalDate: regressionBusinessDate,
+        vehicleNumber: `VEH-EXCL-${nowC2}`,
+      }),
+    });
+    const startResNew = await startDispatchPost(startReqNew);
+    const startDataNew = await startResNew.json();
+    const newVisitId = BigInt(startDataNew.visitId);
+    cleanupVisitIds.push(newVisitId);
+
+    const newAssignments = await getOrAssignDispatchTests(prisma, newVisitId);
+    const hasBothInNew = newAssignments.some((a) => a.test_id.toString() === bothTestId.toString());
+    if (hasBothInNew) {
+      throw new Error('Case 5DC2-6 Failed: Deactivated BOTH test was included in a new dispatch session');
+    }
+
+    const newPlantAssignments = await getOrAssignPlantQATests(prisma, newVisitId);
+    const hasPlantInNew = newPlantAssignments.some((a) => a.test_id.toString() === plantTestId.toString());
+    const hasBothInNewPlant = newPlantAssignments.some((a) => a.test_id.toString() === bothTestId.toString());
+    if (hasPlantInNew || hasBothInNewPlant) {
+      throw new Error('Case 5DC2-6 Failed: Deactivated PLANT or BOTH test was included in a new Plant QA session');
+    }
+    const visit2PlantAssignmentIds = newPlantAssignments.map((a) => a.id.toString()).sort();
+
+    // Also verify public endpoint excludes inactive test
+    const pubCheckReq = new Request('http://localhost:3000/api/lab-tests?scope=DISPATCH', { method: 'GET' });
+    const pubCheckRes = await publicLabTestsGet(pubCheckReq);
+    const pubCheckData = await pubCheckRes.json();
+    const hasInactiveInPublic = (pubCheckData.tests as any[]).some((t) => t.id === bothTestId.toString());
+    if (hasInactiveInPublic) {
+      throw new Error('Case 5DC2-6 Failed: Deactivated test returned by public GET /api/lab-tests');
+    }
+    console.log('✓ Case 5DC2-6 Passed: Deactivated tests instantly excluded from newly started Dispatch & Plant QA sessions and public API.');
+    passedCases++;
+
+    // --- CASE 5DC2-7: Reactivation Inclusion & Snapshot Isolation ---
+    console.log('\n--- CASE 5DC2-7: Immediate Reactivation Inclusion & Historical Snapshot Isolation ---');
+    const reactBothReq = new Request(`http://localhost:3000/api/super-admin/lab-tests/${bothTestId}`, {
+      method: 'PATCH',
+      headers: authHeaders,
+      body: JSON.stringify({ isActive: true }),
+    });
+    const reactBothRes = await superAdminLabTestsPatch(reactBothReq, {
+      params: Promise.resolve({ id: bothTestId.toString() }),
+    });
+    if (reactBothRes.status !== 200) throw new Error(`Failed to reactivate test: ${reactBothRes.status}`);
+
+    const reactPlantReq = new Request(`http://localhost:3000/api/super-admin/lab-tests/${plantTestId}`, {
+      method: 'PATCH',
+      headers: authHeaders,
+      body: JSON.stringify({ isActive: true }),
+    });
+    const reactPlantRes = await superAdminLabTestsPatch(reactPlantReq, {
+      params: Promise.resolve({ id: plantTestId.toString() }),
+    });
+    if (reactPlantRes.status !== 200) throw new Error(`Failed to reactivate PLANT test: ${reactPlantRes.status}`);
+
+    const startReqReactivated = new Request('http://localhost:3000/api/dispatches/start', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({
+        procurementSourceId: zmccSource.id.toString(),
+        operationalDate: regressionBusinessDate,
+        vehicleNumber: `VEH-REACT-${nowC2}`,
+      }),
+    });
+    const startResReactivated = await startDispatchPost(startReqReactivated);
+    const startDataReactivated = await startResReactivated.json();
+    const reactVisitId = BigInt(startDataReactivated.visitId);
+    cleanupVisitIds.push(reactVisitId);
+
+    // Verify session 3 (reactivated) receives reactivated tests
+    const reactAssignments = await getOrAssignDispatchTests(prisma, reactVisitId);
+    const hasBothInReactivated = reactAssignments.some((a) => a.test_id.toString() === bothTestId.toString());
+    if (!hasBothInReactivated) {
+      throw new Error('Case 5DC2-7 Failed: Reactivated test was not included in subsequent new dispatch session');
+    }
+
+    const reactPlantAssignments = await getOrAssignPlantQATests(prisma, reactVisitId);
+    const hasPlantInReactivated = reactPlantAssignments.some((a) => a.test_id.toString() === plantTestId.toString());
+    const hasBothInReactivatedPlant = reactPlantAssignments.some((a) => a.test_id.toString() === bothTestId.toString());
+    if (!hasPlantInReactivated || !hasBothInReactivatedPlant) {
+      throw new Error('Case 5DC2-7 Failed: Reactivated test was not included in subsequent new Plant QA session');
+    }
+
+    // Verify older session 2 without the deactivated tests remains completely unchanged
+    const recheckVisit2PlantAssignments = await getOrAssignPlantQATests(prisma, newVisitId);
+    const recheckVisit2Ids = recheckVisit2PlantAssignments.map((a) => a.id.toString()).sort();
+    if (JSON.stringify(visit2PlantAssignmentIds) !== JSON.stringify(recheckVisit2Ids)) {
+      throw new Error('Case 5DC2-7 Failed: Older snapshot without test was modified after reactivation');
+    }
+    const hasPlantInRecheckVisit2 = recheckVisit2PlantAssignments.some((a) => a.test_id.toString() === plantTestId.toString());
+    if (hasPlantInRecheckVisit2) {
+      throw new Error('Case 5DC2-7 Failed: Older snapshot acquired reactivated test');
+    }
+
+    // Verify older session 1 (stable snapshot) remains unchanged
+    const recheckVisit1PlantAssignments = await getOrAssignPlantQATests(prisma, stableVisitId);
+    const recheckVisit1Ids = recheckVisit1PlantAssignments.map((a) => a.id.toString()).sort();
+    if (JSON.stringify(stablePlantAssignmentIds) !== JSON.stringify(recheckVisit1Ids)) {
+      throw new Error('Case 5DC2-7 Failed: Initial snapshot rows were added, deleted, or rewritten');
+    }
+
+    console.log('✓ Case 5DC2-7 Passed: Reactivated test immediately included in new sessions while all historical snapshots remain immutable.');
+    passedCases++;
+
+    // --- CASE 5DC2-8: Route-Level Atomicity & Audit Log Integrity ---
+    console.log('\n--- CASE 5DC2-8: Route-Level Atomicity & Audit Log Integrity ---');
+    // 1. Successful POST audit log verification
+    const successfulPostAudit = await prisma.auditLog.findFirst({
+      where: { table_name: 'lab_test', record_id: bothTestId, action: 'LAB_TEST_CREATED' },
+    });
+    if (!successfulPostAudit) {
+      throw new Error('Case 5DC2-8 Failed: LAB_TEST_CREATED audit log not found');
+    }
+    if (successfulPostAudit.user_id?.toString() !== superAdminUser.id.toString()) {
+      throw new Error(`Case 5DC2-8 Failed: Audit log user_id mismatch (${successfulPostAudit.user_id} vs ${superAdminUser.id})`);
+    }
+    const postAuditJson = JSON.stringify(successfulPostAudit.new_values || {});
+    if (
+      postAuditJson.toLowerCase().includes('password') ||
+      postAuditJson.toLowerCase().includes('token') ||
+      postAuditJson.toLowerCase().includes('cookie') ||
+      postAuditJson.toLowerCase().includes('secret')
+    ) {
+      throw new Error('Case 5DC2-8 Failed: Sensitive authentication material found in audit log new_values');
+    }
+
+    // 2. Successful PATCH audit log verification
+    const successfulPatchAudit = await prisma.auditLog.findFirst({
+      where: { table_name: 'lab_test', record_id: bothTestId, action: 'LAB_TEST_UPDATED' },
+    });
+    if (!successfulPatchAudit) {
+      throw new Error('Case 5DC2-8 Failed: LAB_TEST_UPDATED audit log not found');
+    }
+    if (successfulPatchAudit.user_id?.toString() !== superAdminUser.id.toString()) {
+      throw new Error(`Case 5DC2-8 Failed: Audit log user_id mismatch on PATCH (${successfulPatchAudit.user_id} vs ${superAdminUser.id})`);
+    }
+
+    // 3. Atomicity on POST: simulate audit failure via transaction proxy
+    const origTransaction = prisma.$transaction.bind(prisma);
+    const postTestCodeRollback = `LT-RB-POST-${nowC2}`;
+    let postRollbackThrew = false;
+    let postStatus = 0;
+
+    try {
+      (prisma as any).$transaction = async (arg: any) => {
+        if (typeof arg === 'function') {
+          return await origTransaction(async (realTx: any) => {
+            const txProxy = new Proxy(realTx, {
+              get(target, prop, receiver) {
+                if (prop === 'auditLog') {
+                  const realAuditLog = target.auditLog;
+                  return new Proxy(realAuditLog, {
+                    get(auditTarget, auditProp, auditReceiver) {
+                      if (auditProp === 'create') {
+                        return async () => {
+                          throw new Error('SIMULATED_AUDIT_LOG_FAILURE');
+                        };
+                      }
+                      return Reflect.get(auditTarget, auditProp, auditReceiver);
+                    },
+                  });
+                }
+                return Reflect.get(target, prop, receiver);
+              },
+            });
+            return await arg(txProxy);
+          });
+        }
+        return await origTransaction(arg);
+      };
+
+      const rollbackPostReq = new Request('http://localhost:3000/api/super-admin/lab-tests', {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({
+          testName: `Rollback Post Test ${nowC2}`,
+          resultType: 'NUMERIC',
+          testScope: 'DISPATCH',
+          isRequired: false,
+          isActive: true,
+          displayOrder: 9991,
+        }),
+      });
+
+      const rollbackPostRes = await superAdminLabTestsPost(rollbackPostReq);
+      postStatus = rollbackPostRes.status;
+      if (rollbackPostRes.status >= 500) {
+        postRollbackThrew = true;
+      }
+    } finally {
+      prisma.$transaction = origTransaction as any;
+    }
+
+    if (!postRollbackThrew) {
+      throw new Error(`Case 5DC2-8 Failed: Expected POST to return >= 500 on audit failure, got ${postStatus}`);
+    }
+
+    const postRollbackLabTest = await prisma.labTest.findFirst({
+      where: { testName: `Rollback Post Test ${nowC2}` },
+    });
+    if (postRollbackLabTest) {
+      cleanupTestIds.push(postRollbackLabTest.id);
+      throw new Error('Case 5DC2-8 Failed: Lab test was created despite audit log failure (transaction rollback failed)');
+    }
+
+    // 4. Atomicity on PATCH: simulate audit failure via transaction proxy
+    const baselineDispTest = await prisma.labTest.findUnique({ where: { id: dispTestId } });
+    const baselineDispAuditCount = await prisma.auditLog.count({
+      where: { table_name: 'lab_test', record_id: dispTestId },
+    });
+    let patchRollbackThrew = false;
+    let patchStatus = 0;
+
+    try {
+      (prisma as any).$transaction = async (arg: any) => {
+        if (typeof arg === 'function') {
+          return await origTransaction(async (realTx: any) => {
+            const txProxy = new Proxy(realTx, {
+              get(target, prop, receiver) {
+                if (prop === 'auditLog') {
+                  const realAuditLog = target.auditLog;
+                  return new Proxy(realAuditLog, {
+                    get(auditTarget, auditProp, auditReceiver) {
+                      if (auditProp === 'create') {
+                        return async () => {
+                          throw new Error('SIMULATED_AUDIT_LOG_FAILURE');
+                        };
+                      }
+                      return Reflect.get(auditTarget, auditProp, auditReceiver);
+                    },
+                  });
+                }
+                return Reflect.get(target, prop, receiver);
+              },
+            });
+            return await arg(txProxy);
+          });
+        }
+        return await origTransaction(arg);
+      };
+
+      const rollbackPatchReq = new Request(`http://localhost:3000/api/super-admin/lab-tests/${dispTestId}`, {
+        method: 'PATCH',
+        headers: authHeaders,
+        body: JSON.stringify({
+          testName: 'SHOULD_ROLLBACK_LAB_TEST_NAME',
+          displayOrder: 12345,
+        }),
+      });
+
+      const rollbackPatchRes = await superAdminLabTestsPatch(rollbackPatchReq, {
+        params: Promise.resolve({ id: dispTestId.toString() }),
+      });
+      patchStatus = rollbackPatchRes.status;
+      if (rollbackPatchRes.status >= 500) {
+        patchRollbackThrew = true;
+      }
+    } finally {
+      prisma.$transaction = origTransaction as any;
+    }
+
+    if (!patchRollbackThrew) {
+      throw new Error(`Case 5DC2-8 Failed: Expected PATCH to return >= 500 on audit failure, got ${patchStatus}`);
+    }
+
+    const dispTestAfterRollback = await prisma.labTest.findUnique({ where: { id: dispTestId } });
+    const dispAuditCountAfterRollback = await prisma.auditLog.count({
+      where: { table_name: 'lab_test', record_id: dispTestId },
+    });
+
+    if (
+      dispTestAfterRollback?.testName !== baselineDispTest?.testName ||
+      dispTestAfterRollback?.displayOrder !== baselineDispTest?.displayOrder ||
+      dispAuditCountAfterRollback !== baselineDispAuditCount
+    ) {
+      throw new Error('Case 5DC2-8 Failed: Lab test mutation was persisted despite audit failure (PATCH rollback failed)');
+    }
+
+    console.log('✓ Case 5DC2-8 Passed: Route handlers enforce full atomicity with audit log actor verification and rollback safety.');
+    passedCases++;
+
+    console.log('\n========================================================================');
+    console.log(`--- ALL ${passedCases} TESTS PASSED (100%) ---`);
+    console.log('========================================================================\n');
+  } finally {
+    console.log('\n--- Cleaning up Stage 5D-C2 fixtures ---');
+    const cleanupErrors: any[] = [];
+    for (const testId of cleanupTestIds) {
+      try {
+        await prisma.labTestAssignment.deleteMany({ where: { test_id: testId } });
+        await prisma.auditLog.deleteMany({ where: { table_name: 'lab_test', record_id: testId } });
+        await prisma.labTest.delete({ where: { id: testId } });
+      } catch (e) {
+        cleanupErrors.push({ testId: testId.toString(), error: e });
+      }
+    }
+    for (const visitId of cleanupVisitIds) {
+      try {
+        await prisma.labTestAssignment.deleteMany({ where: { visit_id: visitId } });
+        await prisma.dispatchLabResult.deleteMany({ where: { visit_id: visitId } });
+        await prisma.plantLabResult.deleteMany({ where: { visit_id: visitId } });
+        await prisma.visitPortion.deleteMany({ where: { visit_id: visitId } });
+        await prisma.vehicleVisit.delete({ where: { id: visitId } });
+      } catch (e) {
+        cleanupErrors.push({ visitId: visitId.toString(), error: e });
+      }
+    }
+
+    if (cleanupErrors.length > 0) {
+      console.error('Fixture cleanup encountered errors:', cleanupErrors);
+      throw new Error(`Fixture cleanup failed for ${cleanupErrors.length} entities`);
+    }
+    console.log('--- Stage 5D-C2 fixture cleanup complete ---');
+  }
 }
 
 runConfigurableQualitativeOptionsTests()

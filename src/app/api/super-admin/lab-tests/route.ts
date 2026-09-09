@@ -36,9 +36,24 @@ export async function GET(req: Request) {
       })
     );
 
-    return NextResponse.json({ labTests: serialized });
+    return NextResponse.json(
+      { labTests: serialized },
+      {
+        headers: {
+          'Cache-Control': 'private, no-store, max-age=0',
+        },
+      }
+    );
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json(
+      { error: err.message },
+      {
+        status: 500,
+        headers: {
+          'Cache-Control': 'private, no-store, max-age=0',
+        },
+      }
+    );
   }
 }
 
@@ -87,34 +102,39 @@ export async function POST(req: Request) {
       collision = await prisma.labTest.findUnique({ where: { testCode: finalTestCode } });
     }
 
-    const created = await prisma.labTest.create({
-      data: {
-        testCode: finalTestCode,
-        testName: validated.testName,
-        resultType: validated.resultType,
-        unit: validated.unit || null,
-        testScope: validated.testScope,
-        isRequired: validated.isRequired,
-        isActive: validated.isActive,
-        displayOrder: validated.displayOrder,
-        resultOptions: validated.resultOptions ? (validated.resultOptions as any) : undefined,
-      },
-    });
-
     const adminUser = await prisma.user.findFirst({ where: { username: authUser.username } });
-    await prisma.auditLog.create({
-      data: {
-        table_name: 'lab_test',
-        record_id: created.id,
-        action: 'LAB_TEST_CREATED',
-        new_values: {
-          testCode: created.testCode,
-          testName: created.testName,
-          resultType: created.resultType,
-          resultOptions: created.resultOptions,
+
+    const created = await prisma.$transaction(async (tx) => {
+      const newTest = await tx.labTest.create({
+        data: {
+          testCode: finalTestCode,
+          testName: validated.testName,
+          resultType: validated.resultType,
+          unit: validated.unit || null,
+          testScope: validated.testScope,
+          isRequired: validated.isRequired,
+          isActive: validated.isActive,
+          displayOrder: validated.displayOrder,
+          resultOptions: validated.resultOptions ? (validated.resultOptions as any) : undefined,
         },
-        user_id: adminUser?.id || null,
-      },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          table_name: 'lab_test',
+          record_id: newTest.id,
+          action: 'LAB_TEST_CREATED',
+          new_values: {
+            testCode: newTest.testCode,
+            testName: newTest.testName,
+            resultType: newTest.resultType,
+            resultOptions: newTest.resultOptions,
+          },
+          user_id: adminUser?.id || null,
+        },
+      });
+
+      return newTest;
     });
 
     return NextResponse.json({
