@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -15,58 +15,103 @@ import {
   History,
   FolderTree,
   Settings,
-  ShieldCheck,
+  Shield,
   X,
 } from 'lucide-react';
 import { User } from '@core/types';
 
-interface SuperAdminSidebarProps {
-  currentUser: User | null;
+export interface SuperAdminSidebarProps {
+  currentUser?: User | null;
+  isOpen?: boolean;
   isMobileOpen?: boolean;
+  onClose?: () => void;
   onCloseMobile?: () => void;
+  triggerRef?: React.RefObject<HTMLButtonElement | null>;
 }
 
 export const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({
-  currentUser,
-  isMobileOpen = false,
+  isOpen,
+  isMobileOpen,
+  onClose,
   onCloseMobile,
+  triggerRef,
 }) => {
   const pathname = usePathname();
+  const drawerOpen = Boolean(isOpen ?? isMobileOpen);
+  const closeHandler = onClose ?? onCloseMobile;
 
-  // Close drawer on Escape key press
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const drawerRef = useRef<HTMLElement | null>(null);
+
+  const handleClose = useCallback(() => {
+    if (closeHandler) {
+      closeHandler();
+    }
+    setTimeout(() => {
+      triggerRef?.current?.focus();
+    }, 0);
+  }, [closeHandler, triggerRef]);
+
+  // Focus management, body scroll lock, and Escape key listener
   useEffect(() => {
-    if (!isMobileOpen || !onCloseMobile) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onCloseMobile();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isMobileOpen, onCloseMobile]);
-
-  // Lock body scroll when mobile drawer is open
-  useEffect(() => {
-    if (isMobileOpen) {
+    if (drawerOpen) {
       const originalOverflow = document.body.style.overflow;
       document.body.style.overflow = 'hidden';
+
+      // Move focus into the drawer when opened
+      const focusTimer = setTimeout(() => {
+        closeButtonRef.current?.focus();
+      }, 50);
+
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          handleClose();
+        }
+      };
+
+      window.addEventListener('keydown', handleKeyDown);
       return () => {
+        clearTimeout(focusTimer);
         document.body.style.overflow = originalOverflow;
+        window.removeEventListener('keydown', handleKeyDown);
       };
     }
-  }, [isMobileOpen]);
+  }, [drawerOpen, handleClose]);
+
+  // Focus trap: keep Tab and Shift+Tab trapped inside the open drawer
+  const handleDrawerKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
+    if (e.key !== 'Tab') return;
+    if (!drawerRef.current) return;
+
+    const focusableElements = drawerRef.current.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    );
+    if (focusableElements.length === 0) return;
+
+    const firstElement = focusableElements[0];
+    const lastElement = focusableElements[focusableElements.length - 1];
+
+    if (e.shiftKey) {
+      if (document.activeElement === firstElement) {
+        e.preventDefault();
+        lastElement.focus();
+      }
+    } else {
+      if (document.activeElement === lastElement) {
+        e.preventDefault();
+        firstElement.focus();
+      }
+    }
+  };
 
   const handleLinkClick = () => {
-    if (onCloseMobile) {
-      onCloseMobile();
-    }
+    handleClose();
   };
 
   const navItems = [
     { href: '/super-admin', label: 'Overview', icon: LayoutDashboard },
-    { href: '/super-admin/users', label: 'Users & Access', icon: Users },
+    { href: '/super-admin/users', label: 'Users', icon: Users },
     { href: '/super-admin/procurement-sources', label: 'Procurement Sources', icon: Truck },
     { href: '/super-admin/silos', label: 'Silos', icon: Database },
     { href: '/super-admin/lab-tests', label: 'Lab Test Master', icon: FlaskConical },
@@ -78,106 +123,86 @@ export const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({
     { href: '/super-admin/settings', label: 'System Settings', icon: Settings },
   ];
 
-  const renderSidebarBody = (isDrawer: boolean = false) => (
-    <div className="flex flex-col justify-between h-full space-y-4">
-      <div className="space-y-4">
-        {/* BRANDING HEADER */}
-        <div className="flex items-center justify-between pb-3 border-b border-[#C4B9A3]">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-[#1E3A8A] rounded-xl shadow-xs text-white shrink-0">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-            <div>
-              <h1 className="font-black tracking-tight text-[#111311] text-sm leading-none">
-                Super Admin
-              </h1>
-              <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider mt-1">
-                Control Panel
-              </p>
-            </div>
-          </div>
+  if (!drawerOpen) {
+    return null;
+  }
 
-          {/* Close button for mobile drawer */}
-          {isDrawer && onCloseMobile && (
+  return (
+    <div
+      className="fixed inset-0 z-50 flex"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Super Admin Navigation Drawer"
+      onKeyDown={handleDrawerKeyDown}
+    >
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+        onClick={handleClose}
+        aria-hidden="true"
+      />
+
+      {/* Drawer Panel */}
+      <aside
+        ref={drawerRef}
+        className="relative z-50 w-80 max-w-[85vw] sm:max-w-[320px] bg-[#FFFFFF] border-r border-[#C4B9A3] shadow-2xl flex flex-col p-4 sm:p-5 text-[#111311] overflow-y-auto h-full"
+      >
+        <div className="flex flex-col h-full">
+          {/* Drawer Header: Corporate Branding + Close Button */}
+          <div className="flex items-start justify-between pb-4 border-b border-[#EAE4D5] shrink-0">
+            <div className="flex items-center space-x-3 min-w-0">
+              <div className="p-2 bg-[#EFE9D9]/60 rounded-xl border border-[#C4B9A3] shrink-0">
+                <Shield className="w-5 h-5 text-[#1E3A8A]" />
+              </div>
+              <div className="min-w-0">
+                <span className="font-extrabold text-sm sm:text-base leading-tight block text-[#111311] truncate">
+                  Shakarganj
+                </span>
+                <span className="text-[9px] sm:text-[10px] uppercase font-extrabold text-slate-500 tracking-wider block truncate">
+                  Food Products Limited
+                </span>
+              </div>
+            </div>
             <button
+              ref={closeButtonRef}
               type="button"
-              onClick={onCloseMobile}
-              className="xl:hidden p-2 rounded-xl border border-[#C4B9A3] text-slate-600 hover:text-[#111311] hover:bg-[#EFE9D9]/60 transition"
+              onClick={handleClose}
+              className="min-h-[44px] min-w-[44px] p-2.5 rounded-xl border border-[#C4B9A3] bg-[#FDFBF9] text-slate-700 hover:bg-[#F4F0E6] hover:text-[#111311] transition flex items-center justify-center shrink-0 focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
               aria-label="Close navigation drawer"
             >
               <X className="w-5 h-5" />
             </button>
-          )}
-        </div>
+          </div>
 
-        {/* NAVIGATION LINKS */}
-        <nav className="space-y-1">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive =
-              pathname === item.href ||
-              (item.href !== '/super-admin' && pathname.startsWith(item.href));
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={handleLinkClick}
-                className={`flex items-center space-x-2.5 px-3 py-2.5 min-h-[44px] rounded-xl text-xs font-black transition-colors ${
-                  isActive
-                    ? 'bg-[#1E3A8A] text-white shadow-xs'
-                    : 'text-slate-700 hover:bg-[#EFE9D9]/60 hover:text-[#111311]'
-                }`}
-              >
-                <Icon
-                  className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-[#1E3A8A]'}`}
-                />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
-      </div>
-
-      {/* USER INFO FOOTER */}
-      <div className="pt-3 border-t border-[#C4B9A3] text-[11px] text-slate-500 space-y-0.5">
-        <div className="font-black text-[#111311] truncate">
-          {currentUser?.name || 'Super Admin'}
+          {/* Navigation Links */}
+          <nav aria-label="Super Admin Navigation" className="space-y-1.5 mt-4 flex-1">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive =
+                pathname === item.href ||
+                (item.href !== '/super-admin' && pathname.startsWith(item.href));
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={handleLinkClick}
+                  aria-current={isActive ? 'page' : undefined}
+                  className={`flex items-center space-x-2.5 px-3.5 py-2.5 min-h-[44px] rounded-xl text-xs font-black transition-all border ${
+                    isActive
+                      ? 'bg-[#1E3A8A] text-white border-[#1E3A8A] shadow-xs'
+                      : 'bg-[#FDFBF9] text-slate-700 border-[#EAE4D5] hover:bg-[#EFE9D9]/60 hover:text-[#111311] hover:border-[#C4B9A3]'
+                  } focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]`}
+                >
+                  <Icon
+                    className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-[#1E3A8A]'}`}
+                  />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
         </div>
-        <div className="text-[10px] text-slate-500 font-mono truncate">
-          {currentUser?.department || 'System Operations'}
-        </div>
-      </div>
-    </div>
-  );
-
-  return (
-    <>
-      {/* Desktop Permanent Sidebar (>= 1280px) */}
-      <aside className="hidden xl:flex w-64 shrink-0 bg-white border-r border-[#C4B9A3] flex-col justify-between p-4 min-h-screen text-[#111311]">
-        {renderSidebarBody(false)}
       </aside>
-
-      {/* Mobile/Tablet Off-Canvas Drawer (< 1280px) */}
-      {isMobileOpen && (
-        <div className="xl:hidden">
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40"
-            onClick={onCloseMobile}
-            aria-hidden="true"
-          />
-
-          {/* Drawer Panel */}
-          <aside
-            className="fixed inset-y-0 left-0 z-50 w-72 max-w-[80vw] sm:max-w-[280px] bg-white border-r border-[#C4B9A3] shadow-2xl flex flex-col justify-between p-4 text-[#111311] overflow-y-auto"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Navigation Drawer"
-          >
-            {renderSidebarBody(true)}
-          </aside>
-        </div>
-      )}
-    </>
+    </div>
   );
 };

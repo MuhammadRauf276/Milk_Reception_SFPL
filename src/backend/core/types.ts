@@ -234,6 +234,9 @@ export interface MilkProcessLog {
   zonal_contractor_name: string;
   status: ProcessStatus;
 
+  // AUTHORITATIVE PLANT-EXIT BUSINESS DATE (FINALIZED ONLY UPON COMPLETE PLANT EXIT)
+  business_date?: string | null;
+
   // MPD PHYSICAL RAW INPUTS
   dispatch_date?: string | null;
   dispatch_day?: string | null;
@@ -311,8 +314,34 @@ export interface MilkProcessLog {
   reporting_business_date?: string | null;
   authoritative_final_liters?: number | null;
 
+  // DYNAMIC CONFIGURED LAB RESULTS
+  portion_lab_results?: PortionLabTestResult[];
+
   created_at: string;
   updated_at: string;
+}
+
+export interface PortionLabTestResult {
+  test_id?: number | null;
+  test_code: string;
+  test_name: string;
+  category?: string | null;
+  result_type: 'NUMERIC' | 'QUALITATIVE' | 'OK_NOT_OK' | 'POSITIVE_NEGATIVE' | 'CALCULATED' | string;
+  unit?: string | null;
+  display_order?: number;
+  is_active?: boolean;
+  // Dispatch testing
+  dispatch_performed: boolean;
+  dispatch_value?: number | string | null;
+  dispatch_numeric_value?: number | null;
+  dispatch_text_value?: string | null;
+  // Plant QA testing
+  plant_performed: boolean;
+  plant_value?: number | string | null;
+  plant_numeric_value?: number | null;
+  plant_text_value?: string | null;
+  plant_status?: string | null;
+  plant_is_passed?: boolean | null;
 }
 
 export interface DataAuditLog {

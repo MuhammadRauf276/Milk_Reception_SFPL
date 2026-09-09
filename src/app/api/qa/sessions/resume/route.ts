@@ -9,6 +9,14 @@ const resumeSessionSchema = z.object({
   operationalTimestamp: z.string().optional(),
 });
 
+class RouteError extends Error {
+  statusCode: number;
+  constructor(message?: string, statusCode: number = 400) {
+    super(message || 'Operation failed');
+    this.statusCode = statusCode;
+  }
+}
+
 export async function POST(req: Request) {
   const authUser = await getCurrentUser();
   if (!authUser) {
@@ -39,12 +47,40 @@ export async function POST(req: Request) {
     const targetOpTs = validated.operationalTimestamp ? new Date(validated.operationalTimestamp) : now;
 
     const result = await prisma.$transaction(async (tx) => {
+      // 0. Acquire PostgreSQL Row-Level Lock (FOR UPDATE) for the exact VehicleVisit to serialize QA mutations
+      await tx.$executeRaw`SELECT id FROM vehicle_visit WHERE id = ${visitId} FOR UPDATE`;
+
       const session = await tx.qATestingSession.findUnique({
         where: { visit_id: visitId },
       });
 
       if (!session) {
-        throw new Error('QA testing session not found.');
+        throw new RouteError('QA testing session not found.', 404);
+      }
+
+      // Never resume a COMPLETED session
+      if (session.status === 'COMPLETED') {
+        throw new RouteError('Cannot resume QA testing session: Session is already COMPLETED.', 409);
+      }
+
+      // If the session is already IN_PROGRESS, check if the immediately preceding event was a RESUME
+      if (session.status === 'IN_PROGRESS') {
+        const latestEvent = await tx.qATestingSessionEvent.findFirst({
+          where: { session_id: session.id },
+          orderBy: { timestamp: 'desc' },
+        });
+
+        if (latestEvent && latestEvent.event_type === 'RESUME') {
+          // Idempotent replay of same resume operation without appending duplicate event
+          return session;
+        }
+
+        throw new RouteError('QA testing session is already IN_PROGRESS.', 409);
+      }
+
+      // Require ON_HOLD before performing a new RESUME
+      if (session.status !== 'ON_HOLD') {
+        throw new RouteError(`Cannot resume QA testing session in status "${session.status}". Session must be ON_HOLD.`, 409);
       }
 
       // Fetch latest HOLD event for predecessor chronology validation
@@ -58,7 +94,7 @@ export async function POST(req: Request) {
 
       const chronoVal = validateOperationalTimestamp(targetOpTs.toISOString(), predTs, 'QA Resume', predLabel);
       if (!chronoVal.isValid) {
-        throw new Error(chronoVal.error);
+        throw new RouteError(chronoVal.error, 400);
       }
 
       // Update session status back to IN_PROGRESS
@@ -90,6 +126,10 @@ export async function POST(req: Request) {
     if (error?.name === 'ZodError') {
       return NextResponse.json({ error: error.errors[0]?.message || 'Validation failed' }, { status: 400 });
     }
-    return NextResponse.json({ error: error?.message || 'Failed to resume QA session' }, { status: 400 });
+    if (error instanceof RouteError) {
+      return NextResponse.json({ error: error.message }, { status: error.statusCode });
+    }
+    console.error('Unexpected error in QA resume route:', error);
+    return NextResponse.json({ error: 'Failed to resume QA session' }, { status: 500 });
   }
 }

@@ -2,6 +2,7 @@ import { prisma } from '../src/backend/core/db';
 import { validateCategoricalOption } from '../src/lib/lab-rules';
 import fs from 'fs';
 import path from 'path';
+import { assertSafeTestDatabase } from '../tests/helpers/testDbSafety';
 
 async function runLabMasterCorrectionsVerification() {
   console.log('==================================================');
@@ -19,6 +20,16 @@ async function runLabMasterCorrectionsVerification() {
       console.error(`[FAIL] ${testName}: ${detail}`);
       failed++;
     }
+  }
+
+  const { testDbName } = assertSafeTestDatabase();
+  const dbCheck = await prisma.$queryRaw<Array<{ current_database: string }>>`SELECT current_database()`;
+  const currentDb = dbCheck[0]?.current_database;
+
+  if (currentDb !== testDbName) {
+    throw new Error(
+      `CRITICAL SAFETY ERROR: Expected configured test database '${testDbName}', connected to '${currentDb}'. Refusing to execute.`
+    );
   }
 
   // Fetch all 30 core lab tests
@@ -75,10 +86,32 @@ async function runLabMasterCorrectionsVerification() {
   assert(contractors.length >= 2, 'PROC-SRC-CONT', 'Confirmed Contractor master records present (Al Khair Dairy, Imran Mehmood, Al Mehmood Dairy)');
 
   // SOP-SAFE-A..C: Safety assertions
-  const sampleRule = await prisma.labTestRule.findFirst();
-  assert(sampleRule === null ? true : sampleRule.rule_category !== undefined, 'SOP-SAFE-A', 'LabTestRule schema includes rule_category (RELEASE / MONITORING)');
-  assert(true, 'SOP-SAFE-B', 'Zero automatic warnings or unconfigured marginal deviations created');
-  assert(true, 'SOP-SAFE-C', 'Zero guessed automatic Warning 4 consequences added');
+  const schemaSource = fs.readFileSync(path.join(__dirname, '../prisma/schema.prisma'), 'utf8');
+  const hasRuleCategoryContract = schemaSource.includes('rule_category') && schemaSource.includes('@map("rule_category")');
+  const sopRouteSource = fs.readFileSync(path.join(__dirname, '../src/app/api/super-admin/sop-rules/route.ts'), 'utf8');
+  const exposesRuleCategory = sopRouteSource.includes('ruleCategory: r.rule_category');
+  assert(hasRuleCategoryContract && exposesRuleCategory, 'SOP-SAFE-A', 'Canonical LabTestRule schema and SOP route enforce rule_category field and mapping contract');
+
+  const { evaluateLabResult } = await import('../src/lib/lab-rules');
+  const unconfiguredEval = evaluateLabResult('LT-000099', 42, null, 'NUMERIC');
+  assert(unconfiguredEval.status === 'NO_ACTIVE_RULE' && unconfiguredEval.isPassed === true, 'SOP-SAFE-B', 'Unconfigured test evaluation returns status NO_ACTIVE_RULE and isPassed true');
+
+  const seedSource = fs.readFileSync(path.join(__dirname, '../prisma/seed.ts'), 'utf8');
+  function searchDirForPattern(dir: string, pattern: string): boolean {
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (searchDirForPattern(full, pattern)) return true;
+      } else if (/\.(ts|tsx|js|json|prisma)$/.test(entry.name)) {
+        const c = fs.readFileSync(full, 'utf8');
+        if (c.includes(pattern)) return true;
+      }
+    }
+    return false;
+  }
+  const hasGuessedWarning4 = schemaSource.includes('Warning 4') || seedSource.includes('Warning 4') || searchDirForPattern(path.join(__dirname, '../src'), 'Warning 4');
+  assert(!hasGuessedWarning4, 'SOP-SAFE-C', 'Zero guessed automatic Warning 4 consequences exist across complete src tree, schema, or seed');
 
   // TOAST-REAL-A: Actual use of toast in workspace files
   const auditedFiles = [

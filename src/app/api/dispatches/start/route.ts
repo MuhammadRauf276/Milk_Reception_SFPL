@@ -170,7 +170,7 @@ export async function POST(req: Request) {
         data: {
           visit_number: visitNumber,
           vehicle_number: (validated.vehicleNumber || 'DRAFT').toUpperCase().trim(),
-          operational_date: new Date(dateStr),
+          operational_date: null,
           current_status: 'DRAFT_DISPATCH',
           created_by: dbUser.id,
           procurement_source_id: resolvedSourceId,

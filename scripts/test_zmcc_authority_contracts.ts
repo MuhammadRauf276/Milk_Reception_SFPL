@@ -1,8 +1,11 @@
+import fs from 'fs';
+import path from 'path';
 import { MilkProcessLog } from '../src/backend/core/types';
 import {
   deriveManagerLifecycle,
   buildVehicleVisitGroups,
 } from '../src/frontend/modules/dashboard/zmcc/zmccManagerHelpers';
+
 
 async function runAuthorityTests() {
   console.log('================================================================================');
@@ -136,8 +139,6 @@ async function runAuthorityTests() {
   // Case F: operational_date missing in read model input
   // Required: dispatch_date in read model output does NOT invent date from created_at
   // Static / structural check on operationalReadModelService
-  const fs = require('fs');
-  const path = require('path');
   const readModelSrc = fs.readFileSync(path.join(__dirname, '../src/backend/services/operationalReadModelService.ts'), 'utf8');
   assert(
     !readModelSrc.includes('visit.operational_date ? new Date(visit.operational_date) : new Date(visit.created_at)'),
@@ -187,6 +188,249 @@ async function runAuthorityTests() {
     hasCanonicalFixture && hasCanonicalDefaultUsers,
     'Case I: FIXTURE_USER_PROFILES and DEFAULT_USERS map zmcc.manager.north to canonical ZMCC_MANAGER without active legacy alias',
     `fixtureRole=${zmccFixture?.role}, defaultUsersZMCC=${DEFAULT_USERS['ZMCC_MANAGER']?.username}`
+  );
+
+  // Case J: Complete ZMCC Runtime Owner Boundary & Retired Component Physical Absence (Static Architecture Contract)
+  const zonalHistoryPath = path.join(__dirname, '../src/frontend/modules/dashboard/ZonalHistoryTable.tsx');
+  const zonalHistoryExists = fs.existsSync(zonalHistoryPath);
+  assert(!zonalHistoryExists, 'Case J.1: ZonalHistoryTable is retired and physically absent from codebase (static architecture contract)');
+
+  const zmccBoundaryFiles = [
+    path.join(__dirname, '../src/frontend/modules/dashboard/ZMCCManagerWorkspace.tsx'),
+    ...fs.readdirSync(path.join(__dirname, '../src/frontend/modules/dashboard/zmcc')).map((f: string) => path.join(__dirname, '../src/frontend/modules/dashboard/zmcc', f)),
+    path.join(__dirname, '../src/backend/services/operationalReadModelService.ts'),
+  ];
+
+  let boundaryHasFabricatedAcidity = false;
+  let boundaryHasFabricatedTemp = false;
+  let boundaryHasFabricatedLr = false;
+
+  for (const filePath of zmccBoundaryFiles) {
+    if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) continue;
+    const content = fs.readFileSync(filePath, 'utf8');
+    if (content.includes('0.14') && (content.includes('Acidity') || content.includes('acidity'))) {
+      boundaryHasFabricatedAcidity = true;
+    }
+    if ((content.includes('4.5') || content.includes('4.8')) && (content.includes('Temperature') || content.includes('temperature'))) {
+      boundaryHasFabricatedTemp = true;
+    }
+    if (content.includes('|| 28.0') || content.includes('|| 28') || content.includes('?? 28.0')) {
+      boundaryHasFabricatedLr = true;
+    }
+  }
+
+  assert(
+    !boundaryHasFabricatedAcidity && !boundaryHasFabricatedTemp,
+    'Case J.2: Complete ZMCC runtime boundary (workspace, zmcc modules, read-model) contains no fabricated Acidity (0.14) or Temperature (4.5/4.8) static architecture contract'
+  );
+  assert(
+    !boundaryHasFabricatedLr,
+    'Case J.3: Complete ZMCC runtime boundary contains no fake LR 28/28.0 fallback static architecture contract'
+  );
+
+  // Case K: ZMCC Manager Workspace Shared Drawer & Header Accessibility Architecture Contracts
+  const workspacePath = path.join(__dirname, '../src/frontend/modules/dashboard/ZMCCManagerWorkspace.tsx');
+  const headerPath = path.join(__dirname, '../src/frontend/modules/shared/Header.tsx');
+  const workspaceSrc = fs.readFileSync(workspacePath, 'utf8');
+  const headerSrc = fs.readFileSync(headerPath, 'utf8');
+
+  // K.1: Permanent ZMCC sidebar removed from workspace
+  assert(
+    !workspaceSrc.includes('<Sidebar') && !workspaceSrc.includes("import { Sidebar } from '@modules/shared/Sidebar'"),
+    'Case K.1: Permanent ZMCC sidebar is completely removed from ZMCCManagerWorkspace'
+  );
+
+  // K.2: Horizontal six-tab navigation removed from workspace
+  assert(
+    !workspaceSrc.includes('role="tablist"') && !workspaceSrc.includes('overflow-x-auto scrollbar-thin py-1'),
+    'Case K.2: Horizontal six-tab navigation strip is completely removed from ZMCCManagerWorkspace'
+  );
+
+  // K.3: Hamburger navigation drawer present with accessible dialog semantics
+  const hasDrawerSemantics =
+    workspaceSrc.includes('role="dialog"') &&
+    workspaceSrc.includes('aria-modal="true"') &&
+    workspaceSrc.includes('aria-label="Navigation Drawer"');
+  assert(hasDrawerSemantics, 'Case K.3: ZMCCManagerWorkspace contains accessible navigation drawer dialog semantics');
+
+  // K.4: All 6 required sections present in navigation drawer
+  const drawerSections = [
+    { id: 'OVERVIEW', label: 'Overview' },
+    { id: 'LIVE', label: 'Live Dispatches' },
+    { id: 'CROSS_VERIFICATION', label: 'Cross Verification' },
+    { id: 'QUALITY', label: 'Quality & Rejections' },
+    { id: 'RECEIPTS', label: 'Receipts & Performance' },
+    { id: 'HISTORY', label: 'History & Reports' },
+  ];
+  const allSectionsPresent = drawerSections.every(
+    (sec) => workspaceSrc.includes(`id: '${sec.id}'`) && workspaceSrc.includes(`label: '${sec.label}'`)
+  );
+  assert(allSectionsPresent, 'Case K.4: Navigation drawer contains all 6 required workspace sections');
+
+  // K.5: Selecting a drawer item changes active content and closes the drawer
+  const hasSelectionBehavior =
+    workspaceSrc.includes('setActiveTab(tabId)') &&
+    workspaceSrc.includes('setIsDrawerOpen(false)') &&
+    workspaceSrc.includes('handleSelectTab');
+  assert(hasSelectionBehavior, 'Case K.5: Selecting a drawer item changes active content and closes drawer');
+
+  // K.6: Drawer closes through close button, Escape, backdrop click, and navigation selection
+  const hasCloseButton = workspaceSrc.includes('aria-label="Close navigation drawer"');
+  const hasEscapeListener = workspaceSrc.includes("e.key === 'Escape'");
+  const hasBackdropClick = workspaceSrc.includes('onClick={closeDrawer}') || workspaceSrc.includes('onClick={() => setIsDrawerOpen(false)}');
+  assert(
+    hasCloseButton && hasEscapeListener && hasBackdropClick && hasSelectionBehavior,
+    'Case K.6: Drawer closes through close button, Escape key, backdrop click, and navigation selection'
+  );
+
+  // K.7: Prevent background scrolling while drawer is open
+  const hasScrollLock =
+    workspaceSrc.includes("document.body.style.overflow = 'hidden'") &&
+    workspaceSrc.includes('document.body.style.overflow = originalOverflow');
+  assert(hasScrollLock, 'Case K.7: Background scrolling is prevented while navigation drawer is open');
+
+  // K.8: Corporate branding "Shakarganj Food Products Limited" in header and drawer
+  const headerHasBranding = headerSrc.includes('Shakarganj') && headerSrc.includes('Food Products Limited');
+  const drawerHasBranding = workspaceSrc.includes('Shakarganj') && workspaceSrc.includes('Food Products Limited');
+  assert(
+    headerHasBranding && drawerHasBranding,
+    'Case K.8: Corporate branding "Shakarganj Food Products Limited" is present in both Header and Drawer'
+  );
+
+  // K.9: Final UI Override: Header contains identity & Sign Out; Drawer contains ONLY branding, close button, and navigation (no duplicate user card, no duplicate Sign Out); Main page starts directly with content (no top banner)
+  const headerHasIdentity =
+    headerSrc.includes('currentUser?.name') &&
+    headerSrc.includes('currentUser?.username') &&
+    headerSrc.includes('resolvedSourceName') &&
+    headerSrc.includes('Sign Out');
+  const drawerHasNoDuplicateIdentity =
+    !workspaceSrc.includes('aria-label="Sign Out"') &&
+    !workspaceSrc.includes('handleLogout');
+  const mainPageHasNoTopBanner =
+    !workspaceSrc.includes('Refresh Logs') &&
+    !workspaceSrc.includes('Station</h1>') &&
+    !workspaceSrc.includes('<ShieldCheck');
+  assert(
+    headerHasIdentity && drawerHasNoDuplicateIdentity && mainPageHasNoTopBanner,
+    'Case K.9: Final UI Override: Identity and Sign Out live exclusively in Header; Drawer is minimal and banner is eliminated'
+  );
+
+  // K.10: Opt-in Header variant contract for ZMCC with technical role badges removed
+  const headerHasOptInProp = headerSrc.includes('isZmccVariant?: boolean') && headerSrc.includes('if (!isZmccVariant)');
+  const workspaceUsesOptIn = workspaceSrc.includes('isZmccVariant={true}');
+  const noTechnicalBadgesInHeader = !headerSrc.includes('ZMCC Manager') && !headerSrc.includes('Super Admin');
+  assert(
+    headerHasOptInProp && workspaceUsesOptIn && noTechnicalBadgesInHeader,
+    'Case K.10: Header changes are strictly opt-in for ZMCC via isZmccVariant; technical role badges are removed'
+  );
+
+  // K.11: Exactly one navigation trigger in Header; duplicate Menu button removed from supervisory banner
+  const hasHamburgerInHeader = workspaceSrc.includes('menuButtonRef={hamburgerButtonRef}') && headerSrc.includes('ref={menuButtonRef}');
+  const noDuplicateMenuButtonInBanner =
+    !workspaceSrc.includes('aria-label="Open workspace navigation drawer"') &&
+    !workspaceSrc.includes('<span>Menu</span>');
+  assert(
+    hasHamburgerInHeader && noDuplicateMenuButtonInBanner,
+    'Case K.11: Exactly ONE navigation trigger (Header hamburger); duplicate banner Menu button is completely removed'
+  );
+
+  // K.12: Complete Drawer Accessibility (trigger ref, focus move, focus trap, and focus return)
+  const hasTriggerRefSaved = workspaceSrc.includes('hamburgerButtonRef = useRef');
+  const hasFocusMovedToDrawer = workspaceSrc.includes('closeButtonRef.current?.focus()');
+  const hasFocusTrap =
+    workspaceSrc.includes('handleDrawerKeyDown') &&
+    workspaceSrc.includes("e.key !== 'Tab'") &&
+    workspaceSrc.includes('e.shiftKey');
+  const hasFocusRestoration =
+    workspaceSrc.includes('hamburgerButtonRef.current?.focus()') &&
+    workspaceSrc.includes('closeDrawer');
+  assert(
+    hasTriggerRefSaved && hasFocusMovedToDrawer && hasFocusTrap && hasFocusRestoration,
+    'Case K.12: Drawer accessibility completes trigger ref save, focus move into drawer, Tab focus trapping, and focus restoration'
+  );
+
+  // K.13: Minimum 44px interactive target size across all actionable controls
+  const workspaceMinTargets = workspaceSrc.includes('min-h-[44px]');
+  const headerMinTargets = headerSrc.includes('min-h-[44px]');
+  assert(
+    workspaceMinTargets && headerMinTargets,
+    'Case K.13: Header and Drawer interactive elements enforce minimum 44px touch targets'
+  );
+
+  // K.14: Strict read-only authority preserved with internal technical labels removed from UI
+  const noInternalTechnicalLabels =
+    !workspaceSrc.includes('Read-only supervisory workspace') &&
+    !workspaceSrc.includes('Logged In Manager') &&
+    !workspaceSrc.includes('Access Mode:') &&
+    !workspaceSrc.includes('Navigation Sections') &&
+    !workspaceSrc.includes('Authoritative Scale & Quantity Ledger');
+  const hasNoScaleOrQaMutation =
+    !workspaceSrc.includes('/api/scale') &&
+    !workspaceSrc.includes('/api/qa') &&
+    !workspaceSrc.includes('Record Gross') &&
+    !workspaceSrc.includes('Record Tare');
+  assert(
+    noInternalTechnicalLabels && hasNoScaleOrQaMutation,
+    'Case K.14: Internal technical labels are removed while zero mutation controls and read-only authority are preserved'
+  );
+
+  // K.15: Workspace is reused across all ZMCC locations without hardcoding
+  const noHardcodedLocations =
+    !workspaceSrc.includes("'Hasilpur'") &&
+    !workspaceSrc.includes("'Jhang'") &&
+    !workspaceSrc.includes("'Multan'") &&
+    workspaceSrc.includes('currentUser?.procurement_source?.name ||');
+  assert(
+    noHardcodedLocations,
+    'Case K.15: Workspace dynamically resolves assigned source from authenticated data without location hardcoding'
+  );
+
+  // K.16: Clean business sections and complete portion quality results in Visit Detail Modal
+  const modalPath = path.join(__dirname, '../src/frontend/modules/dashboard/zmcc/ZMCCManagerVisitDetailModal.tsx');
+  const modalSrc = fs.readFileSync(modalPath, 'utf8');
+  const modalHasCleanSections =
+    modalSrc.includes('Dispatch Details') &&
+    modalSrc.includes('Weight & Quantity') &&
+    modalSrc.includes('Portion Quality Results') &&
+    modalSrc.includes('Receipt Details');
+  const modalNoForbiddenLabels =
+    !modalSrc.includes('Authoritative Scale & Quantity Ledger') &&
+    !modalSrc.includes('Overall Lifecycle State') &&
+    !modalSrc.includes('Read-only supervisory ledger record') &&
+    !modalSrc.includes('final_receipt_transaction_id');
+  assert(
+    modalHasCleanSections && modalNoForbiddenLabels,
+    'Case K.16: ZMCCManagerVisitDetailModal defines four clean business sections and eliminates internal system terminology'
+  );
+
+  // K.17: Visit Detail Modal dynamically iterates over portion_lab_results
+  const modalHasDynamicTests =
+    modalSrc.includes('p.portion_lab_results') &&
+    modalSrc.includes('tr.test_name');
+  assert(
+    modalHasDynamicTests,
+    'Case K.17: ZMCCManagerVisitDetailModal dynamically iterates over portion_lab_results'
+  );
+
+  // Case K.18: Static Architecture Contracts for Dynamic Lab Tests (Decoupled from Database State)
+  // a) Operational read model dynamically queries configured lab tests and populates portion_lab_results
+  const readModelHasDynamicTests =
+    readModelSrc.includes('prisma.labTest.findMany') &&
+    readModelSrc.includes('portion_lab_results: portionLabResults');
+  assert(
+    readModelHasDynamicTests,
+    'Case K.18.1: Operational read model dynamically queries master lab tests from prisma.labTest and populates portion_lab_results'
+  );
+
+  // b) Modal dynamically maps and renders all configured/recorded lab test results without a static five-test limit
+  const modalRendersDynamicResults =
+    modalSrc.includes('portionTests.map') &&
+    modalSrc.includes('t.dispatchResult') &&
+    modalSrc.includes('t.plantResult') &&
+    modalSrc.includes('p.portion_lab_results && p.portion_lab_results.length > 0');
+  assert(
+    modalRendersDynamicResults,
+    'Case K.18.2: Visit Detail Modal dynamically maps and renders all configured and recorded lab test results without a static five-test limit'
   );
 
   console.log('\n================================================================================');

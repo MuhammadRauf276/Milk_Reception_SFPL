@@ -1,5 +1,8 @@
 import { prisma } from '../src/backend/core/db';
 import bcrypt from 'bcryptjs';
+import { createSessionToken } from '../src/backend/core/auth';
+import { PATCH as patchLabTest } from '../src/app/api/super-admin/lab-tests/[id]/route';
+import { assertSafeTestDatabase } from '../tests/helpers/testDbSafety';
 
 async function runSmokeTest() {
   console.log('🧪 RUNNING REAL ADMIN ACTION SMOKE TEST...\n');
@@ -19,6 +22,16 @@ async function runSmokeTest() {
   let tempUserId: bigint | null = null;
 
   try {
+    const { testDbName } = assertSafeTestDatabase();
+    const dbCheck = await prisma.$queryRaw<Array<{ current_database: string }>>`SELECT current_database()`;
+    const currentDb = dbCheck[0]?.current_database;
+
+    if (currentDb !== testDbName) {
+      throw new Error(
+        `CRITICAL SAFETY ERROR: Expected configured test database '${testDbName}', connected to '${currentDb}'. Refusing to execute.`
+      );
+    }
+
     // 1. Fetch valid ZMCC and Contractor procurement sources
     const zmccSource = await prisma.procurementSource.findFirst({ where: { source_type: 'ZMCC' } });
     const contractorSource = await prisma.procurementSource.findFirst({ where: { source_type: 'CONTRACTOR' } });
@@ -71,31 +84,94 @@ async function runSmokeTest() {
     assert(reactivatedUser.is_active, 'SMOKE-5: Reactivate test user succeeds');
 
     // 6. Silo capacity validation test
-    const silo = await prisma.silo.findFirst();
-    if (silo) {
-      const txs = await prisma.siloInventoryTransaction.findMany({ where: { silo_id: silo.id } });
-      let currentStock = 0;
-      for (const t of txs) {
-        if (t.transaction_type === 'RECEIPT') currentStock += Number(t.quantity_liters);
-        else if (t.transaction_type === 'ISSUE') currentStock -= Number(t.quantity_liters);
-      }
-      currentStock = Math.max(0, currentStock);
-
-      const proposedInvalidCapacity = currentStock > 0 ? currentStock - 100 : -100;
-      const isCapacityInvalid = proposedInvalidCapacity < currentStock || proposedInvalidCapacity <= 0;
-      assert(isCapacityInvalid, `SMOKE-6: Proposed invalid silo capacity (${proposedInvalidCapacity} L) for current stock (${currentStock} L) is correctly flagged invalid`);
+    const silo = await prisma.silo.findFirst({ where: { is_active: true } });
+    if (!silo) {
+      assert(false, 'SMOKE-6: No active Silo found in test database');
     } else {
-      assert(true, 'SMOKE-6: Silo capacity check verified');
+      const { getSiloCurrentStockLiters, updateSiloConfiguration } = await import('../src/backend/services/siloInventoryService');
+      const originalCapacity = Number(silo.capacity_liters);
+      const currentStock = await getSiloCurrentStockLiters(silo.id, undefined, { allowIncomplete: true });
+      if (currentStock <= 1) {
+        assert(false, `SMOKE-6: Test requires active silo with stock > 1 litre (found ${currentStock} L)`);
+      } else {
+        const invalidCapacity = Math.floor(currentStock / 2);
+        let reductionRejected = false;
+        try {
+          try {
+            await updateSiloConfiguration({
+              silo_id: silo.id,
+              capacity_liters: invalidCapacity,
+            });
+          } catch (err: any) {
+            reductionRejected = err.message.includes('cannot be less than current calculated stock');
+          }
+
+          const siloAfter = await prisma.silo.findUnique({ where: { id: silo.id } });
+          const stockAfter = await getSiloCurrentStockLiters(silo.id, undefined, { allowIncomplete: true });
+          const capacityUnchanged = Number(siloAfter?.capacity_liters) === originalCapacity;
+          const stockUnchanged = stockAfter === currentStock;
+
+          assert(
+            reductionRejected && capacityUnchanged && stockUnchanged,
+            `SMOKE-6: Proposed invalid silo capacity (${invalidCapacity} L) for current stock (${currentStock} L) is rejected and database state remains unchanged`
+          );
+        } finally {
+          const checkSilo = await prisma.silo.findUnique({ where: { id: silo.id } });
+          if (checkSilo && Number(checkSilo.capacity_liters) !== originalCapacity) {
+            await updateSiloConfiguration({
+              silo_id: silo.id,
+              capacity_liters: originalCapacity,
+            });
+          }
+        }
+      }
     }
 
     // 7. LabTest unsafe resultType change rejection
     const testedResult = await prisma.dispatchLabResult.findFirst({ include: { lab_test: true } });
-    if (testedResult) {
-      const totalResults = await prisma.dispatchLabResult.count({ where: { test_id: testedResult.test_id } });
-      const isResultTypeChangeBlocked = totalResults > 0;
-      assert(isResultTypeChangeBlocked, `SMOKE-7: Result type change for ${testedResult.lab_test.testCode} blocked because ${totalResults} historical records exist`);
+    const superAdminUser = await prisma.user.findFirst({ where: { role: 'SUPER_ADMIN', is_active: true } });
+    if (!testedResult) {
+      assert(false, 'SMOKE-7: No historical lab result found in test database for immutability check');
+    } else if (!superAdminUser) {
+      assert(false, 'SMOKE-7: No active SUPER_ADMIN user found in test database');
     } else {
-      assert(true, 'SMOKE-7: Lab test immutability rule verified');
+      const token = await createSessionToken({
+        id: superAdminUser.id.toString(),
+        username: superAdminUser.username,
+        name: superAdminUser.full_name || superAdminUser.username,
+        role: superAdminUser.role as any,
+        department: superAdminUser.department || 'Administration',
+      });
+
+      const targetTestId = testedResult.test_id;
+      const originalTest = testedResult.lab_test;
+      const proposedType = originalTest.resultType === 'NUMERIC' ? 'QUALITATIVE' : 'NUMERIC';
+
+      const patchReq = new Request(`http://localhost/api/super-admin/lab-tests/${targetTestId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ resultType: proposedType }),
+      });
+
+      const patchRes = await patchLabTest(patchReq, {
+        params: Promise.resolve({ id: targetTestId.toString() }),
+      });
+      const patchBody = await patchRes.json();
+
+      const testAfter = await prisma.labTest.findUnique({ where: { id: targetTestId } });
+      const wasBlocked =
+        patchRes.status === 400 &&
+        typeof patchBody?.error === 'string' &&
+        patchBody.error.includes('Result type change rejected');
+      const typeUnchanged = testAfter?.resultType === originalTest.resultType;
+
+      assert(
+        wasBlocked && typeUnchanged,
+        `SMOKE-7: Canonical PATCH handler rejects resultType change for ${originalTest.testCode} (HTTP 400) and preserves original type`
+      );
     }
 
     console.log(`\n========================================`);

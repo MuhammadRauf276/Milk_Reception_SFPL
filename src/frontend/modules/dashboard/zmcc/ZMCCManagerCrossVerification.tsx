@@ -273,7 +273,7 @@ export const ZMCCManagerCrossVerification: React.FC<ZMCCManagerCrossVerification
                     </span>
                   )}
                   <span className="text-xs font-mono font-bold text-slate-600">
-                    Business Date: {item.businessDate}
+                    Business Date: {item.businessDate || 'Pending plant completion'}
                   </span>
                   <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-[#F1F5F9] text-slate-700">
                     {item.portionCount} {item.portionCount === 1 ? 'Portion' : 'Portions'}

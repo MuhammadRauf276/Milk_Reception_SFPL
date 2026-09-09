@@ -19,7 +19,7 @@ import { isPlantLrTest, isPlantFatTest } from '@/backend/services/vehicleQuantit
 
 export async function GET(req: NextRequest) {
   try {
-    const user = await getCurrentUser();
+    const user = await getCurrentUser(req);
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -207,8 +207,9 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    // Fetch all Silos with capacity & stock calculations (Active & Inactive)
+    // Fetch all Active Silos with capacity & stock calculations for operational selection
     const allSilosInDb = await prisma.silo.findMany({
+      where: { is_active: true },
       orderBy: { silo_code: 'asc' },
     });
 

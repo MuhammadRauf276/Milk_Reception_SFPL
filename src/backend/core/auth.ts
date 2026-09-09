@@ -1,6 +1,7 @@
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import { Role, User, DEFAULT_USERS, AUTHENTICATED_USERS } from './types';
+import { prisma } from './db';
 
 export { DEFAULT_USERS, AUTHENTICATED_USERS };
 
@@ -58,26 +59,104 @@ export async function verifySessionToken(token: string): Promise<User | null> {
 }
 
 /**
- * Next.js 15 Asynchronous Cookies Helper
+ * Next.js 15 Asynchronous Cookies Helper with Live Database Authority Resolution
  */
 export async function getCurrentUser(req?: Request): Promise<User | null> {
+  let token: string | undefined | null = null;
+
   if (req) {
     const cookieHeader = req.headers.get('cookie') || '';
     const tokenMatch = cookieHeader.match(/auth_token=([^;]+)/);
     if (tokenMatch && tokenMatch[1]) {
-      return await verifySessionToken(tokenMatch[1]);
-    }
-    const authHeader = req.headers.get('authorization') || '';
-    if (authHeader.startsWith('Bearer ')) {
-      return await verifySessionToken(authHeader.substring(7));
+      token = tokenMatch[1];
+    } else {
+      const authHeader = req.headers.get('authorization') || '';
+      if (authHeader.startsWith('Bearer ')) {
+        token = authHeader.substring(7).trim();
+      }
     }
   }
 
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get('auth_token')?.value;
-    if (!token) return null;
-    return await verifySessionToken(token);
+  if (!token) {
+    try {
+      const cookieStore = await cookies();
+      token = cookieStore.get('auth_token')?.value;
+    } catch (_err) {
+      // cookies() may fail if called outside Next.js request scope
+    }
+  }
+
+  if (!token) {
+    return null;
+  }
+
+  const sessionUser = await verifySessionToken(token);
+  if (!sessionUser) {
+    return null;
+  }
+
+    // Require a valid numeric persisted database user ID from the verified JWT
+    if (!sessionUser.id || !/^\d+$/.test(sessionUser.id.trim())) {
+      return null;
+    }
+
+    const idBigInt = BigInt(sessionUser.id.trim());
+
+    try {
+
+    const dbUser = await prisma.user.findUnique({
+      where: { id: idBigInt },
+      select: {
+        id: true,
+        username: true,
+        full_name: true,
+        role: true,
+        department: true,
+        scope_type: true,
+        procurement_source_id: true,
+        is_active: true,
+        last_login_at: true,
+        procurement_source: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            source_type: true,
+          },
+        },
+      },
+    });
+
+    // Missing database user: UNAUTHORIZED
+    if (!dbUser) {
+      return null;
+    }
+
+    // Inactive database user: UNAUTHORIZED IMMEDIATELY
+    if (!dbUser.is_active) {
+      return null;
+    }
+
+    // Current authorization strictly derived from PostgreSQL
+    return {
+      id: dbUser.id.toString(),
+      username: dbUser.username,
+      name: dbUser.full_name || dbUser.username,
+      role: dbUser.role as Role,
+      department: dbUser.department || '',
+      zone: sessionUser.zone || null,
+      scope_type: dbUser.scope_type,
+      procurement_source_id: dbUser.procurement_source_id ? dbUser.procurement_source_id.toString() : null,
+      procurement_source: dbUser.procurement_source
+        ? {
+            id: dbUser.procurement_source.id.toString(),
+            code: dbUser.procurement_source.code,
+            name: dbUser.procurement_source.name,
+            source_type: dbUser.procurement_source.source_type,
+          }
+        : null,
+      last_login_at: dbUser.last_login_at ? dbUser.last_login_at.toISOString() : null,
+    };
   } catch (_err) {
     return null;
   }

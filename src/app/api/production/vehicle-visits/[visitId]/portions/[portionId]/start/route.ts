@@ -11,7 +11,7 @@ export async function POST(
   { params }: { params: Promise<{ visitId: string; portionId: string }> }
 ) {
   try {
-    const authUser = await getCurrentUser();
+    const authUser = await getCurrentUser(req);
     if (!authUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -252,6 +252,7 @@ export async function POST(
     });
   } catch (err: any) {
     console.error('Error starting unloading:', err);
-    return NextResponse.json({ error: err.message || 'Failed to start unloading' }, { status: 400 });
+    const status = err.message?.includes('INACTIVE') ? 409 : 400;
+    return NextResponse.json({ error: err.message || 'Failed to start unloading' }, { status });
   }
 }

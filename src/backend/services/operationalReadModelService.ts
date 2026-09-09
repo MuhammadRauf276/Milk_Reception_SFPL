@@ -1,5 +1,5 @@
 import { prisma } from '../core/db';
-import { MilkProcessLog, User, ProcessStatus } from '../core/types';
+import { MilkProcessLog, User, ProcessStatus, PortionLabTestResult } from '../core/types';
 import { PLANT_TIMEZONE, isValidDateOnly, parseStrictDateOnly } from '@/lib/datetime-utils';
 import { getOperationalBusinessDate } from '../core/business-day';
 import {
@@ -68,6 +68,26 @@ function isDispatchFatTest(code?: string | null, name?: string | null): boolean 
 function isMbrtTest(code?: string | null, name?: string | null): boolean {
   if (code && code.trim().toUpperCase() === 'LT-000025') return true;
   if (name && name.trim().toUpperCase().includes('MBRT')) return true;
+  return false;
+}
+
+function isConfiguredSnfTest(code?: string | null, name?: string | null): boolean {
+  const c = (code || '').trim().toUpperCase();
+  const n = (name || '').trim().toUpperCase();
+  if (c === 'SNF' || c === 'LT-SNF') return true;
+  if (n === 'SNF' || n.includes('SOLIDS-NOT-FAT') || n.includes('SOLIDS NOT FAT')) {
+    if (!n.includes('RATIO')) return true;
+  }
+  return false;
+}
+
+function isConfiguredTsTest(code?: string | null, name?: string | null): boolean {
+  const c = (code || '').trim().toUpperCase();
+  const n = (name || '').trim().toUpperCase();
+  if (c === 'TS' || c === 'LT-TS') return true;
+  if (n === 'TS' || n === 'TOTAL SOLIDS' || n.includes('TOTAL SOLIDS')) {
+    if (!n.includes('RATIO')) return true;
+  }
   return false;
 }
 
@@ -158,6 +178,14 @@ export async function getOperationalLogs(
     }
   }
 
+  // Fetch master lab tests to dynamically resolve configured tests
+  const masterLabTests = await prisma.labTest.findMany({
+    orderBy: [
+      { displayOrder: 'asc' },
+      { id: 'asc' },
+    ],
+  });
+
   // Fetch normalized visits
   const visits = await prisma.vehicleVisit.findMany({
     where: whereClause,
@@ -196,7 +224,61 @@ export async function getOperationalLogs(
 
   for (const visit of visits) {
     const opDate = visit.operational_date ? new Date(visit.operational_date) : null;
-    const dateStr = opDate ? opDate.toISOString().split('T')[0] : null;
+    let dateStr: string | null = null;
+    if (opDate && !isNaN(opDate.getTime())) {
+      const y = opDate.getUTCFullYear().toString().padStart(4, '0');
+      const m = (opDate.getUTCMonth() + 1).toString().padStart(2, '0');
+      const d = opDate.getUTCDate().toString().padStart(2, '0');
+      dateStr = `${y}-${m}-${d}`;
+    }
+
+    // Authoritative Plant-Exit Business Date
+    // Canonical rules:
+    // 1. Dispatch date/time records when the vehicle leaves its procurement source.
+    // 2. Business date applies only after the complete plant route finishes and the vehicle exits the plant.
+    // 3. A vehicle currently inside the plant or not yet exited must have no finalized business date.
+    // 4. On plant exit, calculate business date from the authoritative plant-exit timestamp in Asia/Karachi.
+    let finalizedBusinessDate: string | null = null;
+    const hasPlantExit = Boolean(visit.gate_log?.exit_timestamp);
+
+    if (hasPlantExit && visit.gate_log?.exit_timestamp) {
+      finalizedBusinessDate = getOperationalBusinessDate(visit.gate_log.exit_timestamp);
+    } else if (hasPlantExit && dateStr) {
+      finalizedBusinessDate = dateStr;
+    }
+
+    // Dispatch Calendar Date (when the vehicle leaves its procurement source)
+    let dispatchDateStr: string | null = null;
+    const firstDispatchTs = visit.portions.find((p) => p.dispatch_info?.dispatch_timestamp)?.dispatch_info?.dispatch_timestamp;
+    if (firstDispatchTs) {
+      const dt = new Date(firstDispatchTs);
+      if (!isNaN(dt.getTime())) {
+        const formatter = new Intl.DateTimeFormat('en-US', {
+          timeZone: PLANT_TIMEZONE,
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+        });
+        const parts = formatter.formatToParts(dt);
+        const pMap: Record<string, string> = {};
+        for (const p of parts) pMap[p.type] = p.value;
+        dispatchDateStr = `${pMap.year}-${pMap.month}-${pMap.day}`;
+      }
+    } else if (visit.created_at) {
+      const dt = new Date(visit.created_at);
+      if (!isNaN(dt.getTime())) {
+        const formatter = new Intl.DateTimeFormat('en-US', {
+          timeZone: PLANT_TIMEZONE,
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+        });
+        const parts = formatter.formatToParts(dt);
+        const pMap: Record<string, string> = {};
+        for (const p of parts) pMap[p.type] = p.value;
+        dispatchDateStr = `${pMap.year}-${pMap.month}-${pMap.day}`;
+      }
+    }
     const sourceName = visit.procurement_source?.name || 'ZMCC / Contractor';
 
     // Weights
@@ -332,7 +414,169 @@ export async function getOperationalLogs(
 
       const reportingBusinessDate = Boolean(finalizedReceipt)
         ? finalReceiptBusinessDate
-        : dateStr;
+        : finalizedBusinessDate;
+
+      // Build dynamic configured and historical lab test results for this portion
+      const dispatchResultMap = new Map<string, (typeof portion.dispatch_lab_results)[0]>();
+      for (const dr of portion.dispatch_lab_results) {
+        if (dr.test_id != null) {
+          dispatchResultMap.set(String(dr.test_id), dr);
+        }
+        if (dr.lab_test?.testCode) {
+          dispatchResultMap.set(dr.lab_test.testCode.trim().toUpperCase(), dr);
+        }
+        if (dr.lab_test?.testName) {
+          dispatchResultMap.set(dr.lab_test.testName.trim().toLowerCase(), dr);
+        }
+      }
+
+      const plantResultMap = new Map<string, (typeof portion.plant_lab_results)[0]>();
+      for (const pr of portion.plant_lab_results) {
+        if (pr.test_id != null) {
+          plantResultMap.set(String(pr.test_id), pr);
+        }
+        if (pr.lab_test?.testCode) {
+          plantResultMap.set(pr.lab_test.testCode.trim().toUpperCase(), pr);
+        }
+        if (pr.lab_test?.testName) {
+          plantResultMap.set(pr.lab_test.testName.trim().toLowerCase(), pr);
+        }
+      }
+
+      const portionLabResults: PortionLabTestResult[] = [];
+
+      for (const t of masterLabTests) {
+        const testIdStr = String(t.id);
+        const codeKey = t.testCode.trim().toUpperCase();
+        const nameKey = t.testName.trim().toLowerCase();
+
+        const dRes = dispatchResultMap.get(testIdStr) || dispatchResultMap.get(codeKey) || dispatchResultMap.get(nameKey);
+        const pRes = plantResultMap.get(testIdStr) || plantResultMap.get(codeKey) || plantResultMap.get(nameKey);
+
+        const isApplicable = t.isActive || Boolean(dRes) || Boolean(pRes);
+        if (!isApplicable) continue;
+
+        const isDisFat = isDispatchFatTest(t.testCode, t.testName);
+        const isDisLr = isDispatchLrTest(t.testCode, t.testName);
+        const isDisSnf = isConfiguredSnfTest(t.testCode, t.testName);
+        const isDisTs = isConfiguredTsTest(t.testCode, t.testName);
+
+        let dNumeric: number | null = null;
+        if (dRes?.numeric_value != null) {
+          dNumeric = Number(dRes.numeric_value);
+        } else if (isDisFat && dFat != null) {
+          dNumeric = dFat;
+        } else if (isDisLr && dLr != null) {
+          dNumeric = dLr;
+        } else if (isDisSnf && computedDispatchSnf != null) {
+          dNumeric = computedDispatchSnf;
+        } else if (isDisTs && computedDispatchTs != null) {
+          dNumeric = computedDispatchTs;
+        }
+
+        const dText = dRes?.text_value || null;
+        const dPerformed = Boolean(
+          (dRes && dRes.performance_status === 'PERFORMED') ||
+          dNumeric != null ||
+          (dText != null && dText !== '')
+        );
+
+        const isPlFat = isPlantFatTest(t.testCode, t.testName);
+        const isPlLr = isPlantLrTest(t.testCode, t.testName);
+        const isPlMbrt = isMbrtTest(t.testCode, t.testName);
+        const isPlSnf = isConfiguredSnfTest(t.testCode, t.testName);
+        const isPlTs = isConfiguredTsTest(t.testCode, t.testName);
+
+        let pNumeric: number | null = null;
+        if (pRes?.numeric_value != null) {
+          pNumeric = Number(pRes.numeric_value);
+        } else if (isPlFat && pFat != null) {
+          pNumeric = pFat;
+        } else if (isPlLr && pLr != null) {
+          pNumeric = pLr;
+        } else if (isPlMbrt && pMbrt != null) {
+          pNumeric = pMbrt;
+        } else if (isPlSnf && computedPlantSnf != null) {
+          pNumeric = computedPlantSnf;
+        } else if (isPlTs && computedPlantTs != null) {
+          pNumeric = computedPlantTs;
+        }
+
+        const pText = pRes?.text_value || null;
+        const pPerformed = Boolean(
+          (pRes && pRes.performance_status === 'PERFORMED') ||
+          pNumeric != null ||
+          (pText != null && pText !== '')
+        );
+
+        let plantStatus: string | null = null;
+        if (pRes?.is_passed === true) {
+          plantStatus = 'PASSED';
+        } else if (pRes?.is_passed === false) {
+          plantStatus = 'REJECTED';
+        } else if (pRes?.performance_status) {
+          plantStatus = pRes.performance_status;
+        } else if ((isPlSnf || isPlTs) && pNumeric != null) {
+          plantStatus = 'CALCULATED';
+        }
+
+        portionLabResults.push({
+          test_id: Number(t.id) || null,
+          test_code: t.testCode,
+          test_name: t.testName,
+          result_type: t.resultType,
+          unit: t.unit || null,
+          display_order: t.displayOrder,
+          is_active: t.isActive,
+          dispatch_performed: dPerformed,
+          dispatch_numeric_value: dNumeric,
+          dispatch_text_value: dText,
+          plant_performed: pPerformed,
+          plant_numeric_value: pNumeric,
+          plant_text_value: pText,
+          plant_status: plantStatus,
+          plant_is_passed: pRes?.is_passed ?? null,
+        });
+      }
+
+      // Add calculated SNF and TS if not explicitly represented by configured tests
+      if (!portionLabResults.some((r) => isConfiguredSnfTest(r.test_code, r.test_name))) {
+        portionLabResults.push({
+          test_code: 'SNF',
+          test_name: 'Solids-Not-Fat (SNF)',
+          result_type: 'CALCULATED',
+          unit: '%',
+          display_order: 998,
+          is_active: true,
+          dispatch_performed: computedDispatchSnf != null,
+          dispatch_numeric_value: computedDispatchSnf,
+          dispatch_text_value: null,
+          plant_performed: computedPlantSnf != null,
+          plant_numeric_value: computedPlantSnf,
+          plant_text_value: null,
+          plant_status: computedPlantSnf != null ? 'CALCULATED' : null,
+          plant_is_passed: null,
+        });
+      }
+
+      if (!portionLabResults.some((r) => isConfiguredTsTest(r.test_code, r.test_name))) {
+        portionLabResults.push({
+          test_code: 'TS',
+          test_name: 'Total Solids (TS)',
+          result_type: 'CALCULATED',
+          unit: '%',
+          display_order: 999,
+          is_active: true,
+          dispatch_performed: computedDispatchTs != null,
+          dispatch_numeric_value: computedDispatchTs,
+          dispatch_text_value: null,
+          plant_performed: computedPlantTs != null,
+          plant_numeric_value: computedPlantTs,
+          plant_text_value: null,
+          plant_status: computedPlantTs != null ? 'CALCULATED' : null,
+          plant_is_passed: null,
+        });
+      }
 
       const logRow: MilkProcessLog = {
           id: Number(visit.id) || 0,
@@ -344,12 +588,21 @@ export async function getOperationalLogs(
           token_number: visit.token_number || null,
           zonal_contractor_name: sourceName,
           status: (visit.current_status as ProcessStatus) || 'DISPATCHED',
+          business_date: finalizedBusinessDate,
 
-          dispatch_date: dateStr,
-          dispatch_day: opDate ? daysOfWeek[opDate.getDay()] : null,
-          dispatch_week: opDate ? Math.ceil(opDate.getDate() / 7) + 28 : null,
-          dispatch_month: opDate ? monthsOfYear[opDate.getMonth()] : null,
-          dispatch_year: opDate ? opDate.getFullYear() : null,
+          dispatch_date: dispatchDateStr,
+          dispatch_day: dispatchDateStr
+            ? daysOfWeek[new Date(`${dispatchDateStr}T12:00:00Z`).getUTCDay()]
+            : (opDate ? daysOfWeek[opDate.getDay()] : null),
+          dispatch_week: dispatchDateStr
+            ? Math.ceil(new Date(`${dispatchDateStr}T12:00:00Z`).getUTCDate() / 7) + 28
+            : (opDate ? Math.ceil(opDate.getDate() / 7) + 28 : null),
+          dispatch_month: dispatchDateStr
+            ? monthsOfYear[new Date(`${dispatchDateStr}T12:00:00Z`).getUTCMonth()]
+            : (opDate ? monthsOfYear[opDate.getMonth()] : null),
+          dispatch_year: dispatchDateStr
+            ? new Date(`${dispatchDateStr}T12:00:00Z`).getUTCFullYear()
+            : (opDate ? opDate.getFullYear() : null),
           zonal_contractor_dispatch_time: formatTimeOnly(portion.dispatch_info?.dispatch_timestamp),
           dispatch_kg_gross: declaredUnit === 'KG' ? declaredVal : null,
           dispatch_liters_gross: dispatchGrossLiters,
@@ -430,6 +683,8 @@ export async function getOperationalLogs(
           authoritative_final_liters: finalizedReceipt?.quantity_liters
             ? Number(finalizedReceipt.quantity_liters)
             : null,
+
+          portion_lab_results: portionLabResults,
 
           created_at: visit.created_at ? new Date(visit.created_at).toISOString() : new Date().toISOString(),
           updated_at: visit.updated_at ? new Date(visit.updated_at).toISOString() : new Date().toISOString(),

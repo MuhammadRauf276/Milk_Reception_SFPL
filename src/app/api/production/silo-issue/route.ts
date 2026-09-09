@@ -6,7 +6,7 @@ import { validatePositiveDecimal } from '@/lib/validation-helpers';
 import { validateOperationalTimestamp } from '@/backend/services/chronology-validator';
 
 export async function POST(req: Request) {
-  const authUser = await getCurrentUser();
+  const authUser = await getCurrentUser(req);
   if (!authUser) {
     return NextResponse.json({ error: 'Unauthorized. Authentication required.' }, { status: 401 });
   }
@@ -81,6 +81,7 @@ export async function POST(req: Request) {
       message: `Successfully issued ${Math.round(quantityLiters).toLocaleString()} L of milk for "${purpose}". Remaining stock: ${Math.round(result.stockAfter).toLocaleString()} L.`,
     });
   } catch (error: any) {
-    return NextResponse.json({ error: error?.message || 'Failed to record silo milk issue' }, { status: 400 });
+    const status = error?.message?.includes('INACTIVE') ? 409 : 400;
+    return NextResponse.json({ error: error?.message || 'Failed to record silo milk issue' }, { status });
   }
 }

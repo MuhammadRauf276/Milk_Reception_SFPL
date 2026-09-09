@@ -75,37 +75,41 @@ export async function PATCH(
 
     const adminUser = await prisma.user.findFirst({ where: { username: authUser.username } });
 
-    const updatedTest = await prisma.labTest.update({
-      where: { id: testId },
-      data: {
-        testName: body.testName !== undefined ? body.testName.trim() : targetTest.testName,
-        unit: body.unit !== undefined ? (body.unit ? body.unit.trim() : null) : targetTest.unit,
-        testScope: body.testScope !== undefined ? body.testScope : targetTest.testScope,
-        displayOrder: body.displayOrder !== undefined ? Number(body.displayOrder) : targetTest.displayOrder,
-        isActive: body.isActive !== undefined ? Boolean(body.isActive) : targetTest.isActive,
-        resultOptions: parsedResultOptions !== undefined ? (parsedResultOptions as any) : undefined,
-      },
-    });
+    const updatedTest = await prisma.$transaction(async (tx) => {
+      const updated = await tx.labTest.update({
+        where: { id: testId },
+        data: {
+          testName: body.testName !== undefined ? body.testName.trim() : targetTest.testName,
+          unit: body.unit !== undefined ? (body.unit ? body.unit.trim() : null) : targetTest.unit,
+          testScope: body.testScope !== undefined ? body.testScope : targetTest.testScope,
+          displayOrder: body.displayOrder !== undefined ? Number(body.displayOrder) : targetTest.displayOrder,
+          isActive: body.isActive !== undefined ? Boolean(body.isActive) : targetTest.isActive,
+          resultOptions: parsedResultOptions !== undefined ? (parsedResultOptions as any) : undefined,
+        },
+      });
 
-    await prisma.auditLog.create({
-      data: {
-        table_name: 'lab_test',
-        record_id: testId,
-        action: 'LAB_TEST_UPDATED',
-        old_values: {
-          testName: targetTest.testName,
-          displayOrder: targetTest.displayOrder,
-          isActive: targetTest.isActive,
-          resultOptions: targetTest.resultOptions,
+      await tx.auditLog.create({
+        data: {
+          table_name: 'lab_test',
+          record_id: testId,
+          action: 'LAB_TEST_UPDATED',
+          old_values: {
+            testName: targetTest.testName,
+            displayOrder: targetTest.displayOrder,
+            isActive: targetTest.isActive,
+            resultOptions: targetTest.resultOptions,
+          },
+          new_values: {
+            testName: updated.testName,
+            displayOrder: updated.displayOrder,
+            isActive: updated.isActive,
+            resultOptions: updated.resultOptions,
+          },
+          user_id: adminUser?.id || null,
         },
-        new_values: {
-          testName: updatedTest.testName,
-          displayOrder: updatedTest.displayOrder,
-          isActive: updatedTest.isActive,
-          resultOptions: updatedTest.resultOptions,
-        },
-        user_id: adminUser?.id || null,
-      },
+      });
+
+      return updated;
     });
 
     return NextResponse.json({
