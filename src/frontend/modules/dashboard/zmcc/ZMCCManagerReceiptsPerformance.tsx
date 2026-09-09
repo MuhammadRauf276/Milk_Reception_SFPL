@@ -315,7 +315,7 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
                     </span>
                   ) : (
                     <span className="text-xs font-mono font-bold text-slate-600">
-                      Visit / Dispatch Business Date: {item.dispatchBusinessDate}
+                      Business Date: {item.dispatchBusinessDate || 'Pending plant completion'}
                     </span>
                   )}
                   <span

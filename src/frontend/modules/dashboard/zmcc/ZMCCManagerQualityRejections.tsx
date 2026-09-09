@@ -273,7 +273,7 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
                       </span>
                     )}
                     <span className="text-xs font-mono font-bold text-slate-600">
-                      Business Date: {item.businessDate}
+                      Business Date: {item.businessDate || 'Pending plant completion'}
                     </span>
                     <span
                       className={`px-2.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${

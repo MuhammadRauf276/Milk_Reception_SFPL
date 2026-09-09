@@ -428,7 +428,7 @@ export function buildVehicleVisitGroups(logs: MilkProcessLog[]): VehicleVisitGro
       tokenNumber: primary.token_number || null,
       sourceName: primary.zonal_contractor_name,
       procurementSourceId: null,
-      businessDate: primary.dispatch_date || '',
+      businessDate: primary.business_date || '',
       finalReceiptBusinessDate,
       overallStatus: primary.status,
       portions,
@@ -942,7 +942,7 @@ export function deriveQualityRejectionItems(logs: MilkProcessLog[]): QualityReje
     const visitId = p.id;
     const vehicleNumber = p.vehicle_number;
     const tokenNumber = p.token_number || null;
-    const businessDate = p.dispatch_date || (p.created_at ? p.created_at.split('T')[0] : '');
+    const businessDate = p.business_date || '';
     const rawPortion = p.portion_number || '1';
     const portionNumber = rawPortion.startsWith('P-') ? rawPortion : `P-${rawPortion.padStart(2, '0')}`;
 

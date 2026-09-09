@@ -103,6 +103,32 @@ export function formatOperationalTime(dateInput?: Date | string | number | null)
 }
 
 /**
+ * Formats a calendar date string (YYYY-MM-DD) or Date object into human-readable plant business date string (e.g. `26 Aug 2026`).
+ */
+export function formatOperationalDate(dateInput?: Date | string | null): string {
+  if (!dateInput) return '—';
+  if (typeof dateInput === 'string' && isValidDateOnly(dateInput)) {
+    const d = parseStrictDateOnly(dateInput);
+    if (!d) return dateInput;
+    return new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'UTC',
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    }).format(d);
+  }
+  const date = new Date(dateInput);
+  if (isNaN(date.getTime())) return '—';
+
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: PLANT_TIMEZONE,
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(date);
+}
+
+/**
  * Strict YYYY-MM-DD calendar date validator.
  * Enforces exact YYYY-MM-DD format and valid calendar dates (no JavaScript rollover).
  */

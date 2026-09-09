@@ -1,26 +1,22 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { MilkProcessLog } from '@backend/core/types';
-import { formatOperationalDatetime } from '@/lib/datetime-utils';
+import { formatOperationalDatetime, formatOperationalDate } from '@/lib/datetime-utils';
 import {
   X,
   Truck,
   Scale,
   FlaskConical,
-  Factory,
-  CheckCircle2,
-  AlertTriangle,
-  Clock,
+  Receipt,
+  FileText,
   ShieldCheck,
-  Calendar,
-  Layers,
-  Database,
 } from 'lucide-react';
 
 interface ZMCCManagerVisitDetailModalProps {
   isOpen: boolean;
   log: MilkProcessLog | null;
+  portions?: MilkProcessLog[];
   onClose: () => void;
   assignedSourceName?: string;
 }
@@ -28,17 +24,28 @@ interface ZMCCManagerVisitDetailModalProps {
 export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalProps> = ({
   isOpen,
   log,
+  portions,
   onClose,
   assignedSourceName,
 }) => {
+  const displayPortions = useMemo(() => {
+    if (portions && portions.length > 0) return portions;
+    return log ? [log] : [];
+  }, [portions, log]);
+
   if (!isOpen || !log) return null;
 
   const isCompletedReceipt = Boolean(log.final_receipt_exists && log.final_receipt_timestamp);
   const isReceiptPending = Boolean(log.second_weight_of_vehicle != null && !log.final_receipt_exists);
+  const receiptStatusText = isCompletedReceipt
+    ? 'Completed'
+    : isReceiptPending
+    ? 'Pending Final Receipt'
+    : 'In Progress';
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200"
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"
@@ -53,24 +60,21 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
             <div>
               <div className="flex items-center space-x-2">
                 <h2 id="modal-title" className="text-base font-black text-[#111311]">
-                  Visit Detail: {log.vehicle_number}
+                  Visit: {log.vehicle_number}
                 </h2>
-                {log.token_number && (
-                  <span className="px-2 py-0.5 rounded text-[11px] font-mono font-black bg-[#1E3A8A]/10 text-[#1E3A8A]">
-                    Token: {log.token_number}
-                  </span>
-                )}
               </div>
               <p className="text-xs text-[#475569] font-medium">
-                {assignedSourceName || log.zonal_contractor_name || 'ZMCC Source'} · Business Date:{' '}
-                <span className="font-bold text-slate-800">{log.dispatch_date || '—'}</span>
+                {assignedSourceName || log.zonal_contractor_name || 'Station'} · Business Date:{' '}
+                <span className={`font-bold ${log.business_date ? 'text-slate-800' : 'text-amber-700'}`}>
+                  {log.business_date ? formatOperationalDate(log.business_date) : 'Pending plant completion'}
+                </span>
               </p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all"
+            className="p-2 min-h-[44px] min-w-[44px] rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all flex items-center justify-center"
             aria-label="Close modal"
           >
             <X className="w-5 h-5" />
@@ -79,71 +83,116 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
 
         {/* Modal Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6 text-xs">
-          {/* 1. Lifecycle Status Banner */}
-          <div className="p-4 rounded-xl bg-[#F8FAFC] border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center space-x-2">
-              <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
-                Overall Lifecycle State:
-              </span>
-              <span
-                className={`px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider ${
-                  isCompletedReceipt
-                    ? 'bg-emerald-100 text-emerald-800'
-                    : isReceiptPending
-                    ? 'bg-amber-100 text-amber-800'
-                    : 'bg-blue-100 text-blue-800'
-                }`}
-              >
-                {isCompletedReceipt ? 'Final Receipt Completed' : isReceiptPending ? 'Receipt Pending' : log.status || 'In Progress'}
-              </span>
-            </div>
-
-            <div className="flex items-center space-x-1.5 text-slate-500 font-mono text-[11px]">
-              <Clock className="w-3.5 h-3.5" />
-              <span>Created: {log.created_at ? formatOperationalDatetime(log.created_at) : '—'}</span>
-            </div>
-          </div>
-
-          {/* 2. Weighbridge & Physical Quantities (Authoritative) */}
-          <div className="p-5 rounded-xl bg-[#FFFFFF] border border-[#EAE4D5]/80 space-y-4 shadow-sm">
+          {/* 1. Dispatch Details */}
+          <div className="p-5 rounded-xl bg-[#FFFFFF] border border-[#EAE4D5] space-y-4 shadow-xs">
             <div className="flex items-center space-x-2 border-b border-[#EAE4D5]/60 pb-2">
-              <Scale className="w-4 h-4 text-[#1E3A8A]" />
+              <FileText className="w-4 h-4 text-[#1E3A8A]" />
               <h3 className="text-xs font-extrabold text-[#111311] uppercase tracking-wider">
-                Authoritative Scale & Quantity Ledger
+                Dispatch Details
               </h3>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 font-mono">
               <div className="p-3 rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/60">
                 <span className="text-[10px] font-sans font-bold text-slate-500 uppercase block">
-                  Dispatch Gross Liters
+                  Vehicle Number
                 </span>
                 <span className="text-sm font-black text-slate-900">
-                  {log.vehicle_dispatch_gross_liters != null
-                    ? `${log.vehicle_dispatch_gross_liters.toLocaleString()} L`
-                    : '—'}
+                  {log.vehicle_number || 'Not recorded'}
                 </span>
               </div>
 
               <div className="p-3 rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/60">
                 <span className="text-[10px] font-sans font-bold text-slate-500 uppercase block">
-                  First Weight (Loaded Vehicle)
+                  Station
+                </span>
+                <span className="text-sm font-bold text-slate-800">
+                  {assignedSourceName || log.zonal_contractor_name || 'Not recorded'}
+                </span>
+              </div>
+
+              <div className="p-3 rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/60">
+                <span className="text-[10px] font-sans font-bold text-slate-500 uppercase block">
+                  Business Date
+                </span>
+                <span className={`text-sm font-bold ${log.business_date ? 'text-slate-800' : 'text-amber-700'}`}>
+                  {log.business_date ? formatOperationalDate(log.business_date) : 'Pending plant completion'}
+                </span>
+              </div>
+
+              <div className="p-3 rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/60">
+                <span className="text-[10px] font-sans font-bold text-slate-500 uppercase block">
+                  Dispatch Date
+                </span>
+                <span className="text-sm font-bold text-slate-800">
+                  {log.dispatch_date ? formatOperationalDate(log.dispatch_date) : 'Not recorded'}
+                </span>
+              </div>
+
+              <div className="p-3 rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/60">
+                <span className="text-[10px] font-sans font-bold text-slate-500 uppercase block">
+                  Dispatch Quantity
+                </span>
+                <span className="text-sm font-black text-[#1E3A8A]">
+                  {log.vehicle_dispatch_quantity_value != null
+                    ? `${log.vehicle_dispatch_quantity_value.toLocaleString()} ${log.vehicle_dispatch_quantity_unit || ''}`
+                    : log.vehicle_dispatch_gross_liters != null
+                    ? `${log.vehicle_dispatch_gross_liters.toLocaleString()} L`
+                    : 'Not recorded'}
+                </span>
+              </div>
+
+              <div className="p-3 rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/60">
+                <span className="text-[10px] font-sans font-bold text-slate-500 uppercase block">
+                  Dispatch Time
+                </span>
+                <span className="text-xs font-semibold text-slate-800">
+                  {log.dispatch_timestamp ? formatOperationalDatetime(log.dispatch_timestamp) : 'Not recorded'}
+                </span>
+              </div>
+
+              <div className="p-3 rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/60">
+                <span className="text-[10px] font-sans font-bold text-slate-500 uppercase block">
+                  Gate Entry Time
+                </span>
+                <span className="text-xs font-semibold text-slate-800">
+                  {log.gate_entry_timestamp ? formatOperationalDatetime(log.gate_entry_timestamp) : 'Pending'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* 2. Weight & Quantity */}
+          <div className="p-5 rounded-xl bg-[#FFFFFF] border border-[#EAE4D5] space-y-4 shadow-xs">
+            <div className="flex items-center space-x-2 border-b border-[#EAE4D5]/60 pb-2">
+              <Scale className="w-4 h-4 text-[#1E3A8A]" />
+              <h3 className="text-xs font-extrabold text-[#111311] uppercase tracking-wider">
+                Weight & Quantity
+              </h3>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 font-mono">
+              <div className="p-3 rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/60">
+                <span className="text-[10px] font-sans font-bold text-slate-500 uppercase block">
+                  Gross Weight
                 </span>
                 <span className="text-sm font-bold text-slate-800">
                   {log.first_weight_of_vehicle != null
                     ? `${log.first_weight_of_vehicle.toLocaleString()} kg`
-                    : '—'}
+                    : 'Not recorded'}
                 </span>
               </div>
 
               <div className="p-3 rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/60">
                 <span className="text-[10px] font-sans font-bold text-slate-500 uppercase block">
-                  Second Weight (After Unloading)
+                  Tare Weight
                 </span>
                 <span className="text-sm font-bold text-slate-800">
                   {log.second_weight_of_vehicle != null
                     ? `${log.second_weight_of_vehicle.toLocaleString()} kg`
-                    : '—'}
+                    : log.first_weight_of_vehicle != null
+                    ? 'Pending'
+                    : 'Not recorded'}
                 </span>
               </div>
 
@@ -154,27 +203,251 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
                 <span className="text-sm font-black text-[#1E3A8A]">
                   {log.computed_net_milk_weight != null
                     ? `${log.computed_net_milk_weight.toLocaleString()} kg`
-                    : '—'}
+                    : 'Pending'}
                 </span>
               </div>
 
               <div className="p-3 rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/60">
                 <span className="text-[10px] font-sans font-bold text-slate-500 uppercase block">
-                  Physical Received Liters
+                  Received Quantity
                 </span>
                 <span className="text-sm font-black text-[#166534]">
                   {log.authoritative_final_liters != null
                     ? `${log.authoritative_final_liters.toLocaleString()} L`
-                    : '—'}
+                    : log.final_receipt_exists
+                    ? 'Not recorded'
+                    : 'Pending'}
                 </span>
               </div>
 
               <div className="p-3 rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/60">
                 <span className="text-[10px] font-sans font-bold text-slate-500 uppercase block">
-                  Final Liters @ 13% TS
+                  First Weight Time
                 </span>
-                <span className="text-sm font-bold text-slate-500">
-                  —
+                <span className="text-xs font-semibold text-slate-800">
+                  {log.first_weight_timestamp ? formatOperationalDatetime(log.first_weight_timestamp) : 'Not recorded'}
+                </span>
+              </div>
+
+              <div className="p-3 rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/60">
+                <span className="text-[10px] font-sans font-bold text-slate-500 uppercase block">
+                  Second Weight Time
+                </span>
+                <span className="text-xs font-semibold text-slate-800">
+                  {log.second_weight_timestamp
+                    ? formatOperationalDatetime(log.second_weight_timestamp)
+                    : log.first_weight_of_vehicle != null
+                    ? 'Pending'
+                    : 'Not recorded'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* 3. Portion Quality Results */}
+          <div className="p-5 rounded-xl bg-[#FFFFFF] border border-[#EAE4D5] space-y-4 shadow-xs">
+            <div className="flex items-center space-x-2 border-b border-[#EAE4D5]/60 pb-2">
+              <FlaskConical className="w-4 h-4 text-[#1E3A8A]" />
+              <h3 className="text-xs font-extrabold text-[#111311] uppercase tracking-wider">
+                Portion Quality Results
+              </h3>
+            </div>
+
+            <div className="space-y-4">
+              {displayPortions.map((p, idx) => {
+                const portionTests = (p.portion_lab_results && p.portion_lab_results.length > 0)
+                  ? p.portion_lab_results.map((tr) => {
+                      const dispatchVal = tr.dispatch_numeric_value != null
+                        ? `${tr.dispatch_numeric_value}`
+                        : tr.dispatch_text_value != null && tr.dispatch_text_value !== ''
+                        ? tr.dispatch_text_value
+                        : tr.dispatch_performed
+                        ? 'Recorded'
+                        : 'Not recorded';
+
+                      const plantVal = tr.plant_numeric_value != null
+                        ? `${tr.plant_numeric_value}`
+                        : tr.plant_text_value != null && tr.plant_text_value !== ''
+                        ? tr.plant_text_value
+                        : tr.plant_is_passed === true
+                        ? 'Passed'
+                        : tr.plant_is_passed === false
+                        ? 'Failed'
+                        : tr.plant_performed
+                        ? (tr.plant_status || 'Performed')
+                        : 'Pending';
+
+                      const isPerformed = tr.plant_performed || tr.dispatch_performed;
+
+                      return {
+                        name: tr.test_name,
+                        performed: isPerformed,
+                        dispatchResult: dispatchVal,
+                        plantResult: plantVal,
+                        unit: tr.unit || '-',
+                      };
+                    })
+                  : [
+                      {
+                        name: 'Fat',
+                        performed: p.sampling_fat != null,
+                        dispatchResult: p.dispatch_fat != null ? `${p.dispatch_fat}` : 'Not recorded',
+                        plantResult: p.sampling_fat != null ? `${p.sampling_fat}` : 'Pending',
+                        unit: '%',
+                      },
+                      {
+                        name: 'LR',
+                        performed: p.sampling_lr != null,
+                        dispatchResult: p.dispatch_lr != null ? `${p.dispatch_lr}` : 'Not recorded',
+                        plantResult: p.sampling_lr != null ? `${p.sampling_lr}` : 'Pending',
+                        unit: '°L',
+                      },
+                      {
+                        name: 'SNF',
+                        performed: p.computed_sampling_snf != null,
+                        dispatchResult: p.computed_dispatch_snf != null ? `${p.computed_dispatch_snf}` : 'Not recorded',
+                        plantResult: p.computed_sampling_snf != null ? `${p.computed_sampling_snf}` : 'Pending',
+                        unit: '%',
+                      },
+                      {
+                        name: 'TS',
+                        performed: p.computed_sampling_ts != null,
+                        dispatchResult: p.computed_dispatch_ts != null ? `${p.computed_dispatch_ts}` : 'Not recorded',
+                        plantResult: p.computed_sampling_ts != null ? `${p.computed_sampling_ts}` : 'Pending',
+                        unit: '%',
+                      },
+                      {
+                        name: 'MBRT',
+                        performed: p.b_mbrt_minutes_test != null,
+                        dispatchResult: 'Not recorded',
+                        plantResult: p.b_mbrt_minutes_test != null ? `${p.b_mbrt_minutes_test}` : 'Pending',
+                        unit: 'min',
+                      },
+                    ];
+
+                const decision = p.calculated_status || 'Pending';
+                const decisionUpper = decision.toUpperCase();
+
+                return (
+                  <div
+                    key={p.portion_id || idx}
+                    className="p-4 rounded-xl bg-[#FDFBF9] border border-[#EAE4D5] space-y-3"
+                  >
+                    {/* Portion Header */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#EAE4D5]/60 pb-2.5">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-xs font-black text-slate-900">
+                          Portion #{p.portion_number || (idx + 1)}
+                        </span>
+                        <span className="text-xs text-slate-500 font-mono">
+                          (Quantity:{' '}
+                          <span className="font-bold text-slate-800">
+                            {p.dispatch_liters_gross != null
+                              ? `${p.dispatch_liters_gross.toLocaleString()} L`
+                              : p.dispatch_kg_gross != null
+                              ? `${p.dispatch_kg_gross.toLocaleString()} kg`
+                              : 'Not recorded'}
+                          </span>
+                          )
+                        </span>
+                      </div>
+
+                      <span
+                        className={`px-2.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
+                          decisionUpper === 'ACCEPTED'
+                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                            : decisionUpper === 'REJECTED'
+                            ? 'bg-red-100 text-red-800 border border-red-300'
+                            : decisionUpper === 'HOLD'
+                            ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                            : 'bg-slate-100 text-slate-700 border border-slate-300'
+                        }`}
+                      >
+                        {decisionUpper}
+                      </span>
+                    </div>
+
+                    {/* Rejection Reason (where present) */}
+                    {p.rejection_reasons && (
+                      <div className="p-2.5 rounded-lg bg-red-50 border border-red-200 text-red-900 text-xs">
+                        <span className="font-bold">Rejection Reason: </span>
+                        <span>{p.rejection_reasons}</span>
+                      </div>
+                    )}
+
+                    {/* Configured Lab Tests Table */}
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead>
+                          <tr className="border-b border-[#EAE4D5] text-[10.5px] font-bold text-slate-500 uppercase tracking-wider">
+                            <th className="py-1.5 px-2">Lab Test</th>
+                            <th className="py-1.5 px-2">Status</th>
+                            <th className="py-1.5 px-2 font-mono">Dispatch Result</th>
+                            <th className="py-1.5 px-2 font-mono">Plant Result</th>
+                            <th className="py-1.5 px-2">Unit</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#EAE4D5]/40 font-mono">
+                          {portionTests.map((t) => (
+                            <tr key={t.name} className="hover:bg-slate-50/60">
+                              <td className="py-1.5 px-2 font-sans font-bold text-slate-900">
+                                {t.name}
+                              </td>
+                              <td className="py-1.5 px-2 font-sans">
+                                <span
+                                  className={`inline-block px-2 py-0.5 rounded text-[9.5px] font-bold ${
+                                    t.performed
+                                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                      : 'bg-slate-100 text-slate-500'
+                                  }`}
+                                >
+                                  {t.performed ? 'Performed' : 'Not performed'}
+                                </span>
+                              </td>
+                              <td className="py-1.5 px-2 text-slate-700">
+                                {t.dispatchResult}
+                              </td>
+                              <td className="py-1.5 px-2 font-bold text-slate-900">
+                                {t.plantResult}
+                              </td>
+                              <td className="py-1.5 px-2 font-sans text-slate-500">
+                                {t.unit}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 4. Receipt Details */}
+          <div className="p-5 rounded-xl bg-[#FFFFFF] border border-[#EAE4D5] space-y-4 shadow-xs">
+            <div className="flex items-center space-x-2 border-b border-[#EAE4D5]/60 pb-2">
+              <Receipt className="w-4 h-4 text-[#1E3A8A]" />
+              <h3 className="text-xs font-extrabold text-[#111311] uppercase tracking-wider">
+                Receipt Details
+              </h3>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 font-mono">
+              <div className="p-3 rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/60">
+                <span className="text-[10px] font-sans font-bold text-slate-500 uppercase block">
+                  Receipt Status
+                </span>
+                <span
+                  className={`text-xs font-black uppercase inline-block px-2 py-0.5 rounded ${
+                    isCompletedReceipt
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : isReceiptPending
+                      ? 'bg-amber-100 text-amber-800'
+                      : 'bg-blue-100 text-blue-800'
+                  }`}
+                >
+                  {receiptStatusText}
                 </span>
               </div>
 
@@ -182,133 +455,41 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
                 <span className="text-[10px] font-sans font-bold text-slate-500 uppercase block">
                   Destination Silo
                 </span>
-                <span className="text-sm font-black text-slate-800">
-                  {log.silo_storage_id || '—'}
+                <span className="text-sm font-bold text-slate-800">
+                  {log.silo_storage_id || 'Pending'}
                 </span>
               </div>
 
               <div className="p-3 rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/60">
                 <span className="text-[10px] font-sans font-bold text-slate-500 uppercase block">
-                  Final Receipt Tx ID
+                  Unloading Start
                 </span>
-                <span className="text-sm font-bold text-slate-700">
-                  {log.final_receipt_transaction_id ? `#${log.final_receipt_transaction_id}` : '—'}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* 3. Portion QA Decisions */}
-          <div className="p-5 rounded-xl bg-[#FFFFFF] border border-[#EAE4D5]/80 space-y-4 shadow-sm">
-            <div className="flex items-center space-x-2 border-b border-[#EAE4D5]/60 pb-2">
-              <FlaskConical className="w-4 h-4 text-[#1E3A8A]" />
-              <h3 className="text-xs font-extrabold text-[#111311] uppercase tracking-wider">
-                Portion Quality & Rejection Breakdown
-              </h3>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="p-3.5 rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/60 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-extrabold text-slate-900">
-                    Portion #{log.portion_number || '1'}
-                  </span>
-                  <span
-                    className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
-                      log.calculated_status === 'ACCEPTED'
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : log.calculated_status === 'REJECTED'
-                        ? 'bg-red-100 text-red-800'
-                        : log.calculated_status === 'HOLD'
-                        ? 'bg-amber-100 text-amber-800'
-                        : 'bg-slate-100 text-slate-800'
-                    }`}
-                  >
-                    {log.calculated_status || 'PENDING'}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
-                  <div>
-                    <span className="text-slate-500 block text-[10px]">Dispatch Fat / LR:</span>
-                    <span className="font-bold text-slate-800">
-                      {log.dispatch_fat != null ? `${log.dispatch_fat}%` : '—'} / {log.dispatch_lr != null ? log.dispatch_lr : '—'}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 block text-[10px]">Plant Fat / LR:</span>
-                    <span className="font-bold text-slate-800">
-                      {log.sampling_fat != null ? `${log.sampling_fat}%` : '—'} / {log.sampling_lr != null ? log.sampling_lr : '—'}
-                    </span>
-                  </div>
-                </div>
-
-                {log.rejection_reasons && (
-                  <div className="p-2 rounded bg-red-50 border border-red-100 text-[11px] text-red-800 space-y-0.5">
-                    <span className="font-black block uppercase text-[10px]">Rejection Reason:</span>
-                    <span className="font-semibold">{log.rejection_reasons}</span>
-                  </div>
-                )}
-
-                {log.remarks && !log.rejection_reasons && (
-                  <div className="p-2 rounded bg-slate-50 border border-slate-200 text-[11px] text-slate-700">
-                    <span className="font-bold block text-[10px]">Remarks:</span>
-                    <span>{log.remarks}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* 4. Milestone Event Chronology */}
-          <div className="p-5 rounded-xl bg-[#FFFFFF] border border-[#EAE4D5]/80 space-y-4 shadow-sm">
-            <div className="flex items-center space-x-2 border-b border-[#EAE4D5]/60 pb-2">
-              <Calendar className="w-4 h-4 text-[#1E3A8A]" />
-              <h3 className="text-xs font-extrabold text-[#111311] uppercase tracking-wider">
-                Event Chronology (Asia/Karachi)
-              </h3>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 font-mono text-[11px]">
-              <div className="p-2.5 rounded bg-[#F8FAFC] border border-slate-100">
-                <span className="text-slate-500 block text-[10px] font-sans font-bold uppercase">1. Dispatch Timestamp</span>
-                <span className="font-semibold text-slate-800">
-                  {log.dispatch_timestamp ? formatOperationalDatetime(log.dispatch_timestamp) : '—'}
+                <span className="text-xs font-semibold text-slate-800">
+                  {log.unloading_start_timestamp
+                    ? formatOperationalDatetime(log.unloading_start_timestamp)
+                    : 'Pending'}
                 </span>
               </div>
 
-              <div className="p-2.5 rounded bg-[#F8FAFC] border border-slate-100">
-                <span className="text-slate-500 block text-[10px] font-sans font-bold uppercase">2. Gate Entry Timestamp</span>
-                <span className="font-semibold text-slate-800">
-                  {log.gate_entry_timestamp ? formatOperationalDatetime(log.gate_entry_timestamp) : '—'}
+              <div className="p-3 rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/60">
+                <span className="text-[10px] font-sans font-bold text-slate-500 uppercase block">
+                  Unloading End
+                </span>
+                <span className="text-xs font-semibold text-slate-800">
+                  {log.unloading_end_timestamp
+                    ? formatOperationalDatetime(log.unloading_end_timestamp)
+                    : 'Pending'}
                 </span>
               </div>
 
-              <div className="p-2.5 rounded bg-[#F8FAFC] border border-slate-100">
-                <span className="text-slate-500 block text-[10px] font-sans font-bold uppercase">3. First Weight Timestamp</span>
-                <span className="font-semibold text-slate-800">
-                  {log.first_weight_timestamp ? formatOperationalDatetime(log.first_weight_timestamp) : '—'}
+              <div className="p-3 rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/60">
+                <span className="text-[10px] font-sans font-bold text-slate-500 uppercase block">
+                  Final Receipt Time
                 </span>
-              </div>
-
-              <div className="p-2.5 rounded bg-[#F8FAFC] border border-slate-100">
-                <span className="text-slate-500 block text-[10px] font-sans font-bold uppercase">4. Unloading Timestamp</span>
-                <span className="font-semibold text-slate-800">
-                  {log.unloading_start_timestamp ? formatOperationalDatetime(log.unloading_start_timestamp) : '—'}
-                </span>
-              </div>
-
-              <div className="p-2.5 rounded bg-[#F8FAFC] border border-slate-100">
-                <span className="text-slate-500 block text-[10px] font-sans font-bold uppercase">5. Second Weight Timestamp</span>
-                <span className="font-semibold text-slate-800">
-                  {log.second_weight_timestamp ? formatOperationalDatetime(log.second_weight_timestamp) : '—'}
-                </span>
-              </div>
-
-              <div className="p-2.5 rounded bg-[#F8FAFC] border border-slate-100">
-                <span className="text-slate-500 block text-[10px] font-sans font-bold uppercase">6. Final Receipt Timestamp</span>
-                <span className="font-semibold text-[#166534] font-bold">
-                  {log.final_receipt_timestamp ? formatOperationalDatetime(log.final_receipt_timestamp) : '—'}
+                <span className="text-xs font-semibold text-[#166534]">
+                  {log.final_receipt_timestamp
+                    ? formatOperationalDatetime(log.final_receipt_timestamp)
+                    : 'Pending'}
                 </span>
               </div>
             </div>
@@ -317,14 +498,14 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
 
         {/* Modal Footer */}
         <div className="flex items-center justify-between px-6 py-3.5 border-t border-[#EAE4D5] bg-[#FDFBF9]">
-          <div className="flex items-center space-x-1.5 text-slate-500 text-[11px]">
+          <div className="flex items-center space-x-1.5 text-slate-600 text-xs font-semibold">
             <ShieldCheck className="w-4 h-4 text-[#1E3A8A]" />
-            <span>Read-only supervisory ledger record for assigned ZMCC.</span>
+            <span>Station: {assignedSourceName || log.zonal_contractor_name || 'Assigned Station'}</span>
           </div>
 
           <button
             onClick={onClose}
-            className="px-4 py-1.5 rounded-xl bg-[#1E3A8A] text-white text-xs font-bold hover:bg-[#1E3A8A]/90 transition-all shadow-sm"
+            className="min-h-[44px] min-w-[80px] px-4 py-2 rounded-xl bg-[#1E3A8A] text-white text-xs font-bold hover:bg-[#1E3A8A]/90 transition-all shadow-xs flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
           >
             Close
           </button>

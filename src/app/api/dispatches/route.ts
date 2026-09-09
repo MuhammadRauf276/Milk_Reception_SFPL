@@ -461,7 +461,7 @@ export async function POST(req: Request) {
         data: {
           vehicle_number: validated.vehicleNumber,
           reception_number: receptionNumber,
-          operational_date: new Date(canonicalBusinessDateStr),
+          operational_date: null,
           current_status: 'DISPATCHED',
           procurement_source_id: resolvedSourceId,
           vehicle_dispatch_quantity_value: new Prisma.Decimal(validatedQuantities.vehicleQuantity.value),
