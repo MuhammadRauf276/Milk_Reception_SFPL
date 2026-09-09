@@ -7,7 +7,14 @@ import { PATCH as patchUser } from '../src/app/api/super-admin/users/[id]/route'
 import { POST as postResetPassword } from '../src/app/api/super-admin/users/[id]/reset-password/route';
 import { GET as getProcurementSources, POST as postProcurementSource } from '../src/app/api/super-admin/procurement-sources/route';
 import { PATCH as patchProcurementSource } from '../src/app/api/super-admin/procurement-sources/[id]/route';
+import { GET as getSilos, POST as postSilo } from '../src/app/api/super-admin/silos/route';
+import { PATCH as patchSilo } from '../src/app/api/super-admin/silos/[id]/route';
+import { GET as getReadyForUnloading } from '../src/app/api/production/ready-for-unloading/route';
+import { POST as postSiloIssue } from '../src/app/api/production/silo-issue/route';
 import { POST as postStartDispatch } from '../src/app/api/dispatches/start/route';
+import { POST as postStartUnloading } from '../src/app/api/production/vehicle-visits/[visitId]/portions/[portionId]/start/route';
+import { POST as postTareWeight } from '../src/app/api/scale/tare-weight/route';
+import { NextRequest } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
 import fs from 'fs';
@@ -3188,6 +3195,1037 @@ async function runSuperAdminFinalizationTests() {
       if (cleanupErrors.length > 0) {
         console.error('Critical cleanup errors in 5D-C4A test suite:', cleanupErrors);
         throw new Error(`Cleanup failed for ${cleanupErrors.length} test entities`);
+      }
+    }
+
+    // =========================================================================
+    // --- STAGE 5D-C5: SILO LIFECYCLE & OPERATIONAL SAFETY SUITE ---
+    // =========================================================================
+    console.log('\n--- STAGE 5D-C5: SILO LIFECYCLE & OPERATIONAL SAFETY SUITE ---');
+
+    const cleanupC5UserIds: bigint[] = [];
+    const cleanupC5SiloIds: bigint[] = [];
+    const cleanupC5TxIds: bigint[] = [];
+    const cleanupC5VisitIds: bigint[] = [];
+    const cleanupC5PortionIds: bigint[] = [];
+    const cleanupC5UnloadingIds: bigint[] = [];
+    const cleanupC5TicketIds: bigint[] = [];
+
+    try {
+      // 0. Authorization check: Non-SUPER_ADMIN (including legacy Admin role) strictly receives 403 on create and update
+      const legacyAdminUser = await prisma.user.create({
+        data: {
+          username: `adm_c5_${Date.now()}`.slice(0, 20),
+          full_name: 'C5 Admin Auth Fixture',
+          role: 'Admin',
+          department: 'Administration',
+          scope_type: 'SYSTEM',
+          is_active: true,
+        },
+      });
+      cleanupC5UserIds.push(legacyAdminUser.id);
+
+      const adminToken = await createSessionToken({
+        id: legacyAdminUser.id.toString(),
+        username: legacyAdminUser.username,
+        name: legacyAdminUser.full_name || legacyAdminUser.username,
+        role: legacyAdminUser.role as any,
+        department: legacyAdminUser.department || 'Administration',
+      });
+      const adminHeaders = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminToken}`,
+      };
+
+      const adminCreateReq = new Request('http://localhost/api/super-admin/silos', {
+        method: 'POST',
+        headers: adminHeaders,
+        body: JSON.stringify({
+          siloCode: `ADM_${Date.now()}`.slice(0, 10),
+          siloName: 'Admin Silo Unauthorized',
+          capacityLiters: 50000,
+        }),
+      });
+      const adminCreateRes = await postSilo(adminCreateReq);
+      const adminCreateData = await adminCreateRes.json();
+
+      const existingSilo = await prisma.silo.findFirst();
+      const adminPatchReq = new Request(`http://localhost/api/super-admin/silos/${existingSilo?.id || 1}`, {
+        method: 'PATCH',
+        headers: adminHeaders,
+        body: JSON.stringify({
+          siloName: 'Admin Silo Update Unauthorized',
+        }),
+      });
+      const adminPatchRes = await patchSilo(adminPatchReq, {
+        params: Promise.resolve({ id: (existingSilo?.id || 1).toString() }),
+      });
+      const adminPatchData = await adminPatchRes.json();
+
+      assert(
+        adminCreateRes.status === 403 &&
+          adminCreateData.error === 'Unauthorized. Super Admin authorization required.' &&
+          adminPatchRes.status === 403 &&
+          adminPatchData.error === 'Unauthorized. Super Admin authorization required.',
+        '5D-C5-00: Legacy Admin role cannot create or update a silo (strictly returns 403 before mutation or audit)'
+      );
+
+      // 1. Silo creation and exact database persistence
+      const s1Code = `S5D_${Date.now()}`.slice(0, 10);
+      const createSilo1Req = new Request('http://localhost/api/super-admin/silos', {
+        method: 'POST',
+        headers: saHeaders,
+        body: JSON.stringify({
+          siloCode: s1Code,
+          siloName: 'C5 Silo Baseline',
+          capacityLiters: 75000,
+        }),
+      });
+      const createSilo1Res = await postSilo(createSilo1Req);
+      const createSilo1Data = await createSilo1Res.json();
+      assert(
+        createSilo1Res.status === 201 &&
+          createSilo1Data.success === true &&
+          createSilo1Data.silo?.siloCode === s1Code &&
+          createSilo1Data.silo?.capacityLiters === 75000,
+        '5D-C5-01: Silo created via POST and returns 201 with serialized model'
+      );
+
+      const dbSilo1 = await prisma.silo.findUnique({ where: { silo_code: s1Code } });
+      assert(
+        dbSilo1 !== null &&
+          dbSilo1.silo_name === 'C5 Silo Baseline' &&
+          Number(dbSilo1.capacity_liters) === 75000 &&
+          dbSilo1.is_active === true,
+        '5D-C5-01.1: Silo persisted in test database with active status and exact capacity'
+      );
+      if (dbSilo1) cleanupC5SiloIds.push(dbSilo1.id);
+
+      // 2. Creation audit generated atomically (SILO_CREATED)
+      const silo1Audit = dbSilo1
+        ? await prisma.auditLog.findFirst({
+            where: { table_name: 'silo', record_id: dbSilo1.id, action: 'SILO_CREATED' },
+          })
+        : null;
+      assert(
+        silo1Audit !== null &&
+          (silo1Audit.new_values as any)?.silo_code === s1Code &&
+          (silo1Audit.new_values as any)?.capacity_liters === 75000 &&
+          (silo1Audit.new_values as any)?.is_active === true,
+        '5D-C5-02: Creation audit log (SILO_CREATED) generated atomically with complete new_values'
+      );
+
+      // 3. Duplicate silo code rejected with 409 without mutation/audit
+      const auditCountBeforeDup = await prisma.auditLog.count({ where: { table_name: 'silo' } });
+      const dupSiloReq = new Request('http://localhost/api/super-admin/silos', {
+        method: 'POST',
+        headers: saHeaders,
+        body: JSON.stringify({
+          siloCode: s1Code.toLowerCase(),
+          siloName: 'Duplicate Code Silo',
+          capacityLiters: 60000,
+        }),
+      });
+      const dupSiloRes = await postSilo(dupSiloReq);
+      const dupSiloData = await dupSiloRes.json();
+      const auditCountAfterDup = await prisma.auditLog.count({ where: { table_name: 'silo' } });
+      assert(
+        dupSiloRes.status === 409 &&
+          dupSiloData.error?.includes('already exists') &&
+          auditCountAfterDup === auditCountBeforeDup,
+        '5D-C5-03: Duplicate silo code rejected with 409, zero database mutation, zero audit rows'
+      );
+
+      // 3.1 Concurrency race condition: Database unique constraint P2002 maps safely to friendly 409
+      const origFindUnique = prisma.silo.findUnique;
+      try {
+        (prisma.silo as any).findUnique = async () => null; // Bypass application-level pre-check
+        const p2002Req = new Request('http://localhost/api/super-admin/silos', {
+          method: 'POST',
+          headers: saHeaders,
+          body: JSON.stringify({
+            siloCode: s1Code,
+            siloName: 'P2002 Race Condition Test Silo',
+            capacityLiters: 65000,
+          }),
+        });
+        const p2002Res = await postSilo(p2002Req);
+        const p2002Data = await p2002Res.json();
+        const auditCountAfterP2002 = await prisma.auditLog.count({ where: { table_name: 'silo' } });
+        assert(
+          p2002Res.status === 409 &&
+            p2002Data.error === `Silo with code "${s1Code}" already exists.` &&
+            auditCountAfterP2002 === auditCountBeforeDup,
+          '5D-C5-03.1: Concurrency race condition triggering database P2002 maps safely to 409 with zero mutation and zero audit rows'
+        );
+      } finally {
+        (prisma.silo as any).findUnique = origFindUnique;
+      }
+
+      // 4. Invalid create/PATCH bodies rejected (400 for unknown fields, wrong types, empty body)
+      const unknownFieldReq = new Request('http://localhost/api/super-admin/silos', {
+        method: 'POST',
+        headers: saHeaders,
+        body: JSON.stringify({
+          siloCode: `INV_${Date.now()}`.slice(0, 10),
+          siloName: 'Invalid Silo',
+          capacityLiters: 50000,
+          maliciousKey: 'attack',
+        }),
+      });
+      const unknownFieldRes = await postSilo(unknownFieldReq);
+
+      const negCapReq = new Request('http://localhost/api/super-admin/silos', {
+        method: 'POST',
+        headers: saHeaders,
+        body: JSON.stringify({
+          siloCode: `INV_${Date.now()}`.slice(0, 10),
+          siloName: 'Invalid Silo',
+          capacityLiters: -500,
+        }),
+      });
+      const negCapRes = await postSilo(negCapReq);
+
+      const emptyPatchReq = new Request(`http://localhost/api/super-admin/silos/${dbSilo1!.id}`, {
+        method: 'PATCH',
+        headers: saHeaders,
+        body: JSON.stringify({}),
+      });
+      const emptyPatchRes = await patchSilo(emptyPatchReq, { params: Promise.resolve({ id: dbSilo1!.id.toString() }) });
+
+      const unknownPatchReq = new Request(`http://localhost/api/super-admin/silos/${dbSilo1!.id}`, {
+        method: 'PATCH',
+        headers: saHeaders,
+        body: JSON.stringify({ unallowedKey: true }),
+      });
+      const unknownPatchRes = await patchSilo(unknownPatchReq, { params: Promise.resolve({ id: dbSilo1!.id.toString() }) });
+
+      const badTypePatchReq = new Request(`http://localhost/api/super-admin/silos/${dbSilo1!.id}`, {
+        method: 'PATCH',
+        headers: saHeaders,
+        body: JSON.stringify({ isActive: 'notABoolean' }),
+      });
+      const badTypePatchRes = await patchSilo(badTypePatchReq, { params: Promise.resolve({ id: dbSilo1!.id.toString() }) });
+
+      assert(
+        unknownFieldRes.status === 400 &&
+          negCapRes.status === 400 &&
+          emptyPatchRes.status === 400 &&
+          unknownPatchRes.status === 400 &&
+          badTypePatchRes.status === 400,
+        '5D-C5-04: Strict payload validation rejects unknown fields, non-positive capacity, empty PATCH, and wrong types with 400'
+      );
+
+      // 5. Silo code immutable on PATCH (400)
+      const immutReq = new Request(`http://localhost/api/super-admin/silos/${dbSilo1!.id}`, {
+        method: 'PATCH',
+        headers: saHeaders,
+        body: JSON.stringify({ siloCode: 'NEW_CODE_HACK' }),
+      });
+      const immutRes = await patchSilo(immutReq, { params: Promise.resolve({ id: dbSilo1!.id.toString() }) });
+      const dbSiloAfterImmut = await prisma.silo.findUnique({ where: { id: dbSilo1!.id } });
+      assert(
+        immutRes.status === 400 && dbSiloAfterImmut?.silo_code === s1Code,
+        '5D-C5-05: Silo code is strictly immutable on PATCH (400) and persists unchanged in database'
+      );
+
+      // 6. Valid name update and audit (SILO_UPDATED)
+      const nameUpdateReq = new Request(`http://localhost/api/super-admin/silos/${dbSilo1!.id}`, {
+        method: 'PATCH',
+        headers: saHeaders,
+        body: JSON.stringify({ siloName: 'Renamed Silo Baseline' }),
+      });
+      const nameUpdateRes = await patchSilo(nameUpdateReq, { params: Promise.resolve({ id: dbSilo1!.id.toString() }) });
+      const nameUpdateData = await nameUpdateRes.json();
+      const dbSiloAfterName = await prisma.silo.findUnique({ where: { id: dbSilo1!.id } });
+      const nameUpdateAudit = await prisma.auditLog.findFirst({
+        where: { table_name: 'silo', record_id: dbSilo1!.id, action: 'SILO_UPDATED' },
+        orderBy: { id: 'desc' },
+      });
+      assert(
+        nameUpdateRes.status === 200 &&
+          nameUpdateData.success === true &&
+          dbSiloAfterName?.silo_name === 'Renamed Silo Baseline' &&
+          (nameUpdateAudit?.old_values as any)?.silo_name === 'C5 Silo Baseline' &&
+          (nameUpdateAudit?.new_values as any)?.silo_name === 'Renamed Silo Baseline',
+        '5D-C5-06: Silo name updated successfully with atomic SILO_UPDATED audit log and exact diff'
+      );
+
+      // 7. Valid capacity increase and audit
+      const capIncReq = new Request(`http://localhost/api/super-admin/silos/${dbSilo1!.id}`, {
+        method: 'PATCH',
+        headers: saHeaders,
+        body: JSON.stringify({ capacityLiters: 95000 }),
+      });
+      const capIncRes = await patchSilo(capIncReq, { params: Promise.resolve({ id: dbSilo1!.id.toString() }) });
+      const capIncData = await capIncRes.json();
+      const dbSiloAfterCapInc = await prisma.silo.findUnique({ where: { id: dbSilo1!.id } });
+      const capIncAudit = await prisma.auditLog.findFirst({
+        where: { table_name: 'silo', record_id: dbSilo1!.id, action: 'SILO_UPDATED' },
+        orderBy: { id: 'desc' },
+      });
+      assert(
+        capIncRes.status === 200 &&
+          capIncData.success === true &&
+          Number(dbSiloAfterCapInc?.capacity_liters) === 95000 &&
+          (capIncAudit?.new_values as any)?.capacity_liters === 95000,
+        '5D-C5-07: Silo capacity increased safely with atomic SILO_UPDATED audit'
+      );
+
+      // 8. Capacity below calculated stock rejected with 409 and unchanged state
+      // Inject physical stock transaction into silo 1: 50,000 Liters
+      const stockTx1 = await prisma.siloInventoryTransaction.create({
+        data: {
+          silo_id: dbSilo1!.id,
+          transaction_type: 'RECEIPT',
+          quantity_liters: 50000,
+          operational_timestamp: new Date(),
+        },
+      });
+      cleanupC5TxIds.push(stockTx1.id);
+
+      const capBelowStockReq = new Request(`http://localhost/api/super-admin/silos/${dbSilo1!.id}`, {
+        method: 'PATCH',
+        headers: saHeaders,
+        body: JSON.stringify({ capacityLiters: 40000 }),
+      });
+      const capBelowStockRes = await patchSilo(capBelowStockReq, { params: Promise.resolve({ id: dbSilo1!.id.toString() }) });
+      const capBelowStockData = await capBelowStockRes.json();
+      const dbSiloAfterCapFail = await prisma.silo.findUnique({ where: { id: dbSilo1!.id } });
+      assert(
+        capBelowStockRes.status === 409 &&
+          capBelowStockData.error?.includes('Capacity reduction rejected') &&
+          capBelowStockData.error?.includes('authoritative current stock') &&
+          Number(dbSiloAfterCapFail?.capacity_liters) === 95000,
+        '5D-C5-08: Capacity reduction below authoritative current stock rejected with 409 and unchanged capacity'
+      );
+
+      // 9. Audit failure rolls back silo create
+      const origTx = prisma.$transaction;
+      const rollCreateCode = `ROLL_${Date.now()}`.slice(0, 10);
+      try {
+        (prisma as any).$transaction = async (fn: any) => {
+          return await origTx.call(prisma, async (tx: any) => {
+            const proxyTx = new Proxy(tx, {
+              get(target, prop, receiver) {
+                if (prop === 'auditLog') {
+                  return {
+                    create: async () => {
+                      throw new Error('SIMULATED_AUDIT_LOG_FAILURE_ON_CREATE');
+                    },
+                  };
+                }
+                return Reflect.get(target, prop, receiver);
+              },
+            });
+            return await fn(proxyTx);
+          });
+        };
+
+        const rollCreateReq = new Request('http://localhost/api/super-admin/silos', {
+          method: 'POST',
+          headers: saHeaders,
+          body: JSON.stringify({
+            siloCode: rollCreateCode,
+            siloName: 'Rollback Create Silo',
+            capacityLiters: 50000,
+          }),
+        });
+        const rollCreateRes = await postSilo(rollCreateReq);
+        const dbRolledSilo = await prisma.silo.findUnique({ where: { silo_code: rollCreateCode } });
+        assert(
+          rollCreateRes.status === 500 && dbRolledSilo === null,
+          '5D-C5-09: Audit log creation failure completely rolls back silo creation transaction'
+        );
+      } finally {
+        (prisma as any).$transaction = origTx;
+      }
+
+      // 10. Audit failure rolls back silo update
+      try {
+        (prisma as any).$transaction = async (fn: any) => {
+          return await origTx.call(prisma, async (tx: any) => {
+            const proxyTx = new Proxy(tx, {
+              get(target, prop, receiver) {
+                if (prop === 'auditLog') {
+                  return {
+                    create: async () => {
+                      throw new Error('SIMULATED_AUDIT_LOG_FAILURE_ON_UPDATE');
+                    },
+                  };
+                }
+                return Reflect.get(target, prop, receiver);
+              },
+            });
+            return await fn(proxyTx);
+          });
+        };
+
+        const rollUpdateReq = new Request(`http://localhost/api/super-admin/silos/${dbSilo1!.id}`, {
+          method: 'PATCH',
+          headers: saHeaders,
+          body: JSON.stringify({ siloName: 'Malicious Name That Must Roll Back' }),
+        });
+        const rollUpdateRes = await patchSilo(rollUpdateReq, { params: Promise.resolve({ id: dbSilo1!.id.toString() }) });
+        const dbSiloAfterRollUpdate = await prisma.silo.findUnique({ where: { id: dbSilo1!.id } });
+        assert(
+          rollUpdateRes.status === 500 && dbSiloAfterRollUpdate?.silo_name === 'Renamed Silo Baseline',
+          '5D-C5-10: Audit log creation failure completely rolls back silo update transaction'
+        );
+      } finally {
+        (prisma as any).$transaction = origTx;
+      }
+
+      // 11. Safe empty silo deactivation succeeds (is_active: false, audit SILO_DEACTIVATED)
+      const s2Code = `S2_${Date.now()}`.slice(0, 10);
+      const createSilo2Req = new Request('http://localhost/api/super-admin/silos', {
+        method: 'POST',
+        headers: saHeaders,
+        body: JSON.stringify({
+          siloCode: s2Code,
+          siloName: 'Empty Deact Silo',
+          capacityLiters: 40000,
+        }),
+      });
+      const createSilo2Res = await postSilo(createSilo2Req);
+      const createSilo2Data = await createSilo2Res.json();
+      const s2Id = BigInt(createSilo2Data.silo.id);
+      cleanupC5SiloIds.push(s2Id);
+
+      const deactSilo2Req = new Request(`http://localhost/api/super-admin/silos/${s2Id}`, {
+        method: 'PATCH',
+        headers: saHeaders,
+        body: JSON.stringify({ isActive: false }),
+      });
+      const deactSilo2Res = await patchSilo(deactSilo2Req, { params: Promise.resolve({ id: s2Id.toString() }) });
+      const deactSilo2Data = await deactSilo2Res.json();
+      const dbSilo2AfterDeact = await prisma.silo.findUnique({ where: { id: s2Id } });
+      const deactAudit = await prisma.auditLog.findFirst({
+        where: { table_name: 'silo', record_id: s2Id, action: 'SILO_DEACTIVATED' },
+      });
+      assert(
+        deactSilo2Res.status === 200 &&
+          deactSilo2Data.success === true &&
+          dbSilo2AfterDeact?.is_active === false &&
+          deactAudit !== null &&
+          (deactAudit.old_values as any)?.is_active === true &&
+          (deactAudit.new_values as any)?.is_active === false,
+        '5D-C5-11: Empty silo deactivation succeeds (is_active: false) and generates SILO_DEACTIVATED audit log'
+      );
+
+      // 12. Silo with stock cannot be deactivated (409, zero mutation, zero audit)
+      const auditsBeforeDeactStock = await prisma.auditLog.count({ where: { table_name: 'silo', record_id: dbSilo1!.id } });
+      const deactWithStockReq = new Request(`http://localhost/api/super-admin/silos/${dbSilo1!.id}`, {
+        method: 'PATCH',
+        headers: saHeaders,
+        body: JSON.stringify({ isActive: false }),
+      });
+      const deactWithStockRes = await patchSilo(deactWithStockReq, { params: Promise.resolve({ id: dbSilo1!.id.toString() }) });
+      const deactWithStockData = await deactWithStockRes.json();
+      const dbSilo1AfterStockDeact = await prisma.silo.findUnique({ where: { id: dbSilo1!.id } });
+      const auditsAfterDeactStock = await prisma.auditLog.count({ where: { table_name: 'silo', record_id: dbSilo1!.id } });
+      assert(
+        deactWithStockRes.status === 409 &&
+          deactWithStockData.error?.includes('contains 50,000 L of milk stock') &&
+          dbSilo1AfterStockDeact?.is_active === true &&
+          auditsAfterDeactStock === auditsBeforeDeactStock,
+        '5D-C5-12: Silo with positive milk stock cannot be deactivated (409, zero mutation, zero audit)'
+      );
+
+      // 13. Silo with active unloading/unfinalized visit cannot be deactivated (409)
+      const s3Code = `S3_${Date.now()}`.slice(0, 10);
+      const createSilo3Req = new Request('http://localhost/api/super-admin/silos', {
+        method: 'POST',
+        headers: saHeaders,
+        body: JSON.stringify({
+          siloCode: s3Code,
+          siloName: 'Active Unload Silo',
+          capacityLiters: 60000,
+        }),
+      });
+      const createSilo3Res = await postSilo(createSilo3Req);
+      const createSilo3Data = await createSilo3Res.json();
+      const s3Id = BigInt(createSilo3Data.silo.id);
+      cleanupC5SiloIds.push(s3Id);
+
+      const activeSource = await prisma.procurementSource.findFirst({ where: { is_active: true } });
+      if (!activeSource) throw new Error('Active procurement source required for 5D-C5 test');
+
+      const visitNum = `V_C5_${Date.now()}`.slice(0, 20);
+      const c5Visit = await prisma.vehicleVisit.create({
+        data: {
+          visit_number: visitNum,
+          vehicle_number: 'TEST-C5-VEH',
+          token_number: `T_${Date.now()}`.slice(0, 10),
+          current_status: 'UNLOADING',
+          procurement_source_id: activeSource.id,
+          created_by: adminUser?.id || null,
+        },
+      });
+      cleanupC5VisitIds.push(c5Visit.id);
+
+      const c5Portion = await prisma.visitPortion.create({
+        data: {
+          visit_id: c5Visit.id,
+          portion_number: 1,
+          plant_decision: 'ACCEPTED',
+        },
+      });
+      cleanupC5PortionIds.push(c5Portion.id);
+
+      const c5Unload = await prisma.unloadingLog.create({
+        data: {
+          portion_id: c5Portion.id,
+          silo_id: s3Id,
+          pump_start_timestamp: new Date(),
+        },
+      });
+      cleanupC5UnloadingIds.push(c5Unload.id);
+
+      const deactWithUnloadReq = new Request(`http://localhost/api/super-admin/silos/${s3Id}`, {
+        method: 'PATCH',
+        headers: saHeaders,
+        body: JSON.stringify({ isActive: false }),
+      });
+      const deactWithUnloadRes = await patchSilo(deactWithUnloadReq, { params: Promise.resolve({ id: s3Id.toString() }) });
+      const deactWithUnloadData = await deactWithUnloadRes.json();
+      const dbSilo3AfterDeact = await prisma.silo.findUnique({ where: { id: s3Id } });
+      assert(
+        deactWithUnloadRes.status === 409 &&
+          (deactWithUnloadData.error?.includes('Active unloading') || deactWithUnloadData.error?.includes('Pump offloading')) &&
+          dbSilo3AfterDeact?.is_active === true,
+        '5D-C5-13: Silo with active unfinalized vehicle visit / unloading in progress cannot be deactivated (409)'
+      );
+
+      // 14. Blocked deactivation creates zero audit rows
+      const s3DeactAudits = await prisma.auditLog.count({
+        where: { table_name: 'silo', record_id: s3Id, action: 'SILO_DEACTIVATED' },
+      });
+      assert(
+        s3DeactAudits === 0,
+        '5D-C5-14: Blocked deactivation generated zero SILO_DEACTIVATED audit logs'
+      );
+
+      // 15. Deactivated silo excluded from operational selector (/api/production/ready-for-unloading)
+      const readyReq = new NextRequest('http://localhost/api/production/ready-for-unloading', {
+        headers: saHeaders,
+      });
+      const readyRes = await getReadyForUnloading(readyReq);
+      const readyData = await readyRes.json();
+      const s2InReady = (readyData.silos || []).some((s: any) => s.id === s2Id.toString());
+      assert(
+        readyRes.status === 200 && !s2InReady,
+        '5D-C5-15: Deactivated silo is immediately excluded from operational selector (/api/production/ready-for-unloading)'
+      );
+
+      // 16. Direct requests using inactive silo rejected by backend (silo milk issue)
+      const prodDbUser = await prisma.user.findFirst({
+        where: { role: 'Production_Operator', is_active: true },
+      });
+      if (!prodDbUser) throw new Error('Active Production_Operator user required for 5D-C5-16 test');
+
+      const prodToken = await createSessionToken({
+        id: prodDbUser.id.toString(),
+        username: prodDbUser.username,
+        name: prodDbUser.full_name || prodDbUser.username,
+        role: prodDbUser.role as any,
+        department: prodDbUser.department || 'Production',
+      });
+      const origCookies = (nextHeaders as any).cookies;
+      (nextHeaders as any).cookies = async () => ({
+        get: (name: string) => (name === 'auth_token' ? { name: 'auth_token', value: prodToken } : undefined),
+      });
+
+      let inactiveIssueStatus = 0;
+      let inactiveIssueMsg = '';
+      try {
+        const issueInactiveReq = new Request('http://localhost/api/production/silo-issue', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${prodToken}`,
+          },
+          body: JSON.stringify({
+            siloId: s2Id.toString(),
+            quantityLiters: 1000,
+            operationalTimestamp: new Date(Date.now() - 5000).toISOString(),
+            purpose: 'Test Issue Inactive Silo',
+          }),
+        });
+        const issueInactiveRes = await postSiloIssue(issueInactiveReq);
+        inactiveIssueStatus = issueInactiveRes.status;
+        const issueInactiveData = await issueInactiveRes.json();
+        inactiveIssueMsg = issueInactiveData.error || '';
+      } finally {
+        (nextHeaders as any).cookies = origCookies;
+      }
+
+      assert(
+        inactiveIssueStatus === 409 && inactiveIssueMsg.includes('INACTIVE'),
+        '5D-C5-16: Direct milk issue request against inactive silo strictly rejected by backend with 409',
+        `Got status ${inactiveIssueStatus}, message: ${inactiveIssueMsg}`
+      );
+
+      // 16.1 Direct request to start unloading into an inactive silo strictly rejected by backend (409) with zero mutation
+      const visitUnloadNum = `V_UNL_${Date.now()}`.slice(0, 20);
+      const unloadVisit = await prisma.vehicleVisit.create({
+        data: {
+          visit_number: visitUnloadNum,
+          vehicle_number: 'TEST-UNL-VEH',
+          token_number: `T_${Date.now()}`.slice(0, 10),
+          current_status: 'READY_FOR_UNLOADING',
+          procurement_source_id: activeSource.id,
+          created_by: adminUser?.id || null,
+        },
+      });
+      cleanupC5VisitIds.push(unloadVisit.id);
+
+      const unloadTicket = await prisma.weightTicket.create({
+        data: {
+          visit_id: unloadVisit.id,
+          ticket_number: `WT_U_${Date.now()}`.slice(0, 20),
+          gross_weight_kg: 25000,
+          gross_timestamp: new Date(Date.now() - 60000),
+          gross_recorded_by: adminUser?.id || null,
+        },
+      });
+      cleanupC5TicketIds.push(unloadTicket.id);
+
+      const unloadPortion = await prisma.visitPortion.create({
+        data: {
+          visit_id: unloadVisit.id,
+          portion_number: 1,
+          plant_decision: 'ACCEPTED',
+          dispatch_quantity_value: 5000,
+          dispatch_quantity_unit: 'LITER',
+        },
+      });
+      cleanupC5PortionIds.push(unloadPortion.id);
+
+      const auditsBeforeStartUnload = await prisma.auditLog.count({
+        where: { table_name: 'vehicle_visit', record_id: unloadVisit.id },
+      });
+
+      const startUnloadReq = new NextRequest(
+        `http://localhost/api/production/vehicle-visits/${unloadVisit.id}/portions/${unloadPortion.id}/start`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${prodToken}`,
+          },
+          body: JSON.stringify({
+            siloId: s2Id.toString(),
+            opTimestamp: new Date().toISOString(),
+          }),
+        }
+      );
+      const startUnloadRes = await postStartUnloading(startUnloadReq, {
+        params: Promise.resolve({
+          visitId: unloadVisit.id.toString(),
+          portionId: unloadPortion.id.toString(),
+        }),
+      });
+      const startUnloadData = await startUnloadRes.json();
+
+      const unloadLogCreated = await prisma.unloadingLog.findUnique({
+        where: { portion_id: unloadPortion.id },
+      });
+      const unloadVisitAfter = await prisma.vehicleVisit.findUnique({
+        where: { id: unloadVisit.id },
+      });
+      const auditsAfterStartUnload = await prisma.auditLog.count({
+        where: { table_name: 'vehicle_visit', record_id: unloadVisit.id },
+      });
+
+      assert(
+        startUnloadRes.status === 409 &&
+          startUnloadData.error?.includes('is INACTIVE') &&
+          unloadLogCreated === null &&
+          unloadVisitAfter?.current_status === 'READY_FOR_UNLOADING' &&
+          auditsAfterStartUnload === auditsBeforeStartUnload,
+        '5D-C5-16.1: Direct request to start unloading into inactive silo strictly rejected with 409, zero unloading logs, and zero status mutation'
+      );
+
+      // 16.2 Direct request to finalize receipt into an inactive silo strictly rejected by backend (409) with zero mutation
+      const visitFinalNum = `V_FIN_${Date.now()}`.slice(0, 20);
+      const finalVisit = await prisma.vehicleVisit.create({
+        data: {
+          visit_number: visitFinalNum,
+          vehicle_number: 'TEST-FIN-VEH',
+          token_number: `T_${Date.now()}`.slice(0, 10),
+          current_status: 'READY_FOR_TARE',
+          procurement_source_id: activeSource.id,
+          created_by: adminUser?.id || null,
+        },
+      });
+      cleanupC5VisitIds.push(finalVisit.id);
+
+      const finalTicket = await prisma.weightTicket.create({
+        data: {
+          visit_id: finalVisit.id,
+          ticket_number: `WT_F_${Date.now()}`.slice(0, 20),
+          gross_weight_kg: 28000,
+          gross_timestamp: new Date(Date.now() - 120000),
+          gross_recorded_by: adminUser?.id || null,
+        },
+      });
+      cleanupC5TicketIds.push(finalTicket.id);
+
+      const finalPortion = await prisma.visitPortion.create({
+        data: {
+          visit_id: finalVisit.id,
+          portion_number: 1,
+          plant_decision: 'ACCEPTED',
+          dispatch_quantity_value: 8000,
+          dispatch_quantity_unit: 'LITER',
+        },
+      });
+      cleanupC5PortionIds.push(finalPortion.id);
+
+      const finalUnloadingLog = await prisma.unloadingLog.create({
+        data: {
+          portion_id: finalPortion.id,
+          silo_id: s2Id, // References inactive silo s2Id
+          silo_number: 'S2_INACT',
+          pump_start_timestamp: new Date(Date.now() - 60000),
+          pump_end_timestamp: new Date(Date.now() - 30000),
+        },
+      });
+      cleanupC5UnloadingIds.push(finalUnloadingLog.id);
+
+      const wbUser = await prisma.user.findFirst({
+        where: { role: { in: ['WEIGHBRIDGE_OPERATOR', 'Weighbridge_Operator', 'Admin', 'SUPER_ADMIN'] }, is_active: true },
+      });
+      if (!wbUser) throw new Error('Active Weighbridge Operator required for 5D-C5-16.2');
+
+      const wbToken = await createSessionToken({
+        id: wbUser.id.toString(),
+        username: wbUser.username,
+        name: wbUser.full_name || wbUser.username,
+        role: wbUser.role as any,
+        department: wbUser.department || 'Scale',
+      });
+
+      const tareAuditsBefore = await prisma.auditLog.count({
+        where: { table_name: 'weight_ticket', record_id: finalTicket.id },
+      });
+      const txCountBeforeTare = await prisma.siloInventoryTransaction.count({
+        where: { silo_id: s2Id },
+      });
+
+      const tareReq = new Request('http://localhost/api/scale/tare-weight', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${wbToken}`,
+        },
+        body: JSON.stringify({
+          visitId: finalVisit.id.toString(),
+          tareWeightKg: 8000,
+          tareTimestamp: new Date().toISOString(),
+        }),
+      });
+
+      let origCookiesWb = (nextHeaders as any).cookies;
+      let tareStatus = 0;
+      let tareData: any = {};
+      try {
+        (nextHeaders as any).cookies = async () => ({
+          get: (name: string) => (name === 'auth_token' ? { name: 'auth_token', value: wbToken } : undefined),
+        });
+        const tareRes = await postTareWeight(tareReq);
+        tareStatus = tareRes.status;
+        tareData = await tareRes.json();
+      } finally {
+        (nextHeaders as any).cookies = origCookiesWb;
+      }
+
+      const finalTicketAfter = await prisma.weightTicket.findUnique({
+        where: { id: finalTicket.id },
+      });
+      const finalVisitAfter = await prisma.vehicleVisit.findUnique({
+        where: { id: finalVisit.id },
+      });
+      const tareAuditsAfter = await prisma.auditLog.count({
+        where: { table_name: 'weight_ticket', record_id: finalTicket.id },
+      });
+      const txCountAfterTare = await prisma.siloInventoryTransaction.count({
+        where: { silo_id: s2Id },
+      });
+
+      assert(
+        tareStatus === 409 &&
+          tareData.error?.includes('is INACTIVE') &&
+          finalTicketAfter?.tare_weight_kg === null &&
+          finalTicketAfter?.net_weight_kg === null &&
+          finalVisitAfter?.current_status === 'READY_FOR_TARE' &&
+          tareAuditsAfter === tareAuditsBefore &&
+          txCountAfterTare === txCountBeforeTare,
+        '5D-C5-16.2: Direct request to finalize receipt into inactive silo strictly rejected with 409, zero weight mutation, zero ledger transactions, zero audit logs',
+        `status: ${tareStatus}, error: ${tareData?.error}, tareKg: ${finalTicketAfter?.tare_weight_kg}, status: ${finalVisitAfter?.current_status}, auditsBefore: ${tareAuditsBefore}, auditsAfter: ${tareAuditsAfter}`
+      );
+
+      // 17. Historical transactions for inactive silo remain readable
+      const getSilosReq = new Request('http://localhost/api/super-admin/silos', {
+        headers: saHeaders,
+      });
+      const getSilosRes = await getSilos(getSilosReq);
+      const getSilosData = await getSilosRes.json();
+      const s2InList = (getSilosData.silos || []).find((s: any) => s.id === s2Id.toString());
+      assert(
+        getSilosRes.status === 200 &&
+          s2InList !== undefined &&
+          s2InList.isActive === false &&
+          s2InList.capacityLiters === 40000,
+        '5D-C5-17: Inactive silo details and historical metrics remain fully readable in Super Admin silo list'
+      );
+
+      // 18. Reactivation succeeds (is_active: true, audit SILO_ACTIVATED) and returns silo to operational selection
+      const reactSilo2Req = new Request(`http://localhost/api/super-admin/silos/${s2Id}`, {
+        method: 'PATCH',
+        headers: saHeaders,
+        body: JSON.stringify({ isActive: true }),
+      });
+      const reactSilo2Res = await patchSilo(reactSilo2Req, { params: Promise.resolve({ id: s2Id.toString() }) });
+      const reactSilo2Data = await reactSilo2Res.json();
+      const dbSilo2AfterReact = await prisma.silo.findUnique({ where: { id: s2Id } });
+      const reactAudit = await prisma.auditLog.findFirst({
+        where: { table_name: 'silo', record_id: s2Id, action: 'SILO_ACTIVATED' },
+      });
+
+      const readyAfterReactRes = await getReadyForUnloading(
+        new NextRequest('http://localhost/api/production/ready-for-unloading', { headers: saHeaders })
+      );
+      const readyAfterReactData = await readyAfterReactRes.json();
+      const s2InReadyAfter = (readyAfterReactData.silos || []).some((s: any) => s.id === s2Id.toString());
+
+      assert(
+        reactSilo2Res.status === 200 &&
+          reactSilo2Data.success === true &&
+          dbSilo2AfterReact?.is_active === true &&
+          reactAudit !== null &&
+          (reactAudit.new_values as any)?.is_active === true &&
+          s2InReadyAfter === true,
+        '5D-C5-18: Reactivation succeeds (is_active: true, SILO_ACTIVATED audit) and immediately returns silo to operational selection'
+      );
+
+      // 19. Reactivation does not require session expiry or re-login
+      assert(
+        readyAfterReactRes.status === 200 && s2InReadyAfter === true,
+        '5D-C5-19: Reactivation takes immediate effect without session invalidation or user re-login'
+      );
+
+      // 20. Unexpected internal error returns safe generic 500
+      const invalidIdReq = new Request('http://localhost/api/super-admin/silos/999999999999', {
+        method: 'PATCH',
+        headers: saHeaders,
+        body: JSON.stringify({ siloName: 'Nonexistent Silo' }),
+      });
+      const notFoundRes = await patchSilo(invalidIdReq, { params: Promise.resolve({ id: '999999999999' }) });
+      assert(
+        notFoundRes.status === 404,
+        '5D-C5-20.1: Non-existent silo ID returns 404'
+      );
+
+      try {
+        (prisma as any).$transaction = async () => {
+          throw new Error('UNEXPECTED_DATABASE_CRASH_TEST');
+        };
+        const errReq = new Request(`http://localhost/api/super-admin/silos/${dbSilo1!.id}`, {
+          method: 'PATCH',
+          headers: saHeaders,
+          body: JSON.stringify({ siloName: 'Test Crash Name' }),
+        });
+        const errRes = await patchSilo(errReq, { params: Promise.resolve({ id: dbSilo1!.id.toString() }) });
+        const errData = await errRes.json();
+        assert(
+          errRes.status === 500 &&
+            errData.error === 'An unexpected error occurred while updating the silo.',
+          '5D-C5-20.2: Unexpected internal errors return safe generic 500 without leaking stack trace'
+        );
+      } finally {
+        (prisma as any).$transaction = origTx;
+      }
+
+      // 21. Concurrency lock order verifies row lock executed before stock/dependency checks
+      const executedSiloOps: string[] = [];
+      try {
+        (prisma as any).$transaction = async (fn: any) => {
+          return await origTx.call(prisma, async (tx: any) => {
+            const proxyTx = new Proxy(tx, {
+              get(target, prop, receiver) {
+                if (prop === '$executeRaw') {
+                  return async (...args: any[]) => {
+                    const rawSql = args[0] ? String(args[0].strings || args[0]) : '';
+                    if (rawSql.includes('silo') && rawSql.includes('FOR UPDATE')) {
+                      executedSiloOps.push('LOCK_SILO_FOR_UPDATE');
+                    }
+                    return await (target as any)[prop](...args);
+                  };
+                }
+                if (prop === 'siloInventoryTransaction') {
+                  return new Proxy(target.siloInventoryTransaction, {
+                    get(sTarget, sProp, sReceiver) {
+                      if (sProp === 'findMany') {
+                        return async (...args: any[]) => {
+                          executedSiloOps.push('QUERY_STOCK_LEDGER');
+                          return await sTarget.findMany(...args);
+                        };
+                      }
+                      return Reflect.get(sTarget, sProp, sReceiver);
+                    },
+                  });
+                }
+                if (prop === 'unloadingLog') {
+                  return new Proxy(target.unloadingLog, {
+                    get(uTarget, uProp, uReceiver) {
+                      if (uProp === 'findMany') {
+                        return async (...args: any[]) => {
+                          executedSiloOps.push('QUERY_UNLOAD_LOGS');
+                          return await uTarget.findMany(...args);
+                        };
+                      }
+                      return Reflect.get(uTarget, uProp, uReceiver);
+                    },
+                  });
+                }
+                if (prop === 'silo') {
+                  return new Proxy(target.silo, {
+                    get(uTarget, uProp, uReceiver) {
+                      if (uProp === 'update') {
+                        return async (...args: any[]) => {
+                          executedSiloOps.push('UPDATE_SILO');
+                          return await uTarget.update(...args);
+                        };
+                      }
+                      return Reflect.get(uTarget, uProp, uReceiver);
+                    },
+                  });
+                }
+                return Reflect.get(target, prop, receiver);
+              },
+            });
+            return await fn(proxyTx);
+          });
+        };
+
+        const lockOrderReq = new Request(`http://localhost/api/super-admin/silos/${dbSilo1!.id}`, {
+          method: 'PATCH',
+          headers: saHeaders,
+          body: JSON.stringify({ siloName: 'Lock Order Checked Silo' }),
+        });
+        await patchSilo(lockOrderReq, { params: Promise.resolve({ id: dbSilo1!.id.toString() }) });
+
+        const lockIdx = executedSiloOps.indexOf('LOCK_SILO_FOR_UPDATE');
+        const stockIdx = executedSiloOps.indexOf('QUERY_STOCK_LEDGER');
+        const updateIdx = executedSiloOps.indexOf('UPDATE_SILO');
+
+        assert(
+          lockIdx !== -1 &&
+            stockIdx !== -1 &&
+            updateIdx !== -1 &&
+            lockIdx < stockIdx &&
+            stockIdx < updateIdx,
+          '5D-C5-21: Concurrency lock order: SELECT ... FOR UPDATE executes strictly before stock checks and update'
+        );
+      } finally {
+        (prisma as any).$transaction = origTx;
+      }
+
+      // 22. Super Admin Silo UI source verification
+      const saSilosPagePath = path.join(__dirname, '../src/app/super-admin/silos/page.tsx');
+      const saSilosPageSrc = fs.readFileSync(saSilosPagePath, 'utf-8');
+      const hasDeactModal =
+        saSilosPageSrc.includes('role="dialog"') &&
+        saSilosPageSrc.includes('aria-modal="true"') &&
+        saSilosPageSrc.includes('aria-label="Confirm Silo Deactivation"') &&
+        saSilosPageSrc.includes('Deactivate Silo Storage');
+      const hasTouchTargets =
+        saSilosPageSrc.includes('min-h-[44px]') &&
+        saSilosPageSrc.includes('min-w-[44px]');
+      const hasGuardsAndDismissal =
+        saSilosPageSrc.includes('isSubmitting') &&
+        saSilosPageSrc.includes("e.key === 'Escape'");
+
+      assert(
+        hasDeactModal && hasTouchTargets && hasGuardsAndDismissal,
+        '5D-C5-22: Super Admin Silo UI contains deactivation modal, aria-modal, min 44px touch targets, isSubmitting guard, and Escape dismissal'
+      );
+
+      // 23. Test fixtures registered for clean removal in finally block
+      const hasFixtures = cleanupC5SiloIds.length >= 2 && cleanupC5TxIds.length >= 1;
+      assert(
+        hasFixtures,
+        '5D-C5-23: Test fixtures registered for clean removal in finally block'
+      );
+    } finally {
+      // Clean up all C5 fixtures strictly without swallowing errors
+      const c5CleanupErrors: any[] = [];
+      for (const tid of cleanupC5TicketIds) {
+        try {
+          await prisma.auditLog.deleteMany({
+            where: { table_name: 'weight_ticket', record_id: tid },
+          });
+          await prisma.weightTicket.delete({ where: { id: tid } });
+        } catch (err) {
+          c5CleanupErrors.push({ entity: 'weightTicket', id: tid.toString(), error: err });
+        }
+      }
+      for (const uid of cleanupC5UnloadingIds) {
+        try {
+          await prisma.unloadingLog.delete({ where: { id: uid } });
+        } catch (err) {
+          c5CleanupErrors.push({ entity: 'unloadingLog', id: uid.toString(), error: err });
+        }
+      }
+      for (const pid of cleanupC5PortionIds) {
+        try {
+          await prisma.visitPortion.delete({ where: { id: pid } });
+        } catch (err) {
+          c5CleanupErrors.push({ entity: 'visitPortion', id: pid.toString(), error: err });
+        }
+      }
+      for (const vid of cleanupC5VisitIds) {
+        try {
+          await prisma.auditLog.deleteMany({
+            where: { table_name: 'vehicle_visit', record_id: vid },
+          });
+          await prisma.vehicleVisit.delete({ where: { id: vid } });
+        } catch (err) {
+          c5CleanupErrors.push({ entity: 'vehicleVisit', id: vid.toString(), error: err });
+        }
+      }
+      for (const txid of cleanupC5TxIds) {
+        try {
+          await prisma.siloInventoryTransaction.delete({ where: { id: txid } });
+        } catch (err) {
+          c5CleanupErrors.push({ entity: 'siloInventoryTransaction', id: txid.toString(), error: err });
+        }
+      }
+      for (const sid of cleanupC5SiloIds) {
+        try {
+          await prisma.auditLog.deleteMany({
+            where: { table_name: 'silo', record_id: sid },
+          });
+          await prisma.silo.delete({ where: { id: sid } });
+        } catch (err) {
+          c5CleanupErrors.push({ entity: 'silo', id: sid.toString(), error: err });
+        }
+      }
+      for (const uid of cleanupC5UserIds) {
+        try {
+          await prisma.auditLog.deleteMany({
+            where: { table_name: 'users', record_id: uid },
+          });
+          await prisma.user.delete({ where: { id: uid } });
+        } catch (err) {
+          c5CleanupErrors.push({ entity: 'user', id: uid.toString(), error: err });
+        }
+      }
+      if (c5CleanupErrors.length > 0) {
+        console.error('Critical cleanup errors in 5D-C5 test suite:', c5CleanupErrors);
+        throw new Error(`Cleanup failed for ${c5CleanupErrors.length} test entities`);
       }
     }
 
