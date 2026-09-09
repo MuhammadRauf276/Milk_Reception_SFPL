@@ -5,7 +5,9 @@ import { filterUpdatesByRole, createSessionToken, getCurrentUser } from '../src/
 import { POST as postCreateUser } from '../src/app/api/super-admin/users/route';
 import { PATCH as patchUser } from '../src/app/api/super-admin/users/[id]/route';
 import { POST as postResetPassword } from '../src/app/api/super-admin/users/[id]/reset-password/route';
-import { GET as getProcurementSources } from '../src/app/api/super-admin/procurement-sources/route';
+import { GET as getProcurementSources, POST as postProcurementSource } from '../src/app/api/super-admin/procurement-sources/route';
+import { PATCH as patchProcurementSource } from '../src/app/api/super-admin/procurement-sources/[id]/route';
+import { POST as postStartDispatch } from '../src/app/api/dispatches/start/route';
 import bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
 import fs from 'fs';
@@ -695,7 +697,7 @@ async function runSuperAdminFinalizationTests() {
         get: (name: string) => (name === 'auth_token' ? { name: 'auth_token', value: saSessionToken } : undefined),
       });
 
-      const sourcesRes = await getProcurementSources();
+      const sourcesRes = await getProcurementSources(new Request('http://localhost/api/super-admin/procurement-sources'));
       const sourcesBody = await sourcesRes.json();
       const allHaveIsActive =
         sourcesRes.status === 200 &&
@@ -760,7 +762,7 @@ async function runSuperAdminFinalizationTests() {
         });
         tempInactiveSourceId = tempInactive.id;
 
-        const freshSourcesRes = await getProcurementSources();
+        const freshSourcesRes = await getProcurementSources(new Request('http://localhost/api/super-admin/procurement-sources'));
         const freshSourcesBody = await freshSourcesRes.json();
         const foundInactive = freshSourcesBody?.sources?.find((s: any) => s.id === tempInactive.id.toString());
 
@@ -933,6 +935,450 @@ async function runSuperAdminFinalizationTests() {
       noDuplicateHeader && noDuplicateSidebar && layoutUsesCanonical,
       '5D-C1-08: Canonical layout, sidebar, and header preserved without duplicate or replacement shell components'
     );
+
+    // ----------------------------------------------------
+    // STAGE 5D-C3: PROCUREMENT SOURCE LIFECYCLE
+    // ----------------------------------------------------
+    console.log('\n--- STAGE 5D-C3: PROCUREMENT SOURCE LIFECYCLE ---');
+
+    const procSourcesPagePath = path.join(process.cwd(), 'src', 'app', 'super-admin', 'procurement-sources', 'page.tsx');
+    const procSourcesPageContent = fs.readFileSync(procSourcesPagePath, 'utf8');
+
+    // UI Integrity Checks
+    const hasAddSourceAria = procSourcesPageContent.includes('aria-label="Add procurement source"');
+    const hasAddSourceTitle = procSourcesPageContent.includes('title="Add procurement source"');
+    const hasProcSourceMinTouch = procSourcesPageContent.includes('min-h-[44px]') && procSourcesPageContent.includes('min-w-[44px]');
+    const hasProcSourcePlus = procSourcesPageContent.includes('<Plus className="w-4 h-4" />');
+    const hasNoStoreFetch = procSourcesPageContent.includes("cache: 'no-store'");
+    const hasEscapeHandler = procSourcesPageContent.includes("e.key === 'Escape'");
+    const hasEditModal = procSourcesPageContent.includes('showEditModal') && procSourcesPageContent.includes('handleEditSource');
+    const hasConfirmModal = procSourcesPageContent.includes('showConfirmModal') && procSourcesPageContent.includes('handleConfirmToggle');
+    const hasNoExportedHelpers = !procSourcesPageContent.includes('export function') && !procSourcesPageContent.includes('export const');
+
+    assert(
+      hasAddSourceAria && hasAddSourceTitle && hasProcSourceMinTouch && hasProcSourcePlus,
+      '5D-C3-01: Compact Add procurement source action has aria-label, title, Plus icon, and minimum 44px touch target'
+    );
+    assert(
+      hasNoStoreFetch,
+      '5D-C3-02: Procurement Sources UI loads data with { cache: "no-store" }'
+    );
+    assert(
+      hasEscapeHandler && hasEditModal && hasConfirmModal && hasNoExportedHelpers,
+      '5D-C3-03: UI includes Escape key handling, Edit modal, Confirmation modal, and zero non-page exports'
+    );
+
+    // API Behavior and Safety Tests
+    const cleanupC3SourceIds: bigint[] = [];
+    const cleanupC3UserIds: bigint[] = [];
+    const cleanupC3VisitIds: bigint[] = [];
+
+    const c3AuthToken = await createSessionToken({
+      id: adminUser!.id.toString(),
+      username: adminUser!.username,
+      name: adminUser!.full_name || adminUser!.username,
+      role: 'SUPER_ADMIN',
+      department: 'Administration',
+    });
+
+    const c3Headers = {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${c3AuthToken}`,
+    };
+
+    try {
+      // 5D-C3-04: GET endpoint returns Cache-Control: private, no-store, max-age=0
+      const getReq = new Request('http://localhost/api/super-admin/procurement-sources', {
+        method: 'GET',
+        headers: c3Headers,
+      });
+      const getRes = await getProcurementSources(getReq);
+      const cacheControlHeader = getRes.headers.get('Cache-Control');
+      assert(
+        getRes.status === 200 && cacheControlHeader === 'private, no-store, max-age=0',
+        '5D-C3-04: GET /api/super-admin/procurement-sources includes Cache-Control: private, no-store, max-age=0'
+      );
+
+      // 5D-C3-05: Source creation with normalized uppercase code and atomic audit log
+      const randC3 = Math.floor(Math.random() * 900000) + 100000;
+      const testCodeRaw = `  c3-test-${randC3}  `;
+      const expectedCode = `C3-TEST-${randC3}`;
+      const testName = `Test Source C3 ${randC3}`;
+
+      const createReq = new Request('http://localhost/api/super-admin/procurement-sources', {
+        method: 'POST',
+        headers: c3Headers,
+        body: JSON.stringify({
+          code: testCodeRaw,
+          name: testName,
+          sourceType: 'ZMCC',
+        }),
+      });
+      const createRes = await postProcurementSource(createReq);
+      const createBody = await createRes.json();
+      assert(
+        createRes.status === 201 &&
+          createBody?.source?.code === expectedCode &&
+          createBody?.source?.name === testName &&
+          createBody?.source?.sourceType === 'ZMCC' &&
+          createBody?.source?.isActive === true,
+        '5D-C3-05: POST normalizes code to uppercase/trimmed and creates source with 201 status'
+      );
+
+      const createdSourceId = BigInt(createBody.source.id);
+      cleanupC3SourceIds.push(createdSourceId);
+
+      const createAudit = await prisma.auditLog.findFirst({
+        where: {
+          table_name: 'procurement_source',
+          record_id: createdSourceId,
+          action: 'PROCUREMENT_SOURCE_CREATED',
+        },
+      });
+      assert(
+        createAudit !== null && createAudit.user_id === adminUser!.id,
+        '5D-C3-06: Atomic audit log created with action PROCUREMENT_SOURCE_CREATED and admin user actor'
+      );
+
+      // 5D-C3-07: Duplicate code is strictly rejected with 400
+      const dupCreateReq = new Request('http://localhost/api/super-admin/procurement-sources', {
+        method: 'POST',
+        headers: c3Headers,
+        body: JSON.stringify({
+          code: expectedCode,
+          name: 'Another Name',
+          sourceType: 'CONTRACTOR',
+        }),
+      });
+      const dupCreateRes = await postProcurementSource(dupCreateReq);
+      const dupCreateBody = await dupCreateRes.json();
+      assert(
+        dupCreateRes.status === 400 && dupCreateBody?.error?.includes('already exists'),
+        '5D-C3-07: POST rejects duplicate code with 400'
+      );
+
+      // 5D-C3-08: Invalid sourceType is strictly rejected with 400
+      const invalidTypeReq = new Request('http://localhost/api/super-admin/procurement-sources', {
+        method: 'POST',
+        headers: c3Headers,
+        body: JSON.stringify({
+          code: `INVALID-${randC3}`,
+          name: 'Invalid Type Source',
+          sourceType: 'OTHER_TYPE',
+        }),
+      });
+      const invalidTypeRes = await postProcurementSource(invalidTypeReq);
+      assert(
+        invalidTypeRes.status === 400,
+        '5D-C3-08: POST rejects invalid sourceType with 400'
+      );
+
+      // 5D-C3-09: Immutability enforcement: cannot alter code or sourceType
+      const alterCodeReq = new Request(`http://localhost/api/super-admin/procurement-sources/${createdSourceId}`, {
+        method: 'PATCH',
+        headers: c3Headers,
+        body: JSON.stringify({ code: 'CHANGED_CODE' }),
+      });
+      const alterCodeRes = await patchProcurementSource(alterCodeReq, {
+        params: Promise.resolve({ id: createdSourceId.toString() }),
+      });
+      const alterCodeBody = await alterCodeRes.json();
+      assert(
+        alterCodeRes.status === 400 && alterCodeBody?.error?.includes('Code is immutable'),
+        '5D-C3-09: PATCH rejects attempt to alter code with 400'
+      );
+
+      const alterTypeReq = new Request(`http://localhost/api/super-admin/procurement-sources/${createdSourceId}`, {
+        method: 'PATCH',
+        headers: c3Headers,
+        body: JSON.stringify({ sourceType: 'CONTRACTOR' }),
+      });
+      const alterTypeRes = await patchProcurementSource(alterTypeReq, {
+        params: Promise.resolve({ id: createdSourceId.toString() }),
+      });
+      const alterTypeBody = await alterTypeRes.json();
+      assert(
+        alterTypeRes.status === 400 && alterTypeBody?.error?.includes('Source Type is immutable'),
+        '5D-C3-10: PATCH rejects attempt to alter sourceType with 400'
+      );
+
+      // 5D-C3-11: Empty name is rejected with 400
+      const emptyNameReq = new Request(`http://localhost/api/super-admin/procurement-sources/${createdSourceId}`, {
+        method: 'PATCH',
+        headers: c3Headers,
+        body: JSON.stringify({ name: '   ' }),
+      });
+      const emptyNameRes = await patchProcurementSource(emptyNameReq, {
+        params: Promise.resolve({ id: createdSourceId.toString() }),
+      });
+      assert(
+        emptyNameRes.status === 400,
+        '5D-C3-11: PATCH rejects empty name with 400'
+      );
+
+      // 5D-C3-12: Updating name succeeds with PROCUREMENT_SOURCE_UPDATED audit
+      const updatedName = `${testName} Renamed`;
+      const updateNameReq = new Request(`http://localhost/api/super-admin/procurement-sources/${createdSourceId}`, {
+        method: 'PATCH',
+        headers: c3Headers,
+        body: JSON.stringify({ name: updatedName }),
+      });
+      const updateNameRes = await patchProcurementSource(updateNameReq, {
+        params: Promise.resolve({ id: createdSourceId.toString() }),
+      });
+      const updateNameBody = await updateNameRes.json();
+      const updateAudit = await prisma.auditLog.findFirst({
+        where: {
+          table_name: 'procurement_source',
+          record_id: createdSourceId,
+          action: 'PROCUREMENT_SOURCE_UPDATED',
+        },
+      });
+      assert(
+        updateNameRes.status === 200 &&
+          updateNameBody?.source?.name === updatedName &&
+          updateAudit !== null &&
+          updateAudit.user_id === adminUser!.id,
+        '5D-C3-12: Updating name succeeds with 200 and logs PROCUREMENT_SOURCE_UPDATED'
+      );
+
+      // 5D-C3-13: Deactivation safety check A: Active assigned users block deactivation (409)
+      const assignedUser = await prisma.user.create({
+        data: {
+          username: `user.c3.${randC3}`,
+          full_name: 'Assigned User C3',
+          role: 'ZMCC_MANAGER',
+          procurement_source_id: createdSourceId,
+          is_active: true,
+        },
+      });
+      cleanupC3UserIds.push(assignedUser.id);
+
+      const deactBlockedUserReq = new Request(`http://localhost/api/super-admin/procurement-sources/${createdSourceId}`, {
+        method: 'PATCH',
+        headers: c3Headers,
+        body: JSON.stringify({ isActive: false }),
+      });
+      const deactBlockedUserRes = await patchProcurementSource(deactBlockedUserReq, {
+        params: Promise.resolve({ id: createdSourceId.toString() }),
+      });
+      const deactBlockedUserBody = await deactBlockedUserRes.json();
+      assert(
+        deactBlockedUserRes.status === 409 &&
+          deactBlockedUserBody?.error?.includes('active user(s) currently assigned'),
+        '5D-C3-13: Deactivation blocked with 409 when active users are assigned'
+      );
+
+      // Verify source was not modified in DB after blocked deactivation
+      const sourceAfterBlockedUser = await prisma.procurementSource.findUnique({ where: { id: createdSourceId } });
+      assert(
+        sourceAfterBlockedUser?.is_active === true,
+        '5D-C3-14: Blocked deactivation leaves procurement source is_active=true unchanged in DB'
+      );
+
+      // Deactivate the assigned user so blocker A is resolved
+      await prisma.user.update({
+        where: { id: assignedUser.id },
+        data: { is_active: false },
+      });
+
+      // 5D-C3-15: Deactivation safety check B: Active/incomplete vehicle visits block deactivation (409)
+      const incompleteVisit = await prisma.vehicleVisit.create({
+        data: {
+          visit_number: `V-C3-${randC3}`,
+          vehicle_number: `TK-C3-${randC3}`,
+          procurement_source_id: createdSourceId,
+          current_status: 'DRAFT_DISPATCH',
+          created_by: adminUser!.id,
+        },
+      });
+      cleanupC3VisitIds.push(incompleteVisit.id);
+
+      const deactBlockedVisitReq = new Request(`http://localhost/api/super-admin/procurement-sources/${createdSourceId}`, {
+        method: 'PATCH',
+        headers: c3Headers,
+        body: JSON.stringify({ isActive: false }),
+      });
+      const deactBlockedVisitRes = await patchProcurementSource(deactBlockedVisitReq, {
+        params: Promise.resolve({ id: createdSourceId.toString() }),
+      });
+      const deactBlockedVisitBody = await deactBlockedVisitRes.json();
+      assert(
+        deactBlockedVisitRes.status === 409 &&
+          deactBlockedVisitBody?.error?.includes('active or in-progress vehicle visit(s)'),
+        '5D-C3-15: Deactivation blocked with 409 when incomplete vehicle visits exist'
+      );
+
+      // Complete the visit so blocker B is resolved
+      await prisma.vehicleVisit.update({
+        where: { id: incompleteVisit.id },
+        data: { current_status: 'COMPLETED' },
+      });
+
+      // 5D-C3-16: Successful deactivation when all blockers resolved
+      const deactSuccessReq = new Request(`http://localhost/api/super-admin/procurement-sources/${createdSourceId}`, {
+        method: 'PATCH',
+        headers: c3Headers,
+        body: JSON.stringify({ isActive: false }),
+      });
+      const deactSuccessRes = await patchProcurementSource(deactSuccessReq, {
+        params: Promise.resolve({ id: createdSourceId.toString() }),
+      });
+      const deactSuccessBody = await deactSuccessRes.json();
+      const deactAudit = await prisma.auditLog.findFirst({
+        where: {
+          table_name: 'procurement_source',
+          record_id: createdSourceId,
+          action: 'PROCUREMENT_SOURCE_DEACTIVATED',
+        },
+      });
+      const sourceInDbAfterDeact = await prisma.procurementSource.findUnique({ where: { id: createdSourceId } });
+      assert(
+        deactSuccessRes.status === 200 &&
+          deactSuccessBody?.source?.isActive === false &&
+          sourceInDbAfterDeact?.is_active === false &&
+          deactAudit !== null &&
+          deactAudit.user_id === adminUser!.id,
+        '5D-C3-16: Deactivation succeeds when blockers are cleared, logging PROCUREMENT_SOURCE_DEACTIVATED'
+      );
+
+      // 5D-C3-17: Inactive source excluded from active operational dispatch start
+      const dispatchStartReq = new Request('http://localhost/api/dispatches/start', {
+        method: 'POST',
+        headers: c3Headers,
+        body: JSON.stringify({
+          procurementSourceId: createdSourceId.toString(),
+        }),
+      });
+      const dispatchStartRes = await postStartDispatch(dispatchStartReq);
+      const dispatchStartBody = await dispatchStartRes.json();
+      assert(
+        dispatchStartRes.status === 400 &&
+          (dispatchStartBody?.code === 'PROCUREMENT_SOURCE_INVALID' ||
+            dispatchStartBody?.error?.includes('inactive')),
+        '5D-C3-17: Inactive source is rejected by /api/dispatches/start with PROCUREMENT_SOURCE_INVALID'
+      );
+
+      // 5D-C3-18: Inactive source is still returned to Super Admin in GET list
+      const getListReq = new Request('http://localhost/api/super-admin/procurement-sources', {
+        method: 'GET',
+        headers: c3Headers,
+      });
+      const getListRes = await getProcurementSources(getListReq);
+      const getListBody = await getListRes.json();
+      const foundInList = getListBody?.sources?.find((s: any) => s.id === createdSourceId.toString());
+      assert(
+        foundInList && foundInList.isActive === false,
+        '5D-C3-18: Deactivated source remains visible in Super Admin GET list as Inactive'
+      );
+
+      // 5D-C3-19: Successful reactivation with PROCUREMENT_SOURCE_ACTIVATED audit
+      const reactReq = new Request(`http://localhost/api/super-admin/procurement-sources/${createdSourceId}`, {
+        method: 'PATCH',
+        headers: c3Headers,
+        body: JSON.stringify({ isActive: true }),
+      });
+      const reactRes = await patchProcurementSource(reactReq, {
+        params: Promise.resolve({ id: createdSourceId.toString() }),
+      });
+      const reactBody = await reactRes.json();
+      const reactAudit = await prisma.auditLog.findFirst({
+        where: {
+          table_name: 'procurement_source',
+          record_id: createdSourceId,
+          action: 'PROCUREMENT_SOURCE_ACTIVATED',
+        },
+      });
+      const sourceInDbAfterReact = await prisma.procurementSource.findUnique({ where: { id: createdSourceId } });
+      assert(
+        reactRes.status === 200 &&
+          reactBody?.source?.isActive === true &&
+          sourceInDbAfterReact?.is_active === true &&
+          reactAudit !== null &&
+          reactAudit.user_id === adminUser!.id,
+        '5D-C3-19: Reactivation succeeds with 200, is_active=true in DB, and logs PROCUREMENT_SOURCE_ACTIVATED'
+      );
+
+      // 5D-C3-20: Atomic rollback test: transaction rolls back if auditLog.create fails on POST
+      const randRollback = Math.floor(Math.random() * 900000) + 100000;
+      const rollbackCode = `C3-RB-${randRollback}`;
+      const origTransaction = prisma.$transaction;
+      try {
+        (prisma as any).$transaction = async (fn: any) => {
+          return await (origTransaction as any).call(prisma, async (tx: any) => {
+            const proxyTx = new Proxy(tx, {
+              get(target, prop, receiver) {
+                if (prop === 'auditLog') {
+                  return {
+                    create: async () => {
+                      throw new Error('Simulated Audit Failure for Rollback Test');
+                    },
+                  };
+                }
+                return Reflect.get(target, prop, receiver);
+              },
+            });
+            return await fn(proxyTx);
+          });
+        };
+
+        const rbCreateReq = new Request('http://localhost/api/super-admin/procurement-sources', {
+          method: 'POST',
+          headers: c3Headers,
+          body: JSON.stringify({
+            code: rollbackCode,
+            name: `Rollback Test Source ${randRollback}`,
+            sourceType: 'ZMCC',
+          }),
+        });
+        const rbCreateRes = await postProcurementSource(rbCreateReq);
+        assert(
+          rbCreateRes.status >= 500,
+          '5D-C3-20: POST returns >= 500 when transaction fails on auditLog creation'
+        );
+
+        const sourceAfterFailedCreate = await prisma.procurementSource.findUnique({ where: { code: rollbackCode } });
+        assert(
+          sourceAfterFailedCreate === null,
+          '5D-C3-21: Creation rolled back cleanly; no orphan source persisted in DB'
+        );
+      } finally {
+        prisma.$transaction = origTransaction as any;
+      }
+
+    } finally {
+      // Clean up test entities strictly
+      const cleanupErrors: any[] = [];
+      for (const visitId of cleanupC3VisitIds) {
+        try {
+          await prisma.vehicleVisit.delete({ where: { id: visitId } });
+        } catch (e) {
+          cleanupErrors.push({ entity: 'vehicleVisit', id: visitId.toString(), error: e });
+        }
+      }
+      for (const userId of cleanupC3UserIds) {
+        try {
+          await prisma.user.delete({ where: { id: userId } });
+        } catch (e) {
+          cleanupErrors.push({ entity: 'user', id: userId.toString(), error: e });
+        }
+      }
+      for (const sourceId of cleanupC3SourceIds) {
+        try {
+          await prisma.auditLog.deleteMany({
+            where: { table_name: 'procurement_source', record_id: sourceId },
+          });
+          await prisma.procurementSource.delete({ where: { id: sourceId } });
+        } catch (e) {
+          cleanupErrors.push({ entity: 'procurementSource', id: sourceId.toString(), error: e });
+        }
+      }
+
+      if (cleanupErrors.length > 0) {
+        console.error('Critical cleanup errors in 5D-C3 test suite:', cleanupErrors);
+        throw new Error(`Cleanup failed for ${cleanupErrors.length} test entities`);
+      }
+    }
 
     console.log(`\n========================================`);
     console.log(`SUPER ADMIN FINALIZATION TEST SUMMARY: ${passed} PASSED, ${failed} FAILED`);

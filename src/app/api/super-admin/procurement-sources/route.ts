@@ -2,10 +2,17 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
 
-export async function GET() {
-  const authUser = await getCurrentUser();
+const NO_STORE_HEADERS = {
+  'Cache-Control': 'private, no-store, max-age=0',
+};
+
+export async function GET(req: Request) {
+  const authUser = await getCurrentUser(req);
   if (!authUser || (authUser.role !== 'SUPER_ADMIN' && authUser.role !== 'Admin')) {
-    return NextResponse.json({ error: 'Unauthorized. Super Admin authorization required.' }, { status: 403 });
+    return NextResponse.json(
+      { error: 'Unauthorized. Super Admin authorization required.' },
+      { status: 403, headers: NO_STORE_HEADERS }
+    );
   }
 
   try {
@@ -22,14 +29,17 @@ export async function GET() {
       createdAt: s.created_at.toISOString(),
     }));
 
-    return NextResponse.json({ sources: serialized });
+    return NextResponse.json({ sources: serialized }, { headers: NO_STORE_HEADERS });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json(
+      { error: err.message || 'Failed to fetch procurement sources.' },
+      { status: 500, headers: NO_STORE_HEADERS }
+    );
   }
 }
 
 export async function POST(req: Request) {
-  const authUser = await getCurrentUser();
+  const authUser = await getCurrentUser(req);
   if (!authUser || (authUser.role !== 'SUPER_ADMIN' && authUser.role !== 'Admin')) {
     return NextResponse.json({ error: 'Unauthorized. Super Admin authorization required.' }, { status: 403 });
   }
@@ -87,8 +97,8 @@ export async function POST(req: Request) {
         sourceType: newSource.source_type,
         isActive: newSource.is_active,
       },
-    });
+    }, { status: 201 });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: err.message || 'Failed to create procurement source.' }, { status: 500 });
   }
 }
