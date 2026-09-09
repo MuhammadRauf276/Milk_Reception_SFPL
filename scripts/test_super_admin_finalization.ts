@@ -1572,6 +1572,81 @@ async function runSuperAdminFinalizationTests() {
         '5D-C3-PATCH-ROLLBACK-02: PATCH audit failure cleanly rolls back name and status, creating no audit records'
       );
 
+      // 5D-C3-LOCK: Row lock SELECT FOR UPDATE is acquired before blocker queries and blocked ops leave state unchanged
+      const executedOperationsInTx: string[] = [];
+      try {
+        (prisma as any).$transaction = async (fn: any) => {
+          return await (origTransaction as any).call(prisma, async (tx: any) => {
+            const proxyTx = new Proxy(tx, {
+              get(target, prop, receiver) {
+                if (prop === '$queryRaw') {
+                  return async (...args: any[]) => {
+                    executedOperationsInTx.push('LOCK_ROW_FOR_UPDATE');
+                    return await target.$queryRaw(...args);
+                  };
+                }
+                if (prop === 'user') {
+                  return new Proxy(target.user, {
+                    get(uTarget, uProp, uReceiver) {
+                      if (uProp === 'count') {
+                        return async (...args: any[]) => {
+                          executedOperationsInTx.push('CHECK_ASSIGNED_USERS');
+                          return await uTarget.count(...args);
+                        };
+                      }
+                      return Reflect.get(uTarget, uProp, uReceiver);
+                    },
+                  });
+                }
+                if (prop === 'vehicleVisit') {
+                  return new Proxy(target.vehicleVisit, {
+                    get(vTarget, vProp, vReceiver) {
+                      if (vProp === 'count') {
+                        return async (...args: any[]) => {
+                          executedOperationsInTx.push('CHECK_INCOMPLETE_VISITS');
+                          return await vTarget.count(...args);
+                        };
+                      }
+                      return Reflect.get(vTarget, vProp, vReceiver);
+                    },
+                  });
+                }
+                return Reflect.get(target, prop, receiver);
+              },
+            });
+            return await fn(proxyTx);
+          });
+        };
+
+        const lockVerifyReq = new Request(`http://localhost/api/super-admin/procurement-sources/${createdSourceId}`, {
+          method: 'PATCH',
+          headers: c3Headers,
+          body: JSON.stringify({ isActive: false }),
+        });
+        const lockVerifyRes = await patchProcurementSource(lockVerifyReq, {
+          params: Promise.resolve({ id: createdSourceId.toString() }),
+        });
+        assert(
+          lockVerifyRes.status === 200,
+          '5D-C3-LOCK-01: PATCH succeeds when acquiring lock and passing blocker checks'
+        );
+
+        const lockIndex = executedOperationsInTx.indexOf('LOCK_ROW_FOR_UPDATE');
+        const userCheckIndex = executedOperationsInTx.indexOf('CHECK_ASSIGNED_USERS');
+        const visitCheckIndex = executedOperationsInTx.indexOf('CHECK_INCOMPLETE_VISITS');
+
+        assert(
+          lockIndex !== -1 &&
+            userCheckIndex !== -1 &&
+            visitCheckIndex !== -1 &&
+            lockIndex < userCheckIndex &&
+            lockIndex < visitCheckIndex,
+          '5D-C3-LOCK-02: Row lock (SELECT FOR UPDATE) is verified to execute strictly BEFORE user and visit blocker checks'
+        );
+      } finally {
+        prisma.$transaction = origTransaction as any;
+      }
+
     } finally {
       // Clean up test entities strictly
       const cleanupErrors: any[] = [];

@@ -98,15 +98,23 @@ export async function PATCH(
 
     const adminUser = await prisma.user.findFirst({ where: { username: authUser.username } });
 
-    // 5. Execute read, immutability check, blocker checks, mutation, and audit in a single atomic transaction
+    // 5. Execute lock, re-read, immutability check, blocker checks, mutation, and audit in a single atomic transaction
     const updatedSource = await prisma.$transaction(async (tx) => {
-      // Re-read target source inside the transaction
+      // 1. Lock target procurement source using SELECT ... FOR UPDATE
+      const lockedRows = await tx.$queryRaw<Array<{ id: bigint }>>`
+        SELECT id FROM procurement_source WHERE id = ${sourceId} FOR UPDATE
+      `;
+      if (!lockedRows || lockedRows.length === 0) {
+        throw new NotFoundError('Target procurement source record not found.');
+      }
+
+      // 2. Re-read and verify the source
       const targetSource = await tx.procurementSource.findUnique({ where: { id: sourceId } });
       if (!targetSource) {
         throw new NotFoundError('Target procurement source record not found.');
       }
 
-      // Immutability checks: code & sourceType
+      // 3. Validate immutable fields
       if (hasCode) {
         if (typeof body.code !== 'string' || body.code.trim().toUpperCase() !== targetSource.code) {
           throw new ValidationError('Source Code is immutable and cannot be changed after creation.');
@@ -122,9 +130,10 @@ export async function PATCH(
       const newName = trimmedName !== undefined ? trimmedName : targetSource.name;
       const newIsActive = hasIsActive ? body.isActive : targetSource.is_active;
 
-      // Deactivation Safety Checks inside the transaction
+      // 4 & 5. Deactivation Safety Checks inside the transaction
       const isDeactivating = hasIsActive && body.isActive === false && targetSource.is_active === true;
       if (isDeactivating) {
+        // 4. Check active assigned users
         const activeAssignedUsersCount = await tx.user.count({
           where: {
             procurement_source_id: sourceId,
@@ -138,6 +147,7 @@ export async function PATCH(
           );
         }
 
+        // 5. Check incomplete vehicle visits
         const incompleteVisitsCount = await tx.vehicleVisit.count({
           where: {
             procurement_source_id: sourceId,
@@ -152,7 +162,7 @@ export async function PATCH(
         }
       }
 
-      // Determine audit action
+      // 6. Update the source
       let actionName = 'PROCUREMENT_SOURCE_UPDATED';
       if (hasIsActive && body.isActive !== targetSource.is_active) {
         actionName = newIsActive ? 'PROCUREMENT_SOURCE_ACTIVATED' : 'PROCUREMENT_SOURCE_DEACTIVATED';
@@ -166,6 +176,7 @@ export async function PATCH(
         },
       });
 
+      // 7. Create the audit record
       await tx.auditLog.create({
         data: {
           table_name: 'procurement_source',
@@ -177,6 +188,7 @@ export async function PATCH(
         },
       });
 
+      // 8. Return for atomic commit
       return source;
     });
 
