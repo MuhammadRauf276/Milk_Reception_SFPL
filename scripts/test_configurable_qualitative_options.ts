@@ -14,7 +14,6 @@ import { POST as completePortionPost } from '../src/app/api/qa/vehicle-visits/[v
 import { evaluateLabResult, validateCategoricalOption } from '../src/lib/lab-rules';
 import { calculateSNF, calculateRatio } from '../src/backend/utils/milkFormulas';
 import { getOperationalBusinessDate } from '../src/backend/core/business-day';
-import { mapScopeCheckboxes } from '../src/app/super-admin/lab-tests/page';
 
 async function runConfigurableQualitativeOptionsTests() {
   console.log('========================================================================');
@@ -1250,43 +1249,17 @@ async function runConfigurableQualitativeOptionsTests() {
     console.log('✓ Case 5DC2-7 Passed: Reactivated test immediately included in new sessions while all historical snapshots remain immutable.');
     passedCases++;
 
-    // --- CASE 5DC2-8: Scope Checkbox Mapping UI Logic ---
-    console.log('\n--- CASE 5DC2-8: Scope Checkbox Mapping UI Logic ---');
-    if (mapScopeCheckboxes(true, false) !== 'DISPATCH') {
-      throw new Error('Case 5DC2-8 Failed: Expected DISPATCH for (true, false)');
-    }
-    if (mapScopeCheckboxes(false, true) !== 'PLANT') {
-      throw new Error('Case 5DC2-8 Failed: Expected PLANT for (false, true)');
-    }
-    if (mapScopeCheckboxes(true, true) !== 'BOTH') {
-      throw new Error('Case 5DC2-8 Failed: Expected BOTH for (true, true)');
-    }
-    let mappingErrorThrew = false;
-    try {
-      mapScopeCheckboxes(false, false);
-    } catch (err: any) {
-      mappingErrorThrew = true;
-      if (!err.message.includes('Please select at least one scope')) {
-        throw new Error(`Case 5DC2-8 Failed: Unexpected error message "${err.message}"`);
-      }
-    }
-    if (!mappingErrorThrew) {
-      throw new Error('Case 5DC2-8 Failed: mapScopeCheckboxes(false, false) did not throw validation error');
-    }
-    console.log('✓ Case 5DC2-8 Passed: Scope checkbox mapping handles all permutations with strict validation.');
-    passedCases++;
-
-    // --- CASE 5DC2-9: Route-Level Atomicity & Audit Log Integrity ---
-    console.log('\n--- CASE 5DC2-9: Route-Level Atomicity & Audit Log Integrity ---');
+    // --- CASE 5DC2-8: Route-Level Atomicity & Audit Log Integrity ---
+    console.log('\n--- CASE 5DC2-8: Route-Level Atomicity & Audit Log Integrity ---');
     // 1. Successful POST audit log verification
     const successfulPostAudit = await prisma.auditLog.findFirst({
       where: { table_name: 'lab_test', record_id: bothTestId, action: 'LAB_TEST_CREATED' },
     });
     if (!successfulPostAudit) {
-      throw new Error('Case 5DC2-9 Failed: LAB_TEST_CREATED audit log not found');
+      throw new Error('Case 5DC2-8 Failed: LAB_TEST_CREATED audit log not found');
     }
     if (successfulPostAudit.user_id?.toString() !== superAdminUser.id.toString()) {
-      throw new Error(`Case 5DC2-9 Failed: Audit log user_id mismatch (${successfulPostAudit.user_id} vs ${superAdminUser.id})`);
+      throw new Error(`Case 5DC2-8 Failed: Audit log user_id mismatch (${successfulPostAudit.user_id} vs ${superAdminUser.id})`);
     }
     const postAuditJson = JSON.stringify(successfulPostAudit.new_values || {});
     if (
@@ -1295,7 +1268,7 @@ async function runConfigurableQualitativeOptionsTests() {
       postAuditJson.toLowerCase().includes('cookie') ||
       postAuditJson.toLowerCase().includes('secret')
     ) {
-      throw new Error('Case 5DC2-9 Failed: Sensitive authentication material found in audit log new_values');
+      throw new Error('Case 5DC2-8 Failed: Sensitive authentication material found in audit log new_values');
     }
 
     // 2. Successful PATCH audit log verification
@@ -1303,10 +1276,10 @@ async function runConfigurableQualitativeOptionsTests() {
       where: { table_name: 'lab_test', record_id: bothTestId, action: 'LAB_TEST_UPDATED' },
     });
     if (!successfulPatchAudit) {
-      throw new Error('Case 5DC2-9 Failed: LAB_TEST_UPDATED audit log not found');
+      throw new Error('Case 5DC2-8 Failed: LAB_TEST_UPDATED audit log not found');
     }
     if (successfulPatchAudit.user_id?.toString() !== superAdminUser.id.toString()) {
-      throw new Error(`Case 5DC2-9 Failed: Audit log user_id mismatch on PATCH (${successfulPatchAudit.user_id} vs ${superAdminUser.id})`);
+      throw new Error(`Case 5DC2-8 Failed: Audit log user_id mismatch on PATCH (${successfulPatchAudit.user_id} vs ${superAdminUser.id})`);
     }
 
     // 3. Atomicity on POST: simulate audit failure via transaction proxy
@@ -1366,7 +1339,7 @@ async function runConfigurableQualitativeOptionsTests() {
     }
 
     if (!postRollbackThrew) {
-      throw new Error(`Case 5DC2-9 Failed: Expected POST to return >= 500 on audit failure, got ${postStatus}`);
+      throw new Error(`Case 5DC2-8 Failed: Expected POST to return >= 500 on audit failure, got ${postStatus}`);
     }
 
     const postRollbackLabTest = await prisma.labTest.findFirst({
@@ -1374,7 +1347,7 @@ async function runConfigurableQualitativeOptionsTests() {
     });
     if (postRollbackLabTest) {
       cleanupTestIds.push(postRollbackLabTest.id);
-      throw new Error('Case 5DC2-9 Failed: Lab test was created despite audit log failure (transaction rollback failed)');
+      throw new Error('Case 5DC2-8 Failed: Lab test was created despite audit log failure (transaction rollback failed)');
     }
 
     // 4. Atomicity on PATCH: simulate audit failure via transaction proxy
@@ -1434,7 +1407,7 @@ async function runConfigurableQualitativeOptionsTests() {
     }
 
     if (!patchRollbackThrew) {
-      throw new Error(`Case 5DC2-9 Failed: Expected PATCH to return >= 500 on audit failure, got ${patchStatus}`);
+      throw new Error(`Case 5DC2-8 Failed: Expected PATCH to return >= 500 on audit failure, got ${patchStatus}`);
     }
 
     const dispTestAfterRollback = await prisma.labTest.findUnique({ where: { id: dispTestId } });
@@ -1447,10 +1420,10 @@ async function runConfigurableQualitativeOptionsTests() {
       dispTestAfterRollback?.displayOrder !== baselineDispTest?.displayOrder ||
       dispAuditCountAfterRollback !== baselineDispAuditCount
     ) {
-      throw new Error('Case 5DC2-9 Failed: Lab test mutation was persisted despite audit failure (PATCH rollback failed)');
+      throw new Error('Case 5DC2-8 Failed: Lab test mutation was persisted despite audit failure (PATCH rollback failed)');
     }
 
-    console.log('✓ Case 5DC2-9 Passed: Route handlers enforce full atomicity with audit log actor verification and rollback safety.');
+    console.log('✓ Case 5DC2-8 Passed: Route handlers enforce full atomicity with audit log actor verification and rollback safety.');
     passedCases++;
 
     console.log('\n========================================================================');

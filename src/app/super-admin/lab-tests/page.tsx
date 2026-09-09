@@ -28,7 +28,7 @@ interface ConfirmModalState {
   action: 'ACTIVATE' | 'DEACTIVATE';
 }
 
-export function mapScopeCheckboxes(scopeDispatch: boolean, scopePlantQA: boolean): string {
+function mapScopeCheckboxes(scopeDispatch: boolean, scopePlantQA: boolean): string {
   if (!scopeDispatch && !scopePlantQA) {
     throw new Error('Please select at least one scope (Dispatch or Plant QA).');
   }
