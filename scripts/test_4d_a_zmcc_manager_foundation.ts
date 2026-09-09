@@ -57,15 +57,26 @@ async function run4DATests() {
     });
   }
 
-  // 1. Fetch real DB fixtures
-  const zmccHasilpur = await prisma.procurementSource.findFirst({ where: { code: 'ZMCC-HASILPUR' } });
-  const zmccJhang = await prisma.procurementSource.findFirst({ where: { code: 'ZMCC-JHANG' } });
-  const contAlkhair = await prisma.procurementSource.findFirst({ where: { code: 'CONT-ALKHAIR' } });
+  // 1. Fetch real DB fixtures dynamically without source-name hardcoding
+  const zmccSources = await prisma.procurementSource.findMany({
+    where: { source_type: 'ZMCC', is_active: true },
+    orderBy: { id: 'asc' },
+  });
+  const contractorSources = await prisma.procurementSource.findMany({
+    where: { source_type: 'CONTRACTOR', is_active: true },
+    orderBy: { id: 'asc' },
+  });
 
-  const zmccOpHasilpur = await prisma.user.findFirst({ where: { username: 'zmcc.operator' } });
+  assert(zmccSources.length >= 2, 'TEST-0.1: At least two distinct active ZMCC sources exist in DB');
+  assert(contractorSources.length >= 1, 'TEST-0.2: At least one active Contractor source exists in DB');
+
+  const sourceA = zmccSources[0];
+  const sourceB = zmccSources[1];
+  const contSource = contractorSources[0];
+
   const zoneManager = await prisma.user.findFirst({ where: { username: 'zmcc.manager.north' } });
 
-  assert(!!zmccHasilpur && !!zmccJhang && !!contAlkhair && !!zmccOpHasilpur && !!zoneManager, 'TEST-0: Base fixtures exist in DB');
+  assert(!!sourceA && !!sourceB && !!contSource && !!zoneManager, 'TEST-0.3: Base fixtures exist in DB');
 
   // A1: ZMCC_MANAGER canonical destination is /mpd/zmcc-manager
   const loginPageSource = fs.readFileSync(path.join(__dirname, '../src/frontend/modules/auth/LoginPage.tsx'), 'utf-8');
@@ -109,18 +120,33 @@ async function run4DATests() {
   const hasInternalCrossVerificationTab = workspaceSource.includes("id: 'CROSS_VERIFICATION'") && workspaceSource.includes("label: 'Cross Verification'");
   assert(allTabsPresent && hasInternalCrossVerificationTab, 'TEST-A6 & A7: ZMCCManagerWorkspace contains all 6 required tabs including Cross Verification internal tab');
 
-  let tempManagerHasilpur: any = null;
+  let tempManagerA: any = null;
+  let tempManagerB: any = null;
   let tempUnboundManager: any = null;
   let tempContractorManager: any = null;
   let tempUnboundContractorManager: any = null;
+  let visitA: any = null;
+  let visitB: any = null;
 
   try {
-    tempManagerHasilpur = await prisma.user.create({
+    // Create Manager A assigned to distinct ZMCC Source A
+    tempManagerA = await prisma.user.create({
       data: {
-        username: `tmp.mgr.hasilpur.${Date.now()}`,
+        username: `tmp.mgr.a.${Date.now()}`,
         role: 'ZMCC_MANAGER',
         scope_type: 'SOURCE',
-        procurement_source_id: zmccHasilpur!.id,
+        procurement_source_id: sourceA.id,
+        is_active: true,
+      },
+    });
+
+    // Create Manager B assigned to distinct ZMCC Source B
+    tempManagerB = await prisma.user.create({
+      data: {
+        username: `tmp.mgr.b.${Date.now()}`,
+        role: 'ZMCC_MANAGER',
+        scope_type: 'SOURCE',
+        procurement_source_id: sourceB.id,
         is_active: true,
       },
     });
@@ -137,10 +163,10 @@ async function run4DATests() {
 
     tempContractorManager = await prisma.user.create({
       data: {
-        username: `tmp.mgr.alkhair.${Date.now()}`,
+        username: `tmp.mgr.cont.${Date.now()}`,
         role: 'CONTRACTOR_MANAGER',
         scope_type: 'SOURCE',
-        procurement_source_id: contAlkhair!.id,
+        procurement_source_id: contSource.id,
         is_active: true,
       },
     });
@@ -155,16 +181,97 @@ async function run4DATests() {
       },
     });
 
-    // R1 & R2: GET /api/logs ZMCC_MANAGER Source Isolation
-    const reqLogsHasilpur = await createAuthRequest('http://localhost:3000/api/logs', 'GET', undefined, tempManagerHasilpur);
-    const resLogsHasilpur = await getLogs(reqLogsHasilpur as any);
-    const jsonLogsHasilpur = await resLogsHasilpur.json();
+    // Insert disposable test records for Source A and Source B to ensure tests do NOT pass vacuously
+    const isoTs = Date.now();
+    visitA = await prisma.vehicleVisit.create({
+      data: {
+        visit_number: `VISIT-4DA-A-${isoTs}`,
+        vehicle_number: `VEH-4DA-A-${isoTs}`,
+        procurement_source_id: sourceA.id,
+        current_status: 'DISPATCHED',
+        operational_date: new Date(),
+        vehicle_dispatch_quantity_value: 5000,
+        vehicle_dispatch_quantity_unit: 'LITER',
+        portions: {
+          create: [
+            {
+              portion_number: 1,
+              dispatch_quantity_value: 5000,
+              dispatch_quantity_unit: 'LITER',
+            },
+          ],
+        },
+      },
+    });
 
-    assert(resLogsHasilpur.ok, 'TEST-R1: Scoped ZMCC_MANAGER GET /api/logs succeeds');
-    const foreignLogsHasilpur = (jsonLogsHasilpur.logs || []).filter(
-      (l: any) => l.zonal_contractor_name !== zmccHasilpur!.name
+    visitB = await prisma.vehicleVisit.create({
+      data: {
+        visit_number: `VISIT-4DA-B-${isoTs}`,
+        vehicle_number: `VEH-4DA-B-${isoTs}`,
+        procurement_source_id: sourceB.id,
+        current_status: 'DISPATCHED',
+        operational_date: new Date(),
+        vehicle_dispatch_quantity_value: 6000,
+        vehicle_dispatch_quantity_unit: 'LITER',
+        portions: {
+          create: [
+            {
+              portion_number: 1,
+              dispatch_quantity_value: 6000,
+              dispatch_quantity_unit: 'LITER',
+            },
+          ],
+        },
+      },
+    });
+
+    // R1 & R2: GET /api/logs ZMCC_MANAGER Source Isolation (Distinct Source A)
+    const reqLogsA = await createAuthRequest('http://localhost:3000/api/logs', 'GET', undefined, tempManagerA);
+    const resLogsA = await getLogs(reqLogsA as any);
+    const jsonLogsA = await resLogsA.json();
+
+    assert(resLogsA.ok, 'TEST-R1.1: Scoped ZMCC_MANAGER (Source A) GET /api/logs succeeds');
+    const foreignLogsA = (jsonLogsA.logs || []).filter(
+      (l: any) => l.zonal_contractor_name !== sourceA.name
     );
-    assert(foreignLogsHasilpur.length === 0, 'TEST-R2: Scoped ZMCC_MANAGER GET /api/logs receives ZERO foreign source records', `Foreign Count: ${foreignLogsHasilpur.length}`);
+    const sourceBLogsInA = (jsonLogsA.logs || []).filter(
+      (l: any) => l.zonal_contractor_name === sourceB.name
+    );
+    const hasVisitAInLogsA = (jsonLogsA.logs || []).some(
+      (l: any) => l.vehicle_number === visitA.vehicle_number
+    );
+    const hasVisitBInLogsA = (jsonLogsA.logs || []).some(
+      (l: any) => l.vehicle_number === visitB.vehicle_number
+    );
+    assert(
+      hasVisitAInLogsA && !hasVisitBInLogsA && foreignLogsA.length === 0 && sourceBLogsInA.length === 0,
+      'TEST-R1.2: Manager A receives known Record A, ZERO records from Source B, and ZERO foreign source records (non-vacuous)',
+      `Visit A present: ${hasVisitAInLogsA}, Visit B in A: ${hasVisitBInLogsA}, Foreign Count: ${foreignLogsA.length}`
+    );
+
+    // R2.1 & R2.2: GET /api/logs ZMCC_MANAGER Source Isolation (Distinct Source B)
+    const reqLogsB = await createAuthRequest('http://localhost:3000/api/logs', 'GET', undefined, tempManagerB);
+    const resLogsB = await getLogs(reqLogsB as any);
+    const jsonLogsB = await resLogsB.json();
+
+    assert(resLogsB.ok, 'TEST-R2.1: Scoped ZMCC_MANAGER (Source B) GET /api/logs succeeds');
+    const foreignLogsB = (jsonLogsB.logs || []).filter(
+      (l: any) => l.zonal_contractor_name !== sourceB.name
+    );
+    const sourceALogsInB = (jsonLogsB.logs || []).filter(
+      (l: any) => l.zonal_contractor_name === sourceA.name
+    );
+    const hasVisitBInLogsB = (jsonLogsB.logs || []).some(
+      (l: any) => l.vehicle_number === visitB.vehicle_number
+    );
+    const hasVisitAInLogsB = (jsonLogsB.logs || []).some(
+      (l: any) => l.vehicle_number === visitA.vehicle_number
+    );
+    assert(
+      hasVisitBInLogsB && !hasVisitAInLogsB && foreignLogsB.length === 0 && sourceALogsInB.length === 0,
+      'TEST-R2.2: Manager B receives known Record B, ZERO records from Source A, and ZERO foreign source records (bidirectional isolation verified, non-vacuous)',
+      `Visit B present: ${hasVisitBInLogsB}, Visit A in B: ${hasVisitAInLogsB}, Foreign Count: ${foreignLogsB.length}`
+    );
 
     // R3: Unbound ZMCC_MANAGER GET /api/logs fails closed
     const reqLogsUnbound = await createAuthRequest('http://localhost:3000/api/logs', 'GET', undefined, tempUnboundManager);
@@ -181,7 +288,7 @@ async function run4DATests() {
 
     assert(resLogsCont.ok, 'TEST-R4.1: Scoped CONTRACTOR_MANAGER GET /api/logs succeeds');
     const foreignLogsCont = (jsonLogsCont.logs || []).filter(
-      (l: any) => l.zonal_contractor_name !== contAlkhair!.name
+      (l: any) => l.zonal_contractor_name !== contSource.name
     );
     assert(foreignLogsCont.length === 0, 'TEST-R4.2: Scoped CONTRACTOR_MANAGER GET /api/logs receives ZERO foreign source records', `Foreign Count: ${foreignLogsCont.length}`);
 
@@ -198,33 +305,69 @@ async function run4DATests() {
     const resZone = await getLogs(reqZone as any);
     assert(resZone.ok, 'TEST-R6: MPD_Zone_Manager GET /api/logs succeeds normally');
 
-    // R7: GET /api/dispatches source isolation remains intact
-    const reqDispatches = await createAuthRequest('http://localhost:3000/api/dispatches?range=30d', 'GET', undefined, tempManagerHasilpur);
-    const resDispatches = await getDispatches(reqDispatches);
-    const jsonDispatches = await resDispatches.json();
+    // R7.1 & R7.2: GET /api/dispatches source isolation between Source A and Source B
+    const reqDispatchesA = await createAuthRequest('http://localhost:3000/api/dispatches?range=30d', 'GET', undefined, tempManagerA);
+    const resDispatchesA = await getDispatches(reqDispatchesA);
+    const jsonDispatchesA = await resDispatchesA.json();
 
-    assert(resDispatches.ok, 'TEST-R7.1: Scoped ZMCC_MANAGER GET /api/dispatches succeeds');
-    const foreignDispatches = (jsonDispatches.dispatches || []).filter(
-      (d: any) => d.procurement_source_id !== zmccHasilpur!.id.toString()
+    assert(resDispatchesA.ok, 'TEST-R7.1: Scoped ZMCC_MANAGER (Source A) GET /api/dispatches succeeds');
+    const foreignDispatchesA = (jsonDispatchesA.dispatches || []).filter(
+      (d: any) => d.procurement_source_id !== sourceA.id.toString()
     );
-    assert(foreignDispatches.length === 0, 'TEST-R7.2: Scoped ZMCC_MANAGER receives ZERO foreign dispatches', `Count: ${foreignDispatches.length}`);
+    const sourceBDispatchesInA = (jsonDispatchesA.dispatches || []).filter(
+      (d: any) => d.procurement_source_id === sourceB.id.toString()
+    );
+    const hasVisitAInDispatchesA = (jsonDispatchesA.dispatches || []).some(
+      (d: any) => d.visit_number === visitA.visit_number
+    );
+    const hasVisitBInDispatchesA = (jsonDispatchesA.dispatches || []).some(
+      (d: any) => d.visit_number === visitB.visit_number
+    );
+    assert(
+      hasVisitAInDispatchesA && !hasVisitBInDispatchesA && foreignDispatchesA.length === 0 && sourceBDispatchesInA.length === 0,
+      'TEST-R7.2: Manager A receives known Dispatch A, ZERO dispatches from Source B, and ZERO foreign dispatches (non-vacuous)',
+      `Dispatch A present: ${hasVisitAInDispatchesA}, Dispatch B in A: ${hasVisitBInDispatchesA}, Foreign Count: ${foreignDispatchesA.length}`
+    );
+
+    const reqDispatchesB = await createAuthRequest('http://localhost:3000/api/dispatches?range=30d', 'GET', undefined, tempManagerB);
+    const resDispatchesB = await getDispatches(reqDispatchesB);
+    const jsonDispatchesB = await resDispatchesB.json();
+
+    assert(resDispatchesB.ok, 'TEST-R7.3: Scoped ZMCC_MANAGER (Source B) GET /api/dispatches succeeds');
+    const foreignDispatchesB = (jsonDispatchesB.dispatches || []).filter(
+      (d: any) => d.procurement_source_id !== sourceB.id.toString()
+    );
+    const sourceADispatchesInB = (jsonDispatchesB.dispatches || []).filter(
+      (d: any) => d.procurement_source_id === sourceA.id.toString()
+    );
+    const hasVisitBInDispatchesB = (jsonDispatchesB.dispatches || []).some(
+      (d: any) => d.visit_number === visitB.visit_number
+    );
+    const hasVisitAInDispatchesB = (jsonDispatchesB.dispatches || []).some(
+      (d: any) => d.visit_number === visitA.visit_number
+    );
+    assert(
+      hasVisitBInDispatchesB && !hasVisitAInDispatchesB && foreignDispatchesB.length === 0 && sourceADispatchesInB.length === 0,
+      'TEST-R7.4: Manager B receives known Dispatch B, ZERO dispatches from Source A, and ZERO foreign dispatches (bidirectional dispatch isolation verified, non-vacuous)',
+      `Dispatch B present: ${hasVisitBInDispatchesB}, Dispatch A in B: ${hasVisitAInDispatchesB}, Foreign Count: ${foreignDispatchesB.length}`
+    );
 
     // STALE SESSION REASSIGNMENT TEST:
     // Create token with Source A, then update DB user to Source B, then call GET /api/logs
     const sessionTokenOld = await createSessionToken({
-      id: tempManagerHasilpur.id.toString(),
-      username: tempManagerHasilpur.username,
-      name: tempManagerHasilpur.username,
+      id: tempManagerA.id.toString(),
+      username: tempManagerA.username,
+      name: tempManagerA.username,
       role: 'ZMCC_MANAGER',
       department: 'Milk Procurement',
       scope_type: 'SOURCE',
-      procurement_source_id: zmccHasilpur!.id.toString(),
+      procurement_source_id: sourceA.id.toString(),
     });
 
-    // Update DB user assignment to Jhang (Source B)
+    // Update DB user assignment to Source B
     await prisma.user.update({
-      where: { id: tempManagerHasilpur.id },
-      data: { procurement_source_id: zmccJhang!.id },
+      where: { id: tempManagerA.id },
+      data: { procurement_source_id: sourceB.id },
     });
 
     const reqStale = new Request('http://localhost:3000/api/logs', {
@@ -235,9 +378,15 @@ async function run4DATests() {
     const jsonStale = await resStale.json();
 
     const staleFollowsCurrentDb = (jsonStale.logs || []).every(
-      (l: any) => l.zonal_contractor_name === zmccJhang!.name
+      (l: any) => l.zonal_contractor_name === sourceB.name
     );
-    assert(resStale.ok && staleFollowsCurrentDb, 'TEST-STALE: GET /api/logs follows authoritative current DB assignment (Source B), ignoring stale session assignment');
+    const hasVisitBInStale = (jsonStale.logs || []).some(
+      (l: any) => l.vehicle_number === visitB.vehicle_number
+    );
+    assert(
+      resStale.ok && staleFollowsCurrentDb && hasVisitBInStale,
+      'TEST-STALE: GET /api/logs follows authoritative current DB assignment (Source B), receiving known Record B and ignoring stale session assignment'
+    );
 
     // A12: ZMCC Manager workspace does not expose known plant mutation actions
     const hasGrossWeightAction = workspaceSource.includes('/api/scale/gross-weight') || workspaceSource.includes('Record Gross');
@@ -246,21 +395,41 @@ async function run4DATests() {
     assert(!hasGrossWeightAction && !hasTareWeightAction && !hasQaAcceptAction, 'TEST-A12.1: ZMCCManagerWorkspace contains zero plant operational mutation actions');
 
     // Also verify backend blocks mutation if ZMCC_MANAGER tries to call mutation APIs
-    const reqMut = await createAuthRequest('http://localhost:3000/api/scale/gross-weight', 'POST', { visitId: '1', grossWeightKg: 30000 }, tempManagerHasilpur);
+    const reqMut = await createAuthRequest('http://localhost:3000/api/scale/gross-weight', 'POST', { visitId: '1', grossWeightKg: 30000 }, tempManagerA);
     const resMut = await postGrossWeight(reqMut);
     assert(resMut.status === 403 || resMut.status === 401, 'TEST-A12.2: Backend blocks ZMCC_MANAGER from Gross Weight entry (403/401)');
   } finally {
-    if (tempManagerHasilpur?.id) {
-      await prisma.user.delete({ where: { id: tempManagerHasilpur.id } }).catch(() => {});
+    const cleanupErrors: any[] = [];
+
+    // Clean up disposable vehicle visits first
+    const visitsToDelete = [visitA?.id, visitB?.id].filter(Boolean);
+    for (const vId of visitsToDelete) {
+      try {
+        await prisma.vehicleVisit.delete({ where: { id: vId } });
+      } catch (err) {
+        cleanupErrors.push(err);
+      }
     }
-    if (tempUnboundManager?.id) {
-      await prisma.user.delete({ where: { id: tempUnboundManager.id } }).catch(() => {});
+
+    const fixturesToDelete = [
+      tempManagerA?.id,
+      tempManagerB?.id,
+      tempUnboundManager?.id,
+      tempContractorManager?.id,
+      tempUnboundContractorManager?.id,
+    ].filter(Boolean);
+
+    for (const userId of fixturesToDelete) {
+      try {
+        await prisma.user.delete({ where: { id: userId } });
+      } catch (err) {
+        cleanupErrors.push(err);
+      }
     }
-    if (tempContractorManager?.id) {
-      await prisma.user.delete({ where: { id: tempContractorManager.id } }).catch(() => {});
-    }
-    if (tempUnboundContractorManager?.id) {
-      await prisma.user.delete({ where: { id: tempUnboundContractorManager.id } }).catch(() => {});
+
+    if (cleanupErrors.length > 0) {
+      console.error('Fixture cleanup encountered failures:', cleanupErrors);
+      throw new Error(`Test fixture cleanup failed: ${cleanupErrors.map((e: any) => e.message || String(e)).join('; ')}`);
     }
   }
 
@@ -277,9 +446,9 @@ async function run4DATests() {
     const hasFakeLr28 = zonalHistorySource.includes("|| 28.0") || zonalHistorySource.includes("|| 28");
     assert(!hasFakeLr28, 'TEST-R11: No fake LR 28.0 fallback exists in ZonalHistoryTable');
   } else {
-    assert(true, 'TEST-R8: No fabricated Acidity (0.14) exists (ZonalHistoryTable retired in 4E-D)');
-    assert(true, 'TEST-R9 & R10: No fabricated Temperature exists (ZonalHistoryTable retired in 4E-D)');
-    assert(true, 'TEST-R11: No fake LR 28.0 fallback exists (ZonalHistoryTable retired in 4E-D)');
+    assert(!zonalHistoryExists, 'TEST-R8: ZonalHistoryTable is retired and physically absent from codebase (no fabricated Acidity)');
+    assert(!zonalHistoryExists, 'TEST-R9 & R10: ZonalHistoryTable is retired and physically absent from codebase (no fabricated Temperature)');
+    assert(!zonalHistoryExists, 'TEST-R11: ZonalHistoryTable is retired and physically absent from codebase (no fake LR 28.0 fallback)');
   }
 
   // R13, R14, R15: Pakistan Event Date/Time & Business Date Coexistence
