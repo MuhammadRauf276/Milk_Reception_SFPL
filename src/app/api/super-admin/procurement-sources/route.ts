@@ -2,10 +2,17 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
 
-export async function GET() {
-  const authUser = await getCurrentUser();
+const NO_STORE_HEADERS = {
+  'Cache-Control': 'private, no-store, max-age=0',
+};
+
+export async function GET(req: Request) {
+  const authUser = await getCurrentUser(req);
   if (!authUser || (authUser.role !== 'SUPER_ADMIN' && authUser.role !== 'Admin')) {
-    return NextResponse.json({ error: 'Unauthorized. Super Admin authorization required.' }, { status: 403 });
+    return NextResponse.json(
+      { error: 'Unauthorized. Super Admin authorization required.' },
+      { status: 403, headers: NO_STORE_HEADERS }
+    );
   }
 
   try {
@@ -22,23 +29,37 @@ export async function GET() {
       createdAt: s.created_at.toISOString(),
     }));
 
-    return NextResponse.json({ sources: serialized });
+    return NextResponse.json({ sources: serialized }, { headers: NO_STORE_HEADERS });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error('Unexpected error in GET /api/super-admin/procurement-sources:', err);
+    return NextResponse.json(
+      { error: 'Failed to fetch procurement sources.' },
+      { status: 500, headers: NO_STORE_HEADERS }
+    );
   }
 }
 
 export async function POST(req: Request) {
-  const authUser = await getCurrentUser();
+  const authUser = await getCurrentUser(req);
   if (!authUser || (authUser.role !== 'SUPER_ADMIN' && authUser.role !== 'Admin')) {
     return NextResponse.json({ error: 'Unauthorized. Super Admin authorization required.' }, { status: 403 });
   }
 
   try {
-    const body = await req.json();
-    const code = (body.code || '').trim().toUpperCase();
-    const name = (body.name || '').trim();
-    const sourceType = (body.sourceType || '').trim().toUpperCase();
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON request body.' }, { status: 400 });
+    }
+
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return NextResponse.json({ error: 'Request body must be a valid JSON object.' }, { status: 400 });
+    }
+
+    const code = typeof body.code === 'string' ? body.code.trim().toUpperCase() : '';
+    const name = typeof body.name === 'string' ? body.name.trim() : '';
+    const sourceType = typeof body.sourceType === 'string' ? body.sourceType.trim().toUpperCase() : '';
 
     if (!code || !name || !sourceType) {
       return NextResponse.json({ error: 'Code, Name, and Source Type (ZMCC or CONTRACTOR) are required.' }, { status: 400 });
@@ -78,17 +99,21 @@ export async function POST(req: Request) {
       return createdSource;
     });
 
-    return NextResponse.json({
-      success: true,
-      source: {
-        id: newSource.id.toString(),
-        code: newSource.code,
-        name: newSource.name,
-        sourceType: newSource.source_type,
-        isActive: newSource.is_active,
+    return NextResponse.json(
+      {
+        success: true,
+        source: {
+          id: newSource.id.toString(),
+          code: newSource.code,
+          name: newSource.name,
+          sourceType: newSource.source_type,
+          isActive: newSource.is_active,
+        },
       },
-    });
+      { status: 201 }
+    );
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error('Unexpected error in POST /api/super-admin/procurement-sources:', err);
+    return NextResponse.json({ error: 'Failed to create procurement source.' }, { status: 500 });
   }
 }
