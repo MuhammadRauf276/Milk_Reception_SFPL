@@ -420,12 +420,7 @@ export async function finalizeSiloReceiptForVisit(
   }
 
   if (!silo.is_active) {
-    return {
-      success: false,
-      receiptCreated: false,
-      reason: 'CAPACITY_EXCEEDED',
-      message: `Target Silo "${silo.silo_name}" (${silo.silo_code}) is INACTIVE. Final milk receipt blocked.`,
-    };
+    throw new Error(`Target Silo "${silo.silo_name}" (${silo.silo_code}) is INACTIVE. Final milk receipt blocked.`);
   }
 
   const stockState = await getSiloStockVolumeState(targetSiloId, db);
@@ -710,6 +705,10 @@ export async function recordSiloIssueTransaction(params: RecordSiloIssueParams) 
 
     if (!silo) {
       throw new Error(`Silo record not found (ID: ${params.silo_id}).`);
+    }
+
+    if (!silo.is_active) {
+      throw new Error(`Silo "${silo.silo_name}" (${silo.silo_code}) is INACTIVE. Milk issue is blocked.`);
     }
 
     // Physical stock calculation from ledger (RECEIPTS - ISSUES)

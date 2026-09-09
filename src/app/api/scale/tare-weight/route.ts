@@ -7,13 +7,13 @@ import { validatePositiveDecimal } from '@/lib/validation-helpers';
 import { validateOperationalTimestamp } from '@/backend/services/chronology-validator';
 
 export async function POST(req: Request) {
-  const authUser = await getCurrentUser();
+  const authUser = await getCurrentUser(req);
   if (!authUser) {
     return NextResponse.json({ error: 'Unauthorized. Authentication required.' }, { status: 401 });
   }
 
-  const allowedRoles = ['WEIGHBRIDGE_OPERATOR', 'Weighbridge_Operator', 'Production_Operator', 'Admin', 'Correction_Officer'];
-  if (!allowedRoles.includes(authUser.role)) {
+  const allowedRoles = ['WEIGHBRIDGE_OPERATOR', 'PRODUCTION_OPERATOR', 'ADMIN', 'SUPER_ADMIN', 'CORRECTION_OFFICER'];
+  if (!allowedRoles.includes(authUser.role.toUpperCase())) {
     return NextResponse.json({ error: 'Unauthorized. Weighbridge Operator role required.' }, { status: 403 });
   }
 
@@ -117,6 +117,31 @@ export async function POST(req: Request) {
       // 4. Calculate Net Weight server-side
       const netWeightKg = grossWeightKg - tareWeightKg;
 
+      // 4b. Server-Authoritative Destination Silo Active Check:
+      // Verify destination silos for all accepted portions are active before recording tare weight or finalizing
+      const acceptedPortions = visit.portions.filter((p) => p.plant_decision === 'ACCEPTED');
+      const targetSiloIds = Array.from(
+        new Set(
+          acceptedPortions
+            .map((p) => p.unloading_log?.silo_id)
+            .filter((id): id is bigint => id !== null && id !== undefined)
+        )
+      );
+
+      for (const sId of targetSiloIds) {
+        await tx.$executeRaw`SELECT id FROM silo WHERE id = ${sId} FOR UPDATE`;
+        const destSilo = await tx.silo.findUnique({
+          where: { id: sId },
+          select: { id: true, silo_code: true, silo_name: true, is_active: true },
+        });
+        if (!destSilo) {
+          throw new Error(`Target Silo (ID ${sId}) not found.`);
+        }
+        if (!destSilo.is_active) {
+          throw new Error(`Target Silo "${destSilo.silo_name}" (${destSilo.silo_code}) is INACTIVE. Final receipt is blocked.`);
+        }
+      }
+
       // 5. Update WeightTicket
       const updatedTicket = await tx.weightTicket.update({
         where: { id: visit.weight_ticket.id },
@@ -208,6 +233,8 @@ export async function POST(req: Request) {
       message: msg,
     });
   } catch (error: any) {
-    return NextResponse.json({ error: error?.message || 'Failed to record tare weight' }, { status: 400 });
+    const errorMsg = error?.message || 'Failed to record tare weight';
+    const status = errorMsg.includes('INACTIVE') ? 409 : 400;
+    return NextResponse.json({ error: errorMsg }, { status });
   }
 }
