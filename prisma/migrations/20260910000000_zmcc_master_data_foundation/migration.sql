@@ -1,8 +1,3 @@
--- Ensure active canonical SUPER_ADMIN exists for non-null created_by attribution
-INSERT INTO "users" ("username", "full_name", "role", "department", "scope_type", "is_active", "created_at", "updated_at")
-VALUES ('admin.superuser', 'Super Admin', 'SUPER_ADMIN', 'System Administration', 'SYSTEM', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-ON CONFLICT ("username") DO NOTHING;
-
 -- CreateTable: chiller_ownership
 CREATE TABLE "chiller_ownership" (
     "id" BIGSERIAL NOT NULL,
@@ -154,19 +149,3 @@ ALTER TABLE "zmcc_shop" ADD CONSTRAINT "zmcc_shop_milk_source_id_zmcc_id_fkey" F
 ALTER TABLE "zmcc_shop" ADD CONSTRAINT "zmcc_shop_chiller_ownership_id_fkey" FOREIGN KEY ("chiller_ownership_id") REFERENCES "chiller_ownership"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "zmcc_shop" ADD CONSTRAINT "zmcc_shop_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "zmcc_shop" ADD CONSTRAINT "zmcc_shop_updated_by_fkey" FOREIGN KEY ("updated_by") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- Idempotent Seed: 11 ChillerOwnership records using active canonical SUPER_ADMIN
-INSERT INTO "chiller_ownership" ("ownership_code", "name", "is_active", "created_by", "updated_by", "created_at", "updated_at")
-VALUES
-  ('NESTLE', 'Nestlé', true, (SELECT "id" FROM "users" WHERE "username" = 'admin.superuser' LIMIT 1), (SELECT "id" FROM "users" WHERE "username" = 'admin.superuser' LIMIT 1), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  ('ENGRO', 'Engro', true, (SELECT "id" FROM "users" WHERE "username" = 'admin.superuser' LIMIT 1), (SELECT "id" FROM "users" WHERE "username" = 'admin.superuser' LIMIT 1), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  ('SHAKARGANJ', 'Shakarganj', true, (SELECT "id" FROM "users" WHERE "username" = 'admin.superuser' LIMIT 1), (SELECT "id" FROM "users" WHERE "username" = 'admin.superuser' LIMIT 1), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  ('HALEEB', 'Haleeb', true, (SELECT "id" FROM "users" WHERE "username" = 'admin.superuser' LIMIT 1), (SELECT "id" FROM "users" WHERE "username" = 'admin.superuser' LIMIT 1), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  ('FFL', 'FFL', true, (SELECT "id" FROM "users" WHERE "username" = 'admin.superuser' LIMIT 1), (SELECT "id" FROM "users" WHERE "username" = 'admin.superuser' LIMIT 1), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  ('ADAM', 'Adam', true, (SELECT "id" FROM "users" WHERE "username" = 'admin.superuser' LIMIT 1), (SELECT "id" FROM "users" WHERE "username" = 'admin.superuser' LIMIT 1), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  ('MILLAC', 'Millac', true, (SELECT "id" FROM "users" WHERE "username" = 'admin.superuser' LIMIT 1), (SELECT "id" FROM "users" WHERE "username" = 'admin.superuser' LIMIT 1), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  ('GHANI', 'Ghani', true, (SELECT "id" FROM "users" WHERE "username" = 'admin.superuser' LIMIT 1), (SELECT "id" FROM "users" WHERE "username" = 'admin.superuser' LIMIT 1), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  ('ACHA_FOODS', 'Acha Foods', true, (SELECT "id" FROM "users" WHERE "username" = 'admin.superuser' LIMIT 1), (SELECT "id" FROM "users" WHERE "username" = 'admin.superuser' LIMIT 1), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  ('SELF', 'Self', true, (SELECT "id" FROM "users" WHERE "username" = 'admin.superuser' LIMIT 1), (SELECT "id" FROM "users" WHERE "username" = 'admin.superuser' LIMIT 1), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  ('OTHER', 'Other', true, (SELECT "id" FROM "users" WHERE "username" = 'admin.superuser' LIMIT 1), (SELECT "id" FROM "users" WHERE "username" = 'admin.superuser' LIMIT 1), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-ON CONFLICT ("ownership_code") DO NOTHING;

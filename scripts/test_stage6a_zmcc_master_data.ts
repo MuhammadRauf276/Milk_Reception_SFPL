@@ -201,7 +201,31 @@ async function runStage6aVerification() {
     );
 
     // ----------------------------------------------------
-    // TEST 3: Mandatory Creation Attribution (created_by NOT NULL)
+    // TEST 3: Migration Security Invariant (Zero User Creation or Seed Inserts)
+    // ----------------------------------------------------
+    const hasUserInsertInMigration =
+      /INSERT\s+INTO\s+["']?users["']?/i.test(migrationContent) ||
+      migrationContent.includes('admin.superuser') ||
+      migrationContent.includes('SUPER_ADMIN');
+
+    const hasChillerOwnershipInsertInMigration =
+      /INSERT\s+INTO\s+["']?chiller_ownership["']?/i.test(migrationContent);
+
+    // Verify database right after migration: 0 ownership records and 0 super admin users created by migration
+    const ownershipCountPostMigrate = await prisma.chillerOwnership.count();
+    const superAdminCountPostMigrate = await prisma.user.count({ where: { username: 'admin.superuser' } });
+
+    assert(
+      !hasUserInsertInMigration &&
+        !hasChillerOwnershipInsertInMigration &&
+        ownershipCountPostMigrate === 0 &&
+        superAdminCountPostMigrate === 0,
+      'MIGRATION-SECURITY-INVARIANTS',
+      'migration.sql contains zero user creation or seed inserts; fresh deployment contains 0 seeded rows'
+    );
+
+    // ----------------------------------------------------
+    // TEST 4: Mandatory Creation Attribution (created_by NOT NULL)
     // ----------------------------------------------------
     const targetTables = ['chiller_ownership', 'zmcc_route', 'zmcc_area', 'zmcc_milk_source', 'zmcc_shop'];
     const notNullColumns = await prisma.$queryRaw<Array<{ table_name: string; is_nullable: string }>>`
@@ -234,48 +258,9 @@ async function runStage6aVerification() {
     );
 
     // ----------------------------------------------------
-    // TEST 4: Canonical SUPER_ADMIN User Available in Test DB
+    // TEST 5: First Seed Run - Canonical SUPER_ADMIN & 11 ChillerOwnership Rows
     // ----------------------------------------------------
-    let superAdmin = await prisma.user.findFirst({
-      where: { username: 'admin.superuser' },
-    });
-
-    if (!superAdmin) {
-      superAdmin = await prisma.user.create({
-        data: {
-          username: 'admin.superuser',
-          full_name: 'Super Admin',
-          role: 'SUPER_ADMIN',
-          department: 'System Administration',
-          scope_type: 'SYSTEM',
-          is_active: true,
-        },
-      });
-    }
-
-    assert(
-      superAdmin !== null && superAdmin.role === 'SUPER_ADMIN',
-      'SEED-ACTOR-A',
-      `Active canonical SUPER_ADMIN (id=${superAdmin.id}) available for seeding and audit attribution`
-    );
-
-    // ----------------------------------------------------
-    // TEST 5: ChillerOwnership Idempotent Complete Seeding (11 Brands)
-    // ----------------------------------------------------
-    const expectedOwnershipBrands = [
-      'Nestlé', 'Engro', 'Shakarganj', 'Haleeb', 'FFL',
-      'Adam', 'Millac', 'Ghani', 'Acha Foods', 'Self', 'Other',
-    ];
-
-    const ownershipRecords = await prisma.chillerOwnership.findMany({
-      orderBy: { id: 'asc' },
-    });
-
-    const brandNamesFound = ownershipRecords.map((o) => o.name);
-    const allBrandsSeeded = expectedOwnershipBrands.every((b) => brandNamesFound.includes(b));
-
-    // Verify idempotency by running seed script
-    const seedExec = spawnSync(npxCmd, ['tsx', 'prisma/seed.ts'], {
+    const firstSeed = spawnSync(npxCmd, ['tsx', 'prisma/seed.ts'], {
       cwd: repoRoot,
       stdio: 'pipe',
       env: {
@@ -285,12 +270,77 @@ async function runStage6aVerification() {
       shell: true,
     });
 
-    const ownershipAfterSeed = await prisma.chillerOwnership.count();
+    const superAdmin = await prisma.user.findFirst({
+      where: {
+        username: 'admin.superuser',
+        role: 'SUPER_ADMIN',
+        is_active: true,
+        scope_type: 'SYSTEM',
+      },
+    });
+
+    if (!superAdmin) {
+      throw new Error('Seed invariant failed: admin.superuser was not found in test database');
+    }
+
+    const expectedOwnershipBrands = [
+      'Nestlé', 'Engro', 'Shakarganj', 'Haleeb', 'FFL',
+      'Adam', 'Millac', 'Ghani', 'Acha Foods', 'Self', 'Other',
+    ];
+
+    const ownershipAfterFirstSeed = await prisma.chillerOwnership.findMany({
+      orderBy: { id: 'asc' },
+    });
+
+    const firstSeedCountValid = ownershipAfterFirstSeed.length === 11;
+    const allBrandsPresent = expectedOwnershipBrands.every((b) =>
+      ownershipAfterFirstSeed.some((o) => o.name === b)
+    );
+    const allCreatedBySuperAdmin = ownershipAfterFirstSeed.every(
+      (o) => superAdmin !== null && o.created_by === superAdmin.id
+    );
+    const allFirstUpdatedByNull = ownershipAfterFirstSeed.every((o) => o.updated_by === null);
 
     assert(
-      allBrandsSeeded && ownershipAfterSeed === 11 && seedExec.status === 0,
-      'CHILLER-OWNERSHIP-SEED-A..B',
-      `11 ChillerOwnership brands seeded and verified idempotent (Count = ${ownershipAfterSeed})`
+      firstSeed.status === 0 &&
+        superAdmin !== null &&
+        firstSeedCountValid &&
+        allBrandsPresent &&
+        allCreatedBySuperAdmin &&
+        allFirstUpdatedByNull,
+      'SEED-FIRST-RUN-A..D',
+      'First seed run created exactly 11 records with created_by=SuperAdmin and updated_by=null'
+    );
+
+    // ----------------------------------------------------
+    // TEST 6: Second Idempotent Seed Run - Preserves created_by & Records updated_by
+    // ----------------------------------------------------
+    const secondSeed = spawnSync(npxCmd, ['tsx', 'prisma/seed.ts'], {
+      cwd: repoRoot,
+      stdio: 'pipe',
+      env: {
+        ...process.env,
+        DATABASE_URL: process.env.TEST_DATABASE_URL,
+      },
+      shell: true,
+    });
+
+    const ownershipAfterSecondSeed = await prisma.chillerOwnership.findMany({
+      orderBy: { id: 'asc' },
+    });
+
+    const countRemains11 = ownershipAfterSecondSeed.length === 11;
+    const createdByPreserved = ownershipAfterSecondSeed.every(
+      (o) => superAdmin !== null && o.created_by === superAdmin.id
+    );
+    const updatedByRecorded = ownershipAfterSecondSeed.every(
+      (o) => superAdmin !== null && o.updated_by === superAdmin.id
+    );
+
+    assert(
+      secondSeed.status === 0 && countRemains11 && createdByPreserved && updatedByRecorded,
+      'SEED-IDEMPOTENT-RUN-A..C',
+      'Second seed run created zero duplicates, preserved original created_by, and recorded updated_by'
     );
 
     // ----------------------------------------------------
@@ -463,7 +513,7 @@ async function runStage6aVerification() {
     // ----------------------------------------------------
     // TEST 10: ZmccShop Creation, Hierarchy Binding & Cross-ZMCC Rejection
     // ----------------------------------------------------
-    const nestleOwnership = ownershipRecords.find((o) => o.ownership_code === 'NESTLE')!;
+    const nestleOwnership = ownershipAfterSecondSeed.find((o) => o.ownership_code === 'NESTLE')!;
 
     // Valid Shop: Area A1, Route A1, ZMCC A, MilkSource A
     const validShop = await prisma.zmccShop.create({

@@ -194,11 +194,18 @@ async function main() {
   ];
 
   const superAdmin = await prisma.user.findFirst({
-    where: { username: 'admin.superuser', role: 'SUPER_ADMIN', is_active: true },
+    where: {
+      username: 'admin.superuser',
+      role: 'SUPER_ADMIN',
+      is_active: true,
+      scope_type: 'SYSTEM',
+    },
   });
 
   if (!superAdmin) {
-    throw new Error('Active canonical SUPER_ADMIN (admin.superuser) not found for seeding ChillerOwnership');
+    throw new Error(
+      'Active canonical SUPER_ADMIN (admin.superuser with role=SUPER_ADMIN, is_active=true, scope_type=SYSTEM) not found for seeding ChillerOwnership'
+    );
   }
 
   for (const item of CHILLER_OWNERSHIP_SEED) {
@@ -214,7 +221,7 @@ async function main() {
         name: item.name,
         is_active: true,
         created_by: superAdmin.id,
-        updated_by: superAdmin.id,
+        updated_by: null,
       },
     });
   }
