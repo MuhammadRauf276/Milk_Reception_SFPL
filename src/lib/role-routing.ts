@@ -26,6 +26,9 @@ export function resolveRoleHome(role?: string | null | unknown): string {
     case 'ZMCC_MANAGER':
       return '/mpd/zmcc-manager';
 
+    case 'PHE_OPERATOR':
+      return '/phe';
+
     case 'MPD_Operator':
     case 'MPD':
       return '/department/mpd';

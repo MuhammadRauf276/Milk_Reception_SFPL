@@ -122,6 +122,7 @@ export async function getCurrentUser(req?: Request): Promise<User | null> {
             code: true,
             name: true,
             source_type: true,
+            is_active: true,
           },
         },
       },
@@ -153,6 +154,7 @@ export async function getCurrentUser(req?: Request): Promise<User | null> {
             code: dbUser.procurement_source.code,
             name: dbUser.procurement_source.name,
             source_type: dbUser.procurement_source.source_type,
+            is_active: dbUser.procurement_source.is_active,
           }
         : null,
       last_login_at: dbUser.last_login_at ? dbUser.last_login_at.toISOString() : null,

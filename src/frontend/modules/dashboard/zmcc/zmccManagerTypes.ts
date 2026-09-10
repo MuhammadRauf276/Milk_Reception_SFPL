@@ -6,7 +6,8 @@ export type ZMCCManagerTab =
   | 'CROSS_VERIFICATION'
   | 'QUALITY'
   | 'RECEIPTS'
-  | 'HISTORY';
+  | 'HISTORY'
+  | 'MASTER_DATA';
 
 export type OverviewDateRange = 'TODAY' | 'YESTERDAY' | 'LAST_7' | 'LAST_15' | 'ALL';
 

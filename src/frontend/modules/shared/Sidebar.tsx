@@ -10,6 +10,7 @@ import {
   Tv,
   LayoutDashboard,
   FlaskConical,
+  Store,
   X,
 } from 'lucide-react';
 import { User } from '@core/types';
@@ -75,6 +76,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       role === 'Production');
 
   const isZmccManager = !isSecurityManager && role === 'ZMCC_MANAGER';
+  const isPheOperator = !isSecurityManager && role === 'PHE_OPERATOR';
   const isContractorManager = !isSecurityManager && role === 'CONTRACTOR_MANAGER';
 
   const isMainAdmin =
@@ -251,6 +253,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </span>
               <span className={`px-1.5 py-0.5 rounded font-mono text-[9px] ${getBadgeStyle('/contractor/manager')}`}>
                 MANAGER
+              </span>
+            </Link>
+          )}
+
+          {/* 2D. PHE OPERATOR VIEW */}
+          {isPheOperator && (
+            <Link
+              href="/phe"
+              onClick={handleLinkClick}
+              className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition ${getLinkStyle('/phe')}`}
+            >
+              <span className="flex items-center gap-2">
+                <Store className="w-4 h-4" />
+                <span>PHE Shop Station</span>
+              </span>
+              <span className={`px-1.5 py-0.5 rounded font-mono text-[9px] ${getBadgeStyle('/phe')}`}>
+                OPERATOR
               </span>
             </Link>
           )}
