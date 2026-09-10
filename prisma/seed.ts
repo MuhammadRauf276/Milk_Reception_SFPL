@@ -178,7 +178,55 @@ async function main() {
     }
   }
 
-  console.log('✅ Successfully seeded 30 Lab Tests, 5 Procurement Sources, and System Users!');
+  console.log('Seeding Chiller Ownership Master Data in PostgreSQL...');
+  const CHILLER_OWNERSHIP_SEED = [
+    { code: 'NESTLE', name: 'Nestlé' },
+    { code: 'ENGRO', name: 'Engro' },
+    { code: 'SHAKARGANJ', name: 'Shakarganj' },
+    { code: 'HALEEB', name: 'Haleeb' },
+    { code: 'FFL', name: 'FFL' },
+    { code: 'ADAM', name: 'Adam' },
+    { code: 'MILLAC', name: 'Millac' },
+    { code: 'GHANI', name: 'Ghani' },
+    { code: 'ACHA_FOODS', name: 'Acha Foods' },
+    { code: 'SELF', name: 'Self' },
+    { code: 'OTHER', name: 'Other' },
+  ];
+
+  const superAdmin = await prisma.user.findFirst({
+    where: {
+      username: 'admin.superuser',
+      role: 'SUPER_ADMIN',
+      is_active: true,
+      scope_type: 'SYSTEM',
+    },
+  });
+
+  if (!superAdmin) {
+    throw new Error(
+      'Active canonical SUPER_ADMIN (admin.superuser with role=SUPER_ADMIN, is_active=true, scope_type=SYSTEM) not found for seeding ChillerOwnership'
+    );
+  }
+
+  for (const item of CHILLER_OWNERSHIP_SEED) {
+    await prisma.chillerOwnership.upsert({
+      where: { ownership_code: item.code },
+      update: {
+        name: item.name,
+        is_active: true,
+        updated_by: superAdmin.id,
+      },
+      create: {
+        ownership_code: item.code,
+        name: item.name,
+        is_active: true,
+        created_by: superAdmin.id,
+        updated_by: null,
+      },
+    });
+  }
+
+  console.log('✅ Successfully seeded 30 Lab Tests, 5 Procurement Sources, System Users, and 11 Chiller Ownership records!');
 }
 
 main()
