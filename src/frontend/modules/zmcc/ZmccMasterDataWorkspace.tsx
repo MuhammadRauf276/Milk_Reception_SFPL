@@ -108,7 +108,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
   currentUser,
   initialTab,
 }) => {
-  const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN' || currentUser?.role === 'Admin';
+  const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
   const isZmccManager = currentUser?.role === 'ZMCC_MANAGER';
   const isPheOperator = currentUser?.role === 'PHE_OPERATOR';
 

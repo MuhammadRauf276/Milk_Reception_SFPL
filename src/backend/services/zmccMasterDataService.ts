@@ -1792,10 +1792,27 @@ export async function updateShop(
     if (!newArea) {
       return { status: 400, error: 'New area not found.' };
     }
+    // Hierarchy consistency check
+    if (!newArea.route || !newArea.route.zmcc || newArea.route.zmcc_id !== newArea.zmcc_id) {
+      return { status: 400, error: 'Cannot transfer shop: Area route and ZMCC hierarchy is inconsistent.' };
+    }
     // Area must be in same ZMCC
     if (newArea.zmcc_id !== existing.zmcc_id) {
       return { status: 409, error: 'Cannot transfer shop to an area in another ZMCC.' };
     }
+    // Source type must be ZMCC
+    if (newArea.route.zmcc.source_type !== 'ZMCC') {
+      return { status: 400, error: 'Cannot transfer shop: Target procurement source is not a valid ZMCC.' };
+    }
+    // Parent ZMCC must be active
+    if (!newArea.route.zmcc.is_active) {
+      return { status: 409, error: 'Cannot transfer shop: Parent ZMCC is inactive.' };
+    }
+    // Parent Route must be active
+    if (!newArea.route.is_active) {
+      return { status: 409, error: 'Cannot transfer shop: Parent Route is inactive.' };
+    }
+    // Area must be active
     if (!newArea.is_active) {
       return { status: 409, error: 'Cannot assign shop to an inactive area.' };
     }

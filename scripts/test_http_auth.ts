@@ -9,7 +9,7 @@ async function testHttpAuth() {
   console.log('Testing Route Handlers with No Cookies / Invalid Token / Valid Token...\n');
 
   // 1. Test GET /api/auth/me with no cookies
-  const meRes = await getMe();
+  const meRes = await getMe(new Request('http://localhost:3000/api/auth/me'));
   const meData = await meRes.json();
   console.log(`GET /api/auth/me (No Cookies) -> user: ${meData.user === null ? 'null ✅' : meData.user}`);
 

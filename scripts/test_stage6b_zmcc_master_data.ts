@@ -102,6 +102,7 @@ async function runStage6bTests() {
   const { GET: getChillerOwnershipById, PATCH: patchChillerOwnership } = await import('../src/app/api/zmcc/chiller-ownerships/[id]/route');
   const { GET: getShops, POST: postShops } = await import('../src/app/api/zmcc/shops/route');
   const { GET: getShopById, PATCH: patchShop } = await import('../src/app/api/zmcc/shops/[id]/route');
+  const { GET: getAuthMe } = await import('../src/app/api/auth/me/route');
 
   // Verify connected database
   const dbCheck = await prisma.$queryRaw<Array<{ current_database: string }>>`SELECT current_database()`;
@@ -577,6 +578,205 @@ async function runStage6bTests() {
       patchShopTransferRes.status === 409,
       'SA-TRANSFER-ZMCC-SHOP-REJECTED',
       'Attempting to transfer shop to an area in another ZMCC strictly rejected with HTTP 409 Conflict'
+    );
+
+    // 1.11 Shop move to inactive area strictly rejected -> HTTP 409
+    const patchShopInactAreaReq = await createAuthRequest(`http://localhost/api/zmcc/shops/${shop1Id}`, 'PATCH', {
+      area_id: inactArea.id.toString(),
+    }, superAdminUser);
+    const patchShopInactAreaRes = await patchShop(patchShopInactAreaReq, { params: Promise.resolve({ id: shop1Id.toString() }) });
+    assert(
+      patchShopInactAreaRes.status === 409,
+      'SHOP-MOVE-INACTIVE-AREA-REJECTED-409',
+      'Moving shop to an inactive area rejected with HTTP 409 Conflict'
+    );
+
+    // 1.12 Shop move to area under inactive route strictly rejected -> HTTP 409
+    const areaUnderInactRoute = await prisma.zmccArea.create({
+      data: {
+        area_code: `ARI_${ts}`.slice(0, 10),
+        name: `Area Under Inact Route ${ts}`,
+        route_id: inactRoute.id,
+        zmcc_id: zmcc1.id,
+        is_active: true,
+        created_by: superAdminUser.id,
+      },
+    });
+    cleanupAreaIds.push(areaUnderInactRoute.id);
+
+    const patchShopInactRouteReq = await createAuthRequest(`http://localhost/api/zmcc/shops/${shop1Id}`, 'PATCH', {
+      area_id: areaUnderInactRoute.id.toString(),
+    }, superAdminUser);
+    const patchShopInactRouteRes = await patchShop(patchShopInactRouteReq, { params: Promise.resolve({ id: shop1Id.toString() }) });
+    assert(
+      patchShopInactRouteRes.status === 409,
+      'SHOP-MOVE-INACTIVE-ROUTE-REJECTED-409',
+      'Moving shop to an area under an inactive route rejected with HTTP 409 Conflict'
+    );
+
+    // 1.13 Shop move to nonexistent area strictly rejected -> HTTP 400
+    const patchShopGhostAreaReq = await createAuthRequest(`http://localhost/api/zmcc/shops/${shop1Id}`, 'PATCH', {
+      area_id: '9999999999',
+    }, superAdminUser);
+    const patchShopGhostAreaRes = await patchShop(patchShopGhostAreaReq, { params: Promise.resolve({ id: shop1Id.toString() }) });
+    assert(
+      patchShopGhostAreaRes.status === 400,
+      'SHOP-MOVE-NONEXISTENT-AREA-REJECTED-400',
+      'Moving shop to nonexistent area rejected with HTTP 400'
+    );
+
+    // 1.14 Shop move under inactive ZMCC strictly rejected -> HTTP 409
+    const routeUnderInactZmcc = await prisma.zmccRoute.create({
+      data: {
+        route_code: `RIZ_${ts}`.slice(0, 10),
+        name: `Route Inact ZMCC ${ts}`,
+        origin: 'A',
+        destination: 'B',
+        zmcc_id: inactiveZmcc.id,
+        is_active: true,
+        created_by: superAdminUser.id,
+      },
+    });
+    cleanupRouteIds.push(routeUnderInactZmcc.id);
+
+    const area1UnderInactZmcc = await prisma.zmccArea.create({
+      data: {
+        area_code: `A1IZ_${ts}`.slice(0, 10),
+        name: `Area 1 Inact ZMCC ${ts}`,
+        route_id: routeUnderInactZmcc.id,
+        zmcc_id: inactiveZmcc.id,
+        is_active: true,
+        created_by: superAdminUser.id,
+      },
+    });
+    cleanupAreaIds.push(area1UnderInactZmcc.id);
+
+    const area2UnderInactZmcc = await prisma.zmccArea.create({
+      data: {
+        area_code: `A2IZ_${ts}`.slice(0, 10),
+        name: `Area 2 Inact ZMCC ${ts}`,
+        route_id: routeUnderInactZmcc.id,
+        zmcc_id: inactiveZmcc.id,
+        is_active: true,
+        created_by: superAdminUser.id,
+      },
+    });
+    cleanupAreaIds.push(area2UnderInactZmcc.id);
+
+    const msUnderInactZmcc = await prisma.zmccMilkSource.create({
+      data: {
+        erp_code: `MIZ_${ts}`.slice(0, 10),
+        name: `MS Inact ZMCC ${ts}`,
+        zmcc_id: inactiveZmcc.id,
+        is_active: true,
+        created_by: superAdminUser.id,
+      },
+    });
+    cleanupMilkSourceIds.push(msUnderInactZmcc.id);
+
+    const shopUnderInactZmcc = await prisma.zmccShop.create({
+      data: {
+        shop_code: `SIZM_${ts}`.slice(0, 10),
+        shop_name: `Shop Inact ZMCC ${ts}`,
+        owner_name: 'Owner',
+        phone_number: '03001234567',
+        cnic: '3520112345671',
+        area_id: area1UnderInactZmcc.id,
+        route_id: routeUnderInactZmcc.id,
+        zmcc_id: inactiveZmcc.id,
+        milk_source_id: msUnderInactZmcc.id,
+        chiller_ownership_id: createdCoId,
+        is_active: true,
+        created_by: superAdminUser.id,
+      },
+    });
+    cleanupShopIds.push(shopUnderInactZmcc.id);
+
+    const patchShopInactZmccReq = await createAuthRequest(`http://localhost/api/zmcc/shops/${shopUnderInactZmcc.id}`, 'PATCH', {
+      area_id: area2UnderInactZmcc.id.toString(),
+    }, superAdminUser);
+    const patchShopInactZmccRes = await patchShop(patchShopInactZmccReq, { params: Promise.resolve({ id: shopUnderInactZmcc.id.toString() }) });
+    assert(
+      patchShopInactZmccRes.status === 409,
+      'SHOP-MOVE-INACTIVE-ZMCC-REJECTED-409',
+      'Moving shop to an area under an inactive ZMCC rejected with HTTP 409 Conflict'
+    );
+
+    // 1.15 Shop move under non-ZMCC source strictly rejected -> HTTP 400
+    const routeContractor = await prisma.zmccRoute.create({
+      data: {
+        route_code: `RC_${ts}`.slice(0, 10),
+        name: `Route Contractor ${ts}`,
+        origin: 'A',
+        destination: 'B',
+        zmcc_id: contractorSource.id,
+        is_active: true,
+        created_by: superAdminUser.id,
+      },
+    });
+    cleanupRouteIds.push(routeContractor.id);
+
+    const area1Contractor = await prisma.zmccArea.create({
+      data: {
+        area_code: `A1C_${ts}`.slice(0, 10),
+        name: `Area 1 Contractor ${ts}`,
+        route_id: routeContractor.id,
+        zmcc_id: contractorSource.id,
+        is_active: true,
+        created_by: superAdminUser.id,
+      },
+    });
+    cleanupAreaIds.push(area1Contractor.id);
+
+    const area2Contractor = await prisma.zmccArea.create({
+      data: {
+        area_code: `A2C_${ts}`.slice(0, 10),
+        name: `Area 2 Contractor ${ts}`,
+        route_id: routeContractor.id,
+        zmcc_id: contractorSource.id,
+        is_active: true,
+        created_by: superAdminUser.id,
+      },
+    });
+    cleanupAreaIds.push(area2Contractor.id);
+
+    const msContractor = await prisma.zmccMilkSource.create({
+      data: {
+        erp_code: `MSC_${ts}`.slice(0, 10),
+        name: `MS Contractor ${ts}`,
+        zmcc_id: contractorSource.id,
+        is_active: true,
+        created_by: superAdminUser.id,
+      },
+    });
+    cleanupMilkSourceIds.push(msContractor.id);
+
+    const shopContractor = await prisma.zmccShop.create({
+      data: {
+        shop_code: `SC_${ts}`.slice(0, 10),
+        shop_name: `Shop Contractor ${ts}`,
+        owner_name: 'Owner',
+        phone_number: '03001234567',
+        cnic: '3520112345671',
+        area_id: area1Contractor.id,
+        route_id: routeContractor.id,
+        zmcc_id: contractorSource.id,
+        milk_source_id: msContractor.id,
+        chiller_ownership_id: createdCoId,
+        is_active: true,
+        created_by: superAdminUser.id,
+      },
+    });
+    cleanupShopIds.push(shopContractor.id);
+
+    const patchShopNonZmccReq = await createAuthRequest(`http://localhost/api/zmcc/shops/${shopContractor.id}`, 'PATCH', {
+      area_id: area2Contractor.id.toString(),
+    }, superAdminUser);
+    const patchShopNonZmccRes = await patchShop(patchShopNonZmccReq, { params: Promise.resolve({ id: shopContractor.id.toString() }) });
+    assert(
+      patchShopNonZmccRes.status === 400,
+      'SHOP-MOVE-NON-ZMCC-SOURCE-REJECTED-400',
+      'Moving shop to an area under a non-ZMCC source rejected with HTTP 400'
     );
 
     console.log('\n--- SECTION 2: ZMCC MANAGER SCOPED ACCESS & CROSS-ZMCC ISOLATION ---');
@@ -1175,6 +1375,102 @@ async function runStage6bTests() {
         (shopModule as any).DELETE === undefined,
       'NO-PHYSICAL-DELETE-ENDPOINTS',
       'Zero physical DELETE handlers exported across all 5 master-data route files'
+    );
+
+    console.log('\n--- SECTION 9: /API/AUTH/ME FAIL-CLOSED VALIDATION & ROLE ENFORCEMENT ---');
+
+    // 9.1 Active canonical SUPER_ADMIN succeeds
+    const saMeReq = await createAuthRequest('http://localhost/api/auth/me', 'GET', undefined, superAdminUser);
+    const saMeRes = await getAuthMe(saMeReq);
+    const saMeData = await saMeRes.json();
+    assert(
+      saMeRes.status === 200 && saMeData.user?.role === 'SUPER_ADMIN',
+      'AUTH-ME-SUPER-ADMIN-SUCCEEDS',
+      'Active canonical SUPER_ADMIN succeeds with status 200 and verified role'
+    );
+
+    // 9.2 Inactive SUPER_ADMIN session fails closed -> HTTP 401 { user: null }
+    const inactSaUser = await prisma.user.create({
+      data: {
+        username: `inact_sa_${ts}`,
+        full_name: 'Inactive Super Admin',
+        role: 'SUPER_ADMIN',
+        department: 'System Administration',
+        scope_type: 'SYSTEM',
+        is_active: false,
+      },
+    });
+    cleanupUserIds.push(inactSaUser.id);
+    const inactSaMeReq = await createAuthRequest('http://localhost/api/auth/me', 'GET', undefined, inactSaUser);
+    const inactSaMeRes = await getAuthMe(inactSaMeReq);
+    const inactSaMeData = await inactSaMeRes.json();
+    assert(
+      inactSaMeRes.status === 401 && inactSaMeData.user === null,
+      'AUTH-ME-INACTIVE-SUPER-ADMIN-FAILS-CLOSED',
+      'Inactive SUPER_ADMIN session fails closed with HTTP 401 and user: null'
+    );
+
+    // 9.3 Deleted/missing user session fails closed -> HTTP 401 { user: null }
+    const ghostMeReq = await createAuthRequest('http://localhost/api/auth/me', 'GET', undefined, {
+      id: '8888888888',
+      username: 'deleted_ghost_user',
+      role: 'SUPER_ADMIN',
+    });
+    const ghostMeRes = await getAuthMe(ghostMeReq);
+    const ghostMeData = await ghostMeRes.json();
+    assert(
+      ghostMeRes.status === 401 && ghostMeData.user === null,
+      'AUTH-ME-DELETED-USER-FAILS-CLOSED',
+      'Deleted or missing user session fails closed with HTTP 401 and user: null'
+    );
+
+    // 9.4 Stale / alias Admin session fails to receive SUPER_ADMIN capability
+    const adminMeReq = await createAuthRequest('http://localhost/api/auth/me', 'GET', undefined, adminAliasUser);
+    const adminMeRes = await getAuthMe(adminMeReq);
+    const adminMeData = await adminMeRes.json();
+    assert(
+      adminMeRes.status === 200 && adminMeData.user?.role === 'Admin',
+      'AUTH-ME-ADMIN-ALIAS-NOT-SUPER-ADMIN',
+      "Role 'Admin' returned accurately from DB without SUPER_ADMIN elevation"
+    );
+    // And user with role 'Admin' is rejected from ZMCC Master Data
+    const adminZReq = await createAuthRequest('http://localhost/api/zmcc/chiller-ownerships', 'POST', {
+      ownership_code: `COA_${ts}`.slice(0, 10),
+      name: `Admin Test Ownership ${ts}`,
+    }, adminAliasUser);
+    const adminZRes = await postChillerOwnerships(adminZReq);
+    assert(
+      adminZRes.status === 403,
+      'ADMIN-ALIAS-DENIED-SUPER-ADMIN-APIS',
+      "User with role 'Admin' strictly denied from SUPER_ADMIN APIs (HTTP 403)"
+    );
+
+    // 9.5 Active scoped PHE_OPERATOR receives verified source information
+    const pheMeReq = await createAuthRequest('http://localhost/api/auth/me', 'GET', undefined, pheUser1);
+    const pheMeRes = await getAuthMe(pheMeReq);
+    const pheMeData = await pheMeRes.json();
+    assert(
+      pheMeRes.status === 200 &&
+        pheMeData.user?.role === 'PHE_OPERATOR' &&
+        pheMeData.user?.procurement_source?.id === zmcc1.id.toString() &&
+        pheMeData.user?.procurement_source?.source_type === 'ZMCC' &&
+        pheMeData.user?.procurement_source?.is_active === true,
+      'AUTH-ME-PHE-VERIFIED-SOURCE',
+      'Active scoped PHE_OPERATOR receives verified ZMCC source information'
+    );
+
+    // 9.6 Active scoped ZMCC_MANAGER receives verified source information
+    const zmMeReq = await createAuthRequest('http://localhost/api/auth/me', 'GET', undefined, zmcc1ManagerUser);
+    const zmMeRes = await getAuthMe(zmMeReq);
+    const zmMeData = await zmMeRes.json();
+    assert(
+      zmMeRes.status === 200 &&
+        zmMeData.user?.role === 'ZMCC_MANAGER' &&
+        zmMeData.user?.procurement_source?.id === zmcc1.id.toString() &&
+        zmMeData.user?.procurement_source?.source_type === 'ZMCC' &&
+        zmMeData.user?.procurement_source?.is_active === true,
+      'AUTH-ME-ZMCC-MANAGER-VERIFIED-SOURCE',
+      'Active scoped ZMCC_MANAGER receives verified ZMCC source information'
     );
   } finally {
     // Clean up test fixtures in reverse relational order

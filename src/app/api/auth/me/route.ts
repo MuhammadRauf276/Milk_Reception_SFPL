@@ -2,10 +2,10 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
 
-export async function GET() {
-  const sessionUser = await getCurrentUser();
+export async function GET(request: Request) {
+  const sessionUser = await getCurrentUser(request);
   if (!sessionUser) {
-    return NextResponse.json({ user: null });
+    return NextResponse.json({ user: null, error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
@@ -21,7 +21,7 @@ export async function GET() {
     });
 
     if (!dbUser) {
-      return NextResponse.json({ user: sessionUser });
+      return NextResponse.json({ user: null, error: 'Unauthorized' }, { status: 401 });
     }
 
     const user = {
@@ -45,6 +45,6 @@ export async function GET() {
 
     return NextResponse.json({ user });
   } catch (_err) {
-    return NextResponse.json({ user: sessionUser });
+    return NextResponse.json({ user: null, error: 'Authentication verification failed' }, { status: 500 });
   }
 }
