@@ -3,6 +3,7 @@ export type Role =
   | 'MPD_Operator'            // ZMCC/Contractor Operator: Enters initial dispatch
   | 'MPD_Zone_Manager'        // ZMCC Minor Manager: Views own zone, cross-verification analytics
   | 'ZMCC_MANAGER'            // ZMCC Source Manager: Restricted to assigned ZMCC
+  | 'PHE_OPERATOR'             // PHE Operator: Restricted to assigned ZMCC shops
   | 'CONTRACTOR_MANAGER'      // Contractor Source Manager: Restricted to assigned Contractor
   | 'EXECUTIVE_MANAGEMENT'    // Executive / CEO / COO / Plant Head read-only analytics
   | 'Security_Operator'       // Security Operator: Tokens, Gate In, Gate Out
@@ -37,6 +38,7 @@ export interface User {
     code: string;
     name: string;
     source_type: string;
+    is_active?: boolean;
   } | null;
   last_login_at?: string | null;
 }

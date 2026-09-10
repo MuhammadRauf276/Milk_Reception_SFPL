@@ -38,6 +38,7 @@ export async function GET() {
             code: dbUser.procurement_source.code,
             name: dbUser.procurement_source.name,
             source_type: dbUser.procurement_source.source_type,
+            is_active: dbUser.procurement_source.is_active,
           }
         : null,
     };
