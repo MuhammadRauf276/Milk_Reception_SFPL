@@ -857,6 +857,7 @@ model MotShopCollection {
   device_collected_at     DateTime @map("device_collected_at") @db.Timestamp(6)
   server_received_at      DateTime @default(now()) @map("server_received_at") @db.Timestamp(6)
   submitted_by_user_id    BigInt   @map("submitted_by_user_id")
+  collection_notes        String?  @map("collection_notes") @db.Text
   created_at              DateTime @default(now()) @map("created_at") @db.Timestamp(6)
 
   // Relations

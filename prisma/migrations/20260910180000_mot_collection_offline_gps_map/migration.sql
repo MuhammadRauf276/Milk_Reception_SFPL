@@ -77,6 +77,7 @@ CREATE TABLE "mot_shop_collection" (
     "device_collected_at" TIMESTAMP(6) NOT NULL,
     "server_received_at" TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "submitted_by_user_id" BIGINT NOT NULL,
+    "collection_notes" TEXT,
     "created_at" TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "mot_shop_collection_pkey" PRIMARY KEY ("id"),

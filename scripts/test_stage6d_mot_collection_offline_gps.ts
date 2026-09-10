@@ -104,6 +104,7 @@ function assert(condition: boolean, testName: string, detail: string) {
 
 async function runStage6dTests() {
   const { prisma } = await import('../src/backend/core/db');
+  const { Prisma } = await import('@prisma/client');
   const { createSessionToken } = await import('../src/backend/core/auth');
   const { computeCanonicalMilkMetrics, calculateDensity, calculatePhysicalLiters } = await import(
     '../src/backend/utils/milkFormulas'
@@ -204,6 +205,13 @@ async function runStage6dTests() {
     SELECT table_name FROM information_schema.tables WHERE table_name = 'mot_collection_sms_outbox'
   `;
   assert(smsTable.length === 1, 'SMS_OUTBOX_TABLE', 'mot_collection_sms_outbox table exists in PostgreSQL.');
+
+  // Check collection_notes column
+  const notesCol = await prisma.$queryRaw<Array<{ column_name: string }>>`
+    SELECT column_name FROM information_schema.columns
+    WHERE table_name = 'mot_shop_collection' AND column_name = 'collection_notes'
+  `;
+  assert(notesCol.length === 1, 'COLLECTION_NOTES_COLUMN', 'collection_notes column exists in mot_shop_collection.');
 
   // ---------------------------------------------------------------------------
   // SECTION 2: CANONICAL FORMULAS & CALCULATION TESTS
@@ -649,6 +657,46 @@ async function runStage6dTests() {
   );
   assert(motSmsRes.status === 403, 'AUTH_MOT_SMS_DENIED', 'MOT driver denied access to SMS outbox (403).');
 
+  // 6. Legacy ADMIN role cannot read journey collections (403)
+  let adminUser = await prisma.user.findFirst({ where: { role: 'ADMIN', is_active: true } });
+  if (!adminUser) {
+    adminUser = await prisma.user.create({
+      data: {
+        username: 'legacy_admin_6d',
+        full_name: 'Legacy Admin',
+        role: 'ADMIN',
+        is_active: true,
+        password_hash: 'hashed',
+        department: 'Administration',
+      },
+    });
+  }
+  const adminColRes = await getJourneyCollections(
+    await makeReq(`http://localhost/api/zmcc/mot/journeys/${journeyAId}/collections`, 'GET', adminUser),
+    { params: Promise.resolve({ id: journeyAId }) }
+  );
+  assert(adminColRes.status === 403, 'AUTH_LEGACY_ADMIN_COLLECTIONS_403', 'Legacy ADMIN role cannot read journey collections (403).');
+
+  // 7. Unrelated GATE_SECURITY role cannot read journey collections (403)
+  let securityUser = await prisma.user.findFirst({ where: { role: 'GATE_SECURITY', is_active: true } });
+  if (!securityUser) {
+    securityUser = await prisma.user.create({
+      data: {
+        username: 'gate_security_6d',
+        full_name: 'Gate Security',
+        role: 'GATE_SECURITY',
+        is_active: true,
+        password_hash: 'hashed',
+        department: 'Security',
+      },
+    });
+  }
+  const secColRes = await getJourneyCollections(
+    await makeReq(`http://localhost/api/zmcc/mot/journeys/${journeyAId}/collections`, 'GET', securityUser),
+    { params: Promise.resolve({ id: journeyAId }) }
+  );
+  assert(secColRes.status === 403, 'AUTH_SECURITY_COLLECTIONS_403', 'Unrelated GATE_SECURITY role cannot read journey collections (403).');
+
   // ---------------------------------------------------------------------------
   // SECTION 4: ATOMIC COLLECTION SUBMISSION
   // ---------------------------------------------------------------------------
@@ -752,6 +800,16 @@ async function runStage6dTests() {
     },
   });
   assert(auditLog != null, 'AUDIT_LOG_RECORDED', 'AuditLog created for MOT_SHOP_COLLECTION_SUBMITTED.');
+  assert(
+    colSubmitData.collection.collection_notes === 'Clean morning intake',
+    'COLLECTION_NOTES_PERSISTED',
+    'Notes stored and returned on collection record.'
+  );
+  assert(
+    (auditLog?.new_values as any)?.collection_notes === 'Clean morning intake',
+    'COLLECTION_NOTES_AUDITED',
+    'Notes recorded in audit log new_values.'
+  );
 
   // ---------------------------------------------------------------------------
   // SECTION 5: IDEMPOTENCY & CONCURRENCY
@@ -791,6 +849,60 @@ async function runStage6dTests() {
     modReplayRes.status === 409,
     'IDEMPOTENT_MODIFIED_PARAM_409',
     'Replaying client_event_id with different parameters rejected with 409 conflict.'
+  );
+
+  // 2b. Replay with same client_event_id but modified GPS latitude returns 409
+  const modGpsRes = await submitCollection(
+    await makeReq(
+      'http://localhost/api/zmcc/mot/journeys/current/collections',
+      'POST',
+      motUserA,
+      {
+        ...validColPayload,
+        recorded_latitude: 31.9999,
+      }
+    )
+  );
+  assert(
+    modGpsRes.status === 409,
+    'IDEMPOTENT_MODIFIED_GPS_409',
+    'Replaying client_event_id with altered GPS latitude rejected with 409 conflict.'
+  );
+
+  // 2c. Replay with same client_event_id but modified timestamp returns 409
+  const modTimeRes = await submitCollection(
+    await makeReq(
+      'http://localhost/api/zmcc/mot/journeys/current/collections',
+      'POST',
+      motUserA,
+      {
+        ...validColPayload,
+        device_collected_at: new Date(Date.now() - 3600000).toISOString(),
+      }
+    )
+  );
+  assert(
+    modTimeRes.status === 409,
+    'IDEMPOTENT_MODIFIED_TIMESTAMP_409',
+    'Replaying client_event_id with altered timestamp rejected with 409 conflict.'
+  );
+
+  // 2d. Replay with same client_event_id but modified notes returns 409
+  const modNotesRes = await submitCollection(
+    await makeReq(
+      'http://localhost/api/zmcc/mot/journeys/current/collections',
+      'POST',
+      motUserA,
+      {
+        ...validColPayload,
+        notes: 'Altered notes content',
+      }
+    )
+  );
+  assert(
+    modNotesRes.status === 409,
+    'IDEMPOTENT_MODIFIED_NOTES_409',
+    'Replaying client_event_id with altered notes rejected with 409 conflict.'
   );
 
   // 3. Attempting collection on already VISITED stop with different client_event_id returns 409
@@ -889,11 +1001,32 @@ async function runStage6dTests() {
   );
 
   // ---------------------------------------------------------------------------
-  // SECTION 7: GPS BATCH TRACKING
+  // SECTION 7: GPS BATCH TRACKING & OFFLINE RESILIENCE
   // ---------------------------------------------------------------------------
-  console.log('\n--- SECTION 7: GPS BATCH TRACKING ---');
+  console.log('\n--- SECTION 7: GPS BATCH TRACKING & OFFLINE RESILIENCE ---');
 
-  const gpsRes = await recordGpsBatch(
+  // 1. Missing client_location_id returns 400 validation error
+  const missingLocIdRes = await recordGpsBatch(
+    await makeReq(
+      'http://localhost/api/zmcc/mot/journeys/current/locations/batch',
+      'POST',
+      motUserA,
+      {
+        journey_id: journeyAId,
+        locations: [
+          {
+            latitude: 31.5208,
+            longitude: 74.3590,
+            device_recorded_at: new Date().toISOString(),
+          },
+        ],
+      }
+    )
+  );
+  assert(missingLocIdRes.status === 400, 'GPS_MISSING_CLIENT_LOCATION_ID_400', 'Missing client_location_id returns 400 validation error.');
+
+  // 2. Missing journey_id returns 400 validation error
+  const missingJIdRes = await recordGpsBatch(
     await makeReq(
       'http://localhost/api/zmcc/mot/journeys/current/locations/batch',
       'POST',
@@ -901,19 +1034,102 @@ async function runStage6dTests() {
       {
         locations: [
           {
+            client_location_id: 'loc-no-jid-test',
             latitude: 31.5208,
             longitude: 74.3590,
-            gps_accuracy: 4.2,
-            device_recorded_at: new Date(Date.now() - 30000).toISOString(),
-          },
-          {
-            latitude: 31.5210,
-            longitude: 74.3592,
-            gps_accuracy: 4.0,
-            device_recorded_at: new Date(Date.now() - 15000).toISOString(),
+            device_recorded_at: new Date().toISOString(),
           },
         ],
       }
+    )
+  );
+  assert(missingJIdRes.status === 400, 'GPS_MISSING_JOURNEY_ID_400', 'Missing journey_id returns 400 validation error.');
+
+  // 3. Mixed-journey batch returns 400
+  const mixedJRes = await recordGpsBatch(
+    await makeReq(
+      'http://localhost/api/zmcc/mot/journeys/current/locations/batch',
+      'POST',
+      motUserA,
+      {
+        locations: [
+          {
+            client_location_id: 'loc-j1-test',
+            journey_id: journeyAId,
+            latitude: 31.5208,
+            longitude: 74.3590,
+            device_recorded_at: new Date().toISOString(),
+          },
+          {
+            client_location_id: 'loc-j2-test',
+            journey_id: '999999',
+            latitude: 31.5210,
+            longitude: 74.3592,
+            device_recorded_at: new Date().toISOString(),
+          },
+        ],
+      }
+    )
+  );
+  assert(mixedJRes.status === 400, 'GPS_MIXED_JOURNEY_BATCH_400', 'Mixed-journey GPS batch rejected with 400.');
+
+  // 4. Queued Journey A GPS cannot attach to Journey B (MOT B cannot upload for Journey A)
+  const crossJourneyRes = await recordGpsBatch(
+    await makeReq(
+      'http://localhost/api/zmcc/mot/journeys/current/locations/batch',
+      'POST',
+      motUserB,
+      {
+        journey_id: journeyAId,
+        locations: [
+          {
+            client_location_id: 'loc-cross-j-test',
+            journey_id: journeyAId,
+            latitude: 31.5208,
+            longitude: 74.3590,
+            device_recorded_at: new Date().toISOString(),
+          },
+        ],
+      }
+    )
+  );
+  assert(crossJourneyRes.status === 403, 'GPS_CROSS_JOURNEY_BLOCKED_403', 'MOT Driver cannot attach GPS to another driver\'s journey.');
+
+  // 5. Valid GPS batch with client_location_id and journey_id
+  const journeyAObj = await prisma.motJourney.findUnique({
+    where: { id: BigInt(journeyAId) },
+  });
+  const journeyStartTime = journeyAObj!.started_at.getTime();
+
+  const locPoint1Id = `loc-6d-p1-${Date.now()}`;
+  const locPoint2Id = `loc-6d-p2-${Date.now()}`;
+  const validGpsBatch = {
+    journey_id: journeyAId,
+    locations: [
+      {
+        client_location_id: locPoint1Id,
+        journey_id: journeyAId,
+        latitude: 31.5208,
+        longitude: 74.3590,
+        gps_accuracy: 4.2,
+        device_recorded_at: new Date(journeyStartTime + 10000).toISOString(),
+      },
+      {
+        client_location_id: locPoint2Id,
+        journey_id: journeyAId,
+        latitude: 31.5210,
+        longitude: 74.3592,
+        gps_accuracy: 4.0,
+        device_recorded_at: new Date(journeyStartTime + 20000).toISOString(),
+      },
+    ],
+  };
+  const gpsRes = await recordGpsBatch(
+    await makeReq(
+      'http://localhost/api/zmcc/mot/journeys/current/locations/batch',
+      'POST',
+      motUserA,
+      validGpsBatch
     )
   );
   const gpsData = await gpsRes.json();
@@ -924,15 +1140,123 @@ async function runStage6dTests() {
     `Accepted 2 GPS points (got ${gpsData.accepted_count})`
   );
 
-  // Invalid future GPS point rejected
+  // 6. Offline GPS retry creates no duplicate and returns ALREADY_PROCESSED
+  const retryGpsRes = await recordGpsBatch(
+    await makeReq(
+      'http://localhost/api/zmcc/mot/journeys/current/locations/batch',
+      'POST',
+      motUserA,
+      validGpsBatch
+    )
+  );
+  const retryGpsData = await retryGpsRes.json();
+  assert(retryGpsRes.status === 200, 'GPS_RETRY_STATUS_200', 'GPS retry returned HTTP 200.');
+  assert(
+    retryGpsData.items[0].status === 'ALREADY_PROCESSED' && retryGpsData.items[1].status === 'ALREADY_PROCESSED',
+    'GPS_RETRY_ALREADY_PROCESSED',
+    'Identical GPS retry returns ALREADY_PROCESSED.'
+  );
+  const locRowsCount = await prisma.motJourneyLocation.count({
+    where: { idempotency_key: { in: [locPoint1Id, locPoint2Id] } },
+  });
+  assert(locRowsCount === 2, 'GPS_RETRY_NO_DUPLICATE_ROWS', 'No duplicate rows created after retry (exactly 2 in DB).');
+
+  // 7. Reused GPS ID with different data returns CONFLICT
+  const conflictGpsRes = await recordGpsBatch(
+    await makeReq(
+      'http://localhost/api/zmcc/mot/journeys/current/locations/batch',
+      'POST',
+      motUserA,
+      {
+        journey_id: journeyAId,
+        locations: [
+          {
+            client_location_id: locPoint1Id,
+            journey_id: journeyAId,
+            latitude: 31.8888, // Changed latitude!
+            longitude: 74.3590,
+            gps_accuracy: 4.2,
+            device_recorded_at: new Date(journeyStartTime + 10000).toISOString(),
+          },
+        ],
+      }
+    )
+  );
+  const conflictGpsData = await conflictGpsRes.json();
+  assert(
+    conflictGpsData.items[0].status === 'CONFLICT',
+    'GPS_REUSED_ID_CONFLICT',
+    'Reusing client_location_id with changed coordinates returns CONFLICT.'
+  );
+
+  // 8. Concurrent identical GPS upload creates exactly 1 row
+  const concurrentGpsId = `loc-concurrent-${Date.now()}`;
+  const concGpsPayload = {
+    journey_id: journeyAId,
+    locations: [
+      {
+        client_location_id: concurrentGpsId,
+        journey_id: journeyAId,
+        latitude: 31.5220,
+        longitude: 74.3595,
+        gps_accuracy: 3.5,
+        device_recorded_at: new Date(journeyStartTime + 30000).toISOString(),
+      },
+    ],
+  };
+  const [concGpsRes1, concGpsRes2] = await Promise.all([
+    recordGpsBatch(await makeReq('http://localhost/api/zmcc/mot/journeys/current/locations/batch', 'POST', motUserA, concGpsPayload)),
+    recordGpsBatch(await makeReq('http://localhost/api/zmcc/mot/journeys/current/locations/batch', 'POST', motUserA, concGpsPayload)),
+  ]);
+  assert(
+    concGpsRes1.status === 200 && concGpsRes2.status === 200,
+    'GPS_CONCURRENT_UPLOAD_STATUS_200',
+    'Concurrent identical GPS upload returned 200 for both.'
+  );
+  const concGpsCount = await prisma.motJourneyLocation.count({
+    where: { idempotency_key: concurrentGpsId },
+  });
+  assert(concGpsCount === 1, 'GPS_CONCURRENT_EXACTLY_ONE_ROW', `Concurrent identical GPS upload created exactly 1 row in DB (got ${concGpsCount}).`);
+
+  // 9. Events before journey start or after end/cancellation are rejected
+  const beforeStartGpsRes = await recordGpsBatch(
+    await makeReq(
+      'http://localhost/api/zmcc/mot/journeys/current/locations/batch',
+      'POST',
+      motUserA,
+      {
+        journey_id: journeyAId,
+        locations: [
+          {
+            client_location_id: `loc-before-start-${Date.now()}`,
+            journey_id: journeyAId,
+            latitude: 31.5208,
+            longitude: 74.3590,
+            device_recorded_at: new Date(Date.now() - 86400000).toISOString(), // 1 day before dispatch
+          },
+        ],
+      }
+    )
+  );
+  const beforeStartData = await beforeStartGpsRes.json();
+  assert(
+    beforeStartData.rejected_count === 1 && beforeStartData.items[0].status === 'REJECTED',
+    'GPS_BEFORE_START_REJECTED',
+    'GPS point recorded before journey started_at was rejected.'
+  );
+
+  // Future GPS point rejected (> 5 min)
   const futureGpsRes = await recordGpsBatch(
     await makeReq(
       'http://localhost/api/zmcc/mot/journeys/current/locations/batch',
       'POST',
       motUserA,
       {
+        journey_id: journeyAId,
         locations: [
           {
+            client_location_id: `loc-future-${Date.now()}`,
+            journey_id: journeyAId,
             latitude: 31.5208,
             longitude: 74.3590,
             device_recorded_at: new Date(Date.now() + 3600000).toISOString(), // 1 hour in future
@@ -946,6 +1270,185 @@ async function runStage6dTests() {
     futureGpsData.rejected_count === 1,
     'GPS_FUTURE_REJECTED',
     'GPS point with future timestamp was rejected.'
+  );
+
+  // 10. Delayed offline sync & cancellation event bounds test on dedicated journey
+  const nowTime = Date.now();
+  const testJourneyC = await prisma.motJourney.create({
+    data: {
+      journey_number: `MJ-TEST-C-${nowTime}`,
+      operational_date: new Date(),
+      zmcc_id: zmccA.id,
+      route_id: routeA.id,
+      mot_profile_id: motProfileA.id,
+      mot_vehicle_id: motVehicleA.id,
+      status: 'CANCELLED',
+      assigned_by: managerA.id,
+      assigned_at: new Date(nowTime - 7200000), // 2 hours ago
+      started_at: new Date(nowTime - 7200000),  // 2 hours ago
+      assignment_latitude: new Prisma.Decimal(31.5200),
+      assignment_longitude: new Prisma.Decimal(74.3580),
+      start_latitude: new Prisma.Decimal(31.5200),
+      start_longitude: new Prisma.Decimal(74.3580),
+      cancelled_by: managerA.id,
+      cancelled_at: new Date(nowTime - 3600000), // 1 hour ago
+      cancellation_reason: 'Test cancellation bounds',
+      idempotency_key: `test-j-c-${nowTime}`,
+    },
+  });
+
+  // 10a. GPS recorded after cancelled_at rejected
+  const afterCancelGpsRes = await recordGpsBatch(
+    await makeReq(
+      'http://localhost/api/zmcc/mot/journeys/current/locations/batch',
+      'POST',
+      motUserA,
+      {
+        journey_id: testJourneyC.id.toString(),
+        locations: [
+          {
+            client_location_id: `loc-after-cancel-${nowTime}`,
+            journey_id: testJourneyC.id.toString(),
+            latitude: 31.5208,
+            longitude: 74.3590,
+            device_recorded_at: new Date(nowTime - 1800000).toISOString(), // 30 min ago (after cancelled_at 60 min ago)
+          },
+        ],
+      }
+    )
+  );
+  const afterCancelData = await afterCancelGpsRes.json();
+  assert(
+    afterCancelData.rejected_count === 1 && afterCancelData.items[0].status === 'REJECTED',
+    'GPS_AFTER_CANCEL_REJECTED',
+    'GPS point recorded after journey cancelled_at was rejected.'
+  );
+
+  // 10b. Valid delayed offline GPS (recorded between started_at and cancelled_at) synchronizes successfully
+  const delayedValidGpsRes = await recordGpsBatch(
+    await makeReq(
+      'http://localhost/api/zmcc/mot/journeys/current/locations/batch',
+      'POST',
+      motUserA,
+      {
+        journey_id: testJourneyC.id.toString(),
+        locations: [
+          {
+            client_location_id: `loc-delayed-valid-${nowTime}`,
+            journey_id: testJourneyC.id.toString(),
+            latitude: 31.5208,
+            longitude: 74.3590,
+            device_recorded_at: new Date(nowTime - 5400000).toISOString(), // 90 min ago (between 120 min started and 60 min cancelled)
+          },
+        ],
+      }
+    )
+  );
+  const delayedValidData = await delayedValidGpsRes.json();
+  assert(
+    delayedValidData.accepted_count === 1 && delayedValidData.items[0].status === 'ACCEPTED',
+    'GPS_DELAYED_OFFLINE_SYNC_ACCEPTED',
+    'Valid delayed offline GPS point recorded during active journey synchronizes successfully.'
+  );
+
+  // 11. Unsorted GPS batch produces the correct earliest first_mot_gps
+  const testJourneyD = await prisma.motJourney.create({
+    data: {
+      journey_number: `MJ-TEST-D-${nowTime}`,
+      operational_date: new Date(),
+      zmcc_id: zmccA.id,
+      route_id: routeA.id,
+      mot_profile_id: motProfileA.id,
+      mot_vehicle_id: motVehicleA.id,
+      status: 'COMPLETED',
+      assigned_by: managerA.id,
+      assigned_at: new Date(nowTime - 7200000),
+      started_at: new Date(nowTime - 7200000),
+      ended_at: new Date(nowTime),
+      assignment_latitude: new Prisma.Decimal(31.5200),
+      assignment_longitude: new Prisma.Decimal(74.3580),
+      start_latitude: new Prisma.Decimal(31.5200),
+      start_longitude: new Prisma.Decimal(74.3580),
+      idempotency_key: `test-j-d-${nowTime}`,
+    },
+  });
+
+  const timeP2 = new Date(nowTime - 3600000); // 10:15 (later)
+  const timeP1 = new Date(nowTime - 5400000); // 10:00 (earliest)
+  const timeP3 = new Date(nowTime - 1800000); // 10:30 (latest)
+
+  // Upload P2 first
+  await recordGpsBatch(
+    await makeReq(
+      'http://localhost/api/zmcc/mot/journeys/current/locations/batch',
+      'POST',
+      motUserA,
+      {
+        journey_id: testJourneyD.id.toString(),
+        locations: [
+          {
+            client_location_id: `loc-unsorted-p2-${nowTime}`,
+            journey_id: testJourneyD.id.toString(),
+            latitude: 31.5222,
+            longitude: 74.3592,
+            device_recorded_at: timeP2.toISOString(),
+          },
+        ],
+      }
+    )
+  );
+
+  // Upload P1 (earlier than P2)
+  await recordGpsBatch(
+    await makeReq(
+      'http://localhost/api/zmcc/mot/journeys/current/locations/batch',
+      'POST',
+      motUserA,
+      {
+        journey_id: testJourneyD.id.toString(),
+        locations: [
+          {
+            client_location_id: `loc-unsorted-p1-${nowTime}`,
+            journey_id: testJourneyD.id.toString(),
+            latitude: 31.5111,
+            longitude: 74.3511,
+            device_recorded_at: timeP1.toISOString(),
+          },
+        ],
+      }
+    )
+  );
+
+  // Upload P3 (later than both)
+  await recordGpsBatch(
+    await makeReq(
+      'http://localhost/api/zmcc/mot/journeys/current/locations/batch',
+      'POST',
+      motUserA,
+      {
+        journey_id: testJourneyD.id.toString(),
+        locations: [
+          {
+            client_location_id: `loc-unsorted-p3-${nowTime}`,
+            journey_id: testJourneyD.id.toString(),
+            latitude: 31.5333,
+            longitude: 74.3533,
+            device_recorded_at: timeP3.toISOString(),
+          },
+        ],
+      }
+    )
+  );
+
+  const updatedJourneyD = await prisma.motJourney.findUnique({
+    where: { id: testJourneyD.id },
+  });
+  assert(
+    updatedJourneyD?.first_mot_gps_at != null &&
+      Math.abs(updatedJourneyD.first_mot_gps_at.getTime() - timeP1.getTime()) < 1000 &&
+      Math.abs(Number(updatedJourneyD.first_mot_latitude) - 31.5111) < 0.0001,
+    'GPS_UNSORTED_EARLIEST_FIRST_MOT',
+    'Unsorted GPS arrivals maintain chronologically earliest point as first_mot_gps_*.'
   );
 
   // ---------------------------------------------------------------------------

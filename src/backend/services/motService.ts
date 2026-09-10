@@ -31,7 +31,8 @@ export type MotAction =
   | 'SUBMIT_COLLECTION'
   | 'UPLOAD_GPS'
   | 'READ_MAP'
-  | 'READ_SMS_OUTBOX';
+  | 'READ_SMS_OUTBOX'
+  | 'READ_COLLECTIONS';
 
 export interface ServiceResult<T> {
   status: number;
@@ -100,6 +101,17 @@ export async function resolveMotAuth(
       return {
         errorResponse: {
           error: 'Forbidden. Access restricted to management roles.',
+          status: 403,
+        },
+      };
+    }
+  } else if (action === 'READ_COLLECTIONS') {
+    // Exact canonical authorization: SUPER_ADMIN, ZMCC_MANAGER, PHE_OPERATOR, MOT
+    // Every other role (or legacy role) returns 403
+    if (!isSuperAdmin && !isZmccManager && !isPheOperator && !isMot) {
+      return {
+        errorResponse: {
+          error: 'Forbidden. Role not permitted to read journey collections.',
           status: 403,
         },
       };
@@ -2093,6 +2105,8 @@ export function serializeCollection(c: any) {
     device_collected_at: c.device_collected_at.toISOString(),
     server_received_at: c.server_received_at.toISOString(),
     submitted_by_user_id: c.submitted_by_user_id.toString(),
+    collection_notes: c.collection_notes || null,
+    notes: c.collection_notes || null,
     created_at: c.created_at.toISOString(),
     sms_outbox: c.sms_outbox
       ? {
@@ -2119,6 +2133,8 @@ export interface SubmitCollectionPayload {
   longitude: number;
   gps_accuracy?: number | null;
   device_collected_at: string;
+  collection_notes?: string | null;
+  notes?: string | null;
 }
 
 /**
@@ -2209,6 +2225,9 @@ export async function submitShopCollection(
     return { status: 400, error: 'device_collected_at cannot be in the future.' };
   }
 
+  const rawNotes = payload.collection_notes !== undefined ? payload.collection_notes : (payload as any).notes;
+  const notes = typeof rawNotes === 'string' ? rawNotes.trim() : null;
+
   // 4. Idempotency Check BEFORE transaction
   const existingCollection = await prisma.motShopCollection.findUnique({
     where: { client_event_id: clientEventId },
@@ -2226,14 +2245,33 @@ export async function submitShopCollection(
       };
     }
 
-    // Parameter comparison
+    // Comprehensive parameter comparison
     const isSameStop = existingCollection.journey_stop_id === stopId;
     const isSameQty = Math.abs(Number(existingCollection.quantity_value) - quantityValue) < 0.001;
     const isSameUnit = existingCollection.quantity_unit === quantityUnit;
     const isSameLr = Math.abs(Number(existingCollection.lr) - lr) < 0.001;
     const isSameFat = Math.abs(Number(existingCollection.fat) - fat) < 0.001;
+    const isSameLat = Math.abs(Number(existingCollection.collection_latitude) - lat) < 0.0001;
+    const isSameLng = Math.abs(Number(existingCollection.collection_longitude) - lng) < 0.0001;
+    const existingAcc = existingCollection.collection_gps_accuracy != null ? Number(existingCollection.collection_gps_accuracy) : null;
+    const isSameAcc =
+      (accuracy == null && existingAcc == null) ||
+      (accuracy != null && existingAcc != null && Math.abs(existingAcc - accuracy) < 0.01);
+    const isSameTimestamp = Math.abs(new Date(existingCollection.device_collected_at).getTime() - deviceCollectedAt.getTime()) < 1000;
+    const isSameNotes = (existingCollection.collection_notes || '').trim() === (notes || '').trim();
 
-    if (!isSameStop || !isSameQty || !isSameUnit || !isSameLr || !isSameFat) {
+    if (
+      !isSameStop ||
+      !isSameQty ||
+      !isSameUnit ||
+      !isSameLr ||
+      !isSameFat ||
+      !isSameLat ||
+      !isSameLng ||
+      !isSameAcc ||
+      !isSameTimestamp ||
+      !isSameNotes
+    ) {
       return {
         status: 409,
         error: 'The provided client event ID is already in use with different collection parameters.',
@@ -2269,8 +2307,17 @@ export async function submitShopCollection(
     return { status: 403, error: 'Forbidden. Journey does not belong to your MOT profile.' };
   }
 
-  if (stop.journey.status !== 'COLLECTING') {
-    return { status: 400, error: `Journey is ${stop.journey.status}. Collections are only allowed on active COLLECTING journeys.` };
+  // Time Validations against Journey Lifespan
+  if (deviceCollectedAt.getTime() < new Date(stop.journey.started_at).getTime()) {
+    return { status: 400, error: 'Collection time cannot predate journey start time.' };
+  }
+
+  if (stop.journey.ended_at && deviceCollectedAt.getTime() > new Date(stop.journey.ended_at).getTime()) {
+    return { status: 400, error: 'Collection time cannot be later than journey ended_at.' };
+  }
+
+  if (stop.journey.cancelled_at && deviceCollectedAt.getTime() > new Date(stop.journey.cancelled_at).getTime()) {
+    return { status: 400, error: 'Collection time cannot be later than journey cancelled_at.' };
   }
 
   if (stop.status !== 'PENDING' || stop.collection !== null) {
@@ -2348,6 +2395,7 @@ export async function submitShopCollection(
           device_collected_at: deviceCollectedAt,
           server_received_at: now,
           submitted_by_user_id: auth.actorUserId,
+          collection_notes: notes || null,
         },
       });
 
@@ -2366,11 +2414,14 @@ export async function submitShopCollection(
         },
       });
 
-      // Set first MOT GPS fields on MotJourney only when currently null
+      // Maintain first_mot_gps_* as the chronologically earliest accepted point
       await tx.motJourney.updateMany({
         where: {
           id: stop.journey_id,
-          first_mot_gps_at: null,
+          OR: [
+            { first_mot_gps_at: null },
+            { first_mot_gps_at: { gt: deviceCollectedAt } },
+          ],
         },
         data: {
           first_mot_gps_at: deviceCollectedAt,
@@ -2435,6 +2486,7 @@ export async function submitShopCollection(
             latitude: lat,
             longitude: lng,
             gps_accuracy: accuracy,
+            collection_notes: notes || null,
             sms_outbox_id: smsOutbox.id.toString(),
           },
           user_id: auth.actorUserId,
@@ -2478,8 +2530,27 @@ export async function submitShopCollection(
         const isSameUnit = existingAfterCollision.quantity_unit === quantityUnit;
         const isSameLr = Math.abs(Number(existingAfterCollision.lr) - lr) < 0.001;
         const isSameFat = Math.abs(Number(existingAfterCollision.fat) - fat) < 0.001;
+        const isSameLat = Math.abs(Number(existingAfterCollision.collection_latitude) - lat) < 0.0001;
+        const isSameLng = Math.abs(Number(existingAfterCollision.collection_longitude) - lng) < 0.0001;
+        const existingAcc = existingAfterCollision.collection_gps_accuracy != null ? Number(existingAfterCollision.collection_gps_accuracy) : null;
+        const isSameAcc =
+          (accuracy == null && existingAcc == null) ||
+          (accuracy != null && existingAcc != null && Math.abs(existingAcc - accuracy) < 0.01);
+        const isSameTimestamp = Math.abs(new Date(existingAfterCollision.device_collected_at).getTime() - deviceCollectedAt.getTime()) < 1000;
+        const isSameNotes = (existingAfterCollision.collection_notes || '').trim() === (notes || '').trim();
 
-        if (!isSameStop || !isSameQty || !isSameUnit || !isSameLr || !isSameFat) {
+        if (
+          !isSameStop ||
+          !isSameQty ||
+          !isSameUnit ||
+          !isSameLr ||
+          !isSameFat ||
+          !isSameLat ||
+          !isSameLng ||
+          !isSameAcc ||
+          !isSameTimestamp ||
+          !isSameNotes
+        ) {
           return {
             status: 409,
             error: 'The provided client event ID is already in use with different collection parameters.',
@@ -2514,6 +2585,7 @@ export async function submitShopCollection(
 
 export interface GpsLocationItem {
   client_location_id: string;
+  journey_id?: string | number | bigint;
   latitude: number;
   longitude: number;
   gps_accuracy?: number | null;
@@ -2526,13 +2598,13 @@ export interface GpsLocationItem {
  */
 export async function recordGpsBatch(
   reqOrUser: Request | User,
-  payload: { locations: GpsLocationItem[] }
+  payload: { locations: GpsLocationItem[]; journey_id?: string | number | bigint }
 ): Promise<ServiceResult<any>> {
   const { auth, errorResponse } = await resolveMotAuth(reqOrUser, 'UPLOAD_GPS');
   if (errorResponse) return errorResponse;
   if (!auth) return { status: 401, error: 'Unauthorized.' };
 
-  // 1. Find MOT's active COLLECTING journey
+  // 1. Find MOT's active linked profile
   const linkedProfile = await prisma.motProfile.findFirst({
     where: {
       user_id: auth.actorUserId,
@@ -2547,19 +2619,6 @@ export async function recordGpsBatch(
     };
   }
 
-  const activeJourney = await prisma.motJourney.findFirst({
-    where: {
-      mot_profile_id: linkedProfile.id,
-      status: 'COLLECTING',
-    },
-  });
-  if (!activeJourney) {
-    return {
-      status: 404,
-      error: 'No active COLLECTING journey found for your MOT profile.',
-    };
-  }
-
   const locations = Array.isArray(payload?.locations) ? payload.locations : [];
   if (locations.length === 0) {
     return { status: 400, error: 'Locations array must contain at least one point.' };
@@ -2569,12 +2628,61 @@ export async function recordGpsBatch(
     return { status: 400, error: 'Locations batch exceeds maximum of 500 points.' };
   }
 
+  // Require non-empty client_location_id on every location; never generate one!
+  for (const item of locations) {
+    if (!item.client_location_id || typeof item.client_location_id !== 'string' || !item.client_location_id.trim()) {
+      return { status: 400, error: 'Each location item must include a valid non-empty client_location_id.' };
+    }
+  }
+
+  // Require journey_id on every location (or payload level)
+  for (const item of locations) {
+    const jId = item.journey_id !== undefined ? item.journey_id : payload.journey_id;
+    if (jId === undefined || jId === null || String(jId).trim() === '') {
+      return { status: 400, error: 'Each location item must specify a valid journey_id.' };
+    }
+  }
+
+  // Check mixed-journey batch: reject clearly
+  const uniqueJourneyIds = Array.from(
+    new Set(locations.map((item) => String(item.journey_id !== undefined ? item.journey_id : payload.journey_id).trim()))
+  );
+  if (uniqueJourneyIds.length > 1) {
+    return {
+      status: 400,
+      error: 'Mixed-journey batches are not permitted. Please submit locations grouped by journey_id.',
+    };
+  }
+
+  const rawJourneyId = uniqueJourneyIds[0];
+  let journeyId: bigint;
+  try {
+    journeyId = BigInt(rawJourneyId);
+  } catch {
+    return { status: 400, error: 'Invalid journey_id format.' };
+  }
+
+  const journey = await prisma.motJourney.findUnique({
+    where: { id: journeyId },
+  });
+  if (!journey) {
+    return { status: 404, error: 'Journey not found.' };
+  }
+
+  if (journey.mot_profile_id !== linkedProfile.id) {
+    return { status: 403, error: 'Forbidden. Journey does not belong to your MOT profile.' };
+  }
+
+  if (journey.zmcc_id !== auth.effectiveZmccId!) {
+    return { status: 403, error: 'Forbidden. Journey does not belong to your assigned ZMCC.' };
+  }
+
   const now = new Date();
   const results: { client_location_id: string; status: string; reason?: string }[] = [];
   let acceptedCount = 0;
 
   for (const item of locations) {
-    const locId = (item.client_location_id || '').trim() || (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `loc-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`);
+    const locId = item.client_location_id.trim();
 
     const lat = Number(item.latitude);
     const lng = Number(item.longitude);
@@ -2601,61 +2709,117 @@ export async function recordGpsBatch(
       continue;
     }
 
+    // Must not predate journey.started_at
+    if (recDate.getTime() < new Date(journey.started_at).getTime()) {
+      results.push({ client_location_id: locId, status: 'REJECTED', reason: 'Timestamp predates journey started_at' });
+      continue;
+    }
+
+    // Must not be later than journey.ended_at when ended_at exists
+    if (journey.ended_at && recDate.getTime() > new Date(journey.ended_at).getTime()) {
+      results.push({ client_location_id: locId, status: 'REJECTED', reason: 'Timestamp is after journey ended_at' });
+      continue;
+    }
+
+    // Cancelled journeys must reject events after cancelled_at
+    if (journey.cancelled_at && recDate.getTime() > new Date(journey.cancelled_at).getTime()) {
+      results.push({ client_location_id: locId, status: 'REJECTED', reason: 'Timestamp is after journey cancelled_at' });
+      continue;
+    }
+
     // Check existing by idempotency_key
     const existing = await prisma.motJourneyLocation.findUnique({
       where: { idempotency_key: locId },
     });
 
     if (existing) {
-      // If belongs to same journey and coordinates match: ALREADY_PROCESSED
-      if (
-        existing.journey_id === activeJourney.id &&
-        Math.abs(Number(existing.latitude) - lat) < 0.0001 &&
-        Math.abs(Number(existing.longitude) - lng) < 0.0001
-      ) {
+      const isSameJourney = existing.journey_id === journey.id;
+      const isSameLat = Math.abs(Number(existing.latitude) - lat) < 0.0001;
+      const isSameLng = Math.abs(Number(existing.longitude) - lng) < 0.0001;
+      const isSameTime = Math.abs(new Date(existing.device_recorded_at).getTime() - recDate.getTime()) < 1000;
+      const existingAcc = existing.gps_accuracy != null ? Number(existing.gps_accuracy) : null;
+      const isSameAcc =
+        (accuracy == null && existingAcc == null) ||
+        (accuracy != null && existingAcc != null && Math.abs(existingAcc - accuracy) < 0.01);
+
+      if (isSameJourney && isSameLat && isSameLng && isSameTime && isSameAcc) {
         results.push({ client_location_id: locId, status: 'ALREADY_PROCESSED' });
         acceptedCount++;
       } else {
-        results.push({ client_location_id: locId, status: 'CONFLICT', reason: 'Reused key with different coordinates or journey' });
+        results.push({
+          client_location_id: locId,
+          status: 'CONFLICT',
+          reason: 'Reused client_location_id with changed journey, coordinates, timestamp, or accuracy',
+        });
       }
       continue;
     }
 
-    // Insert new point
+    // Insert new point atomically with earliest first-MOT-GPS update
     try {
-      await prisma.motJourneyLocation.create({
-        data: {
-          journey_id: activeJourney.id,
-          recorded_by_user_id: auth.actorUserId,
-          source_type: 'MOT_DEVICE',
-          latitude: new Prisma.Decimal(lat.toFixed(7)),
-          longitude: new Prisma.Decimal(lng.toFixed(7)),
-          gps_accuracy: accuracy != null ? new Prisma.Decimal(accuracy.toFixed(2)) : null,
-          device_recorded_at: recDate,
-          server_received_at: now,
-          idempotency_key: locId,
-        },
-      });
+      await prisma.$transaction(async (tx) => {
+        await tx.motJourneyLocation.create({
+          data: {
+            journey_id: journey.id,
+            recorded_by_user_id: auth.actorUserId,
+            source_type: 'MOT_DEVICE',
+            latitude: new Prisma.Decimal(lat.toFixed(7)),
+            longitude: new Prisma.Decimal(lng.toFixed(7)),
+            gps_accuracy: accuracy != null ? new Prisma.Decimal(accuracy.toFixed(2)) : null,
+            device_recorded_at: recDate,
+            server_received_at: now,
+            idempotency_key: locId,
+          },
+        });
 
-      // Update first MOT GPS if not set
-      await prisma.motJourney.updateMany({
-        where: {
-          id: activeJourney.id,
-          first_mot_gps_at: null,
-        },
-        data: {
-          first_mot_gps_at: recDate,
-          first_mot_latitude: new Prisma.Decimal(lat.toFixed(7)),
-          first_mot_longitude: new Prisma.Decimal(lng.toFixed(7)),
-          first_mot_gps_accuracy: accuracy != null ? new Prisma.Decimal(accuracy.toFixed(2)) : null,
-        },
+        // Maintain first_mot_gps_* as the chronologically earliest accepted MOT_DEVICE point
+        await tx.motJourney.updateMany({
+          where: {
+            id: journey.id,
+            OR: [
+              { first_mot_gps_at: null },
+              { first_mot_gps_at: { gt: recDate } },
+            ],
+          },
+          data: {
+            first_mot_gps_at: recDate,
+            first_mot_latitude: new Prisma.Decimal(lat.toFixed(7)),
+            first_mot_longitude: new Prisma.Decimal(lng.toFixed(7)),
+            first_mot_gps_accuracy: accuracy != null ? new Prisma.Decimal(accuracy.toFixed(2)) : null,
+          },
+        });
       });
 
       results.push({ client_location_id: locId, status: 'ACCEPTED' });
       acceptedCount++;
     } catch (err: any) {
       if (err.code === 'P2002') {
-        results.push({ client_location_id: locId, status: 'CONFLICT', reason: 'Concurrent insert' });
+        const existingAfterCollision = await prisma.motJourneyLocation.findUnique({
+          where: { idempotency_key: locId },
+        });
+        if (existingAfterCollision) {
+          const isSameJourney = existingAfterCollision.journey_id === journey.id;
+          const isSameLat = Math.abs(Number(existingAfterCollision.latitude) - lat) < 0.0001;
+          const isSameLng = Math.abs(Number(existingAfterCollision.longitude) - lng) < 0.0001;
+          const isSameTime = Math.abs(new Date(existingAfterCollision.device_recorded_at).getTime() - recDate.getTime()) < 1000;
+          const existingAcc = existingAfterCollision.gps_accuracy != null ? Number(existingAfterCollision.gps_accuracy) : null;
+          const isSameAcc =
+            (accuracy == null && existingAcc == null) ||
+            (accuracy != null && existingAcc != null && Math.abs(existingAcc - accuracy) < 0.01);
+
+          if (isSameJourney && isSameLat && isSameLng && isSameTime && isSameAcc) {
+            results.push({ client_location_id: locId, status: 'ALREADY_PROCESSED' });
+            acceptedCount++;
+          } else {
+            results.push({
+              client_location_id: locId,
+              status: 'CONFLICT',
+              reason: 'Concurrent insert with conflicting attributes',
+            });
+          }
+        } else {
+          results.push({ client_location_id: locId, status: 'CONFLICT', reason: 'Concurrent insert conflict' });
+        }
       } else {
         results.push({ client_location_id: locId, status: 'REJECTED', reason: err.message });
       }
@@ -2828,21 +2992,9 @@ export async function getJourneyCollections(
   reqOrUser: Request | User,
   journeyIdParam: string | bigint
 ): Promise<ServiceResult<any>> {
-  let authContext: MotAuthContext | undefined;
-
-  const authUser = reqOrUser && 'role' in reqOrUser && 'id' in reqOrUser
-    ? (reqOrUser as User)
-    : await getCurrentUser(reqOrUser as Request);
-
-  if (!authUser) return { status: 401, error: 'Unauthorized.' };
-
-  const dbUser = await prisma.user.findUnique({
-    where: { id: BigInt(authUser.id.trim()) },
-    include: { procurement_source: true },
-  });
-  if (!dbUser || !dbUser.is_active) {
-    return { status: 403, error: 'Unauthorized. Account is inactive or unverified.' };
-  }
+  const { auth, errorResponse } = await resolveMotAuth(reqOrUser, 'READ_COLLECTIONS');
+  if (errorResponse) return errorResponse;
+  if (!auth) return { status: 401, error: 'Unauthorized.' };
 
   let journeyId: bigint;
   try {
@@ -2860,15 +3012,18 @@ export async function getJourneyCollections(
     return { status: 404, error: 'Journey not found.' };
   }
 
-  if (dbUser.role === 'MOT') {
+  if (auth.isMot) {
     const linkedProfile = await prisma.motProfile.findFirst({
-      where: { user_id: dbUser.id, is_active: true },
+      where: { user_id: auth.actorUserId, is_active: true },
     });
     if (!linkedProfile || linkedProfile.id !== journey.mot_profile_id) {
       return { status: 403, error: 'Forbidden. You can only view collections for your own journey.' };
     }
-  } else if (dbUser.role !== 'SUPER_ADMIN') {
-    if (journey.zmcc_id !== dbUser.procurement_source_id) {
+    if (journey.zmcc_id !== auth.effectiveZmccId!) {
+      return { status: 403, error: 'Forbidden. Journey belongs to another ZMCC.' };
+    }
+  } else if (!auth.isSuperAdmin) {
+    if (journey.zmcc_id !== auth.effectiveZmccId!) {
       return { status: 403, error: 'Forbidden. Journey belongs to another ZMCC.' };
     }
   }

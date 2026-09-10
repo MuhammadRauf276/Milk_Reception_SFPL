@@ -179,10 +179,11 @@ export default function MotDriverPage() {
     if (!journey || journey.status !== 'COLLECTING') return;
 
     const interval = setInterval(() => {
-      if ('geolocation' in navigator) {
+      if ('geolocation' in navigator && journey?.id) {
         navigator.geolocation.getCurrentPosition(
           async (pos) => {
             await queueGpsLocation({
+              journey_id: journey.id,
               latitude: pos.coords.latitude,
               longitude: pos.coords.longitude,
               gps_accuracy: pos.coords.accuracy,

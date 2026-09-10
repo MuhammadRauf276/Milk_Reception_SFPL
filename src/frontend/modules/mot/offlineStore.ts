@@ -66,6 +66,8 @@ export interface QueuedCollection {
 
 export interface QueuedGpsPoint {
   id?: number;
+  client_location_id: string;
+  journey_id: string;
   latitude: number;
   longitude: number;
   gps_accuracy?: number | null;
@@ -75,7 +77,7 @@ export interface QueuedGpsPoint {
 }
 
 const DB_NAME = 'milk_reception_mot_db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 function isIndexedDbSupported(): boolean {
   return typeof window !== 'undefined' && typeof window.indexedDB !== 'undefined';
@@ -111,6 +113,19 @@ export function openMotDb(): Promise<IDBDatabase> {
         const store = db.createObjectStore('gps_queue', { keyPath: 'id', autoIncrement: true });
         store.createIndex('synced', 'synced', { unique: false });
         store.createIndex('device_recorded_at', 'device_recorded_at', { unique: false });
+        store.createIndex('journey_id', 'journey_id', { unique: false });
+        store.createIndex('client_location_id', 'client_location_id', { unique: false });
+      } else {
+        const tx = (event.target as IDBOpenDBRequest).transaction;
+        const store = tx?.objectStore('gps_queue');
+        if (store) {
+          if (!store.indexNames.contains('journey_id')) {
+            store.createIndex('journey_id', 'journey_id', { unique: false });
+          }
+          if (!store.indexNames.contains('client_location_id')) {
+            store.createIndex('client_location_id', 'client_location_id', { unique: false });
+          }
+        }
       }
     };
 
@@ -303,17 +318,27 @@ export async function updateCollectionQueueStatus(
 // -------------------------------------------------------------
 
 export async function queueGpsLocation(location: {
+  journey_id: string | number | bigint;
+  client_location_id?: string;
   latitude: number;
   longitude: number;
   gps_accuracy?: number | null;
   device_recorded_at?: string;
-}): Promise<void> {
-  if (!isIndexedDbSupported()) return;
+}): Promise<string> {
+  if (!isIndexedDbSupported()) return '';
   const db = await openMotDb();
+  const clientLocationId =
+    (location.client_location_id || '').trim() ||
+    (typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `loc-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`);
+
   return new Promise((resolve, reject) => {
     const tx = db.transaction('gps_queue', 'readwrite');
     const store = tx.objectStore('gps_queue');
     const point: QueuedGpsPoint = {
+      client_location_id: clientLocationId,
+      journey_id: String(location.journey_id),
       latitude: location.latitude,
       longitude: location.longitude,
       gps_accuracy: location.gps_accuracy != null ? location.gps_accuracy : null,
@@ -322,7 +347,7 @@ export async function queueGpsLocation(location: {
       attempts: 0,
     };
     const req = store.add(point);
-    req.onsuccess = () => resolve();
+    req.onsuccess = () => resolve(clientLocationId);
     req.onerror = () => reject(req.error);
   });
 }
@@ -443,6 +468,7 @@ export async function syncPendingCollections(): Promise<{
           recorded_longitude: item.recorded_longitude,
           recorded_gps_accuracy: item.recorded_gps_accuracy,
           notes: item.notes,
+          collection_notes: item.notes,
           offline_created_at: item.offline_created_at,
         }),
       });
@@ -491,36 +517,76 @@ export async function syncPendingGps(): Promise<{ synced: number; failed: number
   let totalSynced = 0;
   let totalFailed = 0;
 
-  // Drain in batches of 50 points
+  // Drain in batches of 50 points, grouped by journey_id
   while (true) {
     const points = await getUnsyncedGpsPoints(50);
     if (points.length === 0) break;
 
-    try {
-      const res = await fetch('/api/mot/journeys/current/locations/batch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          locations: points.map((p) => ({
-            latitude: p.latitude,
-            longitude: p.longitude,
-            gps_accuracy: p.gps_accuracy,
-            device_recorded_at: p.device_recorded_at,
-          })),
-        }),
-      });
+    const byJourney = new Map<string, QueuedGpsPoint[]>();
+    for (const p of points) {
+      const jId = String(p.journey_id || '');
+      if (!byJourney.has(jId)) byJourney.set(jId, []);
+      byJourney.get(jId)!.push(p);
+    }
 
-      if (res.ok) {
-        const ids = points.map((p) => p.id!).filter((id) => typeof id === 'number');
-        await markGpsPointsSynced(ids);
-        totalSynced += points.length;
-      } else {
-        totalFailed += points.length;
-        break; // Stop draining on error
+    let hadBatchFailure = false;
+
+    for (const [journeyId, journeyPoints] of Array.from(byJourney.entries())) {
+      try {
+        const res = await fetch('/api/mot/journeys/current/locations/batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            journey_id: journeyId,
+            locations: journeyPoints.map((p: QueuedGpsPoint) => ({
+              client_location_id: p.client_location_id,
+              journey_id: p.journey_id,
+              latitude: p.latitude,
+              longitude: p.longitude,
+              gps_accuracy: p.gps_accuracy,
+              device_recorded_at: p.device_recorded_at,
+            })),
+          }),
+        });
+
+        if (res.ok) {
+          const data = await res.json().catch(() => ({}));
+          const confirmedLocationIds = new Set<string>();
+          if (Array.isArray(data.items)) {
+            for (const item of data.items) {
+              if (item.status === 'ACCEPTED' || item.status === 'ALREADY_PROCESSED') {
+                confirmedLocationIds.add(item.client_location_id);
+              }
+            }
+          }
+
+          const idsToMark = journeyPoints
+            .filter((p: QueuedGpsPoint) => confirmedLocationIds.has(p.client_location_id) && typeof p.id === 'number')
+            .map((p: QueuedGpsPoint) => p.id!);
+
+          if (idsToMark.length > 0) {
+            await markGpsPointsSynced(idsToMark);
+            totalSynced += idsToMark.length;
+          }
+
+          const unconfirmedCount = journeyPoints.length - idsToMark.length;
+          if (unconfirmedCount > 0) {
+            totalFailed += unconfirmedCount;
+          }
+        } else {
+          totalFailed += journeyPoints.length;
+          hadBatchFailure = true;
+          break;
+        }
+      } catch {
+        totalFailed += journeyPoints.length;
+        hadBatchFailure = true;
+        break;
       }
-    } catch {
-      totalFailed += points.length;
-      break; // Network error
+    }
+
+    if (hadBatchFailure) {
+      break;
     }
   }
 
