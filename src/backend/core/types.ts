@@ -4,6 +4,7 @@ export type Role =
   | 'MPD_Zone_Manager'        // ZMCC Minor Manager: Views own zone, cross-verification analytics
   | 'ZMCC_MANAGER'            // ZMCC Source Manager: Restricted to assigned ZMCC
   | 'PHE_OPERATOR'             // PHE Operator: Restricted to assigned ZMCC shops
+  | 'MOT'                      // Milk Operator / Transporter: Mobile collection execution
   | 'CONTRACTOR_MANAGER'      // Contractor Source Manager: Restricted to assigned Contractor
   | 'EXECUTIVE_MANAGEMENT'    // Executive / CEO / COO / Plant Head read-only analytics
   | 'Security_Operator'       // Security Operator: Tokens, Gate In, Gate Out

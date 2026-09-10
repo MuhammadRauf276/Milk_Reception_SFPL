@@ -11,6 +11,7 @@ import {
   LayoutDashboard,
   FlaskConical,
   Store,
+  Truck,
   X,
 } from 'lucide-react';
 import { User } from '@core/types';
@@ -77,6 +78,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const isZmccManager = !isSecurityManager && role === 'ZMCC_MANAGER';
   const isPheOperator = !isSecurityManager && role === 'PHE_OPERATOR';
+  const isMot = !isSecurityManager && role === 'MOT';
   const isContractorManager = !isSecurityManager && role === 'CONTRACTOR_MANAGER';
 
   const isMainAdmin =
@@ -269,6 +271,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <span>PHE Shop Station</span>
               </span>
               <span className={`px-1.5 py-0.5 rounded font-mono text-[9px] ${getBadgeStyle('/phe')}`}>
+                OPERATOR
+              </span>
+            </Link>
+          )}
+
+          {/* 2E. MOT DRIVER VIEW */}
+          {isMot && (
+            <Link
+              href="/mot"
+              onClick={handleLinkClick}
+              className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition ${getLinkStyle('/mot')}`}
+            >
+              <span className="flex items-center gap-2">
+                <Truck className="w-4 h-4" />
+                <span>MOT Driver Station</span>
+              </span>
+              <span className={`px-1.5 py-0.5 rounded font-mono text-[9px] ${getBadgeStyle('/mot')}`}>
                 OPERATOR
               </span>
             </Link>

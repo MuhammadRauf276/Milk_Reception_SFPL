@@ -141,11 +141,9 @@ async function runStage6aVerification() {
     ];
 
     const forbiddenModels = [
-      'shopProposal', 'shopApproval', 'motProfile', 'motVehicle', 'motJourney',
-      'motJourneyStop', 'motJourneyLocation', 'pheToken', 'zmccTankLedger',
+      'shopProposal', 'shopApproval', 'pheToken', 'zmccTankLedger',
     ];
 
-    const prismaKeys = Object.keys(prisma);
     const allPreviousPresent = expectedPreviousModels.every((m) => m in prisma);
     const allNewPresent = expectedNewModels.every((m) => m in prisma);
     const noneForbiddenPresent = forbiddenModels.every((m) => !(m in prisma));
@@ -153,7 +151,7 @@ async function runStage6aVerification() {
     assert(
       allPreviousPresent && allNewPresent && noneForbiddenPresent,
       'MODEL-INVENTORY-A..C',
-      `All 21 previous models present; 5 new Stage 6A models present; 0 forbidden/deferred models present (Total models: ${expectedPreviousModels.length + expectedNewModels.length})`
+      `All 21 previous models present; 5 new Stage 6A models present; 0 forbidden/deferred models present`
     );
 
     // ----------------------------------------------------

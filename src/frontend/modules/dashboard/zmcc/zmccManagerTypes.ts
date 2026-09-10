@@ -7,7 +7,8 @@ export type ZMCCManagerTab =
   | 'QUALITY'
   | 'RECEIPTS'
   | 'HISTORY'
-  | 'MASTER_DATA';
+  | 'MASTER_DATA'
+  | 'MOT_OPERATIONS';
 
 export type OverviewDateRange = 'TODAY' | 'YESTERDAY' | 'LAST_7' | 'LAST_15' | 'ALL';
 
