@@ -25,8 +25,10 @@ import {
   X,
   Menu,
   Milk,
+  Navigation,
 } from 'lucide-react';
 import { ZmccMasterDataWorkspace } from '@/frontend/modules/zmcc/ZmccMasterDataWorkspace';
+import { MotOperationsWorkspace } from '@/frontend/modules/mot/MotOperationsWorkspace';
 
 interface ZMCCManagerWorkspaceProps {
   currentUser: User | null;
@@ -40,6 +42,7 @@ const TABS: { id: ZMCCManagerTab; label: string; icon: React.FC<{ className?: st
   { id: 'RECEIPTS', label: 'Receipts & Performance', icon: Receipt },
   { id: 'HISTORY', label: 'History & Reports', icon: History },
   { id: 'MASTER_DATA', label: 'Master Data', icon: Store },
+  { id: 'MOT_OPERATIONS', label: 'MOT & Dispatch', icon: Navigation },
 ];
 
 export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
@@ -464,6 +467,13 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
           {activeTab === 'MASTER_DATA' && (
             <div id="tabpanel-MASTER_DATA" role="tabpanel" aria-labelledby="tab-MASTER_DATA" className="space-y-6">
               <ZmccMasterDataWorkspace currentUser={currentUser} />
+            </div>
+          )}
+
+          {/* TAB 8: MOT OPERATIONS */}
+          {activeTab === 'MOT_OPERATIONS' && (
+            <div id="tabpanel-MOT_OPERATIONS" role="tabpanel" aria-labelledby="tab-MOT_OPERATIONS" className="space-y-6">
+              <MotOperationsWorkspace currentUser={currentUser} />
             </div>
           )}
 

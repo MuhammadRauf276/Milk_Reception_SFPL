@@ -15,6 +15,7 @@ import {
   History,
   FolderTree,
   Store,
+  Navigation,
   Settings,
   Shield,
   X,
@@ -121,6 +122,7 @@ export const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({
     { href: '/super-admin/operations', label: 'Operations', icon: Activity },
     { href: '/super-admin/audit', label: 'Audit & Corrections', icon: History },
     { href: '/super-admin/zmcc-master-data', label: 'ZMCC Master Data', icon: Store },
+    { href: '/super-admin/mot-operations', label: 'MOT Operations', icon: Navigation },
     { href: '/super-admin/master-data', label: 'Master Data', icon: FolderTree },
     { href: '/super-admin/settings', label: 'System Settings', icon: Settings },
   ];

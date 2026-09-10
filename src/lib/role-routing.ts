@@ -29,6 +29,9 @@ export function resolveRoleHome(role?: string | null | unknown): string {
     case 'PHE_OPERATOR':
       return '/phe';
 
+    case 'MOT':
+      return '/mot';
+
     case 'MPD_Operator':
     case 'MPD':
       return '/department/mpd';
