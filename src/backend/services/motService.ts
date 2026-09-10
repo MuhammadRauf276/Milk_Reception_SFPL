@@ -1,4 +1,5 @@
 import { prisma } from '@core/db';
+import { Prisma } from '@prisma/client';
 import { getCurrentUser } from '@core/auth';
 import { User, Role } from '@core/types';
 import { getOperationalBusinessDate } from '@core/business-day';
@@ -330,6 +331,53 @@ export async function getMotProfileById(
   };
 }
 
+async function validateLinkedMotUser(
+  userId: bigint,
+  targetZmccId: bigint,
+  excludeProfileId?: bigint
+): Promise<{ error?: string; status?: number }> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: { procurement_source: true },
+  });
+
+  if (!user) {
+    return { error: 'Linked user not found.', status: 400 };
+  }
+  if (user.role !== 'MOT') {
+    return { error: "Linked user must have canonical role 'MOT'.", status: 400 };
+  }
+  if (!user.is_active) {
+    return { error: 'Linked user account is inactive.', status: 400 };
+  }
+  if (user.scope_type !== 'SOURCE') {
+    return { error: "Linked user must have scope_type 'SOURCE'.", status: 400 };
+  }
+  if (!user.procurement_source_id || !user.procurement_source) {
+    return { error: 'Linked user must be assigned to an active procurement source.', status: 400 };
+  }
+  if (!user.procurement_source.is_active) {
+    return { error: 'Linked user assigned procurement source is inactive.', status: 400 };
+  }
+  if (user.procurement_source.source_type !== 'ZMCC') {
+    return { error: 'Linked user assigned procurement source must be a ZMCC.', status: 400 };
+  }
+  if (user.procurement_source_id !== targetZmccId) {
+    return { error: 'Linked user must be assigned to the same ZMCC as the MOT Profile.', status: 400 };
+  }
+
+  const whereAssigned: any = { user_id: userId };
+  if (excludeProfileId) {
+    whereAssigned.id = { not: excludeProfileId };
+  }
+  const assigned = await prisma.motProfile.findFirst({ where: whereAssigned });
+  if (assigned) {
+    return { error: 'This user is already linked to another MOT Profile.', status: 409 };
+  }
+
+  return {};
+}
+
 export async function createMotProfile(
   auth: MotAuthContext,
   payload: {
@@ -391,46 +439,54 @@ export async function createMotProfile(
   if (payload.user_id) {
     try {
       linkedUserId = BigInt(payload.user_id);
-      const targetUser = await prisma.user.findUnique({
-        where: { id: linkedUserId },
-      });
-      if (!targetUser) {
-        return { status: 400, error: 'Linked user not found.' };
-      }
-      if (targetUser.role !== 'MOT') {
-        return { status: 400, error: "Linked user must have canonical role 'MOT'." };
-      }
-      if (!targetUser.is_active) {
-        return { status: 400, error: 'Linked user account is inactive.' };
-      }
-      // Check user not already assigned to another profile
-      const userAlreadyAssigned = await prisma.motProfile.findUnique({
-        where: { user_id: linkedUserId },
-      });
-      if (userAlreadyAssigned) {
-        return { status: 409, error: 'This user is already linked to another MOT profile.' };
-      }
     } catch {
       return { status: 400, error: 'Invalid User ID format.' };
     }
+    const userValidation = await validateLinkedMotUser(linkedUserId, targetZmccId);
+    if (userValidation.error) {
+      return { status: userValidation.status || 400, error: userValidation.error };
+    }
   }
 
-  const profile = await prisma.motProfile.create({
-    data: {
-      mot_code,
-      name,
-      phone_number,
-      cnic,
-      zmcc_id: targetZmccId,
-      user_id: linkedUserId,
-      is_active: true,
-      created_by: auth.actorUserId,
-    },
-    include: {
-      zmcc: { select: { id: true, code: true, name: true, is_active: true } },
-      user: { select: { id: true, username: true, full_name: true } },
-      creator: { select: { id: true, username: true, full_name: true } },
-    },
+  const profile = await prisma.$transaction(async (tx) => {
+    const p = await tx.motProfile.create({
+      data: {
+        mot_code,
+        name,
+        phone_number,
+        cnic,
+        zmcc_id: targetZmccId,
+        user_id: linkedUserId,
+        is_active: true,
+        created_by: auth.actorUserId,
+      },
+      include: {
+        zmcc: { select: { id: true, code: true, name: true, is_active: true } },
+        user: { select: { id: true, username: true, full_name: true } },
+        creator: { select: { id: true, username: true, full_name: true } },
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        table_name: 'mot_profile',
+        record_id: p.id,
+        action: 'MOT_PROFILE_CREATED',
+        old_values: Prisma.DbNull,
+        new_values: {
+          mot_code: p.mot_code,
+          name: p.name,
+          phone_number: p.phone_number,
+          cnic: p.cnic,
+          zmcc_id: p.zmcc_id.toString(),
+          user_id: p.user_id ? p.user_id.toString() : null,
+          is_active: p.is_active,
+        },
+        user_id: auth.actorUserId,
+      },
+    });
+
+    return p;
   });
 
   return {
@@ -543,6 +599,8 @@ export async function updateMotProfile(
     updateData.is_active = Boolean(payload.is_active);
   }
 
+  let targetZmccId = existing.zmcc_id;
+
   // Transfer ZMCC: Only Super Admin, and only if no active journey
   if (payload.zmcc_id !== undefined) {
     if (!auth.isSuperAdmin) {
@@ -560,9 +618,25 @@ export async function updateMotProfile(
       if (!targetZmcc || !targetZmcc.is_active || targetZmcc.source_type !== 'ZMCC') {
         return { status: 400, error: 'Target ZMCC does not exist or is inactive.' };
       }
+      targetZmccId = newZmccId;
       updateData.zmcc_id = newZmccId;
     } catch {
       return { status: 400, error: 'Invalid target ZMCC ID format.' };
+    }
+
+    // If user_id is not explicitly changed in this request, verify current linked user belongs to new ZMCC
+    if (payload.user_id === undefined && existing.user_id !== null) {
+      const currentUser = await prisma.user.findUnique({
+        where: { id: existing.user_id },
+        include: { procurement_source: true },
+      });
+      if (currentUser && currentUser.procurement_source_id !== targetZmccId) {
+        return {
+          status: 400,
+          error:
+            'Cannot transfer MOT Profile to another ZMCC while linked to a user assigned to a different ZMCC. Reassign or unlink the user first.',
+        };
+      }
     }
   }
 
@@ -572,14 +646,10 @@ export async function updateMotProfile(
     } else {
       try {
         const uId = BigInt(payload.user_id);
-        const user = await prisma.user.findUnique({ where: { id: uId } });
-        if (!user) return { status: 400, error: 'Linked user not found.' };
-        if (user.role !== 'MOT') return { status: 400, error: "Linked user must have canonical role 'MOT'." };
-        if (!user.is_active) return { status: 400, error: 'Linked user account is inactive.' };
-        const assigned = await prisma.motProfile.findFirst({
-          where: { user_id: uId, id: { not: id } },
-        });
-        if (assigned) return { status: 409, error: 'This user is already linked to another MOT profile.' };
+        const userValidation = await validateLinkedMotUser(uId, targetZmccId, id);
+        if (userValidation.error) {
+          return { status: userValidation.status || 400, error: userValidation.error };
+        }
         updateData.user_id = uId;
       } catch {
         return { status: 400, error: 'Invalid User ID format.' };
@@ -587,15 +657,58 @@ export async function updateMotProfile(
     }
   }
 
-  const updated = await prisma.motProfile.update({
-    where: { id },
-    data: updateData,
-    include: {
-      zmcc: { select: { id: true, code: true, name: true, is_active: true } },
-      user: { select: { id: true, username: true, full_name: true } },
-      creator: { select: { id: true, username: true, full_name: true } },
-      updater: { select: { id: true, username: true, full_name: true } },
-    },
+  const updated = await prisma.$transaction(async (tx) => {
+    const p = await tx.motProfile.update({
+      where: { id },
+      data: updateData,
+      include: {
+        zmcc: { select: { id: true, code: true, name: true, is_active: true } },
+        user: { select: { id: true, username: true, full_name: true } },
+        creator: { select: { id: true, username: true, full_name: true } },
+        updater: { select: { id: true, username: true, full_name: true } },
+      },
+    });
+
+    let actionName = 'MOT_PROFILE_UPDATED';
+    if (payload.is_active !== undefined && payload.is_active !== existing.is_active) {
+      actionName = payload.is_active ? 'MOT_PROFILE_ACTIVATED' : 'MOT_PROFILE_DEACTIVATED';
+    } else if (payload.zmcc_id !== undefined && BigInt(payload.zmcc_id) !== existing.zmcc_id) {
+      actionName = 'MOT_PROFILE_TRANSFERRED';
+    } else if (
+      payload.user_id !== undefined &&
+      (payload.user_id ? BigInt(payload.user_id) : null) !== existing.user_id
+    ) {
+      actionName = 'MOT_PROFILE_USER_LINKED';
+    }
+
+    await tx.auditLog.create({
+      data: {
+        table_name: 'mot_profile',
+        record_id: p.id,
+        action: actionName,
+        old_values: {
+          mot_code: existing.mot_code,
+          name: existing.name,
+          phone_number: existing.phone_number,
+          cnic: existing.cnic,
+          zmcc_id: existing.zmcc_id.toString(),
+          user_id: existing.user_id ? existing.user_id.toString() : null,
+          is_active: existing.is_active,
+        },
+        new_values: {
+          mot_code: p.mot_code,
+          name: p.name,
+          phone_number: p.phone_number,
+          cnic: p.cnic,
+          zmcc_id: p.zmcc_id.toString(),
+          user_id: p.user_id ? p.user_id.toString() : null,
+          is_active: p.is_active,
+        },
+        user_id: auth.actorUserId,
+      },
+    });
+
+    return p;
   });
 
   return {
@@ -804,17 +917,36 @@ export async function createMotVehicle(
     return { status: 409, error: `MOT Vehicle with number '${vehicle_number}' already exists.` };
   }
 
-  const vehicle = await prisma.motVehicle.create({
-    data: {
-      vehicle_number,
-      zmcc_id: targetZmccId,
-      is_active: true,
-      created_by: auth.actorUserId,
-    },
-    include: {
-      zmcc: { select: { id: true, code: true, name: true, is_active: true } },
-      creator: { select: { id: true, username: true, full_name: true } },
-    },
+  const vehicle = await prisma.$transaction(async (tx) => {
+    const v = await tx.motVehicle.create({
+      data: {
+        vehicle_number,
+        zmcc_id: targetZmccId,
+        is_active: true,
+        created_by: auth.actorUserId,
+      },
+      include: {
+        zmcc: { select: { id: true, code: true, name: true, is_active: true } },
+        creator: { select: { id: true, username: true, full_name: true } },
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        table_name: 'mot_vehicle',
+        record_id: v.id,
+        action: 'MOT_VEHICLE_CREATED',
+        old_values: Prisma.DbNull,
+        new_values: {
+          vehicle_number: v.vehicle_number,
+          zmcc_id: v.zmcc_id.toString(),
+          is_active: v.is_active,
+        },
+        user_id: auth.actorUserId,
+      },
+    });
+
+    return v;
   });
 
   return {
@@ -926,14 +1058,44 @@ export async function updateMotVehicle(
     }
   }
 
-  const updated = await prisma.motVehicle.update({
-    where: { id },
-    data: updateData,
-    include: {
-      zmcc: { select: { id: true, code: true, name: true, is_active: true } },
-      creator: { select: { id: true, username: true, full_name: true } },
-      updater: { select: { id: true, username: true, full_name: true } },
-    },
+  const updated = await prisma.$transaction(async (tx) => {
+    const v = await tx.motVehicle.update({
+      where: { id },
+      data: updateData,
+      include: {
+        zmcc: { select: { id: true, code: true, name: true, is_active: true } },
+        creator: { select: { id: true, username: true, full_name: true } },
+        updater: { select: { id: true, username: true, full_name: true } },
+      },
+    });
+
+    let actionName = 'MOT_VEHICLE_UPDATED';
+    if (payload.is_active !== undefined && payload.is_active !== existing.is_active) {
+      actionName = payload.is_active ? 'MOT_VEHICLE_ACTIVATED' : 'MOT_VEHICLE_DEACTIVATED';
+    } else if (payload.zmcc_id !== undefined && BigInt(payload.zmcc_id) !== existing.zmcc_id) {
+      actionName = 'MOT_VEHICLE_TRANSFERRED';
+    }
+
+    await tx.auditLog.create({
+      data: {
+        table_name: 'mot_vehicle',
+        record_id: v.id,
+        action: actionName,
+        old_values: {
+          vehicle_number: existing.vehicle_number,
+          zmcc_id: existing.zmcc_id.toString(),
+          is_active: existing.is_active,
+        },
+        new_values: {
+          vehicle_number: v.vehicle_number,
+          zmcc_id: v.zmcc_id.toString(),
+          is_active: v.is_active,
+        },
+        user_id: auth.actorUserId,
+      },
+    });
+
+    return v;
   });
 
   return {
@@ -982,7 +1144,17 @@ export async function assignAndDispatchJourney(
     return { status: 403, error: 'Forbidden. You do not have permission to assign & dispatch MOT journeys.' };
   }
 
-  // 2. Validate GPS coordinates
+  // 2. Validate client-provided idempotency_key early (required, non-empty)
+  const rawKey = payload.idempotency_key;
+  if (!rawKey || typeof rawKey !== 'string' || !rawKey.trim()) {
+    return {
+      status: 400,
+      error: 'A non-empty client idempotency_key is required for Assign & Dispatch.',
+    };
+  }
+  const idempotencyKey = rawKey.trim();
+
+  // 3. Validate GPS coordinates
   const lat = Number(payload.latitude);
   const lng = Number(payload.longitude);
   if (isNaN(lat) || lat < -90 || lat > 90 || isNaN(lng) || lng < -180 || lng > 180) {
@@ -993,7 +1165,7 @@ export async function assignAndDispatchJourney(
   }
   const accuracy = payload.accuracy != null && !isNaN(Number(payload.accuracy)) ? Number(payload.accuracy) : null;
 
-  // 3. Validate ZMCC scope
+  // 4. Validate ZMCC scope
   let targetZmccId: bigint;
   if (auth.isSuperAdmin) {
     if (!payload.zmcc_id) {
@@ -1016,7 +1188,7 @@ export async function assignAndDispatchJourney(
     return { status: 400, error: 'Selected ZMCC does not exist or is inactive.' };
   }
 
-  // 4. Validate Operational Date (must be today in Pakistan Standard Time)
+  // 5. Validate Operational Date (must be today in Pakistan Standard Time)
   const todayPktStr = getOperationalBusinessDate(new Date());
   if (payload.operational_date) {
     const inputDate = payload.operational_date.trim();
@@ -1029,7 +1201,7 @@ export async function assignAndDispatchJourney(
   }
   const operationalDate = new Date(`${todayPktStr}T00:00:00.000Z`);
 
-  // 5. Parse and validate IDs
+  // 6. Parse and validate IDs
   let routeId: bigint;
   let profileId: bigint;
   let vehicleId: bigint;
@@ -1041,7 +1213,54 @@ export async function assignAndDispatchJourney(
     return { status: 400, error: 'Invalid ID format for Route, MOT Profile, or Vehicle.' };
   }
 
-  // 6. Verify Route: must belong to same ZMCC, must be active, must have active shops
+  // 7. Look up Idempotency Key BEFORE conflict checks
+  const existingWithKey = await prisma.motJourney.findUnique({
+    where: { idempotency_key: idempotencyKey },
+    include: {
+      zmcc: { select: { id: true, code: true, name: true } },
+      route: { select: { id: true, route_code: true, name: true } },
+      mot_profile: { select: { id: true, mot_code: true, name: true, phone_number: true } },
+      mot_vehicle: { select: { id: true, vehicle_number: true } },
+      assigner: { select: { id: true, username: true, full_name: true } },
+      canceller: { select: { id: true, username: true, full_name: true } },
+      stops: {
+        include: {
+          shop: { select: { id: true, shop_code: true, shop_name: true, owner_name: true, phone_number: true } },
+        },
+        orderBy: { planned_sequence: 'asc' },
+      },
+      locations: {
+        orderBy: { device_recorded_at: 'asc' },
+      },
+    },
+  });
+
+  if (existingWithKey) {
+    // Cross-ZMCC: Never return another ZMCC's journey through an idempotency-key lookup
+    if (existingWithKey.zmcc_id !== targetZmccId) {
+      return {
+        status: 409,
+        error: 'The provided idempotency key is already in use for another ZMCC.',
+      };
+    }
+
+    const existingOpDateStr = existingWithKey.operational_date.toISOString().split('T')[0];
+    const isSameRoute = existingWithKey.route_id === routeId;
+    const isSameProfile = existingWithKey.mot_profile_id === profileId;
+    const isSameVehicle = existingWithKey.mot_vehicle_id === vehicleId;
+    const isSameDate = existingOpDateStr === todayPktStr;
+
+    if (!isSameRoute || !isSameProfile || !isSameVehicle || !isSameDate) {
+      return {
+        status: 409,
+        error: 'The provided idempotency key is already in use with different journey parameters.',
+      };
+    }
+
+    return { status: 200, data: serializeJourney(existingWithKey) };
+  }
+
+  // 8. Verify Route: must belong to same ZMCC, must be active, must have active shops
   const route = await prisma.zmccRoute.findUnique({
     where: { id: routeId },
   });
@@ -1056,16 +1275,24 @@ export async function assignAndDispatchJourney(
     return { status: 400, error: 'Selected route is inactive.' };
   }
 
+  // Deterministically snapshot active shops: area.area_code ASC, shop_code ASC, id ASC
   const activeShops = await prisma.zmccShop.findMany({
     where: { route_id: routeId, is_active: true },
-    orderBy: [{ shop_code: 'asc' }, { id: 'asc' }],
+    include: {
+      area: { select: { id: true, area_code: true, name: true } },
+    },
+    orderBy: [
+      { area: { area_code: 'asc' } },
+      { shop_code: 'asc' },
+      { id: 'asc' },
+    ],
   });
 
   if (activeShops.length === 0) {
     return { status: 400, error: 'Selected route has no active shops to collect milk from.' };
   }
 
-  // 7. Verify MOT Profile: must belong to same ZMCC, must be active
+  // 9. Verify MOT Profile: must belong to same ZMCC, must be active
   const profile = await prisma.motProfile.findUnique({
     where: { id: profileId },
   });
@@ -1079,7 +1306,7 @@ export async function assignAndDispatchJourney(
     return { status: 400, error: 'Selected MOT Profile is inactive.' };
   }
 
-  // 8. Verify MOT Vehicle: must belong to same ZMCC, must be active
+  // 10. Verify MOT Vehicle: must belong to same ZMCC, must be active
   const vehicle = await prisma.motVehicle.findUnique({
     where: { id: vehicleId },
   });
@@ -1093,7 +1320,7 @@ export async function assignAndDispatchJourney(
     return { status: 400, error: 'Selected MOT Vehicle is inactive.' };
   }
 
-  // 9. Check active COLLECTING journeys for profile and vehicle
+  // 11. Check active COLLECTING journeys for profile and vehicle
   const existingProfileJourney = await prisma.motJourney.findFirst({
     where: { mot_profile_id: profileId, status: 'COLLECTING' },
   });
@@ -1114,39 +1341,12 @@ export async function assignAndDispatchJourney(
     };
   }
 
-  // 10. Idempotency Key
-  const idempotencyKey =
-    (payload.idempotency_key || '').trim() ||
-    `DISP-${targetZmccId}-${profileId}-${vehicleId}-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
-
-  // Check if journey already created with this idempotency key
-  const existingWithKey = await prisma.motJourney.findUnique({
-    where: { idempotency_key: idempotencyKey },
-    include: {
-      zmcc: { select: { id: true, code: true, name: true } },
-      route: { select: { id: true, route_code: true, name: true } },
-      mot_profile: { select: { id: true, mot_code: true, name: true, phone_number: true } },
-      mot_vehicle: { select: { id: true, vehicle_number: true } },
-      stops: {
-        include: {
-          shop: { select: { id: true, shop_code: true, shop_name: true, owner_name: true } },
-        },
-        orderBy: { planned_sequence: 'asc' },
-      },
-      locations: {
-        orderBy: { device_recorded_at: 'asc' },
-      },
-    },
-  });
-  if (existingWithKey) {
-    return { status: 200, data: serializeJourney(existingWithKey) };
-  }
-
-  // 11. Execute Atomic Transaction:
+  // 12. Execute Atomic Transaction:
   // - Generate journey number
   // - Create MotJourney (status: COLLECTING, assigned_at = started_at = NOW)
   // - Create MotJourneyLocation (ASSIGNING_USER)
   // - Freeze MotJourneyStop rows (ordered active shops)
+  // - Create AuditLog
   const now = new Date();
   const dateCode = todayPktStr.replace(/-/g, '');
 
@@ -1212,6 +1412,36 @@ export async function assignAndDispatchJourney(
 
       await tx.motJourneyStop.createMany({
         data: stopsData,
+      });
+
+      // Create AuditLog entry atomically
+      await tx.auditLog.create({
+        data: {
+          table_name: 'mot_journey',
+          record_id: journey.id,
+          action: 'MOT_JOURNEY_ASSIGN_AND_DISPATCH',
+          old_values: Prisma.DbNull,
+          new_values: {
+            journey_number: journey.journey_number,
+            operational_date: todayPktStr,
+            zmcc_id: targetZmccId.toString(),
+            route_id: routeId.toString(),
+            mot_profile_id: profileId.toString(),
+            mot_vehicle_id: vehicleId.toString(),
+            status: 'COLLECTING',
+            assigned_by: auth.actorUserId.toString(),
+            assigned_at: now.toISOString(),
+            assignment_latitude: lat,
+            assignment_longitude: lng,
+            assignment_gps_accuracy: accuracy,
+            started_at: now.toISOString(),
+            start_latitude: lat,
+            start_longitude: lng,
+            idempotency_key: idempotencyKey,
+            total_stops: stopsData.length,
+          },
+          user_id: auth.actorUserId,
+        },
       });
 
       return journey;
@@ -1309,31 +1539,79 @@ export async function cancelMotJourney(
     };
   }
 
-  const updated = await prisma.motJourney.update({
-    where: { id: journeyId },
-    data: {
-      status: 'CANCELLED',
-      cancelled_at: new Date(),
-      cancelled_by: auth.actorUserId,
-      cancellation_reason: cleanReason,
-    },
-    include: {
-      zmcc: { select: { id: true, code: true, name: true } },
-      route: { select: { id: true, route_code: true, name: true } },
-      mot_profile: { select: { id: true, mot_code: true, name: true, phone_number: true } },
-      mot_vehicle: { select: { id: true, vehicle_number: true } },
-      assigner: { select: { id: true, username: true, full_name: true } },
-      canceller: { select: { id: true, username: true, full_name: true } },
-      stops: {
-        include: {
-          shop: { select: { id: true, shop_code: true, shop_name: true, owner_name: true } },
+  const now = new Date();
+  try {
+    const updated = await prisma.$transaction(async (tx) => {
+      const updateResult = await tx.motJourney.updateMany({
+        where: {
+          id: journeyId,
+          status: 'COLLECTING',
         },
-        orderBy: { planned_sequence: 'asc' },
-      },
-    },
-  });
+        data: {
+          status: 'CANCELLED',
+          cancelled_at: now,
+          cancelled_by: auth.actorUserId,
+          cancellation_reason: cleanReason,
+        },
+      });
 
-  return { status: 200, data: serializeJourney(updated) };
+      if (updateResult.count === 0) {
+        const current = await tx.motJourney.findUnique({ where: { id: journeyId } });
+        if (!current) {
+          throw new Error('JOURNEY_NOT_FOUND');
+        }
+        throw new Error(
+          `CONFLICT: Cannot cancel journey in '${current.status}' status. Only active COLLECTING journeys can be cancelled.`
+        );
+      }
+
+      await tx.auditLog.create({
+        data: {
+          table_name: 'mot_journey',
+          record_id: journeyId,
+          action: 'MOT_JOURNEY_CANCEL',
+          old_values: {
+            status: 'COLLECTING',
+          },
+          new_values: {
+            status: 'CANCELLED',
+            cancelled_by: auth.actorUserId.toString(),
+            cancelled_at: now.toISOString(),
+            cancellation_reason: cleanReason,
+          },
+          user_id: auth.actorUserId,
+        },
+      });
+
+      return tx.motJourney.findUnique({
+        where: { id: journeyId },
+        include: {
+          zmcc: { select: { id: true, code: true, name: true } },
+          route: { select: { id: true, route_code: true, name: true } },
+          mot_profile: { select: { id: true, mot_code: true, name: true, phone_number: true } },
+          mot_vehicle: { select: { id: true, vehicle_number: true } },
+          assigner: { select: { id: true, username: true, full_name: true } },
+          canceller: { select: { id: true, username: true, full_name: true } },
+          stops: {
+            include: {
+              shop: { select: { id: true, shop_code: true, shop_name: true, owner_name: true } },
+            },
+            orderBy: { planned_sequence: 'asc' },
+          },
+        },
+      });
+    });
+
+    return { status: 200, data: serializeJourney(updated!) };
+  } catch (err: any) {
+    if (err.message === 'JOURNEY_NOT_FOUND') {
+      return { status: 404, error: 'Journey not found.' };
+    }
+    if (err.message?.startsWith('CONFLICT:')) {
+      return { status: 400, error: err.message.replace('CONFLICT: ', '') };
+    }
+    throw err;
+  }
 }
 
 // =============================================================

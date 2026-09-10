@@ -328,6 +328,11 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
     setSuccessMessage(null);
 
     try {
+      const idempotencyKey =
+        typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `DISP-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+
       const payload = {
         zmcc_id: effectiveZmccId || undefined,
         route_id: dispatchRouteId,
@@ -336,6 +341,7 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
         latitude: gpsLocation.latitude,
         longitude: gpsLocation.longitude,
         accuracy: gpsLocation.accuracy,
+        idempotency_key: idempotencyKey,
       };
 
       const res = await fetch('/api/zmcc/mot/journeys/assign-and-dispatch', {

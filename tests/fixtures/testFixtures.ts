@@ -20,6 +20,24 @@ export async function clearTestDatabase(prisma: PrismaClient): Promise<void> {
   await prisma.qAWarning.deleteMany();
   await prisma.labTestRule.deleteMany();
   await prisma.labTest.deleteMany();
+
+  // Mot tables
+  await prisma.motJourneyLocation.deleteMany();
+  await prisma.motJourneyStop.deleteMany();
+  await prisma.motJourney.deleteMany();
+  await prisma.motProfile.deleteMany();
+  await prisma.motVehicle.deleteMany();
+
+  // ZMCC master data tables
+  await prisma.zmccShop.deleteMany();
+  await prisma.zmccMilkSource.deleteMany();
+  await prisma.zmccArea.deleteMany();
+  await prisma.zmccRoute.deleteMany();
+  await prisma.chillerOwnership.deleteMany();
+
+  // Audit logs
+  await prisma.auditLog.deleteMany();
+
   await prisma.user.deleteMany();
   await prisma.silo.deleteMany();
   await prisma.procurementSource.deleteMany();

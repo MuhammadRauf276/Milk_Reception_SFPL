@@ -432,6 +432,170 @@ async function runStage6cTests() {
       },
     });
 
+    // Additional users for linked user consistency testing:
+    // 1. MOT user assigned to ZMCC B (cross-ZMCC for ZMCC A)
+    const motUserB = await prisma.user.create({
+      data: {
+        username: `mot_b_${runId}`,
+        password_hash: 'hashed',
+        full_name: 'MOT Driver Beta',
+        role: 'MOT',
+        department: 'Milk Procurement',
+        scope_type: 'SOURCE',
+        procurement_source_id: zmccB.id,
+        is_active: true,
+      },
+    });
+    cleanupUserIds.push(motUserB.id);
+
+    // 2. Inactive MOT user
+    const inactiveMotUser = await prisma.user.create({
+      data: {
+        username: `mot_inact_${runId}`,
+        password_hash: 'hashed',
+        full_name: 'Inactive MOT Driver',
+        role: 'MOT',
+        department: 'Milk Procurement',
+        scope_type: 'SOURCE',
+        procurement_source_id: zmccA.id,
+        is_active: false,
+      },
+    });
+    cleanupUserIds.push(inactiveMotUser.id);
+
+    // 3. User with incorrect role (Security_Operator)
+    const wrongRoleUser = await prisma.user.create({
+      data: {
+        username: `sec_${runId}`,
+        password_hash: 'hashed',
+        full_name: 'Security User',
+        role: 'Security_Operator',
+        department: 'Security',
+        scope_type: 'SOURCE',
+        procurement_source_id: zmccA.id,
+        is_active: true,
+      },
+    });
+    cleanupUserIds.push(wrongRoleUser.id);
+
+    // 4. User without procurement source (SYSTEM scope)
+    const missingSourceUser = await prisma.user.create({
+      data: {
+        username: `nosrc_${runId}`,
+        password_hash: 'hashed',
+        full_name: 'No Source User',
+        role: 'MOT',
+        department: 'Milk Procurement',
+        scope_type: 'SYSTEM',
+        is_active: true,
+      },
+    });
+    cleanupUserIds.push(missingSourceUser.id);
+
+    // Multi-area route on ZMCC B for STOP ORDERING test
+    const routeB = await prisma.zmccRoute.create({
+      data: {
+        route_code: `RT-B-${runId}`,
+        name: `Route Beta ${runId}`,
+        origin: 'ZMCC Beta',
+        destination: 'Processing Plant',
+        zmcc_id: zmccB.id,
+        is_active: true,
+        created_by: zmccManagerB.id,
+      },
+    });
+
+    const areaB1 = await prisma.zmccArea.create({
+      data: {
+        area_code: `01-AR-B-${runId}`,
+        name: `Area B1 ${runId}`,
+        route_id: routeB.id,
+        zmcc_id: zmccB.id,
+        is_active: true,
+        created_by: zmccManagerB.id,
+      },
+    });
+
+    const areaB2 = await prisma.zmccArea.create({
+      data: {
+        area_code: `02-AR-B-${runId}`,
+        name: `Area B2 ${runId}`,
+        route_id: routeB.id,
+        zmcc_id: zmccB.id,
+        is_active: true,
+        created_by: zmccManagerB.id,
+      },
+    });
+
+    const milkSourceB = await prisma.zmccMilkSource.create({
+      data: {
+        erp_code: `MS-B-${runId}`,
+        name: `Milk Source Beta ${runId}`,
+        zmcc_id: zmccB.id,
+        is_active: true,
+        created_by: zmccManagerB.id,
+      },
+    });
+
+    // In Area B1 (01-AR-B), shop code is ZZZ (alphabetically last)
+    const shopB1 = await prisma.zmccShop.create({
+      data: {
+        shop_code: `SHP-ZZ-${runId}`,
+        shop_name: `Shop ZZ in Area 1 ${runId}`,
+        owner_name: 'Owner ZZ',
+        phone_number: '0300-9999999',
+        cnic: '35201-9999999-9',
+        area_id: areaB1.id,
+        route_id: routeB.id,
+        zmcc_id: zmccB.id,
+        milk_source_id: milkSourceB.id,
+        chiller_ownership_id: chillerOwnership.id,
+        is_active: true,
+        created_by: zmccManagerB.id,
+      },
+    });
+
+    // In Area B2 (02-AR-B), shop code is AAA (alphabetically first)
+    const shopB2 = await prisma.zmccShop.create({
+      data: {
+        shop_code: `SHP-AA-${runId}`,
+        shop_name: `Shop AA in Area 2 ${runId}`,
+        owner_name: 'Owner AA',
+        phone_number: '0300-8888888',
+        cnic: '35201-8888888-8',
+        area_id: areaB2.id,
+        route_id: routeB.id,
+        zmcc_id: zmccB.id,
+        milk_source_id: milkSourceB.id,
+        chiller_ownership_id: chillerOwnership.id,
+        is_active: true,
+        created_by: zmccManagerB.id,
+      },
+    });
+
+    // MOT Profile and Vehicle on ZMCC B for Stop Ordering & Cross-ZMCC test
+    const profileB = await prisma.motProfile.create({
+      data: {
+        mot_code: `MOT-B1-${runId}`,
+        name: 'Profile Beta',
+        phone_number: '0300-5555555',
+        cnic: '35201-5555555-5',
+        zmcc_id: zmccB.id,
+        user_id: motUserB.id,
+        is_active: true,
+        created_by: zmccManagerB.id,
+      },
+    });
+
+    const vehicleB = await prisma.motVehicle.create({
+      data: {
+        vehicle_number: `VEH-B-${runId}`,
+        zmcc_id: zmccB.id,
+        is_active: true,
+        created_by: zmccManagerB.id,
+      },
+    });
+
     console.log('  Fixtures initialized successfully.');
 
     // ---------------------------------------------------------------
@@ -479,7 +643,67 @@ async function runStage6cTests() {
       `PHE Operator blocked from creating MOT vehicle (HTTP ${pheCreateVehicleRes.status})`
     );
 
-    // 4.4 ZMCC Manager A creates MOT Profile on ZMCC A
+    // 4.3.1 Linked User Consistency: Rejection of cross-ZMCC linked user
+    const crossUserCreateReq = await makeReq('http://localhost/api/zmcc/mot/profiles', 'POST', zmccManagerA, {
+      mot_code: `MOT-FAIL-1-${runId}`,
+      name: 'Fail User 1',
+      phone_number: '0300-1234567',
+      cnic: '35201-1234567-1',
+      user_id: motUserB.id.toString(), // Belongs to ZMCC B!
+    });
+    const crossUserCreateRes = await postProfiles(crossUserCreateReq);
+    assert(
+      crossUserCreateRes.status === 400,
+      'USER-LINK-REJECT-CROSS-ZMCC',
+      `Profile creation rejected cross-ZMCC user (HTTP ${crossUserCreateRes.status})`
+    );
+
+    // 4.3.2 Linked User Consistency: Rejection of inactive linked user
+    const inactUserCreateReq = await makeReq('http://localhost/api/zmcc/mot/profiles', 'POST', zmccManagerA, {
+      mot_code: `MOT-FAIL-2-${runId}`,
+      name: 'Fail User 2',
+      phone_number: '0300-1234567',
+      cnic: '35201-1234567-1',
+      user_id: inactiveMotUser.id.toString(),
+    });
+    const inactUserCreateRes = await postProfiles(inactUserCreateReq);
+    assert(
+      inactUserCreateRes.status === 400,
+      'USER-LINK-REJECT-INACTIVE',
+      `Profile creation rejected inactive user (HTTP ${inactUserCreateRes.status})`
+    );
+
+    // 4.3.3 Linked User Consistency: Rejection of non-MOT role
+    const wrongRoleCreateReq = await makeReq('http://localhost/api/zmcc/mot/profiles', 'POST', zmccManagerA, {
+      mot_code: `MOT-FAIL-3-${runId}`,
+      name: 'Fail User 3',
+      phone_number: '0300-1234567',
+      cnic: '35201-1234567-1',
+      user_id: wrongRoleUser.id.toString(),
+    });
+    const wrongRoleCreateRes = await postProfiles(wrongRoleCreateReq);
+    assert(
+      wrongRoleCreateRes.status === 400,
+      'USER-LINK-REJECT-WRONG-ROLE',
+      `Profile creation rejected non-MOT user (HTTP ${wrongRoleCreateRes.status})`
+    );
+
+    // 4.3.4 Linked User Consistency: Rejection of user with missing procurement source
+    const missingSrcCreateReq = await makeReq('http://localhost/api/zmcc/mot/profiles', 'POST', zmccManagerA, {
+      mot_code: `MOT-FAIL-4-${runId}`,
+      name: 'Fail User 4',
+      phone_number: '0300-1234567',
+      cnic: '35201-1234567-1',
+      user_id: missingSourceUser.id.toString(),
+    });
+    const missingSrcCreateRes = await postProfiles(missingSrcCreateReq);
+    assert(
+      missingSrcCreateRes.status === 400,
+      'USER-LINK-REJECT-MISSING-SOURCE',
+      `Profile creation rejected user without ZMCC source (HTTP ${missingSrcCreateRes.status})`
+    );
+
+    // 4.4 ZMCC Manager A creates MOT Profile on ZMCC A with valid linked user motUserA
     const zmccManagerCreateProfileReq = await makeReq(
       'http://localhost/api/zmcc/mot/profiles',
       'POST',
@@ -499,6 +723,54 @@ async function runStage6cTests() {
       `ZMCC Manager successfully created MOT profile (HTTP ${zmccManagerCreateProfileRes.status})`
     );
     const createdProfileA = (await zmccManagerCreateProfileRes.json()).profile;
+
+    // 4.4.1 Update Profile: Rejection of cross-ZMCC user link update
+    const updateCrossUserReq = await makeReq(
+      `http://localhost/api/zmcc/mot/profiles/${createdProfileA.id}`,
+      'PATCH',
+      zmccManagerA,
+      { user_id: motUserB.id.toString() }
+    );
+    const updateCrossUserRes = await patchProfile(updateCrossUserReq, {
+      params: Promise.resolve({ id: createdProfileA.id }),
+    });
+    assert(
+      updateCrossUserRes.status === 400,
+      'USER-LINK-UPDATE-REJECT-CROSS-ZMCC',
+      `Profile update rejected cross-ZMCC user link (HTTP ${updateCrossUserRes.status})`
+    );
+
+    // 4.4.2 Super Admin Profile Transfer: Rejected if linked user still belongs to current ZMCC
+    const transferWithOldUserReq = await makeReq(
+      `http://localhost/api/zmcc/mot/profiles/${createdProfileA.id}`,
+      'PATCH',
+      superAdminUser,
+      { zmcc_id: zmccB.id.toString() }
+    );
+    const transferWithOldUserRes = await patchProfile(transferWithOldUserReq, {
+      params: Promise.resolve({ id: createdProfileA.id }),
+    });
+    assert(
+      transferWithOldUserRes.status === 400,
+      'TRANSFER-REJECT-LINKED-USER-MISMATCH',
+      `Super Admin transfer rejected when linked user belongs to old ZMCC (HTTP ${transferWithOldUserRes.status})`
+    );
+
+    // 4.4.3 ZMCC Manager must never transfer a profile (403)
+    const zmccMgrTransferProfileReq = await makeReq(
+      `http://localhost/api/zmcc/mot/profiles/${createdProfileA.id}`,
+      'PATCH',
+      zmccManagerA,
+      { zmcc_id: zmccB.id.toString() }
+    );
+    const zmccMgrTransferProfileRes = await patchProfile(zmccMgrTransferProfileReq, {
+      params: Promise.resolve({ id: createdProfileA.id }),
+    });
+    assert(
+      zmccMgrTransferProfileRes.status === 403,
+      'TRANSFER-PROFILE-ZMCC-MGR-BLOCKED',
+      `ZMCC Manager blocked from transferring profile across ZMCCs (HTTP ${zmccMgrTransferProfileRes.status})`
+    );
 
     // 4.5 ZMCC Manager A creates MOT Vehicle on ZMCC A
     const zmccManagerCreateVehicleReq = await makeReq(
@@ -554,6 +826,47 @@ async function runStage6cTests() {
 
     const todayPktStr = getOperationalBusinessDate(new Date());
 
+    // 5.0.1 Rejection of missing idempotency_key (400)
+    const missingKeyReq = await makeReq(
+      'http://localhost/api/zmcc/mot/journeys/assign-and-dispatch',
+      'POST',
+      zmccManagerA,
+      {
+        route_id: routeA.id.toString(),
+        mot_profile_id: createdProfileA.id,
+        mot_vehicle_id: createdVehicleA.id,
+        latitude: 31.5204,
+        longitude: 74.3587,
+      }
+    );
+    const missingKeyRes = await assignAndDispatch(missingKeyReq);
+    assert(
+      missingKeyRes.status === 400,
+      'DISPATCH-REJECT-MISSING-IDEMPOTENCY-KEY',
+      `Dispatch rejected missing idempotency key with HTTP ${missingKeyRes.status}`
+    );
+
+    // 5.0.2 Rejection of blank idempotency_key (400)
+    const blankKeyReq = await makeReq(
+      'http://localhost/api/zmcc/mot/journeys/assign-and-dispatch',
+      'POST',
+      zmccManagerA,
+      {
+        route_id: routeA.id.toString(),
+        mot_profile_id: createdProfileA.id,
+        mot_vehicle_id: createdVehicleA.id,
+        latitude: 31.5204,
+        longitude: 74.3587,
+        idempotency_key: '   ',
+      }
+    );
+    const blankKeyRes = await assignAndDispatch(blankKeyReq);
+    assert(
+      blankKeyRes.status === 400,
+      'DISPATCH-REJECT-BLANK-IDEMPOTENCY-KEY',
+      `Dispatch rejected blank idempotency key with HTTP ${blankKeyRes.status}`
+    );
+
     // 5.1 Rejection of non-today operational date
     const invalidDateReq = await makeReq(
       'http://localhost/api/zmcc/mot/journeys/assign-and-dispatch',
@@ -566,6 +879,7 @@ async function runStage6cTests() {
         operational_date: '2020-01-01', // Outdated date
         latitude: 31.5204,
         longitude: 74.3587,
+        idempotency_key: `DISP-DATE-${runId}`,
       }
     );
     const invalidDateRes = await assignAndDispatch(invalidDateReq);
@@ -586,6 +900,7 @@ async function runStage6cTests() {
         mot_vehicle_id: createdVehicleA.id,
         latitude: 999.0, // Invalid latitude
         longitude: 74.3587,
+        idempotency_key: `DISP-GPS-${runId}`,
       }
     );
     const invalidGpsRes = await assignAndDispatch(invalidGpsReq);
@@ -606,6 +921,7 @@ async function runStage6cTests() {
         mot_vehicle_id: createdVehicleA.id,
         latitude: 31.5204,
         longitude: 74.3587,
+        idempotency_key: `DISP-EMPTY-${runId}`,
       }
     );
     const emptyRouteRes = await assignAndDispatch(emptyRouteReq);
@@ -615,8 +931,8 @@ async function runStage6cTests() {
       `Dispatch rejected route with zero active shops with HTTP ${emptyRouteRes.status}`
     );
 
-    // 5.4 SUCCESSFUL DISPATCH by PHE Operator A:
-    // Immediate COLLECTING status, assigned_at == started_at, shop snapshot, GPS initial point
+    // 5.4 SUCCESSFUL DISPATCH by PHE Operator A with client idempotency key
+    const primaryIdempotencyKey = `IDEMP-ALPHA-${runId}`;
     const validDispatchReq = await makeReq(
       'http://localhost/api/zmcc/mot/journeys/assign-and-dispatch',
       'POST',
@@ -628,6 +944,7 @@ async function runStage6cTests() {
         latitude: 31.5203789,
         longitude: 74.3587456,
         accuracy: 12.5,
+        idempotency_key: primaryIdempotencyKey,
       }
     );
     const validDispatchRes = await assignAndDispatch(validDispatchReq);
@@ -664,6 +981,145 @@ async function runStage6cTests() {
       'Initial location recorded with source_type = ASSIGNING_USER'
     );
 
+    // 5.4.1 IDEMPOTENT RETRY: Identical retry returns 200 with same journey and creates NO duplicates
+    const retryDispatchReq = await makeReq(
+      'http://localhost/api/zmcc/mot/journeys/assign-and-dispatch',
+      'POST',
+      pheOperatorA,
+      {
+        route_id: routeA.id.toString(),
+        mot_profile_id: createdProfileA.id,
+        mot_vehicle_id: createdVehicleA.id,
+        latitude: 31.5203789,
+        longitude: 74.3587456,
+        accuracy: 12.5,
+        idempotency_key: primaryIdempotencyKey,
+      }
+    );
+    const retryDispatchRes = await assignAndDispatch(retryDispatchReq);
+    assert(
+      retryDispatchRes.status === 200,
+      'IDEMPOTENT-RETRY-HTTP-200',
+      `Identical dispatch retry returned HTTP ${retryDispatchRes.status}`
+    );
+    const retryJourneyData = (await retryDispatchRes.json()).journey;
+    assert(
+      retryJourneyData.id === journeyData.id,
+      'IDEMPOTENT-RETRY-SAME-JOURNEY',
+      `Retry returned exact same journey #${retryJourneyData.journey_number}`
+    );
+
+    // Verify in database: stops count is still 3, location count is still 1
+    const dbStopsCount = await prisma.motJourneyStop.count({
+      where: { journey_id: BigInt(journeyData.id) },
+    });
+    assert(
+      dbStopsCount === 3,
+      'IDEMPOTENT-RETRY-NO-DUPLICATE-STOPS',
+      `Database stops count remained strictly ${dbStopsCount} without duplicates`
+    );
+    const dbLocCount = await prisma.motJourneyLocation.count({
+      where: { journey_id: BigInt(journeyData.id) },
+    });
+    assert(
+      dbLocCount === 1,
+      'IDEMPOTENT-RETRY-NO-DUPLICATE-LOCATIONS',
+      `Database locations count remained strictly ${dbLocCount} without duplicates`
+    );
+    const dbAuditCount = await prisma.auditLog.count({
+      where: {
+        table_name: 'mot_journey',
+        record_id: BigInt(journeyData.id),
+        action: 'MOT_JOURNEY_ASSIGN_AND_DISPATCH',
+      },
+    });
+    assert(
+      dbAuditCount === 1,
+      'IDEMPOTENT-RETRY-EXACTLY-ONE-AUDIT-ROW',
+      `Database audit log count for journey dispatch remained strictly ${dbAuditCount}`
+    );
+
+    // 5.4.2 Same idempotency key with CHANGED parameters returns 409
+    const alteredKeyReq = await makeReq(
+      'http://localhost/api/zmcc/mot/journeys/assign-and-dispatch',
+      'POST',
+      zmccManagerA,
+      {
+        route_id: emptyRouteA.id.toString(), // Changed route!
+        mot_profile_id: createdProfileA.id,
+        mot_vehicle_id: createdVehicleA.id,
+        latitude: 31.5204,
+        longitude: 74.3587,
+        idempotency_key: primaryIdempotencyKey,
+      }
+    );
+    const alteredKeyRes = await assignAndDispatch(alteredKeyReq);
+    assert(
+      alteredKeyRes.status === 409,
+      'IDEMPOTENT-REJECT-ALTERED-PARAMETERS',
+      `Reusing idempotency key with different parameters rejected with HTTP ${alteredKeyRes.status}`
+    );
+
+    // 5.4.3 Another ZMCC cannot retrieve or reuse this journey's idempotency key (409)
+    const crossZmccKeyReq = await makeReq(
+      'http://localhost/api/zmcc/mot/journeys/assign-and-dispatch',
+      'POST',
+      zmccManagerB,
+      {
+        route_id: routeB.id.toString(),
+        mot_profile_id: profileB.id.toString(),
+        mot_vehicle_id: vehicleB.id.toString(),
+        latitude: 31.5204,
+        longitude: 74.3587,
+        idempotency_key: primaryIdempotencyKey, // Key from ZMCC A!
+      }
+    );
+    const crossZmccKeyRes = await assignAndDispatch(crossZmccKeyReq);
+    assert(
+      crossZmccKeyRes.status === 409,
+      'IDEMPOTENT-REJECT-CROSS-ZMCC-REUSE',
+      `Cross-ZMCC key reuse rejected with HTTP ${crossZmccKeyRes.status}`
+    );
+
+    // 5.4.4 STOP ORDERING VERIFICATION (Route B on ZMCC B)
+    // Area 1 (01-AR-B) has SHP-ZZ; Area 2 (02-AR-B) has SHP-AA.
+    // Order must be area_code ASC, then shop_code ASC: SHP-ZZ must come before SHP-AA!
+    const routeBDispatchReq = await makeReq(
+      'http://localhost/api/zmcc/mot/journeys/assign-and-dispatch',
+      'POST',
+      zmccManagerB,
+      {
+        route_id: routeB.id.toString(),
+        mot_profile_id: profileB.id.toString(),
+        mot_vehicle_id: vehicleB.id.toString(),
+        latitude: 31.5204,
+        longitude: 74.3587,
+        idempotency_key: `IDEMP-BETA-${runId}`,
+      }
+    );
+    const routeBDispatchRes = await assignAndDispatch(routeBDispatchReq);
+    assert(
+      routeBDispatchRes.status === 201,
+      'ROUTE-B-DISPATCH-SUCCESS',
+      `Route B dispatched successfully with HTTP ${routeBDispatchRes.status}`
+    );
+    const routeBJourney = (await routeBDispatchRes.json()).journey;
+    assert(
+      routeBJourney.stops.length === 2,
+      'ROUTE-B-STOPS-COUNT',
+      `Route B has 2 stops`
+    );
+    assert(
+      routeBJourney.stops[0].shop.shop_code === `SHP-ZZ-${runId}`,
+      'STOP-ORDER-AREA-PRECEDENCE-1',
+      `Stop 1 is ${routeBJourney.stops[0].shop.shop_code} (Area 01-AR-B takes precedence over shop code alphabetical)`
+    );
+    assert(
+      routeBJourney.stops[1].shop.shop_code === `SHP-AA-${runId}`,
+      'STOP-ORDER-AREA-PRECEDENCE-2',
+      `Stop 2 is ${routeBJourney.stops[1].shop.shop_code} (Area 02-AR-B)`
+    );
+
     // 5.5 Concurrent active journey prevention:
     // Trying to assign the same MOT profile or vehicle to another journey must fail (409 Conflict)
     const duplicateProfileReq = await makeReq(
@@ -676,6 +1132,7 @@ async function runStage6cTests() {
         mot_vehicle_id: createdVehicleA.id,
         latitude: 31.5204,
         longitude: 74.3587,
+        idempotency_key: `IDEMP-DUP-${runId}`,
       }
     );
     const duplicateProfileRes = await assignAndDispatch(duplicateProfileReq);
@@ -820,6 +1277,22 @@ async function runStage6cTests() {
       'Cancellation reason persisted in database'
     );
 
+    // 7.4.1 Concurrency Safety: Duplicate cancellation on already cancelled journey fails closed
+    const repeatCancelReq = await makeReq(
+      `http://localhost/api/zmcc/mot/journeys/${journeyData.id}/cancel`,
+      'POST',
+      zmccManagerA,
+      { reason: 'Second cancellation attempt' }
+    );
+    const repeatCancelRes = await cancelJourney(repeatCancelReq, {
+      params: Promise.resolve({ id: journeyData.id }),
+    });
+    assert(
+      repeatCancelRes.status === 400,
+      'CANCEL-CONCURRENCY-SAFE-ALREADY-CANCELLED',
+      `Repeat cancellation rejected with HTTP ${repeatCancelRes.status} (only active COLLECTING journeys can be cancelled)`
+    );
+
     // 7.5 After cancellation, profile and vehicle can be assigned to a new journey!
     const reDispatchReq = await makeReq(
       'http://localhost/api/zmcc/mot/journeys/assign-and-dispatch',
@@ -831,6 +1304,7 @@ async function runStage6cTests() {
         mot_vehicle_id: createdVehicleA.id,
         latitude: 31.5204,
         longitude: 74.3587,
+        idempotency_key: `IDEMP-REDISP-${runId}`,
       }
     );
     const reDispatchRes = await assignAndDispatch(reDispatchReq);
@@ -890,6 +1364,81 @@ async function runStage6cTests() {
       `Super Admin successfully transferred vehicle across ZMCCs (HTTP ${superTransferRes.status})`
     );
 
+    // ---------------------------------------------------------------
+    // 9. IMMUTABLE AUDITLOG INTEGRITY
+    // ---------------------------------------------------------------
+    console.log('\n--- 9. IMMUTABLE AUDITLOG INTEGRITY ---');
+
+    // 9.1 MotProfile Audit Logs
+    const profileAudit = await prisma.auditLog.findFirst({
+      where: {
+        table_name: 'mot_profile',
+        record_id: BigInt(createdProfileA.id),
+        action: 'MOT_PROFILE_CREATED',
+      },
+    });
+    assert(
+      profileAudit !== null && profileAudit.user_id === zmccManagerA.id,
+      'AUDIT-MOT-PROFILE-CREATED',
+      `Verified AuditLog record for MOT_PROFILE_CREATED (actor user: ${profileAudit?.user_id})`
+    );
+
+    // 9.2 MotVehicle Audit Logs
+    const vehicleAudit = await prisma.auditLog.findFirst({
+      where: {
+        table_name: 'mot_vehicle',
+        record_id: BigInt(createdVehicleA.id),
+        action: 'MOT_VEHICLE_CREATED',
+      },
+    });
+    assert(
+      vehicleAudit !== null && vehicleAudit.user_id === zmccManagerA.id,
+      'AUDIT-MOT-VEHICLE-CREATED',
+      `Verified AuditLog record for MOT_VEHICLE_CREATED (actor user: ${vehicleAudit?.user_id})`
+    );
+
+    // 9.3 Vehicle Transfer Audit Log
+    const vehicleTransferAudit = await prisma.auditLog.findFirst({
+      where: {
+        table_name: 'mot_vehicle',
+        record_id: BigInt(transferVeh.id),
+        action: 'MOT_VEHICLE_TRANSFERRED',
+      },
+    });
+    assert(
+      vehicleTransferAudit !== null && vehicleTransferAudit.user_id === superAdminUser.id,
+      'AUDIT-MOT-VEHICLE-TRANSFERRED',
+      `Verified AuditLog record for MOT_VEHICLE_TRANSFERRED by Super Admin`
+    );
+
+    // 9.4 MotJourney Assign & Dispatch Audit Log
+    const journeyDispatchAudit = await prisma.auditLog.findFirst({
+      where: {
+        table_name: 'mot_journey',
+        record_id: BigInt(journeyData.id),
+        action: 'MOT_JOURNEY_ASSIGN_AND_DISPATCH',
+      },
+    });
+    assert(
+      journeyDispatchAudit !== null && journeyDispatchAudit.user_id === pheOperatorA.id,
+      'AUDIT-MOT-JOURNEY-DISPATCHED',
+      `Verified AuditLog record for MOT_JOURNEY_ASSIGN_AND_DISPATCH (actor user: ${journeyDispatchAudit?.user_id})`
+    );
+
+    // 9.5 MotJourney Cancel Audit Log
+    const journeyCancelAudit = await prisma.auditLog.findFirst({
+      where: {
+        table_name: 'mot_journey',
+        record_id: BigInt(journeyData.id),
+        action: 'MOT_JOURNEY_CANCEL',
+      },
+    });
+    assert(
+      journeyCancelAudit !== null && journeyCancelAudit.user_id === zmccManagerA.id,
+      'AUDIT-MOT-JOURNEY-CANCELLED',
+      `Verified AuditLog record for MOT_JOURNEY_CANCEL (actor user: ${journeyCancelAudit?.user_id})`
+    );
+
     console.log(`\n=====================================================================`);
     console.log(`STAGE 6C REGRESSION SUITE: ${passed} PASSED, ${failed} FAILED`);
     console.log(`=====================================================================\n`);
@@ -937,6 +1486,13 @@ async function runStage6cTests() {
         where: { ownership_code: `CO-${runId}` },
       });
       if (cleanupUserIds.length > 0) {
+        await prisma.auditLog.deleteMany({
+          where: {
+            user_id: {
+              in: cleanupUserIds,
+            },
+          },
+        });
         await prisma.user.deleteMany({
           where: {
             id: {
