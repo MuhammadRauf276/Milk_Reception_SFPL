@@ -1178,8 +1178,16 @@ export async function assignAndDispatchJourney(
     }
   } else {
     targetZmccId = auth.effectiveZmccId!;
-    if (payload.zmcc_id && BigInt(payload.zmcc_id) !== targetZmccId) {
-      return { status: 403, error: 'Forbidden. Cannot assign journey for a different ZMCC.' };
+    if (payload.zmcc_id !== undefined && payload.zmcc_id !== null && String(payload.zmcc_id).trim() !== '') {
+      let providedZmccId: bigint;
+      try {
+        providedZmccId = BigInt(payload.zmcc_id);
+      } catch {
+        return { status: 400, error: 'Invalid ZMCC ID format.' };
+      }
+      if (providedZmccId !== targetZmccId) {
+        return { status: 403, error: 'Forbidden. Cannot assign journey for a different ZMCC.' };
+      }
     }
   }
 
@@ -1213,41 +1221,43 @@ export async function assignAndDispatchJourney(
     return { status: 400, error: 'Invalid ID format for Route, MOT Profile, or Vehicle.' };
   }
 
-  // 7. Look up Idempotency Key BEFORE conflict checks
-  const existingWithKey = await prisma.motJourney.findUnique({
-    where: { idempotency_key: idempotencyKey },
-    include: {
-      zmcc: { select: { id: true, code: true, name: true } },
-      route: { select: { id: true, route_code: true, name: true } },
-      mot_profile: { select: { id: true, mot_code: true, name: true, phone_number: true } },
-      mot_vehicle: { select: { id: true, vehicle_number: true } },
-      assigner: { select: { id: true, username: true, full_name: true } },
-      canceller: { select: { id: true, username: true, full_name: true } },
-      stops: {
-        include: {
-          shop: { select: { id: true, shop_code: true, shop_name: true, owner_name: true, phone_number: true } },
+  // Helpers for idempotent journey lookup and validation
+  const findFullJourneyByIdempotencyKey = async (key: string) => {
+    return prisma.motJourney.findUnique({
+      where: { idempotency_key: key },
+      include: {
+        zmcc: { select: { id: true, code: true, name: true } },
+        route: { select: { id: true, route_code: true, name: true } },
+        mot_profile: { select: { id: true, mot_code: true, name: true, phone_number: true } },
+        mot_vehicle: { select: { id: true, vehicle_number: true } },
+        assigner: { select: { id: true, username: true, full_name: true } },
+        canceller: { select: { id: true, username: true, full_name: true } },
+        stops: {
+          include: {
+            shop: { select: { id: true, shop_code: true, shop_name: true, owner_name: true, phone_number: true } },
+          },
+          orderBy: { planned_sequence: 'asc' },
         },
-        orderBy: { planned_sequence: 'asc' },
+        locations: {
+          orderBy: { device_recorded_at: 'asc' },
+        },
       },
-      locations: {
-        orderBy: { device_recorded_at: 'asc' },
-      },
-    },
-  });
+    });
+  };
 
-  if (existingWithKey) {
+  const validateAndReturnExistingJourney = (existing: any) => {
     // Cross-ZMCC: Never return another ZMCC's journey through an idempotency-key lookup
-    if (existingWithKey.zmcc_id !== targetZmccId) {
+    if (existing.zmcc_id !== targetZmccId) {
       return {
         status: 409,
         error: 'The provided idempotency key is already in use for another ZMCC.',
       };
     }
 
-    const existingOpDateStr = existingWithKey.operational_date.toISOString().split('T')[0];
-    const isSameRoute = existingWithKey.route_id === routeId;
-    const isSameProfile = existingWithKey.mot_profile_id === profileId;
-    const isSameVehicle = existingWithKey.mot_vehicle_id === vehicleId;
+    const existingOpDateStr = existing.operational_date.toISOString().split('T')[0];
+    const isSameRoute = existing.route_id === routeId;
+    const isSameProfile = existing.mot_profile_id === profileId;
+    const isSameVehicle = existing.mot_vehicle_id === vehicleId;
     const isSameDate = existingOpDateStr === todayPktStr;
 
     if (!isSameRoute || !isSameProfile || !isSameVehicle || !isSameDate) {
@@ -1257,7 +1267,13 @@ export async function assignAndDispatchJourney(
       };
     }
 
-    return { status: 200, data: serializeJourney(existingWithKey) };
+    return { status: 200, data: serializeJourney(existing) };
+  };
+
+  // 7. Look up Idempotency Key BEFORE conflict checks
+  const existingWithKey = await findFullJourneyByIdempotencyKey(idempotencyKey);
+  if (existingWithKey) {
+    return validateAndReturnExistingJourney(existingWithKey);
   }
 
   // 8. Verify Route: must belong to same ZMCC, must be active, must have active shops
@@ -1325,6 +1341,14 @@ export async function assignAndDispatchJourney(
     where: { mot_profile_id: profileId, status: 'COLLECTING' },
   });
   if (existingProfileJourney) {
+    if (existingProfileJourney.idempotency_key === idempotencyKey) {
+      const full = await findFullJourneyByIdempotencyKey(idempotencyKey);
+      if (full) return validateAndReturnExistingJourney(full);
+    }
+    const existingConcurrent = await findFullJourneyByIdempotencyKey(idempotencyKey);
+    if (existingConcurrent) {
+      return validateAndReturnExistingJourney(existingConcurrent);
+    }
     return {
       status: 409,
       error: `MOT Profile '${profile.name}' is already assigned to active journey #${existingProfileJourney.journey_number}.`,
@@ -1335,6 +1359,14 @@ export async function assignAndDispatchJourney(
     where: { mot_vehicle_id: vehicleId, status: 'COLLECTING' },
   });
   if (existingVehicleJourney) {
+    if (existingVehicleJourney.idempotency_key === idempotencyKey) {
+      const full = await findFullJourneyByIdempotencyKey(idempotencyKey);
+      if (full) return validateAndReturnExistingJourney(full);
+    }
+    const existingConcurrent = await findFullJourneyByIdempotencyKey(idempotencyKey);
+    if (existingConcurrent) {
+      return validateAndReturnExistingJourney(existingConcurrent);
+    }
     return {
       status: 409,
       error: `MOT Vehicle '${vehicle.vehicle_number}' is already assigned to active journey #${existingVehicleJourney.journey_number}.`,
@@ -1342,7 +1374,7 @@ export async function assignAndDispatchJourney(
   }
 
   // 12. Execute Atomic Transaction:
-  // - Generate journey number
+  // - Generate journey number using atomic PostgreSQL sequence
   // - Create MotJourney (status: COLLECTING, assigned_at = started_at = NOW)
   // - Create MotJourneyLocation (ASSIGNING_USER)
   // - Freeze MotJourneyStop rows (ordered active shops)
@@ -1351,25 +1383,20 @@ export async function assignAndDispatchJourney(
   const dateCode = todayPktStr.replace(/-/g, '');
 
   try {
+    // Ensure sequence exists in database
+    await prisma.$executeRawUnsafe('CREATE SEQUENCE IF NOT EXISTS "mot_journey_number_seq" START WITH 1 INCREMENT BY 1;');
+
     const result = await prisma.$transaction(async (tx) => {
-      // Generate unique sequence
-      const todayCount = await tx.motJourney.count({
-        where: {
-          journey_number: { startsWith: `MJ-${dateCode}` },
-        },
-      });
-      let seq = todayCount + 1;
-      let journeyNumber = `MJ-${dateCode}-${String(seq).padStart(4, '0')}`;
-      while (await tx.motJourney.findUnique({ where: { journey_number: journeyNumber } })) {
-        seq++;
-        journeyNumber = `MJ-${dateCode}-${String(seq).padStart(4, '0')}`;
-      }
+      // Atomic sequence generation
+      const seqResult = await tx.$queryRaw<{ nextval: bigint }[]>`SELECT nextval('mot_journey_number_seq') as nextval`;
+      const seqNum = seqResult[0]?.nextval ? Number(seqResult[0].nextval) : Math.floor(Math.random() * 9000) + 1000;
+      const journeyNumber = `MJ-${dateCode}-${String(seqNum).padStart(4, '0')}`;
 
       // Create MotJourney
       const journey = await tx.motJourney.create({
         data: {
           journey_number: journeyNumber,
-          operational_date: operationalDate,
+          operational_date: new Date(`${todayPktStr}T00:00:00.000Z`),
           zmcc_id: targetZmccId,
           route_id: routeId,
           mot_profile_id: profileId,
@@ -1402,12 +1429,12 @@ export async function assignAndDispatchJourney(
         },
       });
 
-      // Snapshot active shops from route as MotJourneyStop rows in stable sequence
-      const stopsData = activeShops.map((s, idx) => ({
+      // Freeze MotJourneyStop rows with sequential numbering starting at 1
+      const stopsData = activeShops.map((shop, index) => ({
         journey_id: journey.id,
-        shop_id: s.id,
-        planned_sequence: idx + 1,
-        status: 'PENDING',
+        shop_id: shop.id,
+        planned_sequence: index + 1,
+        status: 'PENDING' as const,
       }));
 
       await tx.motJourneyStop.createMany({
@@ -1471,9 +1498,72 @@ export async function assignAndDispatchJourney(
     return { status: 201, data: serializeJourney(fullJourney!) };
   } catch (err: any) {
     if (err.code === 'P2002') {
+      const target = Array.isArray(err.meta?.target)
+        ? err.meta.target.join(',')
+        : String(err.meta?.target || '');
+
+      // 1. Idempotency Key collision (e.g. concurrent identical request won race)
+      const existingAfterCollision = await findFullJourneyByIdempotencyKey(idempotencyKey);
+      if (existingAfterCollision) {
+        return validateAndReturnExistingJourney(existingAfterCollision);
+      }
+
+      // 2. Active MOT Profile collision
+      if (target.includes('mot_profile_id') || target.includes('profile')) {
+        return {
+          status: 409,
+          error: `MOT Profile '${profile.name}' is already assigned to an active journey.`,
+        };
+      }
+
+      // 3. Active MOT Vehicle collision
+      if (target.includes('mot_vehicle_id') || target.includes('vehicle')) {
+        return {
+          status: 409,
+          error: `MOT Vehicle '${vehicle.vehicle_number}' is already assigned to an active journey.`,
+        };
+      }
+
+      // 4. Journey number collision
+      if (target.includes('journey_number')) {
+        return {
+          status: 409,
+          error: 'A collision occurred while assigning journey number. Please retry.',
+        };
+      }
+
+      // Fallback: Check if profile or vehicle has active journey
+      const conflictProfile = await prisma.motJourney.findFirst({
+        where: { mot_profile_id: profileId, status: 'COLLECTING' },
+      });
+      if (conflictProfile) {
+        if (conflictProfile.idempotency_key === idempotencyKey) {
+          const full = await findFullJourneyByIdempotencyKey(idempotencyKey);
+          if (full) return validateAndReturnExistingJourney(full);
+        }
+        return {
+          status: 409,
+          error: `MOT Profile '${profile.name}' is already assigned to active journey #${conflictProfile.journey_number}.`,
+        };
+      }
+
+      const conflictVehicle = await prisma.motJourney.findFirst({
+        where: { mot_vehicle_id: vehicleId, status: 'COLLECTING' },
+      });
+      if (conflictVehicle) {
+        if (conflictVehicle.idempotency_key === idempotencyKey) {
+          const full = await findFullJourneyByIdempotencyKey(idempotencyKey);
+          if (full) return validateAndReturnExistingJourney(full);
+        }
+        return {
+          status: 409,
+          error: `MOT Vehicle '${vehicle.vehicle_number}' is already assigned to active journey #${conflictVehicle.journey_number}.`,
+        };
+      }
+
       return {
         status: 409,
-        error: 'A concurrent journey is already active for this MOT profile or vehicle.',
+        error: 'A concurrent conflict occurred while creating the journey.',
       };
     }
     throw err;

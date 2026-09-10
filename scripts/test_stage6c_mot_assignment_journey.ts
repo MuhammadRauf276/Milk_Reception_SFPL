@@ -1439,6 +1439,353 @@ async function runStage6cTests() {
       `Verified AuditLog record for MOT_JOURNEY_CANCEL (actor user: ${journeyCancelAudit?.user_id})`
     );
 
+    // ---------------------------------------------------------------
+    // 10. CONCURRENCY REGRESSION TESTS (Promise.all)
+    // ---------------------------------------------------------------
+    console.log('\n--- 10. CONCURRENCY REGRESSION TESTS ---');
+
+    // 10.1 Two identical dispatch requests with the same idempotency key arriving concurrently
+    // Create new dedicated MOT and Vehicle for this test
+    const cMotUser1 = await prisma.user.create({
+      data: {
+        username: `cmot1_${runId}`,
+        role: 'MOT',
+        scope_type: 'SOURCE',
+        procurement_source_id: zmccA.id,
+        is_active: true,
+      },
+    });
+    cleanupUserIds.push(cMotUser1.id);
+
+    const cProfile1 = await prisma.motProfile.create({
+      data: {
+        mot_code: `MOT-C1-${runId}`,
+        name: 'Concurrent Profile 1',
+        phone_number: '0300-9111111',
+        cnic: '35201-9111111-1',
+        zmcc_id: zmccA.id,
+        user_id: cMotUser1.id,
+        is_active: true,
+        created_by: zmccManagerA.id,
+      },
+    });
+
+    const cVehicle1 = await prisma.motVehicle.create({
+      data: {
+        vehicle_number: `VEH-C1-${runId}`,
+        zmcc_id: zmccA.id,
+        is_active: true,
+        created_by: zmccManagerA.id,
+      },
+    });
+
+    const sameKeyConcurrent = `IDEMP-CONC-SAME-${runId}`;
+    const dispatchPayloadSameKey = {
+      route_id: routeA.id.toString(),
+      mot_profile_id: cProfile1.id.toString(),
+      mot_vehicle_id: cVehicle1.id.toString(),
+      latitude: 31.5204,
+      longitude: 74.3587,
+      accuracy: 10,
+      idempotency_key: sameKeyConcurrent,
+    };
+
+    const [resSame1, resSame2] = await Promise.all([
+      assignAndDispatch(await makeReq('http://localhost:3000/api/zmcc/mot/journeys/assign-and-dispatch', 'POST', zmccManagerA, dispatchPayloadSameKey)),
+      assignAndDispatch(await makeReq('http://localhost:3000/api/zmcc/mot/journeys/assign-and-dispatch', 'POST', zmccManagerA, dispatchPayloadSameKey)),
+    ]);
+
+    const jsonSame1 = await resSame1.json();
+    const jsonSame2 = await resSame2.json();
+
+    // Both should succeed (one 201 created, one 200 idempotent retry, or both 200/201)
+    const sameSuccess = (resSame1.status === 201 || resSame1.status === 200) && (resSame2.status === 201 || resSame2.status === 200);
+    assert(sameSuccess, 'CONC-SAME-KEY-BOTH-SUCCEED', `Concurrent same-key dispatches succeeded (${resSame1.status}, ${resSame2.status})`);
+
+    const journeyId1 = jsonSame1.journey?.id;
+    const journeyId2 = jsonSame2.journey?.id;
+    assert(journeyId1 === journeyId2 && journeyId1 != null, 'CONC-SAME-KEY-SAME-JOURNEY', `Both requests returned same journey ID: ${journeyId1}`);
+
+    // Verify exactly one journey, stops set, location set, and audit row
+    const dbJourneysCount = await prisma.motJourney.count({
+      where: { idempotency_key: sameKeyConcurrent },
+    });
+    assert(dbJourneysCount === 1, 'CONC-SAME-KEY-EXACTLY-ONE-JOURNEY', `Exactly 1 MotJourney created in DB: ${dbJourneysCount}`);
+
+    const dbConcStopsCount = await prisma.motJourneyStop.count({
+      where: { journey_id: BigInt(journeyId1) },
+    });
+    assert(dbConcStopsCount === 3, 'CONC-SAME-KEY-EXACTLY-ONE-STOPS-SET', `Stops snapshotted strictly once (count: ${dbConcStopsCount})`);
+
+    const dbConcLocCount = await prisma.motJourneyLocation.count({
+      where: { journey_id: BigInt(journeyId1) },
+    });
+    assert(dbConcLocCount === 1, 'CONC-SAME-KEY-EXACTLY-ONE-LOCATION', `Initial location recorded strictly once (count: ${dbConcLocCount})`);
+
+    const dbConcAuditCount = await prisma.auditLog.count({
+      where: {
+        table_name: 'mot_journey',
+        record_id: BigInt(journeyId1),
+        action: 'MOT_JOURNEY_ASSIGN_AND_DISPATCH',
+      },
+    });
+    assert(dbConcAuditCount === 1, 'CONC-SAME-KEY-EXACTLY-ONE-AUDIT-ROW', `Audit log recorded strictly once (count: ${dbConcAuditCount})`);
+
+    // 10.2 Two simultaneous DIFFERENT valid dispatches with different MOTs and vehicles
+    const cMotUser2A = await prisma.user.create({
+      data: {
+        username: `cmot2a_${runId}`,
+        role: 'MOT',
+        scope_type: 'SOURCE',
+        procurement_source_id: zmccA.id,
+        is_active: true,
+      },
+    });
+    const cMotUser2B = await prisma.user.create({
+      data: {
+        username: `cmot2b_${runId}`,
+        role: 'MOT',
+        scope_type: 'SOURCE',
+        procurement_source_id: zmccA.id,
+        is_active: true,
+      },
+    });
+    cleanupUserIds.push(cMotUser2A.id, cMotUser2B.id);
+
+    const cProfile2A = await prisma.motProfile.create({
+      data: {
+        mot_code: `MOT-C2A-${runId}`,
+        name: 'Concurrent Profile 2A',
+        phone_number: '0300-9222221',
+        cnic: '35201-9222221-1',
+        zmcc_id: zmccA.id,
+        user_id: cMotUser2A.id,
+        is_active: true,
+        created_by: zmccManagerA.id,
+      },
+    });
+    const cProfile2B = await prisma.motProfile.create({
+      data: {
+        mot_code: `MOT-C2B-${runId}`,
+        name: 'Concurrent Profile 2B',
+        phone_number: '0300-9222222',
+        cnic: '35201-9222222-2',
+        zmcc_id: zmccA.id,
+        user_id: cMotUser2B.id,
+        is_active: true,
+        created_by: zmccManagerA.id,
+      },
+    });
+
+    const cVehicle2A = await prisma.motVehicle.create({
+      data: {
+        vehicle_number: `VEH-C2A-${runId}`,
+        zmcc_id: zmccA.id,
+        is_active: true,
+        created_by: zmccManagerA.id,
+      },
+    });
+    const cVehicle2B = await prisma.motVehicle.create({
+      data: {
+        vehicle_number: `VEH-C2B-${runId}`,
+        zmcc_id: zmccA.id,
+        is_active: true,
+        created_by: zmccManagerA.id,
+      },
+    });
+
+    const payloadDiffA = {
+      route_id: routeA.id.toString(),
+      mot_profile_id: cProfile2A.id.toString(),
+      mot_vehicle_id: cVehicle2A.id.toString(),
+      latitude: 31.5204,
+      longitude: 74.3587,
+      accuracy: 10,
+      idempotency_key: `IDEMP-DIFF-A-${runId}`,
+    };
+    const payloadDiffB = {
+      route_id: routeA.id.toString(),
+      mot_profile_id: cProfile2B.id.toString(),
+      mot_vehicle_id: cVehicle2B.id.toString(),
+      latitude: 31.5204,
+      longitude: 74.3587,
+      accuracy: 10,
+      idempotency_key: `IDEMP-DIFF-B-${runId}`,
+    };
+
+    const [resDiffA, resDiffB] = await Promise.all([
+      assignAndDispatch(await makeReq('http://localhost:3000/api/zmcc/mot/journeys/assign-and-dispatch', 'POST', zmccManagerA, payloadDiffA)),
+      assignAndDispatch(await makeReq('http://localhost:3000/api/zmcc/mot/journeys/assign-and-dispatch', 'POST', zmccManagerA, payloadDiffB)),
+    ]);
+
+    const jsonDiffA = await resDiffA.json();
+    const jsonDiffB = await resDiffB.json();
+
+    assert(resDiffA.status === 201 && resDiffB.status === 201, 'CONC-DIFF-BOTH-201', `Both concurrent different dispatches succeeded with 201`);
+    assert(jsonDiffA.journey?.journey_number !== jsonDiffB.journey?.journey_number, 'CONC-DIFF-UNIQUE-JOURNEY-NUMBERS', `Journey numbers are distinct: ${jsonDiffA.journey?.journey_number} vs ${jsonDiffB.journey?.journey_number}`);
+
+    // 10.3 Concurrent same-MOT conflict (two dispatches trying to use the same MOT profile concurrently)
+    const cVehicleSameMot = await prisma.motVehicle.create({
+      data: {
+        vehicle_number: `VEH-CSM-${runId}`,
+        zmcc_id: zmccA.id,
+        is_active: true,
+        created_by: zmccManagerA.id,
+      },
+    });
+
+    const payloadSameMot1 = {
+      route_id: routeA.id.toString(),
+      mot_profile_id: cProfile2A.id.toString(), // Already assigned to active journey in 10.2!
+      mot_vehicle_id: cVehicleSameMot.id.toString(),
+      latitude: 31.5204,
+      longitude: 74.3587,
+      accuracy: 10,
+      idempotency_key: `IDEMP-SMOT-1-${runId}`,
+    };
+    const payloadSameMot2 = {
+      route_id: routeA.id.toString(),
+      mot_profile_id: cProfile2A.id.toString(),
+      mot_vehicle_id: cVehicleSameMot.id.toString(),
+      latitude: 31.5204,
+      longitude: 74.3587,
+      accuracy: 10,
+      idempotency_key: `IDEMP-SMOT-2-${runId}`,
+    };
+
+    const [resSameMot1, resSameMot2] = await Promise.all([
+      assignAndDispatch(await makeReq('http://localhost:3000/api/zmcc/mot/journeys/assign-and-dispatch', 'POST', zmccManagerA, payloadSameMot1)),
+      assignAndDispatch(await makeReq('http://localhost:3000/api/zmcc/mot/journeys/assign-and-dispatch', 'POST', zmccManagerA, payloadSameMot2)),
+    ]);
+
+    const jsonSameMot1 = await resSameMot1.json();
+    const jsonSameMot2 = await resSameMot2.json();
+
+    assert(resSameMot1.status === 409 && resSameMot2.status === 409, 'CONC-SAME-MOT-409-CONFLICT', `Both conflicting same-MOT dispatches rejected with 409 (${resSameMot1.status}, ${resSameMot2.status})`);
+    assert(
+      (jsonSameMot1.error || '').toLowerCase().includes('profile') || (jsonSameMot1.error || '').toLowerCase().includes('active'),
+      'CONC-SAME-MOT-ERROR-DIFFERENTIATED-1',
+      `Error 1 correctly specifies profile conflict: ${jsonSameMot1.error}`
+    );
+    assert(
+      (jsonSameMot2.error || '').toLowerCase().includes('profile') || (jsonSameMot2.error || '').toLowerCase().includes('active'),
+      'CONC-SAME-MOT-ERROR-DIFFERENTIATED-2',
+      `Error 2 correctly specifies profile conflict: ${jsonSameMot2.error}`
+    );
+
+    // 10.4 Concurrent same-vehicle conflict (two dispatches trying to use the same vehicle concurrently)
+    const cMotUserSameVeh = await prisma.user.create({
+      data: {
+        username: `cmotsv_${runId}`,
+        role: 'MOT',
+        scope_type: 'SOURCE',
+        procurement_source_id: zmccA.id,
+        is_active: true,
+      },
+    });
+    cleanupUserIds.push(cMotUserSameVeh.id);
+
+    const cProfileSameVeh = await prisma.motProfile.create({
+      data: {
+        mot_code: `MOT-CSV-${runId}`,
+        name: 'Profile Same Veh',
+        phone_number: '0300-9333333',
+        cnic: '35201-9333333-3',
+        zmcc_id: zmccA.id,
+        user_id: cMotUserSameVeh.id,
+        is_active: true,
+        created_by: zmccManagerA.id,
+      },
+    });
+
+    const payloadSameVeh1 = {
+      route_id: routeA.id.toString(),
+      mot_profile_id: cProfileSameVeh.id.toString(),
+      mot_vehicle_id: cVehicle2A.id.toString(), // Already assigned to active journey in 10.2!
+      latitude: 31.5204,
+      longitude: 74.3587,
+      accuracy: 10,
+      idempotency_key: `IDEMP-SVEH-1-${runId}`,
+    };
+    const payloadSameVeh2 = {
+      route_id: routeA.id.toString(),
+      mot_profile_id: cProfileSameVeh.id.toString(),
+      mot_vehicle_id: cVehicle2A.id.toString(),
+      latitude: 31.5204,
+      longitude: 74.3587,
+      accuracy: 10,
+      idempotency_key: `IDEMP-SVEH-2-${runId}`,
+    };
+
+    const [resSameVeh1, resSameVeh2] = await Promise.all([
+      assignAndDispatch(await makeReq('http://localhost:3000/api/zmcc/mot/journeys/assign-and-dispatch', 'POST', zmccManagerA, payloadSameVeh1)),
+      assignAndDispatch(await makeReq('http://localhost:3000/api/zmcc/mot/journeys/assign-and-dispatch', 'POST', zmccManagerA, payloadSameVeh2)),
+    ]);
+
+    const jsonSameVeh1 = await resSameVeh1.json();
+    const jsonSameVeh2 = await resSameVeh2.json();
+
+    assert(resSameVeh1.status === 409 && resSameVeh2.status === 409, 'CONC-SAME-VEH-409-CONFLICT', `Both conflicting same-vehicle dispatches rejected with 409 (${resSameVeh1.status}, ${resSameVeh2.status})`);
+    assert(
+      (jsonSameVeh1.error || '').toLowerCase().includes('vehicle') || (jsonSameVeh1.error || '').toLowerCase().includes('active'),
+      'CONC-SAME-VEH-ERROR-DIFFERENTIATED-1',
+      `Error 1 correctly specifies vehicle conflict: ${jsonSameVeh1.error}`
+    );
+    assert(
+      (jsonSameVeh2.error || '').toLowerCase().includes('vehicle') || (jsonSameVeh2.error || '').toLowerCase().includes('active'),
+      'CONC-SAME-VEH-ERROR-DIFFERENTIATED-2',
+      `Error 2 correctly specifies vehicle conflict: ${jsonSameVeh2.error}`
+    );
+
+    // 10.5 Safely parse optional payload.zmcc_id for scoped users (malformed returns HTTP 400 without BigInt exception)
+    const malformedPayload1 = {
+      zmcc_id: 'not-a-number',
+      route_id: routeA.id.toString(),
+      mot_profile_id: cProfileSameVeh.id.toString(),
+      mot_vehicle_id: cVehicleSameMot.id.toString(),
+      latitude: 31.5204,
+      longitude: 74.3587,
+      accuracy: 10,
+      idempotency_key: `IDEMP-MALF-1-${runId}`,
+    };
+    const resMalf1 = await assignAndDispatch(
+      await makeReq('http://localhost:3000/api/zmcc/mot/journeys/assign-and-dispatch', 'POST', zmccManagerA, malformedPayload1)
+    );
+    const jsonMalf1 = await resMalf1.json();
+    assert(resMalf1.status === 400, 'SCOPED-ZMCC-MALFORMED-NAN-400', `Malformed string zmcc_id returned 400 (Status: ${resMalf1.status})`);
+    assert(jsonMalf1.error === 'Invalid ZMCC ID format.', 'SCOPED-ZMCC-MALFORMED-ERROR-MSG', `Expected 'Invalid ZMCC ID format.', got: ${jsonMalf1.error}`);
+
+    const malformedPayload2 = {
+      zmcc_id: '1234abc',
+      route_id: routeA.id.toString(),
+      mot_profile_id: cProfileSameVeh.id.toString(),
+      mot_vehicle_id: cVehicleSameMot.id.toString(),
+      latitude: 31.5204,
+      longitude: 74.3587,
+      accuracy: 10,
+      idempotency_key: `IDEMP-MALF-2-${runId}`,
+    };
+    const resMalf2 = await assignAndDispatch(
+      await makeReq('http://localhost:3000/api/zmcc/mot/journeys/assign-and-dispatch', 'POST', pheOperatorA, malformedPayload2)
+    );
+    assert(resMalf2.status === 400, 'PHE-ZMCC-MALFORMED-400', `PHE Operator with malformed zmcc_id returned 400 (Status: ${resMalf2.status})`);
+
+    // Valid matching zmcc_id string for scoped user should pass validation
+    const validMatchingPayload = {
+      zmcc_id: zmccA.id.toString(),
+      route_id: routeA.id.toString(),
+      mot_profile_id: cProfileSameVeh.id.toString(),
+      mot_vehicle_id: cVehicleSameMot.id.toString(),
+      latitude: 31.5204,
+      longitude: 74.3587,
+      accuracy: 10,
+      idempotency_key: `IDEMP-MATCHING-ZMCC-${runId}`,
+    };
+    const resMatching = await assignAndDispatch(
+      await makeReq('http://localhost:3000/api/zmcc/mot/journeys/assign-and-dispatch', 'POST', zmccManagerA, validMatchingPayload)
+    );
+    assert(resMatching.status === 201, 'SCOPED-ZMCC-VALID-MATCHING-201', `Matching zmcc_id string passed validation and dispatched (Status: ${resMatching.status})`);
+
     console.log(`\n=====================================================================`);
     console.log(`STAGE 6C REGRESSION SUITE: ${passed} PASSED, ${failed} FAILED`);
     console.log(`=====================================================================\n`);

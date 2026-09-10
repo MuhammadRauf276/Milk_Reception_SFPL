@@ -166,3 +166,6 @@ ALTER TABLE "mot_journey_stop" ADD CONSTRAINT "mot_journey_stop_shop_id_fkey" FO
 -- Foreign Keys: mot_journey_location
 ALTER TABLE "mot_journey_location" ADD CONSTRAINT "mot_journey_location_journey_id_fkey" FOREIGN KEY ("journey_id") REFERENCES "mot_journey"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "mot_journey_location" ADD CONSTRAINT "mot_journey_location_recorded_by_user_id_fkey" FOREIGN KEY ("recorded_by_user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- Sequence for concurrent atomic journey number generation
+CREATE SEQUENCE IF NOT EXISTS "mot_journey_number_seq" START WITH 1 INCREMENT BY 1;
