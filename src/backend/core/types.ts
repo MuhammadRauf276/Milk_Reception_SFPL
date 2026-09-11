@@ -1,5 +1,6 @@
 export type Role = 
   | 'SUPER_ADMIN'             // Canonical Super Admin: System configuration, access & audit
+  | 'HEAD_OF_MPD'              // Head of MPD: Global Milk Procurement policy authority
   | 'MPD_Operator'            // ZMCC/Contractor Operator: Enters initial dispatch
   | 'MPD_Zone_Manager'        // ZMCC Minor Manager: Views own zone, cross-verification analytics
   | 'ZMCC_MANAGER'            // ZMCC Source Manager: Restricted to assigned ZMCC

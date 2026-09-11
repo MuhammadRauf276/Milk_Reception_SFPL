@@ -76,6 +76,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       role === 'Production_Operator' ||
       role === 'Production');
 
+  const isHeadOfMpd = !isSecurityManager && role === 'HEAD_OF_MPD';
   const isZmccManager = !isSecurityManager && role === 'ZMCC_MANAGER';
   const isZmccLabAttendant = !isSecurityManager && role === 'ZMCC_LAB_ATTENDANT';
   const isPheOperator = !isSecurityManager && role === 'PHE_OPERATOR';
@@ -224,6 +225,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </span>
               </Link>
             </>
+          )}
+
+          {/* 2A. HEAD OF MPD VIEW */}
+          {isHeadOfMpd && (
+            <Link
+              href="/mpd/head"
+              onClick={handleLinkClick}
+              className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition ${getLinkStyle('/mpd/head')}`}
+            >
+              <span className="flex items-center gap-2">
+                <LayoutDashboard className="w-4 h-4" />
+                <span>Head of MPD Station</span>
+              </span>
+              <span className={`px-1.5 py-0.5 rounded font-mono text-[9px] ${getBadgeStyle('/mpd/head')}`}>
+                HEAD
+              </span>
+            </Link>
           )}
 
           {/* 2B. ZMCC SOURCE MANAGER VIEW */}

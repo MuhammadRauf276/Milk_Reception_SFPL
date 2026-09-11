@@ -5,6 +5,7 @@
 
 export const CREATABLE_ROLES = [
   'SUPER_ADMIN',
+  'HEAD_OF_MPD',
   'ZMCC_MANAGER',
   'ZMCC_LAB_ATTENDANT',
   'PHE_OPERATOR',
@@ -42,6 +43,15 @@ export const ROLE_ASSIGNMENT_POLICIES: Record<CreatableRole, RoleAssignmentPolic
     requiresSource: false,
     allowedSourceType: null,
     summaryLabel: 'System Administration (System-wide)',
+  },
+  HEAD_OF_MPD: {
+    role: 'HEAD_OF_MPD',
+    label: 'Head of MPD',
+    scopeType: 'SYSTEM',
+    department: 'Milk Procurement',
+    requiresSource: false,
+    allowedSourceType: null,
+    summaryLabel: 'Milk Procurement (Global Policy)',
   },
   ZMCC_MANAGER: {
     role: 'ZMCC_MANAGER',

@@ -236,3 +236,15 @@ Tracked repository leftovers with zero runtime consumers have been removed:
 - Obsolete one-off debug scripts, old completed migration files, and superseded temporary test scripts have been removed.
 - Stage 4E transitional test contracts are permanently consolidated into `scripts/test_canonical_architecture.ts`.
 - Master regression runner (`scripts/run_all_regressions.ts`) includes `scripts/test_date_filters_and_decisions.ts` for strict calendar date validation and HTTP filtering regressions.
+
+---
+
+## 14. Stage 6G-A Milk Test Policy & Head of MPD Subsystem
+
+- `src/backend/services/milkTestPolicyService.ts`: Authoritative service owning testing point definitions, role mutation authority boundaries, policy reads, creations, and updates with immutable audit logging.
+- `src/app/api/milk-test-policies/route.ts`: Canonical API route for listing (all or effective tests) and creating policy assignments.
+- `src/app/api/milk-test-policies/[id]/route.ts`: Canonical API route for updating assignment status, display order, and requirement.
+- `src/frontend/modules/mpd/policy/MilkTestPolicyWorkspace.tsx`: Reusable role-aware workspace for Head of MPD (4 MPD testing points) and Super Admin (all 5 testing points).
+- `src/app/mpd/head/page.tsx`: Dedicated workspace page for Head of MPD (`/mpd/head`).
+- `src/app/super-admin/test-policies/page.tsx`: Dedicated Super Admin test policy administration page (`/super-admin/test-policies`).
+- `prisma/migrations/20260912120000_milk_test_policy_assignment/migration.sql`: Tracked migration establishing `milk_test_policy_assignment` table with check constraint, unique index, and foreign keys.

@@ -248,3 +248,45 @@ This document records the authoritative business rules approved for the Milk Rec
 - **Zero Plant Business Date Rollover**: ZMCC operations use ordinary PKT timestamps and dates; 08:00 AM Plant Business Date rollover is strictly forbidden in ZMCC.
 - **Zero VehicleVisit**: ZMCC arrivals and lab sessions NEVER create or reference `VehicleVisit`.
 - **Zero Tank/Inventory Posting**: `ACCEPTED` milk does NOT post to tanks or inventory in Stage 6F (reserved for Stage 6G).
+
+---
+
+## 16. Stage 6G-A Milk Test Policy & Head of MPD Authority
+
+### 16A. Role & Authority Architecture
+- Exactly one new canonical role is introduced: `HEAD_OF_MPD` (Display: `Head of MPD`).
+- **Scope**: Global Milk Procurement scope, not attached to one ZMCC or Contractor (`requiresSource = false`, `scopeType = 'SYSTEM'`).
+- `MPD_Zone_Manager` is a legacy alias; it is NOT repurposed to Head of MPD and does not receive policy mutation authority.
+- `ZMCC_MANAGER` remains the operational source manager for a single ZMCC with zero policy mutation authority.
+- **Authority Boundaries**:
+  - `SUPER_ADMIN`: Full authority across all 5 testing points (`MOT_SHOP`, `ZMCC_LAB_MOT`, `ZMCC_LAB_CONTRACTOR`, `DISPATCH`, `PLANT_QA`) and the master `LabTest` catalogue.
+  - `HEAD_OF_MPD`: Policy authority over the 4 MPD testing points (`MOT_SHOP`, `ZMCC_LAB_MOT`, `ZMCC_LAB_CONTRACTOR`, `DISPATCH`). Strictly forbidden from mutating `PLANT_QA` (`403 Forbidden`). Read-only access to master `LabTest` catalogue.
+  - `ZMCC_MANAGER`, `ZMCC_LAB_ATTENDANT`, `MOT`, `PHE_OPERATOR`, `QA_Operator`, `CONTRACTOR_MANAGER`, and legacy roles: Zero policy mutation authority (`403 Forbidden`).
+
+### 16B. Test Master vs. Test Policy Separation
+- `model LabTest` remains the single canonical test master catalogue. No secondary test masters (`MotTest`, `ZmccTest`, etc.) are created.
+- `model MilkTestPolicyAssignment` defines the policy layer: "Which tests must be performed at each business testing point?"
+- Canonical testing points (exact strings):
+  1. `MOT_SHOP`: Tests for milk collected by MOT drivers at village shops.
+  2. `ZMCC_LAB_MOT`: Tests evaluated at ZMCC Lab for MOT milk arrivals.
+  3. `ZMCC_LAB_CONTRACTOR`: Tests evaluated at ZMCC Lab for Contractor milk arrivals.
+  4. `DISPATCH`: Tests evaluated at dispatch time before departing for factory.
+  5. `PLANT_QA`: Tests evaluated at factory QA reception laboratory.
+- **Uniqueness**: Unique constraint on `[lab_test_id, testing_point]`.
+- **Independent Policy Properties**: Each policy assignment owns its own `is_required`, `display_order`, and `is_active`. Changing policy does not mutate `LabTest.isRequired` or `LabTest.testScope`.
+- **Soft-Deactivation Only**: `is_active = false`. Physical row deletion is not permitted in normal policy API.
+
+### 16C. Core Milk Calculations Invariance
+- Core calculated milk metrics (`Density`, `Gross Liters`, `SNF`, `TS`, `@13TS`) remain owned by `src/backend/utils/milkFormulas.ts`.
+- They are NOT configurable test assignments and must NOT be created as policy rows.
+
+### 16D. Compatibility & Staged Migration
+- Existing `LabTest.testScope` values (`DISPATCH`, `PLANT`, `BOTH`, `ZMCC`, `ALL`) remain untouched for backwards compatibility.
+- `BOTH` continues to mean Dispatch + Plant.
+- No existing consumers (MOT shop collection, Stage 6F ZMCC Lab freezing, Dispatch, Plant QA) are switched in Stage 6G-A.
+- Policy table starts empty in production; zero guessed test assignment seeding.
+
+### 16E. Configuration Audit Trail
+- Uses the single canonical `audit_logs` table (`table_name = 'milk_test_policy_assignment'`).
+- Actions: `MILK_TEST_POLICY_CREATED`, `MILK_TEST_POLICY_UPDATED`, `MILK_TEST_POLICY_DEACTIVATED`, `MILK_TEST_POLICY_ACTIVATED`.
+- Master configuration changes are not subject to operational form correction counters (e.g. 5-save limit does not apply to policy configuration).

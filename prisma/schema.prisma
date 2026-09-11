@@ -70,6 +70,8 @@ model User {
   started_zmcc_lab_sessions   ZmccLabSession[]           @relation("ZmccLabStartedBy")
   completed_zmcc_lab_sessions ZmccLabSession[]           @relation("ZmccLabCompletedBy")
   last_corrected_zmcc_lab_sessions ZmccLabSession[]      @relation("ZmccLabLastCorrectedBy")
+  created_milk_test_policies       MilkTestPolicyAssignment[] @relation("TestPolicyCreatedBy")
+  updated_milk_test_policies       MilkTestPolicyAssignment[] @relation("TestPolicyUpdatedBy")
 
   @@map("users")
 }
@@ -200,7 +202,8 @@ model LabTest {
   testRules        LabTestRule[]
   qa_warnings      QAWarning[]
   test_assignments LabTestAssignment[]
-  zmcc_lab_results ZmccLabResult[]     @relation("ZmccLabTestResults")
+  zmcc_lab_results   ZmccLabResult[]            @relation("ZmccLabTestResults")
+  policy_assignments MilkTestPolicyAssignment[] @relation("LabTestPolicyAssignments")
 
   @@index([testScope, isActive, displayOrder])
   @@map("lab_test")
@@ -1035,4 +1038,26 @@ model ZmccLabResult {
   @@unique([session_id, test_id])
   @@index([session_id])
   @@map("zmcc_lab_result")
+}
+
+model MilkTestPolicyAssignment {
+  id                 BigInt   @id @default(autoincrement())
+  lab_test_id        BigInt   @map("lab_test_id")
+  testing_point      String   @map("testing_point") @db.VarChar(50) // MOT_SHOP, ZMCC_LAB_MOT, ZMCC_LAB_CONTRACTOR, DISPATCH, PLANT_QA
+  is_required        Boolean  @default(true) @map("is_required")
+  display_order      Int      @default(0) @map("display_order")
+  is_active          Boolean  @default(true) @map("is_active")
+  created_by_user_id BigInt   @map("created_by_user_id")
+  updated_by_user_id BigInt?  @map("updated_by_user_id")
+  created_at         DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at         DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  lab_test LabTest @relation("LabTestPolicyAssignments", fields: [lab_test_id], references: [id], onDelete: Restrict)
+  creator  User    @relation("TestPolicyCreatedBy", fields: [created_by_user_id], references: [id], onDelete: Restrict)
+  updater  User?   @relation("TestPolicyUpdatedBy", fields: [updated_by_user_id], references: [id], onDelete: Restrict)
+
+  @@unique([lab_test_id, testing_point])
+  @@index([testing_point, is_active])
+  @@map("milk_test_policy_assignment")
 }

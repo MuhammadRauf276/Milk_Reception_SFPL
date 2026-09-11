@@ -117,6 +117,7 @@ export const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({
     { href: '/super-admin/procurement-sources', label: 'Procurement Sources', icon: Truck },
     { href: '/super-admin/silos', label: 'Silos', icon: Database },
     { href: '/super-admin/lab-tests', label: 'Lab Test Master', icon: FlaskConical },
+    { href: '/super-admin/test-policies', label: 'Milk Test Policies', icon: FlaskConical },
     { href: '/super-admin/sop-rules', label: 'SOP Rules', icon: BookOpen },
     { href: '/super-admin/qa-warnings', label: 'QA Warnings', icon: AlertTriangle },
     { href: '/super-admin/operations', label: 'Operations', icon: Activity },
