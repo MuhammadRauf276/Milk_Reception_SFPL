@@ -6,10 +6,11 @@ import {
 
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const result = await getContractorArrivalById(req, params.id);
+    const { id } = await params;
+    const result = await getContractorArrivalById(req, id);
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: result.status });
     }
@@ -22,15 +23,16 @@ export async function GET(
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await req.json();
     if (!body || typeof body !== 'object') {
       return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 });
     }
 
-    const result = await correctContractorArrival(req, params.id, body);
+    const result = await correctContractorArrival(req, id, body);
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: result.status });
     }
