@@ -100,6 +100,7 @@ const suites: string[] = isProbeMode
       'scripts/test_configurable_qualitative_options.ts',
       'scripts/test_4f_plant_contractor_manager_contracts.ts',
       'scripts/test_stage6d_mot_collection_offline_gps.ts',
+      'scripts/test_stage6e_phe_arrivals.ts',
     ];
 
 console.log(`==================================================`);

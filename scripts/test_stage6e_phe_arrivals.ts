@@ -150,10 +150,43 @@ async function runStage6eTests() {
   `;
   assert(seqCheck[0]?.exists === true, 'Token Sequence', 'zmcc_token_seq exists in postgres');
 
+  // M. Migration still owns sequence creation
+  const migPath = path.join(repoRoot, 'prisma', 'migrations', '20260911120000_phe_arrival_token_contractor_foundation', 'migration.sql');
+  const migContent = fs.readFileSync(migPath, 'utf8');
+  assert(migContent.includes('CREATE SEQUENCE IF NOT EXISTS "zmcc_token_seq"'), 'Migration owns sequence', 'Tracked migration creates zmcc_token_seq');
+
+  // K. Runtime code contains zero CREATE SEQUENCE for zmcc_token_seq
+  const servicePath = path.join(repoRoot, 'src', 'backend', 'services', 'zmccArrivalService.ts');
+  const serviceContent = fs.readFileSync(servicePath, 'utf8');
+  const createSeqMatches = serviceContent.match(/CREATE\s+SEQUENCE/i);
+  assert(createSeqMatches === null, 'No Runtime CREATE SEQUENCE', 'zmccArrivalService.ts contains zero runtime CREATE SEQUENCE statements');
+
+  // L. Runtime token generation contains zero Math.random fallback
+  const mathRandomSeq = serviceContent.match(/Math\.random\s*\(\)\s*\*\s*9000/i);
+  assert(mathRandomSeq === null, 'No Math.random fallback for sequence', 'zmccArrivalService.ts contains zero Math.random sequence fallback');
+
+  // B. Stage 6E suite is registered exactly once in run_all_regressions.ts
+  const runnerPath = path.join(repoRoot, 'scripts', 'run_all_regressions.ts');
+  const runnerContent = fs.readFileSync(runnerPath, 'utf8');
+  const stage6eMatches = runnerContent.match(/scripts\/test_stage6e_phe_arrivals\.ts/g);
+  assert(stage6eMatches?.length === 1, 'Registered in Runner', 'Stage 6E suite is registered exactly once in run_all_regressions.ts');
+
+  // A. Zero browser alert() calls in ZmccArrivalsWorkspace.tsx
+  const workspacePath = path.join(repoRoot, 'src', 'frontend', 'modules', 'zmcc', 'arrivals', 'ZmccArrivalsWorkspace.tsx');
+  const workspaceContent = fs.readFileSync(workspacePath, 'utf8');
+  const alertMatches = workspaceContent.match(/\balert\s*\(/g);
+  assert(alertMatches === null || alertMatches.length === 0, 'Zero alert() calls', 'ZmccArrivalsWorkspace has zero browser alert() calls');
+
+  // Q. Datetime-local default uses Pakistan wall time correctly
+  const { toDatetimeLocalInput } = await import('../src/lib/datetime-utils');
+  const testUtcDate = new Date('2026-09-11T12:30:00.000Z'); // 12:30 UTC = 17:30 PKT
+  const formattedPkt = toDatetimeLocalInput(testUtcDate);
+  assert(formattedPkt === '2026-09-11T17:30', 'Datetime-local PKT wall time', `12:30 UTC formats to 17:30 PKT (got ${formattedPkt})`);
+
   console.log('\n--- SETTING UP SEED FIXTURES ---');
   const runId = Date.now().toString().slice(-6);
 
-  // 1. Create ZMCC A and ZMCC B
+  // 1. Create ZMCC A, ZMCC B, and Inactive ZMCC
   const zmccA = await prisma.procurementSource.create({
     data: {
       code: `Z6E-A-${runId}`,
@@ -169,6 +202,15 @@ async function runStage6eTests() {
       name: `Stage 6E ZMCC Beta ${runId}`,
       source_type: 'ZMCC',
       is_active: true,
+    },
+  });
+
+  const zmccInactive = await prisma.procurementSource.create({
+    data: {
+      code: `Z6E-INACT-${runId}`,
+      name: `Stage 6E Inactive ZMCC ${runId}`,
+      source_type: 'ZMCC',
+      is_active: false,
     },
   });
 
@@ -539,6 +581,13 @@ async function runStage6eTests() {
   });
   assert(resZeroGps.status === 400, 'Invalid GPS (0,0)', 'Zero coordinates return 400');
 
+  // R. Submitting GPS accuracy without coordinates is rejected (400)
+  const resAccuracyWithoutCoords = await submitMotArrival(pheA as any, {
+    ...basePayload,
+    phe_gps_accuracy: 10.0,
+  });
+  assert(resAccuracyWithoutCoords.status === 400, 'R: GPS Accuracy without Coords', 'Submitting GPS accuracy without latitude/longitude returns 400');
+
   // Non-existent journey
   const resNotFound = await submitMotArrival(pheA as any, {
     ...basePayload,
@@ -686,6 +735,30 @@ async function runStage6eTests() {
   });
   assert(resAlteredReplay.status === 409, 'Altered Replay 409', 'Altered replay with modified token rejected with 409');
 
+  // C. Altered replay with modified GPS accuracy fails with 409
+  const resAlteredAccuracyReplay = await submitMotArrival(pheA as any, {
+    journey_id: journeyMain.id.toString(),
+    route_milk_token: 'RMT-98765',
+    arrival_timestamp: arrivalTimeMain.toISOString(),
+    phe_latitude: 31.5300000,
+    phe_longitude: 74.3700000,
+    phe_gps_accuracy: 99.0, // original was 5.0
+    client_event_id: mainEventId,
+  });
+  assert(resAlteredAccuracyReplay.status === 409, 'C: MOT Replay Accuracy Mismatch 409', 'Altered replay with modified GPS accuracy rejected with 409');
+
+  // C2. Altered replay with modified GPS coordinates fails with 409
+  const resAlteredCoordsReplay = await submitMotArrival(pheA as any, {
+    journey_id: journeyMain.id.toString(),
+    route_milk_token: 'RMT-98765',
+    arrival_timestamp: arrivalTimeMain.toISOString(),
+    phe_latitude: 31.5999999, // original was 31.5300000
+    phe_longitude: 74.3700000,
+    phe_gps_accuracy: 5.0,
+    client_event_id: mainEventId,
+  });
+  assert(resAlteredCoordsReplay.status === 409, 'C: MOT Replay Coords Mismatch 409', 'Altered replay with modified GPS coordinates rejected with 409');
+
   // Second arrival on completed journey with different client_event_id returns 409
   const resSecondArrival = await submitMotArrival(pheA as any, {
     journey_id: journeyMain.id.toString(),
@@ -726,6 +799,43 @@ async function runStage6eTests() {
     where: { journey_id: journeyConcurrent.id },
   });
   assert(totalArrivalsForJourney === 1, 'Single DB Row', 'Exactly one ZmccMotArrival row created');
+
+  // D. Concurrent collisions with different payloads reject loser with 409 and do not overwrite winner
+  const journeyDiffConcurrent = await createTestJourney('COLLECTING');
+  const diffConcEventId = `evt-diff-conc-${runId}`;
+  const diffConcurrentTime = new Date().toISOString();
+
+  const [diffConc1, diffConc2] = await Promise.all([
+    submitMotArrival(pheA as any, {
+      journey_id: journeyDiffConcurrent.id.toString(),
+      route_milk_token: 'RMT-CONC-PAYLOAD-1',
+      arrival_timestamp: diffConcurrentTime,
+      client_event_id: diffConcEventId,
+    }),
+    submitMotArrival(pheA as any, {
+      journey_id: journeyDiffConcurrent.id.toString(),
+      route_milk_token: 'RMT-CONC-PAYLOAD-2',
+      arrival_timestamp: diffConcurrentTime,
+      client_event_id: diffConcEventId,
+    }),
+  ]);
+
+  const diffStatuses = [diffConc1.status, diffConc2.status].sort();
+  assert(
+    diffStatuses[0] === 201 && diffStatuses[1] === 409,
+    'D: Concurrent Diff Payload 409',
+    `Two simultaneous different submits returned 201 and 409 (got ${diffStatuses[0]}, ${diffStatuses[1]})`
+  );
+
+  const winner = diffConc1.status === 201 ? diffConc1 : diffConc2;
+  const savedArrival = await prisma.zmccMotArrival.findUnique({
+    where: { client_event_id: diffConcEventId },
+  });
+  assert(
+    savedArrival?.route_milk_token === winner.data?.route_milk_token,
+    'D: Winner Preserved',
+    'Winning payload was not overwritten by colliding loser payload'
+  );
 
   console.log('\n--- 6. DELAYED OFFLINE SYNC AFTER JOURNEY COMPLETION ---');
   // Journey is now COMPLETED (journeyMain).
@@ -827,6 +937,91 @@ async function runStage6eTests() {
   assert(resContractorReplay.status === 200, 'Contractor Replay', 'Contractor exact replay returns 200 OK');
   assert(resContractorReplay.data?.is_replay === true, 'Contractor is_replay', 'is_replay is true on contractor replay');
 
+  // H. Super Admin contractor arrival requires a valid target ZMCC ID
+  const resAdminNoTarget = await submitContractorArrival(superAdmin as any, {
+    contractor_source_id: contractorActive.id.toString(),
+    vehicle_number: 'ADMIN-100',
+    arrival_timestamp: contractorTime,
+    client_event_id: `evt-admin-no-target-${Date.now()}`,
+  });
+  assert(resAdminNoTarget.status === 400, 'H: Super Admin Target ZMCC Required', 'Super admin submission without target_zmcc_id returns 400');
+
+  const resAdminTargetAsContractor = await submitContractorArrival(superAdmin as any, {
+    target_zmcc_id: contractorActive.id.toString(),
+    contractor_source_id: contractorActive.id.toString(),
+    vehicle_number: 'ADMIN-101',
+    arrival_timestamp: contractorTime,
+    client_event_id: `evt-admin-contractor-as-zmcc-${Date.now()}`,
+  });
+  assert(resAdminTargetAsContractor.status === 400, 'H: Super Admin Target ZMCC Must Be ZMCC', 'Target ZMCC cannot be a contractor source (400)');
+
+  // I. Contractor arrival rejects contractor source ID pointing to a ZMCC source type
+  const resConSourceAsZmcc = await submitContractorArrival(pheA as any, {
+    contractor_source_id: zmccA.id.toString(),
+    vehicle_number: 'LES-9001',
+    arrival_timestamp: contractorTime,
+    client_event_id: `evt-con-source-zmcc-${Date.now()}`,
+  });
+  assert(resConSourceAsZmcc.status === 400, 'I: Contractor Source Cannot Be ZMCC', 'contractor_source_id pointing to ZMCC source type returns 400');
+
+  // J. Contractor arrival rejects inactive ZMCC
+  const resInactiveZmcc = await submitContractorArrival(superAdmin as any, {
+    target_zmcc_id: zmccInactive.id.toString(),
+    contractor_source_id: contractorActive.id.toString(),
+    vehicle_number: 'LES-9002',
+    arrival_timestamp: contractorTime,
+    client_event_id: `evt-inactive-zmcc-${Date.now()}`,
+  });
+  assert(resInactiveZmcc.status === 400, 'J: Inactive ZMCC Rejected', 'Contractor arrival targeting inactive ZMCC returns 400');
+
+  // E. Contractor arrival exact replay with different target ZMCC fails with 409
+  const resDiffZmccReplay = await submitContractorArrival(superAdmin as any, {
+    target_zmcc_id: zmccB.id.toString(),
+    contractor_source_id: contractorActive.id.toString(),
+    vehicle_number: 'LES-9000',
+    arrival_timestamp: contractorTime,
+    phe_latitude: 31.5310000,
+    phe_longitude: 74.3710000,
+    phe_gps_accuracy: 4.0,
+    client_event_id: contractorEventId,
+  });
+  assert(resDiffZmccReplay.status === 409, 'E: Contractor Replay Target ZMCC Mismatch', 'Contractor replay with altered target ZMCC returns 409');
+
+  // F. Contractor arrival exact replay with different GPS accuracy fails with 409
+  const resDiffAccuracyReplay = await submitContractorArrival(pheA as any, {
+    contractor_source_id: contractorActive.id.toString(),
+    vehicle_number: 'LES-9000',
+    arrival_timestamp: contractorTime,
+    phe_latitude: 31.5310000,
+    phe_longitude: 74.3710000,
+    phe_gps_accuracy: 99.0,
+    client_event_id: contractorEventId,
+  });
+  assert(resDiffAccuracyReplay.status === 409, 'F: Contractor Replay Accuracy Mismatch', 'Contractor replay with altered GPS accuracy returns 409');
+
+  // G. Contractor arrival concurrent collision with different payloads fails with 409 for loser
+  const conDiffEventId = `evt-con-diff-${runId}`;
+  const [conDiff1, conDiff2] = await Promise.all([
+    submitContractorArrival(pheA as any, {
+      contractor_source_id: contractorActive.id.toString(),
+      vehicle_number: 'LES-1000',
+      arrival_timestamp: contractorTime,
+      client_event_id: conDiffEventId,
+    }),
+    submitContractorArrival(pheA as any, {
+      contractor_source_id: contractorActive.id.toString(),
+      vehicle_number: 'LES-2000',
+      arrival_timestamp: contractorTime,
+      client_event_id: conDiffEventId,
+    }),
+  ]);
+  const conDiffStatuses = [conDiff1.status, conDiff2.status].sort();
+  assert(
+    conDiffStatuses[0] === 201 && conDiffStatuses[1] === 409,
+    'G: Contractor Concurrent Collision 409',
+    `Simultaneous different contractor arrivals returned 201 and 409 (got ${conDiffStatuses[0]}, ${conDiffStatuses[1]})`
+  );
+
   // Verify ZERO VehicleVisit rows created in database!
   const finalVisitCount = await prisma.vehicleVisit.count();
   assert(
@@ -902,6 +1097,89 @@ async function runStage6eTests() {
   });
   assert(resConCorrection.status === 200, 'Contractor Correction', 'Contractor correction succeeds with 200');
   assert(resConCorrection.data?.vehicle_number === 'LES-9999', 'Contractor Vehicle Updated', 'Vehicle number updated to LES-9999');
+
+  // N, O, P. Concurrency-safe correction race when only 1 slot remains
+  const journeyRace = await createTestJourney('COLLECTING');
+  const raceArrivalRes = await submitMotArrival(pheA as any, {
+    journey_id: journeyRace.id.toString(),
+    route_milk_token: 'RMT-RACE-ORIGINAL',
+    arrival_timestamp: new Date().toISOString(),
+    client_event_id: `evt-race-arr-${runId}`,
+  });
+  assert(raceArrivalRes.status === 201, 'Race Arrival Created', 'Seed arrival created for correction race test');
+  const raceArrivalId = raceArrivalRes.data?.id;
+
+  // Use 1st correction slot
+  const preRaceRes = await correctMotArrival(managerA as any, raceArrivalId, {
+    reason: 'First legitimate correction',
+    route_milk_token: 'RMT-RACE-FIRST',
+  });
+  assert(preRaceRes.status === 200 && preRaceRes.data?.correction_count === 1, 'First Slot Used', 'Arrival now has correction_count = 1 (1 slot remains)');
+
+  // Count audit logs for this arrival before race
+  const preRaceAudits = await prisma.auditLog.count({
+    where: {
+      table_name: 'zmcc_mot_arrival',
+      action: 'ZMCC_MOT_ARRIVAL_CORRECTED',
+      record_id: BigInt(raceArrivalId),
+    },
+  });
+  assert(preRaceAudits === 1, 'Pre-Race Audits', 'Exactly 1 correction audit log before race');
+
+  // Race: Two simultaneous correction attempts when only 1 slot remains
+  const [race1, race2] = await Promise.all([
+    correctMotArrival(managerA as any, raceArrivalId, {
+      reason: 'Concurrent correction attempt Alpha',
+      route_milk_token: 'RMT-RACE-ALPHA',
+    }),
+    correctMotArrival(managerA as any, raceArrivalId, {
+      reason: 'Concurrent correction attempt Beta',
+      route_milk_token: 'RMT-RACE-BETA',
+    }),
+  ]);
+
+  const raceStatuses = [race1.status, race2.status].sort();
+  // N. One winner (200) and one loser (409 Conflict)
+  assert(
+    raceStatuses[0] === 200 && raceStatuses[1] === 409,
+    'N: Concurrency Correction Race (200 & 409)',
+    `Simultaneous corrections when 1 slot remains yielded 200 and 409 (got ${raceStatuses[0]}, ${raceStatuses[1]})`
+  );
+
+  // O. Loser of concurrency race creates zero audit logs
+  const postRaceAudits = await prisma.auditLog.count({
+    where: {
+      table_name: 'zmcc_mot_arrival',
+      action: 'ZMCC_MOT_ARRIVAL_CORRECTED',
+      record_id: BigInt(raceArrivalId),
+    },
+  });
+  assert(
+    postRaceAudits === 2,
+    'O: Loser Created Zero Audit Logs',
+    `Audit log count increased by exactly 1 for winning correction (${postRaceAudits} === 2)`
+  );
+
+  // P. Maximum 2 corrections enforced across simultaneous attempts
+  const finalRaceArrival = await prisma.zmccMotArrival.findUnique({
+    where: { id: BigInt(raceArrivalId) },
+  });
+  assert(
+    finalRaceArrival?.correction_count === 2,
+    'P: Max 2 Corrections In DB',
+    `Final correction_count is strictly 2 (${finalRaceArrival?.correction_count})`
+  );
+
+  // Any subsequent attempt now fails with 400 (max corrections reached)
+  const postLimitAttempt = await correctMotArrival(managerA as any, raceArrivalId, {
+    reason: 'Attempt after limit',
+    route_milk_token: 'RMT-RACE-OMEGA',
+  });
+  assert(
+    postLimitAttempt.status === 400,
+    'P: Subsequent Correction Rejection',
+    'Subsequent correction rejected with 400 after max 2 corrections reached'
+  );
 
   console.log('\n--- 9. READ MODELS & JOURNEY MAP COMPLETION ---');
   // List MOT Arrivals scoped

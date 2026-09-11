@@ -54,6 +54,7 @@ export interface SubmitContractorArrivalPayload {
   phe_longitude?: number | null;
   phe_gps_accuracy?: number | null;
   zmcc_id?: string | number | bigint;
+  target_zmcc_id?: string | number | bigint;
 }
 
 export interface CorrectContractorArrivalPayload {
@@ -196,28 +197,143 @@ function validateGpsCoords(
   longitude?: number | null,
   gpsAccuracy?: number | null
 ): { lat: number | null; lng: number | null; acc: number | null; error?: string } {
-  if (latitude === undefined && longitude === undefined) {
+  const hasLat = latitude !== undefined && latitude !== null;
+  const hasLng = longitude !== undefined && longitude !== null;
+  const hasAcc = gpsAccuracy !== undefined && gpsAccuracy !== null;
+
+  if (!hasLat && !hasLng) {
+    if (hasAcc) {
+      return { lat: null, lng: null, acc: null, error: 'GPS accuracy cannot be provided without latitude and longitude.' };
+    }
     return { lat: null, lng: null, acc: null };
   }
-  if (latitude === null && longitude === null) {
-    return { lat: null, lng: null, acc: null };
-  }
-  if (latitude === undefined || latitude === null || longitude === undefined || longitude === null) {
+
+  if (!hasLat || !hasLng) {
     return { lat: null, lng: null, acc: null, error: 'Both latitude and longitude must be provided together.' };
   }
+
   const lat = Number(latitude);
   const lng = Number(longitude);
   if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180 || (lat === 0 && lng === 0)) {
     return { lat: null, lng: null, acc: null, error: 'Invalid GPS coordinates provided.' };
   }
+
   let acc: number | null = null;
-  if (gpsAccuracy !== undefined && gpsAccuracy !== null) {
+  if (hasAcc) {
     acc = Number(gpsAccuracy);
     if (isNaN(acc) || acc < 0) {
       return { lat: null, lng: null, acc: null, error: 'GPS accuracy must be a non-negative number.' };
     }
   }
+
   return { lat, lng, acc };
+}
+
+interface MotArrivalReplayComparison {
+  journey_id: bigint;
+  route_milk_token: string;
+  arrival_timestamp: Date;
+  phe_latitude: number | null;
+  phe_longitude: number | null;
+  phe_gps_accuracy: number | null;
+}
+
+function isExactMotArrivalReplay(
+  existing: {
+    journey_id: bigint;
+    route_milk_token: string;
+    arrival_timestamp: Date | string;
+    phe_latitude: any;
+    phe_longitude: any;
+    phe_gps_accuracy: any;
+  },
+  expected: MotArrivalReplayComparison
+): boolean {
+  if (existing.journey_id !== expected.journey_id) return false;
+  if (existing.route_milk_token.trim() !== expected.route_milk_token.trim()) return false;
+
+  const existingTime = new Date(existing.arrival_timestamp).getTime();
+  const expectedTime = expected.arrival_timestamp.getTime();
+  if (Math.abs(existingTime - expectedTime) >= 1000) return false;
+
+  const existingLat = existing.phe_latitude != null ? Number(existing.phe_latitude) : null;
+  const existingLng = existing.phe_longitude != null ? Number(existing.phe_longitude) : null;
+  const existingAcc = existing.phe_gps_accuracy != null ? Number(existing.phe_gps_accuracy) : null;
+
+  if (expected.phe_latitude == null) {
+    if (existingLat != null) return false;
+  } else {
+    if (existingLat == null || Math.abs(expected.phe_latitude - existingLat) >= 0.0001) return false;
+  }
+
+  if (expected.phe_longitude == null) {
+    if (existingLng != null) return false;
+  } else {
+    if (existingLng == null || Math.abs(expected.phe_longitude - existingLng) >= 0.0001) return false;
+  }
+
+  if (expected.phe_gps_accuracy == null) {
+    if (existingAcc != null) return false;
+  } else {
+    if (existingAcc == null || Math.abs(expected.phe_gps_accuracy - existingAcc) >= 0.01) return false;
+  }
+
+  return true;
+}
+
+interface ContractorArrivalReplayComparison {
+  zmcc_id: bigint;
+  contractor_source_id: bigint;
+  vehicle_number: string;
+  arrival_timestamp: Date;
+  phe_latitude: number | null;
+  phe_longitude: number | null;
+  phe_gps_accuracy: number | null;
+}
+
+function isExactContractorArrivalReplay(
+  existing: {
+    zmcc_id: bigint;
+    contractor_source_id: bigint;
+    vehicle_number: string;
+    arrival_timestamp: Date | string;
+    phe_latitude: any;
+    phe_longitude: any;
+    phe_gps_accuracy: any;
+  },
+  expected: ContractorArrivalReplayComparison
+): boolean {
+  if (existing.zmcc_id !== expected.zmcc_id) return false;
+  if (existing.contractor_source_id !== expected.contractor_source_id) return false;
+  if (existing.vehicle_number.trim().toUpperCase() !== expected.vehicle_number.trim().toUpperCase()) return false;
+
+  const existingTime = new Date(existing.arrival_timestamp).getTime();
+  const expectedTime = expected.arrival_timestamp.getTime();
+  if (Math.abs(existingTime - expectedTime) >= 1000) return false;
+
+  const existingLat = existing.phe_latitude != null ? Number(existing.phe_latitude) : null;
+  const existingLng = existing.phe_longitude != null ? Number(existing.phe_longitude) : null;
+  const existingAcc = existing.phe_gps_accuracy != null ? Number(existing.phe_gps_accuracy) : null;
+
+  if (expected.phe_latitude == null) {
+    if (existingLat != null) return false;
+  } else {
+    if (existingLat == null || Math.abs(expected.phe_latitude - existingLat) >= 0.0001) return false;
+  }
+
+  if (expected.phe_longitude == null) {
+    if (existingLng != null) return false;
+  } else {
+    if (existingLng == null || Math.abs(expected.phe_longitude - existingLng) >= 0.0001) return false;
+  }
+
+  if (expected.phe_gps_accuracy == null) {
+    if (existingAcc != null) return false;
+  } else {
+    if (existingAcc == null || Math.abs(expected.phe_gps_accuracy - existingAcc) >= 0.01) return false;
+  }
+
+  return true;
 }
 
 export function serializeMotArrival(arrival: any) {
@@ -365,6 +481,15 @@ export async function submitMotArrival(
     return { status: 400, error: gpsValidation.error };
   }
 
+  const expectedMotPayload: MotArrivalReplayComparison = {
+    journey_id: journeyId,
+    route_milk_token: routeMilkToken,
+    arrival_timestamp: arrivalDate,
+    phe_latitude: gpsValidation.lat,
+    phe_longitude: gpsValidation.lng,
+    phe_gps_accuracy: gpsValidation.acc,
+  };
+
   const existingByEventId = await prisma.zmccMotArrival.findUnique({
     where: { client_event_id: clientEventId },
     include: {
@@ -381,20 +506,7 @@ export async function submitMotArrival(
   });
 
   if (existingByEventId) {
-    const isSameJourney = existingByEventId.journey_id === journeyId;
-    const isSameToken = existingByEventId.route_milk_token === routeMilkToken;
-    const isSameTime = Math.abs(new Date(existingByEventId.arrival_timestamp).getTime() - arrivalDate.getTime()) < 1000;
-
-    const existingLat = existingByEventId.phe_latitude != null ? Number(existingByEventId.phe_latitude) : null;
-    const existingLng = existingByEventId.phe_longitude != null ? Number(existingByEventId.phe_longitude) : null;
-    const isSameLat =
-      (gpsValidation.lat == null && existingLat == null) ||
-      (gpsValidation.lat != null && existingLat != null && Math.abs(gpsValidation.lat - existingLat) < 0.0001);
-    const isSameLng =
-      (gpsValidation.lng == null && existingLng == null) ||
-      (gpsValidation.lng != null && existingLng != null && Math.abs(gpsValidation.lng - existingLng) < 0.0001);
-
-    if (isSameJourney && isSameToken && isSameTime && isSameLat && isSameLng) {
+    if (isExactMotArrivalReplay(existingByEventId, expectedMotPayload)) {
       return {
         status: 200,
         data: {
@@ -486,8 +598,6 @@ export async function submitMotArrival(
   const arrivalDatePkt = new Date(`${pktDateStr}T00:00:00.000Z`);
 
   try {
-    await prisma.$executeRawUnsafe('CREATE SEQUENCE IF NOT EXISTS "zmcc_token_seq" START WITH 1 INCREMENT BY 1;');
-
     const createdArrival = await prisma.$transaction(async (tx) => {
       const checkJourney = await tx.motJourney.findUnique({
         where: { id: journeyId },
@@ -498,7 +608,10 @@ export async function submitMotArrival(
       }
 
       const seqResult = await tx.$queryRaw<{ nextval: bigint }[]>`SELECT nextval('zmcc_token_seq') as nextval`;
-      const seqNum = seqResult[0]?.nextval ? Number(seqResult[0].nextval) : Math.floor(Math.random() * 9000) + 1000;
+      if (!seqResult || seqResult.length === 0 || seqResult[0].nextval === undefined || seqResult[0].nextval === null) {
+        throw new Error('FAILED_TO_ALLOCATE_ZMCC_TOKEN_SEQUENCE');
+      }
+      const seqNum = Number(seqResult[0].nextval);
       const zmccToken = `ZT-MOT-${dateCode}-${String(seqNum).padStart(4, '0')}`;
 
       const latestDeviceLoc = await tx.motJourneyLocation.findFirst({
@@ -611,15 +724,18 @@ export async function submitMotArrival(
         },
       });
       if (existingAfterCollision) {
-        const isSameJourney = existingAfterCollision.journey_id === journeyId;
-        const isSameToken = existingAfterCollision.route_milk_token === routeMilkToken;
-        if (isSameJourney && isSameToken) {
+        if (isExactMotArrivalReplay(existingAfterCollision, expectedMotPayload)) {
           return {
             status: 200,
             data: {
               ...serializeMotArrival(existingAfterCollision),
               is_replay: true,
             },
+          };
+        } else {
+          return {
+            status: 409,
+            error: 'Conflict: Concurrent arrival submission collision or duplicate client_event_id with differing payload.',
           };
         }
       }
@@ -693,9 +809,7 @@ export async function correctMotArrival(
     };
   }
 
-  const updateData: Prisma.ZmccMotArrivalUpdateInput = {
-    correction_count: { increment: 1 },
-  };
+  const updateData: Prisma.ZmccMotArrivalUpdateInput = {};
 
   const oldValues: Record<string, any> = {};
   const newValues: Record<string, any> = {};
@@ -723,17 +837,26 @@ export async function correctMotArrival(
       return { status: 400, error: 'arrival_timestamp cannot be in the future.' };
     }
     if (parsedTime.getTime() < new Date(arrival.journey.started_at).getTime()) {
-      return { status: 400, error: 'arrival_timestamp cannot predate journey started_at.' };
+      return {
+        status: 400,
+        error: `arrival_timestamp cannot predate journey start time (${arrival.journey.started_at.toISOString()}).`,
+      };
     }
     for (const stop of arrival.journey.stops) {
       if (stop.collection && parsedTime.getTime() < new Date(stop.collection.device_collected_at).getTime()) {
-        return { status: 400, error: 'arrival_timestamp cannot predate journey collections.' };
+        return {
+          status: 400,
+          error: `arrival_timestamp cannot predate collection recorded at ${stop.collection.device_collected_at.toISOString()}.`,
+        };
       }
     }
     if (arrival.journey.locations.length > 0) {
       const latestLocTime = new Date(arrival.journey.locations[0].device_recorded_at).getTime();
       if (parsedTime.getTime() < latestLocTime) {
-        return { status: 400, error: 'arrival_timestamp cannot predate journey GPS locations.' };
+        return {
+          status: 400,
+          error: `arrival_timestamp cannot predate latest GPS point recorded at ${arrival.journey.locations[0].device_recorded_at.toISOString()}.`,
+        };
       }
     }
 
@@ -772,9 +895,25 @@ export async function correctMotArrival(
 
   try {
     const updated = await prisma.$transaction(async (tx) => {
+      // Concurrency safety: acquire row-level lock on the arrival record
+      const lockedRows = await tx.$queryRaw<{ id: bigint; correction_count: number }[]>`
+        SELECT id, correction_count FROM zmcc_mot_arrival WHERE id = ${arrivalId} FOR UPDATE
+      `;
+      if (!lockedRows || lockedRows.length === 0) {
+        throw new Error('ARRIVAL_NOT_FOUND');
+      }
+      const currentCount = lockedRows[0].correction_count;
+      if (currentCount >= 2) {
+        throw new Error('MAX_CORRECTIONS_REACHED');
+      }
+
+      const nextCorrectionCount = currentCount + 1;
       const updatedRecord = await tx.zmccMotArrival.update({
         where: { id: arrivalId },
-        data: updateData,
+        data: {
+          ...updateData,
+          correction_count: nextCorrectionCount,
+        },
         include: {
           journey: {
             include: {
@@ -819,7 +958,7 @@ export async function correctMotArrival(
           new_values: {
             ...newValues,
             correction_reason: reason,
-            correction_count: arrival.correction_count + 1,
+            correction_count: nextCorrectionCount,
           },
           user_id: auth.actorUserId,
         },
@@ -833,6 +972,15 @@ export async function correctMotArrival(
       data: serializeMotArrival(updated),
     };
   } catch (err: any) {
+    if (err.message === 'MAX_CORRECTIONS_REACHED') {
+      return {
+        status: 409,
+        error: 'Conflict: Maximum number of corrections (2) has been reached or another correction was committed concurrently.',
+      };
+    }
+    if (err.message === 'ARRIVAL_NOT_FOUND') {
+      return { status: 404, error: 'MOT Arrival record not found.' };
+    }
     console.error('correctMotArrival error:', err);
     return { status: 500, error: 'Internal server error while correcting MOT arrival.' };
   }
@@ -886,16 +1034,37 @@ export async function submitContractorArrival(
     return { status: 400, error: gpsValidation.error };
   }
 
-  let targetZmccId = auth.effectiveZmccId;
-  if (auth.isSuperAdmin && payload.zmcc_id) {
-    try {
-      targetZmccId = BigInt(String(payload.zmcc_id).trim());
-    } catch {
-      return { status: 400, error: 'Invalid zmcc_id format.' };
+  let targetZmccId: bigint | null = null;
+  const rawTargetZmccId = payload.zmcc_id ?? payload.target_zmcc_id;
+  if (auth.isSuperAdmin) {
+    if (!rawTargetZmccId || String(rawTargetZmccId).trim() === '') {
+      return { status: 400, error: 'target_zmcc_id is required for Super Admin.' };
     }
+    try {
+      targetZmccId = BigInt(String(rawTargetZmccId).trim());
+    } catch {
+      return { status: 400, error: 'Invalid target_zmcc_id format.' };
+    }
+  } else {
+    targetZmccId = auth.effectiveZmccId;
   }
+
   if (!targetZmccId) {
-    return { status: 400, error: 'zmcc_id is required for Super Admin.' };
+    return { status: 400, error: 'Target ZMCC could not be resolved.' };
+  }
+
+  // Validate target ZMCC exists, is active, and is of type 'ZMCC'
+  const targetZmcc = await prisma.procurementSource.findUnique({
+    where: { id: targetZmccId },
+  });
+  if (!targetZmcc) {
+    return { status: 404, error: 'Target ZMCC procurement source not found.' };
+  }
+  if (targetZmcc.source_type !== 'ZMCC') {
+    return { status: 400, error: `Target source is not of type ZMCC (found: ${targetZmcc.source_type}).` };
+  }
+  if (!targetZmcc.is_active) {
+    return { status: 400, error: 'Target ZMCC procurement source is inactive.' };
   }
 
   const contractorSource = await prisma.procurementSource.findUnique({
@@ -911,6 +1080,16 @@ export async function submitContractorArrival(
     return { status: 400, error: 'Selected contractor procurement source is inactive.' };
   }
 
+  const expectedContractorPayload: ContractorArrivalReplayComparison = {
+    zmcc_id: targetZmccId,
+    contractor_source_id: contractorSourceId,
+    vehicle_number: vehicleNumber,
+    arrival_timestamp: arrivalDate,
+    phe_latitude: gpsValidation.lat,
+    phe_longitude: gpsValidation.lng,
+    phe_gps_accuracy: gpsValidation.acc,
+  };
+
   const existingByEventId = await prisma.zmccContractorArrival.findUnique({
     where: { client_event_id: clientEventId },
     include: {
@@ -921,19 +1100,7 @@ export async function submitContractorArrival(
   });
 
   if (existingByEventId) {
-    const isSameContractor = existingByEventId.contractor_source_id === contractorSourceId;
-    const isSameVehicle = existingByEventId.vehicle_number === vehicleNumber;
-    const isSameTime = Math.abs(new Date(existingByEventId.arrival_timestamp).getTime() - arrivalDate.getTime()) < 1000;
-    const existingLat = existingByEventId.phe_latitude != null ? Number(existingByEventId.phe_latitude) : null;
-    const existingLng = existingByEventId.phe_longitude != null ? Number(existingByEventId.phe_longitude) : null;
-    const isSameLat =
-      (gpsValidation.lat == null && existingLat == null) ||
-      (gpsValidation.lat != null && existingLat != null && Math.abs(gpsValidation.lat - existingLat) < 0.0001);
-    const isSameLng =
-      (gpsValidation.lng == null && existingLng == null) ||
-      (gpsValidation.lng != null && existingLng != null && Math.abs(gpsValidation.lng - existingLng) < 0.0001);
-
-    if (isSameContractor && isSameVehicle && isSameTime && isSameLat && isSameLng) {
+    if (isExactContractorArrivalReplay(existingByEventId, expectedContractorPayload)) {
       return {
         status: 200,
         data: {
@@ -954,11 +1121,12 @@ export async function submitContractorArrival(
   const arrivalDatePkt = new Date(`${pktDateStr}T00:00:00.000Z`);
 
   try {
-    await prisma.$executeRawUnsafe('CREATE SEQUENCE IF NOT EXISTS "zmcc_token_seq" START WITH 1 INCREMENT BY 1;');
-
     const createdArrival = await prisma.$transaction(async (tx) => {
       const seqResult = await tx.$queryRaw<{ nextval: bigint }[]>`SELECT nextval('zmcc_token_seq') as nextval`;
-      const seqNum = seqResult[0]?.nextval ? Number(seqResult[0].nextval) : Math.floor(Math.random() * 9000) + 1000;
+      if (!seqResult || seqResult.length === 0 || seqResult[0].nextval === undefined || seqResult[0].nextval === null) {
+        throw new Error('FAILED_TO_ALLOCATE_ZMCC_TOKEN_SEQUENCE');
+      }
+      const seqNum = Number(seqResult[0].nextval);
       const zmccToken = `ZT-CON-${dateCode}-${String(seqNum).padStart(4, '0')}`;
 
       const arrival = await tx.zmccContractorArrival.create({
@@ -1021,13 +1189,20 @@ export async function submitContractorArrival(
         },
       });
       if (existingAfterCollision) {
-        return {
-          status: 200,
-          data: {
-            ...serializeContractorArrival(existingAfterCollision),
-            is_replay: true,
-          },
-        };
+        if (isExactContractorArrivalReplay(existingAfterCollision, expectedContractorPayload)) {
+          return {
+            status: 200,
+            data: {
+              ...serializeContractorArrival(existingAfterCollision),
+              is_replay: true,
+            },
+          };
+        } else {
+          return {
+            status: 409,
+            error: 'Conflict: Reused client_event_id with differing contractor arrival payload.',
+          };
+        }
       }
       return {
         status: 409,
@@ -1088,9 +1263,7 @@ export async function correctContractorArrival(
     };
   }
 
-  const updateData: Prisma.ZmccContractorArrivalUpdateInput = {
-    correction_count: { increment: 1 },
-  };
+  const updateData: Prisma.ZmccContractorArrivalUpdateInput = {};
 
   const oldValues: Record<string, any> = {};
   const newValues: Record<string, any> = {};
@@ -1150,9 +1323,25 @@ export async function correctContractorArrival(
 
   try {
     const updated = await prisma.$transaction(async (tx) => {
+      // Concurrency safety: acquire row-level lock on the arrival record
+      const lockedRows = await tx.$queryRaw<{ id: bigint; correction_count: number }[]>`
+        SELECT id, correction_count FROM zmcc_contractor_arrival WHERE id = ${arrivalId} FOR UPDATE
+      `;
+      if (!lockedRows || lockedRows.length === 0) {
+        throw new Error('ARRIVAL_NOT_FOUND');
+      }
+      const currentCount = lockedRows[0].correction_count;
+      if (currentCount >= 2) {
+        throw new Error('MAX_CORRECTIONS_REACHED');
+      }
+
+      const nextCorrectionCount = currentCount + 1;
       const updatedRecord = await tx.zmccContractorArrival.update({
         where: { id: arrivalId },
-        data: updateData,
+        data: {
+          ...updateData,
+          correction_count: nextCorrectionCount,
+        },
         include: {
           contractor_source: true,
           zmcc: true,
@@ -1169,7 +1358,7 @@ export async function correctContractorArrival(
           new_values: {
             ...newValues,
             correction_reason: reason,
-            correction_count: arrival.correction_count + 1,
+            correction_count: nextCorrectionCount,
           },
           user_id: auth.actorUserId,
         },
@@ -1183,6 +1372,15 @@ export async function correctContractorArrival(
       data: serializeContractorArrival(updated),
     };
   } catch (err: any) {
+    if (err.message === 'MAX_CORRECTIONS_REACHED') {
+      return {
+        status: 409,
+        error: 'Conflict: Maximum number of corrections (2) has been reached or another correction was committed concurrently.',
+      };
+    }
+    if (err.message === 'ARRIVAL_NOT_FOUND') {
+      return { status: 404, error: 'Contractor Arrival record not found.' };
+    }
     console.error('correctContractorArrival error:', err);
     return { status: 500, error: 'Internal server error while correcting contractor arrival.' };
   }

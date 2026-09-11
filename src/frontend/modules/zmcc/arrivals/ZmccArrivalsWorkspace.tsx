@@ -18,6 +18,9 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 
+import { useToast } from '@/frontend/context/ToastContext';
+import { toDatetimeLocalInput, datetimeLocalToIso } from '@/lib/datetime-utils';
+
 interface ZmccArrivalsWorkspaceProps {
   currentUser: User | null;
 }
@@ -25,6 +28,7 @@ interface ZmccArrivalsWorkspaceProps {
 type MainTab = 'MOT_ARRIVAL' | 'CONTRACTOR_ARRIVAL' | 'HISTORY';
 
 export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ currentUser }) => {
+  const toast = useToast();
   const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
   const isZmccManager = currentUser?.role === 'ZMCC_MANAGER';
   const isPheOperator = currentUser?.role === 'PHE_OPERATOR';
@@ -38,8 +42,8 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
   const [loadingJourneys, setLoadingJourneys] = useState(false);
   const [selectedJourney, setSelectedJourney] = useState<any | null>(null);
   const [routeMilkToken, setRouteMilkToken] = useState('');
-  const [motArrivalTimestamp, setMotArrivalTimestamp] = useState(
-    new Date().toISOString().slice(0, 16)
+  const [motArrivalTimestamp, setMotArrivalTimestamp] = useState(() =>
+    toDatetimeLocalInput(new Date())
   );
   const [motGps, setMotGps] = useState<{ lat: number | null; lng: number | null; acc: number | null }>({
     lat: null,
@@ -55,8 +59,8 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
   const [contractors, setContractors] = useState<any[]>([]);
   const [selectedContractorId, setSelectedContractorId] = useState('');
   const [contractorVehicleNumber, setContractorVehicleNumber] = useState('');
-  const [contractorArrivalTimestamp, setContractorArrivalTimestamp] = useState(
-    new Date().toISOString().slice(0, 16)
+  const [contractorArrivalTimestamp, setContractorArrivalTimestamp] = useState(() =>
+    toDatetimeLocalInput(new Date())
   );
   const [contractorGps, setContractorGps] = useState<{ lat: number | null; lng: number | null; acc: number | null }>({
     lat: null,
@@ -97,7 +101,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
   const initMotForm = useCallback(() => {
     setSelectedJourney(null);
     setRouteMilkToken('');
-    setMotArrivalTimestamp(new Date().toISOString().slice(0, 16));
+    setMotArrivalTimestamp(toDatetimeLocalInput(new Date()));
     setMotGps({ lat: null, lng: null, acc: null });
     setMotEventId(generateClientEventId('mot-arr'));
     setMotError(null);
@@ -106,7 +110,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
   const initContractorForm = useCallback(() => {
     setSelectedContractorId('');
     setContractorVehicleNumber('');
-    setContractorArrivalTimestamp(new Date().toISOString().slice(0, 16));
+    setContractorArrivalTimestamp(toDatetimeLocalInput(new Date()));
     setContractorGps({ lat: null, lng: null, acc: null });
     setContractorEventId(generateClientEventId('con-arr'));
     setContractorError(null);
@@ -181,8 +185,8 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
 
   // GPS capture handler
   const captureGps = (target: 'MOT' | 'CONTRACTOR') => {
-    if (!navigator.geolocation) {
-      alert('Geolocation is not supported by your browser.');
+    if (typeof window === 'undefined' || !navigator.geolocation) {
+      toast.showWarning('Geolocation is not supported by your browser. Arrival can proceed without GPS.');
       return;
     }
     navigator.geolocation.getCurrentPosition(
@@ -194,9 +198,18 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
         };
         if (target === 'MOT') setMotGps(coords);
         else setContractorGps(coords);
+        toast.showSuccess('GPS coordinates captured successfully.');
       },
       (err) => {
-        alert(`Failed to get location: ${err.message}`);
+        let msg = 'Failed to capture GPS location.';
+        if (err.code === 1) msg = 'Location permission was denied. Arrival can proceed without GPS.';
+        else if (err.code === 2) msg = 'Location position unavailable. Arrival can proceed without GPS.';
+        else if (err.code === 3) msg = 'Location request timed out. Arrival can proceed without GPS.';
+        else if (err.message) msg = `GPS error: ${err.message}. Arrival can proceed without GPS.`;
+
+        toast.showWarning(msg);
+        if (target === 'MOT') setMotGps({ lat: null, lng: null, acc: null });
+        else setContractorGps({ lat: null, lng: null, acc: null });
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
@@ -222,7 +235,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
         body: JSON.stringify({
           journey_id: selectedJourney.id,
           route_milk_token: routeMilkToken.trim(),
-          arrival_timestamp: new Date(motArrivalTimestamp).toISOString(),
+          arrival_timestamp: datetimeLocalToIso(motArrivalTimestamp) || new Date(motArrivalTimestamp).toISOString(),
           client_event_id: motEventId,
           phe_latitude: motGps.lat,
           phe_longitude: motGps.lng,
@@ -264,7 +277,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
         body: JSON.stringify({
           contractor_source_id: selectedContractorId,
           vehicle_number: contractorVehicleNumber.trim().toUpperCase(),
-          arrival_timestamp: new Date(contractorArrivalTimestamp).toISOString(),
+          arrival_timestamp: datetimeLocalToIso(contractorArrivalTimestamp) || new Date(contractorArrivalTimestamp).toISOString(),
           client_event_id: contractorEventId,
           phe_latitude: contractorGps.lat,
           phe_longitude: contractorGps.lng,
@@ -292,13 +305,13 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
     setCorrError(null);
     if (type === 'MOT') {
       setCorrToken(record.route_milk_token || '');
-      setCorrTimestamp(record.arrival_timestamp ? new Date(record.arrival_timestamp).toISOString().slice(0, 16) : '');
+      setCorrTimestamp(record.arrival_timestamp ? toDatetimeLocalInput(record.arrival_timestamp) : '');
       setCorrLat(record.phe_latitude != null ? String(record.phe_latitude) : '');
       setCorrLng(record.phe_longitude != null ? String(record.phe_longitude) : '');
       setCorrAcc(record.phe_gps_accuracy != null ? String(record.phe_gps_accuracy) : '');
     } else {
       setCorrVehicle(record.vehicle_number || '');
-      setCorrTimestamp(record.arrival_timestamp ? new Date(record.arrival_timestamp).toISOString().slice(0, 16) : '');
+      setCorrTimestamp(record.arrival_timestamp ? toDatetimeLocalInput(record.arrival_timestamp) : '');
       setCorrLat(record.phe_latitude != null ? String(record.phe_latitude) : '');
       setCorrLng(record.phe_longitude != null ? String(record.phe_longitude) : '');
       setCorrAcc(record.phe_gps_accuracy != null ? String(record.phe_gps_accuracy) : '');
@@ -323,7 +336,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
 
       const payload: any = {
         reason: corrReason.trim(),
-        arrival_timestamp: new Date(corrTimestamp).toISOString(),
+        arrival_timestamp: datetimeLocalToIso(corrTimestamp) || new Date(corrTimestamp).toISOString(),
       };
 
       if (correctionTarget.type === 'MOT') {

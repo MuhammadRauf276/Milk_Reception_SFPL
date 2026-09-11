@@ -157,7 +157,7 @@ This document records the authoritative business rules approved for the Milk Rec
 
 ### 14A. MOT ZMCC Arrival & Journey Completion
 - **Operator Authority**: PHE Operator (scoped to assigned active ZMCC) or Super Admin records arrival.
-- **Route Milk Token**: Entered manually from the physical collection slip / driver ticket (`route_milk_token`). Immutable identity reference.
+- **Route Milk Token**: Manually submitted by PHE from the physical collection slip / driver ticket (`route_milk_token`). It is not client/system regenerated on replay. After completed submission, PHE cannot edit it. Authorized ZMCC Manager / Super Admin may correct it under the max-two correction contract with mandatory reason and immutable AuditLog history. System ZMCC Token (`zmcc_token`) is permanently immutable.
 - **Automatic ZMCC Token**: Generated using sequence `zmcc_token_seq` with daily PKT calendar date code: `ZT-MOT-YYYYMMDD-XXXX`. Collision-safe, immutable.
 - **Journey Lifecycle Transition**: Journey status moves atomically from `COLLECTING` to `COMPLETED`. `ended_at` is set to the actual arrival timestamp.
 - **Pending Stops**: Unvisited journey stops remain in `PENDING` status. They are NOT marked as `SKIPPED`.
