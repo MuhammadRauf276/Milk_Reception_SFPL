@@ -3,6 +3,7 @@ export type Role =
   | 'MPD_Operator'            // ZMCC/Contractor Operator: Enters initial dispatch
   | 'MPD_Zone_Manager'        // ZMCC Minor Manager: Views own zone, cross-verification analytics
   | 'ZMCC_MANAGER'            // ZMCC Source Manager: Restricted to assigned ZMCC
+  | 'ZMCC_LAB_ATTENDANT'      // ZMCC Laboratory Attendant: Quality tests & accept/reject at ZMCC
   | 'PHE_OPERATOR'             // PHE Operator: Restricted to assigned ZMCC shops
   | 'MOT'                      // Milk Operator / Transporter: Mobile collection execution
   | 'CONTRACTOR_MANAGER'      // Contractor Source Manager: Restricted to assigned Contractor

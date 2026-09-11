@@ -28,8 +28,8 @@ export const createLabTestSchema = z.object({
     message: 'Result type must be NUMERIC, TEXT, QUALITATIVE, BOOLEAN, OK_NOT_OK, POSITIVE_NEGATIVE, or CALCULATED',
   }),
   unit: z.string().max(30).nullable().optional(),
-  testScope: z.enum(['DISPATCH', 'PLANT', 'BOTH'], {
-    message: 'Test scope must be DISPATCH, PLANT, or BOTH',
+  testScope: z.enum(['DISPATCH', 'PLANT', 'BOTH', 'ZMCC', 'ALL'], {
+    message: 'Test scope must be DISPATCH, PLANT, BOTH, ZMCC, or ALL',
   }),
   isRequired: z.boolean().default(true),
   isActive: z.boolean().default(true),
@@ -42,7 +42,7 @@ export const updateLabTestSchema = z.object({
   testName: z.string().min(1, 'Test name is required').max(150).trim().optional(),
   resultType: z.enum(['NUMERIC', 'TEXT', 'QUALITATIVE', 'BOOLEAN', 'OK_NOT_OK', 'POSITIVE_NEGATIVE', 'CALCULATED']).optional(),
   unit: z.string().max(30).nullable().optional(),
-  testScope: z.enum(['DISPATCH', 'PLANT', 'BOTH']).optional(),
+  testScope: z.enum(['DISPATCH', 'PLANT', 'BOTH', 'ZMCC', 'ALL']).optional(),
   isRequired: z.boolean().optional(),
   isActive: z.boolean().optional(),
   displayOrder: z.number().int().min(0).optional(),
@@ -62,7 +62,7 @@ export function validatePlantQAResultOptions(
   resultType: string,
   resultOptions?: LabTestResultOption[] | null
 ): { isValid: boolean; error?: string } {
-  const isPlant = testScope === 'PLANT' || testScope === 'BOTH';
+  const isPlant = testScope === 'PLANT' || testScope === 'BOTH' || testScope === 'ALL';
   const isCategorical = ['QUALITATIVE', 'BOOLEAN', 'OK_NOT_OK', 'POSITIVE_NEGATIVE'].includes(resultType);
 
   if (isPlant && isRequired && isCategorical && Array.isArray(resultOptions) && resultOptions.length > 0) {
@@ -85,3 +85,14 @@ export function validatePlantQAResultOptions(
   return { isValid: true };
 }
 
+export function mapScopeCheckboxes(scopeDispatch: boolean, scopePlantQA: boolean, scopeZmcc: boolean): string {
+  if (!scopeDispatch && !scopePlantQA && !scopeZmcc) {
+    throw new Error('Please select at least one scope (Dispatch, Plant QA, or ZMCC Lab).');
+  }
+  if (scopeDispatch && scopePlantQA && scopeZmcc) return 'ALL';
+  if (scopeDispatch && scopePlantQA && !scopeZmcc) return 'BOTH';
+  if (scopeDispatch && !scopePlantQA && !scopeZmcc) return 'DISPATCH';
+  if (!scopeDispatch && scopePlantQA && !scopeZmcc) return 'PLANT';
+  if (!scopeDispatch && !scopePlantQA && scopeZmcc) return 'ZMCC';
+  throw new Error('This scope combination is not representable. Select one scope, Dispatch + Plant, or all three.');
+}

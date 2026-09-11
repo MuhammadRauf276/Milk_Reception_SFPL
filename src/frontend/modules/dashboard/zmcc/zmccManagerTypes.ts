@@ -9,7 +9,8 @@ export type ZMCCManagerTab =
   | 'HISTORY'
   | 'MASTER_DATA'
   | 'MOT_OPERATIONS'
-  | 'ARRIVALS';
+  | 'ARRIVALS'
+  | 'ZMCC_LAB';
 
 export type OverviewDateRange = 'TODAY' | 'YESTERDAY' | 'LAST_7' | 'LAST_15' | 'ALL';
 

@@ -26,11 +26,13 @@ export async function PATCH(
     if (body.resultType && body.resultType !== targetTest.resultType) {
       const dispatchCount = await prisma.dispatchLabResult.count({ where: { test_id: testId } });
       const plantCount = await prisma.plantLabResult.count({ where: { test_id: testId } });
+      const zmccCount = await prisma.zmccLabResult.count({ where: { test_id: testId } });
+      const totalCount = dispatchCount + plantCount + zmccCount;
 
-      if (dispatchCount + plantCount > 0) {
+      if (totalCount > 0) {
         return NextResponse.json(
           {
-            error: `Result type change rejected. Cannot change resultType from "${targetTest.resultType}" to "${body.resultType}" for Lab Test "${targetTest.testCode}" (${targetTest.testName}) because ${dispatchCount + plantCount} historical result records already exist.`,
+            error: `Result type change rejected. Cannot change resultType from "${targetTest.resultType}" to "${body.resultType}" for Lab Test "${targetTest.testCode}" (${targetTest.testName}) because ${totalCount} historical result records already exist.`,
           },
           { status: 400 }
         );

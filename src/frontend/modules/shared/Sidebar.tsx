@@ -77,6 +77,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       role === 'Production');
 
   const isZmccManager = !isSecurityManager && role === 'ZMCC_MANAGER';
+  const isZmccLabAttendant = !isSecurityManager && role === 'ZMCC_LAB_ATTENDANT';
   const isPheOperator = !isSecurityManager && role === 'PHE_OPERATOR';
   const isMot = !isSecurityManager && role === 'MOT';
   const isContractorManager = !isSecurityManager && role === 'CONTRACTOR_MANAGER';
@@ -272,6 +273,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </span>
               <span className={`px-1.5 py-0.5 rounded font-mono text-[9px] ${getBadgeStyle('/phe')}`}>
                 OPERATOR
+              </span>
+            </Link>
+          )}
+
+          {/* 2D-2. ZMCC LAB ATTENDANT VIEW */}
+          {isZmccLabAttendant && (
+            <Link
+              href="/zmcc/lab"
+              onClick={handleLinkClick}
+              className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition ${getLinkStyle('/zmcc/lab')}`}
+            >
+              <span className="flex items-center gap-2">
+                <FlaskConical className="w-4 h-4" />
+                <span>ZMCC Lab Station</span>
+              </span>
+              <span className={`px-1.5 py-0.5 rounded font-mono text-[9px] ${getBadgeStyle('/zmcc/lab')}`}>
+                LAB
               </span>
             </Link>
           )}
