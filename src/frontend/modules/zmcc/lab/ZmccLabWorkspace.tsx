@@ -329,7 +329,15 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
 
       if (res.ok) {
         const corrected = await res.json();
-        toast.showSuccess('Lab record corrected successfully.');
+        const mgrCount = corrected?.manager_correction_count ?? 0;
+        if (isZmccManager && mgrCount >= 5) {
+          toast.showWarning(
+            'Correction saved. Manager correction limit reached (5/5). Further corrections require Super Admin.',
+            'Limit Reached'
+          );
+        } else {
+          toast.showSuccess('Lab record corrected successfully.');
+        }
         setShowCorrectionModal(false);
         setSelectedHistorySession(null);
         fetchHistory();
@@ -898,6 +906,10 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                             <Edit3 className="w-3 h-3" />
                             Correct
                           </button>
+                        ) : isZmccManager && (item.manager_correction_count ?? 0) >= 5 ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200">
+                            Manager correction limit reached (5/5)
+                          </span>
                         ) : (
                           <span className="text-xs text-slate-400">—</span>
                         )}

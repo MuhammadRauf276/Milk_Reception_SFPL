@@ -162,11 +162,34 @@ async function runStage6fTests() {
   const stage6fMatches = runnerContent.match(/scripts\/test_stage6f_zmcc_lab\.ts/g);
   assert(stage6fMatches?.length === 1, 'Registered in Runner', 'test_stage6f_zmcc_lab.ts registered exactly once in run_all_regressions.ts');
 
-  // Zero alert() in ZmccLabWorkspace
+  // Zero alert(), confirm(), prompt() in ZmccLabWorkspace
   const labWorkspacePath = path.join(repoRoot, 'src', 'frontend', 'modules', 'zmcc', 'lab', 'ZmccLabWorkspace.tsx');
   const labWorkspaceContent = fs.readFileSync(labWorkspacePath, 'utf8');
   const alertMatches = labWorkspaceContent.match(/\balert\s*\(/g);
+  const confirmMatches = labWorkspaceContent.match(/\bconfirm\s*\(/g);
+  const promptMatches = labWorkspaceContent.match(/\bprompt\s*\(/g);
   assert(alertMatches === null || alertMatches.length === 0, 'Zero alert() calls', 'ZmccLabWorkspace has zero browser alert() calls');
+  assert(confirmMatches === null || confirmMatches.length === 0, 'Zero confirm() calls', 'ZmccLabWorkspace has zero browser confirm() calls');
+  assert(promptMatches === null || promptMatches.length === 0, 'Zero prompt() calls', 'ZmccLabWorkspace has zero browser prompt() calls');
+
+  // UI Manager limit reached indication and button gate
+  assert(
+    labWorkspaceContent.includes('Manager correction limit reached (5/5)'),
+    'UI Limit Indication',
+    'History table shows explicit "Manager correction limit reached (5/5)" badge'
+  );
+  assert(
+    labWorkspaceContent.includes('isSuperAdmin || (item.manager_correction_count ?? 0) < 5'),
+    'UI Action Gate',
+    'Correct action button is gated on manager_correction_count < 5 for managers'
+  );
+
+  // 5th successful manager correction produces appropriate limit notification
+  assert(
+    labWorkspaceContent.includes('Correction saved. Manager correction limit reached (5/5). Further corrections require Super Admin.'),
+    'UI 5th Save Limit Notification',
+    '5th successful manager correction triggers limit reached warning toast'
+  );
 
   // Role routing check
   const { resolveRoleHome } = await import('../src/lib/role-routing');
