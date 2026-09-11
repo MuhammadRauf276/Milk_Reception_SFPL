@@ -7,14 +7,15 @@ import { Header } from '@modules/shared/Header';
 import { Sidebar } from '@modules/shared/Sidebar';
 import { ZmccMasterDataWorkspace } from '@/frontend/modules/zmcc/ZmccMasterDataWorkspace';
 import { MotOperationsWorkspace } from '@/frontend/modules/mot/MotOperationsWorkspace';
-import { Store, Truck } from 'lucide-react';
+import { ZmccArrivalsWorkspace } from '@/frontend/modules/zmcc/arrivals/ZmccArrivalsWorkspace';
+import { Store, Truck, CheckCircle2 } from 'lucide-react';
 
 export default function PhePage() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [pheTab, setPheTab] = useState<'SHOPS' | 'MOT'>('SHOPS');
+  const [pheTab, setPheTab] = useState<'ARRIVALS' | 'SHOPS' | 'MOT'>('ARRIVALS');
   const hamburgerButtonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
@@ -124,6 +125,18 @@ export default function PhePage() {
           <div className="flex items-center space-x-2 bg-white p-2 rounded-2xl border border-[#EAE4D5] shadow-xs w-fit">
             <button
               type="button"
+              onClick={() => setPheTab('ARRIVALS')}
+              className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all ${
+                pheTab === 'ARRIVALS'
+                  ? 'bg-[#1E3A8A] text-white shadow-xs'
+                  : 'bg-transparent text-slate-700 hover:bg-[#F4F0E6]'
+              }`}
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>ZMCC Arrivals & Tokens</span>
+            </button>
+            <button
+              type="button"
               onClick={() => setPheTab('SHOPS')}
               className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all ${
                 pheTab === 'SHOPS'
@@ -148,9 +161,13 @@ export default function PhePage() {
             </button>
           </div>
 
-          {pheTab === 'SHOPS' ? (
+          {pheTab === 'ARRIVALS' && (
+            <ZmccArrivalsWorkspace currentUser={currentUser} />
+          )}
+          {pheTab === 'SHOPS' && (
             <ZmccMasterDataWorkspace currentUser={currentUser} initialTab="SHOPS" />
-          ) : (
+          )}
+          {pheTab === 'MOT' && (
             <MotOperationsWorkspace currentUser={currentUser} />
           )}
         </main>

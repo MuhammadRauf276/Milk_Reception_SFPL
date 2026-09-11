@@ -29,6 +29,8 @@ import {
 } from 'lucide-react';
 import { ZmccMasterDataWorkspace } from '@/frontend/modules/zmcc/ZmccMasterDataWorkspace';
 import { MotOperationsWorkspace } from '@/frontend/modules/mot/MotOperationsWorkspace';
+import { ZmccArrivalsWorkspace } from '@/frontend/modules/zmcc/arrivals/ZmccArrivalsWorkspace';
+import { CheckCircle2 } from 'lucide-react';
 
 interface ZMCCManagerWorkspaceProps {
   currentUser: User | null;
@@ -43,6 +45,7 @@ const TABS: { id: ZMCCManagerTab; label: string; icon: React.FC<{ className?: st
   { id: 'HISTORY', label: 'History & Reports', icon: History },
   { id: 'MASTER_DATA', label: 'Master Data', icon: Store },
   { id: 'MOT_OPERATIONS', label: 'MOT & Dispatch', icon: Navigation },
+  { id: 'ARRIVALS', label: 'ZMCC Arrivals', icon: CheckCircle2 },
 ];
 
 export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
@@ -474,6 +477,13 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
           {activeTab === 'MOT_OPERATIONS' && (
             <div id="tabpanel-MOT_OPERATIONS" role="tabpanel" aria-labelledby="tab-MOT_OPERATIONS" className="space-y-6">
               <MotOperationsWorkspace currentUser={currentUser} />
+            </div>
+          )}
+
+          {/* TAB 9: ZMCC ARRIVALS */}
+          {activeTab === 'ARRIVALS' && (
+            <div id="tabpanel-ARRIVALS" role="tabpanel" aria-labelledby="tab-ARRIVALS" className="space-y-6">
+              <ZmccArrivalsWorkspace currentUser={currentUser} />
             </div>
           )}
 

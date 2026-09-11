@@ -58,6 +58,8 @@ model User {
   updated_zmcc_shops         ZmccShop[]                 @relation("ZmccShopUpdatedBy")
   created_mot_profiles       MotProfile[]               @relation("MotProfileCreatedBy")
   updated_mot_profiles       MotProfile[]               @relation("MotProfileUpdatedBy")
+  recorded_mot_arrivals        ZmccMotArrival[]        @relation("ZmccMotArrivalRecordedBy")
+  recorded_contractor_arrivals ZmccContractorArrival[] @relation("ZmccContractorArrivalRecordedBy")
   mot_profile                MotProfile?                @relation("MotProfileUser")
   created_mot_vehicles       MotVehicle[]               @relation("MotVehicleCreatedBy")
   updated_mot_vehicles       MotVehicle[]               @relation("MotVehicleUpdatedBy")
@@ -244,6 +246,9 @@ model ProcurementSource {
   mot_vehicles              MotVehicle[]                     @relation("ZmccMotVehicles")
   mot_journeys              MotJourney[]                     @relation("ZmccJourneys")
   mot_collections           MotShopCollection[]              @relation("ZmccMotCollections")
+  mot_arrivals              ZmccMotArrival[]                 @relation("ZmccMotArrivals")
+  zmcc_contractor_arrivals  ZmccContractorArrival[]          @relation("ZmccContractorArrivals")
+  contractor_arrivals       ZmccContractorArrival[]          @relation("ContractorArrivalSources")
 
   @@map("procurement_source")
 }
@@ -745,6 +750,10 @@ model MotJourney {
   first_mot_latitude      Decimal?  @map("first_mot_latitude") @db.Decimal(10, 7)
   first_mot_longitude     Decimal?  @map("first_mot_longitude") @db.Decimal(10, 7)
   first_mot_gps_accuracy  Decimal?  @map("first_mot_gps_accuracy") @db.Decimal(8, 2)
+  final_mot_gps_at        DateTime? @map("final_mot_gps_at") @db.Timestamp(6)
+  final_mot_latitude      Decimal?  @map("final_mot_latitude") @db.Decimal(10, 7)
+  final_mot_longitude     Decimal?  @map("final_mot_longitude") @db.Decimal(10, 7)
+  final_mot_gps_accuracy  Decimal?  @map("final_mot_gps_accuracy") @db.Decimal(8, 2)
   idempotency_key         String    @unique @map("idempotency_key") @db.VarChar(255)
   ended_at                DateTime? @map("ended_at") @db.Timestamp(6)
   cancelled_by            BigInt?   @map("cancelled_by")
@@ -763,6 +772,7 @@ model MotJourney {
   stops       MotJourneyStop[]
   locations   MotJourneyLocation[]
   collections MotShopCollection[]
+  mot_arrival ZmccMotArrival?
 
   @@unique([id, zmcc_id])
   @@index([zmcc_id])
@@ -897,4 +907,61 @@ model MotCollectionSmsOutbox {
 
   @@index([status])
   @@map("mot_collection_sms_outbox")
+}
+
+model ZmccMotArrival {
+  id                  BigInt   @id @default(autoincrement())
+  journey_id          BigInt   @unique @map("journey_id")
+  zmcc_id             BigInt   @map("zmcc_id")
+  route_milk_token    String   @map("route_milk_token") @db.VarChar(100)
+  zmcc_token          String   @unique @map("zmcc_token") @db.VarChar(100)
+  arrival_timestamp   DateTime @map("arrival_timestamp") @db.Timestamp(6)
+  arrival_date        DateTime @map("arrival_date") @db.Date
+  phe_latitude        Decimal? @map("phe_latitude") @db.Decimal(10, 7)
+  phe_longitude       Decimal? @map("phe_longitude") @db.Decimal(10, 7)
+  phe_gps_accuracy    Decimal? @map("phe_gps_accuracy") @db.Decimal(8, 2)
+  client_event_id     String   @unique @map("client_event_id") @db.VarChar(255)
+  recorded_by_user_id BigInt   @map("recorded_by_user_id")
+  submitted_at        DateTime @default(now()) @map("submitted_at") @db.Timestamp(6)
+  correction_count    Int      @default(0) @map("correction_count")
+  created_at          DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at          DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  journey     MotJourney        @relation(fields: [journey_id], references: [id], onDelete: Restrict)
+  zmcc        ProcurementSource @relation("ZmccMotArrivals", fields: [zmcc_id], references: [id], onDelete: Restrict)
+  recorded_by User              @relation("ZmccMotArrivalRecordedBy", fields: [recorded_by_user_id], references: [id], onDelete: Restrict)
+
+  @@index([zmcc_id])
+  @@index([arrival_date])
+  @@map("zmcc_mot_arrival")
+}
+
+model ZmccContractorArrival {
+  id                   BigInt   @id @default(autoincrement())
+  zmcc_id              BigInt   @map("zmcc_id")
+  contractor_source_id BigInt   @map("contractor_source_id")
+  vehicle_number       String   @map("vehicle_number") @db.VarChar(50)
+  arrival_timestamp    DateTime @map("arrival_timestamp") @db.Timestamp(6)
+  arrival_date         DateTime @map("arrival_date") @db.Date
+  zmcc_token           String   @unique @map("zmcc_token") @db.VarChar(100)
+  phe_latitude         Decimal? @map("phe_latitude") @db.Decimal(10, 7)
+  phe_longitude        Decimal? @map("phe_longitude") @db.Decimal(10, 7)
+  phe_gps_accuracy     Decimal? @map("phe_gps_accuracy") @db.Decimal(8, 2)
+  client_event_id      String   @unique @map("client_event_id") @db.VarChar(255)
+  recorded_by_user_id  BigInt   @map("recorded_by_user_id")
+  submitted_at         DateTime @default(now()) @map("submitted_at") @db.Timestamp(6)
+  correction_count     Int      @default(0) @map("correction_count")
+  created_at           DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at           DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  zmcc              ProcurementSource @relation("ZmccContractorArrivals", fields: [zmcc_id], references: [id], onDelete: Restrict)
+  contractor_source ProcurementSource @relation("ContractorArrivalSources", fields: [contractor_source_id], references: [id], onDelete: Restrict)
+  recorded_by       User              @relation("ZmccContractorArrivalRecordedBy", fields: [recorded_by_user_id], references: [id], onDelete: Restrict)
+
+  @@index([zmcc_id])
+  @@index([contractor_source_id])
+  @@index([arrival_date])
+  @@map("zmcc_contractor_arrival")
 }
