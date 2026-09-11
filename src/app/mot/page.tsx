@@ -248,7 +248,7 @@ export default function MotDriverPage() {
     setJourneyError(null);
     try {
       if (navigator.onLine) {
-        const res = await fetch('/api/mot/journeys/current');
+        const res = await fetch('/api/zmcc/mot/journeys/current');
         const data = await res.json();
         if (res.ok) {
           if (data.journey) {

@@ -134,3 +134,14 @@ This document records the authoritative business rules approved for the Milk Rec
 - **Quality Averaging**: Accepted Plant QA quantitative results are averaged arithmetically across accepted compartments/portions.
 - **No Fallback**: Zero fallback to Dispatch lab results or Dispatch quantities for plant inventory receipts.
 - **Silo Allocation**: If accepted portions map to more than one destination silo, final receipt remains blocked with `MULTI_SILO_ALLOCATION_REQUIRED` because actual received Net KG exists only at vehicle level and no authoritative per-portion received mass exists. Do not invent allocation.
+
+---
+
+## 13. Operational Business Date vs Upstream Calendar Dates
+
+- **Plant Business Date Exclusivity**: Plant Business Date (`operational_date`) applies strictly and exclusively to Plant `VehicleVisit` entities upon Gate Exit completion (`operational_date` computed via `getOperationalBusinessDate(exit_timestamp)` at `READY_FOR_GATE_EXIT -> COMPLETED` transition).
+- **In-Progress Visits**: A vehicle visit currently inside the plant or not yet exited has `operational_date: null` and `business_date: null`. Do NOT filter in-progress visits by `VehicleVisit.operational_date`.
+- **Source Dispatch Date Filtering**: Default date filtering on `/api/logs` filters by source dispatch date (`dispatch_date` in PKT calendar boundaries), never by Plant Gate-Exit Business Date.
+- **Upstream Stage Calendar Dates**: Upstream operations (MOT journeys, shop collections, ZMCC dispatches, and initial visit/reception numbering prefixes) operate on ordinary Pakistan Standard Time calendar dates (`getPakistanCalendarDate()`, `YYYY-MM-DD` in `Asia/Karachi`), NOT the 08:00 AM plant rollover cutoff.
+- **Payment Business Date Semantics**: `finalReceiptBusinessDate` represents the financial/payment settlement business date derived from the silo reception transaction timestamp (08:00 AM cutoff). It does NOT finalize or represent the physical Plant Gate-Exit Business Date.
+- **Canonical MOT Route Namespace**: The canonical API namespace for MOT operations is `/api/zmcc/mot/journeys/current`. Deprecated duplicate `/api/mot/...` routes are removed.

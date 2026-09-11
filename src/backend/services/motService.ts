@@ -2,7 +2,7 @@ import { prisma } from '@core/db';
 import { Prisma } from '@prisma/client';
 import { getCurrentUser } from '@core/auth';
 import { User, Role } from '@core/types';
-import { getOperationalBusinessDate } from '@core/business-day';
+import { getPakistanCalendarDate } from '@core/business-day';
 import { validatePhone, validateCnic } from './zmccMasterDataService';
 import {
   computeCanonicalMilkMetrics,
@@ -1242,8 +1242,8 @@ export async function assignAndDispatchJourney(
     return { status: 400, error: 'Selected ZMCC does not exist or is inactive.' };
   }
 
-  // 5. Validate Operational Date (must be today in Pakistan Standard Time)
-  const todayPktStr = getOperationalBusinessDate(new Date());
+  // 5. Validate Operational Date (must be today in Pakistan Standard Time calendar date)
+  const todayPktStr = getPakistanCalendarDate(new Date());
   if (payload.operational_date) {
     const inputDate = payload.operational_date.trim();
     if (inputDate !== todayPktStr) {

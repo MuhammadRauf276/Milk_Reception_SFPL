@@ -11,7 +11,7 @@ import { calculateSNF, calculateRatio } from '@/backend/utils/milkFormulas';
 import { getOrAssignDispatchTests } from '@/backend/services/labTestAssignmentService';
 import { getOrFreezeDispatchQuantityPolicy } from '@/backend/modules/dispatch/quantity-policy/quantityPolicyService';
 import { validateDispatchQuantities, QuantityMeasurementError } from '@/backend/modules/dispatch/quantity/dispatchQuantityService';
-import { getOperationalBusinessDate } from '@/backend/core/business-day';
+import { getPakistanCalendarDate } from '@/backend/core/business-day';
 
 function serializeDispatch(visit: any) {
   const portions = visit.portions || [];
@@ -446,9 +446,9 @@ export async function POST(req: Request) {
       testingReason = sourceType === 'CONTRACTOR' ? 'Contract Vehicle' : 'No dispatch testing provided';
     }
 
-    // Authoritative Business Date derived on backend from authoritative dispatch timestamp (08:00 cutoff)
+    // Calendar date derived in Pakistan local timezone (PKT) for month prefix
     const effectiveDispatchDate = chronoVal.date || new Date(firstPortionTs);
-    const canonicalBusinessDateStr = getOperationalBusinessDate(effectiveDispatchDate);
+    const canonicalBusinessDateStr = getPakistanCalendarDate(effectiveDispatchDate);
 
     // Execute Prisma Transaction for atomic creation or draft finalization
     const result = await prisma.$transaction(async (tx) => {

@@ -417,8 +417,11 @@ export function buildVehicleVisitGroups(logs: MilkProcessLog[]): VehicleVisitGro
 
     const authoritativePhysicalLiters = primary.authoritative_final_liters ?? null;
 
-    let finalReceiptBusinessDate: string | null = null;
-    if (primary.final_receipt_exists && primary.final_receipt_timestamp) {
+    // finalReceiptBusinessDate represents payment/financial settlement business date derived from the silo
+    // transaction timestamp (accounting cut-off at 08:00 AM PKT). It does NOT represent or finalize the physical
+    // Plant Business Date (which strictly finalizes upon vehicle gate-exit).
+    let finalReceiptBusinessDate: string | null = primary.final_receipt_business_date || null;
+    if (!finalReceiptBusinessDate && primary.final_receipt_exists && primary.final_receipt_timestamp) {
       finalReceiptBusinessDate = getOperationalBusinessDate(new Date(primary.final_receipt_timestamp));
     }
 

@@ -594,7 +594,7 @@ export async function syncPendingCollections(): Promise<{
   for (const item of toSync) {
     await updateCollectionQueueStatus(item.client_event_id, 'SYNCING');
     try {
-      const res = await fetch('/api/mot/journeys/current/collections', {
+      const res = await fetch('/api/zmcc/mot/journeys/current/collections', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -689,7 +689,7 @@ export async function syncPendingGps(): Promise<{
 
     for (const [journeyId, journeyPoints] of Array.from(byJourney.entries())) {
       try {
-        const res = await fetch('/api/mot/journeys/current/locations/batch', {
+        const res = await fetch('/api/zmcc/mot/journeys/current/locations/batch', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
