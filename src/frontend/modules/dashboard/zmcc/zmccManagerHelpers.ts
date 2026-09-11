@@ -24,7 +24,7 @@ import {
   HistoryTransactionItem,
 } from './zmccManagerTypes';
 import { formatOperationalDatetime, formatOperationalTime } from '@/lib/datetime-utils';
-import { getOperationalBusinessDate } from '@backend/core/business-day';
+import { getPakistanCalendarDate } from '@backend/core/business-day';
 
 /**
  * Group flat portion-level MilkProcessLog rows by visit ID
@@ -417,9 +417,12 @@ export function buildVehicleVisitGroups(logs: MilkProcessLog[]): VehicleVisitGro
 
     const authoritativePhysicalLiters = primary.authoritative_final_liters ?? null;
 
-    let finalReceiptBusinessDate: string | null = null;
+    // For Final Receipt reporting where a date is needed:
+    // use the actual Final Receipt timestamp/calendar date with an accurately named receipt date concept.
+    // It does NOT own a separate 08:00 Business Date.
+    let finalReceiptDate: string | null = null;
     if (primary.final_receipt_exists && primary.final_receipt_timestamp) {
-      finalReceiptBusinessDate = getOperationalBusinessDate(new Date(primary.final_receipt_timestamp));
+      finalReceiptDate = getPakistanCalendarDate(primary.final_receipt_timestamp);
     }
 
     groups.push({
@@ -429,7 +432,8 @@ export function buildVehicleVisitGroups(logs: MilkProcessLog[]): VehicleVisitGro
       sourceName: primary.zonal_contractor_name,
       procurementSourceId: null,
       businessDate: primary.business_date || '',
-      finalReceiptBusinessDate,
+      dispatchDate: primary.dispatch_date || '',
+      finalReceiptDate: finalReceiptDate,
       overallStatus: primary.status,
       portions,
       primaryLog: primary,
@@ -594,20 +598,20 @@ export function computeManagerOverview(
 ): ZMCCManagerOverviewMetrics {
   const allGroups = buildVehicleVisitGroups(logs);
 
-  // A. Dispatched in period (distinct visits by dispatch business date)
+  // A. Dispatched in period (distinct visits by dispatch date)
   const dispatchPeriodGroups = allGroups.filter((g) =>
-    isBusinessDateInPeriod(g.businessDate, serverBusinessDate, dateRange)
+    isBusinessDateInPeriod(g.dispatchDate || g.businessDate, serverBusinessDate, dateRange)
   );
   const dispatchedCount = dispatchPeriodGroups.length;
 
   // B. Currently in plant (all active visits currently inside factory)
   const currentlyInPlantCount = allGroups.filter((g) => g.lifecycle.isInPlant).length;
 
-  // C. Completed in period: authoritative Final Receipt whose Final Receipt Business Date falls in period
+  // C. Completed in period: authoritative Final Receipt whose Final Receipt Date falls in period
   const receiptPeriodGroups = allGroups.filter(
     (g) =>
       g.lifecycle.isComplete &&
-      isBusinessDateInPeriod(g.finalReceiptBusinessDate, serverBusinessDate, dateRange)
+      isBusinessDateInPeriod(g.finalReceiptDate, serverBusinessDate, dateRange)
   );
   const completedCount = receiptPeriodGroups.length;
 
@@ -1126,8 +1130,8 @@ export function deriveReceiptPerformanceItems(groups: VehicleVisitGroup[]): Rece
       visitId: g.visitId,
       vehicleNumber: g.vehicleNumber,
       tokenNumber: g.tokenNumber,
-      dispatchBusinessDate: g.businessDate,
-      finalReceiptBusinessDate: g.finalReceiptBusinessDate,
+      dispatchDate: g.dispatchDate || g.primaryLog?.dispatch_date || '',
+      finalReceiptDate: g.finalReceiptDate,
       finalReceiptTimestamp: primary.final_receipt_timestamp || null,
       lifecycleStatus: g.lifecycle.currentStageLabel,
       isCompletedReceipt,
@@ -1152,7 +1156,7 @@ export function deriveReceiptPerformanceItems(groups: VehicleVisitGroup[]): Rece
 }
 
 /**
- * Filters completed receipts strictly by Final Receipt Business Date.
+ * Filters completed receipts strictly by Final Receipt Date.
  */
 export function filterCompletedReceiptsByDateRange(
   items: ReceiptPerformanceItem[],
@@ -1161,9 +1165,9 @@ export function filterCompletedReceiptsByDateRange(
 ): ReceiptPerformanceItem[] {
   return items.filter((item) => {
     if (!item.isCompletedReceipt) return false;
-    if (!item.finalReceiptBusinessDate) return false;
-    if (fromDate && item.finalReceiptBusinessDate < fromDate) return false;
-    if (toDate && item.finalReceiptBusinessDate > toDate) return false;
+    if (!item.finalReceiptDate) return false;
+    if (fromDate && item.finalReceiptDate < fromDate) return false;
+    if (toDate && item.finalReceiptDate > toDate) return false;
     return true;
   });
 }
@@ -1182,8 +1186,8 @@ export function deriveReceiptsPerformanceSummary(
 
   const receiptPendingCount = items.filter((i) => {
     if (!i.isReceiptPending) return false;
-    if (fromDate && i.dispatchBusinessDate < fromDate) return false;
-    if (toDate && i.dispatchBusinessDate > toDate) return false;
+    if (fromDate && i.dispatchDate < fromDate) return false;
+    if (toDate && i.dispatchDate > toDate) return false;
     return true;
   }).length;
 
@@ -1231,8 +1235,8 @@ export function filterReceiptPerformanceItems(
 
 /**
  * Filters receipt performance items by date range according to their authoritative date basis:
- * - Completed receipts: filtered strictly by Final Receipt Business Date (finalReceiptBusinessDate)
- * - Receipt pending vehicles: filtered by Visit / Dispatch Business Date (dispatchBusinessDate)
+ * - Completed receipts: filtered strictly by Final Receipt Date (finalReceiptDate)
+ * - Receipt pending vehicles: filtered by Visit / Dispatch Date (dispatchDate)
  */
 export function filterReceiptPerformanceItemsByDate(
   items: ReceiptPerformanceItem[],
@@ -1241,18 +1245,18 @@ export function filterReceiptPerformanceItemsByDate(
 ): ReceiptPerformanceItem[] {
   return items.filter((item) => {
     if (item.isCompletedReceipt) {
-      if (!item.finalReceiptBusinessDate) return false;
-      if (fromDate && item.finalReceiptBusinessDate < fromDate) return false;
-      if (toDate && item.finalReceiptBusinessDate > toDate) return false;
+      if (!item.finalReceiptDate) return false;
+      if (fromDate && item.finalReceiptDate < fromDate) return false;
+      if (toDate && item.finalReceiptDate > toDate) return false;
       return true;
     }
     if (item.isReceiptPending) {
-      if (fromDate && item.dispatchBusinessDate < fromDate) return false;
-      if (toDate && item.dispatchBusinessDate > toDate) return false;
+      if (fromDate && item.dispatchDate < fromDate) return false;
+      if (toDate && item.dispatchDate > toDate) return false;
       return true;
     }
-    if (fromDate && item.dispatchBusinessDate < fromDate) return false;
-    if (toDate && item.dispatchBusinessDate > toDate) return false;
+    if (fromDate && item.dispatchDate < fromDate) return false;
+    if (toDate && item.dispatchDate > toDate) return false;
     return true;
   });
 }
@@ -1275,7 +1279,8 @@ export function deriveHistoryTransactionItems(groups: VehicleVisitGroup[]): Hist
       vehicleNumber: g.vehicleNumber,
       tokenNumber: g.tokenNumber,
       businessDate: g.businessDate, // Primary lookup basis
-      finalReceiptBusinessDate: g.finalReceiptBusinessDate,
+      dispatchDate: g.dispatchDate,
+      finalReceiptDate: g.finalReceiptDate,
       overallStatus: g.lifecycle.overallStatus,
       lifecycleStageLabel: g.lifecycle.currentStageLabel,
       isComplete: g.lifecycle.isComplete,
@@ -1309,7 +1314,7 @@ export function deriveHistoryTransactionItems(groups: VehicleVisitGroup[]): Hist
 
 /**
  * Filters History & Reports transaction items based on search query, date range, and filter states.
- * Date filtering operates strictly on Visit / Dispatch Business Date (item.businessDate).
+ * Date filtering operates on Visit / Dispatch Date.
  */
 export function filterHistoryTransactionItems(
   items: HistoryTransactionItem[],
@@ -1321,9 +1326,10 @@ export function filterHistoryTransactionItems(
   toDate?: string | null
 ): HistoryTransactionItem[] {
   return items.filter((item) => {
-    // 1. Date Range Filter on Visit / Dispatch Business Date
-    if (fromDate && item.businessDate < fromDate) return false;
-    if (toDate && item.businessDate > toDate) return false;
+    // 1. Date Range Filter on Visit / Dispatch Date
+    const targetDate = item.dispatchDate || item.businessDate;
+    if (fromDate && targetDate < fromDate) return false;
+    if (toDate && targetDate > toDate) return false;
 
     // 2. Search Query Filter
     if (searchQuery.trim()) {
@@ -1332,6 +1338,7 @@ export function filterHistoryTransactionItems(
         item.vehicleNumber.toLowerCase().includes(q) ||
         (item.tokenNumber && item.tokenNumber.toLowerCase().includes(q)) ||
         (item.destinationSilo && item.destinationSilo.toLowerCase().includes(q)) ||
+        (item.dispatchDate && item.dispatchDate.includes(q)) ||
         item.businessDate.includes(q) ||
         item.lifecycleStageLabel.toLowerCase().includes(q);
       if (!match) return false;

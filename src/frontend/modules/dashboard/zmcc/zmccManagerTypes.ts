@@ -68,7 +68,8 @@ export interface VehicleVisitGroup {
   sourceName: string;
   procurementSourceId: string | null;
   businessDate: string;
-  finalReceiptBusinessDate: string | null;
+  dispatchDate: string;
+  finalReceiptDate: string | null;
   overallStatus: string;
   portions: MilkProcessLog[];
   primaryLog: MilkProcessLog;
@@ -264,8 +265,8 @@ export interface ReceiptPerformanceItem {
   visitId: number;
   vehicleNumber: string;
   tokenNumber: string | null;
-  dispatchBusinessDate: string;
-  finalReceiptBusinessDate: string | null;
+  dispatchDate: string;
+  finalReceiptDate: string | null;
   finalReceiptTimestamp: string | null;
   lifecycleStatus: string;
   isCompletedReceipt: boolean;
@@ -325,7 +326,8 @@ export interface HistoryTransactionItem {
   vehicleNumber: string;
   tokenNumber: string | null;
   businessDate: string;
-  finalReceiptBusinessDate: string | null;
+  dispatchDate: string;
+  finalReceiptDate: string | null;
   overallStatus: string;
   lifecycleStageLabel: string;
   isComplete: boolean;

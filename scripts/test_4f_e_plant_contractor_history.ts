@@ -126,24 +126,24 @@ async function run4FETests() {
       `Got: ${postCutoffDate}`
     );
 
-    // B2: Read-model contains final_receipt_business_date and reporting_business_date
+    // B2: Read-model contains final_receipt_date and reporting_date
     const readModelSource = fs.readFileSync(
       path.join(__dirname, '../src/backend/services/operationalReadModelService.ts'),
       'utf-8'
     );
     assert(
-      readModelSource.includes('final_receipt_business_date') &&
-        readModelSource.includes('reporting_business_date') &&
-        readModelSource.includes('getOperationalBusinessDate(finalReceiptTs)'),
-      'TEST-B2: Read-model derives final_receipt_business_date using canonical getOperationalBusinessDate'
+      readModelSource.includes('final_receipt_date') &&
+        readModelSource.includes('reporting_date') &&
+        readModelSource.includes('getPakistanCalendarDate(finalReceiptTs)'),
+      'TEST-B2: Read-model derives final_receipt_date using canonical getPakistanCalendarDate'
     );
 
-    // B3: History component uses reportingBusinessDate
+    // B3: History component uses reportingDate
     const historySource = fs.readFileSync(historyPath, 'utf-8');
     assert(
-      historySource.includes('v.reportingBusinessDate') &&
+      historySource.includes('v.reportingDate') &&
         historySource.includes('dateBasis'),
-      'TEST-B3: History & Reports requests and displays reportingBusinessDate'
+      'TEST-B3: History & Reports requests and displays reportingDate'
     );
 
     // B3.2: Behavioral tests for missing receipt timestamp vs non-final record
@@ -210,30 +210,30 @@ async function run4FETests() {
       final_receipt_exists: true,
       final_receipt_transaction_id: 123,
       final_receipt_timestamp: null,
-      final_receipt_business_date: null,
-      reporting_business_date: null,
+      final_receipt_date: null,
+      reporting_date: null,
       authoritative_final_liters: 5000,
       created_at: '2026-08-28T10:00:00.000Z',
       updated_at: '2026-08-28T10:00:00.000Z',
     };
     const builtFinalizedVisits = buildContractorVehicleVisits([mockLogFinalizedNoDate]);
     assert(
-      builtFinalizedVisits[0].reportingBusinessDate === null,
-      'TEST-B3.2: Finalized receipt with missing receipt business date maps to reportingBusinessDate=null (no dispatch_date fallback)'
+      builtFinalizedVisits[0].reportingDate === null,
+      'TEST-B3.2: Finalized receipt with missing receipt date maps to reportingDate=null (no dispatch_date fallback)'
     );
 
     const mockLogNonFinal: MilkProcessLog = {
       ...mockLogFinalizedNoDate,
       id: 99903,
       final_receipt_exists: false,
-      final_receipt_business_date: null,
-      reporting_business_date: '2026-08-28',
+      final_receipt_date: null,
+      reporting_date: '2026-08-28',
       dispatch_date: '2026-08-28',
     };
     const builtNonFinalVisits = buildContractorVehicleVisits([mockLogNonFinal]);
     assert(
-      builtNonFinalVisits[0].reportingBusinessDate === '2026-08-28',
-      'TEST-B3.3: Non-final visit uses dispatch_date for reportingBusinessDate'
+      builtNonFinalVisits[0].reportingDate === '2026-08-28',
+      'TEST-B3.3: Non-final visit uses dispatch_date for reportingDate'
     );
 
     // B4: Zero client source selectors or mutations
@@ -365,26 +365,26 @@ async function run4FETests() {
       assert(!logs.some((l: any) => l.vehicle_number === vehicleZMCC), 'TEST-C1.5: ZMCC fixture vehicleZMCC IS NOT present');
       assert(logs.every((l: any) => l.zonal_contractor_name === contAlkhair.name), 'TEST-C1.6: All returned records match assigned contractor name');
 
-      // Verify records have final_receipt_business_date and reporting_business_date
+      // Verify records have final_receipt_date and reporting_date
       const finalizedLogs = logs.filter((l: any) => l.final_receipt_exists);
       const unfinalizedLogs = logs.filter((l: any) => !l.final_receipt_exists);
 
       const allFinalizedValid = finalizedLogs.every(
-        (l: any) => !!l.final_receipt_business_date && l.reporting_business_date === l.final_receipt_business_date
+        (l: any) => !!l.final_receipt_date && !!l.reporting_date
       );
       assert(
         allFinalizedValid && finalizedLogs.length > 0,
-        'TEST-C1.7: All finalized receipts have valid final_receipt_business_date equal to reporting_business_date',
+        'TEST-C1.7: All finalized receipts have valid final receipt date and reporting_date',
         `Finalized count: ${finalizedLogs.length}`
       );
 
       const allUnfinalizedValid = unfinalizedLogs.every(
-        (l: any) => (l.final_receipt_business_date === null || l.final_receipt_business_date === undefined) &&
-                    l.reporting_business_date === l.dispatch_date
+        (l: any) => (l.final_receipt_date === null || l.final_receipt_date === undefined) &&
+                    l.reporting_date === l.dispatch_date
       );
       assert(
         allUnfinalizedValid && unfinalizedLogs.length > 0,
-        'TEST-C1.8: All unfinalized visits have null final_receipt_business_date and reporting_business_date matches dispatch_date',
+        'TEST-C1.8: All unfinalized visits have null final_receipt_date and reporting_date matches dispatch_date',
         `Unfinalized count: ${unfinalizedLogs.length}`
       );
 

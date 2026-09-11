@@ -10,6 +10,51 @@ if (!fs.existsSync(path.join(repoRoot, 'package.json'))) {
   process.exit(1);
 }
 
+// Load .env for DEV_DATABASE_URL
+const devEnvPath = path.join(repoRoot, '.env');
+if (fs.existsSync(devEnvPath)) {
+  const envContent = fs.readFileSync(devEnvPath, 'utf8');
+  for (const line of envContent.split('\n')) {
+    const trimmed = line.trim();
+    if (trimmed && !trimmed.startsWith('#')) {
+      const idx = trimmed.indexOf('=');
+      if (idx > 0) {
+        const key = trimmed.substring(0, idx).trim();
+        let val = trimmed.substring(idx + 1).trim();
+        if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+          val = val.substring(1, val.length - 1);
+        }
+        if (key === 'DATABASE_URL' && !process.env.DEV_DATABASE_URL) {
+          process.env.DEV_DATABASE_URL = val;
+        }
+      }
+    }
+  }
+}
+
+// Load .env.test.local for test runner
+const testEnvPath = path.join(repoRoot, '.env.test.local');
+if (fs.existsSync(testEnvPath)) {
+  const envContent = fs.readFileSync(testEnvPath, 'utf8');
+  for (const line of envContent.split('\n')) {
+    const trimmed = line.trim();
+    if (trimmed && !trimmed.startsWith('#')) {
+      const idx = trimmed.indexOf('=');
+      if (idx > 0) {
+        const key = trimmed.substring(0, idx).trim();
+        let val = trimmed.substring(idx + 1).trim();
+        if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+          val = val.substring(1, val.length - 1);
+        }
+        process.env[key] = val;
+      }
+    }
+  }
+}
+if (process.env.TEST_DATABASE_URL) {
+  process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
+}
+
 const isProbeMode = process.argv.includes('--probe-failure');
 
 const suites: string[] = isProbeMode
@@ -54,6 +99,7 @@ const suites: string[] = isProbeMode
       'scripts/test_stable_lab_test_assignment.ts',
       'scripts/test_configurable_qualitative_options.ts',
       'scripts/test_4f_plant_contractor_manager_contracts.ts',
+      'scripts/test_stage6d_mot_collection_offline_gps.ts',
     ];
 
 console.log(`==================================================`);

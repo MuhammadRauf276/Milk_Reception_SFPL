@@ -14,14 +14,17 @@ This document records the authoritative business rules approved for the Milk Rec
 
 ## 2. Business Date
 - **Terminology**: User-facing term is **Business Date**.
-- **Cutoff Boundary**: `08:00:00 AM Asia/Karachi` through `07:59:59 AM` next calendar day.
+- **Plant Business Date Exclusivity**: Plant Business Date (`operational_date`) applies strictly and exclusively to Plant `VehicleVisit` entities upon Gate Exit completion (`READY_FOR_GATE_EXIT -> COMPLETED`).
+- **VehicleVisit Scope**: `VehicleVisit` is strictly for the Plant-bound intake lifecycle. Upstream MOT/PHE/ZMCC operations use normal PKT calendar dates and their own domain models (`MotJourney`, `MotVehicle`). Future ZMCC contractor arrival will use its own ZMCC-domain operational record, not `VehicleVisit`.
+- **Final Receipt Independence**: Final Receipt retains its real operational timestamp and ordinary PKT calendar date; it does NOT assign or finalize a Business Date. There is no separate "Payment Business Date" or "financial settlement business date".
+- **Cutoff Boundary**: `08:00:00 AM Asia/Karachi` through `07:59:59 AM` next calendar day (applied exclusively to `exit_timestamp` upon plant exit completion).
   - Example 1: `23-Aug 07:30 AM PKT` => Business Date `22-Aug`
   - Example 2: `23-Aug 08:00 AM PKT` => Business Date `23-Aug`
   - Example 3: `24-Aug 02:30 AM PKT` => Business Date `23-Aug`
   - Example 4: `24-Aug 08:00 AM PKT` => Business Date `24-Aug`
 - **Data Type**: Business Date is **DATE-only** (YYYY-MM-DD).
 - **Independence**: Event timestamps and Business Date remain strictly separate concepts. No fake shifted business timestamps are created.
-- **Internal Storage**: Existing database column `operational_date` remains the storage field.
+- **Internal Storage**: Existing database column `operational_date` remains the storage field on `VehicleVisit`.
 
 ---
 
@@ -134,3 +137,16 @@ This document records the authoritative business rules approved for the Milk Rec
 - **Quality Averaging**: Accepted Plant QA quantitative results are averaged arithmetically across accepted compartments/portions.
 - **No Fallback**: Zero fallback to Dispatch lab results or Dispatch quantities for plant inventory receipts.
 - **Silo Allocation**: If accepted portions map to more than one destination silo, final receipt remains blocked with `MULTI_SILO_ALLOCATION_REQUIRED` because actual received Net KG exists only at vehicle level and no authoritative per-portion received mass exists. Do not invent allocation.
+
+---
+
+## 13. Operational Business Date vs Upstream Calendar Dates
+
+- **Plant Business Date Exclusivity**: Plant Business Date (`operational_date`) applies strictly and exclusively to Plant `VehicleVisit` entities upon Gate Exit completion (`operational_date` computed via `getOperationalBusinessDate(exit_timestamp)` at `READY_FOR_GATE_EXIT -> COMPLETED` transition).
+- **In-Progress Visits**: A vehicle visit currently inside the plant or not yet exited has `operational_date: null` and `business_date: null`. Do NOT filter in-progress visits by `VehicleVisit.operational_date`.
+- **Source Dispatch Date Filtering**: Default date filtering on `/api/logs` filters by source dispatch date (`dispatch_date` in PKT calendar boundaries), never by Plant Gate-Exit Business Date.
+- **Upstream Stage Calendar Dates**: Upstream operations (MOT journeys, shop collections, ZMCC dispatches, and initial visit/reception numbering prefixes) operate on ordinary Pakistan Standard Time calendar dates (`getPakistanCalendarDate()`, `YYYY-MM-DD` in `Asia/Karachi`), NOT the 08:00 AM plant rollover cutoff.
+- **Final Receipt Date Semantics**: Final Receipt does NOT assign or finalize a Business Date. It retains its real operational timestamp (`operational_timestamp`) and ordinary PKT calendar date (`getPakistanCalendarDate`). No separate "Payment Business Date" or "financial settlement business date" exists.
+- **VehicleVisit Lifecycle Boundary**: `VehicleVisit` is strictly for the Plant-bound intake lifecycle. MOT uses `MotJourney` / `MotVehicle` domain records. Future ZMCC contractor arrival will use its own ZMCC-domain operational record, not `VehicleVisit`.
+- **MOT Journey Lifecycle**: MOT journey starts immediately upon authorized assignment. `first_mot_gps_*` remains the first actual MOT-device telemetry, not the journey start trigger. There is no manual MOT Start button.
+- **Canonical MOT Route Namespace**: The canonical API namespace for MOT operations is `/api/zmcc/mot/journeys/current`. Deprecated duplicate `/api/mot/...` routes are removed.

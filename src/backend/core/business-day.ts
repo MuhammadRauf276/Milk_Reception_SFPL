@@ -71,3 +71,19 @@ export function calculateSubmissionDelayMs(
   if (isNaN(opMs) || isNaN(subMs)) return 0;
   return Math.max(0, subMs - opMs);
 }
+
+/**
+ * Returns YYYY-MM-DD string representing ordinary Pakistan Calendar Date (Asia/Karachi UTC+5).
+ * Does NOT apply 08:00 AM plant rollover cutoff. Used by MOT, ZMCC, and upstream operations.
+ */
+export function getPakistanCalendarDate(timestamp: Date | string | number = new Date()): string {
+  const dateObj = new Date(timestamp);
+  if (isNaN(dateObj.getTime())) return '';
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: PLANT_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  return formatter.format(dateObj);
+}

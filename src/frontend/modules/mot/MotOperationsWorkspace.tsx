@@ -23,11 +23,15 @@ import {
   X,
 } from 'lucide-react';
 import { User } from '@core/types';
+import { ManagerJourneyMap } from './ManagerJourneyMap';
+import { SmsOutboxView } from './SmsOutboxView';
 
 export type MotWorkspaceTab =
   | 'DISPATCH'
   | 'ACTIVE_JOURNEYS'
   | 'JOURNEY_HISTORY'
+  | 'JOURNEY_MAP'
+  | 'SMS_OUTBOX'
   | 'PROFILES'
   | 'VEHICLES';
 
@@ -142,6 +146,8 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
       { id: 'DISPATCH', label: 'Assign & Dispatch', icon: Send },
       { id: 'ACTIVE_JOURNEYS', label: 'Active Journeys', icon: Truck },
       { id: 'JOURNEY_HISTORY', label: 'Journey History', icon: Clock },
+      { id: 'JOURNEY_MAP', label: 'Live Journey Map', icon: MapPin },
+      { id: 'SMS_OUTBOX', label: 'SMS Outbox', icon: Phone },
     ];
     if (!isPheOperator) {
       tabs.push(
@@ -153,6 +159,7 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
   }, [isPheOperator]);
 
   const [activeTab, setActiveTab] = useState<MotWorkspaceTab>(initialTab);
+  const [selectedMapJourneyId, setSelectedMapJourneyId] = useState<string | null>(null);
 
   // ZMCC Scope
   const [sources, setSources] = useState<ZmccSource[]>([]);
@@ -926,6 +933,16 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
                       <td className="p-3 text-right space-x-2">
                         <button
                           type="button"
+                          onClick={() => {
+                            setSelectedMapJourneyId(j.id);
+                            setActiveTab('JOURNEY_MAP');
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 font-black hover:bg-emerald-100"
+                        >
+                          View Map
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => handleInspectJourney(j.id)}
                           className="px-2.5 py-1 rounded-lg bg-blue-50 text-[#1E3A8A] font-black hover:bg-blue-100"
                         >
@@ -1036,7 +1053,17 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
                           '—'
                         )}
                       </td>
-                      <td className="p-3 text-right">
+                      <td className="p-3 text-right space-x-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedMapJourneyId(j.id);
+                            setActiveTab('JOURNEY_MAP');
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 font-black hover:bg-emerald-100"
+                        >
+                          View Map
+                        </button>
                         <button
                           type="button"
                           onClick={() => handleInspectJourney(j.id)}
@@ -1052,6 +1079,50 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
             </div>
           )}
         </div>
+      )}
+
+      {/* TAB: LIVE JOURNEY MAP */}
+      {activeTab === 'JOURNEY_MAP' && (
+        <div className="space-y-4">
+          <div className="p-3 bg-white rounded-xl border border-[#EAE4D5] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center space-x-2">
+              <label className="text-xs font-bold text-slate-700 whitespace-nowrap">
+                Select Journey:
+              </label>
+              <select
+                value={selectedMapJourneyId || ''}
+                onChange={(e) => setSelectedMapJourneyId(e.target.value)}
+                className="text-xs font-bold border border-[#EAE4D5] rounded-xl px-3 py-1.5 bg-[#FDFBF9] text-[#111311]"
+              >
+                <option value="">-- Choose Journey --</option>
+                {journeys.map((j) => (
+                  <option key={j.id} value={j.id}>
+                    #{j.journey_number} ({j.status}) - {j.route?.route_code} - {j.mot_profile?.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              type="button"
+              onClick={loadData}
+              className="flex items-center space-x-1 px-3 py-1.5 rounded-xl border border-[#EAE4D5] text-xs font-bold text-slate-700 hover:bg-[#F4F0E6]"
+            >
+              <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+              <span>Refresh Journeys</span>
+            </button>
+          </div>
+
+          <ManagerJourneyMap
+            currentUser={currentUser}
+            journeyId={selectedMapJourneyId || (journeys[0]?.id ?? null)}
+            onClose={() => setActiveTab('ACTIVE_JOURNEYS')}
+          />
+        </div>
+      )}
+
+      {/* TAB: SMS OUTBOX */}
+      {activeTab === 'SMS_OUTBOX' && (
+        <SmsOutboxView currentUser={currentUser} />
       )}
 
       {/* TAB 4: MOT PROFILES (SUPER ADMIN & ZMCC MANAGER ONLY) */}

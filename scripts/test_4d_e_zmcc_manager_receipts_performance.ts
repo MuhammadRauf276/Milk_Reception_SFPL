@@ -292,8 +292,8 @@ async function run4DETests() {
   const itemsCrossDate = deriveReceiptPerformanceItems(buildVehicleVisitGroups([logCrossDate]));
   const filteredCrossDate = filterReceiptPerformanceItemsByDate(itemsCrossDate, '2026-08-25', '2026-08-25');
   assert(
-    itemsCrossDate[0].dispatchBusinessDate === '2026-08-23' &&
-    itemsCrossDate[0].finalReceiptBusinessDate === '2026-08-25' &&
+    itemsCrossDate[0].dispatchDate === '2026-08-23' &&
+    itemsCrossDate[0].finalReceiptDate === '2026-08-25' &&
     filteredCrossDate.length === 1 &&
     filteredCrossDate[0].isCompletedReceipt === true,
     'R1: Cross-date completed receipt (Dispatch 23-Aug, Receipt 25-Aug) is included when selected range is 25-Aug'
@@ -330,8 +330,8 @@ async function run4DETests() {
   const filteredPending25 = filterReceiptPerformanceItemsByDate(itemsPending25, '2026-08-25', '2026-08-25');
   assert(
     itemsPending25[0].isReceiptPending === true &&
-    itemsPending25[0].finalReceiptBusinessDate === null &&
-    itemsPending25[0].dispatchBusinessDate === '2026-08-25' &&
+    itemsPending25[0].finalReceiptDate === null &&
+    itemsPending25[0].dispatchDate === '2026-08-25' &&
     filteredPending25.length === 1,
     'R3: Pending receipt uses Visit / Dispatch Business Date (2026-08-25) without fake Final Receipt Business Date'
   );
@@ -426,7 +426,7 @@ async function run4DETests() {
     summaryPending25.receiptPendingCount === 1 &&
     cardsPending25.length === 1 &&
     cardsPending25[0].visitId === 508 &&
-    cardsPending25[0].finalReceiptBusinessDate === null,
+    cardsPending25[0].finalReceiptDate === null,
     'R8: Pending receipt summary KPI (1) and pending cards (1) match exactly for selected date range (2026-08-25)'
   );
 

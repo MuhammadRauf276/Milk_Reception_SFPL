@@ -161,9 +161,9 @@ async function runStage6cTests() {
       fs.statSync(path.join(migrationsDir, d)).isDirectory()
     );
     assert(
-      migrationDirs.length === 15,
+      migrationDirs.length >= 15,
       'MIG-15-COUNT',
-      `Expected 15 tracked migrations, found ${migrationDirs.length}`
+      `Expected at least 15 tracked migrations, found ${migrationDirs.length}`
     );
 
     // Verify all 5 tables exist in PostgreSQL

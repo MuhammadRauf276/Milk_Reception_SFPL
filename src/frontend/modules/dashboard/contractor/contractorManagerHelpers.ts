@@ -175,12 +175,12 @@ export function buildContractorVehicleVisits(logs: MilkProcessLog[]): Contractor
 
     const litersVariance = computeLitersVariance(grossLiters, authoritativeFinalLiters, finalReceiptExists);
 
-    const finalReceiptBusinessDate = first.final_receipt_business_date || null;
-    let reportingBusinessDate: string | null = null;
+    const finalReceiptDate = first.final_receipt_date || null;
+    let reportingDate: string | null = null;
     if (finalReceiptExists) {
-      reportingBusinessDate = first.final_receipt_business_date || first.reporting_business_date || null;
+      reportingDate = first.final_receipt_date || first.reporting_date || null;
     } else {
-      reportingBusinessDate = first.reporting_business_date || first.dispatch_date || null;
+      reportingDate = first.reporting_date || first.dispatch_date || null;
     }
 
     visits.push({
@@ -207,8 +207,8 @@ export function buildContractorVehicleVisits(logs: MilkProcessLog[]): Contractor
       finalReceiptTransactionId: first.final_receipt_transaction_id ?? null,
       authoritativeFinalLiters,
       finalReceiptTimestamp: first.final_receipt_timestamp || null,
-      finalReceiptBusinessDate,
-      reportingBusinessDate,
+      finalReceiptDate,
+      reportingDate,
       siloStorageId: first.silo_storage_id || null,
       firstWeightKg: first.first_weight_of_vehicle ?? null,
       secondWeightKg: first.second_weight_of_vehicle ?? null,

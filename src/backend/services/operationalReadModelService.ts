@@ -1,7 +1,7 @@
 import { prisma } from '../core/db';
 import { MilkProcessLog, User, ProcessStatus, PortionLabTestResult } from '../core/types';
 import { PLANT_TIMEZONE, isValidDateOnly, parseStrictDateOnly } from '@/lib/datetime-utils';
-import { getOperationalBusinessDate } from '../core/business-day';
+import { getOperationalBusinessDate, getPakistanCalendarDate } from '../core/business-day';
 import {
   calculateDensity,
   calculateSNF,
@@ -164,18 +164,10 @@ export async function getOperationalLogs(
       throw new Error('Invalid toDate parameter');
     }
 
-    // When dateBasis is NOT 'reporting' (default/legacy), apply operational_date filter in SQL directly
-    if (filters?.dateBasis !== 'reporting') {
-      whereClause.operational_date = {};
-      if (filters.fromDate !== undefined) {
-        whereClause.operational_date.gte = parseStrictDateOnly(filters.fromDate)!;
-      }
-      if (filters.toDate !== undefined) {
-        const toDateObj = parseStrictDateOnly(filters.toDate)!;
-        toDateObj.setHours(23, 59, 59, 999);
-        whereClause.operational_date.lte = toDateObj;
-      }
-    }
+    // Validate strict YYYY-MM-DD boundaries and chronological order.
+    // Note: Do NOT filter whereClause.operational_date in SQL when dateBasis is default / 'dispatch'.
+    // operational_date is strictly the Plant-Exit completion attribute and remains null prior to gate exit.
+    // Dispatch date filtering is applied below in-memory across normalized log records in PKT calendar boundaries.
   }
 
   // Fetch master lab tests to dynamically resolve configured tests
@@ -404,17 +396,22 @@ export async function getOperationalLogs(
       const isBorderline = activeSnf != null && activeSnf >= 8.5 && activeSnf <= 8.6;
 
       // Authoritative Final Receipt (Silo Transaction Evidence - No created_at fallback)
+      // Final Receipt retains its real operational timestamp and ordinary Pakistan calendar date
+      // where legitimately required. It does NOT own a separate 08:00 Business Date.
       const finalReceiptTs = finalizedReceipt?.operational_timestamp
         ? new Date(finalizedReceipt.operational_timestamp).toISOString()
         : null;
 
-      const finalReceiptBusinessDate = (Boolean(finalizedReceipt) && finalReceiptTs)
-        ? getOperationalBusinessDate(finalReceiptTs)
+      const finalReceiptDate = (Boolean(finalizedReceipt) && finalReceiptTs)
+        ? getPakistanCalendarDate(finalReceiptTs)
         : null;
 
-      const reportingBusinessDate = Boolean(finalizedReceipt)
-        ? finalReceiptBusinessDate
-        : finalizedBusinessDate;
+      // Generic reporting date: ordinary PKT calendar date of Final Receipt if finalized,
+      // otherwise ordinary dispatch calendar date.
+      // This is an event/calendar date concept, NOT a Plant Business Date.
+      const reportingDate = Boolean(finalizedReceipt)
+        ? finalReceiptDate
+        : dispatchDateStr;
 
       // Build dynamic configured and historical lab test results for this portion
       const dispatchResultMap = new Map<string, (typeof portion.dispatch_lab_results)[0]>();
@@ -678,8 +675,8 @@ export async function getOperationalLogs(
           final_receipt_exists: Boolean(finalizedReceipt),
           final_receipt_transaction_id: finalizedReceipt ? Number(finalizedReceipt.id) : null,
           final_receipt_timestamp: finalReceiptTs,
-          final_receipt_business_date: finalReceiptBusinessDate,
-          reporting_business_date: reportingBusinessDate,
+          final_receipt_date: finalReceiptDate,
+          reporting_date: reportingDate,
           authoritative_final_liters: finalizedReceipt?.quantity_liters
             ? Number(finalizedReceipt.quantity_liters)
             : null,
@@ -699,10 +696,17 @@ export async function getOperationalLogs(
 
     if (filters?.dateBasis === 'reporting') {
       if (filters.fromDate) {
-        filtered = filtered.filter((l) => l.reporting_business_date && l.reporting_business_date >= filters.fromDate!);
+        filtered = filtered.filter((l) => l.reporting_date && l.reporting_date >= filters.fromDate!);
       }
       if (filters.toDate) {
-        filtered = filtered.filter((l) => l.reporting_business_date && l.reporting_business_date <= filters.toDate!);
+        filtered = filtered.filter((l) => l.reporting_date && l.reporting_date <= filters.toDate!);
+      }
+    } else {
+      if (filters?.fromDate) {
+        filtered = filtered.filter((l) => l.dispatch_date && l.dispatch_date >= filters.fromDate!);
+      }
+      if (filters?.toDate) {
+        filtered = filtered.filter((l) => l.dispatch_date && l.dispatch_date <= filters.toDate!);
       }
     }
 

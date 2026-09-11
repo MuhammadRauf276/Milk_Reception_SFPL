@@ -328,9 +328,9 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
                     </td>
                     <td className="py-3.5 px-3 font-mono text-slate-800 text-[11px]">
                       <div>
-                        <span className="font-bold">{v.reportingBusinessDate || '—'}</span>
+                        <span className="font-bold">{v.reportingDate || '—'}</span>
                         <span className="block text-[9px] text-slate-500 font-normal">
-                          {v.finalReceiptExists ? 'Receipt Business Date' : 'Visit Business Date'}
+                          {v.finalReceiptExists ? 'Final Receipt Date' : 'Dispatch Date'}
                         </span>
                       </div>
                     </td>

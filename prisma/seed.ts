@@ -47,6 +47,7 @@ const PROCUREMENT_SOURCES_SEED = [
 async function main() {
   await prisma.$executeRawUnsafe('CREATE SEQUENCE IF NOT EXISTS lab_test_code_seq START WITH 100 INCREMENT BY 1;');
   await prisma.$executeRawUnsafe('CREATE SEQUENCE IF NOT EXISTS mot_journey_number_seq START WITH 1 INCREMENT BY 1;');
+  await prisma.$executeRawUnsafe('CREATE SEQUENCE IF NOT EXISTS mot_collection_number_seq START WITH 1 INCREMENT BY 1;');
   console.log('Seeding 30 Laboratory Tests in PostgreSQL...');
 
 

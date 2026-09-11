@@ -85,6 +85,23 @@ async function setupTestDatabase() {
   }
   console.log('✅ Migrations successfully deployed to TEST DB.\n');
 
+  // Seed base test fixtures into TEST DB
+  console.log('▶ Seeding base test fixtures into TEST DB...');
+  const seedRun = spawnSync(npxCmd, ['tsx', 'prisma/seed.ts'], {
+    cwd: repoRoot,
+    stdio: 'inherit',
+    env: {
+      ...process.env,
+      DATABASE_URL: process.env.TEST_DATABASE_URL,
+    },
+    shell: true,
+  });
+  if (seedRun.status !== 0) {
+    console.error('❌ Failed to seed test database.');
+    process.exit(1);
+  }
+  console.log('✅ Base fixtures seeded into TEST DB.\n');
+
   // 4. Perform Isolation Sentinel Verification
   console.log('▶ Verifying Test Database Isolation via Sentinel Row...');
   const testPrisma = new PrismaClient({

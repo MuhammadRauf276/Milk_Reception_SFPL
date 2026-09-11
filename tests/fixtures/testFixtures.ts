@@ -22,6 +22,8 @@ export async function clearTestDatabase(prisma: PrismaClient): Promise<void> {
   await prisma.labTest.deleteMany();
 
   // Mot tables
+  await prisma.motCollectionSmsOutbox.deleteMany();
+  await prisma.motShopCollection.deleteMany();
   await prisma.motJourneyLocation.deleteMany();
   await prisma.motJourneyStop.deleteMany();
   await prisma.motJourney.deleteMany();

@@ -162,8 +162,8 @@ async function runPlantContractorManagerContracts() {
       final_receipt_exists: false,
       final_receipt_transaction_id: null,
       final_receipt_timestamp: null,
-      final_receipt_business_date: null,
-      reporting_business_date: '2026-08-28',
+      final_receipt_date: null,
+      reporting_date: '2026-08-28',
       authoritative_final_liters: null,
       created_at: '2026-08-28T10:00:00.000Z',
       updated_at: '2026-08-28T10:00:00.000Z',
@@ -228,28 +228,28 @@ async function runPlantContractorManagerContracts() {
       id: 99902,
       final_receipt_exists: true,
       final_receipt_timestamp: null,
-      final_receipt_business_date: null,
-      reporting_business_date: null,
+      final_receipt_date: null,
+      reporting_date: null,
       dispatch_date: '2026-08-28',
     };
     const builtFinalizedVisits = buildContractorVehicleVisits([mockLogFinalizedNoDate]);
     assert(
-      builtFinalizedVisits[0].reportingBusinessDate === null,
-      '4F-INVARIANT-08D: Finalized receipt with missing receipt business date maps to reportingBusinessDate=null (no dispatch_date fallback)'
+      builtFinalizedVisits[0].reportingDate === null,
+      '4F-INVARIANT-08D: Finalized receipt with missing receipt date maps to reportingDate=null (no dispatch_date fallback)'
     );
 
     const mockLogNonFinal: MilkProcessLog = {
       ...mockLogWithoutVehicleGross,
       id: 99903,
       final_receipt_exists: false,
-      final_receipt_business_date: null,
-      reporting_business_date: '2026-08-28',
+      final_receipt_date: null,
+      reporting_date: '2026-08-28',
       dispatch_date: '2026-08-28',
     };
     const builtNonFinalVisits = buildContractorVehicleVisits([mockLogNonFinal]);
     assert(
-      builtNonFinalVisits[0].reportingBusinessDate === '2026-08-28',
-      '4F-INVARIANT-08E: Non-final visit uses dispatch_date for reportingBusinessDate'
+      builtNonFinalVisits[0].reportingDate === '2026-08-28',
+      '4F-INVARIANT-08E: Non-final visit uses dispatch_date for reportingDate'
     );
 
     // --- 4. BACKEND SOURCE ISOLATION & FAIL CLOSED ---
