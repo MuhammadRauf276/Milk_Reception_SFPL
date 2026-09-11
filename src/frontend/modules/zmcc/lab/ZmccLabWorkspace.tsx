@@ -229,11 +229,22 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
 
     setCompletingSession(true);
     try {
-      const payloadResults = Object.keys(draftValues).map((testId) => ({
-        test_id: testId,
-        numeric_value: draftValues[testId].numeric_value !== '' && draftValues[testId].numeric_value !== null ? Number(draftValues[testId].numeric_value) : null,
-        text_value: draftValues[testId].text_value ? String(draftValues[testId].text_value).trim() : null,
-      }));
+      const payloadResults = (activeSession.results || []).map((r: any) => {
+        const testId = String(r.test_id);
+        const dv = draftValues[testId] || { numeric_value: '', text_value: '' };
+        if (r.result_type_snapshot === 'CALCULATED') {
+          return {
+            test_id: testId,
+            numeric_value: null,
+            text_value: null,
+          };
+        }
+        return {
+          test_id: testId,
+          numeric_value: r.result_type_snapshot === 'NUMERIC' && dv.numeric_value !== '' && dv.numeric_value !== null ? Number(dv.numeric_value) : null,
+          text_value: r.result_type_snapshot !== 'NUMERIC' && dv.text_value ? String(dv.text_value).trim() : null,
+        };
+      });
 
       const res = await fetch(`/api/zmcc/lab/sessions/${activeSession.id}/complete`, {
         method: 'POST',
@@ -585,6 +596,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                     {activeSession.results?.map((res: any) => {
                       const testId = res.test_id;
                       const current = draftValues[testId] || { numeric_value: '', text_value: '' };
+                      const isCalculated = res.result_type_snapshot === 'CALCULATED';
                       const isNumeric = res.result_type_snapshot === 'NUMERIC';
                       const options = res.result_options_snapshot as any[];
 
@@ -606,7 +618,15 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                             )}
                           </td>
                           <td className="py-3 px-3">
-                            {isNumeric ? (
+                            {isCalculated ? (
+                              <input
+                                type="text"
+                                value="Unsupported (Calculated)"
+                                disabled
+                                readOnly
+                                className="w-44 px-2.5 py-1.5 border border-amber-200 bg-amber-50 text-amber-700 rounded-lg text-xs cursor-not-allowed italic select-none"
+                              />
+                            ) : isNumeric ? (
                               <input
                                 type="number"
                                 step="any"
@@ -1043,6 +1063,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                 {selectedHistorySession.results?.map((res: any) => {
                   const testId = res.test_id;
                   const current = correctionValues[testId] || { numeric_value: '', text_value: '' };
+                  const isCalculated = res.result_type_snapshot === 'CALCULATED';
                   const isNumeric = res.result_type_snapshot === 'NUMERIC';
 
                   return (
@@ -1052,7 +1073,11 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                         <span className="text-[10px] text-slate-400 font-mono ml-2">({res.test_code_snapshot})</span>
                       </div>
                       <div className="w-1/2 flex items-center justify-end gap-2">
-                        {isNumeric ? (
+                        {isCalculated ? (
+                          <span className="text-[11px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 italic">
+                            Read-only (Calculated)
+                          </span>
+                        ) : isNumeric ? (
                           <input
                             type="number"
                             step="any"

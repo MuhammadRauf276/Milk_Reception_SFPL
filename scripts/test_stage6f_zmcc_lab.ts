@@ -582,18 +582,50 @@ async function runStage6fTests() {
   const replayRes = await completeSession(toCoreUser(attendantA) as any, sessionId, {
     completion_client_event_id: completionEventId,
     decision: 'ACCEPTED',
+    remarks: 'Milk passed all intake standards',
     results: validCompletionResults,
   });
   assert(replayRes.status === 200, 'Idempotent Replay', 'Exact completion replay returns 200 OK');
 
-  // Altered replay with same event ID returns 409 Conflict
+  // A. same completion ID + same decision + changed numeric result => 409
+  const changedNumericReplay = await completeSession(toCoreUser(attendantA) as any, sessionId, {
+    completion_client_event_id: completionEventId,
+    decision: 'ACCEPTED',
+    remarks: 'Milk passed all intake standards',
+    results: validCompletionResults.map((r: any) =>
+      r.test_id === testTemp.id.toString() ? { ...r, numeric_value: 9.9 } : r
+    ),
+  });
+  assert(changedNumericReplay.status === 409, 'Replay Changed Numeric Guard', 'Replay with altered numeric value rejected with 409 Conflict');
+
+  // B. same completion ID + same decision + changed categorical/text result => 409
+  const changedCatReplay = await completeSession(toCoreUser(attendantA) as any, sessionId, {
+    completion_client_event_id: completionEventId,
+    decision: 'ACCEPTED',
+    remarks: 'Milk passed all intake standards',
+    results: validCompletionResults.map((r: any) =>
+      r.test_id === testOrgano.id.toString() ? { ...r, text_value: 'NOT_OK' } : r
+    ),
+  });
+  assert(changedCatReplay.status === 409, 'Replay Changed Categorical Guard', 'Replay with altered categorical value rejected with 409 Conflict');
+
+  // C. same completion ID + same decision + changed remarks => 409
+  const changedRemarksReplay = await completeSession(toCoreUser(attendantA) as any, sessionId, {
+    completion_client_event_id: completionEventId,
+    decision: 'ACCEPTED',
+    remarks: 'Completely different remarks submitted',
+    results: validCompletionResults,
+  });
+  assert(changedRemarksReplay.status === 409, 'Replay Changed Remarks Guard', 'Replay with altered remarks rejected with 409 Conflict');
+
+  // Existing changed-decision test => 409
   const alteredReplayRes = await completeSession(toCoreUser(attendantA) as any, sessionId, {
     completion_client_event_id: completionEventId,
     decision: 'REJECTED',
     rejection_reason: 'Changed mind',
-    results: [{ test_id: testTemp.id, numeric_value: 4.1 }],
+    results: validCompletionResults,
   });
-  assert(alteredReplayRes.status === 409, 'Idempotency Conflict Guard', 'Altered replay rejected with 409 Conflict');
+  assert(alteredReplayRes.status === 409, 'Idempotency Conflict Guard', 'Altered replay with changed decision rejected with 409 Conflict');
 
   // Draft update after completion fails
   const postCompDraft = await updateDraftResults(toCoreUser(attendantA) as any, sessionId, {
@@ -640,6 +672,93 @@ async function runStage6fTests() {
   assert(conRejectRes.status === 200, 'Complete Session REJECTED', 'Contractor session finalized as REJECTED (200 OK)');
   assert(conRejectRes.data?.decision === 'REJECTED', 'Decision Recorded', 'Decision is REJECTED');
   assert(conRejectRes.data?.rejection_reason?.includes('High temperature'), 'Rejection Reason Saved', 'Rejection reason saved');
+
+  // Exact replay of rejected session returns 200
+  const conReplayRes = await completeSession(toCoreUser(attendantA) as any, conSessionId, {
+    completion_client_event_id: conCompEventId,
+    decision: 'REJECTED',
+    rejection_reason: 'High temperature (> 12C) and high acidity (0.20%)',
+    remarks: 'Milk rejected at gate due to thermal abuse in transport',
+    results: conRejectResults,
+  });
+  assert(conReplayRes.status === 200, 'Idempotent Replay REJECTED', 'Exact rejected replay returns 200 OK');
+
+  // D. rejected replay + changed rejection reason => 409
+  const conAlteredReasonRes = await completeSession(toCoreUser(attendantA) as any, conSessionId, {
+    completion_client_event_id: conCompEventId,
+    decision: 'REJECTED',
+    rejection_reason: 'Different reason: bad color and dirt in milk',
+    remarks: 'Milk rejected at gate due to thermal abuse in transport',
+    results: conRejectResults,
+  });
+  assert(conAlteredReasonRes.status === 409, 'Replay Altered Rejection Reason Guard', 'Replay with altered rejection reason rejected with 409 Conflict');
+
+  // E. same completion ID used against a different session => 409
+  const wrongSessionReplay = await completeSession(toCoreUser(attendantA) as any, conSessionId, {
+    completion_client_event_id: completionEventId, // completionEventId belongs to sessionId (MOT), not conSessionId
+    decision: 'ACCEPTED',
+    remarks: 'Milk passed all intake standards',
+    results: validCompletionResults,
+  });
+  assert(wrongSessionReplay.status === 409, 'Cross-Session Event ID Guard', 'Using event ID on different session rejected with 409 Conflict');
+
+  // F & G. Concurrent IDENTICAL completion gives one first success + one 200 replay & leaves 1 audit log
+  const concArrivalRes = await submitContractorArrival(toCoreUser(pheA) as any, {
+    contractor_source_id: contractorActive.id,
+    vehicle_number: `CONC-VEH-${runId}`,
+    arrival_timestamp: new Date(),
+    client_event_id: `evt-conc-arr-${runId}`,
+  });
+  assert(concArrivalRes.status === 201, 'Submit Concurrent Contractor Arrival', `Created arrival: ${concArrivalRes.data?.zmcc_token}`);
+  const concArrivalId = concArrivalRes.data.id;
+
+  const concStartRes = await startOrResumeSession(toCoreUser(attendantA) as any, {
+    arrival_type: 'CONTRACTOR',
+    arrival_id: concArrivalId,
+  });
+  assert(concStartRes.status === 201, 'Concurrent Session Created', 'Concurrent test session started (201)');
+  const concSessionId = BigInt(concStartRes.data.id);
+
+  const concEventId = `comp-conc-evt-${runId}`;
+  const concResults = concStartRes.data.results.map((r: any) => {
+    if (r.result_type_snapshot === 'NUMERIC') {
+      return { test_id: r.test_id, numeric_value: 4.0 };
+    } else {
+      const options = r.result_options_snapshot as any[];
+      const passingOpt = options?.find((o: any) => o.isPassing !== false)?.value || 'OK';
+      return { test_id: r.test_id, text_value: passingOpt };
+    }
+  });
+
+  const [concRes1, concRes2] = await Promise.all([
+    completeSession(toCoreUser(attendantA) as any, concSessionId, {
+      completion_client_event_id: concEventId,
+      decision: 'ACCEPTED',
+      remarks: 'Concurrent test batch',
+      results: concResults,
+    }),
+    completeSession(toCoreUser(attendantA) as any, concSessionId, {
+      completion_client_event_id: concEventId,
+      decision: 'ACCEPTED',
+      remarks: 'Concurrent test batch',
+      results: concResults,
+    }),
+  ]);
+
+  assert(
+    concRes1.status === 200 && concRes2.status === 200,
+    'Concurrent Identical Both 200',
+    `Both concurrent identical requests return 200 (first-success + idempotent replay: ${concRes1.status}, ${concRes2.status})`
+  );
+
+  const concAudits = await prisma.auditLog.findMany({
+    where: {
+      table_name: 'zmcc_lab_session',
+      record_id: concSessionId,
+      action: 'ZMCC_LAB_SESSION_COMPLETED',
+    },
+  });
+  assert(concAudits.length === 1, 'Concurrent Single Audit Log', 'Concurrent identical completions created exactly one completion audit log');
 
   console.log('\n--- 10. SUPERVISORY MANAGER CORRECTIONS ---');
   // Lab Attendant cannot perform corrections
@@ -731,6 +850,193 @@ async function runStage6fTests() {
   const adminHistoryRes = await getLabHistory(toCoreUser(superAdmin));
   assert(adminHistoryRes.status === 200, 'Super Admin History', 'Super admin accesses global history');
   assert(adminHistoryRes.data.total >= 2, 'Global Total', 'Global total >= 2');
+
+  console.log('\n--- 12. ORDINARY PKT DATE FILTERING & HISTORY BOUNDARIES ---');
+  // Date under test: 2026-09-11
+  // PKT is UTC+5 (fixed, non-DST).
+  // 1. Sep 11 00:30 PKT = 2026-09-10T19:30:00.000Z -> INCLUDED in 2026-09-11
+  // 2. Sep 11 23:30 PKT = 2026-09-11T18:30:00.000Z -> INCLUDED in 2026-09-11
+  // 3. Sep 12 00:30 PKT = 2026-09-11T19:30:00.000Z -> NOT INCLUDED in 2026-09-11
+  // 4. Sep 10 23:30 PKT = 2026-09-10T18:30:00.000Z -> NOT INCLUDED in 2026-09-11
+
+  const tsPktStartIn = new Date('2026-09-11T00:30:00+05:00'); // 2026-09-10T19:30:00.000Z
+  const tsPktEndIn = new Date('2026-09-11T23:30:00+05:00');   // 2026-09-11T18:30:00.000Z
+  const tsPktNextOut = new Date('2026-09-12T00:30:00+05:00'); // 2026-09-11T19:30:00.000Z
+
+  await prisma.zmccLabSession.update({
+    where: { id: sessionId },
+    data: { completed_at: tsPktStartIn },
+  });
+  await prisma.zmccLabSession.update({
+    where: { id: conSessionId },
+    data: { completed_at: tsPktEndIn },
+  });
+  await prisma.zmccLabSession.update({
+    where: { id: concSessionId },
+    data: { completed_at: tsPktNextOut },
+  });
+
+  const pktHistoryRes = await getLabHistory(toCoreUser(attendantA), { date: '2026-09-11' });
+  assert(pktHistoryRes.status === 200, 'PKT Date History Query', 'getLabHistory succeeded for 2026-09-11');
+  const returnedIds = (pktHistoryRes.data?.items || []).map((i: any) => i.id);
+  assert(returnedIds.includes(sessionId.toString()), 'Sep 11 00:30 PKT Included', 'Sep 11 00:30 PKT session included in Sep 11');
+  assert(returnedIds.includes(conSessionId.toString()), 'Sep 11 23:30 PKT Included', 'Sep 11 23:30 PKT session included in Sep 11');
+  assert(!returnedIds.includes(concSessionId.toString()), 'Sep 12 00:30 PKT Excluded', 'Sep 12 00:30 PKT session excluded from Sep 11');
+
+  // Strict YYYY-MM-DD date validation: 400 controlled response
+  const invalidDateRes1 = await getLabHistory(toCoreUser(attendantA), { date: '2026-02-30' });
+  assert(invalidDateRes1.status === 400, 'Invalid Date Feb 30', 'Malformed calendar date 2026-02-30 rejected with 400');
+  const invalidDateRes2 = await getLabHistory(toCoreUser(attendantA), { date: 'not-a-date' });
+  assert(invalidDateRes2.status === 400, 'Invalid Date Format', 'Non-date string rejected with 400');
+
+  console.log('\n--- 13. CALCULATED TEST SAFETY & FROZEN RESULT TYPES ---');
+  // Create an active required CALCULATED test
+  const calcTest = await prisma.labTest.create({
+    data: {
+      testCode: `T-CALC-${runId}`,
+      testName: `Calculated Ratio ${runId}`,
+      resultType: 'CALCULATED',
+      testScope: 'ZMCC',
+      isRequired: true,
+      displayOrder: 99,
+      isActive: true,
+    },
+  });
+
+  const calcArrivalRes = await submitContractorArrival(toCoreUser(pheA) as any, {
+    contractor_source_id: contractorActive.id,
+    vehicle_number: `CALC-VEH-${runId}`,
+    arrival_timestamp: new Date(),
+    client_event_id: `evt-calc-arr-${runId}`,
+  });
+  assert(calcArrivalRes.status === 201, 'Submit Calc Contractor Arrival', `Created arrival: ${calcArrivalRes.data?.zmcc_token}`);
+  const calcArrivalId = calcArrivalRes.data.id;
+
+  const calcStartRes = await startOrResumeSession(toCoreUser(attendantA) as any, {
+    arrival_type: 'CONTRACTOR',
+    arrival_id: calcArrivalId,
+  });
+  assert(calcStartRes.status === 400, 'Calculated Test Fail-Closed', 'Active required CALCULATED test prevents session start (400)');
+  assert(
+    Boolean(calcStartRes.error?.includes('has no canonical calculation owner')),
+    'Calculated Error Message',
+    `Error message explains missing calculation owner: "${calcStartRes.error}"`
+  );
+
+  // Deactivate the CALCULATED test
+  await prisma.labTest.update({
+    where: { id: calcTest.id },
+    data: { isActive: false },
+  });
+
+  // Create an optional CALCULATED test to verify attendant cannot manually edit
+  const optCalcTest = await prisma.labTest.create({
+    data: {
+      testCode: `T-OPTCALC-${runId}`,
+      testName: `Optional Calculated ${runId}`,
+      resultType: 'CALCULATED',
+      testScope: 'ZMCC',
+      isRequired: false,
+      displayOrder: 100,
+      isActive: true,
+    },
+  });
+
+  const optCalcStartRes = await startOrResumeSession(toCoreUser(attendantA) as any, {
+    arrival_type: 'CONTRACTOR',
+    arrival_id: calcArrivalId,
+  });
+  assert(optCalcStartRes.status === 201, 'Optional Calc Session Start', 'Session with optional CALCULATED test started');
+  const optCalcSessionId = BigInt(optCalcStartRes.data.id);
+
+  // Attempting manual numeric update to CALCULATED test in updateDraftResults returns 400
+  const draftCalcEdit = await updateDraftResults(toCoreUser(attendantA) as any, optCalcSessionId, {
+    results: [{ test_id: optCalcTest.id, numeric_value: 12.34 }],
+  });
+  assert(draftCalcEdit.status === 400, 'Calculated Draft Manual Numeric Guard', 'Manual numeric value on CALCULATED test rejected with 400');
+  assert(Boolean(draftCalcEdit.error?.includes('has no canonical calculation owner')), 'Draft Error Message', 'Clear message on manual calculated edit');
+
+  // Attempting manual text update to CALCULATED test in updateDraftResults returns 400
+  const draftCalcTextEdit = await updateDraftResults(toCoreUser(attendantA) as any, optCalcSessionId, {
+    results: [{ test_id: optCalcTest.id, text_value: 'Arbitrary' }],
+  });
+  assert(draftCalcTextEdit.status === 400, 'Calculated Draft Manual Text Guard', 'Manual text value on CALCULATED test rejected with 400');
+
+  // Attempting manual value in completeSession returns 400
+  const compCalcEdit = await completeSession(toCoreUser(attendantA) as any, optCalcSessionId, {
+    completion_client_event_id: `comp-calc-evt-${runId}`,
+    decision: 'ACCEPTED',
+    results: [
+      { test_id: testTemp.id, numeric_value: 4.0 },
+      { test_id: testAcidity.id, numeric_value: 0.14 },
+      { test_id: testOrgano.id, text_value: 'OK' },
+      { test_id: optCalcTest.id, numeric_value: 5.67 },
+    ],
+  });
+  assert(compCalcEdit.status === 400, 'Calculated Complete Manual Guard', 'Manual entry on CALCULATED test in completeSession rejected with 400');
+
+  // Deactivate optional CALCULATED test
+  await prisma.labTest.update({
+    where: { id: optCalcTest.id },
+    data: { isActive: false },
+  });
+
+  console.log('\n--- 14. LAB SCOPE CHECKBOX MAPPING SEMANTICS ---');
+  const { mapScopeCheckboxes } = await import('../src/lib/validations/labTest');
+
+  // 1. Dispatch only => DISPATCH
+  assert(mapScopeCheckboxes(true, false, false) === 'DISPATCH', 'Scope: Dispatch Only', 'Dispatch only => DISPATCH');
+
+  // 2. Plant only => PLANT
+  assert(mapScopeCheckboxes(false, true, false) === 'PLANT', 'Scope: Plant Only', 'Plant only => PLANT');
+
+  // 3. ZMCC only => ZMCC
+  assert(mapScopeCheckboxes(false, false, true) === 'ZMCC', 'Scope: ZMCC Only', 'ZMCC only => ZMCC');
+
+  // 4. Dispatch + Plant => BOTH
+  assert(mapScopeCheckboxes(true, true, false) === 'BOTH', 'Scope: Dispatch + Plant', 'Dispatch + Plant => BOTH');
+
+  // 5. All three => ALL
+  assert(mapScopeCheckboxes(true, true, true) === 'ALL', 'Scope: All Three', 'Dispatch + Plant + ZMCC => ALL');
+
+  // 6. Dispatch + ZMCC only is rejected
+  let dispZmccErr = false;
+  try {
+    mapScopeCheckboxes(true, false, true);
+  } catch (e: any) {
+    dispZmccErr = e.message.includes('not representable');
+  }
+  assert(dispZmccErr, 'Scope: Dispatch + ZMCC Rejected', 'Dispatch + ZMCC only rejected with unrepresentable error');
+
+  // 7. Plant + ZMCC only is rejected
+  let plantZmccErr = false;
+  try {
+    mapScopeCheckboxes(false, true, true);
+  } catch (e: any) {
+    plantZmccErr = e.message.includes('not representable');
+  }
+  assert(plantZmccErr, 'Scope: Plant + ZMCC Rejected', 'Plant + ZMCC only rejected with unrepresentable error');
+
+  // 8. None selected is rejected
+  let noneErr = false;
+  try {
+    mapScopeCheckboxes(false, false, false);
+  } catch (e: any) {
+    noneErr = e.message.includes('at least one scope');
+  }
+  assert(noneErr, 'Scope: None Selected Rejected', 'None selected rejected with select at least one error');
+
+  // 9. Existing BOTH remains Dispatch + Plant, NOT ZMCC
+  const bothTests = await prisma.labTest.findMany({
+    where: { testScope: 'BOTH' },
+  });
+  for (const bt of bothTests) {
+    assert(bt.testScope === 'BOTH', 'BOTH Preservation', `Existing BOTH test ${bt.testCode} remains BOTH`);
+  }
+
+  // 10. No existing LabTest records automatically rewritten
+  const initialTestCount = await prisma.labTest.count();
+  assert(initialTestCount > 0, 'Lab Tests Intact', `All ${initialTestCount} lab test records preserved without auto-rewrite`);
 
   console.log('\n=====================================================================');
   console.log(`FINAL STAGE 6F TEST RESULTS: ${passed} PASSED, ${failed} FAILED`);

@@ -85,3 +85,14 @@ export function validatePlantQAResultOptions(
   return { isValid: true };
 }
 
+export function mapScopeCheckboxes(scopeDispatch: boolean, scopePlantQA: boolean, scopeZmcc: boolean): string {
+  if (!scopeDispatch && !scopePlantQA && !scopeZmcc) {
+    throw new Error('Please select at least one scope (Dispatch, Plant QA, or ZMCC Lab).');
+  }
+  if (scopeDispatch && scopePlantQA && scopeZmcc) return 'ALL';
+  if (scopeDispatch && scopePlantQA && !scopeZmcc) return 'BOTH';
+  if (scopeDispatch && !scopePlantQA && !scopeZmcc) return 'DISPATCH';
+  if (!scopeDispatch && scopePlantQA && !scopeZmcc) return 'PLANT';
+  if (!scopeDispatch && !scopePlantQA && scopeZmcc) return 'ZMCC';
+  throw new Error('This scope combination is not representable. Select one scope, Dispatch + Plant, or all three.');
+}

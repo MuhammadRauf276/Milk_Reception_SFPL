@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Edit2, ShieldAlert, CheckCircle2, Lock, Plus, Trash2, X, AlertTriangle } from 'lucide-react';
+import { mapScopeCheckboxes } from '@/lib/validations/labTest';
 
 interface LabTestResultOption {
   value: string;
@@ -26,19 +27,6 @@ interface LabTest {
 interface ConfirmModalState {
   test: LabTest;
   action: 'ACTIVATE' | 'DEACTIVATE';
-}
-
-function mapScopeCheckboxes(scopeDispatch: boolean, scopePlantQA: boolean, scopeZmcc: boolean): string {
-  if (!scopeDispatch && !scopePlantQA && !scopeZmcc) {
-    throw new Error('Please select at least one scope (Dispatch, Plant QA, or ZMCC Lab).');
-  }
-  if (scopeDispatch && scopePlantQA && scopeZmcc) return 'ALL';
-  if (scopeDispatch && scopePlantQA) return 'BOTH';
-  if (scopeZmcc && !scopeDispatch && !scopePlantQA) return 'ZMCC';
-  if (scopeDispatch && !scopePlantQA && !scopeZmcc) return 'DISPATCH';
-  if (scopePlantQA && !scopeDispatch && !scopeZmcc) return 'PLANT';
-  if (scopeZmcc) return 'ALL';
-  return 'BOTH';
 }
 
 export default function SuperAdminLabTestsPage() {
@@ -169,7 +157,7 @@ export default function SuperAdminLabTestsPage() {
     try {
       testScope = mapScopeCheckboxes(createScopeDispatch, createScopePlantQA, createScopeZmcc);
     } catch (err: any) {
-      setCreateModalError(err.message || 'Please select at least one scope (Dispatch or Plant QA).');
+      setCreateModalError(err.message || 'Please select at least one scope (Dispatch, Plant QA, or ZMCC Lab).');
       return;
     }
 
@@ -229,7 +217,7 @@ export default function SuperAdminLabTestsPage() {
     try {
       testScope = mapScopeCheckboxes(editScopeDispatch, editScopePlantQA, editScopeZmcc);
     } catch (err: any) {
-      setEditModalError(err.message || 'Please select at least one scope (Dispatch or Plant QA).');
+      setEditModalError(err.message || 'Please select at least one scope (Dispatch, Plant QA, or ZMCC Lab).');
       return;
     }
 

@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { getCurrentUser } from '@core/auth';
 import { User, Role } from '@core/types';
 import { evaluateLabResult, validateCategoricalOption } from '@/lib/lab-rules';
+import { isValidDateOnly } from '@/lib/datetime-utils';
 
 export interface ZmccLabAuthContext {
   user: User;
@@ -518,6 +519,17 @@ export async function startOrResumeSession(
     return { status: 400, error: 'No active ZMCC lab tests configured.' };
   }
 
+  // Calculated test safety: Fail closed if unsupported required CALCULATED tests exist
+  const unsupportedCalculated = activeTests.find(
+    (t) => t.resultType === 'CALCULATED' && t.isRequired
+  );
+  if (unsupportedCalculated) {
+    return {
+      status: 400,
+      error: `Calculated ZMCC lab test ${unsupportedCalculated.testCode} has no canonical calculation owner.`,
+    };
+  }
+
   // Start new session transactionally with snapshot creation
   try {
     const session = await prisma.$transaction(async (tx) => {
@@ -721,14 +733,24 @@ export async function updateDraftResults(
       return { status: 400, error: `Test ID ${testIdStr} does not belong to this lab session.` };
     }
 
-    if (existing.result_type_snapshot === 'NUMERIC') {
+    const resType = existing.result_type_snapshot;
+    if (resType === 'CALCULATED') {
+      if (item.numeric_value != null || (item.text_value != null && item.text_value.trim() !== '')) {
+        return {
+          status: 400,
+          error: `Calculated ZMCC lab test ${existing.test_code_snapshot} has no canonical calculation owner and cannot be manually modified.`,
+        };
+      }
+    } else if (resType === 'NUMERIC') {
       if (item.numeric_value !== undefined && item.numeric_value !== null) {
         const num = Number(item.numeric_value);
         if (isNaN(num) || num < 0) {
           return { status: 400, error: `Numeric value for test ${existing.test_code_snapshot} must be non-negative.` };
         }
       }
-    } else {
+    } else if (resType === 'TEXT') {
+      // Free text: any string allowed
+    } else if (['QUALITATIVE', 'BOOLEAN', 'OK_NOT_OK', 'POSITIVE_NEGATIVE'].includes(resType)) {
       if (item.text_value !== undefined && item.text_value !== null && item.text_value.trim()) {
         const rawText = item.text_value.trim().toUpperCase();
         const options = existing.result_options_snapshot as any[];
@@ -748,13 +770,17 @@ export async function updateDraftResults(
     for (const item of payload.results) {
       const testIdStr = String(item.test_id).trim();
       const existing = sessionResultsMap.get(testIdStr)!;
+      const resType = existing.result_type_snapshot;
 
       let numVal: Prisma.Decimal | null = null;
       let txtVal: string | null = null;
       let evalStatus = 'PENDING';
       let isPassed: boolean | null = null;
 
-      if (existing.result_type_snapshot === 'NUMERIC') {
+      if (resType === 'CALCULATED') {
+        // Attendants cannot manually modify CALCULATED tests
+        continue;
+      } else if (resType === 'NUMERIC') {
         if (item.numeric_value !== undefined && item.numeric_value !== null) {
           const num = Number(item.numeric_value);
           numVal = new Prisma.Decimal(num.toFixed(4));
@@ -767,6 +793,12 @@ export async function updateDraftResults(
           );
           isPassed = evaluation.isPassed;
           evalStatus = evaluation.status;
+        }
+      } else if (resType === 'TEXT') {
+        if (item.text_value !== undefined && item.text_value !== null && item.text_value.trim()) {
+          txtVal = item.text_value.trim();
+          evalStatus = 'NEUTRAL';
+          isPassed = null;
         }
       } else {
         if (item.text_value !== undefined && item.text_value !== null && item.text_value.trim()) {
@@ -825,6 +857,92 @@ export interface CompleteSessionPayload {
   }>;
 }
 
+function matchesPersistedSessionCompletion(
+  persistedSession: any,
+  targetSessionId: bigint,
+  payload: CompleteSessionPayload
+): boolean {
+  // 1. Session identity
+  if (persistedSession.id.toString() !== targetSessionId.toString()) {
+    return false;
+  }
+
+  // 2. Decision
+  if (persistedSession.decision !== payload.decision) {
+    return false;
+  }
+
+  // 3. Normalized rejection reason
+  const persistedRejection = persistedSession.rejection_reason ? persistedSession.rejection_reason.trim() : null;
+  const payloadRejection = payload.rejection_reason ? payload.rejection_reason.trim() : null;
+  if (persistedRejection !== payloadRejection) {
+    return false;
+  }
+
+  // 4. Normalized remarks
+  const persistedRemarks = persistedSession.remarks ? persistedSession.remarks.trim() : null;
+  const payloadRemarks = payload.remarks ? payload.remarks.trim() : null;
+  if (persistedRemarks !== payloadRemarks) {
+    return false;
+  }
+
+  // 5. Complete submitted test-result set
+  if (!Array.isArray(payload.results) || !Array.isArray(persistedSession.results)) {
+    return false;
+  }
+
+  const persistedResults = [...persistedSession.results].sort((a, b) =>
+    a.test_id.toString().localeCompare(b.test_id.toString())
+  );
+
+  const submittedMap = new Map<string, { numeric_value?: number | null; text_value?: string | null }>();
+  for (const item of payload.results) {
+    const tid = String(item.test_id).trim();
+    if (submittedMap.has(tid)) {
+      return false; // Duplicate test_id in payload
+    }
+    submittedMap.set(tid, item);
+  }
+
+  if (submittedMap.size !== persistedResults.length) {
+    return false;
+  }
+
+  for (const pRes of persistedResults) {
+    const tid = pRes.test_id.toString();
+    const sub = submittedMap.get(tid);
+    if (!sub) {
+      return false;
+    }
+
+    const resType = pRes.result_type_snapshot;
+
+    if (resType === 'NUMERIC') {
+      const persistedNum = pRes.numeric_value != null ? Number(pRes.numeric_value.toString()).toFixed(4) : null;
+      const subNum = sub.numeric_value != null && !isNaN(Number(sub.numeric_value)) ? Number(sub.numeric_value).toFixed(4) : null;
+      if (persistedNum !== subNum) {
+        return false;
+      }
+    } else if (resType === 'CALCULATED') {
+      if (sub.numeric_value != null || (sub.text_value != null && sub.text_value.trim() !== '')) {
+        return false;
+      }
+      if (pRes.numeric_value != null || (pRes.text_value != null && pRes.text_value.trim() !== '')) {
+        return false;
+      }
+    } else {
+      // TEXT, QUALITATIVE, BOOLEAN, OK_NOT_OK, POSITIVE_NEGATIVE
+      const persistedText = pRes.text_value ? pRes.text_value.trim() : null;
+      const subText = sub.text_value ? sub.text_value.trim() : null;
+      if (persistedText !== subText) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
 export async function completeSession(
   reqOrUser: Request | User,
   sessionIdParam: string | number | bigint,
@@ -856,6 +974,22 @@ export async function completeSession(
       zmcc: true,
       starter: true,
       completer: true,
+      mot_arrival: {
+        include: {
+          journey: {
+            include: {
+              route: true,
+              mot_vehicle: true,
+              mot_profile: true,
+            },
+          },
+        },
+      },
+      contractor_arrival: {
+        include: {
+          contractor_source: true,
+        },
+      },
       results: {
         orderBy: { display_order_snapshot: 'asc' },
       },
@@ -863,7 +997,7 @@ export async function completeSession(
   });
 
   if (existingByEvent) {
-    if (existingByEvent.id === sessionId && existingByEvent.decision === decision) {
+    if (matchesPersistedSessionCompletion(existingByEvent, sessionId, payload)) {
       return {
         status: 200,
         data: serializeLabSession(existingByEvent),
@@ -916,15 +1050,34 @@ export async function completeSession(
   // Verify all required tests are submitted and valid
   for (const snap of session.results) {
     const submitted = submittedMap.get(snap.test_id.toString());
-    if (snap.is_required_snapshot) {
+    const resType = snap.result_type_snapshot;
+
+    if (resType === 'CALCULATED') {
+      if (submitted && (submitted.numeric_value != null || (submitted.text_value != null && submitted.text_value.trim() !== ''))) {
+        return {
+          status: 400,
+          error: `Calculated ZMCC lab test ${snap.test_code_snapshot} has no canonical calculation owner and cannot be manually modified.`,
+        };
+      }
+      if (snap.is_required_snapshot) {
+        return {
+          status: 400,
+          error: `Calculated ZMCC lab test ${snap.test_code_snapshot} has no canonical calculation owner.`,
+        };
+      }
+    } else if (snap.is_required_snapshot) {
       if (!submitted) {
         return { status: 400, error: `Required test "${snap.test_name_snapshot}" (${snap.test_code_snapshot}) is missing a result.` };
       }
-      if (snap.result_type_snapshot === 'NUMERIC') {
+      if (resType === 'NUMERIC') {
         if (submitted.numeric_value === undefined || submitted.numeric_value === null || isNaN(Number(submitted.numeric_value))) {
           return { status: 400, error: `Required numeric test "${snap.test_name_snapshot}" must have a valid numeric value.` };
         }
-      } else {
+      } else if (resType === 'TEXT') {
+        if (!submitted.text_value || !submitted.text_value.trim()) {
+          return { status: 400, error: `Required text test "${snap.test_name_snapshot}" must have a valid text value.` };
+        }
+      } else if (['QUALITATIVE', 'BOOLEAN', 'OK_NOT_OK', 'POSITIVE_NEGATIVE'].includes(resType)) {
         if (!submitted.text_value || !submitted.text_value.trim()) {
           return { status: 400, error: `Required categorical test "${snap.test_name_snapshot}" must have a selected value.` };
         }
@@ -932,14 +1085,16 @@ export async function completeSession(
     }
 
     if (submitted) {
-      if (snap.result_type_snapshot === 'NUMERIC') {
+      if (resType === 'NUMERIC') {
         if (submitted.numeric_value !== undefined && submitted.numeric_value !== null) {
           const n = Number(submitted.numeric_value);
           if (isNaN(n) || n < 0) {
             return { status: 400, error: `Numeric value for test ${snap.test_code_snapshot} must be non-negative.` };
           }
         }
-      } else {
+      } else if (resType === 'TEXT') {
+        // Free text allowed
+      } else if (['QUALITATIVE', 'BOOLEAN', 'OK_NOT_OK', 'POSITIVE_NEGATIVE'].includes(resType)) {
         if (submitted.text_value && submitted.text_value.trim()) {
           const rawText = submitted.text_value.trim().toUpperCase();
           const options = snap.result_options_snapshot as any[];
@@ -956,13 +1111,16 @@ export async function completeSession(
   try {
     const completedSession = await prisma.$transaction(async (tx) => {
       // Row-level lock
-      const lockedSessionRows: Array<{ id: bigint; status: string }> = await tx.$queryRaw`
-        SELECT id, status FROM zmcc_lab_session WHERE id = ${sessionId} FOR UPDATE
+      const lockedSessionRows: Array<{ id: bigint; status: string; completion_client_event_id: string | null }> = await tx.$queryRaw`
+        SELECT id, status, completion_client_event_id FROM zmcc_lab_session WHERE id = ${sessionId} FOR UPDATE
       `;
       if (!lockedSessionRows || lockedSessionRows.length === 0) {
         throw new Error('SESSION_NOT_FOUND');
       }
       if (lockedSessionRows[0].status === 'COMPLETED') {
+        if (lockedSessionRows[0].completion_client_event_id === clientEventId) {
+          throw new Error('REPLAY_MATCH_CHECK');
+        }
         throw new Error('SESSION_ALREADY_COMPLETED');
       }
 
@@ -971,13 +1129,16 @@ export async function completeSession(
         const testIdStr = String(item.test_id).trim();
         const existing = sessionResultsMap.get(testIdStr);
         if (!existing) continue;
+        const resType = existing.result_type_snapshot;
 
         let numVal: Prisma.Decimal | null = null;
         let txtVal: string | null = null;
         let isPassed: boolean | null = null;
         let evalStatus = 'PENDING';
 
-        if (existing.result_type_snapshot === 'NUMERIC') {
+        if (resType === 'CALCULATED') {
+          continue;
+        } else if (resType === 'NUMERIC') {
           if (item.numeric_value !== undefined && item.numeric_value !== null) {
             const n = Number(item.numeric_value);
             numVal = new Prisma.Decimal(n.toFixed(4));
@@ -990,6 +1151,12 @@ export async function completeSession(
             );
             isPassed = evaluation.isPassed;
             evalStatus = evaluation.status;
+          }
+        } else if (resType === 'TEXT') {
+          if (item.text_value && item.text_value.trim()) {
+            txtVal = item.text_value.trim();
+            evalStatus = 'NEUTRAL';
+            isPassed = null;
           }
         } else {
           if (item.text_value && item.text_value.trim()) {
@@ -1086,10 +1253,91 @@ export async function completeSession(
       data: serializeLabSession(completedSession),
     };
   } catch (err: any) {
-    if (err.message === 'SESSION_ALREADY_COMPLETED') {
+    if (err.message === 'REPLAY_MATCH_CHECK' || err.message === 'SESSION_ALREADY_COMPLETED') {
+      const completedExisting = await prisma.zmccLabSession.findUnique({
+        where: { id: sessionId },
+        include: {
+          zmcc: true,
+          starter: true,
+          completer: true,
+          mot_arrival: {
+            include: {
+              journey: {
+                include: {
+                  route: true,
+                  mot_vehicle: true,
+                  mot_profile: true,
+                },
+              },
+            },
+          },
+          contractor_arrival: {
+            include: {
+              contractor_source: true,
+            },
+          },
+          results: {
+            orderBy: { display_order_snapshot: 'asc' },
+          },
+        },
+      });
+
+      if (completedExisting && completedExisting.completion_client_event_id === clientEventId) {
+        if (matchesPersistedSessionCompletion(completedExisting, sessionId, payload)) {
+          return {
+            status: 200,
+            data: serializeLabSession(completedExisting),
+          };
+        } else {
+          return {
+            status: 409,
+            error: 'Conflict. completion_client_event_id was already used for a different completion payload.',
+          };
+        }
+      }
       return { status: 409, error: 'ZMCC Lab session is already completed.' };
     }
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      const owningSession = await prisma.zmccLabSession.findUnique({
+        where: { completion_client_event_id: clientEventId },
+        include: {
+          zmcc: true,
+          starter: true,
+          completer: true,
+          mot_arrival: {
+            include: {
+              journey: {
+                include: {
+                  route: true,
+                  mot_vehicle: true,
+                  mot_profile: true,
+                },
+              },
+            },
+          },
+          contractor_arrival: {
+            include: {
+              contractor_source: true,
+            },
+          },
+          results: {
+            orderBy: { display_order_snapshot: 'asc' },
+          },
+        },
+      });
+
+      if (owningSession) {
+        if (matchesPersistedSessionCompletion(owningSession, sessionId, payload)) {
+          return {
+            status: 200,
+            data: serializeLabSession(owningSession),
+          };
+        }
+        return {
+          status: 409,
+          error: 'Conflict. completion_client_event_id was already used for a different completion payload.',
+        };
+      }
       return { status: 409, error: 'Conflict. completion_client_event_id collision detected.' };
     }
     console.error('completeSession error:', err);
@@ -1182,14 +1430,24 @@ export async function correctCompletedSession(
       if (!snap) {
         return { status: 400, error: `Test ID ${testIdStr} does not belong to this session.` };
       }
-      if (snap.result_type_snapshot === 'NUMERIC') {
+      const resType = snap.result_type_snapshot;
+      if (resType === 'CALCULATED') {
+        if (item.numeric_value != null || (item.text_value != null && item.text_value.trim() !== '')) {
+          return {
+            status: 400,
+            error: `Calculated ZMCC lab test ${snap.test_code_snapshot} has no canonical calculation owner and cannot be manually modified.`,
+          };
+        }
+      } else if (resType === 'NUMERIC') {
         if (item.numeric_value !== undefined && item.numeric_value !== null) {
           const n = Number(item.numeric_value);
           if (isNaN(n) || n < 0) {
             return { status: 400, error: `Numeric value for test ${snap.test_code_snapshot} must be non-negative.` };
           }
         }
-      } else {
+      } else if (resType === 'TEXT') {
+        // Free text allowed
+      } else if (['QUALITATIVE', 'BOOLEAN', 'OK_NOT_OK', 'POSITIVE_NEGATIVE'].includes(resType)) {
         if (item.text_value && item.text_value.trim()) {
           const rawText = item.text_value.trim().toUpperCase();
           const options = snap.result_options_snapshot as any[];
@@ -1243,8 +1501,11 @@ export async function correctCompletedSession(
           let txtVal: string | null = snap.text_value;
           let isPassed: boolean | null = snap.is_passed;
           let evalStatus = snap.evaluation_status || 'PENDING';
+          const resType = snap.result_type_snapshot;
 
-          if (snap.result_type_snapshot === 'NUMERIC') {
+          if (resType === 'CALCULATED') {
+            continue;
+          } else if (resType === 'NUMERIC') {
             if (item.numeric_value !== undefined) {
               if (item.numeric_value === null) {
                 numVal = null;
@@ -1262,6 +1523,18 @@ export async function correctCompletedSession(
                 );
                 isPassed = evalRes.isPassed;
                 evalStatus = evalRes.status;
+              }
+            }
+          } else if (resType === 'TEXT') {
+            if (item.text_value !== undefined) {
+              if (item.text_value === null || !item.text_value.trim()) {
+                txtVal = null;
+                isPassed = null;
+                evalStatus = 'PENDING';
+              } else {
+                txtVal = item.text_value.trim();
+                evalStatus = 'NEUTRAL';
+                isPassed = null;
               }
             }
           } else {
@@ -1391,9 +1664,15 @@ export async function getLabHistory(
     where.decision = query.decision.toUpperCase();
   }
 
-  if (query.date) {
-    const start = new Date(`${query.date}T00:00:00.000Z`);
-    const end = new Date(`${query.date}T23:59:59.999Z`);
+  if (query.date !== undefined && query.date !== null && query.date !== '') {
+    if (!isValidDateOnly(query.date)) {
+      return {
+        status: 400,
+        error: 'Invalid date parameter. Expected valid calendar date in YYYY-MM-DD format.',
+      };
+    }
+    const start = new Date(`${query.date}T00:00:00.000+05:00`);
+    const end = new Date(`${query.date}T23:59:59.999+05:00`);
     where.completed_at = {
       gte: start,
       lte: end,
