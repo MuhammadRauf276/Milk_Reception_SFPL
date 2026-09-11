@@ -980,7 +980,7 @@ async function runStage6dTests() {
   const status1 = res1.status;
   const status2 = res2.status;
   assert(
-    (status1 === 201 && status2 === 200) || (status1 === 200 && status2 === 201) || (status1 === 201 && status2 === 201),
+    (status1 === 201 && status2 === 200) || (status1 === 200 && status2 === 201),
     'CONCURRENT_IDEMPOTENT_SUBMIT',
     `Concurrent requests with same event ID both succeed (statuses: ${status1}, ${status2})`
   );
@@ -993,6 +993,52 @@ async function runStage6dTests() {
     stop2Collections.length === 1,
     'CONCURRENT_EXACTLY_ONE_CREATED',
     'Exactly one collection record was created under concurrency.'
+  );
+
+  const stop2Col = stop2Collections[0];
+
+  // Verify exactly 1 SMS outbox row created
+  const stop2Sms = await prisma.motCollectionSmsOutbox.findMany({
+    where: { collection_id: stop2Col.id },
+  });
+  assert(
+    stop2Sms.length === 1,
+    'CONCURRENT_EXACTLY_ONE_SMS',
+    'Exactly one SMS outbox row created under concurrency.'
+  );
+
+  // Verify exactly 1 audit log row created
+  const stop2Audits = await prisma.auditLog.findMany({
+    where: {
+      table_name: 'mot_shop_collection',
+      record_id: stop2Col.id,
+      action: 'MOT_SHOP_COLLECTION_SUBMITTED',
+    },
+  });
+  assert(
+    stop2Audits.length === 1,
+    'CONCURRENT_EXACTLY_ONE_AUDIT',
+    'Exactly one audit log row created under concurrency.'
+  );
+
+  // Verify stop status is VISITED
+  const stop2Refreshed = await prisma.motJourneyStop.findUnique({
+    where: { id: stop2.id },
+  });
+  assert(
+    stop2Refreshed?.status === 'VISITED',
+    'CONCURRENT_STOP_VISITED',
+    'Stop 2 status transitioned to VISITED.'
+  );
+
+  // Verify exactly 1 location row created
+  const stop2Locations = await prisma.motJourneyLocation.findMany({
+    where: { idempotency_key: `${concurrentEventId}-loc` },
+  });
+  assert(
+    stop2Locations.length === 1,
+    'CONCURRENT_EXACTLY_ONE_LOCATION',
+    'Exactly one location row created under concurrency.'
   );
 
   // ---------------------------------------------------------------------------

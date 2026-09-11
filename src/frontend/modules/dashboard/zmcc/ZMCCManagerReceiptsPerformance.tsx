@@ -309,13 +309,13 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
                       Token: {item.tokenNumber}
                     </span>
                   )}
-                  {item.isCompletedReceipt && item.finalReceiptBusinessDate ? (
+                  {item.isCompletedReceipt && item.finalReceiptDate ? (
                     <span className="text-xs font-mono font-bold text-emerald-800">
-                      Final Receipt Business Date: {item.finalReceiptBusinessDate}
+                      Final Receipt Date: {item.finalReceiptDate}
                     </span>
                   ) : (
                     <span className="text-xs font-mono font-bold text-slate-600">
-                      Business Date: {item.dispatchBusinessDate || 'Pending plant completion'}
+                      Dispatch Date: {item.dispatchDate || 'Pending plant completion'}
                     </span>
                   )}
                   <span

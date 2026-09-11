@@ -406,9 +406,12 @@ export async function getOperationalLogs(
         ? getPakistanCalendarDate(finalReceiptTs)
         : null;
 
-      const reportingBusinessDate = Boolean(finalizedReceipt)
-        ? (finalizedBusinessDate || finalReceiptDate)
-        : (finalizedBusinessDate || dispatchDateStr);
+      // Generic reporting date: ordinary PKT calendar date of Final Receipt if finalized,
+      // otherwise ordinary dispatch calendar date.
+      // This is an event/calendar date concept, NOT a Plant Business Date.
+      const reportingDate = Boolean(finalizedReceipt)
+        ? finalReceiptDate
+        : dispatchDateStr;
 
       // Build dynamic configured and historical lab test results for this portion
       const dispatchResultMap = new Map<string, (typeof portion.dispatch_lab_results)[0]>();
@@ -673,8 +676,7 @@ export async function getOperationalLogs(
           final_receipt_transaction_id: finalizedReceipt ? Number(finalizedReceipt.id) : null,
           final_receipt_timestamp: finalReceiptTs,
           final_receipt_date: finalReceiptDate,
-          final_receipt_business_date: finalReceiptDate,
-          reporting_business_date: reportingBusinessDate,
+          reporting_date: reportingDate,
           authoritative_final_liters: finalizedReceipt?.quantity_liters
             ? Number(finalizedReceipt.quantity_liters)
             : null,
@@ -694,10 +696,10 @@ export async function getOperationalLogs(
 
     if (filters?.dateBasis === 'reporting') {
       if (filters.fromDate) {
-        filtered = filtered.filter((l) => l.reporting_business_date && l.reporting_business_date >= filters.fromDate!);
+        filtered = filtered.filter((l) => l.reporting_date && l.reporting_date >= filters.fromDate!);
       }
       if (filters.toDate) {
-        filtered = filtered.filter((l) => l.reporting_business_date && l.reporting_business_date <= filters.toDate!);
+        filtered = filtered.filter((l) => l.reporting_date && l.reporting_date <= filters.toDate!);
       }
     } else {
       if (filters?.fromDate) {

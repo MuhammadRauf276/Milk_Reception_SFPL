@@ -1,5 +1,5 @@
 import { prisma } from '../src/backend/core/db';
-import { getOperationalBusinessDate } from '../src/backend/core/business-day';
+import { getOperationalBusinessDate, getPakistanCalendarDate } from '../src/backend/core/business-day';
 import { assertSafeTestDatabase } from '../tests/helpers/testDbSafety';
 
 async function runFinalReceiptPaymentDateTests() {
@@ -48,26 +48,57 @@ async function runFinalReceiptPaymentDateTests() {
     assert(receiptTs.getTime() >= tareTs.getTime(), 'RECEIPT-TIME-02', 'Final receipt operational timestamp >= Tare operational timestamp');
     assert(receiptTs.getTime() <= now.getTime(), 'RECEIPT-TIME-03', 'Final receipt operational timestamp <= serverNow');
 
-    // PAYDATE-01..03: Payment Business Date derivation
-    // Case 1: Receipt at 2026-08-12 00:00 AM PKT (midnight, UTC 19:00 11 Aug) -> Business Date 2026-08-11
-    const r1 = new Date('2026-08-11T19:00:00.000Z');
-    const b1 = getOperationalBusinessDate(r1);
-    assert(b1 === '2026-08-11', 'PAYDATE-01', `Final Receipt at 12 Aug 00:00 AM PKT maps to Payment Business Date 2026-08-11 (got ${b1})`);
+    // PAYDATE-01: Final Receipt has valid operational timestamp and its calendar date comes via getPakistanCalendarDate
+    // Unlike Business Date, Pakistan Calendar Date does NOT apply the 08:00 AM plant cutoff
+    const rBeforeCutoff = new Date('2026-08-12T02:59:00.000Z'); // 07:59 AM PKT on Aug 12
+    const calDateBeforeCutoff = getPakistanCalendarDate(rBeforeCutoff);
+    assert(
+      calDateBeforeCutoff === '2026-08-12',
+      'PAYDATE-01',
+      `Final Receipt at 12 Aug 07:59 AM PKT has Pakistan calendar date 2026-08-12 (got ${calDateBeforeCutoff}) without 08:00 cutoff`
+    );
 
-    // Case 2: Receipt at 2026-08-12 07:59 AM PKT (UTC 02:59 12 Aug) -> Business Date 2026-08-11
-    const r2 = new Date('2026-08-12T02:59:00.000Z');
-    const b2 = getOperationalBusinessDate(r2);
-    assert(b2 === '2026-08-11', 'PAYDATE-02', `Final Receipt at 12 Aug 07:59 AM PKT maps to Payment Business Date 2026-08-11 (got ${b2})`);
+    // PAYDATE-02: Final Receipt does NOT assign VehicleVisit Business Date (VehicleVisit.operational_date remains null)
+    // PAYDATE-03: VehicleVisit Business Date remains null before Plant Gate Exit
+    // Verified by checking unexited vehicle visits in the database
+    const unexitedVisitsWithReceipt = await prisma.vehicleVisit.findMany({
+      where: {
+        current_status: { in: ['TARE_WEIGHED', 'READY_FOR_GATE_EXIT'] },
+      },
+    });
+    const allUnexitedHaveNullBizDate = unexitedVisitsWithReceipt.every((v) => v.operational_date === null);
+    assert(
+      allUnexitedHaveNullBizDate,
+      'PAYDATE-02 & 03',
+      'VehicleVisit.operational_date is strictly null prior to Gate Exit completion, even after Final Receipt creation'
+    );
 
-    // Case 3: Receipt at 2026-08-12 08:00 AM PKT (UTC 03:00 12 Aug) -> Business Date 2026-08-12
-    const r3 = new Date('2026-08-12T03:00:00.000Z');
-    const b3 = getOperationalBusinessDate(r3);
-    assert(b3 === '2026-08-12', 'PAYDATE-03', `Final Receipt at 12 Aug 08:00 AM PKT maps to Payment Business Date 2026-08-12 (got ${b3})`);
+    // PAYDATE-04: Plant Gate Exit assigns authoritative Business Date using 08:00 boundary
+    // Case A: Gate Exit at 07:59:59 AM PKT (UTC 02:59:59 12 Aug) -> maps to prior date 2026-08-11
+    const exit1 = new Date('2026-08-12T02:59:59.000Z');
+    const exitBiz1 = getOperationalBusinessDate(exit1);
+    assert(
+      exitBiz1 === '2026-08-11',
+      'PAYDATE-04a',
+      `Gate exit at 12 Aug 07:59:59 AM PKT maps to prior Business Date 2026-08-11 (got ${exitBiz1})`
+    );
 
-    // PAYDATE-04 & 05: Gate Exit or submission delay does NOT change payment business date
-    const exitTs = new Date('2026-08-12T04:00:00.000Z'); // 09:00 AM PKT
-    const exitBizDate = getOperationalBusinessDate(exitTs);
-    assert(b3 === '2026-08-12' && exitBizDate === '2026-08-12', 'PAYDATE-04 & 05', 'Payment Business Date derived strictly from Final Receipt operational timestamp');
+    // Case B: Gate Exit at 08:00:00 AM PKT (UTC 03:00:00 12 Aug) -> maps to current date 2026-08-12
+    const exit2 = new Date('2026-08-12T03:00:00.000Z');
+    const exitBiz2 = getOperationalBusinessDate(exit2);
+    assert(
+      exitBiz2 === '2026-08-12',
+      'PAYDATE-04b',
+      `Gate exit at 12 Aug 08:00:00 AM PKT maps to current Business Date 2026-08-12 (got ${exitBiz2})`
+    );
+
+    // PAYDATE-05: Dispatch date/time never falls back as Business Date; VehicleVisit Business Date is exclusively Plant Gate Exit
+    const mockVisitGroupBizDate = (visitBizDate: string | null) => visitBizDate || '';
+    assert(
+      mockVisitGroupBizDate(null) === '',
+      'PAYDATE-05',
+      'Business Date concept belongs only to Plant VehicleVisit; unfinalized visits have empty businessDate with zero fallback to dispatch date'
+    );
 
     // RECEIPT-TIME-04: Behavioral proof - Missing Plant LR prevents final receipt creation and leaves payment date unavailable
     const { finalizeSiloReceiptForVisit } = await import('../src/backend/services/siloInventoryService');

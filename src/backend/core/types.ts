@@ -314,8 +314,7 @@ export interface MilkProcessLog {
   final_receipt_transaction_id?: number | null;
   final_receipt_timestamp?: string | null;
   final_receipt_date?: string | null;
-  final_receipt_business_date?: string | null;
-  reporting_business_date?: string | null;
+  reporting_date?: string | null;
   authoritative_final_liters?: number | null;
 
   // DYNAMIC CONFIGURED LAB RESULTS

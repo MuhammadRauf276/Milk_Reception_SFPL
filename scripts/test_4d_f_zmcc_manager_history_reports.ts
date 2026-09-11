@@ -133,8 +133,8 @@ async function run4DFTests() {
   });
   const itemsF4 = deriveHistoryTransactionItems(buildVehicleVisitGroups([logF4]));
   assert(
-    itemsF4[0].businessDate === '2026-08-23' && itemsF4[0].finalReceiptBusinessDate === '2026-08-25',
-    'F4: Cross-date receipt preserves original Visit/Dispatch Business Date (2026-08-23) in History'
+    itemsF4[0].dispatchDate === '2026-08-23' && itemsF4[0].finalReceiptDate === '2026-08-25',
+    'F4: Cross-date receipt preserves original Visit/Dispatch Date (2026-08-23) in History'
   );
 
   // F5: Authoritative vehicle Gross Liters is used
