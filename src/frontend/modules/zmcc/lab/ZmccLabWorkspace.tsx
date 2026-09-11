@@ -869,16 +869,24 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                         )}
                       </td>
                       <td className="py-3.5 px-4">
-                        {item.correction_count > 0 ? (
-                          <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded">
-                            {item.correction_count} / 2 corrected
-                          </span>
-                        ) : (
-                          <span className="text-slate-400">0 / 2</span>
-                        )}
+                        <div className="space-y-0.5">
+                          <div className="font-semibold text-slate-700">
+                            Total Changes: {item.correction_count ?? 0}
+                          </div>
+                          {isZmccManager && (
+                            <div className="text-[10px] text-slate-500">
+                              Restricted: {item.restricted_correction_count ?? 0} / 2
+                            </div>
+                          )}
+                          {item.last_corrected_at && (
+                            <div className="text-[10px] text-slate-400">
+                              Last by {item.last_corrector?.full_name || item.last_corrector?.username || 'user'}
+                            </div>
+                          )}
+                        </div>
                       </td>
                       <td className="py-3.5 px-4 text-right">
-                        {canCorrect && item.correction_count < 2 ? (
+                        {canCorrect && (isSuperAdmin || (item.restricted_correction_count ?? 0) < 2) ? (
                           <button
                             onClick={() => openCorrection(item)}
                             className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-[#1E3A8A] bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
@@ -991,7 +999,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
               <div className="flex items-center gap-2">
                 <ShieldAlert className="w-5 h-5 text-amber-600" />
                 <h3 className="font-bold text-slate-800 text-base">
-                  Manager Correction: Session #{selectedHistorySession.id}
+                  {isSuperAdmin ? 'Super Admin Correction' : 'Manager Correction'}: Session #{selectedHistorySession.id}
                 </h3>
               </div>
               <button
@@ -1003,7 +1011,10 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
             </div>
 
             <div className="text-xs text-slate-600 bg-amber-50 p-3 rounded-xl border border-amber-200">
-              <strong>Supervisory Correction Policy:</strong> Up to 2 corrections permitted per session. All changes are permanently recorded in the immutable audit log with your user ID and timestamp.
+              <strong>Supervisory Correction Policy:</strong>{' '}
+              {isSuperAdmin
+                ? 'Super Admin corrections are unlimited, but every change is counted and permanently audited.'
+                : 'Manager corrections are limited to 2 per session. All changes are permanently recorded in the immutable audit log.'}
             </div>
 
             {/* Reason */}

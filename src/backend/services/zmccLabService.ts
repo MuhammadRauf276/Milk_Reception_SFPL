@@ -194,6 +194,9 @@ export function serializeLabSession(session: any) {
     remarks: session.remarks,
     completion_client_event_id: session.completion_client_event_id,
     correction_count: session.correction_count,
+    restricted_correction_count: session.restricted_correction_count ?? 0,
+    last_corrected_by_user_id: session.last_corrected_by_user_id ? session.last_corrected_by_user_id.toString() : null,
+    last_corrected_at: session.last_corrected_at instanceof Date ? session.last_corrected_at.toISOString() : session.last_corrected_at,
     created_at: session.created_at instanceof Date ? session.created_at.toISOString() : session.created_at,
     updated_at: session.updated_at instanceof Date ? session.updated_at.toISOString() : session.updated_at,
     zmcc: session.zmcc
@@ -216,6 +219,13 @@ export function serializeLabSession(session: any) {
           id: session.completer.id.toString(),
           username: session.completer.username,
           full_name: session.completer.full_name,
+        }
+      : undefined,
+    last_corrector: session.last_corrector
+      ? {
+          id: session.last_corrector.id.toString(),
+          username: session.last_corrector.username,
+          full_name: session.last_corrector.full_name,
         }
       : undefined,
     mot_arrival: session.mot_arrival
@@ -579,6 +589,7 @@ export async function startOrResumeSession(
           zmcc: true,
           starter: true,
           completer: true,
+          last_corrector: true,
           results: {
             orderBy: { display_order_snapshot: 'asc' },
           },
@@ -601,6 +612,7 @@ export async function startOrResumeSession(
           zmcc: true,
           starter: true,
           completer: true,
+          last_corrector: true,
           results: {
             orderBy: { display_order_snapshot: 'asc' },
           },
@@ -639,6 +651,7 @@ export async function getSessionById(
       zmcc: true,
       starter: true,
       completer: true,
+      last_corrector: true,
       mot_arrival: {
         include: {
           journey: {
@@ -974,6 +987,7 @@ export async function completeSession(
       zmcc: true,
       starter: true,
       completer: true,
+      last_corrector: true,
       mot_arrival: {
         include: {
           journey: {
@@ -1047,10 +1061,27 @@ export async function completeSession(
   const sessionResultsMap = new Map(session.results.map((r) => [r.test_id.toString(), r]));
   const submittedMap = new Map(results.map((r) => [String(r.test_id).trim(), r]));
 
-  // Verify all required tests are submitted and valid
+  // Reject duplicate test_id entries and unknown test IDs in payload
+  const submittedTidSet = new Set<string>();
+  for (const item of results) {
+    if (!item || item.test_id === undefined || item.test_id === null) {
+      return { status: 400, error: 'Every result entry must specify test_id.' };
+    }
+    const tidStr = String(item.test_id).trim();
+    if (submittedTidSet.has(tidStr)) {
+      return { status: 400, error: `Duplicate test_id "${tidStr}" in completion payload.` };
+    }
+    if (!sessionResultsMap.has(tidStr)) {
+      return { status: 400, error: `Test ID "${tidStr}" does not belong to this testing session.` };
+    }
+    submittedTidSet.add(tidStr);
+  }
+
+  // Verify all frozen non-CALCULATED tests are present in submitted payload
   for (const snap of session.results) {
-    const submitted = submittedMap.get(snap.test_id.toString());
+    const tid = snap.test_id.toString();
     const resType = snap.result_type_snapshot;
+    const submitted = submittedMap.get(tid);
 
     if (resType === 'CALCULATED') {
       if (submitted && (submitted.numeric_value != null || (submitted.text_value != null && submitted.text_value.trim() !== ''))) {
@@ -1065,10 +1096,17 @@ export async function completeSession(
           error: `Calculated ZMCC lab test ${snap.test_code_snapshot} has no canonical calculation owner.`,
         };
       }
-    } else if (snap.is_required_snapshot) {
-      if (!submitted) {
-        return { status: 400, error: `Required test "${snap.test_name_snapshot}" (${snap.test_code_snapshot}) is missing a result.` };
-      }
+      continue;
+    }
+
+    if (!submitted) {
+      return {
+        status: 400,
+        error: `Missing result entry for test "${snap.test_name_snapshot}" (${snap.test_code_snapshot}). Completion payload must contain every frozen test.`,
+      };
+    }
+
+    if (snap.is_required_snapshot) {
       if (resType === 'NUMERIC') {
         if (submitted.numeric_value === undefined || submitted.numeric_value === null || isNaN(Number(submitted.numeric_value))) {
           return { status: 400, error: `Required numeric test "${snap.test_name_snapshot}" must have a valid numeric value.` };
@@ -1084,24 +1122,22 @@ export async function completeSession(
       }
     }
 
-    if (submitted) {
-      if (resType === 'NUMERIC') {
-        if (submitted.numeric_value !== undefined && submitted.numeric_value !== null) {
-          const n = Number(submitted.numeric_value);
-          if (isNaN(n) || n < 0) {
-            return { status: 400, error: `Numeric value for test ${snap.test_code_snapshot} must be non-negative.` };
-          }
+    if (resType === 'NUMERIC') {
+      if (submitted.numeric_value !== undefined && submitted.numeric_value !== null) {
+        const n = Number(submitted.numeric_value);
+        if (isNaN(n) || n < 0) {
+          return { status: 400, error: `Numeric value for test ${snap.test_code_snapshot} must be non-negative.` };
         }
-      } else if (resType === 'TEXT') {
-        // Free text allowed
-      } else if (['QUALITATIVE', 'BOOLEAN', 'OK_NOT_OK', 'POSITIVE_NEGATIVE'].includes(resType)) {
-        if (submitted.text_value && submitted.text_value.trim()) {
-          const rawText = submitted.text_value.trim().toUpperCase();
-          const options = snap.result_options_snapshot as any[];
-          const isValid = validateCategoricalOption(snap.result_type_snapshot, rawText, options);
-          if (!isValid) {
-            return { status: 400, error: `Invalid option "${submitted.text_value}" for test ${snap.test_code_snapshot}.` };
-          }
+      }
+    } else if (resType === 'TEXT') {
+      // Free text allowed
+    } else if (['QUALITATIVE', 'BOOLEAN', 'OK_NOT_OK', 'POSITIVE_NEGATIVE'].includes(resType)) {
+      if (submitted.text_value && submitted.text_value.trim()) {
+        const rawText = submitted.text_value.trim().toUpperCase();
+        const options = snap.result_options_snapshot as any[];
+        const isValid = validateCategoricalOption(snap.result_type_snapshot, rawText, options);
+        if (!isValid) {
+          return { status: 400, error: `Invalid option "${submitted.text_value}" for test ${snap.test_code_snapshot}.` };
         }
       }
     }
@@ -1205,6 +1241,7 @@ export async function completeSession(
           zmcc: true,
           starter: true,
           completer: true,
+          last_corrector: true,
           mot_arrival: {
             include: {
               journey: {
@@ -1260,6 +1297,7 @@ export async function completeSession(
           zmcc: true,
           starter: true,
           completer: true,
+          last_corrector: true,
           mot_arrival: {
             include: {
               journey: {
@@ -1304,6 +1342,7 @@ export async function completeSession(
           zmcc: true,
           starter: true,
           completer: true,
+          last_corrector: true,
           mot_arrival: {
             include: {
               journey: {
@@ -1400,7 +1439,7 @@ export async function correctCompletedSession(
     return { status: 400, error: 'Only COMPLETED lab sessions can be corrected.' };
   }
 
-  if (session.correction_count >= 2) {
+  if (!auth.isSuperAdmin && (session.restricted_correction_count ?? 0) >= 2) {
     return { status: 400, error: 'Maximum correction limit (2) reached for this lab session.' };
   }
 
@@ -1463,16 +1502,18 @@ export async function correctCompletedSession(
   // Row-lock correction transaction
   try {
     const correctedSession = await prisma.$transaction(async (tx) => {
-      const lockedRows: Array<{ id: bigint; correction_count: number }> = await tx.$queryRaw`
-        SELECT id, correction_count FROM zmcc_lab_session WHERE id = ${sessionId} FOR UPDATE
+      const lockedRows: Array<{ id: bigint; correction_count: number; restricted_correction_count: number }> = await tx.$queryRaw`
+        SELECT id, correction_count, restricted_correction_count FROM zmcc_lab_session WHERE id = ${sessionId} FOR UPDATE
       `;
 
       if (!lockedRows || lockedRows.length === 0) {
         throw new Error('SESSION_NOT_FOUND');
       }
 
-      const currentCount = lockedRows[0].correction_count;
-      if (currentCount >= 2) {
+      const currentTotalCount = lockedRows[0].correction_count;
+      const currentRestrictedCount = lockedRows[0].restricted_correction_count ?? 0;
+
+      if (!auth.isSuperAdmin && currentRestrictedCount >= 2) {
         throw new Error('MAX_CORRECTIONS_REACHED');
       }
 
@@ -1480,15 +1521,23 @@ export async function correctCompletedSession(
         decision: session.decision,
         rejection_reason: session.rejection_reason,
         remarks: session.remarks,
-        correction_count: currentCount,
+        correction_count: currentTotalCount,
+        restricted_correction_count: currentRestrictedCount,
       };
+
+      const newTotalCount = currentTotalCount + 1;
+      const newRestrictedCount = auth.isSuperAdmin ? currentRestrictedCount : currentRestrictedCount + 1;
+      const correctionTimestamp = new Date();
 
       const newValues: any = {
         decision: effectiveDecision,
         rejection_reason: effectiveRejectionReason,
         remarks: remarks !== undefined ? (remarks ? remarks.trim() : null) : session.remarks,
-        correction_count: currentCount + 1,
+        correction_count: newTotalCount,
+        restricted_correction_count: newRestrictedCount,
         correction_reason: reasonTrimmed,
+        actor_user_id: auth.actorUserId.toString(),
+        is_super_admin: auth.isSuperAdmin,
       };
 
       if (Array.isArray(results)) {
@@ -1570,7 +1619,7 @@ export async function correctCompletedSession(
               text_value: txtVal,
               is_passed: isPassed,
               evaluation_status: evalStatus,
-              recorded_at: new Date(),
+              recorded_at: correctionTimestamp,
             },
           });
         }
@@ -1582,12 +1631,16 @@ export async function correctCompletedSession(
           decision: effectiveDecision,
           rejection_reason: effectiveRejectionReason,
           remarks: remarks !== undefined ? (remarks ? remarks.trim() : null) : session.remarks,
-          correction_count: currentCount + 1,
+          correction_count: newTotalCount,
+          restricted_correction_count: newRestrictedCount,
+          last_corrected_by_user_id: auth.actorUserId,
+          last_corrected_at: correctionTimestamp,
         },
         include: {
           zmcc: true,
           starter: true,
           completer: true,
+          last_corrector: true,
           mot_arrival: {
             include: {
               journey: {
@@ -1702,6 +1755,7 @@ export async function getLabHistory(
         zmcc: true,
         starter: true,
         completer: true,
+        last_corrector: true,
         mot_arrival: {
           include: {
             journey: {

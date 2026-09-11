@@ -69,6 +69,7 @@ model User {
   submitted_mot_collections  MotShopCollection[]        @relation("MotCollectionSubmittedBy")
   started_zmcc_lab_sessions   ZmccLabSession[]           @relation("ZmccLabStartedBy")
   completed_zmcc_lab_sessions ZmccLabSession[]           @relation("ZmccLabCompletedBy")
+  last_corrected_zmcc_lab_sessions ZmccLabSession[]      @relation("ZmccLabLastCorrectedBy")
 
   @@map("users")
 }
@@ -988,6 +989,9 @@ model ZmccLabSession {
   remarks                    String?   @map("remarks") @db.Text
   completion_client_event_id String?   @unique @map("completion_client_event_id") @db.VarChar(255)
   correction_count           Int       @default(0) @map("correction_count")
+  restricted_correction_count Int      @default(0) @map("restricted_correction_count")
+  last_corrected_by_user_id  BigInt?   @map("last_corrected_by_user_id")
+  last_corrected_at          DateTime? @map("last_corrected_at") @db.Timestamp(6)
   created_at                 DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
   updated_at                 DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
 
@@ -997,6 +1001,7 @@ model ZmccLabSession {
   contractor_arrival ZmccContractorArrival? @relation("ContractorArrivalLabSession", fields: [contractor_arrival_id], references: [id], onDelete: Restrict)
   starter            User                   @relation("ZmccLabStartedBy", fields: [started_by_user_id], references: [id], onDelete: Restrict)
   completer          User?                  @relation("ZmccLabCompletedBy", fields: [completed_by_user_id], references: [id], onDelete: Restrict)
+  last_corrector     User?                  @relation("ZmccLabLastCorrectedBy", fields: [last_corrected_by_user_id], references: [id], onDelete: Restrict)
   results            ZmccLabResult[]
 
   @@index([zmcc_id, status])

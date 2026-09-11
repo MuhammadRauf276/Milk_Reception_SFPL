@@ -18,6 +18,9 @@ CREATE TABLE "zmcc_lab_session" (
     "remarks" TEXT,
     "completion_client_event_id" VARCHAR(255),
     "correction_count" INTEGER NOT NULL DEFAULT 0,
+    "restricted_correction_count" INTEGER NOT NULL DEFAULT 0,
+    "last_corrected_by_user_id" BIGINT,
+    "last_corrected_at" TIMESTAMP(6),
     "created_at" TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -33,7 +36,12 @@ CREATE TABLE "zmcc_lab_session" (
         ("decision" = 'REJECTED' AND "rejection_reason" IS NOT NULL AND LENGTH(TRIM("rejection_reason")) > 0) OR
         ("decision" IS DISTINCT FROM 'REJECTED')
     ),
-    CONSTRAINT "zmcc_lab_session_correction_count_check" CHECK ("correction_count" >= 0 AND "correction_count" <= 2)
+    CONSTRAINT "zmcc_lab_session_correction_count_check" CHECK ("correction_count" >= 0),
+    CONSTRAINT "zmcc_lab_session_restricted_correction_count_check" CHECK (
+        "restricted_correction_count" >= 0 AND
+        "restricted_correction_count" <= 2 AND
+        "restricted_correction_count" <= "correction_count"
+    )
 );
 
 -- Unique constraints & indexes for zmcc_lab_session
@@ -49,6 +57,7 @@ ALTER TABLE "zmcc_lab_session" ADD CONSTRAINT "zmcc_lab_session_mot_arrival_id_f
 ALTER TABLE "zmcc_lab_session" ADD CONSTRAINT "zmcc_lab_session_contractor_arrival_id_fkey" FOREIGN KEY ("contractor_arrival_id") REFERENCES "zmcc_contractor_arrival"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "zmcc_lab_session" ADD CONSTRAINT "zmcc_lab_session_started_by_user_id_fkey" FOREIGN KEY ("started_by_user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "zmcc_lab_session" ADD CONSTRAINT "zmcc_lab_session_completed_by_user_id_fkey" FOREIGN KEY ("completed_by_user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "zmcc_lab_session" ADD CONSTRAINT "zmcc_lab_session_last_corrected_by_user_id_fkey" FOREIGN KEY ("last_corrected_by_user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- 2. Create Table: zmcc_lab_result
 CREATE TABLE "zmcc_lab_result" (

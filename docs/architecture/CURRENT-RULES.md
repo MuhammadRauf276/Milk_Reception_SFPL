@@ -201,7 +201,7 @@ This document records the authoritative business rules approved for the Milk Rec
 - Exactly one canonical testing role is introduced: `ZMCC_LAB_ATTENDANT`.
 - **Authority**:
   - `ZMCC_LAB_ATTENDANT` (scoped to assigned active ZMCC) and `SUPER_ADMIN` have testing authority: start/resume sessions, update draft results, and submit final acceptance decisions.
-  - `ZMCC_MANAGER` (scoped to assigned active ZMCC) and `SUPER_ADMIN` have supervisory oversight and correction authority: view queue/history and perform up to 2 corrections on completed lab sessions. ZMCC Managers cannot start, draft, or complete intake sessions.
+  - `ZMCC_MANAGER` (scoped to assigned active ZMCC) and `SUPER_ADMIN` have supervisory oversight and correction authority: view queue/history and perform corrections on completed lab sessions. ZMCC Managers cannot start, draft, or complete intake sessions.
   - PHE Operators, MOT Officers, Plant QA Chemists, and other roles fail closed (`403 Forbidden`).
 
 ### 15B. Lab Test Master & Scope Extension
@@ -219,13 +219,26 @@ This document records the authoritative business rules approved for the Milk Rec
 ### 15D. Decision Semantics & Mandatory Rejection Reason
 - Allowed decisions: `ACCEPTED` or `REJECTED`.
 - If `REJECTED`, a non-empty `rejection_reason` is mandatory.
-- Completion requires non-empty results for all required tests (`is_required_snapshot = true`). Categorical tests must adhere to snapshot allowed options.
+- Completion requires deterministic 1-to-1 payload matching for every frozen non-CALCULATED test:
+  - Rejects unknown test IDs, duplicate test IDs, and missing frozen non-CALCULATED tests (`400 Bad Request`).
+  - Required tests (`is_required_snapshot = true`) must have valid non-null values. Categorical tests must adhere to snapshot allowed options.
+  - Optional tests may be explicitly null or empty.
 - Idempotency via `completion_client_event_id`: exact re-submissions return `200 OK` with the existing completed session; altered payloads or concurrent collisions return `409 Conflict`.
 
-### 15E. Supervisory Corrections
-- Up to 2 corrections per completed session (`correction_count < 2`). DB constraint enforced (`correction_count >= 0 AND correction_count <= 2`).
-- Row-lock concurrency safe (`FOR UPDATE`).
-- Mandatory correction `reason` recorded in immutable `AuditLog` (`action = 'ZMCC_LAB_SESSION_CORRECTED'`).
+### 15E. Completed Record Correction & Audit Policy
+- **Latest State on Main Record**: The latest corrected values are stored directly on the main record (`ZmccLabSession`, `ZmccLabResult`). No separate correction-history table is created.
+- **AuditLog as History Truth**: The immutable `AuditLog` table is the sole authoritative audit trail for before/after history (`action = 'ZMCC_LAB_SESSION_CORRECTED'`).
+- **Operational Manager Limit**: `ZMCC_MANAGER` (scoped to assigned active ZMCC) is capped at 2 completed-record corrections (`restricted_correction_count < 2`). DB constraint enforces:
+  `restricted_correction_count >= 0 AND restricted_correction_count <= 2 AND restricted_correction_count <= correction_count`.
+- **Super Admin Authority**: `SUPER_ADMIN` possesses unlimited completed-record correction authority. Database enforces `correction_count >= 0`.
+- **Audit & Counting Rigor**:
+  - `correction_count` increments on every correction across all actors.
+  - `restricted_correction_count` increments only on corrections performed by restricted roles (`ZMCC_MANAGER`).
+  - Every correction (Manager or Super Admin) requires a non-empty `reason` and writes an immutable `AuditLog` entry containing actor, action, timestamp, reason, before_state, and after_state.
+- **Attribution Permanence**:
+  - Original submitter and timestamp (`started_by_user_id`, `started_at`, `completed_by_user_id`, `completed_at`) remain permanently immutable upon completion.
+  - Latest corrector and timestamp (`last_corrected_by_user_id`, `last_corrected_at`) update atomically on every correction.
+- **Concurrency Safety**: Row-level locking (`SELECT ... FOR UPDATE`) guarantees race safety. Concurrent correction attempts serialize safely: if 1 restricted slot remains, exactly one succeeds and the other fails with `400 Bad Request` without creating phantom audit logs.
 
 ### 15F. Architectural Boundaries
 - **Zero Plant Business Date Rollover**: ZMCC operations use ordinary PKT timestamps and dates; 08:00 AM Plant Business Date rollover is strictly forbidden in ZMCC.
