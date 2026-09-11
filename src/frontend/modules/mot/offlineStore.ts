@@ -62,6 +62,7 @@ export interface QueuedCollection {
   last_error?: string;
   attempts?: number;
   synced_at?: string;
+  sync_started_at?: string | null;
 }
 
 export interface QueuedGpsPoint {
@@ -73,14 +74,21 @@ export interface QueuedGpsPoint {
   gps_accuracy?: number | null;
   device_recorded_at: string;
   synced: number; // 0 for false, 1 for true (IndexedDB boolean index friendly)
+  status?: 'QUEUED' | 'SYNCED' | 'CONFLICT' | 'FAILED_FATAL' | 'FAILED_RETRYABLE';
   attempts?: number;
+  last_error?: string | null;
 }
 
 const DB_NAME = 'milk_reception_mot_db';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 function isIndexedDbSupported(): boolean {
-  return typeof window !== 'undefined' && typeof window.indexedDB !== 'undefined';
+  const idb = typeof window !== 'undefined' ? window.indexedDB : typeof globalThis !== 'undefined' ? globalThis.indexedDB : undefined;
+  return typeof idb !== 'undefined';
+}
+
+function getIdb(): IDBFactory {
+  return typeof window !== 'undefined' ? window.indexedDB : (globalThis as any).indexedDB;
 }
 
 export function openMotDb(): Promise<IDBDatabase> {
@@ -89,7 +97,7 @@ export function openMotDb(): Promise<IDBDatabase> {
       return reject(new Error('IndexedDB is not supported in this environment.'));
     }
 
-    const request = window.indexedDB.open(DB_NAME, DB_VERSION);
+    const request = getIdb().open(DB_NAME, DB_VERSION);
 
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
@@ -115,6 +123,7 @@ export function openMotDb(): Promise<IDBDatabase> {
         store.createIndex('device_recorded_at', 'device_recorded_at', { unique: false });
         store.createIndex('journey_id', 'journey_id', { unique: false });
         store.createIndex('client_location_id', 'client_location_id', { unique: false });
+        store.createIndex('status', 'status', { unique: false });
       } else {
         const tx = (event.target as IDBOpenDBRequest).transaction;
         const store = tx?.objectStore('gps_queue');
@@ -124,6 +133,9 @@ export function openMotDb(): Promise<IDBDatabase> {
           }
           if (!store.indexNames.contains('client_location_id')) {
             store.createIndex('client_location_id', 'client_location_id', { unique: false });
+          }
+          if (!store.indexNames.contains('status')) {
+            store.createIndex('status', 'status', { unique: false });
           }
         }
       }
@@ -144,6 +156,11 @@ export async function saveCachedJourney(journey: any): Promise<void> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction('active_journey', 'readwrite');
     const store = tx.objectStore('active_journey');
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error || new Error('Transaction failed'));
+    tx.onabort = () => reject(tx.error || new Error('Transaction aborted'));
+
     const cleanJourney: CachedJourney = {
       id: journey.id?.toString() || 'current',
       journey_number: journey.journey_number,
@@ -169,9 +186,7 @@ export async function saveCachedJourney(journey: any): Promise<void> {
       })),
       cached_at: new Date().toISOString(),
     };
-    const req = store.put(cleanJourney);
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
+    store.put(cleanJourney);
   });
 }
 
@@ -196,9 +211,12 @@ export async function clearCachedJourney(): Promise<void> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction('active_journey', 'readwrite');
     const store = tx.objectStore('active_journey');
-    const req = store.clear();
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error || new Error('Transaction failed'));
+    tx.onabort = () => reject(tx.error || new Error('Transaction aborted'));
+
+    store.clear();
   });
 }
 
@@ -212,14 +230,17 @@ export async function saveDraft(stopId: string, draft: Omit<CollectionDraft, 'st
   return new Promise((resolve, reject) => {
     const tx = db.transaction('collection_drafts', 'readwrite');
     const store = tx.objectStore('collection_drafts');
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error || new Error('Transaction failed'));
+    tx.onabort = () => reject(tx.error || new Error('Transaction aborted'));
+
     const record: CollectionDraft = {
       stop_id: stopId,
       ...draft,
       updated_at: new Date().toISOString(),
     };
-    const req = store.put(record);
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
+    store.put(record);
   });
 }
 
@@ -241,9 +262,12 @@ export async function deleteDraft(stopId: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction('collection_drafts', 'readwrite');
     const store = tx.objectStore('collection_drafts');
-    const req = store.delete(stopId);
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error || new Error('Transaction failed'));
+    tx.onabort = () => reject(tx.error || new Error('Transaction aborted'));
+
+    store.delete(stopId);
   });
 }
 
@@ -260,6 +284,7 @@ export async function queueCollection(
     ...item,
     status: 'QUEUED',
     attempts: 0,
+    sync_started_at: null,
   };
 
   return new Promise((resolve, reject) => {
@@ -271,7 +296,8 @@ export async function queueCollection(
     draftStore.delete(item.stop_id);
 
     tx.oncomplete = () => resolve(queuedItem);
-    tx.onerror = () => reject(tx.error);
+    tx.onerror = () => reject(tx.error || new Error('Transaction failed'));
+    tx.onabort = () => reject(tx.error || new Error('Transaction aborted'));
   });
 }
 
@@ -297,19 +323,31 @@ export async function updateCollectionQueueStatus(
   return new Promise((resolve, reject) => {
     const tx = db.transaction('collection_queue', 'readwrite');
     const store = tx.objectStore('collection_queue');
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error || new Error('Transaction failed'));
+    tx.onabort = () => reject(tx.error || new Error('Transaction aborted'));
+
     const req = store.get(clientEventId);
     req.onsuccess = () => {
       const item: QueuedCollection = req.result;
       if (item) {
         item.status = status;
-        if (errorMsg) item.last_error = errorMsg;
-        if (status === 'SYNCED') item.synced_at = new Date().toISOString();
-        item.attempts = (item.attempts || 0) + 1;
+        if (status === 'SYNCING') {
+          item.sync_started_at = new Date().toISOString();
+        } else if (status === 'SYNCED') {
+          item.synced_at = new Date().toISOString();
+          item.sync_started_at = null;
+        } else {
+          item.sync_started_at = null;
+        }
+        if (errorMsg !== undefined) item.last_error = errorMsg;
+        if (status !== 'SYNCING') {
+          item.attempts = (item.attempts || 0) + 1;
+        }
         store.put(item);
       }
-      resolve();
     };
-    req.onerror = () => reject(req.error);
   });
 }
 
@@ -336,6 +374,11 @@ export async function queueGpsLocation(location: {
   return new Promise((resolve, reject) => {
     const tx = db.transaction('gps_queue', 'readwrite');
     const store = tx.objectStore('gps_queue');
+
+    tx.oncomplete = () => resolve(clientLocationId);
+    tx.onerror = () => reject(tx.error || new Error('Transaction failed'));
+    tx.onabort = () => reject(tx.error || new Error('Transaction aborted'));
+
     const point: QueuedGpsPoint = {
       client_location_id: clientLocationId,
       journey_id: String(location.journey_id),
@@ -344,32 +387,40 @@ export async function queueGpsLocation(location: {
       gps_accuracy: location.gps_accuracy != null ? location.gps_accuracy : null,
       device_recorded_at: location.device_recorded_at || new Date().toISOString(),
       synced: 0,
+      status: 'QUEUED',
       attempts: 0,
+      last_error: null,
     };
-    const req = store.add(point);
-    req.onsuccess = () => resolve(clientLocationId);
-    req.onerror = () => reject(req.error);
+    store.add(point);
   });
 }
 
-export async function getUnsyncedGpsPoints(limit = 50): Promise<QueuedGpsPoint[]> {
+export async function getEligibleGpsPoints(limit?: number): Promise<QueuedGpsPoint[]> {
   if (!isIndexedDbSupported()) return [];
   const db = await openMotDb();
   return new Promise((resolve, reject) => {
     const tx = db.transaction('gps_queue', 'readonly');
     const store = tx.objectStore('gps_queue');
-    const index = store.index('synced');
-    const req = index.getAll(IDBKeyRange.only(0));
+    const req = store.getAll();
     req.onsuccess = () => {
       const points: QueuedGpsPoint[] = req.result || [];
-      points.sort(
+      const eligible = points.filter((p) => {
+        if (p.synced === 1 || p.status === 'SYNCED') return false;
+        if (p.status === 'CONFLICT' || p.status === 'FAILED_FATAL') return false;
+        return true; // 'QUEUED', 'FAILED_RETRYABLE', or undefined
+      });
+      eligible.sort(
         (a, b) =>
           new Date(a.device_recorded_at).getTime() - new Date(b.device_recorded_at).getTime()
       );
-      resolve(points.slice(0, limit));
+      resolve(limit ? eligible.slice(0, limit) : eligible);
     };
     req.onerror = () => reject(req.error);
   });
+}
+
+export async function getUnsyncedGpsPoints(limit = 50): Promise<QueuedGpsPoint[]> {
+  return getEligibleGpsPoints(limit);
 }
 
 export async function markGpsPointsSynced(ids: number[]): Promise<void> {
@@ -378,18 +429,56 @@ export async function markGpsPointsSynced(ids: number[]): Promise<void> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction('gps_queue', 'readwrite');
     const store = tx.objectStore('gps_queue');
-    let completed = 0;
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error || new Error('Transaction failed'));
+    tx.onabort = () => reject(tx.error || new Error('Transaction aborted'));
+
     for (const id of ids) {
       const req = store.get(id);
       req.onsuccess = () => {
         if (req.result) {
-          req.result.synced = 1;
-          store.put(req.result);
+          const item: QueuedGpsPoint = req.result;
+          item.synced = 1;
+          item.status = 'SYNCED';
+          store.put(item);
         }
-        completed++;
-        if (completed === ids.length) resolve();
       };
-      req.onerror = () => reject(req.error);
+    }
+  });
+}
+
+export async function updateGpsPointsStatus(
+  updates: Array<{
+    id: number;
+    status: 'SYNCED' | 'CONFLICT' | 'FAILED_FATAL' | 'FAILED_RETRYABLE';
+    error?: string;
+  }>
+): Promise<void> {
+  if (!isIndexedDbSupported() || updates.length === 0) return;
+  const db = await openMotDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('gps_queue', 'readwrite');
+    const store = tx.objectStore('gps_queue');
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error || new Error('Transaction failed'));
+    tx.onabort = () => reject(tx.error || new Error('Transaction aborted'));
+
+    for (const u of updates) {
+      const req = store.get(u.id);
+      req.onsuccess = () => {
+        if (req.result) {
+          const item: QueuedGpsPoint = req.result;
+          item.status = u.status;
+          item.synced = u.status === 'SYNCED' ? 1 : 0;
+          if (u.error !== undefined) {
+            item.last_error = u.error;
+          }
+          item.attempts = (item.attempts || 0) + 1;
+          store.put(item);
+        }
+      };
     }
   });
 }
@@ -401,11 +490,22 @@ export async function markGpsPointsSynced(ids: number[]): Promise<void> {
 export async function getUnsyncedSummary(): Promise<{
   pendingCollections: number;
   conflictCollections: number;
+  fatalCollections: number;
   pendingGps: number;
+  conflictGps: number;
+  fatalGps: number;
   totalUnsynced: number;
 }> {
   if (!isIndexedDbSupported()) {
-    return { pendingCollections: 0, conflictCollections: 0, pendingGps: 0, totalUnsynced: 0 };
+    return {
+      pendingCollections: 0,
+      conflictCollections: 0,
+      fatalCollections: 0,
+      pendingGps: 0,
+      conflictGps: 0,
+      fatalGps: 0,
+      totalUnsynced: 0,
+    };
   }
 
   const collections = await getQueuedCollections();
@@ -413,22 +513,41 @@ export async function getUnsyncedSummary(): Promise<{
     (c) => c.status === 'QUEUED' || c.status === 'FAILED_RETRYABLE' || c.status === 'SYNCING'
   ).length;
   const conflictColl = collections.filter((c) => c.status === 'CONFLICT').length;
+  const fatalColl = collections.filter((c) => c.status === 'FAILED_FATAL').length;
 
   const db = await openMotDb();
-  const pendingGpsCount = await new Promise<number>((resolve) => {
+  const gpsCounts = await new Promise<{ pending: number; conflict: number; fatal: number }>((resolve) => {
     const tx = db.transaction('gps_queue', 'readonly');
     const store = tx.objectStore('gps_queue');
-    const index = store.index('synced');
-    const req = index.count(IDBKeyRange.only(0));
-    req.onsuccess = () => resolve(req.result || 0);
-    req.onerror = () => resolve(0);
+    const req = store.getAll();
+    req.onsuccess = () => {
+      const points: QueuedGpsPoint[] = req.result || [];
+      let pending = 0;
+      let conflict = 0;
+      let fatal = 0;
+      for (const p of points) {
+        if (p.synced === 1 || p.status === 'SYNCED') continue;
+        if (p.status === 'CONFLICT') {
+          conflict++;
+        } else if (p.status === 'FAILED_FATAL') {
+          fatal++;
+        } else {
+          pending++;
+        }
+      }
+      resolve({ pending, conflict, fatal });
+    };
+    req.onerror = () => resolve({ pending: 0, conflict: 0, fatal: 0 });
   });
 
   return {
     pendingCollections: pendingColl,
     conflictCollections: conflictColl,
-    pendingGps: pendingGpsCount,
-    totalUnsynced: pendingColl + pendingGpsCount,
+    fatalCollections: fatalColl,
+    pendingGps: gpsCounts.pending,
+    conflictGps: gpsCounts.conflict,
+    fatalGps: gpsCounts.fatal,
+    totalUnsynced: pendingColl + gpsCounts.pending,
   };
 }
 
@@ -441,7 +560,29 @@ export async function syncPendingCollections(): Promise<{
   conflicts: number;
   failed: number;
 }> {
+  const STALE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+  const now = Date.now();
+
   const all = await getQueuedCollections();
+
+  // FIX 2: Recover stale SYNCING records (> 5 minutes or missing sync_started_at)
+  for (const item of all) {
+    if (item.status === 'SYNCING') {
+      const startedAt = item.sync_started_at ? new Date(item.sync_started_at).getTime() : 0;
+      if (!startedAt || now - startedAt > STALE_TIMEOUT_MS) {
+        await updateCollectionQueueStatus(
+          item.client_event_id,
+          'FAILED_RETRYABLE',
+          'Sync timed out or crashed; recovered from stale SYNCING state'
+        );
+        item.status = 'FAILED_RETRYABLE';
+        item.sync_started_at = null;
+      }
+    }
+  }
+
+  // A fresh currently-running SYNCING item must NOT be submitted twice!
+  // Eligible: QUEUED or FAILED_RETRYABLE
   const toSync = all.filter(
     (c) => c.status === 'QUEUED' || c.status === 'FAILED_RETRYABLE'
   );
@@ -504,7 +645,7 @@ export async function syncPendingCollections(): Promise<{
       await updateCollectionQueueStatus(
         item.client_event_id,
         'FAILED_RETRYABLE',
-        err.message || 'Network unreachable'
+        err?.message || 'Network unreachable'
       );
       failed++;
     }
@@ -513,23 +654,38 @@ export async function syncPendingCollections(): Promise<{
   return { synced, conflicts, failed };
 }
 
-export async function syncPendingGps(): Promise<{ synced: number; failed: number }> {
+export async function syncPendingGps(): Promise<{
+  synced: number;
+  conflicts: number;
+  fatal: number;
+  retryable: number;
+  failed: number;
+}> {
   let totalSynced = 0;
-  let totalFailed = 0;
+  let totalConflicts = 0;
+  let totalFatal = 0;
+  let totalRetryable = 0;
 
-  // Drain in batches of 50 points, grouped by journey_id
-  while (true) {
-    const points = await getUnsyncedGpsPoints(50);
-    if (points.length === 0) break;
+  // Snapshot eligible points at the start of this sync invocation.
+  // Guarantees each eligible point is attempted at most once. No unbounded while loop.
+  const eligiblePoints = await getEligibleGpsPoints();
+  if (eligiblePoints.length === 0) {
+    return { synced: 0, conflicts: 0, fatal: 0, retryable: 0, failed: 0 };
+  }
 
+  const BATCH_SIZE = 50;
+  for (let i = 0; i < eligiblePoints.length; i += BATCH_SIZE) {
+    const batch = eligiblePoints.slice(i, i + BATCH_SIZE);
+
+    // Group by journey_id (server rejects mixed-journey batches)
     const byJourney = new Map<string, QueuedGpsPoint[]>();
-    for (const p of points) {
+    for (const p of batch) {
       const jId = String(p.journey_id || '');
       if (!byJourney.has(jId)) byJourney.set(jId, []);
       byJourney.get(jId)!.push(p);
     }
 
-    let hadBatchFailure = false;
+    let hadNetworkOrServerFailure = false;
 
     for (const [journeyId, journeyPoints] of Array.from(byJourney.entries())) {
       try {
@@ -551,51 +707,126 @@ export async function syncPendingGps(): Promise<{ synced: number; failed: number
 
         if (res.ok) {
           const data = await res.json().catch(() => ({}));
-          const confirmedLocationIds = new Set<string>();
+          const itemResults = new Map<string, { status: string; reason?: string }>();
           if (Array.isArray(data.items)) {
             for (const item of data.items) {
-              if (item.status === 'ACCEPTED' || item.status === 'ALREADY_PROCESSED') {
-                confirmedLocationIds.add(item.client_location_id);
-              }
+              itemResults.set(item.client_location_id, item);
             }
           }
 
-          const idsToMark = journeyPoints
-            .filter((p: QueuedGpsPoint) => confirmedLocationIds.has(p.client_location_id) && typeof p.id === 'number')
-            .map((p: QueuedGpsPoint) => p.id!);
+          const updates: Array<{
+            id: number;
+            status: 'SYNCED' | 'CONFLICT' | 'FAILED_FATAL' | 'FAILED_RETRYABLE';
+            error?: string;
+          }> = [];
 
-          if (idsToMark.length > 0) {
-            await markGpsPointsSynced(idsToMark);
-            totalSynced += idsToMark.length;
+          for (const p of journeyPoints) {
+            if (typeof p.id !== 'number') continue;
+            const r = itemResults.get(p.client_location_id);
+            if (!r) {
+              updates.push({
+                id: p.id,
+                status: 'FAILED_RETRYABLE',
+                error: 'Point missing from server response',
+              });
+              totalRetryable++;
+            } else if (r.status === 'ACCEPTED' || r.status === 'ALREADY_PROCESSED') {
+              updates.push({ id: p.id, status: 'SYNCED' });
+              totalSynced++;
+            } else if (r.status === 'CONFLICT') {
+              updates.push({
+                id: p.id,
+                status: 'CONFLICT',
+                error: r.reason || 'Conflict detected',
+              });
+              totalConflicts++;
+            } else if (r.status === 'REJECTED') {
+              updates.push({
+                id: p.id,
+                status: 'FAILED_FATAL',
+                error: r.reason || 'Point rejected by server validation',
+              });
+              totalFatal++;
+            } else {
+              updates.push({
+                id: p.id,
+                status: 'FAILED_FATAL',
+                error: r.reason || `Unknown status: ${r.status}`,
+              });
+              totalFatal++;
+            }
           }
 
-          const unconfirmedCount = journeyPoints.length - idsToMark.length;
-          if (unconfirmedCount > 0) {
-            totalFailed += unconfirmedCount;
+          if (updates.length > 0) {
+            await updateGpsPointsStatus(updates);
+          }
+        } else if (res.status >= 400 && res.status < 500) {
+          // HTTP 4xx -> Permanent validation / auth rejection (FAILED_FATAL)
+          const errJson = await res.json().catch(() => ({}));
+          const errorMsg = errJson.error || `Client error (${res.status})`;
+          const updates = journeyPoints
+            .filter((p): p is QueuedGpsPoint & { id: number } => typeof p.id === 'number')
+            .map((p) => ({
+              id: p.id,
+              status: 'FAILED_FATAL' as const,
+              error: errorMsg,
+            }));
+          if (updates.length > 0) {
+            await updateGpsPointsStatus(updates);
+            totalFatal += updates.length;
           }
         } else {
-          totalFailed += journeyPoints.length;
-          hadBatchFailure = true;
-          break;
+          // HTTP 5xx -> Server error (FAILED_RETRYABLE, retried only in subsequent cycle)
+          const errorMsg = `Server error (${res.status})`;
+          const updates = journeyPoints
+            .filter((p): p is QueuedGpsPoint & { id: number } => typeof p.id === 'number')
+            .map((p) => ({
+              id: p.id,
+              status: 'FAILED_RETRYABLE' as const,
+              error: errorMsg,
+            }));
+          if (updates.length > 0) {
+            await updateGpsPointsStatus(updates);
+            totalRetryable += updates.length;
+          }
+          hadNetworkOrServerFailure = true;
         }
-      } catch {
-        totalFailed += journeyPoints.length;
-        hadBatchFailure = true;
-        break;
+      } catch (err: any) {
+        // Network unreachable / fetch exception -> FAILED_RETRYABLE
+        const errorMsg = err?.message || 'Network unreachable';
+        const updates = journeyPoints
+          .filter((p): p is QueuedGpsPoint & { id: number } => typeof p.id === 'number')
+          .map((p) => ({
+            id: p.id,
+            status: 'FAILED_RETRYABLE' as const,
+            error: errorMsg,
+          }));
+        if (updates.length > 0) {
+          await updateGpsPointsStatus(updates);
+          totalRetryable += updates.length;
+        }
+        hadNetworkOrServerFailure = true;
       }
     }
 
-    if (hadBatchFailure) {
+    if (hadNetworkOrServerFailure) {
       break;
     }
   }
 
-  return { synced: totalSynced, failed: totalFailed };
+  const failed = totalConflicts + totalFatal + totalRetryable;
+  return {
+    synced: totalSynced,
+    conflicts: totalConflicts,
+    fatal: totalFatal,
+    retryable: totalRetryable,
+    failed,
+  };
 }
 
 export async function syncAll(): Promise<{
   collections: { synced: number; conflicts: number; failed: number };
-  gps: { synced: number; failed: number };
+  gps: { synced: number; conflicts?: number; fatal?: number; retryable?: number; failed: number };
 }> {
   const collRes = await syncPendingCollections();
   const gpsRes = await syncPendingGps();

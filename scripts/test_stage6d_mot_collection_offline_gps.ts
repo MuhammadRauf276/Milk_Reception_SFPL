@@ -326,6 +326,11 @@ async function runStage6dTests() {
         department: 'Milk Procurement',
       },
     });
+  } else {
+    managerA = await prisma.user.update({
+      where: { id: managerA.id },
+      data: { procurement_source_id: zmccA.id, is_active: true },
+    });
   }
 
   // PHE Operator A
@@ -343,6 +348,11 @@ async function runStage6dTests() {
         password_hash: 'hashed',
         department: 'Milk Procurement',
       },
+    });
+  } else {
+    pheA = await prisma.user.update({
+      where: { id: pheA.id },
+      data: { procurement_source_id: zmccA.id, is_active: true },
     });
   }
 
@@ -362,6 +372,11 @@ async function runStage6dTests() {
         department: 'Milk Procurement',
       },
     });
+  } else {
+    motUserA = await prisma.user.update({
+      where: { id: motUserA.id },
+      data: { procurement_source_id: zmccA.id, is_active: true },
+    });
   }
 
   // MOT User B (different ZMCC)
@@ -379,6 +394,11 @@ async function runStage6dTests() {
         password_hash: 'hashed',
         department: 'Milk Procurement',
       },
+    });
+  } else {
+    motUserB = await prisma.user.update({
+      where: { id: motUserB.id },
+      data: { procurement_source_id: zmccB.id, is_active: true },
     });
   }
 
@@ -1491,12 +1511,33 @@ async function runStage6dTests() {
     `Outbox contains SMS rows for collections (found ${smsOutboxData.items.length}).`
   );
 
-  // ---------------------------------------------------------------------------
-  // SUMMARY
-  // ---------------------------------------------------------------------------
-  console.log('\n=====================================================================');
-  console.log(`📊 STAGE 6D REGRESSION SUITE RESULTS: ${passed} PASSED, ${failed} FAILED`);
-  console.log('=====================================================================\n');
+  // Cleanup Stage 6D test fixtures
+  try {
+    const testSources = await prisma.procurementSource.findMany({
+      where: { code: { in: ['ZMCC-6D-A', 'ZMCC-6D-B'] } },
+    });
+    for (const s of testSources) {
+      await prisma.motCollectionSmsOutbox.deleteMany({ where: { collection: { zmcc_id: s.id } } });
+      await prisma.motShopCollection.deleteMany({ where: { zmcc_id: s.id } });
+      await prisma.motJourneyLocation.deleteMany({ where: { journey: { zmcc_id: s.id } } });
+      await prisma.motJourneyStop.deleteMany({ where: { journey: { zmcc_id: s.id } } });
+      await prisma.motJourney.deleteMany({ where: { zmcc_id: s.id } });
+      await prisma.zmccShop.deleteMany({ where: { zmcc_id: s.id } });
+      await prisma.zmccArea.deleteMany({ where: { zmcc_id: s.id } });
+      await prisma.zmccRoute.deleteMany({ where: { zmcc_id: s.id } });
+      await prisma.motVehicle.deleteMany({ where: { zmcc_id: s.id } });
+      await prisma.motProfile.deleteMany({ where: { zmcc_id: s.id } });
+      await prisma.zmccMilkSource.deleteMany({ where: { zmcc_id: s.id } });
+      await prisma.dispatchQuantityPolicySnapshot.deleteMany({ where: { source_id: s.id } });
+      await prisma.user.updateMany({
+        where: { procurement_source_id: s.id },
+        data: { procurement_source_id: null },
+      });
+      await prisma.procurementSource.delete({ where: { id: s.id } });
+    }
+  } catch {
+    // Ignore cleanup error
+  }
 
   if (failed > 0) {
     process.exit(1);
