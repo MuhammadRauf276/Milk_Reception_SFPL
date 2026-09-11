@@ -871,13 +871,17 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                       <td className="py-3.5 px-4">
                         <div className="space-y-0.5">
                           <div className="font-semibold text-slate-700">
-                            Total Changes: {item.correction_count ?? 0}
+                            Total Corrections: {item.correction_count ?? 0}
                           </div>
-                          {isZmccManager && (
+                          {isZmccManager ? (
                             <div className="text-[10px] text-slate-500">
-                              Restricted: {item.restricted_correction_count ?? 0} / 2
+                              Manager Corrections: {item.manager_correction_count ?? 0} / 5
                             </div>
-                          )}
+                          ) : isSuperAdmin ? (
+                            <div className="text-[10px] text-slate-500">
+                              Manager Corrections Used: {item.manager_correction_count ?? 0} / 5
+                            </div>
+                          ) : null}
                           {item.last_corrected_at && (
                             <div className="text-[10px] text-slate-400">
                               Last by {item.last_corrector?.full_name || item.last_corrector?.username || 'user'}
@@ -886,7 +890,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                         </div>
                       </td>
                       <td className="py-3.5 px-4 text-right">
-                        {canCorrect && (isSuperAdmin || (item.restricted_correction_count ?? 0) < 2) ? (
+                        {canCorrect && (isSuperAdmin || (item.manager_correction_count ?? 0) < 5) ? (
                           <button
                             onClick={() => openCorrection(item)}
                             className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-[#1E3A8A] bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
@@ -1014,7 +1018,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
               <strong>Supervisory Correction Policy:</strong>{' '}
               {isSuperAdmin
                 ? 'Super Admin corrections are unlimited, but every change is counted and permanently audited.'
-                : 'Manager corrections are limited to 2 per session. All changes are permanently recorded in the immutable audit log.'}
+                : 'Manager corrections are limited to 5 successful saves per session. All changes are permanently recorded in the immutable audit log.'}
             </div>
 
             {/* Reason */}

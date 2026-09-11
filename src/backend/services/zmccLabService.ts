@@ -194,7 +194,7 @@ export function serializeLabSession(session: any) {
     remarks: session.remarks,
     completion_client_event_id: session.completion_client_event_id,
     correction_count: session.correction_count,
-    restricted_correction_count: session.restricted_correction_count ?? 0,
+    manager_correction_count: session.manager_correction_count ?? 0,
     last_corrected_by_user_id: session.last_corrected_by_user_id ? session.last_corrected_by_user_id.toString() : null,
     last_corrected_at: session.last_corrected_at instanceof Date ? session.last_corrected_at.toISOString() : session.last_corrected_at,
     created_at: session.created_at instanceof Date ? session.created_at.toISOString() : session.created_at,
@@ -1439,8 +1439,8 @@ export async function correctCompletedSession(
     return { status: 400, error: 'Only COMPLETED lab sessions can be corrected.' };
   }
 
-  if (!auth.isSuperAdmin && (session.restricted_correction_count ?? 0) >= 2) {
-    return { status: 400, error: 'Maximum correction limit (2) reached for this lab session.' };
+  if (!auth.isSuperAdmin && (session.manager_correction_count ?? 0) >= 5) {
+    return { status: 400, error: 'Maximum correction limit (5) reached for this lab session.' };
   }
 
   const effectiveDecision = decision || session.decision;
@@ -1459,6 +1459,8 @@ export async function correctCompletedSession(
   } else if (decision === 'ACCEPTED') {
     effectiveRejectionReason = null;
   }
+
+  const normalizedRemarks = remarks !== undefined ? (remarks ? remarks.trim() : null) : session.remarks;
 
   // Validate results if provided
   const sessionResultsMap = new Map(session.results.map((r) => [r.test_id.toString(), r]));
@@ -1499,11 +1501,62 @@ export async function correctCompletedSession(
     }
   }
 
+  // Detect whether any operational value actually changed (No-op detection)
+  let hasChanges = false;
+  if (decision !== undefined && decision !== session.decision) {
+    hasChanges = true;
+  }
+  if (effectiveRejectionReason !== (session.rejection_reason ?? null)) {
+    hasChanges = true;
+  }
+  if (remarks !== undefined && normalizedRemarks !== (session.remarks ?? null)) {
+    hasChanges = true;
+  }
+  if (Array.isArray(results)) {
+    for (const item of results) {
+      const testIdStr = String(item.test_id).trim();
+      const snap = sessionResultsMap.get(testIdStr);
+      if (!snap) continue;
+      const resType = snap.result_type_snapshot;
+      if (resType === 'CALCULATED') continue;
+
+      if (resType === 'NUMERIC') {
+        if (item.numeric_value !== undefined) {
+          const oldNum = snap.numeric_value !== null ? Number(Number(snap.numeric_value).toFixed(4)) : null;
+          const newNum = item.numeric_value !== null ? Number(Number(item.numeric_value).toFixed(4)) : null;
+          if (oldNum !== newNum) {
+            hasChanges = true;
+          }
+        }
+      } else if (resType === 'TEXT') {
+        if (item.text_value !== undefined) {
+          const oldTxt = snap.text_value ? snap.text_value.trim() : null;
+          const newTxt = item.text_value ? item.text_value.trim() : null;
+          if (oldTxt !== newTxt) {
+            hasChanges = true;
+          }
+        }
+      } else {
+        if (item.text_value !== undefined) {
+          const oldTxt = snap.text_value ? snap.text_value.trim().toUpperCase() : null;
+          const newTxt = item.text_value ? item.text_value.trim().toUpperCase() : null;
+          if (oldTxt !== newTxt) {
+            hasChanges = true;
+          }
+        }
+      }
+    }
+  }
+
+  if (!hasChanges) {
+    return { status: 400, error: 'No changes detected.' };
+  }
+
   // Row-lock correction transaction
   try {
     const correctedSession = await prisma.$transaction(async (tx) => {
-      const lockedRows: Array<{ id: bigint; correction_count: number; restricted_correction_count: number }> = await tx.$queryRaw`
-        SELECT id, correction_count, restricted_correction_count FROM zmcc_lab_session WHERE id = ${sessionId} FOR UPDATE
+      const lockedRows: Array<{ id: bigint; correction_count: number; manager_correction_count: number }> = await tx.$queryRaw`
+        SELECT id, correction_count, manager_correction_count FROM zmcc_lab_session WHERE id = ${sessionId} FOR UPDATE
       `;
 
       if (!lockedRows || lockedRows.length === 0) {
@@ -1511,9 +1564,9 @@ export async function correctCompletedSession(
       }
 
       const currentTotalCount = lockedRows[0].correction_count;
-      const currentRestrictedCount = lockedRows[0].restricted_correction_count ?? 0;
+      const currentManagerCount = lockedRows[0].manager_correction_count ?? 0;
 
-      if (!auth.isSuperAdmin && currentRestrictedCount >= 2) {
+      if (!auth.isSuperAdmin && currentManagerCount >= 5) {
         throw new Error('MAX_CORRECTIONS_REACHED');
       }
 
@@ -1522,22 +1575,23 @@ export async function correctCompletedSession(
         rejection_reason: session.rejection_reason,
         remarks: session.remarks,
         correction_count: currentTotalCount,
-        restricted_correction_count: currentRestrictedCount,
+        manager_correction_count: currentManagerCount,
       };
 
       const newTotalCount = currentTotalCount + 1;
-      const newRestrictedCount = auth.isSuperAdmin ? currentRestrictedCount : currentRestrictedCount + 1;
+      const newManagerCount = auth.isSuperAdmin ? currentManagerCount : currentManagerCount + 1;
       const correctionTimestamp = new Date();
 
       const newValues: any = {
         decision: effectiveDecision,
         rejection_reason: effectiveRejectionReason,
-        remarks: remarks !== undefined ? (remarks ? remarks.trim() : null) : session.remarks,
+        remarks: normalizedRemarks,
         correction_count: newTotalCount,
-        restricted_correction_count: newRestrictedCount,
+        manager_correction_count: newManagerCount,
         correction_reason: reasonTrimmed,
         actor_user_id: auth.actorUserId.toString(),
         is_super_admin: auth.isSuperAdmin,
+        timestamp: correctionTimestamp.toISOString(),
       };
 
       if (Array.isArray(results)) {
@@ -1630,9 +1684,9 @@ export async function correctCompletedSession(
         data: {
           decision: effectiveDecision,
           rejection_reason: effectiveRejectionReason,
-          remarks: remarks !== undefined ? (remarks ? remarks.trim() : null) : session.remarks,
+          remarks: normalizedRemarks,
           correction_count: newTotalCount,
-          restricted_correction_count: newRestrictedCount,
+          manager_correction_count: newManagerCount,
           last_corrected_by_user_id: auth.actorUserId,
           last_corrected_at: correctionTimestamp,
         },
@@ -1683,7 +1737,7 @@ export async function correctCompletedSession(
     };
   } catch (err: any) {
     if (err.message === 'MAX_CORRECTIONS_REACHED') {
-      return { status: 400, error: 'Maximum correction limit (2) reached for this lab session.' };
+      return { status: 400, error: 'Maximum correction limit (5) reached for this lab session.' };
     }
     console.error('correctCompletedSession error:', err);
     return { status: 500, error: 'Failed to correct lab session.' };

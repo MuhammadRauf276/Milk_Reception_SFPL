@@ -989,7 +989,7 @@ model ZmccLabSession {
   remarks                    String?   @map("remarks") @db.Text
   completion_client_event_id String?   @unique @map("completion_client_event_id") @db.VarChar(255)
   correction_count           Int       @default(0) @map("correction_count")
-  restricted_correction_count Int      @default(0) @map("restricted_correction_count")
+  manager_correction_count   Int       @default(0) @map("manager_correction_count")
   last_corrected_by_user_id  BigInt?   @map("last_corrected_by_user_id")
   last_corrected_at          DateTime? @map("last_corrected_at") @db.Timestamp(6)
   created_at                 DateTime  @default(now()) @map("created_at") @db.Timestamp(6)

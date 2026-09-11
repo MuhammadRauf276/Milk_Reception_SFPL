@@ -147,12 +147,13 @@ async function runStage6fTests() {
 
   // Verify DB check constraints
   const dbConstraints: Array<{ conname: string }> = await prisma.$queryRaw`
-    SELECT conname FROM pg_constraint WHERE conname IN ('zmcc_lab_session_arrival_check', 'zmcc_lab_session_rejection_check', 'zmcc_lab_session_correction_count_check')
+    SELECT conname FROM pg_constraint WHERE conname IN ('zmcc_lab_session_arrival_check', 'zmcc_lab_session_rejection_check', 'zmcc_lab_session_correction_count_check', 'zmcc_lab_session_manager_correction_count_check')
   `;
   const constraintNames = dbConstraints.map((c) => c.conname);
   assert(constraintNames.includes('zmcc_lab_session_arrival_check'), 'DB Check Constraint', 'arrival_check exists');
   assert(constraintNames.includes('zmcc_lab_session_rejection_check'), 'DB Check Constraint', 'rejection_check exists');
   assert(constraintNames.includes('zmcc_lab_session_correction_count_check'), 'DB Check Constraint', 'correction_count_check exists');
+  assert(constraintNames.includes('zmcc_lab_session_manager_correction_count_check'), 'DB Check Constraint', 'manager_correction_count_check exists');
 
   console.log('\n--- 2. STATIC ANALYSIS & CANONICAL COMPLIANCE ---');
   // Registered in runner
@@ -783,10 +784,11 @@ async function runStage6fTests() {
   assert(attCorrectRes.status === 403, 'Correction Role Guard', 'Lab Attendant cannot correct session (403)');
 
   // Foreign ZMCC Manager cannot perform corrections
+  // 17. Cross-ZMCC failure creates zero AuditLog/count
   const foreignMgr = await prisma.user.create({
     data: {
-      username: `mgr_b_${runId}`,
-      password_hash: 'hash',
+      username: `foreign_mgr_${runId}`,
+      password_hash: 'hashed',
       role: 'ZMCC_MANAGER',
       full_name: `Manager Beta ${runId}`,
       is_active: true,
@@ -801,7 +803,7 @@ async function runStage6fTests() {
   });
   assert(foreignCorrectRes.status === 403, 'Correction Scoping Guard', 'Foreign ZMCC Manager cannot correct session (403)');
 
-  // Correction without reason fails
+  // 16. Validation failure creates zero AuditLog/count
   const noReasonCorrection = await correctCompletedSession(toCoreUser(managerA) as any, sessionId, {
     reason: '',
     decision: 'REJECTED',
@@ -809,37 +811,99 @@ async function runStage6fTests() {
   });
   assert(noReasonCorrection.status === 400, 'Audit Reason Mandatory', 'Correction without reason rejected with 400');
 
-  // A. Manager correction #1 succeeds
+  // 13. Identical/no-op Manager save does not increment either counter (400 "No changes detected.")
+  const noopManagerRes = await correctCompletedSession(toCoreUser(managerA), sessionId, {
+    reason: 'Manager attempting identical save',
+    decision: 'ACCEPTED',
+  });
+  assert(noopManagerRes.status === 400, 'No-op Manager Guard', 'Identical/no-op Manager save rejected with 400');
+  assert(noopManagerRes.error === 'No changes detected.', 'No-op Message', 'Returns controlled "No changes detected." message');
+
+  // 14. Identical/no-op Super Admin save does not increment total counter (400 "No changes detected.")
+  const noopAdminRes = await correctCompletedSession(toCoreUser(superAdmin), sessionId, {
+    reason: 'Admin attempting identical save',
+    decision: 'ACCEPTED',
+  });
+  assert(noopAdminRes.status === 400, 'No-op Admin Guard', 'Identical/no-op Super Admin save rejected with 400');
+
+  // 15. No-op creates zero AuditLog
+  const preAuditLogs = await prisma.auditLog.findMany({
+    where: {
+      table_name: 'zmcc_lab_session',
+      record_id: sessionId,
+      action: 'ZMCC_LAB_SESSION_CORRECTED',
+    },
+  });
+  assert(preAuditLogs.length === 0, 'Zero Audit For No-op', 'No-op and validation failures create zero audit logs');
+
+  // 18. Multiple fields changed in ONE Manager request increment count by 1
+  // 19. That save creates exactly one correction AuditLog
+  // 2. Manager correction #1 succeeds
   const corr1Res = await correctCompletedSession(toCoreUser(managerA), sessionId, {
-    reason: 'Corrected acidity value from titration recheck',
+    reason: 'Corrected acidity value from titration recheck and updated remarks',
     results: [{ test_id: testAcidity.id, numeric_value: 0.13 }],
     remarks: 'Rechecked titration confirms 0.13%',
   });
   assert(corr1Res.status === 200, 'Correction 1 Success', 'Correction 1 applied successfully (200 OK)');
   assert(corr1Res.data.correction_count === 1, 'Correction Count 1', 'total correction_count is 1');
-  assert(corr1Res.data.restricted_correction_count === 1, 'Restricted Correction Count 1', 'restricted_correction_count is 1');
+  assert(corr1Res.data.manager_correction_count === 1, 'Manager Correction Count 1', 'manager_correction_count is 1');
   const correctedAcidity = corr1Res.data.results.find((r: any) => r.test_id === testAcidity.id.toString());
   assert(correctedAcidity?.numeric_value === 0.13, 'Corrected Value', 'Numeric value updated to 0.13');
 
-  // B. Manager correction #2 succeeds
+  const corr1AuditLogs = await prisma.auditLog.findMany({
+    where: {
+      table_name: 'zmcc_lab_session',
+      record_id: sessionId,
+      action: 'ZMCC_LAB_SESSION_CORRECTED',
+    },
+  });
+  assert(corr1AuditLogs.length === 1, 'Single Audit Log For Multi-field Save', 'Multiple fields changed in one save creates exactly one audit log');
+
+  // 3. Manager #2 succeeds
   const corr2Res = await correctCompletedSession(toCoreUser(managerA), sessionId, {
     reason: 'Adulteration strip secondary test failed upon re-inspection',
     decision: 'REJECTED',
     rejection_reason: 'Secondary adulteration test confirmed positive',
   });
   assert(corr2Res.status === 200, 'Correction 2 Success', 'Correction 2 applied successfully (200 OK)');
-
-  // D & E: total correction_count becomes 2, restricted_correction_count becomes 2
   assert(corr2Res.data.correction_count === 2, 'Correction Count 2', 'total correction_count is 2');
-  assert(corr2Res.data.restricted_correction_count === 2, 'Restricted Correction Count 2', 'restricted_correction_count is 2');
+  assert(corr2Res.data.manager_correction_count === 2, 'Manager Correction Count 2', 'manager_correction_count is 2');
   assert(corr2Res.data.decision === 'REJECTED', 'Corrected Decision', 'Decision flipped to REJECTED');
 
-  // C. Manager correction #3 fails (restricted limit reached)
+  // 4. Manager #3 succeeds
   const corr3Res = await correctCompletedSession(toCoreUser(managerA), sessionId, {
-    reason: 'Third manager correction attempt',
-    decision: 'ACCEPTED',
+    reason: 'Manager inspection update 3 - added sensory notes',
+    remarks: 'Sensory notes updated during audit inspection 3',
   });
-  assert(corr3Res.status === 400, 'Max Corrections Guard', 'Third manager correction rejected with 400');
+  assert(corr3Res.status === 200, 'Correction 3 Success', 'Correction 3 applied successfully (200 OK)');
+  assert(corr3Res.data.correction_count === 3, 'Correction Count 3', 'total correction_count is 3');
+  assert(corr3Res.data.manager_correction_count === 3, 'Manager Correction Count 3', 'manager_correction_count is 3');
+
+  // 5. Manager #4 succeeds
+  const corr4Res = await correctCompletedSession(toCoreUser(managerA), sessionId, {
+    reason: 'Manager inspection update 4 - calibrated temperature note',
+    remarks: 'Temperature calibration note added in save 4',
+  });
+  assert(corr4Res.status === 200, 'Correction 4 Success', 'Correction 4 applied successfully (200 OK)');
+  assert(corr4Res.data.correction_count === 4, 'Correction Count 4', 'total correction_count is 4');
+  assert(corr4Res.data.manager_correction_count === 4, 'Manager Correction Count 4', 'manager_correction_count is 4');
+
+  // 6. Manager #5 succeeds
+  const corr5Res = await correctCompletedSession(toCoreUser(managerA), sessionId, {
+    reason: 'Manager inspection update 5 - final manager check',
+    remarks: 'Manager final fifth correction note',
+  });
+  assert(corr5Res.status === 200, 'Correction 5 Success', 'Correction 5 applied successfully (200 OK)');
+  assert(corr5Res.data.correction_count === 5, 'Correction Count 5', 'total correction_count is 5');
+  assert(corr5Res.data.manager_correction_count === 5, 'Manager Correction Count 5', 'manager_correction_count is 5');
+
+  // 7. Manager #6 fails (limit reached)
+  const corr6Res = await correctCompletedSession(toCoreUser(managerA), sessionId, {
+    reason: 'Sixth manager correction attempt - must be blocked',
+    remarks: 'Sixth attempt should fail',
+  });
+  assert(corr6Res.status === 400, 'Max Corrections Guard', 'Sixth manager correction rejected with 400');
+  assert(corr6Res.error === 'Maximum correction limit (5) reached for this lab session.', 'Max Limit Error Text', 'Returns maximum correction limit (5) reached');
 
   // Capture original submitter and timestamp before Super Admin corrections
   const preAdminSession = await prisma.zmccLabSession.findUniqueOrThrow({
@@ -848,25 +912,33 @@ async function runStage6fTests() {
   const origCompletedBy = preAdminSession.completed_by_user_id;
   const origCompletedAt = preAdminSession.completed_at;
 
-  // F, G, H: Super Admin correction after manager limit succeeds, total becomes 3, restricted remains 2
+  // 8, 10, 11: Super Admin correction after Manager reaches 5 succeeds, total becomes 6, manager remains 5
   const adminCorr1Res = await correctCompletedSession(toCoreUser(superAdmin), sessionId, {
     reason: 'Super Admin reviewed titration graph and calibrated acidity reading',
     results: [{ test_id: testAcidity.id, numeric_value: 0.14 }],
   });
   assert(adminCorr1Res.status === 200, 'Super Admin Correction 1 Success', 'Super Admin correction after manager limit succeeds (200 OK)');
-  assert(adminCorr1Res.data.correction_count === 3, 'Total Correction Count 3', 'total correction_count becomes 3');
-  assert(adminCorr1Res.data.restricted_correction_count === 2, 'Restricted Count Remains 2', 'restricted_correction_count remains 2');
+  assert(adminCorr1Res.data.correction_count === 6, 'Total Correction Count 6', 'total correction_count becomes 6');
+  assert(adminCorr1Res.data.manager_correction_count === 5, 'Manager Count Remains 5', 'manager_correction_count remains 5');
 
-  // I, J: Second additional Super Admin correction succeeds, total becomes 4
+  // 9. Super Admin second/third correction also succeeds
   const adminCorr2Res = await correctCompletedSession(toCoreUser(superAdmin), sessionId, {
-    reason: 'Super Admin reaffirmed audit verification following cross-lab audit',
-    remarks: 'Super Admin audit verification complete',
+    reason: 'Super Admin second audit verification',
+    remarks: 'Super Admin second audit verification complete',
   });
   assert(adminCorr2Res.status === 200, 'Super Admin Correction 2 Success', 'Second Super Admin correction succeeds (200 OK)');
-  assert(adminCorr2Res.data.correction_count === 4, 'Total Correction Count 4', 'total correction_count becomes 4');
-  assert(adminCorr2Res.data.restricted_correction_count === 2, 'Restricted Count Still 2', 'restricted_correction_count remains 2');
+  assert(adminCorr2Res.data.correction_count === 7, 'Total Correction Count 7', 'total correction_count becomes 7');
+  assert(adminCorr2Res.data.manager_correction_count === 5, 'Manager Count Still 5', 'manager_correction_count remains 5');
 
-  // K. Every Super Admin correction has AuditLog
+  const adminCorr3Res = await correctCompletedSession(toCoreUser(superAdmin), sessionId, {
+    reason: 'Super Admin third audit verification',
+    remarks: 'Super Admin third audit verification complete',
+  });
+  assert(adminCorr3Res.status === 200, 'Super Admin Correction 3 Success', 'Third Super Admin correction succeeds (200 OK)');
+  assert(adminCorr3Res.data.correction_count === 8, 'Total Correction Count 8', 'total correction_count becomes 8');
+  assert(adminCorr3Res.data.manager_correction_count === 5, 'Manager Count Fixed at 5', 'manager_correction_count remains 5');
+
+  // Exactly 8 correction audit logs created (5 manager + 3 super admin)
   const sessionAuditLogs = await prisma.auditLog.findMany({
     where: {
       table_name: 'zmcc_lab_session',
@@ -875,25 +947,32 @@ async function runStage6fTests() {
     },
     orderBy: { created_at: 'asc' },
   });
-  assert(sessionAuditLogs.length === 4, 'Audit Logs Count 4', 'Exactly 4 correction audit logs created (2 manager + 2 super admin)');
+  assert(sessionAuditLogs.length === 8, 'Audit Logs Count 8', 'Exactly 8 correction audit logs created (5 manager + 3 super admin)');
 
-  // L, M: Latest corrector becomes Super Admin, last_corrected_at populated
-  assert(adminCorr2Res.data.last_corrected_by_user_id === superAdmin.id.toString(), 'Latest Corrector Is Super Admin', 'latest corrector becomes Super Admin');
-  assert(!!adminCorr2Res.data.last_corrected_at, 'Last Corrected At Populated', 'last_corrected_at is populated');
+  // 25, 26: Latest corrector becomes Super Admin, last_corrected_at populated
+  assert(adminCorr3Res.data.last_corrected_by_user_id === superAdmin.id.toString(), 'Latest Corrector Is Super Admin', 'latest corrector becomes Super Admin');
+  assert(!!adminCorr3Res.data.last_corrected_at, 'Last Corrected At Populated', 'last_corrected_at is populated');
 
-  // N, O: Original completed_by_user_id and completed_at unchanged
+  // 23, 24: Original completed_by_user_id and completed_at unchanged
   const postAdminSession = await prisma.zmccLabSession.findUniqueOrThrow({
     where: { id: sessionId },
   });
   assert(postAdminSession.completed_by_user_id === origCompletedBy, 'Original Completed By Preserved', 'original completed_by_user_id unchanged');
   assert(postAdminSession.completed_at?.getTime() === origCompletedAt?.getTime(), 'Original Completed At Preserved', 'original completed_at unchanged');
 
-  // P. If Super Admin corrects before Manager, Manager still has their restricted correction slots
+  // 27: Immutable identity/system fields cannot be corrected
+  assert(postAdminSession.started_by_user_id === preAdminSession.started_by_user_id, 'Started By Immutable', 'started_by_user_id immutable');
+  assert(postAdminSession.started_at.getTime() === preAdminSession.started_at.getTime(), 'Started At Immutable', 'started_at immutable');
+  assert(postAdminSession.mot_arrival_id === preAdminSession.mot_arrival_id, 'MOT Arrival Immutable', 'mot_arrival_id immutable');
+  assert(postAdminSession.arrival_type === 'MOT', 'Arrival Type Immutable', 'arrival_type immutable');
+  assert(postAdminSession.zmcc_id === preAdminSession.zmcc_id, 'ZMCC ID Immutable', 'zmcc_id immutable');
+
+  // 12. Super Admin correcting before any Manager correction does NOT consume Manager's five slots
   // Test on conSessionId (completed CONTRACTOR arrival from section 9)
   const preAdminConSession = await prisma.zmccLabSession.findUniqueOrThrow({
     where: { id: conSessionId },
   });
-  assert(preAdminConSession.restricted_correction_count === 0, 'Initial Restricted Count 0', 'conSession initial restricted count is 0');
+  assert(preAdminConSession.manager_correction_count === 0, 'Initial Manager Count 0', 'conSession initial manager count is 0');
 
   // Super Admin corrects first on conSessionId
   const adminFirstRes = await correctCompletedSession(toCoreUser(superAdmin), conSessionId, {
@@ -902,19 +981,38 @@ async function runStage6fTests() {
   });
   assert(adminFirstRes.status === 200, 'Admin First Correction Success', 'Super Admin correction succeeds first');
   assert(adminFirstRes.data.correction_count === 1, 'Admin First Total Count 1', 'total correction_count is 1');
-  assert(adminFirstRes.data.restricted_correction_count === 0, 'Admin First Restricted Count 0', 'restricted_correction_count remains 0');
+  assert(adminFirstRes.data.manager_correction_count === 0, 'Admin First Manager Count 0', 'manager_correction_count remains 0');
 
-  // Manager still has 2 slots available
-  const mgrSlot1Res = await correctCompletedSession(toCoreUser(managerA), conSessionId, {
-    reason: 'Manager slot 1 correction',
-    remarks: 'Manager slot 1 remarks',
+  // Manager still has all 5 slots available! Execute slots 1, 2, 3, 4
+  const conMgr1 = await correctCompletedSession(toCoreUser(managerA), conSessionId, {
+    reason: 'Con Manager slot 1 correction',
+    remarks: 'Con remarks 1',
   });
-  assert(mgrSlot1Res.status === 200, 'Manager Slot 1 Success', 'Manager slot 1 succeeds after super admin correction');
-  assert(mgrSlot1Res.data.correction_count === 2, 'Total Count 2', 'total correction_count is 2');
-  assert(mgrSlot1Res.data.restricted_correction_count === 1, 'Restricted Count 1', 'restricted_correction_count is 1');
+  assert(conMgr1.status === 200, 'Con Manager Slot 1 Success', 'Manager slot 1 succeeds after super admin correction');
+  assert(conMgr1.data.manager_correction_count === 1, 'Con Manager Count 1', 'manager_correction_count is 1');
 
-  // Q, R: Concurrent Manager requests when only one restricted slot remains: exactly one succeeds
-  // Currently restricted_correction_count is 1 (only 1 slot left until limit 2).
+  const conMgr2 = await correctCompletedSession(toCoreUser(managerA), conSessionId, {
+    reason: 'Con Manager slot 2 correction',
+    remarks: 'Con remarks 2',
+  });
+  assert(conMgr2.status === 200, 'Con Manager Slot 2 Success', 'Manager slot 2 succeeds');
+  assert(conMgr2.data.manager_correction_count === 2, 'Con Manager Count 2', 'manager_correction_count is 2');
+
+  const conMgr3 = await correctCompletedSession(toCoreUser(managerA), conSessionId, {
+    reason: 'Con Manager slot 3 correction',
+    remarks: 'Con remarks 3',
+  });
+  assert(conMgr3.status === 200, 'Con Manager Slot 3 Success', 'Manager slot 3 succeeds');
+  assert(conMgr3.data.manager_correction_count === 3, 'Con Manager Count 3', 'manager_correction_count is 3');
+
+  const conMgr4 = await correctCompletedSession(toCoreUser(managerA), conSessionId, {
+    reason: 'Con Manager slot 4 correction',
+    remarks: 'Con remarks 4',
+  });
+  assert(conMgr4.status === 200, 'Con Manager Slot 4 Success', 'Manager slot 4 succeeds');
+  assert(conMgr4.data.manager_correction_count === 4, 'Con Manager Count 4', 'manager_correction_count is 4');
+
+  // 20, 21, 22: Concurrent Manager requests when count=4 (only 1 slot remaining): exactly one winner (#5)
   const [raceRes1, raceRes2] = await Promise.all([
     correctCompletedSession(toCoreUser(managerA), conSessionId, {
       reason: 'Concurrent race manager correction Alpha',
@@ -929,11 +1027,19 @@ async function runStage6fTests() {
   const raceStatuses = [raceRes1.status, raceRes2.status].sort();
   assert(
     raceStatuses[0] === 200 && raceStatuses[1] === 400,
-    'Concurrent Restricted Slot Race',
+    'Concurrent Manager Slot Race',
     `Exactly one concurrent manager request succeeds (got statuses: ${raceRes1.status}, ${raceRes2.status})`
   );
 
-  // R. Losing restricted correction creates zero audit entry (only 1 audit log created for the winner)
+  // 21. Final manager count remains 5
+  const postRaceSession = await prisma.zmccLabSession.findUniqueOrThrow({
+    where: { id: conSessionId },
+  });
+  assert(postRaceSession.manager_correction_count === 5, 'Final Manager Count 5', 'Final manager_correction_count is exactly 5');
+  assert(postRaceSession.correction_count === 6, 'Final Total Count 6', 'Final total correction_count is 6 (1 admin + 5 manager)');
+
+  // 22. Loser creates zero audit entry
+  // Total corrections on conSessionId: 1 admin + 4 manager + 1 race winner = 6
   const conCorrAuditLogs = await prisma.auditLog.findMany({
     where: {
       table_name: 'zmcc_lab_session',
@@ -941,8 +1047,7 @@ async function runStage6fTests() {
       action: 'ZMCC_LAB_SESSION_CORRECTED',
     },
   });
-  // Exactly 3 corrections: 1 super admin + 1 manager slot 1 + 1 race winner = 3
-  assert(conCorrAuditLogs.length === 3, 'Zero Audit For Losing Correction', 'Losing restricted correction creates zero audit entry');
+  assert(conCorrAuditLogs.length === 6, 'Zero Audit For Losing Correction', 'Losing concurrent manager correction creates zero audit entry (total 6)');
 
   console.log('\n--- 11. READ MODELS & HISTORY ---');
   // getSessionById

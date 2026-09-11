@@ -18,7 +18,7 @@ CREATE TABLE "zmcc_lab_session" (
     "remarks" TEXT,
     "completion_client_event_id" VARCHAR(255),
     "correction_count" INTEGER NOT NULL DEFAULT 0,
-    "restricted_correction_count" INTEGER NOT NULL DEFAULT 0,
+    "manager_correction_count" INTEGER NOT NULL DEFAULT 0,
     "last_corrected_by_user_id" BIGINT,
     "last_corrected_at" TIMESTAMP(6),
     "created_at" TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -37,10 +37,10 @@ CREATE TABLE "zmcc_lab_session" (
         ("decision" IS DISTINCT FROM 'REJECTED')
     ),
     CONSTRAINT "zmcc_lab_session_correction_count_check" CHECK ("correction_count" >= 0),
-    CONSTRAINT "zmcc_lab_session_restricted_correction_count_check" CHECK (
-        "restricted_correction_count" >= 0 AND
-        "restricted_correction_count" <= 2 AND
-        "restricted_correction_count" <= "correction_count"
+    CONSTRAINT "zmcc_lab_session_manager_correction_count_check" CHECK (
+        "manager_correction_count" >= 0 AND
+        "manager_correction_count" <= 5 AND
+        "manager_correction_count" <= "correction_count"
     )
 );
 

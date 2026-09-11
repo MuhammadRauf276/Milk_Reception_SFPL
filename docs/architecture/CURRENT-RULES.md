@@ -226,19 +226,23 @@ This document records the authoritative business rules approved for the Milk Rec
 - Idempotency via `completion_client_event_id`: exact re-submissions return `200 OK` with the existing completed session; altered payloads or concurrent collisions return `409 Conflict`.
 
 ### 15E. Completed Record Correction & Audit Policy
+- **Zero Post-Completion Operator Authority**: The operational user (`ZMCC_LAB_ATTENDANT`) who finalized/submitted the form has zero edit authority once `status = COMPLETED`.
 - **Latest State on Main Record**: The latest corrected values are stored directly on the main record (`ZmccLabSession`, `ZmccLabResult`). No separate correction-history table is created.
 - **AuditLog as History Truth**: The immutable `AuditLog` table is the sole authoritative audit trail for before/after history (`action = 'ZMCC_LAB_SESSION_CORRECTED'`).
-- **Operational Manager Limit**: `ZMCC_MANAGER` (scoped to assigned active ZMCC) is capped at 2 completed-record corrections (`restricted_correction_count < 2`). DB constraint enforces:
-  `restricted_correction_count >= 0 AND restricted_correction_count <= 2 AND restricted_correction_count <= correction_count`.
-- **Super Admin Authority**: `SUPER_ADMIN` possesses unlimited completed-record correction authority. Database enforces `correction_count >= 0`.
+- **Operational Manager 5-Save Limit**: `ZMCC_MANAGER` (scoped to assigned active ZMCC) is capped at 5 successful correction saves per completed form (`manager_correction_count < 5`). DB constraint enforces:
+  `correction_count >= 0 AND manager_correction_count >= 0 AND manager_correction_count <= 5 AND manager_correction_count <= correction_count`.
+- **One Successful Save = One Correction**: A Manager save request may update one or multiple approved fields (e.g. results, decision, remarks). It counts as exactly ONE correction increment and produces exactly ONE AuditLog event.
+- **No-Op & Failed Request Protection**: A correction count increases only when the actor is authorized, validation passes, at least one allowed operational value actually changes, and the transaction commits. Requests with identical/no-op values are rejected with `400 Bad Request` (`"No changes detected."`) and create zero counter increment, zero AuditLog entry, and zero timestamp change.
+- **Super Admin Authority**: `SUPER_ADMIN` possesses unlimited completed-record correction authority. Super Admin corrections do NOT consume the Manager's 5 allowed saves, but DO increment total `correction_count`, require a mandatory reason, update `last_corrected_by_user_id` / `last_corrected_at`, and create an immutable `AuditLog`.
 - **Audit & Counting Rigor**:
-  - `correction_count` increments on every correction across all actors.
-  - `restricted_correction_count` increments only on corrections performed by restricted roles (`ZMCC_MANAGER`).
-  - Every correction (Manager or Super Admin) requires a non-empty `reason` and writes an immutable `AuditLog` entry containing actor, action, timestamp, reason, before_state, and after_state.
+  - `correction_count` tracks total successful corrections across all actors.
+  - `manager_correction_count` tracks successful corrections by `ZMCC_MANAGER` (0..5).
+  - Every successful correction requires a non-empty `reason` and writes an immutable `AuditLog` entry containing actor, action, timestamp, reason, before_state, and after_state.
 - **Attribution Permanence**:
   - Original submitter and timestamp (`started_by_user_id`, `started_at`, `completed_by_user_id`, `completed_at`) remain permanently immutable upon completion.
-  - Latest corrector and timestamp (`last_corrected_by_user_id`, `last_corrected_at`) update atomically on every correction.
-- **Concurrency Safety**: Row-level locking (`SELECT ... FOR UPDATE`) guarantees race safety. Concurrent correction attempts serialize safely: if 1 restricted slot remains, exactly one succeeds and the other fails with `400 Bad Request` without creating phantom audit logs.
+  - Latest corrector and timestamp (`last_corrected_by_user_id`, `last_corrected_at`) update atomically on every successful correction.
+- **Allow-Listed Fields**: Correction UI/API may alter only explicitly approved Stage 6F operational values: observed results (`numeric_value`, `text_value`), `decision`, `rejection_reason`, and `remarks`. System/identity fields and CALCULATED tests remain immutable.
+- **Concurrency Safety**: Row-level locking (`SELECT ... FOR UPDATE`) guarantees race safety. When 1 Manager slot remains (count = 4) and two Manager requests arrive concurrently, exactly one succeeds (#5) and the other fails cleanly with `400 Bad Request` without creating phantom audit logs.
 
 ### 15F. Architectural Boundaries
 - **Zero Plant Business Date Rollover**: ZMCC operations use ordinary PKT timestamps and dates; 08:00 AM Plant Business Date rollover is strictly forbidden in ZMCC.
