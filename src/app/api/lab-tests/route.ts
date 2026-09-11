@@ -17,15 +17,28 @@ function serializeLabTest(test: any) {
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const scope = searchParams.get('scope') || 'DISPATCH';
+  const scopeParam = searchParams.get('scope');
+  const scope = (scopeParam || 'DISPATCH').trim().toUpperCase();
+
+  if (!['DISPATCH', 'PLANT', 'ZMCC'].includes(scope)) {
+    return NextResponse.json(
+      { error: `Invalid scope: "${scopeParam}". Supported scopes are: DISPATCH, PLANT, ZMCC.` },
+      {
+        status: 400,
+        headers: {
+          'Cache-Control': 'private, no-store, max-age=0',
+        },
+      }
+    );
+  }
 
   try {
     const scopeFilter =
       scope === 'DISPATCH'
-        ? { in: ['DISPATCH', 'BOTH'] }
+        ? { in: ['DISPATCH', 'BOTH', 'ALL'] }
         : scope === 'PLANT'
-        ? { in: ['PLANT', 'BOTH'] }
-        : { in: ['DISPATCH', 'PLANT', 'BOTH'] };
+        ? { in: ['PLANT', 'BOTH', 'ALL'] }
+        : { in: ['ZMCC', 'ALL'] };
 
     const tests = await prisma.labTest.findMany({
       where: {

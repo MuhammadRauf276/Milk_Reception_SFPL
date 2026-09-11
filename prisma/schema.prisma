@@ -67,6 +67,8 @@ model User {
   cancelled_mot_journeys     MotJourney[]               @relation("MotJourneyCancelledBy")
   recorded_mot_locations     MotJourneyLocation[]       @relation("MotJourneyLocationRecordedBy")
   submitted_mot_collections  MotShopCollection[]        @relation("MotCollectionSubmittedBy")
+  started_zmcc_lab_sessions   ZmccLabSession[]           @relation("ZmccLabStartedBy")
+  completed_zmcc_lab_sessions ZmccLabSession[]           @relation("ZmccLabCompletedBy")
 
   @@map("users")
 }
@@ -197,6 +199,7 @@ model LabTest {
   testRules        LabTestRule[]
   qa_warnings      QAWarning[]
   test_assignments LabTestAssignment[]
+  zmcc_lab_results ZmccLabResult[]     @relation("ZmccLabTestResults")
 
   @@index([testScope, isActive, displayOrder])
   @@map("lab_test")
@@ -249,6 +252,7 @@ model ProcurementSource {
   mot_arrivals              ZmccMotArrival[]                 @relation("ZmccMotArrivals")
   zmcc_contractor_arrivals  ZmccContractorArrival[]          @relation("ZmccContractorArrivals")
   contractor_arrivals       ZmccContractorArrival[]          @relation("ContractorArrivalSources")
+  zmcc_lab_sessions         ZmccLabSession[]                 @relation("ZmccLabSessions")
 
   @@map("procurement_source")
 }
@@ -931,6 +935,7 @@ model ZmccMotArrival {
   journey     MotJourney        @relation(fields: [journey_id], references: [id], onDelete: Restrict)
   zmcc        ProcurementSource @relation("ZmccMotArrivals", fields: [zmcc_id], references: [id], onDelete: Restrict)
   recorded_by User              @relation("ZmccMotArrivalRecordedBy", fields: [recorded_by_user_id], references: [id], onDelete: Restrict)
+  lab_session ZmccLabSession?   @relation("MotArrivalLabSession")
 
   @@index([zmcc_id])
   @@index([arrival_date])
@@ -959,9 +964,70 @@ model ZmccContractorArrival {
   zmcc              ProcurementSource @relation("ZmccContractorArrivals", fields: [zmcc_id], references: [id], onDelete: Restrict)
   contractor_source ProcurementSource @relation("ContractorArrivalSources", fields: [contractor_source_id], references: [id], onDelete: Restrict)
   recorded_by       User              @relation("ZmccContractorArrivalRecordedBy", fields: [recorded_by_user_id], references: [id], onDelete: Restrict)
+  lab_session       ZmccLabSession?   @relation("ContractorArrivalLabSession")
 
   @@index([zmcc_id])
   @@index([contractor_source_id])
   @@index([arrival_date])
   @@map("zmcc_contractor_arrival")
+}
+
+model ZmccLabSession {
+  id                         BigInt    @id @default(autoincrement())
+  zmcc_id                    BigInt    @map("zmcc_id")
+  arrival_type               String    @map("arrival_type") @db.VarChar(20) // MOT or CONTRACTOR
+  mot_arrival_id             BigInt?   @unique @map("mot_arrival_id")
+  contractor_arrival_id      BigInt?   @unique @map("contractor_arrival_id")
+  status                     String    @default("IN_PROGRESS") @map("status") @db.VarChar(50) // IN_PROGRESS or COMPLETED
+  started_by_user_id         BigInt    @map("started_by_user_id")
+  started_at                 DateTime  @default(now()) @map("started_at") @db.Timestamp(6)
+  completed_by_user_id       BigInt?   @map("completed_by_user_id")
+  completed_at               DateTime? @map("completed_at") @db.Timestamp(6)
+  decision                   String?   @map("decision") @db.VarChar(50) // ACCEPTED or REJECTED
+  rejection_reason           String?   @map("rejection_reason") @db.Text
+  remarks                    String?   @map("remarks") @db.Text
+  completion_client_event_id String?   @unique @map("completion_client_event_id") @db.VarChar(255)
+  correction_count           Int       @default(0) @map("correction_count")
+  created_at                 DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at                 DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  zmcc               ProcurementSource      @relation("ZmccLabSessions", fields: [zmcc_id], references: [id], onDelete: Restrict)
+  mot_arrival        ZmccMotArrival?        @relation("MotArrivalLabSession", fields: [mot_arrival_id], references: [id], onDelete: Restrict)
+  contractor_arrival ZmccContractorArrival? @relation("ContractorArrivalLabSession", fields: [contractor_arrival_id], references: [id], onDelete: Restrict)
+  starter            User                   @relation("ZmccLabStartedBy", fields: [started_by_user_id], references: [id], onDelete: Restrict)
+  completer          User?                  @relation("ZmccLabCompletedBy", fields: [completed_by_user_id], references: [id], onDelete: Restrict)
+  results            ZmccLabResult[]
+
+  @@index([zmcc_id, status])
+  @@index([status, created_at])
+  @@map("zmcc_lab_session")
+}
+
+model ZmccLabResult {
+  id                      BigInt    @id @default(autoincrement())
+  session_id              BigInt    @map("session_id")
+  test_id                 BigInt    @map("test_id")
+  test_code_snapshot      String    @map("test_code_snapshot") @db.VarChar(50)
+  test_name_snapshot      String    @map("test_name_snapshot") @db.VarChar(150)
+  result_type_snapshot    String    @map("result_type_snapshot") @db.VarChar(20)
+  unit_snapshot           String?   @map("unit_snapshot") @db.VarChar(30)
+  is_required_snapshot    Boolean   @default(true) @map("is_required_snapshot")
+  display_order_snapshot  Int       @default(0) @map("display_order_snapshot")
+  result_options_snapshot Json?     @map("result_options_snapshot")
+  numeric_value           Decimal?  @map("numeric_value") @db.Decimal(10, 4)
+  text_value              String?   @map("text_value") @db.VarChar(255)
+  evaluation_status       String?   @map("evaluation_status") @db.VarChar(50)
+  is_passed               Boolean?  @map("is_passed")
+  recorded_at             DateTime? @map("recorded_at") @db.Timestamp(6)
+  created_at              DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at              DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  session  ZmccLabSession @relation(fields: [session_id], references: [id], onDelete: Cascade)
+  lab_test LabTest        @relation("ZmccLabTestResults", fields: [test_id], references: [id], onDelete: Restrict)
+
+  @@unique([session_id, test_id])
+  @@index([session_id])
+  @@map("zmcc_lab_result")
 }

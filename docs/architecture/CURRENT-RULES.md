@@ -192,3 +192,42 @@ This document records the authoritative business rules approved for the Milk Rec
 ### 14E. Stage 6I PWA Roadmap Entry
 - **Roadmap Note**: Progressive Web Application (PWA) offline capabilities, service worker caching, and manifest installation for MOT and PHE operators are designated for **Stage 6I**.
 - **Stage 6E Status**: PWA is NOT implemented in Stage 6E. Stage 6E establishes the server-side idempotency, offline sync reconciliation contracts, and database sequence tokens required to support future PWA offline clients.
+
+---
+
+## 15. Stage 6F ZMCC Lab Testing & Acceptance Decisions
+
+### 15A. Lab Role & Permissions
+- Exactly one canonical testing role is introduced: `ZMCC_LAB_ATTENDANT`.
+- **Authority**:
+  - `ZMCC_LAB_ATTENDANT` (scoped to assigned active ZMCC) and `SUPER_ADMIN` have testing authority: start/resume sessions, update draft results, and submit final acceptance decisions.
+  - `ZMCC_MANAGER` (scoped to assigned active ZMCC) and `SUPER_ADMIN` have supervisory oversight and correction authority: view queue/history and perform up to 2 corrections on completed lab sessions. ZMCC Managers cannot start, draft, or complete intake sessions.
+  - PHE Operators, MOT Officers, Plant QA Chemists, and other roles fail closed (`403 Forbidden`).
+
+### 15B. Lab Test Master & Scope Extension
+- Canonical `LabTest` master is extended to include scopes `ZMCC` and `ALL` in addition to `DISPATCH`, `PLANT`, and `BOTH`.
+- `GET /api/lab-tests?scope=ZMCC` returns tests where `testScope IN ('ZMCC', 'ALL')`.
+- If zero active ZMCC lab tests are configured when starting a session, the request fails with a controlled `400 Bad Request` (`"No active ZMCC lab tests configured."`).
+- Result type immutability checks on `LabTest` include `ZmccLabResult` historical usage.
+
+### 15C. Session Lifecycle & Frozen Test Snapshot
+- Models: `ZmccLabSession` and `ZmccLabResult`.
+- When a session starts, active ZMCC lab tests are snapshotted into `ZmccLabResult` (frozen test code, test name, result type, unit, requirement, and categorical options). Subsequent edits to the `LabTest` master do NOT alter existing session results.
+- Only one session can exist per arrival (`mot_arrival_id` or `contractor_arrival_id` unique constraint). Concurrent starts return the existing session idempotently.
+- Status transition: `IN_PROGRESS -> COMPLETED`. Once completed, draft updates are rejected.
+
+### 15D. Decision Semantics & Mandatory Rejection Reason
+- Allowed decisions: `ACCEPTED` or `REJECTED`.
+- If `REJECTED`, a non-empty `rejection_reason` is mandatory.
+- Completion requires non-empty results for all required tests (`is_required_snapshot = true`). Categorical tests must adhere to snapshot allowed options.
+- Idempotency via `completion_client_event_id`: exact re-submissions return `200 OK` with the existing completed session; altered payloads or concurrent collisions return `409 Conflict`.
+
+### 15E. Supervisory Corrections
+- Up to 2 corrections per completed session (`correction_count < 2`). DB constraint enforced (`correction_count >= 0 AND correction_count <= 2`).
+- Row-lock concurrency safe (`FOR UPDATE`).
+- Mandatory correction `reason` recorded in immutable `AuditLog` (`action = 'ZMCC_LAB_SESSION_CORRECTED'`).
+
+### 15F. Architectural Boundaries
+- **Zero Plant Business Date Rollover**: ZMCC operations use ordinary PKT timestamps and dates; 08:00 AM Plant Business Date rollover is strictly forbidden in ZMCC.
+- **Zero VehicleVisit**: ZMCC arrivals and lab sessions NEVER create or reference `VehicleVisit`.
+- **Zero Tank/Inventory Posting**: `ACCEPTED` milk does NOT post to tanks or inventory in Stage 6F (reserved for Stage 6G).

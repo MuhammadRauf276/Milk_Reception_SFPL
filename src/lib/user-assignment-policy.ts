@@ -6,6 +6,7 @@
 export const CREATABLE_ROLES = [
   'SUPER_ADMIN',
   'ZMCC_MANAGER',
+  'ZMCC_LAB_ATTENDANT',
   'PHE_OPERATOR',
   'MOT',
   'CONTRACTOR_MANAGER',
@@ -51,6 +52,15 @@ export const ROLE_ASSIGNMENT_POLICIES: Record<CreatableRole, RoleAssignmentPolic
     allowedSourceType: 'ZMCC',
     summaryLabel: 'Milk Procurement (Source-bound: ZMCC)',
   },
+  ZMCC_LAB_ATTENDANT: {
+    role: 'ZMCC_LAB_ATTENDANT',
+    label: 'ZMCC Lab Attendant',
+    scopeType: 'SOURCE',
+    department: 'Milk Procurement',
+    requiresSource: true,
+    allowedSourceType: 'ZMCC',
+    summaryLabel: 'Milk Procurement (Source-bound: ZMCC)',
+  },
   PHE_OPERATOR: {
     role: 'PHE_OPERATOR',
     label: 'PHE Operator',
@@ -80,7 +90,7 @@ export const ROLE_ASSIGNMENT_POLICIES: Record<CreatableRole, RoleAssignmentPolic
   },
   MPD_Operator: {
     role: 'MPD_Operator',
-    label: 'ZMCC Lab Attendant',
+    label: 'MPD Operator',
     scopeType: 'SOURCE',
     department: 'Milk Procurement',
     requiresSource: true,

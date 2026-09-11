@@ -18,7 +18,8 @@ export async function GET(req: Request) {
       tests.map(async (t) => {
         const dispatchCount = await prisma.dispatchLabResult.count({ where: { test_id: t.id } });
         const plantCount = await prisma.plantLabResult.count({ where: { test_id: t.id } });
-        const totalHistoricalResults = dispatchCount + plantCount;
+        const zmccCount = await prisma.zmccLabResult.count({ where: { test_id: t.id } });
+        const totalHistoricalResults = dispatchCount + plantCount + zmccCount;
 
         return {
           id: t.id.toString(),

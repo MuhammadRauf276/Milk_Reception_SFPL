@@ -28,13 +28,17 @@ interface ConfirmModalState {
   action: 'ACTIVATE' | 'DEACTIVATE';
 }
 
-function mapScopeCheckboxes(scopeDispatch: boolean, scopePlantQA: boolean): string {
-  if (!scopeDispatch && !scopePlantQA) {
-    throw new Error('Please select at least one scope (Dispatch or Plant QA).');
+function mapScopeCheckboxes(scopeDispatch: boolean, scopePlantQA: boolean, scopeZmcc: boolean): string {
+  if (!scopeDispatch && !scopePlantQA && !scopeZmcc) {
+    throw new Error('Please select at least one scope (Dispatch, Plant QA, or ZMCC Lab).');
   }
+  if (scopeDispatch && scopePlantQA && scopeZmcc) return 'ALL';
   if (scopeDispatch && scopePlantQA) return 'BOTH';
-  if (scopeDispatch) return 'DISPATCH';
-  return 'PLANT';
+  if (scopeZmcc && !scopeDispatch && !scopePlantQA) return 'ZMCC';
+  if (scopeDispatch && !scopePlantQA && !scopeZmcc) return 'DISPATCH';
+  if (scopePlantQA && !scopeDispatch && !scopeZmcc) return 'PLANT';
+  if (scopeZmcc) return 'ALL';
+  return 'BOTH';
 }
 
 export default function SuperAdminLabTestsPage() {
@@ -60,6 +64,7 @@ export default function SuperAdminLabTestsPage() {
   const [createUnit, setCreateUnit] = useState('');
   const [createScopeDispatch, setCreateScopeDispatch] = useState(true);
   const [createScopePlantQA, setCreateScopePlantQA] = useState(true);
+  const [createScopeZmcc, setCreateScopeZmcc] = useState(false);
   const [createDisplayOrder, setCreateDisplayOrder] = useState(10);
   const [createOptions, setCreateOptions] = useState<LabTestResultOption[]>([
     { value: 'PASS', label: 'Pass', isPassing: true },
@@ -72,6 +77,7 @@ export default function SuperAdminLabTestsPage() {
   const [editUnit, setEditUnit] = useState('');
   const [editScopeDispatch, setEditScopeDispatch] = useState(true);
   const [editScopePlantQA, setEditScopePlantQA] = useState(true);
+  const [editScopeZmcc, setEditScopeZmcc] = useState(false);
   const [editDisplayOrder, setEditDisplayOrder] = useState(0);
   const [editOptions, setEditOptions] = useState<LabTestResultOption[]>([]);
 
@@ -103,6 +109,7 @@ export default function SuperAdminLabTestsPage() {
     setCreateUnit('');
     setCreateScopeDispatch(true);
     setCreateScopePlantQA(true);
+    setCreateScopeZmcc(false);
     setCreateDisplayOrder(labTests.length > 0 ? Math.max(...labTests.map((t) => t.displayOrder)) + 1 : 1);
     setCreateOptions([
       { value: 'PASS', label: 'Pass', isPassing: true },
@@ -160,7 +167,7 @@ export default function SuperAdminLabTestsPage() {
 
     let testScope: string;
     try {
-      testScope = mapScopeCheckboxes(createScopeDispatch, createScopePlantQA);
+      testScope = mapScopeCheckboxes(createScopeDispatch, createScopePlantQA, createScopeZmcc);
     } catch (err: any) {
       setCreateModalError(err.message || 'Please select at least one scope (Dispatch or Plant QA).');
       return;
@@ -220,7 +227,7 @@ export default function SuperAdminLabTestsPage() {
 
     let testScope: string;
     try {
-      testScope = mapScopeCheckboxes(editScopeDispatch, editScopePlantQA);
+      testScope = mapScopeCheckboxes(editScopeDispatch, editScopePlantQA, editScopeZmcc);
     } catch (err: any) {
       setEditModalError(err.message || 'Please select at least one scope (Dispatch or Plant QA).');
       return;
@@ -414,14 +421,19 @@ export default function SuperAdminLabTestsPage() {
                     <td className="p-3 font-mono text-slate-600">{t.unit || '-'}</td>
                     <td className="p-3">
                       <div className="flex flex-wrap gap-1">
-                        {(t.testScope === 'DISPATCH' || t.testScope === 'BOTH') && (
+                        {(t.testScope === 'DISPATCH' || t.testScope === 'BOTH' || t.testScope === 'ALL') && (
                           <span className="px-2 py-0.5 rounded bg-sky-100 text-sky-800 text-[10px] font-bold font-mono">
                             Dispatch
                           </span>
                         )}
-                        {(t.testScope === 'PLANT' || t.testScope === 'BOTH') && (
+                        {(t.testScope === 'PLANT' || t.testScope === 'BOTH' || t.testScope === 'ALL') && (
                           <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold font-mono">
                             Plant QA
+                          </span>
+                        )}
+                        {(t.testScope === 'ZMCC' || t.testScope === 'ALL') && (
+                          <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-bold font-mono">
+                            ZMCC Lab
                           </span>
                         )}
                       </div>
@@ -446,8 +458,9 @@ export default function SuperAdminLabTestsPage() {
                           setShowEditModal(t);
                           setEditName(t.testName);
                           setEditUnit(t.unit || '');
-                          setEditScopeDispatch(t.testScope === 'DISPATCH' || t.testScope === 'BOTH');
-                          setEditScopePlantQA(t.testScope === 'PLANT' || t.testScope === 'BOTH');
+                          setEditScopeDispatch(t.testScope === 'DISPATCH' || t.testScope === 'BOTH' || t.testScope === 'ALL');
+                          setEditScopePlantQA(t.testScope === 'PLANT' || t.testScope === 'BOTH' || t.testScope === 'ALL');
+                          setEditScopeZmcc(t.testScope === 'ZMCC' || t.testScope === 'ALL');
                           setEditDisplayOrder(t.displayOrder);
                           setEditOptions(t.resultOptions ? JSON.parse(JSON.stringify(t.resultOptions)) : []);
                         }}
@@ -578,6 +591,15 @@ export default function SuperAdminLabTestsPage() {
                         className="w-4 h-4 text-[#1E3A8A] rounded border-slate-300 focus:ring-[#1E3A8A]"
                       />
                       <span>Plant QA</span>
+                    </label>
+                    <label className="flex items-center space-x-2 cursor-pointer select-none text-xs font-medium text-slate-800 min-h-[44px]">
+                      <input
+                        type="checkbox"
+                        checked={createScopeZmcc}
+                        onChange={(e) => setCreateScopeZmcc(e.target.checked)}
+                        className="w-4 h-4 text-[#1E3A8A] rounded border-slate-300 focus:ring-[#1E3A8A]"
+                      />
+                      <span>ZMCC Lab</span>
                     </label>
                   </div>
                 </div>
@@ -790,6 +812,15 @@ export default function SuperAdminLabTestsPage() {
                       className="w-4 h-4 text-[#1E3A8A] rounded border-slate-300 focus:ring-[#1E3A8A]"
                     />
                     <span>Plant QA</span>
+                  </label>
+                  <label className="flex items-center space-x-2 cursor-pointer select-none text-xs font-medium text-slate-800 min-h-[44px]">
+                    <input
+                      type="checkbox"
+                      checked={editScopeZmcc}
+                      onChange={(e) => setEditScopeZmcc(e.target.checked)}
+                      className="w-4 h-4 text-[#1E3A8A] rounded border-slate-300 focus:ring-[#1E3A8A]"
+                    />
+                    <span>ZMCC Lab</span>
                   </label>
                 </div>
               </div>
