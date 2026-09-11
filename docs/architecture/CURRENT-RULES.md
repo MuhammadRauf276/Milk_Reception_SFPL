@@ -150,3 +150,45 @@ This document records the authoritative business rules approved for the Milk Rec
 - **VehicleVisit Lifecycle Boundary**: `VehicleVisit` is strictly for the Plant-bound intake lifecycle. MOT uses `MotJourney` / `MotVehicle` domain records. Future ZMCC contractor arrival will use its own ZMCC-domain operational record, not `VehicleVisit`.
 - **MOT Journey Lifecycle**: MOT journey starts immediately upon authorized assignment. `first_mot_gps_*` remains the first actual MOT-device telemetry, not the journey start trigger. There is no manual MOT Start button.
 - **Canonical MOT Route Namespace**: The canonical API namespace for MOT operations is `/api/zmcc/mot/journeys/current`. Deprecated duplicate `/api/mot/...` routes are removed.
+
+---
+
+## 14. Stage 6E ZMCC Arrival, Tokens, Journey Completion, and Roadmap
+
+### 14A. MOT ZMCC Arrival & Journey Completion
+- **Operator Authority**: PHE Operator (scoped to assigned active ZMCC) or Super Admin records arrival.
+- **Route Milk Token**: Manually submitted by PHE from the physical collection slip / driver ticket (`route_milk_token`). It is not client/system regenerated on replay. After completed submission, PHE cannot edit it. Authorized ZMCC Manager / Super Admin may correct it under the max-two correction contract with mandatory reason and immutable AuditLog history. System ZMCC Token (`zmcc_token`) is permanently immutable.
+- **Automatic ZMCC Token**: Generated using sequence `zmcc_token_seq` with daily PKT calendar date code: `ZT-MOT-YYYYMMDD-XXXX`. Collision-safe, immutable.
+- **Journey Lifecycle Transition**: Journey status moves atomically from `COLLECTING` to `COMPLETED`. `ended_at` is set to the actual arrival timestamp.
+- **Pending Stops**: Unvisited journey stops remain in `PENDING` status. They are NOT marked as `SKIPPED`.
+- **GPS Separation**:
+  - `phe_latitude` / `phe_longitude` / `phe_gps_accuracy`: Recorded by PHE operator device upon arrival (optional, valid coordinates).
+  - `final_mot_gps_*`: Snapshotted from the latest recorded `MOT_DEVICE` telemetry point where `device_recorded_at <= arrival_timestamp`.
+- **Delayed Offline Sync After Completion**: Delayed offline GPS batches or shop collections recorded prior to or at `ended_at` remain valid and can be synced after journey completion. If a delayed point is newer than `final_mot_gps_at`, `final_mot_gps_*` is updated atomically.
+
+### 14B. Contractor ZMCC Arrival Foundation
+- **ZMCC Domain Model**: Uses its own `ZmccContractorArrival` model.
+- **Strict Boundary (NO VehicleVisit)**: ZMCC contractor arrival NEVER creates a `VehicleVisit`. `VehicleVisit` is reserved exclusively for the Plant domain.
+- **Contractor Token**: Generated from sequence `zmcc_token_seq`: `ZT-CON-YYYYMMDD-XXXX`.
+- **Contractor Validation**: Requires active `CONTRACTOR` procurement source and normalized uppercase vehicle number.
+
+### 14C. Idempotency & Concurrency Safety
+- Both arrival endpoints require `client_event_id`.
+- First submission: `201 Created`.
+- Exact replay (identical payload): `200 OK` with `is_replay: true`.
+- Altered replay (same `client_event_id` with changed payload): `409 Conflict`.
+- Duplicate arrival attempt on the same journey: `409 Conflict`.
+- Concurrent identical requests yield exactly 201 + 200, 1 database row, 1 token, and 1 audit log.
+
+### 14D. Manager Corrections
+- Authorized roles: `ZMCC_MANAGER` (own ZMCC) or `SUPER_ADMIN`.
+- Max 2 corrections per arrival record (`correction_count < 2`).
+- Mandatory `reason` required for every correction.
+- Tokens (`zmcc_token`) and identity relationships are immutable.
+- Correctable: `route_milk_token` (MOT), `vehicle_number` (Contractor), `arrival_timestamp`, and PHE GPS.
+- Changing `arrival_timestamp` updates `MotJourney.ended_at` and re-evaluates `final_mot_gps_*`.
+- Full before/after state, reason, and actor recorded in immutable `AuditLog`.
+
+### 14E. Stage 6I PWA Roadmap Entry
+- **Roadmap Note**: Progressive Web Application (PWA) offline capabilities, service worker caching, and manifest installation for MOT and PHE operators are designated for **Stage 6I**.
+- **Stage 6E Status**: PWA is NOT implemented in Stage 6E. Stage 6E establishes the server-side idempotency, offline sync reconciliation contracts, and database sequence tokens required to support future PWA offline clients.

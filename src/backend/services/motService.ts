@@ -57,7 +57,7 @@ export async function resolveMotAuth(
     return { errorResponse: { error: 'Unauthorized. Authentication required.', status: 401 } };
   }
 
-  const actorUserId = BigInt(authUser.id.trim());
+  const actorUserId = BigInt(String(authUser.id).trim());
   const dbUser = await prisma.user.findUnique({
     where: { id: actorUserId },
     include: {
@@ -2508,6 +2508,25 @@ export async function submitShopCollection(
         },
       });
 
+      // Maintain final_mot_gps_* if journey has completed and this delayed point is newer
+      if (stop.journey.ended_at && deviceCollectedAt.getTime() <= new Date(stop.journey.ended_at).getTime()) {
+        await tx.motJourney.updateMany({
+          where: {
+            id: stop.journey_id,
+            OR: [
+              { final_mot_gps_at: null },
+              { final_mot_gps_at: { lt: deviceCollectedAt } },
+            ],
+          },
+          data: {
+            final_mot_gps_at: deviceCollectedAt,
+            final_mot_latitude: new Prisma.Decimal(lat.toFixed(7)),
+            final_mot_longitude: new Prisma.Decimal(lng.toFixed(7)),
+            final_mot_gps_accuracy: accuracy != null ? new Prisma.Decimal(accuracy.toFixed(2)) : null,
+          },
+        });
+      }
+
       // Create SMS Outbox row
       const smsBody = formatCollectionSmsMessage({
         shopName: stop.shop_name_snapshot,
@@ -2838,6 +2857,25 @@ export async function recordGpsBatch(
             first_mot_gps_accuracy: accuracy != null ? new Prisma.Decimal(accuracy.toFixed(2)) : null,
           },
         });
+
+        // Maintain final_mot_gps_* if journey has completed and this delayed point is newer
+        if (journey.ended_at && recDate.getTime() <= new Date(journey.ended_at).getTime()) {
+          await tx.motJourney.updateMany({
+            where: {
+              id: journey.id,
+              OR: [
+                { final_mot_gps_at: null },
+                { final_mot_gps_at: { lt: recDate } },
+              ],
+            },
+            data: {
+              final_mot_gps_at: recDate,
+              final_mot_latitude: new Prisma.Decimal(lat.toFixed(7)),
+              final_mot_longitude: new Prisma.Decimal(lng.toFixed(7)),
+              final_mot_gps_accuracy: accuracy != null ? new Prisma.Decimal(accuracy.toFixed(2)) : null,
+            },
+          });
+        }
       });
 
       results.push({ client_location_id: locId, status: 'ACCEPTED' });
@@ -2884,6 +2922,7 @@ export async function recordGpsBatch(
       accepted_count: acceptedCount,
       rejected_count: locations.length - acceptedCount,
       items: results,
+      results,
     },
   };
 }
@@ -2916,6 +2955,11 @@ export async function getJourneyMapData(
       mot_profile: { select: { id: true, mot_code: true, name: true, phone_number: true } },
       mot_vehicle: { select: { id: true, vehicle_number: true } },
       assigner: { select: { id: true, username: true, full_name: true } },
+      mot_arrival: {
+        include: {
+          recorded_by: { select: { id: true, username: true, full_name: true } },
+        },
+      },
       stops: {
         include: {
           collection: {
@@ -2977,6 +3021,7 @@ export async function getJourneyMapData(
         assigner: journey.assigner ? { id: journey.assigner.id.toString(), username: journey.assigner.username, full_name: journey.assigner.full_name } : null,
         assigned_at: journey.assigned_at.toISOString(),
         started_at: journey.started_at.toISOString(),
+        ended_at: journey.ended_at ? journey.ended_at.toISOString() : null,
         start_point: {
           latitude: Number(journey.assignment_latitude),
           longitude: Number(journey.assignment_longitude),
@@ -2988,14 +3033,44 @@ export async function getJourneyMapData(
           longitude: journey.first_mot_longitude != null ? Number(journey.first_mot_longitude) : null,
           gps_accuracy: journey.first_mot_gps_accuracy != null ? Number(journey.first_mot_gps_accuracy) : null,
         } : null,
+        final_mot_gps: journey.final_mot_gps_at ? {
+          timestamp: journey.final_mot_gps_at.toISOString(),
+          latitude: journey.final_mot_latitude != null ? Number(journey.final_mot_latitude) : null,
+          longitude: journey.final_mot_longitude != null ? Number(journey.final_mot_longitude) : null,
+          gps_accuracy: journey.final_mot_gps_accuracy != null ? Number(journey.final_mot_gps_accuracy) : null,
+        } : null,
+        phe_arrival: journey.mot_arrival ? {
+          id: journey.mot_arrival.id.toString(),
+          route_milk_token: journey.mot_arrival.route_milk_token,
+          zmcc_token: journey.mot_arrival.zmcc_token,
+          arrival_timestamp: journey.mot_arrival.arrival_timestamp.toISOString(),
+          arrival_date: journey.mot_arrival.arrival_date.toISOString().split('T')[0],
+          latitude: journey.mot_arrival.phe_latitude != null ? Number(journey.mot_arrival.phe_latitude) : null,
+          longitude: journey.mot_arrival.phe_longitude != null ? Number(journey.mot_arrival.phe_longitude) : null,
+          gps_accuracy: journey.mot_arrival.phe_gps_accuracy != null ? Number(journey.mot_arrival.phe_gps_accuracy) : null,
+          recorded_by: journey.mot_arrival.recorded_by ? {
+            id: journey.mot_arrival.recorded_by.id.toString(),
+            username: journey.mot_arrival.recorded_by.username,
+            full_name: journey.mot_arrival.recorded_by.full_name,
+          } : null,
+          submitted_at: journey.mot_arrival.submitted_at.toISOString(),
+          correction_count: journey.mot_arrival.correction_count,
+        } : null,
         latest_point: latestLocation ? {
           timestamp: latestLocation.device_recorded_at.toISOString(),
           latitude: Number(latestLocation.latitude),
           longitude: Number(latestLocation.longitude),
           gps_accuracy: latestLocation.gps_accuracy != null ? Number(latestLocation.gps_accuracy) : null,
         } : null,
-        endpoint: null,
-        endpoint_status: 'Not recorded yet (Recorded upon ZMCC arrival in Stage 6E)',
+        endpoint: journey.mot_arrival && journey.mot_arrival.phe_latitude != null ? {
+          latitude: Number(journey.mot_arrival.phe_latitude),
+          longitude: Number(journey.mot_arrival.phe_longitude),
+          gps_accuracy: journey.mot_arrival.phe_gps_accuracy != null ? Number(journey.mot_arrival.phe_gps_accuracy) : null,
+          recorded_at: journey.mot_arrival.arrival_timestamp.toISOString(),
+        } : null,
+        endpoint_status: journey.mot_arrival
+          ? (journey.mot_arrival.phe_latitude != null ? 'Recorded upon ZMCC arrival' : 'Recorded upon ZMCC arrival (No GPS)')
+          : 'Not recorded yet (Recorded upon ZMCC arrival)',
       },
       stops: journey.stops.map((s) => ({
         id: s.id.toString(),

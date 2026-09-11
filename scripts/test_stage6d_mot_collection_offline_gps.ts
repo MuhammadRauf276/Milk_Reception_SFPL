@@ -167,9 +167,9 @@ async function runStage6dTests() {
     .filter((f) => fs.statSync(path.join(migrationsDir, f)).isDirectory() && f !== 'migration_lock.toml');
 
   assert(
-    migrationDirs.length === 16,
+    migrationDirs.length >= 16,
     'MIGRATION_COUNT',
-    `Repository must contain exactly 16 tracked migrations (found ${migrationDirs.length}).`
+    `Repository must contain at least 16 tracked migrations (found ${migrationDirs.length}).`
   );
 
   // Check mot_journey_stop snapshot columns

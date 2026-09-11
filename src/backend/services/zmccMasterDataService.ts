@@ -38,7 +38,7 @@ export async function resolveZmccAuth(
     return { errorResponse: { error: 'Unauthorized. Authentication required.', status: 401 } };
   }
 
-  const actorUserId = BigInt(authUser.id.trim());
+  const actorUserId = BigInt(String(authUser.id).trim());
   const dbUser = await prisma.user.findUnique({
     where: { id: actorUserId },
     include: {
