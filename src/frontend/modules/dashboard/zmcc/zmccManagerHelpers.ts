@@ -24,7 +24,7 @@ import {
   HistoryTransactionItem,
 } from './zmccManagerTypes';
 import { formatOperationalDatetime, formatOperationalTime } from '@/lib/datetime-utils';
-import { getOperationalBusinessDate } from '@backend/core/business-day';
+import { getPakistanCalendarDate } from '@backend/core/business-day';
 
 /**
  * Group flat portion-level MilkProcessLog rows by visit ID
@@ -417,12 +417,12 @@ export function buildVehicleVisitGroups(logs: MilkProcessLog[]): VehicleVisitGro
 
     const authoritativePhysicalLiters = primary.authoritative_final_liters ?? null;
 
-    // finalReceiptBusinessDate represents payment/financial settlement business date derived from the silo
-    // transaction timestamp (accounting cut-off at 08:00 AM PKT). It does NOT represent or finalize the physical
-    // Plant Business Date (which strictly finalizes upon vehicle gate-exit).
-    let finalReceiptBusinessDate: string | null = primary.final_receipt_business_date || null;
-    if (!finalReceiptBusinessDate && primary.final_receipt_exists && primary.final_receipt_timestamp) {
-      finalReceiptBusinessDate = getOperationalBusinessDate(new Date(primary.final_receipt_timestamp));
+    // For Final Receipt reporting where a date is needed:
+    // use the actual Final Receipt timestamp/calendar date with an accurately named receipt date concept.
+    // It does NOT own a separate 08:00 Business Date.
+    let finalReceiptDate: string | null = null;
+    if (primary.final_receipt_exists && primary.final_receipt_timestamp) {
+      finalReceiptDate = getPakistanCalendarDate(primary.final_receipt_timestamp);
     }
 
     groups.push({
@@ -431,8 +431,8 @@ export function buildVehicleVisitGroups(logs: MilkProcessLog[]): VehicleVisitGro
       tokenNumber: primary.token_number || null,
       sourceName: primary.zonal_contractor_name,
       procurementSourceId: null,
-      businessDate: primary.business_date || '',
-      finalReceiptBusinessDate,
+      businessDate: primary.business_date || primary.dispatch_date || '',
+      finalReceiptBusinessDate: finalReceiptDate,
       overallStatus: primary.status,
       portions,
       primaryLog: primary,
@@ -1129,7 +1129,7 @@ export function deriveReceiptPerformanceItems(groups: VehicleVisitGroup[]): Rece
       visitId: g.visitId,
       vehicleNumber: g.vehicleNumber,
       tokenNumber: g.tokenNumber,
-      dispatchBusinessDate: g.businessDate,
+      dispatchBusinessDate: g.businessDate || g.primaryLog?.dispatch_date || '',
       finalReceiptBusinessDate: g.finalReceiptBusinessDate,
       finalReceiptTimestamp: primary.final_receipt_timestamp || null,
       lifecycleStatus: g.lifecycle.currentStageLabel,

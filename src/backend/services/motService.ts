@@ -2142,6 +2142,94 @@ export interface SubmitCollectionPayload {
  * Only the canonical linked MOT user may submit collections for their active journey.
  * Idempotent: Re-submitting with the same client_event_id returns HTTP 200 with the original record.
  */
+function matchesCollectionIdempotency(
+  existingCollection: any,
+  params: {
+    stopId: bigint;
+    quantityValue: number;
+    quantityUnit: string;
+    lr: number;
+    fat: number;
+    lat: number;
+    lng: number;
+    accuracy: number | null;
+    deviceCollectedAt: Date;
+    notes: string | null;
+  }
+): boolean {
+  const isSameStop = existingCollection.journey_stop_id === params.stopId;
+  const isSameQty = Math.abs(Number(existingCollection.quantity_value) - params.quantityValue) < 0.001;
+  const isSameUnit = existingCollection.quantity_unit === params.quantityUnit;
+  const isSameLr = Math.abs(Number(existingCollection.lr) - params.lr) < 0.001;
+  const isSameFat = Math.abs(Number(existingCollection.fat) - params.fat) < 0.001;
+  const isSameLat = Math.abs(Number(existingCollection.collection_latitude) - params.lat) < 0.0001;
+  const isSameLng = Math.abs(Number(existingCollection.collection_longitude) - params.lng) < 0.0001;
+  const existingAcc =
+    existingCollection.collection_gps_accuracy != null ? Number(existingCollection.collection_gps_accuracy) : null;
+  const isSameAcc =
+    (params.accuracy == null && existingAcc == null) ||
+    (params.accuracy != null && existingAcc != null && Math.abs(existingAcc - params.accuracy) < 0.01);
+  const isSameTimestamp =
+    Math.abs(new Date(existingCollection.device_collected_at).getTime() - params.deviceCollectedAt.getTime()) < 1000;
+  const isSameNotes = (existingCollection.collection_notes || '').trim() === (params.notes || '').trim();
+
+  return (
+    isSameStop &&
+    isSameQty &&
+    isSameUnit &&
+    isSameLr &&
+    isSameFat &&
+    isSameLat &&
+    isSameLng &&
+    isSameAcc &&
+    isSameTimestamp &&
+    isSameNotes
+  );
+}
+
+function resolveCollectionIdempotencyMatch(
+  existingCollection: any,
+  auth: MotAuthContext,
+  linkedProfile: any,
+  params: {
+    stopId: bigint;
+    quantityValue: number;
+    quantityUnit: string;
+    lr: number;
+    fat: number;
+    lat: number;
+    lng: number;
+    accuracy: number | null;
+    deviceCollectedAt: Date;
+    notes: string | null;
+  }
+): ServiceResult<any> {
+  // Cross-ZMCC: Never return another ZMCC's collection
+  if (existingCollection.zmcc_id !== auth.effectiveZmccId!) {
+    return {
+      status: 409,
+      error: 'The provided client event ID is already in use for another ZMCC.',
+    };
+  }
+
+  // Cross-MOT: Collection must belong to the same MOT profile
+  if (existingCollection.mot_profile_id !== linkedProfile.id) {
+    return {
+      status: 403,
+      error: 'Forbidden. Collection does not belong to your MOT profile.',
+    };
+  }
+
+  if (!matchesCollectionIdempotency(existingCollection, params)) {
+    return {
+      status: 409,
+      error: 'The provided client event ID is already in use with different collection parameters.',
+    };
+  }
+
+  return { status: 200, data: serializeCollection(existingCollection) };
+}
+
 export async function submitShopCollection(
   reqOrUser: Request | User,
   payload: SubmitCollectionPayload
@@ -2237,48 +2325,18 @@ export async function submitShopCollection(
   });
 
   if (existingCollection) {
-    // Cross-ZMCC: Never return another ZMCC's collection
-    if (existingCollection.zmcc_id !== auth.effectiveZmccId!) {
-      return {
-        status: 409,
-        error: 'The provided client event ID is already in use for another ZMCC.',
-      };
-    }
-
-    // Comprehensive parameter comparison
-    const isSameStop = existingCollection.journey_stop_id === stopId;
-    const isSameQty = Math.abs(Number(existingCollection.quantity_value) - quantityValue) < 0.001;
-    const isSameUnit = existingCollection.quantity_unit === quantityUnit;
-    const isSameLr = Math.abs(Number(existingCollection.lr) - lr) < 0.001;
-    const isSameFat = Math.abs(Number(existingCollection.fat) - fat) < 0.001;
-    const isSameLat = Math.abs(Number(existingCollection.collection_latitude) - lat) < 0.0001;
-    const isSameLng = Math.abs(Number(existingCollection.collection_longitude) - lng) < 0.0001;
-    const existingAcc = existingCollection.collection_gps_accuracy != null ? Number(existingCollection.collection_gps_accuracy) : null;
-    const isSameAcc =
-      (accuracy == null && existingAcc == null) ||
-      (accuracy != null && existingAcc != null && Math.abs(existingAcc - accuracy) < 0.01);
-    const isSameTimestamp = Math.abs(new Date(existingCollection.device_collected_at).getTime() - deviceCollectedAt.getTime()) < 1000;
-    const isSameNotes = (existingCollection.collection_notes || '').trim() === (notes || '').trim();
-
-    if (
-      !isSameStop ||
-      !isSameQty ||
-      !isSameUnit ||
-      !isSameLr ||
-      !isSameFat ||
-      !isSameLat ||
-      !isSameLng ||
-      !isSameAcc ||
-      !isSameTimestamp ||
-      !isSameNotes
-    ) {
-      return {
-        status: 409,
-        error: 'The provided client event ID is already in use with different collection parameters.',
-      };
-    }
-
-    return { status: 200, data: serializeCollection(existingCollection) };
+    return resolveCollectionIdempotencyMatch(existingCollection, auth, linkedProfile, {
+      stopId,
+      quantityValue,
+      quantityUnit,
+      lr,
+      fat,
+      lat,
+      lng,
+      accuracy,
+      deviceCollectedAt,
+      notes,
+    });
   }
 
   // 5. Look up Journey Stop & Journey Hierarchy
@@ -2321,6 +2379,25 @@ export async function submitShopCollection(
   }
 
   if (stop.status !== 'PENDING' || stop.collection !== null) {
+    const existingOnVisitedStop = await prisma.motShopCollection.findUnique({
+      where: { client_event_id: clientEventId },
+      include: { sms_outbox: true },
+    });
+    if (existingOnVisitedStop) {
+      return resolveCollectionIdempotencyMatch(existingOnVisitedStop, auth, linkedProfile, {
+        stopId,
+        quantityValue,
+        quantityUnit,
+        lr,
+        fat,
+        lat,
+        lng,
+        accuracy,
+        deviceCollectedAt,
+        notes,
+      });
+    }
+
     return {
       status: 409,
       error: `Journey stop #${stop.planned_sequence} has already been visited or recorded.`,
@@ -2501,63 +2578,36 @@ export async function submitShopCollection(
 
     return { status: 201, data: serializeCollection(result) };
   } catch (err: any) {
-    if (err.message === 'STOP_ALREADY_VISITED') {
-      return {
-        status: 409,
-        error: `Journey stop #${stop.planned_sequence} has already been visited or recorded.`,
-      };
-    }
-
-    if (err.code === 'P2002') {
-      const target = Array.isArray(err.meta?.target)
-        ? err.meta.target.join(',')
-        : String(err.meta?.target || '');
-
-      // Re-fetch by client_event_id in case of concurrent duplicate request
+    if (err.message === 'STOP_ALREADY_VISITED' || err.code === 'P2002') {
       const existingAfterCollision = await prisma.motShopCollection.findUnique({
         where: { client_event_id: clientEventId },
         include: { sms_outbox: true },
       });
       if (existingAfterCollision) {
-        if (existingAfterCollision.zmcc_id !== auth.effectiveZmccId!) {
-          return {
-            status: 409,
-            error: 'The provided client event ID is already in use for another ZMCC.',
-          };
-        }
-        const isSameStop = existingAfterCollision.journey_stop_id === stopId;
-        const isSameQty = Math.abs(Number(existingAfterCollision.quantity_value) - quantityValue) < 0.001;
-        const isSameUnit = existingAfterCollision.quantity_unit === quantityUnit;
-        const isSameLr = Math.abs(Number(existingAfterCollision.lr) - lr) < 0.001;
-        const isSameFat = Math.abs(Number(existingAfterCollision.fat) - fat) < 0.001;
-        const isSameLat = Math.abs(Number(existingAfterCollision.collection_latitude) - lat) < 0.0001;
-        const isSameLng = Math.abs(Number(existingAfterCollision.collection_longitude) - lng) < 0.0001;
-        const existingAcc = existingAfterCollision.collection_gps_accuracy != null ? Number(existingAfterCollision.collection_gps_accuracy) : null;
-        const isSameAcc =
-          (accuracy == null && existingAcc == null) ||
-          (accuracy != null && existingAcc != null && Math.abs(existingAcc - accuracy) < 0.01);
-        const isSameTimestamp = Math.abs(new Date(existingAfterCollision.device_collected_at).getTime() - deviceCollectedAt.getTime()) < 1000;
-        const isSameNotes = (existingAfterCollision.collection_notes || '').trim() === (notes || '').trim();
-
-        if (
-          !isSameStop ||
-          !isSameQty ||
-          !isSameUnit ||
-          !isSameLr ||
-          !isSameFat ||
-          !isSameLat ||
-          !isSameLng ||
-          !isSameAcc ||
-          !isSameTimestamp ||
-          !isSameNotes
-        ) {
-          return {
-            status: 409,
-            error: 'The provided client event ID is already in use with different collection parameters.',
-          };
-        }
-        return { status: 200, data: serializeCollection(existingAfterCollision) };
+        return resolveCollectionIdempotencyMatch(existingAfterCollision, auth, linkedProfile, {
+          stopId,
+          quantityValue,
+          quantityUnit,
+          lr,
+          fat,
+          lat,
+          lng,
+          accuracy,
+          deviceCollectedAt,
+          notes,
+        });
       }
+
+      if (err.message === 'STOP_ALREADY_VISITED') {
+        return {
+          status: 409,
+          error: `Journey stop #${stop.planned_sequence} has already been visited or recorded.`,
+        };
+      }
+
+      const target = Array.isArray(err.meta?.target)
+        ? err.meta.target.join(',')
+        : String(err.meta?.target || '');
 
       if (target.includes('journey_stop_id')) {
         return {

@@ -1,7 +1,7 @@
 import { prisma } from '../core/db';
 import { MilkProcessLog, User, ProcessStatus, PortionLabTestResult } from '../core/types';
 import { PLANT_TIMEZONE, isValidDateOnly, parseStrictDateOnly } from '@/lib/datetime-utils';
-import { getOperationalBusinessDate } from '../core/business-day';
+import { getOperationalBusinessDate, getPakistanCalendarDate } from '../core/business-day';
 import {
   calculateDensity,
   calculateSNF,
@@ -396,20 +396,19 @@ export async function getOperationalLogs(
       const isBorderline = activeSnf != null && activeSnf >= 8.5 && activeSnf <= 8.6;
 
       // Authoritative Final Receipt (Silo Transaction Evidence - No created_at fallback)
-      // Note: finalReceiptBusinessDate represents the financial/payment settlement business date derived from
-      // the silo reception timestamp (accounting cut-off at 08:00 AM PKT). It does NOT represent or finalize the
-      // physical Plant Business Date (which strictly finalizes upon vehicle gate-exit).
+      // Final Receipt retains its real operational timestamp and ordinary Pakistan calendar date
+      // where legitimately required. It does NOT own a separate 08:00 Business Date.
       const finalReceiptTs = finalizedReceipt?.operational_timestamp
         ? new Date(finalizedReceipt.operational_timestamp).toISOString()
         : null;
 
-      const finalReceiptBusinessDate = (Boolean(finalizedReceipt) && finalReceiptTs)
-        ? getOperationalBusinessDate(finalReceiptTs)
+      const finalReceiptDate = (Boolean(finalizedReceipt) && finalReceiptTs)
+        ? getPakistanCalendarDate(finalReceiptTs)
         : null;
 
       const reportingBusinessDate = Boolean(finalizedReceipt)
-        ? finalReceiptBusinessDate
-        : finalizedBusinessDate;
+        ? (finalizedBusinessDate || finalReceiptDate)
+        : (finalizedBusinessDate || dispatchDateStr);
 
       // Build dynamic configured and historical lab test results for this portion
       const dispatchResultMap = new Map<string, (typeof portion.dispatch_lab_results)[0]>();
@@ -673,7 +672,8 @@ export async function getOperationalLogs(
           final_receipt_exists: Boolean(finalizedReceipt),
           final_receipt_transaction_id: finalizedReceipt ? Number(finalizedReceipt.id) : null,
           final_receipt_timestamp: finalReceiptTs,
-          final_receipt_business_date: finalReceiptBusinessDate,
+          final_receipt_date: finalReceiptDate,
+          final_receipt_business_date: finalReceiptDate,
           reporting_business_date: reportingBusinessDate,
           authoritative_final_liters: finalizedReceipt?.quantity_liters
             ? Number(finalizedReceipt.quantity_liters)
