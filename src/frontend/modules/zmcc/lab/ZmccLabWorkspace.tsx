@@ -23,7 +23,7 @@ import {
 
 import { useToast } from '@/frontend/context/ToastContext';
 import { computeCanonicalMilkMetrics } from '@/backend/utils/milkFormulas';
-import { isLrTestCandidate, isFatTestCandidate } from '@/backend/utils/milkTestResolvers';
+import { resolveCoreMilkTestResults } from '@/backend/utils/milkTestResolvers';
 
 interface ZmccLabWorkspaceProps {
   currentUser: User | null;
@@ -83,7 +83,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
   const [correctionValues, setCorrectionValues] = useState<Record<string, { numeric_value: any; text_value: any }>>({});
   const [savingCorrection, setSavingCorrection] = useState(false);
 
-  // Helper to compute live preview metrics
+  // Helper to compute live preview metrics using canonical core resolver
   const calculatePreview = useCallback((
     qtyStr: string,
     unit: 'KG' | 'LITER',
@@ -93,32 +93,26 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
     const q = Number(qtyStr);
     if (!qtyStr || isNaN(q) || q <= 0) return null;
 
-    let lrVal: number | null = null;
-    let fatVal: number | null = null;
+    const mapped = (results || []).map((r) => ({
+      testId: r.test_id,
+      testCode: r.test_code_snapshot,
+      testName: r.test_name_snapshot,
+      resultType: r.result_type_snapshot,
+      numericValue:
+        values[r.test_id]?.numeric_value !== '' &&
+        values[r.test_id]?.numeric_value !== null &&
+        values[r.test_id]?.numeric_value !== undefined
+          ? Number(values[r.test_id].numeric_value)
+          : null,
+    }));
 
-    for (const r of results || []) {
-      const code = r.test_code_snapshot;
-      const name = r.test_name_snapshot;
-      const type = r.result_type_snapshot;
-      const val = values[r.test_id]?.numeric_value;
-      if (val !== '' && val !== null && val !== undefined) {
-        const num = Number(val);
-        if (!isNaN(num)) {
-          if (isLrTestCandidate(code, name, type)) {
-            lrVal = num;
-          } else if (isFatTestCandidate(code, name, type)) {
-            fatVal = num;
-          }
-        }
-      }
-    }
-
-    if (lrVal === null || lrVal <= 0 || fatVal === null || fatVal < 0) {
+    const resolved = resolveCoreMilkTestResults(mapped);
+    if (!resolved.success) {
       return null;
     }
 
     try {
-      return computeCanonicalMilkMetrics(q, unit, lrVal, fatVal);
+      return computeCanonicalMilkMetrics(q, unit, resolved.lr, resolved.fat);
     } catch {
       return null;
     }

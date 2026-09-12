@@ -126,19 +126,32 @@ export type ResolveCoreMilkTestResult<T = any> =
  * 2. Multiple candidates -> FAIL CLOSED (400, Ambiguous).
  * 3. Non-numeric or invalid value -> FAIL CLOSED (400).
  */
-export function resolveCoreMilkTestResults<T extends TestSnapshotLike>(
-  results: T[]
-): ResolveCoreMilkTestResult<T> {
-  if (!Array.isArray(results) || results.length === 0) {
+export type ValidateCoreMilkTestCandidatesResult<T = any> =
+  | {
+      valid: true;
+      lrCandidate: T;
+      fatCandidate: T;
+    }
+  | {
+      valid: false;
+      error: string;
+    };
+
+/**
+ * Validates that a candidate test list contains exactly one LR candidate
+ * and exactly one Fat candidate, without requiring numeric values yet (e.g. for policy pre-flight).
+ */
+export function validateCoreMilkTestCandidates<T extends TestSnapshotLike>(
+  tests: T[]
+): ValidateCoreMilkTestCandidatesResult<T> {
+  if (!Array.isArray(tests) || tests.length === 0) {
     return {
-      success: false,
-      error: 'Missing lab test results: cannot resolve core milk metrics.',
-      statusCode: 400,
+      valid: false,
+      error: 'Missing lab tests: cannot validate core LR and Fat test requirements.',
     };
   }
 
-  // 1. Find LR candidates
-  const lrCandidates = results.filter((r) => {
+  const lrCandidates = tests.filter((r) => {
     const code = r.test_code_snapshot ?? r.testCode;
     const name = r.test_name_snapshot ?? r.testName;
     const type = r.result_type_snapshot ?? r.resultType;
@@ -147,21 +160,18 @@ export function resolveCoreMilkTestResults<T extends TestSnapshotLike>(
 
   if (lrCandidates.length === 0) {
     return {
-      success: false,
-      error: 'Missing LR test: no Lactometer Reading (LR) test found in lab results.',
-      statusCode: 400,
+      valid: false,
+      error: 'Missing LR test: no Lactometer Reading (LR) test found in policy.',
     };
   }
   if (lrCandidates.length > 1) {
     return {
-      success: false,
-      error: `Ambiguous LR test resolution: found ${lrCandidates.length} LR test candidates in lab results.`,
-      statusCode: 400,
+      valid: false,
+      error: `Ambiguous LR test resolution: found ${lrCandidates.length} LR test candidates in policy.`,
     };
   }
 
-  // 2. Find Fat candidates
-  const fatCandidates = results.filter((r) => {
+  const fatCandidates = tests.filter((r) => {
     const code = r.test_code_snapshot ?? r.testCode;
     const name = r.test_name_snapshot ?? r.testName;
     const type = r.result_type_snapshot ?? r.resultType;
@@ -170,21 +180,38 @@ export function resolveCoreMilkTestResults<T extends TestSnapshotLike>(
 
   if (fatCandidates.length === 0) {
     return {
-      success: false,
-      error: 'Missing Fat test: no Fat % test found in lab results.',
-      statusCode: 400,
+      valid: false,
+      error: 'Missing Fat test: no Fat % test found in policy.',
     };
   }
   if (fatCandidates.length > 1) {
     return {
+      valid: false,
+      error: `Ambiguous Fat test resolution: found ${fatCandidates.length} Fat test candidates in policy.`,
+    };
+  }
+
+  return {
+    valid: true,
+    lrCandidate: lrCandidates[0],
+    fatCandidate: fatCandidates[0],
+  };
+}
+
+export function resolveCoreMilkTestResults<T extends TestSnapshotLike>(
+  results: T[]
+): ResolveCoreMilkTestResult<T> {
+  const candidateValidation = validateCoreMilkTestCandidates(results);
+  if (!candidateValidation.valid) {
+    return {
       success: false,
-      error: `Ambiguous Fat test resolution: found ${fatCandidates.length} Fat test candidates in lab results.`,
+      error: candidateValidation.error,
       statusCode: 400,
     };
   }
 
-  const lrTest = lrCandidates[0];
-  const fatTest = fatCandidates[0];
+  const lrTest = candidateValidation.lrCandidate;
+  const fatTest = candidateValidation.fatCandidate;
 
   // 3. Extract and validate numeric LR
   const rawLr = lrTest.numeric_value ?? lrTest.numericValue;

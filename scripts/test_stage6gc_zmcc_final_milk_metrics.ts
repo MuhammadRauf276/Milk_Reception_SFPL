@@ -342,7 +342,7 @@ async function runStage6gcTests() {
     },
   });
 
-  // Ensure Lab Tests exist with ZMCC/ALL scope: LR and FAT
+  // Ensure Lab Tests exist and are active: LR and FAT (do NOT mutate testScope)
   let lrTest = await prisma.labTest.findFirst({
     where: { testCode: 'LT-000008' },
   });
@@ -355,14 +355,14 @@ async function runStage6gcTests() {
         unit: 'degrees',
         isActive: true,
         isRequired: true,
-        testScope: 'ALL',
+        testScope: 'ZMCC',
         displayOrder: 1,
       },
     });
-  } else {
+  } else if (!lrTest.isActive) {
     lrTest = await prisma.labTest.update({
       where: { id: lrTest.id },
-      data: { isActive: true, testScope: 'ALL' },
+      data: { isActive: true },
     });
   }
 
@@ -378,16 +378,67 @@ async function runStage6gcTests() {
         unit: '%',
         isActive: true,
         isRequired: true,
-        testScope: 'ALL',
+        testScope: 'ZMCC',
         displayOrder: 2,
       },
     });
-  } else {
+  } else if (!fatTest.isActive) {
     fatTest = await prisma.labTest.update({
       where: { id: fatTest.id },
-      data: { isActive: true, testScope: 'ALL' },
+      data: { isActive: true },
     });
   }
+
+  // Setup canonical MilkTestPolicyAssignment fixtures for ZMCC_LAB_MOT and ZMCC_LAB_CONTRACTOR
+  await prisma.milkTestPolicyAssignment.deleteMany({
+    where: {
+      testing_point: { in: ['ZMCC_LAB_MOT', 'ZMCC_LAB_CONTRACTOR'] },
+    },
+  });
+
+  // Assign LR and Fat to ZMCC_LAB_MOT
+  await prisma.milkTestPolicyAssignment.create({
+    data: {
+      lab_test_id: lrTest.id,
+      testing_point: 'ZMCC_LAB_MOT',
+      is_required: true,
+      display_order: 1,
+      is_active: true,
+      created_by_user_id: manager.id,
+    },
+  });
+  await prisma.milkTestPolicyAssignment.create({
+    data: {
+      lab_test_id: fatTest.id,
+      testing_point: 'ZMCC_LAB_MOT',
+      is_required: true,
+      display_order: 2,
+      is_active: true,
+      created_by_user_id: manager.id,
+    },
+  });
+
+  // Assign LR and Fat to ZMCC_LAB_CONTRACTOR
+  await prisma.milkTestPolicyAssignment.create({
+    data: {
+      lab_test_id: lrTest.id,
+      testing_point: 'ZMCC_LAB_CONTRACTOR',
+      is_required: true,
+      display_order: 1,
+      is_active: true,
+      created_by_user_id: manager.id,
+    },
+  });
+  await prisma.milkTestPolicyAssignment.create({
+    data: {
+      lab_test_id: fatTest.id,
+      testing_point: 'ZMCC_LAB_CONTRACTOR',
+      is_required: true,
+      display_order: 2,
+      is_active: true,
+      created_by_user_id: manager.id,
+    },
+  });
 
   // Helper to create completed MOT Journey and Arrival
   async function createCompletedMotArrival(tokenSuffix: string) {
@@ -960,6 +1011,230 @@ async function runStage6gcTests() {
     const historyItem = histRes.data?.items?.find((h: any) => h.id === legacySession.id.toString());
     assert(!!historyItem, 'Historical In History', 'Legacy session appears in lab history');
     assert(historyItem?.quantity_value === null, 'History Qty Null', 'History item preserves null quantity without fabricating defaults');
+  }
+
+  // =============================================================
+  // 11. POLICY ISOLATION & CANONICAL POLICY INTEGRATION
+  // =============================================================
+  console.log('\n--- 11. POLICY ISOLATION & CANONICAL POLICY INTEGRATION ---');
+  {
+    // Create dedicated extra tests for isolation testing
+    const extraMotTest = await prisma.labTest.create({
+      data: {
+        testCode: `LT-MOT-${runId}`,
+        testName: `MOT Specific Acidity ${runId}`,
+        resultType: 'NUMERIC',
+        unit: 'pH',
+        isActive: true,
+        isRequired: false,
+        testScope: 'ZMCC',
+        displayOrder: 10,
+      },
+    });
+
+    const extraConTest = await prisma.labTest.create({
+      data: {
+        testCode: `LT-CON-${runId}`,
+        testName: `Contractor Specific Clot ${runId}`,
+        resultType: 'TEXT',
+        unit: null,
+        isActive: true,
+        isRequired: true,
+        testScope: 'ZMCC',
+        displayOrder: 11,
+      },
+    });
+
+    // Assign extraMotTest ONLY to ZMCC_LAB_MOT with policy is_required=false, display_order=5
+    await prisma.milkTestPolicyAssignment.create({
+      data: {
+        lab_test_id: extraMotTest.id,
+        testing_point: 'ZMCC_LAB_MOT',
+        is_required: false,
+        display_order: 5,
+        is_active: true,
+        created_by_user_id: manager.id,
+      },
+    });
+
+    // Assign extraConTest ONLY to ZMCC_LAB_CONTRACTOR with policy is_required=true, display_order=9
+    await prisma.milkTestPolicyAssignment.create({
+      data: {
+        lab_test_id: extraConTest.id,
+        testing_point: 'ZMCC_LAB_CONTRACTOR',
+        is_required: true,
+        display_order: 9,
+        is_active: true,
+        created_by_user_id: manager.id,
+      },
+    });
+
+    // A & D: Test MOT session snapshot
+    const { arrival: motArr } = await createCompletedMotArrival(`ISO-M-${runId}`);
+    const motSessionRes = await startOrResumeSession(
+      toCoreUser(attendant) as any,
+      { arrival_type: 'MOT', arrival_id: BigInt(motArr.id) }
+    );
+    assert(motSessionRes.status === 201, 'MOT Session Start', 'MOT session started');
+    const motResults = motSessionRes.data.results || [];
+    const motHasMotOnly = motResults.some((r: any) => r.test_code_snapshot === extraMotTest.testCode);
+    const motHasConOnly = motResults.some((r: any) => r.test_code_snapshot === extraConTest.testCode);
+    assert(motHasMotOnly, 'Policy Isolation A', 'Test assigned only to ZMCC_LAB_MOT appears in MOT session snapshot');
+    assert(!motHasConOnly, 'Policy Isolation D', 'Contractor-only test does NOT appear in MOT session snapshot');
+
+    // E & F: Check policy is_required and display_order snapshots on MOT-only test
+    const motOnlySnap = motResults.find((r: any) => r.test_code_snapshot === extraMotTest.testCode);
+    assert(motOnlySnap?.is_required_snapshot === false, 'Policy is_required E', 'Policy is_required controls is_required_snapshot (false)');
+    assert(motOnlySnap?.display_order_snapshot === 5, 'Policy display_order F', 'Policy display_order controls display_order_snapshot (5)');
+
+    // B & C: Test Contractor session snapshot
+    const conArrRes = await submitContractorArrival(
+      toCoreUser(phe) as any,
+      {
+        contractor_source_id: contractor.id,
+        vehicle_number: `CON-ISO-${runId}`,
+        arrival_timestamp: new Date(Date.now() - 600000),
+        client_event_id: `evt-con-iso-${runId}`,
+      }
+    );
+    const conSessionRes = await startOrResumeSession(
+      toCoreUser(attendant) as any,
+      { arrival_type: 'CONTRACTOR', arrival_id: BigInt(conArrRes.data.id) }
+    );
+    assert(conSessionRes.status === 201, 'Contractor Session Start', 'Contractor session started');
+    const conResults = conSessionRes.data.results || [];
+    const conHasConOnly = conResults.some((r: any) => r.test_code_snapshot === extraConTest.testCode);
+    const conHasMotOnly = conResults.some((r: any) => r.test_code_snapshot === extraMotTest.testCode);
+    assert(conHasConOnly, 'Policy Isolation C', 'Test assigned only to ZMCC_LAB_CONTRACTOR appears in Contractor session snapshot');
+    assert(!conHasMotOnly, 'Policy Isolation B', 'MOT-only test does NOT appear in Contractor session snapshot');
+
+    // E & F on Contractor test:
+    const conOnlySnap = conResults.find((r: any) => r.test_code_snapshot === extraConTest.testCode);
+    assert(conOnlySnap?.is_required_snapshot === true, 'Policy is_required E2', 'Policy is_required controls is_required_snapshot (true)');
+    assert(conOnlySnap?.display_order_snapshot === 9, 'Policy display_order F2', 'Policy display_order controls display_order_snapshot (9)');
+
+    // G: Inactive policy assignment is excluded
+    const inactiveAssocTest = await prisma.labTest.create({
+      data: {
+        testCode: `LT-INACT-A-${runId}`,
+        testName: `Inactive Assoc Test ${runId}`,
+        resultType: 'TEXT',
+        isActive: true,
+        testScope: 'ZMCC',
+        displayOrder: 20,
+      },
+    });
+    await prisma.milkTestPolicyAssignment.create({
+      data: {
+        lab_test_id: inactiveAssocTest.id,
+        testing_point: 'ZMCC_LAB_MOT',
+        is_required: false,
+        display_order: 20,
+        is_active: false, // INACTIVE POLICY
+        created_by_user_id: manager.id,
+      },
+    });
+
+    const { arrival: motArr2 } = await createCompletedMotArrival(`ISO-M2-${runId}`);
+    const motSessionRes2 = await startOrResumeSession(
+      toCoreUser(attendant) as any,
+      { arrival_type: 'MOT', arrival_id: BigInt(motArr2.id) }
+    );
+    const motResults2 = motSessionRes2.data.results || [];
+    const hasInactiveAssoc = motResults2.some((r: any) => r.test_code_snapshot === inactiveAssocTest.testCode);
+    assert(!hasInactiveAssoc, 'Policy Inactive Assignment G', 'Inactive policy assignment is excluded from session snapshot');
+
+    // H: Inactive LabTest is excluded through effective policy
+    const inactiveMasterTest = await prisma.labTest.create({
+      data: {
+        testCode: `LT-INACT-M-${runId}`,
+        testName: `Inactive Master Test ${runId}`,
+        resultType: 'TEXT',
+        isActive: false, // INACTIVE LAB TEST
+        testScope: 'ZMCC',
+        displayOrder: 21,
+      },
+    });
+    await prisma.milkTestPolicyAssignment.create({
+      data: {
+        lab_test_id: inactiveMasterTest.id,
+        testing_point: 'ZMCC_LAB_MOT',
+        is_required: false,
+        display_order: 21,
+        is_active: true, // ACTIVE POLICY
+        created_by_user_id: manager.id,
+      },
+    });
+
+    const { arrival: motArr3 } = await createCompletedMotArrival(`ISO-M3-${runId}`);
+    const motSessionRes3 = await startOrResumeSession(
+      toCoreUser(attendant) as any,
+      { arrival_type: 'MOT', arrival_id: BigInt(motArr3.id) }
+    );
+    const motResults3 = motSessionRes3.data.results || [];
+    const hasInactiveMaster = motResults3.some((r: any) => r.test_code_snapshot === inactiveMasterTest.testCode);
+    assert(!hasInactiveMaster, 'Policy Inactive LabTest H', 'Inactive LabTest is excluded through effective policy');
+
+    // Complete motSessionRes so it can be corrected
+    const completeForCorr = await completeSession(
+      toCoreUser(attendant) as any,
+      motSessionRes.data.id,
+      {
+        quantity_value: 5000,
+        quantity_unit: 'LITER',
+        decision: 'ACCEPTED',
+        results: [
+          { test_id: lrTest.id.toString(), numeric_value: 30, text_value: null },
+          { test_id: fatTest.id.toString(), numeric_value: 4.0, text_value: null },
+          { test_id: extraMotTest.id.toString(), numeric_value: 6.7, text_value: null },
+        ],
+        completion_client_event_id: `evt-corr-prep-${runId}`,
+      }
+    );
+    assert(completeForCorr.status === 200, 'Session Completed for Correction', 'Session completed');
+
+    // J: Duplicate test_id in correctCompletedSession payload returns 400
+    const dupCorrRes = await correctCompletedSession(
+      toCoreUser(manager) as any,
+      motSessionRes.data.id,
+      {
+        reason: 'Attempt duplicate test correction',
+        results: [
+          { test_id: lrTest.id.toString(), numeric_value: 29 },
+          { test_id: lrTest.id.toString(), numeric_value: 30 },
+        ],
+      }
+    );
+    assert(
+      dupCorrRes.status === 400 && Boolean(dupCorrRes.error?.includes('Duplicate test_id')),
+      'Correction Duplicate Guard J',
+      'Duplicate test_id in correction payload rejected with 400'
+    );
+
+    // I: Empty policy fails closed
+    // Temporarily deactivate all ZMCC_LAB_MOT policies
+    await prisma.milkTestPolicyAssignment.updateMany({
+      where: { testing_point: 'ZMCC_LAB_MOT' },
+      data: { is_active: false },
+    });
+    const { arrival: motArr4 } = await createCompletedMotArrival(`EMPTY-${runId}`);
+    const emptyPolicyRes = await startOrResumeSession(
+      toCoreUser(attendant) as any,
+      { arrival_type: 'MOT', arrival_id: BigInt(motArr4.id) }
+    );
+    assert(
+      emptyPolicyRes.status === 400 && Boolean(emptyPolicyRes.error?.includes('No active milk test policy is configured for ZMCC_LAB_MOT')),
+      'Empty Policy Fail Closed I',
+      'Empty policy fails closed with 400 and clear error message'
+    );
+    // Restore ZMCC_LAB_MOT policies
+    await prisma.milkTestPolicyAssignment.updateMany({
+      where: {
+        testing_point: 'ZMCC_LAB_MOT',
+        lab_test_id: { in: [lrTest.id, fatTest.id] },
+      },
+      data: { is_active: true },
+    });
   }
 
   console.log('\n=====================================================================');

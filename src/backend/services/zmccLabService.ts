@@ -5,7 +5,8 @@ import { User, Role } from '@core/types';
 import { evaluateLabResult, validateCategoricalOption } from '@/lib/lab-rules';
 import { isValidDateOnly } from '@/lib/datetime-utils';
 import { computeCanonicalMilkMetrics } from '@/backend/utils/milkFormulas';
-import { resolveCoreMilkTestResults } from '@/backend/utils/milkTestResolvers';
+import { resolveCoreMilkTestResults, validateCoreMilkTestCandidates } from '@/backend/utils/milkTestResolvers';
+import { MilkTestPolicyService } from '@/backend/services/milkTestPolicyService';
 
 export interface ZmccLabAuthContext {
   user: User;
@@ -536,24 +537,25 @@ export async function startOrResumeSession(
     }
   }
 
-  // Active lab tests for ZMCC
-  const activeTests = await prisma.labTest.findMany({
-    where: {
-      isActive: true,
-      testScope: { in: ['ZMCC', 'ALL'] },
-    },
-    orderBy: [
-      { displayOrder: 'asc' },
-      { testName: 'asc' },
-    ],
-  });
+  // Canonical milk test policy by arrival type
+  const testingPoint = arrival_type === 'MOT' ? 'ZMCC_LAB_MOT' : 'ZMCC_LAB_CONTRACTOR';
+  const effectiveTests = await MilkTestPolicyService.getEffectivePolicy(testingPoint);
 
-  if (activeTests.length === 0) {
-    return { status: 400, error: 'No active ZMCC lab tests configured.' };
+  if (!effectiveTests || effectiveTests.length === 0) {
+    return { status: 400, error: `No active milk test policy is configured for ${testingPoint}.` };
+  }
+
+  // Pre-flight validate that policy contains exactly one LR and one Fat candidate
+  const candidateValidation = validateCoreMilkTestCandidates(effectiveTests);
+  if (!candidateValidation.valid) {
+    return {
+      status: 400,
+      error: candidateValidation.error,
+    };
   }
 
   // Calculated test safety: Fail closed if unsupported required CALCULATED tests exist
-  const unsupportedCalculated = activeTests.find(
+  const unsupportedCalculated = effectiveTests.find(
     (t) => t.resultType === 'CALCULATED' && t.isRequired
   );
   if (unsupportedCalculated) {
@@ -592,8 +594,8 @@ export async function startOrResumeSession(
           status: 'IN_PROGRESS',
           started_by_user_id: auth.actorUserId,
           results: {
-            create: activeTests.map((t) => ({
-              test_id: t.id,
+            create: effectiveTests.map((t) => ({
+              test_id: BigInt(t.id),
               test_code_snapshot: t.testCode,
               test_name_snapshot: t.testName,
               result_type_snapshot: t.resultType,
@@ -1019,9 +1021,7 @@ function matchesPersistedSessionCompletion(
     return false;
   }
 
-  const persistedResults = [...persistedSession.results].sort((a, b) =>
-    a.test_id.toString().localeCompare(b.test_id.toString())
-  );
+  const persistedMap = new Map<string, any>(persistedSession.results.map((r: any) => [r.test_id.toString(), r]));
 
   const submittedMap = new Map<string, { numeric_value?: number | null; text_value?: string | null }>();
   for (const item of payload.results) {
@@ -1029,41 +1029,45 @@ function matchesPersistedSessionCompletion(
     if (submittedMap.has(tid)) {
       return false; // Duplicate test_id in payload
     }
+    if (!persistedMap.has(tid)) {
+      return false; // Test does not belong to session
+    }
     submittedMap.set(tid, item);
   }
 
-  if (submittedMap.size !== persistedResults.length) {
-    return false;
-  }
-
-  for (const pRes of persistedResults) {
+  for (const pRes of persistedSession.results) {
     const tid = pRes.test_id.toString();
     const sub = submittedMap.get(tid);
-    if (!sub) {
-      return false;
-    }
-
     const resType = pRes.result_type_snapshot;
 
-    if (resType === 'NUMERIC') {
-      const persistedNum = pRes.numeric_value != null ? Number(pRes.numeric_value.toString()).toFixed(4) : null;
-      const subNum = sub.numeric_value != null && !isNaN(Number(sub.numeric_value)) ? Number(sub.numeric_value).toFixed(4) : null;
-      if (persistedNum !== subNum) {
-        return false;
-      }
-    } else if (resType === 'CALCULATED') {
-      if (sub.numeric_value != null || (sub.text_value != null && sub.text_value.trim() !== '')) {
-        return false;
+    if (resType === 'CALCULATED') {
+      // Optional un-submittable calculated snapshot results may be omitted from submittedMap
+      if (sub) {
+        if (sub.numeric_value != null || (sub.text_value != null && sub.text_value.trim() !== '')) {
+          return false;
+        }
       }
       if (pRes.numeric_value != null || (pRes.text_value != null && pRes.text_value.trim() !== '')) {
         return false;
       }
     } else {
-      // TEXT, QUALITATIVE, BOOLEAN, OK_NOT_OK, POSITIVE_NEGATIVE
-      const persistedText = pRes.text_value ? pRes.text_value.trim() : null;
-      const subText = sub.text_value ? sub.text_value.trim() : null;
-      if (persistedText !== subText) {
+      if (!sub) {
         return false;
+      }
+
+      if (resType === 'NUMERIC') {
+        const persistedNum = pRes.numeric_value != null ? Number(pRes.numeric_value.toString()).toFixed(4) : null;
+        const subNum = sub.numeric_value != null && !isNaN(Number(sub.numeric_value)) ? Number(sub.numeric_value).toFixed(4) : null;
+        if (persistedNum !== subNum) {
+          return false;
+        }
+      } else {
+        // TEXT, QUALITATIVE, BOOLEAN, OK_NOT_OK, POSITIVE_NEGATIVE
+        const persistedText = pRes.text_value ? pRes.text_value.trim() : null;
+        const subText = sub.text_value ? sub.text_value.trim() : null;
+        if (persistedText !== subText) {
+          return false;
+        }
       }
     }
   }
@@ -1699,8 +1703,17 @@ export async function correctCompletedSession(
   // Validate results if provided
   const sessionResultsMap = new Map(session.results.map((r) => [r.test_id.toString(), r]));
   if (Array.isArray(results)) {
+    const seenCorrectionTids = new Set<string>();
     for (const item of results) {
+      if (!item || item.test_id === undefined || item.test_id === null) {
+        return { status: 400, error: 'Every result entry must specify test_id.' };
+      }
       const testIdStr = String(item.test_id).trim();
+      if (seenCorrectionTids.has(testIdStr)) {
+        return { status: 400, error: `Duplicate test_id "${testIdStr}" in correction payload.` };
+      }
+      seenCorrectionTids.add(testIdStr);
+
       const snap = sessionResultsMap.get(testIdStr);
       if (!snap) {
         return { status: 400, error: `Test ID ${testIdStr} does not belong to this session.` };
