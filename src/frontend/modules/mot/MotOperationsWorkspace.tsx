@@ -125,6 +125,26 @@ interface JourneyItem {
     longitude: number;
     device_recorded_at: string;
   }>;
+  summary?: {
+    id: string;
+    journey_id: string;
+    journey_ended_at: string;
+    assigned_shop_count: number;
+    collected_shop_count: number;
+    skipped_shop_count: number;
+    pending_shop_count: number;
+    total_gross_liters: number;
+    total_at_13ts_liters: number;
+    weighted_avg_lr: number | null;
+    weighted_avg_fat: number | null;
+    weighted_avg_snf: number | null;
+    weighted_avg_ts: number | null;
+    summary_version: string;
+    source_calculation_versions: string[];
+    revision: number;
+    generated_at: string;
+    last_recomputed_at: string | null;
+  } | null;
 }
 
 interface MotOperationsWorkspaceProps {
@@ -1334,6 +1354,86 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
                 <X className="w-5 h-5" />
               </button>
             </div>
+
+            {selectedJourneyDetail.summary && (
+              <div className="p-4 rounded-xl bg-slate-50 border border-[#EAE4D5] space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black uppercase tracking-wider text-slate-700">
+                    MOT Journey Final Summary (v{selectedJourneyDetail.summary.summary_version} — Rev #{selectedJourneyDetail.summary.revision})
+                  </span>
+                  <span className="text-[11px] font-bold text-slate-500">
+                    Ended: {new Date(selectedJourneyDetail.summary.journey_ended_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} PKT
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+                  <div className="p-2 bg-white rounded-lg border border-[#EAE4D5]">
+                    <div className="text-[10px] uppercase font-bold text-slate-500">Assigned Shops</div>
+                    <div className="text-sm font-black text-slate-900">{selectedJourneyDetail.summary.assigned_shop_count}</div>
+                  </div>
+                  <div className="p-2 bg-white rounded-lg border border-[#EAE4D5]">
+                    <div className="text-[10px] uppercase font-bold text-emerald-700">Collected Shops</div>
+                    <div className="text-sm font-black text-emerald-800">{selectedJourneyDetail.summary.collected_shop_count}</div>
+                  </div>
+                  <div className="p-2 bg-white rounded-lg border border-[#EAE4D5]">
+                    <div className="text-[10px] uppercase font-bold text-amber-700">Skipped Shops</div>
+                    <div className="text-sm font-black text-amber-800">{selectedJourneyDetail.summary.skipped_shop_count}</div>
+                  </div>
+                  <div className="p-2 bg-white rounded-lg border border-[#EAE4D5]">
+                    <div className="text-[10px] uppercase font-bold text-blue-700">Pending Sync</div>
+                    <div className="text-sm font-black text-blue-800">{selectedJourneyDetail.summary.pending_shop_count}</div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 text-center">
+                  <div className="p-2 bg-white rounded-lg border border-[#EAE4D5]">
+                    <div className="text-[10px] uppercase font-bold text-slate-500">Gross Liters</div>
+                    <div className="text-xs font-mono font-black text-slate-900">
+                      {selectedJourneyDetail.summary.total_gross_liters.toFixed(2)} L
+                    </div>
+                  </div>
+                  <div className="p-2 bg-white rounded-lg border border-[#EAE4D5]">
+                    <div className="text-[10px] uppercase font-bold text-slate-500">@13TS Liters</div>
+                    <div className="text-xs font-mono font-black text-slate-900">
+                      {selectedJourneyDetail.summary.total_at_13ts_liters.toFixed(2)} L
+                    </div>
+                  </div>
+                  <div className="p-2 bg-white rounded-lg border border-[#EAE4D5]">
+                    <div className="text-[10px] uppercase font-bold text-slate-500">Weighted LR</div>
+                    <div className="text-xs font-mono font-black text-slate-800">
+                      {selectedJourneyDetail.summary.weighted_avg_lr != null ? selectedJourneyDetail.summary.weighted_avg_lr.toFixed(2) : '—'}
+                    </div>
+                  </div>
+                  <div className="p-2 bg-white rounded-lg border border-[#EAE4D5]">
+                    <div className="text-[10px] uppercase font-bold text-slate-500">Weighted Fat</div>
+                    <div className="text-xs font-mono font-black text-slate-800">
+                      {selectedJourneyDetail.summary.weighted_avg_fat != null ? `${selectedJourneyDetail.summary.weighted_avg_fat.toFixed(2)}%` : '—'}
+                    </div>
+                  </div>
+                  <div className="p-2 bg-white rounded-lg border border-[#EAE4D5]">
+                    <div className="text-[10px] uppercase font-bold text-slate-500">Weighted SNF</div>
+                    <div className="text-xs font-mono font-black text-slate-800">
+                      {selectedJourneyDetail.summary.weighted_avg_snf != null ? `${selectedJourneyDetail.summary.weighted_avg_snf.toFixed(2)}%` : '—'}
+                    </div>
+                  </div>
+                  <div className="p-2 bg-white rounded-lg border border-[#EAE4D5]">
+                    <div className="text-[10px] uppercase font-bold text-slate-500">Weighted TS</div>
+                    <div className="text-xs font-mono font-black text-slate-800">
+                      {selectedJourneyDetail.summary.weighted_avg_ts != null ? `${selectedJourneyDetail.summary.weighted_avg_ts.toFixed(2)}%` : '—'}
+                    </div>
+                  </div>
+                </div>
+
+                {selectedJourneyDetail.summary.pending_shop_count > 0 && (
+                  <div className="flex items-center space-x-2 text-[11px] font-bold text-blue-800 bg-blue-50 p-2.5 rounded-lg border border-blue-200">
+                    <Clock className="w-4 h-4 shrink-0 text-blue-600" />
+                    <span>
+                      Waiting for delayed collection sync: {selectedJourneyDetail.summary.pending_shop_count} assigned shop record(s) are still unresolved.
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="space-y-3">
               <h4 className="text-xs font-black uppercase tracking-wider text-[#111311]">

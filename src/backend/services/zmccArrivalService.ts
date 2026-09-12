@@ -3,6 +3,10 @@ import { Prisma } from '@prisma/client';
 import { getCurrentUser } from '@core/auth';
 import { User, Role } from '@core/types';
 import { getPakistanCalendarDate } from '@core/business-day';
+import {
+  createInitialMotJourneySummaryTx,
+  serializeMotJourneySummary,
+} from './motJourneySummaryService';
 
 export interface ZmccArrivalAuthContext {
   user: User;
@@ -378,6 +382,7 @@ export function serializeMotArrival(arrival: any) {
             longitude: arrival.journey.final_mot_longitude != null ? Number(arrival.journey.final_mot_longitude) : null,
             gps_accuracy: arrival.journey.final_mot_gps_accuracy != null ? Number(arrival.journey.final_mot_gps_accuracy) : null,
           } : null,
+          summary: arrival.journey.summary ? serializeMotJourneySummary(arrival.journey.summary) : null,
         }
       : undefined,
     zmcc: arrival.zmcc
@@ -498,6 +503,7 @@ export async function submitMotArrival(
           route: true,
           mot_vehicle: true,
           mot_profile: true,
+          summary: true,
         },
       },
       zmcc: true,
@@ -664,6 +670,8 @@ export async function submitMotArrival(
         },
       });
 
+      const summary = await createInitialMotJourneySummaryTx(tx, journey.id, arrivalDate, auth.actorUserId);
+
       await tx.auditLog.create({
         data: {
           table_name: 'zmcc_mot_arrival',
@@ -700,7 +708,15 @@ export async function submitMotArrival(
         },
       });
 
-      return arrival;
+      return {
+        ...arrival,
+        journey: {
+          ...arrival.journey,
+          status: 'COMPLETED',
+          ended_at: arrivalDate,
+          summary,
+        },
+      };
     });
 
     return {
@@ -717,6 +733,7 @@ export async function submitMotArrival(
               route: true,
               mot_vehicle: true,
               mot_profile: true,
+              summary: true,
             },
           },
           zmcc: true,
@@ -1444,6 +1461,7 @@ export async function listMotArrivals(
             route: true,
             mot_vehicle: true,
             mot_profile: true,
+            summary: true,
           },
         },
         zmcc: true,
@@ -1490,6 +1508,7 @@ export async function getMotArrivalById(
           route: true,
           mot_vehicle: true,
           mot_profile: true,
+          summary: true,
         },
       },
       zmcc: true,

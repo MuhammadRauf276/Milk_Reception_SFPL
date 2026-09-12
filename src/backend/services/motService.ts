@@ -9,6 +9,10 @@ import {
   formatCollectionSmsMessage,
   MOT_CALCULATION_VERSION,
 } from '@backend/utils/milkFormulas';
+import {
+  recomputeMotJourneySummaryTx,
+  serializeMotJourneySummary,
+} from './motJourneySummaryService';
 
 export interface MotAuthContext {
   user: User;
@@ -1900,6 +1904,7 @@ export async function getMotJourneyById(
       locations: {
         orderBy: { device_recorded_at: 'asc' },
       },
+      summary: true,
     },
   });
 
@@ -2070,6 +2075,7 @@ export function serializeJourney(j: any) {
       server_received_at: l.server_received_at.toISOString(),
       idempotency_key: l.idempotency_key,
     })),
+    summary: j.summary ? serializeMotJourneySummary(j.summary) : null,
     created_at: j.created_at.toISOString(),
     updated_at: j.updated_at.toISOString(),
   };
@@ -2588,6 +2594,11 @@ export async function submitShopCollection(
           user_id: auth.actorUserId,
         },
       });
+
+      // If journey has already completed (ended_at exists), recompute MotJourneySummary in SAME transaction
+      if (stop.journey.ended_at && deviceCollectedAt.getTime() <= new Date(stop.journey.ended_at).getTime()) {
+        await recomputeMotJourneySummaryTx(tx, stop.journey_id, auth.actorUserId);
+      }
 
       return {
         ...collection,

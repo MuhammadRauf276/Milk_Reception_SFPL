@@ -359,3 +359,43 @@ SUPER ADMIN (SUPER_ADMIN)
 - Legacy strings fail closed across all active APIs, routes, and mutation checks.
 - Exact legacy users in persistent databases are safely migrated in-place to canonical equivalents or deactivated.
 - **Audit Log Immutability**: Historical user IDs on `audit_logs`, `created_by`, `completed_by`, and related foreign keys are strictly preserved; no fake identities or audit log deletions.
+
+---
+
+## 18. Stage 6G-B MOT Journey Final Summary
+
+### 18A. Core Entity & Immutability
+- **Entity**: `MotJourneySummary` (backed by PostgreSQL table `mot_journey_summaries`).
+- **Ownership**: 100% system-owned, immutable summary. No operator (including Super Admin) can manually edit or override summary fields via any API or UI.
+- **Relationship**: Exact 1-to-1 relationship with `MotJourney` via unique foreign key `journey_id`.
+- **Creation Lifecycle**: Created strictly inside the same PostgreSQL transaction (`tx`) that completes ZMCC arrival (`POST /api/zmcc/arrivals` with `action: 'RECORD_ARRIVAL'`).
+- **Version Tracking**: `summary_version = '1.0'`. Distinct sorted array of calculation formula versions tracked in `source_calculation_versions` (e.g. `["1.0"]`).
+- **No Plant Business Date**: Upstream MOT journeys operate on standard Pakistan Standard Time (PKT) calendar dates. Summary does NOT use Plant 08:00 AM cutoff or `operational_date`.
+- **No MotVehicleVisit**: `MotJourney` remains the canonical entity; no artificial visit abstraction is introduced.
+
+### 18B. Aggregation & Weighting Formulae
+- Aggregates all shop collections belonging to the journey (`MotShopCollection` linked via `journey_id` through `MotJourneyStop`):
+  - `total_gross_liters = SUM(gross_liters)` (rounded half-up to 2 decimals)
+  - `total_at_13ts_liters = SUM(at_13ts_liters)` (rounded half-up to 2 decimals)
+  - `weighted_avg_lr = SUM(gross_liters * lr) / total_gross_liters` (rounded half-up to 2 decimals)
+  - `weighted_avg_fat = SUM(gross_liters * fat) / total_gross_liters` (rounded half-up to 2 decimals)
+  - `weighted_avg_snf = SUM(gross_liters * snf) / total_gross_liters` (rounded half-up to 2 decimals)
+  - `weighted_avg_ts = SUM(gross_liters * ts) / total_gross_liters` (rounded half-up to 2 decimals)
+- **Weighting Basis**: All quality averages are strictly weighted by **`gross_liters`** (never physical kg, dipstick inches, or unweighted count averages).
+- **Empty Journey Handling**: If zero shop collections exist, `total_gross_liters = 0.00`, `total_at_13ts_liters = 0.00`, and all weighted average quality metrics (`lr`, `fat`, `snf`, `ts`) must be `NULL`.
+- **Shop Stop Counts**:
+  - `assigned_shop_count`: Total stops on journey
+  - `collected_shop_count`: Stops with successful collection (`status == 'COLLECTED'`)
+  - `skipped_shop_count`: Stops skipped (`status == 'SKIPPED'`)
+  - `pending_shop_count`: Stops not completed (`status == 'PENDING'`)
+
+### 18C. Offline Delayed Sync & Late Recompute Exception
+- **Late Sync Window**: If a delayed offline collection arrives after journey completion, but was recorded on the device prior to or at journey end (`device_collected_at <= journey.ended_at`):
+  - Allowed and ingested in a transaction.
+  - The existing `MotJourneySummary` is recomputed in the SAME transaction.
+  - `revision` counter is incremented by 1 (`revision += 1`).
+  - An audit log event `MOT_JOURNEY_SUMMARY_REFRESHED_LATE_SYNC` is created in the same transaction with `user_id` set to the submitting MOT actor.
+  - Stop counts update (e.g. `pending_shop_count` decrements, `collected_shop_count` increments).
+- **Exact Idempotent Replay**: Re-submitting the exact same collection must NOT alter revision or emit redundant audit logs.
+- **Post-Journey Prohibition**: Any collection attempted with `device_collected_at > journey.ended_at` is rejected, leaving the summary unchanged.
+- **GPS Invariance**: Late sync of GPS breadcrumbs or location points alone does NOT trigger summary recomputation or revision bumps.

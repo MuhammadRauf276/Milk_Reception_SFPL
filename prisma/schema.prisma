@@ -781,6 +781,7 @@ model MotJourney {
   locations   MotJourneyLocation[]
   collections MotShopCollection[]
   mot_arrival ZmccMotArrival?
+  summary     MotJourneySummary?
 
   @@unique([id, zmcc_id])
   @@index([zmcc_id])
@@ -1060,4 +1061,31 @@ model MilkTestPolicyAssignment {
   @@unique([lab_test_id, testing_point])
   @@index([testing_point, is_active])
   @@map("milk_test_policy_assignment")
+}
+
+model MotJourneySummary {
+  id                          BigInt    @id @default(autoincrement())
+  journey_id                  BigInt    @unique @map("journey_id")
+  journey_ended_at            DateTime  @map("journey_ended_at") @db.Timestamp(6)
+  assigned_shop_count         Int       @map("assigned_shop_count")
+  collected_shop_count        Int       @map("collected_shop_count")
+  skipped_shop_count          Int       @map("skipped_shop_count")
+  pending_shop_count          Int       @map("pending_shop_count")
+  total_gross_liters          Decimal   @map("total_gross_liters") @db.Decimal(12, 2)
+  total_at_13ts_liters        Decimal   @map("total_at_13ts_liters") @db.Decimal(12, 2)
+  weighted_avg_lr             Decimal?  @map("weighted_avg_lr") @db.Decimal(6, 2)
+  weighted_avg_fat            Decimal?  @map("weighted_avg_fat") @db.Decimal(6, 2)
+  weighted_avg_snf            Decimal?  @map("weighted_avg_snf") @db.Decimal(6, 2)
+  weighted_avg_ts             Decimal?  @map("weighted_avg_ts") @db.Decimal(6, 2)
+  summary_version             String    @default("1.0") @map("summary_version") @db.VarChar(20)
+  source_calculation_versions Json      @map("source_calculation_versions")
+  revision                    Int       @default(1) @map("revision")
+  generated_at                DateTime  @default(now()) @map("generated_at") @db.Timestamp(6)
+  last_recomputed_at          DateTime? @map("last_recomputed_at") @db.Timestamp(6)
+
+  // Relations
+  journey MotJourney @relation(fields: [journey_id], references: [id], onDelete: Restrict)
+
+  @@index([journey_id])
+  @@map("mot_journey_summary")
 }
