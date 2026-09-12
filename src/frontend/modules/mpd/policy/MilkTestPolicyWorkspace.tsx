@@ -21,7 +21,7 @@ import {
   MPD_TESTING_POINTS,
   TestingPoint,
   SerializedPolicyAssignment,
-} from '@/backend/services/milkTestPolicyService';
+} from '@/types/milk-test-policy';
 
 interface LabTestOption {
   id: string;
