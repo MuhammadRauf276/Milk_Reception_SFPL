@@ -308,8 +308,16 @@ SUPER_ADMIN
 ## 16. Stage 6G-B MOT Journey Final Summary Architecture
 
 - `src/backend/services/motJourneySummaryService.ts`: Authoritative service owning the immutable `MotJourneySummary` entity, gross-liters weighted calculations, initial summary generation in ZMCC arrival completion transactions, late offline sync recomputation, and canonical serialization.
-- `prisma/migrations/20260912180000_mot_journey_summary/migration.sql`: Tracked migration creating `mot_journey_summaries` table with 1-to-1 foreign key and unique index on `journey_id`, check constraint enforcing `revision >= 1`, non-negative liter checks, and quality metric boundaries.
-- `src/backend/services/zmccArrivalService.ts`: Creates initial summary inside arrival completion transaction via `createInitialMotJourneySummaryTx`, and serves `journey.summary` via `listMotArrivals` and `getMotArrivalById`.
-- `src/backend/services/motService.ts`: Recomputes summary inside offline delayed collection submission transaction via `recomputeMotJourneySummaryTx` when `ended_at` exists, and includes `summary` in `getMotJourneyById` and `serializeJourney`.
+- `prisma/migrations/20260912180000_mot_journey_summary/migration.sql`: Tracked migration creating `mot_journey_summary` table with 1-to-1 foreign key and unique index on `journey_id`, check constraint enforcing `revision >= 1`, non-negative liter checks, and quality metric boundaries.
+- `src/backend/services/zmccArrivalService.ts`: Acquires exclusive PostgreSQL row lock on `mot_journey` row (`SELECT id FROM mot_journey WHERE id = ${journeyId} FOR UPDATE`), creates initial summary inside arrival completion transaction via `createInitialMotJourneySummaryTx`, and serves `journey.summary` via `listMotArrivals` and `getMotArrivalById` (`/api/zmcc/arrivals/mot`).
+- `src/backend/services/motService.ts`: Acquires exclusive row lock on `mot_journey` row, validates journey lifecycle under lock, recomputes summary inside offline delayed collection submission transaction via `recomputeMotJourneySummaryTx` when `ended_at` exists, and includes `summary` in `getMotJourneyById` and `serializeJourney` (`/api/zmcc/mot/*`).
 - `src/frontend/modules/mot/MotOperationsWorkspace.tsx`: Displays compact summary card in Journey Detail modal showing total gross liters, total @13TS liters, gross-weighted quality averages, stop breakdown, and revision badge.
 - `src/frontend/modules/zmcc/arrivals/ZmccArrivalsWorkspace.tsx`: Displays compact summary card in ZMCC arrival success banner.
+
+---
+
+## 17. Stage 6G-C ZMCC Laboratory Testing Contract Lock (Preview / Specification Lock)
+
+- `src/backend/utils/milkFormulas.ts`: Canonical calculation owner for `calculateGrossLiters(quantity, unit, lr)` where `LITER` returns declared liters directly and `KG` returns `KG / (1 + LR / 1000)`.
+- `src/backend/services/zmccLabService.ts`: ZMCC lab testing operates on independent actual physical measurements (`quantity_value`, `quantity_unit`, `lr`, `fat`), computing independent metrics (`gross_liters`, `density`, `snf`, `ts`, `at_13ts_liters`). Never overwrites or conflates with `MotJourneySummary`.
+- Schema additions to `zmcc_lab_session` are locked for Stage 6G-C (zero schema modifications in 6G-B).

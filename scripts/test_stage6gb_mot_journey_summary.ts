@@ -120,6 +120,11 @@ async function runStage6gbTests() {
     MOT_JOURNEY_SUMMARY_VERSION,
   } = await import('../src/backend/services/motJourneySummaryService');
   const {
+    calculateGrossLiters,
+    calculateDensity,
+    computeCanonicalMilkMetrics,
+  } = await import('../src/backend/utils/milkFormulas');
+  const {
     submitMotArrival,
     listMotArrivals,
     getMotArrivalById,
@@ -162,7 +167,7 @@ async function runStage6gbTests() {
   assert(uniqueCheck[0]?.exists === true, '1-to-1 Index', 'mot_journey_summary_journey_id_key unique index exists');
 
   // =============================================================
-  // 2. PURE CALCULATION TESTS (Section 32 Spec Math)
+  // 2. PURE CALCULATION TESTS (Section 32 Spec Math & Unit Contracts)
   // =============================================================
   console.log('\n--- 2. PURE AGGREGATION & WEIGHTING MATHEMATICS ---');
   // Zero collections test
@@ -180,6 +185,55 @@ async function runStage6gbTests() {
   assert(emptyMetrics.collected_shop_count === 0, 'Stop Collected Count', 'Collected shop count = 0');
   assert(emptyMetrics.skipped_shop_count === 1, 'Stop Skipped Count', 'Skipped shop count = 1');
   assert(emptyMetrics.pending_shop_count === 1, 'Stop Pending Count', 'Pending shop count = 1');
+
+  // Canonical Quantity / Unit Contracts (Case A: LITER, Case B: KG)
+  console.log('Testing Canonical Unit Contracts (Case A & Case B):');
+  // Case A: LITER collection (1000 LITER -> 1000.00 Gross Liters, unadjusted by density)
+  const caseAGrossLiters = calculateGrossLiters(1000, 'LITER', 30.0);
+  assert(caseAGrossLiters === 1000, 'Case A Gross Liters', '1000 LITER declared returns exactly 1000.00 gross liters');
+  const caseAMetrics = computeCanonicalMilkMetrics(1000, 'LITER', 30.0, 4.0);
+  assert(caseAMetrics.grossLiters === 1000, 'Case A Metric Gross Liters', 'computeCanonicalMilkMetrics returns 1000 gross liters for LITER');
+
+  // Case B: KG collection (1030 KG at LR 30 -> density 1.0300 -> 1000.00 Gross Liters used in summary weighting)
+  const caseBDensity = calculateDensity(30.0);
+  assert(caseBDensity === 1.03, 'Case B Density', `Density at LR 30 is 1.0300 (actual: ${caseBDensity})`);
+  const caseBGrossLiters = calculateGrossLiters(1030, 'KG', 30.0);
+  assert(caseBGrossLiters !== null && Number(caseBGrossLiters.toFixed(2)) === 1000.00, 'Case B Gross Liters', `1030 KG at LR 30 converts to 1000.00 gross liters (actual: ${caseBGrossLiters})`);
+  const caseBMetrics = computeCanonicalMilkMetrics(1030, 'KG', 30.0, 4.0);
+  assert(Number(caseBMetrics.grossLiters.toFixed(2)) === 1000.00, 'Case B Metric Gross Liters', 'computeCanonicalMilkMetrics returns 1000.00 gross liters for KG');
+
+  // Combined Summary Weighting with Case A and Case B
+  const combinedUnitSummary = calculateJourneySummaryMetrics(
+    [
+      { id: BigInt(201), status: 'VISITED', skipped_at: null },
+      { id: BigInt(202), status: 'VISITED', skipped_at: null },
+    ],
+    [
+      {
+        id: BigInt(21),
+        journey_stop_id: BigInt(201),
+        gross_liters: new Prisma.Decimal(caseAMetrics.grossLiters.toFixed(2)),
+        at_13ts_liters: new Prisma.Decimal(caseAMetrics.at13tsLiters.toFixed(2)),
+        lr: new Prisma.Decimal('30.00'),
+        fat: new Prisma.Decimal('4.00'),
+        snf: new Prisma.Decimal(caseAMetrics.snf.toFixed(2)),
+        ts: new Prisma.Decimal(caseAMetrics.ts.toFixed(2)),
+        calculation_version: '1.0',
+      },
+      {
+        id: BigInt(22),
+        journey_stop_id: BigInt(202),
+        gross_liters: new Prisma.Decimal(caseBMetrics.grossLiters.toFixed(2)),
+        at_13ts_liters: new Prisma.Decimal(caseBMetrics.at13tsLiters.toFixed(2)),
+        lr: new Prisma.Decimal('30.00'),
+        fat: new Prisma.Decimal('4.00'),
+        snf: new Prisma.Decimal(caseBMetrics.snf.toFixed(2)),
+        ts: new Prisma.Decimal(caseBMetrics.ts.toFixed(2)),
+        calculation_version: '1.0',
+      },
+    ]
+  );
+  assert(combinedUnitSummary.total_gross_liters.toFixed(2) === '2000.00', 'Combined Unit Gross', 'Total gross for Case A + Case B is 2000.00 L');
 
   // Spec Math: 100L (Fat 4.0, LR 28.0) and 300L (Fat 3.5, LR 27.0)
   const specMetrics = calculateJourneySummaryMetrics(
@@ -219,9 +273,9 @@ async function runStage6gbTests() {
   assert(specMetrics.weighted_avg_lr?.toFixed(2) === '27.25', 'Spec Weighted LR', `Weighted LR = 27.25 (actual: ${specMetrics.weighted_avg_lr})`);
   assert(specMetrics.weighted_avg_snf?.toFixed(2) === '8.33', 'Spec Weighted SNF', `Weighted SNF = 8.33 (actual: ${specMetrics.weighted_avg_snf})`);
   assert(
-    specMetrics.weighted_avg_ts?.toFixed(2) === '11.96' || specMetrics.weighted_avg_ts?.toFixed(2) === '11.95',
+    specMetrics.weighted_avg_ts?.toFixed(2) === '11.96',
     'Spec Weighted TS',
-    `Weighted TS = 11.96 (actual: ${specMetrics.weighted_avg_ts})`
+    `Weighted TS = 11.96 strictly (actual: ${specMetrics.weighted_avg_ts})`
   );
   assert(specMetrics.assigned_shop_count === 3, 'Spec Assigned', 'Assigned = 3');
   assert(specMetrics.collected_shop_count === 2, 'Spec Collected', 'Collected = 2');
@@ -599,9 +653,9 @@ async function runStage6gbTests() {
   assert(multiSummary?.weighted_avg_lr?.toFixed(2) === '27.25', 'Weighted LR 27.25', `Weighted LR = 27.25 (actual: ${multiSummary?.weighted_avg_lr})`);
   assert(multiSummary?.weighted_avg_snf?.toFixed(2) === '8.33', 'Weighted SNF 8.33', `Weighted SNF = 8.33 (actual: ${multiSummary?.weighted_avg_snf})`);
   assert(
-    multiSummary?.weighted_avg_ts?.toFixed(2) === '11.96' || multiSummary?.weighted_avg_ts?.toFixed(2) === '11.95',
+    multiSummary?.weighted_avg_ts?.toFixed(2) === '11.96',
     'Weighted TS 11.96',
-    `Weighted TS = 11.96 (actual: ${multiSummary?.weighted_avg_ts})`
+    `Weighted TS = 11.96 strictly (actual: ${multiSummary?.weighted_avg_ts})`
   );
   assert(multiSummary?.assigned_shop_count === 3, 'Assigned 3', 'Assigned = 3');
   assert(multiSummary?.collected_shop_count === 2, 'Collected 2', 'Collected = 2');
@@ -640,9 +694,9 @@ async function runStage6gbTests() {
   assert(refreshedSummary?.weighted_avg_lr?.toFixed(2) === '27.83', 'New Weighted LR 27.83', `Weighted LR = 27.83 (actual: ${refreshedSummary?.weighted_avg_lr})`);
   assert(refreshedSummary?.weighted_avg_snf?.toFixed(2) === '8.54', 'New Weighted SNF 8.54', `Weighted SNF = 8.54 (actual: ${refreshedSummary?.weighted_avg_snf})`);
   assert(
-    refreshedSummary?.weighted_avg_ts?.toFixed(2) === '12.46' || refreshedSummary?.weighted_avg_ts?.toFixed(2) === '12.45',
+    refreshedSummary?.weighted_avg_ts?.toFixed(2) === '12.46',
     'New Weighted TS 12.46',
-    `Weighted TS = 12.46 (actual: ${refreshedSummary?.weighted_avg_ts})`
+    `Weighted TS = 12.46 strictly (actual: ${refreshedSummary?.weighted_avg_ts})`
   );
   assert(refreshedSummary?.assigned_shop_count === 3, 'New Assigned 3', 'Assigned = 3');
   assert(refreshedSummary?.collected_shop_count === 3, 'New Collected 3', 'Collected = 3');
@@ -825,6 +879,158 @@ async function runStage6gbTests() {
   assert(getArrivalRes.status === 200, 'Get Arrival Read', 'Get arrival by id returns HTTP 200');
   assert(getArrivalRes.data?.journey?.summary !== null, 'Summary in Arrival Get', 'Get arrival includes serialized journey summary');
   assert(getArrivalRes.data?.journey?.summary?.revision === 2, 'Arrival Summary Revision 2', 'Arrival summary revision is 2');
+
+  // =============================================================
+  // 12. CONCURRENCY & SERIALIZATION TESTS (FOR UPDATE Row Locking)
+  // =============================================================
+  console.log('\n--- 12. CONCURRENCY & ROW-LEVEL LOCKING SAFETY ---');
+
+  // 12A: Concurrent submitMotArrival and delayed submitShopCollection
+  console.log('12A: Concurrent Arrival Completion + Delayed Collection Race:');
+  const raceJourney = await createJourneyFixture(2);
+  const raceArrivalTimestamp = new Date(Date.now() - 1000 * 1000); // 16 min ago
+  const raceCol1Time = new Date(raceArrivalTimestamp.getTime() - 20 * 60 * 1000);
+  const raceCol2Time = new Date(raceArrivalTimestamp.getTime() - 10 * 60 * 1000);
+
+  // Stop 1 recorded prior to race
+  const raceCol1Res = await submitShopCollection(motUserA as any, {
+    journey_stop_id: raceJourney.stops[0].id.toString(),
+    client_event_id: `evt-race1-col1-${Date.now()}`,
+    quantity_value: 100,
+    quantity_unit: 'LITER',
+    lr: 28.0,
+    fat: 4.0,
+    latitude: 31.5204,
+    longitude: 74.3587,
+    gps_accuracy: 10,
+    device_collected_at: raceCol1Time.toISOString(),
+  });
+  assert(raceCol1Res.status === 201, 'Race Prep Col 1', 'First collection saved');
+
+  // Launch arrival completion and delayed Stop 2 collection concurrently
+  const [raceArrivalRes, raceCol2Res] = await Promise.all([
+    submitMotArrival(pheA as any, {
+      journey_id: raceJourney.id.toString(),
+      route_milk_token: `RMT-RACE-${runId}`,
+      arrival_timestamp: raceArrivalTimestamp.toISOString(),
+      client_event_id: `evt-race-arr-${Date.now()}`,
+    }),
+    submitShopCollection(motUserA as any, {
+      journey_stop_id: raceJourney.stops[1].id.toString(),
+      client_event_id: `evt-race1-col2-${Date.now()}`,
+      quantity_value: 200,
+      quantity_unit: 'LITER',
+      lr: 28.0,
+      fat: 4.0,
+      latitude: 31.5204,
+      longitude: 74.3587,
+      gps_accuracy: 10,
+      device_collected_at: raceCol2Time.toISOString(),
+    }),
+  ]);
+
+  assert(raceArrivalRes.status === 201, 'Race Arrival Succeeded', 'Arrival completed under concurrency');
+  assert(raceCol2Res.status === 201, 'Race Col 2 Succeeded', 'Delayed collection accepted under concurrency');
+
+  const raceSummary = await prisma.motJourneySummary.findUnique({
+    where: { journey_id: raceJourney.id },
+  });
+  assert(raceSummary !== null, 'Race Summary Exists', 'Summary exists after concurrent arrival + collection');
+  assert(raceSummary?.assigned_shop_count === 2, 'Race Assigned 2', 'Assigned shop count = 2');
+  assert(raceSummary?.collected_shop_count === 2, 'Race Collected 2', 'Both collections included');
+  assert(raceSummary?.pending_shop_count === 0, 'Race Pending 0', 'Pending shop count = 0');
+  assert(raceSummary?.total_gross_liters.toFixed(2) === '300.00', 'Race Gross Liters', `Total gross is 300.00 (actual: ${raceSummary?.total_gross_liters})`);
+  assert(raceSummary?.revision === 1 || raceSummary?.revision === 2, 'Race Valid Revision', `Revision is valid (revision: ${raceSummary?.revision})`);
+
+  // 12B: Dual simultaneous delayed collections on completed journey
+  console.log('\n12B: Dual Simultaneous Delayed Collections on Completed Journey:');
+  const dualJourney = await createJourneyFixture(3);
+  const dualArrivalTime = new Date(Date.now() - 500 * 1000);
+  const dualCol1Time = new Date(dualArrivalTime.getTime() - 30 * 60 * 1000);
+  const dualCol2Time = new Date(dualArrivalTime.getTime() - 20 * 60 * 1000);
+  const dualCol3Time = new Date(dualArrivalTime.getTime() - 10 * 60 * 1000);
+
+  // Stop 1 collected
+  await submitShopCollection(motUserA as any, {
+    journey_stop_id: dualJourney.stops[0].id.toString(),
+    client_event_id: `evt-dual-col1-${Date.now()}`,
+    quantity_value: 100,
+    quantity_unit: 'LITER',
+    lr: 28.0,
+    fat: 4.0,
+    latitude: 31.5204,
+    longitude: 74.3587,
+    gps_accuracy: 10,
+    device_collected_at: dualCol1Time.toISOString(),
+  });
+
+  // Complete arrival -> revision 1
+  const dualArrivalRes = await submitMotArrival(pheA as any, {
+    journey_id: dualJourney.id.toString(),
+    route_milk_token: `RMT-DUAL-${runId}`,
+    arrival_timestamp: dualArrivalTime.toISOString(),
+    client_event_id: `evt-dual-arr-${Date.now()}`,
+  });
+  assert(dualArrivalRes.status === 201, 'Dual Journey Arrived', 'Dual journey arrival completed');
+
+  const dualInitialSummary = await prisma.motJourneySummary.findUnique({
+    where: { journey_id: dualJourney.id },
+  });
+  assert(dualInitialSummary?.revision === 1, 'Dual Initial Rev 1', 'Dual initial revision is 1');
+  assert(dualInitialSummary?.collected_shop_count === 1, 'Dual Initial Col 1', 'Dual initial collected = 1');
+  assert(dualInitialSummary?.pending_shop_count === 2, 'Dual Initial Pending 2', 'Dual initial pending = 2');
+
+  // Submit Stop 2 and Stop 3 simultaneously via Promise.all
+  const [dualCol2Res, dualCol3Res] = await Promise.all([
+    submitShopCollection(motUserA as any, {
+      journey_stop_id: dualJourney.stops[1].id.toString(),
+      client_event_id: `evt-dual-col2-${Date.now()}`,
+      quantity_value: 200,
+      quantity_unit: 'LITER',
+      lr: 28.0,
+      fat: 4.0,
+      latitude: 31.5204,
+      longitude: 74.3587,
+      gps_accuracy: 10,
+      device_collected_at: dualCol2Time.toISOString(),
+    }),
+    submitShopCollection(motUserA as any, {
+      journey_stop_id: dualJourney.stops[2].id.toString(),
+      client_event_id: `evt-dual-col3-${Date.now()}`,
+      quantity_value: 300,
+      quantity_unit: 'LITER',
+      lr: 28.0,
+      fat: 4.0,
+      latitude: 31.5204,
+      longitude: 74.3587,
+      gps_accuracy: 10,
+      device_collected_at: dualCol3Time.toISOString(),
+    }),
+  ]);
+
+  assert(dualCol2Res.status === 201, 'Dual Col 2 Succeeded', 'Delayed Stop 2 collection succeeded');
+  assert(dualCol3Res.status === 201, 'Dual Col 3 Succeeded', 'Delayed Stop 3 collection succeeded');
+
+  const dualFinalSummary = await prisma.motJourneySummary.findUnique({
+    where: { journey_id: dualJourney.id },
+  });
+  assert(dualFinalSummary?.revision === 3, 'Dual Sequential Revision 3', `Revision monotonically bumped to 3 (actual: ${dualFinalSummary?.revision})`);
+  assert(dualFinalSummary?.assigned_shop_count === 3, 'Dual Final Assigned 3', 'Assigned shop count = 3');
+  assert(dualFinalSummary?.collected_shop_count === 3, 'Dual Final Collected 3', 'Collected shop count = 3');
+  assert(dualFinalSummary?.pending_shop_count === 0, 'Dual Final Pending 0', 'Pending shop count = 0');
+  assert(dualFinalSummary?.total_gross_liters.toFixed(2) === '600.00', 'Dual Final Gross 600', `Total gross is 600.00 (actual: ${dualFinalSummary?.total_gross_liters})`);
+
+  // Verify exactly 2 distinct audit log records for late sync refreshes
+  const dualRefreshAudits = await prisma.auditLog.findMany({
+    where: {
+      table_name: 'mot_journey_summary',
+      record_id: dualFinalSummary?.id,
+      action: 'MOT_JOURNEY_SUMMARY_REFRESHED_LATE_SYNC',
+    },
+    orderBy: { created_at: 'asc' },
+  });
+  assert(dualRefreshAudits.length === 2, 'Dual Refresh Audits Count', `Exactly 2 late sync audit logs created (actual: ${dualRefreshAudits.length})`);
+  assert(dualRefreshAudits.every((a) => a.user_id === motUserA.id), 'Dual Refresh Actor', 'All late sync audit logs attributed to MOT driver');
 
   // =============================================================
   // FINAL SUMMARY REPORT

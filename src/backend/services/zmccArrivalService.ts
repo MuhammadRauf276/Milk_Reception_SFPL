@@ -605,6 +605,9 @@ export async function submitMotArrival(
 
   try {
     const createdArrival = await prisma.$transaction(async (tx) => {
+      // Concurrency lock: Acquire exclusive row lock on mot_journey
+      await tx.$executeRaw`SELECT id FROM mot_journey WHERE id = ${journeyId} FOR UPDATE`;
+
       const checkJourney = await tx.motJourney.findUnique({
         where: { id: journeyId },
         select: { status: true, mot_arrival: { select: { id: true } } },
