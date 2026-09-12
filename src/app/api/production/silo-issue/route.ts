@@ -11,10 +11,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unauthorized. Authentication required.' }, { status: 401 });
   }
 
-  // Strict Role Authorization: PRODUCTION_OPERATOR / Production_Manager / Admin ONLY
-  const allowedRoles = ['Production_Operator', 'PRODUCTION_OPERATOR', 'Production_Manager', 'Production', 'Admin'];
+  // Strict Role Authorization: PRODUCTION_RECEPTION_OPERATOR / PRODUCTION_HEAD / SUPER_ADMIN ONLY
+  const allowedRoles = ['PRODUCTION_RECEPTION_OPERATOR', 'PRODUCTION_HEAD', 'SUPER_ADMIN'];
   if (!allowedRoles.includes(authUser.role)) {
-    return NextResponse.json({ error: 'Unauthorized. Production Operator role required to issue milk from silos.' }, { status: 403 });
+    return NextResponse.json({ error: 'Unauthorized. Production Reception Operator role required to issue milk from silos.' }, { status: 403 });
   }
 
   let dbUser = await prisma.user.findFirst({

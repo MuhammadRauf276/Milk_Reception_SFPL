@@ -12,7 +12,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unauthorized. Authentication required.' }, { status: 401 });
   }
 
-  const allowedRoles = ['WEIGHBRIDGE_OPERATOR', 'PRODUCTION_OPERATOR', 'ADMIN', 'SUPER_ADMIN', 'CORRECTION_OFFICER'];
+  const allowedRoles = ['WEIGHBRIDGE_OPERATOR', 'SUPER_ADMIN'];
   if (!allowedRoles.includes(authUser.role.toUpperCase())) {
     return NextResponse.json({ error: 'Unauthorized. Weighbridge Operator role required.' }, { status: 403 });
   }

@@ -63,18 +63,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   }, [isMobileOpen]);
 
-  const isSecurityManager = role === 'Security_Manager';
+  const isSecurityManager = role === 'ADMIN_HEAD';
 
   const isStationOperator =
     !isSecurityManager &&
-    (role === 'MPD_Operator' ||
-      role === 'MPD' ||
-      role === 'Security_Operator' ||
-      role === 'Security_Weight' ||
-      role === 'QA_Operator' ||
-      role === 'QA' ||
-      role === 'Production_Operator' ||
-      role === 'Production');
+    (role === 'SECURITY_OPERATOR' ||
+      role === 'QA_LAB_ATTENDANT' ||
+      role === 'WEIGHBRIDGE_OPERATOR' ||
+      role === 'PRODUCTION_RECEPTION_OPERATOR');
 
   const isHeadOfMpd = !isSecurityManager && role === 'HEAD_OF_MPD';
   const isZmccManager = !isSecurityManager && role === 'ZMCC_MANAGER';
@@ -83,14 +79,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const isMot = !isSecurityManager && role === 'MOT';
   const isContractorManager = !isSecurityManager && role === 'CONTRACTOR_MANAGER';
 
-  const isMainAdmin =
-    !isSecurityManager &&
-    (role === 'Admin' ||
-      role === 'Correction_Officer' ||
-      role === 'General_Plant_Manager' ||
-      role === 'QA_Manager' ||
-      role === 'Production_Manager' ||
-      role === 'Management');
+  const isMainAdmin = !isSecurityManager && role === 'SUPER_ADMIN';
 
   const getLinkStyle = (href: string) => {
     const isActive = pathname === href;
@@ -197,12 +186,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <span className="flex items-center gap-2">
                   <LayoutDashboard className="w-4 h-4" />
                   <span>
-                    {role.startsWith('MPD')
-                      ? 'MPD Field Station'
-                      : role.startsWith('Security')
+                    {role === 'SECURITY_OPERATOR'
                       ? 'Security Gate Station'
-                      : role.startsWith('QA')
+                      : role === 'QA_LAB_ATTENDANT'
                       ? 'QA Testing Laboratory'
+                      : role === 'WEIGHBRIDGE_OPERATOR'
+                      ? 'Weighbridge Station'
                       : 'Silo Offloading Station'}
                   </span>
                 </span>
@@ -369,7 +358,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             Station Actions
           </label>
 
-          {(role === 'Security_Operator' || role === 'Correction_Officer' || role === 'Admin') && onOpenTokenModal && (
+          {(role === 'SECURITY_OPERATOR' || role === 'SUPER_ADMIN') && onOpenTokenModal && (
             <button
               onClick={() => {
                 handleLinkClick();
@@ -382,7 +371,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           )}
 
-          {(role === 'Correction_Officer' || role === 'Admin') && onOpenDispatchModal && (
+          {role === 'SUPER_ADMIN' && onOpenDispatchModal && (
             <button
               onClick={() => {
                 handleLinkClick();

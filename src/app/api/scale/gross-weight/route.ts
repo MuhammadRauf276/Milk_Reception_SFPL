@@ -21,7 +21,7 @@ export async function POST(req: Request) {
     },
   });
 
-  const allowedRoles = ['WEIGHBRIDGE_OPERATOR', 'Weighbridge_Operator', 'Production_Operator', 'Admin', 'Correction_Officer'];
+  const allowedRoles = ['WEIGHBRIDGE_OPERATOR', 'SUPER_ADMIN'];
   if (!allowedRoles.includes(authUser.role)) {
     return NextResponse.json({ error: 'Unauthorized. Weighbridge Operator role required.' }, { status: 403 });
   }

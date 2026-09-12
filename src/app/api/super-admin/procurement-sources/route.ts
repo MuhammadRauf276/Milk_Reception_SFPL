@@ -8,7 +8,7 @@ const NO_STORE_HEADERS = {
 
 export async function GET(req: Request) {
   const authUser = await getCurrentUser(req);
-  if (!authUser || (authUser.role !== 'SUPER_ADMIN' && authUser.role !== 'Admin')) {
+  if (!authUser || authUser.role !== 'SUPER_ADMIN') {
     return NextResponse.json(
       { error: 'Unauthorized. Super Admin authorization required.' },
       { status: 403, headers: NO_STORE_HEADERS }
@@ -41,7 +41,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const authUser = await getCurrentUser(req);
-  if (!authUser || (authUser.role !== 'SUPER_ADMIN' && authUser.role !== 'Admin')) {
+  if (!authUser || authUser.role !== 'SUPER_ADMIN') {
     return NextResponse.json({ error: 'Unauthorized. Super Admin authorization required.' }, { status: 403 });
   }
 

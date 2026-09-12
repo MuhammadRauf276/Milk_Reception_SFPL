@@ -19,7 +19,7 @@ export default function ProductionDepartmentPage() {
         if (res.ok) {
           const data = await res.json();
           const roleStr = data.user?.role as string;
-          const allowedRoles = ['Admin', 'Production_Operator', 'PRODUCTION_OPERATOR', 'Production_Manager', 'Production'];
+          const allowedRoles = ['PRODUCTION_RECEPTION_OPERATOR', 'SUPER_ADMIN'];
           if (data.user && allowedRoles.includes(roleStr)) {
             setUser(data.user);
             setIsAuthorized(true);

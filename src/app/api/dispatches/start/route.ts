@@ -33,9 +33,19 @@ export async function POST(req: Request) {
     include: { procurement_source: true },
   });
 
-  const allowedRoles = ['MPD_Operator', 'MPD', 'Admin', 'SUPER_ADMIN', 'Correction_Officer'];
+  const allowedRoles = ['ZMCC_LAB_ATTENDANT', 'CONTRACTOR_OPERATOR', 'SUPER_ADMIN'];
   if (!dbUser || !allowedRoles.includes(dbUser.role)) {
-    return NextResponse.json({ error: 'Unauthorized. MPD role required.' }, { status: 403 });
+    return NextResponse.json({ error: 'Unauthorized. Operational dispatch role required.' }, { status: 403 });
+  }
+
+  if (dbUser.role === 'ZMCC_LAB_ATTENDANT') {
+    if (!dbUser.procurement_source_id || dbUser.procurement_source?.source_type !== 'ZMCC') {
+      return NextResponse.json({ error: 'Unauthorized. ZMCC Lab Attendant must be bound to a ZMCC source.' }, { status: 403 });
+    }
+  } else if (dbUser.role === 'CONTRACTOR_OPERATOR') {
+    if (!dbUser.procurement_source_id || dbUser.procurement_source?.source_type !== 'CONTRACTOR') {
+      return NextResponse.json({ error: 'Unauthorized. Contractor Operator must be bound to a Contractor source.' }, { status: 403 });
+    }
   }
 
   try {

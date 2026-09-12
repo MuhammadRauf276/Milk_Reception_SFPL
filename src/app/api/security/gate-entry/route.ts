@@ -20,10 +20,10 @@ export async function POST(req: Request) {
     },
   });
 
-  const allowedRoles = ['Security_Operator', 'Security_Manager', 'Admin', 'Correction_Officer'];
+  const allowedRoles = ['SECURITY_OPERATOR', 'ADMIN_HEAD', 'SUPER_ADMIN'];
   if (!dbUser || !allowedRoles.includes(dbUser.role)) {
     return NextResponse.json(
-      { error: 'Unauthorized. Security Operator or Security Manager role required.' },
+      { error: 'Unauthorized. Security Operator or Admin Head role required.' },
       { status: 403 }
     );
   }

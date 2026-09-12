@@ -121,12 +121,22 @@ export async function getOperationalLogs(
       // Fail closed: Unbound source-scoped role receives zero records
       whereClause.procurement_source_id = BigInt(-1);
     }
-  } else if (
-    currentUser?.role === 'MPD_Operator' ||
-    currentUser?.role === 'MPD'
-  ) {
+  } else if (currentUser?.role === 'ZMCC_LAB_ATTENDANT') {
     if (currentUser.procurement_source_id) {
-      whereClause.procurement_source_id = BigInt(currentUser.procurement_source_id);
+      whereClause.procurement_source = {
+        id: BigInt(currentUser.procurement_source_id),
+        source_type: 'ZMCC',
+      };
+    } else {
+      // Fail closed: Unbound source-scoped role receives zero records
+      whereClause.procurement_source_id = BigInt(-1);
+    }
+  } else if (currentUser?.role === 'CONTRACTOR_OPERATOR') {
+    if (currentUser.procurement_source_id) {
+      whereClause.procurement_source = {
+        id: BigInt(currentUser.procurement_source_id),
+        source_type: 'CONTRACTOR',
+      };
     } else {
       // Fail closed: Unbound source-scoped role receives zero records
       whereClause.procurement_source_id = BigInt(-1);

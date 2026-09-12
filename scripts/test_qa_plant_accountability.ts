@@ -22,7 +22,7 @@ async function runQAPlantAccountabilityVerification() {
 
   // Find QA user
   const qaUser = await prisma.user.findFirst({
-    where: { role: { in: ['QA_Operator', 'QA', 'Admin'] } },
+    where: { role: { in: ['QA_LAB_ATTENDANT', 'QA_Operator', 'QA', 'SUPER_ADMIN', 'Admin'] } },
   });
   if (!qaUser) throw new Error('No QA user found in database');
 

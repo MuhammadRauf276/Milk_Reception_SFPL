@@ -27,27 +27,29 @@ Being located under `src/app` does **NOT** mean code is current. Every route, AP
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | `/login` | **CANONICAL** | All Users | `LoginPage.tsx` | CURRENT | Authenticates users, sets secure cookie, and routes to role home via `resolveRoleHome`. |
 | `/` | **CANONICAL GATEWAY** | All Authenticated Users | `src/app/page.tsx` | CURRENT | Pure routing gateway using `resolveRoleHome`. Zero legacy component imports or render fallback. |
-| `/workspace-unavailable` | **CANONICAL** | Unready / Unmapped Roles | `.../workspace-unavailable/page.tsx` | CURRENT | Safe fail-closed landing page for future or unrecognized roles. |
-| `/department/mpd` | **CANONICAL** | `MPD_Operator`, `MPD` | `MPDDispatchWorkspace.tsx` | CURRENT | ZMCC milk dispatch creation and portion entry. |
-| `/department/security` | **CANONICAL** | `Security_Operator`, `Security_Weight` | `SecurityGatewayWorkspace.tsx` | CURRENT | Plant gate entry, token issuance, and gate exit. |
-| `/department/security-manager`| **CANONICAL** | `Security_Manager` | `SecurityManager.tsx` | CURRENT | Security supervisory and gate exit audit. |
-| `/department/qa` | **CANONICAL** | `QA_Operator`, `QA` | `QALaboratoryWorkspace.tsx` | CURRENT | QA session management and portion lab result entry. |
-| `/department/weighbridge` | **CANONICAL** | `WEIGHBRIDGE_OPERATOR` | `WeighbridgeWorkspace.tsx` | CURRENT | First weight (gross) and second weight (tare) scale recording. |
-| `/department/production` | **CANONICAL** | `Production_Operator`, `Production` | `ProductionUnloadingWorkspace.tsx`| CURRENT | Silo allocation, unloading, and silo issue management. |
-| `/mpd/zmcc-manager` | **CANONICAL** | `ZMCC_MANAGER` | `ZMCCManagerWorkspace.tsx` | CURRENT | Source-scoped supervisory workspace (Overview, Live, Cross-Verif, Quality, Receipts, History). |
-| `/super-admin` | **CANONICAL** | `SUPER_ADMIN`, `Admin` | `src/app/super-admin/page.tsx` | CURRENT | Operations dashboard and live KPI overview. |
-| `/super-admin/users` | **CANONICAL** | `SUPER_ADMIN`, `Admin` | `src/app/super-admin/users/page.tsx` | CURRENT | User creation, role assignment, activation, password reset. |
-| `/super-admin/procurement-sources` | **CANONICAL** | `SUPER_ADMIN`, `Admin` | `.../procurement-sources/page.tsx` | CURRENT | Source master data, testing mode, and baseline configuration. |
-| `/super-admin/silos` | **CANONICAL** | `SUPER_ADMIN`, `Admin` | `.../silos/page.tsx` | CURRENT | Silo storage tanks, capacity, and active status master data. |
-| `/super-admin/lab-tests` | **CANONICAL** | `SUPER_ADMIN`, `Admin` | `.../lab-tests/page.tsx` | CURRENT | Configurable lab tests, result options, units, and scopes. |
-| `/super-admin/sop-rules` | **CANONICAL** | `SUPER_ADMIN`, `Admin` | `.../sop-rules/page.tsx` | CURRENT | Quality SOP rules, min/max limits, and auto-acceptance criteria. |
-| `/super-admin/qa-warnings` | **CANONICAL** | `SUPER_ADMIN`, `Admin` | `.../qa-warnings/page.tsx` | CURRENT | Borderline warning audit and threshold tracking. |
-| `/super-admin/operations` | **CANONICAL** | `SUPER_ADMIN`, `Admin` | `.../operations/page.tsx` | CURRENT | Vehicle visit journey oversight and administrative inspection. |
-| `/super-admin/audit` | **CANONICAL** | `SUPER_ADMIN`, `Admin` | `.../audit/page.tsx` | CURRENT | System data audit log explorer. |
-| `/super-admin/master-data` | **CANONICAL** | `SUPER_ADMIN`, `Admin` | `.../master-data/page.tsx` | CURRENT | Directory navigation hub linking to sources, silos, tests. |
-| `/super-admin/settings` | **CANONICAL** | `SUPER_ADMIN`, `Admin` | `.../settings/page.tsx` | CURRENT | Security, session, and infrastructure status display. |
+| `/workspace-unavailable` | **CANONICAL** | Unready / Unmapped Roles | `.../workspace-unavailable/page.tsx` | CURRENT | Safe fail-closed landing page for future, unready, or retired legacy roles. |
+| `/mpd/head` | **CANONICAL** | `HEAD_OF_MPD`, `SUPER_ADMIN` | `MilkTestPolicyWorkspace.tsx` | CURRENT | Head of MPD supervisory and test policy workspace (4 MPD testing points). |
+| `/department/mpd` | **CANONICAL** | `ZMCC_LAB_ATTENDANT`, `SUPER_ADMIN` | `MPDDispatchWorkspace.tsx` | CURRENT | ZMCC milk dispatch creation and lab test portion entry. |
+| `/department/security` | **CANONICAL** | `SECURITY_OPERATOR`, `SUPER_ADMIN` | `SecurityGatewayWorkspace.tsx` | CURRENT | Plant gate entry, token issuance, and gate exit. |
+| `/department/qa` | **CANONICAL** | `QA_LAB_ATTENDANT`, `SUPER_ADMIN` | `QALaboratoryWorkspace.tsx` | CURRENT | QA session management and portion lab result entry (Plant QA only). |
+| `/department/weighbridge` | **CANONICAL** | `WEIGHBRIDGE_OPERATOR`, `SUPER_ADMIN` | `WeighbridgeWorkspace.tsx` | CURRENT | First weight (gross) and second weight (tare) scale recording. |
+| `/department/production` | **CANONICAL** | `PRODUCTION_RECEPTION_OPERATOR`, `SUPER_ADMIN` | `ProductionUnloadingWorkspace.tsx`| CURRENT | Silo allocation, unloading, and silo issue management. |
+| `/mpd/zmcc-manager` | **CANONICAL** | `ZMCC_MANAGER`, `SUPER_ADMIN` | `ZMCCManagerWorkspace.tsx` | CURRENT | Source-scoped supervisory workspace (Overview, Live, Cross-Verif, Quality, Receipts, History). |
+| `/contractor/manager` | **CANONICAL** | `CONTRACTOR_MANAGER`, `SUPER_ADMIN` | `PlantContractorManagerWorkspace.tsx` | CURRENT | Direct-to-plant contractor, source-scoped read-only supervision. |
+| `/super-admin` | **CANONICAL** | `SUPER_ADMIN` | `src/app/super-admin/page.tsx` | CURRENT | Operations dashboard and live KPI overview. |
+| `/super-admin/users` | **CANONICAL** | `SUPER_ADMIN` | `src/app/super-admin/users/page.tsx` | CURRENT | User creation, role assignment, activation, password reset. |
+| `/super-admin/procurement-sources` | **CANONICAL** | `SUPER_ADMIN` | `.../procurement-sources/page.tsx` | CURRENT | Source master data, testing mode, and baseline configuration. |
+| `/super-admin/silos` | **CANONICAL** | `SUPER_ADMIN` | `.../silos/page.tsx` | CURRENT | Silo storage tanks, capacity, and active status master data. |
+| `/super-admin/lab-tests` | **CANONICAL** | `SUPER_ADMIN` | `.../lab-tests/page.tsx` | CURRENT | Configurable lab tests, result options, units, and scopes. |
+| `/super-admin/test-policies` | **CANONICAL** | `SUPER_ADMIN` | `.../test-policies/page.tsx` | CURRENT | Global milk test policy assignments across all 5 testing points. |
+| `/super-admin/sop-rules` | **CANONICAL** | `SUPER_ADMIN` | `.../sop-rules/page.tsx` | CURRENT | Quality SOP rules, min/max limits, and auto-acceptance criteria. |
+| `/super-admin/qa-warnings` | **CANONICAL** | `SUPER_ADMIN` | `.../qa-warnings/page.tsx` | CURRENT | Borderline warning audit and threshold tracking. |
+| `/super-admin/operations` | **CANONICAL** | `SUPER_ADMIN` | `.../operations/page.tsx` | CURRENT | Vehicle visit journey oversight and administrative inspection. |
+| `/super-admin/audit` | **CANONICAL** | `SUPER_ADMIN` | `.../audit/page.tsx` | CURRENT | System data audit log explorer. |
+| `/super-admin/master-data` | **CANONICAL** | `SUPER_ADMIN` | `.../master-data/page.tsx` | CURRENT | Directory navigation hub linking to sources, silos, tests. |
+| `/super-admin/settings` | **CANONICAL** | `SUPER_ADMIN` | `.../settings/page.tsx` | CURRENT | Security, session, and infrastructure status display. |
 | `/weighbridge` | **COMPATIBILITY** | `WEIGHBRIDGE_OPERATOR` | `WeighbridgeWorkspace.tsx` | COMPATIBILITY | Redirects to `/department/weighbridge` (which renders `WeighbridgeWorkspace`). |
-| `/admin/lab-tests` | **COMPATIBILITY** | `Admin` | `src/app/admin/lab-tests/page.tsx` | COMPATIBILITY | Client-side compatibility redirect to `/super-admin/lab-tests`. |
+| `/admin/lab-tests` | **COMPATIBILITY** | None | `src/app/admin/lab-tests/page.tsx` | COMPATIBILITY | Client-side compatibility redirect to `/super-admin/lab-tests`. |
 | `/fleet-tracking` | **RETIRED (4E-E)** | None | N/A | RETIRED | Unowned legacy monitoring board retired in Stage 4E-E. |
 | `/tv-board` | **BUSINESS DECISION**| Plant Displays | `src/app/tv-board/page.tsx` | BUSINESS DECISION | Read-only wall-board screen for factory reception lanes. |
 
@@ -56,36 +58,34 @@ Being located under `src/app` does **NOT** mean code is current. Every route, AP
 ## 3. Root Route & Role-Home Policy (`src/lib/role-routing.ts`)
 
 > [!NOTE]
-> **CANONICAL ROUTING GATEWAY (STAGE 4E-B / 4E-D / 4E-E)**
+> **CANONICAL ROUTING GATEWAY (STAGE 6G-A CORRECTION #2)**
 > `src/app/page.tsx` is a pure routing gateway. It inspects `currentUser.role` and executes a server-side redirect via `resolveRoleHome(role)`.
 > **NO DEFAULT BUSINESS WORKSPACE FALLBACK**: Unknown, unmapped, future, and retired legacy roles fail closed to `/workspace-unavailable`.
 
 ### Role Home Ownership Matrix
 
-| Role / Alias | Classification | Destination | Notes |
+| Role | Classification | Destination | Notes |
 | :--- | :--- | :--- | :--- |
-| `SUPER_ADMIN` | **CURRENT** | `/super-admin` | Super Admin Master Portal |
-| `Admin` | **CURRENT (Alias)** | `/super-admin` | Administrator Alias |
-| `ZMCC_MANAGER` | **CURRENT** | `/mpd/zmcc-manager` | ZMCC Source Manager Workspace |
-| `MPD_Operator` | **CURRENT** | `/department/mpd` | MPD Field Station |
-| `MPD` | **CURRENT (Alias)** | `/department/mpd` | MPD Operator Alias |
-| `Security_Operator` | **CURRENT** | `/department/security` | Gate Security Station |
-| `Security_Weight` | **CURRENT (Alias)** | `/department/security` | Gate Security Alias |
-| `Security_Manager` | **CURRENT** | `/department/security-manager` | Security Supervisor Console |
-| `QA_Operator` | **CURRENT** | `/department/qa` | QA Laboratory Testing |
-| `QA` | **CURRENT (Alias)** | `/department/qa` | QA Chemist Alias |
-| `WEIGHBRIDGE_OPERATOR` | **CURRENT** | `/department/weighbridge` | Weighbridge Scale Station |
-| `Weighbridge_Operator` | **CURRENT (Alias)** | `/department/weighbridge` | Weighbridge Operator Alias |
-| `Production_Operator` | **CURRENT** | `/department/production` | Silo Unloading Station |
-| `Production` | **CURRENT (Alias)** | `/department/production` | Production Operator Alias |
-| `MPD_Zone_Manager` | **RETIRED (4E-D)** | `/workspace-unavailable` | Legacy Zonal Dashboard Retired |
-| `Management` | **RETIRED (4E-D)** | `/workspace-unavailable` | Legacy Management Dashboard Retired |
-| `General_Plant_Manager` | **RETIRED (4E-D)** | `/workspace-unavailable` | Legacy Plant Dashboard Retired |
-| `QA_Manager` | **RETIRED (4E-D)** | `/workspace-unavailable` | Legacy QA Dashboard Retired |
-| `Production_Manager` | **RETIRED (4E-D)** | `/workspace-unavailable` | Legacy Production Dashboard Retired |
-| `Correction_Officer` | **RETIRED (4E-D)** | `/workspace-unavailable` | Legacy Correction Dashboard Retired |
-| `CONTRACTOR_MANAGER` | **CURRENT (4F)** | `/contractor/manager` | Plant Contractor Manager Workspace (Direct-to-Plant) |
-| `EXECUTIVE_MANAGEMENT` | **FUTURE NOT READY** | `/workspace-unavailable` | Fails closed until implemented |
+| `SUPER_ADMIN` | **CANONICAL** | `/super-admin` | Super Admin Master Portal |
+| `HEAD_OF_MPD` | **CANONICAL** | `/mpd/head` | Head of MPD Milk Test Policy & Management Workspace |
+| `ZMCC_MANAGER` | **CANONICAL** | `/mpd/zmcc-manager` | ZMCC Source Manager Workspace |
+| `CONTRACTOR_MANAGER` | **CANONICAL** | `/contractor/manager` | Plant Contractor Manager Workspace (Direct-to-Plant) |
+| `ZMCC_LAB_ATTENDANT` | **CANONICAL** | `/department/mpd` | ZMCC Lab & Dispatch Testing Workspace |
+| `CONTRACTOR_OPERATOR` | **CANONICAL (UNREADY WORKSPACE)** | `/workspace-unavailable` | Operational Contractor Dispatch Person (Wasim Sahib) |
+| `PHE_OPERATOR` | **CANONICAL (UNREADY WORKSPACE)** | `/workspace-unavailable` | ZMCC PHE Operator Station |
+| `MOT` | **CANONICAL (UNREADY WORKSPACE)** | `/workspace-unavailable` | Mobile Operator Team Testing Station |
+| `SECURITY_OPERATOR` | **CANONICAL** | `/department/security` | Gate Security Station |
+| `QA_LAB_ATTENDANT` | **CANONICAL** | `/department/qa` | Plant QA Laboratory Testing Station |
+| `WEIGHBRIDGE_OPERATOR` | **CANONICAL** | `/department/weighbridge` | Weighbridge Scale Station |
+| `PRODUCTION_RECEPTION_OPERATOR` | **CANONICAL** | `/department/production` | Plant Production Silo Unloading Station |
+| `QA_MANAGER` | **CANONICAL (UNREADY WORKSPACE)** | `/workspace-unavailable` | QA Department Managerial Oversight |
+| `QA_HEAD` | **CANONICAL (UNREADY WORKSPACE)** | `/workspace-unavailable` | Head of QA Department |
+| `ADMIN_HEAD` | **CANONICAL (UNREADY WORKSPACE)** | `/workspace-unavailable` | Head of Admin / Security |
+| `PRODUCTION_HEAD` | **CANONICAL (UNREADY WORKSPACE)** | `/workspace-unavailable` | Head of Production Department |
+| `EXECUTIVE_MANAGEMENT` | **CANONICAL (UNREADY WORKSPACE)** | `/workspace-unavailable` | Senior Executive Management Overview |
+| `DATA_EXECUTIVE` | **CANONICAL (UNREADY WORKSPACE)** | `/workspace-unavailable` | Data Executive Reporting |
+| `FINANCE_ACCOUNTS` | **CANONICAL (UNREADY WORKSPACE)** | `/workspace-unavailable` | Finance and Accounts Ledger Oversight |
+| *Retired Legacy Roles* | **RETIRED / ZERO AUTHORITY** | `/workspace-unavailable` | `Admin`, `MPD`, `MPD_Operator`, `MPD_Zone_Manager`, `QA`, `QA_Operator`, `Security_Weight`, `Security_Manager`, `Weighbridge_Operator`, `Production`, `Production_Operator`, `Production_Manager`, `General_Plant_Manager`, `Correction_Officer`, `Management` |
 | *Any Unknown Role* | **FAIL CLOSED** | `/workspace-unavailable` | Rejects unauthorized access |
 
 ---
@@ -248,3 +248,56 @@ Tracked repository leftovers with zero runtime consumers have been removed:
 - `src/app/mpd/head/page.tsx`: Dedicated workspace page for Head of MPD (`/mpd/head`).
 - `src/app/super-admin/test-policies/page.tsx`: Dedicated Super Admin test policy administration page (`/super-admin/test-policies`).
 - `prisma/migrations/20260912120000_milk_test_policy_assignment/migration.sql`: Tracked migration establishing `milk_test_policy_assignment` table with check constraint, unique index, and foreign keys.
+
+---
+
+## 15. Authoritative Organization Role Hierarchy (Stage 6G-A Correction #2)
+
+### 1. Hierarchy Tree
+```
+SUPER_ADMIN
+|
++-- EXECUTIVE_MANAGEMENT (Senior Executive Management)
+|
++-- DATA_EXECUTIVE (Data Executive)
+|
++-- HEAD_OF_MPD (MPD Head)
+|    |
+|    +-- ZMCC_MANAGER (ZMCC Manager)
+|    |     |
+|    |     +-- PHE_OPERATOR (PHE Operator)
+|    |     +-- ZMCC_LAB_ATTENDANT (ZMCC Lab Attendant)
+|    |     +-- MOT (MOT)
+|    |
+|    +-- CONTRACTOR_MANAGER (Contractor Manager)
+|          |
+|          +-- CONTRACTOR_OPERATOR (Contractor Operator - e.g., Wasim Sahib)
+|
++-- ADMIN_HEAD (Admin Head)
+|    |
+|    +-- SECURITY_OPERATOR (Security Operator)
+|
++-- QA_HEAD (QA Head)
+|    |
+|    +-- QA_MANAGER (QA Manager)
+|          |
+|          +-- QA_LAB_ATTENDANT (QA Lab Attendant)
+|
++-- PRODUCTION_HEAD (Production Head)
+|    |
+|    +-- WEIGHBRIDGE_OPERATOR (Weighbridge Operator)
+|    +-- PRODUCTION_RECEPTION_OPERATOR (Production Reception Operator)
+|
++-- FINANCE_ACCOUNTS (Finance and Accounts)
+```
+
+### 2. Core Authority & Assignment Principles
+- **Head of MPD (`HEAD_OF_MPD`)**: Global Milk Procurement authority (SYSTEM scope, no procurement source). Owns test policy mutation for the 4 MPD testing points (`MOT_SHOP`, `ZMCC_LAB_MOT`, `ZMCC_LAB_CONTRACTOR`, `DISPATCH`).
+- **ZMCC Manager (`ZMCC_MANAGER`)**: Reports to MPD Head. Source-scoped to an assigned ZMCC (`requiresSource: true, allowedSourceType: ZMCC`).
+- **Contractor Manager (`CONTRACTOR_MANAGER`)**: Reports to MPD Head. Source-scoped to an assigned Contractor (`requiresSource: true, allowedSourceType: CONTRACTOR`).
+- **ZMCC Lab Attendant (`ZMCC_LAB_ATTENDANT`)**: Single operational laboratory role at ZMCC. Performs MOT vehicle arrival testing, Contractor vehicle arrival testing, and ZMCC dispatch testing. Completely replaces old `MPD_Operator` with zero parallel operational roles. Source-scoped to an assigned ZMCC (`requiresSource: true, allowedSourceType: ZMCC`). Effective test policy: `ZMCC_LAB_MOT`, `ZMCC_LAB_CONTRACTOR`, `DISPATCH`.
+- **Contractor Operator (`CONTRACTOR_OPERATOR`)**: Operational dispatch preparation and testing person at Contractor source. Source-scoped to assigned Contractor (`requiresSource: true, allowedSourceType: CONTRACTOR`). Effective test policy: `DISPATCH` only. Cannot access ZMCC or other Contractor sources.
+- **Contractor Operator Fixture**: `Wasim Sahib` (`contractor.operator.alkhair`), role `CONTRACTOR_OPERATOR`, source `CONT-ALKHAIR`, reporting under `contractor.manager.alkhair`.
+- **QA Lab Attendant (`QA_LAB_ATTENDANT`)**: Single operational plant laboratory role performing Plant QA testing. Reports to `QA_MANAGER` under `QA_HEAD`. Effective test policy: `PLANT_QA` only. Cannot mutate test policies or access ZMCC/MOT/Contractor testing.
+- **Retired Legacy Roles**: `Admin`, `MPD`, `MPD_Operator`, `MPD_Zone_Manager`, `QA`, `QA_Operator`, `Security_Weight`, `Security_Manager`, `Weighbridge_Operator`, `Production`, `Production_Operator`, `Production_Manager`, `General_Plant_Manager`, `Correction_Officer`, `Management`. All retired roles have **ZERO LIVE AUTHORITY** and fail closed to `/workspace-unavailable` and HTTP 403 on protected APIs.
+- **Historical Attribution & Database Upgrade**: Deterministic in-place role migration updates active users to canonical equivalents where unambiguous (`MPD_Operator` -> `ZMCC_LAB_ATTENDANT` or `CONTRACTOR_OPERATOR`, `QA_Operator`/`QA` -> `QA_LAB_ATTENDANT`, etc.) while deactivating ambiguous legacy users safely. Historical `AuditLog` actor records and foreign keys are never deleted or modified.

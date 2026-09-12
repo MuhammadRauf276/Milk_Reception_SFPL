@@ -93,15 +93,13 @@ export function assertCanReadAdminPolicies(userRole: string | undefined | null):
 
 const ROLE_EFFECTIVE_POINTS: Record<string, readonly TestingPoint[]> = {
   SUPER_ADMIN: ['MOT_SHOP', 'ZMCC_LAB_MOT', 'ZMCC_LAB_CONTRACTOR', 'DISPATCH', 'PLANT_QA'],
-  HEAD_OF_MPD: ['MOT_SHOP', 'ZMCC_LAB_MOT', 'ZMCC_LAB_CONTRACTOR', 'DISPATCH', 'PLANT_QA'],
+  HEAD_OF_MPD: ['MOT_SHOP', 'ZMCC_LAB_MOT', 'ZMCC_LAB_CONTRACTOR', 'DISPATCH'],
   ZMCC_MANAGER: ['MOT_SHOP', 'ZMCC_LAB_MOT', 'ZMCC_LAB_CONTRACTOR', 'DISPATCH'],
   MOT: ['MOT_SHOP'],
-  ZMCC_LAB_ATTENDANT: ['ZMCC_LAB_MOT', 'ZMCC_LAB_CONTRACTOR'],
-  MPD_Operator: ['DISPATCH'],
-  MPD: ['DISPATCH'],
+  ZMCC_LAB_ATTENDANT: ['ZMCC_LAB_MOT', 'ZMCC_LAB_CONTRACTOR', 'DISPATCH'],
+  CONTRACTOR_OPERATOR: ['DISPATCH'],
   CONTRACTOR_MANAGER: ['DISPATCH'],
-  QA_Operator: ['PLANT_QA'],
-  QA: ['PLANT_QA'],
+  QA_LAB_ATTENDANT: ['PLANT_QA'],
 };
 
 export function assertCanReadEffectivePolicy(userRole: string | undefined | null, testingPoint: TestingPoint): void {

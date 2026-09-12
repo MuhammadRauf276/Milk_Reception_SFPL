@@ -290,3 +290,70 @@ This document records the authoritative business rules approved for the Milk Rec
 - Uses the single canonical `audit_logs` table (`table_name = 'milk_test_policy_assignment'`).
 - Actions: `MILK_TEST_POLICY_CREATED`, `MILK_TEST_POLICY_UPDATED`, `MILK_TEST_POLICY_DEACTIVATED`, `MILK_TEST_POLICY_ACTIVATED`.
 - Master configuration changes are not subject to operational form correction counters (e.g. 5-save limit does not apply to policy configuration).
+
+---
+
+## 17. Authoritative Organization Role Hierarchy & Legacy Role Retirement (Stage 6G-A Correction #2)
+
+### 17A. Authoritative Hierarchy Architecture
+The enterprise organization hierarchy is codified as follows:
+```
+SUPER ADMIN (SUPER_ADMIN)
+|
++-- Senior Executive Management (EXECUTIVE_MANAGEMENT)
+|
++-- Data Executive (DATA_EXECUTIVE)
+|
++-- MPD Head (HEAD_OF_MPD)
+|    |
+|    +-- ZMCC Manager (ZMCC_MANAGER)
+|    |     |
+|    |     +-- PHE Operator (PHE_OPERATOR)
+|    |     +-- ZMCC Lab Attendant (ZMCC_LAB_ATTENDANT)
+|    |     +-- MOT (MOT)
+|    |
+|    +-- Contractor Manager (CONTRACTOR_MANAGER)
+|          |
+|          +-- Contractor Operator (CONTRACTOR_OPERATOR)
+|              Example dummy fixture: Wasim Sahib
+|
++-- Admin Head (ADMIN_HEAD)
+|    |
+|    +-- Security Operator (SECURITY_OPERATOR)
+|
++-- QA Head (QA_HEAD)
+|    |
+|    +-- QA Manager (QA_MANAGER)
+|          |
+|          +-- QA Lab Attendant (QA_LAB_ATTENDANT)
+|
++-- Production Head (PRODUCTION_HEAD)
+|    |
+|    +-- Weighbridge Operator (WEIGHBRIDGE_OPERATOR)
+|    +-- Production Reception Operator (PRODUCTION_RECEPTION_OPERATOR)
+|
++-- Finance and Accounts (FINANCE_ACCOUNTS)
+```
+
+### 17B. Key Role Meanings & Boundaries
+- **MPD Head (`HEAD_OF_MPD`)**: Global Milk Procurement authority (`scopeType = 'SYSTEM'`).
+- **ZMCC Manager (`ZMCC_MANAGER`)**: Source-bound manager below MPD Head for one assigned ZMCC (`scopeType = 'SOURCE'`).
+- **Contractor Manager (`CONTRACTOR_MANAGER`)**: Source-bound manager below MPD Head for one assigned Contractor (`scopeType = 'SOURCE'`).
+- **ZMCC Lab Attendant (`ZMCC_LAB_ATTENDANT`)**: Single operational laboratory role at ZMCC responsible for:
+  1. MOT arrival lab testing
+  2. Contractor arrival lab testing
+  3. ZMCC dispatch testing before milk departure to Plant
+  (Eliminates old `MPD_Operator` at ZMCC).
+- **Contractor Operator (`CONTRACTOR_OPERATOR`)**: Operational role at contractor source performing dispatch prep/testing.
+  - Fixture: `Wasim Sahib` (`contractor.operator.alkhair`), bound to `CONT-ALKHAIR`. Restricted to assigned Contractor source.
+- **QA Lab Attendant (`QA_LAB_ATTENDANT`)**: Operational role performing Plant laboratory testing (`PLANT_QA` testing point only).
+- **Security Operator (`SECURITY_OPERATOR`)**: Plant security gate execution.
+- **Weighbridge Operator (`WEIGHBRIDGE_OPERATOR`)**: Plant weighbridge scale recording.
+- **Production Reception Operator (`PRODUCTION_RECEPTION_OPERATOR`)**: Plant silo offloading and production reception.
+- **Unimplemented High-Level Roles**: `EXECUTIVE_MANAGEMENT`, `DATA_EXECUTIVE`, `ADMIN_HEAD`, `QA_HEAD`, `QA_MANAGER`, `PRODUCTION_HEAD`, `FINANCE_ACCOUNTS`, and `CONTRACTOR_OPERATOR` route fail-closed to `/workspace-unavailable` until their respective stages.
+
+### 17C. Retired Legacy Roles (Zero Live Authority)
+- The following legacy roles have ZERO live authority: `Admin`, `MPD`, `MPD_Operator`, `MPD_Zone_Manager`, `QA`, `QA_Operator`, `Security_Weight`, `Security_Operator` (legacy casing), `Security_Manager`, `Weighbridge_Operator` (legacy casing), `Production`, `Production_Operator` (legacy casing), `Production_Manager`, `QA_Manager` (legacy casing), `General_Plant_Manager`, `Correction_Officer`, `Management`.
+- Legacy strings fail closed across all active APIs, routes, and mutation checks.
+- Exact legacy users in persistent databases are safely migrated in-place to canonical equivalents or deactivated.
+- **Audit Log Immutability**: Historical user IDs on `audit_logs`, `created_by`, `completed_by`, and related foreign keys are strictly preserved; no fake identities or audit log deletions.

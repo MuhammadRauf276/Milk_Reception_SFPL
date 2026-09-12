@@ -471,7 +471,7 @@ export default function SuperAdminUsersPage() {
                             u.role === 'SUPER_ADMIN' ? 'bg-indigo-100 text-indigo-900' : 'bg-slate-100 text-slate-800'
                           }`}
                         >
-                          {u.role === 'MPD_Operator' ? 'ZMCC Lab Attendant' : u.role}
+                          {ROLE_ASSIGNMENT_POLICIES[u.role as CreatableRole]?.label || u.role}
                         </span>
                       </td>
                       <td className="p-3 text-slate-600">{u.department || '—'}</td>
@@ -634,7 +634,7 @@ export default function SuperAdminUsersPage() {
                 >
                   {CREATABLE_ROLES.map((r) => (
                     <option key={r} value={r}>
-                      {r === 'MPD_Operator' ? 'ZMCC Lab Attendant' : `${ROLE_ASSIGNMENT_POLICIES[r].label} (${r})`}
+                      {ROLE_ASSIGNMENT_POLICIES[r].label} ({r})
                     </option>
                   ))}
                 </select>
@@ -784,7 +784,7 @@ export default function SuperAdminUsersPage() {
                 >
                   {CREATABLE_ROLES.map((r) => (
                     <option key={r} value={r}>
-                      {r === 'MPD_Operator' ? 'ZMCC Lab Attendant' : `${ROLE_ASSIGNMENT_POLICIES[r].label} (${r})`}
+                      {ROLE_ASSIGNMENT_POLICIES[r].label} ({r})
                     </option>
                   ))}
                 </select>

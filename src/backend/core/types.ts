@@ -1,31 +1,44 @@
-export type Role = 
-  | 'SUPER_ADMIN'             // Canonical Super Admin: System configuration, access & audit
-  | 'HEAD_OF_MPD'              // Head of MPD: Global Milk Procurement policy authority
-  | 'MPD_Operator'            // ZMCC/Contractor Operator: Enters initial dispatch
-  | 'MPD_Zone_Manager'        // ZMCC Minor Manager: Views own zone, cross-verification analytics
-  | 'ZMCC_MANAGER'            // ZMCC Source Manager: Restricted to assigned ZMCC
-  | 'ZMCC_LAB_ATTENDANT'      // ZMCC Laboratory Attendant: Quality tests & accept/reject at ZMCC
-  | 'PHE_OPERATOR'             // PHE Operator: Restricted to assigned ZMCC shops
-  | 'MOT'                      // Milk Operator / Transporter: Mobile collection execution
-  | 'CONTRACTOR_MANAGER'      // Contractor Source Manager: Restricted to assigned Contractor
-  | 'EXECUTIVE_MANAGEMENT'    // Executive / CEO / COO / Plant Head read-only analytics
-  | 'Security_Operator'       // Security Operator: Tokens, Gate In, Gate Out
-  | 'Security_Manager'        // Security Head: Audits security team & timestamps
-  | 'QA_Operator'             // QA Lab Operator: Sampling, chemical tests, parallel override
-  | 'QA_Manager'              // QA Big Manager: Read-only QA pipeline tracking
-  | 'Weighbridge_Operator'    // Weighbridge Operator: 1st weight (gross) and 2nd weight (tare)
-  | 'WEIGHBRIDGE_OPERATOR'    // Weighbridge Operator canonical role enum
-  | 'Production_Operator'     // Production Operator: Silo assignment & unloading work
-  | 'Production_Manager'      // Production Big Manager: Read-only silo reception & weighbridge tracking
-  | 'General_Plant_Manager'   // Supreme Plant Manager: Full view across all departments
-  | 'Correction_Officer'      // Dedicated Correction Officer: Only account allowed historical edits
-  | 'Admin'                   // System Administrator legacy alias
-  // Legacy aliases
+export type CanonicalRole =
+  | 'SUPER_ADMIN'
+  | 'EXECUTIVE_MANAGEMENT'
+  | 'DATA_EXECUTIVE'
+  | 'HEAD_OF_MPD'
+  | 'ADMIN_HEAD'
+  | 'QA_HEAD'
+  | 'PRODUCTION_HEAD'
+  | 'FINANCE_ACCOUNTS'
+  | 'ZMCC_MANAGER'
+  | 'CONTRACTOR_MANAGER'
+  | 'PHE_OPERATOR'
+  | 'ZMCC_LAB_ATTENDANT'
+  | 'MOT'
+  | 'CONTRACTOR_OPERATOR'
+  | 'SECURITY_OPERATOR'
+  | 'QA_MANAGER'
+  | 'QA_LAB_ATTENDANT'
+  | 'WEIGHBRIDGE_OPERATOR'
+  | 'PRODUCTION_RECEPTION_OPERATOR';
+
+export type LegacyRole =
+  | 'MPD_Operator'
+  | 'MPD_Zone_Manager'
+  | 'Security_Operator'
+  | 'Security_Manager'
+  | 'QA_Operator'
+  | 'QA_Manager'
+  | 'Weighbridge_Operator'
+  | 'Production_Operator'
+  | 'Production_Manager'
+  | 'General_Plant_Manager'
+  | 'Correction_Officer'
+  | 'Admin'
   | 'MPD'
   | 'QA'
   | 'Security_Weight'
   | 'Production'
   | 'Management';
+
+export type Role = CanonicalRole | LegacyRole;
 
 export interface User {
   id: string;
@@ -63,141 +76,240 @@ export const FIXTURE_USER_PROFILES: Record<string, User> = {
     department: 'Retired Migration Account',
     scope_type: 'SYSTEM',
   },
-  'zmcc.operator': {
-    id: 'usr_mpd_op',
-    username: 'zmcc.operator',
-    name: 'ZMCC Field Operator',
-    role: 'MPD_Operator',
-    department: 'Milk Procurement (MPD Field)'
+  'executive.management': {
+    id: 'usr_exec_mgmt',
+    username: 'executive.management',
+    name: 'Senior Executive Management',
+    role: 'EXECUTIVE_MANAGEMENT',
+    department: 'Executive Management',
+    scope_type: 'SYSTEM',
   },
-  'zmcc.manager.north': {
-    id: 'usr_mpd_zm_n',
-    username: 'zmcc.manager.north',
-    name: 'ZMCC Minor Manager (Northern Zone)',
-    role: 'ZMCC_MANAGER',
-    department: 'Milk Procurement (Zone A)',
-    scope_type: 'SOURCE',
-    zone: 'ZMCC Hasilpur'
+  'data.executive': {
+    id: 'usr_data_exec',
+    username: 'data.executive',
+    name: 'Data Executive',
+    role: 'DATA_EXECUTIVE',
+    department: 'Data & Analytics',
+    scope_type: 'SYSTEM',
   },
-  'contractor.manager.alkhair': {
-    id: 'usr_cont_mgr_ak',
-    username: 'contractor.manager.alkhair',
-    name: 'Plant Contractor Manager (Al Khair)',
-    role: 'CONTRACTOR_MANAGER',
-    department: 'Milk Procurement (Al Khair)',
-    scope_type: 'SOURCE',
-    zone: 'Al Khair'
+  'mpd.head': {
+    id: 'usr_mpd_head',
+    username: 'mpd.head',
+    name: 'MPD Head',
+    role: 'HEAD_OF_MPD',
+    department: 'Milk Procurement',
+    scope_type: 'SYSTEM',
   },
-  'security.gate': {
-    id: 'usr_sec_op',
-    username: 'security.gate',
-    name: 'Security Gate Operator',
-    role: 'Security_Operator',
-    department: 'Security & Weighbridge'
-  },
-  'security.head': {
-    id: 'usr_sec_head',
-    username: 'security.head',
-    name: 'Security Admin Manager (Head)',
-    role: 'Security_Manager',
-    department: 'Security Management'
-  },
-  'qa.chemist': {
-    id: 'usr_qa_op',
-    username: 'qa.chemist',
-    name: 'QA Lab Testing Chemist',
-    role: 'QA_Operator',
-    department: 'Quality Assurance Lab'
+  'admin.head': {
+    id: 'usr_admin_head',
+    username: 'admin.head',
+    name: 'Admin Head',
+    role: 'ADMIN_HEAD',
+    department: 'Administration',
+    scope_type: 'DEPARTMENT',
   },
   'qa.head': {
     id: 'usr_qa_head',
     username: 'qa.head',
-    name: 'QA Department Manager',
-    role: 'QA_Manager',
-    department: 'QA Management'
+    name: 'QA Head',
+    role: 'QA_HEAD',
+    department: 'Quality Assurance',
+    scope_type: 'DEPARTMENT',
+  },
+  'production.head': {
+    id: 'usr_prod_head',
+    username: 'production.head',
+    name: 'Production Head',
+    role: 'PRODUCTION_HEAD',
+    department: 'Production',
+    scope_type: 'DEPARTMENT',
+  },
+  'finance.accounts': {
+    id: 'usr_fin_accts',
+    username: 'finance.accounts',
+    name: 'Finance and Accounts',
+    role: 'FINANCE_ACCOUNTS',
+    department: 'Finance & Accounts',
+    scope_type: 'DEPARTMENT',
+  },
+  'zmcc.manager.north': {
+    id: 'usr_mpd_zm_n',
+    username: 'zmcc.manager.north',
+    name: 'ZMCC Manager - Hasilpur',
+    role: 'ZMCC_MANAGER',
+    department: 'Milk Procurement',
+    scope_type: 'SOURCE',
+    zone: 'ZMCC Hasilpur',
+  },
+  'contractor.manager.alkhair': {
+    id: 'usr_cont_mgr_ak',
+    username: 'contractor.manager.alkhair',
+    name: 'Contractor Manager - Al Khair',
+    role: 'CONTRACTOR_MANAGER',
+    department: 'Milk Procurement',
+    scope_type: 'SOURCE',
+    zone: 'Al Khair',
+    procurement_source: {
+      id: 'src_cont_alkhair',
+      code: 'CONT-ALKHAIR',
+      name: 'Al Khair Contractor',
+      source_type: 'CONTRACTOR',
+    },
+  },
+  'phe.operator': {
+    id: 'usr_phe_op',
+    username: 'phe.operator',
+    name: 'PHE Operator',
+    role: 'PHE_OPERATOR',
+    department: 'Milk Procurement',
+    scope_type: 'SOURCE',
+    zone: 'ZMCC Hasilpur',
+    procurement_source: {
+      id: 'src_zmcc_hasilpur',
+      code: 'ZMCC-HASILPUR',
+      name: 'ZMCC Hasilpur',
+      source_type: 'ZMCC',
+    },
+  },
+  'zmcc.operator': {
+    id: 'usr_mpd_op',
+    username: 'zmcc.operator',
+    name: 'ZMCC Lab Attendant',
+    role: 'ZMCC_LAB_ATTENDANT',
+    department: 'Milk Procurement',
+    scope_type: 'SOURCE',
+    zone: 'ZMCC Hasilpur',
+    procurement_source: {
+      id: 'src_zmcc_hasilpur',
+      code: 'ZMCC-HASILPUR',
+      name: 'ZMCC Hasilpur',
+      source_type: 'ZMCC',
+    },
+  },
+  'mot.driver': {
+    id: 'usr_mot_driver',
+    username: 'mot.driver',
+    name: 'MOT Operator',
+    role: 'MOT',
+    department: 'Milk Procurement',
+    scope_type: 'SOURCE',
+    zone: 'ZMCC Hasilpur',
+    procurement_source: {
+      id: 'src_zmcc_hasilpur',
+      code: 'ZMCC-HASILPUR',
+      name: 'ZMCC Hasilpur',
+      source_type: 'ZMCC',
+    },
+  },
+  'contractor.operator.alkhair': {
+    id: 'usr_cont_op_ak',
+    username: 'contractor.operator.alkhair',
+    name: 'Wasim Sahib',
+    role: 'CONTRACTOR_OPERATOR',
+    department: 'Milk Procurement - Contractor Operations',
+    scope_type: 'SOURCE',
+    zone: 'Al Khair',
+    procurement_source: {
+      id: 'src_cont_alkhair',
+      code: 'CONT-ALKHAIR',
+      name: 'Al Khair Contractor',
+      source_type: 'CONTRACTOR',
+    },
+  },
+  'security.gate': {
+    id: 'usr_sec_op',
+    username: 'security.gate',
+    name: 'Security Operator',
+    role: 'SECURITY_OPERATOR',
+    department: 'Security',
+    scope_type: 'DEPARTMENT',
+  },
+  'qa.manager': {
+    id: 'usr_qa_mgr',
+    username: 'qa.manager',
+    name: 'QA Manager',
+    role: 'QA_MANAGER',
+    department: 'Quality Assurance',
+    scope_type: 'DEPARTMENT',
+  },
+  'qa.chemist': {
+    id: 'usr_qa_op',
+    username: 'qa.chemist',
+    name: 'QA Lab Attendant',
+    role: 'QA_LAB_ATTENDANT',
+    department: 'Quality Assurance',
+    scope_type: 'DEPARTMENT',
   },
   'weighbridge.operator': {
     id: 'usr_wb_op_1',
     username: 'weighbridge.operator',
     name: 'Weighbridge Operator',
     role: 'WEIGHBRIDGE_OPERATOR',
-    department: 'Production & Weighbridge'
+    department: 'Production & Weighbridge',
+    scope_type: 'DEPARTMENT',
   },
   'weighbridge.02': {
     id: 'usr_wb_op_2',
     username: 'weighbridge.02',
     name: 'Weighbridge Shift Operator 2',
     role: 'WEIGHBRIDGE_OPERATOR',
-    department: 'Production & Weighbridge'
+    department: 'Production & Weighbridge',
+    scope_type: 'DEPARTMENT',
   },
   'production.operator': {
     id: 'usr_prod_op',
     username: 'production.operator',
-    name: 'Production Operator',
-    role: 'Production_Operator',
-    department: 'Plant Production & Silos'
+    name: 'Production Reception Operator',
+    role: 'PRODUCTION_RECEPTION_OPERATOR',
+    department: 'Production',
+    scope_type: 'DEPARTMENT',
   },
-  'production.head': {
-    id: 'usr_prod_head',
-    username: 'production.head',
-    name: 'Production Department Manager',
-    role: 'Production_Manager',
-    department: 'Production Management'
-  },
-  'general.plant.manager': {
-    id: 'usr_gpm',
-    username: 'general.plant.manager',
-    name: 'General Plant Manager',
-    role: 'General_Plant_Manager',
-    department: 'Plant Executive Directorate'
-  },
-  'correction.officer': {
-    id: 'usr_corr_off',
-    username: 'correction.officer',
-    name: 'Dedicated Data Correction Officer',
-    role: 'Correction_Officer',
-    department: 'Plant Audit & Data Corrections'
-  }
 };
 
 export const AUTHENTICATED_USERS: Record<string, { user: User }> = {
   'admin.superuser': { user: FIXTURE_USER_PROFILES['admin.superuser'] },
   'super.admin': { user: FIXTURE_USER_PROFILES['super.admin'] },
-  'zmcc.operator': { user: FIXTURE_USER_PROFILES['zmcc.operator'] },
+  'executive.management': { user: FIXTURE_USER_PROFILES['executive.management'] },
+  'data.executive': { user: FIXTURE_USER_PROFILES['data.executive'] },
+  'mpd.head': { user: FIXTURE_USER_PROFILES['mpd.head'] },
+  'admin.head': { user: FIXTURE_USER_PROFILES['admin.head'] },
+  'qa.head': { user: FIXTURE_USER_PROFILES['qa.head'] },
+  'production.head': { user: FIXTURE_USER_PROFILES['production.head'] },
+  'finance.accounts': { user: FIXTURE_USER_PROFILES['finance.accounts'] },
   'zmcc.manager.north': { user: FIXTURE_USER_PROFILES['zmcc.manager.north'] },
   'contractor.manager.alkhair': { user: FIXTURE_USER_PROFILES['contractor.manager.alkhair'] },
+  'phe.operator': { user: FIXTURE_USER_PROFILES['phe.operator'] },
+  'zmcc.operator': { user: FIXTURE_USER_PROFILES['zmcc.operator'] },
+  'mot.driver': { user: FIXTURE_USER_PROFILES['mot.driver'] },
+  'contractor.operator.alkhair': { user: FIXTURE_USER_PROFILES['contractor.operator.alkhair'] },
   'security.gate': { user: FIXTURE_USER_PROFILES['security.gate'] },
-  'security.head': { user: FIXTURE_USER_PROFILES['security.head'] },
+  'qa.manager': { user: FIXTURE_USER_PROFILES['qa.manager'] },
   'qa.chemist': { user: FIXTURE_USER_PROFILES['qa.chemist'] },
-  'qa.head': { user: FIXTURE_USER_PROFILES['qa.head'] },
   'weighbridge.operator': { user: FIXTURE_USER_PROFILES['weighbridge.operator'] },
   'weighbridge.02': { user: FIXTURE_USER_PROFILES['weighbridge.02'] },
   'production.operator': { user: FIXTURE_USER_PROFILES['production.operator'] },
-  'production.head': { user: FIXTURE_USER_PROFILES['production.head'] },
-  'general.plant.manager': { user: FIXTURE_USER_PROFILES['general.plant.manager'] },
-  'correction.officer': { user: FIXTURE_USER_PROFILES['correction.officer'] },
 };
 
 export const DEFAULT_USERS: Record<string, User> = {
   SUPER_ADMIN: FIXTURE_USER_PROFILES['admin.superuser'],
-  MPD_Operator: FIXTURE_USER_PROFILES['zmcc.operator'],
+  EXECUTIVE_MANAGEMENT: FIXTURE_USER_PROFILES['executive.management'],
+  DATA_EXECUTIVE: FIXTURE_USER_PROFILES['data.executive'],
+  HEAD_OF_MPD: FIXTURE_USER_PROFILES['mpd.head'],
+  ADMIN_HEAD: FIXTURE_USER_PROFILES['admin.head'],
+  QA_HEAD: FIXTURE_USER_PROFILES['qa.head'],
+  PRODUCTION_HEAD: FIXTURE_USER_PROFILES['production.head'],
+  FINANCE_ACCOUNTS: FIXTURE_USER_PROFILES['finance.accounts'],
   ZMCC_MANAGER: FIXTURE_USER_PROFILES['zmcc.manager.north'],
   CONTRACTOR_MANAGER: FIXTURE_USER_PROFILES['contractor.manager.alkhair'],
-  Security_Operator: FIXTURE_USER_PROFILES['security.gate'],
-  Security_Manager: FIXTURE_USER_PROFILES['security.head'],
-  QA_Operator: FIXTURE_USER_PROFILES['qa.chemist'],
-  QA_Manager: FIXTURE_USER_PROFILES['qa.head'],
-  Production_Operator: FIXTURE_USER_PROFILES['production.operator'],
-  Production_Manager: FIXTURE_USER_PROFILES['production.head'],
-  General_Plant_Manager: FIXTURE_USER_PROFILES['general.plant.manager'],
-  Correction_Officer: FIXTURE_USER_PROFILES['correction.officer'],
-  Admin: FIXTURE_USER_PROFILES['admin.superuser'],
-  // Legacy aliases
-  MPD: FIXTURE_USER_PROFILES['zmcc.operator'],
-  QA: FIXTURE_USER_PROFILES['qa.chemist'],
-  Security_Weight: FIXTURE_USER_PROFILES['security.gate'],
-  Production: FIXTURE_USER_PROFILES['production.operator'],
-  Management: FIXTURE_USER_PROFILES['general.plant.manager'],
+  PHE_OPERATOR: FIXTURE_USER_PROFILES['phe.operator'],
+  ZMCC_LAB_ATTENDANT: FIXTURE_USER_PROFILES['zmcc.operator'],
+  MOT: FIXTURE_USER_PROFILES['mot.driver'],
+  CONTRACTOR_OPERATOR: FIXTURE_USER_PROFILES['contractor.operator.alkhair'],
+  SECURITY_OPERATOR: FIXTURE_USER_PROFILES['security.gate'],
+  QA_MANAGER: FIXTURE_USER_PROFILES['qa.manager'],
+  QA_LAB_ATTENDANT: FIXTURE_USER_PROFILES['qa.chemist'],
+  WEIGHBRIDGE_OPERATOR: FIXTURE_USER_PROFILES['weighbridge.operator'],
+  PRODUCTION_RECEPTION_OPERATOR: FIXTURE_USER_PROFILES['production.operator'],
 };
 
 export type ProcessStatus = 
