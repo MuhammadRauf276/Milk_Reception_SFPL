@@ -143,7 +143,7 @@ async function runStage6fTests() {
   const migrationDirs = fs
     .readdirSync(migrationsDir)
     .filter((f) => fs.statSync(path.join(migrationsDir, f)).isDirectory());
-  assert(migrationDirs.length === 20, 'Migration Count', `Exactly 20 tracked migrations (found ${migrationDirs.length})`);
+  assert(migrationDirs.length === 21, 'Migration Count', `Exactly 21 tracked migrations (found ${migrationDirs.length})`);
 
   // Verify DB check constraints
   const dbConstraints: Array<{ conname: string }> = await prisma.$queryRaw`
@@ -549,6 +549,8 @@ async function runStage6fTests() {
   const incompleteCompRes = await completeSession(toCoreUser(attendantA) as any, sessionId, {
     completion_client_event_id: `comp-evt-1-${runId}`,
     decision: 'ACCEPTED',
+    quantity_value: 5000,
+    quantity_unit: 'LITER',
     results: [{ test_id: testTemp.id, numeric_value: 4.0 }], // Missing required Acidity and Organo
   });
   assert(incompleteCompRes.status === 400, 'Completeness Validation', 'Missing required test rejected with 400');
@@ -557,6 +559,8 @@ async function runStage6fTests() {
   const dupTestIdRes = await completeSession(toCoreUser(attendantA) as any, sessionId, {
     completion_client_event_id: `comp-evt-dup-${runId}`,
     decision: 'ACCEPTED',
+    quantity_value: 5000,
+    quantity_unit: 'LITER',
     results: [
       { test_id: testTemp.id, numeric_value: 4.0 },
       { test_id: testTemp.id, numeric_value: 4.5 },
@@ -571,6 +575,8 @@ async function runStage6fTests() {
   const missingFrozenTestRes = await completeSession(toCoreUser(attendantA) as any, sessionId, {
     completion_client_event_id: `comp-evt-miss-${runId}`,
     decision: 'ACCEPTED',
+    quantity_value: 5000,
+    quantity_unit: 'LITER',
     results: [
       { test_id: testTemp.id, numeric_value: 4.0 },
       { test_id: testAcidity.id, numeric_value: 0.14 },
@@ -594,6 +600,8 @@ async function runStage6fTests() {
   const completeRes = await completeSession(toCoreUser(attendantA) as any, sessionId, {
     completion_client_event_id: completionEventId,
     decision: 'ACCEPTED',
+    quantity_value: 5000,
+    quantity_unit: 'LITER',
     remarks: 'Milk passed all intake standards',
     results: validCompletionResults,
   });
@@ -619,6 +627,8 @@ async function runStage6fTests() {
   const replayRes = await completeSession(toCoreUser(attendantA) as any, sessionId, {
     completion_client_event_id: completionEventId,
     decision: 'ACCEPTED',
+    quantity_value: 5000,
+    quantity_unit: 'LITER',
     remarks: 'Milk passed all intake standards',
     results: validCompletionResults,
   });
@@ -628,6 +638,8 @@ async function runStage6fTests() {
   const changedNumericReplay = await completeSession(toCoreUser(attendantA) as any, sessionId, {
     completion_client_event_id: completionEventId,
     decision: 'ACCEPTED',
+    quantity_value: 5000,
+    quantity_unit: 'LITER',
     remarks: 'Milk passed all intake standards',
     results: validCompletionResults.map((r: any) =>
       r.test_id === testTemp.id.toString() ? { ...r, numeric_value: 9.9 } : r
@@ -639,6 +651,8 @@ async function runStage6fTests() {
   const changedCatReplay = await completeSession(toCoreUser(attendantA) as any, sessionId, {
     completion_client_event_id: completionEventId,
     decision: 'ACCEPTED',
+    quantity_value: 5000,
+    quantity_unit: 'LITER',
     remarks: 'Milk passed all intake standards',
     results: validCompletionResults.map((r: any) =>
       r.test_id === testOrgano.id.toString() ? { ...r, text_value: 'NOT_OK' } : r
@@ -650,6 +664,8 @@ async function runStage6fTests() {
   const changedRemarksReplay = await completeSession(toCoreUser(attendantA) as any, sessionId, {
     completion_client_event_id: completionEventId,
     decision: 'ACCEPTED',
+    quantity_value: 5000,
+    quantity_unit: 'LITER',
     remarks: 'Completely different remarks submitted',
     results: validCompletionResults,
   });
@@ -659,6 +675,8 @@ async function runStage6fTests() {
   const alteredReplayRes = await completeSession(toCoreUser(attendantA) as any, sessionId, {
     completion_client_event_id: completionEventId,
     decision: 'REJECTED',
+    quantity_value: 5000,
+    quantity_unit: 'LITER',
     rejection_reason: 'Changed mind',
     results: validCompletionResults,
   });
@@ -699,6 +717,8 @@ async function runStage6fTests() {
   const conRejectRes = await completeSession(toCoreUser(attendantA) as any, conSessionId, {
     completion_client_event_id: conCompEventId,
     decision: 'REJECTED',
+    quantity_value: 3500,
+    quantity_unit: 'LITER',
     rejection_reason: 'High temperature (> 12C) and high acidity (0.20%)',
     remarks: 'Milk rejected at gate due to thermal abuse in transport',
     results: conRejectResults,
@@ -714,6 +734,8 @@ async function runStage6fTests() {
   const conReplayRes = await completeSession(toCoreUser(attendantA) as any, conSessionId, {
     completion_client_event_id: conCompEventId,
     decision: 'REJECTED',
+    quantity_value: 3500,
+    quantity_unit: 'LITER',
     rejection_reason: 'High temperature (> 12C) and high acidity (0.20%)',
     remarks: 'Milk rejected at gate due to thermal abuse in transport',
     results: conRejectResults,
@@ -724,6 +746,8 @@ async function runStage6fTests() {
   const conAlteredReasonRes = await completeSession(toCoreUser(attendantA) as any, conSessionId, {
     completion_client_event_id: conCompEventId,
     decision: 'REJECTED',
+    quantity_value: 3500,
+    quantity_unit: 'LITER',
     rejection_reason: 'Different reason: bad color and dirt in milk',
     remarks: 'Milk rejected at gate due to thermal abuse in transport',
     results: conRejectResults,
@@ -734,6 +758,8 @@ async function runStage6fTests() {
   const wrongSessionReplay = await completeSession(toCoreUser(attendantA) as any, conSessionId, {
     completion_client_event_id: completionEventId, // completionEventId belongs to sessionId (MOT), not conSessionId
     decision: 'ACCEPTED',
+    quantity_value: 5000,
+    quantity_unit: 'LITER',
     remarks: 'Milk passed all intake standards',
     results: validCompletionResults,
   });
@@ -771,12 +797,16 @@ async function runStage6fTests() {
     completeSession(toCoreUser(attendantA) as any, concSessionId, {
       completion_client_event_id: concEventId,
       decision: 'ACCEPTED',
+      quantity_value: 4200,
+      quantity_unit: 'LITER',
       remarks: 'Concurrent test batch',
       results: concResults,
     }),
     completeSession(toCoreUser(attendantA) as any, concSessionId, {
       completion_client_event_id: concEventId,
       decision: 'ACCEPTED',
+      quantity_value: 4200,
+      quantity_unit: 'LITER',
       remarks: 'Concurrent test batch',
       results: concResults,
     }),
@@ -1204,6 +1234,8 @@ async function runStage6fTests() {
   const compCalcEdit = await completeSession(toCoreUser(attendantA) as any, optCalcSessionId, {
     completion_client_event_id: `comp-calc-evt-${runId}`,
     decision: 'ACCEPTED',
+    quantity_value: 5000,
+    quantity_unit: 'LITER',
     results: [
       { test_id: testTemp.id, numeric_value: 4.0 },
       { test_id: testAcidity.id, numeric_value: 0.14 },
@@ -1275,6 +1307,16 @@ async function runStage6fTests() {
   // 10. No existing LabTest records automatically rewritten
   const initialTestCount = await prisma.labTest.count();
   assert(initialTestCount > 0, 'Lab Tests Intact', `All ${initialTestCount} lab test records preserved without auto-rewrite`);
+
+  // Clean up transient test tests so future test suites have a clean slate
+  await prisma.labTest.updateMany({
+    where: {
+      id: { in: [testTemp.id, testAcidity.id, testOrgano.id, calcTest.id, optCalcTest.id] },
+    },
+    data: {
+      isActive: false,
+    },
+  });
 
   console.log('\n=====================================================================');
   console.log(`FINAL STAGE 6F TEST RESULTS: ${passed} PASSED, ${failed} FAILED`);

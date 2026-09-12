@@ -18,9 +18,12 @@ import {
   ShieldAlert,
   ArrowRight,
   Save,
+  Calculator,
 } from 'lucide-react';
 
 import { useToast } from '@/frontend/context/ToastContext';
+import { computeCanonicalMilkMetrics } from '@/backend/utils/milkFormulas';
+import { isLrTestCandidate, isFatTestCandidate } from '@/backend/utils/milkTestResolvers';
 
 interface ZmccLabWorkspaceProps {
   currentUser: User | null;
@@ -50,6 +53,9 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
   const [draftRemarks, setDraftRemarks] = useState('');
   const [savingDraft, setSavingDraft] = useState(false);
 
+  const [draftQuantityValue, setDraftQuantityValue] = useState<string>('');
+  const [draftQuantityUnit, setDraftQuantityUnit] = useState<'KG' | 'LITER'>('KG');
+
   // Completion Modal State
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [completionDecision, setCompletionDecision] = useState<'ACCEPTED' | 'REJECTED'>('ACCEPTED');
@@ -69,11 +75,54 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
   const [selectedHistorySession, setSelectedHistorySession] = useState<any | null>(null);
   const [showCorrectionModal, setShowCorrectionModal] = useState(false);
   const [correctionReason, setCorrectionReason] = useState('');
+  const [correctionQuantityValue, setCorrectionQuantityValue] = useState<string>('');
+  const [correctionQuantityUnit, setCorrectionQuantityUnit] = useState<'KG' | 'LITER'>('KG');
   const [correctionDecision, setCorrectionDecision] = useState<'ACCEPTED' | 'REJECTED'>('ACCEPTED');
   const [correctionRejectionReason, setCorrectionRejectionReason] = useState('');
   const [correctionRemarks, setCorrectionRemarks] = useState('');
   const [correctionValues, setCorrectionValues] = useState<Record<string, { numeric_value: any; text_value: any }>>({});
   const [savingCorrection, setSavingCorrection] = useState(false);
+
+  // Helper to compute live preview metrics
+  const calculatePreview = useCallback((
+    qtyStr: string,
+    unit: 'KG' | 'LITER',
+    values: Record<string, { numeric_value: any; text_value: any }>,
+    results: any[]
+  ) => {
+    const q = Number(qtyStr);
+    if (!qtyStr || isNaN(q) || q <= 0) return null;
+
+    let lrVal: number | null = null;
+    let fatVal: number | null = null;
+
+    for (const r of results || []) {
+      const code = r.test_code_snapshot;
+      const name = r.test_name_snapshot;
+      const type = r.result_type_snapshot;
+      const val = values[r.test_id]?.numeric_value;
+      if (val !== '' && val !== null && val !== undefined) {
+        const num = Number(val);
+        if (!isNaN(num)) {
+          if (isLrTestCandidate(code, name, type)) {
+            lrVal = num;
+          } else if (isFatTestCandidate(code, name, type)) {
+            fatVal = num;
+          }
+        }
+      }
+    }
+
+    if (lrVal === null || lrVal <= 0 || fatVal === null || fatVal < 0) {
+      return null;
+    }
+
+    try {
+      return computeCanonicalMilkMetrics(q, unit, lrVal, fatVal);
+    } catch {
+      return null;
+    }
+  }, []);
 
   // Generate unique completion client event id
   const generateCompletionEventId = useCallback(() => {
@@ -163,6 +212,8 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
   const loadSessionIntoState = (session: any) => {
     setActiveSession(session);
     setDraftRemarks(session.remarks || '');
+    setDraftQuantityValue(session.quantity_value !== null && session.quantity_value !== undefined ? String(session.quantity_value) : '');
+    setDraftQuantityUnit((session.quantity_unit as 'KG' | 'LITER') || 'KG');
     const initialVals: Record<string, { numeric_value: any; text_value: any }> = {};
     if (session.results) {
       for (const r of session.results) {
@@ -190,6 +241,8 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          quantity_value: draftQuantityValue !== '' ? Number(draftQuantityValue) : null,
+          quantity_unit: draftQuantityUnit,
           results: payloadResults,
           remarks: draftRemarks,
         }),
@@ -212,6 +265,10 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
 
   // Open completion modal
   const openCompleteModal = (decision: 'ACCEPTED' | 'REJECTED') => {
+    if (!draftQuantityValue || Number(draftQuantityValue) <= 0) {
+      toast.showError('Actual milk quantity is required and must be greater than 0.');
+      return;
+    }
     setCompletionDecision(decision);
     setRejectionReason('');
     setCompletionRemarks(draftRemarks);
@@ -222,6 +279,10 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
   // Submit completion
   const handleCompleteSession = async () => {
     if (!activeSession) return;
+    if (!draftQuantityValue || Number(draftQuantityValue) <= 0) {
+      toast.showError('Actual milk quantity is required and must be greater than 0.');
+      return;
+    }
     if (completionDecision === 'REJECTED' && !rejectionReason.trim()) {
       toast.showError('Rejection reason is mandatory when rejecting.');
       return;
@@ -251,6 +312,8 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           completion_client_event_id: completionEventId,
+          quantity_value: Number(draftQuantityValue),
+          quantity_unit: draftQuantityUnit,
           decision: completionDecision,
           rejection_reason: completionDecision === 'REJECTED' ? rejectionReason.trim() : null,
           remarks: completionRemarks.trim() || null,
@@ -279,6 +342,8 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
   const openCorrection = (session: any) => {
     setSelectedHistorySession(session);
     setCorrectionReason('');
+    setCorrectionQuantityValue(session.quantity_value !== null && session.quantity_value !== undefined ? String(session.quantity_value) : '');
+    setCorrectionQuantityUnit((session.quantity_unit as 'KG' | 'LITER') || 'KG');
     setCorrectionDecision(session.decision || 'ACCEPTED');
     setCorrectionRejectionReason(session.rejection_reason || '');
     setCorrectionRemarks(session.remarks || '');
@@ -302,6 +367,10 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
       toast.showError('Audit correction reason is mandatory.');
       return;
     }
+    if (correctionQuantityValue && Number(correctionQuantityValue) <= 0) {
+      toast.showError('Corrected quantity must be greater than 0.');
+      return;
+    }
     if (correctionDecision === 'REJECTED' && !correctionRejectionReason.trim()) {
       toast.showError('Rejection reason is mandatory when decision is REJECTED.');
       return;
@@ -320,6 +389,8 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           reason: correctionReason.trim(),
+          quantity_value: correctionQuantityValue !== '' ? Number(correctionQuantityValue) : null,
+          quantity_unit: correctionQuantityUnit,
           decision: correctionDecision,
           rejection_reason: correctionDecision === 'REJECTED' ? correctionRejectionReason.trim() : null,
           remarks: correctionRemarks.trim() || null,
@@ -579,6 +650,154 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
               </div>
             </div>
 
+            {/* 6G-C: Actual Reception Milk Quantity & Final Milk Metrics Panel */}
+            {(() => {
+              const draftPreview = calculatePreview(
+                draftQuantityValue,
+                draftQuantityUnit,
+                draftValues,
+                activeSession.results
+              );
+
+              return (
+                <div className="bg-slate-50/80 border border-slate-200 rounded-xl p-4 space-y-4">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-800">Actual Reception Milk Quantity</h3>
+                      <p className="text-xs text-slate-500">
+                        Authoritative intake milk quantity physically received and verified at ZMCC
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3 w-full sm:w-auto">
+                      <div className="flex-1 sm:w-44">
+                        <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                          Quantity *
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0.01"
+                          value={draftQuantityValue}
+                          onChange={(e) => setDraftQuantityValue(e.target.value)}
+                          placeholder="e.g. 5000"
+                          className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs font-mono focus:outline-none focus:ring-1 focus:ring-[#1E3A8A]"
+                        />
+                      </div>
+                      <div className="w-28">
+                        <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                          Unit *
+                        </label>
+                        <select
+                          value={draftQuantityUnit}
+                          onChange={(e) => setDraftQuantityUnit(e.target.value as 'KG' | 'LITER')}
+                          className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#1E3A8A]"
+                        >
+                          <option value="KG">KG</option>
+                          <option value="LITER">Liters</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Calculated Final Milk Metrics (Read-Only) */}
+                  <div className="border-t border-slate-200 pt-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                        Derived Final Milk Metrics (System-Calculated)
+                      </span>
+                      {draftPreview ? (
+                        <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded font-medium border border-emerald-200">
+                          Formula v{draftPreview.calculationVersion}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-slate-400 italic">
+                          Enter Quantity, Unit, LR, and Fat to calculate
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                      <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+                        <span className="text-[10px] text-slate-500 uppercase font-semibold">Density</span>
+                        <p className="text-sm font-bold font-mono text-slate-800">
+                          {draftPreview ? draftPreview.density.toFixed(4) : (activeSession.density != null ? Number(activeSession.density).toFixed(4) : '—')}
+                        </p>
+                      </div>
+                      <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+                        <span className="text-[10px] text-slate-500 uppercase font-semibold">Gross Liters</span>
+                        <p className="text-sm font-bold font-mono text-[#1E3A8A]">
+                          {draftPreview ? `${draftPreview.grossLiters.toFixed(2)} L` : (activeSession.gross_liters != null ? `${Number(activeSession.gross_liters).toFixed(2)} L` : '—')}
+                        </p>
+                      </div>
+                      <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+                        <span className="text-[10px] text-slate-500 uppercase font-semibold">SNF %</span>
+                        <p className="text-sm font-bold font-mono text-slate-800">
+                          {draftPreview ? `${draftPreview.snf.toFixed(2)}%` : (activeSession.snf != null ? `${Number(activeSession.snf).toFixed(2)}%` : '—')}
+                        </p>
+                      </div>
+                      <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+                        <span className="text-[10px] text-slate-500 uppercase font-semibold">TS %</span>
+                        <p className="text-sm font-bold font-mono text-slate-800">
+                          {draftPreview ? `${draftPreview.ts.toFixed(2)}%` : (activeSession.ts != null ? `${Number(activeSession.ts).toFixed(2)}%` : '—')}
+                        </p>
+                      </div>
+                      <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+                        <span className="text-[10px] text-slate-500 uppercase font-semibold">@13TS Liters</span>
+                        <p className="text-sm font-bold font-mono text-emerald-700">
+                          {draftPreview ? `${draftPreview.at13tsLiters.toFixed(2)} L` : (activeSession.at_13ts_liters != null ? `${Number(activeSession.at_13ts_liters).toFixed(2)} L` : '—')}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* MOT Journey Summary (Read-Only Reference, Section 24) */}
+                  {activeSession.arrival_type === 'MOT' && activeSession.mot_arrival?.journey?.summary && (
+                    <div className="bg-blue-50/60 border border-blue-200 rounded-xl p-3 mt-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-bold text-blue-900 flex items-center gap-1.5">
+                          <FileText className="w-3.5 h-3.5 text-blue-700" />
+                          Upstream MOT Journey Summary (Reference Only)
+                        </span>
+                        <span className="text-[10px] text-blue-700 bg-blue-100 px-2 py-0.5 rounded font-medium">
+                          v{activeSession.mot_arrival.journey.summary.summary_version}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                        <div>
+                          <span className="text-[10px] text-blue-600 block">Gross Liters</span>
+                          <span className="font-bold font-mono text-blue-950">
+                            {Number(activeSession.mot_arrival.journey.summary.total_gross_liters).toFixed(2)} L
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-blue-600 block">Weighted LR</span>
+                          <span className="font-bold font-mono text-blue-950">
+                            {activeSession.mot_arrival.journey.summary.weighted_avg_lr != null
+                              ? Number(activeSession.mot_arrival.journey.summary.weighted_avg_lr).toFixed(1)
+                              : '—'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-blue-600 block">Weighted Fat</span>
+                          <span className="font-bold font-mono text-blue-950">
+                            {activeSession.mot_arrival.journey.summary.weighted_avg_fat != null
+                              ? `${Number(activeSession.mot_arrival.journey.summary.weighted_avg_fat).toFixed(1)}%`
+                              : '—'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-blue-600 block">@13TS Liters</span>
+                          <span className="font-bold font-mono text-blue-950">
+                            {Number(activeSession.mot_arrival.journey.summary.total_at_13ts_liters).toFixed(2)} L
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
             {/* Test Matrix */}
             <div className="space-y-3">
               <h3 className="text-sm font-bold text-slate-800 flex items-center justify-between">
@@ -819,6 +1038,9 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                     <th className="py-3 px-4">Type</th>
                     <th className="py-3 px-4">Intake Token</th>
                     <th className="py-3 px-4">Source / Vehicle</th>
+                    <th className="py-3 px-4">Received Qty</th>
+                    <th className="py-3 px-4">Gross Liters</th>
+                    <th className="py-3 px-4">@13% TS Liters</th>
                     <th className="py-3 px-4">Completed At</th>
                     <th className="py-3 px-4">Tested By</th>
                     <th className="py-3 px-4">Decision</th>
@@ -858,6 +1080,24 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                             {item.contractor_arrival?.vehicle_number || '—'})
                           </span>
                         )}
+                      </td>
+                      <td className="py-3.5 px-4 font-mono text-slate-800 font-semibold">
+                        {item.quantity_value != null ? (
+                          <span>
+                            {Number(item.quantity_value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{' '}
+                            <span className="text-[10px] text-slate-500 font-normal">
+                              {item.quantity_unit === 'LITER' ? 'Liters' : item.quantity_unit}
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-slate-400 italic">Not captured under this version</span>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-4 font-mono text-slate-700">
+                        {item.gross_liters != null ? `${Number(item.gross_liters).toFixed(2)} L` : '—'}
+                      </td>
+                      <td className="py-3.5 px-4 font-mono font-bold text-emerald-700">
+                        {item.at_13ts_liters != null ? `${Number(item.at_13ts_liters).toFixed(2)} L` : '—'}
                       </td>
                       <td className="py-3.5 px-4 text-slate-500">
                         {item.completed_at ? new Date(item.completed_at).toLocaleString() : '—'}
@@ -1080,6 +1320,109 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                 </div>
               )}
             </div>
+
+            {/* Quantity and Unit Override */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-3 rounded-xl border border-slate-200">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Actual Reception Quantity
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  value={correctionQuantityValue}
+                  onChange={(e) => setCorrectionQuantityValue(e.target.value)}
+                  placeholder="e.g. 5000"
+                  className="w-full p-2.5 border border-slate-300 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Quantity Unit
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCorrectionQuantityUnit('KG')}
+                    className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                      correctionQuantityUnit === 'KG'
+                        ? 'bg-[#1E3A8A] text-white shadow-sm'
+                        : 'bg-white text-slate-600 border border-slate-300 hover:bg-slate-100'
+                    }`}
+                  >
+                    KG
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCorrectionQuantityUnit('LITER')}
+                    className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                      correctionQuantityUnit === 'LITER'
+                        ? 'bg-[#1E3A8A] text-white shadow-sm'
+                        : 'bg-white text-slate-600 border border-slate-300 hover:bg-slate-100'
+                    }`}
+                  >
+                    Liters
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Recomputed Preview Metrics */}
+            {(() => {
+              const corrPreview = calculatePreview(
+                correctionQuantityValue,
+                correctionQuantityUnit,
+                correctionValues,
+                selectedHistorySession.results
+              );
+
+              return (
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                      <Calculator className="w-3.5 h-3.5 text-[#1E3A8A]" />
+                      Recomputed Final Metrics Preview
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-mono">
+                      {corrPreview ? 'Live Recomputed' : 'Awaiting valid inputs'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
+                    <div className="bg-white p-2 rounded-lg border border-slate-200">
+                      <span className="text-[10px] text-slate-500 uppercase font-semibold">Density</span>
+                      <p className="text-xs font-bold font-mono text-slate-800">
+                        {corrPreview ? corrPreview.density.toFixed(4) : (selectedHistorySession.density != null ? Number(selectedHistorySession.density).toFixed(4) : '—')}
+                      </p>
+                    </div>
+                    <div className="bg-white p-2 rounded-lg border border-slate-200">
+                      <span className="text-[10px] text-slate-500 uppercase font-semibold">Gross Liters</span>
+                      <p className="text-xs font-bold font-mono text-slate-800">
+                        {corrPreview ? `${corrPreview.grossLiters.toFixed(2)} L` : (selectedHistorySession.gross_liters != null ? `${Number(selectedHistorySession.gross_liters).toFixed(2)} L` : '—')}
+                      </p>
+                    </div>
+                    <div className="bg-white p-2 rounded-lg border border-slate-200">
+                      <span className="text-[10px] text-slate-500 uppercase font-semibold">SNF</span>
+                      <p className="text-xs font-bold font-mono text-slate-800">
+                        {corrPreview ? `${corrPreview.snf.toFixed(2)}%` : (selectedHistorySession.snf != null ? `${Number(selectedHistorySession.snf).toFixed(2)}%` : '—')}
+                      </p>
+                    </div>
+                    <div className="bg-white p-2 rounded-lg border border-slate-200">
+                      <span className="text-[10px] text-slate-500 uppercase font-semibold">Total Solids</span>
+                      <p className="text-xs font-bold font-mono text-slate-800">
+                        {corrPreview ? `${corrPreview.ts.toFixed(2)}%` : (selectedHistorySession.ts != null ? `${Number(selectedHistorySession.ts).toFixed(2)}%` : '—')}
+                      </p>
+                    </div>
+                    <div className="bg-white p-2 rounded-lg border border-slate-200">
+                      <span className="text-[10px] text-slate-500 uppercase font-semibold">@13TS Liters</span>
+                      <p className="text-xs font-bold font-mono text-emerald-700">
+                        {corrPreview ? `${corrPreview.at13tsLiters.toFixed(2)} L` : (selectedHistorySession.at_13ts_liters != null ? `${Number(selectedHistorySession.at_13ts_liters).toFixed(2)} L` : '—')}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Test Results Override */}
             <div>

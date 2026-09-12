@@ -144,7 +144,7 @@ async function runStage6gbTests() {
   const migrationDirs = fs
     .readdirSync(migrationsDir)
     .filter((f) => fs.statSync(path.join(migrationsDir, f)).isDirectory() && !f.startsWith('.'));
-  assert(migrationDirs.length === 20, 'Tracked Migrations', `Found exactly ${migrationDirs.length} migrations (expected 20)`);
+  assert(migrationDirs.length === 21, 'Tracked Migrations', `Found exactly ${migrationDirs.length} migrations (expected 21)`);
 
   const summaryMigDir = migrationDirs.find((d) => d.includes('mot_journey_summary'));
   assert(!!summaryMigDir, 'Migration Exists', `Found summary migration directory: ${summaryMigDir}`);
