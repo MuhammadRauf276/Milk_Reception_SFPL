@@ -20,20 +20,21 @@ async function runQAChemistWorkflowVerification() {
     }
   }
 
-  // Find QA Chemists and Security Guard for test setup
+  // Find QA Chemists for test setup
   const qaChemist1 = await prisma.user.findFirst({
-    where: { role: { in: ['QA_LAB_ATTENDANT', 'QA_OFFICER', 'QA_MANAGER', 'QA_Operator', 'QA', 'SUPER_ADMIN', 'Admin'] }, is_active: true },
+    where: { role: 'QA_LAB_ATTENDANT', is_active: true },
   });
 
   const qaChemist2 = await prisma.user.findFirst({
     where: {
-      role: { in: ['QA_LAB_ATTENDANT', 'QA_OFFICER', 'QA_MANAGER', 'QA_Operator', 'QA', 'SUPER_ADMIN', 'Admin'] },
+      role: 'QA_LAB_ATTENDANT',
+      is_active: true,
       id: { not: qaChemist1?.id },
     },
   }) || qaChemist1;
 
   if (!qaChemist1) {
-    throw new Error('No QA chemist user found in database');
+    throw new Error('No active QA_LAB_ATTENDANT user found in database');
   }
 
   // Create temporary test visit

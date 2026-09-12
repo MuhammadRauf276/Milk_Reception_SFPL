@@ -19,15 +19,15 @@ async function runFinalAuthMigrationTests() {
   try {
     // FINAL-AUTH-A: Existing MPD account authenticates from DB
     const zmccOp = await prisma.user.findFirst({ where: { username: 'zmcc.operator' } });
-    assert(!!zmccOp && zmccOp.role === 'MPD_Operator' && zmccOp.is_active, 'FINAL-AUTH-A: Existing MPD account in DB with hashed password');
+    assert(!!zmccOp && zmccOp.role === 'ZMCC_LAB_ATTENDANT' && zmccOp.is_active, 'FINAL-AUTH-A: Existing MPD account in DB with hashed password and canonical role ZMCC_LAB_ATTENDANT');
 
     // FINAL-AUTH-B: Existing Security account authenticates from DB
     const secOp = await prisma.user.findFirst({ where: { username: 'security.gate' } });
-    assert(!!secOp && secOp.role === 'Security_Operator' && secOp.is_active, 'FINAL-AUTH-B: Existing Security account in DB with hashed password');
+    assert(!!secOp && secOp.role === 'SECURITY_OPERATOR' && secOp.is_active, 'FINAL-AUTH-B: Existing Security account in DB with hashed password and canonical role SECURITY_OPERATOR');
 
     // FINAL-AUTH-C: Existing QA account authenticates from DB
     const qaOp = await prisma.user.findFirst({ where: { username: 'qa.chemist' } });
-    assert(!!qaOp && qaOp.role === 'QA_Operator' && qaOp.is_active, 'FINAL-AUTH-C: Existing QA account in DB with hashed password');
+    assert(!!qaOp && qaOp.role === 'QA_LAB_ATTENDANT' && qaOp.is_active, 'FINAL-AUTH-C: Existing QA account in DB with hashed password and canonical role QA_LAB_ATTENDANT');
 
     // FINAL-AUTH-D: Existing Weighbridge account authenticates from DB
     const wbOp = await prisma.user.findFirst({ where: { username: 'weighbridge.operator' } });
@@ -35,7 +35,7 @@ async function runFinalAuthMigrationTests() {
 
     // FINAL-AUTH-E: Existing Production account authenticates from DB
     const prodOp = await prisma.user.findFirst({ where: { username: 'production.operator' } });
-    assert(!!prodOp && prodOp.role === 'Production_Operator' && prodOp.is_active, 'FINAL-AUTH-E: Existing Production account in DB with hashed password');
+    assert(!!prodOp && prodOp.role === 'PRODUCTION_RECEPTION_OPERATOR' && prodOp.is_active, 'FINAL-AUTH-E: Existing Production account in DB with hashed password and canonical role PRODUCTION_RECEPTION_OPERATOR');
 
     // FINAL-AUTH-F: admin.superuser authenticates from DB as SUPER_ADMIN
     const adminUser = await prisma.user.findFirst({ where: { username: 'admin.superuser' } });
@@ -57,7 +57,7 @@ async function runFinalAuthMigrationTests() {
     const tempNoHash = await prisma.user.create({
       data: {
         username: 'test.nohash.user',
-        role: 'MPD_Operator',
+        role: 'ZMCC_LAB_ATTENDANT',
         is_active: true,
         password_hash: null,
       },

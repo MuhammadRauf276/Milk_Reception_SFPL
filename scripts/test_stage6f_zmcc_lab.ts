@@ -3,7 +3,7 @@
  *
  * Verifies:
  * 1. Database Schema & Migration:
- *    - Exactly 18 tracked migrations
+ *    - Exactly 19 tracked migrations
  *    - zmcc_lab_session & zmcc_lab_result tables exist with relations & constraints
  *    - Database CHECK constraints (arrival_check, rejection_check, correction_count_check 0..2)
  * 2. Static Analysis & Clean Code:
@@ -143,7 +143,7 @@ async function runStage6fTests() {
   const migrationDirs = fs
     .readdirSync(migrationsDir)
     .filter((f) => fs.statSync(path.join(migrationsDir, f)).isDirectory());
-  assert(migrationDirs.length === 18, 'Migration Count', `Exactly 18 tracked migrations (found ${migrationDirs.length})`);
+  assert(migrationDirs.length === 19, 'Migration Count', `Exactly 19 tracked migrations (found ${migrationDirs.length})`);
 
   // Verify DB check constraints
   const dbConstraints: Array<{ conname: string }> = await prisma.$queryRaw`

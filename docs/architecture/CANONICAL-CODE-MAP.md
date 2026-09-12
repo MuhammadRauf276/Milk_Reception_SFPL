@@ -70,10 +70,10 @@ Being located under `src/app` does **NOT** mean code is current. Every route, AP
 | `HEAD_OF_MPD` | **CANONICAL** | `/mpd/head` | Head of MPD Milk Test Policy & Management Workspace |
 | `ZMCC_MANAGER` | **CANONICAL** | `/mpd/zmcc-manager` | ZMCC Source Manager Workspace |
 | `CONTRACTOR_MANAGER` | **CANONICAL** | `/contractor/manager` | Plant Contractor Manager Workspace (Direct-to-Plant) |
-| `ZMCC_LAB_ATTENDANT` | **CANONICAL** | `/department/mpd` | ZMCC Lab & Dispatch Testing Workspace |
-| `CONTRACTOR_OPERATOR` | **CANONICAL (UNREADY WORKSPACE)** | `/workspace-unavailable` | Operational Contractor Dispatch Person (Wasim Sahib) |
-| `PHE_OPERATOR` | **CANONICAL (UNREADY WORKSPACE)** | `/workspace-unavailable` | ZMCC PHE Operator Station |
-| `MOT` | **CANONICAL (UNREADY WORKSPACE)** | `/workspace-unavailable` | Mobile Operator Team Testing Station |
+| `ZMCC_LAB_ATTENDANT` | **CANONICAL** | `/zmcc/lab` | ZMCC Lab Arrival & Dispatch Testing Workspace (also operational on `/department/mpd` for ZMCC dispatch) |
+| `CONTRACTOR_OPERATOR` | **CANONICAL (UNREADY WORKSPACE)** | `/workspace-unavailable` | Operational Contractor Dispatch Person (Wasim Sahib; routes to `/workspace-unavailable` until dedicated workspace is built) |
+| `PHE_OPERATOR` | **CANONICAL** | `/phe` | ZMCC PHE Operator Station |
+| `MOT` | **CANONICAL** | `/mot` | Mobile Operator Team Station |
 | `SECURITY_OPERATOR` | **CANONICAL** | `/department/security` | Gate Security Station |
 | `QA_LAB_ATTENDANT` | **CANONICAL** | `/department/qa` | Plant QA Laboratory Testing Station |
 | `WEIGHBRIDGE_OPERATOR` | **CANONICAL** | `/department/weighbridge` | Weighbridge Scale Station |

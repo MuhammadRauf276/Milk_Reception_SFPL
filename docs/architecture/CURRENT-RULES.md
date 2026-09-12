@@ -343,13 +343,15 @@ SUPER ADMIN (SUPER_ADMIN)
   1. MOT arrival lab testing
   2. Contractor arrival lab testing
   3. ZMCC dispatch testing before milk departure to Plant
-  (Eliminates old `MPD_Operator` at ZMCC).
+  (Eliminates old `MPD_Operator` at ZMCC). Role Home is `/zmcc/lab` (also authorized at `/department/mpd` for ZMCC dispatch).
+- **PHE Operator (`PHE_OPERATOR`)**: Role Home is `/phe`.
+- **MOT (`MOT`)**: Role Home is `/mot`.
 - **Contractor Operator (`CONTRACTOR_OPERATOR`)**: Operational role at contractor source performing dispatch prep/testing.
-  - Fixture: `Wasim Sahib` (`contractor.operator.alkhair`), bound to `CONT-ALKHAIR`. Restricted to assigned Contractor source.
-- **QA Lab Attendant (`QA_LAB_ATTENDANT`)**: Operational role performing Plant laboratory testing (`PLANT_QA` testing point only).
-- **Security Operator (`SECURITY_OPERATOR`)**: Plant security gate execution.
-- **Weighbridge Operator (`WEIGHBRIDGE_OPERATOR`)**: Plant weighbridge scale recording.
-- **Production Reception Operator (`PRODUCTION_RECEPTION_OPERATOR`)**: Plant silo offloading and production reception.
+  - Fixture: `Wasim Sahib` (`contractor.operator.alkhair`), bound to `CONT-ALKHAIR`. Restricted to assigned Contractor source. Role Home is `/workspace-unavailable` for now (until dedicated workspace is built).
+- **QA Lab Attendant (`QA_LAB_ATTENDANT`)**: Operational role performing Plant laboratory testing (`PLANT_QA` testing point only). Role Home is `/department/qa`.
+- **Security Operator (`SECURITY_OPERATOR`)**: Plant security gate execution. Role Home is `/department/security`.
+- **Weighbridge Operator (`WEIGHBRIDGE_OPERATOR`)**: Plant weighbridge scale recording. Role Home is `/department/weighbridge`.
+- **Production Reception Operator (`PRODUCTION_RECEPTION_OPERATOR`)**: Plant silo offloading and production reception. Role Home is `/department/production`.
 - **Unimplemented High-Level Roles**: `EXECUTIVE_MANAGEMENT`, `DATA_EXECUTIVE`, `ADMIN_HEAD`, `QA_HEAD`, `QA_MANAGER`, `PRODUCTION_HEAD`, `FINANCE_ACCOUNTS`, and `CONTRACTOR_OPERATOR` route fail-closed to `/workspace-unavailable` until their respective stages.
 
 ### 17C. Retired Legacy Roles (Zero Live Authority)

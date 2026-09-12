@@ -32,15 +32,15 @@ async function runSecurityGateExitE2EVerification() {
 
   // Find security operator user for accountability
   const secUser = await prisma.user.findFirst({
-    where: { role: { in: ['Security_Operator', 'Security_Manager', 'Admin'] } },
+    where: { role: 'SECURITY_OPERATOR', is_active: true },
   });
 
   const wbUser = await prisma.user.findFirst({
-    where: { role: { in: ['WEIGHBRIDGE_OPERATOR', 'Weighbridge_Operator', 'Admin'] } },
+    where: { role: 'WEIGHBRIDGE_OPERATOR', is_active: true },
   });
 
   if (!secUser || !wbUser) {
-    throw new Error('Required operator users not found in database');
+    throw new Error('Required operator users (SECURITY_OPERATOR / WEIGHBRIDGE_OPERATOR) not found in database');
   }
 
   const timestamp = Date.now();

@@ -34,11 +34,11 @@ async function runProductionSiloIssueWorkflowVerification() {
 
   // Find users for authorization tests
   const prodUser = await prisma.user.findFirst({
-    where: { role: { in: ['Production_Operator', 'PRODUCTION_OPERATOR', 'Admin'] } },
+    where: { role: 'PRODUCTION_RECEPTION_OPERATOR', is_active: true },
   });
 
   if (!prodUser) {
-    throw new Error('No Production operator user found in database');
+    throw new Error('No active PRODUCTION_RECEPTION_OPERATOR user found in database');
   }
 
   const timestamp = Date.now();
