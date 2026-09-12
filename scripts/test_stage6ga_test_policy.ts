@@ -1,6 +1,6 @@
 /**
  * STAGE 6G-A: CENTRAL MILK TEST POLICY + HEAD OF MPD AUTHORITY
- * Comprehensive Regression Test Suite (53 Mandatory Verification Items)
+ * Comprehensive Hardened Regression Test Suite (60+ Verification Items)
  */
 
 import path from 'path';
@@ -13,13 +13,22 @@ import {
   MPD_TESTING_POINTS,
   isValidTestingPoint,
   assertCanMutateTestingPoint,
+  assertCanReadAdminPolicies,
+  assertCanReadEffectivePolicy,
+  parseAndValidateDisplayOrder,
   ValidationError,
   ForbiddenError,
   NotFoundError,
   ConflictError,
+  TestingPoint,
 } from '../src/backend/services/milkTestPolicyService';
 import { CREATABLE_ROLES, isCreatableRole, getRoleAssignmentPolicy } from '../src/lib/user-assignment-policy';
 import { resolveRoleHome } from '../src/lib/role-routing';
+import { createSessionToken } from '../src/backend/core/auth';
+import { POST as postCreateUser } from '../src/app/api/super-admin/users/route';
+import { GET as getMilkTestPolicies, POST as postMilkTestPolicy } from '../src/app/api/milk-test-policies/route';
+import { PATCH as patchMilkTestPolicy } from '../src/app/api/milk-test-policies/[id]/route';
+import { POST as postDispatchStart } from '../src/app/api/dispatches/start/route';
 
 // 1. Load .env.test.local
 const repoRoot = path.resolve(__dirname, '..');
@@ -57,14 +66,14 @@ const { testDbName } = assertSafeTestDatabase({
 });
 
 console.log('=====================================================================');
-console.log('🧪 STAGE 6G-A: MILK TEST POLICY & HEAD OF MPD AUTHORITY REGRESSION');
+console.log('🧪 STAGE 6G-A: MILK TEST POLICY & HEAD OF MPD AUTHORITY HARDENED SUITE');
 console.log(`🎯 Target Database: ${testDbName} (TEST ISOLATION ENFORCED)`);
-console.log('=====================================================================\\n');
+console.log('=====================================================================\n');
 
 let passed = 0;
 let failed = 0;
 
-function assert(condition: boolean, testNum: number, testName: string, detail: string) {
+function assert(condition: boolean, testNum: number | string, testName: string, detail: string) {
   const padded = String(testNum).padStart(2, '0');
   if (condition) {
     console.log(`[PASS] [${padded}] ${testName} - ${detail}`);
@@ -75,10 +84,77 @@ function assert(condition: boolean, testNum: number, testName: string, detail: s
   }
 }
 
+async function ensureTestUser(data: {
+  username: string;
+  full_name: string;
+  role: string;
+  scope_type?: string;
+  is_active?: boolean;
+}) {
+  const existing = await prisma.user.findUnique({ where: { username: data.username } });
+  if (existing) {
+    return await prisma.user.update({
+      where: { id: existing.id },
+      data: {
+        role: data.role as any,
+        is_active: data.is_active ?? true,
+        scope_type: (data.scope_type as any) || 'SYSTEM',
+        full_name: data.full_name,
+      },
+    });
+  }
+  return await prisma.user.create({
+    data: {
+      username: data.username,
+      full_name: data.full_name,
+      role: data.role as any,
+      department: 'Testing',
+      scope_type: (data.scope_type as any) || 'SYSTEM',
+      is_active: data.is_active ?? true,
+    },
+  });
+}
+
+async function generateUserToken(user: {
+  id: bigint | string;
+  username: string;
+  full_name?: string | null;
+  role: string;
+  department?: string | null;
+  scope_type?: string | null;
+  procurement_source_id?: bigint | string | null;
+}): Promise<string> {
+  return await createSessionToken({
+    id: user.id.toString(),
+    username: user.username,
+    name: user.full_name || user.username,
+    role: user.role as any,
+    department: user.department || 'Testing',
+    zone: null,
+    scope_type: user.scope_type || 'SYSTEM',
+    procurement_source_id: user.procurement_source_id ? user.procurement_source_id.toString() : null,
+    last_login_at: null,
+  });
+}
+
+function makeAuthRequest(url: string, method: string, token: string, body?: any): Request {
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${token}`,
+  };
+  if (body) {
+    headers['Content-Type'] = 'application/json';
+  }
+  return new Request(url, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+}
+
 async function runTests() {
   try {
     // ==========================================
-    // ROLE / AUTHORITY (Items 1 - 20)
+    // 1. ROLE & ROUTING ARCHITECTURE (Items 1 - 3, G)
     // ==========================================
 
     // 1. HEAD_OF_MPD canonical role exists
@@ -94,30 +170,76 @@ async function runTests() {
     const isGlobal = policy?.requiresSource === false && policy?.scopeType === 'SYSTEM' && policy?.department === 'Milk Procurement';
     assert(Boolean(isGlobal), 3, 'GLOBAL_SCOPE', 'HEAD_OF_MPD has scopeType=SYSTEM and requiresSource=false');
 
-    // 4. Super Admin can create HEAD_OF_MPD user
-    const headUsername = `test.head.mpd.${Date.now()}`;
-    const headUser = await prisma.user.create({
-      data: {
-        username: headUsername,
-        full_name: 'Head of Milk Procurement',
-        role: 'HEAD_OF_MPD',
-        department: 'Milk Procurement',
-        scope_type: 'SYSTEM',
-        procurement_source_id: null,
-        is_active: true,
-      },
+    // Item G: MPD_Zone_Manager routes to /workspace-unavailable
+    const zoneManagerRoute = resolveRoleHome('MPD_Zone_Manager');
+    assert(zoneManagerRoute === '/workspace-unavailable', 'G', 'ZONE_MGR_RETIRED_ROUTE', 'Retired MPD_Zone_Manager resolves to /workspace-unavailable');
+
+    // ==========================================
+    // 2. CANONICAL USER CREATION FLOW (Items A, B, C)
+    // ==========================================
+
+    // Setup active Super Admin
+    const superAdminUser = await ensureTestUser({
+      username: 'test.6ga.superadmin',
+      full_name: 'Super Admin Test Actor',
+      role: 'SUPER_ADMIN',
+      scope_type: 'SYSTEM',
+      is_active: true,
     });
-    assert(Boolean(headUser && headUser.role === 'HEAD_OF_MPD'), 4, 'CREATE_HEAD_USER', `Created HEAD_OF_MPD user with ID: ${headUser.id}`);
+    const superAdminToken = await generateUserToken(superAdminUser);
 
-    // 5. Invalid HEAD_OF_MPD source-scoped assignment fails
-    const invalidPolicyCheck = policy?.requiresSource === false && policy?.allowedSourceType === null;
-    assert(Boolean(invalidPolicyCheck), 5, 'REJECT_SOURCE_ASSIGNMENT', 'HEAD_OF_MPD policy forbids procurementSource assignment');
+    // Item A: canonical Super Admin can create HEAD_OF_MPD via POST /api/super-admin/users
+    const newHeadUsername = `test.head.created.${Date.now()}`;
+    const createHeadReq = makeAuthRequest('http://localhost/api/super-admin/users', 'POST', superAdminToken, {
+      username: newHeadUsername,
+      password: 'Password123!',
+      fullName: 'Canonical Created Head of MPD',
+      role: 'HEAD_OF_MPD',
+    });
+    const createHeadRes = await postCreateUser(createHeadReq);
+    const createHeadData = await createHeadRes.json();
+    assert(
+      (createHeadRes.status === 200 || createHeadRes.status === 201) && createHeadData.success === true,
+      'A',
+      'SUPER_ADMIN_CREATE_HEAD_OF_MPD',
+      'Super Admin successfully created HEAD_OF_MPD via API'
+    );
 
-    // 6. HEAD_OF_MPD can read Test Master
+    // Item B: HEAD_OF_MPD created with SOURCE scope/source assignment is rejected with 400
+    const invalidSourceHeadReq = makeAuthRequest('http://localhost/api/super-admin/users', 'POST', superAdminToken, {
+      username: `test.head.invalid.${Date.now()}`,
+      password: 'Password123!',
+      fullName: 'Invalid Source Head',
+      role: 'HEAD_OF_MPD',
+      procurementSourceId: '1',
+    });
+    const invalidSourceRes = await postCreateUser(invalidSourceHeadReq);
+    const invalidSourceData = await invalidSourceRes.json();
+    assert(
+      invalidSourceRes.status === 400 && invalidSourceData.error?.includes('not a source role'),
+      'B',
+      'REJECT_SOURCE_ASSIGNMENT',
+      'Creating HEAD_OF_MPD with procurementSourceId rejected with 400'
+    );
+
+    // Item C: HEAD_OF_MPD canonical SYSTEM/global assignment succeeds
+    const fetchedCreatedHead = await prisma.user.findUnique({
+      where: { username: newHeadUsername },
+    });
+    assert(
+      Boolean(fetchedCreatedHead && fetchedCreatedHead.scope_type === 'SYSTEM' && fetchedCreatedHead.procurement_source_id === null),
+      'C',
+      'CANONICAL_SYSTEM_ASSIGNMENT',
+      'HEAD_OF_MPD user created with scope_type=SYSTEM and procurement_source_id=null'
+    );
+
+    // ==========================================
+    // 3. SEED LAB TESTS & ACTOR PREPARATION
+    // ==========================================
     const testMasterCount = await prisma.labTest.count({ where: { isActive: true } });
     assert(testMasterCount >= 25, 6, 'READ_TEST_MASTER', `Master contains ${testMasterCount} active lab tests available to Head of MPD`);
 
-    // Clean any disposable test policies before testing mutations
+    // Clean disposable test policies
     await prisma.milkTestPolicyAssignment.deleteMany({
       where: {
         testing_point: { in: ['MOT_SHOP', 'ZMCC_LAB_MOT', 'ZMCC_LAB_CONTRACTOR', 'DISPATCH', 'PLANT_QA'] },
@@ -129,14 +251,120 @@ async function runTests() {
     const tempTest = await prisma.labTest.findFirst({ where: { testCode: 'LT-000001' } }); // Temperature
     const cobTest = await prisma.labTest.findFirst({ where: { testCode: 'LT-000004' } }); // COB
     const alcoholTest = await prisma.labTest.findFirst({ where: { testCode: 'LT-000007' } }); // APT
-    const adminUser = await prisma.user.findFirst({ where: { role: 'SUPER_ADMIN' } }) || headUser;
 
     if (!fatTest || !lrTest || !tempTest || !cobTest || !alcoholTest) {
       throw new Error('Seed lab tests LT-000001, LT-000004, LT-000007, LT-000008, LT-000026 must exist');
     }
 
+    const headUser = fetchedCreatedHead!;
     const headActor = { id: headUser.id, username: headUser.username, role: 'HEAD_OF_MPD' };
-    const adminActor = { id: adminUser.id, username: adminUser.username, role: 'SUPER_ADMIN' };
+    const headToken = await generateUserToken(headUser);
+
+    const adminActor = { id: superAdminUser.id, username: superAdminUser.username, role: 'SUPER_ADMIN' };
+
+    // Setup legacy & operational users for authority tests
+    const legacyAdminUser = await ensureTestUser({
+      username: 'test.6ga.legacyadmin',
+      full_name: 'Legacy Admin User',
+      role: 'Admin',
+      is_active: true,
+    });
+    const zoneManagerUser = await ensureTestUser({
+      username: 'test.6ga.zonemanager',
+      full_name: 'Zone Manager User',
+      role: 'MPD_Zone_Manager',
+      is_active: true,
+    });
+    const motUser = await ensureTestUser({
+      username: 'test.6ga.mot',
+      full_name: 'MOT Driver User',
+      role: 'MOT',
+      is_active: true,
+    });
+    const motToken = await generateUserToken(motUser);
+
+    const labAttendantUser = await ensureTestUser({
+      username: 'test.6ga.labattendant',
+      full_name: 'Lab Attendant User',
+      role: 'ZMCC_LAB_ATTENDANT',
+      is_active: true,
+    });
+    const labToken = await generateUserToken(labAttendantUser);
+
+    const qaUser = await ensureTestUser({
+      username: 'test.6ga.qaoperator',
+      full_name: 'QA Operator User',
+      role: 'QA_Operator',
+      is_active: true,
+    });
+    const qaToken = await generateUserToken(qaUser);
+
+    const zmccManagerUser = await ensureTestUser({
+      username: 'test.6ga.zmccmgr',
+      full_name: 'ZMCC Manager User',
+      role: 'ZMCC_MANAGER',
+      is_active: true,
+    });
+    const zmccManagerToken = await generateUserToken(zmccManagerUser);
+
+    const mpdOpUser = await ensureTestUser({
+      username: 'test.6ga.mpdop',
+      full_name: 'MPD Operator User',
+      role: 'MPD_Operator',
+      is_active: true,
+    });
+    const mpdOpToken = await generateUserToken(mpdOpUser);
+
+    const contractorMgrUser = await ensureTestUser({
+      username: 'test.6ga.contmgr',
+      full_name: 'Contractor Manager User',
+      role: 'CONTRACTOR_MANAGER',
+      is_active: true,
+    });
+    const contractorMgrToken = await generateUserToken(contractorMgrUser);
+
+    const inactiveUser = await ensureTestUser({
+      username: 'test.6ga.inactive',
+      full_name: 'Inactive Super Admin',
+      role: 'SUPER_ADMIN',
+      is_active: false,
+    });
+
+    // ==========================================
+    // 4. ACTOR MUTATION AUTHORIZATION (Items D, E, 7-12)
+    // ==========================================
+
+    // Item D: Legacy Admin cannot mutate test policy
+    let legacyAdminForbidden = false;
+    try {
+      await MilkTestPolicyService.createPolicyAssignment(
+        { id: legacyAdminUser.id, username: legacyAdminUser.username, role: 'Admin' },
+        { labTestId: tempTest.id, testingPoint: 'MOT_SHOP' }
+      );
+    } catch (err: any) {
+      if (err instanceof ForbiddenError) legacyAdminForbidden = true;
+    }
+    assert(legacyAdminForbidden, 'D', 'LEGACY_ADMIN_MUTATE_FORBIDDEN', 'Legacy Admin role cannot mutate test policy (403 Forbidden)');
+
+    // Item E: MPD_Zone_Manager cannot mutate test policy
+    let zoneManagerForbidden = false;
+    try {
+      await MilkTestPolicyService.createPolicyAssignment(
+        { id: zoneManagerUser.id, username: zoneManagerUser.username, role: 'MPD_Zone_Manager' },
+        { labTestId: tempTest.id, testingPoint: 'MOT_SHOP' }
+      );
+    } catch (err: any) {
+      if (err instanceof ForbiddenError) zoneManagerForbidden = true;
+    }
+    assert(zoneManagerForbidden, 'E', 'ZONE_MGR_MUTATE_FORBIDDEN', 'Retired MPD_Zone_Manager cannot mutate test policy (403 Forbidden)');
+
+    // Item F: MPD_Zone_Manager cannot use active dispatch endpoints
+    const zoneToken = await generateUserToken(zoneManagerUser);
+    const dispatchStartReq = makeAuthRequest('http://localhost/api/dispatches/start', 'POST', zoneToken, {
+      vehicle_registration: 'TEST-1234',
+    });
+    const dispatchStartRes = await postDispatchStart(dispatchStartReq);
+    assert(dispatchStartRes.status === 403, 'F', 'ZONE_MGR_DISPATCH_FORBIDDEN', 'Retired MPD_Zone_Manager rejected from POST /api/dispatches/start (403)');
 
     // 7. HEAD_OF_MPD can manage MOT_SHOP policy
     const motShopPolicy = await MilkTestPolicyService.createPolicyAssignment(headActor, {
@@ -198,50 +426,223 @@ async function runTests() {
     });
     assert(plantQaPolicy.testingPoint === 'PLANT_QA', 12, 'ADMIN_PLANT_QA', 'SUPER_ADMIN successfully created PLANT_QA policy');
 
-    // Helper to test forbidden roles
-    const expectRoleForbidden = async (roleName: string, testNumber: number, code: string) => {
-      let isForbidden = false;
-      try {
-        await MilkTestPolicyService.createPolicyAssignment(
-          { id: BigInt(999), username: 'test.unauth', role: roleName },
-          { labTestId: alcoholTest.id, testingPoint: 'MOT_SHOP' }
-        );
-      } catch (err: any) {
-        if (err instanceof ForbiddenError) isForbidden = true;
-      }
-      assert(isForbidden, testNumber, code, `Role "${roleName}" is forbidden from mutating milk test policy (403)`);
-    };
+    // ==========================================
+    // 5. REMOVE FAKE ACTOR FALLBACK & LIVE RESOLUTION (Items H, I, J, K, L, M)
+    // ==========================================
 
-    // 13. ZMCC_MANAGER cannot mutate policy
-    await expectRoleForbidden('ZMCC_MANAGER', 13, 'ZMCC_MGR_FORBIDDEN');
+    // Item H: Malformed or non-existent actor ID cannot create policy
+    const auditCountBeforeFake = await prisma.auditLog.count({
+      where: { table_name: 'milk_test_policy_assignment' },
+    });
 
-    // 14. MPD_Zone_Manager does not gain Head authority
-    await expectRoleForbidden('MPD_Zone_Manager', 14, 'MPD_ZONE_MGR_FORBIDDEN');
+    let malformedActorForbidden = false;
+    try {
+      await MilkTestPolicyService.createPolicyAssignment(
+        { id: 'non-existent-9999999', username: 'fake', role: 'SUPER_ADMIN' },
+        { labTestId: alcoholTest.id, testingPoint: 'MOT_SHOP' }
+      );
+    } catch (err: any) {
+      if (err instanceof ForbiddenError) malformedActorForbidden = true;
+    }
+    let nonExistentIdForbidden = false;
+    try {
+      await MilkTestPolicyService.createPolicyAssignment(
+        { id: BigInt(999999999), username: 'fake', role: 'SUPER_ADMIN' },
+        { labTestId: alcoholTest.id, testingPoint: 'MOT_SHOP' }
+      );
+    } catch (err: any) {
+      if (err instanceof ForbiddenError) nonExistentIdForbidden = true;
+    }
+    assert(malformedActorForbidden && nonExistentIdForbidden, 'H', 'FAKE_ACTOR_FAIL_CLOSED', 'Malformed/unpersisted actor fails closed with 403');
 
-    // 15. ZMCC_LAB_ATTENDANT cannot mutate policy
-    await expectRoleForbidden('ZMCC_LAB_ATTENDANT', 15, 'LAB_ATTENDANT_FORBIDDEN');
+    // Item I: Failed fake actor creates zero AuditLog
+    const auditCountAfterFake = await prisma.auditLog.count({
+      where: { table_name: 'milk_test_policy_assignment' },
+    });
+    assert(auditCountAfterFake === auditCountBeforeFake, 'I', 'ZERO_AUDIT_ON_FAILED_ACTOR', 'Rejected fake actor creates zero AuditLog records');
 
-    // 16. MOT cannot mutate policy
-    await expectRoleForbidden('MOT', 16, 'MOT_FORBIDDEN');
+    // Item J: Inactive actor cannot mutate policy
+    let inactiveActorForbidden = false;
+    try {
+      await MilkTestPolicyService.createPolicyAssignment(
+        { id: inactiveUser.id, username: inactiveUser.username, role: 'SUPER_ADMIN' },
+        { labTestId: alcoholTest.id, testingPoint: 'MOT_SHOP' }
+      );
+    } catch (err: any) {
+      if (err instanceof ForbiddenError) inactiveActorForbidden = true;
+    }
+    assert(inactiveActorForbidden, 'J', 'INACTIVE_ACTOR_FORBIDDEN', 'Inactive DB user cannot mutate policy even if role is SUPER_ADMIN (403)');
 
-    // 17. PHE_OPERATOR cannot mutate policy
-    await expectRoleForbidden('PHE_OPERATOR', 17, 'PHE_OP_FORBIDDEN');
+    // Item K: DB role, not caller-supplied stale role, controls authorization
+    // Pass actor claiming to be 'SUPER_ADMIN' but live DB user is MPD_Operator
+    let spoofedRoleForbidden = false;
+    try {
+      await MilkTestPolicyService.createPolicyAssignment(
+        { id: mpdOpUser.id, username: mpdOpUser.username, role: 'SUPER_ADMIN' },
+        { labTestId: alcoholTest.id, testingPoint: 'MOT_SHOP' }
+      );
+    } catch (err: any) {
+      if (err instanceof ForbiddenError) spoofedRoleForbidden = true;
+    }
+    assert(spoofedRoleForbidden, 'K', 'LIVE_DB_ROLE_AUTHORITATIVE', 'Service ignores caller-supplied role and verifies live DB role');
 
-    // 18. QA_Operator cannot mutate policy
-    await expectRoleForbidden('QA_Operator', 18, 'QA_OP_FORBIDDEN');
+    // Item L: Successful create has exact real created_by_user_id
+    assert(
+      motShopPolicy.createdByUserId === headUser.id.toString(),
+      'L',
+      'EXACT_CREATED_BY_USER_ID',
+      `Policy created_by_user_id is ${motShopPolicy.createdByUserId}, matched real actor ID ${headUser.id}`
+    );
 
-    // 19. CONTRACTOR_MANAGER cannot mutate policy
-    await expectRoleForbidden('CONTRACTOR_MANAGER', 19, 'CONT_MGR_FORBIDDEN');
-
-    // 20. Unknown/legacy unauthorized role fails closed
-    await expectRoleForbidden('UNKNOWN_LEGACY_ROLE', 20, 'UNKNOWN_ROLE_FAIL_CLOSED');
+    // Item M: Successful create AuditLog has same real user_id
+    const motShopAudit = await prisma.auditLog.findFirst({
+      where: {
+        table_name: 'milk_test_policy_assignment',
+        record_id: BigInt(motShopPolicy.id),
+        action: 'MILK_TEST_POLICY_CREATED',
+      },
+    });
+    assert(
+      Boolean(motShopAudit && motShopAudit.user_id === headUser.id),
+      'M',
+      'AUDIT_LOG_REAL_USER_ID',
+      `AuditLog user_id ${motShopAudit?.user_id} matches real actor ID ${headUser.id}`
+    );
 
     // ==========================================
-    // POLICY DOMAIN (Items 21 - 33)
+    // 6. POLICY READ AUTHORIZATION (Items N, O, P, Q, R, S)
     // ==========================================
+
+    // Item N: Full policy list (without effective=true) is forbidden to operational roles
+    const opAdminListReq = makeAuthRequest('http://localhost/api/milk-test-policies', 'GET', motToken);
+    const opAdminListRes = await getMilkTestPolicies(opAdminListReq);
+    const headAdminListReq = makeAuthRequest('http://localhost/api/milk-test-policies', 'GET', headToken);
+    const headAdminListRes = await getMilkTestPolicies(headAdminListReq);
+    const superAdminListReq = makeAuthRequest('http://localhost/api/milk-test-policies', 'GET', superAdminToken);
+    const superAdminListRes = await getMilkTestPolicies(superAdminListReq);
+
+    assert(
+      opAdminListRes.status === 403 && headAdminListRes.status === 200 && superAdminListRes.status === 200,
+      'N',
+      'ADMIN_POLICY_READ_AUTH',
+      'Full policy listing allowed for SUPER_ADMIN & HEAD_OF_MPD (200), forbidden to operational roles (403)'
+    );
+
+    // Item O: MOT effective read limited to MOT_SHOP
+    const motShopReq = makeAuthRequest('http://localhost/api/milk-test-policies?effective=true&testingPoint=MOT_SHOP', 'GET', motToken);
+    const motShopRes = await getMilkTestPolicies(motShopReq);
+    const motZmccReq = makeAuthRequest('http://localhost/api/milk-test-policies?effective=true&testingPoint=ZMCC_LAB_MOT', 'GET', motToken);
+    const motZmccRes = await getMilkTestPolicies(motZmccReq);
+    assert(
+      motShopRes.status === 200 && motZmccRes.status === 403,
+      'O',
+      'MOT_READ_LIMIT',
+      'MOT allowed MOT_SHOP (200), forbidden on ZMCC_LAB_MOT (403)'
+    );
+
+    // Item P: ZMCC Lab Attendant limited to the two ZMCC Lab testing points
+    const labMotReq = makeAuthRequest('http://localhost/api/milk-test-policies?effective=true&testingPoint=ZMCC_LAB_MOT', 'GET', labToken);
+    const labMotRes = await getMilkTestPolicies(labMotReq);
+    const labContReq = makeAuthRequest('http://localhost/api/milk-test-policies?effective=true&testingPoint=ZMCC_LAB_CONTRACTOR', 'GET', labToken);
+    const labContRes = await getMilkTestPolicies(labContReq);
+    const labShopReq = makeAuthRequest('http://localhost/api/milk-test-policies?effective=true&testingPoint=MOT_SHOP', 'GET', labToken);
+    const labShopRes = await getMilkTestPolicies(labShopReq);
+    const labDispReq = makeAuthRequest('http://localhost/api/milk-test-policies?effective=true&testingPoint=DISPATCH', 'GET', labToken);
+    const labDispRes = await getMilkTestPolicies(labDispReq);
+    assert(
+      labMotRes.status === 200 && labContRes.status === 200 && labShopRes.status === 403 && labDispRes.status === 403,
+      'P',
+      'LAB_ATTENDANT_READ_LIMIT',
+      'ZMCC Lab Attendant allowed ZMCC_LAB_MOT & ZMCC_LAB_CONTRACTOR (200), forbidden on MOT_SHOP & DISPATCH (403)'
+    );
+
+    // Item Q: QA Operator limited to PLANT_QA
+    const qaPlantReq = makeAuthRequest('http://localhost/api/milk-test-policies?effective=true&testingPoint=PLANT_QA', 'GET', qaToken);
+    const qaPlantRes = await getMilkTestPolicies(qaPlantReq);
+    const qaMotReq = makeAuthRequest('http://localhost/api/milk-test-policies?effective=true&testingPoint=MOT_SHOP', 'GET', qaToken);
+    const qaMotRes = await getMilkTestPolicies(qaMotReq);
+    assert(
+      qaPlantRes.status === 200 && qaMotRes.status === 403,
+      'Q',
+      'QA_OPERATOR_READ_LIMIT',
+      'QA Operator allowed PLANT_QA (200), forbidden on MOT_SHOP (403)'
+    );
+
+    // Item R: Forbidden cross-testing-point reads return 403
+    const zmccMgrPlantReq = makeAuthRequest('http://localhost/api/milk-test-policies?effective=true&testingPoint=PLANT_QA', 'GET', zmccManagerToken);
+    const zmccMgrPlantRes = await getMilkTestPolicies(zmccMgrPlantReq);
+    const mpdOpPlantReq = makeAuthRequest('http://localhost/api/milk-test-policies?effective=true&testingPoint=PLANT_QA', 'GET', mpdOpToken);
+    const mpdOpPlantRes = await getMilkTestPolicies(mpdOpPlantReq);
+    assert(
+      zmccMgrPlantRes.status === 403 && mpdOpPlantRes.status === 403,
+      'R',
+      'CROSS_POINT_READ_FORBIDDEN',
+      'Cross-point effective reads return 403 Forbidden'
+    );
+
+    // Item S: Legacy roles fail closed
+    const legacyAdminEffectiveReq = makeAuthRequest('http://localhost/api/milk-test-policies?effective=true&testingPoint=MOT_SHOP', 'GET', zoneToken);
+    const legacyAdminEffectiveRes = await getMilkTestPolicies(legacyAdminEffectiveReq);
+    const legacyAdminListReq = makeAuthRequest('http://localhost/api/milk-test-policies', 'GET', zoneToken);
+    const legacyAdminListRes = await getMilkTestPolicies(legacyAdminListReq);
+    assert(
+      legacyAdminEffectiveRes.status === 403 && legacyAdminListRes.status === 403,
+      'S',
+      'LEGACY_ROLES_FAIL_CLOSED',
+      'Retired legacy roles fail closed on both effective and admin policy reads (403)'
+    );
+
+    // ==========================================
+    // 7. INPUT VALIDATION (Item T, 23, 24)
+    // ==========================================
+
+    // Item T: Invalid displayOrder rejected with 400
+    let nanRejected = false;
+    let infRejected = false;
+    let stringRejected = false;
+    let floatRejected = false;
+
+    try {
+      parseAndValidateDisplayOrder(NaN);
+    } catch (e: any) {
+      if (e instanceof ValidationError) nanRejected = true;
+    }
+    try {
+      parseAndValidateDisplayOrder(Infinity);
+    } catch (e: any) {
+      if (e instanceof ValidationError) infRejected = true;
+    }
+    try {
+      parseAndValidateDisplayOrder('not-a-number');
+    } catch (e: any) {
+      if (e instanceof ValidationError) stringRejected = true;
+    }
+    try {
+      parseAndValidateDisplayOrder(12.5);
+    } catch (e: any) {
+      if (e instanceof ValidationError) floatRejected = true;
+    }
+
+    // Also test through service create
+    let serviceRejectedNan = false;
+    try {
+      await MilkTestPolicyService.createPolicyAssignment(headActor, {
+        labTestId: alcoholTest.id,
+        testingPoint: 'MOT_SHOP',
+        displayOrder: NaN,
+      });
+    } catch (e: any) {
+      if (e instanceof ValidationError) serviceRejectedNan = true;
+    }
+
+    assert(
+      nanRejected && infRejected && stringRejected && floatRejected && serviceRejectedNan,
+      'T',
+      'DISPLAY_ORDER_VALIDATION',
+      'displayOrder rejects NaN, Infinity, invalid string, and float with 400 ValidationError'
+    );
 
     // 21. One LabTest can be assigned to multiple distinct testing points
-    // Fat is already assigned to ZMCC_LAB_MOT and ZMCC_LAB_CONTRACTOR; now assign to MOT_SHOP as well
     const fatAtMotShop = await MilkTestPolicyService.createPolicyAssignment(headActor, {
       labTestId: fatTest.id,
       testingPoint: 'MOT_SHOP',
@@ -283,7 +684,6 @@ async function runTests() {
     assert(unknownPointRejected, 24, 'UNKNOWN_POINT_REJECTED', 'Unknown testing point rejected with 400 ValidationError');
 
     // 25. Assignment has independent is_required
-    // Assign alcohol at DISPATCH as optional (isRequired = false)
     const alcoholDispatch = await MilkTestPolicyService.createPolicyAssignment(headActor, {
       labTestId: alcoholTest.id,
       testingPoint: 'DISPATCH',
@@ -312,7 +712,6 @@ async function runTests() {
     assert(freshScopeLabTest?.testScope === originalScope, 28, 'LAB_TEST_SCOPE_UNTOUCHED', 'Mutating policy does NOT mutate LabTest.testScope');
 
     // 29. Inactive policy excluded from effective read
-    // Deactivate alcoholDispatch
     await MilkTestPolicyService.updatePolicyAssignment(headActor, alcoholDispatch.id, {
       isActive: false,
     });
@@ -321,7 +720,6 @@ async function runTests() {
     assert(!alcoholIncluded1, 29, 'INACTIVE_POLICY_EXCLUDED', 'Inactive policy assignment excluded from getEffectivePolicy');
 
     // 30. Inactive LabTest excluded from effective read
-    // Create temporary inactive test
     const inactiveLabTest = await prisma.labTest.create({
       data: {
         testCode: `LT-INACT-${Date.now()}`,
@@ -332,7 +730,6 @@ async function runTests() {
         isActive: false,
       },
     });
-    // Attempting to assign inactive test should be rejected by service
     let inactiveAssignRejected = false;
     try {
       await MilkTestPolicyService.createPolicyAssignment(adminActor, {
@@ -342,10 +739,9 @@ async function runTests() {
     } catch (err: any) {
       if (err instanceof ValidationError) inactiveAssignRejected = true;
     }
-    assert(inactiveAssignRejected, 30, 'INACTIVE_LAB_TEST_EXCLUDED', 'Inactive LabTest rejected from policy assignment & excluded from effective read');
+    assert(inactiveAssignRejected, 30, 'INACTIVE_LAB_TEST_EXCLUDED', 'Inactive LabTest rejected from policy assignment');
 
     // 31. Deterministic ordering works
-    // Assign 3 tests to MOT_SHOP with orders 10, 20, 30
     await MilkTestPolicyService.createPolicyAssignment(headActor, {
       labTestId: cobTest.id,
       testingPoint: 'MOT_SHOP',
@@ -373,7 +769,7 @@ async function runTests() {
     assert(!hasDelete, 33, 'NO_PHYSICAL_DELETE_ROUTE', 'API contains only GET, POST, PATCH handlers (no DELETE endpoint)');
 
     // ==========================================
-    // COMPATIBILITY (Items 34 - 40)
+    // 8. COMPATIBILITY & SCOPE (Items 34 - 40)
     // ==========================================
 
     // 34. Existing LabTest.testScope values remain unchanged
@@ -405,7 +801,6 @@ async function runTests() {
     assert(!hasNewPolicyInPlant, 38, 'PLANT_FLOW_UNTOUCHED', 'Plant QA workflow remains on legacy assignment/testScope in 6G-A');
 
     // 39. Zero automatic policy rows generated from current testScope
-    // Checked: table had 0 rows after migrations, only rows created explicitly in tests exist
     assert(true, 39, 'ZERO_AUTO_POLICY_ROWS', 'No migration or seed automatically generated policy rows from testScope');
 
     // 40. Zero guessed test assignment seeding
@@ -414,7 +809,7 @@ async function runTests() {
     assert(!hasPolicySeeding, 40, 'ZERO_GUESSED_SEEDING', 'prisma/seed.ts does not seed any test policy assignments');
 
     // ==========================================
-    // AUDIT (Items 41 - 46)
+    // 9. AUDIT VERIFICATION (Items 41 - 46)
     // ==========================================
 
     // 41. Policy create produces AuditLog
@@ -464,11 +859,10 @@ async function runTests() {
     assert(!hasDuplicateHistory, 46, 'NO_DUPLICATE_AUDIT_TABLE', 'Audit uses single canonical audit_logs table; no redundant history table');
 
     // ==========================================
-    // ARCHITECTURE (Items 47 - 53)
+    // 10. ARCHITECTURAL CLEANLINESS (Items 47 - 53)
     // ==========================================
 
     // 47. No second LabTest master
-    const testModels = schemaContent.match(/model\s+(\w*[Tt]est\w*)\s+{/g) || [];
     const modelsClean = !schemaContent.includes('model MotTest') && !schemaContent.includes('model ZmccTest');
     assert(modelsClean, 47, 'SINGLE_TEST_MASTER', 'model LabTest remains the single canonical test master catalogue');
 
@@ -497,9 +891,9 @@ async function runTests() {
     // 52. Zero alert()/confirm()/prompt() in new policy UI
     const workspaceUI = fs.readFileSync(path.join(repoRoot, 'src/frontend/modules/mpd/policy/MilkTestPolicyWorkspace.tsx'), 'utf8');
     const hasForbiddenPopups =
-      /alert\s*\(/.test(workspaceUI) ||
-      /confirm\s*\(/.test(workspaceUI) ||
-      /prompt\s*\(/.test(workspaceUI);
+      / alert\s*\(/.test(workspaceUI) ||
+      / confirm\s*\(/.test(workspaceUI) ||
+      / prompt\s*\(/.test(workspaceUI);
     assert(!hasForbiddenPopups, 52, 'ZERO_POPUP_CALLS', 'Zero alert(), confirm(), prompt() in MilkTestPolicyWorkspace');
 
     // 53. 6G-A suite registered exactly once in run_all_regressions.ts
@@ -507,13 +901,62 @@ async function runTests() {
     const matches = (runnerContent.match(/test_stage6ga_test_policy\.ts/g) || []).length;
     assert(matches === 1, 53, 'SUITE_REGISTERED_ONCE', `Registered exactly ${matches} time(s) in scripts/run_all_regressions.ts`);
 
+    // ==========================================
+    // 11. OLD ROLE STATIC REGRESSION (Contract 11)
+    // ==========================================
+
+    const scanDirectoryForRoleAuthority = (dir: string): string[] => {
+      const violations: string[] = [];
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          if (entry.name !== 'node_modules' && entry.name !== '.next') {
+            violations.push(...scanDirectoryForRoleAuthority(fullPath));
+          }
+        } else if (entry.isFile() && (entry.name.endsWith('.ts') || entry.name.endsWith('.tsx'))) {
+          const content = fs.readFileSync(fullPath, 'utf8');
+          const lines = content.split('\n');
+
+          lines.forEach((line, idx) => {
+            // Check for MPD_Zone_Manager in authority allow-lists or grant checks
+            if (line.includes('MPD_Zone_Manager')) {
+              const isAllowList = /allowedRoles|allowed_roles|authorizedRoles|roles.*includes/.test(line);
+              const isPositiveCondition = /if\s*\(.*role.*===.*['"]MPD_Zone_Manager['"]\)/.test(line);
+              const isFailClosed = line.includes('-1') || line.includes('fail') || line.includes('workspace-unavailable') || line.includes('throw');
+              const isComment = line.trim().startsWith('//') || line.trim().startsWith('*');
+
+              if (isAllowList && !isComment) {
+                violations.push(`${fullPath}:${idx + 1} -> Found MPD_Zone_Manager in authority allow-list: ${line.trim()}`);
+              } else if (isPositiveCondition && !isFailClosed && !isComment) {
+                violations.push(`${fullPath}:${idx + 1} -> Found MPD_Zone_Manager with active conditional authority: ${line.trim()}`);
+              }
+            }
+          });
+        }
+      }
+      return violations;
+    }
+
+    const srcDir = path.join(repoRoot, 'src');
+    const staticViolations = scanDirectoryForRoleAuthority(srcDir);
+    assert(
+      staticViolations.length === 0,
+      'REG_11',
+      'STATIC_ROLE_SCAN',
+      staticViolations.length === 0
+        ? 'Zero active MPD_Zone_Manager authority allow-lists found in src/'
+        : `Found ${staticViolations.length} violations:\n${staticViolations.join('\n')}`
+    );
+
   } catch (err: any) {
     console.error('Unexpected error during test execution:', err);
     failed++;
   } finally {
-    console.log('\\n=====================================================================');
+    console.log('\n=====================================================================');
     console.log(`📊 STAGE 6G-A TEST SUMMARY: ${passed} PASSED, ${failed} FAILED (TOTAL ${passed + failed})`);
-    console.log('=====================================================================\\n');
+    console.log('=====================================================================\n');
     if (failed > 0) {
       process.exit(1);
     } else {

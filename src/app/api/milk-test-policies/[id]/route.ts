@@ -35,7 +35,7 @@ export async function PATCH(
 
     const updated = await MilkTestPolicyService.updatePolicyAssignment(authUser, id, {
       isRequired: isRequired !== undefined ? Boolean(isRequired) : undefined,
-      displayOrder: displayOrder !== undefined ? Number(displayOrder) : undefined,
+      displayOrder: displayOrder !== undefined ? displayOrder : undefined,
       isActive: isActive !== undefined ? Boolean(isActive) : undefined,
     });
 

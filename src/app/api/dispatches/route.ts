@@ -200,7 +200,7 @@ export async function POST(req: Request) {
     include: { procurement_source: true },
   });
 
-  const allowedRoles = ['MPD_Operator', 'MPD', 'MPD_Zone_Manager', 'Admin', 'Correction_Officer', 'SUPER_ADMIN'];
+  const allowedRoles = ['MPD_Operator', 'MPD', 'Admin', 'Correction_Officer', 'SUPER_ADMIN'];
   if (!dbUser || !allowedRoles.includes(dbUser.role)) {
     return NextResponse.json(
       { error: 'Unauthorized. Authorized active ZMCC or MPD operator user required.' },

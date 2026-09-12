@@ -70,7 +70,7 @@ const TESTING_POINT_METADATA: Record<
 
 export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = ({ currentUser }) => {
   const toast = useToast();
-  const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN' || currentUser?.role === 'Admin';
+  const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
 
   const allowedTestingPoints: TestingPoint[] = isSuperAdmin
     ? [...CANONICAL_TESTING_POINTS]

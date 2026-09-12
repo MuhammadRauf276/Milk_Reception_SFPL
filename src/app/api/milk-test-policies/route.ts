@@ -6,6 +6,10 @@ import {
   ForbiddenError,
   NotFoundError,
   ConflictError,
+  assertCanReadAdminPolicies,
+  assertCanReadEffectivePolicy,
+  isValidTestingPoint,
+  TestingPoint,
 } from '@/backend/services/milkTestPolicyService';
 
 export async function GET(req: Request) {
@@ -27,9 +31,18 @@ export async function GET(req: Request) {
           { status: 400 }
         );
       }
+      if (!isValidTestingPoint(testingPoint)) {
+        return NextResponse.json(
+          { error: `Invalid testing point "${testingPoint}".` },
+          { status: 400 }
+        );
+      }
+      assertCanReadEffectivePolicy(authUser.role, testingPoint as TestingPoint);
       const tests = await MilkTestPolicyService.getEffectivePolicy(testingPoint);
       return NextResponse.json({ policies: tests });
     }
+
+    assertCanReadAdminPolicies(authUser.role);
 
     const isActive = isActiveRaw === 'true' ? true : isActiveRaw === 'false' ? false : undefined;
     const assignments = await MilkTestPolicyService.getAllPolicies({
@@ -85,7 +98,7 @@ export async function POST(req: Request) {
       labTestId,
       testingPoint: testingPoint.trim(),
       isRequired: isRequired !== undefined ? Boolean(isRequired) : undefined,
-      displayOrder: displayOrder !== undefined ? Number(displayOrder) : undefined,
+      displayOrder: displayOrder !== undefined ? displayOrder : undefined,
     });
 
     return NextResponse.json({ policy: created }, { status: 201 });

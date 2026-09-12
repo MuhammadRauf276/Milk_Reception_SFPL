@@ -45,7 +45,7 @@ export async function seedOperationalData() {
     throw new Error('No active Procurement Sources found in database. Seed master data first.');
   }
 
-  const mpdUser = users.find((u) => u.role === 'MPD_Operator' || u.role === 'MPD_Zone_Manager') || users[0];
+  const mpdUser = users.find((u) => u.role === 'MPD_Operator' || u.role === 'MPD') || users[0];
   const gateUser = users.find((u) => u.role === 'Security_Operator') || users[0];
   const qaUser = users.find((u) => u.role === 'QA_Operator' || u.role === 'QA') || users[0];
   const weighUser = users.find((u) => u.role === 'WEIGHBRIDGE_OPERATOR' || u.role === 'Weighbridge_Operator') || users[0];

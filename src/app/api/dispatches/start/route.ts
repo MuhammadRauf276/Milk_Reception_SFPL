@@ -33,7 +33,7 @@ export async function POST(req: Request) {
     include: { procurement_source: true },
   });
 
-  const allowedRoles = ['MPD_Operator', 'MPD', 'MPD_Zone_Manager', 'Admin', 'SUPER_ADMIN', 'Correction_Officer'];
+  const allowedRoles = ['MPD_Operator', 'MPD', 'Admin', 'SUPER_ADMIN', 'Correction_Officer'];
   if (!dbUser || !allowedRoles.includes(dbUser.role)) {
     return NextResponse.json({ error: 'Unauthorized. MPD role required.' }, { status: 403 });
   }

@@ -256,7 +256,7 @@ This document records the authoritative business rules approved for the Milk Rec
 ### 16A. Role & Authority Architecture
 - Exactly one new canonical role is introduced: `HEAD_OF_MPD` (Display: `Head of MPD`).
 - **Scope**: Global Milk Procurement scope, not attached to one ZMCC or Contractor (`requiresSource = false`, `scopeType = 'SYSTEM'`).
-- `MPD_Zone_Manager` is a legacy alias; it is NOT repurposed to Head of MPD and does not receive policy mutation authority.
+- `MPD_Zone_Manager` is a retired legacy role. It is NOT repurposed to Head of MPD and does not receive policy mutation authority.
 - `ZMCC_MANAGER` remains the operational source manager for a single ZMCC with zero policy mutation authority.
 - **Authority Boundaries**:
   - `SUPER_ADMIN`: Full authority across all 5 testing points (`MOT_SHOP`, `ZMCC_LAB_MOT`, `ZMCC_LAB_CONTRACTOR`, `DISPATCH`, `PLANT_QA`) and the master `LabTest` catalogue.

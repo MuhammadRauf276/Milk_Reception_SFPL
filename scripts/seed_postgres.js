@@ -51,7 +51,7 @@ async function seedDatabase() {
       INSERT INTO users (id, full_name, username, password_hash, role, is_active, created_at, updated_at)
       VALUES 
         (1, 'ZMCC Field Operator', 'zmcc.operator', 'mpd123', 'MPD_Operator', true, NOW(), NOW()),
-        (2, 'ZMCC Minor Manager (Northern Zone)', 'zmcc.manager.north', 'zone123', 'MPD_Zone_Manager', true, NOW(), NOW()),
+        (2, 'ZMCC Minor Manager (Northern Zone)', 'zmcc.manager.north', 'zone123', 'MPD_Zone_Manager', false, NOW(), NOW()),
         (3, 'Security Gate Operator', 'security.gate', 'security123', 'Security_Operator', true, NOW(), NOW()),
         (4, 'Security Admin Manager (Head)', 'security.head', 'sechead123', 'Security_Manager', true, NOW(), NOW()),
         (5, 'QA Lab Testing Chemist', 'qa.chemist', 'qa123', 'QA_Operator', true, NOW(), NOW()),

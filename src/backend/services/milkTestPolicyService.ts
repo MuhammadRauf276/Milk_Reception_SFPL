@@ -61,7 +61,7 @@ export function assertCanMutateTestingPoint(userRole: string | undefined | null,
 
   const normalized = userRole.trim();
 
-  if (normalized === 'SUPER_ADMIN' || normalized === 'Admin') {
+  if (normalized === 'SUPER_ADMIN') {
     return;
   }
 
@@ -76,8 +76,56 @@ export function assertCanMutateTestingPoint(userRole: string | undefined | null,
   }
 
   // All other operational, source-bound, legacy, or unauthorized roles
-  // (ZMCC_MANAGER, MPD_Zone_Manager, ZMCC_LAB_ATTENDANT, MOT, PHE_OPERATOR, QA_Operator, CONTRACTOR_MANAGER, etc.)
+  // (Admin, ZMCC_MANAGER, MPD_Zone_Manager, ZMCC_LAB_ATTENDANT, MOT, PHE_OPERATOR, QA_Operator, CONTRACTOR_MANAGER, etc.)
   throw new ForbiddenError(`Role "${normalized}" is not authorized to modify milk test policy.`);
+}
+
+export function assertCanReadAdminPolicies(userRole: string | undefined | null): void {
+  if (!userRole) {
+    throw new ForbiddenError('Unauthorized. Missing user role.');
+  }
+  const normalized = userRole.trim();
+  if (normalized === 'SUPER_ADMIN' || normalized === 'HEAD_OF_MPD') {
+    return;
+  }
+  throw new ForbiddenError(`Role "${normalized}" is not authorized to access policy administrative view.`);
+}
+
+const ROLE_EFFECTIVE_POINTS: Record<string, readonly TestingPoint[]> = {
+  SUPER_ADMIN: ['MOT_SHOP', 'ZMCC_LAB_MOT', 'ZMCC_LAB_CONTRACTOR', 'DISPATCH', 'PLANT_QA'],
+  HEAD_OF_MPD: ['MOT_SHOP', 'ZMCC_LAB_MOT', 'ZMCC_LAB_CONTRACTOR', 'DISPATCH', 'PLANT_QA'],
+  ZMCC_MANAGER: ['MOT_SHOP', 'ZMCC_LAB_MOT', 'ZMCC_LAB_CONTRACTOR', 'DISPATCH'],
+  MOT: ['MOT_SHOP'],
+  ZMCC_LAB_ATTENDANT: ['ZMCC_LAB_MOT', 'ZMCC_LAB_CONTRACTOR'],
+  MPD_Operator: ['DISPATCH'],
+  MPD: ['DISPATCH'],
+  CONTRACTOR_MANAGER: ['DISPATCH'],
+  QA_Operator: ['PLANT_QA'],
+  QA: ['PLANT_QA'],
+};
+
+export function assertCanReadEffectivePolicy(userRole: string | undefined | null, testingPoint: TestingPoint): void {
+  if (!userRole) {
+    throw new ForbiddenError('Unauthorized. Missing user role.');
+  }
+  const normalized = userRole.trim();
+  const allowed = ROLE_EFFECTIVE_POINTS[normalized];
+  if (allowed && allowed.includes(testingPoint)) {
+    return;
+  }
+  throw new ForbiddenError(`Role "${normalized}" is not authorized to read effective policy for "${testingPoint}".`);
+}
+
+export function parseAndValidateDisplayOrder(val: unknown, fallback?: number): number {
+  if (val === undefined || val === null) {
+    if (fallback !== undefined) return fallback;
+    return 0;
+  }
+  const num = typeof val === 'number' ? val : (typeof val === 'string' && val.trim() !== '' ? Number(val) : NaN);
+  if (!Number.isFinite(num) || !Number.isInteger(num)) {
+    throw new ValidationError('displayOrder must be a finite integer.');
+  }
+  return num;
 }
 
 export interface ActorUser {
@@ -86,16 +134,63 @@ export interface ActorUser {
   role: string;
 }
 
+export interface ResolvedActor {
+  id: bigint;
+  username: string;
+  role: string;
+  is_active: boolean;
+}
+
+export async function resolveAndAuthorizeActor(
+  actor: ActorUser | null | undefined,
+  testingPoint: TestingPoint,
+  tx?: Prisma.TransactionClient
+): Promise<ResolvedActor> {
+  if (!actor || actor.id === undefined || actor.id === null) {
+    throw new ForbiddenError('Unauthorized. Actor user ID is missing.');
+  }
+
+  let actorIdBig: bigint;
+  try {
+    const strId = String(actor.id).trim();
+    if (!strId || !/^-?\d+$/.test(strId)) {
+      throw new Error();
+    }
+    actorIdBig = BigInt(strId);
+  } catch {
+    throw new ForbiddenError('Unauthorized. Invalid actor user ID.');
+  }
+
+  const db = tx || prisma;
+  const liveUser = await db.user.findUnique({
+    where: { id: actorIdBig },
+    select: { id: true, username: true, role: true, is_active: true },
+  });
+
+  if (!liveUser) {
+    throw new ForbiddenError('Unauthorized. Actor user does not exist.');
+  }
+
+  if (!liveUser.is_active) {
+    throw new ForbiddenError('Unauthorized. Actor user is inactive.');
+  }
+
+  // Authorize using live database role, NOT caller-supplied role!
+  assertCanMutateTestingPoint(liveUser.role, testingPoint);
+
+  return liveUser;
+}
+
 export interface CreatePolicyAssignmentInput {
   labTestId: string | bigint | number;
   testingPoint: string;
   isRequired?: boolean;
-  displayOrder?: number;
+  displayOrder?: unknown;
 }
 
 export interface UpdatePolicyAssignmentInput {
   isRequired?: boolean;
-  displayOrder?: number;
+  displayOrder?: unknown;
   isActive?: boolean;
 }
 
@@ -291,11 +386,19 @@ export class MilkTestPolicyService {
     }
     const testingPoint = input.testingPoint as TestingPoint;
 
-    assertCanMutateTestingPoint(actor.role, testingPoint);
+    // Validate displayOrder early
+    let displayOrder: number | undefined;
+    if (input.displayOrder !== undefined && input.displayOrder !== null) {
+      displayOrder = parseAndValidateDisplayOrder(input.displayOrder);
+    }
 
     let labTestIdBig: bigint;
     try {
-      labTestIdBig = BigInt(String(input.labTestId).trim());
+      const strLabTestId = String(input.labTestId).trim();
+      if (!strLabTestId || !/^-?\d+$/.test(strLabTestId)) {
+        throw new Error();
+      }
+      labTestIdBig = BigInt(strLabTestId);
     } catch {
       throw new ValidationError('Invalid labTestId format.');
     }
@@ -312,7 +415,7 @@ export class MilkTestPolicyService {
     }
 
     const isRequired = input.isRequired !== undefined ? Boolean(input.isRequired) : true;
-    const displayOrder = input.displayOrder !== undefined ? Math.floor(Number(input.displayOrder)) || 0 : (labTest.displayOrder ?? 0);
+    const finalDisplayOrder = displayOrder !== undefined ? displayOrder : (labTest.displayOrder ?? 0);
 
     const existing = await prisma.milkTestPolicyAssignment.findUnique({
       where: {
@@ -329,22 +432,18 @@ export class MilkTestPolicyService {
       );
     }
 
-    let actorIdBig: bigint | null = null;
-    try {
-      actorIdBig = BigInt(String(actor.id).trim());
-    } catch {
-      actorIdBig = null;
-    }
-
     const result = await prisma.$transaction(async (tx) => {
+      // Re-resolve and authorize actor with live DB state inside transaction
+      const resolvedActor = await resolveAndAuthorizeActor(actor, testingPoint, tx);
+
       const created = await tx.milkTestPolicyAssignment.create({
         data: {
           lab_test_id: labTestIdBig,
           testing_point: testingPoint,
           is_required: isRequired,
-          display_order: displayOrder,
+          display_order: finalDisplayOrder,
           is_active: true,
-          created_by_user_id: actorIdBig || BigInt(1),
+          created_by_user_id: resolvedActor.id,
         },
         include: {
           lab_test: true,
@@ -358,7 +457,7 @@ export class MilkTestPolicyService {
           table_name: 'milk_test_policy_assignment',
           record_id: created.id,
           action: 'MILK_TEST_POLICY_CREATED',
-          user_id: actorIdBig,
+          user_id: resolvedActor.id,
           new_values: {
             id: created.id.toString(),
             lab_test_id: created.lab_test_id.toString(),
@@ -389,9 +488,19 @@ export class MilkTestPolicyService {
   ): Promise<SerializedPolicyAssignment> {
     let idBig: bigint;
     try {
-      idBig = BigInt(String(idRaw).trim());
+      const strId = String(idRaw).trim();
+      if (!strId || !/^-?\d+$/.test(strId)) {
+        throw new Error();
+      }
+      idBig = BigInt(strId);
     } catch {
       throw new ValidationError('Invalid policy assignment ID format.');
+    }
+
+    // Validate displayOrder if provided
+    let newDisplayOrder: number | undefined;
+    if (input.displayOrder !== undefined && input.displayOrder !== null) {
+      newDisplayOrder = parseAndValidateDisplayOrder(input.displayOrder);
     }
 
     const existing = await prisma.milkTestPolicyAssignment.findUnique({
@@ -406,7 +515,6 @@ export class MilkTestPolicyService {
     }
 
     const testingPoint = existing.testing_point as TestingPoint;
-    assertCanMutateTestingPoint(actor.role, testingPoint);
 
     const dataToUpdate: Prisma.MilkTestPolicyAssignmentUpdateInput = {};
     let hasChanges = false;
@@ -416,8 +524,8 @@ export class MilkTestPolicyService {
       hasChanges = true;
     }
 
-    if (input.displayOrder !== undefined && input.displayOrder !== existing.display_order) {
-      dataToUpdate.display_order = Math.floor(Number(input.displayOrder)) || 0;
+    if (newDisplayOrder !== undefined && newDisplayOrder !== existing.display_order) {
+      dataToUpdate.display_order = newDisplayOrder;
       hasChanges = true;
     }
 
@@ -434,36 +542,29 @@ export class MilkTestPolicyService {
       }
     }
 
-    if (!hasChanges) {
-      const full = await prisma.milkTestPolicyAssignment.findUnique({
-        where: { id: idBig },
-        include: {
-          lab_test: true,
-          creator: { select: { id: true, username: true, full_name: true } },
-          updater: { select: { id: true, username: true, full_name: true } },
-        },
-      });
-      return serializeAssignment(full);
-    }
-
-    let actorIdBig: bigint | null = null;
-    try {
-      actorIdBig = BigInt(String(actor.id).trim());
-    } catch {
-      actorIdBig = null;
-    }
-
-    if (actorIdBig) {
-      dataToUpdate.updater = { connect: { id: actorIdBig } };
-    }
-
-    const auditAction = isDeactivation
-      ? 'MILK_TEST_POLICY_DEACTIVATED'
-      : isReactivation
-      ? 'MILK_TEST_POLICY_ACTIVATED'
-      : 'MILK_TEST_POLICY_UPDATED';
-
     const result = await prisma.$transaction(async (tx) => {
+      const resolvedActor = await resolveAndAuthorizeActor(actor, testingPoint, tx);
+
+      if (!hasChanges) {
+        const full = await tx.milkTestPolicyAssignment.findUnique({
+          where: { id: idBig },
+          include: {
+            lab_test: true,
+            creator: { select: { id: true, username: true, full_name: true } },
+            updater: { select: { id: true, username: true, full_name: true } },
+          },
+        });
+        return full!;
+      }
+
+      dataToUpdate.updater = { connect: { id: resolvedActor.id } };
+
+      const auditAction = isDeactivation
+        ? 'MILK_TEST_POLICY_DEACTIVATED'
+        : isReactivation
+        ? 'MILK_TEST_POLICY_ACTIVATED'
+        : 'MILK_TEST_POLICY_UPDATED';
+
       const updated = await tx.milkTestPolicyAssignment.update({
         where: { id: idBig },
         data: dataToUpdate,
@@ -479,7 +580,7 @@ export class MilkTestPolicyService {
           table_name: 'milk_test_policy_assignment',
           record_id: updated.id,
           action: auditAction,
-          user_id: actorIdBig,
+          user_id: resolvedActor.id,
           old_values: {
             id: existing.id.toString(),
             lab_test_id: existing.lab_test_id.toString(),

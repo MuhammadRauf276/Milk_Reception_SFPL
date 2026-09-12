@@ -101,14 +101,7 @@ export async function getOperationalLogs(
 ): Promise<MilkProcessLog[]> {
   const whereClause: any = {};
 
-  // Server-side ZMCC Zone Manager lock
-  if (currentUser?.role === 'MPD_Zone_Manager') {
-    const rawZone = currentUser.zone || 'Hasilpur';
-    const cleanZone = rawZone.replace(/^ZMCC\s+/i, '').trim();
-    whereClause.procurement_source = {
-      name: { contains: cleanZone, mode: 'insensitive' },
-    };
-  } else if (currentUser?.role === 'CONTRACTOR_MANAGER') {
+  if (currentUser?.role === 'CONTRACTOR_MANAGER') {
     if (currentUser.procurement_source_id) {
       whereClause.procurement_source = {
         id: BigInt(currentUser.procurement_source_id),
