@@ -21,7 +21,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
         const data = await res.json();
         if (res.ok && data.user) {
           const role = data.user.role;
-          if (role === 'SUPER_ADMIN' || role === 'Admin') {
+          if (role === 'SUPER_ADMIN') {
             setCurrentUser(data.user);
             setIsAuthorized(true);
           } else {

@@ -121,8 +121,8 @@ export async function GET(req: Request) {
   // For ordinary MPD operators and source-scoped managers (ZMCC_MANAGER, CONTRACTOR_MANAGER),
   // strictly scope dispatches to their assigned procurement source at DB level (fail-closed if unbound).
   const isSourceScoped =
-    dbUser.role === 'MPD_Operator' ||
-    dbUser.role === 'MPD' ||
+    dbUser.role === 'ZMCC_LAB_ATTENDANT' ||
+    dbUser.role === 'CONTRACTOR_OPERATOR' ||
     dbUser.role === 'ZMCC_MANAGER' ||
     dbUser.role === 'CONTRACTOR_MANAGER';
 
@@ -200,12 +200,22 @@ export async function POST(req: Request) {
     include: { procurement_source: true },
   });
 
-  const allowedRoles = ['MPD_Operator', 'MPD', 'MPD_Zone_Manager', 'Admin', 'Correction_Officer', 'SUPER_ADMIN'];
+  const allowedRoles = ['ZMCC_LAB_ATTENDANT', 'CONTRACTOR_OPERATOR', 'SUPER_ADMIN'];
   if (!dbUser || !allowedRoles.includes(dbUser.role)) {
     return NextResponse.json(
-      { error: 'Unauthorized. Authorized active ZMCC or MPD operator user required.' },
+      { error: 'Unauthorized. Authorized active ZMCC Lab Attendant or Contractor Operator required.' },
       { status: 403 }
     );
+  }
+
+  if (dbUser.role === 'ZMCC_LAB_ATTENDANT') {
+    if (!dbUser.procurement_source_id || dbUser.procurement_source?.source_type !== 'ZMCC') {
+      return NextResponse.json({ error: 'Unauthorized. ZMCC Lab Attendant must be bound to a ZMCC source.' }, { status: 403 });
+    }
+  } else if (dbUser.role === 'CONTRACTOR_OPERATOR') {
+    if (!dbUser.procurement_source_id || dbUser.procurement_source?.source_type !== 'CONTRACTOR') {
+      return NextResponse.json({ error: 'Unauthorized. Contractor Operator must be bound to a Contractor source.' }, { status: 403 });
+    }
   }
 
   const userIdBigInt = dbUser.id;
@@ -282,6 +292,13 @@ export async function POST(req: Request) {
     }
 
     const sourceType = sourceRecord.source_type || 'ZMCC';
+
+    if (dbUser.role === 'ZMCC_LAB_ATTENDANT' && sourceType !== 'ZMCC') {
+      return NextResponse.json({ error: 'Unauthorized. ZMCC Lab Attendant cannot dispatch for Contractor source.' }, { status: 403 });
+    }
+    if (dbUser.role === 'CONTRACTOR_OPERATOR' && sourceType !== 'CONTRACTOR') {
+      return NextResponse.json({ error: 'Unauthorized. Contractor Operator cannot dispatch for ZMCC source.' }, { status: 403 });
+    }
 
     // 1. Resolve visit assignments and FROZEN quantity policy snapshot from draft
     const existingVisit = await prisma.vehicleVisit.findUnique({

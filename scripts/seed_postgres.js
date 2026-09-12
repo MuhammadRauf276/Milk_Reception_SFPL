@@ -50,17 +50,18 @@ async function seedDatabase() {
     const userInsertQuery = `
       INSERT INTO users (id, full_name, username, password_hash, role, is_active, created_at, updated_at)
       VALUES 
-        (1, 'ZMCC Field Operator', 'zmcc.operator', 'mpd123', 'MPD_Operator', true, NOW(), NOW()),
-        (2, 'ZMCC Minor Manager (Northern Zone)', 'zmcc.manager.north', 'zone123', 'MPD_Zone_Manager', true, NOW(), NOW()),
-        (3, 'Security Gate Operator', 'security.gate', 'security123', 'Security_Operator', true, NOW(), NOW()),
-        (4, 'Security Admin Manager (Head)', 'security.head', 'sechead123', 'Security_Manager', true, NOW(), NOW()),
-        (5, 'QA Lab Testing Chemist', 'qa.chemist', 'qa123', 'QA_Operator', true, NOW(), NOW()),
-        (6, 'QA Department Manager', 'qa.head', 'qahead123', 'QA_Manager', true, NOW(), NOW()),
-        (7, 'Production Operations Officer', 'production.operator', 'production123', 'Production_Operator', true, NOW(), NOW()),
-        (8, 'Production Department Manager', 'production.head', 'prodhead123', 'Production_Manager', true, NOW(), NOW()),
-        (9, 'General Plant Manager', 'general.plant.manager', 'plantmanager123', 'General_Plant_Manager', true, NOW(), NOW()),
-        (10, 'Dedicated Data Correction Officer', 'correction.officer', 'correct123', 'Correction_Officer', true, NOW(), NOW()),
-        (11, 'System Administrator', 'admin.superuser', 'admin123', 'Admin', true, NOW(), NOW());
+        (1, 'ZMCC Lab Attendant', 'zmcc.operator', 'mpd123', 'ZMCC_LAB_ATTENDANT', true, NOW(), NOW()),
+        (2, 'ZMCC Manager - Hasilpur', 'zmcc.manager.north', 'zone123', 'ZMCC_MANAGER', true, NOW(), NOW()),
+        (3, 'Security Operator', 'security.gate', 'security123', 'SECURITY_OPERATOR', true, NOW(), NOW()),
+        (4, 'Admin Head', 'admin.head', 'adminhead123', 'ADMIN_HEAD', true, NOW(), NOW()),
+        (5, 'QA Lab Attendant', 'qa.chemist', 'qa123', 'QA_LAB_ATTENDANT', true, NOW(), NOW()),
+        (6, 'QA Manager', 'qa.manager', 'qamgr123', 'QA_MANAGER', true, NOW(), NOW()),
+        (7, 'Production Reception Operator', 'production.operator', 'production123', 'PRODUCTION_RECEPTION_OPERATOR', true, NOW(), NOW()),
+        (8, 'Production Head', 'production.head', 'prodhead123', 'PRODUCTION_HEAD', true, NOW(), NOW()),
+        (9, 'Senior Executive Management', 'executive.management', 'exec123', 'EXECUTIVE_MANAGEMENT', true, NOW(), NOW()),
+        (10, 'Dedicated Data Correction Officer (Retired)', 'correction.officer', 'correct123', 'SUPER_ADMIN', false, NOW(), NOW()),
+        (11, 'Super Admin', 'admin.superuser', 'admin123', 'SUPER_ADMIN', true, NOW(), NOW()),
+        (12, 'Wasim Sahib', 'contractor.operator.alkhair', 'mpd123', 'CONTRACTOR_OPERATOR', true, NOW(), NOW());
     `;
     await client.query(userInsertQuery);
 

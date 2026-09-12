@@ -43,18 +43,19 @@ async function runProductionUnloadingWorkflowVerification() {
 
   // Find or create test user accounts for Operator A and Operator B
   const opUserA = await prisma.user.findFirst({
-    where: { role: { in: ['Production_Operator', 'Production', 'Admin'] } },
+    where: { role: 'PRODUCTION_RECEPTION_OPERATOR', is_active: true },
   });
 
   const opUserB = (await prisma.user.findFirst({
     where: {
-      role: { in: ['Production_Operator', 'Production', 'Admin'] },
+      role: 'PRODUCTION_RECEPTION_OPERATOR',
+      is_active: true,
       id: { not: opUserA?.id },
     },
   })) || opUserA;
 
   if (!opUserA) {
-    throw new Error('No Production operator user found in database');
+    throw new Error('No active PRODUCTION_RECEPTION_OPERATOR user found in database');
   }
 
   const timestamp = Date.now();

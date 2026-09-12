@@ -45,11 +45,11 @@ export async function seedOperationalData() {
     throw new Error('No active Procurement Sources found in database. Seed master data first.');
   }
 
-  const mpdUser = users.find((u) => u.role === 'MPD_Operator' || u.role === 'MPD_Zone_Manager') || users[0];
-  const gateUser = users.find((u) => u.role === 'Security_Operator') || users[0];
-  const qaUser = users.find((u) => u.role === 'QA_Operator' || u.role === 'QA') || users[0];
-  const weighUser = users.find((u) => u.role === 'WEIGHBRIDGE_OPERATOR' || u.role === 'Weighbridge_Operator') || users[0];
-  const prodUser = users.find((u) => u.role === 'Production_Operator' || u.role === 'Production') || users[0];
+  const mpdUser = users.find((u) => u.role === 'ZMCC_LAB_ATTENDANT' || u.role === 'CONTRACTOR_OPERATOR') || users[0];
+  const gateUser = users.find((u) => u.role === 'SECURITY_OPERATOR') || users[0];
+  const qaUser = users.find((u) => u.role === 'QA_LAB_ATTENDANT') || users[0];
+  const weighUser = users.find((u) => u.role === 'WEIGHBRIDGE_OPERATOR') || users[0];
+  const prodUser = users.find((u) => u.role === 'PRODUCTION_RECEPTION_OPERATOR') || users[0];
 
   // 2. Ensure 4 Standard Silos Exist
   const standardSilos = [

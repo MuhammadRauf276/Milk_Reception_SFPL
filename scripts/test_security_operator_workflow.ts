@@ -18,13 +18,13 @@ async function runSecurityOperatorVerification() {
     }
   }
 
-  // Find a test user (Security Guard / Admin)
+  // Find a test user (Security Operator)
   const securityGuard = await prisma.user.findFirst({
-    where: { role: { in: ['Security_Operator', 'Admin'] } },
+    where: { role: 'SECURITY_OPERATOR', is_active: true },
   });
 
   if (!securityGuard) {
-    throw new Error('No security guard user found in database');
+    throw new Error('No active SECURITY_OPERATOR user found in database');
   }
 
   // Create a temporary test visit for verification
@@ -213,8 +213,15 @@ async function runSecurityOperatorVerification() {
   console.log('\n==================================================');
   console.log(`VERIFICATION COMPLETE: ${passCount} PASSED, ${failCount} FAILED`);
   console.log('==================================================\n');
+
+  if (failCount > 0) {
+    process.exit(1);
+  }
 }
 
 runSecurityOperatorVerification()
-  .catch(console.error)
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  })
   .finally(() => prisma.$disconnect());

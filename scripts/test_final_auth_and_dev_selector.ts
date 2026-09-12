@@ -27,19 +27,20 @@ async function runFinalAuthAndDevSelectorTests() {
 
     const DEV_CREDENTIALS = [
       { id: 'CRED-01', username: 'admin.superuser', pass: 'admin123', expectedRole: 'SUPER_ADMIN' },
-      { id: 'CRED-02', username: 'zmcc.operator', pass: 'mpd123', expectedRole: 'MPD_Operator' },
+      { id: 'CRED-02', username: 'zmcc.operator', pass: 'mpd123', expectedRole: 'ZMCC_LAB_ATTENDANT' },
       { id: 'CRED-03', username: 'zmcc.manager.north', pass: 'zone123', expectedRole: 'ZMCC_MANAGER' },
       { id: 'CRED-03B', username: 'contractor.manager.alkhair', pass: 'contractor123', expectedRole: 'CONTRACTOR_MANAGER' },
-      { id: 'CRED-04', username: 'security.gate', pass: 'security123', expectedRole: 'Security_Operator' },
-      { id: 'CRED-05', username: 'security.head', pass: 'sechead123', expectedRole: 'Security_Manager' },
-      { id: 'CRED-06', username: 'qa.chemist', pass: 'qa123', expectedRole: 'QA_Operator' },
-      { id: 'CRED-07', username: 'qa.head', pass: 'qahead123', expectedRole: 'QA_Manager' },
+      { id: 'CRED-04', username: 'security.gate', pass: 'security123', expectedRole: 'SECURITY_OPERATOR' },
+      { id: 'CRED-06', username: 'qa.chemist', pass: 'qa123', expectedRole: 'QA_LAB_ATTENDANT' },
+      { id: 'CRED-06B', username: 'qa.manager', pass: 'qamgr123', expectedRole: 'QA_MANAGER' },
+      { id: 'CRED-07', username: 'qa.head', pass: 'qahead123', expectedRole: 'QA_HEAD' },
       { id: 'CRED-08', username: 'weighbridge.operator', pass: 'weighbridge123', expectedRole: 'WEIGHBRIDGE_OPERATOR' },
       { id: 'CRED-09', username: 'weighbridge.02', pass: 'weighbridge123', expectedRole: 'WEIGHBRIDGE_OPERATOR' },
-      { id: 'CRED-10', username: 'production.operator', pass: 'production123', expectedRole: 'Production_Operator' },
-      { id: 'CRED-11', username: 'production.head', pass: 'prodhead123', expectedRole: 'Production_Manager' },
-      { id: 'CRED-12', username: 'general.plant.manager', pass: 'plantmanager123', expectedRole: 'General_Plant_Manager' },
-      { id: 'CRED-13', username: 'correction.officer', pass: 'correct123', expectedRole: 'Correction_Officer' },
+      { id: 'CRED-10', username: 'production.operator', pass: 'production123', expectedRole: 'PRODUCTION_RECEPTION_OPERATOR' },
+      { id: 'CRED-11', username: 'production.head', pass: 'prodhead123', expectedRole: 'PRODUCTION_HEAD' },
+      { id: 'CRED-12', username: 'admin.head', pass: 'adminhead123', expectedRole: 'ADMIN_HEAD' },
+      { id: 'CRED-13', username: 'data.executive', pass: 'data123', expectedRole: 'DATA_EXECUTIVE' },
+      { id: 'CRED-14', username: 'executive.management', pass: 'exec123', expectedRole: 'EXECUTIVE_MANAGEMENT' },
     ];
 
     for (const cred of DEV_CREDENTIALS) {
@@ -50,20 +51,33 @@ async function runFinalAuthAndDevSelectorTests() {
       }
       assert(
         !!dbUser && dbUser.is_active && passOk && dbUser.role === cred.expectedRole,
-        `LOGIN-${cred.id}: Account ${cred.username} authenticates against PostgreSQL with role ${cred.expectedRole}`
+        `LOGIN-${cred.id}: Account ${cred.username} authenticates against PostgreSQL with canonical role ${cred.expectedRole}`
       );
     }
 
-    // LOGIN-AUTH-02..05: Negative authentication tests
+    // Preserved retired accounts must be inactive / fail-closed
+    const RETIRED_PRESERVED_ACCOUNTS = [
+      { id: 'RET-01', username: 'security.head' },
+      { id: 'RET-02', username: 'general.plant.manager' },
+      { id: 'RET-03', username: 'correction.officer' },
+      { id: 'RET-04', username: 'super.admin' },
+    ];
+
+    for (const ret of RETIRED_PRESERVED_ACCOUNTS) {
+      const dbUser = await prisma.user.findFirst({ where: { username: ret.username } });
+      assert(
+        !!dbUser && !dbUser.is_active,
+        `RETIRED-${ret.id}: Retired preserved account ${ret.username} is strictly inactive (is_active = false) and fails closed`
+      );
+    }
+
+    // LOGIN-AUTH-02..03: Negative authentication tests
     const wbUser = await prisma.user.findFirst({ where: { username: 'weighbridge.operator' } });
     const wrongPassCheck = wbUser?.password_hash ? await bcrypt.compare('wrongpass', wbUser.password_hash) : false;
     assert(!wrongPassCheck, 'LOGIN-AUTH-02: Wrong password strictly rejected by bcrypt');
 
     const unknownUser = await prisma.user.findFirst({ where: { username: 'unknown.user' } });
     assert(!unknownUser, 'LOGIN-AUTH-03: Unknown username strictly yields null in DB');
-
-    const retiredUser = await prisma.user.findFirst({ where: { username: 'super.admin' } });
-    assert(retiredUser ? !retiredUser.is_active : false, 'LOGIN-AUTH-04: Inactive account (super.admin) has is_active = false');
 
     // ====================================================
     // GROUP 2: SEED PASSWORD PROTECTION & RESET MECHANISM

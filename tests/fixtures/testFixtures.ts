@@ -9,6 +9,7 @@ export async function clearTestDatabase(prisma: PrismaClient): Promise<void> {
   await prisma.dispatchLabResult.deleteMany();
   await prisma.plantLabResult.deleteMany();
   await prisma.labTestAssignment.deleteMany();
+  await prisma.milkTestPolicyAssignment.deleteMany();
   await prisma.qATestingSessionEvent.deleteMany();
   await prisma.qATestingSession.deleteMany();
   await prisma.weightTicket.deleteMany();

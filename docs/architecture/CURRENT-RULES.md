@@ -248,3 +248,114 @@ This document records the authoritative business rules approved for the Milk Rec
 - **Zero Plant Business Date Rollover**: ZMCC operations use ordinary PKT timestamps and dates; 08:00 AM Plant Business Date rollover is strictly forbidden in ZMCC.
 - **Zero VehicleVisit**: ZMCC arrivals and lab sessions NEVER create or reference `VehicleVisit`.
 - **Zero Tank/Inventory Posting**: `ACCEPTED` milk does NOT post to tanks or inventory in Stage 6F (reserved for Stage 6G).
+
+---
+
+## 16. Stage 6G-A Milk Test Policy & Head of MPD Authority
+
+### 16A. Role & Authority Architecture
+- Exactly one new canonical role is introduced: `HEAD_OF_MPD` (Display: `Head of MPD`).
+- **Scope**: Global Milk Procurement scope, not attached to one ZMCC or Contractor (`requiresSource = false`, `scopeType = 'SYSTEM'`).
+- `MPD_Zone_Manager` is a retired legacy role. It is NOT repurposed to Head of MPD and does not receive policy mutation authority.
+- `ZMCC_MANAGER` remains the operational source manager for a single ZMCC with zero policy mutation authority.
+- **Authority Boundaries**:
+  - `SUPER_ADMIN`: Full authority across all 5 testing points (`MOT_SHOP`, `ZMCC_LAB_MOT`, `ZMCC_LAB_CONTRACTOR`, `DISPATCH`, `PLANT_QA`) and the master `LabTest` catalogue.
+  - `HEAD_OF_MPD`: Policy authority over the 4 MPD testing points (`MOT_SHOP`, `ZMCC_LAB_MOT`, `ZMCC_LAB_CONTRACTOR`, `DISPATCH`). Strictly forbidden from mutating `PLANT_QA` (`403 Forbidden`). Read-only access to master `LabTest` catalogue.
+  - `ZMCC_MANAGER`, `ZMCC_LAB_ATTENDANT`, `MOT`, `PHE_OPERATOR`, `QA_Operator`, `CONTRACTOR_MANAGER`, and legacy roles: Zero policy mutation authority (`403 Forbidden`).
+
+### 16B. Test Master vs. Test Policy Separation
+- `model LabTest` remains the single canonical test master catalogue. No secondary test masters (`MotTest`, `ZmccTest`, etc.) are created.
+- `model MilkTestPolicyAssignment` defines the policy layer: "Which tests must be performed at each business testing point?"
+- Canonical testing points (exact strings):
+  1. `MOT_SHOP`: Tests for milk collected by MOT drivers at village shops.
+  2. `ZMCC_LAB_MOT`: Tests evaluated at ZMCC Lab for MOT milk arrivals.
+  3. `ZMCC_LAB_CONTRACTOR`: Tests evaluated at ZMCC Lab for Contractor milk arrivals.
+  4. `DISPATCH`: Tests evaluated at dispatch time before departing for factory.
+  5. `PLANT_QA`: Tests evaluated at factory QA reception laboratory.
+- **Uniqueness**: Unique constraint on `[lab_test_id, testing_point]`.
+- **Independent Policy Properties**: Each policy assignment owns its own `is_required`, `display_order`, and `is_active`. Changing policy does not mutate `LabTest.isRequired` or `LabTest.testScope`.
+- **Soft-Deactivation Only**: `is_active = false`. Physical row deletion is not permitted in normal policy API.
+
+### 16C. Core Milk Calculations Invariance
+- Core calculated milk metrics (`Density`, `Gross Liters`, `SNF`, `TS`, `@13TS`) remain owned by `src/backend/utils/milkFormulas.ts`.
+- They are NOT configurable test assignments and must NOT be created as policy rows.
+
+### 16D. Compatibility & Staged Migration
+- Existing `LabTest.testScope` values (`DISPATCH`, `PLANT`, `BOTH`, `ZMCC`, `ALL`) remain untouched for backwards compatibility.
+- `BOTH` continues to mean Dispatch + Plant.
+- No existing consumers (MOT shop collection, Stage 6F ZMCC Lab freezing, Dispatch, Plant QA) are switched in Stage 6G-A.
+- Policy table starts empty in production; zero guessed test assignment seeding.
+
+### 16E. Configuration Audit Trail
+- Uses the single canonical `audit_logs` table (`table_name = 'milk_test_policy_assignment'`).
+- Actions: `MILK_TEST_POLICY_CREATED`, `MILK_TEST_POLICY_UPDATED`, `MILK_TEST_POLICY_DEACTIVATED`, `MILK_TEST_POLICY_ACTIVATED`.
+- Master configuration changes are not subject to operational form correction counters (e.g. 5-save limit does not apply to policy configuration).
+
+---
+
+## 17. Authoritative Organization Role Hierarchy & Legacy Role Retirement (Stage 6G-A Correction #2)
+
+### 17A. Authoritative Hierarchy Architecture
+The enterprise organization hierarchy is codified as follows:
+```
+SUPER ADMIN (SUPER_ADMIN)
+|
++-- Senior Executive Management (EXECUTIVE_MANAGEMENT)
+|
++-- Data Executive (DATA_EXECUTIVE)
+|
++-- MPD Head (HEAD_OF_MPD)
+|    |
+|    +-- ZMCC Manager (ZMCC_MANAGER)
+|    |     |
+|    |     +-- PHE Operator (PHE_OPERATOR)
+|    |     +-- ZMCC Lab Attendant (ZMCC_LAB_ATTENDANT)
+|    |     +-- MOT (MOT)
+|    |
+|    +-- Contractor Manager (CONTRACTOR_MANAGER)
+|          |
+|          +-- Contractor Operator (CONTRACTOR_OPERATOR)
+|              Example dummy fixture: Wasim Sahib
+|
++-- Admin Head (ADMIN_HEAD)
+|    |
+|    +-- Security Operator (SECURITY_OPERATOR)
+|
++-- QA Head (QA_HEAD)
+|    |
+|    +-- QA Manager (QA_MANAGER)
+|          |
+|          +-- QA Lab Attendant (QA_LAB_ATTENDANT)
+|
++-- Production Head (PRODUCTION_HEAD)
+|    |
+|    +-- Weighbridge Operator (WEIGHBRIDGE_OPERATOR)
+|    +-- Production Reception Operator (PRODUCTION_RECEPTION_OPERATOR)
+|
++-- Finance and Accounts (FINANCE_ACCOUNTS)
+```
+
+### 17B. Key Role Meanings & Boundaries
+- **MPD Head (`HEAD_OF_MPD`)**: Global Milk Procurement authority (`scopeType = 'SYSTEM'`).
+- **ZMCC Manager (`ZMCC_MANAGER`)**: Source-bound manager below MPD Head for one assigned ZMCC (`scopeType = 'SOURCE'`).
+- **Contractor Manager (`CONTRACTOR_MANAGER`)**: Source-bound manager below MPD Head for one assigned Contractor (`scopeType = 'SOURCE'`).
+- **ZMCC Lab Attendant (`ZMCC_LAB_ATTENDANT`)**: Single operational laboratory role at ZMCC responsible for:
+  1. MOT arrival lab testing
+  2. Contractor arrival lab testing
+  3. ZMCC dispatch testing before milk departure to Plant
+  (Eliminates old `MPD_Operator` at ZMCC). Role Home is `/zmcc/lab` (also authorized at `/department/mpd` for ZMCC dispatch).
+- **PHE Operator (`PHE_OPERATOR`)**: Role Home is `/phe`.
+- **MOT (`MOT`)**: Role Home is `/mot`.
+- **Contractor Operator (`CONTRACTOR_OPERATOR`)**: Operational role at contractor source performing dispatch prep/testing.
+  - Fixture: `Wasim Sahib` (`contractor.operator.alkhair`), bound to `CONT-ALKHAIR`. Restricted to assigned Contractor source. Role Home is `/workspace-unavailable` for now (until dedicated workspace is built).
+- **QA Lab Attendant (`QA_LAB_ATTENDANT`)**: Operational role performing Plant laboratory testing (`PLANT_QA` testing point only). Role Home is `/department/qa`.
+- **Security Operator (`SECURITY_OPERATOR`)**: Plant security gate execution. Role Home is `/department/security`.
+- **Weighbridge Operator (`WEIGHBRIDGE_OPERATOR`)**: Plant weighbridge scale recording. Role Home is `/department/weighbridge`.
+- **Production Reception Operator (`PRODUCTION_RECEPTION_OPERATOR`)**: Plant silo offloading and production reception. Role Home is `/department/production`.
+- **Unimplemented High-Level Roles**: `EXECUTIVE_MANAGEMENT`, `DATA_EXECUTIVE`, `ADMIN_HEAD`, `QA_HEAD`, `QA_MANAGER`, `PRODUCTION_HEAD`, `FINANCE_ACCOUNTS`, and `CONTRACTOR_OPERATOR` route fail-closed to `/workspace-unavailable` until their respective stages.
+
+### 17C. Retired Legacy Roles (Zero Live Authority)
+- The following legacy roles have ZERO live authority: `Admin`, `MPD`, `MPD_Operator`, `MPD_Zone_Manager`, `QA`, `QA_Operator`, `Security_Weight`, `Security_Operator` (legacy casing), `Security_Manager`, `Weighbridge_Operator` (legacy casing), `Production`, `Production_Operator` (legacy casing), `Production_Manager`, `QA_Manager` (legacy casing), `General_Plant_Manager`, `Correction_Officer`, `Management`.
+- Legacy strings fail closed across all active APIs, routes, and mutation checks.
+- Exact legacy users in persistent databases are safely migrated in-place to canonical equivalents or deactivated.
+- **Audit Log Immutability**: Historical user IDs on `audit_logs`, `created_by`, `completed_by`, and related foreign keys are strictly preserved; no fake identities or audit log deletions.

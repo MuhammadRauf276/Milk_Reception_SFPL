@@ -33,8 +33,8 @@ async function verifyBrowserScenarios() {
   console.log('=== VERIFYING BROWSER SCENARIOS (DISPATCH & PLANT QA) ===\n');
 
   const superAdmin = await prisma.user.findFirst({ where: { role: 'SUPER_ADMIN', is_active: true } });
-  const zmccUser = await prisma.user.findFirst({ where: { role: 'MPD_Operator', is_active: true, procurement_source: { source_type: 'ZMCC' } } });
-  const qaChemist = await prisma.user.findFirst({ where: { role: 'QA_Operator', is_active: true } });
+  const zmccUser = await prisma.user.findFirst({ where: { role: 'ZMCC_LAB_ATTENDANT', is_active: true, procurement_source: { source_type: 'ZMCC' } } });
+  const qaChemist = await prisma.user.findFirst({ where: { role: 'QA_LAB_ATTENDANT', is_active: true } });
   const zmccSource = await prisma.procurementSource.findFirst({ where: { source_type: 'ZMCC', is_active: true } });
 
   if (!superAdmin || !zmccUser || !qaChemist || !zmccSource) {

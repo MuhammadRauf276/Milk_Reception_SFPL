@@ -101,14 +101,7 @@ export async function getOperationalLogs(
 ): Promise<MilkProcessLog[]> {
   const whereClause: any = {};
 
-  // Server-side ZMCC Zone Manager lock
-  if (currentUser?.role === 'MPD_Zone_Manager') {
-    const rawZone = currentUser.zone || 'Hasilpur';
-    const cleanZone = rawZone.replace(/^ZMCC\s+/i, '').trim();
-    whereClause.procurement_source = {
-      name: { contains: cleanZone, mode: 'insensitive' },
-    };
-  } else if (currentUser?.role === 'CONTRACTOR_MANAGER') {
+  if (currentUser?.role === 'CONTRACTOR_MANAGER') {
     if (currentUser.procurement_source_id) {
       whereClause.procurement_source = {
         id: BigInt(currentUser.procurement_source_id),
@@ -128,12 +121,22 @@ export async function getOperationalLogs(
       // Fail closed: Unbound source-scoped role receives zero records
       whereClause.procurement_source_id = BigInt(-1);
     }
-  } else if (
-    currentUser?.role === 'MPD_Operator' ||
-    currentUser?.role === 'MPD'
-  ) {
+  } else if (currentUser?.role === 'ZMCC_LAB_ATTENDANT') {
     if (currentUser.procurement_source_id) {
-      whereClause.procurement_source_id = BigInt(currentUser.procurement_source_id);
+      whereClause.procurement_source = {
+        id: BigInt(currentUser.procurement_source_id),
+        source_type: 'ZMCC',
+      };
+    } else {
+      // Fail closed: Unbound source-scoped role receives zero records
+      whereClause.procurement_source_id = BigInt(-1);
+    }
+  } else if (currentUser?.role === 'CONTRACTOR_OPERATOR') {
+    if (currentUser.procurement_source_id) {
+      whereClause.procurement_source = {
+        id: BigInt(currentUser.procurement_source_id),
+        source_type: 'CONTRACTOR',
+      };
     } else {
       // Fail closed: Unbound source-scoped role receives zero records
       whereClause.procurement_source_id = BigInt(-1);

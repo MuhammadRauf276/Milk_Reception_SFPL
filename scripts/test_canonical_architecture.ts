@@ -42,20 +42,16 @@ async function runCanonicalArchitectureTests() {
   // 1. Role-Home Resolution Policy (Canonical Gateway)
   const canonicalRoleMap: Record<string, string> = {
     SUPER_ADMIN: '/super-admin',
-    Admin: '/super-admin',
+    HEAD_OF_MPD: '/mpd/head',
     ZMCC_MANAGER: '/mpd/zmcc-manager',
+    ZMCC_LAB_ATTENDANT: '/zmcc/lab',
+    PHE_OPERATOR: '/phe',
+    MOT: '/mot',
     CONTRACTOR_MANAGER: '/contractor/manager',
-    MPD_Operator: '/department/mpd',
-    MPD: '/department/mpd',
-    Security_Operator: '/department/security',
-    Security_Weight: '/department/security',
-    Security_Manager: '/department/security-manager',
-    QA_Operator: '/department/qa',
-    QA: '/department/qa',
+    SECURITY_OPERATOR: '/department/security',
+    QA_LAB_ATTENDANT: '/department/qa',
     WEIGHBRIDGE_OPERATOR: '/department/weighbridge',
-    Weighbridge_Operator: '/department/weighbridge',
-    Production_Operator: '/department/production',
-    Production: '/department/production',
+    PRODUCTION_RECEPTION_OPERATOR: '/department/production',
   };
 
   let allRolesMatch = true;
@@ -66,7 +62,7 @@ async function runCanonicalArchitectureTests() {
       console.error(`Role ${role} mapped to ${actual}, expected ${expectedHome}`);
     }
   }
-  assert(allRolesMatch, 'ARCH-1: All canonical roles and supported aliases resolve to dedicated workspaces');
+  assert(allRolesMatch, 'ARCH-1: All active canonical roles resolve to dedicated workspaces');
 
   // 2. Fail-Closed Policy for Invalid, Future, and Retired Legacy Roles
   const failClosedRoles = [
@@ -75,13 +71,32 @@ async function runCanonicalArchitectureTests() {
     null,
     undefined,
     'UNKNOWN_ROLE',
+    // Unimplemented high-level canonical roles & Contractor Operator
+    'CONTRACTOR_OPERATOR',
     'EXECUTIVE_MANAGEMENT',
+    'DATA_EXECUTIVE',
+    'ADMIN_HEAD',
+    'QA_HEAD',
+    'QA_MANAGER',
+    'PRODUCTION_HEAD',
+    'FINANCE_ACCOUNTS',
+    // Retired legacy roles
+    'Admin',
+    'MPD',
+    'MPD_Operator',
     'MPD_Zone_Manager',
-    'Management',
-    'General_Plant_Manager',
-    'QA_Manager',
+    'QA',
+    'QA_Operator',
+    'Security_Weight',
+    'Security_Operator',
+    'Security_Manager',
+    'Weighbridge_Operator',
+    'Production',
+    'Production_Operator',
     'Production_Manager',
+    'General_Plant_Manager',
     'Correction_Officer',
+    'Management',
   ];
   const allFailClosed = failClosedRoles.every((r) => resolveRoleHome(r as any) === '/workspace-unavailable');
   assert(allFailClosed, 'ARCH-2: Unknown, unmapped, future, and retired legacy roles fail closed to /workspace-unavailable');

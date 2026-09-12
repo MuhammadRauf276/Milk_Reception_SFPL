@@ -1,33 +1,8 @@
 import { AUTHENTICATED_USERS } from '../src/backend/core/types';
-
-function resolveRouteForRole(role: string): string {
-  if (role === 'Production_Operator' || role === 'PRODUCTION_OPERATOR' || role === 'Production') {
-    return '/department/production';
-  } else if (role === 'MPD_Operator' || role === 'MPD') {
-    return '/department/mpd';
-  } else if (role === 'Security_Operator' || role === 'Security_Weight') {
-    return '/department/security';
-  } else if (role === 'Security_Manager') {
-    return '/department/security-manager';
-  } else if (role === 'QA_Operator' || role === 'QA') {
-    return '/department/qa';
-  } else if (role === 'WEIGHBRIDGE_OPERATOR' || role === 'Weighbridge_Operator') {
-    return '/department/weighbridge';
-  } else if (
-    role === 'MPD_Zone_Manager' ||
-    role === 'General_Plant_Manager' ||
-    role === 'Management' ||
-    role === 'QA_Manager' ||
-    role === 'Production_Manager' ||
-    role === 'Admin'
-  ) {
-    return '/management/dashboard';
-  }
-  return '/department/production';
-}
+import { resolveRoleHome } from '../src/lib/role-routing';
 
 function shouldShowSidebar(role: string): boolean {
-  return role !== 'Production_Operator' && role !== 'PRODUCTION_OPERATOR' && role !== 'Production';
+  return role !== 'PRODUCTION_RECEPTION_OPERATOR';
 }
 
 async function runProductionOperatorLoginRoutingVerification() {
@@ -53,40 +28,44 @@ async function runProductionOperatorLoginRoutingVerification() {
     const prodAuth = AUTHENTICATED_USERS['production.operator'];
 
     assert(
-      prodAuth !== undefined &&
-        (prodAuth.user.role === 'Production_Operator' || (prodAuth.user.role as string) === 'PRODUCTION_OPERATOR'),
+      prodAuth !== undefined && prodAuth.user.role === 'PRODUCTION_RECEPTION_OPERATOR',
       'PROD-AUTH-1: Production Operator Credentials in Matrix',
-      `production.operator configured with role="${prodAuth?.user?.role}"`
+      `production.operator configured with canonical role="${prodAuth?.user?.role}"`
     );
 
-    // 2. Role-to-Route Mapping Function Simulation (as implemented in LoginPage.tsx & page.tsx)
-    const prodRoute = resolveRouteForRole(prodAuth.user.role);
-    const prodAliasRoute = resolveRouteForRole('PRODUCTION_OPERATOR');
-    const wbRoute = resolveRouteForRole('WEIGHBRIDGE_OPERATOR');
-    const secRoute = resolveRouteForRole('Security_Operator');
-    const qaRoute = resolveRouteForRole('QA_Operator');
-    const mpdRoute = resolveRouteForRole('MPD_Operator');
-    const mgrRoute = resolveRouteForRole('General_Plant_Manager');
+    // 2. Role-to-Route Mapping via resolveRoleHome
+    const prodRoute = resolveRoleHome(prodAuth.user.role);
+    const legacyProdOpRoute = resolveRoleHome('Production_Operator');
+    const legacyProdRoute = resolveRoleHome('Production');
+    const wbRoute = resolveRoleHome('WEIGHBRIDGE_OPERATOR');
+    const secRoute = resolveRoleHome('SECURITY_OPERATOR');
+    const qaRoute = resolveRoleHome('QA_LAB_ATTENDANT');
+    const zmccRoute = resolveRoleHome('ZMCC_LAB_ATTENDANT');
 
     assert(
-      prodRoute === '/department/production' && prodAliasRoute === '/department/production',
-      'PROD-ROUTE-1: Production Operator Role -> /department/production Mapping',
-      'Production_Operator and PRODUCTION_OPERATOR map strictly to /department/production'
+      prodRoute === '/department/production',
+      'PROD-ROUTE-1: Canonical PRODUCTION_RECEPTION_OPERATOR -> /department/production',
+      'PRODUCTION_RECEPTION_OPERATOR maps strictly to /department/production'
+    );
+
+    assert(
+      legacyProdOpRoute === '/workspace-unavailable' && legacyProdRoute === '/workspace-unavailable',
+      'PROD-ROUTE-1B: Legacy Production roles strictly fail-closed to /workspace-unavailable',
+      'Production_Operator and Production route strictly to /workspace-unavailable'
     );
 
     assert(
       wbRoute === '/department/weighbridge' &&
         secRoute === '/department/security' &&
         qaRoute === '/department/qa' &&
-        mpdRoute === '/department/mpd' &&
-        mgrRoute === '/management/dashboard',
+        zmccRoute === '/zmcc/lab',
       'PROD-ROUTE-2: Operational Role Route Isolation',
-      'Other roles (Weighbridge, Security, QA, MPD, Manager) continue routing cleanly to their specific departmental workstations'
+      'Other canonical roles (Weighbridge, Security, QA, ZMCC) route cleanly to their specific workstations'
     );
 
     // 3. Sidebar Omission Logic for Production Operator Page
     const prodShowsSidebar = shouldShowSidebar(prodAuth.user.role);
-    const mgrShowsSidebar = shouldShowSidebar('Production_Manager');
+    const mgrShowsSidebar = shouldShowSidebar('PRODUCTION_HEAD');
 
     assert(
       prodShowsSidebar === false && mgrShowsSidebar === true,

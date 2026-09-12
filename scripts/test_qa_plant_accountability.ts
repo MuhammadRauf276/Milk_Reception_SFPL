@@ -22,9 +22,9 @@ async function runQAPlantAccountabilityVerification() {
 
   // Find QA user
   const qaUser = await prisma.user.findFirst({
-    where: { role: { in: ['QA_Operator', 'QA', 'Admin'] } },
+    where: { role: 'QA_LAB_ATTENDANT', is_active: true },
   });
-  if (!qaUser) throw new Error('No QA user found in database');
+  if (!qaUser) throw new Error('No active QA_LAB_ATTENDANT user found in database');
 
   // Fetch active required plant tests for test setup
   const allActivePlantTests = await prisma.labTest.findMany({

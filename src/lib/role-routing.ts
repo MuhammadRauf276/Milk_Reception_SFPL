@@ -18,10 +18,12 @@ export function resolveRoleHome(role?: string | null | unknown): string {
   }
 
   switch (normalized) {
-    // Current Canonical Roles
+    // Current Canonical Roles with dedicated workspaces
     case 'SUPER_ADMIN':
-    case 'Admin':
       return '/super-admin';
+
+    case 'HEAD_OF_MPD':
+      return '/mpd/head';
 
     case 'ZMCC_MANAGER':
       return '/mpd/zmcc-manager';
@@ -35,41 +37,47 @@ export function resolveRoleHome(role?: string | null | unknown): string {
     case 'MOT':
       return '/mot';
 
-    case 'MPD_Operator':
-    case 'MPD':
-      return '/department/mpd';
-
-    case 'Security_Operator':
-    case 'Security_Weight':
-      return '/department/security';
-
-    case 'Security_Manager':
-      return '/department/security-manager';
-
-    case 'QA_Operator':
-    case 'QA':
-      return '/department/qa';
-
-    case 'WEIGHBRIDGE_OPERATOR':
-    case 'Weighbridge_Operator':
-      return '/department/weighbridge';
-
-    case 'Production_Operator':
-    case 'Production':
-      return '/department/production';
-
     case 'CONTRACTOR_MANAGER':
       return '/contractor/manager';
 
-    // Retired Legacy Roles (Fails closed to /workspace-unavailable in 4E-D)
-    case 'MPD_Zone_Manager':
-    case 'Management':
-    case 'General_Plant_Manager':
-    case 'QA_Manager':
-    case 'Production_Manager':
-    case 'Correction_Officer':
-    // Future Roles (Not Ready) & Fail-Closed Unknown Roles
+    case 'SECURITY_OPERATOR':
+      return '/department/security';
+
+    case 'QA_LAB_ATTENDANT':
+      return '/department/qa';
+
+    case 'WEIGHBRIDGE_OPERATOR':
+      return '/department/weighbridge';
+
+    case 'PRODUCTION_RECEPTION_OPERATOR':
+      return '/department/production';
+
+    // Unimplemented high-level canonical roles & Contractor Operator (fail-closed)
+    case 'CONTRACTOR_OPERATOR':
     case 'EXECUTIVE_MANAGEMENT':
+    case 'DATA_EXECUTIVE':
+    case 'ADMIN_HEAD':
+    case 'QA_HEAD':
+    case 'QA_MANAGER':
+    case 'PRODUCTION_HEAD':
+    case 'FINANCE_ACCOUNTS':
+    // Retired Legacy Roles (fail-closed)
+    case 'Admin':
+    case 'MPD':
+    case 'MPD_Operator':
+    case 'MPD_Zone_Manager':
+    case 'QA':
+    case 'QA_Operator':
+    case 'Security_Weight':
+    case 'Security_Operator':
+    case 'Security_Manager':
+    case 'Weighbridge_Operator':
+    case 'Production':
+    case 'Production_Operator':
+    case 'Production_Manager':
+    case 'General_Plant_Manager':
+    case 'Correction_Officer':
+    case 'Management':
     default:
       return '/workspace-unavailable';
   }

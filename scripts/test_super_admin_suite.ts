@@ -50,7 +50,7 @@ async function runSuperAdminTests() {
         username: 'test.inactive.user',
         full_name: 'Test Inactive',
         password_hash: await bcrypt.hash('password123', 10),
-        role: 'MPD_Operator',
+        role: 'ZMCC_LAB_ATTENDANT',
         is_active: false,
       },
     });
@@ -222,7 +222,7 @@ async function runSuperAdminTests() {
           username: tempTestUsername,
           name: 'Live Auth Test User',
           password: 'LivePassword123!',
-          role: 'MPD_Operator',
+          role: 'ZMCC_LAB_ATTENDANT',
           procurementSourceId: activeZmccForLive.id.toString(),
         }),
       });
@@ -230,6 +230,21 @@ async function runSuperAdminTests() {
       const createData = await createRes.json();
       assert(createRes.status === 200 && createData.success, 'SA-LIVE-01: Active user created via canonical Super Admin API');
       createdLiveUserId = BigInt(createData.user.id);
+
+      // Negative check: retired role MPD_Operator rejected
+      const negCreateReq = new Request('http://localhost:3000/api/super-admin/users', {
+        method: 'POST',
+        headers: adminHeaders,
+        body: JSON.stringify({
+          username: `retired_mpd_${Date.now()}`,
+          name: 'Retired MPD User',
+          password: 'LivePassword123!',
+          role: 'MPD_Operator',
+          procurementSourceId: activeZmccForLive.id.toString(),
+        }),
+      });
+      const negCreateRes = await postUser(negCreateReq);
+      assert(negCreateRes.status === 400, 'SA-LIVE-RETIRED: Creating retired role MPD_Operator strictly rejected with 400');
 
       // Issue token for the disposable user
       const liveUserRecord = await prisma.user.findUnique({ where: { id: createdLiveUserId } });
@@ -252,7 +267,7 @@ async function runSuperAdminTests() {
       // 1b. Active user with valid token is accepted (Bearer and Cookie)
       const userFromBearer = await getCurrentUser(userBearerReq);
       assert(
-        !!userFromBearer && userFromBearer.username === tempTestUsername && userFromBearer.role === 'MPD_Operator',
+        !!userFromBearer && userFromBearer.username === tempTestUsername && userFromBearer.role === 'ZMCC_LAB_ATTENDANT',
         'SA-LIVE-02: Active user with valid Bearer token is resolved and accepted'
       );
 
@@ -281,11 +296,11 @@ async function runSuperAdminTests() {
       // 4. Role change is reflected live without issuing a replacement token
       await prisma.user.update({
         where: { id: createdLiveUserId },
-        data: { is_active: true, role: 'QA_Operator' },
+        data: { is_active: true, role: 'QA_LAB_ATTENDANT' },
       });
       const roleUpdatedUser = await getCurrentUser(userBearerReq);
       assert(
-        !!roleUpdatedUser && roleUpdatedUser.role === 'QA_Operator',
+        !!roleUpdatedUser && roleUpdatedUser.role === 'QA_LAB_ATTENDANT',
         'SA-LIVE-06: Database role change is immediately reflected on next request using original token'
       );
 
@@ -323,7 +338,7 @@ async function runSuperAdminTests() {
         id: '999999999999',
         username: 'non.existent.user.ghost',
         name: 'Ghost',
-        role: 'MPD_Operator',
+        role: 'ZMCC_LAB_ATTENDANT',
         department: 'Operations',
       });
       const missingUserAttempt = await getCurrentUser(

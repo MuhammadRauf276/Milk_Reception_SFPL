@@ -33,9 +33,9 @@ export async function POST(req: Request) {
     },
   });
 
-  const allowedRoles = ['QA_Operator', 'QA', 'QA_Manager', 'Admin', 'Correction_Officer'];
+  const allowedRoles = ['QA_LAB_ATTENDANT', 'QA_MANAGER', 'QA_HEAD', 'SUPER_ADMIN'];
   if (!dbUser || !allowedRoles.includes(dbUser.role)) {
-    return NextResponse.json({ error: 'Unauthorized. QA Chemist role required.' }, { status: 403 });
+    return NextResponse.json({ error: 'Unauthorized. QA role required.' }, { status: 403 });
   }
 
   try {
