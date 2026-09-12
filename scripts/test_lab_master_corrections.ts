@@ -1,7 +1,35 @@
-import { prisma } from '../src/backend/core/db';
-import { validateCategoricalOption } from '../src/lib/lab-rules';
 import fs from 'fs';
 import path from 'path';
+
+// 1. Load .env.test.local
+const repoRoot = path.resolve(__dirname, '..');
+const testEnvPath = path.join(repoRoot, '.env.test.local');
+if (fs.existsSync(testEnvPath)) {
+  const envContent = fs.readFileSync(testEnvPath, 'utf8');
+  for (const line of envContent.split('\n')) {
+    const trimmed = line.trim();
+    if (trimmed && !trimmed.startsWith('#')) {
+      const idx = trimmed.indexOf('=');
+      if (idx > 0) {
+        const key = trimmed.substring(0, idx).trim();
+        let val = trimmed.substring(idx + 1).trim();
+        if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+          val = val.substring(1, val.length - 1);
+        }
+        process.env[key] = val;
+      }
+    }
+  }
+}
+if (!process.env.DEV_DATABASE_URL) {
+  process.env.DEV_DATABASE_URL = process.env.DATABASE_URL;
+}
+if (process.env.TEST_DATABASE_URL) {
+  process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
+}
+
+import { prisma } from '../src/backend/core/db';
+import { validateCategoricalOption } from '../src/lib/lab-rules';
 import { assertSafeTestDatabase } from '../tests/helpers/testDbSafety';
 
 async function runLabMasterCorrectionsVerification() {

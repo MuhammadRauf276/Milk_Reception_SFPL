@@ -1,6 +1,6 @@
 # Canonical Code Map & Architecture Ownership
 
-**Milk Reception Application (SFPL)**  
+**Milk Reception Application (SFPL)**
 *Stage 4E Architectural Baseline*
 
 ---
@@ -127,6 +127,7 @@ Being located under `src/app` does **NOT** mean code is current. Every route, AP
 | **Final Receipt** | Read Model | `operationalReadModelService.ts` | `GET /api/logs` | `operationalReadModelService.ts` | `final_receipt_exists` backed by `SiloInventoryTransaction` `RECEIPT` |
 | **Read Model** | Read Model | `operationalReadModelService.ts` | `GET /api/logs` | `operationalReadModelService.ts` | `authoritative_final_liters`, source-scoped filtering |
 | **ZMCC Manager** | `/mpd/zmcc-manager` | `ZMCCManagerWorkspace.tsx` | `GET /api/logs` | `zmccManagerHelpers.ts`, `zmccManagerTypes.ts` | Assigned source isolation, read-only supervision, 6 tabs |
+| **MOT Operations & Summary** | `/mot`, `/phe` | `MotOperationsWorkspace.tsx`, `ZmccArrivalsWorkspace.tsx` | `/api/mot/*`, `/api/zmcc/arrivals*` | `motService.ts`, `motJourneySummaryService.ts`, `zmccArrivalService.ts` | Canonical `MotJourneySummary`, gross-liters weighted aggregation, 1-to-1 immutable lifecycle, late offline refresh exception |
 | **Plant Contractor Manager** | `/contractor/manager` | `PlantContractorManagerWorkspace.tsx` | `GET /api/logs` | `contractorManagerHelpers.ts`, `contractorManagerTypes.ts` | Direct-to-plant contractor, source-scoped read-only supervision, 5 tabs (Overview, Live Pipeline, Quality & Rejections, Receipts & Reconciliation, History & Reports). Assigned strictly to one CONTRACTOR procurement source. Unassigned or misbound non-CONTRACTOR sources FAIL CLOSED (0 records). Reporting Business Date: Final Receipt Business Date (from `final_receipt_timestamp` via canonical 08:00 PKT) for finalized receipts; Visit/Dispatch Date for non-final/pending; `created_at` is NEVER a Business Date fallback. |
 | **Super Admin** | `/super-admin` | `src/app/super-admin/page.tsx` | `/api/super-admin/*` | Prisma Client direct queries | Master data management, SOP rules, user administration |
 
@@ -301,3 +302,22 @@ SUPER_ADMIN
 - **QA Lab Attendant (`QA_LAB_ATTENDANT`)**: Single operational plant laboratory role performing Plant QA testing. Reports to `QA_MANAGER` under `QA_HEAD`. Effective test policy: `PLANT_QA` only. Cannot mutate test policies or access ZMCC/MOT/Contractor testing.
 - **Retired Legacy Roles**: `Admin`, `MPD`, `MPD_Operator`, `MPD_Zone_Manager`, `QA`, `QA_Operator`, `Security_Weight`, `Security_Manager`, `Weighbridge_Operator`, `Production`, `Production_Operator`, `Production_Manager`, `General_Plant_Manager`, `Correction_Officer`, `Management`. All retired roles have **ZERO LIVE AUTHORITY** and fail closed to `/workspace-unavailable` and HTTP 403 on protected APIs.
 - **Historical Attribution & Database Upgrade**: Deterministic in-place role migration updates active users to canonical equivalents where unambiguous (`MPD_Operator` -> `ZMCC_LAB_ATTENDANT` or `CONTRACTOR_OPERATOR`, `QA_Operator`/`QA` -> `QA_LAB_ATTENDANT`, etc.) while deactivating ambiguous legacy users safely. Historical `AuditLog` actor records and foreign keys are never deleted or modified.
+
+---
+
+## 16. Stage 6G-B MOT Journey Final Summary Architecture
+
+- `src/backend/services/motJourneySummaryService.ts`: Authoritative service owning the immutable `MotJourneySummary` entity, gross-liters weighted calculations, initial summary generation in ZMCC arrival completion transactions, late offline sync recomputation, and canonical serialization.
+- `prisma/migrations/20260912180000_mot_journey_summary/migration.sql`: Tracked migration creating `mot_journey_summary` table with 1-to-1 foreign key and unique index on `journey_id`, check constraint enforcing `revision >= 1`, non-negative liter checks, and quality metric boundaries.
+- `src/backend/services/zmccArrivalService.ts`: Acquires exclusive PostgreSQL row lock on `mot_journey` row (`SELECT id FROM mot_journey WHERE id = ${journeyId} FOR UPDATE`), creates initial summary inside arrival completion transaction via `createInitialMotJourneySummaryTx`, and serves `journey.summary` via `listMotArrivals` and `getMotArrivalById` (`/api/zmcc/arrivals/mot`).
+- `src/backend/services/motService.ts`: Acquires exclusive row lock on `mot_journey` row, validates journey lifecycle under lock, recomputes summary inside offline delayed collection submission transaction via `recomputeMotJourneySummaryTx` when `ended_at` exists, and includes `summary` in `getMotJourneyById` and `serializeJourney` (`/api/zmcc/mot/*`).
+- `src/frontend/modules/mot/MotOperationsWorkspace.tsx`: Displays compact summary card in Journey Detail modal showing total gross liters, total @13TS liters, gross-weighted quality averages, stop breakdown, and revision badge.
+- `src/frontend/modules/zmcc/arrivals/ZmccArrivalsWorkspace.tsx`: Displays compact summary card in ZMCC arrival success banner.
+
+---
+
+## 17. Stage 6G-C ZMCC Laboratory Testing Contract Lock (Preview / Specification Lock)
+
+- `src/backend/utils/milkFormulas.ts`: Canonical calculation owner for `calculateGrossLiters(quantity, unit, lr)` where `LITER` returns declared liters directly and `KG` returns `KG / (1 + LR / 1000)`.
+- `src/backend/services/zmccLabService.ts`: ZMCC lab testing operates on independent actual physical measurements (`quantity_value`, `quantity_unit`, `lr`, `fat`), computing independent metrics (`gross_liters`, `density`, `snf`, `ts`, `at_13ts_liters`). Never overwrites or conflates with `MotJourneySummary`.
+- Schema additions to `zmcc_lab_session` are locked for Stage 6G-C (zero schema modifications in 6G-B).

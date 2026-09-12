@@ -9,6 +9,10 @@ import {
   formatCollectionSmsMessage,
   MOT_CALCULATION_VERSION,
 } from '@backend/utils/milkFormulas';
+import {
+  recomputeMotJourneySummaryTx,
+  serializeMotJourneySummary,
+} from './motJourneySummaryService';
 
 export interface MotAuthContext {
   user: User;
@@ -1900,6 +1904,7 @@ export async function getMotJourneyById(
       locations: {
         orderBy: { device_recorded_at: 'asc' },
       },
+      summary: true,
     },
   });
 
@@ -2070,6 +2075,7 @@ export function serializeJourney(j: any) {
       server_received_at: l.server_received_at.toISOString(),
       idempotency_key: l.idempotency_key,
     })),
+    summary: j.summary ? serializeMotJourneySummary(j.summary) : null,
     created_at: j.created_at.toISOString(),
     updated_at: j.updated_at.toISOString(),
   };
@@ -2420,6 +2426,26 @@ export async function submitShopCollection(
     await prisma.$executeRawUnsafe('CREATE SEQUENCE IF NOT EXISTS "mot_collection_number_seq" START WITH 1 INCREMENT BY 1;');
 
     const result = await prisma.$transaction(async (tx) => {
+      // Concurrency lock: Acquire exclusive row lock on mot_journey to serialize against arrival & concurrent syncs
+      await tx.$executeRaw`SELECT id FROM mot_journey WHERE id = ${stop.journey_id} FOR UPDATE`;
+
+      // Re-read current journey lifecycle state inside the lock to avoid stale checks
+      const lockedJourney = await tx.motJourney.findUniqueOrThrow({
+        where: { id: stop.journey_id },
+        select: { status: true, started_at: true, ended_at: true, cancelled_at: true },
+      });
+
+      // Time Validations against Journey Lifespan under lock
+      if (deviceCollectedAt.getTime() < new Date(lockedJourney.started_at).getTime()) {
+        throw new Error('COLLECTION_PREDATES_JOURNEY_START');
+      }
+      if (lockedJourney.ended_at && deviceCollectedAt.getTime() > new Date(lockedJourney.ended_at).getTime()) {
+        throw new Error('COLLECTION_EXCEEDS_JOURNEY_END');
+      }
+      if (lockedJourney.cancelled_at && deviceCollectedAt.getTime() > new Date(lockedJourney.cancelled_at).getTime()) {
+        throw new Error('COLLECTION_EXCEEDS_JOURNEY_CANCEL');
+      }
+
       // Concurrency-safe atomic check-and-update on stop
       const updatedStop = await tx.motJourneyStop.updateMany({
         where: {
@@ -2509,7 +2535,7 @@ export async function submitShopCollection(
       });
 
       // Maintain final_mot_gps_* if journey has completed and this delayed point is newer
-      if (stop.journey.ended_at && deviceCollectedAt.getTime() <= new Date(stop.journey.ended_at).getTime()) {
+      if (lockedJourney.ended_at && deviceCollectedAt.getTime() <= new Date(lockedJourney.ended_at).getTime()) {
         await tx.motJourney.updateMany({
           where: {
             id: stop.journey_id,
@@ -2589,6 +2615,11 @@ export async function submitShopCollection(
         },
       });
 
+      // If journey has already completed (ended_at exists), recompute MotJourneySummary in SAME transaction
+      if (lockedJourney.ended_at && deviceCollectedAt.getTime() <= new Date(lockedJourney.ended_at).getTime()) {
+        await recomputeMotJourneySummaryTx(tx, stop.journey_id, auth.actorUserId);
+      }
+
       return {
         ...collection,
         sms_outbox: smsOutbox,
@@ -2597,6 +2628,15 @@ export async function submitShopCollection(
 
     return { status: 201, data: serializeCollection(result) };
   } catch (err: any) {
+    if (err.message === 'COLLECTION_PREDATES_JOURNEY_START') {
+      return { status: 400, error: 'Collection time cannot predate journey start time.' };
+    }
+    if (err.message === 'COLLECTION_EXCEEDS_JOURNEY_END') {
+      return { status: 400, error: 'Collection time cannot be later than journey ended_at.' };
+    }
+    if (err.message === 'COLLECTION_EXCEEDS_JOURNEY_CANCEL') {
+      return { status: 400, error: 'Collection time cannot be later than journey cancelled_at.' };
+    }
     if (err.message === 'STOP_ALREADY_VISITED' || err.code === 'P2002') {
       const existingAfterCollision = await prisma.motShopCollection.findUnique({
         where: { client_event_id: clientEventId },
