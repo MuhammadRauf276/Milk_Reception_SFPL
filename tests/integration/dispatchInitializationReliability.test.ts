@@ -34,10 +34,10 @@ describe('Stage 4C-2: Dispatch Initialization Reliability (Integration)', () => 
     // Create a source-bound operator for Source A
     boundOperatorA = await prisma.user.create({
       data: {
-        username: `mpd_op_${Date.now()}_a`,
+        username: `zmcc_op_${Date.now()}_a`,
         password_hash: 'hashed_pw_test',
-        role: 'MPD_Operator',
-        full_name: 'MPD Bound Operator A',
+        role: 'ZMCC_LAB_ATTENDANT',
+        full_name: 'ZMCC Lab Attendant A',
         is_active: true,
         procurement_source_id: sourceA.id,
       },
@@ -229,10 +229,10 @@ describe('Stage 4C-2: Dispatch Initialization Reliability (Integration)', () => 
     // 1. Create a second operator also bound to Source A
     const boundOperatorA2 = await prisma.user.create({
       data: {
-        username: `mpd_op2_${Date.now()}_a2`,
+        username: `zmcc_op2_${Date.now()}_a2`,
         password_hash: 'hashed_pw_test',
-        role: 'MPD_Operator',
-        full_name: 'MPD Bound Operator A2',
+        role: 'ZMCC_LAB_ATTENDANT',
+        full_name: 'ZMCC Lab Attendant A2',
         is_active: true,
         procurement_source_id: sourceA.id,
       },
@@ -256,10 +256,10 @@ describe('Stage 4C-2: Dispatch Initialization Reliability (Integration)', () => 
   it('[TEST-J] Final submission POST /api/dispatches rejects draft created by another user (403 DRAFT_OWNER_MISMATCH)', async () => {
     const boundOperatorA2 = await prisma.user.create({
       data: {
-        username: `mpd_op3_${Date.now()}_a3`,
+        username: `zmcc_op3_${Date.now()}_a3`,
         password_hash: 'hashed_pw_test',
-        role: 'MPD_Operator',
-        full_name: 'MPD Bound Operator A3',
+        role: 'ZMCC_LAB_ATTENDANT',
+        full_name: 'ZMCC Lab Attendant A3',
         is_active: true,
         procurement_source_id: sourceA.id,
       },

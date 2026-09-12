@@ -232,7 +232,7 @@ async function runStage6bTests() {
       data: {
         username: `mot_${ts}`,
         full_name: 'MOT Operator Actor',
-        role: 'MPD_Operator',
+        role: 'MOT',
         department: 'Milk Procurement',
         scope_type: 'SOURCE',
         procurement_source_id: zmcc1.id,

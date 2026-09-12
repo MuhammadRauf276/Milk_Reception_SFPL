@@ -113,7 +113,21 @@ UPDATE users
 SET is_active = false, updated_at = CURRENT_TIMESTAMP
 WHERE role IN ('General_Plant_Manager', 'Correction_Officer', 'Management', 'Security_Weight');
 
--- O. Ensure contractor.operator.alkhair has full_name 'Wasim Sahib' and role 'CONTRACTOR_OPERATOR'
-UPDATE users
+-- O. Wasim Sahib canonicalization: only when linked to a CONTRACTOR ProcurementSource
+UPDATE users u
 SET full_name = 'Wasim Sahib', role = 'CONTRACTOR_OPERATOR', updated_at = CURRENT_TIMESTAMP
-WHERE username = 'contractor.operator.alkhair';
+FROM procurement_source ps
+WHERE u.username = 'contractor.operator.alkhair'
+  AND u.procurement_source_id = ps.id
+  AND ps.source_type = 'CONTRACTOR';
+
+UPDATE users u
+SET is_active = false, updated_at = CURRENT_TIMESTAMP
+WHERE u.username = 'contractor.operator.alkhair'
+  AND (
+    u.procurement_source_id IS NULL
+    OR NOT EXISTS (
+      SELECT 1 FROM procurement_source ps
+      WHERE ps.id = u.procurement_source_id AND ps.source_type = 'CONTRACTOR'
+    )
+  );

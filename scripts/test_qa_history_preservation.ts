@@ -23,7 +23,7 @@ async function runQAHistoryPreservationTest() {
 
   // Find or create test user
   const chemistUser = await prisma.user.findFirst({
-    where: { role: { in: ['QA_Operator', 'QA'] } },
+    where: { role: { in: ['QA_LAB_ATTENDANT', 'QA_Operator', 'QA'] } },
   });
 
   if (!chemistUser) {

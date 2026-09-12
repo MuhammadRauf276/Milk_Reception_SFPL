@@ -22,12 +22,12 @@ async function runQAChemistWorkflowVerification() {
 
   // Find QA Chemists and Security Guard for test setup
   const qaChemist1 = await prisma.user.findFirst({
-    where: { role: { in: ['QA_Operator', 'QA', 'Admin'] } },
+    where: { role: { in: ['QA_LAB_ATTENDANT', 'QA_OFFICER', 'QA_MANAGER', 'QA_Operator', 'QA', 'SUPER_ADMIN', 'Admin'] }, is_active: true },
   });
 
   const qaChemist2 = await prisma.user.findFirst({
     where: {
-      role: { in: ['QA_Operator', 'QA', 'Admin'] },
+      role: { in: ['QA_LAB_ATTENDANT', 'QA_OFFICER', 'QA_MANAGER', 'QA_Operator', 'QA', 'SUPER_ADMIN', 'Admin'] },
       id: { not: qaChemist1?.id },
     },
   }) || qaChemist1;

@@ -494,8 +494,8 @@ async function runStableAssignmentTests() {
   }
 
   // --- STAGE 2A CASES ---
-  const mpdUser = await prisma.user.findFirst({ where: { role: 'MPD_Operator', is_active: true } });
-  if (!mpdUser) throw new Error('MPD_Operator user not found.');
+  const mpdUser = await prisma.user.findFirst({ where: { role: 'ZMCC_LAB_ATTENDANT', is_active: true } });
+  if (!mpdUser) throw new Error('ZMCC_LAB_ATTENDANT user not found.');
 
   // CASE O: Open Dispatch Master Activation & Submission Stability
   console.log('\n--- CASE O: Open Dispatch Master Activation & Submission Stability ---');

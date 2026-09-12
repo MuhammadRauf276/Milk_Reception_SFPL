@@ -52,8 +52,8 @@ describe('Stage 4C-4: Dispatch Quantity Capture & Persistence (Integration)', ()
       data: {
         username: `op_qty_${uid}`,
         password_hash: 'hash',
-        role: 'MPD_Operator',
-        department: 'MPD',
+        role: 'ZMCC_LAB_ATTENDANT',
+        department: 'Milk Procurement',
         is_active: true,
         procurement_source_id: testSource.id,
       },

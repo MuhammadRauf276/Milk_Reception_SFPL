@@ -38,10 +38,10 @@ describe('Stage 4C-3A: Dispatch Quantity Policy Snapshot Hardening (Integration)
 
     operatorZmcc = await prisma.user.create({
       data: {
-        username: `mpd_op_qp_${Date.now()}`,
+        username: `zmcc_op_qp_${Date.now()}`,
         password_hash: 'hashed_pw_test',
-        role: 'MPD_Operator',
-        full_name: 'MPD QP Operator',
+        role: 'ZMCC_LAB_ATTENDANT',
+        full_name: 'ZMCC Lab Attendant QP',
         is_active: true,
         procurement_source_id: zmccSource.id,
       },

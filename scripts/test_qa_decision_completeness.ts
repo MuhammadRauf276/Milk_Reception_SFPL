@@ -71,7 +71,7 @@ async function runQADecisionCompletenessTests() {
 
     // 4. QA HOLD & RESUME BEHAVIORAL EXECUTION
     const qaUser = await prisma.user.findFirst({
-      where: { role: { in: ['QA_Operator', 'QA', 'QA_Manager'] }, is_active: true },
+      where: { role: { in: ['QA_LAB_ATTENDANT', 'QA_OFFICER', 'QA_MANAGER', 'QA_Operator', 'QA'] }, is_active: true },
     });
     if (!qaUser) {
       throw new Error('No active QA user found in test DB for QA Hold/Resume behavioral test');
