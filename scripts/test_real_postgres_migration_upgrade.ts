@@ -348,12 +348,12 @@ async function runRealPostgresMigrationUpgradeTest() {
       'MIG-SCHEMA-3: Temporary vehicle quantity columns successfully dropped from dispatch_info'
     );
 
-    // Migration count check (20 tracked migrations)
+    // Migration count check (21 tracked migrations)
     const migrationDirs = fs.readdirSync(path.join(process.cwd(), 'prisma/migrations'))
       .filter((f) => fs.statSync(path.join(process.cwd(), 'prisma/migrations', f)).isDirectory());
     assert(
-      migrationDirs.length === 20,
-      'MIG-COUNT-1: Repository contains exactly 20 tracked migrations',
+      migrationDirs.length === 21,
+      'MIG-COUNT-1: Repository contains exactly 21 tracked migrations',
       `Found ${migrationDirs.length} migrations`
     );
     assert(
@@ -363,6 +363,10 @@ async function runRealPostgresMigrationUpgradeTest() {
     assert(
       migrationDirs.includes('20260912180000_mot_journey_summary'),
       'MIG-STAGE6GB: 20260912180000_mot_journey_summary migration is present'
+    );
+    assert(
+      migrationDirs.includes('20260912210000_zmcc_final_milk_metrics'),
+      'MIG-STAGE6GC: 20260912210000_zmcc_final_milk_metrics migration is present'
     );
 
     console.log(`\n========================================`);

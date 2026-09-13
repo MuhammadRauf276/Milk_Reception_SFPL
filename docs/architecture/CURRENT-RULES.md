@@ -411,17 +411,43 @@ SUPER ADMIN (SUPER_ADMIN)
 
 ---
 
-## 19. Stage 6G-C ZMCC Laboratory Testing Contract Lock (Preview / Specification Lock)
+## 19. Stage 6G-C ZMCC Final Milk Metrics & Independent Lab Snapshot
 
 ### 19A. Quantity & Unit Authority
-- **Allowed Units**: User input allows `KG` or `Liters` (persisted strictly as canonical values `KG` or `LITER`; variations such as `LTR`, `KGS`, etc. are disallowed).
-- **Canonical Calculation Owner**: Derived gross volume must be computed using `calculateGrossLiters(quantityValue, quantityUnit, lr)` from `src/backend/utils/milkFormulas.ts`:
-  - `LITER` -> returns declared liters directly (unadjusted by density).
-  - `KG` -> returns declared `KG / (1 + LR / 1000)`.
-- **Derived Metrics**: Density (`calculateDensity(lr)`), SNF (`calculateSNF(lr, fat)`), TS (`calculateTS(fat, snf)`), and Standardized Commercial Volume (`calculateAt13TSLiters(grossLiters, ts)`).
+- **Allowed Units**: User input allows `KG` or `Liters` (persisted strictly as canonical values `KG` or `LITER` via PostgreSQL native enum `QuantityUnit`).
+- **Canonical Calculation Owner**: Derived gross volume must be computed using `computeCanonicalMilkMetrics(quantityValue, quantityUnit, lr, fat)` from `src/backend/utils/milkFormulas.ts`:
+  - `LITER` -> returns declared liters directly: `gross_liters = quantity_value`.
+  - `KG` -> returns declared `gross_liters = quantity_value / (1 + lr / 1000)`.
+- **Derived Metrics**:
+  - `density = 1 + lr / 1000` (Decimal 6,4, rounded to 4 decimals)
+  - `gross_liters` (Decimal 12,2, rounded to 2 decimals)
+  - `snf = lr / 4 + 0.22 * fat + 0.72` (Decimal 6,2, rounded to 2 decimals)
+  - `ts = fat + snf` (Decimal 6,2, rounded to 2 decimals)
+  - `at_13ts_liters = gross_liters * ts / 13` (Decimal 12,2, rounded to 2 decimals)
+  - `calculation_version = '1.0'`
+- **Physical Bounds & Constraints**:
+  - `quantity_value > 0`
+  - `density > 0`
+  - `gross_liters > 0`
+  - `snf >= 0`
+  - `ts >= 0`
+  - `at_13ts_liters >= 0`
+  - Database check constraints enforce that when set, these columns satisfy the physical bounds.
 
-### 19B. Independent Stage Snapshots
+### 19B. Independent Stage Snapshots & Shared Calculation Engine
 - **No Conflation**: ZMCC Laboratory Session metrics (`gross_liters`, `density`, `snf`, `ts`, `at_13ts_liters`) are computed independently from actual physical testing at the ZMCC lab reception.
-- **No Overwrite**: ZMCC Lab metrics never overwrite, replace, or merge with `MotJourneySummary` values.
+- **MOT & Contractor Equality**: Both MOT arrivals and Contractor arrivals share the exact same calculation engine and formula paths.
+- **Read-Only Reference**: The upstream `MotJourneySummary` (when present on MOT arrivals) is displayed for reference only and is NEVER auto-copied, prefilled, or used to override physical reception measurements.
 - **Auditable Contrast**: `MotJourneySummary` captures the field collection snapshot (what the MOT driver collected across shops), while `ZmccLabSession` captures the reception snapshot (what arrived and was physically tested at the ZMCC chiller). Both are immutable stage records.
-- **No Schema Changes in Stage 6G-B**: Schema additions to `zmcc_lab_session` are explicitly deferred to Stage 6G-C.
+
+### 19C. Core Test Parameter Resolution (Fail-Closed)
+- **Measured Parameters**: LR and Fat remain measured test results in `ZmccLabResult`. No editable `session.lr` or `session.fat` columns are introduced.
+- **Fail-Closed Resolution**: `resolveCoreMilkTestResults(testConfigs, results)` in `src/backend/utils/milkTestResolvers.ts` resolves core parameters using candidate matchers (`isLrTestCandidate`, `isFatTestCandidate`).
+- **Ambiguity & Ratio Rejection**: Calculated ratio tests (e.g. SNF-to-Fat ratio) are excluded from Fat candidates. If 0 candidates or >1 candidates exist for LR or Fat, resolution fails closed and session completion is rejected.
+- **Manual Input Prohibition**: Client requests attempting to submit manually calculated metrics (`density`, `gross_liters`, `snf`, `ts`, `at_13ts_liters`, `calculation_version`) are rejected by the backend.
+
+### 19D. Supervisory Corrections & Historical Safety
+- **Manager Correction**: ZMCC Managers (up to 5 saves) and Super Admins (unlimited) can correct `quantity_value`, `quantity_unit`, and test results on completed sessions.
+- **Atomic Recalculation**: Derived metrics (`density`, `gross_liters`, `snf`, `ts`, `at_13ts_liters`) are recalculated atomically within the database transaction using the canonical formula engine.
+- **Immutable Historical Records**: Completed sessions created prior to Stage 6G-C retain NULL metrics (`quantity_value`, `quantity_unit`, `density`, `gross_liters`, etc.) as a valid historical state. Synthetic data is never backfilled.
+- **Database Migration**: Exactly 1 tracked migration `20260912210000_zmcc_final_milk_metrics` (repository migration count: 21).

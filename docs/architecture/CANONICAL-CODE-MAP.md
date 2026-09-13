@@ -316,8 +316,22 @@ SUPER_ADMIN
 
 ---
 
-## 17. Stage 6G-C ZMCC Laboratory Testing Contract Lock (Preview / Specification Lock)
+## 17. Stage 6G-C ZMCC Final Milk Metrics Architecture
 
-- `src/backend/utils/milkFormulas.ts`: Canonical calculation owner for `calculateGrossLiters(quantity, unit, lr)` where `LITER` returns declared liters directly and `KG` returns `KG / (1 + LR / 1000)`.
-- `src/backend/services/zmccLabService.ts`: ZMCC lab testing operates on independent actual physical measurements (`quantity_value`, `quantity_unit`, `lr`, `fat`), computing independent metrics (`gross_liters`, `density`, `snf`, `ts`, `at_13ts_liters`). Never overwrites or conflates with `MotJourneySummary`.
-- Schema additions to `zmcc_lab_session` are locked for Stage 6G-C (zero schema modifications in 6G-B).
+- `src/backend/utils/milkTestResolvers.ts`: Core test parameter resolver owning `isLrTestCandidate`, `isFatTestCandidate`, and `resolveCoreMilkTestResults`. Resolves exactly 1 LR and 1 Fat candidate with fail-closed semantics (rejects 0 or >1 candidates, excludes ratio tests).
+- `src/backend/utils/milkFormulas.ts`: Canonical calculation owner for `computeCanonicalMilkMetrics(quantityValue, quantityUnit, lr, fat)`:
+  - `LITER` -> `gross_liters = quantity_value`.
+  - `KG` -> `density = 1 + lr / 1000`, `gross_liters = quantity_value / density`.
+  - `snf = lr / 4 + 0.22 * fat + 0.72`, `ts = fat + snf`, `at_13ts_liters = gross_liters * ts / 13`.
+- `prisma/migrations/20260912210000_zmcc_final_milk_metrics/migration.sql`: Tracked migration (migration count: 21) adding `quantity_value`, `quantity_unit`, `density`, `gross_liters`, `snf`, `ts`, `at_13ts_liters`, and `calculation_version` to `zmcc_lab_session` with CHECK constraints.
+- `src/backend/services/zmccLabService.ts`: Authoritative service owning ZMCC laboratory session lifecycle:
+  - Validates `quantity_value` and `quantity_unit` (native `QuantityUnit` enum).
+  - Resolves core LR & Fat tests fail-closed and calculates canonical derived metrics.
+  - Rejects client attempts to pass manually calculated metrics.
+  - Atomic manager/superadmin corrections recomputing metrics in transaction.
+  - Exposes upstream `mot_arrival.journey.summary` as read-only reference without auto-copying.
+- `src/frontend/modules/zmcc/lab/ZmccLabWorkspace.tsx`: User interface for active testing, manager corrections, and historical records:
+  - Live client-side preview for canonical milk metrics.
+  - Upstream MOT Journey Summary read-only reference panel.
+  - Correction modal with quantity/unit inputs and live preview.
+  - History table with Received Qty, Gross Liters, @13% TS Liters, and "Not captured under this version" for legacy rows.

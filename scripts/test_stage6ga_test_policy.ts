@@ -783,10 +783,10 @@ async function runTests() {
     // 35. BOTH still means Dispatch + Plant in existing behavior
     assert(distinctScopes.includes('BOTH'), 35, 'BOTH_SCOPE_RETAINED', 'Scope "BOTH" remains active in database');
 
-    // 36. Existing Stage 6F ZMCC flow is not switched to new policy
+    // 36. ZMCC Lab flow is migrated to canonical policy in 6G-C
     const zmccLabServiceContent = fs.readFileSync(path.join(repoRoot, 'src/backend/services/zmccLabService.ts'), 'utf8');
     const hasNewPolicyInZmcc = zmccLabServiceContent.includes('MilkTestPolicyService') || zmccLabServiceContent.includes('milkTestPolicyAssignment');
-    assert(!hasNewPolicyInZmcc, 36, 'STAGE6F_FLOW_UNTOUCHED', 'Stage 6F ZMCC Lab service does NOT reference MilkTestPolicyService in 6G-A');
+    assert(hasNewPolicyInZmcc, 36, 'STAGE6GC_ZMCC_CONSUMES_POLICY', 'ZMCC Lab service references MilkTestPolicyService');
 
     // 37. Existing Dispatch flow is not switched
     const dispatchController = fs.existsSync(path.join(repoRoot, 'src/backend/modules/dispatch/service.ts'))

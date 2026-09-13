@@ -30,8 +30,8 @@
  *    - Sorted oldest arrival first
  * 6. Session Lifecycle & Frozen Test Snapshot:
  *    - startOrResumeSession creates session with status IN_PROGRESS
- *    - Snapshots active ZMCC/ALL tests into zmcc_lab_result
- *    - Fail-closed if 0 active tests configured (400 "No active ZMCC lab tests configured.")
+ *    - Snapshots effective tests from the canonical ZMCC testing-point policy
+ *    - Fail-closed if 0 active tests configured (400 "No active milk test policy is configured for ZMCC_LAB_MOT.")
  *    - Concurrency safe: concurrent starts return existing session (200 / 201)
  *    - Subsequent changes to LabTest master do not affect frozen snapshot
  * 7. Draft Results Updates:
@@ -143,7 +143,7 @@ async function runStage6fTests() {
   const migrationDirs = fs
     .readdirSync(migrationsDir)
     .filter((f) => fs.statSync(path.join(migrationsDir, f)).isDirectory());
-  assert(migrationDirs.length === 20, 'Migration Count', `Exactly 20 tracked migrations (found ${migrationDirs.length})`);
+  assert(migrationDirs.length === 21, 'Migration Count', `Exactly 21 tracked migrations (found ${migrationDirs.length})`);
 
   // Verify DB check constraints
   const dbConstraints: Array<{ conname: string }> = await prisma.$queryRaw`
@@ -439,6 +439,50 @@ async function runStage6fTests() {
     },
   });
 
+  // Ensure canonical LR and Fat tests exist and are active (required by Stage 6G-C canonical runtime)
+  let testLr = await prisma.labTest.findFirst({ where: { testCode: 'LT-000008' } });
+  if (!testLr) {
+    testLr = await prisma.labTest.create({
+      data: {
+        testCode: 'LT-000008',
+        testName: 'LR at 20 Celsius',
+        resultType: 'NUMERIC',
+        unit: 'degrees',
+        isActive: true,
+        isRequired: true,
+        testScope: 'ZMCC',
+        displayOrder: 1,
+      },
+    });
+  } else if (!testLr.isActive) {
+    testLr = await prisma.labTest.update({ where: { id: testLr.id }, data: { isActive: true } });
+  }
+
+  let testFat = await prisma.labTest.findFirst({ where: { testCode: 'LT-000026' } });
+  if (!testFat) {
+    testFat = await prisma.labTest.create({
+      data: {
+        testCode: 'LT-000026',
+        testName: 'Fat',
+        resultType: 'NUMERIC',
+        unit: '%',
+        isActive: true,
+        isRequired: true,
+        testScope: 'ZMCC',
+        displayOrder: 2,
+      },
+    });
+  } else if (!testFat.isActive) {
+    testFat = await prisma.labTest.update({ where: { id: testFat.id }, data: { isActive: true } });
+  }
+
+  // Clear existing policy assignments for ZMCC_LAB_MOT and ZMCC_LAB_CONTRACTOR to ensure test isolation
+  await prisma.milkTestPolicyAssignment.deleteMany({
+    where: {
+      testing_point: { in: ['ZMCC_LAB_MOT', 'ZMCC_LAB_CONTRACTOR'] },
+    },
+  });
+
   console.log('\n--- 4. ROLE PERMISSIONS & SCOPING ---');
   // Inactive user
   const inactiveUser = await prisma.user.create({
@@ -501,6 +545,49 @@ async function runStage6fTests() {
   }
 
   console.log('\n--- 6. START / RESUME SESSION & FROZEN SNAPSHOT ---');
+  // Fail-closed if 0 active policy tests configured (400 "No active milk test policy is configured for ZMCC_LAB_MOT.")
+  const emptyPolicyRes = await startOrResumeSession(toCoreUser(attendantA) as any, {
+    arrival_type: 'MOT',
+    arrival_id: motArrivalId,
+  });
+  assert(
+    emptyPolicyRes.status === 400 && Boolean(emptyPolicyRes.error?.includes('No active milk test policy is configured for ZMCC_LAB_MOT')),
+    'Empty Policy Fail-Closed',
+    'Fail-closed if no active tests configured in policy (400 "No active milk test policy is configured for ZMCC_LAB_MOT.")'
+  );
+
+  // Seed canonical policy assignments for ZMCC_LAB_MOT and ZMCC_LAB_CONTRACTOR
+  const policyTests = [
+    { lab_test_id: testLr.id, is_required: true, display_order: 1 },
+    { lab_test_id: testFat.id, is_required: true, display_order: 2 },
+    { lab_test_id: testTemp.id, is_required: true, display_order: 3 },
+    { lab_test_id: testAcidity.id, is_required: true, display_order: 4 },
+    { lab_test_id: testOrgano.id, is_required: true, display_order: 5 },
+  ];
+
+  for (const pt of policyTests) {
+    await prisma.milkTestPolicyAssignment.create({
+      data: {
+        lab_test_id: pt.lab_test_id,
+        testing_point: 'ZMCC_LAB_MOT',
+        is_required: pt.is_required,
+        display_order: pt.display_order,
+        is_active: true,
+        created_by_user_id: managerA.id,
+      },
+    });
+    await prisma.milkTestPolicyAssignment.create({
+      data: {
+        lab_test_id: pt.lab_test_id,
+        testing_point: 'ZMCC_LAB_CONTRACTOR',
+        is_required: pt.is_required,
+        display_order: pt.display_order,
+        is_active: true,
+        created_by_user_id: managerA.id,
+      },
+    });
+  }
+
   const startSessionRes = await startOrResumeSession(toCoreUser(attendantA) as any, {
     arrival_type: 'MOT',
     arrival_id: motArrivalId,
@@ -508,7 +595,7 @@ async function runStage6fTests() {
   assert(startSessionRes.status === 201, 'Start Lab Session', `Session created with ID #${startSessionRes.data?.id}`);
   const sessionId = BigInt(startSessionRes.data.id);
   assert(startSessionRes.data.status === 'IN_PROGRESS', 'Session Status', 'Initial status is IN_PROGRESS');
-  assert(startSessionRes.data.results.length >= 3, 'Snapshot Results Count', `Results created with frozen test snapshots (${startSessionRes.data.results.length} tests)`);
+  assert(startSessionRes.data.results.length >= 3, 'Snapshot Results Count', `Results created with frozen test snapshots from policy (${startSessionRes.data.results.length} tests)`);
 
   // Verify frozen metadata snapshot
   const tempSnap = startSessionRes.data.results.find((r: any) => r.test_id === testTemp.id.toString());
@@ -549,6 +636,8 @@ async function runStage6fTests() {
   const incompleteCompRes = await completeSession(toCoreUser(attendantA) as any, sessionId, {
     completion_client_event_id: `comp-evt-1-${runId}`,
     decision: 'ACCEPTED',
+    quantity_value: 5000,
+    quantity_unit: 'LITER',
     results: [{ test_id: testTemp.id, numeric_value: 4.0 }], // Missing required Acidity and Organo
   });
   assert(incompleteCompRes.status === 400, 'Completeness Validation', 'Missing required test rejected with 400');
@@ -557,6 +646,8 @@ async function runStage6fTests() {
   const dupTestIdRes = await completeSession(toCoreUser(attendantA) as any, sessionId, {
     completion_client_event_id: `comp-evt-dup-${runId}`,
     decision: 'ACCEPTED',
+    quantity_value: 5000,
+    quantity_unit: 'LITER',
     results: [
       { test_id: testTemp.id, numeric_value: 4.0 },
       { test_id: testTemp.id, numeric_value: 4.5 },
@@ -571,6 +662,8 @@ async function runStage6fTests() {
   const missingFrozenTestRes = await completeSession(toCoreUser(attendantA) as any, sessionId, {
     completion_client_event_id: `comp-evt-miss-${runId}`,
     decision: 'ACCEPTED',
+    quantity_value: 5000,
+    quantity_unit: 'LITER',
     results: [
       { test_id: testTemp.id, numeric_value: 4.0 },
       { test_id: testAcidity.id, numeric_value: 0.14 },
@@ -583,6 +676,8 @@ async function runStage6fTests() {
   const completionEventId = `comp-evt-success-${runId}`;
   const validCompletionResults = startSessionRes.data.results.map((r: any) => {
     if (r.result_type_snapshot === 'NUMERIC') {
+      if (r.test_id === testLr.id.toString()) return { test_id: r.test_id, numeric_value: 30.0 };
+      if (r.test_id === testFat.id.toString()) return { test_id: r.test_id, numeric_value: 4.0 };
       return { test_id: r.test_id, numeric_value: 4.1 };
     } else {
       const options = r.result_options_snapshot as any[];
@@ -594,6 +689,8 @@ async function runStage6fTests() {
   const completeRes = await completeSession(toCoreUser(attendantA) as any, sessionId, {
     completion_client_event_id: completionEventId,
     decision: 'ACCEPTED',
+    quantity_value: 5000,
+    quantity_unit: 'LITER',
     remarks: 'Milk passed all intake standards',
     results: validCompletionResults,
   });
@@ -619,6 +716,8 @@ async function runStage6fTests() {
   const replayRes = await completeSession(toCoreUser(attendantA) as any, sessionId, {
     completion_client_event_id: completionEventId,
     decision: 'ACCEPTED',
+    quantity_value: 5000,
+    quantity_unit: 'LITER',
     remarks: 'Milk passed all intake standards',
     results: validCompletionResults,
   });
@@ -628,6 +727,8 @@ async function runStage6fTests() {
   const changedNumericReplay = await completeSession(toCoreUser(attendantA) as any, sessionId, {
     completion_client_event_id: completionEventId,
     decision: 'ACCEPTED',
+    quantity_value: 5000,
+    quantity_unit: 'LITER',
     remarks: 'Milk passed all intake standards',
     results: validCompletionResults.map((r: any) =>
       r.test_id === testTemp.id.toString() ? { ...r, numeric_value: 9.9 } : r
@@ -639,6 +740,8 @@ async function runStage6fTests() {
   const changedCatReplay = await completeSession(toCoreUser(attendantA) as any, sessionId, {
     completion_client_event_id: completionEventId,
     decision: 'ACCEPTED',
+    quantity_value: 5000,
+    quantity_unit: 'LITER',
     remarks: 'Milk passed all intake standards',
     results: validCompletionResults.map((r: any) =>
       r.test_id === testOrgano.id.toString() ? { ...r, text_value: 'NOT_OK' } : r
@@ -650,6 +753,8 @@ async function runStage6fTests() {
   const changedRemarksReplay = await completeSession(toCoreUser(attendantA) as any, sessionId, {
     completion_client_event_id: completionEventId,
     decision: 'ACCEPTED',
+    quantity_value: 5000,
+    quantity_unit: 'LITER',
     remarks: 'Completely different remarks submitted',
     results: validCompletionResults,
   });
@@ -659,6 +764,8 @@ async function runStage6fTests() {
   const alteredReplayRes = await completeSession(toCoreUser(attendantA) as any, sessionId, {
     completion_client_event_id: completionEventId,
     decision: 'REJECTED',
+    quantity_value: 5000,
+    quantity_unit: 'LITER',
     rejection_reason: 'Changed mind',
     results: validCompletionResults,
   });
@@ -688,6 +795,8 @@ async function runStage6fTests() {
   const conCompEventId = `comp-con-evt-${runId}`;
   const conRejectResults = startConSession.data.results.map((r: any) => {
     if (r.result_type_snapshot === 'NUMERIC') {
+      if (r.test_id === testLr.id.toString()) return { test_id: r.test_id, numeric_value: 29.0 };
+      if (r.test_id === testFat.id.toString()) return { test_id: r.test_id, numeric_value: 4.0 };
       return { test_id: r.test_id, numeric_value: 12.8 };
     } else {
       const options = r.result_options_snapshot as any[];
@@ -699,6 +808,8 @@ async function runStage6fTests() {
   const conRejectRes = await completeSession(toCoreUser(attendantA) as any, conSessionId, {
     completion_client_event_id: conCompEventId,
     decision: 'REJECTED',
+    quantity_value: 3500,
+    quantity_unit: 'LITER',
     rejection_reason: 'High temperature (> 12C) and high acidity (0.20%)',
     remarks: 'Milk rejected at gate due to thermal abuse in transport',
     results: conRejectResults,
@@ -714,6 +825,8 @@ async function runStage6fTests() {
   const conReplayRes = await completeSession(toCoreUser(attendantA) as any, conSessionId, {
     completion_client_event_id: conCompEventId,
     decision: 'REJECTED',
+    quantity_value: 3500,
+    quantity_unit: 'LITER',
     rejection_reason: 'High temperature (> 12C) and high acidity (0.20%)',
     remarks: 'Milk rejected at gate due to thermal abuse in transport',
     results: conRejectResults,
@@ -724,6 +837,8 @@ async function runStage6fTests() {
   const conAlteredReasonRes = await completeSession(toCoreUser(attendantA) as any, conSessionId, {
     completion_client_event_id: conCompEventId,
     decision: 'REJECTED',
+    quantity_value: 3500,
+    quantity_unit: 'LITER',
     rejection_reason: 'Different reason: bad color and dirt in milk',
     remarks: 'Milk rejected at gate due to thermal abuse in transport',
     results: conRejectResults,
@@ -734,6 +849,8 @@ async function runStage6fTests() {
   const wrongSessionReplay = await completeSession(toCoreUser(attendantA) as any, conSessionId, {
     completion_client_event_id: completionEventId, // completionEventId belongs to sessionId (MOT), not conSessionId
     decision: 'ACCEPTED',
+    quantity_value: 5000,
+    quantity_unit: 'LITER',
     remarks: 'Milk passed all intake standards',
     results: validCompletionResults,
   });
@@ -759,6 +876,8 @@ async function runStage6fTests() {
   const concEventId = `comp-conc-evt-${runId}`;
   const concResults = concStartRes.data.results.map((r: any) => {
     if (r.result_type_snapshot === 'NUMERIC') {
+      if (r.test_id === testLr.id.toString()) return { test_id: r.test_id, numeric_value: 30.0 };
+      if (r.test_id === testFat.id.toString()) return { test_id: r.test_id, numeric_value: 4.0 };
       return { test_id: r.test_id, numeric_value: 4.0 };
     } else {
       const options = r.result_options_snapshot as any[];
@@ -771,12 +890,16 @@ async function runStage6fTests() {
     completeSession(toCoreUser(attendantA) as any, concSessionId, {
       completion_client_event_id: concEventId,
       decision: 'ACCEPTED',
+      quantity_value: 4200,
+      quantity_unit: 'LITER',
       remarks: 'Concurrent test batch',
       results: concResults,
     }),
     completeSession(toCoreUser(attendantA) as any, concSessionId, {
       completion_client_event_id: concEventId,
       decision: 'ACCEPTED',
+      quantity_value: 4200,
+      quantity_unit: 'LITER',
       remarks: 'Concurrent test batch',
       results: concResults,
     }),
@@ -1140,6 +1263,16 @@ async function runStage6fTests() {
       isActive: true,
     },
   });
+  const calcPolicyAssignment = await prisma.milkTestPolicyAssignment.create({
+    data: {
+      lab_test_id: calcTest.id,
+      testing_point: 'ZMCC_LAB_CONTRACTOR',
+      is_required: true,
+      display_order: 99,
+      is_active: true,
+      created_by_user_id: managerA.id,
+    },
+  });
 
   const calcArrivalRes = await submitContractorArrival(toCoreUser(pheA) as any, {
     contractor_source_id: contractorActive.id,
@@ -1162,6 +1295,10 @@ async function runStage6fTests() {
   );
 
   // Deactivate the CALCULATED test
+  await prisma.milkTestPolicyAssignment.update({
+    where: { id: calcPolicyAssignment.id },
+    data: { is_active: false },
+  });
   await prisma.labTest.update({
     where: { id: calcTest.id },
     data: { isActive: false },
@@ -1177,6 +1314,16 @@ async function runStage6fTests() {
       isRequired: false,
       displayOrder: 100,
       isActive: true,
+    },
+  });
+  const optCalcPolicyAssignment = await prisma.milkTestPolicyAssignment.create({
+    data: {
+      lab_test_id: optCalcTest.id,
+      testing_point: 'ZMCC_LAB_CONTRACTOR',
+      is_required: false,
+      display_order: 100,
+      is_active: true,
+      created_by_user_id: managerA.id,
     },
   });
 
@@ -1204,7 +1351,11 @@ async function runStage6fTests() {
   const compCalcEdit = await completeSession(toCoreUser(attendantA) as any, optCalcSessionId, {
     completion_client_event_id: `comp-calc-evt-${runId}`,
     decision: 'ACCEPTED',
+    quantity_value: 5000,
+    quantity_unit: 'LITER',
     results: [
+      { test_id: testLr.id, numeric_value: 30.0 },
+      { test_id: testFat.id, numeric_value: 4.0 },
       { test_id: testTemp.id, numeric_value: 4.0 },
       { test_id: testAcidity.id, numeric_value: 0.14 },
       { test_id: testOrgano.id, text_value: 'OK' },
@@ -1214,6 +1365,10 @@ async function runStage6fTests() {
   assert(compCalcEdit.status === 400, 'Calculated Complete Manual Guard', 'Manual entry on CALCULATED test in completeSession rejected with 400');
 
   // Deactivate optional CALCULATED test
+  await prisma.milkTestPolicyAssignment.update({
+    where: { id: optCalcPolicyAssignment.id },
+    data: { is_active: false },
+  });
   await prisma.labTest.update({
     where: { id: optCalcTest.id },
     data: { isActive: false },
@@ -1275,6 +1430,22 @@ async function runStage6fTests() {
   // 10. No existing LabTest records automatically rewritten
   const initialTestCount = await prisma.labTest.count();
   assert(initialTestCount > 0, 'Lab Tests Intact', `All ${initialTestCount} lab test records preserved without auto-rewrite`);
+
+  // Clean up transient test tests so future test suites have a clean slate
+  await prisma.milkTestPolicyAssignment.deleteMany({
+    where: {
+      lab_test_id: { in: [testTemp.id, testAcidity.id, testOrgano.id, calcTest.id, optCalcTest.id] },
+    },
+  });
+
+  await prisma.labTest.updateMany({
+    where: {
+      id: { in: [testTemp.id, testAcidity.id, testOrgano.id, calcTest.id, optCalcTest.id] },
+    },
+    data: {
+      isActive: false,
+    },
+  });
 
   console.log('\n=====================================================================');
   console.log(`FINAL STAGE 6F TEST RESULTS: ${passed} PASSED, ${failed} FAILED`);

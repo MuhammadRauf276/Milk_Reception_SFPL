@@ -104,6 +104,7 @@ const suites: string[] = isProbeMode
       'scripts/test_stage6f_zmcc_lab.ts',
       'scripts/test_stage6ga_test_policy.ts',
       'scripts/test_stage6gb_mot_journey_summary.ts',
+      'scripts/test_stage6gc_zmcc_final_milk_metrics.ts',
     ];
 
 console.log(`==================================================`);
