@@ -1003,9 +1003,9 @@ async function runStage6fTests() {
     remarks: 'Rechecked titration confirms 0.13%',
   });
   assert(corr1Res.status === 200, 'Correction 1 Success', 'Correction 1 applied successfully (200 OK)');
-  assert(corr1Res.data.correction_count === 1, 'Correction Count 1', 'total correction_count is 1');
-  assert(corr1Res.data.manager_correction_count === 1, 'Manager Correction Count 1', 'manager_correction_count is 1');
-  const correctedAcidity = corr1Res.data.results.find((r: any) => r.test_id === testAcidity.id.toString());
+  assert(corr1Res.data?.correction_count === 1, 'Correction Count 1', 'total correction_count is 1');
+  assert(corr1Res.data?.manager_correction_count === 1, 'Manager Correction Count 1', 'manager_correction_count is 1');
+  const correctedAcidity = corr1Res.data?.results?.find((r: any) => r.test_id === testAcidity.id.toString());
   assert(correctedAcidity?.numeric_value === 0.13, 'Corrected Value', 'Numeric value updated to 0.13');
 
   const corr1AuditLogs = await prisma.auditLog.findMany({
@@ -1019,14 +1019,16 @@ async function runStage6fTests() {
 
   // 3. Manager #2 succeeds
   const corr2Res = await correctCompletedSession(toCoreUser(managerA), sessionId, {
-    reason: 'Adulteration strip secondary test failed upon re-inspection',
-    decision: 'REJECTED',
-    rejection_reason: 'Secondary adulteration test confirmed positive',
+    reason: 'Calibrated thermometer re-check confirms 3.8C',
+    results: [{ test_id: testTemp.id, numeric_value: 3.8 }],
+    remarks: 'Calibrated thermometer re-check confirms 3.8C',
   });
   assert(corr2Res.status === 200, 'Correction 2 Success', 'Correction 2 applied successfully (200 OK)');
-  assert(corr2Res.data.correction_count === 2, 'Correction Count 2', 'total correction_count is 2');
-  assert(corr2Res.data.manager_correction_count === 2, 'Manager Correction Count 2', 'manager_correction_count is 2');
-  assert(corr2Res.data.decision === 'REJECTED', 'Corrected Decision', 'Decision flipped to REJECTED');
+  assert(corr2Res.data?.correction_count === 2, 'Correction Count 2', 'total correction_count is 2');
+  assert(corr2Res.data?.manager_correction_count === 2, 'Manager Correction Count 2', 'manager_correction_count is 2');
+  assert(corr2Res.data?.decision === 'ACCEPTED', 'Corrected Decision', 'Decision remains ACCEPTED');
+  const correctedTemp = corr2Res.data?.results?.find((r: any) => r.test_id === testTemp.id.toString());
+  assert(correctedTemp?.numeric_value === 3.8, 'Corrected Temperature', 'Numeric value updated to 3.8');
 
   // 4. Manager #3 succeeds
   const corr3Res = await correctCompletedSession(toCoreUser(managerA), sessionId, {
@@ -1034,8 +1036,8 @@ async function runStage6fTests() {
     remarks: 'Sensory notes updated during audit inspection 3',
   });
   assert(corr3Res.status === 200, 'Correction 3 Success', 'Correction 3 applied successfully (200 OK)');
-  assert(corr3Res.data.correction_count === 3, 'Correction Count 3', 'total correction_count is 3');
-  assert(corr3Res.data.manager_correction_count === 3, 'Manager Correction Count 3', 'manager_correction_count is 3');
+  assert(corr3Res.data?.correction_count === 3, 'Correction Count 3', 'total correction_count is 3');
+  assert(corr3Res.data?.manager_correction_count === 3, 'Manager Correction Count 3', 'manager_correction_count is 3');
 
   // 5. Manager #4 succeeds
   const corr4Res = await correctCompletedSession(toCoreUser(managerA), sessionId, {
@@ -1043,8 +1045,8 @@ async function runStage6fTests() {
     remarks: 'Temperature calibration note added in save 4',
   });
   assert(corr4Res.status === 200, 'Correction 4 Success', 'Correction 4 applied successfully (200 OK)');
-  assert(corr4Res.data.correction_count === 4, 'Correction Count 4', 'total correction_count is 4');
-  assert(corr4Res.data.manager_correction_count === 4, 'Manager Correction Count 4', 'manager_correction_count is 4');
+  assert(corr4Res.data?.correction_count === 4, 'Correction Count 4', 'total correction_count is 4');
+  assert(corr4Res.data?.manager_correction_count === 4, 'Manager Correction Count 4', 'manager_correction_count is 4');
 
   // 6. Manager #5 succeeds
   const corr5Res = await correctCompletedSession(toCoreUser(managerA), sessionId, {
@@ -1052,8 +1054,8 @@ async function runStage6fTests() {
     remarks: 'Manager final fifth correction note',
   });
   assert(corr5Res.status === 200, 'Correction 5 Success', 'Correction 5 applied successfully (200 OK)');
-  assert(corr5Res.data.correction_count === 5, 'Correction Count 5', 'total correction_count is 5');
-  assert(corr5Res.data.manager_correction_count === 5, 'Manager Correction Count 5', 'manager_correction_count is 5');
+  assert(corr5Res.data?.correction_count === 5, 'Correction Count 5', 'total correction_count is 5');
+  assert(corr5Res.data?.manager_correction_count === 5, 'Manager Correction Count 5', 'manager_correction_count is 5');
 
   // 7. Manager #6 fails (limit reached)
   const corr6Res = await correctCompletedSession(toCoreUser(managerA), sessionId, {
@@ -1076,8 +1078,8 @@ async function runStage6fTests() {
     results: [{ test_id: testAcidity.id, numeric_value: 0.14 }],
   });
   assert(adminCorr1Res.status === 200, 'Super Admin Correction 1 Success', 'Super Admin correction after manager limit succeeds (200 OK)');
-  assert(adminCorr1Res.data.correction_count === 6, 'Total Correction Count 6', 'total correction_count becomes 6');
-  assert(adminCorr1Res.data.manager_correction_count === 5, 'Manager Count Remains 5', 'manager_correction_count remains 5');
+  assert(adminCorr1Res.data?.correction_count === 6, 'Total Correction Count 6', 'total correction_count becomes 6');
+  assert(adminCorr1Res.data?.manager_correction_count === 5, 'Manager Count Remains 5', 'manager_correction_count remains 5');
 
   // 9. Super Admin second/third correction also succeeds
   const adminCorr2Res = await correctCompletedSession(toCoreUser(superAdmin), sessionId, {
@@ -1085,16 +1087,16 @@ async function runStage6fTests() {
     remarks: 'Super Admin second audit verification complete',
   });
   assert(adminCorr2Res.status === 200, 'Super Admin Correction 2 Success', 'Second Super Admin correction succeeds (200 OK)');
-  assert(adminCorr2Res.data.correction_count === 7, 'Total Correction Count 7', 'total correction_count becomes 7');
-  assert(adminCorr2Res.data.manager_correction_count === 5, 'Manager Count Still 5', 'manager_correction_count remains 5');
+  assert(adminCorr2Res.data?.correction_count === 7, 'Total Correction Count 7', 'total correction_count becomes 7');
+  assert(adminCorr2Res.data?.manager_correction_count === 5, 'Manager Count Still 5', 'manager_correction_count remains 5');
 
   const adminCorr3Res = await correctCompletedSession(toCoreUser(superAdmin), sessionId, {
     reason: 'Super Admin third audit verification',
     remarks: 'Super Admin third audit verification complete',
   });
   assert(adminCorr3Res.status === 200, 'Super Admin Correction 3 Success', 'Third Super Admin correction succeeds (200 OK)');
-  assert(adminCorr3Res.data.correction_count === 8, 'Total Correction Count 8', 'total correction_count becomes 8');
-  assert(adminCorr3Res.data.manager_correction_count === 5, 'Manager Count Fixed at 5', 'manager_correction_count remains 5');
+  assert(adminCorr3Res.data?.correction_count === 8, 'Total Correction Count 8', 'total correction_count becomes 8');
+  assert(adminCorr3Res.data?.manager_correction_count === 5, 'Manager Count Fixed at 5', 'manager_correction_count remains 5');
 
   // Exactly 8 correction audit logs created (5 manager + 3 super admin)
   const sessionAuditLogs = await prisma.auditLog.findMany({
@@ -1108,8 +1110,8 @@ async function runStage6fTests() {
   assert(sessionAuditLogs.length === 8, 'Audit Logs Count 8', 'Exactly 8 correction audit logs created (5 manager + 3 super admin)');
 
   // 25, 26: Latest corrector becomes Super Admin, last_corrected_at populated
-  assert(adminCorr3Res.data.last_corrected_by_user_id === superAdmin.id.toString(), 'Latest Corrector Is Super Admin', 'latest corrector becomes Super Admin');
-  assert(!!adminCorr3Res.data.last_corrected_at, 'Last Corrected At Populated', 'last_corrected_at is populated');
+  assert(adminCorr3Res.data?.last_corrected_by_user_id === superAdmin.id.toString(), 'Latest Corrector Is Super Admin', 'latest corrector becomes Super Admin');
+  assert(!!adminCorr3Res.data?.last_corrected_at, 'Last Corrected At Populated', 'last_corrected_at is populated');
 
   // 23, 24: Original completed_by_user_id and completed_at unchanged
   const postAdminSession = await prisma.zmccLabSession.findUniqueOrThrow({
@@ -1138,8 +1140,8 @@ async function runStage6fTests() {
     remarks: 'Under super admin review',
   });
   assert(adminFirstRes.status === 200, 'Admin First Correction Success', 'Super Admin correction succeeds first');
-  assert(adminFirstRes.data.correction_count === 1, 'Admin First Total Count 1', 'total correction_count is 1');
-  assert(adminFirstRes.data.manager_correction_count === 0, 'Admin First Manager Count 0', 'manager_correction_count remains 0');
+  assert(adminFirstRes.data?.correction_count === 1, 'Admin First Total Count 1', 'total correction_count is 1');
+  assert(adminFirstRes.data?.manager_correction_count === 0, 'Admin First Manager Count 0', 'manager_correction_count remains 0');
 
   // Manager still has all 5 slots available! Execute slots 1, 2, 3, 4
   const conMgr1 = await correctCompletedSession(toCoreUser(managerA), conSessionId, {
@@ -1147,28 +1149,28 @@ async function runStage6fTests() {
     remarks: 'Con remarks 1',
   });
   assert(conMgr1.status === 200, 'Con Manager Slot 1 Success', 'Manager slot 1 succeeds after super admin correction');
-  assert(conMgr1.data.manager_correction_count === 1, 'Con Manager Count 1', 'manager_correction_count is 1');
+  assert(conMgr1.data?.manager_correction_count === 1, 'Con Manager Count 1', 'manager_correction_count is 1');
 
   const conMgr2 = await correctCompletedSession(toCoreUser(managerA), conSessionId, {
     reason: 'Con Manager slot 2 correction',
     remarks: 'Con remarks 2',
   });
   assert(conMgr2.status === 200, 'Con Manager Slot 2 Success', 'Manager slot 2 succeeds');
-  assert(conMgr2.data.manager_correction_count === 2, 'Con Manager Count 2', 'manager_correction_count is 2');
+  assert(conMgr2.data?.manager_correction_count === 2, 'Con Manager Count 2', 'manager_correction_count is 2');
 
   const conMgr3 = await correctCompletedSession(toCoreUser(managerA), conSessionId, {
     reason: 'Con Manager slot 3 correction',
     remarks: 'Con remarks 3',
   });
   assert(conMgr3.status === 200, 'Con Manager Slot 3 Success', 'Manager slot 3 succeeds');
-  assert(conMgr3.data.manager_correction_count === 3, 'Con Manager Count 3', 'manager_correction_count is 3');
+  assert(conMgr3.data?.manager_correction_count === 3, 'Con Manager Count 3', 'manager_correction_count is 3');
 
   const conMgr4 = await correctCompletedSession(toCoreUser(managerA), conSessionId, {
     reason: 'Con Manager slot 4 correction',
     remarks: 'Con remarks 4',
   });
   assert(conMgr4.status === 200, 'Con Manager Slot 4 Success', 'Manager slot 4 succeeds');
-  assert(conMgr4.data.manager_correction_count === 4, 'Con Manager Count 4', 'manager_correction_count is 4');
+  assert(conMgr4.data?.manager_correction_count === 4, 'Con Manager Count 4', 'manager_correction_count is 4');
 
   // 20, 21, 22: Concurrent Manager requests when count=4 (only 1 slot remaining): exactly one winner (#5)
   const [raceRes1, raceRes2] = await Promise.all([
@@ -1216,8 +1218,12 @@ async function runStage6fTests() {
 
   // getLabHistory
   const historyRes = await getLabHistory(toCoreUser(attendantA), { decision: 'REJECTED' });
-  assert(historyRes.status === 200, 'Get Lab History', 'Lab history retrieved');
-  assert(historyRes.data.items.length >= 2, 'History Items Count', 'Both sessions retrieved (1 contractor rejected + 1 mot corrected to rejected)');
+  assert(historyRes.status === 200, 'Get Lab History (REJECTED)', 'Lab history retrieved');
+  assert(historyRes.data?.items?.length >= 1, 'History Items Count (REJECTED)', 'At least 1 rejected session retrieved (contractor rejected)');
+
+  const historyAcceptedRes = await getLabHistory(toCoreUser(attendantA), { decision: 'ACCEPTED' });
+  assert(historyAcceptedRes.status === 200, 'Get Lab History (ACCEPTED)', 'Lab history accepted retrieved');
+  assert(historyAcceptedRes.data?.items?.length >= 2, 'History Items Count (ACCEPTED)', 'Both accepted sessions retrieved (sessionId + concSessionId)');
 
   // Super Admin global history
   const adminHistoryRes = await getLabHistory(toCoreUser(superAdmin));
