@@ -143,7 +143,7 @@ async function runStage6fTests() {
   const migrationDirs = fs
     .readdirSync(migrationsDir)
     .filter((f) => fs.statSync(path.join(migrationsDir, f)).isDirectory());
-  assert(migrationDirs.length === 21, 'Migration Count', `Exactly 21 tracked migrations (found ${migrationDirs.length})`);
+  assert(migrationDirs.length === 22, 'Migration Count', `Exactly 22 tracked migrations (found ${migrationDirs.length})`);
 
   // Verify DB check constraints
   const dbConstraints: Array<{ conname: string }> = await prisma.$queryRaw`
@@ -308,6 +308,18 @@ async function runStage6fTests() {
       is_active: u.is_active,
     };
   }
+
+  // Seed active ZMCC tank for zmccA to satisfy Stage 6G-D Accept & Receive requirement
+  await prisma.zmccTank.create({
+    data: {
+      zmcc_id: zmccA.id,
+      tank_code: `TK-6F-${runId}`,
+      tank_name: `Main Tank 6F ${runId}`,
+      capacity_liters: new Prisma.Decimal('100000.00'),
+      is_active: true,
+      created_by_user_id: superAdmin.id,
+    },
+  });
 
   // 4. Create MOT route, vehicle, profile, and completed journey
   const motRoute = await prisma.zmccRoute.create({

@@ -70,8 +70,13 @@ model User {
   started_zmcc_lab_sessions   ZmccLabSession[]           @relation("ZmccLabStartedBy")
   completed_zmcc_lab_sessions ZmccLabSession[]           @relation("ZmccLabCompletedBy")
   last_corrected_zmcc_lab_sessions ZmccLabSession[]      @relation("ZmccLabLastCorrectedBy")
-  created_milk_test_policies       MilkTestPolicyAssignment[] @relation("TestPolicyCreatedBy")
-  updated_milk_test_policies       MilkTestPolicyAssignment[] @relation("TestPolicyUpdatedBy")
+  created_milk_test_policies       MilkTestPolicyAssignment[]     @relation("TestPolicyCreatedBy")
+  updated_milk_test_policies       MilkTestPolicyAssignment[]     @relation("TestPolicyUpdatedBy")
+  created_zmcc_tanks               ZmccTank[]                     @relation("ZmccTankCreatedBy")
+  updated_zmcc_tanks               ZmccTank[]                     @relation("ZmccTankUpdatedBy")
+  received_zmcc_tank_receipts      ZmccTankReceipt[]              @relation("ZmccTankReceivedBy")
+  last_corrected_zmcc_tank_receipts ZmccTankReceipt[]             @relation("ZmccTankReceiptLastCorrectedBy")
+  performed_zmcc_tank_transactions ZmccTankInventoryTransaction[] @relation("ZmccTankTransactionPerformedBy")
 
   @@map("users")
 }
@@ -257,6 +262,9 @@ model ProcurementSource {
   zmcc_contractor_arrivals  ZmccContractorArrival[]          @relation("ZmccContractorArrivals")
   contractor_arrivals       ZmccContractorArrival[]          @relation("ContractorArrivalSources")
   zmcc_lab_sessions         ZmccLabSession[]                 @relation("ZmccLabSessions")
+  zmcc_tanks                ZmccTank[]                       @relation("ZmccTanks")
+  zmcc_tank_receipts        ZmccTankReceipt[]                @relation("ZmccTankReceipts")
+  zmcc_tank_transactions    ZmccTankInventoryTransaction[]   @relation("ZmccTankTransactions")
 
   @@map("procurement_source")
 }
@@ -1015,6 +1023,7 @@ model ZmccLabSession {
   completer          User?                  @relation("ZmccLabCompletedBy", fields: [completed_by_user_id], references: [id], onDelete: Restrict)
   last_corrector     User?                  @relation("ZmccLabLastCorrectedBy", fields: [last_corrected_by_user_id], references: [id], onDelete: Restrict)
   results            ZmccLabResult[]
+  tank_receipt       ZmccTankReceipt?       @relation("ZmccLabSessionReceipt")
 
   @@index([zmcc_id, status])
   @@index([status, created_at])
@@ -1096,4 +1105,100 @@ model MotJourneySummary {
 
   @@index([journey_id])
   @@map("mot_journey_summary")
+}
+
+enum ZmccTankTransactionType {
+  RECEIPT
+  ISSUE
+  ADJUSTMENT_IN
+  ADJUSTMENT_OUT
+}
+
+model ZmccTank {
+  id                 BigInt   @id @default(autoincrement())
+  zmcc_id            BigInt   @map("zmcc_id")
+  tank_code          String   @map("tank_code") @db.VarChar(50)
+  tank_name          String   @map("tank_name") @db.VarChar(150)
+  capacity_liters    Decimal  @map("capacity_liters") @db.Decimal(12, 2)
+  is_active          Boolean  @default(true) @map("is_active")
+  created_by_user_id BigInt   @map("created_by_user_id")
+  updated_by_user_id BigInt?  @map("updated_by_user_id")
+  created_at         DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at         DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  zmcc         ProcurementSource              @relation("ZmccTanks", fields: [zmcc_id], references: [id], onDelete: Restrict)
+  creator      User                           @relation("ZmccTankCreatedBy", fields: [created_by_user_id], references: [id], onDelete: Restrict)
+  updater      User?                          @relation("ZmccTankUpdatedBy", fields: [updated_by_user_id], references: [id], onDelete: Restrict)
+  receipts     ZmccTankReceipt[]
+  transactions ZmccTankInventoryTransaction[]
+
+  @@unique([zmcc_id, tank_code])
+  @@index([zmcc_id, is_active])
+  @@map("zmcc_tank")
+}
+
+model ZmccTankReceipt {
+  id                        BigInt        @id @default(autoincrement())
+  lab_session_id            BigInt        @unique @map("lab_session_id")
+  zmcc_id                   BigInt        @map("zmcc_id")
+  tank_id                   BigInt        @map("tank_id")
+  arrival_type              String        @map("arrival_type") @db.VarChar(20) // MOT or CONTRACTOR
+  quantity_value            Decimal       @map("quantity_value") @db.Decimal(12, 2)
+  quantity_unit             QuantityUnit  @map("quantity_unit")
+  density                   Decimal       @map("density") @db.Decimal(6, 4)
+  gross_liters              Decimal       @map("gross_liters") @db.Decimal(12, 2)
+  lr                        Decimal       @map("lr") @db.Decimal(6, 2)
+  fat                       Decimal       @map("fat") @db.Decimal(5, 2)
+  snf                       Decimal       @map("snf") @db.Decimal(6, 2)
+  ts                        Decimal       @map("ts") @db.Decimal(6, 2)
+  at_13ts_liters            Decimal       @map("at_13ts_liters") @db.Decimal(12, 2)
+  calculation_version       String        @map("calculation_version") @db.VarChar(20)
+  received_at               DateTime      @default(now()) @map("received_at") @db.Timestamp(6)
+  received_by_user_id       BigInt        @map("received_by_user_id")
+  correction_count          Int           @default(0) @map("correction_count")
+  manager_correction_count  Int           @default(0) @map("manager_correction_count")
+  last_corrected_by_user_id BigInt?       @map("last_corrected_by_user_id")
+  last_corrected_at         DateTime?     @map("last_corrected_at") @db.Timestamp(6)
+  created_at                DateTime      @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at                DateTime      @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  lab_session    ZmccLabSession                 @relation("ZmccLabSessionReceipt", fields: [lab_session_id], references: [id], onDelete: Restrict)
+  zmcc           ProcurementSource              @relation("ZmccTankReceipts", fields: [zmcc_id], references: [id], onDelete: Restrict)
+  tank           ZmccTank                       @relation(fields: [tank_id], references: [id], onDelete: Restrict)
+  receiver       User                           @relation("ZmccTankReceivedBy", fields: [received_by_user_id], references: [id], onDelete: Restrict)
+  last_corrector User?                          @relation("ZmccTankReceiptLastCorrectedBy", fields: [last_corrected_by_user_id], references: [id], onDelete: Restrict)
+  transactions   ZmccTankInventoryTransaction[]
+
+  @@index([zmcc_id, received_at])
+  @@index([tank_id])
+  @@map("zmcc_tank_receipt")
+}
+
+model ZmccTankInventoryTransaction {
+  id                    BigInt                  @id @default(autoincrement())
+  tank_id               BigInt                  @map("tank_id")
+  zmcc_id               BigInt                  @map("zmcc_id")
+  transaction_type      ZmccTankTransactionType @map("transaction_type")
+  quantity_liters       Decimal                 @map("quantity_liters") @db.Decimal(12, 2)
+  tank_receipt_id       BigInt?                 @map("tank_receipt_id")
+  dispatch_id           BigInt?                 @map("dispatch_id")
+  reference_type        String                  @map("reference_type") @db.VarChar(50)
+  reference_id          String                  @map("reference_id") @db.VarChar(100)
+  idempotency_key       String                  @unique @map("idempotency_key") @db.VarChar(150)
+  operational_timestamp DateTime                @default(now()) @map("operational_timestamp") @db.Timestamp(6)
+  performed_by_user_id  BigInt                  @map("performed_by_user_id")
+  notes                 String?                 @map("notes") @db.VarChar(255)
+  created_at            DateTime                @default(now()) @map("created_at") @db.Timestamp(6)
+
+  // Relations
+  tank      ZmccTank          @relation(fields: [tank_id], references: [id], onDelete: Restrict)
+  zmcc      ProcurementSource @relation("ZmccTankTransactions", fields: [zmcc_id], references: [id], onDelete: Restrict)
+  receipt   ZmccTankReceipt?  @relation(fields: [tank_receipt_id], references: [id], onDelete: Restrict)
+  performer User              @relation("ZmccTankTransactionPerformedBy", fields: [performed_by_user_id], references: [id], onDelete: Restrict)
+
+  @@index([tank_id, operational_timestamp])
+  @@index([zmcc_id, operational_timestamp])
+  @@map("zmcc_tank_inventory_transaction")
 }

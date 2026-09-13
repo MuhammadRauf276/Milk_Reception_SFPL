@@ -63,6 +63,16 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
   const [completionRemarks, setCompletionRemarks] = useState('');
   const [completingSession, setCompletingSession] = useState(false);
   const [completionEventId, setCompletionEventId] = useState('');
+  const [tanks, setTanks] = useState<any[]>([]);
+  const [loadingTanks, setLoadingTanks] = useState(false);
+  const [selectedTankId, setSelectedTankId] = useState('');
+
+  // Historical Receive Modal State
+  const [showHistoricalReceiveModal, setShowHistoricalReceiveModal] = useState(false);
+  const [historicalSession, setHistoricalSession] = useState<any | null>(null);
+  const [historicalTanks, setHistoricalTanks] = useState<any[]>([]);
+  const [selectedHistoricalTankId, setSelectedHistoricalTankId] = useState('');
+  const [submittingHistoricalReceive, setSubmittingHistoricalReceive] = useState(false);
 
   // History State
   const [historyItems, setHistoryItems] = useState<any[]>([]);
@@ -258,7 +268,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
   };
 
   // Open completion modal
-  const openCompleteModal = (decision: 'ACCEPTED' | 'REJECTED') => {
+  const openCompleteModal = async (decision: 'ACCEPTED' | 'REJECTED') => {
     if (!draftQuantityValue || Number(draftQuantityValue) <= 0) {
       toast.showError('Actual milk quantity is required and must be greater than 0.');
       return;
@@ -267,6 +277,29 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
     setRejectionReason('');
     setCompletionRemarks(draftRemarks);
     setCompletionEventId(generateCompletionEventId());
+    setSelectedTankId('');
+
+    if (decision === 'ACCEPTED') {
+      setLoadingTanks(true);
+      try {
+        const zmccQuery = activeSession?.zmcc_id ? `&zmcc_id=${activeSession.zmcc_id}` : '';
+        const res = await fetch(`/api/zmcc/tanks?active_only=true${zmccQuery}`);
+        if (res.ok) {
+          const data = await res.json();
+          const activeList = data.tanks || [];
+          setTanks(activeList);
+          if (activeList.length === 1) {
+            setSelectedTankId(activeList[0].id);
+          }
+        } else {
+          setTanks([]);
+        }
+      } catch {
+        setTanks([]);
+      } finally {
+        setLoadingTanks(false);
+      }
+    }
     setShowCompleteModal(true);
   };
 
@@ -280,6 +313,17 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
     if (completionDecision === 'REJECTED' && !rejectionReason.trim()) {
       toast.showError('Rejection reason is mandatory when rejecting.');
       return;
+    }
+
+    if (completionDecision === 'ACCEPTED') {
+      if (tanks.length === 0) {
+        toast.showError('No active ZMCC tank configured. Please contact administrator before accepting milk.');
+        return;
+      }
+      if (!selectedTankId && tanks.length > 1) {
+        toast.showError('Please select a destination tank.');
+        return;
+      }
     }
 
     setCompletingSession(true);
@@ -301,6 +345,10 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
         };
       });
 
+      const chosenTankId = completionDecision === 'ACCEPTED'
+        ? (selectedTankId || (tanks.length === 1 ? tanks[0].id : undefined))
+        : undefined;
+
       const res = await fetch(`/api/zmcc/lab/sessions/${activeSession.id}/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -309,6 +357,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
           quantity_value: Number(draftQuantityValue),
           quantity_unit: draftQuantityUnit,
           decision: completionDecision,
+          tank_id: chosenTankId,
           rejection_reason: completionDecision === 'REJECTED' ? rejectionReason.trim() : null,
           remarks: completionRemarks.trim() || null,
           results: payloadResults,
@@ -316,7 +365,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
       });
 
       if (res.ok) {
-        const completed = await res.json();
+        await res.json();
         setShowCompleteModal(false);
         setActiveSession(null);
         toast.showSuccess(`Session finalized: ${completionDecision}`);
@@ -329,6 +378,63 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
       toast.showError('Network error completing lab session');
     } finally {
       setCompletingSession(false);
+    }
+  };
+
+  // Historical Receive Handlers
+  const openHistoricalReceiveModal = async (session: any) => {
+    setHistoricalSession(session);
+    setSelectedHistoricalTankId('');
+    try {
+      const zmccQuery = session.zmcc_id ? `&zmcc_id=${session.zmcc_id}` : '';
+      const res = await fetch(`/api/zmcc/tanks?active_only=true${zmccQuery}`);
+      if (res.ok) {
+        const data = await res.json();
+        const activeList = data.tanks || [];
+        setHistoricalTanks(activeList);
+        if (activeList.length === 1) {
+          setSelectedHistoricalTankId(activeList[0].id);
+        }
+      } else {
+        setHistoricalTanks([]);
+      }
+    } catch {
+      setHistoricalTanks([]);
+    }
+    setShowHistoricalReceiveModal(true);
+  };
+
+  const handleHistoricalReceive = async () => {
+    if (!historicalSession) return;
+    if (historicalTanks.length === 0) {
+      toast.showError('No active ZMCC tank configured.');
+      return;
+    }
+    if (!selectedHistoricalTankId && historicalTanks.length > 1) {
+      toast.showError('Please select a destination tank.');
+      return;
+    }
+    setSubmittingHistoricalReceive(true);
+    try {
+      const res = await fetch(`/api/zmcc/lab/sessions/${historicalSession.id}/receive`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tank_id: selectedHistoricalTankId || (historicalTanks.length === 1 ? historicalTanks[0].id : undefined),
+        }),
+      });
+      if (res.ok) {
+        toast.showSuccess('Tank receipt created successfully.');
+        setShowHistoricalReceiveModal(false);
+        fetchHistory();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast.showError(err.error || 'Failed to create tank receipt.');
+      }
+    } catch {
+      toast.showError('Network error creating tank receipt.');
+    } finally {
+      setSubmittingHistoricalReceive(false);
     }
   };
 
@@ -1035,6 +1141,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                     <th className="py-3 px-4">Received Qty</th>
                     <th className="py-3 px-4">Gross Liters</th>
                     <th className="py-3 px-4">@13% TS Liters</th>
+                    <th className="py-3 px-4">Tank Receipt</th>
                     <th className="py-3 px-4">Completed At</th>
                     <th className="py-3 px-4">Tested By</th>
                     <th className="py-3 px-4">Decision</th>
@@ -1092,6 +1199,35 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                       </td>
                       <td className="py-3.5 px-4 font-mono font-bold text-emerald-700">
                         {item.at_13ts_liters != null ? `${Number(item.at_13ts_liters).toFixed(2)} L` : '—'}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        {item.tank_receipt ? (
+                          <div className="font-mono text-xs">
+                            <span className="font-bold text-slate-800">
+                              {item.tank_receipt.tank?.tank_code || 'Tank'}
+                            </span>
+                            <div className="text-[10px] text-slate-500 font-sans">
+                              {Number(item.tank_receipt.gross_liters).toFixed(2)} L
+                            </div>
+                          </div>
+                        ) : item.decision === 'ACCEPTED' ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded font-medium border border-amber-200">
+                              Unassigned
+                            </span>
+                            {canCorrect && (
+                              <button
+                                type="button"
+                                onClick={() => openHistoricalReceiveModal(item)}
+                                className="px-2 py-0.5 text-[10px] font-bold text-white bg-[#1E3A8A] rounded hover:bg-blue-900 shadow-sm"
+                              >
+                                Receive
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-slate-400">—</span>
+                        )}
                       </td>
                       <td className="py-3.5 px-4 text-slate-500">
                         {item.completed_at ? new Date(item.completed_at).toLocaleString() : '—'}
@@ -1180,6 +1316,44 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
               </button>
             </div>
 
+            {completionDecision === 'ACCEPTED' && (
+              <div className="space-y-2 pt-1">
+                {loadingTanks ? (
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-500">
+                    Loading active tanks...
+                  </div>
+                ) : tanks.length === 0 ? (
+                  <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 font-semibold flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
+                    <span>No active ZMCC tank configured. Please contact administrator before accepting milk.</span>
+                  </div>
+                ) : tanks.length === 1 ? (
+                  <div className="space-y-1">
+                    <label className="block text-xs font-bold text-slate-700">Destination Tank (Auto-selected)</label>
+                    <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-semibold">
+                      {tanks[0].tank_name} ({tanks[0].tank_code}) — Available: {Number(tanks[0].available_capacity).toFixed(2)} L / {Number(tanks[0].capacity_liters).toFixed(2)} L
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <label className="block text-xs font-bold text-slate-700">Destination Tank *</label>
+                    <select
+                      value={selectedTankId}
+                      onChange={(e) => setSelectedTankId(e.target.value)}
+                      className="w-full p-2.5 border border-slate-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
+                    >
+                      <option value="">-- Select Destination Tank --</option>
+                      {tanks.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.tank_name} ({t.tank_code}) — Available: {Number(t.available_capacity).toFixed(2)} L / {Number(t.capacity_liters).toFixed(2)} L
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+            )}
+
             {completionDecision === 'REJECTED' && (
               <div className="space-y-1">
                 <label className="block text-xs font-bold text-rose-700">
@@ -1211,7 +1385,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
 
             <div className="text-[11px] text-slate-500 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
               {completionDecision === 'ACCEPTED'
-                ? 'Accepting confirms intake milk meets ZMCC acceptance standards. Milk is stored in ZMCC pending reception/chilling in Stage 6G.'
+                ? 'Accepting confirms intake milk meets ZMCC acceptance standards and records tank receipt into immutable inventory ledger.'
                 : 'Rejecting permanently marks this intake lot as rejected at ZMCC. Supplier/MOT officer must be informed.'}
             </div>
 
@@ -1227,14 +1401,21 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
               <button
                 type="button"
                 onClick={handleCompleteSession}
-                disabled={completingSession}
-                className={`px-5 py-2 text-white text-xs font-bold rounded-xl transition-colors ${
+                disabled={
+                  completingSession ||
+                  (completionDecision === 'ACCEPTED' && (loadingTanks || tanks.length === 0 || (!selectedTankId && tanks.length > 1)))
+                }
+                className={`px-5 py-2 text-white text-xs font-bold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                   completionDecision === 'ACCEPTED'
                     ? 'bg-emerald-600 hover:bg-emerald-700'
                     : 'bg-rose-600 hover:bg-rose-700'
                 }`}
               >
-                {completingSession ? 'Submitting...' : `Finalize ${completionDecision}`}
+                {completingSession
+                  ? 'Submitting...'
+                  : completionDecision === 'ACCEPTED'
+                  ? 'Accept & Receive'
+                  : 'Finalize REJECTED'}
               </button>
             </div>
           </div>
@@ -1493,6 +1674,93 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                 className="px-5 py-2 bg-[#1E3A8A] text-white text-xs font-bold rounded-xl hover:bg-blue-900 transition-colors"
               >
                 {savingCorrection ? 'Saving...' : 'Apply Correction'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* HISTORICAL RECEIPT MODAL */}
+      {showHistoricalReceiveModal && historicalSession && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl space-y-4 border border-slate-200 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-[#1E3A8A]" />
+                <h3 className="font-bold text-slate-800 text-base">
+                  Assign Destination Tank (Session #{historicalSession.id})
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowHistoricalReceiveModal(false)}
+                className="text-slate-400 hover:text-slate-600 p-1"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl text-xs text-blue-900 space-y-1">
+              <div className="font-bold">Historical Accepted Milk Lot</div>
+              <div>
+                Quantity: <span className="font-mono font-semibold">{historicalSession.quantity_value} {historicalSession.quantity_unit}</span>
+                {historicalSession.gross_liters != null && (
+                  <span> ({Number(historicalSession.gross_liters).toFixed(2)} Gross Liters)</span>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              {historicalTanks.length === 0 ? (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 font-semibold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
+                  <span>No active ZMCC tank configured. Please configure an active tank first.</span>
+                </div>
+              ) : historicalTanks.length === 1 ? (
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-slate-700">Destination Tank (Auto-selected)</label>
+                  <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-semibold">
+                    {historicalTanks[0].tank_name} ({historicalTanks[0].tank_code}) — Available: {Number(historicalTanks[0].available_capacity).toFixed(2)} L / {Number(historicalTanks[0].capacity_liters).toFixed(2)} L
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-slate-700">Destination Tank *</label>
+                  <select
+                    value={selectedHistoricalTankId}
+                    onChange={(e) => setSelectedHistoricalTankId(e.target.value)}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
+                  >
+                    <option value="">-- Select Destination Tank --</option>
+                    {historicalTanks.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.tank_name} ({t.tank_code}) — Available: {Number(t.available_capacity).toFixed(2)} L / {Number(t.capacity_liters).toFixed(2)} L
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowHistoricalReceiveModal(false)}
+                disabled={submittingHistoricalReceive}
+                className="px-4 py-2 border border-slate-300 text-slate-700 text-xs font-semibold rounded-xl hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleHistoricalReceive}
+                disabled={
+                  submittingHistoricalReceive ||
+                  historicalTanks.length === 0 ||
+                  (!selectedHistoricalTankId && historicalTanks.length > 1)
+                }
+                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {submittingHistoricalReceive ? 'Receiving...' : 'Confirm Tank Receipt'}
               </button>
             </div>
           </div>
