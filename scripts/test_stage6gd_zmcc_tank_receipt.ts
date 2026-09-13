@@ -118,8 +118,8 @@ function toCoreUser(u: any) {
 }
 
 async function runStage6gdTests() {
-  const { PrismaClient, Prisma } = await import('@prisma/client');
-  const prisma = new PrismaClient();
+  const { Prisma } = await import('@prisma/client');
+  const { prisma } = await import('../src/backend/core/db');
 
   const {
     createZmccTank,
@@ -405,9 +405,55 @@ async function runStage6gdTests() {
   });
 
   // =============================================================
-  // 4. TANK MASTER CRUD & ROLE PERMISSIONS
+  // 4. TANK MASTER CRUD & ROLE PERMISSIONS & AUTH HARDENING
   // =============================================================
   console.log('\n--- 4. TANK MASTER CRUD & ROLE PERMISSIONS ---');
+
+  // Auth Hardening: Request with forged x-user-id header but no signed cookie/session must return 401 Unauthorized
+  console.log('\n--- 4A. AUTH HARDENING: FORGED x-user-id SPOOF TESTS ---');
+  for (const [targetRole, targetUser] of [
+    ['SUPER_ADMIN', superAdmin],
+    ['ZMCC_MANAGER', manager1],
+    ['ZMCC_LAB_ATTENDANT', attendant1],
+  ] as const) {
+    const forgedReadReq = new Request('http://localhost/api/zmcc/tanks', {
+      headers: { 'x-user-id': targetUser.id.toString() },
+    });
+    const forgedReadRes = await listZmccTanks(forgedReadReq);
+    assert(forgedReadRes.status === 401, `Spoof ${targetRole} Read`, `Forged x-user-id rejected with 401`);
+
+    const forgedCreateReq = new Request('http://localhost/api/zmcc/tanks', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-user-id': targetUser.id.toString(),
+      },
+      body: JSON.stringify({
+        tank_code: `FORGE-${targetRole}`,
+        tank_name: 'Forged Tank',
+        capacity_liters: 1000,
+        zmcc_id: zmcc1.id.toString(),
+      }),
+    });
+    const forgedCreateRes = await createZmccTank(forgedCreateReq, {
+      tank_code: `FORGE-${targetRole}`,
+      tank_name: 'Forged Tank',
+      capacity_liters: 1000,
+      zmcc_id: zmcc1.id.toString(),
+    });
+    assert(forgedCreateRes.status === 401, `Spoof ${targetRole} Create`, `Forged x-user-id rejected with 401`);
+
+    const forgedHistReq = new Request('http://localhost/api/zmcc/lab/sessions/1/receive', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-user-id': targetUser.id.toString(),
+      },
+      body: JSON.stringify({ tank_id: '1' }),
+    });
+    const forgedHistRes = await receiveHistoricalSession(forgedHistReq, '1', { tank_id: '1' });
+    assert(forgedHistRes.status === 401, `Spoof ${targetRole} Historical Receive`, `Forged x-user-id rejected with 401`);
+  }
 
   // Attempt to create tank as ZMCC_MANAGER (must fail 403)
   const mgrCreateRes = await createZmccTank(toCoreUser(manager1) as any, {
@@ -604,6 +650,25 @@ async function runStage6gdTests() {
   assert(s2ZeroTanksRes.status === 400, 'Zero Active Tanks Blocked', 'Fails closed when 0 active tanks configured');
   assert(Boolean(s2ZeroTanksRes.error?.includes('No active ZMCC tank is configured.')), 'Zero Tank Error Message', s2ZeroTanksRes.error);
 
+  // Attempt completion specifying the deactivated Tank A explicitly -> must fail closed 400
+  const s2InactExplicitRes = await completeSession(
+    toCoreUser(attendant1) as any,
+    s2Id,
+    {
+      completion_client_event_id: `evt-c-s2-inact-${runId}`,
+      tank_id: tankAId,
+      quantity_value: 5000,
+      quantity_unit: 'LITER',
+      decision: 'ACCEPTED',
+      results: [
+        { test_id: lrTest.id, numeric_value: 30, text_value: null },
+        { test_id: fatTest.id, numeric_value: 4.0, text_value: null },
+      ],
+    }
+  );
+  assert(s2InactExplicitRes.status === 400, 'Inactive Destination Tank Blocked', 'Fails closed when destination tank is inactive (400)');
+  assert(Boolean(s2InactExplicitRes.error?.includes('Destination ZMCC tank is inactive.')), 'Inactive Tank Error Message', s2InactExplicitRes.error);
+
   // Reactivate Tank A (now exactly 1 active tank exists for ZMCC 1: 12,000 L capacity)
   await toggleZmccTankActive(toCoreUser(superAdmin) as any, tankAId, true);
 
@@ -759,6 +824,86 @@ async function runStage6gdTests() {
     }
   );
   assert(attCorrRes.status === 403, 'RBAC Operator Correction Blocked', 'Attendant blocked from correcting completed session (403)');
+
+  // =============================================================
+  // 6A. DECISION SAFETY GUARDS (Stage 6G-D Physical Inventory Protection)
+  // =============================================================
+  console.log('\n--- 6A. DECISION SAFETY GUARDS ---');
+
+  // A. Attempt ACCEPTED -> REJECTED on Session 3 (which has a tank receipt)
+  const txCountBeforeFlipped = await prisma.zmccTankInventoryTransaction.count({
+    where: { receipt: { lab_session_id: s3Id } },
+  });
+  const receiptBeforeFlipped = await prisma.zmccTankReceipt.findUnique({
+    where: { lab_session_id: s3Id },
+  });
+  const sessionBeforeFlipped = await prisma.zmccLabSession.findUnique({
+    where: { id: s3Id },
+  });
+
+  const flipAccToRejRes = await correctCompletedSession(
+    toCoreUser(manager1) as any,
+    s3Id,
+    {
+      correction_reason: 'Attempting to change decision to REJECTED',
+      quantity_value: 3000,
+      quantity_unit: 'LITER',
+      decision: 'REJECTED',
+      rejection_reason: 'Should fail closed',
+      results: [
+        { test_id: lrTest.id, numeric_value: 30, text_value: null },
+        { test_id: fatTest.id, numeric_value: 4.0, text_value: null },
+      ],
+    }
+  );
+  assert(flipAccToRejRes.status === 400, 'Decision Guard: ACCEPTED -> REJECTED Blocked', 'Cannot change decision after tank receipt (400)');
+  assert(
+    Boolean(flipAccToRejRes.error?.includes('Decision cannot be changed after milk has been received into a ZMCC tank.')),
+    'Decision Guard Error Message',
+    flipAccToRejRes.error
+  );
+
+  const receiptAfterFlipped = await prisma.zmccTankReceipt.findUnique({
+    where: { lab_session_id: s3Id },
+  });
+  const txCountAfterFlipped = await prisma.zmccTankInventoryTransaction.count({
+    where: { receipt: { lab_session_id: s3Id } },
+  });
+  const sessionAfterFlipped = await prisma.zmccLabSession.findUnique({
+    where: { id: s3Id },
+  });
+
+  assert(receiptAfterFlipped?.id === receiptBeforeFlipped?.id, 'Receipt Unchanged After Blocked Flip', 'Receipt row intact');
+  assert(txCountAfterFlipped === txCountBeforeFlipped, 'Ledger Unchanged After Blocked Flip', 'No new ledger transactions');
+  assert(sessionAfterFlipped?.correction_count === sessionBeforeFlipped?.correction_count, 'Correction Count Not Consumed', 'Correction count unchanged');
+
+  // B. Attempt REJECTED -> ACCEPTED on Session 1 (which was REJECTED)
+  const session1Before = await prisma.zmccLabSession.findUnique({ where: { id: s1Id } });
+  const flipRejToAccRes = await correctCompletedSession(
+    toCoreUser(manager1) as any,
+    s1Id,
+    {
+      correction_reason: 'Attempting to change rejected session to ACCEPTED',
+      quantity_value: 5000,
+      quantity_unit: 'LITER',
+      decision: 'ACCEPTED',
+      results: [
+        { test_id: lrTest.id, numeric_value: 28, text_value: null },
+        { test_id: fatTest.id, numeric_value: 3.5, text_value: null },
+      ],
+    }
+  );
+  assert(flipRejToAccRes.status === 400, 'Decision Guard: REJECTED -> ACCEPTED Blocked', 'Cannot change REJECTED to ACCEPTED in correction (400)');
+  assert(
+    Boolean(flipRejToAccRes.error?.includes('Decision cannot be changed from REJECTED to ACCEPTED in correction.')),
+    'Decision Guard Error Message',
+    flipRejToAccRes.error
+  );
+
+  const receiptS1 = await prisma.zmccTankReceipt.findUnique({ where: { lab_session_id: s1Id } });
+  const session1After = await prisma.zmccLabSession.findUnique({ where: { id: s1Id } });
+  assert(!receiptS1, 'No Receipt for Rejected Session', 'No receipt created');
+  assert(session1After?.correction_count === session1Before?.correction_count, 'Correction Count Not Consumed (Rejected)', 'Correction count unchanged');
 
   // Positive delta correction: 3,000 L -> 3,500 L (+500 L)
   // Tank B has 8,000 capacity, stock was 3,000 -> remaining capacity is 5,000 L -> +500 fits!
@@ -922,11 +1067,11 @@ async function runStage6gdTests() {
   assert(Boolean(negStockRes.error?.includes('NEGATIVE_STOCK')), 'Negative Stock Error Format', negStockRes.error);
 
   // =============================================================
-  // 7. CONTROLLED HISTORICAL PRE-6G-D RECEIPT CREATION
+  // 7. CONTROLLED HISTORICAL PRE-6G-D RECEIPT CREATION & HARDENING
   // =============================================================
-  console.log('\n--- 7. CONTROLLED HISTORICAL PRE-6G-D RECEIPT CREATION ---');
+  console.log('\n--- 7. CONTROLLED HISTORICAL PRE-6G-D RECEIPT CREATION & HARDENING ---');
 
-  // Create a synthetic historical session (status = COMPLETED, decision = ACCEPTED, metrics populated, but tank_receipt NULL)
+  // Create a synthetic historical session (status = COMPLETED, decision = ACCEPTED, complete 6G-C metrics, authoritative LR/Fat results)
   const { arrival: histArrival } = await createCompletedMotArrival(`hist-${runId}`);
   const histSession = await prisma.zmccLabSession.create({
     data: {
@@ -947,42 +1092,368 @@ async function runStage6gdTests() {
       ts: new Prisma.Decimal('13.10'),
       at_13ts_liters: new Prisma.Decimal('4030.77'),
       calculation_version: '1.0',
+      results: {
+        create: [
+          {
+            test_id: lrTest.id,
+            test_code_snapshot: 'LR',
+            test_name_snapshot: 'Lactometer Reading',
+            result_type_snapshot: 'NUMERIC',
+            unit_snapshot: 'LR',
+            is_required_snapshot: true,
+            display_order_snapshot: 1,
+            numeric_value: new Prisma.Decimal('30.00'),
+            evaluation_status: 'PASSED',
+            is_passed: true,
+            recorded_at: new Date(),
+          },
+          {
+            test_id: fatTest.id,
+            test_code_snapshot: 'FAT',
+            test_name_snapshot: 'Fat Content',
+            result_type_snapshot: 'NUMERIC',
+            unit_snapshot: '%',
+            is_required_snapshot: true,
+            display_order_snapshot: 2,
+            numeric_value: new Prisma.Decimal('4.00'),
+            evaluation_status: 'PASSED',
+            is_passed: true,
+            recorded_at: new Date(),
+          },
+        ],
+      },
     },
   });
 
+  // 7A. RBAC & Historical Authority Checks
   // Attempt historical receipt as Inactive user (must fail 403)
   const inactHistRes = await receiveHistoricalSession(toCoreUser(inactiveUser) as any, histSession.id.toString(), {
     tank_id: tankAId,
   });
   assert(inactHistRes.status === 403, 'Inactive User Historical Receipt Blocked', 'Inactive user blocked from historical receipt (403)');
 
+  // Attempt historical receipt as ZMCC_MANAGER (must fail 403: only ZMCC_LAB_ATTENDANT or SUPER_ADMIN permitted)
+  const mgrHistRes = await receiveHistoricalSession(toCoreUser(manager1) as any, histSession.id.toString(), {
+    tank_id: tankAId,
+  });
+  assert(mgrHistRes.status === 403, 'ZMCC Manager Historical Receipt Blocked', 'Manager blocked from historical receipt (403)');
+  assert(
+    Boolean(mgrHistRes.error?.includes('Only ZMCC Lab Attendant or Super Admin can receive milk into tank.')),
+    'Manager 403 Error Message',
+    mgrHistRes.error
+  );
+
   // Attempt historical receipt for non-existent session (404)
-  const nonExistHistRes = await receiveHistoricalSession(toCoreUser(manager1) as any, '99999999', {
+  const nonExistHistRes = await receiveHistoricalSession(toCoreUser(attendant1) as any, '99999999', {
     tank_id: tankAId,
   });
   assert(nonExistHistRes.status === 404, 'Non-existent Historical Session', 'Status 404 for missing session');
 
   // Attempt historical receipt on Session 1 (which was REJECTED) -> must fail 400
-  const rejHistRes = await receiveHistoricalSession(toCoreUser(manager1) as any, s1Id.toString(), {
+  const rejHistRes = await receiveHistoricalSession(toCoreUser(attendant1) as any, s1Id.toString(), {
     tank_id: tankAId,
   });
   assert(rejHistRes.status === 400, 'Rejected Historical Session Blocked', 'Historical receipt blocked on REJECTED session (400)');
 
-  // Successfully create historical receipt into Tank A (4,000 L)
-  // Tank A capacity: 12,000 L, current stock: 5,000 L -> 7,000 L available -> 4,000 L fits!
-  const histRecRes = await receiveHistoricalSession(toCoreUser(manager1) as any, histSession.id.toString(), {
+  // 7B. No Fake Quality & Fail-Closed Snapshot Validation
+  // Historical session missing LR/Fat results
+  const { arrival: noQArrival } = await createCompletedMotArrival(`noq-${runId}`);
+  const noQHistSession = await prisma.zmccLabSession.create({
+    data: {
+      zmcc_id: zmcc1.id,
+      arrival_type: 'MOT',
+      mot_arrival_id: BigInt(noQArrival.id),
+      status: 'COMPLETED',
+      started_at: new Date(),
+      started_by_user_id: attendant1.id,
+      completed_at: new Date(),
+      completed_by_user_id: attendant1.id,
+      decision: 'ACCEPTED',
+      quantity_value: new Prisma.Decimal('3000.00'),
+      quantity_unit: 'LITER',
+      density: new Prisma.Decimal('1.0300'),
+      gross_liters: new Prisma.Decimal('3000.00'),
+      snf: new Prisma.Decimal('9.10'),
+      ts: new Prisma.Decimal('13.10'),
+      at_13ts_liters: new Prisma.Decimal('3023.08'),
+      calculation_version: '1.0',
+    },
+  });
+  const noQHistRes = await receiveHistoricalSession(toCoreUser(attendant1) as any, noQHistSession.id.toString(), {
     tank_id: tankAId,
   });
-  assert(histRecRes.status === 201, 'Historical Receipt Created', 'Historical receipt created with status 201');
+  assert(noQHistRes.status === 400, 'Missing LR/Fat Fail-Closed', 'Fails closed when historical session lacks LR/Fat results (400)');
+  assert(
+    noQHistRes.error === 'Historical session does not contain authoritative LR/Fat values required for tank receipt.',
+    'No Fake Quality Error Message',
+    noQHistRes.error
+  );
+
+  // Historical session missing calculation_version
+  const { arrival: noCalcArrival } = await createCompletedMotArrival(`nocalc-${runId}`);
+  const noCalcHistSession = await prisma.zmccLabSession.create({
+    data: {
+      zmcc_id: zmcc1.id,
+      arrival_type: 'MOT',
+      mot_arrival_id: BigInt(noCalcArrival.id),
+      status: 'COMPLETED',
+      started_at: new Date(),
+      started_by_user_id: attendant1.id,
+      completed_at: new Date(),
+      completed_by_user_id: attendant1.id,
+      decision: 'ACCEPTED',
+      quantity_value: new Prisma.Decimal('3000.00'),
+      quantity_unit: 'LITER',
+      density: new Prisma.Decimal('1.0300'),
+      gross_liters: new Prisma.Decimal('3000.00'),
+      snf: new Prisma.Decimal('9.10'),
+      ts: new Prisma.Decimal('13.10'),
+      at_13ts_liters: new Prisma.Decimal('3023.08'),
+      calculation_version: null, // missing calculation version
+      results: {
+        create: [
+          {
+            test_id: lrTest.id,
+            test_code_snapshot: 'LR',
+            test_name_snapshot: 'Lactometer Reading',
+            result_type_snapshot: 'NUMERIC',
+            unit_snapshot: 'LR',
+            is_required_snapshot: true,
+            display_order_snapshot: 1,
+            numeric_value: new Prisma.Decimal('30.00'),
+            evaluation_status: 'PASSED',
+            is_passed: true,
+            recorded_at: new Date(),
+          },
+          {
+            test_id: fatTest.id,
+            test_code_snapshot: 'FAT',
+            test_name_snapshot: 'Fat Content',
+            result_type_snapshot: 'NUMERIC',
+            unit_snapshot: '%',
+            is_required_snapshot: true,
+            display_order_snapshot: 2,
+            numeric_value: new Prisma.Decimal('4.00'),
+            evaluation_status: 'PASSED',
+            is_passed: true,
+            recorded_at: new Date(),
+          },
+        ],
+      },
+    },
+  });
+  const noCalcHistRes = await receiveHistoricalSession(toCoreUser(attendant1) as any, noCalcHistSession.id.toString(), {
+    tank_id: tankAId,
+  });
+  assert(noCalcHistRes.status === 400, 'Missing Calculation Version Fail-Closed', 'Fails closed when calculation_version is missing (400)');
+  assert(
+    Boolean(noCalcHistRes.error?.includes('Stage 6G-C metrics required for tank receipt.')),
+    'Missing Calc Version Error Message',
+    noCalcHistRes.error
+  );
+
+  // Historical session missing gross_liters
+  const { arrival: noGrossArrival } = await createCompletedMotArrival(`nogross-${runId}`);
+  const noGrossHistSession = await prisma.zmccLabSession.create({
+    data: {
+      zmcc_id: zmcc1.id,
+      arrival_type: 'MOT',
+      mot_arrival_id: BigInt(noGrossArrival.id),
+      status: 'COMPLETED',
+      started_at: new Date(),
+      started_by_user_id: attendant1.id,
+      completed_at: new Date(),
+      completed_by_user_id: attendant1.id,
+      decision: 'ACCEPTED',
+      quantity_value: new Prisma.Decimal('3000.00'),
+      quantity_unit: 'LITER',
+      density: new Prisma.Decimal('1.0300'),
+      gross_liters: null, // missing gross liters
+      snf: new Prisma.Decimal('9.10'),
+      ts: new Prisma.Decimal('13.10'),
+      at_13ts_liters: new Prisma.Decimal('3023.08'),
+      calculation_version: '1.0',
+    },
+  });
+  const noGrossHistRes = await receiveHistoricalSession(toCoreUser(attendant1) as any, noGrossHistSession.id.toString(), {
+    tank_id: tankAId,
+  });
+  assert(noGrossHistRes.status === 400, 'Missing Gross Liters Fail-Closed', 'Fails closed when gross_liters is null (400)');
+
+  // 7C. Destination Tank Active State Under Lock
+  // Create an inactive tank to test explicit inactive tank selection rejection
+  const inactTankRes = await createZmccTank(toCoreUser(superAdmin) as any, {
+    tank_code: `TKINACT2-${runId}`,
+    tank_name: 'Inactive Historical Destination Tank',
+    capacity_liters: 10000,
+    zmcc_id: zmcc1.id.toString(),
+  });
+  const inactTankId = inactTankRes.data!.tank.id;
+  await toggleZmccTankActive(toCoreUser(superAdmin) as any, inactTankId, false);
+
+  const histInactRes = await receiveHistoricalSession(toCoreUser(attendant1) as any, histSession.id.toString(), {
+    tank_id: inactTankId,
+  });
+  assert(histInactRes.status === 400, 'Inactive Tank Historical Receipt Blocked', 'Fails closed when destination tank is inactive (400)');
+  assert(histInactRes.error === 'Destination ZMCC tank is inactive.', 'Inactive Tank Historical Error Message', histInactRes.error);
+
+  // Simulate concurrent deactivation under row lock for historical receipt:
+  const { arrival: raceArrival } = await createCompletedMotArrival(`hist-race-${runId}`);
+  const raceHistSession = await prisma.zmccLabSession.create({
+    data: {
+      zmcc_id: zmcc1.id,
+      arrival_type: 'MOT',
+      mot_arrival_id: BigInt(raceArrival.id),
+      status: 'COMPLETED',
+      started_at: new Date(),
+      started_by_user_id: attendant1.id,
+      completed_at: new Date(),
+      completed_by_user_id: attendant1.id,
+      decision: 'ACCEPTED',
+      quantity_value: new Prisma.Decimal('1000.00'),
+      quantity_unit: 'LITER',
+      density: new Prisma.Decimal('1.0300'),
+      gross_liters: new Prisma.Decimal('1000.00'),
+      snf: new Prisma.Decimal('9.10'),
+      ts: new Prisma.Decimal('13.10'),
+      at_13ts_liters: new Prisma.Decimal('1007.69'),
+      calculation_version: '1.0',
+      results: {
+        create: [
+          {
+            test_id: lrTest.id,
+            test_code_snapshot: 'LR',
+            test_name_snapshot: 'Lactometer Reading',
+            result_type_snapshot: 'NUMERIC',
+            unit_snapshot: 'LR',
+            is_required_snapshot: true,
+            display_order_snapshot: 1,
+            numeric_value: new Prisma.Decimal('30.00'),
+            evaluation_status: 'PASSED',
+            is_passed: true,
+            recorded_at: new Date(),
+          },
+          {
+            test_id: fatTest.id,
+            test_code_snapshot: 'FAT',
+            test_name_snapshot: 'Fat Content',
+            result_type_snapshot: 'NUMERIC',
+            unit_snapshot: '%',
+            is_required_snapshot: true,
+            display_order_snapshot: 2,
+            numeric_value: new Prisma.Decimal('4.00'),
+            evaluation_status: 'PASSED',
+            is_passed: true,
+            recorded_at: new Date(),
+          },
+        ],
+      },
+    },
+  });
+
+  // Re-activate inactTankId so pre-tx query sees it as active
+  await toggleZmccTankActive(toCoreUser(superAdmin) as any, inactTankId, true);
+
+  // Hook prisma.zmccTank.findMany so that right after pre-tx query completes, we deactivate inactTankId in DB
+  const origFindManyHist = prisma.zmccTank.findMany;
+  let histManyHooked = false;
+  (prisma.zmccTank as any).findMany = async (args: any) => {
+    const res = await origFindManyHist.call(prisma.zmccTank, args);
+    if (!histManyHooked && args?.where?.is_active === true) {
+      histManyHooked = true;
+      await prisma.zmccTank.update({
+        where: { id: BigInt(inactTankId) },
+        data: { is_active: false },
+      });
+    }
+    return res;
+  };
+
+  const concurrentHistRes = await receiveHistoricalSession(toCoreUser(attendant1) as any, raceHistSession.id.toString(), {
+    tank_id: inactTankId,
+  });
+  (prisma.zmccTank as any).findMany = origFindManyHist;
+  assert(concurrentHistRes.status === 400, 'Concurrent Deactivation Under Lock (Historical)', 'Fails closed under lock when tank deactivated concurrently (400)');
+  assert(concurrentHistRes.error === 'Destination ZMCC tank is inactive.', 'Concurrent Deactivation Error Message', concurrentHistRes.error);
+
+  // 7D. Successful Historical Receipt by ZMCC_LAB_ATTENDANT
+  // Tank A capacity: 12,000 L, current stock: 5,000 L -> 7,000 L available -> 4,000 L fits!
+  const histRecRes = await receiveHistoricalSession(toCoreUser(attendant1) as any, histSession.id.toString(), {
+    tank_id: tankAId,
+  });
+  assert(histRecRes.status === 201, 'Historical Receipt Created by Attendant', 'Historical receipt created with status 201');
   assert(histRecRes.data!.tank_receipt.tank_id === tankAId, 'Historical Receipt Tank A', 'Assigned to Tank A');
   assert(histRecRes.data!.tank_receipt.gross_liters === 4000.00, 'Historical Gross Liters', 'Gross liters = 4000.00');
+  assert(histRecRes.data!.tank_receipt.lr === 30.00, 'Historical Authoritative LR', 'LR = 30.00');
+  assert(histRecRes.data!.tank_receipt.fat === 4.00, 'Historical Authoritative Fat', 'Fat = 4.00');
+  assert(histRecRes.data!.tank_receipt.calculation_version === '1.0', 'Historical Calculation Version', 'calculation_version = 1.0');
 
   // Verify Tank A stock updated: 5,000 + 4,000 = 9,000 L
   const tankAAfterHist = await getZmccTankById(toCoreUser(manager1) as any, tankAId);
   assert(tankAAfterHist.data!.tank.current_stock === 9000.00, 'Tank A Stock After Historical Receipt', `Tank A stock = ${tankAAfterHist.data!.tank.current_stock} L (expected 9000.00)`);
 
-  // Attempting historical receipt again on same session returns existing (idempotent)
-  const dupHistRes = await receiveHistoricalSession(toCoreUser(manager1) as any, histSession.id.toString(), {
+  // 7E. Successful Historical Receipt by SUPER_ADMIN (Global Override)
+  const { arrival: superArrival } = await createCompletedMotArrival(`super-${runId}`);
+  const histSessionSuper = await prisma.zmccLabSession.create({
+    data: {
+      zmcc_id: zmcc1.id,
+      arrival_type: 'MOT',
+      mot_arrival_id: BigInt(superArrival.id),
+      status: 'COMPLETED',
+      started_at: new Date(),
+      started_by_user_id: attendant1.id,
+      completed_at: new Date(),
+      completed_by_user_id: attendant1.id,
+      decision: 'ACCEPTED',
+      quantity_value: new Prisma.Decimal('2000.00'),
+      quantity_unit: 'LITER',
+      density: new Prisma.Decimal('1.0310'),
+      gross_liters: new Prisma.Decimal('2000.00'),
+      snf: new Prisma.Decimal('9.20'),
+      ts: new Prisma.Decimal('13.40'),
+      at_13ts_liters: new Prisma.Decimal('2061.54'),
+      calculation_version: '1.0',
+      results: {
+        create: [
+          {
+            test_id: lrTest.id,
+            test_code_snapshot: 'LR',
+            test_name_snapshot: 'Lactometer Reading',
+            result_type_snapshot: 'NUMERIC',
+            unit_snapshot: 'LR',
+            is_required_snapshot: true,
+            display_order_snapshot: 1,
+            numeric_value: new Prisma.Decimal('31.00'),
+            evaluation_status: 'PASSED',
+            is_passed: true,
+            recorded_at: new Date(),
+          },
+          {
+            test_id: fatTest.id,
+            test_code_snapshot: 'FAT',
+            test_name_snapshot: 'Fat Content',
+            result_type_snapshot: 'NUMERIC',
+            unit_snapshot: '%',
+            is_required_snapshot: true,
+            display_order_snapshot: 2,
+            numeric_value: new Prisma.Decimal('4.20'),
+            evaluation_status: 'PASSED',
+            is_passed: true,
+            recorded_at: new Date(),
+          },
+        ],
+      },
+    },
+  });
+
+  const superHistRes = await receiveHistoricalSession(toCoreUser(superAdmin) as any, histSessionSuper.id.toString(), {
+    tank_id: tankBId,
+  });
+  assert(superHistRes.status === 201, 'Super Admin Historical Receipt Allowed', 'Super Admin historical receipt status 201');
+  assert(superHistRes.data!.tank_receipt.tank_id === tankBId, 'Super Admin Receipt Tank B', 'Assigned to Tank B');
+
+  // 7F. Attempting historical receipt again on same session returns existing (idempotent)
+  const dupHistRes = await receiveHistoricalSession(toCoreUser(attendant1) as any, histSession.id.toString(), {
     tank_id: tankAId,
   });
   assert(dupHistRes.status === 200, 'Already Receipted Historical Idempotent', 'Returns existing receipt on replay (200)');

@@ -340,11 +340,11 @@ SUPER_ADMIN
 
 ## 18. Stage 6G-D ZMCC Tank Receipt & Immutable Ledger Architecture
 
-- `src/backend/services/zmccTankService.ts`: Authoritative service owning ZMCC Tank Master operations, dynamic physical stock aggregation (`getTankPhysicalStock`), role authorization, and controlled historical receipt creation (`receiveHistoricalSession`).
+- `src/backend/services/zmccTankService.ts`: Authoritative service owning ZMCC Tank Master operations, dynamic physical stock aggregation (`getTankPhysicalStock`), role authorization (canonical signed session via `getCurrentUser(req)`, zero trust for `x-user-id` header), and controlled historical receipt creation (`receiveHistoricalSession` restricted to `ZMCC_LAB_ATTENDANT` and `SUPER_ADMIN`, failing closed if LR/Fat or Stage 6G-C metrics are incomplete, copying stored snapshot verbatim without fake quality fallbacks).
 - `src/app/api/zmcc/tanks/route.ts`: API endpoint for listing and creating ZMCC tanks (`GET`, `POST`).
 - `src/app/api/zmcc/tanks/[id]/route.ts`: API endpoint for fetching and updating ZMCC tanks (`GET`, `PATCH`).
 - `src/app/api/zmcc/lab/sessions/[id]/receive/route.ts`: API endpoint for receiving pre-6G-D historical accepted sessions into tanks (`POST`).
 - `prisma/migrations/20260913120000_zmcc_tank_receipt_and_ledger/migration.sql`: Tracked migration (migration count: 22) establishing `zmcc_tank`, `zmcc_tank_receipt`, and `zmcc_tank_inventory_transaction` tables, `ZmccTankTransactionType` enum, CHECK constraints, and indexes.
-- `src/backend/services/zmccLabService.ts`: Updated `completeSession` with atomic "Accept & Receive" logic, row-locking destination tanks `FOR UPDATE`, and logging `RECEIPT` transactions; updated `correctCompletedSession` with `ADJUSTMENT_IN` and `ADJUSTMENT_OUT` ledger entries.
+- `src/backend/services/zmccLabService.ts`: Updated `completeSession` with atomic "Accept & Receive" logic, row-locking destination tanks `FOR UPDATE` and revalidating `is_active` under lock; updated `correctCompletedSession` with decision safety guards (`ACCEPTED -> REJECTED` after receipt and `REJECTED -> ACCEPTED` forbidden) and `ADJUSTMENT_IN` / `ADJUSTMENT_OUT` ledger entries.
 - `src/frontend/modules/zmcc/ZmccMasterDataWorkspace.tsx`: Management tab for ZMCC Tanks (`TANKS`), supporting Super Admin CRUD and ZMCC Manager read-only visibility with live stock indicators.
-- `src/frontend/modules/zmcc/lab/ZmccLabWorkspace.tsx`: Updated session completion modal to "Accept & Receive" with active tank selection and capacity validation, History table Tank Receipt column, and historical receive action for unassigned accepted sessions.
+- `src/frontend/modules/zmcc/lab/ZmccLabWorkspace.tsx`: Updated session completion modal to "Accept & Receive" with active tank selection and capacity validation, History table Tank Receipt column, and historical receive action restricted to `ZMCC_LAB_ATTENDANT` and `SUPER_ADMIN` (hidden from `ZMCC_MANAGER`).

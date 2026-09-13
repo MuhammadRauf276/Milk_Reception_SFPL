@@ -1350,35 +1350,31 @@ export async function completeSession(
   // Resolve destination ZMCC tank for ACCEPTED completion
   let targetTankId: bigint | null = null;
   if (decision === 'ACCEPTED') {
-    const activeTanks = await prisma.zmccTank.findMany({
-      where: { zmcc_id: session.zmcc_id, is_active: true },
-      orderBy: { id: 'asc' },
-    });
-
-    if (activeTanks.length === 0) {
-      return { status: 400, error: 'No active ZMCC tank is configured.' };
-    }
-
     if (payload.tank_id !== undefined && payload.tank_id !== null && String(payload.tank_id).trim() !== '') {
       try {
         targetTankId = BigInt(String(payload.tank_id).trim());
       } catch {
         return { status: 400, error: 'Invalid tank_id format.' };
       }
-      const found = activeTanks.find((t) => t.id === targetTankId);
-      if (!found) {
-        const anyTank = await prisma.zmccTank.findUnique({ where: { id: targetTankId } });
-        if (!anyTank) {
-          return { status: 404, error: 'Selected ZMCC tank not found.' };
-        }
-        if (anyTank.zmcc_id !== session.zmcc_id) {
-          return { status: 403, error: 'Forbidden. Destination tank belongs to another ZMCC.' };
-        }
-        if (!anyTank.is_active) {
-          return { status: 400, error: 'Selected ZMCC tank is inactive and cannot receive milk.' };
-        }
+      const anyTank = await prisma.zmccTank.findUnique({ where: { id: targetTankId } });
+      if (!anyTank) {
+        return { status: 404, error: 'Selected ZMCC tank not found.' };
+      }
+      if (anyTank.zmcc_id !== session.zmcc_id) {
+        return { status: 403, error: 'Forbidden. Destination tank belongs to another ZMCC.' };
+      }
+      if (!anyTank.is_active) {
+        return { status: 400, error: 'Destination ZMCC tank is inactive.' };
       }
     } else {
+      const activeTanks = await prisma.zmccTank.findMany({
+        where: { zmcc_id: session.zmcc_id, is_active: true },
+        orderBy: { id: 'asc' },
+      });
+
+      if (activeTanks.length === 0) {
+        return { status: 400, error: 'No active ZMCC tank is configured.' };
+      }
       if (activeTanks.length === 1) {
         targetTankId = activeTanks[0].id;
       } else {
@@ -1471,11 +1467,17 @@ export async function completeSession(
       }
 
       if (decision === 'ACCEPTED' && targetTankId) {
-        const lockedTankRows: Array<{ id: bigint; capacity_liters: any }> = await tx.$queryRaw`
-          SELECT id, capacity_liters FROM zmcc_tank WHERE id = ${targetTankId} FOR UPDATE
+        const lockedTankRows: Array<{ id: bigint; zmcc_id: bigint; capacity_liters: any; is_active: boolean }> = await tx.$queryRaw`
+          SELECT id, zmcc_id, capacity_liters, is_active FROM zmcc_tank WHERE id = ${targetTankId} FOR UPDATE
         `;
         if (!lockedTankRows || lockedTankRows.length === 0) {
           throw new Error('TANK_NOT_FOUND');
+        }
+        if (lockedTankRows[0].zmcc_id !== session.zmcc_id) {
+          throw new Error('TANK_WRONG_ZMCC');
+        }
+        if (!lockedTankRows[0].is_active) {
+          throw new Error('TANK_INACTIVE:Destination ZMCC tank is inactive.');
         }
 
         const tankCapacity = Number(lockedTankRows[0].capacity_liters);
@@ -1657,6 +1659,16 @@ export async function completeSession(
     if (err.message && err.message.startsWith('INSUFFICIENT_CAPACITY:')) {
       const msg = err.message.replace('INSUFFICIENT_CAPACITY:', '');
       return { status: 400, error: msg };
+    }
+    if (err.message && err.message.startsWith('TANK_INACTIVE:')) {
+      const msg = err.message.replace('TANK_INACTIVE:', '');
+      return { status: 400, error: msg };
+    }
+    if (err.message === 'TANK_WRONG_ZMCC') {
+      return { status: 403, error: 'Forbidden. Selected tank belongs to another ZMCC.' };
+    }
+    if (err.message === 'TANK_NOT_FOUND') {
+      return { status: 404, error: 'Selected destination tank not found.' };
     }
     if (err.message === 'REPLAY_MATCH_CHECK' || err.message === 'SESSION_ALREADY_COMPLETED') {
       const completedExisting = await prisma.zmccLabSession.findUnique({
@@ -1869,6 +1881,22 @@ export async function correctCompletedSession(
       return { status: 400, error: 'Corrected quantity unit must be either KG or LITER.' };
     }
     correctedUnit = quantity_unit.toString().trim().toUpperCase() as 'KG' | 'LITER';
+  }
+
+  if (decision && decision !== session.decision) {
+    if (session.decision === 'ACCEPTED') {
+      if (session.tank_receipt) {
+        return {
+          status: 400,
+          error: 'Decision cannot be changed after milk has been received into a ZMCC tank.',
+        };
+      }
+    } else if (session.decision === 'REJECTED' && decision === 'ACCEPTED') {
+      return {
+        status: 400,
+        error: 'Decision cannot be changed from REJECTED to ACCEPTED in correction.',
+      };
+    }
   }
 
   const effectiveDecision = decision || session.decision;

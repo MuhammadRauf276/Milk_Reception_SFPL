@@ -38,6 +38,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
   const isZmccLabAttendant = currentUser?.role === 'ZMCC_LAB_ATTENDANT';
   const canTest = isZmccLabAttendant || isSuperAdmin;
   const canCorrect = isZmccManager || isSuperAdmin;
+  const canReceiveHistorical = isZmccLabAttendant || isSuperAdmin;
 
   const [activeTab, setActiveTab] = useState<MainTab>('QUEUE');
 
@@ -1215,7 +1216,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                             <span className="text-[10px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded font-medium border border-amber-200">
                               Unassigned
                             </span>
-                            {canCorrect && (
+                            {canReceiveHistorical && (
                               <button
                                 type="button"
                                 onClick={() => openHistoricalReceiveModal(item)}

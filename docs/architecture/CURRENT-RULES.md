@@ -468,7 +468,7 @@ SUPER ADMIN (SUPER_ADMIN)
 
 ### 20C. ZMCC Tank Receipt (`ZmccTankReceipt`)
 - **1-to-1 Lifecycle Snapshot**: Exactly one `ZmccTankReceipt` per `ZmccLabSession` when `decision = 'ACCEPTED'`. REJECTED sessions NEVER generate a tank receipt or ledger entry.
-- **Authoritative Quality & Metrics**: Stores an immutable snapshot of reception metrics (`quantity_value`, `quantity_unit`, `density`, `gross_liters`, `lr`, `fat`, `snf`, `ts`, `at_13ts_liters`, `calculation_version`).
+- **Authoritative Operational Snapshot**: Stores an operational snapshot of reception metrics (`quantity_value`, `quantity_unit`, `density`, `gross_liters`, `lr`, `fat`, `snf`, `ts`, `at_13ts_liters`, `calculation_version`). When an authorized supervisory correction updates measured parameters, the receipt snapshot is synchronized with the new metrics. Permanent immutable accounting history is maintained in the ledger (`ZmccTankInventoryTransaction`) and `AuditLog`.
 - **Receiving Audit**: Tracks `received_at` and `received_by_user_id`.
 
 ### 20D. Immutable Inventory Ledger (`ZmccTankInventoryTransaction`)
@@ -485,9 +485,12 @@ SUPER ADMIN (SUPER_ADMIN)
   - 0 active tanks in ZMCC -> Fails closed with HTTP 400 (`"No active ZMCC tank is configured."`).
   - 1 active tank in ZMCC -> Auto-selected as the destination tank.
   - >1 active tanks in ZMCC -> Explicit `tank_id` selection is required; fails closed if omitted (`"Destination tank is required when multiple active tanks exist."`).
-- **Concurrency & Capacity Guard**: The selected tank row is locked `FOR UPDATE`. Real-time physical stock is aggregated under lock. If `gross_liters > (capacity_liters - current_stock)`, transaction fails closed with HTTP 400 (`"Tank capacity is insufficient..."`).
+- **Concurrency & Capacity Guard**: The selected tank row is locked `FOR UPDATE`. Inside the transaction, the tank is revalidated to ensure `is_active = true` and `zmcc_id = session.zmcc_id` (fails closed with HTTP 400 `"Destination ZMCC tank is inactive."` if deactivated concurrently). Real-time physical stock is aggregated under lock. If `gross_liters > (capacity_liters - current_stock)`, transaction fails closed with HTTP 400 (`"Tank capacity is insufficient..."`).
 
 ### 20F. Supervisory Corrections & Adjustment Transactions
+- **Decision Safety Guards**:
+  - `ACCEPTED -> REJECTED`: Prohibited once a tank receipt exists. Fails closed with HTTP 400 (`"Decision cannot be changed after milk has been received into a ZMCC tank."`). Tank receipts, ledger rows, and correction counts remain untouched.
+  - `REJECTED -> ACCEPTED`: Prohibited in supervisory correction. Accepting milk carries physical tank receipt consequences and must go through the authorized Lab Attendant "Accept & Receive" workflow. Fails closed with HTTP 400 (`"Decision cannot be changed from REJECTED to ACCEPTED in correction."`).
 - **Recalculation Delta Handling**: When a manager or super admin corrects quantity or quality parameters on a completed session with a tank receipt:
   - `delta > 0`: Creates an `ADJUSTMENT_IN` transaction for `+delta` L, verifying remaining tank capacity under lock.
   - `delta < 0`: Creates an `ADJUSTMENT_OUT` transaction for `|delta|` L, verifying that `current_stock >= |delta|` to prevent negative tank inventory.
@@ -495,6 +498,13 @@ SUPER ADMIN (SUPER_ADMIN)
 - **Receipt Snapshot Synchronization**: Updates `ZmccTankReceipt` metrics, `last_corrected_at`, `last_corrected_by_user_id`, and bumps correction counts.
 
 ### 20G. Controlled Historical Pre-6G-D Session Receipt
-- **Eligibility**: Allows ZMCC Manager or Super Admin to create a retroactive tank receipt and ledger entry for completed ACCEPTED sessions created prior to Stage 6G-D that lack a receipt.
-- **Validation**: Enforces active tank configuration, capacity availability under lock, and idempotency (replaying returns the existing receipt).
+- **Authority**: Restricted to `ZMCC_LAB_ATTENDANT` (scoped to assigned active ZMCC) or `SUPER_ADMIN` (global override). `ZMCC_MANAGER` has read-only visibility into tanks and is strictly forbidden from historical receipt (HTTP 403).
+- **No Fake Quality Fallbacks**: Core LR and Fat must be authoritatively resolved from frozen `ZmccLabResult` records via `resolveCoreMilkTestResults(...)`. If missing, ambiguous, or non-numeric, fails closed with HTTP 400 (`"Historical session does not contain authoritative LR/Fat values required for tank receipt."`). Synthetic defaults (e.g. 30 / 4) or derived values are never fabricated.
+- **Authoritative Stage 6G-C Snapshot Required**: Requires stored non-null `quantity_value`, `quantity_unit`, `density`, `gross_liters`, `snf`, `ts`, `at_13ts_liters`, and non-empty `calculation_version`. If any are missing, fails closed with HTTP 400.
+- **Stored Snapshot Verbatim**: Copies the stored historical metrics directly into `ZmccTankReceipt` without recalculation or defaulting `calculation_version` to `'1.0'`.
+- **Active Tank Validation Under Lock**: Destination tank is locked `FOR UPDATE` and revalidated `is_active = true` and `zmcc_id = session.zmcc_id`.
 - **Database Migration**: Exactly 1 tracked migration `20260913120000_zmcc_tank_receipt_and_ledger` (repository migration count: 22).
+
+### 20H. HTTP Authentication Security
+- **Canonical Signed Session Only**: Real HTTP requests must authenticate exclusively via signed session cookies / Bearer tokens verified by `getCurrentUser(req)`.
+- **Zero Trust for Identity Headers**: Arbitrary headers like `x-user-id` are never trusted or parsed for HTTP authentication (returns HTTP 401 Unauthorized if no valid signed session exists). Internal testing may pass trusted `User` objects directly to backend service functions.

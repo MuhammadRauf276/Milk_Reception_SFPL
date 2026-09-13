@@ -2,7 +2,6 @@ import { prisma } from '@core/db';
 import { getCurrentUser } from '@core/auth';
 import { User, Role } from '@core/types';
 import { Prisma } from '@prisma/client';
-import { computeCanonicalMilkMetrics } from '@/backend/utils/milkFormulas';
 import { resolveCoreMilkTestResults } from '@/backend/utils/milkTestResolvers';
 
 export interface ServiceResult<T> {
@@ -32,23 +31,7 @@ export async function resolveZmccTankAuth(
     authUser = reqOrUser as User;
   } else if (reqOrUser) {
     const req = reqOrUser as Request;
-    const headerUserId = req.headers?.get?.('x-user-id');
-    if (headerUserId) {
-      const u = await prisma.user.findUnique({
-        where: { id: BigInt(headerUserId) },
-      });
-      if (u) {
-        authUser = {
-          id: u.id.toString(),
-          username: u.username,
-          role: u.role as any,
-          name: u.full_name,
-        } as unknown as User;
-      }
-    }
-    if (!authUser) {
-      authUser = await getCurrentUser(req);
-    }
+    authUser = await getCurrentUser(req);
   }
 
   if (!authUser) {
@@ -78,6 +61,11 @@ export async function resolveZmccTankAuth(
   // Master mutation is strictly SUPER_ADMIN only
   if (action === 'MUTATE_MASTER' && !isSuperAdmin) {
     return { errorResponse: { status: 403, error: 'Forbidden. Only Super Admin can modify ZMCC Tank Master configuration.' } };
+  }
+
+  // Historical receipt is restricted to ZMCC_LAB_ATTENDANT (own ZMCC) or SUPER_ADMIN (global)
+  if (action === 'RECEIVE_HISTORICAL' && !isSuperAdmin && !isZmccLabAttendant) {
+    return { errorResponse: { status: 403, error: 'Forbidden. Only ZMCC Lab Attendant or Super Admin can receive milk into tank.' } };
   }
 
   // Scoped roles must be attached to an active ZMCC source
@@ -669,24 +657,33 @@ export async function receiveHistoricalSession(
     return { status: 200, data: { tank_receipt: serializeTankReceipt(existingReceipt) } };
   }
 
-  // Check that session has authoritative metrics
-  if (!session.gross_liters || Number(session.gross_liters) <= 0) {
-    return { status: 400, error: 'Session has no authoritative gross liters to receive.' };
+  // Check that session has complete authoritative Stage 6G-C metrics
+  if (
+    session.quantity_value === null || session.quantity_value === undefined ||
+    !session.quantity_unit ||
+    session.density === null || session.density === undefined ||
+    session.gross_liters === null || session.gross_liters === undefined || Number(session.gross_liters) <= 0 ||
+    session.snf === null || session.snf === undefined ||
+    session.ts === null || session.ts === undefined ||
+    session.at_13ts_liters === null || session.at_13ts_liters === undefined ||
+    !session.calculation_version || !session.calculation_version.trim()
+  ) {
+    return {
+      status: 400,
+      error: 'Historical session does not contain complete authoritative Stage 6G-C metrics required for tank receipt.',
+    };
   }
 
-  // Resolve core LR and Fat from session results if present, or infer from session metrics
+  // Resolve core LR and Fat strictly from session results
   const resolvedCore = resolveCoreMilkTestResults(session.results || []);
-  let coreLr: Prisma.Decimal;
-  let coreFat: Prisma.Decimal;
-  if (resolvedCore.success) {
-    coreLr = new Prisma.Decimal(resolvedCore.lr.toFixed(2));
-    coreFat = new Prisma.Decimal(resolvedCore.fat.toFixed(2));
-  } else {
-    const lrVal = session.density ? Number(((Number(session.density) - 1.0) * 1000).toFixed(2)) : 30.0;
-    const fatVal = (session.ts && session.snf) ? Math.max(0, Number((Number(session.ts) - Number(session.snf)).toFixed(2))) : 4.0;
-    coreLr = new Prisma.Decimal(lrVal.toFixed(2));
-    coreFat = new Prisma.Decimal(fatVal.toFixed(2));
+  if (!resolvedCore.success) {
+    return {
+      status: 400,
+      error: 'Historical session does not contain authoritative LR/Fat values required for tank receipt.',
+    };
   }
+  const coreLr = new Prisma.Decimal(resolvedCore.lr.toFixed(2));
+  const coreFat = new Prisma.Decimal(resolvedCore.fat.toFixed(2));
 
   // Tank selection rules
   const activeTanks = await prisma.zmccTank.findMany({
@@ -715,7 +712,7 @@ export async function receiveHistoricalSession(
         return { status: 403, error: 'Forbidden. Selected tank belongs to another ZMCC.' };
       }
       if (!anyTank.is_active) {
-        return { status: 400, error: 'Selected ZMCC tank is inactive.' };
+        return { status: 400, error: 'Destination ZMCC tank is inactive.' };
       }
     }
   } else {
@@ -740,12 +737,18 @@ export async function receiveHistoricalSession(
         return existingInTx;
       }
 
-      // Lock destination tank row FOR UPDATE
-      const lockedTankRows: Array<{ id: bigint; capacity_liters: any }> = await tx.$queryRaw`
-        SELECT id, capacity_liters FROM zmcc_tank WHERE id = ${targetTankId} FOR UPDATE
+      // Lock destination tank row FOR UPDATE and revalidate active state under lock
+      const lockedTankRows: Array<{ id: bigint; zmcc_id: bigint; capacity_liters: any; is_active: boolean }> = await tx.$queryRaw`
+        SELECT id, zmcc_id, capacity_liters, is_active FROM zmcc_tank WHERE id = ${targetTankId} FOR UPDATE
       `;
       if (!lockedTankRows || lockedTankRows.length === 0) {
         throw new Error('TANK_NOT_FOUND');
+      }
+      if (lockedTankRows[0].zmcc_id !== session.zmcc_id) {
+        throw new Error('TANK_WRONG_ZMCC');
+      }
+      if (!lockedTankRows[0].is_active) {
+        throw new Error('TANK_INACTIVE:Destination ZMCC tank is inactive.');
       }
 
       const tankCapacity = Number(lockedTankRows[0].capacity_liters);
@@ -773,7 +776,7 @@ export async function receiveHistoricalSession(
           snf: session.snf!,
           ts: session.ts!,
           at_13ts_liters: session.at_13ts_liters!,
-          calculation_version: session.calculation_version || '1.0',
+          calculation_version: session.calculation_version!,
           received_at: now,
           received_by_user_id: auth.actorUserId,
         },
@@ -812,13 +815,13 @@ export async function receiveHistoricalSession(
             quantity_value: session.quantity_value ? Number(session.quantity_value) : null,
             quantity_unit: session.quantity_unit,
             gross_liters: grossLiters,
-            lr: coreLr !== null ? Number(coreLr) : null,
-            fat: coreFat !== null ? Number(coreFat) : null,
+            lr: Number(coreLr),
+            fat: Number(coreFat),
             density: session.density ? Number(session.density) : null,
             snf: session.snf ? Number(session.snf) : null,
             ts: session.ts ? Number(session.ts) : null,
             at_13ts_liters: session.at_13ts_liters ? Number(session.at_13ts_liters) : null,
-            calculation_version: session.calculation_version || '1.0',
+            calculation_version: session.calculation_version,
             received_at: now.toISOString(),
             actor: auth.actorUserId.toString(),
           },
@@ -834,6 +837,16 @@ export async function receiveHistoricalSession(
     if (err.message && err.message.startsWith('INSUFFICIENT_CAPACITY:')) {
       const msg = err.message.replace('INSUFFICIENT_CAPACITY:', '');
       return { status: 400, error: msg };
+    }
+    if (err.message && err.message.startsWith('TANK_INACTIVE:')) {
+      const msg = err.message.replace('TANK_INACTIVE:', '');
+      return { status: 400, error: msg };
+    }
+    if (err.message === 'TANK_WRONG_ZMCC') {
+      return { status: 403, error: 'Forbidden. Selected tank belongs to another ZMCC.' };
+    }
+    if (err.message === 'TANK_NOT_FOUND') {
+      return { status: 404, error: 'Selected destination tank not found.' };
     }
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
       const existing = await prisma.zmccTankReceipt.findUnique({
