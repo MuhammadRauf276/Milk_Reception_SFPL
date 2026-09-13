@@ -20,11 +20,27 @@ import {
   Filter,
 } from 'lucide-react';
 
-export type MasterDataTab = 'ROUTES' | 'AREAS' | 'MILK_SOURCES' | 'SHOPS' | 'CHILLER_OWNERSHIP';
+export type MasterDataTab = 'ROUTES' | 'AREAS' | 'MILK_SOURCES' | 'SHOPS' | 'CHILLER_OWNERSHIP' | 'TANKS';
 
 interface ZmccMasterDataWorkspaceProps {
   currentUser: User | null;
   initialTab?: MasterDataTab;
+}
+
+interface TankItem {
+  id: string;
+  zmcc_id: string;
+  tank_code: string;
+  tank_name: string;
+  capacity_liters: number;
+  current_stock: number;
+  available_capacity: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  creator?: { id: string; username: string; full_name: string };
+  updater?: { id: string; username: string; full_name: string } | null;
+  zmcc?: { id: string; code: string; name: string };
 }
 
 interface ZmccSource {
@@ -126,8 +142,11 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
     if (isSuperAdmin) {
       tabs.push({ id: 'CHILLER_OWNERSHIP', label: 'Chiller Ownership', icon: Building2 });
     }
+    if (isSuperAdmin || isZmccManager) {
+      tabs.push({ id: 'TANKS', label: 'Tanks', icon: Building2 });
+    }
     return tabs;
-  }, [isSuperAdmin, isPheOperator]);
+  }, [isSuperAdmin, isZmccManager, isPheOperator]);
 
   const [activeTab, setActiveTab] = useState<MasterDataTab>(
     initialTab || (isPheOperator ? 'SHOPS' : 'ROUTES')
@@ -143,6 +162,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
   const [milkSources, setMilkSources] = useState<MilkSourceItem[]>([]);
   const [chillerOwnerships, setChillerOwnerships] = useState<ChillerOwnershipItem[]>([]);
   const [shops, setShops] = useState<ShopItem[]>([]);
+  const [tanks, setTanks] = useState<TankItem[]>([]);
 
   // Filtering states
   const [search, setSearch] = useState<string>('');
@@ -163,6 +183,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
     'CREATE_MILK_SOURCE' | 'EDIT_MILK_SOURCE' |
     'CREATE_CHILLER' | 'EDIT_CHILLER' |
     'CREATE_SHOP' | 'EDIT_SHOP' |
+    'CREATE_TANK' | 'EDIT_TANK' |
     'TOGGLE_ACTIVE' | null
   >(null);
 
@@ -232,6 +253,20 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Failed to fetch shops');
         setShops(data.shops || []);
+      } else if (activeTab === 'TANKS') {
+        const activeOnlyParam = statusFilter === 'true' ? '&active_only=true' : '';
+        const res = await fetch(`/api/zmcc/tanks?${zmccParam}${activeOnlyParam}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to fetch tanks');
+        let tankList = data.tanks || [];
+        if (statusFilter === 'false') {
+          tankList = tankList.filter((t: any) => !t.is_active);
+        }
+        if (search) {
+          const s = search.toLowerCase();
+          tankList = tankList.filter((t: any) => t.tank_name.toLowerCase().includes(s) || t.tank_code.toLowerCase().includes(s));
+        }
+        setTanks(tankList);
       }
     } catch (err: any) {
       setErrorMsg(err.message || 'Error loading data.');
@@ -320,6 +355,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
     if (activeTab === 'MILK_SOURCES') setModalType('CREATE_MILK_SOURCE');
     if (activeTab === 'CHILLER_OWNERSHIP') setModalType('CREATE_CHILLER');
     if (activeTab === 'SHOPS') setModalType('CREATE_SHOP');
+    if (activeTab === 'TANKS') setModalType('CREATE_TANK');
   };
 
   const handleOpenEditModal = (item: any) => {
@@ -351,6 +387,13 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
         longitude: item.longitude ?? '',
       });
       setModalType('EDIT_SHOP');
+    } else if (activeTab === 'TANKS') {
+      setFormData({
+        tank_code: item.tank_code,
+        tank_name: item.tank_name,
+        capacity_liters: item.capacity_liters,
+      });
+      setModalType('EDIT_TANK');
     }
   };
 
@@ -448,6 +491,22 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
           latitude: formData.latitude !== '' && formData.latitude != null ? Number(formData.latitude) : null,
           longitude: formData.longitude !== '' && formData.longitude != null ? Number(formData.longitude) : null,
         };
+      } else if (modalType === 'CREATE_TANK') {
+        url = '/api/zmcc/tanks';
+        body = {
+          tank_code: formData.tank_code,
+          tank_name: formData.tank_name,
+          capacity_liters: Number(formData.capacity_liters),
+          zmcc_id: isSuperAdmin ? selectedZmccId : undefined,
+        };
+      } else if (modalType === 'EDIT_TANK') {
+        url = `/api/zmcc/tanks/${activeRecord.id}`;
+        method = 'PATCH';
+        body = {
+          tank_code: formData.tank_code,
+          tank_name: formData.tank_name,
+          capacity_liters: formData.capacity_liters !== undefined ? Number(formData.capacity_liters) : undefined,
+        };
       } else if (modalType === 'TOGGLE_ACTIVE') {
         const targetActive = !activeRecord.is_active;
         if (activeTab === 'ROUTES') url = `/api/zmcc/routes/${activeRecord.id}`;
@@ -455,6 +514,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
         else if (activeTab === 'MILK_SOURCES') url = `/api/zmcc/milk-sources/${activeRecord.id}`;
         else if (activeTab === 'CHILLER_OWNERSHIP') url = `/api/zmcc/chiller-ownerships/${activeRecord.id}`;
         else if (activeTab === 'SHOPS') url = `/api/zmcc/shops/${activeRecord.id}`;
+        else if (activeTab === 'TANKS') url = `/api/zmcc/tanks/${activeRecord.id}`;
         method = 'PATCH';
         body = { is_active: targetActive };
       }
@@ -670,7 +730,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
 
         {/* Action Button: Add Entity */}
         {((isSuperAdmin) ||
-          (isZmccManager && activeTab !== 'CHILLER_OWNERSHIP') ||
+          (isZmccManager && activeTab !== 'CHILLER_OWNERSHIP' && activeTab !== 'TANKS') ||
           (isPheOperator && activeTab === 'SHOPS')) && (
           <button
             type="button"
@@ -684,6 +744,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
               {activeTab === 'MILK_SOURCES' && 'Add Milk Source'}
               {activeTab === 'CHILLER_OWNERSHIP' && 'Add Chiller Ownership'}
               {activeTab === 'SHOPS' && 'Add Shop'}
+              {activeTab === 'TANKS' && 'Add Tank'}
             </span>
           </button>
         )}
@@ -1052,6 +1113,78 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
                 </tbody>
               </table>
             )}
+
+            {activeTab === 'TANKS' && (
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-[#FDFBF9] border-b border-[#EAE4D5] text-slate-600 font-black uppercase text-[10px] tracking-wider">
+                    <th className="py-3 px-4">Tank Code</th>
+                    <th className="py-3 px-4">Tank Name</th>
+                    <th className="py-3 px-4 text-right">Capacity (L)</th>
+                    <th className="py-3 px-4 text-right">Current Stock (L)</th>
+                    <th className="py-3 px-4 text-right">Available Capacity (L)</th>
+                    <th className="py-3 px-4 text-center">Status</th>
+                    {isSuperAdmin && <th className="py-3 px-4 text-right">Actions</th>}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#EAE4D5]">
+                  {tanks.length === 0 ? (
+                    <tr>
+                      <td colSpan={isSuperAdmin ? 7 : 6} className="py-8 text-center text-slate-400 font-bold">
+                        No ZMCC tanks found.
+                      </td>
+                    </tr>
+                  ) : (
+                    tanks.map((tank) => (
+                      <tr key={tank.id} className="hover:bg-[#FDFBF9]/60 transition">
+                        <td className="py-3 px-4 font-mono font-black text-[#111311]">{tank.tank_code}</td>
+                        <td className="py-3 px-4 font-extrabold text-[#111311]">{tank.tank_name}</td>
+                        <td className="py-3 px-4 text-right font-mono font-bold">{Number(tank.capacity_liters).toFixed(2)} L</td>
+                        <td className="py-3 px-4 text-right font-mono font-bold text-blue-700">{Number(tank.current_stock).toFixed(2)} L</td>
+                        <td className="py-3 px-4 text-right font-mono font-bold text-emerald-700">{Number(tank.available_capacity).toFixed(2)} L</td>
+                        <td className="py-3 px-4 text-center">
+                          <span
+                            className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
+                              tank.is_active
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : 'bg-rose-100 text-rose-800'
+                            }`}
+                          >
+                            {tank.is_active ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        {isSuperAdmin && (
+                          <td className="py-3 px-4 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditModal(tank)}
+                                className="p-2 min-h-[36px] min-w-[36px] rounded-lg border border-[#EAE4D5] hover:bg-slate-100 text-slate-700 transition"
+                                title="Edit Tank"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenToggleModal(tank)}
+                                className={`p-2 min-h-[36px] min-w-[36px] rounded-lg border transition ${
+                                  tank.is_active
+                                    ? 'border-rose-200 text-rose-600 hover:bg-rose-50'
+                                    : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'
+                                }`}
+                                title={tank.is_active ? 'Deactivate Tank' : 'Activate Tank'}
+                              >
+                                <Power className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            )}
           </div>
         )}
       </div>
@@ -1077,6 +1210,8 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
                 {modalType === 'EDIT_CHILLER' && `Edit Chiller Ownership: ${activeRecord?.ownership_code}`}
                 {modalType === 'CREATE_SHOP' && 'Register Collection Shop'}
                 {modalType === 'EDIT_SHOP' && `Edit Shop: ${activeRecord?.shop_code}`}
+                {modalType === 'CREATE_TANK' && 'Create ZMCC Tank'}
+                {modalType === 'EDIT_TANK' && `Edit Tank: ${activeRecord?.tank_code}`}
                 {modalType === 'TOGGLE_ACTIVE' &&
                   (activeRecord?.is_active ? 'Confirm Deactivation' : 'Confirm Activation')}
               </h2>
@@ -1448,13 +1583,54 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
                 </div>
               )}
 
+              {/* Tank Form */}
+              {(modalType === 'CREATE_TANK' || modalType === 'EDIT_TANK') && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-black uppercase text-slate-600 mb-1">Tank Code *</label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.tank_code || ''}
+                      onChange={(e) => setFormData({ ...formData, tank_code: e.target.value.toUpperCase() })}
+                      placeholder="e.g. TANK-01"
+                      className="w-full px-3 py-2 border border-[#EAE4D5] rounded-xl text-xs font-mono font-bold uppercase focus:ring-2 focus:ring-[#1E3A8A]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-black uppercase text-slate-600 mb-1">Tank Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.tank_name || ''}
+                      onChange={(e) => setFormData({ ...formData, tank_name: e.target.value })}
+                      placeholder="e.g. Raw Milk Tank 1"
+                      className="w-full px-3 py-2 border border-[#EAE4D5] rounded-xl text-xs font-bold focus:ring-2 focus:ring-[#1E3A8A]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-black uppercase text-slate-600 mb-1">Total Capacity (Liters) *</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      required
+                      value={formData.capacity_liters ?? ''}
+                      onChange={(e) => setFormData({ ...formData, capacity_liters: e.target.value })}
+                      placeholder="e.g. 5000"
+                      className="w-full px-3 py-2 border border-[#EAE4D5] rounded-xl text-xs font-mono font-bold focus:ring-2 focus:ring-[#1E3A8A]"
+                    />
+                  </div>
+                </div>
+              )}
+
               {/* Toggle Active Confirmation */}
               {modalType === 'TOGGLE_ACTIVE' && (
                 <div className="space-y-3 py-2">
                   <p className="text-xs text-slate-700 font-medium">
                     Are you sure you want to {activeRecord?.is_active ? 'deactivate' : 'activate'}{' '}
                     <strong className="text-[#111311] font-black">
-                      {activeRecord?.name || activeRecord?.shop_name}
+                      {activeRecord?.name || activeRecord?.shop_name || activeRecord?.tank_name}
                     </strong>
                     ?
                   </p>

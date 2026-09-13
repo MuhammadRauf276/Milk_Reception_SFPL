@@ -154,7 +154,7 @@ async function runStage6gcTests() {
   const migrationDirs = fs
     .readdirSync(migrationsDir)
     .filter((f) => fs.statSync(path.join(migrationsDir, f)).isDirectory() && !f.startsWith('.'));
-  assert(migrationDirs.length === 21, 'Tracked Migrations', `Found exactly ${migrationDirs.length} migrations (expected 21)`);
+  assert(migrationDirs.length === 22, 'Tracked Migrations', `Found exactly ${migrationDirs.length} migrations (expected 22)`);
 
   const metricsMigDir = migrationDirs.find((d) => d.includes('zmcc_final_milk_metrics'));
   assert(!!metricsMigDir, 'Migration Exists', `Found 6G-C migration: ${metricsMigDir}`);
@@ -339,6 +339,18 @@ async function runStage6gcTests() {
       is_active: true,
       procurement_source_id: zmcc.id,
       scope_type: 'SOURCE',
+    },
+  });
+
+  // Create active tank for ZMCC so Stage 6G-D auto-selection succeeds
+  await prisma.zmccTank.create({
+    data: {
+      zmcc_id: zmcc.id,
+      tank_code: `TK6GC-${runId}`,
+      tank_name: `Raw Milk Tank 6GC ${runId}`,
+      capacity_liters: new Prisma.Decimal('100000.00'),
+      is_active: true,
+      created_by_user_id: manager.id,
     },
   });
 
