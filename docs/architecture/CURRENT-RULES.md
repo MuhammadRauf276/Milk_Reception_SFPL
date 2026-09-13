@@ -483,8 +483,8 @@ SUPER ADMIN (SUPER_ADMIN)
 - **Atomic Execution**: When finalizing a lab session with `decision = 'ACCEPTED'`, the session completion, tank receipt creation, and ledger transaction creation occur within a single database transaction.
 - **Destination Tank Resolution**:
   - 0 active tanks in ZMCC -> Fails closed with HTTP 400 (`"No active ZMCC tank is configured."`).
-  - 1 active tank in ZMCC -> Auto-selected as the destination tank.
-  - >1 active tanks in ZMCC -> Explicit `tank_id` selection is required; fails closed if omitted (`"Destination tank is required when multiple active tanks exist."`).
+  - Exactly 1 active tank in ZMCC -> Auto-selected as the sole destination tank.
+  - >1 active tanks in ZMCC (defensive guard) -> Fails closed with HTTP 400 (`"Configuration error: Multiple active tanks found for this ZMCC. Only one active tank is permitted."`).
 - **Concurrency & Capacity Guard**: The selected tank row is locked `FOR UPDATE`. Inside the transaction, the tank is revalidated to ensure `is_active = true` and `zmcc_id = session.zmcc_id` (fails closed with HTTP 400 `"Destination ZMCC tank is inactive."` if deactivated concurrently). Real-time physical stock is aggregated under lock. If `gross_liters > (capacity_liters - current_stock)`, transaction fails closed with HTTP 400 (`"Tank capacity is insufficient..."`).
 
 ### 20F. Supervisory Corrections & Adjustment Transactions
@@ -508,3 +508,33 @@ SUPER ADMIN (SUPER_ADMIN)
 ### 20H. HTTP Authentication Security
 - **Canonical Signed Session Only**: Real HTTP requests must authenticate exclusively via signed session cookies / Bearer tokens verified by `getCurrentUser(req)`.
 - **Zero Trust for Identity Headers**: Arbitrary headers like `x-user-id` are never trusted or parsed for HTTP authentication (returns HTTP 401 Unauthorized if no valid signed session exists). Internal testing may pass trusted `User` objects directly to backend service functions.
+
+---
+
+## 21. Stage 6G-D.1 Contractor RMR & Single Active ZMCC Tank Alignment
+
+### 21A. Contractor RMR vs. System ZMCC Token
+- **Contractor RMR Authority**: For Contractor arrivals, the physical dispatch slip identifier issued by the contractor is captured as `rmr_number` on `ZmccContractorArrival`.
+- **Mandatory Submission**: `rmr_number` is strictly required (non-empty string, VarChar(100)) upon recording a Contractor arrival at ZMCC. Submissions without `rmr_number` fail closed with HTTP 400.
+- **ZMCC Token Independence**: The generated `zmcc_token` (e.g. `ZTOK-...`) remains the unique internal system token tracking the arrival lifecycle at the ZMCC. The contractor's `rmr_number` and the system's `zmcc_token` are separate fields and must never be conflated.
+- **MOT RMR Equivalence**: For MOT arrivals, `route_milk_token` remains the canonical route milk receipt (RMR) identifier entered from the physical slip carried by the MOT vehicle.
+- **Supervisory Corrections**:
+  - `PHE` (Plant Head / Entry operator) cannot edit `rmr_number` after submission.
+  - `ZMCC_MANAGER` (own-ZMCC only) and `SUPER_ADMIN` may correct `rmr_number` with an audited mandatory reason (at least 5 characters).
+  - All corrections are logged to `AuditLog` capturing previous and new `rmr_number`.
+  - The internal `zmcc_token` remains strictly immutable across all corrections.
+
+### 21B. Exactly One Active Tank Per ZMCC
+- **Single Active Tank Rule**: Each ZMCC chiller facility is permitted to have **at most one active tank** (`is_active = true`) at any given time.
+- **Database Partial Unique Index**: Enforced at the database level by the partial unique index `zmcc_tank_one_active_per_zmcc_idx` ON `zmcc_tank (zmcc_id) WHERE is_active = TRUE`.
+- **Administrative Constraints**:
+  - Attempting to create a new tank with `is_active = true` when an active tank already exists for that ZMCC fails closed with HTTP 400 (`"An active tank already exists for this ZMCC. Only one active tank is permitted per ZMCC."`).
+  - Attempting to activate an inactive tank (`is_active: true`) when another active tank already exists fails closed with HTTP 400 (`"An active tank already exists for this ZMCC. Deactivate the current active tank before activating another."`).
+  - Inactive historical or decommissioned tanks are permitted without limitation, provided `is_active = false`.
+  - Capacity increases are accomplished by editing the capacity (`capacity_liters`) of the sole active tank, not by adding a second active tank.
+- **Operational Reception Behavior**:
+  - In "Accept & Receive" (`completeSession`) and historical receipt (`receiveHistoricalSession`), the system automatically resolves the sole active tank for the ZMCC. Operators do not choose between multiple active tanks.
+  - If 0 active tanks exist: fails closed with HTTP 400 (`"No active ZMCC tank is configured."`).
+  - If >1 active tanks exist (defensive code guard): fails closed with HTTP 400 (`"Configuration error: Multiple active tanks found for this ZMCC. Only one active tank is permitted."`).
+  - Gross Liters remains the sole inventory basis for tank capacity and ledger balance calculations.
+- **Database Migration**: Exactly 1 tracked migration `20260914100000_contractor_rmr_and_single_active_tank` (repository migration count: 23).

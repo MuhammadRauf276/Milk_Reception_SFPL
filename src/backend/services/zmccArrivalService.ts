@@ -51,6 +51,7 @@ export interface CorrectMotArrivalPayload {
 
 export interface SubmitContractorArrivalPayload {
   contractor_source_id: string | number | bigint;
+  rmr_number: string;
   vehicle_number: string;
   arrival_timestamp: string | Date;
   client_event_id: string;
@@ -63,6 +64,7 @@ export interface SubmitContractorArrivalPayload {
 
 export interface CorrectContractorArrivalPayload {
   reason: string;
+  rmr_number?: string;
   vehicle_number?: string;
   arrival_timestamp?: string | Date;
   phe_latitude?: number | null;
@@ -288,6 +290,7 @@ function isExactMotArrivalReplay(
 interface ContractorArrivalReplayComparison {
   zmcc_id: bigint;
   contractor_source_id: bigint;
+  rmr_number: string;
   vehicle_number: string;
   arrival_timestamp: Date;
   phe_latitude: number | null;
@@ -299,6 +302,7 @@ function isExactContractorArrivalReplay(
   existing: {
     zmcc_id: bigint;
     contractor_source_id: bigint;
+    rmr_number: string;
     vehicle_number: string;
     arrival_timestamp: Date | string;
     phe_latitude: any;
@@ -309,6 +313,7 @@ function isExactContractorArrivalReplay(
 ): boolean {
   if (existing.zmcc_id !== expected.zmcc_id) return false;
   if (existing.contractor_source_id !== expected.contractor_source_id) return false;
+  if ((existing.rmr_number || '').trim() !== (expected.rmr_number || '').trim()) return false;
   if (existing.vehicle_number.trim().toUpperCase() !== expected.vehicle_number.trim().toUpperCase()) return false;
 
   const existingTime = new Date(existing.arrival_timestamp).getTime();
@@ -400,6 +405,7 @@ export function serializeContractorArrival(arrival: any) {
     id: arrival.id.toString(),
     zmcc_id: arrival.zmcc_id.toString(),
     contractor_source_id: arrival.contractor_source_id.toString(),
+    rmr_number: arrival.rmr_number,
     vehicle_number: arrival.vehicle_number,
     arrival_timestamp: arrival.arrival_timestamp instanceof Date ? arrival.arrival_timestamp.toISOString() : arrival.arrival_timestamp,
     arrival_date: arrival.arrival_date instanceof Date ? arrival.arrival_date.toISOString().split('T')[0] : arrival.arrival_date,
@@ -1029,6 +1035,11 @@ export async function submitContractorArrival(
     return { status: 400, error: 'Invalid contractor_source_id format.' };
   }
 
+  const rmrNumber = typeof payload.rmr_number === 'string' ? payload.rmr_number.trim() : '';
+  if (!rmrNumber) {
+    return { status: 400, error: 'rmr_number is required.' };
+  }
+
   const vehicleNumber = typeof payload.vehicle_number === 'string' ? payload.vehicle_number.trim().toUpperCase() : '';
   if (!vehicleNumber) {
     return { status: 400, error: 'vehicle_number is required.' };
@@ -1103,6 +1114,7 @@ export async function submitContractorArrival(
   const expectedContractorPayload: ContractorArrivalReplayComparison = {
     zmcc_id: targetZmccId,
     contractor_source_id: contractorSourceId,
+    rmr_number: rmrNumber,
     vehicle_number: vehicleNumber,
     arrival_timestamp: arrivalDate,
     phe_latitude: gpsValidation.lat,
@@ -1153,6 +1165,7 @@ export async function submitContractorArrival(
         data: {
           zmcc_id: targetZmccId!,
           contractor_source_id: contractorSourceId,
+          rmr_number: rmrNumber,
           vehicle_number: vehicleNumber,
           arrival_timestamp: arrivalDate,
           arrival_date: arrivalDatePkt,
@@ -1181,6 +1194,7 @@ export async function submitContractorArrival(
           new_values: {
             contractor_source_id: contractorSourceId.toString(),
             contractor_code: contractorSource.code,
+            rmr_number: rmrNumber,
             vehicle_number: vehicleNumber,
             zmcc_token: zmccToken,
             arrival_timestamp: arrivalDate.toISOString(),
@@ -1287,6 +1301,18 @@ export async function correctContractorArrival(
 
   const oldValues: Record<string, any> = {};
   const newValues: Record<string, any> = {};
+
+  if (payload.rmr_number !== undefined) {
+    const trimmedRmr = String(payload.rmr_number).trim();
+    if (!trimmedRmr) {
+      return { status: 400, error: 'rmr_number cannot be blank.' };
+    }
+    if (trimmedRmr !== arrival.rmr_number) {
+      oldValues.rmr_number = arrival.rmr_number;
+      newValues.rmr_number = trimmedRmr;
+      updateData.rmr_number = trimmedRmr;
+    }
+  }
 
   if (payload.vehicle_number !== undefined) {
     const trimmedVeh = String(payload.vehicle_number).trim().toUpperCase();
@@ -1575,6 +1601,7 @@ export async function listContractorArrivals(
     const term = filters.search.trim();
     where.OR = [
       { zmcc_token: { contains: term, mode: 'insensitive' } },
+      { rmr_number: { contains: term, mode: 'insensitive' } },
       { vehicle_number: { contains: term, mode: 'insensitive' } },
       { contractor_source: { name: { contains: term, mode: 'insensitive' } } },
       { contractor_source: { code: { contains: term, mode: 'insensitive' } } },

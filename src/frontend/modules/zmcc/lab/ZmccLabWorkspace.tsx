@@ -321,8 +321,8 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
         toast.showError('No active ZMCC tank configured. Please contact administrator before accepting milk.');
         return;
       }
-      if (!selectedTankId && tanks.length > 1) {
-        toast.showError('Please select a destination tank.');
+      if (tanks.length > 1) {
+        toast.showError('Configuration error: Multiple active tanks found for this ZMCC. Only one active tank is permitted.');
         return;
       }
     }
@@ -347,7 +347,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
       });
 
       const chosenTankId = completionDecision === 'ACCEPTED'
-        ? (selectedTankId || (tanks.length === 1 ? tanks[0].id : undefined))
+        ? (tanks.length === 1 ? tanks[0].id : (selectedTankId || undefined))
         : undefined;
 
       const res = await fetch(`/api/zmcc/lab/sessions/${activeSession.id}/complete`, {
@@ -411,8 +411,8 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
       toast.showError('No active ZMCC tank configured.');
       return;
     }
-    if (!selectedHistoricalTankId && historicalTanks.length > 1) {
-      toast.showError('Please select a destination tank.');
+    if (historicalTanks.length > 1) {
+      toast.showError('Configuration error: Multiple active tanks found for this ZMCC. Only one active tank is permitted.');
       return;
     }
     setSubmittingHistoricalReceive(true);
@@ -421,7 +421,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          tank_id: selectedHistoricalTankId || (historicalTanks.length === 1 ? historicalTanks[0].id : undefined),
+          tank_id: historicalTanks.length === 1 ? historicalTanks[0].id : (selectedHistoricalTankId || undefined),
         }),
       });
       if (res.ok) {
@@ -1321,35 +1321,24 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
               <div className="space-y-2 pt-1">
                 {loadingTanks ? (
                   <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-500">
-                    Loading active tanks...
+                    Loading active tank...
                   </div>
                 ) : tanks.length === 0 ? (
                   <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 font-semibold flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
                     <span>No active ZMCC tank configured. Please contact administrator before accepting milk.</span>
                   </div>
-                ) : tanks.length === 1 ? (
-                  <div className="space-y-1">
-                    <label className="block text-xs font-bold text-slate-700">Destination Tank (Auto-selected)</label>
-                    <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-semibold">
-                      {tanks[0].tank_name} ({tanks[0].tank_code}) — Available: {Number(tanks[0].available_capacity).toFixed(2)} L / {Number(tanks[0].capacity_liters).toFixed(2)} L
-                    </div>
+                ) : tanks.length > 1 ? (
+                  <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 font-semibold flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
+                    <span>Configuration error: Multiple active tanks found. Only one active tank is permitted per ZMCC.</span>
                   </div>
                 ) : (
                   <div className="space-y-1">
-                    <label className="block text-xs font-bold text-slate-700">Destination Tank *</label>
-                    <select
-                      value={selectedTankId}
-                      onChange={(e) => setSelectedTankId(e.target.value)}
-                      className="w-full p-2.5 border border-slate-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
-                    >
-                      <option value="">-- Select Destination Tank --</option>
-                      {tanks.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.tank_name} ({t.tank_code}) — Available: {Number(t.available_capacity).toFixed(2)} L / {Number(t.capacity_liters).toFixed(2)} L
-                        </option>
-                      ))}
-                    </select>
+                    <label className="block text-xs font-bold text-slate-700">Destination Tank (Sole Active Tank)</label>
+                    <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-semibold">
+                      {tanks[0].tank_name} ({tanks[0].tank_code}) — Available: {Number(tanks[0].available_capacity).toFixed(2)} L / {Number(tanks[0].capacity_liters).toFixed(2)} L
+                    </div>
                   </div>
                 )}
               </div>
@@ -1716,28 +1705,17 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                   <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
                   <span>No active ZMCC tank configured. Please configure an active tank first.</span>
                 </div>
-              ) : historicalTanks.length === 1 ? (
-                <div className="space-y-1">
-                  <label className="block text-xs font-bold text-slate-700">Destination Tank (Auto-selected)</label>
-                  <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-semibold">
-                    {historicalTanks[0].tank_name} ({historicalTanks[0].tank_code}) — Available: {Number(historicalTanks[0].available_capacity).toFixed(2)} L / {Number(historicalTanks[0].capacity_liters).toFixed(2)} L
-                  </div>
+              ) : historicalTanks.length > 1 ? (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 font-semibold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
+                  <span>Configuration error: Multiple active tanks found. Only one active tank is permitted per ZMCC.</span>
                 </div>
               ) : (
                 <div className="space-y-1">
-                  <label className="block text-xs font-bold text-slate-700">Destination Tank *</label>
-                  <select
-                    value={selectedHistoricalTankId}
-                    onChange={(e) => setSelectedHistoricalTankId(e.target.value)}
-                    className="w-full p-2.5 border border-slate-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
-                  >
-                    <option value="">-- Select Destination Tank --</option>
-                    {historicalTanks.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.tank_name} ({t.tank_code}) — Available: {Number(t.available_capacity).toFixed(2)} L / {Number(t.capacity_liters).toFixed(2)} L
-                      </option>
-                    ))}
-                  </select>
+                  <label className="block text-xs font-bold text-slate-700">Destination Tank (Sole Active Tank)</label>
+                  <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-semibold">
+                    {historicalTanks[0].tank_name} ({historicalTanks[0].tank_code}) — Available: {Number(historicalTanks[0].available_capacity).toFixed(2)} L / {Number(historicalTanks[0].capacity_liters).toFixed(2)} L
+                  </div>
                 </div>
               )}
             </div>
@@ -1756,8 +1734,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                 onClick={handleHistoricalReceive}
                 disabled={
                   submittingHistoricalReceive ||
-                  historicalTanks.length === 0 ||
-                  (!selectedHistoricalTankId && historicalTanks.length > 1)
+                  historicalTanks.length !== 1
                 }
                 className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
