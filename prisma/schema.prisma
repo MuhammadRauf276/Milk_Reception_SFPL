@@ -992,6 +992,14 @@ model ZmccLabSession {
   rejection_reason           String?   @map("rejection_reason") @db.Text
   remarks                    String?   @map("remarks") @db.Text
   completion_client_event_id String?   @unique @map("completion_client_event_id") @db.VarChar(255)
+  quantity_value             Decimal?  @map("quantity_value") @db.Decimal(12, 2)
+  quantity_unit              QuantityUnit? @map("quantity_unit")
+  density                    Decimal?  @map("density") @db.Decimal(6, 4)
+  gross_liters               Decimal?  @map("gross_liters") @db.Decimal(12, 2)
+  snf                        Decimal?  @map("snf") @db.Decimal(6, 2)
+  ts                         Decimal?  @map("ts") @db.Decimal(6, 2)
+  at_13ts_liters             Decimal?  @map("at_13ts_liters") @db.Decimal(12, 2)
+  calculation_version        String?   @map("calculation_version") @db.VarChar(20)
   correction_count           Int       @default(0) @map("correction_count")
   manager_correction_count   Int       @default(0) @map("manager_correction_count")
   last_corrected_by_user_id  BigInt?   @map("last_corrected_by_user_id")
