@@ -302,7 +302,7 @@ function isExactContractorArrivalReplay(
   existing: {
     zmcc_id: bigint;
     contractor_source_id: bigint;
-    rmr_number: string;
+    rmr_number: string | null;
     vehicle_number: string;
     arrival_timestamp: Date | string;
     phe_latitude: any;

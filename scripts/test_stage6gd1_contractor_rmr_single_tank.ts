@@ -135,6 +135,7 @@ async function runStage6gd1Tests() {
     submitContractorArrival,
     correctContractorArrival,
     listContractorArrivals,
+    serializeContractorArrival,
   } = await import('../src/backend/services/zmccArrivalService');
 
   // =============================================================
@@ -151,14 +152,14 @@ async function runStage6gd1Tests() {
   const d1MigDir = migrationDirs.find((d) => d.includes('contractor_rmr_and_single_active_tank'));
   assert(!!d1MigDir, 'Migration Exists', `Found 6G-D.1 migration: ${d1MigDir}`);
 
-  // Check column rmr_number on zmcc_contractor_arrival
+  // Check column rmr_number on zmcc_contractor_arrival (must allow NULL for historical rows)
   const rmrColCheck: any[] = await prisma.$queryRaw`
     SELECT column_name, data_type, is_nullable
     FROM information_schema.columns
     WHERE table_name = 'zmcc_contractor_arrival' AND column_name = 'rmr_number';
   `;
   assert(rmrColCheck.length === 1, 'rmr_number Column Exists', 'rmr_number exists in zmcc_contractor_arrival');
-  assert(rmrColCheck[0]?.is_nullable === 'NO', 'rmr_number Not Null', 'rmr_number is NOT NULL');
+  assert(rmrColCheck[0]?.is_nullable === 'YES', 'rmr_number Nullable For Legacy', 'rmr_number allows NULL for historical compatibility');
 
   // Check unique index on zmcc_tank (is_active = TRUE)
   const indexCheck: any[] = await prisma.$queryRaw`
@@ -319,6 +320,20 @@ async function runStage6gd1Tests() {
       },
     });
   }
+
+  // Ensure policy assignments exist for ZMCC_LAB_MOT and ZMCC_LAB_CONTRACTOR
+  await prisma.milkTestPolicyAssignment.deleteMany({
+    where: { testing_point: { in: ['ZMCC_LAB_MOT', 'ZMCC_LAB_CONTRACTOR'] } },
+  });
+
+  await prisma.milkTestPolicyAssignment.createMany({
+    data: [
+      { lab_test_id: lrTest.id, testing_point: 'ZMCC_LAB_MOT', is_required: true, display_order: 1, is_active: true, created_by_user_id: superAdmin.id },
+      { lab_test_id: fatTest.id, testing_point: 'ZMCC_LAB_MOT', is_required: true, display_order: 2, is_active: true, created_by_user_id: superAdmin.id },
+      { lab_test_id: lrTest.id, testing_point: 'ZMCC_LAB_CONTRACTOR', is_required: true, display_order: 1, is_active: true, created_by_user_id: superAdmin.id },
+      { lab_test_id: fatTest.id, testing_point: 'ZMCC_LAB_CONTRACTOR', is_required: true, display_order: 2, is_active: true, created_by_user_id: superAdmin.id },
+    ],
+  });
 
   // =============================================================
   // 4. CONTRACTOR RMR NUMBER WORKFLOW & CORRECTIONS
@@ -690,6 +705,157 @@ async function runStage6gd1Tests() {
   });
   const forgedToggleRes = await toggleZmccTankActive(forgedToggleReq, tank1Id, false);
   assert(forgedToggleRes.status === 401, 'Spoof Toggle Tank Blocked', 'Forged x-user-id rejected with 401');
+
+  // =============================================================
+  // 8. FOCUSED MIGRATION REGRESSION & HISTORICAL TRUTH TESTS
+  // =============================================================
+  console.log('\n--- 8. FOCUSED MIGRATION REGRESSION & HISTORICAL TRUTH ---');
+
+  // 8A. Historical Contractor Arrival without RMR survives with rmr_number = NULL (no fake backfill)
+  const histArrivalEventId = `con-hist-null-${runId}`;
+  await prisma.$executeRaw`
+    INSERT INTO zmcc_contractor_arrival (
+      zmcc_id, contractor_source_id, rmr_number, vehicle_number, arrival_timestamp, arrival_date,
+      zmcc_token, client_event_id, recorded_by_user_id, submitted_at, correction_count, created_at, updated_at
+    ) VALUES (
+      ${zmcc1.id}, ${contractor.id}, NULL, 'HIST-NULL-01', NOW(), CURRENT_DATE,
+      ${'ZT-CON-HIST-' + runId}, ${histArrivalEventId}, ${pheOperator1.id}, NOW(), 0, NOW(), NOW()
+    )
+  `;
+  const histRow = await prisma.zmccContractorArrival.findUnique({
+    where: { client_event_id: histArrivalEventId },
+  });
+  assert(histRow !== null, 'Historical Row Inserted', 'Historical contractor arrival row exists');
+  assert(histRow?.rmr_number === null, 'Historical RMR Remains NULL', 'Historical rmr_number is truthfully NULL (never fake backfill)');
+
+  // 8B. Serialized historical arrival exposes rmr_number as null without fabricating values
+  const serializedHist = serializeContractorArrival(histRow);
+  assert(serializedHist.rmr_number === null, 'Serialized Historical NULL', 'Serialized historical arrival has rmr_number = null');
+
+  // 8C. Historical NULL RMR can be corrected by ZMCC_MANAGER through authorized workflow
+  const histCorrectionRes = await correctContractorArrival(toCoreUser(manager1) as any, histRow!.id, {
+    rmr_number: 'RMR-AUTHENTIC-CORRECTED',
+    reason: 'Correcting historical missing slip from physical archive evidence',
+  });
+  assert(histCorrectionRes.status === 200, 'Historical NULL Corrected', 'Historical NULL RMR corrected by manager (200)');
+  assert(histCorrectionRes.data?.rmr_number === 'RMR-AUTHENTIC-CORRECTED', 'Corrected RMR Persisted', 'New RMR saved');
+
+  // 8D. Verify audit log captures old_values with rmr_number = null
+  const histAudit = await prisma.auditLog.findFirst({
+    where: {
+      table_name: 'zmcc_contractor_arrival',
+      action: 'ZMCC_CONTRACTOR_ARRIVAL_CORRECTED',
+      record_id: BigInt(histRow!.id),
+    },
+    orderBy: { id: 'desc' },
+  });
+  assert(histAudit !== null, 'Correction Audit Log Created', 'AuditLog created for historical correction');
+  assert(
+    histAudit?.old_values ? (histAudit.old_values as any).rmr_number === null : false,
+    'Audit Captures Null Previous RMR',
+    'AuditLog captures previous rmr_number as null'
+  );
+
+  // 8E. Migration Simulation in Isolated Schema:
+  // Pre-migration DB with duplicate active tanks fails-fast and deactivates nothing
+  const migSimSchema = `mig_guard_sim_${runId}`;
+  await prisma.$executeRawUnsafe(`CREATE SCHEMA "${migSimSchema}";`);
+  try {
+    // Create minimal zmcc_tank in sim schema
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE "${migSimSchema}"."zmcc_tank" (
+        id BIGSERIAL PRIMARY KEY,
+        zmcc_id BIGINT NOT NULL,
+        tank_code VARCHAR(50) NOT NULL,
+        is_active BOOLEAN NOT NULL DEFAULT TRUE
+      );
+    `);
+    await prisma.$executeRawUnsafe(`
+      INSERT INTO "${migSimSchema}"."zmcc_tank" (zmcc_id, tank_code, is_active)
+      VALUES (101, 'TK-A', TRUE), (101, 'TK-B', TRUE);
+    `);
+
+    // Run fail-fast guard SQL pointing to sim schema
+    let guardThrew = false;
+    let guardError = '';
+    try {
+      await prisma.$executeRawUnsafe(`
+        DO $$
+        BEGIN
+          IF EXISTS (
+            SELECT zmcc_id
+            FROM "${migSimSchema}"."zmcc_tank"
+            WHERE is_active = TRUE
+            GROUP BY zmcc_id
+            HAVING COUNT(*) > 1
+          ) THEN
+            RAISE EXCEPTION
+              'Cannot enforce one active tank per ZMCC: duplicate active tanks exist. Resolve configuration explicitly before migration.';
+          END IF;
+        END $$;
+      `);
+    } catch (err: any) {
+      guardThrew = true;
+      guardError = err.message || String(err);
+    }
+    assert(guardThrew, 'Migration Guard Throws On Duplicate', 'Guard raised exception on duplicate active tanks');
+    assert(
+      guardError.includes('Cannot enforce one active tank per ZMCC: duplicate active tanks exist'),
+      'Guard Exception Message Clear',
+      'Exception message matches canonical fail-fast guard'
+    );
+
+    // Assert neither tank was silently deactivated
+    const simTanks: any[] = await prisma.$queryRawUnsafe(`
+      SELECT tank_code, is_active FROM "${migSimSchema}"."zmcc_tank" ORDER BY id ASC;
+    `);
+    assert(
+      simTanks.length === 2 && simTanks.every((t) => t.is_active === true),
+      'Tanks Never Silently Deactivated',
+      'Both tanks remain is_active=true (no silent deactivation or data mutation)'
+    );
+
+    // Resolve duplicate explicitly (as required before migration)
+    await prisma.$executeRawUnsafe(`
+      UPDATE "${migSimSchema}"."zmcc_tank" SET is_active = FALSE WHERE tank_code = 'TK-B';
+    `);
+
+    // Run guard again
+    await prisma.$executeRawUnsafe(`
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT zmcc_id
+          FROM "${migSimSchema}"."zmcc_tank"
+          WHERE is_active = TRUE
+          GROUP BY zmcc_id
+          HAVING COUNT(*) > 1
+        ) THEN
+          RAISE EXCEPTION
+            'Cannot enforce one active tank per ZMCC: duplicate active tanks exist. Resolve configuration explicitly before migration.';
+        END IF;
+      END $$;
+    `);
+
+    // Create partial unique index
+    await prisma.$executeRawUnsafe(`
+      CREATE UNIQUE INDEX "zmcc_tank_one_active_per_zmcc_idx" ON "${migSimSchema}"."zmcc_tank" ("zmcc_id") WHERE is_active = TRUE;
+    `);
+
+    // Verify index prevents second active tank at DB level
+    let secondActiveFailed = false;
+    try {
+      await prisma.$executeRawUnsafe(`
+        INSERT INTO "${migSimSchema}"."zmcc_tank" (zmcc_id, tank_code, is_active)
+        VALUES (101, 'TK-C', TRUE);
+      `);
+    } catch {
+      secondActiveFailed = true;
+    }
+    assert(secondActiveFailed, 'Index Prevents Second Active Tank', 'Database partial unique index rejects second active tank');
+  } finally {
+    await prisma.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${migSimSchema}" CASCADE;`);
+  }
 
   // =============================================================
   // SUMMARY

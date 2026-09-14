@@ -514,13 +514,13 @@ SUPER ADMIN (SUPER_ADMIN)
 ## 21. Stage 6G-D.1 Contractor RMR & Single Active ZMCC Tank Alignment
 
 ### 21A. Contractor RMR vs. System ZMCC Token
-- **Contractor RMR Authority**: For Contractor arrivals, the physical dispatch slip identifier issued by the contractor is captured as `rmr_number` on `ZmccContractorArrival`.
+- **Contractor RMR Authority**: Contractor RMR/business token is manually entered by the PHE Operator from the physical slip/ticket.
 - **Mandatory Submission**: `rmr_number` is strictly required (non-empty string, VarChar(100)) upon recording a Contractor arrival at ZMCC. Submissions without `rmr_number` fail closed with HTTP 400.
-- **ZMCC Token Independence**: The generated `zmcc_token` (e.g. `ZTOK-...`) remains the unique internal system token tracking the arrival lifecycle at the ZMCC. The contractor's `rmr_number` and the system's `zmcc_token` are separate fields and must never be conflated.
-- **MOT RMR Equivalence**: For MOT arrivals, `route_milk_token` remains the canonical route milk receipt (RMR) identifier entered from the physical slip carried by the MOT vehicle.
+- **ZMCC Token Independence**: Contractor RMR is separate from generated ZMCC token. The generated system ZMCC token is immutable.
+- **MOT RMR Equivalence**: MOT route_milk_token remains MOT RMR/business token.
 - **Supervisory Corrections**:
-  - `PHE` (Plant Head / Entry operator) cannot edit `rmr_number` after submission.
-  - `ZMCC_MANAGER` (own-ZMCC only) and `SUPER_ADMIN` may correct `rmr_number` with an audited mandatory reason (at least 5 characters).
+  - PHE cannot edit after submission.
+  - Authorized ZMCC_MANAGER own-ZMCC / SUPER_ADMIN correction remains audited with mandatory reason (at least 5 characters).
   - All corrections are logged to `AuditLog` capturing previous and new `rmr_number`.
   - The internal `zmcc_token` remains strictly immutable across all corrections.
 

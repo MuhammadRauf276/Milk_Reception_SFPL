@@ -959,7 +959,7 @@ model ZmccContractorArrival {
   id                   BigInt   @id @default(autoincrement())
   zmcc_id              BigInt   @map("zmcc_id")
   contractor_source_id BigInt   @map("contractor_source_id")
-  rmr_number           String   @map("rmr_number") @db.VarChar(100)
+  rmr_number           String?  @map("rmr_number") @db.VarChar(100)
   vehicle_number       String   @map("vehicle_number") @db.VarChar(50)
   arrival_timestamp    DateTime @map("arrival_timestamp") @db.Timestamp(6)
   arrival_date         DateTime @map("arrival_date") @db.Date
