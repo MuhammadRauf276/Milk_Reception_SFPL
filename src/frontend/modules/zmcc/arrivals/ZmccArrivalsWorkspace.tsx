@@ -58,6 +58,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
   // Contractor Arrival Form State
   const [contractors, setContractors] = useState<any[]>([]);
   const [selectedContractorId, setSelectedContractorId] = useState('');
+  const [contractorRmrNumber, setContractorRmrNumber] = useState('');
   const [contractorVehicleNumber, setContractorVehicleNumber] = useState('');
   const [contractorArrivalTimestamp, setContractorArrivalTimestamp] = useState(() =>
     toDatetimeLocalInput(new Date())
@@ -84,6 +85,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
   const [correctionTarget, setCorrectionTarget] = useState<{ type: 'MOT' | 'CONTRACTOR'; record: any } | null>(null);
   const [corrReason, setCorrReason] = useState('');
   const [corrToken, setCorrToken] = useState('');
+  const [corrRmr, setCorrRmr] = useState('');
   const [corrVehicle, setCorrVehicle] = useState('');
   const [corrTimestamp, setCorrTimestamp] = useState('');
   const [corrLat, setCorrLat] = useState<string>('');
@@ -109,6 +111,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
 
   const initContractorForm = useCallback(() => {
     setSelectedContractorId('');
+    setContractorRmrNumber('');
     setContractorVehicleNumber('');
     setContractorArrivalTimestamp(toDatetimeLocalInput(new Date()));
     setContractorGps({ lat: null, lng: null, acc: null });
@@ -264,6 +267,10 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
       setContractorError('Please select a contractor.');
       return;
     }
+    if (!contractorRmrNumber.trim()) {
+      setContractorError('Contractor RMR number is required.');
+      return;
+    }
     if (!contractorVehicleNumber.trim()) {
       setContractorError('Vehicle number is required.');
       return;
@@ -276,6 +283,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contractor_source_id: selectedContractorId,
+          rmr_number: contractorRmrNumber.trim(),
           vehicle_number: contractorVehicleNumber.trim().toUpperCase(),
           arrival_timestamp: datetimeLocalToIso(contractorArrivalTimestamp) || new Date(contractorArrivalTimestamp).toISOString(),
           client_event_id: contractorEventId,
@@ -310,6 +318,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
       setCorrLng(record.phe_longitude != null ? String(record.phe_longitude) : '');
       setCorrAcc(record.phe_gps_accuracy != null ? String(record.phe_gps_accuracy) : '');
     } else {
+      setCorrRmr(record.rmr_number || '');
       setCorrVehicle(record.vehicle_number || '');
       setCorrTimestamp(record.arrival_timestamp ? toDatetimeLocalInput(record.arrival_timestamp) : '');
       setCorrLat(record.phe_latitude != null ? String(record.phe_latitude) : '');
@@ -342,6 +351,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
       if (correctionTarget.type === 'MOT') {
         payload.route_milk_token = corrToken.trim();
       } else {
+        payload.rmr_number = corrRmr.trim();
         payload.vehicle_number = corrVehicle.trim().toUpperCase();
       }
 
@@ -718,6 +728,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
 
               <div className="space-y-2 text-xs">
                 <div>ZMCC Token: <strong className="font-mono text-emerald-800 text-sm">{contractorSuccessResult.zmcc_token}</strong></div>
+                <div>Contractor RMR: <strong className="font-mono">{contractorSuccessResult.rmr_number}</strong></div>
                 <div>Vehicle: <strong>{contractorSuccessResult.vehicle_number}</strong></div>
                 <div>Contractor: <strong>{contractorSuccessResult.contractor_source?.name}</strong></div>
                 <div>Arrival Date: <strong>{contractorSuccessResult.arrival_date}</strong></div>
@@ -760,6 +771,23 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Contractor RMR No. (from physical slip) <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={100}
+                  value={contractorRmrNumber}
+                  onChange={(e) => setContractorRmrNumber(e.target.value)}
+                  placeholder="e.g. 002345"
+                  required
+                  className="w-full text-xs font-bold px-3 py-2 border rounded-xl focus:ring-2 focus:ring-[#1E3A8A] outline-hidden font-mono"
+                />
               </div>
 
               <div>
@@ -962,7 +990,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
                           </span>
                         </td>
                         <td className="p-3 font-mono font-black text-slate-900">{arr.zmcc_token}</td>
-                        <td className="p-3 text-slate-400">—</td>
+                        <td className="p-3 font-mono font-bold text-amber-900">{arr.rmr_number || '—'}</td>
                         <td className="p-3">
                           <div className="font-bold text-slate-800">{arr.vehicle_number}</div>
                           <div className="text-[11px] text-slate-500">
@@ -1061,16 +1089,32 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
                   />
                 </div>
               ) : (
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Vehicle Number</label>
-                  <input
-                    type="text"
-                    value={corrVehicle}
-                    onChange={(e) => setCorrVehicle(e.target.value.toUpperCase())}
-                    required
-                    className="w-full px-3 py-2 border rounded-xl font-mono uppercase"
-                  />
-                </div>
+                <>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Contractor RMR Number</label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={100}
+                      value={corrRmr}
+                      onChange={(e) => setCorrRmr(e.target.value)}
+                      placeholder="e.g. 002345"
+                      required
+                      className="w-full px-3 py-2 border rounded-xl font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Vehicle Number</label>
+                    <input
+                      type="text"
+                      value={corrVehicle}
+                      onChange={(e) => setCorrVehicle(e.target.value.toUpperCase())}
+                      required
+                      className="w-full px-3 py-2 border rounded-xl font-mono uppercase"
+                    />
+                  </div>
+                </>
               )}
 
               <div>

@@ -152,7 +152,7 @@ async function runStage6gdTests() {
   const migrationDirs = fs
     .readdirSync(migrationsDir)
     .filter((f) => fs.statSync(path.join(migrationsDir, f)).isDirectory() && !f.startsWith('.'));
-  assert(migrationDirs.length === 22, 'Tracked Migrations', `Found exactly ${migrationDirs.length} migrations (expected 22)`);
+  assert(migrationDirs.length === 23, 'Tracked Migrations', `Found exactly 23 migrations (expected 23)`);
 
   const tankMigDir = migrationDirs.find((d) => d.includes('zmcc_tank_receipt_and_ledger'));
   assert(!!tankMigDir, 'Migration Exists', `Found 6G-D migration: ${tankMigDir}`);
@@ -726,13 +726,31 @@ async function runStage6gdTests() {
   });
   assert(txCountS2 === 1, 'Zero Duplicate Ledger Rows', 'Exactly 1 ledger transaction exists after replay');
 
-  // Create Tank B for ZMCC 1 (now >1 active tanks exist for ZMCC 1)
+  // Attempt to create Tank B while Tank A is active (Stage 6G-D.1: exactly 1 active tank per ZMCC)
+  const tankBConflictRes = await createZmccTank(toCoreUser(superAdmin) as any, {
+    tank_code: `TK-B-${runId}`,
+    tank_name: `Chilled Milk Tank B ${runId}`,
+    capacity_liters: 8000,
+    zmcc_id: zmcc1.id.toString(),
+  });
+  assert(tankBConflictRes.status === 400, 'Single Active Tank Enforced', 'Creating 2nd active tank rejected (400)');
+  assert(
+    Boolean(tankBConflictRes.error?.includes('Only one active tank is permitted per ZMCC')),
+    'Single Active Tank Error Message',
+    tankBConflictRes.error
+  );
+
+  // Deactivate Tank A to allow activating Tank B as sole active tank
+  await toggleZmccTankActive(toCoreUser(superAdmin) as any, tankAId, false);
+
+  // Create Tank B for ZMCC 1
   const tankBRes = await createZmccTank(toCoreUser(superAdmin) as any, {
     tank_code: `TK-B-${runId}`,
     tank_name: `Chilled Milk Tank B ${runId}`,
     capacity_liters: 8000,
     zmcc_id: zmcc1.id.toString(),
   });
+  assert(tankBRes.status === 201, 'Tank B Created', 'Created Tank B as sole active tank');
   const tankBId = tankBRes.data!.tank.id;
 
   // Start Session 3
@@ -743,12 +761,13 @@ async function runStage6gdTests() {
   );
   const s3Id = BigInt(s3Start.data!.id);
 
-  // Complete Session 3 without tank_id when >1 active tanks exist (must fail 400)
-  const s3NoTankRes = await completeSession(
+  // Complete Session 3 specifying inactive Tank A (must fail 400)
+  const s3InactiveTankRes = await completeSession(
     toCoreUser(attendant1) as any,
     s3Id,
     {
-      completion_client_event_id: `evt-c-s3-${runId}`,
+      completion_client_event_id: `evt-c-s3-inact-${runId}`,
+      tank_id: tankAId,
       quantity_value: 4000,
       quantity_unit: 'LITER',
       decision: 'ACCEPTED',
@@ -758,8 +777,8 @@ async function runStage6gdTests() {
       ],
     }
   );
-  assert(s3NoTankRes.status === 400, 'Multiple Tanks Require Selection', 'Fails closed when destination tank is not specified');
-  assert(Boolean(s3NoTankRes.error?.includes('Destination tank is required')), 'Multiple Tanks Error Message', s3NoTankRes.error);
+  assert(s3InactiveTankRes.status === 400, 'Inactive Tank Selection Blocked', 'Fails closed when destination tank is inactive (400)');
+  assert(Boolean(s3InactiveTankRes.error?.includes('inactive')), 'Inactive Tank Error Message', s3InactiveTankRes.error);
 
   // Complete Session 3 specifying Tank B with quantity exceeding Tank B capacity (e.g. 9,000 L into 8,000 L capacity)
   const s3OverfillRes = await completeSession(
@@ -996,6 +1015,9 @@ async function runStage6gdTests() {
   assert(txCountAfterZero === txCountBeforeZero, 'Zero Delta No Transaction', 'No new inventory transaction created for zero delta');
 
   // Negative stock guard: attempting a correction that would deduct more than the tank's current physical stock
+  // Deactivate Tank B to allow activating Tank C as sole active tank
+  await toggleZmccTankActive(toCoreUser(superAdmin) as any, tankBId, false);
+
   const tankCRes = await createZmccTank(toCoreUser(superAdmin) as any, {
     tank_code: `TK-C-${runId}`,
     tank_name: `Small Tank C ${runId}`,
@@ -1065,6 +1087,10 @@ async function runStage6gdTests() {
   );
   assert(negStockRes.status === 400, 'Negative Stock Guard', 'Correction blocked when deduction exceeds physical stock (400)');
   assert(Boolean(negStockRes.error?.includes('NEGATIVE_STOCK')), 'Negative Stock Error Format', negStockRes.error);
+
+  // Deactivate Tank C and reactivate Tank A for historical receipt testing
+  await toggleZmccTankActive(toCoreUser(superAdmin) as any, tankCId, false);
+  await toggleZmccTankActive(toCoreUser(superAdmin) as any, tankAId, true);
 
   // =============================================================
   // 7. CONTROLLED HISTORICAL PRE-6G-D RECEIPT CREATION & HARDENING
@@ -1287,9 +1313,9 @@ async function runStage6gdTests() {
     tank_name: 'Inactive Historical Destination Tank',
     capacity_liters: 10000,
     zmcc_id: zmcc1.id.toString(),
+    is_active: false,
   });
   const inactTankId = inactTankRes.data!.tank.id;
-  await toggleZmccTankActive(toCoreUser(superAdmin) as any, inactTankId, false);
 
   const histInactRes = await receiveHistoricalSession(toCoreUser(attendant1) as any, histSession.id.toString(), {
     tank_id: inactTankId,
@@ -1351,7 +1377,8 @@ async function runStage6gdTests() {
     },
   });
 
-  // Re-activate inactTankId so pre-tx query sees it as active
+  // Temporarily deactivate Tank A and re-activate inactTankId so pre-tx query sees it as active
+  await toggleZmccTankActive(toCoreUser(superAdmin) as any, tankAId, false);
   await toggleZmccTankActive(toCoreUser(superAdmin) as any, inactTankId, true);
 
   // Hook prisma.zmccTank.findMany so that right after pre-tx query completes, we deactivate inactTankId in DB
@@ -1375,6 +1402,9 @@ async function runStage6gdTests() {
   (prisma.zmccTank as any).findMany = origFindManyHist;
   assert(concurrentHistRes.status === 400, 'Concurrent Deactivation Under Lock (Historical)', 'Fails closed under lock when tank deactivated concurrently (400)');
   assert(concurrentHistRes.error === 'Destination ZMCC tank is inactive.', 'Concurrent Deactivation Error Message', concurrentHistRes.error);
+
+  // Reactivate Tank A for subsequent tests
+  await toggleZmccTankActive(toCoreUser(superAdmin) as any, tankAId, true);
 
   // 7D. Successful Historical Receipt by ZMCC_LAB_ATTENDANT
   // Tank A capacity: 12,000 L, current stock: 5,000 L -> 7,000 L available -> 4,000 L fits!
@@ -1447,10 +1477,10 @@ async function runStage6gdTests() {
   });
 
   const superHistRes = await receiveHistoricalSession(toCoreUser(superAdmin) as any, histSessionSuper.id.toString(), {
-    tank_id: tankBId,
+    tank_id: tankAId,
   });
   assert(superHistRes.status === 201, 'Super Admin Historical Receipt Allowed', 'Super Admin historical receipt status 201');
-  assert(superHistRes.data!.tank_receipt.tank_id === tankBId, 'Super Admin Receipt Tank B', 'Assigned to Tank B');
+  assert(superHistRes.data!.tank_receipt.tank_id === tankAId, 'Super Admin Receipt Tank A', 'Assigned to Tank A');
 
   // 7F. Attempting historical receipt again on same session returns existing (idempotent)
   const dupHistRes = await receiveHistoricalSession(toCoreUser(attendant1) as any, histSession.id.toString(), {

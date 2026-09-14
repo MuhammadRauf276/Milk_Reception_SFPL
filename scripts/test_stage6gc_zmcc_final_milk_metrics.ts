@@ -154,7 +154,7 @@ async function runStage6gcTests() {
   const migrationDirs = fs
     .readdirSync(migrationsDir)
     .filter((f) => fs.statSync(path.join(migrationsDir, f)).isDirectory() && !f.startsWith('.'));
-  assert(migrationDirs.length === 22, 'Tracked Migrations', `Found exactly ${migrationDirs.length} migrations (expected 22)`);
+  assert(migrationDirs.length === 23, 'Tracked Migrations', `Found exactly 23 migrations (expected 23)`);
 
   const metricsMigDir = migrationDirs.find((d) => d.includes('zmcc_final_milk_metrics'));
   assert(!!metricsMigDir, 'Migration Exists', `Found 6G-C migration: ${metricsMigDir}`);
@@ -616,6 +616,7 @@ async function runStage6gcTests() {
       toCoreUser(phe) as any,
       {
         contractor_source_id: contractor.id,
+        rmr_number: '006101',
         vehicle_number: `CON-VEH-${runId}`,
         arrival_timestamp: new Date(Date.now() - 1200000),
         client_event_id: `evt-con-arr-${runId}`,
@@ -669,6 +670,7 @@ async function runStage6gcTests() {
       toCoreUser(phe) as any,
       {
         contractor_source_id: contractor.id,
+        rmr_number: '006102',
         vehicle_number: `CONT-VEH-2-${runId}`,
         arrival_timestamp: new Date(Date.now() - 1000000),
         client_event_id: `evt-con-arr-2-${runId}`,
@@ -1104,6 +1106,7 @@ async function runStage6gcTests() {
       toCoreUser(phe) as any,
       {
         contractor_source_id: contractor.id,
+        rmr_number: '006103',
         vehicle_number: `CON-ISO-${runId}`,
         arrival_timestamp: new Date(Date.now() - 600000),
         client_event_id: `evt-con-iso-${runId}`,

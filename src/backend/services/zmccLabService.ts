@@ -1350,35 +1350,50 @@ export async function completeSession(
   // Resolve destination ZMCC tank for ACCEPTED completion
   let targetTankId: bigint | null = null;
   if (decision === 'ACCEPTED') {
+    const activeTanks = await prisma.zmccTank.findMany({
+      where: { zmcc_id: session.zmcc_id, is_active: true },
+      orderBy: { id: 'asc' },
+    });
+
     if (payload.tank_id !== undefined && payload.tank_id !== null && String(payload.tank_id).trim() !== '') {
       try {
-        targetTankId = BigInt(String(payload.tank_id).trim());
+        const suppliedTankId = BigInt(String(payload.tank_id).trim());
+        const suppliedTank = await prisma.zmccTank.findUnique({ where: { id: suppliedTankId } });
+        if (!suppliedTank) {
+          return { status: 404, error: 'Selected ZMCC tank not found.' };
+        }
+        if (suppliedTank.zmcc_id !== session.zmcc_id) {
+          return { status: 403, error: 'Forbidden. Destination tank belongs to another ZMCC.' };
+        }
+        if (!suppliedTank.is_active) {
+          return { status: 400, error: 'Destination ZMCC tank is inactive.' };
+        }
       } catch {
         return { status: 400, error: 'Invalid tank_id format.' };
       }
-      const anyTank = await prisma.zmccTank.findUnique({ where: { id: targetTankId } });
-      if (!anyTank) {
-        return { status: 404, error: 'Selected ZMCC tank not found.' };
-      }
-      if (anyTank.zmcc_id !== session.zmcc_id) {
-        return { status: 403, error: 'Forbidden. Destination tank belongs to another ZMCC.' };
-      }
-      if (!anyTank.is_active) {
-        return { status: 400, error: 'Destination ZMCC tank is inactive.' };
-      }
-    } else {
-      const activeTanks = await prisma.zmccTank.findMany({
-        where: { zmcc_id: session.zmcc_id, is_active: true },
-        orderBy: { id: 'asc' },
-      });
+    }
 
-      if (activeTanks.length === 0) {
-        return { status: 400, error: 'No active ZMCC tank is configured.' };
-      }
-      if (activeTanks.length === 1) {
-        targetTankId = activeTanks[0].id;
-      } else {
-        return { status: 400, error: 'Destination tank is required when multiple active tanks exist.' };
+    if (activeTanks.length === 0) {
+      return { status: 400, error: 'No active ZMCC tank is configured.' };
+    }
+    if (activeTanks.length > 1) {
+      return {
+        status: 400,
+        error: 'Configuration error: Multiple active tanks exist for this ZMCC. Exactly one active tank is permitted.',
+      };
+    }
+
+    const soleTank = activeTanks[0];
+    targetTankId = soleTank.id;
+
+    if (payload.tank_id !== undefined && payload.tank_id !== null && String(payload.tank_id).trim() !== '') {
+      try {
+        const suppliedTankId = BigInt(String(payload.tank_id).trim());
+        if (suppliedTankId !== soleTank.id) {
+          return { status: 400, error: 'Selected tank does not match the active ZMCC tank.' };
+        }
+      } catch {
+        return { status: 400, error: 'Invalid tank_id format.' };
       }
     }
   }

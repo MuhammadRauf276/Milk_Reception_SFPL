@@ -306,6 +306,33 @@ export interface CreateTankPayload {
   tank_code: string;
   tank_name: string;
   capacity_liters: number;
+  is_active?: boolean;
+}
+
+function parseZmccTankUniqueViolation(err: any): { isCodeConflict: boolean; isActiveTankConflict: boolean } {
+  const target = err?.meta?.target;
+  const msg = String(err?.message || '');
+
+  // 1. Check for partial unique index: zmcc_tank_one_active_per_zmcc_idx
+  if (
+    (typeof target === 'string' && target.includes('zmcc_tank_one_active_per_zmcc_idx')) ||
+    (Array.isArray(target) && target.includes('zmcc_tank_one_active_per_zmcc_idx')) ||
+    msg.includes('zmcc_tank_one_active_per_zmcc_idx')
+  ) {
+    return { isCodeConflict: false, isActiveTankConflict: true };
+  }
+
+  // 2. Check for unique constraint on (zmcc_id, tank_code)
+  if (
+    (Array.isArray(target) && (target.includes('tank_code') || target.includes('zmcc_id'))) ||
+    (typeof target === 'string' && (target.includes('tank_code') || target.includes('zmcc_id_tank_code'))) ||
+    msg.includes('zmcc_id_tank_code') ||
+    msg.includes('tank_code')
+  ) {
+    return { isCodeConflict: true, isActiveTankConflict: false };
+  }
+
+  return { isCodeConflict: false, isActiveTankConflict: false };
 }
 
 /**
@@ -319,7 +346,7 @@ export async function createZmccTank(
   if (errorResponse) return errorResponse;
   if (!auth) return { status: 401, error: 'Unauthorized.' };
 
-  const { zmcc_id, tank_code, tank_name, capacity_liters } = payload || {};
+  const { zmcc_id, tank_code, tank_name, capacity_liters, is_active } = payload || {};
 
   if (!zmcc_id) {
     return { status: 400, error: 'zmcc_id is required.' };
@@ -356,6 +383,14 @@ export async function createZmccTank(
     return { status: 400, error: 'capacity_liters must be a positive number greater than 0.' };
   }
 
+  let shouldBeActive = true;
+  if (is_active !== undefined) {
+    if (typeof is_active !== 'boolean') {
+      return { status: 400, error: 'is_active must be a boolean (true or false).' };
+    }
+    shouldBeActive = is_active;
+  }
+
   // Check code uniqueness within ZMCC
   const existing = await prisma.zmccTank.findUnique({
     where: {
@@ -369,43 +404,84 @@ export async function createZmccTank(
     return { status: 400, error: `Tank code "${codeTrimmed}" already exists in this ZMCC.` };
   }
 
-  const createdTank = await prisma.$transaction(async (tx) => {
-    const tank = await tx.zmccTank.create({
-      data: {
+  // Check if an active tank already exists for this ZMCC
+  if (shouldBeActive) {
+    const existingActive = await prisma.zmccTank.findFirst({
+      where: {
         zmcc_id: targetZmccId,
-        tank_code: codeTrimmed,
-        tank_name: nameTrimmed,
-        capacity_liters: new Prisma.Decimal(capNum.toFixed(2)),
         is_active: true,
-        created_by_user_id: auth.actorUserId,
-      },
-      include: {
-        creator: true,
-        updater: true,
-        zmcc: true,
       },
     });
+    if (existingActive) {
+      return {
+        status: 400,
+        error: `An active tank ("${existingActive.tank_code}") already exists for this ZMCC. Only one active tank is permitted per ZMCC.`,
+      };
+    }
+  }
 
-    await tx.auditLog.create({
-      data: {
-        table_name: 'zmcc_tank',
-        record_id: tank.id,
-        action: 'ZMCC_TANK_CREATED',
-        new_values: {
-          tank_code: tank.tank_code,
-          tank_name: tank.tank_name,
-          capacity_liters: capNum,
-          zmcc_id: targetZmccId.toString(),
-          created_by_user_id: auth.actorUserId.toString(),
+  try {
+    const createdTank = await prisma.$transaction(async (tx) => {
+      const tank = await tx.zmccTank.create({
+        data: {
+          zmcc_id: targetZmccId,
+          tank_code: codeTrimmed,
+          tank_name: nameTrimmed,
+          capacity_liters: new Prisma.Decimal(capNum.toFixed(2)),
+          is_active: shouldBeActive,
+          created_by_user_id: auth.actorUserId,
         },
-        user_id: auth.actorUserId,
-      },
+        include: {
+          creator: true,
+          updater: true,
+          zmcc: true,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          table_name: 'zmcc_tank',
+          record_id: tank.id,
+          action: 'ZMCC_TANK_CREATED',
+          new_values: {
+            tank_code: tank.tank_code,
+            tank_name: tank.tank_name,
+            capacity_liters: capNum,
+            is_active: tank.is_active,
+            zmcc_id: targetZmccId.toString(),
+            created_by_user_id: auth.actorUserId.toString(),
+          },
+          user_id: auth.actorUserId,
+        },
+      });
+
+      return tank;
     });
 
-    return tank;
-  });
-
-  return { status: 201, data: { tank: serializeTank(createdTank, 0) } };
+    return { status: 201, data: { tank: serializeTank(createdTank, 0) } };
+  } catch (err: any) {
+    const violation = parseZmccTankUniqueViolation(err);
+    if (violation.isActiveTankConflict) {
+      return {
+        status: 400,
+        error: 'An active tank already exists for this ZMCC. Only one active tank is permitted per ZMCC.',
+      };
+    }
+    if (violation.isCodeConflict) {
+      return {
+        status: 400,
+        error: `Tank code "${codeTrimmed}" already exists in this ZMCC.`,
+      };
+    }
+    if (err?.code === 'P2002') {
+      return {
+        status: 400,
+        error: 'A tank with these unique properties already exists in this ZMCC.',
+      };
+    }
+    console.error('createZmccTank error:', err);
+    return { status: 500, error: 'Internal server error while creating tank.' };
+  }
 }
 
 export interface UpdateTankPayload {
@@ -575,36 +651,70 @@ export async function toggleZmccTankActive(
     return { status: 200, data: { tank: serializeTank(existing, stock) } };
   }
 
-  const updatedTank = await prisma.$transaction(async (tx) => {
-    const updated = await tx.zmccTank.update({
-      where: { id: tankId },
-      data: {
-        is_active: isActive,
-        updated_by_user_id: auth.actorUserId,
-      },
-      include: {
-        creator: true,
-        updater: true,
-        zmcc: true,
+  if (isActive) {
+    const existingActive = await prisma.zmccTank.findFirst({
+      where: {
+        zmcc_id: existing.zmcc_id,
+        is_active: true,
+        id: { not: tankId },
       },
     });
+    if (existingActive) {
+      return {
+        status: 400,
+        error: `Cannot activate tank. An active tank ("${existingActive.tank_code}") already exists for this ZMCC. Only one active tank is permitted per ZMCC.`,
+      };
+    }
+  }
 
-    await tx.auditLog.create({
-      data: {
-        table_name: 'zmcc_tank',
-        record_id: tankId,
-        action: isActive ? 'ZMCC_TANK_ACTIVATED' : 'ZMCC_TANK_DEACTIVATED',
-        old_values: { is_active: existing.is_active },
-        new_values: { is_active: isActive, updated_by_user_id: auth.actorUserId.toString() },
-        user_id: auth.actorUserId,
-      },
+  try {
+    const updatedTank = await prisma.$transaction(async (tx) => {
+      const updated = await tx.zmccTank.update({
+        where: { id: tankId },
+        data: {
+          is_active: isActive,
+          updated_by_user_id: auth.actorUserId,
+        },
+        include: {
+          creator: true,
+          updater: true,
+          zmcc: true,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          table_name: 'zmcc_tank',
+          record_id: tankId,
+          action: isActive ? 'ZMCC_TANK_ACTIVATED' : 'ZMCC_TANK_DEACTIVATED',
+          old_values: { is_active: existing.is_active },
+          new_values: { is_active: isActive, updated_by_user_id: auth.actorUserId.toString() },
+          user_id: auth.actorUserId,
+        },
+      });
+
+      return updated;
     });
 
-    return updated;
-  });
-
-  const stock = await getTankPhysicalStock(updatedTank.id);
-  return { status: 200, data: { tank: serializeTank(updatedTank, stock) } };
+    const stock = await getTankPhysicalStock(updatedTank.id);
+    return { status: 200, data: { tank: serializeTank(updatedTank, stock) } };
+  } catch (err: any) {
+    const violation = parseZmccTankUniqueViolation(err);
+    if (violation.isActiveTankConflict) {
+      return {
+        status: 400,
+        error: 'Cannot activate tank. An active tank already exists for this ZMCC. Only one active tank is permitted per ZMCC.',
+      };
+    }
+    if (err?.code === 'P2002') {
+      return {
+        status: 400,
+        error: 'Cannot update tank status due to a unique constraint conflict.',
+      };
+    }
+    console.error('toggleZmccTankActive error:', err);
+    return { status: 500, error: 'Internal server error while updating tank status.' };
+  }
 }
 
 /**
@@ -685,6 +795,24 @@ export async function receiveHistoricalSession(
   const coreLr = new Prisma.Decimal(resolvedCore.lr.toFixed(2));
   const coreFat = new Prisma.Decimal(resolvedCore.fat.toFixed(2));
 
+  if (payload?.tank_id !== undefined && payload.tank_id !== null && String(payload.tank_id).trim() !== '') {
+    try {
+      const suppliedTankId = BigInt(String(payload.tank_id).trim());
+      const suppliedTank = await prisma.zmccTank.findUnique({ where: { id: suppliedTankId } });
+      if (!suppliedTank) {
+        return { status: 404, error: 'Selected ZMCC tank not found.' };
+      }
+      if (suppliedTank.zmcc_id !== session.zmcc_id) {
+        return { status: 403, error: 'Forbidden. Selected tank belongs to another ZMCC.' };
+      }
+      if (!suppliedTank.is_active) {
+        return { status: 400, error: 'Destination ZMCC tank is inactive.' };
+      }
+    } catch {
+      return { status: 400, error: 'Invalid tank_id format.' };
+    }
+  }
+
   // Tank selection rules
   const activeTanks = await prisma.zmccTank.findMany({
     where: { zmcc_id: session.zmcc_id, is_active: true },
@@ -694,32 +822,24 @@ export async function receiveHistoricalSession(
   if (activeTanks.length === 0) {
     return { status: 400, error: 'No active ZMCC tank is configured.' };
   }
+  if (activeTanks.length > 1) {
+    return {
+      status: 400,
+      error: 'Configuration error: Multiple active tanks exist for this ZMCC. Exactly one active tank is permitted.',
+    };
+  }
 
-  let targetTankId: bigint;
+  const soleTank = activeTanks[0];
+  let targetTankId = soleTank.id;
+
   if (payload?.tank_id !== undefined && payload.tank_id !== null && String(payload.tank_id).trim() !== '') {
     try {
-      targetTankId = BigInt(String(payload.tank_id).trim());
+      const suppliedTankId = BigInt(String(payload.tank_id).trim());
+      if (suppliedTankId !== soleTank.id) {
+        return { status: 400, error: 'Selected tank does not match the active ZMCC tank.' };
+      }
     } catch {
       return { status: 400, error: 'Invalid tank_id format.' };
-    }
-    const found = activeTanks.find((t) => t.id === targetTankId);
-    if (!found) {
-      const anyTank = await prisma.zmccTank.findUnique({ where: { id: targetTankId } });
-      if (!anyTank) {
-        return { status: 404, error: 'Selected ZMCC tank not found.' };
-      }
-      if (anyTank.zmcc_id !== session.zmcc_id) {
-        return { status: 403, error: 'Forbidden. Selected tank belongs to another ZMCC.' };
-      }
-      if (!anyTank.is_active) {
-        return { status: 400, error: 'Destination ZMCC tank is inactive.' };
-      }
-    }
-  } else {
-    if (activeTanks.length === 1) {
-      targetTankId = activeTanks[0].id;
-    } else {
-      return { status: 400, error: 'Destination tank is required when multiple active tanks exist.' };
     }
   }
 

@@ -143,7 +143,7 @@ async function runStage6fTests() {
   const migrationDirs = fs
     .readdirSync(migrationsDir)
     .filter((f) => fs.statSync(path.join(migrationsDir, f)).isDirectory());
-  assert(migrationDirs.length === 22, 'Migration Count', `Exactly 22 tracked migrations (found ${migrationDirs.length})`);
+  assert(migrationDirs.length === 23, 'Migration Count', `Found exactly 23 migrations (found ${migrationDirs.length})`);
 
   // Verify DB check constraints
   const dbConstraints: Array<{ conname: string }> = await prisma.$queryRaw`
@@ -401,6 +401,7 @@ async function runStage6fTests() {
   // 6. Submit Contractor Arrival at ZMCC A
   const conArrivalRes = await submitContractorArrival(toCoreUser(pheA) as any, {
     contractor_source_id: contractorActive.id,
+    rmr_number: '006001',
     vehicle_number: `CON-VEH-${runId}`,
     arrival_timestamp: new Date(Date.now() - 1200000),
     client_event_id: `evt-con-arr-6f-${runId}`,
@@ -871,6 +872,7 @@ async function runStage6fTests() {
   // F & G. Concurrent IDENTICAL completion gives one first success + one 200 replay & leaves 1 audit log
   const concArrivalRes = await submitContractorArrival(toCoreUser(pheA) as any, {
     contractor_source_id: contractorActive.id,
+    rmr_number: '006002',
     vehicle_number: `CONC-VEH-${runId}`,
     arrival_timestamp: new Date(),
     client_event_id: `evt-conc-arr-${runId}`,
@@ -1294,6 +1296,7 @@ async function runStage6fTests() {
 
   const calcArrivalRes = await submitContractorArrival(toCoreUser(pheA) as any, {
     contractor_source_id: contractorActive.id,
+    rmr_number: '006003',
     vehicle_number: `CALC-VEH-${runId}`,
     arrival_timestamp: new Date(),
     client_event_id: `evt-calc-arr-${runId}`,
