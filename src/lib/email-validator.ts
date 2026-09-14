@@ -73,3 +73,44 @@ export function validateAndNormalizeEmail(
     normalizedEmail: trimmed.toLowerCase(),
   };
 }
+
+/**
+ * Classifies a PostgreSQL/Prisma unique constraint error to distinguish
+ * between duplicate email index violations, duplicate username violations,
+ * and unknown/generic unique conflicts.
+ */
+export function classifyUniqueError(err: any): 'EMAIL' | 'USERNAME' | 'UNKNOWN' {
+  if (!err) return 'UNKNOWN';
+
+  const target = err?.meta?.target;
+  const targetArray: string[] = Array.isArray(target)
+    ? target.map((t) => String(t).toLowerCase())
+    : typeof target === 'string'
+    ? [target.toLowerCase()]
+    : [];
+
+  const message = typeof err?.message === 'string' ? err.message.toLowerCase() : '';
+
+  // Check email targets first
+  if (
+    targetArray.some((t) => t.includes('email') || t.includes('users_email_lower_uidx')) ||
+    message.includes('users_email_lower_uidx') ||
+    message.includes('lower(email') ||
+    message.includes('lower("email"') ||
+    message.includes('key (lower(email))')
+  ) {
+    return 'EMAIL';
+  }
+
+  // Check username targets
+  if (
+    targetArray.some((t) => t.includes('username') || t.includes('users_username_key')) ||
+    message.includes('users_username_key') ||
+    message.includes('key (username)') ||
+    message.includes('unique constraint "users_username_key"')
+  ) {
+    return 'USERNAME';
+  }
+
+  return 'UNKNOWN';
+}

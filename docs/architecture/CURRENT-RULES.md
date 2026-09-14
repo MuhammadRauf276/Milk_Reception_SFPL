@@ -564,5 +564,17 @@ SUPER ADMIN (SUPER_ADMIN)
   - An inactive account can be activated and assigned an email in the same operation by including a valid `email` alongside `isActive: true`.
 - **Legacy Active Edit Permissibility**: Active legacy accounts that currently have `email === null` can update non-email metadata (such as name or role) without failing or being forced to provide an email immediately.
 - **Full Audit Trail**: `AuditLog` records all email additions (`USER_CREATED`), modifications (`USER_UPDATED`), and activations (`USER_ACTIVATED`), capturing previous and new email values.
+- **Canonical Development Seed Policy**:
+  - Development dummy fixtures declare explicit unique `@example.com` addresses directly on each record in `USERS_SEED` (e.g. `admin.superuser@example.com`, `phe.operator@example.com`).
+  - `@gmail.com` and random/guessed real-company domains are strictly forbidden for dummy accounts.
+- **Development Fixture Reset vs Production Migration**:
+  - Development/test dummy data may be reset and rebuilt at any time during active development using safe DB reset scripts.
+  - Production migrations must NEVER assume historical data is dummy, must NEVER fabricate or delete real user email identity, and must NEVER contain destructive data cleanups (`DELETE FROM users;`, `TRUNCATE users;`).
+  - If historical users with unknown emails exist in production, their emails remain `NULL`.
+- **Seed Idempotency Preservation**:
+  - Seed creation (`prisma/seed.ts`) populates emails for new accounts.
+  - Rerunning seed preserves existing user email values (whether populated or `NULL`) and never overwrites them.
+- **Unique Error Classification**:
+  - Prisma error `P2002` distinguishes between email collision (`users_email_lower_uidx`), username collision (`users_username_key`), and unknown unique conflicts. A duplicate username is never mislabeled as a duplicate email.
 - **Strict Boundary Non-Goals**: Email verification, SMTP sending, automated notifications, subscriptions, and email-based login are deferred to subsequent stages and strictly prohibited in Stage 6G-D.2.
 - **Database Migration**: Exactly 1 tracked migration `20260914160000_user_email_foundation` (total repository migration count: 24).

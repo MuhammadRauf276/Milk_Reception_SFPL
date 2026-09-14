@@ -3,7 +3,7 @@ import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
 import bcrypt from 'bcryptjs';
 import { getRoleAssignmentPolicy } from '@/lib/user-assignment-policy';
-import { validateAndNormalizeEmail } from '@/lib/email-validator';
+import { validateAndNormalizeEmail, classifyUniqueError } from '@/lib/email-validator';
 
 // Fixed documented PostgreSQL transaction-level advisory lock key used across
 // all user creation (POST) and mutation (PATCH) transactions to serialize
@@ -293,9 +293,22 @@ export async function POST(req: Request) {
     if (err instanceof NotFoundError) {
       return NextResponse.json({ error: err.message }, { status: 404 });
     }
-    if (err?.code === 'P2002' || err?.message?.includes('users_email_lower_uidx')) {
+    const uniqueType = classifyUniqueError(err);
+    if (uniqueType === 'EMAIL') {
       return NextResponse.json(
-        { error: `Email is already registered to another user.` },
+        { error: 'Email is already registered to another user.' },
+        { status: 400 }
+      );
+    }
+    if (uniqueType === 'USERNAME') {
+      return NextResponse.json(
+        { error: 'Username is already taken.' },
+        { status: 400 }
+      );
+    }
+    if (err?.code === 'P2002') {
+      return NextResponse.json(
+        { error: 'A record with this identifier already exists.' },
         { status: 400 }
       );
     }
