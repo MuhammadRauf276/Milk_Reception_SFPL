@@ -283,7 +283,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contractor_source_id: selectedContractorId,
-          rmr_number: contractorRmrNumber.trim().toUpperCase(),
+          rmr_number: contractorRmrNumber.trim(),
           vehicle_number: contractorVehicleNumber.trim().toUpperCase(),
           arrival_timestamp: datetimeLocalToIso(contractorArrivalTimestamp) || new Date(contractorArrivalTimestamp).toISOString(),
           client_event_id: contractorEventId,
@@ -351,7 +351,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
       if (correctionTarget.type === 'MOT') {
         payload.route_milk_token = corrToken.trim();
       } else {
-        payload.rmr_number = corrRmr.trim().toUpperCase();
+        payload.rmr_number = corrRmr.trim();
         payload.vehicle_number = corrVehicle.trim().toUpperCase();
       }
 
@@ -780,10 +780,10 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
                 <input
                   type="text"
                   value={contractorRmrNumber}
-                  onChange={(e) => setContractorRmrNumber(e.target.value.toUpperCase())}
+                  onChange={(e) => setContractorRmrNumber(e.target.value)}
                   placeholder="e.g. RMR-KHI-0042"
                   required
-                  className="w-full text-xs font-bold px-3 py-2 border rounded-xl focus:ring-2 focus:ring-[#1E3A8A] outline-hidden font-mono uppercase"
+                  className="w-full text-xs font-bold px-3 py-2 border rounded-xl focus:ring-2 focus:ring-[#1E3A8A] outline-hidden font-mono"
                 />
               </div>
 
@@ -1092,9 +1092,9 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
                     <input
                       type="text"
                       value={corrRmr}
-                      onChange={(e) => setCorrRmr(e.target.value.toUpperCase())}
+                      onChange={(e) => setCorrRmr(e.target.value)}
                       required
-                      className="w-full px-3 py-2 border rounded-xl font-mono uppercase"
+                      className="w-full px-3 py-2 border rounded-xl font-mono"
                     />
                   </div>
                   <div>

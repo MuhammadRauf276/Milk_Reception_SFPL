@@ -36,5 +36,5 @@ BEGIN
   END IF;
 END $$;
 
--- Step 5: CreateIndex: partial unique index enforcing exactly one active tank per ZMCC
+-- Step 5: CreateIndex: partial unique index enforcing at most one active tank per ZMCC (operational service enforces exactly one required for milk reception)
 CREATE UNIQUE INDEX "zmcc_tank_one_active_per_zmcc_idx" ON "zmcc_tank" ("zmcc_id") WHERE is_active = TRUE;

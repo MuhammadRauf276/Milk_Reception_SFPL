@@ -309,6 +309,32 @@ export interface CreateTankPayload {
   is_active?: boolean;
 }
 
+function parseZmccTankUniqueViolation(err: any): { isCodeConflict: boolean; isActiveTankConflict: boolean } {
+  const target = err?.meta?.target;
+  const msg = String(err?.message || '');
+
+  // 1. Check for partial unique index: zmcc_tank_one_active_per_zmcc_idx
+  if (
+    (typeof target === 'string' && target.includes('zmcc_tank_one_active_per_zmcc_idx')) ||
+    (Array.isArray(target) && target.includes('zmcc_tank_one_active_per_zmcc_idx')) ||
+    msg.includes('zmcc_tank_one_active_per_zmcc_idx')
+  ) {
+    return { isCodeConflict: false, isActiveTankConflict: true };
+  }
+
+  // 2. Check for unique constraint on (zmcc_id, tank_code)
+  if (
+    (Array.isArray(target) && (target.includes('tank_code') || target.includes('zmcc_id'))) ||
+    (typeof target === 'string' && (target.includes('tank_code') || target.includes('zmcc_id_tank_code'))) ||
+    msg.includes('zmcc_id_tank_code') ||
+    msg.includes('tank_code')
+  ) {
+    return { isCodeConflict: true, isActiveTankConflict: false };
+  }
+
+  return { isCodeConflict: false, isActiveTankConflict: false };
+}
+
 /**
  * Create a new ZMCC Tank Master record (SUPER_ADMIN only)
  */
@@ -357,7 +383,13 @@ export async function createZmccTank(
     return { status: 400, error: 'capacity_liters must be a positive number greater than 0.' };
   }
 
-  const shouldBeActive = is_active !== undefined ? Boolean(is_active) : true;
+  let shouldBeActive = true;
+  if (is_active !== undefined) {
+    if (typeof is_active !== 'boolean') {
+      return { status: 400, error: 'is_active must be a boolean (true or false).' };
+    }
+    shouldBeActive = is_active;
+  }
 
   // Check code uniqueness within ZMCC
   const existing = await prisma.zmccTank.findUnique({
@@ -415,6 +447,7 @@ export async function createZmccTank(
             tank_code: tank.tank_code,
             tank_name: tank.tank_name,
             capacity_liters: capNum,
+            is_active: tank.is_active,
             zmcc_id: targetZmccId.toString(),
             created_by_user_id: auth.actorUserId.toString(),
           },
@@ -427,10 +460,23 @@ export async function createZmccTank(
 
     return { status: 201, data: { tank: serializeTank(createdTank, 0) } };
   } catch (err: any) {
-    if (err.code === 'P2002' || err.message?.includes('zmcc_tank_one_active_per_zmcc_idx')) {
+    const violation = parseZmccTankUniqueViolation(err);
+    if (violation.isActiveTankConflict) {
       return {
         status: 400,
         error: 'An active tank already exists for this ZMCC. Only one active tank is permitted per ZMCC.',
+      };
+    }
+    if (violation.isCodeConflict) {
+      return {
+        status: 400,
+        error: `Tank code "${codeTrimmed}" already exists in this ZMCC.`,
+      };
+    }
+    if (err?.code === 'P2002') {
+      return {
+        status: 400,
+        error: 'A tank with these unique properties already exists in this ZMCC.',
       };
     }
     console.error('createZmccTank error:', err);
@@ -653,10 +699,17 @@ export async function toggleZmccTankActive(
     const stock = await getTankPhysicalStock(updatedTank.id);
     return { status: 200, data: { tank: serializeTank(updatedTank, stock) } };
   } catch (err: any) {
-    if (err.code === 'P2002' || err.message?.includes('zmcc_tank_one_active_per_zmcc_idx')) {
+    const violation = parseZmccTankUniqueViolation(err);
+    if (violation.isActiveTankConflict) {
       return {
         status: 400,
         error: 'Cannot activate tank. An active tank already exists for this ZMCC. Only one active tank is permitted per ZMCC.',
+      };
+    }
+    if (err?.code === 'P2002') {
+      return {
+        status: 400,
+        error: 'Cannot update tank status due to a unique constraint conflict.',
       };
     }
     console.error('toggleZmccTankActive error:', err);

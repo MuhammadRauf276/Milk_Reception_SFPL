@@ -345,6 +345,32 @@ function isExactContractorArrivalReplay(
   return true;
 }
 
+function validateRmrNumber(
+  rawRmr: unknown,
+  fieldRequired: boolean = true
+): { value: string | null; error?: string } {
+  if (rawRmr === undefined) {
+    if (fieldRequired) {
+      return { value: null, error: 'rmr_number is required.' };
+    }
+    return { value: null };
+  }
+  if (rawRmr === null) {
+    return { value: null, error: fieldRequired ? 'rmr_number is required.' : 'rmr_number cannot be blank.' };
+  }
+  if (typeof rawRmr !== 'string') {
+    return { value: null, error: 'rmr_number must be a string.' };
+  }
+  const trimmed = rawRmr.trim();
+  if (!trimmed) {
+    return { value: null, error: fieldRequired ? 'rmr_number is required.' : 'rmr_number cannot be blank.' };
+  }
+  if (trimmed.length > 100) {
+    return { value: null, error: 'rmr_number cannot exceed 100 characters.' };
+  }
+  return { value: trimmed };
+}
+
 export function serializeMotArrival(arrival: any) {
   return {
     id: arrival.id.toString(),
@@ -1035,10 +1061,11 @@ export async function submitContractorArrival(
     return { status: 400, error: 'Invalid contractor_source_id format.' };
   }
 
-  const rmrNumber = typeof payload.rmr_number === 'string' ? payload.rmr_number.trim() : '';
-  if (!rmrNumber) {
-    return { status: 400, error: 'rmr_number is required.' };
+  const rmrValidation = validateRmrNumber(payload.rmr_number, true);
+  if (rmrValidation.error) {
+    return { status: 400, error: rmrValidation.error };
   }
+  const rmrNumber = rmrValidation.value!;
 
   const vehicleNumber = typeof payload.vehicle_number === 'string' ? payload.vehicle_number.trim().toUpperCase() : '';
   if (!vehicleNumber) {
@@ -1303,10 +1330,11 @@ export async function correctContractorArrival(
   const newValues: Record<string, any> = {};
 
   if (payload.rmr_number !== undefined) {
-    const trimmedRmr = String(payload.rmr_number).trim();
-    if (!trimmedRmr) {
-      return { status: 400, error: 'rmr_number cannot be blank.' };
+    const rmrValidation = validateRmrNumber(payload.rmr_number, false);
+    if (rmrValidation.error) {
+      return { status: 400, error: rmrValidation.error };
     }
+    const trimmedRmr = rmrValidation.value!;
     if (trimmedRmr !== arrival.rmr_number) {
       oldValues.rmr_number = arrival.rmr_number;
       newValues.rmr_number = trimmedRmr;
