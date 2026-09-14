@@ -44,6 +44,7 @@ export interface User {
   id: string;
   username: string;
   name: string;
+  email?: string | null;
   role: Role;
   department: string;
   zone?: string | null; // For ZMCC Zone Managers
@@ -312,7 +313,7 @@ export const DEFAULT_USERS: Record<string, User> = {
   PRODUCTION_RECEPTION_OPERATOR: FIXTURE_USER_PROFILES['production.operator'],
 };
 
-export type ProcessStatus = 
+export type ProcessStatus =
   | 'DISPATCHED'
   | 'TOKEN_ISSUED'
   | 'PLANT_QA'

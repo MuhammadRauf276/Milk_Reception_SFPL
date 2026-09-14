@@ -152,7 +152,7 @@ async function runStage6gdTests() {
   const migrationDirs = fs
     .readdirSync(migrationsDir)
     .filter((f) => fs.statSync(path.join(migrationsDir, f)).isDirectory() && !f.startsWith('.'));
-  assert(migrationDirs.length === 23, 'Tracked Migrations', `Found exactly 23 migrations (expected 23)`);
+  assert(migrationDirs.length === 24, 'Tracked Migrations', `Found exactly 24 migrations (expected 24)`);
 
   const tankMigDir = migrationDirs.find((d) => d.includes('zmcc_tank_receipt_and_ledger'));
   assert(!!tankMigDir, 'Migration Exists', `Found 6G-D migration: ${tankMigDir}`);
@@ -202,7 +202,7 @@ async function runStage6gdTests() {
 
   // Check DB check constraints
   const dbConstraints = await prisma.$queryRaw<Array<{ conname: string }>>`
-    SELECT conname FROM pg_constraint 
+    SELECT conname FROM pg_constraint
     WHERE conname IN (
       'zmcc_tank_capacity_liters_check',
       'zmcc_tank_receipt_gross_liters_check',

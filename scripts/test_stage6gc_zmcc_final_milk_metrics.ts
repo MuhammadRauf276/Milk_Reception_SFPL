@@ -154,15 +154,15 @@ async function runStage6gcTests() {
   const migrationDirs = fs
     .readdirSync(migrationsDir)
     .filter((f) => fs.statSync(path.join(migrationsDir, f)).isDirectory() && !f.startsWith('.'));
-  assert(migrationDirs.length === 23, 'Tracked Migrations', `Found exactly 23 migrations (expected 23)`);
+  assert(migrationDirs.length === 24, 'Tracked Migrations', `Found exactly 24 migrations (expected 24)`);
 
   const metricsMigDir = migrationDirs.find((d) => d.includes('zmcc_final_milk_metrics'));
   assert(!!metricsMigDir, 'Migration Exists', `Found 6G-C migration: ${metricsMigDir}`);
 
   // Check zmcc_lab_session table has all 8 new columns
   const cols = await prisma.$queryRaw<Array<{ column_name: string; data_type: string }>>`
-    SELECT column_name, data_type 
-    FROM information_schema.columns 
+    SELECT column_name, data_type
+    FROM information_schema.columns
     WHERE table_name = 'zmcc_lab_session'
     AND column_name IN ('quantity_value', 'quantity_unit', 'density', 'gross_liters', 'snf', 'ts', 'at_13ts_liters', 'calculation_version')
   `;
@@ -178,7 +178,7 @@ async function runStage6gcTests() {
 
   // Check DB check constraints
   const dbConstraints = await prisma.$queryRaw<Array<{ conname: string }>>`
-    SELECT conname FROM pg_constraint 
+    SELECT conname FROM pg_constraint
     WHERE conname IN (
       'zmcc_lab_session_quantity_value_check',
       'zmcc_lab_session_density_check',

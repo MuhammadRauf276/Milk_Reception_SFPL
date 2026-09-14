@@ -222,6 +222,7 @@ async function runSuperAdminTests() {
           username: tempTestUsername,
           name: 'Live Auth Test User',
           password: 'LivePassword123!',
+          email: `${tempTestUsername}@example.invalid`,
           role: 'ZMCC_LAB_ATTENDANT',
           procurementSourceId: activeZmccForLive.id.toString(),
         }),
@@ -239,6 +240,7 @@ async function runSuperAdminTests() {
           username: `retired_mpd_${Date.now()}`,
           name: 'Retired MPD User',
           password: 'LivePassword123!',
+          email: `retired_mpd_${Date.now()}@example.invalid`,
           role: 'MPD_Operator',
           procurementSourceId: activeZmccForLive.id.toString(),
         }),
@@ -525,6 +527,7 @@ async function runSuperAdminTests() {
         data: {
           username: `suite_canon_${Date.now()}`,
           full_name: 'Canonical Suite User',
+          email: `suite_canon_${Date.now()}@example.invalid`,
           password_hash: await bcrypt.hash('Password123!', 10),
           role: 'ZMCC_MANAGER',
           department: 'Milk Procurement',
@@ -559,11 +562,11 @@ async function runSuperAdminTests() {
 
       // 4. Advisory lock executes strictly before source lock and mutation in POST
       const suiteExecutedOps: string[] = [];
-      const origSuiteTx = prisma.$transaction;
+      const origTransaction = prisma.$transaction;
       let suiteLockUserId: bigint | null = null;
       try {
         (prisma as any).$transaction = async (fn: any) => {
-          return await (origSuiteTx as any).call(prisma, async (tx: any) => {
+          return await (origTransaction as any).call(prisma, async (tx: any) => {
             const proxyTx = new Proxy(tx, {
               get(target, prop, receiver) {
                 if (prop === '$queryRaw' || prop === '$executeRaw') {
@@ -598,13 +601,15 @@ async function runSuperAdminTests() {
           });
         };
 
+        const lockPostUsername = `suite_lock_${Date.now()}`;
         const lockPostRes = await postUser(
           new Request('http://localhost:3000/api/super-admin/users', {
             method: 'POST',
             headers: adminHeaders,
             body: JSON.stringify({
-              username: `suite_lock_${Date.now()}`,
+              username: lockPostUsername,
               password: 'Password123!',
+              email: `${lockPostUsername}@example.invalid`,
               role: 'ZMCC_MANAGER',
               procurementSourceId: activeZmccForLive.id.toString(),
             }),
@@ -627,7 +632,7 @@ async function runSuperAdminTests() {
           'SA-C4A-04: Advisory lock executes strictly before source lock and user creation in POST'
         );
       } finally {
-        prisma.$transaction = origSuiteTx as any;
+        prisma.$transaction = origTransaction as any;
         if (suiteLockUserId) {
           await prisma.auditLog.deleteMany({ where: { table_name: 'users', record_id: suiteLockUserId } });
           await prisma.user.delete({ where: { id: suiteLockUserId } });

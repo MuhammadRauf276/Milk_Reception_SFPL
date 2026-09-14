@@ -158,6 +158,7 @@ async function main() {
     if (existingUser) {
       const updateData: Record<string, unknown> = {
         full_name: u.name,
+        email: `${u.username}@example.invalid`,
         role: u.role,
         department: u.department,
         scope_type: u.scopeType,
@@ -178,6 +179,7 @@ async function main() {
         data: {
           username: u.username,
           full_name: u.name,
+          email: `${u.username}@example.invalid`,
           password_hash: hash,
           role: u.role,
           department: u.department,

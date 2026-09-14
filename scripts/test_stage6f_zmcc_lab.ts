@@ -143,7 +143,7 @@ async function runStage6fTests() {
   const migrationDirs = fs
     .readdirSync(migrationsDir)
     .filter((f) => fs.statSync(path.join(migrationsDir, f)).isDirectory());
-  assert(migrationDirs.length === 23, 'Migration Count', `Found exactly 23 migrations (found ${migrationDirs.length})`);
+  assert(migrationDirs.length === 24, 'Migration Count', `Found exactly 24 migrations (found ${migrationDirs.length})`);
 
   // Verify DB check constraints
   const dbConstraints: Array<{ conname: string }> = await prisma.$queryRaw`
