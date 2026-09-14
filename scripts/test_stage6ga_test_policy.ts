@@ -194,6 +194,7 @@ async function runTests() {
       username: newHeadUsername,
       password: 'Password123!',
       fullName: 'Canonical Created Head of MPD',
+      email: `${newHeadUsername}@example.invalid`,
       role: 'HEAD_OF_MPD',
     });
     const createHeadRes = await postCreateUser(createHeadReq);
@@ -210,6 +211,7 @@ async function runTests() {
       username: `test.head.invalid.${Date.now()}`,
       password: 'Password123!',
       fullName: 'Invalid Source Head',
+      email: `test.head.invalid.${Date.now()}@example.invalid`,
       role: 'HEAD_OF_MPD',
       procurementSourceId: '1',
     });

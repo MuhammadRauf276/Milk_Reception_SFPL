@@ -3,6 +3,7 @@ import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
 import bcrypt from 'bcryptjs';
 import { getRoleAssignmentPolicy } from '@/lib/user-assignment-policy';
+import { validateAndNormalizeEmail, classifyUniqueError } from '@/lib/email-validator';
 
 // Fixed documented PostgreSQL transaction-level advisory lock key used across
 // all user creation (POST) and mutation (PATCH) transactions to serialize
@@ -29,6 +30,7 @@ export async function GET(req: Request) {
       id: u.id.toString(),
       username: u.username,
       name: u.full_name || u.username,
+      email: u.email,
       role: u.role,
       department: u.department || '-',
       scopeType: u.scope_type,
@@ -71,6 +73,7 @@ class NotFoundError extends Error {
 
 const ALLOWED_POST_FIELDS = new Set([
   'username',
+  'email',
   'name',
   'fullName',
   'password',
@@ -119,6 +122,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Username is required and must be a non-empty string.' }, { status: 400 });
     }
     const username = payload.username.trim();
+
+    const emailValidation = validateAndNormalizeEmail(payload.email, true);
+    if (!emailValidation.isValid) {
+      return NextResponse.json({ error: emailValidation.error }, { status: 400 });
+    }
+    const normalizedEmail = emailValidation.normalizedEmail!;
 
     if (typeof payload.password !== 'string' || payload.password.length < 8) {
       return NextResponse.json({ error: 'Password must be at least 8 characters long.' }, { status: 400 });
@@ -201,6 +210,18 @@ export async function POST(req: Request) {
         throw new ValidationError(`Username "${username}" is already taken.`);
       }
 
+      const existingEmail = await tx.user.findFirst({
+        where: {
+          email: {
+            equals: normalizedEmail,
+            mode: 'insensitive',
+          },
+        },
+      });
+      if (existingEmail) {
+        throw new ValidationError(`Email "${normalizedEmail}" is already registered to another user.`);
+      }
+
       if (policy.requiresSource && candidatePsId !== null) {
         const ps = await tx.procurementSource.findUnique({ where: { id: candidatePsId } });
         if (!ps) {
@@ -216,11 +237,12 @@ export async function POST(req: Request) {
         }
       }
 
-      // 3. Create User
+      // 4. Create User
       const createdUser = await tx.user.create({
         data: {
           username,
           full_name: fullName,
+          email: normalizedEmail,
           password_hash: passHash,
           role: policy.role,
           department: policy.department,
@@ -230,7 +252,7 @@ export async function POST(req: Request) {
         },
       });
 
-      // 4. Create AuditLog entry without password
+      // 5. Create AuditLog entry without password
       await tx.auditLog.create({
         data: {
           table_name: 'users',
@@ -238,6 +260,7 @@ export async function POST(req: Request) {
           action: 'USER_CREATED',
           new_values: {
             username,
+            email: normalizedEmail,
             role: policy.role,
             department: policy.department,
             scope_type: policy.scopeType,
@@ -256,6 +279,7 @@ export async function POST(req: Request) {
         id: newUser.id.toString(),
         username: newUser.username,
         name: newUser.full_name,
+        email: newUser.email,
         role: newUser.role,
         department: newUser.department,
         scopeType: newUser.scope_type,
@@ -268,6 +292,25 @@ export async function POST(req: Request) {
     }
     if (err instanceof NotFoundError) {
       return NextResponse.json({ error: err.message }, { status: 404 });
+    }
+    const uniqueType = classifyUniqueError(err);
+    if (uniqueType === 'EMAIL') {
+      return NextResponse.json(
+        { error: 'Email is already registered to another user.' },
+        { status: 400 }
+      );
+    }
+    if (uniqueType === 'USERNAME') {
+      return NextResponse.json(
+        { error: 'Username is already taken.' },
+        { status: 400 }
+      );
+    }
+    if (err?.code === 'P2002') {
+      return NextResponse.json(
+        { error: 'A record with this identifier already exists.' },
+        { status: 400 }
+      );
     }
 
     console.error('[API_SUPER_ADMIN_USERS_POST_ERROR]', err);

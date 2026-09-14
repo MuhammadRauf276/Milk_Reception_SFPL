@@ -149,6 +149,7 @@ async function runSuperAdminFinalizationTests() {
           username: testTargetUsername,
           password: testTempPassword,
           name: 'Admin Audit Test User',
+          email: `${testTargetUsername}@example.invalid`,
           role: 'QA_LAB_ATTENDANT',
         }),
       });
@@ -173,6 +174,7 @@ async function runSuperAdminFinalizationTests() {
           username: `retired.qa.op.${randAdminAudit}`,
           password: testTempPassword,
           name: 'Retired QA Operator Attempt',
+          email: `retired.qa.op.${randAdminAudit}@example.invalid`,
           role: 'QA_Operator',
         }),
       });
@@ -446,6 +448,7 @@ async function runSuperAdminFinalizationTests() {
           username: b2Username,
           password: initialB2Password,
           name: 'Stage 5D-B2 Test User',
+          email: `${b2Username}@example.invalid`,
           role: 'ZMCC_LAB_ATTENDANT',
           procurementSourceId: activeZmccForB2.id.toString(),
         }),
@@ -466,6 +469,7 @@ async function runSuperAdminFinalizationTests() {
           username: b2Username,
           password: 'AnotherPassword123!',
           name: 'Duplicate Username Attempt',
+          email: `dup.${b2Username}@example.invalid`,
           role: 'QA_LAB_ATTENDANT',
         }),
       });
@@ -1785,6 +1789,7 @@ async function runSuperAdminFinalizationTests() {
           username: `c4a_zmcc_${Date.now()}`,
           name: 'ZMCC Manager User',
           password: 'Password123!',
+          email: `c4a_zmcc_${Date.now()}@example.invalid`,
           role: 'ZMCC_MANAGER',
           procurementSourceId: activeZmcc.id.toString(),
         }),
@@ -1816,6 +1821,7 @@ async function runSuperAdminFinalizationTests() {
         body: JSON.stringify({
           username: badZmccUsername,
           password: 'Password123!',
+          email: `${badZmccUsername}@example.invalid`,
           role: 'ZMCC_MANAGER',
           procurementSourceId: activeContractor.id.toString(),
         }),
@@ -1840,6 +1846,7 @@ async function runSuperAdminFinalizationTests() {
           username: `c4a_cm_${Date.now()}`,
           name: 'Contractor Manager User',
           password: 'Password123!',
+          email: `c4a_cm_${Date.now()}@example.invalid`,
           role: 'CONTRACTOR_MANAGER',
           procurementSourceId: activeContractor.id.toString(),
         }),
@@ -1871,6 +1878,7 @@ async function runSuperAdminFinalizationTests() {
         body: JSON.stringify({
           username: badCmUsername,
           password: 'Password123!',
+          email: `${badCmUsername}@example.invalid`,
           role: 'CONTRACTOR_MANAGER',
           procurementSourceId: activeZmcc.id.toString(),
         }),
@@ -1895,6 +1903,7 @@ async function runSuperAdminFinalizationTests() {
           username: `c4a_mpd_${Date.now()}`,
           name: 'ZMCC Lab Attendant User',
           password: 'Password123!',
+          email: `c4a_mpd_${Date.now()}@example.invalid`,
           role: 'ZMCC_LAB_ATTENDANT',
           procurementSourceId: activeZmcc.id.toString(),
         }),
@@ -1926,6 +1935,7 @@ async function runSuperAdminFinalizationTests() {
         body: JSON.stringify({
           username: badMpdUsername,
           password: 'Password123!',
+          email: `${badMpdUsername}@example.invalid`,
           role: 'ZMCC_LAB_ATTENDANT',
           procurementSourceId: activeContractor.id.toString(),
         }),
@@ -1980,6 +1990,7 @@ async function runSuperAdminFinalizationTests() {
             username: testRoleUsername,
             name: `${item.role} Test User`,
             password: 'Password123!',
+            email: `${testRoleUsername}@example.invalid`,
             role: item.role,
             ...(item.sourceId ? { procurementSourceId: item.sourceId } : {}),
           }),
@@ -2028,6 +2039,7 @@ async function runSuperAdminFinalizationTests() {
         body: JSON.stringify({
           username: noSourceUsername,
           password: 'Password123!',
+          email: `${noSourceUsername}@example.invalid`,
           role: 'ZMCC_MANAGER',
         }),
       });
@@ -2048,6 +2060,7 @@ async function runSuperAdminFinalizationTests() {
         body: JSON.stringify({
           username: inactUsername,
           password: 'Password123!',
+          email: `${inactUsername}@example.invalid`,
           role: 'ZMCC_MANAGER',
           procurementSourceId: inactiveSource.id.toString(),
         }),
@@ -2073,6 +2086,7 @@ async function runSuperAdminFinalizationTests() {
         body: JSON.stringify({
           username: deptSourceUsername,
           password: 'Password123!',
+          email: `${deptSourceUsername}@example.invalid`,
           role: 'QA_LAB_ATTENDANT',
           procurementSourceId: activeZmcc.id.toString(),
         }),
@@ -2098,6 +2112,7 @@ async function runSuperAdminFinalizationTests() {
           username: editableTargetUsername,
           name: 'Editable Target User',
           password: 'Password123!',
+          email: `${editableTargetUsername}@example.invalid`,
           role: 'PRODUCTION_RECEPTION_OPERATOR',
         }),
       });
@@ -2122,6 +2137,7 @@ async function runSuperAdminFinalizationTests() {
         body: JSON.stringify({
           username: postWithDeptUsername,
           password: 'Password123!',
+          email: `${postWithDeptUsername}@example.invalid`,
           role: 'PRODUCTION_RECEPTION_OPERATOR',
           department: 'Malicious Department Override',
         }),
@@ -2138,6 +2154,7 @@ async function runSuperAdminFinalizationTests() {
         body: JSON.stringify({
           username: postWithScopeUsername,
           password: 'Password123!',
+          email: `${postWithScopeUsername}@example.invalid`,
           role: 'PRODUCTION_RECEPTION_OPERATOR',
           scopeType: 'SYSTEM',
         }),
@@ -2300,6 +2317,7 @@ async function runSuperAdminFinalizationTests() {
         body: JSON.stringify({
           username: `c4a_short_${Date.now()}`,
           password: 'Pass123',
+          email: `c4a_short_${Date.now()}@example.invalid`,
           role: 'SECURITY_OPERATOR',
         }),
       });
@@ -2635,6 +2653,7 @@ async function runSuperAdminFinalizationTests() {
         data: {
           username: `c4a_canon_inact_${Date.now()}`,
           full_name: 'Canonical Inactive User',
+          email: `c4a_canon_inact_${Date.now()}@example.invalid`,
           password_hash: await bcrypt.hash('Password123!', 10),
           role: 'ZMCC_MANAGER',
           department: 'Milk Procurement',
@@ -2759,6 +2778,7 @@ async function runSuperAdminFinalizationTests() {
           body: JSON.stringify({
             username: postLockUsername,
             password: 'Password123!',
+            email: `${postLockUsername}@example.invalid`,
             role: 'ZMCC_MANAGER',
             procurementSourceId: activeZmcc.id.toString(),
           }),
@@ -2905,6 +2925,7 @@ async function runSuperAdminFinalizationTests() {
           body: JSON.stringify({
             username: rbPostUsername,
             password: 'Password123!',
+            email: `${rbPostUsername}@example.invalid`,
             role: 'SECURITY_OPERATOR',
           }),
         });
@@ -3125,6 +3146,7 @@ async function runSuperAdminFinalizationTests() {
           username: c4cUsername,
           name: 'Lifecycle Verification User',
           password: 'ValidPassword123!',
+          email: `${c4cUsername}@example.invalid`,
           role: 'QA_LAB_ATTENDANT',
         }),
       });

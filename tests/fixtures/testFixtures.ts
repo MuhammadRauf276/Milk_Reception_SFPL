@@ -6,6 +6,9 @@ export async function clearTestDatabase(prisma: PrismaClient): Promise<void> {
   assertSafeTestDatabase({ isDestructive: true });
 
   // Clear tables in reverse dependency order
+  await prisma.zmccTankInventoryTransaction.deleteMany();
+  await prisma.zmccTankReceipt.deleteMany();
+  await prisma.zmccTank.deleteMany();
   await prisma.zmccLabResult.deleteMany();
   await prisma.zmccLabSession.deleteMany();
   await prisma.zmccMotArrival.deleteMany();

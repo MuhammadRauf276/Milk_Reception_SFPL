@@ -14,6 +14,7 @@ model User {
   id                    BigInt    @id @default(autoincrement())
   full_name             String?   @map("full_name") @db.VarChar(255)
   username              String    @unique @db.VarChar(255)
+  email                 String?   @map("email") @db.VarChar(254)
   password_hash         String?   @map("password_hash") @db.Text
   role                  String    @db.VarChar(255)
   department            String?   @map("department") @db.VarChar(150)

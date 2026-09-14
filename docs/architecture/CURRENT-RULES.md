@@ -541,3 +541,40 @@ SUPER ADMIN (SUPER_ADMIN)
   - If >1 active tanks exist (defensive code guard): fails closed with HTTP 400 (`"Configuration error: Multiple active tanks found for this ZMCC. Only one active tank is permitted."`).
   - Gross Liters remains the sole inventory basis for tank capacity and ledger balance calculations.
 - **Database Migration**: Exactly 1 tracked migration `20260914100000_contractor_rmr_and_single_active_tank` (repository migration count: 23).
+
+---
+
+## 22. Stage 6G-D.2 User Email Foundation
+
+### 22A. Canonical User Email Field & Normalization
+- **Column Definition**: `users.email` is stored as `VARCHAR(254)`, nullable in the database for backward compatibility with historical seed/legacy accounts created prior to Stage 6G-D.2.
+- **RFC 5321 Conformity**: Valid emails conform to standard email regex (`/^[^\s@]+@[^\s@]+\.[^\s@]+$/`) and must not exceed 254 characters.
+- **Deterministic Normalization**: All email values are trimmed and converted to lowercase (`trim().toLowerCase()`) before validation, uniqueness checking, and database persistence.
+- **Database Partial Unique Index**: Case-insensitive uniqueness is enforced at the database level by PostgreSQL index `users_email_lower_uidx` on `LOWER("email") WHERE "email" IS NOT NULL`.
+- **Historical Null Coexistence**: Multiple legacy/retired accounts with `email IS NULL` coexist without violating the unique constraint.
+
+### 22B. Account Lifecycle & Administrative Governance
+- **Mandatory on New Account Creation**: `POST /api/super-admin/users` strictly requires a non-empty, valid email address. Submissions missing an email, with empty/blank email, or with invalid format fail closed with HTTP 400.
+- **Duplicate Prevention**: Attempting to create an account with an email already assigned to another user (case-insensitively) fails closed with HTTP 400 (`"Email \"...\" is already registered to another user."`).
+- **Super Admin Email Updates**: Super Admin can update an existing account's email via `PATCH /api/super-admin/users/[id]`. The new email is validated, normalized, and checked for cross-account uniqueness.
+- **Email Deletion Blocked**: Once set, an email address cannot be cleared or set to empty/null (fails closed with HTTP 400 `"Email address cannot be empty or cleared."`).
+- **Legacy Inactive Activation Safety**:
+  - Inactive accounts with `email === null` **cannot** be activated (`isActive: true`) without providing a valid email address.
+  - Activation requests for an account lacking an email fail closed with HTTP 400 (`"Cannot activate user without a valid email address."`).
+  - An inactive account can be activated and assigned an email in the same operation by including a valid `email` alongside `isActive: true`.
+- **Legacy Active Edit Permissibility**: Active legacy accounts that currently have `email === null` can update non-email metadata (such as name or role) without failing or being forced to provide an email immediately.
+- **Full Audit Trail**: `AuditLog` records all email additions (`USER_CREATED`), modifications (`USER_UPDATED`), and activations (`USER_ACTIVATED`), capturing previous and new email values.
+- **Canonical Development Seed Policy**:
+  - Development dummy fixtures declare explicit unique `@example.com` addresses directly on each record in `USERS_SEED` (e.g. `admin.superuser@example.com`, `phe.operator@example.com`).
+  - `@gmail.com` and random/guessed real-company domains are strictly forbidden for dummy accounts.
+- **Development Fixture Reset vs Production Migration**:
+  - Development/test dummy data may be reset and rebuilt at any time during active development using safe DB reset scripts.
+  - Production migrations must NEVER assume historical data is dummy, must NEVER fabricate or delete real user email identity, and must NEVER contain destructive data cleanups (`DELETE FROM users;`, `TRUNCATE users;`).
+  - If historical users with unknown emails exist in production, their emails remain `NULL`.
+- **Seed Idempotency Preservation**:
+  - Seed creation (`prisma/seed.ts`) populates emails for new accounts.
+  - Rerunning seed preserves existing user email values (whether populated or `NULL`) and never overwrites them.
+- **Unique Error Classification**:
+  - Prisma error `P2002` distinguishes between email collision (`users_email_lower_uidx`), username collision (`users_username_key`), and unknown unique conflicts. A duplicate username is never mislabeled as a duplicate email.
+- **Strict Boundary Non-Goals**: Email verification, SMTP sending, automated notifications, subscriptions, and email-based login are deferred to subsequent stages and strictly prohibited in Stage 6G-D.2.
+- **Database Migration**: Exactly 1 tracked migration `20260914160000_user_email_foundation` (total repository migration count: 24).
