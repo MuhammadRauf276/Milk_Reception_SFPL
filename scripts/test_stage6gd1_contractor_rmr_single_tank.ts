@@ -147,19 +147,19 @@ async function runStage6gd1Tests() {
   const migrationDirs = fs
     .readdirSync(migrationsDir)
     .filter((f) => fs.statSync(path.join(migrationsDir, f)).isDirectory() && !f.startsWith('.'));
-  assert(migrationDirs.length >= 23, 'Tracked Migrations', `Found ${migrationDirs.length} migrations (expected >= 23)`);
+  assert(migrationDirs.length === 23, 'Tracked Migrations', `Found exactly 23 migrations (expected 23)`);
 
   const d1MigDir = migrationDirs.find((d) => d.includes('contractor_rmr_and_single_active_tank'));
   assert(!!d1MigDir, 'Migration Exists', `Found 6G-D.1 migration: ${d1MigDir}`);
 
-  // Check column rmr_number on zmcc_contractor_arrival (must allow NULL for historical rows)
+  // Check column rmr_number on zmcc_contractor_arrival (enforced NOT NULL)
   const rmrColCheck: any[] = await prisma.$queryRaw`
     SELECT column_name, data_type, is_nullable
     FROM information_schema.columns
     WHERE table_name = 'zmcc_contractor_arrival' AND column_name = 'rmr_number';
   `;
   assert(rmrColCheck.length === 1, 'rmr_number Column Exists', 'rmr_number exists in zmcc_contractor_arrival');
-  assert(rmrColCheck[0]?.is_nullable === 'YES', 'rmr_number Nullable For Legacy', 'rmr_number allows NULL for historical compatibility');
+  assert(rmrColCheck[0]?.is_nullable === 'NO', 'rmr_number Not Null', 'rmr_number is NOT NULL');
 
   // Check unique index on zmcc_tank (is_active = TRUE)
   const indexCheck: any[] = await prisma.$queryRaw`
@@ -364,11 +364,12 @@ async function runStage6gd1Tests() {
   assert(missingRmrRes.status === 400, 'Missing RMR Field Rejected', 'Fails closed when rmr_number is missing (400)');
 
   // 4B. Successful Contractor Arrival with valid RMR Number
+  const exactReplayArrivalTimestamp = new Date().toISOString();
   const rmrInitial = `RMR-CONTRACTOR-${runId}-001`;
   const validArrivalRes = await submitContractorArrival(toCoreUser(pheOperator1) as any, {
     contractor_source_id: contractor.id.toString(),
     vehicle_number: `VEH-${runId}-01`,
-    arrival_timestamp: new Date().toISOString(),
+    arrival_timestamp: exactReplayArrivalTimestamp,
     client_event_id: `con-valid-${runId}`,
     rmr_number: `  ${rmrInitial}  `, // should be trimmed
   });
@@ -386,7 +387,7 @@ async function runStage6gd1Tests() {
   const replayRes = await submitContractorArrival(toCoreUser(pheOperator1) as any, {
     contractor_source_id: contractor.id.toString(),
     vehicle_number: `VEH-${runId}-01`,
-    arrival_timestamp: new Date().toISOString(),
+    arrival_timestamp: exactReplayArrivalTimestamp,
     client_event_id: `con-valid-${runId}`,
     rmr_number: rmrInitial,
   });
@@ -398,7 +399,7 @@ async function runStage6gd1Tests() {
   const alteredReplayRes = await submitContractorArrival(toCoreUser(pheOperator1) as any, {
     contractor_source_id: contractor.id.toString(),
     vehicle_number: `VEH-${runId}-01`,
-    arrival_timestamp: new Date().toISOString(),
+    arrival_timestamp: exactReplayArrivalTimestamp,
     client_event_id: `con-valid-${runId}`,
     rmr_number: 'RMR-ALTERED-DIFF',
   });
@@ -711,50 +712,124 @@ async function runStage6gd1Tests() {
   // =============================================================
   console.log('\n--- 8. FOCUSED MIGRATION REGRESSION & HISTORICAL TRUTH ---');
 
-  // 8A. Historical Contractor Arrival without RMR survives with rmr_number = NULL (no fake backfill)
-  const histArrivalEventId = `con-hist-null-${runId}`;
-  await prisma.$executeRaw`
-    INSERT INTO zmcc_contractor_arrival (
-      zmcc_id, contractor_source_id, rmr_number, vehicle_number, arrival_timestamp, arrival_date,
-      zmcc_token, client_event_id, recorded_by_user_id, submitted_at, correction_count, created_at, updated_at
-    ) VALUES (
-      ${zmcc1.id}, ${contractor.id}, NULL, 'HIST-NULL-01', NOW(), CURRENT_DATE,
-      ${'ZT-CON-HIST-' + runId}, ${histArrivalEventId}, ${pheOperator1.id}, NOW(), 0, NOW(), NOW()
-    )
-  `;
-  const histRow = await prisma.zmccContractorArrival.findUnique({
-    where: { client_event_id: histArrivalEventId },
-  });
-  assert(histRow !== null, 'Historical Row Inserted', 'Historical contractor arrival row exists');
-  assert(histRow?.rmr_number === null, 'Historical RMR Remains NULL', 'Historical rmr_number is truthfully NULL (never fake backfill)');
+  // 8A. Migration Guard Simulation for Contractor RMR:
+  // Pre-migration DB with unresolved missing/blank RMR fails fast and does not invent fake data
+  const rmrMigSimSchema = `rmr_mig_guard_sim_${runId}`;
+  await prisma.$executeRawUnsafe(`CREATE SCHEMA "${rmrMigSimSchema}";`);
+  try {
+    // Create pre-migration table without rmr_number
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE "${rmrMigSimSchema}"."zmcc_contractor_arrival" (
+        id BIGSERIAL PRIMARY KEY,
+        zmcc_id BIGINT NOT NULL,
+        contractor_source_id BIGINT NOT NULL,
+        vehicle_number VARCHAR(50) NOT NULL,
+        arrival_timestamp TIMESTAMP(6) NOT NULL,
+        arrival_date DATE NOT NULL,
+        zmcc_token VARCHAR(100) NOT NULL UNIQUE,
+        client_event_id VARCHAR(255) NOT NULL UNIQUE,
+        recorded_by_user_id BIGINT NOT NULL,
+        submitted_at TIMESTAMP(6) NOT NULL DEFAULT NOW(),
+        correction_count INT NOT NULL DEFAULT 0,
+        created_at TIMESTAMP(6) NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP(6) NOT NULL DEFAULT NOW()
+      );
+    `);
 
-  // 8B. Serialized historical arrival exposes rmr_number as null without fabricating values
-  const serializedHist = serializeContractorArrival(histRow);
-  assert(serializedHist.rmr_number === null, 'Serialized Historical NULL', 'Serialized historical arrival has rmr_number = null');
+    // Insert pre-existing unresolved contractor arrival
+    await prisma.$executeRawUnsafe(`
+      INSERT INTO "${rmrMigSimSchema}"."zmcc_contractor_arrival" (
+        zmcc_id, contractor_source_id, vehicle_number, arrival_timestamp, arrival_date,
+        zmcc_token, client_event_id, recorded_by_user_id
+      ) VALUES (
+        ${zmcc1.id}, ${contractor.id}, 'UNRESOLVED-01', NOW(), CURRENT_DATE,
+        'ZT-CON-UNRESOLVED-${runId}', 'client-evt-unresolved-${runId}', ${pheOperator1.id}
+      );
+    `);
 
-  // 8C. Historical NULL RMR can be corrected by ZMCC_MANAGER through authorized workflow
-  const histCorrectionRes = await correctContractorArrival(toCoreUser(manager1) as any, histRow!.id, {
-    rmr_number: 'RMR-AUTHENTIC-CORRECTED',
-    reason: 'Correcting historical missing slip from physical archive evidence',
-  });
-  assert(histCorrectionRes.status === 200, 'Historical NULL Corrected', 'Historical NULL RMR corrected by manager (200)');
-  assert(histCorrectionRes.data?.rmr_number === 'RMR-AUTHENTIC-CORRECTED', 'Corrected RMR Persisted', 'New RMR saved');
+    // Step 1 of migration: ADD COLUMN rmr_number VARCHAR(100)
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE "${rmrMigSimSchema}"."zmcc_contractor_arrival" ADD COLUMN "rmr_number" VARCHAR(100);
+    `);
 
-  // 8D. Verify audit log captures old_values with rmr_number = null
-  const histAudit = await prisma.auditLog.findFirst({
-    where: {
-      table_name: 'zmcc_contractor_arrival',
-      action: 'ZMCC_CONTRACTOR_ARRIVAL_CORRECTED',
-      record_id: BigInt(histRow!.id),
-    },
-    orderBy: { id: 'desc' },
-  });
-  assert(histAudit !== null, 'Correction Audit Log Created', 'AuditLog created for historical correction');
-  assert(
-    histAudit?.old_values ? (histAudit.old_values as any).rmr_number === null : false,
-    'Audit Captures Null Previous RMR',
-    'AuditLog captures previous rmr_number as null'
-  );
+    // Step 2 of migration: Fail-fast guard against unresolved NULL/blank RMR rows
+    let rmrGuardThrew = false;
+    let rmrGuardError = '';
+    try {
+      await prisma.$executeRawUnsafe(`
+        DO $$
+        BEGIN
+          IF EXISTS (
+            SELECT 1
+            FROM "${rmrMigSimSchema}"."zmcc_contractor_arrival"
+            WHERE "rmr_number" IS NULL OR TRIM("rmr_number") = ''
+          ) THEN
+            RAISE EXCEPTION
+              'Cannot enforce NOT NULL on zmcc_contractor_arrival.rmr_number: unresolved rows with missing or blank RMR exist. Resolve historical data explicitly before migration.';
+          END IF;
+        END $$;
+      `);
+    } catch (err: any) {
+      rmrGuardThrew = true;
+      rmrGuardError = err.message || String(err);
+    }
+    assert(rmrGuardThrew, 'RMR Migration Guard Throws', 'Guard raised exception when unresolved historical RMR exists');
+    assert(
+      rmrGuardError.includes('Cannot enforce NOT NULL on zmcc_contractor_arrival.rmr_number: unresolved rows with missing or blank RMR exist'),
+      'RMR Guard Message Clear',
+      'Exception message matches canonical fail-fast contractor RMR guard'
+    );
+
+    // Verify no fake RMR was generated or backfilled
+    const unresRow: any[] = await prisma.$queryRawUnsafe(`
+      SELECT rmr_number FROM "${rmrMigSimSchema}"."zmcc_contractor_arrival" WHERE client_event_id = 'client-evt-unresolved-${runId}';
+    `);
+    assert(
+      unresRow.length === 1 && unresRow[0].rmr_number === null,
+      'No Fake RMR Generated',
+      'No fake RMR (e.g. RMR-HISTORICAL) was backfilled or manufactured'
+    );
+
+    // Explicit resolution before migration (e.g. operator/data team enters truthful RMR)
+    await prisma.$executeRawUnsafe(`
+      UPDATE "${rmrMigSimSchema}"."zmcc_contractor_arrival"
+      SET "rmr_number" = 'RMR-AUTHENTIC-HISTORICAL-001'
+      WHERE client_event_id = 'client-evt-unresolved-${runId}';
+    `);
+
+    // Re-run guard after explicit resolution
+    await prisma.$executeRawUnsafe(`
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1
+          FROM "${rmrMigSimSchema}"."zmcc_contractor_arrival"
+          WHERE "rmr_number" IS NULL OR TRIM("rmr_number") = ''
+        ) THEN
+          RAISE EXCEPTION
+            'Cannot enforce NOT NULL on zmcc_contractor_arrival.rmr_number: unresolved rows with missing or blank RMR exist. Resolve historical data explicitly before migration.';
+        END IF;
+      END $$;
+    `);
+
+    // Step 3 of migration: ALTER COLUMN rmr_number SET NOT NULL
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE "${rmrMigSimSchema}"."zmcc_contractor_arrival" ALTER COLUMN "rmr_number" SET NOT NULL;
+    `);
+
+    // Verify column is NOT NULL after valid migration
+    const postMigColCheck: any[] = await prisma.$queryRawUnsafe(`
+      SELECT is_nullable FROM information_schema.columns
+      WHERE table_schema = '${rmrMigSimSchema}' AND table_name = 'zmcc_contractor_arrival' AND column_name = 'rmr_number';
+    `);
+    assert(
+      postMigColCheck[0]?.is_nullable === 'NO',
+      'Post-Migration RMR NOT NULL',
+      'rmr_number column is strictly NOT NULL after migration'
+    );
+  } finally {
+    await prisma.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${rmrMigSimSchema}" CASCADE;`);
+  }
 
   // 8E. Migration Simulation in Isolated Schema:
   // Pre-migration DB with duplicate active tanks fails-fast and deactivates nothing
