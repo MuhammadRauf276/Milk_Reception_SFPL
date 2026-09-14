@@ -401,7 +401,7 @@ async function runStage6fTests() {
   // 6. Submit Contractor Arrival at ZMCC A
   const conArrivalRes = await submitContractorArrival(toCoreUser(pheA) as any, {
     contractor_source_id: contractorActive.id,
-    rmr_number: `RMR-6F-${runId}`,
+    rmr_number: '006001',
     vehicle_number: `CON-VEH-${runId}`,
     arrival_timestamp: new Date(Date.now() - 1200000),
     client_event_id: `evt-con-arr-6f-${runId}`,
@@ -872,7 +872,7 @@ async function runStage6fTests() {
   // F & G. Concurrent IDENTICAL completion gives one first success + one 200 replay & leaves 1 audit log
   const concArrivalRes = await submitContractorArrival(toCoreUser(pheA) as any, {
     contractor_source_id: contractorActive.id,
-    rmr_number: `RMR-CONC-${runId}`,
+    rmr_number: '006002',
     vehicle_number: `CONC-VEH-${runId}`,
     arrival_timestamp: new Date(),
     client_event_id: `evt-conc-arr-${runId}`,
@@ -1296,7 +1296,7 @@ async function runStage6fTests() {
 
   const calcArrivalRes = await submitContractorArrival(toCoreUser(pheA) as any, {
     contractor_source_id: contractorActive.id,
-    rmr_number: `RMR-CALC-${runId}`,
+    rmr_number: '006003',
     vehicle_number: `CALC-VEH-${runId}`,
     arrival_timestamp: new Date(),
     client_event_id: `evt-calc-arr-${runId}`,

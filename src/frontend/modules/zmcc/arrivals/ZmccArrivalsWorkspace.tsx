@@ -779,9 +779,12 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
                 </label>
                 <input
                   type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={100}
                   value={contractorRmrNumber}
                   onChange={(e) => setContractorRmrNumber(e.target.value)}
-                  placeholder="e.g. RMR-KHI-0042"
+                  placeholder="e.g. 002345"
                   required
                   className="w-full text-xs font-bold px-3 py-2 border rounded-xl focus:ring-2 focus:ring-[#1E3A8A] outline-hidden font-mono"
                 />
@@ -1091,8 +1094,12 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
                     <label className="block font-bold text-slate-700 mb-1">Contractor RMR Number</label>
                     <input
                       type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={100}
                       value={corrRmr}
                       onChange={(e) => setCorrRmr(e.target.value)}
+                      placeholder="e.g. 002345"
                       required
                       className="w-full px-3 py-2 border rounded-xl font-mono"
                     />

@@ -515,12 +515,15 @@ SUPER ADMIN (SUPER_ADMIN)
 
 ### 21A. Contractor RMR vs. System ZMCC Token
 - **Contractor RMR Authority**: Contractor RMR/business token is manually entered by the PHE Operator from the physical slip/ticket.
-- **Mandatory Submission**: `rmr_number` is strictly required (non-empty string, VarChar(100)) upon recording a Contractor arrival at ZMCC. Submissions without `rmr_number` fail closed with HTTP 400.
+- **Mandatory Submission & Numeric Digits Rule**: `rmr_number` is strictly required upon recording a Contractor arrival at ZMCC. Physical contractor RMR numbers are strictly numeric digits (`/^[0-9]+$/`), stored as a string (`VARCHAR(100)`), preserving any leading zeros (e.g. `"002345"`). Submissions without `rmr_number`, with blank values, or containing non-digit characters fail closed with HTTP 400 (`"rmr_number must contain digits only."`).
+- **Database Defense-in-Depth**: Enforced at the database level by check constraint `zmcc_contractor_arrival_rmr_digits_check CHECK ("rmr_number" ~ '^[0-9]+$')` and `NOT NULL`.
+- **String Identity Preservation**: Contractor RMR is never cast to a number or BigInt. `"002345"` and `"2345"` are preserved verbatim and treated as distinct identifier values.
 - **ZMCC Token Independence**: Contractor RMR is separate from generated ZMCC token. The generated system ZMCC token is immutable.
 - **MOT RMR Equivalence**: MOT route_milk_token remains MOT RMR/business token.
 - **Supervisory Corrections**:
   - PHE cannot edit after submission.
   - Authorized ZMCC_MANAGER own-ZMCC / SUPER_ADMIN correction remains audited with mandatory reason (at least 5 characters).
+  - Corrected `rmr_number` must also satisfy the digits-only rule (`/^[0-9]+$/`, max 100 characters).
   - All corrections are logged to `AuditLog` capturing previous and new `rmr_number`.
   - The internal `zmcc_token` remains strictly immutable across all corrections.
 

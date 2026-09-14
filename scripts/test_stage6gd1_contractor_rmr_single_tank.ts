@@ -161,6 +161,20 @@ async function runStage6gd1Tests() {
   assert(rmrColCheck.length === 1, 'rmr_number Column Exists', 'rmr_number exists in zmcc_contractor_arrival');
   assert(rmrColCheck[0]?.is_nullable === 'NO', 'rmr_number Not Null', 'rmr_number is NOT NULL');
 
+  // Check CHECK constraint for digits-only on rmr_number
+  const rmrCheckConstraint: any[] = await prisma.$queryRaw`
+    SELECT conname, pg_get_constraintdef(c.oid) as condef
+    FROM pg_constraint c
+    JOIN pg_class t ON c.conrelid = t.oid
+    WHERE t.relname = 'zmcc_contractor_arrival' AND c.conname = 'zmcc_contractor_arrival_rmr_digits_check';
+  `;
+  assert(rmrCheckConstraint.length === 1, 'RMR Digits Check Constraint Exists', 'zmcc_contractor_arrival_rmr_digits_check exists');
+  assert(
+    Boolean(rmrCheckConstraint[0]?.condef?.includes('^[0-9]+$')),
+    'RMR Digits Check Constraint Definition',
+    rmrCheckConstraint[0]?.condef
+  );
+
   // Check unique index on zmcc_tank (is_active = TRUE)
   const indexCheck: any[] = await prisma.$queryRaw`
     SELECT indexname, indexdef
@@ -402,7 +416,7 @@ async function runStage6gd1Tests() {
   assert(nullRmrRes.status === 400, 'Null RMR Rejected', 'Fails closed when rmr_number is null (400)');
 
   // 4A2. Max Length Validation (> 100 characters)
-  const longRmr = 'R'.repeat(101);
+  const longRmr = '9'.repeat(101);
   const longRmrRes = await submitContractorArrival(toCoreUser(pheOperator1) as any, {
     contractor_source_id: contractor.id.toString(),
     vehicle_number: `VEH-${runId}-LONG`,
@@ -413,26 +427,59 @@ async function runStage6gd1Tests() {
   assert(longRmrRes.status === 400, 'Long RMR Rejected', 'Fails closed when rmr_number > 100 characters (400)');
   assert(longRmrRes.error === 'rmr_number cannot exceed 100 characters.', 'Long RMR Error Message', longRmrRes.error);
 
-  // 4B. Successful Contractor Arrival with valid RMR Number preserving operator case
+  // 4A3. Strict Numeric Digits Validation (Letters, Hyphens, Decimals, Spaces, Signs)
+  const invalidRmrCases = [
+    { label: 'Alpha RMR', val: 'RMR123' },
+    { label: 'Hyphenated RMR', val: '12-34' },
+    { label: 'Internal Space RMR', val: '12 34' },
+    { label: 'Decimal RMR', val: '123.45' },
+    { label: 'Negative Sign RMR', val: '-123' },
+    { label: 'Plus Sign RMR', val: '+123' },
+  ];
+  for (const tc of invalidRmrCases) {
+    const invRes = await submitContractorArrival(toCoreUser(pheOperator1) as any, {
+      contractor_source_id: contractor.id.toString(),
+      vehicle_number: `VEH-${runId}-INV`,
+      arrival_timestamp: new Date().toISOString(),
+      client_event_id: `con-inv-${tc.label.replace(/\s+/g, '-')}-${runId}`,
+      rmr_number: tc.val,
+    });
+    assert(invRes.status === 400, `Non-Digit RMR Rejected (${tc.label})`, `Fails closed for "${tc.val}" (400)`);
+    assert(invRes.error === 'rmr_number must contain digits only.', `Non-Digit Error Message (${tc.label})`, invRes.error);
+  }
+
+  // 4B. Successful Contractor Arrival with valid Numeric RMR preserving leading zeros
   const exactReplayArrivalTimestamp = new Date().toISOString();
-  const rmrInitial = `Rmr-Con-${runId}-001`; // mixed case to test case preservation
+  const rmrInitial = '002345'; // valid numeric string with preserved leading zeros
   const validArrivalRes = await submitContractorArrival(toCoreUser(pheOperator1) as any, {
     contractor_source_id: contractor.id.toString(),
     vehicle_number: `veh-${runId}-01`, // vehicle number is uppercased by design
     arrival_timestamp: exactReplayArrivalTimestamp,
     client_event_id: `con-valid-${runId}`,
-    rmr_number: `  ${rmrInitial}  `, // should be trimmed without altering case
+    rmr_number: `  ${rmrInitial}  `, // should be trimmed without stripping leading zeros
   });
   assert(validArrivalRes.status === 201, 'Contractor Arrival Created', 'Status 201 on valid submission');
   const arr1 = validArrivalRes.data!;
-  assert(arr1.rmr_number === rmrInitial, 'RMR Case Preserved & Stored Trimmed', `RMR stored as "${arr1.rmr_number}" (not forced uppercase)`);
+  assert(arr1.rmr_number === rmrInitial, 'RMR Leading Zeros Preserved & Stored Trimmed', `RMR stored verbatim as "${arr1.rmr_number}"`);
   assert(arr1.vehicle_number === `VEH-${runId}-01`, 'Vehicle Number Uppercased', `Vehicle number uppercased: "${arr1.vehicle_number}"`);
   assert(arr1.zmcc_token.startsWith('ZT-CON-'), 'System Token Format', `Token is "${arr1.zmcc_token}"`);
   assert(arr1.rmr_number !== arr1.zmcc_token, 'RMR vs Token Distinct', 'rmr_number and zmcc_token are distinct');
 
   // Verify stored in DB directly
   const dbArr1 = await prisma.zmccContractorArrival.findUnique({ where: { id: BigInt(arr1.id) } });
-  assert(dbArr1?.rmr_number === rmrInitial, 'DB Field Populated With Preserved Case', 'rmr_number preserved case directly in PostgreSQL');
+  assert(dbArr1?.rmr_number === rmrInitial, 'DB Field Populated With Leading Zeros', 'rmr_number preserved leading zeros directly in PostgreSQL');
+
+  // 4B1. Prove leading zeros distinguish records ("002345" and "2345" are distinct)
+  const distinctRmrArrivalRes = await submitContractorArrival(toCoreUser(pheOperator1) as any, {
+    contractor_source_id: contractor.id.toString(),
+    vehicle_number: `veh-${runId}-distinct`,
+    arrival_timestamp: new Date().toISOString(),
+    client_event_id: `con-distinct-${runId}`,
+    rmr_number: '2345',
+  });
+  assert(distinctRmrArrivalRes.status === 201, 'Distinct RMR Without Leading Zeros Allowed', 'Status 201');
+  assert(distinctRmrArrivalRes.data!.rmr_number === '2345', 'Distinct RMR Stored Verbatim', 'RMR stored as "2345"');
+  assert(arr1.rmr_number !== distinctRmrArrivalRes.data!.rmr_number, 'Leading Zero Distinction', '"002345" !== "2345"');
 
   // 4C. Idempotent Exact Replay
   const replayRes = await submitContractorArrival(toCoreUser(pheOperator1) as any, {
@@ -446,38 +493,38 @@ async function runStage6gd1Tests() {
   assert(replayRes.data!.is_replay === true, 'Replay Flag True', 'is_replay is true');
   assert(replayRes.data!.rmr_number === rmrInitial, 'Replay RMR Matched', 'rmr_number matches original');
 
-  // 4D. Altered Replay Conflict
+  // 4D. Altered Replay Conflict (differing ONLY in rmr_number)
   const alteredReplayRes = await submitContractorArrival(toCoreUser(pheOperator1) as any, {
     contractor_source_id: contractor.id.toString(),
     vehicle_number: `veh-${runId}-01`,
     arrival_timestamp: exactReplayArrivalTimestamp,
     client_event_id: `con-valid-${runId}`,
-    rmr_number: 'Rmr-Altered-Diff',
+    rmr_number: '009999',
   });
   assert(alteredReplayRes.status === 409, 'Altered Replay 409 Conflict', 'Status 409 when rmr_number altered');
 
   // 4E. Operator (PHE) Cannot Edit RMR Number After Submission
   const pheCorrRes = await correctContractorArrival(toCoreUser(pheOperator1) as any, arr1.id, {
-    rmr_number: 'Rmr-Phe-Hack',
+    rmr_number: '007777',
     reason: 'PHE trying to edit RMR',
   });
   assert(pheCorrRes.status === 403, 'PHE Operator Correction Blocked', 'PHE operator blocked from correction (403)');
 
   // 4F. ZMCC Manager Cross-ZMCC Correction Blocked
   const crossMgrCorrRes = await correctContractorArrival(toCoreUser(manager2) as any, arr1.id, {
-    rmr_number: 'Rmr-Cross-Mgr',
+    rmr_number: '007778',
     reason: 'Cross ZMCC manager attempt',
   });
   assert(crossMgrCorrRes.status === 403, 'Cross-ZMCC Manager Correction Blocked', 'Cross-ZMCC manager blocked (403)');
 
   // 4G. Correction Without Reason Blocked (400)
   const noReasonCorrRes = await correctContractorArrival(toCoreUser(manager1) as any, arr1.id, {
-    rmr_number: 'Rmr-No-Reason',
+    rmr_number: '007779',
     reason: '',
   });
   assert(noReasonCorrRes.status === 400, 'Missing Reason Blocked', 'Fails closed when correction reason is missing (400)');
 
-  // 4G1. Correction Strict Validation (Non-String and Max Length)
+  // 4G1. Correction Strict Validation (Non-String, Max Length, and Non-Digit)
   const numCorrRes = await correctContractorArrival(toCoreUser(manager1) as any, arr1.id, {
     rmr_number: 99999 as any,
     reason: 'Attempting number coercion in correction',
@@ -486,20 +533,27 @@ async function runStage6gd1Tests() {
   assert(numCorrRes.error === 'rmr_number must be a string.', 'Correction Number Error Message', numCorrRes.error);
 
   const longCorrRes = await correctContractorArrival(toCoreUser(manager1) as any, arr1.id, {
-    rmr_number: 'R'.repeat(101),
+    rmr_number: '9'.repeat(101),
     reason: 'Attempting 101 characters in correction',
   });
   assert(longCorrRes.status === 400, 'Correction Long RMR Rejected', 'Fails closed when correction rmr_number > 100 chars (400)');
   assert(longCorrRes.error === 'rmr_number cannot exceed 100 characters.', 'Correction Long Error Message', longCorrRes.error);
 
-  // 4H. ZMCC Manager (Own ZMCC) Corrects RMR Number Successfully Preserving Case
-  const rmrCorrected = `Rmr-Con-${runId}-Corr1`;
+  const nonDigitCorrRes = await correctContractorArrival(toCoreUser(manager1) as any, arr1.id, {
+    rmr_number: 'RMR-CORR-123',
+    reason: 'Attempting alpha RMR in correction',
+  });
+  assert(nonDigitCorrRes.status === 400, 'Correction Non-Digit RMR Rejected', 'Fails closed when correction rmr_number has letters (400)');
+  assert(nonDigitCorrRes.error === 'rmr_number must contain digits only.', 'Correction Non-Digit Error Message', nonDigitCorrRes.error);
+
+  // 4H. ZMCC Manager (Own ZMCC) Corrects RMR Number Successfully Preserving Leading Zeros
+  const rmrCorrected = '000088';
   const mgrCorrRes = await correctContractorArrival(toCoreUser(manager1) as any, arr1.id, {
     rmr_number: `  ${rmrCorrected}  `,
     reason: 'Transposition error corrected from physical paper RMR slip',
   });
   assert(mgrCorrRes.status === 200, 'Manager Correction Success', 'Status 200 on valid correction');
-  assert(mgrCorrRes.data!.rmr_number === rmrCorrected, 'RMR Updated & Case Preserved', `New RMR is "${rmrCorrected}"`);
+  assert(mgrCorrRes.data!.rmr_number === rmrCorrected, 'RMR Updated & Leading Zeros Preserved', `New RMR is "${rmrCorrected}"`);
   assert(mgrCorrRes.data!.zmcc_token === arr1.zmcc_token, 'Token Immutable Across Correction', 'zmcc_token did not change');
 
   // 4I. Audit Log Captured Old and New Values
@@ -519,7 +573,7 @@ async function runStage6gd1Tests() {
   assert(auditNew?.correction_reason?.includes('Transposition error'), 'Audit Reason Captured', auditNew?.correction_reason);
 
   // 4J. Super Admin Global Correction Allowed
-  const rmrSuperCorrected = `RMR-CONTRACTOR-${runId}-SUPER`;
+  const rmrSuperCorrected = '99001122';
   const superCorrRes = await correctContractorArrival(toCoreUser(superAdmin) as any, arr1.id, {
     rmr_number: rmrSuperCorrected,
     reason: 'Super Admin supervisory correction',
@@ -745,7 +799,7 @@ async function runStage6gd1Tests() {
     vehicle_number: `VEH-${runId}-02`,
     arrival_timestamp: new Date().toISOString(),
     client_event_id: `con-zero-tank-${runId}`,
-    rmr_number: `RMR-ZERO-TANK-${runId}`,
+    rmr_number: '004001',
   });
   const zeroSessionStart = await startOrResumeSession(toCoreUser(labAttendant1) as any, {
     arrival_type: 'CONTRACTOR',
@@ -806,7 +860,7 @@ async function runStage6gd1Tests() {
       vehicle_number: 'SPOOF-01',
       arrival_timestamp: new Date().toISOString(),
       client_event_id: 'spoof-key-1',
-      rmr_number: 'RMR-SPOOF',
+      rmr_number: '008899',
     }),
   });
   const forgedSubmitRes = await submitContractorArrival(forgedSubmitReq, {
@@ -814,7 +868,7 @@ async function runStage6gd1Tests() {
     vehicle_number: 'SPOOF-01',
     arrival_timestamp: new Date().toISOString(),
     client_event_id: 'spoof-key-1',
-    rmr_number: 'RMR-SPOOF',
+    rmr_number: '008899',
   });
   assert(forgedSubmitRes.status === 401, 'Spoof Submit Arrival Blocked', 'Forged x-user-id rejected with 401');
 
@@ -822,9 +876,9 @@ async function runStage6gd1Tests() {
   const forgedCorrReq = new Request(`http://localhost/api/zmcc/arrivals/contractor/${arr1.id}/correct`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-user-id': manager1.id.toString() },
-    body: JSON.stringify({ rmr_number: 'SPOOF', reason: 'Spoof' }),
+    body: JSON.stringify({ rmr_number: '008898', reason: 'Spoof' }),
   });
-  const forgedCorrRes = await correctContractorArrival(forgedCorrReq, arr1.id, { rmr_number: 'SPOOF', reason: 'Spoof' });
+  const forgedCorrRes = await correctContractorArrival(forgedCorrReq, arr1.id, { rmr_number: '008898', reason: 'Spoof' });
   assert(forgedCorrRes.status === 401, 'Spoof Correct Arrival Blocked', 'Forged x-user-id rejected with 401');
 
   // Forged x-user-id on Create Tank
@@ -958,6 +1012,60 @@ async function runStage6gd1Tests() {
       'Case A: Partial Unique Index Created',
       'Actual migration created partial unique index on zmcc_tank'
     );
+
+    // Verify digits-only check constraint exists
+    const checkCons: any[] = await prisma.$queryRawUnsafe(`
+      SELECT conname, pg_get_constraintdef(c.oid) as condef
+      FROM pg_constraint c
+      JOIN pg_namespace n ON n.oid = c.connamespace
+      JOIN pg_class t ON c.conrelid = t.oid
+      WHERE n.nspname = '${schemaCaseA}' AND t.relname = 'zmcc_contractor_arrival' AND c.conname = 'zmcc_contractor_arrival_rmr_digits_check';
+    `);
+    assert(
+      checkCons.length === 1 && checkCons[0].condef.includes('^[0-9]+$'),
+      'Case A: Digits-Only Check Constraint Created',
+      'Actual migration created zmcc_contractor_arrival_rmr_digits_check constraint'
+    );
+
+    // Prove DB level check constraint rejects non-digit RMR
+    let invalidRmrInsertThrew = false;
+    try {
+      await prisma.$executeRawUnsafe(`
+        INSERT INTO "${schemaCaseA}"."zmcc_contractor_arrival" (
+          zmcc_id, contractor_source_id, vehicle_number, arrival_timestamp, arrival_date,
+          zmcc_token, client_event_id, recorded_by_user_id, rmr_number
+        ) VALUES (
+          ${zmcc1.id}, ${contractor.id}, 'RAW-INV-01', NOW(), CURRENT_DATE,
+          'ZT-CON-RAW-INV', 'raw-evt-inv', ${pheOperator1.id}, 'RMR-NON-DIGIT'
+        );
+      `);
+    } catch {
+      invalidRmrInsertThrew = true;
+    }
+    assert(
+      invalidRmrInsertThrew,
+      'Case A: DB Constraint Rejects Non-Digit RMR',
+      'PostgreSQL CHECK constraint rejected raw non-digit RMR insert'
+    );
+
+    // Prove DB level accepts valid digits-only RMR preserving leading zeros
+    await prisma.$executeRawUnsafe(`
+      INSERT INTO "${schemaCaseA}"."zmcc_contractor_arrival" (
+        zmcc_id, contractor_source_id, vehicle_number, arrival_timestamp, arrival_date,
+        zmcc_token, client_event_id, recorded_by_user_id, rmr_number
+      ) VALUES (
+        ${zmcc1.id}, ${contractor.id}, 'RAW-VAL-01', NOW(), CURRENT_DATE,
+        'ZT-CON-RAW-VAL', 'raw-evt-val', ${pheOperator1.id}, '009876'
+      );
+    `);
+    const valRow: any[] = await prisma.$queryRawUnsafe(`
+      SELECT rmr_number FROM "${schemaCaseA}"."zmcc_contractor_arrival" WHERE client_event_id = 'raw-evt-val';
+    `);
+    assert(
+      valRow.length === 1 && valRow[0].rmr_number === '009876',
+      'Case A: DB Preserves Leading Zeros Verbatim',
+      'Raw insert with "009876" succeeded and preserved leading zeros'
+    );
   } finally {
     await prisma.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${schemaCaseA}" CASCADE;`);
   }
@@ -1020,7 +1128,7 @@ async function runStage6gd1Tests() {
     }
     assert(caseBMigThrew, 'Case B: Migration Fails On Unresolved RMR', 'Actual migration threw exception for unresolved historical RMR');
     assert(
-      caseBMigError.includes('Cannot enforce NOT NULL on zmcc_contractor_arrival.rmr_number: unresolved rows with missing or blank RMR exist'),
+      caseBMigError.includes('Cannot enforce NOT NULL and digits-only constraint on zmcc_contractor_arrival.rmr_number: unresolved rows with missing, blank, or non-numeric RMR exist'),
       'Case B: Clear Migration Guard Error Message',
       'Exception message matches canonical fail-fast contractor RMR guard'
     );
@@ -1043,6 +1151,87 @@ async function runStage6gd1Tests() {
     );
   } finally {
     await prisma.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${schemaCaseB}" CASCADE;`);
+  }
+
+  // -------------------------------------------------------------
+  // 8B2. CASE B2 — PRE-EXISTING NON-NUMERIC RMR ROW
+  // -------------------------------------------------------------
+  const schemaCaseB2 = `d1_mig_case_b2_${runId}`;
+  await prisma.$executeRawUnsafe(`CREATE SCHEMA "${schemaCaseB2}";`);
+  try {
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE "${schemaCaseB2}"."zmcc_contractor_arrival" (
+        id BIGSERIAL PRIMARY KEY,
+        zmcc_id BIGINT NOT NULL,
+        contractor_source_id BIGINT NOT NULL,
+        vehicle_number VARCHAR(50) NOT NULL,
+        arrival_timestamp TIMESTAMP(6) NOT NULL,
+        arrival_date DATE NOT NULL,
+        zmcc_token VARCHAR(100) NOT NULL UNIQUE,
+        client_event_id VARCHAR(255) NOT NULL UNIQUE,
+        recorded_by_user_id BIGINT NOT NULL,
+        rmr_number VARCHAR(100),
+        submitted_at TIMESTAMP(6) NOT NULL DEFAULT NOW(),
+        correction_count INT NOT NULL DEFAULT 0,
+        created_at TIMESTAMP(6) NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP(6) NOT NULL DEFAULT NOW()
+      );
+    `);
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE "${schemaCaseB2}"."zmcc_tank" (
+        id BIGSERIAL PRIMARY KEY,
+        zmcc_id BIGINT NOT NULL,
+        tank_code VARCHAR(50) NOT NULL,
+        tank_name VARCHAR(150) NOT NULL,
+        capacity_liters DECIMAL(12,2) NOT NULL,
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        created_by_user_id BIGINT NOT NULL,
+        created_at TIMESTAMP(6) NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP(6) NOT NULL DEFAULT NOW()
+      );
+    `);
+    // Insert row with non-numeric RMR
+    await prisma.$executeRawUnsafe(`
+      INSERT INTO "${schemaCaseB2}"."zmcc_contractor_arrival" (
+        zmcc_id, contractor_source_id, vehicle_number, arrival_timestamp, arrival_date,
+        zmcc_token, client_event_id, recorded_by_user_id, rmr_number
+      ) VALUES (
+        ${zmcc1.id}, ${contractor.id}, 'HIST-VEH-02', NOW(), CURRENT_DATE,
+        'ZT-CON-HIST2-${runId}', 'client-evt-hist2-${runId}', ${pheOperator1.id}, 'RMR-CORRUPT-ALPHA'
+      );
+    `);
+
+    // Execute migration where Step 1 is already present or column exists
+    // The migration DO $$ guard must fail fast on non-digit RMR
+    let caseB2MigThrew = false;
+    let caseB2MigError = '';
+    try {
+      // Step 2 guard onwards
+      await prisma.$executeRawUnsafe(`
+        DO $$
+        BEGIN
+          IF EXISTS (
+            SELECT 1
+            FROM "${schemaCaseB2}"."zmcc_contractor_arrival"
+            WHERE "rmr_number" IS NULL OR TRIM("rmr_number") = '' OR "rmr_number" !~ '^[0-9]+$'
+          ) THEN
+            RAISE EXCEPTION
+              'Cannot enforce NOT NULL and digits-only constraint on zmcc_contractor_arrival.rmr_number: unresolved rows with missing, blank, or non-numeric RMR exist. Resolve historical data explicitly before migration.';
+          END IF;
+        END $$;
+      `);
+    } catch (err: any) {
+      caseB2MigThrew = true;
+      caseB2MigError = err.message || String(err);
+    }
+    assert(caseB2MigThrew, 'Case B2: Migration Fails On Non-Numeric Historical RMR', 'Guard threw exception for non-numeric RMR row');
+    assert(
+      caseB2MigError.includes('unresolved rows with missing, blank, or non-numeric RMR exist'),
+      'Case B2: Clear Non-Numeric Guard Message',
+      'Exception message matches canonical fail-fast non-numeric contractor RMR guard'
+    );
+  } finally {
+    await prisma.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${schemaCaseB2}" CASCADE;`);
   }
 
   // -------------------------------------------------------------

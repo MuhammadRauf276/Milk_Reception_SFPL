@@ -616,7 +616,7 @@ async function runStage6gcTests() {
       toCoreUser(phe) as any,
       {
         contractor_source_id: contractor.id,
-        rmr_number: `RMR-6GC-1-${runId}`,
+        rmr_number: '006101',
         vehicle_number: `CON-VEH-${runId}`,
         arrival_timestamp: new Date(Date.now() - 1200000),
         client_event_id: `evt-con-arr-${runId}`,
@@ -670,7 +670,7 @@ async function runStage6gcTests() {
       toCoreUser(phe) as any,
       {
         contractor_source_id: contractor.id,
-        rmr_number: `RMR-6GC-2-${runId}`,
+        rmr_number: '006102',
         vehicle_number: `CONT-VEH-2-${runId}`,
         arrival_timestamp: new Date(Date.now() - 1000000),
         client_event_id: `evt-con-arr-2-${runId}`,
@@ -1106,7 +1106,7 @@ async function runStage6gcTests() {
       toCoreUser(phe) as any,
       {
         contractor_source_id: contractor.id,
-        rmr_number: `RMR-6GC-3-${runId}`,
+        rmr_number: '006103',
         vehicle_number: `CON-ISO-${runId}`,
         arrival_timestamp: new Date(Date.now() - 600000),
         client_event_id: `evt-con-iso-${runId}`,

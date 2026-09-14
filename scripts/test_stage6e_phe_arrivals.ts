@@ -899,7 +899,7 @@ async function runStage6eTests() {
   // Inactive contractor rejected
   const resInactiveCon = await submitContractorArrival(pheA as any, {
     contractor_source_id: contractorInactive.id.toString(),
-    rmr_number: 'RMR-INACT',
+    rmr_number: '009001',
     vehicle_number: 'LES-1111',
     arrival_timestamp: contractorTime,
     client_event_id: `evt-inact-${Date.now()}`,
@@ -909,7 +909,7 @@ async function runStage6eTests() {
   // Valid contractor arrival
   const resContractor = await submitContractorArrival(pheA as any, {
     contractor_source_id: contractorActive.id.toString(),
-    rmr_number: 'RMR-CON-9000',
+    rmr_number: '009000',
     vehicle_number: 'les-9000', // test normalization to uppercase
     arrival_timestamp: contractorTime,
     phe_latitude: 31.5310000,
@@ -929,7 +929,7 @@ async function runStage6eTests() {
   // Exact replay
   const resContractorReplay = await submitContractorArrival(pheA as any, {
     contractor_source_id: contractorActive.id.toString(),
-    rmr_number: 'RMR-CON-9000',
+    rmr_number: '009000',
     vehicle_number: 'LES-9000',
     arrival_timestamp: contractorTime,
     phe_latitude: 31.5310000,
@@ -943,7 +943,7 @@ async function runStage6eTests() {
   // H. Super Admin contractor arrival requires a valid target ZMCC ID
   const resAdminNoTarget = await submitContractorArrival(superAdmin as any, {
     contractor_source_id: contractorActive.id.toString(),
-    rmr_number: 'RMR-ADMIN-100',
+    rmr_number: '000100',
     vehicle_number: 'ADMIN-100',
     arrival_timestamp: contractorTime,
     client_event_id: `evt-admin-no-target-${Date.now()}`,
@@ -953,7 +953,7 @@ async function runStage6eTests() {
   const resAdminTargetAsContractor = await submitContractorArrival(superAdmin as any, {
     target_zmcc_id: contractorActive.id.toString(),
     contractor_source_id: contractorActive.id.toString(),
-    rmr_number: 'RMR-ADMIN-101',
+    rmr_number: '000101',
     vehicle_number: 'ADMIN-101',
     arrival_timestamp: contractorTime,
     client_event_id: `evt-admin-contractor-as-zmcc-${Date.now()}`,
@@ -963,7 +963,7 @@ async function runStage6eTests() {
   // I. Contractor arrival rejects contractor source ID pointing to a ZMCC source type
   const resConSourceAsZmcc = await submitContractorArrival(pheA as any, {
     contractor_source_id: zmccA.id.toString(),
-    rmr_number: 'RMR-CON-9001',
+    rmr_number: '009001',
     vehicle_number: 'LES-9001',
     arrival_timestamp: contractorTime,
     client_event_id: `evt-con-source-zmcc-${Date.now()}`,
@@ -974,7 +974,7 @@ async function runStage6eTests() {
   const resInactiveZmcc = await submitContractorArrival(superAdmin as any, {
     target_zmcc_id: zmccInactive.id.toString(),
     contractor_source_id: contractorActive.id.toString(),
-    rmr_number: 'RMR-CON-9002',
+    rmr_number: '009002',
     vehicle_number: 'LES-9002',
     arrival_timestamp: contractorTime,
     client_event_id: `evt-inactive-zmcc-${Date.now()}`,
@@ -985,7 +985,7 @@ async function runStage6eTests() {
   const resDiffZmccReplay = await submitContractorArrival(superAdmin as any, {
     target_zmcc_id: zmccB.id.toString(),
     contractor_source_id: contractorActive.id.toString(),
-    rmr_number: 'RMR-CON-9000',
+    rmr_number: '009000',
     vehicle_number: 'LES-9000',
     arrival_timestamp: contractorTime,
     phe_latitude: 31.5310000,
@@ -998,7 +998,7 @@ async function runStage6eTests() {
   // F. Contractor arrival exact replay with different GPS accuracy fails with 409
   const resDiffAccuracyReplay = await submitContractorArrival(pheA as any, {
     contractor_source_id: contractorActive.id.toString(),
-    rmr_number: 'RMR-CON-9000',
+    rmr_number: '009000',
     vehicle_number: 'LES-9000',
     arrival_timestamp: contractorTime,
     phe_latitude: 31.5310000,
@@ -1013,14 +1013,14 @@ async function runStage6eTests() {
   const [conDiff1, conDiff2] = await Promise.all([
     submitContractorArrival(pheA as any, {
       contractor_source_id: contractorActive.id.toString(),
-      rmr_number: 'RMR-CON-1000',
+      rmr_number: '001000',
       vehicle_number: 'LES-1000',
       arrival_timestamp: contractorTime,
       client_event_id: conDiffEventId,
     }),
     submitContractorArrival(pheA as any, {
       contractor_source_id: contractorActive.id.toString(),
-      rmr_number: 'RMR-CON-2000',
+      rmr_number: '002000',
       vehicle_number: 'LES-2000',
       arrival_timestamp: contractorTime,
       client_event_id: conDiffEventId,

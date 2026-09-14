@@ -365,6 +365,9 @@ function validateRmrNumber(
   if (!trimmed) {
     return { value: null, error: fieldRequired ? 'rmr_number is required.' : 'rmr_number cannot be blank.' };
   }
+  if (!/^[0-9]+$/.test(trimmed)) {
+    return { value: null, error: 'rmr_number must contain digits only.' };
+  }
   if (trimmed.length > 100) {
     return { value: null, error: 'rmr_number cannot exceed 100 characters.' };
   }
