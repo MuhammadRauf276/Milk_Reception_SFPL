@@ -21,12 +21,15 @@ export interface ZmccArrivalAuthContext {
 export type ZmccArrivalAction =
   | 'SUBMIT_ARRIVAL'
   | 'CORRECT_ARRIVAL'
-  | 'READ_ARRIVAL';
+  | 'READ_ARRIVAL'
+  | 'RECORD_EXIT'
+  | 'CORRECT_EXIT';
 
 export interface ServiceResult<T> {
   status: number;
   data?: T;
   error?: string;
+  message?: string;
 }
 
 export interface SubmitMotArrivalPayload {
@@ -96,6 +99,18 @@ export interface CorrectLocalSupplierArrivalPayload {
   phe_gps_accuracy?: number | null;
 }
 
+export interface RecordGateExitPayload {
+  exit_timestamp: string | Date;
+  client_event_id?: string;
+  exit_client_event_id?: string;
+}
+
+export interface CorrectGateExitPayload {
+  exit_timestamp: string | Date;
+  reason?: string;
+  supervisor_reason?: string;
+}
+
 export async function resolveZmccArrivalAuth(
   reqOrUser?: Request | User,
   action: ZmccArrivalAction = 'READ_ARRIVAL'
@@ -157,6 +172,24 @@ export async function resolveZmccArrivalAuth(
       return {
         errorResponse: {
           error: 'Forbidden. You do not have permission to view ZMCC arrivals.',
+          status: 403,
+        },
+      };
+    }
+  } else if (action === 'RECORD_EXIT') {
+    if (!isPheOperator && !isSuperAdmin) {
+      return {
+        errorResponse: {
+          error: 'Forbidden. Only PHE Operators or Super Admins may record gate exit.',
+          status: 403,
+        },
+      };
+    }
+  } else if (action === 'CORRECT_EXIT') {
+    if (!isZmccManager && !isSuperAdmin) {
+      return {
+        errorResponse: {
+          error: 'Forbidden. Only ZMCC Managers or Super Admins may correct gate exit records.',
           status: 403,
         },
       };
@@ -479,6 +512,19 @@ export function serializeMotArrival(arrival: any) {
       : undefined,
     submitted_at: arrival.submitted_at instanceof Date ? arrival.submitted_at.toISOString() : arrival.submitted_at,
     correction_count: arrival.correction_count,
+    gate_exit_required: Boolean(arrival.gate_exit_required),
+    exit_timestamp: arrival.exit_timestamp instanceof Date ? arrival.exit_timestamp.toISOString() : (arrival.exit_timestamp ?? null),
+    exit_recorded_by_user_id: arrival.exit_recorded_by_user_id ? arrival.exit_recorded_by_user_id.toString() : null,
+    exit_recorded_by: arrival.exit_recorded_by
+      ? {
+          id: arrival.exit_recorded_by.id.toString(),
+          username: arrival.exit_recorded_by.username,
+          full_name: arrival.exit_recorded_by.full_name,
+        }
+      : (arrival.exit_recorded_by_user_id ? undefined : null),
+    exit_client_event_id: arrival.exit_client_event_id ?? null,
+    exit_submitted_at: arrival.exit_submitted_at instanceof Date ? arrival.exit_submitted_at.toISOString() : (arrival.exit_submitted_at ?? null),
+    exit_correction_count: arrival.exit_correction_count ?? 0,
     created_at: arrival.created_at instanceof Date ? arrival.created_at.toISOString() : arrival.created_at,
     updated_at: arrival.updated_at instanceof Date ? arrival.updated_at.toISOString() : arrival.updated_at,
     journey: arrival.journey
@@ -579,6 +625,19 @@ export function serializeLocalSupplierArrival(arrival: any) {
       : undefined,
     submitted_at: arrival.submitted_at instanceof Date ? arrival.submitted_at.toISOString() : arrival.submitted_at,
     correction_count: arrival.correction_count,
+    gate_exit_required: Boolean(arrival.gate_exit_required),
+    exit_timestamp: arrival.exit_timestamp instanceof Date ? arrival.exit_timestamp.toISOString() : (arrival.exit_timestamp ?? null),
+    exit_recorded_by_user_id: arrival.exit_recorded_by_user_id ? arrival.exit_recorded_by_user_id.toString() : null,
+    exit_recorded_by: arrival.exit_recorded_by
+      ? {
+          id: arrival.exit_recorded_by.id.toString(),
+          username: arrival.exit_recorded_by.username,
+          full_name: arrival.exit_recorded_by.full_name,
+        }
+      : (arrival.exit_recorded_by_user_id ? undefined : null),
+    exit_client_event_id: arrival.exit_client_event_id ?? null,
+    exit_submitted_at: arrival.exit_submitted_at instanceof Date ? arrival.exit_submitted_at.toISOString() : (arrival.exit_submitted_at ?? null),
+    exit_correction_count: arrival.exit_correction_count ?? 0,
     created_at: arrival.created_at instanceof Date ? arrival.created_at.toISOString() : arrival.created_at,
     updated_at: arrival.updated_at instanceof Date ? arrival.updated_at.toISOString() : arrival.updated_at,
     local_supplier: arrival.local_supplier
@@ -976,6 +1035,9 @@ export async function correctMotArrival(
       },
       zmcc: true,
       recorded_by: true,
+      lab_session: {
+        select: { completed_at: true },
+      },
     },
   });
 
@@ -1043,6 +1105,19 @@ export async function correctMotArrival(
           error: `arrival_timestamp cannot predate latest GPS point recorded at ${arrival.journey.locations[0].device_recorded_at.toISOString()}.`,
         };
       }
+    }
+
+    if (arrival.exit_timestamp && parsedTime.getTime() > new Date(arrival.exit_timestamp).getTime()) {
+      return {
+        status: 400,
+        error: `arrival_timestamp cannot be after exit_timestamp (${arrival.exit_timestamp.toISOString()}).`,
+      };
+    }
+    if (arrival.lab_session?.completed_at && parsedTime.getTime() > new Date(arrival.lab_session.completed_at).getTime()) {
+      return {
+        status: 400,
+        error: `arrival_timestamp cannot be after lab completion timestamp (${arrival.lab_session.completed_at.toISOString()}).`,
+      };
     }
 
     if (parsedTime.getTime() !== arrival.arrival_timestamp.getTime()) {
@@ -1172,240 +1247,14 @@ export async function correctMotArrival(
 }
 
 export async function submitContractorArrival(
-  reqOrUser: Request | User,
-  payload: SubmitContractorArrivalPayload
+  _reqOrUser?: Request | User,
+  _payload?: SubmitContractorArrivalPayload
 ): Promise<ServiceResult<any>> {
-  const { auth, errorResponse } = await resolveZmccArrivalAuth(reqOrUser, 'SUBMIT_ARRIVAL');
-  if (errorResponse) return errorResponse;
-  if (!auth) return { status: 401, error: 'Unauthorized.' };
-
-  if (!payload || typeof payload !== 'object') {
-    return { status: 400, error: 'Missing request payload.' };
-  }
-
-  const rawContractorId = payload.contractor_source_id;
-  if (rawContractorId === undefined || rawContractorId === null || String(rawContractorId).trim() === '') {
-    return { status: 400, error: 'contractor_source_id is required.' };
-  }
-  let contractorSourceId: bigint;
-  try {
-    contractorSourceId = BigInt(String(rawContractorId).trim());
-  } catch {
-    return { status: 400, error: 'Invalid contractor_source_id format.' };
-  }
-
-  const rmrValidation = validateRmrNumber(payload.rmr_number, true);
-  if (rmrValidation.error) {
-    return { status: 400, error: rmrValidation.error };
-  }
-  const rmrNumber = rmrValidation.value!;
-
-  const vehicleNumber = typeof payload.vehicle_number === 'string' ? payload.vehicle_number.trim().toUpperCase() : '';
-  if (!vehicleNumber) {
-    return { status: 400, error: 'vehicle_number is required.' };
-  }
-
-  const clientEventId = typeof payload.client_event_id === 'string' ? payload.client_event_id.trim() : '';
-  if (!clientEventId) {
-    return { status: 400, error: 'client_event_id is required.' };
-  }
-
-  const arrivalDate = new Date(payload.arrival_timestamp);
-  if (isNaN(arrivalDate.getTime())) {
-    return { status: 400, error: 'Invalid arrival_timestamp.' };
-  }
-
-  const now = new Date();
-  if (arrivalDate.getTime() > now.getTime() + 5 * 60 * 1000) {
-    return { status: 400, error: 'arrival_timestamp cannot be in the future.' };
-  }
-
-  const gpsValidation = validateGpsCoords(payload.phe_latitude, payload.phe_longitude, payload.phe_gps_accuracy);
-  if (gpsValidation.error) {
-    return { status: 400, error: gpsValidation.error };
-  }
-
-  let targetZmccId: bigint | null = null;
-  const rawTargetZmccId = payload.zmcc_id ?? payload.target_zmcc_id;
-  if (auth.isSuperAdmin) {
-    if (!rawTargetZmccId || String(rawTargetZmccId).trim() === '') {
-      return { status: 400, error: 'target_zmcc_id is required for Super Admin.' };
-    }
-    try {
-      targetZmccId = BigInt(String(rawTargetZmccId).trim());
-    } catch {
-      return { status: 400, error: 'Invalid target_zmcc_id format.' };
-    }
-  } else {
-    targetZmccId = auth.effectiveZmccId;
-  }
-
-  if (!targetZmccId) {
-    return { status: 400, error: 'Target ZMCC could not be resolved.' };
-  }
-
-  // Validate target ZMCC exists, is active, and is of type 'ZMCC'
-  const targetZmcc = await prisma.procurementSource.findUnique({
-    where: { id: targetZmccId },
-  });
-  if (!targetZmcc) {
-    return { status: 404, error: 'Target ZMCC procurement source not found.' };
-  }
-  if (targetZmcc.source_type !== 'ZMCC') {
-    return { status: 400, error: `Target source is not of type ZMCC (found: ${targetZmcc.source_type}).` };
-  }
-  if (!targetZmcc.is_active) {
-    return { status: 400, error: 'Target ZMCC procurement source is inactive.' };
-  }
-
-  const contractorSource = await prisma.procurementSource.findUnique({
-    where: { id: contractorSourceId },
-  });
-  if (!contractorSource) {
-    return { status: 404, error: 'Contractor procurement source not found.' };
-  }
-  if (contractorSource.source_type !== 'CONTRACTOR') {
-    return { status: 400, error: 'Selected procurement source is not of type CONTRACTOR.' };
-  }
-  if (!contractorSource.is_active) {
-    return { status: 400, error: 'Selected contractor procurement source is inactive.' };
-  }
-
-  const expectedContractorPayload: ContractorArrivalReplayComparison = {
-    zmcc_id: targetZmccId,
-    contractor_source_id: contractorSourceId,
-    rmr_number: rmrNumber,
-    vehicle_number: vehicleNumber,
-    arrival_timestamp: arrivalDate,
-    phe_latitude: gpsValidation.lat,
-    phe_longitude: gpsValidation.lng,
-    phe_gps_accuracy: gpsValidation.acc,
+  return {
+    status: 410,
+    error: 'CONTRACTOR_ARRIVAL_RETIRED',
+    message: 'ZMCC Contractor Arrival is retired for new intake. Record direct-to-ZMCC suppliers through Local Supplier Arrival.',
   };
-
-  const existingByEventId = await prisma.zmccContractorArrival.findUnique({
-    where: { client_event_id: clientEventId },
-    include: {
-      contractor_source: true,
-      zmcc: true,
-      recorded_by: true,
-    },
-  });
-
-  if (existingByEventId) {
-    if (isExactContractorArrivalReplay(existingByEventId, expectedContractorPayload)) {
-      return {
-        status: 200,
-        data: {
-          ...serializeContractorArrival(existingByEventId),
-          is_replay: true,
-        },
-      };
-    } else {
-      return {
-        status: 409,
-        error: 'Conflict: Reused client_event_id with differing contractor arrival payload.',
-      };
-    }
-  }
-
-  const pktDateStr = getPakistanCalendarDate(arrivalDate);
-  const dateCode = pktDateStr.replace(/-/g, '');
-  const arrivalDatePkt = new Date(`${pktDateStr}T00:00:00.000Z`);
-
-  try {
-    const createdArrival = await prisma.$transaction(async (tx) => {
-      const seqResult = await tx.$queryRaw<{ nextval: bigint }[]>`SELECT nextval('zmcc_token_seq') as nextval`;
-      if (!seqResult || seqResult.length === 0 || seqResult[0].nextval === undefined || seqResult[0].nextval === null) {
-        throw new Error('FAILED_TO_ALLOCATE_ZMCC_TOKEN_SEQUENCE');
-      }
-      const seqNum = Number(seqResult[0].nextval);
-      const zmccToken = `ZT-CON-${dateCode}-${String(seqNum).padStart(4, '0')}`;
-
-      const arrival = await tx.zmccContractorArrival.create({
-        data: {
-          zmcc_id: targetZmccId!,
-          contractor_source_id: contractorSourceId,
-          rmr_number: rmrNumber,
-          vehicle_number: vehicleNumber,
-          arrival_timestamp: arrivalDate,
-          arrival_date: arrivalDatePkt,
-          zmcc_token: zmccToken,
-          phe_latitude: gpsValidation.lat != null ? new Prisma.Decimal(gpsValidation.lat.toFixed(7)) : null,
-          phe_longitude: gpsValidation.lng != null ? new Prisma.Decimal(gpsValidation.lng.toFixed(7)) : null,
-          phe_gps_accuracy: gpsValidation.acc != null ? new Prisma.Decimal(gpsValidation.acc.toFixed(2)) : null,
-          client_event_id: clientEventId,
-          recorded_by_user_id: auth.actorUserId,
-          submitted_at: now,
-          correction_count: 0,
-        },
-        include: {
-          contractor_source: true,
-          zmcc: true,
-          recorded_by: true,
-        },
-      });
-
-      await tx.auditLog.create({
-        data: {
-          table_name: 'zmcc_contractor_arrival',
-          record_id: arrival.id,
-          action: 'ZMCC_CONTRACTOR_ARRIVAL_SUBMITTED',
-          old_values: Prisma.DbNull,
-          new_values: {
-            contractor_source_id: contractorSourceId.toString(),
-            contractor_code: contractorSource.code,
-            rmr_number: rmrNumber,
-            vehicle_number: vehicleNumber,
-            zmcc_token: zmccToken,
-            arrival_timestamp: arrivalDate.toISOString(),
-            arrival_date: pktDateStr,
-            client_event_id: clientEventId,
-          },
-          user_id: auth.actorUserId,
-        },
-      });
-
-      return arrival;
-    });
-
-    return {
-      status: 201,
-      data: serializeContractorArrival(createdArrival),
-    };
-  } catch (err: any) {
-    if (err.code === 'P2002') {
-      const existingAfterCollision = await prisma.zmccContractorArrival.findUnique({
-        where: { client_event_id: clientEventId },
-        include: {
-          contractor_source: true,
-          zmcc: true,
-          recorded_by: true,
-        },
-      });
-      if (existingAfterCollision) {
-        if (isExactContractorArrivalReplay(existingAfterCollision, expectedContractorPayload)) {
-          return {
-            status: 200,
-            data: {
-              ...serializeContractorArrival(existingAfterCollision),
-              is_replay: true,
-            },
-          };
-        } else {
-          return {
-            status: 409,
-            error: 'Conflict: Reused client_event_id with differing contractor arrival payload.',
-          };
-        }
-      }
-      return {
-        status: 409,
-        error: 'Conflict: Duplicate client_event_id collision on contractor arrival.',
-      };
-    }
-    console.error('submitContractorArrival error:', err);
-    return { status: 500, error: 'Internal server error while recording contractor arrival.' };
-  }
 }
 
 export async function correctContractorArrival(
@@ -2227,6 +2076,9 @@ export async function correctLocalSupplierArrival(
       local_supplier: true,
       zmcc: true,
       recorded_by: true,
+      lab_session: {
+        select: { completed_at: true },
+      },
     },
   });
 
@@ -2310,6 +2162,18 @@ export async function correctLocalSupplierArrival(
     const now = new Date();
     if (parsedTime.getTime() > now.getTime() + 5 * 60 * 1000) {
       return { status: 400, error: 'arrival_timestamp cannot be in the future.' };
+    }
+    if (arrival.exit_timestamp && parsedTime.getTime() > new Date(arrival.exit_timestamp).getTime()) {
+      return {
+        status: 400,
+        error: `arrival_timestamp cannot be after exit_timestamp (${arrival.exit_timestamp.toISOString()}).`,
+      };
+    }
+    if (arrival.lab_session?.completed_at && parsedTime.getTime() > new Date(arrival.lab_session.completed_at).getTime()) {
+      return {
+        status: 400,
+        error: `arrival_timestamp cannot be after lab completion timestamp (${arrival.lab_session.completed_at.toISOString()}).`,
+      };
     }
     if (parsedTime.getTime() !== arrival.arrival_timestamp.getTime()) {
       oldValues.arrival_timestamp = arrival.arrival_timestamp.toISOString();
@@ -2523,5 +2387,703 @@ export async function getLocalSupplierArrivalById(
   return {
     status: 200,
     data: serializeLocalSupplierArrival(arrival),
+  };
+}
+
+export async function recordGateExit(
+  reqOrUser: Request | User,
+  arrivalType: 'MOT' | 'LOCAL_SUPPLIER',
+  arrivalIdParam: string | number | bigint,
+  payload: RecordGateExitPayload
+): Promise<ServiceResult<any>> {
+  const { auth, errorResponse } = await resolveZmccArrivalAuth(reqOrUser, 'RECORD_EXIT');
+  if (errorResponse) return errorResponse;
+  if (!auth) return { status: 401, error: 'Unauthorized.' };
+
+  let arrivalId: bigint;
+  try {
+    arrivalId = BigInt(String(arrivalIdParam).trim());
+  } catch {
+    return { status: 400, error: 'Invalid arrival ID format.' };
+  }
+
+  if (!payload || typeof payload !== 'object') {
+    return { status: 400, error: 'Missing request payload.' };
+  }
+
+  const rawEventId = payload.client_event_id || (payload as any).exit_client_event_id;
+  const clientEventId = typeof rawEventId === 'string' ? rawEventId.trim() : '';
+  if (!clientEventId) {
+    return { status: 400, error: 'client_event_id is required.' };
+  }
+
+  if (!payload.exit_timestamp) {
+    return { status: 400, error: 'exit_timestamp is required.' };
+  }
+  const exitDate = new Date(payload.exit_timestamp);
+  if (isNaN(exitDate.getTime())) {
+    return { status: 400, error: 'Invalid exit_timestamp format.' };
+  }
+
+  const now = new Date();
+  if (exitDate.getTime() > now.getTime() + 5 * 60 * 1000) {
+    return { status: 400, error: 'exit_timestamp cannot be in the future.' };
+  }
+
+  let arrival: any = null;
+  if (arrivalType === 'MOT') {
+    arrival = await prisma.zmccMotArrival.findUnique({
+      where: { id: arrivalId },
+      include: {
+        journey: {
+          include: {
+            route: true,
+            mot_vehicle: true,
+            mot_profile: true,
+            summary: true,
+          },
+        },
+        zmcc: true,
+        recorded_by: true,
+        exit_recorded_by: true,
+        lab_session: {
+          include: {
+            tank_receipt: true,
+          },
+        },
+      },
+    });
+  } else if (arrivalType === 'LOCAL_SUPPLIER') {
+    arrival = await prisma.zmccLocalSupplierArrival.findUnique({
+      where: { id: arrivalId },
+      include: {
+        local_supplier: true,
+        zmcc: true,
+        recorded_by: true,
+        exit_recorded_by: true,
+        lab_session: {
+          include: {
+            tank_receipt: true,
+          },
+        },
+      },
+    });
+  } else {
+    return { status: 400, error: 'Invalid arrival_type for gate exit.' };
+  }
+
+  if (!arrival) {
+    return { status: 404, error: `${arrivalType === 'MOT' ? 'MOT' : 'Local Supplier'} Arrival record not found.` };
+  }
+
+  if (!auth.isSuperAdmin && arrival.zmcc_id !== auth.effectiveZmccId!) {
+    return { status: 403, error: 'Forbidden. Arrival record belongs to another ZMCC.' };
+  }
+
+  // Idempotency check on exit_client_event_id
+  if (arrival.exit_timestamp != null) {
+    if (arrival.exit_client_event_id === clientEventId) {
+      const isSameTimestamp = Math.abs(new Date(arrival.exit_timestamp).getTime() - exitDate.getTime()) < 1000;
+      if (isSameTimestamp) {
+        return {
+          status: 200,
+          data: arrivalType === 'MOT'
+            ? { ...serializeMotArrival(arrival), is_replay: true }
+            : { ...serializeLocalSupplierArrival(arrival), is_replay: true },
+        };
+      } else {
+        return {
+          status: 409,
+          error: 'Conflict: client_event_id already used with different exit parameters.',
+        };
+      }
+    } else {
+      return {
+        status: 409,
+        error: 'Conflict: Gate exit has already been recorded for this arrival record.',
+      };
+    }
+  }
+
+  // Exit Eligibility Rule
+  const labSession = arrival.lab_session;
+  if (!labSession || labSession.status !== 'COMPLETED') {
+    return {
+      status: 409,
+      error: 'LAB_NOT_COMPLETED',
+      message: 'Gate exit requires a completed Lab session.',
+    };
+  }
+
+  if (labSession.decision === 'ACCEPTED') {
+    if (!labSession.tank_receipt) {
+      return {
+        status: 409,
+        error: 'CANNOT_EXIT_ACCEPTED_WITHOUT_RECEIPT',
+        message: 'Gate exit for accepted milk requires a completed Tank Receipt.',
+      };
+    }
+  } else if (labSession.decision === 'REJECTED') {
+    // Eligible for exit
+  } else {
+    return {
+      status: 409,
+      error: 'INVALID_LAB_DECISION_FOR_EXIT',
+      message: 'Gate exit requires an ACCEPTED or REJECTED Lab decision.',
+    };
+  }
+
+  // Chronology Rule
+  if (exitDate.getTime() < new Date(arrival.arrival_timestamp).getTime()) {
+    return {
+      status: 400,
+      error: `exit_timestamp cannot predate arrival_timestamp (${arrival.arrival_timestamp.toISOString()}).`,
+    };
+  }
+  if (labSession.completed_at && exitDate.getTime() < new Date(labSession.completed_at).getTime()) {
+    return {
+      status: 400,
+      error: `exit_timestamp cannot predate lab completion timestamp (${labSession.completed_at.toISOString()}).`,
+    };
+  }
+
+  try {
+    const updated = await prisma.$transaction(async (tx) => {
+      if (arrivalType === 'MOT') {
+        const updatedRecord = await tx.zmccMotArrival.update({
+          where: { id: arrivalId },
+          data: {
+            exit_timestamp: exitDate,
+            exit_recorded_by_user_id: auth.actorUserId,
+            exit_client_event_id: clientEventId,
+            exit_submitted_at: now,
+            exit_correction_count: 0,
+          },
+          include: {
+            journey: {
+              include: {
+                route: true,
+                mot_vehicle: true,
+                mot_profile: true,
+                summary: true,
+              },
+            },
+            zmcc: true,
+            recorded_by: true,
+            exit_recorded_by: true,
+            lab_session: {
+              include: {
+                tank_receipt: true,
+              },
+            },
+          },
+        });
+
+        await tx.auditLog.create({
+          data: {
+            table_name: 'zmcc_mot_arrival',
+            record_id: arrivalId,
+            action: 'ZMCC_MOT_GATE_EXIT_RECORDED',
+            old_values: {
+              gate_exit_required: arrival.gate_exit_required,
+              exit_timestamp: null,
+            },
+            new_values: {
+              gate_exit_required: true,
+              exit_timestamp: exitDate.toISOString(),
+              exit_recorded_by_user_id: auth.actorUserId.toString(),
+              exit_client_event_id: clientEventId,
+            },
+            user_id: auth.actorUserId,
+          },
+        });
+
+        return updatedRecord;
+      } else {
+        const updatedRecord = await tx.zmccLocalSupplierArrival.update({
+          where: { id: arrivalId },
+          data: {
+            exit_timestamp: exitDate,
+            exit_recorded_by_user_id: auth.actorUserId,
+            exit_client_event_id: clientEventId,
+            exit_submitted_at: now,
+            exit_correction_count: 0,
+          },
+          include: {
+            local_supplier: true,
+            zmcc: true,
+            recorded_by: true,
+            exit_recorded_by: true,
+            lab_session: {
+              include: {
+                tank_receipt: true,
+              },
+            },
+          },
+        });
+
+        await tx.auditLog.create({
+          data: {
+            table_name: 'zmcc_local_supplier_arrival',
+            record_id: arrivalId,
+            action: 'ZMCC_LOCAL_SUPPLIER_GATE_EXIT_RECORDED',
+            old_values: {
+              gate_exit_required: arrival.gate_exit_required,
+              exit_timestamp: null,
+            },
+            new_values: {
+              gate_exit_required: true,
+              exit_timestamp: exitDate.toISOString(),
+              exit_recorded_by_user_id: auth.actorUserId.toString(),
+              exit_client_event_id: clientEventId,
+            },
+            user_id: auth.actorUserId,
+          },
+        });
+
+        return updatedRecord;
+      }
+    });
+
+    return {
+      status: 200,
+      data: arrivalType === 'MOT' ? serializeMotArrival(updated) : serializeLocalSupplierArrival(updated),
+    };
+  } catch (err: any) {
+    if (err.code === 'P2002') {
+      const conflictRecord = arrivalType === 'MOT'
+        ? await prisma.zmccMotArrival.findUnique({
+            where: { exit_client_event_id: clientEventId },
+            include: {
+              journey: { include: { route: true, mot_vehicle: true, mot_profile: true, summary: true } },
+              zmcc: true,
+              recorded_by: true,
+              exit_recorded_by: true,
+              lab_session: { include: { tank_receipt: true } },
+            },
+          })
+        : await prisma.zmccLocalSupplierArrival.findUnique({
+            where: { exit_client_event_id: clientEventId },
+            include: {
+              local_supplier: true,
+              zmcc: true,
+              recorded_by: true,
+              exit_recorded_by: true,
+              lab_session: { include: { tank_receipt: true } },
+            },
+          });
+
+      if (conflictRecord && conflictRecord.id === arrivalId) {
+        const isSame = Math.abs(new Date(conflictRecord.exit_timestamp!).getTime() - exitDate.getTime()) < 1000;
+        if (isSame) {
+          return {
+            status: 200,
+            data: arrivalType === 'MOT' ? serializeMotArrival(conflictRecord) : serializeLocalSupplierArrival(conflictRecord),
+          };
+        }
+      }
+      return {
+        status: 409,
+        error: 'Conflict: Reused client_event_id with differing exit parameters or collision.',
+      };
+    }
+    console.error('recordGateExit error:', err);
+    return { status: 500, error: 'Internal server error while recording gate exit.' };
+  }
+}
+
+export async function correctGateExit(
+  reqOrUser: Request | User,
+  arrivalType: 'MOT' | 'LOCAL_SUPPLIER',
+  arrivalIdParam: string | number | bigint,
+  payload: CorrectGateExitPayload
+): Promise<ServiceResult<any>> {
+  const { auth, errorResponse } = await resolveZmccArrivalAuth(reqOrUser, 'CORRECT_EXIT');
+  if (errorResponse) return errorResponse;
+  if (!auth) return { status: 401, error: 'Unauthorized.' };
+
+  let arrivalId: bigint;
+  try {
+    arrivalId = BigInt(String(arrivalIdParam).trim());
+  } catch {
+    return { status: 400, error: 'Invalid arrival ID format.' };
+  }
+
+  if (!payload || typeof payload !== 'object') {
+    return { status: 400, error: 'Missing correction payload.' };
+  }
+
+  const reason = typeof (payload.reason || (payload as any).supervisor_reason) === 'string'
+    ? (payload.reason || (payload as any).supervisor_reason).trim()
+    : '';
+  if (!reason || reason.length < 5) {
+    return { status: 400, error: 'Correction reason is mandatory and must be at least 5 characters.' };
+  }
+
+  if (!payload.exit_timestamp) {
+    return { status: 400, error: 'exit_timestamp is required.' };
+  }
+  const exitDate = new Date(payload.exit_timestamp);
+  if (isNaN(exitDate.getTime())) {
+    return { status: 400, error: 'Invalid exit_timestamp format.' };
+  }
+
+  const now = new Date();
+  if (exitDate.getTime() > now.getTime() + 5 * 60 * 1000) {
+    return { status: 400, error: 'exit_timestamp cannot be in the future.' };
+  }
+
+  let arrival: any = null;
+  if (arrivalType === 'MOT') {
+    arrival = await prisma.zmccMotArrival.findUnique({
+      where: { id: arrivalId },
+      include: {
+        journey: {
+          include: {
+            route: true,
+            mot_vehicle: true,
+            mot_profile: true,
+            summary: true,
+          },
+        },
+        zmcc: true,
+        recorded_by: true,
+        exit_recorded_by: true,
+        lab_session: true,
+      },
+    });
+  } else if (arrivalType === 'LOCAL_SUPPLIER') {
+    arrival = await prisma.zmccLocalSupplierArrival.findUnique({
+      where: { id: arrivalId },
+      include: {
+        local_supplier: true,
+        zmcc: true,
+        recorded_by: true,
+        exit_recorded_by: true,
+        lab_session: true,
+      },
+    });
+  } else {
+    return { status: 400, error: 'Invalid arrival_type for gate exit correction.' };
+  }
+
+  if (!arrival) {
+    return { status: 404, error: `${arrivalType === 'MOT' ? 'MOT' : 'Local Supplier'} Arrival record not found.` };
+  }
+
+  if (!auth.isSuperAdmin && arrival.zmcc_id !== auth.effectiveZmccId!) {
+    return { status: 403, error: 'Forbidden. Arrival record belongs to another ZMCC.' };
+  }
+
+  if (!arrival.exit_timestamp) {
+    return { status: 400, error: 'Cannot correct gate exit for an arrival that has not exited.' };
+  }
+
+  if (arrival.exit_correction_count >= 2) {
+    return {
+      status: 409,
+      error: 'MAX_EXIT_CORRECTIONS_EXCEEDED',
+      message: 'Maximum number of gate exit corrections (2) has been reached.',
+    };
+  }
+
+  // Chronology checks
+  if (exitDate.getTime() < new Date(arrival.arrival_timestamp).getTime()) {
+    return {
+      status: 400,
+      error: `exit_timestamp cannot predate arrival_timestamp (${arrival.arrival_timestamp.toISOString()}).`,
+    };
+  }
+  if (arrival.lab_session?.completed_at && exitDate.getTime() < new Date(arrival.lab_session.completed_at).getTime()) {
+    return {
+      status: 400,
+      error: `exit_timestamp cannot predate lab completion timestamp (${arrival.lab_session.completed_at.toISOString()}).`,
+    };
+  }
+
+  try {
+    const updated = await prisma.$transaction(async (tx) => {
+      const tableName = arrivalType === 'MOT' ? 'zmcc_mot_arrival' : 'zmcc_local_supplier_arrival';
+      const lockedRows = await tx.$queryRawUnsafe<{ id: bigint; exit_correction_count: number }[]>(
+        `SELECT id, exit_correction_count FROM "${tableName}" WHERE id = ${arrivalId} FOR UPDATE`
+      );
+      if (!lockedRows || lockedRows.length === 0) {
+        throw new Error('ARRIVAL_NOT_FOUND');
+      }
+      const currentCount = lockedRows[0].exit_correction_count ?? 0;
+      if (currentCount >= 2) {
+        throw new Error('MAX_EXIT_CORRECTIONS_REACHED');
+      }
+
+      const nextCount = currentCount + 1;
+      const oldExitTs = arrival.exit_timestamp.toISOString();
+      const newExitTs = exitDate.toISOString();
+
+      let updatedRecord: any;
+      if (arrivalType === 'MOT') {
+        updatedRecord = await tx.zmccMotArrival.update({
+          where: { id: arrivalId },
+          data: {
+            exit_timestamp: exitDate,
+            exit_correction_count: nextCount,
+          },
+          include: {
+            journey: {
+              include: {
+                route: true,
+                mot_vehicle: true,
+                mot_profile: true,
+                summary: true,
+              },
+            },
+            zmcc: true,
+            recorded_by: true,
+            exit_recorded_by: true,
+          },
+        });
+        await tx.auditLog.create({
+          data: {
+            table_name: 'zmcc_mot_arrival',
+            record_id: arrivalId,
+            action: 'ZMCC_MOT_GATE_EXIT_CORRECTED',
+            old_values: {
+              exit_timestamp: oldExitTs,
+              exit_correction_count: currentCount,
+            },
+            new_values: {
+              exit_timestamp: newExitTs,
+              exit_correction_count: nextCount,
+              correction_reason: reason,
+            },
+            user_id: auth.actorUserId,
+          },
+        });
+      } else {
+        updatedRecord = await tx.zmccLocalSupplierArrival.update({
+          where: { id: arrivalId },
+          data: {
+            exit_timestamp: exitDate,
+            exit_correction_count: nextCount,
+          },
+          include: {
+            local_supplier: true,
+            zmcc: true,
+            recorded_by: true,
+            exit_recorded_by: true,
+          },
+        });
+        await tx.auditLog.create({
+          data: {
+            table_name: 'zmcc_local_supplier_arrival',
+            record_id: arrivalId,
+            action: 'ZMCC_LOCAL_SUPPLIER_GATE_EXIT_CORRECTED',
+            old_values: {
+              exit_timestamp: oldExitTs,
+              exit_correction_count: currentCount,
+            },
+            new_values: {
+              exit_timestamp: newExitTs,
+              exit_correction_count: nextCount,
+              correction_reason: reason,
+            },
+            user_id: auth.actorUserId,
+          },
+        });
+      }
+
+      return updatedRecord;
+    });
+
+    return {
+      status: 200,
+      data: arrivalType === 'MOT' ? serializeMotArrival(updated) : serializeLocalSupplierArrival(updated),
+    };
+  } catch (err: any) {
+    if (err.message === 'MAX_EXIT_CORRECTIONS_REACHED') {
+      return {
+        status: 409,
+        error: 'MAX_EXIT_CORRECTIONS_EXCEEDED',
+        message: 'Maximum number of gate exit corrections (2) has been reached.',
+      };
+    }
+    console.error('correctGateExit error:', err);
+    return { status: 500, error: 'Internal server error while correcting gate exit.' };
+  }
+}
+
+export async function getVehiclesInsideZmcc(
+  reqOrUser: Request | User,
+  zmccIdQuery?: string
+): Promise<ServiceResult<{ vehicles: any[]; items: any[] }>> {
+  const { auth, errorResponse } = await resolveZmccArrivalAuth(reqOrUser, 'READ_ARRIVAL');
+  if (errorResponse) return errorResponse;
+  if (!auth) return { status: 401, error: 'Unauthorized.' };
+
+  let targetZmccId: bigint | null = null;
+  if (auth.isSuperAdmin) {
+    if (zmccIdQuery && zmccIdQuery.trim() !== '') {
+      try {
+        targetZmccId = BigInt(zmccIdQuery.trim());
+      } catch {
+        return { status: 400, error: 'Invalid zmcc_id query parameter.' };
+      }
+    }
+  } else {
+    targetZmccId = auth.effectiveZmccId;
+    if (zmccIdQuery && zmccIdQuery.trim() !== '') {
+      try {
+        const queryId = BigInt(zmccIdQuery.trim());
+        if (queryId !== targetZmccId) {
+          return { status: 403, error: 'Forbidden. Cannot view inside vehicles for another ZMCC.' };
+        }
+      } catch {
+        return { status: 400, error: 'Invalid zmcc_id query parameter.' };
+      }
+    }
+  }
+
+  const motWhere: Prisma.ZmccMotArrivalWhereInput = {
+    gate_exit_required: true,
+    exit_timestamp: null,
+    ...(targetZmccId ? { zmcc_id: targetZmccId } : {}),
+  };
+
+  const lsWhere: Prisma.ZmccLocalSupplierArrivalWhereInput = {
+    gate_exit_required: true,
+    exit_timestamp: null,
+    ...(targetZmccId ? { zmcc_id: targetZmccId } : {}),
+  };
+
+  const [motArrivals, lsArrivals] = await Promise.all([
+    prisma.zmccMotArrival.findMany({
+      where: motWhere,
+      include: {
+        journey: {
+          include: {
+            route: true,
+            mot_vehicle: true,
+            mot_profile: true,
+            summary: true,
+          },
+        },
+        zmcc: true,
+        recorded_by: true,
+        exit_recorded_by: true,
+        lab_session: {
+          include: {
+            tank_receipt: true,
+          },
+        },
+      },
+      orderBy: { arrival_timestamp: 'asc' },
+    }),
+    prisma.zmccLocalSupplierArrival.findMany({
+      where: lsWhere,
+      include: {
+        local_supplier: true,
+        zmcc: true,
+        recorded_by: true,
+        exit_recorded_by: true,
+        lab_session: {
+          include: {
+            tank_receipt: true,
+          },
+        },
+      },
+      orderBy: { arrival_timestamp: 'asc' },
+    }),
+  ]);
+
+  const vehicles: any[] = [];
+
+  for (const a of motArrivals) {
+    const lab = a.lab_session;
+    const canExit = Boolean(
+      lab &&
+      lab.status === 'COMPLETED' &&
+      ((lab.decision === 'ACCEPTED' && lab.tank_receipt) || lab.decision === 'REJECTED')
+    );
+    const ineligibilityReason = !lab
+      ? 'Waiting for Lab'
+      : lab.status !== 'COMPLETED'
+      ? 'Lab In Progress'
+      : lab.decision === 'ACCEPTED' && !lab.tank_receipt
+      ? 'Accepted — Waiting for Tank Receipt'
+      : null;
+
+    vehicles.push({
+      id: a.id.toString(),
+      arrival_type: 'MOT',
+      vehicle_number: a.journey?.mot_vehicle?.vehicle_number || 'UNKNOWN',
+      source_name: a.journey?.route?.name
+        ? `${a.journey.route.name} (${a.journey.mot_profile?.name || 'MOT'})`
+        : 'MOT Route',
+      local_supplier_code: null,
+      zmcc_token: a.zmcc_token,
+      arrival_timestamp: a.arrival_timestamp instanceof Date ? a.arrival_timestamp.toISOString() : a.arrival_timestamp,
+      lab_status: lab ? lab.status : 'NOT_STARTED',
+      lab_decision: lab ? lab.decision : null,
+      has_tank_receipt: Boolean(lab?.tank_receipt),
+      can_exit: canExit,
+      exit_ineligibility_reason: ineligibilityReason,
+      gate_exit_required: a.gate_exit_required,
+      gate_exit_recorded: Boolean(a.exit_timestamp),
+      zmcc: a.zmcc
+        ? {
+            id: a.zmcc.id.toString(),
+            code: a.zmcc.code,
+            name: a.zmcc.name,
+          }
+        : undefined,
+      raw_arrival: serializeMotArrival(a),
+    });
+  }
+
+  for (const a of lsArrivals) {
+    const lab = a.lab_session;
+    const canExit = Boolean(
+      lab &&
+      lab.status === 'COMPLETED' &&
+      ((lab.decision === 'ACCEPTED' && lab.tank_receipt) || lab.decision === 'REJECTED')
+    );
+    const ineligibilityReason = !lab
+      ? 'Waiting for Lab'
+      : lab.status !== 'COMPLETED'
+      ? 'Lab In Progress'
+      : lab.decision === 'ACCEPTED' && !lab.tank_receipt
+      ? 'Accepted — Waiting for Tank Receipt'
+      : null;
+
+    vehicles.push({
+      id: a.id.toString(),
+      arrival_type: 'LOCAL_SUPPLIER',
+      vehicle_number: a.vehicle_number,
+      source_name: a.local_supplier ? a.local_supplier.name : 'Local Supplier',
+      local_supplier_code: a.local_supplier ? a.local_supplier.local_supplier_code : null,
+      zmcc_token: a.zmcc_token,
+      arrival_timestamp: a.arrival_timestamp instanceof Date ? a.arrival_timestamp.toISOString() : a.arrival_timestamp,
+      lab_status: lab ? lab.status : 'NOT_STARTED',
+      lab_decision: lab ? lab.decision : null,
+      has_tank_receipt: Boolean(lab?.tank_receipt),
+      can_exit: canExit,
+      exit_ineligibility_reason: ineligibilityReason,
+      gate_exit_required: a.gate_exit_required,
+      gate_exit_recorded: Boolean(a.exit_timestamp),
+      zmcc: a.zmcc
+        ? {
+            id: a.zmcc.id.toString(),
+            code: a.zmcc.code,
+            name: a.zmcc.name,
+          }
+        : undefined,
+      raw_arrival: serializeLocalSupplierArrival(a),
+    });
+  }
+
+  vehicles.sort((a, b) => new Date(a.arrival_timestamp).getTime() - new Date(b.arrival_timestamp).getTime());
+
+  return {
+    status: 200,
+    data: { vehicles, items: vehicles },
   };
 }

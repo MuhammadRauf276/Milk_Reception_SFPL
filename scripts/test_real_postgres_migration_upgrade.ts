@@ -348,12 +348,12 @@ async function runRealPostgresMigrationUpgradeTest() {
       'MIG-SCHEMA-3: Temporary vehicle quantity columns successfully dropped from dispatch_info'
     );
 
-    // Migration count check (25 tracked migrations)
+    // Migration count check (26 tracked migrations)
     const migrationDirs = fs.readdirSync(path.join(process.cwd(), 'prisma/migrations'))
       .filter((f) => fs.statSync(path.join(process.cwd(), 'prisma/migrations', f)).isDirectory());
     assert(
-      migrationDirs.length === 25,
-      'MIG-COUNT-1: Repository contains exactly 25 tracked migrations',
+      migrationDirs.length === 26,
+      'MIG-COUNT-1: Repository contains exactly 26 tracked migrations',
       `Found ${migrationDirs.length} migrations`
     );
     assert(
@@ -382,7 +382,11 @@ async function runRealPostgresMigrationUpgradeTest() {
     );
     assert(
       migrationDirs.includes('20260915100000_zmcc_local_supplier_directory_and_arrival'),
-      'MIG-STAGE6GD3: 20260915100000_zmcc_local_supplier_directory_and_arrival migration is present'
+      'MIG-STAGE6GD3-25: 20260915100000_zmcc_local_supplier_directory_and_arrival migration is present'
+    );
+    assert(
+      migrationDirs.includes('20260915120000_zmcc_gate_exit_and_canonical_local_supplier'),
+      'MIG-STAGE6GD3-26: 20260915120000_zmcc_gate_exit_and_canonical_local_supplier migration is present'
     );
 
     // =========================================================================
@@ -547,6 +551,11 @@ async function runRealPostgresMigrationUpgradeTest() {
       }
       assert(rmrRejected, 'MIG-D3-RMR-CHECK: zmcc_local_supplier_arrival_rmr_digits_check rejects non-numeric RMR');
 
+      // Execute actual Migration 26 (Gate Exit & Canonical Local Supplier)
+      const d3Migration26Path = path.join(process.cwd(), 'prisma/migrations/20260915120000_zmcc_gate_exit_and_canonical_local_supplier/migration.sql');
+      const d3Migration26Sql = fs.readFileSync(d3Migration26Path, 'utf8');
+      await executeMultiStatementSql(d3Migration26Sql);
+
       // Verify ERP mapping status check constraint rejects BROKEN
       let erpBrokenRejected = false;
       try {
@@ -571,6 +580,78 @@ async function runRealPostgresMigrationUpgradeTest() {
         verifiedSupplier[0]?.erp_mapping_status === 'VERIFIED',
         'MIG-D3-ERP-CHECK-2: zmcc_local_supplier_erp_mapping_status_check permits "VERIFIED" structurally'
       );
+
+      // Verify historical pre-migration rows cutover: gate_exit_required = false, exit_timestamp IS NULL
+      const preFeatureMot: any[] = await prisma.$queryRawUnsafe(`
+        SELECT gate_exit_required, exit_timestamp, exit_recorded_by_user_id, exit_client_event_id
+        FROM "${d3Schema}"."zmcc_mot_arrival" WHERE id = 101
+      `);
+      assert(
+        preFeatureMot.length === 1 &&
+        preFeatureMot[0].gate_exit_required === false &&
+        preFeatureMot[0].exit_timestamp === null &&
+        preFeatureMot[0].exit_recorded_by_user_id === null &&
+        preFeatureMot[0].exit_client_event_id === null,
+        'MIG-D3-CUTOVER-MOT: Pre-feature MOT arrival has gate_exit_required = false and NULL exit fields'
+      );
+
+      const preFeatureLs: any[] = await prisma.$queryRawUnsafe(`
+        SELECT gate_exit_required, exit_timestamp, exit_recorded_by_user_id, exit_client_event_id
+        FROM "${d3Schema}"."zmcc_local_supplier_arrival" WHERE id = 601
+      `);
+      assert(
+        preFeatureLs.length === 1 &&
+        preFeatureLs[0].gate_exit_required === false &&
+        preFeatureLs[0].exit_timestamp === null &&
+        preFeatureLs[0].exit_recorded_by_user_id === null &&
+        preFeatureLs[0].exit_client_event_id === null,
+        'MIG-D3-CUTOVER-LS: Pre-feature Local Supplier arrival has gate_exit_required = false and NULL exit fields'
+      );
+
+      // Verify newly inserted rows default to gate_exit_required = true
+      await executeMultiStatementSql(`
+        INSERT INTO "${d3Schema}"."zmcc_mot_arrival" ("id", "zmcc_id", "route_milk_token", "zmcc_token")
+        VALUES (102, 1, 'RMT-102', 'ZT-MOT-20260915-0002');
+
+        INSERT INTO "${d3Schema}"."zmcc_local_supplier_arrival" (
+          "id", "zmcc_id", "local_supplier_id", "rmr_number", "vehicle_number", "arrival_timestamp", "arrival_date",
+          "zmcc_token", "client_event_id", "recorded_by_user_id", "updated_at"
+        ) VALUES (
+          603, 1, 501, '007891', 'LHR 9999', CURRENT_TIMESTAMP, CURRENT_DATE,
+          'ZT-LS-20260915-0003', 'evt-d3-test-3', 1, CURRENT_TIMESTAMP
+        );
+      `);
+
+      const postFeatureMot: any[] = await prisma.$queryRawUnsafe(`
+        SELECT gate_exit_required, exit_timestamp FROM "${d3Schema}"."zmcc_mot_arrival" WHERE id = 102
+      `);
+      assert(
+        postFeatureMot.length === 1 && postFeatureMot[0].gate_exit_required === true && postFeatureMot[0].exit_timestamp === null,
+        'MIG-D3-DEFAULT-MOT: Post-migration MOT arrival defaults gate_exit_required = true'
+      );
+
+      const postFeatureLs: any[] = await prisma.$queryRawUnsafe(`
+        SELECT gate_exit_required, exit_timestamp FROM "${d3Schema}"."zmcc_local_supplier_arrival" WHERE id = 603
+      `);
+      assert(
+        postFeatureLs.length === 1 && postFeatureLs[0].gate_exit_required === true && postFeatureLs[0].exit_timestamp === null,
+        'MIG-D3-DEFAULT-LS: Post-migration Local Supplier arrival defaults gate_exit_required = true'
+      );
+
+      // Verify exit columns exist on both tables
+      const motExitCols: any[] = await prisma.$queryRawUnsafe(`
+        SELECT column_name FROM information_schema.columns
+        WHERE table_schema = '${d3Schema}' AND table_name = 'zmcc_mot_arrival'
+        AND column_name IN ('gate_exit_required', 'exit_timestamp', 'exit_recorded_by_user_id', 'exit_client_event_id', 'exit_submitted_at', 'exit_correction_count');
+      `);
+      assert(motExitCols.length === 6, 'MIG-D3-COLS-MOT: All 6 exit columns exist on zmcc_mot_arrival');
+
+      const lsExitCols: any[] = await prisma.$queryRawUnsafe(`
+        SELECT column_name FROM information_schema.columns
+        WHERE table_schema = '${d3Schema}' AND table_name = 'zmcc_local_supplier_arrival'
+        AND column_name IN ('gate_exit_required', 'exit_timestamp', 'exit_recorded_by_user_id', 'exit_client_event_id', 'exit_submitted_at', 'exit_correction_count');
+      `);
+      assert(lsExitCols.length === 6, 'MIG-D3-COLS-LS: All 6 exit columns exist on zmcc_local_supplier_arrival');
 
       // Verify Lab check constraints allow LOCAL_SUPPLIER shape
       await prisma.$executeRawUnsafe(`

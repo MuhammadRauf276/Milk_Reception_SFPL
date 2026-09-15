@@ -581,49 +581,70 @@ SUPER ADMIN (SUPER_ADMIN)
 
 ---
 
-## 23. Stage 6G-D.3 ZMCC Local Supplier Directory & Fast PHE Onboarding
+## 23. Stage 6G-D.3 ZMCC Local Supplier Directory & PHE Gate Workflow
 
-### 23A. ZMCC Local Supplier Directory (`ZmccLocalSupplier`)
-- **ZMCC Multi-Tenant Isolation**: Local suppliers belong strictly to their assigned ZMCC facility (`zmcc_id`). Multi-tenant scoping is enforced at service and database levels. Queries and lookups from non-Super-Admin roles are restricted to `auth.effectiveZmccId`.
-- **Sequential Local Supplier Code**: Sequential identifier allocated via atomic PostgreSQL sequence `zmcc_local_supplier_code_seq`, formatted as `ZLS-000001` (6-digit zero-padded).
+### 23A. Plant Contractor vs. ZMCC Local Supplier Operational Domains
+- **Formal Plant Contractor**: Managed centrally via `ProcurementSource` with `source_type = 'CONTRACTOR'`. Supplies milk DIRECTLY TO THE PLANT. Managed by Contractor Manager / Contractor Operator roles. Not a ZMCC local supplier; formal Plant Contractor master and workflows remain separate and unaffected.
+- **ZMCC Local Supplier**: Any entity supplying milk DIRECTLY TO A ZMCC. Staff colloquial terms ("ZMCC contractor", "local contractor", "local supplier") refer to the single canonical business concept: **Local Supplier** (`ZmccLocalSupplier`).
+- **Canonical Model for All New Direct-to-ZMCC Intake**: All new direct-to-ZMCC supply must be recorded as `ZmccLocalSupplier` and `ZmccLocalSupplierArrival`. There is only ONE active direct-to-ZMCC supply concept.
+
+### 23B. Retirement of New ZMCC Contractor Arrival Creation
+- **Historical Compatibility Only**: Existing `ZmccContractorArrival` records remain fully readable, searchable, and auditable. Historical in-progress arrivals can complete Lab testing and accepted Tank receipts without stranding data.
+- **Fail Closed for New Writes (HTTP 410 Gone)**: No role may create a new `ZmccContractorArrival`. `POST /api/zmcc/arrivals/contractor` fails closed with HTTP 410 Gone and exact message: `"ZMCC Contractor Arrival is retired for new intake. Record direct-to-ZMCC suppliers through Local Supplier Arrival."`
+- **PHE UI Simplified**: The active Contractor Arrival tab is removed from the PHE ZMCC Arrivals UI. Active intake choices are strictly **MOT Arrival** and **Local Supplier Arrival**.
+
+### 23C. ZMCC Local Supplier Directory (`ZmccLocalSupplier`)
+- **ZMCC Multi-Tenant Isolation**: Local suppliers belong strictly to their assigned ZMCC facility (`zmcc_id`). Non-Super-Admin roles are scoped to `auth.effectiveZmccId`. Scoped clients supplying `zmcc_id` in create payloads are rejected.
+- **Sequential Code**: Allocated via atomic PostgreSQL sequence `zmcc_local_supplier_code_seq`, formatted as `ZLS-000001` (6-digit zero-padded). Race-safe, immutable, client cannot supply it.
 - **Mandatory Name**: `name` is required, trimmed, non-blank, max 150 characters.
 - **Optional Contact Metadata**:
-  - `phone`: Optional string (max 50). When provided, validated against standard Pakistani phone format (e.g. `03001234567` or `+923001234567`).
-  - `cnic`: Optional string (max 50). When provided, validated against 13-digit Pakistani CNIC format (with or without dashes).
-- **Audit & User Tracking**: Tracks `created_by_user_id` and optional `updated_by_user_id`. Every creation and update emits an `AuditLog` entry (`ZMCC_LOCAL_SUPPLIER_CREATED`, `ZMCC_LOCAL_SUPPLIER_UPDATED`).
-- **Role Permissions & Operational Safety**:
-  - `PHE_OPERATOR`: Can search active suppliers and onboard/create new walk-in suppliers for their assigned ZMCC. PHE Operators are strictly forbidden from editing or deactivating existing local suppliers (HTTP 403).
-  - `ZMCC_MANAGER` (for assigned ZMCC) & `SUPER_ADMIN`: Can create, edit name/phone/cnic/erp_reference, and toggle `is_active` status.
-  - Deactivated suppliers (`is_active = false`) are excluded from operational PHE selection but preserved for historical audit integrity.
+  - `phone`: Optional string (max 50). Validated against standard phone format.
+  - `cnic`: Optional string (max 50). Validated against 13-digit CNIC format.
+  - Blank or whitespace optional fields coerce to `NULL`.
+- **Candidate ERP Reference (Pending Verification)**:
+  - `erp_reference` is candidate/evidence data only (`VARCHAR(100)` text).
+  - Leading zeros (e.g. `"00045231"`, `"00-2345"`) are preserved verbatim.
+  - Blank/unknown values must be `NULL`.
+  - Placeholder values are strictly rejected with HTTP 400 (`'New'`, `'Pending'`, `'Unknown'`, `'N/A'`, `'NA'`, `'TBD'`, `'None'`, `'Not Available'`, `'Not Known'`, `'-'`).
+  - Status is locked to `erp_mapping_status = 'PENDING'` (enforced by DB check constraint `zmcc_local_supplier_erp_mapping_status_check`).
+  - Mapping to the future canonical **Global ERP Source Master** is deferred to **Stage 6G-H** (NOT Stage 6G-E).
+- **Role Permissions**:
+  - `PHE_OPERATOR`: Can search active local suppliers and fast-create missing suppliers for own assigned ZMCC. Cannot edit or deactivate suppliers (HTTP 403).
+  - `ZMCC_MANAGER`: Can create, edit (`name`, `phone`, `cnic`, `erp_reference`), and toggle `is_active` for own assigned ZMCC.
+  - `SUPER_ADMIN`: Can manage suppliers across ZMCCs with explicit active target ZMCC.
 
-### 23B. Frozen ERP Reference Rule
-- **Candidate Reference Only**: `erp_reference` is strictly an optional candidate/informational reference for future offline or Stage 6G-E ERP reconciliation.
-- **Null When Unknown**: If the ERP reference is unknown, blank, or whitespace, it must be stored as `NULL`. Empty strings are coerced to `NULL`.
-- **Leading Zero Preservation**: ERP references are stored as `VARCHAR(100)` text. Leading zeros (e.g. `"00045231"`) are strictly preserved and never truncated by numeric casting.
-- **Prohibited Placeholders Rejected**: Placeholder values are strictly rejected with HTTP 400 (`"Placeholder ERP reference \"...\" is forbidden. Leave blank if unknown."`). Prohibited values (case-insensitive, trimmed) include:
-  `'new'`, `'pending'`, `'unknown'`, `'n/a'`, `'na'`, `'tbd'`, `'none'`, `'not available'`, `'not known'`, `'-'`.
-- **Locked PENDING Status**: All Stage 6G-D.3 local suppliers are initialized with `erp_mapping_status = 'PENDING'`.
-- **Forbidden Client Fields**: Clients are strictly prohibited from setting or modifying `erp_mapping_status`, `erp_code`, or `canonical_supplier_id`. Any request containing these fields fails closed with HTTP 400. Stage 6G-D.3 performs NO ERP verification, NO canonical master linking, and NO financial settlement.
-
-### 23C. Distinct Local Supplier Arrival Domain (`ZmccLocalSupplierArrival`)
-- **Separate Domain Model**: Local supplier arrivals are modeled independently via `ZmccLocalSupplierArrival` (`zmcc_local_supplier_arrival`), referencing `local_supplier_id`. They do NOT pollute or reuse `ZmccContractorArrival`.
-- **Mandatory RMR & Numeric Digits**: `rmr_number` is required from the physical receipt slip. Must contain digits only (`/^[0-9]+$/`), max 100 chars, preserving leading zeros (enforced by DB check constraint `zmcc_local_supplier_arrival_rmr_digits_check`).
+### 23D. Canonical Local Supplier Arrival (`ZmccLocalSupplierArrival`)
+- **Independent Domain Model**: Modeled independently via `ZmccLocalSupplierArrival` (`zmcc_local_supplier_arrival`), referencing `local_supplier_id`.
+- **Mandatory RMR & Numeric Digits**: `rmr_number` is required from physical slip, digits only (`/^[0-9]+$/`), max 100 chars, preserving leading zeros (enforced by check constraint `zmcc_local_supplier_arrival_rmr_digits_check`).
 - **Normalized Vehicle**: `vehicle_number` is trimmed, uppercased, and internal whitespace collapsed.
-- **Replay Idempotency**:
-  - Uses `client_event_id` (UUID) with unique database index `zmcc_local_supplier_arrival_client_event_id_key`.
-  - Exact match replay (same `client_event_id` with identical operational payload) returns HTTP 200 with the existing arrival record without creating duplicate sequence numbers or audit logs.
-  - Conflict replay (same `client_event_id` with mismatched payload) fails closed with HTTP 409 Conflict.
-- **Race-Safe Daily Sequence Token**: Generates token in format `ZT-LS-<YYYYMMDD>-<sequence>` (e.g. `ZT-LS-20260915-0001`) based on Pakistan calendar day (`Asia/Karachi`), using an atomic database sequence table `zmcc_local_supplier_arrival_daily_seq`.
+- **Replay Idempotency**: `client_event_id` with unique database index. Exact replay returns HTTP 200 with `is_replay: true`; mismatched payload returns HTTP 409 Conflict.
+- **Daily Sequence Token**: Format `ZT-LS-<YYYYMMDD>-<sequence>` based on Pakistan calendar day (`Asia/Karachi`), sequence allocated atomically.
 - **Supervisory Corrections**:
   - PHE Operators cannot edit submitted arrivals.
-  - `ZMCC_MANAGER` (assigned ZMCC) or `SUPER_ADMIN` can correct editable fields (`supplier_id`, `rmr_number`, `vehicle_number`, `driver_name`, `driver_phone`, `remarks`) via `PATCH /api/zmcc/arrivals/local-supplier/[id]`.
-  - Mandatory `reason` (minimum 5 characters).
-  - Maximum of 2 corrections permitted per arrival.
-  - The internal system token (`zmcc_token`) is strictly immutable.
-  - Full audit trail recorded in `AuditLog` (`ZMCC_LOCAL_SUPPLIER_ARRIVAL_CORRECTED`).
+  - `ZMCC_MANAGER` (assigned ZMCC) or `SUPER_ADMIN` can correct editable fields (`local_supplier_id`, `rmr_number`, `vehicle_number`, `arrival_timestamp`, GPS coordinates) via `PATCH /api/zmcc/arrivals/local-supplier/[id]`.
+  - Mandatory `reason` (minimum 5 characters). Max 2 corrections permitted. System token is immutable.
+  - Audit trail recorded in `AuditLog` (`ZMCC_LOCAL_SUPPLIER_ARRIVAL_CORRECTED`).
 
-### 23D. Minimal Lab Workflow Compatibility
-- **Direct Testing Point Integration**: Direct local supplier arrivals reuse the existing `ZMCC_LAB_CONTRACTOR` direct reception testing point policy. No redundant policy tables are introduced.
-- **Session Association**: `ZmccLabSession` supports `arrival_type: 'LOCAL_SUPPLIER'`, referencing `local_supplier_arrival_id`.
-- **Lab Queue & Acceptance**: Direct local supplier arrivals appear in the lab arrivals queue, can be selected for testing, have required tests allocated, pass/reject decisions recorded, and accepted milk received into the single active ZMCC tank using Stage 6G-C metrics and 6G-D tank ledger accounting without dead-ending.
-- **Database Migration**: Exactly 1 tracked migration `20260915100000_zmcc_local_supplier_directory_and_arrival` (total repository migration count: 25).
+### 23E. PHE ZMCC Gate Workflow & Gate Exit
+- **Gate Entry**: The existing arrival submission (`arrival_timestamp`) IS the authoritative ZMCC Gate Entry timestamp. Uses normal Pakistan calendar time. NO Plant 08:00 AM business-day cutoff.
+- **Gate Exit Schema**: Both `zmcc_mot_arrival` and `zmcc_local_supplier_arrival` track gate exit via:
+  `gate_exit_required` (Boolean, default true), `exit_timestamp` (Timestamp, nullable), `exit_recorded_by_user_id` (BigInt FK, nullable), `exit_client_event_id` (VarChar unique, nullable), `exit_submitted_at` (Timestamp, nullable), `exit_correction_count` (Int, default 0).
+- **Historical Cutover (No Invented Data)**:
+  - Pre-feature historical arrival rows have `gate_exit_required = false`.
+  - Migration #26 does NOT fabricate exit timestamps or guess historical departure times.
+  - All new arrivals created after feature activation have `gate_exit_required = true` and `exit_timestamp = null` while inside ZMCC.
+- **Gate Exit Eligibility Rule**:
+  - Gate exit can only be recorded after ZMCC Lab session is `COMPLETED`.
+  - If milk is `ACCEPTED`: requires `ZmccTankReceipt` to exist. Attempting exit without tank receipt fails closed with HTTP 409 Conflict.
+  - If milk is `REJECTED`: gate exit is permitted immediately upon completed rejection.
+  - No Lab session or in-progress Lab session fails closed with HTTP 409 Conflict.
+- **Gate Exit Chronology**: `exit_timestamp >= arrival_timestamp` and `exit_timestamp >= lab.completed_at`. Arrival corrections for exited vehicles must satisfy `arrival_timestamp <= exit_timestamp`.
+- **Gate Exit Idempotency**: Uses `exit_client_event_id`. First submission records exit; identical replay returns original HTTP 200 without duplicate audit; differing payload returns HTTP 409 Conflict.
+- **Gate Exit Supervisory Correction**: `PATCH /api/zmcc/arrivals/mot/[id]/exit` and `PATCH /api/zmcc/arrivals/local-supplier/[id]/exit` permit `ZMCC_MANAGER` (own ZMCC) or `SUPER_ADMIN` to correct `exit_timestamp` with mandatory `reason` (minimum 5 characters), max 2 corrections, fully audited (`ZMCC_MOT_GATE_EXIT_CORRECTED`, `ZMCC_LOCAL_SUPPLIER_GATE_EXIT_CORRECTED`).
+- **Vehicles Inside ZMCC**: Bounded server query (`GET /api/zmcc/arrivals/inside`) returns vehicles where `gate_exit_required = true AND exit_timestamp IS NULL` for the user's assigned ZMCC across MOT and Local Supplier arrivals. Excludes historical contractor arrivals and exited vehicles.
+- **MOT Vehicle Physical Availability**: While an MOT journey completes at ZMCC Gate Entry, physical vehicle availability is tracked separately. A vehicle with an active gate-tracked arrival (`gate_exit_required = true AND exit_timestamp IS NULL`) cannot be assigned to or dispatched on a new journey (HTTP 409 Conflict). Recording Gate Exit immediately restores vehicle availability for dispatch. Historical `gate_exit_required = false` arrivals do not block reuse.
+- **Deactivation Continuity**: Deactivating a Local Supplier blocks new arrival creation, but existing recorded arrivals proceed normally through Lab testing, Tank receipt, and Gate Exit without stranding.
+- **Database Migrations**:
+  - Migration #25: `20260915100000_zmcc_local_supplier_directory_and_arrival` (restored byte-for-byte to base HEAD `5c05973538b4f90e69abffeb45370e6e671f0521`).
+  - Migration #26: `20260915120000_zmcc_gate_exit_and_canonical_local_supplier` (adds gate exit schema, cutover, and `zmcc_local_supplier_erp_mapping_status_check`).
+  - Total repository migration count: **exactly 26**.

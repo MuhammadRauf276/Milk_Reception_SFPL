@@ -28,7 +28,7 @@ interface ZmccArrivalsWorkspaceProps {
   currentUser: User | null;
 }
 
-type MainTab = 'MOT_ARRIVAL' | 'CONTRACTOR_ARRIVAL' | 'LOCAL_SUPPLIER_ARRIVAL' | 'HISTORY';
+type MainTab = 'MOT_ARRIVAL' | 'LOCAL_SUPPLIER_ARRIVAL' | 'INSIDE_ZMCC' | 'HISTORY';
 
 export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ currentUser }) => {
   const toast = useToast();
@@ -58,7 +58,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
   const [motSuccessResult, setMotSuccessResult] = useState<any | null>(null);
   const [motError, setMotError] = useState<string | null>(null);
 
-  // Contractor Arrival Form State
+  // Contractor Arrival Form State (Legacy compatibility)
   const [contractors, setContractors] = useState<any[]>([]);
   const [selectedContractorId, setSelectedContractorId] = useState('');
   const [contractorRmrNumber, setContractorRmrNumber] = useState('');
@@ -95,6 +95,14 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
   const [localSupplierSubmitting, setLocalSupplierSubmitting] = useState(false);
   const [localSupplierSuccessResult, setLocalSupplierSuccessResult] = useState<any | null>(null);
   const [localSupplierError, setLocalSupplierError] = useState<string | null>(null);
+
+  // Inside Vehicles State & Gate Exit Modal
+  const [insideVehicles, setInsideVehicles] = useState<any[]>([]);
+  const [loadingInside, setLoadingInside] = useState(false);
+  const [exitModalTarget, setExitModalTarget] = useState<any | null>(null);
+  const [exitTimestamp, setExitTimestamp] = useState(() => toDatetimeLocalInput(new Date()));
+  const [exitSubmitting, setExitSubmitting] = useState(false);
+  const [exitError, setExitError] = useState<string | null>(null);
 
   // Inline "Add Local Supplier" Modal State
   const [showAddSupplierModal, setShowAddSupplierModal] = useState(false);
@@ -209,6 +217,22 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
     }
   }, []);
 
+  // Fetch inside vehicles
+  const fetchInsideVehicles = useCallback(async () => {
+    setLoadingInside(true);
+    try {
+      const res = await fetch('/api/zmcc/arrivals/inside');
+      if (res.ok) {
+        const data = await res.json();
+        setInsideVehicles(data.vehicles || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch vehicles inside ZMCC', err);
+    } finally {
+      setLoadingInside(false);
+    }
+  }, []);
+
   // Fetch history
   const fetchHistory = useCallback(async () => {
     setLoadingHistory(true);
@@ -251,8 +275,44 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
       initContractorForm();
       initLocalSupplierForm();
     }
+    fetchInsideVehicles();
     fetchHistory();
-  }, [canSubmit, fetchArrivingJourneys, fetchContractors, fetchLocalSuppliers, fetchHistory, initMotForm, initContractorForm, initLocalSupplierForm]);
+  }, [canSubmit, fetchArrivingJourneys, fetchContractors, fetchLocalSuppliers, fetchInsideVehicles, fetchHistory, initMotForm, initContractorForm, initLocalSupplierForm]);
+
+  // Submit Gate Exit
+  const handleGateExitSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!exitModalTarget) return;
+    setExitSubmitting(true);
+    setExitError(null);
+    try {
+      const endpoint = exitModalTarget.arrival_type === 'MOT'
+        ? `/api/zmcc/arrivals/mot/${exitModalTarget.id}/exit`
+        : `/api/zmcc/arrivals/local-supplier/${exitModalTarget.id}/exit`;
+
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          exit_timestamp: datetimeLocalToIso(exitTimestamp) || new Date(exitTimestamp).toISOString(),
+          client_event_id: generateClientEventId('exit'),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setExitError(data.error || 'Failed to record gate exit.');
+        return;
+      }
+      toast.showSuccess(`Gate exit recorded successfully for ${exitModalTarget.vehicle_number}.`);
+      setExitModalTarget(null);
+      fetchInsideVehicles();
+      fetchHistory();
+    } catch (err: any) {
+      setExitError(err.message || 'An unexpected error occurred while recording gate exit.');
+    } finally {
+      setExitSubmitting(false);
+    }
+  };
 
   // GPS capture handler
   const captureGps = (target: 'MOT' | 'CONTRACTOR' | 'LOCAL_SUPPLIER') => {
@@ -321,6 +381,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
       } else {
         setMotSuccessResult(data);
         fetchArrivingJourneys();
+        fetchInsideVehicles();
         fetchHistory();
       }
     } catch (err: any) {
@@ -455,6 +516,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
         setLocalSupplierError(data.error || 'Failed to record local supplier arrival.');
       } else {
         setLocalSupplierSuccessResult(data);
+        fetchInsideVehicles();
         fetchHistory();
       }
     } catch (err: any) {
@@ -570,18 +632,6 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
               </button>
               <button
                 type="button"
-                onClick={() => setActiveTab('CONTRACTOR_ARRIVAL')}
-                className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all ${
-                  activeTab === 'CONTRACTOR_ARRIVAL'
-                    ? 'bg-[#1E3A8A] text-white shadow-xs'
-                    : 'bg-white text-slate-700 hover:bg-[#F4F0E6] border border-[#EAE4D5]'
-                }`}
-              >
-                <Building2 className="w-4 h-4" />
-                <span>Record Contractor Arrival</span>
-              </button>
-              <button
-                type="button"
                 onClick={() => setActiveTab('LOCAL_SUPPLIER_ARRIVAL')}
                 className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all ${
                   activeTab === 'LOCAL_SUPPLIER_ARRIVAL'
@@ -591,6 +641,21 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
               >
                 <Users className="w-4 h-4" />
                 <span>Record Local Supplier Arrival</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('INSIDE_ZMCC');
+                  fetchInsideVehicles();
+                }}
+                className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all ${
+                  activeTab === 'INSIDE_ZMCC'
+                    ? 'bg-indigo-800 text-white shadow-xs'
+                    : 'bg-white text-slate-700 hover:bg-indigo-50/50 border border-[#EAE4D5]'
+                }`}
+              >
+                <MapPin className="w-4 h-4" />
+                <span>Vehicles Inside ZMCC {insideVehicles.length > 0 ? `(${insideVehicles.length})` : ''}</span>
               </button>
             </>
           )}
@@ -892,140 +957,117 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
         </div>
       )}
 
-      {/* 2. CONTRACTOR ARRIVAL SUB-TAB */}
-      {activeTab === 'CONTRACTOR_ARRIVAL' && canSubmit && (
-        <div className="max-w-xl mx-auto bg-white rounded-2xl border border-[#EAE4D5] p-6 shadow-xs space-y-4">
-          <h3 className="text-sm font-black text-slate-900 border-b pb-2">
-            Record Contractor Arrival at ZMCC
-          </h3>
+      {/* 2. VEHICLES INSIDE ZMCC SUB-TAB */}
+      {activeTab === 'INSIDE_ZMCC' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-black text-slate-900">
+                Vehicles Currently Inside ZMCC ({insideVehicles.length})
+              </h3>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Vehicles that have completed Gate Entry and are in testing or awaiting Gate Exit
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={fetchInsideVehicles}
+              className="flex items-center space-x-1.5 px-3 py-1.5 bg-white border border-[#EAE4D5] rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all cursor-pointer"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loadingInside ? 'animate-spin' : ''}`} />
+              <span>Refresh</span>
+            </button>
+          </div>
 
-          {contractorSuccessResult ? (
-            <div className="bg-emerald-50 border border-emerald-300 rounded-xl p-6 space-y-4">
-              <div className="flex items-center space-x-3 text-emerald-800">
-                <CheckCircle2 className="w-6 h-6 text-emerald-600" />
-                <h4 className="text-sm font-bold">Contractor Arrival Recorded!</h4>
-              </div>
-
-              <div className="space-y-2 text-xs">
-                <div>ZMCC Token: <strong className="font-mono text-emerald-800 text-sm">{contractorSuccessResult.zmcc_token}</strong></div>
-                <div>Contractor RMR: <strong className="font-mono">{contractorSuccessResult.rmr_number}</strong></div>
-                <div>Vehicle: <strong>{contractorSuccessResult.vehicle_number}</strong></div>
-                <div>Contractor: <strong>{contractorSuccessResult.contractor_source?.name}</strong></div>
-                <div>Arrival Date: <strong>{contractorSuccessResult.arrival_date}</strong></div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setContractorSuccessResult(null);
-                  initContractorForm();
-                }}
-                className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold"
-              >
-                Record Another Contractor
-              </button>
+          {insideVehicles.length === 0 ? (
+            <div className="bg-white rounded-2xl border border-[#EAE4D5] p-12 text-center text-xs text-slate-400">
+              <Truck className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+              <span>No vehicles currently inside ZMCC. All gate-tracked vehicles have exited.</span>
             </div>
           ) : (
-            <form onSubmit={handleContractorSubmit} className="space-y-4">
-              {contractorError && (
-                <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl flex items-center space-x-2">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{contractorError}</span>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Contractor Source <span className="text-rose-500">*</span>
-                </label>
-                <select
-                  value={selectedContractorId}
-                  onChange={(e) => setSelectedContractorId(e.target.value)}
-                  required
-                  className="w-full text-xs font-bold px-3 py-2 border rounded-xl focus:ring-2 focus:ring-[#1E3A8A] outline-hidden bg-white"
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {insideVehicles.map((v) => (
+                <div
+                  key={`${v.arrival_type}-${v.id}`}
+                  className="bg-white rounded-2xl border border-[#EAE4D5] p-5 shadow-xs flex flex-col justify-between space-y-4 hover:border-slate-300 transition-all"
                 >
-                  <option value="">-- Select Active Contractor --</option>
-                  {contractors.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.code} — {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                        v.arrival_type === 'MOT'
+                          ? 'bg-blue-100 text-blue-800'
+                          : 'bg-emerald-100 text-emerald-800'
+                      }`}>
+                        {v.arrival_type === 'MOT' ? 'MOT Vehicle' : 'Local Supplier'}
+                      </span>
+                      <span className="font-mono text-xs font-black text-slate-900">
+                        {v.vehicle_number}
+                      </span>
+                    </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Contractor RMR No. (from physical slip) <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  maxLength={100}
-                  value={contractorRmrNumber}
-                  onChange={(e) => setContractorRmrNumber(e.target.value)}
-                  placeholder="e.g. 002345"
-                  required
-                  className="w-full text-xs font-bold px-3 py-2 border rounded-xl focus:ring-2 focus:ring-[#1E3A8A] outline-hidden font-mono"
-                />
-              </div>
+                    <div className="text-xs space-y-1">
+                      <div className="font-bold text-slate-800">
+                        {v.source_name}
+                      </div>
+                      <div className="flex items-center space-x-2 text-[11px] text-slate-500 font-mono">
+                        <span>Token: <strong>{v.zmcc_token}</strong></span>
+                      </div>
+                      <div className="text-[11px] text-slate-500 flex items-center space-x-1">
+                        <Clock className="w-3 h-3 text-slate-400" />
+                        <span>Entered: {new Date(v.arrival_timestamp).toLocaleString('en-GB', { timeZone: 'Asia/Karachi' })} PKT</span>
+                      </div>
+                    </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Vehicle Number <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={contractorVehicleNumber}
-                  onChange={(e) => setContractorVehicleNumber(e.target.value.toUpperCase())}
-                  placeholder="e.g. LES-4029"
-                  required
-                  className="w-full text-xs font-bold px-3 py-2 border rounded-xl focus:ring-2 focus:ring-[#1E3A8A] outline-hidden font-mono uppercase"
-                />
-              </div>
+                    <div className="pt-2 border-t border-slate-100 flex flex-wrap gap-1.5 items-center">
+                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                        v.lab_status === 'COMPLETED'
+                          ? 'bg-slate-100 text-slate-800'
+                          : 'bg-amber-100 text-amber-800'
+                      }`}>
+                        Lab: {v.lab_status}
+                      </span>
+                      {v.lab_decision && (
+                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-black ${
+                          v.lab_decision === 'ACCEPTED'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-rose-100 text-rose-800'
+                        }`}>
+                          {v.lab_decision}
+                        </span>
+                      )}
+                      {v.has_tank_receipt && (
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-100 text-blue-800">
+                          Tank Received
+                        </span>
+                      )}
+                    </div>
+                  </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Arrival Timestamp (PKT) <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="datetime-local"
-                  value={contractorArrivalTimestamp}
-                  onChange={(e) => setContractorArrivalTimestamp(e.target.value)}
-                  required
-                  className="w-full text-xs font-bold px-3 py-2 border rounded-xl focus:ring-2 focus:ring-[#1E3A8A] outline-hidden"
-                />
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-bold text-slate-700">PHE GPS Coordinates (Optional)</label>
-                  <button
-                    type="button"
-                    onClick={() => captureGps('CONTRACTOR')}
-                    className="text-[11px] font-bold text-[#1E3A8A] hover:underline flex items-center space-x-1"
-                  >
-                    <MapPin className="w-3 h-3" />
-                    <span>Capture GPS</span>
-                  </button>
+                  <div>
+                    {v.can_exit ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setExitModalTarget(v);
+                          setExitTimestamp(toDatetimeLocalInput(new Date()));
+                          setExitError(null);
+                        }}
+                        className="w-full py-2 bg-indigo-700 hover:bg-indigo-800 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center justify-center space-x-1.5"
+                      >
+                        <MapPin className="w-3.5 h-3.5" />
+                        <span>Record Gate Exit</span>
+                      </button>
+                    ) : (
+                      <div className="p-2 bg-slate-50 rounded-xl border border-slate-200 text-center">
+                        <span className="text-[11px] font-semibold text-slate-500">
+                          {v.exit_ineligibility_reason || 'Gate Exit Ineligible'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border font-mono">
-                  {contractorGps.lat != null ? (
-                    <span>Lat: {contractorGps.lat}, Lng: {contractorGps.lng} (±{contractorGps.acc}m)</span>
-                  ) : (
-                    <span className="text-slate-400">GPS not captured yet</span>
-                  )}
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={contractorSubmitting}
-                className="w-full py-2.5 bg-[#1E3A8A] hover:bg-blue-900 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50"
-              >
-                {contractorSubmitting ? 'Recording Arrival...' : 'Record Contractor Arrival & Generate Token'}
-              </button>
-            </form>
+              ))}
+            </div>
           )}
         </div>
       )}
@@ -1064,7 +1106,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
                 <CheckCircle2 className="w-6 h-6 text-emerald-600" />
                 <div>
                   <h4 className="text-sm font-bold">Local Supplier Arrival Recorded!</h4>
-                  <span className="text-[11px] text-emerald-700">ZMCC-Local Intake Verified</span>
+                  <span className="text-[11px] text-emerald-700">Local Supplier Arrival Recorded</span>
                 </div>
               </div>
 
@@ -1824,6 +1866,73 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
                   className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold transition-all disabled:opacity-50 cursor-pointer"
                 >
                   {addSupplierSubmitting ? 'Saving...' : 'Save & Select Supplier'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Gate Exit Modal */}
+      {exitModalTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200 space-y-4">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div className="flex items-center space-x-2">
+                <MapPin className="w-5 h-5 text-indigo-700" />
+                <h3 className="text-sm font-black text-slate-900">Record Gate Exit</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setExitModalTarget(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1">
+              <div>Vehicle: <strong className="font-mono text-slate-900">{exitModalTarget.vehicle_number}</strong></div>
+              <div>Type: <strong className="font-bold text-slate-800">{exitModalTarget.arrival_type === 'MOT' ? 'MOT Arrival' : 'Local Supplier Arrival'}</strong></div>
+              <div>Token: <strong className="font-mono text-slate-800">{exitModalTarget.zmcc_token}</strong></div>
+              <div>Entered At: <strong>{new Date(exitModalTarget.arrival_timestamp).toLocaleString('en-GB', { timeZone: 'Asia/Karachi' })} PKT</strong></div>
+            </div>
+
+            {exitError && (
+              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl flex items-center space-x-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{exitError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleGateExitSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Exit Timestamp (PKT) <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="datetime-local"
+                  value={exitTimestamp}
+                  onChange={(e) => setExitTimestamp(e.target.value)}
+                  required
+                  className="w-full text-xs font-bold px-3 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-700 outline-hidden"
+                />
+              </div>
+
+              <div className="flex items-center justify-end space-x-2 pt-2 border-t">
+                <button
+                  type="button"
+                  onClick={() => setExitModalTarget(null)}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={exitSubmitting}
+                  className="px-4 py-2 bg-indigo-700 hover:bg-indigo-800 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  {exitSubmitting ? 'Recording...' : 'Confirm Gate Exit'}
                 </button>
               </div>
             </form>

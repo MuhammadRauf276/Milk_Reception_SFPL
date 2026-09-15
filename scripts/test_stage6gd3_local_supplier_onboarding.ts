@@ -168,7 +168,15 @@ async function runStage6gd3Tests() {
     correctLocalSupplierArrival,
     listLocalSupplierArrivals,
     getLocalSupplierArrivalById,
+    submitContractorArrival,
+    submitMotArrival,
+    correctMotArrival,
+    recordGateExit,
+    correctGateExit,
+    getVehiclesInsideZmcc,
   } = await import('../src/backend/services/zmccArrivalService');
+
+  const { assignAndDispatchJourney, resolveMotAuth } = await import('../src/backend/services/motService');
 
   const {
     startOrResumeSession,
@@ -184,6 +192,19 @@ async function runStage6gd3Tests() {
     '../src/app/api/zmcc/local-suppliers/[id]/route'
   );
 
+  const { POST: contractorArrivalRoute } = await import(
+    '../src/app/api/zmcc/arrivals/contractor/route'
+  );
+  const { POST: motGateExitRoute, PATCH: motGateExitPatchRoute } = await import(
+    '../src/app/api/zmcc/arrivals/mot/[id]/exit/route'
+  );
+  const { POST: lsGateExitRoute, PATCH: lsGateExitPatchRoute } = await import(
+    '../src/app/api/zmcc/arrivals/local-supplier/[id]/exit/route'
+  );
+  const { GET: insideVehiclesRoute } = await import(
+    '../src/app/api/zmcc/arrivals/inside/route'
+  );
+
   try {
     // =========================================================================
     // SECTION 1: DATABASE SCHEMA & MIGRATION INVENTORY
@@ -194,10 +215,13 @@ async function runStage6gd3Tests() {
     const migrationDirs = fs
       .readdirSync(migrationsDir)
       .filter((f) => fs.statSync(path.join(migrationsDir, f)).isDirectory() && !f.startsWith('.'));
-    assert(migrationDirs.length === 25, 'Tracked Migrations', `Found exactly 25 migrations (expected 25)`);
+    assert(migrationDirs.length === 26, 'Tracked Migrations', `Found exactly 26 migrations (expected 26)`);
 
     const d3MigDir = migrationDirs.find((d) => d.includes('zmcc_local_supplier_directory_and_arrival'));
-    assert(!!d3MigDir, 'Migration Exists', `Found 6G-D.3 migration: ${d3MigDir}`);
+    assert(!!d3MigDir, 'Migration 25 Exists', `Found 6G-D.3 directory migration: ${d3MigDir}`);
+
+    const d3ExitMigDir = migrationDirs.find((d) => d.includes('zmcc_gate_exit_and_canonical_local_supplier'));
+    assert(!!d3ExitMigDir, 'Migration 26 Exists', `Found 6G-D.3 gate exit migration: ${d3ExitMigDir}`);
 
     // Verify zmcc_local_supplier columns
     const localSupplierCols: any[] = await prisma.$queryRaw`
@@ -221,6 +245,26 @@ async function runStage6gd3Tests() {
     assert(arrColNames.includes('local_supplier_id'), 'Column Check', 'zmcc_local_supplier_arrival.local_supplier_id exists');
     assert(arrColNames.includes('rmr_number'), 'Column Check', 'zmcc_local_supplier_arrival.rmr_number exists');
     assert(arrColNames.includes('client_event_id'), 'Column Check', 'zmcc_local_supplier_arrival.client_event_id exists');
+    assert(arrColNames.includes('gate_exit_required'), 'Column Check', 'zmcc_local_supplier_arrival.gate_exit_required exists');
+    assert(arrColNames.includes('exit_timestamp'), 'Column Check', 'zmcc_local_supplier_arrival.exit_timestamp exists');
+    assert(arrColNames.includes('exit_recorded_by_user_id'), 'Column Check', 'zmcc_local_supplier_arrival.exit_recorded_by_user_id exists');
+    assert(arrColNames.includes('exit_client_event_id'), 'Column Check', 'zmcc_local_supplier_arrival.exit_client_event_id exists');
+    assert(arrColNames.includes('exit_submitted_at'), 'Column Check', 'zmcc_local_supplier_arrival.exit_submitted_at exists');
+    assert(arrColNames.includes('exit_correction_count'), 'Column Check', 'zmcc_local_supplier_arrival.exit_correction_count exists');
+
+    // Verify zmcc_mot_arrival exit columns
+    const motArrivalCols: any[] = await prisma.$queryRaw`
+      SELECT column_name, data_type
+      FROM information_schema.columns
+      WHERE table_name = 'zmcc_mot_arrival';
+    `;
+    const motColNames = motArrivalCols.map((c) => c.column_name);
+    assert(motColNames.includes('gate_exit_required'), 'Column Check', 'zmcc_mot_arrival.gate_exit_required exists');
+    assert(motColNames.includes('exit_timestamp'), 'Column Check', 'zmcc_mot_arrival.exit_timestamp exists');
+    assert(motColNames.includes('exit_recorded_by_user_id'), 'Column Check', 'zmcc_mot_arrival.exit_recorded_by_user_id exists');
+    assert(motColNames.includes('exit_client_event_id'), 'Column Check', 'zmcc_mot_arrival.exit_client_event_id exists');
+    assert(motColNames.includes('exit_submitted_at'), 'Column Check', 'zmcc_mot_arrival.exit_submitted_at exists');
+    assert(motColNames.includes('exit_correction_count'), 'Column Check', 'zmcc_mot_arrival.exit_correction_count exists');
 
     const rmrCheckConstraints: any[] = await prisma.$queryRaw`
       SELECT conname
@@ -266,7 +310,7 @@ async function runStage6gd3Tests() {
 
     const rulesDoc = fs.readFileSync(path.join(repoRoot, 'docs', 'architecture', 'CURRENT-RULES.md'), 'utf8');
     assert(
-      rulesDoc.includes('## 23. Stage 6G-D.3 ZMCC Local Supplier Directory & Fast PHE Onboarding'),
+      rulesDoc.includes('## 23. Stage 6G-D.3 ZMCC Local Supplier Directory & PHE Gate Workflow'),
       'Contract Documentation',
       'Section 23 documented in CURRENT-RULES.md'
     );
@@ -433,6 +477,18 @@ async function runStage6gd3Tests() {
       });
     }
 
+    const existingMotPolicy = await prisma.milkTestPolicyAssignment.findFirst({
+      where: { testing_point: 'ZMCC_LAB_MOT', is_active: true },
+    });
+    if (!existingMotPolicy) {
+      await prisma.milkTestPolicyAssignment.createMany({
+        data: [
+          { lab_test_id: lrTest.id, testing_point: 'ZMCC_LAB_MOT', is_required: true, display_order: 1, is_active: true, created_by_user_id: superAdmin.id },
+          { lab_test_id: fatTest.id, testing_point: 'ZMCC_LAB_MOT', is_required: true, display_order: 2, is_active: true, created_by_user_id: superAdmin.id },
+        ],
+      });
+    }
+
     let weighbridgeUser = await prisma.user.findFirst({
       where: { role: 'WEIGHBRIDGE_OPERATOR', is_active: true },
     });
@@ -459,6 +515,7 @@ async function runStage6gd3Tests() {
 
     const pheToken = await makeAuthToken(pheUser);
     const mgr1Token = await makeAuthToken(manager1);
+    const mgr2Token = await makeAuthToken(manager2);
     const adminToken = await makeAuthToken(superAdmin);
 
     console.log(`PHE Operator: ${pheCore.username} (ZMCC ${zmcc1.code})`);
@@ -466,7 +523,7 @@ async function runStage6gd3Tests() {
     console.log(`Manager 2: ${mgr2Core.username} (ZMCC ${zmcc2.code})`);
     console.log(`Super Admin: ${adminCore.username}`);
 
-    // Ensure zmcc1 has exactly one active tank
+    // Ensure zmcc1 has exactly one active tank with ample capacity
     let activeTank1 = await prisma.zmccTank.findFirst({
       where: { zmcc_id: zmcc1.id, is_active: true },
     });
@@ -475,11 +532,16 @@ async function runStage6gd3Tests() {
         data: {
           tank_code: `TEST-TK-${Date.now().toString().slice(-4)}`,
           tank_name: 'Test Raw Milk Tank 1',
-          capacity_liters: 10000.0,
+          capacity_liters: 10000000.0,
           is_active: true,
           zmcc: { connect: { id: zmcc1.id } },
           creator: { connect: { id: superAdmin.id } },
         },
+      });
+    } else {
+      activeTank1 = await prisma.zmccTank.update({
+        where: { id: activeTank1.id },
+        data: { capacity_liters: 10000000.0 },
       });
     }
 
@@ -988,10 +1050,11 @@ async function runStage6gd3Tests() {
       results: resultsPayload,
       remarks: 'Direct local supplier batch accepted',
     });
-    assert(completeRes.status === 200, 'Complete Session', 'Successfully completed session with ACCEPTED decision');
-    assert(completeRes.data.status === 'COMPLETED', 'Session Status', 'Session status is COMPLETED');
-    assert(completeRes.data.decision === 'ACCEPTED', 'Decision', 'QA decision is ACCEPTED');
-    assert(completeRes.data.tank_receipt !== null, 'Tank Receipt Created', 'Milk received into ZMCC tank receipt');
+    console.log('DEBUG completeRes:', JSON.stringify(completeRes, null, 2));
+    assert(completeRes.status === 200, 'Complete Session', `Successfully completed session with ACCEPTED decision (${completeRes.error || ''})`);
+    assert(completeRes.data?.status === 'COMPLETED', 'Session Status', 'Session status is COMPLETED');
+    assert(completeRes.data?.decision === 'ACCEPTED', 'Decision', 'QA decision is ACCEPTED');
+    assert(completeRes.data?.tank_receipt !== null, 'Tank Receipt Created', 'Milk received into ZMCC tank receipt');
 
     // Verify arrival was completed
     const updatedArrival = await getLocalSupplierArrivalById(mgr1Core as any, firstArrivalId);
@@ -1072,9 +1135,628 @@ async function runStage6gd3Tests() {
     assert(contCompleteRes.status === 200, 'Continuity Complete Session', 'Successfully completed session for deactivated supplier arrival');
 
     // =========================================================================
-    // SECTION 8: AUDIT LOG VERIFICATION
+    // SECTION 8: RETIRED CONTRACTOR ARRIVAL INTAKE (410 GONE)
     // =========================================================================
-    console.log('\n--- 8. AUDIT LOG VERIFICATION ---');
+    console.log('\n--- 8. RETIRED CONTRACTOR ARRIVAL INTAKE (410 GONE) ---');
+
+    // 8.1 API route POST /api/zmcc/arrivals/contractor returns 410 Gone with exact message
+    const retiredContractorReq = makeAuthRequest(
+      'http://localhost/api/zmcc/arrivals/contractor',
+      'POST',
+      pheToken,
+      {
+        contractor_source_id: 1,
+        rmr_number: '123456',
+        vehicle_number: 'CON 111',
+        arrival_timestamp: new Date().toISOString(),
+        client_event_id: `con-evt-${runId}`,
+      }
+    );
+    const retiredContractorRouteRes = await contractorArrivalRoute(retiredContractorReq);
+    assert(
+      retiredContractorRouteRes.status === 410,
+      'Contractor Route 410',
+      'POST /api/zmcc/arrivals/contractor returns HTTP 410 Gone'
+    );
+    const retiredContractorRouteJson = await retiredContractorRouteRes.json();
+    assert(
+      retiredContractorRouteJson.error === 'CONTRACTOR_ARRIVAL_RETIRED' &&
+      retiredContractorRouteJson.message === 'ZMCC Contractor Arrival is retired for new intake. Record direct-to-ZMCC suppliers through Local Supplier Arrival.',
+      'Contractor Route Message',
+      'Returns exact canonical contractor retirement message'
+    );
+
+    // 8.2 Service submitContractorArrival returns 410 Gone
+    const retiredServiceRes = await submitContractorArrival(pheCore as any, {
+      contractor_source_id: 1,
+      rmr_number: '123456',
+      vehicle_number: 'CON 111',
+      arrival_timestamp: new Date(),
+      client_event_id: `con-svc-evt-${runId}`,
+    });
+    assert(
+      retiredServiceRes.status === 410,
+      'Contractor Service 410',
+      'submitContractorArrival returns status 410'
+    );
+    assert(
+      retiredServiceRes.error === 'CONTRACTOR_ARRIVAL_RETIRED' &&
+      retiredServiceRes.message === 'ZMCC Contractor Arrival is retired for new intake. Record direct-to-ZMCC suppliers through Local Supplier Arrival.',
+      'Contractor Service Message',
+      'submitContractorArrival returns exact canonical message'
+    );
+
+    // =========================================================================
+    // SECTION 9: GATE EXIT RECORDING FOR MOT & LOCAL SUPPLIER
+    // =========================================================================
+    console.log('\n--- 9. GATE EXIT RECORDING FOR MOT & LOCAL SUPPLIER ---');
+
+    // Create MOT setup for testing gate exit
+    const motVehicle1 = await prisma.motVehicle.create({
+      data: {
+        zmcc_id: zmcc1.id,
+        vehicle_number: `MOT-EXIT-1-${runId.toString().slice(-6)}`,
+        created_by: manager1.id,
+        updated_by: manager1.id,
+      },
+    });
+    const motRoute1 = await prisma.zmccRoute.create({
+      data: {
+        zmcc_id: zmcc1.id,
+        route_code: `R-EXIT-1-${runId.toString().slice(-6)}`,
+        name: `Route Exit 1 ${runId}`,
+        origin: 'Origin',
+        destination: 'ZMCC',
+        created_by: manager1.id,
+        updated_by: manager1.id,
+      },
+    });
+    const motProfile1 = await prisma.motProfile.create({
+      data: {
+        zmcc_id: zmcc1.id,
+        mot_code: `MO-EXIT-1-${runId.toString().slice(-6)}`,
+        name: `MOT Officer Exit 1 ${runId}`,
+        phone_number: '03001234568',
+        cnic: '35201-1234567-2',
+        created_by: manager1.id,
+        updated_by: manager1.id,
+      },
+    });
+    const motJourney1 = await prisma.motJourney.create({
+      data: {
+        journey_number: `J-EXIT-1-${runId.toString().slice(-6)}`,
+        idempotency_key: `dispatch-exit-1-${runId}`,
+        zmcc_id: zmcc1.id,
+        route_id: motRoute1.id,
+        mot_vehicle_id: motVehicle1.id,
+        mot_profile_id: motProfile1.id,
+        assigned_by: manager1.id,
+        assigned_at: new Date(Date.now() - 7200000),
+        assignment_latitude: new Prisma.Decimal('31.5204'),
+        assignment_longitude: new Prisma.Decimal('74.3587'),
+        start_latitude: new Prisma.Decimal('31.5204'),
+        start_longitude: new Prisma.Decimal('74.3587'),
+        status: 'COLLECTING',
+        operational_date: new Date(),
+        started_at: new Date(Date.now() - 7200000),
+      },
+    });
+
+    const motArrRes1 = await submitMotArrival(pheCore as any, {
+      journey_id: motJourney1.id,
+      route_milk_token: `RM-EXIT-1-${runId.toString().slice(-6)}`,
+      arrival_timestamp: new Date(Date.now() - 3600000),
+      client_event_id: `evt-mot-exit-1-${runId}`,
+    });
+    assert(motArrRes1.status === 201, 'MOT Arrival Created', 'Created test MOT arrival for gate exit testing');
+    const motArrId1 = motArrRes1.data.id;
+
+    // 9.1 Attempt exit without lab completion -> 409 Conflict
+    const noLabExitRes = await recordGateExit(pheCore as any, 'MOT', motArrId1, {
+      exit_timestamp: new Date(),
+      exit_client_event_id: `exit-no-lab-${runId}`,
+    });
+    console.log('DEBUG noLabExitRes:', noLabExitRes);
+    assert(noLabExitRes.status === 409, 'Exit Without Lab', 'Exit rejected with 409 before lab completion');
+    assert(noLabExitRes.error === 'LAB_NOT_COMPLETED', 'Exit Without Lab Error', 'Returns LAB_NOT_COMPLETED');
+
+    // Start lab session on MOT arrival (in-progress)
+    const motLabStart = await startOrResumeSession(labCore as any, {
+      arrival_type: 'MOT',
+      arrival_id: motArrId1,
+    });
+    console.log('DEBUG motLabStart:', motLabStart);
+    assert(motLabStart.status === 200 || motLabStart.status === 201, 'MOT Lab Started', 'Started lab session on MOT arrival');
+    const motLabSessionId = motLabStart.data?.id;
+
+    // 9.2 Attempt exit when lab is in-progress -> 409 Conflict
+    const inProgExitRes = await recordGateExit(pheCore as any, 'MOT', motArrId1, {
+      exit_timestamp: new Date(),
+      exit_client_event_id: `exit-in-prog-${runId}`,
+    });
+    assert(inProgExitRes.status === 409, 'Exit While Lab In Progress', 'Exit rejected with 409 while lab in progress');
+    assert(inProgExitRes.error === 'LAB_NOT_COMPLETED', 'Exit In Progress Error', 'Returns LAB_NOT_COMPLETED');
+
+    // 9.3 Complete lab session: REJECTED milk -> can exit without tank receipt
+    const motResults = motLabStart.data.results.map((tr: any) => {
+      const code = tr.test_code_snapshot || '';
+      const name = (tr.test_name_snapshot || '').toLowerCase();
+      if (code === 'FAT' || name.includes('fat')) {
+        return { test_id: tr.test_id, numeric_value: 1.0 };
+      } else if (code === 'LR' || name.includes('lr')) {
+        return { test_id: tr.test_id, numeric_value: 20.0 };
+      } else if (tr.result_type_snapshot === 'NUMERIC') {
+        return { test_id: tr.test_id, numeric_value: 5.0 };
+      } else {
+        return { test_id: tr.test_id, text_value: 'POSITIVE' };
+      }
+    });
+
+    const rejectCompleteRes = await completeSession(labCore as any, motLabSessionId, {
+      completion_client_event_id: `c-reject-${runId}`,
+      decision: 'REJECTED',
+      rejection_reason: 'Rejected due to substandard metrics',
+      quantity_value: 1000.0,
+      quantity_unit: 'LITER',
+      results: motResults,
+      remarks: 'Rejected due to substandard metrics',
+    });
+    assert(rejectCompleteRes.status === 200 && rejectCompleteRes.data.decision === 'REJECTED', 'MOT Lab Rejected', 'Completed lab with REJECTED decision');
+
+    // Backdate lab session completed_at so exit timestamps in the last few minutes satisfy chronology
+    await prisma.zmccLabSession.update({
+      where: { id: BigInt(motLabSessionId) },
+      data: {
+        started_at: new Date(Date.now() - 3000000),
+        completed_at: new Date(Date.now() - 1800000),
+      },
+    });
+
+    // 9.4 Chronology check: Exit timestamp earlier than arrival timestamp -> 400
+    const earlyArrivalExitRes = await recordGateExit(pheCore as any, 'MOT', motArrId1, {
+      exit_timestamp: new Date(Date.now() - 7200000),
+      exit_client_event_id: `exit-early-arr-${runId}`,
+    });
+    assert(earlyArrivalExitRes.status === 400, 'Exit < Arrival Time', 'Exit earlier than arrival timestamp rejected with 400');
+
+    // 9.5 Chronology check: Exit timestamp in future -> 400
+    const futureExitRes = await recordGateExit(pheCore as any, 'MOT', motArrId1, {
+      exit_timestamp: new Date(Date.now() + 3600000),
+      exit_client_event_id: `exit-future-${runId}`,
+    });
+    assert(futureExitRes.status === 400, 'Exit In Future', 'Exit timestamp in future rejected with 400');
+
+    // 9.6 Permissions check: Unauthorized role (e.g. weighbridge operator) -> 403
+    const unauthExitRes = await recordGateExit(wbCore as any, 'MOT', motArrId1, {
+      exit_timestamp: new Date(),
+      exit_client_event_id: `exit-unauth-${runId}`,
+    });
+    assert(unauthExitRes.status === 403, 'Unauthorized Exit', 'Weighbridge operator rejected with 403');
+
+    // 9.7 Multi-tenant isolation: Manager 2 at ZMCC 2 attempting exit on ZMCC 1 arrival -> 403
+    const crossZmccExitRes = await recordGateExit(mgr2Core as any, 'MOT', motArrId1, {
+      exit_timestamp: new Date(),
+      exit_client_event_id: `exit-cross-zmcc-${runId}`,
+    });
+    assert(crossZmccExitRes.status === 403, 'Cross-ZMCC Exit', 'Cross-ZMCC manager exit attempt rejected with 403');
+
+    // 9.8 Successful exit for REJECTED milk (no tank receipt required)
+    const validExitTimestamp = new Date(Date.now() - 60000);
+    const exitEventId = `exit-success-mot-${runId}`;
+    const successExitRes = await recordGateExit(pheCore as any, 'MOT', motArrId1, {
+      exit_timestamp: validExitTimestamp,
+      exit_client_event_id: exitEventId,
+    });
+    assert(successExitRes.status === 200, 'MOT Exit Success', 'REJECTED MOT arrival successfully recorded gate exit');
+    assert(successExitRes.data.exit_timestamp !== null, 'Exit Timestamp Persisted', 'exit_timestamp persisted');
+    assert(successExitRes.data.exit_recorded_by_user_id === pheUser.id.toString(), 'Exit Recorder Persisted', 'exit_recorded_by_user_id persisted');
+    assert(successExitRes.data.exit_client_event_id === exitEventId, 'Exit Event ID Persisted', 'exit_client_event_id persisted');
+    assert(successExitRes.data.exit_correction_count === 0, 'Exit Correction Count 0', 'exit_correction_count initialized to 0');
+
+    // 9.9 Idempotency: exact replay with same client_event_id -> 200 is_replay: true
+    const replayExitRes = await recordGateExit(pheCore as any, 'MOT', motArrId1, {
+      exit_timestamp: validExitTimestamp,
+      exit_client_event_id: exitEventId,
+    });
+    assert(replayExitRes.status === 200 && replayExitRes.data.is_replay === true, 'Exit Exact Replay', 'Exact replay returns 200 with is_replay: true');
+
+    // 9.10 Idempotency: replay with mismatched payload -> 409 Conflict
+    const conflictExitRes = await recordGateExit(pheCore as any, 'MOT', motArrId1, {
+      exit_timestamp: new Date(Date.now() - 30000),
+      exit_client_event_id: exitEventId,
+    });
+    assert(conflictExitRes.status === 409, 'Exit Mismatched Replay', 'Mismatched replay returns 409 conflict');
+
+    // 9.11 Local Supplier Gate Exit: ACCEPTED milk with tank receipt
+    // In Section 7, firstArrivalId was completed with ACCEPTED decision and has confirmed tank receipt!
+    await prisma.zmccLabSession.update({
+      where: { id: sessionId },
+      data: {
+        started_at: new Date(Date.now() - 3000000),
+        completed_at: new Date(Date.now() - 1800000),
+      },
+    });
+    await prisma.zmccLocalSupplierArrival.update({
+      where: { id: BigInt(firstArrivalId) },
+      data: {
+        arrival_timestamp: new Date(Date.now() - 3600000),
+      },
+    });
+    const lsExitEventId = `exit-ls-success-${runId}`;
+    const lsExitTimestamp = new Date(Date.now() - 60000);
+    const lsExitReq = makeAuthRequest(
+      `http://localhost/api/zmcc/arrivals/local-supplier/${firstArrivalId}/exit`,
+      'POST',
+      pheToken,
+      {
+        exit_timestamp: lsExitTimestamp.toISOString(),
+        exit_client_event_id: lsExitEventId,
+      }
+    );
+    const lsExitRouteRes = await lsGateExitRoute(lsExitReq, {
+      params: Promise.resolve({ id: firstArrivalId.toString() }),
+    });
+    assert(lsExitRouteRes.status === 200, 'LS Exit Route Success', 'POST /api/zmcc/arrivals/local-supplier/[id]/exit returns 200');
+    const lsExitData = await lsExitRouteRes.json();
+    assert(lsExitData.exit_timestamp !== null, 'LS Exit Timestamp', 'Local Supplier exit_timestamp recorded');
+    assert(lsExitData.exit_client_event_id === lsExitEventId, 'LS Exit Event ID', 'Local Supplier exit_client_event_id recorded');
+
+    // 9.12 Local Supplier Gate Exit: Attempting exit for ACCEPTED milk WITHOUT a tank receipt -> 409
+    const noReceiptSupplierRes = await createLocalSupplier(pheCore as any, {
+      name: `No Receipt Supplier ${runId}`,
+    });
+    const noReceiptArrRes = await submitLocalSupplierArrival(pheCore as any, {
+      client_event_id: `no-rcpt-arr-${runId}`,
+      local_supplier_id: noReceiptSupplierRes.data.id,
+      rmr_number: '998877',
+      vehicle_number: 'NRC 111',
+      arrival_timestamp: new Date(Date.now() - 1800000),
+    });
+    const noReceiptArrId = noReceiptArrRes.data.id;
+    // Create a mock completed lab session with ACCEPTED decision and NO tank receipt
+    const mockAcceptedSession = await prisma.zmccLabSession.create({
+      data: {
+        zmcc_id: zmcc1.id,
+        arrival_type: 'LOCAL_SUPPLIER',
+        local_supplier_arrival_id: noReceiptArrId,
+        status: 'COMPLETED',
+        decision: 'ACCEPTED',
+        started_by_user_id: labAttendant.id,
+        completed_by_user_id: labAttendant.id,
+        started_at: new Date(Date.now() - 1200000),
+        completed_at: new Date(Date.now() - 600000),
+      },
+    });
+    const noReceiptExitRes = await recordGateExit(pheCore as any, 'LOCAL_SUPPLIER', noReceiptArrId, {
+      exit_timestamp: new Date(),
+      exit_client_event_id: `exit-no-rcpt-${runId}`,
+    });
+    assert(noReceiptExitRes.status === 409, 'Exit Accepted Without Receipt', 'Accepted milk without tank receipt rejected with 409');
+    assert(noReceiptExitRes.error === 'CANNOT_EXIT_ACCEPTED_WITHOUT_RECEIPT', 'Exit Accepted Error Code', 'Returns CANNOT_EXIT_ACCEPTED_WITHOUT_RECEIPT');
+
+    // Clean up mock lab session
+    await prisma.zmccLabSession.delete({ where: { id: mockAcceptedSession.id } });
+
+    // =========================================================================
+    // SECTION 10: SUPERVISORY GATE EXIT CORRECTIONS
+    // =========================================================================
+    console.log('\n--- 10. SUPERVISORY GATE EXIT CORRECTIONS ---');
+
+    // 10.1 PHE operator cannot correct gate exit -> 403 Forbidden
+    const unauthCorrectExitRes = await correctGateExit(pheCore as any, 'MOT', motArrId1, {
+      exit_timestamp: new Date(Date.now() - 30000),
+      reason: 'Supervisor adjustment attempt by PHE',
+    });
+    assert(unauthCorrectExitRes.status === 403, 'PHE Exit Correction Denied', 'PHE operator cannot correct gate exit (403)');
+
+    // 10.2 Cross-ZMCC manager cannot correct gate exit -> 403 Forbidden
+    const crossZmccCorrectExitRes = await correctGateExit(mgr2Core as any, 'MOT', motArrId1, {
+      exit_timestamp: new Date(Date.now() - 30000),
+      reason: 'Cross-ZMCC adjustment attempt',
+    });
+    assert(crossZmccCorrectExitRes.status === 403, 'Cross-ZMCC Correction Denied', 'Cross-ZMCC manager cannot correct gate exit (403)');
+
+    // 10.3 Reason required (minimum 5 chars) -> 400 Bad Request
+    const shortReasonExitRes = await correctGateExit(mgr1Core as any, 'MOT', motArrId1, {
+      exit_timestamp: new Date(Date.now() - 30000),
+      reason: 'fix',
+    });
+    assert(shortReasonExitRes.status === 400, 'Short Reason Rejected', 'Correction with reason < 5 chars rejected with 400');
+
+    // 10.4 Corrected exit timestamp in future -> 400 Bad Request
+    const futureCorrectExitRes = await correctGateExit(mgr1Core as any, 'MOT', motArrId1, {
+      exit_timestamp: new Date(Date.now() + 3600000),
+      reason: 'Future correction test reason',
+    });
+    assert(futureCorrectExitRes.status === 400, 'Future Corrected Exit Rejected', 'Future corrected exit timestamp rejected with 400');
+
+    // 10.5 Successful supervisory exit correction 1
+    const correctedExitTimestamp1 = new Date(Date.now() - 40000);
+    const correctExitRes1 = await correctGateExit(mgr1Core as any, 'MOT', motArrId1, {
+      exit_timestamp: correctedExitTimestamp1,
+      reason: 'Gate exit timestamp recorded incorrectly at barrier',
+    });
+    assert(correctExitRes1.status === 200, 'Exit Correction 1 Success', 'Manager 1 successfully corrected exit timestamp');
+    assert(correctExitRes1.data.exit_correction_count === 1, 'Correction Count 1', 'exit_correction_count incremented to 1');
+
+    // 10.6 Successful supervisory exit correction 2
+    const correctedExitTimestamp2 = new Date(Date.now() - 20000);
+    const correctExitRes2 = await correctGateExit(mgr1Core as any, 'MOT', motArrId1, {
+      exit_timestamp: correctedExitTimestamp2,
+      reason: 'Second supervisor verification adjustment',
+    });
+    assert(correctExitRes2.status === 200, 'Exit Correction 2 Success', 'Manager 1 successfully corrected exit timestamp second time');
+    assert(correctExitRes2.data.exit_correction_count === 2, 'Correction Count 2', 'exit_correction_count incremented to 2');
+
+    // 10.7 Maximum 2 corrections enforced -> 3rd correction returns 409 Conflict
+    const correctExitRes3 = await correctGateExit(mgr1Core as any, 'MOT', motArrId1, {
+      exit_timestamp: new Date(Date.now() - 10000),
+      reason: 'Third attempt should be blocked',
+    });
+    assert(correctExitRes3.status === 409, 'Max 2 Corrections Enforced', 'Third exit correction attempt returns 409 conflict');
+    assert(correctExitRes3.error === 'MAX_EXIT_CORRECTIONS_EXCEEDED', 'Max Corrections Error Code', 'Returns MAX_EXIT_CORRECTIONS_EXCEEDED');
+
+    // =========================================================================
+    // SECTION 11: ARRIVAL CORRECTION AFTER EXIT (CHRONOLOGY INTEGRITY)
+    // =========================================================================
+    console.log('\n--- 11. ARRIVAL CORRECTION AFTER EXIT ---');
+
+    // When exit is recorded, correcting arrival_timestamp to be AFTER exit_timestamp must return 400
+    const invalidArrCorrectRes = await correctMotArrival(mgr1Core as any, motArrId1, {
+      arrival_timestamp: new Date(correctedExitTimestamp2.getTime() + 10000),
+      reason: 'Attempt to make arrival later than exit',
+    });
+    assert(invalidArrCorrectRes.status === 400, 'Arrival After Exit Rejected', 'Correcting arrival_timestamp after exit enforces arrival <= exit');
+
+    // Correcting arrival_timestamp to valid time before exit succeeds
+    const validArrCorrectRes = await correctMotArrival(mgr1Core as any, motArrId1, {
+      arrival_timestamp: new Date(Date.now() - 2400000),
+      reason: 'Correcting arrival to earlier valid time',
+    });
+    assert(validArrCorrectRes.status === 200, 'Arrival Before Exit Accepted', 'Correcting arrival_timestamp before exit succeeds');
+
+    // =========================================================================
+    // SECTION 12: MOT VEHICLE PHYSICAL AVAILABILITY CHECK
+    // =========================================================================
+    console.log('\n--- 12. MOT VEHICLE PHYSICAL AVAILABILITY CHECK ---');
+
+    // 12.1 Create an MOT vehicle and journey that arrives at ZMCC
+    const availVehicle = await prisma.motVehicle.create({
+      data: {
+        zmcc_id: zmcc1.id,
+        vehicle_number: `MOT-AVAIL-${runId.toString().slice(-6)}`,
+        created_by: manager1.id,
+        updated_by: manager1.id,
+      },
+    });
+    const availProfile = await prisma.motProfile.create({
+      data: {
+        zmcc_id: zmcc1.id,
+        mot_code: `MO-AV-${runId.toString().slice(-6)}`,
+        name: `MOT Officer Avail ${runId}`,
+        phone_number: '03001234569',
+        cnic: '35201-1234567-3',
+        created_by: manager1.id,
+        updated_by: manager1.id,
+      },
+    });
+    const availRoute = await prisma.zmccRoute.create({
+      data: {
+        zmcc_id: zmcc1.id,
+        route_code: `R-AV-${runId.toString().slice(-6)}`,
+        name: `Route Avail ${runId}`,
+        origin: 'Origin',
+        destination: 'ZMCC',
+        created_by: manager1.id,
+        updated_by: manager1.id,
+      },
+    });
+
+    const availArea = await prisma.zmccArea.create({
+      data: {
+        area_code: `A-AV-${runId.toString().slice(-6)}`,
+        name: `Area Avail ${runId}`,
+        route_id: availRoute.id,
+        zmcc_id: zmcc1.id,
+        is_active: true,
+        created_by: manager1.id,
+      },
+    });
+
+    let availChiller = await prisma.chillerOwnership.findFirst({ where: { is_active: true } });
+    if (!availChiller) {
+      availChiller = await prisma.chillerOwnership.create({
+        data: {
+          ownership_code: `CO-AV-${runId.toString().slice(-6)}`,
+          name: `Chiller Ownership Avail ${runId}`,
+          is_active: true,
+          created_by: superAdmin.id,
+        },
+      });
+    }
+
+    let availMilkSource = await prisma.zmccMilkSource.findFirst({ where: { zmcc_id: zmcc1.id, is_active: true } });
+    if (!availMilkSource) {
+      availMilkSource = await prisma.zmccMilkSource.create({
+        data: {
+          erp_code: `MS-AV-${runId.toString().slice(-6)}`,
+          name: `Milk Source Avail ${runId}`,
+          zmcc_id: zmcc1.id,
+          is_active: true,
+          created_by: manager1.id,
+        },
+      });
+    }
+
+    await prisma.zmccShop.create({
+      data: {
+        shop_code: `S-AV-${runId.toString().slice(-6)}`,
+        shop_name: `Shop Avail ${runId}`,
+        owner_name: 'Shop Owner Avail',
+        phone_number: '03001234599',
+        cnic: '35201-1234567-9',
+        area_id: availArea.id,
+        route_id: availRoute.id,
+        zmcc_id: zmcc1.id,
+        milk_source_id: availMilkSource.id,
+        chiller_ownership_id: availChiller.id,
+        is_active: true,
+        created_by: manager1.id,
+      },
+    });
+
+    // Create and complete journey 1, submit arrival (now vehicle is inside ZMCC with gate_exit_required = true)
+    const availJourney1 = await prisma.motJourney.create({
+      data: {
+        journey_number: `J-AV1-${runId.toString().slice(-6)}`,
+        idempotency_key: `dispatch-av1-${runId}`,
+        zmcc_id: zmcc1.id,
+        route_id: availRoute.id,
+        mot_vehicle_id: availVehicle.id,
+        mot_profile_id: availProfile.id,
+        assigned_by: manager1.id,
+        assigned_at: new Date(Date.now() - 7200000),
+        assignment_latitude: new Prisma.Decimal('31.5204'),
+        assignment_longitude: new Prisma.Decimal('74.3587'),
+        start_latitude: new Prisma.Decimal('31.5204'),
+        start_longitude: new Prisma.Decimal('74.3587'),
+        status: 'COLLECTING',
+        operational_date: new Date(),
+        started_at: new Date(Date.now() - 7200000),
+      },
+    });
+
+    const availArrivalRes = await submitMotArrival(pheCore as any, {
+      journey_id: availJourney1.id,
+      route_milk_token: `RM-AV1-${runId.toString().slice(-6)}`,
+      arrival_timestamp: new Date(Date.now() - 3500000),
+      client_event_id: `evt-mot-av1-${runId}`,
+    });
+    assert(availArrivalRes.status === 201, 'Vehicle Inside ZMCC', 'Vehicle arrived and is currently inside ZMCC');
+    const availArrivalId = availArrivalRes.data.id;
+
+    // 12.2 Attempt to dispatch availVehicle for a new journey -> 409 Conflict
+    const { auth: motAuthMgr } = await resolveMotAuth(mgr1Core as any, 'ASSIGN_DISPATCH');
+    const blockedDispatchRes = await assignAndDispatchJourney(motAuthMgr!, {
+      operational_date: new Date().toISOString().split('T')[0],
+      route_id: availRoute.id.toString(),
+      mot_profile_id: availProfile.id.toString(),
+      mot_vehicle_id: availVehicle.id.toString(),
+      latitude: 31.5204,
+      longitude: 74.3587,
+      idempotency_key: `dispatch-blocked-${runId}`,
+    });
+    assert(blockedDispatchRes.status === 409, 'Dispatch Blocked While Inside ZMCC', 'Vehicle inside ZMCC blocked from new dispatch (409)');
+    assert(Boolean(blockedDispatchRes.error?.includes('inside ZMCC')), 'Vehicle Inside ZMCC Error Message', 'Returns vehicle inside ZMCC conflict error');
+
+    // 12.3 Complete lab session and record gate exit for availVehicle
+    const availLabStart = await startOrResumeSession(labCore as any, {
+      arrival_type: 'MOT',
+      arrival_id: availArrivalId,
+    });
+    await completeSession(labCore as any, availLabStart.data.id, {
+      completion_client_event_id: `c-avail-${runId}`,
+      decision: 'REJECTED',
+      rejection_reason: 'Rejected for vehicle test',
+      quantity_value: 500.0,
+      quantity_unit: 'LITER',
+      results: availLabStart.data.results.map((tr: any) => ({
+        test_id: tr.test_id,
+        numeric_value: tr.result_type_snapshot === 'NUMERIC' ? 1.0 : undefined,
+        text_value: tr.result_type_snapshot !== 'NUMERIC' ? 'POSITIVE' : undefined,
+      })),
+      remarks: 'Rejected for vehicle test',
+    });
+
+    await prisma.zmccLabSession.update({
+      where: { id: BigInt(availLabStart.data.id) },
+      data: {
+        started_at: new Date(Date.now() - 1800000),
+        completed_at: new Date(Date.now() - 600000),
+      },
+    });
+
+    const availExitRes = await recordGateExit(pheCore as any, 'MOT', availArrivalId, {
+      exit_timestamp: new Date(),
+      exit_client_event_id: `exit-avail-${runId}`,
+    });
+    assert(availExitRes.status === 200, 'Vehicle Gate Exit Recorded', 'Vehicle recorded gate exit');
+
+    // 12.4 Now dispatching the vehicle must SUCCEED!
+    const unblockedDispatchRes = await assignAndDispatchJourney(motAuthMgr!, {
+      operational_date: new Date().toISOString().split('T')[0],
+      route_id: availRoute.id.toString(),
+      mot_profile_id: availProfile.id.toString(),
+      mot_vehicle_id: availVehicle.id.toString(),
+      latitude: 31.5204,
+      longitude: 74.3587,
+      idempotency_key: `dispatch-unblocked-${runId}`,
+    });
+    assert(unblockedDispatchRes.status === 201, 'Dispatch Succeeded After Gate Exit', 'Vehicle can be dispatched after recording gate exit');
+
+    // 12.5 Historical cutover test: Historical row with gate_exit_required = false does NOT block dispatch
+    await prisma.zmccMotArrival.update({
+      where: { id: availArrivalId },
+      data: { gate_exit_required: false, exit_timestamp: null },
+    });
+    const historicalDispatchRes = await assignAndDispatchJourney(motAuthMgr!, {
+      operational_date: new Date().toISOString().split('T')[0],
+      route_id: availRoute.id.toString(),
+      mot_profile_id: availProfile.id.toString(),
+      mot_vehicle_id: availVehicle.id.toString(),
+      latitude: 31.5204,
+      longitude: 74.3587,
+      idempotency_key: `dispatch-hist-${runId}`,
+    });
+    assert(!historicalDispatchRes.error?.includes('inside ZMCC'), 'Historical Cutover No Block', 'Historical arrival (gate_exit_required = false) never blocks vehicle dispatch');
+
+    // =========================================================================
+    // SECTION 13: VEHICLES INSIDE ZMCC LIST ENDPOINT
+    // =========================================================================
+    console.log('\n--- 13. VEHICLES INSIDE ZMCC LIST ENDPOINT ---');
+
+    // Create an unexited Local Supplier arrival at ZMCC 1
+    const insideSupplierRes = await createLocalSupplier(pheCore as any, {
+      name: `Inside Supplier ${runId}`,
+    });
+    const insideSupplierArrivalRes = await submitLocalSupplierArrival(pheCore as any, {
+      client_event_id: `inside-arr-${runId}`,
+      local_supplier_id: insideSupplierRes.data.id,
+      rmr_number: '112233',
+      vehicle_number: `INS-${runId.toString().slice(-4)}`,
+      arrival_timestamp: new Date(),
+    });
+    assert(insideSupplierArrivalRes.status === 201, 'Inside Arrival Created', 'Created unexited local supplier arrival');
+    const insideToken = insideSupplierArrivalRes.data.zmcc_token;
+
+    // Call GET /api/zmcc/arrivals/inside as Manager 1 (assigned to ZMCC 1)
+    const insideReq1 = makeAuthRequest('http://localhost/api/zmcc/arrivals/inside', 'GET', mgr1Token);
+    const insideRouteRes1 = await insideVehiclesRoute(insideReq1);
+    assert(insideRouteRes1.status === 200, 'Inside Route 200', 'GET /api/zmcc/arrivals/inside returns 200');
+    const insideData1 = await insideRouteRes1.json();
+    assert(Array.isArray(insideData1.items), 'Inside Items Array', 'Response has items array');
+    const foundInside = insideData1.items.find((it: any) => it.zmcc_token === insideToken);
+    assert(!!foundInside, 'Inside Vehicle Found', 'Unexited vehicle listed in vehicles inside ZMCC');
+    assert(foundInside.arrival_type === 'LOCAL_SUPPLIER', 'Arrival Type Correct', 'Arrival type is LOCAL_SUPPLIER');
+    assert(foundInside.vehicle_number === `INS-${runId.toString().slice(-4)}`, 'Vehicle Number Match', 'Vehicle number matches');
+    assert(foundInside.gate_exit_recorded === false, 'Gate Exit Not Recorded', 'gate_exit_recorded is false');
+
+    // Ensure exited vehicles are NOT in the inside list
+    const exitedItem = insideData1.items.find((it: any) => it.id === firstArrivalId && it.arrival_type === 'LOCAL_SUPPLIER');
+    assert(!exitedItem, 'Exited Vehicle Excluded', 'Exited vehicle is excluded from inside vehicles list');
+
+    // Multi-tenant check: Call GET /api/zmcc/arrivals/inside as Manager 2 (assigned to ZMCC 2)
+    const insideReq2 = makeAuthRequest('http://localhost/api/zmcc/arrivals/inside', 'GET', mgr2Token);
+    const insideRouteRes2 = await insideVehiclesRoute(insideReq2);
+    assert(insideRouteRes2.status === 200, 'Inside Route ZMCC 2', 'GET /api/zmcc/arrivals/inside returns 200 for ZMCC 2');
+    const insideData2 = await insideRouteRes2.json();
+    const crossInside = insideData2.items.find((it: any) => it.zmcc_token === insideToken);
+    assert(!crossInside, 'Multi-tenant Isolation', 'ZMCC 1 inside vehicle not visible to ZMCC 2');
+
+    // =========================================================================
+    // SECTION 14: AUDIT LOG VERIFICATION
+    // =========================================================================
+    console.log('\n--- 14. AUDIT LOG VERIFICATION ---');
 
     const supplierCreateAudit = await prisma.auditLog.findFirst({
       where: {
@@ -1107,6 +1789,30 @@ async function runStage6gd3Tests() {
       },
     });
     assert(!!arrivalCorrectAudit, 'AuditLog', 'AuditLog record exists for ZMCC_LOCAL_SUPPLIER_ARRIVAL_CORRECTED');
+
+    const motExitAudit = await prisma.auditLog.findFirst({
+      where: {
+        table_name: 'zmcc_mot_arrival',
+        action: 'ZMCC_MOT_GATE_EXIT_RECORDED',
+      },
+    });
+    assert(!!motExitAudit, 'AuditLog', 'AuditLog record exists for ZMCC_MOT_GATE_EXIT_RECORDED');
+
+    const lsExitAudit = await prisma.auditLog.findFirst({
+      where: {
+        table_name: 'zmcc_local_supplier_arrival',
+        action: 'ZMCC_LOCAL_SUPPLIER_GATE_EXIT_RECORDED',
+      },
+    });
+    assert(!!lsExitAudit, 'AuditLog', 'AuditLog record exists for ZMCC_LOCAL_SUPPLIER_GATE_EXIT_RECORDED');
+
+    const motExitCorrectAudit = await prisma.auditLog.findFirst({
+      where: {
+        table_name: 'zmcc_mot_arrival',
+        action: 'ZMCC_MOT_GATE_EXIT_CORRECTED',
+      },
+    });
+    assert(!!motExitCorrectAudit, 'AuditLog', 'AuditLog record exists for ZMCC_MOT_GATE_EXIT_CORRECTED');
 
     console.log(`\n=====================================================================`);
     console.log(`🎉 STAGE 6G-D.3 TEST SUITE COMPLETED: ${passed} PASSED, ${failed} FAILED`);

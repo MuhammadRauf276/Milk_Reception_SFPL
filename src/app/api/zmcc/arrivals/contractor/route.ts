@@ -33,19 +33,6 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  try {
-    const body = await req.json();
-    if (!body || typeof body !== 'object') {
-      return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 });
-    }
-
-    const result = await submitContractorArrival(req, body);
-    if (result.error) {
-      return NextResponse.json({ error: result.error }, { status: result.status });
-    }
-    return NextResponse.json(result.data, { status: result.status });
-  } catch (err: any) {
-    console.error('POST /api/zmcc/arrivals/contractor error:', err);
-    return NextResponse.json({ error: 'Failed to submit contractor arrival.' }, { status: 500 });
-  }
+  const result = await submitContractorArrival(req);
+  return NextResponse.json({ error: result.error, message: result.message }, { status: result.status });
 }

@@ -81,6 +81,8 @@ model User {
   created_local_suppliers          ZmccLocalSupplier[]            @relation("LocalSupplierCreatedBy")
   updated_local_suppliers          ZmccLocalSupplier[]            @relation("LocalSupplierUpdatedBy")
   recorded_local_supplier_arrivals ZmccLocalSupplierArrival[]      @relation("ZmccLocalSupplierArrivalRecordedBy")
+  exited_mot_arrivals              ZmccMotArrival[]           @relation("ZmccMotArrivalExitRecordedBy")
+  exited_local_supplier_arrivals   ZmccLocalSupplierArrival[] @relation("ZmccLocalSupplierArrivalExitRecordedBy")
 
   @@map("users")
 }
@@ -946,18 +948,26 @@ model ZmccMotArrival {
   client_event_id     String   @unique @map("client_event_id") @db.VarChar(255)
   recorded_by_user_id BigInt   @map("recorded_by_user_id")
   submitted_at        DateTime @default(now()) @map("submitted_at") @db.Timestamp(6)
-  correction_count    Int      @default(0) @map("correction_count")
-  created_at          DateTime @default(now()) @map("created_at") @db.Timestamp(6)
-  updated_at          DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
+  correction_count         Int       @default(0) @map("correction_count")
+  gate_exit_required       Boolean   @default(true) @map("gate_exit_required")
+  exit_timestamp           DateTime? @map("exit_timestamp") @db.Timestamp(6)
+  exit_recorded_by_user_id BigInt?   @map("exit_recorded_by_user_id")
+  exit_client_event_id     String?   @unique @map("exit_client_event_id") @db.VarChar(255)
+  exit_submitted_at        DateTime? @map("exit_submitted_at") @db.Timestamp(6)
+  exit_correction_count    Int       @default(0) @map("exit_correction_count")
+  created_at               DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at               DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
 
   // Relations
-  journey     MotJourney        @relation(fields: [journey_id], references: [id], onDelete: Restrict)
-  zmcc        ProcurementSource @relation("ZmccMotArrivals", fields: [zmcc_id], references: [id], onDelete: Restrict)
-  recorded_by User              @relation("ZmccMotArrivalRecordedBy", fields: [recorded_by_user_id], references: [id], onDelete: Restrict)
-  lab_session ZmccLabSession?   @relation("MotArrivalLabSession")
+  journey          MotJourney        @relation(fields: [journey_id], references: [id], onDelete: Restrict)
+  zmcc             ProcurementSource @relation("ZmccMotArrivals", fields: [zmcc_id], references: [id], onDelete: Restrict)
+  recorded_by      User              @relation("ZmccMotArrivalRecordedBy", fields: [recorded_by_user_id], references: [id], onDelete: Restrict)
+  exit_recorded_by User?             @relation("ZmccMotArrivalExitRecordedBy", fields: [exit_recorded_by_user_id], references: [id], onDelete: Restrict)
+  lab_session      ZmccLabSession?   @relation("MotArrivalLabSession")
 
   @@index([zmcc_id])
   @@index([arrival_date])
+  @@index([zmcc_id, exit_timestamp])
   @@map("zmcc_mot_arrival")
 }
 
@@ -1034,19 +1044,27 @@ model ZmccLocalSupplierArrival {
   client_event_id     String   @unique @map("client_event_id") @db.VarChar(255)
   recorded_by_user_id BigInt   @map("recorded_by_user_id")
   submitted_at        DateTime @default(now()) @map("submitted_at") @db.Timestamp(6)
-  correction_count    Int      @default(0) @map("correction_count")
-  created_at          DateTime @default(now()) @map("created_at") @db.Timestamp(6)
-  updated_at          DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
+  correction_count         Int       @default(0) @map("correction_count")
+  gate_exit_required       Boolean   @default(true) @map("gate_exit_required")
+  exit_timestamp           DateTime? @map("exit_timestamp") @db.Timestamp(6)
+  exit_recorded_by_user_id BigInt?   @map("exit_recorded_by_user_id")
+  exit_client_event_id     String?   @unique @map("exit_client_event_id") @db.VarChar(255)
+  exit_submitted_at        DateTime? @map("exit_submitted_at") @db.Timestamp(6)
+  exit_correction_count    Int       @default(0) @map("exit_correction_count")
+  created_at               DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at               DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
 
   // Relations
-  zmcc           ProcurementSource @relation("ZmccLocalSupplierArrivals", fields: [zmcc_id], references: [id], onDelete: Restrict)
-  local_supplier ZmccLocalSupplier @relation("LocalSupplierArrivals", fields: [local_supplier_id], references: [id], onDelete: Restrict)
-  recorded_by    User              @relation("ZmccLocalSupplierArrivalRecordedBy", fields: [recorded_by_user_id], references: [id], onDelete: Restrict)
-  lab_session    ZmccLabSession?   @relation("LocalSupplierArrivalLabSession")
+  zmcc             ProcurementSource @relation("ZmccLocalSupplierArrivals", fields: [zmcc_id], references: [id], onDelete: Restrict)
+  local_supplier   ZmccLocalSupplier @relation("LocalSupplierArrivals", fields: [local_supplier_id], references: [id], onDelete: Restrict)
+  recorded_by      User              @relation("ZmccLocalSupplierArrivalRecordedBy", fields: [recorded_by_user_id], references: [id], onDelete: Restrict)
+  exit_recorded_by User?             @relation("ZmccLocalSupplierArrivalExitRecordedBy", fields: [exit_recorded_by_user_id], references: [id], onDelete: Restrict)
+  lab_session      ZmccLabSession?   @relation("LocalSupplierArrivalLabSession")
 
   @@index([zmcc_id])
   @@index([local_supplier_id])
   @@index([arrival_date])
+  @@index([zmcc_id, exit_timestamp])
   @@map("zmcc_local_supplier_arrival")
 }
 
