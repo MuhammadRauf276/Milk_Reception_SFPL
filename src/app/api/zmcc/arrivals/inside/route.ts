@@ -5,8 +5,9 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const zmcc_id = searchParams.get('zmcc_id') || undefined;
+    const limit = searchParams.get('limit') || undefined;
 
-    const result = await getVehiclesInsideZmcc(req, zmcc_id);
+    const result = await getVehiclesInsideZmcc(req, zmcc_id, limit);
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: result.status });
     }

@@ -3,7 +3,7 @@
  *
  * Verifies:
  * 1. Database Schema & Migrations:
- *    - Exactly 25 tracked migrations in prisma/migrations
+ *    - Exactly 26 tracked migrations in prisma/migrations
  *    - 20260915100000_zmcc_local_supplier_directory_and_arrival migration exists
  *    - zmcc_local_supplier table, columns, and sequence exist
  *    - zmcc_local_supplier_arrival table, check constraint, and sequence exist
@@ -701,18 +701,50 @@ async function runStage6gd3Tests() {
     });
     assert(unrelatedRoleRes.status === 403, 'Role Permissions', 'Unrelated role (WEIGHBRIDGE_OPERATOR) rejected from creating supplier (403)');
 
-    // 4.7d Scope Hardening: Conflicting zmcc_id Rejection
+    // 4.7d Scope Hardening: Role-Specific Allowlist (Blocker 1)
+    // Non-admin cannot supply zmcc_id (even if own or conflicting) or target_zmcc_id -> 400
+    const pheOwnZmccRes = await createLocalSupplier(pheCore as any, {
+      name: 'PHE Own ZMCC Supplier',
+      zmcc_id: zmcc1.id.toString(),
+    } as any);
+    assert(pheOwnZmccRes.status === 400, 'Scope Hardening', 'PHE operator supplying own zmcc_id rejected (400)');
+
     const pheConflictZmccRes = await createLocalSupplier(pheCore as any, {
       name: 'Conflicting ZMCC PHE Supplier',
       zmcc_id: zmcc2.id.toString(),
-    });
-    assert(pheConflictZmccRes.status === 403, 'Scope Hardening', 'PHE operator supplying conflicting zmcc_id rejected (403)');
+    } as any);
+    assert(pheConflictZmccRes.status === 400, 'Scope Hardening', 'PHE operator supplying conflicting zmcc_id rejected (400)');
+
+    const pheTargetZmccRes = await createLocalSupplier(pheCore as any, {
+      name: 'PHE Target ZMCC Supplier',
+      target_zmcc_id: zmcc1.id.toString(),
+    } as any);
+    assert(pheTargetZmccRes.status === 400, 'Scope Hardening', 'PHE operator supplying target_zmcc_id rejected (400)');
+
+    const mgrOwnZmccRes = await createLocalSupplier(mgr1Core as any, {
+      name: 'MGR Own ZMCC Supplier',
+      zmcc_id: zmcc1.id.toString(),
+    } as any);
+    assert(mgrOwnZmccRes.status === 400, 'Scope Hardening', 'ZMCC Manager supplying own zmcc_id rejected (400)');
 
     const mgrConflictZmccRes = await createLocalSupplier(mgr1Core as any, {
       name: 'Conflicting ZMCC MGR Supplier',
       zmcc_id: zmcc2.id.toString(),
+    } as any);
+    assert(mgrConflictZmccRes.status === 400, 'Scope Hardening', 'ZMCC Manager supplying conflicting zmcc_id rejected (400)');
+
+    // Super Admin requires zmcc_id
+    const adminNoZmccRes = await createLocalSupplier(adminCore as any, {
+      name: 'Admin No ZMCC Supplier',
     });
-    assert(mgrConflictZmccRes.status === 403, 'Scope Hardening', 'ZMCC Manager supplying conflicting zmcc_id rejected (403)');
+    assert(adminNoZmccRes.status === 400, 'Super Admin Scoping', 'Super Admin missing zmcc_id rejected (400)');
+
+    const adminWithZmccRes = await createLocalSupplier(adminCore as any, {
+      name: 'Admin Valid ZMCC Supplier',
+      zmcc_id: zmcc1.id.toString(),
+    });
+    assert(adminWithZmccRes.status === 201, 'Super Admin Scoping', 'Super Admin with valid zmcc_id succeeds (201)');
+    assert(adminWithZmccRes.data.zmcc_id === zmcc1.id.toString(), 'Super Admin ZMCC Match', 'Supplier created under specified ZMCC');
 
     // 4.8 Role Permissions: PHE cannot edit or deactivate existing supplier
     const createdSupplierId = supplierZeroPadRes.data.id;
@@ -1437,6 +1469,131 @@ async function runStage6gd3Tests() {
     // Clean up mock lab session
     await prisma.zmccLabSession.delete({ where: { id: mockAcceptedSession.id } });
 
+    // 9.13 True Concurrency & Row Locking on Gate Exit (Blocker 2)
+    // Helper to create unexited Local Supplier arrival with REJECTED lab (exit-ready)
+    const createEligibleLS = async (suffix: string) => {
+      const arr = await submitLocalSupplierArrival(pheCore as any, {
+        client_event_id: `concurr-arr-${suffix}-${runId}`,
+        local_supplier_id: createdSupplierId,
+        rmr_number: '123456',
+        vehicle_number: `C-${suffix.slice(-4)}`,
+        arrival_timestamp: new Date(Date.now() - 3600000),
+      });
+      await prisma.zmccLabSession.create({
+        data: {
+          zmcc_id: zmcc1.id,
+          arrival_type: 'LOCAL_SUPPLIER',
+          local_supplier_arrival_id: arr.data.id,
+          status: 'COMPLETED',
+          decision: 'REJECTED',
+          rejection_reason: 'Quality test failed',
+          started_by_user_id: labAttendant.id,
+          completed_by_user_id: labAttendant.id,
+          started_at: new Date(Date.now() - 1800000),
+          completed_at: new Date(Date.now() - 1200000),
+        },
+      });
+      return arr.data.id;
+    };
+
+    // Scenario A: Concurrent identical requests -> exactly 1 write, 1 audit log, 1 replay (both 200)
+    const arrIdA = await createEligibleLS('a');
+    const commonEvtA = `concurr-exit-A-${runId}`;
+    const commonTsA = new Date(Date.now() - 60000);
+    const [resA1, resA2] = await Promise.all([
+      recordGateExit(pheCore as any, 'LOCAL_SUPPLIER', arrIdA, {
+        exit_timestamp: commonTsA,
+        exit_client_event_id: commonEvtA,
+      }),
+      recordGateExit(pheCore as any, 'LOCAL_SUPPLIER', arrIdA, {
+        exit_timestamp: commonTsA,
+        exit_client_event_id: commonEvtA,
+      }),
+    ]);
+    assert(resA1.status === 200 && resA2.status === 200, 'Concurrent Idempotent 200', 'Both concurrent identical exit requests return 200');
+    const replayCountA = (resA1.data?.is_replay ? 1 : 0) + (resA2.data?.is_replay ? 1 : 0);
+    assert(replayCountA === 1, 'Concurrent Replay Count', 'Exactly one concurrent call is marked as replay');
+    const auditCountA = await prisma.auditLog.count({
+      where: {
+        table_name: 'zmcc_local_supplier_arrival',
+        record_id: arrIdA.toString(),
+        action: 'ZMCC_LOCAL_SUPPLIER_GATE_EXIT_RECORDED',
+      },
+    });
+    assert(auditCountA === 1, 'Concurrent Audit Single', 'Exactly 1 audit log created under concurrent identical calls');
+
+    // Scenario B: Concurrent different event IDs -> 1 succeeds (200), 1 conflicts (409)
+    const arrIdB = await createEligibleLS('b');
+    const [resB1, resB2] = await Promise.all([
+      recordGateExit(pheCore as any, 'LOCAL_SUPPLIER', arrIdB, {
+        exit_timestamp: new Date(Date.now() - 60000),
+        exit_client_event_id: `concurr-exit-B1-${runId}`,
+      }),
+      recordGateExit(pheCore as any, 'LOCAL_SUPPLIER', arrIdB, {
+        exit_timestamp: new Date(Date.now() - 60000),
+        exit_client_event_id: `concurr-exit-B2-${runId}`,
+      }),
+    ]);
+    const statusesB = [resB1.status, resB2.status].sort();
+    assert(statusesB[0] === 200 && statusesB[1] === 409, 'Concurrent Distinct Events', 'One concurrent call succeeds (200), other conflicts (409 ALREADY_EXITED)');
+    const auditCountB = await prisma.auditLog.count({
+      where: {
+        table_name: 'zmcc_local_supplier_arrival',
+        record_id: arrIdB.toString(),
+        action: 'ZMCC_LOCAL_SUPPLIER_GATE_EXIT_RECORDED',
+      },
+    });
+    assert(auditCountB === 1, 'Concurrent Single Audit B', 'Exactly 1 audit log created under distinct event IDs');
+
+    // Scenario C: Concurrent same event ID but different timestamps -> 1 succeeds (200), 1 conflicts (409 IDEMPOTENCY_CONFLICT)
+    const arrIdC = await createEligibleLS('c');
+    const commonEvtC = `concurr-exit-C-${runId}`;
+    const [resC1, resC2] = await Promise.all([
+      recordGateExit(pheCore as any, 'LOCAL_SUPPLIER', arrIdC, {
+        exit_timestamp: new Date(Date.now() - 60000),
+        exit_client_event_id: commonEvtC,
+      }),
+      recordGateExit(pheCore as any, 'LOCAL_SUPPLIER', arrIdC, {
+        exit_timestamp: new Date(Date.now() - 30000),
+        exit_client_event_id: commonEvtC,
+      }),
+    ]);
+    const statusesC = [resC1.status, resC2.status].sort();
+    assert(statusesC[0] === 200 && statusesC[1] === 409, 'Concurrent Mismatched Timestamps', 'One concurrent call succeeds (200), mismatched timestamp conflicts (409)');
+
+    // 9.14 Historical Pre-Cutover Arrival Cannot Be Given Fake Exit (Blocker 3)
+    const histLS = await submitLocalSupplierArrival(pheCore as any, {
+      client_event_id: `hist-arr-blocker3-${runId}`,
+      local_supplier_id: createdSupplierId,
+      rmr_number: '778899',
+      vehicle_number: 'HIST-LS-01',
+      arrival_timestamp: new Date(Date.now() - 86400000),
+    });
+    const histLSId = histLS.data.id;
+    // Set gate_exit_required = false in DB to simulate pre-cutover historical record
+    await prisma.zmccLocalSupplierArrival.update({
+      where: { id: BigInt(histLSId) },
+      data: { gate_exit_required: false, exit_timestamp: null },
+    });
+    const histExitAttempt = await recordGateExit(pheCore as any, 'LOCAL_SUPPLIER', histLSId, {
+      exit_timestamp: new Date(),
+      exit_client_event_id: `hist-exit-attempt-${runId}`,
+    });
+    assert(histExitAttempt.status === 409, 'Historical Exit 409', 'Historical arrival exit rejected with 409');
+    assert(histExitAttempt.error === 'GATE_EXIT_NOT_TRACKED_FOR_HISTORICAL_ARRIVAL', 'Historical Error Code', 'Returns GATE_EXIT_NOT_TRACKED_FOR_HISTORICAL_ARRIVAL');
+    const histLSAfter = await prisma.zmccLocalSupplierArrival.findUnique({
+      where: { id: BigInt(histLSId) },
+    });
+    assert(histLSAfter?.exit_timestamp === null, 'Historical Exit NULL', 'Historical arrival exit_timestamp remains NULL');
+    const histAuditCount = await prisma.auditLog.count({
+      where: {
+        table_name: 'zmcc_local_supplier_arrival',
+        record_id: histLSId.toString(),
+        action: 'ZMCC_LOCAL_SUPPLIER_GATE_EXIT_RECORDED',
+      },
+    });
+    assert(histAuditCount === 0, 'Historical No Audit Log', 'No audit log created for historical exit rejection');
+
     // =========================================================================
     // SECTION 10: SUPERVISORY GATE EXIT CORRECTIONS
     // =========================================================================
@@ -1744,6 +1901,24 @@ async function runStage6gd3Tests() {
     // Ensure exited vehicles are NOT in the inside list
     const exitedItem = insideData1.items.find((it: any) => it.id === firstArrivalId && it.arrival_type === 'LOCAL_SUPPLIER');
     assert(!exitedItem, 'Exited Vehicle Excluded', 'Exited vehicle is excluded from inside vehicles list');
+
+    // 13.1 Envelope metadata verification (Blocker 4)
+    assert(Array.isArray(insideData1.vehicles), 'Envelope Vehicles Array', 'Response has vehicles array matching items');
+    assert(typeof insideData1.limit === 'number', 'Envelope Limit', 'Response has limit number');
+    assert(typeof insideData1.total_count === 'number', 'Envelope Total Count', 'Response has total_count number');
+    assert(typeof insideData1.has_more === 'boolean', 'Envelope Has More', 'Response has has_more boolean');
+
+    // 13.2 Bounded query limit enforcement
+    const boundedReq = makeAuthRequest('http://localhost/api/zmcc/arrivals/inside?limit=1', 'GET', mgr1Token);
+    const boundedRouteRes = await insideVehiclesRoute(boundedReq);
+    assert(boundedRouteRes.status === 200, 'Bounded Route 200', 'GET /api/zmcc/arrivals/inside?limit=1 returns 200');
+    const boundedData = await boundedRouteRes.json();
+    assert(boundedData.limit === 1, 'Bounded Limit 1', 'Envelope limit is 1');
+    assert(boundedData.items.length <= 1, 'Bounded Items Length', 'Items array length does not exceed limit');
+    assert(boundedData.vehicles.length <= 1, 'Bounded Vehicles Length', 'Vehicles array length does not exceed limit');
+    if (boundedData.total_count > 1) {
+      assert(boundedData.has_more === true, 'Bounded Has More', 'has_more is true when total_count > limit');
+    }
 
     // Multi-tenant check: Call GET /api/zmcc/arrivals/inside as Manager 2 (assigned to ZMCC 2)
     const insideReq2 = makeAuthRequest('http://localhost/api/zmcc/arrivals/inside', 'GET', mgr2Token);

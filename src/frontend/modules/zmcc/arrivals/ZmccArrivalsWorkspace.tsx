@@ -58,24 +58,6 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
   const [motSuccessResult, setMotSuccessResult] = useState<any | null>(null);
   const [motError, setMotError] = useState<string | null>(null);
 
-  // Contractor Arrival Form State (Legacy compatibility)
-  const [contractors, setContractors] = useState<any[]>([]);
-  const [selectedContractorId, setSelectedContractorId] = useState('');
-  const [contractorRmrNumber, setContractorRmrNumber] = useState('');
-  const [contractorVehicleNumber, setContractorVehicleNumber] = useState('');
-  const [contractorArrivalTimestamp, setContractorArrivalTimestamp] = useState(() =>
-    toDatetimeLocalInput(new Date())
-  );
-  const [contractorGps, setContractorGps] = useState<{ lat: number | null; lng: number | null; acc: number | null }>({
-    lat: null,
-    lng: null,
-    acc: null,
-  });
-  const [contractorEventId, setContractorEventId] = useState('');
-  const [contractorSubmitting, setContractorSubmitting] = useState(false);
-  const [contractorSuccessResult, setContractorSuccessResult] = useState<any | null>(null);
-  const [contractorError, setContractorError] = useState<string | null>(null);
-
   // Local Supplier Arrival Form State
   const [localSuppliers, setLocalSuppliers] = useState<any[]>([]);
   const [loadingLocalSuppliers, setLoadingLocalSuppliers] = useState(false);
@@ -98,6 +80,8 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
 
   // Inside Vehicles State & Gate Exit Modal
   const [insideVehicles, setInsideVehicles] = useState<any[]>([]);
+  const [insideHasMore, setInsideHasMore] = useState(false);
+  const [insideTotalCount, setInsideTotalCount] = useState(0);
   const [loadingInside, setLoadingInside] = useState(false);
   const [exitModalTarget, setExitModalTarget] = useState<any | null>(null);
   const [exitTimestamp, setExitTimestamp] = useState(() => toDatetimeLocalInput(new Date()));
@@ -151,16 +135,6 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
     setMotError(null);
   }, []);
 
-  const initContractorForm = useCallback(() => {
-    setSelectedContractorId('');
-    setContractorRmrNumber('');
-    setContractorVehicleNumber('');
-    setContractorArrivalTimestamp(toDatetimeLocalInput(new Date()));
-    setContractorGps({ lat: null, lng: null, acc: null });
-    setContractorEventId(generateClientEventId('con-arr'));
-    setContractorError(null);
-  }, []);
-
   const initLocalSupplierForm = useCallback(() => {
     setSelectedLocalSupplierId('');
     setSupplierSearchTerm('');
@@ -188,19 +162,6 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
     }
   }, []);
 
-  // Fetch active contractors
-  const fetchContractors = useCallback(async () => {
-    try {
-      const res = await fetch('/api/zmcc/arrivals/contractors');
-      if (res.ok) {
-        const data = await res.json();
-        setContractors(data || []);
-      }
-    } catch (err) {
-      console.error('Failed to fetch contractors', err);
-    }
-  }, []);
-
   // Fetch local suppliers for directory selection
   const fetchLocalSuppliers = useCallback(async () => {
     setLoadingLocalSuppliers(true);
@@ -225,6 +186,8 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
       if (res.ok) {
         const data = await res.json();
         setInsideVehicles(data.vehicles || []);
+        setInsideHasMore(Boolean(data.has_more));
+        setInsideTotalCount(data.total_count ?? (data.vehicles || []).length);
       }
     } catch (err) {
       console.error('Failed to fetch vehicles inside ZMCC', err);
@@ -269,15 +232,13 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
   useEffect(() => {
     if (canSubmit) {
       fetchArrivingJourneys();
-      fetchContractors();
       fetchLocalSuppliers();
       initMotForm();
-      initContractorForm();
       initLocalSupplierForm();
     }
     fetchInsideVehicles();
     fetchHistory();
-  }, [canSubmit, fetchArrivingJourneys, fetchContractors, fetchLocalSuppliers, fetchInsideVehicles, fetchHistory, initMotForm, initContractorForm, initLocalSupplierForm]);
+  }, [canSubmit, fetchArrivingJourneys, fetchLocalSuppliers, fetchInsideVehicles, fetchHistory, initMotForm, initLocalSupplierForm]);
 
   // Submit Gate Exit
   const handleGateExitSubmit = async (e: React.FormEvent) => {
@@ -315,7 +276,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
   };
 
   // GPS capture handler
-  const captureGps = (target: 'MOT' | 'CONTRACTOR' | 'LOCAL_SUPPLIER') => {
+  const captureGps = (target: 'MOT' | 'LOCAL_SUPPLIER') => {
     if (typeof window === 'undefined' || !navigator.geolocation) {
       toast.showWarning('Geolocation is not supported by your browser. Arrival can proceed without GPS.');
       return;
@@ -328,7 +289,6 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
           acc: Number(pos.coords.accuracy.toFixed(2)),
         };
         if (target === 'MOT') setMotGps(coords);
-        else if (target === 'CONTRACTOR') setContractorGps(coords);
         else setLocalSupplierGps(coords);
         toast.showSuccess('GPS coordinates captured successfully.');
       },
@@ -341,7 +301,6 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
 
         toast.showWarning(msg);
         if (target === 'MOT') setMotGps({ lat: null, lng: null, acc: null });
-        else if (target === 'CONTRACTOR') setContractorGps({ lat: null, lng: null, acc: null });
         else setLocalSupplierGps({ lat: null, lng: null, acc: null });
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
@@ -388,52 +347,6 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
       setMotError(err.message || 'An unexpected error occurred.');
     } finally {
       setMotSubmitting(false);
-    }
-  };
-
-  // Submit Contractor Arrival
-  const handleContractorSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedContractorId) {
-      setContractorError('Please select a contractor.');
-      return;
-    }
-    if (!contractorRmrNumber.trim()) {
-      setContractorError('Contractor RMR number is required.');
-      return;
-    }
-    if (!contractorVehicleNumber.trim()) {
-      setContractorError('Vehicle number is required.');
-      return;
-    }
-    setContractorSubmitting(true);
-    setContractorError(null);
-    try {
-      const res = await fetch('/api/zmcc/arrivals/contractor', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contractor_source_id: selectedContractorId,
-          rmr_number: contractorRmrNumber.trim(),
-          vehicle_number: contractorVehicleNumber.trim().toUpperCase(),
-          arrival_timestamp: datetimeLocalToIso(contractorArrivalTimestamp) || new Date(contractorArrivalTimestamp).toISOString(),
-          client_event_id: contractorEventId,
-          phe_latitude: contractorGps.lat,
-          phe_longitude: contractorGps.lng,
-          phe_gps_accuracy: contractorGps.acc,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setContractorError(data.error || 'Failed to record contractor arrival.');
-      } else {
-        setContractorSuccessResult(data);
-        fetchHistory();
-      }
-    } catch (err: any) {
-      setContractorError(err.message || 'An unexpected error occurred.');
-    } finally {
-      setContractorSubmitting(false);
     }
   };
 
@@ -963,7 +876,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm font-black text-slate-900">
-                Vehicles Currently Inside ZMCC ({insideVehicles.length})
+                Vehicles Currently Inside ZMCC ({insideTotalCount > insideVehicles.length ? `${insideVehicles.length} of ${insideTotalCount}` : insideVehicles.length})
               </h3>
               <p className="text-[11px] text-slate-500 mt-0.5">
                 Vehicles that have completed Gate Entry and are in testing or awaiting Gate Exit
@@ -978,6 +891,15 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
               <span>Refresh</span>
             </button>
           </div>
+
+          {insideHasMore && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center space-x-2 text-amber-800 text-xs">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>
+                <strong>Warning:</strong> Display capped at {insideVehicles.length} of {insideTotalCount} active vehicles inside ZMCC. Please record gate exits for departed vehicles.
+              </span>
+            </div>
+          )}
 
           {insideVehicles.length === 0 ? (
             <div className="bg-white rounded-2xl border border-[#EAE4D5] p-12 text-center text-xs text-slate-400">

@@ -238,28 +238,19 @@ export async function createLocalSupplier(
     return { status: 400, error: 'Missing request payload.' };
   }
 
-  // Scope hardening: conflicting zmcc_id supplied by PHE/Manager must fail closed with 403
-  if (
-    !auth.isSuperAdmin &&
-    (payload as any).zmcc_id !== undefined &&
-    (payload as any).zmcc_id !== null &&
-    String((payload as any).zmcc_id).trim() !== ''
-  ) {
-    let passedZmccId: bigint;
-    try {
-      passedZmccId = BigInt(String((payload as any).zmcc_id).trim());
-    } catch {
-      return { status: 400, error: 'Invalid zmcc_id format.' };
-    }
-    if (passedZmccId !== auth.effectiveZmccId) {
-      return { status: 403, error: 'Forbidden. Conflicting zmcc_id supplied.' };
-    }
-  }
+  // Role-specific strict create allowlists
+  const allowedCreateFields = auth.isSuperAdmin
+    ? new Set(['name', 'phone', 'cnic', 'erp_reference', 'zmcc_id'])
+    : new Set(['name', 'phone', 'cnic', 'erp_reference']);
 
-  // Strict mutation allowlist for create
-  const allowedCreateFields = new Set(['name', 'phone', 'cnic', 'erp_reference', 'zmcc_id']);
   for (const field of Object.keys(payload)) {
     if (!allowedCreateFields.has(field)) {
+      if (!auth.isSuperAdmin && (field === 'zmcc_id' || field === 'target_zmcc_id' || field.toLowerCase().includes('zmcc'))) {
+        return {
+          status: 400,
+          error: `Scoped users (${auth.role}) cannot supply zmcc_id. Target ZMCC is resolved automatically from session.`,
+        };
+      }
       return { status: 400, error: `Field "${field}" is not allowed on local supplier creation.` };
     }
   }
