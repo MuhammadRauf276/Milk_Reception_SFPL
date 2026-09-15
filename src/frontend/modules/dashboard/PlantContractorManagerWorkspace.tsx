@@ -57,13 +57,15 @@ export const PlantContractorManagerWorkspace: React.FC<PlantContractorManagerWor
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/logs');
+      const mode = activeTab === 'LIVE' ? 'live' : 'recent';
+      const res = await fetch(`/api/logs?mode=${mode}`);
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error || 'Failed to fetch operational logs');
       }
-      if (data.logs) {
-        setLogs(data.logs);
+      const items = data.items || data.logs;
+      if (items) {
+        setLogs(items);
       }
       if (data.serverBusinessDate) {
         setServerBusinessDate(data.serverBusinessDate);
@@ -73,7 +75,7 @@ export const PlantContractorManagerWorkspace: React.FC<PlantContractorManagerWor
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [activeTab]);
 
   useEffect(() => {
     fetchLogs();

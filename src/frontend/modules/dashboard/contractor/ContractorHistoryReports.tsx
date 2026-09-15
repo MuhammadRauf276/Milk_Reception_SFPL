@@ -51,6 +51,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
     setError(null);
     try {
       const params = new URLSearchParams();
+      params.set('mode', fDate || tDate ? 'report' : 'recent');
       params.set('dateBasis', 'reporting');
       if (fDate) params.set('fromDate', fDate);
       if (tDate) params.set('toDate', tDate);
@@ -60,8 +61,9 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
       if (!res.ok) {
         throw new Error(data.error || 'Failed to fetch history logs');
       }
-      if (data.logs) {
-        setLogs(data.logs);
+      const items = data.items || data.logs;
+      if (items) {
+        setLogs(items);
       }
     } catch (err: any) {
       setError(err.message || 'Failed to load historical contractor records');

@@ -109,6 +109,7 @@ const suites: string[] = isProbeMode
       'scripts/test_stage6gd1_contractor_rmr_single_tank.ts',
       'scripts/test_stage6gd2_user_email_foundation.ts',
       'scripts/test_stage6gd3_local_supplier_onboarding.ts',
+      'scripts/test_stage6gd4a_retrieval_scalability.ts',
     ];
 
 console.log(`==================================================`);

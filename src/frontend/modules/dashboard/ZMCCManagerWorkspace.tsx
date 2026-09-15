@@ -176,16 +176,17 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
     closeDrawer();
   };
 
-  // Fetch Live Logs: Unbounded source-scoped fetch without date or search filters
+  // Fetch Live Logs: Mode 'live' active pipeline only
   const fetchLiveLogs = useCallback(async () => {
     setLiveLoading(true);
     setLiveError(null);
     try {
-      const res = await fetch('/api/logs');
+      const res = await fetch('/api/logs?mode=live');
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to fetch live logs');
 
-      if (data.logs) setLiveLogs(data.logs);
+      const items = data.items || data.logs;
+      if (items) setLiveLogs(items);
       if (data.serverBusinessDate) setServerBusinessDate(data.serverBusinessDate);
     } catch (err: any) {
       setLiveError(err.message || 'Failed to load live pipeline logs');
@@ -194,16 +195,23 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
     }
   }, []);
 
-  // Fetch Receipt Logs: Unbounded source-scoped fetch without Dispatch Business Date filtering
-  const fetchReceiptLogs = useCallback(async () => {
+  // Fetch Receipt Logs: Mode 'recent' (default 7 days) or bounded reporting date
+  const fetchReceiptLogs = useCallback(async (fDate?: string, tDate?: string) => {
     setReceiptLoading(true);
     setReceiptError(null);
     try {
-      const res = await fetch('/api/logs');
+      const params = new URLSearchParams();
+      params.append('mode', fDate || tDate ? 'report' : 'recent');
+      params.append('dateBasis', 'reporting');
+      if (fDate) params.append('fromDate', fDate);
+      if (tDate) params.append('toDate', tDate);
+
+      const res = await fetch(`/api/logs?${params.toString()}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to fetch receipt logs');
 
-      if (data.logs) setReceiptLogs(data.logs);
+      const items = data.items || data.logs;
+      if (items) setReceiptLogs(items);
       if (data.serverBusinessDate) setServerBusinessDate(data.serverBusinessDate);
     } catch (err: any) {
       setReceiptError(err.message || 'Failed to load receipt logs');
@@ -218,17 +226,17 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
       setReportingLoading(true);
       setReportingError(null);
       try {
-        let url = '/api/logs';
         const params = new URLSearchParams();
+        params.append('mode', fDate || tDate ? 'report' : 'recent');
         if (fDate) params.append('fromDate', fDate);
         if (tDate) params.append('toDate', tDate);
-        if (params.toString()) url += `?${params.toString()}`;
 
-        const res = await fetch(url);
+        const res = await fetch(`/api/logs?${params.toString()}`);
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Failed to fetch reporting logs');
 
-        if (data.logs) setReportingLogs(data.logs);
+        const items = data.items || data.logs;
+        if (items) setReportingLogs(items);
         if (data.serverBusinessDate) setServerBusinessDate(data.serverBusinessDate);
       } catch (err: any) {
         setReportingError(err.message || 'Failed to load reporting logs');
@@ -239,16 +247,19 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
     []
   );
 
-  // A. Live Flow: Initial mount and interval polling (NO fromDate/toDate dependency)
+  // A. Live Flow: Initial mount and interval polling (LIVE ONLY)
   useEffect(() => {
     fetchLiveLogs();
-    fetchReceiptLogs();
     const interval = setInterval(() => {
       fetchLiveLogs();
-      fetchReceiptLogs();
     }, 15000);
     return () => clearInterval(interval);
-  }, [fetchLiveLogs, fetchReceiptLogs]);
+  }, [fetchLiveLogs]);
+
+  // B. Receipt Flow: Initial load and when fromDate/toDate changes (NO polling)
+  useEffect(() => {
+    fetchReceiptLogs(fromDate, toDate);
+  }, [fetchReceiptLogs, fromDate, toDate]);
 
   // B. Reporting Flow: Initial load and when fromDate/toDate changes
   useEffect(() => {

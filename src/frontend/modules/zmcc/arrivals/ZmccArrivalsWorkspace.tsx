@@ -102,6 +102,10 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
   const [historyType, setHistoryType] = useState<'ALL' | 'MOT' | 'CONTRACTOR' | 'LOCAL_SUPPLIER'>('ALL');
   const [historyDate, setHistoryDate] = useState('');
   const [historySearch, setHistorySearch] = useState('');
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyPageSize] = useState(20);
+  const [historyTotalPages, setHistoryTotalPages] = useState(1);
+  const [historyTotalRecords, setHistoryTotalRecords] = useState(0);
   const [motArrivals, setMotArrivals] = useState<any[]>([]);
   const [contractorArrivals, setContractorArrivals] = useState<any[]>([]);
   const [localSupplierArrivals, setLocalSupplierArrivals] = useState<any[]>([]);
@@ -204,6 +208,8 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
       const params = new URLSearchParams();
       if (historyDate) params.set('date', historyDate);
       if (historySearch) params.set('search', historySearch);
+      params.set('page', String(historyPage));
+      params.set('pageSize', String(historyPageSize));
 
       const [motRes, conRes, lsRes] = await Promise.all([
         fetch(`/api/zmcc/arrivals/mot?${params.toString()}`),
@@ -211,24 +217,36 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
         fetch(`/api/zmcc/arrivals/local-supplier?${params.toString()}`),
       ]);
 
+      let totalCount = 0;
+      let maxPages = 1;
+
       if (motRes.ok) {
         const motData = await motRes.json();
         setMotArrivals(motData.items || []);
+        if (motData.total) totalCount += motData.total;
+        if (motData.totalPages && motData.totalPages > maxPages) maxPages = motData.totalPages;
       }
       if (conRes.ok) {
         const conData = await conRes.json();
         setContractorArrivals(conData.items || []);
+        if (conData.total) totalCount += conData.total;
+        if (conData.totalPages && conData.totalPages > maxPages) maxPages = conData.totalPages;
       }
       if (lsRes.ok) {
         const lsData = await lsRes.json();
         setLocalSupplierArrivals(lsData.items || []);
+        if (lsData.total) totalCount += lsData.total;
+        if (lsData.totalPages && lsData.totalPages > maxPages) maxPages = lsData.totalPages;
       }
+
+      setHistoryTotalRecords(totalCount);
+      setHistoryTotalPages(maxPages);
     } catch (err) {
       console.error('Failed to fetch arrival history', err);
     } finally {
       setLoadingHistory(false);
     }
-  }, [historyDate, historySearch]);
+  }, [historyDate, historySearch, historyPage, historyPageSize]);
 
   useEffect(() => {
     if (canSubmit) {
@@ -1271,21 +1289,21 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
                 </button>
                 <button
                   type="button"
-                  onClick={() => setHistoryType('MOT')}
+                  onClick={() => { setHistoryType('MOT'); setHistoryPage(1); }}
                   className={`px-3 py-1.5 ${historyType === 'MOT' ? 'bg-[#1E3A8A] text-white' : 'bg-white text-slate-700'}`}
                 >
                   MOT Only
                 </button>
                 <button
                   type="button"
-                  onClick={() => setHistoryType('CONTRACTOR')}
+                  onClick={() => { setHistoryType('CONTRACTOR'); setHistoryPage(1); }}
                   className={`px-3 py-1.5 ${historyType === 'CONTRACTOR' ? 'bg-[#1E3A8A] text-white' : 'bg-white text-slate-700'}`}
                 >
                   Contractors
                 </button>
                 <button
                   type="button"
-                  onClick={() => setHistoryType('LOCAL_SUPPLIER')}
+                  onClick={() => { setHistoryType('LOCAL_SUPPLIER'); setHistoryPage(1); }}
                   className={`px-3 py-1.5 ${historyType === 'LOCAL_SUPPLIER' ? 'bg-emerald-700 text-white' : 'bg-white text-slate-700'}`}
                 >
                   Local Suppliers
@@ -1295,7 +1313,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
               <input
                 type="date"
                 value={historyDate}
-                onChange={(e) => setHistoryDate(e.target.value)}
+                onChange={(e) => { setHistoryDate(e.target.value); setHistoryPage(1); }}
                 className="text-xs font-bold px-3 py-1.5 border rounded-xl bg-white"
               />
 
@@ -1304,7 +1322,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
                 <input
                   type="text"
                   value={historySearch}
-                  onChange={(e) => setHistorySearch(e.target.value)}
+                  onChange={(e) => { setHistorySearch(e.target.value); setHistoryPage(1); }}
                   placeholder="Search tokens, vehicle..."
                   className="text-xs pl-8 pr-3 py-1.5 border rounded-xl bg-white w-48"
                 />
@@ -1512,6 +1530,34 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination Controls */}
+            {historyTotalPages > 1 && (
+              <div className="flex items-center justify-between p-3 border-t border-[#EAE4D5] bg-slate-50 text-xs font-semibold text-slate-700">
+                <div>
+                  Page <span className="font-bold text-[#1E3A8A]">{historyPage}</span> of{' '}
+                  <span className="font-bold text-[#1E3A8A]">{historyTotalPages}</span> ({historyTotalRecords} records)
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    type="button"
+                    disabled={historyPage <= 1 || loadingHistory}
+                    onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
+                    className="px-3 py-1 bg-white border border-slate-300 rounded-lg hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-bold"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    type="button"
+                    disabled={historyPage >= historyTotalPages || loadingHistory}
+                    onClick={() => setHistoryPage((p) => Math.min(historyTotalPages, p + 1))}
+                    className="px-3 py-1 bg-white border border-slate-300 rounded-lg hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-bold"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

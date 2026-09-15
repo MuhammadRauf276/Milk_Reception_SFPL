@@ -660,3 +660,72 @@ SUPER ADMIN (SUPER_ADMIN)
   - Migration #25: `20260915100000_zmcc_local_supplier_directory_and_arrival` (restored byte-for-byte to base HEAD `5c05973538b4f90e69abffeb45370e6e671f0521`).
   - Migration #26: `20260915120000_zmcc_gate_exit_and_canonical_local_supplier` (adds gate exit schema, cutover, and `zmcc_local_supplier_erp_mapping_status_check`).
   - Total repository migration count: **exactly 26**.
+
+---
+
+## 24. Stage 6G-D.4A Operational UI Data Retrieval & History Scalability
+
+### 24A. Canonical Retrieval Modes
+Data retrieval for operational records is strictly classified into four conceptual modes:
+1. **`LIVE`**: Open, actionable operational records currently in progress (e.g. dispatched, token issued, in QA, weighing, unloading, awaiting exit).
+   - Server-side scoped by role and assigned source.
+   - Bounded with a hard maximum of 100 records per query.
+   - May poll on a controlled interval (e.g. ~15 seconds) if operationally justified.
+   - Excludes completed historical records and cancelled/retired states.
+2. **`RECENT_HISTORY`**: Completed operational history for day-to-day supervision.
+   - Default date range is strictly the **last 7 calendar days** (today and preceding 6 days).
+   - Paginated server-side (default `pageSize: 20`, max `pageSize: 100`).
+   - Background polling is strictly forbidden.
+3. **`SEARCH`**: Targeted historical lookup across arbitrary date ranges.
+   - Filtered and searched server-side in PostgreSQL using authoritative domain identifiers (vehicle number, token, RMR, local supplier code/name, visit number, etc.).
+   - Can query older than 7 calendar days.
+   - Server-side paginated; client-side filtering of complete history in React is forbidden.
+4. **`REPORT`**: Frozen interface contract for analytical summaries and bulk extractions.
+   - Dedicated heavy reporting, reporting SQL views, materialized views, and dynamic server-side Excel generation are deferred to **Stage 6G-M**.
+   - Bulk Excel generation, reporting views, and Elasticsearch are not implemented in Stage 6G-D.4A.
+
+### 24B. Standard Pagination Envelope
+All paginated collection APIs must return a standardized pagination envelope:
+```json
+{
+  "items": [],
+  "pagination": {
+    "page": 1,
+    "pageSize": 20,
+    "totalRecords": 0,
+    "totalPages": 1
+  },
+  "serverBusinessDate": "YYYY-MM-DD",
+  "metadata": {
+    "serverBusinessDate": "YYYY-MM-DD",
+    "serverTimestamp": "..."
+  }
+}
+```
+- Default `page`: `1` (1-indexed).
+- Default `pageSize`: `20`. Maximum `pageSize`: `100`.
+- When `totalRecords === 0`, `totalPages` is consistently `1` (or `0` when empty, but UI/API contracts must handle gracefully without division-by-zero).
+- Changing filters, date ranges, or search terms must reset client state to `page = 1`.
+- Silent hard limits without pagination metadata (e.g. silent `take: 50` or `take: 100`) are forbidden.
+
+### 24C. Bounded Database Query & Anti-Load-All Rule
+- Unrestricted `prisma.vehicleVisit.findMany(...)` or unbounded memory-mapping of operational records is strictly prohibited.
+- Filtering, date-range bounding, and pagination (`skip`/`take`) must occur at the database level before loading models into Node memory.
+- Source scoping and role authorization must remain database-side and fail-closed.
+- List endpoints must project only the relations and fields required for display cards and tables. Rich deep detail must be fetched on demand when opening a record detail view (`getOperationalLogById`).
+
+### 24D. Dashboard KPI Calculation Rule
+- Dashboard KPI cards cannot claim a period, daily, or all-time total if calculated solely from the visible page.
+- Aggregates must be computed at the database level (via `count`, `aggregate`, or `groupBy`) or explicitly labeled as scoped to the currently displayed filtered date range.
+- Loading thousands of records into browser React state simply to sum them is strictly forbidden.
+
+### 24E. Authoritative Time & Business Date Boundaries
+- **Plant Business Date**: 08:00 AM cutoff applies **only at authoritative Plant Gate Exit** (`VehicleVisit.operational_date`).
+- **No `created_at` Fallback**: `created_at` is a system audit timestamp and must never be used as a Business Date fallback.
+- **Upstream Facilities**: ZMCC, MOT, Local Supplier, and Dispatch operational dates strictly use Pakistan calendar dates (`Asia/Karachi`).
+
+### 24F. Source of Truth & Future Elasticsearch Boundary
+- PostgreSQL remains the sole authoritative source of truth for all operational data, transactions, and audit logs.
+- Elasticsearch, if introduced in future architectural stages, will exist solely as an asynchronous, read-only search projection fed via outbox / CDC. Elasticsearch will never be authoritative and will never be a synchronous dependency for operational intake or gate workflows.
+- No Elasticsearch dependencies, clients, or configuration are permitted in Stage 6G-D.4A.
+
