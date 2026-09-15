@@ -13,6 +13,8 @@ export async function clearTestDatabase(prisma: PrismaClient): Promise<void> {
   await prisma.zmccLabSession.deleteMany();
   await prisma.zmccMotArrival.deleteMany();
   await prisma.zmccContractorArrival.deleteMany();
+  await prisma.zmccLocalSupplierArrival.deleteMany();
+  await prisma.zmccLocalSupplier.deleteMany();
   await prisma.motJourneySummary.deleteMany();
 
   await prisma.dispatchLabResult.deleteMany();

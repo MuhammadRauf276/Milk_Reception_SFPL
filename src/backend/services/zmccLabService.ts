@@ -188,6 +188,7 @@ export function serializeLabSession(session: any) {
     arrival_type: session.arrival_type,
     mot_arrival_id: session.mot_arrival_id ? session.mot_arrival_id.toString() : null,
     contractor_arrival_id: session.contractor_arrival_id ? session.contractor_arrival_id.toString() : null,
+    local_supplier_arrival_id: session.local_supplier_arrival_id ? session.local_supplier_arrival_id.toString() : null,
     status: session.status,
     started_by_user_id: session.started_by_user_id.toString(),
     started_at: session.started_at instanceof Date ? session.started_at.toISOString() : session.started_at,
@@ -306,6 +307,26 @@ export function serializeLabSession(session: any) {
             : undefined,
         }
       : undefined,
+    local_supplier_arrival: session.local_supplier_arrival
+      ? {
+          id: session.local_supplier_arrival.id.toString(),
+          local_supplier_id: session.local_supplier_arrival.local_supplier_id.toString(),
+          rmr_number: session.local_supplier_arrival.rmr_number,
+          vehicle_number: session.local_supplier_arrival.vehicle_number,
+          zmcc_token: session.local_supplier_arrival.zmcc_token,
+          arrival_timestamp: session.local_supplier_arrival.arrival_timestamp instanceof Date ? session.local_supplier_arrival.arrival_timestamp.toISOString() : session.local_supplier_arrival.arrival_timestamp,
+          arrival_date: session.local_supplier_arrival.arrival_date instanceof Date ? session.local_supplier_arrival.arrival_date.toISOString().split('T')[0] : session.local_supplier_arrival.arrival_date,
+          local_supplier: session.local_supplier_arrival.local_supplier
+            ? {
+                id: session.local_supplier_arrival.local_supplier.id.toString(),
+                local_supplier_code: session.local_supplier_arrival.local_supplier.local_supplier_code,
+                name: session.local_supplier_arrival.local_supplier.name,
+                erp_reference: session.local_supplier_arrival.local_supplier.erp_reference,
+                erp_mapping_status: session.local_supplier_arrival.local_supplier.erp_mapping_status,
+              }
+            : undefined,
+        }
+      : undefined,
     tank_receipt: session.tank_receipt ? serializeTankReceipt(session.tank_receipt) : null,
     results: session.results ? session.results.map(serializeLabResult) : [],
   };
@@ -346,7 +367,20 @@ export async function getArrivalsQueue(
     ],
   };
 
-  const [motArrivals, contractorArrivals] = await Promise.all([
+  // Local Supplier arrivals condition:
+  // 1. zmcc_id matches (if scoped)
+  // 2. lab_session is null OR lab_session.status = 'IN_PROGRESS'
+  // 3. local_supplier.is_active = true
+  const localSupplierWhere: Prisma.ZmccLocalSupplierArrivalWhereInput = {
+    ...(effectiveZmccId ? { zmcc_id: effectiveZmccId } : {}),
+    local_supplier: { is_active: true },
+    OR: [
+      { lab_session: null },
+      { lab_session: { status: 'IN_PROGRESS' } },
+    ],
+  };
+
+  const [motArrivals, contractorArrivals, localSupplierArrivals] = await Promise.all([
     prisma.zmccMotArrival.findMany({
       where: motWhere,
       include: {
@@ -368,6 +402,16 @@ export async function getArrivalsQueue(
       include: {
         zmcc: true,
         contractor_source: true,
+        recorded_by: true,
+        lab_session: true,
+      },
+      orderBy: { arrival_timestamp: 'asc' },
+    }),
+    prisma.zmccLocalSupplierArrival.findMany({
+      where: localSupplierWhere,
+      include: {
+        zmcc: true,
+        local_supplier: true,
         recorded_by: true,
         lab_session: true,
       },
@@ -419,6 +463,26 @@ export async function getArrivalsQueue(
     });
   }
 
+  for (const ls of localSupplierArrivals) {
+    queueItems.push({
+      queue_type: 'LOCAL_SUPPLIER',
+      arrival_id: ls.id.toString(),
+      zmcc_id: ls.zmcc_id.toString(),
+      zmcc_code: ls.zmcc.code,
+      zmcc_name: ls.zmcc.name,
+      zmcc_token: ls.zmcc_token,
+      local_supplier_id: ls.local_supplier_id.toString(),
+      local_supplier_code: ls.local_supplier.local_supplier_code,
+      local_supplier_name: ls.local_supplier.name,
+      rmr_number: ls.rmr_number,
+      vehicle_number: ls.vehicle_number,
+      arrival_timestamp: ls.arrival_timestamp.toISOString(),
+      arrival_date: ls.arrival_date.toISOString().split('T')[0],
+      lab_session_id: ls.lab_session ? ls.lab_session.id.toString() : null,
+      lab_session_status: ls.lab_session ? ls.lab_session.status : null,
+    });
+  }
+
   // Sort queue strictly by arrival_timestamp ascending (oldest arrival first)
   queueItems.sort((a, b) => new Date(a.arrival_timestamp).getTime() - new Date(b.arrival_timestamp).getTime());
 
@@ -429,7 +493,7 @@ export async function getArrivalsQueue(
 }
 
 export interface StartOrResumePayload {
-  arrival_type: 'MOT' | 'CONTRACTOR';
+  arrival_type: 'MOT' | 'CONTRACTOR' | 'LOCAL_SUPPLIER';
   arrival_id: string | number | bigint;
 }
 
@@ -442,8 +506,8 @@ export async function startOrResumeSession(
   if (!auth) return { status: 401, error: 'Unauthorized.' };
 
   const { arrival_type, arrival_id } = payload;
-  if (!arrival_type || !['MOT', 'CONTRACTOR'].includes(arrival_type)) {
-    return { status: 400, error: 'arrival_type must be either MOT or CONTRACTOR.' };
+  if (!arrival_type || !['MOT', 'CONTRACTOR', 'LOCAL_SUPPLIER'].includes(arrival_type)) {
+    return { status: 400, error: 'arrival_type must be MOT, CONTRACTOR, or LOCAL_SUPPLIER.' };
   }
 
   if (!arrival_id) {
@@ -498,7 +562,7 @@ export async function startOrResumeSession(
         data: serializeLabSession(arrival.lab_session),
       };
     }
-  } else {
+  } else if (arrival_type === 'CONTRACTOR') {
     const arrival = await prisma.zmccContractorArrival.findUnique({
       where: { id: arrivalIdBigInt },
       include: {
@@ -526,6 +590,45 @@ export async function startOrResumeSession(
 
     if (!arrival.contractor_source.is_active) {
       return { status: 400, error: 'Cannot start lab session for an inactive contractor.' };
+    }
+
+    arrivalZmccId = arrival.zmcc_id;
+
+    // If session already exists
+    if (arrival.lab_session) {
+      return {
+        status: 200,
+        data: serializeLabSession(arrival.lab_session),
+      };
+    }
+  } else {
+    const arrival = await prisma.zmccLocalSupplierArrival.findUnique({
+      where: { id: arrivalIdBigInt },
+      include: {
+        local_supplier: true,
+        lab_session: {
+          include: {
+            zmcc: true,
+            starter: true,
+            completer: true,
+            results: {
+              orderBy: { display_order_snapshot: 'asc' },
+            },
+          },
+        },
+      },
+    });
+
+    if (!arrival) {
+      return { status: 404, error: 'Local Supplier Arrival not found.' };
+    }
+
+    if (!auth.isSuperAdmin && arrival.zmcc_id !== auth.effectiveZmccId!) {
+      return { status: 403, error: 'Forbidden. Arrival record belongs to another ZMCC.' };
+    }
+
+    if (!arrival.local_supplier.is_active) {
+      return { status: 400, error: 'Cannot start lab session for an inactive local supplier.' };
     }
 
     arrivalZmccId = arrival.zmcc_id;
@@ -572,7 +675,11 @@ export async function startOrResumeSession(
     const session = await prisma.$transaction(async (tx) => {
       // Re-verify existing session inside transaction
       const existing = await tx.zmccLabSession.findFirst({
-        where: arrival_type === 'MOT' ? { mot_arrival_id: arrivalIdBigInt } : { contractor_arrival_id: arrivalIdBigInt },
+        where: arrival_type === 'MOT'
+          ? { mot_arrival_id: arrivalIdBigInt }
+          : arrival_type === 'CONTRACTOR'
+          ? { contractor_arrival_id: arrivalIdBigInt }
+          : { local_supplier_arrival_id: arrivalIdBigInt },
         include: {
           zmcc: true,
           starter: true,
@@ -593,6 +700,7 @@ export async function startOrResumeSession(
           arrival_type,
           mot_arrival_id: arrival_type === 'MOT' ? arrivalIdBigInt : null,
           contractor_arrival_id: arrival_type === 'CONTRACTOR' ? arrivalIdBigInt : null,
+          local_supplier_arrival_id: arrival_type === 'LOCAL_SUPPLIER' ? arrivalIdBigInt : null,
           status: 'IN_PROGRESS',
           started_by_user_id: auth.actorUserId,
           results: {
@@ -634,7 +742,11 @@ export async function startOrResumeSession(
     // Check if unique constraint violated (concurrent start)
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
       const existing = await prisma.zmccLabSession.findFirst({
-        where: arrival_type === 'MOT' ? { mot_arrival_id: arrivalIdBigInt } : { contractor_arrival_id: arrivalIdBigInt },
+        where: arrival_type === 'MOT'
+          ? { mot_arrival_id: arrivalIdBigInt }
+          : arrival_type === 'CONTRACTOR'
+          ? { contractor_arrival_id: arrivalIdBigInt }
+          : { local_supplier_arrival_id: arrivalIdBigInt },
         include: {
           zmcc: true,
           starter: true,
@@ -694,6 +806,11 @@ export async function getSessionById(
       contractor_arrival: {
         include: {
           contractor_source: true,
+        },
+      },
+      local_supplier_arrival: {
+        include: {
+          local_supplier: true,
         },
       },
       tank_receipt: {
@@ -1174,6 +1291,11 @@ export async function completeSession(
           contractor_source: true,
         },
       },
+      local_supplier_arrival: {
+        include: {
+          local_supplier: true,
+        },
+      },
       tank_receipt: {
         include: {
           tank: true,
@@ -1206,6 +1328,7 @@ export async function completeSession(
       results: true,
       mot_arrival: true,
       contractor_arrival: true,
+      local_supplier_arrival: true,
     },
   });
 
@@ -1553,6 +1676,11 @@ export async function completeSession(
               contractor_source: true,
             },
           },
+          local_supplier_arrival: {
+            include: {
+              local_supplier: true,
+            },
+          },
           results: {
             orderBy: { display_order_snapshot: 'asc' },
           },
@@ -1640,7 +1768,7 @@ export async function completeSession(
           new_values: {
             status: 'COMPLETED',
             arrival_type: session.arrival_type,
-            arrival_id: (session.arrival_type === 'MOT' ? session.mot_arrival_id : session.contractor_arrival_id)?.toString(),
+            arrival_id: (session.arrival_type === 'MOT' ? session.mot_arrival_id : session.arrival_type === 'CONTRACTOR' ? session.contractor_arrival_id : session.local_supplier_arrival_id)?.toString(),
             decision,
             rejection_reason: decision === 'REJECTED' ? rejectionReasonTrimmed : null,
             completion_client_event_id: clientEventId,
@@ -1715,6 +1843,11 @@ export async function completeSession(
               contractor_source: true,
             },
           },
+          local_supplier_arrival: {
+            include: {
+              local_supplier: true,
+            },
+          },
           results: {
             orderBy: { display_order_snapshot: 'asc' },
           },
@@ -1765,6 +1898,11 @@ export async function completeSession(
           contractor_arrival: {
             include: {
               contractor_source: true,
+            },
+          },
+          local_supplier_arrival: {
+            include: {
+              local_supplier: true,
             },
           },
           results: {
@@ -2403,6 +2541,11 @@ export async function correctCompletedSession(
               contractor_source: true,
             },
           },
+          local_supplier_arrival: {
+            include: {
+              local_supplier: true,
+            },
+          },
           results: {
             orderBy: { display_order_snapshot: 'asc' },
           },
@@ -2493,6 +2636,10 @@ export async function getLabHistory(
       { contractor_arrival: { zmcc_token: { contains: s, mode: 'insensitive' } } },
       { contractor_arrival: { vehicle_number: { contains: s, mode: 'insensitive' } } },
       { contractor_arrival: { contractor_source: { name: { contains: s, mode: 'insensitive' } } } },
+      { local_supplier_arrival: { zmcc_token: { contains: s, mode: 'insensitive' } } },
+      { local_supplier_arrival: { vehicle_number: { contains: s, mode: 'insensitive' } } },
+      { local_supplier_arrival: { rmr_number: { contains: s, mode: 'insensitive' } } },
+      { local_supplier_arrival: { local_supplier: { name: { contains: s, mode: 'insensitive' } } } },
     ];
   }
 
@@ -2524,6 +2671,11 @@ export async function getLabHistory(
         contractor_arrival: {
           include: {
             contractor_source: true,
+          },
+        },
+        local_supplier_arrival: {
+          include: {
+            local_supplier: true,
           },
         },
         tank_receipt: {

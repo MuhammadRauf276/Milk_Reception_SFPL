@@ -72,6 +72,30 @@ export interface CorrectContractorArrivalPayload {
   phe_gps_accuracy?: number | null;
 }
 
+export interface SubmitLocalSupplierArrivalPayload {
+  local_supplier_id: string | number | bigint;
+  rmr_number: string;
+  vehicle_number: string;
+  arrival_timestamp?: string | Date;
+  client_event_id: string;
+  phe_latitude?: number | null;
+  phe_longitude?: number | null;
+  phe_gps_accuracy?: number | null;
+  zmcc_id?: string | number | bigint;
+  target_zmcc_id?: string | number | bigint;
+}
+
+export interface CorrectLocalSupplierArrivalPayload {
+  reason: string;
+  local_supplier_id?: string | number | bigint;
+  rmr_number?: string;
+  vehicle_number?: string;
+  arrival_timestamp?: string | Date;
+  phe_latitude?: number | null;
+  phe_longitude?: number | null;
+  phe_gps_accuracy?: number | null;
+}
+
 export async function resolveZmccArrivalAuth(
   reqOrUser?: Request | User,
   action: ZmccArrivalAction = 'READ_ARRIVAL'
@@ -345,6 +369,64 @@ function isExactContractorArrivalReplay(
   return true;
 }
 
+interface LocalSupplierArrivalReplayComparison {
+  zmcc_id: bigint;
+  local_supplier_id: bigint;
+  rmr_number: string;
+  vehicle_number: string;
+  arrival_timestamp: Date;
+  phe_latitude: number | null;
+  phe_longitude: number | null;
+  phe_gps_accuracy: number | null;
+}
+
+function isExactLocalSupplierArrivalReplay(
+  existing: {
+    zmcc_id: bigint;
+    local_supplier_id: bigint;
+    rmr_number: string | null;
+    vehicle_number: string;
+    arrival_timestamp: Date | string;
+    phe_latitude: any;
+    phe_longitude: any;
+    phe_gps_accuracy: any;
+  },
+  expected: LocalSupplierArrivalReplayComparison
+): boolean {
+  if (existing.zmcc_id !== expected.zmcc_id) return false;
+  if (existing.local_supplier_id !== expected.local_supplier_id) return false;
+  if ((existing.rmr_number || '').trim() !== (expected.rmr_number || '').trim()) return false;
+  if (existing.vehicle_number.trim().toUpperCase() !== expected.vehicle_number.trim().toUpperCase()) return false;
+
+  const existingTime = new Date(existing.arrival_timestamp).getTime();
+  const expectedTime = expected.arrival_timestamp.getTime();
+  if (Math.abs(existingTime - expectedTime) >= 1000) return false;
+
+  const existingLat = existing.phe_latitude != null ? Number(existing.phe_latitude) : null;
+  const existingLng = existing.phe_longitude != null ? Number(existing.phe_longitude) : null;
+  const existingAcc = existing.phe_gps_accuracy != null ? Number(existing.phe_gps_accuracy) : null;
+
+  if (expected.phe_latitude == null) {
+    if (existingLat != null) return false;
+  } else {
+    if (existingLat == null || Math.abs(expected.phe_latitude - existingLat) >= 0.0001) return false;
+  }
+
+  if (expected.phe_longitude == null) {
+    if (existingLng != null) return false;
+  } else {
+    if (existingLng == null || Math.abs(expected.phe_longitude - existingLng) >= 0.0001) return false;
+  }
+
+  if (expected.phe_gps_accuracy == null) {
+    if (existingAcc != null) return false;
+  } else {
+    if (existingAcc == null || Math.abs(expected.phe_gps_accuracy - existingAcc) >= 0.01) return false;
+  }
+
+  return true;
+}
+
 function validateRmrNumber(
   rawRmr: unknown,
   fieldRequired: boolean = true
@@ -461,6 +543,54 @@ export function serializeContractorArrival(arrival: any) {
           code: arrival.contractor_source.code,
           name: arrival.contractor_source.name,
           source_type: arrival.contractor_source.source_type,
+        }
+      : undefined,
+    zmcc: arrival.zmcc
+      ? {
+          id: arrival.zmcc.id.toString(),
+          code: arrival.zmcc.code,
+          name: arrival.zmcc.name,
+        }
+      : undefined,
+  };
+}
+
+export function serializeLocalSupplierArrival(arrival: any) {
+  return {
+    id: arrival.id.toString(),
+    zmcc_id: arrival.zmcc_id.toString(),
+    local_supplier_id: arrival.local_supplier_id.toString(),
+    rmr_number: arrival.rmr_number,
+    vehicle_number: arrival.vehicle_number,
+    arrival_timestamp: arrival.arrival_timestamp instanceof Date ? arrival.arrival_timestamp.toISOString() : arrival.arrival_timestamp,
+    arrival_date: arrival.arrival_date instanceof Date ? arrival.arrival_date.toISOString().split('T')[0] : arrival.arrival_date,
+    zmcc_token: arrival.zmcc_token,
+    phe_latitude: arrival.phe_latitude != null ? Number(arrival.phe_latitude) : null,
+    phe_longitude: arrival.phe_longitude != null ? Number(arrival.phe_longitude) : null,
+    phe_gps_accuracy: arrival.phe_gps_accuracy != null ? Number(arrival.phe_gps_accuracy) : null,
+    client_event_id: arrival.client_event_id,
+    recorded_by_user_id: arrival.recorded_by_user_id.toString(),
+    recorded_by: arrival.recorded_by
+      ? {
+          id: arrival.recorded_by.id.toString(),
+          username: arrival.recorded_by.username,
+          full_name: arrival.recorded_by.full_name,
+        }
+      : undefined,
+    submitted_at: arrival.submitted_at instanceof Date ? arrival.submitted_at.toISOString() : arrival.submitted_at,
+    correction_count: arrival.correction_count,
+    created_at: arrival.created_at instanceof Date ? arrival.created_at.toISOString() : arrival.created_at,
+    updated_at: arrival.updated_at instanceof Date ? arrival.updated_at.toISOString() : arrival.updated_at,
+    local_supplier: arrival.local_supplier
+      ? {
+          id: arrival.local_supplier.id.toString(),
+          local_supplier_code: arrival.local_supplier.local_supplier_code,
+          name: arrival.local_supplier.name,
+          phone: arrival.local_supplier.phone ?? null,
+          cnic: arrival.local_supplier.cnic ?? null,
+          erp_reference: arrival.local_supplier.erp_reference ?? null,
+          erp_mapping_status: arrival.local_supplier.erp_mapping_status,
+          is_active: arrival.local_supplier.is_active,
         }
       : undefined,
     zmcc: arrival.zmcc
@@ -1813,5 +1943,574 @@ export async function getArrivingMotJourneys(
   return {
     status: 200,
     data: serialized,
+  };
+}
+
+export async function submitLocalSupplierArrival(
+  reqOrUser: Request | User,
+  payload: SubmitLocalSupplierArrivalPayload
+): Promise<ServiceResult<any>> {
+  const { auth, errorResponse } = await resolveZmccArrivalAuth(reqOrUser, 'SUBMIT_ARRIVAL');
+  if (errorResponse) return errorResponse;
+  if (!auth) return { status: 401, error: 'Unauthorized.' };
+
+  if (!payload || typeof payload !== 'object') {
+    return { status: 400, error: 'Missing request payload.' };
+  }
+
+  const rawSupplierId = payload.local_supplier_id;
+  if (rawSupplierId === undefined || rawSupplierId === null || String(rawSupplierId).trim() === '') {
+    return { status: 400, error: 'local_supplier_id is required.' };
+  }
+  let localSupplierId: bigint;
+  try {
+    localSupplierId = BigInt(String(rawSupplierId).trim());
+  } catch {
+    return { status: 400, error: 'Invalid local_supplier_id format.' };
+  }
+
+  const rmrValidation = validateRmrNumber(payload.rmr_number, true);
+  if (rmrValidation.error) {
+    return { status: 400, error: rmrValidation.error };
+  }
+  const rmrNumber = rmrValidation.value!;
+
+  const vehicleNumber = typeof payload.vehicle_number === 'string' ? payload.vehicle_number.trim().toUpperCase().replace(/\s+/g, ' ') : '';
+  if (!vehicleNumber) {
+    return { status: 400, error: 'vehicle_number is required.' };
+  }
+
+  const clientEventId = typeof payload.client_event_id === 'string' ? payload.client_event_id.trim() : '';
+  if (!clientEventId) {
+    return { status: 400, error: 'client_event_id is required.' };
+  }
+
+  const arrivalDate = payload.arrival_timestamp ? new Date(payload.arrival_timestamp) : new Date();
+  if (isNaN(arrivalDate.getTime())) {
+    return { status: 400, error: 'Invalid arrival_timestamp.' };
+  }
+
+  const now = new Date();
+  if (arrivalDate.getTime() > now.getTime() + 5 * 60 * 1000) {
+    return { status: 400, error: 'arrival_timestamp cannot be in the future.' };
+  }
+
+  const gpsValidation = validateGpsCoords(payload.phe_latitude, payload.phe_longitude, payload.phe_gps_accuracy);
+  if (gpsValidation.error) {
+    return { status: 400, error: gpsValidation.error };
+  }
+
+  let targetZmccId: bigint | null = null;
+  const rawTargetZmccId = payload.zmcc_id ?? payload.target_zmcc_id;
+  if (auth.isSuperAdmin) {
+    if (!rawTargetZmccId || String(rawTargetZmccId).trim() === '') {
+      return { status: 400, error: 'target_zmcc_id is required for Super Admin.' };
+    }
+    try {
+      targetZmccId = BigInt(String(rawTargetZmccId).trim());
+    } catch {
+      return { status: 400, error: 'Invalid target_zmcc_id format.' };
+    }
+  } else {
+    targetZmccId = auth.effectiveZmccId;
+  }
+
+  if (!targetZmccId) {
+    return { status: 400, error: 'Target ZMCC could not be resolved.' };
+  }
+
+  // Validate target ZMCC exists, is active, and is of type 'ZMCC'
+  const targetZmcc = await prisma.procurementSource.findUnique({
+    where: { id: targetZmccId },
+  });
+  if (!targetZmcc) {
+    return { status: 404, error: 'Target ZMCC procurement source not found.' };
+  }
+  if (targetZmcc.source_type !== 'ZMCC') {
+    return { status: 400, error: `Target source is not of type ZMCC (found: ${targetZmcc.source_type}).` };
+  }
+  if (!targetZmcc.is_active) {
+    return { status: 400, error: 'Target ZMCC procurement source is inactive.' };
+  }
+
+  // Validate Local Supplier exists, is active, and belongs to target ZMCC
+  const localSupplier = await prisma.zmccLocalSupplier.findUnique({
+    where: { id: localSupplierId },
+  });
+  if (!localSupplier) {
+    return { status: 404, error: 'Local supplier not found.' };
+  }
+  if (localSupplier.zmcc_id !== targetZmccId) {
+    return { status: 400, error: 'Selected local supplier belongs to a different ZMCC.' };
+  }
+  if (!localSupplier.is_active) {
+    return { status: 400, error: 'Selected local supplier is inactive and cannot receive new milk arrivals.' };
+  }
+
+  const expectedSupplierPayload: LocalSupplierArrivalReplayComparison = {
+    zmcc_id: targetZmccId,
+    local_supplier_id: localSupplierId,
+    rmr_number: rmrNumber,
+    vehicle_number: vehicleNumber,
+    arrival_timestamp: arrivalDate,
+    phe_latitude: gpsValidation.lat,
+    phe_longitude: gpsValidation.lng,
+    phe_gps_accuracy: gpsValidation.acc,
+  };
+
+  const existingByEventId = await prisma.zmccLocalSupplierArrival.findUnique({
+    where: { client_event_id: clientEventId },
+    include: {
+      local_supplier: true,
+      zmcc: true,
+      recorded_by: true,
+    },
+  });
+
+  if (existingByEventId) {
+    if (isExactLocalSupplierArrivalReplay(existingByEventId, expectedSupplierPayload)) {
+      return {
+        status: 200,
+        data: {
+          ...serializeLocalSupplierArrival(existingByEventId),
+          is_replay: true,
+        },
+      };
+    } else {
+      return {
+        status: 409,
+        error: 'Conflict: Reused client_event_id with differing local supplier arrival payload.',
+      };
+    }
+  }
+
+  const pktDateStr = getPakistanCalendarDate(arrivalDate);
+  const dateCode = pktDateStr.replace(/-/g, '');
+  const arrivalDatePkt = new Date(`${pktDateStr}T00:00:00.000Z`);
+
+  try {
+    const createdArrival = await prisma.$transaction(async (tx) => {
+      const seqResult = await tx.$queryRaw<{ nextval: bigint }[]>`SELECT nextval('zmcc_token_seq') as nextval`;
+      if (!seqResult || seqResult.length === 0 || seqResult[0].nextval === undefined || seqResult[0].nextval === null) {
+        throw new Error('FAILED_TO_ALLOCATE_ZMCC_TOKEN_SEQUENCE');
+      }
+      const seqNum = Number(seqResult[0].nextval);
+      const zmccToken = `ZT-LS-${dateCode}-${String(seqNum).padStart(4, '0')}`;
+
+      const arrival = await tx.zmccLocalSupplierArrival.create({
+        data: {
+          zmcc_id: targetZmccId!,
+          local_supplier_id: localSupplierId,
+          rmr_number: rmrNumber,
+          vehicle_number: vehicleNumber,
+          arrival_timestamp: arrivalDate,
+          arrival_date: arrivalDatePkt,
+          zmcc_token: zmccToken,
+          phe_latitude: gpsValidation.lat != null ? new Prisma.Decimal(gpsValidation.lat.toFixed(7)) : null,
+          phe_longitude: gpsValidation.lng != null ? new Prisma.Decimal(gpsValidation.lng.toFixed(7)) : null,
+          phe_gps_accuracy: gpsValidation.acc != null ? new Prisma.Decimal(gpsValidation.acc.toFixed(2)) : null,
+          client_event_id: clientEventId,
+          recorded_by_user_id: auth.actorUserId,
+          submitted_at: now,
+          correction_count: 0,
+        },
+        include: {
+          local_supplier: true,
+          zmcc: true,
+          recorded_by: true,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          table_name: 'zmcc_local_supplier_arrival',
+          record_id: arrival.id,
+          action: 'ZMCC_LOCAL_SUPPLIER_ARRIVAL_SUBMITTED',
+          old_values: Prisma.DbNull,
+          new_values: {
+            local_supplier_id: localSupplierId.toString(),
+            local_supplier_code: localSupplier.local_supplier_code,
+            supplier_name: localSupplier.name,
+            rmr_number: rmrNumber,
+            vehicle_number: vehicleNumber,
+            zmcc_token: zmccToken,
+            arrival_timestamp: arrivalDate.toISOString(),
+            arrival_date: pktDateStr,
+            client_event_id: clientEventId,
+          },
+          user_id: auth.actorUserId,
+        },
+      });
+
+      return arrival;
+    });
+
+    return {
+      status: 201,
+      data: serializeLocalSupplierArrival(createdArrival),
+    };
+  } catch (err: any) {
+    if (err.code === 'P2002') {
+      const existingAfterCollision = await prisma.zmccLocalSupplierArrival.findUnique({
+        where: { client_event_id: clientEventId },
+        include: {
+          local_supplier: true,
+          zmcc: true,
+          recorded_by: true,
+        },
+      });
+      if (existingAfterCollision) {
+        if (isExactLocalSupplierArrivalReplay(existingAfterCollision, expectedSupplierPayload)) {
+          return {
+            status: 200,
+            data: {
+              ...serializeLocalSupplierArrival(existingAfterCollision),
+              is_replay: true,
+            },
+          };
+        } else {
+          return {
+            status: 409,
+            error: 'Conflict: Reused client_event_id with differing local supplier arrival payload.',
+          };
+        }
+      }
+      return {
+        status: 409,
+        error: 'Conflict: Duplicate client_event_id collision on local supplier arrival.',
+      };
+    }
+    console.error('submitLocalSupplierArrival error:', err);
+    return { status: 500, error: 'Internal server error while recording local supplier arrival.' };
+  }
+}
+
+export async function correctLocalSupplierArrival(
+  reqOrUser: Request | User,
+  arrivalIdParam: string | number | bigint,
+  payload: CorrectLocalSupplierArrivalPayload
+): Promise<ServiceResult<any>> {
+  const { auth, errorResponse } = await resolveZmccArrivalAuth(reqOrUser, 'CORRECT_ARRIVAL');
+  if (errorResponse) return errorResponse;
+  if (!auth) return { status: 401, error: 'Unauthorized.' };
+
+  let arrivalId: bigint;
+  try {
+    arrivalId = BigInt(String(arrivalIdParam).trim());
+  } catch {
+    return { status: 400, error: 'Invalid arrival ID format.' };
+  }
+
+  if (!payload || typeof payload !== 'object') {
+    return { status: 400, error: 'Missing correction payload.' };
+  }
+
+  const reason = typeof payload.reason === 'string' ? payload.reason.trim() : '';
+  if (!reason || reason.length < 5) {
+    return { status: 400, error: 'Correction reason is mandatory and must be at least 5 characters.' };
+  }
+
+  const arrival = await prisma.zmccLocalSupplierArrival.findUnique({
+    where: { id: arrivalId },
+    include: {
+      local_supplier: true,
+      zmcc: true,
+      recorded_by: true,
+    },
+  });
+
+  if (!arrival) {
+    return { status: 404, error: 'Local Supplier Arrival record not found.' };
+  }
+
+  if (!auth.isSuperAdmin && arrival.zmcc_id !== auth.effectiveZmccId!) {
+    return { status: 403, error: 'Forbidden. Arrival record belongs to another ZMCC.' };
+  }
+
+  if (arrival.correction_count >= 2) {
+    return {
+      status: 400,
+      error: 'Maximum number of corrections (2) has been reached for this arrival record.',
+    };
+  }
+
+  const updateData: Prisma.ZmccLocalSupplierArrivalUpdateInput = {};
+
+  const oldValues: Record<string, any> = {};
+  const newValues: Record<string, any> = {};
+
+  // Supplier correction: Must exist, be active, and stay in the same ZMCC
+  if (payload.local_supplier_id !== undefined) {
+    let newSupplierId: bigint;
+    try {
+      newSupplierId = BigInt(String(payload.local_supplier_id).trim());
+    } catch {
+      return { status: 400, error: 'Invalid local_supplier_id format.' };
+    }
+    if (newSupplierId !== arrival.local_supplier_id) {
+      const newSupplier = await prisma.zmccLocalSupplier.findUnique({
+        where: { id: newSupplierId },
+      });
+      if (!newSupplier) {
+        return { status: 404, error: 'New local supplier not found.' };
+      }
+      if (newSupplier.zmcc_id !== arrival.zmcc_id) {
+        return { status: 400, error: 'Forbidden. Supplier correction must remain in the same ZMCC.' };
+      }
+      if (!newSupplier.is_active) {
+        return { status: 400, error: 'Cannot reassign arrival to an inactive supplier.' };
+      }
+      oldValues.local_supplier_id = arrival.local_supplier_id.toString();
+      newValues.local_supplier_id = newSupplier.id.toString();
+      updateData.local_supplier = { connect: { id: newSupplier.id } };
+    }
+  }
+
+  if (payload.rmr_number !== undefined) {
+    const rmrValidation = validateRmrNumber(payload.rmr_number, false);
+    if (rmrValidation.error) {
+      return { status: 400, error: rmrValidation.error };
+    }
+    const trimmedRmr = rmrValidation.value!;
+    if (trimmedRmr !== arrival.rmr_number) {
+      oldValues.rmr_number = arrival.rmr_number;
+      newValues.rmr_number = trimmedRmr;
+      updateData.rmr_number = trimmedRmr;
+    }
+  }
+
+  if (payload.vehicle_number !== undefined) {
+    const trimmedVeh = String(payload.vehicle_number).trim().toUpperCase().replace(/\s+/g, ' ');
+    if (!trimmedVeh) {
+      return { status: 400, error: 'vehicle_number cannot be blank.' };
+    }
+    if (trimmedVeh !== arrival.vehicle_number) {
+      oldValues.vehicle_number = arrival.vehicle_number;
+      newValues.vehicle_number = trimmedVeh;
+      updateData.vehicle_number = trimmedVeh;
+    }
+  }
+
+  if (payload.arrival_timestamp !== undefined) {
+    const parsedTime = new Date(payload.arrival_timestamp);
+    if (isNaN(parsedTime.getTime())) {
+      return { status: 400, error: 'Invalid arrival_timestamp format.' };
+    }
+    const now = new Date();
+    if (parsedTime.getTime() > now.getTime() + 5 * 60 * 1000) {
+      return { status: 400, error: 'arrival_timestamp cannot be in the future.' };
+    }
+    if (parsedTime.getTime() !== arrival.arrival_timestamp.getTime()) {
+      oldValues.arrival_timestamp = arrival.arrival_timestamp.toISOString();
+      newValues.arrival_timestamp = parsedTime.toISOString();
+      updateData.arrival_timestamp = parsedTime;
+
+      const pktDateStr = getPakistanCalendarDate(parsedTime);
+      updateData.arrival_date = new Date(`${pktDateStr}T00:00:00.000Z`);
+    }
+  }
+
+  if (payload.phe_latitude !== undefined || payload.phe_longitude !== undefined) {
+    const gpsValidation = validateGpsCoords(payload.phe_latitude, payload.phe_longitude, payload.phe_gps_accuracy);
+    if (gpsValidation.error) {
+      return { status: 400, error: gpsValidation.error };
+    }
+    oldValues.phe_latitude = arrival.phe_latitude != null ? Number(arrival.phe_latitude) : null;
+    oldValues.phe_longitude = arrival.phe_longitude != null ? Number(arrival.phe_longitude) : null;
+    oldValues.phe_gps_accuracy = arrival.phe_gps_accuracy != null ? Number(arrival.phe_gps_accuracy) : null;
+
+    newValues.phe_latitude = gpsValidation.lat;
+    newValues.phe_longitude = gpsValidation.lng;
+    newValues.phe_gps_accuracy = gpsValidation.acc;
+
+    updateData.phe_latitude = gpsValidation.lat != null ? new Prisma.Decimal(gpsValidation.lat.toFixed(7)) : null;
+    updateData.phe_longitude = gpsValidation.lng != null ? new Prisma.Decimal(gpsValidation.lng.toFixed(7)) : null;
+    updateData.phe_gps_accuracy = gpsValidation.acc != null ? new Prisma.Decimal(gpsValidation.acc.toFixed(2)) : null;
+  }
+
+  if (Object.keys(newValues).length === 0) {
+    return { status: 400, error: 'No values were modified in this correction request.' };
+  }
+
+  try {
+    const updated = await prisma.$transaction(async (tx) => {
+      // Concurrency safety: acquire row-level lock on the arrival record
+      const lockedRows = await tx.$queryRaw<{ id: bigint; correction_count: number }[]>`
+        SELECT id, correction_count FROM zmcc_local_supplier_arrival WHERE id = ${arrivalId} FOR UPDATE
+      `;
+      if (!lockedRows || lockedRows.length === 0) {
+        throw new Error('ARRIVAL_NOT_FOUND');
+      }
+      const currentCount = lockedRows[0].correction_count;
+      if (currentCount >= 2) {
+        throw new Error('MAX_CORRECTIONS_REACHED');
+      }
+
+      const nextCorrectionCount = currentCount + 1;
+      const updatedRecord = await tx.zmccLocalSupplierArrival.update({
+        where: { id: arrivalId },
+        data: {
+          ...updateData,
+          correction_count: nextCorrectionCount,
+        },
+        include: {
+          local_supplier: true,
+          zmcc: true,
+          recorded_by: true,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          table_name: 'zmcc_local_supplier_arrival',
+          record_id: arrivalId,
+          action: 'ZMCC_LOCAL_SUPPLIER_ARRIVAL_CORRECTED',
+          old_values: oldValues,
+          new_values: {
+            ...newValues,
+            correction_reason: reason,
+            correction_count: nextCorrectionCount,
+          },
+          user_id: auth.actorUserId,
+        },
+      });
+
+      return updatedRecord;
+    });
+
+    return {
+      status: 200,
+      data: serializeLocalSupplierArrival(updated),
+    };
+  } catch (err: any) {
+    if (err.message === 'MAX_CORRECTIONS_REACHED') {
+      return {
+        status: 409,
+        error: 'Conflict: Maximum number of corrections (2) has been reached or another correction was committed concurrently.',
+      };
+    }
+    if (err.message === 'ARRIVAL_NOT_FOUND') {
+      return { status: 404, error: 'Local Supplier Arrival record not found.' };
+    }
+    console.error('correctLocalSupplierArrival error:', err);
+    return { status: 500, error: 'Internal server error while correcting local supplier arrival.' };
+  }
+}
+
+export async function listLocalSupplierArrivals(
+  reqOrUser: Request | User,
+  filters: {
+    date?: string;
+    local_supplier_id?: string | number | bigint;
+    vehicle_number?: string;
+    search?: string;
+    page?: number;
+    pageSize?: number;
+  } = {}
+): Promise<ServiceResult<any>> {
+  const { auth, errorResponse } = await resolveZmccArrivalAuth(reqOrUser, 'READ_ARRIVAL');
+  if (errorResponse) return errorResponse;
+  if (!auth) return { status: 401, error: 'Unauthorized.' };
+
+  const where: Prisma.ZmccLocalSupplierArrivalWhereInput = {};
+
+  if (!auth.isSuperAdmin) {
+    where.zmcc_id = auth.effectiveZmccId!;
+  }
+
+  if (filters.local_supplier_id) {
+    try {
+      where.local_supplier_id = BigInt(String(filters.local_supplier_id).trim());
+    } catch {
+      return { status: 400, error: 'Invalid local_supplier_id format.' };
+    }
+  }
+
+  if (filters.vehicle_number && filters.vehicle_number.trim()) {
+    where.vehicle_number = { contains: filters.vehicle_number.trim(), mode: 'insensitive' };
+  }
+
+  if (filters.date) {
+    const dateStr = filters.date.trim();
+    where.arrival_date = new Date(`${dateStr}T00:00:00.000Z`);
+  }
+
+  if (filters.search && filters.search.trim()) {
+    const term = filters.search.trim();
+    where.OR = [
+      { zmcc_token: { contains: term, mode: 'insensitive' } },
+      { rmr_number: { contains: term, mode: 'insensitive' } },
+      { vehicle_number: { contains: term, mode: 'insensitive' } },
+      { local_supplier: { name: { contains: term, mode: 'insensitive' } } },
+      { local_supplier: { local_supplier_code: { contains: term, mode: 'insensitive' } } },
+    ];
+  }
+
+  const page = Math.max(1, Number(filters.page) || 1);
+  const pageSize = Math.min(100, Math.max(1, Number(filters.pageSize) || 50));
+  const skip = (page - 1) * pageSize;
+
+  const [total, items] = await Promise.all([
+    prisma.zmccLocalSupplierArrival.count({ where }),
+    prisma.zmccLocalSupplierArrival.findMany({
+      where,
+      include: {
+        local_supplier: true,
+        zmcc: true,
+        recorded_by: true,
+      },
+      orderBy: { arrival_timestamp: 'desc' },
+      skip,
+      take: pageSize,
+    }),
+  ]);
+
+  return {
+    status: 200,
+    data: {
+      items: items.map(serializeLocalSupplierArrival),
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    },
+  };
+}
+
+export async function getLocalSupplierArrivalById(
+  reqOrUser: Request | User,
+  arrivalIdParam: string | number | bigint
+): Promise<ServiceResult<any>> {
+  const { auth, errorResponse } = await resolveZmccArrivalAuth(reqOrUser, 'READ_ARRIVAL');
+  if (errorResponse) return errorResponse;
+  if (!auth) return { status: 401, error: 'Unauthorized.' };
+
+  let arrivalId: bigint;
+  try {
+    arrivalId = BigInt(String(arrivalIdParam).trim());
+  } catch {
+    return { status: 400, error: 'Invalid arrival ID format.' };
+  }
+
+  const arrival = await prisma.zmccLocalSupplierArrival.findUnique({
+    where: { id: arrivalId },
+    include: {
+      local_supplier: true,
+      zmcc: true,
+      recorded_by: true,
+    },
+  });
+
+  if (!arrival) {
+    return { status: 404, error: 'Local Supplier Arrival not found.' };
+  }
+
+  if (!auth.isSuperAdmin && arrival.zmcc_id !== auth.effectiveZmccId!) {
+    return { status: 403, error: 'Forbidden. Arrival record belongs to another ZMCC.' };
+  }
+
+  return {
+    status: 200,
+    data: serializeLocalSupplierArrival(arrival),
   };
 }

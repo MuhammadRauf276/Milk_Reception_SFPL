@@ -154,7 +154,7 @@ async function runStage6gcTests() {
   const migrationDirs = fs
     .readdirSync(migrationsDir)
     .filter((f) => fs.statSync(path.join(migrationsDir, f)).isDirectory() && !f.startsWith('.'));
-  assert(migrationDirs.length === 24, 'Tracked Migrations', `Found exactly 24 migrations (expected 24)`);
+  assert(migrationDirs.length === 25, 'Tracked Migrations', `Found exactly 25 migrations (expected 25)`);
 
   const metricsMigDir = migrationDirs.find((d) => d.includes('zmcc_final_milk_metrics'));
   assert(!!metricsMigDir, 'Migration Exists', `Found 6G-C migration: ${metricsMigDir}`);

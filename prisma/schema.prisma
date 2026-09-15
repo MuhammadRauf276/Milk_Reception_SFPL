@@ -78,6 +78,9 @@ model User {
   received_zmcc_tank_receipts      ZmccTankReceipt[]              @relation("ZmccTankReceivedBy")
   last_corrected_zmcc_tank_receipts ZmccTankReceipt[]             @relation("ZmccTankReceiptLastCorrectedBy")
   performed_zmcc_tank_transactions ZmccTankInventoryTransaction[] @relation("ZmccTankTransactionPerformedBy")
+  created_local_suppliers          ZmccLocalSupplier[]            @relation("LocalSupplierCreatedBy")
+  updated_local_suppliers          ZmccLocalSupplier[]            @relation("LocalSupplierUpdatedBy")
+  recorded_local_supplier_arrivals ZmccLocalSupplierArrival[]      @relation("ZmccLocalSupplierArrivalRecordedBy")
 
   @@map("users")
 }
@@ -266,6 +269,8 @@ model ProcurementSource {
   zmcc_tanks                ZmccTank[]                       @relation("ZmccTanks")
   zmcc_tank_receipts        ZmccTankReceipt[]                @relation("ZmccTankReceipts")
   zmcc_tank_transactions    ZmccTankInventoryTransaction[]   @relation("ZmccTankTransactions")
+  zmcc_local_suppliers      ZmccLocalSupplier[]              @relation("ZmccLocalSuppliers")
+  zmcc_local_supplier_arrivals ZmccLocalSupplierArrival[]      @relation("ZmccLocalSupplierArrivals")
 
   @@map("procurement_source")
 }
@@ -987,12 +992,71 @@ model ZmccContractorArrival {
   @@map("zmcc_contractor_arrival")
 }
 
+model ZmccLocalSupplier {
+  id                  BigInt   @id @default(autoincrement())
+  local_supplier_code String   @unique @map("local_supplier_code") @db.VarChar(50)
+  zmcc_id             BigInt   @map("zmcc_id")
+  name                String   @map("name") @db.VarChar(150)
+  phone               String?  @map("phone") @db.VarChar(50)
+  cnic                String?  @map("cnic") @db.VarChar(50)
+  erp_reference       String?  @map("erp_reference") @db.VarChar(100)
+  erp_mapping_status  String   @default("PENDING") @map("erp_mapping_status") @db.VarChar(20) // PENDING or VERIFIED
+  is_active           Boolean  @default(true) @map("is_active")
+  created_by_user_id  BigInt   @map("created_by_user_id")
+  updated_by_user_id  BigInt?  @map("updated_by_user_id")
+  created_at          DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at          DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  zmcc       ProcurementSource          @relation("ZmccLocalSuppliers", fields: [zmcc_id], references: [id], onDelete: Restrict)
+  creator    User                       @relation("LocalSupplierCreatedBy", fields: [created_by_user_id], references: [id], onDelete: Restrict)
+  updater    User?                      @relation("LocalSupplierUpdatedBy", fields: [updated_by_user_id], references: [id], onDelete: Restrict)
+  arrivals   ZmccLocalSupplierArrival[] @relation("LocalSupplierArrivals")
+
+  @@index([zmcc_id, is_active])
+  @@index([zmcc_id, name])
+  @@index([zmcc_id, erp_mapping_status])
+  @@map("zmcc_local_supplier")
+}
+
+model ZmccLocalSupplierArrival {
+  id                  BigInt   @id @default(autoincrement())
+  zmcc_id             BigInt   @map("zmcc_id")
+  local_supplier_id   BigInt   @map("local_supplier_id")
+  rmr_number          String   @map("rmr_number") @db.VarChar(100)
+  vehicle_number      String   @map("vehicle_number") @db.VarChar(50)
+  arrival_timestamp   DateTime @map("arrival_timestamp") @db.Timestamp(6)
+  arrival_date        DateTime @map("arrival_date") @db.Date
+  zmcc_token          String   @unique @map("zmcc_token") @db.VarChar(100)
+  phe_latitude        Decimal? @map("phe_latitude") @db.Decimal(10, 7)
+  phe_longitude       Decimal? @map("phe_longitude") @db.Decimal(10, 7)
+  phe_gps_accuracy    Decimal? @map("phe_gps_accuracy") @db.Decimal(8, 2)
+  client_event_id     String   @unique @map("client_event_id") @db.VarChar(255)
+  recorded_by_user_id BigInt   @map("recorded_by_user_id")
+  submitted_at        DateTime @default(now()) @map("submitted_at") @db.Timestamp(6)
+  correction_count    Int      @default(0) @map("correction_count")
+  created_at          DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at          DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  zmcc           ProcurementSource @relation("ZmccLocalSupplierArrivals", fields: [zmcc_id], references: [id], onDelete: Restrict)
+  local_supplier ZmccLocalSupplier @relation("LocalSupplierArrivals", fields: [local_supplier_id], references: [id], onDelete: Restrict)
+  recorded_by    User              @relation("ZmccLocalSupplierArrivalRecordedBy", fields: [recorded_by_user_id], references: [id], onDelete: Restrict)
+  lab_session    ZmccLabSession?   @relation("LocalSupplierArrivalLabSession")
+
+  @@index([zmcc_id])
+  @@index([local_supplier_id])
+  @@index([arrival_date])
+  @@map("zmcc_local_supplier_arrival")
+}
+
 model ZmccLabSession {
   id                         BigInt    @id @default(autoincrement())
   zmcc_id                    BigInt    @map("zmcc_id")
-  arrival_type               String    @map("arrival_type") @db.VarChar(20) // MOT or CONTRACTOR
+  arrival_type               String    @map("arrival_type") @db.VarChar(20) // MOT, CONTRACTOR, or LOCAL_SUPPLIER
   mot_arrival_id             BigInt?   @unique @map("mot_arrival_id")
   contractor_arrival_id      BigInt?   @unique @map("contractor_arrival_id")
+  local_supplier_arrival_id  BigInt?   @unique @map("local_supplier_arrival_id")
   status                     String    @default("IN_PROGRESS") @map("status") @db.VarChar(50) // IN_PROGRESS or COMPLETED
   started_by_user_id         BigInt    @map("started_by_user_id")
   started_at                 DateTime  @default(now()) @map("started_at") @db.Timestamp(6)
@@ -1018,14 +1082,15 @@ model ZmccLabSession {
   updated_at                 DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
 
   // Relations
-  zmcc               ProcurementSource      @relation("ZmccLabSessions", fields: [zmcc_id], references: [id], onDelete: Restrict)
-  mot_arrival        ZmccMotArrival?        @relation("MotArrivalLabSession", fields: [mot_arrival_id], references: [id], onDelete: Restrict)
-  contractor_arrival ZmccContractorArrival? @relation("ContractorArrivalLabSession", fields: [contractor_arrival_id], references: [id], onDelete: Restrict)
-  starter            User                   @relation("ZmccLabStartedBy", fields: [started_by_user_id], references: [id], onDelete: Restrict)
-  completer          User?                  @relation("ZmccLabCompletedBy", fields: [completed_by_user_id], references: [id], onDelete: Restrict)
-  last_corrector     User?                  @relation("ZmccLabLastCorrectedBy", fields: [last_corrected_by_user_id], references: [id], onDelete: Restrict)
-  results            ZmccLabResult[]
-  tank_receipt       ZmccTankReceipt?       @relation("ZmccLabSessionReceipt")
+  zmcc                   ProcurementSource         @relation("ZmccLabSessions", fields: [zmcc_id], references: [id], onDelete: Restrict)
+  mot_arrival            ZmccMotArrival?           @relation("MotArrivalLabSession", fields: [mot_arrival_id], references: [id], onDelete: Restrict)
+  contractor_arrival     ZmccContractorArrival?    @relation("ContractorArrivalLabSession", fields: [contractor_arrival_id], references: [id], onDelete: Restrict)
+  local_supplier_arrival ZmccLocalSupplierArrival? @relation("LocalSupplierArrivalLabSession", fields: [local_supplier_arrival_id], references: [id], onDelete: Restrict)
+  starter                User                      @relation("ZmccLabStartedBy", fields: [started_by_user_id], references: [id], onDelete: Restrict)
+  completer              User?                     @relation("ZmccLabCompletedBy", fields: [completed_by_user_id], references: [id], onDelete: Restrict)
+  last_corrector         User?                     @relation("ZmccLabLastCorrectedBy", fields: [last_corrected_by_user_id], references: [id], onDelete: Restrict)
+  results                ZmccLabResult[]
+  tank_receipt           ZmccTankReceipt?          @relation("ZmccLabSessionReceipt")
 
   @@index([zmcc_id, status])
   @@index([status, created_at])

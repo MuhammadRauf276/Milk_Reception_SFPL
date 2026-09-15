@@ -30,10 +30,15 @@ export interface ServiceResult<T> {
  * Server-side Authorization & Scope Resolver for ZMCC Master Data
  */
 export async function resolveZmccAuth(
-  req?: Request,
+  reqOrUser?: Request | User,
   requiredAction: RequiredMasterDataAction = 'READ'
 ): Promise<{ auth?: ZmccAuthContext; errorResponse?: { error: string; status: number } }> {
-  const authUser = await getCurrentUser(req);
+  let authUser: User | null = null;
+  if (reqOrUser && 'role' in reqOrUser && 'id' in reqOrUser) {
+    authUser = reqOrUser as User;
+  } else {
+    authUser = await getCurrentUser(reqOrUser as Request);
+  }
   if (!authUser) {
     return { errorResponse: { error: 'Unauthorized. Authentication required.', status: 401 } };
   }
