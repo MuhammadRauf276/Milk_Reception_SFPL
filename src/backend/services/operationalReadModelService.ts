@@ -709,12 +709,32 @@ export async function getPaginatedOperationalLogs(
 
     if (filters?.dateBasis === 'reporting') {
       conditions.push({
-        inventory_transactions: {
-          some: {
-            transaction_type: 'RECEIPT',
-            operational_timestamp: timeRangeCond,
+        OR: [
+          // Case A: Completed/finalized visit with authoritative receipt in range
+          {
+            inventory_transactions: {
+              some: {
+                transaction_type: 'RECEIPT',
+                operational_timestamp: timeRangeCond,
+              },
+            },
           },
-        },
+          // Case B: Pending/not-finalized visit (no receipt exists) with dispatch in range
+          {
+            inventory_transactions: {
+              none: {
+                transaction_type: 'RECEIPT',
+              },
+            },
+            portions: {
+              some: {
+                dispatch_info: {
+                  dispatch_timestamp: timeRangeCond,
+                },
+              },
+            },
+          },
+        ],
       });
     } else {
       conditions.push({

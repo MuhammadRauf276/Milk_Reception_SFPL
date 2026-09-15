@@ -14,6 +14,7 @@ import {
   ZMCCManagerTab,
   OverviewDateRange,
 } from './zmcc/zmccManagerTypes';
+import { getOverviewDateRangeBounds } from './zmcc/zmccManagerHelpers';
 import {
   LayoutDashboard,
   Truck,
@@ -90,8 +91,9 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
   const [receiptHasMore, setReceiptHasMore] = useState<boolean>(false);
 
   // History & Table search/filter state (isolated to historical reporting tables)
-  const [fromDate, setFromDate] = useState<string>('');
-  const [toDate, setToDate] = useState<string>('');
+  const initialOverviewBounds = useMemo(() => getOverviewDateRangeBounds('TODAY'), []);
+  const [fromDate, setFromDate] = useState<string>(initialOverviewBounds.fromDate);
+  const [toDate, setToDate] = useState<string>(initialOverviewBounds.toDate);
   const [selectedLog, setSelectedLog] = useState<MilkProcessLog | null>(null);
 
   const assignedSourceName =
@@ -244,9 +246,12 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
     []
   );
 
+  const lastReportingQueryRef = useRef<string>('');
+
   // Fetch Reporting Logs: Parameterized fetch for Overview / History date queries
   const fetchReportingLogs = useCallback(
     async (fDate?: string, tDate?: string, targetPage: number = 1) => {
+      lastReportingQueryRef.current = `${fDate || ''}|${tDate || ''}|${targetPage}`;
       setReportingLoading(true);
       setReportingError(null);
       try {
@@ -282,6 +287,18 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
     []
   );
 
+  const handleOverviewDateRangeChange = useCallback(
+    (range: OverviewDateRange) => {
+      setSummaryDateRange(range);
+      const bounds = getOverviewDateRangeBounds(range);
+      setReportingPage(1);
+      setFromDate(bounds.fromDate);
+      setToDate(bounds.toDate);
+      fetchReportingLogs(bounds.fromDate, bounds.toDate, 1);
+    },
+    [fetchReportingLogs]
+  );
+
   // A. Live Flow: Initial mount and interval polling (LIVE ONLY)
   useEffect(() => {
     fetchLiveLogs();
@@ -299,8 +316,11 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
 
   // B. Reporting Flow: Initial load and when fromDate/toDate changes (resets to page 1)
   useEffect(() => {
-    setReportingPage(1);
-    fetchReportingLogs(fromDate, toDate, 1);
+    const queryKey = `${fromDate}|${toDate}|1`;
+    if (lastReportingQueryRef.current !== queryKey) {
+      setReportingPage(1);
+      fetchReportingLogs(fromDate, toDate, 1);
+    }
   }, [fetchReportingLogs, fromDate, toDate]);
 
   const renderReportingPaginationBar = () => {
@@ -494,7 +514,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
                 serverBusinessDate={serverBusinessDate}
                 assignedSourceName={assignedSourceName}
                 dateRange={summaryDateRange}
-                onDateRangeChange={(r) => setSummaryDateRange(r)}
+                onDateRangeChange={handleOverviewDateRangeChange}
                 onInspectDetails={(l) => setSelectedLog(l)}
                 onNavigateToTab={(tab) => setActiveTab(tab)}
                 currentFromDate={fromDate}

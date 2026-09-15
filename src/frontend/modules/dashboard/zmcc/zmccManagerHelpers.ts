@@ -320,8 +320,6 @@ export function deriveManagerLifecycle(portions: MilkProcessLog[]): ManagerLifec
   let latestEventLabel = 'Dispatch Recorded';
   let latestEventTimestamp: string | null = primary.dispatch_timestamp
     ? formatOperationalDatetime(primary.dispatch_timestamp)
-    : primary.created_at
-    ? formatOperationalDatetime(primary.created_at)
     : null;
 
   if (hasFinalReceipt && primary.final_receipt_timestamp) {
@@ -459,6 +457,49 @@ export function buildVehicleVisitGroups(logs: MilkProcessLog[]): VehicleVisitGro
 }
 
 /**
+ * Helper to compute an offset calendar date in YYYY-MM-DD from a base date string
+ */
+function getOffsetCalendarDate(baseDateStr: string, daysOffset: number): string {
+  const [y, m, d] = baseDateStr.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d + daysOffset, 12, 0, 0));
+  return dt.toISOString().split('T')[0];
+}
+
+/**
+ * Computes authoritative fromDate and toDate query bounds for an OverviewDateRange
+ * using ordinary Pakistan calendar dates (Asia/Karachi UTC+5).
+ * Upstream dispatch dates are ordinary calendar dates (no 08:00 AM Plant rollover).
+ */
+export function getOverviewDateRangeBounds(
+  range: OverviewDateRange,
+  referenceDate: Date = new Date()
+): { fromDate: string; toDate: string } {
+  if (range === 'ALL') {
+    return { fromDate: '', toDate: '' };
+  }
+
+  const todayStr = getPakistanCalendarDate(referenceDate);
+
+  if (range === 'TODAY') {
+    return { fromDate: todayStr, toDate: todayStr };
+  }
+  if (range === 'YESTERDAY') {
+    const yStr = getOffsetCalendarDate(todayStr, -1);
+    return { fromDate: yStr, toDate: yStr };
+  }
+  if (range === 'LAST_7') {
+    const fromStr = getOffsetCalendarDate(todayStr, -6);
+    return { fromDate: fromStr, toDate: todayStr };
+  }
+  if (range === 'LAST_15') {
+    const fromStr = getOffsetCalendarDate(todayStr, -14);
+    return { fromDate: fromStr, toDate: todayStr };
+  }
+
+  return { fromDate: '', toDate: '' };
+}
+
+/**
  * Check if a target Business Date string belongs to the selected OverviewDateRange
  */
 export function isBusinessDateInPeriod(
@@ -469,27 +510,37 @@ export function isBusinessDateInPeriod(
   if (range === 'ALL') return true;
   if (!targetBusinessDate) return false;
 
+  const todayPkt = getPakistanCalendarDate(new Date());
+
   if (range === 'TODAY') {
-    return !serverBusinessDate || targetBusinessDate === serverBusinessDate;
+    return (
+      (!serverBusinessDate && targetBusinessDate === todayPkt) ||
+      targetBusinessDate === serverBusinessDate ||
+      targetBusinessDate === todayPkt
+    );
   }
   if (range === 'YESTERDAY') {
-    if (!serverBusinessDate) return true;
-    const refDate = new Date(serverBusinessDate);
-    refDate.setDate(refDate.getDate() - 1);
-    const yStr = refDate.toISOString().split('T')[0];
-    return targetBusinessDate === yStr;
+    const yPkt = getOffsetCalendarDate(todayPkt, -1);
+    const yServer = serverBusinessDate ? getOffsetCalendarDate(serverBusinessDate, -1) : yPkt;
+    return targetBusinessDate === yPkt || targetBusinessDate === yServer;
   }
   if (range === 'LAST_7') {
-    if (!serverBusinessDate) return true;
-    const diffMs = new Date(serverBusinessDate).getTime() - new Date(targetBusinessDate).getTime();
-    const diffDays = Math.floor(diffMs / (1000 * 3600 * 24));
-    return diffDays >= 0 && diffDays < 7;
+    const fromPkt = getOffsetCalendarDate(todayPkt, -6);
+    if (targetBusinessDate >= fromPkt && targetBusinessDate <= todayPkt) return true;
+    if (serverBusinessDate) {
+      const fromServer = getOffsetCalendarDate(serverBusinessDate, -6);
+      if (targetBusinessDate >= fromServer && targetBusinessDate <= serverBusinessDate) return true;
+    }
+    return false;
   }
   if (range === 'LAST_15') {
-    if (!serverBusinessDate) return true;
-    const diffMs = new Date(serverBusinessDate).getTime() - new Date(targetBusinessDate).getTime();
-    const diffDays = Math.floor(diffMs / (1000 * 3600 * 24));
-    return diffDays >= 0 && diffDays < 15;
+    const fromPkt = getOffsetCalendarDate(todayPkt, -14);
+    if (targetBusinessDate >= fromPkt && targetBusinessDate <= todayPkt) return true;
+    if (serverBusinessDate) {
+      const fromServer = getOffsetCalendarDate(serverBusinessDate, -14);
+      if (targetBusinessDate >= fromServer && targetBusinessDate <= serverBusinessDate) return true;
+    }
+    return false;
   }
   return true;
 }
@@ -600,7 +651,7 @@ export function computeManagerOverview(
 
   // A. Dispatched in period (distinct visits by dispatch date)
   const dispatchPeriodGroups = allGroups.filter((g) =>
-    isBusinessDateInPeriod(g.dispatchDate || g.businessDate, serverBusinessDate, dateRange)
+    isBusinessDateInPeriod(g.dispatchDate, serverBusinessDate, dateRange)
   );
   const dispatchedCount = dispatchPeriodGroups.length;
 
@@ -1327,9 +1378,9 @@ export function filterHistoryTransactionItems(
 ): HistoryTransactionItem[] {
   return items.filter((item) => {
     // 1. Date Range Filter on Visit / Dispatch Date
-    const targetDate = item.dispatchDate || item.businessDate;
-    if (fromDate && targetDate < fromDate) return false;
-    if (toDate && targetDate > toDate) return false;
+    const targetDate = item.dispatchDate;
+    if (fromDate && (!targetDate || targetDate < fromDate)) return false;
+    if (toDate && (!targetDate || targetDate > toDate)) return false;
 
     // 2. Search Query Filter
     if (searchQuery.trim()) {
