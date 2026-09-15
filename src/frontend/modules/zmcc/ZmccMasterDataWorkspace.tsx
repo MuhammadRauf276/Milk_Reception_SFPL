@@ -18,9 +18,26 @@ import {
   X,
   ChevronRight,
   Filter,
+  Users,
 } from 'lucide-react';
 
-export type MasterDataTab = 'ROUTES' | 'AREAS' | 'MILK_SOURCES' | 'SHOPS' | 'CHILLER_OWNERSHIP' | 'TANKS';
+export type MasterDataTab = 'LOCAL_SUPPLIERS' | 'ROUTES' | 'AREAS' | 'MILK_SOURCES' | 'SHOPS' | 'CHILLER_OWNERSHIP' | 'TANKS';
+
+interface LocalSupplierItem {
+  id: string;
+  local_supplier_code: string;
+  name: string;
+  phone: string | null;
+  cnic: string | null;
+  erp_reference: string | null;
+  erp_mapping_status: string;
+  zmcc_id: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  creator?: { id: string; username: string; full_name: string };
+  updater?: { id: string; username: string; full_name: string } | null;
+}
 
 interface ZmccMasterDataWorkspaceProps {
   currentUser: User | null;
@@ -131,9 +148,13 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
   // Tabs permitted
   const permittedTabs: { id: MasterDataTab; label: string; icon: any }[] = React.useMemo(() => {
     if (isPheOperator) {
-      return [{ id: 'SHOPS', label: 'Shop Details', icon: Store }];
+      return [
+        { id: 'LOCAL_SUPPLIERS', label: 'Local Suppliers', icon: Users },
+        { id: 'SHOPS', label: 'Shop Details', icon: Store },
+      ];
     }
     const tabs: { id: MasterDataTab; label: string; icon: any }[] = [
+      { id: 'LOCAL_SUPPLIERS', label: 'Local Suppliers', icon: Users },
       { id: 'ROUTES', label: 'Routes', icon: RouteIcon },
       { id: 'AREAS', label: 'Areas', icon: MapPin },
       { id: 'MILK_SOURCES', label: 'Milk Sources', icon: Milk },
@@ -149,7 +170,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
   }, [isSuperAdmin, isZmccManager, isPheOperator]);
 
   const [activeTab, setActiveTab] = useState<MasterDataTab>(
-    initialTab || (isPheOperator ? 'SHOPS' : 'ROUTES')
+    initialTab || 'LOCAL_SUPPLIERS'
   );
 
   // ZMCC Scope
@@ -157,6 +178,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
   const [selectedZmccId, setSelectedZmccId] = useState<string>('');
 
   // Data states
+  const [localSuppliersList, setLocalSuppliersList] = useState<LocalSupplierItem[]>([]);
   const [routes, setRoutes] = useState<RouteItem[]>([]);
   const [areas, setAreas] = useState<AreaItem[]>([]);
   const [milkSources, setMilkSources] = useState<MilkSourceItem[]>([]);
@@ -184,6 +206,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
     'CREATE_CHILLER' | 'EDIT_CHILLER' |
     'CREATE_SHOP' | 'EDIT_SHOP' |
     'CREATE_TANK' | 'EDIT_TANK' |
+    'CREATE_LOCAL_SUPPLIER' | 'EDIT_LOCAL_SUPPLIER' |
     'TOGGLE_ACTIVE' | null
   >(null);
 
@@ -222,7 +245,12 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
       const statusParam = statusFilter !== 'all' ? `&is_active=${statusFilter}` : '';
       const searchParam = search ? `&search=${encodeURIComponent(search)}` : '';
 
-      if (activeTab === 'ROUTES') {
+      if (activeTab === 'LOCAL_SUPPLIERS') {
+        const res = await fetch(`/api/zmcc/local-suppliers?${zmccParam}${statusParam}${searchParam}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to fetch local suppliers');
+        setLocalSuppliersList(data.suppliers || []);
+      } else if (activeTab === 'ROUTES') {
         const res = await fetch(`/api/zmcc/routes?${zmccParam}${statusParam}${searchParam}`);
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Failed to fetch routes');
@@ -350,6 +378,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
   const handleOpenCreateModal = () => {
     setModalError(null);
     setFormData({});
+    if (activeTab === 'LOCAL_SUPPLIERS') setModalType('CREATE_LOCAL_SUPPLIER');
     if (activeTab === 'ROUTES') setModalType('CREATE_ROUTE');
     if (activeTab === 'AREAS') setModalType('CREATE_AREA');
     if (activeTab === 'MILK_SOURCES') setModalType('CREATE_MILK_SOURCE');
@@ -361,7 +390,15 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
   const handleOpenEditModal = (item: any) => {
     setModalError(null);
     setActiveRecord(item);
-    if (activeTab === 'ROUTES') {
+    if (activeTab === 'LOCAL_SUPPLIERS') {
+      setFormData({
+        name: item.name,
+        phone: item.phone || '',
+        cnic: item.cnic || '',
+        erp_reference: item.erp_reference || '',
+      });
+      setModalType('EDIT_LOCAL_SUPPLIER');
+    } else if (activeTab === 'ROUTES') {
       setFormData({ name: item.name, origin: item.origin, destination: item.destination });
       setModalType('EDIT_ROUTE');
     } else if (activeTab === 'AREAS') {
@@ -491,6 +528,24 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
           latitude: formData.latitude !== '' && formData.latitude != null ? Number(formData.latitude) : null,
           longitude: formData.longitude !== '' && formData.longitude != null ? Number(formData.longitude) : null,
         };
+      } else if (modalType === 'CREATE_LOCAL_SUPPLIER') {
+        url = '/api/zmcc/local-suppliers';
+        body = {
+          name: formData.name,
+          phone: formData.phone || undefined,
+          cnic: formData.cnic || undefined,
+          erp_reference: formData.erp_reference || undefined,
+          zmcc_id: isSuperAdmin ? selectedZmccId : undefined,
+        };
+      } else if (modalType === 'EDIT_LOCAL_SUPPLIER') {
+        url = `/api/zmcc/local-suppliers/${activeRecord.id}`;
+        method = 'PATCH';
+        body = {
+          name: formData.name,
+          phone: formData.phone !== undefined ? formData.phone : undefined,
+          cnic: formData.cnic !== undefined ? formData.cnic : undefined,
+          erp_reference: formData.erp_reference !== undefined ? formData.erp_reference : undefined,
+        };
       } else if (modalType === 'CREATE_TANK') {
         url = '/api/zmcc/tanks';
         body = {
@@ -509,7 +564,8 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
         };
       } else if (modalType === 'TOGGLE_ACTIVE') {
         const targetActive = !activeRecord.is_active;
-        if (activeTab === 'ROUTES') url = `/api/zmcc/routes/${activeRecord.id}`;
+        if (activeTab === 'LOCAL_SUPPLIERS') url = `/api/zmcc/local-suppliers/${activeRecord.id}`;
+        else if (activeTab === 'ROUTES') url = `/api/zmcc/routes/${activeRecord.id}`;
         else if (activeTab === 'AREAS') url = `/api/zmcc/areas/${activeRecord.id}`;
         else if (activeTab === 'MILK_SOURCES') url = `/api/zmcc/milk-sources/${activeRecord.id}`;
         else if (activeTab === 'CHILLER_OWNERSHIP') url = `/api/zmcc/chiller-ownerships/${activeRecord.id}`;
@@ -731,7 +787,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
         {/* Action Button: Add Entity */}
         {((isSuperAdmin) ||
           (isZmccManager && activeTab !== 'CHILLER_OWNERSHIP' && activeTab !== 'TANKS') ||
-          (isPheOperator && activeTab === 'SHOPS')) && (
+          (isPheOperator && (activeTab === 'SHOPS' || activeTab === 'LOCAL_SUPPLIERS'))) && (
           <button
             type="button"
             onClick={handleOpenCreateModal}
@@ -739,6 +795,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
           >
             <Plus className="w-4 h-4" />
             <span>
+              {activeTab === 'LOCAL_SUPPLIERS' && 'Add Local Supplier'}
               {activeTab === 'ROUTES' && 'Add Route'}
               {activeTab === 'AREAS' && 'Add Area'}
               {activeTab === 'MILK_SOURCES' && 'Add Milk Source'}
@@ -759,6 +816,94 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
           </div>
         ) : (
           <div className="overflow-x-auto">
+            {activeTab === 'LOCAL_SUPPLIERS' && (
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-[#FDFBF9] border-b border-[#EAE4D5] text-slate-600 font-black uppercase text-[10px] tracking-wider">
+                    <th className="py-3 px-4">Supplier Code</th>
+                    <th className="py-3 px-4">Supplier Name</th>
+                    <th className="py-3 px-4">Phone</th>
+                    <th className="py-3 px-4">CNIC</th>
+                    <th className="py-3 px-4">Candidate ERP Ref</th>
+                    <th className="py-3 px-4 text-center">ERP Status</th>
+                    <th className="py-3 px-4 text-center">Status</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#EAE4D5]">
+                  {localSuppliersList.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-8 text-center text-slate-400 font-bold">
+                        No local suppliers found. Click &quot;Add Local Supplier&quot; to register one.
+                      </td>
+                    </tr>
+                  ) : (
+                    localSuppliersList.map((s) => (
+                      <tr key={s.id} className="hover:bg-[#FDFBF9]/60 transition">
+                        <td className="py-3 px-4 font-mono font-black text-[#1E3A8A]">{s.local_supplier_code}</td>
+                        <td className="py-3 px-4 font-extrabold text-[#111311]">{s.name}</td>
+                        <td className="py-3 px-4 font-mono text-slate-600">{s.phone || '-'}</td>
+                        <td className="py-3 px-4 font-mono text-slate-600">{s.cnic || '-'}</td>
+                        <td className="py-3 px-4">
+                          {s.erp_reference ? (
+                            <span className="font-mono font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded text-[11px]">
+                              {s.erp_reference}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 italic">None</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-50 text-amber-700 border border-amber-200">
+                            {s.erp_mapping_status || 'PENDING'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <span
+                            className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
+                              s.is_active
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : 'bg-rose-100 text-rose-800'
+                            }`}
+                          >
+                            {s.is_active ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          {isPheOperator ? (
+                            <span className="text-[11px] text-slate-400 font-medium italic">Read-only</span>
+                          ) : (
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditModal(s)}
+                                className="p-2 min-h-[36px] min-w-[36px] rounded-lg border border-[#EAE4D5] hover:bg-slate-100 text-slate-700 transition"
+                                title="Edit Local Supplier"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenToggleModal(s)}
+                                className={`p-2 min-h-[36px] min-w-[36px] rounded-lg border transition ${
+                                  s.is_active
+                                    ? 'border-rose-200 text-rose-600 hover:bg-rose-50'
+                                    : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'
+                                }`}
+                                title={s.is_active ? 'Deactivate Local Supplier' : 'Activate Local Supplier'}
+                              >
+                                <Power className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            )}
+
             {activeTab === 'ROUTES' && (
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
@@ -1200,6 +1345,8 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
           <div className="bg-white rounded-2xl border border-[#EAE4D5] shadow-2xl max-w-lg w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-[#EAE4D5]">
               <h2 id="modal-title" className="text-base font-black text-[#111311]">
+                {modalType === 'CREATE_LOCAL_SUPPLIER' && 'Register Local Supplier'}
+                {modalType === 'EDIT_LOCAL_SUPPLIER' && `Edit Local Supplier: ${activeRecord?.local_supplier_code}`}
                 {modalType === 'CREATE_ROUTE' && 'Create New Route'}
                 {modalType === 'EDIT_ROUTE' && `Edit Route: ${activeRecord?.route_code}`}
                 {modalType === 'CREATE_AREA' && 'Create Collection Area'}
@@ -1233,6 +1380,87 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
             )}
 
             <form onSubmit={handleModalSubmit} className="space-y-4">
+              {/* Local Supplier Form */}
+              {(modalType === 'CREATE_LOCAL_SUPPLIER' || modalType === 'EDIT_LOCAL_SUPPLIER') && (
+                <div className="space-y-3">
+                  {modalType === 'EDIT_LOCAL_SUPPLIER' && (
+                    <div className="bg-slate-50 p-3 rounded-xl border border-[#EAE4D5] text-xs space-y-1">
+                      <div className="flex justify-between">
+                        <span className="font-bold text-slate-500">Supplier Code:</span>
+                        <span className="font-mono font-black text-[#1E3A8A]">{activeRecord?.local_supplier_code}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-bold text-slate-500">ERP Mapping Status:</span>
+                        <span className="font-black text-amber-700 bg-amber-50 px-2 py-0.5 rounded text-[10px] uppercase border border-amber-200">
+                          {activeRecord?.erp_mapping_status || 'PENDING'}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-xs font-black uppercase text-slate-600 mb-1">
+                      Supplier Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      maxLength={150}
+                      value={formData.name || ''}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      placeholder="e.g. Haji Muhammad Sharif"
+                      className="w-full px-3 py-2 border border-[#EAE4D5] rounded-xl text-xs font-bold focus:ring-2 focus:ring-[#1E3A8A]"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-black uppercase text-slate-600 mb-1">
+                        Phone Number (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        maxLength={50}
+                        value={formData.phone || ''}
+                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                        placeholder="03001234567"
+                        className="w-full px-3 py-2 border border-[#EAE4D5] rounded-xl text-xs font-mono font-bold focus:ring-2 focus:ring-[#1E3A8A]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-black uppercase text-slate-600 mb-1">
+                        CNIC (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        maxLength={50}
+                        value={formData.cnic || ''}
+                        onChange={(e) => setFormData({ ...formData, cnic: e.target.value })}
+                        placeholder="35201-1234567-1"
+                        className="w-full px-3 py-2 border border-[#EAE4D5] rounded-xl text-xs font-mono font-bold focus:ring-2 focus:ring-[#1E3A8A]"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-black uppercase text-slate-600 mb-1">
+                      Candidate ERP Reference (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={100}
+                      value={formData.erp_reference || ''}
+                      onChange={(e) => setFormData({ ...formData, erp_reference: e.target.value })}
+                      placeholder="e.g. 00045231"
+                      className="w-full px-3 py-2 border border-[#EAE4D5] rounded-xl text-xs font-mono font-bold focus:ring-2 focus:ring-[#1E3A8A]"
+                    />
+                    <p className="text-[11px] text-slate-500 font-medium mt-1">
+                      Candidate ERP reference only. Leading zeros are preserved. Status remains PENDING. Placeholders (e.g. New, TBD, Unknown) are rejected.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Route Form */}
               {(modalType === 'CREATE_ROUTE' || modalType === 'EDIT_ROUTE') && (
                 <>

@@ -892,25 +892,15 @@ async function runStage6eTests() {
     'GPS point recorded after ended_at is rejected'
   );
 
-  console.log('\n--- 7. CONTRACTOR ARRIVAL & DOMAIN BOUNDARY ---');
+  console.log('\n--- 7. CONTRACTOR ARRIVAL RETIREMENT & DOMAIN BOUNDARY (410 GONE) ---');
   const contractorEventId = `evt-con-${runId}`;
   const contractorTime = new Date().toISOString();
 
-  // Inactive contractor rejected
-  const resInactiveCon = await submitContractorArrival(pheA as any, {
-    contractor_source_id: contractorInactive.id.toString(),
-    rmr_number: '009001',
-    vehicle_number: 'LES-1111',
-    arrival_timestamp: contractorTime,
-    client_event_id: `evt-inact-${Date.now()}`,
-  });
-  assert(resInactiveCon.status === 400, 'Inactive Contractor Guard', 'Inactive contractor source rejected with 400');
-
-  // Valid contractor arrival
+  // Any attempt to submit a new contractor arrival fails closed with 410 Gone
   const resContractor = await submitContractorArrival(pheA as any, {
     contractor_source_id: contractorActive.id.toString(),
     rmr_number: '009000',
-    vehicle_number: 'les-9000', // test normalization to uppercase
+    vehicle_number: 'les-9000',
     arrival_timestamp: contractorTime,
     phe_latitude: 31.5310000,
     phe_longitude: 74.3710000,
@@ -918,120 +908,23 @@ async function runStage6eTests() {
     client_event_id: contractorEventId,
   });
 
-  assert(resContractor.status === 201, 'Contractor Arrival Submit', 'Valid contractor arrival returns 201 Created');
-  assert(resContractor.data?.vehicle_number === 'LES-9000', 'Vehicle Normalization', 'Vehicle number normalized to uppercase');
+  assert(resContractor.status === 410, 'Contractor Arrival Retired (410)', 'Contractor arrival intake returns HTTP 410 Gone');
   assert(
-    /^ZT-CON-\d{8}-\d{4}$/.test(resContractor.data?.zmcc_token),
-    'Contractor Token Format',
-    `Generated token matches format ZT-CON-YYYYMMDD-XXXX (${resContractor.data?.zmcc_token})`
+    resContractor.message === 'ZMCC Contractor Arrival is retired for new intake. Record direct-to-ZMCC suppliers through Local Supplier Arrival.',
+    'Contractor Retirement Message',
+    'Returns exact canonical retirement message'
   );
+  assert(resContractor.error === 'CONTRACTOR_ARRIVAL_RETIRED', 'Contractor Error Code', 'Returns CONTRACTOR_ARRIVAL_RETIRED');
 
-  // Exact replay
+  // Replay attempt on retired endpoint also returns 410
   const resContractorReplay = await submitContractorArrival(pheA as any, {
     contractor_source_id: contractorActive.id.toString(),
     rmr_number: '009000',
     vehicle_number: 'LES-9000',
     arrival_timestamp: contractorTime,
-    phe_latitude: 31.5310000,
-    phe_longitude: 74.3710000,
-    phe_gps_accuracy: 4.0,
     client_event_id: contractorEventId,
   });
-  assert(resContractorReplay.status === 200, 'Contractor Replay', 'Contractor exact replay returns 200 OK');
-  assert(resContractorReplay.data?.is_replay === true, 'Contractor is_replay', 'is_replay is true on contractor replay');
-
-  // H. Super Admin contractor arrival requires a valid target ZMCC ID
-  const resAdminNoTarget = await submitContractorArrival(superAdmin as any, {
-    contractor_source_id: contractorActive.id.toString(),
-    rmr_number: '000100',
-    vehicle_number: 'ADMIN-100',
-    arrival_timestamp: contractorTime,
-    client_event_id: `evt-admin-no-target-${Date.now()}`,
-  });
-  assert(resAdminNoTarget.status === 400, 'H: Super Admin Target ZMCC Required', 'Super admin submission without target_zmcc_id returns 400');
-
-  const resAdminTargetAsContractor = await submitContractorArrival(superAdmin as any, {
-    target_zmcc_id: contractorActive.id.toString(),
-    contractor_source_id: contractorActive.id.toString(),
-    rmr_number: '000101',
-    vehicle_number: 'ADMIN-101',
-    arrival_timestamp: contractorTime,
-    client_event_id: `evt-admin-contractor-as-zmcc-${Date.now()}`,
-  });
-  assert(resAdminTargetAsContractor.status === 400, 'H: Super Admin Target ZMCC Must Be ZMCC', 'Target ZMCC cannot be a contractor source (400)');
-
-  // I. Contractor arrival rejects contractor source ID pointing to a ZMCC source type
-  const resConSourceAsZmcc = await submitContractorArrival(pheA as any, {
-    contractor_source_id: zmccA.id.toString(),
-    rmr_number: '009001',
-    vehicle_number: 'LES-9001',
-    arrival_timestamp: contractorTime,
-    client_event_id: `evt-con-source-zmcc-${Date.now()}`,
-  });
-  assert(resConSourceAsZmcc.status === 400, 'I: Contractor Source Cannot Be ZMCC', 'contractor_source_id pointing to ZMCC source type returns 400');
-
-  // J. Contractor arrival rejects inactive ZMCC
-  const resInactiveZmcc = await submitContractorArrival(superAdmin as any, {
-    target_zmcc_id: zmccInactive.id.toString(),
-    contractor_source_id: contractorActive.id.toString(),
-    rmr_number: '009002',
-    vehicle_number: 'LES-9002',
-    arrival_timestamp: contractorTime,
-    client_event_id: `evt-inactive-zmcc-${Date.now()}`,
-  });
-  assert(resInactiveZmcc.status === 400, 'J: Inactive ZMCC Rejected', 'Contractor arrival targeting inactive ZMCC returns 400');
-
-  // E. Contractor arrival exact replay with different target ZMCC fails with 409
-  const resDiffZmccReplay = await submitContractorArrival(superAdmin as any, {
-    target_zmcc_id: zmccB.id.toString(),
-    contractor_source_id: contractorActive.id.toString(),
-    rmr_number: '009000',
-    vehicle_number: 'LES-9000',
-    arrival_timestamp: contractorTime,
-    phe_latitude: 31.5310000,
-    phe_longitude: 74.3710000,
-    phe_gps_accuracy: 4.0,
-    client_event_id: contractorEventId,
-  });
-  assert(resDiffZmccReplay.status === 409, 'E: Contractor Replay Target ZMCC Mismatch', 'Contractor replay with altered target ZMCC returns 409');
-
-  // F. Contractor arrival exact replay with different GPS accuracy fails with 409
-  const resDiffAccuracyReplay = await submitContractorArrival(pheA as any, {
-    contractor_source_id: contractorActive.id.toString(),
-    rmr_number: '009000',
-    vehicle_number: 'LES-9000',
-    arrival_timestamp: contractorTime,
-    phe_latitude: 31.5310000,
-    phe_longitude: 74.3710000,
-    phe_gps_accuracy: 99.0,
-    client_event_id: contractorEventId,
-  });
-  assert(resDiffAccuracyReplay.status === 409, 'F: Contractor Replay Accuracy Mismatch', 'Contractor replay with altered GPS accuracy returns 409');
-
-  // G. Contractor arrival concurrent collision with different payloads fails with 409 for loser
-  const conDiffEventId = `evt-con-diff-${runId}`;
-  const [conDiff1, conDiff2] = await Promise.all([
-    submitContractorArrival(pheA as any, {
-      contractor_source_id: contractorActive.id.toString(),
-      rmr_number: '001000',
-      vehicle_number: 'LES-1000',
-      arrival_timestamp: contractorTime,
-      client_event_id: conDiffEventId,
-    }),
-    submitContractorArrival(pheA as any, {
-      contractor_source_id: contractorActive.id.toString(),
-      rmr_number: '002000',
-      vehicle_number: 'LES-2000',
-      arrival_timestamp: contractorTime,
-      client_event_id: conDiffEventId,
-    }),
-  ]);
-  const conDiffStatuses = [conDiff1.status, conDiff2.status].sort();
-  assert(
-    conDiffStatuses[0] === 201 && conDiffStatuses[1] === 409,
-    'G: Contractor Concurrent Collision 409',
-    `Simultaneous different contractor arrivals returned 201 and 409 (got ${conDiffStatuses[0]}, ${conDiffStatuses[1]})`
-  );
+  assert(resContractorReplay.status === 410, 'Contractor Replay 410', 'Replay attempt returns 410 Gone');
 
   // Verify ZERO VehicleVisit rows created in database!
   const finalVisitCount = await prisma.vehicleVisit.count();
@@ -1101,8 +994,21 @@ async function runStage6eTests() {
   });
   assert(resCorrection3.status === 400, 'Max Corrections Enforced', 'Third correction rejected with 400 (max 2 reached)');
 
-  // Contractor correction test
-  const resConCorrection = await correctContractorArrival(managerA as any, resContractor.data?.id, {
+  // Contractor correction test on historical contractor arrival
+  const historicalConArrival = await prisma.zmccContractorArrival.create({
+    data: {
+      zmcc_id: zmccA.id,
+      contractor_source_id: contractorActive.id,
+      rmr_number: '009000',
+      vehicle_number: 'LES-9000',
+      zmcc_token: `ZT-CON-20260911-${String(runId).slice(-4)}`,
+      arrival_timestamp: new Date(),
+      arrival_date: new Date(),
+      client_event_id: `evt-hist-con-${runId}`,
+      recorded_by_user_id: BigInt(pheA.id),
+    },
+  });
+  const resConCorrection = await correctContractorArrival(managerA as any, historicalConArrival.id, {
     reason: 'Typo in vehicle number',
     vehicle_number: 'LES-9999',
   });

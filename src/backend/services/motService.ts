@@ -1423,6 +1423,24 @@ export async function assignAndDispatchJourney(
     };
   }
 
+  // 11B. Check if vehicle is physically inside ZMCC (gate-tracked arrival without exit)
+  const insideZmccArrival = await prisma.zmccMotArrival.findFirst({
+    where: {
+      journey: { mot_vehicle_id: vehicleId },
+      gate_exit_required: true,
+      exit_timestamp: null,
+    },
+    include: {
+      journey: true,
+    },
+  });
+  if (insideZmccArrival) {
+    return {
+      status: 409,
+      error: `MOT Vehicle '${vehicle.vehicle_number}' is physically inside ZMCC (Arrival Token: ${insideZmccArrival.zmcc_token}). Gate exit must be recorded before assigning a new journey.`,
+    };
+  }
+
   // 12. Execute Atomic Transaction:
   // - Generate journey number using atomic PostgreSQL sequence
   // - Create MotJourney (status: COLLECTING, assigned_at = started_at = NOW)

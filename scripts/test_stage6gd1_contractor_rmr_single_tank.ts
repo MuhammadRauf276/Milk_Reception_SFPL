@@ -147,7 +147,7 @@ async function runStage6gd1Tests() {
   const migrationDirs = fs
     .readdirSync(migrationsDir)
     .filter((f) => fs.statSync(path.join(migrationsDir, f)).isDirectory() && !f.startsWith('.'));
-  assert(migrationDirs.length === 24, 'Tracked Migrations', `Found exactly 24 migrations (expected 24)`);
+  assert(migrationDirs.length === 26, 'Tracked Migrations', `Found exactly 26 migrations (expected 26)`);
 
   const d1MigDir = migrationDirs.find((d) => d.includes('contractor_rmr_and_single_active_tank'));
   assert(!!d1MigDir, 'Migration Exists', `Found 6G-D.1 migration: ${d1MigDir}`);
@@ -354,154 +354,59 @@ async function runStage6gd1Tests() {
   // =============================================================
   console.log('\n--- 4. CONTRACTOR RMR NUMBER WORKFLOW & CORRECTIONS ---');
 
-  // 4A. Missing, Blank, Non-String, and Length Validation for RMR Number (must fail 400)
-  const noRmrRes = await submitContractorArrival(toCoreUser(pheOperator1) as any, {
+  // 4A. Contractor arrival intake is retired under Stage 6G-D.3 (410 Gone)
+  const retiredRes = await submitContractorArrival(toCoreUser(pheOperator1) as any, {
     contractor_source_id: contractor.id.toString(),
     vehicle_number: `VEH-${runId}-1`,
     arrival_timestamp: new Date().toISOString(),
-    client_event_id: `con-no-rmr-${runId}`,
-    rmr_number: '',
+    client_event_id: `con-retired-${runId}`,
+    rmr_number: '001234',
   });
-  assert(noRmrRes.status === 400, 'Blank RMR Number Rejected', 'Fails closed when rmr_number is empty (400)');
+  assert(retiredRes.status === 410, 'Contractor Arrival Retired (410)', 'Contractor arrival intake fails closed with 410 Gone');
+  assert(retiredRes.error === 'CONTRACTOR_ARRIVAL_RETIRED', 'Retired Error Code', 'Returns CONTRACTOR_ARRIVAL_RETIRED');
   assert(
-    Boolean(noRmrRes.error?.includes('rmr_number is required')),
-    'RMR Required Error Message',
-    noRmrRes.error
+    retiredRes.message === 'ZMCC Contractor Arrival is retired for new intake. Record direct-to-ZMCC suppliers through Local Supplier Arrival.',
+    'Retired Error Message',
+    'Returns exact canonical retirement message'
   );
 
-  const missingRmrRes = await submitContractorArrival(toCoreUser(pheOperator1) as any, {
-    contractor_source_id: contractor.id.toString(),
-    vehicle_number: `VEH-${runId}-1`,
-    arrival_timestamp: new Date().toISOString(),
-    client_event_id: `con-missing-rmr-${runId}`,
-  } as any);
-  assert(missingRmrRes.status === 400, 'Missing RMR Field Rejected', 'Fails closed when rmr_number is missing (400)');
-
-  // 4A1. Strict Type Validation (Number, Object, Array, Null)
-  const numRmrRes = await submitContractorArrival(toCoreUser(pheOperator1) as any, {
-    contractor_source_id: contractor.id.toString(),
-    vehicle_number: `VEH-${runId}-NUM`,
-    arrival_timestamp: new Date().toISOString(),
-    client_event_id: `con-num-rmr-${runId}`,
-    rmr_number: 12345 as any,
-  });
-  assert(numRmrRes.status === 400, 'Number RMR Rejected', 'Fails closed when rmr_number is a number (400)');
-  assert(numRmrRes.error === 'rmr_number must be a string.', 'Number RMR Error Message', numRmrRes.error);
-
-  const objRmrRes = await submitContractorArrival(toCoreUser(pheOperator1) as any, {
-    contractor_source_id: contractor.id.toString(),
-    vehicle_number: `VEH-${runId}-OBJ`,
-    arrival_timestamp: new Date().toISOString(),
-    client_event_id: `con-obj-rmr-${runId}`,
-    rmr_number: { id: 'rmr-obj' } as any,
-  });
-  assert(objRmrRes.status === 400, 'Object RMR Rejected', 'Fails closed when rmr_number is an object (400)');
-
-  const arrRmrRes = await submitContractorArrival(toCoreUser(pheOperator1) as any, {
-    contractor_source_id: contractor.id.toString(),
-    vehicle_number: `VEH-${runId}-ARR`,
-    arrival_timestamp: new Date().toISOString(),
-    client_event_id: `con-arr-rmr-${runId}`,
-    rmr_number: ['RMR-ARRAY'] as any,
-  });
-  assert(arrRmrRes.status === 400, 'Array RMR Rejected', 'Fails closed when rmr_number is an array (400)');
-
-  const nullRmrRes = await submitContractorArrival(toCoreUser(pheOperator1) as any, {
-    contractor_source_id: contractor.id.toString(),
-    vehicle_number: `VEH-${runId}-NULL`,
-    arrival_timestamp: new Date().toISOString(),
-    client_event_id: `con-null-rmr-${runId}`,
-    rmr_number: null as any,
-  });
-  assert(nullRmrRes.status === 400, 'Null RMR Rejected', 'Fails closed when rmr_number is null (400)');
-
-  // 4A2. Max Length Validation (> 100 characters)
-  const longRmr = '9'.repeat(101);
-  const longRmrRes = await submitContractorArrival(toCoreUser(pheOperator1) as any, {
-    contractor_source_id: contractor.id.toString(),
-    vehicle_number: `VEH-${runId}-LONG`,
-    arrival_timestamp: new Date().toISOString(),
-    client_event_id: `con-long-rmr-${runId}`,
-    rmr_number: longRmr,
-  });
-  assert(longRmrRes.status === 400, 'Long RMR Rejected', 'Fails closed when rmr_number > 100 characters (400)');
-  assert(longRmrRes.error === 'rmr_number cannot exceed 100 characters.', 'Long RMR Error Message', longRmrRes.error);
-
-  // 4A3. Strict Numeric Digits Validation (Letters, Hyphens, Decimals, Spaces, Signs)
-  const invalidRmrCases = [
-    { label: 'Alpha RMR', val: 'RMR123' },
-    { label: 'Hyphenated RMR', val: '12-34' },
-    { label: 'Internal Space RMR', val: '12 34' },
-    { label: 'Decimal RMR', val: '123.45' },
-    { label: 'Negative Sign RMR', val: '-123' },
-    { label: 'Plus Sign RMR', val: '+123' },
-  ];
-  for (const tc of invalidRmrCases) {
-    const invRes = await submitContractorArrival(toCoreUser(pheOperator1) as any, {
-      contractor_source_id: contractor.id.toString(),
-      vehicle_number: `VEH-${runId}-INV`,
-      arrival_timestamp: new Date().toISOString(),
-      client_event_id: `con-inv-${tc.label.replace(/\s+/g, '-')}-${runId}`,
-      rmr_number: tc.val,
-    });
-    assert(invRes.status === 400, `Non-Digit RMR Rejected (${tc.label})`, `Fails closed for "${tc.val}" (400)`);
-    assert(invRes.error === 'rmr_number must contain digits only.', `Non-Digit Error Message (${tc.label})`, invRes.error);
+  // 4B. Verify DB Check Constraint on zmcc_contractor_arrival.rmr_number rejects non-digits
+  let dbCheckFailed = false;
+  try {
+    await prisma.$executeRawUnsafe(`
+      INSERT INTO zmcc_contractor_arrival (
+        zmcc_id, contractor_source_id, rmr_number, vehicle_number, zmcc_token, arrival_timestamp, arrival_date, client_event_id, recorded_by_user_id
+      ) VALUES (
+        ${zmcc1.id}, ${contractor.id}, 'INVALID-RMR', 'VEH-FAIL', 'ZT-CON-FAIL-1', NOW(), CURRENT_DATE, 'evt-fail-1-${runId}', ${pheOperator1.id}
+      )
+    `);
+  } catch (err: any) {
+    dbCheckFailed = Boolean(err.message?.includes('zmcc_contractor_arrival_rmr_digits_check') || err.message?.includes('check constraint'));
   }
+  assert(dbCheckFailed, 'RMR Digits Check Constraint Enforced', 'zmcc_contractor_arrival_rmr_digits_check rejects non-numeric RMR in PostgreSQL');
 
-  // 4B. Successful Contractor Arrival with valid Numeric RMR preserving leading zeros
-  const exactReplayArrivalTimestamp = new Date().toISOString();
-  const rmrInitial = '002345'; // valid numeric string with preserved leading zeros
-  const validArrivalRes = await submitContractorArrival(toCoreUser(pheOperator1) as any, {
-    contractor_source_id: contractor.id.toString(),
-    vehicle_number: `veh-${runId}-01`, // vehicle number is uppercased by design
-    arrival_timestamp: exactReplayArrivalTimestamp,
-    client_event_id: `con-valid-${runId}`,
-    rmr_number: `  ${rmrInitial}  `, // should be trimmed without stripping leading zeros
+  // 4C. Historical Contractor Arrival with valid Numeric RMR preserving leading zeros
+  const rmrInitial = '002345';
+  const arr1 = await prisma.zmccContractorArrival.create({
+    data: {
+      zmcc_id: zmcc1.id,
+      contractor_source_id: contractor.id,
+      vehicle_number: `VEH-${runId}-01`,
+      arrival_timestamp: new Date(),
+      arrival_date: new Date(),
+      client_event_id: `con-valid-${runId}`,
+      rmr_number: rmrInitial,
+      zmcc_token: `ZT-CON-20260914-${String(runId).slice(-4)}`,
+      recorded_by_user_id: pheOperator1.id,
+    },
   });
-  assert(validArrivalRes.status === 201, 'Contractor Arrival Created', 'Status 201 on valid submission');
-  const arr1 = validArrivalRes.data!;
   assert(arr1.rmr_number === rmrInitial, 'RMR Leading Zeros Preserved & Stored Trimmed', `RMR stored verbatim as "${arr1.rmr_number}"`);
   assert(arr1.vehicle_number === `VEH-${runId}-01`, 'Vehicle Number Uppercased', `Vehicle number uppercased: "${arr1.vehicle_number}"`);
   assert(arr1.zmcc_token.startsWith('ZT-CON-'), 'System Token Format', `Token is "${arr1.zmcc_token}"`);
-  assert(arr1.rmr_number !== arr1.zmcc_token, 'RMR vs Token Distinct', 'rmr_number and zmcc_token are distinct');
 
   // Verify stored in DB directly
   const dbArr1 = await prisma.zmccContractorArrival.findUnique({ where: { id: BigInt(arr1.id) } });
   assert(dbArr1?.rmr_number === rmrInitial, 'DB Field Populated With Leading Zeros', 'rmr_number preserved leading zeros directly in PostgreSQL');
-
-  // 4B1. Prove leading zeros distinguish records ("002345" and "2345" are distinct)
-  const distinctRmrArrivalRes = await submitContractorArrival(toCoreUser(pheOperator1) as any, {
-    contractor_source_id: contractor.id.toString(),
-    vehicle_number: `veh-${runId}-distinct`,
-    arrival_timestamp: new Date().toISOString(),
-    client_event_id: `con-distinct-${runId}`,
-    rmr_number: '2345',
-  });
-  assert(distinctRmrArrivalRes.status === 201, 'Distinct RMR Without Leading Zeros Allowed', 'Status 201');
-  assert(distinctRmrArrivalRes.data!.rmr_number === '2345', 'Distinct RMR Stored Verbatim', 'RMR stored as "2345"');
-  assert(arr1.rmr_number !== distinctRmrArrivalRes.data!.rmr_number, 'Leading Zero Distinction', '"002345" !== "2345"');
-
-  // 4C. Idempotent Exact Replay
-  const replayRes = await submitContractorArrival(toCoreUser(pheOperator1) as any, {
-    contractor_source_id: contractor.id.toString(),
-    vehicle_number: `veh-${runId}-01`,
-    arrival_timestamp: exactReplayArrivalTimestamp,
-    client_event_id: `con-valid-${runId}`,
-    rmr_number: rmrInitial,
-  });
-  assert(replayRes.status === 200, 'Exact Replay 200', 'Status 200 on exact replay');
-  assert(replayRes.data!.is_replay === true, 'Replay Flag True', 'is_replay is true');
-  assert(replayRes.data!.rmr_number === rmrInitial, 'Replay RMR Matched', 'rmr_number matches original');
-
-  // 4D. Altered Replay Conflict (differing ONLY in rmr_number)
-  const alteredReplayRes = await submitContractorArrival(toCoreUser(pheOperator1) as any, {
-    contractor_source_id: contractor.id.toString(),
-    vehicle_number: `veh-${runId}-01`,
-    arrival_timestamp: exactReplayArrivalTimestamp,
-    client_event_id: `con-valid-${runId}`,
-    rmr_number: '009999',
-  });
-  assert(alteredReplayRes.status === 409, 'Altered Replay 409 Conflict', 'Status 409 when rmr_number altered');
 
   // 4E. Operator (PHE) Cannot Edit RMR Number After Submission
   const pheCorrRes = await correctContractorArrival(toCoreUser(pheOperator1) as any, arr1.id, {
@@ -584,12 +489,12 @@ async function runStage6gd1Tests() {
   // 4K. Listing & Filtering by RMR Number
   const listAllRes = await listContractorArrivals(toCoreUser(manager1) as any);
   assert(listAllRes.status === 200, 'List Contractor Arrivals', 'Status 200');
-  const foundInList = listAllRes.data!.items.find((a: any) => a.id === arr1.id);
+  const foundInList = listAllRes.data!.items.find((a: any) => a.id === arr1.id.toString());
   assert(foundInList?.rmr_number === rmrSuperCorrected, 'List Contains RMR Number', 'rmr_number is serialized in list');
 
   const filterRes = await listContractorArrivals(toCoreUser(manager1) as any, { search: rmrSuperCorrected });
   assert(filterRes.status === 200, 'Filter by RMR', 'Filter returns status 200');
-  assert(filterRes.data!.items.some((a: any) => a.id === arr1.id), 'Filter Found Record', 'Search matched by rmr_number');
+  assert(filterRes.data!.items.some((a: any) => a.id === arr1.id.toString()), 'Filter Found Record', 'Search matched by rmr_number');
 
   // =============================================================
   // 5. SINGLE ACTIVE TANK ALIGNMENT & CRUD
@@ -793,17 +698,23 @@ async function runStage6gd1Tests() {
   // Deactivate Tank 1 to create 0 active tanks condition
   await toggleZmccTankActive(toCoreUser(superAdmin) as any, tank1Id, false);
 
-  // Create another arrival for zero-tank test
-  const zeroTankArrival = await submitContractorArrival(toCoreUser(pheOperator1) as any, {
-    contractor_source_id: contractor.id.toString(),
-    vehicle_number: `VEH-${runId}-02`,
-    arrival_timestamp: new Date().toISOString(),
-    client_event_id: `con-zero-tank-${runId}`,
-    rmr_number: '004001',
+  // Create another historical contractor arrival directly for zero-tank test
+  const zeroTankArrival = await prisma.zmccContractorArrival.create({
+    data: {
+      zmcc_id: zmcc1.id,
+      contractor_source_id: contractor.id,
+      vehicle_number: `VEH-${runId}-02`,
+      arrival_timestamp: new Date(),
+      arrival_date: new Date(),
+      client_event_id: `con-zero-tank-${runId}`,
+      rmr_number: '004001',
+      zmcc_token: `ZT-CON-20260914-${String(runId + 1).slice(-4)}`,
+      recorded_by_user_id: pheOperator1.id,
+    },
   });
   const zeroSessionStart = await startOrResumeSession(toCoreUser(labAttendant1) as any, {
     arrival_type: 'CONTRACTOR',
-    arrival_id: BigInt(zeroTankArrival.data!.id),
+    arrival_id: zeroTankArrival.id,
   });
   const zeroSessionId = BigInt(zeroSessionStart.data!.id);
 
@@ -870,7 +781,7 @@ async function runStage6gd1Tests() {
     client_event_id: 'spoof-key-1',
     rmr_number: '008899',
   });
-  assert(forgedSubmitRes.status === 401, 'Spoof Submit Arrival Blocked', 'Forged x-user-id rejected with 401');
+  assert(forgedSubmitRes.status === 410, 'Contractor Arrival Submit Retired (410 Gone)', 'POST /api/zmcc/arrivals/contractor fails closed with 410 Gone');
 
   // Forged x-user-id on Contractor Arrival Correction
   const forgedCorrReq = new Request(`http://localhost/api/zmcc/arrivals/contractor/${arr1.id}/correct`, {

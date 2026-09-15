@@ -143,7 +143,7 @@ async function runStage6fTests() {
   const migrationDirs = fs
     .readdirSync(migrationsDir)
     .filter((f) => fs.statSync(path.join(migrationsDir, f)).isDirectory());
-  assert(migrationDirs.length === 24, 'Migration Count', `Found exactly 24 migrations (found ${migrationDirs.length})`);
+  assert(migrationDirs.length === 26, 'Migration Count', `Found exactly 26 migrations (found ${migrationDirs.length})`);
 
   // Verify DB check constraints
   const dbConstraints: Array<{ conname: string }> = await prisma.$queryRaw`
@@ -398,16 +398,22 @@ async function runStage6fTests() {
   assert(motArrivalRes.status === 201, 'Submit MOT Arrival', `MOT Arrival created: ${motArrivalRes.data?.zmcc_token}`);
   const motArrivalId = BigInt(motArrivalRes.data.id);
 
-  // 6. Submit Contractor Arrival at ZMCC A
-  const conArrivalRes = await submitContractorArrival(toCoreUser(pheA) as any, {
-    contractor_source_id: contractorActive.id,
-    rmr_number: '006001',
-    vehicle_number: `CON-VEH-${runId}`,
-    arrival_timestamp: new Date(Date.now() - 1200000),
-    client_event_id: `evt-con-arr-6f-${runId}`,
+  // 6. Seed Historical Contractor Arrival at ZMCC A (intake is retired, testing historical lab compatibility)
+  const historicalConArrival = await prisma.zmccContractorArrival.create({
+    data: {
+      zmcc_id: zmccA.id,
+      contractor_source_id: contractorActive.id,
+      rmr_number: '006001',
+      vehicle_number: `CON-VEH-${runId}`,
+      zmcc_token: `ZT-CON-20260911-${String(runId).slice(-4)}`,
+      arrival_timestamp: new Date(Date.now() - 1200000),
+      arrival_date: new Date(),
+      client_event_id: `evt-con-arr-6f-${runId}`,
+      recorded_by_user_id: pheA.id,
+    },
   });
-  assert(conArrivalRes.status === 201, 'Submit Contractor Arrival', `Contractor Arrival created: ${conArrivalRes.data?.zmcc_token}`);
-  const contractorArrivalId = BigInt(conArrivalRes.data.id);
+  assert(!!historicalConArrival.id, 'Submit Contractor Arrival', `Contractor Arrival created: ${historicalConArrival.zmcc_token}`);
+  const contractorArrivalId = historicalConArrival.id;
 
   // 7. Seed Lab Tests with ZMCC and ALL scopes
   const testTemp = await prisma.labTest.create({
@@ -870,15 +876,21 @@ async function runStage6fTests() {
   assert(wrongSessionReplay.status === 409, 'Cross-Session Event ID Guard', 'Using event ID on different session rejected with 409 Conflict');
 
   // F & G. Concurrent IDENTICAL completion gives one first success + one 200 replay & leaves 1 audit log
-  const concArrivalRes = await submitContractorArrival(toCoreUser(pheA) as any, {
-    contractor_source_id: contractorActive.id,
-    rmr_number: '006002',
-    vehicle_number: `CONC-VEH-${runId}`,
-    arrival_timestamp: new Date(),
-    client_event_id: `evt-conc-arr-${runId}`,
+  const concArrival = await prisma.zmccContractorArrival.create({
+    data: {
+      zmcc_id: zmccA.id,
+      contractor_source_id: contractorActive.id,
+      rmr_number: '006002',
+      vehicle_number: `CONC-VEH-${runId}`,
+      zmcc_token: `ZT-CON-20260911-${String(runId + 1).slice(-4)}`,
+      arrival_timestamp: new Date(),
+      arrival_date: new Date(),
+      client_event_id: `evt-conc-arr-${runId}`,
+      recorded_by_user_id: pheA.id,
+    },
   });
-  assert(concArrivalRes.status === 201, 'Submit Concurrent Contractor Arrival', `Created arrival: ${concArrivalRes.data?.zmcc_token}`);
-  const concArrivalId = concArrivalRes.data.id;
+  assert(!!concArrival.id, 'Submit Concurrent Contractor Arrival', `Created arrival: ${concArrival.zmcc_token}`);
+  const concArrivalId = concArrival.id;
 
   const concStartRes = await startOrResumeSession(toCoreUser(attendantA) as any, {
     arrival_type: 'CONTRACTOR',
@@ -1294,15 +1306,21 @@ async function runStage6fTests() {
     },
   });
 
-  const calcArrivalRes = await submitContractorArrival(toCoreUser(pheA) as any, {
-    contractor_source_id: contractorActive.id,
-    rmr_number: '006003',
-    vehicle_number: `CALC-VEH-${runId}`,
-    arrival_timestamp: new Date(),
-    client_event_id: `evt-calc-arr-${runId}`,
+  const calcArrival = await prisma.zmccContractorArrival.create({
+    data: {
+      zmcc_id: zmccA.id,
+      contractor_source_id: contractorActive.id,
+      rmr_number: '006003',
+      vehicle_number: `CALC-VEH-${runId}`,
+      zmcc_token: `ZT-CON-20260911-${String(runId + 2).slice(-4)}`,
+      arrival_timestamp: new Date(),
+      arrival_date: new Date(),
+      client_event_id: `evt-calc-arr-${runId}`,
+      recorded_by_user_id: pheA.id,
+    },
   });
-  assert(calcArrivalRes.status === 201, 'Submit Calc Contractor Arrival', `Created arrival: ${calcArrivalRes.data?.zmcc_token}`);
-  const calcArrivalId = calcArrivalRes.data.id;
+  assert(!!calcArrival.id, 'Submit Calc Contractor Arrival', `Created arrival: ${calcArrival.zmcc_token}`);
+  const calcArrivalId = calcArrival.id;
 
   const calcStartRes = await startOrResumeSession(toCoreUser(attendantA) as any, {
     arrival_type: 'CONTRACTOR',

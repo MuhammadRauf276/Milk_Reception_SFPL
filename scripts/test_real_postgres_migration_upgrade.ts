@@ -348,12 +348,12 @@ async function runRealPostgresMigrationUpgradeTest() {
       'MIG-SCHEMA-3: Temporary vehicle quantity columns successfully dropped from dispatch_info'
     );
 
-    // Migration count check (24 tracked migrations)
+    // Migration count check (26 tracked migrations)
     const migrationDirs = fs.readdirSync(path.join(process.cwd(), 'prisma/migrations'))
       .filter((f) => fs.statSync(path.join(process.cwd(), 'prisma/migrations', f)).isDirectory());
     assert(
-      migrationDirs.length === 24,
-      'MIG-COUNT-1: Repository contains exactly 24 tracked migrations',
+      migrationDirs.length === 26,
+      'MIG-COUNT-1: Repository contains exactly 26 tracked migrations',
       `Found ${migrationDirs.length} migrations`
     );
     assert(
@@ -380,6 +380,308 @@ async function runRealPostgresMigrationUpgradeTest() {
       migrationDirs.includes('20260914160000_user_email_foundation'),
       'MIG-STAGE6GD2: 20260914160000_user_email_foundation migration is present'
     );
+    assert(
+      migrationDirs.includes('20260915100000_zmcc_local_supplier_directory_and_arrival'),
+      'MIG-STAGE6GD3-25: 20260915100000_zmcc_local_supplier_directory_and_arrival migration is present'
+    );
+    assert(
+      migrationDirs.includes('20260915120000_zmcc_gate_exit_and_canonical_local_supplier'),
+      'MIG-STAGE6GD3-26: 20260915120000_zmcc_gate_exit_and_canonical_local_supplier migration is present'
+    );
+
+    // =========================================================================
+    // STAGE 6G-D.3: ACTUAL POSTGRESQL MIGRATION EXECUTION & UPGRADE REGRESSION
+    // =========================================================================
+    console.log('\n--- STAGE 6G-D.3 REAL POSTGRESQL MIGRATION UPGRADE TEST ---');
+    const d3Schema = `mig_test_d3_${Date.now()}`;
+    await prisma.$executeRawUnsafe(`CREATE SCHEMA "${d3Schema}";`);
+    await prisma.$executeRawUnsafe(`SET search_path TO "${d3Schema}", public;`);
+
+    try {
+      // Build minimum compatible pre-D.3 schema
+      await executeMultiStatementSql(`
+        CREATE TABLE "${d3Schema}"."procurement_source" (
+          "id" BIGSERIAL PRIMARY KEY,
+          "code" VARCHAR(50) NOT NULL UNIQUE,
+          "name" VARCHAR(150) NOT NULL,
+          "source_type" VARCHAR(50) NOT NULL,
+          "is_active" BOOLEAN NOT NULL DEFAULT true
+        );
+
+        CREATE TABLE "${d3Schema}"."users" (
+          "id" BIGSERIAL PRIMARY KEY,
+          "username" VARCHAR(100) NOT NULL UNIQUE,
+          "email" VARCHAR(254),
+          "role" VARCHAR(50) NOT NULL,
+          "is_active" BOOLEAN NOT NULL DEFAULT true
+        );
+
+        CREATE TABLE "${d3Schema}"."zmcc_mot_arrival" (
+          "id" BIGSERIAL PRIMARY KEY,
+          "zmcc_id" BIGINT NOT NULL REFERENCES "${d3Schema}"."procurement_source"("id"),
+          "route_milk_token" VARCHAR(100) NOT NULL,
+          "zmcc_token" VARCHAR(100) NOT NULL UNIQUE
+        );
+
+        CREATE TABLE "${d3Schema}"."zmcc_contractor_arrival" (
+          "id" BIGSERIAL PRIMARY KEY,
+          "zmcc_id" BIGINT NOT NULL REFERENCES "${d3Schema}"."procurement_source"("id"),
+          "contractor_source_id" BIGINT NOT NULL REFERENCES "${d3Schema}"."procurement_source"("id"),
+          "rmr_number" VARCHAR(100) NOT NULL,
+          "vehicle_number" VARCHAR(50) NOT NULL,
+          "zmcc_token" VARCHAR(100) NOT NULL UNIQUE
+        );
+
+        CREATE TABLE "${d3Schema}"."zmcc_lab_session" (
+          "id" BIGSERIAL PRIMARY KEY,
+          "zmcc_id" BIGINT NOT NULL REFERENCES "${d3Schema}"."procurement_source"("id"),
+          "arrival_type" VARCHAR(50) NOT NULL,
+          "mot_arrival_id" BIGINT REFERENCES "${d3Schema}"."zmcc_mot_arrival"("id"),
+          "contractor_arrival_id" BIGINT REFERENCES "${d3Schema}"."zmcc_contractor_arrival"("id"),
+          "status" VARCHAR(50) NOT NULL DEFAULT 'IN_PROGRESS',
+          "started_by_user_id" BIGINT NOT NULL REFERENCES "${d3Schema}"."users"("id"),
+          "started_at" TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          CONSTRAINT "zmcc_lab_session_arrival_check" CHECK (
+            ("mot_arrival_id" IS NOT NULL AND "contractor_arrival_id" IS NULL AND "arrival_type" = 'MOT') OR
+            ("mot_arrival_id" IS NULL AND "contractor_arrival_id" IS NOT NULL AND "arrival_type" = 'CONTRACTOR')
+          ),
+          CONSTRAINT "zmcc_lab_session_arrival_type_check" CHECK ("arrival_type" IN ('MOT', 'CONTRACTOR'))
+        );
+      `);
+
+      // Insert pre-D.3 fixtures
+      await executeMultiStatementSql(`
+        INSERT INTO "${d3Schema}"."procurement_source" ("id", "code", "name", "source_type", "is_active")
+        VALUES (1, 'ZMCC-001', 'ZMCC Sahiwal', 'ZMCC', true), (2, 'CON-001', 'Contractor Alpha', 'CONTRACTOR', true);
+
+        INSERT INTO "${d3Schema}"."users" ("id", "username", "email", "role", "is_active")
+        VALUES (1, 'admin_user', 'admin@example.com', 'SUPER_ADMIN', true);
+
+        INSERT INTO "${d3Schema}"."zmcc_mot_arrival" ("id", "zmcc_id", "route_milk_token", "zmcc_token")
+        VALUES (101, 1, 'RMT-101', 'ZT-MOT-20260915-0001');
+
+        INSERT INTO "${d3Schema}"."zmcc_contractor_arrival" ("id", "zmcc_id", "contractor_source_id", "rmr_number", "vehicle_number", "zmcc_token")
+        VALUES (201, 1, 2, 'RMR-201', 'LHR 1234', 'ZT-CON-20260915-0001');
+
+        INSERT INTO "${d3Schema}"."zmcc_lab_session" ("id", "zmcc_id", "arrival_type", "mot_arrival_id", "status", "started_by_user_id")
+        VALUES (301, 1, 'MOT', 101, 'IN_PROGRESS', 1);
+
+        INSERT INTO "${d3Schema}"."zmcc_lab_session" ("id", "zmcc_id", "arrival_type", "contractor_arrival_id", "status", "started_by_user_id")
+        VALUES (302, 1, 'CONTRACTOR', 201, 'IN_PROGRESS', 1);
+      `);
+
+      // Read ACTUAL D.3 migration file
+      const d3MigrationPath = path.join(process.cwd(), 'prisma/migrations/20260915100000_zmcc_local_supplier_directory_and_arrival/migration.sql');
+      const d3MigrationSql = fs.readFileSync(d3MigrationPath, 'utf8');
+
+      // Execute actual D.3 migration inside d3Schema
+      await executeMultiStatementSql(d3MigrationSql);
+
+      // Verify pre-D.3 fixtures survived unchanged
+      const preD3Mot: any[] = await prisma.$queryRawUnsafe(`SELECT * FROM "${d3Schema}"."zmcc_lab_session" WHERE id = 301`);
+      assert(
+        preD3Mot.length === 1 && preD3Mot[0].arrival_type === 'MOT' && BigInt(preD3Mot[0].mot_arrival_id) === BigInt(101),
+        'MIG-D3-PRESERVE-1: Pre-D.3 MOT lab session facts survived migration unchanged'
+      );
+
+      const preD3Con: any[] = await prisma.$queryRawUnsafe(`SELECT * FROM "${d3Schema}"."zmcc_lab_session" WHERE id = 302`);
+      assert(
+        preD3Con.length === 1 && preD3Con[0].arrival_type === 'CONTRACTOR' && BigInt(preD3Con[0].contractor_arrival_id) === BigInt(201),
+        'MIG-D3-PRESERVE-2: Pre-D.3 Contractor lab session facts survived migration unchanged'
+      );
+
+      assert(
+        preD3Mot[0].local_supplier_arrival_id === null && preD3Con[0].local_supplier_arrival_id === null,
+        'MIG-D3-PRESERVE-3: Pre-D.3 lab sessions retain NULL local_supplier_arrival_id (no fabrication)'
+      );
+
+      // Verify D.3 structures exist
+      const tablesRes: any[] = await prisma.$queryRawUnsafe(`
+        SELECT table_name FROM information_schema.tables WHERE table_schema = '${d3Schema}'
+      `);
+      const tableNames = tablesRes.map((t) => t.table_name);
+      assert(tableNames.includes('zmcc_local_supplier'), 'MIG-D3-TABLE-1: zmcc_local_supplier table created');
+      assert(tableNames.includes('zmcc_local_supplier_arrival'), 'MIG-D3-TABLE-2: zmcc_local_supplier_arrival table created');
+
+      const seqRes: any[] = await prisma.$queryRawUnsafe(`
+        SELECT sequence_name FROM information_schema.sequences WHERE sequence_schema = '${d3Schema}' AND sequence_name = 'zmcc_local_supplier_code_seq'
+      `);
+      assert(seqRes.length === 1, 'MIG-D3-SEQ-1: zmcc_local_supplier_code_seq sequence exists');
+
+      const labColsRes: any[] = await prisma.$queryRawUnsafe(`
+        SELECT column_name FROM information_schema.columns WHERE table_schema = '${d3Schema}' AND table_name = 'zmcc_lab_session' AND column_name = 'local_supplier_arrival_id'
+      `);
+      assert(labColsRes.length === 1, 'MIG-D3-COL-1: local_supplier_arrival_id column exists on zmcc_lab_session');
+
+      // Verify RMR constraint and leading zeros preserved
+      await executeMultiStatementSql(`
+        INSERT INTO "${d3Schema}"."zmcc_local_supplier" ("id", "local_supplier_code", "zmcc_id", "name", "erp_mapping_status", "is_active", "created_by_user_id", "updated_at")
+        VALUES (501, 'ZLS-000001', 1, 'Supplier Zero', 'PENDING', true, 1, CURRENT_TIMESTAMP);
+
+        INSERT INTO "${d3Schema}"."zmcc_local_supplier_arrival" (
+          "id", "zmcc_id", "local_supplier_id", "rmr_number", "vehicle_number", "arrival_timestamp", "arrival_date",
+          "zmcc_token", "client_event_id", "recorded_by_user_id", "updated_at"
+        ) VALUES (
+          601, 1, 501, '007890', 'LHR 1234', CURRENT_TIMESTAMP, CURRENT_DATE,
+          'ZT-LS-20260915-0001', 'evt-d3-test-1', 1, CURRENT_TIMESTAMP
+        );
+      `);
+      const rmrRecord: any[] = await prisma.$queryRawUnsafe(`
+        SELECT rmr_number FROM "${d3Schema}"."zmcc_local_supplier_arrival" WHERE id = 601
+      `);
+      assert(
+        rmrRecord[0]?.rmr_number === '007890',
+        'MIG-D3-RMR-PRESERVE: Leading-zero RMR "007890" preserved exactly as text'
+      );
+
+      // Verify RMR digits check rejects non-numeric
+      let rmrRejected = false;
+      try {
+        await prisma.$executeRawUnsafe(`
+          INSERT INTO "${d3Schema}"."zmcc_local_supplier_arrival" (
+            "id", "zmcc_id", "local_supplier_id", "rmr_number", "vehicle_number", "arrival_timestamp", "arrival_date",
+            "zmcc_token", "client_event_id", "recorded_by_user_id", "updated_at"
+          ) VALUES (
+            602, 1, 501, 'RMR-XYZ', 'LHR 1234', CURRENT_TIMESTAMP, CURRENT_DATE,
+            'ZT-LS-20260915-0002', 'evt-d3-test-2', 1, CURRENT_TIMESTAMP
+          );
+        `);
+      } catch {
+        rmrRejected = true;
+      }
+      assert(rmrRejected, 'MIG-D3-RMR-CHECK: zmcc_local_supplier_arrival_rmr_digits_check rejects non-numeric RMR');
+
+      // Execute actual Migration 26 (Gate Exit & Canonical Local Supplier)
+      const d3Migration26Path = path.join(process.cwd(), 'prisma/migrations/20260915120000_zmcc_gate_exit_and_canonical_local_supplier/migration.sql');
+      const d3Migration26Sql = fs.readFileSync(d3Migration26Path, 'utf8');
+      await executeMultiStatementSql(d3Migration26Sql);
+
+      // Verify ERP mapping status check constraint rejects BROKEN
+      let erpBrokenRejected = false;
+      try {
+        await prisma.$executeRawUnsafe(`
+          INSERT INTO "${d3Schema}"."zmcc_local_supplier" ("id", "local_supplier_code", "zmcc_id", "name", "erp_mapping_status", "is_active", "created_by_user_id", "updated_at")
+          VALUES (502, 'ZLS-000002', 1, 'Supplier Invalid ERP', 'BROKEN', true, 1, CURRENT_TIMESTAMP);
+        `);
+      } catch {
+        erpBrokenRejected = true;
+      }
+      assert(erpBrokenRejected, 'MIG-D3-ERP-CHECK-1: zmcc_local_supplier_erp_mapping_status_check rejects "BROKEN"');
+
+      // Verify PENDING and VERIFIED are allowed structurally by DB
+      await prisma.$executeRawUnsafe(`
+        INSERT INTO "${d3Schema}"."zmcc_local_supplier" ("id", "local_supplier_code", "zmcc_id", "name", "erp_mapping_status", "is_active", "created_by_user_id", "updated_at")
+        VALUES (503, 'ZLS-000003', 1, 'Supplier Verified ERP', 'VERIFIED', true, 1, CURRENT_TIMESTAMP);
+      `);
+      const verifiedSupplier: any[] = await prisma.$queryRawUnsafe(`
+        SELECT erp_mapping_status FROM "${d3Schema}"."zmcc_local_supplier" WHERE id = 503
+      `);
+      assert(
+        verifiedSupplier[0]?.erp_mapping_status === 'VERIFIED',
+        'MIG-D3-ERP-CHECK-2: zmcc_local_supplier_erp_mapping_status_check permits "VERIFIED" structurally'
+      );
+
+      // Verify historical pre-migration rows cutover: gate_exit_required = false, exit_timestamp IS NULL
+      const preFeatureMot: any[] = await prisma.$queryRawUnsafe(`
+        SELECT gate_exit_required, exit_timestamp, exit_recorded_by_user_id, exit_client_event_id
+        FROM "${d3Schema}"."zmcc_mot_arrival" WHERE id = 101
+      `);
+      assert(
+        preFeatureMot.length === 1 &&
+        preFeatureMot[0].gate_exit_required === false &&
+        preFeatureMot[0].exit_timestamp === null &&
+        preFeatureMot[0].exit_recorded_by_user_id === null &&
+        preFeatureMot[0].exit_client_event_id === null,
+        'MIG-D3-CUTOVER-MOT: Pre-feature MOT arrival has gate_exit_required = false and NULL exit fields'
+      );
+
+      const preFeatureLs: any[] = await prisma.$queryRawUnsafe(`
+        SELECT gate_exit_required, exit_timestamp, exit_recorded_by_user_id, exit_client_event_id
+        FROM "${d3Schema}"."zmcc_local_supplier_arrival" WHERE id = 601
+      `);
+      assert(
+        preFeatureLs.length === 1 &&
+        preFeatureLs[0].gate_exit_required === false &&
+        preFeatureLs[0].exit_timestamp === null &&
+        preFeatureLs[0].exit_recorded_by_user_id === null &&
+        preFeatureLs[0].exit_client_event_id === null,
+        'MIG-D3-CUTOVER-LS: Pre-feature Local Supplier arrival has gate_exit_required = false and NULL exit fields'
+      );
+
+      // Verify newly inserted rows default to gate_exit_required = true
+      await executeMultiStatementSql(`
+        INSERT INTO "${d3Schema}"."zmcc_mot_arrival" ("id", "zmcc_id", "route_milk_token", "zmcc_token")
+        VALUES (102, 1, 'RMT-102', 'ZT-MOT-20260915-0002');
+
+        INSERT INTO "${d3Schema}"."zmcc_local_supplier_arrival" (
+          "id", "zmcc_id", "local_supplier_id", "rmr_number", "vehicle_number", "arrival_timestamp", "arrival_date",
+          "zmcc_token", "client_event_id", "recorded_by_user_id", "updated_at"
+        ) VALUES (
+          603, 1, 501, '007891', 'LHR 9999', CURRENT_TIMESTAMP, CURRENT_DATE,
+          'ZT-LS-20260915-0003', 'evt-d3-test-3', 1, CURRENT_TIMESTAMP
+        );
+      `);
+
+      const postFeatureMot: any[] = await prisma.$queryRawUnsafe(`
+        SELECT gate_exit_required, exit_timestamp FROM "${d3Schema}"."zmcc_mot_arrival" WHERE id = 102
+      `);
+      assert(
+        postFeatureMot.length === 1 && postFeatureMot[0].gate_exit_required === true && postFeatureMot[0].exit_timestamp === null,
+        'MIG-D3-DEFAULT-MOT: Post-migration MOT arrival defaults gate_exit_required = true'
+      );
+
+      const postFeatureLs: any[] = await prisma.$queryRawUnsafe(`
+        SELECT gate_exit_required, exit_timestamp FROM "${d3Schema}"."zmcc_local_supplier_arrival" WHERE id = 603
+      `);
+      assert(
+        postFeatureLs.length === 1 && postFeatureLs[0].gate_exit_required === true && postFeatureLs[0].exit_timestamp === null,
+        'MIG-D3-DEFAULT-LS: Post-migration Local Supplier arrival defaults gate_exit_required = true'
+      );
+
+      // Verify exit columns exist on both tables
+      const motExitCols: any[] = await prisma.$queryRawUnsafe(`
+        SELECT column_name FROM information_schema.columns
+        WHERE table_schema = '${d3Schema}' AND table_name = 'zmcc_mot_arrival'
+        AND column_name IN ('gate_exit_required', 'exit_timestamp', 'exit_recorded_by_user_id', 'exit_client_event_id', 'exit_submitted_at', 'exit_correction_count');
+      `);
+      assert(motExitCols.length === 6, 'MIG-D3-COLS-MOT: All 6 exit columns exist on zmcc_mot_arrival');
+
+      const lsExitCols: any[] = await prisma.$queryRawUnsafe(`
+        SELECT column_name FROM information_schema.columns
+        WHERE table_schema = '${d3Schema}' AND table_name = 'zmcc_local_supplier_arrival'
+        AND column_name IN ('gate_exit_required', 'exit_timestamp', 'exit_recorded_by_user_id', 'exit_client_event_id', 'exit_submitted_at', 'exit_correction_count');
+      `);
+      assert(lsExitCols.length === 6, 'MIG-D3-COLS-LS: All 6 exit columns exist on zmcc_local_supplier_arrival');
+
+      // Verify Lab check constraints allow LOCAL_SUPPLIER shape
+      await prisma.$executeRawUnsafe(`
+        INSERT INTO "${d3Schema}"."zmcc_lab_session" ("id", "zmcc_id", "arrival_type", "local_supplier_arrival_id", "status", "started_by_user_id")
+        VALUES (303, 1, 'LOCAL_SUPPLIER', 601, 'IN_PROGRESS', 1);
+      `);
+      const labLs: any[] = await prisma.$queryRawUnsafe(`
+        SELECT * FROM "${d3Schema}"."zmcc_lab_session" WHERE id = 303
+      `);
+      assert(
+        labLs.length === 1 && labLs[0].arrival_type === 'LOCAL_SUPPLIER' && BigInt(labLs[0].local_supplier_arrival_id) === BigInt(601),
+        'MIG-D3-LAB-CHECK-1: zmcc_lab_session_arrival_check permits LOCAL_SUPPLIER arrival shape'
+      );
+
+      // Verify invalid lab arrival combination is rejected
+      let invalidLabRejected = false;
+      try {
+        await prisma.$executeRawUnsafe(`
+          INSERT INTO "${d3Schema}"."zmcc_lab_session" ("id", "zmcc_id", "arrival_type", "mot_arrival_id", "local_supplier_arrival_id", "status", "started_by_user_id")
+          VALUES (304, 1, 'LOCAL_SUPPLIER', 101, 601, 'IN_PROGRESS', 1);
+        `);
+      } catch {
+        invalidLabRejected = true;
+      }
+      assert(invalidLabRejected, 'MIG-D3-LAB-CHECK-2: zmcc_lab_session_arrival_check rejects conflicting arrival IDs');
+    } finally {
+      try {
+        await prisma.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${d3Schema}" CASCADE;`);
+      } catch {}
+    }
 
     console.log(`\n========================================`);
     console.log(`REAL POSTGRESQL MIGRATION TEST: ${passed} PASSED, ${failed} FAILED`);

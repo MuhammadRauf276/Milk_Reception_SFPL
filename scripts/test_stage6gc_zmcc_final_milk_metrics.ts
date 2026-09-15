@@ -154,7 +154,7 @@ async function runStage6gcTests() {
   const migrationDirs = fs
     .readdirSync(migrationsDir)
     .filter((f) => fs.statSync(path.join(migrationsDir, f)).isDirectory() && !f.startsWith('.'));
-  assert(migrationDirs.length === 24, 'Tracked Migrations', `Found exactly 24 migrations (expected 24)`);
+  assert(migrationDirs.length === 26, 'Tracked Migrations', `Found exactly 26 migrations (expected 26)`);
 
   const metricsMigDir = migrationDirs.find((d) => d.includes('zmcc_final_milk_metrics'));
   assert(!!metricsMigDir, 'Migration Exists', `Found 6G-C migration: ${metricsMigDir}`);
@@ -612,18 +612,20 @@ async function runStage6gcTests() {
   // =============================================================
   console.log('\n--- 6. CONTRACTOR ARRIVAL FINAL MILK METRICS WORKFLOW ---');
   {
-    const conArrivalRes = await submitContractorArrival(
-      toCoreUser(phe) as any,
-      {
+    const contractorArrival = await prisma.zmccContractorArrival.create({
+      data: {
+        zmcc_id: zmcc.id,
         contractor_source_id: contractor.id,
         rmr_number: '006101',
         vehicle_number: `CON-VEH-${runId}`,
+        zmcc_token: `ZT-CON-20260911-${String(runId).slice(-4)}`,
         arrival_timestamp: new Date(Date.now() - 1200000),
+        arrival_date: new Date(),
         client_event_id: `evt-con-arr-${runId}`,
-      }
-    );
-    assert(conArrivalRes.status === 201, 'Contractor Arrival Created', 'Contractor arrival submitted');
-    const contractorArrival = conArrivalRes.data;
+        recorded_by_user_id: phe.id,
+      },
+    });
+    assert(!!contractorArrival.id, 'Contractor Arrival Created', 'Contractor arrival submitted');
 
     const startRes = await startOrResumeSession(
       toCoreUser(attendant) as any,
@@ -666,21 +668,24 @@ async function runStage6gcTests() {
   // =============================================================
   console.log('\n--- 7. FINALIZATION VALIDATION (FAIL-CLOSED) ---');
   {
-    const conArrivalRes = await submitContractorArrival(
-      toCoreUser(phe) as any,
-      {
+    const conArrival = await prisma.zmccContractorArrival.create({
+      data: {
+        zmcc_id: zmcc.id,
         contractor_source_id: contractor.id,
         rmr_number: '006102',
         vehicle_number: `CONT-VEH-2-${runId}`,
+        zmcc_token: `ZT-CON-20260911-${String(runId + 1).slice(-4)}`,
         arrival_timestamp: new Date(Date.now() - 1000000),
+        arrival_date: new Date(),
         client_event_id: `evt-con-arr-2-${runId}`,
-      }
-    );
+        recorded_by_user_id: phe.id,
+      },
+    });
     const startRes = await startOrResumeSession(
       toCoreUser(attendant) as any,
       {
         arrival_type: 'CONTRACTOR',
-        arrival_id: BigInt(conArrivalRes.data.id),
+        arrival_id: conArrival.id,
       }
     );
     const sessionId = BigInt(startRes.data.id);
@@ -1102,19 +1107,22 @@ async function runStage6gcTests() {
     assert(motOnlySnap?.display_order_snapshot === 5, 'Policy display_order F', 'Policy display_order controls display_order_snapshot (5)');
 
     // B & C: Test Contractor session snapshot
-    const conArrRes = await submitContractorArrival(
-      toCoreUser(phe) as any,
-      {
+    const conArr = await prisma.zmccContractorArrival.create({
+      data: {
+        zmcc_id: zmcc.id,
         contractor_source_id: contractor.id,
         rmr_number: '006103',
         vehicle_number: `CON-ISO-${runId}`,
+        zmcc_token: `ZT-CON-20260911-${String(runId + 2).slice(-4)}`,
         arrival_timestamp: new Date(Date.now() - 600000),
+        arrival_date: new Date(),
         client_event_id: `evt-con-iso-${runId}`,
-      }
-    );
+        recorded_by_user_id: phe.id,
+      },
+    });
     const conSessionRes = await startOrResumeSession(
       toCoreUser(attendant) as any,
-      { arrival_type: 'CONTRACTOR', arrival_id: BigInt(conArrRes.data.id) }
+      { arrival_type: 'CONTRACTOR', arrival_id: conArr.id }
     );
     assert(conSessionRes.status === 201, 'Contractor Session Start', 'Contractor session started');
     const conResults = conSessionRes.data.results || [];

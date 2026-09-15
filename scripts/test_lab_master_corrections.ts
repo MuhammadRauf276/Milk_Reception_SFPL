@@ -28,11 +28,11 @@ if (process.env.TEST_DATABASE_URL) {
   process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
 }
 
-import { prisma } from '../src/backend/core/db';
 import { validateCategoricalOption } from '../src/lib/lab-rules';
 import { assertSafeTestDatabase } from '../tests/helpers/testDbSafety';
 
 async function runLabMasterCorrectionsVerification() {
+  const { prisma } = await import('../src/backend/core/db');
   console.log('==================================================');
   console.log('RUNNING LAB MASTER CORRECTIONS & RECONCILIATION VERIFICATION');
   console.log('==================================================\n');
