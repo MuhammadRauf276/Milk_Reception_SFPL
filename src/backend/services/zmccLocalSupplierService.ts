@@ -226,8 +226,42 @@ export async function createLocalSupplier(
   if (errorResponse) return errorResponse;
   if (!auth) return { status: 401, error: 'Unauthorized.' };
 
+  // Role check: Only PHE_OPERATOR, ZMCC_MANAGER, SUPER_ADMIN can create local suppliers
+  if (!auth.isPheOperator && !auth.isZmccManager && !auth.isSuperAdmin) {
+    return {
+      status: 403,
+      error: 'Forbidden. Only PHE Operator, ZMCC Manager, or Super Admin can create local suppliers.',
+    };
+  }
+
   if (!payload || typeof payload !== 'object') {
     return { status: 400, error: 'Missing request payload.' };
+  }
+
+  // Scope hardening: conflicting zmcc_id supplied by PHE/Manager must fail closed with 403
+  if (
+    !auth.isSuperAdmin &&
+    (payload as any).zmcc_id !== undefined &&
+    (payload as any).zmcc_id !== null &&
+    String((payload as any).zmcc_id).trim() !== ''
+  ) {
+    let passedZmccId: bigint;
+    try {
+      passedZmccId = BigInt(String((payload as any).zmcc_id).trim());
+    } catch {
+      return { status: 400, error: 'Invalid zmcc_id format.' };
+    }
+    if (passedZmccId !== auth.effectiveZmccId) {
+      return { status: 403, error: 'Forbidden. Conflicting zmcc_id supplied.' };
+    }
+  }
+
+  // Strict mutation allowlist for create
+  const allowedCreateFields = new Set(['name', 'phone', 'cnic', 'erp_reference', 'zmcc_id']);
+  for (const field of Object.keys(payload)) {
+    if (!allowedCreateFields.has(field)) {
+      return { status: 400, error: `Field "${field}" is not allowed on local supplier creation.` };
+    }
   }
 
   // Reject forbidden client fields
@@ -414,22 +448,19 @@ export async function updateLocalSupplier(
     return { status: 400, error: 'Missing request payload.' };
   }
 
+  // Strict PATCH allowlist: exactly name, phone, cnic, erp_reference, is_active
+  const allowedPatchFields = new Set(['name', 'phone', 'cnic', 'erp_reference', 'is_active']);
+  for (const field of Object.keys(payload)) {
+    if (!allowedPatchFields.has(field)) {
+      return { status: 400, error: `Field "${field}" is not allowed on local supplier update.` };
+    }
+  }
+
   // Reject forbidden client fields
   for (const field of FORBIDDEN_CLIENT_FIELDS) {
     if (field in payload) {
       return { status: 400, error: `Field "${field}" is forbidden and cannot be modified.` };
     }
-  }
-
-  // Reject attempts to modify immutable fields
-  if ('id' in payload || 'local_supplier_code' in payload || 'localSupplierCode' in payload) {
-    return { status: 400, error: 'local_supplier_code is immutable.' };
-  }
-  if ('zmcc_id' in payload || 'zmccId' in payload) {
-    return { status: 400, error: 'zmcc_id is immutable. Suppliers cannot be moved between ZMCCs.' };
-  }
-  if ('created_by_user_id' in payload || 'created_at' in payload) {
-    return { status: 400, error: 'Creation metadata is immutable.' };
   }
 
   const existingSupplier = await prisma.zmccLocalSupplier.findUnique({

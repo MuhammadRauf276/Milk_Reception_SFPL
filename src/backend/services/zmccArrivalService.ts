@@ -2012,6 +2012,17 @@ export async function submitLocalSupplierArrival(
       return { status: 400, error: 'Invalid target_zmcc_id format.' };
     }
   } else {
+    if (rawTargetZmccId !== undefined && rawTargetZmccId !== null && String(rawTargetZmccId).trim() !== '') {
+      let passedZmccId: bigint;
+      try {
+        passedZmccId = BigInt(String(rawTargetZmccId).trim());
+      } catch {
+        return { status: 400, error: 'Invalid zmcc_id format.' };
+      }
+      if (passedZmccId !== auth.effectiveZmccId) {
+        return { status: 403, error: 'Forbidden. Conflicting zmcc_id supplied.' };
+      }
+    }
     targetZmccId = auth.effectiveZmccId;
   }
 

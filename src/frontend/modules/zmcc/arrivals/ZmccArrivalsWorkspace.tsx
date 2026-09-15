@@ -79,6 +79,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
   // Local Supplier Arrival Form State
   const [localSuppliers, setLocalSuppliers] = useState<any[]>([]);
   const [loadingLocalSuppliers, setLoadingLocalSuppliers] = useState(false);
+  const [supplierSearchTerm, setSupplierSearchTerm] = useState('');
   const [selectedLocalSupplierId, setSelectedLocalSupplierId] = useState('');
   const [localSupplierRmrNumber, setLocalSupplierRmrNumber] = useState('');
   const [localSupplierVehicleNumber, setLocalSupplierVehicleNumber] = useState('');
@@ -154,6 +155,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
 
   const initLocalSupplierForm = useCallback(() => {
     setSelectedLocalSupplierId('');
+    setSupplierSearchTerm('');
     setLocalSupplierRmrNumber('');
     setLocalSupplierVehicleNumber('');
     setLocalSupplierArrivalTimestamp(toDatetimeLocalInput(new Date()));
@@ -195,10 +197,10 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
   const fetchLocalSuppliers = useCallback(async () => {
     setLoadingLocalSuppliers(true);
     try {
-      const res = await fetch('/api/zmcc/local-suppliers?is_active=true&pageSize=100');
+      const res = await fetch('/api/zmcc/local-suppliers?is_active=true');
       if (res.ok) {
         const data = await res.json();
-        setLocalSuppliers(data.items || []);
+        setLocalSuppliers(data.suppliers || []);
       }
     } catch (err) {
       console.error('Failed to fetch local suppliers', err);
@@ -398,14 +400,16 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
       if (!res.ok) {
         setAddSupplierError(data.error || 'Failed to create local supplier.');
       } else {
-        toast.showSuccess(`Local supplier "${data.name}" onboarded (${data.local_supplier_code})`);
+        const supplier = data.supplier;
+        toast.showSuccess(`Local supplier "${supplier.name}" onboarded (${supplier.local_supplier_code})`);
         setShowAddSupplierModal(false);
         setNewSupplierName('');
         setNewSupplierPhone('');
         setNewSupplierCnic('');
         setNewSupplierErpRef('');
-        setLocalSuppliers((prev) => [data, ...prev]);
-        setSelectedLocalSupplierId(data.id);
+        setSupplierSearchTerm('');
+        setLocalSuppliers((prev) => [supplier, ...prev]);
+        setSelectedLocalSupplierId(supplier.id);
       }
     } catch (err: any) {
       setAddSupplierError(err.message || 'An unexpected error occurred.');
@@ -1130,24 +1134,67 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
                     <span>Quick Add Supplier</span>
                   </button>
                 </div>
-                <select
-                  value={selectedLocalSupplierId}
-                  onChange={(e) => setSelectedLocalSupplierId(e.target.value)}
-                  required
-                  className="w-full text-xs font-bold px-3 py-2 border rounded-xl focus:ring-2 focus:ring-emerald-600 outline-hidden bg-white"
-                >
-                  <option value="">-- Select Local Supplier Directory Entry --</option>
-                  {localSuppliers.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.local_supplier_code} — {s.name} {s.erp_reference ? `(ERP: ${s.erp_reference} - Pending)` : ''}
-                    </option>
-                  ))}
-                </select>
-                {localSuppliers.length === 0 && !loadingLocalSuppliers && (
-                  <p className="text-[11px] text-amber-700 mt-1">
-                    No suppliers in directory yet. Click "+ Add Local Supplier" above to onboard the first one.
-                  </p>
-                )}
+                <div className="relative mb-1.5">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+                  <input
+                    type="text"
+                    value={supplierSearchTerm}
+                    onChange={(e) => setSupplierSearchTerm(e.target.value)}
+                    placeholder="Search by code, name, phone, CNIC, ERP ref..."
+                    className="w-full text-xs pl-8 pr-3 py-1.5 border rounded-xl focus:ring-2 focus:ring-emerald-600 outline-hidden bg-slate-50"
+                  />
+                </div>
+                {(() => {
+                  const filteredSuppliers = localSuppliers.filter((s) => {
+                    if (!supplierSearchTerm.trim()) return true;
+                    const term = supplierSearchTerm.toLowerCase();
+                    return (
+                      (s.local_supplier_code || '').toLowerCase().includes(term) ||
+                      (s.name || '').toLowerCase().includes(term) ||
+                      (s.phone || '').toLowerCase().includes(term) ||
+                      (s.cnic || '').toLowerCase().includes(term) ||
+                      (s.erp_reference || '').toLowerCase().includes(term)
+                    );
+                  });
+
+                  return (
+                    <>
+                      <select
+                        value={selectedLocalSupplierId}
+                        onChange={(e) => setSelectedLocalSupplierId(e.target.value)}
+                        required
+                        className="w-full text-xs font-bold px-3 py-2 border rounded-xl focus:ring-2 focus:ring-emerald-600 outline-hidden bg-white"
+                      >
+                        <option value="">
+                          -- Select Local Supplier Directory Entry ({filteredSuppliers.length} available) --
+                        </option>
+                        {filteredSuppliers.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.local_supplier_code} — {s.name} {s.phone ? `(${s.phone})` : ''} {s.erp_reference ? `[ERP: ${s.erp_reference}]` : ''}
+                          </option>
+                        ))}
+                        {selectedLocalSupplierId && !filteredSuppliers.some((s) => s.id === selectedLocalSupplierId) && (() => {
+                          const sel = localSuppliers.find((s) => s.id === selectedLocalSupplierId);
+                          return sel ? (
+                            <option key={sel.id} value={sel.id}>
+                              {sel.local_supplier_code} — {sel.name} {sel.phone ? `(${sel.phone})` : ''} {sel.erp_reference ? `[ERP: ${sel.erp_reference}]` : ''} (Selected)
+                            </option>
+                          ) : null;
+                        })()}
+                      </select>
+                      {localSuppliers.length === 0 && !loadingLocalSuppliers && (
+                        <p className="text-[11px] text-amber-700 mt-1">
+                          No suppliers in directory yet. Click "+ Quick Add Supplier" above to onboard the first one.
+                        </p>
+                      )}
+                      {localSuppliers.length > 0 && filteredSuppliers.length === 0 && supplierSearchTerm && (
+                        <p className="text-[11px] text-slate-500 mt-1">
+                          No suppliers match "{supplierSearchTerm}". Clear search or click "+ Quick Add Supplier".
+                        </p>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
 
               <div>

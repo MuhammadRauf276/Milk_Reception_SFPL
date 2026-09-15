@@ -370,10 +370,8 @@ export async function getArrivalsQueue(
   // Local Supplier arrivals condition:
   // 1. zmcc_id matches (if scoped)
   // 2. lab_session is null OR lab_session.status = 'IN_PROGRESS'
-  // 3. local_supplier.is_active = true
   const localSupplierWhere: Prisma.ZmccLocalSupplierArrivalWhereInput = {
     ...(effectiveZmccId ? { zmcc_id: effectiveZmccId } : {}),
-    local_supplier: { is_active: true },
     OR: [
       { lab_session: null },
       { lab_session: { status: 'IN_PROGRESS' } },
@@ -625,10 +623,6 @@ export async function startOrResumeSession(
 
     if (!auth.isSuperAdmin && arrival.zmcc_id !== auth.effectiveZmccId!) {
       return { status: 403, error: 'Forbidden. Arrival record belongs to another ZMCC.' };
-    }
-
-    if (!arrival.local_supplier.is_active) {
-      return { status: 400, error: 'Cannot start lab session for an inactive local supplier.' };
     }
 
     arrivalZmccId = arrival.zmcc_id;

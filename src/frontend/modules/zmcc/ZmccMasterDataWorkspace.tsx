@@ -246,10 +246,10 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
       const searchParam = search ? `&search=${encodeURIComponent(search)}` : '';
 
       if (activeTab === 'LOCAL_SUPPLIERS') {
-        const res = await fetch(`/api/zmcc/local-suppliers?${zmccParam}${statusParam}${searchParam}&pageSize=100`);
+        const res = await fetch(`/api/zmcc/local-suppliers?${zmccParam}${statusParam}${searchParam}`);
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Failed to fetch local suppliers');
-        setLocalSuppliersList(data.items || []);
+        setLocalSuppliersList(data.suppliers || []);
       } else if (activeTab === 'ROUTES') {
         const res = await fetch(`/api/zmcc/routes?${zmccParam}${statusParam}${searchParam}`);
         const data = await res.json();

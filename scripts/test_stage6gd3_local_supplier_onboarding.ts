@@ -123,6 +123,35 @@ function toCoreUser(u: any) {
   };
 }
 
+async function makeAuthToken(u: any): Promise<string> {
+  const { createSessionToken } = await import('../src/backend/core/auth');
+  return await createSessionToken({
+    id: u.id.toString(),
+    username: u.username,
+    name: u.full_name || u.username,
+    role: u.role as any,
+    department: u.department || 'Testing',
+    zone: null,
+    scope_type: u.scope_type || 'SOURCE',
+    procurement_source_id: u.procurement_source_id ? u.procurement_source_id.toString() : null,
+    last_login_at: null,
+  });
+}
+
+function makeAuthRequest(url: string, method: string, token: string, body?: any): Request {
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${token}`,
+  };
+  if (body) {
+    headers['Content-Type'] = 'application/json';
+  }
+  return new Request(url, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+}
+
 async function runStage6gd3Tests() {
   const { Prisma } = await import('@prisma/client');
   const { prisma } = await import('../src/backend/core/db');
@@ -147,6 +176,13 @@ async function runStage6gd3Tests() {
     getArrivalsQueue,
     getLabHistory,
   } = await import('../src/backend/services/zmccLabService');
+
+  const { GET: getLocalSuppliersRoute, POST: createLocalSupplierRoute } = await import(
+    '../src/app/api/zmcc/local-suppliers/route'
+  );
+  const { GET: getLocalSupplierByIdRoute, PATCH: updateLocalSupplierRoute } = await import(
+    '../src/app/api/zmcc/local-suppliers/[id]/route'
+  );
 
   try {
     // =========================================================================
@@ -192,6 +228,13 @@ async function runStage6gd3Tests() {
       WHERE conname = 'zmcc_local_supplier_arrival_rmr_digits_check';
     `;
     assert(rmrCheckConstraints.length === 1, 'Check Constraint Check', 'zmcc_local_supplier_arrival_rmr_digits_check exists');
+
+    const erpStatusCheckConstraints: any[] = await prisma.$queryRaw`
+      SELECT conname
+      FROM pg_constraint
+      WHERE conname = 'zmcc_local_supplier_erp_mapping_status_check';
+    `;
+    assert(erpStatusCheckConstraints.length === 1, 'Check Constraint Check', 'zmcc_local_supplier_erp_mapping_status_check exists');
 
     // Verify sequence zmcc_local_supplier_code_seq
     const seqs: any[] = await prisma.$queryRaw`
@@ -390,11 +433,33 @@ async function runStage6gd3Tests() {
       });
     }
 
+    let weighbridgeUser = await prisma.user.findFirst({
+      where: { role: 'WEIGHBRIDGE_OPERATOR', is_active: true },
+    });
+    if (!weighbridgeUser) {
+      weighbridgeUser = await prisma.user.create({
+        data: {
+          username: `wb_6gd3_${runId}`,
+          email: `wb_6gd3_${runId}@example.com`,
+          password_hash: 'hash',
+          role: 'WEIGHBRIDGE_OPERATOR',
+          full_name: `Weighbridge Operator ${runId}`,
+          is_active: true,
+          scope_type: 'GLOBAL',
+        },
+      });
+    }
+
     const pheCore = toCoreUser(pheUser);
     const mgr1Core = toCoreUser(manager1);
     const mgr2Core = toCoreUser(manager2);
     const adminCore = toCoreUser(superAdmin);
     const labCore = toCoreUser(labAttendant);
+    const wbCore = toCoreUser(weighbridgeUser);
+
+    const pheToken = await makeAuthToken(pheUser);
+    const mgr1Token = await makeAuthToken(manager1);
+    const adminToken = await makeAuthToken(superAdmin);
 
     console.log(`PHE Operator: ${pheCore.username} (ZMCC ${zmcc1.code})`);
     console.log(`Manager 1: ${mgr1Core.username} (ZMCC ${zmcc1.code})`);
@@ -418,14 +483,68 @@ async function runStage6gd3Tests() {
       });
     }
 
+    // Direct DB constraint test for erp_mapping_status check constraint
+    let constraintFailedAsExpected = false;
+    try {
+      await prisma.$executeRawUnsafe(`
+        INSERT INTO "zmcc_local_supplier" ("local_supplier_code", "zmcc_id", "name", "erp_mapping_status", "is_active", "created_by_user_id", "updated_at")
+        VALUES ('ZLS-FAIL-${runId}', ${zmcc1.id}, 'Constraint Test Fail', 'INVALID', true, ${pheUser.id}, NOW());
+      `);
+    } catch (err: any) {
+      if (err.message?.includes('zmcc_local_supplier_erp_mapping_status_check')) {
+        constraintFailedAsExpected = true;
+      }
+    }
+    assert(constraintFailedAsExpected, 'DB Constraint Violation', 'Rejects invalid erp_mapping_status via zmcc_local_supplier_erp_mapping_status_check');
+
+    // Valid PENDING succeeds
+    await prisma.$executeRawUnsafe(`
+      INSERT INTO "zmcc_local_supplier" ("local_supplier_code", "zmcc_id", "name", "erp_mapping_status", "is_active", "created_by_user_id", "updated_at")
+      VALUES ('ZLS-PEND-${runId}', ${zmcc1.id}, 'Constraint Test Pending', 'PENDING', true, ${pheUser.id}, NOW());
+    `);
+    assert(true, 'DB Constraint PENDING', 'Allows PENDING in erp_mapping_status check constraint');
+
+    // Valid VERIFIED succeeds
+    await prisma.$executeRawUnsafe(`
+      UPDATE "zmcc_local_supplier"
+      SET "erp_mapping_status" = 'VERIFIED'
+      WHERE "local_supplier_code" = 'ZLS-PEND-${runId}';
+    `);
+    assert(true, 'DB Constraint VERIFIED', 'Allows VERIFIED in erp_mapping_status check constraint');
+
+    // Clean up temporary row
+    await prisma.$executeRawUnsafe(`DELETE FROM "zmcc_local_supplier" WHERE "local_supplier_code" = 'ZLS-PEND-${runId}';`);
+
     // =========================================================================
     // SECTION 4: LOCAL SUPPLIER DIRECTORY SERVICE & FROZEN ERP RULES
     // =========================================================================
     console.log('\n--- 4. LOCAL SUPPLIER DIRECTORY & FROZEN ERP RULES ---');
 
-    // 4.1 Name validation
+    // 4.1 Name validation edge cases
     const emptyNameRes = await createLocalSupplier(pheCore as any, { name: '   ' });
-    assert(emptyNameRes.status === 400, 'Validation', 'Rejects empty name');
+    assert(emptyNameRes.status === 400, 'Validation', 'Rejects empty whitespace name');
+
+    const missingNameRes = await createLocalSupplier(pheCore as any, {} as any);
+    assert(missingNameRes.status === 400, 'Validation', 'Rejects missing name');
+
+    const nullNameRes = await createLocalSupplier(pheCore as any, { name: null } as any);
+    assert(nullNameRes.status === 400, 'Validation', 'Rejects null name');
+
+    const numberNameRes = await createLocalSupplier(pheCore as any, { name: 12345 } as any);
+    assert(numberNameRes.status === 400, 'Validation', 'Rejects numeric name');
+
+    const objectNameRes = await createLocalSupplier(pheCore as any, { name: {} } as any);
+    assert(objectNameRes.status === 400, 'Validation', 'Rejects object name');
+
+    // 4.1b Phone & CNIC blank to null conversion
+    const blankContactRes = await createLocalSupplier(pheCore as any, {
+      name: 'Blank Contact Supplier',
+      phone: '   ',
+      cnic: '   ',
+    });
+    assert(blankContactRes.status === 201, 'Validation', 'Supplier created with blank phone and CNIC');
+    assert(blankContactRes.data.phone === null, 'Phone Null Coercion', 'Whitespace phone converted to NULL');
+    assert(blankContactRes.data.cnic === null, 'CNIC Null Coercion', 'Whitespace CNIC converted to NULL');
 
     // 4.2 Phone validation
     const invalidPhoneRes = await createLocalSupplier(pheCore as any, {
@@ -501,6 +620,38 @@ async function runStage6gd3Tests() {
     } as any);
     assert(forbiddenFieldRes3.status === 400, 'Forbidden Fields', 'Rejects client setting canonical_supplier_id');
 
+    // 4.7b Strict CREATE Mutation Allowlist
+    const createUnknownFieldRes = await createLocalSupplier(pheCore as any, {
+      name: 'Unknown Field Supplier',
+      unknown_field: 'malicious_data',
+    } as any);
+    assert(createUnknownFieldRes.status === 400, 'Strict Mutation Allowlist', 'CREATE rejects unauthorized unknown field (400)');
+
+    const createImmutableCodeRes = await createLocalSupplier(pheCore as any, {
+      name: 'Immutable Code Supplier',
+      local_supplier_code: 'ZLS-999999',
+    } as any);
+    assert(createImmutableCodeRes.status === 400, 'Strict Mutation Allowlist', 'CREATE rejects client-specified local_supplier_code (400)');
+
+    // 4.7c Unrelated Role Rejection
+    const unrelatedRoleRes = await createLocalSupplier(wbCore as any, {
+      name: 'Unrelated Role Supplier',
+    });
+    assert(unrelatedRoleRes.status === 403, 'Role Permissions', 'Unrelated role (WEIGHBRIDGE_OPERATOR) rejected from creating supplier (403)');
+
+    // 4.7d Scope Hardening: Conflicting zmcc_id Rejection
+    const pheConflictZmccRes = await createLocalSupplier(pheCore as any, {
+      name: 'Conflicting ZMCC PHE Supplier',
+      zmcc_id: zmcc2.id.toString(),
+    });
+    assert(pheConflictZmccRes.status === 403, 'Scope Hardening', 'PHE operator supplying conflicting zmcc_id rejected (403)');
+
+    const mgrConflictZmccRes = await createLocalSupplier(mgr1Core as any, {
+      name: 'Conflicting ZMCC MGR Supplier',
+      zmcc_id: zmcc2.id.toString(),
+    });
+    assert(mgrConflictZmccRes.status === 403, 'Scope Hardening', 'ZMCC Manager supplying conflicting zmcc_id rejected (403)');
+
     // 4.8 Role Permissions: PHE cannot edit or deactivate existing supplier
     const createdSupplierId = supplierZeroPadRes.data.id;
     const pheEditRes = await updateLocalSupplier(pheCore as any, createdSupplierId, {
@@ -550,6 +701,27 @@ async function runStage6gd3Tests() {
     });
     assert(mgr1ReactivateRes.status === 200, 'Manager Reactivate', 'Manager successfully reactivated supplier');
 
+    // 4.10b Strict PATCH Mutation Allowlist
+    const patchUnknownFieldRes = await updateLocalSupplier(mgr1Core as any, createdSupplierId, {
+      unknown_field: 'malicious',
+    } as any);
+    assert(patchUnknownFieldRes.status === 400, 'Strict Mutation Allowlist', 'PATCH rejects unauthorized unknown field (400)');
+
+    const patchImmutableCodeRes = await updateLocalSupplier(mgr1Core as any, createdSupplierId, {
+      local_supplier_code: 'ZLS-999999',
+    } as any);
+    assert(patchImmutableCodeRes.status === 400, 'Strict Mutation Allowlist', 'PATCH rejects client specifying local_supplier_code (400)');
+
+    const patchImmutableZmccRes = await updateLocalSupplier(mgr1Core as any, createdSupplierId, {
+      zmcc_id: zmcc2.id,
+    } as any);
+    assert(patchImmutableZmccRes.status === 400, 'Strict Mutation Allowlist', 'PATCH rejects client reassigning zmcc_id (400)');
+
+    const patchImmutableCreatorRes = await updateLocalSupplier(mgr1Core as any, createdSupplierId, {
+      created_by_user_id: 123,
+    } as any);
+    assert(patchImmutableCreatorRes.status === 400, 'Strict Mutation Allowlist', 'PATCH rejects client reassigning created_by_user_id (400)');
+
     // 4.11 Super Admin creation with explicit zmcc_id
     const adminCreatedRes = await createLocalSupplier(adminCore as any, {
       name: 'Admin Created Supplier',
@@ -558,6 +730,51 @@ async function runStage6gd3Tests() {
     });
     assert(adminCreatedRes.status === 201, 'Admin Create', 'Super Admin successfully created supplier in ZMCC 2');
     assert(adminCreatedRes.data.zmcc_id === zmcc2.id.toString(), 'Admin ZMCC Scoping', 'Supplier assigned to ZMCC 2');
+
+    // 4.12 Route Wrapper Tests (/api/zmcc/local-suppliers and /api/zmcc/local-suppliers/[id])
+    const routePostReq = makeAuthRequest('http://localhost:3000/api/zmcc/local-suppliers', 'POST', pheToken, {
+      name: `Route Wrapper Supplier ${runId}`,
+      phone: '03001234567',
+    });
+    const routePostRes = await createLocalSupplierRoute(routePostReq);
+    assert(routePostRes.status === 201, 'Route POST Status', 'POST /api/zmcc/local-suppliers returns 201');
+    const routePostJson = await routePostRes.json();
+    assert(!!routePostJson.supplier, 'Route POST Named Wrapper', 'POST returns { supplier: {...} } named wrapper');
+    assert(routePostJson.data === undefined, 'Route POST No Generic Data', 'POST does not return generic { data: ... } wrapper');
+    assert(typeof routePostJson.supplier.id === 'string', 'Route POST Supplier ID', 'Supplier id is serialized string');
+    assert(routePostJson.supplier.name === `Route Wrapper Supplier ${runId}`, 'Route POST Supplier Name', 'Supplier name matches payload');
+    assert(routePostJson.supplier.local_supplier_code.startsWith('ZLS-'), 'Route POST Supplier Code', 'Supplier has allocated code');
+    const routeSupplierId = routePostJson.supplier.id;
+
+    const routeGetReq = makeAuthRequest(`http://localhost:3000/api/zmcc/local-suppliers?search=${encodeURIComponent(`Route Wrapper Supplier ${runId}`)}`, 'GET', pheToken);
+    const routeGetRes = await getLocalSuppliersRoute(routeGetReq);
+    assert(routeGetRes.status === 200, 'Route GET Status', 'GET /api/zmcc/local-suppliers returns 200');
+    const routeGetJson = await routeGetRes.json();
+    assert(Array.isArray(routeGetJson.suppliers), 'Route GET Named Wrapper', 'GET returns { suppliers: [...] } named wrapper');
+    assert(routeGetJson.data === undefined, 'Route GET No Generic Data', 'GET does not return generic { data: ... } wrapper');
+    assert(routeGetJson.suppliers.some((s: any) => s.id === routeSupplierId), 'Route GET Supplier Found', 'Created supplier is present in suppliers array');
+
+    const routeGetIdReq = makeAuthRequest(`http://localhost:3000/api/zmcc/local-suppliers/${routeSupplierId}`, 'GET', pheToken);
+    const routeGetIdRes = await getLocalSupplierByIdRoute(routeGetIdReq, { params: Promise.resolve({ id: routeSupplierId }) });
+    assert(routeGetIdRes.status === 200, 'Route GET By ID Status', 'GET /api/zmcc/local-suppliers/[id] returns 200');
+    const routeGetIdJson = await routeGetIdRes.json();
+    assert(!!routeGetIdJson.supplier, 'Route GET By ID Named Wrapper', 'GET /api/zmcc/local-suppliers/[id] returns { supplier: {...} }');
+    assert(routeGetIdJson.supplier.id === routeSupplierId, 'Route GET By ID Match', 'Supplier id matches requested id');
+
+    const routePatchReq = makeAuthRequest(`http://localhost:3000/api/zmcc/local-suppliers/${routeSupplierId}`, 'PATCH', mgr1Token, {
+      name: `Route Wrapper Supplier Updated ${runId}`,
+    });
+    const routePatchRes = await updateLocalSupplierRoute(routePatchReq, { params: Promise.resolve({ id: routeSupplierId }) });
+    assert(routePatchRes.status === 200, 'Route PATCH Status', 'PATCH /api/zmcc/local-suppliers/[id] returns 200');
+    const routePatchJson = await routePatchRes.json();
+    assert(!!routePatchJson.supplier, 'Route PATCH Named Wrapper', 'PATCH returns { supplier: {...} } named wrapper');
+    assert(routePatchJson.supplier.name === `Route Wrapper Supplier Updated ${runId}`, 'Route PATCH Name Match', 'Supplier name updated');
+
+    const routePhePatchReq = makeAuthRequest(`http://localhost:3000/api/zmcc/local-suppliers/${routeSupplierId}`, 'PATCH', pheToken, {
+      name: 'PHE Unauthorized Edit',
+    });
+    const routePhePatchRes = await updateLocalSupplierRoute(routePhePatchReq, { params: Promise.resolve({ id: routeSupplierId }) });
+    assert(routePhePatchRes.status === 403, 'Route PATCH PHE Forbidden', 'PATCH /api/zmcc/local-suppliers/[id] by PHE returns 403 Forbidden');
 
     // =========================================================================
     // SECTION 5: DISTINCT LOCAL SUPPLIER ARRIVAL DOMAIN & IDEMPOTENCY
@@ -587,6 +804,16 @@ async function runStage6gd3Tests() {
     });
     assert(crossArrivalRes.status === 400, 'Cross-ZMCC Rejection', 'Rejects arrival for supplier from another ZMCC');
 
+    // 5.2b Scope hardening: Conflicting zmcc_id supplied by PHE
+    const conflictArrivalZmccRes = await submitLocalSupplierArrival(pheCore as any, {
+      client_event_id: `a0000000-0000-0000-0002b-${runId.toString().slice(-12).padStart(12, '0')}`,
+      local_supplier_id: createdSupplierId,
+      rmr_number: '12345',
+      vehicle_number: 'LES-999',
+      zmcc_id: zmcc2.id.toString(),
+    });
+    assert(conflictArrivalZmccRes.status === 403, 'Scope Hardening', 'Arrival submit rejects conflicting zmcc_id (403)');
+
     // 5.3 Mandatory numeric RMR validation
     const nonNumericRmrRes = await submitLocalSupplierArrival(pheCore as any, {
       client_event_id: `a0000000-0000-0000-0003-${runId.toString().slice(-12).padStart(12, '0')}`,
@@ -594,6 +821,14 @@ async function runStage6gd3Tests() {
       rmr_number: 'RMR-123',
     } as any);
     assert(nonNumericRmrRes.status === 400, 'RMR Digits Check', 'Rejects non-numeric RMR number');
+
+    const numericTypeRmrRes = await submitLocalSupplierArrival(pheCore as any, {
+      client_event_id: `a0000000-0000-0000-0003b-${runId.toString().slice(-12).padStart(12, '0')}`,
+      local_supplier_id: createdSupplierId,
+      rmr_number: 12345 as any,
+      vehicle_number: 'LES-999',
+    });
+    assert(numericTypeRmrRes.status === 400, 'RMR String Check', 'Rejects numeric JSON type RMR number (400)');
 
     // 5.4 Valid local supplier arrival submission
     const eventId1 = `b1111111-1111-1111-1111-${runId.toString().slice(-12).padStart(12, '0')}`;
@@ -772,6 +1007,106 @@ async function runStage6gd3Tests() {
       'History Serialization',
       'Lab history serializes local supplier arrival and supplier details'
     );
+
+    // 7.6 Supplier deactivation continuity regression
+    const contSupplierRes = await createLocalSupplier(pheCore as any, {
+      name: `Continuity Supplier ${runId}`,
+    });
+    assert(contSupplierRes.status === 201, 'Continuity Supplier', 'Created active continuity supplier');
+    const contSupplierId = contSupplierRes.data.id;
+
+    // Submit arrival for active continuity supplier
+    const contArrivalEventId = `d0000000-0000-0000-0001-${runId.toString().slice(-12).padStart(12, '0')}`;
+    const contArrivalRes = await submitLocalSupplierArrival(pheCore as any, {
+      client_event_id: contArrivalEventId,
+      local_supplier_id: contSupplierId,
+      rmr_number: '005544',
+      vehicle_number: 'CNT 999',
+    });
+    assert(contArrivalRes.status === 201, 'Continuity Arrival', 'Submitted arrival for active supplier');
+    const contArrivalId = contArrivalRes.data.id;
+    const contToken = contArrivalRes.data.zmcc_token;
+
+    // Manager deactivates continuity supplier
+    const contDeactRes = await updateLocalSupplier(mgr1Core as any, contSupplierId, {
+      is_active: false,
+    });
+    assert(contDeactRes.status === 200, 'Continuity Deactivate', 'Manager deactivated continuity supplier');
+
+    // Lab queue must STILL include this arrival despite supplier deactivation
+    const contQueueRes = await getArrivalsQueue(labCore as any);
+    const contQueuedArrival = contQueueRes.data?.find((item: any) => item.zmcc_token === contToken);
+    assert(!!contQueuedArrival, 'Continuity Queue Check', 'Arrival for deactivated supplier is still present in lab queue');
+
+    // Start lab session on this arrival must succeed (not rejected)
+    const contSessionRes = await startOrResumeSession(labCore as any, {
+      arrival_type: 'LOCAL_SUPPLIER',
+      arrival_id: contArrivalId,
+    });
+    assert(contSessionRes.status === 200 || contSessionRes.status === 201, 'Continuity Start Session', 'Successfully started lab session for arrival of deactivated supplier');
+    const contSessionId = contSessionRes.data.id;
+
+    // Complete session with ACCEPTED decision
+    const contResults = contSessionRes.data.results.map((tr: any) => {
+      const code = tr.test_code_snapshot || '';
+      const name = (tr.test_name_snapshot || '').toLowerCase();
+      if (code === 'FAT' || name.includes('fat')) {
+        return { test_id: tr.test_id, numeric_value: 4.0 };
+      } else if (code === 'LR' || name.includes('lr')) {
+        return { test_id: tr.test_id, numeric_value: 30.0 };
+      } else if (tr.result_type_snapshot === 'NUMERIC') {
+        return { test_id: tr.test_id, numeric_value: 10.0 };
+      } else {
+        return { test_id: tr.test_id, text_value: 'NEGATIVE' };
+      }
+    });
+
+    const contCompleteRes = await completeSession(labCore as any, contSessionId, {
+      completion_client_event_id: `d1111111-1111-1111-1111-${runId.toString().slice(-12).padStart(12, '0')}`,
+      decision: 'ACCEPTED',
+      quantity_value: 800.0,
+      quantity_unit: 'LITER',
+      results: contResults,
+      remarks: 'Deactivated supplier arrival accepted without stranding',
+    });
+    assert(contCompleteRes.status === 200, 'Continuity Complete Session', 'Successfully completed session for deactivated supplier arrival');
+
+    // =========================================================================
+    // SECTION 8: AUDIT LOG VERIFICATION
+    // =========================================================================
+    console.log('\n--- 8. AUDIT LOG VERIFICATION ---');
+
+    const supplierCreateAudit = await prisma.auditLog.findFirst({
+      where: {
+        table_name: 'zmcc_local_supplier',
+        action: 'ZMCC_LOCAL_SUPPLIER_CREATED',
+      },
+    });
+    assert(!!supplierCreateAudit, 'AuditLog', 'AuditLog record exists for ZMCC_LOCAL_SUPPLIER_CREATED');
+
+    const supplierUpdateAudit = await prisma.auditLog.findFirst({
+      where: {
+        table_name: 'zmcc_local_supplier',
+        action: 'ZMCC_LOCAL_SUPPLIER_UPDATED',
+      },
+    });
+    assert(!!supplierUpdateAudit, 'AuditLog', 'AuditLog record exists for ZMCC_LOCAL_SUPPLIER_UPDATED');
+
+    const arrivalSubmitAudit = await prisma.auditLog.findFirst({
+      where: {
+        table_name: 'zmcc_local_supplier_arrival',
+        action: 'ZMCC_LOCAL_SUPPLIER_ARRIVAL_SUBMITTED',
+      },
+    });
+    assert(!!arrivalSubmitAudit, 'AuditLog', 'AuditLog record exists for ZMCC_LOCAL_SUPPLIER_ARRIVAL_SUBMITTED');
+
+    const arrivalCorrectAudit = await prisma.auditLog.findFirst({
+      where: {
+        table_name: 'zmcc_local_supplier_arrival',
+        action: 'ZMCC_LOCAL_SUPPLIER_ARRIVAL_CORRECTED',
+      },
+    });
+    assert(!!arrivalCorrectAudit, 'AuditLog', 'AuditLog record exists for ZMCC_LOCAL_SUPPLIER_ARRIVAL_CORRECTED');
 
     console.log(`\n=====================================================================`);
     console.log(`🎉 STAGE 6G-D.3 TEST SUITE COMPLETED: ${passed} PASSED, ${failed} FAILED`);

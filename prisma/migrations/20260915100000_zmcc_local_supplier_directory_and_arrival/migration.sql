@@ -32,6 +32,9 @@ CREATE INDEX "zmcc_local_supplier_zmcc_id_name_idx" ON "zmcc_local_supplier"("zm
 -- CreateIndex
 CREATE INDEX "zmcc_local_supplier_zmcc_id_erp_mapping_status_idx" ON "zmcc_local_supplier"("zmcc_id", "erp_mapping_status");
 
+-- CheckConstraint: zmcc_local_supplier erp_mapping_status
+ALTER TABLE "zmcc_local_supplier" ADD CONSTRAINT "zmcc_local_supplier_erp_mapping_status_check" CHECK ("erp_mapping_status" IN ('PENDING', 'VERIFIED'));
+
 -- AddForeignKey
 ALTER TABLE "zmcc_local_supplier" ADD CONSTRAINT "zmcc_local_supplier_zmcc_id_fkey" FOREIGN KEY ("zmcc_id") REFERENCES "procurement_source"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
