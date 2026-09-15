@@ -99,10 +99,10 @@ export const ContractorOverview: React.FC<ContractorOverviewProps> = ({
           <div className="flex items-center space-x-2">
             <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
             <span>
-              Showing page <strong>{pagination.page}</strong> of <strong>{pagination.totalPages}</strong> ({pagination.totalRecords} total visits in query).
+              Showing page <strong>{pagination.page}</strong> of <strong>{pagination.totalPages}</strong> ({pagination.totalRecords} total visits in query). Volume metrics reflect the visible page.
             </span>
           </div>
-          <span className="text-[11px] font-bold text-amber-700">Bounded operational window</span>
+          <span className="text-[11px] font-bold text-amber-700">Bounded page metrics</span>
         </div>
       )}
 
@@ -157,14 +157,16 @@ export const ContractorOverview: React.FC<ContractorOverviewProps> = ({
         {/* Received Liters */}
         <div className="p-5 rounded-2xl bg-white border border-[#EAE4D5] shadow-sm space-y-2">
           <div className="flex items-center justify-between text-blue-800 text-xs font-bold">
-            <span>Received Liters</span>
+            <span>Received Liters {pagination && pagination.totalPages > 1 ? '(Current Page)' : ''}</span>
             <Scale className="w-4 h-4 text-blue-700" />
           </div>
           <p className="text-2xl font-black text-blue-950 font-mono truncate">
             {metrics.totalReceivedLiters.toLocaleString()} L
           </p>
           <p className="text-[11px] text-blue-700 font-medium">
-            Silo Transaction Volume
+            {pagination && pagination.totalPages > 1
+              ? `Page Silo Volume (${visits.length} visits)`
+              : 'Silo Transaction Volume'}
           </p>
         </div>
       </div>

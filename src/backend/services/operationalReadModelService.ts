@@ -570,8 +570,6 @@ export function mapVisitToLogs(
       // Authoritative Event Timestamps (ISO Instants)
       dispatch_timestamp: portion.dispatch_info?.dispatch_timestamp
         ? new Date(portion.dispatch_info.dispatch_timestamp).toISOString()
-        : visit.created_at
-        ? new Date(visit.created_at).toISOString()
         : null,
       gate_entry_timestamp: visit.gate_log?.entry_timestamp
         ? new Date(visit.gate_log.entry_timestamp).toISOString()
@@ -622,38 +620,49 @@ export async function getPaginatedOperationalLogs(
   currentUser?: User | null
 ): Promise<PaginatedOperationalLogs> {
   const mode: RetrievalMode = filters?.mode || 'recent';
-  const whereClause: any = {};
+  const conditions: any[] = [];
 
   // 1. Role-based scoping (Fail closed for source-scoped roles)
   if (currentUser?.role === 'CONTRACTOR_MANAGER' || currentUser?.role === 'CONTRACTOR_OPERATOR') {
     if (currentUser.procurement_source_id) {
-      whereClause.procurement_source = {
-        id: BigInt(currentUser.procurement_source_id),
-        source_type: 'CONTRACTOR',
-      };
+      conditions.push({
+        procurement_source: {
+          id: BigInt(currentUser.procurement_source_id),
+          source_type: 'CONTRACTOR',
+        },
+      });
     } else {
-      whereClause.procurement_source_id = BigInt(-1);
+      conditions.push({ procurement_source_id: BigInt(-1) });
     }
   } else if (currentUser?.role === 'ZMCC_MANAGER' || currentUser?.role === 'ZMCC_LAB_ATTENDANT') {
     if (currentUser.procurement_source_id) {
-      whereClause.procurement_source = {
-        id: BigInt(currentUser.procurement_source_id),
-        source_type: 'ZMCC',
-      };
+      conditions.push({
+        procurement_source: {
+          id: BigInt(currentUser.procurement_source_id),
+          source_type: 'ZMCC',
+        },
+      });
     } else {
-      whereClause.procurement_source_id = BigInt(-1);
+      conditions.push({ procurement_source_id: BigInt(-1) });
     }
   }
 
   // 2. Contractor filter for non-scoped roles (e.g. Super Admin)
   if (filters?.contractor && filters.contractor !== 'ALL') {
-    if (!whereClause.procurement_source && !whereClause.procurement_source_id) {
-      whereClause.procurement_source = {
-        OR: [
-          { code: filters.contractor },
-          { name: filters.contractor },
-        ],
-      };
+    const isScoped =
+      currentUser?.role === 'CONTRACTOR_MANAGER' ||
+      currentUser?.role === 'CONTRACTOR_OPERATOR' ||
+      currentUser?.role === 'ZMCC_MANAGER' ||
+      currentUser?.role === 'ZMCC_LAB_ATTENDANT';
+    if (!isScoped) {
+      conditions.push({
+        procurement_source: {
+          OR: [
+            { code: filters.contractor },
+            { name: filters.contractor },
+          ],
+        },
+      });
     }
   }
 
@@ -663,11 +672,13 @@ export async function getPaginatedOperationalLogs(
 
   if (mode === 'live') {
     // Mode LIVE: Active in-flight pipeline only. Gate exit has not occurred.
-    whereClause.current_status = { notIn: ['COMPLETED', 'CANCELLED'] };
-    whereClause.OR = [
-      { gate_log: null },
-      { gate_log: { exit_timestamp: null } },
-    ];
+    conditions.push({ current_status: { notIn: ['COMPLETED', 'CANCELLED'] } });
+    conditions.push({
+      OR: [
+        { gate_log: null },
+        { gate_log: { exit_timestamp: null } },
+      ],
+    });
   } else if (mode === 'recent') {
     // Mode RECENT: Default to last 7 calendar days in PKT if no date specified.
     if (!effectiveFromDate && !effectiveToDate) {
@@ -689,51 +700,32 @@ export async function getPaginatedOperationalLogs(
       throw new Error('Invalid toDate parameter');
     }
 
-    // Convert Pakistan calendar date strings (Asia/Karachi UTC+5) to UTC Date boundaries
-    if (effectiveFromDate) {
-      const startUtc = new Date(`${effectiveFromDate}T00:00:00.000+05:00`);
-      if (filters?.dateBasis === 'reporting') {
-        whereClause.inventory_transactions = {
+    const startUtc = effectiveFromDate ? new Date(`${effectiveFromDate}T00:00:00.000+05:00`) : undefined;
+    const endUtc = effectiveToDate ? new Date(`${effectiveToDate}T23:59:59.999+05:00`) : undefined;
+
+    const timeRangeCond: any = {};
+    if (startUtc) timeRangeCond.gte = startUtc;
+    if (endUtc) timeRangeCond.lte = endUtc;
+
+    if (filters?.dateBasis === 'reporting') {
+      conditions.push({
+        inventory_transactions: {
           some: {
             transaction_type: 'RECEIPT',
-            operational_timestamp: { gte: startUtc },
+            operational_timestamp: timeRangeCond,
           },
-        };
-      } else {
-        whereClause.portions = {
+        },
+      });
+    } else {
+      conditions.push({
+        portions: {
           some: {
             dispatch_info: {
-              dispatch_timestamp: { gte: startUtc },
+              dispatch_timestamp: timeRangeCond,
             },
           },
-        };
-      }
-    }
-
-    if (effectiveToDate) {
-      const endUtc = new Date(`${effectiveToDate}T23:59:59.999+05:00`);
-      if (filters?.dateBasis === 'reporting') {
-        whereClause.inventory_transactions = {
-          some: {
-            transaction_type: 'RECEIPT',
-            ...(whereClause.inventory_transactions?.some?.operational_timestamp
-              ? { operational_timestamp: { ...whereClause.inventory_transactions.some.operational_timestamp, lte: endUtc } }
-              : { operational_timestamp: { lte: endUtc } }),
-          },
-        };
-      } else {
-        if (whereClause.portions?.some?.dispatch_info?.dispatch_timestamp) {
-          whereClause.portions.some.dispatch_info.dispatch_timestamp.lte = endUtc;
-        } else {
-          whereClause.portions = {
-            some: {
-              dispatch_info: {
-                dispatch_timestamp: { lte: endUtc },
-              },
-            },
-          };
-        }
-      }
+        },
+      });
     }
   }
 
@@ -741,18 +733,22 @@ export async function getPaginatedOperationalLogs(
   if (filters?.status && filters.status !== 'ALL') {
     const stUpper = filters.status.toUpperCase();
     if (stUpper === 'ACCEPTED' || stUpper === 'REJECTED') {
-      whereClause.portions = {
-        some: { plant_decision: stUpper },
-      };
+      conditions.push({
+        portions: {
+          some: { plant_decision: stUpper },
+        },
+      });
     } else {
-      whereClause.current_status = { contains: filters.status, mode: 'insensitive' };
+      conditions.push({
+        current_status: { contains: filters.status, mode: 'insensitive' },
+      });
     }
   }
 
   // 5. Search Filter in DB
   if (filters?.search && filters.search.trim()) {
     const q = filters.search.trim();
-    const searchCond = {
+    conditions.push({
       OR: [
         { vehicle_number: { contains: q, mode: 'insensitive' } },
         { token_number: { contains: q, mode: 'insensitive' } },
@@ -760,13 +756,10 @@ export async function getPaginatedOperationalLogs(
         { reception_number: { contains: q, mode: 'insensitive' } },
         { procurement_source: { name: { contains: q, mode: 'insensitive' } } },
       ],
-    };
-    if (whereClause.AND) {
-      whereClause.AND.push(searchCond);
-    } else {
-      whereClause.AND = [searchCond];
-    }
+    });
   }
+
+  const whereClause: any = conditions.length > 0 ? { AND: conditions } : {};
 
   // 6. Pagination Bounds
   const defaultPageSize = mode === 'live' ? 100 : 20;
@@ -811,14 +804,18 @@ export async function getPaginatedOperationalLogs(
     }),
     prisma.vehicleVisit.count({
       where: {
-        ...whereClause,
-        inventory_transactions: { some: { transaction_type: 'RECEIPT' } },
+        AND: [
+          ...conditions,
+          { inventory_transactions: { some: { transaction_type: 'RECEIPT' } } },
+        ],
       },
     }),
     prisma.vehicleVisit.count({
       where: {
-        ...whereClause,
-        current_status: { notIn: ['COMPLETED', 'CANCELLED'] },
+        AND: [
+          ...conditions,
+          { current_status: { notIn: ['COMPLETED', 'CANCELLED'] } },
+        ],
       },
     }),
   ]);

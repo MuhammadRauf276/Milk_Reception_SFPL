@@ -160,10 +160,10 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
             <div className="flex items-center space-x-2">
               <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
               <span>
-                Showing page <strong>{pagination.page}</strong> of <strong>{pagination.totalPages}</strong> ({pagination.totalRecords} total visits in query).
+                Showing page <strong>{pagination.page}</strong> of <strong>{pagination.totalPages}</strong> ({pagination.totalRecords} total visits in query). Volume, variance, and rejection metrics reflect the visible page.
               </span>
             </div>
-            <span className="text-[11px] font-bold text-amber-700">Bounded operational window</span>
+            <span className="text-[11px] font-bold text-amber-700">Bounded page metrics</span>
           </div>
         )}
 
@@ -227,12 +227,14 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
           <div className="p-4 rounded-xl bg-[#FEF2F2] border border-[#FECACA] shadow-xs flex items-center justify-between">
             <div>
               <p className="text-[11px] font-extrabold text-[#991B1B] uppercase tracking-wider">
-                Rejected Portions ({dateRange})
+                Rejected Portions ({pagination && pagination.totalPages > 1 ? 'Current Page' : dateRange})
               </p>
               <h2 className="text-2xl font-black font-mono text-[#991B1B] mt-1">
                 {metrics.rejectedPortionsCount}
               </h2>
-              <span className="text-[10px] font-bold text-[#991B1B]">Portion QA Rejections</span>
+              <span className="text-[10px] font-bold text-[#991B1B]">
+                {pagination && pagination.totalPages > 1 ? 'Page Portion Rejections' : 'Portion QA Rejections'}
+              </span>
             </div>
             <div className="p-2.5 rounded-xl bg-[#FFFFFF] border border-[#FECACA] text-[#991B1B]">
               <AlertTriangle className="w-5 h-5" />
@@ -247,9 +249,13 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
             <div className="flex items-center justify-between font-sans">
               <span className="text-xs font-black text-[#111311] flex items-center gap-1.5">
                 <Scale className="w-4 h-4 text-[#1E3A8A]" />
-                <span>Physical Volume Summary ({dateRange})</span>
+                <span>Physical Volume Summary ({pagination && pagination.totalPages > 1 ? 'Current Page' : dateRange})</span>
               </span>
-              <span className="text-[10px] font-bold text-slate-500">Gross Liters vs Physical Received</span>
+              <span className="text-[10px] font-bold text-slate-500">
+                {pagination && pagination.totalPages > 1
+                  ? `Page Gross vs Received (Page ${pagination.page} of ${pagination.totalPages})`
+                  : 'Gross Liters vs Physical Received'}
+              </span>
             </div>
             <div className="grid grid-cols-3 gap-2 text-xs pt-1">
               <div>
@@ -294,9 +300,13 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
             <div className="flex items-center justify-between font-sans">
               <span className="text-xs font-black text-[#111311] flex items-center gap-1.5">
                 <FlaskConical className="w-4 h-4 text-[#6B21A8]" />
-                <span>13% TS Volume Summary ({dateRange})</span>
+                <span>13% TS Volume Summary ({pagination && pagination.totalPages > 1 ? 'Current Page' : dateRange})</span>
               </span>
-              <span className="text-[10px] font-bold text-slate-500">Normalized Solids Metric</span>
+              <span className="text-[10px] font-bold text-slate-500">
+                {pagination && pagination.totalPages > 1
+                  ? `Normalized Solids (Page ${pagination.page} of ${pagination.totalPages})`
+                  : 'Normalized Solids Metric'}
+              </span>
             </div>
             <div className="grid grid-cols-3 gap-2 text-xs pt-1">
               <div>
