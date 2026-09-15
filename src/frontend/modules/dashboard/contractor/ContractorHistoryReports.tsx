@@ -42,35 +42,50 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
   const [fromDate, setFromDate] = useState<string>('');
   const [toDate, setToDate] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [page, setPage] = useState<number>(1);
+  const [pageSize] = useState<number>(20);
+  const [totalPages, setTotalPages] = useState<number>(1);
+  const [totalRecords, setTotalRecords] = useState<number>(0);
   const [logs, setLogs] = useState<MilkProcessLog[]>(initialLogs);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchHistoryLogs = useCallback(async (fDate?: string, tDate?: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const params = new URLSearchParams();
-      params.set('mode', fDate || tDate ? 'report' : 'recent');
-      params.set('dateBasis', 'reporting');
-      if (fDate) params.set('fromDate', fDate);
-      if (tDate) params.set('toDate', tDate);
+  const fetchHistoryLogs = useCallback(
+    async (fDate?: string, tDate?: string, pageNum: number = 1, search?: string) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const params = new URLSearchParams();
+        params.set('mode', fDate || tDate ? 'report' : 'recent');
+        params.set('dateBasis', 'reporting');
+        params.set('page', String(pageNum));
+        params.set('pageSize', String(pageSize));
+        if (fDate) params.set('fromDate', fDate);
+        if (tDate) params.set('toDate', tDate);
+        if (search && search.trim()) params.set('search', search.trim());
 
-      const res = await fetch(`/api/logs?${params.toString()}`);
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to fetch history logs');
+        const res = await fetch(`/api/logs?${params.toString()}`);
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || 'Failed to fetch history logs');
+        }
+        const items = data.items || data.logs;
+        if (items) {
+          setLogs(items);
+        }
+        if (data.pagination) {
+          setPage(data.pagination.page);
+          setTotalPages(data.pagination.totalPages);
+          setTotalRecords(data.pagination.totalRecords);
+        }
+      } catch (err: any) {
+        setError(err.message || 'Failed to load historical contractor records');
+      } finally {
+        setLoading(false);
       }
-      const items = data.items || data.logs;
-      if (items) {
-        setLogs(items);
-      }
-    } catch (err: any) {
-      setError(err.message || 'Failed to load historical contractor records');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    [pageSize]
+  );
 
   const handleApplyFilter = (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,14 +93,17 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
       setError('From Date cannot be after To Date.');
       return;
     }
-    fetchHistoryLogs(fromDate || undefined, toDate || undefined);
+    setPage(1);
+    fetchHistoryLogs(fromDate || undefined, toDate || undefined, 1, searchQuery);
   };
 
   const handleResetFilter = () => {
     setFromDate('');
     setToDate('');
+    setSearchQuery('');
+    setPage(1);
     setError(null);
-    fetchHistoryLogs(undefined, undefined);
+    fetchHistoryLogs(undefined, undefined, 1, undefined);
   };
 
   const visits = useMemo(() => {
@@ -401,6 +419,46 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Bar */}
+          {totalPages > 1 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 bg-slate-50 border-t border-[#EAE4D5] rounded-b-2xl text-xs font-semibold text-slate-700">
+              <div>
+                Showing <span className="font-bold text-blue-950">{(page - 1) * pageSize + 1}</span> to{' '}
+                <span className="font-bold text-blue-950">{Math.min(page * pageSize, totalRecords)}</span> of{' '}
+                <span className="font-bold text-blue-950">{totalRecords}</span> visits
+              </div>
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  disabled={page <= 1 || loading}
+                  onClick={() => {
+                    const prev = Math.max(1, page - 1);
+                    setPage(prev);
+                    fetchHistoryLogs(fromDate || undefined, toDate || undefined, prev, searchQuery);
+                  }}
+                  className="px-3.5 py-1.5 bg-white border border-[#C4B9A3] rounded-xl hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition shadow-2xs"
+                >
+                  Previous
+                </button>
+                <span className="px-2 text-xs font-mono font-bold text-slate-600">
+                  Page {page} / {totalPages}
+                </span>
+                <button
+                  type="button"
+                  disabled={page >= totalPages || loading}
+                  onClick={() => {
+                    const next = Math.min(totalPages, page + 1);
+                    setPage(next);
+                    fetchHistoryLogs(fromDate || undefined, toDate || undefined, next, searchQuery);
+                  }}
+                  className="px-3.5 py-1.5 bg-white border border-[#C4B9A3] rounded-xl hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition shadow-2xs"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         )}
       </div>
     </div>

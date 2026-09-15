@@ -40,6 +40,17 @@ interface ZMCCManagerOverviewProps {
   isLoading?: boolean;
   error?: string | null;
   onRetry?: () => void;
+  pagination?: {
+    page: number;
+    totalPages: number;
+    totalRecords: number;
+    hasMore: boolean;
+  };
+  summary?: {
+    totalVisits?: number;
+    completedVisits?: number;
+    activeInPlantVisits?: number;
+  };
 }
 
 export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
@@ -56,6 +67,8 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
   isLoading = false,
   error = null,
   onRetry,
+  pagination,
+  summary,
 }) => {
   // Compute overview metrics
   const metrics: ZMCCManagerOverviewMetrics = useMemo(() => {
@@ -141,6 +154,19 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
           </div>
         </div>
 
+        {/* Bounded Page Notice */}
+        {pagination && pagination.totalPages > 1 && (
+          <div className="flex items-center justify-between p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800">
+            <div className="flex items-center space-x-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>
+                Showing page <strong>{pagination.page}</strong> of <strong>{pagination.totalPages}</strong> ({pagination.totalRecords} total visits in query).
+              </span>
+            </div>
+            <span className="text-[11px] font-bold text-amber-700">Bounded operational window</span>
+          </div>
+        )}
+
         {/* 2. Primary 4 Operational KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
           {/* Card A: Dispatched */}
@@ -150,9 +176,11 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
                 Dispatched ({dateRange})
               </p>
               <h2 className="text-2xl font-black font-mono text-[#111311] mt-1">
-                {metrics.dispatchedCount}
+                {summary?.totalVisits ?? metrics.dispatchedCount}
               </h2>
-              <span className="text-[10px] font-bold text-[#1E40AF]">Vehicle Dispatches</span>
+              <span className="text-[10px] font-bold text-[#1E40AF]">
+                {summary?.totalVisits != null ? 'Authoritative Total Visits' : 'Vehicle Dispatches'}
+              </span>
             </div>
             <div className="p-2.5 rounded-xl bg-[#FFFFFF] border border-[#BFDBFE] text-[#1E40AF]">
               <Truck className="w-5 h-5" />
@@ -166,9 +194,11 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
                 Currently in Plant
               </p>
               <h2 className="text-2xl font-black font-mono text-[#111311] mt-1">
-                {metrics.currentlyInPlantCount}
+                {summary?.activeInPlantVisits ?? metrics.currentlyInPlantCount}
               </h2>
-              <span className="text-[10px] font-bold text-[#6B21A8]">Active in Factory</span>
+              <span className="text-[10px] font-bold text-[#6B21A8]">
+                {summary?.activeInPlantVisits != null ? 'Authoritative Active Visits' : 'Active in Factory'}
+              </span>
             </div>
             <div className="p-2.5 rounded-xl bg-[#FFFFFF] border border-[#E9D5FF] text-[#6B21A8]">
               <Factory className="w-5 h-5" />
@@ -182,9 +212,11 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
                 Completed ({dateRange})
               </p>
               <h2 className="text-2xl font-black font-mono text-[#111311] mt-1">
-                {metrics.completedCount}
+                {summary?.completedVisits ?? metrics.completedCount}
               </h2>
-              <span className="text-[10px] font-bold text-[#166534]">Authoritative Final Receipts</span>
+              <span className="text-[10px] font-bold text-[#166534]">
+                {summary?.completedVisits != null ? 'Authoritative Completed Visits' : 'Authoritative Final Receipts'}
+              </span>
             </div>
             <div className="p-2.5 rounded-xl bg-[#FFFFFF] border border-[#BBF7D0] text-[#166534]">
               <TrendingUp className="w-5 h-5" />

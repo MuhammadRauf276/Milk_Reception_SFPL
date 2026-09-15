@@ -34,12 +34,22 @@ export interface PaginationMeta {
   pageSize: number;
   totalRecords: number;
   totalPages: number;
+  hasMore: boolean;
+  page_size?: number;
+  total_count?: number;
+  total_pages?: number;
+  has_more?: boolean;
 }
 
 export interface PaginatedOperationalLogs {
   items: MilkProcessLog[];
   logs: MilkProcessLog[];
   pagination: PaginationMeta;
+  summary?: {
+    totalVisits: number;
+    completedVisits: number;
+    activeInPlantVisits: number;
+  };
   serverBusinessDate: string;
   metadata: {
     serverBusinessDate: string;
@@ -175,20 +185,6 @@ export function mapVisitToLogs(
   const firstDispatchTs = visit.portions.find((p: any) => p.dispatch_info?.dispatch_timestamp)?.dispatch_info?.dispatch_timestamp;
   if (firstDispatchTs) {
     const dt = new Date(firstDispatchTs);
-    if (!isNaN(dt.getTime())) {
-      const formatter = new Intl.DateTimeFormat('en-US', {
-        timeZone: PLANT_TIMEZONE,
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-      });
-      const parts = formatter.formatToParts(dt);
-      const pMap: Record<string, string> = {};
-      for (const p of parts) pMap[p.type] = p.value;
-      dispatchDateStr = `${pMap.year}-${pMap.month}-${pMap.day}`;
-    }
-  } else if (visit.created_at) {
-    const dt = new Date(visit.created_at);
     if (!isNaN(dt.getTime())) {
       const formatter = new Intl.DateTimeFormat('en-US', {
         timeZone: PLANT_TIMEZONE,
@@ -515,16 +511,16 @@ export function mapVisitToLogs(
       dispatch_date: dispatchDateStr,
       dispatch_day: dispatchDateStr
         ? daysOfWeek[new Date(`${dispatchDateStr}T12:00:00Z`).getUTCDay()]
-        : (opDate ? daysOfWeek[opDate.getDay()] : null),
+        : null,
       dispatch_week: dispatchDateStr
         ? Math.ceil(new Date(`${dispatchDateStr}T12:00:00Z`).getUTCDate() / 7) + 28
-        : (opDate ? Math.ceil(opDate.getDate() / 7) + 28 : null),
+        : null,
       dispatch_month: dispatchDateStr
         ? monthsOfYear[new Date(`${dispatchDateStr}T12:00:00Z`).getUTCMonth()]
-        : (opDate ? monthsOfYear[opDate.getMonth()] : null),
+        : null,
       dispatch_year: dispatchDateStr
         ? new Date(`${dispatchDateStr}T12:00:00Z`).getUTCFullYear()
-        : (opDate ? opDate.getFullYear() : null),
+        : null,
       zonal_contractor_dispatch_time: formatTimeOnly(portion.dispatch_info?.dispatch_timestamp),
       dispatch_kg_gross: declaredUnit === 'KG' ? declaredVal : null,
       dispatch_liters_gross: dispatchGrossLiters,
@@ -704,10 +700,13 @@ export async function getPaginatedOperationalLogs(
           },
         };
       } else {
-        whereClause.OR = [
-          { portions: { some: { dispatch_info: { dispatch_timestamp: { gte: startUtc } } } } },
-          { created_at: { gte: startUtc } },
-        ];
+        whereClause.portions = {
+          some: {
+            dispatch_info: {
+              dispatch_timestamp: { gte: startUtc },
+            },
+          },
+        };
       }
     }
 
@@ -723,16 +722,16 @@ export async function getPaginatedOperationalLogs(
           },
         };
       } else {
-        const dateCond = {
-          OR: [
-            { portions: { some: { dispatch_info: { dispatch_timestamp: { lte: endUtc } } } } },
-            { created_at: { lte: endUtc } },
-          ],
-        };
-        if (whereClause.AND) {
-          whereClause.AND.push(dateCond);
+        if (whereClause.portions?.some?.dispatch_info?.dispatch_timestamp) {
+          whereClause.portions.some.dispatch_info.dispatch_timestamp.lte = endUtc;
         } else {
-          whereClause.AND = [dateCond];
+          whereClause.portions = {
+            some: {
+              dispatch_info: {
+                dispatch_timestamp: { lte: endUtc },
+              },
+            },
+          };
         }
       }
     }
@@ -775,8 +774,8 @@ export async function getPaginatedOperationalLogs(
   const pageSize = Math.min(100, Math.max(1, Number(filters?.pageSize) || defaultPageSize));
   const skip = (page - 1) * pageSize;
 
-  // 7. Parallel fetch: count + master tests + page of visits
-  const [totalRecords, masterLabTests, visits] = await Promise.all([
+  // 7. Parallel fetch: count + master tests + page of visits + summary aggregates
+  const [totalRecords, masterLabTests, visits, completedVisits, activeInPlantVisits] = await Promise.all([
     prisma.vehicleVisit.count({ where: whereClause }),
     prisma.labTest.findMany({
       orderBy: [{ displayOrder: 'asc' }, { id: 'asc' }],
@@ -810,6 +809,18 @@ export async function getPaginatedOperationalLogs(
       skip,
       take: pageSize,
     }),
+    prisma.vehicleVisit.count({
+      where: {
+        ...whereClause,
+        inventory_transactions: { some: { transaction_type: 'RECEIPT' } },
+      },
+    }),
+    prisma.vehicleVisit.count({
+      where: {
+        ...whereClause,
+        current_status: { notIn: ['COMPLETED', 'CANCELLED'] },
+      },
+    }),
   ]);
 
   // 8. Map to logs
@@ -821,18 +832,29 @@ export async function getPaginatedOperationalLogs(
 
   const serverBusinessDate = getOperationalBusinessDate(new Date());
   const totalPages = totalRecords === 0 ? 1 : Math.ceil(totalRecords / pageSize);
+  const hasMore = page < totalPages;
 
   const meta: PaginationMeta = {
     page,
     pageSize,
     totalRecords,
     totalPages,
+    hasMore,
+    page_size: pageSize,
+    total_count: totalRecords,
+    total_pages: totalPages,
+    has_more: hasMore,
   };
 
   return {
     items: pageLogs,
     logs: pageLogs,
     pagination: meta,
+    summary: {
+      totalVisits: totalRecords,
+      completedVisits,
+      activeInPlantVisits,
+    },
     serverBusinessDate,
     metadata: {
       serverBusinessDate,
