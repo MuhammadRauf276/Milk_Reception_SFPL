@@ -84,6 +84,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
   const [insideTotalCount, setInsideTotalCount] = useState(0);
   const [loadingInside, setLoadingInside] = useState(false);
   const [exitModalTarget, setExitModalTarget] = useState<any | null>(null);
+  const [exitEventId, setExitEventId] = useState<string>('');
   const [exitTimestamp, setExitTimestamp] = useState(() => toDatetimeLocalInput(new Date()));
   const [exitSubmitting, setExitSubmitting] = useState(false);
   const [exitError, setExitError] = useState<string | null>(null);
@@ -240,6 +241,20 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
     fetchHistory();
   }, [canSubmit, fetchArrivingJourneys, fetchLocalSuppliers, fetchInsideVehicles, fetchHistory, initMotForm, initLocalSupplierForm]);
 
+  // Gate Exit Modal Controls
+  const openExitModal = (arrival: any) => {
+    setExitModalTarget(arrival);
+    setExitTimestamp(toDatetimeLocalInput(new Date()));
+    setExitEventId(generateClientEventId('exit'));
+    setExitError(null);
+  };
+
+  const closeExitModal = () => {
+    setExitModalTarget(null);
+    setExitEventId('');
+    setExitError(null);
+  };
+
   // Submit Gate Exit
   const handleGateExitSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -251,12 +266,18 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
         ? `/api/zmcc/arrivals/mot/${exitModalTarget.id}/exit`
         : `/api/zmcc/arrivals/local-supplier/${exitModalTarget.id}/exit`;
 
+      // Reuse the same exitEventId for retries while this modal attempt remains active
+      const eventId = exitEventId || generateClientEventId('exit');
+      if (!exitEventId) {
+        setExitEventId(eventId);
+      }
+
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           exit_timestamp: datetimeLocalToIso(exitTimestamp) || new Date(exitTimestamp).toISOString(),
-          client_event_id: generateClientEventId('exit'),
+          client_event_id: eventId,
         }),
       });
       const data = await res.json();
@@ -265,7 +286,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
         return;
       }
       toast.showSuccess(`Gate exit recorded successfully for ${exitModalTarget.vehicle_number}.`);
-      setExitModalTarget(null);
+      closeExitModal();
       fetchInsideVehicles();
       fetchHistory();
     } catch (err: any) {
@@ -969,11 +990,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
                     {v.can_exit ? (
                       <button
                         type="button"
-                        onClick={() => {
-                          setExitModalTarget(v);
-                          setExitTimestamp(toDatetimeLocalInput(new Date()));
-                          setExitError(null);
-                        }}
+                        onClick={() => openExitModal(v)}
                         className="w-full py-2 bg-indigo-700 hover:bg-indigo-800 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center justify-center space-x-1.5"
                       >
                         <MapPin className="w-3.5 h-3.5" />
@@ -1806,7 +1823,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
               </div>
               <button
                 type="button"
-                onClick={() => setExitModalTarget(null)}
+                onClick={closeExitModal}
                 className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
               >
                 <X className="w-4 h-4" />
@@ -1844,7 +1861,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
               <div className="flex items-center justify-end space-x-2 pt-2 border-t">
                 <button
                   type="button"
-                  onClick={() => setExitModalTarget(null)}
+                  onClick={closeExitModal}
                   className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
                 >
                   Cancel

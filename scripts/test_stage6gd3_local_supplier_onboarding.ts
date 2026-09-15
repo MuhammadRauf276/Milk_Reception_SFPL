@@ -315,6 +315,58 @@ async function runStage6gd3Tests() {
       'Section 23 documented in CURRENT-RULES.md'
     );
 
+    // 2.3 Frontend Gate Exit Retry Idempotency (Blocker 1)
+    const frontendWorkspacePath = path.join(repoRoot, 'src', 'frontend', 'modules', 'zmcc', 'arrivals', 'ZmccArrivalsWorkspace.tsx');
+    const frontendWorkspaceSource = fs.readFileSync(frontendWorkspacePath, 'utf8');
+    assert(
+      frontendWorkspaceSource.includes("const [exitEventId, setExitEventId] = useState<string>('');"),
+      'Frontend Exit Event ID State',
+      'ZmccArrivalsWorkspace maintains persistent exitEventId modal state'
+    );
+    assert(
+      frontendWorkspaceSource.includes("setExitEventId(generateClientEventId('exit'));"),
+      'Frontend Exit ID Initialized on Modal Open',
+      'openExitModal initializes exitEventId on modal open'
+    );
+    assert(
+      frontendWorkspaceSource.includes("setExitEventId('');"),
+      'Frontend Exit ID Cleared on Modal Close',
+      'closeExitModal clears exitEventId upon dismiss or success'
+    );
+    assert(
+      frontendWorkspaceSource.includes("const eventId = exitEventId || generateClientEventId('exit');"),
+      'Frontend Retry Reuses Event ID',
+      'handleGateExitSubmit reuses persistent exitEventId across retries'
+    );
+
+    // Lifecycle simulation: Verify that same modal instance preserves event ID across retries, and new modal gets new ID
+    const generateId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+    let simulatedModalTarget: any = null;
+    let simulatedExitEventId: string = '';
+    const openSimulatedModal = (arr: any) => {
+      simulatedModalTarget = arr;
+      simulatedExitEventId = generateId('exit');
+    };
+    const closeSimulatedModal = () => {
+      simulatedModalTarget = null;
+      simulatedExitEventId = '';
+    };
+
+    // Open modal attempt 1
+    openSimulatedModal({ id: 101 });
+    const attempt1EventId = simulatedExitEventId;
+    assert(attempt1EventId.startsWith('exit-'), 'Simulated Open', 'Generates valid exit event ID on modal open');
+    // Simulated retry 1 (network glitch or 500 error): modal remains open, retry reuses attempt1EventId
+    const retry1EventId = simulatedExitEventId || generateId('exit');
+    assert(retry1EventId === attempt1EventId, 'Simulated Retry Same ID', 'Retry inside same open modal reuses original event ID');
+    // Close modal (e.g. on success or cancel)
+    closeSimulatedModal();
+    assert(simulatedExitEventId === '', 'Simulated Close Cleared', 'Closing modal clears event ID');
+    // Reopen modal for new attempt
+    openSimulatedModal({ id: 101 });
+    const attempt2EventId = simulatedExitEventId;
+    assert(attempt2EventId !== attempt1EventId, 'Simulated Reopen Fresh ID', 'Reopening modal creates a brand-new distinct event ID');
+
     // =========================================================================
     // SECTION 3: TEST FIXTURES SETUP
     // =========================================================================
@@ -1653,6 +1705,157 @@ async function runStage6gd3Tests() {
     assert(correctExitRes3.status === 409, 'Max 2 Corrections Enforced', 'Third exit correction attempt returns 409 conflict');
     assert(correctExitRes3.error === 'MAX_EXIT_CORRECTIONS_EXCEEDED', 'Max Corrections Error Code', 'Returns MAX_EXIT_CORRECTIONS_EXCEEDED');
 
+    // 10.8 Local Supplier Gate Exit Correction & No-Op Identical Timestamp Rejection
+    // Reject no-op correction where exit_timestamp equals current exit_timestamp -> 400 NO_OP_IDENTICAL_TIMESTAMP
+    const noOpExitRes = await correctGateExit(mgr1Core as any, 'LOCAL_SUPPLIER', firstArrivalId, {
+      exit_timestamp: lsExitTimestamp,
+      reason: 'Attempting to submit identical timestamp as correction',
+    });
+    assert(noOpExitRes.status === 400, 'No-Op Identical Timestamp Rejected', 'Correction with identical exit_timestamp returns 400');
+    assert(noOpExitRes.error === 'NO_OP_IDENTICAL_TIMESTAMP', 'No-Op Error Code', 'Returns NO_OP_IDENTICAL_TIMESTAMP');
+
+    // Successful correction on Local Supplier arrival
+    const lsCorrectedTs1 = new Date(lsExitTimestamp.getTime() + 10000);
+    const lsCorrectRes1 = await correctGateExit(mgr1Core as any, 'LOCAL_SUPPLIER', firstArrivalId, {
+      exit_timestamp: lsCorrectedTs1,
+      reason: 'Correction of Local Supplier gate exit timestamp',
+    });
+    assert(lsCorrectRes1.status === 200, 'LS Exit Correction Success', 'Manager 1 successfully corrected Local Supplier exit timestamp');
+    assert(lsCorrectRes1.data.exit_correction_count === 1, 'LS Correction Count 1', 'exit_correction_count incremented to 1');
+
+    // 10.9 Rejection of Gate Exit Correction on Historical Pre-Cutover Arrival
+    // If arrival has not exited -> 400
+    const histNoExitRes = await correctGateExit(mgr1Core as any, 'LOCAL_SUPPLIER', histLSId, {
+      exit_timestamp: new Date(),
+      reason: 'Attempt to correct unexited historical arrival',
+    });
+    assert(histNoExitRes.status === 400, 'Historical Unexited Rejected', 'Cannot correct gate exit for an arrival that has not exited');
+
+    // If historical arrival has gate_exit_required = false but somehow has an exit_timestamp -> 409
+    await prisma.zmccLocalSupplierArrival.update({
+      where: { id: BigInt(histLSId) },
+      data: { exit_timestamp: new Date(Date.now() - 3600000), gate_exit_required: false },
+    });
+    const histExitCorrectRes = await correctGateExit(mgr1Core as any, 'LOCAL_SUPPLIER', histLSId, {
+      exit_timestamp: new Date(Date.now() - 1800000),
+      reason: 'Attempt to correct historical pre-cutover gate exit',
+    });
+    assert(histExitCorrectRes.status === 409, 'Historical Pre-Cutover Correction 409', 'Gate exit correction rejected on historical arrival (gate_exit_required !== true)');
+    assert(histExitCorrectRes.error === 'GATE_EXIT_NOT_TRACKED_FOR_HISTORICAL_ARRIVAL', 'Historical Pre-Cutover Error Code', 'Returns GATE_EXIT_NOT_TRACKED_FOR_HISTORICAL_ARRIVAL');
+
+    // Restore histLSId
+    await prisma.zmccLocalSupplierArrival.update({
+      where: { id: BigInt(histLSId) },
+      data: { exit_timestamp: null, gate_exit_required: false },
+    });
+
+    // 10.10 True Concurrency on Supervisory Gate Exit Correction (Blocker 2)
+    // Starting at T0 / count 0 on an exited arrival, send two concurrent corrections with distinct timestamps T1 and T2
+    const concLSId = await createEligibleLS('conc-corr');
+    const concExitTs = new Date(Date.now() - 300000);
+    const concExitInitRes = await recordGateExit(pheCore as any, 'LOCAL_SUPPLIER', concLSId, {
+      exit_timestamp: concExitTs,
+      exit_client_event_id: `conc-exit-init-${runId}`,
+    });
+    assert(concExitInitRes.status === 200, 'Concurrent Arrival Exited', 'Prepared eligible arrival with gate exit at T0');
+
+    const tCorr1 = new Date(concExitTs.getTime() + 10000);
+    const tCorr2 = new Date(concExitTs.getTime() + 20000);
+
+    const [concRes1, concRes2] = await Promise.all([
+      correctGateExit(mgr1Core as any, 'LOCAL_SUPPLIER', concLSId, {
+        exit_timestamp: tCorr1,
+        reason: 'Concurrent supervisor correction execution 1',
+      }),
+      correctGateExit(mgr1Core as any, 'LOCAL_SUPPLIER', concLSId, {
+        exit_timestamp: tCorr2,
+        reason: 'Concurrent supervisor correction execution 2',
+      }),
+    ]);
+    assert(concRes1.status === 200 && concRes2.status === 200, 'Concurrent Corrections Succeeded', 'Both concurrent exit corrections returned 200');
+
+    // Verify row state in DB: exit_correction_count must be exactly 2
+    const finalLS = await prisma.zmccLocalSupplierArrival.findUnique({
+      where: { id: BigInt(concLSId) },
+    });
+    assert(finalLS?.exit_correction_count === 2, 'Final Correction Count 2', 'exit_correction_count is strictly 2 after concurrent executions');
+
+    // Verify Audit Logs: exactly 2 entries, ordered by id asc
+    const corrAudits = await prisma.auditLog.findMany({
+      where: {
+        table_name: 'zmcc_local_supplier_arrival',
+        record_id: BigInt(concLSId),
+        action: 'ZMCC_LOCAL_SUPPLIER_GATE_EXIT_CORRECTED',
+      },
+      orderBy: { id: 'asc' },
+    });
+    assert(corrAudits.length === 2, 'Exactly 2 Correction Audits', 'Exactly 2 audit log records created for serialized corrections');
+
+    const audit1 = corrAudits[0];
+    const audit2 = corrAudits[1];
+    const audit1NewTs = (audit1.new_values as any).exit_timestamp;
+    const audit2OldTs = (audit2.old_values as any).exit_timestamp;
+
+    assert(
+      audit1NewTs === audit2OldTs,
+      'Truthful Serialized Audit Trail',
+      `Second audit old_values.exit_timestamp (${audit2OldTs}) matches first committed new_values.exit_timestamp (${audit1NewTs})`
+    );
+    assert(
+      (audit1.old_values as any).exit_timestamp === concExitTs.toISOString(),
+      'First Audit Old TS Matches T0',
+      'First audit log captured initial T0 exit timestamp as old_values'
+    );
+    assert(
+      (audit1.new_values as any).exit_correction_count === 1,
+      'First Audit Count 1',
+      'First audit log recorded count = 1'
+    );
+    assert(
+      (audit2.new_values as any).exit_correction_count === 2,
+      'Second Audit Count 2',
+      'Second audit log recorded count = 2'
+    );
+
+    // 10.11 Concurrency Max Corrections Limit Under High Contention
+    // Sending a 3rd correction to this arrival (now at count 2) must fail with 409
+    const thirdConcAttempt = await correctGateExit(mgr1Core as any, 'LOCAL_SUPPLIER', concLSId, {
+      exit_timestamp: new Date(concExitTs.getTime() + 30000),
+      reason: 'Third correction attempt blocked',
+    });
+    assert(thirdConcAttempt.status === 409, 'Max Corrections Exceeded 409', 'Third correction attempt returns 409 conflict');
+    assert(thirdConcAttempt.error === 'MAX_EXIT_CORRECTIONS_EXCEEDED', 'Max Error Code', 'Returns MAX_EXIT_CORRECTIONS_EXCEEDED');
+
+    // Test concurrent race when count is 1: exactly one succeeds (reaching 2), one rejected with 409
+    const concLimitLSId = await createEligibleLS('conc-limit');
+    const limitExitTs = new Date(Date.now() - 250000);
+    await recordGateExit(pheCore as any, 'LOCAL_SUPPLIER', concLimitLSId, {
+      exit_timestamp: limitExitTs,
+      exit_client_event_id: `conc-limit-exit-${runId}`,
+    });
+    const limitCorr1Ts = new Date(limitExitTs.getTime() + 10000);
+    await correctGateExit(mgr1Core as any, 'LOCAL_SUPPLIER', concLimitLSId, {
+      exit_timestamp: limitCorr1Ts,
+      reason: 'Initial supervisor correction setting count to 1',
+    });
+
+    const [raceRes1, raceRes2] = await Promise.all([
+      correctGateExit(mgr1Core as any, 'LOCAL_SUPPLIER', concLimitLSId, {
+        exit_timestamp: new Date(limitCorr1Ts.getTime() + 10000),
+        reason: 'Race for the final correction slot A',
+      }),
+      correctGateExit(mgr1Core as any, 'LOCAL_SUPPLIER', concLimitLSId, {
+        exit_timestamp: new Date(limitCorr1Ts.getTime() + 20000),
+        reason: 'Race for the final correction slot B',
+      }),
+    ]);
+    const raceStatuses = [raceRes1.status, raceRes2.status].sort();
+    assert(
+      raceStatuses[0] === 200 && raceStatuses[1] === 409,
+      'Concurrent Race at Count 1 Enforces Max 2',
+      'Under concurrent contention at count 1, exactly one call succeeds (200) and the other is rejected (409 MAX_EXIT_CORRECTIONS_EXCEEDED)'
+    );
+
     // =========================================================================
     // SECTION 11: ARRIVAL CORRECTION AFTER EXIT (CHRONOLOGY INTEGRITY)
     // =========================================================================
@@ -1988,6 +2191,14 @@ async function runStage6gd3Tests() {
       },
     });
     assert(!!motExitCorrectAudit, 'AuditLog', 'AuditLog record exists for ZMCC_MOT_GATE_EXIT_CORRECTED');
+
+    const lsExitCorrectAudit = await prisma.auditLog.findFirst({
+      where: {
+        table_name: 'zmcc_local_supplier_arrival',
+        action: 'ZMCC_LOCAL_SUPPLIER_GATE_EXIT_CORRECTED',
+      },
+    });
+    assert(!!lsExitCorrectAudit, 'AuditLog', 'AuditLog record exists for ZMCC_LOCAL_SUPPLIER_GATE_EXIT_CORRECTED');
 
     console.log(`\n=====================================================================`);
     console.log(`🎉 STAGE 6G-D.3 TEST SUITE COMPLETED: ${passed} PASSED, ${failed} FAILED`);

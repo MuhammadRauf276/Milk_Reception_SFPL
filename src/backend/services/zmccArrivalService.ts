@@ -2730,6 +2730,16 @@ export async function recordGateExit(
   }
 }
 
+class ExitCorrectionError extends Error {
+  status: number;
+  errorPayload: { status: number; error: string; message?: string };
+  constructor(status: number, error: string, message?: string) {
+    super(error);
+    this.status = status;
+    this.errorPayload = { status, error, ...(message ? { message } : {}) };
+  }
+}
+
 export async function correctGateExit(
   reqOrUser: Request | User,
   arrivalType: 'MOT' | 'LOCAL_SUPPLIER',
@@ -2771,90 +2781,108 @@ export async function correctGateExit(
     return { status: 400, error: 'exit_timestamp cannot be in the future.' };
   }
 
-  let arrival: any = null;
-  if (arrivalType === 'MOT') {
-    arrival = await prisma.zmccMotArrival.findUnique({
-      where: { id: arrivalId },
-      include: {
-        journey: {
-          include: {
-            route: true,
-            mot_vehicle: true,
-            mot_profile: true,
-            summary: true,
-          },
-        },
-        zmcc: true,
-        recorded_by: true,
-        exit_recorded_by: true,
-        lab_session: true,
-      },
-    });
-  } else if (arrivalType === 'LOCAL_SUPPLIER') {
-    arrival = await prisma.zmccLocalSupplierArrival.findUnique({
-      where: { id: arrivalId },
-      include: {
-        local_supplier: true,
-        zmcc: true,
-        recorded_by: true,
-        exit_recorded_by: true,
-        lab_session: true,
-      },
-    });
-  } else {
-    return { status: 400, error: 'Invalid arrival_type for gate exit correction.' };
-  }
-
-  if (!arrival) {
-    return { status: 404, error: `${arrivalType === 'MOT' ? 'MOT' : 'Local Supplier'} Arrival record not found.` };
-  }
-
-  if (!auth.isSuperAdmin && arrival.zmcc_id !== auth.effectiveZmccId!) {
-    return { status: 403, error: 'Forbidden. Arrival record belongs to another ZMCC.' };
-  }
-
-  if (!arrival.exit_timestamp) {
-    return { status: 400, error: 'Cannot correct gate exit for an arrival that has not exited.' };
-  }
-
-  if (arrival.exit_correction_count >= 2) {
-    return {
-      status: 409,
-      error: 'MAX_EXIT_CORRECTIONS_EXCEEDED',
-      message: 'Maximum number of gate exit corrections (2) has been reached.',
-    };
-  }
-
-  // Chronology checks
-  if (exitDate.getTime() < new Date(arrival.arrival_timestamp).getTime()) {
-    return {
-      status: 400,
-      error: `exit_timestamp cannot predate arrival_timestamp (${arrival.arrival_timestamp.toISOString()}).`,
-    };
-  }
-  if (arrival.lab_session?.completed_at && exitDate.getTime() < new Date(arrival.lab_session.completed_at).getTime()) {
-    return {
-      status: 400,
-      error: `exit_timestamp cannot predate lab completion timestamp (${arrival.lab_session.completed_at.toISOString()}).`,
-    };
-  }
-
   try {
     const updated = await prisma.$transaction(async (tx) => {
-      const tableName = arrivalType === 'MOT' ? 'zmcc_mot_arrival' : 'zmcc_local_supplier_arrival';
-      const lockedRows = await tx.$queryRawUnsafe<{ id: bigint; exit_correction_count: number }[]>(
-        `SELECT id, exit_correction_count FROM "${tableName}" WHERE id = ${arrivalId} FOR UPDATE`
-      );
-      if (!lockedRows || lockedRows.length === 0) {
-        throw new Error('ARRIVAL_NOT_FOUND');
-      }
-      const currentCount = lockedRows[0].exit_correction_count ?? 0;
-      if (currentCount >= 2) {
-        throw new Error('MAX_EXIT_CORRECTIONS_REACHED');
+      // 1. Static parameterized row lock branches (no $queryRawUnsafe)
+      if (arrivalType === 'MOT') {
+        const lockRows = await tx.$queryRaw<{ id: bigint }[]>`
+          SELECT id FROM zmcc_mot_arrival WHERE id = ${arrivalId} FOR UPDATE
+        `;
+        if (!lockRows || lockRows.length === 0) {
+          throw new ExitCorrectionError(404, 'MOT Arrival record not found.');
+        }
+      } else if (arrivalType === 'LOCAL_SUPPLIER') {
+        const lockRows = await tx.$queryRaw<{ id: bigint }[]>`
+          SELECT id FROM zmcc_local_supplier_arrival WHERE id = ${arrivalId} FOR UPDATE
+        `;
+        if (!lockRows || lockRows.length === 0) {
+          throw new ExitCorrectionError(404, 'Local Supplier Arrival record not found.');
+        }
+      } else {
+        throw new ExitCorrectionError(400, 'Invalid arrival_type for gate exit correction.');
       }
 
+      // 2. Authoritative re-read under the acquired row lock
+      let currentArrival: any = null;
+      if (arrivalType === 'MOT') {
+        currentArrival = await tx.zmccMotArrival.findUnique({
+          where: { id: arrivalId },
+          include: {
+            journey: {
+              include: {
+                route: true,
+                mot_vehicle: true,
+                mot_profile: true,
+                summary: true,
+              },
+            },
+            zmcc: true,
+            recorded_by: true,
+            exit_recorded_by: true,
+            lab_session: true,
+          },
+        });
+      } else {
+        currentArrival = await tx.zmccLocalSupplierArrival.findUnique({
+          where: { id: arrivalId },
+          include: {
+            local_supplier: true,
+            zmcc: true,
+            recorded_by: true,
+            exit_recorded_by: true,
+            lab_session: true,
+          },
+        });
+      }
+
+      if (!currentArrival) {
+        throw new ExitCorrectionError(404, `${arrivalType === 'MOT' ? 'MOT' : 'Local Supplier'} Arrival record not found.`);
+      }
+
+      // 3. Multi-tenant scope check under lock
+      if (!auth.isSuperAdmin && currentArrival.zmcc_id !== auth.effectiveZmccId!) {
+        throw new ExitCorrectionError(403, 'Forbidden. Arrival record belongs to another ZMCC.');
+      }
+
+      // 4. Require current exit exists
+      if (!currentArrival.exit_timestamp) {
+        throw new ExitCorrectionError(400, 'Cannot correct gate exit for an arrival that has not exited.');
+      }
+
+      // 5. Require gate_exit_required === true
+      if (currentArrival.gate_exit_required !== true) {
+        throw new ExitCorrectionError(409, 'GATE_EXIT_NOT_TRACKED_FOR_HISTORICAL_ARRIVAL', 'Gate exit is not tracked for historical arrivals.');
+      }
+
+      // 6. Check current correction count under lock
+      const currentCount = currentArrival.exit_correction_count ?? 0;
+      if (currentCount >= 2) {
+        throw new ExitCorrectionError(409, 'MAX_EXIT_CORRECTIONS_EXCEEDED', 'Maximum number of gate exit corrections (2) has been reached.');
+      }
+
+      // 7. Check if requested timestamp equals current timestamp (reject as no-op)
+      const currentExitTime = new Date(currentArrival.exit_timestamp).getTime();
+      if (exitDate.getTime() === currentExitTime) {
+        throw new ExitCorrectionError(400, 'NO_OP_IDENTICAL_TIMESTAMP', 'New exit timestamp is identical to the current exit timestamp.');
+      }
+
+      // 8. Re-check chronology using current locked arrival_timestamp and lab.completed_at
+      const arrivalTime = new Date(currentArrival.arrival_timestamp).getTime();
+      if (exitDate.getTime() < arrivalTime) {
+        throw new ExitCorrectionError(400, `exit_timestamp cannot predate arrival_timestamp (${currentArrival.arrival_timestamp.toISOString()}).`);
+      }
+      if (currentArrival.lab_session?.completed_at) {
+        const labCompletedTime = new Date(currentArrival.lab_session.completed_at).getTime();
+        if (exitDate.getTime() < labCompletedTime) {
+          throw new ExitCorrectionError(400, `exit_timestamp cannot predate lab completion timestamp (${currentArrival.lab_session.completed_at.toISOString()}).`);
+        }
+      }
+
+      // 9. Use the CURRENT locked exit timestamp as old_values.exit_timestamp
       const nextCount = currentCount + 1;
-      const oldExitTs = arrival.exit_timestamp.toISOString();
+      const oldExitTs = currentArrival.exit_timestamp instanceof Date
+        ? currentArrival.exit_timestamp.toISOString()
+        : new Date(currentArrival.exit_timestamp).toISOString();
       const newExitTs = exitDate.toISOString();
 
       let updatedRecord: any;
@@ -2937,12 +2965,8 @@ export async function correctGateExit(
       data: arrivalType === 'MOT' ? serializeMotArrival(updated) : serializeLocalSupplierArrival(updated),
     };
   } catch (err: any) {
-    if (err.message === 'MAX_EXIT_CORRECTIONS_REACHED') {
-      return {
-        status: 409,
-        error: 'MAX_EXIT_CORRECTIONS_EXCEEDED',
-        message: 'Maximum number of gate exit corrections (2) has been reached.',
-      };
+    if (err instanceof ExitCorrectionError) {
+      return err.errorPayload;
     }
     console.error('correctGateExit error:', err);
     return { status: 500, error: 'Internal server error while correcting gate exit.' };
