@@ -14,6 +14,8 @@ import {
   ZMCCManagerTab,
   OverviewDateRange,
 } from './zmcc/zmccManagerTypes';
+import { getOverviewDateRangeBounds } from './zmcc/zmccManagerHelpers';
+import type { RetrievalMode } from '@backend/services/operationalReadModelService';
 import {
   LayoutDashboard,
   Truck,
@@ -56,6 +58,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
   const [activeTab, setActiveTab] = useState<ZMCCManagerTab>('OVERVIEW');
   const [summaryDateRange, setSummaryDateRange] = useState<OverviewDateRange>('TODAY');
   const [serverBusinessDate, setServerBusinessDate] = useState<string>('');
+  const [serverCalendarDate, setServerCalendarDate] = useState<string>('');
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
   const hamburgerButtonRef = useRef<HTMLButtonElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -65,20 +68,35 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
   const [liveLogs, setLiveLogs] = useState<MilkProcessLog[]>([]);
   const [liveLoading, setLiveLoading] = useState<boolean>(true);
   const [liveError, setLiveError] = useState<string | null>(null);
+  const [liveActiveInPlantCount, setLiveActiveInPlantCount] = useState<number | null>(null);
 
   // 2. Independent Reporting State
   const [reportingLogs, setReportingLogs] = useState<MilkProcessLog[]>([]);
   const [reportingLoading, setReportingLoading] = useState<boolean>(true);
   const [reportingError, setReportingError] = useState<string | null>(null);
+  const [reportingPage, setReportingPage] = useState<number>(1);
+  const [reportingTotalPages, setReportingTotalPages] = useState<number>(1);
+  const [reportingTotalRecords, setReportingTotalRecords] = useState<number>(0);
+  const [reportingHasMore, setReportingHasMore] = useState<boolean>(false);
+  const [reportingSummary, setReportingSummary] = useState<{
+    totalVisits: number;
+    completedVisits: number;
+    activeInPlantVisits: number;
+  } | null>(null);
 
-  // 3. Independent Receipts & Performance State (Unbounded source-scoped fetch for complete receipt lifecycle)
+  // 3. Independent Receipts & Performance State
   const [receiptLogs, setReceiptLogs] = useState<MilkProcessLog[]>([]);
   const [receiptLoading, setReceiptLoading] = useState<boolean>(true);
   const [receiptError, setReceiptError] = useState<string | null>(null);
+  const [receiptPage, setReceiptPage] = useState<number>(1);
+  const [receiptTotalPages, setReceiptTotalPages] = useState<number>(1);
+  const [receiptTotalRecords, setReceiptTotalRecords] = useState<number>(0);
+  const [receiptHasMore, setReceiptHasMore] = useState<boolean>(false);
 
   // History & Table search/filter state (isolated to historical reporting tables)
-  const [fromDate, setFromDate] = useState<string>('');
-  const [toDate, setToDate] = useState<string>('');
+  const initialOverviewBounds = useMemo(() => getOverviewDateRangeBounds('TODAY'), []);
+  const [fromDate, setFromDate] = useState<string>(initialOverviewBounds.fromDate);
+  const [toDate, setToDate] = useState<string>(initialOverviewBounds.toDate);
   const [selectedLog, setSelectedLog] = useState<MilkProcessLog | null>(null);
 
   const assignedSourceName =
@@ -176,60 +194,103 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
     closeDrawer();
   };
 
-  // Fetch Live Logs: Unbounded source-scoped fetch without date or search filters
+  // Fetch Live Logs: Mode 'live' active pipeline only
   const fetchLiveLogs = useCallback(async () => {
     setLiveLoading(true);
     setLiveError(null);
     try {
-      const res = await fetch('/api/logs');
+      const res = await fetch('/api/logs?mode=live');
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to fetch live logs');
 
-      if (data.logs) setLiveLogs(data.logs);
+      const items = data.items || data.logs;
+      if (items) setLiveLogs(items);
+
+      if (typeof data.summary?.activeInPlantVisits === 'number') {
+        setLiveActiveInPlantCount(data.summary.activeInPlantVisits);
+      } else {
+        setLiveActiveInPlantCount(null);
+      }
+
       if (data.serverBusinessDate) setServerBusinessDate(data.serverBusinessDate);
     } catch (err: any) {
+      setLiveActiveInPlantCount(null);
       setLiveError(err.message || 'Failed to load live pipeline logs');
     } finally {
       setLiveLoading(false);
     }
   }, []);
 
-  // Fetch Receipt Logs: Unbounded source-scoped fetch without Dispatch Business Date filtering
-  const fetchReceiptLogs = useCallback(async () => {
-    setReceiptLoading(true);
-    setReceiptError(null);
-    try {
-      const res = await fetch('/api/logs');
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to fetch receipt logs');
+  // Fetch Receipt Logs: Mode 'recent' (default 7 days) or bounded reporting date
+  const fetchReceiptLogs = useCallback(
+    async (fDate?: string, tDate?: string, targetPage: number = 1) => {
+      setReceiptLoading(true);
+      setReceiptError(null);
+      try {
+        const params = new URLSearchParams();
+        params.append('mode', fDate || tDate ? 'report' : 'recent');
+        params.append('dateBasis', 'reporting');
+        params.append('page', String(targetPage));
+        params.append('pageSize', '20');
+        if (fDate) params.append('fromDate', fDate);
+        if (tDate) params.append('toDate', tDate);
 
-      if (data.logs) setReceiptLogs(data.logs);
-      if (data.serverBusinessDate) setServerBusinessDate(data.serverBusinessDate);
-    } catch (err: any) {
-      setReceiptError(err.message || 'Failed to load receipt logs');
-    } finally {
-      setReceiptLoading(false);
-    }
-  }, []);
+        const res = await fetch(`/api/logs?${params.toString()}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to fetch receipt logs');
+
+        const items = data.items || data.logs;
+        if (items) setReceiptLogs(items);
+        if (data.pagination) {
+          setReceiptPage(data.pagination.page || targetPage);
+          setReceiptTotalPages(data.pagination.totalPages || data.pagination.total_pages || 1);
+          setReceiptTotalRecords(data.pagination.totalRecords || data.pagination.total_count || 0);
+          setReceiptHasMore(Boolean(data.pagination.hasMore ?? data.pagination.has_more));
+        }
+        if (data.serverBusinessDate) setServerBusinessDate(data.serverBusinessDate);
+      } catch (err: any) {
+        setReceiptError(err.message || 'Failed to load receipt logs');
+      } finally {
+        setReceiptLoading(false);
+      }
+    },
+    []
+  );
+
+  const lastReportingQueryRef = useRef<string>('');
 
   // Fetch Reporting Logs: Parameterized fetch for Overview / History date queries
   const fetchReportingLogs = useCallback(
-    async (fDate?: string, tDate?: string) => {
+    async (fDate?: string, tDate?: string, targetPage: number = 1, explicitMode?: RetrievalMode) => {
+      const modeToUse = explicitMode || 'report';
+      lastReportingQueryRef.current = `${fDate || ''}|${tDate || ''}|${targetPage}|${modeToUse}`;
       setReportingLoading(true);
       setReportingError(null);
       try {
-        let url = '/api/logs';
         const params = new URLSearchParams();
+        params.append('mode', modeToUse);
+        params.append('page', String(targetPage));
+        params.append('pageSize', '20');
         if (fDate) params.append('fromDate', fDate);
         if (tDate) params.append('toDate', tDate);
-        if (params.toString()) url += `?${params.toString()}`;
 
-        const res = await fetch(url);
+        const res = await fetch(`/api/logs?${params.toString()}`);
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Failed to fetch reporting logs');
 
-        if (data.logs) setReportingLogs(data.logs);
+        const items = data.items || data.logs;
+        if (items) setReportingLogs(items);
+        if (data.pagination) {
+          setReportingPage(data.pagination.page || targetPage);
+          setReportingTotalPages(data.pagination.totalPages || data.pagination.total_pages || 1);
+          setReportingTotalRecords(data.pagination.totalRecords || data.pagination.total_count || 0);
+          setReportingHasMore(Boolean(data.pagination.hasMore ?? data.pagination.has_more));
+        }
+        if (data.summary) {
+          setReportingSummary(data.summary);
+        }
         if (data.serverBusinessDate) setServerBusinessDate(data.serverBusinessDate);
+        if (data.serverCalendarDate) setServerCalendarDate(data.serverCalendarDate);
       } catch (err: any) {
         setReportingError(err.message || 'Failed to load reporting logs');
       } finally {
@@ -239,21 +300,129 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
     []
   );
 
-  // A. Live Flow: Initial mount and interval polling (NO fromDate/toDate dependency)
+  const handleOverviewDateRangeChange = useCallback(
+    (range: OverviewDateRange) => {
+      setSummaryDateRange(range);
+      const bounds = getOverviewDateRangeBounds(range);
+      setReportingPage(1);
+      setFromDate(bounds.fromDate);
+      setToDate(bounds.toDate);
+      fetchReportingLogs(bounds.fromDate, bounds.toDate, 1, 'report');
+    },
+    [fetchReportingLogs]
+  );
+
+  // A. Live Flow: Initial mount and interval polling (LIVE ONLY)
   useEffect(() => {
     fetchLiveLogs();
-    fetchReceiptLogs();
     const interval = setInterval(() => {
       fetchLiveLogs();
-      fetchReceiptLogs();
     }, 15000);
     return () => clearInterval(interval);
-  }, [fetchLiveLogs, fetchReceiptLogs]);
+  }, [fetchLiveLogs]);
 
-  // B. Reporting Flow: Initial load and when fromDate/toDate changes
+  // B. Receipt Flow: Initial load and when fromDate/toDate changes (NO polling, resets to page 1)
   useEffect(() => {
-    fetchReportingLogs(fromDate, toDate);
+    setReceiptPage(1);
+    fetchReceiptLogs(fromDate, toDate, 1);
+  }, [fetchReceiptLogs, fromDate, toDate]);
+
+  // B. Reporting Flow: Initial load and when fromDate/toDate changes (resets to page 1)
+  useEffect(() => {
+    const queryKey = `${fromDate}|${toDate}|1|report`;
+    if (lastReportingQueryRef.current !== queryKey) {
+      setReportingPage(1);
+      fetchReportingLogs(fromDate, toDate, 1, 'report');
+    }
   }, [fetchReportingLogs, fromDate, toDate]);
+
+  const renderReportingPaginationBar = () => {
+    if (reportingTotalRecords === 0) return null;
+    const startItem = (reportingPage - 1) * 20 + 1;
+    const endItem = Math.min(reportingPage * 20, reportingTotalRecords);
+    return (
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 bg-white border border-[#EAE4D5] rounded-xl text-xs shadow-xs mt-4">
+        <div className="text-slate-600 font-medium">
+          Showing visits <span className="font-bold text-slate-900">{startItem}</span> to{' '}
+          <span className="font-bold text-slate-900">{endItem}</span> of{' '}
+          <span className="font-bold text-slate-900">{reportingTotalRecords}</span> total
+          {reportingTotalPages > 1 && (
+            <span className="ml-2 text-[11px] text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+              Page {reportingPage} of {reportingTotalPages}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center space-x-2">
+          <button
+            type="button"
+            onClick={() => {
+              const prevPage = Math.max(1, reportingPage - 1);
+              fetchReportingLogs(fromDate, toDate, prevPage, 'report');
+            }}
+            disabled={reportingPage <= 1 || reportingLoading}
+            className="px-3.5 py-1.5 min-h-[36px] bg-[#FDFBF9] hover:bg-[#EFE9D9]/60 border border-[#C4B9A3] rounded-lg font-bold text-[#111311] disabled:opacity-40 disabled:cursor-not-allowed transition"
+          >
+            Previous
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const nextPage = Math.min(reportingTotalPages, reportingPage + 1);
+              fetchReportingLogs(fromDate, toDate, nextPage, 'report');
+            }}
+            disabled={reportingPage >= reportingTotalPages || !reportingHasMore || reportingLoading}
+            className="px-3.5 py-1.5 min-h-[36px] bg-[#FDFBF9] hover:bg-[#EFE9D9]/60 border border-[#C4B9A3] rounded-lg font-bold text-[#111311] disabled:opacity-40 disabled:cursor-not-allowed transition"
+          >
+            Next
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderReceiptPaginationBar = () => {
+    if (receiptTotalRecords === 0) return null;
+    const startItem = (receiptPage - 1) * 20 + 1;
+    const endItem = Math.min(receiptPage * 20, receiptTotalRecords);
+    return (
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 bg-white border border-[#EAE4D5] rounded-xl text-xs shadow-xs mt-4">
+        <div className="text-slate-600 font-medium">
+          Showing visits <span className="font-bold text-slate-900">{startItem}</span> to{' '}
+          <span className="font-bold text-slate-900">{endItem}</span> of{' '}
+          <span className="font-bold text-slate-900">{receiptTotalRecords}</span> total
+          {receiptTotalPages > 1 && (
+            <span className="ml-2 text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+              Page {receiptPage} of {receiptTotalPages}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center space-x-2">
+          <button
+            type="button"
+            onClick={() => {
+              const prevPage = Math.max(1, receiptPage - 1);
+              fetchReceiptLogs(fromDate, toDate, prevPage);
+            }}
+            disabled={receiptPage <= 1 || receiptLoading}
+            className="px-3.5 py-1.5 min-h-[36px] bg-[#FDFBF9] hover:bg-[#EFE9D9]/60 border border-[#C4B9A3] rounded-lg font-bold text-[#111311] disabled:opacity-40 disabled:cursor-not-allowed transition"
+          >
+            Previous
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const nextPage = Math.min(receiptTotalPages, receiptPage + 1);
+              fetchReceiptLogs(fromDate, toDate, nextPage);
+            }}
+            disabled={receiptPage >= receiptTotalPages || !receiptHasMore || receiptLoading}
+            className="px-3.5 py-1.5 min-h-[36px] bg-[#FDFBF9] hover:bg-[#EFE9D9]/60 border border-[#C4B9A3] rounded-lg font-bold text-[#111311] disabled:opacity-40 disabled:cursor-not-allowed transition"
+          >
+            Next
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="w-full max-w-full flex flex-col h-screen bg-[#FDFBF9] text-[#111311] overflow-hidden font-sans">
@@ -356,9 +525,10 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
               <ZMCCManagerOverview
                 logs={reportingLogs}
                 serverBusinessDate={serverBusinessDate}
+                serverCalendarDate={serverCalendarDate}
                 assignedSourceName={assignedSourceName}
                 dateRange={summaryDateRange}
-                onDateRangeChange={(r) => setSummaryDateRange(r)}
+                onDateRangeChange={handleOverviewDateRangeChange}
                 onInspectDetails={(l) => setSelectedLog(l)}
                 onNavigateToTab={(tab) => setActiveTab(tab)}
                 currentFromDate={fromDate}
@@ -369,8 +539,17 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
                 }}
                 isLoading={reportingLoading}
                 error={reportingError}
-                onRetry={() => fetchReportingLogs(fromDate, toDate)}
+                onRetry={() => fetchReportingLogs(fromDate, toDate, reportingPage, 'report')}
+                pagination={{
+                  page: reportingPage,
+                  totalPages: reportingTotalPages,
+                  totalRecords: reportingTotalRecords,
+                  hasMore: reportingHasMore,
+                }}
+                summary={reportingSummary || undefined}
+                liveActiveInPlantCount={liveActiveInPlantCount}
               />
+              {renderReportingPaginationBar()}
             </div>
           )}
 
@@ -397,7 +576,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
                 onInspectDetails={(l) => setSelectedLog(l)}
                 isLoading={reportingLoading}
                 error={reportingError}
-                onRetry={() => fetchReportingLogs(fromDate, toDate)}
+                onRetry={() => fetchReportingLogs(fromDate, toDate, reportingPage)}
                 currentFromDate={fromDate}
                 currentToDate={toDate}
                 onDateFilterChange={(f, t) => {
@@ -405,6 +584,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
                   setToDate(t || '');
                 }}
               />
+              {renderReportingPaginationBar()}
             </div>
           )}
 
@@ -417,7 +597,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
                 onInspectDetails={(l) => setSelectedLog(l)}
                 isLoading={reportingLoading}
                 error={reportingError}
-                onRetry={() => fetchReportingLogs(fromDate, toDate)}
+                onRetry={() => fetchReportingLogs(fromDate, toDate, reportingPage)}
                 currentFromDate={fromDate}
                 currentToDate={toDate}
                 onDateFilterChange={(f, t) => {
@@ -425,6 +605,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
                   setToDate(t || '');
                 }}
               />
+              {renderReportingPaginationBar()}
             </div>
           )}
 
@@ -437,7 +618,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
                 onInspectDetails={(l) => setSelectedLog(l)}
                 isLoading={receiptLoading}
                 error={receiptError}
-                onRetry={() => fetchReceiptLogs()}
+                onRetry={() => fetchReceiptLogs(fromDate, toDate, receiptPage)}
                 currentFromDate={fromDate}
                 currentToDate={toDate}
                 onDateFilterChange={(f, t) => {
@@ -445,6 +626,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
                   setToDate(t || '');
                 }}
               />
+              {renderReceiptPaginationBar()}
             </div>
           )}
 
@@ -457,7 +639,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
                 onInspectDetails={(l) => setSelectedLog(l)}
                 isLoading={reportingLoading}
                 error={reportingError}
-                onRetry={() => fetchReportingLogs(fromDate, toDate)}
+                onRetry={() => fetchReportingLogs(fromDate, toDate, reportingPage)}
                 currentFromDate={fromDate}
                 currentToDate={toDate}
                 onDateFilterChange={(f, t) => {
@@ -465,6 +647,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
                   setToDate(t || '');
                 }}
               />
+              {renderReportingPaginationBar()}
             </div>
           )}
 

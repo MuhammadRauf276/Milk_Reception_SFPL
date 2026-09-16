@@ -353,7 +353,7 @@ async function runPlantContractorManagerContracts() {
 
       // 4.1 Assigned manager receives only assigned contractor records with positive proof
       const reqAssigned = await createAuthRequest(
-        'http://localhost:3000/api/logs?dateBasis=reporting',
+        'http://localhost:3000/api/logs?mode=report&pageSize=100',
         'GET',
         undefined,
         tempAssignedManager
@@ -362,7 +362,7 @@ async function runPlantContractorManagerContracts() {
       assert(resAssigned.ok, '4F-INVARIANT-10: Assigned CONTRACTOR_MANAGER GET /api/logs returns HTTP 200');
 
       const jsonAssigned = await resAssigned.json();
-      const logs = jsonAssigned.logs || [];
+      const logs = jsonAssigned.items || [];
 
       assert(logs.length > 0, '4F-INVARIANT-11A: Assigned CONTRACTOR_MANAGER returns positive result count (>0)', `Count: ${logs.length}`);
       assert(logs.some((l: any) => l.vehicle_number === vehicleA), '4F-INVARIANT-11B: Assigned contractor fixture vehicleA IS present in response');
@@ -372,7 +372,7 @@ async function runPlantContractorManagerContracts() {
 
       // 4.2 Unbound manager fails closed
       const reqUnbound = await createAuthRequest(
-        'http://localhost:3000/api/logs?dateBasis=reporting',
+        'http://localhost:3000/api/logs?mode=report&pageSize=100',
         'GET',
         undefined,
         tempUnboundManager
@@ -380,14 +380,14 @@ async function runPlantContractorManagerContracts() {
       const resUnbound = await getLogs(reqUnbound as any);
       const jsonUnbound = await resUnbound.json();
       assert(
-        (jsonUnbound.logs || []).length === 0,
+        (jsonUnbound.items || []).length === 0,
         '4F-INVARIANT-12: Unbound CONTRACTOR_MANAGER fails closed to ZERO records',
-        `Count: ${(jsonUnbound.logs || []).length}`
+        `Count: ${(jsonUnbound.items || []).length}`
       );
 
       // 4.3 Misbound CONTRACTOR_MANAGER (assigned to ZMCC) fails closed
       const reqMisbound = await createAuthRequest(
-        'http://localhost:3000/api/logs?dateBasis=reporting',
+        'http://localhost:3000/api/logs?mode=report&pageSize=100',
         'GET',
         undefined,
         tempMisboundManager
@@ -395,9 +395,9 @@ async function runPlantContractorManagerContracts() {
       const resMisbound = await getLogs(reqMisbound as any);
       const jsonMisbound = await resMisbound.json();
       assert(
-        (jsonMisbound.logs || []).length === 0,
+        (jsonMisbound.items || []).length === 0,
         '4F-INVARIANT-13: Misbound CONTRACTOR_MANAGER (assigned to ZMCC source) fails closed to ZERO records',
-        `Count: ${(jsonMisbound.logs || []).length}`
+        `Count: ${(jsonMisbound.items || []).length}`
       );
     }
 

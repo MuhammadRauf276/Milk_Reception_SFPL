@@ -10,10 +10,11 @@ export default function PublicYardTVBoardPage() {
 
   const fetchLogs = async () => {
     try {
-      const res = await fetch('/api/logs');
+      const res = await fetch('/api/logs?mode=live');
       const data = await res.json();
-      if (data.logs) {
-        setLogs(data.logs);
+      const items = data.items || data.logs;
+      if (items) {
+        setLogs(items);
       }
     } catch (_err) {
       // Handled
