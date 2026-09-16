@@ -10,6 +10,7 @@ import {
   computeManagerOverview,
   deriveManagerAttention,
 } from './zmccManagerHelpers';
+import { getPakistanCalendarDate } from '@backend/core/business-day';
 import { ManagerAttentionPanel } from './ManagerAttentionPanel';
 import {
   Truck,
@@ -28,7 +29,8 @@ import {
 
 interface ZMCCManagerOverviewProps {
   logs: MilkProcessLog[];
-  serverBusinessDate: string;
+  serverBusinessDate?: string;
+  serverCalendarDate?: string;
   assignedSourceName: string;
   dateRange: OverviewDateRange;
   onDateRangeChange: (range: OverviewDateRange) => void;
@@ -51,11 +53,13 @@ interface ZMCCManagerOverviewProps {
     completedVisits?: number;
     activeInPlantVisits?: number;
   };
+  liveActiveInPlantCount?: number;
 }
 
 export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
   logs,
   serverBusinessDate,
+  serverCalendarDate,
   assignedSourceName,
   dateRange,
   onDateRangeChange,
@@ -69,11 +73,14 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
   onRetry,
   pagination,
   summary,
+  liveActiveInPlantCount,
 }) => {
+  const displayCalendarDate = serverCalendarDate || getPakistanCalendarDate(new Date());
+
   // Compute overview metrics
   const metrics: ZMCCManagerOverviewMetrics = useMemo(() => {
-    return computeManagerOverview(logs, serverBusinessDate, dateRange);
-  }, [logs, serverBusinessDate, dateRange]);
+    return computeManagerOverview(logs, displayCalendarDate, dateRange);
+  }, [logs, displayCalendarDate, dateRange]);
 
   // Derive attention items
   const attentionItems = useMemo(() => {
@@ -130,7 +137,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
                 Operational Overview: {assignedSourceName}
               </h3>
               <p className="text-[11px] text-slate-500 font-semibold mt-0.5">
-                Current Business Date: {serverBusinessDate || 'Live'} (08:00 PKT operational grouping)
+                Pakistan Calendar Date: {displayCalendarDate}
               </p>
             </div>
           </div>
@@ -145,7 +152,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
               aria-label="Select overview period"
               className="px-3 py-1.5 text-xs font-extrabold rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/80 text-[#111311] focus:ring-2 focus:ring-[#1E3A8A] outline-none shadow-sm"
             >
-              <option value="TODAY">Today ({serverBusinessDate || 'Live'})</option>
+              <option value="TODAY">Today ({displayCalendarDate})</option>
               <option value="YESTERDAY">Yesterday</option>
               <option value="LAST_7">Last 7 Days</option>
               <option value="LAST_15">Last 15 Days</option>
@@ -194,10 +201,10 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
                 Currently in Plant
               </p>
               <h2 className="text-2xl font-black font-mono text-[#111311] mt-1">
-                {summary?.activeInPlantVisits ?? metrics.currentlyInPlantCount}
+                {liveActiveInPlantCount != null ? liveActiveInPlantCount : metrics.currentlyInPlantCount}
               </h2>
               <span className="text-[10px] font-bold text-[#6B21A8]">
-                {summary?.activeInPlantVisits != null ? 'Authoritative Active Visits' : 'Active in Factory'}
+                {liveActiveInPlantCount != null ? 'Live Active Factory Tankers' : 'Page Active Tankers'}
               </span>
             </div>
             <div className="p-2.5 rounded-xl bg-[#FFFFFF] border border-[#E9D5FF] text-[#6B21A8]">
@@ -209,13 +216,13 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
           <div className="p-4 rounded-xl bg-[#F0FDF4] border border-[#BBF7D0] shadow-xs flex items-center justify-between">
             <div>
               <p className="text-[11px] font-extrabold text-[#166534] uppercase tracking-wider">
-                Completed ({dateRange})
+                Completed — Current Page
               </p>
               <h2 className="text-2xl font-black font-mono text-[#111311] mt-1">
-                {summary?.completedVisits ?? metrics.completedCount}
+                {metrics.completedCount}
               </h2>
               <span className="text-[10px] font-bold text-[#166534]">
-                {summary?.completedVisits != null ? 'Authoritative Completed Visits' : 'Authoritative Final Receipts'}
+                Finalized Receipts on Page
               </span>
             </div>
             <div className="p-2.5 rounded-xl bg-[#FFFFFF] border border-[#BBF7D0] text-[#166534]">

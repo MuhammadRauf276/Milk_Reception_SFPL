@@ -317,7 +317,8 @@ export function deriveManagerLifecycle(portions: MilkProcessLog[]): ManagerLifec
   }
 
   // Derive latest event label and timestamp
-  let latestEventLabel = 'Dispatch Recorded';
+  const hasDispatchEvent = Boolean(primary.dispatch_timestamp || primary.dispatch_date);
+  let latestEventLabel = hasDispatchEvent ? 'Dispatch Recorded' : 'Dispatch Pending';
   let latestEventTimestamp: string | null = primary.dispatch_timestamp
     ? formatOperationalDatetime(primary.dispatch_timestamp)
     : null;
@@ -500,62 +501,68 @@ export function getOverviewDateRangeBounds(
 }
 
 /**
- * Check if a target Business Date string belongs to the selected OverviewDateRange
+ * Check if a target calendar date string belongs to the selected OverviewDateRange.
+ * Evaluates strictly using ordinary Pakistan calendar dates (Asia/Karachi UTC+5).
+ * Does not use Plant Business Date or 08:00 AM rollover for upstream operations.
  */
-export function isBusinessDateInPeriod(
-  targetBusinessDate: string | null | undefined,
-  serverBusinessDate: string,
-  range: OverviewDateRange
+export function isCalendarDateInPeriod(
+  targetCalendarDate: string | null | undefined,
+  range: OverviewDateRange,
+  referenceDate?: string | Date
 ): boolean {
   if (range === 'ALL') return true;
-  if (!targetBusinessDate) return false;
+  if (!targetCalendarDate) return false;
 
-  const todayPkt = getPakistanCalendarDate(new Date());
+  let todayStr: string;
+  if (typeof referenceDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(referenceDate)) {
+    todayStr = referenceDate;
+  } else if (referenceDate instanceof Date) {
+    todayStr = getPakistanCalendarDate(referenceDate);
+  } else {
+    todayStr = getPakistanCalendarDate(new Date());
+  }
 
   if (range === 'TODAY') {
-    return (
-      (!serverBusinessDate && targetBusinessDate === todayPkt) ||
-      targetBusinessDate === serverBusinessDate ||
-      targetBusinessDate === todayPkt
-    );
+    return targetCalendarDate === todayStr;
   }
   if (range === 'YESTERDAY') {
-    const yPkt = getOffsetCalendarDate(todayPkt, -1);
-    const yServer = serverBusinessDate ? getOffsetCalendarDate(serverBusinessDate, -1) : yPkt;
-    return targetBusinessDate === yPkt || targetBusinessDate === yServer;
+    const yStr = getOffsetCalendarDate(todayStr, -1);
+    return targetCalendarDate === yStr;
   }
   if (range === 'LAST_7') {
-    const fromPkt = getOffsetCalendarDate(todayPkt, -6);
-    if (targetBusinessDate >= fromPkt && targetBusinessDate <= todayPkt) return true;
-    if (serverBusinessDate) {
-      const fromServer = getOffsetCalendarDate(serverBusinessDate, -6);
-      if (targetBusinessDate >= fromServer && targetBusinessDate <= serverBusinessDate) return true;
-    }
-    return false;
+    const fromStr = getOffsetCalendarDate(todayStr, -6);
+    return targetCalendarDate >= fromStr && targetCalendarDate <= todayStr;
   }
   if (range === 'LAST_15') {
-    const fromPkt = getOffsetCalendarDate(todayPkt, -14);
-    if (targetBusinessDate >= fromPkt && targetBusinessDate <= todayPkt) return true;
-    if (serverBusinessDate) {
-      const fromServer = getOffsetCalendarDate(serverBusinessDate, -14);
-      if (targetBusinessDate >= fromServer && targetBusinessDate <= serverBusinessDate) return true;
-    }
-    return false;
+    const fromStr = getOffsetCalendarDate(todayStr, -14);
+    return targetCalendarDate >= fromStr && targetCalendarDate <= todayStr;
   }
   return true;
 }
 
 /**
- * Filter groups by dispatch business date range using the server business date.
- * LAST_7 = exactly 7 Business Dates (today + 6 prior).
- * LAST_15 = exactly 15 Business Dates (today + 14 prior).
+ * Backward-compatible alias for isCalendarDateInPeriod.
+ * Evaluates strictly on ordinary calendar dates; ignores any plant business date arguments.
+ */
+export function isBusinessDateInPeriod(
+  targetDate: string | null | undefined,
+  referenceDate: string,
+  range: OverviewDateRange
+): boolean {
+  return isCalendarDateInPeriod(targetDate, range, referenceDate);
+}
+
+/**
+ * Filter groups by dispatch calendar date range using ordinary Pakistan calendar date.
+ * LAST_7 = exactly 7 calendar dates (today + 6 prior).
+ * LAST_15 = exactly 15 calendar dates (today + 14 prior).
  */
 export function filterGroupsByDateRange(
   groups: VehicleVisitGroup[],
-  serverBusinessDate: string,
+  calendarReferenceDate: string,
   range: OverviewDateRange
 ): VehicleVisitGroup[] {
-  return groups.filter((g) => isBusinessDateInPeriod(g.businessDate, serverBusinessDate, range));
+  return groups.filter((g) => isCalendarDateInPeriod(g.dispatchDate, range, calendarReferenceDate));
 }
 
 /**
@@ -638,31 +645,31 @@ export function computeCompletedReceiptQuantityComparison(
 
 /**
  * Compute the 4 primary operational KPI cards and paired volume metrics.
- * 1. Dispatched: Visits whose dispatch Business Date falls in period.
- * 2. Completed: Authoritative final receipts whose Final Receipt Business Date falls in period.
+ * 1. Dispatched: Visits whose dispatch calendar date falls in period.
+ * 2. Completed: Authoritative final receipts whose Final Receipt calendar date falls in period.
  * 3. Paired Quantity Comparison: Uses receiptPeriodGroups for BOTH dispatch and received sides.
  */
 export function computeManagerOverview(
   logs: MilkProcessLog[],
-  serverBusinessDate: string,
+  calendarReferenceDate: string,
   dateRange: OverviewDateRange
 ): ZMCCManagerOverviewMetrics {
   const allGroups = buildVehicleVisitGroups(logs);
 
-  // A. Dispatched in period (distinct visits by dispatch date)
+  // A. Dispatched in period (distinct visits by dispatch calendar date)
   const dispatchPeriodGroups = allGroups.filter((g) =>
-    isBusinessDateInPeriod(g.dispatchDate, serverBusinessDate, dateRange)
+    isCalendarDateInPeriod(g.dispatchDate, dateRange, calendarReferenceDate)
   );
   const dispatchedCount = dispatchPeriodGroups.length;
 
   // B. Currently in plant (all active visits currently inside factory)
   const currentlyInPlantCount = allGroups.filter((g) => g.lifecycle.isInPlant).length;
 
-  // C. Completed in period: authoritative Final Receipt whose Final Receipt Date falls in period
+  // C. Completed in period: authoritative Final Receipt whose Final Receipt calendar date falls in period
   const receiptPeriodGroups = allGroups.filter(
     (g) =>
       g.lifecycle.isComplete &&
-      isBusinessDateInPeriod(g.finalReceiptDate, serverBusinessDate, dateRange)
+      isCalendarDateInPeriod(g.finalReceiptDate, dateRange, calendarReferenceDate)
   );
   const completedCount = receiptPeriodGroups.length;
 

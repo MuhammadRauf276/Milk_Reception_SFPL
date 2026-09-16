@@ -14,7 +14,8 @@ import {
   ZMCCManagerTab,
   OverviewDateRange,
 } from './zmcc/zmccManagerTypes';
-import { getOverviewDateRangeBounds } from './zmcc/zmccManagerHelpers';
+import { getOverviewDateRangeBounds, buildVehicleVisitGroups } from './zmcc/zmccManagerHelpers';
+import type { RetrievalMode } from '@backend/services/operationalReadModelService';
 import {
   LayoutDashboard,
   Truck,
@@ -57,6 +58,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
   const [activeTab, setActiveTab] = useState<ZMCCManagerTab>('OVERVIEW');
   const [summaryDateRange, setSummaryDateRange] = useState<OverviewDateRange>('TODAY');
   const [serverBusinessDate, setServerBusinessDate] = useState<string>('');
+  const [serverCalendarDate, setServerCalendarDate] = useState<string>('');
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
   const hamburgerButtonRef = useRef<HTMLButtonElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -120,6 +122,10 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
     const result = Array.from(uniqueMap.values());
     return result.length > 0 ? result : [selectedLog];
   }, [selectedLog, liveLogs, reportingLogs, receiptLogs]);
+
+  const liveActiveInPlantCount = useMemo(() => {
+    return buildVehicleVisitGroups(liveLogs).filter((g) => g.lifecycle.isInPlant).length;
+  }, [liveLogs]);
 
   const openDrawer = useCallback(() => {
     setIsDrawerOpen(true);
@@ -250,13 +256,14 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
 
   // Fetch Reporting Logs: Parameterized fetch for Overview / History date queries
   const fetchReportingLogs = useCallback(
-    async (fDate?: string, tDate?: string, targetPage: number = 1) => {
-      lastReportingQueryRef.current = `${fDate || ''}|${tDate || ''}|${targetPage}`;
+    async (fDate?: string, tDate?: string, targetPage: number = 1, explicitMode?: RetrievalMode) => {
+      const modeToUse = explicitMode || 'report';
+      lastReportingQueryRef.current = `${fDate || ''}|${tDate || ''}|${targetPage}|${modeToUse}`;
       setReportingLoading(true);
       setReportingError(null);
       try {
         const params = new URLSearchParams();
-        params.append('mode', fDate || tDate ? 'report' : 'recent');
+        params.append('mode', modeToUse);
         params.append('page', String(targetPage));
         params.append('pageSize', '20');
         if (fDate) params.append('fromDate', fDate);
@@ -278,6 +285,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
           setReportingSummary(data.summary);
         }
         if (data.serverBusinessDate) setServerBusinessDate(data.serverBusinessDate);
+        if (data.serverCalendarDate) setServerCalendarDate(data.serverCalendarDate);
       } catch (err: any) {
         setReportingError(err.message || 'Failed to load reporting logs');
       } finally {
@@ -294,7 +302,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
       setReportingPage(1);
       setFromDate(bounds.fromDate);
       setToDate(bounds.toDate);
-      fetchReportingLogs(bounds.fromDate, bounds.toDate, 1);
+      fetchReportingLogs(bounds.fromDate, bounds.toDate, 1, 'report');
     },
     [fetchReportingLogs]
   );
@@ -316,10 +324,10 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
 
   // B. Reporting Flow: Initial load and when fromDate/toDate changes (resets to page 1)
   useEffect(() => {
-    const queryKey = `${fromDate}|${toDate}|1`;
+    const queryKey = `${fromDate}|${toDate}|1|report`;
     if (lastReportingQueryRef.current !== queryKey) {
       setReportingPage(1);
-      fetchReportingLogs(fromDate, toDate, 1);
+      fetchReportingLogs(fromDate, toDate, 1, 'report');
     }
   }, [fetchReportingLogs, fromDate, toDate]);
 
@@ -344,7 +352,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
             type="button"
             onClick={() => {
               const prevPage = Math.max(1, reportingPage - 1);
-              fetchReportingLogs(fromDate, toDate, prevPage);
+              fetchReportingLogs(fromDate, toDate, prevPage, 'report');
             }}
             disabled={reportingPage <= 1 || reportingLoading}
             className="px-3.5 py-1.5 min-h-[36px] bg-[#FDFBF9] hover:bg-[#EFE9D9]/60 border border-[#C4B9A3] rounded-lg font-bold text-[#111311] disabled:opacity-40 disabled:cursor-not-allowed transition"
@@ -355,7 +363,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
             type="button"
             onClick={() => {
               const nextPage = Math.min(reportingTotalPages, reportingPage + 1);
-              fetchReportingLogs(fromDate, toDate, nextPage);
+              fetchReportingLogs(fromDate, toDate, nextPage, 'report');
             }}
             disabled={reportingPage >= reportingTotalPages || !reportingHasMore || reportingLoading}
             className="px-3.5 py-1.5 min-h-[36px] bg-[#FDFBF9] hover:bg-[#EFE9D9]/60 border border-[#C4B9A3] rounded-lg font-bold text-[#111311] disabled:opacity-40 disabled:cursor-not-allowed transition"
@@ -512,6 +520,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
               <ZMCCManagerOverview
                 logs={reportingLogs}
                 serverBusinessDate={serverBusinessDate}
+                serverCalendarDate={serverCalendarDate}
                 assignedSourceName={assignedSourceName}
                 dateRange={summaryDateRange}
                 onDateRangeChange={handleOverviewDateRangeChange}
@@ -525,7 +534,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
                 }}
                 isLoading={reportingLoading}
                 error={reportingError}
-                onRetry={() => fetchReportingLogs(fromDate, toDate, reportingPage)}
+                onRetry={() => fetchReportingLogs(fromDate, toDate, reportingPage, 'report')}
                 pagination={{
                   page: reportingPage,
                   totalPages: reportingTotalPages,
@@ -533,6 +542,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
                   hasMore: reportingHasMore,
                 }}
                 summary={reportingSummary || undefined}
+                liveActiveInPlantCount={liveActiveInPlantCount}
               />
               {renderReportingPaginationBar()}
             </div>

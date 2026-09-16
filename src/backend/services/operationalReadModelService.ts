@@ -51,8 +51,10 @@ export interface PaginatedOperationalLogs {
     activeInPlantVisits: number;
   };
   serverBusinessDate: string;
+  serverCalendarDate?: string;
   metadata: {
     serverBusinessDate: string;
+    serverCalendarDate?: string;
     serverTimestamp: string;
     mode: RetrievalMode;
     fromDate?: string;
@@ -848,6 +850,7 @@ export async function getPaginatedOperationalLogs(
   }
 
   const serverBusinessDate = getOperationalBusinessDate(new Date());
+  const serverCalendarDate = getPakistanCalendarDate(new Date());
   const totalPages = totalRecords === 0 ? 1 : Math.ceil(totalRecords / pageSize);
   const hasMore = page < totalPages;
 
@@ -873,8 +876,10 @@ export async function getPaginatedOperationalLogs(
       activeInPlantVisits,
     },
     serverBusinessDate,
+    serverCalendarDate,
     metadata: {
       serverBusinessDate,
+      serverCalendarDate,
       serverTimestamp: new Date().toISOString(),
       mode,
       fromDate: effectiveFromDate,
