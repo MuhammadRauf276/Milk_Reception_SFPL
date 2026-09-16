@@ -25,6 +25,9 @@ import {
   TrendingUp,
   AlertTriangle,
   RefreshCw,
+  Milk,
+  Clock,
+  CheckCircle2,
 } from 'lucide-react';
 
 interface ZMCCManagerOverviewProps {
@@ -54,6 +57,9 @@ interface ZMCCManagerOverviewProps {
     activeInPlantVisits?: number;
   };
   liveActiveInPlantCount?: number | null;
+  zmccTankStock?: number | null;
+  todayAcceptedIntakeLiters?: number | null;
+  vehiclesInsideZmccCount?: number | null;
 }
 
 export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
@@ -74,6 +80,9 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
   pagination,
   summary,
   liveActiveInPlantCount,
+  zmccTankStock,
+  todayAcceptedIntakeLiters,
+  vehiclesInsideZmccCount,
 }) => {
   const displayCalendarDate = serverCalendarDate || getPakistanCalendarDate(new Date());
 
@@ -174,37 +183,95 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
           </div>
         )}
 
-        {/* 2. Primary 4 Operational KPI Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-          {/* Card A: Dispatched */}
+        {/* 2. Primary 6 Operational KPI Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3.5">
+          {/* Card 1: Current ZMCC Tank Stock */}
           <div className="p-4 rounded-xl bg-[#EFF6FF] border border-[#BFDBFE] shadow-xs flex items-center justify-between">
             <div>
-              <p className="text-[11px] font-extrabold text-[#1E40AF] uppercase tracking-wider">
-                Dispatched ({dateRange})
+              <p className="text-[10.5px] font-extrabold text-[#1E40AF] uppercase tracking-wider">
+                Current Tank Stock
               </p>
-              <h2 className="text-2xl font-black font-mono text-[#111311] mt-1">
-                {summary?.totalVisits ?? metrics.dispatchedCount}
+              <h2 className="text-xl font-black font-mono text-[#111311] mt-1">
+                {zmccTankStock != null ? `${zmccTankStock.toLocaleString()} L` : '—'}
               </h2>
               <span className="text-[10px] font-bold text-[#1E40AF]">
-                {summary?.totalVisits != null ? 'Authoritative Total Visits' : 'Vehicle Dispatches'}
+                Active Storage Tanks
               </span>
             </div>
             <div className="p-2.5 rounded-xl bg-[#FFFFFF] border border-[#BFDBFE] text-[#1E40AF]">
+              <Milk className="w-5 h-5" />
+            </div>
+          </div>
+
+          {/* Card 2: Today Accepted Intake */}
+          <div className="p-4 rounded-xl bg-[#F0FDF4] border border-[#BBF7D0] shadow-xs flex items-center justify-between">
+            <div>
+              <p className="text-[10.5px] font-extrabold text-[#166534] uppercase tracking-wider">
+                Today Accepted Intake
+              </p>
+              <h2 className="text-xl font-black font-mono text-[#111311] mt-1">
+                {todayAcceptedIntakeLiters != null ? `${todayAcceptedIntakeLiters.toLocaleString()} L` : '—'}
+              </h2>
+              <span className="text-[10px] font-bold text-[#166534]">
+                Received into Tanks
+              </span>
+            </div>
+            <div className="p-2.5 rounded-xl bg-[#FFFFFF] border border-[#BBF7D0] text-[#166534]">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+          </div>
+
+          {/* Card 3: Today Dispatch to Plant */}
+          <div className="p-4 rounded-xl bg-[#F8FAFC] border border-[#CBD5E1] shadow-xs flex items-center justify-between">
+            <div>
+              <p className="text-[10.5px] font-extrabold text-[#334155] uppercase tracking-wider">
+                Today Dispatch to Plant
+              </p>
+              <h2 className="text-xl font-black font-mono text-[#111311] mt-1">
+                {metrics.totalDispatchGrossLiters != null
+                  ? `${metrics.totalDispatchGrossLiters.toLocaleString()} L`
+                  : (summary?.totalVisits != null
+                  ? `${summary.totalVisits} Visits`
+                  : `${metrics.dispatchedCount} Visits`)}
+              </h2>
+              <span className="text-[10px] font-bold text-[#475569]">
+                {summary?.totalVisits != null ? `${summary.totalVisits} Total Dispatches` : `${metrics.dispatchedCount} Dispatched`}
+              </span>
+            </div>
+            <div className="p-2.5 rounded-xl bg-[#FFFFFF] border border-[#CBD5E1] text-[#334155]">
               <Truck className="w-5 h-5" />
             </div>
           </div>
 
-          {/* Card B: Currently in Plant */}
+          {/* Card 4: Vehicles Inside ZMCC */}
+          <div className="p-4 rounded-xl bg-[#FFFBEB] border border-[#FDE68A] shadow-xs flex items-center justify-between">
+            <div>
+              <p className="text-[10.5px] font-extrabold text-[#92400E] uppercase tracking-wider">
+                Vehicles Inside ZMCC
+              </p>
+              <h2 className="text-xl font-black font-mono text-[#111311] mt-1">
+                {vehiclesInsideZmccCount != null ? vehiclesInsideZmccCount : '—'}
+              </h2>
+              <span className="text-[10px] font-bold text-[#92400E]">
+                Yard / Intake / Lab
+              </span>
+            </div>
+            <div className="p-2.5 rounded-xl bg-[#FFFFFF] border border-[#FDE68A] text-[#92400E]">
+              <Clock className="w-5 h-5" />
+            </div>
+          </div>
+
+          {/* Card 5: Active Plant-Bound Vehicles */}
           <div className="p-4 rounded-xl bg-[#FAF5FF] border border-[#E9D5FF] shadow-xs flex items-center justify-between">
             <div>
-              <p className="text-[11px] font-extrabold text-[#6B21A8] uppercase tracking-wider">
-                Currently in Plant
+              <p className="text-[10.5px] font-extrabold text-[#6B21A8] uppercase tracking-wider">
+                Active Plant-Bound
               </p>
-              <h2 className="text-2xl font-black font-mono text-[#111311] mt-1">
+              <h2 className="text-xl font-black font-mono text-[#111311] mt-1">
                 {liveActiveInPlantCount != null ? liveActiveInPlantCount : metrics.currentlyInPlantCount}
               </h2>
               <span className="text-[10px] font-bold text-[#6B21A8]">
-                {liveActiveInPlantCount != null ? 'Live Active Factory Tankers' : 'Page Active Tankers'}
+                {liveActiveInPlantCount != null ? 'Live Active Tankers' : 'Page Active Tankers'}
               </span>
             </div>
             <div className="p-2.5 rounded-xl bg-[#FFFFFF] border border-[#E9D5FF] text-[#6B21A8]">
@@ -212,35 +279,17 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
             </div>
           </div>
 
-          {/* Card C: Completed */}
-          <div className="p-4 rounded-xl bg-[#F0FDF4] border border-[#BBF7D0] shadow-xs flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-extrabold text-[#166534] uppercase tracking-wider">
-                Completed — Current Page
-              </p>
-              <h2 className="text-2xl font-black font-mono text-[#111311] mt-1">
-                {metrics.completedCount}
-              </h2>
-              <span className="text-[10px] font-bold text-[#166534]">
-                Finalized Receipts on Page
-              </span>
-            </div>
-            <div className="p-2.5 rounded-xl bg-[#FFFFFF] border border-[#BBF7D0] text-[#166534]">
-              <TrendingUp className="w-5 h-5" />
-            </div>
-          </div>
-
-          {/* Card D: QA Rejected Portions */}
+          {/* Card 6: Needs Attention */}
           <div className="p-4 rounded-xl bg-[#FEF2F2] border border-[#FECACA] shadow-xs flex items-center justify-between">
             <div>
-              <p className="text-[11px] font-extrabold text-[#991B1B] uppercase tracking-wider">
-                Rejected Portions ({pagination && pagination.totalPages > 1 ? 'Current Page' : dateRange})
+              <p className="text-[10.5px] font-extrabold text-[#991B1B] uppercase tracking-wider">
+                Needs Attention
               </p>
-              <h2 className="text-2xl font-black font-mono text-[#991B1B] mt-1">
-                {metrics.rejectedPortionsCount}
+              <h2 className="text-xl font-black font-mono text-[#991B1B] mt-1">
+                {attentionItems.length}
               </h2>
               <span className="text-[10px] font-bold text-[#991B1B]">
-                {pagination && pagination.totalPages > 1 ? 'Page Portion Rejections' : 'Portion QA Rejections'}
+                Actionable Exceptions
               </span>
             </div>
             <div className="p-2.5 rounded-xl bg-[#FFFFFF] border border-[#FECACA] text-[#991B1B]">

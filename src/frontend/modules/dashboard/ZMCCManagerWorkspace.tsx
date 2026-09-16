@@ -5,9 +5,7 @@ import { MilkProcessLog, User } from '@backend/core/types';
 import { Header } from '@modules/shared/Header';
 import { ZMCCManagerOverview } from './zmcc/ZMCCManagerOverview';
 import { ZMCCManagerLiveDispatches } from './zmcc/ZMCCManagerLiveDispatches';
-import { ZMCCManagerCrossVerification } from './zmcc/ZMCCManagerCrossVerification';
-import { ZMCCManagerQualityRejections } from './zmcc/ZMCCManagerQualityRejections';
-import { ZMCCManagerReceiptsPerformance } from './zmcc/ZMCCManagerReceiptsPerformance';
+import { ZMCCManagerReconciliation } from './zmcc/ZMCCManagerReconciliation';
 import { ZMCCManagerHistoryReports } from './zmcc/ZMCCManagerHistoryReports';
 import { ZMCCManagerVisitDetailModal } from './zmcc/ZMCCManagerVisitDetailModal';
 import {
@@ -15,25 +13,19 @@ import {
   OverviewDateRange,
 } from './zmcc/zmccManagerTypes';
 import { getOverviewDateRangeBounds } from './zmcc/zmccManagerHelpers';
+import { getPakistanCalendarDate } from '@backend/core/business-day';
 import type { RetrievalMode } from '@backend/services/operationalReadModelService';
 import {
   LayoutDashboard,
   Truck,
   ArrowRightLeft,
-  FlaskConical,
-  Receipt,
   History,
   Store,
   X,
   Menu,
   Milk,
-  Navigation,
 } from 'lucide-react';
 import { ZmccMasterDataWorkspace } from '@/frontend/modules/zmcc/ZmccMasterDataWorkspace';
-import { MotOperationsWorkspace } from '@/frontend/modules/mot/MotOperationsWorkspace';
-import { ZmccArrivalsWorkspace } from '@/frontend/modules/zmcc/arrivals/ZmccArrivalsWorkspace';
-import { ZmccLabWorkspace } from '@/frontend/modules/zmcc/lab/ZmccLabWorkspace';
-import { CheckCircle2 } from 'lucide-react';
 
 interface ZMCCManagerWorkspaceProps {
   currentUser: User | null;
@@ -41,15 +33,10 @@ interface ZMCCManagerWorkspaceProps {
 
 const TABS: { id: ZMCCManagerTab; label: string; icon: React.FC<{ className?: string }> }[] = [
   { id: 'OVERVIEW', label: 'Overview', icon: LayoutDashboard },
-  { id: 'LIVE', label: 'Live Dispatches', icon: Truck },
-  { id: 'CROSS_VERIFICATION', label: 'Cross Verification', icon: ArrowRightLeft },
-  { id: 'QUALITY', label: 'Quality & Rejections', icon: FlaskConical },
-  { id: 'RECEIPTS', label: 'Receipts & Performance', icon: Receipt },
+  { id: 'LIVE', label: 'Live Operations', icon: Truck },
+  { id: 'RECONCILIATION', label: 'Reconciliation', icon: ArrowRightLeft },
   { id: 'HISTORY', label: 'History & Reports', icon: History },
   { id: 'MASTER_DATA', label: 'Master Data', icon: Store },
-  { id: 'MOT_OPERATIONS', label: 'MOT & Dispatch', icon: Navigation },
-  { id: 'ARRIVALS', label: 'ZMCC Arrivals', icon: CheckCircle2 },
-  { id: 'ZMCC_LAB', label: 'Lab & Intake Decisions', icon: FlaskConical },
 ];
 
 export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
@@ -92,6 +79,11 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
   const [receiptTotalPages, setReceiptTotalPages] = useState<number>(1);
   const [receiptTotalRecords, setReceiptTotalRecords] = useState<number>(0);
   const [receiptHasMore, setReceiptHasMore] = useState<boolean>(false);
+
+  // 4. Local ZMCC Operational Snapshot State (Tank stock, Inside yard vehicles, Today accepted intake)
+  const [zmccTankStock, setZmccTankStock] = useState<number | null>(null);
+  const [vehiclesInsideZmccCount, setVehiclesInsideZmccCount] = useState<number | null>(null);
+  const [todayAcceptedIntakeLiters, setTodayAcceptedIntakeLiters] = useState<number | null>(null);
 
   // History & Table search/filter state (isolated to historical reporting tables)
   const initialOverviewBounds = useMemo(() => getOverviewDateRangeBounds('TODAY'), []);
@@ -312,14 +304,62 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
     [fetchReportingLogs]
   );
 
+  // Fetch local ZMCC operational snapshot metrics
+  const fetchZmccLocalStats = useCallback(async () => {
+    try {
+      const tanksRes = await fetch('/api/zmcc/tanks?active_only=true');
+      if (tanksRes.ok) {
+        const tanksData = await tanksRes.json();
+        const tanks = Array.isArray(tanksData) ? tanksData : tanksData.tanks || tanksData.items;
+        if (Array.isArray(tanks)) {
+          const totalStock = tanks.reduce((acc: number, t: any) => acc + (Number(t.current_stock) || 0), 0);
+          setZmccTankStock(Number(totalStock.toFixed(2)));
+        }
+      }
+    } catch {
+      // Graceful fallback
+    }
+
+    try {
+      const insideRes = await fetch('/api/zmcc/arrivals/inside');
+      if (insideRes.ok) {
+        const insideData = await insideRes.json();
+        if (typeof insideData.total_count === 'number') {
+          setVehiclesInsideZmccCount(insideData.total_count);
+        } else if (Array.isArray(insideData.vehicles)) {
+          setVehiclesInsideZmccCount(insideData.vehicles.length);
+        }
+      }
+    } catch {
+      // Graceful fallback
+    }
+
+    try {
+      const todayDate = serverCalendarDate || getPakistanCalendarDate(new Date());
+      const labRes = await fetch(`/api/zmcc/lab/history?date=${todayDate}&decision=ACCEPTED`);
+      if (labRes.ok) {
+        const labData = await labRes.json();
+        const items = labData.items || labData.sessions || [];
+        if (Array.isArray(items)) {
+          const totalLiters = items.reduce((acc: number, s: any) => acc + (Number(s.gross_liters) || 0), 0);
+          setTodayAcceptedIntakeLiters(Number(totalLiters.toFixed(2)));
+        }
+      }
+    } catch {
+      // Graceful fallback
+    }
+  }, [serverCalendarDate]);
+
   // A. Live Flow: Initial mount and interval polling (LIVE ONLY)
   useEffect(() => {
     fetchLiveLogs();
+    fetchZmccLocalStats();
     const interval = setInterval(() => {
       fetchLiveLogs();
+      fetchZmccLocalStats();
     }, 15000);
     return () => clearInterval(interval);
-  }, [fetchLiveLogs]);
+  }, [fetchLiveLogs, fetchZmccLocalStats]);
 
   // B. Receipt Flow: Initial load and when fromDate/toDate changes (NO polling, resets to page 1)
   useEffect(() => {
@@ -521,163 +561,103 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
       <main className="flex-1 p-3 sm:p-6 overflow-y-auto space-y-5 sm:space-y-6 w-full max-w-full">
         {/* TAB 1: OVERVIEW */}
         {activeTab === 'OVERVIEW' && (
-            <div id="tabpanel-OVERVIEW" role="tabpanel" aria-labelledby="tab-OVERVIEW" className="space-y-6">
-              <ZMCCManagerOverview
-                logs={reportingLogs}
-                serverBusinessDate={serverBusinessDate}
-                serverCalendarDate={serverCalendarDate}
-                assignedSourceName={assignedSourceName}
-                dateRange={summaryDateRange}
-                onDateRangeChange={handleOverviewDateRangeChange}
-                onInspectDetails={(l) => setSelectedLog(l)}
-                onNavigateToTab={(tab) => setActiveTab(tab)}
-                currentFromDate={fromDate}
-                currentToDate={toDate}
-                onDateFilterChange={(f, t) => {
-                  setFromDate(f || '');
-                  setToDate(t || '');
-                }}
-                isLoading={reportingLoading}
-                error={reportingError}
-                onRetry={() => fetchReportingLogs(fromDate, toDate, reportingPage, 'report')}
-                pagination={{
-                  page: reportingPage,
-                  totalPages: reportingTotalPages,
-                  totalRecords: reportingTotalRecords,
-                  hasMore: reportingHasMore,
-                }}
-                summary={reportingSummary || undefined}
-                liveActiveInPlantCount={liveActiveInPlantCount}
-              />
-              {renderReportingPaginationBar()}
-            </div>
-          )}
+          <div id="tabpanel-OVERVIEW" role="tabpanel" aria-labelledby="tab-OVERVIEW" className="space-y-6">
+            <ZMCCManagerOverview
+              logs={reportingLogs}
+              serverBusinessDate={serverBusinessDate}
+              serverCalendarDate={serverCalendarDate}
+              assignedSourceName={assignedSourceName}
+              dateRange={summaryDateRange}
+              onDateRangeChange={handleOverviewDateRangeChange}
+              onInspectDetails={(l) => setSelectedLog(l)}
+              onNavigateToTab={(tab) => setActiveTab(tab)}
+              currentFromDate={fromDate}
+              currentToDate={toDate}
+              onDateFilterChange={(f, t) => {
+                setFromDate(f || '');
+                setToDate(t || '');
+              }}
+              isLoading={reportingLoading}
+              error={reportingError}
+              onRetry={() => fetchReportingLogs(fromDate, toDate, reportingPage, 'report')}
+              pagination={{
+                page: reportingPage,
+                totalPages: reportingTotalPages,
+                totalRecords: reportingTotalRecords,
+                hasMore: reportingHasMore,
+              }}
+              summary={reportingSummary || undefined}
+              liveActiveInPlantCount={liveActiveInPlantCount}
+              zmccTankStock={zmccTankStock}
+              todayAcceptedIntakeLiters={todayAcceptedIntakeLiters}
+              vehiclesInsideZmccCount={vehiclesInsideZmccCount}
+            />
+            {renderReportingPaginationBar()}
+          </div>
+        )}
 
-          {/* TAB 2: LIVE DISPATCHES */}
-          {activeTab === 'LIVE' && (
-            <div id="tabpanel-LIVE" role="tabpanel" aria-labelledby="tab-LIVE" className="space-y-6">
-              <ZMCCManagerLiveDispatches
-                logs={liveLogs}
-                assignedSourceName={assignedSourceName}
-                onInspectDetails={(l) => setSelectedLog(l)}
-                isLoading={liveLoading}
-                error={liveError}
-                onRetry={() => fetchLiveLogs()}
-              />
-            </div>
-          )}
+        {/* TAB 2: LIVE OPERATIONS */}
+        {activeTab === 'LIVE' && (
+          <div id="tabpanel-LIVE" role="tabpanel" aria-labelledby="tab-LIVE" className="space-y-6">
+            <ZMCCManagerLiveDispatches
+              logs={liveLogs}
+              assignedSourceName={assignedSourceName}
+              onInspectDetails={(l) => setSelectedLog(l)}
+              isLoading={liveLoading}
+              error={liveError}
+              onRetry={() => fetchLiveLogs()}
+            />
+          </div>
+        )}
 
-          {/* TAB 3: CROSS VERIFICATION */}
-          {activeTab === 'CROSS_VERIFICATION' && (
-            <div id="tabpanel-CROSS_VERIFICATION" role="tabpanel" aria-labelledby="tab-CROSS_VERIFICATION" className="space-y-6">
-              <ZMCCManagerCrossVerification
-                logs={reportingLogs}
-                assignedSourceName={assignedSourceName}
-                onInspectDetails={(l) => setSelectedLog(l)}
-                isLoading={reportingLoading}
-                error={reportingError}
-                onRetry={() => fetchReportingLogs(fromDate, toDate, reportingPage)}
-                currentFromDate={fromDate}
-                currentToDate={toDate}
-                onDateFilterChange={(f, t) => {
-                  setFromDate(f || '');
-                  setToDate(t || '');
-                }}
-              />
-              {renderReportingPaginationBar()}
-            </div>
-          )}
+        {/* TAB 3: RECONCILIATION */}
+        {activeTab === 'RECONCILIATION' && (
+          <div id="tabpanel-RECONCILIATION" role="tabpanel" aria-labelledby="tab-RECONCILIATION" className="space-y-6">
+            <ZMCCManagerReconciliation
+              logs={reportingLogs}
+              assignedSourceName={assignedSourceName}
+              onInspectDetails={(l) => setSelectedLog(l)}
+              isLoading={reportingLoading}
+              error={reportingError}
+              onRetry={() => fetchReportingLogs(fromDate, toDate, reportingPage, 'report')}
+              currentFromDate={fromDate}
+              currentToDate={toDate}
+              onDateFilterChange={(f, t) => {
+                setFromDate(f || '');
+                setToDate(t || '');
+              }}
+            />
+            {renderReportingPaginationBar()}
+          </div>
+        )}
 
-          {/* TAB 4: QUALITY & REJECTIONS */}
-          {activeTab === 'QUALITY' && (
-            <div id="tabpanel-QUALITY" role="tabpanel" aria-labelledby="tab-QUALITY" className="space-y-6">
-              <ZMCCManagerQualityRejections
-                logs={reportingLogs}
-                assignedSourceName={assignedSourceName}
-                onInspectDetails={(l) => setSelectedLog(l)}
-                isLoading={reportingLoading}
-                error={reportingError}
-                onRetry={() => fetchReportingLogs(fromDate, toDate, reportingPage)}
-                currentFromDate={fromDate}
-                currentToDate={toDate}
-                onDateFilterChange={(f, t) => {
-                  setFromDate(f || '');
-                  setToDate(t || '');
-                }}
-              />
-              {renderReportingPaginationBar()}
-            </div>
-          )}
+        {/* TAB 4: HISTORY & REPORTS */}
+        {activeTab === 'HISTORY' && (
+          <div id="tabpanel-HISTORY" role="tabpanel" aria-labelledby="tab-HISTORY" className="space-y-6">
+            <ZMCCManagerHistoryReports
+              logs={reportingLogs}
+              assignedSourceName={assignedSourceName}
+              onInspectDetails={(l) => setSelectedLog(l)}
+              isLoading={reportingLoading}
+              error={reportingError}
+              onRetry={() => fetchReportingLogs(fromDate, toDate, reportingPage, 'report')}
+              currentFromDate={fromDate}
+              currentToDate={toDate}
+              onDateFilterChange={(f, t) => {
+                setFromDate(f || '');
+                setToDate(t || '');
+              }}
+            />
+            {renderReportingPaginationBar()}
+          </div>
+        )}
 
-          {/* TAB 5: RECEIPTS & PERFORMANCE */}
-          {activeTab === 'RECEIPTS' && (
-            <div id="tabpanel-RECEIPTS" role="tabpanel" aria-labelledby="tab-RECEIPTS" className="space-y-6">
-              <ZMCCManagerReceiptsPerformance
-                logs={receiptLogs}
-                assignedSourceName={assignedSourceName}
-                onInspectDetails={(l) => setSelectedLog(l)}
-                isLoading={receiptLoading}
-                error={receiptError}
-                onRetry={() => fetchReceiptLogs(fromDate, toDate, receiptPage)}
-                currentFromDate={fromDate}
-                currentToDate={toDate}
-                onDateFilterChange={(f, t) => {
-                  setFromDate(f || '');
-                  setToDate(t || '');
-                }}
-              />
-              {renderReceiptPaginationBar()}
-            </div>
-          )}
-
-          {/* TAB 6: HISTORY & REPORTS */}
-          {activeTab === 'HISTORY' && (
-            <div id="tabpanel-HISTORY" role="tabpanel" aria-labelledby="tab-HISTORY" className="space-y-6">
-              <ZMCCManagerHistoryReports
-                logs={reportingLogs}
-                assignedSourceName={assignedSourceName}
-                onInspectDetails={(l) => setSelectedLog(l)}
-                isLoading={reportingLoading}
-                error={reportingError}
-                onRetry={() => fetchReportingLogs(fromDate, toDate, reportingPage)}
-                currentFromDate={fromDate}
-                currentToDate={toDate}
-                onDateFilterChange={(f, t) => {
-                  setFromDate(f || '');
-                  setToDate(t || '');
-                }}
-              />
-              {renderReportingPaginationBar()}
-            </div>
-          )}
-
-          {/* TAB 7: MASTER DATA */}
-          {activeTab === 'MASTER_DATA' && (
-            <div id="tabpanel-MASTER_DATA" role="tabpanel" aria-labelledby="tab-MASTER_DATA" className="space-y-6">
-              <ZmccMasterDataWorkspace currentUser={currentUser} />
-            </div>
-          )}
-
-          {/* TAB 8: MOT OPERATIONS */}
-          {activeTab === 'MOT_OPERATIONS' && (
-            <div id="tabpanel-MOT_OPERATIONS" role="tabpanel" aria-labelledby="tab-MOT_OPERATIONS" className="space-y-6">
-              <MotOperationsWorkspace currentUser={currentUser} />
-            </div>
-          )}
-
-          {/* TAB 9: ZMCC ARRIVALS */}
-          {activeTab === 'ARRIVALS' && (
-            <div id="tabpanel-ARRIVALS" role="tabpanel" aria-labelledby="tab-ARRIVALS" className="space-y-6">
-              <ZmccArrivalsWorkspace currentUser={currentUser} />
-            </div>
-          )}
-
-          {/* TAB 10: ZMCC LAB & INTAKE DECISIONS */}
-          {activeTab === 'ZMCC_LAB' && (
-            <div id="tabpanel-ZMCC_LAB" role="tabpanel" aria-labelledby="tab-ZMCC_LAB" className="space-y-6">
-              <ZmccLabWorkspace currentUser={currentUser} />
-            </div>
-          )}
+        {/* TAB 5: MASTER DATA */}
+        {activeTab === 'MASTER_DATA' && (
+          <div id="tabpanel-MASTER_DATA" role="tabpanel" aria-labelledby="tab-MASTER_DATA" className="space-y-6">
+            <ZmccMasterDataWorkspace currentUser={currentUser} />
+          </div>
+        )}
 
           {/* Detail Inspection Modal */}
           {selectedLog && (

@@ -3,14 +3,9 @@ import { MilkProcessLog } from '@backend/core/types';
 export type ZMCCManagerTab =
   | 'OVERVIEW'
   | 'LIVE'
-  | 'CROSS_VERIFICATION'
-  | 'QUALITY'
-  | 'RECEIPTS'
+  | 'RECONCILIATION'
   | 'HISTORY'
-  | 'MASTER_DATA'
-  | 'MOT_OPERATIONS'
-  | 'ARRIVALS'
-  | 'ZMCC_LAB';
+  | 'MASTER_DATA';
 
 export type OverviewDateRange = 'TODAY' | 'YESTERDAY' | 'LAST_7' | 'LAST_15' | 'ALL';
 
