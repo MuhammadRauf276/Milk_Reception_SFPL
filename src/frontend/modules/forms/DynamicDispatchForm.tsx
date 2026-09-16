@@ -18,7 +18,6 @@ import {
   createPortionQuantityFromSharedProfile,
   computeDispatchPortionCalculatedValues,
   computePortionQuantitySummary,
-  canUseMeasuredPortionTotalForVehicle,
   computeVehiclePortionDifference,
   computeDispatchSafeSummaryTotals,
 } from '@/backend/modules/dispatch/quantity/dispatchQuantityService';
@@ -203,7 +202,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
             setVehicleQuantity({
               value: '',
               unit: vDef.unit,
-              basis: vDef.basis,
+              basis: 'MEASURED',
             });
           }
         }
@@ -260,7 +259,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
   // Vehicle Allowed Rules
   const vehicleAllowedMeasurements = frozenQuantityPolicy?.policy?.vehicleRules?.allowedMeasurements;
   const defaultUnits: QuantityUnit[] = ['KG', 'LITER'];
-  const defaultBases: MeasurementBasis[] = ['MEASURED', 'ESTIMATED'];
+  const defaultBases: MeasurementBasis[] = ['MEASURED'];
 
   const vehicleAllowedUnits: QuantityUnit[] = isPolicyReady && vehicleAllowedMeasurements
     ? getAllowedUnits(vehicleAllowedMeasurements)
@@ -316,19 +315,17 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
   };
 
   const handleVehicleUnitChange = (newUnit: QuantityUnitType) => {
-    const bases = getAllowedBases(vehicleAllowedMeasurements, newUnit);
-    const newBasis = bases.includes(vehicleQuantity.basis) ? vehicleQuantity.basis : bases[0];
     setVehicleQuantity((prev) => ({
       ...prev,
       unit: newUnit,
-      basis: newBasis,
+      basis: 'MEASURED',
     }));
   };
 
-  const handleVehicleBasisChange = (newBasis: MeasurementBasisType) => {
+  const handleVehicleBasisChange = (_newBasis: MeasurementBasisType) => {
     setVehicleQuantity((prev) => ({
       ...prev,
-      basis: newBasis,
+      basis: 'MEASURED',
     }));
   };
 
@@ -841,7 +838,6 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
 
   // --- Real-time Calculation & Presentation Computations ---
   const portionSummary = computePortionQuantitySummary(portions);
-  const isEligibleForAssistance = canUseMeasuredPortionTotalForVehicle(vehicleQuantity, portionSummary);
   const vehiclePortionComparison = computeVehiclePortionDifference(vehicleQuantity, portionSummary);
 
   const calculatedPortionsList = portions.map((p) => computeCalculatedMilkValues(p));
@@ -906,11 +902,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
             portions={portions}
             vehicleQuantity={vehicleQuantity}
             portionSummary={portionSummary}
-            isEligibleForAssistance={isEligibleForAssistance}
             vehiclePortionComparison={vehiclePortionComparison}
-            onApplyAssistedQuantity={(totalValue) => {
-              handleVehicleQuantityValueChange(totalValue);
-            }}
             safeTotals={safeTotals}
             calculatedPortionsList={calculatedPortionsList}
             labTests={labTests}
@@ -938,6 +930,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
             vehicleAllowedUnits={vehicleAllowedUnits}
             vehicleAllowedBases={vehicleAllowedBases}
             vehicleQuantityError={vehicleQuantityError}
+            sourceType={effectiveSource?.source_type}
           />
 
           <DispatchPortionEditor
@@ -969,11 +962,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
               portions={portions}
               vehicleQuantity={vehicleQuantity}
               portionSummary={portionSummary}
-              isEligibleForAssistance={isEligibleForAssistance}
               vehiclePortionComparison={vehiclePortionComparison}
-              onApplyAssistedQuantity={(totalValue) => {
-                handleVehicleQuantityValueChange(totalValue);
-              }}
               safeTotals={safeTotals}
               calculatedPortionsList={calculatedPortionsList}
               labTests={labTests}

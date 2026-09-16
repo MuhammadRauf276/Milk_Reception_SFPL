@@ -35,6 +35,7 @@ export interface DispatchVehicleSectionProps {
   vehicleAllowedUnits: QuantityUnitType[];
   vehicleAllowedBases: MeasurementBasisType[];
   vehicleQuantityError: string | null;
+  sourceType?: string;
 }
 
 export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
@@ -56,6 +57,7 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
   vehicleAllowedUnits,
   vehicleAllowedBases,
   vehicleQuantityError,
+  sourceType,
 }) => {
   return (
     <div className="space-y-4">
@@ -139,12 +141,12 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
 
       {/* Whole-Vehicle Dispatch Quantity Section */}
       <div className="p-4 sm:p-5 rounded-2xl bg-white border border-[#C4B9A3] shadow-sm space-y-3.5">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-2 gap-1">
           <label className="text-xs font-extrabold uppercase tracking-wider text-[#111311]">
-            Vehicle Quantity *
+            {sourceType === 'ZMCC' ? 'Measured Tank / Vehicle Issue' : 'Measured Whole-Vehicle Dispatch Quantity'} *
           </label>
           <span className="text-[10px] font-bold text-slate-500">
-            Authoritative Vehicle Measurement
+            Authoritative measured issue from bulk tank / weighbridge
           </span>
         </div>
 
@@ -196,18 +198,15 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
                 <label htmlFor="vehicle-basis-select" className="block text-xs font-bold text-[#111311]">
                   Basis *
                 </label>
-                <select
-                  id="vehicle-basis-select"
-                  value={vehicleQuantity.basis}
-                  onChange={(e) => onVehicleBasisChange(e.target.value as MeasurementBasisType)}
-                  className="w-full h-11 px-3 text-xs font-mono font-bold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none transition"
-                >
-                  {vehicleAllowedBases.map((b) => (
-                    <option key={b} value={b}>
-                      {b}
-                    </option>
-                  ))}
-                </select>
+                <div className="w-full h-11 px-3 flex items-center justify-between rounded-xl border border-emerald-300 bg-emerald-50/60 text-[#111311]">
+                  <span className="text-xs font-mono font-black text-emerald-900 tracking-wider">
+                    {vehicleQuantity.basis || 'MEASURED'}
+                  </span>
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800 bg-emerald-200/70 px-2 py-0.5 rounded-md">
+                    Authoritative
+                  </span>
+                </div>
+                <input type="hidden" id="vehicle-basis-select" value={vehicleQuantity.basis || 'MEASURED'} />
               </div>
             </div>
 

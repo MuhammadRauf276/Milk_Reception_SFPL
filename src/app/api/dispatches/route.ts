@@ -25,12 +25,21 @@ function serializeDispatch(visit: any) {
   const vehicleQuantityUnit = visit.vehicle_dispatch_quantity_unit || null;
   const vehicleQuantityBasis = visit.vehicle_dispatch_quantity_basis || null;
 
+  const dispatchTimestamp = firstDispatchInfo?.dispatch_timestamp
+    ? new Date(firstDispatchInfo.dispatch_timestamp).toISOString()
+    : null;
+  const dispatchDate = firstDispatchInfo?.dispatch_timestamp
+    ? getPakistanCalendarDate(firstDispatchInfo.dispatch_timestamp)
+    : null;
+
   return {
     id: visit.id.toString(),
     visit_number: visit.visit_number,
     reception_number: visit.reception_number || null,
     vehicle_number: visit.vehicle_number,
     token_number: visit.token_number || null,
+    dispatch_timestamp: dispatchTimestamp,
+    dispatch_date: dispatchDate,
     operational_date: visit.operational_date ? visit.operational_date.toISOString().split('T')[0] : null,
     current_status: visit.current_status,
     portion_count: portions.length,
@@ -91,22 +100,19 @@ export async function GET(req: Request) {
   let lteDate: Date | undefined;
 
   if (range === 'today') {
-    gteDate = new Date();
-    gteDate.setHours(0, 0, 0, 0);
-    lteDate = new Date();
-    lteDate.setHours(23, 59, 59, 999);
+    const todayPkt = getPakistanCalendarDate(new Date());
+    gteDate = new Date(`${todayPkt}T00:00:00.000+05:00`);
+    lteDate = new Date(`${todayPkt}T23:59:59.999+05:00`);
   } else if (range === '7d') {
     gteDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   } else if (range === '30d') {
     gteDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
   } else if (range === 'custom') {
     if (fromDateParam) {
-      gteDate = new Date(fromDateParam);
+      gteDate = new Date(`${fromDateParam}T00:00:00.000+05:00`);
     }
     if (toDateParam) {
-      const d = new Date(toDateParam);
-      d.setHours(23, 59, 59, 999);
-      lteDate = d;
+      lteDate = new Date(`${toDateParam}T23:59:59.999+05:00`);
     }
     if (gteDate && lteDate && gteDate > lteDate) {
       return NextResponse.json({ error: 'From Date cannot be after To Date' }, { status: 400 });
@@ -142,9 +148,15 @@ export async function GET(req: Request) {
   }
 
   if (gteDate || lteDate) {
-    whereClause.created_at = {
-      ...(gteDate ? { gte: gteDate } : {}),
-      ...(lteDate ? { lte: lteDate } : {}),
+    whereClause.portions = {
+      some: {
+        dispatch_info: {
+          dispatch_timestamp: {
+            ...(gteDate ? { gte: gteDate } : {}),
+            ...(lteDate ? { lte: lteDate } : {}),
+          },
+        },
+      },
     };
   }
 
@@ -465,12 +477,12 @@ export async function POST(req: Request) {
 
     // Calendar date derived in Pakistan local timezone (PKT) for month prefix
     const effectiveDispatchDate = chronoVal.date || new Date(firstPortionTs);
-    const canonicalBusinessDateStr = getPakistanCalendarDate(effectiveDispatchDate);
+    const dispatchCalendarDateStr = getPakistanCalendarDate(effectiveDispatchDate);
 
     // Execute Prisma Transaction for atomic creation or draft finalization
     const result = await prisma.$transaction(async (tx) => {
       const now = new Date();
-      const receptionNumber = await generateReceptionNumber(tx, canonicalBusinessDateStr);
+      const receptionNumber = await generateReceptionNumber(tx, dispatchCalendarDateStr);
 
       const visitNumber = existingVisit.visit_number;
       const visit = await tx.vehicleVisit.update({

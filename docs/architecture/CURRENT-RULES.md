@@ -36,14 +36,17 @@ This document records the authoritative business rules approved for the Milk Rec
 
 ---
 
-## 4. Stage 4C-5 Quantity Contract
+## 4. Stage 4C-5 / Stage 6G-E Quantity Contract
 
 ### 4A. Vehicle Dispatch Quantity
 - `VehicleVisit` remains the sole authoritative whole-vehicle Dispatch Quantity.
-- Model fields: `Value`, `Unit` (`KG` or `LITER`), `Basis` (`ESTIMATED` or `MEASURED`).
-- Independently editable; Vehicle Unit and Basis do NOT have to match portion Unit and Basis (e.g. Vehicle `19,500 KG MEASURED` with Portions `9,800 LITER ESTIMATED` and `9,150 LITER ESTIMATED` is completely valid without forced conversion).
+- **Basis Invariant (Stage 6G-E)**: Whole-vehicle dispatch quantity must strictly be an authoritative `MEASURED` fact (`vehicle_dispatch_quantity_basis = 'MEASURED'`). It can NEVER be `ESTIMATED` for new dispatches.
+- Model fields: `Value`, `Unit` (`KG` or `LITER`), `Basis` (`MEASURED`).
+- In ZMCC context, this represents the authoritative measured tank/bulk issue from calibrated dipstick or mass flow meter.
+- Independently recorded; Vehicle Unit and Basis do NOT have to match portion Unit and Basis (e.g. Vehicle `8,000 LITER MEASURED` with Portions `4,000 LITER ESTIMATED` and `3,850 LITER ESTIMATED` is completely valid without forced conversion).
 
 ### 4B. Portion Quantity Profile
+- Portions remain independently `MEASURED` or `ESTIMATED` (e.g. estimated from collection cans or measured from intermediate flow meters).
 - Portion 1 establishes the shared portion `Unit` and `Basis` for all portions of that vehicle.
 - Portions 2, 3, etc. automatically inherit Unit and Basis from Portion 1 and cannot independently contradict Portion 1.
 - The numeric quantity `Value` remains independent per portion.
@@ -53,13 +56,15 @@ This document records the authoritative business rules approved for the Milk Rec
 - Total Portion Quantity is calculated when all relevant portions have valid quantity values.
 - If any portion quantity is missing, Total Portion Quantity is incomplete and unauthoritative (missing is NOT zero).
 
-### 4D. Measured Vehicle Assistance
-- If all portions have valid quantities AND the shared portion Basis is `MEASURED`, the Total Portion Quantity may assist/prefill an empty Vehicle Dispatch Quantity.
-- `VehicleVisit` remains the authoritative field. Once manually edited by an operator, portions do NOT continuously overwrite vehicle quantity (no bidirectional auto-sync).
+### 4D. Measured Vehicle Assistance & Portion Derivation Prohibition (Stage 6G-E Hardening)
+- **Derivation Prohibited**: Whole-vehicle dispatch quantity must NEVER be auto-prefilled, derived, or overwritten from portion totals (`Vehicle Issue = Sum(Portions)` is strictly forbidden).
+- The legacy "Use Portion Total" button and assisted prefill logic are deprecated and disabled.
+- Vehicle Dispatch Quantity and Portion Totals are separate, independent operational facts.
 
-### 4E. Difference Display
-- **Same Unit**: If Vehicle Unit == Portion Unit, `Difference = Vehicle Dispatch Quantity - Total Portion Quantity` (informational only; NO tolerance bands or hard blocks like ±50kg or ±1%).
+### 4E. Difference & Reconciliation Display
+- **Same Unit**: If Vehicle Unit == Portion Unit, `Difference = Vehicle Dispatch Quantity - Total Portion Quantity` (informational reconciliation comparison only; NO tolerance bands, NO hard blocks, and non-zero difference is NEVER treated as a submission-blocking error).
 - **Different Units**: If Vehicle Unit != Portion Unit, display: `"Different units — no direct comparison"` (never convert KG ↔ LITER merely for comparison).
+- **Explanatory Note**: The UI explicitly informs operators: *"Vehicle Issue is the authoritative measured whole-vehicle quantity. Portion Total is shown for comparison only."*
 
 ---
 
@@ -738,4 +743,17 @@ All paginated collection APIs must return a standardized pagination envelope:
 - **No Frontend Fake Rows**: Frontend components must never create fake fallback rows or dummy placeholders to mask empty database states or API errors. Real role screens must display real PostgreSQL records via real services and APIs.
 - **Evolution with Canonical Rules**: When a subsequent stage evolves a business rule, formula, lifecycle, role, terminology, schema relationship, or source authority, earlier demo data must be updated to align with the new canonical rules.
 - **Definition of Done**: Meaningful, deterministic development demo data covering normal journeys and important exception cases for affected screens is a mandatory Definition-of-Done requirement for every implementation stage.
+
+---
+
+## 26. Stage 6G-E — Canonical Dispatch Quantity, Tank-Issue Truth & Dispatch Date Semantics
+- **Authoritative Whole-Vehicle Measurement**: Whole-vehicle dispatch quantity (`VehicleVisit.vehicle_dispatch_quantity_*`) is strictly an authoritative measured fact (`vehicle_dispatch_quantity_basis = 'MEASURED'`). In ZMCC environments, this represents the measured tank / bulk issue from calibrated dipsticks or mass flow meters.
+- **Portion Independence**: Composite portions represent independent collection facts and may be either `MEASURED` or `ESTIMATED`.
+- **Anti-Derivation Invariant**: `Vehicle Issue = Sum(Portions)` is forbidden. Whole-vehicle quantity must never be derived, auto-prefilled, or overwritten from portion totals.
+- **Reconciliation Transparency**: The dispatch summary displays Measured Vehicle Issue, Portion Total (labeled Estimated or Measured according to portion basis), and Difference (`Vehicle - Portions`) for comparison only. Any variance is an informational operational truth, never a validation error.
+- **Dispatch Date Truth**:
+  - Dispatch history date filters query `DispatchInfo.dispatch_timestamp` in Pakistan calendar date (`Asia/Karachi`), NOT `VehicleVisit.created_at` and NOT `VehicleVisit.operational_date`.
+  - Serialized dispatches expose `dispatch_date` (PKT calendar date) and `dispatch_timestamp`.
+  - `operational_date` strictly remains `null` until Plant Gate Exit completion (`READY_FOR_GATE_EXIT -> COMPLETED`).
+  - Misleading UI badges such as fake "Live" indicators or fallback defaults (`operational_date || 'Today'`) are strictly prohibited.
 

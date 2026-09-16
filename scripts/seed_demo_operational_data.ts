@@ -169,9 +169,18 @@ export async function seedOperationalData() {
 
     // Assigned Procurement Source
     // Assign visit 74 (PLANT_QA) to ZMCC Hasilpur for live active tanker visibility in Hasilpur overview
-    const sourceObj = i === 74
+    let sourceObj = i === 74
       ? (sources.find((s) => s.code === 'ZMCC-HASILPUR') || sources[(i - 1) % sources.length])
       : sources[(i - 1) % sources.length];
+
+    // Scenario A: Visit 20 / ZMCC source
+    if (i === 20) {
+      sourceObj = sources.find((s) => s.source_type === 'ZMCC') || sourceObj;
+    }
+    // Scenario C: Visit 40 / Contractor source
+    if (i === 40) {
+      sourceObj = sources.find((s) => s.source_type === 'CONTRACTOR') || sourceObj;
+    }
     sourceStats[sourceObj.name] = (sourceStats[sourceObj.name] || 0) + 1;
 
     // Vehicle details
@@ -185,7 +194,40 @@ export async function seedOperationalData() {
 
     // Portion count & quantities (Vehicle 10, 20, 30, 40, 50 have 2 portions)
     const hasTwoPortions = i % 10 === 0;
-    const totalDeclaredKg = 7000 + ((i * 350) % 7500); // 7,000 to 14,500 kg
+    let totalDeclaredKg = 7000 + ((i * 350) % 7500); // 7,000 to 14,500 kg
+    let vehicleQtyUnit: 'KG' | 'LITER' = 'KG';
+    const vehicleQtyBasis = 'MEASURED' as const;
+
+    let portion1Qty = hasTwoPortions ? Math.round(totalDeclaredKg / 2) : totalDeclaredKg;
+    let portion2Qty = hasTwoPortions ? Math.round(totalDeclaredKg / 2) : 0;
+    let portionUnit: 'KG' | 'LITER' = 'KG';
+    let portionBasis: 'MEASURED' | 'ESTIMATED' = 'MEASURED';
+
+    if (i === 20) {
+      // Scenario A: ZMCC source, 8,000 L MEASURED vehicle issue vs 2 ESTIMATED portions (4,000 L + 3,850 L = 7,850 L, diff = +150 L)
+      totalDeclaredKg = 8000;
+      vehicleQtyUnit = 'LITER';
+      portion1Qty = 4000;
+      portion2Qty = 3850;
+      portionUnit = 'LITER';
+      portionBasis = 'ESTIMATED';
+    } else if (i === 30) {
+      // Scenario B: 9,000 L MEASURED vehicle issue vs 2 MEASURED portions (4,500 L + 4,500 L = 9,000 L, diff = 0)
+      totalDeclaredKg = 9000;
+      vehicleQtyUnit = 'LITER';
+      portion1Qty = 4500;
+      portion2Qty = 4500;
+      portionUnit = 'LITER';
+      portionBasis = 'MEASURED';
+    } else if (i === 40) {
+      // Scenario C: Contractor source, 10,000 L MEASURED vehicle issue vs 2 ESTIMATED portions (5,100 L + 4,800 L = 9,900 L, diff = +100 L)
+      totalDeclaredKg = 10000;
+      vehicleQtyUnit = 'LITER';
+      portion1Qty = 5100;
+      portion2Qty = 4800;
+      portionUnit = 'LITER';
+      portionBasis = 'ESTIMATED';
+    }
 
     // Authoritative Plant Business Date: strictly assigned upon Plant Gate Exit completion; in-progress visits remain null
     const plantBusinessDate = targetStatus === 'COMPLETED'
@@ -204,8 +246,8 @@ export async function seedOperationalData() {
         created_by: mpdUser.id,
         procurement_source_id: sourceObj.id,
         vehicle_dispatch_quantity_value: totalDeclaredKg,
-        vehicle_dispatch_quantity_unit: 'KG',
-        vehicle_dispatch_quantity_basis: 'MEASURED',
+        vehicle_dispatch_quantity_unit: vehicleQtyUnit,
+        vehicle_dispatch_quantity_basis: vehicleQtyBasis,
         created_at: dispatchTime,
         updated_at: targetStatus === 'COMPLETED' ? gateExitTime : qaCompleteTime,
       },
@@ -216,7 +258,7 @@ export async function seedOperationalData() {
     // Create Portions & Dispatch Info
     const portionCount = hasTwoPortions ? 2 : 1;
     for (let pIdx = 1; pIdx <= portionCount; pIdx++) {
-      const portionKg = hasTwoPortions ? Math.round(totalDeclaredKg / 2) : totalDeclaredKg;
+      const portionVal = pIdx === 1 ? portion1Qty : portion2Qty;
 
       // Portion decision
       let portionDecision = 'ACCEPTED';
@@ -234,9 +276,9 @@ export async function seedOperationalData() {
         data: {
           visit_id: visit.id,
           portion_number: pIdx,
-          dispatch_quantity_value: portionKg,
-          dispatch_quantity_unit: 'KG',
-          dispatch_quantity_basis: 'MEASURED',
+          dispatch_quantity_value: portionVal,
+          dispatch_quantity_unit: portionUnit,
+          dispatch_quantity_basis: portionBasis,
           current_status: portionStatus,
           plant_decision: targetStatus === 'TOKEN_ISSUED' || targetStatus === 'PLANT_QA' ? 'PENDING' : portionDecision,
           plant_rejection_reason: portionDecision === 'REJECTED' ? 'COB Positive & High Acidity. Off-flavor detected during organoleptic testing.' : null,

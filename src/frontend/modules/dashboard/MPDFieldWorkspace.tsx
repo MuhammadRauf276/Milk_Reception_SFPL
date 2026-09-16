@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { User } from '@core/types';
-import { ChevronLeft, ChevronRight, RefreshCw, Radio, Calendar, Truck } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RefreshCw, Calendar, Truck } from 'lucide-react';
 import { DynamicDispatchForm } from '@modules/forms/DynamicDispatchForm';
 
 interface DispatchRecord {
@@ -11,6 +11,8 @@ interface DispatchRecord {
   reception_number: string | null;
   vehicle_number: string;
   token_number: string | null;
+  dispatch_date?: string | null;
+  dispatch_timestamp?: string | null;
   operational_date: string | null;
   current_status: string;
   portion_count: number;
@@ -202,10 +204,6 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center space-x-2">
                 <h2 className="text-base font-extrabold text-[#111311]">Recent Dispatches</h2>
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                  <Radio className="w-2.5 h-2.5 animate-pulse text-emerald-600" />
-                  Live
-                </span>
               </div>
               <span className="text-xs font-mono font-bold text-slate-600 bg-[#F4EFE3] px-2.5 py-1 rounded-lg border border-[#C4B9A3]">
                 {pagination.totalRecords} records
@@ -362,9 +360,9 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
                       </span>
                     </div>
                     <div>
-                      <span className="text-slate-500 font-sans block text-[9.5px]">Operational Date</span>
+                      <span className="text-slate-500 font-sans block text-[9.5px]">Dispatch Date</span>
                       <span className="text-slate-900 font-black text-sm">
-                        {log.operational_date || 'Today'}
+                        {log.dispatch_date || '—'}
                       </span>
                     </div>
                   </div>
