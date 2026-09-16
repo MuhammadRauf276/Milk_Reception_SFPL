@@ -14,7 +14,7 @@ import {
   ZMCCManagerTab,
   OverviewDateRange,
 } from './zmcc/zmccManagerTypes';
-import { getOverviewDateRangeBounds, buildVehicleVisitGroups } from './zmcc/zmccManagerHelpers';
+import { getOverviewDateRangeBounds } from './zmcc/zmccManagerHelpers';
 import type { RetrievalMode } from '@backend/services/operationalReadModelService';
 import {
   LayoutDashboard,
@@ -68,6 +68,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
   const [liveLogs, setLiveLogs] = useState<MilkProcessLog[]>([]);
   const [liveLoading, setLiveLoading] = useState<boolean>(true);
   const [liveError, setLiveError] = useState<string | null>(null);
+  const [liveActiveInPlantCount, setLiveActiveInPlantCount] = useState<number | null>(null);
 
   // 2. Independent Reporting State
   const [reportingLogs, setReportingLogs] = useState<MilkProcessLog[]>([]);
@@ -122,10 +123,6 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
     const result = Array.from(uniqueMap.values());
     return result.length > 0 ? result : [selectedLog];
   }, [selectedLog, liveLogs, reportingLogs, receiptLogs]);
-
-  const liveActiveInPlantCount = useMemo(() => {
-    return buildVehicleVisitGroups(liveLogs).filter((g) => g.lifecycle.isInPlant).length;
-  }, [liveLogs]);
 
   const openDrawer = useCallback(() => {
     setIsDrawerOpen(true);
@@ -208,8 +205,16 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
 
       const items = data.items || data.logs;
       if (items) setLiveLogs(items);
+
+      if (typeof data.summary?.activeInPlantVisits === 'number') {
+        setLiveActiveInPlantCount(data.summary.activeInPlantVisits);
+      } else {
+        setLiveActiveInPlantCount(null);
+      }
+
       if (data.serverBusinessDate) setServerBusinessDate(data.serverBusinessDate);
     } catch (err: any) {
+      setLiveActiveInPlantCount(null);
       setLiveError(err.message || 'Failed to load live pipeline logs');
     } finally {
       setLiveLoading(false);

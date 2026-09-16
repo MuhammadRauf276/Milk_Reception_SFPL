@@ -567,7 +567,7 @@ export function filterGroupsByDateRange(
 
 /**
  * Compute the paired quantity comparison across EXACTLY the same completed receipt vehicles.
- * Population: receiptPeriodGroups (vehicles whose Final Receipt Business Date falls in period).
+ * Population: receiptPeriodGroups (vehicles whose Final Receipt calendar date falls in period).
  * Complete paired aggregate rule:
  * - If receiptPeriodGroups is empty: all paired aggregates are null (never 0 L).
  * - For all visits: require BOTH Dispatch Gross Liters and Final Physical Received Liters.

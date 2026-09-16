@@ -53,7 +53,7 @@ interface ZMCCManagerOverviewProps {
     completedVisits?: number;
     activeInPlantVisits?: number;
   };
-  liveActiveInPlantCount?: number;
+  liveActiveInPlantCount?: number | null;
 }
 
 export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
