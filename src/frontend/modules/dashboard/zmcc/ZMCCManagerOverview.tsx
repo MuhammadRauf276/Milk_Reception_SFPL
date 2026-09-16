@@ -58,7 +58,7 @@ interface ZMCCManagerOverviewProps {
   };
   liveActiveInPlantCount?: number | null;
   zmccTankStock?: number | null;
-  todayAcceptedIntakeLiters?: number | null;
+  todayAcceptedIntakeCount?: number | null;
   vehiclesInsideZmccCount?: number | null;
 }
 
@@ -81,7 +81,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
   summary,
   liveActiveInPlantCount,
   zmccTankStock,
-  todayAcceptedIntakeLiters,
+  todayAcceptedIntakeCount,
   vehiclesInsideZmccCount,
 }) => {
   const displayCalendarDate = serverCalendarDate || getPakistanCalendarDate(new Date());
@@ -210,10 +210,10 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
                 Today Accepted Intake
               </p>
               <h2 className="text-xl font-black font-mono text-[#111311] mt-1">
-                {todayAcceptedIntakeLiters != null ? `${todayAcceptedIntakeLiters.toLocaleString()} L` : '—'}
+                {todayAcceptedIntakeCount != null ? `${todayAcceptedIntakeCount} Loads` : '—'}
               </h2>
               <span className="text-[10px] font-bold text-[#166534]">
-                Received into Tanks
+                Accepted Lab Decisions
               </span>
             </div>
             <div className="p-2.5 rounded-xl bg-[#FFFFFF] border border-[#BBF7D0] text-[#166534]">
@@ -228,14 +228,14 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
                 Today Dispatch to Plant
               </p>
               <h2 className="text-xl font-black font-mono text-[#111311] mt-1">
-                {metrics.totalDispatchGrossLiters != null
-                  ? `${metrics.totalDispatchGrossLiters.toLocaleString()} L`
-                  : (summary?.totalVisits != null
+                {summary?.totalVisits != null
                   ? `${summary.totalVisits} Visits`
-                  : `${metrics.dispatchedCount} Visits`)}
+                  : `${metrics.dispatchedCount} Visits`}
               </h2>
               <span className="text-[10px] font-bold text-[#475569]">
-                {summary?.totalVisits != null ? `${summary.totalVisits} Total Dispatches` : `${metrics.dispatchedCount} Dispatched`}
+                {summary?.totalVisits != null
+                  ? 'Server-scoped dispatch visits'
+                  : 'Visible page dispatch visits'}
               </span>
             </div>
             <div className="p-2.5 rounded-xl bg-[#FFFFFF] border border-[#CBD5E1] text-[#334155]">

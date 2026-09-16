@@ -22,7 +22,6 @@ import {
   History,
   Store,
   X,
-  Menu,
   Milk,
 } from 'lucide-react';
 import { ZmccMasterDataWorkspace } from '@/frontend/modules/zmcc/ZmccMasterDataWorkspace';
@@ -83,7 +82,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
   // 4. Local ZMCC Operational Snapshot State (Tank stock, Inside yard vehicles, Today accepted intake)
   const [zmccTankStock, setZmccTankStock] = useState<number | null>(null);
   const [vehiclesInsideZmccCount, setVehiclesInsideZmccCount] = useState<number | null>(null);
-  const [todayAcceptedIntakeLiters, setTodayAcceptedIntakeLiters] = useState<number | null>(null);
+  const [todayAcceptedIntakeCount, setTodayAcceptedIntakeCount] = useState<number | null>(null);
 
   // History & Table search/filter state (isolated to historical reporting tables)
   const initialOverviewBounds = useMemo(() => getOverviewDateRangeBounds('TODAY'), []);
@@ -304,20 +303,24 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
     [fetchReportingLogs]
   );
 
-  // Fetch local ZMCC operational snapshot metrics
+  // Fetch local ZMCC operational snapshot metrics (live metrics polled every 15 seconds)
   const fetchZmccLocalStats = useCallback(async () => {
     try {
       const tanksRes = await fetch('/api/zmcc/tanks?active_only=true');
       if (tanksRes.ok) {
         const tanksData = await tanksRes.json();
         const tanks = Array.isArray(tanksData) ? tanksData : tanksData.tanks || tanksData.items;
-        if (Array.isArray(tanks)) {
-          const totalStock = tanks.reduce((acc: number, t: any) => acc + (Number(t.current_stock) || 0), 0);
-          setZmccTankStock(Number(totalStock.toFixed(2)));
+        if (Array.isArray(tanks) && tanks.length === 1) {
+          const stock = Number(tanks[0].current_stock);
+          setZmccTankStock(Number.isFinite(stock) ? Number(stock.toFixed(2)) : null);
+        } else {
+          setZmccTankStock(null);
         }
+      } else {
+        setZmccTankStock(null);
       }
     } catch {
-      // Graceful fallback
+      setZmccTankStock(null);
     }
 
     try {
@@ -326,27 +329,39 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
         const insideData = await insideRes.json();
         if (typeof insideData.total_count === 'number') {
           setVehiclesInsideZmccCount(insideData.total_count);
-        } else if (Array.isArray(insideData.vehicles)) {
-          setVehiclesInsideZmccCount(insideData.vehicles.length);
+        } else {
+          setVehiclesInsideZmccCount(null);
         }
+      } else {
+        setVehiclesInsideZmccCount(null);
       }
     } catch {
-      // Graceful fallback
+      setVehiclesInsideZmccCount(null);
     }
+  }, []);
 
+  // Fetch today's accepted intake count (authoritative DB total, non-polled)
+  const fetchTodayAcceptedIntakeCount = useCallback(async () => {
     try {
-      const todayDate = serverCalendarDate || getPakistanCalendarDate(new Date());
-      const labRes = await fetch(`/api/zmcc/lab/history?date=${todayDate}&decision=ACCEPTED`);
-      if (labRes.ok) {
-        const labData = await labRes.json();
-        const items = labData.items || labData.sessions || [];
-        if (Array.isArray(items)) {
-          const totalLiters = items.reduce((acc: number, s: any) => acc + (Number(s.gross_liters) || 0), 0);
-          setTodayAcceptedIntakeLiters(Number(totalLiters.toFixed(2)));
-        }
+      const todayDate =
+        serverCalendarDate || getPakistanCalendarDate(new Date());
+
+      const res = await fetch(
+        `/api/zmcc/lab/history?date=${todayDate}&decision=ACCEPTED&page=1&pageSize=1`
+      );
+
+      if (!res.ok) {
+        setTodayAcceptedIntakeCount(null);
+        return;
       }
+
+      const data = await res.json();
+
+      setTodayAcceptedIntakeCount(
+        typeof data.total === 'number' ? data.total : null
+      );
     } catch {
-      // Graceful fallback
+      setTodayAcceptedIntakeCount(null);
     }
   }, [serverCalendarDate]);
 
@@ -360,6 +375,11 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
     }, 15000);
     return () => clearInterval(interval);
   }, [fetchLiveLogs, fetchZmccLocalStats]);
+
+  // Separate non-polled load for accepted intake count
+  useEffect(() => {
+    fetchTodayAcceptedIntakeCount();
+  }, [fetchTodayAcceptedIntakeCount]);
 
   // B. Receipt Flow: Initial load and when fromDate/toDate changes (NO polling, resets to page 1)
   useEffect(() => {
@@ -589,7 +609,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
               summary={reportingSummary || undefined}
               liveActiveInPlantCount={liveActiveInPlantCount}
               zmccTankStock={zmccTankStock}
-              todayAcceptedIntakeLiters={todayAcceptedIntakeLiters}
+              todayAcceptedIntakeCount={todayAcceptedIntakeCount}
               vehiclesInsideZmccCount={vehiclesInsideZmccCount}
             />
             {renderReportingPaginationBar()}
@@ -625,6 +645,12 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
               onDateFilterChange={(f, t) => {
                 setFromDate(f || '');
                 setToDate(t || '');
+              }}
+              pagination={{
+                page: reportingPage,
+                totalPages: reportingTotalPages,
+                totalRecords: reportingTotalRecords,
+                hasMore: reportingHasMore,
               }}
             />
             {renderReportingPaginationBar()}
