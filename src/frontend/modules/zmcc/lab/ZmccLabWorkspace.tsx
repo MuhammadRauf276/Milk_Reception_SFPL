@@ -81,6 +81,10 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
   const [historySearch, setHistorySearch] = useState('');
   const [historyDate, setHistoryDate] = useState('');
   const [historyDecision, setHistoryDecision] = useState<string>('ALL');
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyPageSize] = useState(20);
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const [historyTotalPages, setHistoryTotalPages] = useState(1);
 
   // View / Correction Modal State
   const [selectedHistorySession, setSelectedHistorySession] = useState<any | null>(null);
@@ -161,11 +165,15 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
       if (historyDate) params.append('date', historyDate);
       if (historyDecision && historyDecision !== 'ALL') params.append('decision', historyDecision);
       if (historySearch) params.append('search', historySearch);
+      params.append('page', String(historyPage));
+      params.append('pageSize', String(historyPageSize));
 
       const res = await fetch(`/api/zmcc/lab/history?${params.toString()}`, { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         setHistoryItems(data.items || []);
+        if (data.total !== undefined) setHistoryTotal(data.total);
+        if (data.totalPages !== undefined) setHistoryTotalPages(data.totalPages);
       } else {
         const err = await res.json().catch(() => ({}));
         toast.showError(err.error || 'Failed to fetch lab history');
@@ -175,7 +183,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
     } finally {
       setLoadingHistory(false);
     }
-  }, [historyDate, historyDecision, historySearch, toast]);
+  }, [historyDate, historyDecision, historySearch, historyPage, historyPageSize, toast]);
 
   useEffect(() => {
     if (activeTab === 'QUEUE') {
@@ -1087,7 +1095,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                 <input
                   type="text"
                   value={historySearch}
-                  onChange={(e) => setHistorySearch(e.target.value)}
+                  onChange={(e) => { setHistorySearch(e.target.value); setHistoryPage(1); }}
                   placeholder="Search token, vehicle..."
                   className="pl-9 pr-4 py-2 border border-slate-300 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-[#1E3A8A]"
                 />
@@ -1096,13 +1104,13 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
               <input
                 type="date"
                 value={historyDate}
-                onChange={(e) => setHistoryDate(e.target.value)}
+                onChange={(e) => { setHistoryDate(e.target.value); setHistoryPage(1); }}
                 className="px-3 py-2 border border-slate-300 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-[#1E3A8A]"
               />
 
               <select
                 value={historyDecision}
-                onChange={(e) => setHistoryDecision(e.target.value)}
+                onChange={(e) => { setHistoryDecision(e.target.value); setHistoryPage(1); }}
                 className="px-3 py-2 border border-slate-300 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-[#1E3A8A]"
               >
                 <option value="ALL">All Decisions</option>
@@ -1131,7 +1139,8 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
               No completed laboratory testing records found.
             </div>
           ) : (
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
+            <>
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
@@ -1290,9 +1299,38 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                 </tbody>
               </table>
             </div>
-          )}
-        </div>
-      )}
+
+            {/* Pagination Controls */}
+            {historyTotalPages > 1 && (
+              <div className="flex items-center justify-between p-3 border-t border-slate-200 bg-slate-50 text-xs font-semibold text-slate-700">
+                <div>
+                  Page <span className="font-bold text-[#1E3A8A]">{historyPage}</span> of{' '}
+                  <span className="font-bold text-[#1E3A8A]">{historyTotalPages}</span> ({historyTotal} completed tests)
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    type="button"
+                    disabled={historyPage <= 1 || loadingHistory}
+                    onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
+                    className="px-3 py-1 bg-white border border-slate-300 rounded-lg hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-bold"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    type="button"
+                    disabled={historyPage >= historyTotalPages || loadingHistory}
+                    onClick={() => setHistoryPage((p) => Math.min(historyTotalPages, p + 1))}
+                    className="px-3 py-1 bg-white border border-slate-300 rounded-lg hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-bold"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    )}
 
       {/* COMPLETION MODAL */}
       {showCompleteModal && (

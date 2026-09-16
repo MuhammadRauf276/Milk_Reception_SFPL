@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@backend/core/auth';
 import { prisma } from '@backend/core/db';
 import { User, Role } from '@backend/core/types';
-import { getOperationalLogs } from '@backend/services/operationalReadModelService';
+import { getPaginatedOperationalLogs, RetrievalMode } from '@backend/services/operationalReadModelService';
 import { getOperationalBusinessDate } from '@backend/core/business-day';
 import { isValidDateOnly } from '@/lib/datetime-utils';
 
-export async function GET(req: NextRequest) {
+export async function GET(req: NextRequest | Request) {
   try {
     const authUser = await getCurrentUser(req);
     if (!authUser) {
@@ -37,6 +37,16 @@ export async function GET(req: NextRequest) {
     };
 
     const { searchParams } = new URL(req.url);
+    const modeRaw = searchParams.get('mode') || undefined;
+    const mode: RetrievalMode = modeRaw === 'live' || modeRaw === 'recent' || modeRaw === 'search' || modeRaw === 'report'
+      ? modeRaw
+      : 'recent';
+
+    const pageRaw = searchParams.get('page');
+    const page = pageRaw ? Number(pageRaw) : undefined;
+    const pageSizeRaw = searchParams.get('pageSize');
+    const pageSize = pageSizeRaw ? Number(pageSizeRaw) : undefined;
+
     const hasFromDate = searchParams.has('fromDate');
     const hasToDate = searchParams.has('toDate');
     const fromDateRaw = searchParams.get('fromDate');
@@ -75,17 +85,12 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const logs = await getOperationalLogs({ fromDate, toDate, contractor, status, search, dateBasis }, authoritativeUser);
-    const serverBusinessDate = getOperationalBusinessDate(new Date());
+    const result = await getPaginatedOperationalLogs(
+      { mode, page, pageSize, fromDate, toDate, contractor, status, search, dateBasis },
+      authoritativeUser
+    );
 
-    return NextResponse.json({
-      logs,
-      serverBusinessDate,
-      metadata: {
-        serverBusinessDate,
-        serverTimestamp: new Date().toISOString(),
-      },
-    });
+    return NextResponse.json(result);
   } catch (err: unknown) {
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Failed to fetch logs' }, { status: 500 });
   }

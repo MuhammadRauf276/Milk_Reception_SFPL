@@ -28,6 +28,17 @@ interface ContractorOverviewProps {
   assignedSourceName: string;
   isLoading?: boolean;
   error?: string | null;
+  pagination?: {
+    page: number;
+    totalPages: number;
+    totalRecords: number;
+    hasMore: boolean;
+  };
+  summary?: {
+    totalVisits?: number;
+    completedVisits?: number;
+    activeInPlantVisits?: number;
+  };
 }
 
 export const ContractorOverview: React.FC<ContractorOverviewProps> = ({
@@ -36,6 +47,8 @@ export const ContractorOverview: React.FC<ContractorOverviewProps> = ({
   assignedSourceName,
   isLoading = false,
   error = null,
+  pagination,
+  summary,
 }) => {
   const visits = useMemo(() => {
     return buildContractorVehicleVisits(logs);
@@ -80,6 +93,19 @@ export const ContractorOverview: React.FC<ContractorOverviewProps> = ({
         </div>
       </div>
 
+      {/* Bounded Window Notification */}
+      {pagination && pagination.totalPages > 1 && (
+        <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>
+              Showing page <strong>{pagination.page}</strong> of <strong>{pagination.totalPages}</strong> ({pagination.totalRecords} total visits in query). Volume metrics reflect the visible page.
+            </span>
+          </div>
+          <span className="text-[11px] font-bold text-amber-700">Bounded page metrics</span>
+        </div>
+      )}
+
       {/* 2. Four Summary KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Dispatches */}
@@ -89,10 +115,14 @@ export const ContractorOverview: React.FC<ContractorOverviewProps> = ({
             <Truck className="w-4 h-4 text-blue-700" />
           </div>
           <p className="text-3xl font-black text-slate-900 font-mono">
-            {metrics.totalDispatches}
+            {summary?.totalVisits ?? metrics.totalDispatches}
           </p>
           <p className="text-[11px] text-slate-500 font-medium">
-            Gross Vol: <strong className="text-slate-700 font-mono">{metrics.totalGrossLiters.toLocaleString()} L</strong>
+            {summary?.totalVisits != null ? (
+              <span className="text-blue-700 font-semibold">Authoritative Total Visits</span>
+            ) : (
+              <>Gross Vol: <strong className="text-slate-700 font-mono">{metrics.totalGrossLiters.toLocaleString()} L</strong></>
+            )}
           </p>
         </div>
 
@@ -103,10 +133,10 @@ export const ContractorOverview: React.FC<ContractorOverviewProps> = ({
             <Clock className="w-4 h-4 text-amber-600" />
           </div>
           <p className="text-3xl font-black text-amber-950 font-mono">
-            {metrics.activeInPlantCount}
+            {summary?.activeInPlantVisits ?? metrics.activeInPlantCount}
           </p>
           <p className="text-[11px] text-amber-700 font-medium">
-            Gate, Lab, Scale, or Silo
+            {summary?.activeInPlantVisits != null ? 'Authoritative Active Visits' : 'Gate, Lab, Scale, or Silo'}
           </p>
         </div>
 
@@ -117,24 +147,26 @@ export const ContractorOverview: React.FC<ContractorOverviewProps> = ({
             <Receipt className="w-4 h-4 text-emerald-600" />
           </div>
           <p className="text-3xl font-black text-emerald-950 font-mono">
-            {metrics.completedReceiptsCount}
+            {summary?.completedVisits ?? metrics.completedReceiptsCount}
           </p>
           <p className="text-[11px] text-emerald-700 font-medium">
-            Verified Silo Receipts
+            {summary?.completedVisits != null ? 'Authoritative Completed Visits' : 'Verified Silo Receipts'}
           </p>
         </div>
 
         {/* Received Liters */}
         <div className="p-5 rounded-2xl bg-white border border-[#EAE4D5] shadow-sm space-y-2">
           <div className="flex items-center justify-between text-blue-800 text-xs font-bold">
-            <span>Received Liters</span>
+            <span>Received Liters {pagination && pagination.totalPages > 1 ? '(Current Page)' : ''}</span>
             <Scale className="w-4 h-4 text-blue-700" />
           </div>
           <p className="text-2xl font-black text-blue-950 font-mono truncate">
             {metrics.totalReceivedLiters.toLocaleString()} L
           </p>
           <p className="text-[11px] text-blue-700 font-medium">
-            Silo Transaction Volume
+            {pagination && pagination.totalPages > 1
+              ? `Page Silo Volume (${visits.length} visits)`
+              : 'Silo Transaction Volume'}
           </p>
         </div>
       </div>

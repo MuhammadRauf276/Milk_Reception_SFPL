@@ -10,6 +10,7 @@ import {
   computeManagerOverview,
   deriveManagerAttention,
 } from './zmccManagerHelpers';
+import { getPakistanCalendarDate } from '@backend/core/business-day';
 import { ManagerAttentionPanel } from './ManagerAttentionPanel';
 import {
   Truck,
@@ -28,7 +29,8 @@ import {
 
 interface ZMCCManagerOverviewProps {
   logs: MilkProcessLog[];
-  serverBusinessDate: string;
+  serverBusinessDate?: string;
+  serverCalendarDate?: string;
   assignedSourceName: string;
   dateRange: OverviewDateRange;
   onDateRangeChange: (range: OverviewDateRange) => void;
@@ -40,11 +42,24 @@ interface ZMCCManagerOverviewProps {
   isLoading?: boolean;
   error?: string | null;
   onRetry?: () => void;
+  pagination?: {
+    page: number;
+    totalPages: number;
+    totalRecords: number;
+    hasMore: boolean;
+  };
+  summary?: {
+    totalVisits?: number;
+    completedVisits?: number;
+    activeInPlantVisits?: number;
+  };
+  liveActiveInPlantCount?: number | null;
 }
 
 export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
   logs,
   serverBusinessDate,
+  serverCalendarDate,
   assignedSourceName,
   dateRange,
   onDateRangeChange,
@@ -56,11 +71,16 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
   isLoading = false,
   error = null,
   onRetry,
+  pagination,
+  summary,
+  liveActiveInPlantCount,
 }) => {
+  const displayCalendarDate = serverCalendarDate || getPakistanCalendarDate(new Date());
+
   // Compute overview metrics
   const metrics: ZMCCManagerOverviewMetrics = useMemo(() => {
-    return computeManagerOverview(logs, serverBusinessDate, dateRange);
-  }, [logs, serverBusinessDate, dateRange]);
+    return computeManagerOverview(logs, displayCalendarDate, dateRange);
+  }, [logs, displayCalendarDate, dateRange]);
 
   // Derive attention items
   const attentionItems = useMemo(() => {
@@ -117,7 +137,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
                 Operational Overview: {assignedSourceName}
               </h3>
               <p className="text-[11px] text-slate-500 font-semibold mt-0.5">
-                Current Business Date: {serverBusinessDate || 'Live'} (08:00 PKT operational grouping)
+                Pakistan Calendar Date: {displayCalendarDate}
               </p>
             </div>
           </div>
@@ -132,7 +152,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
               aria-label="Select overview period"
               className="px-3 py-1.5 text-xs font-extrabold rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/80 text-[#111311] focus:ring-2 focus:ring-[#1E3A8A] outline-none shadow-sm"
             >
-              <option value="TODAY">Today ({serverBusinessDate || 'Live'})</option>
+              <option value="TODAY">Today ({displayCalendarDate})</option>
               <option value="YESTERDAY">Yesterday</option>
               <option value="LAST_7">Last 7 Days</option>
               <option value="LAST_15">Last 15 Days</option>
@@ -140,6 +160,19 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
             </select>
           </div>
         </div>
+
+        {/* Bounded Page Notice */}
+        {pagination && pagination.totalPages > 1 && (
+          <div className="flex items-center justify-between p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800">
+            <div className="flex items-center space-x-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>
+                Showing page <strong>{pagination.page}</strong> of <strong>{pagination.totalPages}</strong> ({pagination.totalRecords} total visits in query). Volume, variance, and rejection metrics reflect the visible page.
+              </span>
+            </div>
+            <span className="text-[11px] font-bold text-amber-700">Bounded page metrics</span>
+          </div>
+        )}
 
         {/* 2. Primary 4 Operational KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
@@ -150,9 +183,11 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
                 Dispatched ({dateRange})
               </p>
               <h2 className="text-2xl font-black font-mono text-[#111311] mt-1">
-                {metrics.dispatchedCount}
+                {summary?.totalVisits ?? metrics.dispatchedCount}
               </h2>
-              <span className="text-[10px] font-bold text-[#1E40AF]">Vehicle Dispatches</span>
+              <span className="text-[10px] font-bold text-[#1E40AF]">
+                {summary?.totalVisits != null ? 'Authoritative Total Visits' : 'Vehicle Dispatches'}
+              </span>
             </div>
             <div className="p-2.5 rounded-xl bg-[#FFFFFF] border border-[#BFDBFE] text-[#1E40AF]">
               <Truck className="w-5 h-5" />
@@ -166,9 +201,11 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
                 Currently in Plant
               </p>
               <h2 className="text-2xl font-black font-mono text-[#111311] mt-1">
-                {metrics.currentlyInPlantCount}
+                {liveActiveInPlantCount != null ? liveActiveInPlantCount : metrics.currentlyInPlantCount}
               </h2>
-              <span className="text-[10px] font-bold text-[#6B21A8]">Active in Factory</span>
+              <span className="text-[10px] font-bold text-[#6B21A8]">
+                {liveActiveInPlantCount != null ? 'Live Active Factory Tankers' : 'Page Active Tankers'}
+              </span>
             </div>
             <div className="p-2.5 rounded-xl bg-[#FFFFFF] border border-[#E9D5FF] text-[#6B21A8]">
               <Factory className="w-5 h-5" />
@@ -179,12 +216,14 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
           <div className="p-4 rounded-xl bg-[#F0FDF4] border border-[#BBF7D0] shadow-xs flex items-center justify-between">
             <div>
               <p className="text-[11px] font-extrabold text-[#166534] uppercase tracking-wider">
-                Completed ({dateRange})
+                Completed — Current Page
               </p>
               <h2 className="text-2xl font-black font-mono text-[#111311] mt-1">
                 {metrics.completedCount}
               </h2>
-              <span className="text-[10px] font-bold text-[#166534]">Authoritative Final Receipts</span>
+              <span className="text-[10px] font-bold text-[#166534]">
+                Finalized Receipts on Page
+              </span>
             </div>
             <div className="p-2.5 rounded-xl bg-[#FFFFFF] border border-[#BBF7D0] text-[#166534]">
               <TrendingUp className="w-5 h-5" />
@@ -195,12 +234,14 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
           <div className="p-4 rounded-xl bg-[#FEF2F2] border border-[#FECACA] shadow-xs flex items-center justify-between">
             <div>
               <p className="text-[11px] font-extrabold text-[#991B1B] uppercase tracking-wider">
-                Rejected Portions ({dateRange})
+                Rejected Portions ({pagination && pagination.totalPages > 1 ? 'Current Page' : dateRange})
               </p>
               <h2 className="text-2xl font-black font-mono text-[#991B1B] mt-1">
                 {metrics.rejectedPortionsCount}
               </h2>
-              <span className="text-[10px] font-bold text-[#991B1B]">Portion QA Rejections</span>
+              <span className="text-[10px] font-bold text-[#991B1B]">
+                {pagination && pagination.totalPages > 1 ? 'Page Portion Rejections' : 'Portion QA Rejections'}
+              </span>
             </div>
             <div className="p-2.5 rounded-xl bg-[#FFFFFF] border border-[#FECACA] text-[#991B1B]">
               <AlertTriangle className="w-5 h-5" />
@@ -215,9 +256,13 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
             <div className="flex items-center justify-between font-sans">
               <span className="text-xs font-black text-[#111311] flex items-center gap-1.5">
                 <Scale className="w-4 h-4 text-[#1E3A8A]" />
-                <span>Physical Volume Summary ({dateRange})</span>
+                <span>Physical Volume Summary ({pagination && pagination.totalPages > 1 ? 'Current Page' : dateRange})</span>
               </span>
-              <span className="text-[10px] font-bold text-slate-500">Gross Liters vs Physical Received</span>
+              <span className="text-[10px] font-bold text-slate-500">
+                {pagination && pagination.totalPages > 1
+                  ? `Page Gross vs Received (Page ${pagination.page} of ${pagination.totalPages})`
+                  : 'Gross Liters vs Physical Received'}
+              </span>
             </div>
             <div className="grid grid-cols-3 gap-2 text-xs pt-1">
               <div>
@@ -262,9 +307,13 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
             <div className="flex items-center justify-between font-sans">
               <span className="text-xs font-black text-[#111311] flex items-center gap-1.5">
                 <FlaskConical className="w-4 h-4 text-[#6B21A8]" />
-                <span>13% TS Volume Summary ({dateRange})</span>
+                <span>13% TS Volume Summary ({pagination && pagination.totalPages > 1 ? 'Current Page' : dateRange})</span>
               </span>
-              <span className="text-[10px] font-bold text-slate-500">Normalized Solids Metric</span>
+              <span className="text-[10px] font-bold text-slate-500">
+                {pagination && pagination.totalPages > 1
+                  ? `Normalized Solids (Page ${pagination.page} of ${pagination.totalPages})`
+                  : 'Normalized Solids Metric'}
+              </span>
             </div>
             <div className="grid grid-cols-3 gap-2 text-xs pt-1">
               <div>

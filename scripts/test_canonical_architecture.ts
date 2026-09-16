@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { resolveRoleHome } from '../src/lib/role-routing';
 import { isValidDateOnly } from '../src/lib/datetime-utils';
+import { getTrackedMigrationCount } from '../tests/helpers/migrationInventory';
 
 async function runCanonicalArchitectureTests() {
   console.log('================================================================================');
@@ -236,6 +237,107 @@ async function runCanonicalArchitectureTests() {
   assert(
     runnerSrc.includes('scripts/test_canonical_architecture.ts'),
     'ARCH-14: test_canonical_architecture.ts is permanently registered in run_all_regressions.ts'
+  );
+
+  // 15. D.4A: Stale IMPLEMENTATION_STEPS.md must be permanently absent
+  const staleStepsPath = path.join(__dirname, '../my_files/IMPLEMENTATION_STEPS.md');
+  assert(
+    !fs.existsSync(staleStepsPath),
+    'ARCH-15: my_files/IMPLEMENTATION_STEPS.md with forbidden prisma db push is removed'
+  );
+
+  // 16. D.4A: Exact Tracked Migration Count Invariant (Exactly 26)
+  const migrationsCount = getTrackedMigrationCount(path.resolve(__dirname, '..'));
+  assert(
+    migrationsCount === 26,
+    `ARCH-16: Exact tracked migration count invariant verified via migrationInventory helper (found: ${migrationsCount}, expected: 26)`
+  );
+
+  // 17. D.4A: Section 24 in CURRENT-RULES.md and ADRs Updated
+  const currentRulesPath = path.join(__dirname, '../docs/architecture/CURRENT-RULES.md');
+  const currentRulesSrc = fs.existsSync(currentRulesPath) ? fs.readFileSync(currentRulesPath, 'utf8') : '';
+  const adr000Path = path.join(__dirname, '../docs/architecture/ADR-000-schema-workflow.md');
+  const adr000Src = fs.existsSync(adr000Path) ? fs.readFileSync(adr000Path, 'utf8') : '';
+  const adr004Path = path.join(__dirname, '../docs/architecture/ADR-004-development-data-lifecycle.md');
+  const adr004Src = fs.existsSync(adr004Path) ? fs.readFileSync(adr004Path, 'utf8') : '';
+  assert(
+    currentRulesSrc.includes('24. Stage 6G-D.4A Operational UI Data Retrieval & History Scalability') &&
+    currentRulesSrc.includes('LIVE') &&
+    currentRulesSrc.includes('RECENT_HISTORY') &&
+    currentRulesSrc.includes('pageSize') &&
+    adr000Src.toLowerCase().includes('prisma db push') &&
+    adr000Src.toLowerCase().includes('forbidden') &&
+    adr004Src.includes('ADR-000'),
+    'ARCH-17: Architecture governance documents define Section 24 retrieval scalability, ADR-000 and ADR-004 immutability'
+  );
+
+  // 18. D.4A: Operational Read Model Service Defines Modes and Bounded Pagination
+  assert(
+    readModelSrc.includes("export type RetrievalMode = 'live' | 'recent' | 'search' | 'report'") &&
+    readModelSrc.includes('getDefaultRecentDateRange') &&
+    readModelSrc.includes('getPaginatedOperationalLogs') &&
+    readModelSrc.includes('prisma.vehicleVisit.count') &&
+    readModelSrc.includes('prisma.vehicleVisit.findUnique({'),
+    'ARCH-18: operationalReadModelService provides 4 retrieval modes, DB count, bounded pagination, and optimized findUnique log lookup'
+  );
+
+  // 19. D.4A: GET /api/logs Supports Pagination Envelope and Retrieval Modes
+  const apiLogsPath = path.join(__dirname, '../src/app/api/logs/route.ts');
+  const apiLogsSrc = fs.existsSync(apiLogsPath) ? fs.readFileSync(apiLogsPath, 'utf8') : '';
+  assert(
+    apiLogsSrc.includes('getPaginatedOperationalLogs') &&
+    apiLogsSrc.includes('searchParams.get(\'mode\')') &&
+    apiLogsSrc.includes('searchParams.get(\'page\')') &&
+    apiLogsSrc.includes('searchParams.get(\'pageSize\')'),
+    'ARCH-19: GET /api/logs parses mode, page, pageSize, and returns standard pagination envelope'
+  );
+
+  // 20. D.4A: ZMCC Manager Workspace Enforces Live-Only Polling
+  const d4aZmccWsPath = path.join(__dirname, '../src/frontend/modules/dashboard/ZMCCManagerWorkspace.tsx');
+  const d4aZmccWsSrc = fs.existsSync(d4aZmccWsPath) ? fs.readFileSync(d4aZmccWsPath, 'utf8') : '';
+  assert(
+    d4aZmccWsSrc.includes("fetch('/api/logs?mode=live')") &&
+    !d4aZmccWsSrc.includes('fetchReceiptLogs();\n    }, 15000)'),
+    'ARCH-20: ZMCCManagerWorkspace fetches mode=live and does not poll completed receipt history'
+  );
+
+  // 21. D.4A: Super Admin Operations and Audit Routes Paginated with Pager Controls
+  const saOpsRoutePath = path.join(__dirname, '../src/app/api/super-admin/operations/route.ts');
+  const saOpsSrc = fs.existsSync(saOpsRoutePath) ? fs.readFileSync(saOpsRoutePath, 'utf8') : '';
+  const saOpsPagePath = path.join(__dirname, '../src/app/super-admin/operations/page.tsx');
+  const saOpsPageSrc = fs.existsSync(saOpsPagePath) ? fs.readFileSync(saOpsPagePath, 'utf8') : '';
+  const saAuditRoutePath = path.join(__dirname, '../src/app/api/super-admin/audit/route.ts');
+  const saAuditSrc = fs.existsSync(saAuditRoutePath) ? fs.readFileSync(saAuditRoutePath, 'utf8') : '';
+  const saAuditPagePath = path.join(__dirname, '../src/app/super-admin/audit/page.tsx');
+  const saAuditPageSrc = fs.existsSync(saAuditPagePath) ? fs.readFileSync(saAuditPagePath, 'utf8') : '';
+  assert(
+    saOpsSrc.includes('pagination') &&
+    saOpsPageSrc.includes('totalPages > 1') &&
+    saAuditSrc.includes('pagination') &&
+    saAuditPageSrc.includes('totalPages > 1'),
+    'ARCH-21: Super Admin operations and audit APIs paginate on server and render interactive pager controls'
+  );
+
+  // 22. D.4A: ZMCC Arrivals and Lab History Workspaces Consume Pagination
+  const zmccArrivalsWs = path.join(__dirname, '../src/frontend/modules/zmcc/arrivals/ZmccArrivalsWorkspace.tsx');
+  const zmccArrivalsWsSrc = fs.existsSync(zmccArrivalsWs) ? fs.readFileSync(zmccArrivalsWs, 'utf8') : '';
+  const zmccLabWs = path.join(__dirname, '../src/frontend/modules/zmcc/lab/ZmccLabWorkspace.tsx');
+  const zmccLabWsSrc = fs.existsSync(zmccLabWs) ? fs.readFileSync(zmccLabWs, 'utf8') : '';
+  assert(
+    zmccArrivalsWsSrc.includes('historyTotalPages > 1') &&
+    zmccArrivalsWsSrc.includes('historyPage') &&
+    zmccLabWsSrc.includes('historyTotalPages > 1') &&
+    zmccLabWsSrc.includes('historyPage'),
+    'ARCH-22: ZMCC Arrivals and Lab workspaces consume server pagination metadata and provide pager controls'
+  );
+
+  // 23. D.4A: No Elasticsearch or Secondary Index Invariants
+  const packageJsonPath = path.join(__dirname, '../package.json');
+  const packageJsonSrc = fs.existsSync(packageJsonPath) ? fs.readFileSync(packageJsonPath, 'utf8') : '';
+  assert(
+    !packageJsonSrc.includes('@elastic/elasticsearch') &&
+    !packageJsonSrc.includes('elasticsearch'),
+    'ARCH-23: PostgreSQL remains authoritative with zero Elasticsearch dependencies'
   );
 
   console.log('\n================================================================================');

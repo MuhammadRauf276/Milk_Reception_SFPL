@@ -32,17 +32,21 @@ Tracked Prisma migrations (`prisma/migrations/`) are the sole authoritative mech
 - Validation against local PostgreSQL does not automatically certify Neon-specific behaviors. Neon deployment readiness is evaluated separately prior to cloud deployment.
 
 ### Migration Immutability Rule
-Once a migration has been applied, its `migration.sql` bytes are immutable.
+Tracked Prisma migrations (`prisma/migrations/`) are the sole authoritative mechanism for database schema changes. `prisma db push` is strictly **FORBIDDEN**.
+
+Once a migration has been applied in shared, CI, staging, or operational migration history, its `migration.sql` bytes are strictly **immutable**.
 Do not:
 - re-encode it;
 - strip BOM;
 - reformat it;
 - modify comments;
+- edit DDL statements;
 - manually update Prisma checksum metadata.
 
 If an already-applied migration must be corrected:
-use a **NEW tracked migration** where schema behavior must change.
-Development DB reset/replay is allowed only according to [ADR-004](./ADR-004-development-data-lifecycle.md).
+You must use a **NEW tracked migration** (e.g. adding a subsequent migration).
+Controlled development database reset (`npx prisma migrate reset`) is permitted **only** against explicitly confirmed disposable development/test databases per [ADR-004](./ADR-004-development-data-lifecycle.md).
+**Crucial Governance Boundary**: A disposable database reset does **NOT** authorize rewriting, mutating, deleting, or reordering accepted migration history. The tracked migration sequence on disk remains permanent.
 
 ## Rationale
 - **Reproducibility**: Migrations guarantee that every environment transitions through the exact same DDL history.

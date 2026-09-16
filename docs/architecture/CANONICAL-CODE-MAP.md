@@ -1,7 +1,7 @@
 # Canonical Code Map & Architecture Ownership
 
 **Milk Reception Application (SFPL)**
-*Stage 4E Architectural Baseline*
+*Stage 6 Architectural Baseline (Refreshed in Stage 6G-D.4A)*
 
 ---
 
@@ -125,11 +125,18 @@ Being located under `src/app` does **NOT** mean code is current. Every route, AP
 | **Weighbridge** | `/department/weighbridge` | `WeighbridgeWorkspace.tsx` | `/api/scale/*` | `weighbridgeScaleService.ts`, `vehicleQuantityService.ts` | First weight (gross), second weight (tare), net milk weight |
 | **Production** | `/department/production`| `ProductionUnloadingWorkspace.tsx` | `/api/production/*` | `productionUnloadingService.ts`, `siloInventoryService.ts`| Silo provisional allocation, physical liters receipt |
 | **Final Receipt** | Read Model | `operationalReadModelService.ts` | `GET /api/logs` | `operationalReadModelService.ts` | `final_receipt_exists` backed by `SiloInventoryTransaction` `RECEIPT` |
-| **Read Model** | Read Model | `operationalReadModelService.ts` | `GET /api/logs` | `operationalReadModelService.ts` | `authoritative_final_liters`, source-scoped filtering |
-| **ZMCC Manager** | `/mpd/zmcc-manager` | `ZMCCManagerWorkspace.tsx` | `GET /api/logs` | `zmccManagerHelpers.ts`, `zmccManagerTypes.ts` | Assigned source isolation, read-only supervision, 6 tabs |
-| **MOT Operations & Summary** | `/mot`, `/phe` | `MotOperationsWorkspace.tsx`, `ZmccArrivalsWorkspace.tsx` | `/api/mot/*`, `/api/zmcc/arrivals*` | `motService.ts`, `motJourneySummaryService.ts`, `zmccArrivalService.ts` | Canonical `MotJourneySummary`, gross-liters weighted aggregation, 1-to-1 immutable lifecycle, late offline refresh exception |
-| **Plant Contractor Manager** | `/contractor/manager` | `PlantContractorManagerWorkspace.tsx` | `GET /api/logs` | `contractorManagerHelpers.ts`, `contractorManagerTypes.ts` | Direct-to-plant contractor, source-scoped read-only supervision, 5 tabs (Overview, Live Pipeline, Quality & Rejections, Receipts & Reconciliation, History & Reports). Assigned strictly to one CONTRACTOR procurement source. Unassigned or misbound non-CONTRACTOR sources FAIL CLOSED (0 records). Reporting Business Date: Final Receipt Business Date (from `final_receipt_timestamp` via canonical 08:00 PKT) for finalized receipts; Visit/Dispatch Date for non-final/pending; `created_at` is NEVER a Business Date fallback. |
-| **Super Admin** | `/super-admin` | `src/app/super-admin/page.tsx` | `/api/super-admin/*` | Prisma Client direct queries | Master data management, SOP rules, user administration |
+| **Read Model** | Read Model | `operationalReadModelService.ts` | `GET /api/logs` | `operationalReadModelService.ts` | Bounded canonical operational read model; modes: `live`, `recent`, `search`, `report`. Default `pageSize: 20`, max `100`. Recent history defaults to 7 calendar days. Server-side DB pagination/filtering before Node mapping. No client-side total loads. |
+| **ZMCC Manager** | `/mpd/zmcc-manager` | `ZMCCManagerWorkspace.tsx` | `GET /api/logs` | `zmccManagerHelpers.ts`, `zmccManagerTypes.ts` | Assigned source isolation, read-only supervision. Live tab uses `mode=live` with ~15s polling. Receipts/History use paginated recent-history without background polling. Overview KPIs use DB aggregates or visible-range scoping. |
+| **Plant Contractor Manager** | `/contractor/manager` | `PlantContractorManagerWorkspace.tsx` | `GET /api/logs` | `contractorManagerHelpers.ts`, `contractorManagerTypes.ts` | Direct-to-plant contractor, source-scoped read-only supervision, 5 tabs (Overview, Live Pipeline, Quality & Rejections, Receipts & Reconciliation, History & Reports). Active tab retrieval (no giant shared array). Live tab polls; historical tabs do NOT poll. Strict CONTRACTOR procurement source isolation. |
+| **PHE & ZMCC Arrivals** | `/phe` | `ZmccArrivalsWorkspace.tsx` | `/api/zmcc/arrivals/*` | `zmccArrivalService.ts`, `zmccArrivalAuth.ts` | Direct-to-ZMCC intake. Active intake: MOT and Local Supplier. Gate entry timestamp = physical arrival. Inside vehicles bounded query (`/api/zmcc/arrivals/inside`). Gate exit recorded with row locking and retry idempotency. |
+| **Local Supplier Directory** | `/phe` | `ZmccArrivalsWorkspace.tsx` | `/api/zmcc/local-suppliers/*` | `zmccLocalSupplierService.ts` | Canonical ZMCC Local Supplier master (`ZmccLocalSupplier`). Scoped by assigned ZMCC. Fast-creation by PHE, management by ZMCC Manager / Super Admin. Atomic sequence `ZLS-000001`. Distinct from Plant Contractor. |
+| **Legacy ZMCC Contractor Arrival** | N/A | N/A | `/api/zmcc/arrivals/contractor` | `zmccArrivalService.ts` | **HISTORICAL COMPATIBILITY ONLY**: Retired for new intake (`POST` returns 410 Gone). Existing records remain readable, searchable, and auditable for completed lab/tank flows. |
+| **MOT Operations & Summary** | `/mot` | `MotOperationsWorkspace.tsx` | `/api/mot/*` | `motService.ts`, `motJourneySummaryService.ts` | Canonical `MotJourneySummary`, gross-liters weighted aggregation, 1-to-1 immutable lifecycle, route assignments, offline collection sync. Gate exit unblocks vehicle reuse. |
+| **ZMCC Lab Testing & Receipt** | `/zmcc/lab` | `ZmccLabWorkspace.tsx` | `/api/zmcc/lab/*` | `zmccLabService.ts` | Reusable lab workflow across MOT, Local Supplier, and legacy Contractor. Required tests, supervisor corrections, and Accept & Receive into sole active ZMCC tank. Paginated history (default 7 days). |
+| **ZMCC Tank & Ledger** | `/zmcc/lab` | Embedded in Lab | `/api/zmcc/tanks/*` | `zmccTankService.ts` | Exactly one active tank per ZMCC facility (`zmcc_tank_one_active_per_zmcc_idx`). Gross Liters physical inventory basis. Immutable transaction ledger (`ZmccTankLedger`). |
+| **Super Admin Operations** | `/super-admin/operations` | `.../operations/page.tsx` | `/api/super-admin/operations` | Prisma Client direct queries | Paginated administrative vehicle visit inspection (default 20, max 100, server-side search, truthful pagination metadata, no silent 50-row cutoff). |
+| **Super Admin Audit** | `/super-admin/audit` | `.../audit/page.tsx` | `/api/super-admin/audit` | Prisma Client direct queries | Read-only audit log explorer with server-side pagination (default 20, max 100, filter by table/action/search, no silent 100-row cutoff). Strictly read-only. |
+| **Super Admin Master Data** | `/super-admin` | `src/app/super-admin/page.tsx` | `/api/super-admin/*` | Prisma Client direct queries | Master data management (users, procurement sources, silos, lab tests, test policies, SOP rules, QA warnings). |
 
 ---
 

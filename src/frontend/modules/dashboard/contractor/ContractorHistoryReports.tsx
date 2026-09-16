@@ -42,33 +42,50 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
   const [fromDate, setFromDate] = useState<string>('');
   const [toDate, setToDate] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [page, setPage] = useState<number>(1);
+  const [pageSize] = useState<number>(20);
+  const [totalPages, setTotalPages] = useState<number>(1);
+  const [totalRecords, setTotalRecords] = useState<number>(0);
   const [logs, setLogs] = useState<MilkProcessLog[]>(initialLogs);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchHistoryLogs = useCallback(async (fDate?: string, tDate?: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const params = new URLSearchParams();
-      params.set('dateBasis', 'reporting');
-      if (fDate) params.set('fromDate', fDate);
-      if (tDate) params.set('toDate', tDate);
+  const fetchHistoryLogs = useCallback(
+    async (fDate?: string, tDate?: string, pageNum: number = 1, search?: string) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const params = new URLSearchParams();
+        params.set('mode', fDate || tDate ? 'report' : 'recent');
+        params.set('dateBasis', 'reporting');
+        params.set('page', String(pageNum));
+        params.set('pageSize', String(pageSize));
+        if (fDate) params.set('fromDate', fDate);
+        if (tDate) params.set('toDate', tDate);
+        if (search && search.trim()) params.set('search', search.trim());
 
-      const res = await fetch(`/api/logs?${params.toString()}`);
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to fetch history logs');
+        const res = await fetch(`/api/logs?${params.toString()}`);
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || 'Failed to fetch history logs');
+        }
+        const items = data.items || data.logs;
+        if (items) {
+          setLogs(items);
+        }
+        if (data.pagination) {
+          setPage(data.pagination.page);
+          setTotalPages(data.pagination.totalPages);
+          setTotalRecords(data.pagination.totalRecords);
+        }
+      } catch (err: any) {
+        setError(err.message || 'Failed to load historical contractor records');
+      } finally {
+        setLoading(false);
       }
-      if (data.logs) {
-        setLogs(data.logs);
-      }
-    } catch (err: any) {
-      setError(err.message || 'Failed to load historical contractor records');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    [pageSize]
+  );
 
   const handleApplyFilter = (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,14 +93,17 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
       setError('From Date cannot be after To Date.');
       return;
     }
-    fetchHistoryLogs(fromDate || undefined, toDate || undefined);
+    setPage(1);
+    fetchHistoryLogs(fromDate || undefined, toDate || undefined, 1, searchQuery);
   };
 
   const handleResetFilter = () => {
     setFromDate('');
     setToDate('');
+    setSearchQuery('');
+    setPage(1);
     setError(null);
-    fetchHistoryLogs(undefined, undefined);
+    fetchHistoryLogs(undefined, undefined, 1, undefined);
   };
 
   const visits = useMemo(() => {
@@ -119,7 +139,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
               {assignedSourceName} — History & Operational Reports
             </h2>
             <p className="text-xs text-slate-500 font-medium mt-0.5">
-              Historical ledger evaluated by Reporting Business Date (Final Receipt date for completed receipts; Visit date for pending).
+              Historical ledger evaluated by Reporting Date (Final Receipt date for completed receipts; Dispatch date for pending).
             </p>
           </div>
         </div>
@@ -206,6 +226,19 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
         )}
       </div>
 
+      {/* Bounded Page Notice */}
+      {totalPages > 1 && (
+        <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>
+              Showing page <strong>{page}</strong> of <strong>{totalPages}</strong> ({totalRecords} total visits in query). Volume and variance summaries below reflect the visible page.
+            </span>
+          </div>
+          <span className="text-[11px] font-bold text-amber-700">Bounded page metrics</span>
+        </div>
+      )}
+
       {/* 3. Summary Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Historical Visits */}
@@ -215,45 +248,49 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
             <Truck className="w-4 h-4 text-blue-700" />
           </div>
           <p className="text-3xl font-black text-slate-900 font-mono">
-            {metrics.totalHistoryVisits}
+            {totalRecords > 0 ? totalRecords : metrics.totalHistoryVisits}
           </p>
           <p className="text-[11px] text-slate-500 font-medium">
-            Dispatched: <strong className="text-slate-700 font-mono">{metrics.totalDispatchedGrossLiters.toLocaleString()} L</strong>
+            {totalPages > 1 ? (
+              <span className="text-blue-700 font-semibold">Authoritative Total Query Visits</span>
+            ) : (
+              <>Dispatched: <strong className="text-slate-700 font-mono">{metrics.totalDispatchedGrossLiters.toLocaleString()} L</strong></>
+            )}
           </p>
         </div>
 
         {/* Completed Receipts */}
         <div className="p-5 rounded-2xl bg-white border border-[#EAE4D5] shadow-sm space-y-2">
           <div className="flex items-center justify-between text-emerald-700 text-xs font-bold">
-            <span>Final Receipts</span>
+            <span>Final Receipts {totalPages > 1 ? '(Current Page)' : ''}</span>
             <CheckCircle2 className="w-4 h-4 text-emerald-600" />
           </div>
           <p className="text-3xl font-black text-emerald-950 font-mono">
             {metrics.totalCompletedReceipts}
           </p>
           <p className="text-[11px] text-emerald-700 font-medium">
-            Posted Silo transactions
+            {totalPages > 1 ? 'Page receipt count' : 'Posted Silo transactions'}
           </p>
         </div>
 
         {/* Total Received Liters */}
         <div className="p-5 rounded-2xl bg-white border border-[#EAE4D5] shadow-sm space-y-2">
           <div className="flex items-center justify-between text-blue-800 text-xs font-bold">
-            <span>Total Received Vol</span>
+            <span>Received Vol {totalPages > 1 ? '(Current Page)' : ''}</span>
             <Scale className="w-4 h-4 text-blue-700" />
           </div>
           <p className="text-2xl font-black text-blue-950 font-mono truncate">
             {metrics.totalReceivedLiters.toLocaleString()} L
           </p>
           <p className="text-[11px] text-blue-700 font-medium">
-            Authoritative physical volume
+            {totalPages > 1 ? `Page physical volume (${filteredVisits.length} visits)` : 'Authoritative physical volume'}
           </p>
         </div>
 
         {/* Net Liters Variance */}
         <div className="p-5 rounded-2xl bg-white border border-[#EAE4D5] shadow-sm space-y-2">
           <div className="flex items-center justify-between text-slate-700 text-xs font-bold">
-            <span>Net Liters Variance</span>
+            <span>Net Variance {totalPages > 1 ? '(Current Page)' : ''}</span>
             <ArrowRightLeft className="w-4 h-4 text-slate-600" />
           </div>
           <p
@@ -272,7 +309,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
               : '—'}
           </p>
           <p className="text-[11px] text-slate-500 font-medium">
-            Received vs Dispatched (L)
+            {totalPages > 1 ? 'Page received vs dispatched' : 'Received vs Dispatched (L)'}
           </p>
         </div>
       </div>
@@ -303,102 +340,144 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider bg-slate-50/70">
-                  <th className="py-2.5 px-3">Vehicle</th>
-                  <th className="py-2.5 px-3">Reception #</th>
-                  <th className="py-2.5 px-3">Reporting Business Date</th>
-                  <th className="py-2.5 px-3 text-right">Dispatch Gross</th>
-                  <th className="py-2.5 px-3">QA Outcome</th>
-                  <th className="py-2.5 px-3">Lifecycle / Receipt</th>
-                  <th className="py-2.5 px-3 text-right">Authoritative Received</th>
-                  <th className="py-2.5 px-3 text-right">Variance (L)</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-medium">
-                {filteredVisits.map((v) => (
-                  <tr key={v.visitId} className="hover:bg-slate-50/80 transition">
-                    <td className="py-3.5 px-3 font-mono font-extrabold text-slate-900">
-                      {v.vehicleNumber}
-                    </td>
-                    <td className="py-3.5 px-3 font-mono text-slate-600 text-[11px]">
-                      {v.receptionNumber}
-                    </td>
-                    <td className="py-3.5 px-3 font-mono text-slate-800 text-[11px]">
-                      <div>
-                        <span className="font-bold">{v.reportingDate || '—'}</span>
-                        <span className="block text-[9px] text-slate-500 font-normal">
-                          {v.finalReceiptExists ? 'Final Receipt Date' : 'Dispatch Date'}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="py-3.5 px-3 text-right font-mono font-bold text-slate-900">
-                      {v.grossLiters != null ? `${v.grossLiters.toLocaleString()} L` : '—'}
-                    </td>
-                    <td className="py-3.5 px-3">
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${
-                          v.qaSummary.badgeType === 'ALL_ACCEPTED'
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            : v.qaSummary.badgeType === 'ALL_REJECTED'
-                            ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                            : v.qaSummary.badgeType === 'HAS_HOLD'
-                            ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                            : 'bg-slate-50 text-slate-600 border border-slate-200'
-                        }`}
-                      >
-                        {v.qaSummary.summaryText}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-3">
-                      {v.finalReceiptExists ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                          Final Receipt
-                        </span>
-                      ) : v.secondWeightTimestamp ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
-                          Receipt Pending
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
-                          {v.journeyStageLabel}
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-3 text-right font-mono font-black">
-                      {v.finalReceiptExists && v.authoritativeFinalLiters != null ? (
-                        <span className="text-emerald-700">
-                          {v.authoritativeFinalLiters.toLocaleString()} L
-                        </span>
-                      ) : (
-                        <span className="text-slate-400 font-normal">Pending</span>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-3 text-right font-mono font-bold">
-                      {v.litersVariance != null ? (
-                        <span
-                          className={
-                            v.litersVariance < 0
-                              ? 'text-rose-700'
-                              : v.litersVariance > 0
-                              ? 'text-emerald-700'
-                              : 'text-slate-700'
-                          }
-                        >
-                          {v.litersVariance > 0 ? '+' : ''}
-                          {v.litersVariance.toLocaleString()} L
-                        </span>
-                      ) : (
-                        <span className="text-slate-400 font-normal">—</span>
-                      )}
-                    </td>
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider bg-slate-50/70">
+                    <th className="py-2.5 px-3">Vehicle</th>
+                    <th className="py-2.5 px-3">Reception #</th>
+                    <th className="py-2.5 px-3">Reporting Date</th>
+                    <th className="py-2.5 px-3 text-right">Dispatch Gross</th>
+                    <th className="py-2.5 px-3">QA Outcome</th>
+                    <th className="py-2.5 px-3">Lifecycle / Receipt</th>
+                    <th className="py-2.5 px-3 text-right">Authoritative Received</th>
+                    <th className="py-2.5 px-3 text-right">Variance (L)</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium">
+                  {filteredVisits.map((v) => (
+                    <tr key={v.visitId} className="hover:bg-slate-50/80 transition">
+                      <td className="py-3.5 px-3 font-mono font-extrabold text-slate-900">
+                        {v.vehicleNumber}
+                      </td>
+                      <td className="py-3.5 px-3 font-mono text-slate-600 text-[11px]">
+                        {v.receptionNumber}
+                      </td>
+                      <td className="py-3.5 px-3 font-mono text-slate-800 text-[11px]">
+                        <div>
+                          <span className="font-bold">{v.reportingDate || '—'}</span>
+                          <span className="block text-[9px] text-slate-500 font-normal">
+                            {v.finalReceiptExists ? 'Final Receipt Date' : 'Dispatch Date'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-3 text-right font-mono font-bold text-slate-900">
+                        {v.grossLiters != null ? `${v.grossLiters.toLocaleString()} L` : '—'}
+                      </td>
+                      <td className="py-3.5 px-3">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${
+                            v.qaSummary.badgeType === 'ALL_ACCEPTED'
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : v.qaSummary.badgeType === 'ALL_REJECTED'
+                              ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                              : v.qaSummary.badgeType === 'HAS_HOLD'
+                              ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                              : 'bg-slate-50 text-slate-600 border border-slate-200'
+                          }`}
+                        >
+                          {v.qaSummary.summaryText}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-3">
+                        {v.finalReceiptExists ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                            Final Receipt
+                          </span>
+                        ) : v.secondWeightTimestamp ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
+                            Receipt Pending
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                            {v.journeyStageLabel}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-3 text-right font-mono font-black">
+                        {v.finalReceiptExists && v.authoritativeFinalLiters != null ? (
+                          <span className="text-emerald-700">
+                            {v.authoritativeFinalLiters.toLocaleString()} L
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 font-normal">Pending</span>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-3 text-right font-mono font-bold">
+                        {v.litersVariance != null ? (
+                          <span
+                            className={
+                              v.litersVariance < 0
+                                ? 'text-rose-700'
+                                : v.litersVariance > 0
+                                ? 'text-emerald-700'
+                                : 'text-slate-700'
+                            }
+                          >
+                            {v.litersVariance > 0 ? '+' : ''}
+                            {v.litersVariance.toLocaleString()} L
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 font-normal">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination Bar */}
+            {totalPages > 1 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 bg-slate-50 border-t border-[#EAE4D5] rounded-b-2xl text-xs font-semibold text-slate-700">
+                <div>
+                  Showing <span className="font-bold text-blue-950">{(page - 1) * pageSize + 1}</span> to{' '}
+                  <span className="font-bold text-blue-950">{Math.min(page * pageSize, totalRecords)}</span> of{' '}
+                  <span className="font-bold text-blue-950">{totalRecords}</span> visits
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    type="button"
+                    disabled={page <= 1 || loading}
+                    onClick={() => {
+                      const prev = Math.max(1, page - 1);
+                      setPage(prev);
+                      fetchHistoryLogs(fromDate || undefined, toDate || undefined, prev, searchQuery);
+                    }}
+                    className="px-3.5 py-1.5 bg-white border border-[#C4B9A3] rounded-xl hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition shadow-2xs"
+                  >
+                    Previous
+                  </button>
+                  <span className="px-2 text-xs font-mono font-bold text-slate-600">
+                    Page {page} / {totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={page >= totalPages || loading}
+                    onClick={() => {
+                      const next = Math.min(totalPages, page + 1);
+                      setPage(next);
+                      fetchHistoryLogs(fromDate || undefined, toDate || undefined, next, searchQuery);
+                    }}
+                    className="px-3.5 py-1.5 bg-white border border-[#C4B9A3] rounded-xl hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition shadow-2xs"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
