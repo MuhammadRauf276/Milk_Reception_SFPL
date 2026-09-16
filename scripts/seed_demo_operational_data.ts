@@ -613,10 +613,20 @@ export async function seedOperationalData() {
     where: { testName: { equals: 'Fat', mode: 'insensitive' }, isActive: true },
   }));
 
-  const policyAuthorizer = users.find((u) => u.role === 'HEAD_OF_MPD' || u.role === 'SUPER_ADMIN')
-    || await prisma.user.findFirst({ where: { username: 'mpd.head', is_active: true } })
-    || await prisma.user.findFirst({ where: { username: 'admin.superuser', is_active: true } })
-    || zmccManager;
+  const policyAuthorizer =
+    users.find((u) =>
+      u.is_active && (u.role === 'HEAD_OF_MPD' || u.role === 'SUPER_ADMIN')
+    )
+    || await prisma.user.findFirst({
+      where: {
+        is_active: true,
+        role: { in: ['HEAD_OF_MPD', 'SUPER_ADMIN'] },
+      },
+    });
+
+  if (!policyAuthorizer) {
+    throw new Error('Active HEAD_OF_MPD or SUPER_ADMIN required to seed missing milk-test policy assignments.');
+  }
 
   if (lrTest && fatTest) {
     for (const point of ['ZMCC_LAB_MOT', 'ZMCC_LAB_CONTRACTOR']) {
@@ -745,9 +755,13 @@ export async function seedOperationalData() {
   const threeDaysAgoDate = new Date(now.getTime() - 3 * msPerDay);
   const threeDaysAgoDateStr = getPakistanCalendarDate(threeDaysAgoDate);
 
-  const pktTodayMidnight = new Date(`${pktTodayDateStr}T00:00:00+05:00`);
-  const yesterdayMidnight = new Date(`${yesterdayDateStr}T00:00:00+05:00`);
-  const threeDaysAgoMidnight = new Date(`${threeDaysAgoDateStr}T00:00:00+05:00`);
+  const pktTodayDate = parseStrictDateOnly(pktTodayDateStr);
+  const yesterdayDateOnly = parseStrictDateOnly(yesterdayDateStr);
+  const threeDaysAgoDateOnly = parseStrictDateOnly(threeDaysAgoDateStr);
+
+  if (!pktTodayDate || !yesterdayDateOnly || !threeDaysAgoDateOnly) {
+    throw new Error('Failed to derive deterministic demo Pakistan calendar dates.');
+  }
 
   // Explicit PKT (+05:00) event timestamps
   const timeTodayArr1 = new Date(`${pktTodayDateStr}T09:15:00+05:00`); // 09:15 PKT
@@ -770,7 +784,7 @@ export async function seedOperationalData() {
       rmr_number: '0000101',
       vehicle_number: 'BWP-4411',
       arrival_timestamp: timeTodayArr1,
-      arrival_date: pktTodayMidnight,
+      arrival_date: pktTodayDate,
       zmcc_token: 'TK-HAS-LS-001',
       client_event_id: `evt-arr-ls-01-${pktTodayDateStr}`,
       recorded_by_user_id: pheUser.id,
@@ -789,7 +803,7 @@ export async function seedOperationalData() {
       mot_profile_id: motProfile.id,
       mot_vehicle_id: motVehicle.id,
       status: 'COMPLETED',
-      operational_date: pktTodayMidnight,
+      operational_date: pktTodayDate,
       assigned_by: zmccManager.id,
       assigned_at: new Date(timeTodayArr2.getTime() - 7200000),
       started_at: new Date(timeTodayArr2.getTime() - 5400000),
@@ -808,7 +822,7 @@ export async function seedOperationalData() {
       route_milk_token: 'RM-HAS-0201',
       zmcc_token: 'TK-HAS-MOT-001',
       arrival_timestamp: timeTodayArr2,
-      arrival_date: pktTodayMidnight,
+      arrival_date: pktTodayDate,
       client_event_id: `evt-arr-mot-01-${pktTodayDateStr}`,
       recorded_by_user_id: pheUser.id,
       gate_exit_required: true,
@@ -865,7 +879,7 @@ export async function seedOperationalData() {
       rmr_number: '0000102',
       vehicle_number: 'BWP-3322',
       arrival_timestamp: timeTodayArr3,
-      arrival_date: pktTodayMidnight,
+      arrival_date: pktTodayDate,
       zmcc_token: 'TK-HAS-LS-002',
       client_event_id: `evt-arr-ls-02-${pktTodayDateStr}`,
       recorded_by_user_id: pheUser.id,
@@ -985,7 +999,7 @@ export async function seedOperationalData() {
       rmr_number: '0000103',
       vehicle_number: 'BWP-8877',
       arrival_timestamp: timeThreeDaysArr4,
-      arrival_date: threeDaysAgoMidnight,
+      arrival_date: threeDaysAgoDateOnly,
       zmcc_token: 'TK-HAS-LS-003',
       client_event_id: `evt-arr-ls-03-${threeDaysAgoDateStr}`,
       recorded_by_user_id: pheUser.id,
@@ -1078,7 +1092,7 @@ export async function seedOperationalData() {
       mot_profile_id: motProfile.id,
       mot_vehicle_id: motVehicle.id,
       status: 'COMPLETED',
-      operational_date: yesterdayMidnight,
+      operational_date: yesterdayDateOnly,
       assigned_by: zmccManager.id,
       assigned_at: new Date(timeYestArr5.getTime() - 7200000),
       started_at: new Date(timeYestArr5.getTime() - 5400000),
@@ -1097,7 +1111,7 @@ export async function seedOperationalData() {
       route_milk_token: 'RM-HAS-0202',
       zmcc_token: 'TK-HAS-MOT-002',
       arrival_timestamp: timeYestArr5,
-      arrival_date: yesterdayMidnight,
+      arrival_date: yesterdayDateOnly,
       client_event_id: `evt-arr-mot-02-${yesterdayDateStr}`,
       recorded_by_user_id: pheUser.id,
       gate_exit_required: true,
