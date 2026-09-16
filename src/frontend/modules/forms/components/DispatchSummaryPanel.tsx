@@ -72,9 +72,7 @@ export interface DispatchSummaryPanelProps {
   portions: PortionFormState[];
   vehicleQuantity: QuantityState;
   portionSummary: PortionSummaryDTO;
-  isEligibleForAssistance: boolean;
   vehiclePortionComparison: VehiclePortionComparisonDTO;
-  onApplyAssistedQuantity: (totalValue: string) => void;
   safeTotals: DispatchSafeSummaryTotals;
   calculatedPortionsList: CalculatedPortionValues[];
   labTests: LabTestDef[];
@@ -85,9 +83,7 @@ export const DispatchSummaryPanel: React.FC<DispatchSummaryPanelProps> = ({
   portions,
   vehicleQuantity,
   portionSummary,
-  isEligibleForAssistance,
   vehiclePortionComparison,
-  onApplyAssistedQuantity,
   safeTotals,
   calculatedPortionsList,
   labTests,
@@ -276,22 +272,22 @@ export const DispatchSummaryPanel: React.FC<DispatchSummaryPanelProps> = ({
                   <div className="p-2 rounded-xl bg-[#F4EFE3]/60 border border-[#C4B9A3]">
                     <span className="text-[9.5px] font-sans text-slate-500 block">Gross Liters</span>
                     <span className="text-emerald-900 font-black">
-                      {calc?.grossLiters !== null && calc?.grossLiters !== undefined ? `${Math.round(calc.grossLiters).toLocaleString()} L` : '—'}
+                      {calc?.grossLiters !== null && calc?.grossLiters !== undefined ? `${calc.grossLiters.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L` : '—'}
                     </span>
                   </div>
                   <div className="p-2 rounded-xl bg-[#F4EFE3]/60 border border-[#C4B9A3]">
                     <span className="text-[9.5px] font-sans text-slate-500 block">Liters @ 13% TS</span>
                     <span className="text-emerald-900 font-black">
-                      {calc?.at13TsLiters !== null && calc?.at13TsLiters !== undefined ? `${Math.round(calc.at13TsLiters).toLocaleString()} L` : '—'}
+                      {calc?.at13TsLiters !== null && calc?.at13TsLiters !== undefined ? `${calc.at13TsLiters.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L` : '—'}
                     </span>
                   </div>
                   <div className="p-2 rounded-xl bg-[#F4EFE3]/60 border border-[#C4B9A3]">
                     <span className="text-[9.5px] font-sans text-slate-500 block">SNF %</span>
-                    <span className="text-blue-900">{calc?.snf !== null && calc?.snf !== undefined ? `${calc.snf.toFixed(3)} %` : '—'}</span>
+                    <span className="text-blue-900">{calc?.snf !== null && calc?.snf !== undefined ? `${calc.snf.toFixed(2)} %` : '—'}</span>
                   </div>
                   <div className="p-2 rounded-xl bg-[#F4EFE3]/60 border border-[#C4B9A3]">
                     <span className="text-[9.5px] font-sans text-slate-500 block">Total Solids (TS %)</span>
-                    <span className="text-blue-900">{calc?.ts !== null && calc?.ts !== undefined ? `${calc.ts.toFixed(3)} %` : '—'}</span>
+                    <span className="text-blue-900">{calc?.ts !== null && calc?.ts !== undefined ? `${calc.ts.toFixed(2)} %` : '—'}</span>
                   </div>
                   <div className="p-2 rounded-xl bg-[#F4EFE3]/60 border border-[#C4B9A3] col-span-2">
                     <span className="text-[9.5px] font-sans text-slate-500 block">SNF : Fat</span>

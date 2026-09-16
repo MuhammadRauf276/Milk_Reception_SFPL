@@ -70,6 +70,15 @@ function serializeDispatch(visit: any) {
 }
 
 
+function shiftPakistanCalendarDate(dateStr: string, daysOffset: number): string {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const d = new Date(Date.UTC(year, month - 1, day + daysOffset));
+  const yyyy = d.getUTCFullYear().toString().padStart(4, '0');
+  const mm = (d.getUTCMonth() + 1).toString().padStart(2, '0');
+  const dd = d.getUTCDate().toString().padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 export async function GET(req: Request) {
   const authUser = await getCurrentUser(req);
   if (!authUser) {
@@ -99,14 +108,19 @@ export async function GET(req: Request) {
   let gteDate: Date | undefined;
   let lteDate: Date | undefined;
 
+  const todayPkt = getPakistanCalendarDate(new Date());
+
   if (range === 'today') {
-    const todayPkt = getPakistanCalendarDate(new Date());
     gteDate = new Date(`${todayPkt}T00:00:00.000+05:00`);
     lteDate = new Date(`${todayPkt}T23:59:59.999+05:00`);
   } else if (range === '7d') {
-    gteDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const startDatePkt = shiftPakistanCalendarDate(todayPkt, -6);
+    gteDate = new Date(`${startDatePkt}T00:00:00.000+05:00`);
+    lteDate = new Date(`${todayPkt}T23:59:59.999+05:00`);
   } else if (range === '30d') {
-    gteDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const startDatePkt = shiftPakistanCalendarDate(todayPkt, -29);
+    gteDate = new Date(`${startDatePkt}T00:00:00.000+05:00`);
+    lteDate = new Date(`${todayPkt}T23:59:59.999+05:00`);
   } else if (range === 'custom') {
     if (fromDateParam) {
       gteDate = new Date(`${fromDateParam}T00:00:00.000+05:00`);

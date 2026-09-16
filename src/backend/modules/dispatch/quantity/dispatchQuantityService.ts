@@ -596,9 +596,14 @@ export function computeDispatchSafeSummaryTotals(
     hasPortions: true,
     totalGrossLiters: finalGrossLiters,
     formattedTotalGrossLiters:
-      finalGrossLiters !== null ? `${Math.round(finalGrossLiters).toLocaleString()} L` : null,
+      finalGrossLiters !== null
+        ? `${finalGrossLiters.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L`
+        : null,
     totalLitersAt13TS: finalAt13,
-    formattedTotalLitersAt13TS: finalAt13 !== null ? `${Math.round(finalAt13).toLocaleString()} L` : null,
+    formattedTotalLitersAt13TS:
+      finalAt13 !== null
+        ? `${finalAt13.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L`
+        : null,
   };
 }
 
