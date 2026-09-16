@@ -301,7 +301,10 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
     } catch {
       setVehiclesInsideZmccCount(null);
     }
+  }, []);
 
+  // Fetch today's accepted intake volume (authoritative DB aggregate, non-polled)
+  const fetchTodayAcceptedIntakeLiters = useCallback(async () => {
     try {
       const todayDate =
         serverCalendarDate || getPakistanCalendarDate(new Date());
@@ -310,17 +313,18 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
         `/api/zmcc/lab/history?date=${todayDate}&decision=ACCEPTED&page=1&pageSize=1`
       );
 
-      if (labRes.ok) {
-        const labData = await labRes.json();
-        const totalGross = labData.summary?.totalGrossLiters;
+      if (!labRes.ok) {
+        setTodayAcceptedIntakeLiters(null);
+        return;
+      }
 
-        if (typeof totalGross === 'number') {
-          setTodayAcceptedIntakeLiters(Number(totalGross.toFixed(2)));
-        } else if (labData.total === 0) {
-          setTodayAcceptedIntakeLiters(0);
-        } else {
-          setTodayAcceptedIntakeLiters(null);
-        }
+      const labData = await labRes.json();
+      const totalGross = labData.summary?.totalGrossLiters;
+
+      if (typeof totalGross === 'number') {
+        setTodayAcceptedIntakeLiters(Number(totalGross.toFixed(2)));
+      } else if (labData.total === 0) {
+        setTodayAcceptedIntakeLiters(0);
       } else {
         setTodayAcceptedIntakeLiters(null);
       }
@@ -339,6 +343,11 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
     }, 15000);
     return () => clearInterval(interval);
   }, [fetchLiveLogs, fetchZmccLocalStats]);
+
+  // Separate non-polled load for accepted intake aggregate
+  useEffect(() => {
+    fetchTodayAcceptedIntakeLiters();
+  }, [fetchTodayAcceptedIntakeLiters]);
 
   // B. Reporting Flow: Initial load and when fromDate/toDate changes (resets to page 1)
   useEffect(() => {
