@@ -6,6 +6,7 @@ import {
   calculateDensity,
   calculatePhysicalLiters,
   calculateAt13TSLiters,
+  computeCanonicalMilkMetrics,
 } from '../src/backend/utils/milkFormulas';
 import {
   calculateVehicleReceivedQuantity,
@@ -612,6 +613,11 @@ export async function seedOperationalData() {
     where: { testName: { equals: 'Fat', mode: 'insensitive' }, isActive: true },
   }));
 
+  const policyAuthorizer = users.find((u) => u.role === 'HEAD_OF_MPD' || u.role === 'SUPER_ADMIN')
+    || await prisma.user.findFirst({ where: { username: 'mpd.head', is_active: true } })
+    || await prisma.user.findFirst({ where: { username: 'admin.superuser', is_active: true } })
+    || zmccManager;
+
   if (lrTest && fatTest) {
     for (const point of ['ZMCC_LAB_MOT', 'ZMCC_LAB_CONTRACTOR']) {
       const existing = await prisma.milkTestPolicyAssignment.findFirst({
@@ -620,8 +626,8 @@ export async function seedOperationalData() {
       if (!existing) {
         await prisma.milkTestPolicyAssignment.createMany({
           data: [
-            { lab_test_id: lrTest.id, testing_point: point, is_required: true, display_order: 1, is_active: true, created_by_user_id: zmccManager.id },
-            { lab_test_id: fatTest.id, testing_point: point, is_required: true, display_order: 2, is_active: true, created_by_user_id: zmccManager.id },
+            { lab_test_id: lrTest.id, testing_point: point, is_required: true, display_order: 1, is_active: true, created_by_user_id: policyAuthorizer.id },
+            { lab_test_id: fatTest.id, testing_point: point, is_required: true, display_order: 2, is_active: true, created_by_user_id: policyAuthorizer.id },
           ],
         });
       }
@@ -630,13 +636,13 @@ export async function seedOperationalData() {
 
   // Ensure MOT Route, Profile, and Vehicle exist for Hasilpur
   let zmccRoute = await prisma.zmccRoute.findFirst({
-    where: { zmcc_id: hasilpurSource.id, route_code: 'R-HAS-01' },
+    where: { zmcc_id: hasilpurSource.id, route_code: 'DEMO-R-HAS-01' },
   });
   if (!zmccRoute) {
     zmccRoute = await prisma.zmccRoute.create({
       data: {
         zmcc_id: hasilpurSource.id,
-        route_code: 'R-HAS-01',
+        route_code: 'DEMO-R-HAS-01',
         name: 'Hasilpur Rural Route 01',
         origin: 'Hasilpur Sub-Div',
         destination: 'ZMCC Hasilpur',
@@ -647,13 +653,13 @@ export async function seedOperationalData() {
   }
 
   let motProfile = await prisma.motProfile.findFirst({
-    where: { zmcc_id: hasilpurSource.id, mot_code: 'MOT-HAS-01' },
+    where: { zmcc_id: hasilpurSource.id, mot_code: 'DEMO-MOT-HAS-01' },
   });
   if (!motProfile) {
     motProfile = await prisma.motProfile.create({
       data: {
         zmcc_id: hasilpurSource.id,
-        mot_code: 'MOT-HAS-01',
+        mot_code: 'DEMO-MOT-HAS-01',
         name: 'Muhammad Tariq (MOT Officer)',
         phone_number: '03001234568',
         cnic: '31202-1234568-1',
@@ -664,15 +670,13 @@ export async function seedOperationalData() {
   }
 
   let motVehicle = await prisma.motVehicle.findFirst({
-    where: { zmcc_id: hasilpurSource.id, registration_number: 'BWP-5522' },
+    where: { zmcc_id: hasilpurSource.id, vehicle_number: 'DEMO-BWP-5522' },
   });
   if (!motVehicle) {
     motVehicle = await prisma.motVehicle.create({
       data: {
         zmcc_id: hasilpurSource.id,
-        registration_number: 'BWP-5522',
-        make_model: 'Hino Dutro Mini-Tanker',
-        capacity_liters: 10000,
+        vehicle_number: 'DEMO-BWP-5522',
         is_active: true,
         created_by: zmccManager.id,
       },
@@ -694,10 +698,10 @@ export async function seedOperationalData() {
     data: {
       local_supplier_code: await allocateSupplierCode(),
       zmcc_id: hasilpurSource.id,
-      name: 'Bashir Milk Collection Center',
+      name: 'DEMO - Bashir Milk Collection Center',
       phone: '03001234501',
       cnic: '31202-1234567-1',
-      erp_reference: 'ERP-LS-HAS-001',
+      erp_reference: 'DEMO-ERP-LS-HAS-001',
       erp_mapping_status: 'PENDING',
       is_active: true,
       created_by_user_id: pheUser.id,
@@ -709,54 +713,53 @@ export async function seedOperationalData() {
     data: {
       local_supplier_code: await allocateSupplierCode(),
       zmcc_id: hasilpurSource.id,
-      name: 'Chaudhry Dairy & Cattle Farm',
+      name: 'DEMO - Chaudhry Dairy & Cattle Farm',
       phone: '03017654321',
       cnic: '31202-7654321-2',
-      erp_reference: null,
+      erp_reference: 'DEMO-ERP-LS-HAS-002',
       erp_mapping_status: 'PENDING',
       is_active: true,
       created_by_user_id: zmccManager.id,
     },
   });
 
-  // Supplier 3: Inactive / deactivated Local Supplier with historical records only (Continuity Scenario)
+  // Supplier 3: Created active initially so it can participate in historical Arrival 4, then deactivated later
   const supplier3 = await prisma.zmccLocalSupplier.create({
     data: {
       local_supplier_code: await allocateSupplierCode(),
       zmcc_id: hasilpurSource.id,
-      name: 'Rehman Dairy Supplies (Inactive)',
+      name: 'DEMO - Rehman Dairy Supplies (Inactive)',
       phone: '03029876543',
       cnic: '31202-9876543-3',
-      erp_reference: 'ERP-LS-INACT-03',
+      erp_reference: 'DEMO-ERP-LS-INACT-03',
       erp_mapping_status: 'PENDING',
-      is_active: false, // Inactive! Cannot be selected for new arrivals
+      is_active: true,
       created_by_user_id: zmccManager.id,
     },
   });
 
   // Deterministic time references anchored to Pakistan Calendar Date
   const pktTodayDateStr = getPakistanCalendarDate(now);
-  const pktTodayMidnight = new Date(`${pktTodayDateStr}T00:00:00.000Z`);
-
-  const yesterdayDate = new Date(pktTodayMidnight.getTime() - msPerDay);
+  const yesterdayDate = new Date(now.getTime() - msPerDay);
   const yesterdayDateStr = getPakistanCalendarDate(yesterdayDate);
-  const yesterdayMidnight = new Date(`${yesterdayDateStr}T00:00:00.000Z`);
-
-  const threeDaysAgoDate = new Date(pktTodayMidnight.getTime() - 3 * msPerDay);
+  const threeDaysAgoDate = new Date(now.getTime() - 3 * msPerDay);
   const threeDaysAgoDateStr = getPakistanCalendarDate(threeDaysAgoDate);
-  const threeDaysAgoMidnight = new Date(`${threeDaysAgoDateStr}T00:00:00.000Z`);
 
-  // Timestamps
-  const timeTodayArr1 = new Date(pktTodayMidnight.getTime() + 9 * 3600000 + 15 * 60000); // 09:15 PKT
-  const timeTodayArr2 = new Date(pktTodayMidnight.getTime() + 9 * 3600000 + 30 * 60000); // 09:30 PKT
-  const timeTodayArr3 = new Date(pktTodayMidnight.getTime() + 7 * 3600000 + 15 * 60000); // 07:15 PKT
-  const timeTodayArr3Exit = new Date(pktTodayMidnight.getTime() + 8 * 3600000 + 15 * 60000); // 08:15 PKT
+  const pktTodayMidnight = new Date(`${pktTodayDateStr}T00:00:00+05:00`);
+  const yesterdayMidnight = new Date(`${yesterdayDateStr}T00:00:00+05:00`);
+  const threeDaysAgoMidnight = new Date(`${threeDaysAgoDateStr}T00:00:00+05:00`);
 
-  const timeYestArr5 = new Date(yesterdayMidnight.getTime() + 11 * 3600000); // 11:00 PKT
-  const timeYestArr5Exit = new Date(yesterdayMidnight.getTime() + 12 * 3600000 + 30 * 60000); // 12:30 PKT
+  // Explicit PKT (+05:00) event timestamps
+  const timeTodayArr1 = new Date(`${pktTodayDateStr}T09:15:00+05:00`); // 09:15 PKT
+  const timeTodayArr2 = new Date(`${pktTodayDateStr}T09:30:00+05:00`); // 09:30 PKT
+  const timeTodayArr3 = new Date(`${pktTodayDateStr}T07:15:00+05:00`); // 07:15 PKT
+  const timeTodayArr3Exit = new Date(`${pktTodayDateStr}T08:15:00+05:00`); // 08:15 PKT
 
-  const timeThreeDaysArr4 = new Date(threeDaysAgoMidnight.getTime() + 14 * 3600000); // 14:00 PKT
-  const timeThreeDaysArr4Exit = new Date(threeDaysAgoMidnight.getTime() + 14 * 3600000 + 45 * 60000); // 14:45 PKT
+  const timeYestArr5 = new Date(`${yesterdayDateStr}T11:00:00+05:00`); // 11:00 PKT
+  const timeYestArr5Exit = new Date(`${yesterdayDateStr}T12:30:00+05:00`); // 12:30 PKT
+
+  const timeThreeDaysArr4 = new Date(`${threeDaysAgoDateStr}T14:00:00+05:00`); // 14:00 PKT
+  const timeThreeDaysArr4Exit = new Date(`${threeDaysAgoDateStr}T14:45:00+05:00`); // 14:45 PKT
 
   // B. PHE / Arrivals View Scenarios:
   // Arrival 1: Local Supplier arrival currently inside ZMCC and waiting for Lab
@@ -764,7 +767,7 @@ export async function seedOperationalData() {
     data: {
       zmcc_id: hasilpurSource.id,
       local_supplier_id: supplier1.id,
-      rmr_number: 'RMR-HAS-0101',
+      rmr_number: '0000101',
       vehicle_number: 'BWP-4411',
       arrival_timestamp: timeTodayArr1,
       arrival_date: pktTodayMidnight,
@@ -859,7 +862,7 @@ export async function seedOperationalData() {
     data: {
       zmcc_id: hasilpurSource.id,
       local_supplier_id: supplier2.id,
-      rmr_number: 'RMR-HAS-0102',
+      rmr_number: '0000102',
       vehicle_number: 'BWP-3322',
       arrival_timestamp: timeTodayArr3,
       arrival_date: pktTodayMidnight,
@@ -877,10 +880,7 @@ export async function seedOperationalData() {
   const arr3QtyLiters = 2400.0;
   const arr3Lr = 28.5;
   const arr3Fat = 3.8;
-  const arr3Density = calculateDensity(arr3Lr);
-  const arr3Snf = calculateSNF(arr3Fat, arr3Lr);
-  const arr3Ts = calculateTS(arr3Fat, arr3Snf);
-  const arr3At13Ts = calculateAt13TSLiters(arr3QtyLiters, arr3Ts);
+  const arr3Metrics = computeCanonicalMilkMetrics(arr3QtyLiters, 'LITER', arr3Lr, arr3Fat);
 
   const session3 = await prisma.zmccLabSession.create({
     data: {
@@ -896,12 +896,12 @@ export async function seedOperationalData() {
       completion_client_event_id: `evt-comp-ls-02-${pktTodayDateStr}`,
       quantity_value: arr3QtyLiters,
       quantity_unit: 'LITER',
-      density: arr3Density,
-      gross_liters: arr3QtyLiters,
-      snf: arr3Snf,
-      ts: arr3Ts,
-      at_13ts_liters: arr3At13Ts,
-      calculation_version: '1.0',
+      density: arr3Metrics.density,
+      gross_liters: arr3Metrics.grossLiters,
+      snf: arr3Metrics.snf,
+      ts: arr3Metrics.ts,
+      at_13ts_liters: arr3Metrics.at13tsLiters,
+      calculation_version: arr3Metrics.calculationVersion,
     },
   });
 
@@ -948,14 +948,14 @@ export async function seedOperationalData() {
       arrival_type: 'LOCAL_SUPPLIER',
       quantity_value: arr3QtyLiters,
       quantity_unit: 'LITER',
-      density: arr3Density,
-      gross_liters: arr3QtyLiters,
+      density: arr3Metrics.density,
+      gross_liters: arr3Metrics.grossLiters,
       lr: arr3Lr,
       fat: arr3Fat,
-      snf: arr3Snf,
-      ts: arr3Ts,
-      at_13ts_liters: arr3At13Ts,
-      calculation_version: '1.0',
+      snf: arr3Metrics.snf,
+      ts: arr3Metrics.ts,
+      at_13ts_liters: arr3Metrics.at13tsLiters,
+      calculation_version: arr3Metrics.calculationVersion,
       received_at: new Date(timeTodayArr3.getTime() + 2100000),
       received_by_user_id: zmccLabUser.id,
     },
@@ -982,7 +982,7 @@ export async function seedOperationalData() {
     data: {
       zmcc_id: hasilpurSource.id,
       local_supplier_id: supplier3.id,
-      rmr_number: 'RMR-HAS-0103',
+      rmr_number: '0000103',
       vehicle_number: 'BWP-8877',
       arrival_timestamp: timeThreeDaysArr4,
       arrival_date: threeDaysAgoMidnight,
@@ -1000,10 +1000,7 @@ export async function seedOperationalData() {
   const arr4QtyLiters = 1200.0;
   const arr4Lr = 22.0;
   const arr4Fat = 2.2;
-  const arr4Density = calculateDensity(arr4Lr);
-  const arr4Snf = calculateSNF(arr4Fat, arr4Lr);
-  const arr4Ts = calculateTS(arr4Fat, arr4Snf);
-  const arr4At13Ts = calculateAt13TSLiters(arr4QtyLiters, arr4Ts);
+  const arr4Metrics = computeCanonicalMilkMetrics(arr4QtyLiters, 'LITER', arr4Lr, arr4Fat);
 
   const session4 = await prisma.zmccLabSession.create({
     data: {
@@ -1021,12 +1018,12 @@ export async function seedOperationalData() {
       completion_client_event_id: `evt-comp-ls-03-${threeDaysAgoDateStr}`,
       quantity_value: arr4QtyLiters,
       quantity_unit: 'LITER',
-      density: arr4Density,
-      gross_liters: arr4QtyLiters,
-      snf: arr4Snf,
-      ts: arr4Ts,
-      at_13ts_liters: arr4At13Ts,
-      calculation_version: '1.0',
+      density: arr4Metrics.density,
+      gross_liters: arr4Metrics.grossLiters,
+      snf: arr4Metrics.snf,
+      ts: arr4Metrics.ts,
+      at_13ts_liters: arr4Metrics.at13tsLiters,
+      calculation_version: arr4Metrics.calculationVersion,
     },
   });
 
@@ -1064,6 +1061,12 @@ export async function seedOperationalData() {
       ],
     });
   }
+
+  // Deactivate supplier3 now that historical arrival has completed (models realistic supplier lifecycle)
+  await prisma.zmccLocalSupplier.update({
+    where: { id: supplier3.id },
+    data: { is_active: false, updated_by_user_id: zmccManager.id },
+  });
 
   // Arrival 5: Completed MOT arrival that can appear in recent history
   const journey5 = await prisma.motJourney.create({
@@ -1108,10 +1111,7 @@ export async function seedOperationalData() {
   const arr5QtyLiters = 4500.0;
   const arr5Lr = 29.0;
   const arr5Fat = 4.1;
-  const arr5Density = calculateDensity(arr5Lr);
-  const arr5Snf = calculateSNF(arr5Fat, arr5Lr);
-  const arr5Ts = calculateTS(arr5Fat, arr5Snf);
-  const arr5At13Ts = calculateAt13TSLiters(arr5QtyLiters, arr5Ts);
+  const arr5Metrics = computeCanonicalMilkMetrics(arr5QtyLiters, 'LITER', arr5Lr, arr5Fat);
 
   const session5 = await prisma.zmccLabSession.create({
     data: {
@@ -1127,12 +1127,12 @@ export async function seedOperationalData() {
       completion_client_event_id: `evt-comp-mot-02-${yesterdayDateStr}`,
       quantity_value: arr5QtyLiters,
       quantity_unit: 'LITER',
-      density: arr5Density,
-      gross_liters: arr5QtyLiters,
-      snf: arr5Snf,
-      ts: arr5Ts,
-      at_13ts_liters: arr5At13Ts,
-      calculation_version: '1.0',
+      density: arr5Metrics.density,
+      gross_liters: arr5Metrics.grossLiters,
+      snf: arr5Metrics.snf,
+      ts: arr5Metrics.ts,
+      at_13ts_liters: arr5Metrics.at13tsLiters,
+      calculation_version: arr5Metrics.calculationVersion,
     },
   });
 
@@ -1179,14 +1179,14 @@ export async function seedOperationalData() {
       arrival_type: 'MOT',
       quantity_value: arr5QtyLiters,
       quantity_unit: 'LITER',
-      density: arr5Density,
-      gross_liters: arr5QtyLiters,
+      density: arr5Metrics.density,
+      gross_liters: arr5Metrics.grossLiters,
       lr: arr5Lr,
       fat: arr5Fat,
-      snf: arr5Snf,
-      ts: arr5Ts,
-      at_13ts_liters: arr5At13Ts,
-      calculation_version: '1.0',
+      snf: arr5Metrics.snf,
+      ts: arr5Metrics.ts,
+      at_13ts_liters: arr5Metrics.at13tsLiters,
+      calculation_version: arr5Metrics.calculationVersion,
       received_at: new Date(timeYestArr5.getTime() + 2700000),
       received_by_user_id: zmccLabUser.id,
     },
