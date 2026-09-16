@@ -112,7 +112,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
     }
     const result = Array.from(uniqueMap.values());
     return result.length > 0 ? result : [selectedLog];
-  }, [selectedLog, liveLogs, reportingLogs, receiptLogs]);
+  }, [selectedLog, liveLogs, reportingLogs]);
 
   const openDrawer = useCallback(() => {
     setIsDrawerOpen(true);
