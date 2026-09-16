@@ -40,7 +40,9 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
   const canCorrect = isZmccManager || isSuperAdmin;
   const canReceiveHistorical = isZmccLabAttendant || isSuperAdmin;
 
-  const [activeTab, setActiveTab] = useState<MainTab>('QUEUE');
+  const [activeTab, setActiveTab] = useState<MainTab>(
+    canTest ? 'QUEUE' : 'HISTORY'
+  );
 
   // Queue State
   const [queueItems, setQueueItems] = useState<any[]>([]);
@@ -541,7 +543,10 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
       item.route_milk_token?.toLowerCase().includes(s) ||
       item.vehicle_number?.toLowerCase().includes(s) ||
       item.contractor_name?.toLowerCase().includes(s) ||
-      item.route_name?.toLowerCase().includes(s)
+      item.route_name?.toLowerCase().includes(s) ||
+      item.local_supplier_name?.toLowerCase().includes(s) ||
+      item.local_supplier_code?.toLowerCase().includes(s) ||
+      item.rmr_number?.toLowerCase().includes(s)
     );
   });
 
@@ -555,7 +560,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
             <h1 className="text-2xl font-bold text-slate-800">ZMCC Laboratory Testing</h1>
           </div>
           <p className="text-sm text-slate-600">
-            Intake testing and accept/reject decisioning for MOT and Contractor milk arrivals.
+            Intake testing and accept/reject decisions for MOT and Local Supplier arrivals. Historical Contractor records remain available for legacy completion and support.
           </p>
         </div>
         {currentUser?.procurement_source && (
@@ -570,24 +575,26 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
 
       {/* Tabs */}
       <div className="flex border-b border-slate-200">
-        <button
-          onClick={() => setActiveTab('QUEUE')}
-          className={`px-5 py-3 font-semibold text-sm flex items-center gap-2 border-b-2 transition-colors ${
-            activeTab === 'QUEUE'
-              ? 'border-[#1E3A8A] text-[#1E3A8A]'
-              : 'border-transparent text-slate-500 hover:text-slate-700'
-          }`}
-        >
-          <Clock className="w-4 h-4" />
-          Arrivals Queue
-          {queueItems.length > 0 && (
-            <span className="ml-1 bg-amber-100 text-amber-800 text-xs px-2 py-0.5 rounded-full font-bold">
-              {queueItems.length}
-            </span>
-          )}
-        </button>
+        {canTest && (
+          <button
+            onClick={() => setActiveTab('QUEUE')}
+            className={`px-5 py-3 font-semibold text-sm flex items-center gap-2 border-b-2 transition-colors ${
+              activeTab === 'QUEUE'
+                ? 'border-[#1E3A8A] text-[#1E3A8A]'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <Clock className="w-4 h-4" />
+            Arrivals Queue
+            {queueItems.length > 0 && (
+              <span className="ml-1 bg-amber-100 text-amber-800 text-xs px-2 py-0.5 rounded-full font-bold">
+                {queueItems.length}
+              </span>
+            )}
+          </button>
+        )}
 
-        {activeSession && (
+        {canTest && activeSession && (
           <button
             onClick={() => setActiveTab('TESTING')}
             className={`px-5 py-3 font-semibold text-sm flex items-center gap-2 border-b-2 transition-colors ${
@@ -618,7 +625,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
       </div>
 
       {/* TAB 1: ARRIVALS QUEUE */}
-      {activeTab === 'QUEUE' && (
+      {activeTab === 'QUEUE' && canTest && (
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div className="relative w-full sm:w-80">
@@ -627,7 +634,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                 type="text"
                 value={queueSearch}
                 onChange={(e) => setQueueSearch(e.target.value)}
-                placeholder="Search token, vehicle, contractor..."
+                placeholder="Search token, vehicle, supplier..."
                 className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
               />
             </div>
@@ -664,10 +671,16 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                         className={`text-xs font-bold px-2.5 py-1 rounded-full uppercase ${
                           item.queue_type === 'MOT'
                             ? 'bg-blue-100 text-blue-800'
+                            : item.queue_type === 'LOCAL_SUPPLIER'
+                            ? 'bg-emerald-100 text-emerald-800'
                             : 'bg-purple-100 text-purple-800'
                         }`}
                       >
-                        {item.queue_type === 'MOT' ? 'MOT Journey Milk' : 'Contractor Milk'}
+                        {item.queue_type === 'MOT'
+                          ? 'MOT Journey Milk'
+                          : item.queue_type === 'LOCAL_SUPPLIER'
+                          ? 'Local Supplier Milk'
+                          : 'Historical Contractor Milk'}
                       </span>
                       <span className="text-xs text-slate-500 flex items-center gap-1 font-mono">
                         <Clock className="w-3.5 h-3.5" />
@@ -677,7 +690,11 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
 
                     <div>
                       <div className="font-bold text-slate-800 text-base">
-                        {item.queue_type === 'MOT' ? item.route_name || item.route_code || 'Direct MOT' : item.contractor_name}
+                        {item.queue_type === 'MOT'
+                          ? item.route_name || item.route_code || 'Direct MOT'
+                          : item.queue_type === 'LOCAL_SUPPLIER'
+                          ? item.local_supplier_name
+                          : item.contractor_name}
                       </div>
                       <div className="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
                         <span>Vehicle: <strong className="text-slate-700">{item.vehicle_number || 'N/A'}</strong></span>
@@ -693,9 +710,17 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                       </div>
                     )}
 
+                    {item.queue_type === 'LOCAL_SUPPLIER' && (
+                      <div className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-100 space-y-1">
+                        <div>Supplier Code: <strong>{item.local_supplier_code}</strong></div>
+                        <div>RMR Number: <strong>{item.rmr_number || 'N/A'}</strong></div>
+                      </div>
+                    )}
+
                     {item.queue_type === 'CONTRACTOR' && (
-                      <div className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
-                        Contractor Code: <strong>{item.contractor_code}</strong>
+                      <div className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-100 space-y-1">
+                        <div className="text-[10px] text-amber-700 font-bold uppercase">Legacy / Historical Contractor Record</div>
+                        <div>Contractor Code: <strong>{item.contractor_code}</strong></div>
                       </div>
                     )}
                   </div>
@@ -732,7 +757,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
       )}
 
       {/* TAB 2: ACTIVE TESTING SESSION */}
-      {activeTab === 'TESTING' && activeSession && (
+      {activeTab === 'TESTING' && canTest && activeSession && (
         <div className="space-y-6">
           {/* Active Session Card */}
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
@@ -754,7 +779,10 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
               <div className="text-right">
                 <span className="text-xs text-slate-500">ZMCC Intake Token</span>
                 <p className="font-mono font-bold text-slate-800 text-sm">
-                  {activeSession.mot_arrival?.zmcc_token || activeSession.contractor_arrival?.zmcc_token}
+                  {activeSession.mot_arrival?.zmcc_token ||
+                    activeSession.local_supplier_arrival?.zmcc_token ||
+                    activeSession.contractor_arrival?.zmcc_token ||
+                    '—'}
                 </p>
               </div>
             </div>
@@ -1170,14 +1198,19 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                           className={`text-[10px] font-bold px-2 py-0.5 rounded ${
                             item.arrival_type === 'MOT'
                               ? 'bg-blue-100 text-blue-800'
+                              : item.arrival_type === 'LOCAL_SUPPLIER'
+                              ? 'bg-emerald-100 text-emerald-800'
                               : 'bg-purple-100 text-purple-800'
                           }`}
                         >
-                          {item.arrival_type}
+                          {item.arrival_type === 'CONTRACTOR' ? 'CONTRACTOR (historical)' : item.arrival_type}
                         </span>
                       </td>
                       <td className="py-3.5 px-4 font-mono text-slate-700">
-                        {item.mot_arrival?.zmcc_token || item.contractor_arrival?.zmcc_token || '—'}
+                        {item.mot_arrival?.zmcc_token ||
+                          item.local_supplier_arrival?.zmcc_token ||
+                          item.contractor_arrival?.zmcc_token ||
+                          '—'}
                       </td>
                       <td className="py-3.5 px-4 text-slate-700">
                         {item.arrival_type === 'MOT' ? (
@@ -1185,8 +1218,14 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                             {item.mot_arrival?.journey?.route?.name || 'Route Milk'} (
                             {item.mot_arrival?.journey?.mot_vehicle?.vehicle_number || 'MOT'})
                           </span>
+                        ) : item.arrival_type === 'LOCAL_SUPPLIER' ? (
+                          <span>
+                            {item.local_supplier_arrival?.local_supplier?.name || 'Local Supplier'} (
+                            {item.local_supplier_arrival?.vehicle_number || '—'})
+                          </span>
                         ) : (
                           <span>
+                            <span className="text-slate-400 mr-1">[Historical]</span>
                             {item.contractor_arrival?.contractor_source?.name || 'Contractor'} (
                             {item.contractor_arrival?.vehicle_number || '—'})
                           </span>

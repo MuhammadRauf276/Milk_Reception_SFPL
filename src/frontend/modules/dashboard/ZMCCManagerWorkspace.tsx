@@ -25,10 +25,17 @@ import {
   Milk,
 } from 'lucide-react';
 import { ZmccMasterDataWorkspace } from '@/frontend/modules/zmcc/ZmccMasterDataWorkspace';
+import { ZmccArrivalsWorkspace } from '@/frontend/modules/zmcc/arrivals/ZmccArrivalsWorkspace';
+import { ZmccLabWorkspace } from '@/frontend/modules/zmcc/lab/ZmccLabWorkspace';
 
 interface ZMCCManagerWorkspaceProps {
   currentUser: User | null;
 }
+
+type ManagerHistoryView =
+  | 'PLANT_HISTORY'
+  | 'ARRIVAL_CORRECTIONS'
+  | 'LAB_CORRECTIONS';
 
 const TABS: { id: ZMCCManagerTab; label: string; icon: React.FC<{ className?: string }> }[] = [
   { id: 'OVERVIEW', label: 'Overview', icon: LayoutDashboard },
@@ -42,6 +49,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
   currentUser,
 }) => {
   const [activeTab, setActiveTab] = useState<ZMCCManagerTab>('OVERVIEW');
+  const [historyView, setHistoryView] = useState<ManagerHistoryView>('PLANT_HISTORY');
   const [summaryDateRange, setSummaryDateRange] = useState<OverviewDateRange>('TODAY');
   const [serverBusinessDate, setServerBusinessDate] = useState<string>('');
   const [serverCalendarDate, setServerCalendarDate] = useState<string>('');
@@ -70,19 +78,10 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
     activeInPlantVisits: number;
   } | null>(null);
 
-  // 3. Independent Receipts & Performance State
-  const [receiptLogs, setReceiptLogs] = useState<MilkProcessLog[]>([]);
-  const [receiptLoading, setReceiptLoading] = useState<boolean>(true);
-  const [receiptError, setReceiptError] = useState<string | null>(null);
-  const [receiptPage, setReceiptPage] = useState<number>(1);
-  const [receiptTotalPages, setReceiptTotalPages] = useState<number>(1);
-  const [receiptTotalRecords, setReceiptTotalRecords] = useState<number>(0);
-  const [receiptHasMore, setReceiptHasMore] = useState<boolean>(false);
-
-  // 4. Local ZMCC Operational Snapshot State (Tank stock, Inside yard vehicles, Today accepted intake)
+  // 3. Local ZMCC Operational Snapshot State (Tank stock, Inside yard vehicles, Today accepted intake)
   const [zmccTankStock, setZmccTankStock] = useState<number | null>(null);
   const [vehiclesInsideZmccCount, setVehiclesInsideZmccCount] = useState<number | null>(null);
-  const [todayAcceptedIntakeCount, setTodayAcceptedIntakeCount] = useState<number | null>(null);
+  const [todayAcceptedIntakeLiters, setTodayAcceptedIntakeLiters] = useState<number | null>(null);
 
   // History & Table search/filter state (isolated to historical reporting tables)
   const initialOverviewBounds = useMemo(() => getOverviewDateRangeBounds('TODAY'), []);
@@ -97,7 +96,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
 
   const selectedVisitPortions = useMemo(() => {
     if (!selectedLog) return [];
-    const pool = [...liveLogs, ...reportingLogs, ...receiptLogs];
+    const pool = [...liveLogs, ...reportingLogs];
     const matching = pool.filter(
       (l) =>
         l.id === selectedLog.id ||
@@ -212,42 +211,6 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
     }
   }, []);
 
-  // Fetch Receipt Logs: Mode 'recent' (default 7 days) or bounded reporting date
-  const fetchReceiptLogs = useCallback(
-    async (fDate?: string, tDate?: string, targetPage: number = 1) => {
-      setReceiptLoading(true);
-      setReceiptError(null);
-      try {
-        const params = new URLSearchParams();
-        params.append('mode', fDate || tDate ? 'report' : 'recent');
-        params.append('dateBasis', 'reporting');
-        params.append('page', String(targetPage));
-        params.append('pageSize', '20');
-        if (fDate) params.append('fromDate', fDate);
-        if (tDate) params.append('toDate', tDate);
-
-        const res = await fetch(`/api/logs?${params.toString()}`);
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Failed to fetch receipt logs');
-
-        const items = data.items || data.logs;
-        if (items) setReceiptLogs(items);
-        if (data.pagination) {
-          setReceiptPage(data.pagination.page || targetPage);
-          setReceiptTotalPages(data.pagination.totalPages || data.pagination.total_pages || 1);
-          setReceiptTotalRecords(data.pagination.totalRecords || data.pagination.total_count || 0);
-          setReceiptHasMore(Boolean(data.pagination.hasMore ?? data.pagination.has_more));
-        }
-        if (data.serverBusinessDate) setServerBusinessDate(data.serverBusinessDate);
-      } catch (err: any) {
-        setReceiptError(err.message || 'Failed to load receipt logs');
-      } finally {
-        setReceiptLoading(false);
-      }
-    },
-    []
-  );
-
   const lastReportingQueryRef = useRef<string>('');
 
   // Fetch Reporting Logs: Parameterized fetch for Overview / History date queries
@@ -338,30 +301,31 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
     } catch {
       setVehiclesInsideZmccCount(null);
     }
-  }, []);
 
-  // Fetch today's accepted intake count (authoritative DB total, non-polled)
-  const fetchTodayAcceptedIntakeCount = useCallback(async () => {
     try {
       const todayDate =
         serverCalendarDate || getPakistanCalendarDate(new Date());
 
-      const res = await fetch(
+      const labRes = await fetch(
         `/api/zmcc/lab/history?date=${todayDate}&decision=ACCEPTED&page=1&pageSize=1`
       );
 
-      if (!res.ok) {
-        setTodayAcceptedIntakeCount(null);
-        return;
+      if (labRes.ok) {
+        const labData = await labRes.json();
+        const totalGross = labData.summary?.totalGrossLiters;
+
+        if (typeof totalGross === 'number') {
+          setTodayAcceptedIntakeLiters(Number(totalGross.toFixed(2)));
+        } else if (labData.total === 0) {
+          setTodayAcceptedIntakeLiters(0);
+        } else {
+          setTodayAcceptedIntakeLiters(null);
+        }
+      } else {
+        setTodayAcceptedIntakeLiters(null);
       }
-
-      const data = await res.json();
-
-      setTodayAcceptedIntakeCount(
-        typeof data.total === 'number' ? data.total : null
-      );
     } catch {
-      setTodayAcceptedIntakeCount(null);
+      setTodayAcceptedIntakeLiters(null);
     }
   }, [serverCalendarDate]);
 
@@ -375,17 +339,6 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
     }, 15000);
     return () => clearInterval(interval);
   }, [fetchLiveLogs, fetchZmccLocalStats]);
-
-  // Separate non-polled load for accepted intake count
-  useEffect(() => {
-    fetchTodayAcceptedIntakeCount();
-  }, [fetchTodayAcceptedIntakeCount]);
-
-  // B. Receipt Flow: Initial load and when fromDate/toDate changes (NO polling, resets to page 1)
-  useEffect(() => {
-    setReceiptPage(1);
-    fetchReceiptLogs(fromDate, toDate, 1);
-  }, [fetchReceiptLogs, fromDate, toDate]);
 
   // B. Reporting Flow: Initial load and when fromDate/toDate changes (resets to page 1)
   useEffect(() => {
@@ -431,50 +384,6 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
               fetchReportingLogs(fromDate, toDate, nextPage, 'report');
             }}
             disabled={reportingPage >= reportingTotalPages || !reportingHasMore || reportingLoading}
-            className="px-3.5 py-1.5 min-h-[36px] bg-[#FDFBF9] hover:bg-[#EFE9D9]/60 border border-[#C4B9A3] rounded-lg font-bold text-[#111311] disabled:opacity-40 disabled:cursor-not-allowed transition"
-          >
-            Next
-          </button>
-        </div>
-      </div>
-    );
-  };
-
-  const renderReceiptPaginationBar = () => {
-    if (receiptTotalRecords === 0) return null;
-    const startItem = (receiptPage - 1) * 20 + 1;
-    const endItem = Math.min(receiptPage * 20, receiptTotalRecords);
-    return (
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 bg-white border border-[#EAE4D5] rounded-xl text-xs shadow-xs mt-4">
-        <div className="text-slate-600 font-medium">
-          Showing visits <span className="font-bold text-slate-900">{startItem}</span> to{' '}
-          <span className="font-bold text-slate-900">{endItem}</span> of{' '}
-          <span className="font-bold text-slate-900">{receiptTotalRecords}</span> total
-          {receiptTotalPages > 1 && (
-            <span className="ml-2 text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-              Page {receiptPage} of {receiptTotalPages}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center space-x-2">
-          <button
-            type="button"
-            onClick={() => {
-              const prevPage = Math.max(1, receiptPage - 1);
-              fetchReceiptLogs(fromDate, toDate, prevPage);
-            }}
-            disabled={receiptPage <= 1 || receiptLoading}
-            className="px-3.5 py-1.5 min-h-[36px] bg-[#FDFBF9] hover:bg-[#EFE9D9]/60 border border-[#C4B9A3] rounded-lg font-bold text-[#111311] disabled:opacity-40 disabled:cursor-not-allowed transition"
-          >
-            Previous
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              const nextPage = Math.min(receiptTotalPages, receiptPage + 1);
-              fetchReceiptLogs(fromDate, toDate, nextPage);
-            }}
-            disabled={receiptPage >= receiptTotalPages || !receiptHasMore || receiptLoading}
             className="px-3.5 py-1.5 min-h-[36px] bg-[#FDFBF9] hover:bg-[#EFE9D9]/60 border border-[#C4B9A3] rounded-lg font-bold text-[#111311] disabled:opacity-40 disabled:cursor-not-allowed transition"
           >
             Next
@@ -609,7 +518,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
               summary={reportingSummary || undefined}
               liveActiveInPlantCount={liveActiveInPlantCount}
               zmccTankStock={zmccTankStock}
-              todayAcceptedIntakeCount={todayAcceptedIntakeCount}
+              todayAcceptedIntakeLiters={todayAcceptedIntakeLiters}
               vehiclesInsideZmccCount={vehiclesInsideZmccCount}
             />
             {renderReportingPaginationBar()}
@@ -640,12 +549,6 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
               isLoading={reportingLoading}
               error={reportingError}
               onRetry={() => fetchReportingLogs(fromDate, toDate, reportingPage, 'report')}
-              currentFromDate={fromDate}
-              currentToDate={toDate}
-              onDateFilterChange={(f, t) => {
-                setFromDate(f || '');
-                setToDate(t || '');
-              }}
               pagination={{
                 page: reportingPage,
                 totalPages: reportingTotalPages,
@@ -660,21 +563,70 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
         {/* TAB 4: HISTORY & REPORTS */}
         {activeTab === 'HISTORY' && (
           <div id="tabpanel-HISTORY" role="tabpanel" aria-labelledby="tab-HISTORY" className="space-y-6">
-            <ZMCCManagerHistoryReports
-              logs={reportingLogs}
-              assignedSourceName={assignedSourceName}
-              onInspectDetails={(l) => setSelectedLog(l)}
-              isLoading={reportingLoading}
-              error={reportingError}
-              onRetry={() => fetchReportingLogs(fromDate, toDate, reportingPage, 'report')}
-              currentFromDate={fromDate}
-              currentToDate={toDate}
-              onDateFilterChange={(f, t) => {
-                setFromDate(f || '');
-                setToDate(t || '');
-              }}
-            />
-            {renderReportingPaginationBar()}
+            {/* Secondary Sub-Navigation for History View */}
+            <div className="flex items-center gap-2 p-1.5 bg-[#FFFFFF] border border-[#EAE4D5] rounded-xl shadow-xs w-fit">
+              <button
+                type="button"
+                onClick={() => setHistoryView('PLANT_HISTORY')}
+                className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                  historyView === 'PLANT_HISTORY'
+                    ? 'bg-[#1E3A8A] text-white shadow-xs'
+                    : 'text-slate-700 hover:bg-[#F4F0E6]'
+                }`}
+              >
+                Plant / Dispatch History
+              </button>
+              <button
+                type="button"
+                onClick={() => setHistoryView('ARRIVAL_CORRECTIONS')}
+                className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                  historyView === 'ARRIVAL_CORRECTIONS'
+                    ? 'bg-[#1E3A8A] text-white shadow-xs'
+                    : 'text-slate-700 hover:bg-[#F4F0E6]'
+                }`}
+              >
+                Arrival Corrections
+              </button>
+              <button
+                type="button"
+                onClick={() => setHistoryView('LAB_CORRECTIONS')}
+                className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                  historyView === 'LAB_CORRECTIONS'
+                    ? 'bg-[#1E3A8A] text-white shadow-xs'
+                    : 'text-slate-700 hover:bg-[#F4F0E6]'
+                }`}
+              >
+                Lab Corrections
+              </button>
+            </div>
+
+            {historyView === 'PLANT_HISTORY' && (
+              <div className="space-y-6">
+                <ZMCCManagerHistoryReports
+                  logs={reportingLogs}
+                  assignedSourceName={assignedSourceName}
+                  onInspectDetails={(l) => setSelectedLog(l)}
+                  isLoading={reportingLoading}
+                  error={reportingError}
+                  onRetry={() => fetchReportingLogs(fromDate, toDate, reportingPage, 'report')}
+                  currentFromDate={fromDate}
+                  currentToDate={toDate}
+                  onDateFilterChange={(f, t) => {
+                    setFromDate(f || '');
+                    setToDate(t || '');
+                  }}
+                />
+                {renderReportingPaginationBar()}
+              </div>
+            )}
+
+            {historyView === 'ARRIVAL_CORRECTIONS' && (
+              <ZmccArrivalsWorkspace currentUser={currentUser} />
+            )}
+
+            {historyView === 'LAB_CORRECTIONS' && (
+              <ZmccLabWorkspace currentUser={currentUser} />
+            )}
           </div>
         )}
 

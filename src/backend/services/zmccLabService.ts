@@ -2641,8 +2641,15 @@ export async function getLabHistory(
   const pageSize = Math.min(100, Math.max(1, Number(query.pageSize) || 50));
   const skip = (page - 1) * pageSize;
 
-  const [total, items] = await Promise.all([
+  const [total, aggregate, items] = await Promise.all([
     prisma.zmccLabSession.count({ where }),
+    prisma.zmccLabSession.aggregate({
+      where,
+      _sum: {
+        gross_liters: true,
+        at_13ts_liters: true,
+      },
+    }),
     prisma.zmccLabSession.findMany({
       where,
       include: {
@@ -2693,6 +2700,16 @@ export async function getLabHistory(
     data: {
       items: items.map(serializeLabSession),
       total,
+      summary: {
+        totalGrossLiters:
+          aggregate._sum.gross_liters != null
+            ? Number(aggregate._sum.gross_liters)
+            : null,
+        totalAt13TsLiters:
+          aggregate._sum.at_13ts_liters != null
+            ? Number(aggregate._sum.at_13ts_liters)
+            : null,
+      },
       page,
       pageSize,
       totalPages: Math.ceil(total / pageSize),

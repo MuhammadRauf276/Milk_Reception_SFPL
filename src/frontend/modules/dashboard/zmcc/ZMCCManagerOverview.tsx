@@ -58,7 +58,7 @@ interface ZMCCManagerOverviewProps {
   };
   liveActiveInPlantCount?: number | null;
   zmccTankStock?: number | null;
-  todayAcceptedIntakeCount?: number | null;
+  todayAcceptedIntakeLiters?: number | null;
   vehiclesInsideZmccCount?: number | null;
 }
 
@@ -81,7 +81,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
   summary,
   liveActiveInPlantCount,
   zmccTankStock,
-  todayAcceptedIntakeCount,
+  todayAcceptedIntakeLiters,
   vehiclesInsideZmccCount,
 }) => {
   const displayCalendarDate = serverCalendarDate || getPakistanCalendarDate(new Date());
@@ -176,7 +176,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
             <div className="flex items-center space-x-2">
               <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
               <span>
-                Showing page <strong>{pagination.page}</strong> of <strong>{pagination.totalPages}</strong> ({pagination.totalRecords} total visits in query). Volume, variance, and rejection metrics reflect the visible page.
+                Showing page <strong>{pagination.page}</strong> of <strong>{pagination.totalPages}</strong> ({pagination.totalRecords} total visits in query). Volume, variance, and exceptions/attention reflect the visible page.
               </span>
             </div>
             <span className="text-[11px] font-bold text-amber-700">Bounded page metrics</span>
@@ -210,10 +210,10 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
                 Today Accepted Intake
               </p>
               <h2 className="text-xl font-black font-mono text-[#111311] mt-1">
-                {todayAcceptedIntakeCount != null ? `${todayAcceptedIntakeCount} Loads` : '—'}
+                {todayAcceptedIntakeLiters != null ? `${todayAcceptedIntakeLiters.toLocaleString()} L` : '—'}
               </h2>
               <span className="text-[10px] font-bold text-[#166534]">
-                Accepted Lab Decisions
+                Authoritative Accepted Liters
               </span>
             </div>
             <div className="p-2.5 rounded-xl bg-[#FFFFFF] border border-[#BBF7D0] text-[#166534]">
@@ -225,17 +225,15 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
           <div className="p-4 rounded-xl bg-[#F8FAFC] border border-[#CBD5E1] shadow-xs flex items-center justify-between">
             <div>
               <p className="text-[10.5px] font-extrabold text-[#334155] uppercase tracking-wider">
-                Today Dispatch to Plant
+                {dateRange === 'TODAY'
+                  ? 'Today Dispatches to Plant'
+                  : 'Dispatches to Plant'}
               </p>
               <h2 className="text-xl font-black font-mono text-[#111311] mt-1">
-                {summary?.totalVisits != null
-                  ? `${summary.totalVisits} Visits`
-                  : `${metrics.dispatchedCount} Visits`}
+                {summary?.totalVisits != null ? summary.totalVisits : '—'}
               </h2>
               <span className="text-[10px] font-bold text-[#475569]">
-                {summary?.totalVisits != null
-                  ? 'Server-scoped dispatch visits'
-                  : 'Visible page dispatch visits'}
+                Visits in selected period
               </span>
             </div>
             <div className="p-2.5 rounded-xl bg-[#FFFFFF] border border-[#CBD5E1] text-[#334155]">
@@ -268,10 +266,10 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
                 Active Plant-Bound
               </p>
               <h2 className="text-xl font-black font-mono text-[#111311] mt-1">
-                {liveActiveInPlantCount != null ? liveActiveInPlantCount : metrics.currentlyInPlantCount}
+                {liveActiveInPlantCount != null ? liveActiveInPlantCount : '—'}
               </h2>
               <span className="text-[10px] font-bold text-[#6B21A8]">
-                {liveActiveInPlantCount != null ? 'Live Active Tankers' : 'Page Active Tankers'}
+                Live Active Tankers
               </span>
             </div>
             <div className="p-2.5 rounded-xl bg-[#FFFFFF] border border-[#E9D5FF] text-[#6B21A8]">
@@ -289,7 +287,9 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
                 {attentionItems.length}
               </h2>
               <span className="text-[10px] font-bold text-[#991B1B]">
-                Actionable Exceptions
+                {pagination && pagination.totalPages > 1
+                  ? 'Current Page Exceptions'
+                  : 'Actionable Exceptions'}
               </span>
             </div>
             <div className="p-2.5 rounded-xl bg-[#FFFFFF] border border-[#FECACA] text-[#991B1B]">

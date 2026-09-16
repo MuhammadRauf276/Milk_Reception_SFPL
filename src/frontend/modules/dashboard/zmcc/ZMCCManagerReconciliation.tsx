@@ -37,9 +37,6 @@ interface ZMCCManagerReconciliationProps {
   isLoading?: boolean;
   error?: string | null;
   onRetry?: () => void;
-  currentFromDate?: string;
-  currentToDate?: string;
-  onDateFilterChange?: (from: string | null, to: string | null) => void;
   pagination?: {
     page: number;
     totalPages: number;
@@ -49,7 +46,7 @@ interface ZMCCManagerReconciliationProps {
 }
 
 const FILTER_OPTIONS: { id: ReconciliationFilter; label: string }[] = [
-  { id: 'ALL', label: 'All Records' },
+  { id: 'ALL', label: 'All on Page' },
   { id: 'COMPLETED', label: 'Completed Receipts' },
   { id: 'RECEIPT_PENDING', label: 'Receipt Pending' },
   { id: 'HAS_QUANTITY_DIFF', label: 'Quantity Differences' },
@@ -153,6 +150,9 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
               <p className="text-xs text-[#475569]">
                 Vehicle-level comparison of declared ZMCC dispatches against official factory received quantities, 13% TS solids, and QA decisions.
               </p>
+              <p className="text-[11px] text-slate-500 italic mt-0.5">
+                Metrics, filters, and search below apply to the current bounded server page. Use the server pagination controls below to review additional records.
+              </p>
             </div>
           </div>
 
@@ -187,37 +187,37 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
         {/* KPI Summary Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 font-mono">
           <div className="p-3 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0]">
-            <span className="text-[10px] font-sans text-slate-500 block uppercase font-bold">Visits — Current Page</span>
+            <span className="text-[10px] font-sans text-slate-500 block uppercase font-bold">Visits on Page</span>
             <span className="text-lg font-black text-slate-900">
               {showKpiPlaceholders ? '—' : summary.total}
             </span>
           </div>
           <div className="p-3 rounded-lg bg-[#F0FDF4] border border-[#BBF7D0]">
-            <span className="text-[10px] font-sans text-emerald-700 block uppercase font-bold">Completed — Current Page</span>
+            <span className="text-[10px] font-sans text-emerald-700 block uppercase font-bold">Completed on Page</span>
             <span className="text-lg font-black text-emerald-900">
               {showKpiPlaceholders ? '—' : summary.completed}
             </span>
           </div>
           <div className="p-3 rounded-lg bg-[#FFFBEB] border border-[#FDE68A]">
-            <span className="text-[10px] font-sans text-amber-700 block uppercase font-bold">Receipt Pending — Current Page</span>
+            <span className="text-[10px] font-sans text-amber-700 block uppercase font-bold">Pending on Page</span>
             <span className="text-lg font-black text-amber-900">
               {showKpiPlaceholders ? '—' : summary.pendingReceipt}
             </span>
           </div>
           <div className="p-3 rounded-lg bg-[#FDF2F8] border border-[#FBCFE8]">
-            <span className="text-[10px] font-sans text-pink-700 block uppercase font-bold">Qty Delta — Current Page</span>
+            <span className="text-[10px] font-sans text-pink-700 block uppercase font-bold">Qty Delta on Page</span>
             <span className="text-lg font-black text-pink-900">
               {showKpiPlaceholders ? '—' : summary.qtyDiffCount}
             </span>
           </div>
           <div className="p-3 rounded-lg bg-[#FAF5FF] border border-[#E9D5FF]">
-            <span className="text-[10px] font-sans text-purple-700 block uppercase font-bold">13% TS Delta — Current Page</span>
+            <span className="text-[10px] font-sans text-purple-700 block uppercase font-bold">13% TS Delta on Page</span>
             <span className="text-lg font-black text-purple-900">
               {showKpiPlaceholders ? '—' : summary.tsDiffCount}
             </span>
           </div>
           <div className="p-3 rounded-lg bg-[#FEF2F2] border border-[#FECACA]">
-            <span className="text-[10px] font-sans text-red-700 block uppercase font-bold">QA Rejections — Current Page</span>
+            <span className="text-[10px] font-sans text-red-700 block uppercase font-bold">QA Rejections on Page</span>
             <span className="text-lg font-black text-red-900">
               {showKpiPlaceholders ? '—' : summary.rejectedCount}
             </span>
@@ -252,8 +252,8 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search current page..."
-              aria-label="Search current page"
+              placeholder="Search current page vehicle or token..."
+              aria-label="Search current page vehicle or token"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-[#FDFBF9] border border-[#EAE4D5] text-xs text-[#111311] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
