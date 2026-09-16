@@ -11,6 +11,8 @@ import {
   calculateVehicleReceivedQuantity,
   VehicleCalculationPortion,
 } from '../src/backend/services/vehicleQuantityService';
+import { getOperationalBusinessDate, getPakistanCalendarDate } from '../src/backend/core/business-day';
+import { parseStrictDateOnly } from '../src/lib/datetime-utils';
 
 export async function seedOperationalData() {
   console.log('==================================================');
@@ -165,7 +167,10 @@ export async function seedOperationalData() {
       : new Date(tareTime.getTime() + (10 + (i % 10)) * 60000);
 
     // Assigned Procurement Source
-    const sourceObj = sources[(i - 1) % sources.length];
+    // Assign visit 74 (PLANT_QA) to ZMCC Hasilpur for live active tanker visibility in Hasilpur overview
+    const sourceObj = i === 74
+      ? (sources.find((s) => s.code === 'ZMCC-HASILPUR') || sources[(i - 1) % sources.length])
+      : sources[(i - 1) % sources.length];
     sourceStats[sourceObj.name] = (sourceStats[sourceObj.name] || 0) + 1;
 
     // Vehicle details
@@ -181,6 +186,11 @@ export async function seedOperationalData() {
     const hasTwoPortions = i % 10 === 0;
     const totalDeclaredKg = 7000 + ((i * 350) % 7500); // 7,000 to 14,500 kg
 
+    // Authoritative Plant Business Date: strictly assigned upon Plant Gate Exit completion; in-progress visits remain null
+    const plantBusinessDate = targetStatus === 'COMPLETED'
+      ? parseStrictDateOnly(getOperationalBusinessDate(gateExitTime))
+      : null;
+
     // Create VehicleVisit
     const visit = await prisma.vehicleVisit.create({
       data: {
@@ -188,7 +198,7 @@ export async function seedOperationalData() {
         reception_number: receptionNumber,
         vehicle_number: vehicleNum,
         token_number: tokenNumber,
-        operational_date: dispatchTime,
+        operational_date: plantBusinessDate,
         current_status: targetStatus,
         created_by: mpdUser.id,
         procurement_source_id: sourceObj.id,
@@ -542,6 +552,668 @@ export async function seedOperationalData() {
     if (category.includes('HOLD')) holdVisits++;
   }
 
+  // =========================================================================
+  // 3. SEED DETERMINISTIC D4B ZMCC DEMO DATASET (ZMCC HASILPUR)
+  // =========================================================================
+  console.log('Seeding compact deterministic D4B ZMCC demo dataset for Hasilpur...\n');
+
+  // Fetch canonical Hasilpur users and source
+  const hasilpurSource = await prisma.procurementSource.findUnique({
+    where: { code: 'ZMCC-HASILPUR' },
+  });
+  if (!hasilpurSource) {
+    throw new Error('ZMCC-HASILPUR procurement source not found. Run prisma/seed.ts first.');
+  }
+
+  const zmccManager = await prisma.user.findFirst({
+    where: { username: 'zmcc.manager.north', is_active: true },
+  });
+  const pheUser = await prisma.user.findFirst({
+    where: { username: 'phe.operator', is_active: true },
+  });
+  const zmccLabUser = await prisma.user.findFirst({
+    where: { username: 'zmcc.operator', is_active: true },
+  });
+
+  if (!zmccManager || !pheUser || !zmccLabUser) {
+    throw new Error('Canonical ZMCC users (zmcc.manager.north, phe.operator, zmcc.operator) not found.');
+  }
+
+  // Ensure single active ZMCC tank for Hasilpur (D1 invariant: exactly one active tank per ZMCC)
+  let hasilpurTank = await prisma.zmccTank.findFirst({
+    where: { zmcc_id: hasilpurSource.id, is_active: true },
+  });
+  if (!hasilpurTank) {
+    hasilpurTank = await prisma.zmccTank.create({
+      data: {
+        zmcc_id: hasilpurSource.id,
+        tank_code: 'TK-HAS-01',
+        tank_name: 'Hasilpur Raw Milk Storage Tank 01',
+        capacity_liters: 50000,
+        is_active: true,
+        created_by_user_id: zmccManager.id,
+      },
+    });
+  }
+
+  // Ensure active testing policies exist for ZMCC_LAB_MOT and ZMCC_LAB_CONTRACTOR
+  const lrTest = (await prisma.labTest.findFirst({
+    where: {
+      testCode: { in: ['LT-000008', 'LT-000027'] },
+      isActive: true,
+    },
+  })) || (await prisma.labTest.findFirst({
+    where: { testName: { contains: 'Lactometer', mode: 'insensitive' }, isActive: true },
+  }));
+
+  const fatTest = (await prisma.labTest.findFirst({
+    where: { testCode: 'LT-000026', isActive: true },
+  })) || (await prisma.labTest.findFirst({
+    where: { testName: { equals: 'Fat', mode: 'insensitive' }, isActive: true },
+  }));
+
+  if (lrTest && fatTest) {
+    for (const point of ['ZMCC_LAB_MOT', 'ZMCC_LAB_CONTRACTOR']) {
+      const existing = await prisma.milkTestPolicyAssignment.findFirst({
+        where: { testing_point: point, is_active: true },
+      });
+      if (!existing) {
+        await prisma.milkTestPolicyAssignment.createMany({
+          data: [
+            { lab_test_id: lrTest.id, testing_point: point, is_required: true, display_order: 1, is_active: true, created_by_user_id: zmccManager.id },
+            { lab_test_id: fatTest.id, testing_point: point, is_required: true, display_order: 2, is_active: true, created_by_user_id: zmccManager.id },
+          ],
+        });
+      }
+    }
+  }
+
+  // Ensure MOT Route, Profile, and Vehicle exist for Hasilpur
+  let zmccRoute = await prisma.zmccRoute.findFirst({
+    where: { zmcc_id: hasilpurSource.id, route_code: 'R-HAS-01' },
+  });
+  if (!zmccRoute) {
+    zmccRoute = await prisma.zmccRoute.create({
+      data: {
+        zmcc_id: hasilpurSource.id,
+        route_code: 'R-HAS-01',
+        name: 'Hasilpur Rural Route 01',
+        origin: 'Hasilpur Sub-Div',
+        destination: 'ZMCC Hasilpur',
+        is_active: true,
+        created_by: zmccManager.id,
+      },
+    });
+  }
+
+  let motProfile = await prisma.motProfile.findFirst({
+    where: { zmcc_id: hasilpurSource.id, mot_code: 'MOT-HAS-01' },
+  });
+  if (!motProfile) {
+    motProfile = await prisma.motProfile.create({
+      data: {
+        zmcc_id: hasilpurSource.id,
+        mot_code: 'MOT-HAS-01',
+        name: 'Muhammad Tariq (MOT Officer)',
+        phone_number: '03001234568',
+        cnic: '31202-1234568-1',
+        is_active: true,
+        created_by: zmccManager.id,
+      },
+    });
+  }
+
+  let motVehicle = await prisma.motVehicle.findFirst({
+    where: { zmcc_id: hasilpurSource.id, registration_number: 'BWP-5522' },
+  });
+  if (!motVehicle) {
+    motVehicle = await prisma.motVehicle.create({
+      data: {
+        zmcc_id: hasilpurSource.id,
+        registration_number: 'BWP-5522',
+        make_model: 'Hino Dutro Mini-Tanker',
+        capacity_liters: 10000,
+        is_active: true,
+        created_by: zmccManager.id,
+      },
+    });
+  }
+
+  // Deterministic Local Supplier sequence code helper
+  async function allocateSupplierCode(): Promise<string> {
+    const seqResult = await prisma.$queryRaw<{ nextval: bigint }[]>`
+      SELECT nextval('zmcc_local_supplier_code_seq') as nextval
+    `;
+    const seqNum = Number(seqResult[0].nextval);
+    return `ZLS-${String(seqNum).padStart(6, '0')}`;
+  }
+
+  // A. Local Supplier Master Data
+  // Supplier 1: Active, available for new arrival
+  const supplier1 = await prisma.zmccLocalSupplier.create({
+    data: {
+      local_supplier_code: await allocateSupplierCode(),
+      zmcc_id: hasilpurSource.id,
+      name: 'Bashir Milk Collection Center',
+      phone: '03001234501',
+      cnic: '31202-1234567-1',
+      erp_reference: 'ERP-LS-HAS-001',
+      erp_mapping_status: 'PENDING',
+      is_active: true,
+      created_by_user_id: pheUser.id,
+    },
+  });
+
+  // Supplier 2: Active, for directory / search visibility
+  const supplier2 = await prisma.zmccLocalSupplier.create({
+    data: {
+      local_supplier_code: await allocateSupplierCode(),
+      zmcc_id: hasilpurSource.id,
+      name: 'Chaudhry Dairy & Cattle Farm',
+      phone: '03017654321',
+      cnic: '31202-7654321-2',
+      erp_reference: null,
+      erp_mapping_status: 'PENDING',
+      is_active: true,
+      created_by_user_id: zmccManager.id,
+    },
+  });
+
+  // Supplier 3: Inactive / deactivated Local Supplier with historical records only (Continuity Scenario)
+  const supplier3 = await prisma.zmccLocalSupplier.create({
+    data: {
+      local_supplier_code: await allocateSupplierCode(),
+      zmcc_id: hasilpurSource.id,
+      name: 'Rehman Dairy Supplies (Inactive)',
+      phone: '03029876543',
+      cnic: '31202-9876543-3',
+      erp_reference: 'ERP-LS-INACT-03',
+      erp_mapping_status: 'PENDING',
+      is_active: false, // Inactive! Cannot be selected for new arrivals
+      created_by_user_id: zmccManager.id,
+    },
+  });
+
+  // Deterministic time references anchored to Pakistan Calendar Date
+  const pktTodayDateStr = getPakistanCalendarDate(now);
+  const pktTodayMidnight = new Date(`${pktTodayDateStr}T00:00:00.000Z`);
+
+  const yesterdayDate = new Date(pktTodayMidnight.getTime() - msPerDay);
+  const yesterdayDateStr = getPakistanCalendarDate(yesterdayDate);
+  const yesterdayMidnight = new Date(`${yesterdayDateStr}T00:00:00.000Z`);
+
+  const threeDaysAgoDate = new Date(pktTodayMidnight.getTime() - 3 * msPerDay);
+  const threeDaysAgoDateStr = getPakistanCalendarDate(threeDaysAgoDate);
+  const threeDaysAgoMidnight = new Date(`${threeDaysAgoDateStr}T00:00:00.000Z`);
+
+  // Timestamps
+  const timeTodayArr1 = new Date(pktTodayMidnight.getTime() + 9 * 3600000 + 15 * 60000); // 09:15 PKT
+  const timeTodayArr2 = new Date(pktTodayMidnight.getTime() + 9 * 3600000 + 30 * 60000); // 09:30 PKT
+  const timeTodayArr3 = new Date(pktTodayMidnight.getTime() + 7 * 3600000 + 15 * 60000); // 07:15 PKT
+  const timeTodayArr3Exit = new Date(pktTodayMidnight.getTime() + 8 * 3600000 + 15 * 60000); // 08:15 PKT
+
+  const timeYestArr5 = new Date(yesterdayMidnight.getTime() + 11 * 3600000); // 11:00 PKT
+  const timeYestArr5Exit = new Date(yesterdayMidnight.getTime() + 12 * 3600000 + 30 * 60000); // 12:30 PKT
+
+  const timeThreeDaysArr4 = new Date(threeDaysAgoMidnight.getTime() + 14 * 3600000); // 14:00 PKT
+  const timeThreeDaysArr4Exit = new Date(threeDaysAgoMidnight.getTime() + 14 * 3600000 + 45 * 60000); // 14:45 PKT
+
+  // B. PHE / Arrivals View Scenarios:
+  // Arrival 1: Local Supplier arrival currently inside ZMCC and waiting for Lab
+  const arr1 = await prisma.zmccLocalSupplierArrival.create({
+    data: {
+      zmcc_id: hasilpurSource.id,
+      local_supplier_id: supplier1.id,
+      rmr_number: 'RMR-HAS-0101',
+      vehicle_number: 'BWP-4411',
+      arrival_timestamp: timeTodayArr1,
+      arrival_date: pktTodayMidnight,
+      zmcc_token: 'TK-HAS-LS-001',
+      client_event_id: `evt-arr-ls-01-${pktTodayDateStr}`,
+      recorded_by_user_id: pheUser.id,
+      gate_exit_required: true,
+      exit_timestamp: null, // Inside ZMCC
+    },
+  });
+
+  // Arrival 2: MOT arrival currently inside ZMCC and in-progress lab session
+  const journey2 = await prisma.motJourney.create({
+    data: {
+      journey_number: `J-HAS-${pktTodayDateStr.replace(/-/g, '')}-01`,
+      idempotency_key: `mot-journey-01-${pktTodayDateStr}`,
+      zmcc_id: hasilpurSource.id,
+      route_id: zmccRoute.id,
+      mot_profile_id: motProfile.id,
+      mot_vehicle_id: motVehicle.id,
+      status: 'COMPLETED',
+      operational_date: pktTodayMidnight,
+      assigned_by: zmccManager.id,
+      assigned_at: new Date(timeTodayArr2.getTime() - 7200000),
+      started_at: new Date(timeTodayArr2.getTime() - 5400000),
+      ended_at: new Date(timeTodayArr2.getTime() - 600000),
+      assignment_latitude: 29.6974,
+      assignment_longitude: 72.5539,
+      start_latitude: 29.6974,
+      start_longitude: 72.5539,
+    },
+  });
+
+  const arr2 = await prisma.zmccMotArrival.create({
+    data: {
+      journey_id: journey2.id,
+      zmcc_id: hasilpurSource.id,
+      route_milk_token: 'RM-HAS-0201',
+      zmcc_token: 'TK-HAS-MOT-001',
+      arrival_timestamp: timeTodayArr2,
+      arrival_date: pktTodayMidnight,
+      client_event_id: `evt-arr-mot-01-${pktTodayDateStr}`,
+      recorded_by_user_id: pheUser.id,
+      gate_exit_required: true,
+      exit_timestamp: null, // Inside ZMCC
+    },
+  });
+
+  // In-progress Lab session on Arrival 2
+  const session2 = await prisma.zmccLabSession.create({
+    data: {
+      zmcc_id: hasilpurSource.id,
+      arrival_type: 'MOT',
+      mot_arrival_id: arr2.id,
+      status: 'IN_PROGRESS',
+      started_by_user_id: zmccLabUser.id,
+      started_at: new Date(timeTodayArr2.getTime() + 600000),
+    },
+  });
+
+  if (lrTest && fatTest) {
+    await prisma.zmccLabResult.createMany({
+      data: [
+        {
+          session_id: session2.id,
+          test_id: lrTest.id,
+          test_code_snapshot: lrTest.testCode,
+          test_name_snapshot: lrTest.testName,
+          result_type_snapshot: lrTest.resultType,
+          unit_snapshot: lrTest.unit,
+          is_required_snapshot: true,
+          display_order_snapshot: 1,
+          evaluation_status: 'PENDING',
+        },
+        {
+          session_id: session2.id,
+          test_id: fatTest.id,
+          test_code_snapshot: fatTest.testCode,
+          test_name_snapshot: fatTest.testName,
+          result_type_snapshot: fatTest.resultType,
+          unit_snapshot: fatTest.unit,
+          is_required_snapshot: true,
+          display_order_snapshot: 2,
+          evaluation_status: 'PENDING',
+        },
+      ],
+    });
+  }
+
+  // Arrival 3: Accepted Local Supplier arrival completed through Lab + tank receipt + ZMCC gate exit
+  const arr3 = await prisma.zmccLocalSupplierArrival.create({
+    data: {
+      zmcc_id: hasilpurSource.id,
+      local_supplier_id: supplier2.id,
+      rmr_number: 'RMR-HAS-0102',
+      vehicle_number: 'BWP-3322',
+      arrival_timestamp: timeTodayArr3,
+      arrival_date: pktTodayMidnight,
+      zmcc_token: 'TK-HAS-LS-002',
+      client_event_id: `evt-arr-ls-02-${pktTodayDateStr}`,
+      recorded_by_user_id: pheUser.id,
+      gate_exit_required: true,
+      exit_timestamp: timeTodayArr3Exit,
+      exit_recorded_by_user_id: pheUser.id,
+      exit_client_event_id: `evt-exit-ls-02-${pktTodayDateStr}`,
+      exit_submitted_at: new Date(timeTodayArr3Exit.getTime() + 120000),
+    },
+  });
+
+  const arr3QtyLiters = 2400.0;
+  const arr3Lr = 28.5;
+  const arr3Fat = 3.8;
+  const arr3Density = calculateDensity(arr3Lr);
+  const arr3Snf = calculateSNF(arr3Fat, arr3Lr);
+  const arr3Ts = calculateTS(arr3Fat, arr3Snf);
+  const arr3At13Ts = calculateAt13TSLiters(arr3QtyLiters, arr3Ts);
+
+  const session3 = await prisma.zmccLabSession.create({
+    data: {
+      zmcc_id: hasilpurSource.id,
+      arrival_type: 'LOCAL_SUPPLIER',
+      local_supplier_arrival_id: arr3.id,
+      status: 'COMPLETED',
+      decision: 'ACCEPTED',
+      started_by_user_id: zmccLabUser.id,
+      started_at: new Date(timeTodayArr3.getTime() + 600000),
+      completed_by_user_id: zmccLabUser.id,
+      completed_at: new Date(timeTodayArr3.getTime() + 1800000),
+      completion_client_event_id: `evt-comp-ls-02-${pktTodayDateStr}`,
+      quantity_value: arr3QtyLiters,
+      quantity_unit: 'LITER',
+      density: arr3Density,
+      gross_liters: arr3QtyLiters,
+      snf: arr3Snf,
+      ts: arr3Ts,
+      at_13ts_liters: arr3At13Ts,
+      calculation_version: '1.0',
+    },
+  });
+
+  if (lrTest && fatTest) {
+    await prisma.zmccLabResult.createMany({
+      data: [
+        {
+          session_id: session3.id,
+          test_id: lrTest.id,
+          test_code_snapshot: lrTest.testCode,
+          test_name_snapshot: lrTest.testName,
+          result_type_snapshot: lrTest.resultType,
+          unit_snapshot: lrTest.unit,
+          is_required_snapshot: true,
+          display_order_snapshot: 1,
+          numeric_value: arr3Lr,
+          evaluation_status: 'PASSED',
+          is_passed: true,
+          recorded_at: new Date(timeTodayArr3.getTime() + 1200000),
+        },
+        {
+          session_id: session3.id,
+          test_id: fatTest.id,
+          test_code_snapshot: fatTest.testCode,
+          test_name_snapshot: fatTest.testName,
+          result_type_snapshot: fatTest.resultType,
+          unit_snapshot: fatTest.unit,
+          is_required_snapshot: true,
+          display_order_snapshot: 2,
+          numeric_value: arr3Fat,
+          evaluation_status: 'PASSED',
+          is_passed: true,
+          recorded_at: new Date(timeTodayArr3.getTime() + 1200000),
+        },
+      ],
+    });
+  }
+
+  const receipt3 = await prisma.zmccTankReceipt.create({
+    data: {
+      lab_session_id: session3.id,
+      zmcc_id: hasilpurSource.id,
+      tank_id: hasilpurTank.id,
+      arrival_type: 'LOCAL_SUPPLIER',
+      quantity_value: arr3QtyLiters,
+      quantity_unit: 'LITER',
+      density: arr3Density,
+      gross_liters: arr3QtyLiters,
+      lr: arr3Lr,
+      fat: arr3Fat,
+      snf: arr3Snf,
+      ts: arr3Ts,
+      at_13ts_liters: arr3At13Ts,
+      calculation_version: '1.0',
+      received_at: new Date(timeTodayArr3.getTime() + 2100000),
+      received_by_user_id: zmccLabUser.id,
+    },
+  });
+
+  await prisma.zmccTankInventoryTransaction.create({
+    data: {
+      tank_id: hasilpurTank.id,
+      zmcc_id: hasilpurSource.id,
+      transaction_type: 'RECEIPT',
+      quantity_liters: arr3QtyLiters,
+      tank_receipt_id: receipt3.id,
+      reference_type: 'ZMCC_LAB_SESSION',
+      reference_id: session3.id.toString(),
+      idempotency_key: `ZMCC_TANK_RECEIPT:LAB_SESSION:${session3.id}`,
+      operational_timestamp: new Date(timeTodayArr3.getTime() + 2100000),
+      performed_by_user_id: zmccLabUser.id,
+      notes: 'Demo Local Supplier Tank Receipt - Hasilpur',
+    },
+  });
+
+  // Arrival 4: Rejected Local Supplier arrival completed and exited without tank receipt (Inactive supplier continuity)
+  const arr4 = await prisma.zmccLocalSupplierArrival.create({
+    data: {
+      zmcc_id: hasilpurSource.id,
+      local_supplier_id: supplier3.id,
+      rmr_number: 'RMR-HAS-0103',
+      vehicle_number: 'BWP-8877',
+      arrival_timestamp: timeThreeDaysArr4,
+      arrival_date: threeDaysAgoMidnight,
+      zmcc_token: 'TK-HAS-LS-003',
+      client_event_id: `evt-arr-ls-03-${threeDaysAgoDateStr}`,
+      recorded_by_user_id: pheUser.id,
+      gate_exit_required: true,
+      exit_timestamp: timeThreeDaysArr4Exit,
+      exit_recorded_by_user_id: pheUser.id,
+      exit_client_event_id: `evt-exit-ls-03-${threeDaysAgoDateStr}`,
+      exit_submitted_at: new Date(timeThreeDaysArr4Exit.getTime() + 120000),
+    },
+  });
+
+  const arr4QtyLiters = 1200.0;
+  const arr4Lr = 22.0;
+  const arr4Fat = 2.2;
+  const arr4Density = calculateDensity(arr4Lr);
+  const arr4Snf = calculateSNF(arr4Fat, arr4Lr);
+  const arr4Ts = calculateTS(arr4Fat, arr4Snf);
+  const arr4At13Ts = calculateAt13TSLiters(arr4QtyLiters, arr4Ts);
+
+  const session4 = await prisma.zmccLabSession.create({
+    data: {
+      zmcc_id: hasilpurSource.id,
+      arrival_type: 'LOCAL_SUPPLIER',
+      local_supplier_arrival_id: arr4.id,
+      status: 'COMPLETED',
+      decision: 'REJECTED',
+      rejection_reason: 'Acidity 0.21% & COB Positive. High temperature 12°C detected.',
+      remarks: 'Rejected at intake platform. Gate exit authorized without tank receipt.',
+      started_by_user_id: zmccLabUser.id,
+      started_at: new Date(timeThreeDaysArr4.getTime() + 600000),
+      completed_by_user_id: zmccLabUser.id,
+      completed_at: new Date(timeThreeDaysArr4.getTime() + 1800000),
+      completion_client_event_id: `evt-comp-ls-03-${threeDaysAgoDateStr}`,
+      quantity_value: arr4QtyLiters,
+      quantity_unit: 'LITER',
+      density: arr4Density,
+      gross_liters: arr4QtyLiters,
+      snf: arr4Snf,
+      ts: arr4Ts,
+      at_13ts_liters: arr4At13Ts,
+      calculation_version: '1.0',
+    },
+  });
+
+  if (lrTest && fatTest) {
+    await prisma.zmccLabResult.createMany({
+      data: [
+        {
+          session_id: session4.id,
+          test_id: lrTest.id,
+          test_code_snapshot: lrTest.testCode,
+          test_name_snapshot: lrTest.testName,
+          result_type_snapshot: lrTest.resultType,
+          unit_snapshot: lrTest.unit,
+          is_required_snapshot: true,
+          display_order_snapshot: 1,
+          numeric_value: arr4Lr,
+          evaluation_status: 'FAILED',
+          is_passed: false,
+          recorded_at: new Date(timeThreeDaysArr4.getTime() + 1200000),
+        },
+        {
+          session_id: session4.id,
+          test_id: fatTest.id,
+          test_code_snapshot: fatTest.testCode,
+          test_name_snapshot: fatTest.testName,
+          result_type_snapshot: fatTest.resultType,
+          unit_snapshot: fatTest.unit,
+          is_required_snapshot: true,
+          display_order_snapshot: 2,
+          numeric_value: arr4Fat,
+          evaluation_status: 'FAILED',
+          is_passed: false,
+          recorded_at: new Date(timeThreeDaysArr4.getTime() + 1200000),
+        },
+      ],
+    });
+  }
+
+  // Arrival 5: Completed MOT arrival that can appear in recent history
+  const journey5 = await prisma.motJourney.create({
+    data: {
+      journey_number: `J-HAS-${yesterdayDateStr.replace(/-/g, '')}-02`,
+      idempotency_key: `mot-journey-02-${yesterdayDateStr}`,
+      zmcc_id: hasilpurSource.id,
+      route_id: zmccRoute.id,
+      mot_profile_id: motProfile.id,
+      mot_vehicle_id: motVehicle.id,
+      status: 'COMPLETED',
+      operational_date: yesterdayMidnight,
+      assigned_by: zmccManager.id,
+      assigned_at: new Date(timeYestArr5.getTime() - 7200000),
+      started_at: new Date(timeYestArr5.getTime() - 5400000),
+      ended_at: new Date(timeYestArr5.getTime() - 600000),
+      assignment_latitude: 29.6974,
+      assignment_longitude: 72.5539,
+      start_latitude: 29.6974,
+      start_longitude: 72.5539,
+    },
+  });
+
+  const arr5 = await prisma.zmccMotArrival.create({
+    data: {
+      journey_id: journey5.id,
+      zmcc_id: hasilpurSource.id,
+      route_milk_token: 'RM-HAS-0202',
+      zmcc_token: 'TK-HAS-MOT-002',
+      arrival_timestamp: timeYestArr5,
+      arrival_date: yesterdayMidnight,
+      client_event_id: `evt-arr-mot-02-${yesterdayDateStr}`,
+      recorded_by_user_id: pheUser.id,
+      gate_exit_required: true,
+      exit_timestamp: timeYestArr5Exit,
+      exit_recorded_by_user_id: pheUser.id,
+      exit_client_event_id: `evt-exit-mot-02-${yesterdayDateStr}`,
+      exit_submitted_at: new Date(timeYestArr5Exit.getTime() + 120000),
+    },
+  });
+
+  const arr5QtyLiters = 4500.0;
+  const arr5Lr = 29.0;
+  const arr5Fat = 4.1;
+  const arr5Density = calculateDensity(arr5Lr);
+  const arr5Snf = calculateSNF(arr5Fat, arr5Lr);
+  const arr5Ts = calculateTS(arr5Fat, arr5Snf);
+  const arr5At13Ts = calculateAt13TSLiters(arr5QtyLiters, arr5Ts);
+
+  const session5 = await prisma.zmccLabSession.create({
+    data: {
+      zmcc_id: hasilpurSource.id,
+      arrival_type: 'MOT',
+      mot_arrival_id: arr5.id,
+      status: 'COMPLETED',
+      decision: 'ACCEPTED',
+      started_by_user_id: zmccLabUser.id,
+      started_at: new Date(timeYestArr5.getTime() + 600000),
+      completed_by_user_id: zmccLabUser.id,
+      completed_at: new Date(timeYestArr5.getTime() + 2400000),
+      completion_client_event_id: `evt-comp-mot-02-${yesterdayDateStr}`,
+      quantity_value: arr5QtyLiters,
+      quantity_unit: 'LITER',
+      density: arr5Density,
+      gross_liters: arr5QtyLiters,
+      snf: arr5Snf,
+      ts: arr5Ts,
+      at_13ts_liters: arr5At13Ts,
+      calculation_version: '1.0',
+    },
+  });
+
+  if (lrTest && fatTest) {
+    await prisma.zmccLabResult.createMany({
+      data: [
+        {
+          session_id: session5.id,
+          test_id: lrTest.id,
+          test_code_snapshot: lrTest.testCode,
+          test_name_snapshot: lrTest.testName,
+          result_type_snapshot: lrTest.resultType,
+          unit_snapshot: lrTest.unit,
+          is_required_snapshot: true,
+          display_order_snapshot: 1,
+          numeric_value: arr5Lr,
+          evaluation_status: 'PASSED',
+          is_passed: true,
+          recorded_at: new Date(timeYestArr5.getTime() + 1800000),
+        },
+        {
+          session_id: session5.id,
+          test_id: fatTest.id,
+          test_code_snapshot: fatTest.testCode,
+          test_name_snapshot: fatTest.testName,
+          result_type_snapshot: fatTest.resultType,
+          unit_snapshot: fatTest.unit,
+          is_required_snapshot: true,
+          display_order_snapshot: 2,
+          numeric_value: arr5Fat,
+          evaluation_status: 'PASSED',
+          is_passed: true,
+          recorded_at: new Date(timeYestArr5.getTime() + 1800000),
+        },
+      ],
+    });
+  }
+
+  const receipt5 = await prisma.zmccTankReceipt.create({
+    data: {
+      lab_session_id: session5.id,
+      zmcc_id: hasilpurSource.id,
+      tank_id: hasilpurTank.id,
+      arrival_type: 'MOT',
+      quantity_value: arr5QtyLiters,
+      quantity_unit: 'LITER',
+      density: arr5Density,
+      gross_liters: arr5QtyLiters,
+      lr: arr5Lr,
+      fat: arr5Fat,
+      snf: arr5Snf,
+      ts: arr5Ts,
+      at_13ts_liters: arr5At13Ts,
+      calculation_version: '1.0',
+      received_at: new Date(timeYestArr5.getTime() + 2700000),
+      received_by_user_id: zmccLabUser.id,
+    },
+  });
+
+  await prisma.zmccTankInventoryTransaction.create({
+    data: {
+      tank_id: hasilpurTank.id,
+      zmcc_id: hasilpurSource.id,
+      transaction_type: 'RECEIPT',
+      quantity_liters: arr5QtyLiters,
+      tank_receipt_id: receipt5.id,
+      reference_type: 'ZMCC_LAB_SESSION',
+      reference_id: session5.id.toString(),
+      idempotency_key: `ZMCC_TANK_RECEIPT:LAB_SESSION:${session5.id}`,
+      operational_timestamp: new Date(timeYestArr5.getTime() + 2700000),
+      performed_by_user_id: zmccLabUser.id,
+      notes: 'Demo MOT Tank Receipt - Hasilpur',
+    },
+  });
+
+  console.log('✅ ZMCC Hasilpur Demo Records successfully created:');
+  console.log('  - Local Suppliers: 3 created (2 Active, 1 Inactive)');
+  console.log('  - Arrivals: 5 created (2 Inside ZMCC, 3 Exited)');
+  console.log('  - Lab Sessions: 4 created (1 In-Progress, 2 Accepted, 1 Rejected)');
+  console.log('  - Tank Receipts: 2 created (Total Stock: 6,900 L into TK-HAS-01)\n');
+
   console.log('==================================================');
   console.log('OPERATIONAL SEEDING COMPLETE SUMMARY:');
   console.log('==================================================');
@@ -572,6 +1244,14 @@ export async function seedOperationalData() {
     });
     console.log(`  - ${s.silo_code} (${s.silo_name}): Stock Ledger Sum = ${(txSum._sum.quantity_liters || 0).toLocaleString()} L`);
   }
+
+  // Verify ZMCC Tank Stock Balance
+  const zmccTankSum = await prisma.zmccTankInventoryTransaction.aggregate({
+    where: { tank_id: hasilpurTank.id },
+    _sum: { quantity_liters: true },
+  });
+  console.log(`\nReconciled ZMCC Tank Stock Balance:`);
+  console.log(`  - ${hasilpurTank.tank_code} (${hasilpurTank.tank_name}): Stock Ledger Sum = ${(zmccTankSum._sum.quantity_liters || 0).toLocaleString()} L`);
   console.log('==================================================\n');
 
   return {
@@ -582,6 +1262,13 @@ export async function seedOperationalData() {
     holdVisits,
     inProgressVisits,
     sourceStats,
+    zmccDemo: {
+      hasilpurSuppliers: 3,
+      hasilpurArrivals: 5,
+      hasilpurLabSessions: 4,
+      hasilpurTankReceipts: 2,
+      hasilpurTankStockLiters: Number(zmccTankSum._sum.quantity_liters || 0),
+    },
   };
 }
 

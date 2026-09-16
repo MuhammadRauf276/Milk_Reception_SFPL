@@ -729,3 +729,13 @@ All paginated collection APIs must return a standardized pagination envelope:
 - Elasticsearch, if introduced in future architectural stages, will exist solely as an asynchronous, read-only search projection fed via outbox / CDC. Elasticsearch will never be authoritative and will never be a synchronous dependency for operational intake or gate workflows.
 - No Elasticsearch dependencies, clients, or configuration are permitted in Stage 6G-D.4A.
 
+---
+
+## 25. Development Demo Data Contract
+- **Development-Only**: Operational demo data is strictly development-only. Production environments must never receive development demo records.
+- **Safety Gates**: Demo seed and reset operations are strictly guarded by double gates: abort when `NODE_ENV === 'production'` and require `ALLOW_DEMO_RESET=true`. Both gates must be preserved in all seeding/resetting tools.
+- **Single Reusable Infrastructure**: Operational demo data must be managed through the canonical seed and reset scripts (`scripts/seed_demo_operational_data.ts` and `scripts/reset_demo_operational_data.ts`). Do not create parallel seeding systems or pollute `prisma/seed.ts` (which remains reserved for master/reference data and system users).
+- **No Frontend Fake Rows**: Frontend components must never create fake fallback rows or dummy placeholders to mask empty database states or API errors. Real role screens must display real PostgreSQL records via real services and APIs.
+- **Evolution with Canonical Rules**: When a subsequent stage evolves a business rule, formula, lifecycle, role, terminology, schema relationship, or source authority, earlier demo data must be updated to align with the new canonical rules.
+- **Definition of Done**: Meaningful, deterministic development demo data covering normal journeys and important exception cases for affected screens is a mandatory Definition-of-Done requirement for every implementation stage.
+

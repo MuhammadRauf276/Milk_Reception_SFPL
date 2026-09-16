@@ -20,6 +20,25 @@ export async function resetOperationalData() {
 
   // Delete operational records in exact FK order
   const deletedCounts = {
+    // ZMCC Operational & Inventory Deletions (Reverse FK order)
+    zmccTankTransactions: (await prisma.zmccTankInventoryTransaction.deleteMany({})).count,
+    zmccTankReceipts: (await prisma.zmccTankReceipt.deleteMany({})).count,
+    zmccLabResults: (await prisma.zmccLabResult.deleteMany({})).count,
+    zmccLabSessions: (await prisma.zmccLabSession.deleteMany({})).count,
+    zmccLocalSupplierArrivals: (await prisma.zmccLocalSupplierArrival.deleteMany({})).count,
+    zmccLocalSuppliers: (await prisma.zmccLocalSupplier.deleteMany({})).count,
+    zmccContractorArrivals: (await prisma.zmccContractorArrival.deleteMany({})).count,
+    zmccMotArrivals: (await prisma.zmccMotArrival.deleteMany({})).count,
+    motJourneySummaries: (await prisma.motJourneySummary.deleteMany({})).count,
+    motShopCollections: (await prisma.motShopCollection.deleteMany({})).count,
+    motJourneyLocations: (await prisma.motJourneyLocation.deleteMany({})).count,
+    motJourneyStops: (await prisma.motJourneyStop.deleteMany({})).count,
+    motJourneys: (await prisma.motJourney.deleteMany({})).count,
+    motVehicles: (await prisma.motVehicle.deleteMany({})).count,
+    motProfiles: (await prisma.motProfile.deleteMany({})).count,
+    zmccRoutes: (await prisma.zmccRoute.deleteMany({})).count,
+
+    // Plant Operational Deletions
     qaSessionEvents: (await prisma.qATestingSessionEvent.deleteMany({})).count,
     qaTestingSessions: (await prisma.qATestingSession.deleteMany({})).count,
     plantLabResults: (await prisma.plantLabResult.deleteMany({})).count,
@@ -48,6 +67,7 @@ export async function resetOperationalData() {
     users: await prisma.user.count(),
     procurementSources: await prisma.procurementSource.count(),
     silos: await prisma.silo.count(),
+    zmccTanks: await prisma.zmccTank.count(),
     labTests: await prisma.labTest.count(),
     labTestRules: await prisma.labTestRule.count(),
   };
