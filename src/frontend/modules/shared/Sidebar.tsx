@@ -13,6 +13,9 @@ import {
   Store,
   Truck,
   X,
+  ClipboardList,
+  History,
+  Clock,
 } from 'lucide-react';
 import { User } from '@core/types';
 import Link from 'next/link';
@@ -37,6 +40,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const pathname = usePathname();
   const role = currentUser?.role || '';
+  const [currentTab, setCurrentTab] = React.useState<string>('');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      setCurrentTab(params.get('tab')?.toLowerCase() || '');
+    }
+  }, [pathname]);
 
   // Close drawer on Escape key press
   useEffect(() => {
@@ -90,6 +101,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const getBadgeStyle = (href: string) => {
     const isActive = pathname === href;
+    return isActive
+      ? 'bg-white text-[#1E3A8A] font-black'
+      : 'bg-blue-100 text-[#1E3A8A] font-black';
+  };
+
+  const isLabActive = (tab: string) => {
+    if (pathname !== '/zmcc/lab') return false;
+    if (!currentTab && tab === 'queue') return true;
+    return currentTab === tab;
+  };
+
+  const isDispatchActive = (tab: string) => {
+    if (pathname !== '/zmcc/dispatch') return false;
+    if (tab === 'recent') return currentTab === 'recent';
+    return currentTab !== 'recent';
+  };
+
+  const getSubLinkStyle = (isActive: boolean) => {
+    return isActive
+      ? 'bg-[#1E3A8A] text-white font-extrabold border-[#1E3A8A] shadow-md'
+      : 'bg-[#FDFBF9] text-[#111311] border-[#EAE4D5] hover:bg-[#F4F0E6]/60 transition-all duration-200 ease-in-out';
+  };
+
+  const getSubBadgeStyle = (isActive: boolean) => {
     return isActive
       ? 'bg-white text-[#1E3A8A] font-black'
       : 'bg-blue-100 text-[#1E3A8A] font-black';
@@ -154,9 +189,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* DYNAMIC NAVIGATION TIER WITH DYNAMIC PATHNAME HIGHLIGHTING */}
         <div className="space-y-1.5 pt-1">
-          <label className="text-[10px] font-black uppercase tracking-wider text-[#334155] block px-1">
-            Authorized Departments
-          </label>
+          {!isZmccLabAttendant && (
+            <label className="text-[10px] font-black uppercase tracking-wider text-[#334155] block px-1">
+              Authorized Departments
+            </label>
+          )}
 
           {/* 0. SECURITY MANAGER EXCLUSIVE ISOLATED SINGLE LINK */}
           {isSecurityManager && (
@@ -284,21 +321,108 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </Link>
           )}
 
-          {/* 2D-2. ZMCC LAB ATTENDANT VIEW */}
+          {/* 2D-2. ZMCC LAB ATTENDANT HIERARCHICAL VIEW */}
           {isZmccLabAttendant && (
-            <Link
-              href="/zmcc/lab"
-              onClick={handleLinkClick}
-              className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition ${getLinkStyle('/zmcc/lab')}`}
-            >
-              <span className="flex items-center gap-2">
-                <FlaskConical className="w-4 h-4" />
-                <span>ZMCC Lab Station</span>
-              </span>
-              <span className={`px-1.5 py-0.5 rounded font-mono text-[9px] ${getBadgeStyle('/zmcc/lab')}`}>
-                LAB
-              </span>
-            </Link>
+            <div className="space-y-4 pt-1">
+              {/* SECTION 1: LABORATORY OPERATIONS */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase tracking-wider text-[#334155] block px-1">
+                  Laboratory Operations
+                </label>
+
+                <Link
+                  href="/zmcc/lab?tab=queue"
+                  onClick={() => {
+                    setCurrentTab('queue');
+                    handleLinkClick();
+                  }}
+                  className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition ${getSubLinkStyle(isLabActive('queue'))}`}
+                >
+                  <span className="flex items-center gap-2">
+                    <ClipboardList className="w-4 h-4" />
+                    <span>Arrivals Queue</span>
+                  </span>
+                  <span className={`px-1.5 py-0.5 rounded font-mono text-[9px] ${getSubBadgeStyle(isLabActive('queue'))}`}>
+                    QUEUE
+                  </span>
+                </Link>
+
+                <Link
+                  href="/zmcc/lab?tab=testing"
+                  onClick={() => {
+                    setCurrentTab('testing');
+                    handleLinkClick();
+                  }}
+                  className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition ${getSubLinkStyle(isLabActive('testing'))}`}
+                >
+                  <span className="flex items-center gap-2">
+                    <FlaskConical className="w-4 h-4" />
+                    <span>Testing Station</span>
+                  </span>
+                  <span className={`px-1.5 py-0.5 rounded font-mono text-[9px] ${getSubBadgeStyle(isLabActive('testing'))}`}>
+                    TEST
+                  </span>
+                </Link>
+
+                <Link
+                  href="/zmcc/lab?tab=history"
+                  onClick={() => {
+                    setCurrentTab('history');
+                    handleLinkClick();
+                  }}
+                  className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition ${getSubLinkStyle(isLabActive('history'))}`}
+                >
+                  <span className="flex items-center gap-2">
+                    <History className="w-4 h-4" />
+                    <span>Test History</span>
+                  </span>
+                  <span className={`px-1.5 py-0.5 rounded font-mono text-[9px] ${getSubBadgeStyle(isLabActive('history'))}`}>
+                    LOGS
+                  </span>
+                </Link>
+              </div>
+
+              {/* SECTION 2: DISPATCH TO PLANT */}
+              <div className="space-y-1.5 pt-2 border-t border-[#EAE4D5]">
+                <label className="text-[10px] font-black uppercase tracking-wider text-[#334155] block px-1">
+                  Dispatch to Plant
+                </label>
+
+                <Link
+                  href="/zmcc/dispatch?tab=new"
+                  onClick={() => {
+                    setCurrentTab('new');
+                    handleLinkClick();
+                  }}
+                  className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition ${getSubLinkStyle(isDispatchActive('new'))}`}
+                >
+                  <span className="flex items-center gap-2">
+                    <Truck className="w-4 h-4" />
+                    <span>Dispatch Vehicle</span>
+                  </span>
+                  <span className={`px-1.5 py-0.5 rounded font-mono text-[9px] ${getSubBadgeStyle(isDispatchActive('new'))}`}>
+                    NEW
+                  </span>
+                </Link>
+
+                <Link
+                  href="/zmcc/dispatch?tab=recent"
+                  onClick={() => {
+                    setCurrentTab('recent');
+                    handleLinkClick();
+                  }}
+                  className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition ${getSubLinkStyle(isDispatchActive('recent'))}`}
+                >
+                  <span className="flex items-center gap-2">
+                    <Clock className="w-4 h-4" />
+                    <span>Recent Dispatches</span>
+                  </span>
+                  <span className={`px-1.5 py-0.5 rounded font-mono text-[9px] ${getSubBadgeStyle(isDispatchActive('recent'))}`}>
+                    RECENT
+                  </span>
+                </Link>
+              </div>
+            </div>
           )}
 
           {/* 2E. MOT DRIVER VIEW */}
@@ -353,44 +477,52 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Primary Action Buttons */}
-        <div className="space-y-1.5 pt-2 border-t border-[#EAE4D5]">
-          <label className="text-[10px] font-black uppercase tracking-wider text-[#334155] block px-1">
-            Station Actions
-          </label>
+        {(((role === 'SECURITY_OPERATOR' || role === 'SUPER_ADMIN') && onOpenTokenModal) ||
+          (role === 'SUPER_ADMIN' && onOpenDispatchModal)) && (
+          <div className="space-y-1.5 pt-2 border-t border-[#EAE4D5]">
+            <label className="text-[10px] font-black uppercase tracking-wider text-[#334155] block px-1">
+              Station Actions
+            </label>
 
-          {(role === 'SECURITY_OPERATOR' || role === 'SUPER_ADMIN') && onOpenTokenModal && (
-            <button
-              onClick={() => {
-                handleLinkClick();
-                onOpenTokenModal();
-              }}
-              className="w-full flex items-center justify-center space-x-2 py-2 px-3 bg-[#1E3A8A] hover:bg-blue-900 text-white rounded-xl font-bold text-xs shadow-sm transition-all duration-200 ease-in-out active:scale-95 border border-indigo-950"
-            >
-              <KeyRound className="w-4 h-4 text-white" />
-              <span>Issue Entry Token</span>
-            </button>
-          )}
+            {(role === 'SECURITY_OPERATOR' || role === 'SUPER_ADMIN') && onOpenTokenModal && (
+              <button
+                onClick={() => {
+                  handleLinkClick();
+                  onOpenTokenModal();
+                }}
+                className="w-full flex items-center justify-center space-x-2 py-2 px-3 bg-[#1E3A8A] hover:bg-blue-900 text-white rounded-xl font-bold text-xs shadow-sm transition-all duration-200 ease-in-out active:scale-95 border border-indigo-950"
+              >
+                <KeyRound className="w-4 h-4 text-white" />
+                <span>Issue Entry Token</span>
+              </button>
+            )}
 
-          {role === 'SUPER_ADMIN' && onOpenDispatchModal && (
-            <button
-              onClick={() => {
-                handleLinkClick();
-                onOpenDispatchModal();
-              }}
-              className="w-full flex items-center justify-center space-x-2 py-2 px-3 bg-[#111311] hover:bg-slate-800 text-white rounded-xl font-bold text-xs shadow-sm transition-all duration-200 ease-in-out active:scale-95 border border-slate-950"
-            >
-              <PlusCircle className="w-4 h-4" />
-              <span>Record Dispatch</span>
-            </button>
-          )}
-        </div>
+            {role === 'SUPER_ADMIN' && onOpenDispatchModal && (
+              <button
+                onClick={() => {
+                  handleLinkClick();
+                  onOpenDispatchModal();
+                }}
+                className="w-full flex items-center justify-center space-x-2 py-2 px-3 bg-[#111311] hover:bg-slate-800 text-white rounded-xl font-bold text-xs shadow-sm transition-all duration-200 ease-in-out active:scale-95 border border-slate-950"
+              >
+                <PlusCircle className="w-4 h-4" />
+                <span>Record Dispatch</span>
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
 
   return (
     <>
-      {/* Off-Canvas Drawer (Full-Width Workspace for Managers at All Viewports) */}
+      {/* Desktop In-Flow Sidebar Content */}
+      <div className="h-full">
+        {renderSidebarBody(false)}
+      </div>
+
+      {/* Off-Canvas Drawer (Full-Width Workspace for Mobile Viewports) */}
       {isMobileOpen && (
         <div>
           {/* Backdrop */}

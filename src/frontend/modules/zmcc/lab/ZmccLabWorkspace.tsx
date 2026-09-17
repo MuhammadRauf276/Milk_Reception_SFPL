@@ -40,9 +40,30 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
   const canCorrect = isZmccManager || isSuperAdmin;
   const canReceiveHistorical = isZmccLabAttendant || isSuperAdmin;
 
-  const [activeTab, setActiveTab] = useState<MainTab>(
-    canTest ? 'QUEUE' : 'HISTORY'
-  );
+  const [activeTab, setActiveTab] = useState<MainTab>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get('tab')?.toLowerCase();
+      if (tab === 'queue' && canTest) return 'QUEUE';
+      if (tab === 'testing' && canTest) return 'TESTING';
+      if (tab === 'history') return 'HISTORY';
+    }
+    return canTest ? 'QUEUE' : 'HISTORY';
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get('tab')?.toLowerCase();
+      if (tab === 'queue' && canTest) {
+        setActiveTab('QUEUE');
+      } else if (tab === 'testing' && canTest) {
+        setActiveTab('TESTING');
+      } else if (tab === 'history') {
+        setActiveTab('HISTORY');
+      }
+    }
+  }, [canTest]);
 
   // Queue State
   const [queueItems, setQueueItems] = useState<any[]>([]);

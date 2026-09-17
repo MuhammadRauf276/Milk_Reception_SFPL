@@ -99,7 +99,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     }
 
     async function loadSources() {
-      if (!isSourceBound) {
+      if (!isSourceBound && currentUser?.role === 'SUPER_ADMIN') {
         try {
           const res = await fetch('/api/super-admin/procurement-sources');
           const data = await res.json();
@@ -113,7 +113,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
       }
     }
     loadSources();
-  }, [isSourceBound]);
+  }, [isSourceBound, currentUser?.role]);
 
   const buildInitialPortionResults = (tests: LabTestDef[], isContractor = isContractorSource): Record<
     string,

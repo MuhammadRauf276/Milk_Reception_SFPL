@@ -53,6 +53,19 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
   onRefresh,
 }) => {
   const [activeTab, setActiveTab] = useState<'new' | 'recent'>('new');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get('tab')?.toLowerCase();
+      if (tab === 'recent') {
+        setActiveTab('recent');
+      } else if (tab === 'new') {
+        setActiveTab('new');
+      }
+    }
+  }, []);
+
   const [dbDispatches, setDbDispatches] = useState<DispatchRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -72,6 +85,10 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
   });
 
   const fetchDbDispatches = async (targetPage = page, range = dateRange, fDate = fromDate, tDate = toDate) => {
+    if (!currentUser) {
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     setDateError(null);
 
