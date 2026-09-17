@@ -14,6 +14,7 @@ import {
 } from '../src/backend/services/vehicleQuantityService';
 import { getOperationalBusinessDate, getPakistanCalendarDate } from '../src/backend/core/business-day';
 import { parseStrictDateOnly } from '../src/lib/datetime-utils';
+import { getTankPhysicalStock } from '../src/backend/services/zmccTankService';
 
 export async function seedOperationalData() {
   console.log('==================================================');
@@ -110,6 +111,7 @@ export async function seedOperationalData() {
   let finalReceiptsCount = 0;
   let qaEventsCount = 0;
   const sourceStats: Record<string, number> = {};
+  let visit20Record: any = null;
 
   console.log('Seeding 75 realistic, deterministic vehicle journeys...\n');
 
@@ -173,9 +175,9 @@ export async function seedOperationalData() {
       ? (sources.find((s) => s.code === 'ZMCC-HASILPUR') || sources[(i - 1) % sources.length])
       : sources[(i - 1) % sources.length];
 
-    // Scenario A: Visit 20 / ZMCC source
+    // Scenario A: Visit 20 / ZMCC source (bound to ZMCC Hasilpur)
     if (i === 20) {
-      sourceObj = sources.find((s) => s.source_type === 'ZMCC') || sourceObj;
+      sourceObj = sources.find((s) => s.code === 'ZMCC-HASILPUR') || sources.find((s) => s.source_type === 'ZMCC') || sourceObj;
     }
     // Scenario C: Visit 40 / Contractor source
     if (i === 40) {
@@ -254,6 +256,9 @@ export async function seedOperationalData() {
     });
 
     createdVisits++;
+    if (i === 20) {
+      visit20Record = visit;
+    }
 
     // Create Portions & Dispatch Info
     const portionCount = hasTwoPortions ? 2 : 1;
@@ -635,6 +640,45 @@ export async function seedOperationalData() {
         capacity_liters: 50000,
         is_active: true,
         created_by_user_id: zmccManager.id,
+      },
+    });
+  }
+
+  // Canonical Tank Stock Seeding for Scenario A (Visit 20):
+  // Ensure truthful, positive tank stock balance by seeding an opening receipt before Visit 20 dispatch,
+  // followed by the canonical whole-vehicle tank ISSUE (8,000 L) for Visit 20.
+  if (visit20Record) {
+    const openingStockLiters = 15000.0;
+    const openingTimestamp = new Date(visit20Record.created_at.getTime() - 3600000); // 1 hr before dispatch
+
+    await prisma.zmccTankInventoryTransaction.create({
+      data: {
+        tank_id: hasilpurTank.id,
+        zmcc_id: hasilpurSource.id,
+        transaction_type: 'RECEIPT',
+        quantity_liters: openingStockLiters,
+        reference_type: 'OPENING_STOCK',
+        reference_id: `INIT-${hasilpurSource.id}`,
+        idempotency_key: `ZMCC_TANK_RECEIPT:OPENING_STOCK:${hasilpurSource.id}`,
+        operational_timestamp: openingTimestamp,
+        performed_by_user_id: zmccManager.id,
+        notes: 'Initial opening stock receipt for Hasilpur storage tank',
+      },
+    });
+
+    await prisma.zmccTankInventoryTransaction.create({
+      data: {
+        tank_id: hasilpurTank.id,
+        zmcc_id: hasilpurSource.id,
+        transaction_type: 'ISSUE',
+        quantity_liters: Number(visit20Record.vehicle_dispatch_quantity_value), // 8000.00
+        dispatch_id: visit20Record.id,
+        reference_type: 'DISPATCH',
+        reference_id: visit20Record.id.toString(),
+        idempotency_key: `ZMCC_TANK_ISSUE:DISPATCH:${visit20Record.id}`,
+        operational_timestamp: visit20Record.created_at,
+        performed_by_user_id: zmccLabUser.id,
+        notes: `Whole-vehicle dispatch issue for visit ${visit20Record.visit_number} (${visit20Record.vehicle_number})`,
       },
     });
   }
@@ -1302,12 +1346,9 @@ export async function seedOperationalData() {
   }
 
   // Verify ZMCC Tank Stock Balance
-  const zmccTankSum = await prisma.zmccTankInventoryTransaction.aggregate({
-    where: { tank_id: hasilpurTank.id },
-    _sum: { quantity_liters: true },
-  });
+  const physicalStock = await getTankPhysicalStock(hasilpurTank.id);
   console.log(`\nReconciled ZMCC Tank Stock Balance:`);
-  console.log(`  - ${hasilpurTank.tank_code} (${hasilpurTank.tank_name}): Stock Ledger Sum = ${(zmccTankSum._sum.quantity_liters || 0).toLocaleString()} L`);
+  console.log(`  - ${hasilpurTank.tank_code} (${hasilpurTank.tank_name}): Physical Stock Ledger Balance = ${physicalStock.toLocaleString()} L`);
   console.log('==================================================\n');
 
   return {
@@ -1323,7 +1364,7 @@ export async function seedOperationalData() {
       hasilpurArrivals: 5,
       hasilpurLabSessions: 4,
       hasilpurTankReceipts: 2,
-      hasilpurTankStockLiters: Number(zmccTankSum._sum.quantity_liters || 0),
+      hasilpurTankStockLiters: physicalStock,
     },
   };
 }
