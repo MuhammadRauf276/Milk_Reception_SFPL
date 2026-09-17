@@ -65,6 +65,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
   });
   const [vehicleQuantityError, setVehicleQuantityError] = useState<string | null>(null);
   const [vehicleLr, setVehicleLr] = useState<string>('');
+  const [vehicleFat, setVehicleFat] = useState<string>('');
 
   // Portions Draft State
   const [portions, setPortions] = useState<PortionFormState[]>([]);
@@ -761,6 +762,22 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
         return;
       }
 
+      if (effectiveSource?.source_type === 'ZMCC') {
+        // Multi-portion vehicle requires explicit whole-vehicle LR and Fat
+        if (payloadPortions.length > 1) {
+          if (!vehicleLr || isNaN(Number(vehicleLr)) || Number(vehicleLr) <= 0) {
+            toast.showError('Authoritative whole-vehicle/composite LR is required for multi-portion ZMCC dispatch.', 'Validation Error');
+            setIsSubmitting(false);
+            return;
+          }
+          if (!vehicleFat || isNaN(Number(vehicleFat)) || Number(vehicleFat) < 0) {
+            toast.showError('Authoritative whole-vehicle/composite Fat is required for multi-portion ZMCC dispatch.', 'Validation Error');
+            setIsSubmitting(false);
+            return;
+          }
+        }
+      }
+
       const effectiveDispatchDate = isoDispatchTimestamp || new Date().toISOString();
 
       const res = await fetch('/api/dispatches', {
@@ -779,8 +796,10 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
             unit: vehicleQuantity.unit,
             basis: vehicleQuantity.basis,
             lr: vehicleLr && !isNaN(Number(vehicleLr)) ? Number(vehicleLr) : undefined,
+            fat: vehicleFat && !isNaN(Number(vehicleFat)) ? Number(vehicleFat) : undefined,
           },
           vehicleLr: vehicleLr && !isNaN(Number(vehicleLr)) ? Number(vehicleLr) : undefined,
+          vehicleFat: vehicleFat && !isNaN(Number(vehicleFat)) ? Number(vehicleFat) : undefined,
           portions: payloadPortions,
         }),
       });
@@ -806,6 +825,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
       setVehicleNumber('');
       setVehicleQuantity((prev) => ({ ...prev, value: '' }));
       setVehicleLr('');
+      setVehicleFat('');
       setPortions([]);
       setEditingPortionIndex(null);
 
@@ -938,6 +958,8 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
             sourceType={effectiveSource?.source_type}
             vehicleLr={vehicleLr}
             onVehicleLrChange={setVehicleLr}
+            vehicleFat={vehicleFat}
+            onVehicleFatChange={setVehicleFat}
           />
 
           <DispatchPortionEditor

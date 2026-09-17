@@ -366,6 +366,11 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
                           {Number(log.vehicle_dispatch_gross_liters).toLocaleString()} Gross L
                         </span>
                       )}
+                      {log.vehicle_dispatch_at_13ts_liters != null && (
+                        <span className="text-[10px] text-emerald-700 block font-mono font-bold">
+                          {Number(log.vehicle_dispatch_at_13ts_liters).toLocaleString()} L @13% TS
+                        </span>
+                      )}
                     </div>
                     <div>
                       <span className="text-slate-500 font-sans block text-[9.5px]">Dispatch Date</span>

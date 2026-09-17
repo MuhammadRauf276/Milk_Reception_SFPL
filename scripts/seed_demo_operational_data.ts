@@ -15,7 +15,7 @@ import {
 } from '../src/backend/services/vehicleQuantityService';
 import { getOperationalBusinessDate, getPakistanCalendarDate } from '../src/backend/core/business-day';
 import { parseStrictDateOnly } from '../src/lib/datetime-utils';
-import { getTankPhysicalStock } from '../src/backend/services/zmccTankService';
+import { getTankPhysicalStock, getTankCommercialStock } from '../src/backend/services/zmccTankService';
 
 export async function seedOperationalData() {
   console.log('==================================================');
@@ -251,25 +251,17 @@ export async function seedOperationalData() {
       ? parseStrictDateOnly(getOperationalBusinessDate(gateExitTime))
       : null;
 
-    let vehicleDispatchLr: number | null = null;
-    let vehicleDispatchDensity: number | null = null;
-    let vehicleDispatchGrossLiters: number | null = null;
-
-    if (i === 10) {
-      vehicleDispatchLr = 28.00;
-      vehicleDispatchDensity = 1.0280;
-      vehicleDispatchGrossLiters = 9727.63;
-    } else if (vehicleQtyUnit === 'LITER') {
-      vehicleDispatchGrossLiters = Number(totalDeclaredKg.toFixed(2));
-      vehicleDispatchLr = 28.00;
-      vehicleDispatchDensity = 1.0280;
-    } else {
-      const demoLr = 28.00;
-      vehicleDispatchLr = demoLr;
-      vehicleDispatchDensity = Number(calculateDensity(demoLr).toFixed(4));
-      const gL = calculateGrossLiters(totalDeclaredKg, 'KG', demoLr);
-      vehicleDispatchGrossLiters = gL ? Number(gL.toFixed(2)) : null;
-    }
+    const demoLr = 28.00;
+    const demoFat = 3.80;
+    const vMetrics = computeCanonicalMilkMetrics(totalDeclaredKg, vehicleQtyUnit, demoLr, demoFat);
+    const vehicleDispatchLr = demoLr;
+    const vehicleDispatchFat = demoFat;
+    const vehicleDispatchDensity = vMetrics.density;
+    const vehicleDispatchGrossLiters = vMetrics.grossLiters;
+    const vehicleDispatchSnf = vMetrics.snf;
+    const vehicleDispatchTs = vMetrics.ts;
+    const vehicleDispatchAt13ts = vMetrics.at13tsLiters;
+    const vehicleDispatchVersion = vMetrics.calculationVersion;
 
     // Create VehicleVisit
     const visit = await prisma.vehicleVisit.create({
@@ -286,8 +278,13 @@ export async function seedOperationalData() {
         vehicle_dispatch_quantity_unit: vehicleQtyUnit,
         vehicle_dispatch_quantity_basis: vehicleQtyBasis,
         vehicle_dispatch_lr: vehicleDispatchLr,
+        vehicle_dispatch_fat: vehicleDispatchFat,
         vehicle_dispatch_density: vehicleDispatchDensity,
         vehicle_dispatch_gross_liters: vehicleDispatchGrossLiters,
+        vehicle_dispatch_snf: vehicleDispatchSnf,
+        vehicle_dispatch_ts: vehicleDispatchTs,
+        vehicle_dispatch_at_13ts_liters: vehicleDispatchAt13ts,
+        vehicle_dispatch_calculation_version: vehicleDispatchVersion,
         created_at: dispatchTime,
         updated_at: targetStatus === 'COMPLETED' ? gateExitTime : qaCompleteTime,
       },
@@ -692,6 +689,7 @@ export async function seedOperationalData() {
   // followed by canonical whole-vehicle tank ISSUEs in Gross Liters.
   if (visit10Record || visit20Record) {
     const openingStockLiters = 35000.0;
+    const openingMetrics = computeCanonicalMilkMetrics(openingStockLiters, 'LITER', 28.00, 3.80);
     const earliestDate = visit10Record ? visit10Record.created_at : visit20Record.created_at;
     const openingTimestamp = new Date(earliestDate.getTime() - 3600000); // 1 hr before earliest dispatch
 
@@ -701,49 +699,52 @@ export async function seedOperationalData() {
         zmcc_id: hasilpurSource.id,
         transaction_type: 'RECEIPT',
         quantity_liters: openingStockLiters,
+        at_13ts_liters: openingMetrics.at13tsLiters, // 33,266.15 L
         reference_type: 'OPENING_STOCK',
         reference_id: `INIT-${hasilpurSource.id}`,
         idempotency_key: `ZMCC_TANK_RECEIPT:OPENING_STOCK:${hasilpurSource.id}`,
         operational_timestamp: openingTimestamp,
         performed_by_user_id: zmccManager.id,
-        notes: 'Initial opening stock receipt for Hasilpur storage tank',
+        notes: 'Initial opening stock receipt for Hasilpur storage tank [35,000 L @ LR 28.00, Fat 3.80 -> 33,266.15 @13TS L]',
       },
     });
 
     if (visit10Record) {
-      // Visit 10: 10,000 KG measured -> 9,727.63 Gross Liters (authoritative Gross Liters ISSUE, not raw KG and not Sum(Portions) = 9,800 KG)
+      // Visit 10: 10,000 KG measured -> 9,727.63 Gross Liters, 9,245.73 @13TS L
       await prisma.zmccTankInventoryTransaction.create({
         data: {
           tank_id: hasilpurTank.id,
           zmcc_id: hasilpurSource.id,
           transaction_type: 'ISSUE',
           quantity_liters: Number(visit10Record.vehicle_dispatch_gross_liters), // 9727.63 Gross Liters
+          at_13ts_liters: Number(visit10Record.vehicle_dispatch_at_13ts_liters), // 9245.73 @13TS L
           dispatch_id: visit10Record.id,
           reference_type: 'DISPATCH',
           reference_id: visit10Record.id.toString(),
           idempotency_key: `ZMCC_TANK_ISSUE:DISPATCH:${visit10Record.id}`,
           operational_timestamp: visit10Record.created_at,
           performed_by_user_id: zmccLabUser.id,
-          notes: `Whole-vehicle dispatch issue for visit ${visit10Record.visit_number} (${visit10Record.vehicle_number}) [10,000 KG @ LR 28.00 -> 9,727.63 Gross L]`,
+          notes: `Whole-vehicle dispatch issue for visit ${visit10Record.visit_number} (${visit10Record.vehicle_number}) [10,000 KG @ LR 28.00, Fat 3.80 -> 9,727.63 Gross L, 9,245.73 @13TS L]`,
         },
       });
     }
 
     if (visit20Record) {
-      // Visit 20: 8,000 L measured -> 8,000.00 Gross Liters (Scenario A)
+      // Visit 20: 8,000 L measured -> 8,000.00 Gross Liters, 7,603.69 @13TS L
       await prisma.zmccTankInventoryTransaction.create({
         data: {
           tank_id: hasilpurTank.id,
           zmcc_id: hasilpurSource.id,
           transaction_type: 'ISSUE',
-          quantity_liters: Number(visit20Record.vehicle_dispatch_quantity_value), // 8000.00 Gross Liters
+          quantity_liters: Number(visit20Record.vehicle_dispatch_gross_liters), // 8000.00 Gross Liters
+          at_13ts_liters: Number(visit20Record.vehicle_dispatch_at_13ts_liters), // 7603.69 @13TS L
           dispatch_id: visit20Record.id,
           reference_type: 'DISPATCH',
           reference_id: visit20Record.id.toString(),
           idempotency_key: `ZMCC_TANK_ISSUE:DISPATCH:${visit20Record.id}`,
           operational_timestamp: visit20Record.created_at,
           performed_by_user_id: zmccLabUser.id,
-          notes: `Whole-vehicle dispatch issue for visit ${visit20Record.visit_number} (${visit20Record.vehicle_number}) [8,000 L Measured]`,
+          notes: `Whole-vehicle dispatch issue for visit ${visit20Record.visit_number} (${visit20Record.vehicle_number}) [8,000 L Measured @ LR 28.00, Fat 3.80 -> 8,000.00 Gross L, 7,603.69 @13TS L]`,
         },
       });
     }
@@ -1133,6 +1134,7 @@ export async function seedOperationalData() {
       zmcc_id: hasilpurSource.id,
       transaction_type: 'RECEIPT',
       quantity_liters: arr3QtyLiters,
+      at_13ts_liters: arr3Metrics.at13tsLiters,
       tank_receipt_id: receipt3.id,
       reference_type: 'ZMCC_LAB_SESSION',
       reference_id: session3.id.toString(),
@@ -1364,6 +1366,7 @@ export async function seedOperationalData() {
       zmcc_id: hasilpurSource.id,
       transaction_type: 'RECEIPT',
       quantity_liters: arr5QtyLiters,
+      at_13ts_liters: arr5Metrics.at13tsLiters,
       tank_receipt_id: receipt5.id,
       reference_type: 'ZMCC_LAB_SESSION',
       reference_id: session5.id.toString(),
@@ -1413,8 +1416,10 @@ export async function seedOperationalData() {
 
   // Verify ZMCC Tank Stock Balance
   const physicalStock = await getTankPhysicalStock(hasilpurTank.id);
+  const commercialStock = await getTankCommercialStock(hasilpurTank.id);
   console.log(`\nReconciled ZMCC Tank Stock Balance:`);
-  console.log(`  - ${hasilpurTank.tank_code} (${hasilpurTank.tank_name}): Physical Stock Ledger Balance = ${physicalStock.toLocaleString()} L`);
+  console.log(`  - ${hasilpurTank.tank_code} (${hasilpurTank.tank_name}): Physical Stock Ledger Balance = ${physicalStock.toLocaleString()} Gross L`);
+  console.log(`  - ${hasilpurTank.tank_code} (${hasilpurTank.tank_name}): Commercial Stock Ledger Balance = ${commercialStock.stockAt13Ts !== null ? commercialStock.stockAt13Ts.toLocaleString() : 'INCOMPLETE'} L @13% TS (Complete: ${commercialStock.isComplete})`);
   console.log('==================================================\n');
 
   return {
@@ -1431,6 +1436,8 @@ export async function seedOperationalData() {
       hasilpurLabSessions: 4,
       hasilpurTankReceipts: 2,
       hasilpurTankStockLiters: physicalStock,
+      hasilpurTankStockAt13ts: commercialStock.stockAt13Ts,
+      hasilpurTankCommercialComplete: commercialStock.isComplete,
     },
   };
 }

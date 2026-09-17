@@ -1713,6 +1713,7 @@ export async function completeSession(
             zmcc_id: session.zmcc_id,
             transaction_type: 'RECEIPT',
             quantity_liters: new Prisma.Decimal(metrics.grossLiters.toFixed(2)),
+            at_13ts_liters: new Prisma.Decimal(metrics.at13tsLiters.toFixed(2)),
             tank_receipt_id: tankReceipt.id,
             reference_type: 'ZMCC_LAB_SESSION',
             reference_id: sessionId.toString(),

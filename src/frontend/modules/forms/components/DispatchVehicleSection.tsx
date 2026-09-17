@@ -1,11 +1,18 @@
 'use client';
 
 import React from 'react';
-import { Clock, Truck } from 'lucide-react';
+import { Clock, Truck, Activity } from 'lucide-react';
 import {
   QuantityUnit,
   MeasurementBasis,
 } from '@/backend/modules/dispatch/quantity-policy/types';
+import {
+  calculateDensity,
+  calculateGrossLiters,
+  calculateSNF,
+  calculateTS,
+  calculateAt13TSLiters,
+} from '@/backend/utils/milkFormulas';
 
 export type QuantityUnitType = QuantityUnit;
 export type MeasurementBasisType = MeasurementBasis;
@@ -38,6 +45,8 @@ export interface DispatchVehicleSectionProps {
   sourceType?: string;
   vehicleLr?: string;
   onVehicleLrChange?: (value: string) => void;
+  vehicleFat?: string;
+  onVehicleFatChange?: (value: string) => void;
 }
 
 export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
@@ -62,7 +71,27 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
   sourceType,
   vehicleLr,
   onVehicleLrChange,
+  vehicleFat,
+  onVehicleFatChange,
 }) => {
+  const numQty = parseFloat(vehicleQuantity.value);
+  const numLr = vehicleLr ? parseFloat(vehicleLr) : NaN;
+  const numFat = vehicleFat ? parseFloat(vehicleFat) : NaN;
+
+  const previewDensity = !isNaN(numLr) && numLr > 0 ? calculateDensity(numLr) : null;
+  const previewGrossLiters = !isNaN(numQty) && numQty > 0
+    ? calculateGrossLiters(numQty, vehicleQuantity.unit, !isNaN(numLr) ? numLr : null)
+    : null;
+  const previewSnf = !isNaN(numLr) && !isNaN(numFat) && numLr > 0 && numFat >= 0
+    ? calculateSNF(numLr, numFat)
+    : null;
+  const previewTs = previewSnf !== null && !isNaN(numFat) && numFat >= 0
+    ? calculateTS(numFat, previewSnf)
+    : null;
+  const previewAt13ts = previewGrossLiters !== null && previewTs !== null
+    ? calculateAt13TSLiters(previewGrossLiters, previewTs)
+    : null;
+
   return (
     <div className="space-y-4">
       {/* Global Source Selector if user is NOT source-bound (e.g. Admin) */}
@@ -214,29 +243,98 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
               </div>
             </div>
 
-            {vehicleQuantity.unit === 'KG' && (
-              <div className="p-3.5 rounded-xl bg-amber-50/60 border border-amber-200/80 space-y-1.5">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                  <label htmlFor="vehicle-lr-input" className="block text-xs font-bold text-amber-950">
-                    Vehicle Composite LR {sourceType === 'ZMCC' ? '*' : '(Optional)'}
-                  </label>
-                  <span className="text-[10px] font-semibold text-amber-800">
-                    Canonical Density = 1 + (LR / 1000) • Gross Liters = KG / Density
+            {/* Whole-Vehicle / Composite Quality Section */}
+            <div className="p-4 rounded-2xl bg-amber-50/60 border border-amber-200/90 space-y-3 shadow-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-amber-200/70 pb-2">
+                <div className="flex items-center space-x-1.5">
+                  <Activity className="w-4 h-4 text-amber-900" />
+                  <span className="text-xs font-black uppercase tracking-wider text-amber-950">
+                    Whole-Vehicle / Composite Quality {sourceType === 'ZMCC' ? '(Required)' : '(Optional)'}
                   </span>
                 </div>
-                <input
-                  id="vehicle-lr-input"
-                  type="number"
-                  step="0.01"
-                  min="10"
-                  max="40"
-                  value={vehicleLr || ''}
-                  onChange={(e) => onVehicleLrChange && onVehicleLrChange(e.target.value)}
-                  placeholder="e.g. 28.00"
-                  className="w-full h-11 px-3.5 text-sm font-mono font-bold rounded-xl border border-amber-300 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#1E40AF]"
-                />
+                <span className="text-[10px] font-semibold text-amber-800">
+                  Authoritative whole-vehicle sample • Independent of portion tests
+                </span>
               </div>
-            )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label htmlFor="vehicle-lr-input" className="block text-xs font-bold text-amber-950">
+                    Vehicle Composite LR {sourceType === 'ZMCC' ? '*' : (vehicleQuantity.unit === 'KG' ? '*' : '(Optional)')}
+                  </label>
+                  <input
+                    id="vehicle-lr-input"
+                    type="number"
+                    step="0.01"
+                    min="10"
+                    max="40"
+                    value={vehicleLr || ''}
+                    onChange={(e) => onVehicleLrChange && onVehicleLrChange(e.target.value)}
+                    placeholder="e.g. 28.00"
+                    className="w-full h-11 px-3.5 text-sm font-mono font-bold rounded-xl border border-amber-300 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#1E40AF]"
+                  />
+                  <span className="text-[10px] text-amber-800 block">
+                    Density = 1 + (LR / 1000)
+                  </span>
+                </div>
+
+                <div className="space-y-1">
+                  <label htmlFor="vehicle-fat-input" className="block text-xs font-bold text-amber-950">
+                    Vehicle Composite Fat % {sourceType === 'ZMCC' ? '*' : '(Optional)'}
+                  </label>
+                  <input
+                    id="vehicle-fat-input"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="15"
+                    value={vehicleFat || ''}
+                    onChange={(e) => onVehicleFatChange && onVehicleFatChange(e.target.value)}
+                    placeholder="e.g. 3.80"
+                    className="w-full h-11 px-3.5 text-sm font-mono font-bold rounded-xl border border-amber-300 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#1E40AF]"
+                  />
+                  <span className="text-[10px] text-amber-800 block">
+                    TS = Fat + SNF • Commercial Solids Truth
+                  </span>
+                </div>
+              </div>
+
+              {/* Derived Read-Only Canonical Preview Badges */}
+              {(previewGrossLiters !== null || previewDensity !== null || previewAt13ts !== null) && (
+                <div className="pt-2 border-t border-amber-200/60 grid grid-cols-2 sm:grid-cols-5 gap-2 text-center text-xs font-mono">
+                  <div className="p-2 rounded-xl bg-white/80 border border-amber-200">
+                    <span className="text-[9px] font-bold text-slate-500 block uppercase">Density</span>
+                    <span className="font-extrabold text-slate-900">
+                      {previewDensity !== null ? previewDensity.toFixed(4) : '—'}
+                    </span>
+                  </div>
+                  <div className="p-2 rounded-xl bg-white/80 border border-amber-200">
+                    <span className="text-[9px] font-bold text-blue-700 block uppercase">Gross Liters</span>
+                    <span className="font-extrabold text-blue-950">
+                      {previewGrossLiters !== null ? `${previewGrossLiters.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L` : '—'}
+                    </span>
+                  </div>
+                  <div className="p-2 rounded-xl bg-white/80 border border-amber-200">
+                    <span className="text-[9px] font-bold text-slate-500 block uppercase">SNF %</span>
+                    <span className="font-extrabold text-slate-900">
+                      {previewSnf !== null ? `${previewSnf.toFixed(2)}%` : '—'}
+                    </span>
+                  </div>
+                  <div className="p-2 rounded-xl bg-white/80 border border-amber-200">
+                    <span className="text-[9px] font-bold text-slate-500 block uppercase">TS %</span>
+                    <span className="font-extrabold text-slate-900">
+                      {previewTs !== null ? `${previewTs.toFixed(2)}%` : '—'}
+                    </span>
+                  </div>
+                  <div className="p-2 rounded-xl bg-white/80 border border-emerald-300 bg-emerald-50/60 col-span-2 sm:col-span-1">
+                    <span className="text-[9px] font-bold text-emerald-800 block uppercase">@13TS Liters</span>
+                    <span className="font-extrabold text-emerald-950">
+                      {previewAt13ts !== null ? `${previewAt13ts.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L` : '—'}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {vehicleQuantityError && (
               <p className="text-xs font-bold text-rose-600 mt-1" id="vehicle-quantity-error">

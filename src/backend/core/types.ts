@@ -368,8 +368,13 @@ export interface MilkProcessLog {
   vehicle_dispatch_quantity_unit?: string | null;
   vehicle_dispatch_quantity_basis?: string | null;
   vehicle_dispatch_lr?: number | null;
+  vehicle_dispatch_fat?: number | null;
   vehicle_dispatch_density?: number | null;
   vehicle_dispatch_gross_liters?: number | null;
+  vehicle_dispatch_snf?: number | null;
+  vehicle_dispatch_ts?: number | null;
+  vehicle_dispatch_at_13ts_liters?: number | null;
+  vehicle_dispatch_calculation_version?: string | null;
   dispatch_tests?: string | null;
   dispatch_fat?: number | null;
   dispatch_lr?: number | null;

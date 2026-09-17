@@ -7,7 +7,7 @@ import { evaluateLabResult } from '@/lib/lab-rules';
 import { generateReceptionNumber } from '@/lib/reception-number';
 import { validateRequiredString } from '@/lib/validation-helpers';
 import { validateOperationalTimestamp } from '@/backend/services/chronology-validator';
-import { calculateSNF, calculateRatio, calculateDensity, calculateGrossLiters } from '@/backend/utils/milkFormulas';
+import { calculateSNF, calculateRatio, calculateDensity, calculateGrossLiters, computeCanonicalMilkMetrics } from '@/backend/utils/milkFormulas';
 import { getOrAssignDispatchTests } from '@/backend/services/labTestAssignmentService';
 import { getOrFreezeDispatchQuantityPolicy } from '@/backend/modules/dispatch/quantity-policy/quantityPolicyService';
 import { validateDispatchQuantities, QuantityMeasurementError } from '@/backend/modules/dispatch/quantity/dispatchQuantityService';
@@ -35,10 +35,23 @@ function serializeDispatch(visit: any) {
   const vehicleDispatchGrossLiters = visit.vehicle_dispatch_gross_liters !== null && visit.vehicle_dispatch_gross_liters !== undefined
     ? Number(visit.vehicle_dispatch_gross_liters)
     : null;
+  const vehicleDispatchFat = visit.vehicle_dispatch_fat !== null && visit.vehicle_dispatch_fat !== undefined
+    ? Number(visit.vehicle_dispatch_fat)
+    : null;
+  const vehicleDispatchSnf = visit.vehicle_dispatch_snf !== null && visit.vehicle_dispatch_snf !== undefined
+    ? Number(visit.vehicle_dispatch_snf)
+    : null;
+  const vehicleDispatchTs = visit.vehicle_dispatch_ts !== null && visit.vehicle_dispatch_ts !== undefined
+    ? Number(visit.vehicle_dispatch_ts)
+    : null;
+  const vehicleDispatchAt13tsLiters = visit.vehicle_dispatch_at_13ts_liters !== null && visit.vehicle_dispatch_at_13ts_liters !== undefined
+    ? Number(visit.vehicle_dispatch_at_13ts_liters)
+    : null;
 
   const dispatchTimestamp = firstDispatchInfo?.dispatch_timestamp
     ? new Date(firstDispatchInfo.dispatch_timestamp).toISOString()
     : null;
+
   const dispatchDate = firstDispatchInfo?.dispatch_timestamp
     ? getPakistanCalendarDate(firstDispatchInfo.dispatch_timestamp)
     : null;
@@ -58,8 +71,13 @@ function serializeDispatch(visit: any) {
     vehicle_dispatch_quantity_unit: vehicleQuantityUnit,
     vehicle_dispatch_quantity_basis: vehicleQuantityBasis,
     vehicle_dispatch_lr: vehicleDispatchLr,
+    vehicle_dispatch_fat: vehicleDispatchFat,
     vehicle_dispatch_density: vehicleDispatchDensity,
     vehicle_dispatch_gross_liters: vehicleDispatchGrossLiters,
+    vehicle_dispatch_snf: vehicleDispatchSnf,
+    vehicle_dispatch_ts: vehicleDispatchTs,
+    vehicle_dispatch_at_13ts_liters: vehicleDispatchAt13tsLiters,
+    vehicle_dispatch_calculation_version: visit.vehicle_dispatch_calculation_version || null,
     procurement_source_id: visit.procurement_source_id ? visit.procurement_source_id.toString() : null,
     zonal_contractor_name: visit.procurement_source?.name || 'Source unavailable',
     procurement_source_type: visit.procurement_source?.source_type || 'UNKNOWN',
@@ -602,11 +620,38 @@ export async function POST(req: Request) {
       }
     }
 
+    // Resolve authoritative vehicle Fat:
+    // 1. Explicit vehicleFat in payload
+    // 2. Explicit fat in vehicleQuantity
+    // 3. If portions.length === 1, from single portion's performed Fat test
+    let authoritativeVehicleFat: number | null = null;
+    if (validated.vehicleFat !== undefined && validated.vehicleFat !== null && !isNaN(validated.vehicleFat) && validated.vehicleFat >= 0) {
+      authoritativeVehicleFat = Number(validated.vehicleFat);
+    } else if (validated.vehicleQuantity.fat !== undefined && validated.vehicleQuantity.fat !== null && !isNaN(validated.vehicleQuantity.fat) && validated.vehicleQuantity.fat >= 0) {
+      authoritativeVehicleFat = Number(validated.vehicleQuantity.fat);
+    } else if (validated.portions.length === 1) {
+      const p1Results = validated.portions[0].results || [];
+      for (const r of p1Results) {
+        const assigned = assignedDispatchTests.find((t) => t.test_id.toString() === r.testId);
+        if (assigned) {
+          const tName = assigned.test_name_snapshot.toLowerCase().trim();
+          if (tName === 'fat' && r.performanceStatus === 'PERFORMED' && r.numericValue !== null && r.numericValue !== undefined && !isNaN(r.numericValue) && r.numericValue >= 0) {
+            authoritativeVehicleFat = Number(r.numericValue);
+            break;
+          }
+        }
+      }
+    }
+
     const vehicleQtyVal = Number(validatedQuantities.vehicleQuantity.value);
     const vehicleQtyUnit = validatedQuantities.vehicleQuantity.unit;
 
     let vehicleDensity: number | null = null;
     let vehicleGrossLiters: number | null = null;
+    let vehicleSnf: number | null = null;
+    let vehicleTs: number | null = null;
+    let vehicleAt13tsLiters: number | null = null;
+    let vehicleCalculationVersion: string | null = null;
 
     if (vehicleQtyUnit === 'LITER') {
       vehicleGrossLiters = Number(vehicleQtyVal.toFixed(2));
@@ -623,13 +668,30 @@ export async function POST(req: Request) {
       }
     }
 
-    // For ZMCC source: physical tank ISSUE requires authoritative Gross Liters
+    // When both authoritative LR and Fat are available, compute complete canonical commercial metrics
+    if (authoritativeVehicleLr !== null && authoritativeVehicleFat !== null && vehicleGrossLiters !== null && vehicleGrossLiters > 0) {
+      const canonicalMetrics = computeCanonicalMilkMetrics(
+        vehicleQtyVal,
+        vehicleQtyUnit,
+        authoritativeVehicleLr,
+        authoritativeVehicleFat
+      );
+      vehicleDensity = canonicalMetrics.density;
+      vehicleGrossLiters = canonicalMetrics.grossLiters;
+      vehicleSnf = canonicalMetrics.snf;
+      vehicleTs = canonicalMetrics.ts;
+      vehicleAt13tsLiters = canonicalMetrics.at13tsLiters;
+      vehicleCalculationVersion = canonicalMetrics.calculationVersion;
+    }
+
+    // For ZMCC source: BOTH authoritative LR and Fat are required fail-closed (HTTP 400)
+    // because both physical Gross L and commercial @13TS must be frozen at dispatch
     if (sourceType === 'ZMCC') {
-      if (vehicleQtyUnit === 'KG' && authoritativeVehicleLr === null) {
+      if (authoritativeVehicleLr === null || authoritativeVehicleFat === null) {
         return NextResponse.json(
           {
-            error: 'Authoritative vehicle/composite LR is required for ZMCC dispatch in KG to derive Gross Liters.',
-            code: 'MISSING_AUTHORITATIVE_VEHICLE_LR',
+            error: 'Authoritative whole-vehicle/composite LR and Fat are required for ZMCC dispatch to establish physical Gross Liters and commercial @13TS.',
+            code: 'MISSING_AUTHORITATIVE_VEHICLE_QUALITY',
           },
           { status: 400 }
         );
@@ -639,6 +701,15 @@ export async function POST(req: Request) {
           {
             error: 'Failed to derive canonical Gross Liters for ZMCC tank issue from measured vehicle quantity.',
             code: 'INVALID_GROSS_LITERS',
+          },
+          { status: 400 }
+        );
+      }
+      if (vehicleAt13tsLiters === null || isNaN(vehicleAt13tsLiters) || vehicleAt13tsLiters <= 0) {
+        return NextResponse.json(
+          {
+            error: 'Failed to derive canonical @13TS Liters for ZMCC tank issue from measured vehicle quantity and quality.',
+            code: 'INVALID_COMMERCIAL_AT_13TS',
           },
           { status: 400 }
         );
@@ -663,8 +734,13 @@ export async function POST(req: Request) {
           vehicle_dispatch_quantity_unit: validatedQuantities.vehicleQuantity.unit,
           vehicle_dispatch_quantity_basis: validatedQuantities.vehicleQuantity.basis,
           vehicle_dispatch_lr: authoritativeVehicleLr !== null ? new Prisma.Decimal(authoritativeVehicleLr.toFixed(2)) : null,
+          vehicle_dispatch_fat: authoritativeVehicleFat !== null ? new Prisma.Decimal(authoritativeVehicleFat.toFixed(2)) : null,
           vehicle_dispatch_density: vehicleDensity !== null ? new Prisma.Decimal(vehicleDensity.toFixed(4)) : null,
           vehicle_dispatch_gross_liters: vehicleGrossLiters !== null ? new Prisma.Decimal(vehicleGrossLiters.toFixed(2)) : null,
+          vehicle_dispatch_snf: vehicleSnf !== null ? new Prisma.Decimal(vehicleSnf.toFixed(2)) : null,
+          vehicle_dispatch_ts: vehicleTs !== null ? new Prisma.Decimal(vehicleTs.toFixed(2)) : null,
+          vehicle_dispatch_at_13ts_liters: vehicleAt13tsLiters !== null ? new Prisma.Decimal(vehicleAt13tsLiters.toFixed(2)) : null,
+          vehicle_dispatch_calculation_version: vehicleCalculationVersion,
         },
       });
 
@@ -674,11 +750,15 @@ export async function POST(req: Request) {
 
       // ZMCC TANK ISSUE:
       // If dispatching from a ZMCC source, atomically deduct whole-vehicle measured quantity (Gross Liters)
-      // from the active ZMCC tank using ZmccTankInventoryTransaction (transaction_type = 'ISSUE').
+      // and commercial standardized quantity (@13TS Liters) from the active ZMCC tank in the same immutable transaction.
       if (sourceType === 'ZMCC') {
         const issueLiters = vehicleGrossLiters!;
+        const issueAt13ts = vehicleAt13tsLiters!;
         if (isNaN(issueLiters) || issueLiters <= 0) {
           throw new Error('INVALID_DISPATCH_QUANTITY: Authoritative Gross Liters must be greater than zero for ZMCC tank issue.');
+        }
+        if (isNaN(issueAt13ts) || issueAt13ts <= 0) {
+          throw new Error('INVALID_DISPATCH_QUANTITY: Authoritative @13TS Liters must be greater than zero for ZMCC tank issue.');
         }
 
         const activeTanks = await tx.zmccTank.findMany({
@@ -714,7 +794,7 @@ export async function POST(req: Request) {
           throw new Error(`INSUFFICIENT_TANK_STOCK: Insufficient physical tank stock (${availStr} L available, ${reqStr} L required).`);
         }
 
-        // Idempotent ledger entry
+        // Idempotent ledger entry carrying BOTH Gross Liters and @13TS Liters
         const idempotencyKey = `ZMCC_TANK_ISSUE:DISPATCH:${visit.id}`;
         const existingIssue = await tx.zmccTankInventoryTransaction.findUnique({
           where: { idempotency_key: idempotencyKey },
@@ -727,6 +807,7 @@ export async function POST(req: Request) {
               zmcc_id: resolvedSourceId!,
               transaction_type: 'ISSUE',
               quantity_liters: new Prisma.Decimal(issueLiters.toFixed(2)),
+              at_13ts_liters: new Prisma.Decimal(issueAt13ts.toFixed(2)),
               dispatch_id: visit.id,
               reference_type: 'DISPATCH',
               reference_id: visit.id.toString(),
