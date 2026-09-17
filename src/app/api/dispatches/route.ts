@@ -201,19 +201,27 @@ export async function GET(req: Request) {
       }
     }
 
-    if (gteDate) {
+    if (gteDate && lteDate) {
       conditions.push(Prisma.sql`EXISTS (
         SELECT 1 FROM visit_portion vp2
         JOIN dispatch_info di2 ON di2.portion_id = vp2.id
-        WHERE vp2.visit_id = vv.id AND di2.dispatch_timestamp >= ${gteDate}
+        WHERE vp2.visit_id = vv.id
+          AND di2.dispatch_timestamp >= ${gteDate}
+          AND di2.dispatch_timestamp <= ${lteDate}
       )`);
-    }
-
-    if (lteDate) {
+    } else if (gteDate) {
       conditions.push(Prisma.sql`EXISTS (
         SELECT 1 FROM visit_portion vp2
         JOIN dispatch_info di2 ON di2.portion_id = vp2.id
-        WHERE vp2.visit_id = vv.id AND di2.dispatch_timestamp <= ${lteDate}
+        WHERE vp2.visit_id = vv.id
+          AND di2.dispatch_timestamp >= ${gteDate}
+      )`);
+    } else if (lteDate) {
+      conditions.push(Prisma.sql`EXISTS (
+        SELECT 1 FROM visit_portion vp2
+        JOIN dispatch_info di2 ON di2.portion_id = vp2.id
+        WHERE vp2.visit_id = vv.id
+          AND di2.dispatch_timestamp <= ${lteDate}
       )`);
     }
 
