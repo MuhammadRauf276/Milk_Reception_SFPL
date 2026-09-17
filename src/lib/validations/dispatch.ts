@@ -21,6 +21,7 @@ export const quantityMeasurementInputSchema = z.object({
   value: quantityValueSchema,
   unit: quantityUnitSchema,
   basis: measurementBasisSchema,
+  lr: z.number().positive().nullable().optional(),
 });
 
 export const dispatchPortionSchema = z.object({
@@ -45,6 +46,7 @@ export const createDispatchSchema = z
     dispatchTestingReason: z.string().nullable().optional(),
     dispatchTestingRemarks: z.string().nullable().optional(),
     vehicleQuantity: quantityMeasurementInputSchema,
+    vehicleLr: z.number().positive().nullable().optional(),
     portions: z.array(dispatchPortionSchema).min(1, 'At least one portion is required'),
   })
   .refine(

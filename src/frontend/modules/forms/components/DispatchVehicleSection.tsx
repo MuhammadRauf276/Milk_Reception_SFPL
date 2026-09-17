@@ -36,6 +36,8 @@ export interface DispatchVehicleSectionProps {
   vehicleAllowedBases: MeasurementBasisType[];
   vehicleQuantityError: string | null;
   sourceType?: string;
+  vehicleLr?: string;
+  onVehicleLrChange?: (value: string) => void;
 }
 
 export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
@@ -58,6 +60,8 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
   vehicleAllowedBases,
   vehicleQuantityError,
   sourceType,
+  vehicleLr,
+  onVehicleLrChange,
 }) => {
   return (
     <div className="space-y-4">
@@ -209,6 +213,30 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
                 <input type="hidden" id="vehicle-basis-select" value={vehicleQuantity.basis || 'MEASURED'} />
               </div>
             </div>
+
+            {vehicleQuantity.unit === 'KG' && (
+              <div className="p-3.5 rounded-xl bg-amber-50/60 border border-amber-200/80 space-y-1.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                  <label htmlFor="vehicle-lr-input" className="block text-xs font-bold text-amber-950">
+                    Vehicle Composite LR {sourceType === 'ZMCC' ? '*' : '(Optional)'}
+                  </label>
+                  <span className="text-[10px] font-semibold text-amber-800">
+                    Canonical Density = 1 + (LR / 1000) • Gross Liters = KG / Density
+                  </span>
+                </div>
+                <input
+                  id="vehicle-lr-input"
+                  type="number"
+                  step="0.01"
+                  min="10"
+                  max="40"
+                  value={vehicleLr || ''}
+                  onChange={(e) => onVehicleLrChange && onVehicleLrChange(e.target.value)}
+                  placeholder="e.g. 28.00"
+                  className="w-full h-11 px-3.5 text-sm font-mono font-bold rounded-xl border border-amber-300 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#1E40AF]"
+                />
+              </div>
+            )}
 
             {vehicleQuantityError && (
               <p className="text-xs font-bold text-rose-600 mt-1" id="vehicle-quantity-error">

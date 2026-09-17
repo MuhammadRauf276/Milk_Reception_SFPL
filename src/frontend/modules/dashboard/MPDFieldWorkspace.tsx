@@ -18,6 +18,9 @@ interface DispatchRecord {
   portion_count: number;
   vehicle_dispatch_quantity_value?: number | null;
   vehicle_dispatch_quantity_unit?: string | null;
+  vehicle_dispatch_lr?: number | null;
+  vehicle_dispatch_density?: number | null;
+  vehicle_dispatch_gross_liters?: number | null;
   zonal_contractor_name: string;
   zonal_contractor_dispatch_time: string | null;
   has_gate_entry: boolean;
@@ -358,6 +361,11 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
                           ? `${Number(log.vehicle_dispatch_quantity_value).toLocaleString()} ${log.vehicle_dispatch_quantity_unit}`
                           : '—'}
                       </span>
+                      {log.vehicle_dispatch_quantity_unit === 'KG' && log.vehicle_dispatch_gross_liters != null && (
+                        <span className="text-[10px] text-blue-700 block font-mono font-bold">
+                          {Number(log.vehicle_dispatch_gross_liters).toLocaleString()} Gross L
+                        </span>
+                      )}
                     </div>
                     <div>
                       <span className="text-slate-500 font-sans block text-[9.5px]">Dispatch Date</span>

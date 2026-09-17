@@ -7,7 +7,7 @@ import { evaluateLabResult } from '@/lib/lab-rules';
 import { generateReceptionNumber } from '@/lib/reception-number';
 import { validateRequiredString } from '@/lib/validation-helpers';
 import { validateOperationalTimestamp } from '@/backend/services/chronology-validator';
-import { calculateSNF, calculateRatio } from '@/backend/utils/milkFormulas';
+import { calculateSNF, calculateRatio, calculateDensity, calculateGrossLiters } from '@/backend/utils/milkFormulas';
 import { getOrAssignDispatchTests } from '@/backend/services/labTestAssignmentService';
 import { getOrFreezeDispatchQuantityPolicy } from '@/backend/modules/dispatch/quantity-policy/quantityPolicyService';
 import { validateDispatchQuantities, QuantityMeasurementError } from '@/backend/modules/dispatch/quantity/dispatchQuantityService';
@@ -25,6 +25,16 @@ function serializeDispatch(visit: any) {
     : null;
   const vehicleQuantityUnit = visit.vehicle_dispatch_quantity_unit || null;
   const vehicleQuantityBasis = visit.vehicle_dispatch_quantity_basis || null;
+
+  const vehicleDispatchLr = visit.vehicle_dispatch_lr !== null && visit.vehicle_dispatch_lr !== undefined
+    ? Number(visit.vehicle_dispatch_lr)
+    : null;
+  const vehicleDispatchDensity = visit.vehicle_dispatch_density !== null && visit.vehicle_dispatch_density !== undefined
+    ? Number(visit.vehicle_dispatch_density)
+    : null;
+  const vehicleDispatchGrossLiters = visit.vehicle_dispatch_gross_liters !== null && visit.vehicle_dispatch_gross_liters !== undefined
+    ? Number(visit.vehicle_dispatch_gross_liters)
+    : null;
 
   const dispatchTimestamp = firstDispatchInfo?.dispatch_timestamp
     ? new Date(firstDispatchInfo.dispatch_timestamp).toISOString()
@@ -47,6 +57,9 @@ function serializeDispatch(visit: any) {
     vehicle_dispatch_quantity_value: vehicleQuantityValue,
     vehicle_dispatch_quantity_unit: vehicleQuantityUnit,
     vehicle_dispatch_quantity_basis: vehicleQuantityBasis,
+    vehicle_dispatch_lr: vehicleDispatchLr,
+    vehicle_dispatch_density: vehicleDispatchDensity,
+    vehicle_dispatch_gross_liters: vehicleDispatchGrossLiters,
     procurement_source_id: visit.procurement_source_id ? visit.procurement_source_id.toString() : null,
     zonal_contractor_name: visit.procurement_source?.name || 'Source unavailable',
     procurement_source_type: visit.procurement_source?.source_type || 'UNKNOWN',
@@ -566,15 +579,70 @@ export async function POST(req: Request) {
     const effectiveDispatchDate = chronoVal.date || new Date(firstPortionTs);
     const dispatchCalendarDateStr = getPakistanCalendarDate(effectiveDispatchDate);
 
-    // Fail closed early for ZMCC dispatch in KG (no authoritative vehicle-level density)
-    if (sourceType === 'ZMCC' && validatedQuantities.vehicleQuantity.unit === 'KG') {
-      return NextResponse.json(
-        {
-          error: 'Cannot finalize ZMCC tank issue for KG dispatch without an authoritative vehicle-level density. ZMCC tank issue requires measured volume in LITERS.',
-          code: 'ZMCC_KG_DISPATCH_UNSUPPORTED',
-        },
-        { status: 400 }
-      );
+    // Resolve authoritative vehicle LR:
+    // 1. Explicit vehicleLr in payload
+    // 2. Explicit lr in vehicleQuantity
+    // 3. If portions.length === 1, from single portion's performed Lactometer/LR test
+    let authoritativeVehicleLr: number | null = null;
+    if (validated.vehicleLr !== undefined && validated.vehicleLr !== null && !isNaN(validated.vehicleLr) && validated.vehicleLr > 0) {
+      authoritativeVehicleLr = Number(validated.vehicleLr);
+    } else if (validated.vehicleQuantity.lr !== undefined && validated.vehicleQuantity.lr !== null && !isNaN(validated.vehicleQuantity.lr) && validated.vehicleQuantity.lr > 0) {
+      authoritativeVehicleLr = Number(validated.vehicleQuantity.lr);
+    } else if (validated.portions.length === 1) {
+      const p1Results = validated.portions[0].results || [];
+      for (const r of p1Results) {
+        const assigned = assignedDispatchTests.find((t) => t.test_id.toString() === r.testId);
+        if (assigned) {
+          const tName = assigned.test_name_snapshot.toLowerCase();
+          if ((tName.includes('lactometer') || tName.includes('lr')) && r.performanceStatus === 'PERFORMED' && r.numericValue !== null && r.numericValue !== undefined && !isNaN(r.numericValue) && r.numericValue > 0) {
+            authoritativeVehicleLr = Number(r.numericValue);
+            break;
+          }
+        }
+      }
+    }
+
+    const vehicleQtyVal = Number(validatedQuantities.vehicleQuantity.value);
+    const vehicleQtyUnit = validatedQuantities.vehicleQuantity.unit;
+
+    let vehicleDensity: number | null = null;
+    let vehicleGrossLiters: number | null = null;
+
+    if (vehicleQtyUnit === 'LITER') {
+      vehicleGrossLiters = Number(vehicleQtyVal.toFixed(2));
+      if (authoritativeVehicleLr !== null) {
+        vehicleDensity = Number(calculateDensity(authoritativeVehicleLr).toFixed(4));
+      }
+    } else if (vehicleQtyUnit === 'KG') {
+      if (authoritativeVehicleLr !== null) {
+        vehicleDensity = Number(calculateDensity(authoritativeVehicleLr).toFixed(4));
+        const rawGross = calculateGrossLiters(vehicleQtyVal, 'KG', authoritativeVehicleLr);
+        if (rawGross !== null) {
+          vehicleGrossLiters = Number(rawGross.toFixed(2));
+        }
+      }
+    }
+
+    // For ZMCC source: physical tank ISSUE requires authoritative Gross Liters
+    if (sourceType === 'ZMCC') {
+      if (vehicleQtyUnit === 'KG' && authoritativeVehicleLr === null) {
+        return NextResponse.json(
+          {
+            error: 'Authoritative vehicle/composite LR is required for ZMCC dispatch in KG to derive Gross Liters.',
+            code: 'MISSING_AUTHORITATIVE_VEHICLE_LR',
+          },
+          { status: 400 }
+        );
+      }
+      if (vehicleGrossLiters === null || isNaN(vehicleGrossLiters) || vehicleGrossLiters <= 0) {
+        return NextResponse.json(
+          {
+            error: 'Failed to derive canonical Gross Liters for ZMCC tank issue from measured vehicle quantity.',
+            code: 'INVALID_GROSS_LITERS',
+          },
+          { status: 400 }
+        );
+      }
     }
 
     // Execute Prisma Transaction for atomic creation or draft finalization
@@ -594,6 +662,9 @@ export async function POST(req: Request) {
           vehicle_dispatch_quantity_value: new Prisma.Decimal(validatedQuantities.vehicleQuantity.value),
           vehicle_dispatch_quantity_unit: validatedQuantities.vehicleQuantity.unit,
           vehicle_dispatch_quantity_basis: validatedQuantities.vehicleQuantity.basis,
+          vehicle_dispatch_lr: authoritativeVehicleLr !== null ? new Prisma.Decimal(authoritativeVehicleLr.toFixed(2)) : null,
+          vehicle_dispatch_density: vehicleDensity !== null ? new Prisma.Decimal(vehicleDensity.toFixed(4)) : null,
+          vehicle_dispatch_gross_liters: vehicleGrossLiters !== null ? new Prisma.Decimal(vehicleGrossLiters.toFixed(2)) : null,
         },
       });
 
@@ -605,9 +676,9 @@ export async function POST(req: Request) {
       // If dispatching from a ZMCC source, atomically deduct whole-vehicle measured quantity (Gross Liters)
       // from the active ZMCC tank using ZmccTankInventoryTransaction (transaction_type = 'ISSUE').
       if (sourceType === 'ZMCC') {
-        const issueLiters = Number(validatedQuantities.vehicleQuantity.value);
+        const issueLiters = vehicleGrossLiters!;
         if (isNaN(issueLiters) || issueLiters <= 0) {
-          throw new Error('INVALID_DISPATCH_QUANTITY: Whole-vehicle dispatch quantity must be greater than zero.');
+          throw new Error('INVALID_DISPATCH_QUANTITY: Authoritative Gross Liters must be greater than zero for ZMCC tank issue.');
         }
 
         const activeTanks = await tx.zmccTank.findMany({
@@ -789,7 +860,8 @@ export async function POST(req: Request) {
     if (
       error?.message?.startsWith('INSUFFICIENT_TANK_STOCK') ||
       error?.message?.startsWith('ZMCC_TANK_CONFIGURATION_ERROR') ||
-      error?.message?.startsWith('ZMCC_KG_DISPATCH_UNSUPPORTED') ||
+      error?.message?.startsWith('MISSING_AUTHORITATIVE_VEHICLE_LR') ||
+      error?.message?.startsWith('INVALID_GROSS_LITERS') ||
       error?.message?.startsWith('ZMCC_TANK_INACTIVE') ||
       error?.message?.startsWith('ZMCC_TANK_NOT_FOUND') ||
       error?.message?.startsWith('INVALID_DISPATCH_QUANTITY')

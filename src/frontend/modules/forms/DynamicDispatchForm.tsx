@@ -64,6 +64,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     basis: 'MEASURED',
   });
   const [vehicleQuantityError, setVehicleQuantityError] = useState<string | null>(null);
+  const [vehicleLr, setVehicleLr] = useState<string>('');
 
   // Portions Draft State
   const [portions, setPortions] = useState<PortionFormState[]>([]);
@@ -777,7 +778,9 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
             value: Number(vehicleQuantity.value),
             unit: vehicleQuantity.unit,
             basis: vehicleQuantity.basis,
+            lr: vehicleLr && !isNaN(Number(vehicleLr)) ? Number(vehicleLr) : undefined,
           },
+          vehicleLr: vehicleLr && !isNaN(Number(vehicleLr)) ? Number(vehicleLr) : undefined,
           portions: payloadPortions,
         }),
       });
@@ -802,6 +805,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
       // Reset form fields
       setVehicleNumber('');
       setVehicleQuantity((prev) => ({ ...prev, value: '' }));
+      setVehicleLr('');
       setPortions([]);
       setEditingPortionIndex(null);
 
@@ -828,6 +832,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     setDraftVisitId(null);
     setVehicleNumber('');
     setVehicleQuantity((prev) => ({ ...prev, value: '' }));
+    setVehicleLr('');
     setEditingPortionIndex(0);
 
     toast.showInfo('Draft cleared. Initializing fresh dispatch work item...');
@@ -931,6 +936,8 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
             vehicleAllowedBases={vehicleAllowedBases}
             vehicleQuantityError={vehicleQuantityError}
             sourceType={effectiveSource?.source_type}
+            vehicleLr={vehicleLr}
+            onVehicleLrChange={setVehicleLr}
           />
 
           <DispatchPortionEditor

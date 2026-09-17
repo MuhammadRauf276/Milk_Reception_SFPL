@@ -103,6 +103,9 @@ model VehicleVisit {
   vehicle_dispatch_quantity_value Decimal?          @map("vehicle_dispatch_quantity_value") @db.Decimal(10, 2)
   vehicle_dispatch_quantity_unit  QuantityUnit?     @map("vehicle_dispatch_quantity_unit")
   vehicle_dispatch_quantity_basis MeasurementBasis? @map("vehicle_dispatch_quantity_basis")
+  vehicle_dispatch_lr             Decimal?          @map("vehicle_dispatch_lr") @db.Decimal(6, 2)
+  vehicle_dispatch_density        Decimal?          @map("vehicle_dispatch_density") @db.Decimal(6, 4)
+  vehicle_dispatch_gross_liters   Decimal?          @map("vehicle_dispatch_gross_liters") @db.Decimal(12, 2)
 
   // Relations
   procurement_source       ProcurementSource?              @relation("VisitSource", fields: [procurement_source_id], references: [id], onDelete: SetNull)

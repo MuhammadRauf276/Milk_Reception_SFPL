@@ -7,6 +7,7 @@ import {
   calculatePhysicalLiters,
   calculateAt13TSLiters,
   computeCanonicalMilkMetrics,
+  calculateGrossLiters,
 } from '../src/backend/utils/milkFormulas';
 import {
   calculateVehicleReceivedQuantity,
@@ -111,6 +112,7 @@ export async function seedOperationalData() {
   let finalReceiptsCount = 0;
   let qaEventsCount = 0;
   const sourceStats: Record<string, number> = {};
+  let visit10Record: any = null;
   let visit20Record: any = null;
 
   console.log('Seeding 75 realistic, deterministic vehicle journeys...\n');
@@ -175,6 +177,10 @@ export async function seedOperationalData() {
       ? (sources.find((s) => s.code === 'ZMCC-HASILPUR') || sources[(i - 1) % sources.length])
       : sources[(i - 1) % sources.length];
 
+    // Scenario ZMCC-KG: Visit 10 / ZMCC source (bound to ZMCC Hasilpur)
+    if (i === 10) {
+      sourceObj = sources.find((s) => s.code === 'ZMCC-HASILPUR') || sources.find((s) => s.source_type === 'ZMCC') || sourceObj;
+    }
     // Scenario A: Visit 20 / ZMCC source (bound to ZMCC Hasilpur)
     if (i === 20) {
       sourceObj = sources.find((s) => s.code === 'ZMCC-HASILPUR') || sources.find((s) => s.source_type === 'ZMCC') || sourceObj;
@@ -205,7 +211,16 @@ export async function seedOperationalData() {
     let portionUnit: 'KG' | 'LITER' = 'KG';
     let portionBasis: 'MEASURED' | 'ESTIMATED' = 'MEASURED';
 
-    if (i === 20) {
+    if (i === 10) {
+      // Scenario ZMCC-KG: ZMCC Hasilpur, 10,000 KG MEASURED vehicle issue vs 2 ESTIMATED portions (5,000 KG + 4,800 KG = 9,800 KG, diff = +200 KG)
+      // Authoritative LR = 28.00 -> Density = 1.0280 -> Converted Gross Liters = 9,727.63 L
+      totalDeclaredKg = 10000;
+      vehicleQtyUnit = 'KG';
+      portion1Qty = 5000;
+      portion2Qty = 4800;
+      portionUnit = 'KG';
+      portionBasis = 'ESTIMATED';
+    } else if (i === 20) {
       // Scenario A: ZMCC source, 8,000 L MEASURED vehicle issue vs 2 ESTIMATED portions (4,000 L + 3,850 L = 7,850 L, diff = +150 L)
       totalDeclaredKg = 8000;
       vehicleQtyUnit = 'LITER';
@@ -236,6 +251,26 @@ export async function seedOperationalData() {
       ? parseStrictDateOnly(getOperationalBusinessDate(gateExitTime))
       : null;
 
+    let vehicleDispatchLr: number | null = null;
+    let vehicleDispatchDensity: number | null = null;
+    let vehicleDispatchGrossLiters: number | null = null;
+
+    if (i === 10) {
+      vehicleDispatchLr = 28.00;
+      vehicleDispatchDensity = 1.0280;
+      vehicleDispatchGrossLiters = 9727.63;
+    } else if (vehicleQtyUnit === 'LITER') {
+      vehicleDispatchGrossLiters = Number(totalDeclaredKg.toFixed(2));
+      vehicleDispatchLr = 28.00;
+      vehicleDispatchDensity = 1.0280;
+    } else {
+      const demoLr = 28.00;
+      vehicleDispatchLr = demoLr;
+      vehicleDispatchDensity = Number(calculateDensity(demoLr).toFixed(4));
+      const gL = calculateGrossLiters(totalDeclaredKg, 'KG', demoLr);
+      vehicleDispatchGrossLiters = gL ? Number(gL.toFixed(2)) : null;
+    }
+
     // Create VehicleVisit
     const visit = await prisma.vehicleVisit.create({
       data: {
@@ -250,12 +285,18 @@ export async function seedOperationalData() {
         vehicle_dispatch_quantity_value: totalDeclaredKg,
         vehicle_dispatch_quantity_unit: vehicleQtyUnit,
         vehicle_dispatch_quantity_basis: vehicleQtyBasis,
+        vehicle_dispatch_lr: vehicleDispatchLr,
+        vehicle_dispatch_density: vehicleDispatchDensity,
+        vehicle_dispatch_gross_liters: vehicleDispatchGrossLiters,
         created_at: dispatchTime,
         updated_at: targetStatus === 'COMPLETED' ? gateExitTime : qaCompleteTime,
       },
     });
 
     createdVisits++;
+    if (i === 10) {
+      visit10Record = visit;
+    }
     if (i === 20) {
       visit20Record = visit;
     }
@@ -307,7 +348,7 @@ export async function seedOperationalData() {
 
       // Dispatch Lab Results
       const fatVal = 3.6 + ((i + pIdx) % 10) * 0.1; // 3.6 - 4.5%
-      const lrVal = 27.5 + ((i + pIdx) % 8) * 0.2; // 27.5 - 29.0
+      const lrVal = i === 10 ? 28.0 : 27.5 + ((i + pIdx) % 8) * 0.2; // 27.5 - 29.0
       const tempVal = 4.0 + (i % 4) * 0.5;
       const acidVal = 0.12 + (i % 3) * 0.01;
 
@@ -644,12 +685,15 @@ export async function seedOperationalData() {
     });
   }
 
-  // Canonical Tank Stock Seeding for Scenario A (Visit 20):
-  // Ensure truthful, positive tank stock balance by seeding an opening receipt before Visit 20 dispatch,
-  // followed by the canonical whole-vehicle tank ISSUE (8,000 L) for Visit 20.
-  if (visit20Record) {
-    const openingStockLiters = 15000.0;
-    const openingTimestamp = new Date(visit20Record.created_at.getTime() - 3600000); // 1 hr before dispatch
+  // Canonical Tank Stock Seeding for ZMCC Hasilpur:
+  // Scenario ZMCC-KG (Visit 10): 10,000 KG @ LR 28.00 -> 9,727.63 Gross Liters ISSUE
+  // Scenario A (Visit 20): 8,000 L Measured -> 8,000.00 Gross Liters ISSUE
+  // Seed opening stock receipt (35,000 L) before the earliest visit dispatch,
+  // followed by canonical whole-vehicle tank ISSUEs in Gross Liters.
+  if (visit10Record || visit20Record) {
+    const openingStockLiters = 35000.0;
+    const earliestDate = visit10Record ? visit10Record.created_at : visit20Record.created_at;
+    const openingTimestamp = new Date(earliestDate.getTime() - 3600000); // 1 hr before earliest dispatch
 
     await prisma.zmccTankInventoryTransaction.create({
       data: {
@@ -666,21 +710,43 @@ export async function seedOperationalData() {
       },
     });
 
-    await prisma.zmccTankInventoryTransaction.create({
-      data: {
-        tank_id: hasilpurTank.id,
-        zmcc_id: hasilpurSource.id,
-        transaction_type: 'ISSUE',
-        quantity_liters: Number(visit20Record.vehicle_dispatch_quantity_value), // 8000.00
-        dispatch_id: visit20Record.id,
-        reference_type: 'DISPATCH',
-        reference_id: visit20Record.id.toString(),
-        idempotency_key: `ZMCC_TANK_ISSUE:DISPATCH:${visit20Record.id}`,
-        operational_timestamp: visit20Record.created_at,
-        performed_by_user_id: zmccLabUser.id,
-        notes: `Whole-vehicle dispatch issue for visit ${visit20Record.visit_number} (${visit20Record.vehicle_number})`,
-      },
-    });
+    if (visit10Record) {
+      // Visit 10: 10,000 KG measured -> 9,727.63 Gross Liters (authoritative Gross Liters ISSUE, not raw KG and not Sum(Portions) = 9,800 KG)
+      await prisma.zmccTankInventoryTransaction.create({
+        data: {
+          tank_id: hasilpurTank.id,
+          zmcc_id: hasilpurSource.id,
+          transaction_type: 'ISSUE',
+          quantity_liters: Number(visit10Record.vehicle_dispatch_gross_liters), // 9727.63 Gross Liters
+          dispatch_id: visit10Record.id,
+          reference_type: 'DISPATCH',
+          reference_id: visit10Record.id.toString(),
+          idempotency_key: `ZMCC_TANK_ISSUE:DISPATCH:${visit10Record.id}`,
+          operational_timestamp: visit10Record.created_at,
+          performed_by_user_id: zmccLabUser.id,
+          notes: `Whole-vehicle dispatch issue for visit ${visit10Record.visit_number} (${visit10Record.vehicle_number}) [10,000 KG @ LR 28.00 -> 9,727.63 Gross L]`,
+        },
+      });
+    }
+
+    if (visit20Record) {
+      // Visit 20: 8,000 L measured -> 8,000.00 Gross Liters (Scenario A)
+      await prisma.zmccTankInventoryTransaction.create({
+        data: {
+          tank_id: hasilpurTank.id,
+          zmcc_id: hasilpurSource.id,
+          transaction_type: 'ISSUE',
+          quantity_liters: Number(visit20Record.vehicle_dispatch_quantity_value), // 8000.00 Gross Liters
+          dispatch_id: visit20Record.id,
+          reference_type: 'DISPATCH',
+          reference_id: visit20Record.id.toString(),
+          idempotency_key: `ZMCC_TANK_ISSUE:DISPATCH:${visit20Record.id}`,
+          operational_timestamp: visit20Record.created_at,
+          performed_by_user_id: zmccLabUser.id,
+          notes: `Whole-vehicle dispatch issue for visit ${visit20Record.visit_number} (${visit20Record.vehicle_number}) [8,000 L Measured]`,
+        },
+      });
+    }
   }
 
   // Ensure active testing policies exist for ZMCC_LAB_MOT and ZMCC_LAB_CONTRACTOR
