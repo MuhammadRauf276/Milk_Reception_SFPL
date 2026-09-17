@@ -150,7 +150,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
     if (isPheOperator) {
       return [
         { id: 'LOCAL_SUPPLIERS', label: 'Local Suppliers', icon: Users },
-        { id: 'SHOPS', label: 'Shop Details', icon: Store },
+        { id: 'SHOPS', label: 'Shop Details (Reference)', icon: Store },
       ];
     }
     const tabs: { id: MasterDataTab; label: string; icon: any }[] = [

@@ -122,41 +122,41 @@ export default function PhePage() {
 
         {/* Center Content Pane */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 w-full max-w-full space-y-4">
-          <div className="flex items-center space-x-2 bg-white p-2 rounded-2xl border border-[#EAE4D5] shadow-xs w-fit">
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 bg-white p-2 rounded-2xl border border-[#EAE4D5] shadow-xs w-full sm:w-fit overflow-x-auto">
             <button
               type="button"
               onClick={() => setPheTab('ARRIVALS')}
-              className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all ${
+              className={`flex items-center space-x-2 px-4 py-2.5 min-h-[44px] rounded-xl text-xs font-black transition-all shrink-0 ${
                 pheTab === 'ARRIVALS'
                   ? 'bg-[#1E3A8A] text-white shadow-xs'
                   : 'bg-transparent text-slate-700 hover:bg-[#F4F0E6]'
               }`}
             >
-              <CheckCircle2 className="w-4 h-4" />
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
               <span>ZMCC Arrivals & Tokens</span>
             </button>
             <button
               type="button"
               onClick={() => setPheTab('SHOPS')}
-              className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all ${
+              className={`flex items-center space-x-2 px-4 py-2.5 min-h-[44px] rounded-xl text-xs font-black transition-all shrink-0 ${
                 pheTab === 'SHOPS'
                   ? 'bg-[#1E3A8A] text-white shadow-xs'
                   : 'bg-transparent text-slate-700 hover:bg-[#F4F0E6]'
               }`}
             >
-              <Store className="w-4 h-4" />
-              <span>Shop Details Management</span>
+              <Store className="w-4 h-4 shrink-0" />
+              <span>Local Suppliers / Shop Details</span>
             </button>
             <button
               type="button"
               onClick={() => setPheTab('MOT')}
-              className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all ${
+              className={`flex items-center space-x-2 px-4 py-2.5 min-h-[44px] rounded-xl text-xs font-black transition-all shrink-0 ${
                 pheTab === 'MOT'
                   ? 'bg-[#1E3A8A] text-white shadow-xs'
                   : 'bg-transparent text-slate-700 hover:bg-[#F4F0E6]'
               }`}
             >
-              <Truck className="w-4 h-4" />
+              <Truck className="w-4 h-4 shrink-0" />
               <span>MOT Dispatch & Journeys</span>
             </button>
           </div>
@@ -165,7 +165,7 @@ export default function PhePage() {
             <ZmccArrivalsWorkspace currentUser={currentUser} />
           )}
           {pheTab === 'SHOPS' && (
-            <ZmccMasterDataWorkspace currentUser={currentUser} initialTab="SHOPS" />
+            <ZmccMasterDataWorkspace currentUser={currentUser} initialTab="LOCAL_SUPPLIERS" />
           )}
           {pheTab === 'MOT' && (
             <MotOperationsWorkspace currentUser={currentUser} />

@@ -402,31 +402,41 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
           </div>
 
           {/* Server-side Pagination Footer */}
-          {pagination.totalPages > 1 && (
-            <div className="p-3.5 rounded-2xl bg-white border border-[#C4B9A3] shadow-sm flex items-center justify-between text-xs font-bold">
-              <button
-                type="button"
-                disabled={page <= 1 || isLoading}
-                onClick={() => handlePageChange(page - 1)}
-                className="h-10 flex items-center space-x-1 px-3.5 rounded-xl bg-[#F4EFE3] border border-[#C4B9A3] text-[#111311] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-amber-100/50 transition"
-              >
-                <ChevronLeft className="w-4 h-4" />
-                <span>Prev</span>
-              </button>
-
-              <span className="font-mono text-slate-700">
-                Page {pagination.page} of {pagination.totalPages}
+          {pagination.totalRecords > 0 && (
+            <div className="p-3.5 rounded-2xl bg-white border border-[#C4B9A3] shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-bold">
+              <span className="text-slate-600 font-sans text-xs">
+                Showing {Math.min((pagination.page - 1) * pagination.pageSize + 1, pagination.totalRecords)}–{Math.min(pagination.page * pagination.pageSize, pagination.totalRecords)} of {pagination.totalRecords} dispatches
               </span>
 
-              <button
-                type="button"
-                disabled={page >= pagination.totalPages || isLoading}
-                onClick={() => handlePageChange(page + 1)}
-                className="h-10 flex items-center space-x-1 px-3.5 rounded-xl bg-[#F4EFE3] border border-[#C4B9A3] text-[#111311] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-amber-100/50 transition"
-              >
-                <span>Next</span>
-                <ChevronRight className="w-4 h-4" />
-              </button>
+              {pagination.totalPages > 1 && (
+                <div className="flex items-center space-x-2">
+                  <button
+                    type="button"
+                    disabled={page <= 1 || isLoading}
+                    onClick={() => handlePageChange(page - 1)}
+                    className="min-h-[44px] min-w-[44px] flex items-center justify-center space-x-1 px-3.5 py-2 rounded-xl bg-[#F4EFE3] border border-[#C4B9A3] text-[#111311] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-amber-100/50 transition focus:outline-none focus:ring-2 focus:ring-[#1E40AF]"
+                    aria-label="Previous page"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    <span>Previous</span>
+                  </button>
+
+                  <span className="font-mono text-slate-700 px-2">
+                    Page {pagination.page} of {pagination.totalPages}
+                  </span>
+
+                  <button
+                    type="button"
+                    disabled={page >= pagination.totalPages || isLoading}
+                    onClick={() => handlePageChange(page + 1)}
+                    className="min-h-[44px] min-w-[44px] flex items-center justify-center space-x-1 px-3.5 py-2 rounded-xl bg-[#F4EFE3] border border-[#C4B9A3] text-[#111311] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-amber-100/50 transition focus:outline-none focus:ring-2 focus:ring-[#1E40AF]"
+                    aria-label="Next page"
+                  >
+                    <span>Next</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

@@ -301,36 +301,47 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
 
               {/* Derived Read-Only Canonical Preview Badges */}
               {(previewGrossLiters !== null || previewDensity !== null || previewAt13ts !== null) && (
-                <div className="pt-2 border-t border-amber-200/60 grid grid-cols-2 sm:grid-cols-5 gap-2 text-center text-xs font-mono">
-                  <div className="p-2 rounded-xl bg-white/80 border border-amber-200">
-                    <span className="text-[9px] font-bold text-slate-500 block uppercase">Density</span>
-                    <span className="font-extrabold text-slate-900">
-                      {previewDensity !== null ? previewDensity.toFixed(4) : '—'}
-                    </span>
-                  </div>
-                  <div className="p-2 rounded-xl bg-white/80 border border-amber-200">
-                    <span className="text-[9px] font-bold text-blue-700 block uppercase">Gross Liters</span>
-                    <span className="font-extrabold text-blue-950">
-                      {previewGrossLiters !== null ? `${previewGrossLiters.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L` : '—'}
-                    </span>
-                  </div>
-                  <div className="p-2 rounded-xl bg-white/80 border border-amber-200">
-                    <span className="text-[9px] font-bold text-slate-500 block uppercase">SNF %</span>
-                    <span className="font-extrabold text-slate-900">
-                      {previewSnf !== null ? `${previewSnf.toFixed(2)}%` : '—'}
-                    </span>
-                  </div>
-                  <div className="p-2 rounded-xl bg-white/80 border border-amber-200">
-                    <span className="text-[9px] font-bold text-slate-500 block uppercase">TS %</span>
-                    <span className="font-extrabold text-slate-900">
-                      {previewTs !== null ? `${previewTs.toFixed(2)}%` : '—'}
-                    </span>
-                  </div>
-                  <div className="p-2 rounded-xl bg-white/80 border border-emerald-300 bg-emerald-50/60 col-span-2 sm:col-span-1">
-                    <span className="text-[9px] font-bold text-emerald-800 block uppercase">@13TS Liters</span>
-                    <span className="font-extrabold text-emerald-950">
-                      {previewAt13ts !== null ? `${previewAt13ts.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L` : '—'}
-                    </span>
+                <div className="pt-3 border-t border-amber-200/70 space-y-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {/* PHYSICAL TRUTH BLOCK */}
+                    <div className="p-3 rounded-xl bg-white border border-blue-200 shadow-xs space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-blue-900 font-sans">
+                          Physical Truth
+                        </span>
+                        <span className="text-[10px] font-bold text-slate-600 font-mono">
+                          Density: {previewDensity !== null ? previewDensity.toFixed(4) : '—'}
+                        </span>
+                      </div>
+                      <div className="flex items-baseline justify-between">
+                        <span className="text-xs font-bold text-slate-600 font-sans">Gross Liters</span>
+                        <span className="text-base font-black text-blue-950 font-mono">
+                          {previewGrossLiters !== null
+                            ? `${previewGrossLiters.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L`
+                            : '—'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* COMMERCIAL TRUTH BLOCK */}
+                    <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-300 shadow-xs space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-emerald-900 font-sans">
+                          Commercial Truth
+                        </span>
+                        <span className="text-[10px] font-bold text-emerald-800 font-mono">
+                          SNF: {previewSnf !== null ? `${previewSnf.toFixed(2)}%` : '—'} • TS: {previewTs !== null ? `${previewTs.toFixed(2)}%` : '—'}
+                        </span>
+                      </div>
+                      <div className="flex items-baseline justify-between">
+                        <span className="text-xs font-bold text-emerald-900 font-sans">@13TS Liters</span>
+                        <span className="text-base font-black text-emerald-950 font-mono">
+                          {previewAt13ts !== null
+                            ? `${previewAt13ts.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L`
+                            : '—'}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
