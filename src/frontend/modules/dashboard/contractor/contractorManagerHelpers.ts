@@ -122,20 +122,6 @@ export function deriveContractorJourneyStage(
   return { stage: 'DISPATCHED', label: 'Dispatched' };
 }
 
-/**
- * Calculate presentation-only liters variance where both authoritative liter values exist.
- * Formula: authoritative_final_liters - vehicle_dispatch_gross_liters (Preserves +/- sign).
- */
-export function computeLitersVariance(
-  grossLiters: number | null | undefined,
-  authoritativeFinalLiters: number | null | undefined,
-  finalReceiptExists: boolean
-): number | null {
-  if (!finalReceiptExists || authoritativeFinalLiters == null || grossLiters == null || grossLiters <= 0) {
-    return null;
-  }
-  return Math.round((authoritativeFinalLiters - grossLiters) * 100) / 100;
-}
 
 /**
  * Group flat portion logs into unified ContractorVehicleVisit records
@@ -228,7 +214,7 @@ export function buildContractorVehicleVisits(logs: MilkProcessLog[]): Contractor
       else at13TsVariancePercentText = `${at13TsVariancePercent.toFixed(2)}%`;
     }
 
-    const litersVariance = grossVarianceLiters ?? computeLitersVariance(grossLiters, authoritativeFinalLiters, finalReceiptExists);
+    const litersVariance = grossVarianceLiters;
 
     const finalReceiptDate = first.final_receipt_date || null;
     let reportingDate: string | null = null;

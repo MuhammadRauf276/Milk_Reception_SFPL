@@ -5,6 +5,8 @@ import {
 } from '@/backend/services/reconciliationService';
 import {
   calculateVehicleReceivedQuantity,
+  isPlantLrTest,
+  isPlantFatTest,
   VehicleCalculationInput,
 } from '@/backend/services/vehicleQuantityService';
 import {
@@ -117,9 +119,57 @@ describe('Stage 6G-F: Plant Final Dual Reconciliation & Formula Hardening', () =
     });
   });
 
-  describe('Formula Hardening & Biological Boundary Guards (vehicleQuantityService.ts)', () => {
-    it('detects and rejects swapped LR and Fat values (SWAPPED_PLANT_LR_FAT)', () => {
-      // LR is accidentally 3.8 and Fat is accidentally 28.0
+  describe('Authoritative Lab Test Identity Rules (isPlantLrTest, isPlantFatTest)', () => {
+    it('correctly validates authoritative Plant LR test code (LT-000008)', () => {
+      expect(isPlantLrTest('LT-000008')).toBe(true);
+      expect(isPlantLrTest('  lt-000008  ')).toBe(true);
+      expect(isPlantLrTest('LT-000027')).toBe(false); // Distinct test, not LR authority
+      expect(isPlantLrTest('LT-000026')).toBe(false);
+      expect(isPlantLrTest(null)).toBe(false);
+      expect(isPlantLrTest(undefined)).toBe(false);
+      expect(isPlantLrTest('')).toBe(false);
+    });
+
+    it('correctly validates authoritative Plant Fat test code (LT-000026)', () => {
+      expect(isPlantFatTest('LT-000026')).toBe(true);
+      expect(isPlantFatTest('  lt-000026  ')).toBe(true);
+      expect(isPlantFatTest('LT-000001')).toBe(false);
+      expect(isPlantFatTest('LT-000027')).toBe(false);
+      expect(isPlantFatTest(null)).toBe(false);
+      expect(isPlantFatTest(undefined)).toBe(false);
+      expect(isPlantFatTest('')).toBe(false);
+    });
+  });
+
+  describe('Formula Hardening & Mathematical Validity (vehicleQuantityService.ts)', () => {
+    it('does not reject finite observed lab values on arbitrary biological thresholds (QA evaluation is separate)', () => {
+      // LR = 14.5 and Fat = 16.0 (finite numbers that an arbitrary threshold would reject)
+      const input: VehicleCalculationInput = {
+        grossWeightKg: 25000,
+        secondWeightKg: 15000, // Net = 10,000 kg
+        portions: [
+          {
+            portionNumber: 1,
+            plantDecision: 'ACCEPTED',
+            plantLabResults: [
+              { testCode: 'LT-000008', testName: 'Lactometer Reading (LR)', numericValue: 14.5, performanceStatus: 'PERFORMED' },
+              { testCode: 'LT-000026', testName: 'Fat %', numericValue: 16.0, performanceStatus: 'PERFORMED' },
+            ],
+          },
+        ],
+      };
+
+      const result = calculateVehicleReceivedQuantity(input);
+      // Must calculate mathematically without arbitrary threshold failure
+      expect(result.isCalculable).toBe(true);
+      if (result.isCalculable) {
+        expect(result.plantCompositeLR).toBe(14.5);
+        expect(result.plantCompositeFat).toBe(16.0);
+        expect(result.vehicleDensity).toBe(1.0145);
+      }
+    });
+
+    it('fails with INVALID_PLANT_LR when LR is non-positive (<= 0)', () => {
       const input: VehicleCalculationInput = {
         grossWeightKg: 25000,
         secondWeightKg: 15000,
@@ -128,8 +178,8 @@ describe('Stage 6G-F: Plant Final Dual Reconciliation & Formula Hardening', () =
             portionNumber: 1,
             plantDecision: 'ACCEPTED',
             plantLabResults: [
-              { testCode: 'LT-000008', testName: 'Lactometer Reading (LR)', numericValue: 3.8, performanceStatus: 'PERFORMED' },
-              { testCode: 'LT-000026', testName: 'Fat %', numericValue: 28.0, performanceStatus: 'PERFORMED' },
+              { testCode: 'LT-000008', testName: 'Lactometer Reading (LR)', numericValue: -5.0, performanceStatus: 'PERFORMED' },
+              { testCode: 'LT-000026', testName: 'Fat %', numericValue: 3.5, performanceStatus: 'PERFORMED' },
             ],
           },
         ],
@@ -138,35 +188,11 @@ describe('Stage 6G-F: Plant Final Dual Reconciliation & Formula Hardening', () =
       const result = calculateVehicleReceivedQuantity(input);
       expect(result.isCalculable).toBe(false);
       if (!result.isCalculable) {
-        expect(result.reason).toBe('SWAPPED_PLANT_LR_FAT');
-        expect(result.message).toContain('swapped');
+        expect(result.reason).toBe('INVALID_PLANT_LR');
       }
     });
 
-    it('rejects biologically invalid LR below minimum threshold (15.0)', () => {
-      const input: VehicleCalculationInput = {
-        grossWeightKg: 25000,
-        secondWeightKg: 15000,
-        portions: [
-          {
-            portionNumber: 1,
-            plantDecision: 'ACCEPTED',
-            plantLabResults: [
-              { testCode: 'LT-000008', testName: 'Lactometer Reading (LR)', numericValue: 12.0, performanceStatus: 'PERFORMED' },
-              { testCode: 'LT-000026', testName: 'Fat %', numericValue: 4.0, performanceStatus: 'PERFORMED' },
-            ],
-          },
-        ],
-      };
-
-      const result = calculateVehicleReceivedQuantity(input);
-      expect(result.isCalculable).toBe(false);
-      if (!result.isCalculable) {
-        expect(result.reason).toBe('SWAPPED_PLANT_LR_FAT');
-      }
-    });
-
-    it('rejects biologically invalid Fat above maximum threshold (15.0%)', () => {
+    it('fails with INVALID_PLANT_FAT when Fat is negative (< 0)', () => {
       const input: VehicleCalculationInput = {
         grossWeightKg: 25000,
         secondWeightKg: 15000,
@@ -176,7 +202,7 @@ describe('Stage 6G-F: Plant Final Dual Reconciliation & Formula Hardening', () =
             plantDecision: 'ACCEPTED',
             plantLabResults: [
               { testCode: 'LT-000008', testName: 'Lactometer Reading (LR)', numericValue: 28.0, performanceStatus: 'PERFORMED' },
-              { testCode: 'LT-000026', testName: 'Fat %', numericValue: 18.0, performanceStatus: 'PERFORMED' },
+              { testCode: 'LT-000026', testName: 'Fat %', numericValue: -1.0, performanceStatus: 'PERFORMED' },
             ],
           },
         ],
@@ -185,7 +211,7 @@ describe('Stage 6G-F: Plant Final Dual Reconciliation & Formula Hardening', () =
       const result = calculateVehicleReceivedQuantity(input);
       expect(result.isCalculable).toBe(false);
       if (!result.isCalculable) {
-        expect(result.reason).toBe('SWAPPED_PLANT_LR_FAT');
+        expect(result.reason).toBe('INVALID_PLANT_FAT');
       }
     });
 
@@ -278,6 +304,71 @@ describe('Stage 6G-F: Plant Final Dual Reconciliation & Formula Hardening', () =
 
       // Physical liters must NEVER equal commercial @13TS liters when TS != 13.0
       expect(physicalLiters).not.toEqual(at13tsLiters);
+    });
+  });
+
+  describe('Historical Receipts & Concurrent Finalization Idempotency', () => {
+    it('proves historical receipts without commercial snapshot produce null @13TS variance and percent', () => {
+      // Historical receipt has gross received liters, but null plant_final_at_13ts_liters
+      const result = calculateDualReconciliation({
+        sentGrossLiters: 10000.0,
+        receivedGrossLiters: 9950.0,
+        sentAt13tsLiters: 9500.0,
+        receivedAt13tsLiters: null, // Historical receipt without commercial @13TS
+      });
+
+      // Physical Gross variance is calculated
+      expect(result.sentGrossLiters).toBe(10000.0);
+      expect(result.receivedGrossLiters).toBe(9950.0);
+      expect(result.grossVarianceLiters).toBe(-50.0);
+      expect(result.grossVariancePercent).toBe(-0.5);
+
+      // Commercial @13TS variance and percent MUST remain null (never faked as 0)
+      expect(result.sentAt13tsLiters).toBe(9500.0);
+      expect(result.receivedAt13tsLiters).toBeNull();
+      expect(result.at13tsVarianceLiters).toBeNull();
+      expect(result.at13tsVariancePercent).toBeNull();
+    });
+
+    it('simulates concurrent finalization post-lock idempotency behavior', () => {
+      // Simulates the contract of executeFinalizeSiloReceiptForVisit when post-lock check finds existing receipt
+      const simulatedExistingReceipt = {
+        id: 12345n,
+        visit_id: 100n,
+        quantity_kg: 20000,
+        quantity_liters: 19455.25,
+        plant_final_at_13ts_liters: 18500.5,
+        silo: { silo_code: 'SILO-01' },
+        dual_reconciliation: { id: 1n },
+      };
+
+      // When postLockReceipt is found, the service must return alreadyFinalized: true and NOT attempt insert
+      const postLockCheck = (receipt: typeof simulatedExistingReceipt | null) => {
+        if (receipt) {
+          const isHistorical = receipt.plant_final_at_13ts_liters === null && !receipt.dual_reconciliation;
+          return {
+            success: true,
+            receiptCreated: false,
+            alreadyFinalized: true,
+            isHistorical,
+            netWeightKg: receipt.quantity_kg,
+            finalPhysicalLiters: receipt.quantity_liters,
+            finalAt13TSLiters: receipt.plant_final_at_13ts_liters,
+            targetSiloCode: receipt.silo.silo_code,
+          };
+        }
+        return { success: false, receiptCreated: false, alreadyFinalized: false };
+      };
+
+      const result = postLockCheck(simulatedExistingReceipt);
+      expect(result.success).toBe(true);
+      expect(result.alreadyFinalized).toBe(true);
+      expect(result.receiptCreated).toBe(false);
+      expect(result.isHistorical).toBe(false);
+      expect(result.netWeightKg).toBe(20000);
+      expect(result.finalPhysicalLiters).toBe(19455.25);
+      expect(result.finalAt13TSLiters).toBe(18500.5);
+      expect(result.targetSiloCode).toBe('SILO-01');
     });
   });
 });

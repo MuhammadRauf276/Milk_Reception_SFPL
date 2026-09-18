@@ -783,14 +783,43 @@ All paginated collection APIs must return a standardized pagination envelope:
   - **Receipt Pending / Finalization blocked** (`second_weight_timestamp != null`, `final_receipt_exists = false`): UI displays `Receipt Pending`.
   - **Finalized 6G-F Receipt** (`final_receipt_exists = true`, snapshot exists): UI displays full physical and commercial dual reconciliation.
   - **Historical Pre-6G-F Receipt** (`final_receipt_exists = true`, snapshot absent): Physical liters is authoritative; commercial @13TS is strictly `Unavailable` (never faked as `Pending` or reconstructed from mutable lab tables).
-- **Formula Hardening & Biological Safety**:
-  - Biological range checks in `vehicleQuantityService`: LR normally between 15.0 and 45.0; Fat normally between 0.5% and 15.0%.
-  - Swap guard: `isLikelySwappedLRFat(lr, fat)` rejects with explicit reason `SWAPPED_PLANT_LR_FAT`.
-  - Validation guards: density > 1.0 (`INVALID_DENSITY`), SNF > 0 (`INVALID_SNF`), TS > 0 (`INVALID_TS`), Physical liters > 0 (`INVALID_FINAL_LITERS`), @13TS liters > 0 (`INVALID_AT13_TS_LITERS`).
+- **Formula Hardening & Pure Mathematical Validity**:
+  - Authoritative test identification guards: strictly `LT-000008` for Plant LR and `LT-000026` for Plant Fat (`isPlantLrTest`, `isPlantFatTest`). Other tests such as `LT-000027` are not used as final received quantity authority.
+  - Mathematical validation guards: average LR > 0 (`INVALID_PLANT_LR`), average Fat >= 0 (`INVALID_PLANT_FAT`), density > 1.0 (`INVALID_DENSITY`), SNF > 0 (`INVALID_SNF`), TS > 0 (`INVALID_TS`), Physical liters > 0 (`INVALID_FINAL_LITERS`), @13TS liters > 0 (`INVALID_AT13_TS_LITERS`).
+  - Biological threshold checks are strictly segregated from formula calculations (no hard-coded biological bounds or arbitrary plausibility rejections in the formula engine; policy validation belongs to QA Head evaluation).
   - Calculation chain executed in IEEE-754 double precision without intermediate rounding (ADR-005).
-- **Atomicity Invariant**:
+- **Concurrency & Post-Lock Idempotency Invariant**:
   - Silo receipt transaction creation, quality snapshot recording, `PlantFinalDualReconciliation` record, and `AuditLog` execute within a single atomic database transaction (`db.$transaction`).
+  - After acquiring the silo row lock (`SELECT id FROM silo WHERE id = ... FOR UPDATE`), a post-lock idempotency check re-queries for existing receipts. If a concurrent finalization completed while waiting on the lock, the existing receipt is safely returned without throwing unique-constraint violations or attempting duplicate inserts.
 - **Scope Boundaries**:
   - No 6G-G (RMR, tokens, paper books), 6G-H (ERP financial rates), 6G-K (tolerances / 1% bands / NORMAL vs EXCEPTION badges), or 6G-L (investigations).
+
+---
+
+## 28. Future Architecture: Owner-Frozen QA Policy Architecture (Deferred to Stage 6G-G / Later)
+*Note: This architecture is frozen for future alignment and is strictly deferred to Stage 6G-G or later. It is NOT implemented in Stage 6G-F.*
+
+1. **The Three Irreducible QA Truths**:
+   - **Observed Lab Result**: The immutable, physical measurement recorded by the technician in the lab (e.g. LR 28.0, Fat 3.8%). Must never be altered, silently coerced, or auto-corrected by system rules.
+   - **System Rule Evaluation**: Automated policy evaluation against configured QA rules and thresholds (producing PASS, FAIL, or FLAG with granular rule breakdown). Pure deterministic function.
+   - **Final Operational Decision**: The authorized human operational determination (ACCEPT, REJECT, HOLD, or CONDITIONAL_ACCEPT) recorded with operator identity, timestamp, and audit trail.
+2. **QA Head Exclusive Threshold Authority**:
+   - Only the QA Head has administrative authority to configure, activate, or modify QA acceptance/rejection thresholds, parameter bounds, and validation policies.
+   - Operators and system rules cannot override QA Head authority.
+3. **Testing Point Scopes**:
+   - Thresholds and validation rules are strictly scoped by testing point:
+     - Field Collection / RMR Testing Point
+     - ZMCC Intake Testing Point
+     - Plant Intake Testing Point
+   - Different testing points have distinct biological, chemical, and operational tolerances.
+4. **Plant vs. ZMCC Decision & Correction Roles**:
+   - Strict separation of operational authorities:
+     - ZMCC testing decisions are governed by ZMCC Lab Attendants and ZMCC Managers.
+     - Plant testing decisions are governed by Plant QA Chemists, Plant Lab Technicians, and QA Head.
+     - Cross-facility decision overwrites are strictly prohibited.
+5. **Physical State Guard**:
+   - A QA decision cannot be modified or reversed after milk has physically begun unloading or has been received into a silo/tank.
+   - Once physically commingled, the state is permanently locked against retroactive QA decision tampering.
+
 
 

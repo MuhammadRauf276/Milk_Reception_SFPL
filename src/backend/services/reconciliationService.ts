@@ -8,19 +8,19 @@ export const RECONCILIATION_CALCULATION_VERSION = '1.0';
 
 export interface DualReconciliationInput {
   sentGrossLiters?: number | null;
-  receivedGrossLiters: number;
+  receivedGrossLiters?: number | null;
   sentAt13tsLiters?: number | null;
-  receivedAt13tsLiters: number;
+  receivedAt13tsLiters?: number | null;
 }
 
 export interface DualReconciliationCalculationResult {
   sentGrossLiters: number | null;
-  receivedGrossLiters: number;
+  receivedGrossLiters: number | null;
   grossVarianceLiters: number | null;
   grossVariancePercent: number | null;
 
   sentAt13tsLiters: number | null;
-  receivedAt13tsLiters: number;
+  receivedAt13tsLiters: number | null;
   at13tsVarianceLiters: number | null;
   at13tsVariancePercent: number | null;
 
@@ -42,7 +42,7 @@ export interface DualReconciliationCalculationResult {
  * 4. gross_variance_percent = (gross_variance_liters / sent_gross_liters) * 100
  * 5. at_13ts_variance_liters = received_at_13ts_liters - sent_at_13ts_liters
  * 6. at_13ts_variance_percent = (at_13ts_variance_liters / sent_at_13ts_liters) * 100
- * 7. If sent value is null, undefined, or non-positive (<= 0), the related percentage is NULL.
+ * 7. If sent value or received value is null, undefined, or non-positive (<= 0), the related variance/percentage is NULL.
  *    0 is NEVER a substitute for missing truth.
  * 8. Intermediate precision: computed using IEEE-754 double precision without premature truncation.
  */
@@ -58,8 +58,13 @@ export function calculateDualReconciliation(input: DualReconciliationInput): Dua
       ? Number(sentGrossLiters)
       : null;
 
-  if (validSentGross !== null) {
-    const rawGrossVariance = receivedGrossLiters - validSentGross;
+  const validReceivedGross =
+    receivedGrossLiters !== null && receivedGrossLiters !== undefined && !isNaN(receivedGrossLiters)
+      ? Number(receivedGrossLiters)
+      : null;
+
+  if (validSentGross !== null && validReceivedGross !== null) {
+    const rawGrossVariance = validReceivedGross - validSentGross;
     grossVarianceLiters = Number(rawGrossVariance.toFixed(2));
     if (validSentGross > 0) {
       grossVariancePercent = Number(((rawGrossVariance / validSentGross) * 100).toFixed(4));
@@ -75,8 +80,13 @@ export function calculateDualReconciliation(input: DualReconciliationInput): Dua
       ? Number(sentAt13tsLiters)
       : null;
 
-  if (validSentAt13ts !== null) {
-    const rawAt13tsVariance = receivedAt13tsLiters - validSentAt13ts;
+  const validReceivedAt13ts =
+    receivedAt13tsLiters !== null && receivedAt13tsLiters !== undefined && !isNaN(receivedAt13tsLiters)
+      ? Number(receivedAt13tsLiters)
+      : null;
+
+  if (validSentAt13ts !== null && validReceivedAt13ts !== null) {
+    const rawAt13tsVariance = validReceivedAt13ts - validSentAt13ts;
     at13tsVarianceLiters = Number(rawAt13tsVariance.toFixed(2));
     if (validSentAt13ts > 0) {
       at13tsVariancePercent = Number(((rawAt13tsVariance / validSentAt13ts) * 100).toFixed(4));
@@ -85,12 +95,12 @@ export function calculateDualReconciliation(input: DualReconciliationInput): Dua
 
   return {
     sentGrossLiters: validSentGross,
-    receivedGrossLiters: Number(receivedGrossLiters.toFixed(2)),
+    receivedGrossLiters: validReceivedGross !== null ? Number(validReceivedGross.toFixed(2)) : null,
     grossVarianceLiters,
     grossVariancePercent,
 
     sentAt13tsLiters: validSentAt13ts,
-    receivedAt13tsLiters: Number(receivedAt13tsLiters.toFixed(2)),
+    receivedAt13tsLiters: validReceivedAt13ts !== null ? Number(validReceivedAt13ts.toFixed(2)) : null,
     at13tsVarianceLiters,
     at13tsVariancePercent,
 

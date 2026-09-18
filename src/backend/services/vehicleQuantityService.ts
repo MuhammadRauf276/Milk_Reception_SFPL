@@ -20,7 +20,6 @@ export type VehicleCalculationFailureReason =
   | 'AMBIGUOUS_PLANT_FAT'
   | 'INVALID_PLANT_LR'
   | 'INVALID_PLANT_FAT'
-  | 'SWAPPED_PLANT_LR_FAT'
   | 'INVALID_DENSITY'
   | 'INVALID_SNF'
   | 'INVALID_TS'
@@ -284,15 +283,6 @@ export function calculateVehicleReceivedQuantity(input: VehicleCalculationInput)
       isCalculable: false,
       reason: 'INVALID_PLANT_FAT',
       message: `Calculated average Plant Fat % (${averagePlantFat}) is invalid.`,
-    };
-  }
-
-  // Plausibility & Swap Guard: In raw milk, LR is normally >= 15 and Fat % is normally <= 15
-  if (averagePlantLr <= averagePlantFat || averagePlantLr < 15 || averagePlantFat > 15 || averagePlantFat < 0.5) {
-    return {
-      isCalculable: false,
-      reason: 'SWAPPED_PLANT_LR_FAT',
-      message: `Average Plant LR (${averagePlantLr}) and Fat % (${averagePlantFat}) appear swapped or out of biological range.`,
     };
   }
 

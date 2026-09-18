@@ -71,23 +71,12 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
   const groups = useMemo(() => buildVehicleVisitGroups(logs), [logs]);
   const reconciliationItems = useMemo(() => deriveVehicleReconciliationItems(groups), [groups]);
 
-  // Compute calculated fields for each item
+  // Consume canonical reconciliation values (no React-side recalculation)
   const enrichedItems = useMemo(() => {
     return reconciliationItems.map((item) => {
-      let tsDelta: number | null = null;
-      let tsDeltaText = '—';
-      if (item.plant13TsLiters != null && item.dispatch13TsLiters != null) {
-        tsDelta = Number((item.plant13TsLiters - item.dispatch13TsLiters).toFixed(2));
-        if (tsDelta === 0) {
-          tsDeltaText = '0 L';
-        } else if (tsDelta > 0) {
-          tsDeltaText = `+${tsDelta.toLocaleString()} L`;
-        } else {
-          tsDeltaText = `${tsDelta.toLocaleString()} L`;
-        }
-      }
-
-      const hasTsDifference = tsDelta != null && tsDelta !== 0;
+      const tsDelta = item.at13TsVarianceLiters;
+      const tsDeltaText = item.at13TsVarianceText;
+      const hasTsDifference = item.hasTsDifference;
 
       return {
         ...item,
@@ -510,7 +499,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                       {/* Expandable Sub-Row: Detailed Breakdown */}
                       {isExpanded && (
                         <tr className="bg-slate-50/70">
-                          <td colSpan={10} className="p-4 border-b border-[#EAE4D5]">
+                          <td colSpan={12} className="p-4 border-b border-[#EAE4D5]">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
                               {/* Scale & Silo Weights */}
                               <div className="p-3 bg-white rounded-lg border border-[#EAE4D5] space-y-2">

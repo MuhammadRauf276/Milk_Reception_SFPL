@@ -983,6 +983,7 @@ export function deriveVehicleReconciliationItems(
       at13TsVariancePercent,
       at13TsVarianceText,
       at13TsVariancePercentText,
+      hasTsDifference: at13TsVarianceLiters != null && at13TsVarianceLiters !== 0,
 
       reconciliationExists: Boolean(primary.reconciliation_exists),
       isHistoricalReceiptWithoutCommercialSnapshot,

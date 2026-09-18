@@ -551,8 +551,6 @@ model PlantFinalDualReconciliation {
   visit                     VehicleVisit             @relation("VisitDualReconciliation", fields: [visit_id], references: [id], onDelete: Restrict)
   final_receipt_transaction SiloInventoryTransaction @relation("TransactionDualReconciliation", fields: [final_receipt_transaction_id], references: [id], onDelete: Restrict)
 
-  @@index([visit_id])
-  @@index([final_receipt_transaction_id])
   @@map("plant_final_dual_reconciliation")
 }
 

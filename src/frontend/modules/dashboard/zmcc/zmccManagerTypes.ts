@@ -195,6 +195,7 @@ export interface VehicleReconciliationItem {
   at13TsVariancePercent: number | null;
   at13TsVarianceText: string;
   at13TsVariancePercentText: string;
+  hasTsDifference: boolean;
 
   reconciliationExists: boolean;
   isHistoricalReceiptWithoutCommercialSnapshot: boolean;

@@ -426,6 +426,35 @@ async function executeFinalizeSiloReceiptForVisit(
   // 5. Lock Silo row for atomic inventory update & validate capacity
   await db.$executeRaw`SELECT id FROM silo WHERE id = ${targetSiloId} FOR UPDATE`;
 
+  // Post-lock idempotency check: Another concurrent finalization may have completed while waiting for the silo lock
+  const postLockReceipt = await db.siloInventoryTransaction.findFirst({
+    where: {
+      OR: [
+        { idempotency_key: idempotencyKey },
+        { visit_id: visitId, transaction_type: SiloTransactionType.RECEIPT },
+      ],
+    },
+    include: {
+      silo: true,
+      dual_reconciliation: true,
+    },
+  });
+
+  if (postLockReceipt) {
+    const isHistorical = postLockReceipt.plant_final_at_13ts_liters === null && !postLockReceipt.dual_reconciliation;
+    return {
+      success: true,
+      receiptCreated: false,
+      alreadyFinalized: true,
+      isHistorical,
+      netWeightKg: postLockReceipt.quantity_kg !== null && postLockReceipt.quantity_kg !== undefined ? Number(postLockReceipt.quantity_kg) : null,
+      finalPhysicalLiters: postLockReceipt.quantity_liters !== null && postLockReceipt.quantity_liters !== undefined ? Number(postLockReceipt.quantity_liters) : null,
+      finalAt13TSLiters: postLockReceipt.plant_final_at_13ts_liters !== null && postLockReceipt.plant_final_at_13ts_liters !== undefined ? Number(postLockReceipt.plant_final_at_13ts_liters) : null,
+      targetSiloCode: postLockReceipt.silo?.silo_code || null,
+      message: `Final silo inventory receipt has already been created for vehicle visit #${visitId.toString()}.${isHistorical ? ' (Historical receipt without frozen 6G-F commercial snapshot)' : ''}`,
+    };
+  }
+
   const silo = await db.silo.findUnique({ where: { id: targetSiloId } });
   if (!silo) {
     throw new Error(`Target Silo (ID ${targetSiloId}) not found.`);
