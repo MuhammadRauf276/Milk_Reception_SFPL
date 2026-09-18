@@ -125,6 +125,7 @@ model VehicleVisit {
   qa_warnings              QAWarning[]
   test_assignments         LabTestAssignment[]
   quantity_policy_snapshot DispatchQuantityPolicySnapshot?
+  dual_reconciliation      PlantFinalDualReconciliation?   @relation("VisitDualReconciliation")
 
   @@index([current_status, created_at])
   @@index([created_at])
@@ -506,17 +507,53 @@ model SiloInventoryTransaction {
   notes                 String?             @db.Text
   created_at            DateTime            @default(now()) @map("created_at") @db.Timestamp(6)
 
+  // Plant Final Quality & Commercial Snapshot (Stage 6G-F)
+  plant_composite_lr         Decimal? @map("plant_composite_lr") @db.Decimal(6, 4)
+  plant_composite_fat        Decimal? @map("plant_composite_fat") @db.Decimal(6, 4)
+  plant_density              Decimal? @map("plant_density") @db.Decimal(6, 4)
+  plant_snf                  Decimal? @map("plant_snf") @db.Decimal(6, 4)
+  plant_ts                   Decimal? @map("plant_ts") @db.Decimal(6, 4)
+  plant_final_at_13ts_liters Decimal? @map("plant_final_at_13ts_liters") @db.Decimal(12, 2)
+  plant_calculation_version  String?  @map("plant_calculation_version") @db.VarChar(20)
+
   // Relations
-  silo      Silo          @relation(fields: [silo_id], references: [id], onDelete: Restrict)
-  visit     VehicleVisit? @relation(fields: [visit_id], references: [id], onDelete: SetNull)
-  portion   VisitPortion? @relation(fields: [portion_id], references: [id], onDelete: SetNull)
-  performer User?         @relation("InventoryPerformedBy", fields: [performed_by], references: [id])
+  silo                 Silo                            @relation(fields: [silo_id], references: [id], onDelete: Restrict)
+  visit                VehicleVisit?                   @relation(fields: [visit_id], references: [id], onDelete: SetNull)
+  portion              VisitPortion?                   @relation(fields: [portion_id], references: [id], onDelete: SetNull)
+  performer            User?                           @relation("InventoryPerformedBy", fields: [performed_by], references: [id])
+  dual_reconciliation  PlantFinalDualReconciliation?   @relation("TransactionDualReconciliation")
 
   @@index([silo_id, operational_timestamp])
   @@index([visit_id])
   @@index([portion_id])
   @@index([transaction_type])
   @@map("silo_inventory_transaction")
+}
+
+model PlantFinalDualReconciliation {
+  id                                 BigInt   @id @default(autoincrement())
+  visit_id                           BigInt   @unique @map("visit_id")
+  final_receipt_transaction_id       BigInt   @unique @map("final_receipt_transaction_id")
+  sent_gross_liters                  Decimal? @map("sent_gross_liters") @db.Decimal(12, 2)
+  received_gross_liters              Decimal  @map("received_gross_liters") @db.Decimal(12, 2)
+  gross_variance_liters              Decimal? @map("gross_variance_liters") @db.Decimal(12, 2)
+  gross_variance_percent             Decimal? @map("gross_variance_percent") @db.Decimal(8, 4)
+  sent_at_13ts_liters                Decimal? @map("sent_at_13ts_liters") @db.Decimal(12, 2)
+  received_at_13ts_liters            Decimal  @map("received_at_13ts_liters") @db.Decimal(12, 2)
+  at_13ts_variance_liters            Decimal? @map("at_13ts_variance_liters") @db.Decimal(12, 2)
+  at_13ts_variance_percent           Decimal? @map("at_13ts_variance_percent") @db.Decimal(8, 4)
+  reconciliation_calculation_version String?  @map("reconciliation_calculation_version") @db.VarChar(20)
+  reconciled_at                      DateTime @map("reconciled_at") @db.Timestamp(6)
+  created_at                         DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at                         DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  visit                     VehicleVisit             @relation("VisitDualReconciliation", fields: [visit_id], references: [id], onDelete: Restrict)
+  final_receipt_transaction SiloInventoryTransaction @relation("TransactionDualReconciliation", fields: [final_receipt_transaction_id], references: [id], onDelete: Restrict)
+
+  @@index([visit_id])
+  @@index([final_receipt_transaction_id])
+  @@map("plant_final_dual_reconciliation")
 }
 
 model QAWarning {

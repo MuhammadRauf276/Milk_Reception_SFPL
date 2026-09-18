@@ -307,9 +307,11 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                   <th className="py-3 px-3 text-right">Dispatch Gross (L)</th>
                   <th className="py-3 px-3 text-right">Plant Received (L)</th>
                   <th className="py-3 px-3 text-right">Gross Delta</th>
+                  <th className="py-3 px-3 text-right">Gross Delta %</th>
                   <th className="py-3 px-3 text-right">Dispatch @13TS</th>
                   <th className="py-3 px-3 text-right">Plant @13TS</th>
                   <th className="py-3 px-3 text-right">@13TS Delta</th>
+                  <th className="py-3 px-3 text-right">@13TS Delta %</th>
                   <th className="py-3 px-3 text-center">QA Summary</th>
                   <th className="py-3 px-3 text-center">Status</th>
                   <th className="py-3 px-3 text-center">Action</th>
@@ -354,7 +356,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                             <span className="text-[#166534]">{item.physicalReceivedLiters.toLocaleString()} L</span>
                           ) : item.isReceiptPending ? (
                             <span className="text-[10px] px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 font-sans font-bold">
-                              Pending Scale/Offloading
+                              Receipt Pending
                             </span>
                           ) : (
                             <span className="text-slate-400 font-sans text-[11px]">Pending Reception</span>
@@ -363,57 +365,99 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
 
                         {/* 4. Gross Delta */}
                         <td className="py-3 px-3 text-right font-black">
-                          {item.quantityDifferenceLiters != null ? (
+                          {item.grossVarianceLiters != null ? (
                             <span
                               className={
-                                item.quantityDifferenceLiters === 0
+                                item.grossVarianceLiters === 0
                                   ? 'text-slate-600'
-                                  : item.quantityDifferenceLiters > 0
+                                  : item.grossVarianceLiters > 0
                                   ? 'text-[#166534]'
                                   : 'text-[#991B1B]'
                               }
                             >
-                              {item.quantityDifferenceText}
+                              {item.grossVarianceText}
                             </span>
                           ) : (
                             <span className="text-slate-400">—</span>
                           )}
                         </td>
 
-                        {/* 5. Dispatch @13TS */}
-                        <td className="py-3 px-3 text-right text-slate-800">
-                          {item.dispatch13TsLiters != null ? `${item.dispatch13TsLiters.toLocaleString()} L` : '—'}
+                        {/* 5. Gross Delta % */}
+                        <td className="py-3 px-3 text-right font-black">
+                          {item.grossVariancePercent != null ? (
+                            <span
+                              className={
+                                item.grossVariancePercent === 0
+                                  ? 'text-slate-600'
+                                  : item.grossVariancePercent > 0
+                                  ? 'text-[#166534]'
+                                  : 'text-[#991B1B]'
+                              }
+                            >
+                              {item.grossVariancePercentText}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400">—</span>
+                          )}
                         </td>
 
-                        {/* 6. Plant @13TS */}
+                        {/* 6. Dispatch @13TS */}
+                        <td className="py-3 px-3 text-right text-slate-800">
+                          {item.dispatch13TsLiters != null ? `${item.dispatch13TsLiters.toLocaleString()} L` : 'Unavailable'}
+                        </td>
+
+                        {/* 7. Plant @13TS */}
                         <td className="py-3 px-3 text-right font-black">
                           {item.plant13TsLiters != null ? (
                             <span className="text-[#6B21A8]">{item.plant13TsLiters.toLocaleString()} L</span>
+                          ) : item.isHistoricalReceiptWithoutCommercialSnapshot ? (
+                            <span className="text-slate-500 font-sans text-[11px] font-semibold">Unavailable</span>
+                          ) : item.isReceiptPending ? (
+                            <span className="text-slate-400 font-sans text-[11px]">Pending</span>
                           ) : (
                             <span className="text-slate-400 font-sans text-[11px]">Pending</span>
                           )}
                         </td>
 
-                        {/* 7. @13TS Delta */}
+                        {/* 8. @13TS Delta */}
                         <td className="py-3 px-3 text-right font-black">
-                          {item.tsDelta != null ? (
+                          {item.at13TsVarianceLiters != null ? (
                             <span
                               className={
-                                item.tsDelta === 0
+                                item.at13TsVarianceLiters === 0
                                   ? 'text-slate-600'
-                                  : item.tsDelta > 0
+                                  : item.at13TsVarianceLiters > 0
                                   ? 'text-[#166534]'
                                   : 'text-[#991B1B]'
                               }
                             >
-                              {item.tsDeltaText}
+                              {item.at13TsVarianceText}
                             </span>
                           ) : (
                             <span className="text-slate-400">—</span>
                           )}
                         </td>
 
-                        {/* 8. QA Summary */}
+                        {/* 9. @13TS Delta % */}
+                        <td className="py-3 px-3 text-right font-black">
+                          {item.at13TsVariancePercent != null ? (
+                            <span
+                              className={
+                                item.at13TsVariancePercent === 0
+                                  ? 'text-slate-600'
+                                  : item.at13TsVariancePercent > 0
+                                  ? 'text-[#166534]'
+                                  : 'text-[#991B1B]'
+                              }
+                            >
+                              {item.at13TsVariancePercentText}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400">—</span>
+                          )}
+                        </td>
+
+                        {/* 10. QA Summary */}
                         <td className="py-3 px-3 text-center">
                           <span
                             className={`inline-block px-2 py-0.5 rounded text-[10px] font-sans font-bold ${
@@ -430,7 +474,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                           </span>
                         </td>
 
-                        {/* 9. Status */}
+                        {/* 11. Status */}
                         <td className="py-3 px-3 text-center">
                           <span
                             className={`inline-block px-2 py-0.5 rounded text-[10px] font-sans font-black uppercase tracking-wider ${
@@ -441,7 +485,11 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                                 : 'bg-blue-100 text-blue-800'
                             }`}
                           >
-                            {item.lifecycleStatus}
+                            {item.isCompletedReceipt
+                              ? 'Final Receipt'
+                              : item.isReceiptPending
+                              ? 'Receipt Pending'
+                              : item.lifecycleStatus}
                           </span>
                         </td>
 

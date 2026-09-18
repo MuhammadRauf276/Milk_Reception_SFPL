@@ -185,6 +185,20 @@ export interface VehicleReconciliationItem {
   quantityDifferenceText: string;
   hasQuantityDifference: boolean;
 
+  // Stage 6G-F: Dual Reconciliation (Consumed from canonical MilkProcessLog)
+  grossVarianceLiters: number | null;
+  grossVariancePercent: number | null;
+  grossVarianceText: string;
+  grossVariancePercentText: string;
+
+  at13TsVarianceLiters: number | null;
+  at13TsVariancePercent: number | null;
+  at13TsVarianceText: string;
+  at13TsVariancePercentText: string;
+
+  reconciliationExists: boolean;
+  isHistoricalReceiptWithoutCommercialSnapshot: boolean;
+
   // Silo & Receipt Event
   destinationSilo: string | null;
   finalReceiptTimestamp: string | null;

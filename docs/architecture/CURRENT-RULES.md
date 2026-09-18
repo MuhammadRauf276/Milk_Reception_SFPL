@@ -757,3 +757,40 @@ All paginated collection APIs must return a standardized pagination envelope:
   - `operational_date` strictly remains `null` until Plant Gate Exit completion (`READY_FOR_GATE_EXIT -> COMPLETED`).
   - Misleading UI badges such as fake "Live" indicators or fallback defaults (`operational_date || 'Today'`) are strictly prohibited.
 
+---
+
+## 27. Stage 6G-F — Plant Final Dual Reconciliation & Formula Hardening
+- **The Two Irreducible Truths**:
+  1. **Physical Truth**: Gross Liters (`Net KG / Plant Density`). Governs silo inventory, tank levels, dipsticks, and physical capacity. Authoritative source of truth is `SiloInventoryTransaction.quantity_liters` (with `quantity_kg` as Net KG).
+  2. **Commercial Truth**: Liters @ 13% TS (`Gross Liters * TS / 13`). Governs billing, accounting, settlement, and supplier/contractor commercial reconciliation.
+  - Physical Liters and Commercial @13TS Liters must NEVER be conflated, combined, or substituted for one another.
+- **Authoritative Receipt Snapshot (SiloInventoryTransaction)**:
+  - Added snapshot columns: `plant_composite_lr`, `plant_composite_fat`, `plant_density`, `plant_snf`, `plant_ts`, `plant_final_at_13ts_liters`, `plant_calculation_version`.
+  - `SiloInventoryTransaction.quantity_liters` is authoritative physical Gross Liters; duplicate gross liter columns are forbidden.
+  - Read models expose `plant_final_gross_liters` mapped directly from `quantity_liters`.
+- **Source-Neutral Plant Final Dual Reconciliation (PlantFinalDualReconciliation)**:
+  - Dedicated table linked 1:1 to `VehicleVisit` and `SiloInventoryTransaction` (`onDelete: Restrict`).
+  - Stores signed variances and percentages for both Physical Gross Liters and Commercial @13TS Liters:
+    - `gross_variance_liters = received_gross_liters - sent_gross_liters`
+    - `gross_variance_percent = (gross_variance_liters / sent_gross_liters) * 100`
+    - `at_13ts_variance_liters = received_at_13ts_liters - sent_at_13ts_liters`
+    - `at_13ts_variance_percent = (at_13ts_variance_liters / sent_at_13ts_liters) * 100`
+  - Signed numbers: negative (`-`) indicates loss, positive (`+`) indicates gain, zero indicates balanced reception.
+  - Missing or non-positive sent denominator (`sent <= 0` or `null`) strictly yields `null` variance percent (never 0%).
+  - Versioned calculation: `reconciliation_calculation_version = '1.0'`.
+- **Receipt State Semantics**:
+  - **Plant workflow in progress** (`second_weight_timestamp = null`, `final_receipt_exists = false`): UI displays `Pending` / current journey stage.
+  - **Receipt Pending / Finalization blocked** (`second_weight_timestamp != null`, `final_receipt_exists = false`): UI displays `Receipt Pending`.
+  - **Finalized 6G-F Receipt** (`final_receipt_exists = true`, snapshot exists): UI displays full physical and commercial dual reconciliation.
+  - **Historical Pre-6G-F Receipt** (`final_receipt_exists = true`, snapshot absent): Physical liters is authoritative; commercial @13TS is strictly `Unavailable` (never faked as `Pending` or reconstructed from mutable lab tables).
+- **Formula Hardening & Biological Safety**:
+  - Biological range checks in `vehicleQuantityService`: LR normally between 15.0 and 45.0; Fat normally between 0.5% and 15.0%.
+  - Swap guard: `isLikelySwappedLRFat(lr, fat)` rejects with explicit reason `SWAPPED_PLANT_LR_FAT`.
+  - Validation guards: density > 1.0 (`INVALID_DENSITY`), SNF > 0 (`INVALID_SNF`), TS > 0 (`INVALID_TS`), Physical liters > 0 (`INVALID_FINAL_LITERS`), @13TS liters > 0 (`INVALID_AT13_TS_LITERS`).
+  - Calculation chain executed in IEEE-754 double precision without intermediate rounding (ADR-005).
+- **Atomicity Invariant**:
+  - Silo receipt transaction creation, quality snapshot recording, `PlantFinalDualReconciliation` record, and `AuditLog` execute within a single atomic database transaction (`db.$transaction`).
+- **Scope Boundaries**:
+  - No 6G-G (RMR, tokens, paper books), 6G-H (ERP financial rates), 6G-K (tolerances / 1% bands / NORMAL vs EXCEPTION badges), or 6G-L (investigations).
+
+

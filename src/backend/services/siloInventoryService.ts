@@ -7,6 +7,7 @@ import {
   VehicleCalculationFailureReason,
   isPlantLrTest,
 } from './vehicleQuantityService';
+import { calculateDualReconciliation } from './reconciliationService';
 
 export interface RecordTransactionParams {
   silo_id: bigint | string;
@@ -35,10 +36,11 @@ export interface FinalizeReceiptResult {
   success: boolean;
   receiptCreated: boolean;
   alreadyFinalized?: boolean;
-  netWeightKg?: number;
-  finalPhysicalLiters?: number;
-  finalAt13TSLiters?: number;
-  targetSiloCode?: string;
+  isHistorical?: boolean;
+  netWeightKg?: number | null;
+  finalPhysicalLiters?: number | null;
+  finalAt13TSLiters?: number | null;
+  targetSiloCode?: string | null;
   reason?: VehicleCalculationFailureReason | 'NO_DESTINATION_SILO' | 'MULTI_SILO_ALLOCATION_REQUIRED' | 'CAPACITY_EXCEEDED' | 'ALREADY_FINALIZED';
   message: string;
 }
@@ -290,7 +292,11 @@ export async function getSiloProvisionalAvailableCapacity(siloIdInput: bigint | 
  * AUTHORITATIVE RULE: Uses calculateVehicleReceivedQuantity engine.
  * QA remains portion-wise, final Plant received quantity remains vehicle-wise.
  */
-export async function finalizeSiloReceiptForVisit(
+/**
+ * Internal executor of vehicle final silo receipt.
+ * Must run inside an atomic transaction (either user-provided txPrisma or root prisma.$transaction).
+ */
+async function executeFinalizeSiloReceiptForVisit(
   visitIdInput: bigint | string,
   performedByUserIdInput: bigint | string,
   opTimestampInput?: Date,
@@ -310,18 +316,24 @@ export async function finalizeSiloReceiptForVisit(
         { visit_id: visitId, transaction_type: SiloTransactionType.RECEIPT },
       ],
     },
-    include: { silo: true },
+    include: {
+      silo: true,
+      dual_reconciliation: true,
+    },
   });
 
   if (existingReceipt) {
+    const isHistorical = existingReceipt.plant_final_at_13ts_liters === null && !existingReceipt.dual_reconciliation;
     return {
       success: true,
       receiptCreated: false,
       alreadyFinalized: true,
-      netWeightKg: Number(existingReceipt.quantity_kg || 0),
-      finalPhysicalLiters: Number(existingReceipt.quantity_liters || 0),
-      targetSiloCode: existingReceipt.silo.silo_code,
-      message: `Final silo inventory receipt has already been created for vehicle visit #${visitId.toString()}.`,
+      isHistorical,
+      netWeightKg: existingReceipt.quantity_kg !== null && existingReceipt.quantity_kg !== undefined ? Number(existingReceipt.quantity_kg) : null,
+      finalPhysicalLiters: existingReceipt.quantity_liters !== null && existingReceipt.quantity_liters !== undefined ? Number(existingReceipt.quantity_liters) : null,
+      finalAt13TSLiters: existingReceipt.plant_final_at_13ts_liters !== null && existingReceipt.plant_final_at_13ts_liters !== undefined ? Number(existingReceipt.plant_final_at_13ts_liters) : null,
+      targetSiloCode: existingReceipt.silo?.silo_code || null,
+      message: `Final silo inventory receipt has already been created for vehicle visit #${visitId.toString()}.${isHistorical ? ' (Historical receipt without frozen 6G-F commercial snapshot)' : ''}`,
     };
   }
 
@@ -449,7 +461,7 @@ export async function finalizeSiloReceiptForVisit(
 
   // 6. Create Database-Level Idempotent SiloInventoryTransaction RECEIPT
   // quantity_kg uses vehicle netWeightKg; quantity_liters uses vehicle finalPhysicalLiters
-  await db.siloInventoryTransaction.create({
+  const receiptTx = await db.siloInventoryTransaction.create({
     data: {
       silo_id: targetSiloId,
       transaction_type: SiloTransactionType.RECEIPT,
@@ -463,10 +475,67 @@ export async function finalizeSiloReceiptForVisit(
       idempotency_key: idempotencyKey,
       performed_by: performedByUserId,
       notes: `Final milk receipt upon Scale 2 Tare weighing (${visit.vehicle_number}).`,
+
+      // Stage 6G-F: Authoritative Plant Final Quality Snapshot
+      plant_composite_lr: new Prisma.Decimal(calcResult.internalCalculationBasis.averagePlantLr),
+      plant_composite_fat: new Prisma.Decimal(calcResult.internalCalculationBasis.averagePlantFat),
+      plant_density: new Prisma.Decimal(calcResult.vehicleDensity),
+      plant_snf: new Prisma.Decimal(calcResult.vehicleSnf),
+      plant_ts: new Prisma.Decimal(calcResult.vehicleTs),
+      plant_final_at_13ts_liters: new Prisma.Decimal(calcResult.finalAt13TSLiters),
+      plant_calculation_version: calcResult.plantCalculationVersion,
     },
   });
 
-  // 7. Log Immutable Audit Record for Final Silo Receipt
+  // 7. Stage 6G-F: Authoritative Source-Neutral Dual Reconciliation
+  const sentGrossLiters =
+    visit.vehicle_dispatch_gross_liters !== null && visit.vehicle_dispatch_gross_liters !== undefined
+      ? Number(visit.vehicle_dispatch_gross_liters)
+      : null;
+  const sentAt13tsLiters =
+    visit.vehicle_dispatch_at_13ts_liters !== null && visit.vehicle_dispatch_at_13ts_liters !== undefined
+      ? Number(visit.vehicle_dispatch_at_13ts_liters)
+      : null;
+
+  const dualRecon = calculateDualReconciliation({
+    sentGrossLiters,
+    receivedGrossLiters: calcResult.finalPhysicalLiters,
+    sentAt13tsLiters,
+    receivedAt13tsLiters: calcResult.finalAt13TSLiters,
+  });
+
+  await db.plantFinalDualReconciliation.upsert({
+    where: { visit_id: visitId },
+    update: {
+      final_receipt_transaction_id: receiptTx.id,
+      sent_gross_liters: dualRecon.sentGrossLiters !== null ? new Prisma.Decimal(dualRecon.sentGrossLiters) : null,
+      received_gross_liters: new Prisma.Decimal(dualRecon.receivedGrossLiters),
+      gross_variance_liters: dualRecon.grossVarianceLiters !== null ? new Prisma.Decimal(dualRecon.grossVarianceLiters) : null,
+      gross_variance_percent: dualRecon.grossVariancePercent !== null ? new Prisma.Decimal(dualRecon.grossVariancePercent) : null,
+      sent_at_13ts_liters: dualRecon.sentAt13tsLiters !== null ? new Prisma.Decimal(dualRecon.sentAt13tsLiters) : null,
+      received_at_13ts_liters: new Prisma.Decimal(dualRecon.receivedAt13tsLiters),
+      at_13ts_variance_liters: dualRecon.at13tsVarianceLiters !== null ? new Prisma.Decimal(dualRecon.at13tsVarianceLiters) : null,
+      at_13ts_variance_percent: dualRecon.at13tsVariancePercent !== null ? new Prisma.Decimal(dualRecon.at13tsVariancePercent) : null,
+      reconciliation_calculation_version: dualRecon.reconciliationCalculationVersion,
+      reconciled_at: opTimestamp,
+    },
+    create: {
+      visit_id: visitId,
+      final_receipt_transaction_id: receiptTx.id,
+      sent_gross_liters: dualRecon.sentGrossLiters !== null ? new Prisma.Decimal(dualRecon.sentGrossLiters) : null,
+      received_gross_liters: new Prisma.Decimal(dualRecon.receivedGrossLiters),
+      gross_variance_liters: dualRecon.grossVarianceLiters !== null ? new Prisma.Decimal(dualRecon.grossVarianceLiters) : null,
+      gross_variance_percent: dualRecon.grossVariancePercent !== null ? new Prisma.Decimal(dualRecon.grossVariancePercent) : null,
+      sent_at_13ts_liters: dualRecon.sentAt13tsLiters !== null ? new Prisma.Decimal(dualRecon.sentAt13tsLiters) : null,
+      received_at_13ts_liters: new Prisma.Decimal(dualRecon.receivedAt13tsLiters),
+      at_13ts_variance_liters: dualRecon.at13tsVarianceLiters !== null ? new Prisma.Decimal(dualRecon.at13tsVarianceLiters) : null,
+      at_13ts_variance_percent: dualRecon.at13tsVariancePercent !== null ? new Prisma.Decimal(dualRecon.at13tsVariancePercent) : null,
+      reconciliation_calculation_version: dualRecon.reconciliationCalculationVersion,
+      reconciled_at: opTimestamp,
+    },
+  });
+
+  // 8. Log Immutable Audit Record for Final Silo Receipt
   await db.auditLog.create({
     data: {
       table_name: 'silo_inventory_transaction',
@@ -481,13 +550,20 @@ export async function finalizeSiloReceiptForVisit(
         net_weight_kg: calcResult.netWeightKg,
         final_physical_liters: calcResult.finalPhysicalLiters,
         final_at13_ts_liters: calcResult.finalAt13TSLiters,
+        plant_composite_lr: calcResult.internalCalculationBasis.averagePlantLr,
+        plant_composite_fat: calcResult.internalCalculationBasis.averagePlantFat,
+        plant_density: calcResult.vehicleDensity,
+        plant_snf: calcResult.vehicleSnf,
+        plant_ts: calcResult.vehicleTs,
+        plant_calculation_version: calcResult.plantCalculationVersion,
+        reconciliation_version: dualRecon.reconciliationCalculationVersion,
         op_timestamp: opTimestamp.toISOString(),
         submitted_at: new Date().toISOString(),
       },
     },
   });
 
-  // 8. Advance VehicleVisit status to READY_FOR_GATE_EXIT
+  // 9. Advance VehicleVisit status to READY_FOR_GATE_EXIT
   await db.vehicleVisit.update({
     where: { id: visitId },
     data: { current_status: 'READY_FOR_GATE_EXIT' },
@@ -502,6 +578,26 @@ export async function finalizeSiloReceiptForVisit(
     targetSiloCode: silo.silo_code,
     message: `Final Silo Receipt created (~${Math.round(calcResult.finalPhysicalLiters).toLocaleString()} L in ${silo.silo_code}). Vehicle is ready for gate exit.`,
   };
+}
+
+/**
+ * Reusable finalization service to post final audited SiloInventoryTransaction RECEIPT for a vehicle visit.
+ * AUTHORITATIVE RULE: Uses calculateVehicleReceivedQuantity engine.
+ * QA remains portion-wise, final Plant received quantity remains vehicle-wise.
+ * Atomicity: Guarantees execution inside a single transaction.
+ */
+export async function finalizeSiloReceiptForVisit(
+  visitIdInput: bigint | string,
+  performedByUserIdInput: bigint | string,
+  opTimestampInput?: Date,
+  txPrisma?: Prisma.TransactionClient
+): Promise<FinalizeReceiptResult> {
+  if (txPrisma) {
+    return await executeFinalizeSiloReceiptForVisit(visitIdInput, performedByUserIdInput, opTimestampInput, txPrisma);
+  }
+  return await prisma.$transaction(async (tx) => {
+    return await executeFinalizeSiloReceiptForVisit(visitIdInput, performedByUserIdInput, opTimestampInput, tx);
+  });
 }
 
 /**

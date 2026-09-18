@@ -173,7 +173,62 @@ export function buildContractorVehicleVisits(logs: MilkProcessLog[]): Contractor
       finalReceiptExists
     );
 
-    const litersVariance = computeLitersVariance(grossLiters, authoritativeFinalLiters, finalReceiptExists);
+    const dispatch13TsLiters =
+      first.vehicle_dispatch_at_13ts_liters != null
+        ? Number(first.vehicle_dispatch_at_13ts_liters)
+        : null;
+
+    const plantFinalAt13TsLiters =
+      first.plant_final_at_13ts_liters != null
+        ? Number(first.plant_final_at_13ts_liters)
+        : null;
+
+    const isHistoricalReceiptWithoutCommercialSnapshot =
+      finalReceiptExists && first.plant_final_at_13ts_liters == null;
+
+    const grossVarianceLiters =
+      first.gross_variance_liters != null ? Number(first.gross_variance_liters) : null;
+    const grossVariancePercent =
+      first.gross_variance_percent != null ? Number(first.gross_variance_percent) : null;
+
+    let grossVarianceText = '—';
+    if (grossVarianceLiters != null) {
+      if (grossVarianceLiters === 0) grossVarianceText = '0.00 L';
+      else if (grossVarianceLiters > 0)
+        grossVarianceText = `+${grossVarianceLiters.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L`;
+      else
+        grossVarianceText = `${grossVarianceLiters.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L`;
+    }
+
+    let grossVariancePercentText = '—';
+    if (grossVariancePercent != null) {
+      if (grossVariancePercent === 0) grossVariancePercentText = '0.00%';
+      else if (grossVariancePercent > 0) grossVariancePercentText = `+${grossVariancePercent.toFixed(2)}%`;
+      else grossVariancePercentText = `${grossVariancePercent.toFixed(2)}%`;
+    }
+
+    const at13TsVarianceLiters =
+      first.at_13ts_variance_liters != null ? Number(first.at_13ts_variance_liters) : null;
+    const at13TsVariancePercent =
+      first.at_13ts_variance_percent != null ? Number(first.at_13ts_variance_percent) : null;
+
+    let at13TsVarianceText = '—';
+    if (at13TsVarianceLiters != null) {
+      if (at13TsVarianceLiters === 0) at13TsVarianceText = '0.00 L';
+      else if (at13TsVarianceLiters > 0)
+        at13TsVarianceText = `+${at13TsVarianceLiters.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L`;
+      else
+        at13TsVarianceText = `${at13TsVarianceLiters.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L`;
+    }
+
+    let at13TsVariancePercentText = '—';
+    if (at13TsVariancePercent != null) {
+      if (at13TsVariancePercent === 0) at13TsVariancePercentText = '0.00%';
+      else if (at13TsVariancePercent > 0) at13TsVariancePercentText = `+${at13TsVariancePercent.toFixed(2)}%`;
+      else at13TsVariancePercentText = `${at13TsVariancePercent.toFixed(2)}%`;
+    }
+
+    const litersVariance = grossVarianceLiters ?? computeLitersVariance(grossLiters, authoritativeFinalLiters, finalReceiptExists);
 
     const finalReceiptDate = first.final_receipt_date || null;
     let reportingDate: string | null = null;
@@ -214,6 +269,19 @@ export function buildContractorVehicleVisits(logs: MilkProcessLog[]): Contractor
       secondWeightKg: first.second_weight_of_vehicle ?? null,
       netWeightKg: first.computed_net_milk_weight ?? null,
       litersVariance,
+
+      dispatch13TsLiters,
+      plantFinalAt13TsLiters,
+      grossVarianceLiters,
+      grossVariancePercent,
+      grossVarianceText,
+      grossVariancePercentText,
+      at13TsVarianceLiters,
+      at13TsVariancePercent,
+      at13TsVarianceText,
+      at13TsVariancePercentText,
+      reconciliationExists: Boolean(first.reconciliation_exists),
+      isHistoricalReceiptWithoutCommercialSnapshot,
     });
   });
 

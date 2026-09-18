@@ -39,6 +39,7 @@ export async function resetOperationalData() {
     qaTestingSessions: (await prisma.qATestingSession.deleteMany({})).count,
     plantLabResults: (await prisma.plantLabResult.deleteMany({})).count,
     dispatchLabResults: (await prisma.dispatchLabResult.deleteMany({})).count,
+    plantFinalDualReconciliations: (await prisma.plantFinalDualReconciliation.deleteMany({})).count,
     siloTransactions: (await prisma.siloInventoryTransaction.deleteMany({})).count,
     unloadingLogs: (await prisma.unloadingLog.deleteMany({})).count,
     weightTickets: (await prisma.weightTicket.deleteMany({})).count,

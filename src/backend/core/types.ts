@@ -439,6 +439,29 @@ export interface MilkProcessLog {
   reporting_date?: string | null;
   authoritative_final_liters?: number | null;
 
+  // STAGE 6G-F: PLANT FINAL QUALITY & COMMERCIAL SNAPSHOT
+  plant_final_net_kg?: number | null;
+  plant_final_lr?: number | null;
+  plant_final_fat?: number | null;
+  plant_final_density?: number | null;
+  plant_final_snf?: number | null;
+  plant_final_ts?: number | null;
+  plant_final_gross_liters?: number | null;
+  plant_final_at_13ts_liters?: number | null;
+  plant_final_calculation_version?: string | null;
+
+  // STAGE 6G-F: SOURCE-NEUTRAL DUAL RECONCILIATION
+  reconciliation_exists?: boolean;
+  sent_gross_liters?: number | null;
+  received_gross_liters?: number | null;
+  gross_variance_liters?: number | null;
+  gross_variance_percent?: number | null;
+  sent_at_13ts_liters?: number | null;
+  received_at_13ts_liters?: number | null;
+  at_13ts_variance_liters?: number | null;
+  at_13ts_variance_percent?: number | null;
+  reconciliation_calculation_version?: string | null;
+
   // DYNAMIC CONFIGURED LAB RESULTS
   portion_lab_results?: PortionLabTestResult[];
 

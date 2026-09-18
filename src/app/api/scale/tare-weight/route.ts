@@ -209,8 +209,8 @@ export async function POST(req: Request) {
     });
 
     const isFinalized = result.finalizeRes.success && result.finalizeRes.receiptCreated;
-    const finalPhysicalLiters = result.finalizeRes.finalPhysicalLiters !== undefined ? Math.round(result.finalizeRes.finalPhysicalLiters) : null;
-    const finalAt13TSLiters = result.finalizeRes.finalAt13TSLiters !== undefined ? Math.round(result.finalizeRes.finalAt13TSLiters) : null;
+    const finalPhysicalLiters = result.finalizeRes.finalPhysicalLiters != null ? Math.round(result.finalizeRes.finalPhysicalLiters) : null;
+    const finalAt13TSLiters = result.finalizeRes.finalAt13TSLiters != null ? Math.round(result.finalizeRes.finalAt13TSLiters) : null;
 
     let msg = `Second Weight (Tare: ${tareWeightKg} kg) recorded successfully. Net Milk Weight: ${result.netWeightKg.toLocaleString()} kg.`;
     if (isFinalized) {
