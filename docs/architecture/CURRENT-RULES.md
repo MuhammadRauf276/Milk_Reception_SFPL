@@ -800,27 +800,27 @@ All paginated collection APIs must return a standardized pagination envelope:
 *Note: This architecture is frozen for future alignment and is strictly deferred to Stage 6G-G or later. It is NOT implemented in Stage 6G-F.*
 
 1. **The Three Irreducible QA Truths**:
-   - **Observed Lab Result**: The immutable, physical measurement recorded by the technician in the lab (e.g. LR 28.0, Fat 3.8%). Must never be altered, silently coerced, or auto-corrected by system rules.
+   - **Observed Lab Result**: The physical measurement recorded during testing (e.g. LR 28.0, Fat 3.8%). A manager decision correction never rewrites the original observed lab result or the original system evaluation. If the laboratory measurement itself was entered incorrectly, that is a separate authorized measurement-correction workflow with mandatory reason, before/after evidence, actor, timestamp, and AuditLog. Historical evidence must remain preserved.
    - **System Rule Evaluation**: Automated policy evaluation against configured QA rules and thresholds (producing `PASS`, `FAIL`, or `FLAG`/`OUT_OF_SPEC` with granular rule breakdown). Pure deterministic function.
    - **Final Operational Decision**: The authorized human operational determination (`ACCEPTED`, `REJECTED`, `HOLD`, or corrected `ACCEPTED_EXCEPTION`). When a lab attendant records a rejection, the operational decision becomes `REJECTED` immediately (no automatic manager-pending state). A manager may review it later through a separate audited correction flow.
 2. **QA Policy & Decision Authority Model**:
    - **QA Head**: Quality threshold and policy authority. Exclusively owns and defines quality acceptance/rejection thresholds, parameter bounds, and validation policies. Operators and system rules cannot override QA Head rules. Super Admin remains technical/system administrator only; Super Admin does NOT own quality policy, and any future administrative actions on QA policy must remain fully auditable and attributable to the QA Head-approved policy process.
    - **Plant Operational QA**:
-     - **QA Lab Attendant** (or Plant QA Chemist/Technician): Records Plant lab evidence and makes the normal initial operational decision (`ACCEPTED` or `REJECTED`).
+     - **QA Lab Attendant** (`QA_LAB_ATTENDANT`): Canonical role for normal Plant intake testing. Records Plant lab evidence and makes the normal initial operational decision (`ACCEPTED` or `REJECTED`).
      - **QA Manager**: Authorized Plant decision-correction / exception authority. Can later review and correct an operational decision through a separate audited flow. (QA Head owns policy, not daily Plant exception overrides).
    - **ZMCC Operational QA**:
-     - **ZMCC Lab Attendant**: Records MOT / Local Supplier lab evidence and makes the normal initial operational decision (`ACCEPTED` or `REJECTED`).
+     - **ZMCC Lab Attendant** (`ZMCC_LAB_ATTENDANT`): Canonical role for normal ZMCC intake testing. Records MOT / Local Supplier lab evidence and makes the normal initial operational decision (`ACCEPTED` or `REJECTED`).
      - **ZMCC Manager**: Authorized ZMCC decision-correction / exception authority. Can later review and correct an operational decision through a separate audited flow.
 3. **Manager Acceptance Against System/Lab Rejection (Multi-Layer Audit Preservation)**:
    - When an authorized manager corrects a rejected batch to accepted as an exception, all audit layers are preserved verbatim without rewriting history:
-     - `Observed Lab Result`: Unchanged (preserves real laboratory measurements)
-     - `System Rule Evaluation`: Unchanged (e.g. `OUT_OF_SPEC`)
-     - `Original Lab Decision`: `REJECTED`
-     - `Corrected Final Decision`: `ACCEPTED_EXCEPTION`
-     - `Corrected By`: `QA_MANAGER` (for Plant) or `ZMCC_MANAGER` (for ZMCC)
-     - `Correction Reason`: REQUIRED (mandatory explanation)
-     - `Corrected At`: REQUIRED (timestamp)
-     - `AuditLog`: REQUIRED (immutable audit entry)
+     - `Observed Lab Result`: Preserved verbatim (a decision correction never overwrites the recorded measurement).
+     - `System Rule Evaluation`: Unchanged (e.g. `OUT_OF_SPEC`).
+     - `Original Lab Decision`: `REJECTED`.
+     - `Corrected Final Decision`: `ACCEPTED_EXCEPTION`.
+     - `Corrected By`: `QA_MANAGER` (for Plant) or `ZMCC_MANAGER` (for ZMCC).
+     - `Correction Reason`: REQUIRED (mandatory explanation).
+     - `Corrected At`: REQUIRED (timestamp).
+     - `AuditLog`: REQUIRED (immutable audit entry).
    - Vague `CONDITIONAL_ACCEPT` wording is forbidden where it obscures the owner-approved `ACCEPTED_EXCEPTION` meaning.
 4. **Canonical Testing-Point Scoping & Terminology**:
    - Rule applicability is strictly scoped to authoritative target testing-point identities (RMR is a Shop paper receipt/reference, not a testing point):

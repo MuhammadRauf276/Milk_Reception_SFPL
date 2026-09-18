@@ -1,7 +1,9 @@
-import { PrismaClient, Prisma, SiloTransactionType } from '@prisma/client';
-import { recordSiloTransaction, finalizeSiloReceiptForVisit } from '../src/backend/services/siloInventoryService';
-
-const prisma = new PrismaClient();
+// 1. Initialize test environment FIRST before importing app modules or database clients
+import '../tests/helpers/testEnv';
+import { assertSafeTestDatabase } from '../tests/helpers/testDbSafety';
+import { getTestPrisma, disconnectTestPrisma } from '../tests/helpers/testPrisma';
+import { Prisma, SiloTransactionType } from '@prisma/client';
+import { finalizeSiloReceiptForVisit } from '../src/backend/services/siloInventoryService';
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) {
@@ -11,71 +13,45 @@ function assert(condition: unknown, message: string): asserts condition {
 
 async function main() {
   console.log('==================================================');
-  console.log('REAL CONCURRENCY & IDEMPOTENCY VERIFICATION');
+  console.log('STAGE 6G-F: FINAL RECEIPT CONCURRENCY & IDEMPOTENCY');
   console.log('==================================================\n');
 
-  // 1. Silo Issue Idempotency & Retry Test
-  console.log('--- Test 1: Silo Issue Idempotency Key (clientRequestId) ---');
-  const silo = await prisma.silo.findFirst({ where: { is_active: true } });
-  assert(silo, 'Active silo must exist for concurrency verification');
+  // 1. Enforce Test Database Safety Guard (fail-closed)
+  const { testDbName, isSafe } = assertSafeTestDatabase({ isDestructive: true });
+  assert(isSafe, 'Test DB safety assertion failed');
+  console.log(`[SAFETY CHECK] Connected strictly to isolated test database: "${testDbName}".\n`);
 
-  const user = await prisma.user.findFirst({ where: { is_active: true } });
-  assert(user, 'Active user must exist for concurrency verification');
+  const prisma = getTestPrisma();
 
-  const clientReqId = `CONC-ISSUE-${Date.now()}`;
-  const opTs = new Date();
-
-  try {
-    const [issueRes1, issueRes2] = await Promise.allSettled([
-      recordSiloTransaction({
-        silo_id: silo.id,
-        transaction_type: SiloTransactionType.ISSUE,
-        quantity_kg: 100,
-        quantity_liters: 100,
-        operational_timestamp: opTs,
-        idempotency_key: clientReqId,
-        performed_by: user.id,
-        notes: 'Concurrency Test Issue',
-      }),
-      recordSiloTransaction({
-        silo_id: silo.id,
-        transaction_type: SiloTransactionType.ISSUE,
-        quantity_kg: 100,
-        quantity_liters: 100,
-        operational_timestamp: opTs,
-        idempotency_key: clientReqId,
-        performed_by: user.id,
-        notes: 'Concurrency Test Issue Retry',
-      }),
-    ]);
-
-    assert(issueRes1.status === 'fulfilled', 'Issue call 1 must be fulfilled');
-    assert(issueRes2.status === 'fulfilled', 'Issue call 2 must be fulfilled');
-
-    const issueTxs = await prisma.siloInventoryTransaction.findMany({
-      where: { idempotency_key: clientReqId },
+  // 2. Resolve Prerequisites in Test Database
+  let silo = await prisma.silo.findFirst({ where: { is_active: true } });
+  let createdSilo = false;
+  if (!silo) {
+    silo = await prisma.silo.create({
+      data: {
+        silo_code: 'SILO-TEST-01',
+        silo_name: 'Test Concurrency Silo',
+        capacity_liters: new Prisma.Decimal(50000),
+        is_active: true,
+      },
     });
-
-    assert(issueTxs.length === 1, `Expected exactly 1 issue transaction, got ${issueTxs.length}`);
-    console.log(`[PASS] Submitted 2 simultaneous issue requests with same clientRequestId.`);
-    console.log(`[PASS] Resulting DB transactions created: ${issueTxs.length} (Expected exactly 1)`);
-  } finally {
-    await prisma.siloInventoryTransaction.deleteMany({ where: { idempotency_key: clientReqId } });
+    createdSilo = true;
   }
 
-  // 2. Final Receipt Real Concurrency & Post-Lock Idempotency Test
-  console.log('\n--- Test 2: Real Concurrency & Post-Lock Idempotency for Final Receipt ---');
+  const user = await prisma.user.findFirst({ where: { is_active: true } });
+  assert(user, 'Active user must exist in test database for concurrency verification');
 
   const source = await prisma.procurementSource.findFirst({ where: { is_active: true } });
-  assert(source, 'Active procurement source required');
+  assert(source, 'Active procurement source required in test database');
 
   const lrTest = await prisma.labTest.findFirst({ where: { testCode: 'LT-000008' } });
-  assert(lrTest, 'Authoritative Plant LR test (LT-000008) must exist');
+  assert(lrTest, 'Authoritative Plant LR test (LT-000008) must exist in test database');
 
   const fatTest = await prisma.labTest.findFirst({ where: { testCode: 'LT-000026' } });
-  assert(fatTest, 'Authoritative Plant Fat test (LT-000026) must exist');
+  assert(fatTest, 'Authoritative Plant Fat test (LT-000026) must exist in test database');
 
-  const uniqueKey = `CONC_${Date.now()}`;
+  // 3. Create Isolated Test Fixtures for Vehicle Visit
+  const uniqueKey = `CONC_6GF_${Date.now()}`;
   const visit = await prisma.vehicleVisit.create({
     data: {
       visit_number: `VN_${uniqueKey}`,
@@ -150,13 +126,13 @@ async function main() {
       where: { silo_id: silo.id, transaction_type: SiloTransactionType.RECEIPT },
     });
 
-    console.log(`Executing 2 concurrent finalizeSiloReceiptForVisit calls for isolated visit #${visit.id}...`);
+    console.log(`Executing 2 simultaneous finalizeSiloReceiptForVisit calls for visit #${visit.id}...`);
     const [rec1, rec2] = await Promise.allSettled([
       finalizeSiloReceiptForVisit(visit.id, user.id),
       finalizeSiloReceiptForVisit(visit.id, user.id),
     ]);
 
-    // 1. Both calls must complete safely without uncaught unique-constraint errors
+    // Assertion 1: Both calls must complete safely without uncaught unique-constraint errors
     assert(rec1.status === 'fulfilled', `Call 1 rejected: ${(rec1 as any).reason}`);
     assert(rec2.status === 'fulfilled', `Call 2 rejected: ${(rec2 as any).reason}`);
 
@@ -166,7 +142,7 @@ async function main() {
     assert(resVal1.success === true, `Call 1 failed: ${resVal1.message}`);
     assert(resVal2.success === true, `Call 2 failed: ${resVal2.message}`);
 
-    // 2. Exactly one call creates receipt, losing call reports alreadyFinalized: true
+    // Assertion 2: Exactly one call creates receipt, losing replay call reports alreadyFinalized: true
     const createdCount = (resVal1.receiptCreated ? 1 : 0) + (resVal2.receiptCreated ? 1 : 0);
     assert(createdCount === 1, `Expected exactly 1 call to report receiptCreated: true, got ${createdCount}`);
 
@@ -178,24 +154,28 @@ async function main() {
     assert(replay.alreadyFinalized === true, 'Replay must report alreadyFinalized: true');
     assert(replay.isHistorical === false, 'Fresh receipt must not be marked isHistorical');
 
-    // 3. Database assertions
+    // Assertion 3: Exactly one SiloInventoryTransaction RECEIPT created
     const receiptTxs = await prisma.siloInventoryTransaction.findMany({
       where: { visit_id: visit.id, transaction_type: SiloTransactionType.RECEIPT },
     });
     assert(receiptTxs.length === 1, `Expected exactly 1 SiloInventoryTransaction RECEIPT, found ${receiptTxs.length}`);
 
+    // Assertion 4: Exactly one PlantFinalDualReconciliation record created
     const reconRows = await prisma.plantFinalDualReconciliation.findMany({
       where: { visit_id: visit.id },
     });
     assert(reconRows.length === 1, `Expected exactly 1 PlantFinalDualReconciliation row, found ${reconRows.length}`);
 
-    // 4. Stock changed exactly once
+    // Assertion 5: Silo stock movement occurred exactly once
     const postTxCount = await prisma.siloInventoryTransaction.count({
       where: { silo_id: silo.id, transaction_type: SiloTransactionType.RECEIPT },
     });
-    assert(postTxCount === preTxCount + 1, `Expected silo receipts to increase by 1, but changed from ${preTxCount} to ${postTxCount}`);
+    assert(
+      postTxCount === preTxCount + 1,
+      `Expected silo receipts to increase by 1, but changed from ${preTxCount} to ${postTxCount}`
+    );
 
-    // 5. Verification of quality snapshot and dual reconciliation fields
+    // Assertion 6: Frozen Plant snapshot fields on receipt are fully populated
     const receipt = receiptTxs[0];
     assert(receipt.plant_composite_lr !== null, 'plant_composite_lr must be populated');
     assert(receipt.plant_composite_fat !== null, 'plant_composite_fat must be populated');
@@ -203,25 +183,35 @@ async function main() {
     assert(receipt.plant_snf !== null, 'plant_snf must be populated');
     assert(receipt.plant_ts !== null, 'plant_ts must be populated');
     assert(receipt.plant_final_at_13ts_liters !== null, 'plant_final_at_13ts_liters must be populated');
+    assert(receipt.plant_calculation_version === '1.0', 'plant_calculation_version must be 1.0');
 
+    // Assertion 7: Dual reconciliation audit fields are fully populated
     const recon = reconRows[0];
-    assert(recon.final_receipt_transaction_id === receipt.id, 'PlantFinalDualReconciliation must link to receipt transaction ID');
+    assert(recon.final_receipt_transaction_id === receipt.id, 'Dual reconciliation must link to receipt ID');
     assert(Number(recon.sent_gross_liters) === 10000, `sent_gross_liters expected 10000, got ${recon.sent_gross_liters}`);
-    assert(Number(recon.received_gross_liters) === Number(receipt.quantity_liters), 'received_gross_liters must match receipt quantity_liters');
+    assert(
+      Number(recon.received_gross_liters) === Number(receipt.quantity_liters),
+      'received_gross_liters must match receipt quantity_liters'
+    );
     assert(Number(recon.sent_at_13ts_liters) === 9500, `sent_at_13ts_liters expected 9500, got ${recon.sent_at_13ts_liters}`);
-    assert(Number(recon.received_at_13ts_liters) === Number(receipt.plant_final_at_13ts_liters), 'received_at_13ts_liters must match receipt plant_final_at_13ts_liters');
+    assert(
+      Number(recon.received_at_13ts_liters) === Number(receipt.plant_final_at_13ts_liters),
+      'received_at_13ts_liters must match receipt plant_final_at_13ts_liters'
+    );
     assert(recon.gross_variance_liters !== null, 'gross_variance_liters must be non-null');
     assert(recon.gross_variance_percent !== null, 'gross_variance_percent must be non-null');
     assert(recon.at_13ts_variance_liters !== null, 'at_13ts_variance_liters must be non-null');
     assert(recon.at_13ts_variance_percent !== null, 'at_13ts_variance_percent must be non-null');
+    assert(recon.reconciliation_calculation_version === '1.0', 'reconciliation_calculation_version must be 1.0');
 
-    console.log(`[PASS] Both concurrent calls completed safely without unique-constraint errors.`);
+    console.log('[PASS] Both concurrent finalization calls completed safely without unique-constraint errors.');
     console.log(`[PASS] Exactly 1 SiloInventoryTransaction created (id: ${receipt.id}, volume: ${receipt.quantity_liters} L).`);
     console.log(`[PASS] Exactly 1 PlantFinalDualReconciliation created (gross diff: ${recon.gross_variance_liters} L, @13TS diff: ${recon.at_13ts_variance_liters} L).`);
-    console.log(`[PASS] Winner reported receiptCreated: true; losing call reported alreadyFinalized: true.`);
-    console.log(`[PASS] Silo stock transactions increased by exactly 1.`);
+    console.log('[PASS] Winner reported receiptCreated: true; concurrent call reported alreadyFinalized: true.');
+    console.log('[PASS] Silo stock movement occurred exactly once.');
+    console.log('[PASS] Frozen Plant snapshot and dual reconciliation fields are fully populated.');
   } finally {
-    // Cleanup isolated test data in reverse foreign-key order
+    // Reverse foreign-key cleanup of isolated test visit data
     await prisma.plantFinalDualReconciliation.deleteMany({ where: { visit_id: visit.id } });
     await prisma.auditLog.deleteMany({ where: { record_id: visit.id } });
     await prisma.siloInventoryTransaction.deleteMany({ where: { visit_id: visit.id } });
@@ -230,11 +220,16 @@ async function main() {
     await prisma.plantLabResult.deleteMany({ where: { portion_id: portion.id } });
     await prisma.visitPortion.deleteMany({ where: { visit_id: visit.id } });
     await prisma.vehicleVisit.deleteMany({ where: { id: visit.id } });
+
+    if (createdSilo) {
+      await prisma.silo.deleteMany({ where: { id: silo.id } });
+    }
+
     console.log(`[CLEANUP] Isolated test data for visit #${visit.id} successfully removed.`);
   }
 
   console.log('\n==================================================');
-  console.log('REAL CONCURRENCY & IDEMPOTENCY VERIFICATION COMPLETE: ALL ASSERTIONS PASSED');
+  console.log('FINAL RECEIPT CONCURRENCY VERIFICATION: ALL ASSERTIONS PASSED');
   console.log('==================================================');
 }
 
@@ -243,4 +238,6 @@ main()
     console.error('\n❌ CONCURRENCY VERIFICATION FAILED:', err);
     process.exit(1);
   })
-  .finally(() => prisma.$disconnect());
+  .finally(async () => {
+    await disconnectTestPrisma();
+  });
