@@ -7,6 +7,8 @@ import { isValidDateOnly } from '@/lib/datetime-utils';
 import { computeCanonicalMilkMetrics } from '@/backend/utils/milkFormulas';
 import { resolveCoreMilkTestResults, validateCoreMilkTestCandidates } from '@/backend/utils/milkTestResolvers';
 import { MilkTestPolicyService } from '@/backend/services/milkTestPolicyService';
+import { QualityRuleService } from '@/backend/services/qualityRuleService';
+import { TestingPoint } from '@/types/milk-test-policy';
 import { getTankPhysicalStock, serializeTankReceipt } from '@/backend/services/zmccTankService';
 
 export interface ZmccLabAuthContext {
@@ -175,10 +177,150 @@ export function serializeLabResult(res: any) {
     text_value: res.text_value,
     evaluation_status: res.evaluation_status,
     is_passed: res.is_passed,
+    applied_rule_id: res.applied_rule_id ? res.applied_rule_id.toString() : null,
+    applied_rule_version: res.applied_rule_version ?? null,
     recorded_at: res.recorded_at instanceof Date ? res.recorded_at.toISOString() : res.recorded_at,
     created_at: res.created_at instanceof Date ? res.created_at.toISOString() : res.created_at,
     updated_at: res.updated_at instanceof Date ? res.updated_at.toISOString() : res.updated_at,
   };
+}
+
+export async function createCanonicalTankReceiptTx(
+  tx: Prisma.TransactionClient,
+  params: {
+    sessionId: bigint;
+    zmccId: bigint;
+    targetTankId: bigint;
+    arrivalType: string;
+    quantityNum: number;
+    quantityUnitNorm: string;
+    metrics: {
+      density: number;
+      grossLiters: number;
+      snf: number;
+      ts: number;
+      at13tsLiters: number;
+      calculationVersion: string;
+    };
+    lr: number;
+    fat: number;
+    actorUserId: bigint;
+    receivedAt: Date;
+  }
+) {
+  const {
+    sessionId,
+    zmccId,
+    targetTankId,
+    arrivalType,
+    quantityNum,
+    quantityUnitNorm,
+    metrics,
+    lr,
+    fat,
+    actorUserId,
+    receivedAt,
+  } = params;
+
+  // Lock target tank
+  const lockedTankRows: Array<{ id: bigint; zmcc_id: bigint; capacity_liters: any; is_active: boolean }> =
+    await tx.$queryRaw`
+      SELECT id, zmcc_id, capacity_liters, is_active FROM zmcc_tank WHERE id = ${targetTankId} FOR UPDATE
+    `;
+  if (!lockedTankRows || lockedTankRows.length === 0) {
+    throw new Error('TANK_NOT_FOUND');
+  }
+  if (lockedTankRows[0].zmcc_id !== zmccId) {
+    throw new Error('TANK_WRONG_ZMCC');
+  }
+  if (!lockedTankRows[0].is_active) {
+    throw new Error('TANK_INACTIVE:Destination ZMCC tank is inactive.');
+  }
+
+  const tankCapacity = Number(lockedTankRows[0].capacity_liters);
+  const currentStock = await getTankPhysicalStock(targetTankId, tx);
+  const availableCapacity = Math.max(0, tankCapacity - currentStock);
+
+  if (metrics.grossLiters > availableCapacity) {
+    const availStr = availableCapacity.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    const reqStr = metrics.grossLiters.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    throw new Error(`INSUFFICIENT_CAPACITY:Tank capacity is insufficient. ${availStr} L available; ${reqStr} L required.`);
+  }
+
+  const existingReceipt = await tx.zmccTankReceipt.findUnique({
+    where: { lab_session_id: sessionId },
+    include: { tank: true, receiver: true },
+  });
+  if (existingReceipt) {
+    return existingReceipt;
+  }
+
+  const tankReceipt = await tx.zmccTankReceipt.create({
+    data: {
+      lab_session_id: sessionId,
+      zmcc_id: zmccId,
+      tank_id: targetTankId,
+      arrival_type: arrivalType,
+      quantity_value: new Prisma.Decimal(quantityNum.toFixed(2)),
+      quantity_unit: quantityUnitNorm as any,
+      density: new Prisma.Decimal(metrics.density.toFixed(4)),
+      gross_liters: new Prisma.Decimal(metrics.grossLiters.toFixed(2)),
+      lr: new Prisma.Decimal(lr.toFixed(2)),
+      fat: new Prisma.Decimal(fat.toFixed(2)),
+      snf: new Prisma.Decimal(metrics.snf.toFixed(2)),
+      ts: new Prisma.Decimal(metrics.ts.toFixed(2)),
+      at_13ts_liters: new Prisma.Decimal(metrics.at13tsLiters.toFixed(2)),
+      calculation_version: metrics.calculationVersion,
+      received_at: receivedAt,
+      received_by_user_id: actorUserId,
+    },
+    include: {
+      tank: true,
+      receiver: true,
+    },
+  });
+
+  await tx.zmccTankInventoryTransaction.create({
+    data: {
+      tank_id: targetTankId,
+      zmcc_id: zmccId,
+      transaction_type: 'RECEIPT',
+      quantity_liters: new Prisma.Decimal(metrics.grossLiters.toFixed(2)),
+      at_13ts_liters: new Prisma.Decimal(metrics.at13tsLiters.toFixed(2)),
+      tank_receipt_id: tankReceipt.id,
+      reference_type: 'ZMCC_LAB_SESSION',
+      reference_id: sessionId.toString(),
+      idempotency_key: `ZMCC_TANK_RECEIPT:LAB_SESSION:${sessionId}`,
+      operational_timestamp: receivedAt,
+      performed_by_user_id: actorUserId,
+      notes: `Tank receipt for ${arrivalType} arrival (Session #${sessionId})`,
+    },
+  });
+
+  await tx.auditLog.create({
+    data: {
+      table_name: 'zmcc_tank_receipt',
+      record_id: tankReceipt.id,
+      action: 'ZMCC_TANK_RECEIPT_CREATED',
+      old_values: Prisma.DbNull,
+      new_values: {
+        lab_session_id: sessionId.toString(),
+        arrival_type: arrivalType,
+        zmcc_id: zmccId.toString(),
+        tank_id: targetTankId.toString(),
+        quantity_value: quantityNum.toFixed(2),
+        quantity_unit: quantityUnitNorm,
+        gross_liters: metrics.grossLiters,
+        lr,
+        fat,
+        at_13ts_liters: metrics.at13tsLiters,
+        calculation_version: metrics.calculationVersion,
+      },
+      user_id: actorUserId,
+    },
+  });
+
+  return tankReceipt;
 }
 
 export function serializeLabSession(session: any) {
@@ -195,6 +337,19 @@ export function serializeLabSession(session: any) {
     completed_by_user_id: session.completed_by_user_id ? session.completed_by_user_id.toString() : null,
     completed_at: session.completed_at instanceof Date ? session.completed_at.toISOString() : session.completed_at,
     decision: session.decision,
+    system_quality_outcome: session.system_quality_outcome || null,
+    manager_review_status: session.manager_review_status || null,
+    manager_requested_decision: session.manager_requested_decision || null,
+    manager_review_requested_by_user_id: session.manager_review_requested_by_user_id ? session.manager_review_requested_by_user_id.toString() : null,
+    manager_review_requested_at: session.manager_review_requested_at instanceof Date ? session.manager_review_requested_at.toISOString() : session.manager_review_requested_at,
+    manager_reviewed_by_user_id: session.manager_reviewed_by_user_id ? session.manager_reviewed_by_user_id.toString() : null,
+    manager_reviewed_at: session.manager_reviewed_at instanceof Date ? session.manager_reviewed_at.toISOString() : session.manager_reviewed_at,
+    manager_review_reason: session.manager_review_reason || null,
+    original_decision: session.original_decision || null,
+    corrected_decision: session.corrected_decision || null,
+    correction_reason: session.correction_reason || null,
+    corrected_by: session.corrected_by ? session.corrected_by.toString() : null,
+    corrected_at: session.corrected_at instanceof Date ? session.corrected_at.toISOString() : session.corrected_at,
     rejection_reason: session.rejection_reason,
     remarks: session.remarks,
     completion_client_event_id: session.completion_client_event_id,
@@ -637,7 +792,14 @@ export async function startOrResumeSession(
   }
 
   // Canonical milk test policy by arrival type
-  const testingPoint = arrival_type === 'MOT' ? 'ZMCC_LAB_MOT' : 'ZMCC_LAB_CONTRACTOR';
+  let testingPoint: TestingPoint;
+  if (arrival_type === 'MOT') {
+    testingPoint = 'ZMCC_LAB_MOT';
+  } else if (arrival_type === 'LOCAL_SUPPLIER') {
+    testingPoint = 'ZMCC_LAB_LOCAL_SUPPLIER';
+  } else {
+    testingPoint = 'ZMCC_LAB_CONTRACTOR';
+  }
   const effectiveTests = await MilkTestPolicyService.getEffectivePolicy(testingPoint);
 
   if (!effectiveTests || effectiveTests.length === 0) {
@@ -1532,6 +1694,15 @@ export async function completeSession(
         throw new Error('SESSION_ALREADY_COMPLETED');
       }
 
+      // Determine testing point
+      const testingPoint = session.arrival_type === 'MOT'
+        ? 'ZMCC_LAB_MOT'
+        : session.arrival_type === 'LOCAL_SUPPLIER'
+        ? 'ZMCC_LAB_LOCAL_SUPPLIER'
+        : 'ZMCC_LAB_CONTRACTOR';
+
+      const evaluations: any[] = [];
+
       // Update all submitted test results
       for (const item of results) {
         const testIdStr = String(item.test_id).trim();
@@ -1541,8 +1712,6 @@ export async function completeSession(
 
         let numVal: Prisma.Decimal | null = null;
         let txtVal: string | null = null;
-        let isPassed: boolean | null = null;
-        let evalStatus = 'PENDING';
 
         if (resType === 'CALCULATED') {
           continue;
@@ -1550,36 +1719,29 @@ export async function completeSession(
           if (item.numeric_value !== undefined && item.numeric_value !== null) {
             const n = Number(item.numeric_value);
             numVal = new Prisma.Decimal(n.toFixed(4));
-            const evaluation = evaluateLabResult(
-              existing.test_code_snapshot,
-              n,
-              null,
-              existing.result_type_snapshot,
-              existing.result_options_snapshot as any
-            );
-            isPassed = evaluation.isPassed;
-            evalStatus = evaluation.status;
-          }
-        } else if (resType === 'TEXT') {
-          if (item.text_value && item.text_value.trim()) {
-            txtVal = item.text_value.trim();
-            evalStatus = 'NEUTRAL';
-            isPassed = null;
           }
         } else {
           if (item.text_value && item.text_value.trim()) {
             txtVal = item.text_value.trim();
-            const evaluation = evaluateLabResult(
-              existing.test_code_snapshot,
-              null,
-              txtVal,
-              existing.result_type_snapshot,
-              existing.result_options_snapshot as any
-            );
-            isPassed = evaluation.isPassed;
-            evalStatus = evaluation.status;
           }
         }
+
+        const activeRule = await QualityRuleService.resolveActiveRule(
+          existing.test_id,
+          testingPoint,
+          session.started_at || new Date(),
+          tx
+        );
+
+        const evalResult = QualityRuleService.evaluateQualityResult({
+          rule: activeRule,
+          numericValue: numVal !== null ? Number(numVal) : null,
+          textValue: txtVal,
+          resultType: existing.result_type_snapshot,
+          resultOptions: existing.result_options_snapshot,
+        });
+
+        evaluations.push(evalResult);
 
         await tx.zmccLabResult.update({
           where: {
@@ -1591,36 +1753,35 @@ export async function completeSession(
           data: {
             numeric_value: numVal,
             text_value: txtVal,
-            is_passed: isPassed,
-            evaluation_status: evalStatus,
+            is_passed: evalResult.isPassed,
+            evaluation_status: evalResult.evaluationStatus,
+            applied_rule_id: evalResult.appliedRuleId,
+            applied_rule_version: evalResult.appliedRuleVersion,
             recorded_at: new Date(),
           },
         });
       }
 
-      if (decision === 'ACCEPTED' && targetTankId) {
-        const lockedTankRows: Array<{ id: bigint; zmcc_id: bigint; capacity_liters: any; is_active: boolean }> = await tx.$queryRaw`
-          SELECT id, zmcc_id, capacity_liters, is_active FROM zmcc_tank WHERE id = ${targetTankId} FOR UPDATE
-        `;
-        if (!lockedTankRows || lockedTankRows.length === 0) {
-          throw new Error('TANK_NOT_FOUND');
-        }
-        if (lockedTankRows[0].zmcc_id !== session.zmcc_id) {
-          throw new Error('TANK_WRONG_ZMCC');
-        }
-        if (!lockedTankRows[0].is_active) {
-          throw new Error('TANK_INACTIVE:Destination ZMCC tank is inactive.');
-        }
+      const systemQualityOutcome = QualityRuleService.aggregateSystemQualityOutcome(evaluations);
 
-        const tankCapacity = Number(lockedTankRows[0].capacity_liters);
-        const currentStock = await getTankPhysicalStock(targetTankId, tx);
-        const availableCapacity = Math.max(0, tankCapacity - currentStock);
+      let effectiveDecision: string = decision;
+      let effectiveManagerReviewStatus: string = 'NONE';
+      let effectiveManagerRequestedDecision: string | null = null;
+      let effectiveReviewRequestedBy: bigint | null = null;
+      let effectiveReviewRequestedAt: Date | null = null;
 
-        if (metrics.grossLiters > availableCapacity) {
-          const availStr = availableCapacity.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
-          const reqStr = metrics.grossLiters.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
-          throw new Error(`INSUFFICIENT_CAPACITY:Tank capacity is insufficient. ${availStr} L available; ${reqStr} L required.`);
-        }
+      if (decision === 'ACCEPTED' && systemQualityOutcome === 'OUT_OF_SPEC') {
+        effectiveDecision = 'PENDING';
+        effectiveManagerReviewStatus = 'PENDING';
+        effectiveManagerRequestedDecision = 'ACCEPTED';
+        effectiveReviewRequestedBy = auth.actorUserId;
+        effectiveReviewRequestedAt = new Date();
+      } else if (decision === 'ACCEPTED') {
+        effectiveDecision = 'ACCEPTED';
+        effectiveManagerReviewStatus = 'NONE';
+      } else {
+        effectiveDecision = 'REJECTED';
+        effectiveManagerReviewStatus = 'NONE';
       }
 
       const updated = await tx.zmccLabSession.update({
@@ -1629,8 +1790,13 @@ export async function completeSession(
           status: 'COMPLETED',
           completed_by_user_id: auth.actorUserId,
           completed_at: new Date(),
-          decision,
-          rejection_reason: decision === 'REJECTED' ? rejectionReasonTrimmed : null,
+          decision: effectiveDecision,
+          system_quality_outcome: systemQualityOutcome,
+          manager_review_status: effectiveManagerReviewStatus,
+          manager_requested_decision: effectiveManagerRequestedDecision,
+          manager_review_requested_by_user_id: effectiveReviewRequestedBy,
+          manager_review_requested_at: effectiveReviewRequestedAt,
+          rejection_reason: effectiveDecision === 'REJECTED' ? rejectionReasonTrimmed : null,
           remarks: remarks ? remarks.trim() : null,
           completion_client_event_id: clientEventId,
           quantity_value: new Prisma.Decimal(quantityNum.toFixed(2)),
@@ -1681,76 +1847,20 @@ export async function completeSession(
         },
       });
 
-      if (decision === 'ACCEPTED' && targetTankId) {
-        const tankReceipt = await tx.zmccTankReceipt.create({
-          data: {
-            lab_session_id: sessionId,
-            zmcc_id: session.zmcc_id,
-            tank_id: targetTankId,
-            arrival_type: session.arrival_type,
-            quantity_value: new Prisma.Decimal(quantityNum.toFixed(2)),
-            quantity_unit: quantityUnitNorm as any,
-            density: new Prisma.Decimal(metrics.density.toFixed(4)),
-            gross_liters: new Prisma.Decimal(metrics.grossLiters.toFixed(2)),
-            lr: new Prisma.Decimal(resolvedCore.lr.toFixed(2)),
-            fat: new Prisma.Decimal(resolvedCore.fat.toFixed(2)),
-            snf: new Prisma.Decimal(metrics.snf.toFixed(2)),
-            ts: new Prisma.Decimal(metrics.ts.toFixed(2)),
-            at_13ts_liters: new Prisma.Decimal(metrics.at13tsLiters.toFixed(2)),
-            calculation_version: metrics.calculationVersion,
-            received_at: updated.completed_at || new Date(),
-            received_by_user_id: auth.actorUserId,
-          },
-          include: {
-            tank: true,
-            receiver: true,
-          },
+      if (effectiveDecision === 'ACCEPTED' && targetTankId) {
+        const tankReceipt = await createCanonicalTankReceiptTx(tx, {
+          sessionId,
+          zmccId: session.zmcc_id,
+          targetTankId,
+          arrivalType: session.arrival_type,
+          quantityNum,
+          quantityUnitNorm,
+          metrics,
+          lr: resolvedCore.lr,
+          fat: resolvedCore.fat,
+          actorUserId: auth.actorUserId,
+          receivedAt: updated.completed_at || new Date(),
         });
-
-        await tx.zmccTankInventoryTransaction.create({
-          data: {
-            tank_id: targetTankId,
-            zmcc_id: session.zmcc_id,
-            transaction_type: 'RECEIPT',
-            quantity_liters: new Prisma.Decimal(metrics.grossLiters.toFixed(2)),
-            at_13ts_liters: new Prisma.Decimal(metrics.at13tsLiters.toFixed(2)),
-            tank_receipt_id: tankReceipt.id,
-            reference_type: 'ZMCC_LAB_SESSION',
-            reference_id: sessionId.toString(),
-            idempotency_key: `ZMCC_TANK_RECEIPT:LAB_SESSION:${sessionId}`,
-            operational_timestamp: updated.completed_at || new Date(),
-            performed_by_user_id: auth.actorUserId,
-            notes: `Tank receipt for ${session.arrival_type} arrival (Session #${sessionId})`,
-          },
-        });
-
-        await tx.auditLog.create({
-          data: {
-            table_name: 'zmcc_tank_receipt',
-            record_id: tankReceipt.id,
-            action: 'ZMCC_TANK_RECEIPT_CREATED',
-            new_values: {
-              lab_session_id: sessionId.toString(),
-              arrival_type: session.arrival_type,
-              zmcc_id: session.zmcc_id.toString(),
-              tank_id: targetTankId.toString(),
-              quantity_value: quantityNum.toFixed(2),
-              quantity_unit: quantityUnitNorm,
-              gross_liters: metrics.grossLiters,
-              lr: resolvedCore.lr,
-              fat: resolvedCore.fat,
-              density: metrics.density,
-              snf: metrics.snf,
-              ts: metrics.ts,
-              at_13ts_liters: metrics.at13tsLiters,
-              calculation_version: metrics.calculationVersion,
-              received_at: (updated.completed_at || new Date()).toISOString(),
-              actor: auth.actorUserId.toString(),
-            },
-            user_id: auth.actorUserId,
-          },
-        });
-
         (updated as any).tank_receipt = tankReceipt;
       }
 
@@ -2031,7 +2141,44 @@ export async function correctCompletedSession(
     correctedUnit = quantity_unit.toString().trim().toUpperCase() as 'KG' | 'LITER';
   }
 
-  if (decision && decision !== session.decision) {
+  const isPendingReview = session.decision === 'PENDING' || session.manager_review_status === 'PENDING';
+
+  if (isPendingReview) {
+    if (session.manager_review_status === 'APPROVED') {
+      if (decision === 'ACCEPTED') {
+        return { status: 200, data: serializeLabSession(session) };
+      }
+      return { status: 409, error: 'Conflict: Exception was already approved and received.' };
+    }
+    if (session.manager_review_status === 'REJECTED') {
+      if (decision === 'REJECTED') {
+        return { status: 200, data: serializeLabSession(session) };
+      }
+      return { status: 409, error: 'Conflict: Exception was already rejected.' };
+    }
+
+    if (!decision || !['ACCEPTED', 'REJECTED'].includes(decision)) {
+      return { status: 400, error: 'decision must be either ACCEPTED or REJECTED to resolve pending review.' };
+    }
+
+    if (decision === 'ACCEPTED') {
+      let hasExited = false;
+      if (session.arrival_type === 'MOT' && session.mot_arrival_id) {
+        const arr = await prisma.zmccMotArrival.findUnique({ where: { id: session.mot_arrival_id } });
+        if (arr?.exit_timestamp) hasExited = true;
+      } else if (session.arrival_type === 'LOCAL_SUPPLIER' && session.local_supplier_arrival_id) {
+        const arr = await prisma.zmccLocalSupplierArrival.findUnique({ where: { id: session.local_supplier_arrival_id } });
+        if (arr?.exit_timestamp) hasExited = true;
+      }
+
+      if (hasExited) {
+        return {
+          status: 400,
+          error: 'ARRIVAL_ALREADY_EXITED_REVIEW_ONLY: Arrival has already physically exited the facility; decision cannot create stock.',
+        };
+      }
+    }
+  } else if (decision && decision !== session.decision) {
     if (session.decision === 'ACCEPTED') {
       if (session.tank_receipt) {
         return {
@@ -2343,15 +2490,19 @@ export async function correctCompletedSession(
         id: bigint;
         tank_id: bigint;
         gross_liters: any;
+        at_13ts_liters: any;
       }> = await tx.$queryRaw`
-        SELECT id, tank_id, gross_liters FROM zmcc_tank_receipt WHERE lab_session_id = ${sessionId} FOR UPDATE
+        SELECT id, tank_id, gross_liters, at_13ts_liters FROM zmcc_tank_receipt WHERE lab_session_id = ${sessionId} FOR UPDATE
       `;
 
       if (lockedReceiptRows && lockedReceiptRows.length > 0) {
         const receiptRow = lockedReceiptRows[0];
         const oldReceiptGross = Number(receiptRow.gross_liters);
+        const oldReceiptAt13 = Number(receiptRow.at_13ts_liters || 0);
         const newGrossNum = newGrossLiters !== null ? Number(newGrossLiters) : oldReceiptGross;
+        const newAt13Num = newAt13ts !== null ? Number(newAt13ts) : oldReceiptAt13;
         const delta = Number((newGrossNum - oldReceiptGross).toFixed(2));
+        const deltaAt13 = Number((newAt13Num - oldReceiptAt13).toFixed(2));
 
         // Lock destination tank row FOR UPDATE
         const lockedTankRows: Array<{ id: bigint; capacity_liters: any }> = await tx.$queryRaw`
@@ -2379,6 +2530,7 @@ export async function correctCompletedSession(
               zmcc_id: session.zmcc_id,
               transaction_type: 'ADJUSTMENT_IN',
               quantity_liters: new Prisma.Decimal(delta.toFixed(2)),
+              at_13ts_liters: new Prisma.Decimal(Math.max(0, deltaAt13).toFixed(2)),
               tank_receipt_id: receiptRow.id,
               reference_type: 'ZMCC_LAB_SESSION_CORRECTION',
               reference_id: `${sessionId}:${newTotalCount}`,
@@ -2398,6 +2550,7 @@ export async function correctCompletedSession(
                 tank_id: receiptRow.tank_id.toString(),
                 zmcc_id: session.zmcc_id.toString(),
                 quantity_liters: delta,
+                at_13ts_liters: deltaAt13,
                 delta,
                 session_id: sessionId.toString(),
                 correction_count: newTotalCount,
@@ -2418,6 +2571,7 @@ export async function correctCompletedSession(
               zmcc_id: session.zmcc_id,
               transaction_type: 'ADJUSTMENT_OUT',
               quantity_liters: new Prisma.Decimal(absDelta.toFixed(2)),
+              at_13ts_liters: new Prisma.Decimal(Math.abs(deltaAt13).toFixed(2)),
               tank_receipt_id: receiptRow.id,
               reference_type: 'ZMCC_LAB_SESSION_CORRECTION',
               reference_id: `${sessionId}:${newTotalCount}`,
@@ -2437,6 +2591,7 @@ export async function correctCompletedSession(
                 tank_id: receiptRow.tank_id.toString(),
                 zmcc_id: session.zmcc_id.toString(),
                 quantity_liters: absDelta,
+                at_13ts_liters: Math.abs(deltaAt13),
                 delta,
                 session_id: sessionId.toString(),
                 correction_count: newTotalCount,
@@ -2467,6 +2622,37 @@ export async function correctCompletedSession(
             last_corrected_at: correctionTimestamp,
           },
         });
+      } else if (isPendingReview && effectiveDecision === 'ACCEPTED') {
+        // Pending exception approved by manager -> create canonical tank receipt
+        const activeTanks = await tx.zmccTank.findMany({
+          where: { zmcc_id: session.zmcc_id, is_active: true },
+          orderBy: { id: 'asc' },
+        });
+        if (activeTanks.length === 0) {
+          throw new Error('No active ZMCC tank is configured.');
+        }
+        const targetTankId = activeTanks[0].id;
+        const resolvedCorePending = resolveCoreMilkTestResults(Array.from(mergedResultsMap.values()));
+        const unitToUse = (effectiveUnit || session.quantity_unit || 'LITER') as string;
+        const pendingMetrics = computeCanonicalMilkMetrics(
+          effectiveQty || Number(session.quantity_value),
+          unitToUse,
+          resolvedCorePending.success ? resolvedCorePending.lr : 28,
+          resolvedCorePending.success ? resolvedCorePending.fat : 4.0
+        );
+        await createCanonicalTankReceiptTx(tx, {
+          sessionId,
+          zmccId: session.zmcc_id,
+          targetTankId,
+          arrivalType: session.arrival_type,
+          quantityNum: effectiveQty || Number(session.quantity_value),
+          quantityUnitNorm: unitToUse,
+          metrics: pendingMetrics,
+          lr: resolvedCorePending.success ? resolvedCorePending.lr : 28,
+          fat: resolvedCorePending.success ? resolvedCorePending.fat : 4.0,
+          actorUserId: auth.actorUserId,
+          receivedAt: correctionTimestamp,
+        });
       }
 
       const newValues: any = {
@@ -2493,6 +2679,15 @@ export async function correctCompletedSession(
         where: { id: sessionId },
         data: {
           decision: effectiveDecision,
+          manager_review_status: isPendingReview
+            ? (effectiveDecision === 'ACCEPTED' ? 'APPROVED' : 'REJECTED')
+            : session.manager_review_status,
+          manager_reviewed_by_user_id: isPendingReview ? auth.actorUserId : session.manager_reviewed_by_user_id,
+          manager_reviewed_at: isPendingReview ? correctionTimestamp : session.manager_reviewed_at,
+          manager_review_reason: isPendingReview ? reasonTrimmed : session.manager_review_reason,
+          original_decision: session.decision,
+          corrected_decision: effectiveDecision,
+          correction_reason: reasonTrimmed,
           rejection_reason: effectiveRejectionReason,
           remarks: normalizedRemarks,
           quantity_value: effectiveQty !== null ? new Prisma.Decimal(effectiveQty.toFixed(2)) : null,

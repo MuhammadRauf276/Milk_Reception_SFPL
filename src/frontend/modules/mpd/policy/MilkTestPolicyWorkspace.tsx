@@ -56,6 +56,11 @@ const TESTING_POINT_METADATA: Record<
     description: 'Mandatory tests evaluated by ZMCC Lab Attendants on arriving direct contractor vehicles.',
     icon: Building,
   },
+  ZMCC_LAB_LOCAL_SUPPLIER: {
+    label: 'ZMCC Lab (Local Supplier Arrivals)',
+    description: 'Mandatory tests evaluated by ZMCC Lab Attendants on arriving local supplier vehicles.',
+    icon: Building,
+  },
   DISPATCH: {
     label: 'ZMCC Dispatch to Factory',
     description: 'Tests required before tanker departs ZMCC / Contractor source for the processing plant.',

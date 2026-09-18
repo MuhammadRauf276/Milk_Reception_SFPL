@@ -11,6 +11,7 @@ interface DispatchRecord {
   reception_number: string | null;
   vehicle_number: string;
   token_number: string | null;
+  raw_milk_dispatch_note_number?: string | null;
   dispatch_date?: string | null;
   dispatch_timestamp?: string | null;
   operational_date: string | null;
@@ -359,6 +360,11 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
                           <span className="px-2 py-0.5 rounded-lg text-[10px] font-black bg-[#F4EFE3] border border-[#C4B9A3] font-mono">
                             {log.portion_count} Portion{log.portion_count > 1 ? 's' : ''}
                           </span>
+                          {log.raw_milk_dispatch_note_number && (
+                            <span className="px-2 py-0.5 rounded-lg text-[10px] font-black bg-blue-50 border border-blue-200 text-blue-800 font-mono">
+                              Note: {log.raw_milk_dispatch_note_number}
+                            </span>
+                          )}
                           <span className="text-[11px] font-medium text-slate-600">
                             {log.zonal_contractor_name}
                           </span>

@@ -96,6 +96,7 @@ export default function MotDriverPage() {
 
   // Collection Modal States
   const [activeStop, setActiveStop] = useState<StopDetail | null>(null);
+  const [shopRmrNumber, setShopRmrNumber] = useState<string>('');
   const [quantity, setQuantity] = useState<string>('');
   const [unit, setUnit] = useState<'LITER' | 'KG'>('LITER');
   const [lr, setLr] = useState<string>('');
@@ -332,12 +333,14 @@ export default function MotDriverPage() {
     try {
       const draft = await getDraft(stop.id);
       if (draft) {
+        setShopRmrNumber(draft.shop_rmr_number || '');
         setQuantity(draft.quantity || '');
         setUnit(draft.unit || 'LITER');
         setLr(draft.lr || '');
         setFat(draft.fat || '');
         setNotes(draft.notes || '');
       } else {
+        setShopRmrNumber('');
         setQuantity('');
         setUnit('LITER');
         setLr('');
@@ -345,6 +348,7 @@ export default function MotDriverPage() {
         setNotes('');
       }
     } catch {
+      setShopRmrNumber('');
       setQuantity('');
       setUnit('LITER');
       setLr('');
@@ -375,6 +379,7 @@ export default function MotDriverPage() {
     if (!activeStop) return;
     try {
       await saveDraft(activeStop.id, {
+        shop_rmr_number: shopRmrNumber.trim() || null,
         quantity,
         unit,
         lr,
@@ -402,12 +407,12 @@ export default function MotDriverPage() {
       setFormError('Quantity must be a positive number up to 10,000.');
       return;
     }
-    if (isNaN(lrNum) || lrNum < 20.0 || lrNum > 35.0) {
-      setFormError('Lactometer reading (LR) must be between 20.0 and 35.0.');
+    if (isNaN(lrNum) || lrNum <= 0) {
+      setFormError('Lactometer reading (LR) must be greater than zero.');
       return;
     }
-    if (isNaN(fatNum) || fatNum < 1.5 || fatNum > 12.0) {
-      setFormError('Fat percentage must be between 1.5% and 12.0%.');
+    if (isNaN(fatNum) || fatNum < 0) {
+      setFormError('Fat percentage must be non-negative.');
       return;
     }
 
@@ -425,6 +430,7 @@ export default function MotDriverPage() {
         client_event_id: clientEventId,
         journey_id: journey.id,
         stop_id: activeStop.id,
+        shop_rmr_number: shopRmrNumber.trim() || null,
         quantity: qNum,
         unit,
         lr: lrNum,
@@ -826,6 +832,23 @@ export default function MotDriverPage() {
                       {formError}
                     </div>
                   )}
+
+                  {/* Manual Shop RMR Serial # */}
+                  <div>
+                    <label className="block text-xs font-black text-[#111311] mb-1">
+                      Shop RMR Number (Paper Reference)
+                    </label>
+                    <input
+                      type="text"
+                      pattern="[0-9]*"
+                      inputMode="numeric"
+                      value={shopRmrNumber}
+                      onChange={(e) => setShopRmrNumber(e.target.value.replace(/[^0-9]/g, ''))}
+                      placeholder="e.g. 004821"
+                      className="w-full text-xs font-bold border border-[#EAE4D5] rounded-xl p-2.5 bg-[#FDFBF9] focus:ring-2 focus:ring-[#1E3A8A]"
+                    />
+                    <p className="text-[10px] text-slate-500 mt-1">Manual paper receipt serial (digits only, leading zeros preserved)</p>
+                  </div>
 
                   {/* Quantity & Unit Toggle */}
                   <div>

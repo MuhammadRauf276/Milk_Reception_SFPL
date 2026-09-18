@@ -26,11 +26,13 @@ export async function clearTestDatabase(prisma: PrismaClient): Promise<void> {
   await prisma.weightTicket.deleteMany();
   await prisma.gateLog.deleteMany();
   await prisma.unloadingLog.deleteMany();
+  await prisma.plantFinalDualReconciliation.deleteMany();
   await prisma.siloInventoryTransaction.deleteMany();
   await prisma.visitPortion.deleteMany();
   await prisma.vehicleVisit.deleteMany();
   await prisma.qAWarning.deleteMany();
   await prisma.labTestRule.deleteMany();
+  await prisma.paperReferencePolicy.deleteMany();
   await prisma.labTest.deleteMany();
 
   // Mot tables

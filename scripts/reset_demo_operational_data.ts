@@ -65,6 +65,15 @@ export async function resetOperationalData() {
     motDemoProfiles: (await prisma.motProfile.deleteMany({
       where: { mot_code: { startsWith: 'DEMO-' } },
     })).count,
+    zmccDemoShops: (await prisma.zmccShop.deleteMany({
+      where: { shop_code: { startsWith: 'DEMO-' } },
+    })).count,
+    zmccDemoAreas: (await prisma.zmccArea.deleteMany({
+      where: { area_code: { startsWith: 'DEMO-' } },
+    })).count,
+    zmccDemoMilkSources: (await prisma.zmccMilkSource.deleteMany({
+      where: { erp_code: { startsWith: 'DEMO-' } },
+    })).count,
     zmccDemoRoutes: (await prisma.zmccRoute.deleteMany({
       where: { route_code: { startsWith: 'DEMO-' } },
     })).count,
@@ -86,6 +95,7 @@ export async function resetOperationalData() {
     zmccTanks: await prisma.zmccTank.count(),
     labTests: await prisma.labTest.count(),
     labTestRules: await prisma.labTestRule.count(),
+    paperReferencePolicies: await prisma.paperReferencePolicy.count(),
   };
 
   console.log('==================================================');

@@ -13,6 +13,8 @@ import { getOrFreezeDispatchQuantityPolicy } from '@/backend/modules/dispatch/qu
 import { validateDispatchQuantities, QuantityMeasurementError } from '@/backend/modules/dispatch/quantity/dispatchQuantityService';
 import { getPakistanCalendarDate } from '@/backend/core/business-day';
 import { getTankPhysicalStock } from '@/backend/services/zmccTankService';
+import { PaperReferenceService, PaperValidationError } from '@/backend/services/paperReferenceService';
+import { PaperReferenceType } from '@prisma/client';
 
 function serializeDispatch(visit: any) {
   const portions = visit.portions || [];
@@ -62,6 +64,7 @@ function serializeDispatch(visit: any) {
     reception_number: visit.reception_number || null,
     vehicle_number: visit.vehicle_number,
     token_number: visit.token_number || null,
+    raw_milk_dispatch_note_number: visit.raw_milk_dispatch_note_number || null,
     dispatch_timestamp: dispatchTimestamp,
     dispatch_date: dispatchDate,
     operational_date: visit.operational_date ? visit.operational_date.toISOString().split('T')[0] : null,
@@ -374,6 +377,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: chronoVal.error }, { status: 400 });
     }
 
+    // Validate Raw Milk Dispatch Note against operational policy
+    const rawDispatchNoteInput = validated.rawMilkDispatchNoteNumber || validated.raw_milk_dispatch_note_number || (body as any).rawMilkDispatchNoteNumber || (body as any).raw_milk_dispatch_note_number;
+    let validatedDispatchNote: string | null = null;
+    try {
+      validatedDispatchNote = await PaperReferenceService.validateAndVerify(
+        PaperReferenceType.RAW_MILK_DISPATCH_NOTE,
+        rawDispatchNoteInput,
+        { excludeEntityId: validated.visitId ? BigInt(validated.visitId) : undefined }
+      );
+    } catch (err: any) {
+      return NextResponse.json({ error: err.message || 'Invalid Raw Milk Dispatch Note number.' }, { status: 400 });
+    }
+
     // SOURCE AUTHORIZATION & DERIVATION:
     let resolvedSourceId: bigint | null = null;
     const isSourceBound = !!dbUser.procurement_source_id;
@@ -635,7 +651,7 @@ export async function POST(req: Request) {
         const assigned = assignedDispatchTests.find((t) => t.test_id.toString() === r.testId);
         if (assigned) {
           const tName = assigned.test_name_snapshot.toLowerCase().trim();
-          if (tName === 'fat' && r.performanceStatus === 'PERFORMED' && r.numericValue !== null && r.numericValue !== undefined && !isNaN(r.numericValue) && r.numericValue >= 0) {
+          if (tName.includes('fat') && !tName.includes('snf') && !tName.includes('ratio') && r.performanceStatus === 'PERFORMED' && r.numericValue !== null && r.numericValue !== undefined && !isNaN(r.numericValue) && r.numericValue >= 0) {
             authoritativeVehicleFat = Number(r.numericValue);
             break;
           }
@@ -727,6 +743,7 @@ export async function POST(req: Request) {
         data: {
           vehicle_number: validated.vehicleNumber,
           reception_number: receptionNumber,
+          raw_milk_dispatch_note_number: validatedDispatchNote,
           operational_date: null,
           current_status: 'DISPATCHED',
           procurement_source_id: resolvedSourceId,
@@ -935,6 +952,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, visitId: result.id.toString(), visitNumber: result.visit_number }, { status: 201 });
   } catch (error: any) {
+    if (error instanceof PaperValidationError || error?.name === 'PaperValidationError') {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     if (error instanceof QuantityMeasurementError || error?.name === 'QuantityMeasurementError' || error?.code?.startsWith('QUANTITY_') || error?.code?.startsWith('MISSING_') || error?.code === 'ZERO_PORTIONS_PROHIBITED') {
       return NextResponse.json({ error: error.message, code: error.code || 'QUANTITY_ERROR' }, { status: 400 });
     }

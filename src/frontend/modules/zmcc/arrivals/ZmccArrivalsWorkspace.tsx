@@ -59,6 +59,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
   const [loadingJourneys, setLoadingJourneys] = useState(false);
   const [selectedJourney, setSelectedJourney] = useState<any | null>(null);
   const [routeMilkToken, setRouteMilkToken] = useState('');
+  const [rawMilkTokenNumber, setRawMilkTokenNumber] = useState('');
   const [motArrivalTimestamp, setMotArrivalTimestamp] = useState(() =>
     toDatetimeLocalInput(new Date())
   );
@@ -375,8 +376,8 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
       setMotError('Please select a journey.');
       return;
     }
-    if (!routeMilkToken.trim()) {
-      setMotError('Route Milk Token is required from the driver.');
+    if (!rawMilkTokenNumber.trim() && !routeMilkToken.trim()) {
+      setMotError('Please enter a PHE Raw Milk Token or Route Milk Token.');
       return;
     }
     setMotSubmitting(true);
@@ -387,7 +388,8 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           journey_id: selectedJourney.id,
-          route_milk_token: routeMilkToken.trim(),
+          raw_milk_token_number: rawMilkTokenNumber.trim() || undefined,
+          route_milk_token: routeMilkToken.trim() || undefined,
           arrival_timestamp: datetimeLocalToIso(motArrivalTimestamp) || new Date(motArrivalTimestamp).toISOString(),
           client_event_id: motEventId,
           phe_latitude: motGps.lat,
@@ -872,14 +874,29 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
 
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1">
-                        Route Milk Token (from physical slip) <span className="text-rose-500">*</span>
+                        PHE Raw Milk Token (Manual Paper Reference)
+                      </label>
+                      <input
+                        type="text"
+                        pattern="[0-9]*"
+                        inputMode="numeric"
+                        value={rawMilkTokenNumber}
+                        onChange={(e) => setRawMilkTokenNumber(e.target.value.replace(/[^0-9]/g, ''))}
+                        placeholder="e.g. 001924"
+                        className="w-full text-xs font-bold px-3 py-2 border rounded-xl focus:ring-2 focus:ring-[#1E3A8A] outline-hidden font-mono"
+                      />
+                      <p className="text-[10px] text-slate-500 mt-1">Manual paper token serial (digits only, leading zeros preserved)</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Route Milk Token (from physical slip)
                       </label>
                       <input
                         type="text"
                         value={routeMilkToken}
                         onChange={(e) => setRouteMilkToken(e.target.value)}
                         placeholder="e.g. RMT-10293"
-                        required
                         className="w-full text-xs font-bold px-3 py-2 border rounded-xl focus:ring-2 focus:ring-[#1E3A8A] outline-hidden font-mono uppercase"
                       />
                     </div>

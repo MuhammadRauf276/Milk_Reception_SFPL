@@ -37,6 +37,7 @@ export interface CachedJourney {
 
 export interface CollectionDraft {
   stop_id: string;
+  shop_rmr_number?: string | null;
   quantity: string;
   unit: 'LITER' | 'KG';
   lr: string;
@@ -49,6 +50,7 @@ export interface QueuedCollection {
   client_event_id: string;
   journey_id: string;
   stop_id: string;
+  shop_rmr_number?: string | null;
   quantity: number;
   unit: 'LITER' | 'KG';
   lr: number;
@@ -601,6 +603,7 @@ export async function syncPendingCollections(): Promise<{
           client_event_id: item.client_event_id,
           journey_id: item.journey_id,
           stop_id: item.stop_id,
+          shop_rmr_number: item.shop_rmr_number || null,
           quantity: item.quantity,
           unit: item.unit,
           lr: item.lr,

@@ -47,6 +47,8 @@ export interface DispatchVehicleSectionProps {
   onVehicleLrChange?: (value: string) => void;
   vehicleFat?: string;
   onVehicleFatChange?: (value: string) => void;
+  rawMilkDispatchNoteNumber?: string;
+  onRawMilkDispatchNoteNumberChange?: (value: string) => void;
 }
 
 export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
@@ -73,6 +75,8 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
   onVehicleLrChange,
   vehicleFat,
   onVehicleFatChange,
+  rawMilkDispatchNoteNumber,
+  onRawMilkDispatchNoteNumberChange,
 }) => {
   const numQty = parseFloat(vehicleQuantity.value);
   const numLr = vehicleLr ? parseFloat(vehicleLr) : NaN;
@@ -131,7 +135,7 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
           </h3>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
           <div className="space-y-1">
             <label htmlFor="vehicle-number-input" className="block text-xs font-bold text-[#111311]">
               Vehicle No. *
@@ -152,6 +156,22 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
                 {vehicleNumberError}
               </p>
             )}
+          </div>
+
+          <div className="space-y-1">
+            <label htmlFor="dispatch-note-input" className="block text-xs font-bold text-[#111311]">
+              Dispatch Note (Paper)
+            </label>
+            <input
+              id="dispatch-note-input"
+              type="text"
+              pattern="[0-9]*"
+              inputMode="numeric"
+              value={rawMilkDispatchNoteNumber || ''}
+              onChange={(e) => onRawMilkDispatchNoteNumberChange?.(e.target.value.replace(/[^0-9]/g, ''))}
+              placeholder="e.g. 008124"
+              className="w-full h-11 px-3.5 text-xs font-mono font-bold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none transition"
+            />
           </div>
 
           <div className="space-y-1">

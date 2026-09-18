@@ -256,6 +256,91 @@ async function resetAndSeedWithValidation() {
   const bdCheck = d0740 === '2026-08-11' && d0759 === '2026-08-11' && d0800 === '2026-08-12' && d0815 === '2026-08-12';
   assert(bdCheck, 'ASSERT-11: Canonical Asia/Karachi 08:00 AM Business Date Cutoff Helper Verified', `07:40->${d0740}, 07:59->${d0759}, 08:00->${d0800}, 08:15->${d0815}`);
 
+  // 12. Stage 6G-G Paper Reference Policies
+  const policies = await prisma.paperReferencePolicy.findMany();
+  const hasShopRmr = policies.some((p) => p.reference_type === 'SHOP_RMR' && p.policy_mode === 'REQUIRED');
+  const hasToken = policies.some((p) => p.reference_type === 'RAW_MILK_TOKEN' && p.policy_mode === 'OPTIONAL');
+  const hasDispatchNote = policies.some((p) => p.reference_type === 'RAW_MILK_DISPATCH_NOTE' && p.policy_mode === 'REQUIRED');
+  assert(
+    hasShopRmr && hasToken && hasDispatchNote && policies.length >= 3,
+    'ASSERT-12: Paper Reference Policies correctly configured (SHOP_RMR: REQUIRED, RAW_MILK_TOKEN: OPTIONAL, RAW_MILK_DISPATCH_NOTE: REQUIRED)',
+    `Policy count = ${policies.length}`
+  );
+
+  // 13. Stage 6G-G Active SOP Lab Test Rules
+  const rules = await prisma.labTestRule.findMany({ where: { is_active: true } });
+  const points = new Set(rules.map((r) => r.testing_point));
+  const hasPlantRules = points.has('PLANT_QA');
+  const hasMotRules = points.has('ZMCC_LAB_MOT');
+  const hasLsRules = points.has('ZMCC_LAB_LOCAL_SUPPLIER');
+  const hasDispatchRules = points.has('DISPATCH');
+  assert(
+    hasPlantRules && hasMotRules && hasLsRules && hasDispatchRules,
+    'ASSERT-13: Active LabTestRules present across all 4 operational testing points',
+    `Points: ${Array.from(points).join(', ')} (Total active rules: ${rules.length})`
+  );
+
+  // 14. Stage 6G-G Digits-Only Paper References with Preserved Leading Zeros
+  const visitsWithNote = await prisma.vehicleVisit.findMany({
+    where: { raw_milk_dispatch_note_number: { not: null } },
+  });
+  const invalidDispatchNotes = visitsWithNote.filter(
+    (v) => !v.raw_milk_dispatch_note_number || !/^[0-9]+$/.test(v.raw_milk_dispatch_note_number)
+  );
+  const leadingZeroNotes = visitsWithNote.filter((v) => v.raw_milk_dispatch_note_number?.startsWith('0'));
+
+  const motArrivalsWithToken = await prisma.zmccMotArrival.findMany({
+    where: { raw_milk_token_number: { not: null } },
+  });
+  const invalidTokens = motArrivalsWithToken.filter(
+    (a) => !a.raw_milk_token_number || !/^[0-9]+$/.test(a.raw_milk_token_number)
+  );
+  const leadingZeroTokens = motArrivalsWithToken.filter((a) => a.raw_milk_token_number?.startsWith('0'));
+
+  const shopCollections = await prisma.motShopCollection.findMany({
+    where: { shop_rmr_number: { not: null } },
+  });
+  const invalidRmrs = shopCollections.filter(
+    (c) => !c.shop_rmr_number || !/^[0-9]+$/.test(c.shop_rmr_number)
+  );
+  const leadingZeroRmrs = shopCollections.filter((c) => c.shop_rmr_number?.startsWith('0'));
+
+  assert(
+    invalidDispatchNotes.length === 0 &&
+      invalidTokens.length === 0 &&
+      invalidRmrs.length === 0 &&
+      leadingZeroNotes.length > 0 &&
+      leadingZeroTokens.length > 0 &&
+      leadingZeroRmrs.length > 0,
+    'ASSERT-14: Digits-only paper references with string leading zeros verified across dispatch notes, raw milk tokens, and shop RMRs',
+    `Notes with leading zeros: ${leadingZeroNotes.length}/${visitsWithNote.length}, Tokens: ${leadingZeroTokens.length}/${motArrivalsWithToken.length}, RMRs: ${leadingZeroRmrs.length}/${shopCollections.length}`
+  );
+
+  // 15. Stage 6G-G Non-Coerced Quality Evaluation (NO_ACTIVE_RULE & NEUTRAL preserved without collapsing to PASS)
+  const plantResults = await prisma.plantLabResult.findMany();
+  const noActiveRuleResults = plantResults.filter((r) => r.evaluation_status === 'NO_ACTIVE_RULE');
+  const neutralResults = plantResults.filter((r) => r.evaluation_status === 'NEUTRAL');
+  const passResults = plantResults.filter((r) => r.evaluation_status === 'PASS');
+  const oosResults = plantResults.filter((r) => r.evaluation_status === 'OUT_OF_SPEC');
+  assert(
+    noActiveRuleResults.length > 0 && neutralResults.length > 0 && passResults.length > 0 && oosResults.length > 0,
+    'ASSERT-15: Non-coerced quality evaluation preserves NO_ACTIVE_RULE and NEUTRAL without collapsing to PASS',
+    `PASS: ${passResults.length}, OUT_OF_SPEC: ${oosResults.length}, NO_ACTIVE_RULE: ${noActiveRuleResults.length}, NEUTRAL: ${neutralResults.length}`
+  );
+
+  // 16. Stage 6G-G QA Manager Exception Review Pending Workflow
+  const pendingPortions = await prisma.visitPortion.findMany({
+    where: { manager_review_status: 'PENDING', system_quality_outcome: 'OUT_OF_SPEC' },
+  });
+  const pendingZmccSessions = await prisma.zmccLabSession.findMany({
+    where: { manager_review_status: 'PENDING', system_quality_outcome: 'OUT_OF_SPEC' },
+  });
+  assert(
+    pendingPortions.length > 0 && pendingZmccSessions.length > 0,
+    'ASSERT-16: QA Manager Exception Review pending state correctly established for Plant and ZMCC',
+    `Pending Plant Portions: ${pendingPortions.length}, Pending ZMCC Sessions: ${pendingZmccSessions.length}`
+  );
+
   console.log('\n==================================================');
   console.log(`COMPLETE INTEGRITY VERIFICATION SUMMARY: ${passed} PASSED, ${failed} FAILED`);
   console.log('==================================================\n');

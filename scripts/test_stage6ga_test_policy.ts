@@ -669,11 +669,11 @@ async function runTests() {
     assert(duplicateRejected, 22, 'DUPLICATE_REJECTED', 'Duplicate (lab_test_id, testing_point) rejected with 409 Conflict');
 
     // 23. Exact allowed testing-point set enforced
-    const expectedPoints = ['MOT_SHOP', 'ZMCC_LAB_MOT', 'ZMCC_LAB_CONTRACTOR', 'DISPATCH', 'PLANT_QA'];
+    const expectedPoints = ['MOT_SHOP', 'ZMCC_LAB_MOT', 'ZMCC_LAB_CONTRACTOR', 'ZMCC_LAB_LOCAL_SUPPLIER', 'DISPATCH', 'PLANT_QA'];
     const exactSetMatch =
-      CANONICAL_TESTING_POINTS.length === 5 &&
+      CANONICAL_TESTING_POINTS.length === 6 &&
       expectedPoints.every((p) => (CANONICAL_TESTING_POINTS as readonly string[]).includes(p));
-    assert(exactSetMatch, 23, 'EXACT_POINTS_SET', 'Canonical testing points set matches exactly 5 points');
+    assert(exactSetMatch, 23, 'EXACT_POINTS_SET', 'Canonical testing points set matches exactly 6 points');
 
     // 24. Unknown testing point rejected
     let unknownPointRejected = false;
