@@ -247,6 +247,7 @@ export const HierarchicalNavDrawer: React.FC<HierarchicalNavDrawerProps> = ({
                     <button
                       key={section.id}
                       type="button"
+                      data-href={section.href}
                       onClick={() => handleLeafClick(section.href!)}
                       className={`w-full min-h-[44px] flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-black transition-all border text-left ${
                         isSectionDirectActive
@@ -319,6 +320,7 @@ export const HierarchicalNavDrawer: React.FC<HierarchicalNavDrawerProps> = ({
                             <button
                               key={leaf.id}
                               type="button"
+                              data-href={leaf.href}
                               onClick={() => handleLeafClick(leaf.href)}
                               className={`w-full min-h-[40px] flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-all text-left ${
                                 isActive
