@@ -441,13 +441,13 @@ export function buildVehicleVisitGroups(logs: MilkProcessLog[]): VehicleVisitGro
       vehicleDispatchQuantityUnit: primary.vehicle_dispatch_quantity_unit ?? null,
       vehicleDispatchQuantityBasis: primary.vehicle_dispatch_quantity_basis ?? 'GROSS',
       totalDispatchGrossLiters: vehicleAuthoritativeGrossLiters,
-      totalDispatch13TsLiters: all13TsPresent ? Number(sum13TsLiters.toFixed(2)) : null,
+      totalDispatch13TsLiters: primary.vehicle_dispatch_at_13ts_liters != null ? Number(primary.vehicle_dispatch_at_13ts_liters) : null,
 
       firstWeightKg: primary.first_weight_of_vehicle ?? null,
       secondWeightKg: primary.second_weight_of_vehicle ?? null,
       netMilkWeightKg: primary.computed_net_milk_weight ?? null,
       physicalReceivedLiters: authoritativePhysicalLiters,
-      plant13TsLiters: null,
+      plant13TsLiters: primary.plant_final_at_13ts_liters != null ? Number(primary.plant_final_at_13ts_liters) : null,
 
       destinationSilo: primary.silo_storage_id || null,
       lifecycle,
@@ -897,32 +897,62 @@ export function deriveVehicleReconciliationItems(
       };
     });
 
-    // 2. Vehicle-level quantity reconciliation
-    const dispatchGrossLiters = g.totalDispatchGrossLiters;
-    const physicalReceivedLiters = g.physicalReceivedLiters; // strictly authoritative_final_liters
-    let quantityDifferenceLiters: number | null = null;
-    let quantityDifferenceText = '—';
-    let hasQuantityDifference = false;
+    // 2. Canonical Vehicle-Level Dual Reconciliation (Consumed directly from MilkProcessLog)
+    const primary = g.primaryLog;
+    const isCompletedReceipt = Boolean(primary.final_receipt_exists);
+    const isReceiptPending = primary.second_weight_timestamp != null && !primary.final_receipt_exists;
+    const isHistoricalReceiptWithoutCommercialSnapshot = isCompletedReceipt && primary.plant_final_at_13ts_liters == null;
 
-    if (dispatchGrossLiters != null && physicalReceivedLiters != null) {
-      quantityDifferenceLiters = Number((physicalReceivedLiters - dispatchGrossLiters).toFixed(2));
-      hasQuantityDifference = quantityDifferenceLiters !== 0;
-      if (quantityDifferenceLiters === 0) {
-        quantityDifferenceText = '0 L';
-      } else if (quantityDifferenceLiters > 0) {
-        quantityDifferenceText = `+${quantityDifferenceLiters.toLocaleString()} L`;
-      } else {
-        quantityDifferenceText = `${quantityDifferenceLiters.toLocaleString()} L`;
-      }
+    const dispatchGrossLiters = primary.vehicle_dispatch_gross_liters != null ? Number(primary.vehicle_dispatch_gross_liters) : null;
+    const dispatch13TsLiters = primary.vehicle_dispatch_at_13ts_liters != null ? Number(primary.vehicle_dispatch_at_13ts_liters) : null;
+    const physicalReceivedLiters = primary.plant_final_gross_liters != null ? Number(primary.plant_final_gross_liters) : (primary.authoritative_final_liters != null ? Number(primary.authoritative_final_liters) : null);
+    const plant13TsLiters = primary.plant_final_at_13ts_liters != null ? Number(primary.plant_final_at_13ts_liters) : null;
+
+    // Canonical Gross Variance & Percent
+    const grossVarianceLiters = primary.gross_variance_liters != null ? Number(primary.gross_variance_liters) : null;
+    const grossVariancePercent = primary.gross_variance_percent != null ? Number(primary.gross_variance_percent) : null;
+
+    let grossVarianceText = '—';
+    if (grossVarianceLiters != null) {
+      if (grossVarianceLiters === 0) grossVarianceText = '0.00 L';
+      else if (grossVarianceLiters > 0) grossVarianceText = `+${grossVarianceLiters.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L`;
+      else grossVarianceText = `${grossVarianceLiters.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L`;
     }
+
+    let grossVariancePercentText = '—';
+    if (grossVariancePercent != null) {
+      if (grossVariancePercent === 0) grossVariancePercentText = '0.00%';
+      else if (grossVariancePercent > 0) grossVariancePercentText = `+${grossVariancePercent.toFixed(2)}%`;
+      else grossVariancePercentText = `${grossVariancePercent.toFixed(2)}%`;
+    }
+
+    // Canonical @13TS Variance & Percent
+    const at13TsVarianceLiters = primary.at_13ts_variance_liters != null ? Number(primary.at_13ts_variance_liters) : null;
+    const at13TsVariancePercent = primary.at_13ts_variance_percent != null ? Number(primary.at_13ts_variance_percent) : null;
+
+    let at13TsVarianceText = '—';
+    if (at13TsVarianceLiters != null) {
+      if (at13TsVarianceLiters === 0) at13TsVarianceText = '0.00 L';
+      else if (at13TsVarianceLiters > 0) at13TsVarianceText = `+${at13TsVarianceLiters.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L`;
+      else at13TsVarianceText = `${at13TsVarianceLiters.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L`;
+    }
+
+    let at13TsVariancePercentText = '—';
+    if (at13TsVariancePercent != null) {
+      if (at13TsVariancePercent === 0) at13TsVariancePercentText = '0.00%';
+      else if (at13TsVariancePercent > 0) at13TsVariancePercentText = `+${at13TsVariancePercent.toFixed(2)}%`;
+      else at13TsVariancePercentText = `${at13TsVariancePercent.toFixed(2)}%`;
+    }
+
+    const quantityDifferenceLiters = grossVarianceLiters;
+    const quantityDifferenceText = grossVarianceText;
+    const hasQuantityDifference = grossVarianceLiters != null && grossVarianceLiters !== 0;
 
     const hasQualityDifference = portions.some(
       (p) => (p.lrDiff != null && p.lrDiff !== 0) || (p.fatDiff != null && p.fatDiff !== 0)
     );
     const hasRejection = portions.some((p) => p.qaDecision === 'REJECTED');
     const hasHold = portions.some((p) => p.qaDecision === 'HOLD');
-    const isCompletedReceipt = g.lifecycle.isComplete;
-    const isReceiptPending = g.secondWeightKg != null && !g.lifecycle.isComplete;
 
     return {
       group: g,
@@ -936,13 +966,27 @@ export function deriveVehicleReconciliationItems(
       isReceiptPending,
 
       dispatchGrossLiters,
-      dispatch13TsLiters: g.totalDispatch13TsLiters,
+      dispatch13TsLiters,
       netMilkWeightKg: g.netMilkWeightKg,
       physicalReceivedLiters,
-      plant13TsLiters: g.plant13TsLiters,
+      plant13TsLiters,
       quantityDifferenceLiters,
       quantityDifferenceText,
       hasQuantityDifference,
+
+      grossVarianceLiters,
+      grossVariancePercent,
+      grossVarianceText,
+      grossVariancePercentText,
+
+      at13TsVarianceLiters,
+      at13TsVariancePercent,
+      at13TsVarianceText,
+      at13TsVariancePercentText,
+      hasTsDifference: at13TsVarianceLiters != null && at13TsVarianceLiters !== 0,
+
+      reconciliationExists: Boolean(primary.reconciliation_exists),
+      isHistoricalReceiptWithoutCommercialSnapshot,
 
       destinationSilo: g.destinationSilo,
       finalReceiptTimestamp: g.primaryLog.final_receipt_timestamp || null,

@@ -13,6 +13,7 @@ import {
   calculateVehicleReceivedQuantity,
   VehicleCalculationPortion,
 } from '../src/backend/services/vehicleQuantityService';
+import { calculateDualReconciliation } from '../src/backend/services/reconciliationService';
 import { getOperationalBusinessDate, getPakistanCalendarDate } from '../src/backend/core/business-day';
 import { parseStrictDateOnly } from '../src/lib/datetime-utils';
 import { getTankPhysicalStock, getTankCommercialStock } from '../src/backend/services/zmccTankService';
@@ -131,6 +132,9 @@ export async function seedOperationalData() {
     } else if (i <= 69) {
       category = 'HOLD_ACCEPT';
       targetStatus = 'COMPLETED';
+    } else if (i === 70) {
+      category = 'ACCEPTED';
+      targetStatus = 'TARE_WEIGHED';
     } else if (i <= 72) {
       category = 'HOLD_REJECT';
       targetStatus = 'COMPLETED';
@@ -259,8 +263,13 @@ export async function seedOperationalData() {
     const vehicleDispatchDensity = vMetrics.density;
     const vehicleDispatchGrossLiters = vMetrics.grossLiters;
     const vehicleDispatchSnf = vMetrics.snf;
-    const vehicleDispatchTs = vMetrics.ts;
-    const vehicleDispatchAt13ts = vMetrics.at13tsLiters;
+    let vehicleDispatchTs: number | null = vMetrics.ts;
+    let vehicleDispatchAt13ts: number | null = vMetrics.at13tsLiters;
+    if (i === 7) {
+      // Scenario: Missing source commercial @13TS record (source lab TS missing/incomplete)
+      vehicleDispatchTs = null;
+      vehicleDispatchAt13ts = null;
+    }
     const vehicleDispatchVersion = vMetrics.calculationVersion;
 
     // Create VehicleVisit
@@ -531,12 +540,20 @@ export async function seedOperationalData() {
 
     // Weight Ticket, Unloading Log, Silo Receipt (Only for accepted workflows past QA)
     const isAcceptedWorkflow = category === 'ACCEPTED' || category === 'HOLD_ACCEPT';
-    const isPastQA = targetStatus === 'READY_FOR_GROSS' || targetStatus === 'COMPLETED';
+    const isPastQA = targetStatus === 'READY_FOR_GROSS' || targetStatus === 'TARE_WEIGHED' || targetStatus === 'COMPLETED';
 
     if (isAcceptedWorkflow && isPastQA) {
-      const grossKg = Math.round(totalDeclaredKg + 14500);
+      let netKg = totalDeclaredKg;
+      if (i === 10) {
+        // ZMCC Visit 10: Net KG adjusted for positive volumetric variance (+145.91 L gain)
+        netKg = 10150;
+      } else if (i === 20) {
+        // ZMCC Visit 20: Net KG adjusted for negative volumetric variance (-169.26 L loss)
+        netKg = 8050;
+      }
       const tareKg = 14500;
-      const netKg = grossKg - tareKg;
+      const grossKg = Math.round(netKg + tareKg);
+      const isTareRecorded = targetStatus === 'COMPLETED' || targetStatus === 'TARE_WEIGHED';
 
       // Weight Ticket
       await prisma.weightTicket.create({
@@ -547,18 +564,18 @@ export async function seedOperationalData() {
           gross_timestamp: grossTime,
           gross_recorded_by: weighUser.id,
           gross_submitted_at: new Date(grossTime.getTime() + 240000),
-          tare_weight_kg: targetStatus === 'COMPLETED' ? tareKg : null,
-          tare_timestamp: targetStatus === 'COMPLETED' ? tareTime : null,
-          tare_recorded_by: targetStatus === 'COMPLETED' ? weighUser.id : null,
-          tare_submitted_at: targetStatus === 'COMPLETED' ? new Date(tareTime.getTime() + 300000) : null,
-          net_weight_kg: targetStatus === 'COMPLETED' ? netKg : null,
+          tare_weight_kg: isTareRecorded ? tareKg : null,
+          tare_timestamp: isTareRecorded ? tareTime : null,
+          tare_recorded_by: isTareRecorded ? weighUser.id : null,
+          tare_submitted_at: isTareRecorded ? new Date(tareTime.getTime() + 300000) : null,
+          net_weight_kg: isTareRecorded ? netKg : null,
           created_at: grossTime,
         },
       });
       weightTicketsCount++;
 
       // Unloading Log & Silo Receipt for Completed Accepted Visits
-      if (targetStatus === 'COMPLETED') {
+      if (isTareRecorded) {
         const visitPortionsWithLab = await prisma.visitPortion.findMany({
           where: { visit_id: visit.id },
           include: {
@@ -590,43 +607,81 @@ export async function seedOperationalData() {
           }
         }
 
-        // Authoritative calculation using the production calculateVehicleReceivedQuantity service
-        const calcPortions: VehicleCalculationPortion[] = visitPortionsWithLab.map((p) => ({
-          portionId: p.id,
-          portionNumber: p.portion_number,
-          plantDecision: p.plant_decision,
-          plantLabResults: p.plant_lab_results.map((r) => ({
-            testCode: r.lab_test?.testCode,
-            testName: r.lab_test?.testName,
-            numericValue: r.numeric_value ? Number(r.numeric_value) : null,
-            performanceStatus: r.performance_status,
-          })),
-        }));
+        if (targetStatus === 'COMPLETED') {
+          // Authoritative calculation using the production calculateVehicleReceivedQuantity service
+          const calcPortions: VehicleCalculationPortion[] = visitPortionsWithLab.map((p) => ({
+            portionId: p.id,
+            portionNumber: p.portion_number,
+            plantDecision: p.plant_decision,
+            plantLabResults: p.plant_lab_results.map((r) => ({
+              testCode: r.lab_test?.testCode,
+              testName: r.lab_test?.testName,
+              numericValue: r.numeric_value ? Number(r.numeric_value) : null,
+              performanceStatus: r.performance_status,
+            })),
+          }));
 
-        const calcResult = calculateVehicleReceivedQuantity({
-          grossWeightKg: grossKg,
-          secondWeightKg: tareKg,
-          portions: calcPortions,
-        });
-
-        // Exactly ONE Vehicle-Level Final Silo Receipt for eligible accepted visits
-        const acceptedPortions = visitPortionsWithLab.filter((p) => p.plant_decision === 'ACCEPTED');
-        if (acceptedPortions.length > 0 && calcResult.isCalculable && calcResult.finalPhysicalLiters !== null) {
-          await prisma.siloInventoryTransaction.create({
-            data: {
-              silo_id: targetSilo.id,
-              visit_id: visit.id,
-              portion_id: acceptedPortions.length === 1 ? acceptedPortions[0].id : null,
-              transaction_type: 'RECEIPT',
-              quantity_kg: netKg,
-              quantity_liters: calcResult.finalPhysicalLiters,
-              operational_timestamp: tareTime,
-              performed_by: weighUser.id,
-              idempotency_key: `FINAL_RECEIPT:VISIT:${visit.id}`,
-              created_at: new Date(tareTime.getTime() + 120000),
-            },
+          const calcResult = calculateVehicleReceivedQuantity({
+            grossWeightKg: grossKg,
+            secondWeightKg: tareKg,
+            portions: calcPortions,
           });
-          finalReceiptsCount++;
+
+          // Exactly ONE Vehicle-Level Final Silo Receipt for eligible accepted visits
+          const acceptedPortions = visitPortionsWithLab.filter((p) => p.plant_decision === 'ACCEPTED');
+          if (acceptedPortions.length > 0 && calcResult.isCalculable && calcResult.finalPhysicalLiters !== null) {
+            const isHistoricalPre6gfReceipt = (i === 4 || i === 5);
+
+            const siloTx = await prisma.siloInventoryTransaction.create({
+              data: {
+                silo_id: targetSilo.id,
+                visit_id: visit.id,
+                portion_id: acceptedPortions.length === 1 ? acceptedPortions[0].id : null,
+                transaction_type: 'RECEIPT',
+                quantity_kg: netKg,
+                quantity_liters: calcResult.finalPhysicalLiters,
+                plant_composite_lr: isHistoricalPre6gfReceipt ? null : calcResult.plantCompositeLR,
+                plant_composite_fat: isHistoricalPre6gfReceipt ? null : calcResult.plantCompositeFat,
+                plant_density: isHistoricalPre6gfReceipt ? null : calcResult.plantDensity,
+                plant_snf: isHistoricalPre6gfReceipt ? null : calcResult.plantSNF,
+                plant_ts: isHistoricalPre6gfReceipt ? null : calcResult.plantTS,
+                plant_final_at_13ts_liters: isHistoricalPre6gfReceipt ? null : calcResult.finalAt13TSLiters,
+                plant_calculation_version: isHistoricalPre6gfReceipt ? null : calcResult.plantCalculationVersion,
+                operational_timestamp: tareTime,
+                performed_by: weighUser.id,
+                idempotency_key: `FINAL_RECEIPT:VISIT:${visit.id}`,
+                created_at: new Date(tareTime.getTime() + 120000),
+              },
+            });
+            finalReceiptsCount++;
+
+            if (!isHistoricalPre6gfReceipt && calcResult.finalAt13TSLiters !== null) {
+              const dualRecon = calculateDualReconciliation({
+                sentGrossLiters: visit.vehicle_dispatch_gross_liters ? Number(visit.vehicle_dispatch_gross_liters) : null,
+                receivedGrossLiters: calcResult.finalPhysicalLiters,
+                sentAt13tsLiters: visit.vehicle_dispatch_at_13ts_liters ? Number(visit.vehicle_dispatch_at_13ts_liters) : null,
+                receivedAt13tsLiters: calcResult.finalAt13TSLiters,
+              });
+
+              await prisma.plantFinalDualReconciliation.create({
+                data: {
+                  visit_id: visit.id,
+                  final_receipt_transaction_id: siloTx.id,
+                  sent_gross_liters: dualRecon.sentGrossLiters,
+                  received_gross_liters: dualRecon.receivedGrossLiters,
+                  gross_variance_liters: dualRecon.grossVarianceLiters,
+                  gross_variance_percent: dualRecon.grossVariancePercent,
+                  sent_at_13ts_liters: dualRecon.sentAt13tsLiters,
+                  received_at_13ts_liters: dualRecon.receivedAt13tsLiters,
+                  at_13ts_variance_liters: dualRecon.at13tsVarianceLiters,
+                  at_13ts_variance_percent: dualRecon.at13tsVariancePercent,
+                  reconciliation_calculation_version: dualRecon.reconciliationCalculationVersion,
+                  reconciled_at: tareTime,
+                  created_at: new Date(tareTime.getTime() + 120000),
+                },
+              });
+            }
+          }
         }
       }
     }

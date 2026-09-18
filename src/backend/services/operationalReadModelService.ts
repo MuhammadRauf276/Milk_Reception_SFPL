@@ -241,6 +241,30 @@ export function mapVisitToLogs(
     ? vehicleCalcResult.finalAt13TSLiters
     : null;
 
+  // Stage 6G-F: Authoritative Plant Final Quality & Commercial Snapshot
+  const plantFinalNetKg = finalizedReceipt?.quantity_kg != null ? Number(finalizedReceipt.quantity_kg) : null;
+  const plantFinalGrossLiters = finalizedReceipt?.quantity_liters != null ? Number(finalizedReceipt.quantity_liters) : null;
+  const plantFinalLr = finalizedReceipt?.plant_composite_lr != null ? Number(finalizedReceipt.plant_composite_lr) : null;
+  const plantFinalFat = finalizedReceipt?.plant_composite_fat != null ? Number(finalizedReceipt.plant_composite_fat) : null;
+  const plantFinalDensity = finalizedReceipt?.plant_density != null ? Number(finalizedReceipt.plant_density) : null;
+  const plantFinalSnf = finalizedReceipt?.plant_snf != null ? Number(finalizedReceipt.plant_snf) : null;
+  const plantFinalTs = finalizedReceipt?.plant_ts != null ? Number(finalizedReceipt.plant_ts) : null;
+  const plantFinalAt13TsLiters = finalizedReceipt?.plant_final_at_13ts_liters != null ? Number(finalizedReceipt.plant_final_at_13ts_liters) : null;
+  const plantFinalCalculationVersion = finalizedReceipt?.plant_calculation_version || null;
+
+  // Stage 6G-F: Source-Neutral Dual Reconciliation
+  const recon = visit.dual_reconciliation;
+  const reconciliationExists = Boolean(recon && finalizedReceipt);
+  const sentGrossLiters = recon?.sent_gross_liters != null ? Number(recon.sent_gross_liters) : null;
+  const receivedGrossLiters = recon?.received_gross_liters != null ? Number(recon.received_gross_liters) : null;
+  const grossVarianceLiters = recon?.gross_variance_liters != null ? Number(recon.gross_variance_liters) : null;
+  const grossVariancePercent = recon?.gross_variance_percent != null ? Number(recon.gross_variance_percent) : null;
+  const sentAt13tsLiters = recon?.sent_at_13ts_liters != null ? Number(recon.sent_at_13ts_liters) : null;
+  const receivedAt13tsLiters = recon?.received_at_13ts_liters != null ? Number(recon.received_at_13ts_liters) : null;
+  const at13tsVarianceLiters = recon?.at_13ts_variance_liters != null ? Number(recon.at_13ts_variance_liters) : null;
+  const at13tsVariancePercent = recon?.at_13ts_variance_percent != null ? Number(recon.at_13ts_variance_percent) : null;
+  const reconciliationCalculationVersion = recon?.reconciliation_calculation_version || null;
+
   // Authoritative Whole-Vehicle Dispatch Quantity
   const vDeclaredVal = visit.vehicle_dispatch_quantity_value != null ? Number(visit.vehicle_dispatch_quantity_value) : null;
   const vDeclaredUnit = visit.vehicle_dispatch_quantity_unit ? visit.vehicle_dispatch_quantity_unit.toUpperCase() : null;
@@ -611,6 +635,29 @@ export function mapVisitToLogs(
         ? Number(finalizedReceipt.quantity_liters)
         : null,
 
+      // Stage 6G-F: Authoritative Plant Final Quality & Commercial Snapshot
+      plant_final_net_kg: plantFinalNetKg,
+      plant_final_lr: plantFinalLr,
+      plant_final_fat: plantFinalFat,
+      plant_final_density: plantFinalDensity,
+      plant_final_snf: plantFinalSnf,
+      plant_final_ts: plantFinalTs,
+      plant_final_gross_liters: plantFinalGrossLiters,
+      plant_final_at_13ts_liters: plantFinalAt13TsLiters,
+      plant_final_calculation_version: plantFinalCalculationVersion,
+
+      // Stage 6G-F: Source-Neutral Dual Reconciliation
+      reconciliation_exists: reconciliationExists,
+      sent_gross_liters: sentGrossLiters,
+      received_gross_liters: receivedGrossLiters,
+      gross_variance_liters: grossVarianceLiters,
+      gross_variance_percent: grossVariancePercent,
+      sent_at_13ts_liters: sentAt13tsLiters,
+      received_at_13ts_liters: receivedAt13tsLiters,
+      at_13ts_variance_liters: at13tsVarianceLiters,
+      at_13ts_variance_percent: at13tsVariancePercent,
+      reconciliation_calculation_version: reconciliationCalculationVersion,
+
       portion_lab_results: portionLabResults,
 
       created_at: visit.created_at ? new Date(visit.created_at).toISOString() : new Date().toISOString(),
@@ -828,6 +875,7 @@ export async function getPaginatedOperationalLogs(
         inventory_transactions: {
           where: { transaction_type: 'RECEIPT' },
         },
+        dual_reconciliation: true,
       },
       orderBy: { id: 'desc' },
       skip,
@@ -948,6 +996,7 @@ export async function getOperationalLogById(
       inventory_transactions: {
         where: { transaction_type: 'RECEIPT' },
       },
+      dual_reconciliation: true,
     },
   });
 

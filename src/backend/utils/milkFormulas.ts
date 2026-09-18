@@ -98,6 +98,7 @@ export function calculateGrossLiters(
 }
 
 export const MOT_CALCULATION_VERSION = '1.0';
+export const PLANT_CALCULATION_VERSION = '1.0';
 
 export interface CanonicalMilkMetrics {
   density: number;

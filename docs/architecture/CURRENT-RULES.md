@@ -757,3 +757,92 @@ All paginated collection APIs must return a standardized pagination envelope:
   - `operational_date` strictly remains `null` until Plant Gate Exit completion (`READY_FOR_GATE_EXIT -> COMPLETED`).
   - Misleading UI badges such as fake "Live" indicators or fallback defaults (`operational_date || 'Today'`) are strictly prohibited.
 
+---
+
+## 27. Stage 6G-F — Plant Final Dual Reconciliation & Formula Hardening
+- **The Two Irreducible Truths**:
+  1. **Physical Truth**: Gross Liters (`Net KG / Plant Density`). Governs silo inventory, tank levels, dipsticks, and physical capacity. Authoritative source of truth is `SiloInventoryTransaction.quantity_liters` (with `quantity_kg` as Net KG).
+  2. **Commercial Truth**: Liters @ 13% TS (`Gross Liters * TS / 13`). Governs billing, accounting, settlement, and supplier/contractor commercial reconciliation.
+  - Physical Liters and Commercial @13TS Liters must NEVER be conflated, combined, or substituted for one another.
+- **Authoritative Receipt Snapshot (SiloInventoryTransaction)**:
+  - Added snapshot columns: `plant_composite_lr`, `plant_composite_fat`, `plant_density`, `plant_snf`, `plant_ts`, `plant_final_at_13ts_liters`, `plant_calculation_version`.
+  - `SiloInventoryTransaction.quantity_liters` is authoritative physical Gross Liters; duplicate gross liter columns are forbidden.
+  - Read models expose `plant_final_gross_liters` mapped directly from `quantity_liters`.
+- **Source-Neutral Plant Final Dual Reconciliation (PlantFinalDualReconciliation)**:
+  - Dedicated table linked 1:1 to `VehicleVisit` and `SiloInventoryTransaction` (`onDelete: Restrict`).
+  - Stores signed variances and percentages for both Physical Gross Liters and Commercial @13TS Liters:
+    - `gross_variance_liters = received_gross_liters - sent_gross_liters`
+    - `gross_variance_percent = (gross_variance_liters / sent_gross_liters) * 100`
+    - `at_13ts_variance_liters = received_at_13ts_liters - sent_at_13ts_liters`
+    - `at_13ts_variance_percent = (at_13ts_variance_liters / sent_at_13ts_liters) * 100`
+  - Signed numbers: negative (`-`) indicates loss, positive (`+`) indicates gain, zero indicates balanced reception.
+  - Missing or non-positive sent denominator (`sent <= 0` or `null`) strictly yields `null` variance percent (never 0%).
+  - Versioned calculation: `reconciliation_calculation_version = '1.0'`.
+- **Receipt State Semantics**:
+  - **Plant workflow in progress** (`second_weight_timestamp = null`, `final_receipt_exists = false`): UI displays `Pending` / current journey stage.
+  - **Receipt Pending / Finalization blocked** (`second_weight_timestamp != null`, `final_receipt_exists = false`): UI displays `Receipt Pending`.
+  - **Finalized 6G-F Receipt** (`final_receipt_exists = true`, snapshot exists): UI displays full physical and commercial dual reconciliation.
+  - **Historical Pre-6G-F Receipt** (`final_receipt_exists = true`, snapshot absent): Physical liters is authoritative; commercial @13TS is strictly `Unavailable` (never faked as `Pending` or reconstructed from mutable lab tables).
+- **Formula Hardening & Pure Mathematical Validity**:
+  - Authoritative test identification guards: strictly `LT-000008` for Plant LR and `LT-000026` for Plant Fat (`isPlantLrTest`, `isPlantFatTest`). Other tests such as `LT-000027` are not used as final received quantity authority.
+  - Mathematical validation guards: average LR > 0 (`INVALID_PLANT_LR`), average Fat >= 0 (`INVALID_PLANT_FAT`), density > 1.0 (`INVALID_DENSITY`), SNF > 0 (`INVALID_SNF`), TS > 0 (`INVALID_TS`), Physical liters > 0 (`INVALID_FINAL_LITERS`), @13TS liters > 0 (`INVALID_AT13_TS_LITERS`).
+  - Biological threshold checks are strictly segregated from formula calculations (no hard-coded biological bounds or arbitrary plausibility rejections in the formula engine; policy validation belongs to QA Head evaluation).
+  - Calculation chain executed in IEEE-754 double precision without intermediate rounding (ADR-005).
+- **Concurrency & Post-Lock Idempotency Invariant**:
+  - Silo receipt transaction creation, quality snapshot recording, `PlantFinalDualReconciliation` record, and `AuditLog` execute within a single atomic database transaction (`db.$transaction`).
+  - After acquiring the silo row lock (`SELECT id FROM silo WHERE id = ... FOR UPDATE`), a post-lock idempotency check re-queries for existing receipts. If a concurrent finalization completed while waiting on the lock, the existing receipt is safely returned without throwing unique-constraint violations or attempting duplicate inserts.
+- **Scope Boundaries**:
+  - No 6G-G (RMR, tokens, paper books), 6G-H (ERP financial rates), 6G-K (tolerances / 1% bands / NORMAL vs EXCEPTION badges), or 6G-L (investigations).
+
+---
+
+## 28. Future Architecture: Owner-Frozen QA Policy Architecture (Deferred to Stage 6G-G / Later)
+*Note: This architecture is frozen for future alignment and is strictly deferred to Stage 6G-G or later. It is NOT implemented in Stage 6G-F.*
+
+1. **The Three Irreducible QA Truths**:
+   - **Observed Lab Result**: The physical measurement recorded during testing (e.g. LR 28.0, Fat 3.8%). A manager decision correction never rewrites the original observed lab result or the original system evaluation. If the laboratory measurement itself was entered incorrectly, that is a separate authorized measurement-correction workflow with mandatory reason, before/after evidence, actor, timestamp, and AuditLog. Historical evidence must remain preserved.
+   - **System Rule Evaluation**: Automated policy evaluation against configured QA rules and thresholds (producing `PASS`, `FAIL`, or `FLAG`/`OUT_OF_SPEC` with granular rule breakdown). Pure deterministic function.
+   - **Final Operational Decision**: The authorized human operational determination (`ACCEPTED`, `REJECTED`, `HOLD`, or corrected `ACCEPTED_EXCEPTION`). When a lab attendant records a rejection, the operational decision becomes `REJECTED` immediately (no automatic manager-pending state). A manager may review it later through a separate audited correction flow.
+2. **QA Policy & Decision Authority Model**:
+   - **QA Head**: Quality threshold and policy authority. Exclusively owns and defines quality acceptance/rejection thresholds, parameter bounds, and validation policies. Operators and system rules cannot override QA Head rules. Super Admin remains technical/system administrator only; Super Admin does NOT own quality policy, and any future administrative actions on QA policy must remain fully auditable and attributable to the QA Head-approved policy process.
+   - **Plant Operational QA**:
+     - **QA Lab Attendant** (`QA_LAB_ATTENDANT`): Canonical role for normal Plant intake testing. Records Plant lab evidence and makes the normal initial operational decision (`ACCEPTED` or `REJECTED`).
+     - **QA Manager**: Authorized Plant decision-correction / exception authority. Can later review and correct an operational decision through a separate audited flow. (QA Head owns policy, not daily Plant exception overrides).
+   - **ZMCC Operational QA**:
+     - **ZMCC Lab Attendant** (`ZMCC_LAB_ATTENDANT`): Canonical role for normal ZMCC intake testing. Records MOT / Local Supplier lab evidence and makes the normal initial operational decision (`ACCEPTED` or `REJECTED`).
+     - **ZMCC Manager**: Authorized ZMCC decision-correction / exception authority. Can later review and correct an operational decision through a separate audited flow.
+3. **Manager Acceptance Against System/Lab Rejection (Multi-Layer Audit Preservation)**:
+   - When an authorized manager corrects a rejected batch to accepted as an exception, all audit layers are preserved verbatim without rewriting history:
+     - `Observed Lab Result`: Preserved verbatim (a decision correction never overwrites the recorded measurement).
+     - `System Rule Evaluation`: Unchanged (e.g. `OUT_OF_SPEC`).
+     - `Original Lab Decision`: `REJECTED`.
+     - `Corrected Final Decision`: `ACCEPTED_EXCEPTION`.
+     - `Corrected By`: `QA_MANAGER` (for Plant) or `ZMCC_MANAGER` (for ZMCC).
+     - `Correction Reason`: REQUIRED (mandatory explanation).
+     - `Corrected At`: REQUIRED (timestamp).
+     - `AuditLog`: REQUIRED (immutable audit entry).
+   - Vague `CONDITIONAL_ACCEPT` wording is forbidden where it obscures the owner-approved `ACCEPTED_EXCEPTION` meaning.
+4. **Canonical Testing-Point Scoping & Terminology**:
+   - Rule applicability is strictly scoped to authoritative target testing-point identities (RMR is a Shop paper receipt/reference, not a testing point):
+     - `PLANT_QA`: Plant intake laboratory testing
+     - `ZMCC_LAB_MOT`: ZMCC intake laboratory testing for MOT journeys
+     - `ZMCC_LAB_LOCAL_SUPPLIER`: ZMCC intake laboratory testing for local suppliers
+     - `DISPATCH`: Upstream dispatch quality testing
+     - `MOT_SHOP`: Mobile collection shop testing
+   - Preserve historical compatibility where the existing schema has legacy identifiers, without expanding active formal-Contractor-at-ZMCC semantics.
+5. **Location / Source Scoping**:
+   - Rule applicability may also be scoped to a specific ZMCC facility, location, or procurement source where required (e.g. the same chemical parameter may have different seasonal or regional thresholds across facilities).
+   - Zero hard-coded location thresholds in application code; all thresholds must be dynamic and driven by configured policy.
+6. **Physical-State Guard (Grounded in Physical Reality)**:
+   - If rejected milk/vehicle is still physically present and no irreversible stock movement or gate exit has occurred, the authorized manager may correct the decision (`ACCEPTED_EXCEPTION`) and allow the real operational flow (weighing, unloading, receiving) to continue.
+   - If milk has already physically exited, or has already been irreversibly commingled/received, a later management review must NOT fabricate a tank/silo receipt, unloading event, stock movement, or historical physical receipt.
+   - An audited management review/correction record may still be recorded for accountability, but physical inventory remains grounded in what actually happened.
+   - If milk physically returns, it requires a real authorized re-entry and receipt workflow.
+   - Distinguish decision review/correction from physical inventory mutation.
+7. **Strict Stage Boundary**:
+   - This QA Policy Architecture is frozen for future alignment and is documented for architectural clarity.
+   - Explicitly deferred to **Stage 6G-G** (Corrections + Audit) or later.
+   - Zero implementation in Stage 6G-F: no QA threshold CRUD, no QA Manager override route/UI, no ZMCC Manager override route/UI, no new correction schema, and no new warning engine. Existing models (`LabTestRule`, `MilkTestPolicyAssignment`, `QAWarning`, and canonical lab infrastructure) will be reused in the appropriate later stage.
+
+
+

@@ -5,6 +5,7 @@ import {
   calculateRatio,
   calculatePhysicalLiters,
   calculateAt13TSLiters,
+  PLANT_CALCULATION_VERSION,
 } from '../utils/milkFormulas';
 
 export type VehicleCalculationFailureReason =
@@ -20,7 +21,10 @@ export type VehicleCalculationFailureReason =
   | 'INVALID_PLANT_LR'
   | 'INVALID_PLANT_FAT'
   | 'INVALID_DENSITY'
-  | 'INVALID_FINAL_LITERS';
+  | 'INVALID_SNF'
+  | 'INVALID_TS'
+  | 'INVALID_FINAL_LITERS'
+  | 'INVALID_AT13_TS_LITERS';
 
 export interface VehicleCalculationPortionLabResult {
   testCode?: string | null;
@@ -52,12 +56,18 @@ export interface VehicleCalculationSuccessResult {
     averagePlantLr: number;
     averagePlantFat: number;
   };
+  plantCompositeLR: number;
+  plantCompositeFat: number;
+  plantDensity: number;
+  plantSNF: number;
+  plantTS: number;
   vehicleDensity: number;
   vehicleSnf: number;
   vehicleTs: number;
   vehicleRatio: number;
   finalPhysicalLiters: number;
   finalAt13TSLiters: number;
+  plantCalculationVersion: string;
 }
 
 export interface VehicleCalculationFailureResult {
@@ -260,18 +270,50 @@ export function calculateVehicleReceivedQuantity(input: VehicleCalculationInput)
   const averagePlantLr = sumLr / acceptedCount;
   const averagePlantFat = sumFat / acceptedCount;
 
-  // 8. Canonical Formula Execution Chain
+  if (isNaN(averagePlantLr) || !isFinite(averagePlantLr) || averagePlantLr <= 0) {
+    return {
+      isCalculable: false,
+      reason: 'INVALID_PLANT_LR',
+      message: `Calculated average Plant LR (${averagePlantLr}) is invalid.`,
+    };
+  }
+
+  if (isNaN(averagePlantFat) || !isFinite(averagePlantFat) || averagePlantFat < 0) {
+    return {
+      isCalculable: false,
+      reason: 'INVALID_PLANT_FAT',
+      message: `Calculated average Plant Fat % (${averagePlantFat}) is invalid.`,
+    };
+  }
+
+  // 8. Canonical Formula Execution Chain (Full precision in double precision, no intermediate rounding)
   const vehicleDensity = calculateDensity(averagePlantLr);
-  if (isNaN(vehicleDensity) || !isFinite(vehicleDensity) || vehicleDensity <= 0) {
+  if (isNaN(vehicleDensity) || !isFinite(vehicleDensity) || vehicleDensity <= 1.0) {
     return {
       isCalculable: false,
       reason: 'INVALID_DENSITY',
-      message: `Failed to calculate valid milk density from average Plant LR (${averagePlantLr}).`,
+      message: `Failed to calculate valid milk density from average Plant LR (${averagePlantLr}); density must be strictly greater than 1.0.`,
     };
   }
 
   const vehicleSnf = calculateSNF(averagePlantLr, averagePlantFat);
+  if (isNaN(vehicleSnf) || !isFinite(vehicleSnf) || vehicleSnf <= 0) {
+    return {
+      isCalculable: false,
+      reason: 'INVALID_SNF',
+      message: `Calculated SNF % (${vehicleSnf}) must be finite and strictly positive.`,
+    };
+  }
+
   const vehicleTs = calculateTS(averagePlantFat, vehicleSnf);
+  if (isNaN(vehicleTs) || !isFinite(vehicleTs) || vehicleTs <= 0) {
+    return {
+      isCalculable: false,
+      reason: 'INVALID_TS',
+      message: `Calculated TS % (${vehicleTs}) must be finite and strictly positive.`,
+    };
+  }
+
   const vehicleRatio = calculateRatio(vehicleSnf, averagePlantFat);
   const finalPhysicalLiters = calculatePhysicalLiters(netWeightKg, averagePlantLr);
 
@@ -284,6 +326,13 @@ export function calculateVehicleReceivedQuantity(input: VehicleCalculationInput)
   }
 
   const finalAt13TSLiters = calculateAt13TSLiters(finalPhysicalLiters, vehicleTs);
+  if (isNaN(finalAt13TSLiters) || !isFinite(finalAt13TSLiters) || finalAt13TSLiters <= 0) {
+    return {
+      isCalculable: false,
+      reason: 'INVALID_AT13_TS_LITERS',
+      message: `Failed to calculate valid final @13TS liters (${finalAt13TSLiters}) from Physical Liters ${finalPhysicalLiters} L.`,
+    };
+  }
 
   return {
     isCalculable: true,
@@ -295,11 +344,17 @@ export function calculateVehicleReceivedQuantity(input: VehicleCalculationInput)
       averagePlantLr,
       averagePlantFat,
     },
+    plantCompositeLR: averagePlantLr,
+    plantCompositeFat: averagePlantFat,
+    plantDensity: vehicleDensity,
+    plantSNF: vehicleSnf,
+    plantTS: vehicleTs,
     vehicleDensity,
     vehicleSnf,
     vehicleTs,
     vehicleRatio,
     finalPhysicalLiters,
     finalAt13TSLiters,
+    plantCalculationVersion: PLANT_CALCULATION_VERSION,
   };
 }

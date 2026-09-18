@@ -355,3 +355,33 @@ SUPER_ADMIN
 - `src/backend/services/zmccLabService.ts`: Updated `completeSession` with atomic "Accept & Receive" logic, row-locking destination tanks `FOR UPDATE` and revalidating `is_active` under lock; updated `correctCompletedSession` with decision safety guards (`ACCEPTED -> REJECTED` after receipt and `REJECTED -> ACCEPTED` forbidden) and `ADJUSTMENT_IN` / `ADJUSTMENT_OUT` ledger entries.
 - `src/frontend/modules/zmcc/ZmccMasterDataWorkspace.tsx`: Management tab for ZMCC Tanks (`TANKS`), supporting Super Admin CRUD and ZMCC Manager read-only visibility with live stock indicators.
 - `src/frontend/modules/zmcc/lab/ZmccLabWorkspace.tsx`: Updated session completion modal to "Accept & Receive" with active tank selection and capacity validation, History table Tank Receipt column, and historical receive action restricted to `ZMCC_LAB_ATTENDANT` and `SUPER_ADMIN` (hidden from `ZMCC_MANAGER`).
+
+---
+
+## 19. Stage 6G-F Plant Final Dual Reconciliation & Formula Hardening
+
+- `src/backend/services/reconciliationService.ts`: Authoritative source-neutral dual reconciliation calculation engine:
+  - Exports `calculateDualReconciliation(input)` and `RECONCILIATION_CALCULATION_VERSION = '1.0'`.
+  - Calculates signed Physical Gross Liters variance and percentage (`received - sent`, `(variance / sent) * 100`).
+  - Calculates signed Commercial @13TS Liters variance and percentage (`received - sent`, `(variance / sent) * 100`).
+  - Fails safe to `null` percentage whenever sent quantity is null, zero, or negative (prevents division by zero and false zero percentage).
+- `src/backend/services/vehicleQuantityService.ts`: Hardened vehicle quantity calculation engine:
+  - Authoritative test identification guards: `isPlantLrTest` strictly checks `LT-000008` and `isPlantFatTest` strictly checks `LT-000026`. Non-authoritative codes (e.g. `LT-000027`) are excluded from final received quantity authority.
+  - Pure mathematical validation guards: density > 1.0 (`INVALID_DENSITY`), SNF > 0 (`INVALID_SNF`), TS > 0 (`INVALID_TS`), Physical liters > 0 (`INVALID_FINAL_LITERS`), @13TS liters > 0 (`INVALID_AT13_TS_LITERS`), LR > 0 (`INVALID_PLANT_LR`), Fat >= 0 (`INVALID_PLANT_FAT`). Segregated from policy-level QA evaluations.
+  - Full IEEE-754 double precision intermediate calculations without rounding (ADR-005).
+  - Returns composite quality snapshot properties and version `1.0`.
+- `prisma/migrations/20260918120000_stage_6g_f_plant_final_dual_reconciliation/migration.sql`: Tracked migration (migration count: 30) adding snapshot columns to `silo_inventory_transaction` and creating `plant_final_dual_reconciliation` table with foreign key restrictions and unique indices.
+- `src/backend/services/siloInventoryService.ts`: Authoritative final receipt persistence:
+  - Executes single-transaction atomic creation (`db.$transaction`) of `SiloInventoryTransaction(RECEIPT)` with quality snapshot fields, `PlantFinalDualReconciliation` record, and `AuditLog`.
+  - Strictly preserves `SiloInventoryTransaction.quantity_liters` as authoritative physical Gross Liters without adding duplicate gross columns.
+  - Concurrency & Post-Lock Idempotency: After acquiring the silo lock (`FOR UPDATE`), re-checks for existing receipt transactions and returns the existing finalized receipt safely, avoiding concurrent duplicate-insert or unique-constraint failures.
+  - Idempotent execution safely returns existing receipt without fabricating missing commercial snapshot for pre-6G-F historical receipts.
+- `src/backend/core/types.ts`: Extended `MilkProcessLog` with snapshot and dual reconciliation fields.
+- `src/backend/services/operationalReadModelService.ts`: Canonical read models projection querying `dual_reconciliation` and mapping snapshot fields and dual reconciliation data.
+- `src/frontend/modules/dashboard/zmcc/ZMCCManagerReconciliation.tsx`: ZMCC Manager Reconciliation workspace displaying Gross Delta, Gross Delta %, Dispatch @13TS, Plant @13TS, @13TS Delta, @13TS Delta % with signed numbers and clean `Unavailable` vs `Pending` states.
+- `src/frontend/modules/dashboard/contractor/ContractorReceiptsReconciliation.tsx`: Contractor Receipts Ledger table displaying the full dual truth columns with signed variances and status distinctions.
+- `src/frontend/modules/dashboard/zmcc/zmccManagerTypes.ts` & `zmccManagerHelpers.ts`: Frontend type definitions and helper projections consuming canonical variance without React-side recomputations.
+- `src/frontend/modules/dashboard/contractor/contractorManagerTypes.ts` & `contractorManagerHelpers.ts`: Frontend type definitions and helper projections.
+- `tests/unit/plantFinalDualReconciliation.test.ts`: Dedicated Vitest unit test suite covering dual reconciliation calculations, test identities, mathematical validity, ADR-005 formula consistency, historical receipts without commercial snapshot, and concurrent finalization idempotency.
+
+
