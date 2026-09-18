@@ -1,21 +1,20 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, useCallback, useRef, Suspense, useMemo } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { User } from '@core/types';
 import { Header } from '@modules/shared/Header';
-import { Sidebar } from '@modules/shared/Sidebar';
-import { ZmccMasterDataWorkspace } from '@/frontend/modules/zmcc/ZmccMasterDataWorkspace';
-import { MotOperationsWorkspace } from '@/frontend/modules/mot/MotOperationsWorkspace';
-import { ZmccArrivalsWorkspace } from '@/frontend/modules/zmcc/arrivals/ZmccArrivalsWorkspace';
-import { Store, Truck, CheckCircle2 } from 'lucide-react';
+import { HierarchicalNavDrawer } from '@modules/shared/navigation/HierarchicalNavDrawer';
+import { ZmccMasterDataWorkspace, MasterDataTab } from '@/frontend/modules/zmcc/ZmccMasterDataWorkspace';
+import { MotOperationsWorkspace, MotWorkspaceTab } from '@/frontend/modules/mot/MotOperationsWorkspace';
+import { ZmccArrivalsWorkspace, MainTab as ArrivalsTab } from '@/frontend/modules/zmcc/arrivals/ZmccArrivalsWorkspace';
 
-export default function PhePage() {
+function PheContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [pheTab, setPheTab] = useState<'ARRIVALS' | 'SHOPS' | 'MOT'>('ARRIVALS');
   const hamburgerButtonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
@@ -65,6 +64,71 @@ export default function PhePage() {
     }, 0);
   }, []);
 
+  // Canonical query parameters
+  const rawSection = searchParams?.get('section') || 'arrivals';
+  const section = rawSection === 'suppliers' || rawSection === 'mot' ? rawSection : 'arrivals';
+
+  const rawView = searchParams?.get('view') || '';
+
+  const { resolvedArrivalsTab, resolvedMasterDataTab, resolvedMotTab, sectionTitle, viewTitle } = useMemo(() => {
+    if (section === 'suppliers') {
+      const isShop = rawView === 'shop-details';
+      return {
+        resolvedArrivalsTab: 'MOT_ARRIVAL' as ArrivalsTab,
+        resolvedMasterDataTab: (isShop ? 'SHOPS' : 'LOCAL_SUPPLIERS') as MasterDataTab,
+        resolvedMotTab: 'DISPATCH' as MotWorkspaceTab,
+        sectionTitle: 'Local Suppliers / Shop Details',
+        viewTitle: isShop ? 'Shop Details (Reference)' : 'Local Suppliers',
+      };
+    }
+
+    if (section === 'mot') {
+      let motTab: MotWorkspaceTab = 'DISPATCH';
+      let title = 'Assign & Dispatch';
+      if (rawView === 'active') {
+        motTab = 'ACTIVE_JOURNEYS';
+        title = 'Active Journeys';
+      } else if (rawView === 'history') {
+        motTab = 'JOURNEY_HISTORY';
+        title = 'Journey History';
+      } else if (rawView === 'map') {
+        motTab = 'JOURNEY_MAP';
+        title = 'Live Journey Map';
+      } else if (rawView === 'sms') {
+        motTab = 'SMS_OUTBOX';
+        title = 'SMS Outbox';
+      }
+      return {
+        resolvedArrivalsTab: 'MOT_ARRIVAL' as ArrivalsTab,
+        resolvedMasterDataTab: 'LOCAL_SUPPLIERS' as MasterDataTab,
+        resolvedMotTab: motTab,
+        sectionTitle: 'MOT Dispatch & Journeys',
+        viewTitle: title,
+      };
+    }
+
+    // Default: arrivals
+    let arrTab: ArrivalsTab = 'MOT_ARRIVAL';
+    let title = 'Record MOT Arrival';
+    if (rawView === 'local-supplier-arrival') {
+      arrTab = 'LOCAL_SUPPLIER_ARRIVAL';
+      title = 'Record Local Supplier Arrival';
+    } else if (rawView === 'inside') {
+      arrTab = 'INSIDE_ZMCC';
+      title = 'Vehicles Inside ZMCC';
+    } else if (rawView === 'history') {
+      arrTab = 'HISTORY';
+      title = 'Arrival History & Corrections';
+    }
+    return {
+      resolvedArrivalsTab: arrTab,
+      resolvedMasterDataTab: 'LOCAL_SUPPLIERS' as MasterDataTab,
+      resolvedMotTab: 'DISPATCH' as MotWorkspaceTab,
+      sectionTitle: 'Arrivals & Tokens',
+      viewTitle: title,
+    };
+  }, [section, rawView]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#FDFBF9] flex items-center justify-center p-8 text-center text-xs font-bold text-slate-500">
@@ -79,7 +143,7 @@ export default function PhePage() {
 
   return (
     <div className="w-full max-w-full flex flex-col h-screen bg-[#FDFBF9] text-[#111311] overflow-hidden font-sans">
-      {/* Header with Hamburger Trigger */}
+      {/* Header with Accessible Hamburger Trigger */}
       <Header
         currentUser={currentUser}
         title="PHE Station"
@@ -89,89 +153,91 @@ export default function PhePage() {
         menuButtonRef={hamburgerButtonRef}
       />
 
-      {/* Main Responsive Body with Sidebar */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Desktop Sidebar (hidden on mobile, visible lg+) */}
-        <aside className="hidden lg:block w-72 bg-white border-r border-[#EAE4D5] shrink-0 overflow-y-auto p-4">
-          <Sidebar currentUser={currentUser} activeCount={0} />
-        </aside>
+      {/* Hierarchical Navigation Drawer for ALL viewports */}
+      <HierarchicalNavDrawer
+        currentUser={currentUser}
+        isOpen={isDrawerOpen}
+        onClose={closeDrawer}
+        triggerButtonRef={hamburgerButtonRef}
+      />
 
-        {/* Mobile Navigation Drawer */}
-        {isDrawerOpen && (
-          <div
-            className="fixed inset-0 z-50 flex lg:hidden"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Mobile Navigation"
-          >
-            <div
-              className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
-              onClick={closeDrawer}
-              aria-hidden="true"
-            />
-            <div className="relative z-50 w-72 max-w-[80vw] bg-white h-full p-4 overflow-y-auto shadow-2xl border-r border-[#EAE4D5]">
-              <Sidebar
-                currentUser={currentUser}
-                activeCount={0}
-                isMobileOpen={isDrawerOpen}
-                onCloseMobile={closeDrawer}
-              />
-            </div>
-          </div>
-        )}
+      {/* Main Full-Width Responsive Workspace */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Compact Breadcrumb Header */}
+        <div className="bg-white border-b border-[#EAE4D5] px-4 sm:px-6 py-2 shrink-0 shadow-xs flex items-center justify-between">
+          <nav aria-label="Breadcrumb" className="flex items-center space-x-2 text-xs font-bold text-slate-500">
+            <span>PHE Station</span>
+            <span className="text-slate-300">/</span>
+            <span className="hidden sm:inline">{sectionTitle}</span>
+            <span className="hidden sm:inline text-slate-300">/</span>
+            <span className="text-[#1E3A8A] font-black">{viewTitle}</span>
+          </nav>
+          <span className="text-[11px] font-mono text-slate-400">
+            {currentUser.procurement_source?.name || 'ZMCC'}
+          </span>
+        </div>
 
-        {/* Center Content Pane */}
+        {/* Center Content Pane with Full Canvas Width */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 w-full max-w-full space-y-4">
-          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 bg-white p-2 rounded-2xl border border-[#EAE4D5] shadow-xs w-full sm:w-fit overflow-x-auto">
-            <button
-              type="button"
-              onClick={() => setPheTab('ARRIVALS')}
-              className={`flex items-center space-x-2 px-4 py-2.5 min-h-[44px] rounded-xl text-xs font-black transition-all shrink-0 ${
-                pheTab === 'ARRIVALS'
-                  ? 'bg-[#1E3A8A] text-white shadow-xs'
-                  : 'bg-transparent text-slate-700 hover:bg-[#F4F0E6]'
-              }`}
-            >
-              <CheckCircle2 className="w-4 h-4 shrink-0" />
-              <span>ZMCC Arrivals & Tokens</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setPheTab('SHOPS')}
-              className={`flex items-center space-x-2 px-4 py-2.5 min-h-[44px] rounded-xl text-xs font-black transition-all shrink-0 ${
-                pheTab === 'SHOPS'
-                  ? 'bg-[#1E3A8A] text-white shadow-xs'
-                  : 'bg-transparent text-slate-700 hover:bg-[#F4F0E6]'
-              }`}
-            >
-              <Store className="w-4 h-4 shrink-0" />
-              <span>Local Suppliers / Shop Details</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setPheTab('MOT')}
-              className={`flex items-center space-x-2 px-4 py-2.5 min-h-[44px] rounded-xl text-xs font-black transition-all shrink-0 ${
-                pheTab === 'MOT'
-                  ? 'bg-[#1E3A8A] text-white shadow-xs'
-                  : 'bg-transparent text-slate-700 hover:bg-[#F4F0E6]'
-              }`}
-            >
-              <Truck className="w-4 h-4 shrink-0" />
-              <span>MOT Dispatch & Journeys</span>
-            </button>
-          </div>
+          {section === 'arrivals' && (
+            <ZmccArrivalsWorkspace
+              currentUser={currentUser}
+              activeTab={resolvedArrivalsTab}
+              hideTabBar={true}
+              onTabChange={(tab) => {
+                const map: Record<string, string> = {
+                  MOT_ARRIVAL: 'mot-arrival',
+                  LOCAL_SUPPLIER_ARRIVAL: 'local-supplier-arrival',
+                  INSIDE_ZMCC: 'inside',
+                  HISTORY: 'history',
+                };
+                router.push(`/phe?section=arrivals&view=${map[tab] || 'mot-arrival'}`);
+              }}
+            />
+          )}
 
-          {pheTab === 'ARRIVALS' && (
-            <ZmccArrivalsWorkspace currentUser={currentUser} />
+          {section === 'suppliers' && (
+            <ZmccMasterDataWorkspace
+              currentUser={currentUser}
+              activeTab={resolvedMasterDataTab}
+              hideTabBar={true}
+              onTabChange={(tab) => {
+                const map: Record<string, string> = {
+                  LOCAL_SUPPLIERS: 'local-suppliers',
+                  SHOPS: 'shop-details',
+                };
+                router.push(`/phe?section=suppliers&view=${map[tab] || 'local-suppliers'}`);
+              }}
+            />
           )}
-          {pheTab === 'SHOPS' && (
-            <ZmccMasterDataWorkspace currentUser={currentUser} initialTab="LOCAL_SUPPLIERS" />
-          )}
-          {pheTab === 'MOT' && (
-            <MotOperationsWorkspace currentUser={currentUser} />
+
+          {section === 'mot' && (
+            <MotOperationsWorkspace
+              currentUser={currentUser}
+              activeTab={resolvedMotTab}
+              hideTabBar={true}
+              onTabChange={(tab) => {
+                const map: Record<string, string> = {
+                  DISPATCH: 'dispatch',
+                  ACTIVE_JOURNEYS: 'active',
+                  JOURNEY_HISTORY: 'history',
+                  JOURNEY_MAP: 'map',
+                  SMS_OUTBOX: 'sms',
+                };
+                router.push(`/phe?section=mot&view=${map[tab] || 'dispatch'}`);
+              }}
+            />
           )}
         </main>
       </div>
     </div>
+  );
+}
+
+export default function PhePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#FDFBF9] flex items-center justify-center p-8 text-center text-xs font-bold text-slate-500">Loading PHE Station...</div>}>
+      <PheContent />
+    </Suspense>
   );
 }

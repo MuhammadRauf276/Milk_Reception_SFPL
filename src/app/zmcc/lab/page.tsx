@@ -1,14 +1,15 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, useCallback, useRef, Suspense, useMemo } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { User } from '@core/types';
 import { Header } from '@modules/shared/Header';
-import { Sidebar } from '@modules/shared/Sidebar';
+import { HierarchicalNavDrawer } from '@modules/shared/navigation/HierarchicalNavDrawer';
 import { ZmccLabWorkspace } from '@/frontend/modules/zmcc/lab/ZmccLabWorkspace';
 
-export default function ZmccLabPage() {
+function ZmccLabContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -67,7 +68,17 @@ export default function ZmccLabPage() {
 
   const closeDrawer = useCallback(() => {
     setIsDrawerOpen(false);
+    setTimeout(() => {
+      hamburgerButtonRef.current?.focus();
+    }, 0);
   }, []);
+
+  const tab = searchParams?.get('tab')?.toLowerCase() || 'queue';
+  const subpageTitle = useMemo(() => {
+    if (tab === 'testing') return 'Testing Station';
+    if (tab === 'history') return 'Test History';
+    return 'Arrivals Queue';
+  }, [tab]);
 
   if (loading) {
     return (
@@ -83,6 +94,7 @@ export default function ZmccLabPage() {
 
   return (
     <div className="w-full max-w-full flex flex-col h-screen bg-[#FDFBF9] text-[#111311] overflow-hidden font-sans">
+      {/* Header */}
       <Header
         currentUser={currentUser}
         title="ZMCC Laboratory Station"
@@ -92,38 +104,42 @@ export default function ZmccLabPage() {
         menuButtonRef={hamburgerButtonRef}
       />
 
-      <div className="flex-1 flex overflow-hidden">
-        <aside className="hidden lg:block w-72 bg-white border-r border-[#EAE4D5] shrink-0 overflow-y-auto p-4">
-          <Sidebar currentUser={currentUser} activeCount={0} />
-        </aside>
+      {/* Accessible Hierarchical Navigation Drawer */}
+      <HierarchicalNavDrawer
+        currentUser={currentUser}
+        isOpen={isDrawerOpen}
+        onClose={closeDrawer}
+        triggerButtonRef={hamburgerButtonRef}
+      />
 
-        {isDrawerOpen && (
-          <div
-            className="fixed inset-0 z-50 flex lg:hidden"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Mobile Navigation"
-          >
-            <div
-              className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
-              onClick={closeDrawer}
-              aria-hidden="true"
-            />
-            <div className="relative z-50 w-72 max-w-[80vw] bg-white h-full p-4 overflow-y-auto shadow-2xl border-r border-[#EAE4D5]">
-              <Sidebar
-                currentUser={currentUser}
-                activeCount={0}
-                isMobileOpen={isDrawerOpen}
-                onCloseMobile={closeDrawer}
-              />
-            </div>
-          </div>
-        )}
+      {/* Main Full-Width Responsive Area */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Compact Breadcrumb Header */}
+        <div className="bg-white border-b border-[#EAE4D5] px-4 sm:px-6 py-2 shrink-0 shadow-xs flex items-center justify-between">
+          <nav aria-label="Breadcrumb" className="flex items-center space-x-2 text-xs font-bold text-slate-500">
+            <span>ZMCC Lab</span>
+            <span className="text-slate-300">/</span>
+            <span>Laboratory</span>
+            <span className="text-slate-300">/</span>
+            <span className="text-[#1E3A8A] font-black">{subpageTitle}</span>
+          </nav>
+          <span className="text-[11px] font-mono text-slate-400">
+            {currentUser.procurement_source?.name || 'ZMCC'}
+          </span>
+        </div>
 
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 w-full max-w-full space-y-4">
           <ZmccLabWorkspace currentUser={currentUser} />
         </main>
       </div>
     </div>
+  );
+}
+
+export default function ZmccLabPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#FDFBF9] flex items-center justify-center p-8 text-center text-xs font-bold text-slate-500">Loading ZMCC Laboratory Station...</div>}>
+      <ZmccLabContent />
+    </Suspense>
   );
 }

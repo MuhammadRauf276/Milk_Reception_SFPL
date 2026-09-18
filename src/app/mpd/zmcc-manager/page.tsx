@@ -57,5 +57,9 @@ export default function ZMCCManagerPage() {
     return null;
   }
 
-  return <ZMCCManagerWorkspace currentUser={user} />;
+  return (
+    <React.Suspense fallback={<div className="min-h-screen bg-[#FDFBF9] flex items-center justify-center p-8 text-center text-xs font-bold text-slate-500">Loading ZMCC Manager Station...</div>}>
+      <ZMCCManagerWorkspace currentUser={user} />
+    </React.Suspense>
+  );
 }

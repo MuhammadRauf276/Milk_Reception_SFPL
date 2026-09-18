@@ -52,15 +52,29 @@ interface ReadyForExitVisit {
   net_weight_kg: number | null;
 }
 
+export type SecurityTab = 'WAITING_ENTRY' | 'INSIDE_PLANT' | 'READY_EXIT';
+
 interface SecurityGatewayWorkspaceProps {
   logs?: any[];
   currentUser?: User | null;
+  activeTab?: SecurityTab;
+  onTabChange?: (tab: SecurityTab) => void;
   onIssueToken?: (logId: number, tokenNumber: string, igpDate: string, igpTime: string) => Promise<void>;
   onLogGateOut?: (logId: number, outTime: string) => Promise<void>;
 }
 
-export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> = ({ currentUser }) => {
-  const [activeTab, setActiveTab] = useState<'WAITING_ENTRY' | 'INSIDE_PLANT' | 'READY_EXIT'>('WAITING_ENTRY');
+export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> = ({
+  currentUser,
+  activeTab: controlledTab,
+  onTabChange,
+}) => {
+  const [internalTab, setInternalTab] = useState<SecurityTab>('WAITING_ENTRY');
+  const activeTab = controlledTab || internalTab;
+
+  const setActiveTab = (tab: SecurityTab) => {
+    setInternalTab(tab);
+    if (onTabChange) onTabChange(tab);
+  };
 
   // Search Queries
   const [entrySearchQuery, setEntrySearchQuery] = useState('');

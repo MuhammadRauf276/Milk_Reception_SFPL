@@ -95,12 +95,27 @@ interface SiloIssueHistoryDef {
   operator_name: string;
 }
 
+export type ProductionTab = 'READY' | 'UNLOADING' | 'SILO_ISSUE';
+
 interface ProductionUnloadingWorkspaceProps {
-  currentUser: User | null;
+  logs?: any[];
+  currentUser?: User | null;
+  activeTab?: ProductionTab;
+  onTabChange?: (tab: ProductionTab) => void;
 }
 
-export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspaceProps> = ({ currentUser }) => {
-  const [activeTab, setActiveTab] = useState<'READY' | 'UNLOADING' | 'SILO_ISSUE'>('READY');
+export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspaceProps> = ({
+  currentUser,
+  activeTab: controlledTab,
+  onTabChange,
+}) => {
+  const [internalTab, setInternalTab] = useState<ProductionTab>('READY');
+  const activeTab = controlledTab !== undefined ? controlledTab : internalTab;
+
+  const setActiveTab = (tab: ProductionTab) => {
+    setInternalTab(tab);
+    if (onTabChange) onTabChange(tab);
+  };
   const [searchQuery, setSearchQuery] = useState('');
 
   // Tab 1 (Ready) state

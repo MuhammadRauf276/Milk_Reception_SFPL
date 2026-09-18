@@ -150,11 +150,17 @@ interface JourneyItem {
 interface MotOperationsWorkspaceProps {
   currentUser: User | null;
   initialTab?: MotWorkspaceTab;
+  activeTab?: MotWorkspaceTab;
+  onTabChange?: (tab: MotWorkspaceTab) => void;
+  hideTabBar?: boolean;
 }
 
 export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
   currentUser,
   initialTab = 'DISPATCH',
+  activeTab: controlledTab,
+  onTabChange,
+  hideTabBar = false,
 }) => {
   const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
   const isZmccManager = currentUser?.role === 'ZMCC_MANAGER';
@@ -178,7 +184,23 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
     return tabs;
   }, [isPheOperator]);
 
-  const [activeTab, setActiveTab] = useState<MotWorkspaceTab>(initialTab);
+  const [internalTab, setInternalTab] = useState<MotWorkspaceTab>(
+    controlledTab || initialTab
+  );
+  const activeTab = controlledTab || internalTab;
+
+  const setActiveTab = (tab: MotWorkspaceTab) => {
+    setInternalTab(tab);
+    if (onTabChange) onTabChange(tab);
+  };
+
+  useEffect(() => {
+    if (controlledTab) {
+      setInternalTab(controlledTab);
+      setError(null);
+      setSuccessMessage(null);
+    }
+  }, [controlledTab]);
   const [selectedMapJourneyId, setSelectedMapJourneyId] = useState<string | null>(null);
 
   // ZMCC Scope
@@ -680,31 +702,33 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
       )}
 
       {/* Tabs */}
-      <div className="flex flex-wrap gap-1.5 p-1.5 bg-[#F4F0E6]/50 rounded-2xl border border-[#EAE4D5]">
-        {permittedTabs.map((tab) => {
-          const IconComp = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => {
-                setActiveTab(tab.id);
-                setError(null);
-                setSuccessMessage(null);
-              }}
-              className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all ${
-                isActive
-                  ? 'bg-[#1E3A8A] text-white shadow-xs'
-                  : 'bg-transparent text-slate-700 hover:bg-white/80 hover:text-[#111311]'
-              }`}
-            >
-              <IconComp className="w-4 h-4" />
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
-      </div>
+      {!hideTabBar && (
+        <div className="flex flex-wrap gap-1.5 p-1.5 bg-[#F4F0E6]/50 rounded-2xl border border-[#EAE4D5]">
+          {permittedTabs.map((tab) => {
+            const IconComp = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => {
+                  setActiveTab(tab.id);
+                  setError(null);
+                  setSuccessMessage(null);
+                }}
+                className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all ${
+                  isActive
+                    ? 'bg-[#1E3A8A] text-white shadow-xs'
+                    : 'bg-transparent text-slate-700 hover:bg-white/80 hover:text-[#111311]'
+                }`}
+              >
+                <IconComp className="w-4 h-4" />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* TAB 1: ASSIGN & DISPATCH */}
       {activeTab === 'DISPATCH' && (

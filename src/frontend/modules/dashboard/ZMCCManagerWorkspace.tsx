@@ -1,8 +1,10 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { MilkProcessLog, User } from '@backend/core/types';
 import { Header } from '@modules/shared/Header';
+import { HierarchicalNavDrawer } from '@modules/shared/navigation/HierarchicalNavDrawer';
 import { ZMCCManagerOverview } from './zmcc/ZMCCManagerOverview';
 import { ZMCCManagerLiveDispatches } from './zmcc/ZMCCManagerLiveDispatches';
 import { ZMCCManagerReconciliation } from './zmcc/ZMCCManagerReconciliation';
@@ -48,6 +50,7 @@ const TABS: { id: ZMCCManagerTab; label: string; icon: React.FC<{ className?: st
 export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
   currentUser,
 }) => {
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<ZMCCManagerTab>('OVERVIEW');
   const [historyView, setHistoryView] = useState<ManagerHistoryView>('PLANT_HISTORY');
   const [summaryDateRange, setSummaryDateRange] = useState<OverviewDateRange>('TODAY');
@@ -55,8 +58,29 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
   const [serverCalendarDate, setServerCalendarDate] = useState<string>('');
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
   const hamburgerButtonRef = useRef<HTMLButtonElement | null>(null);
-  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
-  const drawerRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const rawTab = searchParams?.get('tab')?.toUpperCase();
+    if (
+      rawTab &&
+      (rawTab === 'OVERVIEW' ||
+        rawTab === 'LIVE' ||
+        rawTab === 'RECONCILIATION' ||
+        rawTab === 'HISTORY' ||
+        rawTab === 'MASTER_DATA')
+    ) {
+      setActiveTab(rawTab as ZMCCManagerTab);
+    }
+    const rawView = searchParams?.get('view')?.toUpperCase();
+    if (
+      rawView &&
+      (rawView === 'PLANT_HISTORY' ||
+        rawView === 'ARRIVAL_CORRECTIONS' ||
+        rawView === 'LAB_CORRECTIONS')
+    ) {
+      setHistoryView(rawView as ManagerHistoryView);
+    }
+  }, [searchParams]);
 
   // 1. Independent Live State
   const [liveLogs, setLiveLogs] = useState<MilkProcessLog[]>([]);
@@ -125,64 +149,37 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
     }, 0);
   }, []);
 
-  // Keyboard navigation & Focus management for Navigation Drawer
-  useEffect(() => {
-    if (isDrawerOpen) {
-      const originalOverflow = document.body.style.overflow;
-      document.body.style.overflow = 'hidden';
-
-      // Move focus into the drawer when opened
-      const focusTimer = setTimeout(() => {
-        closeButtonRef.current?.focus();
-      }, 50);
-
-      // Close drawer on Escape key press and restore focus to hamburger trigger
-      const handleKeyDown = (e: KeyboardEvent) => {
-        if (e.key === 'Escape') {
-          e.preventDefault();
-          closeDrawer();
-        }
-      };
-
-      window.addEventListener('keydown', handleKeyDown);
-      return () => {
-        clearTimeout(focusTimer);
-        document.body.style.overflow = originalOverflow;
-        window.removeEventListener('keydown', handleKeyDown);
-      };
+  const { sectionTitle, subpageTitle } = useMemo(() => {
+    if (activeTab === 'OVERVIEW') return { sectionTitle: 'Overview', subpageTitle: null };
+    if (activeTab === 'LIVE') return { sectionTitle: 'Live Operations', subpageTitle: null };
+    if (activeTab === 'RECONCILIATION') return { sectionTitle: 'Reconciliation', subpageTitle: null };
+    if (activeTab === 'HISTORY') {
+      const hTitle =
+        historyView === 'ARRIVAL_CORRECTIONS'
+          ? 'Arrival Corrections'
+          : historyView === 'LAB_CORRECTIONS'
+          ? 'Lab Corrections'
+          : 'Plant History';
+      return { sectionTitle: 'History & Reports', subpageTitle: hTitle };
     }
-  }, [isDrawerOpen, closeDrawer]);
-
-  // Focus trap: keep Tab and Shift+Tab inside the open drawer
-  const handleDrawerKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
-    if (e.key !== 'Tab') return;
-    if (!drawerRef.current) return;
-
-    const focusableElements = drawerRef.current.querySelectorAll<HTMLElement>(
-      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-    );
-    if (focusableElements.length === 0) return;
-
-    const firstElement = focusableElements[0];
-    const lastElement = focusableElements[focusableElements.length - 1];
-
-    if (e.shiftKey) {
-      if (document.activeElement === firstElement) {
-        e.preventDefault();
-        lastElement.focus();
-      }
-    } else {
-      if (document.activeElement === lastElement) {
-        e.preventDefault();
-        firstElement.focus();
-      }
+    if (activeTab === 'MASTER_DATA') {
+      const rawView = searchParams?.get('view')?.toUpperCase();
+      const mTitle =
+        rawView === 'ROUTES'
+          ? 'Routes'
+          : rawView === 'AREAS'
+          ? 'Areas'
+          : rawView === 'MILK_SOURCES'
+          ? 'Milk Sources'
+          : rawView === 'SHOPS'
+          ? 'Shops'
+          : rawView === 'TANKS'
+          ? 'Tanks'
+          : 'Local Suppliers';
+      return { sectionTitle: 'Master Data', subpageTitle: mTitle };
     }
-  };
-
-  const handleSelectTab = (tabId: ZMCCManagerTab) => {
-    setActiveTab(tabId);
-    closeDrawer();
-  };
+    return { sectionTitle: 'Overview', subpageTitle: null };
+  }, [activeTab, historyView, searchParams]);
 
   // Fetch Live Logs: Mode 'live' active pipeline only
   const fetchLiveLogs = useCallback(async () => {
@@ -414,86 +411,31 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
         menuButtonRef={hamburgerButtonRef}
       />
 
-      {/* Accessible Navigation Drawer */}
-      {isDrawerOpen && (
-        <div
-          className="fixed inset-0 z-50 flex"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Navigation Drawer"
-          onKeyDown={handleDrawerKeyDown}
-        >
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
-            onClick={closeDrawer}
-            aria-hidden="true"
-          />
+      {/* Accessible Hierarchical Navigation Drawer */}
+      <HierarchicalNavDrawer
+        currentUser={currentUser}
+        isOpen={isDrawerOpen}
+        onClose={closeDrawer}
+        triggerButtonRef={hamburgerButtonRef}
+      />
 
-          {/* Drawer Panel */}
-          <aside
-            ref={drawerRef}
-            className="relative z-50 w-80 max-w-[85vw] sm:max-w-[320px] bg-[#FFFFFF] border-r border-[#C4B9A3] shadow-2xl flex flex-col p-4 sm:p-5 text-[#111311] overflow-y-auto h-full"
-          >
-            <div className="space-y-5">
-              {/* Drawer Header: Corporate Branding + Close Button */}
-              <div className="flex items-start justify-between pb-4 border-b border-[#EAE4D5]">
-                <div className="flex items-center space-x-3 min-w-0">
-                  <div className="p-2.5 bg-[#1E3A8A] rounded-xl shadow-xs text-white shrink-0">
-                    <Milk className="w-5 h-5 sm:w-6 sm:h-6" />
-                  </div>
-                  <div className="min-w-0">
-                    <span className="font-extrabold text-sm sm:text-base leading-tight block text-[#111311] truncate">
-                      Shakarganj
-                    </span>
-                    <span className="text-[9px] sm:text-[10px] uppercase font-extrabold text-slate-500 tracking-wider block truncate">
-                      Food Products Limited
-                    </span>
-                  </div>
-                </div>
-                <button
-                  ref={closeButtonRef}
-                  type="button"
-                  onClick={closeDrawer}
-                  className="min-h-[44px] min-w-[44px] p-2.5 rounded-xl border border-[#EAE4D5] bg-[#FDFBF9] text-slate-700 hover:bg-[#F4F0E6] hover:text-[#111311] transition flex items-center justify-center shrink-0 focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
-                  aria-label="Close navigation drawer"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              {/* Navigation */}
-              <nav aria-label="Navigation" className="space-y-1.5">
-                {TABS.map((tab) => {
-                  const IconComponent = tab.icon;
-                  const isActive = activeTab === tab.id;
-                  return (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      onClick={() => handleSelectTab(tab.id)}
-                      className={`w-full min-h-[44px] flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-black transition-all border text-left ${
-                        isActive
-                          ? 'bg-[#1E3A8A] text-white border-[#1E3A8A] shadow-md'
-                          : 'bg-[#FDFBF9] text-[#111311] border-[#EAE4D5] hover:bg-[#F4F0E6] hover:border-[#C4B9A3]'
-                      }`}
-                      aria-current={isActive ? 'page' : undefined}
-                    >
-                      <div className="flex items-center space-x-3">
-                        <IconComponent className={`w-4 h-4 ${isActive ? 'text-white' : 'text-[#1E3A8A]'}`} />
-                        <span className="truncate">{tab.label}</span>
-                      </div>
-                      {isActive && (
-                        <span className="w-2 h-2 rounded-full bg-emerald-400 ring-4 ring-emerald-400/30 shrink-0" />
-                      )}
-                    </button>
-                  );
-                })}
-              </nav>
-            </div>
-          </aside>
-        </div>
-      )}
+      {/* Compact Breadcrumb Header */}
+      <div className="bg-white border-b border-[#EAE4D5] px-4 sm:px-6 py-2 shrink-0 shadow-xs flex items-center justify-between">
+        <nav aria-label="Breadcrumb" className="flex items-center space-x-2 text-xs font-bold text-slate-500">
+          <span>ZMCC Manager</span>
+          <span className="text-slate-300">/</span>
+          <span className={subpageTitle ? 'text-slate-500' : 'text-[#1E3A8A] font-black'}>{sectionTitle}</span>
+          {subpageTitle && (
+            <>
+              <span className="text-slate-300">/</span>
+              <span className="text-[#1E3A8A] font-black">{subpageTitle}</span>
+            </>
+          )}
+        </nav>
+        <span className="text-[11px] font-mono text-slate-400">
+          {assignedSourceName}
+        </span>
+      </div>
 
       {/* Main Content Area */}
       <main className="flex-1 p-3 sm:p-6 overflow-y-auto space-y-5 sm:space-y-6 w-full max-w-full">
@@ -642,7 +584,12 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
         {/* TAB 5: MASTER DATA */}
         {activeTab === 'MASTER_DATA' && (
           <div id="tabpanel-MASTER_DATA" role="tabpanel" aria-labelledby="tab-MASTER_DATA" className="space-y-6">
-            <ZmccMasterDataWorkspace currentUser={currentUser} />
+            <ZmccMasterDataWorkspace
+              currentUser={currentUser}
+              activeTab={
+                (searchParams?.get('view')?.toUpperCase() as any) || undefined
+              }
+            />
           </div>
         )}
 

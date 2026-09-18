@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { User } from '@core/types';
 import { Header } from '@modules/shared/Header';
-import { Sidebar } from '@modules/shared/Sidebar';
+import { HierarchicalNavDrawer } from '@modules/shared/navigation/HierarchicalNavDrawer';
 import {
   Truck,
   MapPin,
@@ -505,31 +505,15 @@ export default function MotDriverPage() {
         menuButtonRef={hamburgerButtonRef}
       />
 
-      <div className="flex-1 flex overflow-hidden">
-        {/* Navigation Drawer */}
-        {isDrawerOpen && (
-          <div
-            className="fixed inset-0 z-50 flex"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Navigation Drawer"
-          >
-            <div
-              className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
-              onClick={closeDrawer}
-              aria-hidden="true"
-            />
-            <aside className="relative z-50 w-72 max-w-[80vw] bg-white h-full p-4 overflow-y-auto shadow-2xl border-r border-[#EAE4D5]">
-              <Sidebar
-                currentUser={currentUser}
-                activeCount={0}
-                isMobileOpen={isDrawerOpen}
-                onCloseMobile={closeDrawer}
-              />
-            </aside>
-          </div>
-        )}
+      {/* Accessible Hierarchical Navigation Drawer */}
+      <HierarchicalNavDrawer
+        currentUser={currentUser}
+        isOpen={isDrawerOpen}
+        onClose={closeDrawer}
+        triggerButtonRef={hamburgerButtonRef}
+      />
 
+      <div className="flex-1 flex overflow-hidden">
         {/* Main Content Area */}
         <main className="flex-1 overflow-y-auto p-3 sm:p-5 lg:p-6 w-full max-w-5xl mx-auto space-y-4">
           {/* Online/Offline Status & Sync Control Bar */}

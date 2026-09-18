@@ -35,14 +35,28 @@ export type {
   TestInputState,
 };
 
+export type QATab = 'WAITING' | 'IN_TESTING' | 'ON_HOLD';
+
 interface QALaboratoryWorkspaceProps {
   logs?: any[];
   currentUser?: User | null;
+  activeTab?: QATab;
+  onTabChange?: (tab: QATab) => void;
 }
 
-export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ currentUser }) => {
+export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
+  currentUser,
+  activeTab: controlledTab,
+  onTabChange,
+}) => {
   const toast = useToast();
-  const [activeTab, setActiveTab] = useState<'WAITING' | 'IN_TESTING' | 'ON_HOLD'>('WAITING');
+  const [internalTab, setInternalTab] = useState<QATab>('WAITING');
+  const activeTab = controlledTab !== undefined ? controlledTab : internalTab;
+
+  const setActiveTab = (tab: QATab) => {
+    setInternalTab(tab);
+    if (onTabChange) onTabChange(tab);
+  };
   const [searchQuery, setSearchQuery] = useState('');
 
   // Queue Lists

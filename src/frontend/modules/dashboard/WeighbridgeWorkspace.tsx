@@ -5,8 +5,12 @@ import { Search, Scale, RefreshCw, CheckCircle2, Clock, Radio } from 'lucide-rea
 
 import { formatAcceptedQuantitySummary } from '@/backend/modules/dispatch/quantity/dispatchQuantityService';
 
+export type WeighbridgeTab = 'FIRST_WEIGHT' | 'SECOND_WEIGHT';
+
 interface WeighbridgeWorkspaceProps {
   currentUser?: User | null;
+  activeTab?: WeighbridgeTab;
+  onTabChange?: (tab: WeighbridgeTab) => void;
 }
 
 interface FirstWeightPortion {
@@ -84,8 +88,18 @@ function formatDuration(minutes: number): string {
   return remainingHours > 0 ? `${days}d ${remainingHours}h` : `${days}d`;
 }
 
-export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({ currentUser }) => {
-  const [activeTab, setActiveTab] = useState<'FIRST_WEIGHT' | 'SECOND_WEIGHT'>('FIRST_WEIGHT');
+export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({
+  currentUser,
+  activeTab: controlledTab,
+  onTabChange,
+}) => {
+  const [internalTab, setInternalTab] = useState<WeighbridgeTab>('FIRST_WEIGHT');
+  const activeTab = controlledTab !== undefined ? controlledTab : internalTab;
+
+  const setActiveTab = (tab: WeighbridgeTab) => {
+    setInternalTab(tab);
+    if (onTabChange) onTabChange(tab);
+  };
   
   // Queues
   const [firstWeightVisits, setFirstWeightVisits] = useState<FirstWeightVisit[]>([]);

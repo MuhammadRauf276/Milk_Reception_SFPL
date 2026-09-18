@@ -21,6 +21,7 @@ interface DispatchRecord {
   vehicle_dispatch_lr?: number | null;
   vehicle_dispatch_density?: number | null;
   vehicle_dispatch_gross_liters?: number | null;
+  vehicle_dispatch_at_13ts_liters?: number | null;
   zonal_contractor_name: string;
   zonal_contractor_dispatch_time: string | null;
   has_gate_entry: boolean;
