@@ -95,12 +95,27 @@ interface SiloIssueHistoryDef {
   operator_name: string;
 }
 
+export type ProductionTab = 'READY' | 'UNLOADING' | 'SILO_ISSUE';
+
 interface ProductionUnloadingWorkspaceProps {
-  currentUser: User | null;
+  logs?: any[];
+  currentUser?: User | null;
+  activeTab?: ProductionTab;
+  onTabChange?: (tab: ProductionTab) => void;
 }
 
-export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspaceProps> = ({ currentUser }) => {
-  const [activeTab, setActiveTab] = useState<'READY' | 'UNLOADING' | 'SILO_ISSUE'>('READY');
+export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspaceProps> = ({
+  currentUser,
+  activeTab: controlledTab,
+  onTabChange,
+}) => {
+  const [internalTab, setInternalTab] = useState<ProductionTab>('READY');
+  const activeTab = controlledTab !== undefined ? controlledTab : internalTab;
+
+  const setActiveTab = (tab: ProductionTab) => {
+    setInternalTab(tab);
+    if (onTabChange) onTabChange(tab);
+  };
   const [searchQuery, setSearchQuery] = useState('');
 
   // Tab 1 (Ready) state
@@ -520,9 +535,9 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
           </button>
         </div>
 
-        <div className="hidden lg:flex items-center space-x-1.5 px-3 py-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 rounded-xl border border-emerald-200 shrink-0">
-          <Radio className="w-3 h-3 animate-pulse text-emerald-600" />
-          <span>Live Bays</span>
+        <div className="hidden lg:flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold text-slate-700 bg-white rounded-xl border border-[#C4B9A3] shrink-0">
+          <Factory className="w-4 h-4 text-slate-600" />
+          <span>Active Bays</span>
         </div>
       </div>
 

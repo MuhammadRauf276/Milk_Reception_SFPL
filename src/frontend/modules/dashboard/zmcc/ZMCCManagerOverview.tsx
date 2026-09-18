@@ -207,13 +207,13 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
           <div className="p-4 rounded-xl bg-[#F0FDF4] border border-[#BBF7D0] shadow-xs flex items-center justify-between">
             <div>
               <p className="text-[10.5px] font-extrabold text-[#166534] uppercase tracking-wider">
-                Today Accepted Intake
+                Today Accepted Intake — Gross Liters
               </p>
               <h2 className="text-xl font-black font-mono text-[#111311] mt-1">
                 {todayAcceptedIntakeLiters != null ? `${todayAcceptedIntakeLiters.toLocaleString()} L` : '—'}
               </h2>
               <span className="text-[10px] font-bold text-[#166534]">
-                Authoritative Accepted Liters
+                Authoritative Accepted Physical Liters
               </span>
             </div>
             <div className="p-2.5 rounded-xl bg-[#FFFFFF] border border-[#BBF7D0] text-[#166534]">
@@ -300,12 +300,12 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
 
         {/* 3. Secondary Quantity & Volume Summary (Missing != Zero) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 pt-2 border-t border-[#EAE4D5]/80 font-mono">
-          {/* Physical Volume Summary */}
+          {/* Physical Milk Truth — Gross Liters */}
           <div className="p-4 rounded-xl bg-[#FDFBF9] border border-[#EAE4D5] space-y-2">
             <div className="flex items-center justify-between font-sans">
               <span className="text-xs font-black text-[#111311] flex items-center gap-1.5">
                 <Scale className="w-4 h-4 text-[#1E3A8A]" />
-                <span>Physical Volume Summary ({pagination && pagination.totalPages > 1 ? 'Current Page' : dateRange})</span>
+                <span>Physical Milk Truth — Gross Liters ({pagination && pagination.totalPages > 1 ? 'Current Page' : dateRange})</span>
               </span>
               <span className="text-[10px] font-bold text-slate-500">
                 {pagination && pagination.totalPages > 1
@@ -351,12 +351,12 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
             </div>
           </div>
 
-          {/* 13% TS Equivalent Volume Summary */}
+          {/* Commercial Milk Truth — @13TS Liters */}
           <div className="p-4 rounded-xl bg-[#FDFBF9] border border-[#EAE4D5] space-y-2">
             <div className="flex items-center justify-between font-sans">
               <span className="text-xs font-black text-[#111311] flex items-center gap-1.5">
                 <FlaskConical className="w-4 h-4 text-[#6B21A8]" />
-                <span>13% TS Volume Summary ({pagination && pagination.totalPages > 1 ? 'Current Page' : dateRange})</span>
+                <span>Commercial Milk Truth — @13TS Liters ({pagination && pagination.totalPages > 1 ? 'Current Page' : dateRange})</span>
               </span>
               <span className="text-[10px] font-bold text-slate-500">
                 {pagination && pagination.totalPages > 1
@@ -366,7 +366,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
             </div>
             <div className="grid grid-cols-3 gap-2 text-xs pt-1">
               <div>
-                <span className="text-[9.5px] text-slate-500 font-sans block">Dispatch @ 13% TS:</span>
+                <span className="text-[9.5px] text-slate-500 font-sans block">Dispatch @13TS:</span>
                 <span className="font-black text-[#111311]">
                   {metrics.totalDispatch13TsLiters != null
                     ? `${metrics.totalDispatch13TsLiters.toLocaleString()} L`
@@ -374,7 +374,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
                 </span>
               </div>
               <div>
-                <span className="text-[9.5px] text-slate-500 font-sans block">Plant @ 13% TS:</span>
+                <span className="text-[9.5px] text-slate-500 font-sans block">Plant @13TS:</span>
                 <span className="font-black text-[#6B21A8]">
                   {metrics.totalPlant13TsLiters != null
                     ? `${metrics.totalPlant13TsLiters.toLocaleString()} L`

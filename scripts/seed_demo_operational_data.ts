@@ -7,6 +7,7 @@ import {
   calculatePhysicalLiters,
   calculateAt13TSLiters,
   computeCanonicalMilkMetrics,
+  calculateGrossLiters,
 } from '../src/backend/utils/milkFormulas';
 import {
   calculateVehicleReceivedQuantity,
@@ -14,6 +15,7 @@ import {
 } from '../src/backend/services/vehicleQuantityService';
 import { getOperationalBusinessDate, getPakistanCalendarDate } from '../src/backend/core/business-day';
 import { parseStrictDateOnly } from '../src/lib/datetime-utils';
+import { getTankPhysicalStock, getTankCommercialStock } from '../src/backend/services/zmccTankService';
 
 export async function seedOperationalData() {
   console.log('==================================================');
@@ -110,6 +112,8 @@ export async function seedOperationalData() {
   let finalReceiptsCount = 0;
   let qaEventsCount = 0;
   const sourceStats: Record<string, number> = {};
+  let visit10Record: any = null;
+  let visit20Record: any = null;
 
   console.log('Seeding 75 realistic, deterministic vehicle journeys...\n');
 
@@ -169,9 +173,22 @@ export async function seedOperationalData() {
 
     // Assigned Procurement Source
     // Assign visit 74 (PLANT_QA) to ZMCC Hasilpur for live active tanker visibility in Hasilpur overview
-    const sourceObj = i === 74
+    let sourceObj = i === 74
       ? (sources.find((s) => s.code === 'ZMCC-HASILPUR') || sources[(i - 1) % sources.length])
       : sources[(i - 1) % sources.length];
+
+    // Scenario ZMCC-KG: Visit 10 / ZMCC source (bound to ZMCC Hasilpur)
+    if (i === 10) {
+      sourceObj = sources.find((s) => s.code === 'ZMCC-HASILPUR') || sources.find((s) => s.source_type === 'ZMCC') || sourceObj;
+    }
+    // Scenario A: Visit 20 / ZMCC source (bound to ZMCC Hasilpur)
+    if (i === 20) {
+      sourceObj = sources.find((s) => s.code === 'ZMCC-HASILPUR') || sources.find((s) => s.source_type === 'ZMCC') || sourceObj;
+    }
+    // Scenario C: Visit 40 / Contractor source
+    if (i === 40) {
+      sourceObj = sources.find((s) => s.source_type === 'CONTRACTOR') || sourceObj;
+    }
     sourceStats[sourceObj.name] = (sourceStats[sourceObj.name] || 0) + 1;
 
     // Vehicle details
@@ -185,12 +202,66 @@ export async function seedOperationalData() {
 
     // Portion count & quantities (Vehicle 10, 20, 30, 40, 50 have 2 portions)
     const hasTwoPortions = i % 10 === 0;
-    const totalDeclaredKg = 7000 + ((i * 350) % 7500); // 7,000 to 14,500 kg
+    let totalDeclaredKg = 7000 + ((i * 350) % 7500); // 7,000 to 14,500 kg
+    let vehicleQtyUnit: 'KG' | 'LITER' = 'KG';
+    const vehicleQtyBasis = 'MEASURED' as const;
+
+    let portion1Qty = hasTwoPortions ? Math.round(totalDeclaredKg / 2) : totalDeclaredKg;
+    let portion2Qty = hasTwoPortions ? Math.round(totalDeclaredKg / 2) : 0;
+    let portionUnit: 'KG' | 'LITER' = 'KG';
+    let portionBasis: 'MEASURED' | 'ESTIMATED' = 'MEASURED';
+
+    if (i === 10) {
+      // Scenario ZMCC-KG: ZMCC Hasilpur, 10,000 KG MEASURED vehicle issue vs 2 ESTIMATED portions (5,000 KG + 4,800 KG = 9,800 KG, diff = +200 KG)
+      // Authoritative LR = 28.00 -> Density = 1.0280 -> Converted Gross Liters = 9,727.63 L
+      totalDeclaredKg = 10000;
+      vehicleQtyUnit = 'KG';
+      portion1Qty = 5000;
+      portion2Qty = 4800;
+      portionUnit = 'KG';
+      portionBasis = 'ESTIMATED';
+    } else if (i === 20) {
+      // Scenario A: ZMCC source, 8,000 L MEASURED vehicle issue vs 2 ESTIMATED portions (4,000 L + 3,850 L = 7,850 L, diff = +150 L)
+      totalDeclaredKg = 8000;
+      vehicleQtyUnit = 'LITER';
+      portion1Qty = 4000;
+      portion2Qty = 3850;
+      portionUnit = 'LITER';
+      portionBasis = 'ESTIMATED';
+    } else if (i === 30) {
+      // Scenario B: 9,000 L MEASURED vehicle issue vs 2 MEASURED portions (4,500 L + 4,500 L = 9,000 L, diff = 0)
+      totalDeclaredKg = 9000;
+      vehicleQtyUnit = 'LITER';
+      portion1Qty = 4500;
+      portion2Qty = 4500;
+      portionUnit = 'LITER';
+      portionBasis = 'MEASURED';
+    } else if (i === 40) {
+      // Scenario C: Contractor source, 10,000 L MEASURED vehicle issue vs 2 ESTIMATED portions (5,100 L + 4,800 L = 9,900 L, diff = +100 L)
+      totalDeclaredKg = 10000;
+      vehicleQtyUnit = 'LITER';
+      portion1Qty = 5100;
+      portion2Qty = 4800;
+      portionUnit = 'LITER';
+      portionBasis = 'ESTIMATED';
+    }
 
     // Authoritative Plant Business Date: strictly assigned upon Plant Gate Exit completion; in-progress visits remain null
     const plantBusinessDate = targetStatus === 'COMPLETED'
       ? parseStrictDateOnly(getOperationalBusinessDate(gateExitTime))
       : null;
+
+    const demoLr = 28.00;
+    const demoFat = 3.80;
+    const vMetrics = computeCanonicalMilkMetrics(totalDeclaredKg, vehicleQtyUnit, demoLr, demoFat);
+    const vehicleDispatchLr = demoLr;
+    const vehicleDispatchFat = demoFat;
+    const vehicleDispatchDensity = vMetrics.density;
+    const vehicleDispatchGrossLiters = vMetrics.grossLiters;
+    const vehicleDispatchSnf = vMetrics.snf;
+    const vehicleDispatchTs = vMetrics.ts;
+    const vehicleDispatchAt13ts = vMetrics.at13tsLiters;
+    const vehicleDispatchVersion = vMetrics.calculationVersion;
 
     // Create VehicleVisit
     const visit = await prisma.vehicleVisit.create({
@@ -204,19 +275,33 @@ export async function seedOperationalData() {
         created_by: mpdUser.id,
         procurement_source_id: sourceObj.id,
         vehicle_dispatch_quantity_value: totalDeclaredKg,
-        vehicle_dispatch_quantity_unit: 'KG',
-        vehicle_dispatch_quantity_basis: 'MEASURED',
+        vehicle_dispatch_quantity_unit: vehicleQtyUnit,
+        vehicle_dispatch_quantity_basis: vehicleQtyBasis,
+        vehicle_dispatch_lr: vehicleDispatchLr,
+        vehicle_dispatch_fat: vehicleDispatchFat,
+        vehicle_dispatch_density: vehicleDispatchDensity,
+        vehicle_dispatch_gross_liters: vehicleDispatchGrossLiters,
+        vehicle_dispatch_snf: vehicleDispatchSnf,
+        vehicle_dispatch_ts: vehicleDispatchTs,
+        vehicle_dispatch_at_13ts_liters: vehicleDispatchAt13ts,
+        vehicle_dispatch_calculation_version: vehicleDispatchVersion,
         created_at: dispatchTime,
         updated_at: targetStatus === 'COMPLETED' ? gateExitTime : qaCompleteTime,
       },
     });
 
     createdVisits++;
+    if (i === 10) {
+      visit10Record = visit;
+    }
+    if (i === 20) {
+      visit20Record = visit;
+    }
 
     // Create Portions & Dispatch Info
     const portionCount = hasTwoPortions ? 2 : 1;
     for (let pIdx = 1; pIdx <= portionCount; pIdx++) {
-      const portionKg = hasTwoPortions ? Math.round(totalDeclaredKg / 2) : totalDeclaredKg;
+      const portionVal = pIdx === 1 ? portion1Qty : portion2Qty;
 
       // Portion decision
       let portionDecision = 'ACCEPTED';
@@ -234,9 +319,9 @@ export async function seedOperationalData() {
         data: {
           visit_id: visit.id,
           portion_number: pIdx,
-          dispatch_quantity_value: portionKg,
-          dispatch_quantity_unit: 'KG',
-          dispatch_quantity_basis: 'MEASURED',
+          dispatch_quantity_value: portionVal,
+          dispatch_quantity_unit: portionUnit,
+          dispatch_quantity_basis: portionBasis,
           current_status: portionStatus,
           plant_decision: targetStatus === 'TOKEN_ISSUED' || targetStatus === 'PLANT_QA' ? 'PENDING' : portionDecision,
           plant_rejection_reason: portionDecision === 'REJECTED' ? 'COB Positive & High Acidity. Off-flavor detected during organoleptic testing.' : null,
@@ -260,7 +345,7 @@ export async function seedOperationalData() {
 
       // Dispatch Lab Results
       const fatVal = 3.6 + ((i + pIdx) % 10) * 0.1; // 3.6 - 4.5%
-      const lrVal = 27.5 + ((i + pIdx) % 8) * 0.2; // 27.5 - 29.0
+      const lrVal = i === 10 ? 28.0 : 27.5 + ((i + pIdx) % 8) * 0.2; // 27.5 - 29.0
       const tempVal = 4.0 + (i % 4) * 0.5;
       const acidVal = 0.12 + (i % 3) * 0.01;
 
@@ -595,6 +680,74 @@ export async function seedOperationalData() {
         created_by_user_id: zmccManager.id,
       },
     });
+  }
+
+  // Canonical Tank Stock Seeding for ZMCC Hasilpur:
+  // Scenario ZMCC-KG (Visit 10): 10,000 KG @ LR 28.00 -> 9,727.63 Gross Liters ISSUE
+  // Scenario A (Visit 20): 8,000 L Measured -> 8,000.00 Gross Liters ISSUE
+  // Seed opening stock receipt (35,000 L) before the earliest visit dispatch,
+  // followed by canonical whole-vehicle tank ISSUEs in Gross Liters.
+  if (visit10Record || visit20Record) {
+    const openingStockLiters = 35000.0;
+    const openingMetrics = computeCanonicalMilkMetrics(openingStockLiters, 'LITER', 28.00, 3.80);
+    const earliestDate = visit10Record ? visit10Record.created_at : visit20Record.created_at;
+    const openingTimestamp = new Date(earliestDate.getTime() - 3600000); // 1 hr before earliest dispatch
+
+    await prisma.zmccTankInventoryTransaction.create({
+      data: {
+        tank_id: hasilpurTank.id,
+        zmcc_id: hasilpurSource.id,
+        transaction_type: 'RECEIPT',
+        quantity_liters: openingStockLiters,
+        at_13ts_liters: openingMetrics.at13tsLiters, // 33,266.15 L
+        reference_type: 'OPENING_STOCK',
+        reference_id: `INIT-${hasilpurSource.id}`,
+        idempotency_key: `ZMCC_TANK_RECEIPT:OPENING_STOCK:${hasilpurSource.id}`,
+        operational_timestamp: openingTimestamp,
+        performed_by_user_id: zmccManager.id,
+        notes: 'Initial opening stock receipt for Hasilpur storage tank [35,000 L @ LR 28.00, Fat 3.80 -> 33,266.15 @13TS L]',
+      },
+    });
+
+    if (visit10Record) {
+      // Visit 10: 10,000 KG measured -> 9,727.63 Gross Liters, 9,245.73 @13TS L
+      await prisma.zmccTankInventoryTransaction.create({
+        data: {
+          tank_id: hasilpurTank.id,
+          zmcc_id: hasilpurSource.id,
+          transaction_type: 'ISSUE',
+          quantity_liters: Number(visit10Record.vehicle_dispatch_gross_liters), // 9727.63 Gross Liters
+          at_13ts_liters: Number(visit10Record.vehicle_dispatch_at_13ts_liters), // 9245.73 @13TS L
+          dispatch_id: visit10Record.id,
+          reference_type: 'DISPATCH',
+          reference_id: visit10Record.id.toString(),
+          idempotency_key: `ZMCC_TANK_ISSUE:DISPATCH:${visit10Record.id}`,
+          operational_timestamp: visit10Record.created_at,
+          performed_by_user_id: zmccLabUser.id,
+          notes: `Whole-vehicle dispatch issue for visit ${visit10Record.visit_number} (${visit10Record.vehicle_number}) [10,000 KG @ LR 28.00, Fat 3.80 -> 9,727.63 Gross L, 9,245.73 @13TS L]`,
+        },
+      });
+    }
+
+    if (visit20Record) {
+      // Visit 20: 8,000 L measured -> 8,000.00 Gross Liters, 7,603.69 @13TS L
+      await prisma.zmccTankInventoryTransaction.create({
+        data: {
+          tank_id: hasilpurTank.id,
+          zmcc_id: hasilpurSource.id,
+          transaction_type: 'ISSUE',
+          quantity_liters: Number(visit20Record.vehicle_dispatch_gross_liters), // 8000.00 Gross Liters
+          at_13ts_liters: Number(visit20Record.vehicle_dispatch_at_13ts_liters), // 7603.69 @13TS L
+          dispatch_id: visit20Record.id,
+          reference_type: 'DISPATCH',
+          reference_id: visit20Record.id.toString(),
+          idempotency_key: `ZMCC_TANK_ISSUE:DISPATCH:${visit20Record.id}`,
+          operational_timestamp: visit20Record.created_at,
+          performed_by_user_id: zmccLabUser.id,
+          notes: `Whole-vehicle dispatch issue for visit ${visit20Record.visit_number} (${visit20Record.vehicle_number}) [8,000 L Measured @ LR 28.00, Fat 3.80 -> 8,000.00 Gross L, 7,603.69 @13TS L]`,
+        },
+      });
+    }
   }
 
   // Ensure active testing policies exist for ZMCC_LAB_MOT and ZMCC_LAB_CONTRACTOR
@@ -981,6 +1134,7 @@ export async function seedOperationalData() {
       zmcc_id: hasilpurSource.id,
       transaction_type: 'RECEIPT',
       quantity_liters: arr3QtyLiters,
+      at_13ts_liters: arr3Metrics.at13tsLiters,
       tank_receipt_id: receipt3.id,
       reference_type: 'ZMCC_LAB_SESSION',
       reference_id: session3.id.toString(),
@@ -1212,6 +1366,7 @@ export async function seedOperationalData() {
       zmcc_id: hasilpurSource.id,
       transaction_type: 'RECEIPT',
       quantity_liters: arr5QtyLiters,
+      at_13ts_liters: arr5Metrics.at13tsLiters,
       tank_receipt_id: receipt5.id,
       reference_type: 'ZMCC_LAB_SESSION',
       reference_id: session5.id.toString(),
@@ -1260,12 +1415,11 @@ export async function seedOperationalData() {
   }
 
   // Verify ZMCC Tank Stock Balance
-  const zmccTankSum = await prisma.zmccTankInventoryTransaction.aggregate({
-    where: { tank_id: hasilpurTank.id },
-    _sum: { quantity_liters: true },
-  });
+  const physicalStock = await getTankPhysicalStock(hasilpurTank.id);
+  const commercialStock = await getTankCommercialStock(hasilpurTank.id);
   console.log(`\nReconciled ZMCC Tank Stock Balance:`);
-  console.log(`  - ${hasilpurTank.tank_code} (${hasilpurTank.tank_name}): Stock Ledger Sum = ${(zmccTankSum._sum.quantity_liters || 0).toLocaleString()} L`);
+  console.log(`  - ${hasilpurTank.tank_code} (${hasilpurTank.tank_name}): Physical Stock Ledger Balance = ${physicalStock.toLocaleString()} Gross L`);
+  console.log(`  - ${hasilpurTank.tank_code} (${hasilpurTank.tank_name}): Commercial Stock Ledger Balance = ${commercialStock.stockAt13Ts !== null ? commercialStock.stockAt13Ts.toLocaleString() : 'INCOMPLETE'} L @13% TS (Complete: ${commercialStock.isComplete})`);
   console.log('==================================================\n');
 
   return {
@@ -1281,7 +1435,9 @@ export async function seedOperationalData() {
       hasilpurArrivals: 5,
       hasilpurLabSessions: 4,
       hasilpurTankReceipts: 2,
-      hasilpurTankStockLiters: Number(zmccTankSum._sum.quantity_liters || 0),
+      hasilpurTankStockLiters: physicalStock,
+      hasilpurTankStockAt13ts: commercialStock.stockAt13Ts,
+      hasilpurTankCommercialComplete: commercialStock.isComplete,
     },
   };
 }

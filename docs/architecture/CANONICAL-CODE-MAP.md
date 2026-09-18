@@ -94,7 +94,7 @@ Being located under `src/app` does **NOT** mean code is current. Every route, AP
 
 ### Canonical APIs (Current Production)
 - `/api/auth/login`, `/api/auth/logout`, `/api/auth/me` — Production session authentication, logout, and token inspection.
-- `/api/dispatches`, `/api/dispatches/start` — MPD dispatch creation and portion initialization.
+- `/api/dispatches`, `/api/dispatches/start` — Canonical field milk dispatch creation and portion initialization. Enforces whole-vehicle dispatch quantity as an authoritative measured fact (`basis = 'MEASURED'`). GET `/api/dispatches` date filtering strictly filters by `DispatchInfo.dispatch_timestamp` in Pakistan calendar date (`Asia/Karachi`), not `created_at` or `operational_date`. Serialized responses expose `dispatch_date` and `dispatch_timestamp`; `operational_date` strictly remains null until Plant Gate Exit.
 - `/api/security/*` — Gate entry, active visits, ready-for-exit, gate exit.
 - `/api/qa/*` — Session management (queues, start, resume), portion QA completion, hold, visit search.
 - `/api/scale/*` — Ready-for-gross, gross-weight, ready-for-tare, tare-weight, open-tickets.
@@ -119,7 +119,7 @@ Being located under `src/app` does **NOT** mean code is current. Every route, AP
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Auth** | `/login` | `LoginPage.tsx` | `/api/auth/*` | `auth.ts`, `jwt-secret.ts`, `role-routing.ts` | Secure JWT cookie, strict role matching |
 | **Business Date** | Core Helper | N/A | Embedded in APIs | `business-day.ts`, `datetime-utils.ts` | 08:00 PKT boundary, Asia/Karachi display |
-| **MPD Dispatch** | `/department/mpd` | `MPDDispatchWorkspace.tsx` | `/api/dispatches*` | `dispatchService.ts`, `validations/dispatch.ts` | ZMCC declared quantities, dispatch test results |
+| **MPD Dispatch** | `/department/mpd` | `MPDDispatchWorkspace.tsx` | `/api/dispatches*` | `dispatchQuantityService.ts`, `quantityPolicyService.ts`, `validations/dispatch.ts` | Authoritative measured whole-vehicle dispatch issue (`basis = 'MEASURED'`), independent composite portions (MEASURED or ESTIMATED), comparison-only reconciliation (anti-derivation: Vehicle Issue = Sum(Portions) forbidden), and PKT calendar dispatch date semantics (`operational_date = null` until plant gate exit). |
 | **Security** | `/department/security` | `SecurityGatewayWorkspace.tsx` | `/api/security/*` | `securityGatewayService.ts`, `reception-number.ts` | Token issuance, chronological gate milestones |
 | **QA Lab** | `/department/qa` | `QALaboratoryWorkspace.tsx` | `/api/qa/*` | `qaSessionService.ts`, `sopRuleEngine.ts` | Session lock, portion-level decisions, LT-000008 / LT-000026 |
 | **Weighbridge** | `/department/weighbridge` | `WeighbridgeWorkspace.tsx` | `/api/scale/*` | `weighbridgeScaleService.ts`, `vehicleQuantityService.ts` | First weight (gross), second weight (tare), net milk weight |

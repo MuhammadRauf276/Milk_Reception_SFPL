@@ -24,13 +24,21 @@ import {
 import { useToast } from '@/frontend/context/ToastContext';
 import { toDatetimeLocalInput, datetimeLocalToIso } from '@/lib/datetime-utils';
 
+export type MainTab = 'MOT_ARRIVAL' | 'LOCAL_SUPPLIER_ARRIVAL' | 'INSIDE_ZMCC' | 'HISTORY';
+
 interface ZmccArrivalsWorkspaceProps {
   currentUser: User | null;
+  activeTab?: MainTab;
+  onTabChange?: (tab: MainTab) => void;
+  hideTabBar?: boolean;
 }
 
-type MainTab = 'MOT_ARRIVAL' | 'LOCAL_SUPPLIER_ARRIVAL' | 'INSIDE_ZMCC' | 'HISTORY';
-
-export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ currentUser }) => {
+export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
+  currentUser,
+  activeTab: controlledTab,
+  onTabChange,
+  hideTabBar = false,
+}) => {
   const toast = useToast();
   const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
   const isZmccManager = currentUser?.role === 'ZMCC_MANAGER';
@@ -38,7 +46,13 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
   const canSubmit = isPheOperator || isSuperAdmin;
   const canCorrect = isZmccManager || isSuperAdmin;
 
-  const [activeTab, setActiveTab] = useState<MainTab>(canSubmit ? 'MOT_ARRIVAL' : 'HISTORY');
+  const [internalTab, setInternalTab] = useState<MainTab>(canSubmit ? 'MOT_ARRIVAL' : 'HISTORY');
+  const activeTab = controlledTab || internalTab;
+
+  const setActiveTab = (tab: MainTab) => {
+    setInternalTab(tab);
+    if (onTabChange) onTabChange(tab);
+  };
 
   // MOT Arrival Form State
   const [arrivingJourneys, setArrivingJourneys] = useState<any[]>([]);
@@ -258,6 +272,14 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
     fetchInsideVehicles();
     fetchHistory();
   }, [canSubmit, fetchArrivingJourneys, fetchLocalSuppliers, fetchInsideVehicles, fetchHistory, initMotForm, initLocalSupplierForm]);
+
+  useEffect(() => {
+    if (activeTab === 'INSIDE_ZMCC') {
+      fetchInsideVehicles();
+    } else if (activeTab === 'HISTORY') {
+      fetchHistory();
+    }
+  }, [activeTab, fetchInsideVehicles, fetchHistory]);
 
   // Gate Exit Modal Controls
   const openExitModal = (arrival: any) => {
@@ -566,65 +588,67 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({ cu
   return (
     <div className="space-y-6">
       {/* Tab Navigation */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#EAE4D5] pb-3">
-        <div className="flex flex-wrap gap-2">
-          {canSubmit && (
-            <>
-              <button
-                type="button"
-                onClick={() => setActiveTab('MOT_ARRIVAL')}
-                className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all ${
-                  activeTab === 'MOT_ARRIVAL'
-                    ? 'bg-[#1E3A8A] text-white shadow-xs'
-                    : 'bg-white text-slate-700 hover:bg-[#F4F0E6] border border-[#EAE4D5]'
-                }`}
-              >
-                <Truck className="w-4 h-4" />
-                <span>Record MOT Arrival</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('LOCAL_SUPPLIER_ARRIVAL')}
-                className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all ${
-                  activeTab === 'LOCAL_SUPPLIER_ARRIVAL'
-                    ? 'bg-emerald-700 text-white shadow-xs'
-                    : 'bg-white text-slate-700 hover:bg-emerald-50/50 border border-[#EAE4D5]'
-                }`}
-              >
-                <Users className="w-4 h-4" />
-                <span>Record Local Supplier Arrival</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab('INSIDE_ZMCC');
-                  fetchInsideVehicles();
-                }}
-                className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all ${
-                  activeTab === 'INSIDE_ZMCC'
-                    ? 'bg-indigo-800 text-white shadow-xs'
-                    : 'bg-white text-slate-700 hover:bg-indigo-50/50 border border-[#EAE4D5]'
-                }`}
-              >
-                <MapPin className="w-4 h-4" />
-                <span>Vehicles Inside ZMCC {insideVehicles.length > 0 ? `(${insideVehicles.length})` : ''}</span>
-              </button>
-            </>
-          )}
-          <button
-            type="button"
-            onClick={() => setActiveTab('HISTORY')}
-            className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all ${
-              activeTab === 'HISTORY'
-                ? 'bg-[#1E3A8A] text-white shadow-xs'
-                : 'bg-white text-slate-700 hover:bg-[#F4F0E6] border border-[#EAE4D5]'
-            }`}
-          >
-            <Clock className="w-4 h-4" />
-            <span>Arrival History & Corrections</span>
-          </button>
+      {!hideTabBar && (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#EAE4D5] pb-3">
+          <div className="flex flex-wrap gap-2">
+            {canSubmit && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('MOT_ARRIVAL')}
+                  className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all ${
+                    activeTab === 'MOT_ARRIVAL'
+                      ? 'bg-[#1E3A8A] text-white shadow-xs'
+                      : 'bg-white text-slate-700 hover:bg-[#F4F0E6] border border-[#EAE4D5]'
+                  }`}
+                >
+                  <Truck className="w-4 h-4" />
+                  <span>Record MOT Arrival</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('LOCAL_SUPPLIER_ARRIVAL')}
+                  className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all ${
+                    activeTab === 'LOCAL_SUPPLIER_ARRIVAL'
+                      ? 'bg-emerald-700 text-white shadow-xs'
+                      : 'bg-white text-slate-700 hover:bg-emerald-50/50 border border-[#EAE4D5]'
+                  }`}
+                >
+                  <Users className="w-4 h-4" />
+                  <span>Record Local Supplier Arrival</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('INSIDE_ZMCC');
+                    fetchInsideVehicles();
+                  }}
+                  className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all ${
+                    activeTab === 'INSIDE_ZMCC'
+                      ? 'bg-indigo-800 text-white shadow-xs'
+                      : 'bg-white text-slate-700 hover:bg-indigo-50/50 border border-[#EAE4D5]'
+                  }`}
+                >
+                  <MapPin className="w-4 h-4" />
+                  <span>Vehicles Inside ZMCC {insideVehicles.length > 0 ? `(${insideVehicles.length})` : ''}</span>
+                </button>
+              </>
+            )}
+            <button
+              type="button"
+              onClick={() => setActiveTab('HISTORY')}
+              className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all ${
+                activeTab === 'HISTORY'
+                  ? 'bg-[#1E3A8A] text-white shadow-xs'
+                  : 'bg-white text-slate-700 hover:bg-[#F4F0E6] border border-[#EAE4D5]'
+              }`}
+            >
+              <Clock className="w-4 h-4" />
+              <span>Arrival History & Corrections</span>
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* 1. MOT ARRIVAL SUB-TAB */}
       {activeTab === 'MOT_ARRIVAL' && canSubmit && (

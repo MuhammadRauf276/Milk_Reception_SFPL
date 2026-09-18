@@ -5,9 +5,10 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { User } from '@core/types';
 import { Header } from '@modules/shared/Header';
 import { HierarchicalNavDrawer } from '@modules/shared/navigation/HierarchicalNavDrawer';
-import { ZmccLabWorkspace } from '@/frontend/modules/zmcc/lab/ZmccLabWorkspace';
+import { MPDFieldWorkspace } from '@modules/dashboard/MPDFieldWorkspace';
+import { RefreshCw } from 'lucide-react';
 
-function ZmccLabContent() {
+function ZmccDispatchContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -27,10 +28,9 @@ function ZmccLabContent() {
           }
           const user = data.user;
           const isSuperAdmin = user.role === 'SUPER_ADMIN';
-          const isZmccManager = user.role === 'ZMCC_MANAGER';
           const isLabAttendant = user.role === 'ZMCC_LAB_ATTENDANT';
 
-          if (!isSuperAdmin && !isZmccManager && !isLabAttendant) {
+          if (!isSuperAdmin && !isLabAttendant) {
             router.push('/workspace-unavailable');
             return;
           }
@@ -73,17 +73,16 @@ function ZmccLabContent() {
     }, 0);
   }, []);
 
-  const tab = searchParams?.get('tab')?.toLowerCase() || 'queue';
+  const tab = searchParams?.get('tab')?.toLowerCase() || 'new';
   const subpageTitle = useMemo(() => {
-    if (tab === 'testing') return 'Testing Station';
-    if (tab === 'history') return 'Test History';
-    return 'Arrivals Queue';
+    return tab === 'recent' ? 'Recent Dispatches' : 'Dispatch Vehicle';
   }, [tab]);
 
   if (loading) {
     return (
       <div className="min-h-screen bg-[#FDFBF9] flex items-center justify-center p-8 text-center text-xs font-bold text-slate-500">
-        Loading ZMCC Laboratory Station...
+        <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-blue-700" />
+        Loading ZMCC Dispatch Station...
       </div>
     );
   }
@@ -92,15 +91,20 @@ function ZmccLabContent() {
     return null;
   }
 
+  const assignedSourceName =
+    currentUser.procurement_source?.name ||
+    'Assigned ZMCC Source';
+
   return (
     <div className="w-full max-w-full flex flex-col h-screen bg-[#FDFBF9] text-[#111311] overflow-hidden font-sans">
-      {/* Header */}
       <Header
         currentUser={currentUser}
-        title="ZMCC Laboratory Station"
+        sourceName={assignedSourceName}
+        title="ZMCC Dispatch to Plant"
         showBranding={true}
         showMenuButton={true}
         onMenuClick={openDrawer}
+        isZmccVariant={true}
         menuButtonRef={hamburgerButtonRef}
       />
 
@@ -112,34 +116,36 @@ function ZmccLabContent() {
         triggerButtonRef={hamburgerButtonRef}
       />
 
-      {/* Main Full-Width Responsive Area */}
+      {/* Main Responsive Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Compact Breadcrumb Header */}
         <div className="bg-white border-b border-[#EAE4D5] px-4 sm:px-6 py-2 shrink-0 shadow-xs flex items-center justify-between">
           <nav aria-label="Breadcrumb" className="flex items-center space-x-2 text-xs font-bold text-slate-500">
             <span>ZMCC Lab</span>
             <span className="text-slate-300">/</span>
-            <span>Laboratory</span>
+            <span>Dispatch</span>
             <span className="text-slate-300">/</span>
             <span className="text-[#1E3A8A] font-black">{subpageTitle}</span>
           </nav>
           <span className="text-[11px] font-mono text-slate-400">
-            {currentUser.procurement_source?.name || 'ZMCC'}
+            {assignedSourceName}
           </span>
         </div>
 
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 w-full max-w-full space-y-4">
-          <ZmccLabWorkspace currentUser={currentUser} />
+          <Suspense fallback={<div className="p-8 text-center text-xs font-bold text-slate-500">Loading dispatch workspace...</div>}>
+            <MPDFieldWorkspace currentUser={currentUser} />
+          </Suspense>
         </main>
       </div>
     </div>
   );
 }
 
-export default function ZmccLabPage() {
+export default function ZmccDispatchPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#FDFBF9] flex items-center justify-center p-8 text-center text-xs font-bold text-slate-500">Loading ZMCC Laboratory Station...</div>}>
-      <ZmccLabContent />
+    <Suspense fallback={<div className="min-h-screen bg-[#FDFBF9] flex items-center justify-center p-8 text-center text-xs font-bold text-slate-500">Loading ZMCC Dispatch Station...</div>}>
+      <ZmccDispatchContent />
     </Suspense>
   );
 }

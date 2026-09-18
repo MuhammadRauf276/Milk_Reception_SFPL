@@ -38,17 +38,15 @@ export interface DispatchQuantityPolicySnapshotDTO {
 }
 
 export const DEFAULT_DISPATCH_QUANTITY_POLICY: DispatchQuantityPolicyConfig = {
-  version: 1,
+  version: 2,
   vehicleRules: {
     allowedMeasurements: [
-      { unit: 'KG', basis: 'ESTIMATED' },
       { unit: 'KG', basis: 'MEASURED' },
-      { unit: 'LITER', basis: 'ESTIMATED' },
       { unit: 'LITER', basis: 'MEASURED' },
     ],
     default: {
       unit: 'KG',
-      basis: 'ESTIMATED',
+      basis: 'MEASURED',
     },
   },
   portionRules: {
@@ -63,7 +61,7 @@ export const DEFAULT_DISPATCH_QUANTITY_POLICY: DispatchQuantityPolicyConfig = {
       basis: 'ESTIMATED',
     },
   },
-  allowSameUnitPortionPrefill: true,
+  allowSameUnitPortionPrefill: false,
 };
 
 export function getAllowedUnits(allowed: AllowedMeasurementConfig[]): QuantityUnit[] {

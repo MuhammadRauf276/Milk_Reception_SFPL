@@ -247,7 +247,9 @@ export function mapVisitToLogs(
   const vDeclaredBasis = visit.vehicle_dispatch_quantity_basis || null;
 
   let vehicleDispatchGrossLiters: number | null = null;
-  if (vDeclaredVal != null) {
+  if (visit.vehicle_dispatch_gross_liters != null) {
+    vehicleDispatchGrossLiters = Number(visit.vehicle_dispatch_gross_liters);
+  } else if (vDeclaredVal != null) {
     if (vDeclaredUnit === 'LITER') {
       vehicleDispatchGrossLiters = vDeclaredVal;
     } else if (vDeclaredUnit === 'KG') {
@@ -529,7 +531,14 @@ export function mapVisitToLogs(
       vehicle_dispatch_quantity_value: vDeclaredVal,
       vehicle_dispatch_quantity_unit: vDeclaredUnit,
       vehicle_dispatch_quantity_basis: vDeclaredBasis,
+      vehicle_dispatch_lr: visit.vehicle_dispatch_lr != null ? Number(visit.vehicle_dispatch_lr) : null,
+      vehicle_dispatch_fat: visit.vehicle_dispatch_fat != null ? Number(visit.vehicle_dispatch_fat) : null,
+      vehicle_dispatch_density: visit.vehicle_dispatch_density != null ? Number(visit.vehicle_dispatch_density) : null,
       vehicle_dispatch_gross_liters: vehicleDispatchGrossLiters,
+      vehicle_dispatch_snf: visit.vehicle_dispatch_snf != null ? Number(visit.vehicle_dispatch_snf) : null,
+      vehicle_dispatch_ts: visit.vehicle_dispatch_ts != null ? Number(visit.vehicle_dispatch_ts) : null,
+      vehicle_dispatch_at_13ts_liters: visit.vehicle_dispatch_at_13ts_liters != null ? Number(visit.vehicle_dispatch_at_13ts_liters) : null,
+      vehicle_dispatch_calculation_version: visit.vehicle_dispatch_calculation_version || null,
       dispatch_tests: null,
       dispatch_fat: dFat,
       dispatch_lr: dLr,

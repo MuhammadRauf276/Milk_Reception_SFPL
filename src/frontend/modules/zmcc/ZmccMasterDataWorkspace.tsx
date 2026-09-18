@@ -42,6 +42,9 @@ interface LocalSupplierItem {
 interface ZmccMasterDataWorkspaceProps {
   currentUser: User | null;
   initialTab?: MasterDataTab;
+  activeTab?: MasterDataTab;
+  onTabChange?: (tab: MasterDataTab) => void;
+  hideTabBar?: boolean;
 }
 
 interface TankItem {
@@ -140,6 +143,9 @@ interface ShopItem {
 export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = ({
   currentUser,
   initialTab,
+  activeTab: controlledTab,
+  onTabChange,
+  hideTabBar = false,
 }) => {
   const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
   const isZmccManager = currentUser?.role === 'ZMCC_MANAGER';
@@ -150,7 +156,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
     if (isPheOperator) {
       return [
         { id: 'LOCAL_SUPPLIERS', label: 'Local Suppliers', icon: Users },
-        { id: 'SHOPS', label: 'Shop Details', icon: Store },
+        { id: 'SHOPS', label: 'Shop Details (Reference)', icon: Store },
       ];
     }
     const tabs: { id: MasterDataTab; label: string; icon: any }[] = [
@@ -169,9 +175,26 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
     return tabs;
   }, [isSuperAdmin, isZmccManager, isPheOperator]);
 
-  const [activeTab, setActiveTab] = useState<MasterDataTab>(
-    initialTab || 'LOCAL_SUPPLIERS'
+  const [internalTab, setInternalTab] = useState<MasterDataTab>(
+    controlledTab || initialTab || 'LOCAL_SUPPLIERS'
   );
+  const activeTab = controlledTab || internalTab;
+
+  const setActiveTab = (tab: MasterDataTab) => {
+    setInternalTab(tab);
+    if (onTabChange) onTabChange(tab);
+  };
+
+  useEffect(() => {
+    if (controlledTab) {
+      setInternalTab(controlledTab);
+      setSearch('');
+      setStatusFilter('all');
+      setRouteFilter('');
+      setAreaFilter('');
+      setSourceFilter('');
+    }
+  }, [controlledTab]);
 
   // ZMCC Scope
   const [sources, setSources] = useState<ZmccSource[]>([]);
@@ -669,8 +692,8 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
         </div>
       )}
 
-      {/* Navigation Tabs (Only if more than 1 tab) */}
-      {permittedTabs.length > 1 && (
+      {/* Navigation Tabs (Only if more than 1 tab and not hidden) */}
+      {!hideTabBar && permittedTabs.length > 1 && (
         <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-[#EAE4D5]">
           {permittedTabs.map((t) => {
             const Icon = t.icon;

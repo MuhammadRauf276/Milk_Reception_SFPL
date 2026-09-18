@@ -18,7 +18,6 @@ import {
   createPortionQuantityFromSharedProfile,
   computeDispatchPortionCalculatedValues,
   computePortionQuantitySummary,
-  canUseMeasuredPortionTotalForVehicle,
   computeVehiclePortionDifference,
   computeDispatchSafeSummaryTotals,
 } from '@/backend/modules/dispatch/quantity/dispatchQuantityService';
@@ -65,6 +64,8 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     basis: 'MEASURED',
   });
   const [vehicleQuantityError, setVehicleQuantityError] = useState<string | null>(null);
+  const [vehicleLr, setVehicleLr] = useState<string>('');
+  const [vehicleFat, setVehicleFat] = useState<string>('');
 
   // Portions Draft State
   const [portions, setPortions] = useState<PortionFormState[]>([]);
@@ -98,7 +99,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     }
 
     async function loadSources() {
-      if (!isSourceBound) {
+      if (!isSourceBound && currentUser?.role === 'SUPER_ADMIN') {
         try {
           const res = await fetch('/api/super-admin/procurement-sources');
           const data = await res.json();
@@ -112,7 +113,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
       }
     }
     loadSources();
-  }, [isSourceBound]);
+  }, [isSourceBound, currentUser?.role]);
 
   const buildInitialPortionResults = (tests: LabTestDef[], isContractor = isContractorSource): Record<
     string,
@@ -203,7 +204,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
             setVehicleQuantity({
               value: '',
               unit: vDef.unit,
-              basis: vDef.basis,
+              basis: 'MEASURED',
             });
           }
         }
@@ -260,7 +261,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
   // Vehicle Allowed Rules
   const vehicleAllowedMeasurements = frozenQuantityPolicy?.policy?.vehicleRules?.allowedMeasurements;
   const defaultUnits: QuantityUnit[] = ['KG', 'LITER'];
-  const defaultBases: MeasurementBasis[] = ['MEASURED', 'ESTIMATED'];
+  const defaultBases: MeasurementBasis[] = ['MEASURED'];
 
   const vehicleAllowedUnits: QuantityUnit[] = isPolicyReady && vehicleAllowedMeasurements
     ? getAllowedUnits(vehicleAllowedMeasurements)
@@ -316,19 +317,17 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
   };
 
   const handleVehicleUnitChange = (newUnit: QuantityUnitType) => {
-    const bases = getAllowedBases(vehicleAllowedMeasurements, newUnit);
-    const newBasis = bases.includes(vehicleQuantity.basis) ? vehicleQuantity.basis : bases[0];
     setVehicleQuantity((prev) => ({
       ...prev,
       unit: newUnit,
-      basis: newBasis,
+      basis: 'MEASURED',
     }));
   };
 
-  const handleVehicleBasisChange = (newBasis: MeasurementBasisType) => {
+  const handleVehicleBasisChange = (_newBasis: MeasurementBasisType) => {
     setVehicleQuantity((prev) => ({
       ...prev,
-      basis: newBasis,
+      basis: 'MEASURED',
     }));
   };
 
@@ -763,6 +762,22 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
         return;
       }
 
+      if (effectiveSource?.source_type === 'ZMCC') {
+        // Multi-portion vehicle requires explicit whole-vehicle LR and Fat
+        if (payloadPortions.length > 1) {
+          if (!vehicleLr || isNaN(Number(vehicleLr)) || Number(vehicleLr) <= 0) {
+            toast.showError('Authoritative whole-vehicle/composite LR is required for multi-portion ZMCC dispatch.', 'Validation Error');
+            setIsSubmitting(false);
+            return;
+          }
+          if (!vehicleFat || isNaN(Number(vehicleFat)) || Number(vehicleFat) < 0) {
+            toast.showError('Authoritative whole-vehicle/composite Fat is required for multi-portion ZMCC dispatch.', 'Validation Error');
+            setIsSubmitting(false);
+            return;
+          }
+        }
+      }
+
       const effectiveDispatchDate = isoDispatchTimestamp || new Date().toISOString();
 
       const res = await fetch('/api/dispatches', {
@@ -780,7 +795,11 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
             value: Number(vehicleQuantity.value),
             unit: vehicleQuantity.unit,
             basis: vehicleQuantity.basis,
+            lr: vehicleLr && !isNaN(Number(vehicleLr)) ? Number(vehicleLr) : undefined,
+            fat: vehicleFat && !isNaN(Number(vehicleFat)) ? Number(vehicleFat) : undefined,
           },
+          vehicleLr: vehicleLr && !isNaN(Number(vehicleLr)) ? Number(vehicleLr) : undefined,
+          vehicleFat: vehicleFat && !isNaN(Number(vehicleFat)) ? Number(vehicleFat) : undefined,
           portions: payloadPortions,
         }),
       });
@@ -805,6 +824,8 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
       // Reset form fields
       setVehicleNumber('');
       setVehicleQuantity((prev) => ({ ...prev, value: '' }));
+      setVehicleLr('');
+      setVehicleFat('');
       setPortions([]);
       setEditingPortionIndex(null);
 
@@ -831,6 +852,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     setDraftVisitId(null);
     setVehicleNumber('');
     setVehicleQuantity((prev) => ({ ...prev, value: '' }));
+    setVehicleLr('');
     setEditingPortionIndex(0);
 
     toast.showInfo('Draft cleared. Initializing fresh dispatch work item...');
@@ -841,7 +863,6 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
 
   // --- Real-time Calculation & Presentation Computations ---
   const portionSummary = computePortionQuantitySummary(portions);
-  const isEligibleForAssistance = canUseMeasuredPortionTotalForVehicle(vehicleQuantity, portionSummary);
   const vehiclePortionComparison = computeVehiclePortionDifference(vehicleQuantity, portionSummary);
 
   const calculatedPortionsList = portions.map((p) => computeCalculatedMilkValues(p));
@@ -906,11 +927,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
             portions={portions}
             vehicleQuantity={vehicleQuantity}
             portionSummary={portionSummary}
-            isEligibleForAssistance={isEligibleForAssistance}
             vehiclePortionComparison={vehiclePortionComparison}
-            onApplyAssistedQuantity={(totalValue) => {
-              handleVehicleQuantityValueChange(totalValue);
-            }}
             safeTotals={safeTotals}
             calculatedPortionsList={calculatedPortionsList}
             labTests={labTests}
@@ -938,6 +955,11 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
             vehicleAllowedUnits={vehicleAllowedUnits}
             vehicleAllowedBases={vehicleAllowedBases}
             vehicleQuantityError={vehicleQuantityError}
+            sourceType={effectiveSource?.source_type}
+            vehicleLr={vehicleLr}
+            onVehicleLrChange={setVehicleLr}
+            vehicleFat={vehicleFat}
+            onVehicleFatChange={setVehicleFat}
           />
 
           <DispatchPortionEditor
@@ -969,11 +991,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
               portions={portions}
               vehicleQuantity={vehicleQuantity}
               portionSummary={portionSummary}
-              isEligibleForAssistance={isEligibleForAssistance}
               vehiclePortionComparison={vehiclePortionComparison}
-              onApplyAssistedQuantity={(totalValue) => {
-                handleVehicleQuantityValueChange(totalValue);
-              }}
               safeTotals={safeTotals}
               calculatedPortionsList={calculatedPortionsList}
               labTests={labTests}

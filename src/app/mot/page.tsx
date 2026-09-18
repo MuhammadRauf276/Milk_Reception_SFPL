@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { User } from '@core/types';
 import { Header } from '@modules/shared/Header';
-import { Sidebar } from '@modules/shared/Sidebar';
+import { HierarchicalNavDrawer } from '@modules/shared/navigation/HierarchicalNavDrawer';
 import {
   Truck,
   MapPin,
@@ -505,81 +505,62 @@ export default function MotDriverPage() {
         menuButtonRef={hamburgerButtonRef}
       />
 
+      {/* Accessible Hierarchical Navigation Drawer */}
+      <HierarchicalNavDrawer
+        currentUser={currentUser}
+        isOpen={isDrawerOpen}
+        onClose={closeDrawer}
+        triggerButtonRef={hamburgerButtonRef}
+      />
+
       <div className="flex-1 flex overflow-hidden">
-        {/* Desktop Sidebar */}
-        <aside className="hidden lg:block w-72 bg-white border-r border-[#EAE4D5] shrink-0 overflow-y-auto p-4">
-          <Sidebar currentUser={currentUser} activeCount={0} />
-        </aside>
-
-        {/* Mobile Navigation Drawer */}
-        {isDrawerOpen && (
-          <div
-            className="fixed inset-0 z-50 flex lg:hidden"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Mobile Navigation"
-          >
-            <div
-              className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
-              onClick={closeDrawer}
-              aria-hidden="true"
-            />
-            <div className="relative z-50 w-72 max-w-[80vw] bg-white h-full p-4 overflow-y-auto shadow-2xl border-r border-[#EAE4D5]">
-              <Sidebar
-                currentUser={currentUser}
-                activeCount={0}
-                isMobileOpen={isDrawerOpen}
-                onCloseMobile={closeDrawer}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Center Content */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 w-full max-w-full space-y-4">
+        {/* Main Content Area */}
+        <main className="flex-1 overflow-y-auto p-3 sm:p-5 lg:p-6 w-full max-w-5xl mx-auto space-y-4">
           {/* Online/Offline Status & Sync Control Bar */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 bg-white rounded-2xl border border-[#EAE4D5] shadow-xs">
-            <div className="flex items-center space-x-3">
+          <div className="flex items-center justify-between gap-2 px-3 py-2 sm:px-4 sm:py-2.5 bg-white rounded-2xl border border-[#EAE4D5] shadow-xs">
+            <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
               <span
-                className={`px-3 py-1 rounded-full text-xs font-black flex items-center space-x-1.5 ${
+                className={`px-2.5 py-1 rounded-full text-xs font-black flex items-center space-x-1.5 shrink-0 ${
                   isOnline ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
                 }`}
               >
                 {isOnline ? (
                   <>
                     <Wifi className="w-3.5 h-3.5" />
-                    <span>ONLINE</span>
+                    <span>Online</span>
                   </>
                 ) : (
                   <>
                     <WifiOff className="w-3.5 h-3.5" />
-                    <span>OFFLINE MODE</span>
+                    <span>Offline</span>
                   </>
                 )}
               </span>
 
-              {unsyncedCount > 0 ? (
-                <span className="px-2.5 py-0.5 rounded-full bg-blue-100 text-[#1E3A8A] text-xs font-black">
-                  {unsyncedCount} Queued For Sync
-                </span>
-              ) : (
-                <span className="text-xs text-slate-500 font-medium">All items synced</span>
-              )}
+              <span className="text-xs text-slate-600 font-bold truncate">
+                {unsyncedCount > 0 ? (
+                  <span className="text-[#1E3A8A] font-black">{unsyncedCount} pending sync</span>
+                ) : (
+                  'All synced'
+                )}
+              </span>
 
               {lastSyncTime && (
-                <span className="text-[11px] text-slate-400">Last sync: {lastSyncTime}</span>
+                <span className="hidden md:inline text-[11px] text-slate-400 font-mono">
+                  Synced {lastSyncTime}
+                </span>
               )}
             </div>
 
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 shrink-0">
               {syncFeedback && (
-                <span className="text-xs font-medium text-emerald-700">{syncFeedback}</span>
+                <span className="hidden sm:inline text-xs font-bold text-emerald-700">{syncFeedback}</span>
               )}
               <button
                 type="button"
                 onClick={triggerSync}
                 disabled={syncing || !isOnline}
-                className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl bg-[#1E3A8A] text-white text-xs font-black hover:bg-[#1E3A8A]/90 disabled:opacity-50 disabled:cursor-not-allowed shadow-xs"
+                className="min-h-[44px] px-3.5 py-2 rounded-xl bg-[#1E3A8A] text-white text-xs font-bold hover:bg-[#1E3A8A]/90 disabled:opacity-50 disabled:cursor-not-allowed shadow-xs flex items-center space-x-1.5 focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
               >
                 <RotateCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
                 <span>{syncing ? 'Syncing...' : 'Sync Now'}</span>
@@ -588,8 +569,9 @@ export default function MotDriverPage() {
           </div>
 
           {loadingJourney ? (
-            <div className="p-12 text-center text-xs font-bold text-slate-500">
-              Checking for assigned journey...
+            <div className="p-12 text-center text-xs font-bold text-slate-500 bg-white rounded-2xl border border-[#EAE4D5]">
+              <RotateCw className="w-5 h-5 animate-spin mx-auto mb-2 text-[#1E3A8A]" />
+              Checking assigned route...
             </div>
           ) : journeyError ? (
             <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs font-bold flex items-center space-x-2">
@@ -597,142 +579,195 @@ export default function MotDriverPage() {
               <span>{journeyError}</span>
             </div>
           ) : !journey ? (
-            <div className="p-12 bg-white rounded-2xl border border-[#EAE4D5] shadow-xs text-center space-y-3">
+            <div className="p-10 bg-white rounded-2xl border border-[#EAE4D5] shadow-xs text-center space-y-3">
               <div className="w-12 h-12 rounded-full bg-blue-50 text-[#1E3A8A] flex items-center justify-center mx-auto">
                 <Truck className="w-6 h-6" />
               </div>
-              <h2 className="text-base font-black text-[#111311]">No Active Journey Assigned</h2>
+              <h2 className="text-base font-bold text-[#111311]">No Active Journey Assigned</h2>
               <p className="text-xs text-slate-500 max-w-md mx-auto">
-                You do not have an active milk collection journey. Your ZMCC Manager or PHE Operator will assign and dispatch your route when ready.
+                A milk collection journey has not been dispatched to this unit yet.
               </p>
             </div>
           ) : (
-            <div className="space-y-4">
-              {/* Active Journey Information */}
-              <div className="p-4 bg-white rounded-2xl border border-[#EAE4D5] shadow-xs space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-[#EAE4D5] pb-2">
-                  <div>
-                    <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider">
-                      Active Journey
-                    </span>
-                    <h2 className="text-lg font-mono font-black text-[#1E3A8A]">
-                      #{journey.journey_number}
-                    </h2>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-black uppercase flex items-center space-x-1">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse mr-1" />
-                      {journey.status}
-                    </span>
-                  </div>
-                </div>
+            (() => {
+              const visitedStops = journey.stops.filter((s) => s.status === 'VISITED');
+              const pendingStops = journey.stops.filter((s) => s.status !== 'VISITED');
+              const nextPendingStop = pendingStops[0] || null;
+              const totalGross = visitedStops.reduce(
+                (sum, s) => sum + (s.collection?.gross_liters || 0),
+                0
+              );
+              const totalAt13ts = visitedStops.reduce(
+                (sum, s) => sum + (s.collection?.at_13ts_liters || 0),
+                0
+              );
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
-                  <div className="p-2.5 rounded-xl bg-[#FDFBF9] border border-[#EAE4D5]">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase block">Route</span>
-                    <span className="font-bold text-[#111311]">
-                      {journey.route?.route_code} — {journey.route?.name}
-                    </span>
-                  </div>
-                  <div className="p-2.5 rounded-xl bg-[#FDFBF9] border border-[#EAE4D5]">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase block">Vehicle</span>
-                    <span className="font-mono font-bold text-[#111311]">
-                      {journey.mot_vehicle?.vehicle_number}
-                    </span>
-                  </div>
-                  <div className="p-2.5 rounded-xl bg-[#FDFBF9] border border-[#EAE4D5]">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase block">Dispatched</span>
-                    <span className="font-medium text-slate-700">
-                      {new Date(journey.assigned_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  </div>
-                </div>
-              </div>
+              return (
+                <div className="space-y-4">
+                  {/* Active Journey Hero Card */}
+                  <div className="p-4 sm:p-5 bg-white rounded-2xl border border-[#EAE4D5] shadow-xs space-y-3">
+                    <div className="flex items-center justify-between border-b border-[#EAE4D5] pb-3">
+                      <div>
+                        <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider block">
+                          Active Journey
+                        </span>
+                        <div className="flex items-center space-x-2 mt-0.5">
+                          <h2 className="text-base sm:text-lg font-mono font-black text-[#1E3A8A]">
+                            #{journey.journey_number}
+                          </h2>
+                          <span className="text-xs font-bold text-[#111311] truncate">
+                            {journey.route?.name || journey.route?.route_code || 'Assigned Route'}
+                          </span>
+                        </div>
+                      </div>
 
-              {/* Ordered Shop Cards */}
-              <div className="bg-white rounded-2xl border border-[#EAE4D5] shadow-xs overflow-hidden">
-                <div className="p-4 border-b border-[#EAE4D5] flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <Store className="w-4 h-4 text-[#1E3A8A]" />
-                    <h3 className="text-sm font-black text-[#111311]">
-                      Collection Stops ({journey.stops.length})
-                    </h3>
-                  </div>
-                  <span className="text-[11px] font-bold text-slate-500">
-                    Follow Planned Sequence
-                  </span>
-                </div>
+                      <div className="text-right">
+                        <span className="text-[10px] font-bold text-slate-500 block uppercase">Vehicle</span>
+                        <span className="font-mono font-black text-sm text-[#111311]">
+                          {journey.mot_vehicle?.vehicle_number || '—'}
+                        </span>
+                      </div>
+                    </div>
 
-                <div className="divide-y divide-[#EAE4D5]">
-                  {journey.stops.map((stop) => {
-                    const shopName = stop.shop_name || stop.shop?.shop_name || 'Shop';
-                    const shopCode = stop.shop_code || stop.shop?.shop_code || '—';
-                    const ownerName = stop.owner_name || stop.shop?.owner_name || '—';
-                    const phone = stop.phone_number || stop.shop?.contact_number || '—';
-                    const areaName = stop.area_name || '—';
-                    const isVisited = stop.status === 'VISITED';
+                    {/* Operational Metrics Cards (Physical vs Commercial Truth) */}
+                    <div className="grid grid-cols-3 gap-2 sm:gap-3 text-center">
+                      <div className="p-2 sm:p-2.5 rounded-xl bg-[#FDFBF9] border border-[#EAE4D5]">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase block">Stops Done</span>
+                        <span className="font-black text-xs sm:text-sm text-slate-900 font-mono">
+                          {visitedStops.length} / {journey.stops.length}
+                        </span>
+                      </div>
+                      <div className="p-2 sm:p-2.5 rounded-xl bg-blue-50/70 border border-blue-200">
+                        <span className="text-[10px] font-black text-blue-800 uppercase block">Physical</span>
+                        <span className="font-black text-xs sm:text-sm text-blue-950 font-mono">
+                          {totalGross.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 })} L Gross
+                        </span>
+                      </div>
+                      <div className="p-2 sm:p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-300">
+                        <span className="text-[10px] font-black text-emerald-800 uppercase block">Commercial</span>
+                        <span className="font-black text-xs sm:text-sm text-emerald-950 font-mono">
+                          {totalAt13ts.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 })} L @13TS
+                        </span>
+                      </div>
+                    </div>
 
-                    return (
-                      <div
-                        key={stop.id}
-                        className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 hover:bg-[#FDFBF9] transition-colors"
-                      >
-                        <div className="flex items-start space-x-3">
-                          <span
-                            className={`w-7 h-7 rounded-full text-xs font-black flex items-center justify-center shrink-0 mt-0.5 ${
-                              isVisited
-                                ? 'bg-emerald-600 text-white'
-                                : 'bg-[#1E3A8A] text-white'
-                            }`}
-                          >
-                            {stop.planned_sequence}
+                    {/* Next Stop Highlight Callout */}
+                    {nextPendingStop && (
+                      <div className="mt-2 p-3 sm:p-3.5 bg-[#F4F0E6]/70 border border-[#EAE4D5] rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div className="flex items-center space-x-2.5">
+                          <span className="w-7 h-7 rounded-lg bg-[#1E3A8A] text-white font-mono font-black text-xs flex items-center justify-center shrink-0">
+                            {nextPendingStop.planned_sequence}
                           </span>
                           <div>
-                            <div className="flex items-center space-x-2">
-                              <p className="text-xs font-black text-[#111311]">
-                                {shopName} <span className="font-mono text-slate-500">({shopCode})</span>
-                              </p>
-                              <span
-                                className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
-                                  isVisited
-                                    ? 'bg-emerald-100 text-emerald-800'
-                                    : 'bg-amber-100 text-amber-800'
-                                }`}
-                              >
-                                {stop.status}
-                              </span>
-                            </div>
-                            <p className="text-[11px] text-slate-500">
-                              Owner: {ownerName} &bull; Phone: {phone} &bull; Area: {areaName}
-                            </p>
-
-                            {/* Visited Collection Summary */}
-                            {isVisited && stop.collection && (
-                              <div className="mt-1 p-2 bg-emerald-50 border border-emerald-200 rounded-lg text-[11px] text-emerald-900 font-medium">
-                                Collected: <span className="font-bold">{stop.collection.gross_liters} L</span> &bull; LR: <span className="font-bold">{stop.collection.lr}</span> &bull; Fat: <span className="font-bold">{stop.collection.fat}%</span> &bull; @13 TS: <span className="font-bold">{stop.collection.at_13ts_liters} L</span>
-                              </div>
-                            )}
+                            <span className="text-[10px] font-bold text-slate-500 uppercase block">
+                              Next Stop
+                            </span>
+                            <span className="font-bold text-xs sm:text-sm text-[#111311]">
+                              {nextPendingStop.shop_name || nextPendingStop.shop?.shop_name || 'Shop'}
+                            </span>
                           </div>
                         </div>
 
-                        {/* Action Button */}
-                        {!isVisited && (
-                          <div className="self-end sm:self-center">
-                            <button
-                              type="button"
-                              onClick={() => handleOpenCollectionModal(stop)}
-                              className="px-4 py-2 rounded-xl bg-[#1E3A8A] text-white text-xs font-black hover:bg-[#1E3A8A]/90 transition shadow-xs"
-                            >
-                              Record Collection
-                            </button>
-                          </div>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleOpenCollectionModal(nextPendingStop)}
+                          className="min-h-[44px] w-full sm:w-auto px-4 py-2 bg-[#1E3A8A] hover:bg-blue-900 text-white rounded-xl font-bold text-xs shadow-xs transition flex items-center justify-center space-x-1.5 focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
+                        >
+                          <span>Record Collection</span>
+                        </button>
                       </div>
-                    );
-                  })}
+                    )}
+                  </div>
+
+                  {/* Stops Timeline / List */}
+                  <div className="bg-white rounded-2xl border border-[#EAE4D5] shadow-xs overflow-hidden">
+                    <div className="p-3 sm:p-4 border-b border-[#EAE4D5] flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <Store className="w-4 h-4 text-[#1E3A8A]" />
+                        <h3 className="text-xs sm:text-sm font-bold text-[#111311]">
+                          Planned Stops ({journey.stops.length})
+                        </h3>
+                      </div>
+                      <span className="text-[11px] font-medium text-slate-500">
+                        {visitedStops.length} of {journey.stops.length} completed
+                      </span>
+                    </div>
+
+                    <div className="divide-y divide-[#EAE4D5]">
+                      {journey.stops.map((stop) => {
+                        const shopName = stop.shop_name || stop.shop?.shop_name || 'Shop';
+                        const shopCode = stop.shop_code || stop.shop?.shop_code || '—';
+                        const ownerName = stop.owner_name || stop.shop?.owner_name || '—';
+                        const isVisited = stop.status === 'VISITED';
+
+                        return (
+                          <div
+                            key={stop.id}
+                            className="p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 hover:bg-[#FDFBF9] transition"
+                          >
+                            <div className="flex items-start space-x-3">
+                              <span
+                                className={`w-7 h-7 rounded-lg text-xs font-mono font-bold flex items-center justify-center shrink-0 mt-0.5 ${
+                                  isVisited
+                                    ? 'bg-emerald-600 text-white'
+                                    : 'bg-[#F4F0E6] text-slate-700 border border-[#C4B9A3]'
+                                }`}
+                              >
+                                {stop.planned_sequence}
+                              </span>
+                              <div className="space-y-1">
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-xs font-bold text-[#111311]">
+                                    {shopName}
+                                  </span>
+                                  <span className="text-[10px] font-mono text-slate-500">
+                                    ({shopCode})
+                                  </span>
+                                  <span
+                                    className={`px-2 py-0.5 rounded-md text-[9.5px] font-bold uppercase ${
+                                      isVisited
+                                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                        : 'bg-amber-100 text-amber-800 border border-amber-300'
+                                    }`}
+                                  >
+                                    {isVisited ? 'Completed' : 'Pending'}
+                                  </span>
+                                </div>
+
+                                <p className="text-[11px] text-slate-500">
+                                  Owner: {ownerName}
+                                </p>
+
+                                {isVisited && stop.collection && (
+                                  <div className="mt-1 p-2 rounded-lg bg-emerald-50/70 border border-emerald-200 text-[11px] font-mono font-bold text-emerald-950 flex flex-wrap gap-x-3 gap-y-1">
+                                    <span>Gross: {Number(stop.collection.gross_liters).toFixed(2)} L</span>
+                                    <span>@13TS: {Number(stop.collection.at_13ts_liters).toFixed(2)} L</span>
+                                    <span>LR: {stop.collection.lr}</span>
+                                    <span>Fat: {stop.collection.fat}%</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {!isVisited && (
+                              <div className="self-end sm:self-center">
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenCollectionModal(stop)}
+                                  className="min-h-[44px] px-3.5 py-2 rounded-xl bg-[#1E3A8A] text-white text-xs font-bold hover:bg-blue-900 transition shadow-xs focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
+                                >
+                                  Record Collection
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
+              );
+            })()
           )}
 
           {/* Collection Entry Modal / Drawer */}
@@ -870,30 +905,45 @@ export default function MotDriverPage() {
 
                   {/* Live Calculated Canonical Milk Preview */}
                   {livePreview && (
-                    <div className="p-3 bg-blue-50/60 border border-blue-200 rounded-xl space-y-1.5">
-                      <span className="text-[10px] font-black uppercase text-[#1E3A8A] block">
-                        Canonical Calculation Preview (v1.0)
-                      </span>
-                      <div className="grid grid-cols-3 gap-2 text-xs">
-                        <div>
-                          <span className="text-[10px] text-slate-500 block">Density</span>
-                          <span className="font-bold text-slate-800">{livePreview.density}</span>
+                    <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-[#1E3A8A]">
+                          Live Dual-Truth Preview (Canonical)
+                        </span>
+                        <span className="text-[9px] font-bold text-slate-500 bg-white/80 px-2 py-0.5 rounded border border-blue-100">
+                          v1.0 Rules
+                        </span>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {/* Physical Milk Truth */}
+                        <div className="p-2.5 bg-white/90 rounded-lg border border-blue-100">
+                          <span className="text-[10px] font-extrabold uppercase text-slate-500 block mb-1">
+                            Physical Milk Truth
+                          </span>
+                          <div className="flex items-baseline justify-between">
+                            <span className="text-xs text-slate-600 font-semibold">Gross Liters:</span>
+                            <span className="text-sm font-black text-slate-900">{livePreview.grossLiters} L</span>
+                          </div>
+                          <div className="flex items-baseline justify-between mt-0.5 text-xs">
+                            <span className="text-[11px] text-slate-500">Density:</span>
+                            <span className="text-[11px] font-bold text-slate-700">{livePreview.density}</span>
+                          </div>
                         </div>
-                        <div>
-                          <span className="text-[10px] text-slate-500 block">Gross Volume</span>
-                          <span className="font-bold text-blue-900">{livePreview.grossLiters} L</span>
-                        </div>
-                        <div>
-                          <span className="text-[10px] text-slate-500 block">SNF %</span>
-                          <span className="font-bold text-slate-800">{livePreview.snf}%</span>
-                        </div>
-                        <div>
-                          <span className="text-[10px] text-slate-500 block">Total Solids %</span>
-                          <span className="font-bold text-slate-800">{livePreview.totalSolids}%</span>
-                        </div>
-                        <div className="col-span-2">
-                          <span className="text-[10px] text-slate-500 block">@13 TS Liters</span>
-                          <span className="font-black text-emerald-800">{livePreview.at13TsLiters} L</span>
+
+                        {/* Commercial Milk Truth */}
+                        <div className="p-2.5 bg-emerald-50/70 rounded-lg border border-emerald-200">
+                          <span className="text-[10px] font-extrabold uppercase text-emerald-800 block mb-1">
+                            Commercial Milk Truth
+                          </span>
+                          <div className="flex items-baseline justify-between">
+                            <span className="text-xs text-emerald-900 font-semibold">@13TS Liters:</span>
+                            <span className="text-sm font-black text-emerald-700">{livePreview.at13TsLiters} L</span>
+                          </div>
+                          <div className="flex items-baseline justify-between mt-0.5 text-[11px] text-emerald-800">
+                            <span>SNF: <strong className="font-bold">{livePreview.snf}%</strong></span>
+                            <span>TS: <strong className="font-bold">{livePreview.totalSolids}%</strong></span>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -908,27 +958,27 @@ export default function MotDriverPage() {
                       rows={2}
                       value={notes}
                       onChange={(e) => setNotes(e.target.value)}
-                      placeholder="e.g. Good temperature, clean container"
+                      placeholder="e.g. Clean container, verified supplier seal"
                       className="w-full text-xs border border-[#EAE4D5] rounded-xl p-2.5 bg-[#FDFBF9] focus:ring-2 focus:ring-[#1E3A8A]"
                     />
                   </div>
 
                   {/* Modal Action Buttons */}
-                  <div className="flex items-center space-x-2 pt-2 border-t border-[#EAE4D5]">
+                  <div className="flex items-center space-x-2 pt-3 border-t border-[#EAE4D5]">
                     <button
                       type="button"
                       onClick={handleSaveDraft}
-                      className="flex-1 flex items-center justify-center space-x-1.5 px-3 py-2.5 rounded-xl border border-[#EAE4D5] text-xs font-bold text-slate-700 hover:bg-[#F4F0E6]"
+                      className="flex-1 flex items-center justify-center space-x-1.5 px-3 py-3 rounded-xl border border-[#EAE4D5] text-xs font-bold text-slate-700 hover:bg-[#F4F0E6] min-h-[44px] transition"
                     >
-                      <Save className="w-3.5 h-3.5" />
+                      <Save className="w-4 h-4" />
                       <span>Save Draft</span>
                     </button>
                     <button
                       type="submit"
                       disabled={submittingCollection}
-                      className="flex-2 flex items-center justify-center space-x-1.5 px-4 py-2.5 rounded-xl bg-[#1E3A8A] text-white text-xs font-black hover:bg-[#1E3A8A]/90 transition shadow-sm disabled:opacity-50"
+                      className="flex-2 flex items-center justify-center space-x-1.5 px-4 py-3 rounded-xl bg-[#1E3A8A] text-white text-xs font-black hover:bg-[#1E3A8A]/90 transition shadow-sm disabled:opacity-50 min-h-[44px]"
                     >
-                      <Send className="w-3.5 h-3.5" />
+                      <Send className="w-4 h-4" />
                       <span>{submittingCollection ? 'Queueing...' : 'Record & Queue'}</span>
                     </button>
                   </div>

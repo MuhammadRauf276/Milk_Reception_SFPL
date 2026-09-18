@@ -21,6 +21,24 @@ export const vehicleQuantityRuleSchema = z.object({
   allowedMeasurements: z.array(allowedMeasurementSchema).min(1, 'At least one allowed measurement combination must be configured.'),
   default: measurementCombinationSchema,
 }).superRefine((data, ctx) => {
+  data.allowedMeasurements.forEach((m, index) => {
+    if (m.basis === 'ESTIMATED') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Vehicle dispatch quantity basis must be MEASURED.',
+        path: ['allowedMeasurements', index, 'basis'],
+      });
+    }
+  });
+
+  if (data.default.basis !== 'MEASURED') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Vehicle default measurement basis must be MEASURED.',
+      path: ['default', 'basis'],
+    });
+  }
+
   if (!isCombinationAllowed(data.allowedMeasurements, data.default)) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,

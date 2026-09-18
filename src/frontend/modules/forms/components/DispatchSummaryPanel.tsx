@@ -72,9 +72,7 @@ export interface DispatchSummaryPanelProps {
   portions: PortionFormState[];
   vehicleQuantity: QuantityState;
   portionSummary: PortionSummaryDTO;
-  isEligibleForAssistance: boolean;
   vehiclePortionComparison: VehiclePortionComparisonDTO;
-  onApplyAssistedQuantity: (totalValue: string) => void;
   safeTotals: DispatchSafeSummaryTotals;
   calculatedPortionsList: CalculatedPortionValues[];
   labTests: LabTestDef[];
@@ -85,9 +83,7 @@ export const DispatchSummaryPanel: React.FC<DispatchSummaryPanelProps> = ({
   portions,
   vehicleQuantity,
   portionSummary,
-  isEligibleForAssistance,
   vehiclePortionComparison,
-  onApplyAssistedQuantity,
   safeTotals,
   calculatedPortionsList,
   labTests,
@@ -144,18 +140,18 @@ export const DispatchSummaryPanel: React.FC<DispatchSummaryPanelProps> = ({
 
           <div className="grid grid-cols-2 gap-2.5 text-xs font-mono font-bold">
             <div className="p-3 rounded-xl bg-[#F4EFE3]/60 border border-[#C4B9A3]">
-              <span className="text-[9.5px] font-sans text-slate-500 block uppercase">Vehicle Qty</span>
+              <span className="text-[9.5px] font-sans text-slate-500 block uppercase font-bold">Measured Vehicle Issue</span>
               <span className="text-slate-900 text-sm font-black block">
                 {vehicleQuantity.value ? `${Number(vehicleQuantity.value).toLocaleString()} ${vehicleQuantity.unit}` : '—'}
               </span>
-              <span className="text-[9.5px] font-sans text-slate-500 block font-medium mt-0.5">
-                {vehicleQuantity.basis}
+              <span className="text-[9.5px] font-sans text-emerald-700 block font-semibold mt-0.5">
+                {vehicleQuantity.basis || 'MEASURED'}
               </span>
             </div>
 
             <div className="p-3 rounded-xl bg-[#F4EFE3]/60 border border-[#C4B9A3]">
-              <span className="text-[9.5px] font-sans text-slate-500 block uppercase">
-                {portionSummary.label || 'Portion Total'}
+              <span className="text-[9.5px] font-sans text-slate-500 block uppercase font-bold">
+                {portionSummary.basis === 'MEASURED' ? 'Measured Portion Total' : 'Estimated Portion Total'}
               </span>
               <span className="text-slate-900 text-sm font-black block">
                 {portionSummary.complete && portionSummary.formattedTotal
@@ -168,22 +164,10 @@ export const DispatchSummaryPanel: React.FC<DispatchSummaryPanelProps> = ({
             </div>
           </div>
 
-          {/* Difference / Comparison Strip with Assistance button */}
+          {/* Difference / Comparison Strip */}
           <div className="p-3 rounded-xl bg-[#F4EFE3]/80 border border-[#C4B9A3] text-xs font-bold space-y-2">
             <div className="flex items-center justify-between text-[10px] font-sans uppercase tracking-wider text-slate-500">
-              <span>Reconciliation</span>
-              {isEligibleForAssistance && portionSummary.totalValue !== null && (
-                <button
-                  type="button"
-                  id="btn-use-measured-portion-total"
-                  onClick={() => {
-                    onApplyAssistedQuantity(portionSummary.totalValue!.toString());
-                  }}
-                  className="h-7 px-2.5 rounded-lg bg-[#1E40AF] text-white text-[11px] font-bold shadow-sm hover:bg-blue-800 transition flex items-center space-x-1"
-                >
-                  <span>Use Portion Total</span>
-                </button>
-              )}
+              <span>Reconciliation (Comparison Only)</span>
             </div>
 
             <div className="font-mono text-xs">
@@ -193,7 +177,7 @@ export const DispatchSummaryPanel: React.FC<DispatchSummaryPanelProps> = ({
                 </span>
               ) : vehiclePortionComparison.eligibleForDifference && vehiclePortionComparison.formattedDifference !== null ? (
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-600 font-sans text-xs">Difference:</span>
+                  <span className="text-slate-600 font-sans text-xs">Difference (Vehicle - Portions):</span>
                   <span
                     className={
                       vehiclePortionComparison.difference === 0
@@ -212,6 +196,10 @@ export const DispatchSummaryPanel: React.FC<DispatchSummaryPanelProps> = ({
                 </span>
               )}
             </div>
+
+            <p className="text-[10px] font-normal text-slate-500 border-t border-slate-200/60 pt-1.5 leading-relaxed">
+              Vehicle Issue is the authoritative measured whole-vehicle quantity. Portion Total is shown for comparison only.
+            </p>
           </div>
 
           {/* Safe Calculated Totals (Gross Liters & Liters @ 13% TS) */}
@@ -284,22 +272,22 @@ export const DispatchSummaryPanel: React.FC<DispatchSummaryPanelProps> = ({
                   <div className="p-2 rounded-xl bg-[#F4EFE3]/60 border border-[#C4B9A3]">
                     <span className="text-[9.5px] font-sans text-slate-500 block">Gross Liters</span>
                     <span className="text-emerald-900 font-black">
-                      {calc?.grossLiters !== null && calc?.grossLiters !== undefined ? `${Math.round(calc.grossLiters).toLocaleString()} L` : '—'}
+                      {calc?.grossLiters !== null && calc?.grossLiters !== undefined ? `${calc.grossLiters.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L` : '—'}
                     </span>
                   </div>
                   <div className="p-2 rounded-xl bg-[#F4EFE3]/60 border border-[#C4B9A3]">
                     <span className="text-[9.5px] font-sans text-slate-500 block">Liters @ 13% TS</span>
                     <span className="text-emerald-900 font-black">
-                      {calc?.at13TsLiters !== null && calc?.at13TsLiters !== undefined ? `${Math.round(calc.at13TsLiters).toLocaleString()} L` : '—'}
+                      {calc?.at13TsLiters !== null && calc?.at13TsLiters !== undefined ? `${calc.at13TsLiters.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L` : '—'}
                     </span>
                   </div>
                   <div className="p-2 rounded-xl bg-[#F4EFE3]/60 border border-[#C4B9A3]">
                     <span className="text-[9.5px] font-sans text-slate-500 block">SNF %</span>
-                    <span className="text-blue-900">{calc?.snf !== null && calc?.snf !== undefined ? `${calc.snf.toFixed(3)} %` : '—'}</span>
+                    <span className="text-blue-900">{calc?.snf !== null && calc?.snf !== undefined ? `${calc.snf.toFixed(2)} %` : '—'}</span>
                   </div>
                   <div className="p-2 rounded-xl bg-[#F4EFE3]/60 border border-[#C4B9A3]">
                     <span className="text-[9.5px] font-sans text-slate-500 block">Total Solids (TS %)</span>
-                    <span className="text-blue-900">{calc?.ts !== null && calc?.ts !== undefined ? `${calc.ts.toFixed(3)} %` : '—'}</span>
+                    <span className="text-blue-900">{calc?.ts !== null && calc?.ts !== undefined ? `${calc.ts.toFixed(2)} %` : '—'}</span>
                   </div>
                   <div className="p-2 rounded-xl bg-[#F4EFE3]/60 border border-[#C4B9A3] col-span-2">
                     <span className="text-[9.5px] font-sans text-slate-500 block">SNF : Fat</span>

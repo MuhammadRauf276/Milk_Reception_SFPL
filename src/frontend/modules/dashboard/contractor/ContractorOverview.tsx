@@ -121,7 +121,7 @@ export const ContractorOverview: React.FC<ContractorOverviewProps> = ({
             {summary?.totalVisits != null ? (
               <span className="text-blue-700 font-semibold">Authoritative Total Visits</span>
             ) : (
-              <>Gross Vol: <strong className="text-slate-700 font-mono">{metrics.totalGrossLiters.toLocaleString()} L</strong></>
+              <>Gross Liters: <strong className="text-slate-700 font-mono">{metrics.totalGrossLiters.toLocaleString()} L</strong></>
             )}
           </p>
         </div>
@@ -157,7 +157,7 @@ export const ContractorOverview: React.FC<ContractorOverviewProps> = ({
         {/* Received Liters */}
         <div className="p-5 rounded-2xl bg-white border border-[#EAE4D5] shadow-sm space-y-2">
           <div className="flex items-center justify-between text-blue-800 text-xs font-bold">
-            <span>Received Liters {pagination && pagination.totalPages > 1 ? '(Current Page)' : ''}</span>
+            <span>Received Gross Liters {pagination && pagination.totalPages > 1 ? '(Current Page)' : ''}</span>
             <Scale className="w-4 h-4 text-blue-700" />
           </div>
           <p className="text-2xl font-black text-blue-950 font-mono truncate">
@@ -165,8 +165,8 @@ export const ContractorOverview: React.FC<ContractorOverviewProps> = ({
           </p>
           <p className="text-[11px] text-blue-700 font-medium">
             {pagination && pagination.totalPages > 1
-              ? `Page Silo Volume (${visits.length} visits)`
-              : 'Silo Transaction Volume'}
+              ? `Page Silo Gross Liters (${visits.length} visits)`
+              : 'Silo Transaction Gross Liters'}
           </p>
         </div>
       </div>

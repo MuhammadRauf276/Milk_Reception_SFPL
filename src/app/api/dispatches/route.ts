@@ -7,11 +7,12 @@ import { evaluateLabResult } from '@/lib/lab-rules';
 import { generateReceptionNumber } from '@/lib/reception-number';
 import { validateRequiredString } from '@/lib/validation-helpers';
 import { validateOperationalTimestamp } from '@/backend/services/chronology-validator';
-import { calculateSNF, calculateRatio } from '@/backend/utils/milkFormulas';
+import { calculateSNF, calculateRatio, calculateDensity, calculateGrossLiters, computeCanonicalMilkMetrics } from '@/backend/utils/milkFormulas';
 import { getOrAssignDispatchTests } from '@/backend/services/labTestAssignmentService';
 import { getOrFreezeDispatchQuantityPolicy } from '@/backend/modules/dispatch/quantity-policy/quantityPolicyService';
 import { validateDispatchQuantities, QuantityMeasurementError } from '@/backend/modules/dispatch/quantity/dispatchQuantityService';
 import { getPakistanCalendarDate } from '@/backend/core/business-day';
+import { getTankPhysicalStock } from '@/backend/services/zmccTankService';
 
 function serializeDispatch(visit: any) {
   const portions = visit.portions || [];
@@ -25,18 +26,58 @@ function serializeDispatch(visit: any) {
   const vehicleQuantityUnit = visit.vehicle_dispatch_quantity_unit || null;
   const vehicleQuantityBasis = visit.vehicle_dispatch_quantity_basis || null;
 
+  const vehicleDispatchLr = visit.vehicle_dispatch_lr !== null && visit.vehicle_dispatch_lr !== undefined
+    ? Number(visit.vehicle_dispatch_lr)
+    : null;
+  const vehicleDispatchDensity = visit.vehicle_dispatch_density !== null && visit.vehicle_dispatch_density !== undefined
+    ? Number(visit.vehicle_dispatch_density)
+    : null;
+  const vehicleDispatchGrossLiters = visit.vehicle_dispatch_gross_liters !== null && visit.vehicle_dispatch_gross_liters !== undefined
+    ? Number(visit.vehicle_dispatch_gross_liters)
+    : null;
+  const vehicleDispatchFat = visit.vehicle_dispatch_fat !== null && visit.vehicle_dispatch_fat !== undefined
+    ? Number(visit.vehicle_dispatch_fat)
+    : null;
+  const vehicleDispatchSnf = visit.vehicle_dispatch_snf !== null && visit.vehicle_dispatch_snf !== undefined
+    ? Number(visit.vehicle_dispatch_snf)
+    : null;
+  const vehicleDispatchTs = visit.vehicle_dispatch_ts !== null && visit.vehicle_dispatch_ts !== undefined
+    ? Number(visit.vehicle_dispatch_ts)
+    : null;
+  const vehicleDispatchAt13tsLiters = visit.vehicle_dispatch_at_13ts_liters !== null && visit.vehicle_dispatch_at_13ts_liters !== undefined
+    ? Number(visit.vehicle_dispatch_at_13ts_liters)
+    : null;
+
+  const dispatchTimestamp = firstDispatchInfo?.dispatch_timestamp
+    ? new Date(firstDispatchInfo.dispatch_timestamp).toISOString()
+    : null;
+
+  const dispatchDate = firstDispatchInfo?.dispatch_timestamp
+    ? getPakistanCalendarDate(firstDispatchInfo.dispatch_timestamp)
+    : null;
+
   return {
     id: visit.id.toString(),
     visit_number: visit.visit_number,
     reception_number: visit.reception_number || null,
     vehicle_number: visit.vehicle_number,
     token_number: visit.token_number || null,
+    dispatch_timestamp: dispatchTimestamp,
+    dispatch_date: dispatchDate,
     operational_date: visit.operational_date ? visit.operational_date.toISOString().split('T')[0] : null,
     current_status: visit.current_status,
     portion_count: portions.length,
     vehicle_dispatch_quantity_value: vehicleQuantityValue,
     vehicle_dispatch_quantity_unit: vehicleQuantityUnit,
     vehicle_dispatch_quantity_basis: vehicleQuantityBasis,
+    vehicle_dispatch_lr: vehicleDispatchLr,
+    vehicle_dispatch_fat: vehicleDispatchFat,
+    vehicle_dispatch_density: vehicleDispatchDensity,
+    vehicle_dispatch_gross_liters: vehicleDispatchGrossLiters,
+    vehicle_dispatch_snf: vehicleDispatchSnf,
+    vehicle_dispatch_ts: vehicleDispatchTs,
+    vehicle_dispatch_at_13ts_liters: vehicleDispatchAt13tsLiters,
+    vehicle_dispatch_calculation_version: visit.vehicle_dispatch_calculation_version || null,
     procurement_source_id: visit.procurement_source_id ? visit.procurement_source_id.toString() : null,
     zonal_contractor_name: visit.procurement_source?.name || 'Source unavailable',
     procurement_source_type: visit.procurement_source?.source_type || 'UNKNOWN',
@@ -60,6 +101,15 @@ function serializeDispatch(visit: any) {
   };
 }
 
+
+function shiftPakistanCalendarDate(dateStr: string, daysOffset: number): string {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const d = new Date(Date.UTC(year, month - 1, day + daysOffset));
+  const yyyy = d.getUTCFullYear().toString().padStart(4, '0');
+  const mm = (d.getUTCMonth() + 1).toString().padStart(2, '0');
+  const dd = d.getUTCDate().toString().padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
 
 export async function GET(req: Request) {
   const authUser = await getCurrentUser(req);
@@ -90,23 +140,25 @@ export async function GET(req: Request) {
   let gteDate: Date | undefined;
   let lteDate: Date | undefined;
 
+  const todayPkt = getPakistanCalendarDate(new Date());
+
   if (range === 'today') {
-    gteDate = new Date();
-    gteDate.setHours(0, 0, 0, 0);
-    lteDate = new Date();
-    lteDate.setHours(23, 59, 59, 999);
+    gteDate = new Date(`${todayPkt}T00:00:00.000+05:00`);
+    lteDate = new Date(`${todayPkt}T23:59:59.999+05:00`);
   } else if (range === '7d') {
-    gteDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const startDatePkt = shiftPakistanCalendarDate(todayPkt, -6);
+    gteDate = new Date(`${startDatePkt}T00:00:00.000+05:00`);
+    lteDate = new Date(`${todayPkt}T23:59:59.999+05:00`);
   } else if (range === '30d') {
-    gteDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const startDatePkt = shiftPakistanCalendarDate(todayPkt, -29);
+    gteDate = new Date(`${startDatePkt}T00:00:00.000+05:00`);
+    lteDate = new Date(`${todayPkt}T23:59:59.999+05:00`);
   } else if (range === 'custom') {
     if (fromDateParam) {
-      gteDate = new Date(fromDateParam);
+      gteDate = new Date(`${fromDateParam}T00:00:00.000+05:00`);
     }
     if (toDateParam) {
-      const d = new Date(toDateParam);
-      d.setHours(23, 59, 59, 999);
-      lteDate = d;
+      lteDate = new Date(`${toDateParam}T23:59:59.999+05:00`);
     }
     if (gteDate && lteDate && gteDate > lteDate) {
       return NextResponse.json({ error: 'From Date cannot be after To Date' }, { status: 400 });
@@ -142,9 +194,15 @@ export async function GET(req: Request) {
   }
 
   if (gteDate || lteDate) {
-    whereClause.created_at = {
-      ...(gteDate ? { gte: gteDate } : {}),
-      ...(lteDate ? { lte: lteDate } : {}),
+    whereClause.portions = {
+      some: {
+        dispatch_info: {
+          dispatch_timestamp: {
+            ...(gteDate ? { gte: gteDate } : {}),
+            ...(lteDate ? { lte: lteDate } : {}),
+          },
+        },
+      },
     };
   }
 
@@ -152,23 +210,95 @@ export async function GET(req: Request) {
     const totalRecords = await prisma.vehicleVisit.count({ where: whereClause });
     const totalPages = Math.ceil(totalRecords / pageSize) || 1;
 
-    const visits = await prisma.vehicleVisit.findMany({
-      where: whereClause,
-      include: {
-        creator: true,
-        procurement_source: true,
-        portions: {
-          include: {
-            dispatch_info: true,
+    // Construct dynamic parameterized SQL conditions mirroring whereClause
+    const conditions: Prisma.Sql[] = [];
+
+    if (statusFilter) {
+      conditions.push(Prisma.sql`vv.current_status = ${statusFilter}`);
+    } else {
+      conditions.push(Prisma.sql`vv.current_status NOT IN ('CANCELLED', 'DRAFT_DISPATCH')`);
+    }
+
+    if (isSourceScoped) {
+      if (dbUser.procurement_source_id) {
+        conditions.push(Prisma.sql`vv.procurement_source_id = ${dbUser.procurement_source_id}`);
+      } else {
+        conditions.push(Prisma.sql`vv.procurement_source_id = -1`);
+      }
+    } else {
+      const sourceParam = searchParams.get('procurementSourceId');
+      if (sourceParam) {
+        conditions.push(Prisma.sql`vv.procurement_source_id = ${BigInt(sourceParam)}`);
+      }
+    }
+
+    if (gteDate && lteDate) {
+      conditions.push(Prisma.sql`EXISTS (
+        SELECT 1 FROM visit_portion vp2
+        JOIN dispatch_info di2 ON di2.portion_id = vp2.id
+        WHERE vp2.visit_id = vv.id
+          AND di2.dispatch_timestamp >= ${gteDate}
+          AND di2.dispatch_timestamp <= ${lteDate}
+      )`);
+    } else if (gteDate) {
+      conditions.push(Prisma.sql`EXISTS (
+        SELECT 1 FROM visit_portion vp2
+        JOIN dispatch_info di2 ON di2.portion_id = vp2.id
+        WHERE vp2.visit_id = vv.id
+          AND di2.dispatch_timestamp >= ${gteDate}
+      )`);
+    } else if (lteDate) {
+      conditions.push(Prisma.sql`EXISTS (
+        SELECT 1 FROM visit_portion vp2
+        JOIN dispatch_info di2 ON di2.portion_id = vp2.id
+        WHERE vp2.visit_id = vv.id
+          AND di2.dispatch_timestamp <= ${lteDate}
+      )`);
+    }
+
+    const whereSql = conditions.length > 0
+      ? Prisma.sql`WHERE ${Prisma.join(conditions, ' AND ')}`
+      : Prisma.empty;
+
+    const offset = (page - 1) * pageSize;
+
+    // Authoritative dispatch chronology: order newest-first by DispatchInfo.dispatch_timestamp
+    // with deterministic visit.id DESC tie-breaker, NOT by vehicle_visit.created_at.
+    const idRows = await prisma.$queryRaw<Array<{ id: bigint }>>`
+      SELECT vv.id
+      FROM vehicle_visit vv
+      LEFT JOIN (
+        SELECT vp.visit_id, MAX(di.dispatch_timestamp) AS max_disp_ts
+        FROM visit_portion vp
+        JOIN dispatch_info di ON di.portion_id = vp.id
+        GROUP BY vp.visit_id
+      ) disp ON disp.visit_id = vv.id
+      ${whereSql}
+      ORDER BY disp.max_disp_ts DESC NULLS LAST, vv.id DESC
+      LIMIT ${pageSize} OFFSET ${offset}
+    `;
+
+    let visits: any[] = [];
+    if (idRows.length > 0) {
+      const visitIds = idRows.map((r) => r.id);
+      const fetchedVisits = await prisma.vehicleVisit.findMany({
+        where: { id: { in: visitIds } },
+        include: {
+          creator: true,
+          procurement_source: true,
+          portions: {
+            include: {
+              dispatch_info: true,
+            },
+            orderBy: { portion_number: 'asc' },
           },
-          orderBy: { portion_number: 'asc' },
+          gate_log: true,
         },
-        gate_log: true,
-      },
-      orderBy: { created_at: 'desc' },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    });
+      });
+
+      const visitMap = new Map(fetchedVisits.map((v) => [v.id.toString(), v]));
+      visits = visitIds.map((id) => visitMap.get(id.toString())).filter(Boolean);
+    }
 
     return NextResponse.json({
       dispatches: visits.map(serializeDispatch),
@@ -465,12 +595,131 @@ export async function POST(req: Request) {
 
     // Calendar date derived in Pakistan local timezone (PKT) for month prefix
     const effectiveDispatchDate = chronoVal.date || new Date(firstPortionTs);
-    const canonicalBusinessDateStr = getPakistanCalendarDate(effectiveDispatchDate);
+    const dispatchCalendarDateStr = getPakistanCalendarDate(effectiveDispatchDate);
+
+    // Resolve authoritative vehicle LR:
+    // 1. Explicit vehicleLr in payload
+    // 2. Explicit lr in vehicleQuantity
+    // 3. If portions.length === 1, from single portion's performed Lactometer/LR test
+    let authoritativeVehicleLr: number | null = null;
+    if (validated.vehicleLr !== undefined && validated.vehicleLr !== null && !isNaN(validated.vehicleLr) && validated.vehicleLr > 0) {
+      authoritativeVehicleLr = Number(validated.vehicleLr);
+    } else if (validated.vehicleQuantity.lr !== undefined && validated.vehicleQuantity.lr !== null && !isNaN(validated.vehicleQuantity.lr) && validated.vehicleQuantity.lr > 0) {
+      authoritativeVehicleLr = Number(validated.vehicleQuantity.lr);
+    } else if (validated.portions.length === 1) {
+      const p1Results = validated.portions[0].results || [];
+      for (const r of p1Results) {
+        const assigned = assignedDispatchTests.find((t) => t.test_id.toString() === r.testId);
+        if (assigned) {
+          const tName = assigned.test_name_snapshot.toLowerCase();
+          if ((tName.includes('lactometer') || tName.includes('lr')) && r.performanceStatus === 'PERFORMED' && r.numericValue !== null && r.numericValue !== undefined && !isNaN(r.numericValue) && r.numericValue > 0) {
+            authoritativeVehicleLr = Number(r.numericValue);
+            break;
+          }
+        }
+      }
+    }
+
+    // Resolve authoritative vehicle Fat:
+    // 1. Explicit vehicleFat in payload
+    // 2. Explicit fat in vehicleQuantity
+    // 3. If portions.length === 1, from single portion's performed Fat test
+    let authoritativeVehicleFat: number | null = null;
+    if (validated.vehicleFat !== undefined && validated.vehicleFat !== null && !isNaN(validated.vehicleFat) && validated.vehicleFat >= 0) {
+      authoritativeVehicleFat = Number(validated.vehicleFat);
+    } else if (validated.vehicleQuantity.fat !== undefined && validated.vehicleQuantity.fat !== null && !isNaN(validated.vehicleQuantity.fat) && validated.vehicleQuantity.fat >= 0) {
+      authoritativeVehicleFat = Number(validated.vehicleQuantity.fat);
+    } else if (validated.portions.length === 1) {
+      const p1Results = validated.portions[0].results || [];
+      for (const r of p1Results) {
+        const assigned = assignedDispatchTests.find((t) => t.test_id.toString() === r.testId);
+        if (assigned) {
+          const tName = assigned.test_name_snapshot.toLowerCase().trim();
+          if (tName === 'fat' && r.performanceStatus === 'PERFORMED' && r.numericValue !== null && r.numericValue !== undefined && !isNaN(r.numericValue) && r.numericValue >= 0) {
+            authoritativeVehicleFat = Number(r.numericValue);
+            break;
+          }
+        }
+      }
+    }
+
+    const vehicleQtyVal = Number(validatedQuantities.vehicleQuantity.value);
+    const vehicleQtyUnit = validatedQuantities.vehicleQuantity.unit;
+
+    let vehicleDensity: number | null = null;
+    let vehicleGrossLiters: number | null = null;
+    let vehicleSnf: number | null = null;
+    let vehicleTs: number | null = null;
+    let vehicleAt13tsLiters: number | null = null;
+    let vehicleCalculationVersion: string | null = null;
+
+    if (vehicleQtyUnit === 'LITER') {
+      vehicleGrossLiters = Number(vehicleQtyVal.toFixed(2));
+      if (authoritativeVehicleLr !== null) {
+        vehicleDensity = Number(calculateDensity(authoritativeVehicleLr).toFixed(4));
+      }
+    } else if (vehicleQtyUnit === 'KG') {
+      if (authoritativeVehicleLr !== null) {
+        vehicleDensity = Number(calculateDensity(authoritativeVehicleLr).toFixed(4));
+        const rawGross = calculateGrossLiters(vehicleQtyVal, 'KG', authoritativeVehicleLr);
+        if (rawGross !== null) {
+          vehicleGrossLiters = Number(rawGross.toFixed(2));
+        }
+      }
+    }
+
+    // When both authoritative LR and Fat are available, compute complete canonical commercial metrics
+    if (authoritativeVehicleLr !== null && authoritativeVehicleFat !== null && vehicleGrossLiters !== null && vehicleGrossLiters > 0) {
+      const canonicalMetrics = computeCanonicalMilkMetrics(
+        vehicleQtyVal,
+        vehicleQtyUnit,
+        authoritativeVehicleLr,
+        authoritativeVehicleFat
+      );
+      vehicleDensity = canonicalMetrics.density;
+      vehicleGrossLiters = canonicalMetrics.grossLiters;
+      vehicleSnf = canonicalMetrics.snf;
+      vehicleTs = canonicalMetrics.ts;
+      vehicleAt13tsLiters = canonicalMetrics.at13tsLiters;
+      vehicleCalculationVersion = canonicalMetrics.calculationVersion;
+    }
+
+    // For ZMCC source: BOTH authoritative LR and Fat are required fail-closed (HTTP 400)
+    // because both physical Gross L and commercial @13TS must be frozen at dispatch
+    if (sourceType === 'ZMCC') {
+      if (authoritativeVehicleLr === null || authoritativeVehicleFat === null) {
+        return NextResponse.json(
+          {
+            error: 'Authoritative whole-vehicle/composite LR and Fat are required for ZMCC dispatch to establish physical Gross Liters and commercial @13TS.',
+            code: 'MISSING_AUTHORITATIVE_VEHICLE_QUALITY',
+          },
+          { status: 400 }
+        );
+      }
+      if (vehicleGrossLiters === null || isNaN(vehicleGrossLiters) || vehicleGrossLiters <= 0) {
+        return NextResponse.json(
+          {
+            error: 'Failed to derive canonical Gross Liters for ZMCC tank issue from measured vehicle quantity.',
+            code: 'INVALID_GROSS_LITERS',
+          },
+          { status: 400 }
+        );
+      }
+      if (vehicleAt13tsLiters === null || isNaN(vehicleAt13tsLiters) || vehicleAt13tsLiters <= 0) {
+        return NextResponse.json(
+          {
+            error: 'Failed to derive canonical @13TS Liters for ZMCC tank issue from measured vehicle quantity and quality.',
+            code: 'INVALID_COMMERCIAL_AT_13TS',
+          },
+          { status: 400 }
+        );
+      }
+    }
 
     // Execute Prisma Transaction for atomic creation or draft finalization
     const result = await prisma.$transaction(async (tx) => {
       const now = new Date();
-      const receptionNumber = await generateReceptionNumber(tx, canonicalBusinessDateStr);
+      const receptionNumber = await generateReceptionNumber(tx, dispatchCalendarDateStr);
 
       const visitNumber = existingVisit.visit_number;
       const visit = await tx.vehicleVisit.update({
@@ -484,12 +733,92 @@ export async function POST(req: Request) {
           vehicle_dispatch_quantity_value: new Prisma.Decimal(validatedQuantities.vehicleQuantity.value),
           vehicle_dispatch_quantity_unit: validatedQuantities.vehicleQuantity.unit,
           vehicle_dispatch_quantity_basis: validatedQuantities.vehicleQuantity.basis,
+          vehicle_dispatch_lr: authoritativeVehicleLr !== null ? new Prisma.Decimal(authoritativeVehicleLr.toFixed(2)) : null,
+          vehicle_dispatch_fat: authoritativeVehicleFat !== null ? new Prisma.Decimal(authoritativeVehicleFat.toFixed(2)) : null,
+          vehicle_dispatch_density: vehicleDensity !== null ? new Prisma.Decimal(vehicleDensity.toFixed(4)) : null,
+          vehicle_dispatch_gross_liters: vehicleGrossLiters !== null ? new Prisma.Decimal(vehicleGrossLiters.toFixed(2)) : null,
+          vehicle_dispatch_snf: vehicleSnf !== null ? new Prisma.Decimal(vehicleSnf.toFixed(2)) : null,
+          vehicle_dispatch_ts: vehicleTs !== null ? new Prisma.Decimal(vehicleTs.toFixed(2)) : null,
+          vehicle_dispatch_at_13ts_liters: vehicleAt13tsLiters !== null ? new Prisma.Decimal(vehicleAt13tsLiters.toFixed(2)) : null,
+          vehicle_dispatch_calculation_version: vehicleCalculationVersion,
         },
       });
 
       // Ensure assignments & policy snapshot are present
       await getOrAssignDispatchTests(tx, visit.id);
       await getOrFreezeDispatchQuantityPolicy(tx, visit.id, resolvedSourceId!);
+
+      // ZMCC TANK ISSUE:
+      // If dispatching from a ZMCC source, atomically deduct whole-vehicle measured quantity (Gross Liters)
+      // and commercial standardized quantity (@13TS Liters) from the active ZMCC tank in the same immutable transaction.
+      if (sourceType === 'ZMCC') {
+        const issueLiters = vehicleGrossLiters!;
+        const issueAt13ts = vehicleAt13tsLiters!;
+        if (isNaN(issueLiters) || issueLiters <= 0) {
+          throw new Error('INVALID_DISPATCH_QUANTITY: Authoritative Gross Liters must be greater than zero for ZMCC tank issue.');
+        }
+        if (isNaN(issueAt13ts) || issueAt13ts <= 0) {
+          throw new Error('INVALID_DISPATCH_QUANTITY: Authoritative @13TS Liters must be greater than zero for ZMCC tank issue.');
+        }
+
+        const activeTanks = await tx.zmccTank.findMany({
+          where: { zmcc_id: resolvedSourceId!, is_active: true },
+          orderBy: { id: 'asc' },
+        });
+
+        if (activeTanks.length === 0) {
+          throw new Error('ZMCC_TANK_CONFIGURATION_ERROR: No active ZMCC tank configured for this procurement source.');
+        }
+        if (activeTanks.length > 1) {
+          throw new Error('ZMCC_TANK_CONFIGURATION_ERROR: Multiple active tanks exist for this ZMCC. Exactly one active tank is permitted.');
+        }
+
+        const targetTankId = activeTanks[0].id;
+
+        // Row lock FOR UPDATE and revalidate active state under lock
+        const lockedTankRows: Array<{ id: bigint; zmcc_id: bigint; capacity_liters: any; is_active: boolean }> = await tx.$queryRaw`
+          SELECT id, zmcc_id, capacity_liters, is_active FROM zmcc_tank WHERE id = ${targetTankId} FOR UPDATE
+        `;
+        if (!lockedTankRows || lockedTankRows.length === 0) {
+          throw new Error('ZMCC_TANK_NOT_FOUND: Active ZMCC tank could not be found.');
+        }
+        if (!lockedTankRows[0].is_active) {
+          throw new Error('ZMCC_TANK_INACTIVE: Active ZMCC tank is inactive or unavailable.');
+        }
+
+        // Check physical stock from immutable ledger
+        const currentStock = await getTankPhysicalStock(targetTankId, tx);
+        if (issueLiters > currentStock) {
+          const availStr = currentStock.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          const reqStr = issueLiters.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          throw new Error(`INSUFFICIENT_TANK_STOCK: Insufficient physical tank stock (${availStr} L available, ${reqStr} L required).`);
+        }
+
+        // Idempotent ledger entry carrying BOTH Gross Liters and @13TS Liters
+        const idempotencyKey = `ZMCC_TANK_ISSUE:DISPATCH:${visit.id}`;
+        const existingIssue = await tx.zmccTankInventoryTransaction.findUnique({
+          where: { idempotency_key: idempotencyKey },
+        });
+
+        if (!existingIssue) {
+          await tx.zmccTankInventoryTransaction.create({
+            data: {
+              tank_id: targetTankId,
+              zmcc_id: resolvedSourceId!,
+              transaction_type: 'ISSUE',
+              quantity_liters: new Prisma.Decimal(issueLiters.toFixed(2)),
+              at_13ts_liters: new Prisma.Decimal(issueAt13ts.toFixed(2)),
+              dispatch_id: visit.id,
+              reference_type: 'DISPATCH',
+              reference_id: visit.id.toString(),
+              idempotency_key: idempotencyKey,
+              operational_timestamp: effectiveDispatchDate,
+              performed_by_user_id: userIdBigInt,
+              notes: `Whole-vehicle dispatch issue for visit ${visitNumber} (${validated.vehicleNumber})`,
+            },
+          });
+        }
+      }
 
       // 2. Create VisitPortion, DispatchInfo, and DispatchLabResult rows for each portion
       for (const portionInput of validated.portions) {
@@ -608,6 +937,18 @@ export async function POST(req: Request) {
   } catch (error: any) {
     if (error instanceof QuantityMeasurementError || error?.name === 'QuantityMeasurementError' || error?.code?.startsWith('QUANTITY_') || error?.code?.startsWith('MISSING_') || error?.code === 'ZERO_PORTIONS_PROHIBITED') {
       return NextResponse.json({ error: error.message, code: error.code || 'QUANTITY_ERROR' }, { status: 400 });
+    }
+    if (
+      error?.message?.startsWith('INSUFFICIENT_TANK_STOCK') ||
+      error?.message?.startsWith('ZMCC_TANK_CONFIGURATION_ERROR') ||
+      error?.message?.startsWith('MISSING_AUTHORITATIVE_VEHICLE_LR') ||
+      error?.message?.startsWith('INVALID_GROSS_LITERS') ||
+      error?.message?.startsWith('ZMCC_TANK_INACTIVE') ||
+      error?.message?.startsWith('ZMCC_TANK_NOT_FOUND') ||
+      error?.message?.startsWith('INVALID_DISPATCH_QUANTITY')
+    ) {
+      const code = error.message.split(':')[0].trim();
+      return NextResponse.json({ error: error.message, code }, { status: 400 });
     }
     if (error?.name === 'ZodError' || Array.isArray(error?.issues)) {
       const firstMsg = error.issues?.[0]?.message || error.errors?.[0]?.message || 'Validation failed';

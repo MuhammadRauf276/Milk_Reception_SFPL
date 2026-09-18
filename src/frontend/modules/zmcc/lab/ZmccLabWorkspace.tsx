@@ -40,9 +40,30 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
   const canCorrect = isZmccManager || isSuperAdmin;
   const canReceiveHistorical = isZmccLabAttendant || isSuperAdmin;
 
-  const [activeTab, setActiveTab] = useState<MainTab>(
-    canTest ? 'QUEUE' : 'HISTORY'
-  );
+  const [activeTab, setActiveTab] = useState<MainTab>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get('tab')?.toLowerCase();
+      if (tab === 'queue' && canTest) return 'QUEUE';
+      if (tab === 'testing' && canTest) return 'TESTING';
+      if (tab === 'history') return 'HISTORY';
+    }
+    return canTest ? 'QUEUE' : 'HISTORY';
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get('tab')?.toLowerCase();
+      if (tab === 'queue' && canTest) {
+        setActiveTab('QUEUE');
+      } else if (tab === 'testing' && canTest) {
+        setActiveTab('TESTING');
+      } else if (tab === 'history') {
+        setActiveTab('HISTORY');
+      }
+    }
+  }, [canTest]);
 
   // Queue State
   const [queueItems, setQueueItems] = useState<any[]>([]);
@@ -551,30 +572,9 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
   });
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-12">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[#F8F9FA] p-6 rounded-2xl border border-slate-200 shadow-sm">
-        <div>
-          <div className="flex items-center gap-3 mb-1">
-            <FlaskConical className="w-8 h-8 text-[#1E3A8A]" />
-            <h1 className="text-2xl font-bold text-slate-800">ZMCC Laboratory Testing</h1>
-          </div>
-          <p className="text-sm text-slate-600">
-            Intake testing and accept/reject decisions for MOT and Local Supplier arrivals. Historical Contractor records remain available for legacy completion and support.
-          </p>
-        </div>
-        {currentUser?.procurement_source && (
-          <div className="bg-white px-4 py-2 rounded-xl border border-slate-200 text-xs text-slate-600 flex items-center gap-2">
-            <Building2 className="w-4 h-4 text-[#1E3A8A]" />
-            <span>
-              <strong>{currentUser.procurement_source.name}</strong> ({currentUser.procurement_source.code})
-            </span>
-          </div>
-        )}
-      </div>
-
+    <div className="space-y-4 max-w-7xl mx-auto pb-12 w-full">
       {/* Tabs */}
-      <div className="flex border-b border-slate-200">
+      <div className="flex border-b border-[#EAE4D5] gap-1 overflow-x-auto pb-1" role="tablist">
         {canTest && (
           <button
             onClick={() => setActiveTab('QUEUE')}

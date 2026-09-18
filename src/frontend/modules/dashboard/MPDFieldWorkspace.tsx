@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { User } from '@core/types';
-import { ChevronLeft, ChevronRight, RefreshCw, Radio, Calendar, Truck } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RefreshCw, Calendar, Truck } from 'lucide-react';
 import { DynamicDispatchForm } from '@modules/forms/DynamicDispatchForm';
 
 interface DispatchRecord {
@@ -11,11 +11,17 @@ interface DispatchRecord {
   reception_number: string | null;
   vehicle_number: string;
   token_number: string | null;
+  dispatch_date?: string | null;
+  dispatch_timestamp?: string | null;
   operational_date: string | null;
   current_status: string;
   portion_count: number;
   vehicle_dispatch_quantity_value?: number | null;
   vehicle_dispatch_quantity_unit?: string | null;
+  vehicle_dispatch_lr?: number | null;
+  vehicle_dispatch_density?: number | null;
+  vehicle_dispatch_gross_liters?: number | null;
+  vehicle_dispatch_at_13ts_liters?: number | null;
   zonal_contractor_name: string;
   zonal_contractor_dispatch_time: string | null;
   has_gate_entry: boolean;
@@ -48,6 +54,19 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
   onRefresh,
 }) => {
   const [activeTab, setActiveTab] = useState<'new' | 'recent'>('new');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get('tab')?.toLowerCase();
+      if (tab === 'recent') {
+        setActiveTab('recent');
+      } else if (tab === 'new') {
+        setActiveTab('new');
+      }
+    }
+  }, []);
+
   const [dbDispatches, setDbDispatches] = useState<DispatchRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -67,6 +86,10 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
   });
 
   const fetchDbDispatches = async (targetPage = page, range = dateRange, fDate = fromDate, tDate = toDate) => {
+    if (!currentUser) {
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     setDateError(null);
 
@@ -202,10 +225,6 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center space-x-2">
                 <h2 className="text-base font-extrabold text-[#111311]">Recent Dispatches</h2>
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                  <Radio className="w-2.5 h-2.5 animate-pulse text-emerald-600" />
-                  Live
-                </span>
               </div>
               <span className="text-xs font-mono font-bold text-slate-600 bg-[#F4EFE3] px-2.5 py-1 rounded-lg border border-[#C4B9A3]">
                 {pagination.totalRecords} records
@@ -360,11 +379,21 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
                           ? `${Number(log.vehicle_dispatch_quantity_value).toLocaleString()} ${log.vehicle_dispatch_quantity_unit}`
                           : '—'}
                       </span>
+                      {log.vehicle_dispatch_quantity_unit === 'KG' && log.vehicle_dispatch_gross_liters != null && (
+                        <span className="text-[10px] text-blue-700 block font-mono font-bold">
+                          {Number(log.vehicle_dispatch_gross_liters).toLocaleString()} Gross L
+                        </span>
+                      )}
+                      {log.vehicle_dispatch_at_13ts_liters != null && (
+                        <span className="text-[10px] text-emerald-700 block font-mono font-bold">
+                          {Number(log.vehicle_dispatch_at_13ts_liters).toLocaleString()} L @13% TS
+                        </span>
+                      )}
                     </div>
                     <div>
-                      <span className="text-slate-500 font-sans block text-[9.5px]">Operational Date</span>
+                      <span className="text-slate-500 font-sans block text-[9.5px]">Dispatch Date</span>
                       <span className="text-slate-900 font-black text-sm">
-                        {log.operational_date || 'Today'}
+                        {log.dispatch_date || '—'}
                       </span>
                     </div>
                   </div>
@@ -374,31 +403,41 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
           </div>
 
           {/* Server-side Pagination Footer */}
-          {pagination.totalPages > 1 && (
-            <div className="p-3.5 rounded-2xl bg-white border border-[#C4B9A3] shadow-sm flex items-center justify-between text-xs font-bold">
-              <button
-                type="button"
-                disabled={page <= 1 || isLoading}
-                onClick={() => handlePageChange(page - 1)}
-                className="h-10 flex items-center space-x-1 px-3.5 rounded-xl bg-[#F4EFE3] border border-[#C4B9A3] text-[#111311] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-amber-100/50 transition"
-              >
-                <ChevronLeft className="w-4 h-4" />
-                <span>Prev</span>
-              </button>
-
-              <span className="font-mono text-slate-700">
-                Page {pagination.page} of {pagination.totalPages}
+          {pagination.totalRecords > 0 && (
+            <div className="p-3.5 rounded-2xl bg-white border border-[#C4B9A3] shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-bold">
+              <span className="text-slate-600 font-sans text-xs">
+                Showing {Math.min((pagination.page - 1) * pagination.pageSize + 1, pagination.totalRecords)}–{Math.min(pagination.page * pagination.pageSize, pagination.totalRecords)} of {pagination.totalRecords} dispatches
               </span>
 
-              <button
-                type="button"
-                disabled={page >= pagination.totalPages || isLoading}
-                onClick={() => handlePageChange(page + 1)}
-                className="h-10 flex items-center space-x-1 px-3.5 rounded-xl bg-[#F4EFE3] border border-[#C4B9A3] text-[#111311] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-amber-100/50 transition"
-              >
-                <span>Next</span>
-                <ChevronRight className="w-4 h-4" />
-              </button>
+              {pagination.totalPages > 1 && (
+                <div className="flex items-center space-x-2">
+                  <button
+                    type="button"
+                    disabled={page <= 1 || isLoading}
+                    onClick={() => handlePageChange(page - 1)}
+                    className="min-h-[44px] min-w-[44px] flex items-center justify-center space-x-1 px-3.5 py-2 rounded-xl bg-[#F4EFE3] border border-[#C4B9A3] text-[#111311] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-amber-100/50 transition focus:outline-none focus:ring-2 focus:ring-[#1E40AF]"
+                    aria-label="Previous page"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    <span>Previous</span>
+                  </button>
+
+                  <span className="font-mono text-slate-700 px-2">
+                    Page {pagination.page} of {pagination.totalPages}
+                  </span>
+
+                  <button
+                    type="button"
+                    disabled={page >= pagination.totalPages || isLoading}
+                    onClick={() => handlePageChange(page + 1)}
+                    className="min-h-[44px] min-w-[44px] flex items-center justify-center space-x-1 px-3.5 py-2 rounded-xl bg-[#F4EFE3] border border-[#C4B9A3] text-[#111311] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-amber-100/50 transition focus:outline-none focus:ring-2 focus:ring-[#1E40AF]"
+                    aria-label="Next page"
+                  >
+                    <span>Next</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

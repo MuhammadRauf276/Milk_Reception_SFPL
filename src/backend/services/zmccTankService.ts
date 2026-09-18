@@ -118,79 +118,174 @@ export async function getTankPhysicalStock(
     WHERE tank_id = ${tankId}
   `;
 
-  return Number(res[0]?.current_stock || 0);
-}
+    return Number(res[0]?.current_stock || 0);
+  }
 
-export function serializeTank(tank: any, currentStock?: number) {
-  const stock = currentStock !== undefined ? currentStock : (tank.current_stock !== undefined ? Number(tank.current_stock) : 0);
-  const cap = Number(tank.capacity_liters);
-  return {
-    id: tank.id.toString(),
-    zmcc_id: tank.zmcc_id.toString(),
-    tank_code: tank.tank_code,
-    tank_name: tank.tank_name,
-    capacity_liters: cap,
-    current_stock: Number(stock.toFixed(2)),
-    available_capacity: Number(Math.max(0, cap - stock).toFixed(2)),
-    is_active: tank.is_active,
-    created_by_user_id: tank.created_by_user_id.toString(),
-    updated_by_user_id: tank.updated_by_user_id ? tank.updated_by_user_id.toString() : null,
-    created_at: tank.created_at instanceof Date ? tank.created_at.toISOString() : tank.created_at,
-    updated_at: tank.updated_at instanceof Date ? tank.updated_at.toISOString() : tank.updated_at,
-    creator: tank.creator ? { id: tank.creator.id.toString(), username: tank.creator.username, full_name: tank.creator.full_name } : undefined,
-    updater: tank.updater ? { id: tank.updater.id.toString(), username: tank.updater.username, full_name: tank.updater.full_name } : undefined,
-    zmcc: tank.zmcc ? { id: tank.zmcc.id.toString(), code: tank.zmcc.code, name: tank.zmcc.name } : undefined,
-  };
-}
+  /**
+   * Calculates current commercial stock (@13TS Liters) of a tank strictly from immutable ledger transactions.
+   * Current Tank Commercial Stock (@13TS) = SUM(RECEIPT) + SUM(ADJUSTMENT_IN) - SUM(ISSUE) - SUM(ADJUSTMENT_OUT)
+   *
+   * FAILS TRUTHFULLY WHEN INCOMPLETE:
+   * If ANY applicable transaction row required for the balance has NULL at_13ts_liters,
+   * returns stockAt13Ts = null and isComplete = false.
+   * Physical Gross-Liter stock remains independently available and unaffected.
+   */
+  export async function getTankCommercialStock(
+    tankId: bigint,
+    tx?: Prisma.TransactionClient
+  ): Promise<{ stockAt13Ts: number | null; isComplete: boolean; partialStockAt13Ts?: number }> {
+    const client = tx || prisma;
+    const res: Array<{
+      sum_commercial: string | number | null;
+      missing_count: string | number | null;
+    }> = await client.$queryRaw`
+      SELECT 
+        COALESCE(
+          SUM(
+            CASE 
+              WHEN transaction_type IN ('RECEIPT', 'ADJUSTMENT_IN') THEN at_13ts_liters
+              WHEN transaction_type IN ('ISSUE', 'ADJUSTMENT_OUT') THEN -at_13ts_liters
+              ELSE 0
+            END
+          ), 0
+        ) as sum_commercial,
+        COUNT(CASE WHEN at_13ts_liters IS NULL THEN 1 ELSE NULL END) as missing_count
+      FROM zmcc_tank_inventory_transaction
+      WHERE tank_id = ${tankId}
+    `;
 
-export function serializeTankReceipt(receipt: any) {
-  return {
-    id: receipt.id.toString(),
-    lab_session_id: receipt.lab_session_id.toString(),
-    zmcc_id: receipt.zmcc_id.toString(),
-    tank_id: receipt.tank_id.toString(),
-    arrival_type: receipt.arrival_type,
-    quantity_value: Number(receipt.quantity_value),
-    quantity_unit: receipt.quantity_unit,
-    density: Number(receipt.density),
-    gross_liters: Number(receipt.gross_liters),
-    lr: Number(receipt.lr),
-    fat: Number(receipt.fat),
-    snf: Number(receipt.snf),
-    ts: Number(receipt.ts),
-    at_13ts_liters: Number(receipt.at_13ts_liters),
-    calculation_version: receipt.calculation_version,
-    received_at: receipt.received_at instanceof Date ? receipt.received_at.toISOString() : receipt.received_at,
-    received_by_user_id: receipt.received_by_user_id.toString(),
-    correction_count: receipt.correction_count,
-    manager_correction_count: receipt.manager_correction_count,
-    last_corrected_by_user_id: receipt.last_corrected_by_user_id ? receipt.last_corrected_by_user_id.toString() : null,
-    last_corrected_at: receipt.last_corrected_at instanceof Date ? receipt.last_corrected_at.toISOString() : receipt.last_corrected_at,
-    created_at: receipt.created_at instanceof Date ? receipt.created_at.toISOString() : receipt.created_at,
-    updated_at: receipt.updated_at instanceof Date ? receipt.updated_at.toISOString() : receipt.updated_at,
-    tank: receipt.tank ? serializeTank(receipt.tank) : undefined,
-    receiver: receipt.receiver ? { id: receipt.receiver.id.toString(), username: receipt.receiver.username, full_name: receipt.receiver.full_name } : undefined,
-  };
-}
+    const missingCount = Number(res[0]?.missing_count || 0);
+    const sumCommercial = Number(res[0]?.sum_commercial || 0);
 
-export function serializeTankTransaction(tx: any) {
-  return {
-    id: tx.id.toString(),
-    tank_id: tx.tank_id.toString(),
-    zmcc_id: tx.zmcc_id.toString(),
-    transaction_type: tx.transaction_type,
-    quantity_liters: Number(tx.quantity_liters),
-    tank_receipt_id: tx.tank_receipt_id ? tx.tank_receipt_id.toString() : null,
-    dispatch_id: tx.dispatch_id ? tx.dispatch_id.toString() : null,
-    reference_type: tx.reference_type,
-    reference_id: tx.reference_id,
-    idempotency_key: tx.idempotency_key,
-    operational_timestamp: tx.operational_timestamp instanceof Date ? tx.operational_timestamp.toISOString() : tx.operational_timestamp,
-    performed_by_user_id: tx.performed_by_user_id.toString(),
-    notes: tx.notes,
-    created_at: tx.created_at instanceof Date ? tx.created_at.toISOString() : tx.created_at,
-  };
-}
+    if (missingCount > 0) {
+      return {
+        stockAt13Ts: null,
+        isComplete: false,
+        partialStockAt13Ts: Number(sumCommercial.toFixed(2)),
+      };
+    }
+
+    return {
+      stockAt13Ts: Number(sumCommercial.toFixed(2)),
+      isComplete: true,
+    };
+  }
+
+  export async function getTankStockSummary(
+    tankId: bigint,
+    tx?: Prisma.TransactionClient
+  ): Promise<{
+    physicalStockGrossLiters: number;
+    commercialStockAt13Ts: number | null;
+    commercialBalanceComplete: boolean;
+  }> {
+    const [physical, commercial] = await Promise.all([
+      getTankPhysicalStock(tankId, tx),
+      getTankCommercialStock(tankId, tx),
+    ]);
+    return {
+      physicalStockGrossLiters: physical,
+      commercialStockAt13Ts: commercial.stockAt13Ts,
+      commercialBalanceComplete: commercial.isComplete,
+    };
+  }
+
+  export function serializeTank(
+    tank: any,
+    stockOrSummary?:
+      | { physicalStockGrossLiters: number; commercialStockAt13Ts: number | null; commercialBalanceComplete: boolean }
+      | number
+  ) {
+    let physicalStock = 0;
+    let commercialStock: number | null = null;
+    let commercialComplete = true;
+
+    if (typeof stockOrSummary === 'number') {
+      physicalStock = stockOrSummary;
+    } else if (stockOrSummary) {
+      physicalStock = stockOrSummary.physicalStockGrossLiters;
+      commercialStock = stockOrSummary.commercialStockAt13Ts;
+      commercialComplete = stockOrSummary.commercialBalanceComplete;
+    } else if (tank.current_stock !== undefined) {
+      physicalStock = Number(tank.current_stock);
+      if (tank.current_commercial_stock_at_13ts !== undefined) {
+        commercialStock = tank.current_commercial_stock_at_13ts !== null ? Number(tank.current_commercial_stock_at_13ts) : null;
+        commercialComplete = tank.commercial_balance_complete ?? (commercialStock !== null);
+      }
+    }
+
+    const cap = Number(tank.capacity_liters);
+    return {
+      id: tank.id.toString(),
+      zmcc_id: tank.zmcc_id.toString(),
+      tank_code: tank.tank_code,
+      tank_name: tank.tank_name,
+      capacity_liters: cap,
+      current_stock: Number(physicalStock.toFixed(2)),
+      current_physical_stock_gross_liters: Number(physicalStock.toFixed(2)),
+      current_commercial_stock_at_13ts: commercialStock !== null ? Number(commercialStock.toFixed(2)) : null,
+      commercial_balance_complete: commercialComplete,
+      available_capacity: Number(Math.max(0, cap - physicalStock).toFixed(2)),
+      is_active: tank.is_active,
+      created_by_user_id: tank.created_by_user_id.toString(),
+      updated_by_user_id: tank.updated_by_user_id ? tank.updated_by_user_id.toString() : null,
+      created_at: tank.created_at instanceof Date ? tank.created_at.toISOString() : tank.created_at,
+      updated_at: tank.updated_at instanceof Date ? tank.updated_at.toISOString() : tank.updated_at,
+      creator: tank.creator ? { id: tank.creator.id.toString(), username: tank.creator.username, full_name: tank.creator.full_name } : undefined,
+      updater: tank.updater ? { id: tank.updater.id.toString(), username: tank.updater.username, full_name: tank.updater.full_name } : undefined,
+      zmcc: tank.zmcc ? { id: tank.zmcc.id.toString(), code: tank.zmcc.code, name: tank.zmcc.name } : undefined,
+    };
+  }
+
+  export function serializeTankReceipt(receipt: any) {
+    return {
+      id: receipt.id.toString(),
+      lab_session_id: receipt.lab_session_id.toString(),
+      zmcc_id: receipt.zmcc_id.toString(),
+      tank_id: receipt.tank_id.toString(),
+      arrival_type: receipt.arrival_type,
+      quantity_value: Number(receipt.quantity_value),
+      quantity_unit: receipt.quantity_unit,
+      density: Number(receipt.density),
+      gross_liters: Number(receipt.gross_liters),
+      lr: Number(receipt.lr),
+      fat: Number(receipt.fat),
+      snf: Number(receipt.snf),
+      ts: Number(receipt.ts),
+      at_13ts_liters: Number(receipt.at_13ts_liters),
+      calculation_version: receipt.calculation_version,
+      received_at: receipt.received_at instanceof Date ? receipt.received_at.toISOString() : receipt.received_at,
+      received_by_user_id: receipt.received_by_user_id.toString(),
+      correction_count: receipt.correction_count,
+      manager_correction_count: receipt.manager_correction_count,
+      last_corrected_by_user_id: receipt.last_corrected_by_user_id ? receipt.last_corrected_by_user_id.toString() : null,
+      last_corrected_at: receipt.last_corrected_at instanceof Date ? receipt.last_corrected_at.toISOString() : receipt.last_corrected_at,
+      created_at: receipt.created_at instanceof Date ? receipt.created_at.toISOString() : receipt.created_at,
+      updated_at: receipt.updated_at instanceof Date ? receipt.updated_at.toISOString() : receipt.updated_at,
+      tank: receipt.tank ? serializeTank(receipt.tank) : undefined,
+      receiver: receipt.receiver ? { id: receipt.receiver.id.toString(), username: receipt.receiver.username, full_name: receipt.receiver.full_name } : undefined,
+    };
+  }
+
+  export function serializeTankTransaction(tx: any) {
+    return {
+      id: tx.id.toString(),
+      tank_id: tx.tank_id.toString(),
+      zmcc_id: tx.zmcc_id.toString(),
+      transaction_type: tx.transaction_type,
+      quantity_liters: Number(tx.quantity_liters),
+      at_13ts_liters: tx.at_13ts_liters !== null && tx.at_13ts_liters !== undefined ? Number(tx.at_13ts_liters) : null,
+      tank_receipt_id: tx.tank_receipt_id ? tx.tank_receipt_id.toString() : null,
+      dispatch_id: tx.dispatch_id ? tx.dispatch_id.toString() : null,
+      reference_type: tx.reference_type,
+      reference_id: tx.reference_id,
+      idempotency_key: tx.idempotency_key,
+      operational_timestamp: tx.operational_timestamp instanceof Date ? tx.operational_timestamp.toISOString() : tx.operational_timestamp,
+      performed_by_user_id: tx.performed_by_user_id.toString(),
+      notes: tx.notes,
+      created_at: tx.created_at instanceof Date ? tx.created_at.toISOString() : tx.created_at,
+    };
+  }
 
 /**
  * List tanks for a ZMCC with real-time stock and available capacity
@@ -226,8 +321,8 @@ export async function listZmccTanks(
 
       const serialized = await Promise.all(
         tanks.map(async (t) => {
-          const stock = await getTankPhysicalStock(t.id);
-          return serializeTank(t, stock);
+          const stockSummary = await getTankStockSummary(t.id);
+          return serializeTank(t, stockSummary);
         })
       );
       return { status: 200, data: { tanks: serialized } };
@@ -254,8 +349,8 @@ export async function listZmccTanks(
 
   const serialized = await Promise.all(
     tanks.map(async (t) => {
-      const stock = await getTankPhysicalStock(t.id);
-      return serializeTank(t, stock);
+      const stockSummary = await getTankStockSummary(t.id);
+      return serializeTank(t, stockSummary);
     })
   );
 
@@ -297,8 +392,8 @@ export async function getZmccTankById(
     return { status: 403, error: 'Forbidden. Tank belongs to another ZMCC.' };
   }
 
-  const stock = await getTankPhysicalStock(tank.id);
-  return { status: 200, data: { tank: serializeTank(tank, stock) } };
+  const stockSummary = await getTankStockSummary(tank.id);
+  return { status: 200, data: { tank: serializeTank(tank, stockSummary) } };
 }
 
 export interface CreateTankPayload {
@@ -912,6 +1007,7 @@ export async function receiveHistoricalSession(
           zmcc_id: session.zmcc_id,
           transaction_type: 'RECEIPT',
           quantity_liters: session.gross_liters!,
+          at_13ts_liters: session.at_13ts_liters!,
           tank_receipt_id: newReceipt.id,
           reference_type: 'ZMCC_LAB_SESSION',
           reference_id: sessionId.toString(),

@@ -2,8 +2,6 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { MilkProcessLog, User } from '@backend/core/types';
-import { Sidebar } from '@modules/shared/Sidebar';
-import { Header } from '@modules/shared/Header';
 import { ContractorOverview } from './contractor/ContractorOverview';
 import { ContractorLivePipeline } from './contractor/ContractorLivePipeline';
 import { ContractorQualityRejections } from './contractor/ContractorQualityRejections';
@@ -24,6 +22,8 @@ import {
 
 interface PlantContractorManagerWorkspaceProps {
   currentUser: User | null;
+  activeTab?: PlantContractorTab;
+  onTabChange?: (tab: PlantContractorTab) => void;
 }
 
 const TABS: { id: PlantContractorTab; label: string; icon: React.FC<{ className?: string }> }[] = [
@@ -36,8 +36,16 @@ const TABS: { id: PlantContractorTab; label: string; icon: React.FC<{ className?
 
 export const PlantContractorManagerWorkspace: React.FC<PlantContractorManagerWorkspaceProps> = ({
   currentUser,
+  activeTab: controlledTab,
+  onTabChange,
 }) => {
-  const [activeTab, setActiveTab] = useState<PlantContractorTab>('OVERVIEW');
+  const [internalTab, setInternalTab] = useState<PlantContractorTab>('OVERVIEW');
+  const activeTab = controlledTab !== undefined ? controlledTab : internalTab;
+
+  const setActiveTab = (tab: PlantContractorTab) => {
+    setInternalTab(tab);
+    if (onTabChange) onTabChange(tab);
+  };
   const [serverBusinessDate, setServerBusinessDate] = useState<string>('');
   const [logs, setLogs] = useState<MilkProcessLog[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -56,12 +64,6 @@ export const PlantContractorManagerWorkspace: React.FC<PlantContractorManagerWor
   const assignedSourceName = useMemo(() => {
     return currentUser?.zone || currentUser?.department || 'Assigned Plant Contractor';
   }, [currentUser]);
-
-  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
-
-  const activePipelineCount = useMemo(() => {
-    return logs.filter((l) => !l.final_receipt_exists && l.status !== 'CANCELLED').length;
-  }, [logs]);
 
   const fetchLogs = useCallback(
     async (targetPage: number = 1) => {
@@ -109,26 +111,9 @@ export const PlantContractorManagerWorkspace: React.FC<PlantContractorManagerWor
   }, [fetchLogs]);
 
   return (
-    <div className="w-full max-w-full flex h-screen bg-[#FDFBF9] text-[#111311] overflow-hidden font-sans">
-      {/* Shared Application Sidebar Drawer */}
-      <Sidebar
-        currentUser={currentUser}
-        activeCount={activePipelineCount}
-        isMobileOpen={isMobileNavOpen}
-        onCloseMobile={() => setIsMobileNavOpen(false)}
-      />
-
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden w-full max-w-full">
-        {/* Header */}
-        <Header
-          currentUser={currentUser}
-          title="Plant Contractor Manager Station"
-          onMenuClick={() => setIsMobileNavOpen((prev) => !prev)}
-        />
-
-        {/* Workspace Toolbar */}
-        <div className="bg-white border-b border-[#C4B9A3] px-4 sm:px-6 py-3.5 shrink-0 shadow-xs">
+    <div className="flex-1 flex flex-col min-w-0 overflow-hidden w-full max-w-full">
+      {/* Workspace Toolbar */}
+      <div className="bg-white border-b border-[#C4B9A3] px-4 sm:px-6 py-3.5 shrink-0 shadow-xs">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <div className="flex items-center space-x-2 flex-wrap">
@@ -296,6 +281,5 @@ export const PlantContractorManagerWorkspace: React.FC<PlantContractorManagerWor
           )}
         </div>
       </div>
-    </div>
-  );
-};
+    );
+  };

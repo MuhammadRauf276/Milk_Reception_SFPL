@@ -1,11 +1,18 @@
 'use client';
 
 import React from 'react';
-import { Clock, Truck } from 'lucide-react';
+import { Clock, Truck, Activity } from 'lucide-react';
 import {
   QuantityUnit,
   MeasurementBasis,
 } from '@/backend/modules/dispatch/quantity-policy/types';
+import {
+  calculateDensity,
+  calculateGrossLiters,
+  calculateSNF,
+  calculateTS,
+  calculateAt13TSLiters,
+} from '@/backend/utils/milkFormulas';
 
 export type QuantityUnitType = QuantityUnit;
 export type MeasurementBasisType = MeasurementBasis;
@@ -35,6 +42,11 @@ export interface DispatchVehicleSectionProps {
   vehicleAllowedUnits: QuantityUnitType[];
   vehicleAllowedBases: MeasurementBasisType[];
   vehicleQuantityError: string | null;
+  sourceType?: string;
+  vehicleLr?: string;
+  onVehicleLrChange?: (value: string) => void;
+  vehicleFat?: string;
+  onVehicleFatChange?: (value: string) => void;
 }
 
 export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
@@ -56,7 +68,30 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
   vehicleAllowedUnits,
   vehicleAllowedBases,
   vehicleQuantityError,
+  sourceType,
+  vehicleLr,
+  onVehicleLrChange,
+  vehicleFat,
+  onVehicleFatChange,
 }) => {
+  const numQty = parseFloat(vehicleQuantity.value);
+  const numLr = vehicleLr ? parseFloat(vehicleLr) : NaN;
+  const numFat = vehicleFat ? parseFloat(vehicleFat) : NaN;
+
+  const previewDensity = !isNaN(numLr) && numLr > 0 ? calculateDensity(numLr) : null;
+  const previewGrossLiters = !isNaN(numQty) && numQty > 0
+    ? calculateGrossLiters(numQty, vehicleQuantity.unit, !isNaN(numLr) ? numLr : null)
+    : null;
+  const previewSnf = !isNaN(numLr) && !isNaN(numFat) && numLr > 0 && numFat >= 0
+    ? calculateSNF(numLr, numFat)
+    : null;
+  const previewTs = previewSnf !== null && !isNaN(numFat) && numFat >= 0
+    ? calculateTS(numFat, previewSnf)
+    : null;
+  const previewAt13ts = previewGrossLiters !== null && previewTs !== null
+    ? calculateAt13TSLiters(previewGrossLiters, previewTs)
+    : null;
+
   return (
     <div className="space-y-4">
       {/* Global Source Selector if user is NOT source-bound (e.g. Admin) */}
@@ -139,12 +174,12 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
 
       {/* Whole-Vehicle Dispatch Quantity Section */}
       <div className="p-4 sm:p-5 rounded-2xl bg-white border border-[#C4B9A3] shadow-sm space-y-3.5">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-2 gap-1">
           <label className="text-xs font-extrabold uppercase tracking-wider text-[#111311]">
-            Vehicle Quantity *
+            {sourceType === 'ZMCC' ? 'Measured Tank / Vehicle Issue' : 'Measured Whole-Vehicle Dispatch Quantity'} *
           </label>
           <span className="text-[10px] font-bold text-slate-500">
-            Authoritative Vehicle Measurement
+            Authoritative measured issue from bulk tank / weighbridge
           </span>
         </div>
 
@@ -196,19 +231,120 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
                 <label htmlFor="vehicle-basis-select" className="block text-xs font-bold text-[#111311]">
                   Basis *
                 </label>
-                <select
-                  id="vehicle-basis-select"
-                  value={vehicleQuantity.basis}
-                  onChange={(e) => onVehicleBasisChange(e.target.value as MeasurementBasisType)}
-                  className="w-full h-11 px-3 text-xs font-mono font-bold rounded-xl border border-[#C4B9A3] bg-white text-[#111311] focus:ring-2 focus:ring-[#1E40AF] outline-none transition"
-                >
-                  {vehicleAllowedBases.map((b) => (
-                    <option key={b} value={b}>
-                      {b}
-                    </option>
-                  ))}
-                </select>
+                <div className="w-full h-11 px-3 flex items-center justify-between rounded-xl border border-emerald-300 bg-emerald-50/60 text-[#111311]">
+                  <span className="text-xs font-mono font-black text-emerald-900 tracking-wider">
+                    {vehicleQuantity.basis || 'MEASURED'}
+                  </span>
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800 bg-emerald-200/70 px-2 py-0.5 rounded-md">
+                    Authoritative
+                  </span>
+                </div>
+                <input type="hidden" id="vehicle-basis-select" value={vehicleQuantity.basis || 'MEASURED'} />
               </div>
+            </div>
+
+            {/* Whole-Vehicle / Composite Quality Section */}
+            <div className="p-4 rounded-2xl bg-amber-50/60 border border-amber-200/90 space-y-3 shadow-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-amber-200/70 pb-2">
+                <div className="flex items-center space-x-1.5">
+                  <Activity className="w-4 h-4 text-amber-900" />
+                  <span className="text-xs font-black uppercase tracking-wider text-amber-950">
+                    Whole-Vehicle / Composite Quality {sourceType === 'ZMCC' ? '(Required)' : '(Optional)'}
+                  </span>
+                </div>
+                <span className="text-[10px] font-semibold text-amber-800">
+                  Authoritative whole-vehicle sample • Independent of portion tests
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label htmlFor="vehicle-lr-input" className="block text-xs font-bold text-amber-950">
+                    Vehicle Composite LR {sourceType === 'ZMCC' ? '*' : (vehicleQuantity.unit === 'KG' ? '*' : '(Optional)')}
+                  </label>
+                  <input
+                    id="vehicle-lr-input"
+                    type="number"
+                    step="0.01"
+                    min="10"
+                    max="40"
+                    value={vehicleLr || ''}
+                    onChange={(e) => onVehicleLrChange && onVehicleLrChange(e.target.value)}
+                    placeholder="e.g. 28.00"
+                    className="w-full h-11 px-3.5 text-sm font-mono font-bold rounded-xl border border-amber-300 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#1E40AF]"
+                  />
+                  <span className="text-[10px] text-amber-800 block">
+                    Density = 1 + (LR / 1000)
+                  </span>
+                </div>
+
+                <div className="space-y-1">
+                  <label htmlFor="vehicle-fat-input" className="block text-xs font-bold text-amber-950">
+                    Vehicle Composite Fat % {sourceType === 'ZMCC' ? '*' : '(Optional)'}
+                  </label>
+                  <input
+                    id="vehicle-fat-input"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="15"
+                    value={vehicleFat || ''}
+                    onChange={(e) => onVehicleFatChange && onVehicleFatChange(e.target.value)}
+                    placeholder="e.g. 3.80"
+                    className="w-full h-11 px-3.5 text-sm font-mono font-bold rounded-xl border border-amber-300 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#1E40AF]"
+                  />
+                  <span className="text-[10px] text-amber-800 block">
+                    TS = Fat + SNF • Commercial Solids Truth
+                  </span>
+                </div>
+              </div>
+
+              {/* Derived Read-Only Canonical Preview Badges */}
+              {(previewGrossLiters !== null || previewDensity !== null || previewAt13ts !== null) && (
+                <div className="pt-3 border-t border-amber-200/70 space-y-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {/* PHYSICAL TRUTH BLOCK */}
+                    <div className="p-3 rounded-xl bg-white border border-blue-200 shadow-xs space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-blue-900 font-sans">
+                          Physical Truth
+                        </span>
+                        <span className="text-[10px] font-bold text-slate-600 font-mono">
+                          Density: {previewDensity !== null ? previewDensity.toFixed(4) : '—'}
+                        </span>
+                      </div>
+                      <div className="flex items-baseline justify-between">
+                        <span className="text-xs font-bold text-slate-600 font-sans">Gross Liters</span>
+                        <span className="text-base font-black text-blue-950 font-mono">
+                          {previewGrossLiters !== null
+                            ? `${previewGrossLiters.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L`
+                            : '—'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* COMMERCIAL TRUTH BLOCK */}
+                    <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-300 shadow-xs space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-emerald-900 font-sans">
+                          Commercial Truth
+                        </span>
+                        <span className="text-[10px] font-bold text-emerald-800 font-mono">
+                          SNF: {previewSnf !== null ? `${previewSnf.toFixed(2)}%` : '—'} • TS: {previewTs !== null ? `${previewTs.toFixed(2)}%` : '—'}
+                        </span>
+                      </div>
+                      <div className="flex items-baseline justify-between">
+                        <span className="text-xs font-bold text-emerald-900 font-sans">@13TS Liters</span>
+                        <span className="text-base font-black text-emerald-950 font-mono">
+                          {previewAt13ts !== null
+                            ? `${previewAt13ts.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L`
+                            : '—'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {vehicleQuantityError && (
