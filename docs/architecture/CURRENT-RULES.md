@@ -801,25 +801,48 @@ All paginated collection APIs must return a standardized pagination envelope:
 
 1. **The Three Irreducible QA Truths**:
    - **Observed Lab Result**: The immutable, physical measurement recorded by the technician in the lab (e.g. LR 28.0, Fat 3.8%). Must never be altered, silently coerced, or auto-corrected by system rules.
-   - **System Rule Evaluation**: Automated policy evaluation against configured QA rules and thresholds (producing PASS, FAIL, or FLAG with granular rule breakdown). Pure deterministic function.
-   - **Final Operational Decision**: The authorized human operational determination (ACCEPT, REJECT, HOLD, or CONDITIONAL_ACCEPT) recorded with operator identity, timestamp, and audit trail.
-2. **QA Head Exclusive Threshold Authority**:
-   - Only the QA Head has administrative authority to configure, activate, or modify QA acceptance/rejection thresholds, parameter bounds, and validation policies.
-   - Operators and system rules cannot override QA Head authority.
-3. **Testing Point Scopes**:
-   - Thresholds and validation rules are strictly scoped by testing point:
-     - Field Collection / RMR Testing Point
-     - ZMCC Intake Testing Point
-     - Plant Intake Testing Point
-   - Different testing points have distinct biological, chemical, and operational tolerances.
-4. **Plant vs. ZMCC Decision & Correction Roles**:
-   - Strict separation of operational authorities:
-     - ZMCC testing decisions are governed by ZMCC Lab Attendants and ZMCC Managers.
-     - Plant testing decisions are governed by Plant QA Chemists, Plant Lab Technicians, and QA Head.
-     - Cross-facility decision overwrites are strictly prohibited.
-5. **Physical State Guard**:
-   - A QA decision cannot be modified or reversed after milk has physically begun unloading or has been received into a silo/tank.
-   - Once physically commingled, the state is permanently locked against retroactive QA decision tampering.
+   - **System Rule Evaluation**: Automated policy evaluation against configured QA rules and thresholds (producing `PASS`, `FAIL`, or `FLAG`/`OUT_OF_SPEC` with granular rule breakdown). Pure deterministic function.
+   - **Final Operational Decision**: The authorized human operational determination (`ACCEPTED`, `REJECTED`, `HOLD`, or corrected `ACCEPTED_EXCEPTION`). When a lab attendant records a rejection, the operational decision becomes `REJECTED` immediately (no automatic manager-pending state). A manager may review it later through a separate audited correction flow.
+2. **QA Policy & Decision Authority Model**:
+   - **QA Head**: Quality threshold and policy authority. Exclusively owns and defines quality acceptance/rejection thresholds, parameter bounds, and validation policies. Operators and system rules cannot override QA Head rules. Super Admin remains technical/system administrator only; Super Admin does NOT own quality policy, and any future administrative actions on QA policy must remain fully auditable and attributable to the QA Head-approved policy process.
+   - **Plant Operational QA**:
+     - **QA Lab Attendant** (or Plant QA Chemist/Technician): Records Plant lab evidence and makes the normal initial operational decision (`ACCEPTED` or `REJECTED`).
+     - **QA Manager**: Authorized Plant decision-correction / exception authority. Can later review and correct an operational decision through a separate audited flow. (QA Head owns policy, not daily Plant exception overrides).
+   - **ZMCC Operational QA**:
+     - **ZMCC Lab Attendant**: Records MOT / Local Supplier lab evidence and makes the normal initial operational decision (`ACCEPTED` or `REJECTED`).
+     - **ZMCC Manager**: Authorized ZMCC decision-correction / exception authority. Can later review and correct an operational decision through a separate audited flow.
+3. **Manager Acceptance Against System/Lab Rejection (Multi-Layer Audit Preservation)**:
+   - When an authorized manager corrects a rejected batch to accepted as an exception, all audit layers are preserved verbatim without rewriting history:
+     - `Observed Lab Result`: Unchanged (preserves real laboratory measurements)
+     - `System Rule Evaluation`: Unchanged (e.g. `OUT_OF_SPEC`)
+     - `Original Lab Decision`: `REJECTED`
+     - `Corrected Final Decision`: `ACCEPTED_EXCEPTION`
+     - `Corrected By`: `QA_MANAGER` (for Plant) or `ZMCC_MANAGER` (for ZMCC)
+     - `Correction Reason`: REQUIRED (mandatory explanation)
+     - `Corrected At`: REQUIRED (timestamp)
+     - `AuditLog`: REQUIRED (immutable audit entry)
+   - Vague `CONDITIONAL_ACCEPT` wording is forbidden where it obscures the owner-approved `ACCEPTED_EXCEPTION` meaning.
+4. **Canonical Testing-Point Scoping & Terminology**:
+   - Rule applicability is strictly scoped to authoritative target testing-point identities (RMR is a Shop paper receipt/reference, not a testing point):
+     - `PLANT_QA`: Plant intake laboratory testing
+     - `ZMCC_LAB_MOT`: ZMCC intake laboratory testing for MOT journeys
+     - `ZMCC_LAB_LOCAL_SUPPLIER`: ZMCC intake laboratory testing for local suppliers
+     - `DISPATCH`: Upstream dispatch quality testing
+     - `MOT_SHOP`: Mobile collection shop testing
+   - Preserve historical compatibility where the existing schema has legacy identifiers, without expanding active formal-Contractor-at-ZMCC semantics.
+5. **Location / Source Scoping**:
+   - Rule applicability may also be scoped to a specific ZMCC facility, location, or procurement source where required (e.g. the same chemical parameter may have different seasonal or regional thresholds across facilities).
+   - Zero hard-coded location thresholds in application code; all thresholds must be dynamic and driven by configured policy.
+6. **Physical-State Guard (Grounded in Physical Reality)**:
+   - If rejected milk/vehicle is still physically present and no irreversible stock movement or gate exit has occurred, the authorized manager may correct the decision (`ACCEPTED_EXCEPTION`) and allow the real operational flow (weighing, unloading, receiving) to continue.
+   - If milk has already physically exited, or has already been irreversibly commingled/received, a later management review must NOT fabricate a tank/silo receipt, unloading event, stock movement, or historical physical receipt.
+   - An audited management review/correction record may still be recorded for accountability, but physical inventory remains grounded in what actually happened.
+   - If milk physically returns, it requires a real authorized re-entry and receipt workflow.
+   - Distinguish decision review/correction from physical inventory mutation.
+7. **Strict Stage Boundary**:
+   - This QA Policy Architecture is frozen for future alignment and is documented for architectural clarity.
+   - Explicitly deferred to **Stage 6G-G** (Corrections + Audit) or later.
+   - Zero implementation in Stage 6G-F: no QA threshold CRUD, no QA Manager override route/UI, no ZMCC Manager override route/UI, no new correction schema, and no new warning engine. Existing models (`LabTestRule`, `MilkTestPolicyAssignment`, `QAWarning`, and canonical lab infrastructure) will be reused in the appropriate later stage.
 
 
 

@@ -714,6 +714,16 @@ export async function recordSiloTransaction(params: RecordTransactionParams) {
     // Database Concurrency: Acquire PostgreSQL Row-Level Lock (FOR UPDATE)
     await tx.$executeRaw`SELECT id FROM silo WHERE id = ${siloId} FOR UPDATE`;
 
+    // Idempotency check under the lock: return existing transaction if already processed
+    if (params.idempotency_key) {
+      const existing = await tx.siloInventoryTransaction.findUnique({
+        where: { idempotency_key: params.idempotency_key },
+      });
+      if (existing) {
+        return existing;
+      }
+    }
+
     const silo = await tx.silo.findUnique({
       where: { id: siloId },
     });

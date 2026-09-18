@@ -17,6 +17,11 @@ import {
   calculatePhysicalLiters,
   calculateAt13TSLiters,
 } from '@/backend/utils/milkFormulas';
+import {
+  buildVehicleVisitGroups,
+  deriveVehicleReconciliationItems,
+} from '@/frontend/modules/dashboard/zmcc/zmccManagerHelpers';
+import { MilkProcessLog } from '@/backend/core/types';
 
 describe('Stage 6G-F: Plant Final Dual Reconciliation & Formula Hardening', () => {
   describe('Canonical Dual Reconciliation Engine (reconciliationService.ts)', () => {
@@ -116,6 +121,64 @@ describe('Stage 6G-F: Plant Final Dual Reconciliation & Formula Hardening', () =
       expect(zeroSent.grossVariancePercent).toBeNull(); // Denominator 0 -> null
       expect(zeroSent.at13tsVarianceLiters).toBe(4810.0);
       expect(zeroSent.at13tsVariancePercent).toBeNull(); // Denominator -10 -> null
+    });
+
+    it('throws Error when receivedGrossLiters is non-positive (<= 0) or non-finite', () => {
+      expect(() =>
+        calculateDualReconciliation({
+          sentGrossLiters: 10000.0,
+          receivedGrossLiters: 0,
+          sentAt13tsLiters: 9500.0,
+          receivedAt13tsLiters: 9500.0,
+        })
+      ).toThrow('Authoritative received Gross Liters must be a positive finite number');
+
+      expect(() =>
+        calculateDualReconciliation({
+          sentGrossLiters: 10000.0,
+          receivedGrossLiters: -100,
+          sentAt13tsLiters: 9500.0,
+          receivedAt13tsLiters: 9500.0,
+        })
+      ).toThrow('Authoritative received Gross Liters must be a positive finite number');
+
+      expect(() =>
+        calculateDualReconciliation({
+          sentGrossLiters: 10000.0,
+          receivedGrossLiters: NaN,
+          sentAt13tsLiters: 9500.0,
+          receivedAt13tsLiters: 9500.0,
+        })
+      ).toThrow('Authoritative received Gross Liters must be a positive finite number');
+    });
+
+    it('throws Error when receivedAt13tsLiters is non-positive (<= 0) or non-finite', () => {
+      expect(() =>
+        calculateDualReconciliation({
+          sentGrossLiters: 10000.0,
+          receivedGrossLiters: 10000.0,
+          sentAt13tsLiters: 9500.0,
+          receivedAt13tsLiters: 0,
+        })
+      ).toThrow('Authoritative received @13TS Liters must be a positive finite number');
+
+      expect(() =>
+        calculateDualReconciliation({
+          sentGrossLiters: 10000.0,
+          receivedGrossLiters: 10000.0,
+          sentAt13tsLiters: 9500.0,
+          receivedAt13tsLiters: -50,
+        })
+      ).toThrow('Authoritative received @13TS Liters must be a positive finite number');
+
+      expect(() =>
+        calculateDualReconciliation({
+          sentGrossLiters: 10000.0,
+          receivedGrossLiters: 10000.0,
+          sentAt13tsLiters: 9500.0,
+          receivedAt13tsLiters: Infinity,
+        })
+      ).toThrow('Authoritative received @13TS Liters must be a positive finite number');
     });
   });
 
@@ -307,68 +370,57 @@ describe('Stage 6G-F: Plant Final Dual Reconciliation & Formula Hardening', () =
     });
   });
 
-  describe('Historical Receipts & Concurrent Finalization Idempotency', () => {
-    it('proves historical receipts without commercial snapshot produce null @13TS variance and percent', () => {
-      // Historical receipt has gross received liters, but null plant_final_at_13ts_liters
-      const result = calculateDualReconciliation({
-        sentGrossLiters: 10000.0,
-        receivedGrossLiters: 9950.0,
-        sentAt13tsLiters: 9500.0,
-        receivedAt13tsLiters: null, // Historical receipt without commercial @13TS
-      });
-
-      // Physical Gross variance is calculated
-      expect(result.sentGrossLiters).toBe(10000.0);
-      expect(result.receivedGrossLiters).toBe(9950.0);
-      expect(result.grossVarianceLiters).toBe(-50.0);
-      expect(result.grossVariancePercent).toBe(-0.5);
-
-      // Commercial @13TS variance and percent MUST remain null (never faked as 0)
-      expect(result.sentAt13tsLiters).toBe(9500.0);
-      expect(result.receivedAt13tsLiters).toBeNull();
-      expect(result.at13tsVarianceLiters).toBeNull();
-      expect(result.at13tsVariancePercent).toBeNull();
-    });
-
-    it('simulates concurrent finalization post-lock idempotency behavior', () => {
-      // Simulates the contract of executeFinalizeSiloReceiptForVisit when post-lock check finds existing receipt
-      const simulatedExistingReceipt = {
-        id: 12345n,
-        visit_id: 100n,
-        quantity_kg: 20000,
-        quantity_liters: 19455.25,
-        plant_final_at_13ts_liters: 18500.5,
-        silo: { silo_code: 'SILO-01' },
-        dual_reconciliation: { id: 1n },
+  describe('Historical Pre-6G-F Receipt Read Boundary', () => {
+    it('correctly projects historical receipts with physical liters and null @13TS/reconciliation without reconstructing from mutable lab results', () => {
+      const historicalLog: MilkProcessLog = {
+        id: 101,
+        vehicle_number: 'TEST-HIST-01',
+        token_number: 'TK-101',
+        portion_number: '1',
+        zonal_contractor_name: 'ZMCC-01',
+        business_date: '2026-09-01',
+        final_receipt_exists: true,
+        second_weight_timestamp: '2026-09-01T12:00:00Z',
+        plant_final_gross_liters: 10000.0,
+        authoritative_final_liters: 10000.0,
+        plant_final_at_13ts_liters: null, // Pre-6G-F: commercial snapshot was not persisted
+        reconciliation_exists: false,
+        gross_variance_liters: null,
+        gross_variance_percent: null,
+        at_13ts_variance_liters: null,
+        at_13ts_variance_percent: null,
+        vehicle_dispatch_gross_liters: 10050.0,
+        vehicle_dispatch_at_13ts_liters: 9500.0,
+        sampling_lr: 28.0, // Mutable sampling lab results are present
+        sampling_fat: 3.8,
+        calculated_status: 'ACCEPTED',
+        status: 'COMPLETED',
+        second_weight_of_vehicle: 15000,
+        first_weight_of_vehicle: 25000,
+        computed_net_milk_weight: 10000,
+        gate_entry_timestamp: '2026-09-01T10:00:00Z',
+        created_at: '2026-09-01T08:00:00Z',
+        updated_at: '2026-09-01T12:00:00Z',
       };
 
-      // When postLockReceipt is found, the service must return alreadyFinalized: true and NOT attempt insert
-      const postLockCheck = (receipt: typeof simulatedExistingReceipt | null) => {
-        if (receipt) {
-          const isHistorical = receipt.plant_final_at_13ts_liters === null && !receipt.dual_reconciliation;
-          return {
-            success: true,
-            receiptCreated: false,
-            alreadyFinalized: true,
-            isHistorical,
-            netWeightKg: receipt.quantity_kg,
-            finalPhysicalLiters: receipt.quantity_liters,
-            finalAt13TSLiters: receipt.plant_final_at_13ts_liters,
-            targetSiloCode: receipt.silo.silo_code,
-          };
-        }
-        return { success: false, receiptCreated: false, alreadyFinalized: false };
-      };
+      const groups = buildVehicleVisitGroups([historicalLog]);
+      const items = deriveVehicleReconciliationItems(groups);
 
-      const result = postLockCheck(simulatedExistingReceipt);
-      expect(result.success).toBe(true);
-      expect(result.alreadyFinalized).toBe(true);
-      expect(result.receiptCreated).toBe(false);
-      expect(result.isHistorical).toBe(false);
-      expect(result.netWeightKg).toBe(20000);
-      expect(result.finalPhysicalLiters).toBe(19455.25);
-      expect(result.finalAt13TSLiters).toBe(18500.5);
-      expect(result.targetSiloCode).toBe('SILO-01');
+      expect(items).toHaveLength(1);
+      const item = items[0];
+
+      // Physical liters must be exposed accurately
+      expect(item.physicalReceivedLiters).toBe(10000.0);
+      // Commercial @13TS must remain null (never retroactively recalculated from mutable lab results)
+      expect(item.plant13TsLiters).toBeNull();
+      // Reconciliation record is absent
+      expect(item.reconciliationExists).toBe(false);
+      expect(item.grossVarianceLiters).toBeNull();
+      expect(item.at13TsVarianceLiters).toBeNull();
+      // Explicitly flagged as historical receipt without commercial snapshot
+      expect(item.isHistoricalReceiptWithoutCommercialSnapshot).toBe(true);
+      expect(item.isCompletedReceipt).toBe(true);
+      expect(item.isReceiptPending).toBe(false);
     });
   });
 });
