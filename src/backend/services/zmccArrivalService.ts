@@ -696,6 +696,10 @@ export async function submitMotArrival(
     ? payload.route_milk_token.trim()
     : null;
 
+  if (!routeMilkToken && (!payload.raw_milk_token_number || String(payload.raw_milk_token_number).trim() === '')) {
+    return { status: 400, error: 'route_milk_token is required.' };
+  }
+
   const clientEventId = typeof payload.client_event_id === 'string' ? payload.client_event_id.trim() : '';
   if (!clientEventId) {
     return { status: 400, error: 'client_event_id is required.' };

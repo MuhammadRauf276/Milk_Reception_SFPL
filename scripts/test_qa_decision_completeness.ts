@@ -7,6 +7,7 @@ import { POST as postHold } from '../src/app/api/qa/vehicle-visits/[visitId]/por
 import { POST as postResume } from '../src/app/api/qa/sessions/resume/route';
 import { assertSafeTestDatabase } from '../tests/helpers/testDbSafety';
 import { getOrAssignPlantQATests } from '../src/backend/services/labTestAssignmentService';
+import { QualityRuleService } from '../src/backend/services/qualityRuleService';
 
 async function runQADecisionCompletenessTests() {
   console.log('🧪 RUNNING QA DECISION COMPLETENESS & PARTIAL REJECTION TEST SUITE...\n');
@@ -221,6 +222,8 @@ async function runQADecisionCompletenessTests() {
       // =========================================================================
 
       // Helper to build a valid acceptance payload matching required manual tests
+      const activePlantRules = await QualityRuleService.resolveActiveRulesForTestingPoint('PLANT_QA', new Date(), prisma);
+
       const buildAcceptResults = (tests: typeof plantReqTests) => {
         return tests.map((t) => {
           const snapshotOptions = (t.resultOptions as any[]) || null;
@@ -233,9 +236,24 @@ async function runQADecisionCompletenessTests() {
             };
           }
           if (t.resultType === 'NUMERIC') {
+            const rule = activePlantRules.get(t.id.toString());
+            let val = 28.5; // LR default
+            if (rule && rule.min_value !== null && rule.min_value !== undefined && rule.max_value !== null && rule.max_value !== undefined) {
+              val = (Number(rule.min_value) + Number(rule.max_value)) / 2;
+            } else if (rule && rule.min_value !== null && rule.min_value !== undefined) {
+              val = Number(rule.min_value);
+            } else if (rule && rule.max_value !== null && rule.max_value !== undefined) {
+              val = Number(rule.max_value);
+            } else {
+              const name = (t.testName || t.testCode || '').toLowerCase();
+              if (name.includes('acidity')) val = 0.14;
+              else if (name.includes('temperature') || name.includes('temp')) val = 4.0;
+              else if (name.includes('fat')) val = 4.0;
+              else if (name.includes('br')) val = 40.0;
+            }
             return {
               testId: t.id.toString(),
-              numericValue: 28.5,
+              numericValue: val,
               performanceStatus: 'PERFORMED' as const,
             };
           }
@@ -287,6 +305,9 @@ async function runQADecisionCompletenessTests() {
         },
         include: { portions: true, qa_session: true },
       });
+
+      // Ensure test assignments snapshot is frozen before concurrent requests
+      await getOrAssignPlantQATests(prisma, v1.id);
 
       const v1Portion = v1.portions[0];
       const validResultsV1 = buildAcceptResults(plantReqTests);

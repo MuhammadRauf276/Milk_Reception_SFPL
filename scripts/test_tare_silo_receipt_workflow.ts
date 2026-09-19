@@ -234,6 +234,7 @@ async function runTareSiloReceiptHardenedVerification() {
     // Clean up temporary test data
     await prisma.plantLabResult.deleteMany({ where: { visit_id: visitNoPlantLr.id } });
     await prisma.dispatchLabResult.deleteMany({ where: { visit_id: visitNoPlantLr.id } });
+    await prisma.plantFinalDualReconciliation.deleteMany({ where: { visit_id: visitNoPlantLr.id } });
     await prisma.siloInventoryTransaction.deleteMany({ where: { visit_id: visitNoPlantLr.id } });
     await prisma.unloadingLog.deleteMany({ where: { portion_id: pNoPlant.id } });
     await prisma.weightTicket.deleteMany({ where: { visit_id: visitNoPlantLr.id } });

@@ -91,6 +91,10 @@ async function runContractorAccountabilityTests() {
     process.exit(1);
   }
 
+  const paperRefPrefix = Date.now().toString().slice(-6);
+  let paperRefCounter = 10;
+  const nextPaperRef = () => `${paperRefPrefix}${paperRefCounter++}`;
+
   // CASE A: New Contractor portion defaults
   // Build default payload representing initial contractor UI state
   const defaultResultsCaseA = manualTests.map((t) => ({
@@ -119,6 +123,7 @@ async function runContractorAccountabilityTests() {
     {
       visitId: draftB.visitId,
       vehicleNumber: 'CONT-KG-9500',
+      rawMilkDispatchNoteNumber: nextPaperRef(),
       operationalDate: regressionBusinessDate,
       dispatchTestingMode: 'NOT_PERFORMED',
       dispatchTestingReason: 'Contract Vehicle',
@@ -153,6 +158,7 @@ async function runContractorAccountabilityTests() {
     {
       visitId: draftC.visitId,
       vehicleNumber: 'CONT-LT-10000',
+      rawMilkDispatchNoteNumber: nextPaperRef(),
       operationalDate: regressionBusinessDate,
       dispatchTestingMode: 'NOT_PERFORMED',
       dispatchTestingReason: 'Contract Vehicle',
@@ -219,6 +225,7 @@ async function runContractorAccountabilityTests() {
     {
       visitId: draftF.visitId,
       vehicleNumber: 'CONT-CUSTOM-REASON',
+      rawMilkDispatchNoteNumber: nextPaperRef(),
       operationalDate: regressionBusinessDate,
       dispatchTestingMode: 'NOT_PERFORMED',
       dispatchTestingReason: 'Testing kit unavailable',
@@ -261,6 +268,7 @@ async function runContractorAccountabilityTests() {
     {
       visitId: draftG.visitId,
       vehicleNumber: 'CONT-EMPTY-REASON',
+      rawMilkDispatchNoteNumber: nextPaperRef(),
       operationalDate: regressionBusinessDate,
       dispatchTestingMode: 'NOT_PERFORMED',
       dispatchTestingReason: 'Contract Vehicle',
@@ -310,6 +318,7 @@ async function runContractorAccountabilityTests() {
     {
       visitId: draftH.visitId,
       vehicleNumber: 'CONT-NUM-PERF',
+      rawMilkDispatchNoteNumber: nextPaperRef(),
       operationalDate: regressionBusinessDate,
       dispatchTestingMode: 'PARTIAL',
       vehicleQuantity: { value: '8500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
@@ -364,6 +373,7 @@ async function runContractorAccountabilityTests() {
     {
       visitId: draftI.visitId,
       vehicleNumber: 'CONT-NUM-MISSING',
+      rawMilkDispatchNoteNumber: nextPaperRef(),
       operationalDate: regressionBusinessDate,
       dispatchTestingMode: 'PARTIAL',
       vehicleQuantity: { value: '8500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
@@ -412,6 +422,7 @@ async function runContractorAccountabilityTests() {
     {
       visitId: draftJ.visitId,
       vehicleNumber: 'CONT-QUAL-PERF',
+      rawMilkDispatchNoteNumber: nextPaperRef(),
       operationalDate: regressionBusinessDate,
       dispatchTestingMode: 'PARTIAL',
       vehicleQuantity: { value: '8500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
@@ -452,6 +463,7 @@ async function runContractorAccountabilityTests() {
     {
       visitId: draftK.visitId,
       vehicleNumber: 'CONT-TRANS-K',
+      rawMilkDispatchNoteNumber: nextPaperRef(),
       operationalDate: regressionBusinessDate,
       dispatchTestingMode: 'NOT_PERFORMED',
       dispatchTestingReason: 'Contract Vehicle',
@@ -489,6 +501,7 @@ async function runContractorAccountabilityTests() {
     {
       visitId: draftL.visitId,
       vehicleNumber: 'CONT-TRANS-L',
+      rawMilkDispatchNoteNumber: nextPaperRef(),
       operationalDate: regressionBusinessDate,
       dispatchTestingMode: 'PARTIAL',
       vehicleQuantity: { value: '8500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
@@ -521,6 +534,7 @@ async function runContractorAccountabilityTests() {
     {
       visitId: draftM.visitId,
       vehicleNumber: 'CONT-MULTI-PORTION',
+      rawMilkDispatchNoteNumber: nextPaperRef(),
       operationalDate: regressionBusinessDate,
       dispatchTestingMode: 'PARTIAL',
       vehicleQuantity: { value: '19500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
@@ -605,6 +619,7 @@ async function runContractorAccountabilityTests() {
     {
       visitId: draftN.visitId,
       vehicleNumber: 'CONT-CONTRADICT',
+      rawMilkDispatchNoteNumber: nextPaperRef(),
       operationalDate: regressionBusinessDate,
       dispatchTestingMode: 'NOT_PERFORMED',
       dispatchTestingReason: 'Contract Vehicle',
@@ -646,6 +661,7 @@ async function runContractorAccountabilityTests() {
     {
       visitId: draftO.visitId,
       vehicleNumber: 'ZMCC-ISOLATION-01',
+      rawMilkDispatchNoteNumber: nextPaperRef(),
       operationalDate: regressionBusinessDate,
       dispatchTestingMode: 'FULL',
       vehicleQuantity: { value: '12000', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },

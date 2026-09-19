@@ -53,6 +53,8 @@ async function runCanonicalArchitectureTests() {
     QA_LAB_ATTENDANT: '/department/qa',
     WEIGHBRIDGE_OPERATOR: '/department/weighbridge',
     PRODUCTION_RECEPTION_OPERATOR: '/department/production',
+    QA_HEAD: '/department/qa-head',
+    QA_MANAGER: '/department/qa-manager',
   };
 
   let allRolesMatch = true;
@@ -77,8 +79,6 @@ async function runCanonicalArchitectureTests() {
     'EXECUTIVE_MANAGEMENT',
     'DATA_EXECUTIVE',
     'ADMIN_HEAD',
-    'QA_HEAD',
-    'QA_MANAGER',
     'PRODUCTION_HEAD',
     'FINANCE_ACCOUNTS',
     // Retired legacy roles

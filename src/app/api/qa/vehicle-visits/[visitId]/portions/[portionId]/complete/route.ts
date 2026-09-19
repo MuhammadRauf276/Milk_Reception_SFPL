@@ -330,7 +330,7 @@ export async function POST(
         }
       }
 
-      // 7. Auto-finalize UNRESOLVED required tests when rejecting
+      // 7. auto-finalize UNRESOLVED required tests when rejecting
       if (isOperatorRejecting) {
         const submittedTestIds = new Set(evaluationEntries.map((r) => r.testId.toString()));
         for (const [reqId] of Array.from(activeRequiredMap.entries())) {

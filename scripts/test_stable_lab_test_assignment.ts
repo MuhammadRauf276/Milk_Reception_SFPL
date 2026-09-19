@@ -583,6 +583,7 @@ async function runStableAssignmentTests() {
     body: JSON.stringify({
       visitId: draftVisitIdA,
       vehicleNumber: 'STAGE2A-VEH-A',
+      rawMilkDispatchNoteNumber: '920001',
       operationalDate: regressionBusinessDate,
       procurementSourceId: mpdSourceId,
       vehicleQuantity: { value: '8500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
@@ -668,6 +669,7 @@ async function runStableAssignmentTests() {
     body: JSON.stringify({
       visitId: draftVisitIdB,
       vehicleNumber: 'STAGE2A-VEH-B',
+      rawMilkDispatchNoteNumber: '920002',
       operationalDate: regressionBusinessDate,
       procurementSourceId: mpdSourceId,
       vehicleQuantity: { value: '8500', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },

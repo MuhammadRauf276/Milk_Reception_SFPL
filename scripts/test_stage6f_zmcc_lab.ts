@@ -143,7 +143,7 @@ async function runStage6fTests() {
   const migrationDirs = fs
     .readdirSync(migrationsDir)
     .filter((f) => fs.statSync(path.join(migrationsDir, f)).isDirectory());
-  assert(migrationDirs.length === 26, 'Migration Count', `Found exactly 26 migrations (found ${migrationDirs.length})`);
+  assert(migrationDirs.length === 31, 'Migration Count', `Found exactly 31 migrations (found ${migrationDirs.length})`);
 
   // Verify DB check constraints
   const dbConstraints: Array<{ conname: string }> = await prisma.$queryRaw`
@@ -493,6 +493,33 @@ async function runStage6fTests() {
     });
   } else if (!testFat.isActive) {
     testFat = await prisma.labTest.update({ where: { id: testFat.id }, data: { isActive: true } });
+  }
+
+  // Ensure active rules exist for testLr and testFat under ZMCC_LAB_MOT and ZMCC_LAB_CONTRACTOR
+  for (const point of ['ZMCC_LAB_MOT', 'ZMCC_LAB_CONTRACTOR']) {
+    for (const [testObj, minVal, maxVal] of [
+      [testLr, 26.0, 32.0],
+      [testFat, 3.5, 5.5],
+    ] as const) {
+      const existingRule = await prisma.labTestRule.findFirst({
+        where: { lab_test_id: testObj.id, testing_point: point, is_active: true },
+      });
+      if (!existingRule) {
+        await prisma.labTestRule.create({
+          data: {
+            lab_test_id: testObj.id,
+            testing_point: point,
+            version: 1,
+            rule_category: 'RELEASE',
+            min_value: minVal,
+            max_value: maxVal,
+            decision_consequence: 'REJECT',
+            is_active: true,
+            created_by: managerA.id,
+          },
+        });
+      }
+    }
   }
 
   // Clear existing policy assignments for ZMCC_LAB_MOT and ZMCC_LAB_CONTRACTOR to ensure test isolation

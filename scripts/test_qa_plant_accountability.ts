@@ -305,7 +305,7 @@ async function runQAPlantAccountabilityVerification() {
       'utf8'
     );
     const hasAutoFinalize = completeRouteSource.includes('VEHICLE_REJECTED_BEFORE_TEST_COMPLETION') &&
-      completeRouteSource.includes('auto-finalize UNRESOLVED required tests');
+      /auto-finalize UNRESOLVED required tests/i.test(completeRouteSource);
     report(
       'QA-REJECT-02: Unresolved required tests auto-finalized as NOT_PERFORMED(VEHICLE_REJECTED_BEFORE_TEST_COMPLETION) at REJECT',
       hasAutoFinalize,

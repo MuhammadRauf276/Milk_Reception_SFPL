@@ -215,7 +215,7 @@ async function runStage6gd3Tests() {
     const migrationDirs = fs
       .readdirSync(migrationsDir)
       .filter((f) => fs.statSync(path.join(migrationsDir, f)).isDirectory() && !f.startsWith('.'));
-    assert(migrationDirs.length === 26, 'Tracked Migrations', `Found exactly 26 migrations (expected 26)`);
+    assert(migrationDirs.length === 31, 'Tracked Migrations', `Found exactly 31 migrations (expected 31)`);
 
     const d3MigDir = migrationDirs.find((d) => d.includes('zmcc_local_supplier_directory_and_arrival'));
     assert(!!d3MigDir, 'Migration 25 Exists', `Found 6G-D.3 directory migration: ${d3MigDir}`);

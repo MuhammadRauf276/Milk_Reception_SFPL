@@ -928,6 +928,7 @@ async function runChunk5IntegrationTests() {
     for (const vId of createdVisits) {
       await prisma.plantLabResult.deleteMany({ where: { visit_id: vId } });
       await prisma.dispatchLabResult.deleteMany({ where: { visit_id: vId } });
+      await prisma.plantFinalDualReconciliation.deleteMany({ where: { visit_id: vId } });
       await prisma.siloInventoryTransaction.deleteMany({ where: { visit_id: vId } });
       await prisma.unloadingLog.deleteMany({ where: { portion: { visit_id: vId } } });
       await prisma.weightTicket.deleteMany({ where: { visit_id: vId } });

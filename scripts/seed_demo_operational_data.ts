@@ -142,6 +142,13 @@ export async function seedOperationalData() {
     { test: testAcidity, point: 'ZMCC_LAB_MOT', min: 0.10, max: 0.16, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
     { test: testCob, point: 'ZMCC_LAB_MOT', min: null, max: null, acceptable: 'NEGATIVE', consequence: 'REJECT', category: 'RELEASE' },
 
+    // ZMCC_LAB_CONTRACTOR
+    { test: testFat, point: 'ZMCC_LAB_CONTRACTOR', min: 3.50, max: 5.50, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
+    { test: testLr, point: 'ZMCC_LAB_CONTRACTOR', min: 26.00, max: 32.00, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
+    { test: testTemp, point: 'ZMCC_LAB_CONTRACTOR', min: 0.00, max: 10.00, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
+    { test: testAcidity, point: 'ZMCC_LAB_CONTRACTOR', min: 0.10, max: 0.16, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
+    { test: testCob, point: 'ZMCC_LAB_CONTRACTOR', min: null, max: null, acceptable: 'NEGATIVE', consequence: 'REJECT', category: 'RELEASE' },
+
     // ZMCC_LAB_LOCAL_SUPPLIER
     { test: testFat, point: 'ZMCC_LAB_LOCAL_SUPPLIER', min: 3.50, max: 5.50, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
     { test: testLr, point: 'ZMCC_LAB_LOCAL_SUPPLIER', min: 26.00, max: 32.00, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
@@ -159,6 +166,7 @@ export async function seedOperationalData() {
   const plantRulesMap = new Map<string, any>();
   const zmccMotRulesMap = new Map<string, any>();
   const zmccLsRulesMap = new Map<string, any>();
+  const zmccConRulesMap = new Map<string, any>();
   const dispatchRulesMap = new Map<string, any>();
 
   for (const spec of ruleSpecs) {
@@ -191,6 +199,7 @@ export async function seedOperationalData() {
     if (spec.point === 'PLANT_QA') plantRulesMap.set(String(spec.test.id), existingRule);
     else if (spec.point === 'ZMCC_LAB_MOT') zmccMotRulesMap.set(String(spec.test.id), existingRule);
     else if (spec.point === 'ZMCC_LAB_LOCAL_SUPPLIER') zmccLsRulesMap.set(String(spec.test.id), existingRule);
+    else if (spec.point === 'ZMCC_LAB_CONTRACTOR') zmccConRulesMap.set(String(spec.test.id), existingRule);
     else if (spec.point === 'DISPATCH') dispatchRulesMap.set(String(spec.test.id), existingRule);
   }
 

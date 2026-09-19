@@ -313,6 +313,7 @@ async function runConfigurableQualitativeOptionsTests() {
       sourceType: 'ZMCC',
       procurementSourceId: zmccSource.id.toString(),
       vehicleNumber: `DISP-SNAP-H-${nowC}`,
+      rawMilkDispatchNoteNumber: '930001',
       operationalDate: regressionBusinessDate,
       vehicleQuantity: { value: '5000', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
       portions: [
@@ -372,6 +373,7 @@ async function runConfigurableQualitativeOptionsTests() {
       sourceType: 'ZMCC',
       procurementSourceId: zmccSource.id.toString(),
       vehicleNumber: `DISP-INVALID-K-${nowC}`,
+      rawMilkDispatchNoteNumber: '930002',
       operationalDate: regressionBusinessDate,
       vehicleQuantity: { value: '5000', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
       portions: [
@@ -408,6 +410,7 @@ async function runConfigurableQualitativeOptionsTests() {
       sourceType: 'ZMCC',
       procurementSourceId: zmccSource.id.toString(),
       vehicleNumber: `DISP-INVALID-K-${nowC}`,
+      rawMilkDispatchNoteNumber: '930003',
       operationalDate: regressionBusinessDate,
       vehicleQuantity: { value: '5000', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
       portions: [
@@ -855,6 +858,7 @@ async function runConfigurableQualitativeOptionsTests() {
       sourceType: 'ZMCC',
       procurementSourceId: zmccSource.id.toString(),
       vehicleNumber: `VEH-3AF-${now3AD}`,
+      rawMilkDispatchNoteNumber: '930004',
       operationalDate: regressionBusinessDate,
       vehicleQuantity: { value: '5000', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
       portions: [
