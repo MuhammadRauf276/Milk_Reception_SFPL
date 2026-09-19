@@ -69,6 +69,32 @@ describe('Stage 4C-4: Dispatch Quantity Capture & Persistence (Integration)', ()
         is_active: true,
       },
     });
+
+    // Create active ZMCC tank and initial stock for testSource
+    const tank = await prisma.zmccTank.create({
+      data: {
+        zmcc_id: testSource.id,
+        tank_code: `TANK_QTY_${uid}`,
+        tank_name: 'Main Storage Tank Qty',
+        capacity_liters: 100000,
+        is_active: true,
+        created_by_user_id: testAdmin.id,
+      },
+    });
+
+    await prisma.zmccTankInventoryTransaction.create({
+      data: {
+        tank_id: tank.id,
+        zmcc_id: testSource.id,
+        transaction_type: 'RECEIPT',
+        quantity_liters: 50000,
+        at_13ts_liters: 50000,
+        reference_type: 'INITIAL_STOCK',
+        reference_id: `INIT_${uid}`,
+        idempotency_key: `INIT_STOCK_${uid}`,
+        performed_by_user_id: testAdmin.id,
+      },
+    });
   });
 
   afterAll(async () => {
@@ -123,6 +149,9 @@ describe('Stage 4C-4: Dispatch Quantity Capture & Persistence (Integration)', ()
         vehicleNumber: 'KBL-4C40',
         operationalDate: '2026-08-22',
         procurementSourceId: testSource.id.toString(),
+        rawMilkDispatchNoteNumber: '900050',
+        vehicleLr: 28.0,
+        vehicleFat: 3.8,
         vehicleQuantity: {
           value: '19500.00',
           unit: 'KG',

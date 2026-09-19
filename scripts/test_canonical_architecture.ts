@@ -53,6 +53,8 @@ async function runCanonicalArchitectureTests() {
     QA_LAB_ATTENDANT: '/department/qa',
     WEIGHBRIDGE_OPERATOR: '/department/weighbridge',
     PRODUCTION_RECEPTION_OPERATOR: '/department/production',
+    QA_HEAD: '/department/qa-head',
+    QA_MANAGER: '/department/qa-manager',
   };
 
   let allRolesMatch = true;
@@ -77,8 +79,6 @@ async function runCanonicalArchitectureTests() {
     'EXECUTIVE_MANAGEMENT',
     'DATA_EXECUTIVE',
     'ADMIN_HEAD',
-    'QA_HEAD',
-    'QA_MANAGER',
     'PRODUCTION_HEAD',
     'FINANCE_ACCOUNTS',
     // Retired legacy roles
@@ -246,11 +246,11 @@ async function runCanonicalArchitectureTests() {
     'ARCH-15: my_files/IMPLEMENTATION_STEPS.md with forbidden prisma db push is removed'
   );
 
-  // 16. D.4A: Exact Tracked Migration Count Invariant (Exactly 26)
+  // 16. D.4A: Exact Tracked Migration Count Invariant (Exactly 31)
   const migrationsCount = getTrackedMigrationCount(path.resolve(__dirname, '..'));
   assert(
-    migrationsCount === 26,
-    `ARCH-16: Exact tracked migration count invariant verified via migrationInventory helper (found: ${migrationsCount}, expected: 26)`
+    migrationsCount === 31,
+    `ARCH-16: Exact tracked migration count invariant verified via migrationInventory helper (found: ${migrationsCount}, expected: 31)`
   );
 
   // 17. D.4A: Section 24 in CURRENT-RULES.md and ADRs Updated

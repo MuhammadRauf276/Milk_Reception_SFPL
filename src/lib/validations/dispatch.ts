@@ -49,6 +49,8 @@ export const createDispatchSchema = z
     vehicleQuantity: quantityMeasurementInputSchema,
     vehicleLr: z.number().positive().nullable().optional(),
     vehicleFat: z.number().nonnegative().nullable().optional(),
+    rawMilkDispatchNoteNumber: z.string().nullable().optional(),
+    raw_milk_dispatch_note_number: z.string().nullable().optional(),
     portions: z.array(dispatchPortionSchema).min(1, 'At least one portion is required'),
   })
   .refine(

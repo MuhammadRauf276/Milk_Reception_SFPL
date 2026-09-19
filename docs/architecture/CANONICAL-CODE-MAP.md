@@ -381,7 +381,22 @@ SUPER_ADMIN
 - `src/frontend/modules/dashboard/zmcc/ZMCCManagerReconciliation.tsx`: ZMCC Manager Reconciliation workspace displaying Gross Delta, Gross Delta %, Dispatch @13TS, Plant @13TS, @13TS Delta, @13TS Delta % with signed numbers and clean `Unavailable` vs `Pending` states.
 - `src/frontend/modules/dashboard/contractor/ContractorReceiptsReconciliation.tsx`: Contractor Receipts Ledger table displaying the full dual truth columns with signed variances and status distinctions.
 - `src/frontend/modules/dashboard/zmcc/zmccManagerTypes.ts` & `zmccManagerHelpers.ts`: Frontend type definitions and helper projections consuming canonical variance without React-side recomputations.
-- `src/frontend/modules/dashboard/contractor/contractorManagerTypes.ts` & `contractorManagerHelpers.ts`: Frontend type definitions and helper projections.
 - `tests/unit/plantFinalDualReconciliation.test.ts`: Dedicated Vitest unit test suite covering dual reconciliation calculations, test identities, mathematical validity, ADR-005 formula consistency, historical receipts without commercial snapshot, and concurrent finalization idempotency.
+
+---
+
+## 20. Stage 6G-G Quality Governance, Operational Paper References & Audited Corrections
+
+- `src/backend/services/qualityRuleService.ts`: Authoritative quality governance service owning rule CRUD, PostgreSQL advisory lock serialization, historical version interval resolution (`effective_from <= eventTimestamp AND (effective_to IS NULL OR eventTimestamp < effective_to)`), multi-test evaluation, fail-closed configuration error handling, and release rule restrictions (`RELEASE` forbidden on `MOT_SHOP` and `DISPATCH`).
+- `src/backend/services/paperReferenceService.ts`: Authoritative paper reference service managing operational policies (`SHOP_RMR`, `RAW_MILK_TOKEN`, `RAW_MILK_DISPATCH_NOTE`), digits-only normalization, duplicate checking under `GLOBAL` and `PER_SOURCE` scopes, Super Admin updates with mandatory reasons, and full before/after AuditLog recording.
+- `src/app/api/qa-head/sop-rules/route.ts`: QA Head API endpoint for rule configuration and testing points with release restrictions.
+- `src/app/department/qa-head/page.tsx`: QA Head governance workspace.
+- `src/backend/services/zmccLabService.ts`: Hardened ZMCC lab session lifecycle with fail-closed rules, re-evaluation at event timestamp, exact-one-active-tank manager exception receipts, and dual-delta stock adjustments.
+- `src/app/api/dispatches/[id]/correction/route.ts`: Audited dispatch correction endpoint with business idempotency (`idempotency_key`), scoped paper reference verification, and decoupled dual-delta ZMCC tank issue adjustments.
+- `src/app/api/qa/vehicle-visits/[visitId]/portions/[portionId]/correct-results/route.ts`: Authoritative Plant result correction with historical rule re-evaluation and before/after audit capture.
+- `src/app/api/qa/vehicle-visits/[visitId]/portions/[portionId]/correct-decision/route.ts`: Plant QA Manager exception decision route with `ACCEPTED_EXCEPTION`, physical-state exit guards, and comprehensive audit logs.
+- `src/backend/services/zmccArrivalService.ts`: Decoupled route milk token vs raw milk token, scoped paper duplicate validation.
+- `src/frontend/modules/zmcc/arrivals/ZmccArrivalsWorkspace.tsx`: Dynamic paper policy enforcement and decoupled token input.
+
 
 

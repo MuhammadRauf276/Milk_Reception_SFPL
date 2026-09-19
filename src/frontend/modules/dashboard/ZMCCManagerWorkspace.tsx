@@ -9,6 +9,7 @@ import { ZMCCManagerOverview } from './zmcc/ZMCCManagerOverview';
 import { ZMCCManagerLiveDispatches } from './zmcc/ZMCCManagerLiveDispatches';
 import { ZMCCManagerReconciliation } from './zmcc/ZMCCManagerReconciliation';
 import { ZMCCManagerHistoryReports } from './zmcc/ZMCCManagerHistoryReports';
+import { ZMCCManagerQualityRejections } from './zmcc/ZMCCManagerQualityRejections';
 import { ZMCCManagerVisitDetailModal } from './zmcc/ZMCCManagerVisitDetailModal';
 import {
   ZMCCManagerTab,
@@ -36,6 +37,7 @@ interface ZMCCManagerWorkspaceProps {
 
 type ManagerHistoryView =
   | 'PLANT_HISTORY'
+  | 'QUALITY_REJECTIONS'
   | 'ARRIVAL_CORRECTIONS'
   | 'LAB_CORRECTIONS';
 
@@ -529,6 +531,17 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
               </button>
               <button
                 type="button"
+                onClick={() => setHistoryView('QUALITY_REJECTIONS')}
+                className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                  historyView === 'QUALITY_REJECTIONS'
+                    ? 'bg-[#1E3A8A] text-white shadow-xs'
+                    : 'text-slate-700 hover:bg-[#F4F0E6]'
+                }`}
+              >
+                Quality & Rejections Review
+              </button>
+              <button
+                type="button"
                 onClick={() => setHistoryView('ARRIVAL_CORRECTIONS')}
                 className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all ${
                   historyView === 'ARRIVAL_CORRECTIONS'
@@ -569,6 +582,23 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
                 />
                 {renderReportingPaginationBar()}
               </div>
+            )}
+
+            {historyView === 'QUALITY_REJECTIONS' && (
+              <ZMCCManagerQualityRejections
+                logs={reportingLogs}
+                assignedSourceName={assignedSourceName}
+                onInspectDetails={(l) => setSelectedLog(l)}
+                isLoading={reportingLoading}
+                error={reportingError}
+                onRetry={() => fetchReportingLogs(fromDate, toDate, reportingPage, 'report')}
+                currentFromDate={fromDate}
+                currentToDate={toDate}
+                onDateFilterChange={(f, t) => {
+                  setFromDate(f || '');
+                  setToDate(t || '');
+                }}
+              />
             )}
 
             {historyView === 'ARRIVAL_CORRECTIONS' && (

@@ -401,6 +401,7 @@ async function runSecurityGateExitE2EVerification() {
     // Clean up temporary test data
     await prisma.auditLog.deleteMany({ where: { action: 'GATE_EXIT_RECORDED' } });
     await prisma.plantLabResult.deleteMany({ where: { visit_id: visitNorm.id } });
+    await prisma.plantFinalDualReconciliation.deleteMany({ where: { visit_id: visitNorm.id } });
     await prisma.siloInventoryTransaction.deleteMany({ where: { visit_id: visitNorm.id } });
     await prisma.unloadingLog.deleteMany({ where: { portion_id: portionNorm.id } });
     await prisma.weightTicket.deleteMany({ where: { visit_id: visitNorm.id } });

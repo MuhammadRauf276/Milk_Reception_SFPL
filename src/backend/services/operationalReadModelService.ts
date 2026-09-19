@@ -739,7 +739,7 @@ export async function getPaginatedOperationalLogs(
     });
   } else if (mode === 'recent') {
     // Mode RECENT: Default to last 7 calendar days in PKT if no date specified.
-    if (!effectiveFromDate && !effectiveToDate) {
+    if (effectiveFromDate === undefined && effectiveToDate === undefined) {
       const recent = getDefaultRecentDateRange();
       effectiveFromDate = recent.fromDate;
       effectiveToDate = recent.toDate;

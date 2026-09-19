@@ -1,5 +1,6 @@
 import { prisma } from '../src/backend/core/db';
 import { evaluateLabResult } from '../src/lib/lab-rules';
+import { QualityRuleService } from '../src/backend/services/qualityRuleService';
 import {
   calculateSNF,
   calculateTS,
@@ -82,7 +83,127 @@ export async function seedOperationalData() {
   const activeSilos = await prisma.silo.findMany({ where: { is_active: true }, orderBy: { silo_code: 'asc' } });
   const activeTests = await prisma.labTest.findMany({ where: { isActive: true } });
 
-  console.log(`Master references verified: ${users.length} Users, ${sources.length} Sources, ${activeSilos.length} Silos, ${activeTests.length} Lab Tests.\n`);
+  const superAdmin = users.find((u) => u.role === 'SUPER_ADMIN' && u.is_active) || users.find((u) => u.role === 'SUPER_ADMIN') || users[0];
+  const qaHead = users.find((u) => u.role === 'QA_HEAD' && u.is_active) || superAdmin;
+  const qaManager = users.find((u) => u.role === 'QA_MANAGER' && u.is_active) || qaHead;
+
+  // Seed Stage 6G-G Paper Reference Policies
+  console.log('Seeding Stage 6G-G Paper Reference Policies...');
+  const paperPolicies = [
+    { reference_type: 'SHOP_RMR' as const, policy_mode: 'REQUIRED' as const, allow_duplicates: false, duplicate_scope: 'GLOBAL' },
+    { reference_type: 'RAW_MILK_TOKEN' as const, policy_mode: 'OPTIONAL' as const, allow_duplicates: false, duplicate_scope: 'GLOBAL' },
+    { reference_type: 'RAW_MILK_DISPATCH_NOTE' as const, policy_mode: 'REQUIRED' as const, allow_duplicates: false, duplicate_scope: 'GLOBAL' },
+  ];
+  for (const p of paperPolicies) {
+    await prisma.paperReferencePolicy.upsert({
+      where: { reference_type: p.reference_type },
+      update: {
+        policy_mode: p.policy_mode,
+        allow_duplicates: p.allow_duplicates,
+        duplicate_scope: p.duplicate_scope,
+        updated_by_user_id: superAdmin.id,
+      },
+      create: {
+        reference_type: p.reference_type,
+        policy_mode: p.policy_mode,
+        allow_duplicates: p.allow_duplicates,
+        duplicate_scope: p.duplicate_scope,
+        updated_by_user_id: superAdmin.id,
+      },
+    });
+  }
+
+  // Seed Stage 6G-G Active SOP Lab Test Rules
+  console.log('Seeding Stage 6G-G Active SOP Lab Test Rules...');
+  const testFat = activeTests.find((t) => t.testName === 'Fat');
+  const testLr = activeTests.find((t) => t.testName.includes('Lactometer') || t.testName.includes('LR'));
+  const testTemp = activeTests.find((t) => t.testName === 'Temperature');
+  const testAcidity = activeTests.find((t) => t.testName === 'Acidity');
+  const testCob = activeTests.find((t) => t.testName === 'Clot on Boiling');
+  const testSmell = activeTests.find((t) => t.testName === 'Organoleptic Smell');
+  const testTaste = activeTests.find((t) => t.testName === 'Organoleptic Taste');
+  const testBr = activeTests.find((t) => t.testName === 'BR Value');
+
+  const ruleSpecs = [
+    // PLANT_QA
+    { test: testFat, point: 'PLANT_QA', min: 3.50, max: 5.50, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
+    { test: testLr, point: 'PLANT_QA', min: 26.00, max: 32.00, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
+    { test: testTemp, point: 'PLANT_QA', min: 0.00, max: 10.00, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
+    { test: testAcidity, point: 'PLANT_QA', min: 0.10, max: 0.16, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
+    { test: testCob, point: 'PLANT_QA', min: null, max: null, acceptable: 'NEGATIVE', consequence: 'REJECT', category: 'RELEASE' },
+    { test: testSmell, point: 'PLANT_QA', min: null, max: null, acceptable: 'OK', consequence: 'REJECT', category: 'RELEASE' },
+    { test: testTaste, point: 'PLANT_QA', min: null, max: null, acceptable: 'OK', consequence: 'REJECT', category: 'RELEASE' },
+    { test: testBr, point: 'PLANT_QA', min: 39.00, max: 42.00, acceptable: null, consequence: 'NEUTRAL', category: 'MONITORING' },
+
+    // ZMCC_LAB_MOT
+    { test: testFat, point: 'ZMCC_LAB_MOT', min: 3.50, max: 5.50, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
+    { test: testLr, point: 'ZMCC_LAB_MOT', min: 26.00, max: 32.00, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
+    { test: testTemp, point: 'ZMCC_LAB_MOT', min: 0.00, max: 10.00, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
+    { test: testAcidity, point: 'ZMCC_LAB_MOT', min: 0.10, max: 0.16, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
+    { test: testCob, point: 'ZMCC_LAB_MOT', min: null, max: null, acceptable: 'NEGATIVE', consequence: 'REJECT', category: 'RELEASE' },
+
+    // ZMCC_LAB_CONTRACTOR
+    { test: testFat, point: 'ZMCC_LAB_CONTRACTOR', min: 3.50, max: 5.50, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
+    { test: testLr, point: 'ZMCC_LAB_CONTRACTOR', min: 26.00, max: 32.00, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
+    { test: testTemp, point: 'ZMCC_LAB_CONTRACTOR', min: 0.00, max: 10.00, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
+    { test: testAcidity, point: 'ZMCC_LAB_CONTRACTOR', min: 0.10, max: 0.16, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
+    { test: testCob, point: 'ZMCC_LAB_CONTRACTOR', min: null, max: null, acceptable: 'NEGATIVE', consequence: 'REJECT', category: 'RELEASE' },
+
+    // ZMCC_LAB_LOCAL_SUPPLIER
+    { test: testFat, point: 'ZMCC_LAB_LOCAL_SUPPLIER', min: 3.50, max: 5.50, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
+    { test: testLr, point: 'ZMCC_LAB_LOCAL_SUPPLIER', min: 26.00, max: 32.00, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
+    { test: testTemp, point: 'ZMCC_LAB_LOCAL_SUPPLIER', min: 0.00, max: 10.00, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
+    { test: testAcidity, point: 'ZMCC_LAB_LOCAL_SUPPLIER', min: 0.10, max: 0.16, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
+    { test: testCob, point: 'ZMCC_LAB_LOCAL_SUPPLIER', min: null, max: null, acceptable: 'NEGATIVE', consequence: 'REJECT', category: 'RELEASE' },
+
+    // DISPATCH (MONITORING only pending release consequence workflow approval)
+    { test: testFat, point: 'DISPATCH', min: 3.50, max: 5.50, acceptable: null, consequence: 'NEUTRAL', category: 'MONITORING' },
+    { test: testLr, point: 'DISPATCH', min: 26.00, max: 32.00, acceptable: null, consequence: 'NEUTRAL', category: 'MONITORING' },
+    { test: testTemp, point: 'DISPATCH', min: 0.00, max: 10.00, acceptable: null, consequence: 'NEUTRAL', category: 'MONITORING' },
+    { test: testAcidity, point: 'DISPATCH', min: 0.10, max: 0.16, acceptable: null, consequence: 'NEUTRAL', category: 'MONITORING' },
+  ];
+
+  const plantRulesMap = new Map<string, any>();
+  const zmccMotRulesMap = new Map<string, any>();
+  const zmccLsRulesMap = new Map<string, any>();
+  const zmccConRulesMap = new Map<string, any>();
+  const dispatchRulesMap = new Map<string, any>();
+
+  for (const spec of ruleSpecs) {
+    if (!spec.test) continue;
+    let existingRule = await prisma.labTestRule.findFirst({
+      where: {
+        lab_test_id: spec.test.id,
+        testing_point: spec.point,
+        is_active: true,
+      },
+    });
+
+    if (!existingRule) {
+      existingRule = await prisma.labTestRule.create({
+        data: {
+          lab_test_id: spec.test.id,
+          testing_point: spec.point,
+          version: 1,
+          rule_category: spec.category,
+          min_value: spec.min !== null ? spec.min : null,
+          max_value: spec.max !== null ? spec.max : null,
+          acceptable_option: spec.acceptable,
+          decision_consequence: spec.consequence,
+          is_active: true,
+          created_by: qaHead.id,
+        },
+      });
+    }
+
+    if (spec.point === 'PLANT_QA') plantRulesMap.set(String(spec.test.id), existingRule);
+    else if (spec.point === 'ZMCC_LAB_MOT') zmccMotRulesMap.set(String(spec.test.id), existingRule);
+    else if (spec.point === 'ZMCC_LAB_LOCAL_SUPPLIER') zmccLsRulesMap.set(String(spec.test.id), existingRule);
+    else if (spec.point === 'ZMCC_LAB_CONTRACTOR') zmccConRulesMap.set(String(spec.test.id), existingRule);
+    else if (spec.point === 'DISPATCH') dispatchRulesMap.set(String(spec.test.id), existingRule);
+  }
+
+  console.log(`Master references verified: ${users.length} Users, ${sources.length} Sources, ${activeSilos.length} Silos, ${activeTests.length} Lab Tests, ${paperPolicies.length} Paper Policies, ${ruleSpecs.length} SOP Rules.\n`);
 
   // Target Breakdown for 75 VehicleVisits:
   // 55 Fully Accepted & Completed
@@ -150,8 +271,8 @@ export async function seedOperationalData() {
     }
 
     // Determine operational timestamp & business date boundaries
-    // Spread evenly across last 28 days with deliberate boundary hours
-    const daysAgo = Math.floor((TOTAL_VISITS - i) * (28 / TOTAL_VISITS));
+    // Spread evenly across last 28 days with deliberate boundary hours (at least 1 day ago to prevent future timestamps)
+    const daysAgo = 1 + Math.floor((TOTAL_VISITS - i) * (27 / TOTAL_VISITS));
     const baseDate = new Date(now.getTime() - daysAgo * msPerDay);
 
     // Boundary hour distribution: 07:40, 07:59, 08:00, 08:15, 14:30, 22:15
@@ -294,6 +415,7 @@ export async function seedOperationalData() {
         vehicle_dispatch_ts: vehicleDispatchTs,
         vehicle_dispatch_at_13ts_liters: vehicleDispatchAt13ts,
         vehicle_dispatch_calculation_version: vehicleDispatchVersion,
+        raw_milk_dispatch_note_number: String(8100 + i).padStart(6, '0'),
         created_at: dispatchTime,
         updated_at: targetStatus === 'COMPLETED' ? gateExitTime : qaCompleteTime,
       },
@@ -324,6 +446,9 @@ export async function seedOperationalData() {
         ? (portionDecision === 'REJECTED' ? 'REJECTED' : 'UNLOADED')
         : (targetStatus === 'PLANT_QA' ? 'UNDER_TEST' : targetStatus);
 
+      // QA Manager Review Scenario on Visit 74
+      const isVisit74ManagerReview = i === 74 && pIdx === 1;
+
       const portion = await prisma.visitPortion.create({
         data: {
           visit_id: visit.id,
@@ -336,6 +461,12 @@ export async function seedOperationalData() {
           plant_rejection_reason: portionDecision === 'REJECTED' ? 'COB Positive & High Acidity. Off-flavor detected during organoleptic testing.' : null,
           plant_decided_by: targetStatus === 'TOKEN_ISSUED' || targetStatus === 'PLANT_QA' ? null : qaUser.id,
           plant_decided_at: targetStatus === 'TOKEN_ISSUED' || targetStatus === 'PLANT_QA' ? null : qaCompleteTime,
+          system_quality_outcome: isVisit74ManagerReview ? 'OUT_OF_SPEC' : (portionDecision === 'REJECTED' ? 'OUT_OF_SPEC' : (targetStatus === 'TOKEN_ISSUED' ? null : 'PASS')),
+          manager_review_status: isVisit74ManagerReview ? 'PENDING' : 'NONE',
+          manager_requested_decision: isVisit74ManagerReview ? 'ACCEPT' : null,
+          manager_review_requested_by_user_id: isVisit74ManagerReview ? qaUser.id : null,
+          manager_review_requested_at: isVisit74ManagerReview ? qaStartTime : null,
+          manager_review_reason: isVisit74ManagerReview ? 'Fat 3.40% slightly below 3.50% specification. Requesting QA Manager exception waiver based on supplier reliability.' : null,
           created_at: dispatchTime,
         },
       });
@@ -374,6 +505,18 @@ export async function seedOperationalData() {
           else if (t.resultType === 'NUMERIC') numVal = 10.0;
 
           if (t.resultType !== 'CALCULATED') {
+            const ruleForTest = dispatchRulesMap.get(String(t.id));
+            const evaluation = QualityRuleService.evaluateQualityResult({
+              testId: t.id,
+              testCode: t.testCode,
+              resultType: t.resultType,
+              numericValue: numVal,
+              textValue: textVal,
+              rule: ruleForTest || null,
+              resultOptions: t.resultOptions,
+              testingPoint: 'DISPATCH',
+            });
+
             await prisma.dispatchLabResult.create({
               data: {
                 visit_id: visit.id,
@@ -383,7 +526,7 @@ export async function seedOperationalData() {
                 result_timestamp: dispatchTime,
                 numeric_value: numVal,
                 text_value: textVal,
-                is_passed: isPassed,
+                is_passed: evaluation.isPassed !== null ? evaluation.isPassed : isPassed,
                 tested_by: mpdUser.id,
                 created_at: new Date(dispatchTime.getTime() + 180000),
               },
@@ -396,7 +539,8 @@ export async function seedOperationalData() {
       // Plant Lab Results (for processed visits)
       if (targetStatus !== 'TOKEN_ISSUED') {
         const isPlantReject = portionDecision === 'REJECTED';
-        const plantFat = isPlantReject ? 2.5 : fatVal;
+        const isVisit74 = i === 74;
+        const plantFat = isVisit74 ? 3.40 : (isPlantReject ? 2.5 : fatVal);
         const plantLr = isPlantReject ? 24.0 : lrVal;
 
         for (const t of activeTests) {
@@ -414,9 +558,22 @@ export async function seedOperationalData() {
               isPassed = !isPlantReject;
             } else if (t.resultType === 'OK_NOT_OK') textVal = isPlantReject ? 'NOT_OK' : 'OK';
             else if (t.resultType === 'POSITIVE_NEGATIVE') textVal = 'NEGATIVE';
+            else if (t.testName === 'BR Value') numVal = 40.0;
             else if (t.resultType === 'NUMERIC') numVal = 10.0;
 
             if (t.resultType !== 'CALCULATED') {
+              const ruleForTest = plantRulesMap.get(String(t.id));
+              const evaluation = QualityRuleService.evaluateQualityResult({
+                testId: t.id,
+                testCode: t.testCode,
+                resultType: t.resultType,
+                numericValue: numVal,
+                textValue: textVal,
+                rule: ruleForTest || null,
+                resultOptions: t.resultOptions,
+                testingPoint: 'PLANT_QA',
+              });
+
               await prisma.plantLabResult.create({
                 data: {
                   visit_id: visit.id,
@@ -426,7 +583,10 @@ export async function seedOperationalData() {
                   result_timestamp: qaCompleteTime,
                   numeric_value: numVal,
                   text_value: textVal,
-                  is_passed: isPassed,
+                  is_passed: evaluation.isPassed,
+                  applied_rule_id: evaluation.appliedRuleId,
+                  applied_rule_version: evaluation.appliedRuleVersion,
+                  evaluation_status: evaluation.evaluationStatus,
                   tested_by: qaUser.id,
                   created_at: new Date(qaCompleteTime.getTime() + 300000),
                 },
@@ -1023,11 +1183,123 @@ export async function seedOperationalData() {
     },
   });
 
+  // Ensure Demo Shop Area & Milk Source exist
+  let demoArea = await prisma.zmccArea.findFirst({
+    where: { zmcc_id: hasilpurSource.id, area_code: 'DEMO-AREA-HAS-01' },
+  });
+  if (!demoArea) {
+    demoArea = await prisma.zmccArea.create({
+      data: {
+        area_code: 'DEMO-AREA-HAS-01',
+        name: 'Hasilpur East Rural Area',
+        route_id: zmccRoute.id,
+        zmcc_id: hasilpurSource.id,
+        created_by: zmccManager.id,
+      },
+    });
+  }
+
+  let demoMilkSource = await prisma.zmccMilkSource.findFirst({
+    where: { zmcc_id: hasilpurSource.id, erp_code: 'DEMO-MS-HAS-01' },
+  });
+  if (!demoMilkSource) {
+    demoMilkSource = await prisma.zmccMilkSource.create({
+      data: {
+        erp_code: 'DEMO-MS-HAS-01',
+        name: 'Direct Farm Collection Source',
+        zmcc_id: hasilpurSource.id,
+        is_active: true,
+        created_by: zmccManager.id,
+      },
+    });
+  }
+
+  const chillerSelf = await prisma.chillerOwnership.findFirst({
+    where: { ownership_code: 'SELF' },
+  });
+
+  let demoShop = await prisma.zmccShop.findFirst({
+    where: { shop_code: 'DEMO-SH-HAS-01' },
+  });
+  if (!demoShop) {
+    demoShop = await prisma.zmccShop.create({
+      data: {
+        shop_code: 'DEMO-SH-HAS-01',
+        shop_name: 'DEMO - Al-Madina Milk Center',
+        owner_name: 'Haji Ghulam Rasool',
+        phone_number: '03009876543',
+        cnic: '31202-9876543-1',
+        area_id: demoArea.id,
+        route_id: zmccRoute.id,
+        zmcc_id: hasilpurSource.id,
+        milk_source_id: demoMilkSource.id,
+        chiller_ownership_id: chillerSelf ? chillerSelf.id : BigInt(1),
+        is_active: true,
+        created_by: zmccManager.id,
+      },
+    });
+  }
+
+  let journey2Stop = await prisma.motJourneyStop.findFirst({
+    where: { journey_id: journey2.id, shop_id: demoShop.id },
+  });
+  if (!journey2Stop) {
+    journey2Stop = await prisma.motJourneyStop.create({
+      data: {
+        journey_id: journey2.id,
+        shop_id: demoShop.id,
+        planned_sequence: 1,
+        status: 'VISITED',
+        shop_code_snapshot: demoShop.shop_code,
+        shop_name_snapshot: demoShop.shop_name,
+        owner_name_snapshot: demoShop.owner_name,
+        phone_number_snapshot: demoShop.phone_number,
+        area_code_snapshot: demoArea.area_code,
+        area_name_snapshot: demoArea.name,
+        arrived_at: new Date(timeTodayArr2.getTime() - 4500000),
+        completed_at: new Date(timeTodayArr2.getTime() - 3600000),
+      },
+    });
+  }
+
+  const shopMetrics = computeCanonicalMilkMetrics(120.0, 'LITER', 28.5, 3.9);
+  await prisma.motShopCollection.create({
+    data: {
+      collection_number: `MC-${pktTodayDateStr.replace(/-/g, '')}-0001`,
+      journey_id: journey2.id,
+      journey_stop_id: journey2Stop.id,
+      shop_id: demoShop.id,
+      zmcc_id: hasilpurSource.id,
+      route_id: zmccRoute.id,
+      mot_profile_id: motProfile.id,
+      mot_vehicle_id: motVehicle.id,
+      operational_date: pktTodayDate,
+      client_event_id: `evt-shop-col-01-${pktTodayDateStr}`,
+      quantity_value: 120.0,
+      quantity_unit: 'LITER',
+      gross_liters: shopMetrics.grossLiters,
+      density: shopMetrics.density,
+      lr: 28.5,
+      fat: 3.9,
+      snf: shopMetrics.snf,
+      ts: shopMetrics.ts,
+      at_13ts_liters: shopMetrics.at13tsLiters,
+      calculation_version: shopMetrics.calculationVersion,
+      collection_latitude: 29.6974,
+      collection_longitude: 72.5539,
+      device_collected_at: new Date(timeTodayArr2.getTime() - 3600000),
+      submitted_by_user_id: mpdUser.id,
+      shop_rmr_number: '004821', // Stage 6G-G: Digits-only string with leading zeros preserved
+      collection_notes: 'Demo Stage 6G-G Shop RMR operational record',
+    },
+  });
+
   const arr2 = await prisma.zmccMotArrival.create({
     data: {
       journey_id: journey2.id,
       zmcc_id: hasilpurSource.id,
       route_milk_token: 'RM-HAS-0201',
+      raw_milk_token_number: '001924',
       zmcc_token: 'TK-HAS-MOT-001',
       arrival_timestamp: timeTodayArr2,
       arrival_date: pktTodayDate,
@@ -1038,19 +1310,27 @@ export async function seedOperationalData() {
     },
   });
 
-  // In-progress Lab session on Arrival 2
+  // In-progress Lab session on Arrival 2 with Manager Review Pending
   const session2 = await prisma.zmccLabSession.create({
     data: {
       zmcc_id: hasilpurSource.id,
       arrival_type: 'MOT',
       mot_arrival_id: arr2.id,
       status: 'IN_PROGRESS',
+      system_quality_outcome: 'OUT_OF_SPEC',
+      manager_review_status: 'PENDING',
+      manager_requested_decision: 'ACCEPTED',
+      manager_review_requested_by_user_id: zmccLabUser.id,
+      manager_review_requested_at: new Date(timeTodayArr2.getTime() + 900000),
+      manager_review_reason: 'LR 25.80 slightly below 26.00 threshold due to extreme ambient temperature. Requesting ZMCC Manager exception clearance.',
       started_by_user_id: zmccLabUser.id,
       started_at: new Date(timeTodayArr2.getTime() + 600000),
     },
   });
 
   if (lrTest && fatTest) {
+    const lrRule = zmccMotRulesMap.get(String(lrTest.id));
+    const fatRule = zmccMotRulesMap.get(String(fatTest.id));
     await prisma.zmccLabResult.createMany({
       data: [
         {
@@ -1062,7 +1342,11 @@ export async function seedOperationalData() {
           unit_snapshot: lrTest.unit,
           is_required_snapshot: true,
           display_order_snapshot: 1,
-          evaluation_status: 'PENDING',
+          numeric_value: 25.80,
+          applied_rule_id: lrRule?.id || null,
+          applied_rule_version: lrRule?.version || null,
+          evaluation_status: 'OUT_OF_SPEC',
+          is_passed: false,
         },
         {
           session_id: session2.id,
@@ -1073,7 +1357,11 @@ export async function seedOperationalData() {
           unit_snapshot: fatTest.unit,
           is_required_snapshot: true,
           display_order_snapshot: 2,
-          evaluation_status: 'PENDING',
+          numeric_value: 3.80,
+          applied_rule_id: fatRule?.id || null,
+          applied_rule_version: fatRule?.version || null,
+          evaluation_status: 'PASS',
+          is_passed: true,
         },
       ],
     });
@@ -1111,6 +1399,7 @@ export async function seedOperationalData() {
       local_supplier_arrival_id: arr3.id,
       status: 'COMPLETED',
       decision: 'ACCEPTED',
+      system_quality_outcome: 'PASS',
       started_by_user_id: zmccLabUser.id,
       started_at: new Date(timeTodayArr3.getTime() + 600000),
       completed_by_user_id: zmccLabUser.id,
@@ -1128,6 +1417,8 @@ export async function seedOperationalData() {
   });
 
   if (lrTest && fatTest) {
+    const lrRule = zmccLsRulesMap.get(String(lrTest.id));
+    const fatRule = zmccLsRulesMap.get(String(fatTest.id));
     await prisma.zmccLabResult.createMany({
       data: [
         {
@@ -1140,7 +1431,9 @@ export async function seedOperationalData() {
           is_required_snapshot: true,
           display_order_snapshot: 1,
           numeric_value: arr3Lr,
-          evaluation_status: 'PASSED',
+          applied_rule_id: lrRule?.id || null,
+          applied_rule_version: lrRule?.version || null,
+          evaluation_status: 'PASS',
           is_passed: true,
           recorded_at: new Date(timeTodayArr3.getTime() + 1200000),
         },
@@ -1154,7 +1447,9 @@ export async function seedOperationalData() {
           is_required_snapshot: true,
           display_order_snapshot: 2,
           numeric_value: arr3Fat,
-          evaluation_status: 'PASSED',
+          applied_rule_id: fatRule?.id || null,
+          applied_rule_version: fatRule?.version || null,
+          evaluation_status: 'PASS',
           is_passed: true,
           recorded_at: new Date(timeTodayArr3.getTime() + 1200000),
         },
@@ -1232,6 +1527,7 @@ export async function seedOperationalData() {
       local_supplier_arrival_id: arr4.id,
       status: 'COMPLETED',
       decision: 'REJECTED',
+      system_quality_outcome: 'OUT_OF_SPEC',
       rejection_reason: 'Acidity 0.21% & COB Positive. High temperature 12°C detected.',
       remarks: 'Rejected at intake platform. Gate exit authorized without tank receipt.',
       started_by_user_id: zmccLabUser.id,
@@ -1251,6 +1547,8 @@ export async function seedOperationalData() {
   });
 
   if (lrTest && fatTest) {
+    const lrRule = zmccLsRulesMap.get(String(lrTest.id));
+    const fatRule = zmccLsRulesMap.get(String(fatTest.id));
     await prisma.zmccLabResult.createMany({
       data: [
         {
@@ -1263,7 +1561,9 @@ export async function seedOperationalData() {
           is_required_snapshot: true,
           display_order_snapshot: 1,
           numeric_value: arr4Lr,
-          evaluation_status: 'FAILED',
+          applied_rule_id: lrRule?.id || null,
+          applied_rule_version: lrRule?.version || null,
+          evaluation_status: 'OUT_OF_SPEC',
           is_passed: false,
           recorded_at: new Date(timeThreeDaysArr4.getTime() + 1200000),
         },
@@ -1277,7 +1577,9 @@ export async function seedOperationalData() {
           is_required_snapshot: true,
           display_order_snapshot: 2,
           numeric_value: arr4Fat,
-          evaluation_status: 'FAILED',
+          applied_rule_id: fatRule?.id || null,
+          applied_rule_version: fatRule?.version || null,
+          evaluation_status: 'OUT_OF_SPEC',
           is_passed: false,
           recorded_at: new Date(timeThreeDaysArr4.getTime() + 1200000),
         },
@@ -1318,6 +1620,7 @@ export async function seedOperationalData() {
       journey_id: journey5.id,
       zmcc_id: hasilpurSource.id,
       route_milk_token: 'RM-HAS-0202',
+      raw_milk_token_number: '001925',
       zmcc_token: 'TK-HAS-MOT-002',
       arrival_timestamp: timeYestArr5,
       arrival_date: yesterdayDateOnly,
@@ -1343,6 +1646,7 @@ export async function seedOperationalData() {
       mot_arrival_id: arr5.id,
       status: 'COMPLETED',
       decision: 'ACCEPTED',
+      system_quality_outcome: 'PASS',
       started_by_user_id: zmccLabUser.id,
       started_at: new Date(timeYestArr5.getTime() + 600000),
       completed_by_user_id: zmccLabUser.id,
@@ -1360,6 +1664,8 @@ export async function seedOperationalData() {
   });
 
   if (lrTest && fatTest) {
+    const lrRule = zmccMotRulesMap.get(String(lrTest.id));
+    const fatRule = zmccMotRulesMap.get(String(fatTest.id));
     await prisma.zmccLabResult.createMany({
       data: [
         {
@@ -1372,7 +1678,9 @@ export async function seedOperationalData() {
           is_required_snapshot: true,
           display_order_snapshot: 1,
           numeric_value: arr5Lr,
-          evaluation_status: 'PASSED',
+          applied_rule_id: lrRule?.id || null,
+          applied_rule_version: lrRule?.version || null,
+          evaluation_status: 'PASS',
           is_passed: true,
           recorded_at: new Date(timeYestArr5.getTime() + 1800000),
         },
@@ -1386,7 +1694,9 @@ export async function seedOperationalData() {
           is_required_snapshot: true,
           display_order_snapshot: 2,
           numeric_value: arr5Fat,
-          evaluation_status: 'PASSED',
+          applied_rule_id: fatRule?.id || null,
+          applied_rule_version: fatRule?.version || null,
+          evaluation_status: 'PASS',
           is_passed: true,
           recorded_at: new Date(timeYestArr5.getTime() + 1800000),
         },

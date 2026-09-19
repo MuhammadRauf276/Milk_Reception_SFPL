@@ -54,6 +54,32 @@ describe('Stage 4C-2: Dispatch Initialization Reliability (Integration)', () => 
         is_active: true,
       },
     });
+
+    // Create an active ZMCC tank and initial stock for sourceA
+    const tankA = await prisma.zmccTank.create({
+      data: {
+        zmcc_id: sourceA.id,
+        tank_code: `TANK_INIT_${Date.now()}`,
+        tank_name: 'Main Storage Tank A',
+        capacity_liters: 100000,
+        is_active: true,
+        created_by_user_id: unscopedAdmin.id,
+      },
+    });
+
+    await prisma.zmccTankInventoryTransaction.create({
+      data: {
+        tank_id: tankA.id,
+        zmcc_id: sourceA.id,
+        transaction_type: 'RECEIPT',
+        quantity_liters: 50000,
+        at_13ts_liters: 50000,
+        reference_type: 'INITIAL_STOCK',
+        reference_id: `INIT_${Date.now()}`,
+        idempotency_key: `INIT_STOCK_${Date.now()}`,
+        performed_by_user_id: unscopedAdmin.id,
+      },
+    });
   });
 
   // Helper to create mock authenticated Request with genuine JWT Bearer token
@@ -293,6 +319,7 @@ describe('Stage 4C-2: Dispatch Initialization Reliability (Integration)', () => 
         vehicleNumber: 'KBL-9999',
         operationalDate: '2026-08-22',
         procurementSourceId: sourceA.id.toString(),
+        rawMilkDispatchNoteNumber: '900001',
         vehicleQuantity: {
           value: '5000',
           unit: 'KG',
@@ -346,6 +373,7 @@ describe('Stage 4C-2: Dispatch Initialization Reliability (Integration)', () => 
         vehicleNumber: 'KBL-8888',
         operationalDate: '2026-08-22',
         procurementSourceId: sourceB.id.toString(),
+        rawMilkDispatchNoteNumber: '900002',
         vehicleQuantity: {
           value: '5000',
           unit: 'KG',
@@ -406,6 +434,7 @@ describe('Stage 4C-2: Dispatch Initialization Reliability (Integration)', () => 
         vehicleNumber: 'KBL-7777',
         operationalDate: '2026-08-22',
         procurementSourceId: sourceA.id.toString(),
+        rawMilkDispatchNoteNumber: '900003',
         vehicleQuantity: {
           value: '6000',
           unit: 'KG',

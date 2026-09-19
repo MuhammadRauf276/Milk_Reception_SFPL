@@ -52,13 +52,17 @@ export function resolveRoleHome(role?: string | null | unknown): string {
     case 'PRODUCTION_RECEPTION_OPERATOR':
       return '/department/production';
 
+    case 'QA_HEAD':
+      return '/department/qa-head';
+
+    case 'QA_MANAGER':
+      return '/department/qa-manager';
+
     // Unimplemented high-level canonical roles & Contractor Operator (fail-closed)
     case 'CONTRACTOR_OPERATOR':
     case 'EXECUTIVE_MANAGEMENT':
     case 'DATA_EXECUTIVE':
     case 'ADMIN_HEAD':
-    case 'QA_HEAD':
-    case 'QA_MANAGER':
     case 'PRODUCTION_HEAD':
     case 'FINANCE_ACCOUNTS':
     // Retired Legacy Roles (fail-closed)

@@ -12,7 +12,7 @@ describe('Stage 4C-5E: Safe Summary Totals (computeDispatchSafeSummaryTotals)', 
     const totals = computeDispatchSafeSummaryTotals([p1, p2]);
     expect(totals.hasPortions).toBe(true);
     expect(totals.totalGrossLiters).toBe(18950);
-    expect(totals.formattedTotalGrossLiters).toBe('18,950 L');
+    expect(totals.formattedTotalGrossLiters).toBe('18,950.00 L');
   });
 
   it('[CASE E2] Total Gross Liters with KG-derived portions: Sums unrounded canonical Gross Liters', () => {
@@ -24,7 +24,7 @@ describe('Stage 4C-5E: Safe Summary Totals (computeDispatchSafeSummaryTotals)', 
     expect(totals.totalGrossLiters).not.toBeNull();
     // 10000/1.028 + 9500/1.028 = 19500/1.028 = 18968.871595...
     expect(totals.totalGrossLiters).toBeCloseTo(19500 / 1.028, 4);
-    expect(totals.formattedTotalGrossLiters).toBe('18,969 L');
+    expect(totals.formattedTotalGrossLiters).toBe('18,968.87 L');
   });
 
   it('[CASE E3] One Gross Liters unavailable: Total Gross Liters is strictly null (no partial sum)', () => {
@@ -49,7 +49,7 @@ describe('Stage 4C-5E: Safe Summary Totals (computeDispatchSafeSummaryTotals)', 
     // P2 @13: (9150 * 12.356)/13 = 8696.88...
     // Sum: (18950 * 12.356)/13 = 18011.403...
     expect(totals.totalLitersAt13TS).toBeCloseTo((18950 * 12.356) / 13, 4);
-    expect(totals.formattedTotalLitersAt13TS).toBe('18,011 L');
+    expect(totals.formattedTotalLitersAt13TS).toBe('18,011.25 L');
   });
 
   it('[CASE E5] One Liters @ 13% TS unavailable: Total Liters @ 13% TS is strictly null (no partial sum)', () => {

@@ -13,6 +13,8 @@ import {
   recomputeMotJourneySummaryTx,
   serializeMotJourneySummary,
 } from './motJourneySummaryService';
+import { PaperReferenceService } from '@/backend/services/paperReferenceService';
+import { PaperReferenceType } from '@prisma/client';
 
 export interface MotAuthContext {
   user: User;
@@ -36,7 +38,8 @@ export type MotAction =
   | 'UPLOAD_GPS'
   | 'READ_MAP'
   | 'READ_SMS_OUTBOX'
-  | 'READ_COLLECTIONS';
+  | 'READ_COLLECTIONS'
+  | 'CORRECT_COLLECTION';
 
 export interface ServiceResult<T> {
   status: number;
@@ -116,6 +119,15 @@ export async function resolveMotAuth(
       return {
         errorResponse: {
           error: 'Forbidden. Role not permitted to read journey collections.',
+          status: 403,
+        },
+      };
+    }
+  } else if (action === 'CORRECT_COLLECTION') {
+    if (!isSuperAdmin && !isZmccManager) {
+      return {
+        errorResponse: {
+          error: 'Forbidden. Only ZMCC Manager or Super Admin may correct collections.',
           status: 403,
         },
       };
@@ -2131,6 +2143,7 @@ export function serializeCollection(c: any) {
     submitted_by_user_id: c.submitted_by_user_id.toString(),
     collection_notes: c.collection_notes || null,
     notes: c.collection_notes || null,
+    shop_rmr_number: c.shop_rmr_number || null,
     created_at: c.created_at.toISOString(),
     sms_outbox: c.sms_outbox
       ? {
@@ -2159,6 +2172,7 @@ export interface SubmitCollectionPayload {
   device_collected_at: string;
   collection_notes?: string | null;
   notes?: string | null;
+  shop_rmr_number?: string | null;
 }
 
 /**
@@ -2179,6 +2193,7 @@ function matchesCollectionIdempotency(
     accuracy: number | null;
     deviceCollectedAt: Date;
     notes: string | null;
+    shopRmrNumber?: string | null;
   }
 ): boolean {
   const isSameStop = existingCollection.journey_stop_id === params.stopId;
@@ -2196,6 +2211,7 @@ function matchesCollectionIdempotency(
   const isSameTimestamp =
     Math.abs(new Date(existingCollection.device_collected_at).getTime() - params.deviceCollectedAt.getTime()) < 1000;
   const isSameNotes = (existingCollection.collection_notes || '').trim() === (params.notes || '').trim();
+  const isSameShopRmr = (existingCollection.shop_rmr_number || null) === (params.shopRmrNumber || null);
 
   return (
     isSameStop &&
@@ -2207,7 +2223,8 @@ function matchesCollectionIdempotency(
     isSameLng &&
     isSameAcc &&
     isSameTimestamp &&
-    isSameNotes
+    isSameNotes &&
+    isSameShopRmr
   );
 }
 
@@ -2226,6 +2243,7 @@ function resolveCollectionIdempotencyMatch(
     accuracy: number | null;
     deviceCollectedAt: Date;
     notes: string | null;
+    shopRmrNumber?: string | null;
   }
 ): ServiceResult<any> {
   // Cross-ZMCC: Never return another ZMCC's collection
@@ -2305,13 +2323,34 @@ export async function submitShopCollection(
   }
 
   const lr = Number(payload.lr);
-  if (isNaN(lr) || lr < 20.0 || lr > 35.0) {
-    return { status: 400, error: 'Lactometer reading (LR) must be between 20.0 and 35.0.' };
+  if (isNaN(lr) || lr <= 0) {
+    return { status: 400, error: 'Lactometer reading (LR) must be a positive number.' };
   }
 
   const fat = Number(payload.fat);
-  if (isNaN(fat) || fat < 1.5 || fat > 12.0) {
-    return { status: 400, error: 'Fat percentage must be between 1.5% and 12.0%.' };
+  if (isNaN(fat) || fat <= 0) {
+    return { status: 400, error: 'Fat percentage must be a positive number.' };
+  }
+
+  // Validate shop_rmr_number against operational policy
+  let scopeZmccId: bigint | undefined;
+  const stopForScope = await prisma.motJourneyStop.findUnique({
+    where: { id: stopId },
+    select: { journey: { select: { zmcc_id: true } } },
+  });
+  if (stopForScope) {
+    scopeZmccId = stopForScope.journey.zmcc_id;
+  }
+
+  let validatedShopRmr: string | null = null;
+  try {
+    validatedShopRmr = await PaperReferenceService.validateAndVerify(
+      PaperReferenceType.SHOP_RMR,
+      payload.shop_rmr_number,
+      { scopeEntityId: scopeZmccId }
+    );
+  } catch (err: any) {
+    return { status: 400, error: err.message || 'Invalid Shop RMR number.' };
   }
 
   const rawLat = payload.latitude !== undefined ? payload.latitude : (payload as any).recorded_latitude;
@@ -2360,6 +2399,7 @@ export async function submitShopCollection(
       accuracy,
       deviceCollectedAt,
       notes,
+      shopRmrNumber: validatedShopRmr,
     });
   }
 
@@ -2419,6 +2459,7 @@ export async function submitShopCollection(
         accuracy,
         deviceCollectedAt,
         notes,
+        shopRmrNumber: validatedShopRmr,
       });
     }
 
@@ -2487,10 +2528,20 @@ export async function submitShopCollection(
       const seqNum = seqResult[0]?.nextval ? Number(seqResult[0].nextval) : Math.floor(Math.random() * 9000) + 1000;
       const collectionNumber = `MC-${dateCode}-${String(seqNum).padStart(4, '0')}`;
 
+      // Re-verify shop_rmr_number under transaction lock
+      if (validatedShopRmr) {
+        await PaperReferenceService.validateAndVerify(
+          PaperReferenceType.SHOP_RMR,
+          validatedShopRmr,
+          { tx, scopeEntityId: stop.journey.zmcc_id }
+        );
+      }
+
       // Create MotShopCollection
       const collection = await tx.motShopCollection.create({
         data: {
           collection_number: collectionNumber,
+          shop_rmr_number: validatedShopRmr,
           journey_id: stop.journey_id,
           journey_stop_id: stop.id,
           shop_id: stop.shop_id,
@@ -2627,6 +2678,7 @@ export async function submitShopCollection(
             longitude: lng,
             gps_accuracy: accuracy,
             collection_notes: notes || null,
+            shop_rmr_number: validatedShopRmr,
             sms_outbox_id: smsOutbox.id.toString(),
           },
           user_id: auth.actorUserId,
@@ -3322,3 +3374,240 @@ export async function getSmsOutbox(
     },
   };
 }
+
+export interface CorrectShopCollectionPayload {
+  shop_rmr_number?: string | null;
+  quantity_value?: number;
+  quantity_unit?: 'LITER' | 'KG' | string;
+  lr?: number;
+  fat?: number;
+  notes?: string | null;
+  reason: string;
+}
+
+export async function correctShopCollection(
+  reqOrUser: Request | User,
+  collectionIdParam: string | number | bigint,
+  payload: CorrectShopCollectionPayload
+): Promise<ServiceResult<any>> {
+  const { auth, errorResponse } = await resolveMotAuth(reqOrUser, 'CORRECT_COLLECTION');
+  if (errorResponse) return errorResponse;
+  if (!auth) return { status: 401, error: 'Unauthorized.' };
+
+  let collectionId: bigint;
+  try {
+    collectionId = BigInt(String(collectionIdParam).trim());
+  } catch {
+    return { status: 400, error: 'Invalid collection ID format.' };
+  }
+
+  if (!payload || typeof payload !== 'object') {
+    return { status: 400, error: 'Missing correction payload.' };
+  }
+
+  const reason = typeof payload.reason === 'string' ? payload.reason.trim() : '';
+  if (!reason) {
+    return { status: 400, error: 'reason is mandatory for shop collection corrections.' };
+  }
+
+  const collection = await prisma.motShopCollection.findUnique({
+    where: { id: collectionId },
+    include: {
+      journey: true,
+      stop: true,
+      sms_outbox: true,
+    },
+  });
+
+  if (!collection) {
+    return { status: 404, error: 'Shop collection not found.' };
+  }
+
+  // ZMCC Scoping: ZMCC Manager can only correct their own ZMCC
+  if (!auth.isSuperAdmin && collection.zmcc_id !== auth.effectiveZmccId!) {
+    return { status: 403, error: 'Forbidden. Collection belongs to another ZMCC.' };
+  }
+
+  const isRmrProvided = payload.shop_rmr_number !== undefined;
+  let newShopRmr: string | null = null;
+  if (isRmrProvided) {
+    try {
+      newShopRmr = await PaperReferenceService.validateAndVerify(
+        PaperReferenceType.SHOP_RMR,
+        payload.shop_rmr_number,
+        { excludeEntityId: collection.id, scopeEntityId: collection.zmcc_id }
+      );
+    } catch (err: any) {
+      return { status: 400, error: err.message || 'Invalid Shop RMR number.' };
+    }
+  }
+
+  const isMeasurementProvided =
+    payload.quantity_value !== undefined ||
+    payload.quantity_unit !== undefined ||
+    payload.lr !== undefined ||
+    payload.fat !== undefined;
+
+  let newQty = Number(collection.quantity_value);
+  let newUnit = collection.quantity_unit;
+  let newLr = Number(collection.lr);
+  let newFat = Number(collection.fat);
+
+  if (isMeasurementProvided) {
+    if (payload.quantity_value !== undefined) {
+      newQty = Number(payload.quantity_value);
+      if (isNaN(newQty) || newQty <= 0 || newQty > 10000) {
+        return { status: 400, error: 'Quantity must be a positive number up to 10,000.' };
+      }
+    }
+
+    if (payload.quantity_unit !== undefined) {
+      newUnit = payload.quantity_unit.trim().toUpperCase();
+      if (newUnit !== 'LITER' && newUnit !== 'KG') {
+        return { status: 400, error: 'Quantity unit must be either LITER or KG.' };
+      }
+    }
+
+    if (payload.lr !== undefined) {
+      newLr = Number(payload.lr);
+      if (isNaN(newLr) || newLr <= 0) {
+        return { status: 400, error: 'Lactometer reading (LR) must be a positive number.' };
+      }
+    }
+
+    if (payload.fat !== undefined) {
+      newFat = Number(payload.fat);
+      if (isNaN(newFat) || newFat <= 0) {
+        return { status: 400, error: 'Fat percentage must be a positive number.' };
+      }
+    }
+  }
+
+  let metrics: ReturnType<typeof computeCanonicalMilkMetrics> | null = null;
+  if (isMeasurementProvided) {
+    try {
+      metrics = computeCanonicalMilkMetrics(newQty, newUnit, newLr, newFat);
+    } catch (err: any) {
+      return { status: 400, error: err.message || 'Failed to compute milk quality metrics.' };
+    }
+  }
+
+  const isNotesProvided = payload.notes !== undefined;
+  const newNotes = isNotesProvided
+    ? typeof payload.notes === 'string'
+      ? payload.notes.trim() || null
+      : null
+    : collection.collection_notes;
+
+  const isRmrChanged = isRmrProvided && (newShopRmr || null) !== (collection.shop_rmr_number || null);
+  const isMeasurementChanged =
+    isMeasurementProvided &&
+    (Math.abs(newQty - Number(collection.quantity_value)) > 0.001 ||
+      newUnit !== collection.quantity_unit ||
+      Math.abs(newLr - Number(collection.lr)) > 0.001 ||
+      Math.abs(newFat - Number(collection.fat)) > 0.001);
+  const isNotesChanged = isNotesProvided && newNotes !== collection.collection_notes;
+
+  if (!isRmrChanged && !isMeasurementChanged && !isNotesChanged) {
+    return { status: 200, data: serializeCollection(collection) };
+  }
+
+  try {
+    const updatedCollection = await prisma.$transaction(async (tx) => {
+      // Row lock on mot_shop_collection
+      await tx.$executeRaw`SELECT id FROM mot_shop_collection WHERE id = ${collection.id} FOR UPDATE`;
+
+      if (isRmrChanged && newShopRmr) {
+        await PaperReferenceService.validateAndVerify(
+          PaperReferenceType.SHOP_RMR,
+          newShopRmr,
+          { excludeEntityId: collection.id, scopeEntityId: collection.zmcc_id, tx }
+        );
+      }
+
+      const updateData: Prisma.MotShopCollectionUpdateInput = {};
+      if (isRmrChanged) {
+        updateData.shop_rmr_number = newShopRmr;
+      }
+      if (isMeasurementChanged && metrics) {
+        updateData.quantity_value = new Prisma.Decimal(newQty.toFixed(2));
+        updateData.quantity_unit = newUnit;
+        updateData.gross_liters = new Prisma.Decimal(metrics.grossLiters.toFixed(2));
+        updateData.density = new Prisma.Decimal(metrics.density.toFixed(4));
+        updateData.lr = new Prisma.Decimal(newLr.toFixed(2));
+        updateData.fat = new Prisma.Decimal(newFat.toFixed(2));
+        updateData.snf = new Prisma.Decimal(metrics.snf.toFixed(2));
+        updateData.ts = new Prisma.Decimal(metrics.ts.toFixed(2));
+        updateData.at_13ts_liters = new Prisma.Decimal(metrics.at13tsLiters.toFixed(2));
+        updateData.calculation_version = metrics.calculationVersion;
+      }
+      if (isNotesChanged) {
+        updateData.collection_notes = newNotes;
+      }
+
+      const updated = await tx.motShopCollection.update({
+        where: { id: collection.id },
+        data: updateData,
+        include: {
+          sms_outbox: true,
+          stop: true,
+        },
+      });
+
+      if (isRmrChanged) {
+        await tx.auditLog.create({
+          data: {
+            table_name: 'mot_shop_collection',
+            record_id: collection.id,
+            action: 'SHOP_RMR_CORRECTED',
+            old_values: { shop_rmr_number: collection.shop_rmr_number },
+            new_values: { shop_rmr_number: newShopRmr, reason },
+            user_id: auth.actorUserId,
+          },
+        });
+      }
+
+      if (isMeasurementChanged && metrics) {
+        await tx.auditLog.create({
+          data: {
+            table_name: 'mot_shop_collection',
+            record_id: collection.id,
+            action: 'MOT_COLLECTION_MEASUREMENT_CORRECTED',
+            old_values: {
+              quantity_value: Number(collection.quantity_value),
+              quantity_unit: collection.quantity_unit,
+              gross_liters: Number(collection.gross_liters),
+              lr: Number(collection.lr),
+              fat: Number(collection.fat),
+              snf: Number(collection.snf),
+              ts: Number(collection.ts),
+              at_13ts_liters: Number(collection.at_13ts_liters),
+            },
+            new_values: {
+              quantity_value: newQty,
+              quantity_unit: newUnit,
+              gross_liters: metrics.grossLiters,
+              lr: newLr,
+              fat: newFat,
+              snf: metrics.snf,
+              ts: metrics.ts,
+              at_13ts_liters: metrics.at13tsLiters,
+              reason,
+            },
+            user_id: auth.actorUserId,
+          },
+        });
+
+        // Recompute journey summary if journey was completed
+        await recomputeMotJourneySummaryTx(tx, collection.journey_id, auth.actorUserId);
+      }
+
+      return updated;
+    });
+
+    return { status: 200, data: serializeCollection(updatedCollection) };
+  } catch (err: any) {
+    return { status: 500, error: err.message || 'Failed to correct shop collection.' };
+  }
+}
+

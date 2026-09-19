@@ -19,7 +19,6 @@ describe('Stage 4C-3A/4C-5F: Dispatch Quantity Policy Contract (Unit & Basis)', 
         allowedMeasurements: [
           { unit: 'KG', basis: 'MEASURED' },
           { unit: 'LITER', basis: 'MEASURED' },
-          { unit: 'KG', basis: 'ESTIMATED' },
         ],
         default: {
           unit: 'KG',
@@ -29,13 +28,16 @@ describe('Stage 4C-3A/4C-5F: Dispatch Quantity Policy Contract (Unit & Basis)', 
       portionRules: {
         allowedMeasurements: [
           { unit: 'KG', basis: 'MEASURED' },
+          { unit: 'KG', basis: 'ESTIMATED' },
+          { unit: 'LITER', basis: 'MEASURED' },
+          { unit: 'LITER', basis: 'ESTIMATED' },
         ],
         default: {
           unit: 'KG',
           basis: 'MEASURED',
         },
       },
-      allowSameUnitPortionPrefill: true,
+      allowSameUnitPortionPrefill: false,
     };
 
     const validated = validateQuantityPolicy(validPolicy);
@@ -45,8 +47,22 @@ describe('Stage 4C-3A/4C-5F: Dispatch Quantity Policy Contract (Unit & Basis)', 
 
     // Derived helpers
     expect(getAllowedUnits(validated.vehicleRules.allowedMeasurements)).toEqual(['KG', 'LITER']);
-    expect(getAllowedBases(validated.vehicleRules.allowedMeasurements, 'KG')).toEqual(['MEASURED', 'ESTIMATED']);
+    expect(getAllowedBases(validated.vehicleRules.allowedMeasurements, 'KG')).toEqual(['MEASURED']);
     expect(getAllowedBases(validated.vehicleRules.allowedMeasurements, 'LITER')).toEqual(['MEASURED']);
+
+    // Whole-vehicle quantity cannot be ESTIMATED
+    expect(() => validateQuantityPolicy({
+      ...validPolicy,
+      vehicleRules: {
+        allowedMeasurements: [
+          { unit: 'KG', basis: 'ESTIMATED' },
+        ],
+        default: {
+          unit: 'KG',
+          basis: 'ESTIMATED' as any,
+        },
+      },
+    })).toThrow();
   });
 
   it('[TEST-B] Unconfigured measurement combination is rejected by combination checker', () => {
@@ -120,7 +136,8 @@ describe('Stage 4C-3A/4C-5F: Dispatch Quantity Policy Contract (Unit & Basis)', 
 
   it('[TEST-E] Default policy is structurally valid with allowed combinations', () => {
     const validated = validateQuantityPolicy(DEFAULT_DISPATCH_QUANTITY_POLICY);
-    expect(validated.version).toBe(1);
+    expect(validated.version).toBe(2);
+    expect(validated.vehicleRules.default.basis).toBe('MEASURED');
     expect(isCombinationAllowed(validated.vehicleRules.allowedMeasurements, validated.vehicleRules.default)).toBe(true);
     expect(isCombinationAllowed(validated.portionRules.allowedMeasurements, validated.portionRules.default)).toBe(true);
   });

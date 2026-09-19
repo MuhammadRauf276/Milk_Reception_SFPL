@@ -160,6 +160,23 @@ async function runRegressionTests() {
       vehicle_dispatch_quantity_basis: 'MEASURED',
     },
   });
+  const portionRecent = await prisma.visitPortion.create({
+    data: {
+      visit_id: fixtureRecent.id,
+      portion_number: 1,
+      dispatch_quantity_value: 5000,
+      dispatch_quantity_unit: 'KG',
+      dispatch_quantity_basis: 'MEASURED',
+      current_status: 'DISPATCHED',
+    },
+  });
+  await prisma.dispatchInfo.create({
+    data: {
+      portion_id: portionRecent.id,
+      dispatch_timestamp: dateRecent,
+      dispatch_testing_mode: 'FULL',
+    },
+  });
 
   const fixtureMedium = await prisma.vehicleVisit.create({
     data: {
@@ -176,6 +193,23 @@ async function runRegressionTests() {
       vehicle_dispatch_quantity_basis: 'MEASURED',
     },
   });
+  const portionMedium = await prisma.visitPortion.create({
+    data: {
+      visit_id: fixtureMedium.id,
+      portion_number: 1,
+      dispatch_quantity_value: 6000,
+      dispatch_quantity_unit: 'KG',
+      dispatch_quantity_basis: 'MEASURED',
+      current_status: 'DISPATCHED',
+    },
+  });
+  await prisma.dispatchInfo.create({
+    data: {
+      portion_id: portionMedium.id,
+      dispatch_timestamp: dateMedium,
+      dispatch_testing_mode: 'FULL',
+    },
+  });
 
   const fixtureOld = await prisma.vehicleVisit.create({
     data: {
@@ -190,6 +224,23 @@ async function runRegressionTests() {
       vehicle_dispatch_quantity_value: 7000,
       vehicle_dispatch_quantity_unit: 'KG',
       vehicle_dispatch_quantity_basis: 'MEASURED',
+    },
+  });
+  const portionOld = await prisma.visitPortion.create({
+    data: {
+      visit_id: fixtureOld.id,
+      portion_number: 1,
+      dispatch_quantity_value: 7000,
+      dispatch_quantity_unit: 'KG',
+      dispatch_quantity_basis: 'MEASURED',
+      current_status: 'DISPATCHED',
+    },
+  });
+  await prisma.dispatchInfo.create({
+    data: {
+      portion_id: portionOld.id,
+      dispatch_timestamp: dateOld,
+      dispatch_testing_mode: 'FULL',
     },
   });
 
@@ -224,9 +275,12 @@ async function runRegressionTests() {
   );
 
   // Cleanup temporary date-range fixtures
+  const fixtureVisitIds = [fixtureRecent.id, fixtureMedium.id, fixtureOld.id];
+  await prisma.dispatchInfo.deleteMany({ where: { portion: { visit_id: { in: fixtureVisitIds } } } });
+  await prisma.visitPortion.deleteMany({ where: { visit_id: { in: fixtureVisitIds } } });
   await prisma.vehicleVisit.deleteMany({
     where: {
-      id: { in: [fixtureRecent.id, fixtureMedium.id, fixtureOld.id] },
+      id: { in: fixtureVisitIds },
     },
   });
 
@@ -422,6 +476,7 @@ async function runRegressionTests() {
     {
       visitId: draftContLiter.visitId,
       vehicleNumber: 'CONT-9800',
+      rawMilkDispatchNoteNumber: '900010',
       operationalDate: regressionBusinessDate,
       dispatchTestingMode: 'NOT_PERFORMED',
       dispatchTestingReason: 'Contract Vehicle',
@@ -475,6 +530,7 @@ async function runRegressionTests() {
     {
       visitId: draftContAllNotPerf.visitId,
       vehicleNumber: 'CONT-NOT-PERF',
+      rawMilkDispatchNoteNumber: '900011',
       operationalDate: regressionBusinessDate,
       dispatchTestingMode: 'NOT_PERFORMED',
       dispatchTestingReason: 'Contract Vehicle',
@@ -531,6 +587,7 @@ async function runRegressionTests() {
       {
         visitId: draftContPartial.visitId,
         vehicleNumber: 'CONT-PARTIAL',
+        rawMilkDispatchNoteNumber: '900012',
         operationalDate: regressionBusinessDate,
         dispatchTestingMode: 'PARTIAL',
         vehicleQuantity: { value: '8900', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },

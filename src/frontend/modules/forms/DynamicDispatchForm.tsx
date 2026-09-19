@@ -56,6 +56,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
   const [vehicleNumber, setVehicleNumber] = useState('');
   const [vehicleNumberError, setVehicleNumberError] = useState<string | null>(null);
   const [dispatchOpDatetime, setDispatchOpDatetime] = useState<string>(toDatetimeLocalInput(new Date()));
+  const [rawMilkDispatchNoteNumber, setRawMilkDispatchNoteNumber] = useState<string>('');
 
   // Authoritative Vehicle Quantity State
   const [vehicleQuantity, setVehicleQuantity] = useState<QuantityState>({
@@ -800,6 +801,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
           },
           vehicleLr: vehicleLr && !isNaN(Number(vehicleLr)) ? Number(vehicleLr) : undefined,
           vehicleFat: vehicleFat && !isNaN(Number(vehicleFat)) ? Number(vehicleFat) : undefined,
+          rawMilkDispatchNoteNumber: rawMilkDispatchNoteNumber.trim() || undefined,
           portions: payloadPortions,
         }),
       });
@@ -823,6 +825,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
 
       // Reset form fields
       setVehicleNumber('');
+      setRawMilkDispatchNoteNumber('');
       setVehicleQuantity((prev) => ({ ...prev, value: '' }));
       setVehicleLr('');
       setVehicleFat('');
@@ -960,6 +963,8 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
             onVehicleLrChange={setVehicleLr}
             vehicleFat={vehicleFat}
             onVehicleFatChange={setVehicleFat}
+            rawMilkDispatchNoteNumber={rawMilkDispatchNoteNumber}
+            onRawMilkDispatchNoteNumberChange={setRawMilkDispatchNoteNumber}
           />
 
           <DispatchPortionEditor

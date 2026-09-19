@@ -137,7 +137,7 @@ describe('Stage 4C-5D: Portion Quantity Total, Measured Assistance, and Differen
     expect(comparison.message).toBe('Different units — no direct comparison');
   });
 
-  it('[CASE D9] Measured prefill eligibility: Empty vehicle with matching Unit and MEASURED basis is eligible', () => {
+  it('[CASE D9] Measured prefill blocked: Whole vehicle is independently measured and never prefilled from portions', () => {
     const vehicleQty = { value: '', unit: 'KG' as const, basis: 'MEASURED' as const };
     const portions = [
       { quantity: { value: '10000', unit: 'KG' as const, basis: 'MEASURED' as const } },
@@ -145,7 +145,7 @@ describe('Stage 4C-5D: Portion Quantity Total, Measured Assistance, and Differen
     ];
 
     const summary = computePortionQuantitySummary(portions);
-    expect(canUseMeasuredPortionTotalForVehicle(vehicleQty, summary)).toBe(true);
+    expect(canUseMeasuredPortionTotalForVehicle(vehicleQty, summary)).toBe(false);
   });
 
   it('[CASE D10] Estimated portion prefill blocked: Estimated portions cannot prefill vehicle even if vehicle is empty', () => {

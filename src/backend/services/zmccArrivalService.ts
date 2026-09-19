@@ -1,5 +1,5 @@
 import { prisma } from '@core/db';
-import { Prisma } from '@prisma/client';
+import { Prisma, PaperReferenceType } from '@prisma/client';
 import { getCurrentUser } from '@core/auth';
 import { User, Role } from '@core/types';
 import { getPakistanCalendarDate } from '@core/business-day';
@@ -7,6 +7,7 @@ import {
   createInitialMotJourneySummaryTx,
   serializeMotJourneySummary,
 } from './motJourneySummaryService';
+import { PaperReferenceService } from '@/backend/services/paperReferenceService';
 
 export interface ZmccArrivalAuthContext {
   user: User;
@@ -34,7 +35,8 @@ export interface ServiceResult<T> {
 
 export interface SubmitMotArrivalPayload {
   journey_id: string | number | bigint;
-  route_milk_token: string;
+  route_milk_token?: string | null;
+  raw_milk_token_number?: string | null;
   arrival_timestamp: string | Date;
   client_event_id: string;
   phe_latitude?: number | null;
@@ -46,6 +48,7 @@ export interface SubmitMotArrivalPayload {
 export interface CorrectMotArrivalPayload {
   reason: string;
   route_milk_token?: string;
+  raw_milk_token_number?: string | null;
   arrival_timestamp?: string | Date;
   phe_latitude?: number | null;
   phe_longitude?: number | null;
@@ -294,7 +297,8 @@ function validateGpsCoords(
 
 interface MotArrivalReplayComparison {
   journey_id: bigint;
-  route_milk_token: string;
+  route_milk_token?: string | null;
+  raw_milk_token_number?: string | null;
   arrival_timestamp: Date;
   phe_latitude: number | null;
   phe_longitude: number | null;
@@ -304,7 +308,8 @@ interface MotArrivalReplayComparison {
 function isExactMotArrivalReplay(
   existing: {
     journey_id: bigint;
-    route_milk_token: string;
+    route_milk_token?: string | null;
+    raw_milk_token_number?: string | null;
     arrival_timestamp: Date | string;
     phe_latitude: any;
     phe_longitude: any;
@@ -313,7 +318,8 @@ function isExactMotArrivalReplay(
   expected: MotArrivalReplayComparison
 ): boolean {
   if (existing.journey_id !== expected.journey_id) return false;
-  if (existing.route_milk_token.trim() !== expected.route_milk_token.trim()) return false;
+  if ((existing.route_milk_token || '').trim() !== (expected.route_milk_token || '').trim()) return false;
+  if ((existing.raw_milk_token_number || '').trim() !== (expected.raw_milk_token_number || '').trim()) return false;
 
   const existingTime = new Date(existing.arrival_timestamp).getTime();
   const expectedTime = expected.arrival_timestamp.getTime();
@@ -495,6 +501,7 @@ export function serializeMotArrival(arrival: any) {
     journey_id: arrival.journey_id.toString(),
     zmcc_id: arrival.zmcc_id.toString(),
     route_milk_token: arrival.route_milk_token,
+    raw_milk_token_number: arrival.raw_milk_token_number || null,
     zmcc_token: arrival.zmcc_token,
     arrival_timestamp: arrival.arrival_timestamp instanceof Date ? arrival.arrival_timestamp.toISOString() : arrival.arrival_timestamp,
     arrival_date: arrival.arrival_date instanceof Date ? arrival.arrival_date.toISOString().split('T')[0] : arrival.arrival_date,
@@ -685,8 +692,11 @@ export async function submitMotArrival(
     return { status: 400, error: 'Invalid journey_id format.' };
   }
 
-  const routeMilkToken = typeof payload.route_milk_token === 'string' ? payload.route_milk_token.trim() : '';
-  if (!routeMilkToken) {
+  const routeMilkToken = typeof payload.route_milk_token === 'string' && payload.route_milk_token.trim().length > 0
+    ? payload.route_milk_token.trim()
+    : null;
+
+  if (!routeMilkToken && (!payload.raw_milk_token_number || String(payload.raw_milk_token_number).trim() === '')) {
     return { status: 400, error: 'route_milk_token is required.' };
   }
 
@@ -710,9 +720,14 @@ export async function submitMotArrival(
     return { status: 400, error: gpsValidation.error };
   }
 
+  const rawMilkTokenCandidate = payload.raw_milk_token_number !== undefined && payload.raw_milk_token_number !== null
+    ? String(payload.raw_milk_token_number).trim()
+    : null;
+
   const expectedMotPayload: MotArrivalReplayComparison = {
     journey_id: journeyId,
     route_milk_token: routeMilkToken,
+    raw_milk_token_number: rawMilkTokenCandidate,
     arrival_timestamp: arrivalDate,
     phe_latitude: gpsValidation.lat,
     phe_longitude: gpsValidation.lng,
@@ -827,6 +842,17 @@ export async function submitMotArrival(
   const dateCode = pktDateStr.replace(/-/g, '');
   const arrivalDatePkt = new Date(`${pktDateStr}T00:00:00.000Z`);
 
+  let cleanRawMilkToken: string | null = null;
+  try {
+    cleanRawMilkToken = await PaperReferenceService.validateAndVerify(
+      PaperReferenceType.RAW_MILK_TOKEN,
+      payload.raw_milk_token_number,
+      { scopeEntityId: journey.zmcc_id }
+    );
+  } catch (err: any) {
+    return { status: 400, error: err.message || 'Invalid Raw Milk Token number.' };
+  }
+
   try {
     const createdArrival = await prisma.$transaction(async (tx) => {
       // Concurrency lock: Acquire exclusive row lock on mot_journey
@@ -860,7 +886,8 @@ export async function submitMotArrival(
         data: {
           journey_id: journey.id,
           zmcc_id: journey.zmcc_id,
-          route_milk_token: routeMilkToken,
+          route_milk_token: routeMilkToken || null,
+          raw_milk_token_number: cleanRawMilkToken,
           zmcc_token: zmccToken,
           arrival_timestamp: arrivalDate,
           arrival_date: arrivalDatePkt,
@@ -908,7 +935,8 @@ export async function submitMotArrival(
           new_values: {
             journey_id: journey.id.toString(),
             journey_number: journey.journey_number,
-            route_milk_token: routeMilkToken,
+            route_milk_token: routeMilkToken || null,
+            raw_milk_token_number: cleanRawMilkToken,
             zmcc_token: zmccToken,
             arrival_timestamp: arrivalDate.toISOString(),
             arrival_date: pktDateStr,
@@ -1074,6 +1102,23 @@ export async function correctMotArrival(
     }
   }
 
+  if (payload.raw_milk_token_number !== undefined) {
+    try {
+      const cleanRawMilkToken = await PaperReferenceService.validateAndVerify(
+        PaperReferenceType.RAW_MILK_TOKEN,
+        payload.raw_milk_token_number,
+        { excludeEntityId: arrival.id, scopeEntityId: arrival.zmcc_id }
+      );
+      if (cleanRawMilkToken !== arrival.raw_milk_token_number) {
+        oldValues.raw_milk_token_number = arrival.raw_milk_token_number;
+        newValues.raw_milk_token_number = cleanRawMilkToken;
+        updateData.raw_milk_token_number = cleanRawMilkToken;
+      }
+    } catch (err: any) {
+      return { status: 400, error: err.message || 'Invalid Raw Milk Token number.' };
+    }
+  }
+
   if (payload.arrival_timestamp !== undefined) {
     const parsedTime = new Date(payload.arrival_timestamp);
     if (isNaN(parsedTime.getTime())) {
@@ -1205,6 +1250,19 @@ export async function correctMotArrival(
             final_mot_latitude: latestDeviceLoc ? latestDeviceLoc.latitude : null,
             final_mot_longitude: latestDeviceLoc ? latestDeviceLoc.longitude : null,
             final_mot_gps_accuracy: latestDeviceLoc ? latestDeviceLoc.gps_accuracy : null,
+          },
+        });
+      }
+
+      if (oldValues.raw_milk_token_number !== undefined) {
+        await tx.auditLog.create({
+          data: {
+            table_name: 'zmcc_mot_arrival',
+            record_id: arrivalId,
+            action: 'PHE_RAW_MILK_TOKEN_CORRECTED',
+            old_values: { raw_milk_token_number: oldValues.raw_milk_token_number },
+            new_values: { raw_milk_token_number: newValues.raw_milk_token_number, reason },
+            user_id: auth.actorUserId,
           },
         });
       }
@@ -1479,6 +1537,7 @@ export async function listMotArrivals(
     const term = filters.search.trim();
     where.OR = [
       { route_milk_token: { contains: term, mode: 'insensitive' } },
+      { raw_milk_token_number: { contains: term, mode: 'insensitive' } },
       { zmcc_token: { contains: term, mode: 'insensitive' } },
       { journey: { journey_number: { contains: term, mode: 'insensitive' } } },
       { journey: { mot_vehicle: { vehicle_number: { contains: term, mode: 'insensitive' } } } },
@@ -2546,6 +2605,14 @@ export async function recordGateExit(
           status: 409,
           error: 'LAB_NOT_COMPLETED',
           message: 'Gate exit requires a completed Lab session.',
+        };
+      }
+
+      if (labSession.manager_review_status === 'PENDING' || labSession.decision === 'PENDING') {
+        return {
+          status: 409,
+          error: 'MANAGER_REVIEW_PENDING',
+          message: 'Gate exit is blocked while manager review of quality exception is pending.',
         };
       }
 
