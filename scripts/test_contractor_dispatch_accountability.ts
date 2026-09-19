@@ -162,7 +162,7 @@ async function runContractorAccountabilityTests() {
       operationalDate: regressionBusinessDate,
       dispatchTestingMode: 'NOT_PERFORMED',
       dispatchTestingReason: 'Contract Vehicle',
-      vehicleQuantity: { value: '10000', unit: 'LITER', basis: 'ESTIMATED', method: 'MANUAL_ESTIMATE' },
+      vehicleQuantity: { value: '10000', unit: 'LITER', basis: 'MEASURED', method: 'DIPSTICK' },
       portions: [
         {
           portionNumber: 1,

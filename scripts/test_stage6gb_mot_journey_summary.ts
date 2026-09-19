@@ -287,6 +287,10 @@ async function runStage6gbTests() {
   // =============================================================
   console.log('\n--- 3. DATABASE FIXTURES SETUP ---');
   const runId = Date.now().toString().slice(-6);
+  let rmrSeq = 1000;
+  function nextRmr(): string {
+    return `${Date.now().toString().slice(-6)}${++rmrSeq}`;
+  }
 
   const zmccA = await prisma.procurementSource.create({
     data: {
@@ -608,6 +612,7 @@ async function runStage6gbTests() {
   const col1Res = await submitShopCollection(motUserA as any, {
     journey_stop_id: multiJourney.stops[0].id.toString(),
     client_event_id: `evt-col1-${Date.now()}`,
+    shop_rmr_number: nextRmr(),
     quantity_value: 100,
     quantity_unit: 'LITER',
     lr: 28.0,
@@ -623,6 +628,7 @@ async function runStage6gbTests() {
   const col2Res = await submitShopCollection(motUserA as any, {
     journey_stop_id: multiJourney.stops[1].id.toString(),
     client_event_id: `evt-col2-${Date.now()}`,
+    shop_rmr_number: nextRmr(),
     quantity_value: 300,
     quantity_unit: 'LITER',
     lr: 27.0,
@@ -668,10 +674,12 @@ async function runStage6gbTests() {
   // =============================================================
   console.log('\n--- 7. OFFLINE DELAYED SYNC & RECOMPUTE EXCEPTION ---');
   const col3Time = new Date(arrivalMultiTime.getTime() - 10 * 60 * 1000); // 10 min before arrival
+  const delayedColRmr = nextRmr();
   // Stop 3: 200 Liters, LR 29.0, Fat 4.5
   const delayedColRes = await submitShopCollection(motUserA as any, {
     journey_stop_id: multiJourney.stops[2].id.toString(),
     client_event_id: `evt-col3-delayed-${Date.now()}`,
+    shop_rmr_number: delayedColRmr,
     quantity_value: 200,
     quantity_unit: 'LITER',
     lr: 29.0,
@@ -721,6 +729,7 @@ async function runStage6gbTests() {
   const replayOriginal = await submitShopCollection(motUserA as any, {
     journey_stop_id: multiJourney.stops[2].id.toString(),
     client_event_id: delayedColRes.data.client_event_id,
+    shop_rmr_number: delayedColRmr,
     quantity_value: 200,
     quantity_unit: 'LITER',
     lr: 29.0,
@@ -764,6 +773,7 @@ async function runStage6gbTests() {
   const postEndColRes = await submitShopCollection(motUserA as any, {
     journey_stop_id: postEndJourney.stops[0].id.toString(),
     client_event_id: `evt-post-end-${Date.now()}`,
+    shop_rmr_number: nextRmr(),
     quantity_value: 100,
     quantity_unit: 'LITER',
     lr: 28.0,
@@ -896,6 +906,7 @@ async function runStage6gbTests() {
   const raceCol1Res = await submitShopCollection(motUserA as any, {
     journey_stop_id: raceJourney.stops[0].id.toString(),
     client_event_id: `evt-race1-col1-${Date.now()}`,
+    shop_rmr_number: nextRmr(),
     quantity_value: 100,
     quantity_unit: 'LITER',
     lr: 28.0,
@@ -918,6 +929,7 @@ async function runStage6gbTests() {
     submitShopCollection(motUserA as any, {
       journey_stop_id: raceJourney.stops[1].id.toString(),
       client_event_id: `evt-race1-col2-${Date.now()}`,
+      shop_rmr_number: nextRmr(),
       quantity_value: 200,
       quantity_unit: 'LITER',
       lr: 28.0,
@@ -954,6 +966,7 @@ async function runStage6gbTests() {
   await submitShopCollection(motUserA as any, {
     journey_stop_id: dualJourney.stops[0].id.toString(),
     client_event_id: `evt-dual-col1-${Date.now()}`,
+    shop_rmr_number: nextRmr(),
     quantity_value: 100,
     quantity_unit: 'LITER',
     lr: 28.0,
@@ -985,6 +998,7 @@ async function runStage6gbTests() {
     submitShopCollection(motUserA as any, {
       journey_stop_id: dualJourney.stops[1].id.toString(),
       client_event_id: `evt-dual-col2-${Date.now()}`,
+      shop_rmr_number: nextRmr(),
       quantity_value: 200,
       quantity_unit: 'LITER',
       lr: 28.0,
@@ -997,6 +1011,7 @@ async function runStage6gbTests() {
     submitShopCollection(motUserA as any, {
       journey_stop_id: dualJourney.stops[2].id.toString(),
       client_event_id: `evt-dual-col3-${Date.now()}`,
+      shop_rmr_number: nextRmr(),
       quantity_value: 300,
       quantity_unit: 'LITER',
       lr: 28.0,

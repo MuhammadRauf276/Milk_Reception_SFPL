@@ -890,37 +890,48 @@ export async function seedOperationalData() {
         zmcc_id: hasilpurSource.id,
         tank_code: 'TK-HAS-01',
         tank_name: 'Hasilpur Raw Milk Storage Tank 01',
-        capacity_liters: 50000,
+        capacity_liters: 500000,
         is_active: true,
         created_by_user_id: zmccManager.id,
       },
+    });
+  } else {
+    hasilpurTank = await prisma.zmccTank.update({
+      where: { id: hasilpurTank.id },
+      data: { capacity_liters: 500000 },
     });
   }
 
   // Canonical Tank Stock Seeding for ZMCC Hasilpur:
   // Scenario ZMCC-KG (Visit 10): 10,000 KG @ LR 28.00 -> 9,727.63 Gross Liters ISSUE
   // Scenario A (Visit 20): 8,000 L Measured -> 8,000.00 Gross Liters ISSUE
-  // Seed opening stock receipt (35,000 L) before the earliest visit dispatch,
+  // Seed opening stock receipt (350,000 L) before the earliest visit dispatch,
   // followed by canonical whole-vehicle tank ISSUEs in Gross Liters.
   if (visit10Record || visit20Record) {
-    const openingStockLiters = 35000.0;
+    const openingStockLiters = 350000.0;
     const openingMetrics = computeCanonicalMilkMetrics(openingStockLiters, 'LITER', 28.00, 3.80);
     const earliestDate = visit10Record ? visit10Record.created_at : visit20Record.created_at;
     const openingTimestamp = new Date(earliestDate.getTime() - 3600000); // 1 hr before earliest dispatch
 
-    await prisma.zmccTankInventoryTransaction.create({
-      data: {
+    await prisma.zmccTankInventoryTransaction.upsert({
+      where: { idempotency_key: `ZMCC_TANK_RECEIPT:OPENING_STOCK:${hasilpurSource.id}` },
+      update: {
+        quantity_liters: openingStockLiters,
+        at_13ts_liters: openingMetrics.at13tsLiters,
+        operational_timestamp: openingTimestamp,
+      },
+      create: {
         tank_id: hasilpurTank.id,
         zmcc_id: hasilpurSource.id,
         transaction_type: 'RECEIPT',
         quantity_liters: openingStockLiters,
-        at_13ts_liters: openingMetrics.at13tsLiters, // 33,266.15 L
+        at_13ts_liters: openingMetrics.at13tsLiters, // 332,661.54 L
         reference_type: 'OPENING_STOCK',
         reference_id: `INIT-${hasilpurSource.id}`,
         idempotency_key: `ZMCC_TANK_RECEIPT:OPENING_STOCK:${hasilpurSource.id}`,
         operational_timestamp: openingTimestamp,
         performed_by_user_id: zmccManager.id,
-        notes: 'Initial opening stock receipt for Hasilpur storage tank [35,000 L @ LR 28.00, Fat 3.80 -> 33,266.15 @13TS L]',
+        notes: 'Initial opening stock receipt for Hasilpur storage tank [350,000 L @ LR 28.00, Fat 3.80 -> 332,661.54 @13TS L]',
       },
     });
 
@@ -1263,9 +1274,13 @@ export async function seedOperationalData() {
   }
 
   const shopMetrics = computeCanonicalMilkMetrics(120.0, 'LITER', 28.5, 3.9);
+  await prisma.$executeRawUnsafe('CREATE SEQUENCE IF NOT EXISTS "mot_collection_number_seq" START WITH 1 INCREMENT BY 1;');
+  const seqResult = await prisma.$queryRaw<Array<{ nextval: bigint }>>`SELECT nextval('mot_collection_number_seq') as nextval`;
+  const seqVal = seqResult[0]?.nextval ? Number(seqResult[0].nextval) : 1;
+  const colNum = `MC-${pktTodayDateStr.replace(/-/g, '')}-${String(seqVal).padStart(4, '0')}`;
   await prisma.motShopCollection.create({
     data: {
-      collection_number: `MC-${pktTodayDateStr.replace(/-/g, '')}-0001`,
+      collection_number: colNum,
       journey_id: journey2.id,
       journey_stop_id: journey2Stop.id,
       shop_id: demoShop.id,

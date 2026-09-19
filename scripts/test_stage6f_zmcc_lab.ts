@@ -405,7 +405,7 @@ async function runStage6fTests() {
       contractor_source_id: contractorActive.id,
       rmr_number: '006001',
       vehicle_number: `CON-VEH-${runId}`,
-      zmcc_token: `ZT-CON-20260911-${String(runId).slice(-4)}`,
+      zmcc_token: `ZT-CON-${runId}-1`,
       arrival_timestamp: new Date(Date.now() - 1200000),
       arrival_date: new Date(),
       client_event_id: `evt-con-arr-6f-${runId}`,
@@ -495,11 +495,13 @@ async function runStage6fTests() {
     testFat = await prisma.labTest.update({ where: { id: testFat.id }, data: { isActive: true } });
   }
 
-  // Ensure active rules exist for testLr and testFat under ZMCC_LAB_MOT and ZMCC_LAB_CONTRACTOR
+  // Ensure active rules exist for testLr, testFat, testTemp, testAcidity, testOrgano under ZMCC_LAB_MOT and ZMCC_LAB_CONTRACTOR
   for (const point of ['ZMCC_LAB_MOT', 'ZMCC_LAB_CONTRACTOR']) {
     for (const [testObj, minVal, maxVal] of [
       [testLr, 26.0, 32.0],
       [testFat, 3.5, 5.5],
+      [testTemp, 0.0, 10.0],
+      [testAcidity, 0.10, 0.18],
     ] as const) {
       const existingRule = await prisma.labTestRule.findFirst({
         where: { lab_test_id: testObj.id, testing_point: point, is_active: true },
@@ -519,6 +521,24 @@ async function runStage6fTests() {
           },
         });
       }
+    }
+
+    const existingOrganoRule = await prisma.labTestRule.findFirst({
+      where: { lab_test_id: testOrgano.id, testing_point: point, is_active: true },
+    });
+    if (!existingOrganoRule) {
+      await prisma.labTestRule.create({
+        data: {
+          lab_test_id: testOrgano.id,
+          testing_point: point,
+          version: 1,
+          rule_category: 'RELEASE',
+          acceptable_option: 'OK',
+          decision_consequence: 'REJECT',
+          is_active: true,
+          created_by: managerA.id,
+        },
+      });
     }
   }
 
@@ -724,6 +744,7 @@ async function runStage6fTests() {
     if (r.result_type_snapshot === 'NUMERIC') {
       if (r.test_id === testLr.id.toString()) return { test_id: r.test_id, numeric_value: 30.0 };
       if (r.test_id === testFat.id.toString()) return { test_id: r.test_id, numeric_value: 4.0 };
+      if (r.test_id === testAcidity.id.toString()) return { test_id: r.test_id, numeric_value: 0.14 };
       return { test_id: r.test_id, numeric_value: 4.1 };
     } else {
       const options = r.result_options_snapshot as any[];
@@ -909,7 +930,7 @@ async function runStage6fTests() {
       contractor_source_id: contractorActive.id,
       rmr_number: '006002',
       vehicle_number: `CONC-VEH-${runId}`,
-      zmcc_token: `ZT-CON-20260911-${String(runId + 1).slice(-4)}`,
+      zmcc_token: `ZT-CON-${runId}-2`,
       arrival_timestamp: new Date(),
       arrival_date: new Date(),
       client_event_id: `evt-conc-arr-${runId}`,
@@ -931,6 +952,7 @@ async function runStage6fTests() {
     if (r.result_type_snapshot === 'NUMERIC') {
       if (r.test_id === testLr.id.toString()) return { test_id: r.test_id, numeric_value: 30.0 };
       if (r.test_id === testFat.id.toString()) return { test_id: r.test_id, numeric_value: 4.0 };
+      if (r.test_id === testAcidity.id.toString()) return { test_id: r.test_id, numeric_value: 0.14 };
       return { test_id: r.test_id, numeric_value: 4.0 };
     } else {
       const options = r.result_options_snapshot as any[];
@@ -1339,7 +1361,7 @@ async function runStage6fTests() {
       contractor_source_id: contractorActive.id,
       rmr_number: '006003',
       vehicle_number: `CALC-VEH-${runId}`,
-      zmcc_token: `ZT-CON-20260911-${String(runId + 2).slice(-4)}`,
+      zmcc_token: `ZT-CON-${runId}-3`,
       arrival_timestamp: new Date(),
       arrival_date: new Date(),
       client_event_id: `evt-calc-arr-${runId}`,
@@ -1498,6 +1520,15 @@ async function runStage6fTests() {
   assert(initialTestCount > 0, 'Lab Tests Intact', `All ${initialTestCount} lab test records preserved without auto-rewrite`);
 
   // Clean up transient test tests so future test suites have a clean slate
+  await prisma.labTestRule.updateMany({
+    where: {
+      lab_test_id: { in: [testTemp.id, testAcidity.id, testOrgano.id, calcTest.id, optCalcTest.id] },
+    },
+    data: {
+      is_active: false,
+    },
+  });
+
   await prisma.milkTestPolicyAssignment.deleteMany({
     where: {
       lab_test_id: { in: [testTemp.id, testAcidity.id, testOrgano.id, calcTest.id, optCalcTest.id] },

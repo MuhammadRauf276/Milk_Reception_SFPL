@@ -567,12 +567,22 @@ async function runStableAssignmentTests() {
   // Operator submits Dispatch A using original assigned test set
   const resultsA = dataStartA.assignedTests
     .filter((t: any) => t.resultType !== 'CALCULATED')
-    .map((t: any) => ({
-      testId: t.testId,
-      performanceStatus: 'PERFORMED',
-      numericValue: t.resultType === 'NUMERIC' ? 3.5 : null,
-      textValue: t.resultType === 'OK_NOT_OK' ? 'OK' : t.resultType === 'POSITIVE_NEGATIVE' ? 'NEGATIVE' : 'Pass',
-    }));
+    .map((t: any) => {
+      let textVal = 'Pass';
+      if (t.resultType === 'OK_NOT_OK') {
+        textVal = 'OK';
+      } else if (t.resultType === 'POSITIVE_NEGATIVE') {
+        textVal = 'NEGATIVE';
+      } else if (Array.isArray(t.resultOptions) && t.resultOptions.length > 0) {
+        textVal = typeof t.resultOptions[0] === 'object' && t.resultOptions[0]?.value ? t.resultOptions[0].value : String(t.resultOptions[0]);
+      }
+      return {
+        testId: t.testId,
+        performanceStatus: 'PERFORMED',
+        numericValue: t.resultType === 'NUMERIC' ? 3.5 : null,
+        textValue: textVal,
+      };
+    });
 
   const reqSubmitA = new Request('http://localhost:3000/api/dispatches', {
     method: 'POST',
@@ -653,12 +663,22 @@ async function runStableAssignmentTests() {
   // Submitting B without dummyO fails because dummyO is required in B's snapshot
   const resultsBWithoutDummy = dataRefreshB.assignedTests
     .filter((t: any) => t.testCode !== dummyO.testCode && t.resultType !== 'CALCULATED')
-    .map((t: any) => ({
-      testId: t.testId,
-      performanceStatus: 'PERFORMED',
-      numericValue: t.resultType === 'NUMERIC' ? 3.5 : null,
-      textValue: t.resultType === 'OK_NOT_OK' ? 'OK' : t.resultType === 'POSITIVE_NEGATIVE' ? 'NEGATIVE' : 'Pass',
-    }));
+    .map((t: any) => {
+      let textVal = 'Pass';
+      if (t.resultType === 'OK_NOT_OK') {
+        textVal = 'OK';
+      } else if (t.resultType === 'POSITIVE_NEGATIVE') {
+        textVal = 'NEGATIVE';
+      } else if (Array.isArray(t.resultOptions) && t.resultOptions.length > 0) {
+        textVal = typeof t.resultOptions[0] === 'object' && t.resultOptions[0]?.value ? t.resultOptions[0].value : String(t.resultOptions[0]);
+      }
+      return {
+        testId: t.testId,
+        performanceStatus: 'PERFORMED',
+        numericValue: t.resultType === 'NUMERIC' ? 3.5 : null,
+        textValue: textVal,
+      };
+    });
 
   const reqSubmitBIncomplete = new Request('http://localhost:3000/api/dispatches', {
     method: 'POST',

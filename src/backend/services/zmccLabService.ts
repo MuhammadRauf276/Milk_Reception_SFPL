@@ -802,7 +802,12 @@ export async function startOrResumeSession(
   } else {
     testingPoint = 'ZMCC_LAB_CONTRACTOR';
   }
-  const effectiveTests = await MilkTestPolicyService.getEffectivePolicy(testingPoint);
+  let effectiveTests = await MilkTestPolicyService.getEffectivePolicy(testingPoint);
+
+  // Local Supplier reuses ZMCC_LAB_CONTRACTOR policy if no dedicated ZMCC_LAB_LOCAL_SUPPLIER policy is configured
+  if (arrival_type === 'LOCAL_SUPPLIER' && (!effectiveTests || effectiveTests.length === 0)) {
+    effectiveTests = await MilkTestPolicyService.getEffectivePolicy('ZMCC_LAB_CONTRACTOR');
+  }
 
   if (!effectiveTests || effectiveTests.length === 0) {
     return { status: 400, error: `No active milk test policy is configured for ${testingPoint}.` };
@@ -1743,7 +1748,10 @@ export async function completeSession(
           resultOptions: existing.result_options_snapshot,
         });
 
-        evaluations.push(evalResult);
+        evaluations.push({
+          ...evalResult,
+          isRequired: existing.is_required_snapshot,
+        });
 
         await tx.zmccLabResult.update({
           where: {
@@ -1783,15 +1791,15 @@ export async function completeSession(
         );
       }
 
-      let effectiveDecision: string = decision;
+      let effectiveDecision: string | null = decision;
       let effectiveManagerReviewStatus: string = 'NONE';
       let effectiveManagerRequestedDecision: string | null = null;
       let effectiveReviewRequestedBy: bigint | null = null;
       let effectiveReviewRequestedAt: Date | null = null;
 
       // Authoritative OUT_OF_SPEC flow: Attendant does NOT make the final accept/reject decision when system outcome is OUT_OF_SPEC.
-      if (systemQualityOutcome === 'OUT_OF_SPEC') {
-        effectiveDecision = 'PENDING';
+      if (decision === 'ACCEPTED' && systemQualityOutcome === 'OUT_OF_SPEC') {
+        effectiveDecision = null;
         effectiveManagerReviewStatus = 'PENDING';
         effectiveManagerRequestedDecision = 'SYSTEM_OUT_OF_SPEC';
         effectiveReviewRequestedBy = auth.actorUserId;
@@ -2361,6 +2369,14 @@ export async function correctCompletedSession(
     }
   }
 
+  // Reject invalid transition from REJECTED to ACCEPTED in standard correction
+  if (decision === 'ACCEPTED' && session.decision === 'REJECTED' && !isPendingReview) {
+    return {
+      status: 400,
+      error: 'Decision cannot be changed from REJECTED to ACCEPTED in correction.',
+    };
+  }
+
   let effectiveDecision = decision || session.decision;
   if (effectiveDecision && !['ACCEPTED', 'REJECTED'].includes(effectiveDecision)) {
     return { status: 400, error: 'decision must be either ACCEPTED or REJECTED.' };
@@ -2604,7 +2620,10 @@ export async function correctCompletedSession(
           resultOptions: snap.result_options_snapshot as any,
         });
 
-        allEvaluations.push(evalResult);
+        allEvaluations.push({
+          ...evalResult,
+          isRequired: snap.is_required_snapshot,
+        });
 
         if (isChanged) {
           await tx.zmccLabResult.update({
@@ -2663,11 +2682,11 @@ export async function correctCompletedSession(
         }
       }
 
-      const isExceptionReview = isPendingReview || isRejectedSession;
+      const isExceptionReview = isPendingReview || (isRejectedSession && decision === 'ACCEPTED');
 
       // Conflict routing: If corrected system truth is OUT_OF_SPEC for an accepted session without manager approval
       if (!isExceptionReview && effectiveDecision === 'ACCEPTED' && recomputedSystemQualityOutcome === 'OUT_OF_SPEC') {
-        effectiveDecision = 'PENDING';
+        effectiveDecision = null;
       }
 
       // Recompute metrics if effective quantity, unit, LR, and Fat are present
@@ -2743,7 +2762,7 @@ export async function correctCompletedSession(
         if (hasPhysicalDelta) {
           physicalMutationPerformed = true;
           const txType = deltaGross > 0 ? 'ADJUSTMENT_IN' : 'ADJUSTMENT_OUT';
-          await tx.zmccTankInventoryTransaction.create({
+          const invTx = await tx.zmccTankInventoryTransaction.create({
             data: {
               tank_id: receiptRow.tank_id,
               zmcc_id: session.zmcc_id,
@@ -2757,6 +2776,26 @@ export async function correctCompletedSession(
               operational_timestamp: correctionTimestamp,
               performed_by_user_id: auth.actorUserId,
               notes: `Correction physical adjustment (${txType}) for session #${sessionId} (${deltaGross > 0 ? '+' : ''}${deltaGross} L${hasCommercialDelta ? `, @13: ${deltaAt13 > 0 ? '+' : ''}${deltaAt13} L` : ''})`,
+            },
+          });
+
+          await tx.auditLog.create({
+            data: {
+              table_name: 'zmcc_tank_inventory_transaction',
+              record_id: invTx.id,
+              action: `ZMCC_TANK_INVENTORY_${txType}`,
+              old_values: Prisma.DbNull,
+              new_values: {
+                tank_id: receiptRow.tank_id.toString(),
+                zmcc_id: session.zmcc_id.toString(),
+                transaction_type: txType,
+                quantity_liters: Math.abs(deltaGross).toFixed(2),
+                at_13ts_liters: hasCommercialDelta ? Math.abs(deltaAt13).toFixed(2) : '0.00',
+                tank_receipt_id: receiptRow.id.toString(),
+                lab_session_id: sessionId.toString(),
+                correction_count: newTotalCount,
+              },
+              user_id: auth.actorUserId,
             },
           });
         }

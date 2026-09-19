@@ -723,11 +723,12 @@ async function runStage6dTests() {
   console.log('\n--- SECTION 4: ATOMIC COLLECTION SUBMISSION ---');
 
   const event1Id = `evt-6d-col-1-${Date.now()}`;
+  const rmr1 = `${Date.now().toString().slice(-6)}${Math.floor(Math.random() * 80 + 10)}`;
   const validColPayload = {
     client_event_id: event1Id,
     journey_id: journeyAId,
     stop_id: stop1.id.toString(),
-    shop_rmr_number: '800010',
+    shop_rmr_number: rmr1,
     quantity: 150.0,
     unit: 'LITER',
     lr: 29.0,
@@ -946,11 +947,12 @@ async function runStage6dTests() {
 
   // 4. Concurrent duplicate submissions with same client_event_id (Promise.all)
   const concurrentEventId = `evt-concurrent-${Date.now()}`;
+  const rmr2 = `${Date.now().toString().slice(-6)}${Math.floor(Math.random() * 80 + 10)}`;
   const concurrentPayload = {
     client_event_id: concurrentEventId,
     journey_id: journeyAId,
     stop_id: stop2.id.toString(),
-    shop_rmr_number: '800011',
+    shop_rmr_number: rmr2,
     quantity: 80.0,
     unit: 'LITER',
     lr: 28.5,

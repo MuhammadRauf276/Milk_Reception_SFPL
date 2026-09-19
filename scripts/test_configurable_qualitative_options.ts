@@ -43,6 +43,26 @@ async function runConfigurableQualitativeOptionsTests() {
     cookie: `auth_token=${token}`,
   };
 
+  const qaAttendantUser = await prisma.user.findFirst({ where: { role: 'QA_LAB_ATTENDANT', is_active: true } });
+  const qaToken = qaAttendantUser
+    ? await createSessionToken({
+        id: qaAttendantUser.id.toString(),
+        username: qaAttendantUser.username,
+        role: qaAttendantUser.role as any,
+        name: qaAttendantUser.full_name || qaAttendantUser.username,
+        department: qaAttendantUser.department || 'Quality Assurance',
+      })
+    : token;
+
+  const qaAuthHeaders = {
+    'Content-Type': 'application/json',
+    cookie: `auth_token=${qaToken}`,
+  };
+
+  const paperRefPrefix = Date.now().toString().slice(-6);
+  let paperRefCounter = 10;
+  const nextPaperRef = () => `${paperRefPrefix}${paperRefCounter++}`;
+
   let passedCases = 0;
   const cleanupTestIds: bigint[] = [];
   const cleanupVisitIds: bigint[] = [];
@@ -313,7 +333,7 @@ async function runConfigurableQualitativeOptionsTests() {
       sourceType: 'ZMCC',
       procurementSourceId: zmccSource.id.toString(),
       vehicleNumber: `DISP-SNAP-H-${nowC}`,
-      rawMilkDispatchNoteNumber: '930001',
+      rawMilkDispatchNoteNumber: nextPaperRef(),
       operationalDate: regressionBusinessDate,
       vehicleQuantity: { value: '5000', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
       portions: [
@@ -373,7 +393,7 @@ async function runConfigurableQualitativeOptionsTests() {
       sourceType: 'ZMCC',
       procurementSourceId: zmccSource.id.toString(),
       vehicleNumber: `DISP-INVALID-K-${nowC}`,
-      rawMilkDispatchNoteNumber: '930002',
+      rawMilkDispatchNoteNumber: nextPaperRef(),
       operationalDate: regressionBusinessDate,
       vehicleQuantity: { value: '5000', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
       portions: [
@@ -410,7 +430,7 @@ async function runConfigurableQualitativeOptionsTests() {
       sourceType: 'ZMCC',
       procurementSourceId: zmccSource.id.toString(),
       vehicleNumber: `DISP-INVALID-K-${nowC}`,
-      rawMilkDispatchNoteNumber: '930003',
+      rawMilkDispatchNoteNumber: nextPaperRef(),
       operationalDate: regressionBusinessDate,
       vehicleQuantity: { value: '5000', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
       portions: [
@@ -494,7 +514,7 @@ async function runConfigurableQualitativeOptionsTests() {
 
   const completeReqM = new Request(`http://localhost:3000/api/qa/vehicle-visits/${visitIdH}/portions/${portionH.id}/complete`, {
     method: 'POST',
-    headers: authHeaders,
+    headers: qaAuthHeaders,
     body: JSON.stringify({
       decision: 'ACCEPTED',
       results: plantResultsM,
@@ -640,6 +660,17 @@ async function runConfigurableQualitativeOptionsTests() {
       current_status: 'UNDER_TESTING',
     },
   });
+
+  const qaSessionStart3AD = new Date(Date.now() - 3600000);
+  await prisma.qATestingSession.create({
+    data: {
+      visit_id: visit3AD.id,
+      status: 'IN_PROGRESS',
+      started_by: superAdminUser.id,
+      started_at: qaSessionStart3AD,
+    },
+  });
+
   const plantAssignments3AD = await getOrAssignPlantQATests(prisma, visit3AD.id);
 
   // Submit all required tests as passing, but test3ADId with 'OBSERVED' (neutral)
@@ -678,7 +709,7 @@ async function runConfigurableQualitativeOptionsTests() {
 
   const completeReq3AD = new Request(`http://localhost:3000/api/qa/vehicle-visits/${visit3AD.id}/portions/${portion3AD.id}/complete`, {
     method: 'POST',
-    headers: authHeaders,
+    headers: qaAuthHeaders,
     body: JSON.stringify({
       decision: 'ACCEPTED',
       results: results3AD,
@@ -688,10 +719,18 @@ async function runConfigurableQualitativeOptionsTests() {
     params: Promise.resolve({ visitId: visit3AD.id.toString(), portionId: portion3AD.id.toString() }),
   });
   const completeData3AD = await completeRes3AD.json();
-  if (completeRes3AD.status !== 400 || !completeData3AD.error.includes('neutral / informational result and cannot satisfy the required passing result')) {
-    throw new Error(`3A-Case D Failed: Expected 400 rejecting neutral required test on ACCEPT, got ${completeRes3AD.status}: ${JSON.stringify(completeData3AD)}`);
+  const isBlockedOrEscalated =
+    (completeRes3AD.status === 400 && completeData3AD.error?.includes('neutral')) ||
+    (completeRes3AD.status === 200 &&
+      completeData3AD.plantDecision === 'PENDING' &&
+      completeData3AD.managerReviewStatus === 'PENDING' &&
+      completeData3AD.systemQualityOutcome === 'OUT_OF_SPEC');
+  if (!isBlockedOrEscalated) {
+    throw new Error(
+      `3A-Case D Failed: Expected 400 rejecting or 200 escalating neutral required test on ACCEPT, got ${completeRes3AD.status}: ${JSON.stringify(completeData3AD)}`
+    );
   }
-  console.log('✓ 3A-Case D Passed: Required Plant QA test with neutral result properly rejected on ACCEPT.');
+  console.log('✓ 3A-Case D Passed: Required Plant QA test with neutral result properly blocked from direct ACCEPT (escalated to QA Manager Review under Stage 6G-G governance).');
   passedCases++;
 
   // --- STAGE 3A CASE E: Optional Plant + Neutral Does Not Block ACCEPT ---
@@ -773,7 +812,7 @@ async function runConfigurableQualitativeOptionsTests() {
 
   const completeReq3AE = new Request(`http://localhost:3000/api/qa/vehicle-visits/${visit3AE.id}/portions/${portion3AE.id}/complete`, {
     method: 'POST',
-    headers: authHeaders,
+    headers: qaAuthHeaders,
     body: JSON.stringify({
       decision: 'ACCEPTED',
       results: results3AE,
@@ -858,7 +897,7 @@ async function runConfigurableQualitativeOptionsTests() {
       sourceType: 'ZMCC',
       procurementSourceId: zmccSource.id.toString(),
       vehicleNumber: `VEH-3AF-${now3AD}`,
-      rawMilkDispatchNoteNumber: '930004',
+      rawMilkDispatchNoteNumber: nextPaperRef(),
       operationalDate: regressionBusinessDate,
       vehicleQuantity: { value: '5000', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
       portions: [

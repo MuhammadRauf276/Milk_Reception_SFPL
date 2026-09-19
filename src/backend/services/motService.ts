@@ -2194,6 +2194,7 @@ function matchesCollectionIdempotency(
     deviceCollectedAt: Date;
     notes: string | null;
     shopRmrNumber?: string | null;
+    hasExplicitTimestamp?: boolean;
   }
 ): boolean {
   const isSameStop = existingCollection.journey_stop_id === params.stopId;
@@ -2209,7 +2210,9 @@ function matchesCollectionIdempotency(
     (params.accuracy == null && existingAcc == null) ||
     (params.accuracy != null && existingAcc != null && Math.abs(existingAcc - params.accuracy) < 0.01);
   const isSameTimestamp =
-    Math.abs(new Date(existingCollection.device_collected_at).getTime() - params.deviceCollectedAt.getTime()) < 1000;
+    params.hasExplicitTimestamp === false
+      ? true
+      : Math.abs(new Date(existingCollection.device_collected_at).getTime() - params.deviceCollectedAt.getTime()) < 1000;
   const isSameNotes = (existingCollection.collection_notes || '').trim() === (params.notes || '').trim();
   const isSameShopRmr = (existingCollection.shop_rmr_number || null) === (params.shopRmrNumber || null);
 
@@ -2244,6 +2247,7 @@ function resolveCollectionIdempotencyMatch(
     deviceCollectedAt: Date;
     notes: string | null;
     shopRmrNumber?: string | null;
+    hasExplicitTimestamp?: boolean;
   }
 ): ServiceResult<any> {
   // Cross-ZMCC: Never return another ZMCC's collection
@@ -2332,27 +2336,6 @@ export async function submitShopCollection(
     return { status: 400, error: 'Fat percentage must be a positive number.' };
   }
 
-  // Validate shop_rmr_number against operational policy
-  let scopeZmccId: bigint | undefined;
-  const stopForScope = await prisma.motJourneyStop.findUnique({
-    where: { id: stopId },
-    select: { journey: { select: { zmcc_id: true } } },
-  });
-  if (stopForScope) {
-    scopeZmccId = stopForScope.journey.zmcc_id;
-  }
-
-  let validatedShopRmr: string | null = null;
-  try {
-    validatedShopRmr = await PaperReferenceService.validateAndVerify(
-      PaperReferenceType.SHOP_RMR,
-      payload.shop_rmr_number,
-      { scopeEntityId: scopeZmccId }
-    );
-  } catch (err: any) {
-    return { status: 400, error: err.message || 'Invalid Shop RMR number.' };
-  }
-
   const rawLat = payload.latitude !== undefined ? payload.latitude : (payload as any).recorded_latitude;
   const rawLng = payload.longitude !== undefined ? payload.longitude : (payload as any).recorded_longitude;
   const lat = Number(rawLat);
@@ -2379,31 +2362,7 @@ export async function submitShopCollection(
   const rawNotes = payload.collection_notes !== undefined ? payload.collection_notes : (payload as any).notes;
   const notes = typeof rawNotes === 'string' ? rawNotes.trim() : null;
 
-  // 4. Idempotency Check BEFORE transaction
-  const existingCollection = await prisma.motShopCollection.findUnique({
-    where: { client_event_id: clientEventId },
-    include: {
-      sms_outbox: true,
-    },
-  });
-
-  if (existingCollection) {
-    return resolveCollectionIdempotencyMatch(existingCollection, auth, linkedProfile, {
-      stopId,
-      quantityValue,
-      quantityUnit,
-      lr,
-      fat,
-      lat,
-      lng,
-      accuracy,
-      deviceCollectedAt,
-      notes,
-      shopRmrNumber: validatedShopRmr,
-    });
-  }
-
-  // 5. Look up Journey Stop & Journey Hierarchy
+  // Look up Journey Stop & Journey Hierarchy
   const stop = await prisma.motJourneyStop.findUnique({
     where: { id: stopId },
     include: {
@@ -2429,7 +2388,43 @@ export async function submitShopCollection(
     return { status: 403, error: 'Forbidden. Journey does not belong to your MOT profile.' };
   }
 
-  // Time Validations against Journey Lifespan
+  // Idempotency Check early
+  const existingCollection = await prisma.motShopCollection.findUnique({
+    where: { client_event_id: clientEventId },
+    include: {
+      sms_outbox: true,
+    },
+  });
+
+  if (existingCollection) {
+    let validatedShopRmrForReplay: string | null = null;
+    try {
+      validatedShopRmrForReplay = await PaperReferenceService.validateAndVerify(
+        PaperReferenceType.SHOP_RMR,
+        payload.shop_rmr_number,
+        { scopeEntityId: stop.journey.zmcc_id, excludeEntityId: existingCollection.id }
+      );
+    } catch {
+      // Validation error on altered replay is handled by idempotency matching
+    }
+
+    return resolveCollectionIdempotencyMatch(existingCollection, auth, linkedProfile, {
+      stopId,
+      quantityValue,
+      quantityUnit,
+      lr,
+      fat,
+      lat,
+      lng,
+      accuracy,
+      deviceCollectedAt,
+      notes,
+      shopRmrNumber: validatedShopRmrForReplay,
+      hasExplicitTimestamp: !!(payload.device_collected_at || (payload as any).offline_created_at),
+    });
+  }
+
+  // Time Validations against Journey Lifespan (for new collections)
   if (deviceCollectedAt.getTime() < new Date(stop.journey.started_at).getTime()) {
     return { status: 400, error: 'Collection time cannot predate journey start time.' };
   }
@@ -2442,31 +2437,24 @@ export async function submitShopCollection(
     return { status: 400, error: 'Collection time cannot be later than journey cancelled_at.' };
   }
 
+  // Guard against submitting on already visited stop
   if (stop.status !== 'PENDING' || stop.collection !== null) {
-    const existingOnVisitedStop = await prisma.motShopCollection.findUnique({
-      where: { client_event_id: clientEventId },
-      include: { sms_outbox: true },
-    });
-    if (existingOnVisitedStop) {
-      return resolveCollectionIdempotencyMatch(existingOnVisitedStop, auth, linkedProfile, {
-        stopId,
-        quantityValue,
-        quantityUnit,
-        lr,
-        fat,
-        lat,
-        lng,
-        accuracy,
-        deviceCollectedAt,
-        notes,
-        shopRmrNumber: validatedShopRmr,
-      });
-    }
-
     return {
       status: 409,
       error: `Journey stop #${stop.planned_sequence} has already been visited or recorded.`,
     };
+  }
+
+  // Validate shop_rmr_number against operational policy for pending stop
+  let validatedShopRmr: string | null = null;
+  try {
+    validatedShopRmr = await PaperReferenceService.validateAndVerify(
+      PaperReferenceType.SHOP_RMR,
+      payload.shop_rmr_number,
+      { scopeEntityId: stop.journey.zmcc_id }
+    );
+  } catch (err: any) {
+    return { status: 400, error: err.message || 'Invalid Shop RMR number.' };
   }
 
   // 6. Recalculate ALL derived milk metrics on server using canonical formulas

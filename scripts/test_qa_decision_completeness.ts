@@ -1,15 +1,47 @@
-import { prisma } from '../src/backend/core/db';
+import path from 'path';
+import fs from 'fs';
+import { assertSafeTestDatabase } from '../tests/helpers/testDbSafety';
+
+// 1. Load .env.test.local
+const repoRoot = path.resolve(__dirname, '..');
+const testEnvPath = path.join(repoRoot, '.env.test.local');
+if (fs.existsSync(testEnvPath)) {
+  const envContent = fs.readFileSync(testEnvPath, 'utf8');
+  for (const line of envContent.split('\n')) {
+    const trimmed = line.trim();
+    if (trimmed && !trimmed.startsWith('#')) {
+      const idx = trimmed.indexOf('=');
+      if (idx > 0) {
+        const key = trimmed.substring(0, idx).trim();
+        let val = trimmed.substring(idx + 1).trim();
+        if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+          val = val.substring(1, val.length - 1);
+        }
+        process.env[key] = val;
+      }
+    }
+  }
+}
+
+// 2. Preserve DEV_DATABASE_URL and point DATABASE_URL to TEST_DATABASE_URL
+if (!process.env.DEV_DATABASE_URL) {
+  process.env.DEV_DATABASE_URL = process.env.DATABASE_URL;
+}
+if (process.env.TEST_DATABASE_URL) {
+  process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
+}
+
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const nextHeaders = require('next/headers');
-import { createSessionToken } from '../src/backend/core/auth';
-import { POST as postComplete } from '../src/app/api/qa/vehicle-visits/[visitId]/portions/[portionId]/complete/route';
-import { POST as postHold } from '../src/app/api/qa/vehicle-visits/[visitId]/portions/[portionId]/hold/route';
-import { POST as postResume } from '../src/app/api/qa/sessions/resume/route';
-import { assertSafeTestDatabase } from '../tests/helpers/testDbSafety';
-import { getOrAssignPlantQATests } from '../src/backend/services/labTestAssignmentService';
-import { QualityRuleService } from '../src/backend/services/qualityRuleService';
 
 async function runQADecisionCompletenessTests() {
+  const { prisma } = await import('../src/backend/core/db');
+  const { createSessionToken } = await import('../src/backend/core/auth');
+  const { POST: postComplete } = await import('../src/app/api/qa/vehicle-visits/[visitId]/portions/[portionId]/complete/route');
+  const { POST: postHold } = await import('../src/app/api/qa/vehicle-visits/[visitId]/portions/[portionId]/hold/route');
+  const { POST: postResume } = await import('../src/app/api/qa/sessions/resume/route');
+  const { getOrAssignPlantQATests } = await import('../src/backend/services/labTestAssignmentService');
+  const { QualityRuleService } = await import('../src/backend/services/qualityRuleService');
   console.log('🧪 RUNNING QA DECISION COMPLETENESS & PARTIAL REJECTION TEST SUITE...\n');
 
   let passed = 0;
@@ -24,6 +56,8 @@ async function runQADecisionCompletenessTests() {
       failed++;
     }
   }
+
+  const createdRuleIds: bigint[] = [];
 
   try {
     const { testDbName } = assertSafeTestDatabase();
@@ -221,6 +255,59 @@ async function runQADecisionCompletenessTests() {
       // 5. STAGE 5C-A: QA DECISION CONCURRENCY & STATE-TRANSITION SAFETY TESTS
       // =========================================================================
 
+      // Ensure active RELEASE rules exist for all evaluated required tests under PLANT_QA
+      for (const t of plantReqTests) {
+        const hasReleaseRule = await prisma.labTestRule.findFirst({
+          where: {
+            lab_test_id: t.id,
+            testing_point: 'PLANT_QA',
+            rule_category: 'RELEASE',
+            is_active: true,
+          },
+        });
+        if (!hasReleaseRule) {
+          let minVal: number | null = null;
+          let maxVal: number | null = null;
+          let acceptable: string | null = null;
+          if (t.resultType === 'NUMERIC' || t.resultType === 'CALCULATED') {
+            const name = (t.testName || t.testCode || '').toLowerCase();
+            if (name.includes('ph')) { minVal = 6.4; maxVal = 6.8; }
+            else if (name.includes('ratio')) { minVal = 1.0; maxVal = 3.0; }
+            else if (name.includes('salt')) { minVal = 0.0; maxVal = 0.2; }
+            else if (name.includes('protein')) { minVal = 2.5; maxVal = 4.0; }
+            else if (name.includes('sodium')) { minVal = 0.0; maxVal = 100.0; }
+            else if (name.includes('mbrt')) { minVal = 30.0; maxVal = 300.0; }
+            else if (name.includes('rm')) { minVal = 24.0; maxVal = 32.0; }
+            else if (name.includes('aflatoxin')) { minVal = 0.0; maxVal = 0.5; }
+            else if (name.includes('br')) { minVal = 39.0; maxVal = 42.0; }
+            else { minVal = 1.0; maxVal = 100.0; }
+          } else if (t.resultType === 'POSITIVE_NEGATIVE') {
+            acceptable = 'NEGATIVE';
+          } else if (t.resultType === 'OK_NOT_OK') {
+            acceptable = 'OK';
+          } else {
+            const snapshotOptions = (t.resultOptions as any[]) || null;
+            const passOpt = Array.isArray(snapshotOptions) ? snapshotOptions.find((o: any) => o.isPassing === true) : null;
+            acceptable = passOpt ? passOpt.value : 'OK';
+          }
+          const newRule = await prisma.labTestRule.create({
+            data: {
+              lab_test_id: t.id,
+              testing_point: 'PLANT_QA',
+              version: 1,
+              rule_category: 'RELEASE',
+              min_value: minVal,
+              max_value: maxVal,
+              acceptable_option: acceptable,
+              decision_consequence: 'REJECT',
+              is_active: true,
+              created_by: qaUser.id,
+            },
+          });
+          createdRuleIds.push(newRule.id);
+        }
+      }
+
       // Helper to build a valid acceptance payload matching required manual tests
       const activePlantRules = await QualityRuleService.resolveActiveRulesForTestingPoint('PLANT_QA', new Date(), prisma);
 
@@ -235,7 +322,7 @@ async function runQADecisionCompletenessTests() {
               performanceStatus: 'PERFORMED' as const,
             };
           }
-          if (t.resultType === 'NUMERIC') {
+          if (t.resultType === 'NUMERIC' || t.resultType === 'CALCULATED') {
             const rule = activePlantRules.get(t.id.toString());
             let val = 28.5; // LR default
             if (rule && rule.min_value !== null && rule.min_value !== undefined && rule.max_value !== null && rule.max_value !== undefined) {
@@ -1102,7 +1189,12 @@ async function runQADecisionCompletenessTests() {
     console.error('Error running QA decision completeness tests:', err);
     process.exit(1);
   } finally {
-    await prisma.$disconnect();
+    if (typeof prisma !== 'undefined' && prisma) {
+      if (createdRuleIds.length > 0) {
+        await prisma.labTestRule.deleteMany({ where: { id: { in: createdRuleIds } } });
+      }
+      await prisma.$disconnect();
+    }
   }
 }
 

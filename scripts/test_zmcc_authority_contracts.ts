@@ -263,7 +263,7 @@ async function runAuthorityTests() {
   // K.4: All required sections present in navigation drawer
   const drawerSections = [
     { id: 'OVERVIEW', label: 'Overview' },
-    { id: 'LIVE', label: 'Live' },
+    { id: 'LIVE', label: 'Live Operations' },
     { id: 'RECONCILIATION', label: 'Reconciliation' },
     { id: 'HISTORY', label: 'History & Reports' },
     { id: 'MASTER_DATA', label: 'Master Data' },
@@ -273,7 +273,7 @@ async function runAuthorityTests() {
       (workspaceSrc.includes(`id: '${sec.id}'`) || roleNavSrc.includes(`id: '${sec.id}'`)) &&
       (workspaceSrc.includes(`label: '${sec.label}'`) || roleNavSrc.includes(`label: '${sec.label}'`))
   );
-  assert(allSectionsPresent, 'Case K.4: Navigation drawer contains all 6 required workspace sections');
+  assert(allSectionsPresent, 'Case K.4: Navigation drawer contains all required workspace sections');
 
   // K.5: Selecting a drawer item changes active content and closes the drawer
   const hasSelectionBehavior =

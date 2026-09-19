@@ -177,6 +177,7 @@ async function runStage6gd3Tests() {
   } = await import('../src/backend/services/zmccArrivalService');
 
   const { assignAndDispatchJourney, resolveMotAuth } = await import('../src/backend/services/motService');
+  const { getPakistanCalendarDate } = await import('../src/backend/core/business-day');
 
   const {
     startOrResumeSession,
@@ -1998,7 +1999,7 @@ async function runStage6gd3Tests() {
     // 12.2 Attempt to dispatch availVehicle for a new journey -> 409 Conflict
     const { auth: motAuthMgr } = await resolveMotAuth(mgr1Core as any, 'ASSIGN_DISPATCH');
     const blockedDispatchRes = await assignAndDispatchJourney(motAuthMgr!, {
-      operational_date: new Date().toISOString().split('T')[0],
+      operational_date: getPakistanCalendarDate(new Date()),
       route_id: availRoute.id.toString(),
       mot_profile_id: availProfile.id.toString(),
       mot_vehicle_id: availVehicle.id.toString(),
@@ -2044,7 +2045,7 @@ async function runStage6gd3Tests() {
 
     // 12.4 Now dispatching the vehicle must SUCCEED!
     const unblockedDispatchRes = await assignAndDispatchJourney(motAuthMgr!, {
-      operational_date: new Date().toISOString().split('T')[0],
+      operational_date: getPakistanCalendarDate(new Date()),
       route_id: availRoute.id.toString(),
       mot_profile_id: availProfile.id.toString(),
       mot_vehicle_id: availVehicle.id.toString(),
@@ -2060,7 +2061,7 @@ async function runStage6gd3Tests() {
       data: { gate_exit_required: false, exit_timestamp: null },
     });
     const historicalDispatchRes = await assignAndDispatchJourney(motAuthMgr!, {
-      operational_date: new Date().toISOString().split('T')[0],
+      operational_date: getPakistanCalendarDate(new Date()),
       route_id: availRoute.id.toString(),
       mot_profile_id: availProfile.id.toString(),
       mot_vehicle_id: availVehicle.id.toString(),

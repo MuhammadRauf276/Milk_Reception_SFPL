@@ -73,6 +73,10 @@ async function runRegressionTests() {
     return data;
   }
 
+  const paperRefPrefix = Date.now().toString().slice(-6);
+  let paperRefCounter = 10;
+  const nextPaperRef = () => `${paperRefPrefix}${paperRefCounter++}`;
+
   // 2. Source Visibility Scoping Tests (GET /api/dispatches)
   console.log('\n--- 1. API Read Source Scoping & Tampering Tests ---');
 
@@ -476,11 +480,11 @@ async function runRegressionTests() {
     {
       visitId: draftContLiter.visitId,
       vehicleNumber: 'CONT-9800',
-      rawMilkDispatchNoteNumber: '900010',
+      rawMilkDispatchNoteNumber: nextPaperRef(),
       operationalDate: regressionBusinessDate,
       dispatchTestingMode: 'NOT_PERFORMED',
       dispatchTestingReason: 'Contract Vehicle',
-      vehicleQuantity: { value: '9800', unit: 'LITER', basis: 'ESTIMATED', method: 'MANUAL_ESTIMATE' },
+      vehicleQuantity: { value: '9800', unit: 'LITER', basis: 'MEASURED', method: 'DIPSTICK' },
       portions: [
         {
           portionNumber: 1,
@@ -530,11 +534,11 @@ async function runRegressionTests() {
     {
       visitId: draftContAllNotPerf.visitId,
       vehicleNumber: 'CONT-NOT-PERF',
-      rawMilkDispatchNoteNumber: '900011',
+      rawMilkDispatchNoteNumber: nextPaperRef(),
       operationalDate: regressionBusinessDate,
       dispatchTestingMode: 'NOT_PERFORMED',
       dispatchTestingReason: 'Contract Vehicle',
-      vehicleQuantity: { value: '9500', unit: 'LITER', basis: 'ESTIMATED', method: 'MANUAL_ESTIMATE' },
+      vehicleQuantity: { value: '9500', unit: 'LITER', basis: 'MEASURED', method: 'DIPSTICK' },
       portions: [
         {
           portionNumber: 1,
@@ -587,7 +591,7 @@ async function runRegressionTests() {
       {
         visitId: draftContPartial.visitId,
         vehicleNumber: 'CONT-PARTIAL',
-        rawMilkDispatchNoteNumber: '900012',
+        rawMilkDispatchNoteNumber: nextPaperRef(),
         operationalDate: regressionBusinessDate,
         dispatchTestingMode: 'PARTIAL',
         vehicleQuantity: { value: '8900', unit: 'KG', basis: 'MEASURED', method: 'WEIGHING' },
