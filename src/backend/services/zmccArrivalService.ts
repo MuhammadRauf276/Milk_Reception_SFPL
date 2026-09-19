@@ -842,7 +842,8 @@ export async function submitMotArrival(
   try {
     cleanRawMilkToken = await PaperReferenceService.validateAndVerify(
       PaperReferenceType.RAW_MILK_TOKEN,
-      payload.raw_milk_token_number
+      payload.raw_milk_token_number,
+      { scopeEntityId: journey.zmcc_id }
     );
   } catch (err: any) {
     return { status: 400, error: err.message || 'Invalid Raw Milk Token number.' };
@@ -881,7 +882,7 @@ export async function submitMotArrival(
         data: {
           journey_id: journey.id,
           zmcc_id: journey.zmcc_id,
-          route_milk_token: routeMilkToken || cleanRawMilkToken,
+          route_milk_token: routeMilkToken || null,
           raw_milk_token_number: cleanRawMilkToken,
           zmcc_token: zmccToken,
           arrival_timestamp: arrivalDate,
@@ -930,7 +931,7 @@ export async function submitMotArrival(
           new_values: {
             journey_id: journey.id.toString(),
             journey_number: journey.journey_number,
-            route_milk_token: routeMilkToken || cleanRawMilkToken,
+            route_milk_token: routeMilkToken || null,
             raw_milk_token_number: cleanRawMilkToken,
             zmcc_token: zmccToken,
             arrival_timestamp: arrivalDate.toISOString(),
@@ -1102,7 +1103,7 @@ export async function correctMotArrival(
       const cleanRawMilkToken = await PaperReferenceService.validateAndVerify(
         PaperReferenceType.RAW_MILK_TOKEN,
         payload.raw_milk_token_number,
-        { excludeEntityId: arrival.id }
+        { excludeEntityId: arrival.id, scopeEntityId: arrival.zmcc_id }
       );
       if (cleanRawMilkToken !== arrival.raw_milk_token_number) {
         oldValues.raw_milk_token_number = arrival.raw_milk_token_number;

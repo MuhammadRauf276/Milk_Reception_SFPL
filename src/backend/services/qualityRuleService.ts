@@ -55,10 +55,9 @@ export class QualityRuleService {
     const rules = await tx.labTestRule.findMany({
       where: {
         testing_point: testingPoint,
-        is_active: true,
         effective_from: { lte: eventTimestamp },
         OR: [
-          { effective_to: null },
+          { effective_to: null, is_active: true },
           { effective_to: { gt: eventTimestamp } },
         ],
       },
@@ -75,7 +74,7 @@ export class QualityRuleService {
     }
 
     const ruleMap = new Map<string, ResolvedRuleWithGovernance>();
-    for (const [key, testRules] of grouped.entries()) {
+    grouped.forEach((testRules, key) => {
       const releaseRules = testRules.filter((r) => r.rule_category === 'RELEASE');
       const monitoringRules = testRules.filter((r) => r.rule_category === 'MONITORING');
       const activeMonitoring = monitoringRules.length > 0 ? monitoringRules[0] : null;
@@ -103,7 +102,7 @@ export class QualityRuleService {
           });
         }
       }
-    }
+    });
     return ruleMap;
   }
 
@@ -122,10 +121,9 @@ export class QualityRuleService {
       where: {
         lab_test_id: testIdBigInt,
         testing_point: testingPoint,
-        is_active: true,
         effective_from: { lte: eventTimestamp },
         OR: [
-          { effective_to: null },
+          { effective_to: null, is_active: true },
           { effective_to: { gt: eventTimestamp } },
         ],
       },
@@ -654,9 +652,20 @@ export class QualityRuleService {
       );
     }
 
+    // Restrict unapproved RELEASE rules on MOT_SHOP and DISPATCH
+    if (['MOT_SHOP', 'DISPATCH'].includes(testingPoint) && ruleCategory === 'RELEASE') {
+      throw new Error(
+        `Release consequence semantics for testing point '${testingPoint}' are pending operational workflow approval. Only 'MONITORING' or 'INFORMATIONAL' rules may be configured for ${testingPoint}.`
+      );
+    }
+
     const execute = async (tx: Prisma.TransactionClient) => {
       const testIdBigInt = BigInt(String(labTestId));
       const userIdBigInt = BigInt(String(createdByUserId));
+
+      // Advisory transaction lock to serialize mutations for this specific rule family
+      const lockKey = `lab_test_rule:${testIdBigInt}:${testingPoint}:${ruleCategory}`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`;
 
       // 1. Check if lab test exists
       const test = await tx.labTest.findUnique({
@@ -666,7 +675,7 @@ export class QualityRuleService {
         throw new Error(`LabTest with id ${labTestId} not found.`);
       }
 
-      // 2. Find existing active rule
+      // 2. Find existing active rule under lock
       const existingActive = await tx.labTestRule.findFirst({
         where: {
           lab_test_id: testIdBigInt,
@@ -677,9 +686,19 @@ export class QualityRuleService {
         orderBy: { version: 'desc' },
       });
 
-      let nextVersion = 1;
+      // Find highest version ever created for this rule family
+      const highestVersionRule = await tx.labTestRule.findFirst({
+        where: {
+          lab_test_id: testIdBigInt,
+          testing_point: testingPoint,
+          rule_category: ruleCategory,
+        },
+        orderBy: { version: 'desc' },
+      });
+
+      const nextVersion = highestVersionRule ? highestVersionRule.version + 1 : 1;
+
       if (existingActive) {
-        nextVersion = existingActive.version + 1;
         // Close previous active rule
         await tx.labTestRule.update({
           where: { id: existingActive.id },

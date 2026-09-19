@@ -149,11 +149,11 @@ export async function seedOperationalData() {
     { test: testAcidity, point: 'ZMCC_LAB_LOCAL_SUPPLIER', min: 0.10, max: 0.16, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
     { test: testCob, point: 'ZMCC_LAB_LOCAL_SUPPLIER', min: null, max: null, acceptable: 'NEGATIVE', consequence: 'REJECT', category: 'RELEASE' },
 
-    // DISPATCH
-    { test: testFat, point: 'DISPATCH', min: 3.50, max: 5.50, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
-    { test: testLr, point: 'DISPATCH', min: 26.00, max: 32.00, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
-    { test: testTemp, point: 'DISPATCH', min: 0.00, max: 10.00, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
-    { test: testAcidity, point: 'DISPATCH', min: 0.10, max: 0.16, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
+    // DISPATCH (MONITORING only pending release consequence workflow approval)
+    { test: testFat, point: 'DISPATCH', min: 3.50, max: 5.50, acceptable: null, consequence: 'NEUTRAL', category: 'MONITORING' },
+    { test: testLr, point: 'DISPATCH', min: 26.00, max: 32.00, acceptable: null, consequence: 'NEUTRAL', category: 'MONITORING' },
+    { test: testTemp, point: 'DISPATCH', min: 0.00, max: 10.00, acceptable: null, consequence: 'NEUTRAL', category: 'MONITORING' },
+    { test: testAcidity, point: 'DISPATCH', min: 0.10, max: 0.16, acceptable: null, consequence: 'NEUTRAL', category: 'MONITORING' },
   ];
 
   const plantRulesMap = new Map<string, any>();

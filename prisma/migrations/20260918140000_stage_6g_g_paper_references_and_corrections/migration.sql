@@ -98,6 +98,9 @@ CREATE INDEX "zmcc_lab_session_manager_review_status_idx" ON "zmcc_lab_session"(
 -- CreateIndex
 CREATE INDEX "zmcc_mot_arrival_raw_milk_token_number_idx" ON "zmcc_mot_arrival"("raw_milk_token_number");
 
+-- CreateIndex
+CREATE UNIQUE INDEX IF NOT EXISTS "lab_test_rule_lab_test_id_testing_point_rule_category_version_key" ON "lab_test_rule"("lab_test_id", "testing_point", "rule_category", "version");
+
 -- AddForeignKey
 ALTER TABLE "visit_portion" ADD CONSTRAINT "visit_portion_plant_corrected_by_fkey" FOREIGN KEY ("plant_corrected_by") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 

@@ -98,14 +98,29 @@ export async function POST(
             table_name: 'visit_portion',
             record_id: portionId,
             action: 'PLANT_QA_MANAGER_REVIEW_AFTER_EXIT',
+            old_values: {
+              effective_decision: portion.plant_decision,
+              original_decision: portion.original_plant_decision || portion.plant_decision,
+              exception_classification: portion.corrected_plant_decision,
+              manager_review_status: portion.manager_review_status,
+              current_status: portion.current_status,
+              system_quality_outcome: portion.system_quality_outcome,
+              physical_exit_state: 'EXITED',
+              exit_timestamp: visit.gate_log.exit_timestamp.toISOString(),
+            },
             new_values: {
               visit_id: String(visitId),
               portion_number: portion.portion_number,
-              review_only: true,
               decision: validated.decision,
+              effective_decision: portion.plant_decision,
+              exception_classification: portion.corrected_plant_decision,
+              manager_review_status: 'REVIEWED_EXITED',
               reason: validated.reason,
-              vehicle_exited: true,
+              review_only: true,
+              physical_exit_state: 'EXITED',
               exit_timestamp: visit.gate_log.exit_timestamp.toISOString(),
+              new_visit_status: visit.current_status,
+              ...(validated.idempotency_key ? { idempotency_key: validated.idempotency_key } : {}),
             },
             user_id: userIdBigInt,
           },
@@ -143,15 +158,18 @@ export async function POST(
       }
 
       let newPlantDecision: string;
+      let newCorrectedPlantDecision: string;
       let newManagerReviewStatus: string;
       let auditAction: string;
 
       if (validated.decision === 'APPROVE') {
         newPlantDecision = 'ACCEPTED';
+        newCorrectedPlantDecision = 'ACCEPTED_EXCEPTION';
         newManagerReviewStatus = 'APPROVED';
         auditAction = 'PLANT_QA_MANAGER_EXCEPTION_APPROVED';
       } else {
         newPlantDecision = 'REJECTED';
+        newCorrectedPlantDecision = 'REJECTED';
         newManagerReviewStatus = 'REJECTED';
         auditAction = 'PLANT_QA_MANAGER_EXCEPTION_REJECTED';
       }
@@ -162,7 +180,7 @@ export async function POST(
           plant_decision: newPlantDecision,
           current_status: newPlantDecision,
           original_plant_decision: portion.original_plant_decision || portion.plant_decision || 'REJECTED',
-          corrected_plant_decision: newPlantDecision,
+          corrected_plant_decision: newCorrectedPlantDecision,
           plant_correction_reason: validated.reason,
           plant_corrected_by: userIdBigInt,
           plant_corrected_at: now,
@@ -246,13 +264,30 @@ export async function POST(
           table_name: 'visit_portion',
           record_id: portionId,
           action: auditAction,
+          old_values: {
+            effective_decision: portion.plant_decision,
+            original_decision: portion.original_plant_decision || portion.plant_decision,
+            exception_classification: portion.corrected_plant_decision,
+            manager_review_status: portion.manager_review_status,
+            current_status: portion.current_status,
+            system_quality_outcome: portion.system_quality_outcome,
+            physical_exit_state: 'ON_SITE',
+            exit_timestamp: null,
+          },
           new_values: {
             visit_id: String(visitId),
             portion_number: portion.portion_number,
             decision: validated.decision,
+            effective_decision: newPlantDecision,
+            exception_classification: newCorrectedPlantDecision,
+            manager_review_status: newManagerReviewStatus,
             reason: validated.reason,
+            review_only: false,
+            physical_exit_state: 'ON_SITE',
+            exit_timestamp: null,
             system_quality_outcome: portion.system_quality_outcome,
             new_visit_status: newVisitStatus,
+            ...(validated.idempotency_key ? { idempotency_key: validated.idempotency_key } : {}),
           },
           user_id: userIdBigInt,
         },

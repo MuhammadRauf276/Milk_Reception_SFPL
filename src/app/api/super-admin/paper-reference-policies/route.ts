@@ -9,6 +9,7 @@ const updatePolicySchema = z.object({
   referenceType: z.enum(['SHOP_RMR', 'RAW_MILK_TOKEN', 'RAW_MILK_DISPATCH_NOTE']),
   policyMode: z.enum(['REQUIRED', 'OPTIONAL', 'DISABLED']),
   allowDuplicates: z.boolean(),
+  duplicateScope: z.enum(['GLOBAL', 'PER_SOURCE']).optional(),
   reason: z.string().trim().min(3, 'A substantive reason of at least 3 characters is required.'),
 });
 
@@ -85,6 +86,7 @@ export async function PUT(req: Request) {
       referenceType: validated.referenceType as PaperReferenceType,
       policyMode: validated.policyMode as PaperPolicyMode,
       allowDuplicates: validated.allowDuplicates,
+      duplicateScope: validated.duplicateScope,
       updatedByUserId: dbUser.id,
       reason: validated.reason,
     });

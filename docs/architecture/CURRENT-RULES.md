@@ -841,8 +841,62 @@ All paginated collection APIs must return a standardized pagination envelope:
    - Distinguish decision review/correction from physical inventory mutation.
 7. **Strict Stage Boundary**:
    - This QA Policy Architecture is frozen for future alignment and is documented for architectural clarity.
-   - Explicitly deferred to **Stage 6G-G** (Corrections + Audit) or later.
-   - Zero implementation in Stage 6G-F: no QA threshold CRUD, no QA Manager override route/UI, no ZMCC Manager override route/UI, no new correction schema, and no new warning engine. Existing models (`LabTestRule`, `MilkTestPolicyAssignment`, `QAWarning`, and canonical lab infrastructure) will be reused in the appropriate later stage.
+   - Stage 6G-G implements the authoritative quality governance, operational paper references, and audited corrections as specified below.
+
+---
+
+## 29. Stage 6G-G — Quality Governance, Operational Paper References & Audited Corrections
+
+### 29A. Quality Governance & SOP Rules Hierarchy
+- **QA Head Sole Authority**: `QA_HEAD` exclusively owns quality rules (`LabTestRule`), parameter thresholds, rule categories, and testing points. Super Admin cannot configure QA rules; operators cannot bypass them.
+- **Authoritative Testing Points**:
+  - `PLANT_RECEPTION`: Plant intake QA testing.
+  - `ZMCC_COLLECTION`: ZMCC intake QA testing (MOT and Local Supplier).
+  - `MOT_SHOP`: Mobile collection testing at collection stops.
+  - `DISPATCH`: Upstream dispatch quality testing.
+- **Release Rule Restriction**:
+  - `rule_category = 'RELEASE'` is strictly restricted to testing points that possess formal release workflows (`PLANT_RECEPTION`, `ZMCC_COLLECTION`).
+  - Configuring `RELEASE` rules on `MOT_SHOP` or `DISPATCH` is forbidden and rejected by API and UI (they support `ACCEPTANCE`, `REJECTION`, `WARNING`, `MONITORING`).
+- **Historical Rule Versioning & Advisory Lock**:
+  - Rule updates never overwrite history. `createOrSupersedeRule` serializes under PostgreSQL advisory transaction lock (`pg_advisory_xact_lock(hashtext('quality_rule_' || testing_point || '_' || rule_category || '_' || lab_test_id))`).
+  - Sets previous rule's `effective_to = now`, creates next sequential version with `effective_from = now`.
+  - Historical evaluations resolve rules by matching `effective_from <= eventTimestamp AND (effective_to IS NULL OR eventTimestamp < effective_to)`.
+  - Schema enforces unique index `@@unique([lab_test_id, testing_point, rule_category, version])`.
+- **Fail-Closed on Configuration Error**:
+  - If a rule configuration is invalid (e.g. min > max), `evaluateTestValue` yields `RULE_CONFIGURATION_ERROR`.
+  - Lab session completion strictly fails closed: no acceptance, no tank receipt, no stock mutation.
+  - Manager review/correction cannot approve or override a session when any rule has `RULE_CONFIGURATION_ERROR`.
+
+### 29B. Managerial Exception Decisions & Audit Evidence
+- **Decision Naming Contract**:
+  - Effective operational decision is `ACCEPTED` (consumed by stock and intake ledgers).
+  - Exception classification is strictly `ACCEPTED_EXCEPTION` (recorded in `corrected_decision` / `corrected_plant_decision`).
+  - Manager review status is `APPROVED`.
+- **Full Before/After Audit Evidence**:
+  - Manager review endpoints capture complete `old_values` (effective decision, original decision, exception classification, review status, system quality outcome, physical exit state, exit timestamp) and `new_values`.
+- **Physical-State Guard**:
+  - Review after physical exit is strictly audit-only (`REVIEWED_EXITED`); it cannot fabricate physical intake, weighing, unloading, or silo/tank movements.
+- **Exact-One-Active-Tank Requirement**:
+  - When manager approves a previously rejected ZMCC lab session that was not received into a tank, the system requires exactly one active tank for the ZMCC. If 0 active tanks, fails closed; if >1 active tanks, fails closed. No fake fallback quality metrics.
+
+### 29C. Dual-Delta Decoupled Tank & Dispatch Stock Adjustments
+- **Decoupled Gross vs Commercial Movements**:
+  - Gross physical milk liters (`quantity_liters`) and Commercial 13% TS liters (`at_13ts_liters`) can delta in opposite directions.
+  - When signs match: 1 atomic ledger transaction (`ADJUSTMENT_IN` or `ADJUSTMENT_OUT`).
+  - When signs oppose: 2 independent atomic ledger transactions (one physical with `at_13ts_liters = 0`, one commercial with `quantity_liters = 0`).
+  - Supports physical-only and commercial-only adjustments; commercial delta is never truncated when negative.
+  - Validates physical tank capacity before positive physical adjustments, and checks stock non-negativity before negative adjustments.
+
+### 29D. Operational Paper References & Duplicate Scoping
+- **Decoupled Tokens**:
+  - `route_milk_token` and `raw_milk_token_number` are distinct, decoupled concepts.
+  - A raw milk token never falls back to route milk token; if route milk token is omitted, it remains `null`.
+  - UI enforces `raw_milk_token_number` based on the active `RAW_MILK_TOKEN` policy (`REQUIRED`, `OPTIONAL`, `DISABLED`).
+- **Configurable Duplicate Scoping**:
+  - Policies support `duplicate_scope`: `GLOBAL` or `PER_SOURCE`.
+  - Super Admin can update policy mode, allow_duplicates, and duplicate_scope with mandatory reason and full before/after audit log.
+  - When `PER_SOURCE`, `scopeEntityId` is strictly required and passed at all validation and verification call sites (MOT shop collections, ZMCC arrivals, dispatches).
+
 
 
 

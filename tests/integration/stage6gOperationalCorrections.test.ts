@@ -505,7 +505,7 @@ describe('Stage 6G-G: Operational Paper References & Authorized Corrections (Int
       const updatedPortion = await prisma.visitPortion.findUnique({ where: { id: portion.id } });
       expect(updatedPortion?.plant_decision).toBe('ACCEPTED');
       expect(updatedPortion?.manager_review_status).toBe('APPROVED');
-      expect(updatedPortion?.corrected_plant_decision).toBe('ACCEPTED');
+      expect(updatedPortion?.corrected_plant_decision).toBe('ACCEPTED_EXCEPTION');
 
       const updatedVisit = await prisma.vehicleVisit.findUnique({ where: { id: visit.id } });
       expect(updatedVisit?.current_status).toBe('READY_FOR_GROSS');
@@ -786,6 +786,35 @@ describe('Stage 6G-G: Operational Paper References & Authorized Corrections (Int
           quantity_value: 2500,
           quantity_unit: 'LITER',
         },
+      });
+
+      const lrTest = await prisma.labTest.findUnique({ where: { testCode: 'LT-000008' } });
+      const fatTest = await prisma.labTest.findUnique({ where: { testCode: 'LT-000001' } });
+      await prisma.zmccLabResult.createMany({
+        data: [
+          {
+            session_id: session.id,
+            test_id: lrTest!.id,
+            test_code_snapshot: lrTest!.testCode,
+            test_name_snapshot: lrTest!.testName,
+            result_type_snapshot: lrTest!.resultType,
+            result_options_snapshot: lrTest!.resultOptions,
+            numeric_value: 28.5,
+            is_passed: true,
+            evaluation_status: 'CONFORMING',
+          },
+          {
+            session_id: session.id,
+            test_id: fatTest!.id,
+            test_code_snapshot: fatTest!.testCode,
+            test_name_snapshot: fatTest!.testName,
+            result_type_snapshot: fatTest!.resultType,
+            result_options_snapshot: fatTest!.resultOptions,
+            numeric_value: 3.9,
+            is_passed: true,
+            evaluation_status: 'CONFORMING',
+          },
+        ],
       });
 
       const res = await correctCompletedSession(zmccManagerUser, session.id, {

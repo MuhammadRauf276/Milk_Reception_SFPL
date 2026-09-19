@@ -89,8 +89,11 @@ export async function POST(
         throw new Error('NOT_FOUND:Portion not found for this vehicle visit.');
       }
 
-      const activeRulesMap = await QualityRuleService.resolveActiveRulesForTestingPoint('PLANT_QA', new Date(), tx);
+      // Resolve rule at original authoritative test/result/session timestamp (Item E)
+      const authoritativeTs = portion.plant_decided_at || portion.created_at || (await tx.vehicleVisit.findUnique({ where: { id: visitId } }))?.created_at || new Date();
+      const activeRulesMap = await QualityRuleService.resolveActiveRulesForTestingPoint('PLANT_QA', authoritativeTs, tx);
       const correctionsMade: any[] = [];
+      const oldResultsEvidence: any[] = [];
 
       for (const item of validated.results) {
         const testIdBigInt = BigInt(String(item.test_id));
@@ -103,6 +106,16 @@ export async function POST(
           continue;
         }
 
+        oldResultsEvidence.push({
+          test_id: testIdBigInt.toString(),
+          numeric_value: existingResult.numeric_value ? Number(existingResult.numeric_value) : null,
+          text_value: existingResult.text_value,
+          evaluation_status: existingResult.evaluation_status,
+          is_passed: existingResult.is_passed,
+          applied_rule_id: existingResult.applied_rule_id ? existingResult.applied_rule_id.toString() : null,
+          applied_rule_version: existingResult.applied_rule_version,
+        });
+
         const activeRule = activeRulesMap.get(String(testIdBigInt)) || null;
         const evalRes = QualityRuleService.evaluateQualityResult({
           testId: testIdBigInt,
@@ -113,7 +126,7 @@ export async function POST(
           testingPoint: 'PLANT_QA',
         });
 
-        const updatedResult = await tx.plantLabResult.update({
+        await tx.plantLabResult.update({
           where: { id: existingResult.id },
           data: {
             numeric_value: item.numeric_value !== null && item.numeric_value !== undefined ? new Prisma.Decimal(item.numeric_value) : null,
@@ -121,8 +134,9 @@ export async function POST(
             performance_status: item.performance_status,
             not_performed_reason: item.performance_status === 'NOT_PERFORMED' ? (item.not_performed_reason || 'Not performed') : null,
             is_passed: evalRes.isPassed,
+            evaluation_status: evalRes.evaluationStatus,
             tested_by: dbUser.id,
-            result_timestamp: new Date(),
+            result_timestamp: authoritativeTs,
             applied_rule_id: evalRes.appliedRuleId ?? null,
             applied_rule_version: evalRes.appliedRuleVersion ?? null,
           },
@@ -134,25 +148,71 @@ export async function POST(
           new_numeric: item.numeric_value ?? null,
           old_text: existingResult.text_value,
           new_text: item.text_value ?? null,
-          outcome: evalRes.evaluationStatus,
+          evaluation_status: evalRes.evaluationStatus,
+          is_passed: evalRes.isPassed,
+          applied_rule_id: evalRes.appliedRuleId ?? null,
+          applied_rule_version: evalRes.appliedRuleVersion ?? null,
         });
       }
+
+      // Re-aggregate all required Plant QA evaluations for the portion
+      const allResults = await tx.plantLabResult.findMany({
+        where: { portion_id: portion.id },
+        include: { lab_test: true },
+      });
+
+      const allEvaluations = allResults.map((r) => ({
+        evaluationStatus: r.evaluation_status || 'PENDING',
+        performanceStatus: r.performance_status,
+        isRequired: r.lab_test?.isRequired ?? false,
+      }));
+
+      const newSystemQualityOutcome = QualityRuleService.aggregateSystemQualityOutcome(allEvaluations);
+
+      // Conflict routing: If corrected system outcome conflicts with human decision, use manager-review semantics
+      let newPlantDecision = portion.plant_decision;
+      let newManagerReviewStatus = portion.manager_review_status;
+
+      if (portion.plant_decision === 'ACCEPTED' && newSystemQualityOutcome === 'OUT_OF_SPEC') {
+        newPlantDecision = 'PENDING';
+        newManagerReviewStatus = 'PENDING';
+      }
+
+      await tx.visitPortion.update({
+        where: { id: portion.id },
+        data: {
+          system_quality_outcome: newSystemQualityOutcome,
+          plant_decision: newPlantDecision,
+          current_status: newPlantDecision || portion.current_status || 'PENDING',
+          manager_review_status: newManagerReviewStatus,
+        },
+      });
 
       await tx.auditLog.create({
         data: {
           table_name: 'visit_portion',
           record_id: portion.id,
           action: 'PLANT_QA_MEASUREMENT_CORRECTED',
-          old_values: { portion_id: portion.id.toString() },
+          old_values: {
+            portion_id: portion.id.toString(),
+            plant_decision: portion.plant_decision,
+            system_quality_outcome: portion.system_quality_outcome,
+            results: oldResultsEvidence,
+          },
           new_values: {
+            portion_id: portion.id.toString(),
+            plant_decision: newPlantDecision,
+            system_quality_outcome: newSystemQualityOutcome,
             reason: validated.reason,
-            corrections: correctionsMade,
+            results: correctionsMade,
+            actor: dbUser.id.toString(),
+            timestamp: new Date().toISOString(),
           },
           user_id: dbUser.id,
         },
       });
 
-      return { success: true, count: correctionsMade.length };
+      return { success: true, count: correctionsMade.length, system_quality_outcome: newSystemQualityOutcome };
     });
 
     return NextResponse.json(result, { status: 200 });

@@ -2333,11 +2333,21 @@ export async function submitShopCollection(
   }
 
   // Validate shop_rmr_number against operational policy
+  let scopeZmccId: bigint | undefined;
+  const stopForScope = await prisma.motJourneyStop.findUnique({
+    where: { id: stopId },
+    select: { journey: { select: { zmcc_id: true } } },
+  });
+  if (stopForScope) {
+    scopeZmccId = stopForScope.journey.zmcc_id;
+  }
+
   let validatedShopRmr: string | null = null;
   try {
     validatedShopRmr = await PaperReferenceService.validateAndVerify(
       PaperReferenceType.SHOP_RMR,
-      payload.shop_rmr_number
+      payload.shop_rmr_number,
+      { scopeEntityId: scopeZmccId }
     );
   } catch (err: any) {
     return { status: 400, error: err.message || 'Invalid Shop RMR number.' };
@@ -2523,7 +2533,7 @@ export async function submitShopCollection(
         await PaperReferenceService.validateAndVerify(
           PaperReferenceType.SHOP_RMR,
           validatedShopRmr,
-          { tx }
+          { tx, scopeEntityId: stop.journey.zmcc_id }
         );
       }
 
@@ -3425,7 +3435,7 @@ export async function correctShopCollection(
       newShopRmr = await PaperReferenceService.validateAndVerify(
         PaperReferenceType.SHOP_RMR,
         payload.shop_rmr_number,
-        { excludeEntityId: collection.id }
+        { excludeEntityId: collection.id, scopeEntityId: collection.zmcc_id }
       );
     } catch (err: any) {
       return { status: 400, error: err.message || 'Invalid Shop RMR number.' };
@@ -3511,7 +3521,7 @@ export async function correctShopCollection(
         await PaperReferenceService.validateAndVerify(
           PaperReferenceType.SHOP_RMR,
           newShopRmr,
-          { excludeEntityId: collection.id, tx }
+          { excludeEntityId: collection.id, scopeEntityId: collection.zmcc_id, tx }
         );
       }
 

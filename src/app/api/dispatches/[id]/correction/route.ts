@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { PaperReferenceService, PaperValidationError } from '@/backend/services/paperReferenceService';
 import { computeCanonicalMilkMetrics, calculateDensity, calculateGrossLiters } from '@/backend/utils/milkFormulas';
 import { calculateDualReconciliation } from '@/backend/services/reconciliationService';
+import { getTankPhysicalStock } from '@/backend/services/zmccTankService';
 
 const correctDispatchSchema = z.object({
   reason: z.string().trim().min(3, 'A substantive correction reason of at least 3 characters is required.'),
@@ -16,6 +17,7 @@ const correctDispatchSchema = z.object({
   vehicle_dispatch_quantity_basis: z.enum(['ESTIMATED', 'MEASURED']).optional(),
   vehicle_dispatch_lr: z.number().positive().optional(),
   vehicle_dispatch_fat: z.number().nonnegative().optional(),
+  idempotency_key: z.string().trim().min(1).optional(),
 });
 
 export async function PATCH(
@@ -57,6 +59,47 @@ export async function PATCH(
     const body = await req.json();
     const validated = correctDispatchSchema.parse(body);
 
+    const clientKey = validated.idempotency_key || req.headers.get('Idempotency-Key') || req.headers.get('idempotency-key') || null;
+
+    if (clientKey) {
+      const pastAudits = await prisma.auditLog.findMany({
+        where: {
+          table_name: 'vehicle_visit',
+          record_id: visitId,
+        },
+        orderBy: { created_at: 'desc' },
+        take: 30,
+      });
+
+      const matching = pastAudits.find(
+        (a) => (a.new_values as any)?.idempotency_key === clientKey
+      );
+
+      if (matching) {
+        const rec = matching.new_values as any;
+        const notePayload = validated.raw_milk_dispatch_note_number !== undefined
+          ? validated.raw_milk_dispatch_note_number
+          : validated.rawMilkDispatchNoteNumber;
+
+        const isMatch =
+          rec.reason === validated.reason &&
+          (notePayload === undefined || rec.raw_milk_dispatch_note_number === (notePayload ? notePayload.trim() : null)) &&
+          (validated.vehicle_dispatch_quantity_value === undefined || rec.quantity_value === validated.vehicle_dispatch_quantity_value) &&
+          (validated.vehicle_dispatch_quantity_unit === undefined || rec.quantity_unit === validated.vehicle_dispatch_quantity_unit) &&
+          (validated.vehicle_dispatch_lr === undefined || rec.lr === validated.vehicle_dispatch_lr) &&
+          (validated.vehicle_dispatch_fat === undefined || rec.fat === validated.vehicle_dispatch_fat);
+
+        if (isMatch) {
+          return NextResponse.json({ success: true, replayed: true }, { status: 200 });
+        } else {
+          return NextResponse.json(
+            { error: 'Idempotency conflict: idempotency key already used with different payload.' },
+            { status: 409 }
+          );
+        }
+      }
+    }
+
     const result = await prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT id FROM vehicle_visit WHERE id = ${visitId} FOR UPDATE`;
 
@@ -89,7 +132,7 @@ export async function PATCH(
         cleanNote = await PaperReferenceService.validateAndVerify(
           PaperReferenceType.RAW_MILK_DISPATCH_NOTE,
           noteInput,
-          { excludeEntityId: visit.id, tx }
+          { scopeEntityId: visit.procurement_source_id || undefined, excludeEntityId: visit.id, tx }
         );
 
         if (cleanNote !== visit.raw_milk_dispatch_note_number) {
@@ -105,7 +148,11 @@ export async function PATCH(
               record_id: visit.id,
               action: 'RAW_MILK_DISPATCH_NOTE_CORRECTED',
               old_values: { raw_milk_dispatch_note_number: visit.raw_milk_dispatch_note_number },
-              new_values: { raw_milk_dispatch_note_number: cleanNote, reason: validated.reason },
+              new_values: {
+                raw_milk_dispatch_note_number: cleanNote,
+                reason: validated.reason,
+                idempotency_key: clientKey,
+              },
               user_id: dbUser.id,
             },
           });
@@ -201,7 +248,7 @@ export async function PATCH(
           },
         });
 
-        // Inventory adjustment for ZMCC tank issue
+        // Inventory adjustment for ZMCC tank issue (Item G)
         if (visit.procurement_source?.source_type === 'ZMCC' && vehicleGrossLiters !== null) {
           const existingIssue = await tx.zmccTankInventoryTransaction.findFirst({
             where: {
@@ -211,31 +258,140 @@ export async function PATCH(
           });
 
           if (existingIssue && oldGross !== null) {
-            const deltaGross = vehicleGrossLiters - oldGross;
-            const deltaAt13 = (vehicleAt13tsLiters || 0) - (oldAt13ts || 0);
+            const deltaGross = Number((vehicleGrossLiters - oldGross).toFixed(2));
+            const deltaAt13 = Number(((vehicleAt13tsLiters || 0) - (oldAt13ts || 0)).toFixed(2));
 
-            if (Math.abs(deltaGross) >= 0.01) {
-              const absGross = Math.abs(deltaGross);
-              const absAt13 = Math.abs(deltaAt13);
-              const isIncrease = deltaGross > 0;
-              const corrTxType = isIncrease ? 'ADJUSTMENT_OUT' : 'ADJUSTMENT_IN';
+            const hasPhysicalDelta = Math.abs(deltaGross) >= 0.01;
+            const hasCommercialDelta = Math.abs(deltaAt13) >= 0.01;
 
-              await tx.zmccTankInventoryTransaction.create({
-                data: {
-                  tank_id: existingIssue.tank_id,
-                  zmcc_id: visit.procurement_source_id!,
-                  transaction_type: corrTxType,
-                  quantity_liters: new Prisma.Decimal(absGross.toFixed(2)),
-                  at_13ts_liters: new Prisma.Decimal(absAt13.toFixed(2)),
-                  dispatch_id: visit.id,
-                  reference_type: 'DISPATCH_CORRECTION',
-                  reference_id: visit.id.toString(),
-                  idempotency_key: `ZMCC_TANK_DISPATCH_CORRECTION:${visit.id}:${Date.now()}`,
-                  operational_timestamp: new Date(),
-                  performed_by_user_id: dbUser.id,
-                  notes: `Dispatch correction ${corrTxType} for visit ${visit.visit_number} (${deltaGross > 0 ? '+' : '-'}${absGross.toFixed(2)} L)`,
+            if (hasPhysicalDelta || hasCommercialDelta) {
+              const lockedTankRows: Array<{ id: bigint; capacity_liters: any }> = await tx.$queryRaw`
+                SELECT id, capacity_liters FROM zmcc_tank WHERE id = ${existingIssue.tank_id} FOR UPDATE
+              `;
+              if (!lockedTankRows || lockedTankRows.length === 0) {
+                throw new Error('TANK_NOT_FOUND:Destination tank not found.');
+              }
+              const tankCap = Number(lockedTankRows[0].capacity_liters);
+              const currentStock = await getTankPhysicalStock(existingIssue.tank_id, tx);
+
+              if (deltaGross > 0) {
+                if (currentStock < deltaGross) {
+                  throw new Error(`NEGATIVE_STOCK:Dispatch correction would result in negative tank stock. Current: ${currentStock} L; deduction: ${deltaGross} L.`);
+                }
+              } else if (deltaGross < 0) {
+                const absGross = Math.abs(deltaGross);
+                const available = Math.max(0, tankCap - currentStock);
+                if (absGross > available) {
+                  throw new Error(`INSUFFICIENT_CAPACITY:Tank capacity is insufficient for correction return. Available: ${available} L; required: ${absGross} L.`);
+                }
+              }
+
+              const priorCorrCount = await tx.auditLog.count({
+                where: {
+                  table_name: 'vehicle_visit',
+                  record_id: visit.id,
+                  action: { in: ['VEHICLE_DISPATCH_MEASUREMENT_CORRECTED', 'RAW_MILK_DISPATCH_NOTE_CORRECTED'] },
                 },
               });
+              const newCorrSeq = priorCorrCount + 1;
+
+              const baseTxKey = clientKey
+                ? `ZMCC_TANK_DISPATCH_CORRECTION:${visit.id}:${clientKey}`
+                : `ZMCC_TANK_DISPATCH_CORRECTION:${visit.id}:CORR:${newCorrSeq}`;
+
+              if (hasPhysicalDelta && hasCommercialDelta) {
+                const physicalDirection = deltaGross > 0 ? 'ADJUSTMENT_OUT' : 'ADJUSTMENT_IN';
+                const commercialDirection = deltaAt13 > 0 ? 'ADJUSTMENT_OUT' : 'ADJUSTMENT_IN';
+
+                if (physicalDirection === commercialDirection) {
+                  await tx.zmccTankInventoryTransaction.create({
+                    data: {
+                      tank_id: existingIssue.tank_id,
+                      zmcc_id: visit.procurement_source_id!,
+                      transaction_type: physicalDirection,
+                      quantity_liters: new Prisma.Decimal(Math.abs(deltaGross).toFixed(2)),
+                      at_13ts_liters: new Prisma.Decimal(Math.abs(deltaAt13).toFixed(2)),
+                      dispatch_id: visit.id,
+                      reference_type: 'DISPATCH_CORRECTION',
+                      reference_id: `${visit.id}:${newCorrSeq}`,
+                      idempotency_key: `${baseTxKey}:COMBINED`,
+                      operational_timestamp: new Date(),
+                      performed_by_user_id: dbUser.id,
+                      notes: `Dispatch correction ${physicalDirection} for visit ${visit.visit_number} (Gross: ${deltaGross > 0 ? '+' : ''}${deltaGross} L, @13: ${deltaAt13 > 0 ? '+' : ''}${deltaAt13} L)`,
+                    },
+                  });
+                } else {
+                  await tx.zmccTankInventoryTransaction.create({
+                    data: {
+                      tank_id: existingIssue.tank_id,
+                      zmcc_id: visit.procurement_source_id!,
+                      transaction_type: physicalDirection,
+                      quantity_liters: new Prisma.Decimal(Math.abs(deltaGross).toFixed(2)),
+                      at_13ts_liters: new Prisma.Decimal('0.00'),
+                      dispatch_id: visit.id,
+                      reference_type: 'DISPATCH_CORRECTION',
+                      reference_id: `${visit.id}:${newCorrSeq}:PHYSICAL`,
+                      idempotency_key: `${baseTxKey}:PHYSICAL`,
+                      operational_timestamp: new Date(),
+                      performed_by_user_id: dbUser.id,
+                      notes: `Dispatch correction physical ${physicalDirection} for visit ${visit.visit_number} (${deltaGross > 0 ? '+' : ''}${deltaGross} L)`,
+                    },
+                  });
+
+                  await tx.zmccTankInventoryTransaction.create({
+                    data: {
+                      tank_id: existingIssue.tank_id,
+                      zmcc_id: visit.procurement_source_id!,
+                      transaction_type: commercialDirection,
+                      quantity_liters: new Prisma.Decimal('0.00'),
+                      at_13ts_liters: new Prisma.Decimal(Math.abs(deltaAt13).toFixed(2)),
+                      dispatch_id: visit.id,
+                      reference_type: 'DISPATCH_CORRECTION',
+                      reference_id: `${visit.id}:${newCorrSeq}:COMMERCIAL`,
+                      idempotency_key: `${baseTxKey}:COMMERCIAL`,
+                      operational_timestamp: new Date(),
+                      performed_by_user_id: dbUser.id,
+                      notes: `Dispatch correction commercial ${commercialDirection} for visit ${visit.visit_number} (${deltaAt13 > 0 ? '+' : ''}${deltaAt13} L @13TS)`,
+                    },
+                  });
+                }
+              } else if (hasPhysicalDelta && !hasCommercialDelta) {
+                const physicalDirection = deltaGross > 0 ? 'ADJUSTMENT_OUT' : 'ADJUSTMENT_IN';
+                await tx.zmccTankInventoryTransaction.create({
+                  data: {
+                    tank_id: existingIssue.tank_id,
+                    zmcc_id: visit.procurement_source_id!,
+                    transaction_type: physicalDirection,
+                    quantity_liters: new Prisma.Decimal(Math.abs(deltaGross).toFixed(2)),
+                    at_13ts_liters: new Prisma.Decimal('0.00'),
+                    dispatch_id: visit.id,
+                    reference_type: 'DISPATCH_CORRECTION',
+                    reference_id: `${visit.id}:${newCorrSeq}:PHYSICAL`,
+                    idempotency_key: `${baseTxKey}:PHYSICAL`,
+                    operational_timestamp: new Date(),
+                    performed_by_user_id: dbUser.id,
+                    notes: `Dispatch correction physical-only ${physicalDirection} for visit ${visit.visit_number} (${deltaGross > 0 ? '+' : ''}${deltaGross} L)`,
+                  },
+                });
+              } else if (!hasPhysicalDelta && hasCommercialDelta) {
+                const commercialDirection = deltaAt13 > 0 ? 'ADJUSTMENT_OUT' : 'ADJUSTMENT_IN';
+                await tx.zmccTankInventoryTransaction.create({
+                  data: {
+                    tank_id: existingIssue.tank_id,
+                    zmcc_id: visit.procurement_source_id!,
+                    transaction_type: commercialDirection,
+                    quantity_liters: new Prisma.Decimal('0.00'),
+                    at_13ts_liters: new Prisma.Decimal(Math.abs(deltaAt13).toFixed(2)),
+                    dispatch_id: visit.id,
+                    reference_type: 'DISPATCH_CORRECTION',
+                    reference_id: `${visit.id}:${newCorrSeq}:COMMERCIAL`,
+                    idempotency_key: `${baseTxKey}:COMMERCIAL`,
+                    operational_timestamp: new Date(),
+                    performed_by_user_id: dbUser.id,
+                    notes: `Dispatch correction commercial-only ${commercialDirection} for visit ${visit.visit_number} (${deltaAt13 > 0 ? '+' : ''}${deltaAt13} L @13TS)`,
+                  },
+                });
+              }
             }
           }
         }
@@ -289,6 +445,7 @@ export async function PATCH(
               gross_liters: vehicleGrossLiters,
               at_13ts_liters: vehicleAt13tsLiters,
               reason: validated.reason,
+              idempotency_key: clientKey,
             },
             user_id: dbUser.id,
           },
@@ -315,6 +472,12 @@ export async function PATCH(
     }
     if (err.message?.startsWith('NO_CHANGES:')) {
       return NextResponse.json({ error: err.message.replace('NO_CHANGES:', '') }, { status: 400 });
+    }
+    if (err.message?.startsWith('NEGATIVE_STOCK:')) {
+      return NextResponse.json({ error: err.message.replace('NEGATIVE_STOCK:', '') }, { status: 400 });
+    }
+    if (err.message?.startsWith('INSUFFICIENT_CAPACITY:')) {
+      return NextResponse.json({ error: err.message.replace('INSUFFICIENT_CAPACITY:', '') }, { status: 400 });
     }
     if (err.name === 'ZodError') {
       return NextResponse.json({ error: err.issues?.[0]?.message || 'Validation error' }, { status: 400 });

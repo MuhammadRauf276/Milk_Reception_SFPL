@@ -377,19 +377,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: chronoVal.error }, { status: 400 });
     }
 
-    // Validate Raw Milk Dispatch Note against operational policy
-    const rawDispatchNoteInput = validated.rawMilkDispatchNoteNumber || validated.raw_milk_dispatch_note_number || (body as any).rawMilkDispatchNoteNumber || (body as any).raw_milk_dispatch_note_number;
-    let validatedDispatchNote: string | null = null;
-    try {
-      validatedDispatchNote = await PaperReferenceService.validateAndVerify(
-        PaperReferenceType.RAW_MILK_DISPATCH_NOTE,
-        rawDispatchNoteInput,
-        { excludeEntityId: validated.visitId ? BigInt(validated.visitId) : undefined }
-      );
-    } catch (err: any) {
-      return NextResponse.json({ error: err.message || 'Invalid Raw Milk Dispatch Note number.' }, { status: 400 });
-    }
-
     // SOURCE AUTHORIZATION & DERIVATION:
     let resolvedSourceId: bigint | null = null;
     const isSourceBound = !!dbUser.procurement_source_id;
@@ -435,6 +422,22 @@ export async function POST(req: Request) {
         { error: 'Invalid or inactive procurement source.', code: 'PROCUREMENT_SOURCE_INVALID' },
         { status: 400 }
       );
+    }
+
+    // Validate Raw Milk Dispatch Note against operational policy
+    const rawDispatchNoteInput = validated.rawMilkDispatchNoteNumber || validated.raw_milk_dispatch_note_number || (body as any).rawMilkDispatchNoteNumber || (body as any).raw_milk_dispatch_note_number;
+    let validatedDispatchNote: string | null = null;
+    try {
+      validatedDispatchNote = await PaperReferenceService.validateAndVerify(
+        PaperReferenceType.RAW_MILK_DISPATCH_NOTE,
+        rawDispatchNoteInput,
+        {
+          excludeEntityId: validated.visitId ? BigInt(validated.visitId) : undefined,
+          scopeEntityId: resolvedSourceId,
+        }
+      );
+    } catch (err: any) {
+      return NextResponse.json({ error: err.message || 'Invalid Raw Milk Dispatch Note number.' }, { status: 400 });
     }
 
     const sourceType = sourceRecord.source_type || 'ZMCC';

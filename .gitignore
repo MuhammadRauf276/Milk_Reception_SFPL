@@ -6,6 +6,4 @@ node_modules/
 *.log
 scratch/
 tsconfig.tsbuildinfo
-artifacts/
-*.zip
 

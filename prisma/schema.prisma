@@ -280,6 +280,7 @@ model LabTestRule {
   plant_results PlantLabResult[] @relation("PlantResultRule")
   zmcc_results  ZmccLabResult[]  @relation("ZmccResultRule")
 
+  @@unique([lab_test_id, testing_point, rule_category, version])
   @@index([lab_test_id, testing_point, rule_category, is_active])
   @@index([effective_from, effective_to])
   @@map("lab_test_rule")

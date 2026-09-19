@@ -19,6 +19,7 @@ export interface UpdatePolicyInput {
   referenceType: PaperReferenceType;
   policyMode: PaperPolicyMode;
   allowDuplicates: boolean;
+  duplicateScope?: string;
   updatedByUserId: bigint | number | string;
   reason: string;
 }
@@ -260,22 +261,34 @@ export class PaperReferenceService {
     input: UpdatePolicyInput,
     txOrPrisma: Prisma.TransactionClient | typeof prisma = prisma
   ): Promise<PaperReferencePolicy> {
-    const { referenceType, policyMode, allowDuplicates, updatedByUserId, reason } = input;
+    const { referenceType, policyMode, allowDuplicates, duplicateScope, updatedByUserId, reason } = input;
     const userIdBigInt = BigInt(String(updatedByUserId));
 
+    const scopeToSet = duplicateScope || 'GLOBAL';
+    if (!['GLOBAL', 'PER_SOURCE'].includes(scopeToSet)) {
+      throw new PaperValidationError(
+        `Invalid duplicate_scope: "${scopeToSet}". Must be GLOBAL or PER_SOURCE.`
+      );
+    }
+
     const execute = async (tx: Prisma.TransactionClient) => {
+      const existing = await tx.paperReferencePolicy.findUnique({
+        where: { reference_type: referenceType },
+      });
+
       const policy = await tx.paperReferencePolicy.upsert({
         where: { reference_type: referenceType },
         update: {
           policy_mode: policyMode,
           allow_duplicates: allowDuplicates,
+          duplicate_scope: scopeToSet,
           updated_by_user_id: userIdBigInt,
         },
         create: {
           reference_type: referenceType,
           policy_mode: policyMode,
           allow_duplicates: allowDuplicates,
-          duplicate_scope: 'GLOBAL',
+          duplicate_scope: scopeToSet,
           updated_by_user_id: userIdBigInt,
         },
       });
@@ -286,10 +299,19 @@ export class PaperReferenceService {
           table_name: 'paper_reference_policy',
           record_id: policy.id,
           action: 'PAPER_REFERENCE_POLICY_UPDATED',
+          old_values: existing
+            ? {
+                reference_type: existing.reference_type,
+                policy_mode: existing.policy_mode,
+                allow_duplicates: existing.allow_duplicates,
+                duplicate_scope: existing.duplicate_scope,
+              }
+            : Prisma.DbNull,
           new_values: {
             reference_type: referenceType,
             policy_mode: policyMode,
             allow_duplicates: allowDuplicates,
+            duplicate_scope: scopeToSet,
             reason: reason || 'Super Admin policy update',
           },
           user_id: userIdBigInt,

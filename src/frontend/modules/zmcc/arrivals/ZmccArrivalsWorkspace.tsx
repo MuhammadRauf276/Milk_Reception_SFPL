@@ -60,6 +60,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
   const [selectedJourney, setSelectedJourney] = useState<any | null>(null);
   const [routeMilkToken, setRouteMilkToken] = useState('');
   const [rawMilkTokenNumber, setRawMilkTokenNumber] = useState('');
+  const [rawMilkTokenPolicyMode, setRawMilkTokenPolicyMode] = useState<'REQUIRED' | 'OPTIONAL' | 'DISABLED'>('REQUIRED');
   const [motArrivalTimestamp, setMotArrivalTimestamp] = useState(() =>
     toDatetimeLocalInput(new Date())
   );
@@ -263,7 +264,24 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
     }
   }, [historyDate, historySearch, historyPage, historyPageSize]);
 
+  // Fetch paper reference policies
+  const fetchPolicies = useCallback(async () => {
+    try {
+      const res = await fetch('/api/paper-reference-policies');
+      if (res.ok) {
+        const data = await res.json();
+        const rmtPolicy = (data.policies || []).find((p: any) => p.referenceType === 'RAW_MILK_TOKEN');
+        if (rmtPolicy?.policyMode) {
+          setRawMilkTokenPolicyMode(rmtPolicy.policyMode);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch paper reference policies', err);
+    }
+  }, []);
+
   useEffect(() => {
+    fetchPolicies();
     if (canSubmit) {
       fetchArrivingJourneys();
       fetchLocalSuppliers();
@@ -272,7 +290,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
     }
     fetchInsideVehicles();
     fetchHistory();
-  }, [canSubmit, fetchArrivingJourneys, fetchLocalSuppliers, fetchInsideVehicles, fetchHistory, initMotForm, initLocalSupplierForm]);
+  }, [canSubmit, fetchPolicies, fetchArrivingJourneys, fetchLocalSuppliers, fetchInsideVehicles, fetchHistory, initMotForm, initLocalSupplierForm]);
 
   useEffect(() => {
     if (activeTab === 'INSIDE_ZMCC') {
@@ -376,8 +394,12 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
       setMotError('Please select a journey.');
       return;
     }
-    if (!rawMilkTokenNumber.trim() && !routeMilkToken.trim()) {
-      setMotError('Please enter a PHE Raw Milk Token or Route Milk Token.');
+    if (rawMilkTokenPolicyMode === 'REQUIRED' && !rawMilkTokenNumber.trim()) {
+      setMotError('PHE Raw Milk Token is REQUIRED by operational policy.');
+      return;
+    }
+    if (rawMilkTokenPolicyMode === 'DISABLED' && rawMilkTokenNumber.trim()) {
+      setMotError('PHE Raw Milk Token is DISABLED by operational policy. Please clear the field.');
       return;
     }
     setMotSubmitting(true);
@@ -875,15 +897,19 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1">
                         PHE Raw Milk Token (Manual Paper Reference)
+                        {rawMilkTokenPolicyMode === 'REQUIRED' && <span className="text-rose-500"> *</span>}
+                        {rawMilkTokenPolicyMode === 'OPTIONAL' && <span className="text-slate-400 font-normal"> (Optional)</span>}
+                        {rawMilkTokenPolicyMode === 'DISABLED' && <span className="text-amber-600 font-normal"> (Disabled by Policy)</span>}
                       </label>
                       <input
                         type="text"
                         pattern="[0-9]*"
                         inputMode="numeric"
+                        disabled={rawMilkTokenPolicyMode === 'DISABLED'}
                         value={rawMilkTokenNumber}
                         onChange={(e) => setRawMilkTokenNumber(e.target.value.replace(/[^0-9]/g, ''))}
-                        placeholder="e.g. 001924"
-                        className="w-full text-xs font-bold px-3 py-2 border rounded-xl focus:ring-2 focus:ring-[#1E3A8A] outline-hidden font-mono"
+                        placeholder={rawMilkTokenPolicyMode === 'DISABLED' ? 'Disabled by operational policy' : 'e.g. 001924'}
+                        className="w-full text-xs font-bold px-3 py-2 border rounded-xl focus:ring-2 focus:ring-[#1E3A8A] outline-hidden font-mono disabled:bg-slate-100 disabled:text-slate-400"
                       />
                       <p className="text-[10px] text-slate-500 mt-1">Manual paper token serial (digits only, leading zeros preserved)</p>
                     </div>

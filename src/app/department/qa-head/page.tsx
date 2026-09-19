@@ -118,6 +118,10 @@ export default function QAHeadDepartmentPage() {
       setFormError('A substantive governance reason of at least 3 characters is required.');
       return;
     }
+    if (['MOT_SHOP', 'DISPATCH'].includes(formTestingPoint) && formCategory === 'RELEASE') {
+      setFormError(`Release consequence semantics for testing point '${formTestingPoint}' are pending operational workflow approval. Only MONITORING rules may be configured.`);
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -372,13 +376,20 @@ export default function QAHeadDepartmentPage() {
               <div>
                 <label className="block font-bold text-slate-700 mb-1">Rule Category</label>
                 <select
-                  value={formCategory}
+                  value={['MOT_SHOP', 'DISPATCH'].includes(formTestingPoint) ? 'MONITORING' : formCategory}
                   onChange={(e) => setFormCategory(e.target.value as 'RELEASE' | 'MONITORING')}
                   className="w-full border border-slate-300 rounded-lg p-2.5 font-medium text-slate-800"
                 >
-                  <option value="RELEASE">RELEASE (Blocking if Out-of-Spec)</option>
+                  <option value="RELEASE" disabled={['MOT_SHOP', 'DISPATCH'].includes(formTestingPoint)}>
+                    RELEASE {['MOT_SHOP', 'DISPATCH'].includes(formTestingPoint) ? '(Pending workflow approval)' : '(Blocking if Out-of-Spec)'}
+                  </option>
                   <option value="MONITORING">MONITORING (Advisory / Non-blocking)</option>
                 </select>
+                {['MOT_SHOP', 'DISPATCH'].includes(formTestingPoint) && (
+                  <p className="mt-1 text-[11px] text-amber-700 font-medium">
+                    Testing point {formTestingPoint} supports MONITORING rules only until release consequence workflow is approved.
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">

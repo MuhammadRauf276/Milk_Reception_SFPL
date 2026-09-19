@@ -129,6 +129,13 @@ export async function POST(req: Request) {
       );
     }
 
+    if (['MOT_SHOP', 'DISPATCH'].includes(validated.testingPoint) && validated.ruleCategory === 'RELEASE') {
+      return NextResponse.json(
+        { error: `Release consequence semantics for testing point '${validated.testingPoint}' are pending operational workflow approval. Only 'MONITORING' or 'INFORMATIONAL' rules may be configured for ${validated.testingPoint}.` },
+        { status: 400 }
+      );
+    }
+
     const effectiveDate = validated.effectiveFrom ? new Date(validated.effectiveFrom) : new Date();
 
     const newRule = await QualityRuleService.createOrSupersedeRule({
