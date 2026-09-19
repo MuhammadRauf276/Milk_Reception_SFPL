@@ -170,6 +170,8 @@ model VisitPortion {
   plant_correction_reason             String?   @map("plant_correction_reason") @db.Text
   plant_corrected_by                  BigInt?   @map("plant_corrected_by")
   plant_corrected_at                  DateTime? @map("plant_corrected_at") @db.Timestamp(6)
+  correction_count                    Int       @default(0) @map("correction_count")
+  manager_correction_count            Int       @default(0) @map("manager_correction_count")
   created_at              DateTime          @default(now()) @map("created_at") @db.Timestamp(6)
   updated_at              DateTime          @updatedAt @map("updated_at") @db.Timestamp(6)
 
@@ -379,6 +381,7 @@ model PlantLabResult {
   applied_rule_id      BigInt?   @map("applied_rule_id")
   applied_rule_version Int?      @map("applied_rule_version")
   evaluation_status    String?   @map("evaluation_status") @db.VarChar(50)
+  evaluation_snapshot  Json?     @map("evaluation_snapshot")
   created_at           DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
   updated_at           DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
 
@@ -1264,6 +1267,7 @@ model ZmccLabResult {
   applied_rule_version    Int?      @map("applied_rule_version")
   evaluation_status       String?   @map("evaluation_status") @db.VarChar(50)
   is_passed               Boolean?  @map("is_passed")
+  evaluation_snapshot     Json?     @map("evaluation_snapshot")
   recorded_at             DateTime? @map("recorded_at") @db.Timestamp(6)
   created_at              DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
   updated_at              DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)

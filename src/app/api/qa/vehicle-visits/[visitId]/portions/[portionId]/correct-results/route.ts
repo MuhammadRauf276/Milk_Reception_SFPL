@@ -4,6 +4,7 @@ import { prisma } from '@core/db';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { QualityRuleService } from '@/backend/services/qualityRuleService';
+import { getOrAssignPlantQATests } from '@/backend/services/labTestAssignmentService';
 
 const correctResultItemSchema = z.object({
   test_id: z.string().or(z.number()),
@@ -78,6 +79,16 @@ export async function POST(
     const body = await req.json();
     const validated = correctResultsSchema.parse(body);
 
+    // Reject duplicate test IDs in payload
+    const seenTestIds = new Set<string>();
+    for (const item of validated.results) {
+      const tid = String(item.test_id).trim();
+      if (seenTestIds.has(tid)) {
+        return NextResponse.json({ error: `Duplicate test ID ${tid} in correction payload.` }, { status: 400 });
+      }
+      seenTestIds.add(tid);
+    }
+
     const result = await prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT id FROM vehicle_visit WHERE id = ${visitId} FOR UPDATE`;
 
@@ -89,7 +100,70 @@ export async function POST(
         throw new Error('NOT_FOUND:Portion not found for this vehicle visit.');
       }
 
-      // Resolve rule at original authoritative test/result/session timestamp (Item E)
+      // 5-save limit check for QA Manager
+      const isManager = dbUser.role === 'QA_MANAGER';
+      const currentManagerCount = portion.manager_correction_count ?? 0;
+      if (isManager && currentManagerCount >= 5) {
+        throw new Error('MAX_CORRECTIONS_EXCEEDED:Maximum 5 manager corrections exceeded for this portion.');
+      }
+
+      const existingResults = await tx.plantLabResult.findMany({
+        where: { portion_id: portion.id },
+        include: { lab_test: true },
+      });
+      const existingResultMap = new Map(existingResults.map((r) => [r.test_id.toString(), r]));
+
+      // Load frozen test assignment snapshot
+      const assignedPlantTests = await getOrAssignPlantQATests(tx, visitId);
+      const assignedMap = new Map(assignedPlantTests.map((t) => [t.test_id.toString(), t]));
+
+      // Reject foreign test IDs and direct edits of CALCULATED tests
+      for (const item of validated.results) {
+        const tid = String(item.test_id).trim();
+        const existing = existingResultMap.get(tid);
+        if (!existing) {
+          throw new Error(`BAD_REQUEST:Test ID ${tid} does not belong to portion.`);
+        }
+        const assignedDef = assignedMap.get(tid);
+        const resType = assignedDef?.result_type_snapshot || existing.lab_test?.resultType;
+        if (resType === 'CALCULATED') {
+          throw new Error(`BAD_REQUEST:Test ID ${tid} is a CALCULATED test and cannot be directly corrected.`);
+        }
+      }
+
+      // Check for real changes vs no-op
+      let hasRealChanges = false;
+      for (const item of validated.results) {
+        const tid = String(item.test_id).trim();
+        const existing = existingResultMap.get(tid)!;
+        const oldNum = existing.numeric_value !== null ? Number(existing.numeric_value) : null;
+        const newNum = item.numeric_value !== undefined && item.numeric_value !== null ? Number(item.numeric_value) : null;
+        const oldTxt = existing.text_value ?? null;
+        const newTxt = item.text_value !== undefined && item.text_value !== null ? item.text_value.trim() : null;
+        const oldPerf = existing.performance_status || 'PERFORMED';
+        const newPerf = item.performance_status || 'PERFORMED';
+        const oldReason = existing.not_performed_reason ?? null;
+        const newReason = newPerf === 'NOT_PERFORMED' ? (item.not_performed_reason?.trim() || null) : null;
+
+        if (oldNum !== newNum || oldTxt !== newTxt || oldPerf !== newPerf || oldReason !== newReason) {
+          hasRealChanges = true;
+          break;
+        }
+      }
+
+      if (!hasRealChanges) {
+        return {
+          success: true,
+          count: 0,
+          noOp: true,
+          message: 'No changes detected. Operational record remains unaltered.',
+          system_quality_outcome: portion.system_quality_outcome,
+          correction_count: portion.correction_count ?? 0,
+          manager_correction_count: portion.manager_correction_count ?? 0,
+        };
+      }
+
+      // Resolve rule at original authoritative test/result/session timestamp
       const authoritativeTs = portion.plant_decided_at || portion.created_at || (await tx.vehicleVisit.findUnique({ where: { id: visitId } }))?.created_at || new Date();
       const activeRulesMap = await QualityRuleService.resolveActiveRulesForTestingPoint('PLANT_QA', authoritativeTs, tx);
       const correctionsMade: any[] = [];
@@ -97,35 +171,34 @@ export async function POST(
 
       for (const item of validated.results) {
         const testIdBigInt = BigInt(String(item.test_id));
-
-        const existingResult = await tx.plantLabResult.findFirst({
-          where: { portion_id: portion.id, test_id: testIdBigInt },
-        });
-
-        if (!existingResult) {
-          continue;
-        }
+        const existingResult = existingResultMap.get(testIdBigInt.toString())!;
 
         oldResultsEvidence.push({
           test_id: testIdBigInt.toString(),
           numeric_value: existingResult.numeric_value ? Number(existingResult.numeric_value) : null,
           text_value: existingResult.text_value,
+          performance_status: existingResult.performance_status,
+          not_performed_reason: existingResult.not_performed_reason,
           evaluation_status: existingResult.evaluation_status,
           is_passed: existingResult.is_passed,
           applied_rule_id: existingResult.applied_rule_id ? existingResult.applied_rule_id.toString() : null,
           applied_rule_version: existingResult.applied_rule_version,
+          tested_by: existingResult.tested_by ? existingResult.tested_by.toString() : null,
         });
 
         const activeRule = activeRulesMap.get(String(testIdBigInt)) || null;
+        const assignedDef = assignedMap.get(String(testIdBigInt));
         const evalRes = QualityRuleService.evaluateQualityResult({
           testId: testIdBigInt,
-          resultType: existingResult.numeric_value !== null ? 'NUMERIC' : 'QUALITATIVE',
+          resultType: assignedDef?.result_type_snapshot || (existingResult.numeric_value !== null ? 'NUMERIC' : 'QUALITATIVE'),
           numericValue: item.numeric_value ?? null,
           textValue: item.text_value ?? null,
           rule: activeRule,
+          resultOptions: assignedDef?.result_options_snapshot || existingResult.lab_test?.resultOptions,
           testingPoint: 'PLANT_QA',
         });
 
+        // Update PlantLabResult keeping original tested_by immutable
         await tx.plantLabResult.update({
           where: { id: existingResult.id },
           data: {
@@ -135,7 +208,7 @@ export async function POST(
             not_performed_reason: item.performance_status === 'NOT_PERFORMED' ? (item.not_performed_reason || 'Not performed') : null,
             is_passed: evalRes.isPassed,
             evaluation_status: evalRes.evaluationStatus,
-            tested_by: dbUser.id,
+            evaluation_snapshot: evalRes.evaluationSnapshot as any,
             result_timestamp: authoritativeTs,
             applied_rule_id: evalRes.appliedRuleId ?? null,
             applied_rule_version: evalRes.appliedRuleVersion ?? null,
@@ -155,21 +228,19 @@ export async function POST(
         });
       }
 
-      // Re-aggregate all required Plant QA evaluations for the portion
-      const allResults = await tx.plantLabResult.findMany({
+      // Re-aggregate all required Plant QA evaluations for the portion using frozen assignment snapshot
+      const updatedAllResults = await tx.plantLabResult.findMany({
         where: { portion_id: portion.id },
-        include: { lab_test: true },
       });
 
-      const allEvaluations = allResults.map((r) => ({
+      const allEvaluations = updatedAllResults.map((r) => ({
         evaluationStatus: r.evaluation_status || 'PENDING',
         performanceStatus: r.performance_status,
-        isRequired: r.lab_test?.isRequired ?? false,
+        isRequired: assignedMap.get(r.test_id.toString())?.is_required_snapshot ?? true,
       }));
 
       const newSystemQualityOutcome = QualityRuleService.aggregateSystemQualityOutcome(allEvaluations);
 
-      // Conflict routing: If corrected system outcome conflicts with human decision, use manager-review semantics
       let newPlantDecision = portion.plant_decision;
       let newManagerReviewStatus = portion.manager_review_status;
 
@@ -178,6 +249,10 @@ export async function POST(
         newManagerReviewStatus = 'PENDING';
       }
 
+      const now = new Date();
+      const newTotalCount = (portion.correction_count ?? 0) + 1;
+      const newManagerCount = isManager ? currentManagerCount + 1 : currentManagerCount;
+
       await tx.visitPortion.update({
         where: { id: portion.id },
         data: {
@@ -185,6 +260,11 @@ export async function POST(
           plant_decision: newPlantDecision,
           current_status: newPlantDecision || portion.current_status || 'PENDING',
           manager_review_status: newManagerReviewStatus,
+          correction_count: newTotalCount,
+          manager_correction_count: newManagerCount,
+          plant_corrected_by: dbUser.id,
+          plant_corrected_at: now,
+          plant_correction_reason: validated.reason,
         },
       });
 
@@ -197,6 +277,8 @@ export async function POST(
             portion_id: portion.id.toString(),
             plant_decision: portion.plant_decision,
             system_quality_outcome: portion.system_quality_outcome,
+            correction_count: portion.correction_count ?? 0,
+            manager_correction_count: portion.manager_correction_count ?? 0,
             results: oldResultsEvidence,
           },
           new_values: {
@@ -206,19 +288,34 @@ export async function POST(
             reason: validated.reason,
             results: correctionsMade,
             actor: dbUser.id.toString(),
-            timestamp: new Date().toISOString(),
+            role: dbUser.role,
+            correction_count: newTotalCount,
+            manager_correction_count: newManagerCount,
+            timestamp: now.toISOString(),
           },
           user_id: dbUser.id,
         },
       });
 
-      return { success: true, count: correctionsMade.length, system_quality_outcome: newSystemQualityOutcome };
+      return {
+        success: true,
+        count: correctionsMade.length,
+        system_quality_outcome: newSystemQualityOutcome,
+        correction_count: newTotalCount,
+        manager_correction_count: newManagerCount,
+      };
     });
 
     return NextResponse.json(result, { status: 200 });
   } catch (err: any) {
     if (err.message?.startsWith('NOT_FOUND:')) {
       return NextResponse.json({ error: err.message.replace('NOT_FOUND:', '') }, { status: 404 });
+    }
+    if (err.message?.startsWith('MAX_CORRECTIONS_EXCEEDED:')) {
+      return NextResponse.json({ error: 'MAX_CORRECTIONS_EXCEEDED', message: err.message.replace('MAX_CORRECTIONS_EXCEEDED:', '') }, { status: 400 });
+    }
+    if (err.message?.startsWith('BAD_REQUEST:')) {
+      return NextResponse.json({ error: err.message.replace('BAD_REQUEST:', '') }, { status: 400 });
     }
     if (err.name === 'ZodError') {
       return NextResponse.json({ error: err.issues?.[0]?.message || 'Validation error' }, { status: 400 });

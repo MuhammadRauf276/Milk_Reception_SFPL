@@ -849,54 +849,68 @@ All paginated collection APIs must return a standardized pagination envelope:
 
 ### 29A. Quality Governance & SOP Rules Hierarchy
 - **QA Head Sole Authority**: `QA_HEAD` exclusively owns quality rules (`LabTestRule`), parameter thresholds, rule categories, and testing points. Super Admin cannot configure QA rules; operators cannot bypass them.
-- **Authoritative Testing Points**:
-  - `PLANT_RECEPTION`: Plant intake QA testing.
-  - `ZMCC_COLLECTION`: ZMCC intake QA testing (MOT and Local Supplier).
+- **Canonical Testing Points**:
+  - `PLANT_QA`: Plant intake QA testing.
+  - `ZMCC_LAB_MOT`: ZMCC intake QA testing for MOT collections.
+  - `ZMCC_LAB_LOCAL_SUPPLIER`: ZMCC intake QA testing for local suppliers.
   - `MOT_SHOP`: Mobile collection testing at collection stops.
   - `DISPATCH`: Upstream dispatch quality testing.
-- **Release Rule Restriction**:
-  - `rule_category = 'RELEASE'` is strictly restricted to testing points that possess formal release workflows (`PLANT_RECEPTION`, `ZMCC_COLLECTION`).
-  - Configuring `RELEASE` rules on `MOT_SHOP` or `DISPATCH` is forbidden and rejected by API and UI (they support `ACCEPTANCE`, `REJECTION`, `WARNING`, `MONITORING`).
+  - Legacy `ZMCC_LAB_CONTRACTOR`: retained strictly for historical compatibility.
+  - Aliases such as `PLANT_RECEPTION` and `ZMCC_COLLECTION` are forbidden.
+- **Rule Categories & Release Restriction**:
+  - The canonical rule categories are strictly `RELEASE` and `MONITORING`.
+  - `rule_category = 'RELEASE'` is strictly restricted to authoritative release testing points (`PLANT_QA`, `ZMCC_LAB_MOT`, `ZMCC_LAB_LOCAL_SUPPLIER`).
+  - Configuring `RELEASE` rules on `MOT_SHOP` or `DISPATCH` is forbidden (they support `MONITORING` rules only).
+  - MONITORING rules provide warning evidence and never reject milk or trigger OUT_OF_SPEC on their own.
 - **Historical Rule Versioning & Advisory Lock**:
   - Rule updates never overwrite history. `createOrSupersedeRule` serializes under PostgreSQL advisory transaction lock (`pg_advisory_xact_lock(hashtext('quality_rule_' || testing_point || '_' || rule_category || '_' || lab_test_id))`).
   - Sets previous rule's `effective_to = now`, creates next sequential version with `effective_from = now`.
   - Historical evaluations resolve rules by matching `effective_from <= eventTimestamp AND (effective_to IS NULL OR eventTimestamp < effective_to)`.
   - Schema enforces unique index `@@unique([lab_test_id, testing_point, rule_category, version])`.
 - **Fail-Closed on Configuration Error**:
-  - If a rule configuration is invalid (e.g. min > max), `evaluateTestValue` yields `RULE_CONFIGURATION_ERROR`.
+  - If a rule configuration is invalid (e.g. min > max), `evaluateQualityResult` yields `RULE_CONFIGURATION_ERROR`.
+  - A missing required RELEASE rule on an authoritative release point yields `NO_ACTIVE_RULE` and fails closed.
   - Lab session completion strictly fails closed: no acceptance, no tank receipt, no stock mutation.
-  - Manager review/correction cannot approve or override a session when any rule has `RULE_CONFIGURATION_ERROR`.
+  - Manager exception override cannot approve or override a session when any required rule has `RULE_CONFIGURATION_ERROR` or `NO_ACTIVE_RULE`.
 
-### 29B. Managerial Exception Decisions & Audit Evidence
+### 29B. Three QA Truths & Authoritative Out-of-Spec Flow
+- **The Three QA Truths**:
+  1. **Observed Lab Result**: Actual numeric/text values, original tester (`tested_by`), and timestamp immutable. Never overwritten by manager decisions or measurement corrections.
+  2. **System Policy Evaluation**: Deterministic evaluation against versioned QA Head rules (`PASS`, `OUT_OF_SPEC`, `WARNING`, `NEUTRAL`, `NO_ACTIVE_RULE`, `RULE_CONFIGURATION_ERROR`). Stored with full rule evidence / evaluation snapshot. Manager decisions never alter system quality evaluation.
+  3. **Final Human Operational Decision**: Normal `ACCEPTED`, manager-resolved `REJECTED`, or manager `ACCEPTED_EXCEPTION`.
+- **Authoritative Out-of-Spec Escalation**:
+  - Lab Attendants do NOT make the final accept/reject decision when the system release evaluation is `OUT_OF_SPEC`.
+  - When `systemQualityOutcome === 'OUT_OF_SPEC'`, the session/portion automatically enters `HOLD` / `PENDING_MANAGER_REVIEW`.
+  - Physical flow is blocked: no tank receipt, no silo receipt, no gross weight progression.
+  - Plant QA routes to `QA_MANAGER`; ZMCC routes to own-ZMCC `ZMCC_MANAGER`.
+- **First Manager Decision vs Post-Final Corrections**:
+  - The first manager resolution of an escalated `OUT_OF_SPEC` item is the **first final human operational decision**.
+  - It does NOT consume one of the manager's 5 correction saves (`correction_count = 0`).
+  - It does NOT fabricate `original_decision = 'REJECTED'`.
+  - Subsequent post-final modifications consume the manager's 5-save limit (Super Admin unlimited).
 - **Decision Naming Contract**:
   - Effective operational decision is `ACCEPTED` (consumed by stock and intake ledgers).
   - Exception classification is strictly `ACCEPTED_EXCEPTION` (recorded in `corrected_decision` / `corrected_plant_decision`).
-  - Manager review status is `APPROVED`.
+  - Manager review status is `APPROVED` or `REJECTED`.
 - **Full Before/After Audit Evidence**:
-  - Manager review endpoints capture complete `old_values` (effective decision, original decision, exception classification, review status, system quality outcome, physical exit state, exit timestamp) and `new_values`.
+  - Manager review and correction endpoints capture complete `old_values` and `new_values` with mandatory substantive reason.
 - **Physical-State Guard**:
   - Review after physical exit is strictly audit-only (`REVIEWED_EXITED`); it cannot fabricate physical intake, weighing, unloading, or silo/tank movements.
 - **Exact-One-Active-Tank Requirement**:
-  - When manager approves a previously rejected ZMCC lab session that was not received into a tank, the system requires exactly one active tank for the ZMCC. If 0 active tanks, fails closed; if >1 active tanks, fails closed. No fake fallback quality metrics.
+  - When manager approves a previously unreceived ZMCC lab session on-site, the system requires exactly one active tank for the ZMCC. If 0 or >1 active tanks, fails closed.
 
-### 29C. Dual-Delta Decoupled Tank & Dispatch Stock Adjustments
-- **Decoupled Gross vs Commercial Movements**:
-  - Gross physical milk liters (`quantity_liters`) and Commercial 13% TS liters (`at_13ts_liters`) can delta in opposite directions.
-  - When signs match: 1 atomic ledger transaction (`ADJUSTMENT_IN` or `ADJUSTMENT_OUT`).
-  - When signs oppose: 2 independent atomic ledger transactions (one physical with `at_13ts_liters = 0`, one commercial with `quantity_liters = 0`).
-  - Supports physical-only and commercial-only adjustments; commercial delta is never truncated when negative.
-  - Validates physical tank capacity before positive physical adjustments, and checks stock non-negativity before negative adjustments.
+### 29C. Physical Tank & Dispatch Ledger Safety
+- **Physical Inventory = Gross Liters**:
+  - Tank inventory transactions represent physical milk movement only (`quantity_liters`).
+  - Liters @13TS is a commercial and quality metric attached as metadata on physical transactions and tracked on tank receipts and reconciliation records.
+  - Zero-quantity physical transactions (`quantity_liters = 0`) are strictly forbidden. Commercial-only @13TS deltas update operational snapshots and audit logs without creating fake inventory movements.
+  - Whole-vehicle dispatch quantity basis must remain `MEASURED` and cannot be corrected to `ESTIMATED`.
 
 ### 29D. Operational Paper References & Duplicate Scoping
-- **Decoupled Tokens**:
-  - `route_milk_token` and `raw_milk_token_number` are distinct, decoupled concepts.
-  - A raw milk token never falls back to route milk token; if route milk token is omitted, it remains `null`.
-  - UI enforces `raw_milk_token_number` based on the active `RAW_MILK_TOKEN` policy (`REQUIRED`, `OPTIONAL`, `DISABLED`).
+- **Decoupled Paper Series**:
+  - `SHOP_RMR` (`MotShopCollection.shop_rmr_number`), `RAW_MILK_TOKEN` (`ZmccMotArrival.raw_milk_token_number`), and `RAW_MILK_DISPATCH_NOTE` (`VehicleVisit.raw_milk_dispatch_note_number`) are three independent paper series.
+  - Leading zeros are preserved as strings. Values must match digits-only regex.
+  - No fallback between `raw_milk_token_number` and legacy `route_milk_token`.
 - **Configurable Duplicate Scoping**:
   - Policies support `duplicate_scope`: `GLOBAL` or `PER_SOURCE`.
-  - Super Admin can update policy mode, allow_duplicates, and duplicate_scope with mandatory reason and full before/after audit log.
-  - When `PER_SOURCE`, `scopeEntityId` is strictly required and passed at all validation and verification call sites (MOT shop collections, ZMCC arrivals, dispatches).
-
-
-
-
+  - Super Admin can update policy mode (`REQUIRED`, `OPTIONAL`, `DISABLED`), allow_duplicates, and duplicate_scope with mandatory reason and full audit log.

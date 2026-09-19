@@ -217,6 +217,7 @@ export async function POST(
         appliedRuleVersion: number | null;
         evaluationStatus: string;
         isPassed: boolean | null;
+        evaluationSnapshot?: any;
       }> = [];
 
       for (const res of validated.results) {
@@ -265,6 +266,7 @@ export async function POST(
           appliedRuleVersion: evalRes.appliedRuleVersion,
           evaluationStatus: evalRes.evaluationStatus,
           isPassed: evalRes.isPassed,
+          evaluationSnapshot: evalRes.evaluationSnapshot,
         });
       }
 
@@ -301,6 +303,7 @@ export async function POST(
               applied_rule_version: entry.appliedRuleVersion,
               evaluation_status: entry.evaluationStatus,
               is_passed: entry.isPassed,
+              evaluation_snapshot: (entry as any).evaluationSnapshot as any,
               tested_by: userIdBigInt,
             },
           });
@@ -320,6 +323,7 @@ export async function POST(
               applied_rule_version: entry.appliedRuleVersion,
               evaluation_status: entry.evaluationStatus,
               is_passed: entry.isPassed,
+              evaluation_snapshot: (entry as any).evaluationSnapshot as any,
               tested_by: userIdBigInt,
             },
           });
@@ -378,8 +382,39 @@ export async function POST(
       }
 
       // 8. Determine Portion Decision & Manager Review Escalation
-      if (isOperatorRejecting) {
-        // Attendant REJECT is immediate and final
+      // Business Rule: Lab Attendant does NOT make the final accept/reject decision when system release outcome is OUT_OF_SPEC.
+      if (systemQualityOutcome === 'OUT_OF_SPEC') {
+        // Automatic escalation to QA Manager Review Workflow
+        finalPlantDecision = 'PENDING';
+        finalManagerReviewStatus = 'PENDING';
+
+        await tx.visitPortion.update({
+          where: { id: portionId },
+          data: {
+            plant_decision: 'PENDING',
+            current_status: 'UNDER_TEST',
+            system_quality_outcome: 'OUT_OF_SPEC',
+            manager_review_status: 'PENDING',
+            manager_requested_decision: 'SYSTEM_OUT_OF_SPEC',
+            manager_review_requested_by_user_id: userIdBigInt,
+            manager_review_requested_at: targetOpTs,
+            manager_review_reason: 'SYSTEM_OUT_OF_SPEC: automatic escalation for out-of-spec test results',
+          },
+        });
+
+        if (session) {
+          await tx.qATestingSessionEvent.create({
+            data: {
+              session_id: session.id,
+              event_type: 'HOLD',
+              timestamp: targetOpTs,
+              user_id: userIdBigInt,
+              note: `Portion #${lockedPortion.portion_number} quality outcome is OUT_OF_SPEC; escalated to QA Manager review.`,
+            },
+          });
+        }
+      } else if (isOperatorRejecting) {
+        // Manual rejection of otherwise conforming milk
         finalPlantDecision = 'REJECTED';
         finalManagerReviewStatus = 'NONE';
 
@@ -403,69 +438,65 @@ export async function POST(
               event_type: 'PORTION_REJECTED',
               timestamp: targetOpTs,
               user_id: userIdBigInt,
-              note: `Portion #${lockedPortion.portion_number} REJECTED: ${rejectionReasonInput}`,
+              note: `Portion #${lockedPortion.portion_number} REJECTED manually: ${rejectionReasonInput}`,
             },
           });
         }
+
+        await tx.auditLog.create({
+          data: {
+            table_name: 'visit_portion',
+            record_id: portionId,
+            action: 'PLANT_QA_OPERATOR_MANUAL_REJECTION',
+            old_values: {
+              portion_id: portionId.toString(),
+              plant_decision: lockedPortion.plant_decision,
+            },
+            new_values: {
+              portion_id: portionId.toString(),
+              plant_decision: 'REJECTED',
+              rejection_reason: rejectionReasonInput,
+              rejection_remarks: rejectionRemarksInput,
+              system_quality_outcome: systemQualityOutcome,
+            },
+            user_id: userIdBigInt,
+          },
+        });
       } else {
         // Operator requested ACCEPTED
-        if (systemQualityOutcome === 'OUT_OF_SPEC') {
-          // Escalation to QA Manager Review Workflow
-          finalPlantDecision = 'PENDING';
-          finalManagerReviewStatus = 'PENDING';
+        if (systemQualityOutcome === 'RULE_CONFIGURATION_ERROR') {
+          throw new RouteError('Laboratory rule configuration error detected. QA completion is blocked.', 422);
+        }
+        if (systemQualityOutcome === 'NO_ACTIVE_RULE') {
+          throw new RouteError('Cannot accept milk: required laboratory release rule is missing. QA Head configuration required.', 422);
+        }
 
-          await tx.visitPortion.update({
-            where: { id: portionId },
+        // Normal Acceptance
+        finalPlantDecision = 'ACCEPTED';
+        finalManagerReviewStatus = 'NONE';
+
+        await tx.visitPortion.update({
+          where: { id: portionId },
+          data: {
+            plant_decision: 'ACCEPTED',
+            current_status: 'ACCEPTED',
+            system_quality_outcome: systemQualityOutcome,
+            manager_review_status: 'NONE',
+            plant_decided_by: userIdBigInt,
+            plant_decided_at: targetOpTs,
+          },
+        });
+
+        if (session) {
+          await tx.qATestingSessionEvent.create({
             data: {
-              plant_decision: 'PENDING',
-              current_status: 'UNDER_TEST',
-              system_quality_outcome: 'OUT_OF_SPEC',
-              manager_review_status: 'PENDING',
-              manager_requested_decision: 'ACCEPTED',
-              manager_review_requested_by_user_id: userIdBigInt,
-              manager_review_requested_at: targetOpTs,
+              session_id: session.id,
+              event_type: 'PORTION_ACCEPTED',
+              timestamp: targetOpTs,
+              user_id: userIdBigInt,
+              note: `Portion #${lockedPortion.portion_number} ACCEPTED with quality outcome ${systemQualityOutcome}.`,
             },
           });
-
-          if (session) {
-            await tx.qATestingSessionEvent.create({
-              data: {
-                session_id: session.id,
-                event_type: 'HOLD',
-                timestamp: targetOpTs,
-                user_id: userIdBigInt,
-                note: `Portion #${lockedPortion.portion_number} submitted ACCEPT with OUT_OF_SPEC quality outcome; escalated to QA Manager review.`,
-              },
-            });
-          }
-        } else {
-          // Normal Acceptance
-          finalPlantDecision = 'ACCEPTED';
-          finalManagerReviewStatus = 'NONE';
-
-          await tx.visitPortion.update({
-            where: { id: portionId },
-            data: {
-              plant_decision: 'ACCEPTED',
-              current_status: 'ACCEPTED',
-              system_quality_outcome: systemQualityOutcome,
-              manager_review_status: 'NONE',
-              plant_decided_by: userIdBigInt,
-              plant_decided_at: targetOpTs,
-            },
-          });
-
-          if (session) {
-            await tx.qATestingSessionEvent.create({
-              data: {
-                session_id: session.id,
-                event_type: 'PORTION_ACCEPTED',
-                timestamp: targetOpTs,
-                user_id: userIdBigInt,
-                note: `Portion #${lockedPortion.portion_number} ACCEPTED. System outcome: ${systemQualityOutcome}.`,
-              },
-            });
-          }
         }
       }
 

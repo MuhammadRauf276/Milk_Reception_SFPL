@@ -135,9 +135,48 @@ export async function POST(
       }
 
       // On-site:
-      // If already reviewed with same decision, idempotent return
+      // Fail closed if approving exception while rule configuration is broken or missing
+      if (validated.decision === 'APPROVE') {
+        if (portion.system_quality_outcome === 'RULE_CONFIGURATION_ERROR') {
+          throw new Error('CONFIG_ERROR:Cannot approve exception: Laboratory rule configuration error exists. This must be corrected by QA Head.');
+        }
+        if (portion.system_quality_outcome === 'NO_ACTIVE_RULE') {
+          throw new Error('NO_ACTIVE_RULE:Cannot approve exception: Missing required laboratory release rule. This must be corrected by QA Head.');
+        }
+      }
+
+      // Check idempotency with idempotency_key
+      if (validated.idempotency_key) {
+        const priorAudit = await tx.auditLog.findFirst({
+          where: {
+            table_name: 'visit_portion',
+            record_id: portionId,
+            action: { in: ['PLANT_QA_MANAGER_EXCEPTION_APPROVED', 'PLANT_QA_MANAGER_EXCEPTION_REJECTED'] },
+          },
+          orderBy: { id: 'desc' },
+        });
+
+        if (priorAudit && (priorAudit.new_values as any)?.idempotency_key === validated.idempotency_key) {
+          const priorDecision = (priorAudit.new_values as any)?.decision;
+          const priorReason = (priorAudit.new_values as any)?.reason;
+          if (priorDecision !== validated.decision || priorReason !== validated.reason) {
+            throw new Error('IDEMPOTENCY_CONFLICT:Conflict: Idempotency key reused with different decision or reason.');
+          }
+          return {
+            idempotent: true,
+            reviewOnly: false,
+            portion,
+            newVisitStatus: visit.current_status,
+          };
+        }
+      }
+
+      // Check if already reviewed with expectedStatus
       const expectedStatus = validated.decision === 'APPROVE' ? 'APPROVED' : 'REJECTED';
       if (portion.manager_review_status === expectedStatus) {
+        if (portion.manager_review_reason && portion.manager_review_reason !== validated.reason) {
+          throw new Error('IDEMPOTENCY_CONFLICT:Conflict: Manager decision was already recorded with a different reason.');
+        }
         return {
           idempotent: true,
           reviewOnly: false,
@@ -174,16 +213,20 @@ export async function POST(
         auditAction = 'PLANT_QA_MANAGER_EXCEPTION_REJECTED';
       }
 
+      // First decision on escalated OUT_OF_SPEC is the FIRST FINAL HUMAN DECISION, not a post-final correction.
+      const isFirstDecision = portion.manager_review_status === 'PENDING' || portion.plant_decision === 'PENDING';
+      const originalPlantDecision = portion.original_plant_decision ?? (isFirstDecision ? null : portion.plant_decision);
+
       const updatedPortion = await tx.visitPortion.update({
         where: { id: portionId },
         data: {
           plant_decision: newPlantDecision,
           current_status: newPlantDecision,
-          original_plant_decision: portion.original_plant_decision || portion.plant_decision || 'REJECTED',
+          original_plant_decision: originalPlantDecision,
           corrected_plant_decision: newCorrectedPlantDecision,
-          plant_correction_reason: validated.reason,
-          plant_corrected_by: userIdBigInt,
-          plant_corrected_at: now,
+          plant_correction_reason: isFirstDecision ? null : validated.reason,
+          plant_corrected_by: isFirstDecision ? null : userIdBigInt,
+          plant_corrected_at: isFirstDecision ? null : now,
           manager_review_status: newManagerReviewStatus,
           manager_reviewed_by_user_id: userIdBigInt,
           manager_reviewed_at: now,
@@ -314,6 +357,12 @@ export async function POST(
     if (error?.name === 'ZodError' || error?.issues) {
       const msg = error.issues?.[0]?.message || error.errors?.[0]?.message || error.message || 'Validation failed';
       return NextResponse.json({ error: msg }, { status: 400 });
+    }
+    if (error.message?.startsWith('IDEMPOTENCY_CONFLICT:')) {
+      return NextResponse.json({ error: error.message.replace('IDEMPOTENCY_CONFLICT:', '') }, { status: 409 });
+    }
+    if (error.message?.startsWith('CONFIG_ERROR:') || error.message?.startsWith('NO_ACTIVE_RULE:')) {
+      return NextResponse.json({ error: error.message.split(':')[1] }, { status: 422 });
     }
     const statusCode = error.message?.includes('VEHICLE_ALREADY_EXITED_REVIEW_ONLY') ? 409 : 400;
     return NextResponse.json({ error: error.message || 'Failed to process QA Manager decision' }, { status: statusCode });

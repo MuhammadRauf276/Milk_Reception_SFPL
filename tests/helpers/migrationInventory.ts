@@ -39,7 +39,7 @@ export function getTrackedMigrationCount(customRepoRoot?: string): number {
 /**
  * Asserts that the tracked migration count matches the expected number.
  */
-export function assertExactMigrationCount(expectedCount = 26, customRepoRoot?: string): void {
+export function assertExactMigrationCount(expectedCount = 31, customRepoRoot?: string): void {
   const actualCount = getTrackedMigrationCount(customRepoRoot);
   if (actualCount !== expectedCount) {
     throw new Error(

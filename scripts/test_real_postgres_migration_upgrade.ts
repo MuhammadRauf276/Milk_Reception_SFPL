@@ -348,12 +348,12 @@ async function runRealPostgresMigrationUpgradeTest() {
       'MIG-SCHEMA-3: Temporary vehicle quantity columns successfully dropped from dispatch_info'
     );
 
-    // Migration count check (26 tracked migrations)
+    // Migration count check (31 tracked migrations)
     const migrationDirs = fs.readdirSync(path.join(process.cwd(), 'prisma/migrations'))
       .filter((f) => fs.statSync(path.join(process.cwd(), 'prisma/migrations', f)).isDirectory());
     assert(
-      migrationDirs.length === 26,
-      'MIG-COUNT-1: Repository contains exactly 26 tracked migrations',
+      migrationDirs.length === 31,
+      'MIG-COUNT-1: Repository contains exactly 31 tracked migrations',
       `Found ${migrationDirs.length} migrations`
     );
     assert(
@@ -387,6 +387,26 @@ async function runRealPostgresMigrationUpgradeTest() {
     assert(
       migrationDirs.includes('20260915120000_zmcc_gate_exit_and_canonical_local_supplier'),
       'MIG-STAGE6GD3-26: 20260915120000_zmcc_gate_exit_and_canonical_local_supplier migration is present'
+    );
+    assert(
+      migrationDirs.includes('20260917080000_vehicle_dispatch_density_and_gross_liters'),
+      'MIG-STAGE6GE-27: 20260917080000_vehicle_dispatch_density_and_gross_liters migration is present'
+    );
+    assert(
+      migrationDirs.includes('20260917120000_vehicle_dispatch_dual_truth_and_tank_at13ts'),
+      'MIG-STAGE6GE-28: 20260917120000_vehicle_dispatch_dual_truth_and_tank_at13ts migration is present'
+    );
+    assert(
+      migrationDirs.includes('20260917130000_repair_zmcc_lab_correction_schema_drift'),
+      'MIG-STAGE6GE-29: 20260917130000_repair_zmcc_lab_correction_schema_drift migration is present'
+    );
+    assert(
+      migrationDirs.includes('20260918120000_stage_6g_f_plant_final_dual_reconciliation'),
+      'MIG-STAGE6GF-30: 20260918120000_stage_6g_f_plant_final_dual_reconciliation migration is present'
+    );
+    assert(
+      migrationDirs.includes('20260918140000_stage_6g_g_paper_references_and_corrections'),
+      'MIG-STAGE6GG-31: 20260918140000_stage_6g_g_paper_references_and_corrections migration is present'
     );
 
     // =========================================================================

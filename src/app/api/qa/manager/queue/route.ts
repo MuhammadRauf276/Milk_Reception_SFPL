@@ -81,17 +81,28 @@ export async function GET(req: Request) {
         notPerformedReason: r.not_performed_reason,
         evaluationStatus: r.evaluation_status,
         isPassed: r.is_passed,
-        appliedRuleVersion: r.applied_rule?.version || r.applied_rule_version || null,
-        appliedRule: r.applied_rule
+        appliedRuleVersion: (r as any).evaluation_snapshot?.releaseRule?.version || r.applied_rule?.version || r.applied_rule_version || null,
+        appliedRule: (r as any).evaluation_snapshot?.releaseRule
           ? {
-              id: r.applied_rule.id.toString(),
-              version: r.applied_rule.version,
-              category: r.applied_rule.rule_category,
-              minValue: r.applied_rule.min_value ? Number(r.applied_rule.min_value) : null,
-              maxValue: r.applied_rule.max_value ? Number(r.applied_rule.max_value) : null,
-              acceptableOption: r.applied_rule.acceptable_option,
+              id: (r as any).evaluation_snapshot.releaseRule.id,
+              version: (r as any).evaluation_snapshot.releaseRule.version,
+              category: (r as any).evaluation_snapshot.releaseRule.category,
+              minValue: (r as any).evaluation_snapshot.releaseRule.minValue,
+              maxValue: (r as any).evaluation_snapshot.releaseRule.maxValue,
+              acceptableOption: (r as any).evaluation_snapshot.releaseRule.acceptableOption,
             }
-          : null,
+          : (r.applied_rule
+            ? {
+                id: r.applied_rule.id.toString(),
+                version: r.applied_rule.version,
+                category: r.applied_rule.rule_category,
+                minValue: r.applied_rule.min_value ? Number(r.applied_rule.min_value) : null,
+                maxValue: r.applied_rule.max_value ? Number(r.applied_rule.max_value) : null,
+                acceptableOption: r.applied_rule.acceptable_option,
+              }
+            : null),
+        monitoringRule: (r as any).evaluation_snapshot?.monitoringRule || null,
+        evaluationSnapshot: (r as any).evaluation_snapshot || null,
       })),
     }));
 

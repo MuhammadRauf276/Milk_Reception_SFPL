@@ -143,6 +143,33 @@ describe('Stage 6G-G: Operational Paper References & Authorized Corrections (Int
           },
         ],
       });
+
+      await prisma.labTestRule.createMany({
+        data: [
+          {
+            lab_test_id: lrTest.id,
+            testing_point: 'ZMCC_LAB_MOT',
+            rule_category: 'RELEASE',
+            min_value: 26.0,
+            max_value: 32.0,
+            effective_from: new Date('2020-01-01'),
+            version: 1,
+            is_active: true,
+            created_by: superAdminUser.id,
+          },
+          {
+            lab_test_id: fatTest.id,
+            testing_point: 'ZMCC_LAB_MOT',
+            rule_category: 'RELEASE',
+            min_value: 3.5,
+            max_value: 6.0,
+            effective_from: new Date('2020-01-01'),
+            version: 1,
+            is_active: true,
+            created_by: superAdminUser.id,
+          },
+        ],
+      });
     }
   });
 
@@ -724,7 +751,7 @@ describe('Stage 6G-G: Operational Paper References & Authorized Corrections (Int
         reason: 'Super Admin trying to approve manager review',
       });
       expect(res.status).toBe(403);
-      expect(res.error).toContain('Only ZMCC Managers may correct finalized lab records');
+      expect(res.error).toContain('OUT_OF_SPEC quality exception review must be resolved by the ZMCC Manager');
     });
 
     it('approves on-site exception and creates exactly 1 tank receipt and inventory transaction', async () => {
@@ -798,7 +825,7 @@ describe('Stage 6G-G: Operational Paper References & Authorized Corrections (Int
             test_code_snapshot: lrTest!.testCode,
             test_name_snapshot: lrTest!.testName,
             result_type_snapshot: lrTest!.resultType,
-            result_options_snapshot: lrTest!.resultOptions,
+            result_options_snapshot: (lrTest!.resultOptions as any) ?? undefined,
             numeric_value: 28.5,
             is_passed: true,
             evaluation_status: 'CONFORMING',
@@ -809,7 +836,7 @@ describe('Stage 6G-G: Operational Paper References & Authorized Corrections (Int
             test_code_snapshot: fatTest!.testCode,
             test_name_snapshot: fatTest!.testName,
             result_type_snapshot: fatTest!.resultType,
-            result_options_snapshot: fatTest!.resultOptions,
+            result_options_snapshot: (fatTest!.resultOptions as any) ?? undefined,
             numeric_value: 3.9,
             is_passed: true,
             evaluation_status: 'CONFORMING',
@@ -923,6 +950,317 @@ describe('Stage 6G-G: Operational Paper References & Authorized Corrections (Int
         where: { record_id: session.id, action: 'ZMCC_MANAGER_REVIEW_AFTER_EXIT' },
       });
       expect(audit).not.toBeNull();
+    });
+  });
+
+  describe('7. Governance, Quota Limits & Fail-Closed Invariants (Section 21)', () => {
+    async function createMotArrivalHelper() {
+      const uid = `${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+      const route = await prisma.zmccRoute.create({
+        data: { zmcc_id: zmccSource.id, route_code: `R-G7-${uid}`, name: 'Route G7', origin: 'A', destination: 'B', created_by: zmccManagerUser.id },
+      });
+      const motProfile = await prisma.motProfile.create({
+        data: { zmcc_id: zmccSource.id, mot_code: `MOT-G7-${uid}`, name: 'MOT G7', phone_number: '03001234599', cnic: '31202-0000000-9', created_by: zmccManagerUser.id },
+      });
+      const motVeh = await prisma.motVehicle.create({
+        data: { zmcc_id: zmccSource.id, vehicle_number: `VEH-G7-${uid}`, created_by: zmccManagerUser.id },
+      });
+      const journey = await prisma.motJourney.create({
+        data: {
+          journey_number: `J-G7-${uid}`,
+          idempotency_key: `idem-j-g7-${uid}`,
+          zmcc_id: zmccSource.id,
+          route_id: route.id,
+          mot_profile_id: motProfile.id,
+          mot_vehicle_id: motVeh.id,
+          status: 'COMPLETED',
+          operational_date: new Date(),
+          assigned_by: zmccManagerUser.id,
+          assigned_at: new Date(),
+          started_at: new Date(),
+          assignment_latitude: 29.0,
+          assignment_longitude: 72.0,
+          start_latitude: 29.0,
+          start_longitude: 72.0,
+        },
+      });
+      return await prisma.zmccMotArrival.create({
+        data: {
+          journey_id: journey.id,
+          zmcc_id: zmccSource.id,
+          raw_milk_token_number: '007788',
+          zmcc_token: `TK-G7-${uid}`,
+          arrival_timestamp: new Date(),
+          arrival_date: new Date(),
+          client_event_id: `evt-g7-${uid}`,
+          recorded_by_user_id: pheUser.id,
+          gate_exit_required: true,
+          exit_timestamp: null,
+        },
+      });
+    }
+
+    it('enforces 5-save limit for ZMCC Manager while Super Admin has unlimited corrections', async () => {
+      const arrival = await createMotArrivalHelper();
+      const lrTest = await prisma.labTest.findUnique({ where: { testCode: 'LT-000008' } });
+      const fatTest = await prisma.labTest.findUnique({ where: { testCode: 'LT-000001' } });
+
+      const session = await prisma.zmccLabSession.create({
+        data: {
+          zmcc_id: zmccSource.id,
+          arrival_type: 'MOT',
+          mot_arrival_id: arrival.id,
+          status: 'COMPLETED',
+          decision: 'ACCEPTED',
+          manager_review_status: 'NONE',
+          system_quality_outcome: 'CONFORMING',
+          started_by_user_id: zmccLabAttendantUser.id,
+          completed_at: new Date(),
+          quantity_value: 1000,
+          quantity_unit: 'LITER',
+          correction_count: 0,
+          manager_correction_count: 0,
+        },
+      });
+
+      await prisma.zmccLabResult.createMany({
+        data: [
+          {
+            session_id: session.id,
+            test_id: lrTest!.id,
+            test_code_snapshot: lrTest!.testCode,
+            test_name_snapshot: lrTest!.testName,
+            result_type_snapshot: lrTest!.resultType,
+            numeric_value: 28.5,
+            is_passed: true,
+            evaluation_status: 'CONFORMING',
+          },
+          {
+            session_id: session.id,
+            test_id: fatTest!.id,
+            test_code_snapshot: fatTest!.testCode,
+            test_name_snapshot: fatTest!.testName,
+            result_type_snapshot: fatTest!.resultType,
+            numeric_value: 3.9,
+            is_passed: true,
+            evaluation_status: 'CONFORMING',
+          },
+        ],
+      });
+
+      // 5 Manager corrections should succeed
+      for (let i = 1; i <= 5; i++) {
+        const res = await correctCompletedSession(zmccManagerUser, session.id, {
+          quantity_value: 1000 + i * 10,
+          reason: `Manager correction #${i}`,
+        });
+        expect(res.status).toBe(200);
+        expect(res.data.manager_correction_count).toBe(i);
+        expect(res.data.correction_count).toBe(i);
+      }
+
+      // 6th Manager correction must be rejected with 400
+      const res6 = await correctCompletedSession(zmccManagerUser, session.id, {
+        quantity_value: 1100,
+        reason: 'Manager 6th correction attempt',
+      });
+      expect(res6.status).toBe(400);
+      expect(res6.error).toContain('Maximum correction limit (5) reached');
+
+      // Super Admin can perform 6th correction without consuming manager count
+      const resAdmin = await correctCompletedSession(superAdminUser, session.id, {
+        quantity_value: 1200,
+        reason: 'Super Admin correction after manager limit reached',
+      });
+      expect(resAdmin.status).toBe(200);
+      expect(resAdmin.data.manager_correction_count).toBe(5); // Preserved at 5
+      expect(resAdmin.data.correction_count).toBe(6); // Incremented to 6
+    });
+
+    it('rejects duplicate and foreign test_ids in correction payload with HTTP 400', async () => {
+      const arrival = await createMotArrivalHelper();
+      const lrTest = await prisma.labTest.findUnique({ where: { testCode: 'LT-000008' } });
+      const fatTest = await prisma.labTest.findUnique({ where: { testCode: 'LT-000001' } });
+
+      const session = await prisma.zmccLabSession.create({
+        data: {
+          zmcc_id: zmccSource.id,
+          arrival_type: 'MOT',
+          mot_arrival_id: arrival.id,
+          status: 'COMPLETED',
+          decision: 'ACCEPTED',
+          system_quality_outcome: 'CONFORMING',
+          started_by_user_id: zmccLabAttendantUser.id,
+          completed_at: new Date(),
+          quantity_value: 1000,
+          quantity_unit: 'LITER',
+        },
+      });
+
+      await prisma.zmccLabResult.create({
+        data: {
+          session_id: session.id,
+          test_id: lrTest!.id,
+          test_code_snapshot: lrTest!.testCode,
+          test_name_snapshot: lrTest!.testName,
+          result_type_snapshot: lrTest!.resultType,
+          numeric_value: 28.0,
+          is_passed: true,
+          evaluation_status: 'CONFORMING',
+        },
+      });
+
+      // Duplicate test_id in payload
+      const dupRes = await correctCompletedSession(zmccManagerUser, session.id, {
+        reason: 'Testing duplicate test_id rejection',
+        results: [
+          { test_id: lrTest!.id.toString(), numeric_value: 28.5 },
+          { test_id: lrTest!.id.toString(), numeric_value: 29.0 },
+        ],
+      });
+      expect(dupRes.status).toBe(400);
+      expect(dupRes.error).toContain('Duplicate test_id');
+
+      // Foreign test_id not in session
+      const foreignRes = await correctCompletedSession(zmccManagerUser, session.id, {
+        reason: 'Testing foreign test_id rejection',
+        results: [
+          { test_id: fatTest!.id.toString(), numeric_value: 4.2 },
+        ],
+      });
+      expect(foreignRes.status).toBe(400);
+      expect(foreignRes.error).toContain('does not belong to this session');
+    });
+
+    it('first operational decision on PENDING review does not consume manager correction count', async () => {
+      const arrival = await createMotArrivalHelper();
+      const lrTest = await prisma.labTest.findUnique({ where: { testCode: 'LT-000008' } });
+      const fatTest = await prisma.labTest.findUnique({ where: { testCode: 'LT-000001' } });
+
+      const session = await prisma.zmccLabSession.create({
+        data: {
+          zmcc_id: zmccSource.id,
+          arrival_type: 'MOT',
+          mot_arrival_id: arrival.id,
+          status: 'COMPLETED',
+          decision: 'REJECTED',
+          rejection_reason: 'Quality parameter breach',
+          manager_review_status: 'PENDING',
+          system_quality_outcome: 'OUT_OF_SPEC',
+          started_by_user_id: zmccLabAttendantUser.id,
+          completed_at: new Date(),
+          quantity_value: 1500,
+          quantity_unit: 'LITER',
+          correction_count: 0,
+          manager_correction_count: 0,
+        },
+      });
+
+      await prisma.zmccLabResult.createMany({
+        data: [
+          {
+            session_id: session.id,
+            test_id: lrTest!.id,
+            test_code_snapshot: lrTest!.testCode,
+            test_name_snapshot: lrTest!.testName,
+            result_type_snapshot: lrTest!.resultType,
+            numeric_value: 28.5,
+            is_passed: true,
+            evaluation_status: 'CONFORMING',
+          },
+          {
+            session_id: session.id,
+            test_id: fatTest!.id,
+            test_code_snapshot: fatTest!.testCode,
+            test_name_snapshot: fatTest!.testName,
+            result_type_snapshot: fatTest!.resultType,
+            numeric_value: 3.9,
+            is_passed: true,
+            evaluation_status: 'CONFORMING',
+          },
+        ],
+      });
+
+      // Manager resolves PENDING exception -> this is the FIRST operational decision
+      const res = await correctCompletedSession(zmccManagerUser, session.id, {
+        decision: 'ACCEPTED',
+        reason: 'First operational human decision on escalated out of spec',
+      });
+
+      expect(res.status).toBe(200);
+      expect(res.data.decision).toBe('ACCEPTED');
+      expect(res.data.manager_review_status).toBe('APPROVED');
+      // Must NOT consume correction count or manager correction count
+      expect(res.data.correction_count).toBe(0);
+      expect(res.data.manager_correction_count).toBe(0);
+      // original_decision should be null, not falsely 'REJECTED'
+      expect(res.data.original_decision).toBeNull();
+    });
+
+    it('fails closed with HTTP 422 if approving exception while RULE_CONFIGURATION_ERROR exists', async () => {
+      const arrival = await createMotArrivalHelper();
+      const session = await prisma.zmccLabSession.create({
+        data: {
+          zmcc_id: zmccSource.id,
+          arrival_type: 'MOT',
+          mot_arrival_id: arrival.id,
+          status: 'COMPLETED',
+          decision: 'REJECTED',
+          rejection_reason: 'Quality parameter error',
+          manager_review_status: 'PENDING',
+          system_quality_outcome: 'RULE_CONFIGURATION_ERROR',
+          started_by_user_id: zmccLabAttendantUser.id,
+          completed_at: new Date(),
+          quantity_value: 1500,
+          quantity_unit: 'LITER',
+        },
+      });
+
+      const res = await correctCompletedSession(zmccManagerUser, session.id, {
+        decision: 'ACCEPTED',
+        reason: 'Attempting to approve exception under broken rule config',
+      });
+
+      expect(res.status).toBe(422);
+      expect(res.error).toContain('Laboratory rule configuration error exists');
+    });
+
+    it('handles idempotency replay (200) and detects conflicting reasons (409) for manager decisions', async () => {
+      const arrival = await createMotArrivalHelper();
+      const session = await prisma.zmccLabSession.create({
+        data: {
+          zmcc_id: zmccSource.id,
+          arrival_type: 'MOT',
+          mot_arrival_id: arrival.id,
+          status: 'COMPLETED',
+          decision: 'REJECTED',
+          rejection_reason: 'Acidity too high for reception',
+          manager_review_status: 'REJECTED',
+          manager_review_reason: 'Acidity too high for reception',
+          system_quality_outcome: 'OUT_OF_SPEC',
+          started_by_user_id: zmccLabAttendantUser.id,
+          completed_at: new Date(),
+          quantity_value: 1500,
+          quantity_unit: 'LITER',
+        },
+      });
+
+      // Exact replay with same decision and same reason returns 200
+      const replayRes = await correctCompletedSession(zmccManagerUser, session.id, {
+        decision: 'REJECTED',
+        reason: 'Acidity too high for reception',
+        rejection_reason: 'Acidity too high for reception',
+      });
+      expect(replayRes.status).toBe(200);
+
+      // Replay with different reason returns 409 Conflict
+      const conflictRes = await correctCompletedSession(zmccManagerUser, session.id, {
+        decision: 'REJECTED',
+        reason: 'Different reason trying to overwrite decision',
+        rejection_reason: 'Different reason',
+      });
+      expect(conflictRes.status).toBe(409);
+      expect(conflictRes.error).toContain('Conflict');
     });
   });
 });

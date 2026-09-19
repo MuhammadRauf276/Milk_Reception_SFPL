@@ -1179,7 +1179,7 @@ async function runTests() {
     } catch {
       qaLabPlantPass = false;
     }
-    const otherPointsForQa: TestingPoint[] = ['MOT_SHOP', 'ZMCC_LAB_MOT', 'ZMCC_LAB_CONTRACTOR', 'DISPATCH'];
+    const otherPointsForQa: TestingPoint[] = ['MOT_SHOP', 'ZMCC_LAB_MOT', 'ZMCC_LAB_LOCAL_SUPPLIER', 'ZMCC_LAB_CONTRACTOR', 'DISPATCH'];
     for (const tp of otherPointsForQa) {
       try {
         assertCanReadEffectivePolicy('QA_LAB_ATTENDANT', tp);
@@ -1195,9 +1195,9 @@ async function runTests() {
       'QA_LAB_ATTENDANT has effective read access to PLANT_QA only, blocked from all other testing points'
     );
 
-    // M. ZMCC_LAB_ATTENDANT can effective-read: ZMCC_LAB_MOT, ZMCC_LAB_CONTRACTOR, DISPATCH
+    // M. ZMCC_LAB_ATTENDANT can effective-read: ZMCC_LAB_MOT, ZMCC_LAB_LOCAL_SUPPLIER, ZMCC_LAB_CONTRACTOR, DISPATCH
     let zmccLabAttendantPass = true;
-    for (const tp of ['ZMCC_LAB_MOT', 'ZMCC_LAB_CONTRACTOR', 'DISPATCH'] as TestingPoint[]) {
+    for (const tp of ['ZMCC_LAB_MOT', 'ZMCC_LAB_LOCAL_SUPPLIER', 'ZMCC_LAB_CONTRACTOR', 'DISPATCH'] as TestingPoint[]) {
       try {
         assertCanReadEffectivePolicy('ZMCC_LAB_ATTENDANT', tp);
       } catch {
@@ -1208,7 +1208,7 @@ async function runTests() {
       zmccLabAttendantPass,
       '25-M',
       'ZMCC_LAB_ATTENDANT_CAN_READ',
-      'ZMCC_LAB_ATTENDANT can effective-read ZMCC_LAB_MOT, ZMCC_LAB_CONTRACTOR, DISPATCH'
+      'ZMCC_LAB_ATTENDANT can effective-read ZMCC_LAB_MOT, ZMCC_LAB_LOCAL_SUPPLIER, ZMCC_LAB_CONTRACTOR, DISPATCH'
     );
 
     // N. ZMCC_LAB_ATTENDANT cannot effective-read: MOT_SHOP, PLANT_QA
@@ -1237,7 +1237,7 @@ async function runTests() {
       contOpDispatchPass = false;
     }
     let contOpOtherBlocked = true;
-    for (const tp of ['MOT_SHOP', 'ZMCC_LAB_MOT', 'ZMCC_LAB_CONTRACTOR', 'PLANT_QA'] as TestingPoint[]) {
+    for (const tp of ['MOT_SHOP', 'ZMCC_LAB_MOT', 'ZMCC_LAB_LOCAL_SUPPLIER', 'ZMCC_LAB_CONTRACTOR', 'PLANT_QA'] as TestingPoint[]) {
       try {
         assertCanReadEffectivePolicy('CONTRACTOR_OPERATOR', tp);
         contOpOtherBlocked = false;
@@ -1261,7 +1261,7 @@ async function runTests() {
       motShopPass = false;
     }
     let motOtherBlocked = true;
-    for (const tp of ['ZMCC_LAB_MOT', 'ZMCC_LAB_CONTRACTOR', 'DISPATCH', 'PLANT_QA'] as TestingPoint[]) {
+    for (const tp of ['ZMCC_LAB_MOT', 'ZMCC_LAB_LOCAL_SUPPLIER', 'ZMCC_LAB_CONTRACTOR', 'DISPATCH', 'PLANT_QA'] as TestingPoint[]) {
       try {
         assertCanReadEffectivePolicy('MOT', tp);
         motOtherBlocked = false;

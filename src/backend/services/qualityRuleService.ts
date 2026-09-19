@@ -9,12 +9,43 @@ export type QualityEvaluationStatus =
   | 'WARNING'
   | 'RULE_CONFIGURATION_ERROR';
 
+export interface QualityEvaluationSnapshot {
+  observedValue: {
+    numericValue: number | null;
+    textValue: string | null;
+  };
+  evaluationStatus: QualityEvaluationStatus;
+  isPassed: boolean | null;
+  reason?: string;
+  testingPoint?: string | null;
+  evaluatedAt: string;
+  releaseRule?: {
+    id: string;
+    version: number;
+    category: string;
+    minValue: number | null;
+    maxValue: number | null;
+    acceptableOption: string | null;
+    evaluationStatus: QualityEvaluationStatus;
+  } | null;
+  monitoringRule?: {
+    id: string;
+    version: number;
+    category: string;
+    minValue: number | null;
+    maxValue: number | null;
+    acceptableOption: string | null;
+    evaluationStatus: QualityEvaluationStatus;
+  } | null;
+}
+
 export interface QualityResultEvaluation {
   appliedRuleId: bigint | null;
   appliedRuleVersion: number | null;
   evaluationStatus: QualityEvaluationStatus;
   isPassed: boolean | null;
   reason?: string;
+  evaluationSnapshot?: QualityEvaluationSnapshot | null;
 }
 
 export interface CreateRuleInput {
@@ -163,6 +194,59 @@ export class QualityRuleService {
     return null;
   }
 
+  private static buildEvaluationSnapshot(
+  params: {
+    resultType: string;
+    numericValue?: number | Prisma.Decimal | null;
+    textValue?: string | null;
+    testingPoint?: string;
+  },
+  status: QualityEvaluationStatus,
+  isPassed: boolean | null,
+  reason?: string,
+  releaseRule?: LabTestRule | null,
+  releaseStatus?: QualityEvaluationStatus | null,
+  monitoringRule?: LabTestRule | null,
+  monitoringStatus?: QualityEvaluationStatus | null
+): QualityEvaluationSnapshot {
+  return {
+    observedValue: {
+      numericValue:
+        params.numericValue !== null && params.numericValue !== undefined
+          ? Number(params.numericValue)
+          : null,
+      textValue: params.textValue !== undefined && params.textValue !== null ? params.textValue : null,
+    },
+    evaluationStatus: status,
+    isPassed,
+    reason,
+    testingPoint: params.testingPoint || null,
+    evaluatedAt: new Date().toISOString(),
+    releaseRule: releaseRule
+      ? {
+          id: releaseRule.id.toString(),
+          version: releaseRule.version,
+          category: releaseRule.rule_category,
+          minValue: releaseRule.min_value !== null ? Number(releaseRule.min_value) : null,
+          maxValue: releaseRule.max_value !== null ? Number(releaseRule.max_value) : null,
+          acceptableOption: releaseRule.acceptable_option,
+          evaluationStatus: releaseStatus || status,
+        }
+      : null,
+    monitoringRule: monitoringRule
+      ? {
+          id: monitoringRule.id.toString(),
+          version: monitoringRule.version,
+          category: monitoringRule.rule_category,
+          minValue: monitoringRule.min_value !== null ? Number(monitoringRule.min_value) : null,
+          maxValue: monitoringRule.max_value !== null ? Number(monitoringRule.max_value) : null,
+          acceptableOption: monitoringRule.acceptable_option,
+          evaluationStatus: monitoringStatus || (status === 'WARNING' ? 'WARNING' : 'PASS'),
+        }
+      : null,
+  };
+}
+
   /**
    * Evaluates an observed test result against active LabTestRule(s) or result options.
    * Strictly separates observation from system evaluation.
@@ -185,6 +269,40 @@ export class QualityRuleService {
     resultOptions?: any;
     testingPoint?: string;
   }): QualityResultEvaluation {
+    const raw = this._evaluateRawQualityResult(params);
+    const effectiveReleaseRule: LabTestRule | null =
+      params.releaseRule || (params.rule && params.rule.rule_category === 'RELEASE' ? params.rule : null);
+    const effectiveMonitoringRule: LabTestRule | null =
+      params.monitoringRule ||
+      (params.rule && params.rule.rule_category === 'MONITORING' ? params.rule : ((params.rule as any)?.monitoringRule || null));
+
+    raw.evaluationSnapshot = this.buildEvaluationSnapshot(
+      params,
+      raw.evaluationStatus,
+      raw.isPassed,
+      raw.reason,
+      effectiveReleaseRule,
+      (raw as any).releaseStatus || (effectiveReleaseRule ? raw.evaluationStatus : null),
+      effectiveMonitoringRule,
+      (raw as any).monitoringStatus || (raw.evaluationStatus === 'WARNING' ? 'WARNING' : null)
+    );
+    return raw;
+  }
+
+  private static _evaluateRawQualityResult(params: {
+    testId?: bigint | number | string;
+    testCode?: string;
+    resultType: string;
+    numericValue?: number | Prisma.Decimal | null;
+    textValue?: string | null;
+    rule?: (LabTestRule & { isConfigurationError?: boolean; configurationErrorReason?: string; monitoringRule?: LabTestRule | null }) | null;
+    releaseRule?: LabTestRule | null;
+    monitoringRule?: LabTestRule | null;
+    isConfigurationError?: boolean;
+    configurationErrorReason?: string;
+    resultOptions?: any;
+    testingPoint?: string;
+  }): QualityResultEvaluation & { releaseStatus?: QualityEvaluationStatus; monitoringStatus?: QualityEvaluationStatus } {
     const { resultType, numericValue, textValue, rule, resultOptions } = params;
 
     // 1. Configuration Error Check

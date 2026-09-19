@@ -13,7 +13,8 @@ ALTER TABLE "mot_shop_collection" ADD COLUMN "shop_rmr_number" VARCHAR(50);
 -- AlterTable
 ALTER TABLE "plant_lab_result" ADD COLUMN "applied_rule_id" BIGINT,
 ADD COLUMN "applied_rule_version" INTEGER,
-ADD COLUMN "evaluation_status" VARCHAR(50);
+ADD COLUMN "evaluation_status" VARCHAR(50),
+ADD COLUMN "evaluation_snapshot" JSONB;
 
 -- AlterTable
 ALTER TABLE "vehicle_visit" ADD COLUMN "raw_milk_dispatch_note_number" VARCHAR(100);
@@ -31,11 +32,14 @@ ADD COLUMN "original_plant_decision" VARCHAR(255),
 ADD COLUMN "plant_corrected_at" TIMESTAMP(6),
 ADD COLUMN "plant_corrected_by" BIGINT,
 ADD COLUMN "plant_correction_reason" TEXT,
-ADD COLUMN "system_quality_outcome" VARCHAR(50);
+ADD COLUMN "system_quality_outcome" VARCHAR(50),
+ADD COLUMN "correction_count" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN "manager_correction_count" INTEGER NOT NULL DEFAULT 0;
 
 -- AlterTable
 ALTER TABLE "zmcc_lab_result" ADD COLUMN "applied_rule_id" BIGINT,
-ADD COLUMN "applied_rule_version" INTEGER;
+ADD COLUMN "applied_rule_version" INTEGER,
+ADD COLUMN "evaluation_snapshot" JSONB;
 
 -- AlterTable
 ALTER TABLE "zmcc_lab_session" ADD COLUMN "corrected_decision" VARCHAR(50),
@@ -124,6 +128,13 @@ ALTER TABLE "zmcc_lab_session" ADD CONSTRAINT "zmcc_lab_session_manager_review_r
 
 -- AddForeignKey
 ALTER TABLE "zmcc_lab_result" ADD CONSTRAINT "zmcc_lab_result_applied_rule_id_fkey" FOREIGN KEY ("applied_rule_id") REFERENCES "lab_test_rule"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddCheckConstraint
+ALTER TABLE "visit_portion" ADD CONSTRAINT "visit_portion_manager_correction_count_check" CHECK (
+  "manager_correction_count" >= 0 AND
+  "manager_correction_count" <= 5 AND
+  "manager_correction_count" <= "correction_count"
+);
 
 -- Seed initial REQUIRED paper reference policies
 INSERT INTO "paper_reference_policy" ("reference_type", "policy_mode", "allow_duplicates", "duplicate_scope", "updated_at", "created_at")

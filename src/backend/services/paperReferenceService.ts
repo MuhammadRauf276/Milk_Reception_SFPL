@@ -76,7 +76,7 @@ export class PaperReferenceService {
 
   /**
    * Resolves effective policy for a given reference type.
-   * If none configured in database, defaults to OPTIONAL with allow_duplicates = false.
+   * If none configured in database, defaults to REQUIRED with allow_duplicates = false and duplicate_scope = 'GLOBAL'.
    */
   static async getPolicy(
     referenceType: PaperReferenceType,
