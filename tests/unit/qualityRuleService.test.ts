@@ -233,5 +233,157 @@ describe('QualityRuleService (Unit Tests)', () => {
       const outcome = QualityRuleService.aggregateSystemQualityOutcome(evaluations);
       expect(outcome).toBe('PASS');
     });
+
+    it('does NOT block completion when an optional test has OUT_OF_SPEC or error', () => {
+      const evaluations: Array<QualityResultEvaluation & { isRequired?: boolean }> = [
+        { appliedRuleId: BigInt(1), appliedRuleVersion: 1, evaluationStatus: 'PASS', isPassed: true, isRequired: true },
+        { appliedRuleId: BigInt(2), appliedRuleVersion: 1, evaluationStatus: 'OUT_OF_SPEC', isPassed: false, isRequired: false },
+        { appliedRuleId: BigInt(3), appliedRuleVersion: 1, evaluationStatus: 'RULE_CONFIGURATION_ERROR', isPassed: false, isRequired: false },
+      ];
+
+      const outcome = QualityRuleService.aggregateSystemQualityOutcome(evaluations);
+      expect(outcome).toBe('PASS');
+    });
+
+    it('blocks completion when a required test has OUT_OF_SPEC even if optional tests pass', () => {
+      const evaluations: Array<QualityResultEvaluation & { isRequired?: boolean }> = [
+        { appliedRuleId: BigInt(1), appliedRuleVersion: 1, evaluationStatus: 'OUT_OF_SPEC', isPassed: false, isRequired: true },
+        { appliedRuleId: BigInt(2), appliedRuleVersion: 1, evaluationStatus: 'PASS', isPassed: true, isRequired: false },
+      ];
+
+      const outcome = QualityRuleService.aggregateSystemQualityOutcome(evaluations);
+      expect(outcome).toBe('OUT_OF_SPEC');
+    });
+  });
+
+  describe('RELEASE and MONITORING Coexistence & Governance (Directive 1, 3, 15)', () => {
+    it('evaluates RULE_CONFIGURATION_ERROR when rule has overlapping configuration error', () => {
+      const evalRes = QualityRuleService.evaluateQualityResult({
+        resultType: 'NUMERIC',
+        numericValue: 4.20,
+        isConfigurationError: true,
+        configurationErrorReason: 'Multiple overlapping active RELEASE rules',
+      });
+
+      expect(evalRes.evaluationStatus).toBe('RULE_CONFIGURATION_ERROR');
+      expect(evalRes.isPassed).toBe(false);
+      expect(evalRes.reason).toContain('overlapping');
+    });
+
+    it('evaluates PASS when value satisfies both coexisting RELEASE and MONITORING rules', () => {
+      const releaseRule = dummyRule({
+        rule_category: 'RELEASE',
+        min_value: new Prisma.Decimal('3.50'),
+        max_value: new Prisma.Decimal('5.50'),
+      });
+      const monitoringRule = dummyRule({
+        id: BigInt(102),
+        rule_category: 'MONITORING',
+        min_value: new Prisma.Decimal('4.00'),
+        max_value: new Prisma.Decimal('5.00'),
+      });
+
+      const evalRes = QualityRuleService.evaluateQualityResult({
+        resultType: 'NUMERIC',
+        numericValue: 4.50,
+        rule: releaseRule,
+        monitoringRule,
+      });
+
+      expect(evalRes.evaluationStatus).toBe('PASS');
+      expect(evalRes.isPassed).toBe(true);
+      expect(evalRes.appliedRuleId).toBe(BigInt(101));
+    });
+
+    it('evaluates WARNING when value passes RELEASE but breaches coexisting MONITORING threshold', () => {
+      const releaseRule = dummyRule({
+        rule_category: 'RELEASE',
+        min_value: new Prisma.Decimal('3.50'),
+        max_value: new Prisma.Decimal('5.50'),
+      });
+      const monitoringRule = dummyRule({
+        id: BigInt(102),
+        rule_category: 'MONITORING',
+        min_value: new Prisma.Decimal('4.00'),
+        max_value: new Prisma.Decimal('5.00'),
+      });
+
+      // 3.80 is within [3.50, 5.50] (passes release), but below [4.00, 5.00] (breaches monitoring)
+      const evalRes = QualityRuleService.evaluateQualityResult({
+        resultType: 'NUMERIC',
+        numericValue: 3.80,
+        rule: releaseRule,
+        monitoringRule,
+      });
+
+      expect(evalRes.evaluationStatus).toBe('WARNING');
+      expect(evalRes.isPassed).toBeNull(); // MONITORING warnings never reject
+      expect(evalRes.reason).toContain('Monitoring threshold exceeded');
+    });
+
+    it('evaluates OUT_OF_SPEC when value breaches RELEASE rule regardless of MONITORING rule', () => {
+      const releaseRule = dummyRule({
+        rule_category: 'RELEASE',
+        min_value: new Prisma.Decimal('3.50'),
+        max_value: new Prisma.Decimal('5.50'),
+      });
+      const monitoringRule = dummyRule({
+        id: BigInt(102),
+        rule_category: 'MONITORING',
+        min_value: new Prisma.Decimal('3.00'),
+        max_value: new Prisma.Decimal('6.00'),
+      });
+
+      // 3.20 breaches release (< 3.50)
+      const evalRes = QualityRuleService.evaluateQualityResult({
+        resultType: 'NUMERIC',
+        numericValue: 3.20,
+        rule: releaseRule,
+        monitoringRule,
+      });
+
+      expect(evalRes.evaluationStatus).toBe('OUT_OF_SPEC');
+      expect(evalRes.isPassed).toBe(false);
+    });
+
+    it('enforces that QA Head rule creation requires a substantive reason (>= 3 chars)', async () => {
+      await expect(
+        QualityRuleService.createOrSupersedeRule({
+          labTestId: BigInt(1),
+          testingPoint: 'PLANT_QA',
+          ruleCategory: 'RELEASE',
+          minValue: 3.5,
+          maxValue: 5.5,
+          createdByUserId: BigInt(1),
+          reason: '',
+        })
+      ).rejects.toThrow('A substantive reason');
+
+      await expect(
+        QualityRuleService.createOrSupersedeRule({
+          labTestId: BigInt(1),
+          testingPoint: 'PLANT_QA',
+          ruleCategory: 'RELEASE',
+          minValue: 3.5,
+          maxValue: 5.5,
+          createdByUserId: BigInt(1),
+          reason: '  ',
+        })
+      ).rejects.toThrow('A substantive reason');
+    });
+
+    it('strictly blocks new active rules for deprecated ZMCC_LAB_CONTRACTOR', async () => {
+      await expect(
+        QualityRuleService.createOrSupersedeRule({
+          labTestId: BigInt(1),
+          testingPoint: 'ZMCC_LAB_CONTRACTOR',
+          ruleCategory: 'RELEASE',
+          minValue: 3.5,
+          maxValue: 5.5,
+          createdByUserId: BigInt(1),
+          reason: 'Attempting to configure deprecated contractor rule',
+        })
+      ).rejects.toThrow("Testing point 'ZMCC_LAB_CONTRACTOR' is deprecated");
+    });
   });
 });

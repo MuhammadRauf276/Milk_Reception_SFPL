@@ -90,7 +90,7 @@ export class PaperReferenceService {
     return {
       id: BigInt(0),
       reference_type: referenceType,
-      policy_mode: PaperPolicyMode.OPTIONAL,
+      policy_mode: PaperPolicyMode.REQUIRED,
       allow_duplicates: false,
       duplicate_scope: 'GLOBAL',
       updated_by_user_id: null,
@@ -125,7 +125,7 @@ export class PaperReferenceService {
         result.push({
           id: BigInt(0),
           reference_type: type,
-          policy_mode: PaperPolicyMode.OPTIONAL,
+          policy_mode: PaperPolicyMode.REQUIRED,
           allow_duplicates: false,
           duplicate_scope: 'GLOBAL',
           updated_by_user_id: null,
@@ -138,22 +138,47 @@ export class PaperReferenceService {
   }
 
   /**
-   * Checks for duplicate reference values within their authoritative table.
+   * Checks for duplicate reference values within their authoritative table according to configured duplicate_scope.
+   * Fails closed if duplicate_scope is unconfigured or unsupported.
+   * No global cross-series unique constraints.
    */
   static async checkDuplicate(params: {
     referenceType: PaperReferenceType;
     value: string;
+    scopeEntityId?: bigint | number | string;
     excludeEntityId?: bigint | number | string;
+    duplicateScope?: string;
     tx?: Prisma.TransactionClient | typeof prisma;
   }): Promise<{ isDuplicate: boolean; existingRecordId?: bigint }> {
-    const { referenceType, value, excludeEntityId, tx = prisma } = params;
+    const { referenceType, value, scopeEntityId, excludeEntityId, tx = prisma } = params;
     const excludeIdBigInt = excludeEntityId ? BigInt(String(excludeEntityId)) : undefined;
+
+    let duplicateScope = params.duplicateScope;
+    if (!duplicateScope) {
+      const policy = await this.getPolicy(referenceType, tx);
+      duplicateScope = policy.duplicate_scope;
+    }
+
+    // Fail closed if unconfigured or unsupported duplicate scope
+    if (!duplicateScope || !['GLOBAL', 'PER_SOURCE'].includes(duplicateScope)) {
+      throw new PaperValidationError(
+        `Policy configuration error: duplicate scope "${duplicateScope}" is unconfigured or unsupported.`
+      );
+    }
+
+    const scopeIdBigInt = scopeEntityId ? BigInt(String(scopeEntityId)) : undefined;
+    if (duplicateScope === 'PER_SOURCE' && !scopeIdBigInt) {
+      throw new PaperValidationError(
+        `Policy configuration error: duplicate scope is PER_SOURCE but source ID was not provided.`
+      );
+    }
 
     if (referenceType === PaperReferenceType.SHOP_RMR) {
       const match = await tx.motShopCollection.findFirst({
         where: {
           shop_rmr_number: value,
           ...(excludeIdBigInt ? { id: { not: excludeIdBigInt } } : {}),
+          ...(duplicateScope === 'PER_SOURCE' && scopeIdBigInt ? { zmcc_id: scopeIdBigInt } : {}),
         },
         select: { id: true },
       });
@@ -165,6 +190,7 @@ export class PaperReferenceService {
         where: {
           raw_milk_token_number: value,
           ...(excludeIdBigInt ? { id: { not: excludeIdBigInt } } : {}),
+          ...(duplicateScope === 'PER_SOURCE' && scopeIdBigInt ? { zmcc_id: scopeIdBigInt } : {}),
         },
         select: { id: true },
       });
@@ -176,6 +202,7 @@ export class PaperReferenceService {
         where: {
           raw_milk_dispatch_note_number: value,
           ...(excludeIdBigInt ? { id: { not: excludeIdBigInt } } : {}),
+          ...(duplicateScope === 'PER_SOURCE' && scopeIdBigInt ? { procurement_source_id: scopeIdBigInt } : {}),
         },
         select: { id: true },
       });
@@ -193,6 +220,7 @@ export class PaperReferenceService {
     referenceType: PaperReferenceType,
     value: string | null | undefined,
     options: {
+      scopeEntityId?: bigint | number | string;
       excludeEntityId?: bigint | number | string;
       tx?: Prisma.TransactionClient | typeof prisma;
     } = {}
@@ -209,7 +237,9 @@ export class PaperReferenceService {
       const dupCheck = await this.checkDuplicate({
         referenceType,
         value: validation.normalized,
+        scopeEntityId: options.scopeEntityId,
         excludeEntityId: options.excludeEntityId,
+        duplicateScope: policy.duplicate_scope,
         tx,
       });
 

@@ -21,6 +21,7 @@ const createRuleSchema = z.object({
   warningTrigger: z.string().nullable().optional(),
   decisionConsequence: z.string().nullable().optional(),
   effectiveFrom: z.string().optional(),
+  reason: z.string().trim().min(3, 'A substantive governance reason of at least 3 characters is required.'),
 });
 
 export async function GET(req: Request) {
@@ -121,6 +122,13 @@ export async function POST(req: Request) {
     const body = await req.json();
     const validated = createRuleSchema.parse(body);
 
+    if (validated.testingPoint === 'ZMCC_LAB_CONTRACTOR') {
+      return NextResponse.json(
+        { error: "Testing point 'ZMCC_LAB_CONTRACTOR' is deprecated and blocked for new rules. Use 'ZMCC_LAB_MOT' or 'ZMCC_LAB_LOCAL_SUPPLIER' instead." },
+        { status: 400 }
+      );
+    }
+
     const effectiveDate = validated.effectiveFrom ? new Date(validated.effectiveFrom) : new Date();
 
     const newRule = await QualityRuleService.createOrSupersedeRule({
@@ -134,6 +142,7 @@ export async function POST(req: Request) {
       decisionConsequence: validated.decisionConsequence,
       effectiveFrom: effectiveDate,
       createdByUserId: dbUser.id,
+      reason: validated.reason,
     });
 
     return NextResponse.json({

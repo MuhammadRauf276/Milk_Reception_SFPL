@@ -72,21 +72,74 @@ export async function POST(
 
       // Check Physical-State Guard: Exit timestamp blocks fabrication of physical admission
       if (visit.gate_log?.exit_timestamp) {
-        if (validated.decision === 'APPROVE') {
-          throw new Error('VEHICLE_ALREADY_EXITED_REVIEW_ONLY: Vehicle has already exited the plant; physical admission cannot be granted.');
-        }
-      }
-
-      // If already reviewed with same decision, idempotent return
-      if (portion.manager_review_status !== 'PENDING') {
-        const expectedStatus = validated.decision === 'APPROVE' ? 'APPROVED' : 'REJECTED';
-        if (portion.manager_review_status === expectedStatus) {
+        // Exited -> audit-only review without fabrication (no fake gross, unloading, receipt, silo stock, or error)
+        if (portion.manager_review_status === 'REVIEWED_EXITED') {
           return {
             idempotent: true,
+            reviewOnly: true,
             portion,
+            newVisitStatus: visit.current_status,
           };
         }
-        throw new Error(`Portion is not pending QA Manager review (current review status: ${portion.manager_review_status}).`);
+
+        const updatedPortion = await tx.visitPortion.update({
+          where: { id: portionId },
+          data: {
+            manager_review_status: 'REVIEWED_EXITED',
+            manager_reviewed_by_user_id: userIdBigInt,
+            manager_reviewed_at: now,
+            manager_review_reason: validated.reason,
+            manager_requested_decision: validated.decision,
+          },
+        });
+
+        await tx.auditLog.create({
+          data: {
+            table_name: 'visit_portion',
+            record_id: portionId,
+            action: 'PLANT_QA_MANAGER_REVIEW_AFTER_EXIT',
+            new_values: {
+              visit_id: String(visitId),
+              portion_number: portion.portion_number,
+              review_only: true,
+              decision: validated.decision,
+              reason: validated.reason,
+              vehicle_exited: true,
+              exit_timestamp: visit.gate_log.exit_timestamp.toISOString(),
+            },
+            user_id: userIdBigInt,
+          },
+        });
+
+        return {
+          idempotent: false,
+          reviewOnly: true,
+          portion: updatedPortion,
+          newVisitStatus: visit.current_status,
+        };
+      }
+
+      // On-site:
+      // If already reviewed with same decision, idempotent return
+      const expectedStatus = validated.decision === 'APPROVE' ? 'APPROVED' : 'REJECTED';
+      if (portion.manager_review_status === expectedStatus) {
+        return {
+          idempotent: true,
+          reviewOnly: false,
+          portion,
+          newVisitStatus: visit.current_status,
+        };
+      }
+
+      // Allow review if PENDING, or if originally REJECTED/HOLD
+      const allowablePriorDecisions = ['PENDING', 'REJECTED', 'HOLD'];
+      if (
+        portion.manager_review_status !== 'PENDING' &&
+        !allowablePriorDecisions.includes(portion.plant_decision || '')
+      ) {
+        throw new Error(
+          `Portion is not eligible for QA Manager review (current status: ${portion.plant_decision}, review status: ${portion.manager_review_status}).`
+        );
       }
 
       let newPlantDecision: string;
@@ -108,7 +161,7 @@ export async function POST(
         data: {
           plant_decision: newPlantDecision,
           current_status: newPlantDecision,
-          original_plant_decision: portion.original_plant_decision || portion.plant_decision || 'PENDING',
+          original_plant_decision: portion.original_plant_decision || portion.plant_decision || 'REJECTED',
           corrected_plant_decision: newPlantDecision,
           plant_correction_reason: validated.reason,
           plant_corrected_by: userIdBigInt,
@@ -214,9 +267,12 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
-      message: `QA Manager decision recorded successfully: ${validated.decision}.`,
+      message: result.reviewOnly
+        ? `QA Manager review recorded (vehicle already exited; review-only).`
+        : `QA Manager decision recorded successfully: ${validated.decision}.`,
       portionId: portionIdStr,
       decision: validated.decision,
+      reviewOnly: !!result.reviewOnly,
       newVisitStatus: result.newVisitStatus,
     });
   } catch (error: any) {

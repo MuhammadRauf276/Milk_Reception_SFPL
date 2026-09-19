@@ -63,7 +63,7 @@ export default function QAManagerDepartmentPage() {
       const res = await fetch('/api/qa/manager/queue');
       if (res.ok) {
         const data = await res.json();
-        setQueue(data.queue || []);
+        setQueue(data.queue || data.portions || []);
       }
     } catch (err) {
       console.error('Failed to load QA manager queue', err);

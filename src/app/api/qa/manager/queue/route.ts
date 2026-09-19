@@ -81,6 +81,7 @@ export async function GET(req: Request) {
         notPerformedReason: r.not_performed_reason,
         evaluationStatus: r.evaluation_status,
         isPassed: r.is_passed,
+        appliedRuleVersion: r.applied_rule?.version || r.applied_rule_version || null,
         appliedRule: r.applied_rule
           ? {
               id: r.applied_rule.id.toString(),
@@ -98,6 +99,7 @@ export async function GET(req: Request) {
       success: true,
       pendingCount: serialized.length,
       portions: serialized,
+      queue: serialized,
     });
   } catch (error: any) {
     console.error('Error in QA Manager queue route:', error);

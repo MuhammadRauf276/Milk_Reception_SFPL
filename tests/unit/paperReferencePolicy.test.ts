@@ -96,4 +96,72 @@ describe('PaperReferenceService (Unit Tests)', () => {
       expect(providedRes.error).toContain('is DISABLED');
     });
   });
+
+  describe('Policy Mode Defaults & Fail-Closed Duplicate Scopes (Directives 11, 13)', () => {
+    it('defaults unconfigured policies to REQUIRED with GLOBAL scope', async () => {
+      const mockTx: any = {
+        paperReferencePolicy: {
+          findUnique: async () => null,
+          findMany: async () => [],
+        },
+      };
+
+      const policy = await PaperReferenceService.getPolicy('SHOP_RMR' as PaperReferenceType, mockTx);
+      expect(policy.policy_mode).toBe('REQUIRED');
+      expect(policy.duplicate_scope).toBe('GLOBAL');
+      expect(policy.allow_duplicates).toBe(false);
+
+      const all = await PaperReferenceService.getAllPolicies(mockTx);
+      expect(all).toHaveLength(3);
+      for (const p of all) {
+        expect(p.policy_mode).toBe('REQUIRED');
+      }
+    });
+
+    it('fails closed with PaperValidationError when duplicate_scope is unsupported', async () => {
+      await expect(
+        PaperReferenceService.checkDuplicate({
+          referenceType: 'RAW_MILK_DISPATCH_NOTE' as PaperReferenceType,
+          value: '001234',
+          duplicateScope: 'UNSUPPORTED_CUSTOM_SCOPE',
+        })
+      ).rejects.toThrow('Policy configuration error');
+    });
+
+    it('fails closed when duplicate_scope is PER_SOURCE but source ID is missing', async () => {
+      await expect(
+        PaperReferenceService.checkDuplicate({
+          referenceType: 'SHOP_RMR' as PaperReferenceType,
+          value: '001234',
+          duplicateScope: 'PER_SOURCE',
+          // scopeEntityId omitted
+        })
+      ).rejects.toThrow('Policy configuration error: duplicate scope is PER_SOURCE');
+    });
+
+    it('queries with source filter when duplicate_scope is PER_SOURCE and source ID is provided', async () => {
+      let queriedWhere: any = null;
+      const mockTx: any = {
+        motShopCollection: {
+          findFirst: async ({ where }: any) => {
+            queriedWhere = where;
+            return null;
+          },
+        },
+      };
+
+      const res = await PaperReferenceService.checkDuplicate({
+        referenceType: 'SHOP_RMR' as PaperReferenceType,
+        value: '001234',
+        duplicateScope: 'PER_SOURCE',
+        scopeEntityId: BigInt(42),
+        tx: mockTx,
+      });
+
+      expect(res.isDuplicate).toBe(false);
+      expect(queriedWhere).toBeDefined();
+      expect(queriedWhere.shop_rmr_number).toBe('001234');
+      expect(queriedWhere.zmcc_id).toEqual(BigInt(42));
+    });
+  });
 });

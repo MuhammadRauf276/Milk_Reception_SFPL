@@ -64,6 +64,7 @@ export default function QAHeadDepartmentPage() {
   const [formAcceptableOption, setFormAcceptableOption] = useState('');
   const [formWarningTrigger, setFormWarningTrigger] = useState('');
   const [formDecisionConsequence, setFormDecisionConsequence] = useState('');
+  const [formReason, setFormReason] = useState('');
 
   const loadData = useCallback(async () => {
     try {
@@ -113,6 +114,10 @@ export default function QAHeadDepartmentPage() {
       setFormError('Please select a Lab Test.');
       return;
     }
+    if (formReason.trim().length < 3) {
+      setFormError('A substantive governance reason of at least 3 characters is required.');
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -125,6 +130,7 @@ export default function QAHeadDepartmentPage() {
         acceptableOption: formAcceptableOption.trim() || null,
         warningTrigger: formWarningTrigger.trim() || null,
         decisionConsequence: formDecisionConsequence.trim() || null,
+        reason: formReason.trim(),
       };
 
       const res = await fetch('/api/qa-head/sop-rules', {
@@ -145,6 +151,7 @@ export default function QAHeadDepartmentPage() {
       setFormAcceptableOption('');
       setFormWarningTrigger('');
       setFormDecisionConsequence('');
+      setFormReason('');
       await loadData();
     } catch (err: any) {
       setFormError(err.message || 'Error creating rule.');
@@ -338,7 +345,7 @@ export default function QAHeadDepartmentPage() {
                   onChange={(e) => setFormTestingPoint(e.target.value)}
                   className="w-full border border-slate-300 rounded-lg p-2.5 font-medium text-slate-800"
                 >
-                  {TESTING_POINTS.map((tp) => (
+                  {TESTING_POINTS.filter((tp) => tp.value !== 'ZMCC_LAB_CONTRACTOR').map((tp) => (
                     <option key={tp.value} value={tp.value}>
                       {tp.label}
                     </option>
@@ -429,6 +436,20 @@ export default function QAHeadDepartmentPage() {
                   onChange={(e) => setFormDecisionConsequence(e.target.value)}
                   placeholder="Default: OUT_OF_SPEC"
                   className="w-full border border-slate-300 rounded-lg p-2.5"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Governance Justification / Reason <span className="text-red-600">*</span>
+                </label>
+                <textarea
+                  required
+                  rows={2}
+                  value={formReason}
+                  onChange={(e) => setFormReason(e.target.value)}
+                  placeholder="Explain why this rule threshold is being established or updated..."
+                  className="w-full border border-slate-300 rounded-lg p-2.5 text-xs font-medium"
                 />
               </div>
 

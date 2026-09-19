@@ -28,9 +28,8 @@ export async function GET(req: Request) {
     },
   });
 
-  const allowedRoles = ['SUPER_ADMIN'];
-  if (!dbUser || !allowedRoles.includes(dbUser.role)) {
-    return NextResponse.json({ error: 'Unauthorized. Super Admin role required.' }, { status: 403 });
+  if (!dbUser) {
+    return NextResponse.json({ error: 'Unauthorized. Active user account required.' }, { status: 403 });
   }
 
   try {

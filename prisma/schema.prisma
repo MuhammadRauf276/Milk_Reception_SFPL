@@ -635,7 +635,7 @@ enum PaperPolicyMode {
 model PaperReferencePolicy {
   id                   BigInt             @id @default(autoincrement())
   reference_type       PaperReferenceType @unique @map("reference_type")
-  policy_mode          PaperPolicyMode    @default(OPTIONAL) @map("policy_mode")
+  policy_mode          PaperPolicyMode    @default(REQUIRED) @map("policy_mode")
   allow_duplicates     Boolean            @default(false) @map("allow_duplicates")
   duplicate_scope      String             @default("GLOBAL") @map("duplicate_scope") @db.VarChar(50)
   updated_by_user_id   BigInt?            @map("updated_by_user_id")

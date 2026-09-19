@@ -74,19 +74,19 @@ export async function resolveZmccLabAuth(
 
   // Permission checks by action
   if (action === 'START_OR_RESUME_SESSION' || action === 'UPDATE_DRAFT' || action === 'COMPLETE_SESSION') {
-    if (!isZmccLabAttendant && !isSuperAdmin) {
+    if (!isZmccLabAttendant) {
       return {
         errorResponse: {
-          error: 'Forbidden. Only ZMCC Lab Attendants or Super Admins may perform testing sessions.',
+          error: 'Forbidden. Only ZMCC Lab Attendants may perform testing sessions.',
           status: 403,
         },
       };
     }
   } else if (action === 'CORRECT_SESSION') {
-    if (!isZmccManager && !isSuperAdmin) {
+    if (!isZmccManager) {
       return {
         errorResponse: {
-          error: 'Forbidden. Only ZMCC Managers or Super Admins may correct finalized lab records.',
+          error: 'Forbidden. Only ZMCC Managers may correct finalized lab records.',
           status: 403,
         },
       };
@@ -404,6 +404,7 @@ export function serializeLabSession(session: any) {
           zmcc_token: session.mot_arrival.zmcc_token,
           arrival_timestamp: session.mot_arrival.arrival_timestamp instanceof Date ? session.mot_arrival.arrival_timestamp.toISOString() : session.mot_arrival.arrival_timestamp,
           arrival_date: session.mot_arrival.arrival_date instanceof Date ? session.mot_arrival.arrival_date.toISOString().split('T')[0] : session.mot_arrival.arrival_date,
+          exit_timestamp: session.mot_arrival.exit_timestamp instanceof Date ? session.mot_arrival.exit_timestamp.toISOString() : (session.mot_arrival.exit_timestamp ?? null),
           journey: session.mot_arrival.journey
             ? {
                 id: session.mot_arrival.journey.id.toString(),
@@ -471,6 +472,7 @@ export function serializeLabSession(session: any) {
           zmcc_token: session.local_supplier_arrival.zmcc_token,
           arrival_timestamp: session.local_supplier_arrival.arrival_timestamp instanceof Date ? session.local_supplier_arrival.arrival_timestamp.toISOString() : session.local_supplier_arrival.arrival_timestamp,
           arrival_date: session.local_supplier_arrival.arrival_date instanceof Date ? session.local_supplier_arrival.arrival_date.toISOString().split('T')[0] : session.local_supplier_arrival.arrival_date,
+          exit_timestamp: session.local_supplier_arrival.exit_timestamp instanceof Date ? session.local_supplier_arrival.exit_timestamp.toISOString() : (session.local_supplier_arrival.exit_timestamp ?? null),
           local_supplier: session.local_supplier_arrival.local_supplier
             ? {
                 id: session.local_supplier_arrival.local_supplier.id.toString(),
@@ -2142,54 +2144,126 @@ export async function correctCompletedSession(
   }
 
   const isPendingReview = session.decision === 'PENDING' || session.manager_review_status === 'PENDING';
+  const isRejectedSession = session.decision === 'REJECTED';
 
-  if (isPendingReview) {
-    if (session.manager_review_status === 'APPROVED') {
-      if (decision === 'ACCEPTED') {
-        return { status: 200, data: serializeLabSession(session) };
+  // Idempotency checks
+  if (session.manager_review_status === 'REVIEWED_EXITED') {
+    return { status: 200, data: serializeLabSession(session) };
+  }
+  if (session.manager_review_status === 'APPROVED' && decision === 'ACCEPTED') {
+    return { status: 200, data: serializeLabSession(session) };
+  }
+  if (session.manager_review_status === 'REJECTED' && decision === 'REJECTED') {
+    return { status: 200, data: serializeLabSession(session) };
+  }
+  if (session.manager_review_status === 'APPROVED' && decision === 'REJECTED') {
+    return { status: 409, error: 'Conflict: Exception was already approved and received.' };
+  }
+
+  // If accepting, verify physical reality: check if the arrival has already exited
+  if (decision === 'ACCEPTED') {
+    let hasExited = false;
+    let exitTimestamp: Date | null = null;
+    if (session.arrival_type === 'MOT' && session.mot_arrival_id) {
+      const arr = await prisma.zmccMotArrival.findUnique({ where: { id: session.mot_arrival_id } });
+      if (arr?.exit_timestamp) {
+        hasExited = true;
+        exitTimestamp = arr.exit_timestamp;
       }
-      return { status: 409, error: 'Conflict: Exception was already approved and received.' };
-    }
-    if (session.manager_review_status === 'REJECTED') {
-      if (decision === 'REJECTED') {
-        return { status: 200, data: serializeLabSession(session) };
-      }
-      return { status: 409, error: 'Conflict: Exception was already rejected.' };
-    }
-
-    if (!decision || !['ACCEPTED', 'REJECTED'].includes(decision)) {
-      return { status: 400, error: 'decision must be either ACCEPTED or REJECTED to resolve pending review.' };
-    }
-
-    if (decision === 'ACCEPTED') {
-      let hasExited = false;
-      if (session.arrival_type === 'MOT' && session.mot_arrival_id) {
-        const arr = await prisma.zmccMotArrival.findUnique({ where: { id: session.mot_arrival_id } });
-        if (arr?.exit_timestamp) hasExited = true;
-      } else if (session.arrival_type === 'LOCAL_SUPPLIER' && session.local_supplier_arrival_id) {
-        const arr = await prisma.zmccLocalSupplierArrival.findUnique({ where: { id: session.local_supplier_arrival_id } });
-        if (arr?.exit_timestamp) hasExited = true;
-      }
-
-      if (hasExited) {
-        return {
-          status: 400,
-          error: 'ARRIVAL_ALREADY_EXITED_REVIEW_ONLY: Arrival has already physically exited the facility; decision cannot create stock.',
-        };
+    } else if (session.arrival_type === 'LOCAL_SUPPLIER' && session.local_supplier_arrival_id) {
+      const arr = await prisma.zmccLocalSupplierArrival.findUnique({ where: { id: session.local_supplier_arrival_id } });
+      if (arr?.exit_timestamp) {
+        hasExited = true;
+        exitTimestamp = arr.exit_timestamp;
       }
     }
-  } else if (decision && decision !== session.decision) {
-    if (session.decision === 'ACCEPTED') {
-      if (session.tank_receipt) {
-        return {
-          status: 400,
-          error: 'Decision cannot be changed after milk has been received into a ZMCC tank.',
-        };
-      }
-    } else if (session.decision === 'REJECTED' && decision === 'ACCEPTED') {
+
+    if (hasExited) {
+      // Physical reality preserved: arrival has already exited the facility.
+      // Record an audit-only review without altering decision to ACCEPTED and without creating tank stock.
+      const now = new Date();
+      const updated = await prisma.$transaction(async (tx) => {
+        const sessionAfter = await tx.zmccLabSession.update({
+          where: { id: sessionId },
+          data: {
+            manager_review_status: 'REVIEWED_EXITED',
+            manager_reviewed_by_user_id: auth.actorUserId,
+            manager_reviewed_at: now,
+            manager_review_reason: reasonTrimmed,
+            manager_requested_decision: 'ACCEPTED',
+          },
+          include: {
+            zmcc: true,
+            starter: true,
+            completer: true,
+            last_corrector: true,
+            tank_receipt: {
+              include: {
+                tank: true,
+                receiver: true,
+              },
+            },
+            mot_arrival: {
+              include: {
+                journey: {
+                  include: {
+                    route: true,
+                    mot_vehicle: true,
+                    mot_profile: true,
+                    summary: true,
+                  },
+                },
+              },
+            },
+            contractor_arrival: {
+              include: {
+                contractor_source: true,
+              },
+            },
+            local_supplier_arrival: {
+              include: {
+                local_supplier: true,
+              },
+            },
+            results: {
+              orderBy: { display_order_snapshot: 'asc' },
+            },
+          },
+        });
+
+        await tx.auditLog.create({
+          data: {
+            table_name: 'zmcc_lab_session',
+            record_id: sessionId,
+            action: 'ZMCC_MANAGER_REVIEW_AFTER_EXIT',
+            new_values: {
+              session_id: sessionId.toString(),
+              review_only: true,
+              decision: session.decision,
+              manager_review_status: 'REVIEWED_EXITED',
+              requested_decision: 'ACCEPTED',
+              reason: reasonTrimmed,
+              arrival_type: session.arrival_type,
+              arrival_exited: true,
+              exit_timestamp: exitTimestamp ? exitTimestamp.toISOString() : null,
+            },
+            user_id: auth.actorUserId,
+          },
+        });
+
+        return sessionAfter;
+      });
+
+      return { status: 200, data: serializeLabSession(updated) };
+    }
+  }
+
+  // Reject invalid transition from ACCEPTED (with milk received) to REJECTED
+  if (decision === 'REJECTED' && session.decision === 'ACCEPTED') {
+    if (session.tank_receipt) {
       return {
         status: 400,
-        error: 'Decision cannot be changed from REJECTED to ACCEPTED in correction.',
+        error: 'Decision cannot be changed after milk has been received into a ZMCC tank.',
       };
     }
   }
@@ -2276,6 +2350,9 @@ export async function correctCompletedSession(
     }
   }
   if (decision !== undefined && decision !== session.decision) {
+    hasChanges = true;
+  }
+  if (isPendingReview || (isRejectedSession && decision !== undefined)) {
     hasChanges = true;
   }
   if (effectiveRejectionReason !== (session.rejection_reason ?? null)) {
@@ -2485,6 +2562,8 @@ export async function correctCompletedSession(
         }
       }
 
+      const isExceptionReview = isPendingReview || isRejectedSession;
+
       // Check if session has an existing ZmccTankReceipt
       const lockedReceiptRows: Array<{
         id: bigint;
@@ -2622,8 +2701,8 @@ export async function correctCompletedSession(
             last_corrected_at: correctionTimestamp,
           },
         });
-      } else if (isPendingReview && effectiveDecision === 'ACCEPTED') {
-        // Pending exception approved by manager -> create canonical tank receipt
+      } else if (isExceptionReview && effectiveDecision === 'ACCEPTED') {
+        // Pending or rejected exception approved by manager on-site -> create canonical tank receipt
         const activeTanks = await tx.zmccTank.findMany({
           where: { zmcc_id: session.zmcc_id, is_active: true },
           orderBy: { id: 'asc' },
@@ -2679,13 +2758,13 @@ export async function correctCompletedSession(
         where: { id: sessionId },
         data: {
           decision: effectiveDecision,
-          manager_review_status: isPendingReview
+          manager_review_status: isExceptionReview
             ? (effectiveDecision === 'ACCEPTED' ? 'APPROVED' : 'REJECTED')
             : session.manager_review_status,
-          manager_reviewed_by_user_id: isPendingReview ? auth.actorUserId : session.manager_reviewed_by_user_id,
-          manager_reviewed_at: isPendingReview ? correctionTimestamp : session.manager_reviewed_at,
-          manager_review_reason: isPendingReview ? reasonTrimmed : session.manager_review_reason,
-          original_decision: session.decision,
+          manager_reviewed_by_user_id: isExceptionReview ? auth.actorUserId : session.manager_reviewed_by_user_id,
+          manager_reviewed_at: isExceptionReview ? correctionTimestamp : session.manager_reviewed_at,
+          manager_review_reason: isExceptionReview ? reasonTrimmed : session.manager_review_reason,
+          original_decision: session.original_decision || session.decision,
           corrected_decision: effectiveDecision,
           correction_reason: reasonTrimmed,
           rejection_reason: effectiveRejectionReason,
@@ -2742,11 +2821,15 @@ export async function correctCompletedSession(
         },
       });
 
+      const auditAction = isExceptionReview
+        ? (effectiveDecision === 'ACCEPTED' ? 'ZMCC_MANAGER_EXCEPTION_APPROVED' : 'ZMCC_MANAGER_EXCEPTION_REJECTED')
+        : 'ZMCC_LAB_SESSION_CORRECTED';
+
       await tx.auditLog.create({
         data: {
           table_name: 'zmcc_lab_session',
           record_id: sessionId,
-          action: 'ZMCC_LAB_SESSION_CORRECTED',
+          action: auditAction,
           old_values: oldValues,
           new_values: newValues,
           user_id: auth.actorUserId,
