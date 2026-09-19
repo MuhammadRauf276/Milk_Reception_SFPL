@@ -94,9 +94,10 @@ describe('Stage 4C-3A: Dispatch Quantity Policy Snapshot Hardening (Integration)
 
     expect(res.status).toBe(201);
     expect(json.quantityPolicy).toBeDefined();
-    expect(json.quantityPolicy.policyVersion).toBe(1);
+    expect(json.quantityPolicy.policyVersion).toBe(2);
     expect(json.quantityPolicy.policy.vehicleRules.default.unit).toBe('KG');
-    expect(json.quantityPolicy.policy.vehicleRules.default.basis).toBe('ESTIMATED');
+    expect(json.quantityPolicy.policy.vehicleRules.default.basis).toBe('MEASURED');
+    expect(json.quantityPolicy.policy.allowSameUnitPortionPrefill).toBe(false);
 
     // Verify DB snapshot record
     const snapshot = await prisma.dispatchQuantityPolicySnapshot.findUnique({
@@ -104,7 +105,7 @@ describe('Stage 4C-3A: Dispatch Quantity Policy Snapshot Hardening (Integration)
     });
     expect(snapshot).toBeDefined();
     expect(snapshot?.source_id.toString()).toBe(zmccSource.id.toString());
-    expect(snapshot?.policy_version).toBe(1);
+    expect(snapshot?.policy_version).toBe(2);
   });
 
   it('[TEST-D] Draft reload returns identical frozen snapshot', async () => {
@@ -126,18 +127,20 @@ describe('Stage 4C-3A: Dispatch Quantity Policy Snapshot Hardening (Integration)
     expect(json2.quantityPolicy.policy).toEqual(json1.quantityPolicy.policy);
   });
 
-  it('[TEST-E & F] Policy mutation V1 -> V2 preserves Draft A on V1 and assigns V2 to new Draft B', async () => {
-    // 1. Start Draft A under V1 default policy
+  it('[TEST-E & F] Policy mutation V2 -> V3 preserves Draft A on V2 and assigns V3 to new Draft B', async () => {
+    // 1. Start Draft A under V2 default policy
     const reqA = await createMockRequest(operatorZmcc, {});
     const resA = await startDispatchPost(reqA);
     const jsonA = await resA.json();
     const draftAId = jsonA.visitId;
-    expect(jsonA.quantityPolicy.policyVersion).toBe(1);
+    expect(jsonA.quantityPolicy.policyVersion).toBe(2);
     expect(jsonA.quantityPolicy.policy.vehicleRules.default.unit).toBe('KG');
+    expect(jsonA.quantityPolicy.policy.vehicleRules.default.basis).toBe('MEASURED');
+    expect(jsonA.quantityPolicy.policy.allowSameUnitPortionPrefill).toBe(false);
 
-    // 2. Super Admin updates source quantity policy to V2 (default: LITER, MEASURED)
-    const customPolicyV2 = {
-      version: 2,
+    // 2. Super Admin updates source quantity policy to V3 (default: LITER, MEASURED)
+    const customPolicyV3 = {
+      version: 3,
       vehicleRules: {
         allowedMeasurements: [
           { unit: 'KG', basis: 'MEASURED' },
@@ -151,6 +154,7 @@ describe('Stage 4C-3A: Dispatch Quantity Policy Snapshot Hardening (Integration)
       portionRules: {
         allowedMeasurements: [
           { unit: 'LITER', basis: 'MEASURED' },
+          { unit: 'LITER', basis: 'ESTIMATED' },
         ],
         default: {
           unit: 'LITER',
@@ -160,24 +164,26 @@ describe('Stage 4C-3A: Dispatch Quantity Policy Snapshot Hardening (Integration)
       allowSameUnitPortionPrefill: false,
     };
 
-    await updateSourceQuantityPolicy(prisma, zmccSource.id, customPolicyV2);
+    await updateSourceQuantityPolicy(prisma, zmccSource.id, customPolicyV3);
 
-    // 3. Reload Draft A -> must still return frozen V1
+    // 3. Reload Draft A -> must still return frozen V2
     const reloadReqA = await createMockRequest(operatorZmcc, { visitId: draftAId });
     const reloadResA = await startDispatchPost(reloadReqA);
     const reloadJsonA = await reloadResA.json();
 
-    expect(reloadJsonA.quantityPolicy.policyVersion).toBe(1);
+    expect(reloadJsonA.quantityPolicy.policyVersion).toBe(2);
     expect(reloadJsonA.quantityPolicy.policy.vehicleRules.default.unit).toBe('KG');
-    expect(reloadJsonA.quantityPolicy.policy.allowSameUnitPortionPrefill).toBe(true);
+    expect(reloadJsonA.quantityPolicy.policy.vehicleRules.default.basis).toBe('MEASURED');
+    expect(reloadJsonA.quantityPolicy.policy.allowSameUnitPortionPrefill).toBe(false);
 
-    // 4. Start Draft B -> must receive newly configured V2
+    // 4. Start Draft B -> must receive newly configured V3
     const reqB = await createMockRequest(operatorZmcc, {});
     const resB = await startDispatchPost(reqB);
     const jsonB = await resB.json();
 
-    expect(jsonB.quantityPolicy.policyVersion).toBe(2);
+    expect(jsonB.quantityPolicy.policyVersion).toBe(3);
     expect(jsonB.quantityPolicy.policy.vehicleRules.default.unit).toBe('LITER');
+    expect(jsonB.quantityPolicy.policy.vehicleRules.default.basis).toBe('MEASURED');
     expect(jsonB.quantityPolicy.policy.allowSameUnitPortionPrefill).toBe(false);
   });
 
