@@ -152,8 +152,8 @@ async function runStage6gd4aTests() {
   console.log('--- 1. Database Schema & Migration Invariants ---');
   const migrationCount = getTrackedMigrationCount(repoRoot);
   assert(
-    migrationCount === 31,
-    'D4A-01: Tracked migrations count is exactly 31',
+    migrationCount === 32,
+    'D4A-01: Tracked migrations count is exactly 32',
     `Found: ${migrationCount}`
   );
 

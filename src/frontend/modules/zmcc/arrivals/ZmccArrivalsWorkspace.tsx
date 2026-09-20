@@ -58,7 +58,6 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
   const [arrivingJourneys, setArrivingJourneys] = useState<any[]>([]);
   const [loadingJourneys, setLoadingJourneys] = useState(false);
   const [selectedJourney, setSelectedJourney] = useState<any | null>(null);
-  const [routeMilkToken, setRouteMilkToken] = useState('');
   const [rawMilkTokenNumber, setRawMilkTokenNumber] = useState('');
   const [rawMilkTokenPolicyMode, setRawMilkTokenPolicyMode] = useState<'REQUIRED' | 'OPTIONAL' | 'DISABLED'>('REQUIRED');
   const [motArrivalTimestamp, setMotArrivalTimestamp] = useState(() =>
@@ -79,7 +78,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
   const [loadingLocalSuppliers, setLoadingLocalSuppliers] = useState(false);
   const [supplierSearchTerm, setSupplierSearchTerm] = useState('');
   const [selectedLocalSupplierId, setSelectedLocalSupplierId] = useState('');
-  const [localSupplierRmrNumber, setLocalSupplierRmrNumber] = useState('');
+  const [localSupplierRawMilkTokenNumber, setLocalSupplierRawMilkTokenNumber] = useState('');
   const [localSupplierVehicleNumber, setLocalSupplierVehicleNumber] = useState('');
   const [localSupplierArrivalTimestamp, setLocalSupplierArrivalTimestamp] = useState(() =>
     toDatetimeLocalInput(new Date())
@@ -149,7 +148,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
 
   const initMotForm = useCallback(() => {
     setSelectedJourney(null);
-    setRouteMilkToken('');
+    setRawMilkTokenNumber('');
     setMotArrivalTimestamp(toDatetimeLocalInput(new Date()));
     setMotGps({ lat: null, lng: null, acc: null });
     setMotEventId(generateClientEventId('mot-arr'));
@@ -159,7 +158,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
   const initLocalSupplierForm = useCallback(() => {
     setSelectedLocalSupplierId('');
     setSupplierSearchTerm('');
-    setLocalSupplierRmrNumber('');
+    setLocalSupplierRawMilkTokenNumber('');
     setLocalSupplierVehicleNumber('');
     setLocalSupplierArrivalTimestamp(toDatetimeLocalInput(new Date()));
     setLocalSupplierGps({ lat: null, lng: null, acc: null });
@@ -411,7 +410,6 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
         body: JSON.stringify({
           journey_id: selectedJourney.id,
           raw_milk_token_number: rawMilkTokenNumber.trim() || undefined,
-          route_milk_token: routeMilkToken.trim() || undefined,
           arrival_timestamp: datetimeLocalToIso(motArrivalTimestamp) || new Date(motArrivalTimestamp).toISOString(),
           client_event_id: motEventId,
           phe_latitude: motGps.lat,
@@ -484,8 +482,8 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
       setLocalSupplierError('Please select a local supplier.');
       return;
     }
-    if (!localSupplierRmrNumber.trim()) {
-      setLocalSupplierError('Local supplier RMR number is required.');
+    if (!localSupplierRawMilkTokenNumber.trim()) {
+      setLocalSupplierError('Raw Milk Token number is required.');
       return;
     }
     if (!localSupplierVehicleNumber.trim()) {
@@ -500,7 +498,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           local_supplier_id: selectedLocalSupplierId,
-          rmr_number: localSupplierRmrNumber.trim(),
+          raw_milk_token_number: localSupplierRawMilkTokenNumber.trim(),
           vehicle_number: localSupplierVehicleNumber.trim().toUpperCase(),
           arrival_timestamp: datetimeLocalToIso(localSupplierArrivalTimestamp) || new Date(localSupplierArrivalTimestamp).toISOString(),
           client_event_id: localSupplierEventId,
@@ -896,7 +894,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
 
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1">
-                        PHE Raw Milk Token (Manual Paper Reference)
+                        Raw Milk Token No.
                         {rawMilkTokenPolicyMode === 'REQUIRED' && <span className="text-rose-500"> *</span>}
                         {rawMilkTokenPolicyMode === 'OPTIONAL' && <span className="text-slate-400 font-normal"> (Optional)</span>}
                         {rawMilkTokenPolicyMode === 'DISABLED' && <span className="text-amber-600 font-normal"> (Disabled by Policy)</span>}
@@ -912,19 +910,6 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                         className="w-full text-xs font-bold px-3 py-2 border rounded-xl focus:ring-2 focus:ring-[#1E3A8A] outline-hidden font-mono disabled:bg-slate-100 disabled:text-slate-400"
                       />
                       <p className="text-[10px] text-slate-500 mt-1">Manual paper token serial (digits only, leading zeros preserved)</p>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">
-                        Route Milk Token (from physical slip)
-                      </label>
-                      <input
-                        type="text"
-                        value={routeMilkToken}
-                        onChange={(e) => setRouteMilkToken(e.target.value)}
-                        placeholder="e.g. RMT-10293"
-                        className="w-full text-xs font-bold px-3 py-2 border rounded-xl focus:ring-2 focus:ring-[#1E3A8A] outline-hidden font-mono uppercase"
-                      />
                     </div>
 
                     <div>
@@ -1139,7 +1124,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                   ZMCC Token: <strong className="font-mono text-emerald-900 text-sm font-black">{localSupplierSuccessResult.zmcc_token}</strong>
                 </div>
                 <div className="py-1.5">
-                  Supplier RMR No: <strong className="font-mono text-slate-800">{localSupplierSuccessResult.rmr_number}</strong>
+                  Raw Milk Token No: <strong className="font-mono text-slate-800">{localSupplierSuccessResult.raw_milk_token_number || localSupplierSuccessResult.rmr_number}</strong>
                 </div>
                 <div className="py-1.5">
                   Vehicle: <strong className="font-mono text-slate-800">{localSupplierSuccessResult.vehicle_number}</strong>
@@ -1265,19 +1250,20 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Supplier RMR No. (from physical slip) <span className="text-rose-500">*</span>
+                  Raw Milk Token No. <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
                   inputMode="numeric"
                   pattern="[0-9]*"
                   maxLength={100}
-                  value={localSupplierRmrNumber}
-                  onChange={(e) => setLocalSupplierRmrNumber(e.target.value)}
-                  placeholder="e.g. 002345"
+                  value={localSupplierRawMilkTokenNumber}
+                  onChange={(e) => setLocalSupplierRawMilkTokenNumber(e.target.value.replace(/[^0-9]/g, ''))}
+                  placeholder="e.g. 001924"
                   required
                   className="w-full text-xs font-bold px-3 py-2 border rounded-xl focus:ring-2 focus:ring-emerald-600 outline-hidden font-mono"
                 />
+                <p className="text-[10px] text-slate-500 mt-1">Manual paper token serial (digits only, leading zeros preserved)</p>
               </div>
 
               <div>
@@ -1433,7 +1419,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                           </span>
                         </td>
                         <td className="p-3 font-mono font-black text-slate-900">{arr.zmcc_token}</td>
-                        <td className="p-3 font-mono font-bold text-slate-700">{arr.route_milk_token}</td>
+                        <td className="p-3 font-mono font-bold text-slate-700">{arr.raw_milk_token_number || arr.route_milk_token || '—'}</td>
                         <td className="p-3">
                           <div className="font-bold text-slate-800">
                             {arr.journey?.vehicle_number || '—'}
@@ -1539,7 +1525,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                           </span>
                         </td>
                         <td className="p-3 font-mono font-black text-slate-900">{arr.zmcc_token}</td>
-                        <td className="p-3 font-mono font-bold text-emerald-900">{arr.rmr_number || '—'}</td>
+                        <td className="p-3 font-mono font-bold text-emerald-900">{arr.raw_milk_token_number || arr.rmr_number || '—'}</td>
                         <td className="p-3">
                           <div className="font-bold text-slate-800">{arr.vehicle_number}</div>
                           <div className="text-[11px] text-slate-600 font-medium">

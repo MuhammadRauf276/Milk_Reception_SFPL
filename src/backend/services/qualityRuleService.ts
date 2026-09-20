@@ -134,6 +134,16 @@ export class QualityRuleService {
         }
       }
     });
+
+    if (testingPoint === 'ZMCC_LAB_LOCAL_SUPPLIER') {
+      const contractorRules = await this.resolveActiveRulesForTestingPoint('ZMCC_LAB_CONTRACTOR', eventTimestamp, tx);
+      contractorRules.forEach((rule, k) => {
+        if (!ruleMap.has(k)) {
+          ruleMap.set(k, rule);
+        }
+      });
+    }
+
     return ruleMap;
   }
 
@@ -189,6 +199,10 @@ export class QualityRuleService {
         isConfigurationError: false,
         monitoringRule: activeMonitoring,
       };
+    }
+
+    if (testingPoint === 'ZMCC_LAB_LOCAL_SUPPLIER') {
+      return this.resolveActiveRule(labTestId, 'ZMCC_LAB_CONTRACTOR', eventTimestamp, tx);
     }
 
     return null;

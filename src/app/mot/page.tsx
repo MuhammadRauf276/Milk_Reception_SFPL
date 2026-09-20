@@ -836,7 +836,7 @@ export default function MotDriverPage() {
                   {/* Manual Shop RMR Serial # */}
                   <div>
                     <label className="block text-xs font-black text-[#111311] mb-1">
-                      Shop RMR Number (Paper Reference)
+                      Shop RMR / Raw Milk Receipt No.
                     </label>
                     <input
                       type="text"

@@ -76,7 +76,10 @@ export class PaperReferenceService {
 
   /**
    * Resolves effective policy for a given reference type.
-   * If none configured in database, defaults to REQUIRED with allow_duplicates = false and duplicate_scope = 'GLOBAL'.
+   * Default business rules:
+   * - SHOP_RMR: REQUIRED, allow_duplicates = true (historical reuse allowed, not a system unique ID)
+   * - RAW_MILK_TOKEN: REQUIRED, allow_duplicates = false, duplicate_scope = 'PER_SOURCE' (per ZMCC)
+   * - RAW_MILK_DISPATCH_NOTE: REQUIRED, allow_duplicates = false, duplicate_scope = 'PER_SOURCE' (per issuing source)
    */
   static async getPolicy(
     referenceType: PaperReferenceType,
@@ -88,12 +91,25 @@ export class PaperReferenceService {
 
     if (policy) return policy;
 
+    if (referenceType === PaperReferenceType.SHOP_RMR) {
+      return {
+        id: BigInt(0),
+        reference_type: referenceType,
+        policy_mode: PaperPolicyMode.REQUIRED,
+        allow_duplicates: true,
+        duplicate_scope: 'GLOBAL',
+        updated_by_user_id: null,
+        updated_at: new Date(),
+        created_at: new Date(),
+      };
+    }
+
     return {
       id: BigInt(0),
       reference_type: referenceType,
       policy_mode: PaperPolicyMode.REQUIRED,
       allow_duplicates: false,
-      duplicate_scope: 'GLOBAL',
+      duplicate_scope: 'PER_SOURCE',
       updated_by_user_id: null,
       updated_at: new Date(),
       created_at: new Date(),
@@ -123,35 +139,40 @@ export class PaperReferenceService {
       if (map.has(type)) {
         result.push(map.get(type)!);
       } else {
-        result.push({
-          id: BigInt(0),
-          reference_type: type,
-          policy_mode: PaperPolicyMode.REQUIRED,
-          allow_duplicates: false,
-          duplicate_scope: 'GLOBAL',
-          updated_by_user_id: null,
-          updated_at: new Date(),
-          created_at: new Date(),
-        });
+        result.push(await this.getPolicy(type, tx));
       }
     }
     return result;
   }
 
   /**
-   * Checks for duplicate reference values within their authoritative table according to configured duplicate_scope.
+   * Deterministic transaction-level PostgreSQL advisory lock for Raw Milk Token serials per ZMCC.
+   */
+  static async acquireRawMilkTokenAdvisoryLock(
+    tx: Prisma.TransactionClient,
+    zmccId: bigint | number | string,
+    tokenValue: string
+  ): Promise<void> {
+    const lockKey = `RAW_MILK_TOKEN:${zmccId.toString()}:${tokenValue}`;
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`;
+  }
+
+  /**
+   * Checks for duplicate reference values within their authoritative domain according to configured duplicate_scope.
+   * RAW_MILK_TOKEN checks ACROSS ALL active ZMCC arrival tables (ZmccMotArrival, ZmccLocalSupplierArrival) per ZMCC.
+   * RAW_MILK_DISPATCH_NOTE checks per procurement source (issuer).
    * Fails closed if duplicate_scope is unconfigured or unsupported.
-   * No global cross-series unique constraints.
    */
   static async checkDuplicate(params: {
     referenceType: PaperReferenceType;
     value: string;
     scopeEntityId?: bigint | number | string;
     excludeEntityId?: bigint | number | string;
+    excludeTable?: 'zmcc_mot_arrival' | 'zmcc_local_supplier_arrival' | 'vehicle_visit' | 'mot_shop_collection';
     duplicateScope?: string;
     tx?: Prisma.TransactionClient | typeof prisma;
-  }): Promise<{ isDuplicate: boolean; existingRecordId?: bigint }> {
-    const { referenceType, value, scopeEntityId, excludeEntityId, tx = prisma } = params;
+  }): Promise<{ isDuplicate: boolean; existingRecordId?: bigint; existingTable?: string }> {
+    const { referenceType, value, scopeEntityId, excludeEntityId, excludeTable, tx = prisma } = params;
     const excludeIdBigInt = excludeEntityId ? BigInt(String(excludeEntityId)) : undefined;
 
     let duplicateScope = params.duplicateScope;
@@ -183,19 +204,44 @@ export class PaperReferenceService {
         },
         select: { id: true },
       });
-      return { isDuplicate: !!match, existingRecordId: match?.id };
+      return { isDuplicate: !!match, existingRecordId: match?.id, existingTable: 'mot_shop_collection' };
     }
 
     if (referenceType === PaperReferenceType.RAW_MILK_TOKEN) {
-      const match = await tx.zmccMotArrival.findFirst({
+      // Must be checked per-ZMCC across all active ZMCC arrival types
+      if (!scopeIdBigInt) {
+        throw new PaperValidationError(
+          `Policy configuration error: RAW_MILK_TOKEN requires ZMCC source ID.`
+        );
+      }
+
+      // 1. Check ZmccMotArrival
+      const matchMot = await tx.zmccMotArrival.findFirst({
         where: {
           raw_milk_token_number: value,
-          ...(excludeIdBigInt ? { id: { not: excludeIdBigInt } } : {}),
-          ...(duplicateScope === 'PER_SOURCE' && scopeIdBigInt ? { zmcc_id: scopeIdBigInt } : {}),
+          zmcc_id: scopeIdBigInt,
+          ...(excludeTable === 'zmcc_mot_arrival' && excludeIdBigInt ? { id: { not: excludeIdBigInt } } : {}),
         },
         select: { id: true },
       });
-      return { isDuplicate: !!match, existingRecordId: match?.id };
+      if (matchMot) {
+        return { isDuplicate: true, existingRecordId: matchMot.id, existingTable: 'zmcc_mot_arrival' };
+      }
+
+      // 2. Check ZmccLocalSupplierArrival
+      const matchLs = await tx.zmccLocalSupplierArrival.findFirst({
+        where: {
+          raw_milk_token_number: value,
+          zmcc_id: scopeIdBigInt,
+          ...(excludeTable === 'zmcc_local_supplier_arrival' && excludeIdBigInt ? { id: { not: excludeIdBigInt } } : {}),
+        },
+        select: { id: true },
+      });
+      if (matchLs) {
+        return { isDuplicate: true, existingRecordId: matchLs.id, existingTable: 'zmcc_local_supplier_arrival' };
+      }
+
+      return { isDuplicate: false };
     }
 
     if (referenceType === PaperReferenceType.RAW_MILK_DISPATCH_NOTE) {
@@ -207,7 +253,7 @@ export class PaperReferenceService {
         },
         select: { id: true },
       });
-      return { isDuplicate: !!match, existingRecordId: match?.id };
+      return { isDuplicate: !!match, existingRecordId: match?.id, existingTable: 'vehicle_visit' };
     }
 
     return { isDuplicate: false };
@@ -223,6 +269,8 @@ export class PaperReferenceService {
     options: {
       scopeEntityId?: bigint | number | string;
       excludeEntityId?: bigint | number | string;
+      excludeTable?: 'zmcc_mot_arrival' | 'zmcc_local_supplier_arrival' | 'vehicle_visit' | 'mot_shop_collection';
+      acquireAdvisoryLock?: boolean;
       tx?: Prisma.TransactionClient | typeof prisma;
     } = {}
   ): Promise<string | null> {
@@ -235,11 +283,26 @@ export class PaperReferenceService {
     }
 
     if (validation.normalized && !policy.allow_duplicates) {
+      // Optional transaction-level advisory lock for RAW_MILK_TOKEN under ZMCC concurrency
+      if (
+        options.acquireAdvisoryLock &&
+        referenceType === PaperReferenceType.RAW_MILK_TOKEN &&
+        options.scopeEntityId &&
+        '$executeRaw' in tx
+      ) {
+        await this.acquireRawMilkTokenAdvisoryLock(
+          tx as Prisma.TransactionClient,
+          options.scopeEntityId,
+          validation.normalized
+        );
+      }
+
       const dupCheck = await this.checkDuplicate({
         referenceType,
         value: validation.normalized,
         scopeEntityId: options.scopeEntityId,
         excludeEntityId: options.excludeEntityId,
+        excludeTable: options.excludeTable,
         duplicateScope: policy.duplicate_scope,
         tx,
       });
@@ -264,10 +327,31 @@ export class PaperReferenceService {
     const { referenceType, policyMode, allowDuplicates, duplicateScope, updatedByUserId, reason } = input;
     const userIdBigInt = BigInt(String(updatedByUserId));
 
-    const scopeToSet = duplicateScope || 'GLOBAL';
+    const scopeToSet = duplicateScope || (referenceType === PaperReferenceType.SHOP_RMR ? 'GLOBAL' : 'PER_SOURCE');
     if (!['GLOBAL', 'PER_SOURCE'].includes(scopeToSet)) {
       throw new PaperValidationError(
         `Invalid duplicate_scope: "${scopeToSet}". Must be GLOBAL or PER_SOURCE.`
+      );
+    }
+
+    // Guard: RAW_MILK_TOKEN must remain PER_SOURCE (per ZMCC)
+    if (referenceType === PaperReferenceType.RAW_MILK_TOKEN && scopeToSet !== 'PER_SOURCE') {
+      throw new PaperValidationError(
+        `RAW_MILK_TOKEN duplicate scope must remain PER_SOURCE (per ZMCC).`
+      );
+    }
+
+    // Guard: RAW_MILK_DISPATCH_NOTE must remain PER_SOURCE (per ProcurementSource)
+    if (referenceType === PaperReferenceType.RAW_MILK_DISPATCH_NOTE && scopeToSet !== 'PER_SOURCE') {
+      throw new PaperValidationError(
+        `RAW_MILK_DISPATCH_NOTE duplicate scope must remain PER_SOURCE (per ProcurementSource).`
+      );
+    }
+
+    // Guard: SHOP_RMR is not a globally unique system identity; global blocking is forbidden
+    if (referenceType === PaperReferenceType.SHOP_RMR && allowDuplicates === false && scopeToSet === 'GLOBAL') {
+      throw new PaperValidationError(
+        `SHOP_RMR cannot enforce hard global uniqueness; collection_number is the system unique identity.`
       );
     }
 

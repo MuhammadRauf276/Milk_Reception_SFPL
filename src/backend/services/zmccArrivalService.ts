@@ -7,7 +7,7 @@ import {
   createInitialMotJourneySummaryTx,
   serializeMotJourneySummary,
 } from './motJourneySummaryService';
-import { PaperReferenceService } from '@/backend/services/paperReferenceService';
+import { PaperReferenceService, PaperValidationError } from '@/backend/services/paperReferenceService';
 
 export interface ZmccArrivalAuthContext {
   user: User;
@@ -80,7 +80,8 @@ export interface CorrectContractorArrivalPayload {
 
 export interface SubmitLocalSupplierArrivalPayload {
   local_supplier_id: string | number | bigint;
-  rmr_number: string;
+  rmr_number?: string | null;
+  raw_milk_token_number?: string | null;
   vehicle_number: string;
   arrival_timestamp?: string | Date;
   client_event_id: string;
@@ -94,7 +95,8 @@ export interface SubmitLocalSupplierArrivalPayload {
 export interface CorrectLocalSupplierArrivalPayload {
   reason: string;
   local_supplier_id?: string | number | bigint;
-  rmr_number?: string;
+  rmr_number?: string | null;
+  raw_milk_token_number?: string | null;
   vehicle_number?: string;
   arrival_timestamp?: string | Date;
   phe_latitude?: number | null;
@@ -411,7 +413,8 @@ function isExactContractorArrivalReplay(
 interface LocalSupplierArrivalReplayComparison {
   zmcc_id: bigint;
   local_supplier_id: bigint;
-  rmr_number: string;
+  rmr_number?: string | null;
+  raw_milk_token_number?: string | null;
   vehicle_number: string;
   arrival_timestamp: Date;
   phe_latitude: number | null;
@@ -423,7 +426,8 @@ function isExactLocalSupplierArrivalReplay(
   existing: {
     zmcc_id: bigint;
     local_supplier_id: bigint;
-    rmr_number: string | null;
+    rmr_number?: string | null;
+    raw_milk_token_number?: string | null;
     vehicle_number: string;
     arrival_timestamp: Date | string;
     phe_latitude: any;
@@ -435,6 +439,7 @@ function isExactLocalSupplierArrivalReplay(
   if (existing.zmcc_id !== expected.zmcc_id) return false;
   if (existing.local_supplier_id !== expected.local_supplier_id) return false;
   if ((existing.rmr_number || '').trim() !== (expected.rmr_number || '').trim()) return false;
+  if ((existing.raw_milk_token_number || '').trim() !== (expected.raw_milk_token_number || '').trim()) return false;
   if (existing.vehicle_number.trim().toUpperCase() !== expected.vehicle_number.trim().toUpperCase()) return false;
 
   const existingTime = new Date(existing.arrival_timestamp).getTime();
@@ -613,7 +618,8 @@ export function serializeLocalSupplierArrival(arrival: any) {
     id: arrival.id.toString(),
     zmcc_id: arrival.zmcc_id.toString(),
     local_supplier_id: arrival.local_supplier_id.toString(),
-    rmr_number: arrival.rmr_number,
+    rmr_number: arrival.rmr_number ?? null,
+    raw_milk_token_number: arrival.raw_milk_token_number ?? null,
     vehicle_number: arrival.vehicle_number,
     arrival_timestamp: arrival.arrival_timestamp instanceof Date ? arrival.arrival_timestamp.toISOString() : arrival.arrival_timestamp,
     arrival_date: arrival.arrival_date instanceof Date ? arrival.arrival_date.toISOString().split('T')[0] : arrival.arrival_date,
@@ -695,10 +701,6 @@ export async function submitMotArrival(
   const routeMilkToken = typeof payload.route_milk_token === 'string' && payload.route_milk_token.trim().length > 0
     ? payload.route_milk_token.trim()
     : null;
-
-  if (!routeMilkToken && (!payload.raw_milk_token_number || String(payload.raw_milk_token_number).trim() === '')) {
-    return { status: 400, error: 'route_milk_token is required.' };
-  }
 
   const clientEventId = typeof payload.client_event_id === 'string' ? payload.client_event_id.trim() : '';
   if (!clientEventId) {
@@ -843,20 +845,37 @@ export async function submitMotArrival(
   const arrivalDatePkt = new Date(`${pktDateStr}T00:00:00.000Z`);
 
   let cleanRawMilkToken: string | null = null;
-  try {
-    cleanRawMilkToken = await PaperReferenceService.validateAndVerify(
-      PaperReferenceType.RAW_MILK_TOKEN,
-      payload.raw_milk_token_number,
-      { scopeEntityId: journey.zmcc_id }
-    );
-  } catch (err: any) {
-    return { status: 400, error: err.message || 'Invalid Raw Milk Token number.' };
+  const hasRawMilkToken = payload.raw_milk_token_number !== undefined && payload.raw_milk_token_number !== null && String(payload.raw_milk_token_number).trim() !== '';
+
+  if (hasRawMilkToken || !routeMilkToken) {
+    try {
+      cleanRawMilkToken = await PaperReferenceService.validateAndVerify(
+        PaperReferenceType.RAW_MILK_TOKEN,
+        payload.raw_milk_token_number,
+        { scopeEntityId: journey.zmcc_id }
+      );
+    } catch (err: any) {
+      return { status: 400, error: err.message || 'Invalid Raw Milk Token number.' };
+    }
   }
 
   try {
     const createdArrival = await prisma.$transaction(async (tx) => {
       // Concurrency lock: Acquire exclusive row lock on mot_journey
       await tx.$executeRaw`SELECT id FROM mot_journey WHERE id = ${journeyId} FOR UPDATE`;
+
+      // Concurrency safety: acquire advisory lock and re-verify RAW_MILK_TOKEN within transaction
+      if (hasRawMilkToken && cleanRawMilkToken) {
+        cleanRawMilkToken = await PaperReferenceService.validateAndVerify(
+          PaperReferenceType.RAW_MILK_TOKEN,
+          payload.raw_milk_token_number,
+          {
+            scopeEntityId: journey.zmcc_id,
+            tx,
+            acquireAdvisoryLock: true,
+          }
+        );
+      }
 
       const checkJourney = await tx.motJourney.findUnique({
         where: { id: journeyId },
@@ -979,6 +998,9 @@ export async function submitMotArrival(
       data: serializeMotArrival(createdArrival),
     };
   } catch (err: any) {
+    if (err instanceof PaperValidationError || err.name === 'PaperValidationError') {
+      return { status: 400, error: err.message };
+    }
     if (err.message === 'JOURNEY_ALREADY_COMPLETED' || err.code === 'P2002') {
       const existingAfterCollision = await prisma.zmccMotArrival.findUnique({
         where: { client_event_id: clientEventId },
@@ -1107,7 +1129,11 @@ export async function correctMotArrival(
       const cleanRawMilkToken = await PaperReferenceService.validateAndVerify(
         PaperReferenceType.RAW_MILK_TOKEN,
         payload.raw_milk_token_number,
-        { excludeEntityId: arrival.id, scopeEntityId: arrival.zmcc_id }
+        {
+          excludeEntityId: arrival.id,
+          excludeTable: 'zmcc_mot_arrival',
+          scopeEntityId: arrival.zmcc_id,
+        }
       );
       if (cleanRawMilkToken !== arrival.raw_milk_token_number) {
         oldValues.raw_milk_token_number = arrival.raw_milk_token_number;
@@ -1212,6 +1238,24 @@ export async function correctMotArrival(
         throw new Error('MAX_CORRECTIONS_REACHED');
       }
 
+      if (updateData.raw_milk_token_number) {
+        await PaperReferenceService.acquireRawMilkTokenAdvisoryLock(
+          tx,
+          arrival.zmcc_id,
+          updateData.raw_milk_token_number as string
+        );
+        await PaperReferenceService.validateAndVerify(
+          PaperReferenceType.RAW_MILK_TOKEN,
+          updateData.raw_milk_token_number as string,
+          {
+            excludeEntityId: arrival.id,
+            excludeTable: 'zmcc_mot_arrival',
+            scopeEntityId: arrival.zmcc_id,
+            tx,
+          }
+        );
+      }
+
       const nextCorrectionCount = currentCount + 1;
       const updatedRecord = await tx.zmccMotArrival.update({
         where: { id: arrivalId },
@@ -1290,6 +1334,9 @@ export async function correctMotArrival(
       data: serializeMotArrival(updated),
     };
   } catch (err: any) {
+    if (err instanceof PaperValidationError || err.name === 'PaperValidationError') {
+      return { status: 400, error: err.message };
+    }
     if (err.message === 'MAX_CORRECTIONS_REACHED') {
       return {
         status: 409,
@@ -1877,11 +1924,14 @@ export async function submitLocalSupplierArrival(
     return { status: 400, error: 'Invalid local_supplier_id format.' };
   }
 
-  const rmrValidation = validateRmrNumber(payload.rmr_number, true);
-  if (rmrValidation.error) {
-    return { status: 400, error: rmrValidation.error };
+  let rmrNumber: string | null = null;
+  if (payload.rmr_number !== undefined && payload.rmr_number !== null && String(payload.rmr_number).trim() !== '') {
+    const rmrValidation = validateRmrNumber(payload.rmr_number, false);
+    if (rmrValidation.error) {
+      return { status: 400, error: rmrValidation.error };
+    }
+    rmrNumber = rmrValidation.value;
   }
-  const rmrNumber = rmrValidation.value!;
 
   const vehicleNumber = typeof payload.vehicle_number === 'string' ? payload.vehicle_number.trim().toUpperCase().replace(/\s+/g, ' ') : '';
   if (!vehicleNumber) {
@@ -1966,10 +2016,19 @@ export async function submitLocalSupplierArrival(
     return { status: 400, error: 'Selected local supplier is inactive and cannot receive new milk arrivals.' };
   }
 
+  const rawMilkTokenInput = payload.raw_milk_token_number !== undefined && payload.raw_milk_token_number !== null
+    ? payload.raw_milk_token_number
+    : payload.rmr_number;
+
+  const rawMilkTokenCandidate = rawMilkTokenInput !== undefined && rawMilkTokenInput !== null
+    ? String(rawMilkTokenInput).trim()
+    : null;
+
   const expectedSupplierPayload: LocalSupplierArrivalReplayComparison = {
     zmcc_id: targetZmccId,
     local_supplier_id: localSupplierId,
     rmr_number: rmrNumber,
+    raw_milk_token_number: rawMilkTokenCandidate,
     vehicle_number: vehicleNumber,
     arrival_timestamp: arrivalDate,
     phe_latitude: gpsValidation.lat,
@@ -2003,6 +2062,17 @@ export async function submitLocalSupplierArrival(
     }
   }
 
+  let cleanRawMilkToken: string | null = null;
+  try {
+    cleanRawMilkToken = await PaperReferenceService.validateAndVerify(
+      PaperReferenceType.RAW_MILK_TOKEN,
+      rawMilkTokenInput,
+      { scopeEntityId: targetZmccId }
+    );
+  } catch (err: any) {
+    return { status: 400, error: err.message || 'Invalid Raw Milk Token number.' };
+  }
+
   const pktDateStr = getPakistanCalendarDate(arrivalDate);
   const dateCode = pktDateStr.replace(/-/g, '');
   const arrivalDatePkt = new Date(`${pktDateStr}T00:00:00.000Z`);
@@ -2016,11 +2086,23 @@ export async function submitLocalSupplierArrival(
       const seqNum = Number(seqResult[0].nextval);
       const zmccToken = `ZT-LS-${dateCode}-${String(seqNum).padStart(4, '0')}`;
 
+      // Concurrency safety: acquire advisory lock and re-verify RAW_MILK_TOKEN within transaction
+      cleanRawMilkToken = await PaperReferenceService.validateAndVerify(
+        PaperReferenceType.RAW_MILK_TOKEN,
+        rawMilkTokenInput,
+        {
+          scopeEntityId: targetZmccId,
+          tx,
+          acquireAdvisoryLock: true,
+        }
+      );
+
       const arrival = await tx.zmccLocalSupplierArrival.create({
         data: {
           zmcc_id: targetZmccId!,
           local_supplier_id: localSupplierId,
           rmr_number: rmrNumber,
+          raw_milk_token_number: cleanRawMilkToken,
           vehicle_number: vehicleNumber,
           arrival_timestamp: arrivalDate,
           arrival_date: arrivalDatePkt,
@@ -2051,6 +2133,7 @@ export async function submitLocalSupplierArrival(
             local_supplier_code: localSupplier.local_supplier_code,
             supplier_name: localSupplier.name,
             rmr_number: rmrNumber,
+            raw_milk_token_number: cleanRawMilkToken,
             vehicle_number: vehicleNumber,
             zmcc_token: zmccToken,
             arrival_timestamp: arrivalDate.toISOString(),
@@ -2069,6 +2152,9 @@ export async function submitLocalSupplierArrival(
       data: serializeLocalSupplierArrival(createdArrival),
     };
   } catch (err: any) {
+    if (err instanceof PaperValidationError || err.name === 'PaperValidationError') {
+      return { status: 400, error: err.message };
+    }
     if (err.code === 'P2002') {
       const existingAfterCollision = await prisma.zmccLocalSupplierArrival.findUnique({
         where: { client_event_id: clientEventId },
@@ -2201,6 +2287,31 @@ export async function correctLocalSupplierArrival(
     }
   }
 
+  const rawMilkTokenCandidate = payload.raw_milk_token_number !== undefined
+    ? payload.raw_milk_token_number
+    : (payload.rmr_number !== undefined ? payload.rmr_number : undefined);
+
+  if (rawMilkTokenCandidate !== undefined) {
+    try {
+      const cleanRawMilkToken = await PaperReferenceService.validateAndVerify(
+        PaperReferenceType.RAW_MILK_TOKEN,
+        rawMilkTokenCandidate,
+        {
+          excludeEntityId: arrival.id,
+          excludeTable: 'zmcc_local_supplier_arrival',
+          scopeEntityId: arrival.zmcc_id,
+        }
+      );
+      if (cleanRawMilkToken !== arrival.raw_milk_token_number) {
+        oldValues.raw_milk_token_number = arrival.raw_milk_token_number;
+        newValues.raw_milk_token_number = cleanRawMilkToken;
+        updateData.raw_milk_token_number = cleanRawMilkToken;
+      }
+    } catch (err: any) {
+      return { status: 400, error: err.message || 'Invalid Raw Milk Token number.' };
+    }
+  }
+
   if (payload.vehicle_number !== undefined) {
     const trimmedVeh = String(payload.vehicle_number).trim().toUpperCase().replace(/\s+/g, ' ');
     if (!trimmedVeh) {
@@ -2280,6 +2391,24 @@ export async function correctLocalSupplierArrival(
         throw new Error('MAX_CORRECTIONS_REACHED');
       }
 
+      if (updateData.raw_milk_token_number) {
+        await PaperReferenceService.acquireRawMilkTokenAdvisoryLock(
+          tx,
+          arrival.zmcc_id,
+          updateData.raw_milk_token_number as string
+        );
+        await PaperReferenceService.validateAndVerify(
+          PaperReferenceType.RAW_MILK_TOKEN,
+          updateData.raw_milk_token_number as string,
+          {
+            excludeEntityId: arrival.id,
+            excludeTable: 'zmcc_local_supplier_arrival',
+            scopeEntityId: arrival.zmcc_id,
+            tx,
+          }
+        );
+      }
+
       const nextCorrectionCount = currentCount + 1;
       const updatedRecord = await tx.zmccLocalSupplierArrival.update({
         where: { id: arrivalId },
@@ -2317,6 +2446,9 @@ export async function correctLocalSupplierArrival(
       data: serializeLocalSupplierArrival(updated),
     };
   } catch (err: any) {
+    if (err instanceof PaperValidationError || err.name === 'PaperValidationError') {
+      return { status: 400, error: err.message };
+    }
     if (err.message === 'MAX_CORRECTIONS_REACHED') {
       return {
         status: 409,
@@ -2373,6 +2505,7 @@ export async function listLocalSupplierArrivals(
     const term = filters.search.trim();
     where.OR = [
       { zmcc_token: { contains: term, mode: 'insensitive' } },
+      { raw_milk_token_number: { contains: term, mode: 'insensitive' } },
       { rmr_number: { contains: term, mode: 'insensitive' } },
       { vehicle_number: { contains: term, mode: 'insensitive' } },
       { local_supplier: { name: { contains: term, mode: 'insensitive' } } },

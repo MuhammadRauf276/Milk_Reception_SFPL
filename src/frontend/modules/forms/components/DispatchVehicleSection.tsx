@@ -160,7 +160,7 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
 
           <div className="space-y-1">
             <label htmlFor="dispatch-note-input" className="block text-xs font-bold text-[#111311]">
-              Dispatch Note (Paper)
+              Raw Milk Dispatch Note No.
             </label>
             <input
               id="dispatch-note-input"

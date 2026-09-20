@@ -216,7 +216,7 @@ async function runStage6gd3Tests() {
     const migrationDirs = fs
       .readdirSync(migrationsDir)
       .filter((f) => fs.statSync(path.join(migrationsDir, f)).isDirectory() && !f.startsWith('.'));
-    assert(migrationDirs.length === 31, 'Tracked Migrations', `Found exactly 31 migrations (expected 31)`);
+    assert(migrationDirs.length === 32, 'Tracked Migrations', `Found exactly 32 migrations (expected 32)`);
 
     const d3MigDir = migrationDirs.find((d) => d.includes('zmcc_local_supplier_directory_and_arrival'));
     assert(!!d3MigDir, 'Migration 25 Exists', `Found 6G-D.3 directory migration: ${d3MigDir}`);
@@ -244,6 +244,7 @@ async function runStage6gd3Tests() {
     const arrColNames = arrivalCols.map((c) => c.column_name);
     assert(arrColNames.includes('zmcc_token'), 'Column Check', 'zmcc_local_supplier_arrival.zmcc_token exists');
     assert(arrColNames.includes('local_supplier_id'), 'Column Check', 'zmcc_local_supplier_arrival.local_supplier_id exists');
+    assert(arrColNames.includes('raw_milk_token_number'), 'Column Check', 'zmcc_local_supplier_arrival.raw_milk_token_number exists');
     assert(arrColNames.includes('rmr_number'), 'Column Check', 'zmcc_local_supplier_arrival.rmr_number exists');
     assert(arrColNames.includes('client_event_id'), 'Column Check', 'zmcc_local_supplier_arrival.client_event_id exists');
     assert(arrColNames.includes('gate_exit_required'), 'Column Check', 'zmcc_local_supplier_arrival.gate_exit_required exists');
@@ -396,6 +397,53 @@ async function runStage6gd3Tests() {
         is_active: true,
       },
     }));
+
+    // Ensure test isolation: clean up test arrivals and lab records from prior runs
+    const testTokens = [
+      '007890', '007891', '007892', '007893', '007899', '005544', '998877', '778899', '112233',
+      '123401', '123402', '123403', '123404', '123405', '123406', '123407', '123408', '123409', '123410'
+    ];
+    const priorArrivals = await prisma.zmccLocalSupplierArrival.findMany({
+      where: {
+        OR: [
+          { rmr_number: { in: testTokens } },
+          { raw_milk_token_number: { in: testTokens } },
+        ],
+      },
+      select: { id: true },
+    });
+    if (priorArrivals.length > 0) {
+      const arrIds = priorArrivals.map((a) => a.id);
+      const sessions = await prisma.zmccLabSession.findMany({
+        where: { local_supplier_arrival_id: { in: arrIds } },
+        select: { id: true },
+      });
+      const sessionIds = sessions.map((s) => s.id);
+      if (sessionIds.length > 0) {
+        const receipts = await prisma.zmccTankReceipt.findMany({
+          where: { lab_session_id: { in: sessionIds } },
+          select: { id: true },
+        });
+        const receiptIds = receipts.map((r) => r.id);
+        if (receiptIds.length > 0) {
+          await prisma.zmccTankInventoryTransaction.deleteMany({
+            where: { tank_receipt_id: { in: receiptIds } },
+          });
+        }
+        await prisma.zmccTankReceipt.deleteMany({ where: { lab_session_id: { in: sessionIds } } });
+        await prisma.zmccLabResult.deleteMany({ where: { session_id: { in: sessionIds } } });
+        await prisma.zmccLabSession.deleteMany({ where: { id: { in: sessionIds } } });
+      }
+      await prisma.auditLog.deleteMany({
+        where: {
+          table_name: 'zmcc_local_supplier_arrival',
+          record_id: { in: arrIds },
+        },
+      });
+      await prisma.zmccLocalSupplierArrival.deleteMany({
+        where: { id: { in: arrIds } },
+      });
+    }
 
     let superAdmin = await prisma.user.findFirst({
       where: { role: 'SUPER_ADMIN', is_active: true },
@@ -994,6 +1042,11 @@ async function runStage6gd3Tests() {
       'Leading zeros in RMR preserved exactly ("007890")'
     );
     assert(
+      arrivalRes1.data.raw_milk_token_number === '007890',
+      'Raw Milk Token Preservation',
+      'Leading zeros in Raw Milk Token preserved exactly ("007890")'
+    );
+    assert(
       arrivalRes1.data.vehicle_number === 'LHR 1234',
       'Vehicle Normalization',
       'Vehicle normalized to "LHR 1234"'
@@ -1524,11 +1577,13 @@ async function runStage6gd3Tests() {
 
     // 9.13 True Concurrency & Row Locking on Gate Exit (Blocker 2)
     // Helper to create unexited Local Supplier arrival with REJECTED lab (exit-ready)
+    let eligibleLsCounter = 1;
     const createEligibleLS = async (suffix: string) => {
+      const rmrNum = `1234${String(eligibleLsCounter++).padStart(2, '0')}`;
       const arr = await submitLocalSupplierArrival(pheCore as any, {
         client_event_id: `concurr-arr-${suffix}-${runId}`,
         local_supplier_id: createdSupplierId,
-        rmr_number: '123456',
+        rmr_number: rmrNum,
         vehicle_number: `C-${suffix.slice(-4)}`,
         arrival_timestamp: new Date(Date.now() - 3600000),
       });

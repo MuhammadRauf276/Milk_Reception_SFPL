@@ -906,11 +906,16 @@ All paginated collection APIs must return a standardized pagination envelope:
   - Zero-quantity physical transactions (`quantity_liters = 0`) are strictly forbidden. Commercial-only @13TS deltas update operational snapshots and audit logs without creating fake inventory movements.
   - Whole-vehicle dispatch quantity basis must remain `MEASURED` and cannot be corrected to `ESTIMATED`.
 
-### 29D. Operational Paper References & Duplicate Scoping
-- **Decoupled Paper Series**:
-  - `SHOP_RMR` (`MotShopCollection.shop_rmr_number`), `RAW_MILK_TOKEN` (`ZmccMotArrival.raw_milk_token_number`), and `RAW_MILK_DISPATCH_NOTE` (`VehicleVisit.raw_milk_dispatch_note_number`) are three independent paper series.
-  - Leading zeros are preserved as strings. Values must match digits-only regex.
-  - No fallback between `raw_milk_token_number` and legacy `route_milk_token`.
-- **Configurable Duplicate Scoping**:
-  - Policies support `duplicate_scope`: `GLOBAL` or `PER_SOURCE`.
-  - Super Admin can update policy mode (`REQUIRED`, `OPTIONAL`, `DISABLED`), allow_duplicates, and duplicate_scope with mandatory reason and full audit log.
+### 29D. Operational Paper References, Distinct Identities & Concurrency
+- **Decoupled Paper Series & Distinct Identities**:
+  - `System Collection ID` (`MotShopCollection.collection_number`): Permanent, immutable system identity.
+  - `SHOP_RMR` (`MotShopCollection.shop_rmr_number`): Physical shop collection/purchase paper receipt serial. Digits-only string with leading zeros preserved. Default policy is `REQUIRED`, `allow_duplicates = true`, `duplicate_scope = 'GLOBAL'`. Not a globally unique identity; historical booklet reuse across time/shops is valid and must never fail or block collection intake.
+  - `RAW_MILK_TOKEN` (`raw_milk_token_number` on both `ZmccMotArrival` and `ZmccLocalSupplierArrival`): Physical paper token issued at ZMCC entry from the ZMCC paper book. Digits-only string with leading zeros preserved. Default policy is `REQUIRED`, `allow_duplicates = false`, `duplicate_scope = 'PER_SOURCE'` (unique per ZMCC across all active arrival types). Enforced via PostgreSQL transaction advisory lock `RAW_MILK_TOKEN:zmccId:tokenValue`, cross-table pre-check, and per-table partial unique index.
+  - `System ZMCC Token` (`zmcc_token`): Globally unique, system-generated identity (`ZT-MOT-...`, `ZT-LS-...`), immutable.
+  - `RAW_MILK_DISPATCH_NOTE` (`VehicleVisit.raw_milk_dispatch_note_number`): Whole-vehicle dispatch paper reference from source ZMCC to Plant. Digits-only string with leading zeros preserved. Default policy is `REQUIRED`, `allow_duplicates = false`, `duplicate_scope = 'PER_SOURCE'` (unique per dispatch procurement source), guarded by partial unique index.
+  - `Plant Gate Token` (`VehicleVisit.token_number`): Independent token assigned by Plant Security at Plant gate entry.
+- **Legacy Compatibility**:
+  - `ZmccMotArrival.route_milk_token` is legacy compatibility only. New MOT arrivals require `raw_milk_token_number` when policy is `REQUIRED`.
+  - `ZmccLocalSupplierArrival.rmr_number` is legacy/optional. New local supplier arrivals require `raw_milk_token_number`. Historical records maintain `rmr_number` without rewriting.
+- **Tracked Migrations Invariant**:
+  - Exactly 32 tracked Prisma migrations exist in `prisma/migrations`.

@@ -1150,7 +1150,8 @@ model ZmccLocalSupplierArrival {
   id                  BigInt   @id @default(autoincrement())
   zmcc_id             BigInt   @map("zmcc_id")
   local_supplier_id   BigInt   @map("local_supplier_id")
-  rmr_number          String   @map("rmr_number") @db.VarChar(100)
+  rmr_number          String?  @map("rmr_number") @db.VarChar(100)
+  raw_milk_token_number String? @map("raw_milk_token_number") @db.VarChar(100)
   vehicle_number      String   @map("vehicle_number") @db.VarChar(50)
   arrival_timestamp   DateTime @map("arrival_timestamp") @db.Timestamp(6)
   arrival_date        DateTime @map("arrival_date") @db.Date
@@ -1182,6 +1183,7 @@ model ZmccLocalSupplierArrival {
   @@index([local_supplier_id])
   @@index([arrival_date])
   @@index([zmcc_id, exit_timestamp])
+  @@index([raw_milk_token_number])
   @@map("zmcc_local_supplier_arrival")
 }
 

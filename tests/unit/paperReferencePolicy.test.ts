@@ -98,7 +98,7 @@ describe('PaperReferenceService (Unit Tests)', () => {
   });
 
   describe('Policy Mode Defaults & Fail-Closed Duplicate Scopes (Directives 11, 13)', () => {
-    it('defaults unconfigured policies to REQUIRED with GLOBAL scope', async () => {
+    it('defaults unconfigured policies according to frozen architecture rules', async () => {
       const mockTx: any = {
         paperReferencePolicy: {
           findUnique: async () => null,
@@ -106,10 +106,20 @@ describe('PaperReferenceService (Unit Tests)', () => {
         },
       };
 
-      const policy = await PaperReferenceService.getPolicy('SHOP_RMR' as PaperReferenceType, mockTx);
-      expect(policy.policy_mode).toBe('REQUIRED');
-      expect(policy.duplicate_scope).toBe('GLOBAL');
-      expect(policy.allow_duplicates).toBe(false);
+      const shopPolicy = await PaperReferenceService.getPolicy('SHOP_RMR' as PaperReferenceType, mockTx);
+      expect(shopPolicy.policy_mode).toBe('REQUIRED');
+      expect(shopPolicy.duplicate_scope).toBe('GLOBAL');
+      expect(shopPolicy.allow_duplicates).toBe(true);
+
+      const tokenPolicy = await PaperReferenceService.getPolicy('RAW_MILK_TOKEN' as PaperReferenceType, mockTx);
+      expect(tokenPolicy.policy_mode).toBe('REQUIRED');
+      expect(tokenPolicy.duplicate_scope).toBe('PER_SOURCE');
+      expect(tokenPolicy.allow_duplicates).toBe(false);
+
+      const dispatchPolicy = await PaperReferenceService.getPolicy('RAW_MILK_DISPATCH_NOTE' as PaperReferenceType, mockTx);
+      expect(dispatchPolicy.policy_mode).toBe('REQUIRED');
+      expect(dispatchPolicy.duplicate_scope).toBe('PER_SOURCE');
+      expect(dispatchPolicy.allow_duplicates).toBe(false);
 
       const all = await PaperReferenceService.getAllPolicies(mockTx);
       expect(all).toHaveLength(3);
@@ -131,7 +141,7 @@ describe('PaperReferenceService (Unit Tests)', () => {
     it('fails closed when duplicate_scope is PER_SOURCE but source ID is missing', async () => {
       await expect(
         PaperReferenceService.checkDuplicate({
-          referenceType: 'SHOP_RMR' as PaperReferenceType,
+          referenceType: 'RAW_MILK_DISPATCH_NOTE' as PaperReferenceType,
           value: '001234',
           duplicateScope: 'PER_SOURCE',
           // scopeEntityId omitted
@@ -142,7 +152,7 @@ describe('PaperReferenceService (Unit Tests)', () => {
     it('queries with source filter when duplicate_scope is PER_SOURCE and source ID is provided', async () => {
       let queriedWhere: any = null;
       const mockTx: any = {
-        motShopCollection: {
+        vehicleVisit: {
           findFirst: async ({ where }: any) => {
             queriedWhere = where;
             return null;
@@ -151,7 +161,7 @@ describe('PaperReferenceService (Unit Tests)', () => {
       };
 
       const res = await PaperReferenceService.checkDuplicate({
-        referenceType: 'SHOP_RMR' as PaperReferenceType,
+        referenceType: 'RAW_MILK_DISPATCH_NOTE' as PaperReferenceType,
         value: '001234',
         duplicateScope: 'PER_SOURCE',
         scopeEntityId: BigInt(42),
@@ -160,8 +170,89 @@ describe('PaperReferenceService (Unit Tests)', () => {
 
       expect(res.isDuplicate).toBe(false);
       expect(queriedWhere).toBeDefined();
-      expect(queriedWhere.shop_rmr_number).toBe('001234');
-      expect(queriedWhere.zmcc_id).toEqual(BigInt(42));
+      expect(queriedWhere.raw_milk_dispatch_note_number).toBe('001234');
+      expect(queriedWhere.procurement_source_id).toEqual(BigInt(42));
+    });
+
+    it('detects cross-table duplicate for RAW_MILK_TOKEN across MOT and Local Supplier in same ZMCC', async () => {
+      // 1. Duplicate exists in ZmccMotArrival
+      const mockTxMotMatch: any = {
+        zmccMotArrival: {
+          findFirst: async () => ({ id: BigInt(101) }),
+        },
+        zmccLocalSupplierArrival: {
+          findFirst: async () => null,
+        },
+      };
+
+      const motRes = await PaperReferenceService.checkDuplicate({
+        referenceType: 'RAW_MILK_TOKEN' as PaperReferenceType,
+        value: '001924',
+        duplicateScope: 'PER_SOURCE',
+        scopeEntityId: BigInt(5),
+        tx: mockTxMotMatch,
+      });
+      expect(motRes.isDuplicate).toBe(true);
+      expect(motRes.existingRecordId).toEqual(BigInt(101));
+      expect(motRes.existingTable).toBe('zmcc_mot_arrival');
+
+      // 2. Duplicate exists in ZmccLocalSupplierArrival
+      const mockTxLsMatch: any = {
+        zmccMotArrival: {
+          findFirst: async () => null,
+        },
+        zmccLocalSupplierArrival: {
+          findFirst: async () => ({ id: BigInt(202) }),
+        },
+      };
+
+      const lsRes = await PaperReferenceService.checkDuplicate({
+        referenceType: 'RAW_MILK_TOKEN' as PaperReferenceType,
+        value: '001924',
+        duplicateScope: 'PER_SOURCE',
+        scopeEntityId: BigInt(5),
+        tx: mockTxLsMatch,
+      });
+      expect(lsRes.isDuplicate).toBe(true);
+      expect(lsRes.existingRecordId).toEqual(BigInt(202));
+      expect(lsRes.existingTable).toBe('zmcc_local_supplier_arrival');
+    });
+
+    it('guards updatePolicy against setting GLOBAL scope on RAW_MILK_TOKEN or RAW_MILK_DISPATCH_NOTE', async () => {
+      await expect(
+        PaperReferenceService.updatePolicy({
+          referenceType: 'RAW_MILK_TOKEN' as PaperReferenceType,
+          policyMode: 'REQUIRED' as PaperPolicyMode,
+          allowDuplicates: false,
+          duplicateScope: 'GLOBAL',
+          updatedByUserId: BigInt(1),
+          reason: 'Test invalid scope',
+        })
+      ).rejects.toThrow('RAW_MILK_TOKEN duplicate scope must remain PER_SOURCE');
+
+      await expect(
+        PaperReferenceService.updatePolicy({
+          referenceType: 'RAW_MILK_DISPATCH_NOTE' as PaperReferenceType,
+          policyMode: 'REQUIRED' as PaperPolicyMode,
+          allowDuplicates: false,
+          duplicateScope: 'GLOBAL',
+          updatedByUserId: BigInt(1),
+          reason: 'Test invalid scope',
+        })
+      ).rejects.toThrow('RAW_MILK_DISPATCH_NOTE duplicate scope must remain PER_SOURCE');
+    });
+
+    it('guards updatePolicy against setting hard global uniqueness on SHOP_RMR', async () => {
+      await expect(
+        PaperReferenceService.updatePolicy({
+          referenceType: 'SHOP_RMR' as PaperReferenceType,
+          policyMode: 'REQUIRED' as PaperPolicyMode,
+          allowDuplicates: false,
+          duplicateScope: 'GLOBAL',
+          updatedByUserId: BigInt(1),
+          reason: 'Test invalid unique rmr',
+        })
+      ).rejects.toThrow('SHOP_RMR cannot enforce hard global uniqueness');
     });
   });
 });
