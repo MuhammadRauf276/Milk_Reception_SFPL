@@ -1,0 +1,101 @@
+[
+  {
+    "role": "ZMCC_LAB_ATTENDANT",
+    "username": "zmcc.operator",
+    "pageUrl": "http://localhost:3000/zmcc/lab",
+    "requestUrl": "http://localhost:3000/api/auth/me",
+    "status": 401,
+    "statusText": "Unauthorized",
+    "method": "GET"
+  },
+  {
+    "role": "ZMCC_LAB_ATTENDANT",
+    "username": "zmcc.operator",
+    "pageUrl": "http://localhost:3000/department/mpd",
+    "requestUrl": "http://localhost:3000/api/auth/me",
+    "status": 401,
+    "statusText": "Unauthorized",
+    "method": "GET"
+  },
+  {
+    "role": "ZMCC_LAB_ATTENDANT",
+    "username": "zmcc.operator",
+    "pageUrl": "http://localhost:3000/department/mpd",
+    "requestUrl": "http://localhost:3000/api/dispatches?range=7d&page=1&pageSize=20",
+    "status": 401,
+    "statusText": "Unauthorized",
+    "method": "GET"
+  },
+  {
+    "role": "ZMCC_LAB_ATTENDANT",
+    "username": "zmcc.operator",
+    "pageUrl": "http://localhost:3000/department/mpd",
+    "requestUrl": "http://localhost:3000/api/super-admin/procurement-sources",
+    "status": 403,
+    "statusText": "Forbidden",
+    "method": "GET"
+  },
+  {
+    "role": "ZMCC_LAB_ATTENDANT",
+    "username": "zmcc.operator",
+    "pageUrl": "http://localhost:3000/mpd/zmcc-manager",
+    "requestUrl": "http://localhost:3000/api/auth/me",
+    "status": 401,
+    "statusText": "Unauthorized",
+    "method": "GET"
+  },
+  {
+    "role": "ZMCC_LAB_ATTENDANT",
+    "username": "zmcc.operator",
+    "pageUrl": "http://localhost:3000/mpd/zmcc-manager",
+    "requestUrl": "http://localhost:3000/api/auth/me",
+    "status": 401,
+    "statusText": "Unauthorized",
+    "method": "GET"
+  },
+  {
+    "role": "ZMCC_LAB_ATTENDANT",
+    "username": "zmcc.operator",
+    "pageUrl": "http://localhost:3000/contractor/manager",
+    "requestUrl": "http://localhost:3000/api/auth/me",
+    "status": 401,
+    "statusText": "Unauthorized",
+    "method": "GET"
+  },
+  {
+    "role": "ZMCC_LAB_ATTENDANT",
+    "username": "zmcc.operator",
+    "pageUrl": "http://localhost:3000/department/security",
+    "requestUrl": "http://localhost:3000/api/auth/me",
+    "status": 401,
+    "statusText": "Unauthorized",
+    "method": "GET"
+  },
+  {
+    "role": "ZMCC_LAB_ATTENDANT",
+    "username": "zmcc.operator",
+    "pageUrl": "http://localhost:3000/department/qa",
+    "requestUrl": "http://localhost:3000/api/auth/me",
+    "status": 401,
+    "statusText": "Unauthorized",
+    "method": "GET"
+  },
+  {
+    "role": "ZMCC_LAB_ATTENDANT",
+    "username": "zmcc.operator",
+    "pageUrl": "http://localhost:3000/department/production",
+    "requestUrl": "http://localhost:3000/api/auth/me",
+    "status": 401,
+    "statusText": "Unauthorized",
+    "method": "GET"
+  },
+  {
+    "role": "ZMCC_MANAGER",
+    "username": "zmcc.manager.north",
+    "pageUrl": "http://localhost:3000/department/mpd",
+    "requestUrl": "http://localhost:3000/api/dispatches/start",
+    "status": 403,
+    "statusText": "Forbidden",
+    "method": "POST"
+  }
+]
