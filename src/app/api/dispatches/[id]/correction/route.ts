@@ -108,7 +108,18 @@ export async function PATCH(
     }
 
     const result = await prisma.$transaction(async (tx) => {
-      await tx.$executeRaw`SELECT id FROM vehicle_visit WHERE id = ${visitId} FOR UPDATE`;
+      const lockedRows = await tx.$queryRaw<{ id: bigint; correction_count: number; manager_correction_count: number }[]>`
+        SELECT id, correction_count, manager_correction_count FROM vehicle_visit WHERE id = ${visitId} FOR UPDATE
+      `;
+      if (!lockedRows || lockedRows.length === 0) {
+        throw new Error('NOT_FOUND:Dispatch visit not found.');
+      }
+      const currentTotalCount = lockedRows[0].correction_count ?? 0;
+      const currentManagerCount = lockedRows[0].manager_correction_count ?? 0;
+
+      if (dbUser.role !== 'SUPER_ADMIN' && currentManagerCount >= 5) {
+        throw new Error('MAX_CORRECTIONS_REACHED:Maximum correction limit (5) reached for ZMCC Manager.');
+      }
 
       const visit = await tx.vehicleVisit.findUnique({
         where: { id: visitId },
@@ -144,25 +155,6 @@ export async function PATCH(
 
         if (cleanNote !== visit.raw_milk_dispatch_note_number) {
           isNoteChanged = true;
-          await tx.vehicleVisit.update({
-            where: { id: visit.id },
-            data: { raw_milk_dispatch_note_number: cleanNote },
-          });
-
-          await tx.auditLog.create({
-            data: {
-              table_name: 'vehicle_visit',
-              record_id: visit.id,
-              action: 'RAW_MILK_DISPATCH_NOTE_CORRECTED',
-              old_values: { raw_milk_dispatch_note_number: visit.raw_milk_dispatch_note_number },
-              new_values: {
-                raw_milk_dispatch_note_number: cleanNote,
-                reason: validated.reason,
-                idempotency_key: clientKey,
-              },
-              user_id: dbUser.id,
-            },
-          });
         }
       }
 
@@ -191,35 +183,38 @@ export async function PATCH(
         isMeasurementChanged = true;
       }
 
+      if (!isNoteChanged && !isMeasurementChanged) {
+        throw new Error('NO_CHANGES:No changes detected in correction payload.');
+      }
+
+      const effectiveQtyVal = hasQtyVal
+        ? validated.vehicle_dispatch_quantity_value!
+        : (visit.vehicle_dispatch_quantity_value ? Number(visit.vehicle_dispatch_quantity_value) : 0);
+
+      const effectiveQtyUnit = hasQtyUnit
+        ? validated.vehicle_dispatch_quantity_unit!
+        : (visit.vehicle_dispatch_quantity_unit as 'KG' | 'LITER' || 'LITER');
+
+      const effectiveQtyBasis = hasQtyBasis
+        ? validated.vehicle_dispatch_quantity_basis!
+        : (visit.vehicle_dispatch_quantity_basis as 'ESTIMATED' | 'MEASURED' || 'MEASURED');
+
+      const effectiveLr = hasLr
+        ? validated.vehicle_dispatch_lr!
+        : (visit.vehicle_dispatch_lr ? Number(visit.vehicle_dispatch_lr) : null);
+
+      const effectiveFat = hasFat
+        ? validated.vehicle_dispatch_fat!
+        : (visit.vehicle_dispatch_fat ? Number(visit.vehicle_dispatch_fat) : null);
+
+      let vehicleDensity: number | null = null;
+      let vehicleGrossLiters: number | null = null;
+      let vehicleSnf: number | null = null;
+      let vehicleTs: number | null = null;
+      let vehicleAt13tsLiters: number | null = null;
+      let vehicleCalculationVersion: string | null = null;
+
       if (isMeasurementChanged) {
-
-        const effectiveQtyVal = hasQtyVal
-          ? validated.vehicle_dispatch_quantity_value!
-          : (visit.vehicle_dispatch_quantity_value ? Number(visit.vehicle_dispatch_quantity_value) : 0);
-
-        const effectiveQtyUnit = hasQtyUnit
-          ? validated.vehicle_dispatch_quantity_unit!
-          : (visit.vehicle_dispatch_quantity_unit as 'KG' | 'LITER' || 'LITER');
-
-        const effectiveQtyBasis = hasQtyBasis
-          ? validated.vehicle_dispatch_quantity_basis!
-          : (visit.vehicle_dispatch_quantity_basis as 'ESTIMATED' | 'MEASURED' || 'MEASURED');
-
-        const effectiveLr = hasLr
-          ? validated.vehicle_dispatch_lr!
-          : (visit.vehicle_dispatch_lr ? Number(visit.vehicle_dispatch_lr) : null);
-
-        const effectiveFat = hasFat
-          ? validated.vehicle_dispatch_fat!
-          : (visit.vehicle_dispatch_fat ? Number(visit.vehicle_dispatch_fat) : null);
-
-        let vehicleDensity: number | null = null;
-        let vehicleGrossLiters: number | null = null;
-        let vehicleSnf: number | null = null;
-        let vehicleTs: number | null = null;
-        let vehicleAt13tsLiters: number | null = null;
-        let vehicleCalculationVersion: string | null = null;
-
         if (effectiveQtyUnit === 'LITER') {
           vehicleGrossLiters = Number(effectiveQtyVal.toFixed(2));
           if (effectiveLr !== null) {
@@ -249,27 +244,12 @@ export async function PATCH(
           vehicleAt13tsLiters = canonical.at13tsLiters;
           vehicleCalculationVersion = canonical.calculationVersion;
         }
+      }
 
-        const oldGross = visit.vehicle_dispatch_gross_liters ? Number(visit.vehicle_dispatch_gross_liters) : null;
-        const oldAt13ts = visit.vehicle_dispatch_at_13ts_liters ? Number(visit.vehicle_dispatch_at_13ts_liters) : null;
+      const oldGross = visit.vehicle_dispatch_gross_liters ? Number(visit.vehicle_dispatch_gross_liters) : null;
+      const oldAt13ts = visit.vehicle_dispatch_at_13ts_liters ? Number(visit.vehicle_dispatch_at_13ts_liters) : null;
 
-        await tx.vehicleVisit.update({
-          where: { id: visit.id },
-          data: {
-            vehicle_dispatch_quantity_value: new Prisma.Decimal(effectiveQtyVal),
-            vehicle_dispatch_quantity_unit: effectiveQtyUnit,
-            vehicle_dispatch_quantity_basis: effectiveQtyBasis,
-            vehicle_dispatch_lr: effectiveLr !== null ? new Prisma.Decimal(effectiveLr.toFixed(2)) : null,
-            vehicle_dispatch_fat: effectiveFat !== null ? new Prisma.Decimal(effectiveFat.toFixed(2)) : null,
-            vehicle_dispatch_density: vehicleDensity !== null ? new Prisma.Decimal(vehicleDensity.toFixed(4)) : null,
-            vehicle_dispatch_gross_liters: vehicleGrossLiters !== null ? new Prisma.Decimal(vehicleGrossLiters.toFixed(2)) : null,
-            vehicle_dispatch_snf: vehicleSnf !== null ? new Prisma.Decimal(vehicleSnf.toFixed(2)) : null,
-            vehicle_dispatch_ts: vehicleTs !== null ? new Prisma.Decimal(vehicleTs.toFixed(2)) : null,
-            vehicle_dispatch_at_13ts_liters: vehicleAt13tsLiters !== null ? new Prisma.Decimal(vehicleAt13tsLiters.toFixed(2)) : null,
-            vehicle_dispatch_calculation_version: vehicleCalculationVersion,
-          },
-        });
-
+      if (isMeasurementChanged) {
         // Inventory adjustment for ZMCC tank issue (Item G)
         if (visit.procurement_source?.source_type === 'ZMCC' && vehicleGrossLiters !== null) {
           const existingIssue = await tx.zmccTankInventoryTransaction.findFirst({
@@ -312,7 +292,7 @@ export async function PATCH(
                 where: {
                   table_name: 'vehicle_visit',
                   record_id: visit.id,
-                  action: { in: ['VEHICLE_DISPATCH_MEASUREMENT_CORRECTED', 'RAW_MILK_DISPATCH_NOTE_CORRECTED'] },
+                  action: { in: ['VEHICLE_DISPATCH_CORRECTED', 'VEHICLE_DISPATCH_MEASUREMENT_CORRECTED', 'RAW_MILK_DISPATCH_NOTE_CORRECTED'] },
                 },
               });
               const newCorrSeq = priorCorrCount + 1;
@@ -369,38 +349,84 @@ export async function PATCH(
             },
           });
         }
-
-        await tx.auditLog.create({
-          data: {
-            table_name: 'vehicle_visit',
-            record_id: visit.id,
-            action: 'VEHICLE_DISPATCH_MEASUREMENT_CORRECTED',
-            old_values: {
-              quantity_value: visit.vehicle_dispatch_quantity_value ? Number(visit.vehicle_dispatch_quantity_value) : null,
-              quantity_unit: visit.vehicle_dispatch_quantity_unit,
-              lr: visit.vehicle_dispatch_lr ? Number(visit.vehicle_dispatch_lr) : null,
-              fat: visit.vehicle_dispatch_fat ? Number(visit.vehicle_dispatch_fat) : null,
-              gross_liters: oldGross,
-              at_13ts_liters: oldAt13ts,
-            },
-            new_values: {
-              quantity_value: effectiveQtyVal,
-              quantity_unit: effectiveQtyUnit,
-              lr: effectiveLr,
-              fat: effectiveFat,
-              gross_liters: vehicleGrossLiters,
-              at_13ts_liters: vehicleAt13tsLiters,
-              reason: validated.reason,
-              idempotency_key: clientKey,
-            },
-            user_id: dbUser.id,
-          },
-        });
       }
 
-      if (!isNoteChanged && !isMeasurementChanged) {
-        throw new Error('NO_CHANGES:No changes detected in correction payload.');
+      const nextCorrectionCount = currentTotalCount + 1;
+      const nextManagerCount = dbUser.role === 'SUPER_ADMIN' ? currentManagerCount : currentManagerCount + 1;
+      const nowTs = new Date();
+
+      const visitUpdateData: Prisma.VehicleVisitUncheckedUpdateInput = {
+        correction_count: nextCorrectionCount,
+        manager_correction_count: nextManagerCount,
+        last_corrected_by_user_id: dbUser.id,
+        last_corrected_at: nowTs,
+      };
+
+      if (isNoteChanged) {
+        visitUpdateData.raw_milk_dispatch_note_number = cleanNote;
       }
+
+      if (isMeasurementChanged) {
+        visitUpdateData.vehicle_dispatch_quantity_value = new Prisma.Decimal(effectiveQtyVal);
+        visitUpdateData.vehicle_dispatch_quantity_unit = effectiveQtyUnit;
+        visitUpdateData.vehicle_dispatch_quantity_basis = effectiveQtyBasis;
+        visitUpdateData.vehicle_dispatch_lr = effectiveLr !== null ? new Prisma.Decimal(effectiveLr.toFixed(2)) : null;
+        visitUpdateData.vehicle_dispatch_fat = effectiveFat !== null ? new Prisma.Decimal(effectiveFat.toFixed(2)) : null;
+        visitUpdateData.vehicle_dispatch_density = vehicleDensity !== null ? new Prisma.Decimal(vehicleDensity.toFixed(4)) : null;
+        visitUpdateData.vehicle_dispatch_gross_liters = vehicleGrossLiters !== null ? new Prisma.Decimal(vehicleGrossLiters.toFixed(2)) : null;
+        visitUpdateData.vehicle_dispatch_snf = vehicleSnf !== null ? new Prisma.Decimal(vehicleSnf.toFixed(2)) : null;
+        visitUpdateData.vehicle_dispatch_ts = vehicleTs !== null ? new Prisma.Decimal(vehicleTs.toFixed(2)) : null;
+        visitUpdateData.vehicle_dispatch_at_13ts_liters = vehicleAt13tsLiters !== null ? new Prisma.Decimal(vehicleAt13tsLiters.toFixed(2)) : null;
+        visitUpdateData.vehicle_dispatch_calculation_version = vehicleCalculationVersion;
+      }
+
+      await tx.vehicleVisit.update({
+        where: { id: visit.id },
+        data: visitUpdateData,
+      });
+
+      const oldAuditValues: Record<string, any> = {
+        correction_count: currentTotalCount,
+        manager_correction_count: currentManagerCount,
+      };
+      const newAuditValues: Record<string, any> = {
+        correction_count: nextCorrectionCount,
+        manager_correction_count: nextManagerCount,
+        reason: validated.reason,
+        idempotency_key: clientKey,
+      };
+
+      if (isNoteChanged) {
+        oldAuditValues.raw_milk_dispatch_note_number = visit.raw_milk_dispatch_note_number;
+        newAuditValues.raw_milk_dispatch_note_number = cleanNote;
+      }
+
+      if (isMeasurementChanged) {
+        oldAuditValues.quantity_value = visit.vehicle_dispatch_quantity_value ? Number(visit.vehicle_dispatch_quantity_value) : null;
+        oldAuditValues.quantity_unit = visit.vehicle_dispatch_quantity_unit;
+        oldAuditValues.lr = visit.vehicle_dispatch_lr ? Number(visit.vehicle_dispatch_lr) : null;
+        oldAuditValues.fat = visit.vehicle_dispatch_fat ? Number(visit.vehicle_dispatch_fat) : null;
+        oldAuditValues.gross_liters = oldGross;
+        oldAuditValues.at_13ts_liters = oldAt13ts;
+
+        newAuditValues.quantity_value = effectiveQtyVal;
+        newAuditValues.quantity_unit = effectiveQtyUnit;
+        newAuditValues.lr = effectiveLr;
+        newAuditValues.fat = effectiveFat;
+        newAuditValues.gross_liters = vehicleGrossLiters;
+        newAuditValues.at_13ts_liters = vehicleAt13tsLiters;
+      }
+
+      await tx.auditLog.create({
+        data: {
+          table_name: 'vehicle_visit',
+          record_id: visit.id,
+          action: 'VEHICLE_DISPATCH_CORRECTED',
+          old_values: oldAuditValues,
+          new_values: newAuditValues,
+          user_id: dbUser.id,
+        },
+      });
 
       return { success: true };
     });
@@ -408,7 +434,19 @@ export async function PATCH(
     return NextResponse.json(result, { status: 200 });
   } catch (err: any) {
     if (err instanceof PaperValidationError) {
+      if (err.message.includes('already in use') || err.message.includes('duplicate')) {
+        return NextResponse.json({ error: err.message }, { status: 409 });
+      }
       return NextResponse.json({ error: err.message }, { status: 400 });
+    }
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      return NextResponse.json({ error: 'Conflict: Duplicate paper reference number already in use.' }, { status: 409 });
+    }
+    if (err.code === 'P2002') {
+      return NextResponse.json({ error: 'Conflict: Duplicate paper reference number already in use.' }, { status: 409 });
+    }
+    if (err.message?.startsWith('MAX_CORRECTIONS_REACHED:')) {
+      return NextResponse.json({ error: err.message.replace('MAX_CORRECTIONS_REACHED:', '') }, { status: 400 });
     }
     if (err.message?.startsWith('NOT_FOUND:')) {
       return NextResponse.json({ error: err.message.replace('NOT_FOUND:', '') }, { status: 404 });

@@ -529,6 +529,7 @@ async function runStage6eTests() {
   const journeyAuthTest = await createTestJourney('COLLECTING');
   const basePayload = {
     journey_id: journeyAuthTest.id.toString(),
+    raw_milk_token_number: '100001',
     route_milk_token: 'RMT-AUTH-100',
     arrival_timestamp: new Date().toISOString(),
     client_event_id: `evt-auth-${Date.now()}`,
@@ -555,9 +556,9 @@ async function runStage6eTests() {
   const resMissingJourney = await submitMotArrival(pheA as any, { ...basePayload, journey_id: '' });
   assert(resMissingJourney.status === 400, 'Missing journey_id', 'Empty journey_id returns 400');
 
-  // Missing route_milk_token
-  const resMissingToken = await submitMotArrival(pheA as any, { ...basePayload, route_milk_token: '   ' });
-  assert(resMissingToken.status === 400, 'Missing route_milk_token', 'Empty route_milk_token returns 400');
+  // Missing raw_milk_token_number
+  const resMissingToken = await submitMotArrival(pheA as any, { ...basePayload, raw_milk_token_number: '   ' });
+  assert(resMissingToken.status === 400, 'Missing raw_milk_token_number', 'Empty raw_milk_token_number returns 400');
 
   // Missing client_event_id
   const resMissingEventId = await submitMotArrival(pheA as any, { ...basePayload, client_event_id: '' });
@@ -644,6 +645,7 @@ async function runStage6eTests() {
 
   const resMainArrival = await submitMotArrival(pheA as any, {
     journey_id: journeyMain.id.toString(),
+    raw_milk_token_number: '100002',
     route_milk_token: 'RMT-98765',
     arrival_timestamp: arrivalTimeMain.toISOString(),
     phe_latitude: 31.5300000,
@@ -653,6 +655,7 @@ async function runStage6eTests() {
   });
 
   assert(resMainArrival.status === 201, 'MOT Arrival Submit', 'Valid MOT arrival returns 201 Created');
+  assert(resMainArrival.data?.raw_milk_token_number === '100002', 'Raw Milk Token', 'Preserves raw_milk_token_number');
   assert(resMainArrival.data?.route_milk_token === 'RMT-98765', 'Route Milk Token', 'Preserves manual route_milk_token');
   assert(
     /^ZT-MOT-\d{8}-\d{4}$/.test(resMainArrival.data?.zmcc_token),
@@ -711,6 +714,7 @@ async function runStage6eTests() {
   // Exact replay returns 200 with is_replay: true
   const resExactReplay = await submitMotArrival(pheA as any, {
     journey_id: journeyMain.id.toString(),
+    raw_milk_token_number: '100002',
     route_milk_token: 'RMT-98765',
     arrival_timestamp: arrivalTimeMain.toISOString(),
     phe_latitude: 31.5300000,
@@ -729,6 +733,7 @@ async function runStage6eTests() {
   // Altered replay with modified route_milk_token returns 409
   const resAlteredReplay = await submitMotArrival(pheA as any, {
     journey_id: journeyMain.id.toString(),
+    raw_milk_token_number: '100003',
     route_milk_token: 'RMT-DIFFERENT',
     arrival_timestamp: arrivalTimeMain.toISOString(),
     client_event_id: mainEventId,
@@ -738,6 +743,7 @@ async function runStage6eTests() {
   // C. Altered replay with modified GPS accuracy fails with 409
   const resAlteredAccuracyReplay = await submitMotArrival(pheA as any, {
     journey_id: journeyMain.id.toString(),
+    raw_milk_token_number: '100002',
     route_milk_token: 'RMT-98765',
     arrival_timestamp: arrivalTimeMain.toISOString(),
     phe_latitude: 31.5300000,
@@ -750,6 +756,7 @@ async function runStage6eTests() {
   // C2. Altered replay with modified GPS coordinates fails with 409
   const resAlteredCoordsReplay = await submitMotArrival(pheA as any, {
     journey_id: journeyMain.id.toString(),
+    raw_milk_token_number: '100002',
     route_milk_token: 'RMT-98765',
     arrival_timestamp: arrivalTimeMain.toISOString(),
     phe_latitude: 31.5999999, // original was 31.5300000
@@ -762,6 +769,7 @@ async function runStage6eTests() {
   // Second arrival on completed journey with different client_event_id returns 409
   const resSecondArrival = await submitMotArrival(pheA as any, {
     journey_id: journeyMain.id.toString(),
+    raw_milk_token_number: '100004',
     route_milk_token: 'RMT-SECOND',
     arrival_timestamp: arrivalTimeMain.toISOString(),
     client_event_id: `evt-second-${Date.now()}`,
@@ -776,12 +784,14 @@ async function runStage6eTests() {
   const [conc1, conc2] = await Promise.all([
     submitMotArrival(pheA as any, {
       journey_id: journeyConcurrent.id.toString(),
+      raw_milk_token_number: '100005',
       route_milk_token: 'RMT-CONCURRENT',
       arrival_timestamp: concurrentTime,
       client_event_id: concurrentEventId,
     }),
     submitMotArrival(pheA as any, {
       journey_id: journeyConcurrent.id.toString(),
+      raw_milk_token_number: '100005',
       route_milk_token: 'RMT-CONCURRENT',
       arrival_timestamp: concurrentTime,
       client_event_id: concurrentEventId,
@@ -808,12 +818,14 @@ async function runStage6eTests() {
   const [diffConc1, diffConc2] = await Promise.all([
     submitMotArrival(pheA as any, {
       journey_id: journeyDiffConcurrent.id.toString(),
+      raw_milk_token_number: '100006',
       route_milk_token: 'RMT-CONC-PAYLOAD-1',
       arrival_timestamp: diffConcurrentTime,
       client_event_id: diffConcEventId,
     }),
     submitMotArrival(pheA as any, {
       journey_id: journeyDiffConcurrent.id.toString(),
+      raw_milk_token_number: '100007',
       route_milk_token: 'RMT-CONC-PAYLOAD-2',
       arrival_timestamp: diffConcurrentTime,
       client_event_id: diffConcEventId,
@@ -832,7 +844,7 @@ async function runStage6eTests() {
     where: { client_event_id: diffConcEventId },
   });
   assert(
-    savedArrival?.route_milk_token === winner.data?.route_milk_token,
+    savedArrival?.raw_milk_token_number === winner.data?.raw_milk_token_number,
     'D: Winner Preserved',
     'Winning payload was not overwritten by colliding loser payload'
   );
@@ -962,11 +974,14 @@ async function runStage6eTests() {
   const originalToken = resMainArrival.data?.zmcc_token;
   const resCorrection1 = await correctMotArrival(managerA as any, arrivalToCorrectId, {
     reason: 'Driver mistyped ticket number on slip',
+    raw_milk_token_number: '100010',
     route_milk_token: 'RMT-CORRECTED-1',
   });
   assert(resCorrection1.status === 200, 'Correction 1 Status', 'First correction succeeds with 200');
-  assert(resCorrection1.data?.route_milk_token === 'RMT-CORRECTED-1', 'Token Updated', 'route_milk_token updated');
+  assert(resCorrection1.data?.raw_milk_token_number === '100010', 'Token Updated', 'raw_milk_token_number updated');
+  assert(resCorrection1.data?.route_milk_token === 'RMT-CORRECTED-1', 'Route Token Updated', 'route_milk_token updated');
   assert(resCorrection1.data?.correction_count === 1, 'Correction Count 1', 'correction_count is 1');
+  assert(resCorrection1.data?.manager_correction_count === 1, 'Manager Correction Count 1', 'manager_correction_count is 1');
   assert(resCorrection1.data?.zmcc_token === originalToken, 'Immutable ZMCC Token', 'zmcc_token remains immutable');
 
   // Correction 2: Update arrival_timestamp (updates ended_at and re-evaluates final_mot_gps)
@@ -977,6 +992,7 @@ async function runStage6eTests() {
   });
   assert(resCorrection2.status === 200, 'Correction 2 Status', 'Second correction succeeds with 200');
   assert(resCorrection2.data?.correction_count === 2, 'Correction Count 2', 'correction_count is 2');
+  assert(resCorrection2.data?.manager_correction_count === 2, 'Manager Correction Count 2', 'manager_correction_count is 2');
 
   const journeyAfterCorrection = await prisma.motJourney.findUnique({
     where: { id: journeyMain.id },
@@ -987,12 +1003,22 @@ async function runStage6eTests() {
     'MotJourney ended_at updated to corrected arrival timestamp'
   );
 
-  // Correction 3: Exceeds max 2 corrections
-  const resCorrection3 = await correctMotArrival(managerA as any, arrivalToCorrectId, {
-    reason: 'Third attempt should fail',
-    route_milk_token: 'RMT-FAILED-3',
+  // Corrections 3, 4, 5: Valid corrections by Manager A (up to max 5)
+  for (let c = 3; c <= 5; c++) {
+    const res = await correctMotArrival(managerA as any, arrivalToCorrectId, {
+      reason: `Manager A correction sequence ${c}`,
+      raw_milk_token_number: `10001${c}`,
+    });
+    assert(res.status === 200, `Correction ${c} Status`, `Correction ${c} succeeds with 200`);
+    assert(res.data?.manager_correction_count === c, 'Manager Correction Count', `manager_correction_count is ${c}`);
+  }
+
+  // Correction 6: Exceeds max 5 corrections
+  const resCorrection6 = await correctMotArrival(managerA as any, arrivalToCorrectId, {
+    reason: 'Sixth attempt should fail',
+    raw_milk_token_number: '100099',
   });
-  assert(resCorrection3.status === 400, 'Max Corrections Enforced', 'Third correction rejected with 400 (max 2 reached)');
+  assert(resCorrection6.status === 400, 'Max Corrections Enforced', 'Sixth correction rejected with 400 (max 5 reached)');
 
   // Contractor correction test on historical contractor arrival
   const historicalConArrival = await prisma.zmccContractorArrival.create({
@@ -1019,6 +1045,7 @@ async function runStage6eTests() {
   const journeyRace = await createTestJourney('COLLECTING');
   const raceArrivalRes = await submitMotArrival(pheA as any, {
     journey_id: journeyRace.id.toString(),
+    raw_milk_token_number: '100020',
     route_milk_token: 'RMT-RACE-ORIGINAL',
     arrival_timestamp: new Date().toISOString(),
     client_event_id: `evt-race-arr-${runId}`,
@@ -1026,12 +1053,15 @@ async function runStage6eTests() {
   assert(raceArrivalRes.status === 201, 'Race Arrival Created', 'Seed arrival created for correction race test');
   const raceArrivalId = raceArrivalRes.data?.id;
 
-  // Use 1st correction slot
-  const preRaceRes = await correctMotArrival(managerA as any, raceArrivalId, {
-    reason: 'First legitimate correction',
-    route_milk_token: 'RMT-RACE-FIRST',
-  });
-  assert(preRaceRes.status === 200 && preRaceRes.data?.correction_count === 1, 'First Slot Used', 'Arrival now has correction_count = 1 (1 slot remains)');
+  // Use first 4 correction slots
+  for (let s = 1; s <= 4; s++) {
+    const preRaceRes = await correctMotArrival(managerA as any, raceArrivalId, {
+      reason: `Pre-race correction ${s}`,
+      raw_milk_token_number: `10002${s}`,
+      route_milk_token: `RMT-RACE-PRE-${s}`,
+    });
+    assert(preRaceRes.status === 200 && preRaceRes.data?.correction_count === s, `Slot ${s} Used`, `Arrival now has correction_count = ${s}`);
+  }
 
   // Count audit logs for this arrival before race
   const preRaceAudits = await prisma.auditLog.count({
@@ -1041,16 +1071,18 @@ async function runStage6eTests() {
       record_id: BigInt(raceArrivalId),
     },
   });
-  assert(preRaceAudits === 1, 'Pre-Race Audits', 'Exactly 1 correction audit log before race');
+  assert(preRaceAudits === 4, 'Pre-Race Audits', 'Exactly 4 correction audit logs before race');
 
   // Race: Two simultaneous correction attempts when only 1 slot remains
   const [race1, race2] = await Promise.all([
     correctMotArrival(managerA as any, raceArrivalId, {
       reason: 'Concurrent correction attempt Alpha',
+      raw_milk_token_number: '100031',
       route_milk_token: 'RMT-RACE-ALPHA',
     }),
     correctMotArrival(managerA as any, raceArrivalId, {
       reason: 'Concurrent correction attempt Beta',
+      raw_milk_token_number: '100032',
       route_milk_token: 'RMT-RACE-BETA',
     }),
   ]);
@@ -1072,30 +1104,31 @@ async function runStage6eTests() {
     },
   });
   assert(
-    postRaceAudits === 2,
+    postRaceAudits === 5,
     'O: Loser Created Zero Audit Logs',
-    `Audit log count increased by exactly 1 for winning correction (${postRaceAudits} === 2)`
+    `Audit log count increased by exactly 1 for winning correction (${postRaceAudits} === 5)`
   );
 
-  // P. Maximum 2 corrections enforced across simultaneous attempts
+  // P. Maximum 5 corrections enforced across simultaneous attempts
   const finalRaceArrival = await prisma.zmccMotArrival.findUnique({
     where: { id: BigInt(raceArrivalId) },
   });
   assert(
-    finalRaceArrival?.correction_count === 2,
-    'P: Max 2 Corrections In DB',
-    `Final correction_count is strictly 2 (${finalRaceArrival?.correction_count})`
+    finalRaceArrival?.correction_count === 5,
+    'P: Max 5 Corrections In DB',
+    `Final correction_count is strictly 5 (${finalRaceArrival?.correction_count})`
   );
 
   // Any subsequent attempt now fails with 400 (max corrections reached)
   const postLimitAttempt = await correctMotArrival(managerA as any, raceArrivalId, {
     reason: 'Attempt after limit',
+    raw_milk_token_number: '100099',
     route_milk_token: 'RMT-RACE-OMEGA',
   });
   assert(
     postLimitAttempt.status === 400,
     'P: Subsequent Correction Rejection',
-    'Subsequent correction rejected with 400 after max 2 corrections reached'
+    'Subsequent correction rejected with 400 after max 5 corrections reached'
   );
 
   console.log('\n--- 9. READ MODELS & JOURNEY MAP COMPLETION ---');

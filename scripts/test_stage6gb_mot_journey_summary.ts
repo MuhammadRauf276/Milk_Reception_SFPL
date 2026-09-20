@@ -144,7 +144,7 @@ async function runStage6gbTests() {
   const migrationDirs = fs
     .readdirSync(migrationsDir)
     .filter((f) => fs.statSync(path.join(migrationsDir, f)).isDirectory() && !f.startsWith('.'));
-  assert(migrationDirs.length === 31, 'Tracked Migrations', `Found exactly ${migrationDirs.length} migrations (expected 31)`);
+  assert(migrationDirs.length === 33, 'Tracked Migrations', `Found exactly ${migrationDirs.length} migrations (expected 33)`);
 
   const summaryMigDir = migrationDirs.find((d) => d.includes('mot_journey_summary'));
   assert(!!summaryMigDir, 'Migration Exists', `Found summary migration directory: ${summaryMigDir}`);
@@ -290,6 +290,10 @@ async function runStage6gbTests() {
   let rmrSeq = 1000;
   function nextRmr(): string {
     return `${Date.now().toString().slice(-6)}${++rmrSeq}`;
+  }
+  let tokenSeq = Math.floor(Math.random() * 800000) + 100000;
+  function nextToken(): string {
+    return String(++tokenSeq).padStart(6, '0');
   }
 
   const zmccA = await prisma.procurementSource.create({
@@ -565,6 +569,7 @@ async function runStage6gbTests() {
   const arrivalZeroTime = new Date(Date.now() - 3600 * 1000);
   const zeroArrivalRes = await submitMotArrival(pheA as any, {
     journey_id: zeroJourney.id.toString(),
+    raw_milk_token_number: nextToken(),
     route_milk_token: `RMT-ZERO-${runId}`,
     arrival_timestamp: arrivalZeroTime.toISOString(),
     client_event_id: `evt-zero-${Date.now()}`,
@@ -643,6 +648,7 @@ async function runStage6gbTests() {
   // Complete arrival
   const arrivalMultiRes = await submitMotArrival(pheA as any, {
     journey_id: multiJourney.id.toString(),
+    raw_milk_token_number: nextToken(),
     route_milk_token: `RMT-MULTI-${runId}`,
     arrival_timestamp: arrivalMultiTime.toISOString(),
     client_event_id: `evt-arr-multi-${Date.now()}`,
@@ -765,6 +771,7 @@ async function runStage6gbTests() {
   // Complete arrival on postEndJourney
   await submitMotArrival(pheA as any, {
     journey_id: postEndJourney.id.toString(),
+    raw_milk_token_number: nextToken(),
     route_milk_token: `RMT-POST-${runId}`,
     arrival_timestamp: arrivalMultiTime.toISOString(),
     client_event_id: `evt-post-arr-${Date.now()}`,
@@ -922,6 +929,7 @@ async function runStage6gbTests() {
   const [raceArrivalRes, raceCol2Res] = await Promise.all([
     submitMotArrival(pheA as any, {
       journey_id: raceJourney.id.toString(),
+      raw_milk_token_number: nextToken(),
       route_milk_token: `RMT-RACE-${runId}`,
       arrival_timestamp: raceArrivalTimestamp.toISOString(),
       client_event_id: `evt-race-arr-${Date.now()}`,
@@ -980,6 +988,7 @@ async function runStage6gbTests() {
   // Complete arrival -> revision 1
   const dualArrivalRes = await submitMotArrival(pheA as any, {
     journey_id: dualJourney.id.toString(),
+    raw_milk_token_number: nextToken(),
     route_milk_token: `RMT-DUAL-${runId}`,
     arrival_timestamp: dualArrivalTime.toISOString(),
     client_event_id: `evt-dual-arr-${Date.now()}`,

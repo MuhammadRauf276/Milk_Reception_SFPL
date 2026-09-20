@@ -147,7 +147,7 @@ async function runStage6gd1Tests() {
   const migrationDirs = fs
     .readdirSync(migrationsDir)
     .filter((f) => fs.statSync(path.join(migrationsDir, f)).isDirectory() && !f.startsWith('.'));
-  assert(migrationDirs.length === 31, 'Tracked Migrations', `Found exactly 31 migrations (expected 31)`);
+  assert(migrationDirs.length === 33, 'Tracked Migrations', `Found exactly 33 migrations (expected 33)`);
 
   const d1MigDir = migrationDirs.find((d) => d.includes('contractor_rmr_and_single_active_tank'));
   assert(!!d1MigDir, 'Migration Exists', `Found 6G-D.1 migration: ${d1MigDir}`);

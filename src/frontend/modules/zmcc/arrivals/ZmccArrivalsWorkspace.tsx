@@ -533,12 +533,13 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
     setCorrAcc(record.phe_gps_accuracy != null ? String(record.phe_gps_accuracy) : '');
 
     if (type === 'MOT') {
-      setCorrToken(record.route_milk_token || '');
+      setCorrToken(record.raw_milk_token_number || record.route_milk_token || '');
     } else if (type === 'CONTRACTOR') {
       setCorrRmr(record.rmr_number || '');
       setCorrVehicle(record.vehicle_number || '');
     } else if (type === 'LOCAL_SUPPLIER') {
       setCorrLocalSupplierId(record.local_supplier_id ? String(record.local_supplier_id) : '');
+      setCorrToken(record.raw_milk_token_number || '');
       setCorrRmr(record.rmr_number || '');
       setCorrVehicle(record.vehicle_number || '');
     }
@@ -570,13 +571,16 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
       };
 
       if (correctionTarget.type === 'MOT') {
-        payload.route_milk_token = corrToken.trim();
+        if (corrToken.trim()) {
+          payload.raw_milk_token_number = corrToken.trim();
+        }
       } else if (correctionTarget.type === 'CONTRACTOR') {
         payload.rmr_number = corrRmr.trim();
         payload.vehicle_number = corrVehicle.trim().toUpperCase();
       } else if (correctionTarget.type === 'LOCAL_SUPPLIER') {
         payload.local_supplier_id = corrLocalSupplierId || undefined;
-        payload.rmr_number = corrRmr.trim();
+        payload.raw_milk_token_number = corrToken.trim();
+        if (corrRmr.trim()) payload.rmr_number = corrRmr.trim();
         payload.vehicle_number = corrVehicle.trim().toUpperCase();
       }
 
@@ -689,9 +693,11 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white p-4 rounded-xl border border-emerald-200">
                 <div>
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Route Milk Token</span>
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                    {motSuccessResult.raw_milk_token_number ? 'Raw Milk Token' : 'Legacy Route Milk Token'}
+                  </span>
                   <div className="text-base font-mono font-black text-slate-900 mt-0.5">
-                    {motSuccessResult.route_milk_token}
+                    {motSuccessResult.raw_milk_token_number || motSuccessResult.route_milk_token}
                   </div>
                 </div>
                 <div>
@@ -1124,7 +1130,8 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                   ZMCC Token: <strong className="font-mono text-emerald-900 text-sm font-black">{localSupplierSuccessResult.zmcc_token}</strong>
                 </div>
                 <div className="py-1.5">
-                  Raw Milk Token No: <strong className="font-mono text-slate-800">{localSupplierSuccessResult.raw_milk_token_number || localSupplierSuccessResult.rmr_number}</strong>
+                  {localSupplierSuccessResult.raw_milk_token_number ? 'Raw Milk Token No: ' : 'Legacy RMR: '}
+                  <strong className="font-mono text-slate-800">{localSupplierSuccessResult.raw_milk_token_number || localSupplierSuccessResult.rmr_number}</strong>
                 </div>
                 <div className="py-1.5">
                   Vehicle: <strong className="font-mono text-slate-800">{localSupplierSuccessResult.vehicle_number}</strong>
@@ -1419,7 +1426,15 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                           </span>
                         </td>
                         <td className="p-3 font-mono font-black text-slate-900">{arr.zmcc_token}</td>
-                        <td className="p-3 font-mono font-bold text-slate-700">{arr.raw_milk_token_number || arr.route_milk_token || '—'}</td>
+                        <td className="p-3 font-mono font-bold text-slate-700">
+                          {arr.raw_milk_token_number ? (
+                            arr.raw_milk_token_number
+                          ) : arr.route_milk_token ? (
+                            <span>{arr.route_milk_token} <span className="text-[10px] text-slate-400 font-sans font-normal">(Legacy)</span></span>
+                          ) : (
+                            '—'
+                          )}
+                        </td>
                         <td className="p-3">
                           <div className="font-bold text-slate-800">
                             {arr.journey?.vehicle_number || '—'}
@@ -1433,21 +1448,29 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                         </td>
                         <td className="p-3 text-slate-600">{arr.recorded_by?.full_name || arr.recorded_by?.username}</td>
                         <td className="p-3">
-                          <span
-                            className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
-                              arr.correction_count >= 2
-                                ? 'bg-rose-100 text-rose-800'
-                                : arr.correction_count > 0
-                                ? 'bg-amber-100 text-amber-800'
-                                : 'bg-slate-100 text-slate-600'
-                            }`}
-                          >
-                            {arr.correction_count}/2 {arr.correction_count >= 2 && '(Locked)'}
-                          </span>
+                          {(() => {
+                            const mgrCount = arr.manager_correction_count ?? 0;
+                            const isLocked = !isSuperAdmin && mgrCount >= 5;
+                            return (
+                              <span
+                                className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                                  isLocked
+                                    ? 'bg-rose-100 text-rose-800'
+                                    : mgrCount > 0
+                                    ? 'bg-amber-100 text-amber-800'
+                                    : 'bg-slate-100 text-slate-600'
+                                }`}
+                              >
+                                {isSuperAdmin ? `${arr.correction_count} saves` : `${mgrCount}/5 ${isLocked ? '(Locked)' : ''}`}
+                              </span>
+                            );
+                          })()}
                         </td>
                         {canCorrect && (
                           <td className="p-3 text-right">
-                            {arr.correction_count < 2 ? (
+                            {(!isSuperAdmin && (arr.manager_correction_count ?? 0) >= 5) ? (
+                              <span className="text-slate-400 text-xs">Locked</span>
+                            ) : (
                               <button
                                 type="button"
                                 onClick={() => openCorrectionModal('MOT', arr)}
@@ -1455,8 +1478,6 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                               >
                                 Correct
                               </button>
-                            ) : (
-                              <span className="text-slate-400 text-xs">Locked</span>
                             )}
                           </td>
                         )}
@@ -1485,21 +1506,29 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                         </td>
                         <td className="p-3 text-slate-600">{arr.recorded_by?.full_name || arr.recorded_by?.username}</td>
                         <td className="p-3">
-                          <span
-                            className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
-                              arr.correction_count >= 2
-                                ? 'bg-rose-100 text-rose-800'
-                                : arr.correction_count > 0
-                                ? 'bg-amber-100 text-amber-800'
-                                : 'bg-slate-100 text-slate-600'
-                            }`}
-                          >
-                            {arr.correction_count}/2 {arr.correction_count >= 2 && '(Locked)'}
-                          </span>
+                          {(() => {
+                            const mgrCount = arr.manager_correction_count ?? arr.correction_count ?? 0;
+                            const isLocked = !isSuperAdmin && mgrCount >= 5;
+                            return (
+                              <span
+                                className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                                  isLocked
+                                    ? 'bg-rose-100 text-rose-800'
+                                    : mgrCount > 0
+                                    ? 'bg-amber-100 text-amber-800'
+                                    : 'bg-slate-100 text-slate-600'
+                                }`}
+                              >
+                                {isSuperAdmin ? `${arr.correction_count} saves` : `${mgrCount}/5 ${isLocked ? '(Locked)' : ''}`}
+                              </span>
+                            );
+                          })()}
                         </td>
                         {canCorrect && (
                           <td className="p-3 text-right">
-                            {arr.correction_count < 2 ? (
+                            {(!isSuperAdmin && (arr.manager_correction_count ?? arr.correction_count ?? 0) >= 5) ? (
+                              <span className="text-slate-400 text-xs">Locked</span>
+                            ) : (
                               <button
                                 type="button"
                                 onClick={() => openCorrectionModal('CONTRACTOR', arr)}
@@ -1507,8 +1536,6 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                               >
                                 Correct
                               </button>
-                            ) : (
-                              <span className="text-slate-400 text-xs">Locked</span>
                             )}
                           </td>
                         )}
@@ -1525,7 +1552,15 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                           </span>
                         </td>
                         <td className="p-3 font-mono font-black text-slate-900">{arr.zmcc_token}</td>
-                        <td className="p-3 font-mono font-bold text-emerald-900">{arr.raw_milk_token_number || arr.rmr_number || '—'}</td>
+                        <td className="p-3 font-mono font-bold text-emerald-900">
+                          {arr.raw_milk_token_number ? (
+                            arr.raw_milk_token_number
+                          ) : arr.rmr_number ? (
+                            <span>{arr.rmr_number} <span className="text-[10px] text-slate-400 font-sans font-normal">(Legacy RMR)</span></span>
+                          ) : (
+                            '—'
+                          )}
+                        </td>
                         <td className="p-3">
                           <div className="font-bold text-slate-800">{arr.vehicle_number}</div>
                           <div className="text-[11px] text-slate-600 font-medium">
@@ -1543,21 +1578,29 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                         </td>
                         <td className="p-3 text-slate-600">{arr.recorded_by?.full_name || arr.recorded_by?.username}</td>
                         <td className="p-3">
-                          <span
-                            className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
-                              arr.correction_count >= 2
-                                ? 'bg-rose-100 text-rose-800'
-                                : arr.correction_count > 0
-                                ? 'bg-amber-100 text-amber-800'
-                                : 'bg-slate-100 text-slate-600'
-                            }`}
-                          >
-                            {arr.correction_count}/2 {arr.correction_count >= 2 && '(Locked)'}
-                          </span>
+                          {(() => {
+                            const mgrCount = arr.manager_correction_count ?? 0;
+                            const isLocked = !isSuperAdmin && mgrCount >= 5;
+                            return (
+                              <span
+                                className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                                  isLocked
+                                    ? 'bg-rose-100 text-rose-800'
+                                    : mgrCount > 0
+                                    ? 'bg-amber-100 text-amber-800'
+                                    : 'bg-slate-100 text-slate-600'
+                                }`}
+                              >
+                                {isSuperAdmin ? `${arr.correction_count} saves` : `${mgrCount}/5 ${isLocked ? '(Locked)' : ''}`}
+                              </span>
+                            );
+                          })()}
                         </td>
                         {canCorrect && (
                           <td className="p-3 text-right">
-                            {arr.correction_count < 2 ? (
+                            {(!isSuperAdmin && (arr.manager_correction_count ?? 0) >= 5) ? (
+                              <span className="text-slate-400 text-xs">Locked</span>
+                            ) : (
                               <button
                                 type="button"
                                 onClick={() => openCorrectionModal('LOCAL_SUPPLIER', arr)}
@@ -1565,8 +1608,6 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                               >
                                 Correct
                               </button>
-                            ) : (
-                              <span className="text-slate-400 text-xs">Locked</span>
                             )}
                           </td>
                         )}
@@ -1625,8 +1666,15 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                   Correct {correctionTarget.type} Arrival Record
                 </h3>
                 <p className="text-[11px] text-slate-500">
-                  Token: <strong>{correctionTarget.record.zmcc_token}</strong> (Remaining Corrections:{' '}
-                  <strong>{2 - correctionTarget.record.correction_count}</strong>)
+                  Token: <strong>{correctionTarget.record.zmcc_token}</strong>{' '}
+                  {isSuperAdmin ? (
+                    <span>(Super Admin: Unlimited saves)</span>
+                  ) : (
+                    <span>
+                      (Remaining Manager Corrections:{' '}
+                      <strong>{Math.max(0, 5 - (correctionTarget.record.manager_correction_count ?? 0))}</strong>)
+                    </span>
+                  )}
                 </p>
               </div>
               <button
@@ -1648,7 +1696,9 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
             <form onSubmit={handleCorrectionSubmit} className="space-y-4 text-xs">
               {correctionTarget.type === 'MOT' ? (
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Route Milk Token</label>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    {correctionTarget.record.raw_milk_token_number ? 'Raw Milk Token' : 'Legacy Route Milk Token'}
+                  </label>
                   <input
                     type="text"
                     value={corrToken}
@@ -1703,19 +1753,31 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                     </select>
                   </div>
                   <div>
-                    <label className="block font-bold text-slate-700 mb-1">Supplier RMR Number</label>
+                    <label className="block font-bold text-slate-700 mb-1">Raw Milk Token Number</label>
                     <input
                       type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      maxLength={100}
-                      value={corrRmr}
-                      onChange={(e) => setCorrRmr(e.target.value)}
-                      placeholder="e.g. 002345"
+                      value={corrToken}
+                      onChange={(e) => setCorrToken(e.target.value)}
+                      placeholder="e.g. 001924"
                       required
-                      className="w-full px-3 py-2 border rounded-xl font-mono"
+                      className="w-full px-3 py-2 border rounded-xl font-mono uppercase"
                     />
                   </div>
+                  {correctionTarget.record.rmr_number && (
+                    <div>
+                      <label className="block font-bold text-slate-500 mb-1">Legacy RMR Number (Optional)</label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength={100}
+                        value={corrRmr}
+                        onChange={(e) => setCorrRmr(e.target.value)}
+                        placeholder="e.g. 002345"
+                        className="w-full px-3 py-2 border rounded-xl font-mono bg-slate-50"
+                      />
+                    </div>
+                  )}
                   <div>
                     <label className="block font-bold text-slate-700 mb-1">Vehicle Number</label>
                     <input

@@ -918,4 +918,9 @@ All paginated collection APIs must return a standardized pagination envelope:
   - `ZmccMotArrival.route_milk_token` is legacy compatibility only. New MOT arrivals require `raw_milk_token_number` when policy is `REQUIRED`.
   - `ZmccLocalSupplierArrival.rmr_number` is legacy/optional. New local supplier arrivals require `raw_milk_token_number`. Historical records maintain `rmr_number` without rewriting.
 - **Tracked Migrations Invariant**:
-  - Exactly 32 tracked Prisma migrations exist in `prisma/migrations`.
+  - Exactly 33 tracked Prisma migrations exist in `prisma/migrations`.
+- **Audited Correction Governance**:
+  - Across all completed forms (`ZmccMotArrival`, `ZmccLocalSupplierArrival`, `MotShopCollection`, `VehicleVisit` dispatch, and ZMCC gate-exit), an authorized Manager can perform at most 5 successful correction saves per record (`manager_correction_count <= 5`).
+  - Super Admin is exempt from the 5-save cap (unlimited saves) and does NOT consume the manager's 5-save quota.
+  - Every successful correction save updates `correction_count`, `manager_correction_count` (if role is not SUPER_ADMIN), `last_corrected_by_user_id`, and `last_corrected_at`.
+  - Exactly ONE consolidated `AuditLog` row is created per successful correction save (no separate or duplicate action logs).

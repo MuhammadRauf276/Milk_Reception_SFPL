@@ -246,11 +246,11 @@ async function runCanonicalArchitectureTests() {
     'ARCH-15: my_files/IMPLEMENTATION_STEPS.md with forbidden prisma db push is removed'
   );
 
-  // 16. D.4A: Exact Tracked Migration Count Invariant (Exactly 32)
+  // 16. D.4A: Exact Tracked Migration Count Invariant (Exactly 33)
   const migrationsCount = getTrackedMigrationCount(path.resolve(__dirname, '..'));
   assert(
-    migrationsCount === 32,
-    `ARCH-16: Exact tracked migration count invariant verified via migrationInventory helper (found: ${migrationsCount}, expected: 32)`
+    migrationsCount === 33,
+    `ARCH-16: Exact tracked migration count invariant verified via migrationInventory helper (found: ${migrationsCount}, expected: 33)`
   );
 
   // 17. D.4A: Section 24 in CURRENT-RULES.md and ADRs Updated

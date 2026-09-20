@@ -524,6 +524,9 @@ export function serializeMotArrival(arrival: any) {
       : undefined,
     submitted_at: arrival.submitted_at instanceof Date ? arrival.submitted_at.toISOString() : arrival.submitted_at,
     correction_count: arrival.correction_count,
+    manager_correction_count: arrival.manager_correction_count ?? 0,
+    last_corrected_by_user_id: arrival.last_corrected_by_user_id ? arrival.last_corrected_by_user_id.toString() : null,
+    last_corrected_at: arrival.last_corrected_at instanceof Date ? arrival.last_corrected_at.toISOString() : (arrival.last_corrected_at ?? null),
     gate_exit_required: Boolean(arrival.gate_exit_required),
     exit_timestamp: arrival.exit_timestamp instanceof Date ? arrival.exit_timestamp.toISOString() : (arrival.exit_timestamp ?? null),
     exit_recorded_by_user_id: arrival.exit_recorded_by_user_id ? arrival.exit_recorded_by_user_id.toString() : null,
@@ -537,6 +540,9 @@ export function serializeMotArrival(arrival: any) {
     exit_client_event_id: arrival.exit_client_event_id ?? null,
     exit_submitted_at: arrival.exit_submitted_at instanceof Date ? arrival.exit_submitted_at.toISOString() : (arrival.exit_submitted_at ?? null),
     exit_correction_count: arrival.exit_correction_count ?? 0,
+    exit_manager_correction_count: arrival.exit_manager_correction_count ?? 0,
+    exit_last_corrected_by_user_id: arrival.exit_last_corrected_by_user_id ? arrival.exit_last_corrected_by_user_id.toString() : null,
+    exit_last_corrected_at: arrival.exit_last_corrected_at instanceof Date ? arrival.exit_last_corrected_at.toISOString() : (arrival.exit_last_corrected_at ?? null),
     created_at: arrival.created_at instanceof Date ? arrival.created_at.toISOString() : arrival.created_at,
     updated_at: arrival.updated_at instanceof Date ? arrival.updated_at.toISOString() : arrival.updated_at,
     journey: arrival.journey
@@ -638,6 +644,9 @@ export function serializeLocalSupplierArrival(arrival: any) {
       : undefined,
     submitted_at: arrival.submitted_at instanceof Date ? arrival.submitted_at.toISOString() : arrival.submitted_at,
     correction_count: arrival.correction_count,
+    manager_correction_count: arrival.manager_correction_count ?? 0,
+    last_corrected_by_user_id: arrival.last_corrected_by_user_id ? arrival.last_corrected_by_user_id.toString() : null,
+    last_corrected_at: arrival.last_corrected_at instanceof Date ? arrival.last_corrected_at.toISOString() : (arrival.last_corrected_at ?? null),
     gate_exit_required: Boolean(arrival.gate_exit_required),
     exit_timestamp: arrival.exit_timestamp instanceof Date ? arrival.exit_timestamp.toISOString() : (arrival.exit_timestamp ?? null),
     exit_recorded_by_user_id: arrival.exit_recorded_by_user_id ? arrival.exit_recorded_by_user_id.toString() : null,
@@ -651,6 +660,9 @@ export function serializeLocalSupplierArrival(arrival: any) {
     exit_client_event_id: arrival.exit_client_event_id ?? null,
     exit_submitted_at: arrival.exit_submitted_at instanceof Date ? arrival.exit_submitted_at.toISOString() : (arrival.exit_submitted_at ?? null),
     exit_correction_count: arrival.exit_correction_count ?? 0,
+    exit_manager_correction_count: arrival.exit_manager_correction_count ?? 0,
+    exit_last_corrected_by_user_id: arrival.exit_last_corrected_by_user_id ? arrival.exit_last_corrected_by_user_id.toString() : null,
+    exit_last_corrected_at: arrival.exit_last_corrected_at instanceof Date ? arrival.exit_last_corrected_at.toISOString() : (arrival.exit_last_corrected_at ?? null),
     created_at: arrival.created_at instanceof Date ? arrival.created_at.toISOString() : arrival.created_at,
     updated_at: arrival.updated_at instanceof Date ? arrival.updated_at.toISOString() : arrival.updated_at,
     local_supplier: arrival.local_supplier
@@ -845,18 +857,47 @@ export async function submitMotArrival(
   const arrivalDatePkt = new Date(`${pktDateStr}T00:00:00.000Z`);
 
   let cleanRawMilkToken: string | null = null;
-  const hasRawMilkToken = payload.raw_milk_token_number !== undefined && payload.raw_milk_token_number !== null && String(payload.raw_milk_token_number).trim() !== '';
-
-  if (hasRawMilkToken || !routeMilkToken) {
-    try {
-      cleanRawMilkToken = await PaperReferenceService.validateAndVerify(
-        PaperReferenceType.RAW_MILK_TOKEN,
-        payload.raw_milk_token_number,
-        { scopeEntityId: journey.zmcc_id }
-      );
-    } catch (err: any) {
-      return { status: 400, error: err.message || 'Invalid Raw Milk Token number.' };
+  try {
+    cleanRawMilkToken = await PaperReferenceService.validateAndVerify(
+      PaperReferenceType.RAW_MILK_TOKEN,
+      payload.raw_milk_token_number,
+      { scopeEntityId: journey.zmcc_id }
+    );
+  } catch (err: any) {
+    if (clientEventId) {
+      const existingAfterCollision = await prisma.zmccMotArrival.findUnique({
+        where: { client_event_id: clientEventId },
+        include: {
+          journey: {
+            include: {
+              route: true,
+              mot_vehicle: true,
+              mot_profile: true,
+              summary: true,
+            },
+          },
+          zmcc: true,
+          recorded_by: true,
+        },
+      });
+      if (existingAfterCollision) {
+        if (isExactMotArrivalReplay(existingAfterCollision, expectedMotPayload)) {
+          return {
+            status: 200,
+            data: {
+              ...serializeMotArrival(existingAfterCollision),
+              is_replay: true,
+            },
+          };
+        } else {
+          return {
+            status: 409,
+            error: 'Conflict: Concurrent arrival submission collision or duplicate client_event_id with differing payload.',
+          };
+        }
+      }
     }
+    return { status: 400, error: err.message || 'Invalid Raw Milk Token number.' };
   }
 
   try {
@@ -865,7 +906,7 @@ export async function submitMotArrival(
       await tx.$executeRaw`SELECT id FROM mot_journey WHERE id = ${journeyId} FOR UPDATE`;
 
       // Concurrency safety: acquire advisory lock and re-verify RAW_MILK_TOKEN within transaction
-      if (hasRawMilkToken && cleanRawMilkToken) {
+      if (cleanRawMilkToken) {
         cleanRawMilkToken = await PaperReferenceService.validateAndVerify(
           PaperReferenceType.RAW_MILK_TOKEN,
           payload.raw_milk_token_number,
@@ -917,6 +958,7 @@ export async function submitMotArrival(
           recorded_by_user_id: auth.actorUserId,
           submitted_at: now,
           correction_count: 0,
+          manager_correction_count: 0,
         },
         include: {
           journey: {
@@ -998,10 +1040,7 @@ export async function submitMotArrival(
       data: serializeMotArrival(createdArrival),
     };
   } catch (err: any) {
-    if (err instanceof PaperValidationError || err.name === 'PaperValidationError') {
-      return { status: 400, error: err.message };
-    }
-    if (err.message === 'JOURNEY_ALREADY_COMPLETED' || err.code === 'P2002') {
+    if (clientEventId) {
       const existingAfterCollision = await prisma.zmccMotArrival.findUnique({
         where: { client_event_id: clientEventId },
         include: {
@@ -1033,6 +1072,11 @@ export async function submitMotArrival(
           };
         }
       }
+    }
+    if (err instanceof PaperValidationError || err.name === 'PaperValidationError') {
+      return { status: 400, error: err.message };
+    }
+    if (err.message === 'JOURNEY_ALREADY_COMPLETED' || err.code === 'P2002') {
       return {
         status: 409,
         error: 'Conflict: Journey has already been completed or an arrival was recorded concurrently.',
@@ -1099,14 +1143,14 @@ export async function correctMotArrival(
     return { status: 403, error: 'Forbidden. Arrival record belongs to another ZMCC.' };
   }
 
-  if (arrival.correction_count >= 2) {
+  if (!auth.isSuperAdmin && (arrival.manager_correction_count ?? 0) >= 5) {
     return {
       status: 400,
-      error: 'Maximum number of corrections (2) has been reached for this arrival record.',
+      error: 'Maximum correction limit (5) reached for ZMCC Manager.',
     };
   }
 
-  const updateData: Prisma.ZmccMotArrivalUpdateInput = {};
+  const updateData: Prisma.ZmccMotArrivalUncheckedUpdateInput = {};
 
   const oldValues: Record<string, any> = {};
   const newValues: Record<string, any> = {};
@@ -1227,14 +1271,15 @@ export async function correctMotArrival(
   try {
     const updated = await prisma.$transaction(async (tx) => {
       // Concurrency safety: acquire row-level lock on the arrival record
-      const lockedRows = await tx.$queryRaw<{ id: bigint; correction_count: number }[]>`
-        SELECT id, correction_count FROM zmcc_mot_arrival WHERE id = ${arrivalId} FOR UPDATE
+      const lockedRows = await tx.$queryRaw<{ id: bigint; correction_count: number; manager_correction_count: number }[]>`
+        SELECT id, correction_count, manager_correction_count FROM zmcc_mot_arrival WHERE id = ${arrivalId} FOR UPDATE
       `;
       if (!lockedRows || lockedRows.length === 0) {
         throw new Error('ARRIVAL_NOT_FOUND');
       }
-      const currentCount = lockedRows[0].correction_count;
-      if (currentCount >= 2) {
+      const currentTotalCount = lockedRows[0].correction_count;
+      const currentManagerCount = lockedRows[0].manager_correction_count ?? 0;
+      if (!auth.isSuperAdmin && currentManagerCount >= 5) {
         throw new Error('MAX_CORRECTIONS_REACHED');
       }
 
@@ -1256,12 +1301,18 @@ export async function correctMotArrival(
         );
       }
 
-      const nextCorrectionCount = currentCount + 1;
+      const nextCorrectionCount = currentTotalCount + 1;
+      const nextManagerCount = auth.isSuperAdmin ? currentManagerCount : currentManagerCount + 1;
+      const nowTs = new Date();
+
       const updatedRecord = await tx.zmccMotArrival.update({
         where: { id: arrivalId },
         data: {
           ...updateData,
           correction_count: nextCorrectionCount,
+          manager_correction_count: nextManagerCount,
+          last_corrected_by_user_id: auth.actorUserId,
+          last_corrected_at: nowTs,
         },
         include: {
           journey: {
@@ -1298,29 +1349,21 @@ export async function correctMotArrival(
         });
       }
 
-      if (oldValues.raw_milk_token_number !== undefined) {
-        await tx.auditLog.create({
-          data: {
-            table_name: 'zmcc_mot_arrival',
-            record_id: arrivalId,
-            action: 'PHE_RAW_MILK_TOKEN_CORRECTED',
-            old_values: { raw_milk_token_number: oldValues.raw_milk_token_number },
-            new_values: { raw_milk_token_number: newValues.raw_milk_token_number, reason },
-            user_id: auth.actorUserId,
-          },
-        });
-      }
-
       await tx.auditLog.create({
         data: {
           table_name: 'zmcc_mot_arrival',
           record_id: arrivalId,
           action: 'ZMCC_MOT_ARRIVAL_CORRECTED',
-          old_values: oldValues,
+          old_values: {
+            ...oldValues,
+            correction_count: currentTotalCount,
+            manager_correction_count: currentManagerCount,
+          },
           new_values: {
             ...newValues,
             correction_reason: reason,
             correction_count: nextCorrectionCount,
+            manager_correction_count: nextManagerCount,
           },
           user_id: auth.actorUserId,
         },
@@ -1340,7 +1383,7 @@ export async function correctMotArrival(
     if (err.message === 'MAX_CORRECTIONS_REACHED') {
       return {
         status: 409,
-        error: 'Conflict: Maximum number of corrections (2) has been reached or another correction was committed concurrently.',
+        error: 'Conflict: Maximum number of corrections (5) has been reached or another correction was committed concurrently.',
       };
     }
     if (err.message === 'ARRIVAL_NOT_FOUND') {
@@ -2016,9 +2059,7 @@ export async function submitLocalSupplierArrival(
     return { status: 400, error: 'Selected local supplier is inactive and cannot receive new milk arrivals.' };
   }
 
-  const rawMilkTokenInput = payload.raw_milk_token_number !== undefined && payload.raw_milk_token_number !== null
-    ? payload.raw_milk_token_number
-    : payload.rmr_number;
+  const rawMilkTokenInput = payload.raw_milk_token_number;
 
   const rawMilkTokenCandidate = rawMilkTokenInput !== undefined && rawMilkTokenInput !== null
     ? String(rawMilkTokenInput).trim()
@@ -2070,6 +2111,32 @@ export async function submitLocalSupplierArrival(
       { scopeEntityId: targetZmccId }
     );
   } catch (err: any) {
+    if (clientEventId) {
+      const existingAfterCollision = await prisma.zmccLocalSupplierArrival.findUnique({
+        where: { client_event_id: clientEventId },
+        include: {
+          local_supplier: true,
+          zmcc: true,
+          recorded_by: true,
+        },
+      });
+      if (existingAfterCollision) {
+        if (isExactLocalSupplierArrivalReplay(existingAfterCollision, expectedSupplierPayload)) {
+          return {
+            status: 200,
+            data: {
+              ...serializeLocalSupplierArrival(existingAfterCollision),
+              is_replay: true,
+            },
+          };
+        } else {
+          return {
+            status: 409,
+            error: 'Conflict: Reused client_event_id with differing local supplier arrival payload.',
+          };
+        }
+      }
+    }
     return { status: 400, error: err.message || 'Invalid Raw Milk Token number.' };
   }
 
@@ -2114,6 +2181,7 @@ export async function submitLocalSupplierArrival(
           recorded_by_user_id: auth.actorUserId,
           submitted_at: now,
           correction_count: 0,
+          manager_correction_count: 0,
         },
         include: {
           local_supplier: true,
@@ -2152,10 +2220,7 @@ export async function submitLocalSupplierArrival(
       data: serializeLocalSupplierArrival(createdArrival),
     };
   } catch (err: any) {
-    if (err instanceof PaperValidationError || err.name === 'PaperValidationError') {
-      return { status: 400, error: err.message };
-    }
-    if (err.code === 'P2002') {
+    if (clientEventId) {
       const existingAfterCollision = await prisma.zmccLocalSupplierArrival.findUnique({
         where: { client_event_id: clientEventId },
         include: {
@@ -2180,6 +2245,11 @@ export async function submitLocalSupplierArrival(
           };
         }
       }
+    }
+    if (err instanceof PaperValidationError || err.name === 'PaperValidationError') {
+      return { status: 400, error: err.message };
+    }
+    if (err.code === 'P2002') {
       return {
         status: 409,
         error: 'Conflict: Duplicate client_event_id collision on local supplier arrival.',
@@ -2235,14 +2305,14 @@ export async function correctLocalSupplierArrival(
     return { status: 403, error: 'Forbidden. Arrival record belongs to another ZMCC.' };
   }
 
-  if (arrival.correction_count >= 2) {
+  if (!auth.isSuperAdmin && (arrival.manager_correction_count ?? 0) >= 5) {
     return {
       status: 400,
-      error: 'Maximum number of corrections (2) has been reached for this arrival record.',
+      error: 'Maximum correction limit (5) reached for ZMCC Manager.',
     };
   }
 
-  const updateData: Prisma.ZmccLocalSupplierArrivalUpdateInput = {};
+  const updateData: Prisma.ZmccLocalSupplierArrivalUncheckedUpdateInput = {};
 
   const oldValues: Record<string, any> = {};
   const newValues: Record<string, any> = {};
@@ -2270,7 +2340,7 @@ export async function correctLocalSupplierArrival(
       }
       oldValues.local_supplier_id = arrival.local_supplier_id.toString();
       newValues.local_supplier_id = newSupplier.id.toString();
-      updateData.local_supplier = { connect: { id: newSupplier.id } };
+      updateData.local_supplier_id = newSupplier.id;
     }
   }
 
@@ -2287,9 +2357,7 @@ export async function correctLocalSupplierArrival(
     }
   }
 
-  const rawMilkTokenCandidate = payload.raw_milk_token_number !== undefined
-    ? payload.raw_milk_token_number
-    : (payload.rmr_number !== undefined ? payload.rmr_number : undefined);
+  const rawMilkTokenCandidate = payload.raw_milk_token_number;
 
   if (rawMilkTokenCandidate !== undefined) {
     try {
@@ -2380,14 +2448,15 @@ export async function correctLocalSupplierArrival(
   try {
     const updated = await prisma.$transaction(async (tx) => {
       // Concurrency safety: acquire row-level lock on the arrival record
-      const lockedRows = await tx.$queryRaw<{ id: bigint; correction_count: number }[]>`
-        SELECT id, correction_count FROM zmcc_local_supplier_arrival WHERE id = ${arrivalId} FOR UPDATE
+      const lockedRows = await tx.$queryRaw<{ id: bigint; correction_count: number; manager_correction_count: number }[]>`
+        SELECT id, correction_count, manager_correction_count FROM zmcc_local_supplier_arrival WHERE id = ${arrivalId} FOR UPDATE
       `;
       if (!lockedRows || lockedRows.length === 0) {
         throw new Error('ARRIVAL_NOT_FOUND');
       }
-      const currentCount = lockedRows[0].correction_count;
-      if (currentCount >= 2) {
+      const currentTotalCount = lockedRows[0].correction_count;
+      const currentManagerCount = lockedRows[0].manager_correction_count ?? 0;
+      if (!auth.isSuperAdmin && currentManagerCount >= 5) {
         throw new Error('MAX_CORRECTIONS_REACHED');
       }
 
@@ -2409,12 +2478,18 @@ export async function correctLocalSupplierArrival(
         );
       }
 
-      const nextCorrectionCount = currentCount + 1;
+      const nextCorrectionCount = currentTotalCount + 1;
+      const nextManagerCount = auth.isSuperAdmin ? currentManagerCount : currentManagerCount + 1;
+      const nowTs = new Date();
+
       const updatedRecord = await tx.zmccLocalSupplierArrival.update({
         where: { id: arrivalId },
         data: {
           ...updateData,
           correction_count: nextCorrectionCount,
+          manager_correction_count: nextManagerCount,
+          last_corrected_by_user_id: auth.actorUserId,
+          last_corrected_at: nowTs,
         },
         include: {
           local_supplier: true,
@@ -2428,11 +2503,16 @@ export async function correctLocalSupplierArrival(
           table_name: 'zmcc_local_supplier_arrival',
           record_id: arrivalId,
           action: 'ZMCC_LOCAL_SUPPLIER_ARRIVAL_CORRECTED',
-          old_values: oldValues,
+          old_values: {
+            ...oldValues,
+            correction_count: currentTotalCount,
+            manager_correction_count: currentManagerCount,
+          },
           new_values: {
             ...newValues,
             correction_reason: reason,
             correction_count: nextCorrectionCount,
+            manager_correction_count: nextManagerCount,
           },
           user_id: auth.actorUserId,
         },
@@ -2452,7 +2532,7 @@ export async function correctLocalSupplierArrival(
     if (err.message === 'MAX_CORRECTIONS_REACHED') {
       return {
         status: 409,
-        error: 'Conflict: Maximum number of corrections (2) has been reached or another correction was committed concurrently.',
+        error: 'Conflict: Maximum number of corrections (5) has been reached or another correction was committed concurrently.',
       };
     }
     if (err.message === 'ARRIVAL_NOT_FOUND') {
@@ -2791,6 +2871,7 @@ export async function recordGateExit(
             exit_client_event_id: clientEventId,
             exit_submitted_at: now,
             exit_correction_count: 0,
+            exit_manager_correction_count: 0,
           },
           include: {
             journey: {
@@ -2844,6 +2925,7 @@ export async function recordGateExit(
             exit_client_event_id: clientEventId,
             exit_submitted_at: now,
             exit_correction_count: 0,
+            exit_manager_correction_count: 0,
           },
           include: {
             local_supplier: true,
@@ -3055,9 +3137,10 @@ export async function correctGateExit(
       }
 
       // 6. Check current correction count under lock
-      const currentCount = currentArrival.exit_correction_count ?? 0;
-      if (currentCount >= 2) {
-        throw new ExitCorrectionError(409, 'MAX_EXIT_CORRECTIONS_EXCEEDED', 'Maximum number of gate exit corrections (2) has been reached.');
+      const currentTotalCount = currentArrival.exit_correction_count ?? 0;
+      const currentManagerCount = currentArrival.exit_manager_correction_count ?? 0;
+      if (!auth.isSuperAdmin && currentManagerCount >= 5) {
+        throw new ExitCorrectionError(409, 'MAX_EXIT_CORRECTIONS_EXCEEDED', 'Maximum correction limit (5) reached for ZMCC Manager.');
       }
 
       // 7. Check if requested timestamp equals current timestamp (reject as no-op)
@@ -3079,7 +3162,9 @@ export async function correctGateExit(
       }
 
       // 9. Use the CURRENT locked exit timestamp as old_values.exit_timestamp
-      const nextCount = currentCount + 1;
+      const nextTotalCount = currentTotalCount + 1;
+      const nextManagerCount = auth.isSuperAdmin ? currentManagerCount : currentManagerCount + 1;
+      const nowTs = new Date();
       const oldExitTs = currentArrival.exit_timestamp instanceof Date
         ? currentArrival.exit_timestamp.toISOString()
         : new Date(currentArrival.exit_timestamp).toISOString();
@@ -3091,7 +3176,10 @@ export async function correctGateExit(
           where: { id: arrivalId },
           data: {
             exit_timestamp: exitDate,
-            exit_correction_count: nextCount,
+            exit_correction_count: nextTotalCount,
+            exit_manager_correction_count: nextManagerCount,
+            exit_last_corrected_by_user_id: auth.actorUserId,
+            exit_last_corrected_at: nowTs,
           },
           include: {
             journey: {
@@ -3114,11 +3202,13 @@ export async function correctGateExit(
             action: 'ZMCC_MOT_GATE_EXIT_CORRECTED',
             old_values: {
               exit_timestamp: oldExitTs,
-              exit_correction_count: currentCount,
+              exit_correction_count: currentTotalCount,
+              exit_manager_correction_count: currentManagerCount,
             },
             new_values: {
               exit_timestamp: newExitTs,
-              exit_correction_count: nextCount,
+              exit_correction_count: nextTotalCount,
+              exit_manager_correction_count: nextManagerCount,
               correction_reason: reason,
             },
             user_id: auth.actorUserId,
@@ -3129,7 +3219,10 @@ export async function correctGateExit(
           where: { id: arrivalId },
           data: {
             exit_timestamp: exitDate,
-            exit_correction_count: nextCount,
+            exit_correction_count: nextTotalCount,
+            exit_manager_correction_count: nextManagerCount,
+            exit_last_corrected_by_user_id: auth.actorUserId,
+            exit_last_corrected_at: nowTs,
           },
           include: {
             local_supplier: true,
@@ -3145,11 +3238,13 @@ export async function correctGateExit(
             action: 'ZMCC_LOCAL_SUPPLIER_GATE_EXIT_CORRECTED',
             old_values: {
               exit_timestamp: oldExitTs,
-              exit_correction_count: currentCount,
+              exit_correction_count: currentTotalCount,
+              exit_manager_correction_count: currentManagerCount,
             },
             new_values: {
               exit_timestamp: newExitTs,
-              exit_correction_count: nextCount,
+              exit_correction_count: nextTotalCount,
+              exit_manager_correction_count: nextManagerCount,
               correction_reason: reason,
             },
             user_id: auth.actorUserId,

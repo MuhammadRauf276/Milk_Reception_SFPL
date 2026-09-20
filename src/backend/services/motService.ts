@@ -2144,6 +2144,10 @@ export function serializeCollection(c: any) {
     collection_notes: c.collection_notes || null,
     notes: c.collection_notes || null,
     shop_rmr_number: c.shop_rmr_number || null,
+    correction_count: c.correction_count ?? 0,
+    manager_correction_count: c.manager_correction_count ?? 0,
+    last_corrected_by_user_id: c.last_corrected_by_user_id ? c.last_corrected_by_user_id.toString() : null,
+    last_corrected_at: c.last_corrected_at ? (c.last_corrected_at instanceof Date ? c.last_corrected_at.toISOString() : c.last_corrected_at) : null,
     created_at: c.created_at.toISOString(),
     sms_outbox: c.sms_outbox
       ? {
@@ -2556,6 +2560,8 @@ export async function submitShopCollection(
           server_received_at: now,
           submitted_by_user_id: auth.actorUserId,
           collection_notes: notes || null,
+          correction_count: 0,
+          manager_correction_count: 0,
         },
       });
 
@@ -3416,6 +3422,13 @@ export async function correctShopCollection(
     return { status: 403, error: 'Forbidden. Collection belongs to another ZMCC.' };
   }
 
+  if (!auth.isSuperAdmin && (collection.manager_correction_count ?? 0) >= 5) {
+    return {
+      status: 400,
+      error: 'Maximum correction limit (5) reached for ZMCC Manager.',
+    };
+  }
+
   const isRmrProvided = payload.shop_rmr_number !== undefined;
   let newShopRmr: string | null = null;
   if (isRmrProvided) {
@@ -3503,7 +3516,17 @@ export async function correctShopCollection(
   try {
     const updatedCollection = await prisma.$transaction(async (tx) => {
       // Row lock on mot_shop_collection
-      await tx.$executeRaw`SELECT id FROM mot_shop_collection WHERE id = ${collection.id} FOR UPDATE`;
+      const lockedRows = await tx.$queryRaw<{ id: bigint; correction_count: number; manager_correction_count: number }[]>`
+        SELECT id, correction_count, manager_correction_count FROM mot_shop_collection WHERE id = ${collection.id} FOR UPDATE
+      `;
+      if (!lockedRows || lockedRows.length === 0) {
+        throw new Error('COLLECTION_NOT_FOUND');
+      }
+      const currentTotalCount = lockedRows[0].correction_count ?? 0;
+      const currentManagerCount = lockedRows[0].manager_correction_count ?? 0;
+      if (!auth.isSuperAdmin && currentManagerCount >= 5) {
+        throw new Error('MAX_CORRECTIONS_REACHED');
+      }
 
       if (isRmrChanged && newShopRmr) {
         await PaperReferenceService.validateAndVerify(
@@ -3513,7 +3536,17 @@ export async function correctShopCollection(
         );
       }
 
-      const updateData: Prisma.MotShopCollectionUpdateInput = {};
+      const nextCorrectionCount = currentTotalCount + 1;
+      const nextManagerCount = auth.isSuperAdmin ? currentManagerCount : currentManagerCount + 1;
+      const nowTs = new Date();
+
+      const updateData: Prisma.MotShopCollectionUncheckedUpdateInput = {
+        correction_count: nextCorrectionCount,
+        manager_correction_count: nextManagerCount,
+        last_corrected_by_user_id: auth.actorUserId,
+        last_corrected_at: nowTs,
+      };
+
       if (isRmrChanged) {
         updateData.shop_rmr_number = newShopRmr;
       }
@@ -3542,50 +3575,56 @@ export async function correctShopCollection(
         },
       });
 
+      const oldAuditValues: Record<string, any> = {
+        correction_count: currentTotalCount,
+        manager_correction_count: currentManagerCount,
+      };
+      const newAuditValues: Record<string, any> = {
+        correction_count: nextCorrectionCount,
+        manager_correction_count: nextManagerCount,
+        correction_reason: reason,
+      };
+
       if (isRmrChanged) {
-        await tx.auditLog.create({
-          data: {
-            table_name: 'mot_shop_collection',
-            record_id: collection.id,
-            action: 'SHOP_RMR_CORRECTED',
-            old_values: { shop_rmr_number: collection.shop_rmr_number },
-            new_values: { shop_rmr_number: newShopRmr, reason },
-            user_id: auth.actorUserId,
-          },
-        });
+        oldAuditValues.shop_rmr_number = collection.shop_rmr_number;
+        newAuditValues.shop_rmr_number = newShopRmr;
+      }
+      if (isMeasurementChanged && metrics) {
+        oldAuditValues.quantity_value = Number(collection.quantity_value);
+        oldAuditValues.quantity_unit = collection.quantity_unit;
+        oldAuditValues.gross_liters = Number(collection.gross_liters);
+        oldAuditValues.lr = Number(collection.lr);
+        oldAuditValues.fat = Number(collection.fat);
+        oldAuditValues.snf = Number(collection.snf);
+        oldAuditValues.ts = Number(collection.ts);
+        oldAuditValues.at_13ts_liters = Number(collection.at_13ts_liters);
+
+        newAuditValues.quantity_value = newQty;
+        newAuditValues.quantity_unit = newUnit;
+        newAuditValues.gross_liters = metrics.grossLiters;
+        newAuditValues.lr = newLr;
+        newAuditValues.fat = newFat;
+        newAuditValues.snf = metrics.snf;
+        newAuditValues.ts = metrics.ts;
+        newAuditValues.at_13ts_liters = metrics.at13tsLiters;
+      }
+      if (isNotesChanged) {
+        oldAuditValues.collection_notes = collection.collection_notes;
+        newAuditValues.collection_notes = newNotes;
       }
 
-      if (isMeasurementChanged && metrics) {
-        await tx.auditLog.create({
-          data: {
-            table_name: 'mot_shop_collection',
-            record_id: collection.id,
-            action: 'MOT_COLLECTION_MEASUREMENT_CORRECTED',
-            old_values: {
-              quantity_value: Number(collection.quantity_value),
-              quantity_unit: collection.quantity_unit,
-              gross_liters: Number(collection.gross_liters),
-              lr: Number(collection.lr),
-              fat: Number(collection.fat),
-              snf: Number(collection.snf),
-              ts: Number(collection.ts),
-              at_13ts_liters: Number(collection.at_13ts_liters),
-            },
-            new_values: {
-              quantity_value: newQty,
-              quantity_unit: newUnit,
-              gross_liters: metrics.grossLiters,
-              lr: newLr,
-              fat: newFat,
-              snf: metrics.snf,
-              ts: metrics.ts,
-              at_13ts_liters: metrics.at13tsLiters,
-              reason,
-            },
-            user_id: auth.actorUserId,
-          },
-        });
+      await tx.auditLog.create({
+        data: {
+          table_name: 'mot_shop_collection',
+          record_id: collection.id,
+          action: 'MOT_SHOP_COLLECTION_CORRECTED',
+          old_values: oldAuditValues,
+          new_values: newAuditValues,
+          user_id: auth.actorUserId,
+        },
+      });
 
+      if (isMeasurementChanged && metrics) {
         // Recompute journey summary if journey was completed
         await recomputeMotJourneySummaryTx(tx, collection.journey_id, auth.actorUserId);
       }
@@ -3595,6 +3634,15 @@ export async function correctShopCollection(
 
     return { status: 200, data: serializeCollection(updatedCollection) };
   } catch (err: any) {
+    if (err.message === 'MAX_CORRECTIONS_REACHED') {
+      return {
+        status: 409,
+        error: 'Conflict: Maximum number of corrections (5) has been reached or another correction was committed concurrently.',
+      };
+    }
+    if (err.message === 'COLLECTION_NOT_FOUND') {
+      return { status: 404, error: 'Shop collection not found.' };
+    }
     return { status: 500, error: err.message || 'Failed to correct shop collection.' };
   }
 }

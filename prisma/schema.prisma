@@ -89,6 +89,12 @@ model User {
   plant_review_requested_portions  VisitPortion[]             @relation("PlantPortionReviewRequestedBy")
   zmcc_reviewed_sessions           ZmccLabSession[]           @relation("ZmccSessionReviewedBy")
   zmcc_review_requested_sessions   ZmccLabSession[]           @relation("ZmccSessionReviewRequestedBy")
+  last_corrected_mot_arrivals      ZmccMotArrival[]           @relation("ZmccMotArrivalLastCorrectedBy")
+  exit_last_corrected_mot_arrivals ZmccMotArrival[]           @relation("ZmccMotArrivalExitLastCorrectedBy")
+  last_corrected_local_supplier_arrivals ZmccLocalSupplierArrival[] @relation("ZmccLocalSupplierArrivalLastCorrectedBy")
+  exit_last_corrected_local_supplier_arrivals ZmccLocalSupplierArrival[] @relation("ZmccLocalSupplierArrivalExitLastCorrectedBy")
+  last_corrected_mot_collections   MotShopCollection[]        @relation("MotCollectionLastCorrectedBy")
+  last_corrected_visits            VehicleVisit[]             @relation("VehicleVisitLastCorrectedBy")
 
   @@map("users")
 }
@@ -118,10 +124,15 @@ model VehicleVisit {
   vehicle_dispatch_at_13ts_liters Decimal?          @map("vehicle_dispatch_at_13ts_liters") @db.Decimal(12, 2)
   vehicle_dispatch_calculation_version String?      @map("vehicle_dispatch_calculation_version") @db.VarChar(20)
   raw_milk_dispatch_note_number        String?      @map("raw_milk_dispatch_note_number") @db.VarChar(100)
+  correction_count                     Int          @default(0) @map("correction_count")
+  manager_correction_count             Int          @default(0) @map("manager_correction_count")
+  last_corrected_by_user_id            BigInt?      @map("last_corrected_by_user_id")
+  last_corrected_at                   DateTime?    @map("last_corrected_at") @db.Timestamp(6)
 
   // Relations
   procurement_source       ProcurementSource?              @relation("VisitSource", fields: [procurement_source_id], references: [id], onDelete: SetNull)
   creator                  User?                           @relation("CreatedBy", fields: [created_by], references: [id])
+  last_corrected_by        User?                           @relation("VehicleVisitLastCorrectedBy", fields: [last_corrected_by_user_id], references: [id], onDelete: SetNull)
   portions                 VisitPortion[]
   gate_log                 GateLog?
   weight_ticket            WeightTicket?
@@ -1007,18 +1018,24 @@ model MotShopCollection {
   submitted_by_user_id    BigInt   @map("submitted_by_user_id")
   collection_notes        String?  @map("collection_notes") @db.Text
   shop_rmr_number         String?  @map("shop_rmr_number") @db.VarChar(50)
+  correction_count        Int      @default(0) @map("correction_count")
+  manager_correction_count Int     @default(0) @map("manager_correction_count")
+  last_corrected_by_user_id BigInt? @map("last_corrected_by_user_id")
+  last_corrected_at       DateTime? @map("last_corrected_at") @db.Timestamp(6)
   created_at              DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at              DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
 
   // Relations
-  journey      MotJourney              @relation(fields: [journey_id], references: [id], onDelete: Restrict)
-  stop         MotJourneyStop          @relation(fields: [journey_stop_id], references: [id], onDelete: Restrict)
-  shop         ZmccShop                @relation("ZmccShopMotCollections", fields: [shop_id], references: [id], onDelete: Restrict)
-  zmcc         ProcurementSource       @relation("ZmccMotCollections", fields: [zmcc_id], references: [id], onDelete: Restrict)
-  route        ZmccRoute               @relation("ZmccRouteMotCollections", fields: [route_id], references: [id], onDelete: Restrict)
-  mot_profile  MotProfile              @relation("MotProfileCollections", fields: [mot_profile_id], references: [id], onDelete: Restrict)
-  mot_vehicle  MotVehicle              @relation("MotVehicleCollections", fields: [mot_vehicle_id], references: [id], onDelete: Restrict)
-  submitted_by User                    @relation("MotCollectionSubmittedBy", fields: [submitted_by_user_id], references: [id], onDelete: Restrict)
-  sms_outbox   MotCollectionSmsOutbox?
+  journey           MotJourney              @relation(fields: [journey_id], references: [id], onDelete: Restrict)
+  stop              MotJourneyStop          @relation(fields: [journey_stop_id], references: [id], onDelete: Restrict)
+  shop              ZmccShop                @relation("ZmccShopMotCollections", fields: [shop_id], references: [id], onDelete: Restrict)
+  zmcc              ProcurementSource       @relation("ZmccMotCollections", fields: [zmcc_id], references: [id], onDelete: Restrict)
+  route             ZmccRoute               @relation("ZmccRouteMotCollections", fields: [route_id], references: [id], onDelete: Restrict)
+  mot_profile       MotProfile              @relation("MotProfileCollections", fields: [mot_profile_id], references: [id], onDelete: Restrict)
+  mot_vehicle       MotVehicle              @relation("MotVehicleCollections", fields: [mot_vehicle_id], references: [id], onDelete: Restrict)
+  submitted_by      User                    @relation("MotCollectionSubmittedBy", fields: [submitted_by_user_id], references: [id], onDelete: Restrict)
+  last_corrected_by User?                   @relation("MotCollectionLastCorrectedBy", fields: [last_corrected_by_user_id], references: [id], onDelete: SetNull)
+  sms_outbox        MotCollectionSmsOutbox?
 
   @@unique([journey_id, journey_stop_id])
   @@index([journey_id])
@@ -1065,12 +1082,18 @@ model ZmccMotArrival {
   recorded_by_user_id   BigInt   @map("recorded_by_user_id")
   submitted_at          DateTime @default(now()) @map("submitted_at") @db.Timestamp(6)
   correction_count         Int       @default(0) @map("correction_count")
+  manager_correction_count Int       @default(0) @map("manager_correction_count")
+  last_corrected_by_user_id BigInt?  @map("last_corrected_by_user_id")
+  last_corrected_at        DateTime? @map("last_corrected_at") @db.Timestamp(6)
   gate_exit_required       Boolean   @default(true) @map("gate_exit_required")
   exit_timestamp           DateTime? @map("exit_timestamp") @db.Timestamp(6)
   exit_recorded_by_user_id BigInt?   @map("exit_recorded_by_user_id")
   exit_client_event_id     String?   @unique @map("exit_client_event_id") @db.VarChar(255)
   exit_submitted_at        DateTime? @map("exit_submitted_at") @db.Timestamp(6)
   exit_correction_count    Int       @default(0) @map("exit_correction_count")
+  exit_manager_correction_count Int  @default(0) @map("exit_manager_correction_count")
+  exit_last_corrected_by_user_id BigInt? @map("exit_last_corrected_by_user_id")
+  exit_last_corrected_at   DateTime? @map("exit_last_corrected_at") @db.Timestamp(6)
   created_at               DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
   updated_at               DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
 
@@ -1078,7 +1101,9 @@ model ZmccMotArrival {
   journey          MotJourney        @relation(fields: [journey_id], references: [id], onDelete: Restrict)
   zmcc             ProcurementSource @relation("ZmccMotArrivals", fields: [zmcc_id], references: [id], onDelete: Restrict)
   recorded_by      User              @relation("ZmccMotArrivalRecordedBy", fields: [recorded_by_user_id], references: [id], onDelete: Restrict)
+  last_corrected_by User?            @relation("ZmccMotArrivalLastCorrectedBy", fields: [last_corrected_by_user_id], references: [id], onDelete: SetNull)
   exit_recorded_by User?             @relation("ZmccMotArrivalExitRecordedBy", fields: [exit_recorded_by_user_id], references: [id], onDelete: Restrict)
+  exit_last_corrected_by User?        @relation("ZmccMotArrivalExitLastCorrectedBy", fields: [exit_last_corrected_by_user_id], references: [id], onDelete: SetNull)
   lab_session      ZmccLabSession?   @relation("MotArrivalLabSession")
 
   @@index([zmcc_id])
@@ -1163,12 +1188,18 @@ model ZmccLocalSupplierArrival {
   recorded_by_user_id BigInt   @map("recorded_by_user_id")
   submitted_at        DateTime @default(now()) @map("submitted_at") @db.Timestamp(6)
   correction_count         Int       @default(0) @map("correction_count")
+  manager_correction_count Int       @default(0) @map("manager_correction_count")
+  last_corrected_by_user_id BigInt?  @map("last_corrected_by_user_id")
+  last_corrected_at        DateTime? @map("last_corrected_at") @db.Timestamp(6)
   gate_exit_required       Boolean   @default(true) @map("gate_exit_required")
   exit_timestamp           DateTime? @map("exit_timestamp") @db.Timestamp(6)
   exit_recorded_by_user_id BigInt?   @map("exit_recorded_by_user_id")
   exit_client_event_id     String?   @unique @map("exit_client_event_id") @db.VarChar(255)
   exit_submitted_at        DateTime? @map("exit_submitted_at") @db.Timestamp(6)
   exit_correction_count    Int       @default(0) @map("exit_correction_count")
+  exit_manager_correction_count Int  @default(0) @map("exit_manager_correction_count")
+  exit_last_corrected_by_user_id BigInt? @map("exit_last_corrected_by_user_id")
+  exit_last_corrected_at   DateTime? @map("exit_last_corrected_at") @db.Timestamp(6)
   created_at               DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
   updated_at               DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
 
@@ -1176,7 +1207,9 @@ model ZmccLocalSupplierArrival {
   zmcc             ProcurementSource @relation("ZmccLocalSupplierArrivals", fields: [zmcc_id], references: [id], onDelete: Restrict)
   local_supplier   ZmccLocalSupplier @relation("LocalSupplierArrivals", fields: [local_supplier_id], references: [id], onDelete: Restrict)
   recorded_by      User              @relation("ZmccLocalSupplierArrivalRecordedBy", fields: [recorded_by_user_id], references: [id], onDelete: Restrict)
+  last_corrected_by User?            @relation("ZmccLocalSupplierArrivalLastCorrectedBy", fields: [last_corrected_by_user_id], references: [id], onDelete: SetNull)
   exit_recorded_by User?             @relation("ZmccLocalSupplierArrivalExitRecordedBy", fields: [exit_recorded_by_user_id], references: [id], onDelete: Restrict)
+  exit_last_corrected_by User?        @relation("ZmccLocalSupplierArrivalExitLastCorrectedBy", fields: [exit_last_corrected_by_user_id], references: [id], onDelete: SetNull)
   lab_session      ZmccLabSession?   @relation("LocalSupplierArrivalLabSession")
 
   @@index([zmcc_id])

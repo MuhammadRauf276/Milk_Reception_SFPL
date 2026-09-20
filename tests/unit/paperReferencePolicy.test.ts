@@ -218,7 +218,7 @@ describe('PaperReferenceService (Unit Tests)', () => {
       expect(lsRes.existingTable).toBe('zmcc_local_supplier_arrival');
     });
 
-    it('guards updatePolicy against setting GLOBAL scope on RAW_MILK_TOKEN or RAW_MILK_DISPATCH_NOTE', async () => {
+    it('guards updatePolicy against setting GLOBAL scope or allow_duplicates=true on RAW_MILK_TOKEN or RAW_MILK_DISPATCH_NOTE', async () => {
       await expect(
         PaperReferenceService.updatePolicy({
           referenceType: 'RAW_MILK_TOKEN' as PaperReferenceType,
@@ -232,6 +232,17 @@ describe('PaperReferenceService (Unit Tests)', () => {
 
       await expect(
         PaperReferenceService.updatePolicy({
+          referenceType: 'RAW_MILK_TOKEN' as PaperReferenceType,
+          policyMode: 'REQUIRED' as PaperPolicyMode,
+          allowDuplicates: true,
+          duplicateScope: 'PER_SOURCE',
+          updatedByUserId: BigInt(1),
+          reason: 'Test invalid duplicates',
+        })
+      ).rejects.toThrow('RAW_MILK_TOKEN duplicate ownership is frozen: allow_duplicates must remain false');
+
+      await expect(
+        PaperReferenceService.updatePolicy({
           referenceType: 'RAW_MILK_DISPATCH_NOTE' as PaperReferenceType,
           policyMode: 'REQUIRED' as PaperPolicyMode,
           allowDuplicates: false,
@@ -240,9 +251,20 @@ describe('PaperReferenceService (Unit Tests)', () => {
           reason: 'Test invalid scope',
         })
       ).rejects.toThrow('RAW_MILK_DISPATCH_NOTE duplicate scope must remain PER_SOURCE');
+
+      await expect(
+        PaperReferenceService.updatePolicy({
+          referenceType: 'RAW_MILK_DISPATCH_NOTE' as PaperReferenceType,
+          policyMode: 'REQUIRED' as PaperPolicyMode,
+          allowDuplicates: true,
+          duplicateScope: 'PER_SOURCE',
+          updatedByUserId: BigInt(1),
+          reason: 'Test invalid duplicates',
+        })
+      ).rejects.toThrow('RAW_MILK_DISPATCH_NOTE duplicate ownership is frozen: allow_duplicates must remain false');
     });
 
-    it('guards updatePolicy against setting hard global uniqueness on SHOP_RMR', async () => {
+    it('guards updatePolicy against setting allow_duplicates=false or non-GLOBAL scope on SHOP_RMR', async () => {
       await expect(
         PaperReferenceService.updatePolicy({
           referenceType: 'SHOP_RMR' as PaperReferenceType,
@@ -252,7 +274,18 @@ describe('PaperReferenceService (Unit Tests)', () => {
           updatedByUserId: BigInt(1),
           reason: 'Test invalid unique rmr',
         })
-      ).rejects.toThrow('SHOP_RMR cannot enforce hard global uniqueness');
+      ).rejects.toThrow('SHOP_RMR duplicate ownership is frozen: allow_duplicates must remain true');
+
+      await expect(
+        PaperReferenceService.updatePolicy({
+          referenceType: 'SHOP_RMR' as PaperReferenceType,
+          policyMode: 'REQUIRED' as PaperPolicyMode,
+          allowDuplicates: true,
+          duplicateScope: 'PER_SOURCE',
+          updatedByUserId: BigInt(1),
+          reason: 'Test invalid rmr scope',
+        })
+      ).rejects.toThrow('SHOP_RMR duplicate scope must remain GLOBAL');
     });
   });
 });

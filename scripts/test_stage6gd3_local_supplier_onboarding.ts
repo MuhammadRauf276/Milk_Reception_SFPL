@@ -216,7 +216,7 @@ async function runStage6gd3Tests() {
     const migrationDirs = fs
       .readdirSync(migrationsDir)
       .filter((f) => fs.statSync(path.join(migrationsDir, f)).isDirectory() && !f.startsWith('.'));
-    assert(migrationDirs.length === 32, 'Tracked Migrations', `Found exactly 32 migrations (expected 32)`);
+    assert(migrationDirs.length === 33, 'Tracked Migrations', `Found exactly 33 migrations (expected 33)`);
 
     const d3MigDir = migrationDirs.find((d) => d.includes('zmcc_local_supplier_directory_and_arrival'));
     assert(!!d3MigDir, 'Migration 25 Exists', `Found 6G-D.3 directory migration: ${d3MigDir}`);
@@ -588,6 +588,32 @@ async function runStage6gd3Tests() {
           { lab_test_id: fatTest.id, testing_point: 'ZMCC_LAB_MOT', is_required: true, display_order: 2, is_active: true, created_by_user_id: superAdmin.id },
         ],
       });
+    }
+
+    for (const point of ['ZMCC_LAB_CONTRACTOR', 'ZMCC_LAB_MOT'] as const) {
+      for (const [testObj, minVal, maxVal] of [
+        [lrTest, 26.0, 32.0],
+        [fatTest, 3.5, 5.5],
+      ] as const) {
+        const existingRule = await prisma.labTestRule.findFirst({
+          where: { lab_test_id: testObj.id, testing_point: point, is_active: true },
+        });
+        if (!existingRule) {
+          await prisma.labTestRule.create({
+            data: {
+              lab_test_id: testObj.id,
+              testing_point: point,
+              version: 1,
+              rule_category: 'RELEASE',
+              min_value: minVal,
+              max_value: maxVal,
+              decision_consequence: 'REJECT',
+              is_active: true,
+              created_by: superAdmin.id,
+            },
+          });
+        }
+      }
     }
 
     let weighbridgeUser = await prisma.user.findFirst({
@@ -1030,6 +1056,7 @@ async function runStage6gd3Tests() {
     const validArrivalPayload = {
       client_event_id: eventId1,
       local_supplier_id: createdSupplierId,
+      raw_milk_token_number: '007890',
       rmr_number: '007890', // Leading zeros in RMR
       vehicle_number: '  lhr  1234  ', // Needs normalization
     };
@@ -1070,6 +1097,7 @@ async function runStage6gd3Tests() {
     // 5.6 Replay Idempotency: altered payload on same client_event_id returns 409 Conflict
     const conflictingPayload = {
       ...validArrivalPayload,
+      raw_milk_token_number: '007891',
       rmr_number: '007891', // Different RMR
     };
     const conflictRes = await submitLocalSupplierArrival(pheCore as any, conflictingPayload);
@@ -1110,15 +1138,18 @@ async function runStage6gd3Tests() {
 
     // 6.5 Successful Correction 1 by own-ZMCC Manager
     const correctRes1 = await correctLocalSupplierArrival(mgr1Core as any, firstArrivalId, {
+      raw_milk_token_number: '007892',
       rmr_number: '007892',
       vehicle_number: 'lhr 5678',
       reason: 'Fixed typographical slip error by PHE operator',
     });
     assert(correctRes1.status === 200, 'Manager Correction 1', 'Manager successfully applied correction 1');
+    assert(correctRes1.data.raw_milk_token_number === '007892', 'Updated Token', 'Raw Milk Token updated with leading zeros');
     assert(correctRes1.data.rmr_number === '007892', 'Updated RMR', 'RMR updated with leading zeros');
     assert(correctRes1.data.vehicle_number === 'LHR 5678', 'Updated Vehicle', 'Vehicle updated & normalized');
     assert(correctRes1.data.zmcc_token === firstToken, 'Token Immutability', 'zmcc_token remained strictly immutable');
     assert(correctRes1.data.correction_count === 1, 'Correction Count', 'correction_count incremented to 1');
+    assert(correctRes1.data.manager_correction_count === 1, 'Manager Correction Count', 'manager_correction_count incremented to 1');
 
     // 6.6 Successful Correction 2 by Super Admin
     const correctRes2 = await correctLocalSupplierArrival(adminCore as any, firstArrivalId, {
@@ -1127,14 +1158,25 @@ async function runStage6gd3Tests() {
     });
     assert(correctRes2.status === 200, 'Admin Correction 2', 'Super Admin successfully applied correction 2');
     assert(correctRes2.data.correction_count === 2, 'Correction Count', 'correction_count incremented to 2');
+    assert(correctRes2.data.manager_correction_count === 1, 'Manager Correction Count Unchanged', 'manager_correction_count remains 1 for Super Admin');
     assert(correctRes2.data.vehicle_number === 'LHR 9999', 'Updated Vehicle 2', 'Vehicle updated to LHR 9999');
 
-    // 6.7 3rd correction rejected (max 2 limit)
-    const correctRes3 = await correctLocalSupplierArrival(mgr1Core as any, firstArrivalId, {
-      rmr_number: '007893',
-      reason: 'Attempting a 3rd correction',
+    // Manager performs corrections 2, 3, 4, 5 (up to max 5 manager quota)
+    for (let c = 2; c <= 5; c++) {
+      const res = await correctLocalSupplierArrival(mgr1Core as any, firstArrivalId, {
+        vehicle_number: `LHR 999${c}`,
+        reason: `Manager correction sequence ${c}`,
+      });
+      assert(res.status === 200, `Manager Correction ${c}`, `Manager successfully applied correction ${c}`);
+      assert(res.data.manager_correction_count === c, 'Manager Correction Count', `manager_correction_count is ${c}`);
+    }
+
+    // 6.7 6th manager correction rejected (max 5 limit)
+    const correctRes6 = await correctLocalSupplierArrival(mgr1Core as any, firstArrivalId, {
+      raw_milk_token_number: '007899',
+      reason: 'Attempting a 6th correction by manager',
     });
-    assert(correctRes3.status === 400, 'Correction Limit', 'Rejects 3rd correction (max 2 exceeded)');
+    assert(correctRes6.status === 400, 'Correction Limit', 'Rejects 6th correction (max 5 manager exceeded)');
 
     // =========================================================================
     // SECTION 7: MINIMAL LAB WORKFLOW COMPATIBILITY
@@ -1221,6 +1263,7 @@ async function runStage6gd3Tests() {
     const contArrivalRes = await submitLocalSupplierArrival(pheCore as any, {
       client_event_id: contArrivalEventId,
       local_supplier_id: contSupplierId,
+      raw_milk_token_number: '005544',
       rmr_number: '005544',
       vehicle_number: 'CNT 999',
     });
@@ -1382,6 +1425,7 @@ async function runStage6gd3Tests() {
 
     const motArrRes1 = await submitMotArrival(pheCore as any, {
       journey_id: motJourney1.id,
+      raw_milk_token_number: '654322',
       route_milk_token: `RM-EXIT-1-${runId.toString().slice(-6)}`,
       arrival_timestamp: new Date(Date.now() - 3600000),
       client_event_id: `evt-mot-exit-1-${runId}`,
@@ -1546,6 +1590,7 @@ async function runStage6gd3Tests() {
     const noReceiptArrRes = await submitLocalSupplierArrival(pheCore as any, {
       client_event_id: `no-rcpt-arr-${runId}`,
       local_supplier_id: noReceiptSupplierRes.data.id,
+      raw_milk_token_number: '998877',
       rmr_number: '998877',
       vehicle_number: 'NRC 111',
       arrival_timestamp: new Date(Date.now() - 1800000),
@@ -1583,6 +1628,7 @@ async function runStage6gd3Tests() {
       const arr = await submitLocalSupplierArrival(pheCore as any, {
         client_event_id: `concurr-arr-${suffix}-${runId}`,
         local_supplier_id: createdSupplierId,
+        raw_milk_token_number: rmrNum,
         rmr_number: rmrNum,
         vehicle_number: `C-${suffix.slice(-4)}`,
         arrival_timestamp: new Date(Date.now() - 3600000),
@@ -1673,6 +1719,7 @@ async function runStage6gd3Tests() {
     const histLS = await submitLocalSupplierArrival(pheCore as any, {
       client_event_id: `hist-arr-blocker3-${runId}`,
       local_supplier_id: createdSupplierId,
+      raw_milk_token_number: '778899',
       rmr_number: '778899',
       vehicle_number: 'HIST-LS-01',
       arrival_timestamp: new Date(Date.now() - 86400000),
@@ -1753,13 +1800,24 @@ async function runStage6gd3Tests() {
     assert(correctExitRes2.status === 200, 'Exit Correction 2 Success', 'Manager 1 successfully corrected exit timestamp second time');
     assert(correctExitRes2.data.exit_correction_count === 2, 'Correction Count 2', 'exit_correction_count incremented to 2');
 
-    // 10.7 Maximum 2 corrections enforced -> 3rd correction returns 409 Conflict
-    const correctExitRes3 = await correctGateExit(mgr1Core as any, 'MOT', motArrId1, {
-      exit_timestamp: new Date(Date.now() - 10000),
-      reason: 'Third attempt should be blocked',
+    // 10.7 Successful supervisory exit corrections 3, 4, 5
+    for (let c = 3; c <= 5; c++) {
+      const correctedExitTimestamp = new Date(Date.now() - (60000 - c * 5000));
+      const res = await correctGateExit(mgr1Core as any, 'MOT', motArrId1, {
+        exit_timestamp: correctedExitTimestamp,
+        reason: `Supervisor verification adjustment ${c}`,
+      });
+      assert(res.status === 200, `Exit Correction ${c} Success`, `Manager 1 successfully corrected exit timestamp ${c}`);
+      assert(res.data.exit_correction_count === c, `Correction Count ${c}`, `exit_correction_count incremented to ${c}`);
+    }
+
+    // Maximum 5 corrections enforced -> 6th correction returns 409 Conflict
+    const correctExitRes6 = await correctGateExit(mgr1Core as any, 'MOT', motArrId1, {
+      exit_timestamp: new Date(Date.now() - 1000),
+      reason: 'Sixth attempt should be blocked',
     });
-    assert(correctExitRes3.status === 409, 'Max 2 Corrections Enforced', 'Third exit correction attempt returns 409 conflict');
-    assert(correctExitRes3.error === 'MAX_EXIT_CORRECTIONS_EXCEEDED', 'Max Corrections Error Code', 'Returns MAX_EXIT_CORRECTIONS_EXCEEDED');
+    assert(correctExitRes6.status === 409, 'Max 5 Corrections Enforced', 'Sixth exit correction attempt returns 409 conflict');
+    assert(correctExitRes6.error === 'MAX_EXIT_CORRECTIONS_EXCEEDED', 'Max Corrections Error Code', 'Returns MAX_EXIT_CORRECTIONS_EXCEEDED');
 
     // 10.8 Local Supplier Gate Exit Correction & No-Op Identical Timestamp Rejection
     // Reject no-op correction where exit_timestamp equals current exit_timestamp -> 400 NO_OP_IDENTICAL_TIMESTAMP
@@ -1874,42 +1932,55 @@ async function runStage6gd3Tests() {
     );
 
     // 10.11 Concurrency Max Corrections Limit Under High Contention
-    // Sending a 3rd correction to this arrival (now at count 2) must fail with 409
-    const thirdConcAttempt = await correctGateExit(mgr1Core as any, 'LOCAL_SUPPLIER', concLSId, {
-      exit_timestamp: new Date(concExitTs.getTime() + 30000),
-      reason: 'Third correction attempt blocked',
-    });
-    assert(thirdConcAttempt.status === 409, 'Max Corrections Exceeded 409', 'Third correction attempt returns 409 conflict');
-    assert(thirdConcAttempt.error === 'MAX_EXIT_CORRECTIONS_EXCEEDED', 'Max Error Code', 'Returns MAX_EXIT_CORRECTIONS_EXCEEDED');
+    for (let c = 3; c <= 5; c++) {
+      const res = await correctGateExit(mgr1Core as any, 'LOCAL_SUPPLIER', concLSId, {
+        exit_timestamp: new Date(concExitTs.getTime() + c * 10000),
+        reason: `Supervisor correction sequence ${c}`,
+      });
+      assert(res.status === 200, `Exit Correction ${c} Success`, `Manager 1 successfully corrected exit timestamp ${c}`);
+    }
 
-    // Test concurrent race when count is 1: exactly one succeeds (reaching 2), one rejected with 409
+    // 6th correction attempt (now at count 5) must fail with 409
+    const sixthConcAttempt = await correctGateExit(mgr1Core as any, 'LOCAL_SUPPLIER', concLSId, {
+      exit_timestamp: new Date(concExitTs.getTime() + 60000),
+      reason: 'Sixth correction attempt blocked',
+    });
+    assert(sixthConcAttempt.status === 409, 'Max Corrections Exceeded 409', 'Sixth correction attempt returns 409 conflict');
+    assert(sixthConcAttempt.error === 'MAX_EXIT_CORRECTIONS_EXCEEDED', 'Max Error Code', 'Returns MAX_EXIT_CORRECTIONS_EXCEEDED');
+
+    // Test concurrent race when count is 4: exactly one succeeds (reaching 5), one rejected with 409
     const concLimitLSId = await createEligibleLS('conc-limit');
     const limitExitTs = new Date(Date.now() - 250000);
     await recordGateExit(pheCore as any, 'LOCAL_SUPPLIER', concLimitLSId, {
       exit_timestamp: limitExitTs,
       exit_client_event_id: `conc-limit-exit-${runId}`,
     });
-    const limitCorr1Ts = new Date(limitExitTs.getTime() + 10000);
-    await correctGateExit(mgr1Core as any, 'LOCAL_SUPPLIER', concLimitLSId, {
-      exit_timestamp: limitCorr1Ts,
-      reason: 'Initial supervisor correction setting count to 1',
-    });
+
+    let lastLimitTs = limitExitTs;
+    for (let s = 1; s <= 4; s++) {
+      lastLimitTs = new Date(lastLimitTs.getTime() + 10000);
+      const preRes = await correctGateExit(mgr1Core as any, 'LOCAL_SUPPLIER', concLimitLSId, {
+        exit_timestamp: lastLimitTs,
+        reason: `Initial supervisor correction setting count to ${s}`,
+      });
+      assert(preRes.status === 200, `Exit Slot ${s} Used`, `exit_manager_correction_count is ${s}`);
+    }
 
     const [raceRes1, raceRes2] = await Promise.all([
       correctGateExit(mgr1Core as any, 'LOCAL_SUPPLIER', concLimitLSId, {
-        exit_timestamp: new Date(limitCorr1Ts.getTime() + 10000),
+        exit_timestamp: new Date(lastLimitTs.getTime() + 10000),
         reason: 'Race for the final correction slot A',
       }),
       correctGateExit(mgr1Core as any, 'LOCAL_SUPPLIER', concLimitLSId, {
-        exit_timestamp: new Date(limitCorr1Ts.getTime() + 20000),
+        exit_timestamp: new Date(lastLimitTs.getTime() + 20000),
         reason: 'Race for the final correction slot B',
       }),
     ]);
     const raceStatuses = [raceRes1.status, raceRes2.status].sort();
     assert(
       raceStatuses[0] === 200 && raceStatuses[1] === 409,
-      'Concurrent Race at Count 1 Enforces Max 2',
-      'Under concurrent contention at count 1, exactly one call succeeds (200) and the other is rejected (409 MAX_EXIT_CORRECTIONS_EXCEEDED)'
+      'Concurrent Race at Count 4 Enforces Max 5',
+      'Under concurrent contention at count 4, exactly one call succeeds (200) and the other is rejected (409 MAX_EXIT_CORRECTIONS_EXCEEDED)'
     );
 
     // =========================================================================
@@ -2044,6 +2115,7 @@ async function runStage6gd3Tests() {
 
     const availArrivalRes = await submitMotArrival(pheCore as any, {
       journey_id: availJourney1.id,
+      raw_milk_token_number: '654321',
       route_milk_token: `RM-AV1-${runId.toString().slice(-6)}`,
       arrival_timestamp: new Date(Date.now() - 3500000),
       client_event_id: `evt-mot-av1-${runId}`,
@@ -2138,6 +2210,7 @@ async function runStage6gd3Tests() {
     const insideSupplierArrivalRes = await submitLocalSupplierArrival(pheCore as any, {
       client_event_id: `inside-arr-${runId}`,
       local_supplier_id: insideSupplierRes.data.id,
+      raw_milk_token_number: '112233',
       rmr_number: '112233',
       vehicle_number: `INS-${runId.toString().slice(-4)}`,
       arrival_timestamp: new Date(),

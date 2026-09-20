@@ -334,25 +334,46 @@ export class PaperReferenceService {
       );
     }
 
-    // Guard: RAW_MILK_TOKEN must remain PER_SOURCE (per ZMCC)
-    if (referenceType === PaperReferenceType.RAW_MILK_TOKEN && scopeToSet !== 'PER_SOURCE') {
-      throw new PaperValidationError(
-        `RAW_MILK_TOKEN duplicate scope must remain PER_SOURCE (per ZMCC).`
-      );
+    // Guard: SHOP_RMR duplicate ownership is frozen: allow_duplicates must remain true
+    if (referenceType === PaperReferenceType.SHOP_RMR) {
+      if (allowDuplicates === false) {
+        throw new PaperValidationError(
+          `SHOP_RMR duplicate ownership is frozen: allow_duplicates must remain true. collection_number is the permanent system identity.`
+        );
+      }
+      if (scopeToSet !== 'GLOBAL') {
+        throw new PaperValidationError(
+          `SHOP_RMR duplicate scope must remain GLOBAL.`
+        );
+      }
     }
 
-    // Guard: RAW_MILK_DISPATCH_NOTE must remain PER_SOURCE (per ProcurementSource)
-    if (referenceType === PaperReferenceType.RAW_MILK_DISPATCH_NOTE && scopeToSet !== 'PER_SOURCE') {
-      throw new PaperValidationError(
-        `RAW_MILK_DISPATCH_NOTE duplicate scope must remain PER_SOURCE (per ProcurementSource).`
-      );
+    // Guard: RAW_MILK_TOKEN duplicate ownership is frozen: allow_duplicates must remain false, duplicate_scope must remain PER_SOURCE
+    if (referenceType === PaperReferenceType.RAW_MILK_TOKEN) {
+      if (allowDuplicates === true) {
+        throw new PaperValidationError(
+          `RAW_MILK_TOKEN duplicate ownership is frozen: allow_duplicates must remain false.`
+        );
+      }
+      if (scopeToSet !== 'PER_SOURCE') {
+        throw new PaperValidationError(
+          `RAW_MILK_TOKEN duplicate scope must remain PER_SOURCE (per ZMCC).`
+        );
+      }
     }
 
-    // Guard: SHOP_RMR is not a globally unique system identity; global blocking is forbidden
-    if (referenceType === PaperReferenceType.SHOP_RMR && allowDuplicates === false && scopeToSet === 'GLOBAL') {
-      throw new PaperValidationError(
-        `SHOP_RMR cannot enforce hard global uniqueness; collection_number is the system unique identity.`
-      );
+    // Guard: RAW_MILK_DISPATCH_NOTE duplicate ownership is frozen: allow_duplicates must remain false, duplicate_scope must remain PER_SOURCE
+    if (referenceType === PaperReferenceType.RAW_MILK_DISPATCH_NOTE) {
+      if (allowDuplicates === true) {
+        throw new PaperValidationError(
+          `RAW_MILK_DISPATCH_NOTE duplicate ownership is frozen: allow_duplicates must remain false.`
+        );
+      }
+      if (scopeToSet !== 'PER_SOURCE') {
+        throw new PaperValidationError(
+          `RAW_MILK_DISPATCH_NOTE duplicate scope must remain PER_SOURCE (per ProcurementSource).`
+        );
+      }
     }
 
     const execute = async (tx: Prisma.TransactionClient) => {

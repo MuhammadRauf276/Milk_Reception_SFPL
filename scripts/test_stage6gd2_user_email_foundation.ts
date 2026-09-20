@@ -123,7 +123,7 @@ async function runStage6gd2Tests() {
     const migrationDirs = fs
       .readdirSync(migrationsDir)
       .filter((f) => fs.statSync(path.join(migrationsDir, f)).isDirectory() && !f.startsWith('.'));
-    assert(migrationDirs.length === 31, 'Tracked Migrations', `Found exactly 31 migrations (expected 31)`);
+    assert(migrationDirs.length === 33, 'Tracked Migrations', `Found exactly 33 migrations (expected 33)`);
 
     const d2MigDir = migrationDirs.find((d) => d.includes('user_email_foundation'));
     assert(!!d2MigDir, 'Migration Exists', `Found 6G-D.2 migration: ${d2MigDir}`);
