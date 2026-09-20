@@ -123,108 +123,53 @@ const failures: string[] = [];
 
 const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
 
-async function ensureCleanTestState(dbUrl: string) {
-  try {
-    const { Client } = await import('pg');
-    const client = new Client({ connectionString: dbUrl });
-    await client.connect();
-    try {
-      const res = await client.query('SELECT id FROM procurement_source WHERE id > 6');
-      if (res.rows.length > 0) {
-        console.log(`🧹 Cleaning up ${res.rows.length} non-canonical test procurement sources...`);
-        const ids = res.rows.map((r: any) => r.id);
-        await client.query('DELETE FROM zmcc_tank_inventory_transaction WHERE zmcc_id = ANY($1)', [ids]);
-        await client.query('DELETE FROM zmcc_tank_receipt WHERE zmcc_id = ANY($1)', [ids]);
-        await client.query('DELETE FROM zmcc_contractor_arrival WHERE zmcc_id = ANY($1) OR contractor_source_id = ANY($1)', [ids]);
-        await client.query('DELETE FROM zmcc_mot_arrival WHERE zmcc_id = ANY($1)', [ids]);
-        await client.query('DELETE FROM zmcc_lab_session WHERE zmcc_id = ANY($1)', [ids]);
-        await client.query('DELETE FROM mot_shop_collection WHERE zmcc_id = ANY($1)', [ids]);
-        await client.query('DELETE FROM mot_journey WHERE zmcc_id = ANY($1)', [ids]);
-        await client.query('DELETE FROM mot_vehicle WHERE zmcc_id = ANY($1)', [ids]);
-        await client.query('DELETE FROM mot_profile WHERE zmcc_id = ANY($1)', [ids]);
-        await client.query('DELETE FROM zmcc_milk_source WHERE zmcc_id = ANY($1)', [ids]);
-        await client.query('DELETE FROM zmcc_route WHERE zmcc_id = ANY($1)', [ids]);
-        await client.query('DELETE FROM zmcc_tank WHERE zmcc_id = ANY($1)', [ids]);
-        await client.query('DELETE FROM dispatch_quantity_policy_snapshot WHERE procurement_source_id = ANY($1)', [ids]);
-        await client.query('DELETE FROM qa_warning WHERE procurement_source_id = ANY($1)', [ids]);
-        await client.query('DELETE FROM vehicle_visit WHERE procurement_source_id = ANY($1)', [ids]);
-        await client.query('UPDATE users SET procurement_source_id = NULL WHERE procurement_source_id = ANY($1)', [ids]);
-        await client.query('DELETE FROM procurement_source WHERE id = ANY($1)', [ids]);
-        console.log('✅ Non-canonical test sources cleaned successfully.\n');
-      }
+suites.forEach((suite, index) => {
+  const paddedIdx = String(index + 1).padStart(2, '0');
+  const total = String(suites.length).padStart(2, '0');
+  const suiteName = path.basename(suite);
 
-      // Ensure Hasilpur tank has adequate stock for heavy sequential dispatch runs
-      await client.query(`
-        UPDATE zmcc_tank_inventory_transaction 
-        SET quantity_liters = 350000.00, at_13ts_liters = 332661.54 
-        WHERE idempotency_key = 'ZMCC_TANK_RECEIPT:OPENING_STOCK:1'
-      `);
-    } finally {
-      await client.end().catch(() => {});
-    }
-  } catch (err) {
-    console.warn('⚠️ Warning: Pre-flight test state maintenance encountered an error:', err);
-  }
-}
+  console.log(`[${paddedIdx}/${total}] ▶ Running ${suite}...`);
 
-async function runAll() {
-  if (!isProbeMode && process.env.DATABASE_URL) {
-    await ensureCleanTestState(process.env.DATABASE_URL);
-  }
-
-  suites.forEach((suite, index) => {
-    const paddedIdx = String(index + 1).padStart(2, '0');
-    const total = String(suites.length).padStart(2, '0');
-    const suiteName = path.basename(suite);
-
-    console.log(`[${paddedIdx}/${total}] ▶ Running ${suite}...`);
-
-    let result;
-    if (isProbeMode) {
-      if (suite === 'synthetic-probe-pass') {
-        result = spawnSync('node', ['-e', 'process.exit(0)'], { cwd: repoRoot, stdio: 'inherit', shell: true });
-      } else {
-        result = spawnSync('node', ['-e', 'process.exit(42)'], { cwd: repoRoot, stdio: 'inherit', shell: true });
-      }
+  let result;
+  if (isProbeMode) {
+    if (suite === 'synthetic-probe-pass') {
+      result = spawnSync('node', ['-e', 'process.exit(0)'], { cwd: repoRoot, stdio: 'inherit', shell: true });
     } else {
-      result = spawnSync(npxCmd, ['tsx', suite], {
-        cwd: repoRoot,
-        stdio: 'inherit',
-        env: process.env,
-        shell: true,
-      });
+      result = spawnSync('node', ['-e', 'process.exit(42)'], { cwd: repoRoot, stdio: 'inherit', shell: true });
     }
-
-    if (result.status === 0 && !result.error) {
-      console.log(`[${paddedIdx}/${total}] ✅ ${suiteName} ... PASS\n`);
-      passedCount++;
-    } else {
-      console.error(`[${paddedIdx}/${total}] ❌ ${suiteName} ... FAIL\n`);
-      failedCount++;
-      failures.push(suite);
-    }
-  });
-
-  console.log(`==================================================`);
-  console.log(`FINAL REGRESSION SUITES SUMMARY`);
-  console.log(`==================================================`);
-  console.log(`Passed: ${passedCount}`);
-  console.log(`Failed: ${failedCount}`);
-  console.log(`Total:  ${suites.length}`);
-
-  if (failedCount > 0) {
-    console.error(`\n❌ FAILED SUITES (${failedCount}):`);
-    failures.forEach((f) => console.error(`  - ${f}`));
-    console.log(`==================================================\n`);
-    process.exit(1);
   } else {
-    console.log(`\n✅ ALL ${passedCount} / ${suites.length} REGRESSION SUITES PASSED 100%`);
-    console.log(`==================================================\n`);
-    process.exit(0);
+    result = spawnSync(npxCmd, ['tsx', suite], {
+      cwd: repoRoot,
+      stdio: 'inherit',
+      env: process.env,
+      shell: true,
+    });
   }
-}
 
-runAll().catch((err) => {
-  console.error('Fatal runner error:', err);
-  process.exit(1);
+  if (result.status === 0 && !result.error) {
+    console.log(`[${paddedIdx}/${total}] ✅ ${suiteName} ... PASS\n`);
+    passedCount++;
+  } else {
+    console.error(`[${paddedIdx}/${total}] ❌ ${suiteName} ... FAIL\n`);
+    failedCount++;
+    failures.push(suite);
+  }
 });
+
+console.log(`==================================================`);
+console.log(`FINAL REGRESSION SUITES SUMMARY`);
+console.log(`==================================================`);
+console.log(`Passed: ${passedCount}`);
+console.log(`Failed: ${failedCount}`);
+console.log(`Total:  ${suites.length}`);
+
+if (failedCount > 0) {
+  console.error(`\n❌ FAILED SUITES (${failedCount}):`);
+  failures.forEach((f) => console.error(`  - ${f}`));
+  console.log(`==================================================\n`);
+  process.exit(1);
+} else {
+  console.log(`\n✅ ALL ${passedCount} / ${suites.length} REGRESSION SUITES PASSED 100%`);
+  console.log(`==================================================\n`);
+  process.exit(0);
+}

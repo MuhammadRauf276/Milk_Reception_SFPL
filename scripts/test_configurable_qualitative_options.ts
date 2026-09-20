@@ -12,7 +12,8 @@ import { POST as startDispatchPost } from '../src/app/api/dispatches/start/route
 import { POST as dispatchPost } from '../src/app/api/dispatches/route';
 import { POST as completePortionPost } from '../src/app/api/qa/vehicle-visits/[visitId]/portions/[portionId]/complete/route';
 import { evaluateLabResult, validateCategoricalOption } from '../src/lib/lab-rules';
-import { calculateSNF, calculateRatio } from '../src/backend/utils/milkFormulas';
+import { calculateSNF, calculateRatio, computeCanonicalMilkMetrics } from '../src/backend/utils/milkFormulas';
+import { getTankPhysicalStock } from '../src/backend/services/zmccTankService';
 import { getOperationalBusinessDate } from '../src/backend/core/business-day';
 
 async function runConfigurableQualitativeOptionsTests() {
@@ -323,6 +324,50 @@ async function runConfigurableQualitativeOptionsTests() {
         numericValue: null,
       });
     }
+  }
+
+  // Ensure the ZMCC used has canonical active tank and sufficient physical Gross-Liter stock
+  let activeTank = await prisma.zmccTank.findFirst({
+    where: { zmcc_id: zmccSource.id, is_active: true },
+  });
+  if (!activeTank) {
+    activeTank = await prisma.zmccTank.create({
+      data: {
+        zmcc_id: zmccSource.id,
+        tank_code: 'TK-HAS-01',
+        tank_name: 'Hasilpur Storage Tank 01',
+        capacity_liters: 50000,
+        is_active: true,
+        created_by_user_id: superAdminUser.id,
+      },
+    });
+  }
+  const currentStockJ = await getTankPhysicalStock(activeTank.id);
+  const requiredStockJ = 15000.0;
+  if (currentStockJ < requiredStockJ) {
+    const replenishmentLiters = 25000.0;
+    const replenishmentMetrics = computeCanonicalMilkMetrics(replenishmentLiters, 'LITER', 28.0, 3.8);
+    await prisma.zmccTankInventoryTransaction.upsert({
+      where: { idempotency_key: `ZMCC_TANK_RECEIPT:FIXTURE_QUAL_OPTIONS_CASE_J:${zmccSource.id}` },
+      update: {
+        quantity_liters: replenishmentLiters,
+        at_13ts_liters: replenishmentMetrics.at13tsLiters,
+        operational_timestamp: new Date(),
+      },
+      create: {
+        tank_id: activeTank.id,
+        zmcc_id: zmccSource.id,
+        transaction_type: 'RECEIPT',
+        quantity_liters: replenishmentLiters,
+        at_13ts_liters: replenishmentMetrics.at13tsLiters,
+        reference_type: 'TEST_FIXTURE',
+        reference_id: `FIXTURE_QUAL_OPTIONS_J_${zmccSource.id}`,
+        idempotency_key: `ZMCC_TANK_RECEIPT:FIXTURE_QUAL_OPTIONS_CASE_J:${zmccSource.id}`,
+        operational_timestamp: new Date(),
+        performed_by_user_id: superAdminUser.id,
+        notes: 'Test fixture stock replenishment for Case J ZMCC dispatch',
+      },
+    });
   }
 
   const dispReqJ = new Request('http://localhost:3000/api/dispatches', {
@@ -888,6 +933,33 @@ async function runConfigurableQualitativeOptionsTests() {
         textValue: 'OK',
       };
     });
+
+  const currentStock3AF = await getTankPhysicalStock(activeTank.id);
+  if (currentStock3AF < 10000.0) {
+    const replenishmentLiters = 25000.0;
+    const replenishmentMetrics = computeCanonicalMilkMetrics(replenishmentLiters, 'LITER', 28.0, 3.8);
+    await prisma.zmccTankInventoryTransaction.upsert({
+      where: { idempotency_key: `ZMCC_TANK_RECEIPT:FIXTURE_QUAL_OPTIONS_3AF:${zmccSource.id}` },
+      update: {
+        quantity_liters: replenishmentLiters,
+        at_13ts_liters: replenishmentMetrics.at13tsLiters,
+        operational_timestamp: new Date(),
+      },
+      create: {
+        tank_id: activeTank.id,
+        zmcc_id: zmccSource.id,
+        transaction_type: 'RECEIPT',
+        quantity_liters: replenishmentLiters,
+        at_13ts_liters: replenishmentMetrics.at13tsLiters,
+        reference_type: 'TEST_FIXTURE',
+        reference_id: `FIXTURE_QUAL_OPTIONS_3AF_${zmccSource.id}`,
+        idempotency_key: `ZMCC_TANK_RECEIPT:FIXTURE_QUAL_OPTIONS_3AF:${zmccSource.id}`,
+        operational_timestamp: new Date(),
+        performed_by_user_id: superAdminUser.id,
+        notes: 'Test fixture stock replenishment for 3A-Case F ZMCC dispatch',
+      },
+    });
+  }
 
   const dispReq3AF = new Request('http://localhost:3000/api/dispatches', {
     method: 'POST',

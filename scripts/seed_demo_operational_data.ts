@@ -890,25 +890,20 @@ export async function seedOperationalData() {
         zmcc_id: hasilpurSource.id,
         tank_code: 'TK-HAS-01',
         tank_name: 'Hasilpur Raw Milk Storage Tank 01',
-        capacity_liters: 500000,
+        capacity_liters: 50000,
         is_active: true,
         created_by_user_id: zmccManager.id,
       },
-    });
-  } else {
-    hasilpurTank = await prisma.zmccTank.update({
-      where: { id: hasilpurTank.id },
-      data: { capacity_liters: 500000 },
     });
   }
 
   // Canonical Tank Stock Seeding for ZMCC Hasilpur:
   // Scenario ZMCC-KG (Visit 10): 10,000 KG @ LR 28.00 -> 9,727.63 Gross Liters ISSUE
   // Scenario A (Visit 20): 8,000 L Measured -> 8,000.00 Gross Liters ISSUE
-  // Seed opening stock receipt (350,000 L) before the earliest visit dispatch,
+  // Seed opening stock receipt (35,000 L) before the earliest visit dispatch,
   // followed by canonical whole-vehicle tank ISSUEs in Gross Liters.
   if (visit10Record || visit20Record) {
-    const openingStockLiters = 350000.0;
+    const openingStockLiters = 35000.0;
     const openingMetrics = computeCanonicalMilkMetrics(openingStockLiters, 'LITER', 28.00, 3.80);
     const earliestDate = visit10Record ? visit10Record.created_at : visit20Record.created_at;
     const openingTimestamp = new Date(earliestDate.getTime() - 3600000); // 1 hr before earliest dispatch
@@ -925,13 +920,13 @@ export async function seedOperationalData() {
         zmcc_id: hasilpurSource.id,
         transaction_type: 'RECEIPT',
         quantity_liters: openingStockLiters,
-        at_13ts_liters: openingMetrics.at13tsLiters, // 332,661.54 L
+        at_13ts_liters: openingMetrics.at13tsLiters, // 33,266.15 L
         reference_type: 'OPENING_STOCK',
         reference_id: `INIT-${hasilpurSource.id}`,
         idempotency_key: `ZMCC_TANK_RECEIPT:OPENING_STOCK:${hasilpurSource.id}`,
         operational_timestamp: openingTimestamp,
         performed_by_user_id: zmccManager.id,
-        notes: 'Initial opening stock receipt for Hasilpur storage tank [350,000 L @ LR 28.00, Fat 3.80 -> 332,661.54 @13TS L]',
+        notes: 'Initial opening stock receipt for Hasilpur storage tank [35,000 L @ LR 28.00, Fat 3.80 -> 33,266.15 @13TS L]',
       },
     });
 

@@ -10,6 +10,8 @@ import { createSessionToken } from '../src/backend/core/auth';
 import { POST as startDispatchPost } from '../src/app/api/dispatches/start/route';
 import { POST as dispatchPost } from '../src/app/api/dispatches/route';
 import { getOperationalBusinessDate } from '../src/backend/core/business-day';
+import { getTankPhysicalStock } from '../src/backend/services/zmccTankService';
+import { computeCanonicalMilkMetrics } from '../src/backend/utils/milkFormulas';
 
 async function runStableAssignmentTests() {
   console.log('--- STARTING STABLE LAB TEST ASSIGNMENT TEST SUITE ---');
@@ -500,6 +502,51 @@ async function runStableAssignmentTests() {
   // CASE O: Open Dispatch Master Activation & Submission Stability
   console.log('\n--- CASE O: Open Dispatch Master Activation & Submission Stability ---');
   const mpdSourceId = (mpdUser.procurement_source_id ? mpdUser.procurement_source_id : zmccSource.id).toString();
+  const sourceIdBigInt = BigInt(mpdSourceId);
+
+  // Ensure the ZMCC used has canonical active tank and sufficient physical Gross-Liter stock
+  let activeTank = await prisma.zmccTank.findFirst({
+    where: { zmcc_id: sourceIdBigInt, is_active: true },
+  });
+  if (!activeTank) {
+    activeTank = await prisma.zmccTank.create({
+      data: {
+        zmcc_id: sourceIdBigInt,
+        tank_code: 'TK-HAS-01',
+        tank_name: 'Hasilpur Storage Tank 01',
+        capacity_liters: 50000,
+        is_active: true,
+        created_by_user_id: mpdUser.id,
+      },
+    });
+  }
+  const currentStock = await getTankPhysicalStock(activeTank.id);
+  const requiredGrossLiters = 12000.0;
+  if (currentStock < requiredGrossLiters) {
+    const replenishmentLiters = 25000.0;
+    const replenishmentMetrics = computeCanonicalMilkMetrics(replenishmentLiters, 'LITER', 28.0, 3.8);
+    await prisma.zmccTankInventoryTransaction.upsert({
+      where: { idempotency_key: `ZMCC_TANK_RECEIPT:FIXTURE_STABLE_ASSIGNMENT_CASE_O:${sourceIdBigInt}` },
+      update: {
+        quantity_liters: replenishmentLiters,
+        at_13ts_liters: replenishmentMetrics.at13tsLiters,
+        operational_timestamp: new Date(),
+      },
+      create: {
+        tank_id: activeTank.id,
+        zmcc_id: sourceIdBigInt,
+        transaction_type: 'RECEIPT',
+        quantity_liters: replenishmentLiters,
+        at_13ts_liters: replenishmentMetrics.at13tsLiters,
+        reference_type: 'TEST_FIXTURE',
+        reference_id: `FIXTURE_STABLE_ASSIGNMENT_O_${sourceIdBigInt}`,
+        idempotency_key: `ZMCC_TANK_RECEIPT:FIXTURE_STABLE_ASSIGNMENT_CASE_O:${sourceIdBigInt}`,
+        operational_timestamp: new Date(),
+        performed_by_user_id: mpdUser.id,
+        notes: 'Test fixture stock replenishment for Case O ZMCC dispatch',
+      },
+    });
+  }
   const mpdUserDto: any = {
     ...mpdUser,
     id: mpdUser.id.toString(),

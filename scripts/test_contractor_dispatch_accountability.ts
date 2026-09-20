@@ -4,6 +4,8 @@ import { POST as startDispatchPost } from '../src/app/api/dispatches/start/route
 import { createSessionToken } from '../src/backend/core/auth';
 import { User, Role } from '../src/backend/core/types';
 import { getOperationalBusinessDate } from '../src/backend/core/business-day';
+import { getTankPhysicalStock } from '../src/backend/services/zmccTankService';
+import { computeCanonicalMilkMetrics } from '../src/backend/utils/milkFormulas';
 
 async function runContractorAccountabilityTests() {
   console.log('==================================================');
@@ -140,7 +142,11 @@ async function runContractorAccountabilityTests() {
   );
   const resCaseB = await POST(reqCaseB);
   const dataCaseB = await resCaseB.json();
-  assert(resCaseB.ok && !!dataCaseB.visitId, 'Case B: Contractor 9,500 KG dispatch created successfully', `Visit ID = ${dataCaseB.visitId}`);
+  assert(
+    resCaseB.ok && !!dataCaseB.visitId,
+    'Case B: Contractor 9,500 KG dispatch created successfully',
+    dataCaseB.visitId ? `Visit ID = ${dataCaseB.visitId}` : `Status = ${resCaseB.status}, Error = ${dataCaseB.error}`
+  );
 
   const portionB = await prisma.visitPortion.findFirst({
     where: { visit_id: BigInt(dataCaseB.visitId) },
@@ -643,15 +649,75 @@ async function runContractorAccountabilityTests() {
   );
 
   // CASE O: ZMCC isolation (ZMCC behavior unchanged)
+  // Ensure the ZMCC used has canonical active tank and sufficient physical Gross-Liter stock
+  const zmccSourceIdO = zmccUser.procurement_source_id!;
+  let activeTankO = await prisma.zmccTank.findFirst({
+    where: { zmcc_id: zmccSourceIdO, is_active: true },
+  });
+  if (!activeTankO) {
+    activeTankO = await prisma.zmccTank.create({
+      data: {
+        zmcc_id: zmccSourceIdO,
+        tank_code: 'TK-HAS-01',
+        tank_name: 'Hasilpur Storage Tank 01',
+        capacity_liters: 50000,
+        is_active: true,
+        created_by_user_id: zmccUser.id,
+      },
+    });
+  }
+  const currentStockO = await getTankPhysicalStock(activeTankO.id);
+  const requiredGrossLitersO = 15000.0;
+  if (currentStockO < requiredGrossLitersO) {
+    const replenishmentLiters = 25000.0;
+    const replenishmentMetrics = computeCanonicalMilkMetrics(replenishmentLiters, 'LITER', 28.0, 3.8);
+    await prisma.zmccTankInventoryTransaction.upsert({
+      where: { idempotency_key: `ZMCC_TANK_RECEIPT:FIXTURE_CONT_ACC_CASE_O:${zmccSourceIdO}` },
+      update: {
+        quantity_liters: replenishmentLiters,
+        at_13ts_liters: replenishmentMetrics.at13tsLiters,
+        operational_timestamp: new Date(),
+      },
+      create: {
+        tank_id: activeTankO.id,
+        zmcc_id: zmccSourceIdO,
+        transaction_type: 'RECEIPT',
+        quantity_liters: replenishmentLiters,
+        at_13ts_liters: replenishmentMetrics.at13tsLiters,
+        reference_type: 'TEST_FIXTURE',
+        reference_id: `FIXTURE_CONT_ACC_O_${zmccSourceIdO}`,
+        idempotency_key: `ZMCC_TANK_RECEIPT:FIXTURE_CONT_ACC_CASE_O:${zmccSourceIdO}`,
+        operational_timestamp: new Date(),
+        performed_by_user_id: zmccUser.id,
+        notes: 'Test fixture stock replenishment for Case O ZMCC dispatch',
+      },
+    });
+  }
+
   // ZMCC dispatches in FULL mode with all required manual tests accounted for
   const zmccResults = manualTests.map((t) => {
     if (t.resultType === 'NUMERIC') {
-      return { testId: t.id.toString(), performanceStatus: 'PERFORMED' as const, notPerformedReason: null, numericValue: 3.8, textValue: null };
+      const isLr = t.testName.toLowerCase().includes('lr') || t.testName.toLowerCase().includes('lactometer');
+      return {
+        testId: t.id.toString(),
+        performanceStatus: 'PERFORMED' as const,
+        notPerformedReason: null,
+        numericValue: isLr ? 28.0 : 3.8,
+        textValue: null,
+      };
     }
     if (t.resultType === 'POSITIVE_NEGATIVE') {
       return { testId: t.id.toString(), performanceStatus: 'PERFORMED' as const, notPerformedReason: null, numericValue: null, textValue: 'NEGATIVE' };
     }
-    return { testId: t.id.toString(), performanceStatus: 'PERFORMED' as const, notPerformedReason: null, numericValue: null, textValue: 'OK' };
+    if (t.resultType === 'OK_NOT_OK') {
+      return { testId: t.id.toString(), performanceStatus: 'PERFORMED' as const, notPerformedReason: null, numericValue: null, textValue: 'OK' };
+    }
+    let textVal = 'OK';
+    if (Array.isArray(t.resultOptions) && t.resultOptions.length > 0) {
+      const firstOpt = t.resultOptions[0];
+      textVal = typeof firstOpt === 'object' && firstOpt && 'value' in firstOpt ? (firstOpt as any).value : String(firstOpt);
+    }
+    return { testId: t.id.toString(), performanceStatus: 'PERFORMED' as const, notPerformedReason: null, numericValue: null, textValue: textVal };
   });
 
   const draftO = await startDraft(zmccUser);
@@ -680,7 +746,7 @@ async function runContractorAccountabilityTests() {
   assert(
     resCaseO.ok && !!dataCaseO.visitId,
     'Case O: ZMCC Dispatch continues operating in FULL mode with standard ZMCC rules (no Contractor defaults leaking)',
-    `Visit ID = ${dataCaseO.visitId}`
+    dataCaseO.visitId ? `Visit ID = ${dataCaseO.visitId}` : `Status = ${resCaseO.status}, Error = ${dataCaseO.error}`
   );
 
   // ==========================================
