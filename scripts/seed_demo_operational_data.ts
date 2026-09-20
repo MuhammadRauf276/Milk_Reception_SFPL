@@ -90,9 +90,9 @@ export async function seedOperationalData() {
   // Seed Stage 6G-G Paper Reference Policies
   console.log('Seeding Stage 6G-G Paper Reference Policies...');
   const paperPolicies = [
-    { reference_type: 'SHOP_RMR' as const, policy_mode: 'REQUIRED' as const, allow_duplicates: false, duplicate_scope: 'GLOBAL' },
-    { reference_type: 'RAW_MILK_TOKEN' as const, policy_mode: 'OPTIONAL' as const, allow_duplicates: false, duplicate_scope: 'GLOBAL' },
-    { reference_type: 'RAW_MILK_DISPATCH_NOTE' as const, policy_mode: 'REQUIRED' as const, allow_duplicates: false, duplicate_scope: 'GLOBAL' },
+    { reference_type: 'SHOP_RMR' as const, policy_mode: 'REQUIRED' as const, allow_duplicates: true, duplicate_scope: 'GLOBAL' },
+    { reference_type: 'RAW_MILK_TOKEN' as const, policy_mode: 'REQUIRED' as const, allow_duplicates: false, duplicate_scope: 'PER_SOURCE' },
+    { reference_type: 'RAW_MILK_DISPATCH_NOTE' as const, policy_mode: 'REQUIRED' as const, allow_duplicates: false, duplicate_scope: 'PER_SOURCE' },
   ];
   for (const p of paperPolicies) {
     await prisma.paperReferencePolicy.upsert({

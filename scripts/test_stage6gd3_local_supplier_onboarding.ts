@@ -1110,42 +1110,47 @@ async function runStage6gd3Tests() {
 
     // 6.1 PHE operator cannot correct arrival
     const pheCorrectRes = await correctLocalSupplierArrival(pheCore as any, firstArrivalId, {
-      rmr_number: '999999',
+      raw_milk_token_number: '999999',
       reason: 'Operator correction attempt',
     });
     assert(pheCorrectRes.status === 403, 'Permission Check', 'PHE operator forbidden from correcting arrival (403)');
 
     // 6.2 Cross-ZMCC manager cannot correct arrival
     const crossMgrCorrectRes = await correctLocalSupplierArrival(mgr2Core as any, firstArrivalId, {
-      rmr_number: '999999',
+      raw_milk_token_number: '999999',
       reason: 'Cross ZMCC correction attempt',
     });
     assert(crossMgrCorrectRes.status === 403, 'Cross-ZMCC Scoping', 'Cross-ZMCC manager forbidden from correcting arrival (403)');
 
     // 6.3 Missing reason rejected
     const missingReasonRes = await correctLocalSupplierArrival(mgr1Core as any, firstArrivalId, {
-      rmr_number: '007899',
+      raw_milk_token_number: '007899',
       reason: 'ab', // less than 5 characters
     });
     assert(missingReasonRes.status === 400, 'Reason Validation', 'Rejects correction with reason < 5 characters');
 
-    // 6.4 Non-numeric RMR in correction rejected
-    const nonNumericCorrectRmr = await correctLocalSupplierArrival(mgr1Core as any, firstArrivalId, {
-      rmr_number: 'BAD-RMR',
-      reason: 'Legitimate typo fix reason',
+    // 6.4 rmr_number is legacy and cannot be modified through operational corrections (400)
+    const legacyRmrCorrectRes = await correctLocalSupplierArrival(mgr1Core as any, firstArrivalId, {
+      rmr_number: '007892',
+      reason: 'Attempting to correct legacy RMR field',
     });
-    assert(nonNumericCorrectRmr.status === 400, 'RMR Digits Check', 'Rejects non-numeric RMR in correction');
+    assert(legacyRmrCorrectRes.status === 400, 'Legacy RMR Immutable', 'Rejects rmr_number correction with 400');
+    assert(
+      legacyRmrCorrectRes.error === 'rmr_number is a legacy field and cannot be modified through operational corrections. Use raw_milk_token_number instead.',
+      'Legacy RMR Error Message',
+      'Controlled 400 error message returned for legacy RMR'
+    );
 
     // 6.5 Successful Correction 1 by own-ZMCC Manager
+    const originalRmr = (await prisma.zmccLocalSupplierArrival.findUnique({ where: { id: firstArrivalId } }))?.rmr_number;
     const correctRes1 = await correctLocalSupplierArrival(mgr1Core as any, firstArrivalId, {
       raw_milk_token_number: '007892',
-      rmr_number: '007892',
       vehicle_number: 'lhr 5678',
       reason: 'Fixed typographical slip error by PHE operator',
     });
     assert(correctRes1.status === 200, 'Manager Correction 1', 'Manager successfully applied correction 1');
     assert(correctRes1.data.raw_milk_token_number === '007892', 'Updated Token', 'Raw Milk Token updated with leading zeros');
-    assert(correctRes1.data.rmr_number === '007892', 'Updated RMR', 'RMR updated with leading zeros');
+    assert(correctRes1.data.rmr_number === originalRmr, 'Preserved RMR', 'Historical rmr_number preserved unchanged');
     assert(correctRes1.data.vehicle_number === 'LHR 5678', 'Updated Vehicle', 'Vehicle updated & normalized');
     assert(correctRes1.data.zmcc_token === firstToken, 'Token Immutability', 'zmcc_token remained strictly immutable');
     assert(correctRes1.data.correction_count === 1, 'Correction Count', 'correction_count incremented to 1');
@@ -1425,7 +1430,7 @@ async function runStage6gd3Tests() {
 
     const motArrRes1 = await submitMotArrival(pheCore as any, {
       journey_id: motJourney1.id,
-      raw_milk_token_number: '654322',
+      raw_milk_token_number: `654${runId.toString().slice(-3)}`,
       route_milk_token: `RM-EXIT-1-${runId.toString().slice(-6)}`,
       arrival_timestamp: new Date(Date.now() - 3600000),
       client_event_id: `evt-mot-exit-1-${runId}`,
@@ -2115,7 +2120,7 @@ async function runStage6gd3Tests() {
 
     const availArrivalRes = await submitMotArrival(pheCore as any, {
       journey_id: availJourney1.id,
-      raw_milk_token_number: '654321',
+      raw_milk_token_number: `653${runId.toString().slice(-3)}`,
       route_milk_token: `RM-AV1-${runId.toString().slice(-6)}`,
       arrival_timestamp: new Date(Date.now() - 3500000),
       client_event_id: `evt-mot-av1-${runId}`,

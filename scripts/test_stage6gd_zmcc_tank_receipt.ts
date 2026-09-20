@@ -556,6 +556,7 @@ async function runStage6gdTests() {
   console.log('\n--- 5. SESSION COMPLETION "ACCEPT & RECEIVE" WORKFLOW ---');
 
   // Helper to create completed MOT Journey and Arrival
+  let motTokenCounter = 1;
   async function createCompletedMotArrival(tokenSuffix: string) {
     const route = await prisma.zmccRoute.create({
       data: {
@@ -611,6 +612,7 @@ async function runStage6gdTests() {
       toCoreUser(phe1) as any,
       {
         journey_id: journey.id,
+        raw_milk_token_number: String(800000 + (motTokenCounter++ % 100000)),
         route_milk_token: `RM-${tokenSuffix}`,
         arrival_timestamp: new Date(Date.now() - 1800000),
         client_event_id: `evt-mot-arr-${tokenSuffix}`,

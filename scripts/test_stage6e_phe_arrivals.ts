@@ -949,37 +949,49 @@ async function runStage6eTests() {
   console.log('\n--- 8. MANAGER CORRECTIONS & IMMUTABILITY ---');
   const arrivalToCorrectId = resMainArrival.data?.id;
 
+  // route_milk_token is legacy and cannot be modified through operational corrections (400)
+  const resLegacyTokenAttempt = await correctMotArrival(managerA as any, arrivalToCorrectId, {
+    reason: 'Manager attempting to edit legacy route token',
+    route_milk_token: 'RMT-BLOCKED',
+  });
+  assert(resLegacyTokenAttempt.status === 400, 'Legacy Route Token Immutable', 'route_milk_token correction rejected with 400');
+  assert(
+    resLegacyTokenAttempt.error === 'route_milk_token is a legacy field and cannot be modified through operational corrections. Use raw_milk_token_number instead.',
+    'Legacy Route Token Error Message',
+    'Controlled 400 error message returned for legacy route token'
+  );
+
   // PHE operator cannot correct
   const resPheCorrect = await correctMotArrival(pheA as any, arrivalToCorrectId, {
     reason: 'PHE trying to edit',
-    route_milk_token: 'RMT-HACKED',
+    raw_milk_token_number: '100091',
   });
   assert(resPheCorrect.status === 403, 'PHE Correction Forbidden', 'PHE operator cannot correct arrival (403)');
 
   // Foreign ZMCC manager cannot correct
   const resForeignMgrCorrect = await correctMotArrival(managerB as any, arrivalToCorrectId, {
     reason: 'Foreign manager edit',
-    route_milk_token: 'RMT-FOREIGN',
+    raw_milk_token_number: '100092',
   });
   assert(resForeignMgrCorrect.status === 403, 'Foreign Manager Forbidden', 'Foreign manager cannot correct arrival (403)');
 
   // Missing reason rejected
   const resNoReason = await correctMotArrival(managerA as any, arrivalToCorrectId, {
     reason: '   ',
-    route_milk_token: 'RMT-NO-REASON',
+    raw_milk_token_number: '100093',
   });
   assert(resNoReason.status === 400, 'Reason Mandatory', 'Correction without reason rejected with 400');
 
   // Correction 1: Valid correction by Manager A
   const originalToken = resMainArrival.data?.zmcc_token;
+  const originalRouteMilkToken = resMainArrival.data?.route_milk_token;
   const resCorrection1 = await correctMotArrival(managerA as any, arrivalToCorrectId, {
     reason: 'Driver mistyped ticket number on slip',
     raw_milk_token_number: '100010',
-    route_milk_token: 'RMT-CORRECTED-1',
   });
   assert(resCorrection1.status === 200, 'Correction 1 Status', 'First correction succeeds with 200');
   assert(resCorrection1.data?.raw_milk_token_number === '100010', 'Token Updated', 'raw_milk_token_number updated');
-  assert(resCorrection1.data?.route_milk_token === 'RMT-CORRECTED-1', 'Route Token Updated', 'route_milk_token updated');
+  assert(resCorrection1.data?.route_milk_token === originalRouteMilkToken, 'Route Token Preserved', 'route_milk_token remains unchanged');
   assert(resCorrection1.data?.correction_count === 1, 'Correction Count 1', 'correction_count is 1');
   assert(resCorrection1.data?.manager_correction_count === 1, 'Manager Correction Count 1', 'manager_correction_count is 1');
   assert(resCorrection1.data?.zmcc_token === originalToken, 'Immutable ZMCC Token', 'zmcc_token remains immutable');
@@ -1058,7 +1070,6 @@ async function runStage6eTests() {
     const preRaceRes = await correctMotArrival(managerA as any, raceArrivalId, {
       reason: `Pre-race correction ${s}`,
       raw_milk_token_number: `10002${s}`,
-      route_milk_token: `RMT-RACE-PRE-${s}`,
     });
     assert(preRaceRes.status === 200 && preRaceRes.data?.correction_count === s, `Slot ${s} Used`, `Arrival now has correction_count = ${s}`);
   }
@@ -1078,12 +1089,10 @@ async function runStage6eTests() {
     correctMotArrival(managerA as any, raceArrivalId, {
       reason: 'Concurrent correction attempt Alpha',
       raw_milk_token_number: '100031',
-      route_milk_token: 'RMT-RACE-ALPHA',
     }),
     correctMotArrival(managerA as any, raceArrivalId, {
       reason: 'Concurrent correction attempt Beta',
       raw_milk_token_number: '100032',
-      route_milk_token: 'RMT-RACE-BETA',
     }),
   ]);
 
@@ -1123,7 +1132,6 @@ async function runStage6eTests() {
   const postLimitAttempt = await correctMotArrival(managerA as any, raceArrivalId, {
     reason: 'Attempt after limit',
     raw_milk_token_number: '100099',
-    route_milk_token: 'RMT-RACE-OMEGA',
   });
   assert(
     postLimitAttempt.status === 400,

@@ -533,14 +533,14 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
     setCorrAcc(record.phe_gps_accuracy != null ? String(record.phe_gps_accuracy) : '');
 
     if (type === 'MOT') {
-      setCorrToken(record.raw_milk_token_number || record.route_milk_token || '');
+      setCorrToken(record.raw_milk_token_number || '');
     } else if (type === 'CONTRACTOR') {
       setCorrRmr(record.rmr_number || '');
       setCorrVehicle(record.vehicle_number || '');
     } else if (type === 'LOCAL_SUPPLIER') {
       setCorrLocalSupplierId(record.local_supplier_id ? String(record.local_supplier_id) : '');
       setCorrToken(record.raw_milk_token_number || '');
-      setCorrRmr(record.rmr_number || '');
+      setCorrRmr('');
       setCorrVehicle(record.vehicle_number || '');
     }
   };
@@ -580,7 +580,6 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
       } else if (correctionTarget.type === 'LOCAL_SUPPLIER') {
         payload.local_supplier_id = corrLocalSupplierId || undefined;
         payload.raw_milk_token_number = corrToken.trim();
-        if (corrRmr.trim()) payload.rmr_number = corrRmr.trim();
         payload.vehicle_number = corrVehicle.trim().toUpperCase();
       }
 
@@ -694,11 +693,17 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white p-4 rounded-xl border border-emerald-200">
                 <div>
                   <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                    {motSuccessResult.raw_milk_token_number ? 'Raw Milk Token' : 'Legacy Route Milk Token'}
+                    Raw Milk Token
                   </span>
                   <div className="text-base font-mono font-black text-slate-900 mt-0.5">
-                    {motSuccessResult.raw_milk_token_number || motSuccessResult.route_milk_token}
+                    {motSuccessResult.raw_milk_token_number || '—'}
                   </div>
+                  {motSuccessResult.route_milk_token && (
+                    <div className="text-xs text-slate-500 mt-0.5">
+                      <span className="font-semibold">Legacy Route Milk Token:</span>{' '}
+                      <span className="font-mono">{motSuccessResult.route_milk_token}</span>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider">Generated ZMCC Token</span>
@@ -1130,8 +1135,12 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                   ZMCC Token: <strong className="font-mono text-emerald-900 text-sm font-black">{localSupplierSuccessResult.zmcc_token}</strong>
                 </div>
                 <div className="py-1.5">
-                  {localSupplierSuccessResult.raw_milk_token_number ? 'Raw Milk Token No: ' : 'Legacy RMR: '}
-                  <strong className="font-mono text-slate-800">{localSupplierSuccessResult.raw_milk_token_number || localSupplierSuccessResult.rmr_number}</strong>
+                  Raw Milk Token: <strong className="font-mono text-slate-800">{localSupplierSuccessResult.raw_milk_token_number || '—'}</strong>
+                  {localSupplierSuccessResult.rmr_number && (
+                    <span className="text-slate-500 text-[11px] ml-2">
+                      (Legacy RMR: <strong className="font-mono text-slate-700">{localSupplierSuccessResult.rmr_number}</strong>)
+                    </span>
+                  )}
                 </div>
                 <div className="py-1.5">
                   Vehicle: <strong className="font-mono text-slate-800">{localSupplierSuccessResult.vehicle_number}</strong>
@@ -1427,12 +1436,11 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                         </td>
                         <td className="p-3 font-mono font-black text-slate-900">{arr.zmcc_token}</td>
                         <td className="p-3 font-mono font-bold text-slate-700">
-                          {arr.raw_milk_token_number ? (
-                            arr.raw_milk_token_number
-                          ) : arr.route_milk_token ? (
-                            <span>{arr.route_milk_token} <span className="text-[10px] text-slate-400 font-sans font-normal">(Legacy)</span></span>
-                          ) : (
-                            '—'
+                          <div>{arr.raw_milk_token_number || '—'}</div>
+                          {arr.route_milk_token && (
+                            <div className="text-[10px] text-slate-500 font-sans font-normal mt-0.5">
+                              Legacy Route Milk Token: <span className="font-mono">{arr.route_milk_token}</span>
+                            </div>
                           )}
                         </td>
                         <td className="p-3">
@@ -1553,12 +1561,11 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                         </td>
                         <td className="p-3 font-mono font-black text-slate-900">{arr.zmcc_token}</td>
                         <td className="p-3 font-mono font-bold text-emerald-900">
-                          {arr.raw_milk_token_number ? (
-                            arr.raw_milk_token_number
-                          ) : arr.rmr_number ? (
-                            <span>{arr.rmr_number} <span className="text-[10px] text-slate-400 font-sans font-normal">(Legacy RMR)</span></span>
-                          ) : (
-                            '—'
+                          <div>{arr.raw_milk_token_number || '—'}</div>
+                          {arr.rmr_number && (
+                            <div className="text-[10px] text-slate-500 font-sans font-normal mt-0.5">
+                              Legacy RMR: <span className="font-mono">{arr.rmr_number}</span>
+                            </div>
                           )}
                         </td>
                         <td className="p-3">
@@ -1697,15 +1704,23 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
               {correctionTarget.type === 'MOT' ? (
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">
-                    {correctionTarget.record.raw_milk_token_number ? 'Raw Milk Token' : 'Legacy Route Milk Token'}
+                    Raw Milk Token Number
                   </label>
                   <input
                     type="text"
                     value={corrToken}
                     onChange={(e) => setCorrToken(e.target.value)}
+                    placeholder="e.g. 001924"
                     required
                     className="w-full px-3 py-2 border rounded-xl font-mono uppercase"
                   />
+                  {correctionTarget.record.route_milk_token && (
+                    <div className="mt-2 p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600">
+                      <span className="font-bold text-slate-500">Legacy Route Milk Token:</span>{' '}
+                      <span className="font-mono font-bold text-slate-800">{correctionTarget.record.route_milk_token}</span>
+                      <span className="text-[10px] text-slate-400 ml-1.5">(Read-only)</span>
+                    </div>
+                  )}
                 </div>
               ) : correctionTarget.type === 'CONTRACTOR' ? (
                 <>
@@ -1764,18 +1779,10 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                     />
                   </div>
                   {correctionTarget.record.rmr_number && (
-                    <div>
-                      <label className="block font-bold text-slate-500 mb-1">Legacy RMR Number (Optional)</label>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        maxLength={100}
-                        value={corrRmr}
-                        onChange={(e) => setCorrRmr(e.target.value)}
-                        placeholder="e.g. 002345"
-                        className="w-full px-3 py-2 border rounded-xl font-mono bg-slate-50"
-                      />
+                    <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600">
+                      <span className="font-bold text-slate-500">Legacy RMR:</span>{' '}
+                      <span className="font-mono font-bold text-slate-800">{correctionTarget.record.rmr_number}</span>
+                      <span className="text-[10px] text-slate-400 ml-1.5">(Read-only)</span>
                     </div>
                   )}
                   <div>

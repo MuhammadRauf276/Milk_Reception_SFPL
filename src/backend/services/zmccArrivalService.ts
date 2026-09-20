@@ -1157,15 +1157,10 @@ export async function correctMotArrival(
   let newArrivalDate: Date | null = null;
 
   if (payload.route_milk_token !== undefined) {
-    const trimmedToken = String(payload.route_milk_token).trim();
-    if (!trimmedToken) {
-      return { status: 400, error: 'route_milk_token cannot be blank.' };
-    }
-    if (trimmedToken !== arrival.route_milk_token) {
-      oldValues.route_milk_token = arrival.route_milk_token;
-      newValues.route_milk_token = trimmedToken;
-      updateData.route_milk_token = trimmedToken;
-    }
+    return {
+      status: 400,
+      error: 'route_milk_token is a legacy field and cannot be modified through operational corrections. Use raw_milk_token_number instead.',
+    };
   }
 
   if (payload.raw_milk_token_number !== undefined) {
@@ -2345,16 +2340,10 @@ export async function correctLocalSupplierArrival(
   }
 
   if (payload.rmr_number !== undefined) {
-    const rmrValidation = validateRmrNumber(payload.rmr_number, false);
-    if (rmrValidation.error) {
-      return { status: 400, error: rmrValidation.error };
-    }
-    const trimmedRmr = rmrValidation.value!;
-    if (trimmedRmr !== arrival.rmr_number) {
-      oldValues.rmr_number = arrival.rmr_number;
-      newValues.rmr_number = trimmedRmr;
-      updateData.rmr_number = trimmedRmr;
-    }
+    return {
+      status: 400,
+      error: 'rmr_number is a legacy field and cannot be modified through operational corrections. Use raw_milk_token_number instead.',
+    };
   }
 
   const rawMilkTokenCandidate = payload.raw_milk_token_number;

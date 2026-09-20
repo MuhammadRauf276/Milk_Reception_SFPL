@@ -391,6 +391,7 @@ async function runStage6fTests() {
   // 5. Submit MOT Arrival at ZMCC A
   const motArrivalRes = await submitMotArrival(toCoreUser(pheA) as any, {
     journey_id: journeyCompleted.id,
+    raw_milk_token_number: String(600000 + (Number(runId) % 100000)),
     route_milk_token: `RM-6F-${runId}`,
     arrival_timestamp: new Date(Date.now() - 1800000),
     client_event_id: `evt-mot-arr-6f-${runId}`,
