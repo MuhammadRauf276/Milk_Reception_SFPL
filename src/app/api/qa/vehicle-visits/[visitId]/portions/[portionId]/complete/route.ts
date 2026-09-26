@@ -2,10 +2,11 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
 import { completeQATestSchema } from '@/lib/validations/qa';
-import { evaluateLabResult } from '@/lib/lab-rules';
+import { QualityRuleService } from '@/backend/services/qualityRuleService';
 import { validateNonNegativeDecimal } from '@/lib/validation-helpers';
 import { validateOperationalTimestamp } from '@/backend/services/chronology-validator';
 import { getOrAssignPlantQATests } from '@/backend/services/labTestAssignmentService';
+import { createNotificationsForEvent } from '@/backend/services/notificationService';
 
 class RouteError extends Error {
   statusCode: number;
@@ -34,9 +35,12 @@ export async function POST(
     },
   });
 
-  const allowedRoles = ['QA_Operator', 'QA', 'QA_Manager', 'Admin', 'SUPER_ADMIN', 'Correction_Officer'];
+  const allowedRoles = ['QA_LAB_ATTENDANT'];
   if (!dbUser || !allowedRoles.includes(dbUser.role)) {
-    return NextResponse.json({ error: 'Unauthorized. QA Chemist or QA Manager role required.' }, { status: 403 });
+    return NextResponse.json(
+      { error: 'Unauthorized. QA Lab Attendant role required for testing operations.' },
+      { status: 403 }
+    );
   }
 
   const resolvedParams = await params;
@@ -50,6 +54,7 @@ export async function POST(
 
     const body = await req.json();
     const validated = completeQATestSchema.parse(body);
+    const completionEventId = validated.completionClientEventId || `plant-qa-${visitIdStr}-${portionIdStr}-${Date.now()}`;
 
     const portion = await prisma.visitPortion.findFirst({
       where: { id: portionId, visit_id: visitId },
@@ -60,11 +65,14 @@ export async function POST(
     }
 
     if (portion.plant_decision === 'ACCEPTED' || portion.plant_decision === 'REJECTED') {
+      if (portion.completion_client_event_id === completionEventId) {
+        return NextResponse.json({ success: true, idempotent: true, portionId: portionIdStr, plantDecision: portion.plant_decision });
+      }
       return NextResponse.json({ error: 'Portion testing has already been completed and finalized.' }, { status: 409 });
     }
 
     const explicitDecision = validated.decision;
-    const rejectionReasonInput = (validated.rejectionReason || '').trim();
+    const rejectionReasonInput = (validated.exceptionReason || validated.exception_reason || validated.rejectionReason || '').trim();
     const rejectionRemarksInput = (validated.rejectionRemarks || '').trim();
 
     // Load assigned Plant QA test snapshot for this visit
@@ -75,15 +83,12 @@ export async function POST(
     const requiredManualTests = manualPlantTests.filter((t) => t.is_required_snapshot);
 
     const activeRequiredMap = new Map(requiredManualTests.map((t) => [t.test_id.toString(), t]));
-
-    // Build submitted result map: testId → submitted result entry
     const submittedResultMap = new Map(validated.results.map((r) => [r.testId, r]));
 
-    let isRejecting = explicitDecision === 'REJECTED';
+    const isOperatorRejecting = explicitDecision === 'REJECTED';
 
-    if (isRejecting) {
+    if (isOperatorRejecting) {
       // QA-REJECT-ZERO-01: At least ONE PERFORMED result required to reject.
-      // NOT_PERFORMED alone is not rejection evidence.
       const performedResults = validated.results.filter(
         (r) => (r.performanceStatus || 'PERFORMED') === 'PERFORMED'
       );
@@ -95,20 +100,12 @@ export async function POST(
         );
       }
 
-      if (!rejectionReasonInput) {
-        return NextResponse.json({ error: 'Rejection reason is required.' }, { status: 400 });
-      }
-
-      if (!rejectionRemarksInput) {
-        return NextResponse.json({ error: 'Rejection remarks are required.' }, { status: 400 });
-      }
     } else {
-      // QA-ACCEPT-STRICT: ALL assigned required manual tests must be PERFORMED with valid results.
-      // NOT_PERFORMED or UNRESOLVED (no row) both block ACCEPT.
+      // Operator is attempting to ACCEPT:
+      // ALL assigned required manual tests must be PERFORMED with valid inputs.
       for (const [reqId, reqTest] of Array.from(activeRequiredMap.entries())) {
         const res = submittedResultMap.get(reqId);
 
-        // UNRESOLVED: no entry submitted at all → block ACCEPT
         if (!res) {
           return NextResponse.json(
             { error: `Required plant test "${reqTest.test_name_snapshot}" (${reqTest.test_code_snapshot}) has no result. All required tests must be PERFORMED to accept.` },
@@ -118,7 +115,6 @@ export async function POST(
 
         const perfStatus = res.performanceStatus || 'PERFORMED';
 
-        // NOT_PERFORMED → block ACCEPT
         if (perfStatus === 'NOT_PERFORMED') {
           return NextResponse.json(
             { error: `Required plant test "${reqTest.test_name_snapshot}" (${reqTest.test_code_snapshot}) is marked NOT_PERFORMED. All required tests must be PERFORMED to accept.` },
@@ -126,7 +122,7 @@ export async function POST(
           );
         }
 
-        // PERFORMED — validate the actual value based on result_options_snapshot / result_type_snapshot
+        // Validate value formats
         const options = (reqTest.result_options_snapshot as any[]) || null;
         if (Array.isArray(options) && options.length > 0) {
           const val = (res.textValue || '').trim().toUpperCase();
@@ -137,114 +133,30 @@ export async function POST(
               { status: 400 }
             );
           }
-          if (match.isPassing === null || match.isPassing === undefined) {
-            return NextResponse.json(
-              { error: `"${reqTest.test_name_snapshot}" has a neutral / informational result and cannot satisfy the required passing result for acceptance.` },
-              { status: 400 }
-            );
-          }
-          if (match.isPassing === false) {
-            return NextResponse.json(
-              { error: `"${reqTest.test_name_snapshot}" has a failing result and cannot be accepted.` },
-              { status: 400 }
-            );
-          }
         } else if (reqTest.result_type_snapshot === 'NUMERIC') {
           const numVal = validateNonNegativeDecimal(res.numericValue, reqTest.test_name_snapshot);
           if (!numVal.isValid) {
             return NextResponse.json({ error: numVal.error }, { status: 400 });
           }
-        } else if (reqTest.result_type_snapshot === 'OK_NOT_OK') {
-          const val = (res.textValue || '').trim().toUpperCase();
-          if (!val || !['OK', 'NOT_OK'].includes(val)) {
-            return NextResponse.json(
-              { error: `Invalid option "${res.textValue}" for test "${reqTest.test_name_snapshot}". Option must be OK or NOT_OK.` },
-              { status: 400 }
-            );
-          }
-        } else if (reqTest.result_type_snapshot === 'POSITIVE_NEGATIVE') {
-          const val = (res.textValue || '').trim().toUpperCase();
-          if (!val || !['NEGATIVE', 'POSITIVE'].includes(val)) {
-            return NextResponse.json(
-              { error: `Invalid option "${res.textValue}" for test "${reqTest.test_name_snapshot}". Option must be NEGATIVE or POSITIVE.` },
-              { status: 400 }
-            );
-          }
         }
       }
     }
 
-    // Map of assigned test definitions by test_id
     const assignedTestMap = new Map(assignedPlantTests.map((t) => [t.test_id.toString(), t]));
-
-    const failedTestCodes: string[] = [];
     const now = new Date();
     const targetOpTs = body.operationalTimestamp ? new Date(body.operationalTimestamp) : (body.opTimestamp ? new Date(body.opTimestamp) : now);
 
-    // Evaluate each submitted PERFORMED result using centralized lab-rule service
-    // NOT_PERFORMED results skip evaluation entirely — isPassed stays null
-    const evaluatedResults = validated.results.map((res) => {
-      const testDef = assignedTestMap.get(res.testId);
-      const perfStatus = res.performanceStatus || 'PERFORMED';
-      const notPerformedReason = perfStatus === 'NOT_PERFORMED'
-        ? (res.notPerformedReason?.trim() || null)
-        : null;
-
-      if (perfStatus === 'NOT_PERFORMED') {
-        return {
-          testId: BigInt(res.testId),
-          performanceStatus: 'NOT_PERFORMED' as const,
-          notPerformedReason,
-          numericValue: null,
-          textValue: null,
-          isPassed: null,
-        };
-      }
-
-      const numVal = res.numericValue !== undefined && res.numericValue !== null ? res.numericValue : null;
-      const textVal = res.textValue ? res.textValue.trim() : null;
-      const snapshotOptions = (testDef?.result_options_snapshot as any[]) || null;
-
-      const evalRes = evaluateLabResult(
-        testDef?.test_code_snapshot || '',
-        numVal,
-        textVal,
-        testDef?.result_type_snapshot || 'PLANT',
-        snapshotOptions
-      );
-
-      if (evalRes.isPassed === false && testDef?.is_required_snapshot) {
-        failedTestCodes.push(testDef.test_code_snapshot);
-      }
-
-      return {
-        testId: BigInt(res.testId),
-        performanceStatus: 'PERFORMED' as const,
-        notPerformedReason: null,
-        numericValue: numVal,
-        textValue: textVal,
-        isPassed: evalRes.isPassed,
-      };
-    });
-
-    // Lab rule failures force rejection
-    if (failedTestCodes.length > 0) {
-      isRejecting = true;
-    }
-
-    const plantDecision = isRejecting ? 'REJECTED' : 'ACCEPTED';
-    const finalRejectionReason = isRejecting
-      ? rejectionReasonInput || `Failed tests: ${failedTestCodes.join(', ')}`
-      : null;
-
     let lockedPortionRecord: any = null;
+    let finalPlantDecision = 'ACCEPTED';
+    let finalManagerReviewStatus = 'NONE';
+    let systemQualityOutcome: string = 'PASS';
 
     // Atomic Prisma Transaction
     await prisma.$transaction(async (tx) => {
-      // 0. Acquire PostgreSQL Row-Level Lock (FOR UPDATE) for the exact VehicleVisit to serialize QA mutations
+      // 0. Acquire PostgreSQL Row-Level Lock (FOR UPDATE) for the exact VehicleVisit
       await tx.$executeRaw`SELECT id FROM vehicle_visit WHERE id = ${visitId} FOR UPDATE`;
 
-      // 1. Re-read the VisitPortion within the locked transaction client
+      // 1. Re-read the VisitPortion within the locked transaction
       const lockedPortion = await tx.visitPortion.findFirst({
         where: { id: portionId, visit_id: visitId },
       });
@@ -254,12 +166,13 @@ export async function POST(
       }
 
       if (lockedPortion.plant_decision === 'ACCEPTED' || lockedPortion.plant_decision === 'REJECTED') {
+        if (lockedPortion.completion_client_event_id === completionEventId) return;
         throw new RouteError('Portion testing has already been completed and finalized.', 409);
       }
 
       lockedPortionRecord = lockedPortion;
 
-      // 2. Re-read the QATestingSession within the locked transaction client
+      // 2. Re-read QA Session & Validate chronology
       const session = await tx.qATestingSession.findUnique({
         where: { visit_id: visitId },
       });
@@ -272,7 +185,6 @@ export async function POST(
         throw new RouteError(`QA testing session is not IN_PROGRESS (current status: ${session.status}).`, 409);
       }
 
-      // Validate chronology
       const latestEvent = await tx.qATestingSessionEvent.findFirst({
         where: { session_id: session.id },
         orderBy: { timestamp: 'desc' },
@@ -286,10 +198,104 @@ export async function POST(
         throw new RouteError(chronoVal.error, 400);
       }
 
-      // 1. Upsert submitted PlantLabResult rows
-      for (const evalResult of evaluatedResults) {
+      // 3. Resolve active LabTestRules for PLANT_QA at targetOpTs
+      const activeRulesMap = await QualityRuleService.resolveActiveRulesForTestingPoint(
+        'PLANT_QA',
+        targetOpTs,
+        tx
+      );
+
+      // 4. Evaluate each submitted result using centralized QualityRuleService
+      const evaluationEntries: Array<{
+        testId: bigint;
+        performanceStatus: string;
+        notPerformedReason: string | null;
+        numericValue: any;
+        textValue: string | null;
+        appliedRuleId: bigint | null;
+        appliedRuleVersion: number | null;
+        evaluationStatus: string;
+        isPassed: boolean | null;
+        evaluationSnapshot?: any;
+      }> = [];
+
+      for (const res of validated.results) {
+        const testDef = assignedTestMap.get(res.testId);
+        const perfStatus = res.performanceStatus || 'PERFORMED';
+        const notPerfReason = perfStatus === 'NOT_PERFORMED' ? (res.notPerformedReason?.trim() || null) : null;
+
+        if (perfStatus === 'NOT_PERFORMED') {
+          evaluationEntries.push({
+            testId: BigInt(res.testId),
+            performanceStatus: 'NOT_PERFORMED',
+            notPerformedReason: notPerfReason,
+            numericValue: null,
+            textValue: null,
+            appliedRuleId: null,
+            appliedRuleVersion: null,
+            evaluationStatus: 'NO_ACTIVE_RULE',
+            isPassed: null,
+          });
+          continue;
+        }
+
+        const numVal = res.numericValue !== undefined && res.numericValue !== null ? res.numericValue : null;
+        const textVal = res.textValue ? res.textValue.trim() : null;
+        const activeRule = activeRulesMap.get(res.testId) || null;
+        const snapshotOptions = (testDef?.result_options_snapshot as any[]) || null;
+
+        const evalRes = QualityRuleService.evaluateQualityResult({
+          testId: res.testId,
+          testCode: testDef?.test_code_snapshot,
+          resultType: testDef?.result_type_snapshot || 'NUMERIC',
+          numericValue: numVal,
+          textValue: textVal,
+          rule: activeRule,
+          resultOptions: snapshotOptions,
+          testingPoint: 'PLANT_QA',
+        });
+
+        evaluationEntries.push({
+          testId: BigInt(res.testId),
+          performanceStatus: 'PERFORMED',
+          notPerformedReason: null,
+          numericValue: numVal,
+          textValue: textVal,
+          appliedRuleId: evalRes.appliedRuleId,
+          appliedRuleVersion: evalRes.appliedRuleVersion,
+          evaluationStatus: evalRes.evaluationStatus,
+          isPassed: evalRes.isPassed,
+          evaluationSnapshot: evalRes.evaluationSnapshot,
+        });
+      }
+
+      // Check if any rule has configuration error
+      if (evaluationEntries.some((e) => e.evaluationStatus === 'RULE_CONFIGURATION_ERROR')) {
+        throw new RouteError('Laboratory rule configuration error detected. QA completion is blocked.', 500);
+      }
+
+      // 5. Aggregate system quality outcome
+      systemQualityOutcome = QualityRuleService.aggregateSystemQualityOutcome(
+        evaluationEntries.map((e) => ({
+          evaluationStatus: e.evaluationStatus,
+          performanceStatus: e.performanceStatus,
+          isRequired: activeRequiredMap.has(e.testId.toString()),
+        }))
+      );
+
+      if (['RULE_CONFIGURATION_ERROR', 'NO_ACTIVE_RULE'].includes(systemQualityOutcome)) {
+        throw new RouteError('Laboratory rule configuration is incomplete or invalid. QA completion is blocked.', 422);
+      }
+      const systemRecommendation = ['PASS', 'WARNING', 'NEUTRAL'].includes(systemQualityOutcome) ? 'ACCEPTED' : 'REJECTED';
+      const isAttendantException = explicitDecision !== systemRecommendation;
+      if (isAttendantException && !rejectionReasonInput) {
+        throw new RouteError('A reason is required when the QA Lab Attendant decision differs from the system result.', 400);
+      }
+
+      // 6. Upsert submitted PlantLabResult rows with rule linkages
+      for (const entry of evaluationEntries) {
         const existing = await tx.plantLabResult.findFirst({
-          where: { portion_id: portionId, test_id: evalResult.testId },
+          where: { portion_id: portionId, test_id: entry.testId },
         });
 
         if (existing) {
@@ -297,11 +303,15 @@ export async function POST(
             where: { id: existing.id },
             data: {
               result_timestamp: targetOpTs,
-              performance_status: evalResult.performanceStatus,
-              not_performed_reason: evalResult.notPerformedReason,
-              numeric_value: evalResult.numericValue,
-              text_value: evalResult.textValue,
-              is_passed: evalResult.isPassed,
+              performance_status: entry.performanceStatus,
+              not_performed_reason: entry.notPerformedReason,
+              numeric_value: entry.numericValue,
+              text_value: entry.textValue,
+              applied_rule_id: entry.appliedRuleId,
+              applied_rule_version: entry.appliedRuleVersion,
+              evaluation_status: entry.evaluationStatus,
+              is_passed: entry.isPassed,
+              evaluation_snapshot: (entry as any).evaluationSnapshot as any,
               tested_by: userIdBigInt,
             },
           });
@@ -310,34 +320,34 @@ export async function POST(
             data: {
               visit_id: visitId,
               portion_id: portionId,
-              test_id: evalResult.testId,
+              test_id: entry.testId,
               sample_timestamp: targetOpTs,
               result_timestamp: targetOpTs,
-              performance_status: evalResult.performanceStatus,
-              not_performed_reason: evalResult.notPerformedReason,
-              numeric_value: evalResult.numericValue,
-              text_value: evalResult.textValue,
-              is_passed: evalResult.isPassed,
+              performance_status: entry.performanceStatus,
+              not_performed_reason: entry.notPerformedReason,
+              numeric_value: entry.numericValue,
+              text_value: entry.textValue,
+              applied_rule_id: entry.appliedRuleId,
+              applied_rule_version: entry.appliedRuleVersion,
+              evaluation_status: entry.evaluationStatus,
+              is_passed: entry.isPassed,
+              evaluation_snapshot: (entry as any).evaluationSnapshot as any,
               tested_by: userIdBigInt,
             },
           });
         }
       }
 
-      // 2. At REJECT time: auto-finalize UNRESOLVED required tests.
-      //    Already-PERFORMED/NOT_PERFORMED rows are untouched.
-      if (isRejecting) {
-        const submittedTestIds = new Set(evaluatedResults.map((r) => r.testId.toString()));
-
-        for (const [reqId, reqTest] of Array.from(activeRequiredMap.entries())) {
+      // 7. auto-finalize UNRESOLVED required tests when rejecting
+      if (isOperatorRejecting) {
+        const submittedTestIds = new Set(evaluationEntries.map((r) => r.testId.toString()));
+        for (const [reqId] of Array.from(activeRequiredMap.entries())) {
           if (!submittedTestIds.has(reqId)) {
-            // UNRESOLVED — auto-finalize as NOT_PERFORMED with standard reason
             const existing = await tx.plantLabResult.findFirst({
               where: { portion_id: portionId, test_id: BigInt(reqId) },
             });
 
             if (existing) {
-              // Only overwrite if still PERFORMED (don't double-write already-set NOT_PERFORMED)
               if (existing.performance_status !== 'NOT_PERFORMED') {
                 await tx.plantLabResult.update({
                   where: { id: existing.id },
@@ -347,6 +357,9 @@ export async function POST(
                     not_performed_reason: 'VEHICLE_REJECTED_BEFORE_TEST_COMPLETION',
                     numeric_value: null,
                     text_value: null,
+                    applied_rule_id: null,
+                    applied_rule_version: null,
+                    evaluation_status: 'NO_ACTIVE_RULE',
                     is_passed: null,
                     tested_by: userIdBigInt,
                   },
@@ -364,6 +377,9 @@ export async function POST(
                   not_performed_reason: 'VEHICLE_REJECTED_BEFORE_TEST_COMPLETION',
                   numeric_value: null,
                   text_value: null,
+                  applied_rule_id: null,
+                  applied_rule_version: null,
+                  evaluation_status: 'NO_ACTIVE_RULE',
                   is_passed: null,
                   tested_by: userIdBigInt,
                 },
@@ -373,32 +389,135 @@ export async function POST(
         }
       }
 
-      // 3. Update VisitPortion decision
-      await tx.visitPortion.update({
-        where: { id: portionId },
-        data: {
-          plant_decision: plantDecision,
-          current_status: plantDecision,
-          plant_rejection_reason: finalRejectionReason,
-          plant_decided_by: userIdBigInt,
-          plant_decided_at: targetOpTs,
-        },
-      });
+      // 8. Determine Portion Decision & Manager Review Escalation
+      // Business Rule: Lab Attendant does NOT make the final accept/reject decision when system release outcome is OUT_OF_SPEC.
+      if (isAttendantException) {
+        // Only a disagreement between the system and QA Lab Attendant requires QA Manager review.
+        finalPlantDecision = 'PENDING';
+        finalManagerReviewStatus = 'PENDING';
 
-      // 4. Log immutable portion decision event in QATestingSessionEvent
-      if (session) {
-        await tx.qATestingSessionEvent.create({
+        await tx.visitPortion.update({
+          where: { id: portionId },
           data: {
-            session_id: session.id,
-            event_type: plantDecision === 'ACCEPTED' ? 'PORTION_ACCEPTED' : 'PORTION_REJECTED',
-            timestamp: targetOpTs,
-            user_id: userIdBigInt,
-            note: `Portion #${lockedPortion.portion_number} ${plantDecision}${finalRejectionReason ? `: ${finalRejectionReason}` : ''}`,
+            plant_decision: 'PENDING',
+            current_status: 'UNDER_TEST',
+            system_quality_outcome: systemQualityOutcome,
+            manager_review_status: 'PENDING',
+            manager_requested_decision: explicitDecision,
+            manager_review_requested_by_user_id: userIdBigInt,
+            manager_review_requested_at: targetOpTs,
+            manager_review_reason: rejectionReasonInput,
+            completion_client_event_id: completionEventId,
           },
         });
+
+        if (session) {
+          await tx.qATestingSessionEvent.create({
+            data: {
+              session_id: session.id,
+              event_type: 'HOLD',
+              timestamp: targetOpTs,
+              user_id: userIdBigInt,
+              note: `Portion #${lockedPortion.portion_number} attendant decision ${explicitDecision} differs from system outcome ${systemQualityOutcome}; escalated to QA Manager review.`,
+            },
+          });
+        }
+        await createNotificationsForEvent(tx, {
+          eventKey: 'PLANT_QA_EXCEPTION_PENDING', sourceId: portionId.toString(),
+          title: 'Plant QA exception needs review',
+          body: `Vehicle visit ${lockedPortion.visit_id.toString()} portion ${lockedPortion.portion_number} differs from the system quality recommendation.`,
+          deepLink: '/department/qa-manager', dedupeSuffix: `${portionId}:${completionEventId}`,
+        });
+      } else if (isOperatorRejecting) {
+        // Manual rejection of otherwise conforming milk
+        finalPlantDecision = 'REJECTED';
+        finalManagerReviewStatus = 'NONE';
+
+        await tx.visitPortion.update({
+          where: { id: portionId },
+          data: {
+            plant_decision: 'REJECTED',
+            current_status: 'REJECTED',
+            system_quality_outcome: systemQualityOutcome,
+            manager_review_status: 'NONE',
+            plant_rejection_reason: rejectionReasonInput,
+            plant_decided_by: userIdBigInt,
+            plant_decided_at: targetOpTs,
+            completion_client_event_id: completionEventId,
+          },
+        });
+
+        if (session) {
+          await tx.qATestingSessionEvent.create({
+            data: {
+              session_id: session.id,
+              event_type: 'PORTION_REJECTED',
+              timestamp: targetOpTs,
+              user_id: userIdBigInt,
+              note: `Portion #${lockedPortion.portion_number} REJECTED manually: ${rejectionReasonInput}`,
+            },
+          });
+        }
+
+        await tx.auditLog.create({
+          data: {
+            table_name: 'visit_portion',
+            record_id: portionId,
+            action: 'PLANT_QA_OPERATOR_MANUAL_REJECTION',
+            old_values: {
+              portion_id: portionId.toString(),
+              plant_decision: lockedPortion.plant_decision,
+            },
+            new_values: {
+              portion_id: portionId.toString(),
+              plant_decision: 'REJECTED',
+              rejection_reason: rejectionReasonInput,
+              rejection_remarks: rejectionRemarksInput,
+              system_quality_outcome: systemQualityOutcome,
+            },
+            user_id: userIdBigInt,
+          },
+        });
+      } else {
+        // Operator requested ACCEPTED
+        if (systemQualityOutcome === 'RULE_CONFIGURATION_ERROR') {
+          throw new RouteError('Laboratory rule configuration error detected. QA completion is blocked.', 422);
+        }
+        if (systemQualityOutcome === 'NO_ACTIVE_RULE') {
+          throw new RouteError('Cannot accept milk: required laboratory release rule is missing. QA Head configuration required.', 422);
+        }
+
+        // Normal Acceptance
+        finalPlantDecision = 'ACCEPTED';
+        finalManagerReviewStatus = 'NONE';
+
+        await tx.visitPortion.update({
+          where: { id: portionId },
+          data: {
+            plant_decision: 'ACCEPTED',
+            current_status: 'ACCEPTED',
+            system_quality_outcome: systemQualityOutcome,
+            manager_review_status: 'NONE',
+            plant_decided_by: userIdBigInt,
+            plant_decided_at: targetOpTs,
+            completion_client_event_id: completionEventId,
+          },
+        });
+
+        if (session) {
+          await tx.qATestingSessionEvent.create({
+            data: {
+              session_id: session.id,
+              event_type: 'PORTION_ACCEPTED',
+              timestamp: targetOpTs,
+              user_id: userIdBigInt,
+              note: `Portion #${lockedPortion.portion_number} ACCEPTED with quality outcome ${systemQualityOutcome}.`,
+            },
+          });
+        }
       }
 
-      // 5. Calculate visit-level workflow status
+      // 9. Calculate visit-level workflow status
       const allPortions = await tx.visitPortion.findMany({
         where: { visit_id: visitId },
       });
@@ -424,7 +543,7 @@ export async function POST(
         data: { current_status: newVisitStatus },
       });
 
-      // 6. Complete QA testing session if visit has advanced past PLANT_QA
+      // 10. Complete QA testing session if visit has fully departed PLANT_QA
       if (newVisitStatus !== 'PLANT_QA') {
         const activeSession = await tx.qATestingSession.findUnique({
           where: { visit_id: visitId },
@@ -456,9 +575,13 @@ export async function POST(
     return NextResponse.json({
       success: true,
       portionId: portionIdStr,
-      plantDecision,
-      rejectionReason: finalRejectionReason,
-      message: `Portion #${lockedPortionRecord?.portion_number ?? portion.portion_number} testing completed. Decision: ${plantDecision}.`,
+      plantDecision: finalPlantDecision,
+      managerReviewStatus: finalManagerReviewStatus,
+      systemQualityOutcome,
+      message:
+        finalManagerReviewStatus === 'PENDING'
+          ? `Portion #${lockedPortionRecord?.portion_number ?? portion.portion_number} submitted. Escalated to QA Manager because the attendant decision differs from the system result.`
+          : `Portion #${lockedPortionRecord?.portion_number ?? portion.portion_number} testing completed. Decision: ${finalPlantDecision}.`,
     });
   } catch (error: any) {
     if (error?.name === 'ZodError' || error?.issues) {

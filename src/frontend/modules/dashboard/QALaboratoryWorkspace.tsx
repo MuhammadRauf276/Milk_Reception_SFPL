@@ -35,14 +35,28 @@ export type {
   TestInputState,
 };
 
+export type QATab = 'WAITING' | 'IN_TESTING' | 'ON_HOLD';
+
 interface QALaboratoryWorkspaceProps {
   logs?: any[];
   currentUser?: User | null;
+  activeTab?: QATab;
+  onTabChange?: (tab: QATab) => void;
 }
 
-export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ currentUser }) => {
+export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
+  currentUser,
+  activeTab: controlledTab,
+  onTabChange,
+}) => {
   const toast = useToast();
-  const [activeTab, setActiveTab] = useState<'WAITING' | 'IN_TESTING' | 'ON_HOLD'>('WAITING');
+  const [internalTab, setInternalTab] = useState<QATab>('WAITING');
+  const activeTab = controlledTab !== undefined ? controlledTab : internalTab;
+
+  const setActiveTab = (tab: QATab) => {
+    setInternalTab(tab);
+    if (onTabChange) onTabChange(tab);
+  };
   const [searchQuery, setSearchQuery] = useState('');
 
   // Queue Lists
@@ -386,6 +400,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           decision: 'ACCEPTED',
+          completionClientEventId: `plant-qa-${currentPortion.id}-${crypto.randomUUID()}`,
           results: resultsPayload,
           operationalTimestamp: datetimeLocalToIso(qaOpTimestamp) || undefined,
         }),
@@ -444,6 +459,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           decision: 'REJECTED',
+          completionClientEventId: `plant-qa-${currentPortion.id}-${crypto.randomUUID()}`,
           rejectionReason: rejectionReason.trim(),
           rejectionRemarks: rejectionRemarks.trim(),
           results: resultsPayload,
@@ -616,9 +632,9 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({ cu
           </button>
         </div>
 
-        <div className="hidden lg:flex items-center space-x-1.5 px-3 py-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 rounded-xl border border-emerald-200 shrink-0">
-          <Radio className="w-3 h-3 animate-pulse text-emerald-600" />
-          <span>Live QA</span>
+        <div className="hidden lg:flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold text-slate-700 bg-white rounded-xl border border-[#C4B9A3] shrink-0">
+          <FlaskConical className="w-4 h-4 text-slate-600" />
+          <span>Active QA</span>
         </div>
       </div>
 

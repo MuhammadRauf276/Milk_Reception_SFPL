@@ -1,0 +1,2543 @@
+{
+  "timestamp": "2026-09-17T10:43:07.810Z",
+  "profiles": [
+    {
+      "roleName": "PHE_OPERATOR",
+      "label": "PHE Operator — Hasilpur",
+      "username": "phe.operator",
+      "landingUrl": "http://localhost:3000/phe",
+      "sidebarLinks": [
+        {
+          "text": "PHE Shop Station (OPERATOR)",
+          "href": "/phe"
+        },
+        {
+          "text": "Public Yard TV Board",
+          "href": "/tv-board"
+        }
+      ],
+      "drawerLinks": [
+        {
+          "text": "PHE Shop Station (OPERATOR)",
+          "href": "/phe"
+        },
+        {
+          "text": "Public Yard TV Board",
+          "href": "/tv-board"
+        }
+      ],
+      "visitedScreens": [
+        {
+          "name": "landing",
+          "url": "http://localhost:3000/phe",
+          "title": "PHE Shop Station"
+        },
+        {
+          "name": "tab_arrivals",
+          "label": "ZMCC Arrivals & Tokens"
+        },
+        {
+          "name": "tab_shop_details",
+          "label": "Shop Details Management"
+        },
+        {
+          "name": "tab_mot_journeys",
+          "label": "MOT Dispatch & Journeys"
+        },
+        {
+          "name": "tab_record_mot",
+          "label": "Record MOT Arrival"
+        },
+        {
+          "name": "tab_record_local",
+          "label": "Record Local Supplier Arrival"
+        },
+        {
+          "name": "tab_vehicles_inside",
+          "label": "Vehicles Inside ZMCC"
+        },
+        {
+          "name": "tab_arrival_history",
+          "label": "Arrival History & Corrections"
+        }
+      ],
+      "consoleErrorsCount": 1,
+      "failedNetworkCount": 0,
+      "zmccLabCapabilities": null,
+      "zmccManagerCapabilities": null
+    },
+    {
+      "roleName": "ZMCC_LAB_ATTENDANT",
+      "label": "ZMCC Lab Attendant — Hasilpur",
+      "username": "zmcc.operator",
+      "landingUrl": "http://localhost:3000/zmcc/lab",
+      "sidebarLinks": [
+        {
+          "text": "ZMCC Lab Station (LAB)",
+          "href": "/zmcc/lab"
+        }
+      ],
+      "drawerLinks": [
+        {
+          "text": "ZMCC Lab Station (LAB)",
+          "href": "/zmcc/lab"
+        }
+      ],
+      "visitedScreens": [
+        {
+          "name": "landing",
+          "url": "http://localhost:3000/zmcc/lab",
+          "title": "ZMCC Lab Station"
+        },
+        {
+          "name": "tab_queue",
+          "label": "Arrivals Queue"
+        },
+        {
+          "name": "tab_testing",
+          "label": "Testing Station"
+        },
+        {
+          "name": "tab_history",
+          "label": "Test History & Corrections"
+        }
+      ],
+      "consoleErrorsCount": 11,
+      "failedNetworkCount": 10,
+      "zmccLabCapabilities": {
+        "labQueueReachable": false,
+        "testingReachable": false,
+        "historyReachable": false,
+        "acceptedTankReceiptVisible": false,
+        "dispatchVehicleActionInUI": false,
+        "dispatchHistoryInUI": false,
+        "directMpdRouteUrl": "http://localhost:3000/department/mpd",
+        "directMpdRouteAllowed": true,
+        "directZmccManagerRouteUrl": "http://localhost:3000/login",
+        "directZmccManagerRouteAllowed": false
+      },
+      "zmccManagerCapabilities": null
+    },
+    {
+      "roleName": "ZMCC_LAB_ATTENDANT_JHANG",
+      "label": "ZMCC Lab Attendant — Jhang",
+      "username": "zmcc.operator.jhang",
+      "landingUrl": "http://localhost:3000/zmcc/lab",
+      "sidebarLinks": [],
+      "drawerLinks": [
+        {
+          "text": "ZMCC Lab StationLAB",
+          "href": "/zmcc/lab"
+        }
+      ],
+      "visitedScreens": [
+        {
+          "tabName": "Queue",
+          "screenshot": "zmcc_lab_attendant_jhang_tab_queue.png",
+          "primaryActions": [
+            "Arrivals Queue",
+            "Test History & Corrections",
+            "Refresh"
+          ]
+        },
+        {
+          "tabName": "History",
+          "screenshot": "zmcc_lab_attendant_jhang_tab_history.png",
+          "primaryActions": [
+            "Arrivals Queue",
+            "Test History & Corrections",
+            "Filter"
+          ]
+        },
+        {
+          "tabName": "Arrivals",
+          "screenshot": "zmcc_lab_attendant_jhang_tab_arrivals.png",
+          "primaryActions": [
+            "Arrivals Queue",
+            "Test History & Corrections",
+            "Refresh"
+          ]
+        }
+      ],
+      "consoleErrorsCount": 0,
+      "failedNetworkCount": 0,
+      "zmccLabCapabilities": {
+        "labQueueReachable": false,
+        "testingReachable": false,
+        "historyReachable": false,
+        "acceptedTankReceiptVisible": false,
+        "dispatchVehicleActionInUI": false,
+        "dispatchHistoryInUI": false,
+        "directMpdRouteUrl": "http://localhost:3000/department/mpd",
+        "directMpdRouteAllowed": true,
+        "directZmccManagerRouteUrl": "http://localhost:3000/workspace-unavailable",
+        "directZmccManagerRouteAllowed": false
+      },
+      "zmccManagerCapabilities": null
+    },
+    {
+      "roleName": "ZMCC_LAB_ATTENDANT_KABIRWALA",
+      "label": "ZMCC Lab Attendant — Kabirwala",
+      "username": "zmcc.operator.kabirwala",
+      "landingUrl": "http://localhost:3000/zmcc/lab",
+      "sidebarLinks": [],
+      "drawerLinks": [
+        {
+          "text": "ZMCC Lab StationLAB",
+          "href": "/zmcc/lab"
+        }
+      ],
+      "visitedScreens": [
+        {
+          "tabName": "Queue",
+          "screenshot": "zmcc_lab_attendant_kabirwala_tab_queue.png",
+          "primaryActions": [
+            "Arrivals Queue",
+            "Test History & Corrections",
+            "Refresh"
+          ]
+        },
+        {
+          "tabName": "History",
+          "screenshot": "zmcc_lab_attendant_kabirwala_tab_history.png",
+          "primaryActions": [
+            "Arrivals Queue",
+            "Test History & Corrections",
+            "Filter"
+          ]
+        },
+        {
+          "tabName": "Arrivals",
+          "screenshot": "zmcc_lab_attendant_kabirwala_tab_arrivals.png",
+          "primaryActions": [
+            "Arrivals Queue",
+            "Test History & Corrections",
+            "Refresh"
+          ]
+        }
+      ],
+      "consoleErrorsCount": 0,
+      "failedNetworkCount": 0,
+      "zmccLabCapabilities": {
+        "labQueueReachable": true,
+        "testingReachable": false,
+        "historyReachable": true,
+        "acceptedTankReceiptVisible": false,
+        "dispatchVehicleActionInUI": false,
+        "dispatchHistoryInUI": false,
+        "directMpdRouteUrl": "http://localhost:3000/department/mpd",
+        "directMpdRouteAllowed": true,
+        "directZmccManagerRouteUrl": "http://localhost:3000/workspace-unavailable",
+        "directZmccManagerRouteAllowed": false
+      },
+      "zmccManagerCapabilities": null
+    },
+    {
+      "roleName": "MOT_OPERATOR",
+      "label": "MOT Operator",
+      "username": "mot.driver",
+      "landingUrl": "http://localhost:3000/mot",
+      "sidebarLinks": [],
+      "drawerLinks": [
+        {
+          "text": "MOT Driver StationOPERATOR",
+          "href": "/mot"
+        }
+      ],
+      "visitedScreens": [],
+      "consoleErrorsCount": 0,
+      "failedNetworkCount": 0,
+      "zmccLabCapabilities": null,
+      "zmccManagerCapabilities": null
+    },
+    {
+      "roleName": "SECURITY_OPERATOR",
+      "label": "Security Gate Operator",
+      "username": "security.gate",
+      "landingUrl": "http://localhost:3000/department/security",
+      "sidebarLinks": [],
+      "drawerLinks": [],
+      "visitedScreens": [
+        {
+          "tabName": "Waiting for Entry",
+          "screenshot": "security_operator_tab_waiting_for_entry.png",
+          "primaryActions": [
+            "Waiting for Entry0",
+            "Inside Plant3",
+            "Ready for Exit0"
+          ]
+        },
+        {
+          "tabName": "Inside Plant",
+          "screenshot": "security_operator_tab_inside_plant.png",
+          "primaryActions": [
+            "Waiting for Entry0",
+            "Inside Plant3",
+            "Ready for Exit0"
+          ]
+        },
+        {
+          "tabName": "Ready for Exit",
+          "screenshot": "security_operator_tab_ready_for_exit.png",
+          "primaryActions": [
+            "Waiting for Entry0",
+            "Inside Plant3",
+            "Ready for Exit0"
+          ]
+        }
+      ],
+      "consoleErrorsCount": 0,
+      "failedNetworkCount": 0,
+      "zmccLabCapabilities": null,
+      "zmccManagerCapabilities": null
+    },
+    {
+      "roleName": "QA_LAB_ATTENDANT",
+      "label": "QA Lab Chemist",
+      "username": "qa.chemist",
+      "landingUrl": "http://localhost:3000/department/qa",
+      "sidebarLinks": [],
+      "drawerLinks": [],
+      "visitedScreens": [
+        {
+          "tabName": "Testing",
+          "screenshot": "qa_lab_attendant_tab_testing.png",
+          "primaryActions": [
+            "Waiting for Testing1",
+            "In Testing1",
+            "On Hold0",
+            "Start Testing",
+            "Start QA Testing Session"
+          ]
+        },
+        {
+          "tabName": "Waiting for Testing",
+          "screenshot": "qa_lab_attendant_tab_waiting_for_testing.png",
+          "primaryActions": [
+            "Waiting for Testing1",
+            "In Testing1",
+            "On Hold0",
+            "Start Testing",
+            "Start QA Testing Session"
+          ]
+        },
+        {
+          "tabName": "In Testing",
+          "screenshot": "qa_lab_attendant_tab_in_testing.png",
+          "primaryActions": [
+            "Waiting for Testing1",
+            "In Testing1",
+            "On Hold0"
+          ]
+        },
+        {
+          "tabName": "On Hold",
+          "screenshot": "qa_lab_attendant_tab_on_hold.png",
+          "primaryActions": [
+            "Waiting for Testing1",
+            "In Testing1",
+            "On Hold0"
+          ]
+        }
+      ],
+      "consoleErrorsCount": 0,
+      "failedNetworkCount": 0,
+      "zmccLabCapabilities": null,
+      "zmccManagerCapabilities": null
+    },
+    {
+      "roleName": "WEIGHBRIDGE_OPERATOR_1",
+      "label": "Weighbridge Operator — Shift 1",
+      "username": "weighbridge.operator",
+      "landingUrl": "http://localhost:3000/department/weighbridge",
+      "sidebarLinks": [],
+      "drawerLinks": [],
+      "visitedScreens": [],
+      "consoleErrorsCount": 0,
+      "failedNetworkCount": 0,
+      "zmccLabCapabilities": null,
+      "zmccManagerCapabilities": null
+    },
+    {
+      "roleName": "WEIGHBRIDGE_OPERATOR_2",
+      "label": "Weighbridge Operator — Shift 2",
+      "username": "weighbridge.02",
+      "landingUrl": "http://localhost:3000/department/weighbridge",
+      "sidebarLinks": [],
+      "drawerLinks": [],
+      "visitedScreens": [],
+      "consoleErrorsCount": 0,
+      "failedNetworkCount": 0,
+      "zmccLabCapabilities": null,
+      "zmccManagerCapabilities": null
+    },
+    {
+      "roleName": "PRODUCTION_RECEPTION_OPERATOR",
+      "label": "Production Reception Operator",
+      "username": "production.operator",
+      "landingUrl": "http://localhost:3000/department/production",
+      "sidebarLinks": [],
+      "drawerLinks": [],
+      "visitedScreens": [],
+      "consoleErrorsCount": 0,
+      "failedNetworkCount": 0,
+      "zmccLabCapabilities": null,
+      "zmccManagerCapabilities": null
+    },
+    {
+      "roleName": "ZMCC_MANAGER",
+      "label": "ZMCC / MPD Manager",
+      "username": "zmcc.manager.north",
+      "landingUrl": "http://localhost:3000/mpd/zmcc-manager",
+      "sidebarLinks": [],
+      "drawerLinks": [
+        {
+          "text": "Overview",
+          "href": null
+        },
+        {
+          "text": "Live Operations",
+          "href": null
+        },
+        {
+          "text": "Reconciliation",
+          "href": null
+        },
+        {
+          "text": "History & Reports",
+          "href": null
+        },
+        {
+          "text": "Master Data",
+          "href": null
+        }
+      ],
+      "visitedScreens": [
+        {
+          "tabName": "History",
+          "screenshot": "zmcc_manager_tab_history.png",
+          "primaryActions": [
+            "Plant / Dispatch History",
+            "Arrival Corrections",
+            "Lab Corrections",
+            "Export CSV",
+            "Print View",
+            "Refresh",
+            "Clear",
+            "View",
+            "Previous",
+            "Next"
+          ]
+        },
+        {
+          "tabName": "Arrival Corrections",
+          "screenshot": "zmcc_manager_tab_arrival_corrections.png",
+          "primaryActions": [
+            "Plant / Dispatch History",
+            "Arrival Corrections",
+            "Lab Corrections",
+            "Arrival History & Corrections",
+            "All",
+            "MOT Only",
+            "Contractors",
+            "Local Suppliers",
+            "Refresh"
+          ]
+        },
+        {
+          "tabName": "Lab Corrections",
+          "screenshot": "zmcc_manager_tab_lab_corrections.png",
+          "primaryActions": [
+            "Plant / Dispatch History",
+            "Arrival Corrections",
+            "Lab Corrections",
+            "Test History & Corrections",
+            "Filter"
+          ]
+        }
+      ],
+      "consoleErrorsCount": 1,
+      "failedNetworkCount": 1,
+      "zmccLabCapabilities": null,
+      "zmccManagerCapabilities": {
+        "directZmccLabRouteUrl": "http://localhost:3000/zmcc/lab",
+        "directZmccLabRouteAllowed": true,
+        "directMpdRouteUrl": "http://localhost:3000/department/mpd",
+        "directMpdRouteAllowed": true
+      }
+    },
+    {
+      "roleName": "CONTRACTOR_MANAGER",
+      "label": "Plant Contractor Manager — Al Khair",
+      "username": "contractor.manager.alkhair",
+      "landingUrl": "http://localhost:3000/contractor/manager",
+      "sidebarLinks": [],
+      "drawerLinks": [
+        {
+          "text": "Plant Contractor StationMANAGER",
+          "href": "/contractor/manager"
+        }
+      ],
+      "visitedScreens": [
+        {
+          "tabName": "History",
+          "screenshot": "contractor_manager_tab_history.png",
+          "primaryActions": []
+        },
+        {
+          "tabName": "History & Reports",
+          "screenshot": "contractor_manager_tab_history___reports.png",
+          "primaryActions": []
+        },
+        {
+          "tabName": "Overview",
+          "screenshot": "contractor_manager_tab_overview.png",
+          "primaryActions": []
+        },
+        {
+          "tabName": "Reconciliation",
+          "screenshot": "contractor_manager_tab_reconciliation.png",
+          "primaryActions": []
+        }
+      ],
+      "consoleErrorsCount": 0,
+      "failedNetworkCount": 0,
+      "zmccLabCapabilities": null,
+      "zmccManagerCapabilities": null
+    },
+    {
+      "roleName": "SUPER_ADMIN",
+      "label": "Super Admin",
+      "username": "admin.superuser",
+      "landingUrl": "http://localhost:3000/super-admin",
+      "sidebarLinks": [],
+      "drawerLinks": [
+        {
+          "text": "Overview",
+          "href": "/super-admin"
+        },
+        {
+          "text": "Users",
+          "href": "/super-admin/users"
+        },
+        {
+          "text": "Procurement Sources",
+          "href": "/super-admin/procurement-sources"
+        },
+        {
+          "text": "Silos",
+          "href": "/super-admin/silos"
+        },
+        {
+          "text": "Lab Test Master",
+          "href": "/super-admin/lab-tests"
+        },
+        {
+          "text": "Milk Test Policies",
+          "href": "/super-admin/test-policies"
+        },
+        {
+          "text": "SOP Rules",
+          "href": "/super-admin/sop-rules"
+        },
+        {
+          "text": "QA Warnings",
+          "href": "/super-admin/qa-warnings"
+        },
+        {
+          "text": "Operations",
+          "href": "/super-admin/operations"
+        },
+        {
+          "text": "Audit & Corrections",
+          "href": "/super-admin/audit"
+        },
+        {
+          "text": "ZMCC Master Data",
+          "href": "/super-admin/zmcc-master-data"
+        },
+        {
+          "text": "MOT Operations",
+          "href": "/super-admin/mot-operations"
+        },
+        {
+          "text": "Master Data",
+          "href": "/super-admin/master-data"
+        },
+        {
+          "text": "System Settings",
+          "href": "/super-admin/settings"
+        }
+      ],
+      "visitedScreens": [],
+      "consoleErrorsCount": 0,
+      "failedNetworkCount": 0,
+      "zmccLabCapabilities": null,
+      "zmccManagerCapabilities": null
+    },
+    {
+      "roleName": "HEAD_OF_MPD",
+      "label": "MPD Head",
+      "username": "mpd.head",
+      "landingUrl": "http://localhost:3000/mpd/head",
+      "sidebarLinks": [],
+      "drawerLinks": [
+        {
+          "text": "Head of MPD StationHEAD",
+          "href": "/mpd/head"
+        }
+      ],
+      "visitedScreens": [
+        {
+          "tabName": "Arrivals",
+          "screenshot": "head_of_mpd_tab_arrivals.png",
+          "primaryActions": [
+            "Refresh",
+            "Assign Test",
+            "-MOT Shop CollectionMOT_SHOP",
+            "2ZMCC Lab (MOT Arrivals)ZMCC_LAB_MOT",
+            "-ZMCC Dispatch to FactoryDISPATCH",
+            "Required",
+            "Deactivate"
+          ]
+        }
+      ],
+      "consoleErrorsCount": 0,
+      "failedNetworkCount": 0,
+      "zmccLabCapabilities": null,
+      "zmccManagerCapabilities": null
+    },
+    {
+      "roleName": "CONTRACTOR_OPERATOR",
+      "label": "Contractor Operator",
+      "username": "contractor.operator.alkhair",
+      "landingUrl": "http://localhost:3000/workspace-unavailable",
+      "sidebarLinks": [],
+      "drawerLinks": [],
+      "visitedScreens": [],
+      "consoleErrorsCount": 0,
+      "failedNetworkCount": 0,
+      "zmccLabCapabilities": null,
+      "zmccManagerCapabilities": null
+    },
+    {
+      "roleName": "QA_MANAGER",
+      "label": "QA Manager",
+      "username": "qa.manager",
+      "landingUrl": "http://localhost:3000/workspace-unavailable",
+      "sidebarLinks": [],
+      "drawerLinks": [],
+      "visitedScreens": [],
+      "consoleErrorsCount": 0,
+      "failedNetworkCount": 0,
+      "zmccLabCapabilities": null,
+      "zmccManagerCapabilities": null
+    },
+    {
+      "roleName": "EXECUTIVE_MANAGEMENT",
+      "label": "Senior Executive Management",
+      "username": "executive.management",
+      "landingUrl": "http://localhost:3000/workspace-unavailable",
+      "sidebarLinks": [],
+      "drawerLinks": [],
+      "visitedScreens": [],
+      "consoleErrorsCount": 0,
+      "failedNetworkCount": 0,
+      "zmccLabCapabilities": null,
+      "zmccManagerCapabilities": null
+    },
+    {
+      "roleName": "DATA_EXECUTIVE",
+      "label": "Data Executive",
+      "username": "data.executive",
+      "landingUrl": "http://localhost:3000/workspace-unavailable",
+      "sidebarLinks": [],
+      "drawerLinks": [],
+      "visitedScreens": [],
+      "consoleErrorsCount": 0,
+      "failedNetworkCount": 0,
+      "zmccLabCapabilities": null,
+      "zmccManagerCapabilities": null
+    },
+    {
+      "roleName": "ADMIN_HEAD",
+      "label": "Admin Head",
+      "username": "admin.head",
+      "landingUrl": "http://localhost:3000/workspace-unavailable",
+      "sidebarLinks": [],
+      "drawerLinks": [],
+      "visitedScreens": [],
+      "consoleErrorsCount": 0,
+      "failedNetworkCount": 0,
+      "zmccLabCapabilities": null,
+      "zmccManagerCapabilities": null
+    },
+    {
+      "roleName": "QA_HEAD",
+      "label": "QA Head",
+      "username": "qa.head",
+      "landingUrl": "http://localhost:3000/workspace-unavailable",
+      "sidebarLinks": [],
+      "drawerLinks": [],
+      "visitedScreens": [],
+      "consoleErrorsCount": 0,
+      "failedNetworkCount": 0,
+      "zmccLabCapabilities": null,
+      "zmccManagerCapabilities": null
+    },
+    {
+      "roleName": "PRODUCTION_HEAD",
+      "label": "Production Head",
+      "username": "production.head",
+      "landingUrl": "http://localhost:3000/workspace-unavailable",
+      "sidebarLinks": [],
+      "drawerLinks": [],
+      "visitedScreens": [],
+      "consoleErrorsCount": 0,
+      "failedNetworkCount": 0,
+      "zmccLabCapabilities": null,
+      "zmccManagerCapabilities": null
+    },
+    {
+      "roleName": "FINANCE_ACCOUNTS",
+      "label": "Finance and Accounts",
+      "username": "finance.accounts",
+      "landingUrl": "http://localhost:3000/workspace-unavailable",
+      "sidebarLinks": [],
+      "drawerLinks": [],
+      "visitedScreens": [],
+      "consoleErrorsCount": 0,
+      "failedNetworkCount": 0,
+      "zmccLabCapabilities": null,
+      "zmccManagerCapabilities": null
+    }
+  ],
+  "directRouteMatrix": {
+    "PHE_OPERATOR": {
+      "/": {
+        "targetLabel": "Plant Operation Dashboard",
+        "resolvedUrl": "http://localhost:3000/login",
+        "status": "ERROR",
+        "error": "page.goto: Timeout 5000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3000/\", waiting until \"domcontentloaded\"\u001b[22m\n"
+      },
+      "/tv-board": {
+        "targetLabel": "Public Yard TV Board",
+        "resolvedUrl": "http://localhost:3000/login",
+        "status": "ERROR",
+        "error": "page.goto: Timeout 5000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3000/tv-board\", waiting until \"domcontentloaded\"\u001b[22m\n"
+      },
+      "/phe": {
+        "targetLabel": "PHE Shop Station",
+        "resolvedUrl": "http://localhost:3000/login",
+        "status": "ERROR",
+        "error": "page.goto: Timeout 5000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3000/phe\", waiting until \"domcontentloaded\"\u001b[22m\n"
+      },
+      "/zmcc/lab": {
+        "targetLabel": "ZMCC Lab Station",
+        "resolvedUrl": "http://localhost:3000/phe",
+        "status": "ERROR",
+        "error": "page.goto: Timeout 5000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3000/zmcc/lab\", waiting until \"domcontentloaded\"\u001b[22m\n"
+      },
+      "/mot": {
+        "targetLabel": "MOT Driver Station",
+        "resolvedUrl": "http://localhost:3000/phe",
+        "status": "ERROR",
+        "error": "page.goto: Timeout 5000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3000/mot\", waiting until \"domcontentloaded\"\u001b[22m\n"
+      },
+      "/mpd/zmcc-manager": {
+        "targetLabel": "ZMCC Manager Station",
+        "resolvedUrl": "http://localhost:3000/phe",
+        "status": "ERROR",
+        "error": "page.goto: Timeout 5000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3000/mpd/zmcc-manager\", waiting until \"domcontentloaded\"\u001b[22m\n"
+      },
+      "/mpd/head": {
+        "targetLabel": "Head of MPD Station",
+        "resolvedUrl": "http://localhost:3000/phe",
+        "status": "ERROR",
+        "error": "page.goto: Timeout 5000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3000/mpd/head\", waiting until \"domcontentloaded\"\u001b[22m\n"
+      },
+      "/contractor/manager": {
+        "targetLabel": "Plant Contractor Station",
+        "resolvedUrl": "http://localhost:3000/phe",
+        "status": "ERROR",
+        "error": "page.goto: Timeout 5000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3000/contractor/manager\", waiting until \"domcontentloaded\"\u001b[22m\n"
+      },
+      "/department/mpd": {
+        "targetLabel": "MPD Field Operations / Dispatches",
+        "resolvedUrl": "http://localhost:3000/phe",
+        "status": "ERROR",
+        "error": "page.goto: Timeout 5000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3000/department/mpd\", waiting until \"domcontentloaded\"\u001b[22m\n"
+      },
+      "/department/security": {
+        "targetLabel": "Security Department",
+        "resolvedUrl": "http://localhost:3000/phe",
+        "status": "ERROR",
+        "error": "page.goto: Timeout 5000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3000/department/security\", waiting until \"domcontentloaded\"\u001b[22m\n"
+      },
+      "/department/qa": {
+        "targetLabel": "QA Laboratory Department",
+        "resolvedUrl": "http://localhost:3000/phe",
+        "status": "ERROR",
+        "error": "page.goto: Timeout 5000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3000/department/qa\", waiting until \"domcontentloaded\"\u001b[22m\n"
+      },
+      "/department/weighbridge": {
+        "targetLabel": "Weighbridge Department",
+        "resolvedUrl": "http://localhost:3000/phe",
+        "status": "ERROR",
+        "error": "page.goto: Timeout 5000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3000/department/weighbridge\", waiting until \"domcontentloaded\"\u001b[22m\n"
+      },
+      "/department/production": {
+        "targetLabel": "Production Reception Department",
+        "resolvedUrl": "http://localhost:3000/phe",
+        "status": "ERROR",
+        "error": "page.goto: Timeout 5000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3000/department/production\", waiting until \"domcontentloaded\"\u001b[22m\n"
+      },
+      "/super-admin": {
+        "targetLabel": "Super Admin Overview",
+        "resolvedUrl": "http://localhost:3000/phe",
+        "status": "ERROR",
+        "error": "page.goto: Timeout 5000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3000/super-admin\", waiting until \"domcontentloaded\"\u001b[22m\n"
+      },
+      "/super-admin/lab-tests": {
+        "targetLabel": "Super Admin Lab Tests",
+        "resolvedUrl": "http://localhost:3000/phe",
+        "status": "ERROR",
+        "error": "page.goto: Timeout 5000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3000/super-admin/lab-tests\", waiting until \"domcontentloaded\"\u001b[22m\n"
+      },
+      "/workspace-unavailable": {
+        "targetLabel": "Workspace Unavailable",
+        "resolvedUrl": "http://localhost:3000/phe",
+        "status": "ERROR",
+        "error": "page.goto: Timeout 5000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3000/workspace-unavailable\", waiting until \"domcontentloaded\"\u001b[22m\n"
+      }
+    },
+    "ZMCC_LAB_ATTENDANT": {
+      "/": {
+        "targetLabel": "Plant Operation Dashboard",
+        "resolvedUrl": "http://localhost:3000/login",
+        "status": "REDIRECT_LOGIN"
+      },
+      "/tv-board": {
+        "targetLabel": "Public Yard TV Board",
+        "resolvedUrl": "http://localhost:3000/tv-board",
+        "status": "ALLOWED"
+      },
+      "/phe": {
+        "targetLabel": "PHE Shop Station",
+        "resolvedUrl": "http://localhost:3000/phe",
+        "status": "ALLOWED"
+      },
+      "/zmcc/lab": {
+        "targetLabel": "ZMCC Lab Station",
+        "resolvedUrl": "http://localhost:3000/zmcc/lab",
+        "status": "ALLOWED"
+      },
+      "/mot": {
+        "targetLabel": "MOT Driver Station",
+        "resolvedUrl": "http://localhost:3000/mot",
+        "status": "ALLOWED"
+      },
+      "/mpd/zmcc-manager": {
+        "targetLabel": "ZMCC Manager Station",
+        "resolvedUrl": "http://localhost:3000/mpd/zmcc-manager",
+        "status": "ALLOWED"
+      },
+      "/mpd/head": {
+        "targetLabel": "Head of MPD Station",
+        "resolvedUrl": "http://localhost:3000/mpd/zmcc-manager",
+        "status": "ERROR",
+        "error": "page.goto: Timeout 5000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3000/mpd/head\", waiting until \"domcontentloaded\"\u001b[22m\n"
+      },
+      "/contractor/manager": {
+        "targetLabel": "Plant Contractor Station",
+        "resolvedUrl": "http://localhost:3000/contractor/manager",
+        "status": "ALLOWED"
+      },
+      "/department/mpd": {
+        "targetLabel": "MPD Field Operations / Dispatches",
+        "resolvedUrl": "http://localhost:3000/contractor/manager",
+        "status": "ERROR",
+        "error": "page.goto: Timeout 5000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3000/department/mpd\", waiting until \"domcontentloaded\"\u001b[22m\n"
+      },
+      "/department/security": {
+        "targetLabel": "Security Department",
+        "resolvedUrl": "http://localhost:3000/department/security",
+        "status": "ALLOWED"
+      },
+      "/department/qa": {
+        "targetLabel": "QA Laboratory Department",
+        "resolvedUrl": "http://localhost:3000/department/qa",
+        "status": "ALLOWED"
+      },
+      "/department/weighbridge": {
+        "targetLabel": "Weighbridge Department",
+        "resolvedUrl": "http://localhost:3000/department/qa",
+        "status": "ERROR",
+        "error": "page.goto: Timeout 5000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3000/department/weighbridge\", waiting until \"domcontentloaded\"\u001b[22m\n"
+      },
+      "/department/production": {
+        "targetLabel": "Production Reception Department",
+        "resolvedUrl": "http://localhost:3000/department/production",
+        "status": "ALLOWED"
+      },
+      "/super-admin": {
+        "targetLabel": "Super Admin Overview",
+        "resolvedUrl": "http://localhost:3000/department/production",
+        "status": "ERROR",
+        "error": "page.goto: Timeout 5000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3000/super-admin\", waiting until \"domcontentloaded\"\u001b[22m\n"
+      },
+      "/super-admin/lab-tests": {
+        "targetLabel": "Super Admin Lab Tests",
+        "resolvedUrl": "http://localhost:3000/department/production",
+        "status": "ERROR",
+        "error": "page.goto: Timeout 5000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3000/super-admin/lab-tests\", waiting until \"domcontentloaded\"\u001b[22m\n"
+      },
+      "/workspace-unavailable": {
+        "targetLabel": "Workspace Unavailable",
+        "resolvedUrl": "http://localhost:3000/workspace-unavailable",
+        "status": "WORKSPACE_UNAVAILABLE"
+      }
+    },
+    "ZMCC_LAB_ATTENDANT_JHANG": {
+      "/": {
+        "targetLabel": "Plant Operation Dashboard",
+        "resolvedUrl": "http://localhost:3000/zmcc/lab",
+        "status": "ALLOWED"
+      },
+      "/tv-board": {
+        "targetLabel": "Public Yard TV Board",
+        "resolvedUrl": "http://localhost:3000/tv-board",
+        "status": "ALLOWED"
+      },
+      "/phe": {
+        "targetLabel": "PHE Shop Station",
+        "resolvedUrl": "http://localhost:3000/phe",
+        "status": "ALLOWED"
+      },
+      "/zmcc/lab": {
+        "targetLabel": "ZMCC Lab Station",
+        "resolvedUrl": "http://localhost:3000/zmcc/lab",
+        "status": "ALLOWED"
+      },
+      "/mot": {
+        "targetLabel": "MOT Driver Station",
+        "resolvedUrl": "http://localhost:3000/mot",
+        "status": "ALLOWED"
+      },
+      "/mpd/zmcc-manager": {
+        "targetLabel": "ZMCC Manager Station",
+        "resolvedUrl": "http://localhost:3000/mpd/zmcc-manager",
+        "status": "ALLOWED"
+      },
+      "/mpd/head": {
+        "targetLabel": "Head of MPD Station",
+        "resolvedUrl": "http://localhost:3000/mpd/head",
+        "status": "ALLOWED"
+      },
+      "/contractor/manager": {
+        "targetLabel": "Plant Contractor Station",
+        "resolvedUrl": "http://localhost:3000/contractor/manager",
+        "status": "ALLOWED"
+      },
+      "/department/mpd": {
+        "targetLabel": "MPD Field Operations / Dispatches",
+        "resolvedUrl": "http://localhost:3000/department/mpd",
+        "status": "ALLOWED"
+      },
+      "/department/security": {
+        "targetLabel": "Security Department",
+        "resolvedUrl": "http://localhost:3000/department/security",
+        "status": "ALLOWED"
+      },
+      "/department/qa": {
+        "targetLabel": "QA Laboratory Department",
+        "resolvedUrl": "http://localhost:3000/department/qa",
+        "status": "ALLOWED"
+      },
+      "/department/weighbridge": {
+        "targetLabel": "Weighbridge Department",
+        "resolvedUrl": "http://localhost:3000/department/weighbridge",
+        "status": "ALLOWED"
+      },
+      "/department/production": {
+        "targetLabel": "Production Reception Department",
+        "resolvedUrl": "http://localhost:3000/department/production",
+        "status": "ALLOWED"
+      },
+      "/super-admin": {
+        "targetLabel": "Super Admin Overview",
+        "resolvedUrl": "http://localhost:3000/super-admin",
+        "status": "ALLOWED"
+      },
+      "/super-admin/lab-tests": {
+        "targetLabel": "Super Admin Lab Tests",
+        "resolvedUrl": "http://localhost:3000/super-admin/lab-tests",
+        "status": "ALLOWED"
+      },
+      "/workspace-unavailable": {
+        "targetLabel": "Workspace Unavailable",
+        "resolvedUrl": "http://localhost:3000/workspace-unavailable",
+        "status": "WORKSPACE_UNAVAILABLE"
+      }
+    },
+    "ZMCC_LAB_ATTENDANT_KABIRWALA": {
+      "/": {
+        "targetLabel": "Plant Operation Dashboard",
+        "resolvedUrl": "http://localhost:3000/zmcc/lab",
+        "status": "ALLOWED"
+      },
+      "/tv-board": {
+        "targetLabel": "Public Yard TV Board",
+        "resolvedUrl": "http://localhost:3000/tv-board",
+        "status": "ALLOWED"
+      },
+      "/phe": {
+        "targetLabel": "PHE Shop Station",
+        "resolvedUrl": "http://localhost:3000/phe",
+        "status": "ALLOWED"
+      },
+      "/zmcc/lab": {
+        "targetLabel": "ZMCC Lab Station",
+        "resolvedUrl": "http://localhost:3000/zmcc/lab",
+        "status": "ALLOWED"
+      },
+      "/mot": {
+        "targetLabel": "MOT Driver Station",
+        "resolvedUrl": "http://localhost:3000/mot",
+        "status": "ALLOWED"
+      },
+      "/mpd/zmcc-manager": {
+        "targetLabel": "ZMCC Manager Station",
+        "resolvedUrl": "http://localhost:3000/mpd/zmcc-manager",
+        "status": "ALLOWED"
+      },
+      "/mpd/head": {
+        "targetLabel": "Head of MPD Station",
+        "resolvedUrl": "http://localhost:3000/mpd/head",
+        "status": "ALLOWED"
+      },
+      "/contractor/manager": {
+        "targetLabel": "Plant Contractor Station",
+        "resolvedUrl": "http://localhost:3000/contractor/manager",
+        "status": "ALLOWED"
+      },
+      "/department/mpd": {
+        "targetLabel": "MPD Field Operations / Dispatches",
+        "resolvedUrl": "http://localhost:3000/department/mpd",
+        "status": "ALLOWED"
+      },
+      "/department/security": {
+        "targetLabel": "Security Department",
+        "resolvedUrl": "http://localhost:3000/department/security",
+        "status": "ALLOWED"
+      },
+      "/department/qa": {
+        "targetLabel": "QA Laboratory Department",
+        "resolvedUrl": "http://localhost:3000/department/qa",
+        "status": "ALLOWED"
+      },
+      "/department/weighbridge": {
+        "targetLabel": "Weighbridge Department",
+        "resolvedUrl": "http://localhost:3000/department/weighbridge",
+        "status": "ALLOWED"
+      },
+      "/department/production": {
+        "targetLabel": "Production Reception Department",
+        "resolvedUrl": "http://localhost:3000/department/production",
+        "status": "ALLOWED"
+      },
+      "/super-admin": {
+        "targetLabel": "Super Admin Overview",
+        "resolvedUrl": "http://localhost:3000/super-admin",
+        "status": "ALLOWED"
+      },
+      "/super-admin/lab-tests": {
+        "targetLabel": "Super Admin Lab Tests",
+        "resolvedUrl": "http://localhost:3000/super-admin/lab-tests",
+        "status": "ALLOWED"
+      },
+      "/workspace-unavailable": {
+        "targetLabel": "Workspace Unavailable",
+        "resolvedUrl": "http://localhost:3000/workspace-unavailable",
+        "status": "WORKSPACE_UNAVAILABLE"
+      }
+    },
+    "MOT_OPERATOR": {
+      "/": {
+        "targetLabel": "Plant Operation Dashboard",
+        "resolvedUrl": "http://localhost:3000/mot",
+        "status": "ALLOWED"
+      },
+      "/tv-board": {
+        "targetLabel": "Public Yard TV Board",
+        "resolvedUrl": "http://localhost:3000/tv-board",
+        "status": "ALLOWED"
+      },
+      "/phe": {
+        "targetLabel": "PHE Shop Station",
+        "resolvedUrl": "http://localhost:3000/phe",
+        "status": "ALLOWED"
+      },
+      "/zmcc/lab": {
+        "targetLabel": "ZMCC Lab Station",
+        "resolvedUrl": "http://localhost:3000/zmcc/lab",
+        "status": "ALLOWED"
+      },
+      "/mot": {
+        "targetLabel": "MOT Driver Station",
+        "resolvedUrl": "http://localhost:3000/mot",
+        "status": "ALLOWED"
+      },
+      "/mpd/zmcc-manager": {
+        "targetLabel": "ZMCC Manager Station",
+        "resolvedUrl": "http://localhost:3000/mpd/zmcc-manager",
+        "status": "ALLOWED"
+      },
+      "/mpd/head": {
+        "targetLabel": "Head of MPD Station",
+        "resolvedUrl": "http://localhost:3000/mpd/head",
+        "status": "ALLOWED"
+      },
+      "/contractor/manager": {
+        "targetLabel": "Plant Contractor Station",
+        "resolvedUrl": "http://localhost:3000/contractor/manager",
+        "status": "ALLOWED"
+      },
+      "/department/mpd": {
+        "targetLabel": "MPD Field Operations / Dispatches",
+        "resolvedUrl": "http://localhost:3000/department/mpd",
+        "status": "ALLOWED"
+      },
+      "/department/security": {
+        "targetLabel": "Security Department",
+        "resolvedUrl": "http://localhost:3000/department/security",
+        "status": "ALLOWED"
+      },
+      "/department/qa": {
+        "targetLabel": "QA Laboratory Department",
+        "resolvedUrl": "http://localhost:3000/department/qa",
+        "status": "ALLOWED"
+      },
+      "/department/weighbridge": {
+        "targetLabel": "Weighbridge Department",
+        "resolvedUrl": "http://localhost:3000/department/weighbridge",
+        "status": "ALLOWED"
+      },
+      "/department/production": {
+        "targetLabel": "Production Reception Department",
+        "resolvedUrl": "http://localhost:3000/department/production",
+        "status": "ALLOWED"
+      },
+      "/super-admin": {
+        "targetLabel": "Super Admin Overview",
+        "resolvedUrl": "http://localhost:3000/super-admin",
+        "status": "ALLOWED"
+      },
+      "/super-admin/lab-tests": {
+        "targetLabel": "Super Admin Lab Tests",
+        "resolvedUrl": "http://localhost:3000/super-admin/lab-tests",
+        "status": "ALLOWED"
+      },
+      "/workspace-unavailable": {
+        "targetLabel": "Workspace Unavailable",
+        "resolvedUrl": "http://localhost:3000/workspace-unavailable",
+        "status": "WORKSPACE_UNAVAILABLE"
+      }
+    },
+    "SECURITY_OPERATOR": {
+      "/": {
+        "targetLabel": "Plant Operation Dashboard",
+        "resolvedUrl": "http://localhost:3000/department/security",
+        "status": "ALLOWED"
+      },
+      "/tv-board": {
+        "targetLabel": "Public Yard TV Board",
+        "resolvedUrl": "http://localhost:3000/tv-board",
+        "status": "ALLOWED"
+      },
+      "/phe": {
+        "targetLabel": "PHE Shop Station",
+        "resolvedUrl": "http://localhost:3000/phe",
+        "status": "ALLOWED"
+      },
+      "/zmcc/lab": {
+        "targetLabel": "ZMCC Lab Station",
+        "resolvedUrl": "http://localhost:3000/zmcc/lab",
+        "status": "ALLOWED"
+      },
+      "/mot": {
+        "targetLabel": "MOT Driver Station",
+        "resolvedUrl": "http://localhost:3000/mot",
+        "status": "ALLOWED"
+      },
+      "/mpd/zmcc-manager": {
+        "targetLabel": "ZMCC Manager Station",
+        "resolvedUrl": "http://localhost:3000/mpd/zmcc-manager",
+        "status": "ALLOWED"
+      },
+      "/mpd/head": {
+        "targetLabel": "Head of MPD Station",
+        "resolvedUrl": "http://localhost:3000/mpd/head",
+        "status": "ALLOWED"
+      },
+      "/contractor/manager": {
+        "targetLabel": "Plant Contractor Station",
+        "resolvedUrl": "http://localhost:3000/contractor/manager",
+        "status": "ALLOWED"
+      },
+      "/department/mpd": {
+        "targetLabel": "MPD Field Operations / Dispatches",
+        "resolvedUrl": "http://localhost:3000/department/mpd",
+        "status": "ALLOWED"
+      },
+      "/department/security": {
+        "targetLabel": "Security Department",
+        "resolvedUrl": "http://localhost:3000/department/security",
+        "status": "ALLOWED"
+      },
+      "/department/qa": {
+        "targetLabel": "QA Laboratory Department",
+        "resolvedUrl": "http://localhost:3000/department/qa",
+        "status": "ALLOWED"
+      },
+      "/department/weighbridge": {
+        "targetLabel": "Weighbridge Department",
+        "resolvedUrl": "http://localhost:3000/department/weighbridge",
+        "status": "ALLOWED"
+      },
+      "/department/production": {
+        "targetLabel": "Production Reception Department",
+        "resolvedUrl": "http://localhost:3000/department/production",
+        "status": "ALLOWED"
+      },
+      "/super-admin": {
+        "targetLabel": "Super Admin Overview",
+        "resolvedUrl": "http://localhost:3000/super-admin",
+        "status": "ALLOWED"
+      },
+      "/super-admin/lab-tests": {
+        "targetLabel": "Super Admin Lab Tests",
+        "resolvedUrl": "http://localhost:3000/super-admin/lab-tests",
+        "status": "ALLOWED"
+      },
+      "/workspace-unavailable": {
+        "targetLabel": "Workspace Unavailable",
+        "resolvedUrl": "http://localhost:3000/workspace-unavailable",
+        "status": "WORKSPACE_UNAVAILABLE"
+      }
+    },
+    "QA_LAB_ATTENDANT": {
+      "/": {
+        "targetLabel": "Plant Operation Dashboard",
+        "resolvedUrl": "http://localhost:3000/department/qa",
+        "status": "ALLOWED"
+      },
+      "/tv-board": {
+        "targetLabel": "Public Yard TV Board",
+        "resolvedUrl": "http://localhost:3000/tv-board",
+        "status": "ALLOWED"
+      },
+      "/phe": {
+        "targetLabel": "PHE Shop Station",
+        "resolvedUrl": "http://localhost:3000/phe",
+        "status": "ALLOWED"
+      },
+      "/zmcc/lab": {
+        "targetLabel": "ZMCC Lab Station",
+        "resolvedUrl": "http://localhost:3000/zmcc/lab",
+        "status": "ALLOWED"
+      },
+      "/mot": {
+        "targetLabel": "MOT Driver Station",
+        "resolvedUrl": "http://localhost:3000/mot",
+        "status": "ALLOWED"
+      },
+      "/mpd/zmcc-manager": {
+        "targetLabel": "ZMCC Manager Station",
+        "resolvedUrl": "http://localhost:3000/mpd/zmcc-manager",
+        "status": "ALLOWED"
+      },
+      "/mpd/head": {
+        "targetLabel": "Head of MPD Station",
+        "resolvedUrl": "http://localhost:3000/mpd/head",
+        "status": "ALLOWED"
+      },
+      "/contractor/manager": {
+        "targetLabel": "Plant Contractor Station",
+        "resolvedUrl": "http://localhost:3000/contractor/manager",
+        "status": "ALLOWED"
+      },
+      "/department/mpd": {
+        "targetLabel": "MPD Field Operations / Dispatches",
+        "resolvedUrl": "http://localhost:3000/department/mpd",
+        "status": "ALLOWED"
+      },
+      "/department/security": {
+        "targetLabel": "Security Department",
+        "resolvedUrl": "http://localhost:3000/department/security",
+        "status": "ALLOWED"
+      },
+      "/department/qa": {
+        "targetLabel": "QA Laboratory Department",
+        "resolvedUrl": "http://localhost:3000/department/qa",
+        "status": "ALLOWED"
+      },
+      "/department/weighbridge": {
+        "targetLabel": "Weighbridge Department",
+        "resolvedUrl": "http://localhost:3000/department/weighbridge",
+        "status": "ALLOWED"
+      },
+      "/department/production": {
+        "targetLabel": "Production Reception Department",
+        "resolvedUrl": "http://localhost:3000/department/production",
+        "status": "ALLOWED"
+      },
+      "/super-admin": {
+        "targetLabel": "Super Admin Overview",
+        "resolvedUrl": "http://localhost:3000/super-admin",
+        "status": "ALLOWED"
+      },
+      "/super-admin/lab-tests": {
+        "targetLabel": "Super Admin Lab Tests",
+        "resolvedUrl": "http://localhost:3000/super-admin/lab-tests",
+        "status": "ALLOWED"
+      },
+      "/workspace-unavailable": {
+        "targetLabel": "Workspace Unavailable",
+        "resolvedUrl": "http://localhost:3000/workspace-unavailable",
+        "status": "WORKSPACE_UNAVAILABLE"
+      }
+    },
+    "WEIGHBRIDGE_OPERATOR_1": {
+      "/": {
+        "targetLabel": "Plant Operation Dashboard",
+        "resolvedUrl": "http://localhost:3000/department/weighbridge",
+        "status": "ALLOWED"
+      },
+      "/tv-board": {
+        "targetLabel": "Public Yard TV Board",
+        "resolvedUrl": "http://localhost:3000/tv-board",
+        "status": "ALLOWED"
+      },
+      "/phe": {
+        "targetLabel": "PHE Shop Station",
+        "resolvedUrl": "http://localhost:3000/phe",
+        "status": "ALLOWED"
+      },
+      "/zmcc/lab": {
+        "targetLabel": "ZMCC Lab Station",
+        "resolvedUrl": "http://localhost:3000/zmcc/lab",
+        "status": "ALLOWED"
+      },
+      "/mot": {
+        "targetLabel": "MOT Driver Station",
+        "resolvedUrl": "http://localhost:3000/mot",
+        "status": "ALLOWED"
+      },
+      "/mpd/zmcc-manager": {
+        "targetLabel": "ZMCC Manager Station",
+        "resolvedUrl": "http://localhost:3000/mpd/zmcc-manager",
+        "status": "ALLOWED"
+      },
+      "/mpd/head": {
+        "targetLabel": "Head of MPD Station",
+        "resolvedUrl": "http://localhost:3000/mpd/head",
+        "status": "ALLOWED"
+      },
+      "/contractor/manager": {
+        "targetLabel": "Plant Contractor Station",
+        "resolvedUrl": "http://localhost:3000/contractor/manager",
+        "status": "ALLOWED"
+      },
+      "/department/mpd": {
+        "targetLabel": "MPD Field Operations / Dispatches",
+        "resolvedUrl": "http://localhost:3000/department/mpd",
+        "status": "ALLOWED"
+      },
+      "/department/security": {
+        "targetLabel": "Security Department",
+        "resolvedUrl": "http://localhost:3000/department/security",
+        "status": "ALLOWED"
+      },
+      "/department/qa": {
+        "targetLabel": "QA Laboratory Department",
+        "resolvedUrl": "http://localhost:3000/department/qa",
+        "status": "ALLOWED"
+      },
+      "/department/weighbridge": {
+        "targetLabel": "Weighbridge Department",
+        "resolvedUrl": "http://localhost:3000/department/weighbridge",
+        "status": "ALLOWED"
+      },
+      "/department/production": {
+        "targetLabel": "Production Reception Department",
+        "resolvedUrl": "http://localhost:3000/department/production",
+        "status": "ALLOWED"
+      },
+      "/super-admin": {
+        "targetLabel": "Super Admin Overview",
+        "resolvedUrl": "http://localhost:3000/super-admin",
+        "status": "ALLOWED"
+      },
+      "/super-admin/lab-tests": {
+        "targetLabel": "Super Admin Lab Tests",
+        "resolvedUrl": "http://localhost:3000/super-admin/lab-tests",
+        "status": "ALLOWED"
+      },
+      "/workspace-unavailable": {
+        "targetLabel": "Workspace Unavailable",
+        "resolvedUrl": "http://localhost:3000/workspace-unavailable",
+        "status": "WORKSPACE_UNAVAILABLE"
+      }
+    },
+    "WEIGHBRIDGE_OPERATOR_2": {
+      "/": {
+        "targetLabel": "Plant Operation Dashboard",
+        "resolvedUrl": "http://localhost:3000/department/weighbridge",
+        "status": "ALLOWED"
+      },
+      "/tv-board": {
+        "targetLabel": "Public Yard TV Board",
+        "resolvedUrl": "http://localhost:3000/tv-board",
+        "status": "ALLOWED"
+      },
+      "/phe": {
+        "targetLabel": "PHE Shop Station",
+        "resolvedUrl": "http://localhost:3000/phe",
+        "status": "ALLOWED"
+      },
+      "/zmcc/lab": {
+        "targetLabel": "ZMCC Lab Station",
+        "resolvedUrl": "http://localhost:3000/zmcc/lab",
+        "status": "ALLOWED"
+      },
+      "/mot": {
+        "targetLabel": "MOT Driver Station",
+        "resolvedUrl": "http://localhost:3000/mot",
+        "status": "ALLOWED"
+      },
+      "/mpd/zmcc-manager": {
+        "targetLabel": "ZMCC Manager Station",
+        "resolvedUrl": "http://localhost:3000/mpd/zmcc-manager",
+        "status": "ALLOWED"
+      },
+      "/mpd/head": {
+        "targetLabel": "Head of MPD Station",
+        "resolvedUrl": "http://localhost:3000/mpd/head",
+        "status": "ALLOWED"
+      },
+      "/contractor/manager": {
+        "targetLabel": "Plant Contractor Station",
+        "resolvedUrl": "http://localhost:3000/contractor/manager",
+        "status": "ALLOWED"
+      },
+      "/department/mpd": {
+        "targetLabel": "MPD Field Operations / Dispatches",
+        "resolvedUrl": "http://localhost:3000/department/mpd",
+        "status": "ALLOWED"
+      },
+      "/department/security": {
+        "targetLabel": "Security Department",
+        "resolvedUrl": "http://localhost:3000/department/security",
+        "status": "ALLOWED"
+      },
+      "/department/qa": {
+        "targetLabel": "QA Laboratory Department",
+        "resolvedUrl": "http://localhost:3000/department/qa",
+        "status": "ALLOWED"
+      },
+      "/department/weighbridge": {
+        "targetLabel": "Weighbridge Department",
+        "resolvedUrl": "http://localhost:3000/department/weighbridge",
+        "status": "ALLOWED"
+      },
+      "/department/production": {
+        "targetLabel": "Production Reception Department",
+        "resolvedUrl": "http://localhost:3000/department/production",
+        "status": "ALLOWED"
+      },
+      "/super-admin": {
+        "targetLabel": "Super Admin Overview",
+        "resolvedUrl": "http://localhost:3000/super-admin",
+        "status": "ALLOWED"
+      },
+      "/super-admin/lab-tests": {
+        "targetLabel": "Super Admin Lab Tests",
+        "resolvedUrl": "http://localhost:3000/super-admin/lab-tests",
+        "status": "ALLOWED"
+      },
+      "/workspace-unavailable": {
+        "targetLabel": "Workspace Unavailable",
+        "resolvedUrl": "http://localhost:3000/workspace-unavailable",
+        "status": "WORKSPACE_UNAVAILABLE"
+      }
+    },
+    "PRODUCTION_RECEPTION_OPERATOR": {
+      "/": {
+        "targetLabel": "Plant Operation Dashboard",
+        "resolvedUrl": "http://localhost:3000/department/production",
+        "status": "ERROR",
+        "error": "page.goto: Timeout 5000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3000/\", waiting until \"domcontentloaded\"\u001b[22m\n"
+      },
+      "/tv-board": {
+        "targetLabel": "Public Yard TV Board",
+        "resolvedUrl": "http://localhost:3000/tv-board",
+        "status": "ALLOWED"
+      },
+      "/phe": {
+        "targetLabel": "PHE Shop Station",
+        "resolvedUrl": "http://localhost:3000/phe",
+        "status": "ALLOWED"
+      },
+      "/zmcc/lab": {
+        "targetLabel": "ZMCC Lab Station",
+        "resolvedUrl": "http://localhost:3000/zmcc/lab",
+        "status": "ALLOWED"
+      },
+      "/mot": {
+        "targetLabel": "MOT Driver Station",
+        "resolvedUrl": "http://localhost:3000/mot",
+        "status": "ALLOWED"
+      },
+      "/mpd/zmcc-manager": {
+        "targetLabel": "ZMCC Manager Station",
+        "resolvedUrl": "http://localhost:3000/mpd/zmcc-manager",
+        "status": "ALLOWED"
+      },
+      "/mpd/head": {
+        "targetLabel": "Head of MPD Station",
+        "resolvedUrl": "http://localhost:3000/mpd/head",
+        "status": "ALLOWED"
+      },
+      "/contractor/manager": {
+        "targetLabel": "Plant Contractor Station",
+        "resolvedUrl": "http://localhost:3000/contractor/manager",
+        "status": "ALLOWED"
+      },
+      "/department/mpd": {
+        "targetLabel": "MPD Field Operations / Dispatches",
+        "resolvedUrl": "http://localhost:3000/department/mpd",
+        "status": "ALLOWED"
+      },
+      "/department/security": {
+        "targetLabel": "Security Department",
+        "resolvedUrl": "http://localhost:3000/department/security",
+        "status": "ALLOWED"
+      },
+      "/department/qa": {
+        "targetLabel": "QA Laboratory Department",
+        "resolvedUrl": "http://localhost:3000/department/qa",
+        "status": "ALLOWED"
+      },
+      "/department/weighbridge": {
+        "targetLabel": "Weighbridge Department",
+        "resolvedUrl": "http://localhost:3000/department/weighbridge",
+        "status": "ALLOWED"
+      },
+      "/department/production": {
+        "targetLabel": "Production Reception Department",
+        "resolvedUrl": "http://localhost:3000/department/production",
+        "status": "ALLOWED"
+      },
+      "/super-admin": {
+        "targetLabel": "Super Admin Overview",
+        "resolvedUrl": "http://localhost:3000/super-admin",
+        "status": "ALLOWED"
+      },
+      "/super-admin/lab-tests": {
+        "targetLabel": "Super Admin Lab Tests",
+        "resolvedUrl": "http://localhost:3000/super-admin/lab-tests",
+        "status": "ALLOWED"
+      },
+      "/workspace-unavailable": {
+        "targetLabel": "Workspace Unavailable",
+        "resolvedUrl": "http://localhost:3000/workspace-unavailable",
+        "status": "WORKSPACE_UNAVAILABLE"
+      }
+    },
+    "ZMCC_MANAGER": {
+      "/": {
+        "targetLabel": "Plant Operation Dashboard",
+        "resolvedUrl": "http://localhost:3000/mpd/zmcc-manager",
+        "status": "ALLOWED"
+      },
+      "/tv-board": {
+        "targetLabel": "Public Yard TV Board",
+        "resolvedUrl": "http://localhost:3000/tv-board",
+        "status": "ALLOWED"
+      },
+      "/phe": {
+        "targetLabel": "PHE Shop Station",
+        "resolvedUrl": "http://localhost:3000/phe",
+        "status": "ALLOWED"
+      },
+      "/zmcc/lab": {
+        "targetLabel": "ZMCC Lab Station",
+        "resolvedUrl": "http://localhost:3000/zmcc/lab",
+        "status": "ALLOWED"
+      },
+      "/mot": {
+        "targetLabel": "MOT Driver Station",
+        "resolvedUrl": "http://localhost:3000/mot",
+        "status": "ALLOWED"
+      },
+      "/mpd/zmcc-manager": {
+        "targetLabel": "ZMCC Manager Station",
+        "resolvedUrl": "http://localhost:3000/mpd/zmcc-manager",
+        "status": "ALLOWED"
+      },
+      "/mpd/head": {
+        "targetLabel": "Head of MPD Station",
+        "resolvedUrl": "http://localhost:3000/mpd/head",
+        "status": "ALLOWED"
+      },
+      "/contractor/manager": {
+        "targetLabel": "Plant Contractor Station",
+        "resolvedUrl": "http://localhost:3000/contractor/manager",
+        "status": "ALLOWED"
+      },
+      "/department/mpd": {
+        "targetLabel": "MPD Field Operations / Dispatches",
+        "resolvedUrl": "http://localhost:3000/department/mpd",
+        "status": "ALLOWED"
+      },
+      "/department/security": {
+        "targetLabel": "Security Department",
+        "resolvedUrl": "http://localhost:3000/department/security",
+        "status": "ALLOWED"
+      },
+      "/department/qa": {
+        "targetLabel": "QA Laboratory Department",
+        "resolvedUrl": "http://localhost:3000/department/qa",
+        "status": "ALLOWED"
+      },
+      "/department/weighbridge": {
+        "targetLabel": "Weighbridge Department",
+        "resolvedUrl": "http://localhost:3000/department/weighbridge",
+        "status": "ALLOWED"
+      },
+      "/department/production": {
+        "targetLabel": "Production Reception Department",
+        "resolvedUrl": "http://localhost:3000/department/production",
+        "status": "ALLOWED"
+      },
+      "/super-admin": {
+        "targetLabel": "Super Admin Overview",
+        "resolvedUrl": "http://localhost:3000/super-admin",
+        "status": "ALLOWED"
+      },
+      "/super-admin/lab-tests": {
+        "targetLabel": "Super Admin Lab Tests",
+        "resolvedUrl": "http://localhost:3000/super-admin/lab-tests",
+        "status": "ALLOWED"
+      },
+      "/workspace-unavailable": {
+        "targetLabel": "Workspace Unavailable",
+        "resolvedUrl": "http://localhost:3000/workspace-unavailable",
+        "status": "WORKSPACE_UNAVAILABLE"
+      }
+    },
+    "CONTRACTOR_MANAGER": {
+      "/": {
+        "targetLabel": "Plant Operation Dashboard",
+        "resolvedUrl": "http://localhost:3000/contractor/manager",
+        "status": "ALLOWED"
+      },
+      "/tv-board": {
+        "targetLabel": "Public Yard TV Board",
+        "resolvedUrl": "http://localhost:3000/tv-board",
+        "status": "ALLOWED"
+      },
+      "/phe": {
+        "targetLabel": "PHE Shop Station",
+        "resolvedUrl": "http://localhost:3000/phe",
+        "status": "ALLOWED"
+      },
+      "/zmcc/lab": {
+        "targetLabel": "ZMCC Lab Station",
+        "resolvedUrl": "http://localhost:3000/zmcc/lab",
+        "status": "ALLOWED"
+      },
+      "/mot": {
+        "targetLabel": "MOT Driver Station",
+        "resolvedUrl": "http://localhost:3000/mot",
+        "status": "ALLOWED"
+      },
+      "/mpd/zmcc-manager": {
+        "targetLabel": "ZMCC Manager Station",
+        "resolvedUrl": "http://localhost:3000/mpd/zmcc-manager",
+        "status": "ALLOWED"
+      },
+      "/mpd/head": {
+        "targetLabel": "Head of MPD Station",
+        "resolvedUrl": "http://localhost:3000/mpd/head",
+        "status": "ALLOWED"
+      },
+      "/contractor/manager": {
+        "targetLabel": "Plant Contractor Station",
+        "resolvedUrl": "http://localhost:3000/contractor/manager",
+        "status": "ALLOWED"
+      },
+      "/department/mpd": {
+        "targetLabel": "MPD Field Operations / Dispatches",
+        "resolvedUrl": "http://localhost:3000/department/mpd",
+        "status": "ALLOWED"
+      },
+      "/department/security": {
+        "targetLabel": "Security Department",
+        "resolvedUrl": "http://localhost:3000/department/security",
+        "status": "ALLOWED"
+      },
+      "/department/qa": {
+        "targetLabel": "QA Laboratory Department",
+        "resolvedUrl": "http://localhost:3000/department/qa",
+        "status": "ALLOWED"
+      },
+      "/department/weighbridge": {
+        "targetLabel": "Weighbridge Department",
+        "resolvedUrl": "http://localhost:3000/department/weighbridge",
+        "status": "ALLOWED"
+      },
+      "/department/production": {
+        "targetLabel": "Production Reception Department",
+        "resolvedUrl": "http://localhost:3000/department/production",
+        "status": "ALLOWED"
+      },
+      "/super-admin": {
+        "targetLabel": "Super Admin Overview",
+        "resolvedUrl": "http://localhost:3000/super-admin",
+        "status": "ALLOWED"
+      },
+      "/super-admin/lab-tests": {
+        "targetLabel": "Super Admin Lab Tests",
+        "resolvedUrl": "http://localhost:3000/super-admin/lab-tests",
+        "status": "ALLOWED"
+      },
+      "/workspace-unavailable": {
+        "targetLabel": "Workspace Unavailable",
+        "resolvedUrl": "http://localhost:3000/workspace-unavailable",
+        "status": "WORKSPACE_UNAVAILABLE"
+      }
+    },
+    "SUPER_ADMIN": {
+      "/": {
+        "targetLabel": "Plant Operation Dashboard",
+        "resolvedUrl": "http://localhost:3000/super-admin",
+        "status": "ALLOWED"
+      },
+      "/tv-board": {
+        "targetLabel": "Public Yard TV Board",
+        "resolvedUrl": "http://localhost:3000/tv-board",
+        "status": "ALLOWED"
+      },
+      "/phe": {
+        "targetLabel": "PHE Shop Station",
+        "resolvedUrl": "http://localhost:3000/phe",
+        "status": "ALLOWED"
+      },
+      "/zmcc/lab": {
+        "targetLabel": "ZMCC Lab Station",
+        "resolvedUrl": "http://localhost:3000/zmcc/lab",
+        "status": "ALLOWED"
+      },
+      "/mot": {
+        "targetLabel": "MOT Driver Station",
+        "resolvedUrl": "http://localhost:3000/mot",
+        "status": "ALLOWED"
+      },
+      "/mpd/zmcc-manager": {
+        "targetLabel": "ZMCC Manager Station",
+        "resolvedUrl": "http://localhost:3000/mpd/zmcc-manager",
+        "status": "ALLOWED"
+      },
+      "/mpd/head": {
+        "targetLabel": "Head of MPD Station",
+        "resolvedUrl": "http://localhost:3000/mpd/head",
+        "status": "ALLOWED"
+      },
+      "/contractor/manager": {
+        "targetLabel": "Plant Contractor Station",
+        "resolvedUrl": "http://localhost:3000/contractor/manager",
+        "status": "ALLOWED"
+      },
+      "/department/mpd": {
+        "targetLabel": "MPD Field Operations / Dispatches",
+        "resolvedUrl": "http://localhost:3000/department/mpd",
+        "status": "ALLOWED"
+      },
+      "/department/security": {
+        "targetLabel": "Security Department",
+        "resolvedUrl": "http://localhost:3000/department/security",
+        "status": "ALLOWED"
+      },
+      "/department/qa": {
+        "targetLabel": "QA Laboratory Department",
+        "resolvedUrl": "http://localhost:3000/department/qa",
+        "status": "ALLOWED"
+      },
+      "/department/weighbridge": {
+        "targetLabel": "Weighbridge Department",
+        "resolvedUrl": "http://localhost:3000/department/weighbridge",
+        "status": "ALLOWED"
+      },
+      "/department/production": {
+        "targetLabel": "Production Reception Department",
+        "resolvedUrl": "http://localhost:3000/department/production",
+        "status": "ALLOWED"
+      },
+      "/super-admin": {
+        "targetLabel": "Super Admin Overview",
+        "resolvedUrl": "http://localhost:3000/super-admin",
+        "status": "ALLOWED"
+      },
+      "/super-admin/lab-tests": {
+        "targetLabel": "Super Admin Lab Tests",
+        "resolvedUrl": "http://localhost:3000/super-admin/lab-tests",
+        "status": "ALLOWED"
+      },
+      "/workspace-unavailable": {
+        "targetLabel": "Workspace Unavailable",
+        "resolvedUrl": "http://localhost:3000/workspace-unavailable",
+        "status": "WORKSPACE_UNAVAILABLE"
+      }
+    },
+    "HEAD_OF_MPD": {
+      "/": {
+        "targetLabel": "Plant Operation Dashboard",
+        "resolvedUrl": "http://localhost:3000/mpd/head",
+        "status": "ALLOWED"
+      },
+      "/tv-board": {
+        "targetLabel": "Public Yard TV Board",
+        "resolvedUrl": "http://localhost:3000/tv-board",
+        "status": "ALLOWED"
+      },
+      "/phe": {
+        "targetLabel": "PHE Shop Station",
+        "resolvedUrl": "http://localhost:3000/phe",
+        "status": "ALLOWED"
+      },
+      "/zmcc/lab": {
+        "targetLabel": "ZMCC Lab Station",
+        "resolvedUrl": "http://localhost:3000/zmcc/lab",
+        "status": "ALLOWED"
+      },
+      "/mot": {
+        "targetLabel": "MOT Driver Station",
+        "resolvedUrl": "http://localhost:3000/mot",
+        "status": "ALLOWED"
+      },
+      "/mpd/zmcc-manager": {
+        "targetLabel": "ZMCC Manager Station",
+        "resolvedUrl": "http://localhost:3000/mpd/zmcc-manager",
+        "status": "ALLOWED"
+      },
+      "/mpd/head": {
+        "targetLabel": "Head of MPD Station",
+        "resolvedUrl": "http://localhost:3000/mpd/head",
+        "status": "ALLOWED"
+      },
+      "/contractor/manager": {
+        "targetLabel": "Plant Contractor Station",
+        "resolvedUrl": "http://localhost:3000/contractor/manager",
+        "status": "ALLOWED"
+      },
+      "/department/mpd": {
+        "targetLabel": "MPD Field Operations / Dispatches",
+        "resolvedUrl": "http://localhost:3000/department/mpd",
+        "status": "ALLOWED"
+      },
+      "/department/security": {
+        "targetLabel": "Security Department",
+        "resolvedUrl": "http://localhost:3000/department/security",
+        "status": "ALLOWED"
+      },
+      "/department/qa": {
+        "targetLabel": "QA Laboratory Department",
+        "resolvedUrl": "http://localhost:3000/department/qa",
+        "status": "ALLOWED"
+      },
+      "/department/weighbridge": {
+        "targetLabel": "Weighbridge Department",
+        "resolvedUrl": "http://localhost:3000/department/weighbridge",
+        "status": "ALLOWED"
+      },
+      "/department/production": {
+        "targetLabel": "Production Reception Department",
+        "resolvedUrl": "http://localhost:3000/department/production",
+        "status": "ALLOWED"
+      },
+      "/super-admin": {
+        "targetLabel": "Super Admin Overview",
+        "resolvedUrl": "http://localhost:3000/super-admin",
+        "status": "ALLOWED"
+      },
+      "/super-admin/lab-tests": {
+        "targetLabel": "Super Admin Lab Tests",
+        "resolvedUrl": "http://localhost:3000/super-admin/lab-tests",
+        "status": "ALLOWED"
+      },
+      "/workspace-unavailable": {
+        "targetLabel": "Workspace Unavailable",
+        "resolvedUrl": "http://localhost:3000/workspace-unavailable",
+        "status": "WORKSPACE_UNAVAILABLE"
+      }
+    },
+    "CONTRACTOR_OPERATOR": {
+      "/": {
+        "targetLabel": "Plant Operation Dashboard",
+        "resolvedUrl": "http://localhost:3000/workspace-unavailable",
+        "status": "WORKSPACE_UNAVAILABLE"
+      },
+      "/tv-board": {
+        "targetLabel": "Public Yard TV Board",
+        "resolvedUrl": "http://localhost:3000/tv-board",
+        "status": "ALLOWED"
+      },
+      "/phe": {
+        "targetLabel": "PHE Shop Station",
+        "resolvedUrl": "http://localhost:3000/phe",
+        "status": "ALLOWED"
+      },
+      "/zmcc/lab": {
+        "targetLabel": "ZMCC Lab Station",
+        "resolvedUrl": "http://localhost:3000/zmcc/lab",
+        "status": "ALLOWED"
+      },
+      "/mot": {
+        "targetLabel": "MOT Driver Station",
+        "resolvedUrl": "http://localhost:3000/mot",
+        "status": "ALLOWED"
+      },
+      "/mpd/zmcc-manager": {
+        "targetLabel": "ZMCC Manager Station",
+        "resolvedUrl": "http://localhost:3000/mpd/zmcc-manager",
+        "status": "ALLOWED"
+      },
+      "/mpd/head": {
+        "targetLabel": "Head of MPD Station",
+        "resolvedUrl": "http://localhost:3000/mpd/head",
+        "status": "ALLOWED"
+      },
+      "/contractor/manager": {
+        "targetLabel": "Plant Contractor Station",
+        "resolvedUrl": "http://localhost:3000/contractor/manager",
+        "status": "ALLOWED"
+      },
+      "/department/mpd": {
+        "targetLabel": "MPD Field Operations / Dispatches",
+        "resolvedUrl": "http://localhost:3000/department/mpd",
+        "status": "ALLOWED"
+      },
+      "/department/security": {
+        "targetLabel": "Security Department",
+        "resolvedUrl": "http://localhost:3000/department/security",
+        "status": "ALLOWED"
+      },
+      "/department/qa": {
+        "targetLabel": "QA Laboratory Department",
+        "resolvedUrl": "http://localhost:3000/department/qa",
+        "status": "ALLOWED"
+      },
+      "/department/weighbridge": {
+        "targetLabel": "Weighbridge Department",
+        "resolvedUrl": "http://localhost:3000/department/weighbridge",
+        "status": "ALLOWED"
+      },
+      "/department/production": {
+        "targetLabel": "Production Reception Department",
+        "resolvedUrl": "http://localhost:3000/department/production",
+        "status": "ALLOWED"
+      },
+      "/super-admin": {
+        "targetLabel": "Super Admin Overview",
+        "resolvedUrl": "http://localhost:3000/super-admin",
+        "status": "ALLOWED"
+      },
+      "/super-admin/lab-tests": {
+        "targetLabel": "Super Admin Lab Tests",
+        "resolvedUrl": "http://localhost:3000/super-admin/lab-tests",
+        "status": "ALLOWED"
+      },
+      "/workspace-unavailable": {
+        "targetLabel": "Workspace Unavailable",
+        "resolvedUrl": "http://localhost:3000/workspace-unavailable",
+        "status": "WORKSPACE_UNAVAILABLE"
+      }
+    },
+    "QA_MANAGER": {
+      "/": {
+        "targetLabel": "Plant Operation Dashboard",
+        "resolvedUrl": "http://localhost:3000/workspace-unavailable",
+        "status": "WORKSPACE_UNAVAILABLE"
+      },
+      "/tv-board": {
+        "targetLabel": "Public Yard TV Board",
+        "resolvedUrl": "http://localhost:3000/tv-board",
+        "status": "ALLOWED"
+      },
+      "/phe": {
+        "targetLabel": "PHE Shop Station",
+        "resolvedUrl": "http://localhost:3000/phe",
+        "status": "ALLOWED"
+      },
+      "/zmcc/lab": {
+        "targetLabel": "ZMCC Lab Station",
+        "resolvedUrl": "http://localhost:3000/zmcc/lab",
+        "status": "ALLOWED"
+      },
+      "/mot": {
+        "targetLabel": "MOT Driver Station",
+        "resolvedUrl": "http://localhost:3000/mot",
+        "status": "ALLOWED"
+      },
+      "/mpd/zmcc-manager": {
+        "targetLabel": "ZMCC Manager Station",
+        "resolvedUrl": "http://localhost:3000/mpd/zmcc-manager",
+        "status": "ALLOWED"
+      },
+      "/mpd/head": {
+        "targetLabel": "Head of MPD Station",
+        "resolvedUrl": "http://localhost:3000/mpd/head",
+        "status": "ALLOWED"
+      },
+      "/contractor/manager": {
+        "targetLabel": "Plant Contractor Station",
+        "resolvedUrl": "http://localhost:3000/contractor/manager",
+        "status": "ALLOWED"
+      },
+      "/department/mpd": {
+        "targetLabel": "MPD Field Operations / Dispatches",
+        "resolvedUrl": "http://localhost:3000/department/mpd",
+        "status": "ALLOWED"
+      },
+      "/department/security": {
+        "targetLabel": "Security Department",
+        "resolvedUrl": "http://localhost:3000/department/security",
+        "status": "ALLOWED"
+      },
+      "/department/qa": {
+        "targetLabel": "QA Laboratory Department",
+        "resolvedUrl": "http://localhost:3000/department/qa",
+        "status": "ALLOWED"
+      },
+      "/department/weighbridge": {
+        "targetLabel": "Weighbridge Department",
+        "resolvedUrl": "http://localhost:3000/department/weighbridge",
+        "status": "ALLOWED"
+      },
+      "/department/production": {
+        "targetLabel": "Production Reception Department",
+        "resolvedUrl": "http://localhost:3000/department/production",
+        "status": "ALLOWED"
+      },
+      "/super-admin": {
+        "targetLabel": "Super Admin Overview",
+        "resolvedUrl": "http://localhost:3000/super-admin",
+        "status": "ALLOWED"
+      },
+      "/super-admin/lab-tests": {
+        "targetLabel": "Super Admin Lab Tests",
+        "resolvedUrl": "http://localhost:3000/super-admin/lab-tests",
+        "status": "ALLOWED"
+      },
+      "/workspace-unavailable": {
+        "targetLabel": "Workspace Unavailable",
+        "resolvedUrl": "http://localhost:3000/workspace-unavailable",
+        "status": "WORKSPACE_UNAVAILABLE"
+      }
+    },
+    "EXECUTIVE_MANAGEMENT": {
+      "/": {
+        "targetLabel": "Plant Operation Dashboard",
+        "resolvedUrl": "http://localhost:3000/workspace-unavailable",
+        "status": "WORKSPACE_UNAVAILABLE"
+      },
+      "/tv-board": {
+        "targetLabel": "Public Yard TV Board",
+        "resolvedUrl": "http://localhost:3000/tv-board",
+        "status": "ALLOWED"
+      },
+      "/phe": {
+        "targetLabel": "PHE Shop Station",
+        "resolvedUrl": "http://localhost:3000/phe",
+        "status": "ALLOWED"
+      },
+      "/zmcc/lab": {
+        "targetLabel": "ZMCC Lab Station",
+        "resolvedUrl": "http://localhost:3000/zmcc/lab",
+        "status": "ALLOWED"
+      },
+      "/mot": {
+        "targetLabel": "MOT Driver Station",
+        "resolvedUrl": "http://localhost:3000/mot",
+        "status": "ALLOWED"
+      },
+      "/mpd/zmcc-manager": {
+        "targetLabel": "ZMCC Manager Station",
+        "resolvedUrl": "http://localhost:3000/mpd/zmcc-manager",
+        "status": "ALLOWED"
+      },
+      "/mpd/head": {
+        "targetLabel": "Head of MPD Station",
+        "resolvedUrl": "http://localhost:3000/mpd/head",
+        "status": "ALLOWED"
+      },
+      "/contractor/manager": {
+        "targetLabel": "Plant Contractor Station",
+        "resolvedUrl": "http://localhost:3000/contractor/manager",
+        "status": "ALLOWED"
+      },
+      "/department/mpd": {
+        "targetLabel": "MPD Field Operations / Dispatches",
+        "resolvedUrl": "http://localhost:3000/department/mpd",
+        "status": "ALLOWED"
+      },
+      "/department/security": {
+        "targetLabel": "Security Department",
+        "resolvedUrl": "http://localhost:3000/department/security",
+        "status": "ALLOWED"
+      },
+      "/department/qa": {
+        "targetLabel": "QA Laboratory Department",
+        "resolvedUrl": "http://localhost:3000/department/qa",
+        "status": "ALLOWED"
+      },
+      "/department/weighbridge": {
+        "targetLabel": "Weighbridge Department",
+        "resolvedUrl": "http://localhost:3000/department/weighbridge",
+        "status": "ALLOWED"
+      },
+      "/department/production": {
+        "targetLabel": "Production Reception Department",
+        "resolvedUrl": "http://localhost:3000/department/production",
+        "status": "ALLOWED"
+      },
+      "/super-admin": {
+        "targetLabel": "Super Admin Overview",
+        "resolvedUrl": "http://localhost:3000/super-admin",
+        "status": "ALLOWED"
+      },
+      "/super-admin/lab-tests": {
+        "targetLabel": "Super Admin Lab Tests",
+        "resolvedUrl": "http://localhost:3000/super-admin/lab-tests",
+        "status": "ALLOWED"
+      },
+      "/workspace-unavailable": {
+        "targetLabel": "Workspace Unavailable",
+        "resolvedUrl": "http://localhost:3000/workspace-unavailable",
+        "status": "WORKSPACE_UNAVAILABLE"
+      }
+    },
+    "DATA_EXECUTIVE": {
+      "/": {
+        "targetLabel": "Plant Operation Dashboard",
+        "resolvedUrl": "http://localhost:3000/workspace-unavailable",
+        "status": "WORKSPACE_UNAVAILABLE"
+      },
+      "/tv-board": {
+        "targetLabel": "Public Yard TV Board",
+        "resolvedUrl": "http://localhost:3000/tv-board",
+        "status": "ALLOWED"
+      },
+      "/phe": {
+        "targetLabel": "PHE Shop Station",
+        "resolvedUrl": "http://localhost:3000/phe",
+        "status": "ALLOWED"
+      },
+      "/zmcc/lab": {
+        "targetLabel": "ZMCC Lab Station",
+        "resolvedUrl": "http://localhost:3000/zmcc/lab",
+        "status": "ALLOWED"
+      },
+      "/mot": {
+        "targetLabel": "MOT Driver Station",
+        "resolvedUrl": "http://localhost:3000/mot",
+        "status": "ALLOWED"
+      },
+      "/mpd/zmcc-manager": {
+        "targetLabel": "ZMCC Manager Station",
+        "resolvedUrl": "http://localhost:3000/mpd/zmcc-manager",
+        "status": "ALLOWED"
+      },
+      "/mpd/head": {
+        "targetLabel": "Head of MPD Station",
+        "resolvedUrl": "http://localhost:3000/mpd/head",
+        "status": "ALLOWED"
+      },
+      "/contractor/manager": {
+        "targetLabel": "Plant Contractor Station",
+        "resolvedUrl": "http://localhost:3000/contractor/manager",
+        "status": "ALLOWED"
+      },
+      "/department/mpd": {
+        "targetLabel": "MPD Field Operations / Dispatches",
+        "resolvedUrl": "http://localhost:3000/department/mpd",
+        "status": "ALLOWED"
+      },
+      "/department/security": {
+        "targetLabel": "Security Department",
+        "resolvedUrl": "http://localhost:3000/department/security",
+        "status": "ALLOWED"
+      },
+      "/department/qa": {
+        "targetLabel": "QA Laboratory Department",
+        "resolvedUrl": "http://localhost:3000/department/qa",
+        "status": "ALLOWED"
+      },
+      "/department/weighbridge": {
+        "targetLabel": "Weighbridge Department",
+        "resolvedUrl": "http://localhost:3000/department/weighbridge",
+        "status": "ALLOWED"
+      },
+      "/department/production": {
+        "targetLabel": "Production Reception Department",
+        "resolvedUrl": "http://localhost:3000/department/production",
+        "status": "ALLOWED"
+      },
+      "/super-admin": {
+        "targetLabel": "Super Admin Overview",
+        "resolvedUrl": "http://localhost:3000/super-admin",
+        "status": "ALLOWED"
+      },
+      "/super-admin/lab-tests": {
+        "targetLabel": "Super Admin Lab Tests",
+        "resolvedUrl": "http://localhost:3000/super-admin/lab-tests",
+        "status": "ALLOWED"
+      },
+      "/workspace-unavailable": {
+        "targetLabel": "Workspace Unavailable",
+        "resolvedUrl": "http://localhost:3000/workspace-unavailable",
+        "status": "WORKSPACE_UNAVAILABLE"
+      }
+    },
+    "ADMIN_HEAD": {
+      "/": {
+        "targetLabel": "Plant Operation Dashboard",
+        "resolvedUrl": "http://localhost:3000/workspace-unavailable",
+        "status": "WORKSPACE_UNAVAILABLE"
+      },
+      "/tv-board": {
+        "targetLabel": "Public Yard TV Board",
+        "resolvedUrl": "http://localhost:3000/tv-board",
+        "status": "ALLOWED"
+      },
+      "/phe": {
+        "targetLabel": "PHE Shop Station",
+        "resolvedUrl": "http://localhost:3000/phe",
+        "status": "ALLOWED"
+      },
+      "/zmcc/lab": {
+        "targetLabel": "ZMCC Lab Station",
+        "resolvedUrl": "http://localhost:3000/zmcc/lab",
+        "status": "ALLOWED"
+      },
+      "/mot": {
+        "targetLabel": "MOT Driver Station",
+        "resolvedUrl": "http://localhost:3000/mot",
+        "status": "ALLOWED"
+      },
+      "/mpd/zmcc-manager": {
+        "targetLabel": "ZMCC Manager Station",
+        "resolvedUrl": "http://localhost:3000/mpd/zmcc-manager",
+        "status": "ALLOWED"
+      },
+      "/mpd/head": {
+        "targetLabel": "Head of MPD Station",
+        "resolvedUrl": "http://localhost:3000/mpd/head",
+        "status": "ALLOWED"
+      },
+      "/contractor/manager": {
+        "targetLabel": "Plant Contractor Station",
+        "resolvedUrl": "http://localhost:3000/contractor/manager",
+        "status": "ALLOWED"
+      },
+      "/department/mpd": {
+        "targetLabel": "MPD Field Operations / Dispatches",
+        "resolvedUrl": "http://localhost:3000/department/mpd",
+        "status": "ALLOWED"
+      },
+      "/department/security": {
+        "targetLabel": "Security Department",
+        "resolvedUrl": "http://localhost:3000/department/security",
+        "status": "ALLOWED"
+      },
+      "/department/qa": {
+        "targetLabel": "QA Laboratory Department",
+        "resolvedUrl": "http://localhost:3000/department/qa",
+        "status": "ALLOWED"
+      },
+      "/department/weighbridge": {
+        "targetLabel": "Weighbridge Department",
+        "resolvedUrl": "http://localhost:3000/department/weighbridge",
+        "status": "ALLOWED"
+      },
+      "/department/production": {
+        "targetLabel": "Production Reception Department",
+        "resolvedUrl": "http://localhost:3000/department/production",
+        "status": "ALLOWED"
+      },
+      "/super-admin": {
+        "targetLabel": "Super Admin Overview",
+        "resolvedUrl": "http://localhost:3000/super-admin",
+        "status": "ALLOWED"
+      },
+      "/super-admin/lab-tests": {
+        "targetLabel": "Super Admin Lab Tests",
+        "resolvedUrl": "http://localhost:3000/super-admin/lab-tests",
+        "status": "ALLOWED"
+      },
+      "/workspace-unavailable": {
+        "targetLabel": "Workspace Unavailable",
+        "resolvedUrl": "http://localhost:3000/workspace-unavailable",
+        "status": "WORKSPACE_UNAVAILABLE"
+      }
+    },
+    "QA_HEAD": {
+      "/": {
+        "targetLabel": "Plant Operation Dashboard",
+        "resolvedUrl": "http://localhost:3000/workspace-unavailable",
+        "status": "WORKSPACE_UNAVAILABLE"
+      },
+      "/tv-board": {
+        "targetLabel": "Public Yard TV Board",
+        "resolvedUrl": "http://localhost:3000/tv-board",
+        "status": "ALLOWED"
+      },
+      "/phe": {
+        "targetLabel": "PHE Shop Station",
+        "resolvedUrl": "http://localhost:3000/phe",
+        "status": "ALLOWED"
+      },
+      "/zmcc/lab": {
+        "targetLabel": "ZMCC Lab Station",
+        "resolvedUrl": "http://localhost:3000/zmcc/lab",
+        "status": "ALLOWED"
+      },
+      "/mot": {
+        "targetLabel": "MOT Driver Station",
+        "resolvedUrl": "http://localhost:3000/mot",
+        "status": "ALLOWED"
+      },
+      "/mpd/zmcc-manager": {
+        "targetLabel": "ZMCC Manager Station",
+        "resolvedUrl": "http://localhost:3000/mpd/zmcc-manager",
+        "status": "ALLOWED"
+      },
+      "/mpd/head": {
+        "targetLabel": "Head of MPD Station",
+        "resolvedUrl": "http://localhost:3000/mpd/head",
+        "status": "ALLOWED"
+      },
+      "/contractor/manager": {
+        "targetLabel": "Plant Contractor Station",
+        "resolvedUrl": "http://localhost:3000/contractor/manager",
+        "status": "ALLOWED"
+      },
+      "/department/mpd": {
+        "targetLabel": "MPD Field Operations / Dispatches",
+        "resolvedUrl": "http://localhost:3000/department/mpd",
+        "status": "ALLOWED"
+      },
+      "/department/security": {
+        "targetLabel": "Security Department",
+        "resolvedUrl": "http://localhost:3000/department/security",
+        "status": "ALLOWED"
+      },
+      "/department/qa": {
+        "targetLabel": "QA Laboratory Department",
+        "resolvedUrl": "http://localhost:3000/department/qa",
+        "status": "ALLOWED"
+      },
+      "/department/weighbridge": {
+        "targetLabel": "Weighbridge Department",
+        "resolvedUrl": "http://localhost:3000/department/weighbridge",
+        "status": "ALLOWED"
+      },
+      "/department/production": {
+        "targetLabel": "Production Reception Department",
+        "resolvedUrl": "http://localhost:3000/department/production",
+        "status": "ALLOWED"
+      },
+      "/super-admin": {
+        "targetLabel": "Super Admin Overview",
+        "resolvedUrl": "http://localhost:3000/super-admin",
+        "status": "ALLOWED"
+      },
+      "/super-admin/lab-tests": {
+        "targetLabel": "Super Admin Lab Tests",
+        "resolvedUrl": "http://localhost:3000/super-admin/lab-tests",
+        "status": "ALLOWED"
+      },
+      "/workspace-unavailable": {
+        "targetLabel": "Workspace Unavailable",
+        "resolvedUrl": "http://localhost:3000/workspace-unavailable",
+        "status": "WORKSPACE_UNAVAILABLE"
+      }
+    },
+    "PRODUCTION_HEAD": {
+      "/": {
+        "targetLabel": "Plant Operation Dashboard",
+        "resolvedUrl": "http://localhost:3000/workspace-unavailable",
+        "status": "WORKSPACE_UNAVAILABLE"
+      },
+      "/tv-board": {
+        "targetLabel": "Public Yard TV Board",
+        "resolvedUrl": "http://localhost:3000/tv-board",
+        "status": "ALLOWED"
+      },
+      "/phe": {
+        "targetLabel": "PHE Shop Station",
+        "resolvedUrl": "http://localhost:3000/phe",
+        "status": "ALLOWED"
+      },
+      "/zmcc/lab": {
+        "targetLabel": "ZMCC Lab Station",
+        "resolvedUrl": "http://localhost:3000/zmcc/lab",
+        "status": "ALLOWED"
+      },
+      "/mot": {
+        "targetLabel": "MOT Driver Station",
+        "resolvedUrl": "http://localhost:3000/mot",
+        "status": "ALLOWED"
+      },
+      "/mpd/zmcc-manager": {
+        "targetLabel": "ZMCC Manager Station",
+        "resolvedUrl": "http://localhost:3000/mpd/zmcc-manager",
+        "status": "ALLOWED"
+      },
+      "/mpd/head": {
+        "targetLabel": "Head of MPD Station",
+        "resolvedUrl": "http://localhost:3000/mpd/head",
+        "status": "ALLOWED"
+      },
+      "/contractor/manager": {
+        "targetLabel": "Plant Contractor Station",
+        "resolvedUrl": "http://localhost:3000/contractor/manager",
+        "status": "ALLOWED"
+      },
+      "/department/mpd": {
+        "targetLabel": "MPD Field Operations / Dispatches",
+        "resolvedUrl": "http://localhost:3000/department/mpd",
+        "status": "ALLOWED"
+      },
+      "/department/security": {
+        "targetLabel": "Security Department",
+        "resolvedUrl": "http://localhost:3000/department/security",
+        "status": "ALLOWED"
+      },
+      "/department/qa": {
+        "targetLabel": "QA Laboratory Department",
+        "resolvedUrl": "http://localhost:3000/department/qa",
+        "status": "ALLOWED"
+      },
+      "/department/weighbridge": {
+        "targetLabel": "Weighbridge Department",
+        "resolvedUrl": "http://localhost:3000/department/weighbridge",
+        "status": "ALLOWED"
+      },
+      "/department/production": {
+        "targetLabel": "Production Reception Department",
+        "resolvedUrl": "http://localhost:3000/department/production",
+        "status": "ALLOWED"
+      },
+      "/super-admin": {
+        "targetLabel": "Super Admin Overview",
+        "resolvedUrl": "http://localhost:3000/super-admin",
+        "status": "ALLOWED"
+      },
+      "/super-admin/lab-tests": {
+        "targetLabel": "Super Admin Lab Tests",
+        "resolvedUrl": "http://localhost:3000/super-admin/lab-tests",
+        "status": "ALLOWED"
+      },
+      "/workspace-unavailable": {
+        "targetLabel": "Workspace Unavailable",
+        "resolvedUrl": "http://localhost:3000/workspace-unavailable",
+        "status": "WORKSPACE_UNAVAILABLE"
+      }
+    },
+    "FINANCE_ACCOUNTS": {
+      "/": {
+        "targetLabel": "Plant Operation Dashboard",
+        "resolvedUrl": "http://localhost:3000/workspace-unavailable",
+        "status": "WORKSPACE_UNAVAILABLE"
+      },
+      "/tv-board": {
+        "targetLabel": "Public Yard TV Board",
+        "resolvedUrl": "http://localhost:3000/tv-board",
+        "status": "ALLOWED"
+      },
+      "/phe": {
+        "targetLabel": "PHE Shop Station",
+        "resolvedUrl": "http://localhost:3000/phe",
+        "status": "ALLOWED"
+      },
+      "/zmcc/lab": {
+        "targetLabel": "ZMCC Lab Station",
+        "resolvedUrl": "http://localhost:3000/zmcc/lab",
+        "status": "ALLOWED"
+      },
+      "/mot": {
+        "targetLabel": "MOT Driver Station",
+        "resolvedUrl": "http://localhost:3000/mot",
+        "status": "ALLOWED"
+      },
+      "/mpd/zmcc-manager": {
+        "targetLabel": "ZMCC Manager Station",
+        "resolvedUrl": "http://localhost:3000/mpd/zmcc-manager",
+        "status": "ALLOWED"
+      },
+      "/mpd/head": {
+        "targetLabel": "Head of MPD Station",
+        "resolvedUrl": "http://localhost:3000/mpd/head",
+        "status": "ALLOWED"
+      },
+      "/contractor/manager": {
+        "targetLabel": "Plant Contractor Station",
+        "resolvedUrl": "http://localhost:3000/contractor/manager",
+        "status": "ALLOWED"
+      },
+      "/department/mpd": {
+        "targetLabel": "MPD Field Operations / Dispatches",
+        "resolvedUrl": "http://localhost:3000/department/mpd",
+        "status": "ALLOWED"
+      },
+      "/department/security": {
+        "targetLabel": "Security Department",
+        "resolvedUrl": "http://localhost:3000/department/security",
+        "status": "ALLOWED"
+      },
+      "/department/qa": {
+        "targetLabel": "QA Laboratory Department",
+        "resolvedUrl": "http://localhost:3000/department/qa",
+        "status": "ALLOWED"
+      },
+      "/department/weighbridge": {
+        "targetLabel": "Weighbridge Department",
+        "resolvedUrl": "http://localhost:3000/department/weighbridge",
+        "status": "ALLOWED"
+      },
+      "/department/production": {
+        "targetLabel": "Production Reception Department",
+        "resolvedUrl": "http://localhost:3000/department/production",
+        "status": "ALLOWED"
+      },
+      "/super-admin": {
+        "targetLabel": "Super Admin Overview",
+        "resolvedUrl": "http://localhost:3000/super-admin",
+        "status": "ALLOWED"
+      },
+      "/super-admin/lab-tests": {
+        "targetLabel": "Super Admin Lab Tests",
+        "resolvedUrl": "http://localhost:3000/super-admin/lab-tests",
+        "status": "ALLOWED"
+      },
+      "/workspace-unavailable": {
+        "targetLabel": "Workspace Unavailable",
+        "resolvedUrl": "http://localhost:3000/workspace-unavailable",
+        "status": "WORKSPACE_UNAVAILABLE"
+      }
+    }
+  }
+}

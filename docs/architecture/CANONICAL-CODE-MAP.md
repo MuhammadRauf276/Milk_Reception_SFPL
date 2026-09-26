@@ -1,7 +1,7 @@
 # Canonical Code Map & Architecture Ownership
 
-**Milk Reception Application (SFPL)**  
-*Stage 4E Architectural Baseline*
+**Milk Reception Application (SFPL)**
+*Stage 6 Architectural Baseline (Refreshed in Stage 6G-D.4A)*
 
 ---
 
@@ -27,27 +27,29 @@ Being located under `src/app` does **NOT** mean code is current. Every route, AP
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | `/login` | **CANONICAL** | All Users | `LoginPage.tsx` | CURRENT | Authenticates users, sets secure cookie, and routes to role home via `resolveRoleHome`. |
 | `/` | **CANONICAL GATEWAY** | All Authenticated Users | `src/app/page.tsx` | CURRENT | Pure routing gateway using `resolveRoleHome`. Zero legacy component imports or render fallback. |
-| `/workspace-unavailable` | **CANONICAL** | Unready / Unmapped Roles | `.../workspace-unavailable/page.tsx` | CURRENT | Safe fail-closed landing page for future or unrecognized roles. |
-| `/department/mpd` | **CANONICAL** | `MPD_Operator`, `MPD` | `MPDDispatchWorkspace.tsx` | CURRENT | ZMCC milk dispatch creation and portion entry. |
-| `/department/security` | **CANONICAL** | `Security_Operator`, `Security_Weight` | `SecurityGatewayWorkspace.tsx` | CURRENT | Plant gate entry, token issuance, and gate exit. |
-| `/department/security-manager`| **CANONICAL** | `Security_Manager` | `SecurityManager.tsx` | CURRENT | Security supervisory and gate exit audit. |
-| `/department/qa` | **CANONICAL** | `QA_Operator`, `QA` | `QALaboratoryWorkspace.tsx` | CURRENT | QA session management and portion lab result entry. |
-| `/department/weighbridge` | **CANONICAL** | `WEIGHBRIDGE_OPERATOR` | `WeighbridgeWorkspace.tsx` | CURRENT | First weight (gross) and second weight (tare) scale recording. |
-| `/department/production` | **CANONICAL** | `Production_Operator`, `Production` | `ProductionUnloadingWorkspace.tsx`| CURRENT | Silo allocation, unloading, and silo issue management. |
-| `/mpd/zmcc-manager` | **CANONICAL** | `ZMCC_MANAGER` | `ZMCCManagerWorkspace.tsx` | CURRENT | Source-scoped supervisory workspace (Overview, Live, Cross-Verif, Quality, Receipts, History). |
-| `/super-admin` | **CANONICAL** | `SUPER_ADMIN`, `Admin` | `src/app/super-admin/page.tsx` | CURRENT | Operations dashboard and live KPI overview. |
-| `/super-admin/users` | **CANONICAL** | `SUPER_ADMIN`, `Admin` | `src/app/super-admin/users/page.tsx` | CURRENT | User creation, role assignment, activation, password reset. |
-| `/super-admin/procurement-sources` | **CANONICAL** | `SUPER_ADMIN`, `Admin` | `.../procurement-sources/page.tsx` | CURRENT | Source master data, testing mode, and baseline configuration. |
-| `/super-admin/silos` | **CANONICAL** | `SUPER_ADMIN`, `Admin` | `.../silos/page.tsx` | CURRENT | Silo storage tanks, capacity, and active status master data. |
-| `/super-admin/lab-tests` | **CANONICAL** | `SUPER_ADMIN`, `Admin` | `.../lab-tests/page.tsx` | CURRENT | Configurable lab tests, result options, units, and scopes. |
-| `/super-admin/sop-rules` | **CANONICAL** | `SUPER_ADMIN`, `Admin` | `.../sop-rules/page.tsx` | CURRENT | Quality SOP rules, min/max limits, and auto-acceptance criteria. |
-| `/super-admin/qa-warnings` | **CANONICAL** | `SUPER_ADMIN`, `Admin` | `.../qa-warnings/page.tsx` | CURRENT | Borderline warning audit and threshold tracking. |
-| `/super-admin/operations` | **CANONICAL** | `SUPER_ADMIN`, `Admin` | `.../operations/page.tsx` | CURRENT | Vehicle visit journey oversight and administrative inspection. |
-| `/super-admin/audit` | **CANONICAL** | `SUPER_ADMIN`, `Admin` | `.../audit/page.tsx` | CURRENT | System data audit log explorer. |
-| `/super-admin/master-data` | **CANONICAL** | `SUPER_ADMIN`, `Admin` | `.../master-data/page.tsx` | CURRENT | Directory navigation hub linking to sources, silos, tests. |
-| `/super-admin/settings` | **CANONICAL** | `SUPER_ADMIN`, `Admin` | `.../settings/page.tsx` | CURRENT | Security, session, and infrastructure status display. |
+| `/workspace-unavailable` | **CANONICAL** | Unready / Unmapped Roles | `.../workspace-unavailable/page.tsx` | CURRENT | Safe fail-closed landing page for future, unready, or retired legacy roles. |
+| `/mpd/head` | **CANONICAL** | `HEAD_OF_MPD`, `SUPER_ADMIN` | `MilkTestPolicyWorkspace.tsx` | CURRENT | Head of MPD supervisory and test policy workspace (4 MPD testing points). |
+| `/department/mpd` | **CANONICAL** | `ZMCC_LAB_ATTENDANT`, `SUPER_ADMIN` | `MPDDispatchWorkspace.tsx` | CURRENT | ZMCC milk dispatch creation and lab test portion entry. |
+| `/department/security` | **CANONICAL** | `SECURITY_OPERATOR`, `SUPER_ADMIN` | `SecurityGatewayWorkspace.tsx` | CURRENT | Plant gate entry, token issuance, and gate exit. |
+| `/department/qa` | **CANONICAL** | `QA_LAB_ATTENDANT`, `SUPER_ADMIN` | `QALaboratoryWorkspace.tsx` | CURRENT | QA session management and portion lab result entry (Plant QA only). |
+| `/department/weighbridge` | **CANONICAL** | `WEIGHBRIDGE_OPERATOR`, `SUPER_ADMIN` | `WeighbridgeWorkspace.tsx` | CURRENT | First weight (gross) and second weight (tare) scale recording. |
+| `/department/production` | **CANONICAL** | `PRODUCTION_RECEPTION_OPERATOR`, `SUPER_ADMIN` | `ProductionUnloadingWorkspace.tsx`| CURRENT | Silo allocation, unloading, and silo issue management. |
+| `/mpd/zmcc-manager` | **CANONICAL** | `ZMCC_MANAGER`, `SUPER_ADMIN` | `ZMCCManagerWorkspace.tsx` | CURRENT | Source-scoped supervisory workspace with five top-level areas: Overview, Live Operations, Reconciliation, History & Reports, and Master Data. Arrival and Lab correction workflows are nested under History rather than exposed as operator-level top tabs. |
+| `/contractor/manager` | **CANONICAL** | `CONTRACTOR_MANAGER`, `SUPER_ADMIN` | `PlantContractorManagerWorkspace.tsx` | CURRENT | Direct-to-plant contractor, source-scoped read-only supervision. |
+| `/super-admin` | **CANONICAL** | `SUPER_ADMIN` | `src/app/super-admin/page.tsx` | CURRENT | Operations dashboard and live KPI overview. |
+| `/super-admin/users` | **CANONICAL** | `SUPER_ADMIN` | `src/app/super-admin/users/page.tsx` | CURRENT | User creation, role assignment, activation, password reset. |
+| `/super-admin/procurement-sources` | **CANONICAL** | `SUPER_ADMIN` | `.../procurement-sources/page.tsx` | CURRENT | Source master data, testing mode, and baseline configuration. |
+| `/super-admin/silos` | **CANONICAL** | `SUPER_ADMIN` | `.../silos/page.tsx` | CURRENT | Silo storage tanks, capacity, and active status master data. |
+| `/super-admin/lab-tests` | **CANONICAL** | `SUPER_ADMIN` | `.../lab-tests/page.tsx` | CURRENT | Configurable lab tests, result options, units, and scopes. |
+| `/super-admin/test-policies` | **CANONICAL** | `SUPER_ADMIN` | `.../test-policies/page.tsx` | CURRENT | Global milk test policy assignments across all 5 testing points. |
+| `/super-admin/sop-rules` | **CANONICAL** | `SUPER_ADMIN` | `.../sop-rules/page.tsx` | CURRENT | Quality SOP rules, min/max limits, and auto-acceptance criteria. |
+| `/super-admin/qa-warnings` | **CANONICAL** | `SUPER_ADMIN` | `.../qa-warnings/page.tsx` | CURRENT | Borderline warning audit and threshold tracking. |
+| `/super-admin/operations` | **CANONICAL** | `SUPER_ADMIN` | `.../operations/page.tsx` | CURRENT | Vehicle visit journey oversight and administrative inspection. |
+| `/super-admin/audit` | **CANONICAL** | `SUPER_ADMIN` | `.../audit/page.tsx` | CURRENT | System data audit log explorer. |
+| `/super-admin/master-data` | **CANONICAL** | `SUPER_ADMIN` | `.../master-data/page.tsx` | CURRENT | Directory navigation hub linking to sources, silos, tests. |
+| `/super-admin/settings` | **CANONICAL** | `SUPER_ADMIN` | `.../settings/page.tsx` | CURRENT | Security, session, and infrastructure status display. |
 | `/weighbridge` | **COMPATIBILITY** | `WEIGHBRIDGE_OPERATOR` | `WeighbridgeWorkspace.tsx` | COMPATIBILITY | Redirects to `/department/weighbridge` (which renders `WeighbridgeWorkspace`). |
-| `/admin/lab-tests` | **COMPATIBILITY** | `Admin` | `src/app/admin/lab-tests/page.tsx` | COMPATIBILITY | Client-side compatibility redirect to `/super-admin/lab-tests`. |
+| `/admin/lab-tests` | **COMPATIBILITY** | None | `src/app/admin/lab-tests/page.tsx` | COMPATIBILITY | Client-side compatibility redirect to `/super-admin/lab-tests`. |
 | `/fleet-tracking` | **RETIRED (4E-E)** | None | N/A | RETIRED | Unowned legacy monitoring board retired in Stage 4E-E. |
 | `/tv-board` | **BUSINESS DECISION**| Plant Displays | `src/app/tv-board/page.tsx` | BUSINESS DECISION | Read-only wall-board screen for factory reception lanes. |
 
@@ -56,36 +58,34 @@ Being located under `src/app` does **NOT** mean code is current. Every route, AP
 ## 3. Root Route & Role-Home Policy (`src/lib/role-routing.ts`)
 
 > [!NOTE]
-> **CANONICAL ROUTING GATEWAY (STAGE 4E-B / 4E-D / 4E-E)**
+> **CANONICAL ROUTING GATEWAY (STAGE 6G-A CORRECTION #2)**
 > `src/app/page.tsx` is a pure routing gateway. It inspects `currentUser.role` and executes a server-side redirect via `resolveRoleHome(role)`.
 > **NO DEFAULT BUSINESS WORKSPACE FALLBACK**: Unknown, unmapped, future, and retired legacy roles fail closed to `/workspace-unavailable`.
 
 ### Role Home Ownership Matrix
 
-| Role / Alias | Classification | Destination | Notes |
+| Role | Classification | Destination | Notes |
 | :--- | :--- | :--- | :--- |
-| `SUPER_ADMIN` | **CURRENT** | `/super-admin` | Super Admin Master Portal |
-| `Admin` | **CURRENT (Alias)** | `/super-admin` | Administrator Alias |
-| `ZMCC_MANAGER` | **CURRENT** | `/mpd/zmcc-manager` | ZMCC Source Manager Workspace |
-| `MPD_Operator` | **CURRENT** | `/department/mpd` | MPD Field Station |
-| `MPD` | **CURRENT (Alias)** | `/department/mpd` | MPD Operator Alias |
-| `Security_Operator` | **CURRENT** | `/department/security` | Gate Security Station |
-| `Security_Weight` | **CURRENT (Alias)** | `/department/security` | Gate Security Alias |
-| `Security_Manager` | **CURRENT** | `/department/security-manager` | Security Supervisor Console |
-| `QA_Operator` | **CURRENT** | `/department/qa` | QA Laboratory Testing |
-| `QA` | **CURRENT (Alias)** | `/department/qa` | QA Chemist Alias |
-| `WEIGHBRIDGE_OPERATOR` | **CURRENT** | `/department/weighbridge` | Weighbridge Scale Station |
-| `Weighbridge_Operator` | **CURRENT (Alias)** | `/department/weighbridge` | Weighbridge Operator Alias |
-| `Production_Operator` | **CURRENT** | `/department/production` | Silo Unloading Station |
-| `Production` | **CURRENT (Alias)** | `/department/production` | Production Operator Alias |
-| `MPD_Zone_Manager` | **RETIRED (4E-D)** | `/workspace-unavailable` | Legacy Zonal Dashboard Retired |
-| `Management` | **RETIRED (4E-D)** | `/workspace-unavailable` | Legacy Management Dashboard Retired |
-| `General_Plant_Manager` | **RETIRED (4E-D)** | `/workspace-unavailable` | Legacy Plant Dashboard Retired |
-| `QA_Manager` | **RETIRED (4E-D)** | `/workspace-unavailable` | Legacy QA Dashboard Retired |
-| `Production_Manager` | **RETIRED (4E-D)** | `/workspace-unavailable` | Legacy Production Dashboard Retired |
-| `Correction_Officer` | **RETIRED (4E-D)** | `/workspace-unavailable` | Legacy Correction Dashboard Retired |
-| `CONTRACTOR_MANAGER` | **CURRENT (4F)** | `/contractor/manager` | Plant Contractor Manager Workspace (Direct-to-Plant) |
-| `EXECUTIVE_MANAGEMENT` | **FUTURE NOT READY** | `/workspace-unavailable` | Fails closed until implemented |
+| `SUPER_ADMIN` | **CANONICAL** | `/super-admin` | Super Admin Master Portal |
+| `HEAD_OF_MPD` | **CANONICAL** | `/mpd/head` | Head of MPD Milk Test Policy & Management Workspace |
+| `ZMCC_MANAGER` | **CANONICAL** | `/mpd/zmcc-manager` | ZMCC Source Manager Workspace |
+| `CONTRACTOR_MANAGER` | **CANONICAL** | `/contractor/manager` | Plant Contractor Manager Workspace (Direct-to-Plant) |
+| `ZMCC_LAB_ATTENDANT` | **CANONICAL** | `/zmcc/lab` | ZMCC Lab Arrival & Dispatch Testing Workspace (also operational on `/department/mpd` for ZMCC dispatch) |
+| `CONTRACTOR_OPERATOR` | **CANONICAL (UNREADY WORKSPACE)** | `/workspace-unavailable` | Operational Contractor Dispatch Person (Wasim Sahib; routes to `/workspace-unavailable` until dedicated workspace is built) |
+| `PHE_OPERATOR` | **CANONICAL** | `/phe` | ZMCC PHE Operator Station |
+| `MOT` | **CANONICAL** | `/mot` | Mobile Operator Team Station |
+| `SECURITY_OPERATOR` | **CANONICAL** | `/department/security` | Gate Security Station |
+| `QA_LAB_ATTENDANT` | **CANONICAL** | `/department/qa` | Plant QA Laboratory Testing Station |
+| `WEIGHBRIDGE_OPERATOR` | **CANONICAL** | `/department/weighbridge` | Weighbridge Scale Station |
+| `PRODUCTION_RECEPTION_OPERATOR` | **CANONICAL** | `/department/production` | Plant Production Silo Unloading Station |
+| `QA_MANAGER` | **CANONICAL (UNREADY WORKSPACE)** | `/workspace-unavailable` | QA Department Managerial Oversight |
+| `QA_HEAD` | **CANONICAL (UNREADY WORKSPACE)** | `/workspace-unavailable` | Head of QA Department |
+| `ADMIN_HEAD` | **CANONICAL (UNREADY WORKSPACE)** | `/workspace-unavailable` | Head of Admin / Security |
+| `PRODUCTION_HEAD` | **CANONICAL (UNREADY WORKSPACE)** | `/workspace-unavailable` | Head of Production Department |
+| `EXECUTIVE_MANAGEMENT` | **CANONICAL (UNREADY WORKSPACE)** | `/workspace-unavailable` | Senior Executive Management Overview |
+| `DATA_EXECUTIVE` | **CANONICAL (UNREADY WORKSPACE)** | `/workspace-unavailable` | Data Executive Reporting |
+| `FINANCE_ACCOUNTS` | **CANONICAL (UNREADY WORKSPACE)** | `/workspace-unavailable` | Finance and Accounts Ledger Oversight |
+| *Retired Legacy Roles* | **RETIRED / ZERO AUTHORITY** | `/workspace-unavailable` | `Admin`, `MPD`, `MPD_Operator`, `MPD_Zone_Manager`, `QA`, `QA_Operator`, `Security_Weight`, `Security_Manager`, `Weighbridge_Operator`, `Production`, `Production_Operator`, `Production_Manager`, `General_Plant_Manager`, `Correction_Officer`, `Management` |
 | *Any Unknown Role* | **FAIL CLOSED** | `/workspace-unavailable` | Rejects unauthorized access |
 
 ---
@@ -94,12 +94,12 @@ Being located under `src/app` does **NOT** mean code is current. Every route, AP
 
 ### Canonical APIs (Current Production)
 - `/api/auth/login`, `/api/auth/logout`, `/api/auth/me` — Production session authentication, logout, and token inspection.
-- `/api/dispatches`, `/api/dispatches/start` — MPD dispatch creation and portion initialization.
+- `/api/dispatches`, `/api/dispatches/start` — Canonical field milk dispatch creation and portion initialization. Enforces whole-vehicle dispatch quantity as an authoritative measured fact (`basis = 'MEASURED'`). GET `/api/dispatches` date filtering strictly filters by `DispatchInfo.dispatch_timestamp` in Pakistan calendar date (`Asia/Karachi`), not `created_at` or `operational_date`. Serialized responses expose `dispatch_date` and `dispatch_timestamp`; `operational_date` strictly remains null until Plant Gate Exit.
 - `/api/security/*` — Gate entry, active visits, ready-for-exit, gate exit.
 - `/api/qa/*` — Session management (queues, start, resume), portion QA completion, hold, visit search.
 - `/api/scale/*` — Ready-for-gross, gross-weight, ready-for-tare, tare-weight, open-tickets.
 - `/api/production/*` — Unloading queue, start unloading, complete unloading, ready-for-unloading, silo-issue, silo-issue history.
-- `GET /api/logs` — Canonical source-scoped operational read-model endpoint (Business Date filtered; strictly validates YYYY-MM-DD calendar dates and rejects malformed fromDate/toDate with HTTP 400).
+- `GET /api/logs` — Canonical source-scoped bounded operational read-model endpoint. Supports live, recent, search, and report retrieval modes with server-side pagination/filtering (strictly validates YYYY-MM-DD calendar dates and rejects malformed fromDate/toDate with HTTP 400). Date query bounds use ordinary Pakistan calendar dates for dispatch/reporting retrieval. Plant Business Date remains a separate authoritative gate-exit-derived field and is not the upstream query-date rule.
 - `/api/lab-tests` — Public active lab test definitions for dispatch and plant forms.
 - `/api/super-admin/*` — Full administration endpoints (users, sources, silos, lab-tests, sop-rules, qa-warnings, operations, audit, overview).
 
@@ -119,16 +119,24 @@ Being located under `src/app` does **NOT** mean code is current. Every route, AP
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Auth** | `/login` | `LoginPage.tsx` | `/api/auth/*` | `auth.ts`, `jwt-secret.ts`, `role-routing.ts` | Secure JWT cookie, strict role matching |
 | **Business Date** | Core Helper | N/A | Embedded in APIs | `business-day.ts`, `datetime-utils.ts` | 08:00 PKT boundary, Asia/Karachi display |
-| **MPD Dispatch** | `/department/mpd` | `MPDDispatchWorkspace.tsx` | `/api/dispatches*` | `dispatchService.ts`, `validations/dispatch.ts` | ZMCC declared quantities, dispatch test results |
+| **MPD Dispatch** | `/department/mpd` | `MPDDispatchWorkspace.tsx` | `/api/dispatches*` | `dispatchQuantityService.ts`, `quantityPolicyService.ts`, `validations/dispatch.ts` | Authoritative measured whole-vehicle dispatch issue (`basis = 'MEASURED'`), independent composite portions (MEASURED or ESTIMATED), comparison-only reconciliation (anti-derivation: Vehicle Issue = Sum(Portions) forbidden), and PKT calendar dispatch date semantics (`operational_date = null` until plant gate exit). |
 | **Security** | `/department/security` | `SecurityGatewayWorkspace.tsx` | `/api/security/*` | `securityGatewayService.ts`, `reception-number.ts` | Token issuance, chronological gate milestones |
 | **QA Lab** | `/department/qa` | `QALaboratoryWorkspace.tsx` | `/api/qa/*` | `qaSessionService.ts`, `sopRuleEngine.ts` | Session lock, portion-level decisions, LT-000008 / LT-000026 |
 | **Weighbridge** | `/department/weighbridge` | `WeighbridgeWorkspace.tsx` | `/api/scale/*` | `weighbridgeScaleService.ts`, `vehicleQuantityService.ts` | First weight (gross), second weight (tare), net milk weight |
 | **Production** | `/department/production`| `ProductionUnloadingWorkspace.tsx` | `/api/production/*` | `productionUnloadingService.ts`, `siloInventoryService.ts`| Silo provisional allocation, physical liters receipt |
 | **Final Receipt** | Read Model | `operationalReadModelService.ts` | `GET /api/logs` | `operationalReadModelService.ts` | `final_receipt_exists` backed by `SiloInventoryTransaction` `RECEIPT` |
-| **Read Model** | Read Model | `operationalReadModelService.ts` | `GET /api/logs` | `operationalReadModelService.ts` | `authoritative_final_liters`, source-scoped filtering |
-| **ZMCC Manager** | `/mpd/zmcc-manager` | `ZMCCManagerWorkspace.tsx` | `GET /api/logs` | `zmccManagerHelpers.ts`, `zmccManagerTypes.ts` | Assigned source isolation, read-only supervision, 6 tabs |
-| **Plant Contractor Manager** | `/contractor/manager` | `PlantContractorManagerWorkspace.tsx` | `GET /api/logs` | `contractorManagerHelpers.ts`, `contractorManagerTypes.ts` | Direct-to-plant contractor, source-scoped read-only supervision, 5 tabs (Overview, Live Pipeline, Quality & Rejections, Receipts & Reconciliation, History & Reports). Assigned strictly to one CONTRACTOR procurement source. Unassigned or misbound non-CONTRACTOR sources FAIL CLOSED (0 records). Reporting Business Date: Final Receipt Business Date (from `final_receipt_timestamp` via canonical 08:00 PKT) for finalized receipts; Visit/Dispatch Date for non-final/pending; `created_at` is NEVER a Business Date fallback. |
-| **Super Admin** | `/super-admin` | `src/app/super-admin/page.tsx` | `/api/super-admin/*` | Prisma Client direct queries | Master data management, SOP rules, user administration |
+| **Read Model** | Read Model | `operationalReadModelService.ts` | `GET /api/logs` | `operationalReadModelService.ts` | Bounded canonical operational read model; modes: `live`, `recent`, `search`, `report`. Default `pageSize: 20`, max `100`. Recent history defaults to 7 calendar days. Server-side DB pagination/filtering before Node mapping. No client-side total loads. |
+| **ZMCC Manager** | `/mpd/zmcc-manager` | `ZMCCManagerWorkspace.tsx` | `GET /api/logs` | `zmccManagerHelpers.ts`, `zmccManagerTypes.ts` | Assigned-ZMCC supervisory workspace. Five top-level areas: Overview, Live Operations, Reconciliation, History & Reports, and Master Data. Live data may poll; reporting/reconciliation/history remain bounded and paginated. Local manager KPIs use authoritative server aggregates/ledger-backed values where available. ZMCC Manager may perform only the already-authorized manager corrections and master-data actions exposed by canonical ZMCC modules. |
+| **Plant Contractor Manager** | `/contractor/manager` | `PlantContractorManagerWorkspace.tsx` | `GET /api/logs` | `contractorManagerHelpers.ts`, `contractorManagerTypes.ts` | Direct-to-plant contractor, source-scoped read-only supervision, 5 tabs (Overview, Live Pipeline, Quality & Rejections, Receipts & Reconciliation, History & Reports). Active tab retrieval (no giant shared array). Live tab polls; historical tabs do NOT poll. Strict CONTRACTOR procurement source isolation. |
+| **PHE & ZMCC Arrivals** | `/phe` | `ZmccArrivalsWorkspace.tsx` | `/api/zmcc/arrivals/*` | `zmccArrivalService.ts`, `zmccArrivalAuth.ts` | Direct-to-ZMCC intake. Active intake: MOT and Local Supplier. Gate entry timestamp = physical arrival. Inside vehicles bounded query (`/api/zmcc/arrivals/inside`). Gate exit recorded with row locking and retry idempotency. |
+| **Local Supplier Directory** | `/phe` | `ZmccArrivalsWorkspace.tsx` | `/api/zmcc/local-suppliers/*` | `zmccLocalSupplierService.ts` | Canonical ZMCC Local Supplier master (`ZmccLocalSupplier`). Scoped by assigned ZMCC. Fast-creation by PHE, management by ZMCC Manager / Super Admin. Atomic sequence `ZLS-000001`. Distinct from Plant Contractor. |
+| **Legacy ZMCC Contractor Arrival** | N/A | N/A | `/api/zmcc/arrivals/contractor` | `zmccArrivalService.ts` | **HISTORICAL COMPATIBILITY ONLY**: Retired for new intake (`POST` returns 410 Gone). Existing records remain readable, searchable, and auditable for completed lab/tank flows. |
+| **MOT Operations & Summary** | `/mot` | `MotOperationsWorkspace.tsx` | `/api/mot/*` | `motService.ts`, `motJourneySummaryService.ts` | Canonical `MotJourneySummary`, gross-liters weighted aggregation, 1-to-1 immutable lifecycle, route assignments, offline collection sync. Gate exit unblocks vehicle reuse. |
+| **ZMCC Lab Testing & Receipt** | `/zmcc/lab` | `ZmccLabWorkspace.tsx` | `/api/zmcc/lab/*` | `zmccLabService.ts` | Reusable lab workflow across MOT, Local Supplier, and legacy Contractor. Required tests, supervisor corrections, and Accept & Receive into sole active ZMCC tank. Paginated server-side history with date/decision/search filters. |
+| **ZMCC Tank & Ledger** | `/zmcc/lab` | Embedded in Lab | `/api/zmcc/tanks/*` | `zmccTankService.ts` | Exactly one active tank per ZMCC facility (`zmcc_tank_one_active_per_zmcc_idx`). Gross Liters physical inventory basis. Immutable transaction ledger (`ZmccTankInventoryTransaction`). |
+| **Super Admin Operations** | `/super-admin/operations` | `.../operations/page.tsx` | `/api/super-admin/operations` | Prisma Client direct queries | Paginated administrative vehicle visit inspection (default 20, max 100, server-side search, truthful pagination metadata, no silent 50-row cutoff). |
+| **Super Admin Audit** | `/super-admin/audit` | `.../audit/page.tsx` | `/api/super-admin/audit` | Prisma Client direct queries | Read-only audit log explorer with server-side pagination (default 20, max 100, filter by table/action/search, no silent 100-row cutoff). Strictly read-only. |
+| **Super Admin Master Data** | `/super-admin` | `src/app/super-admin/page.tsx` | `/api/super-admin/*` | Prisma Client direct queries | Master data management (users, procurement sources, silos, lab tests, test policies, SOP rules, QA warnings). |
 
 ---
 
@@ -179,7 +187,7 @@ The legacy Kanban management application and standalone cross-verification route
 - `src/frontend/modules/cards/AdaptiveVehicleCard.tsx` — **DELETED**: Retired legacy vehicle card.
 
 - The Legacy Kanban management application is no longer an active application surface.
-- Current ZMCC Cross Verification is NOT the retired standalone `/cross-verification` route; it is an independent, source-scoped component (`ZMCCManagerCrossVerification.tsx`).
+- Current ZMCC Manager Reconciliation is NOT the retired standalone `/cross-verification` route; it is an independent, source-scoped component (`src/frontend/modules/dashboard/zmcc/ZMCCManagerReconciliation.tsx`).
 - Legacy roles (`MPD_Zone_Manager`, `Management`, `General_Plant_Manager`, `QA_Manager`, `Production_Manager`, `Correction_Officer`) fail closed to `/workspace-unavailable`.
 - Canonical `SecurityManager.tsx` has zero dependency on legacy `LogDetailModal.tsx`.
 - Canonical `operationalReadModelService.ts` has zero dependency on or re-exports of `operationalCalculations.ts`.
@@ -236,3 +244,159 @@ Tracked repository leftovers with zero runtime consumers have been removed:
 - Obsolete one-off debug scripts, old completed migration files, and superseded temporary test scripts have been removed.
 - Stage 4E transitional test contracts are permanently consolidated into `scripts/test_canonical_architecture.ts`.
 - Master regression runner (`scripts/run_all_regressions.ts`) includes `scripts/test_date_filters_and_decisions.ts` for strict calendar date validation and HTTP filtering regressions.
+
+---
+
+## 14. Stage 6G-A Milk Test Policy & Head of MPD Subsystem
+
+- `src/backend/services/milkTestPolicyService.ts`: Authoritative service owning testing point definitions, role mutation authority boundaries, policy reads, creations, and updates with immutable audit logging.
+- `src/app/api/milk-test-policies/route.ts`: Canonical API route for listing (all or effective tests) and creating policy assignments.
+- `src/app/api/milk-test-policies/[id]/route.ts`: Canonical API route for updating assignment status, display order, and requirement.
+- `src/frontend/modules/mpd/policy/MilkTestPolicyWorkspace.tsx`: Reusable role-aware workspace for Head of MPD (4 MPD testing points) and Super Admin (all 5 testing points).
+- `src/app/mpd/head/page.tsx`: Dedicated workspace page for Head of MPD (`/mpd/head`).
+- `src/app/super-admin/test-policies/page.tsx`: Dedicated Super Admin test policy administration page (`/super-admin/test-policies`).
+- `prisma/migrations/20260912120000_milk_test_policy_assignment/migration.sql`: Tracked migration establishing `milk_test_policy_assignment` table with check constraint, unique index, and foreign keys.
+
+---
+
+## 15. Authoritative Organization Role Hierarchy (Stage 6G-A Correction #2)
+
+### 1. Hierarchy Tree
+```
+SUPER_ADMIN
+|
++-- EXECUTIVE_MANAGEMENT (Senior Executive Management)
+|
++-- DATA_EXECUTIVE (Data Executive)
+|
++-- HEAD_OF_MPD (MPD Head)
+|    |
+|    +-- ZMCC_MANAGER (ZMCC Manager)
+|    |     |
+|    |     +-- PHE_OPERATOR (PHE Operator)
+|    |     +-- ZMCC_LAB_ATTENDANT (ZMCC Lab Attendant)
+|    |     +-- MOT (MOT)
+|    |
+|    +-- CONTRACTOR_MANAGER (Contractor Manager)
+|          |
+|          +-- CONTRACTOR_OPERATOR (Contractor Operator - e.g., Wasim Sahib)
+|
++-- ADMIN_HEAD (Admin Head)
+|    |
+|    +-- SECURITY_OPERATOR (Security Operator)
+|
++-- QA_HEAD (QA Head)
+|    |
+|    +-- QA_MANAGER (QA Manager)
+|          |
+|          +-- QA_LAB_ATTENDANT (QA Lab Attendant)
+|
++-- PRODUCTION_HEAD (Production Head)
+|    |
+|    +-- WEIGHBRIDGE_OPERATOR (Weighbridge Operator)
+|    +-- PRODUCTION_RECEPTION_OPERATOR (Production Reception Operator)
+|
++-- FINANCE_ACCOUNTS (Finance and Accounts)
+```
+
+### 2. Core Authority & Assignment Principles
+- **Head of MPD (`HEAD_OF_MPD`)**: Global Milk Procurement authority (SYSTEM scope, no procurement source). Owns test policy mutation for the 4 MPD testing points (`MOT_SHOP`, `ZMCC_LAB_MOT`, `ZMCC_LAB_CONTRACTOR`, `DISPATCH`).
+- **ZMCC Manager (`ZMCC_MANAGER`)**: Reports to MPD Head. Source-scoped to an assigned ZMCC (`requiresSource: true, allowedSourceType: ZMCC`).
+- **Contractor Manager (`CONTRACTOR_MANAGER`)**: Reports to MPD Head. Source-scoped to an assigned Contractor (`requiresSource: true, allowedSourceType: CONTRACTOR`).
+- **ZMCC Lab Attendant (`ZMCC_LAB_ATTENDANT`)**: Single operational laboratory role at ZMCC. Performs MOT vehicle arrival testing, Contractor vehicle arrival testing, and ZMCC dispatch testing. Completely replaces old `MPD_Operator` with zero parallel operational roles. Source-scoped to an assigned ZMCC (`requiresSource: true, allowedSourceType: ZMCC`). Effective test policy: `ZMCC_LAB_MOT`, `ZMCC_LAB_CONTRACTOR`, `DISPATCH`.
+- **Contractor Operator (`CONTRACTOR_OPERATOR`)**: Operational dispatch preparation and testing person at Contractor source. Source-scoped to assigned Contractor (`requiresSource: true, allowedSourceType: CONTRACTOR`). Effective test policy: `DISPATCH` only. Cannot access ZMCC or other Contractor sources.
+- **Contractor Operator Fixture**: `Wasim Sahib` (`contractor.operator.alkhair`), role `CONTRACTOR_OPERATOR`, source `CONT-ALKHAIR`, reporting under `contractor.manager.alkhair`.
+- **QA Lab Attendant (`QA_LAB_ATTENDANT`)**: Single operational plant laboratory role performing Plant QA testing. Reports to `QA_MANAGER` under `QA_HEAD`. Effective test policy: `PLANT_QA` only. Cannot mutate test policies or access ZMCC/MOT/Contractor testing.
+- **Retired Legacy Roles**: `Admin`, `MPD`, `MPD_Operator`, `MPD_Zone_Manager`, `QA`, `QA_Operator`, `Security_Weight`, `Security_Manager`, `Weighbridge_Operator`, `Production`, `Production_Operator`, `Production_Manager`, `General_Plant_Manager`, `Correction_Officer`, `Management`. All retired roles have **ZERO LIVE AUTHORITY** and fail closed to `/workspace-unavailable` and HTTP 403 on protected APIs.
+- **Historical Attribution & Database Upgrade**: Deterministic in-place role migration updates active users to canonical equivalents where unambiguous (`MPD_Operator` -> `ZMCC_LAB_ATTENDANT` or `CONTRACTOR_OPERATOR`, `QA_Operator`/`QA` -> `QA_LAB_ATTENDANT`, etc.) while deactivating ambiguous legacy users safely. Historical `AuditLog` actor records and foreign keys are never deleted or modified.
+
+---
+
+## 16. Stage 6G-B MOT Journey Final Summary Architecture
+
+- `src/backend/services/motJourneySummaryService.ts`: Authoritative service owning the immutable `MotJourneySummary` entity, gross-liters weighted calculations, initial summary generation in ZMCC arrival completion transactions, late offline sync recomputation, and canonical serialization.
+- `prisma/migrations/20260912180000_mot_journey_summary/migration.sql`: Tracked migration creating `mot_journey_summary` table with 1-to-1 foreign key and unique index on `journey_id`, check constraint enforcing `revision >= 1`, non-negative liter checks, and quality metric boundaries.
+- `src/backend/services/zmccArrivalService.ts`: Acquires exclusive PostgreSQL row lock on `mot_journey` row (`SELECT id FROM mot_journey WHERE id = ${journeyId} FOR UPDATE`), creates initial summary inside arrival completion transaction via `createInitialMotJourneySummaryTx`, and serves `journey.summary` via `listMotArrivals` and `getMotArrivalById` (`/api/zmcc/arrivals/mot`).
+- `src/backend/services/motService.ts`: Acquires exclusive row lock on `mot_journey` row, validates journey lifecycle under lock, recomputes summary inside offline delayed collection submission transaction via `recomputeMotJourneySummaryTx` when `ended_at` exists, and includes `summary` in `getMotJourneyById` and `serializeJourney` (`/api/zmcc/mot/*`).
+- `src/frontend/modules/mot/MotOperationsWorkspace.tsx`: Displays compact summary card in Journey Detail modal showing total gross liters, total @13TS liters, gross-weighted quality averages, stop breakdown, and revision badge.
+- `src/frontend/modules/zmcc/arrivals/ZmccArrivalsWorkspace.tsx`: Displays compact summary card in ZMCC arrival success banner.
+
+---
+
+## 17. Stage 6G-C ZMCC Final Milk Metrics Architecture
+
+- `src/backend/utils/milkTestResolvers.ts`: Core test parameter resolver owning `isLrTestCandidate`, `isFatTestCandidate`, and `resolveCoreMilkTestResults`. Resolves exactly 1 LR and 1 Fat candidate with fail-closed semantics (rejects 0 or >1 candidates, excludes ratio tests).
+- `src/backend/utils/milkFormulas.ts`: Canonical calculation owner for `computeCanonicalMilkMetrics(quantityValue, quantityUnit, lr, fat)`:
+  - `LITER` -> `gross_liters = quantity_value`.
+  - `KG` -> `density = 1 + lr / 1000`, `gross_liters = quantity_value / density`.
+  - `snf = lr / 4 + 0.22 * fat + 0.72`, `ts = fat + snf`, `at_13ts_liters = gross_liters * ts / 13`.
+- `prisma/migrations/20260912210000_zmcc_final_milk_metrics/migration.sql`: Tracked migration (migration count: 21) adding `quantity_value`, `quantity_unit`, `density`, `gross_liters`, `snf`, `ts`, `at_13ts_liters`, and `calculation_version` to `zmcc_lab_session` with CHECK constraints.
+- `src/backend/services/zmccLabService.ts`: Authoritative service owning ZMCC laboratory session lifecycle:
+  - Validates `quantity_value` and `quantity_unit` (native `QuantityUnit` enum).
+  - Resolves core LR & Fat tests fail-closed and calculates canonical derived metrics.
+  - Rejects client attempts to pass manually calculated metrics.
+  - Atomic manager/superadmin corrections recomputing metrics in transaction.
+  - Exposes upstream `mot_arrival.journey.summary` as read-only reference without auto-copying.
+- `src/frontend/modules/zmcc/lab/ZmccLabWorkspace.tsx`: User interface for active testing, manager corrections, and historical records:
+  - Live client-side preview for canonical milk metrics.
+  - Upstream MOT Journey Summary read-only reference panel.
+  - Correction modal with quantity/unit inputs and live preview.
+  - History table with Received Qty, Gross Liters, @13% TS Liters, and "Not captured under this version" for legacy rows.
+
+---
+
+## 18. Stage 6G-D ZMCC Tank Receipt & Immutable Ledger Architecture
+
+- `src/backend/services/zmccTankService.ts`: Authoritative service owning ZMCC Tank Master operations, dynamic physical stock aggregation (`getTankPhysicalStock`), role authorization (canonical signed session via `getCurrentUser(req)`, zero trust for `x-user-id` header), and controlled historical receipt creation (`receiveHistoricalSession` restricted to `ZMCC_LAB_ATTENDANT` and `SUPER_ADMIN`, failing closed if LR/Fat or Stage 6G-C metrics are incomplete, copying stored snapshot verbatim without fake quality fallbacks).
+- `src/app/api/zmcc/tanks/route.ts`: API endpoint for listing and creating ZMCC tanks (`GET`, `POST`).
+- `src/app/api/zmcc/tanks/[id]/route.ts`: API endpoint for fetching and updating ZMCC tanks (`GET`, `PATCH`).
+- `src/app/api/zmcc/lab/sessions/[id]/receive/route.ts`: API endpoint for receiving pre-6G-D historical accepted sessions into tanks (`POST`).
+- `prisma/migrations/20260913120000_zmcc_tank_receipt_and_ledger/migration.sql`: Tracked migration (migration count: 22) establishing `zmcc_tank`, `zmcc_tank_receipt`, and `zmcc_tank_inventory_transaction` tables, `ZmccTankTransactionType` enum, CHECK constraints, and indexes.
+- `src/backend/services/zmccLabService.ts`: Updated `completeSession` with atomic "Accept & Receive" logic, row-locking destination tanks `FOR UPDATE` and revalidating `is_active` under lock; updated `correctCompletedSession` with decision safety guards (`ACCEPTED -> REJECTED` after receipt and `REJECTED -> ACCEPTED` forbidden) and `ADJUSTMENT_IN` / `ADJUSTMENT_OUT` ledger entries.
+- `src/frontend/modules/zmcc/ZmccMasterDataWorkspace.tsx`: Management tab for ZMCC Tanks (`TANKS`), supporting Super Admin CRUD and ZMCC Manager read-only visibility with live stock indicators.
+- `src/frontend/modules/zmcc/lab/ZmccLabWorkspace.tsx`: Updated session completion modal to "Accept & Receive" with active tank selection and capacity validation, History table Tank Receipt column, and historical receive action restricted to `ZMCC_LAB_ATTENDANT` and `SUPER_ADMIN` (hidden from `ZMCC_MANAGER`).
+
+---
+
+## 19. Stage 6G-F Plant Final Dual Reconciliation & Formula Hardening
+
+- `src/backend/services/reconciliationService.ts`: Authoritative source-neutral dual reconciliation calculation engine:
+  - Exports `calculateDualReconciliation(input)` and `RECONCILIATION_CALCULATION_VERSION = '1.0'`.
+  - Calculates signed Physical Gross Liters variance and percentage (`received - sent`, `(variance / sent) * 100`).
+  - Calculates signed Commercial @13TS Liters variance and percentage (`received - sent`, `(variance / sent) * 100`).
+  - Fails safe to `null` percentage whenever sent quantity is null, zero, or negative (prevents division by zero and false zero percentage).
+- `src/backend/services/vehicleQuantityService.ts`: Hardened vehicle quantity calculation engine:
+  - Authoritative test identification guards: `isPlantLrTest` strictly checks `LT-000008` and `isPlantFatTest` strictly checks `LT-000026`. Non-authoritative codes (e.g. `LT-000027`) are excluded from final received quantity authority.
+  - Pure mathematical validation guards: density > 1.0 (`INVALID_DENSITY`), SNF > 0 (`INVALID_SNF`), TS > 0 (`INVALID_TS`), Physical liters > 0 (`INVALID_FINAL_LITERS`), @13TS liters > 0 (`INVALID_AT13_TS_LITERS`), LR > 0 (`INVALID_PLANT_LR`), Fat >= 0 (`INVALID_PLANT_FAT`). Segregated from policy-level QA evaluations.
+  - Full IEEE-754 double precision intermediate calculations without rounding (ADR-005).
+  - Returns composite quality snapshot properties and version `1.0`.
+- `prisma/migrations/20260918120000_stage_6g_f_plant_final_dual_reconciliation/migration.sql`: Tracked migration (migration count: 30) adding snapshot columns to `silo_inventory_transaction` and creating `plant_final_dual_reconciliation` table with foreign key restrictions and unique indices.
+- `src/backend/services/siloInventoryService.ts`: Authoritative final receipt persistence:
+  - Executes single-transaction atomic creation (`db.$transaction`) of `SiloInventoryTransaction(RECEIPT)` with quality snapshot fields, `PlantFinalDualReconciliation` record, and `AuditLog`.
+  - Strictly preserves `SiloInventoryTransaction.quantity_liters` as authoritative physical Gross Liters without adding duplicate gross columns.
+  - Concurrency & Post-Lock Idempotency: After acquiring the silo lock (`FOR UPDATE`), re-checks for existing receipt transactions and returns the existing finalized receipt safely, avoiding concurrent duplicate-insert or unique-constraint failures.
+  - Idempotent execution safely returns existing receipt without fabricating missing commercial snapshot for pre-6G-F historical receipts.
+- `src/backend/core/types.ts`: Extended `MilkProcessLog` with snapshot and dual reconciliation fields.
+- `src/backend/services/operationalReadModelService.ts`: Canonical read models projection querying `dual_reconciliation` and mapping snapshot fields and dual reconciliation data.
+- `src/frontend/modules/dashboard/zmcc/ZMCCManagerReconciliation.tsx`: ZMCC Manager Reconciliation workspace displaying Gross Delta, Gross Delta %, Dispatch @13TS, Plant @13TS, @13TS Delta, @13TS Delta % with signed numbers and clean `Unavailable` vs `Pending` states.
+- `src/frontend/modules/dashboard/contractor/ContractorReceiptsReconciliation.tsx`: Contractor Receipts Ledger table displaying the full dual truth columns with signed variances and status distinctions.
+- `src/frontend/modules/dashboard/zmcc/zmccManagerTypes.ts` & `zmccManagerHelpers.ts`: Frontend type definitions and helper projections consuming canonical variance without React-side recomputations.
+- `tests/unit/plantFinalDualReconciliation.test.ts`: Dedicated Vitest unit test suite covering dual reconciliation calculations, test identities, mathematical validity, ADR-005 formula consistency, historical receipts without commercial snapshot, and concurrent finalization idempotency.
+
+---
+
+## 20. Stage 6G-G Quality Governance, Operational Paper References & Audited Corrections
+
+- `src/backend/services/qualityRuleService.ts`: Authoritative quality governance service owning rule CRUD, PostgreSQL advisory lock serialization, historical version interval resolution (`effective_from <= eventTimestamp AND (effective_to IS NULL OR eventTimestamp < effective_to)`), multi-test evaluation, fail-closed configuration error handling, and release rule restrictions (`RELEASE` forbidden on `MOT_SHOP` and `DISPATCH`).
+- `src/backend/services/paperReferenceService.ts`: Authoritative paper reference service managing operational policies (`SHOP_RMR`, `RAW_MILK_TOKEN`, `RAW_MILK_DISPATCH_NOTE`), digits-only normalization, duplicate checking under `GLOBAL` and `PER_SOURCE` scopes, Super Admin updates with mandatory reasons, and full before/after AuditLog recording.
+- `src/app/api/qa-head/sop-rules/route.ts`: QA Head API endpoint for rule configuration and testing points with release restrictions.
+- `src/app/department/qa-head/page.tsx`: QA Head governance workspace.
+- `src/backend/services/zmccLabService.ts`: Hardened ZMCC lab session lifecycle with fail-closed rules, re-evaluation at event timestamp, exact-one-active-tank manager exception receipts, and dual-delta stock adjustments.
+- `src/app/api/dispatches/[id]/correction/route.ts`: Audited dispatch correction endpoint with business idempotency (`idempotency_key`), scoped paper reference verification, and decoupled dual-delta ZMCC tank issue adjustments.
+- `src/app/api/qa/vehicle-visits/[visitId]/portions/[portionId]/correct-results/route.ts`: Authoritative Plant result correction with historical rule re-evaluation and before/after audit capture.
+- `src/app/api/qa/vehicle-visits/[visitId]/portions/[portionId]/correct-decision/route.ts`: Plant QA Manager exception decision route with `ACCEPTED_EXCEPTION`, physical-state exit guards, and comprehensive audit logs.
+- `src/backend/services/zmccArrivalService.ts`: Decoupled route milk token vs raw milk token, scoped paper duplicate validation.
+- `src/frontend/modules/zmcc/arrivals/ZmccArrivalsWorkspace.tsx`: Dynamic paper policy enforcement and decoupled token input.
+
+
+

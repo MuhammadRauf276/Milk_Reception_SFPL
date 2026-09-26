@@ -88,6 +88,13 @@ export function validateDispatchQuantities(
     'Vehicle'
   );
 
+  if (vehicleQuantity.basis !== 'MEASURED') {
+    throw new QuantityMeasurementError(
+      'Whole-vehicle dispatch quantity must be an authoritative measured value.',
+      'VEHICLE_BASIS_MUST_BE_MEASURED'
+    );
+  }
+
   // 2. Validate Each Portion Dispatch Quantity independently against frozen policy
   const validatedPortions = portionsRaw.map((portion) => {
     const validatedPortionQty = validateQuantityAgainstPolicy(
@@ -433,42 +440,19 @@ export function computePortionQuantitySummary(
  * 5. Vehicle Basis == MEASURED
  * 6. Portion Total is within allowable positive decimal range (<= 99,999,999.99)
  */
+/**
+ * @deprecated Stage 6G-E: Whole-vehicle dispatch quantity is strictly an independent measured fact.
+ * It must never be derived, prefilled, or overwritten from portion totals.
+ */
 export function canUseMeasuredPortionTotalForVehicle(
-  vehicleQuantity: {
+  _vehicleQuantity?: {
     value?: string | number | null;
     unit?: QuantityUnit | string | null;
     basis?: MeasurementBasis | string | null;
   } | undefined | null,
-  portionSummary: PortionQuantitySummary
+  _portionSummary?: PortionQuantitySummary
 ): boolean {
-  if (!portionSummary.complete || portionSummary.totalValue === null || portionSummary.isAboveLimit) {
-    return false;
-  }
-  if (portionSummary.basis !== 'MEASURED' || portionSummary.totalKind !== 'MEASURED') {
-    return false;
-  }
-  if (portionSummary.totalValue <= 0 || portionSummary.totalValue > 99999999.99) {
-    return false;
-  }
-
-  if (!vehicleQuantity) return false;
-  const vehVal = vehicleQuantity.value !== undefined && vehicleQuantity.value !== null ? String(vehicleQuantity.value).trim() : '';
-  if (vehVal !== '') {
-    return false;
-  }
-
-  const vehUnit = (vehicleQuantity.unit || '').trim().toUpperCase();
-  const portionUnit = (portionSummary.unit || '').trim().toUpperCase();
-  if (!vehUnit || !portionUnit || vehUnit !== portionUnit) {
-    return false;
-  }
-
-  const vehBasis = (vehicleQuantity.basis || '').trim().toUpperCase();
-  if (vehBasis !== 'MEASURED') {
-    return false;
-  }
-
-  return true;
+  return false;
 }
 
 /**
@@ -612,9 +596,14 @@ export function computeDispatchSafeSummaryTotals(
     hasPortions: true,
     totalGrossLiters: finalGrossLiters,
     formattedTotalGrossLiters:
-      finalGrossLiters !== null ? `${Math.round(finalGrossLiters).toLocaleString()} L` : null,
+      finalGrossLiters !== null
+        ? `${finalGrossLiters.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L`
+        : null,
     totalLitersAt13TS: finalAt13,
-    formattedTotalLitersAt13TS: finalAt13 !== null ? `${Math.round(finalAt13).toLocaleString()} L` : null,
+    formattedTotalLitersAt13TS:
+      finalAt13 !== null
+        ? `${finalAt13.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L`
+        : null,
   };
 }
 

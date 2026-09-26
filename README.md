@@ -57,12 +57,13 @@ All-rejected vehicles bypass weighing, unloading, tare, and final silo receipt a
 
 ## Operational Time Model
 
-The system keeps the following concepts separate:
+The system keeps the following time concepts strictly separate:
 
-* **Operational Date & Time** — actual physical event time
-* **Submitted At** — server timestamp when the event was saved
-* **Performed By** — authenticated user who performed/submitted the action
-* **Business Date** — plant reporting date based on the 08:00 AM cutoff
+* **Operational Date & Time** — actual physical event time (e.g. gate entry, weighment, testing, discharge)
+* **Submitted At** — immutable server timestamp when the record was persisted
+* **Performed By** — authenticated user who submitted the action
+* **Plant Business Date** — plant reporting date based on the 08:00 AM cutoff, **applied only at authoritative Plant Gate Exit** (`VehicleVisit.operational_date`).
+* **Upstream Facility Dates** — ZMCC Gate Entry/Exit, MOT collections/journeys, Local Supplier arrivals, and MPD Dispatches strictly use Pakistan calendar dates (`Asia/Karachi`) with no 08:00 AM shift.
 
 Plant timezone:
 
@@ -70,7 +71,7 @@ Plant timezone:
 Asia/Karachi
 ```
 
-Business day:
+Plant Business Day (applied at Plant Gate Exit):
 
 ```text
 08:00 AM
@@ -78,27 +79,30 @@ to
 07:59:59.999 AM next calendar day
 ```
 
-## Milk Formula Authority
+## Milk Volume & Inventory Authority
 
-The application uses a centralized backend formula helper.
+The application uses centralized backend formulas and standardized terminology:
+
+* **Gross Liters** — current physical inventory term for actual volumetric milk (`Physical Liters = Net Kg / Density`).
+* **@13TS Liters** — commercial standardized volume for payment, quality valuation, and standardized accounting (`@13TS Liters = Gross Liters × TS / 13`).
 
 ```text
+Density = 1 + LR / 1000
+
 SNF % = LR / 4 + (0.22 × Fat %) + 0.72
 
 TS % = Fat % + SNF %
 
 SNF : Fat Ratio = SNF % / Fat %
 
-Density = 1 + LR / 1000
+Gross Liters (Physical Liters) = Net Kg / Density
 
-Physical Liters = Quantity Kg / Density
-
-@13 TS Liters = Physical Liters × TS / 13
+@13 TS Liters = Gross Liters × TS / 13
 ```
 
 ## Final Silo Receipt
 
-Final milk receipt is recorded at vehicle level.
+Final milk receipt is recorded at vehicle level into plant storage silos.
 
 Canonical idempotency key:
 
@@ -106,7 +110,7 @@ Canonical idempotency key:
 FINAL_RECEIPT:VISIT:<visitId>
 ```
 
-Gross, Tare, Net Kg, Physical Liters, and Final Silo Receipt belong to the vehicle reception process.
+Gross, Tare, Net Kg, Gross Liters, and Final Silo Receipt belong to the vehicle reception process.
 
 ## Procurement Sources
 
@@ -199,28 +203,16 @@ local build/cache files
 
 These are excluded through `.gitignore`.
 
-## Testing
+## Project Verification
 
-The project includes regression and integrity test scripts covering areas such as:
-
-* workflow status transitions
-* QA chronology
-* business-date handling
-* dispatch validation
-* source relationships
-* silo receipt
-* formula consistency
-* authentication
-* operational audit timestamps
-
-Common checks:
+Common validation commands:
 
 ```bash
-npx tsx scripts/run_all_regressions.ts
 npx prisma validate
 npx prisma generate
 npm run lint
-npx next build
+npm run typecheck
+npm run build
 ```
 
 ## Deployment

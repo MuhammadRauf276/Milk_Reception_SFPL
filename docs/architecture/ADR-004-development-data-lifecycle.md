@@ -18,14 +18,15 @@ Applying production-grade schema migration complexity (such as multi-phase backw
    - Future schema redesigns may cleanly remove obsolete tables, columns, or dummy records rather than inventing fictional compatibility states (e.g. `LEGACY_UNSPECIFIED`, `MIGRATED_UNKNOWN`, `OLD_VERSION_FALLBACK`) unless such states represent genuine business concepts.
 
 3. **Controlled Development Database Resets**:
-   - `prisma migrate reset` is permitted against the explicitly confirmed disposable **DEVELOPMENT database** only when:
+   - `prisma migrate reset` is permitted against the explicitly confirmed disposable **DEVELOPMENT or TEST database** only when:
      - The active development stage explicitly authorizes the reset;
      - The database identity is explicitly confirmed prior to execution;
      - The reset is followed immediately by deterministic automated seeding (`prisma/seed.ts`);
      - The reset is transparently documented in the stage report and never executed silently.
+   - **Strict Boundary**: A disposable database reset does **NOT** authorize rewriting, modifying, or deleting accepted migration history. Once applied in shared/CI/operational history, migration SQL bytes are immutable under [ADR-000](./ADR-000-schema-workflow.md), and corrections require a NEW migration.
 
 4. **Preserved Invariants**:
-   - `prisma db push` remains strictly **FORBIDDEN** for normal development and deployment. Tracked Prisma migrations (`prisma/migrations/`) remain mandatory.
+   - `prisma db push` remains strictly **FORBIDDEN** for normal development and deployment. Tracked Prisma migrations (`prisma/migrations/`) are the sole authoritative mechanism.
    - Destructive resets against production, staging, or any shared real-data environment remain strictly **FORBIDDEN**.
    - Automated testing regression suites must execute against an isolated **TEST database** (`TEST_DATABASE_URL`) to prevent test data pollution in the development UI.
 

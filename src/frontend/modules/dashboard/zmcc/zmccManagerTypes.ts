@@ -3,10 +3,9 @@ import { MilkProcessLog } from '@backend/core/types';
 export type ZMCCManagerTab =
   | 'OVERVIEW'
   | 'LIVE'
-  | 'CROSS_VERIFICATION'
-  | 'QUALITY'
-  | 'RECEIPTS'
-  | 'HISTORY';
+  | 'RECONCILIATION'
+  | 'HISTORY'
+  | 'MASTER_DATA';
 
 export type OverviewDateRange = 'TODAY' | 'YESTERDAY' | 'LAST_7' | 'LAST_15' | 'ALL';
 
@@ -66,7 +65,8 @@ export interface VehicleVisitGroup {
   sourceName: string;
   procurementSourceId: string | null;
   businessDate: string;
-  finalReceiptBusinessDate: string | null;
+  dispatchDate: string;
+  finalReceiptDate: string | null;
   overallStatus: string;
   portions: MilkProcessLog[];
   primaryLog: MilkProcessLog;
@@ -185,6 +185,21 @@ export interface VehicleReconciliationItem {
   quantityDifferenceText: string;
   hasQuantityDifference: boolean;
 
+  // Stage 6G-F: Dual Reconciliation (Consumed from canonical MilkProcessLog)
+  grossVarianceLiters: number | null;
+  grossVariancePercent: number | null;
+  grossVarianceText: string;
+  grossVariancePercentText: string;
+
+  at13TsVarianceLiters: number | null;
+  at13TsVariancePercent: number | null;
+  at13TsVarianceText: string;
+  at13TsVariancePercentText: string;
+  hasTsDifference: boolean;
+
+  reconciliationExists: boolean;
+  isHistoricalReceiptWithoutCommercialSnapshot: boolean;
+
   // Silo & Receipt Event
   destinationSilo: string | null;
   finalReceiptTimestamp: string | null;
@@ -262,8 +277,8 @@ export interface ReceiptPerformanceItem {
   visitId: number;
   vehicleNumber: string;
   tokenNumber: string | null;
-  dispatchBusinessDate: string;
-  finalReceiptBusinessDate: string | null;
+  dispatchDate: string;
+  finalReceiptDate: string | null;
   finalReceiptTimestamp: string | null;
   lifecycleStatus: string;
   isCompletedReceipt: boolean;
@@ -323,7 +338,8 @@ export interface HistoryTransactionItem {
   vehicleNumber: string;
   tokenNumber: string | null;
   businessDate: string;
-  finalReceiptBusinessDate: string | null;
+  dispatchDate: string;
+  finalReceiptDate: string | null;
   overallStatus: string;
   lifecycleStageLabel: string;
   isComplete: boolean;

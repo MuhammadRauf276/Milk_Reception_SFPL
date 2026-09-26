@@ -58,7 +58,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       {children}
 
       {/* Global Top-Right Toast Container */}
-      <div className="fixed top-4 right-4 z-[9999] flex flex-col space-y-2.5 max-w-md w-full pointer-events-none pr-2">
+      <div className="fixed top-4 right-4 z-[9999] flex flex-col space-y-2.5 max-w-md w-full pointer-events-none pr-2" suppressHydrationWarning>
         {toasts.map((toast) => {
           let bgClass = 'bg-white text-[#111311] border-[#EAE4D5] shadow-lg';
           let icon = <Info className="w-5 h-5 text-[#1E3A8A] shrink-0" />;

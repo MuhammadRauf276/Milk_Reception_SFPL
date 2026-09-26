@@ -46,6 +46,8 @@ const PROCUREMENT_SOURCES_SEED = [
 
 async function main() {
   await prisma.$executeRawUnsafe('CREATE SEQUENCE IF NOT EXISTS lab_test_code_seq START WITH 100 INCREMENT BY 1;');
+  await prisma.$executeRawUnsafe('CREATE SEQUENCE IF NOT EXISTS mot_journey_number_seq START WITH 1 INCREMENT BY 1;');
+  await prisma.$executeRawUnsafe('CREATE SEQUENCE IF NOT EXISTS mot_collection_number_seq START WITH 1 INCREMENT BY 1;');
   console.log('Seeding 30 Laboratory Tests in PostgreSQL...');
 
 
@@ -110,25 +112,34 @@ async function main() {
 
   const bcrypt = await import('bcryptjs');
   const USERS_SEED = [
-    { username: 'admin.superuser', name: 'Super Admin', role: 'SUPER_ADMIN', department: 'System Administration', pass: 'admin123', scopeType: 'SYSTEM', isActive: true, sourceCode: null },
-    { username: 'super.admin', name: 'Retired Bootstrap Admin', role: 'SUPER_ADMIN', department: 'Retired Migration Account', pass: 'admin123', scopeType: 'SYSTEM', isActive: false, sourceCode: null },
-    { username: 'zmcc.operator', name: 'ZMCC Field Operator (Hasilpur)', role: 'MPD_Operator', department: 'Milk Procurement (Hasilpur)', pass: 'mpd123', scopeType: 'SOURCE', isActive: true, sourceCode: 'ZMCC-HASILPUR' },
-    { username: 'zmcc.operator.jhang', name: 'ZMCC Field Operator (Jhang)', role: 'MPD_Operator', department: 'Milk Procurement (Jhang)', pass: 'mpd123', scopeType: 'SOURCE', isActive: true, sourceCode: 'ZMCC-JHANG' },
-    { username: 'zmcc.operator.kabirwala', name: 'ZMCC Field Operator (Kabirwala)', role: 'MPD_Operator', department: 'Milk Procurement (Kabirwala)', pass: 'mpd123', scopeType: 'SOURCE', isActive: true, sourceCode: 'ZMCC-KABIRWALA' },
-    { username: 'contractor.operator.alkhair', name: 'Contractor Operator (Al Khair)', role: 'MPD_Operator', department: 'Milk Procurement (Al Khair)', pass: 'mpd123', scopeType: 'SOURCE', isActive: true, sourceCode: 'CONT-ALKHAIR' },
-    { username: 'contractor.operator.almehmood', name: 'Contractor Operator (Al Mehmood)', role: 'MPD_Operator', department: 'Milk Procurement (Al Mehmood)', pass: 'mpd123', scopeType: 'SOURCE', isActive: true, sourceCode: 'CONT-ALMEHMOOD' },
-    { username: 'zmcc.manager.north', name: 'ZMCC Minor Manager (Northern Zone)', role: 'ZMCC_MANAGER', department: 'Milk Procurement (Zone A)', pass: 'zone123', scopeType: 'SOURCE', isActive: true, sourceCode: 'ZMCC-HASILPUR' },
-    { username: 'contractor.manager.alkhair', name: 'Plant Contractor Manager (Al Khair)', role: 'CONTRACTOR_MANAGER', department: 'Milk Procurement (Al Khair)', pass: 'contractor123', scopeType: 'SOURCE', isActive: true, sourceCode: 'CONT-ALKHAIR' },
-    { username: 'security.gate', name: 'Security Gate Operator', role: 'Security_Operator', department: 'Security & Weighbridge', pass: 'security123', scopeType: 'ALL', isActive: true, sourceCode: null },
-    { username: 'security.head', name: 'Security Admin Manager (Head)', role: 'Security_Manager', department: 'Security Management', pass: 'sechead123', scopeType: 'DEPARTMENT', isActive: true, sourceCode: null },
-    { username: 'qa.chemist', name: 'QA Lab Testing Chemist', role: 'QA_Operator', department: 'Quality Assurance Lab', pass: 'qa123', scopeType: 'ALL', isActive: true, sourceCode: null },
-    { username: 'qa.head', name: 'QA Department Manager', role: 'QA_Manager', department: 'QA Management', pass: 'qahead123', scopeType: 'DEPARTMENT', isActive: true, sourceCode: null },
-    { username: 'weighbridge.operator', name: 'Weighbridge Operator', role: 'WEIGHBRIDGE_OPERATOR', department: 'Production & Weighbridge', pass: 'weighbridge123', scopeType: 'ALL', isActive: true, sourceCode: null },
-    { username: 'weighbridge.02', name: 'Weighbridge Shift Operator 2', role: 'WEIGHBRIDGE_OPERATOR', department: 'Production & Weighbridge', pass: 'weighbridge123', scopeType: 'ALL', isActive: true, sourceCode: null },
-    { username: 'production.operator', name: 'Production Operator', role: 'Production_Operator', department: 'Plant Production & Silos', pass: 'production123', scopeType: 'ALL', isActive: true, sourceCode: null },
-    { username: 'production.head', name: 'Production Department Manager', role: 'Production_Manager', department: 'Production Management', pass: 'prodhead123', scopeType: 'DEPARTMENT', isActive: true, sourceCode: null },
-    { username: 'general.plant.manager', name: 'General Plant Manager', role: 'General_Plant_Manager', department: 'Plant Executive Directorate', pass: 'plantmanager123', scopeType: 'ALL', isActive: true, sourceCode: null },
-    { username: 'correction.officer', name: 'Dedicated Data Correction Officer', role: 'Correction_Officer', department: 'Plant Audit & Data Corrections', pass: 'correct123', scopeType: 'ALL', isActive: true, sourceCode: null },
+    { username: 'admin.superuser', email: 'admin.superuser@example.com', name: 'Super Admin', role: 'SUPER_ADMIN', department: 'System Administration', pass: 'admin123', scopeType: 'SYSTEM', isActive: true, sourceCode: null },
+    { username: 'super.admin', email: 'super.admin@example.com', name: 'Retired Bootstrap Admin', role: 'SUPER_ADMIN', department: 'Retired Migration Account', pass: 'admin123', scopeType: 'SYSTEM', isActive: false, sourceCode: null },
+    { username: 'executive.management', email: 'executive.management@example.com', name: 'Senior Executive Management', role: 'EXECUTIVE_MANAGEMENT', department: 'Executive Management', pass: 'exec123', scopeType: 'SYSTEM', isActive: true, sourceCode: null },
+    { username: 'data.executive', email: 'data.executive@example.com', name: 'Data Executive', role: 'DATA_EXECUTIVE', department: 'Data & Analytics', pass: 'data123', scopeType: 'SYSTEM', isActive: true, sourceCode: null },
+    { username: 'mpd.head', email: 'mpd.head@example.com', name: 'MPD Head', role: 'HEAD_OF_MPD', department: 'Milk Procurement', pass: 'mpdhead123', scopeType: 'SYSTEM', isActive: true, sourceCode: null },
+    { username: 'admin.head', email: 'admin.head@example.com', name: 'Admin Head', role: 'ADMIN_HEAD', department: 'Administration', pass: 'adminhead123', scopeType: 'DEPARTMENT', isActive: true, sourceCode: null },
+    { username: 'qa.head', email: 'qa.head@example.com', name: 'QA Head', role: 'QA_HEAD', department: 'Quality Assurance', pass: 'qahead123', scopeType: 'DEPARTMENT', isActive: true, sourceCode: null },
+    { username: 'production.head', email: 'production.head@example.com', name: 'Production Head', role: 'PRODUCTION_HEAD', department: 'Production', pass: 'prodhead123', scopeType: 'DEPARTMENT', isActive: true, sourceCode: null },
+    { username: 'finance.accounts', email: 'finance.accounts@example.com', name: 'Finance and Accounts', role: 'FINANCE_ACCOUNTS', department: 'Finance & Accounts', pass: 'finance123', scopeType: 'DEPARTMENT', isActive: true, sourceCode: null },
+    { username: 'zmcc.manager.north', email: 'zmcc.manager.north@example.com', name: 'ZMCC Manager - Hasilpur', role: 'ZMCC_MANAGER', department: 'Milk Procurement', pass: 'zone123', scopeType: 'SOURCE', isActive: true, sourceCode: 'ZMCC-HASILPUR' },
+    { username: 'contractor.manager.alkhair', email: 'contractor.manager.alkhair@example.com', name: 'Contractor Manager - Al Khair', role: 'CONTRACTOR_MANAGER', department: 'Milk Procurement', pass: 'contractor123', scopeType: 'SOURCE', isActive: true, sourceCode: 'CONT-ALKHAIR' },
+    { username: 'phe.operator', email: 'phe.operator@example.com', name: 'PHE Operator', role: 'PHE_OPERATOR', department: 'Milk Procurement', pass: 'phe123', scopeType: 'SOURCE', isActive: true, sourceCode: 'ZMCC-HASILPUR' },
+    { username: 'zmcc.operator', email: 'zmcc.operator@example.com', name: 'ZMCC Lab Attendant (Hasilpur)', role: 'ZMCC_LAB_ATTENDANT', department: 'Milk Procurement', pass: 'mpd123', scopeType: 'SOURCE', isActive: true, sourceCode: 'ZMCC-HASILPUR' },
+    { username: 'zmcc.operator.jhang', email: 'zmcc.operator.jhang@example.com', name: 'ZMCC Lab Attendant (Jhang)', role: 'ZMCC_LAB_ATTENDANT', department: 'Milk Procurement', pass: 'mpd123', scopeType: 'SOURCE', isActive: true, sourceCode: 'ZMCC-JHANG' },
+    { username: 'zmcc.operator.kabirwala', email: 'zmcc.operator.kabirwala@example.com', name: 'ZMCC Lab Attendant (Kabirwala)', role: 'ZMCC_LAB_ATTENDANT', department: 'Milk Procurement', pass: 'mpd123', scopeType: 'SOURCE', isActive: true, sourceCode: 'ZMCC-KABIRWALA' },
+    { username: 'mot.driver', email: 'mot.driver@example.com', name: 'MOT Operator', role: 'MOT', department: 'Milk Procurement', pass: 'mot123', scopeType: 'SOURCE', isActive: true, sourceCode: 'ZMCC-HASILPUR' },
+    { username: 'contractor.operator.alkhair', email: 'contractor.operator.alkhair@example.com', name: 'Wasim Sahib', role: 'CONTRACTOR_OPERATOR', department: 'Milk Procurement - Contractor Operations', pass: 'mpd123', scopeType: 'SOURCE', isActive: true, sourceCode: 'CONT-ALKHAIR' },
+    { username: 'contractor.operator.almehmood', email: 'contractor.operator.almehmood@example.com', name: 'Contractor Operator (Al Mehmood)', role: 'CONTRACTOR_OPERATOR', department: 'Milk Procurement - Contractor Operations', pass: 'mpd123', scopeType: 'SOURCE', isActive: true, sourceCode: 'CONT-ALMEHMOOD' },
+    { username: 'security.gate', email: 'security.gate@example.com', name: 'Security Operator', role: 'SECURITY_OPERATOR', department: 'Security', pass: 'security123', scopeType: 'DEPARTMENT', isActive: true, sourceCode: null },
+    { username: 'qa.manager', email: 'qa.manager@example.com', name: 'QA Manager', role: 'QA_MANAGER', department: 'Quality Assurance', pass: 'qamgr123', scopeType: 'DEPARTMENT', isActive: true, sourceCode: null },
+    { username: 'qa.chemist', email: 'qa.chemist@example.com', name: 'QA Lab Attendant', role: 'QA_LAB_ATTENDANT', department: 'Quality Assurance', pass: 'qa123', scopeType: 'DEPARTMENT', isActive: true, sourceCode: null },
+    { username: 'weighbridge.operator', email: 'weighbridge.operator@example.com', name: 'Weighbridge Operator', role: 'WEIGHBRIDGE_OPERATOR', department: 'Production & Weighbridge', pass: 'weighbridge123', scopeType: 'DEPARTMENT', isActive: true, sourceCode: null },
+    { username: 'weighbridge.02', email: 'weighbridge.02@example.com', name: 'Weighbridge Shift Operator 2', role: 'WEIGHBRIDGE_OPERATOR', department: 'Production & Weighbridge', pass: 'weighbridge123', scopeType: 'DEPARTMENT', isActive: true, sourceCode: null },
+    { username: 'production.operator', email: 'production.operator@example.com', name: 'Production Reception Operator', role: 'PRODUCTION_RECEPTION_OPERATOR', department: 'Production', pass: 'production123', scopeType: 'DEPARTMENT', isActive: true, sourceCode: null },
+    // Inactive legacy accounts preserved for FK history without active authority
+    { username: 'security.head', email: 'security.head@example.com', name: 'Retired Security Head', role: 'ADMIN_HEAD', department: 'Security Management', pass: 'sechead123', scopeType: 'DEPARTMENT', isActive: false, sourceCode: null },
+    { username: 'general.plant.manager', email: 'general.plant.manager@example.com', name: 'Retired Plant Manager', role: 'EXECUTIVE_MANAGEMENT', department: 'Plant Executive Directorate', pass: 'plantmanager123', scopeType: 'SYSTEM', isActive: false, sourceCode: null },
+    { username: 'correction.officer', email: 'correction.officer@example.com', name: 'Retired Correction Officer', role: 'SUPER_ADMIN', department: 'Plant Audit & Data Corrections', pass: 'correct123', scopeType: 'SYSTEM', isActive: false, sourceCode: null },
   ];
 
   const shouldResetPasswords = process.env.RESET_DEV_PASSWORDS === 'true';
@@ -145,6 +156,8 @@ async function main() {
     const existingUser = await prisma.user.findFirst({ where: { username: u.username } });
 
     if (existingUser) {
+      // Idempotency: preserve existing user's email (whether set or NULL)
+      // Never overwrite or fabricate an email on rerun.
       const updateData: Record<string, unknown> = {
         full_name: u.name,
         role: u.role,
@@ -167,6 +180,7 @@ async function main() {
         data: {
           username: u.username,
           full_name: u.name,
+          email: u.email,
           password_hash: hash,
           role: u.role,
           department: u.department,
@@ -178,7 +192,55 @@ async function main() {
     }
   }
 
-  console.log('✅ Successfully seeded 30 Lab Tests, 5 Procurement Sources, and System Users!');
+  console.log('Seeding Chiller Ownership Master Data in PostgreSQL...');
+  const CHILLER_OWNERSHIP_SEED = [
+    { code: 'NESTLE', name: 'Nestlé' },
+    { code: 'ENGRO', name: 'Engro' },
+    { code: 'SHAKARGANJ', name: 'Shakarganj' },
+    { code: 'HALEEB', name: 'Haleeb' },
+    { code: 'FFL', name: 'FFL' },
+    { code: 'ADAM', name: 'Adam' },
+    { code: 'MILLAC', name: 'Millac' },
+    { code: 'GHANI', name: 'Ghani' },
+    { code: 'ACHA_FOODS', name: 'Acha Foods' },
+    { code: 'SELF', name: 'Self' },
+    { code: 'OTHER', name: 'Other' },
+  ];
+
+  const superAdmin = await prisma.user.findFirst({
+    where: {
+      username: 'admin.superuser',
+      role: 'SUPER_ADMIN',
+      is_active: true,
+      scope_type: 'SYSTEM',
+    },
+  });
+
+  if (!superAdmin) {
+    throw new Error(
+      'Active canonical SUPER_ADMIN (admin.superuser with role=SUPER_ADMIN, is_active=true, scope_type=SYSTEM) not found for seeding ChillerOwnership'
+    );
+  }
+
+  for (const item of CHILLER_OWNERSHIP_SEED) {
+    await prisma.chillerOwnership.upsert({
+      where: { ownership_code: item.code },
+      update: {
+        name: item.name,
+        is_active: true,
+        updated_by: superAdmin.id,
+      },
+      create: {
+        ownership_code: item.code,
+        name: item.name,
+        is_active: true,
+        created_by: superAdmin.id,
+        updated_by: null,
+      },
+    });
+  }
+
+  console.log('✅ Successfully seeded 30 Lab Tests, 5 Procurement Sources, System Users, and 11 Chiller Ownership records!');
 }
 
 main()

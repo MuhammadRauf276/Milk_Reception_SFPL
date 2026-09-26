@@ -5,8 +5,12 @@ import { Search, Scale, RefreshCw, CheckCircle2, Clock, Radio } from 'lucide-rea
 
 import { formatAcceptedQuantitySummary } from '@/backend/modules/dispatch/quantity/dispatchQuantityService';
 
+export type WeighbridgeTab = 'FIRST_WEIGHT' | 'SECOND_WEIGHT';
+
 interface WeighbridgeWorkspaceProps {
   currentUser?: User | null;
+  activeTab?: WeighbridgeTab;
+  onTabChange?: (tab: WeighbridgeTab) => void;
 }
 
 interface FirstWeightPortion {
@@ -84,8 +88,18 @@ function formatDuration(minutes: number): string {
   return remainingHours > 0 ? `${days}d ${remainingHours}h` : `${days}d`;
 }
 
-export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({ currentUser }) => {
-  const [activeTab, setActiveTab] = useState<'FIRST_WEIGHT' | 'SECOND_WEIGHT'>('FIRST_WEIGHT');
+export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({
+  currentUser,
+  activeTab: controlledTab,
+  onTabChange,
+}) => {
+  const [internalTab, setInternalTab] = useState<WeighbridgeTab>('FIRST_WEIGHT');
+  const activeTab = controlledTab !== undefined ? controlledTab : internalTab;
+
+  const setActiveTab = (tab: WeighbridgeTab) => {
+    setInternalTab(tab);
+    if (onTabChange) onTabChange(tab);
+  };
   
   // Queues
   const [firstWeightVisits, setFirstWeightVisits] = useState<FirstWeightVisit[]>([]);
@@ -420,9 +434,9 @@ export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({ curr
           </button>
         </div>
 
-        <div className="hidden lg:flex items-center space-x-1.5 px-3 py-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 rounded-xl border border-emerald-200 shrink-0">
-          <Radio className="w-3 h-3 animate-pulse text-emerald-600" />
-          <span>Live Scale</span>
+        <div className="hidden lg:flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold text-slate-700 bg-white rounded-xl border border-[#C4B9A3] shrink-0">
+          <Scale className="w-4 h-4 text-slate-600" />
+          <span>Active Scale</span>
         </div>
       </div>
 

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
+import { vehicleVisitPaperIdentity } from '@/backend/modules/paper-references';
 
 export async function GET(req: Request) {
   const user = await getCurrentUser();
@@ -57,6 +58,7 @@ export async function GET(req: Request) {
         visit_number: v.visit_number,
         vehicle_number: v.vehicle_number,
         token_number: v.token_number || null,
+        identifiers: vehicleVisitPaperIdentity(v),
         current_status: v.current_status,
         portion_count: portions.length,
         vehicle_dispatch_quantity_value: totalVehicleQty,

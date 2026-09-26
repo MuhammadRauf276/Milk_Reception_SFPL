@@ -33,7 +33,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const authUser = await getCurrentUser(req);
-  if (!authUser || (authUser.role !== 'SUPER_ADMIN' && authUser.role !== 'Admin')) {
+  if (!authUser || authUser.role !== 'SUPER_ADMIN') {
     return NextResponse.json({ error: 'Unauthorized. Super Admin authorization required.' }, { status: 403 });
   }
 

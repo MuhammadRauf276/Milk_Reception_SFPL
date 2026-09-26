@@ -122,20 +122,6 @@ export function deriveContractorJourneyStage(
   return { stage: 'DISPATCHED', label: 'Dispatched' };
 }
 
-/**
- * Calculate presentation-only liters variance where both authoritative liter values exist.
- * Formula: authoritative_final_liters - vehicle_dispatch_gross_liters (Preserves +/- sign).
- */
-export function computeLitersVariance(
-  grossLiters: number | null | undefined,
-  authoritativeFinalLiters: number | null | undefined,
-  finalReceiptExists: boolean
-): number | null {
-  if (!finalReceiptExists || authoritativeFinalLiters == null || grossLiters == null || grossLiters <= 0) {
-    return null;
-  }
-  return Math.round((authoritativeFinalLiters - grossLiters) * 100) / 100;
-}
 
 /**
  * Group flat portion logs into unified ContractorVehicleVisit records
@@ -173,14 +159,69 @@ export function buildContractorVehicleVisits(logs: MilkProcessLog[]): Contractor
       finalReceiptExists
     );
 
-    const litersVariance = computeLitersVariance(grossLiters, authoritativeFinalLiters, finalReceiptExists);
+    const dispatch13TsLiters =
+      first.vehicle_dispatch_at_13ts_liters != null
+        ? Number(first.vehicle_dispatch_at_13ts_liters)
+        : null;
 
-    const finalReceiptBusinessDate = first.final_receipt_business_date || null;
-    let reportingBusinessDate: string | null = null;
+    const plantFinalAt13TsLiters =
+      first.plant_final_at_13ts_liters != null
+        ? Number(first.plant_final_at_13ts_liters)
+        : null;
+
+    const isHistoricalReceiptWithoutCommercialSnapshot =
+      finalReceiptExists && first.plant_final_at_13ts_liters == null;
+
+    const grossVarianceLiters =
+      first.gross_variance_liters != null ? Number(first.gross_variance_liters) : null;
+    const grossVariancePercent =
+      first.gross_variance_percent != null ? Number(first.gross_variance_percent) : null;
+
+    let grossVarianceText = '—';
+    if (grossVarianceLiters != null) {
+      if (grossVarianceLiters === 0) grossVarianceText = '0.00 L';
+      else if (grossVarianceLiters > 0)
+        grossVarianceText = `+${grossVarianceLiters.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L`;
+      else
+        grossVarianceText = `${grossVarianceLiters.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L`;
+    }
+
+    let grossVariancePercentText = '—';
+    if (grossVariancePercent != null) {
+      if (grossVariancePercent === 0) grossVariancePercentText = '0.00%';
+      else if (grossVariancePercent > 0) grossVariancePercentText = `+${grossVariancePercent.toFixed(2)}%`;
+      else grossVariancePercentText = `${grossVariancePercent.toFixed(2)}%`;
+    }
+
+    const at13TsVarianceLiters =
+      first.at_13ts_variance_liters != null ? Number(first.at_13ts_variance_liters) : null;
+    const at13TsVariancePercent =
+      first.at_13ts_variance_percent != null ? Number(first.at_13ts_variance_percent) : null;
+
+    let at13TsVarianceText = '—';
+    if (at13TsVarianceLiters != null) {
+      if (at13TsVarianceLiters === 0) at13TsVarianceText = '0.00 L';
+      else if (at13TsVarianceLiters > 0)
+        at13TsVarianceText = `+${at13TsVarianceLiters.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L`;
+      else
+        at13TsVarianceText = `${at13TsVarianceLiters.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L`;
+    }
+
+    let at13TsVariancePercentText = '—';
+    if (at13TsVariancePercent != null) {
+      if (at13TsVariancePercent === 0) at13TsVariancePercentText = '0.00%';
+      else if (at13TsVariancePercent > 0) at13TsVariancePercentText = `+${at13TsVariancePercent.toFixed(2)}%`;
+      else at13TsVariancePercentText = `${at13TsVariancePercent.toFixed(2)}%`;
+    }
+
+    const litersVariance = grossVarianceLiters;
+
+    const finalReceiptDate = first.final_receipt_date || null;
+    let reportingDate: string | null = null;
     if (finalReceiptExists) {
-      reportingBusinessDate = first.final_receipt_business_date || first.reporting_business_date || null;
+      reportingDate = first.final_receipt_date || first.reporting_date || null;
     } else {
-      reportingBusinessDate = first.reporting_business_date || first.dispatch_date || null;
+      reportingDate = first.reporting_date || first.dispatch_date || null;
     }
 
     visits.push({
@@ -207,13 +248,26 @@ export function buildContractorVehicleVisits(logs: MilkProcessLog[]): Contractor
       finalReceiptTransactionId: first.final_receipt_transaction_id ?? null,
       authoritativeFinalLiters,
       finalReceiptTimestamp: first.final_receipt_timestamp || null,
-      finalReceiptBusinessDate,
-      reportingBusinessDate,
+      finalReceiptDate,
+      reportingDate,
       siloStorageId: first.silo_storage_id || null,
       firstWeightKg: first.first_weight_of_vehicle ?? null,
       secondWeightKg: first.second_weight_of_vehicle ?? null,
       netWeightKg: first.computed_net_milk_weight ?? null,
       litersVariance,
+
+      dispatch13TsLiters,
+      plantFinalAt13TsLiters,
+      grossVarianceLiters,
+      grossVariancePercent,
+      grossVarianceText,
+      grossVariancePercentText,
+      at13TsVarianceLiters,
+      at13TsVariancePercent,
+      at13TsVarianceText,
+      at13TsVariancePercentText,
+      reconciliationExists: Boolean(first.reconciliation_exists),
+      isHistoricalReceiptWithoutCommercialSnapshot,
     });
   });
 

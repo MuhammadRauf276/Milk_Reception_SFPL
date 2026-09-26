@@ -2,8 +2,6 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { MilkProcessLog, User } from '@backend/core/types';
-import { Sidebar } from '@modules/shared/Sidebar';
-import { Header } from '@modules/shared/Header';
 import { ContractorOverview } from './contractor/ContractorOverview';
 import { ContractorLivePipeline } from './contractor/ContractorLivePipeline';
 import { ContractorQualityRejections } from './contractor/ContractorQualityRejections';
@@ -24,6 +22,8 @@ import {
 
 interface PlantContractorManagerWorkspaceProps {
   currentUser: User | null;
+  activeTab?: PlantContractorTab;
+  onTabChange?: (tab: PlantContractorTab) => void;
 }
 
 const TABS: { id: PlantContractorTab; label: string; icon: React.FC<{ className?: string }> }[] = [
@@ -36,70 +36,84 @@ const TABS: { id: PlantContractorTab; label: string; icon: React.FC<{ className?
 
 export const PlantContractorManagerWorkspace: React.FC<PlantContractorManagerWorkspaceProps> = ({
   currentUser,
+  activeTab: controlledTab,
+  onTabChange,
 }) => {
-  const [activeTab, setActiveTab] = useState<PlantContractorTab>('OVERVIEW');
+  const [internalTab, setInternalTab] = useState<PlantContractorTab>('OVERVIEW');
+  const activeTab = controlledTab !== undefined ? controlledTab : internalTab;
+
+  const setActiveTab = (tab: PlantContractorTab) => {
+    setInternalTab(tab);
+    if (onTabChange) onTabChange(tab);
+  };
   const [serverBusinessDate, setServerBusinessDate] = useState<string>('');
   const [logs, setLogs] = useState<MilkProcessLog[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState<number>(1);
+  const [pageSize] = useState<number>(20);
+  const [totalPages, setTotalPages] = useState<number>(1);
+  const [totalRecords, setTotalRecords] = useState<number>(0);
+  const [hasMore, setHasMore] = useState<boolean>(false);
+  const [summary, setSummary] = useState<{
+    totalVisits?: number;
+    completedVisits?: number;
+    activeInPlantVisits?: number;
+  } | null>(null);
 
   const assignedSourceName = useMemo(() => {
     return currentUser?.zone || currentUser?.department || 'Assigned Plant Contractor';
   }, [currentUser]);
 
-  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const fetchLogs = useCallback(
+    async (targetPage: number = 1) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const mode = activeTab === 'LIVE' ? 'live' : 'recent';
+        const params = new URLSearchParams();
+        params.append('mode', mode);
+        params.append('page', String(targetPage));
+        params.append('pageSize', String(pageSize));
 
-  const activePipelineCount = useMemo(() => {
-    return logs.filter((l) => !l.final_receipt_exists && l.status !== 'CANCELLED').length;
-  }, [logs]);
-
-  const fetchLogs = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch('/api/logs');
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to fetch operational logs');
+        const res = await fetch(`/api/logs?${params.toString()}`);
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || 'Failed to fetch operational logs');
+        }
+        const items = data.items || data.logs;
+        if (items) {
+          setLogs(items);
+        }
+        if (data.pagination) {
+          setPage(data.pagination.page || targetPage);
+          setTotalPages(data.pagination.totalPages || data.pagination.total_pages || 1);
+          setTotalRecords(data.pagination.totalRecords || data.pagination.total_count || 0);
+          setHasMore(Boolean(data.pagination.hasMore ?? data.pagination.has_more));
+        }
+        if (data.summary) {
+          setSummary(data.summary);
+        }
+        if (data.serverBusinessDate) {
+          setServerBusinessDate(data.serverBusinessDate);
+        }
+      } catch (err: any) {
+        setError(err.message || 'Failed to load contractor operational logs');
+      } finally {
+        setLoading(false);
       }
-      if (data.logs) {
-        setLogs(data.logs);
-      }
-      if (data.serverBusinessDate) {
-        setServerBusinessDate(data.serverBusinessDate);
-      }
-    } catch (err: any) {
-      setError(err.message || 'Failed to load contractor operational logs');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    [activeTab, pageSize]
+  );
 
   useEffect(() => {
-    fetchLogs();
+    fetchLogs(1);
   }, [fetchLogs]);
 
   return (
-    <div className="w-full max-w-full flex h-screen bg-[#FDFBF9] text-[#111311] overflow-hidden font-sans">
-      {/* Shared Application Sidebar Drawer */}
-      <Sidebar
-        currentUser={currentUser}
-        activeCount={activePipelineCount}
-        isMobileOpen={isMobileNavOpen}
-        onCloseMobile={() => setIsMobileNavOpen(false)}
-      />
-
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden w-full max-w-full">
-        {/* Header */}
-        <Header
-          currentUser={currentUser}
-          title="Plant Contractor Manager Station"
-          onMenuClick={() => setIsMobileNavOpen((prev) => !prev)}
-        />
-
-        {/* Workspace Toolbar */}
-        <div className="bg-white border-b border-[#C4B9A3] px-4 sm:px-6 py-3.5 shrink-0 shadow-xs">
+    <div className="flex-1 flex flex-col min-w-0 overflow-hidden w-full max-w-full">
+      {/* Workspace Toolbar */}
+      <div className="bg-white border-b border-[#C4B9A3] px-4 sm:px-6 py-3.5 shrink-0 shadow-xs">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <div className="flex items-center space-x-2 flex-wrap">
@@ -126,7 +140,7 @@ export const PlantContractorManagerWorkspace: React.FC<PlantContractorManagerWor
               )}
               <button
                 type="button"
-                onClick={fetchLogs}
+                onClick={() => fetchLogs(page)}
                 disabled={loading}
                 className="flex items-center space-x-1.5 px-3.5 py-2 min-h-[44px] bg-[#FDFBF9] hover:bg-[#EFE9D9]/60 border border-[#C4B9A3] rounded-xl text-xs font-black text-[#111311] shadow-xs transition active:scale-95 disabled:opacity-50"
               >
@@ -145,7 +159,10 @@ export const PlantContractorManagerWorkspace: React.FC<PlantContractorManagerWor
                 <button
                   key={tab.id}
                   type="button"
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => {
+                    setActiveTab(tab.id);
+                    setPage(1);
+                  }}
                   className={`flex items-center space-x-2 px-4 py-2.5 min-h-[44px] text-xs font-black rounded-t-xl border-t border-l border-r whitespace-nowrap transition shrink-0 ${
                     isActive
                       ? 'border-[#C4B9A3] text-[#1E3A8A] bg-[#FDFBF9] shadow-xs'
@@ -176,6 +193,13 @@ export const PlantContractorManagerWorkspace: React.FC<PlantContractorManagerWor
               assignedSourceName={assignedSourceName}
               isLoading={loading}
               error={error}
+              pagination={{
+                page,
+                totalPages,
+                totalRecords,
+                hasMore,
+              }}
+              summary={summary || undefined}
             />
           )}
 
@@ -215,8 +239,47 @@ export const PlantContractorManagerWorkspace: React.FC<PlantContractorManagerWor
               assignedSourceName={assignedSourceName}
             />
           )}
+
+          {/* Pagination bar for non-history tabs */}
+          {activeTab !== 'HISTORY' && totalRecords > 0 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 bg-white border border-[#C4B9A3] rounded-xl text-xs shadow-xs mt-4">
+              <div className="text-slate-600 font-medium">
+                Showing page <span className="font-bold text-slate-900">{page}</span> of{' '}
+                <span className="font-bold text-slate-900">{totalPages}</span>{' '}
+                (<span className="font-bold text-slate-900">{totalRecords}</span> total visits)
+                {totalPages > 1 && (
+                  <span className="ml-2 text-[11px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                    Bounded view • navigate pages for older records
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const prevPage = Math.max(1, page - 1);
+                    fetchLogs(prevPage);
+                  }}
+                  disabled={page <= 1 || loading}
+                  className="px-3.5 py-1.5 min-h-[36px] bg-[#FDFBF9] hover:bg-[#EFE9D9]/60 border border-[#C4B9A3] rounded-lg font-bold text-[#111311] disabled:opacity-40 disabled:cursor-not-allowed transition"
+                >
+                  Previous
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextPage = Math.min(totalPages, page + 1);
+                    fetchLogs(nextPage);
+                  }}
+                  disabled={page >= totalPages || !hasMore || loading}
+                  className="px-3.5 py-1.5 min-h-[36px] bg-[#FDFBF9] hover:bg-[#EFE9D9]/60 border border-[#C4B9A3] rounded-lg font-bold text-[#111311] disabled:opacity-40 disabled:cursor-not-allowed transition"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
-    </div>
-  );
-};
+    );
+  };

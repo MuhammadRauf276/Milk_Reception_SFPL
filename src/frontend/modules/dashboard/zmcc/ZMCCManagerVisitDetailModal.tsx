@@ -94,7 +94,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 font-mono">
               <div className="p-3 rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/60">
-                <span className="text-[10px] font-sans font-bold text-slate-500 uppercase block">
+                <span className="text-xs font-sans font-bold text-slate-500 uppercase block">
                   Vehicle Number
                 </span>
                 <span className="text-sm font-black text-slate-900">
@@ -103,7 +103,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
               </div>
 
               <div className="p-3 rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/60">
-                <span className="text-[10px] font-sans font-bold text-slate-500 uppercase block">
+                <span className="text-xs font-sans font-bold text-slate-500 uppercase block">
                   Station
                 </span>
                 <span className="text-sm font-bold text-slate-800">
@@ -112,7 +112,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
               </div>
 
               <div className="p-3 rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/60">
-                <span className="text-[10px] font-sans font-bold text-slate-500 uppercase block">
+                <span className="text-xs font-sans font-bold text-slate-500 uppercase block">
                   Business Date
                 </span>
                 <span className={`text-sm font-bold ${log.business_date ? 'text-slate-800' : 'text-amber-700'}`}>
@@ -121,7 +121,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
               </div>
 
               <div className="p-3 rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/60">
-                <span className="text-[10px] font-sans font-bold text-slate-500 uppercase block">
+                <span className="text-xs font-sans font-bold text-slate-500 uppercase block">
                   Dispatch Date
                 </span>
                 <span className="text-sm font-bold text-slate-800">
@@ -130,7 +130,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
               </div>
 
               <div className="p-3 rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/60">
-                <span className="text-[10px] font-sans font-bold text-slate-500 uppercase block">
+                <span className="text-xs font-sans font-bold text-slate-500 uppercase block">
                   Dispatch Quantity
                 </span>
                 <span className="text-sm font-black text-[#1E3A8A]">
@@ -143,7 +143,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
               </div>
 
               <div className="p-3 rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/60">
-                <span className="text-[10px] font-sans font-bold text-slate-500 uppercase block">
+                <span className="text-xs font-sans font-bold text-slate-500 uppercase block">
                   Dispatch Time
                 </span>
                 <span className="text-xs font-semibold text-slate-800">
@@ -152,7 +152,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
               </div>
 
               <div className="p-3 rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/60">
-                <span className="text-[10px] font-sans font-bold text-slate-500 uppercase block">
+                <span className="text-xs font-sans font-bold text-slate-500 uppercase block">
                   Gate Entry Time
                 </span>
                 <span className="text-xs font-semibold text-slate-800">
@@ -173,7 +173,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 font-mono">
               <div className="p-3 rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/60">
-                <span className="text-[10px] font-sans font-bold text-slate-500 uppercase block">
+                <span className="text-xs font-sans font-bold text-slate-500 uppercase block">
                   Gross Weight
                 </span>
                 <span className="text-sm font-bold text-slate-800">
@@ -184,7 +184,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
               </div>
 
               <div className="p-3 rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/60">
-                <span className="text-[10px] font-sans font-bold text-slate-500 uppercase block">
+                <span className="text-xs font-sans font-bold text-slate-500 uppercase block">
                   Tare Weight
                 </span>
                 <span className="text-sm font-bold text-slate-800">
@@ -197,7 +197,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
               </div>
 
               <div className="p-3 rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/60">
-                <span className="text-[10px] font-sans font-bold text-slate-500 uppercase block">
+                <span className="text-xs font-sans font-bold text-slate-500 uppercase block">
                   Net Milk Weight
                 </span>
                 <span className="text-sm font-black text-[#1E3A8A]">
@@ -208,7 +208,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
               </div>
 
               <div className="p-3 rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/60">
-                <span className="text-[10px] font-sans font-bold text-slate-500 uppercase block">
+                <span className="text-xs font-sans font-bold text-slate-500 uppercase block">
                   Received Quantity
                 </span>
                 <span className="text-sm font-black text-[#166534]">
@@ -221,7 +221,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
               </div>
 
               <div className="p-3 rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/60">
-                <span className="text-[10px] font-sans font-bold text-slate-500 uppercase block">
+                <span className="text-xs font-sans font-bold text-slate-500 uppercase block">
                   First Weight Time
                 </span>
                 <span className="text-xs font-semibold text-slate-800">
@@ -230,7 +230,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
               </div>
 
               <div className="p-3 rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/60">
-                <span className="text-[10px] font-sans font-bold text-slate-500 uppercase block">
+                <span className="text-xs font-sans font-bold text-slate-500 uppercase block">
                   Second Weight Time
                 </span>
                 <span className="text-xs font-semibold text-slate-800">
@@ -353,7 +353,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
                       </div>
 
                       <span
-                        className={`px-2.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
+                        className={`px-2.5 py-0.5 rounded text-xs font-black uppercase tracking-wider ${
                           decisionUpper === 'ACCEPTED'
                             ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                             : decisionUpper === 'REJECTED'
@@ -379,7 +379,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
                     <div className="overflow-x-auto">
                       <table className="w-full text-left text-xs">
                         <thead>
-                          <tr className="border-b border-[#EAE4D5] text-[10.5px] font-bold text-slate-500 uppercase tracking-wider">
+                          <tr className="border-b border-[#EAE4D5] text-xs font-bold text-slate-500 uppercase tracking-wider">
                             <th className="py-1.5 px-2">Lab Test</th>
                             <th className="py-1.5 px-2">Status</th>
                             <th className="py-1.5 px-2 font-mono">Dispatch Result</th>
@@ -395,7 +395,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
                               </td>
                               <td className="py-1.5 px-2 font-sans">
                                 <span
-                                  className={`inline-block px-2 py-0.5 rounded text-[9.5px] font-bold ${
+                                  className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${
                                     t.performed
                                       ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                                       : 'bg-slate-100 text-slate-500'
@@ -435,7 +435,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 font-mono">
               <div className="p-3 rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/60">
-                <span className="text-[10px] font-sans font-bold text-slate-500 uppercase block">
+                <span className="text-xs font-sans font-bold text-slate-500 uppercase block">
                   Receipt Status
                 </span>
                 <span
@@ -452,7 +452,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
               </div>
 
               <div className="p-3 rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/60">
-                <span className="text-[10px] font-sans font-bold text-slate-500 uppercase block">
+                <span className="text-xs font-sans font-bold text-slate-500 uppercase block">
                   Destination Silo
                 </span>
                 <span className="text-sm font-bold text-slate-800">
@@ -461,7 +461,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
               </div>
 
               <div className="p-3 rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/60">
-                <span className="text-[10px] font-sans font-bold text-slate-500 uppercase block">
+                <span className="text-xs font-sans font-bold text-slate-500 uppercase block">
                   Unloading Start
                 </span>
                 <span className="text-xs font-semibold text-slate-800">
@@ -472,7 +472,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
               </div>
 
               <div className="p-3 rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/60">
-                <span className="text-[10px] font-sans font-bold text-slate-500 uppercase block">
+                <span className="text-xs font-sans font-bold text-slate-500 uppercase block">
                   Unloading End
                 </span>
                 <span className="text-xs font-semibold text-slate-800">
@@ -483,7 +483,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
               </div>
 
               <div className="p-3 rounded-lg bg-[#FDFBF9] border border-[#EAE4D5]/60">
-                <span className="text-[10px] font-sans font-bold text-slate-500 uppercase block">
+                <span className="text-xs font-sans font-bold text-slate-500 uppercase block">
                   Final Receipt Time
                 </span>
                 <span className="text-xs font-semibold text-[#166534]">

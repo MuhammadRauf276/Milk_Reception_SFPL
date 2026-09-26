@@ -10,6 +10,7 @@ import {
 } from '@/backend/utils/milkFormulas';
 import { isPlantLrTest, isPlantFatTest } from '@/backend/services/vehicleQuantityService';
 import { aggregateAcceptedPortionQuantities } from '@/lib/portion-quantity-aggregator';
+import { vehicleVisitPaperIdentity } from '@/backend/modules/paper-references';
 
 export async function GET(req: NextRequest) {
   try {
@@ -185,6 +186,7 @@ export async function GET(req: NextRequest) {
         visit_number: v.visit_number,
         vehicle_number: v.vehicle_number,
         token_number: v.token_number,
+        identifiers: vehicleVisitPaperIdentity(v),
         current_status: v.current_status,
         gross_weight_kg: v.weight_ticket?.gross_weight_kg ? Number(v.weight_ticket.gross_weight_kg) : null,
         portion_count: v.portions.length,

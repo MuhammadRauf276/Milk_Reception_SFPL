@@ -1,13 +1,27 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { WeighbridgeWorkspace } from '@modules/dashboard/WeighbridgeWorkspace';
+import React, { useState, useEffect, useCallback, useRef, Suspense, useMemo } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { WeighbridgeWorkspace, WeighbridgeTab } from '@modules/dashboard/WeighbridgeWorkspace';
 import { Header } from '@modules/shared/Header';
+import { HierarchicalNavDrawer } from '@modules/shared/navigation/HierarchicalNavDrawer';
 import { User } from '@core/types';
+import { can } from '@/backend/modules/access-control/policy';
+import { createAccessActor } from '@/backend/modules/access-control/rolePolicies';
+import { resolveRoleHome } from '@/lib/role-routing';
 
-export default function WeighbridgeDepartmentPage() {
+const WEIGHBRIDGE_SCOPE = {
+  kind: 'DEPARTMENT',
+  departmentId: 'Production & Weighbridge',
+} as const;
+
+function WeighbridgeDepartmentContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const hamburgerButtonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     async function loadUser() {
@@ -26,7 +40,28 @@ export default function WeighbridgeDepartmentPage() {
     loadUser();
   }, []);
 
-  if (loading) {
+  const openDrawer = useCallback(() => setIsDrawerOpen(true), []);
+  const closeDrawer = useCallback(() => {
+    setIsDrawerOpen(false);
+    setTimeout(() => hamburgerButtonRef.current?.focus(), 0);
+  }, []);
+
+  const tabParam = searchParams?.get('tab')?.toUpperCase() || 'FIRST_WEIGHT';
+  const resolvedTab: WeighbridgeTab =
+    tabParam === 'SECOND_WEIGHT' ? 'SECOND_WEIGHT' : 'FIRST_WEIGHT';
+
+  const hasAccess = useMemo(() => {
+    if (!user) return false;
+    const actor = createAccessActor(user);
+    return actor ? can(actor, 'SUBMIT', WEIGHBRIDGE_SCOPE) : false;
+  }, [user]);
+
+  useEffect(() => {
+    if (loading || hasAccess) return;
+    router.replace(user ? resolveRoleHome(user.role) : '/login');
+  }, [hasAccess, loading, router, user]);
+
+  if (loading || !hasAccess) {
     return (
       <div className="p-8 text-center text-xs font-bold text-slate-500">
         Loading Weighbridge Workstation...
@@ -40,10 +75,41 @@ export default function WeighbridgeDepartmentPage() {
         currentUser={user}
         title="Weighbridge"
         showBranding={true}
+        showMenuButton={true}
+        onMenuClick={openDrawer}
+        menuButtonRef={hamburgerButtonRef}
       />
+
+      <HierarchicalNavDrawer
+        currentUser={user}
+        isOpen={isDrawerOpen}
+        onClose={closeDrawer}
+        triggerButtonRef={hamburgerButtonRef}
+      />
+
       <main className="flex-1 p-4 sm:p-6 overflow-y-auto w-full max-w-full">
-        <WeighbridgeWorkspace currentUser={user} />
+        <WeighbridgeWorkspace
+          currentUser={user}
+          activeTab={resolvedTab}
+          onTabChange={(tab) => {
+            router.push(`/department/weighbridge?tab=${tab}`);
+          }}
+        />
       </main>
     </div>
+  );
+}
+
+export default function WeighbridgeDepartmentPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-[#FDFBF9] text-xs font-bold text-slate-400">
+          Loading Weighbridge Workstation...
+        </div>
+      }
+    >
+      <WeighbridgeDepartmentContent />
+    </Suspense>
   );
 }

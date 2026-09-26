@@ -1,13 +1,19 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { QALaboratoryWorkspace } from '@modules/dashboard/QALaboratoryWorkspace';
+import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { QALaboratoryWorkspace, QATab } from '@modules/dashboard/QALaboratoryWorkspace';
 import { Header } from '@modules/shared/Header';
+import { HierarchicalNavDrawer } from '@modules/shared/navigation/HierarchicalNavDrawer';
 import { User } from '@core/types';
 
-export default function QADepartmentPage() {
+function QADepartmentContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const hamburgerButtonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     async function loadUser() {
@@ -26,6 +32,18 @@ export default function QADepartmentPage() {
     loadUser();
   }, []);
 
+  const openDrawer = useCallback(() => setIsDrawerOpen(true), []);
+  const closeDrawer = useCallback(() => {
+    setIsDrawerOpen(false);
+    setTimeout(() => hamburgerButtonRef.current?.focus(), 0);
+  }, []);
+
+  const tabParam = searchParams?.get('tab')?.toUpperCase() || 'WAITING';
+  const resolvedTab: QATab =
+    tabParam === 'IN_TESTING' || tabParam === 'ON_HOLD'
+      ? (tabParam as QATab)
+      : 'WAITING';
+
   if (loading) {
     return (
       <div className="p-8 text-center text-xs font-bold text-slate-500">
@@ -40,10 +58,41 @@ export default function QADepartmentPage() {
         currentUser={user}
         title="QA Laboratory"
         showBranding={true}
+        showMenuButton={true}
+        onMenuClick={openDrawer}
+        menuButtonRef={hamburgerButtonRef}
       />
+
+      <HierarchicalNavDrawer
+        currentUser={user}
+        isOpen={isDrawerOpen}
+        onClose={closeDrawer}
+        triggerButtonRef={hamburgerButtonRef}
+      />
+
       <main className="flex-1 p-4 sm:p-6 overflow-y-auto w-full max-w-full">
-        <QALaboratoryWorkspace currentUser={user} />
+        <QALaboratoryWorkspace
+          currentUser={user}
+          activeTab={resolvedTab}
+          onTabChange={(tab) => {
+            router.push(`/department/qa?tab=${tab}`);
+          }}
+        />
       </main>
     </div>
+  );
+}
+
+export default function QADepartmentPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-[#FDFBF9] text-xs font-bold text-slate-400">
+          Loading QA Laboratory...
+        </div>
+      }
+    >
+      <QADepartmentContent />
+    </Suspense>
   );
 }

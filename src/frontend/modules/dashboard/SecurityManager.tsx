@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { MilkProcessLog, User } from '@core/types';
-import { Sidebar } from '@modules/shared/Sidebar';
 import { Header } from '@modules/shared/Header';
+import { HierarchicalNavDrawer } from '@modules/shared/navigation/HierarchicalNavDrawer';
 import { ShieldCheck, Search, AlertTriangle, Lock, RefreshCw } from 'lucide-react';
 
 export const SecurityManager: React.FC = () => {
@@ -11,7 +11,16 @@ export const SecurityManager: React.FC = () => {
   const [logs, setLogs] = useState<MilkProcessLog[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const hamburgerButtonRef = React.useRef<HTMLButtonElement | null>(null);
+
+  const openDrawer = useCallback(() => setIsDrawerOpen(true), []);
+  const closeDrawer = useCallback(() => {
+    setIsDrawerOpen(false);
+    setTimeout(() => {
+      hamburgerButtonRef.current?.focus();
+    }, 0);
+  }, []);
 
   const fetchUser = async () => {
     try {
@@ -25,9 +34,10 @@ export const SecurityManager: React.FC = () => {
 
   const fetchLogs = useCallback(async () => {
     try {
-      const res = await fetch('/api/logs');
+      const res = await fetch('/api/logs?mode=live');
       const data = await res.json();
-      if (data.logs) setLogs(data.logs);
+      const items = data.items || data.logs;
+      if (items) setLogs(items);
     } catch (_err) {
       // Error
     }
@@ -75,22 +85,24 @@ export const SecurityManager: React.FC = () => {
   const completedGateOuts = logs.filter((l) => l.out_from_gate_time).length;
 
   return (
-    <div className="w-full max-w-full flex h-screen bg-[#FDFBF9] text-[#111311] overflow-hidden font-sans">
-      <Sidebar
+    <div className="min-h-screen bg-[#FDFBF9] text-[#111311] flex flex-col font-sans w-full max-w-full overflow-x-hidden">
+      <Header
         currentUser={currentUser}
-        activeCount={logs.filter((l) => l.status !== 'Completed').length}
-        isMobileOpen={isMobileNavOpen}
-        onCloseMobile={() => setIsMobileNavOpen(false)}
+        title="Security Manager"
+        showBranding={true}
+        showMenuButton={true}
+        onMenuClick={openDrawer}
+        menuButtonRef={hamburgerButtonRef}
       />
 
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden w-full max-w-full">
-        <Header
-          currentUser={currentUser}
-          title="Security Audit & Performance Monitor"
-          onMenuClick={() => setIsMobileNavOpen((prev) => !prev)}
-        />
+      <HierarchicalNavDrawer
+        currentUser={currentUser}
+        isOpen={isDrawerOpen}
+        onClose={closeDrawer}
+        triggerButtonRef={hamburgerButtonRef}
+      />
 
-        <main className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-6 w-full max-w-full">
+      <main className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-6 w-full max-w-full">
           {/* Top Header Panel */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-2xl bg-white border border-[#C4B9A3] shadow-sm">
             <div>
@@ -284,6 +296,5 @@ export const SecurityManager: React.FC = () => {
           </div>
         </main>
       </div>
-    </div>
-  );
-};
+    );
+  };

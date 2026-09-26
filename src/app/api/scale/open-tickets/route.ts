@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
+import { requireCapability } from '@/backend/modules/access-control/serverGuard';
+import { vehicleVisitPaperIdentity } from '@/backend/modules/paper-references';
 
-export async function GET() {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+const WEIGHBRIDGE_SCOPE = { kind: 'DEPARTMENT', departmentId: 'Production & Weighbridge' } as const;
+
+export async function GET(req: Request) {
+  const access = await requireCapability('VIEW', WEIGHBRIDGE_SCOPE, { request: req });
+  if (!access.allowed) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: access.status });
   }
 
   try {
@@ -31,6 +34,7 @@ export async function GET() {
       gross_weight_kg: t.gross_weight_kg ? Number(t.gross_weight_kg) : 0,
       gross_timestamp: t.gross_timestamp ? t.gross_timestamp.toISOString() : null,
       current_status: t.visit.current_status,
+      identifiers: vehicleVisitPaperIdentity(t.visit),
     }));
 
     return NextResponse.json({ tickets: formatted });

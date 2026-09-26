@@ -16,7 +16,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const allowedRoles = ['ADMIN', 'SUPER_ADMIN', 'PRODUCTION_OPERATOR', 'PRODUCTION_MANAGER', 'PRODUCTION'];
+    const allowedRoles = ['SUPER_ADMIN', 'PRODUCTION_RECEPTION_OPERATOR', 'PRODUCTION_HEAD'];
     if (!allowedRoles.includes(authUser.role.toUpperCase())) {
       return NextResponse.json({ error: 'Forbidden: Production operator role required' }, { status: 403 });
     }

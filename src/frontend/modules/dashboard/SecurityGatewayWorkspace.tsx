@@ -52,15 +52,29 @@ interface ReadyForExitVisit {
   net_weight_kg: number | null;
 }
 
+export type SecurityTab = 'WAITING_ENTRY' | 'INSIDE_PLANT' | 'READY_EXIT';
+
 interface SecurityGatewayWorkspaceProps {
   logs?: any[];
   currentUser?: User | null;
+  activeTab?: SecurityTab;
+  onTabChange?: (tab: SecurityTab) => void;
   onIssueToken?: (logId: number, tokenNumber: string, igpDate: string, igpTime: string) => Promise<void>;
   onLogGateOut?: (logId: number, outTime: string) => Promise<void>;
 }
 
-export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> = ({ currentUser }) => {
-  const [activeTab, setActiveTab] = useState<'WAITING_ENTRY' | 'INSIDE_PLANT' | 'READY_EXIT'>('WAITING_ENTRY');
+export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> = ({
+  currentUser,
+  activeTab: controlledTab,
+  onTabChange,
+}) => {
+  const [internalTab, setInternalTab] = useState<SecurityTab>('WAITING_ENTRY');
+  const activeTab = controlledTab || internalTab;
+
+  const setActiveTab = (tab: SecurityTab) => {
+    setInternalTab(tab);
+    if (onTabChange) onTabChange(tab);
+  };
 
   // Search Queries
   const [entrySearchQuery, setEntrySearchQuery] = useState('');
@@ -305,9 +319,9 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
           </button>
         </div>
 
-        <div className="hidden lg:flex items-center space-x-1.5 px-3 py-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 rounded-xl border border-emerald-200 shrink-0">
-          <Radio className="w-3 h-3 animate-pulse text-emerald-600" />
-          <span>Live Gateway</span>
+        <div className="hidden lg:flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold text-slate-700 bg-white rounded-xl border border-[#C4B9A3] shrink-0">
+          <ShieldCheck className="w-4 h-4 text-slate-600" />
+          <span>Active Gate</span>
         </div>
       </div>
 

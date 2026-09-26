@@ -21,6 +21,7 @@ interface Source {
 interface UserItem {
   id: string;
   username: string;
+  email: string | null;
   name: string;
   role: string;
   department: string;
@@ -62,6 +63,7 @@ export default function SuperAdminUsersPage() {
 
   // Create Form states
   const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<CreatableRole>('SUPER_ADMIN');
@@ -69,6 +71,7 @@ export default function SuperAdminUsersPage() {
 
   // Edit Form states
   const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
   const [editRole, setEditRole] = useState<CreatableRole>('SUPER_ADMIN');
   const [editProcurementSourceId, setEditProcurementSourceId] = useState('');
 
@@ -105,6 +108,7 @@ export default function SuperAdminUsersPage() {
 
   const resetForm = () => {
     setUsername('');
+    setEmail('');
     setName('');
     setPassword('');
     setRole('SUPER_ADMIN');
@@ -209,6 +213,7 @@ export default function SuperAdminUsersPage() {
   const openEditModal = (user: UserItem) => {
     setShowEditModal(user);
     setEditName(user.name || '');
+    setEditEmail(user.email || '');
     const validRole: CreatableRole = (CREATABLE_ROLES as readonly string[]).includes(user.role)
       ? (user.role as CreatableRole)
       : 'SUPER_ADMIN';
@@ -241,6 +246,12 @@ export default function SuperAdminUsersPage() {
       return;
     }
 
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      setCreateModalError('Email address is required.');
+      return;
+    }
+
     if (!password || password.length < 8) {
       setCreateModalError('Password must be at least 8 characters long.');
       return;
@@ -258,6 +269,7 @@ export default function SuperAdminUsersPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           username: trimmedUsername,
+          email: trimmedEmail,
           name: name.trim(),
           password,
           role,
@@ -288,6 +300,12 @@ export default function SuperAdminUsersPage() {
     setError(null);
     setSuccessMsg(null);
 
+    const trimmedEditEmail = editEmail.trim();
+    if (showEditModal.email && !trimmedEditEmail) {
+      setEditModalError('Email address cannot be cleared.');
+      return;
+    }
+
     if (editPolicy.requiresSource && !editProcurementSourceId) {
       setEditModalError(`Please select an active ${editPolicy.allowedSourceType} source for ${editPolicy.label}.`);
       return;
@@ -302,6 +320,7 @@ export default function SuperAdminUsersPage() {
           name: editName.trim(),
           role: editRole,
           procurementSourceId: editPolicy.requiresSource ? editProcurementSourceId : null,
+          ...(trimmedEditEmail ? { email: trimmedEditEmail } : {}),
         }),
       });
 
@@ -435,6 +454,7 @@ export default function SuperAdminUsersPage() {
             <thead className="bg-[#FDFBF9] text-slate-600 border-b border-[#EAE4D5]">
               <tr>
                 <th className="p-3 font-bold">User</th>
+                <th className="p-3 font-bold">Email</th>
                 <th className="p-3 font-bold">Role</th>
                 <th className="p-3 font-bold">Department</th>
                 <th className="p-3 font-bold">Data Scope</th>
@@ -446,13 +466,13 @@ export default function SuperAdminUsersPage() {
             <tbody className="divide-y divide-[#EAE4D5]/60 font-medium">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="p-6 text-center text-slate-400 font-mono">
+                  <td colSpan={8} className="p-6 text-center text-slate-400 font-mono">
                     Loading users...
                   </td>
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-6 text-center text-slate-400">
+                  <td colSpan={8} className="p-6 text-center text-slate-400">
                     No users found.
                   </td>
                 </tr>
@@ -465,13 +485,22 @@ export default function SuperAdminUsersPage() {
                         <div className="font-bold text-[#111311]">{u.name}</div>
                         <div className="font-mono text-[10px] text-slate-500">@{u.username}</div>
                       </td>
+                      <td className="p-3 font-mono text-[11px] text-slate-600">
+                        {u.email ? (
+                          u.email
+                        ) : (
+                          <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-medium">
+                            Not set
+                          </span>
+                        )}
+                      </td>
                       <td className="p-3">
                         <span
                           className={`px-2 py-0.5 rounded font-mono text-[10px] font-bold ${
                             u.role === 'SUPER_ADMIN' ? 'bg-indigo-100 text-indigo-900' : 'bg-slate-100 text-slate-800'
                           }`}
                         >
-                          {u.role === 'MPD_Operator' ? 'ZMCC Lab Attendant' : u.role}
+                          {ROLE_ASSIGNMENT_POLICIES[u.role as CreatableRole]?.label || u.role}
                         </span>
                       </td>
                       <td className="p-3 text-slate-600">{u.department || '—'}</td>
@@ -591,6 +620,23 @@ export default function SuperAdminUsersPage() {
               </div>
 
               <div>
+                <label htmlFor="create-email" className="font-bold text-slate-700 block mb-1">
+                  Email Address <span className="text-rose-600">*</span>
+                </label>
+                <input
+                  id="create-email"
+                  type="email"
+                  required
+                  maxLength={254}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full p-2.5 rounded-lg border border-[#C4B9A3] focus:outline-none focus:border-[#1E3A8A]"
+                  placeholder="e.g. john.doe@example.com"
+                  disabled={isSubmittingCreate}
+                />
+              </div>
+
+              <div>
                 <label htmlFor="create-name" className="font-bold text-slate-700 block mb-1">
                   Full Name
                 </label>
@@ -634,7 +680,7 @@ export default function SuperAdminUsersPage() {
                 >
                   {CREATABLE_ROLES.map((r) => (
                     <option key={r} value={r}>
-                      {r === 'MPD_Operator' ? 'ZMCC Lab Attendant' : `${ROLE_ASSIGNMENT_POLICIES[r].label} (${r})`}
+                      {ROLE_ASSIGNMENT_POLICIES[r].label} ({r})
                     </option>
                   ))}
                 </select>
@@ -757,6 +803,22 @@ export default function SuperAdminUsersPage() {
               </div>
 
               <div>
+                <label htmlFor="edit-email" className="font-bold text-slate-700 block mb-1">
+                  Email Address {showEditModal.email ? <span className="text-slate-400 font-normal">(Cannot be cleared)</span> : <span className="text-amber-600 font-normal">(Required to activate)</span>}
+                </label>
+                <input
+                  id="edit-email"
+                  type="email"
+                  maxLength={254}
+                  value={editEmail}
+                  onChange={(e) => setEditEmail(e.target.value)}
+                  className="w-full p-2.5 rounded-lg border border-[#C4B9A3] focus:outline-none focus:border-[#1E3A8A]"
+                  placeholder={showEditModal.email || 'e.g. user@example.com'}
+                  disabled={isSubmittingEdit}
+                />
+              </div>
+
+              <div>
                 <label htmlFor="edit-name" className="font-bold text-slate-700 block mb-1">
                   Full Name
                 </label>
@@ -784,7 +846,7 @@ export default function SuperAdminUsersPage() {
                 >
                   {CREATABLE_ROLES.map((r) => (
                     <option key={r} value={r}>
-                      {r === 'MPD_Operator' ? 'ZMCC Lab Attendant' : `${ROLE_ASSIGNMENT_POLICIES[r].label} (${r})`}
+                      {ROLE_ASSIGNMENT_POLICIES[r].label} ({r})
                     </option>
                   ))}
                 </select>
@@ -917,6 +979,15 @@ export default function SuperAdminUsersPage() {
               <p className="text-xs text-slate-600 font-medium">
                 The account will regain access immediately upon entering valid credentials.
               </p>
+            )}
+
+            {showConfirmModal.targetStatus && !showConfirmModal.user.email && (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs flex items-center space-x-2">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>
+                  This account has no email set. An email is required before activation. Please edit the account to provide an email first.
+                </span>
+              </div>
             )}
 
             {confirmModalError && (

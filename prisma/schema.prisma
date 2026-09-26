@@ -11,101 +11,198 @@ datasource db {
 }
 
 model User {
-  id                    BigInt             @id @default(autoincrement())
-  full_name             String?            @map("full_name") @db.VarChar(255)
-  username              String             @unique @db.VarChar(255)
-  password_hash         String?            @map("password_hash") @db.Text
-  role                  String             @db.VarChar(255)
-  department            String?            @map("department") @db.VarChar(150)
-  scope_type            String             @default("ALL") @map("scope_type") @db.VarChar(50)
-  procurement_source_id BigInt?            @map("procurement_source_id")
-  is_active             Boolean            @default(true) @map("is_active")
-  last_login_at         DateTime?          @map("last_login_at") @db.Timestamp(6)
-  created_at            DateTime           @default(now()) @map("created_at") @db.Timestamp(6)
-  updated_at            DateTime           @updatedAt @map("updated_at") @db.Timestamp(6)
+  id                    BigInt    @id @default(autoincrement())
+  full_name             String?   @map("full_name") @db.VarChar(255)
+  username              String    @unique @db.VarChar(255)
+  email                 String?   @map("email") @db.VarChar(254)
+  password_hash         String?   @map("password_hash") @db.Text
+  role                  String    @db.VarChar(255)
+  department            String?   @map("department") @db.VarChar(150)
+  scope_type            String    @default("ALL") @map("scope_type") @db.VarChar(50)
+  procurement_source_id BigInt?   @map("procurement_source_id")
+  is_active             Boolean   @default(true) @map("is_active")
+  last_login_at         DateTime? @map("last_login_at") @db.Timestamp(6)
+  created_at            DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at            DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
 
   // Relations
-  procurement_source     ProcurementSource?      @relation("SourceUsers", fields: [procurement_source_id], references: [id], onDelete: SetNull)
-  created_visits         VehicleVisit[]          @relation("CreatedBy")
-  recorded_dispatches    DispatchInfo[]          @relation("RecordedBy")
-  handled_entry_gates    GateLog[]               @relation("EntryGuard")
-  handled_exit_gates     GateLog[]               @relation("ExitGuard")
-  dispatch_lab_results   DispatchLabResult[]     @relation("DispatchTestedBy")
-  plant_lab_results      PlantLabResult[]        @relation("PlantTestedBy")
-  plant_decided_portions VisitPortion[]          @relation("PlantDecidedBy")
-  gross_weight_tickets   WeightTicket[]          @relation("GrossRecordedBy")
-  tare_weight_tickets    WeightTicket[]          @relation("TareRecordedBy")
-  started_unloadings     UnloadingLog[]          @relation("StartedBy")
-  completed_unloadings   UnloadingLog[]          @relation("CompletedBy")
-  audit_logs             AuditLog[]              @relation("AuditUser")
-  started_qa_sessions    QATestingSession[]      @relation("QAStartedBy")
-  completed_qa_sessions  QATestingSession[]      @relation("QACompletedBy")
-  qa_session_events      QATestingSessionEvent[] @relation("QASessionEventUser")
-  created_silos          Silo[]                  @relation("SiloCreatedBy")
-  updated_silos          Silo[]                  @relation("SiloUpdatedBy")
-  inventory_transactions SiloInventoryTransaction[] @relation("InventoryPerformedBy")
-  created_warnings       QAWarning[]             @relation("WarningCreatedBy")
-  acknowledged_warnings  QAWarning[]             @relation("WarningAcknowledgedBy")
+  procurement_source         ProcurementSource?         @relation("SourceUsers", fields: [procurement_source_id], references: [id], onDelete: SetNull)
+  created_visits             VehicleVisit[]             @relation("CreatedBy")
+  recorded_dispatches        DispatchInfo[]             @relation("RecordedBy")
+  handled_entry_gates        GateLog[]                  @relation("EntryGuard")
+  handled_exit_gates         GateLog[]                  @relation("ExitGuard")
+  dispatch_lab_results       DispatchLabResult[]        @relation("DispatchTestedBy")
+  plant_lab_results          PlantLabResult[]           @relation("PlantTestedBy")
+  plant_decided_portions     VisitPortion[]             @relation("PlantDecidedBy")
+  gross_weight_tickets       WeightTicket[]             @relation("GrossRecordedBy")
+  tare_weight_tickets        WeightTicket[]             @relation("TareRecordedBy")
+  started_unloadings         UnloadingLog[]             @relation("StartedBy")
+  completed_unloadings       UnloadingLog[]             @relation("CompletedBy")
+  audit_logs                 AuditLog[]                 @relation("AuditUser")
+  started_qa_sessions        QATestingSession[]         @relation("QAStartedBy")
+  completed_qa_sessions      QATestingSession[]         @relation("QACompletedBy")
+  qa_session_events          QATestingSessionEvent[]    @relation("QASessionEventUser")
+  created_silos              Silo[]                     @relation("SiloCreatedBy")
+  updated_silos              Silo[]                     @relation("SiloUpdatedBy")
+  inventory_transactions     SiloInventoryTransaction[] @relation("InventoryPerformedBy")
+  created_warnings           QAWarning[]                @relation("WarningCreatedBy")
+  acknowledged_warnings      QAWarning[]                @relation("WarningAcknowledgedBy")
+  created_zmcc_routes        ZmccRoute[]                @relation("ZmccRouteCreatedBy")
+  updated_zmcc_routes        ZmccRoute[]                @relation("ZmccRouteUpdatedBy")
+  created_zmcc_areas         ZmccArea[]                 @relation("ZmccAreaCreatedBy")
+  updated_zmcc_areas         ZmccArea[]                 @relation("ZmccAreaUpdatedBy")
+  created_zmcc_milk_sources  ZmccMilkSource[]           @relation("ZmccMilkSourceCreatedBy")
+  updated_zmcc_milk_sources  ZmccMilkSource[]           @relation("ZmccMilkSourceUpdatedBy")
+  created_chiller_ownerships ChillerOwnership[]         @relation("ChillerOwnershipCreatedBy")
+  updated_chiller_ownerships ChillerOwnership[]         @relation("ChillerOwnershipUpdatedBy")
+  created_zmcc_shops         ZmccShop[]                 @relation("ZmccShopCreatedBy")
+  updated_zmcc_shops         ZmccShop[]                 @relation("ZmccShopUpdatedBy")
+  created_mot_profiles       MotProfile[]               @relation("MotProfileCreatedBy")
+  updated_mot_profiles       MotProfile[]               @relation("MotProfileUpdatedBy")
+  recorded_mot_arrivals        ZmccMotArrival[]        @relation("ZmccMotArrivalRecordedBy")
+  recorded_contractor_arrivals ZmccContractorArrival[] @relation("ZmccContractorArrivalRecordedBy")
+  mot_profile                MotProfile?                @relation("MotProfileUser")
+  created_mot_vehicles       MotVehicle[]               @relation("MotVehicleCreatedBy")
+  updated_mot_vehicles       MotVehicle[]               @relation("MotVehicleUpdatedBy")
+  assigned_mot_journeys      MotJourney[]               @relation("MotJourneyAssignedBy")
+  cancelled_mot_journeys     MotJourney[]               @relation("MotJourneyCancelledBy")
+  recorded_mot_locations     MotJourneyLocation[]       @relation("MotJourneyLocationRecordedBy")
+  submitted_mot_collections  MotShopCollection[]        @relation("MotCollectionSubmittedBy")
+  started_zmcc_lab_sessions   ZmccLabSession[]           @relation("ZmccLabStartedBy")
+  completed_zmcc_lab_sessions ZmccLabSession[]           @relation("ZmccLabCompletedBy")
+  last_corrected_zmcc_lab_sessions ZmccLabSession[]      @relation("ZmccLabLastCorrectedBy")
+  recommended_zmcc_lab_sessions ZmccLabSession[]         @relation("ZmccLabAttendantRecommendationBy")
+  final_decided_zmcc_lab_sessions ZmccLabSession[]       @relation("ZmccLabFinalDecisionBy")
+  created_milk_test_policies       MilkTestPolicyAssignment[]     @relation("TestPolicyCreatedBy")
+  updated_milk_test_policies       MilkTestPolicyAssignment[]     @relation("TestPolicyUpdatedBy")
+  created_zmcc_tanks               ZmccTank[]                     @relation("ZmccTankCreatedBy")
+  updated_zmcc_tanks               ZmccTank[]                     @relation("ZmccTankUpdatedBy")
+  received_zmcc_tank_receipts      ZmccTankReceipt[]              @relation("ZmccTankReceivedBy")
+  last_corrected_zmcc_tank_receipts ZmccTankReceipt[]             @relation("ZmccTankReceiptLastCorrectedBy")
+  performed_zmcc_tank_transactions ZmccTankInventoryTransaction[] @relation("ZmccTankTransactionPerformedBy")
+  created_local_suppliers          ZmccLocalSupplier[]            @relation("LocalSupplierCreatedBy")
+  updated_local_suppliers          ZmccLocalSupplier[]            @relation("LocalSupplierUpdatedBy")
+  recorded_local_supplier_arrivals ZmccLocalSupplierArrival[]      @relation("ZmccLocalSupplierArrivalRecordedBy")
+  exited_mot_arrivals              ZmccMotArrival[]           @relation("ZmccMotArrivalExitRecordedBy")
+  exited_local_supplier_arrivals   ZmccLocalSupplierArrival[] @relation("ZmccLocalSupplierArrivalExitRecordedBy")
+  updated_paper_policies           PaperReferencePolicy[]     @relation("PaperPolicyUpdatedBy")
+  plant_corrected_portions         VisitPortion[]             @relation("PlantCorrectedBy")
+  plant_reviewed_portions          VisitPortion[]             @relation("PlantPortionReviewedBy")
+  plant_review_requested_portions  VisitPortion[]             @relation("PlantPortionReviewRequestedBy")
+  zmcc_reviewed_sessions           ZmccLabSession[]           @relation("ZmccSessionReviewedBy")
+  zmcc_review_requested_sessions   ZmccLabSession[]           @relation("ZmccSessionReviewRequestedBy")
+  last_corrected_mot_arrivals      ZmccMotArrival[]           @relation("ZmccMotArrivalLastCorrectedBy")
+  exit_last_corrected_mot_arrivals ZmccMotArrival[]           @relation("ZmccMotArrivalExitLastCorrectedBy")
+  last_corrected_local_supplier_arrivals ZmccLocalSupplierArrival[] @relation("ZmccLocalSupplierArrivalLastCorrectedBy")
+  exit_last_corrected_local_supplier_arrivals ZmccLocalSupplierArrival[] @relation("ZmccLocalSupplierArrivalExitLastCorrectedBy")
+  last_corrected_mot_collections   MotShopCollection[]        @relation("MotCollectionLastCorrectedBy")
+  last_corrected_visits            VehicleVisit[]             @relation("VehicleVisitLastCorrectedBy")
+  issued_local_supplier_rmrs       LocalSupplierRmrIssuance[] @relation("LocalSupplierRmrIssuedBy")
+  cancelled_local_supplier_rmrs    LocalSupplierRmrIssuance[] @relation("LocalSupplierRmrCancelledBy")
+  reviewed_legacy_local_supplier_rmrs LocalSupplierRmrLegacyClassification[] @relation("LocalSupplierRmrLegacyReviewedBy")
+  requested_corrections CorrectionRequest[] @relation("CorrectionRequestedBy")
+  reviewed_corrections CorrectionRequest[] @relation("CorrectionReviewedBy")
+  notifications Notification[] @relation("NotificationRecipient")
+  notification_preferences NotificationPreference?
+  push_subscriptions PushSubscription[]
 
   @@map("users")
 }
 
 model VehicleVisit {
-  id                    BigInt             @id @default(autoincrement())
-  visit_number          String             @unique @map("visit_number") @db.VarChar(255)
-  reception_number      String?            @unique @map("reception_number") @db.VarChar(255)
-  vehicle_number        String             @map("vehicle_number") @db.VarChar(255)
-  token_number          String?            @map("token_number") @db.VarChar(255)
-  operational_date      DateTime?          @map("operational_date") @db.Date
-  current_status        String             @default("DISPATCHED") @map("current_status") @db.VarChar(255)
-  created_by            BigInt?            @map("created_by")
-  procurement_source_id BigInt?            @map("procurement_source_id")
-  created_at            DateTime           @default(now()) @map("created_at") @db.Timestamp(6)
-  updated_at            DateTime           @updatedAt @map("updated_at") @db.Timestamp(6)
+  id                    BigInt    @id @default(autoincrement())
+  visit_number          String    @unique @map("visit_number") @db.VarChar(255)
+  reception_number      String?   @unique @map("reception_number") @db.VarChar(255)
+  vehicle_number        String    @map("vehicle_number") @db.VarChar(255)
+  token_number          String?   @map("token_number") @db.VarChar(255)
+  operational_date      DateTime? @map("operational_date") @db.Date
+  current_status        String    @default("DISPATCHED") @map("current_status") @db.VarChar(255)
+  created_by            BigInt?   @map("created_by")
+  procurement_source_id BigInt?   @map("procurement_source_id")
+  created_at            DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at            DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
 
-  vehicle_dispatch_quantity_value     Decimal?           @map("vehicle_dispatch_quantity_value") @db.Decimal(10, 2)
-  vehicle_dispatch_quantity_unit      QuantityUnit?      @map("vehicle_dispatch_quantity_unit")
-  vehicle_dispatch_quantity_basis     MeasurementBasis?  @map("vehicle_dispatch_quantity_basis")
+  vehicle_dispatch_quantity_value Decimal?          @map("vehicle_dispatch_quantity_value") @db.Decimal(10, 2)
+  vehicle_dispatch_quantity_unit  QuantityUnit?     @map("vehicle_dispatch_quantity_unit")
+  vehicle_dispatch_quantity_basis MeasurementBasis? @map("vehicle_dispatch_quantity_basis")
+  vehicle_dispatch_lr             Decimal?          @map("vehicle_dispatch_lr") @db.Decimal(6, 2)
+  vehicle_dispatch_fat            Decimal?          @map("vehicle_dispatch_fat") @db.Decimal(5, 2)
+  vehicle_dispatch_density        Decimal?          @map("vehicle_dispatch_density") @db.Decimal(6, 4)
+  vehicle_dispatch_gross_liters   Decimal?          @map("vehicle_dispatch_gross_liters") @db.Decimal(12, 2)
+  vehicle_dispatch_snf            Decimal?          @map("vehicle_dispatch_snf") @db.Decimal(6, 2)
+  vehicle_dispatch_ts             Decimal?          @map("vehicle_dispatch_ts") @db.Decimal(6, 2)
+  vehicle_dispatch_at_13ts_liters Decimal?          @map("vehicle_dispatch_at_13ts_liters") @db.Decimal(12, 2)
+  vehicle_dispatch_calculation_version String?      @map("vehicle_dispatch_calculation_version") @db.VarChar(20)
+  raw_milk_dispatch_note_number        String?      @map("raw_milk_dispatch_note_number") @db.VarChar(100)
+  correction_count                     Int          @default(0) @map("correction_count")
+  manager_correction_count             Int          @default(0) @map("manager_correction_count")
+  last_corrected_by_user_id            BigInt?      @map("last_corrected_by_user_id")
+  last_corrected_at                   DateTime?    @map("last_corrected_at") @db.Timestamp(6)
 
   // Relations
-  procurement_source     ProcurementSource? @relation("VisitSource", fields: [procurement_source_id], references: [id], onDelete: SetNull)
-  creator              User?                      @relation("CreatedBy", fields: [created_by], references: [id])
-  portions             VisitPortion[]
-  gate_log             GateLog?
-  weight_ticket        WeightTicket?
-  dispatch_lab_results DispatchLabResult[]
-  plant_lab_results    PlantLabResult[]
-  qa_session           QATestingSession?
-  inventory_transactions SiloInventoryTransaction[]
-  qa_warnings          QAWarning[]
-  test_assignments     LabTestAssignment[]
+  procurement_source       ProcurementSource?              @relation("VisitSource", fields: [procurement_source_id], references: [id], onDelete: SetNull)
+  creator                  User?                           @relation("CreatedBy", fields: [created_by], references: [id])
+  last_corrected_by        User?                           @relation("VehicleVisitLastCorrectedBy", fields: [last_corrected_by_user_id], references: [id], onDelete: SetNull)
+  portions                 VisitPortion[]
+  gate_log                 GateLog?
+  weight_ticket            WeightTicket?
+  dispatch_lab_results     DispatchLabResult[]
+  plant_lab_results        PlantLabResult[]
+  qa_session               QATestingSession?
+  inventory_transactions   SiloInventoryTransaction[]
+  qa_warnings              QAWarning[]
+  test_assignments         LabTestAssignment[]
   quantity_policy_snapshot DispatchQuantityPolicySnapshot?
+  dual_reconciliation      PlantFinalDualReconciliation?   @relation("VisitDualReconciliation")
 
   @@index([current_status, created_at])
-
   @@index([created_at])
   @@index([procurement_source_id, created_at])
+  @@index([raw_milk_dispatch_note_number])
   @@map("vehicle_visit")
 }
 
 model VisitPortion {
-  id                          BigInt             @id @default(autoincrement())
-  visit_id                    BigInt             @map("visit_id")
-  portion_number              Int                @map("portion_number") @db.SmallInt
-  current_status              String             @default("DISPATCHED") @map("current_status") @db.VarChar(255)
-  dispatch_quantity_value     Decimal?           @map("dispatch_quantity_value") @db.Decimal(10, 2)
-  dispatch_quantity_unit      QuantityUnit?      @map("dispatch_quantity_unit")
-  dispatch_quantity_basis     MeasurementBasis?  @map("dispatch_quantity_basis")
-  plant_decision              String?            @map("plant_decision") @db.VarChar(255)
-  plant_rejection_reason      String?            @map("plant_rejection_reason") @db.Text
-  plant_decided_by            BigInt?            @map("plant_decided_by")
-  plant_decided_at            DateTime?          @map("plant_decided_at") @db.Timestamp(6)
-  created_at                  DateTime           @default(now()) @map("created_at") @db.Timestamp(6)
-  updated_at                  DateTime           @updatedAt @map("updated_at") @db.Timestamp(6)
+  id                      BigInt            @id @default(autoincrement())
+  visit_id                BigInt            @map("visit_id")
+  portion_number          Int               @map("portion_number") @db.SmallInt
+  current_status          String            @default("DISPATCHED") @map("current_status") @db.VarChar(255)
+  dispatch_quantity_value Decimal?          @map("dispatch_quantity_value") @db.Decimal(10, 2)
+  dispatch_quantity_unit  QuantityUnit?     @map("dispatch_quantity_unit")
+  dispatch_quantity_basis MeasurementBasis? @map("dispatch_quantity_basis")
+  plant_decision          String?           @map("plant_decision") @db.VarChar(255)
+  plant_rejection_reason  String?           @map("plant_rejection_reason") @db.Text
+  plant_decided_by        BigInt?           @map("plant_decided_by")
+  plant_decided_at        DateTime?         @map("plant_decided_at") @db.Timestamp(6)
+  completion_client_event_id String?        @unique @map("completion_client_event_id") @db.VarChar(255)
+
+  // QA Manager Review Workflow (Stage 6G-G)
+  system_quality_outcome              String?   @map("system_quality_outcome") @db.VarChar(50)
+  manager_review_status               String    @default("NONE") @map("manager_review_status") @db.VarChar(50)
+  manager_requested_decision          String?   @map("manager_requested_decision") @db.VarChar(50)
+  manager_review_requested_by_user_id BigInt?   @map("manager_review_requested_by_user_id")
+  manager_review_requested_at         DateTime? @map("manager_review_requested_at") @db.Timestamp(6)
+  manager_reviewed_by_user_id         BigInt?   @map("manager_reviewed_by_user_id")
+  manager_reviewed_at                 DateTime? @map("manager_reviewed_at") @db.Timestamp(6)
+  manager_review_reason               String?   @map("manager_review_reason") @db.Text
+
+  // Exception Classification & Decision Tracking (Stage 6G-G)
+  original_plant_decision             String?   @map("original_plant_decision") @db.VarChar(255)
+  corrected_plant_decision            String?   @map("corrected_plant_decision") @db.VarChar(255)
+  plant_correction_reason             String?   @map("plant_correction_reason") @db.Text
+  plant_corrected_by                  BigInt?   @map("plant_corrected_by")
+  plant_corrected_at                  DateTime? @map("plant_corrected_at") @db.Timestamp(6)
+  correction_count                    Int       @default(0) @map("correction_count")
+  manager_correction_count            Int       @default(0) @map("manager_correction_count")
+  created_at              DateTime          @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at              DateTime          @updatedAt @map("updated_at") @db.Timestamp(6)
 
   // Relations
   visit                  VehicleVisit               @relation(fields: [visit_id], references: [id], onDelete: Cascade)
   decided_by             User?                      @relation("PlantDecidedBy", fields: [plant_decided_by], references: [id])
+  plant_corrector        User?                      @relation("PlantCorrectedBy", fields: [plant_corrected_by], references: [id])
+  manager_reviewer       User?                      @relation("PlantPortionReviewedBy", fields: [manager_reviewed_by_user_id], references: [id])
+  manager_requester      User?                      @relation("PlantPortionReviewRequestedBy", fields: [manager_review_requested_by_user_id], references: [id])
   dispatch_info          DispatchInfo?
   dispatch_lab_results   DispatchLabResult[]
   plant_lab_results      PlantLabResult[]
@@ -115,20 +212,21 @@ model VisitPortion {
 
   @@unique([visit_id, portion_number])
   @@index([plant_decision])
+  @@index([manager_review_status])
   @@map("visit_portion")
 }
 
 model DispatchInfo {
-  id                         BigInt             @id @default(autoincrement())
-  portion_id                 BigInt             @unique @map("portion_id")
-  dispatch_number            String?            @map("dispatch_number") @db.VarChar(255)
-  dispatch_timestamp         DateTime?          @map("dispatch_timestamp") @db.Timestamp(6)
-  dispatch_testing_mode      String?            @default("FULL") @map("dispatch_testing_mode") @db.VarChar(50)
-  dispatch_testing_reason    String?            @map("dispatch_testing_reason") @db.Text
-  dispatch_testing_remarks   String?            @map("dispatch_testing_remarks") @db.Text
-  recorded_by                BigInt?            @map("recorded_by")
-  created_at                 DateTime           @default(now()) @map("created_at") @db.Timestamp(6)
-  updated_at                 DateTime           @updatedAt @map("updated_at") @db.Timestamp(6)
+  id                       BigInt    @id @default(autoincrement())
+  portion_id               BigInt    @unique @map("portion_id")
+  dispatch_number          String?   @map("dispatch_number") @db.VarChar(255)
+  dispatch_timestamp       DateTime? @map("dispatch_timestamp") @db.Timestamp(6)
+  dispatch_testing_mode    String?   @default("FULL") @map("dispatch_testing_mode") @db.VarChar(50)
+  dispatch_testing_reason  String?   @map("dispatch_testing_reason") @db.Text
+  dispatch_testing_remarks String?   @map("dispatch_testing_remarks") @db.Text
+  recorded_by              BigInt?   @map("recorded_by")
+  created_at               DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at               DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
 
   // Relations
   portion  VisitPortion @relation(fields: [portion_id], references: [id], onDelete: Cascade)
@@ -137,18 +235,17 @@ model DispatchInfo {
   @@map("dispatch_info")
 }
 
-
 model GateLog {
-  id              BigInt    @id @default(autoincrement())
-  visit_id        BigInt    @unique @map("visit_id")
-  entry_timestamp DateTime? @map("entry_timestamp") @db.Timestamp(6)
-  exit_timestamp  DateTime? @map("exit_timestamp") @db.Timestamp(6)
+  id                 BigInt    @id @default(autoincrement())
+  visit_id           BigInt    @unique @map("visit_id")
+  entry_timestamp    DateTime? @map("entry_timestamp") @db.Timestamp(6)
+  exit_timestamp     DateTime? @map("exit_timestamp") @db.Timestamp(6)
   entry_guard_id     BigInt?   @map("entry_guard_id")
   entry_submitted_at DateTime? @map("entry_submitted_at") @db.Timestamp(6)
   exit_guard_id      BigInt?   @map("exit_guard_id")
   exit_submitted_at  DateTime? @map("exit_submitted_at") @db.Timestamp(6)
   created_at         DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
-  updated_at      DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
+  updated_at         DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
 
   // Relations
   visit       VehicleVisit @relation(fields: [visit_id], references: [id], onDelete: Cascade)
@@ -159,18 +256,18 @@ model GateLog {
 }
 
 model LabTest {
-  id           BigInt   @id @default(autoincrement())
-  testCode     String   @unique @map("test_code") @db.VarChar(50)
-  testName     String   @map("test_name") @db.VarChar(150)
-  resultType   String   @map("result_type") @db.VarChar(20)
-  unit         String?  @db.VarChar(30)
-  testScope    String   @map("test_scope") @db.VarChar(20)
-  isRequired   Boolean  @default(true) @map("is_required")
-  isActive     Boolean  @default(true) @map("is_active")
-  displayOrder Int      @default(0) @map("display_order")
-  resultOptions Json?   @map("result_options")
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id            BigInt   @id @default(autoincrement())
+  testCode      String   @unique @map("test_code") @db.VarChar(50)
+  testName      String   @map("test_name") @db.VarChar(150)
+  resultType    String   @map("result_type") @db.VarChar(20)
+  unit          String?  @db.VarChar(30)
+  testScope     String   @map("test_scope") @db.VarChar(20)
+  isRequired    Boolean  @default(true) @map("is_required")
+  isActive      Boolean  @default(true) @map("is_active")
+  displayOrder  Int      @default(0) @map("display_order")
+  resultOptions Json?    @map("result_options")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   // Relations
   dispatchResults  DispatchLabResult[]
@@ -178,6 +275,8 @@ model LabTest {
   testRules        LabTestRule[]
   qa_warnings      QAWarning[]
   test_assignments LabTestAssignment[]
+  zmcc_lab_results   ZmccLabResult[]            @relation("ZmccLabTestResults")
+  policy_assignments MilkTestPolicyAssignment[] @relation("LabTestPolicyAssignments")
 
   @@index([testScope, isActive, displayOrder])
   @@map("lab_test")
@@ -186,6 +285,7 @@ model LabTest {
 model LabTestRule {
   id                   BigInt    @id @default(autoincrement())
   lab_test_id          BigInt    @map("lab_test_id")
+  testing_point        String?   @map("testing_point") @db.VarChar(50)
   version              Int       @default(1)
   rule_category        String    @default("RELEASE") @map("rule_category") @db.VarChar(50) // RELEASE or MONITORING
   effective_from       DateTime  @default(now()) @map("effective_from") @db.Timestamp(6)
@@ -199,10 +299,14 @@ model LabTestRule {
   created_by           BigInt?   @map("created_by")
   created_at           DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
 
-  lab_test    LabTest     @relation(fields: [lab_test_id], references: [id], onDelete: Cascade)
-  qa_warnings QAWarning[]
+  lab_test      LabTest          @relation(fields: [lab_test_id], references: [id], onDelete: Cascade)
+  qa_warnings   QAWarning[]
+  plant_results PlantLabResult[] @relation("PlantResultRule")
+  zmcc_results  ZmccLabResult[]  @relation("ZmccResultRule")
 
-  @@index([lab_test_id, is_active])
+  @@unique([lab_test_id, testing_point, rule_category, version])
+  @@index([lab_test_id, testing_point, rule_category, is_active])
+  @@index([effective_from, effective_to])
   @@map("lab_test_rule")
 }
 
@@ -217,30 +321,47 @@ model ProcurementSource {
   updated_at               DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
 
   // Relations
-  users                      User[]                           @relation("SourceUsers")
-  warnings                   QAWarning[]                      @relation("SourceWarnings")
-  visits                     VehicleVisit[]                   @relation("VisitSource")
-  quantity_policy_snapshots  DispatchQuantityPolicySnapshot[] @relation("SourcePolicySnapshots")
+  users                     User[]                           @relation("SourceUsers")
+  warnings                  QAWarning[]                      @relation("SourceWarnings")
+  visits                    VehicleVisit[]                   @relation("VisitSource")
+  quantity_policy_snapshots DispatchQuantityPolicySnapshot[] @relation("SourcePolicySnapshots")
+  zmcc_routes               ZmccRoute[]                      @relation("ZmccRoutes")
+  zmcc_milk_sources         ZmccMilkSource[]                 @relation("ZmccMilkSources")
+  mot_profiles              MotProfile[]                     @relation("ZmccMotProfiles")
+  mot_vehicles              MotVehicle[]                     @relation("ZmccMotVehicles")
+  mot_journeys              MotJourney[]                     @relation("ZmccJourneys")
+  mot_collections           MotShopCollection[]              @relation("ZmccMotCollections")
+  mot_arrivals              ZmccMotArrival[]                 @relation("ZmccMotArrivals")
+  zmcc_contractor_arrivals  ZmccContractorArrival[]          @relation("ZmccContractorArrivals")
+  contractor_arrivals       ZmccContractorArrival[]          @relation("ContractorArrivalSources")
+  zmcc_lab_sessions         ZmccLabSession[]                 @relation("ZmccLabSessions")
+  zmcc_tanks                ZmccTank[]                       @relation("ZmccTanks")
+  zmcc_tank_receipts        ZmccTankReceipt[]                @relation("ZmccTankReceipts")
+  zmcc_tank_transactions    ZmccTankInventoryTransaction[]   @relation("ZmccTankTransactions")
+  zmcc_local_suppliers      ZmccLocalSupplier[]              @relation("ZmccLocalSuppliers")
+  zmcc_local_supplier_arrivals ZmccLocalSupplierArrival[]      @relation("ZmccLocalSupplierArrivals")
+  local_supplier_rmr_issuances LocalSupplierRmrIssuance[]      @relation("ZmccLocalSupplierRmrIssuances")
+
+
 
   @@map("procurement_source")
 }
 
 model DispatchQuantityPolicySnapshot {
-  id              BigInt            @id @default(autoincrement())
-  visit_id        BigInt            @unique @map("visit_id")
-  source_id       BigInt            @map("source_id")
-  policy_version  Int               @default(1) @map("policy_version")
-  policy_snapshot Json              @map("policy_snapshot")
-  created_at      DateTime          @default(now()) @map("created_at") @db.Timestamp(6)
+  id              BigInt   @id @default(autoincrement())
+  visit_id        BigInt   @unique @map("visit_id")
+  source_id       BigInt   @map("source_id")
+  policy_version  Int      @default(1) @map("policy_version")
+  policy_snapshot Json     @map("policy_snapshot")
+  created_at      DateTime @default(now()) @map("created_at") @db.Timestamp(6)
 
   // Relations
-  visit           VehicleVisit      @relation(fields: [visit_id], references: [id], onDelete: Cascade)
-  source          ProcurementSource @relation("SourcePolicySnapshots", fields: [source_id], references: [id], onDelete: Restrict)
+  visit  VehicleVisit      @relation(fields: [visit_id], references: [id], onDelete: Cascade)
+  source ProcurementSource @relation("SourcePolicySnapshots", fields: [source_id], references: [id], onDelete: Restrict)
 
   @@index([source_id])
   @@map("dispatch_quantity_policy_snapshot")
 }
-
 
 model DispatchLabResult {
   id                   BigInt    @id @default(autoincrement())
@@ -282,35 +403,41 @@ model PlantLabResult {
   not_performed_reason String?   @map("not_performed_reason") @db.Text
   is_passed            Boolean?  @map("is_passed")
   tested_by            BigInt?   @map("tested_by")
+  applied_rule_id      BigInt?   @map("applied_rule_id")
+  applied_rule_version Int?      @map("applied_rule_version")
+  evaluation_status    String?   @map("evaluation_status") @db.VarChar(50)
+  evaluation_snapshot  Json?     @map("evaluation_snapshot")
   created_at           DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
   updated_at           DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
 
   // Relations
-  visit    VehicleVisit @relation(fields: [visit_id], references: [id], onDelete: Cascade)
-  portion  VisitPortion @relation(fields: [portion_id], references: [id], onDelete: Cascade)
-  lab_test LabTest      @relation(fields: [test_id], references: [id])
-  tester   User?        @relation("PlantTestedBy", fields: [tested_by], references: [id])
+  visit        VehicleVisit @relation(fields: [visit_id], references: [id], onDelete: Cascade)
+  portion      VisitPortion @relation(fields: [portion_id], references: [id], onDelete: Cascade)
+  lab_test     LabTest      @relation(fields: [test_id], references: [id])
+  tester       User?        @relation("PlantTestedBy", fields: [tested_by], references: [id])
+  applied_rule LabTestRule? @relation("PlantResultRule", fields: [applied_rule_id], references: [id], onDelete: Restrict)
 
   @@index([portion_id])
   @@index([visit_id])
+  @@index([applied_rule_id])
   @@map("plant_lab_result")
 }
 
 model WeightTicket {
-  id                BigInt    @id @default(autoincrement())
-  visit_id          BigInt    @unique @map("visit_id")
-  ticket_number     String    @unique @map("ticket_number") @db.VarChar(255)
-  gross_weight_kg   Decimal?  @map("gross_weight_kg") @db.Decimal(10, 2)
-  gross_timestamp   DateTime? @map("gross_timestamp") @db.Timestamp(6)
+  id                 BigInt    @id @default(autoincrement())
+  visit_id           BigInt    @unique @map("visit_id")
+  ticket_number      String    @unique @map("ticket_number") @db.VarChar(255)
+  gross_weight_kg    Decimal?  @map("gross_weight_kg") @db.Decimal(10, 2)
+  gross_timestamp    DateTime? @map("gross_timestamp") @db.Timestamp(6)
   gross_recorded_by  BigInt?   @map("gross_recorded_by")
   gross_submitted_at DateTime? @map("gross_submitted_at") @db.Timestamp(6)
   tare_weight_kg     Decimal?  @map("tare_weight_kg") @db.Decimal(10, 2)
   tare_timestamp     DateTime? @map("tare_timestamp") @db.Timestamp(6)
   tare_recorded_by   BigInt?   @map("tare_recorded_by")
   tare_submitted_at  DateTime? @map("tare_submitted_at") @db.Timestamp(6)
-  net_weight_kg     Decimal?  @map("net_weight_kg") @db.Decimal(10, 2)
-  created_at        DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
-  updated_at        DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
+  net_weight_kg      Decimal?  @map("net_weight_kg") @db.Decimal(10, 2)
+  created_at         DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at         DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
 
   // Relations
   visit          VehicleVisit @relation(fields: [visit_id], references: [id], onDelete: Cascade)
@@ -321,18 +448,18 @@ model WeightTicket {
 }
 
 model UnloadingLog {
-  id                   BigInt    @id @default(autoincrement())
-  portion_id           BigInt    @unique @map("portion_id")
-  silo_number          String?   @map("silo_number") @db.VarChar(255)
-  silo_id              BigInt?   @map("silo_id")
-  pump_start_timestamp DateTime? @map("pump_start_timestamp") @db.Timestamp(6)
-  start_submitted_at   DateTime? @map("start_submitted_at") @db.Timestamp(6)
-  pump_end_timestamp   DateTime? @map("pump_end_timestamp") @db.Timestamp(6)
+  id                    BigInt    @id @default(autoincrement())
+  portion_id            BigInt    @unique @map("portion_id")
+  silo_number           String?   @map("silo_number") @db.VarChar(255)
+  silo_id               BigInt?   @map("silo_id")
+  pump_start_timestamp  DateTime? @map("pump_start_timestamp") @db.Timestamp(6)
+  start_submitted_at    DateTime? @map("start_submitted_at") @db.Timestamp(6)
+  pump_end_timestamp    DateTime? @map("pump_end_timestamp") @db.Timestamp(6)
   complete_submitted_at DateTime? @map("complete_submitted_at") @db.Timestamp(6)
-  started_by           BigInt?   @map("started_by")
-  completed_by         BigInt?   @map("completed_by")
-  created_at           DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
-  updated_at           DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
+  started_by            BigInt?   @map("started_by")
+  completed_by          BigInt?   @map("completed_by")
+  created_at            DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at            DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
 
   // Relations
   portion   VisitPortion @relation(fields: [portion_id], references: [id], onDelete: Cascade)
@@ -447,11 +574,21 @@ model SiloInventoryTransaction {
   notes                 String?             @db.Text
   created_at            DateTime            @default(now()) @map("created_at") @db.Timestamp(6)
 
+  // Plant Final Quality & Commercial Snapshot (Stage 6G-F)
+  plant_composite_lr         Decimal? @map("plant_composite_lr") @db.Decimal(6, 4)
+  plant_composite_fat        Decimal? @map("plant_composite_fat") @db.Decimal(6, 4)
+  plant_density              Decimal? @map("plant_density") @db.Decimal(6, 4)
+  plant_snf                  Decimal? @map("plant_snf") @db.Decimal(6, 4)
+  plant_ts                   Decimal? @map("plant_ts") @db.Decimal(6, 4)
+  plant_final_at_13ts_liters Decimal? @map("plant_final_at_13ts_liters") @db.Decimal(12, 2)
+  plant_calculation_version  String?  @map("plant_calculation_version") @db.VarChar(20)
+
   // Relations
-  silo      Silo          @relation(fields: [silo_id], references: [id], onDelete: Restrict)
-  visit     VehicleVisit? @relation(fields: [visit_id], references: [id], onDelete: SetNull)
-  portion   VisitPortion? @relation(fields: [portion_id], references: [id], onDelete: SetNull)
-  performer User?         @relation("InventoryPerformedBy", fields: [performed_by], references: [id])
+  silo                 Silo                            @relation(fields: [silo_id], references: [id], onDelete: Restrict)
+  visit                VehicleVisit?                   @relation(fields: [visit_id], references: [id], onDelete: SetNull)
+  portion              VisitPortion?                   @relation(fields: [portion_id], references: [id], onDelete: SetNull)
+  performer            User?                           @relation("InventoryPerformedBy", fields: [performed_by], references: [id])
+  dual_reconciliation  PlantFinalDualReconciliation?   @relation("TransactionDualReconciliation")
 
   @@index([silo_id, operational_timestamp])
   @@index([visit_id])
@@ -460,48 +597,100 @@ model SiloInventoryTransaction {
   @@map("silo_inventory_transaction")
 }
 
-model QAWarning {
-  id                    BigInt             @id @default(autoincrement())
-  procurement_source_id BigInt             @map("procurement_source_id")
-  visit_id              BigInt?            @map("visit_id")
-  portion_id            BigInt?            @map("portion_id")
-  lab_test_id           BigInt?            @map("lab_test_id")
-  lab_test_rule_id      BigInt?            @map("lab_test_rule_id")
-  reason                String             @db.Text
-  operational_timestamp DateTime?          @map("operational_timestamp") @db.Timestamp(6)
-  status                String             @default("ACTIVE") @map("status") @db.VarChar(50)
-  created_by            BigInt?            @map("created_by")
-  acknowledged_by       BigInt?            @map("acknowledged_by")
-  created_at            DateTime           @default(now()) @map("created_at") @db.Timestamp(6)
-  acknowledged_at       DateTime?          @map("acknowledged_at") @db.Timestamp(6)
-  resolution_notes      String?            @db.Text
+model PlantFinalDualReconciliation {
+  id                                 BigInt   @id @default(autoincrement())
+  visit_id                           BigInt   @unique @map("visit_id")
+  final_receipt_transaction_id       BigInt   @unique @map("final_receipt_transaction_id")
+  sent_gross_liters                  Decimal? @map("sent_gross_liters") @db.Decimal(12, 2)
+  received_gross_liters              Decimal  @map("received_gross_liters") @db.Decimal(12, 2)
+  gross_variance_liters              Decimal? @map("gross_variance_liters") @db.Decimal(12, 2)
+  gross_variance_percent             Decimal? @map("gross_variance_percent") @db.Decimal(8, 4)
+  sent_at_13ts_liters                Decimal? @map("sent_at_13ts_liters") @db.Decimal(12, 2)
+  received_at_13ts_liters            Decimal  @map("received_at_13ts_liters") @db.Decimal(12, 2)
+  at_13ts_variance_liters            Decimal? @map("at_13ts_variance_liters") @db.Decimal(12, 2)
+  at_13ts_variance_percent           Decimal? @map("at_13ts_variance_percent") @db.Decimal(8, 4)
+  reconciliation_calculation_version String?  @map("reconciliation_calculation_version") @db.VarChar(20)
+  reconciled_at                      DateTime @map("reconciled_at") @db.Timestamp(6)
+  created_at                         DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at                         DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
 
-  procurement_source    ProcurementSource  @relation("SourceWarnings", fields: [procurement_source_id], references: [id], onDelete: Cascade)
-  visit                 VehicleVisit?      @relation(fields: [visit_id], references: [id], onDelete: SetNull)
-  portion               VisitPortion?      @relation(fields: [portion_id], references: [id], onDelete: SetNull)
-  lab_test              LabTest?           @relation(fields: [lab_test_id], references: [id], onDelete: SetNull)
-  lab_test_rule         LabTestRule?       @relation(fields: [lab_test_rule_id], references: [id], onDelete: SetNull)
-  creator               User?              @relation("WarningCreatedBy", fields: [created_by], references: [id])
-  acknowledger          User?              @relation("WarningAcknowledgedBy", fields: [acknowledged_by], references: [id])
+  // Relations
+  visit                     VehicleVisit             @relation("VisitDualReconciliation", fields: [visit_id], references: [id], onDelete: Restrict)
+  final_receipt_transaction SiloInventoryTransaction @relation("TransactionDualReconciliation", fields: [final_receipt_transaction_id], references: [id], onDelete: Restrict)
+
+  @@map("plant_final_dual_reconciliation")
+}
+
+model QAWarning {
+  id                    BigInt    @id @default(autoincrement())
+  procurement_source_id BigInt    @map("procurement_source_id")
+  visit_id              BigInt?   @map("visit_id")
+  portion_id            BigInt?   @map("portion_id")
+  lab_test_id           BigInt?   @map("lab_test_id")
+  lab_test_rule_id      BigInt?   @map("lab_test_rule_id")
+  reason                String    @db.Text
+  operational_timestamp DateTime? @map("operational_timestamp") @db.Timestamp(6)
+  status                String    @default("ACTIVE") @map("status") @db.VarChar(50)
+  created_by            BigInt?   @map("created_by")
+  acknowledged_by       BigInt?   @map("acknowledged_by")
+  created_at            DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  acknowledged_at       DateTime? @map("acknowledged_at") @db.Timestamp(6)
+  resolution_notes      String?   @db.Text
+
+  procurement_source ProcurementSource @relation("SourceWarnings", fields: [procurement_source_id], references: [id], onDelete: Cascade)
+  visit              VehicleVisit?     @relation(fields: [visit_id], references: [id], onDelete: SetNull)
+  portion            VisitPortion?     @relation(fields: [portion_id], references: [id], onDelete: SetNull)
+  lab_test           LabTest?          @relation(fields: [lab_test_id], references: [id], onDelete: SetNull)
+  lab_test_rule      LabTestRule?      @relation(fields: [lab_test_rule_id], references: [id], onDelete: SetNull)
+  creator            User?             @relation("WarningCreatedBy", fields: [created_by], references: [id])
+  acknowledger       User?             @relation("WarningAcknowledgedBy", fields: [acknowledged_by], references: [id])
 
   @@index([procurement_source_id, created_at])
   @@map("qa_warning")
 }
 
+enum PaperReferenceType {
+  SHOP_RMR
+  RAW_MILK_TOKEN
+  RAW_MILK_DISPATCH_NOTE
+}
+
+enum PaperPolicyMode {
+  REQUIRED
+  OPTIONAL
+  DISABLED
+}
+
+model PaperReferencePolicy {
+  id                   BigInt             @id @default(autoincrement())
+  reference_type       PaperReferenceType @unique @map("reference_type")
+  policy_mode          PaperPolicyMode    @default(REQUIRED) @map("policy_mode")
+  allow_duplicates     Boolean            @default(false) @map("allow_duplicates")
+  duplicate_scope      String             @default("GLOBAL") @map("duplicate_scope") @db.VarChar(50)
+  updated_by_user_id   BigInt?            @map("updated_by_user_id")
+  updated_at           DateTime           @updatedAt @map("updated_at") @db.Timestamp(6)
+  created_at           DateTime           @default(now()) @map("created_at") @db.Timestamp(6)
+
+  // Relations
+  updated_by           User?              @relation("PaperPolicyUpdatedBy", fields: [updated_by_user_id], references: [id])
+
+  @@map("paper_reference_policy")
+}
+
 model LabTestAssignment {
-  id                     BigInt   @id @default(autoincrement())
-  visit_id               BigInt   @map("visit_id")
-  workflow               String   @db.VarChar(50) // DISPATCH or PLANT_QA
-  test_id                BigInt   @map("test_id")
-  test_code_snapshot     String   @map("test_code_snapshot") @db.VarChar(50)
-  test_name_snapshot     String   @map("test_name_snapshot") @db.VarChar(150)
-  result_type_snapshot   String   @map("result_type_snapshot") @db.VarChar(20)
-  unit_snapshot          String?  @map("unit_snapshot") @db.VarChar(30)
-  test_scope_snapshot    String?  @map("test_scope_snapshot") @db.VarChar(20)
-  is_required_snapshot   Boolean  @default(true) @map("is_required_snapshot")
-  display_order_snapshot Int      @default(0) @map("display_order_snapshot")
-  result_options_snapshot Json?   @map("result_options_snapshot")
-  assigned_at            DateTime @default(now()) @map("assigned_at") @db.Timestamp(6)
+  id                      BigInt   @id @default(autoincrement())
+  visit_id                BigInt   @map("visit_id")
+  workflow                String   @db.VarChar(50) // DISPATCH or PLANT_QA
+  test_id                 BigInt   @map("test_id")
+  test_code_snapshot      String   @map("test_code_snapshot") @db.VarChar(50)
+  test_name_snapshot      String   @map("test_name_snapshot") @db.VarChar(150)
+  result_type_snapshot    String   @map("result_type_snapshot") @db.VarChar(20)
+  unit_snapshot           String?  @map("unit_snapshot") @db.VarChar(30)
+  test_scope_snapshot     String?  @map("test_scope_snapshot") @db.VarChar(20)
+  is_required_snapshot    Boolean  @default(true) @map("is_required_snapshot")
+  display_order_snapshot  Int      @default(0) @map("display_order_snapshot")
+  result_options_snapshot Json?    @map("result_options_snapshot")
+  assigned_at             DateTime @default(now()) @map("assigned_at") @db.Timestamp(6)
 
   // Relations
   visit    VehicleVisit @relation(fields: [visit_id], references: [id], onDelete: Cascade)
@@ -521,3 +710,963 @@ enum MeasurementBasis {
   ESTIMATED
   MEASURED
 }
+
+model ZmccRoute {
+  id          BigInt   @id @default(autoincrement())
+  route_code  String   @unique @map("route_code") @db.VarChar(50)
+  name        String   @map("name") @db.VarChar(150)
+  origin      String   @map("origin") @db.VarChar(150)
+  destination String   @map("destination") @db.VarChar(150)
+  zmcc_id     BigInt   @map("zmcc_id")
+  is_active   Boolean  @default(true) @map("is_active")
+  created_by  BigInt   @map("created_by")
+  updated_by  BigInt?  @map("updated_by")
+  created_at  DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at  DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  zmcc            ProcurementSource   @relation("ZmccRoutes", fields: [zmcc_id], references: [id], onDelete: Restrict)
+  creator         User                @relation("ZmccRouteCreatedBy", fields: [created_by], references: [id], onDelete: Restrict)
+  updater         User?               @relation("ZmccRouteUpdatedBy", fields: [updated_by], references: [id], onDelete: Restrict)
+  areas           ZmccArea[]
+  mot_journeys    MotJourney[]
+  mot_collections MotShopCollection[] @relation("ZmccRouteMotCollections")
+
+  @@unique([zmcc_id, name])
+  @@unique([id, zmcc_id])
+  @@index([zmcc_id])
+  @@map("zmcc_route")
+}
+
+model ZmccArea {
+  id         BigInt   @id @default(autoincrement())
+  area_code  String   @unique @map("area_code") @db.VarChar(50)
+  name       String   @map("name") @db.VarChar(150)
+  route_id   BigInt   @map("route_id")
+  zmcc_id    BigInt   @map("zmcc_id")
+  is_active  Boolean  @default(true) @map("is_active")
+  created_by BigInt   @map("created_by")
+  updated_by BigInt?  @map("updated_by")
+  created_at DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  route   ZmccRoute  @relation(fields: [route_id, zmcc_id], references: [id, zmcc_id], onDelete: Restrict)
+  creator User       @relation("ZmccAreaCreatedBy", fields: [created_by], references: [id], onDelete: Restrict)
+  updater User?      @relation("ZmccAreaUpdatedBy", fields: [updated_by], references: [id], onDelete: Restrict)
+  shops   ZmccShop[]
+
+  @@unique([route_id, name])
+  @@unique([id, route_id, zmcc_id])
+  @@index([route_id])
+  @@index([zmcc_id])
+  @@map("zmcc_area")
+}
+
+model ZmccMilkSource {
+  id         BigInt   @id @default(autoincrement())
+  erp_code   String   @unique @map("erp_code") @db.VarChar(50)
+  name       String   @map("name") @db.VarChar(150)
+  zmcc_id    BigInt   @map("zmcc_id")
+  is_active  Boolean  @default(true) @map("is_active")
+  created_by BigInt   @map("created_by")
+  updated_by BigInt?  @map("updated_by")
+  created_at DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  zmcc    ProcurementSource @relation("ZmccMilkSources", fields: [zmcc_id], references: [id], onDelete: Restrict)
+  creator User              @relation("ZmccMilkSourceCreatedBy", fields: [created_by], references: [id], onDelete: Restrict)
+  updater User?             @relation("ZmccMilkSourceUpdatedBy", fields: [updated_by], references: [id], onDelete: Restrict)
+  shops   ZmccShop[]
+
+  @@unique([zmcc_id, name])
+  @@unique([id, zmcc_id])
+  @@index([zmcc_id])
+  @@map("zmcc_milk_source")
+}
+
+model ChillerOwnership {
+  id             BigInt   @id @default(autoincrement())
+  ownership_code String   @unique @map("ownership_code") @db.VarChar(50)
+  name           String   @unique @map("name") @db.VarChar(100)
+  is_active      Boolean  @default(true) @map("is_active")
+  created_by     BigInt   @map("created_by")
+  updated_by     BigInt?  @map("updated_by")
+  created_at     DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at     DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  creator User       @relation("ChillerOwnershipCreatedBy", fields: [created_by], references: [id], onDelete: Restrict)
+  updater User?      @relation("ChillerOwnershipUpdatedBy", fields: [updated_by], references: [id], onDelete: Restrict)
+  shops   ZmccShop[]
+
+  @@map("chiller_ownership")
+}
+
+model ZmccShop {
+  id                   BigInt   @id @default(autoincrement())
+  shop_code            String   @unique @map("shop_code") @db.VarChar(50)
+  shop_name            String   @map("shop_name") @db.VarChar(150)
+  owner_name           String   @map("owner_name") @db.VarChar(150)
+  phone_number         String   @map("phone_number") @db.VarChar(30)
+  cnic                 String   @map("cnic") @db.VarChar(30)
+  area_id              BigInt   @map("area_id")
+  route_id             BigInt   @map("route_id")
+  zmcc_id              BigInt   @map("zmcc_id")
+  milk_source_id       BigInt   @map("milk_source_id")
+  chiller_ownership_id BigInt   @map("chiller_ownership_id")
+  latitude             Decimal? @map("latitude") @db.Decimal(10, 7)
+  longitude            Decimal? @map("longitude") @db.Decimal(10, 7)
+  is_active            Boolean  @default(true) @map("is_active")
+  created_by           BigInt   @map("created_by")
+  updated_by           BigInt?  @map("updated_by")
+  created_at           DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at           DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  area              ZmccArea            @relation(fields: [area_id, route_id, zmcc_id], references: [id, route_id, zmcc_id], onDelete: Restrict)
+  milk_source       ZmccMilkSource      @relation(fields: [milk_source_id, zmcc_id], references: [id, zmcc_id], onDelete: Restrict)
+  chiller_ownership ChillerOwnership    @relation(fields: [chiller_ownership_id], references: [id], onDelete: Restrict)
+  creator           User                @relation("ZmccShopCreatedBy", fields: [created_by], references: [id], onDelete: Restrict)
+  updater           User?               @relation("ZmccShopUpdatedBy", fields: [updated_by], references: [id], onDelete: Restrict)
+  journey_stops     MotJourneyStop[]
+  mot_collections   MotShopCollection[] @relation("ZmccShopMotCollections")
+
+  @@unique([area_id, shop_name])
+  @@index([area_id])
+  @@index([route_id])
+  @@index([zmcc_id])
+  @@index([milk_source_id])
+  @@index([chiller_ownership_id])
+  @@map("zmcc_shop")
+}
+
+model MotProfile {
+  id           BigInt   @id @default(autoincrement())
+  mot_code     String   @unique @map("mot_code") @db.VarChar(50)
+  name         String   @map("name") @db.VarChar(150)
+  phone_number String   @map("phone_number") @db.VarChar(30)
+  cnic         String   @map("cnic") @db.VarChar(30)
+  zmcc_id      BigInt   @map("zmcc_id")
+  user_id      BigInt?  @unique @map("user_id")
+  is_active    Boolean  @default(true) @map("is_active")
+  created_by   BigInt   @map("created_by")
+  updated_by   BigInt?  @map("updated_by")
+  created_at   DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at   DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  zmcc            ProcurementSource   @relation("ZmccMotProfiles", fields: [zmcc_id], references: [id], onDelete: Restrict)
+  user            User?               @relation("MotProfileUser", fields: [user_id], references: [id], onDelete: SetNull)
+  creator         User                @relation("MotProfileCreatedBy", fields: [created_by], references: [id], onDelete: Restrict)
+  updater         User?               @relation("MotProfileUpdatedBy", fields: [updated_by], references: [id], onDelete: Restrict)
+  journeys        MotJourney[]
+  mot_collections MotShopCollection[] @relation("MotProfileCollections")
+
+  @@unique([id, zmcc_id])
+  @@index([zmcc_id])
+  @@map("mot_profile")
+}
+
+model MotVehicle {
+  id             BigInt   @id @default(autoincrement())
+  vehicle_number String   @unique @map("vehicle_number") @db.VarChar(50)
+  zmcc_id        BigInt   @map("zmcc_id")
+  is_active      Boolean  @default(true) @map("is_active")
+  created_by     BigInt   @map("created_by")
+  updated_by     BigInt?  @map("updated_by")
+  created_at     DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at     DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  zmcc            ProcurementSource   @relation("ZmccMotVehicles", fields: [zmcc_id], references: [id], onDelete: Restrict)
+  creator         User                @relation("MotVehicleCreatedBy", fields: [created_by], references: [id], onDelete: Restrict)
+  updater         User?               @relation("MotVehicleUpdatedBy", fields: [updated_by], references: [id], onDelete: Restrict)
+  journeys        MotJourney[]
+  mot_collections MotShopCollection[] @relation("MotVehicleCollections")
+
+  @@unique([id, zmcc_id])
+  @@index([zmcc_id])
+  @@map("mot_vehicle")
+}
+
+model MotJourney {
+  id                      BigInt    @id @default(autoincrement())
+  journey_number          String    @unique @map("journey_number") @db.VarChar(50)
+  operational_date        DateTime  @map("operational_date") @db.Date
+  zmcc_id                 BigInt    @map("zmcc_id")
+  route_id                BigInt    @map("route_id")
+  mot_profile_id          BigInt    @map("mot_profile_id")
+  mot_vehicle_id          BigInt    @map("mot_vehicle_id")
+  status                  String    @default("COLLECTING") @map("status") @db.VarChar(50)
+  assigned_by             BigInt    @map("assigned_by")
+  assigned_at             DateTime  @map("assigned_at") @db.Timestamp(6)
+  assignment_latitude     Decimal   @map("assignment_latitude") @db.Decimal(10, 7)
+  assignment_longitude    Decimal   @map("assignment_longitude") @db.Decimal(10, 7)
+  assignment_gps_accuracy Decimal?  @map("assignment_gps_accuracy") @db.Decimal(8, 2)
+  started_at              DateTime  @map("started_at") @db.Timestamp(6)
+  start_latitude          Decimal   @map("start_latitude") @db.Decimal(10, 7)
+  start_longitude         Decimal   @map("start_longitude") @db.Decimal(10, 7)
+  first_mot_gps_at        DateTime? @map("first_mot_gps_at") @db.Timestamp(6)
+  first_mot_latitude      Decimal?  @map("first_mot_latitude") @db.Decimal(10, 7)
+  first_mot_longitude     Decimal?  @map("first_mot_longitude") @db.Decimal(10, 7)
+  first_mot_gps_accuracy  Decimal?  @map("first_mot_gps_accuracy") @db.Decimal(8, 2)
+  final_mot_gps_at        DateTime? @map("final_mot_gps_at") @db.Timestamp(6)
+  final_mot_latitude      Decimal?  @map("final_mot_latitude") @db.Decimal(10, 7)
+  final_mot_longitude     Decimal?  @map("final_mot_longitude") @db.Decimal(10, 7)
+  final_mot_gps_accuracy  Decimal?  @map("final_mot_gps_accuracy") @db.Decimal(8, 2)
+  idempotency_key         String    @unique @map("idempotency_key") @db.VarChar(255)
+  ended_at                DateTime? @map("ended_at") @db.Timestamp(6)
+  cancelled_by            BigInt?   @map("cancelled_by")
+  cancelled_at            DateTime? @map("cancelled_at") @db.Timestamp(6)
+  cancellation_reason     String?   @map("cancellation_reason") @db.Text
+  created_at              DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at              DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  zmcc        ProcurementSource    @relation("ZmccJourneys", fields: [zmcc_id], references: [id], onDelete: Restrict)
+  route       ZmccRoute            @relation(fields: [route_id, zmcc_id], references: [id, zmcc_id], onDelete: Restrict)
+  mot_profile MotProfile           @relation(fields: [mot_profile_id, zmcc_id], references: [id, zmcc_id], onDelete: Restrict)
+  mot_vehicle MotVehicle           @relation(fields: [mot_vehicle_id, zmcc_id], references: [id, zmcc_id], onDelete: Restrict)
+  assigner    User                 @relation("MotJourneyAssignedBy", fields: [assigned_by], references: [id], onDelete: Restrict)
+  canceller   User?                @relation("MotJourneyCancelledBy", fields: [cancelled_by], references: [id], onDelete: Restrict)
+  stops       MotJourneyStop[]
+  locations   MotJourneyLocation[]
+  collections MotShopCollection[]
+  mot_arrival ZmccMotArrival?
+  summary     MotJourneySummary?
+
+  @@unique([id, zmcc_id])
+  @@index([zmcc_id])
+  @@index([route_id])
+  @@index([mot_profile_id])
+  @@index([mot_vehicle_id])
+  @@index([status])
+  @@index([operational_date])
+  @@map("mot_journey")
+
+  version                 Int      @default(1) @map("version")
+}
+
+model MotJourneyStop {
+  id                         BigInt    @id @default(autoincrement())
+  journey_id                 BigInt    @map("journey_id")
+  shop_id                    BigInt    @map("shop_id")
+  planned_sequence           Int       @map("planned_sequence")
+  status                     String    @default("PENDING") @map("status") @db.VarChar(50)
+  shop_code_snapshot         String    @map("shop_code_snapshot") @db.VarChar(50)
+  shop_name_snapshot         String    @map("shop_name_snapshot") @db.VarChar(255)
+  owner_name_snapshot        String    @map("owner_name_snapshot") @db.VarChar(255)
+  phone_number_snapshot      String    @map("phone_number_snapshot") @db.VarChar(50)
+  area_code_snapshot         String    @map("area_code_snapshot") @db.VarChar(50)
+  area_name_snapshot         String    @map("area_name_snapshot") @db.VarChar(255)
+  planned_latitude_snapshot  Decimal?  @map("planned_latitude_snapshot") @db.Decimal(10, 7)
+  planned_longitude_snapshot Decimal?  @map("planned_longitude_snapshot") @db.Decimal(10, 7)
+  arrived_at                 DateTime? @map("arrived_at") @db.Timestamp(6)
+  completed_at               DateTime? @map("completed_at") @db.Timestamp(6)
+  skipped_at                 DateTime? @map("skipped_at") @db.Timestamp(6)
+  skip_reason                String?   @map("skip_reason") @db.Text
+  created_at                 DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at                 DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  journey    MotJourney         @relation(fields: [journey_id], references: [id], onDelete: Restrict)
+  shop       ZmccShop           @relation(fields: [shop_id], references: [id], onDelete: Restrict)
+  collection MotShopCollection?
+
+  @@unique([journey_id, shop_id])
+  @@unique([journey_id, planned_sequence])
+  @@index([journey_id])
+  @@index([shop_id])
+  @@map("mot_journey_stop")
+}
+
+model MotJourneyLocation {
+  id                  BigInt   @id @default(autoincrement())
+  journey_id          BigInt   @map("journey_id")
+  recorded_by_user_id BigInt?  @map("recorded_by_user_id")
+  source_type         String   @map("source_type") @db.VarChar(50)
+  latitude            Decimal  @map("latitude") @db.Decimal(10, 7)
+  longitude           Decimal  @map("longitude") @db.Decimal(10, 7)
+  gps_accuracy        Decimal? @map("gps_accuracy") @db.Decimal(8, 2)
+  device_recorded_at  DateTime @map("device_recorded_at") @db.Timestamp(6)
+  server_received_at  DateTime @default(now()) @map("server_received_at") @db.Timestamp(6)
+  idempotency_key     String   @unique @map("idempotency_key") @db.VarChar(255)
+  created_at          DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  // Relations
+  journey     MotJourney @relation(fields: [journey_id], references: [id], onDelete: Restrict)
+  recorded_by User?      @relation("MotJourneyLocationRecordedBy", fields: [recorded_by_user_id], references: [id], onDelete: Restrict)
+
+  @@index([journey_id])
+  @@index([device_recorded_at])
+  @@map("mot_journey_location")
+}
+
+model MotShopCollection {
+  id                      BigInt   @id @default(autoincrement())
+  collection_number       String   @unique @map("collection_number") @db.VarChar(50)
+  journey_id              BigInt   @map("journey_id")
+  journey_stop_id         BigInt   @unique @map("journey_stop_id")
+  shop_id                 BigInt   @map("shop_id")
+  zmcc_id                 BigInt   @map("zmcc_id")
+  route_id                BigInt   @map("route_id")
+  mot_profile_id          BigInt   @map("mot_profile_id")
+  mot_vehicle_id          BigInt   @map("mot_vehicle_id")
+  operational_date        DateTime @map("operational_date") @db.Date
+  client_event_id         String   @unique @map("client_event_id") @db.VarChar(255)
+  quantity_value          Decimal  @map("quantity_value") @db.Decimal(10, 2)
+  quantity_unit           String   @map("quantity_unit") @db.VarChar(10)
+  gross_liters            Decimal  @map("gross_liters") @db.Decimal(10, 2)
+  density                 Decimal  @map("density") @db.Decimal(6, 4)
+  lr                      Decimal  @map("lr") @db.Decimal(5, 2)
+  fat                     Decimal  @map("fat") @db.Decimal(4, 2)
+  snf                     Decimal  @map("snf") @db.Decimal(5, 2)
+  ts                      Decimal  @map("ts") @db.Decimal(5, 2)
+  at_13ts_liters          Decimal  @map("at_13ts_liters") @db.Decimal(10, 2)
+  calculation_version     String   @default("1.0") @map("calculation_version") @db.VarChar(20)
+  collection_latitude     Decimal  @map("collection_latitude") @db.Decimal(10, 7)
+  collection_longitude    Decimal  @map("collection_longitude") @db.Decimal(10, 7)
+  collection_gps_accuracy Decimal? @map("collection_gps_accuracy") @db.Decimal(8, 2)
+  device_collected_at     DateTime @map("device_collected_at") @db.Timestamp(6)
+  server_received_at      DateTime @default(now()) @map("server_received_at") @db.Timestamp(6)
+  submitted_by_user_id    BigInt   @map("submitted_by_user_id")
+  collection_notes        String?  @map("collection_notes") @db.Text
+  shop_rmr_number         String?  @map("shop_rmr_number") @db.VarChar(50)
+  correction_count        Int      @default(0) @map("correction_count")
+  manager_correction_count Int     @default(0) @map("manager_correction_count")
+  last_corrected_by_user_id BigInt? @map("last_corrected_by_user_id")
+  last_corrected_at       DateTime? @map("last_corrected_at") @db.Timestamp(6)
+  created_at              DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at              DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  journey           MotJourney              @relation(fields: [journey_id], references: [id], onDelete: Restrict)
+  stop              MotJourneyStop          @relation(fields: [journey_stop_id], references: [id], onDelete: Restrict)
+  shop              ZmccShop                @relation("ZmccShopMotCollections", fields: [shop_id], references: [id], onDelete: Restrict)
+  zmcc              ProcurementSource       @relation("ZmccMotCollections", fields: [zmcc_id], references: [id], onDelete: Restrict)
+  route             ZmccRoute               @relation("ZmccRouteMotCollections", fields: [route_id], references: [id], onDelete: Restrict)
+  mot_profile       MotProfile              @relation("MotProfileCollections", fields: [mot_profile_id], references: [id], onDelete: Restrict)
+  mot_vehicle       MotVehicle              @relation("MotVehicleCollections", fields: [mot_vehicle_id], references: [id], onDelete: Restrict)
+  submitted_by      User                    @relation("MotCollectionSubmittedBy", fields: [submitted_by_user_id], references: [id], onDelete: Restrict)
+  last_corrected_by User?                   @relation("MotCollectionLastCorrectedBy", fields: [last_corrected_by_user_id], references: [id], onDelete: SetNull)
+  sms_outbox        MotCollectionSmsOutbox?
+
+  @@unique([journey_id, journey_stop_id])
+  @@index([journey_id])
+  @@index([shop_id])
+  @@index([zmcc_id])
+  @@index([operational_date])
+  @@index([shop_rmr_number])
+  @@map("mot_shop_collection")
+
+  version                 Int      @default(1) @map("version")
+}
+
+model MotCollectionSmsOutbox {
+  id                  BigInt    @id @default(autoincrement())
+  collection_id       BigInt    @unique @map("collection_id")
+  recipient_phone     String    @map("recipient_phone") @db.VarChar(50)
+  message_body        String    @map("message_body") @db.Text
+  status              String    @default("PENDING") @map("status") @db.VarChar(20)
+  attempt_count       Int       @default(0) @map("attempt_count")
+  provider_message_id String?   @map("provider_message_id") @db.VarChar(255)
+  last_error          String?   @map("last_error") @db.Text
+  created_at          DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  sent_at             DateTime? @map("sent_at") @db.Timestamp(6)
+  updated_at          DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  collection MotShopCollection @relation(fields: [collection_id], references: [id], onDelete: Restrict)
+
+  @@index([status])
+  @@map("mot_collection_sms_outbox")
+}
+
+model ZmccMotArrival {
+  id                    BigInt   @id @default(autoincrement())
+  journey_id            BigInt   @unique @map("journey_id")
+  zmcc_id               BigInt   @map("zmcc_id")
+  route_milk_token      String?  @map("route_milk_token") @db.VarChar(100)
+  raw_milk_token_number String?  @map("raw_milk_token_number") @db.VarChar(100)
+  zmcc_token            String   @unique @map("zmcc_token") @db.VarChar(100)
+  arrival_timestamp     DateTime @map("arrival_timestamp") @db.Timestamp(6)
+  arrival_date          DateTime @map("arrival_date") @db.Date
+  phe_latitude          Decimal? @map("phe_latitude") @db.Decimal(10, 7)
+  phe_longitude         Decimal? @map("phe_longitude") @db.Decimal(10, 7)
+  phe_gps_accuracy      Decimal? @map("phe_gps_accuracy") @db.Decimal(8, 2)
+  client_event_id       String   @unique @map("client_event_id") @db.VarChar(255)
+  recorded_by_user_id   BigInt   @map("recorded_by_user_id")
+  submitted_at          DateTime @default(now()) @map("submitted_at") @db.Timestamp(6)
+  correction_count         Int       @default(0) @map("correction_count")
+  manager_correction_count Int       @default(0) @map("manager_correction_count")
+  last_corrected_by_user_id BigInt?  @map("last_corrected_by_user_id")
+  last_corrected_at        DateTime? @map("last_corrected_at") @db.Timestamp(6)
+  gate_exit_required       Boolean   @default(true) @map("gate_exit_required")
+  exit_timestamp           DateTime? @map("exit_timestamp") @db.Timestamp(6)
+  exit_recorded_by_user_id BigInt?   @map("exit_recorded_by_user_id")
+  exit_client_event_id     String?   @unique @map("exit_client_event_id") @db.VarChar(255)
+  exit_submitted_at        DateTime? @map("exit_submitted_at") @db.Timestamp(6)
+  exit_correction_count    Int       @default(0) @map("exit_correction_count")
+  exit_manager_correction_count Int  @default(0) @map("exit_manager_correction_count")
+  exit_last_corrected_by_user_id BigInt? @map("exit_last_corrected_by_user_id")
+  exit_last_corrected_at   DateTime? @map("exit_last_corrected_at") @db.Timestamp(6)
+  created_at               DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at               DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  journey          MotJourney        @relation(fields: [journey_id], references: [id], onDelete: Restrict)
+  zmcc             ProcurementSource @relation("ZmccMotArrivals", fields: [zmcc_id], references: [id], onDelete: Restrict)
+  recorded_by      User              @relation("ZmccMotArrivalRecordedBy", fields: [recorded_by_user_id], references: [id], onDelete: Restrict)
+  last_corrected_by User?            @relation("ZmccMotArrivalLastCorrectedBy", fields: [last_corrected_by_user_id], references: [id], onDelete: SetNull)
+  exit_recorded_by User?             @relation("ZmccMotArrivalExitRecordedBy", fields: [exit_recorded_by_user_id], references: [id], onDelete: Restrict)
+  exit_last_corrected_by User?        @relation("ZmccMotArrivalExitLastCorrectedBy", fields: [exit_last_corrected_by_user_id], references: [id], onDelete: SetNull)
+  lab_session      ZmccLabSession?   @relation("MotArrivalLabSession")
+
+  @@index([zmcc_id])
+  @@index([arrival_date])
+  @@index([zmcc_id, exit_timestamp])
+  @@index([raw_milk_token_number])
+  @@map("zmcc_mot_arrival")
+}
+
+model ZmccContractorArrival {
+  id                   BigInt   @id @default(autoincrement())
+  zmcc_id              BigInt   @map("zmcc_id")
+  contractor_source_id BigInt   @map("contractor_source_id")
+  rmr_number           String   @map("rmr_number") @db.VarChar(100)
+  vehicle_number       String   @map("vehicle_number") @db.VarChar(50)
+  arrival_timestamp    DateTime @map("arrival_timestamp") @db.Timestamp(6)
+  arrival_date         DateTime @map("arrival_date") @db.Date
+  zmcc_token           String   @unique @map("zmcc_token") @db.VarChar(100)
+  phe_latitude         Decimal? @map("phe_latitude") @db.Decimal(10, 7)
+  phe_longitude        Decimal? @map("phe_longitude") @db.Decimal(10, 7)
+  phe_gps_accuracy     Decimal? @map("phe_gps_accuracy") @db.Decimal(8, 2)
+  client_event_id      String   @unique @map("client_event_id") @db.VarChar(255)
+  recorded_by_user_id  BigInt   @map("recorded_by_user_id")
+  submitted_at         DateTime @default(now()) @map("submitted_at") @db.Timestamp(6)
+  correction_count     Int      @default(0) @map("correction_count")
+  created_at           DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at           DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  zmcc              ProcurementSource @relation("ZmccContractorArrivals", fields: [zmcc_id], references: [id], onDelete: Restrict)
+  contractor_source ProcurementSource @relation("ContractorArrivalSources", fields: [contractor_source_id], references: [id], onDelete: Restrict)
+  recorded_by       User              @relation("ZmccContractorArrivalRecordedBy", fields: [recorded_by_user_id], references: [id], onDelete: Restrict)
+  lab_session       ZmccLabSession?   @relation("ContractorArrivalLabSession")
+
+  @@index([zmcc_id])
+  @@index([contractor_source_id])
+  @@index([arrival_date])
+  @@map("zmcc_contractor_arrival")
+}
+
+model ZmccLocalSupplier {
+  id                  BigInt   @id @default(autoincrement())
+  local_supplier_code String   @unique @map("local_supplier_code") @db.VarChar(50)
+  zmcc_id             BigInt   @map("zmcc_id")
+  name                String   @map("name") @db.VarChar(150)
+  phone               String?  @map("phone") @db.VarChar(50)
+  cnic                String?  @map("cnic") @db.VarChar(50)
+  erp_reference       String?  @map("erp_reference") @db.VarChar(100)
+  erp_mapping_status  String   @default("PENDING") @map("erp_mapping_status") @db.VarChar(20) // PENDING or VERIFIED
+  is_active           Boolean  @default(true) @map("is_active")
+  created_by_user_id  BigInt   @map("created_by_user_id")
+  updated_by_user_id  BigInt?  @map("updated_by_user_id")
+  created_at          DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at          DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  zmcc       ProcurementSource          @relation("ZmccLocalSuppliers", fields: [zmcc_id], references: [id], onDelete: Restrict)
+  creator    User                       @relation("LocalSupplierCreatedBy", fields: [created_by_user_id], references: [id], onDelete: Restrict)
+  updater    User?                      @relation("LocalSupplierUpdatedBy", fields: [updated_by_user_id], references: [id], onDelete: Restrict)
+  arrivals   ZmccLocalSupplierArrival[] @relation("LocalSupplierArrivals")
+  rmr_issuances LocalSupplierRmrIssuance[] @relation("LocalSupplierRmrSupplier")
+
+  @@index([zmcc_id, is_active])
+  @@index([zmcc_id, name])
+  @@index([zmcc_id, erp_mapping_status])
+  @@map("zmcc_local_supplier")
+}
+
+model ZmccLocalSupplierArrival {
+  id                  BigInt   @id @default(autoincrement())
+  zmcc_id             BigInt   @map("zmcc_id")
+  local_supplier_id   BigInt   @map("local_supplier_id")
+  rmr_number          String?  @map("rmr_number") @db.VarChar(100)
+  raw_milk_token_number String? @map("raw_milk_token_number") @db.VarChar(100)
+  vehicle_number      String   @map("vehicle_number") @db.VarChar(50)
+  arrival_timestamp   DateTime @map("arrival_timestamp") @db.Timestamp(6)
+  arrival_date        DateTime @map("arrival_date") @db.Date
+  zmcc_token          String   @unique @map("zmcc_token") @db.VarChar(100)
+  phe_latitude        Decimal? @map("phe_latitude") @db.Decimal(10, 7)
+  phe_longitude       Decimal? @map("phe_longitude") @db.Decimal(10, 7)
+  phe_gps_accuracy    Decimal? @map("phe_gps_accuracy") @db.Decimal(8, 2)
+  client_event_id     String   @unique @map("client_event_id") @db.VarChar(255)
+  recorded_by_user_id BigInt   @map("recorded_by_user_id")
+  submitted_at        DateTime @default(now()) @map("submitted_at") @db.Timestamp(6)
+  correction_count         Int       @default(0) @map("correction_count")
+  manager_correction_count Int       @default(0) @map("manager_correction_count")
+  last_corrected_by_user_id BigInt?  @map("last_corrected_by_user_id")
+  last_corrected_at        DateTime? @map("last_corrected_at") @db.Timestamp(6)
+  gate_exit_required       Boolean   @default(true) @map("gate_exit_required")
+  exit_timestamp           DateTime? @map("exit_timestamp") @db.Timestamp(6)
+  exit_recorded_by_user_id BigInt?   @map("exit_recorded_by_user_id")
+  exit_client_event_id     String?   @unique @map("exit_client_event_id") @db.VarChar(255)
+  exit_submitted_at        DateTime? @map("exit_submitted_at") @db.Timestamp(6)
+  exit_correction_count    Int       @default(0) @map("exit_correction_count")
+  exit_manager_correction_count Int  @default(0) @map("exit_manager_correction_count")
+  exit_last_corrected_by_user_id BigInt? @map("exit_last_corrected_by_user_id")
+  exit_last_corrected_at   DateTime? @map("exit_last_corrected_at") @db.Timestamp(6)
+  created_at               DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at               DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  zmcc             ProcurementSource @relation("ZmccLocalSupplierArrivals", fields: [zmcc_id], references: [id], onDelete: Restrict)
+  local_supplier   ZmccLocalSupplier @relation("LocalSupplierArrivals", fields: [local_supplier_id], references: [id], onDelete: Restrict)
+  recorded_by      User              @relation("ZmccLocalSupplierArrivalRecordedBy", fields: [recorded_by_user_id], references: [id], onDelete: Restrict)
+  last_corrected_by User?            @relation("ZmccLocalSupplierArrivalLastCorrectedBy", fields: [last_corrected_by_user_id], references: [id], onDelete: SetNull)
+  exit_recorded_by User?             @relation("ZmccLocalSupplierArrivalExitRecordedBy", fields: [exit_recorded_by_user_id], references: [id], onDelete: Restrict)
+  exit_last_corrected_by User?        @relation("ZmccLocalSupplierArrivalExitLastCorrectedBy", fields: [exit_last_corrected_by_user_id], references: [id], onDelete: SetNull)
+  lab_session      ZmccLabSession?   @relation("LocalSupplierArrivalLabSession")
+  rmr_issuance     LocalSupplierRmrIssuance? @relation("LocalSupplierArrivalRmr")
+  legacy_rmr_classification LocalSupplierRmrLegacyClassification? @relation("LocalSupplierArrivalLegacyRmr")
+
+  @@index([zmcc_id])
+  @@index([local_supplier_id])
+  @@index([arrival_date])
+  @@index([zmcc_id, exit_timestamp])
+  @@index([raw_milk_token_number])
+  @@map("zmcc_local_supplier_arrival")
+}
+
+model Notification {
+  id                 BigInt   @id @default(autoincrement())
+  recipient_user_id  BigInt   @map("recipient_user_id")
+  event_key          String   @map("event_key") @db.VarChar(100)
+  priority           String   @default("NORMAL") @db.VarChar(20)
+  title              String   @db.VarChar(180)
+  body               String   @db.VarChar(500)
+  deep_link          String?  @map("deep_link") @db.VarChar(500)
+  source_type        String   @map("source_type") @db.VarChar(80)
+  source_id          String?  @map("source_id") @db.VarChar(100)
+  dedupe_key         String   @unique @map("dedupe_key") @db.VarChar(255)
+  read_at            DateTime? @map("read_at") @db.Timestamp(6)
+  expires_at         DateTime? @map("expires_at") @db.Timestamp(6)
+  created_at         DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  recipient          User     @relation("NotificationRecipient", fields: [recipient_user_id], references: [id], onDelete: Cascade)
+  deliveries         NotificationDelivery[]
+  @@index([recipient_user_id, read_at, created_at])
+  @@map("notification")
+}
+
+model NotificationDelivery {
+  id                BigInt   @id @default(autoincrement())
+  notification_id   BigInt   @map("notification_id")
+  channel           String   @db.VarChar(30)
+  status            String   @default("QUEUED") @db.VarChar(30)
+  attempt_count     Int      @default(0) @map("attempt_count")
+  failure_reason    String?  @map("failure_reason") @db.Text
+  provider_message_id String? @map("provider_message_id") @db.VarChar(255)
+  sent_at           DateTime? @map("sent_at") @db.Timestamp(6)
+  created_at        DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  notification      Notification @relation(fields: [notification_id], references: [id], onDelete: Cascade)
+  @@index([status, created_at])
+  @@unique([notification_id, channel])
+  @@map("notification_delivery")
+}
+
+model NotificationPreference {
+  user_id             BigInt @id @map("user_id")
+  push_enabled        Boolean @default(true) @map("push_enabled")
+  delivery_mode       String @default("IMMEDIATE") @map("delivery_mode") @db.VarChar(20)
+  quiet_hours_start   String? @map("quiet_hours_start") @db.VarChar(5)
+  quiet_hours_end     String? @map("quiet_hours_end") @db.VarChar(5)
+  updated_at          DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
+  user                User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  @@map("notification_preference")
+}
+
+model PushSubscription {
+  id                  BigInt @id @default(autoincrement())
+  user_id             BigInt @map("user_id")
+  endpoint            String @unique @db.Text
+  p256dh              String @db.Text
+  auth                String @db.Text
+  device_label        String? @map("device_label") @db.VarChar(100)
+  revoked_at          DateTime? @map("revoked_at") @db.Timestamp(6)
+  created_at          DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at          DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
+  user                User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  @@index([user_id, revoked_at])
+  @@map("push_subscription")
+}
+
+model CorrectionRequest {
+  id                  BigInt   @id @default(autoincrement())
+  correlation_id      String   @unique @map("correlation_id") @db.VarChar(100)
+  module              String   @db.VarChar(80)
+  record_id           String   @map("record_id") @db.VarChar(100)
+  source_id           BigInt? @map("source_id")
+  impact              String   @db.VarChar(20)
+  status              String   @default("REQUESTED") @db.VarChar(20)
+  reason              String   @db.Text
+  requested_changes   Json     @map("requested_changes") @db.JsonB
+  requested_by_user_id BigInt  @map("requested_by_user_id")
+  requested_at        DateTime @default(now()) @map("requested_at") @db.Timestamp(6)
+  reviewed_by_user_id BigInt? @map("reviewed_by_user_id")
+  reviewed_at         DateTime? @map("reviewed_at") @db.Timestamp(6)
+  review_reason       String?  @map("review_reason") @db.Text
+
+  requester User @relation("CorrectionRequestedBy", fields: [requested_by_user_id], references: [id], onDelete: Restrict)
+  reviewer User? @relation("CorrectionReviewedBy", fields: [reviewed_by_user_id], references: [id], onDelete: Restrict)
+
+  @@index([source_id, status, requested_at])
+  @@index([module, record_id])
+  @@map("correction_request")
+}
+
+model LocalSupplierRmrIssuance {
+  id                        BigInt                 @id @default(autoincrement())
+  local_supplier_arrival_id BigInt                 @unique @map("local_supplier_arrival_id")
+  final_lab_session_id      BigInt                 @unique @map("final_lab_session_id")
+  tank_receipt_id           BigInt                 @unique @map("tank_receipt_id")
+  zmcc_id                   BigInt                 @map("zmcc_id")
+  local_supplier_id         BigInt                 @map("local_supplier_id")
+  rmr_year                  Int                    @map("rmr_year")
+  series                    String                 @db.VarChar(30)
+  book_number               String                 @map("book_number") @db.VarChar(50)
+  receipt_number            String                 @map("receipt_number") @db.VarChar(50)
+  accepted_quantity_value   Decimal                @map("accepted_quantity_value") @db.Decimal(12, 2)
+  accepted_quantity_unit    QuantityUnit           @map("accepted_quantity_unit")
+  issued_by_user_id         BigInt                 @map("issued_by_user_id")
+  issued_at                 DateTime               @default(now()) @map("issued_at") @db.Timestamp(6)
+  idempotency_key           String                 @unique @map("idempotency_key") @db.VarChar(255)
+  status                    LocalSupplierRmrStatus @default(ACTIVE)
+  cancelled_by_user_id      BigInt?                @map("cancelled_by_user_id")
+  cancelled_at              DateTime?              @map("cancelled_at") @db.Timestamp(6)
+  cancellation_reason       String?                @map("cancellation_reason") @db.Text
+  reprint_count             Int                    @default(0) @map("reprint_count")
+  created_at                DateTime               @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at                DateTime               @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  arrival        ZmccLocalSupplierArrival @relation("LocalSupplierArrivalRmr", fields: [local_supplier_arrival_id], references: [id], onDelete: Restrict)
+  final_session  ZmccLabSession           @relation("LocalSupplierRmrFinalSession", fields: [final_lab_session_id], references: [id], onDelete: Restrict)
+  tank_receipt   ZmccTankReceipt          @relation("LocalSupplierRmrTankReceipt", fields: [tank_receipt_id], references: [id], onDelete: Restrict)
+  zmcc           ProcurementSource        @relation("ZmccLocalSupplierRmrIssuances", fields: [zmcc_id], references: [id], onDelete: Restrict)
+  local_supplier ZmccLocalSupplier        @relation("LocalSupplierRmrSupplier", fields: [local_supplier_id], references: [id], onDelete: Restrict)
+  issuer         User                     @relation("LocalSupplierRmrIssuedBy", fields: [issued_by_user_id], references: [id], onDelete: Restrict)
+  canceller      User?                    @relation("LocalSupplierRmrCancelledBy", fields: [cancelled_by_user_id], references: [id], onDelete: Restrict)
+
+  @@unique([zmcc_id, rmr_year, series, book_number, receipt_number], map: "local_supplier_rmr_paper_identity_key")
+  @@index([zmcc_id, rmr_year])
+  @@index([local_supplier_id, issued_at])
+  @@index([status, issued_at])
+  @@map("local_supplier_rmr_issuance")
+}
+
+model LocalSupplierRmrLegacyClassification {
+  id                        BigInt                           @id @default(autoincrement())
+  local_supplier_arrival_id BigInt                           @unique @map("local_supplier_arrival_id")
+  legacy_value              String                           @map("legacy_value") @db.VarChar(100)
+  classification            LocalSupplierRmrLegacyDisposition @default(NEEDS_REVIEW)
+  classification_reason     String                           @map("classification_reason") @db.Text
+  reviewed_by_user_id       BigInt?                          @map("reviewed_by_user_id")
+  reviewed_at               DateTime?                        @map("reviewed_at") @db.Timestamp(6)
+  created_at                DateTime                         @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at                DateTime                         @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  arrival ZmccLocalSupplierArrival @relation("LocalSupplierArrivalLegacyRmr", fields: [local_supplier_arrival_id], references: [id], onDelete: Restrict)
+  reviewer User?                    @relation("LocalSupplierRmrLegacyReviewedBy", fields: [reviewed_by_user_id], references: [id], onDelete: Restrict)
+
+  @@index([classification, created_at])
+  @@map("local_supplier_rmr_legacy_classification")
+}
+
+model ZmccLabSession {
+  id                         BigInt    @id @default(autoincrement())
+  zmcc_id                    BigInt    @map("zmcc_id")
+  arrival_type               String    @map("arrival_type") @db.VarChar(20) // MOT, CONTRACTOR, or LOCAL_SUPPLIER
+  mot_arrival_id             BigInt?   @unique @map("mot_arrival_id")
+  contractor_arrival_id      BigInt?   @unique @map("contractor_arrival_id")
+  local_supplier_arrival_id  BigInt?   @unique @map("local_supplier_arrival_id")
+  status                     String    @default("IN_PROGRESS") @map("status") @db.VarChar(50) // IN_PROGRESS or COMPLETED
+  started_by_user_id         BigInt    @map("started_by_user_id")
+  started_at                 DateTime  @default(now()) @map("started_at") @db.Timestamp(6)
+  completed_by_user_id       BigInt?   @map("completed_by_user_id")
+  completed_at               DateTime? @map("completed_at") @db.Timestamp(6)
+  decision                   String?   @map("decision") @db.VarChar(50) // ACCEPTED or REJECTED
+  attendant_recommendation   String?   @map("attendant_recommendation") @db.VarChar(50)
+  attendant_recommended_by_user_id BigInt? @map("attendant_recommended_by_user_id")
+  attendant_recommended_at   DateTime? @map("attendant_recommended_at") @db.Timestamp(6)
+  final_decision             String?   @map("final_decision") @db.VarChar(50)
+  final_decided_by_user_id   BigInt?   @map("final_decided_by_user_id")
+  final_decided_at           DateTime? @map("final_decided_at") @db.Timestamp(6)
+  final_decision_reason      String?   @map("final_decision_reason") @db.Text
+  rejection_reason           String?   @map("rejection_reason") @db.Text
+  remarks                    String?   @map("remarks") @db.Text
+  completion_client_event_id String?   @unique @map("completion_client_event_id") @db.VarChar(255)
+  quantity_value             Decimal?  @map("quantity_value") @db.Decimal(12, 2)
+  quantity_unit              QuantityUnit? @map("quantity_unit")
+  density                    Decimal?  @map("density") @db.Decimal(6, 4)
+  gross_liters               Decimal?  @map("gross_liters") @db.Decimal(12, 2)
+  snf                        Decimal?  @map("snf") @db.Decimal(6, 2)
+  ts                         Decimal?  @map("ts") @db.Decimal(6, 2)
+  at_13ts_liters             Decimal?  @map("at_13ts_liters") @db.Decimal(12, 2)
+  calculation_version        String?   @map("calculation_version") @db.VarChar(20)
+  correction_count           Int       @default(0) @map("correction_count")
+  manager_correction_count   Int       @default(0) @map("manager_correction_count")
+  last_corrected_by_user_id  BigInt?   @map("last_corrected_by_user_id")
+  last_corrected_at          DateTime? @map("last_corrected_at") @db.Timestamp(6)
+
+  // QA Manager Review Workflow (Stage 6G-G)
+  system_quality_outcome              String?   @map("system_quality_outcome") @db.VarChar(50)
+  manager_review_status               String    @default("NONE") @map("manager_review_status") @db.VarChar(50)
+  manager_requested_decision          String?   @map("manager_requested_decision") @db.VarChar(50)
+  manager_review_requested_by_user_id BigInt?   @map("manager_review_requested_by_user_id")
+  manager_review_requested_at         DateTime? @map("manager_review_requested_at") @db.Timestamp(6)
+  manager_reviewed_by_user_id         BigInt?   @map("manager_reviewed_by_user_id")
+  manager_reviewed_at                 DateTime? @map("manager_reviewed_at") @db.Timestamp(6)
+  manager_review_reason               String?   @map("manager_review_reason") @db.Text
+
+  // Exception Classification & Decision Tracking (Stage 6G-G)
+  original_decision                   String?   @map("original_decision") @db.VarChar(50)
+  corrected_decision                  String?   @map("corrected_decision") @db.VarChar(50)
+  correction_reason                   String?   @map("correction_reason") @db.Text
+  created_at                 DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at                 DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  zmcc                   ProcurementSource         @relation("ZmccLabSessions", fields: [zmcc_id], references: [id], onDelete: Restrict)
+  mot_arrival            ZmccMotArrival?           @relation("MotArrivalLabSession", fields: [mot_arrival_id], references: [id], onDelete: Restrict)
+  contractor_arrival     ZmccContractorArrival?    @relation("ContractorArrivalLabSession", fields: [contractor_arrival_id], references: [id], onDelete: Restrict)
+  local_supplier_arrival ZmccLocalSupplierArrival? @relation("LocalSupplierArrivalLabSession", fields: [local_supplier_arrival_id], references: [id], onDelete: Restrict)
+  starter                User                      @relation("ZmccLabStartedBy", fields: [started_by_user_id], references: [id], onDelete: Restrict)
+  completer              User?                     @relation("ZmccLabCompletedBy", fields: [completed_by_user_id], references: [id], onDelete: Restrict)
+  last_corrector         User?                     @relation("ZmccLabLastCorrectedBy", fields: [last_corrected_by_user_id], references: [id], onDelete: Restrict)
+  attendant_recommender  User?                     @relation("ZmccLabAttendantRecommendationBy", fields: [attendant_recommended_by_user_id], references: [id], onDelete: Restrict)
+  final_decider          User?                     @relation("ZmccLabFinalDecisionBy", fields: [final_decided_by_user_id], references: [id], onDelete: Restrict)
+  manager_reviewer       User?                     @relation("ZmccSessionReviewedBy", fields: [manager_reviewed_by_user_id], references: [id])
+  manager_requester      User?                     @relation("ZmccSessionReviewRequestedBy", fields: [manager_review_requested_by_user_id], references: [id])
+  results                ZmccLabResult[]
+  tank_receipt           ZmccTankReceipt?          @relation("ZmccLabSessionReceipt")
+  local_supplier_rmr     LocalSupplierRmrIssuance? @relation("LocalSupplierRmrFinalSession")
+
+  @@index([zmcc_id, status])
+  @@index([status, created_at])
+  @@index([manager_review_status])
+  @@map("zmcc_lab_session")
+}
+
+model ZmccLabResult {
+  id                      BigInt    @id @default(autoincrement())
+  session_id              BigInt    @map("session_id")
+  test_id                 BigInt    @map("test_id")
+  test_code_snapshot      String    @map("test_code_snapshot") @db.VarChar(50)
+  test_name_snapshot      String    @map("test_name_snapshot") @db.VarChar(150)
+  result_type_snapshot    String    @map("result_type_snapshot") @db.VarChar(20)
+  unit_snapshot           String?   @map("unit_snapshot") @db.VarChar(30)
+  is_required_snapshot    Boolean   @default(true) @map("is_required_snapshot")
+  display_order_snapshot  Int       @default(0) @map("display_order_snapshot")
+  result_options_snapshot Json?     @map("result_options_snapshot")
+  numeric_value           Decimal?  @map("numeric_value") @db.Decimal(10, 4)
+  text_value              String?   @map("text_value") @db.VarChar(255)
+  applied_rule_id         BigInt?   @map("applied_rule_id")
+  applied_rule_version    Int?      @map("applied_rule_version")
+  evaluation_status       String?   @map("evaluation_status") @db.VarChar(50)
+  is_passed               Boolean?  @map("is_passed")
+  evaluation_snapshot     Json?     @map("evaluation_snapshot")
+  recorded_at             DateTime? @map("recorded_at") @db.Timestamp(6)
+  created_at              DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at              DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  session      ZmccLabSession @relation(fields: [session_id], references: [id], onDelete: Cascade)
+  lab_test     LabTest        @relation("ZmccLabTestResults", fields: [test_id], references: [id], onDelete: Restrict)
+  applied_rule LabTestRule?   @relation("ZmccResultRule", fields: [applied_rule_id], references: [id], onDelete: Restrict)
+
+  @@unique([session_id, test_id])
+  @@index([session_id])
+  @@index([applied_rule_id])
+  @@map("zmcc_lab_result")
+}
+
+model MilkTestPolicyAssignment {
+  id                 BigInt   @id @default(autoincrement())
+  lab_test_id        BigInt   @map("lab_test_id")
+  testing_point      String   @map("testing_point") @db.VarChar(50) // MOT_SHOP, ZMCC_LAB_MOT, ZMCC_LAB_CONTRACTOR, DISPATCH, PLANT_QA
+  source_applicability Json?  @map("source_applicability")
+  is_required        Boolean  @default(true) @map("is_required")
+  display_order      Int      @default(0) @map("display_order")
+  is_active          Boolean  @default(true) @map("is_active")
+  created_by_user_id BigInt   @map("created_by_user_id")
+  updated_by_user_id BigInt?  @map("updated_by_user_id")
+  created_at         DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at         DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  lab_test LabTest @relation("LabTestPolicyAssignments", fields: [lab_test_id], references: [id], onDelete: Restrict)
+  creator  User    @relation("TestPolicyCreatedBy", fields: [created_by_user_id], references: [id], onDelete: Restrict)
+  updater  User?   @relation("TestPolicyUpdatedBy", fields: [updated_by_user_id], references: [id], onDelete: Restrict)
+
+  @@unique([lab_test_id, testing_point])
+  @@index([testing_point, is_active])
+  @@map("milk_test_policy_assignment")
+}
+
+model MotJourneySummary {
+  id                          BigInt    @id @default(autoincrement())
+  journey_id                  BigInt    @unique @map("journey_id")
+  journey_ended_at            DateTime  @map("journey_ended_at") @db.Timestamp(6)
+  assigned_shop_count         Int       @map("assigned_shop_count")
+  collected_shop_count        Int       @map("collected_shop_count")
+  skipped_shop_count          Int       @map("skipped_shop_count")
+  pending_shop_count          Int       @map("pending_shop_count")
+  total_gross_liters          Decimal   @map("total_gross_liters") @db.Decimal(12, 2)
+  total_at_13ts_liters        Decimal   @map("total_at_13ts_liters") @db.Decimal(12, 2)
+  weighted_avg_lr             Decimal?  @map("weighted_avg_lr") @db.Decimal(6, 2)
+  weighted_avg_fat            Decimal?  @map("weighted_avg_fat") @db.Decimal(6, 2)
+  weighted_avg_snf            Decimal?  @map("weighted_avg_snf") @db.Decimal(6, 2)
+  weighted_avg_ts             Decimal?  @map("weighted_avg_ts") @db.Decimal(6, 2)
+  summary_version             String    @default("1.0") @map("summary_version") @db.VarChar(20)
+  source_calculation_versions Json      @map("source_calculation_versions")
+  revision                    Int       @default(1) @map("revision")
+  generated_at                DateTime  @default(now()) @map("generated_at") @db.Timestamp(6)
+  last_recomputed_at          DateTime? @map("last_recomputed_at") @db.Timestamp(6)
+
+  // Relations
+  journey MotJourney @relation(fields: [journey_id], references: [id], onDelete: Restrict)
+
+  @@index([journey_id])
+  @@map("mot_journey_summary")
+}
+
+enum ZmccTankTransactionType {
+  RECEIPT
+  ISSUE
+  ADJUSTMENT_IN
+  ADJUSTMENT_OUT
+}
+
+model FinanceLossTarget {
+  id                  BigInt   @id @default(autoincrement())
+  metric              String   @map("metric") @db.VarChar(50)
+  target_percent      Decimal  @map("target_percent") @db.Decimal(7, 4)
+  effective_from      DateTime @map("effective_from") @db.Timestamp(6)
+  effective_to        DateTime? @map("effective_to") @db.Timestamp(6)
+  activated_by_user_id BigInt  @map("activated_by_user_id")
+  reason              String   @db.Text
+  created_at          DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  @@index([metric, effective_from, effective_to])
+  @@map("finance_loss_target")
+}
+
+enum LocalSupplierRmrStatus {
+  ACTIVE
+  CANCELLED
+}
+
+enum LocalSupplierRmrLegacyDisposition {
+  NEEDS_REVIEW
+  VERIFIED_HISTORICAL
+  DUPLICATE_VALUE
+  INVALID_VALUE
+}
+
+model ZmccTank {
+  id                 BigInt   @id @default(autoincrement())
+  zmcc_id            BigInt   @map("zmcc_id")
+  tank_code          String   @map("tank_code") @db.VarChar(50)
+  tank_name          String   @map("tank_name") @db.VarChar(150)
+  capacity_liters    Decimal  @map("capacity_liters") @db.Decimal(12, 2)
+  is_active          Boolean  @default(true) @map("is_active")
+  created_by_user_id BigInt   @map("created_by_user_id")
+  updated_by_user_id BigInt?  @map("updated_by_user_id")
+  created_at         DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at         DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  zmcc         ProcurementSource              @relation("ZmccTanks", fields: [zmcc_id], references: [id], onDelete: Restrict)
+  creator      User                           @relation("ZmccTankCreatedBy", fields: [created_by_user_id], references: [id], onDelete: Restrict)
+  updater      User?                          @relation("ZmccTankUpdatedBy", fields: [updated_by_user_id], references: [id], onDelete: Restrict)
+  receipts     ZmccTankReceipt[]
+  transactions ZmccTankInventoryTransaction[]
+
+  @@unique([zmcc_id, tank_code])
+  @@index([zmcc_id, is_active])
+  @@map("zmcc_tank")
+
+  version                 Int      @default(1) @map("version")
+}
+
+model ZmccTankReceipt {
+  id                        BigInt        @id @default(autoincrement())
+  lab_session_id            BigInt        @unique @map("lab_session_id")
+  zmcc_id                   BigInt        @map("zmcc_id")
+  tank_id                   BigInt        @map("tank_id")
+  arrival_type              String        @map("arrival_type") @db.VarChar(20) // MOT or CONTRACTOR
+  quantity_value            Decimal       @map("quantity_value") @db.Decimal(12, 2)
+  quantity_unit             QuantityUnit  @map("quantity_unit")
+  density                   Decimal       @map("density") @db.Decimal(6, 4)
+  gross_liters              Decimal       @map("gross_liters") @db.Decimal(12, 2)
+  lr                        Decimal       @map("lr") @db.Decimal(6, 2)
+  fat                       Decimal       @map("fat") @db.Decimal(5, 2)
+  snf                       Decimal       @map("snf") @db.Decimal(6, 2)
+  ts                        Decimal       @map("ts") @db.Decimal(6, 2)
+  at_13ts_liters            Decimal       @map("at_13ts_liters") @db.Decimal(12, 2)
+  calculation_version       String        @map("calculation_version") @db.VarChar(20)
+  received_at               DateTime      @default(now()) @map("received_at") @db.Timestamp(6)
+  received_by_user_id       BigInt        @map("received_by_user_id")
+  correction_count          Int           @default(0) @map("correction_count")
+  manager_correction_count  Int           @default(0) @map("manager_correction_count")
+  last_corrected_by_user_id BigInt?       @map("last_corrected_by_user_id")
+  last_corrected_at         DateTime?     @map("last_corrected_at") @db.Timestamp(6)
+  created_at                DateTime      @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at                DateTime      @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  lab_session    ZmccLabSession                 @relation("ZmccLabSessionReceipt", fields: [lab_session_id], references: [id], onDelete: Restrict)
+  zmcc           ProcurementSource              @relation("ZmccTankReceipts", fields: [zmcc_id], references: [id], onDelete: Restrict)
+  tank           ZmccTank                       @relation(fields: [tank_id], references: [id], onDelete: Restrict)
+  receiver       User                           @relation("ZmccTankReceivedBy", fields: [received_by_user_id], references: [id], onDelete: Restrict)
+  last_corrector User?                          @relation("ZmccTankReceiptLastCorrectedBy", fields: [last_corrected_by_user_id], references: [id], onDelete: Restrict)
+  transactions   ZmccTankInventoryTransaction[]
+  local_supplier_rmr LocalSupplierRmrIssuance?   @relation("LocalSupplierRmrTankReceipt")
+
+  @@index([zmcc_id, received_at])
+  @@index([tank_id])
+  @@map("zmcc_tank_receipt")
+}
+
+model ZmccTankInventoryTransaction {
+  id                    BigInt                  @id @default(autoincrement())
+  tank_id               BigInt                  @map("tank_id")
+  zmcc_id               BigInt                  @map("zmcc_id")
+  transaction_type      ZmccTankTransactionType @map("transaction_type")
+  quantity_liters       Decimal                 @map("quantity_liters") @db.Decimal(12, 2)
+  at_13ts_liters        Decimal?                @map("at_13ts_liters") @db.Decimal(12, 2)
+  tank_receipt_id       BigInt?                 @map("tank_receipt_id")
+  dispatch_id           BigInt?                 @map("dispatch_id")
+  reference_type        String                  @map("reference_type") @db.VarChar(50)
+  reference_id          String                  @map("reference_id") @db.VarChar(100)
+  idempotency_key       String                  @unique @map("idempotency_key") @db.VarChar(150)
+  operational_timestamp DateTime                @default(now()) @map("operational_timestamp") @db.Timestamp(6)
+  performed_by_user_id  BigInt                  @map("performed_by_user_id")
+  notes                 String?                 @map("notes") @db.VarChar(255)
+  created_at            DateTime                @default(now()) @map("created_at") @db.Timestamp(6)
+
+  // Relations
+  tank      ZmccTank          @relation(fields: [tank_id], references: [id], onDelete: Restrict)
+  zmcc      ProcurementSource @relation("ZmccTankTransactions", fields: [zmcc_id], references: [id], onDelete: Restrict)
+  receipt   ZmccTankReceipt?  @relation(fields: [tank_receipt_id], references: [id], onDelete: Restrict)
+  performer User              @relation("ZmccTankTransactionPerformedBy", fields: [performed_by_user_id], references: [id], onDelete: Restrict)
+
+  @@index([tank_id, operational_timestamp])
+  @@index([zmcc_id, operational_timestamp])
+  @@map("zmcc_tank_inventory_transaction")
+}
+
+
+
+

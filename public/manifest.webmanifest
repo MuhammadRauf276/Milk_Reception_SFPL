@@ -1,0 +1,11 @@
+{
+  "name": "Milk Reception Management",
+  "short_name": "Milk Reception",
+  "description": "Milk procurement and plant reception operations.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FDFBF9",
+  "theme_color": "#1E3A8A",
+  "lang": "en-PK",
+  "icons": []
+}

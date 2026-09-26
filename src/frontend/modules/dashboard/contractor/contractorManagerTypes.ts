@@ -84,11 +84,25 @@ export interface ContractorVehicleVisit {
   finalReceiptTransactionId: number | null;
   authoritativeFinalLiters: number | null;
   finalReceiptTimestamp: string | null;
-  finalReceiptBusinessDate: string | null;
-  reportingBusinessDate: string | null;
+  finalReceiptDate: string | null;
+  reportingDate: string | null;
   siloStorageId: string | null;
   firstWeightKg: number | null;
   secondWeightKg: number | null;
   netWeightKg: number | null;
   litersVariance: number | null;
+
+  // Stage 6G-F Dual Reconciliation (Consumed from canonical MilkProcessLog)
+  dispatch13TsLiters: number | null;
+  plantFinalAt13TsLiters: number | null;
+  grossVarianceLiters: number | null;
+  grossVariancePercent: number | null;
+  grossVarianceText: string;
+  grossVariancePercentText: string;
+  at13TsVarianceLiters: number | null;
+  at13TsVariancePercent: number | null;
+  at13TsVarianceText: string;
+  at13TsVariancePercentText: string;
+  reconciliationExists: boolean;
+  isHistoricalReceiptWithoutCommercialSnapshot: boolean;
 }

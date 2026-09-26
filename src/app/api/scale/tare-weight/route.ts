@@ -1,21 +1,25 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
 import { Prisma } from '@prisma/client';
 import { finalizeSiloReceiptForVisit } from '@/backend/services/siloInventoryService';
 import { validatePositiveDecimal } from '@/lib/validation-helpers';
 import { validateOperationalTimestamp } from '@/backend/services/chronology-validator';
+import { requireCapability } from '@/backend/modules/access-control/serverGuard';
+
+const WEIGHBRIDGE_SCOPE = {
+  kind: 'DEPARTMENT',
+  departmentId: 'Production & Weighbridge',
+} as const;
 
 export async function POST(req: Request) {
-  const authUser = await getCurrentUser(req);
-  if (!authUser) {
-    return NextResponse.json({ error: 'Unauthorized. Authentication required.' }, { status: 401 });
+  const access = await requireCapability('SUBMIT', WEIGHBRIDGE_SCOPE, { request: req });
+  if (!access.allowed) {
+    const error = access.status === 401
+      ? 'Unauthorized. Authentication required.'
+      : 'Unauthorized. Weighbridge Operator role required.';
+    return NextResponse.json({ error }, { status: access.status });
   }
-
-  const allowedRoles = ['WEIGHBRIDGE_OPERATOR', 'PRODUCTION_OPERATOR', 'ADMIN', 'SUPER_ADMIN', 'CORRECTION_OFFICER'];
-  if (!allowedRoles.includes(authUser.role.toUpperCase())) {
-    return NextResponse.json({ error: 'Unauthorized. Weighbridge Operator role required.' }, { status: 403 });
-  }
+  const authUser = access.user;
 
   let dbUser = await prisma.user.findFirst({
     where: {
@@ -209,8 +213,8 @@ export async function POST(req: Request) {
     });
 
     const isFinalized = result.finalizeRes.success && result.finalizeRes.receiptCreated;
-    const finalPhysicalLiters = result.finalizeRes.finalPhysicalLiters !== undefined ? Math.round(result.finalizeRes.finalPhysicalLiters) : null;
-    const finalAt13TSLiters = result.finalizeRes.finalAt13TSLiters !== undefined ? Math.round(result.finalizeRes.finalAt13TSLiters) : null;
+    const finalPhysicalLiters = result.finalizeRes.finalPhysicalLiters != null ? Math.round(result.finalizeRes.finalPhysicalLiters) : null;
+    const finalAt13TSLiters = result.finalizeRes.finalAt13TSLiters != null ? Math.round(result.finalizeRes.finalAt13TSLiters) : null;
 
     let msg = `Second Weight (Tare: ${tareWeightKg} kg) recorded successfully. Net Milk Weight: ${result.netWeightKg.toLocaleString()} kg.`;
     if (isFinalized) {

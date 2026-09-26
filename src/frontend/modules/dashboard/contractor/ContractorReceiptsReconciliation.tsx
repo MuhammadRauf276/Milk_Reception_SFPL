@@ -287,19 +287,30 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
                   <th className="py-2.5 px-3">Vehicle</th>
                   <th className="py-2.5 px-3">Reception #</th>
                   <th className="py-2.5 px-3">Business Date</th>
-                  <th className="py-2.5 px-3 text-right">Dispatch Gross</th>
-                  <th className="py-2.5 px-3 text-right">Scale Net (kg)</th>
+                  <th className="py-2.5 px-3 text-right">Dispatch Gross (L)</th>
+                  <th className="py-2.5 px-3 text-right">Plant Final Gross (L)</th>
+                  <th className="py-2.5 px-3 text-right">Gross Delta</th>
+                  <th className="py-2.5 px-3 text-right">Gross Delta %</th>
+                  <th className="py-2.5 px-3 text-right">Dispatch @13TS</th>
+                  <th className="py-2.5 px-3 text-right">Plant Final @13TS</th>
+                  <th className="py-2.5 px-3 text-right">@13TS Delta</th>
+                  <th className="py-2.5 px-3 text-right">@13TS Delta %</th>
                   <th className="py-2.5 px-3">Destination Silo</th>
-                  <th className="py-2.5 px-3">Receipt Status</th>
-                  <th className="py-2.5 px-3 text-right">Authoritative Received</th>
-                  <th className="py-2.5 px-3 text-right">Liters Variance</th>
+                  <th className="py-2.5 px-3">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
                 {filteredVisits.map((v) => (
                   <tr key={v.visitId} className="hover:bg-slate-50/80 transition">
                     <td className="py-3.5 px-3 font-mono font-extrabold text-slate-900">
-                      {v.vehicleNumber}
+                      <div>
+                        <span>{v.vehicleNumber}</span>
+                        {v.tokenNumber && (
+                          <span className="block text-[10px] text-slate-400 font-normal">
+                            Tk: {v.tokenNumber}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="py-3.5 px-3 font-mono text-slate-600 text-[11px]">
                       {v.receptionNumber}
@@ -310,8 +321,100 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
                     <td className="py-3.5 px-3 text-right font-mono font-bold text-slate-900">
                       {v.grossLiters != null ? `${v.grossLiters.toLocaleString()} L` : '—'}
                     </td>
-                    <td className="py-3.5 px-3 text-right font-mono text-slate-700 text-[11px]">
-                      {v.netWeightKg != null ? `${v.netWeightKg.toLocaleString()} kg` : '—'}
+                    <td className="py-3.5 px-3 text-right font-mono font-black">
+                      {v.authoritativeFinalLiters != null ? (
+                        <span className="text-emerald-700">
+                          {v.authoritativeFinalLiters.toLocaleString()} L
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 font-sans text-[11px] font-normal">Pending</span>
+                      )}
+                    </td>
+                    <td className="py-3.5 px-3 text-right font-mono font-bold">
+                      {v.grossVarianceLiters != null ? (
+                        <span
+                          className={
+                            v.grossVarianceLiters === 0
+                              ? 'text-slate-600'
+                              : v.grossVarianceLiters > 0
+                              ? 'text-emerald-700'
+                              : 'text-rose-700'
+                          }
+                        >
+                          {v.grossVarianceText}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 font-sans text-[11px] font-normal">—</span>
+                      )}
+                    </td>
+                    <td className="py-3.5 px-3 text-right font-mono font-bold">
+                      {v.grossVariancePercent != null ? (
+                        <span
+                          className={
+                            v.grossVariancePercent === 0
+                              ? 'text-slate-600'
+                              : v.grossVariancePercent > 0
+                              ? 'text-emerald-700'
+                              : 'text-rose-700'
+                          }
+                        >
+                          {v.grossVariancePercentText}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 font-sans text-[11px] font-normal">—</span>
+                      )}
+                    </td>
+                    <td className="py-3.5 px-3 text-right font-mono text-slate-800">
+                      {v.dispatch13TsLiters != null ? (
+                        <span>{v.dispatch13TsLiters.toLocaleString()} L</span>
+                      ) : (
+                        <span className="text-slate-400 font-sans text-[11px] font-normal">Unavailable</span>
+                      )}
+                    </td>
+                    <td className="py-3.5 px-3 text-right font-mono font-black">
+                      {v.plantFinalAt13TsLiters != null ? (
+                        <span className="text-purple-800">
+                          {v.plantFinalAt13TsLiters.toLocaleString()} L
+                        </span>
+                      ) : v.isHistoricalReceiptWithoutCommercialSnapshot ? (
+                        <span className="text-slate-500 font-sans text-[11px] font-semibold">Unavailable</span>
+                      ) : (
+                        <span className="text-slate-400 font-sans text-[11px] font-normal">Pending</span>
+                      )}
+                    </td>
+                    <td className="py-3.5 px-3 text-right font-mono font-bold">
+                      {v.at13TsVarianceLiters != null ? (
+                        <span
+                          className={
+                            v.at13TsVarianceLiters === 0
+                              ? 'text-slate-600'
+                              : v.at13TsVarianceLiters > 0
+                              ? 'text-emerald-700'
+                              : 'text-rose-700'
+                          }
+                        >
+                          {v.at13TsVarianceText}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 font-sans text-[11px] font-normal">—</span>
+                      )}
+                    </td>
+                    <td className="py-3.5 px-3 text-right font-mono font-bold">
+                      {v.at13TsVariancePercent != null ? (
+                        <span
+                          className={
+                            v.at13TsVariancePercent === 0
+                              ? 'text-slate-600'
+                              : v.at13TsVariancePercent > 0
+                              ? 'text-emerald-700'
+                              : 'text-rose-700'
+                          }
+                        >
+                          {v.at13TsVariancePercentText}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 font-sans text-[11px] font-normal">—</span>
+                      )}
                     </td>
                     <td className="py-3.5 px-3 font-mono text-slate-700 text-[11px]">
                       {v.siloStorageId ? (
@@ -343,33 +446,6 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
                           {v.journeyStageLabel}
                         </span>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-3 text-right font-mono font-black">
-                      {v.finalReceiptExists && v.authoritativeFinalLiters != null ? (
-                        <span className="text-emerald-700">
-                          {v.authoritativeFinalLiters.toLocaleString()} L
-                        </span>
-                      ) : (
-                        <span className="text-slate-400 font-normal">Pending</span>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-3 text-right font-mono font-bold">
-                      {v.litersVariance != null ? (
-                        <span
-                          className={
-                            v.litersVariance < 0
-                              ? 'text-rose-700'
-                              : v.litersVariance > 0
-                              ? 'text-emerald-700'
-                              : 'text-slate-700'
-                          }
-                        >
-                          {v.litersVariance > 0 ? '+' : ''}
-                          {v.litersVariance.toLocaleString()} L
-                        </span>
-                      ) : (
-                        <span className="text-slate-400 font-normal">—</span>
                       )}
                     </td>
                   </tr>

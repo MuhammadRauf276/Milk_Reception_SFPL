@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
 import { getRoleAssignmentPolicy, isCreatableRole } from '@/lib/user-assignment-policy';
+import { validateAndNormalizeEmail, classifyUniqueError } from '@/lib/email-validator';
 
 // Fixed documented PostgreSQL transaction-level advisory lock key used across
 // all user creation (POST) and mutation (PATCH) transactions to serialize
@@ -29,6 +30,7 @@ const ALLOWED_PATCH_FIELDS = new Set([
   'role',
   'procurementSourceId',
   'isActive',
+  'email',
 ]);
 
 export async function PATCH(
@@ -36,7 +38,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const authUser = await getCurrentUser(req);
-  if (!authUser || (authUser.role !== 'SUPER_ADMIN' && authUser.role !== 'Admin')) {
+  if (!authUser || authUser.role !== 'SUPER_ADMIN') {
     return NextResponse.json({ error: 'Unauthorized. Super Admin authorization required.' }, { status: 403 });
   }
 
@@ -100,6 +102,18 @@ export async function PATCH(
       }
     }
 
+    let normalizedEmail: string | undefined = undefined;
+    if ('email' in payload) {
+      if (payload.email === null || payload.email === undefined || (typeof payload.email === 'string' && !payload.email.trim())) {
+        return NextResponse.json({ error: 'Email address cannot be empty or cleared.' }, { status: 400 });
+      }
+      const emailValidation = validateAndNormalizeEmail(payload.email, true);
+      if (!emailValidation.isValid) {
+        return NextResponse.json({ error: emailValidation.error }, { status: 400 });
+      }
+      normalizedEmail = emailValidation.normalizedEmail!;
+    }
+
     const adminUser = await prisma.user.findFirst({ where: { username: authUser.username } });
 
     // Execute advisory lock, row lock, re-read, last-SA check, activation safety, source lock, mutation, and audit in single transaction
@@ -119,6 +133,19 @@ export async function PATCH(
       const targetUser = await tx.user.findUnique({ where: { id: targetUserId } });
       if (!targetUser) {
         throw new NotFoundError('Target user record not found.');
+      }
+
+      // Check email conflict across all users if a new email is provided
+      if (normalizedEmail !== undefined) {
+        const emailConflict = await tx.user.findFirst({
+          where: {
+            id: { not: targetUserId },
+            email: { equals: normalizedEmail, mode: 'insensitive' },
+          },
+        });
+        if (emailConflict) {
+          throw new ValidationError(`Email "${normalizedEmail}" is already registered to another user.`);
+        }
       }
 
       // 4. Last Super Admin protection check (serialized via advisory lock; no multi-row lock to prevent deadlocks)
@@ -144,11 +171,11 @@ export async function PATCH(
         payload.isActive !== undefined &&
         payload.role === undefined &&
         payload.name === undefined &&
-        payload.procurementSourceId === undefined;
+        payload.procurementSourceId === undefined &&
+        payload.email === undefined;
 
       if (isActivationOnly) {
         if (isActivating) {
-          // ACTIVATION SAFETY:
           // Reactivation is allowed only when the stored role is currently creatable and
           // its stored scope, department and source assignment exactly match the shared policy.
           if (!isCreatableRole(targetUser.role)) {
@@ -205,6 +232,14 @@ export async function PATCH(
               );
             }
           }
+
+          // ACTIVATION SAFETY:
+          // Reactivation requires a valid non-null email address
+          if (!targetUser.email) {
+            throw new ValidationError(
+              'Cannot activate user without a valid email address. Edit user to provide an email first.'
+            );
+          }
         }
 
         const actionName = payload.isActive ? 'USER_ACTIVATED' : 'USER_DEACTIVATED';
@@ -222,6 +257,7 @@ export async function PATCH(
             action: actionName,
             old_values: {
               username: targetUser.username,
+              email: targetUser.email,
               role: targetUser.role,
               department: targetUser.department,
               scope_type: targetUser.scope_type,
@@ -230,6 +266,7 @@ export async function PATCH(
             },
             new_values: {
               username: user.username,
+              email: user.email,
               role: user.role,
               department: user.department,
               scope_type: user.scope_type,
@@ -310,6 +347,17 @@ export async function PATCH(
       const newFullName = payload.name !== undefined ? (payload.name as string).trim() : targetUser.full_name;
       const newIsActive = payload.isActive !== undefined ? Boolean(payload.isActive) : targetUser.is_active;
 
+      // ACTIVATION REQUIREMENT IN EDIT FLOW:
+      // If user is transitioning from inactive to active, effective email must be present
+      const effectiveEmail = normalizedEmail !== undefined ? normalizedEmail : targetUser.email;
+      if (newIsActive === true && !targetUser.is_active) {
+        if (!effectiveEmail) {
+          throw new ValidationError(
+            'Cannot activate user without a valid email address. Provide a valid email address.'
+          );
+        }
+      }
+
       const actionName =
         newIsActive === false && targetUser.is_active
           ? 'USER_DEACTIVATED'
@@ -326,6 +374,7 @@ export async function PATCH(
           scope_type: policy.scopeType,
           procurement_source_id: effectivePsId,
           is_active: newIsActive,
+          ...(normalizedEmail !== undefined ? { email: normalizedEmail } : {}),
         },
       });
 
@@ -336,6 +385,7 @@ export async function PATCH(
           action: actionName,
           old_values: {
             username: targetUser.username,
+            email: targetUser.email,
             role: targetUser.role,
             department: targetUser.department,
             scope_type: targetUser.scope_type,
@@ -344,6 +394,7 @@ export async function PATCH(
           },
           new_values: {
             username: user.username,
+            email: user.email,
             role: user.role,
             department: user.department,
             scope_type: user.scope_type,
@@ -354,6 +405,12 @@ export async function PATCH(
         },
       });
 
+      const authorizationChanged = !user.is_active || user.role !== targetUser.role || user.scope_type !== targetUser.scope_type || user.procurement_source_id !== targetUser.procurement_source_id;
+      if (authorizationChanged) {
+        const revoked = await tx.pushSubscription.updateMany({ where: { user_id: targetUserId, revoked_at: null }, data: { revoked_at: new Date() } });
+        if (revoked.count) await tx.auditLog.create({ data: { table_name: 'push_subscription', record_id: targetUserId, action: 'PUSH_SUBSCRIPTIONS_REVOKED_ON_AUTHORITY_CHANGE', old_values: { role: targetUser.role, scope_type: targetUser.scope_type, procurement_source_id: targetUser.procurement_source_id?.toString() || null, is_active: targetUser.is_active }, new_values: { role: user.role, scope_type: user.scope_type, procurement_source_id: user.procurement_source_id?.toString() || null, is_active: user.is_active, revoked_count: revoked.count }, user_id: adminUser?.id || null } });
+      }
+
       return user;
     });
 
@@ -363,6 +420,7 @@ export async function PATCH(
         id: updatedUser.id.toString(),
         username: updatedUser.username,
         name: updatedUser.full_name,
+        email: updatedUser.email,
         role: updatedUser.role,
         department: updatedUser.department,
         scopeType: updatedUser.scope_type,
@@ -376,6 +434,25 @@ export async function PATCH(
     }
     if (err instanceof NotFoundError) {
       return NextResponse.json({ error: err.message }, { status: 404 });
+    }
+    const uniqueType = classifyUniqueError(err);
+    if (uniqueType === 'EMAIL') {
+      return NextResponse.json(
+        { error: 'Email is already registered to another user.' },
+        { status: 400 }
+      );
+    }
+    if (uniqueType === 'USERNAME') {
+      return NextResponse.json(
+        { error: 'Username is already taken.' },
+        { status: 400 }
+      );
+    }
+    if (err?.code === 'P2002') {
+      return NextResponse.json(
+        { error: 'A record with this identifier already exists.' },
+        { status: 400 }
+      );
     }
 
     console.error('Unexpected error in PATCH /api/super-admin/users/[id]:', err);

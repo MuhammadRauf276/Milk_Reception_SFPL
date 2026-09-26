@@ -53,9 +53,6 @@ export const ManagerAttentionPanel: React.FC<ManagerAttentionPanelProps> = ({
             Needs Attention ({items.length})
           </h3>
         </div>
-        <span className="text-[11px] font-bold text-slate-500">
-          Derived operational supervisory indicators
-        </span>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -109,28 +106,28 @@ export const ManagerAttentionPanel: React.FC<ManagerAttentionPanelProps> = ({
                       <span className="font-mono font-black text-xs text-[#111311] block">
                         {item.vehicleNumber}
                       </span>
-                      <span className="text-[10px] text-slate-500 font-bold">
+                      <span className="text-xs text-slate-500 font-bold">
                         Visit #{item.visitId}
                       </span>
                     </div>
                   </div>
-                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${badgeStyle}`}>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-black uppercase tracking-wider ${badgeStyle}`}>
                     {badgeText}
                   </span>
                 </div>
 
                 <div>
                   <h4 className="text-xs font-extrabold text-[#111311]">{item.title}</h4>
-                  <p className="text-[11px] text-slate-600 font-medium mt-0.5 leading-snug">
+                  <p className="text-xs text-slate-600 font-medium mt-0.5 leading-snug">
                     {item.description}
                   </p>
                 </div>
 
                 {item.metrics && item.metrics.length > 0 && (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 pt-1 font-mono text-[10.5px]">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 pt-1 font-mono text-xs">
                     {item.metrics.map((m, idx) => (
                       <div key={idx} className="bg-white/80 p-1.5 rounded border border-[#EAE4D5]/60">
-                        <span className="text-[9px] text-slate-500 block font-sans">{m.label}</span>
+                        <span className="text-xs text-slate-500 block font-sans">{m.label}</span>
                         <span className="font-black text-[#111311]">{m.value}</span>
                       </div>
                     ))}
@@ -139,12 +136,12 @@ export const ManagerAttentionPanel: React.FC<ManagerAttentionPanelProps> = ({
               </div>
 
               <div className="pt-2 border-t border-[#EAE4D5]/60 flex items-center justify-between">
-                <span className="text-[10px] font-bold text-slate-500">
+                <span className="text-xs font-bold text-slate-500">
                   {item.eventDate ? `Date: ${item.eventDate}` : ''}
                 </span>
                 <button
                   onClick={() => onInspectDetails(item.log)}
-                  className="px-2.5 py-1 rounded-lg bg-[#1E3A8A] hover:bg-blue-900 text-white font-sans text-[10.5px] font-extrabold transition flex items-center space-x-1 shadow-xs"
+                  className="px-2.5 py-1 rounded-lg bg-[#1E3A8A] hover:bg-blue-900 text-white font-sans text-xs font-extrabold transition flex items-center space-x-1 shadow-xs"
                 >
                   <Eye className="w-3 h-3" />
                   <span>View Details</span>

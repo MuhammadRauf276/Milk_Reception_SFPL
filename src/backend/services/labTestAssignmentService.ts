@@ -1,4 +1,5 @@
 import { PrismaClient, Prisma } from '@prisma/client';
+import { MilkTestPolicyService } from './milkTestPolicyService';
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
@@ -94,13 +95,13 @@ export async function getOrAssignPlantQATests(
   });
   const existingTestIds = Array.from(new Set(existingResults.map((r) => r.test_id)));
 
-  // Query active PLANT/BOTH tests from master
-  const activeMasterTests = await db.labTest.findMany({
-    where: {
-      isActive: true,
-      testScope: { in: ['PLANT', 'BOTH'] },
-    },
-  });
+  // Canonical selection source: active Plant QA policy assignments.
+  const activePolicyTests = await MilkTestPolicyService.getEffectivePolicy('PLANT_QA', db);
+  const activeMasterTests = activePolicyTests.map((test) => ({
+    id: BigInt(test.id), testCode: test.testCode, testName: test.testName,
+    resultType: test.resultType, unit: test.unit, testScope: 'PLANT',
+    isRequired: test.isRequired, displayOrder: test.displayOrder, resultOptions: test.resultOptions,
+  }));
 
   let testsToAssign = activeMasterTests;
 

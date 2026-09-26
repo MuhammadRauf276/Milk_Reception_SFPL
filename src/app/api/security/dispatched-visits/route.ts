@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
+import { requireCapability } from '@/backend/modules/access-control/serverGuard';
+import { vehicleVisitPaperIdentity } from '@/backend/modules/paper-references';
+
+const SECURITY_SCOPE = { kind: 'DEPARTMENT', departmentId: 'Security' } as const;
 
 export async function GET(req: Request) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const access = await requireCapability('VIEW', SECURITY_SCOPE, { request: req });
+  if (!access.allowed) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: access.status });
   }
 
   const { searchParams } = new URL(req.url);
@@ -54,6 +57,7 @@ export async function GET(req: Request) {
         visit_number: v.visit_number,
         reception_number: v.reception_number || null,
         vehicle_number: v.vehicle_number,
+        identifiers: vehicleVisitPaperIdentity(v),
         operational_date: v.operational_date ? v.operational_date.toISOString().split('T')[0] : null,
         current_status: v.current_status,
         portion_count: portions.length,

@@ -37,11 +37,18 @@ export async function createSessionToken(user: User, rememberMe: boolean = false
     .sign(secretKey);
 }
 
+/** This token is an offline preparation receipt, never an authenticated session. */
+export async function createMotOfflinePreparationToken(input: { userId: string; journeyId: string; zmccId: string; expiresAt: Date }): Promise<string> {
+  return new SignJWT({ token_use: 'mot_offline_preparation', journey_id: input.journeyId, zmcc_id: input.zmccId })
+    .setProtectedHeader({ alg: 'HS256' }).setSubject(input.userId).setIssuedAt().setExpirationTime(Math.floor(input.expiresAt.getTime() / 1000)).sign(getJwtSecretKey());
+}
+
 export async function verifySessionToken(token: string): Promise<User | null> {
   try {
     const secretKey = getJwtSecretKey();
     const verified = await jwtVerify(token, secretKey);
     const payload = verified.payload;
+    if (payload.token_use === 'mot_offline_preparation') return null;
     return {
       id: payload.id as string,
       username: (payload.username as string) || (payload.id as string),
@@ -122,6 +129,7 @@ export async function getCurrentUser(req?: Request): Promise<User | null> {
             code: true,
             name: true,
             source_type: true,
+            is_active: true,
           },
         },
       },
@@ -153,6 +161,7 @@ export async function getCurrentUser(req?: Request): Promise<User | null> {
             code: dbUser.procurement_source.code,
             name: dbUser.procurement_source.name,
             source_type: dbUser.procurement_source.source_type,
+            is_active: dbUser.procurement_source.is_active,
           }
         : null,
       last_login_at: dbUser.last_login_at ? dbUser.last_login_at.toISOString() : null,
@@ -166,8 +175,20 @@ export async function getCurrentUser(req?: Request): Promise<User | null> {
  * Strict Granular Column Visibility & Write Matrix
  */
 const ROLE_ALLOWED_FIELDS: Record<string, string[]> = {
-  SUPER_ADMIN: [], // Super Admin cannot perform direct un-audited historical operational mutations
-  MPD_Operator: [
+  SUPER_ADMIN: [],
+  EXECUTIVE_MANAGEMENT: [],
+  DATA_EXECUTIVE: [],
+  HEAD_OF_MPD: [],
+  ADMIN_HEAD: [],
+  QA_HEAD: [],
+  PRODUCTION_HEAD: [],
+  FINANCE_ACCOUNTS: [],
+  ZMCC_MANAGER: [],
+  CONTRACTOR_MANAGER: [],
+  PHE_OPERATOR: [],
+  MOT: [],
+  QA_MANAGER: [],
+  ZMCC_LAB_ATTENDANT: [
     'vehicle_number',
     'portion_number',
     'zonal_contractor_name',
@@ -183,9 +204,27 @@ const ROLE_ALLOWED_FIELDS: Record<string, string[]> = {
     'dispatch_tests',
     'dispatch_fat',
     'dispatch_lr',
-    'status'
+    'status',
   ],
-  Security_Operator: [
+  CONTRACTOR_OPERATOR: [
+    'vehicle_number',
+    'portion_number',
+    'zonal_contractor_name',
+    'dispatch_date',
+    'dispatch_day',
+    'dispatch_week',
+    'dispatch_month',
+    'dispatch_year',
+    'zonal_contractor_dispatch_time',
+    'scheduled_arrival_time',
+    'dispatch_kg_gross',
+    'dispatch_liters_gross',
+    'dispatch_tests',
+    'dispatch_fat',
+    'dispatch_lr',
+    'status',
+  ],
+  SECURITY_OPERATOR: [
     'token_number',
     'igp_date',
     'igp_time',
@@ -194,9 +233,9 @@ const ROLE_ALLOWED_FIELDS: Record<string, string[]> = {
     'second_weight_time',
     'second_weight_of_vehicle',
     'out_from_gate_time',
-    'status'
+    'status',
   ],
-  QA_Operator: [
+  QA_LAB_ATTENDANT: [
     'igp_date',
     'igp_time',
     'sampling_date',
@@ -212,121 +251,24 @@ const ROLE_ALLOWED_FIELDS: Record<string, string[]> = {
     'parallel_override_active',
     'parallel_override_code',
     'rm_mbrt_pending',
-    'status'
+    'status',
   ],
   WEIGHBRIDGE_OPERATOR: [
     'first_weight_time',
     'first_weight_of_vehicle',
     'second_weight_time',
     'second_weight_of_vehicle',
-    'status'
+    'status',
   ],
-  Weighbridge_Operator: [
-    'first_weight_time',
-    'first_weight_of_vehicle',
-    'second_weight_time',
-    'second_weight_of_vehicle',
-    'status'
-  ],
-  Production_Operator: [
+  PRODUCTION_RECEPTION_OPERATOR: [
     'reception_date',
     'reception_start_time',
     'reception_end_time',
     'silo_storage_id',
     'first_weight_of_vehicle',
     'second_weight_of_vehicle',
-    'status'
-  ],
-  MPD_Zone_Manager: [],
-  Security_Manager: [],
-  QA_Manager: [],
-  Production_Manager: [],
-  General_Plant_Manager: [],
-  Management: [],
-  Correction_Officer: [
-    'vehicle_number',
-    'portion_number',
-    'token_number',
-    'zonal_contractor_name',
     'status',
-    'dispatch_date',
-    'dispatch_day',
-    'dispatch_week',
-    'dispatch_month',
-    'dispatch_year',
-    'zonal_contractor_dispatch_time',
-    'scheduled_arrival_time',
-    'dispatch_kg_gross',
-    'dispatch_liters_gross',
-    'dispatch_tests',
-    'dispatch_fat',
-    'dispatch_lr',
-    'igp_date',
-    'igp_time',
-    'sampling_date',
-    'sampling_time_start',
-    'sampling_time_end',
-    'sampling_tests',
-    'sampling_lr',
-    'sampling_fat',
-    'b_mbrt_minutes_test',
-    'calculated_status',
-    'rejection_reasons',
-    'remarks',
-    'first_weight_time',
-    'first_weight_of_vehicle',
-    'second_weight_time',
-    'second_weight_of_vehicle',
-    'out_from_gate_time',
-    'reception_date',
-    'reception_start_time',
-    'reception_end_time',
-    'silo_storage_id'
   ],
-  Admin: [
-    'vehicle_number',
-    'portion_number',
-    'token_number',
-    'zonal_contractor_name',
-    'status',
-    'dispatch_date',
-    'dispatch_day',
-    'dispatch_week',
-    'dispatch_month',
-    'dispatch_year',
-    'zonal_contractor_dispatch_time',
-    'scheduled_arrival_time',
-    'dispatch_kg_gross',
-    'dispatch_liters_gross',
-    'dispatch_tests',
-    'dispatch_fat',
-    'dispatch_lr',
-    'igp_date',
-    'igp_time',
-    'sampling_date',
-    'sampling_time_start',
-    'sampling_time_end',
-    'sampling_tests',
-    'sampling_lr',
-    'sampling_fat',
-    'b_mbrt_minutes_test',
-    'calculated_status',
-    'rejection_reasons',
-    'remarks',
-    'first_weight_time',
-    'first_weight_of_vehicle',
-    'second_weight_time',
-    'second_weight_of_vehicle',
-    'out_from_gate_time',
-    'reception_date',
-    'reception_start_time',
-    'reception_end_time',
-    'silo_storage_id'
-  ],
-  MPD: ['vehicle_number', 'portion_number', 'zonal_contractor_name', 'dispatch_kg_gross', 'dispatch_liters_gross', 'dispatch_fat', 'dispatch_lr', 'status'],
-  QA: ['sampling_date', 'sampling_time_start', 'sampling_time_end', 'sampling_fat', 'sampling_lr', 'b_mbrt_minutes_test', 'calculated_status', 'rejection_reasons', 'parallel_override_active', 'status'],
-  Security_Weight: ['token_number', 'igp_date', 'igp_time', 'first_weight_of_vehicle', 'second_weight_of_vehicle', 'status'],
-  Production: ['reception_date', 'reception_start_time', 'reception_end_time', 'silo_storage_id', 'status']
 };
 
 export function filterUpdatesByRole(role: Role, updates: Record<string, unknown>): Record<string, unknown> {

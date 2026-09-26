@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
 import { z } from 'zod';
 import { validateOperationalTimestamp } from '@/backend/services/chronology-validator';
 import { getOperationalBusinessDate } from '@/backend/core/business-day';
 import { parseStrictDateOnly } from '@/lib/datetime-utils';
+import { requireCapability } from '@/backend/modules/access-control/serverGuard';
+
+const SECURITY_SCOPE = { kind: 'DEPARTMENT', departmentId: 'Security' } as const;
 
 const gateExitSchema = z.object({
   visitId: z.string().min(1, 'Visit ID is required'),
@@ -12,10 +14,14 @@ const gateExitSchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const authUser = await getCurrentUser();
-  if (!authUser) {
-    return NextResponse.json({ error: 'Unauthorized. Authentication required.' }, { status: 401 });
+  const access = await requireCapability('CLOSE', SECURITY_SCOPE, { request: req });
+  if (!access.allowed) {
+    const error = access.status === 401
+      ? 'Unauthorized. Authentication required.'
+      : 'Unauthorized. Security Operator or Admin Head role required.';
+    return NextResponse.json({ error }, { status: access.status });
   }
+  const authUser = access.user;
 
   const dbUser = await prisma.user.findFirst({
     where: {
@@ -27,10 +33,9 @@ export async function POST(req: Request) {
     },
   });
 
-  const allowedRoles = ['Security_Operator', 'Security_Manager', 'Admin', 'Correction_Officer'];
-  if (!dbUser || !allowedRoles.includes(dbUser.role)) {
+  if (!dbUser) {
     return NextResponse.json(
-      { error: 'Unauthorized. Security Operator or Security Manager role required.' },
+      { error: 'Unauthorized. Security Operator or Admin Head role required.' },
       { status: 403 }
     );
   }

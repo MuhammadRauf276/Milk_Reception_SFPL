@@ -3,16 +3,20 @@ import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
 import { calculatePhysicalLiters } from '@/backend/utils/milkFormulas';
 import { isPlantLrTest } from '@/backend/services/vehicleQuantityService';
+import { vehicleVisitPaperIdentity } from '@/backend/modules/paper-references';
 
 export async function GET(req: Request) {
-  const authUser = await getCurrentUser();
-  if (!authUser || (authUser.role !== 'SUPER_ADMIN' && authUser.role !== 'Admin')) {
+  const authUser = await getCurrentUser(req);
+  if (!authUser || authUser.role !== 'SUPER_ADMIN') {
     return NextResponse.json({ error: 'Unauthorized. Super Admin authorization required.' }, { status: 403 });
   }
 
   try {
     const { searchParams } = new URL(req.url);
     const query = (searchParams.get('q') || '').trim();
+    const page = Math.max(1, Number(searchParams.get('page')) || 1);
+    const pageSize = Math.min(100, Math.max(1, Number(searchParams.get('pageSize')) || 20));
+    const skip = (page - 1) * pageSize;
 
     const where: any = {};
     if (query) {
@@ -24,32 +28,37 @@ export async function GET(req: Request) {
       ];
     }
 
-    const visits = await prisma.vehicleVisit.findMany({
-      where,
-      take: 50,
-      orderBy: { created_at: 'desc' },
-      include: {
-        portions: {
-          orderBy: { portion_number: 'asc' },
-          include: {
-            dispatch_info: true,
-            dispatch_lab_results: { include: { lab_test: true } },
-            plant_lab_results: { include: { lab_test: true } },
-            unloading_log: { include: { silo: true } },
+    const [totalRecords, visits] = await Promise.all([
+      prisma.vehicleVisit.count({ where }),
+      prisma.vehicleVisit.findMany({
+        where,
+        skip,
+        take: pageSize,
+        orderBy: { created_at: 'desc' },
+        include: {
+          portions: {
+            orderBy: { portion_number: 'asc' },
+            include: {
+              dispatch_info: true,
+              dispatch_lab_results: { include: { lab_test: true } },
+              plant_lab_results: { include: { lab_test: true } },
+              unloading_log: { include: { silo: true } },
+            },
           },
+          gate_log: true,
+          weight_ticket: true,
+          qa_session: true,
+          procurement_source: true,
         },
-        gate_log: true,
-        weight_ticket: true,
-        qa_session: true,
-        procurement_source: true,
-      },
-    });
+      }),
+    ]);
 
     const serialized = visits.map((v) => ({
       id: v.id.toString(),
       visitNumber: v.visit_number,
       vehicleNumber: v.vehicle_number,
       tokenNumber: v.token_number,
+      identifiers: vehicleVisitPaperIdentity(v),
       procurementSource: v.procurement_source?.name || 'Source unavailable',
       currentStatus: v.current_status,
       createdAt: v.created_at.toISOString(),
@@ -114,7 +123,17 @@ export async function GET(req: Request) {
       }),
     }));
 
-    return NextResponse.json({ visits: serialized });
+    const totalPages = totalRecords === 0 ? 1 : Math.ceil(totalRecords / pageSize);
+
+    return NextResponse.json({
+      visits: serialized,
+      pagination: {
+        page,
+        pageSize,
+        totalRecords,
+        totalPages,
+      },
+    });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

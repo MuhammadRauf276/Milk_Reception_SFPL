@@ -19,15 +19,27 @@ export default function SuperAdminAuditPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tableNameFilter, setTableNameFilter] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(20);
+  const [totalRecords, setTotalRecords] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
-  async function loadLogs(tbl = '') {
+  async function loadLogs(tbl = '', pageNum = 1) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/super-admin/audit?tableName=${encodeURIComponent(tbl)}`);
+      const res = await fetch(`/api/super-admin/audit?tableName=${encodeURIComponent(tbl)}&page=${pageNum}&pageSize=${pageSize}`);
       const data = await res.json();
-      if (res.ok) setLogs(data.auditLogs || []);
-      else setError(data.error);
+      if (res.ok) {
+        setLogs(data.auditLogs || []);
+        if (data.pagination) {
+          setTotalRecords(data.pagination.totalRecords);
+          setTotalPages(data.pagination.totalPages);
+          setPage(data.pagination.page);
+        }
+      } else {
+        setError(data.error);
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -36,12 +48,13 @@ export default function SuperAdminAuditPage() {
   }
 
   useEffect(() => {
-    loadLogs();
-  }, []);
+    loadLogs(tableNameFilter, page);
+  }, [page]);
 
   const handleFilterChange = (tbl: string) => {
     setTableNameFilter(tbl);
-    loadLogs(tbl);
+    setPage(1);
+    loadLogs(tbl, 1);
   };
 
   return (
@@ -133,6 +146,34 @@ export default function SuperAdminAuditPage() {
           </table>
         </div>
       </div>
+
+      {/* PAGINATION CONTROLS */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between bg-white px-4 py-3 border border-[#EAE4D5] rounded-xl text-xs font-semibold text-slate-700">
+          <div>
+            Showing page <span className="font-bold text-[#1E3A8A]">{page}</span> of{' '}
+            <span className="font-bold text-[#1E3A8A]">{totalPages}</span> ({totalRecords.toLocaleString()} total audit entries)
+          </div>
+          <div className="flex items-center space-x-2">
+            <button
+              type="button"
+              disabled={page <= 1 || loading}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="px-3 py-1.5 rounded-lg border border-[#C4B9A3] hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold"
+            >
+              Previous
+            </button>
+            <button
+              type="button"
+              disabled={page >= totalPages || loading}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              className="px-3 py-1.5 rounded-lg border border-[#C4B9A3] hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

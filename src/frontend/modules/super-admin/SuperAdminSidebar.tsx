@@ -14,9 +14,12 @@ import {
   Activity,
   History,
   FolderTree,
+  Store,
+  Navigation,
   Settings,
   Shield,
   X,
+  Tv,
 } from 'lucide-react';
 import { User } from '@core/types';
 
@@ -115,11 +118,15 @@ export const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({
     { href: '/super-admin/procurement-sources', label: 'Procurement Sources', icon: Truck },
     { href: '/super-admin/silos', label: 'Silos', icon: Database },
     { href: '/super-admin/lab-tests', label: 'Lab Test Master', icon: FlaskConical },
+    { href: '/super-admin/test-policies', label: 'Milk Test Policies', icon: FlaskConical },
     { href: '/super-admin/sop-rules', label: 'SOP Rules', icon: BookOpen },
     { href: '/super-admin/qa-warnings', label: 'QA Warnings', icon: AlertTriangle },
     { href: '/super-admin/operations', label: 'Operations', icon: Activity },
     { href: '/super-admin/audit', label: 'Audit & Corrections', icon: History },
+    { href: '/super-admin/zmcc-master-data', label: 'ZMCC Master Data', icon: Store },
+    { href: '/super-admin/mot-operations', label: 'MOT Operations', icon: Navigation },
     { href: '/super-admin/master-data', label: 'Master Data', icon: FolderTree },
+    { href: '/tv-board', label: 'Yard Status Board', icon: Tv },
     { href: '/super-admin/settings', label: 'System Settings', icon: Settings },
   ];
 
@@ -158,7 +165,7 @@ export const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({
                 <span className="font-extrabold text-sm sm:text-base leading-tight block text-[#111311] truncate">
                   Shakarganj
                 </span>
-                <span className="text-[9px] sm:text-[10px] uppercase font-extrabold text-slate-500 tracking-wider block truncate">
+                <span className="text-xs uppercase font-extrabold text-slate-500 tracking-wider block truncate">
                   Food Products Limited
                 </span>
               </div>
