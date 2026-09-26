@@ -8,6 +8,7 @@ import {
   isPlantLrTest,
 } from './vehicleQuantityService';
 import { calculateDualReconciliation } from './reconciliationService';
+import { checkAndTriggerTransitLossAlertTx } from './lossCalculationService';
 
 export interface RecordTransactionParams {
   silo_id: bigint | string;
@@ -348,6 +349,7 @@ async function executeFinalizeSiloReceiptForVisit(
         },
       },
       weight_ticket: true,
+      procurement_source: true,
     },
   });
 
@@ -563,6 +565,24 @@ async function executeFinalizeSiloReceiptForVisit(
       reconciled_at: opTimestamp,
     },
   });
+
+  // Step 20: High Transit Loss Alert Trigger (>1.0%)
+  if (sentGrossLiters !== null && sentGrossLiters > 0) {
+    const transitLossL = sentGrossLiters > calcResult.finalPhysicalLiters ? sentGrossLiters - calcResult.finalPhysicalLiters : 0;
+    const transitLossPercent = (transitLossL / sentGrossLiters) * 100;
+    if (transitLossPercent > 1.0) {
+      await checkAndTriggerTransitLossAlertTx(db, {
+        visitId,
+        visitNumber: visit.visit_number,
+        vehicleNumber: visit.vehicle_number,
+        zmccId: visit.procurement_source_id,
+        zmccName: visit.procurement_source?.name,
+        dispatchedGrossLiters: sentGrossLiters,
+        receivedGrossLiters: calcResult.finalPhysicalLiters,
+        transitLossPercent,
+      });
+    }
+  }
 
   // 8. Log Immutable Audit Record for Final Silo Receipt
   await db.auditLog.create({

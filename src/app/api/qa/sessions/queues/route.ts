@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
+import { vehicleVisitPaperIdentity } from '@/backend/modules/paper-references';
 
 export async function GET(req: Request) {
   const user = await getCurrentUser();
@@ -53,6 +54,7 @@ export async function GET(req: Request) {
         reception_number: v.reception_number || null,
         vehicle_number: v.vehicle_number,
         token_number: v.token_number || null,
+        identifiers: vehicleVisitPaperIdentity(v),
         portion_count: portions.length,
         vehicle_dispatch_quantity_value: totalVehicleQty,
         vehicle_dispatch_quantity_unit: totalVehicleUnit,
@@ -107,6 +109,7 @@ export async function GET(req: Request) {
         reception_number: v.reception_number || null,
         vehicle_number: v.vehicle_number,
         token_number: v.token_number || null,
+        identifiers: vehicleVisitPaperIdentity(v),
         started_by_name: s.starter.full_name || s.starter.username,
         started_by_user_id: s.starter.id.toString(),
         started_at: startedAt.toISOString(),
@@ -165,6 +168,7 @@ export async function GET(req: Request) {
         reception_number: v.reception_number || null,
         vehicle_number: v.vehicle_number,
         token_number: v.token_number || null,
+        identifiers: vehicleVisitPaperIdentity(v),
         portion_number: holdPortion?.portion_number || 1,
         hold_reason: holdReason,
         held_since: heldSince,

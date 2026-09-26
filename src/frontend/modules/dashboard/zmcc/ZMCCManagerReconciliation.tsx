@@ -6,6 +6,7 @@ import {
   buildVehicleVisitGroups,
   deriveVehicleReconciliationItems,
 } from './zmccManagerHelpers';
+import { SupplyChainLossCard } from '@/frontend/modules/dashboard/components/SupplyChainLossCard';
 import {
   ArrowRightLeft,
   Search,
@@ -125,6 +126,9 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
 
   return (
     <div className="space-y-6" role="region" aria-label="ZMCC Manager Reconciliation">
+      {/* 3-Tier Supply Chain Loss Hierarchy Card */}
+      <SupplyChainLossCard />
+
       {/* 1. Header & Summary Banner */}
       <div className="p-5 rounded-xl bg-[#FFFFFF] border border-[#EAE4D5]/80 shadow-sm space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-[#EAE4D5]/80">
@@ -176,37 +180,37 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
         {/* KPI Summary Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 font-mono">
           <div className="p-3 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0]">
-            <span className="text-[10px] font-sans text-slate-500 block uppercase font-bold">Visits on Page</span>
+            <span className="text-xs font-sans text-slate-500 block uppercase font-bold">Visits on Page</span>
             <span className="text-lg font-black text-slate-900">
               {showKpiPlaceholders ? '—' : summary.total}
             </span>
           </div>
           <div className="p-3 rounded-lg bg-[#F0FDF4] border border-[#BBF7D0]">
-            <span className="text-[10px] font-sans text-emerald-700 block uppercase font-bold">Completed on Page</span>
+            <span className="text-xs font-sans text-emerald-700 block uppercase font-bold">Completed on Page</span>
             <span className="text-lg font-black text-emerald-900">
               {showKpiPlaceholders ? '—' : summary.completed}
             </span>
           </div>
           <div className="p-3 rounded-lg bg-[#FFFBEB] border border-[#FDE68A]">
-            <span className="text-[10px] font-sans text-amber-700 block uppercase font-bold">Pending on Page</span>
+            <span className="text-xs font-sans text-amber-700 block uppercase font-bold">Pending on Page</span>
             <span className="text-lg font-black text-amber-900">
               {showKpiPlaceholders ? '—' : summary.pendingReceipt}
             </span>
           </div>
           <div className="p-3 rounded-lg bg-[#FDF2F8] border border-[#FBCFE8]">
-            <span className="text-[10px] font-sans text-pink-700 block uppercase font-bold">Qty Delta on Page</span>
+            <span className="text-xs font-sans text-pink-700 block uppercase font-bold">Qty Delta on Page</span>
             <span className="text-lg font-black text-pink-900">
               {showKpiPlaceholders ? '—' : summary.qtyDiffCount}
             </span>
           </div>
           <div className="p-3 rounded-lg bg-[#FAF5FF] border border-[#E9D5FF]">
-            <span className="text-[10px] font-sans text-purple-700 block uppercase font-bold">13% TS Delta on Page</span>
+            <span className="text-xs font-sans text-purple-700 block uppercase font-bold">13% TS Delta on Page</span>
             <span className="text-lg font-black text-purple-900">
               {showKpiPlaceholders ? '—' : summary.tsDiffCount}
             </span>
           </div>
           <div className="p-3 rounded-lg bg-[#FEF2F2] border border-[#FECACA]">
-            <span className="text-[10px] font-sans text-red-700 block uppercase font-bold">QA Rejections on Page</span>
+            <span className="text-xs font-sans text-red-700 block uppercase font-bold">QA Rejections on Page</span>
             <span className="text-lg font-black text-red-900">
               {showKpiPlaceholders ? '—' : summary.rejectedCount}
             </span>
@@ -328,7 +332,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                             <div>
                               <span className="font-black text-slate-900 block">{item.vehicleNumber}</span>
                               {item.tokenNumber && (
-                                <span className="text-[10px] text-slate-500 block">Tk: {item.tokenNumber}</span>
+                                <span className="text-xs text-slate-500 block">Tk: {item.tokenNumber}</span>
                               )}
                             </div>
                           </div>
@@ -344,7 +348,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                           {item.physicalReceivedLiters != null ? (
                             <span className="text-[#166534]">{item.physicalReceivedLiters.toLocaleString()} L</span>
                           ) : item.isReceiptPending ? (
-                            <span className="text-[10px] px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 font-sans font-bold">
+                            <span className="text-xs px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 font-sans font-bold">
                               Receipt Pending
                             </span>
                           ) : (
@@ -449,7 +453,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                         {/* 10. QA Summary */}
                         <td className="py-3 px-3 text-center">
                           <span
-                            className={`inline-block px-2 py-0.5 rounded text-[10px] font-sans font-bold ${
+                            className={`inline-block px-2 py-0.5 rounded text-xs font-sans font-bold ${
                               qaSummary.badgeType === 'ALL_ACCEPTED'
                                 ? 'bg-emerald-100 text-emerald-800'
                                 : qaSummary.badgeType === 'ALL_REJECTED' || qaSummary.badgeType === 'MIXED'
@@ -466,7 +470,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                         {/* 11. Status */}
                         <td className="py-3 px-3 text-center">
                           <span
-                            className={`inline-block px-2 py-0.5 rounded text-[10px] font-sans font-black uppercase tracking-wider ${
+                            className={`inline-block px-2 py-0.5 rounded text-xs font-sans font-black uppercase tracking-wider ${
                               item.isCompletedReceipt
                                 ? 'bg-emerald-100 text-emerald-800'
                                 : item.isReceiptPending
@@ -509,26 +513,26 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                                 </div>
                                 <div className="grid grid-cols-3 gap-2 pt-1 font-mono text-[11px]">
                                   <div>
-                                    <span className="text-[10px] text-slate-500 font-sans block">1st Weight (Gross):</span>
+                                    <span className="text-xs text-slate-500 font-sans block">1st Weight (Gross):</span>
                                     <span className="font-bold text-slate-900">
                                       {item.firstWeightKg != null ? `${item.firstWeightKg.toLocaleString()} kg` : '—'}
                                     </span>
                                   </div>
                                   <div>
-                                    <span className="text-[10px] text-slate-500 font-sans block">2nd Weight (Tare):</span>
+                                    <span className="text-xs text-slate-500 font-sans block">2nd Weight (Tare):</span>
                                     <span className="font-bold text-slate-900">
                                       {item.secondWeightKg != null ? `${item.secondWeightKg.toLocaleString()} kg` : '—'}
                                     </span>
                                   </div>
                                   <div>
-                                    <span className="text-[10px] text-slate-500 font-sans block">Net Milk Weight:</span>
+                                    <span className="text-xs text-slate-500 font-sans block">Net Milk Weight:</span>
                                     <span className="font-bold text-blue-900">
                                       {item.netMilkWeightKg != null ? `${item.netMilkWeightKg.toLocaleString()} kg` : '—'}
                                     </span>
                                   </div>
                                 </div>
                                 <div className="pt-1 text-[11px]">
-                                  <span className="text-[10px] text-slate-500 font-sans">Destination Silo: </span>
+                                  <span className="text-xs text-slate-500 font-sans">Destination Silo: </span>
                                   <span className="font-bold text-slate-800">{item.destinationSilo || '—'}</span>
                                 </div>
                               </div>
@@ -550,7 +554,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                                         {`Fat: ${p.dispatchFat ?? '—'}% / ${p.plantFat ?? '—'}% · LR: ${p.dispatchLr ?? '—'} / ${p.plantLr ?? '—'}`}
                                       </span>
                                       <span
-                                        className={`px-1.5 py-0.5 rounded text-[9.5px] font-sans font-extrabold ${
+                                        className={`px-1.5 py-0.5 rounded text-xs font-sans font-extrabold ${
                                           p.qaDecision === 'ACCEPTED'
                                             ? 'bg-emerald-100 text-emerald-800'
                                             : p.qaDecision === 'REJECTED'

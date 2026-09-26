@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
+import { Prisma } from '@prisma/client';
 import { createLabTestSchema, validatePlantQAResultOptions } from '@/lib/validations/labTest';
 
 export async function GET(req: Request) {
   const authUser = await getCurrentUser(req);
-  if (!authUser || authUser.role !== 'SUPER_ADMIN') {
-    return NextResponse.json({ error: 'Unauthorized. Super Admin authorization required.' }, { status: 403 });
+  if (!authUser || (authUser.role !== 'SUPER_ADMIN' && authUser.role !== 'DATA_EXECUTIVE')) {
+    return NextResponse.json({ error: 'Unauthorized. Super Admin or Data Executive authorization required.' }, { status: 403 });
   }
 
   try {
@@ -45,9 +46,10 @@ export async function GET(req: Request) {
         },
       }
     );
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Internal Server Error';
     return NextResponse.json(
-      { error: err.message },
+      { error: message },
       {
         status: 500,
         headers: {
@@ -60,8 +62,8 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const authUser = await getCurrentUser(req);
-  if (!authUser || authUser.role !== 'SUPER_ADMIN') {
-    return NextResponse.json({ error: 'Unauthorized. Super Admin authorization required.' }, { status: 403 });
+  if (!authUser || (authUser.role !== 'SUPER_ADMIN' && authUser.role !== 'DATA_EXECUTIVE')) {
+    return NextResponse.json({ error: 'Unauthorized. Super Admin or Data Executive authorization required.' }, { status: 403 });
   }
 
   try {
@@ -116,7 +118,7 @@ export async function POST(req: Request) {
           isRequired: validated.isRequired,
           isActive: validated.isActive,
           displayOrder: validated.displayOrder,
-          resultOptions: validated.resultOptions ? (validated.resultOptions as any) : undefined,
+          resultOptions: validated.resultOptions ? (validated.resultOptions as Prisma.InputJsonValue) : undefined,
         },
       });
 
@@ -129,7 +131,7 @@ export async function POST(req: Request) {
             testCode: newTest.testCode,
             testName: newTest.testName,
             resultType: newTest.resultType,
-            resultOptions: newTest.resultOptions,
+            resultOptions: newTest.resultOptions as Prisma.InputJsonValue,
           },
           user_id: adminUser?.id || null,
         },
@@ -154,12 +156,16 @@ export async function POST(req: Request) {
         historicalResultsCount: 0,
       },
     }, { status: 201 });
-  } catch (error: any) {
-    if (error?.name === 'ZodError' || error?.issues) {
-      const msg = error.issues?.[0]?.message || error.errors?.[0]?.message || error.message || 'Validation failed';
-      return NextResponse.json({ error: msg }, { status: 400 });
+  } catch (error: unknown) {
+    if (typeof error === 'object' && error !== null) {
+      const errRecord = error as { name?: string; issues?: Array<{ message: string }>; errors?: Array<{ message: string }>; message?: string };
+      if (errRecord.name === 'ZodError' || errRecord.issues) {
+        const msg = errRecord.issues?.[0]?.message || errRecord.errors?.[0]?.message || errRecord.message || 'Validation failed';
+        return NextResponse.json({ error: msg }, { status: 400 });
+      }
+      return NextResponse.json({ error: errRecord.message || 'Failed to create lab test' }, { status: 500 });
     }
-    return NextResponse.json({ error: error?.message || 'Failed to create lab test' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to create lab test' }, { status: 500 });
   }
 }
 

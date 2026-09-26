@@ -3,9 +3,9 @@
 import React, { useEffect, useState, useCallback, useRef, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { User } from '@core/types';
-import { MilkTestPolicyWorkspace } from '@/frontend/modules/mpd/policy/MilkTestPolicyWorkspace';
 import { Header } from '@/frontend/modules/shared/Header';
 import { HierarchicalNavDrawer } from '@/frontend/modules/shared/navigation/HierarchicalNavDrawer';
+import { MpdExecutiveWorkspace } from '@/frontend/modules/mpd/MpdExecutiveWorkspace';
 
 function HeadOfMpdContent() {
   const router = useRouter();
@@ -22,7 +22,20 @@ function HeadOfMpdContent() {
         const data = await res.json();
         if (res.ok && data.user) {
           const role = data.user.role;
-          if (role === 'HEAD_OF_MPD' || role === 'SUPER_ADMIN') {
+          const allowed = [
+            'HEAD_OF_MPD',
+            'SUPER_ADMIN',
+            'SYSTEM_ADMIN',
+            'EXECUTIVE_MANAGEMENT',
+            'DATA_EXECUTIVE',
+            'DATA_ANALYST',
+            'FINANCE_ACCOUNTS',
+            'ADMIN_HEAD',
+            'QA_HEAD',
+            'PRODUCTION_HEAD',
+            'ZMCC_MANAGER',
+          ];
+          if (allowed.includes(role)) {
             setCurrentUser(data.user);
             setIsAuthorized(true);
           } else {
@@ -52,7 +65,7 @@ function HeadOfMpdContent() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#FDFBF9] text-[#111311] font-mono text-xs font-bold">
-        Verifying Head of MPD Authorization...
+        Verifying Authorization...
       </div>
     );
   }
@@ -65,7 +78,7 @@ function HeadOfMpdContent() {
     <div className="min-h-screen bg-[#FDFBF9] text-[#111311] flex flex-col font-sans w-full max-w-full overflow-x-hidden">
       <Header
         currentUser={currentUser}
-        title="Head of MPD"
+        title="MPD Head Command Center"
         showBranding={true}
         showMenuButton={true}
         onMenuClick={openDrawer}
@@ -79,20 +92,8 @@ function HeadOfMpdContent() {
         triggerButtonRef={hamburgerButtonRef}
       />
 
-      {/* Compact Breadcrumb Header */}
-      <div className="bg-white border-b border-[#EAE4D5] px-4 sm:px-6 py-2 shrink-0 shadow-xs flex items-center justify-between">
-        <nav aria-label="Breadcrumb" className="flex items-center space-x-2 text-xs font-bold text-slate-500">
-          <span>Head of MPD</span>
-          <span className="text-slate-300">/</span>
-          <span className="text-[#1E3A8A] font-black">Head of MPD Station</span>
-        </nav>
-        <span className="text-[11px] font-mono text-slate-400">
-          Policy Management
-        </span>
-      </div>
-
       <main className="flex-1 overflow-y-auto p-4 sm:p-6 w-full max-w-full">
-        <MilkTestPolicyWorkspace currentUser={currentUser} />
+        <MpdExecutiveWorkspace currentUser={currentUser} />
       </main>
     </div>
   );
@@ -103,7 +104,7 @@ export default function HeadOfMpdPage() {
     <Suspense
       fallback={
         <div className="flex items-center justify-center min-h-screen bg-[#FDFBF9] text-[#111311] font-mono text-xs font-bold">
-          Loading Head of MPD...
+          Loading Overview...
         </div>
       }
     >

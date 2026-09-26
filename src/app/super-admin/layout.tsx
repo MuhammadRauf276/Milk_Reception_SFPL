@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { User } from '@core/types';
 import { SuperAdminSidebar } from '@/frontend/modules/super-admin/SuperAdminSidebar';
 import { SuperAdminHeader } from '@/frontend/modules/super-admin/SuperAdminHeader';
+import { resolveRoleHome } from '@/lib/role-routing';
 
 export default function SuperAdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -21,17 +22,29 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
         const data = await res.json();
         if (res.ok && data.user) {
           const role = data.user.role;
-          if (role === 'SUPER_ADMIN') {
+          const allowedRoles = [
+            'SUPER_ADMIN',
+            'SYSTEM_ADMIN',
+            'DATA_EXECUTIVE',
+            'DATA_ANALYST',
+            'EXECUTIVE_MANAGEMENT',
+            'ADMIN_HEAD',
+            'FINANCE_ACCOUNTS',
+            'QA_HEAD',
+            'PRODUCTION_HEAD',
+            'HEAD_OF_MPD',
+          ];
+          if (allowedRoles.includes(role)) {
             setCurrentUser(data.user);
             setIsAuthorized(true);
           } else {
-            router.push('/login');
+            router.replace(resolveRoleHome(role));
           }
         } else {
-          router.push('/login');
+          router.replace('/login');
         }
       } catch (_err) {
-        router.push('/login');
+        router.replace('/login');
       } finally {
         setLoading(false);
       }
@@ -43,7 +56,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen bg-[#FDFBF9] text-[#111311] font-mono text-xs font-bold">
-        Verifying Super Admin Authorization...
+        Verifying Authorization...
       </div>
     );
   }
@@ -61,6 +74,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
         menuButtonRef={hamburgerButtonRef}
       />
       <SuperAdminSidebar
+        currentUser={currentUser}
         isOpen={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
         triggerRef={hamburgerButtonRef}

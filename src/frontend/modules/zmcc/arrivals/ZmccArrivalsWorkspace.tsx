@@ -436,8 +436,8 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
   // Fast inline Add Local Supplier handler
   const handleCreateLocalSupplier = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newSupplierName.trim()) {
-      setAddSupplierError('Supplier name is required.');
+    if (!newSupplierName.trim() || !newSupplierPhone.trim() || !newSupplierCnic.trim()) {
+      setAddSupplierError('Supplier name, phone number, and CNIC are required.');
       return;
     }
     setAddSupplierSubmitting(true);
@@ -448,8 +448,8 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: newSupplierName.trim(),
-          phone: newSupplierPhone.trim() || undefined,
-          cnic: newSupplierCnic.trim() || undefined,
+          phone: newSupplierPhone.trim(),
+          cnic: newSupplierCnic.trim(),
           erp_reference: newSupplierErpRef.trim() || undefined,
         }),
       });
@@ -692,7 +692,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white p-4 rounded-xl border border-emerald-200">
                 <div>
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                     Raw Milk Token
                   </span>
                   <div className="text-base font-mono font-black text-slate-900 mt-0.5">
@@ -706,19 +706,19 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                   )}
                 </div>
                 <div>
-                  <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider">Generated ZMCC Token</span>
+                  <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider">Generated ZMCC Token</span>
                   <div className="text-base font-mono font-black text-emerald-700 mt-0.5">
                     {motSuccessResult.zmcc_token}
                   </div>
                 </div>
                 <div>
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Arrival Time</span>
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Arrival Time</span>
                   <div className="text-xs font-bold text-slate-800 mt-0.5">
                     {new Date(motSuccessResult.arrival_timestamp).toLocaleString('en-GB', { timeZone: 'Asia/Karachi' })} PKT
                   </div>
                 </div>
                 <div>
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Journey Number</span>
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Journey Number</span>
                   <div className="text-xs font-bold text-slate-800 mt-0.5">
                     {motSuccessResult.journey?.journey_number || selectedJourney?.journey_number}
                   </div>
@@ -731,63 +731,63 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                     <span className="text-xs font-black uppercase tracking-wider text-slate-700">
                       MOT Journey Final Summary (v{motSuccessResult.journey.summary.summary_version} — Rev #{motSuccessResult.journey.summary.revision})
                     </span>
-                    <span className="text-[11px] font-bold text-slate-500">
+                    <span className="text-xs font-bold text-slate-500">
                       Ended: {new Date(motSuccessResult.journey.summary.journey_ended_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} PKT
                     </span>
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
                     <div className="p-2 bg-slate-50 rounded-lg border border-[#EAE4D5]">
-                      <div className="text-[10px] uppercase font-bold text-slate-500">Assigned Shops</div>
+                      <div className="text-xs uppercase font-bold text-slate-500">Assigned Shops</div>
                       <div className="text-sm font-black text-slate-900">{motSuccessResult.journey.summary.assigned_shop_count}</div>
                     </div>
                     <div className="p-2 bg-slate-50 rounded-lg border border-[#EAE4D5]">
-                      <div className="text-[10px] uppercase font-bold text-emerald-700">Collected Shops</div>
+                      <div className="text-xs uppercase font-bold text-emerald-700">Collected Shops</div>
                       <div className="text-sm font-black text-emerald-800">{motSuccessResult.journey.summary.collected_shop_count}</div>
                     </div>
                     <div className="p-2 bg-slate-50 rounded-lg border border-[#EAE4D5]">
-                      <div className="text-[10px] uppercase font-bold text-amber-700">Skipped Shops</div>
+                      <div className="text-xs uppercase font-bold text-amber-700">Skipped Shops</div>
                       <div className="text-sm font-black text-amber-800">{motSuccessResult.journey.summary.skipped_shop_count}</div>
                     </div>
                     <div className="p-2 bg-slate-50 rounded-lg border border-[#EAE4D5]">
-                      <div className="text-[10px] uppercase font-bold text-blue-700">Pending Sync</div>
+                      <div className="text-xs uppercase font-bold text-blue-700">Pending Sync</div>
                       <div className="text-sm font-black text-blue-800">{motSuccessResult.journey.summary.pending_shop_count}</div>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 text-center">
                     <div className="p-2 bg-slate-50 rounded-lg border border-[#EAE4D5]">
-                      <div className="text-[10px] uppercase font-bold text-slate-500">Gross Liters</div>
+                      <div className="text-xs uppercase font-bold text-slate-500">Gross Liters</div>
                       <div className="text-xs font-mono font-black text-slate-900">
                         {Number(motSuccessResult.journey.summary.total_gross_liters).toFixed(2)} L
                       </div>
                     </div>
                     <div className="p-2 bg-slate-50 rounded-lg border border-[#EAE4D5]">
-                      <div className="text-[10px] uppercase font-bold text-slate-500">@13TS Liters</div>
+                      <div className="text-xs uppercase font-bold text-slate-500">@13TS Liters</div>
                       <div className="text-xs font-mono font-black text-slate-900">
                         {Number(motSuccessResult.journey.summary.total_at_13ts_liters).toFixed(2)} L
                       </div>
                     </div>
                     <div className="p-2 bg-slate-50 rounded-lg border border-[#EAE4D5]">
-                      <div className="text-[10px] uppercase font-bold text-slate-500">Weighted LR</div>
+                      <div className="text-xs uppercase font-bold text-slate-500">Weighted LR</div>
                       <div className="text-xs font-mono font-black text-slate-800">
                         {motSuccessResult.journey.summary.weighted_avg_lr != null ? Number(motSuccessResult.journey.summary.weighted_avg_lr).toFixed(2) : '—'}
                       </div>
                     </div>
                     <div className="p-2 bg-slate-50 rounded-lg border border-[#EAE4D5]">
-                      <div className="text-[10px] uppercase font-bold text-slate-500">Weighted Fat</div>
+                      <div className="text-xs uppercase font-bold text-slate-500">Weighted Fat</div>
                       <div className="text-xs font-mono font-black text-slate-800">
                         {motSuccessResult.journey.summary.weighted_avg_fat != null ? `${Number(motSuccessResult.journey.summary.weighted_avg_fat).toFixed(2)}%` : '—'}
                       </div>
                     </div>
                     <div className="p-2 bg-slate-50 rounded-lg border border-[#EAE4D5]">
-                      <div className="text-[10px] uppercase font-bold text-slate-500">Weighted SNF</div>
+                      <div className="text-xs uppercase font-bold text-slate-500">Weighted SNF</div>
                       <div className="text-xs font-mono font-black text-slate-800">
                         {motSuccessResult.journey.summary.weighted_avg_snf != null ? `${Number(motSuccessResult.journey.summary.weighted_avg_snf).toFixed(2)}%` : '—'}
                       </div>
                     </div>
                     <div className="p-2 bg-slate-50 rounded-lg border border-[#EAE4D5]">
-                      <div className="text-[10px] uppercase font-bold text-slate-500">Weighted TS</div>
+                      <div className="text-xs uppercase font-bold text-slate-500">Weighted TS</div>
                       <div className="text-xs font-mono font-black text-slate-800">
                         {motSuccessResult.journey.summary.weighted_avg_ts != null ? `${Number(motSuccessResult.journey.summary.weighted_avg_ts).toFixed(2)}%` : '—'}
                       </div>
@@ -795,7 +795,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                   </div>
 
                   {motSuccessResult.journey.summary.pending_shop_count > 0 && (
-                    <div className="flex items-center space-x-2 text-[11px] font-bold text-blue-800 bg-blue-50 p-2.5 rounded-lg border border-blue-200">
+                    <div className="flex items-center space-x-2 text-xs font-bold text-blue-800 bg-blue-50 p-2.5 rounded-lg border border-blue-200">
                       <Clock className="w-4 h-4 shrink-0 text-blue-600" />
                       <span>
                         Waiting for delayed collection sync: {motSuccessResult.journey.summary.pending_shop_count} assigned shop record(s) are still unresolved.
@@ -856,18 +856,18 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                             <span className="font-mono text-xs font-black text-[#1E3A8A]">
                               {j.journey_number}
                             </span>
-                            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
                               COLLECTING
                             </span>
                           </div>
                           <div className="text-xs font-bold text-slate-800">
                             {j.route?.route_code} — {j.route?.name}
                           </div>
-                          <div className="text-[11px] text-slate-600 mt-1 flex flex-wrap gap-x-4">
+                          <div className="text-xs text-slate-600 mt-1 flex flex-wrap gap-x-4">
                             <span>Vehicle: <strong>{j.mot_vehicle?.vehicle_number}</strong></span>
                             <span>Driver: <strong>{j.mot_profile?.name}</strong></span>
                           </div>
-                          <div className="text-[11px] text-slate-500 mt-2 flex justify-between border-t border-slate-100 pt-2">
+                          <div className="text-xs text-slate-500 mt-2 flex justify-between border-t border-slate-100 pt-2">
                             <span>Visited: <strong>{j.visited_stops}/{j.total_stops} stops</strong></span>
                             <span>Gross: <strong>{j.total_gross_liters} L</strong></span>
                           </div>
@@ -920,7 +920,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                         placeholder={rawMilkTokenPolicyMode === 'DISABLED' ? 'Disabled by operational policy' : 'e.g. 001924'}
                         className="w-full text-xs font-bold px-3 py-2 border rounded-xl focus:ring-2 focus:ring-[#1E3A8A] outline-hidden font-mono disabled:bg-slate-100 disabled:text-slate-400"
                       />
-                      <p className="text-[10px] text-slate-500 mt-1">Manual paper token serial (digits only, leading zeros preserved)</p>
+                      <p className="text-xs text-slate-500 mt-1">Manual paper token serial (digits only, leading zeros preserved)</p>
                     </div>
 
                     <div>
@@ -942,7 +942,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                         <button
                           type="button"
                           onClick={() => captureGps('MOT')}
-                          className="text-[11px] font-bold text-[#1E3A8A] hover:underline flex items-center space-x-1"
+                          className="text-xs font-bold text-[#1E3A8A] hover:underline flex items-center space-x-1"
                         >
                           <MapPin className="w-3 h-3" />
                           <span>Capture GPS</span>
@@ -980,7 +980,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
               <h3 className="text-sm font-black text-slate-900">
                 Vehicles Currently Inside ZMCC ({insideTotalCount > insideVehicles.length ? `${insideVehicles.length} of ${insideTotalCount}` : insideVehicles.length})
               </h3>
-              <p className="text-[11px] text-slate-500 mt-0.5">
+              <p className="text-xs text-slate-500 mt-0.5">
                 Vehicles that have completed Gate Entry and are in testing or awaiting Gate Exit
               </p>
             </div>
@@ -1017,7 +1017,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                 >
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider ${
                         v.arrival_type === 'MOT'
                           ? 'bg-blue-100 text-blue-800'
                           : 'bg-emerald-100 text-emerald-800'
@@ -1033,17 +1033,17 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                       <div className="font-bold text-slate-800">
                         {v.source_name}
                       </div>
-                      <div className="flex items-center space-x-2 text-[11px] text-slate-500 font-mono">
+                      <div className="flex items-center space-x-2 text-xs text-slate-500 font-mono">
                         <span>Token: <strong>{v.zmcc_token}</strong></span>
                       </div>
-                      <div className="text-[11px] text-slate-500 flex items-center space-x-1">
+                      <div className="text-xs text-slate-500 flex items-center space-x-1">
                         <Clock className="w-3 h-3 text-slate-400" />
                         <span>Entered: {new Date(v.arrival_timestamp).toLocaleString('en-GB', { timeZone: 'Asia/Karachi' })} PKT</span>
                       </div>
                     </div>
 
                     <div className="pt-2 border-t border-slate-100 flex flex-wrap gap-1.5 items-center">
-                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                      <span className={`px-2 py-0.5 rounded-md text-xs font-bold ${
                         v.lab_status === 'COMPLETED'
                           ? 'bg-slate-100 text-slate-800'
                           : 'bg-amber-100 text-amber-800'
@@ -1051,7 +1051,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                         Lab: {v.lab_status}
                       </span>
                       {v.lab_decision && (
-                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-black ${
+                        <span className={`px-2 py-0.5 rounded-md text-xs font-black ${
                           v.lab_decision === 'ACCEPTED'
                             ? 'bg-emerald-100 text-emerald-800'
                             : 'bg-rose-100 text-rose-800'
@@ -1060,7 +1060,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                         </span>
                       )}
                       {v.has_tank_receipt && (
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-100 text-blue-800">
+                        <span className="px-2 py-0.5 rounded-md text-xs font-bold bg-blue-100 text-blue-800">
                           Tank Received
                         </span>
                       )}
@@ -1079,7 +1079,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                       </button>
                     ) : (
                       <div className="p-2 bg-slate-50 rounded-xl border border-slate-200 text-center">
-                        <span className="text-[11px] font-semibold text-slate-500">
+                        <span className="text-xs font-semibold text-slate-500">
                           {v.exit_ineligibility_reason || 'Gate Exit Ineligible'}
                         </span>
                       </div>
@@ -1103,7 +1103,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                   Record Local Supplier Arrival at ZMCC
                 </h3>
               </div>
-              <p className="text-[11px] text-slate-500 mt-0.5">
+              <p className="text-xs text-slate-500 mt-0.5">
                 Fast onboarding & intake for direct local suppliers within this ZMCC
               </p>
             </div>
@@ -1126,7 +1126,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                 <CheckCircle2 className="w-6 h-6 text-emerald-600" />
                 <div>
                   <h4 className="text-sm font-bold">Local Supplier Arrival Recorded!</h4>
-                  <span className="text-[11px] text-emerald-700">Local Supplier Arrival Recorded</span>
+                  <span className="text-xs text-emerald-700">Local Supplier Arrival Recorded</span>
                 </div>
               </div>
 
@@ -1137,7 +1137,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                 <div className="py-1.5">
                   Raw Milk Token: <strong className="font-mono text-slate-800">{localSupplierSuccessResult.raw_milk_token_number || '—'}</strong>
                   {localSupplierSuccessResult.rmr_number && (
-                    <span className="text-slate-500 text-[11px] ml-2">
+                    <span className="text-slate-500 text-xs ml-2">
                       (Legacy RMR: <strong className="font-mono text-slate-700">{localSupplierSuccessResult.rmr_number}</strong>)
                     </span>
                   )}
@@ -1147,12 +1147,12 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                 </div>
                 <div className="py-1.5">
                   Supplier: <strong className="text-slate-900">{localSupplierSuccessResult.local_supplier?.name}</strong>{' '}
-                  <span className="text-slate-500 font-mono text-[11px]">({localSupplierSuccessResult.local_supplier?.local_supplier_code})</span>
+                  <span className="text-slate-500 font-mono text-xs">({localSupplierSuccessResult.local_supplier?.local_supplier_code})</span>
                 </div>
                 <div className="py-1.5">
                   Candidate ERP Reference:{' '}
                   {localSupplierSuccessResult.local_supplier?.erp_reference ? (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
                       {localSupplierSuccessResult.local_supplier.erp_reference} (Pending Verification)
                     </span>
                   ) : (
@@ -1195,7 +1195,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                       setShowAddSupplierModal(true);
                       setAddSupplierError(null);
                     }}
-                    className="text-[11px] font-bold text-emerald-700 hover:underline flex items-center space-x-1 cursor-pointer"
+                    className="text-xs font-bold text-emerald-700 hover:underline flex items-center space-x-1 cursor-pointer"
                   >
                     <Plus className="w-3 h-3" />
                     <span>Quick Add Supplier</span>
@@ -1250,12 +1250,12 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                         })()}
                       </select>
                       {localSuppliers.length === 0 && !loadingLocalSuppliers && (
-                        <p className="text-[11px] text-amber-700 mt-1">
+                        <p className="text-xs text-amber-700 mt-1">
                           No suppliers in directory yet. Click "+ Quick Add Supplier" above to onboard the first one.
                         </p>
                       )}
                       {localSuppliers.length > 0 && filteredSuppliers.length === 0 && supplierSearchTerm && (
-                        <p className="text-[11px] text-slate-500 mt-1">
+                        <p className="text-xs text-slate-500 mt-1">
                           No suppliers match "{supplierSearchTerm}". Clear search or click "+ Quick Add Supplier".
                         </p>
                       )}
@@ -1279,7 +1279,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                   required
                   className="w-full text-xs font-bold px-3 py-2 border rounded-xl focus:ring-2 focus:ring-emerald-600 outline-hidden font-mono"
                 />
-                <p className="text-[10px] text-slate-500 mt-1">Manual paper token serial (digits only, leading zeros preserved)</p>
+                <p className="text-xs text-slate-500 mt-1">Manual paper token serial (digits only, leading zeros preserved)</p>
               </div>
 
               <div>
@@ -1315,7 +1315,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                   <button
                     type="button"
                     onClick={() => captureGps('LOCAL_SUPPLIER')}
-                    className="text-[11px] font-bold text-emerald-700 hover:underline flex items-center space-x-1 cursor-pointer"
+                    className="text-xs font-bold text-emerald-700 hover:underline flex items-center space-x-1 cursor-pointer"
                   >
                     <MapPin className="w-3 h-3" />
                     <span>Capture GPS</span>
@@ -1413,7 +1413,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="bg-slate-50 border-b border-[#EAE4D5] text-[11px] uppercase tracking-wider text-slate-500 font-bold">
+                  <tr className="bg-slate-50 border-b border-[#EAE4D5] text-xs uppercase tracking-wider text-slate-500 font-bold">
                     <th className="p-3">Type</th>
                     <th className="p-3">ZMCC Token</th>
                     <th className="p-3">Route / Slip Token</th>
@@ -1430,7 +1430,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                     motArrivals.map((arr) => (
                       <tr key={`mot-${arr.id}`} className="hover:bg-slate-50/60 transition-colors">
                         <td className="p-3">
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-blue-800">
+                          <span className="px-2 py-0.5 rounded-full text-xs font-black bg-blue-100 text-blue-800">
                             MOT
                           </span>
                         </td>
@@ -1438,7 +1438,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                         <td className="p-3 font-mono font-bold text-slate-700">
                           <div>{arr.raw_milk_token_number || '—'}</div>
                           {arr.route_milk_token && (
-                            <div className="text-[10px] text-slate-500 font-sans font-normal mt-0.5">
+                            <div className="text-xs text-slate-500 font-sans font-normal mt-0.5">
                               Legacy Route Milk Token: <span className="font-mono">{arr.route_milk_token}</span>
                             </div>
                           )}
@@ -1447,7 +1447,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                           <div className="font-bold text-slate-800">
                             {arr.journey?.vehicle_number || '—'}
                           </div>
-                          <div className="text-[11px] text-slate-500">
+                          <div className="text-xs text-slate-500">
                             {arr.journey?.journey_number} ({arr.journey?.route_code})
                           </div>
                         </td>
@@ -1461,7 +1461,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                             const isLocked = !isSuperAdmin && mgrCount >= 5;
                             return (
                               <span
-                                className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                                className={`text-xs font-bold px-2 py-0.5 rounded-full ${
                                   isLocked
                                     ? 'bg-rose-100 text-rose-800'
                                     : mgrCount > 0
@@ -1497,7 +1497,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                     contractorArrivals.map((arr) => (
                       <tr key={`con-${arr.id}`} className="hover:bg-slate-50/60 transition-colors">
                         <td className="p-3">
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800">
+                          <span className="px-2 py-0.5 rounded-full text-xs font-black bg-amber-100 text-amber-800">
                             CONTRACTOR
                           </span>
                         </td>
@@ -1505,7 +1505,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                         <td className="p-3 font-mono font-bold text-amber-900">{arr.rmr_number || '—'}</td>
                         <td className="p-3">
                           <div className="font-bold text-slate-800">{arr.vehicle_number}</div>
-                          <div className="text-[11px] text-slate-500">
+                          <div className="text-xs text-slate-500">
                             {arr.contractor_source?.name} ({arr.contractor_source?.code})
                           </div>
                         </td>
@@ -1519,7 +1519,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                             const isLocked = !isSuperAdmin && mgrCount >= 5;
                             return (
                               <span
-                                className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                                className={`text-xs font-bold px-2 py-0.5 rounded-full ${
                                   isLocked
                                     ? 'bg-rose-100 text-rose-800'
                                     : mgrCount > 0
@@ -1555,7 +1555,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                     localSupplierArrivals.map((arr) => (
                       <tr key={`ls-${arr.id}`} className="hover:bg-slate-50/60 transition-colors">
                         <td className="p-3">
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800">
+                          <span className="px-2 py-0.5 rounded-full text-xs font-black bg-emerald-100 text-emerald-800">
                             LOCAL_SUPPLIER
                           </span>
                         </td>
@@ -1563,19 +1563,19 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                         <td className="p-3 font-mono font-bold text-emerald-900">
                           <div>{arr.raw_milk_token_number || '—'}</div>
                           {arr.rmr_number && (
-                            <div className="text-[10px] text-slate-500 font-sans font-normal mt-0.5">
+                            <div className="text-xs text-slate-500 font-sans font-normal mt-0.5">
                               Legacy RMR: <span className="font-mono">{arr.rmr_number}</span>
                             </div>
                           )}
                         </td>
                         <td className="p-3">
                           <div className="font-bold text-slate-800">{arr.vehicle_number}</div>
-                          <div className="text-[11px] text-slate-600 font-medium">
+                          <div className="text-xs text-slate-600 font-medium">
                             {arr.local_supplier?.name}{' '}
                             <span className="font-mono text-slate-400">({arr.local_supplier?.local_supplier_code})</span>
                           </div>
                           {arr.local_supplier?.erp_reference && (
-                            <div className="text-[10px] text-amber-700 font-semibold">
+                            <div className="text-xs text-amber-700 font-semibold">
                               ERP: {arr.local_supplier.erp_reference} (Pending Verification)
                             </div>
                           )}
@@ -1590,7 +1590,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                             const isLocked = !isSuperAdmin && mgrCount >= 5;
                             return (
                               <span
-                                className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                                className={`text-xs font-bold px-2 py-0.5 rounded-full ${
                                   isLocked
                                     ? 'bg-rose-100 text-rose-800'
                                     : mgrCount > 0
@@ -1672,7 +1672,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                 <h3 className="text-sm font-black text-slate-900">
                   Correct {correctionTarget.type} Arrival Record
                 </h3>
-                <p className="text-[11px] text-slate-500">
+                <p className="text-xs text-slate-500">
                   Token: <strong>{correctionTarget.record.zmcc_token}</strong>{' '}
                   {isSuperAdmin ? (
                     <span>(Super Admin: Unlimited saves)</span>
@@ -1718,7 +1718,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                     <div className="mt-2 p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600">
                       <span className="font-bold text-slate-500">Legacy Route Milk Token:</span>{' '}
                       <span className="font-mono font-bold text-slate-800">{correctionTarget.record.route_milk_token}</span>
-                      <span className="text-[10px] text-slate-400 ml-1.5">(Read-only)</span>
+                      <span className="text-xs text-slate-400 ml-1.5">(Read-only)</span>
                     </div>
                   )}
                 </div>
@@ -1782,7 +1782,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                     <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600">
                       <span className="font-bold text-slate-500">Legacy RMR:</span>{' '}
                       <span className="font-mono font-bold text-slate-800">{correctionTarget.record.rmr_number}</span>
-                      <span className="text-[10px] text-slate-400 ml-1.5">(Read-only)</span>
+                      <span className="text-xs text-slate-400 ml-1.5">(Read-only)</span>
                     </div>
                   )}
                   <div>
@@ -1887,7 +1887,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
               </button>
             </div>
 
-            <p className="text-[11px] text-slate-500 bg-slate-50 p-2.5 rounded-xl border">
+            <p className="text-xs text-slate-500 bg-slate-50 p-2.5 rounded-xl border">
               Creates a local supplier directory entry for this ZMCC. Candidate ERP reference is optional and remains strictly <strong className="text-amber-700">Pending Verification</strong>.
             </p>
 
@@ -1916,10 +1916,11 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
 
               <div>
                 <label className="block font-bold text-slate-700 mb-1">
-                  Phone (Optional)
+                  Phone *
                 </label>
                 <input
                   type="text"
+                  required
                   value={newSupplierPhone}
                   onChange={(e) => setNewSupplierPhone(e.target.value)}
                   placeholder="e.g. 0300-1234567"
@@ -1930,10 +1931,11 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
 
               <div>
                 <label className="block font-bold text-slate-700 mb-1">
-                  CNIC (Optional)
+                  CNIC *
                 </label>
                 <input
                   type="text"
+                  required
                   value={newSupplierCnic}
                   onChange={(e) => setNewSupplierCnic(e.target.value)}
                   placeholder="e.g. 35201-1234567-1"
@@ -1954,7 +1956,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                   maxLength={100}
                   className="w-full px-3 py-2 border rounded-xl font-mono"
                 />
-                <p className="text-[10px] text-slate-400 mt-1">
+                <p className="text-xs text-slate-400 mt-1">
                   Leading zeros preserved. Placeholders like 'New', 'Pending', 'Unknown', 'N/A' will be rejected.
                 </p>
               </div>

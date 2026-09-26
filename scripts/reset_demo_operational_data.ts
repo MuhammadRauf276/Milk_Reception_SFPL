@@ -20,7 +20,10 @@ export async function resetOperationalData() {
 
   // Delete operational records in exact FK order
   const deletedCounts = {
+    correctionRequests: (await prisma.correctionRequest.deleteMany({})).count,
     // ZMCC Operational & Inventory Deletions (Reverse FK order)
+    localSupplierRmrLegacyClassifications: (await prisma.localSupplierRmrLegacyClassification.deleteMany({})).count,
+    localSupplierRmrIssuances: (await prisma.localSupplierRmrIssuance.deleteMany({})).count,
     zmccTankTransactions: (await prisma.zmccTankInventoryTransaction.deleteMany({})).count,
     zmccTankReceipts: (await prisma.zmccTankReceipt.deleteMany({})).count,
     zmccLabResults: (await prisma.zmccLabResult.deleteMany({})).count,
@@ -29,12 +32,14 @@ export async function resetOperationalData() {
     zmccContractorArrivals: (await prisma.zmccContractorArrival.deleteMany({})).count,
     zmccMotArrivals: (await prisma.zmccMotArrival.deleteMany({})).count,
     motJourneySummaries: (await prisma.motJourneySummary.deleteMany({})).count,
+    motCollectionSmsOutbox: (await prisma.motCollectionSmsOutbox.deleteMany({})).count,
     motShopCollections: (await prisma.motShopCollection.deleteMany({})).count,
     motJourneyLocations: (await prisma.motJourneyLocation.deleteMany({})).count,
     motJourneyStops: (await prisma.motJourneyStop.deleteMany({})).count,
     motJourneys: (await prisma.motJourney.deleteMany({})).count,
 
     // Plant Operational Deletions
+    labTestAssignments: (await prisma.labTestAssignment.deleteMany({})).count,
     qaSessionEvents: (await prisma.qATestingSessionEvent.deleteMany({})).count,
     qaTestingSessions: (await prisma.qATestingSession.deleteMany({})).count,
     plantLabResults: (await prisma.plantLabResult.deleteMany({})).count,
@@ -45,9 +50,11 @@ export async function resetOperationalData() {
     weightTickets: (await prisma.weightTicket.deleteMany({})).count,
     gateLogs: (await prisma.gateLog.deleteMany({})).count,
     dispatchInfos: (await prisma.dispatchInfo.deleteMany({})).count,
+    dispatchQuantityPolicySnapshots: (await prisma.dispatchQuantityPolicySnapshot.deleteMany({})).count,
     visitPortions: (await prisma.visitPortion.deleteMany({})).count,
     qaWarnings: (await prisma.qAWarning.deleteMany({})).count,
     vehicleVisits: (await prisma.vehicleVisit.deleteMany({})).count,
+    monthlyReceptionCounters: (await prisma.monthlyReceptionCounter.deleteMany({})).count,
     auditLogs: (await prisma.auditLog.deleteMany({})).count,
 
     // Demo-Owned Master Data Deletions ONLY (Preserves all non-demo master data)

@@ -144,6 +144,15 @@ export class QualityRuleService {
       });
     }
 
+    if (testingPoint === 'MOT_SHOP') {
+      const motLabRules = await this.resolveActiveRulesForTestingPoint('ZMCC_LAB_MOT', eventTimestamp, tx);
+      motLabRules.forEach((rule, k) => {
+        if (!ruleMap.has(k)) {
+          ruleMap.set(k, rule);
+        }
+      });
+    }
+
     return ruleMap;
   }
 
@@ -781,13 +790,6 @@ export class QualityRuleService {
     if (testingPoint === 'ZMCC_LAB_CONTRACTOR') {
       throw new Error(
         "Testing point 'ZMCC_LAB_CONTRACTOR' is deprecated and blocked for new rules. Use 'ZMCC_LAB_MOT' or 'ZMCC_LAB_LOCAL_SUPPLIER' instead."
-      );
-    }
-
-    // Restrict unapproved RELEASE rules on MOT_SHOP and DISPATCH
-    if (['MOT_SHOP', 'DISPATCH'].includes(testingPoint) && ruleCategory === 'RELEASE') {
-      throw new Error(
-        `Release consequence semantics for testing point '${testingPoint}' are pending operational workflow approval. Only 'MONITORING' or 'INFORMATIONAL' rules may be configured for ${testingPoint}.`
       );
     }
 

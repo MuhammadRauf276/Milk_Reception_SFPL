@@ -35,6 +35,10 @@ export interface CachedJourney {
   cached_at: string;
 }
 
+export interface MotOfflinePreparation {
+  id: 'current'; userId: string; journeyId: string; zmccId: string; expiresAt: string; preparedAt: string; receipt: string;
+}
+
 export interface CollectionDraft {
   stop_id: string;
   shop_rmr_number?: string | null;
@@ -59,6 +63,8 @@ export interface QueuedCollection {
   recorded_longitude?: number | null;
   recorded_gps_accuracy?: number | null;
   notes?: string;
+  request_exception?: boolean;
+  exception_reason?: string | null;
   offline_created_at: string;
   status: 'QUEUED' | 'SYNCING' | 'SYNCED' | 'CONFLICT' | 'FAILED_FATAL' | 'FAILED_RETRYABLE';
   last_error?: string;
@@ -82,7 +88,7 @@ export interface QueuedGpsPoint {
 }
 
 const DB_NAME = 'milk_reception_mot_db';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 function isIndexedDbSupported(): boolean {
   const idb = typeof window !== 'undefined' ? window.indexedDB : typeof globalThis !== 'undefined' ? globalThis.indexedDB : undefined;
@@ -107,6 +113,7 @@ export function openMotDb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains('active_journey')) {
         db.createObjectStore('active_journey', { keyPath: 'id' });
       }
+      if (!db.objectStoreNames.contains('offline_preparation')) db.createObjectStore('offline_preparation', { keyPath: 'id' });
 
       if (!db.objectStoreNames.contains('collection_drafts')) {
         db.createObjectStore('collection_drafts', { keyPath: 'stop_id' });
@@ -220,6 +227,33 @@ export async function clearCachedJourney(): Promise<void> {
 
     store.clear();
   });
+}
+
+/** Online logout is the only shared-device cleanup path: drafts, queued collections, GPS, journey, and preparation receipt are removed together. */
+export async function clearMotOfflineWorkspace(): Promise<void> {
+  if (!isIndexedDbSupported()) return;
+  const db = await openMotDb();
+  return new Promise((resolve, reject) => {
+    const names = ['active_journey', 'offline_preparation', 'collection_drafts', 'collection_queue', 'gps_queue'].filter((name) => db.objectStoreNames.contains(name));
+    const tx = db.transaction(names, 'readwrite'); names.forEach((name) => tx.objectStore(name).clear());
+    tx.oncomplete = () => resolve(); tx.onerror = () => reject(tx.error || new Error('Unable to clear offline workspace.'));
+  });
+}
+
+export async function saveMotOfflinePreparation(value: Omit<MotOfflinePreparation, 'id' | 'preparedAt'>): Promise<void> {
+  if (!isIndexedDbSupported()) return;
+  const db = await openMotDb();
+  return new Promise((resolve, reject) => { const tx = db.transaction('offline_preparation', 'readwrite'); tx.objectStore('offline_preparation').put({ id: 'current', preparedAt: new Date().toISOString(), ...value }); tx.oncomplete = () => resolve(); tx.onerror = () => reject(tx.error); });
+}
+export async function getMotOfflinePreparation(): Promise<MotOfflinePreparation | null> {
+  if (!isIndexedDbSupported()) return null;
+  const db = await openMotDb();
+  return new Promise((resolve, reject) => { const tx = db.transaction('offline_preparation', 'readonly'); const request = tx.objectStore('offline_preparation').get('current'); request.onsuccess = () => resolve(request.result || null); request.onerror = () => reject(request.error); });
+}
+export async function clearMotOfflinePreparation(): Promise<void> {
+  if (!isIndexedDbSupported()) return;
+  const db = await openMotDb();
+  return new Promise((resolve, reject) => { const tx = db.transaction('offline_preparation', 'readwrite'); tx.objectStore('offline_preparation').clear(); tx.oncomplete = () => resolve(); tx.onerror = () => reject(tx.error); });
 }
 
 // -------------------------------------------------------------
@@ -613,6 +647,8 @@ export async function syncPendingCollections(): Promise<{
           recorded_gps_accuracy: item.recorded_gps_accuracy,
           notes: item.notes,
           collection_notes: item.notes,
+          request_exception: item.request_exception,
+          exception_reason: item.exception_reason,
           offline_created_at: item.offline_created_at,
         }),
       });

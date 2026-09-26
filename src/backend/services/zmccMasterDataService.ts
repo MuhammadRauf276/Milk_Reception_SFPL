@@ -1,6 +1,8 @@
 import { prisma } from '@core/db';
+import { normalizePakistaniCnic, normalizePakistaniMobile } from '@/lib/pakistani-identity';
 import { getCurrentUser } from '@core/auth';
 import { User, Role } from '@core/types';
+import { createNotificationsForEvent } from '@/backend/services/notificationService';
 
 export interface ZmccAuthContext {
   user: User;
@@ -9,6 +11,7 @@ export interface ZmccAuthContext {
   isSuperAdmin: boolean;
   isZmccManager: boolean;
   isPheOperator: boolean;
+  isFinanceAccounts?: boolean;
   effectiveZmccId: bigint | null;
 }
 
@@ -59,9 +62,10 @@ export async function resolveZmccAuth(
   const isSuperAdmin = role === 'SUPER_ADMIN';
   const isZmccManager = role === 'ZMCC_MANAGER';
   const isPheOperator = role === 'PHE_OPERATOR';
+  const isFinanceAccounts = role === 'FINANCE_ACCOUNTS';
 
   // 1. Validate permitted roles
-  if (!isSuperAdmin && !isZmccManager && !isPheOperator) {
+  if (!isSuperAdmin && !isZmccManager && !isPheOperator && !isFinanceAccounts) {
     return {
       errorResponse: {
         error: 'Forbidden. You do not have permission to access ZMCC Master Data.',
@@ -72,7 +76,7 @@ export async function resolveZmccAuth(
 
   // 2. Validate source assignment for scoped roles (ZMCC_MANAGER, PHE_OPERATOR)
   let effectiveZmccId: bigint | null = null;
-  if (!isSuperAdmin) {
+  if (!isSuperAdmin && !isFinanceAccounts) {
     if (!dbUser.procurement_source_id || !dbUser.procurement_source) {
       return {
         errorResponse: {
@@ -101,6 +105,15 @@ export async function resolveZmccAuth(
   }
 
   // 3. Validate specific write permissions
+  if (isFinanceAccounts && requiredAction !== 'READ') {
+    return {
+      errorResponse: {
+        error: 'Forbidden. Finance Accounts may only view master data and map ERP codes.',
+        status: 403,
+      },
+    };
+  }
+
   if (requiredAction === 'WRITE_CHILLER_OWNERSHIP' && !isSuperAdmin) {
     return {
       errorResponse: {
@@ -149,6 +162,7 @@ export async function resolveZmccAuth(
       isSuperAdmin,
       isZmccManager,
       isPheOperator,
+      isFinanceAccounts,
       effectiveZmccId,
     },
   };
@@ -157,15 +171,12 @@ export async function resolveZmccAuth(
 // -------------------------------------------------------------
 // Validation Helpers
 // -------------------------------------------------------------
-const PHONE_REGEX = /^(\+92-?|92-?|0)?3[0-9]{2}-?[0-9]{7}$/;
-const CNIC_REGEX = /^([0-9]{13}|[0-9]{5}-[0-9]{7}-[0-9])$/;
-
 export function validatePhone(phone: string): boolean {
-  return PHONE_REGEX.test(phone.trim());
+  return normalizePakistaniMobile(phone).ok;
 }
 
 export function validateCnic(cnic: string): boolean {
-  return CNIC_REGEX.test(cnic.trim());
+  return normalizePakistaniCnic(cnic).ok;
 }
 
 export function validateGps(
@@ -306,7 +317,7 @@ export async function getRouteById(auth: ZmccAuthContext, routeId: bigint) {
 export async function createRoute(
   auth: ZmccAuthContext,
   body: {
-    route_code: string;
+    route_code?: string;
     name: string;
     origin: string;
     destination: string;
@@ -318,8 +329,8 @@ export async function createRoute(
   const origin = body.origin?.trim();
   const destination = body.destination?.trim();
 
-  if (!route_code || !name || !origin || !destination) {
-    return { status: 400, error: 'Route code, name, origin, and destination are required and cannot be empty.' };
+  if (!name || !origin || !destination) {
+    return { status: 400, error: 'Route name, origin, and destination are required and cannot be empty.' };
   }
 
   let zmccId: bigint;
@@ -343,10 +354,16 @@ export async function createRoute(
     return { status: 409, error: 'Cannot create route under an inactive ZMCC.' };
   }
 
+  let finalRouteCode = route_code;
+  if (!finalRouteCode) {
+    const count = await prisma.zmccRoute.count({ where: { zmcc_id: zmccId } });
+    finalRouteCode = `RT-${zmcc.code || 'ZMCC'}-${String(count + 1).padStart(3, '0')}`;
+  }
+
   // Check unique constraints
-  const existingCode = await prisma.zmccRoute.findUnique({ where: { route_code } });
+  const existingCode = await prisma.zmccRoute.findUnique({ where: { route_code: finalRouteCode } });
   if (existingCode) {
-    return { status: 409, error: `Route code "${route_code}" already exists.` };
+    return { status: 409, error: `Route code "${finalRouteCode}" already exists.` };
   }
 
   const existingName = await prisma.zmccRoute.findUnique({
@@ -359,7 +376,7 @@ export async function createRoute(
   return await prisma.$transaction(async (tx) => {
     const created = await tx.zmccRoute.create({
       data: {
-        route_code,
+        route_code: finalRouteCode,
         name,
         origin,
         destination,
@@ -648,7 +665,7 @@ export async function getAreaById(auth: ZmccAuthContext, areaId: bigint) {
 export async function createArea(
   auth: ZmccAuthContext,
   body: {
-    area_code: string;
+    area_code?: string;
     name: string;
     route_id: string;
   }
@@ -656,8 +673,8 @@ export async function createArea(
   const area_code = body.area_code?.trim();
   const name = body.name?.trim();
 
-  if (!area_code || !name || !body.route_id) {
-    return { status: 400, error: 'Area code, name, and route selection are required.' };
+  if (!name || !body.route_id) {
+    return { status: 400, error: 'Area name and route selection are required.' };
   }
 
   const routeId = BigInt(body.route_id);
@@ -689,10 +706,16 @@ export async function createArea(
 
   const effectiveZmccId = route.zmcc_id;
 
+  let finalAreaCode = area_code;
+  if (!finalAreaCode) {
+    const areaCount = await prisma.zmccArea.count({ where: { route_id: routeId } });
+    finalAreaCode = `AR-${route.route_code}-${String(areaCount + 1).padStart(2, '0')}`;
+  }
+
   // Check unique constraints
-  const existingCode = await prisma.zmccArea.findUnique({ where: { area_code } });
+  const existingCode = await prisma.zmccArea.findUnique({ where: { area_code: finalAreaCode } });
   if (existingCode) {
-    return { status: 409, error: `Area code "${area_code}" already exists.` };
+    return { status: 409, error: `Area code "${finalAreaCode}" already exists.` };
   }
 
   const existingName = await prisma.zmccArea.findUnique({
@@ -705,7 +728,7 @@ export async function createArea(
   return await prisma.$transaction(async (tx) => {
     const created = await tx.zmccArea.create({
       data: {
-        area_code,
+        area_code: finalAreaCode,
         name,
         route_id: routeId,
         zmcc_id: effectiveZmccId,
@@ -1564,7 +1587,7 @@ export async function getShopById(auth: ZmccAuthContext, shopId: bigint) {
 export async function createShop(
   auth: ZmccAuthContext,
   body: {
-    shop_code: string;
+    shop_code?: string;
     shop_name: string;
     owner_name: string;
     phone_number: string;
@@ -1579,11 +1602,11 @@ export async function createShop(
   const shop_code = body.shop_code?.trim();
   const shop_name = body.shop_name?.trim();
   const owner_name = body.owner_name?.trim();
-  const phone_number = body.phone_number?.trim();
-  const cnic = body.cnic?.trim();
+  const phoneInput = body.phone_number?.trim();
+  const cnicInput = body.cnic?.trim();
 
-  if (!shop_code || !shop_name || !owner_name || !phone_number || !cnic) {
-    return { status: 400, error: 'Shop code, shop name, owner name, phone number, and CNIC are required.' };
+  if (!shop_name || !owner_name || !phoneInput || !cnicInput) {
+    return { status: 400, error: 'Shop name, owner name, phone number, and CNIC are required.' };
   }
 
   if (!body.area_id || !body.milk_source_id || !body.chiller_ownership_id) {
@@ -1591,12 +1614,12 @@ export async function createShop(
   }
 
   // Phone & CNIC validation
-  if (!validatePhone(phone_number)) {
-    return { status: 400, error: 'Invalid phone number format. Must be a valid Pakistani mobile number.' };
-  }
-  if (!validateCnic(cnic)) {
-    return { status: 400, error: 'Invalid CNIC format. Must be 13 digits (XXXXX-XXXXXXX-X or 13 contiguous digits).' };
-  }
+  const phoneResult = normalizePakistaniMobile(phoneInput);
+  if (!phoneResult.ok) return { status: 400, error: phoneResult.error };
+  const cnicResult = normalizePakistaniCnic(cnicInput);
+  if (!cnicResult.ok) return { status: 400, error: cnicResult.error };
+  const phone_number = phoneResult.value;
+  const cnic = cnicResult.value;
 
   // GPS validation
   const gpsCheck = validateGps(body.latitude, body.longitude);
@@ -1666,10 +1689,16 @@ export async function createShop(
     return { status: 409, error: 'Cannot create shop: selected chiller ownership is inactive.' };
   }
 
+  let finalShopCode = shop_code;
+  if (!finalShopCode) {
+    const count = await prisma.zmccShop.count();
+    finalShopCode = `SHP-${String(count + 1).padStart(6, '0')}`;
+  }
+
   // Unique checks
-  const existingCode = await prisma.zmccShop.findUnique({ where: { shop_code } });
+  const existingCode = await prisma.zmccShop.findUnique({ where: { shop_code: finalShopCode } });
   if (existingCode) {
-    return { status: 409, error: `Shop code "${shop_code}" already exists.` };
+    return { status: 409, error: `Shop code "${finalShopCode}" already exists.` };
   }
 
   const existingName = await prisma.zmccShop.findUnique({
@@ -1682,7 +1711,7 @@ export async function createShop(
   return await prisma.$transaction(async (tx) => {
     const created = await tx.zmccShop.create({
       data: {
-        shop_code,
+        shop_code: finalShopCode,
         shop_name,
         owner_name,
         phone_number,
@@ -1721,6 +1750,16 @@ export async function createShop(
         },
         user_id: auth.actorUserId,
       },
+    });
+
+    await createNotificationsForEvent(tx, {
+      eventKey: 'ERP_VENDOR_MAPPING_REQUIRED',
+      sourceId: created.id.toString(),
+      sourceZmccId: effectiveZmccId,
+      title: 'ERP Vendor Mapping Required',
+      body: `Shop "${created.shop_name}" (${created.shop_code}) requires official ERP vendor mapping.`,
+      deepLink: '/finance/reconciliation',
+      dedupeSuffix: created.id.toString(),
     });
 
     return {
@@ -1770,19 +1809,19 @@ export async function updateShop(
 
   const shop_name = body.shop_name !== undefined ? body.shop_name.trim() : existing.shop_name;
   const owner_name = body.owner_name !== undefined ? body.owner_name.trim() : existing.owner_name;
-  const phone_number = body.phone_number !== undefined ? body.phone_number.trim() : existing.phone_number;
-  const cnic = body.cnic !== undefined ? body.cnic.trim() : existing.cnic;
+  const phoneInput = body.phone_number !== undefined ? body.phone_number.trim() : existing.phone_number;
+  const cnicInput = body.cnic !== undefined ? body.cnic.trim() : existing.cnic;
 
-  if (!shop_name || !owner_name || !phone_number || !cnic) {
+  if (!shop_name || !owner_name || !phoneInput || !cnicInput) {
     return { status: 400, error: 'Shop name, owner name, phone number, and CNIC cannot be empty.' };
   }
 
-  if (!validatePhone(phone_number)) {
-    return { status: 400, error: 'Invalid phone number format. Must be a valid Pakistani mobile number.' };
-  }
-  if (!validateCnic(cnic)) {
-    return { status: 400, error: 'Invalid CNIC format. Must be 13 digits.' };
-  }
+  const phoneResult = normalizePakistaniMobile(phoneInput);
+  if (!phoneResult.ok) return { status: 400, error: phoneResult.error };
+  const cnicResult = normalizePakistaniCnic(cnicInput);
+  if (!cnicResult.ok) return { status: 400, error: cnicResult.error };
+  const phone_number = phoneResult.value;
+  const cnic = cnicResult.value;
 
   let targetAreaId = existing.area_id;
   let targetRouteId = existing.route_id;

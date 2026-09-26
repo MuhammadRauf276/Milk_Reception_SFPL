@@ -40,9 +40,9 @@ export async function GET(req: Request) {
     },
   });
 
-  const allowedRoles = ['QA_HEAD', 'QA_MANAGER', 'SUPER_ADMIN'];
+  const allowedRoles = ['QA_HEAD', 'QA_MANAGER', 'SUPER_ADMIN', 'DATA_EXECUTIVE'];
   if (!dbUser || !allowedRoles.includes(dbUser.role)) {
-    return NextResponse.json({ error: 'Unauthorized. QA Head or Admin role required.' }, { status: 403 });
+    return NextResponse.json({ error: 'Unauthorized. QA Head, QA Manager, Super Admin or Data Executive role required.' }, { status: 403 });
   }
 
   const { searchParams } = new URL(req.url);
@@ -88,9 +88,10 @@ export async function GET(req: Request) {
       success: true,
       rules: serialized,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching SOP rules:', error);
-    return NextResponse.json({ error: 'Failed to fetch SOP rules' }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Failed to fetch SOP rules';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -110,10 +111,10 @@ export async function POST(req: Request) {
     },
   });
 
-  const allowedRoles = ['QA_HEAD'];
+  const allowedRoles = ['QA_HEAD', 'QA_MANAGER', 'SUPER_ADMIN', 'DATA_EXECUTIVE'];
   if (!dbUser || !allowedRoles.includes(dbUser.role)) {
     return NextResponse.json(
-      { error: 'Unauthorized. QA Head role is strictly required to configure SOP rules.' },
+      { error: 'Unauthorized. QA Head, QA Manager, Super Admin, or Data Executive role is required to configure SOP rules.' },
       { status: 403 }
     );
   }
@@ -125,13 +126,6 @@ export async function POST(req: Request) {
     if (validated.testingPoint === 'ZMCC_LAB_CONTRACTOR') {
       return NextResponse.json(
         { error: "Testing point 'ZMCC_LAB_CONTRACTOR' is deprecated and blocked for new rules. Use 'ZMCC_LAB_MOT' or 'ZMCC_LAB_LOCAL_SUPPLIER' instead." },
-        { status: 400 }
-      );
-    }
-
-    if (['MOT_SHOP', 'DISPATCH'].includes(validated.testingPoint) && validated.ruleCategory === 'RELEASE') {
-      return NextResponse.json(
-        { error: `Release consequence semantics for testing point '${validated.testingPoint}' are pending operational workflow approval. Only 'MONITORING' or 'INFORMATIONAL' rules may be configured for ${validated.testingPoint}.` },
         { status: 400 }
       );
     }
@@ -164,12 +158,17 @@ export async function POST(req: Request) {
         effectiveFrom: newRule.effective_from.toISOString(),
       },
     });
-  } catch (error: any) {
-    if (error?.name === 'ZodError' || error?.issues) {
-      const msg = error.issues?.[0]?.message || error.errors?.[0]?.message || error.message || 'Validation failed';
-      return NextResponse.json({ error: msg }, { status: 400 });
+  } catch (error: unknown) {
+    if (typeof error === 'object' && error !== null) {
+      const errRecord = error as { name?: string; issues?: Array<{ message: string }>; errors?: Array<{ message: string }>; message?: string };
+      if (errRecord.name === 'ZodError' || errRecord.issues) {
+        const msg = errRecord.issues?.[0]?.message || errRecord.errors?.[0]?.message || errRecord.message || 'Validation failed';
+        return NextResponse.json({ error: msg }, { status: 400 });
+      }
+      console.error('Error creating SOP rule:', error);
+      return NextResponse.json({ error: errRecord.message || 'Failed to create SOP rule' }, { status: 400 });
     }
     console.error('Error creating SOP rule:', error);
-    return NextResponse.json({ error: error.message || 'Failed to create SOP rule' }, { status: 400 });
+    return NextResponse.json({ error: 'Failed to create SOP rule' }, { status: 400 });
   }
 }

@@ -24,6 +24,8 @@ import {
 import {
   saveCachedJourney,
   getCachedJourney,
+  saveMotOfflinePreparation,
+  getMotOfflinePreparation,
   saveDraft,
   getDraft,
   deleteDraft,
@@ -102,6 +104,8 @@ export default function MotDriverPage() {
   const [lr, setLr] = useState<string>('');
   const [fat, setFat] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
+  const [requestException, setRequestException] = useState<boolean>(false);
+  const [exceptionReason, setExceptionReason] = useState<string>('');
   const [collectionGps, setCollectionGps] = useState<{
     latitude: number | null;
     longitude: number | null;
@@ -255,6 +259,10 @@ export default function MotDriverPage() {
           if (data.journey) {
             setJourney(data.journey);
             await saveCachedJourney(data.journey);
+            if (data.journey.status === 'COLLECTING') {
+              const preparation = await fetch('/api/zmcc/mot/journeys/current/offline-preparation', { method: 'POST' });
+              if (preparation.ok) await saveMotOfflinePreparation(await preparation.json());
+            }
           } else {
             setJourney(null);
           }
@@ -264,17 +272,20 @@ export default function MotDriverPage() {
       } else {
         // Load from offline store
         const cached = await getCachedJourney();
-        if (cached) {
+        const preparation = await getMotOfflinePreparation();
+        if (cached && preparation && preparation.journeyId === cached.id && new Date(preparation.expiresAt).getTime() > Date.now()) {
           setJourney(cached as any);
         } else {
           setJourney(null);
+          setJourneyError('Offline preparation is missing or expired. Reconnect and prepare the active journey again.');
         }
       }
     } catch (err: any) {
       // Fallback to cache on error
       try {
         const cached = await getCachedJourney();
-        if (cached) {
+        const preparation = await getMotOfflinePreparation();
+        if (cached && preparation && preparation.journeyId === cached.id && new Date(preparation.expiresAt).getTime() > Date.now()) {
           setJourney(cached as any);
         } else {
           setJourneyError(err.message || 'Unable to connect and no cached journey available.');
@@ -328,6 +339,10 @@ export default function MotDriverPage() {
         status: 'UNAVAILABLE',
       });
     }
+
+    // Reset exception states
+    setRequestException(false);
+    setExceptionReason('');
 
     // Check for existing draft
     try {
@@ -416,6 +431,11 @@ export default function MotDriverPage() {
       return;
     }
 
+    if (requestException && (!exceptionReason || exceptionReason.trim().length < 3)) {
+      setFormError('Please enter a valid exception reason (at least 3 characters) to request authorization.');
+      return;
+    }
+
     setSubmittingCollection(true);
     try {
       const clientEventId =
@@ -439,6 +459,8 @@ export default function MotDriverPage() {
         recorded_longitude: collectionGps.longitude,
         recorded_gps_accuracy: collectionGps.accuracy,
         notes: notes.trim() || undefined,
+        request_exception: requestException,
+        exception_reason: requestException ? exceptionReason.trim() : undefined,
         offline_created_at: offlineCreatedAt,
       });
 
@@ -779,7 +801,7 @@ export default function MotDriverPage() {
           {/* Collection Entry Modal / Drawer */}
           {activeStop && (
             <div
-              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs"
+              className="fixed inset-0 z-modal flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs"
               role="dialog"
               aria-modal="true"
             >
@@ -984,6 +1006,34 @@ export default function MotDriverPage() {
                       placeholder="e.g. Clean container, verified supplier seal"
                       className="w-full text-xs border border-[#EAE4D5] rounded-xl p-2.5 bg-[#FDFBF9] focus:ring-2 focus:ring-[#1E3A8A]"
                     />
+                  </div>
+
+                  {/* Quality Exception (Optional Authorization) */}
+                  <div className="pt-2 border-t border-[#EAE4D5] space-y-2">
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={requestException}
+                        onChange={(e) => setRequestException(e.target.checked)}
+                        className="w-4 h-4 rounded border-slate-300 text-[#1E3A8A] focus:ring-[#1E3A8A]"
+                      />
+                      <span className="text-xs font-bold text-slate-700">Request Quality Exception</span>
+                    </label>
+                    {requestException && (
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                          Exception Reason <span className="text-rose-600">*</span>
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={exceptionReason}
+                          onChange={(e) => setExceptionReason(e.target.value)}
+                          placeholder="State rationale for supervisor authorization..."
+                          className="w-full text-xs border border-[#EAE4D5] rounded-xl p-2.5 bg-[#FDFBF9] focus:ring-2 focus:ring-[#1E3A8A]"
+                          required={requestException}
+                        />
+                      </div>
+                    )}
                   </div>
 
                   {/* Modal Action Buttons */}

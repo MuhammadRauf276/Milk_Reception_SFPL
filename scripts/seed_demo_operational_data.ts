@@ -205,14 +205,9 @@ export async function seedOperationalData() {
 
   console.log(`Master references verified: ${users.length} Users, ${sources.length} Sources, ${activeSilos.length} Silos, ${activeTests.length} Lab Tests, ${paperPolicies.length} Paper Policies, ${ruleSpecs.length} SOP Rules.\n`);
 
-  // Target Breakdown for 75 VehicleVisits:
-  // 55 Fully Accepted & Completed
-  // 8 All-Rejected & Completed Exit
-  // 6 Hold -> Resume -> Accept & Completed
-  // 3 Hold -> Resume -> Reject & Completed Exit
-  // 3 In-Progress (1 TOKEN_ISSUED, 1 PLANT_QA, 1 READY_FOR_GROSS)
-
-  const TOTAL_VISITS = 75;
+  // Four deterministic plant journeys keep every operational screen useful
+  // without hiding workflow problems inside a large volume of demo history.
+  const TOTAL_VISITS = 4;
   const now = new Date();
   const msPerDay = 86400000;
 
@@ -237,32 +232,20 @@ export async function seedOperationalData() {
   let visit10Record: any = null;
   let visit20Record: any = null;
 
-  console.log('Seeding 75 realistic, deterministic vehicle journeys...\n');
+  console.log('Seeding 4 realistic, deterministic vehicle journeys...\n');
 
   for (let i = 1; i <= TOTAL_VISITS; i++) {
     // Determine category
-    let category: 'ACCEPTED' | 'REJECTED' | 'HOLD_ACCEPT' | 'HOLD_REJECT' | 'IN_PROGRESS';
+    let category: string;
     let targetStatus: string;
 
-    if (i <= 55) {
+    if (i === 1) {
       category = 'ACCEPTED';
       targetStatus = 'COMPLETED';
-    } else if (i <= 63) {
+    } else if (i === 2) {
       category = 'REJECTED';
       targetStatus = 'COMPLETED';
-    } else if (i <= 69) {
-      category = 'HOLD_ACCEPT';
-      targetStatus = 'COMPLETED';
-    } else if (i === 70) {
-      category = 'ACCEPTED';
-      targetStatus = 'TARE_WEIGHED';
-    } else if (i <= 72) {
-      category = 'HOLD_REJECT';
-      targetStatus = 'COMPLETED';
-    } else if (i === 73) {
-      category = 'IN_PROGRESS';
-      targetStatus = 'TOKEN_ISSUED';
-    } else if (i === 74) {
+    } else if (i === 3) {
       category = 'IN_PROGRESS';
       targetStatus = 'PLANT_QA';
     } else {
@@ -297,8 +280,8 @@ export async function seedOperationalData() {
       : new Date(tareTime.getTime() + (10 + (i % 10)) * 60000);
 
     // Assigned Procurement Source
-    // Assign visit 74 (PLANT_QA) to ZMCC Hasilpur for live active tanker visibility in Hasilpur overview
-    let sourceObj = i === 74
+    // Keep the active QA journey at ZMCC Hasilpur for the live management view.
+    let sourceObj = i === 3
       ? (sources.find((s) => s.code === 'ZMCC-HASILPUR') || sources[(i - 1) % sources.length])
       : sources[(i - 1) % sources.length];
 
@@ -446,8 +429,8 @@ export async function seedOperationalData() {
         ? (portionDecision === 'REJECTED' ? 'REJECTED' : 'UNLOADED')
         : (targetStatus === 'PLANT_QA' ? 'UNDER_TEST' : targetStatus);
 
-      // QA Manager Review Scenario on Visit 74
-      const isVisit74ManagerReview = i === 74 && pIdx === 1;
+      // QA Manager review scenario on the active QA journey.
+      const isVisit74ManagerReview = i === 3 && pIdx === 1;
 
       const portion = await prisma.visitPortion.create({
         data: {
@@ -539,7 +522,7 @@ export async function seedOperationalData() {
       // Plant Lab Results (for processed visits)
       if (targetStatus !== 'TOKEN_ISSUED') {
         const isPlantReject = portionDecision === 'REJECTED';
-        const isVisit74 = i === 74;
+        const isVisit74 = i === 3;
         const plantFat = isVisit74 ? 3.40 : (isPlantReject ? 2.5 : fatVal);
         const plantLr = isPlantReject ? 24.0 : lrVal;
 

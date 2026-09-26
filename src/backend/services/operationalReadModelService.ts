@@ -1,5 +1,6 @@
 import { prisma } from '../core/db';
 import { MilkProcessLog, User, ProcessStatus, PortionLabTestResult } from '../core/types';
+import { vehicleVisitPaperIdentity } from '../modules/paper-references';
 import { PLANT_TIMEZONE, isValidDateOnly, parseStrictDateOnly } from '@/lib/datetime-utils';
 import { getOperationalBusinessDate, getPakistanCalendarDate } from '../core/business-day';
 import {
@@ -532,6 +533,8 @@ export function mapVisitToLogs(
       vehicle_number: visit.vehicle_number || '',
       portion_number: portionStr,
       token_number: visit.token_number || null,
+      raw_milk_dispatch_note_number: visit.raw_milk_dispatch_note_number || null,
+      identifiers: vehicleVisitPaperIdentity(visit),
       zonal_contractor_name: sourceName,
       status: (visit.current_status as ProcessStatus) || 'DISPATCHED',
       business_date: finalizedBusinessDate,

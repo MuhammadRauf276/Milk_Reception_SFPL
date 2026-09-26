@@ -69,7 +69,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
   }, []);
 
   const [dbDispatches, setDbDispatches] = useState<DispatchRecord[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Date Filter State
   const [dateRange, setDateRange] = useState<'today' | '7d' | '30d' | 'custom'>('7d');
@@ -126,8 +126,10 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
   };
 
   useEffect(() => {
-    fetchDbDispatches(1, dateRange);
-  }, [dateRange]);
+    if (activeTab === 'recent') {
+      fetchDbDispatches(1, dateRange);
+    }
+  }, [activeTab, dateRange]);
 
   const handleRangeChange = (newRange: 'today' | '7d' | '30d' | 'custom') => {
     setDateRange(newRange);
@@ -193,7 +195,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
           <span>Recent Dispatches</span>
           {pagination.totalRecords > 0 && (
             <span
-              className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+              className={`px-2 py-0.5 rounded-full text-xs font-mono font-bold ${
                 activeTab === 'recent' ? 'bg-blue-900 text-white' : 'bg-[#F4EFE3] text-slate-700 border border-[#C4B9A3]'
               }`}
             >
@@ -357,47 +359,47 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
                           {log.vehicle_number}
                         </span>
                         <div className="flex items-center space-x-1.5 mt-0.5">
-                          <span className="px-2 py-0.5 rounded-lg text-[10px] font-black bg-[#F4EFE3] border border-[#C4B9A3] font-mono">
+                          <span className="px-2 py-0.5 rounded-lg text-xs font-bold bg-[#F4EFE3] border border-[#C4B9A3] font-mono">
                             {log.portion_count} Portion{log.portion_count > 1 ? 's' : ''}
                           </span>
                           {log.raw_milk_dispatch_note_number && (
-                            <span className="px-2 py-0.5 rounded-lg text-[10px] font-black bg-blue-50 border border-blue-200 text-blue-800 font-mono">
+                            <span className="px-2 py-0.5 rounded-lg text-xs font-bold bg-blue-50 border border-blue-200 text-blue-800 font-mono">
                               Note: {log.raw_milk_dispatch_note_number}
                             </span>
                           )}
-                          <span className="text-[11px] font-medium text-slate-600">
+                          <span className="text-xs font-medium text-slate-600">
                             {log.zonal_contractor_name}
                           </span>
                         </div>
                       </div>
                     </div>
 
-                    <span className="px-3 py-1 rounded-full text-[10px] font-extrabold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300 font-mono">
+                    <span className="px-3 py-1 rounded-full text-xs font-bold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300 font-mono">
                       Dispatched
                     </span>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-[#F4EFE3]/70 border border-[#C4B9A3] text-xs font-mono font-bold">
                     <div>
-                      <span className="text-slate-500 font-sans block text-[9.5px]">Vehicle Quantity</span>
+                      <span className="text-slate-500 font-sans block text-xs font-semibold">Vehicle Quantity</span>
                       <span className="text-slate-900 font-black text-sm">
                         {log.vehicle_dispatch_quantity_value != null && log.vehicle_dispatch_quantity_unit
                           ? `${Number(log.vehicle_dispatch_quantity_value).toLocaleString()} ${log.vehicle_dispatch_quantity_unit}`
                           : '—'}
                       </span>
                       {log.vehicle_dispatch_quantity_unit === 'KG' && log.vehicle_dispatch_gross_liters != null && (
-                        <span className="text-[10px] text-blue-700 block font-mono font-bold">
+                        <span className="text-xs text-blue-700 block font-mono font-bold">
                           {Number(log.vehicle_dispatch_gross_liters).toLocaleString()} Gross L
                         </span>
                       )}
                       {log.vehicle_dispatch_at_13ts_liters != null && (
-                        <span className="text-[10px] text-emerald-700 block font-mono font-bold">
+                        <span className="text-xs text-emerald-700 block font-mono font-bold">
                           {Number(log.vehicle_dispatch_at_13ts_liters).toLocaleString()} L @13% TS
                         </span>
                       )}
                     </div>
                     <div>
-                      <span className="text-slate-500 font-sans block text-[9.5px]">Dispatch Date</span>
+                      <span className="text-slate-500 font-sans block text-xs font-semibold">Dispatch Date</span>
                       <span className="text-slate-900 font-black text-sm">
                         {log.dispatch_date || '—'}
                       </span>

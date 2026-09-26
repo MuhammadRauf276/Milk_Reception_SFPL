@@ -358,9 +358,6 @@ export const HierarchicalNavDrawer: React.FC<HierarchicalNavDrawerProps> = ({
             <span className="truncate font-medium">
               {currentUser?.name || 'Operator'}
             </span>
-            <span className="font-mono text-[10px] text-slate-400">
-              v6G-E
-            </span>
           </div>
         </div>
       </aside>

@@ -79,7 +79,7 @@ This document records the authoritative business rules approved for the Milk Rec
   - `SNF = LR / 4 + 0.22 * Fat + 0.72`
   - `TS = Fat + SNF`
   - `SNF:Fat Ratio = SNF / Fat`
-- **Portion Scope**: Quality calculations remain portion-wise. No whole-vehicle LR/Fat/Density/SNF/TS averaging is introduced in 4C-5.
+- **Portion Scope**: Quality calculations remain portion-wise. Whole-vehicle LR and Fat for multi-portion vehicles will be calculated using a Simple Arithmetic Average of the portion tests. This average is then applied to the Measured Whole-Vehicle Quantity.
 
 ---
 

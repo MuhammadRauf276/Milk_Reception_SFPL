@@ -16,7 +16,7 @@ export default function SuperAdminMotOperationsPage() {
         const res = await fetch('/api/auth/me');
         if (res.ok) {
           const data = await res.json();
-          if (!data.user || data.user.role !== 'SUPER_ADMIN') {
+          if (!data.user || !['SUPER_ADMIN', 'SYSTEM_ADMIN', 'EXECUTIVE_MANAGEMENT', 'DATA_EXECUTIVE', 'ADMIN_HEAD', 'PRODUCTION_HEAD', 'FINANCE_ACCOUNTS', 'Admin', 'Management'].includes(data.user.role)) {
             router.push('/login');
             return;
           }

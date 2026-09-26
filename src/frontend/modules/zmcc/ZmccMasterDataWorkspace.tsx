@@ -19,6 +19,7 @@ import {
   ChevronRight,
   Filter,
   Users,
+  Truck,
 } from 'lucide-react';
 
 export type MasterDataTab = 'LOCAL_SUPPLIERS' | 'ROUTES' | 'AREAS' | 'MILK_SOURCES' | 'SHOPS' | 'CHILLER_OWNERSHIP' | 'TANKS';
@@ -200,6 +201,11 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
   const [sources, setSources] = useState<ZmccSource[]>([]);
   const [selectedZmccId, setSelectedZmccId] = useState<string>('');
 
+  const currentZmccName =
+    currentUser?.procurement_source?.name ||
+    sources.find((s) => s.id === selectedZmccId)?.name ||
+    'Assigned ZMCC';
+
   // Data states
   const [localSuppliersList, setLocalSuppliersList] = useState<LocalSupplierItem[]>([]);
   const [routes, setRoutes] = useState<RouteItem[]>([]);
@@ -230,6 +236,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
     'CREATE_SHOP' | 'EDIT_SHOP' |
     'CREATE_TANK' | 'EDIT_TANK' |
     'CREATE_LOCAL_SUPPLIER' | 'EDIT_LOCAL_SUPPLIER' |
+    'REGISTER_SUBSTITUTE_VEHICLE' |
     'TOGGLE_ACTIVE' | null
   >(null);
 
@@ -402,7 +409,13 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
     setModalError(null);
     setFormData({});
     if (activeTab === 'LOCAL_SUPPLIERS') setModalType('CREATE_LOCAL_SUPPLIER');
-    if (activeTab === 'ROUTES') setModalType('CREATE_ROUTE');
+    if (activeTab === 'ROUTES') {
+      setFormData({
+        origin: currentZmccName,
+        destination: 'Main Factory Plant',
+      });
+      setModalType('CREATE_ROUTE');
+    }
     if (activeTab === 'AREAS') setModalType('CREATE_AREA');
     if (activeTab === 'MILK_SOURCES') setModalType('CREATE_MILK_SOURCE');
     if (activeTab === 'CHILLER_OWNERSHIP') setModalType('CREATE_CHILLER');
@@ -477,10 +490,9 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
       if (modalType === 'CREATE_ROUTE') {
         url = '/api/zmcc/routes';
         body = {
-          route_code: formData.route_code,
           name: formData.name,
-          origin: formData.origin,
-          destination: formData.destination,
+          origin: formData.origin || currentZmccName,
+          destination: formData.destination || 'Main Factory Plant',
           zmcc_id: isSuperAdmin ? selectedZmccId : undefined,
         };
       } else if (modalType === 'EDIT_ROUTE') {
@@ -494,7 +506,6 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
       } else if (modalType === 'CREATE_AREA') {
         url = '/api/zmcc/areas';
         body = {
-          area_code: formData.area_code,
           name: formData.name,
           route_id: formData.route_id,
         };
@@ -526,7 +537,6 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
       } else if (modalType === 'CREATE_SHOP') {
         url = '/api/zmcc/shops';
         body = {
-          shop_code: formData.shop_code,
           shop_name: formData.shop_name,
           owner_name: formData.owner_name,
           phone_number: formData.phone_number,
@@ -558,6 +568,18 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
           phone: formData.phone || undefined,
           cnic: formData.cnic || undefined,
           erp_reference: formData.erp_reference || undefined,
+          milk_source_id: formData.milk_source_id && formData.milk_source_id !== 'UNKNOWN_ERP' ? formData.milk_source_id : undefined,
+          zmcc_id: isSuperAdmin ? selectedZmccId : undefined,
+        };
+      } else if (modalType === 'REGISTER_SUBSTITUTE_VEHICLE') {
+        url = '/api/zmcc/mot/vehicles';
+        body = {
+          vehicle_number: formData.vehicle_number,
+          vehicle_type: formData.vehicle_type,
+          capacity_liters: Number(formData.capacity_liters),
+          driver_name: formData.driver_name,
+          driver_phone: formData.driver_phone,
+          category: 'EMERGENCY_SUBSTITUTE',
           zmcc_id: isSuperAdmin ? selectedZmccId : undefined,
         };
       } else if (modalType === 'EDIT_LOCAL_SUPPLIER') {
@@ -614,18 +636,12 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
       closeModal();
       loadData();
       loadHelperData();
-    } catch (err: any) {
-      setModalError(err.message || 'An error occurred.');
+    } catch (err: unknown) {
+      setModalError(err instanceof Error ? err.message : 'An error occurred.');
     } finally {
       setIsSubmitting(false);
     }
   };
-
-  // Find assigned ZMCC name for ZMCC Manager / PHE Operator
-  const currentZmccName =
-    currentUser?.procurement_source?.name ||
-    sources.find((s) => s.id === selectedZmccId)?.name ||
-    'Assigned ZMCC';
 
   return (
     <div className="space-y-6 max-w-full overflow-x-hidden">
@@ -828,6 +844,25 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
             </span>
           </button>
         )}
+
+        {/* Pakistani Emergency Substitute Vehicle Registration */}
+        {(isSuperAdmin || isZmccManager) && (
+          <button
+            type="button"
+            onClick={() => {
+              setModalError(null);
+              setFormData({
+                vehicle_type: 'SUZUKI_PICKUP',
+                category: 'EMERGENCY_SUBSTITUTE',
+              });
+              setModalType('REGISTER_SUBSTITUTE_VEHICLE');
+            }}
+            className="flex items-center justify-center gap-2 px-4 py-2 min-h-[44px] bg-amber-600 text-white rounded-xl text-xs font-extrabold hover:bg-amber-700 transition shadow-xs shrink-0"
+          >
+            <Truck className="w-4 h-4" />
+            <span>Register Substitute Vehicle</span>
+          </button>
+        )}
       </div>
 
       {/* Main Content Table */}
@@ -842,7 +877,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
             {activeTab === 'LOCAL_SUPPLIERS' && (
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="bg-[#FDFBF9] border-b border-[#EAE4D5] text-slate-600 font-black uppercase text-[10px] tracking-wider">
+                  <tr className="bg-[#FDFBF9] border-b border-[#EAE4D5] text-slate-600 font-black uppercase text-xs tracking-wider">
                     <th className="py-3 px-4">Supplier Code</th>
                     <th className="py-3 px-4">Supplier Name</th>
                     <th className="py-3 px-4">Phone</th>
@@ -877,13 +912,13 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
                           )}
                         </td>
                         <td className="py-3 px-4 text-center">
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-50 text-amber-700 border border-amber-200">
+                          <span className="px-2 py-0.5 rounded-full text-xs font-black uppercase bg-amber-50 text-amber-700 border border-amber-200">
                             {s.erp_mapping_status || 'PENDING'}
                           </span>
                         </td>
                         <td className="py-3 px-4 text-center">
                           <span
-                            className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
+                            className={`px-2.5 py-1 rounded-full text-xs font-black uppercase ${
                               s.is_active
                                 ? 'bg-emerald-100 text-emerald-800'
                                 : 'bg-rose-100 text-rose-800'
@@ -930,7 +965,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
             {activeTab === 'ROUTES' && (
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="bg-[#FDFBF9] border-b border-[#EAE4D5] text-slate-600 font-black uppercase text-[10px] tracking-wider">
+                  <tr className="bg-[#FDFBF9] border-b border-[#EAE4D5] text-slate-600 font-black uppercase text-xs tracking-wider">
                     <th className="py-3 px-4">Route Code</th>
                     <th className="py-3 px-4">Route Name</th>
                     <th className="py-3 px-4">Origin</th>
@@ -957,7 +992,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
                         <td className="py-3 px-4 text-center font-bold font-mono">{(r as any).area_count || 0}</td>
                         <td className="py-3 px-4 text-center">
                           <span
-                            className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
+                            className={`px-2.5 py-1 rounded-full text-xs font-black uppercase ${
                               r.is_active
                                 ? 'bg-emerald-100 text-emerald-800'
                                 : 'bg-rose-100 text-rose-800'
@@ -1000,7 +1035,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
             {activeTab === 'AREAS' && (
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="bg-[#FDFBF9] border-b border-[#EAE4D5] text-slate-600 font-black uppercase text-[10px] tracking-wider">
+                  <tr className="bg-[#FDFBF9] border-b border-[#EAE4D5] text-slate-600 font-black uppercase text-xs tracking-wider">
                     <th className="py-3 px-4">Area Code</th>
                     <th className="py-3 px-4">Area Name</th>
                     <th className="py-3 px-4">Route</th>
@@ -1022,12 +1057,12 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
                         <td className="py-3 px-4 font-mono font-black text-[#111311]">{a.area_code}</td>
                         <td className="py-3 px-4 font-extrabold text-[#111311]">{a.name}</td>
                         <td className="py-3 px-4 text-slate-600">
-                          {a.route.name} <span className="text-[10px] font-mono text-slate-400">({a.route.route_code})</span>
+                          {a.route.name} <span className="text-xs font-mono text-slate-400">({a.route.route_code})</span>
                         </td>
                         <td className="py-3 px-4 text-center font-bold font-mono">{(a as any).shop_count || 0}</td>
                         <td className="py-3 px-4 text-center">
                           <span
-                            className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
+                            className={`px-2.5 py-1 rounded-full text-xs font-black uppercase ${
                               a.is_active
                                 ? 'bg-emerald-100 text-emerald-800'
                                 : 'bg-rose-100 text-rose-800'
@@ -1070,7 +1105,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
             {activeTab === 'MILK_SOURCES' && (
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="bg-[#FDFBF9] border-b border-[#EAE4D5] text-slate-600 font-black uppercase text-[10px] tracking-wider">
+                  <tr className="bg-[#FDFBF9] border-b border-[#EAE4D5] text-slate-600 font-black uppercase text-xs tracking-wider">
                     <th className="py-3 px-4">ERP Code</th>
                     <th className="py-3 px-4">Source Name</th>
                     <th className="py-3 px-4 text-center">Shops</th>
@@ -1093,7 +1128,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
                         <td className="py-3 px-4 text-center font-bold font-mono">{(ms as any).shop_count || 0}</td>
                         <td className="py-3 px-4 text-center">
                           <span
-                            className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
+                            className={`px-2.5 py-1 rounded-full text-xs font-black uppercase ${
                               ms.is_active
                                 ? 'bg-emerald-100 text-emerald-800'
                                 : 'bg-rose-100 text-rose-800'
@@ -1136,7 +1171,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
             {activeTab === 'CHILLER_OWNERSHIP' && (
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="bg-[#FDFBF9] border-b border-[#EAE4D5] text-slate-600 font-black uppercase text-[10px] tracking-wider">
+                  <tr className="bg-[#FDFBF9] border-b border-[#EAE4D5] text-slate-600 font-black uppercase text-xs tracking-wider">
                     <th className="py-3 px-4">Ownership Code</th>
                     <th className="py-3 px-4">Owner / Brand Name</th>
                     <th className="py-3 px-4 text-center">Shops Assigned</th>
@@ -1159,7 +1194,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
                         <td className="py-3 px-4 text-center font-bold font-mono">{(co as any).shop_count || 0}</td>
                         <td className="py-3 px-4 text-center">
                           <span
-                            className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
+                            className={`px-2.5 py-1 rounded-full text-xs font-black uppercase ${
                               co.is_active
                                 ? 'bg-emerald-100 text-emerald-800'
                                 : 'bg-rose-100 text-rose-800'
@@ -1202,7 +1237,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
             {activeTab === 'SHOPS' && (
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="bg-[#FDFBF9] border-b border-[#EAE4D5] text-slate-600 font-black uppercase text-[10px] tracking-wider">
+                  <tr className="bg-[#FDFBF9] border-b border-[#EAE4D5] text-slate-600 font-black uppercase text-xs tracking-wider">
                     <th className="py-3 px-4">Shop Code</th>
                     <th className="py-3 px-4">Shop Name</th>
                     <th className="py-3 px-4">Owner / Contractor</th>
@@ -1228,21 +1263,21 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
                         <td className="py-3 px-4 font-extrabold text-[#111311]">{s.shop_name}</td>
                         <td className="py-3 px-4 font-medium text-slate-700">
                           <div>{s.owner_name}</div>
-                          <div className="font-mono text-[10px] text-slate-400">{s.cnic}</div>
+                          <div className="font-mono text-xs text-slate-400">{s.cnic}</div>
                         </td>
                         <td className="py-3 px-4 font-mono text-slate-600">{s.phone_number}</td>
                         <td className="py-3 px-4 text-slate-700">
                           <div>{s.area.name}</div>
-                          <div className="text-[10px] font-mono text-slate-400">Area: {s.area.area_code}</div>
+                          <div className="text-xs font-mono text-slate-400">Area: {s.area.area_code}</div>
                         </td>
                         <td className="py-3 px-4 text-slate-700 font-medium">
                           <div>{s.milk_source.name}</div>
-                          <div className="text-[10px] font-mono text-slate-400">{s.milk_source.erp_code}</div>
+                          <div className="text-xs font-mono text-slate-400">{s.milk_source.erp_code}</div>
                         </td>
                         <td className="py-3 px-4 text-slate-700 font-medium">{s.chiller_ownership.name}</td>
                         <td className="py-3 px-4 text-center">
                           <span
-                            className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
+                            className={`px-2.5 py-1 rounded-full text-xs font-black uppercase ${
                               s.is_active
                                 ? 'bg-emerald-100 text-emerald-800'
                                 : 'bg-rose-100 text-rose-800'
@@ -1285,7 +1320,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
             {activeTab === 'TANKS' && (
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="bg-[#FDFBF9] border-b border-[#EAE4D5] text-slate-600 font-black uppercase text-[10px] tracking-wider">
+                  <tr className="bg-[#FDFBF9] border-b border-[#EAE4D5] text-slate-600 font-black uppercase text-xs tracking-wider">
                     <th className="py-3 px-4">Tank Code</th>
                     <th className="py-3 px-4">Tank Name</th>
                     <th className="py-3 px-4 text-right">Capacity (L)</th>
@@ -1312,7 +1347,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
                         <td className="py-3 px-4 text-right font-mono font-bold text-emerald-700">{Number(tank.available_capacity).toFixed(2)} L</td>
                         <td className="py-3 px-4 text-center">
                           <span
-                            className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
+                            className={`px-2.5 py-1 rounded-full text-xs font-black uppercase ${
                               tank.is_active
                                 ? 'bg-emerald-100 text-emerald-800'
                                 : 'bg-rose-100 text-rose-800'
@@ -1382,6 +1417,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
                 {modalType === 'EDIT_SHOP' && `Edit Shop: ${activeRecord?.shop_code}`}
                 {modalType === 'CREATE_TANK' && 'Create ZMCC Tank'}
                 {modalType === 'EDIT_TANK' && `Edit Tank: ${activeRecord?.tank_code}`}
+                {modalType === 'REGISTER_SUBSTITUTE_VEHICLE' && 'Register Emergency Substitute Vehicle'}
                 {modalType === 'TOGGLE_ACTIVE' &&
                   (activeRecord?.is_active ? 'Confirm Deactivation' : 'Confirm Activation')}
               </h2>
@@ -1406,6 +1442,14 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
               {/* Local Supplier Form */}
               {(modalType === 'CREATE_LOCAL_SUPPLIER' || modalType === 'EDIT_LOCAL_SUPPLIER') && (
                 <div className="space-y-3">
+                  {modalType === 'CREATE_LOCAL_SUPPLIER' && (
+                    <div>
+                      <label className="block text-xs font-black uppercase text-slate-600 mb-1">Local Supplier Code</label>
+                      <div className="inline-flex items-center px-3 py-1.5 rounded-lg bg-slate-100 border border-slate-200 text-slate-600 font-mono text-xs font-bold">
+                        [ Auto-generated by system ]
+                      </div>
+                    </div>
+                  )}
                   {modalType === 'EDIT_LOCAL_SUPPLIER' && (
                     <div className="bg-slate-50 p-3 rounded-xl border border-[#EAE4D5] text-xs space-y-1">
                       <div className="flex justify-between">
@@ -1414,7 +1458,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
                       </div>
                       <div className="flex justify-between">
                         <span className="font-bold text-slate-500">ERP Mapping Status:</span>
-                        <span className="font-black text-amber-700 bg-amber-50 px-2 py-0.5 rounded text-[10px] uppercase border border-amber-200">
+                        <span className="font-black text-amber-700 bg-amber-50 px-2 py-0.5 rounded text-xs uppercase border border-amber-200">
                           {activeRecord?.erp_mapping_status || 'PENDING'}
                         </span>
                       </div>
@@ -1439,10 +1483,11 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-black uppercase text-slate-600 mb-1">
-                        Phone Number (Optional)
+                        Phone Number *
                       </label>
                       <input
                         type="text"
+                        required
                         maxLength={50}
                         value={formData.phone || ''}
                         onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
@@ -1452,10 +1497,11 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
                     </div>
                     <div>
                       <label className="block text-xs font-black uppercase text-slate-600 mb-1">
-                        CNIC (Optional)
+                        CNIC *
                       </label>
                       <input
                         type="text"
+                        required
                         maxLength={50}
                         value={formData.cnic || ''}
                         onChange={(e) => setFormData({ ...formData, cnic: e.target.value })}
@@ -1464,6 +1510,30 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
                       />
                     </div>
                   </div>
+
+                  {modalType === 'CREATE_LOCAL_SUPPLIER' && (
+                    <div>
+                      <label className="block text-xs font-black uppercase text-slate-600 mb-1">
+                        Milk Source
+                      </label>
+                      <select
+                        value={formData.milk_source_id || ''}
+                        onChange={(e) => setFormData({ ...formData, milk_source_id: e.target.value })}
+                        className="w-full px-3 py-2 border border-[#EAE4D5] rounded-xl text-xs font-bold focus:ring-2 focus:ring-[#1E3A8A]"
+                      >
+                        <option value="">Select Milk Source...</option>
+                        <option value="UNKNOWN_ERP">[+ New / Unknown ERP Source]</option>
+                        {helperMilkSources.map((ms) => (
+                          <option key={ms.id} value={ms.id}>
+                            {ms.name} ({ms.erp_code})
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-[11px] text-slate-500 font-medium mt-1">
+                        Non-blocking intake: If ERP source is not yet mapped, select &quot;[+ New / Unknown ERP Source]&quot; to permit immediate milk delivery.
+                      </p>
+                    </div>
+                  )}
 
                   <div>
                     <label className="block text-xs font-black uppercase text-slate-600 mb-1">
@@ -1490,14 +1560,9 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
                   {modalType === 'CREATE_ROUTE' && (
                     <div>
                       <label className="block text-xs font-black uppercase text-slate-600 mb-1">Route Code</label>
-                      <input
-                        type="text"
-                        required
-                        value={formData.route_code || ''}
-                        onChange={(e) => setFormData({ ...formData, route_code: e.target.value.toUpperCase() })}
-                        placeholder="e.g. RT-NORTH-01"
-                        className="w-full px-3 py-2 border border-[#EAE4D5] rounded-xl text-xs font-mono font-bold uppercase focus:ring-2 focus:ring-[#1E3A8A]"
-                      />
+                      <div className="inline-flex items-center px-3 py-1.5 rounded-lg bg-slate-100 border border-slate-200 text-slate-600 font-mono text-xs font-bold">
+                        [ Auto-generated by system ]
+                      </div>
                     </div>
                   )}
                   <div>
@@ -1561,14 +1626,9 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
                       </div>
                       <div>
                         <label className="block text-xs font-black uppercase text-slate-600 mb-1">Area Code</label>
-                        <input
-                          type="text"
-                          required
-                          value={formData.area_code || ''}
-                          onChange={(e) => setFormData({ ...formData, area_code: e.target.value.toUpperCase() })}
-                          placeholder="e.g. AR-JHG-01"
-                          className="w-full px-3 py-2 border border-[#EAE4D5] rounded-xl text-xs font-mono font-bold uppercase focus:ring-2 focus:ring-[#1E3A8A]"
-                        />
+                        <div className="inline-flex items-center px-3 py-1.5 rounded-lg bg-slate-100 border border-slate-200 text-slate-600 font-mono text-xs font-bold">
+                          [ Auto-generated by system ]
+                        </div>
                       </div>
                     </>
                   )}
@@ -1652,14 +1712,9 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
                   {modalType === 'CREATE_SHOP' && (
                     <div>
                       <label className="block text-xs font-black uppercase text-slate-600 mb-1">Shop Code</label>
-                      <input
-                        type="text"
-                        required
-                        value={formData.shop_code || ''}
-                        onChange={(e) => setFormData({ ...formData, shop_code: e.target.value.toUpperCase() })}
-                        placeholder="e.g. SHP-101"
-                        className="w-full px-3 py-2 border border-[#EAE4D5] rounded-xl text-xs font-mono font-bold uppercase focus:ring-2 focus:ring-[#1E3A8A]"
-                      />
+                      <div className="inline-flex items-center px-3 py-1.5 rounded-lg bg-slate-100 border border-slate-200 text-slate-600 font-mono text-xs font-bold">
+                        [ Auto-generated by system ]
+                      </div>
                     </div>
                   )}
 
@@ -1803,7 +1858,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
                   <div className="grid grid-cols-2 gap-3 pt-1 border-t border-[#EAE4D5]">
                     <div>
                       <label className="block text-xs font-black uppercase text-slate-600 mb-1">
-                        Latitude <span className="text-[10px] text-slate-400 font-normal">(-90 to 90)</span>
+                        Latitude <span className="text-xs text-slate-400 font-normal">(-90 to 90)</span>
                       </label>
                       <input
                         type="number"
@@ -1816,7 +1871,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
                     </div>
                     <div>
                       <label className="block text-xs font-black uppercase text-slate-600 mb-1">
-                        Longitude <span className="text-[10px] text-slate-400 font-normal">(-180 to 180)</span>
+                        Longitude <span className="text-xs text-slate-400 font-normal">(-180 to 180)</span>
                       </label>
                       <input
                         type="number"
@@ -1871,6 +1926,99 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
                       placeholder="e.g. 5000"
                       className="w-full px-3 py-2 border border-[#EAE4D5] rounded-xl text-xs font-mono font-bold focus:ring-2 focus:ring-[#1E3A8A]"
                     />
+                  </div>
+                </div>
+              )}
+
+              {/* Pakistani Emergency Substitute Vehicle Form */}
+              {modalType === 'REGISTER_SUBSTITUTE_VEHICLE' && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-black uppercase text-slate-600 mb-1">
+                      Registration Plate *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.vehicle_number || ''}
+                      onChange={(e) => setFormData({ ...formData, vehicle_number: e.target.value.toUpperCase() })}
+                      placeholder="e.g. LEA-8921, FSD-4019, ICT-202"
+                      className="w-full px-3 py-2 border border-[#EAE4D5] rounded-xl text-xs font-mono font-bold uppercase focus:ring-2 focus:ring-[#1E3A8A]"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-black uppercase text-slate-600 mb-1">
+                        Vehicle Type *
+                      </label>
+                      <select
+                        required
+                        value={formData.vehicle_type || 'SUZUKI_PICKUP'}
+                        onChange={(e) => setFormData({ ...formData, vehicle_type: e.target.value })}
+                        className="w-full px-3 py-2 border border-[#EAE4D5] rounded-xl text-xs font-bold focus:ring-2 focus:ring-[#1E3A8A]"
+                      >
+                        <option value="SUZUKI_PICKUP">Suzuki Pickup (Ravi / Bolan)</option>
+                        <option value="MINI_TRUCK">Mini Truck (Shehzore / Forland)</option>
+                        <option value="MEDIUM_TRUCK">Medium Truck (Mazda / Isuzu)</option>
+                        <option value="INSULATED_TANKER">Insulated Tanker</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-black uppercase text-slate-600 mb-1">
+                        Tank / Drum Capacity (Liters) *
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="1"
+                        required
+                        value={formData.capacity_liters ?? ''}
+                        onChange={(e) => setFormData({ ...formData, capacity_liters: e.target.value })}
+                        placeholder="e.g. 1500"
+                        className="w-full px-3 py-2 border border-[#EAE4D5] rounded-xl text-xs font-mono font-bold focus:ring-2 focus:ring-[#1E3A8A]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-black uppercase text-slate-600 mb-1">
+                        Driver Name *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.driver_name || ''}
+                        onChange={(e) => setFormData({ ...formData, driver_name: e.target.value })}
+                        placeholder="e.g. Muhammad Asif"
+                        className="w-full px-3 py-2 border border-[#EAE4D5] rounded-xl text-xs font-bold focus:ring-2 focus:ring-[#1E3A8A]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-black uppercase text-slate-600 mb-1">
+                        Driver Phone Number *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.driver_phone || ''}
+                        onChange={(e) => setFormData({ ...formData, driver_phone: e.target.value })}
+                        placeholder="03001234567"
+                        className="w-full px-3 py-2 border border-[#EAE4D5] rounded-xl text-xs font-mono font-bold focus:ring-2 focus:ring-[#1E3A8A]"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-black uppercase text-slate-600 mb-1">
+                      Category
+                    </label>
+                    <div className="inline-flex items-center px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 font-mono text-xs font-bold">
+                      EMERGENCY_SUBSTITUTE
+                    </div>
                   </div>
                 </div>
               )}

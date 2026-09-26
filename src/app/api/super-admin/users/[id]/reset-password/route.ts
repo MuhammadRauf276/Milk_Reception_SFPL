@@ -69,6 +69,8 @@ export async function POST(
           user_id: adminUser?.id || null,
         },
       });
+      const revoked = await tx.pushSubscription.updateMany({ where: { user_id: targetUserId, revoked_at: null }, data: { revoked_at: new Date() } });
+      if (revoked.count) await tx.auditLog.create({ data: { table_name: 'push_subscription', record_id: targetUserId, action: 'PUSH_SUBSCRIPTIONS_REVOKED_ON_PASSWORD_RESET', new_values: { revoked_count: revoked.count }, user_id: adminUser?.id || null } });
     });
 
     return NextResponse.json({ success: true, message: `Password reset successfully for user "${targetUser.username}".` });

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef, Suspense, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ProductionUnloadingWorkspace, ProductionTab } from '@modules/dashboard/ProductionUnloadingWorkspace';
 import { Header } from '@modules/shared/Header';
@@ -23,7 +23,7 @@ function ProductionDepartmentContent() {
         if (res.ok) {
           const data = await res.json();
           const roleStr = data.user?.role as string;
-          const allowedRoles = ['PRODUCTION_RECEPTION_OPERATOR', 'SUPER_ADMIN'];
+          const allowedRoles = ['PRODUCTION_RECEPTION_OPERATOR', 'PRODUCTION_HEAD', 'SUPER_ADMIN'];
           if (data.user && allowedRoles.includes(roleStr)) {
             setUser(data.user);
             setIsAuthorized(true);
@@ -55,12 +55,6 @@ function ProductionDepartmentContent() {
       ? (tabParam as ProductionTab)
       : 'READY';
 
-  const subpageTitle = useMemo(() => {
-    if (resolvedTab === 'UNLOADING') return 'Active Unloading';
-    if (resolvedTab === 'SILO_ISSUE') return 'Silo Issues / History';
-    return 'Ready for Unloading';
-  }, [resolvedTab]);
-
   if (loading) {
     return (
       <div className="min-h-screen bg-[#FDFBF9] flex items-center justify-center p-8 text-center text-xs font-bold text-slate-500">
@@ -90,20 +84,6 @@ function ProductionDepartmentContent() {
         onClose={closeDrawer}
         triggerButtonRef={hamburgerButtonRef}
       />
-
-      {/* Compact Breadcrumb Header */}
-      <div className="bg-white border-b border-[#EAE4D5] px-4 sm:px-6 py-2 shrink-0 shadow-xs flex items-center justify-between">
-        <nav aria-label="Breadcrumb" className="flex items-center space-x-2 text-xs font-bold text-slate-500">
-          <span>Production</span>
-          <span className="text-slate-300">/</span>
-          <span>Silo Offloading Station</span>
-          <span className="text-slate-300">/</span>
-          <span className="text-[#1E3A8A] font-black">{subpageTitle}</span>
-        </nav>
-        <span className="text-[11px] font-mono text-slate-400">
-          Silo Intake
-        </span>
-      </div>
 
       <main className="flex-1 p-4 sm:p-6 overflow-y-auto w-full max-w-full">
         <ProductionUnloadingWorkspace

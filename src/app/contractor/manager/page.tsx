@@ -87,20 +87,6 @@ function PlantContractorManagerContent() {
         triggerButtonRef={hamburgerButtonRef}
       />
 
-      {/* Compact Breadcrumb Header */}
-      <div className="bg-white border-b border-[#EAE4D5] px-4 sm:px-6 py-2 shrink-0 shadow-xs flex items-center justify-between">
-        <nav aria-label="Breadcrumb" className="flex items-center space-x-2 text-xs font-bold text-slate-500">
-          <span>Plant Contractor</span>
-          <span className="text-slate-300">/</span>
-          <span>Plant Contractor Station</span>
-          <span className="text-slate-300">/</span>
-          <span className="text-[#1E3A8A] font-black">{subpageTitle}</span>
-        </nav>
-        <span className="text-[11px] font-mono text-slate-400">
-          Supplier Station
-        </span>
-      </div>
-
       <main className="flex-1 overflow-y-auto w-full max-w-full flex flex-col">
         <PlantContractorManagerWorkspace
           currentUser={user}

@@ -1,21 +1,25 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
 import { Prisma } from '@prisma/client';
 import { finalizeSiloReceiptForVisit } from '@/backend/services/siloInventoryService';
 import { validatePositiveDecimal } from '@/lib/validation-helpers';
 import { validateOperationalTimestamp } from '@/backend/services/chronology-validator';
+import { requireCapability } from '@/backend/modules/access-control/serverGuard';
+
+const WEIGHBRIDGE_SCOPE = {
+  kind: 'DEPARTMENT',
+  departmentId: 'Production & Weighbridge',
+} as const;
 
 export async function POST(req: Request) {
-  const authUser = await getCurrentUser(req);
-  if (!authUser) {
-    return NextResponse.json({ error: 'Unauthorized. Authentication required.' }, { status: 401 });
+  const access = await requireCapability('SUBMIT', WEIGHBRIDGE_SCOPE, { request: req });
+  if (!access.allowed) {
+    const error = access.status === 401
+      ? 'Unauthorized. Authentication required.'
+      : 'Unauthorized. Weighbridge Operator role required.';
+    return NextResponse.json({ error }, { status: access.status });
   }
-
-  const allowedRoles = ['WEIGHBRIDGE_OPERATOR', 'SUPER_ADMIN'];
-  if (!allowedRoles.includes(authUser.role.toUpperCase())) {
-    return NextResponse.json({ error: 'Unauthorized. Weighbridge Operator role required.' }, { status: 403 });
-  }
+  const authUser = access.user;
 
   let dbUser = await prisma.user.findFirst({
     where: {

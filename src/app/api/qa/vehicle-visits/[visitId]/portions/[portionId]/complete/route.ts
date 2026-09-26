@@ -6,6 +6,7 @@ import { QualityRuleService } from '@/backend/services/qualityRuleService';
 import { validateNonNegativeDecimal } from '@/lib/validation-helpers';
 import { validateOperationalTimestamp } from '@/backend/services/chronology-validator';
 import { getOrAssignPlantQATests } from '@/backend/services/labTestAssignmentService';
+import { createNotificationsForEvent } from '@/backend/services/notificationService';
 
 class RouteError extends Error {
   statusCode: number;
@@ -53,6 +54,7 @@ export async function POST(
 
     const body = await req.json();
     const validated = completeQATestSchema.parse(body);
+    const completionEventId = validated.completionClientEventId || `plant-qa-${visitIdStr}-${portionIdStr}-${Date.now()}`;
 
     const portion = await prisma.visitPortion.findFirst({
       where: { id: portionId, visit_id: visitId },
@@ -63,11 +65,14 @@ export async function POST(
     }
 
     if (portion.plant_decision === 'ACCEPTED' || portion.plant_decision === 'REJECTED') {
+      if (portion.completion_client_event_id === completionEventId) {
+        return NextResponse.json({ success: true, idempotent: true, portionId: portionIdStr, plantDecision: portion.plant_decision });
+      }
       return NextResponse.json({ error: 'Portion testing has already been completed and finalized.' }, { status: 409 });
     }
 
     const explicitDecision = validated.decision;
-    const rejectionReasonInput = (validated.rejectionReason || '').trim();
+    const rejectionReasonInput = (validated.exceptionReason || validated.exception_reason || validated.rejectionReason || '').trim();
     const rejectionRemarksInput = (validated.rejectionRemarks || '').trim();
 
     // Load assigned Plant QA test snapshot for this visit
@@ -95,13 +100,6 @@ export async function POST(
         );
       }
 
-      if (!rejectionReasonInput) {
-        return NextResponse.json({ error: 'Rejection reason is required.' }, { status: 400 });
-      }
-
-      if (!rejectionRemarksInput) {
-        return NextResponse.json({ error: 'Rejection remarks are required.' }, { status: 400 });
-      }
     } else {
       // Operator is attempting to ACCEPT:
       // ALL assigned required manual tests must be PERFORMED with valid inputs.
@@ -168,6 +166,7 @@ export async function POST(
       }
 
       if (lockedPortion.plant_decision === 'ACCEPTED' || lockedPortion.plant_decision === 'REJECTED') {
+        if (lockedPortion.completion_client_event_id === completionEventId) return;
         throw new RouteError('Portion testing has already been completed and finalized.', 409);
       }
 
@@ -284,6 +283,15 @@ export async function POST(
         }))
       );
 
+      if (['RULE_CONFIGURATION_ERROR', 'NO_ACTIVE_RULE'].includes(systemQualityOutcome)) {
+        throw new RouteError('Laboratory rule configuration is incomplete or invalid. QA completion is blocked.', 422);
+      }
+      const systemRecommendation = ['PASS', 'WARNING', 'NEUTRAL'].includes(systemQualityOutcome) ? 'ACCEPTED' : 'REJECTED';
+      const isAttendantException = explicitDecision !== systemRecommendation;
+      if (isAttendantException && !rejectionReasonInput) {
+        throw new RouteError('A reason is required when the QA Lab Attendant decision differs from the system result.', 400);
+      }
+
       // 6. Upsert submitted PlantLabResult rows with rule linkages
       for (const entry of evaluationEntries) {
         const existing = await tx.plantLabResult.findFirst({
@@ -383,8 +391,8 @@ export async function POST(
 
       // 8. Determine Portion Decision & Manager Review Escalation
       // Business Rule: Lab Attendant does NOT make the final accept/reject decision when system release outcome is OUT_OF_SPEC.
-      if (systemQualityOutcome === 'OUT_OF_SPEC') {
-        // Automatic escalation to QA Manager Review Workflow
+      if (isAttendantException) {
+        // Only a disagreement between the system and QA Lab Attendant requires QA Manager review.
         finalPlantDecision = 'PENDING';
         finalManagerReviewStatus = 'PENDING';
 
@@ -393,12 +401,13 @@ export async function POST(
           data: {
             plant_decision: 'PENDING',
             current_status: 'UNDER_TEST',
-            system_quality_outcome: 'OUT_OF_SPEC',
+            system_quality_outcome: systemQualityOutcome,
             manager_review_status: 'PENDING',
-            manager_requested_decision: 'SYSTEM_OUT_OF_SPEC',
+            manager_requested_decision: explicitDecision,
             manager_review_requested_by_user_id: userIdBigInt,
             manager_review_requested_at: targetOpTs,
-            manager_review_reason: 'SYSTEM_OUT_OF_SPEC: automatic escalation for out-of-spec test results',
+            manager_review_reason: rejectionReasonInput,
+            completion_client_event_id: completionEventId,
           },
         });
 
@@ -409,10 +418,16 @@ export async function POST(
               event_type: 'HOLD',
               timestamp: targetOpTs,
               user_id: userIdBigInt,
-              note: `Portion #${lockedPortion.portion_number} quality outcome is OUT_OF_SPEC; escalated to QA Manager review.`,
+              note: `Portion #${lockedPortion.portion_number} attendant decision ${explicitDecision} differs from system outcome ${systemQualityOutcome}; escalated to QA Manager review.`,
             },
           });
         }
+        await createNotificationsForEvent(tx, {
+          eventKey: 'PLANT_QA_EXCEPTION_PENDING', sourceId: portionId.toString(),
+          title: 'Plant QA exception needs review',
+          body: `Vehicle visit ${lockedPortion.visit_id.toString()} portion ${lockedPortion.portion_number} differs from the system quality recommendation.`,
+          deepLink: '/department/qa-manager', dedupeSuffix: `${portionId}:${completionEventId}`,
+        });
       } else if (isOperatorRejecting) {
         // Manual rejection of otherwise conforming milk
         finalPlantDecision = 'REJECTED';
@@ -428,6 +443,7 @@ export async function POST(
             plant_rejection_reason: rejectionReasonInput,
             plant_decided_by: userIdBigInt,
             plant_decided_at: targetOpTs,
+            completion_client_event_id: completionEventId,
           },
         });
 
@@ -484,6 +500,7 @@ export async function POST(
             manager_review_status: 'NONE',
             plant_decided_by: userIdBigInt,
             plant_decided_at: targetOpTs,
+            completion_client_event_id: completionEventId,
           },
         });
 
@@ -563,7 +580,7 @@ export async function POST(
       systemQualityOutcome,
       message:
         finalManagerReviewStatus === 'PENDING'
-          ? `Portion #${lockedPortionRecord?.portion_number ?? portion.portion_number} submitted. Escalated to QA Manager for review due to OUT_OF_SPEC quality outcome.`
+          ? `Portion #${lockedPortionRecord?.portion_number ?? portion.portion_number} submitted. Escalated to QA Manager because the attendant decision differs from the system result.`
           : `Portion #${lockedPortionRecord?.portion_number ?? portion.portion_number} testing completed. Decision: ${finalPlantDecision}.`,
     });
   } catch (error: any) {

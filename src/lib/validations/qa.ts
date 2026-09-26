@@ -13,6 +13,9 @@ export const completeQATestSchema = z.object({
   decision: z.enum(['ACCEPTED', 'REJECTED']).optional(),
   rejectionReason: z.string().nullable().optional(),
   rejectionRemarks: z.string().nullable().optional(),
+  exceptionReason: z.string().nullable().optional(),
+  exception_reason: z.string().nullable().optional(),
+  completionClientEventId: z.string().trim().min(1).max(255).optional(),
   operationalTimestamp: z.string().nullable().optional(),
 });
 

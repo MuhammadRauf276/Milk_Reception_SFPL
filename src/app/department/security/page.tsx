@@ -6,6 +6,11 @@ import { SecurityGatewayWorkspace, SecurityTab } from '@modules/dashboard/Securi
 import { Header } from '@modules/shared/Header';
 import { HierarchicalNavDrawer } from '@modules/shared/navigation/HierarchicalNavDrawer';
 import { User } from '@core/types';
+import { can } from '@/backend/modules/access-control/policy';
+import { createAccessActor } from '@/backend/modules/access-control/rolePolicies';
+import { resolveRoleHome } from '@/lib/role-routing';
+
+const SECURITY_SCOPE = { kind: 'DEPARTMENT', departmentId: 'Security' } as const;
 
 function SecurityDepartmentContent() {
   const router = useRouter();
@@ -44,13 +49,18 @@ function SecurityDepartmentContent() {
       ? (tabParam as SecurityTab)
       : 'WAITING_ENTRY';
 
-  const subpageTitle = useMemo(() => {
-    if (resolvedTab === 'INSIDE_PLANT') return 'Inside Plant';
-    if (resolvedTab === 'READY_EXIT') return 'Ready for Exit';
-    return 'Waiting for Entry';
-  }, [resolvedTab]);
+  const hasAccess = useMemo(() => {
+    if (!user) return false;
+    const actor = createAccessActor(user);
+    return actor ? can(actor, 'VIEW', SECURITY_SCOPE) : false;
+  }, [user]);
 
-  if (loading) {
+  useEffect(() => {
+    if (loading || hasAccess) return;
+    router.replace(user ? resolveRoleHome(user.role) : '/login');
+  }, [hasAccess, loading, router, user]);
+
+  if (loading || !hasAccess) {
     return (
       <div className="p-8 text-center text-xs font-bold text-slate-500">
         Loading Security Gate...
@@ -75,20 +85,6 @@ function SecurityDepartmentContent() {
         onClose={closeDrawer}
         triggerButtonRef={hamburgerButtonRef}
       />
-
-      {/* Compact Breadcrumb Header */}
-      <div className="bg-white border-b border-[#EAE4D5] px-4 sm:px-6 py-2 shrink-0 shadow-xs flex items-center justify-between">
-        <nav aria-label="Breadcrumb" className="flex items-center space-x-2 text-xs font-bold text-slate-500">
-          <span>Security Gate</span>
-          <span className="text-slate-300">/</span>
-          <span>Security Gate</span>
-          <span className="text-slate-300">/</span>
-          <span className="text-[#1E3A8A] font-black">{subpageTitle}</span>
-        </nav>
-        <span className="text-[11px] font-mono text-slate-400">
-          Plant Gateway
-        </span>
-      </div>
 
       <main className="flex-1 p-4 sm:p-6 overflow-y-auto w-full max-w-full">
         <SecurityGatewayWorkspace

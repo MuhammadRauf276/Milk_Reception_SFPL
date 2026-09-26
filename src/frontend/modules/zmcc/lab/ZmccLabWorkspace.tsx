@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { User } from '@backend/core/types';
 import {
   FlaskConical,
@@ -76,6 +76,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
   const [draftValues, setDraftValues] = useState<Record<string, { numeric_value: any; text_value: any }>>({});
   const [draftRemarks, setDraftRemarks] = useState('');
   const [savingDraft, setSavingDraft] = useState(false);
+  const liveEvaluationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [draftQuantityValue, setDraftQuantityValue] = useState<string>('');
   const [draftQuantityUnit, setDraftQuantityUnit] = useState<'KG' | 'LITER'>('KG');
@@ -97,6 +98,11 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
   const [historicalTanks, setHistoricalTanks] = useState<any[]>([]);
   const [selectedHistoricalTankId, setSelectedHistoricalTankId] = useState('');
   const [submittingHistoricalReceive, setSubmittingHistoricalReceive] = useState(false);
+  const [rmrSession, setRmrSession] = useState<any | null>(null);
+  const [rmrSeries, setRmrSeries] = useState('LSR');
+  const [rmrBookNumber, setRmrBookNumber] = useState('');
+  const [rmrReceiptNumber, setRmrReceiptNumber] = useState('');
+  const [issuingRmr, setIssuingRmr] = useState(false);
 
   // History State
   const [historyItems, setHistoryItems] = useState<any[]>([]);
@@ -299,6 +305,41 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
     }
   };
 
+  // Save a short-lived draft after input pauses so the server evaluates each
+  // result using the same active QA rule that completion will use.
+  const queueLiveEvaluation = (nextValues: Record<string, { numeric_value: any; text_value: any }>) => {
+    if (!activeSession) return;
+    if (liveEvaluationTimer.current) clearTimeout(liveEvaluationTimer.current);
+    liveEvaluationTimer.current = setTimeout(async () => {
+      const payloadResults = Object.keys(nextValues).map((testId) => ({
+        test_id: testId,
+        numeric_value: nextValues[testId].numeric_value !== '' && nextValues[testId].numeric_value !== null
+          ? Number(nextValues[testId].numeric_value)
+          : null,
+        text_value: nextValues[testId].text_value ? String(nextValues[testId].text_value).trim() : null,
+      }));
+      try {
+        const res = await fetch(`/api/zmcc/lab/sessions/${activeSession.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ results: payloadResults }),
+        });
+        if (res.ok) {
+          const updated = await res.json();
+          setActiveSession((current: any) => current?.id === updated.id
+            ? { ...current, results: updated.results }
+            : current);
+        }
+      } catch {
+        // Keep the typed value locally; the normal Save button remains available.
+      }
+    }, 450);
+  };
+
+  useEffect(() => () => {
+    if (liveEvaluationTimer.current) clearTimeout(liveEvaluationTimer.current);
+  }, []);
+
   // Open completion modal
   const openCompleteModal = async (decision: 'ACCEPTED' | 'REJECTED') => {
     if (!draftQuantityValue || Number(draftQuantityValue) <= 0) {
@@ -342,11 +383,6 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
       toast.showError('Actual milk quantity is required and must be greater than 0.');
       return;
     }
-    if (completionDecision === 'REJECTED' && !rejectionReason.trim()) {
-      toast.showError('Rejection reason is mandatory when rejecting.');
-      return;
-    }
-
     if (completionDecision === 'ACCEPTED') {
       if (tanks.length === 0) {
         toast.showError('No active ZMCC tank configured. Please contact administrator before accepting milk.');
@@ -390,7 +426,9 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
           quantity_unit: draftQuantityUnit,
           decision: completionDecision,
           tank_id: chosenTankId,
-          rejection_reason: completionDecision === 'REJECTED' ? rejectionReason.trim() : null,
+          // The server requires this only when the attendant decision differs
+          // from the evaluated system result; it remains an optional note otherwise.
+          rejection_reason: rejectionReason.trim() || null,
           remarks: completionRemarks.trim() || null,
           results: payloadResults,
         }),
@@ -468,6 +506,26 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
     } finally {
       setSubmittingHistoricalReceive(false);
     }
+  };
+
+  const issueLocalSupplierRmr = async () => {
+    if (!rmrSession?.local_supplier_arrival?.id) return;
+    if (!rmrSeries.trim() || !rmrBookNumber.trim() || !rmrReceiptNumber.trim()) {
+      toast.showError('Series, book number, and receipt number are required.');
+      return;
+    }
+    setIssuingRmr(true);
+    try {
+      const res = await fetch(`/api/zmcc/local-supplier-arrivals/${rmrSession.local_supplier_arrival.id}/rmr`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ series: rmrSeries, book_number: rmrBookNumber, receipt_number: rmrReceiptNumber, idempotency_key: `local-rmr-${rmrSession.id}-${Date.now()}` }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed to issue Local Supplier RMR.');
+      toast.showSuccess(`Local Supplier RMR issued: ${data.printable_reference}`);
+      setRmrSession(null); fetchHistory();
+    } catch (error: any) { toast.showError(error.message || 'Failed to issue Local Supplier RMR.'); }
+    finally { setIssuingRmr(false); }
   };
 
   // Open correction modal
@@ -719,7 +777,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
 
                     {item.queue_type === 'CONTRACTOR' && (
                       <div className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-100 space-y-1">
-                        <div className="text-[10px] text-amber-700 font-bold uppercase">Legacy / Historical Contractor Record</div>
+                        <div className="text-xs text-amber-700 font-bold uppercase">Legacy / Historical Contractor Record</div>
                         <div>Contractor Code: <strong>{item.contractor_code}</strong></div>
                       </div>
                     )}
@@ -807,7 +865,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                     </div>
                     <div className="flex items-center gap-3 w-full sm:w-auto">
                       <div className="flex-1 sm:w-44">
-                        <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
                           Quantity *
                         </label>
                         <input
@@ -821,7 +879,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                         />
                       </div>
                       <div className="w-28">
-                        <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
                           Unit *
                         </label>
                         <select
@@ -840,14 +898,10 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                   <div className="border-t border-slate-200 pt-3">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                        Derived Final Milk Metrics (System-Calculated)
+                        Final Milk Metrics
                       </span>
-                      {draftPreview ? (
-                        <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded font-medium border border-emerald-200">
-                          Formula v{draftPreview.calculationVersion}
-                        </span>
-                      ) : (
-                        <span className="text-[10px] text-slate-400 italic">
+                      {!draftPreview && (
+                        <span className="text-xs text-slate-400 italic">
                           Enter Quantity, Unit, LR, and Fat to calculate
                         </span>
                       )}
@@ -855,31 +909,31 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
 
                     <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                       <div className="bg-white p-2.5 rounded-lg border border-slate-200">
-                        <span className="text-[10px] text-slate-500 uppercase font-semibold">Density</span>
+                        <span className="text-xs text-slate-500 uppercase font-semibold">Density</span>
                         <p className="text-sm font-bold font-mono text-slate-800">
                           {draftPreview ? draftPreview.density.toFixed(4) : (activeSession.density != null ? Number(activeSession.density).toFixed(4) : '—')}
                         </p>
                       </div>
                       <div className="bg-white p-2.5 rounded-lg border border-slate-200">
-                        <span className="text-[10px] text-slate-500 uppercase font-semibold">Gross Liters</span>
+                        <span className="text-xs text-slate-500 uppercase font-semibold">Gross Liters</span>
                         <p className="text-sm font-bold font-mono text-[#1E3A8A]">
                           {draftPreview ? `${draftPreview.grossLiters.toFixed(2)} L` : (activeSession.gross_liters != null ? `${Number(activeSession.gross_liters).toFixed(2)} L` : '—')}
                         </p>
                       </div>
                       <div className="bg-white p-2.5 rounded-lg border border-slate-200">
-                        <span className="text-[10px] text-slate-500 uppercase font-semibold">SNF %</span>
+                        <span className="text-xs text-slate-500 uppercase font-semibold">SNF %</span>
                         <p className="text-sm font-bold font-mono text-slate-800">
                           {draftPreview ? `${draftPreview.snf.toFixed(2)}%` : (activeSession.snf != null ? `${Number(activeSession.snf).toFixed(2)}%` : '—')}
                         </p>
                       </div>
                       <div className="bg-white p-2.5 rounded-lg border border-slate-200">
-                        <span className="text-[10px] text-slate-500 uppercase font-semibold">TS %</span>
+                        <span className="text-xs text-slate-500 uppercase font-semibold">TS %</span>
                         <p className="text-sm font-bold font-mono text-slate-800">
                           {draftPreview ? `${draftPreview.ts.toFixed(2)}%` : (activeSession.ts != null ? `${Number(activeSession.ts).toFixed(2)}%` : '—')}
                         </p>
                       </div>
                       <div className="bg-white p-2.5 rounded-lg border border-slate-200">
-                        <span className="text-[10px] text-slate-500 uppercase font-semibold">@13TS Liters</span>
+                        <span className="text-xs text-slate-500 uppercase font-semibold">@13TS Liters</span>
                         <p className="text-sm font-bold font-mono text-emerald-700">
                           {draftPreview ? `${draftPreview.at13tsLiters.toFixed(2)} L` : (activeSession.at_13ts_liters != null ? `${Number(activeSession.at_13ts_liters).toFixed(2)} L` : '—')}
                         </p>
@@ -887,27 +941,24 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                     </div>
                   </div>
 
-                  {/* MOT Journey Summary (Read-Only Reference, Section 24) */}
+                  {/* MOT Journey Summary */}
                   {activeSession.arrival_type === 'MOT' && activeSession.mot_arrival?.journey?.summary && (
                     <div className="bg-blue-50/60 border border-blue-200 rounded-xl p-3 mt-3">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-xs font-bold text-blue-900 flex items-center gap-1.5">
                           <FileText className="w-3.5 h-3.5 text-blue-700" />
-                          Upstream MOT Journey Summary (Reference Only)
-                        </span>
-                        <span className="text-[10px] text-blue-700 bg-blue-100 px-2 py-0.5 rounded font-medium">
-                          v{activeSession.mot_arrival.journey.summary.summary_version}
+                          Upstream MOT Journey Summary
                         </span>
                       </div>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                         <div>
-                          <span className="text-[10px] text-blue-600 block">Gross Liters</span>
+                          <span className="text-xs text-blue-600 block">Gross Liters</span>
                           <span className="font-bold font-mono text-blue-950">
                             {Number(activeSession.mot_arrival.journey.summary.total_gross_liters).toFixed(2)} L
                           </span>
                         </div>
                         <div>
-                          <span className="text-[10px] text-blue-600 block">Weighted LR</span>
+                          <span className="text-xs text-blue-600 block">Weighted LR</span>
                           <span className="font-bold font-mono text-blue-950">
                             {activeSession.mot_arrival.journey.summary.weighted_avg_lr != null
                               ? Number(activeSession.mot_arrival.journey.summary.weighted_avg_lr).toFixed(1)
@@ -915,7 +966,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                           </span>
                         </div>
                         <div>
-                          <span className="text-[10px] text-blue-600 block">Weighted Fat</span>
+                          <span className="text-xs text-blue-600 block">Weighted Fat</span>
                           <span className="font-bold font-mono text-blue-950">
                             {activeSession.mot_arrival.journey.summary.weighted_avg_fat != null
                               ? `${Number(activeSession.mot_arrival.journey.summary.weighted_avg_fat).toFixed(1)}%`
@@ -923,7 +974,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                           </span>
                         </div>
                         <div>
-                          <span className="text-[10px] text-blue-600 block">@13TS Liters</span>
+                          <span className="text-xs text-blue-600 block">@13TS Liters</span>
                           <span className="font-bold font-mono text-blue-950">
                             {Number(activeSession.mot_arrival.journey.summary.total_at_13ts_liters).toFixed(2)} L
                           </span>
@@ -974,11 +1025,11 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                           </td>
                           <td className="py-3 px-3">
                             {res.is_required_snapshot ? (
-                              <span className="text-[10px] font-bold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded">
+                              <span className="text-xs font-bold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded">
                                 REQUIRED
                               </span>
                             ) : (
-                              <span className="text-[10px] text-slate-400">OPTIONAL</span>
+                              <span className="text-xs text-slate-400">OPTIONAL</span>
                             )}
                           </td>
                           <td className="py-3 px-3">
@@ -995,24 +1046,28 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                                 type="number"
                                 step="any"
                                 value={current.numeric_value}
-                                onChange={(e) =>
-                                  setDraftValues({
+                                onChange={(e) => {
+                                  const next = {
                                     ...draftValues,
                                     [testId]: { ...current, numeric_value: e.target.value },
-                                  })
-                                }
+                                  };
+                                  setDraftValues(next);
+                                  queueLiveEvaluation(next);
+                                }}
                                 placeholder="Enter value"
                                 className="w-32 px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-mono focus:outline-none focus:ring-1 focus:ring-[#1E3A8A]"
                               />
                             ) : options && options.length > 0 ? (
                               <select
                                 value={current.text_value}
-                                onChange={(e) =>
-                                  setDraftValues({
+                                onChange={(e) => {
+                                  const next = {
                                     ...draftValues,
                                     [testId]: { ...current, text_value: e.target.value },
-                                  })
-                                }
+                                  };
+                                  setDraftValues(next);
+                                  queueLiveEvaluation(next);
+                                }}
                                 className="w-36 px-2 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-[#1E3A8A]"
                               >
                                 <option value="">-- Select --</option>
@@ -1026,12 +1081,14 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                               <input
                                 type="text"
                                 value={current.text_value}
-                                onChange={(e) =>
-                                  setDraftValues({
+                                onChange={(e) => {
+                                  const next = {
                                     ...draftValues,
                                     [testId]: { ...current, text_value: e.target.value },
-                                  })
-                                }
+                                  };
+                                  setDraftValues(next);
+                                  queueLiveEvaluation(next);
+                                }}
                                 placeholder="Result text"
                                 className="w-36 px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-[#1E3A8A]"
                               />
@@ -1195,7 +1252,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                       </td>
                       <td className="py-3.5 px-4">
                         <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                          className={`text-xs font-bold px-2 py-0.5 rounded ${
                             item.arrival_type === 'MOT'
                               ? 'bg-blue-100 text-blue-800'
                               : item.arrival_type === 'LOCAL_SUPPLIER'
@@ -1235,12 +1292,12 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                         {item.quantity_value != null ? (
                           <span>
                             {Number(item.quantity_value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{' '}
-                            <span className="text-[10px] text-slate-500 font-normal">
+                            <span className="text-xs text-slate-500 font-normal">
                               {item.quantity_unit === 'LITER' ? 'Liters' : item.quantity_unit}
                             </span>
                           </span>
                         ) : (
-                          <span className="text-[11px] text-slate-400 italic">Not captured under this version</span>
+                          <span className="text-xs text-slate-400 italic">Not captured under this version</span>
                         )}
                       </td>
                       <td className="py-3.5 px-4 font-mono text-slate-700">
@@ -1255,20 +1312,20 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                             <span className="font-bold text-slate-800">
                               {item.tank_receipt.tank?.tank_code || 'Tank'}
                             </span>
-                            <div className="text-[10px] text-slate-500 font-sans">
+                            <div className="text-xs text-slate-500 font-sans">
                               {Number(item.tank_receipt.gross_liters).toFixed(2)} L
                             </div>
                           </div>
                         ) : item.decision === 'ACCEPTED' ? (
                           <div className="flex items-center gap-1.5">
-                            <span className="text-[10px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded font-medium border border-amber-200">
+                            <span className="text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded font-medium border border-amber-200">
                               Unassigned
                             </span>
                             {canReceiveHistorical && (
                               <button
                                 type="button"
                                 onClick={() => openHistoricalReceiveModal(item)}
-                                className="px-2 py-0.5 text-[10px] font-bold text-white bg-[#1E3A8A] rounded hover:bg-blue-900 shadow-sm"
+                                className="px-2 py-0.5 text-xs font-bold text-white bg-[#1E3A8A] rounded hover:bg-blue-900 shadow-sm"
                               >
                                 Receive
                               </button>
@@ -1285,13 +1342,21 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                         {item.completer?.full_name || item.completer?.username || '—'}
                       </td>
                       <td className="py-3.5 px-4">
-                        {item.decision === 'ACCEPTED' ? (
-                          <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
+                        {item.manager_review_status === 'PENDING' ? (
+                          <span className="text-xs font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full">
+                            MANAGER REVIEW
+                          </span>
+                        ) : item.decision === 'ACCEPTED' ? (
+                          <span className="text-xs font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
                             ACCEPTED
                           </span>
-                        ) : (
-                          <span className="text-[10px] font-bold text-rose-800 bg-rose-100 px-2 py-0.5 rounded-full">
+                        ) : item.decision === 'REJECTED' ? (
+                          <span className="text-xs font-bold text-rose-800 bg-rose-100 px-2 py-0.5 rounded-full">
                             REJECTED
+                          </span>
+                        ) : (
+                          <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
+                            PENDING
                           </span>
                         )}
                       </td>
@@ -1301,22 +1366,30 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                             Total Corrections: {item.correction_count ?? 0}
                           </div>
                           {isZmccManager ? (
-                            <div className="text-[10px] text-slate-500">
+                            <div className="text-xs text-slate-500">
                               Manager Corrections: {item.manager_correction_count ?? 0} / 5
                             </div>
                           ) : isSuperAdmin ? (
-                            <div className="text-[10px] text-slate-500">
+                            <div className="text-xs text-slate-500">
                               Manager Corrections Used: {item.manager_correction_count ?? 0} / 5
                             </div>
                           ) : null}
                           {item.last_corrected_at && (
-                            <div className="text-[10px] text-slate-400">
+                            <div className="text-xs text-slate-400">
                               Last by {item.last_corrector?.full_name || item.last_corrector?.username || 'user'}
                             </div>
                           )}
                         </div>
                       </td>
                       <td className="py-3.5 px-4 text-right">
+                        {canTest && item.arrival_type === 'LOCAL_SUPPLIER' && item.final_decision === 'ACCEPTED' && item.tank_receipt && (
+                          <button
+                            onClick={() => { setRmrSession(item); setRmrSeries('LSR'); setRmrBookNumber(''); setRmrReceiptNumber(''); }}
+                            className="mr-2 px-2.5 py-1 text-xs font-semibold text-emerald-800 bg-emerald-50 rounded-lg hover:bg-emerald-100"
+                          >
+                            Issue RMR
+                          </button>
+                        )}
                         {canCorrect && (isSuperAdmin || (item.manager_correction_count ?? 0) < 5) ? (
                           <button
                             onClick={() => openCorrection(item)}
@@ -1326,7 +1399,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                             Correct
                           </button>
                         ) : isZmccManager && (item.manager_correction_count ?? 0) >= 5 ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200">
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200">
                             Manager correction limit reached (5/5)
                           </span>
                         ) : (
@@ -1421,21 +1494,18 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
               </div>
             )}
 
-            {completionDecision === 'REJECTED' && (
-              <div className="space-y-1">
-                <label className="block text-xs font-bold text-rose-700">
-                  Rejection Reason *
-                </label>
-                <textarea
-                  required
-                  rows={2}
-                  value={rejectionReason}
-                  onChange={(e) => setRejectionReason(e.target.value)}
-                  placeholder="Specify why the milk is rejected (e.g., high acidity, abnormal smell, adulteration test fail)..."
-                  className="w-full p-2.5 border border-rose-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-rose-500"
-                />
-              </div>
-            )}
+            <div className="space-y-1">
+              <label className="block text-xs font-bold text-slate-700">
+                Decision Note {completionDecision === 'ACCEPTED' ? '(required only if the system reports a failure)' : '(optional)'}
+              </label>
+              <textarea
+                rows={2}
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                placeholder="Explain an exception to the system result, or add an optional rejection note..."
+                className="w-full p-2.5 border border-slate-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]"
+              />
+            </div>
 
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
@@ -1450,11 +1520,11 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
               />
             </div>
 
-            <div className="text-[11px] text-slate-500 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-              {completionDecision === 'ACCEPTED'
-                ? 'Accepting confirms intake milk meets ZMCC acceptance standards and records tank receipt into immutable inventory ledger.'
-                : 'Rejecting permanently marks this intake lot as rejected at ZMCC. Supplier/MOT officer must be informed.'}
-            </div>
+
+
+
+
+
 
             <div className="flex items-center justify-end gap-3 pt-2">
               <button
@@ -1626,37 +1696,37 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                       <Calculator className="w-3.5 h-3.5 text-[#1E3A8A]" />
                       Recomputed Final Metrics Preview
                     </span>
-                    <span className="text-[10px] text-slate-500 font-mono">
+                    <span className="text-xs text-slate-500 font-mono">
                       {corrPreview ? 'Live Recomputed' : 'Awaiting valid inputs'}
                     </span>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
                     <div className="bg-white p-2 rounded-lg border border-slate-200">
-                      <span className="text-[10px] text-slate-500 uppercase font-semibold">Density</span>
+                      <span className="text-xs text-slate-500 uppercase font-semibold">Density</span>
                       <p className="text-xs font-bold font-mono text-slate-800">
                         {corrPreview ? corrPreview.density.toFixed(4) : (selectedHistorySession.density != null ? Number(selectedHistorySession.density).toFixed(4) : '—')}
                       </p>
                     </div>
                     <div className="bg-white p-2 rounded-lg border border-slate-200">
-                      <span className="text-[10px] text-slate-500 uppercase font-semibold">Gross Liters</span>
+                      <span className="text-xs text-slate-500 uppercase font-semibold">Gross Liters</span>
                       <p className="text-xs font-bold font-mono text-slate-800">
                         {corrPreview ? `${corrPreview.grossLiters.toFixed(2)} L` : (selectedHistorySession.gross_liters != null ? `${Number(selectedHistorySession.gross_liters).toFixed(2)} L` : '—')}
                       </p>
                     </div>
                     <div className="bg-white p-2 rounded-lg border border-slate-200">
-                      <span className="text-[10px] text-slate-500 uppercase font-semibold">SNF</span>
+                      <span className="text-xs text-slate-500 uppercase font-semibold">SNF</span>
                       <p className="text-xs font-bold font-mono text-slate-800">
                         {corrPreview ? `${corrPreview.snf.toFixed(2)}%` : (selectedHistorySession.snf != null ? `${Number(selectedHistorySession.snf).toFixed(2)}%` : '—')}
                       </p>
                     </div>
                     <div className="bg-white p-2 rounded-lg border border-slate-200">
-                      <span className="text-[10px] text-slate-500 uppercase font-semibold">Total Solids</span>
+                      <span className="text-xs text-slate-500 uppercase font-semibold">Total Solids</span>
                       <p className="text-xs font-bold font-mono text-slate-800">
                         {corrPreview ? `${corrPreview.ts.toFixed(2)}%` : (selectedHistorySession.ts != null ? `${Number(selectedHistorySession.ts).toFixed(2)}%` : '—')}
                       </p>
                     </div>
                     <div className="bg-white p-2 rounded-lg border border-slate-200">
-                      <span className="text-[10px] text-slate-500 uppercase font-semibold">@13TS Liters</span>
+                      <span className="text-xs text-slate-500 uppercase font-semibold">@13TS Liters</span>
                       <p className="text-xs font-bold font-mono text-emerald-700">
                         {corrPreview ? `${corrPreview.at13tsLiters.toFixed(2)} L` : (selectedHistorySession.at_13ts_liters != null ? `${Number(selectedHistorySession.at_13ts_liters).toFixed(2)} L` : '—')}
                       </p>
@@ -1682,11 +1752,11 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                     <div key={testId} className="flex items-center justify-between text-xs py-1 border-b border-slate-100 last:border-0">
                       <div className="w-1/2">
                         <span className="font-bold text-slate-800">{res.test_name_snapshot}</span>
-                        <span className="text-[10px] text-slate-400 font-mono ml-2">({res.test_code_snapshot})</span>
+                        <span className="text-xs text-slate-400 font-mono ml-2">({res.test_code_snapshot})</span>
                       </div>
                       <div className="w-1/2 flex items-center justify-end gap-2">
                         {isCalculated ? (
-                          <span className="text-[11px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 italic">
+                          <span className="text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 italic">
                             Read-only (Calculated)
                           </span>
                         ) : isNumeric ? (
@@ -1715,7 +1785,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                             className="w-28 px-2 py-1 border border-slate-300 rounded text-xs"
                           />
                         )}
-                        <span className="text-[10px] text-slate-400 font-mono w-10">
+                        <span className="text-xs text-slate-400 font-mono w-10">
                           {res.unit_snapshot || ''}
                         </span>
                       </div>
@@ -1743,6 +1813,19 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                 {savingCorrection ? 'Saving...' : 'Apply Correction'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {rmrSession && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
+            <div className="flex justify-between"><h3 className="font-bold text-slate-800">Issue Local Supplier RMR</h3><button onClick={() => setRmrSession(null)}><X className="w-4 h-4" /></button></div>
+            <p className="text-xs text-slate-600">Enter the physical receipt book details. This number is permanent and cannot be reused.</p>
+            <input value={rmrSeries} onChange={(e) => setRmrSeries(e.target.value)} placeholder="Series (for example LSR)" className="w-full p-2 border rounded-lg text-sm" />
+            <input value={rmrBookNumber} onChange={(e) => setRmrBookNumber(e.target.value)} placeholder="Book number" className="w-full p-2 border rounded-lg text-sm" />
+            <input value={rmrReceiptNumber} onChange={(e) => setRmrReceiptNumber(e.target.value)} placeholder="Receipt number" className="w-full p-2 border rounded-lg text-sm" />
+            <div className="flex justify-end gap-2"><button onClick={() => setRmrSession(null)} className="px-3 py-2 text-xs border rounded-lg">Cancel</button><button disabled={issuingRmr} onClick={issueLocalSupplierRmr} className="px-3 py-2 text-xs font-bold text-white bg-emerald-600 rounded-lg disabled:opacity-50">{issuingRmr ? 'Issuing...' : 'Issue RMR'}</button></div>
           </div>
         </div>
       )}

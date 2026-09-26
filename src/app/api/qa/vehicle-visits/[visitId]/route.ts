@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
 import { getOrAssignPlantQATests } from '@/backend/services/labTestAssignmentService';
+import { vehicleVisitPaperIdentity } from '@/backend/modules/paper-references';
+import { MilkTestPolicyService } from '@/backend/services/milkTestPolicyService';
 
 function serializeBigInt(obj: any): any {
   if (obj === null || obj === undefined) return obj;
@@ -62,16 +64,7 @@ export async function GET(
     if (visit.qa_session) {
       activePlantTests = await getOrAssignPlantQATests(prisma, visitId);
     } else {
-      activePlantTests = await prisma.labTest.findMany({
-        where: {
-          isActive: true,
-          testScope: { in: ['PLANT', 'BOTH'] },
-        },
-        orderBy: [
-          { displayOrder: 'asc' },
-          { testName: 'asc' },
-        ],
-      });
+      activePlantTests = await MilkTestPolicyService.getEffectivePolicy('PLANT_QA');
     }
 
     // Determine overall visit decision summary
@@ -93,6 +86,7 @@ export async function GET(
       reception_number: visit.reception_number || null,
       vehicle_number: visit.vehicle_number,
       token_number: visit.token_number || null,
+      identifiers: vehicleVisitPaperIdentity(visit),
       operational_date: visit.operational_date ? visit.operational_date.toISOString().split('T')[0] : null,
       entry_timestamp: visit.gate_log?.entry_timestamp ? visit.gate_log.entry_timestamp.toISOString() : null,
       current_status: visit.current_status,

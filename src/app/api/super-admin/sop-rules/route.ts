@@ -4,8 +4,8 @@ import { prisma } from '@core/db';
 
 export async function GET(req: Request) {
   const authUser = await getCurrentUser(req);
-  if (!authUser || authUser.role !== 'SUPER_ADMIN') {
-    return NextResponse.json({ error: 'Unauthorized. Super Admin authorization required.' }, { status: 403 });
+  if (!authUser || (authUser.role !== 'SUPER_ADMIN' && authUser.role !== 'DATA_EXECUTIVE')) {
+    return NextResponse.json({ error: 'Unauthorized. Super Admin or Data Executive authorization required.' }, { status: 403 });
   }
 
   try {
@@ -37,7 +37,8 @@ export async function GET(req: Request) {
     }));
 
     return NextResponse.json({ rules: serialized });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Internal Server Error';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

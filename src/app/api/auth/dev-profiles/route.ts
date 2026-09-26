@@ -4,10 +4,8 @@ export async function GET() {
   // Strict Double Gating:
   // 1. Environment check
   // 2. Explicit flag check
-  const isDev = process.env.NODE_ENV !== 'production';
-  const isFlagEnabled = process.env.NEXT_PUBLIC_ENABLE_DEV_LOGIN_PROFILES === 'true';
-
-  if (!isDev || !isFlagEnabled) {
+  const isFlagDisabled = process.env.NEXT_PUBLIC_ENABLE_DEV_LOGIN_PROFILES === 'false';
+  if (isFlagDisabled) {
     return NextResponse.json({ error: 'Development profiles disabled' }, { status: 404 });
   }
 
@@ -28,29 +26,29 @@ export async function GET() {
       ],
     },
     {
-      group: 'MANAGERS',
+      group: 'MANAGERS & HEADS',
       items: [
         { label: 'ZMCC / MPD Manager', department: 'Milk Procurement (Zone A)', username: 'zmcc.manager.north', password: 'zone123' },
         { label: 'Plant Contractor Manager — Al Khair', department: 'Milk Procurement (Al Khair)', username: 'contractor.manager.alkhair', password: 'contractor123' },
+        { label: 'MPD Head', department: 'Milk Procurement Directorate', username: 'mpd.head', password: 'mpdhead123' },
+        { label: 'QA Head', department: 'Quality Assurance Directorate', username: 'qa.head', password: 'qahead123' },
+        { label: 'QA Manager', department: 'Quality Assurance Management', username: 'qa.manager', password: 'qamgr123' },
+        { label: 'Production Head', department: 'Production Directorate', username: 'production.head', password: 'prodhead123' },
+        { label: 'Admin Head', department: 'Administration Directorate', username: 'admin.head', password: 'adminhead123' },
       ],
     },
     {
-      group: 'ADMINISTRATION',
+      group: 'DIRECTORATE & GOVERNANCE',
       items: [
         { label: 'Super Admin', department: 'System Administration', username: 'admin.superuser', password: 'admin123' },
-        { label: 'MPD Head', department: 'Milk Procurement Directorate', username: 'mpd.head', password: 'mpdhead123' },
+        { label: 'Data Executive', department: 'Data & Analytics', username: 'data.executive', password: 'data123' },
+        { label: 'Senior Executive Management', department: 'Executive Management', username: 'executive.management', password: 'exec123' },
+        { label: 'Finance and Accounts', department: 'Finance & Accounts', username: 'finance.accounts', password: 'finance123' },
       ],
     },
     {
-      group: 'WORKSPACE PENDING',
+      group: 'CONTRACTORS',
       items: [
-        { label: 'Senior Executive Management', department: 'Executive Management', username: 'executive.management', password: 'exec123' },
-        { label: 'Data Executive', department: 'Data & Analytics', username: 'data.executive', password: 'data123' },
-        { label: 'Admin Head', department: 'Administration Directorate', username: 'admin.head', password: 'adminhead123' },
-        { label: 'QA Head', department: 'Quality Assurance Directorate', username: 'qa.head', password: 'qahead123' },
-        { label: 'Production Head', department: 'Production Directorate', username: 'production.head', password: 'prodhead123' },
-        { label: 'Finance and Accounts', department: 'Finance & Accounts', username: 'finance.accounts', password: 'finance123' },
-        { label: 'QA Manager', department: 'Quality Assurance Management', username: 'qa.manager', password: 'qamgr123' },
         { label: 'Wasim Sahib (Contractor Operator)', department: 'Milk Procurement - Contractor Operations', username: 'contractor.operator.alkhair', password: 'mpd123' },
         { label: 'Contractor Operator (Al Mehmood)', department: 'Milk Procurement - Contractor Operations', username: 'contractor.operator.almehmood', password: 'mpd123' },
       ],

@@ -6,6 +6,14 @@ import { WeighbridgeWorkspace, WeighbridgeTab } from '@modules/dashboard/Weighbr
 import { Header } from '@modules/shared/Header';
 import { HierarchicalNavDrawer } from '@modules/shared/navigation/HierarchicalNavDrawer';
 import { User } from '@core/types';
+import { can } from '@/backend/modules/access-control/policy';
+import { createAccessActor } from '@/backend/modules/access-control/rolePolicies';
+import { resolveRoleHome } from '@/lib/role-routing';
+
+const WEIGHBRIDGE_SCOPE = {
+  kind: 'DEPARTMENT',
+  departmentId: 'Production & Weighbridge',
+} as const;
 
 function WeighbridgeDepartmentContent() {
   const router = useRouter();
@@ -42,12 +50,18 @@ function WeighbridgeDepartmentContent() {
   const resolvedTab: WeighbridgeTab =
     tabParam === 'SECOND_WEIGHT' ? 'SECOND_WEIGHT' : 'FIRST_WEIGHT';
 
-  const subpageTitle = useMemo(() => {
-    if (resolvedTab === 'SECOND_WEIGHT') return 'Second Weight (Tare)';
-    return 'First Weight (Gross)';
-  }, [resolvedTab]);
+  const hasAccess = useMemo(() => {
+    if (!user) return false;
+    const actor = createAccessActor(user);
+    return actor ? can(actor, 'SUBMIT', WEIGHBRIDGE_SCOPE) : false;
+  }, [user]);
 
-  if (loading) {
+  useEffect(() => {
+    if (loading || hasAccess) return;
+    router.replace(user ? resolveRoleHome(user.role) : '/login');
+  }, [hasAccess, loading, router, user]);
+
+  if (loading || !hasAccess) {
     return (
       <div className="p-8 text-center text-xs font-bold text-slate-500">
         Loading Weighbridge Workstation...
@@ -72,20 +86,6 @@ function WeighbridgeDepartmentContent() {
         onClose={closeDrawer}
         triggerButtonRef={hamburgerButtonRef}
       />
-
-      {/* Compact Breadcrumb Header */}
-      <div className="bg-white border-b border-[#EAE4D5] px-4 sm:px-6 py-2 shrink-0 shadow-xs flex items-center justify-between">
-        <nav aria-label="Breadcrumb" className="flex items-center space-x-2 text-xs font-bold text-slate-500">
-          <span>Weighbridge</span>
-          <span className="text-slate-300">/</span>
-          <span>Weighbridge Station</span>
-          <span className="text-slate-300">/</span>
-          <span className="text-[#1E3A8A] font-black">{subpageTitle}</span>
-        </nav>
-        <span className="text-[11px] font-mono text-slate-400">
-          Gross & Tare Scales
-        </span>
-      </div>
 
       <main className="flex-1 p-4 sm:p-6 overflow-y-auto w-full max-w-full">
         <WeighbridgeWorkspace

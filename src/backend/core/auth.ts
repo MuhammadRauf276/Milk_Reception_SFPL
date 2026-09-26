@@ -37,11 +37,18 @@ export async function createSessionToken(user: User, rememberMe: boolean = false
     .sign(secretKey);
 }
 
+/** This token is an offline preparation receipt, never an authenticated session. */
+export async function createMotOfflinePreparationToken(input: { userId: string; journeyId: string; zmccId: string; expiresAt: Date }): Promise<string> {
+  return new SignJWT({ token_use: 'mot_offline_preparation', journey_id: input.journeyId, zmcc_id: input.zmccId })
+    .setProtectedHeader({ alg: 'HS256' }).setSubject(input.userId).setIssuedAt().setExpirationTime(Math.floor(input.expiresAt.getTime() / 1000)).sign(getJwtSecretKey());
+}
+
 export async function verifySessionToken(token: string): Promise<User | null> {
   try {
     const secretKey = getJwtSecretKey();
     const verified = await jwtVerify(token, secretKey);
     const payload = verified.payload;
+    if (payload.token_use === 'mot_offline_preparation') return null;
     return {
       id: payload.id as string,
       username: (payload.username as string) || (payload.id as string),

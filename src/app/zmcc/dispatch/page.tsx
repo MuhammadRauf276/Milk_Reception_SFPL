@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef, Suspense, useMemo } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
+import { useRouter } from 'next/navigation';
 import { User } from '@core/types';
 import { Header } from '@modules/shared/Header';
 import { HierarchicalNavDrawer } from '@modules/shared/navigation/HierarchicalNavDrawer';
@@ -10,7 +10,6 @@ import { RefreshCw } from 'lucide-react';
 
 function ZmccDispatchContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -73,11 +72,6 @@ function ZmccDispatchContent() {
     }, 0);
   }, []);
 
-  const tab = searchParams?.get('tab')?.toLowerCase() || 'new';
-  const subpageTitle = useMemo(() => {
-    return tab === 'recent' ? 'Recent Dispatches' : 'Dispatch Vehicle';
-  }, [tab]);
-
   if (loading) {
     return (
       <div className="min-h-screen bg-[#FDFBF9] flex items-center justify-center p-8 text-center text-xs font-bold text-slate-500">
@@ -118,20 +112,6 @@ function ZmccDispatchContent() {
 
       {/* Main Responsive Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Compact Breadcrumb Header */}
-        <div className="bg-white border-b border-[#EAE4D5] px-4 sm:px-6 py-2 shrink-0 shadow-xs flex items-center justify-between">
-          <nav aria-label="Breadcrumb" className="flex items-center space-x-2 text-xs font-bold text-slate-500">
-            <span>ZMCC Lab</span>
-            <span className="text-slate-300">/</span>
-            <span>Dispatch</span>
-            <span className="text-slate-300">/</span>
-            <span className="text-[#1E3A8A] font-black">{subpageTitle}</span>
-          </nav>
-          <span className="text-[11px] font-mono text-slate-400">
-            {assignedSourceName}
-          </span>
-        </div>
-
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 w-full max-w-full space-y-4">
           <Suspense fallback={<div className="p-8 text-center text-xs font-bold text-slate-500">Loading dispatch workspace...</div>}>
             <MPDFieldWorkspace currentUser={currentUser} />

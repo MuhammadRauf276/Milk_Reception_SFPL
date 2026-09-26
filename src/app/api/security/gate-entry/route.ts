@@ -1,14 +1,21 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
 import { gateEntrySchema } from '@/lib/validations/security';
 import { validateOperationalTimestamp } from '@/backend/services/chronology-validator';
+import { requireCapability } from '@/backend/modules/access-control/serverGuard';
+import { paperLinkedIdentity } from '@/backend/modules/paper-references';
+
+const SECURITY_SCOPE = { kind: 'DEPARTMENT', departmentId: 'Security' } as const;
 
 export async function POST(req: Request) {
-  const authUser = await getCurrentUser();
-  if (!authUser) {
-    return NextResponse.json({ error: 'Unauthorized. Authentication required.' }, { status: 401 });
+  const access = await requireCapability('SUBMIT', SECURITY_SCOPE, { request: req });
+  if (!access.allowed) {
+    const error = access.status === 401
+      ? 'Unauthorized. Authentication required.'
+      : 'Unauthorized. Security Operator or Admin Head role required.';
+    return NextResponse.json({ error }, { status: access.status });
   }
+  const authUser = access.user;
 
   const dbUser = await prisma.user.findFirst({
     where: {
@@ -20,8 +27,7 @@ export async function POST(req: Request) {
     },
   });
 
-  const allowedRoles = ['SECURITY_OPERATOR', 'ADMIN_HEAD', 'SUPER_ADMIN'];
-  if (!dbUser || !allowedRoles.includes(dbUser.role)) {
+  if (!dbUser) {
     return NextResponse.json(
       { error: 'Unauthorized. Security Operator or Admin Head role required.' },
       { status: 403 }
@@ -117,6 +123,14 @@ export async function POST(req: Request) {
       success: true,
       visitId: result.updatedVisit.id.toString(),
       tokenNumber: result.updatedVisit.token_number,
+      identifiers: paperLinkedIdentity(
+        {
+          entity: 'vehicle_visit',
+          id: result.updatedVisit.id.toString(),
+          number: result.updatedVisit.visit_number,
+        },
+        [{ type: 'PLANT_GATE_TOKEN', value: result.updatedVisit.token_number }]
+      ),
       message: `Token ${result.updatedVisit.token_number} issued. Vehicle ${result.updatedVisit.vehicle_number} entered gate.`,
     });
   } catch (error: any) {

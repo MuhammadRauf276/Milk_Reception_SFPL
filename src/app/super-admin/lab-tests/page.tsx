@@ -53,6 +53,7 @@ export default function SuperAdminLabTestsPage() {
   const [createScopeDispatch, setCreateScopeDispatch] = useState(true);
   const [createScopePlantQA, setCreateScopePlantQA] = useState(true);
   const [createScopeZmcc, setCreateScopeZmcc] = useState(false);
+  const [createScopeMotShop, setCreateScopeMotShop] = useState(false);
   const [createDisplayOrder, setCreateDisplayOrder] = useState(10);
   const [createOptions, setCreateOptions] = useState<LabTestResultOption[]>([
     { value: 'PASS', label: 'Pass', isPassing: true },
@@ -66,6 +67,7 @@ export default function SuperAdminLabTestsPage() {
   const [editScopeDispatch, setEditScopeDispatch] = useState(true);
   const [editScopePlantQA, setEditScopePlantQA] = useState(true);
   const [editScopeZmcc, setEditScopeZmcc] = useState(false);
+  const [editScopeMotShop, setEditScopeMotShop] = useState(false);
   const [editDisplayOrder, setEditDisplayOrder] = useState(0);
   const [editOptions, setEditOptions] = useState<LabTestResultOption[]>([]);
 
@@ -98,6 +100,7 @@ export default function SuperAdminLabTestsPage() {
     setCreateScopeDispatch(true);
     setCreateScopePlantQA(true);
     setCreateScopeZmcc(false);
+    setCreateScopeMotShop(false);
     setCreateDisplayOrder(labTests.length > 0 ? Math.max(...labTests.map((t) => t.displayOrder)) + 1 : 1);
     setCreateOptions([
       { value: 'PASS', label: 'Pass', isPassing: true },
@@ -155,9 +158,9 @@ export default function SuperAdminLabTestsPage() {
 
     let testScope: string;
     try {
-      testScope = mapScopeCheckboxes(createScopeDispatch, createScopePlantQA, createScopeZmcc);
+      testScope = mapScopeCheckboxes(createScopeDispatch, createScopePlantQA, createScopeZmcc, createScopeMotShop);
     } catch (err: any) {
-      setCreateModalError(err.message || 'Please select at least one scope (Dispatch, Plant QA, or ZMCC Lab).');
+      setCreateModalError(err.message || 'Please select at least one scope (Dispatch, Plant QA, ZMCC Lab, or MOT Shop).');
       return;
     }
 
@@ -215,9 +218,9 @@ export default function SuperAdminLabTestsPage() {
 
     let testScope: string;
     try {
-      testScope = mapScopeCheckboxes(editScopeDispatch, editScopePlantQA, editScopeZmcc);
+      testScope = mapScopeCheckboxes(editScopeDispatch, editScopePlantQA, editScopeZmcc, editScopeMotShop);
     } catch (err: any) {
-      setEditModalError(err.message || 'Please select at least one scope (Dispatch, Plant QA, or ZMCC Lab).');
+      setEditModalError(err.message || 'Please select at least one scope (Dispatch, Plant QA, ZMCC Lab, or MOT Shop).');
       return;
     }
 
@@ -310,7 +313,7 @@ export default function SuperAdminLabTestsPage() {
         <div className="p-3 sm:px-4 sm:py-3 border-b border-[#EAE4D5] flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <h2 className="text-sm font-bold text-[#111311]">Lab Tests</h2>
-            <span className="text-[11px] font-mono px-2 py-0.5 bg-[#FDFBF9] border border-[#EAE4D5] text-slate-600 rounded-full">
+            <span className="text-xs font-mono px-2 py-0.5 bg-[#FDFBF9] border border-[#EAE4D5] text-slate-600 rounded-full">
               {labTests.length}
             </span>
           </div>
@@ -365,7 +368,7 @@ export default function SuperAdminLabTestsPage() {
                     <td className="p-3">
                       <div className="space-y-1">
                         <span
-                          className={`px-2 py-0.5 rounded font-mono text-[10px] font-bold flex items-center w-fit space-x-1 ${
+                          className={`px-2 py-0.5 rounded font-mono text-xs font-bold flex items-center w-fit space-x-1 ${
                             t.resultType === 'NUMERIC'
                               ? 'bg-blue-100 text-blue-900'
                               : t.resultType === 'POSITIVE_NEGATIVE'
@@ -390,7 +393,7 @@ export default function SuperAdminLabTestsPage() {
                             {t.resultOptions.map((opt) => (
                               <span
                                 key={opt.value}
-                                className={`px-1.5 py-0.2 rounded text-[9px] font-mono font-bold border ${
+                                className={`px-1.5 py-0.5 rounded text-xs font-mono font-bold border ${
                                   opt.isPassing === true
                                     ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
                                     : opt.isPassing === false
@@ -410,17 +413,17 @@ export default function SuperAdminLabTestsPage() {
                     <td className="p-3">
                       <div className="flex flex-wrap gap-1">
                         {(t.testScope === 'DISPATCH' || t.testScope === 'BOTH' || t.testScope === 'ALL') && (
-                          <span className="px-2 py-0.5 rounded bg-sky-100 text-sky-800 text-[10px] font-bold font-mono">
+                          <span className="px-2 py-0.5 rounded bg-sky-100 text-sky-800 text-xs font-bold font-mono">
                             Dispatch
                           </span>
                         )}
                         {(t.testScope === 'PLANT' || t.testScope === 'BOTH' || t.testScope === 'ALL') && (
-                          <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold font-mono">
+                          <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-xs font-bold font-mono">
                             Plant QA
                           </span>
                         )}
                         {(t.testScope === 'ZMCC' || t.testScope === 'ALL') && (
-                          <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-bold font-mono">
+                          <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800 text-xs font-bold font-mono">
                             ZMCC Lab
                           </span>
                         )}
@@ -429,11 +432,11 @@ export default function SuperAdminLabTestsPage() {
                     <td className="p-3 font-mono font-bold text-slate-700">{t.historicalResultsCount} records</td>
                     <td className="p-3">
                       {t.isActive ? (
-                        <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                        <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-xs font-bold">
                           Active
                         </span>
                       ) : (
-                        <span className="px-2 py-0.5 rounded bg-rose-100 text-rose-800 text-[10px] font-bold">
+                        <span className="px-2 py-0.5 rounded bg-rose-100 text-rose-800 text-xs font-bold">
                           Inactive
                         </span>
                       )}
@@ -449,10 +452,11 @@ export default function SuperAdminLabTestsPage() {
                           setEditScopeDispatch(t.testScope === 'DISPATCH' || t.testScope === 'BOTH' || t.testScope === 'ALL');
                           setEditScopePlantQA(t.testScope === 'PLANT' || t.testScope === 'BOTH' || t.testScope === 'ALL');
                           setEditScopeZmcc(t.testScope === 'ZMCC' || t.testScope === 'ALL');
+                          setEditScopeMotShop(t.testScope === 'MOT_SHOP' || t.testScope === 'MOT' || t.testScope === 'ALL');
                           setEditDisplayOrder(t.displayOrder);
                           setEditOptions(t.resultOptions ? JSON.parse(JSON.stringify(t.resultOptions)) : []);
                         }}
-                        className="px-2.5 py-1.5 min-h-[44px] inline-flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-bold transition"
+                        className="px-2.5 py-1.5 min-h-[44px] inline-flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition"
                       >
                         <Edit2 className="w-3.5 h-3.5 mr-1" />
                         Edit Metadata
@@ -466,7 +470,7 @@ export default function SuperAdminLabTestsPage() {
                             action: t.isActive ? 'DEACTIVATE' : 'ACTIVATE',
                           });
                         }}
-                        className={`px-2.5 py-1.5 min-h-[44px] inline-flex items-center justify-center rounded-lg text-[11px] font-bold transition ${
+                        className={`px-2.5 py-1.5 min-h-[44px] inline-flex items-center justify-center rounded-lg text-xs font-bold transition ${
                           t.isActive
                             ? 'bg-rose-50 hover:bg-rose-100 text-rose-700'
                             : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700'
@@ -589,6 +593,15 @@ export default function SuperAdminLabTestsPage() {
                       />
                       <span>ZMCC Lab</span>
                     </label>
+                    <label className="flex items-center space-x-2 cursor-pointer select-none text-xs font-medium text-slate-800 min-h-[44px]">
+                      <input
+                        type="checkbox"
+                        checked={createScopeMotShop}
+                        onChange={(e) => setCreateScopeMotShop(e.target.checked)}
+                        className="w-4 h-4 text-[#1E3A8A] rounded border-slate-300 focus:ring-[#1E3A8A]"
+                      />
+                      <span>MOT Shop</span>
+                    </label>
                   </div>
                 </div>
 
@@ -623,7 +636,7 @@ export default function SuperAdminLabTestsPage() {
                           },
                         ]);
                       }}
-                      className="text-[11px] font-bold text-blue-700 hover:text-blue-900 flex items-center space-x-1 p-1 min-h-[44px]"
+                      className="text-xs font-bold text-blue-700 hover:text-blue-900 flex items-center space-x-1 p-1 min-h-[44px]"
                     >
                       <Plus className="w-3.5 h-3.5 mr-0.5" />
                       <span>Add Choice</span>
@@ -643,7 +656,7 @@ export default function SuperAdminLabTestsPage() {
                             updated[idx].value = e.target.value;
                             setCreateOptions(updated);
                           }}
-                          className="w-1/3 p-1.5 text-[11px] font-mono rounded border border-slate-300"
+                          className="w-1/3 p-1.5 text-xs font-mono rounded border border-slate-300"
                         />
                         <input
                           type="text"
@@ -655,7 +668,7 @@ export default function SuperAdminLabTestsPage() {
                             updated[idx].label = e.target.value;
                             setCreateOptions(updated);
                           }}
-                          className="w-1/3 p-1.5 text-[11px] rounded border border-slate-300"
+                          className="w-1/3 p-1.5 text-xs rounded border border-slate-300"
                         />
                         <select
                           value={opt.isPassing === true ? 'PASS' : opt.isPassing === false ? 'FAIL' : 'NEUTRAL'}
@@ -665,7 +678,7 @@ export default function SuperAdminLabTestsPage() {
                             updated[idx].isPassing = val === 'PASS' ? true : val === 'FAIL' ? false : null;
                             setCreateOptions(updated);
                           }}
-                          className="w-1/4 p-1.5 text-[11px] font-bold rounded border border-slate-300"
+                          className="w-1/4 p-1.5 text-xs font-bold rounded border border-slate-300"
                         >
                           <option value="PASS">Pass</option>
                           <option value="FAIL">Fail</option>
@@ -728,7 +741,7 @@ export default function SuperAdminLabTestsPage() {
               </button>
             </div>
 
-            <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 text-[11px] font-medium space-y-1">
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 text-xs font-medium space-y-1">
               <div>
                 Result Type: <strong className="font-mono">{showEditModal.resultType}</strong> (Protected)
               </div>
@@ -810,6 +823,15 @@ export default function SuperAdminLabTestsPage() {
                     />
                     <span>ZMCC Lab</span>
                   </label>
+                  <label className="flex items-center space-x-2 cursor-pointer select-none text-xs font-medium text-slate-800 min-h-[44px]">
+                    <input
+                      type="checkbox"
+                      checked={editScopeMotShop}
+                      onChange={(e) => setEditScopeMotShop(e.target.checked)}
+                      className="w-4 h-4 text-[#1E3A8A] rounded border-slate-300 focus:ring-[#1E3A8A]"
+                    />
+                    <span>MOT Shop</span>
+                  </label>
                 </div>
               </div>
 
@@ -830,7 +852,7 @@ export default function SuperAdminLabTestsPage() {
                           },
                         ]);
                       }}
-                      className="text-[11px] font-bold text-blue-700 hover:text-blue-900 flex items-center space-x-1 p-1 min-h-[44px]"
+                      className="text-xs font-bold text-blue-700 hover:text-blue-900 flex items-center space-x-1 p-1 min-h-[44px]"
                     >
                       <Plus className="w-3.5 h-3.5 mr-0.5" />
                       <span>Add Choice</span>
@@ -850,7 +872,7 @@ export default function SuperAdminLabTestsPage() {
                             updated[idx].value = e.target.value;
                             setEditOptions(updated);
                           }}
-                          className="w-1/3 p-1.5 text-[11px] font-mono rounded border border-slate-300"
+                          className="w-1/3 p-1.5 text-xs font-mono rounded border border-slate-300"
                         />
                         <input
                           type="text"
@@ -862,7 +884,7 @@ export default function SuperAdminLabTestsPage() {
                             updated[idx].label = e.target.value;
                             setEditOptions(updated);
                           }}
-                          className="w-1/3 p-1.5 text-[11px] rounded border border-slate-300"
+                          className="w-1/3 p-1.5 text-xs rounded border border-slate-300"
                         />
                         <select
                           value={opt.isPassing === true ? 'PASS' : opt.isPassing === false ? 'FAIL' : 'NEUTRAL'}
@@ -872,7 +894,7 @@ export default function SuperAdminLabTestsPage() {
                             updated[idx].isPassing = val === 'PASS' ? true : val === 'FAIL' ? false : null;
                             setEditOptions(updated);
                           }}
-                          className="w-1/4 p-1.5 text-[11px] font-bold rounded border border-slate-300"
+                          className="w-1/4 p-1.5 text-xs font-bold rounded border border-slate-300"
                         >
                           <option value="PASS">Pass</option>
                           <option value="FAIL">Fail</option>

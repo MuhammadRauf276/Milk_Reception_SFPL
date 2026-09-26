@@ -1,5 +1,6 @@
 import { prisma } from '@core/db';
 import { Prisma } from '@prisma/client';
+import { QualityRuleService } from '@/backend/services/qualityRuleService';
 
 export class ValidationError extends Error {
   statusCode = 400;
@@ -65,7 +66,7 @@ export function assertCanMutateTestingPoint(userRole: string | undefined | null,
 
   const normalized = userRole.trim();
 
-  if (normalized === 'SUPER_ADMIN') {
+  if (normalized === 'SUPER_ADMIN' || normalized === 'DATA_EXECUTIVE') {
     return;
   }
 
@@ -89,7 +90,7 @@ export function assertCanReadAdminPolicies(userRole: string | undefined | null):
     throw new ForbiddenError('Unauthorized. Missing user role.');
   }
   const normalized = userRole.trim();
-  if (normalized === 'SUPER_ADMIN' || normalized === 'HEAD_OF_MPD') {
+  if (normalized === 'SUPER_ADMIN' || normalized === 'HEAD_OF_MPD' || normalized === 'DATA_EXECUTIVE') {
     return;
   }
   throw new ForbiddenError(`Role "${normalized}" is not authorized to access policy administrative view.`);
@@ -97,6 +98,7 @@ export function assertCanReadAdminPolicies(userRole: string | undefined | null):
 
 const ROLE_EFFECTIVE_POINTS: Record<string, readonly TestingPoint[]> = {
   SUPER_ADMIN: ['MOT_SHOP', 'ZMCC_LAB_MOT', 'ZMCC_LAB_LOCAL_SUPPLIER', 'ZMCC_LAB_CONTRACTOR', 'DISPATCH', 'PLANT_QA'],
+  DATA_EXECUTIVE: ['MOT_SHOP', 'ZMCC_LAB_MOT', 'ZMCC_LAB_LOCAL_SUPPLIER', 'ZMCC_LAB_CONTRACTOR', 'DISPATCH', 'PLANT_QA'],
   HEAD_OF_MPD: ['MOT_SHOP', 'ZMCC_LAB_MOT', 'ZMCC_LAB_LOCAL_SUPPLIER', 'ZMCC_LAB_CONTRACTOR', 'DISPATCH'],
   ZMCC_MANAGER: ['MOT_SHOP', 'ZMCC_LAB_MOT', 'ZMCC_LAB_LOCAL_SUPPLIER', 'ZMCC_LAB_CONTRACTOR', 'DISPATCH'],
   MOT: ['MOT_SHOP'],
@@ -128,6 +130,20 @@ export function parseAndValidateDisplayOrder(val: unknown, fallback?: number): n
     throw new ValidationError('displayOrder must be a finite integer.');
   }
   return num;
+}
+
+async function assertRequiredAssignmentHasReleaseRule(
+  tx: Prisma.TransactionClient,
+  labTestId: bigint,
+  testingPoint: TestingPoint
+): Promise<void> {
+  const rules = await QualityRuleService.resolveActiveRulesForTestingPoint(testingPoint, new Date(), tx);
+  const rule = rules.get(labTestId.toString());
+  if (!rule || rule.isConfigurationError || rule.rule_category !== 'RELEASE') {
+    throw new ValidationError(
+      `Required test activation is blocked: exactly one valid active RELEASE rule is required for this test at ${testingPoint}. Configure the QA rule first.`
+    );
+  }
 }
 
 
@@ -179,7 +195,42 @@ export async function resolveAndAuthorizeActor(
 }
 
 
-function serializeAssignment(row: any): SerializedPolicyAssignment {
+interface AssignmentDbRow {
+  id: bigint;
+  lab_test_id: bigint;
+  testing_point: string;
+  is_required: boolean;
+  display_order: number;
+  is_active: boolean;
+  created_by_user_id: bigint;
+  updated_by_user_id: bigint | null;
+  created_at: Date;
+  updated_at: Date;
+  lab_test?: {
+    id: bigint;
+    testCode: string;
+    testName: string;
+    resultType: string;
+    unit: string | null;
+    testScope: string;
+    isRequired: boolean;
+    isActive: boolean;
+    displayOrder: number;
+    resultOptions?: unknown;
+  } | null;
+  creator?: {
+    id: bigint;
+    username: string;
+    full_name: string | null;
+  } | null;
+  updater?: {
+    id: bigint;
+    username: string;
+    full_name: string | null;
+  } | null;
+}
+
+function serializeAssignment(row: AssignmentDbRow): SerializedPolicyAssignment {
   return {
     id: row.id.toString(),
     labTestId: row.lab_test_id.toString(),
@@ -228,13 +279,13 @@ export class MilkTestPolicyService {
    * Returns active policy assignments where the referenced LabTest is also active.
    * Deterministically ordered by policy display_order ASC, then lab_test display_order ASC, then lab_test.id ASC.
    */
-  static async getEffectivePolicy(testingPointRaw: string): Promise<EffectivePolicyTest[]> {
+  static async getEffectivePolicy(testingPointRaw: string, db: Prisma.TransactionClient | typeof prisma = prisma): Promise<EffectivePolicyTest[]> {
     if (!isValidTestingPoint(testingPointRaw)) {
       throw new ValidationError(`Invalid testing point "${testingPointRaw}". Allowed values: ${CANONICAL_TESTING_POINTS.join(', ')}`);
     }
     const testingPoint = testingPointRaw as TestingPoint;
 
-    const assignments = await prisma.milkTestPolicyAssignment.findMany({
+    const assignments = await db.milkTestPolicyAssignment.findMany({
       where: {
         testing_point: testingPoint,
         is_active: true,
@@ -371,6 +422,7 @@ export class MilkTestPolicyService {
     const result = await prisma.$transaction(async (tx) => {
       // Re-resolve and authorize actor with live DB state inside transaction
       const resolvedActor = await resolveAndAuthorizeActor(actor, testingPoint, tx);
+      if (isRequired) await assertRequiredAssignmentHasReleaseRule(tx, labTestIdBig, testingPoint);
 
       const created = await tx.milkTestPolicyAssignment.create({
         data: {
@@ -480,6 +532,12 @@ export class MilkTestPolicyService {
 
     const result = await prisma.$transaction(async (tx) => {
       const resolvedActor = await resolveAndAuthorizeActor(actor, testingPoint, tx);
+
+      const resultingRequired = input.isRequired !== undefined ? Boolean(input.isRequired) : existing.is_required;
+      const resultingActive = input.isActive !== undefined ? Boolean(input.isActive) : existing.is_active;
+      if (resultingRequired && resultingActive) {
+        await assertRequiredAssignmentHasReleaseRule(tx, existing.lab_test_id, testingPoint);
+      }
 
       if (!hasChanges) {
         const full = await tx.milkTestPolicyAssignment.findUnique({

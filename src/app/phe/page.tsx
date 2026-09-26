@@ -70,62 +70,47 @@ function PheContent() {
 
   const rawView = searchParams?.get('view') || '';
 
-  const { resolvedArrivalsTab, resolvedMasterDataTab, resolvedMotTab, sectionTitle, viewTitle } = useMemo(() => {
+  const { resolvedArrivalsTab, resolvedMasterDataTab, resolvedMotTab } = useMemo(() => {
     if (section === 'suppliers') {
       const isShop = rawView === 'shop-details';
       return {
         resolvedArrivalsTab: 'MOT_ARRIVAL' as ArrivalsTab,
         resolvedMasterDataTab: (isShop ? 'SHOPS' : 'LOCAL_SUPPLIERS') as MasterDataTab,
         resolvedMotTab: 'DISPATCH' as MotWorkspaceTab,
-        sectionTitle: 'Local Suppliers / Shop Details',
-        viewTitle: isShop ? 'Shop Details (Reference)' : 'Local Suppliers',
       };
     }
 
     if (section === 'mot') {
       let motTab: MotWorkspaceTab = 'DISPATCH';
-      let title = 'Assign & Dispatch';
       if (rawView === 'active') {
         motTab = 'ACTIVE_JOURNEYS';
-        title = 'Active Journeys';
       } else if (rawView === 'history') {
         motTab = 'JOURNEY_HISTORY';
-        title = 'Journey History';
       } else if (rawView === 'map') {
         motTab = 'JOURNEY_MAP';
-        title = 'Live Journey Map';
       } else if (rawView === 'sms') {
         motTab = 'SMS_OUTBOX';
-        title = 'SMS Outbox';
       }
       return {
         resolvedArrivalsTab: 'MOT_ARRIVAL' as ArrivalsTab,
         resolvedMasterDataTab: 'LOCAL_SUPPLIERS' as MasterDataTab,
         resolvedMotTab: motTab,
-        sectionTitle: 'MOT Dispatch & Journeys',
-        viewTitle: title,
       };
     }
 
     // Default: arrivals
     let arrTab: ArrivalsTab = 'MOT_ARRIVAL';
-    let title = 'Record MOT Arrival';
     if (rawView === 'local-supplier-arrival') {
       arrTab = 'LOCAL_SUPPLIER_ARRIVAL';
-      title = 'Record Local Supplier Arrival';
     } else if (rawView === 'inside') {
       arrTab = 'INSIDE_ZMCC';
-      title = 'Vehicles Inside ZMCC';
     } else if (rawView === 'history') {
       arrTab = 'HISTORY';
-      title = 'Arrival History & Corrections';
     }
     return {
       resolvedArrivalsTab: arrTab,
       resolvedMasterDataTab: 'LOCAL_SUPPLIERS' as MasterDataTab,
       resolvedMotTab: 'DISPATCH' as MotWorkspaceTab,
-      sectionTitle: 'Arrivals & Tokens',
-      viewTitle: title,
     };
   }, [section, rawView]);
 
@@ -163,20 +148,6 @@ function PheContent() {
 
       {/* Main Full-Width Responsive Workspace */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Compact Breadcrumb Header */}
-        <div className="bg-white border-b border-[#EAE4D5] px-4 sm:px-6 py-2 shrink-0 shadow-xs flex items-center justify-between">
-          <nav aria-label="Breadcrumb" className="flex items-center space-x-2 text-xs font-bold text-slate-500">
-            <span>PHE Station</span>
-            <span className="text-slate-300">/</span>
-            <span className="hidden sm:inline">{sectionTitle}</span>
-            <span className="hidden sm:inline text-slate-300">/</span>
-            <span className="text-[#1E3A8A] font-black">{viewTitle}</span>
-          </nav>
-          <span className="text-[11px] font-mono text-slate-400">
-            {currentUser.procurement_source?.name || 'ZMCC'}
-          </span>
-        </div>
-
         {/* Center Content Pane with Full Canvas Width */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 w-full max-w-full space-y-4">
           {section === 'arrivals' && (

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@core/db';
 import { getCurrentUser } from '@core/auth';
+import { vehicleVisitPaperIdentity } from '@/backend/modules/paper-references';
 
 export async function GET(
   req: NextRequest,
@@ -63,6 +64,7 @@ export async function GET(
       visit_number: v.visit_number,
       vehicle_number: v.vehicle_number,
       token_number: v.token_number,
+      identifiers: vehicleVisitPaperIdentity(v),
       current_status: v.current_status,
       gross_weight_kg: v.weight_ticket?.gross_weight_kg ? Number(v.weight_ticket.gross_weight_kg) : null,
       gross_timestamp: v.weight_ticket?.gross_timestamp ? v.weight_ticket.gross_timestamp.toISOString() : null,

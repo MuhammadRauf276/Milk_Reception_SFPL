@@ -353,25 +353,25 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
         {viewMode === 'ZMCC_LAB' ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 font-mono">
             <div className="p-3 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0]">
-              <span className="text-[10px] font-sans text-slate-500 block uppercase font-bold">Total Lab Sessions</span>
+              <span className="text-xs font-sans text-slate-500 block uppercase font-bold">Total Lab Sessions</span>
               <span className="text-lg font-black text-slate-900">
                 {labLoading ? '—' : labSessions.length}
               </span>
             </div>
             <div className="p-3 rounded-lg bg-[#F0FDF4] border border-[#BBF7D0]">
-              <span className="text-[10px] font-sans text-emerald-700 block uppercase font-bold">Accepted Milk</span>
+              <span className="text-xs font-sans text-emerald-700 block uppercase font-bold">Accepted Milk</span>
               <span className="text-lg font-black text-emerald-800">
                 {labLoading ? '—' : labSessions.filter((s) => s.decision === 'ACCEPTED').length}
               </span>
             </div>
             <div className="p-3 rounded-lg bg-[#FEF2F2] border border-[#FECACA]">
-              <span className="text-[10px] font-sans text-red-700 block uppercase font-bold">Rejected Milk</span>
+              <span className="text-xs font-sans text-red-700 block uppercase font-bold">Rejected Milk</span>
               <span className="text-lg font-black text-red-800">
                 {labLoading ? '—' : labSessions.filter((s) => s.decision === 'REJECTED').length}
               </span>
             </div>
             <div className="p-3 rounded-lg bg-[#FFFBEB] border border-[#FDE68A]">
-              <span className="text-[10px] font-sans text-amber-700 block uppercase font-bold">Pending Manager Review</span>
+              <span className="text-xs font-sans text-amber-700 block uppercase font-bold">Pending Manager Review</span>
               <span className="text-lg font-black text-amber-800">
                 {labLoading
                   ? '—'
@@ -385,7 +385,7 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
               </span>
             </div>
             <div className="p-3 rounded-lg bg-[#FAF5FF] border border-[#E9D5FF]">
-              <span className="text-[10px] font-sans text-purple-700 block uppercase font-bold">Reviewed Exited</span>
+              <span className="text-xs font-sans text-purple-700 block uppercase font-bold">Reviewed Exited</span>
               <span className="text-lg font-black text-purple-800">
                 {labLoading ? '—' : labSessions.filter((s) => s.manager_review_status === 'REVIEWED_EXITED').length}
               </span>
@@ -394,27 +394,27 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 font-mono">
             <div className="p-3 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0]">
-              <span className="text-[10px] font-sans text-slate-500 block uppercase font-bold">Total Portions</span>
+              <span className="text-xs font-sans text-slate-500 block uppercase font-bold">Total Portions</span>
               <span className="text-lg font-black text-slate-900">{plantSummary.totalPortions}</span>
             </div>
             <div className="p-3 rounded-lg bg-[#F0FDF4] border border-[#BBF7D0]">
-              <span className="text-[10px] font-sans text-emerald-700 block uppercase font-bold">Accepted</span>
+              <span className="text-xs font-sans text-emerald-700 block uppercase font-bold">Accepted</span>
               <span className="text-lg font-black text-emerald-800">{plantSummary.acceptedCount}</span>
             </div>
             <div className="p-3 rounded-lg bg-[#FEF2F2] border border-[#FECACA]">
-              <span className="text-[10px] font-sans text-red-700 block uppercase font-bold">Rejected</span>
+              <span className="text-xs font-sans text-red-700 block uppercase font-bold">Rejected</span>
               <span className="text-lg font-black text-red-800">{plantSummary.rejectedCount}</span>
             </div>
             <div className="p-3 rounded-lg bg-[#FFFBEB] border border-[#FDE68A]">
-              <span className="text-[10px] font-sans text-amber-700 block uppercase font-bold">Hold</span>
+              <span className="text-xs font-sans text-amber-700 block uppercase font-bold">Hold</span>
               <span className="text-lg font-black text-amber-800">{plantSummary.holdCount}</span>
             </div>
             <div className="p-3 rounded-lg bg-[#F1F5F9] border border-[#CBD5E1]">
-              <span className="text-[10px] font-sans text-slate-600 block uppercase font-bold">Pending</span>
+              <span className="text-xs font-sans text-slate-600 block uppercase font-bold">Pending</span>
               <span className="text-lg font-black text-slate-800">{plantSummary.pendingCount}</span>
             </div>
             <div className="p-3 rounded-lg bg-[#FAF5FF] border border-[#E9D5FF]">
-              <span className="text-[10px] font-sans text-purple-700 block uppercase font-bold">Quality Diff</span>
+              <span className="text-xs font-sans text-purple-700 block uppercase font-bold">Quality Diff</span>
               <span className="text-lg font-black text-purple-800">{plantSummary.qualityDiffCount}</span>
             </div>
           </div>
@@ -578,10 +578,10 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
                     <span className="text-base font-black font-mono text-[#111311] tracking-tight">
                       {vehicleNumber}
                     </span>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-slate-900 text-white">
+                    <span className="px-2 py-0.5 rounded text-xs font-black uppercase tracking-wider bg-slate-900 text-white">
                       {session.arrival_type}
                     </span>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                    <span className="px-2 py-0.5 rounded text-xs font-mono font-bold bg-slate-100 text-slate-700 border border-slate-200">
                       Token: {tokenNumber}
                     </span>
                     <span className="text-xs font-medium text-slate-600">
@@ -618,7 +618,7 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
                 <div className="flex items-center gap-2 flex-wrap text-xs">
                   {/* System Evaluation Outcome */}
                   <span
-                    className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
+                    className={`px-2 py-0.5 rounded text-xs font-black uppercase tracking-wider ${
                       session.system_quality_outcome === 'IN_SPEC'
                         ? 'bg-emerald-100 text-emerald-800'
                         : session.system_quality_outcome === 'OUT_OF_SPEC'
@@ -633,7 +633,7 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
 
                   {/* Decision */}
                   <span
-                    className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
+                    className={`px-2 py-0.5 rounded text-xs font-black uppercase tracking-wider ${
                       isAccepted
                         ? 'bg-emerald-100 text-emerald-800'
                         : isRejected
@@ -647,7 +647,7 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
                   {/* Manager Review Status */}
                   {session.manager_review_status && session.manager_review_status !== 'NONE' && (
                     <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
+                      className={`px-2 py-0.5 rounded text-xs font-black uppercase tracking-wider ${
                         session.manager_review_status === 'APPROVED'
                           ? 'bg-emerald-200 text-emerald-900'
                           : session.manager_review_status === 'REVIEWED_EXITED'
@@ -663,22 +663,22 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
 
                   {/* Physical Exit State */}
                   {hasExited ? (
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                    <span className="px-2 py-0.5 rounded text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300">
                       Vehicle Exited: {formatOperationalDatetime(exitTimestamp!)}
                     </span>
                   ) : (
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800">
+                    <span className="px-2 py-0.5 rounded text-xs font-bold bg-blue-100 text-blue-800">
                       Vehicle On-Site
                     </span>
                   )}
 
                   {/* Tank Receipt State */}
                   {session.tank_receipt ? (
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <span className="px-2 py-0.5 rounded text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                       In Tank: {session.tank_receipt.tank?.tank_code || 'Received'} ({session.tank_receipt.gross_liters} L)
                     </span>
                   ) : (
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600">
+                    <span className="px-2 py-0.5 rounded text-xs font-bold bg-slate-100 text-slate-600">
                       No Tank Receipt
                     </span>
                   )}
@@ -689,7 +689,7 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
                   <div className="p-2.5 rounded-lg text-xs font-semibold flex items-start gap-2 bg-red-100/70 border border-red-200 text-red-900">
                     <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-red-700" />
                     <div>
-                      <span className="font-extrabold uppercase text-[10px] block">Rejection Reason:</span>
+                      <span className="font-extrabold uppercase text-xs block">Rejection Reason:</span>
                       <span>{session.rejection_reason}</span>
                     </div>
                   </div>
@@ -699,7 +699,7 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
                   <div className="p-2.5 rounded-lg text-xs font-semibold flex items-start gap-2 bg-purple-50 border border-purple-200 text-purple-900">
                     <ShieldCheck className="w-3.5 h-3.5 shrink-0 mt-0.5 text-purple-700" />
                     <div>
-                      <span className="font-extrabold uppercase text-[10px] block">
+                      <span className="font-extrabold uppercase text-xs block">
                         Manager Review Justification ({session.manager_review_status}):
                       </span>
                       <span>{session.manager_review_reason}</span>
@@ -711,7 +711,7 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
                 {session.results && session.results.length > 0 && (
                   <div className="overflow-x-auto rounded-lg border border-[#EAE4D5]/80">
                     <table className="w-full text-left text-xs font-mono">
-                      <thead className="bg-[#F8FAFC] text-[10px] font-sans font-black uppercase tracking-wider text-slate-600 border-b border-[#EAE4D5]/80">
+                      <thead className="bg-[#F8FAFC] text-xs font-sans font-black uppercase tracking-wider text-slate-600 border-b border-[#EAE4D5]/80">
                         <tr>
                           <th className="py-1.5 px-3">Test</th>
                           <th className="py-1.5 px-3">Observed Value</th>
@@ -736,7 +736,7 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
                               <td className="py-1.5 px-3 font-bold text-slate-900">{valStr}</td>
                               <td className="py-1.5 px-3">
                                 <span
-                                  className={`px-2 py-0.5 rounded text-[10px] font-black ${
+                                  className={`px-2 py-0.5 rounded text-xs font-black ${
                                     isPass
                                       ? 'bg-emerald-100 text-emerald-800'
                                       : isFail
@@ -789,11 +789,11 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
                     <span className="text-base font-black font-mono text-[#111311] tracking-tight">
                       {item.vehicleNumber}
                     </span>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-slate-900 text-white">
+                    <span className="px-2 py-0.5 rounded text-xs font-black uppercase tracking-wider bg-slate-900 text-white">
                       {item.portionNumber}
                     </span>
                     {item.tokenNumber && (
-                      <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                      <span className="px-2 py-0.5 rounded text-xs font-mono font-bold bg-slate-100 text-slate-700 border border-slate-200">
                         Token: {item.tokenNumber}
                       </span>
                     )}
@@ -801,7 +801,7 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
                       Business Date: {item.businessDate || 'Pending plant completion'}
                     </span>
                     <span
-                      className={`px-2.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
+                      className={`px-2.5 py-0.5 rounded text-xs font-black uppercase tracking-wider ${
                         isAccepted
                           ? 'bg-emerald-100 text-emerald-800'
                           : isRejected
@@ -830,7 +830,7 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
                   <div className="p-2.5 rounded-lg text-xs font-semibold flex items-start gap-2 bg-red-100/70 border border-red-200 text-red-900">
                     <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-red-700" />
                     <div>
-                      <span className="font-extrabold uppercase text-[10px] block">
+                      <span className="font-extrabold uppercase text-xs block">
                         Official Plant Rejection Reason:
                       </span>
                       <span>{item.rejectionReasons || '—'}</span>
@@ -840,7 +840,7 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
 
                 <div className="overflow-x-auto rounded-lg border border-[#EAE4D5]/80">
                   <table className="w-full text-left text-xs font-mono">
-                    <thead className="bg-[#F8FAFC] text-[10px] font-sans font-black uppercase tracking-wider text-slate-600 border-b border-[#EAE4D5]/80">
+                    <thead className="bg-[#F8FAFC] text-xs font-sans font-black uppercase tracking-wider text-slate-600 border-b border-[#EAE4D5]/80">
                       <tr>
                         <th className="py-1.5 px-3">Parameter</th>
                         <th className="py-1.5 px-3">Dispatch QA</th>
@@ -978,21 +978,21 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
               {/* Session Meta */}
               <div className="grid grid-cols-2 gap-2 text-xs font-mono bg-slate-50 p-3 rounded-xl border border-slate-200">
                 <div>
-                  <span className="text-slate-500 text-[10px] block font-sans uppercase font-bold">Arrival Type</span>
+                  <span className="text-slate-500 text-xs block font-sans uppercase font-bold">Arrival Type</span>
                   <span className="font-extrabold text-slate-900">{reviewModalSession.arrival_type}</span>
                 </div>
                 <div>
-                  <span className="text-slate-500 text-[10px] block font-sans uppercase font-bold">Original Decision</span>
+                  <span className="text-slate-500 text-xs block font-sans uppercase font-bold">Original Decision</span>
                   <span className="font-extrabold text-slate-900">{reviewModalSession.decision}</span>
                 </div>
                 <div>
-                  <span className="text-slate-500 text-[10px] block font-sans uppercase font-bold">System Outcome</span>
+                  <span className="text-slate-500 text-xs block font-sans uppercase font-bold">System Outcome</span>
                   <span className="font-extrabold text-slate-900">
                     {reviewModalSession.system_quality_outcome || '—'}
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 text-[10px] block font-sans uppercase font-bold">Quantity</span>
+                  <span className="text-slate-500 text-xs block font-sans uppercase font-bold">Quantity</span>
                   <span className="font-extrabold text-slate-900">
                     {reviewModalSession.gross_liters != null
                       ? `${reviewModalSession.gross_liters.toLocaleString()} L`
@@ -1046,7 +1046,7 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
                   required
                   className="w-full p-2.5 text-xs font-medium rounded-xl bg-[#FDFBF9] border border-[#EAE4D5] text-[#111311] focus:ring-2 focus:ring-[#1E3A8A] outline-none"
                 />
-                <span className="text-[10px] text-slate-400 font-sans block">
+                <span className="text-xs text-slate-400 font-sans block">
                   Mandatory audit justification recorded in the official governance log.
                 </span>
               </div>

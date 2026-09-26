@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { User } from '@core/types';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 
 interface SidebarProps {
   currentUser: User | null;
@@ -42,12 +42,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const role = currentUser?.role || '';
   const [currentTab, setCurrentTab] = React.useState<string>('');
 
+  const searchParams = useSearchParams();
+
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      setCurrentTab(params.get('tab')?.toLowerCase() || '');
+    const tabParam = searchParams?.get('tab');
+    if (tabParam) {
+      setCurrentTab(tabParam.toLowerCase());
+    } else {
+      setCurrentTab('');
     }
-  }, [pathname]);
+  }, [searchParams]);
 
   // Close drawer on Escape key press
   useEffect(() => {

@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Milk, ShieldCheck, ArrowRight, CheckCircle2, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import React, { useState } from 'react';
+import { Milk, ShieldCheck, ArrowRight, CheckCircle2, AlertCircle, Eye, EyeOff, LogIn } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { resolveRoleHome } from '@/lib/role-routing';
 
@@ -17,6 +17,52 @@ interface DevGroup {
   items: DevItem[];
 }
 
+const STATIC_DEV_PROFILES: DevGroup[] = [
+  {
+    group: 'DIRECTORATE & GOVERNANCE',
+    items: [
+      { label: 'Super Admin', department: 'System Administration', username: 'admin.superuser', password: 'admin123' },
+      { label: 'Data Executive', department: 'Data & Analytics / QA Rules', username: 'data.executive', password: 'data123' },
+      { label: 'Senior Executive Management', department: 'Executive Management', username: 'executive.management', password: 'exec123' },
+      { label: 'Finance and Accounts', department: 'Finance & Accounts', username: 'finance.accounts', password: 'finance123' },
+    ],
+  },
+  {
+    group: 'MANAGERS & HEADS',
+    items: [
+      { label: 'MPD Head', department: 'Milk Procurement Directorate', username: 'mpd.head', password: 'mpdhead123' },
+      { label: 'ZMCC / MPD Manager', department: 'Milk Procurement (Zone A - Hasilpur)', username: 'zmcc.manager.north', password: 'zone123' },
+      { label: 'QA Head', department: 'Quality Assurance Directorate', username: 'qa.head', password: 'qahead123' },
+      { label: 'QA Manager', department: 'Quality Assurance Management', username: 'qa.manager', password: 'qamgr123' },
+      { label: 'Production Head', department: 'Production Directorate', username: 'production.head', password: 'prodhead123' },
+      { label: 'Admin Head', department: 'Administration Directorate', username: 'admin.head', password: 'adminhead123' },
+      { label: 'Plant Contractor Manager — Al Khair', department: 'Milk Procurement (Al Khair)', username: 'contractor.manager.alkhair', password: 'contractor123' },
+    ],
+  },
+  {
+    group: 'FIELD & PLANT OPERATORS',
+    items: [
+      { label: 'PHE Operator — Hasilpur', department: 'Milk Procurement (Hasilpur)', username: 'phe.operator', password: 'phe123' },
+      { label: 'ZMCC Lab Attendant — Hasilpur', department: 'Milk Procurement (Hasilpur)', username: 'zmcc.operator', password: 'mpd123' },
+      { label: 'ZMCC Lab Attendant — Jhang', department: 'Milk Procurement (Jhang)', username: 'zmcc.operator.jhang', password: 'mpd123' },
+      { label: 'ZMCC Lab Attendant — Kabirwala', department: 'Milk Procurement (Kabirwala)', username: 'zmcc.operator.kabirwala', password: 'mpd123' },
+      { label: 'MOT Field Operator', department: 'Milk Procurement (Hasilpur)', username: 'mot.driver', password: 'mot123' },
+      { label: 'QA Lab Chemist', department: 'Quality Assurance Lab', username: 'qa.chemist', password: 'qa123' },
+      { label: 'Weighbridge Operator — Shift 1', department: 'Production & Weighbridge', username: 'weighbridge.operator', password: 'weighbridge123' },
+      { label: 'Weighbridge Operator — Shift 2', department: 'Production & Weighbridge', username: 'weighbridge.02', password: 'weighbridge123' },
+      { label: 'Production Reception Operator', department: 'Plant Production & Silos', username: 'production.operator', password: 'production123' },
+      { label: 'Security Gate Operator', department: 'Security', username: 'security.gate', password: 'security123' },
+    ],
+  },
+  {
+    group: 'CONTRACTORS',
+    items: [
+      { label: 'Wasim Sahib (Contractor Operator)', department: 'Milk Procurement - Contractor Operations', username: 'contractor.operator.alkhair', password: 'mpd123' },
+      { label: 'Contractor Operator (Al Mehmood)', department: 'Milk Procurement - Contractor Operations', username: 'contractor.operator.almehmood', password: 'mpd123' },
+    ],
+  },
+];
+
 export const LoginPage: React.FC = () => {
   const router = useRouter();
   const [username, setUsername] = useState('');
@@ -26,28 +72,7 @@ export const LoginPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
-  const [devGroups, setDevGroups] = useState<DevGroup[]>([]);
-
-  // Fetch dev profiles ONLY when enabled in dev mode
-  useEffect(() => {
-    async function loadDevProfiles() {
-      if (
-        process.env.NODE_ENV !== 'production' &&
-        process.env.NEXT_PUBLIC_ENABLE_DEV_LOGIN_PROFILES === 'true'
-      ) {
-        try {
-          const res = await fetch('/api/auth/dev-profiles');
-          if (res.ok) {
-            const data = await res.json();
-            setDevGroups(data.profiles || []);
-          }
-        } catch (_err) {
-          // Dev profiles optional
-        }
-      }
-    }
-    loadDevProfiles();
-  }, []);
+  const [devGroups] = useState<DevGroup[]>(STATIC_DEV_PROFILES);
 
   const handleCardSelect = (item: DevItem) => {
     setUsername(item.username);
@@ -56,6 +81,38 @@ export const LoginPage: React.FC = () => {
     }
     setSelectedUser(item.username);
     setErrorMsg(null);
+  };
+
+  const handleDirectLogin = async (item: DevItem) => {
+    setUsername(item.username);
+    const pass = item.password || 'admin123';
+    setPassword(pass);
+    setSelectedUser(item.username);
+    setErrorMsg(null);
+    setIsSubmitting(true);
+
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: item.username,
+          password: pass,
+          rememberMe: true,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Invalid username or password');
+      }
+
+      const destination = resolveRoleHome(data.user?.role);
+      window.location.href = destination;
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : 'Login failed');
+      setIsSubmitting(false);
+    }
   };
 
   const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -92,10 +149,9 @@ export const LoginPage: React.FC = () => {
       }
 
       const destination = resolveRoleHome(data.user?.role);
-      router.push(destination);
+      window.location.href = destination;
     } catch (err: unknown) {
       setErrorMsg(err instanceof Error ? err.message : 'Invalid username or password');
-    } finally {
       setIsSubmitting(false);
     }
   };
@@ -110,7 +166,7 @@ export const LoginPage: React.FC = () => {
           </div>
           <div>
             <h1 className="font-extrabold text-lg tracking-tight leading-none text-[#111311]">Milk Reception</h1>
-            <p className="text-[10px] font-bold text-[#1E40AF] uppercase tracking-widest mt-0.5">
+            <p className="text-xs font-bold text-[#1E40AF] uppercase tracking-widest mt-0.5">
               SFPL Milk Reception & Processing
             </p>
           </div>
@@ -126,11 +182,11 @@ export const LoginPage: React.FC = () => {
       <main className="max-w-6xl mx-auto w-full my-auto py-8">
         <div className="flex flex-col lg:flex-row gap-8 items-start justify-center">
           {/* Main Sign In Form Card */}
-          <div className="w-full max-w-[420px] mx-auto lg:mx-0 shrink-0 order-1 lg:order-2">
+          <div className="w-full max-w-[400px] mx-auto lg:mx-0 shrink-0 order-1 lg:order-2">
             <div className="p-6 sm:p-8 rounded-2xl bg-white border border-[#C4B9A3] shadow-md space-y-6 text-[#111311]">
               <div className="space-y-1 text-center sm:text-left">
                 <h2 className="text-2xl font-black text-[#111311] tracking-tight">Sign In</h2>
-                <p className="text-xs text-slate-600 font-medium">Enter your operational account credentials</p>
+                <p className="text-xs text-slate-600 font-medium">Enter credentials or click any role card</p>
               </div>
 
               {errorMsg && (
@@ -178,7 +234,7 @@ export const LoginPage: React.FC = () => {
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
                       aria-label={showPassword ? 'Hide password' : 'Show password'}
-                      className="absolute right-1 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition focus:outline-none"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition focus:outline-none cursor-pointer"
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -200,7 +256,7 @@ export const LoginPage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full h-11 flex items-center justify-center space-x-2 px-4 rounded-xl bg-[#1E3A8A] hover:bg-[#1E40AF] text-white font-extrabold text-xs shadow-sm transition disabled:opacity-50"
+                  className="w-full h-11 flex items-center justify-center space-x-2 px-4 rounded-xl bg-[#1E3A8A] hover:bg-[#1E40AF] text-white font-extrabold text-xs shadow-sm transition disabled:opacity-50 cursor-pointer"
                 >
                   <span>{isSubmitting ? 'Signing in...' : 'Sign In'}</span>
                   <ArrowRight className="w-4 h-4 text-white" />
@@ -209,83 +265,88 @@ export const LoginPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Secondary Utility: Development Access Panel (Rendered ONLY in Dev Mode when flag enabled) */}
-          {devGroups.length > 0 && (
-            <div className="flex-1 w-full max-w-[540px] mx-auto lg:mx-0 space-y-4 order-2 lg:order-1">
-              <div className="space-y-1">
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 border border-amber-300 text-amber-900 inline-block uppercase tracking-wider">
-                  Development Utility
-                </span>
-                <h3 className="text-xl font-black text-[#111311]">Development Access</h3>
-                <p className="text-xs text-slate-600 font-medium">
-                  Select a test account to fill the sign-in form.
-                </p>
-              </div>
-
-              <div className="space-y-4 max-h-[520px] overflow-y-auto pr-1">
-                {devGroups.map((group) => (
-                  <div key={group.group} className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block px-1">
-                      {group.group}
-                    </label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      {group.items.map((item) => {
-                        const active = selectedUser === item.username;
-                        return (
-                          <div
-                            key={item.username}
-                            onClick={() => handleCardSelect(item)}
-                            tabIndex={0}
-                            role="button"
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ' ') {
-                                handleCardSelect(item);
-                              }
-                            }}
-                            className={`p-3 rounded-xl border transition cursor-pointer space-y-1 flex flex-col justify-between ${
-                              active
-                                ? 'bg-[#1E3A8A] text-white border-blue-900 shadow-md ring-2 ring-[#1E3A8A]'
-                                : 'bg-white text-[#111311] border-[#C4B9A3] hover:bg-amber-50/50 shadow-sm'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <span
-                                className={`px-2 py-0.5 rounded text-[9.5px] font-black uppercase font-mono ${
-                                  active ? 'bg-white/20 text-white' : 'bg-[#F4EFE3] text-[#1E40AF] border border-[#C4B9A3]'
-                                }`}
-                              >
-                                {item.label}
-                              </span>
-                              {active && <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
-                            </div>
-
-                            <div className="pt-1">
-                              <p className={`text-[10px] font-medium truncate ${active ? 'text-slate-200' : 'text-slate-600'}`}>
-                                {item.department}
-                              </p>
-                            </div>
-
-                            <div className={`p-1.5 rounded-lg font-mono text-[10.5px] flex justify-between items-center ${
-                              active ? 'bg-blue-950/60 text-white' : 'bg-[#F4EFE3] text-[#111311] border border-[#C4B9A3]'
-                            }`}>
-                              <span className="opacity-75 text-[9.5px]">User:</span>
-                              <span className="font-extrabold">{item.username}</span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
+          {/* 1-Click Role Logins Panel */}
+          <div className="flex-1 w-full max-w-[560px] mx-auto lg:mx-0 space-y-4 order-2 lg:order-1">
+            <div className="space-y-1">
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 border border-amber-300 text-amber-900 inline-block uppercase tracking-wider">
+                1-Click Quick Access
+              </span>
+              <h3 className="text-xl font-black text-[#111311]">Operational Role Credentials</h3>
+              <p className="text-xs text-slate-600 font-medium">
+                Click any role card below to immediately sign into its workspace.
+              </p>
             </div>
-          )}
+
+            <div className="space-y-4 max-h-[540px] overflow-y-auto pr-1">
+              {devGroups.map((group) => (
+                <div key={group.group} className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-600 block px-1">
+                    {group.group}
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {group.items.map((item) => {
+                      const active = selectedUser === item.username;
+                      return (
+                        <div
+                          key={item.username}
+                          onClick={() => handleDirectLogin(item)}
+                          tabIndex={0}
+                          role="button"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              handleDirectLogin(item);
+                            }
+                          }}
+                          className={`p-3 rounded-xl border transition cursor-pointer space-y-2 flex flex-col justify-between group ${
+                            active
+                              ? 'bg-[#1E3A8A] text-white border-blue-900 shadow-md ring-2 ring-[#1E3A8A]'
+                              : 'bg-white text-[#111311] border-[#C4B9A3] hover:border-[#1E3A8A] hover:bg-blue-50/40 shadow-xs'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span
+                              className={`px-2 py-0.5 rounded text-xs font-bold font-mono ${
+                                active ? 'bg-white/20 text-white' : 'bg-[#F4EFE3] text-[#1E40AF] border border-[#C4B9A3]'
+                              }`}
+                            >
+                              {item.label}
+                            </span>
+                            {active ? (
+                              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                            ) : (
+                              <LogIn className="w-4 h-4 text-slate-400 group-hover:text-[#1E3A8A] transition" />
+                            )}
+                          </div>
+
+                          <div>
+                            <p className={`text-xs font-medium truncate ${active ? 'text-slate-200' : 'text-slate-600'}`}>
+                              {item.department}
+                            </p>
+                          </div>
+
+                          <div className={`p-1.5 rounded-lg font-mono text-xs flex justify-between items-center ${
+                            active ? 'bg-blue-950/60 text-white' : 'bg-[#F4EFE3] text-[#111311] border border-[#C4B9A3]'
+                          }`}>
+                            <span className="font-bold">{item.username}</span>
+                            <span className="opacity-75 font-semibold text-slate-600">{item.password || 'admin123'}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </main>
 
       {/* Footer */}
-      <footer className="max-w-6xl mx-auto w-full pt-4 border-t border-[#C4B9A3] text-center text-xs font-medium text-slate-500">
-        SFPL Milk Reception & Processing System &copy; {new Date().getFullYear()} — Operational System Access
+      <footer
+        suppressHydrationWarning
+        className="max-w-6xl mx-auto w-full pt-4 border-t border-[#C4B9A3] text-center text-xs font-medium text-slate-500"
+      >
+        SFPL Milk Reception & Processing System © 2026 — Operational System Access
       </footer>
     </div>
   );

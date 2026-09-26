@@ -143,6 +143,12 @@ export function getRoleNavSections(currentUser: User | null): RoleNavSection[] {
           },
         ],
       },
+      {
+        id: 'tv-board',
+        label: 'Yard Status Board',
+        icon: Tv,
+        href: '/tv-board',
+      },
     ];
   }
 
@@ -192,6 +198,12 @@ export function getRoleNavSections(currentUser: User | null): RoleNavSection[] {
             icon: Clock,
           },
         ],
+      },
+      {
+        id: 'tv-board',
+        label: 'Yard Status Board',
+        icon: Tv,
+        href: '/tv-board',
       },
     ];
   }
@@ -285,6 +297,12 @@ export function getRoleNavSections(currentUser: User | null): RoleNavSection[] {
           },
         ],
       },
+      {
+        id: 'tv-board',
+        label: 'Yard Status Board',
+        icon: Tv,
+        href: '/tv-board',
+      },
     ];
   }
 
@@ -303,6 +321,12 @@ export function getRoleNavSections(currentUser: User | null): RoleNavSection[] {
             icon: Truck,
           },
         ],
+      },
+      {
+        id: 'tv-board',
+        label: 'Yard Status Board',
+        icon: Tv,
+        href: '/tv-board',
       },
     ];
   }
@@ -489,6 +513,12 @@ export function getRoleNavSections(currentUser: User | null): RoleNavSection[] {
           },
         ],
       },
+      {
+        id: 'tv-board',
+        label: 'Yard Status Board',
+        icon: Tv,
+        href: '/tv-board',
+      },
     ];
   }
 
@@ -524,6 +554,12 @@ export function getRoleNavSections(currentUser: User | null): RoleNavSection[] {
         label: 'Head of MPD Station',
         icon: LayoutDashboard,
         href: '/mpd/head',
+      },
+      {
+        id: 'tv-board',
+        label: 'Yard Status Board',
+        icon: Tv,
+        href: '/tv-board',
       },
     ];
   }

@@ -421,24 +421,6 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
         triggerButtonRef={hamburgerButtonRef}
       />
 
-      {/* Compact Breadcrumb Header */}
-      <div className="bg-white border-b border-[#EAE4D5] px-4 sm:px-6 py-2 shrink-0 shadow-xs flex items-center justify-between">
-        <nav aria-label="Breadcrumb" className="flex items-center space-x-2 text-xs font-bold text-slate-500">
-          <span>ZMCC Manager</span>
-          <span className="text-slate-300">/</span>
-          <span className={subpageTitle ? 'text-slate-500' : 'text-[#1E3A8A] font-black'}>{sectionTitle}</span>
-          {subpageTitle && (
-            <>
-              <span className="text-slate-300">/</span>
-              <span className="text-[#1E3A8A] font-black">{subpageTitle}</span>
-            </>
-          )}
-        </nav>
-        <span className="text-[11px] font-mono text-slate-400">
-          {assignedSourceName}
-        </span>
-      </div>
-
       {/* Main Content Area */}
       <main className="flex-1 p-3 sm:p-6 overflow-y-auto space-y-5 sm:space-y-6 w-full max-w-full">
         {/* TAB 1: OVERVIEW */}

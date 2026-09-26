@@ -170,35 +170,19 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
           </div>
         </div>
 
-        {/* Bounded Page Notice */}
-        {pagination && pagination.totalPages > 1 && (
-          <div className="flex items-center justify-between p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800">
-            <div className="flex items-center space-x-2">
-              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-              <span>
-                Showing page <strong>{pagination.page}</strong> of <strong>{pagination.totalPages}</strong> ({pagination.totalRecords} total visits in query). Volume, variance, and exceptions/attention reflect the visible page.
-              </span>
-            </div>
-            <span className="text-[11px] font-bold text-amber-700">Bounded page metrics</span>
-          </div>
-        )}
-
         {/* 2. Primary 6 Operational KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3.5">
           {/* Card 1: Current ZMCC Tank Stock */}
           <div className="p-4 rounded-xl bg-[#EFF6FF] border border-[#BFDBFE] shadow-xs flex items-center justify-between">
             <div>
-              <p className="text-[10.5px] font-extrabold text-[#1E40AF] uppercase tracking-wider">
+              <p className="text-xs font-bold text-[#1E40AF] uppercase tracking-wider">
                 Current Tank Stock
               </p>
               <h2 className="text-xl font-black font-mono text-[#111311] mt-1">
                 {zmccTankStock != null ? `${zmccTankStock.toLocaleString()} L` : '—'}
               </h2>
-              <span className="text-[10px] font-bold text-[#1E40AF]">
-                Active Storage Tanks
-              </span>
             </div>
-            <div className="p-2.5 rounded-xl bg-[#FFFFFF] border border-[#BFDBFE] text-[#1E40AF]">
+            <div className="p-2.5 rounded-xl bg-white border border-[#BFDBFE] text-[#1E40AF]">
               <Milk className="w-5 h-5" />
             </div>
           </div>
@@ -206,17 +190,14 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
           {/* Card 2: Today Accepted Intake */}
           <div className="p-4 rounded-xl bg-[#F0FDF4] border border-[#BBF7D0] shadow-xs flex items-center justify-between">
             <div>
-              <p className="text-[10.5px] font-extrabold text-[#166534] uppercase tracking-wider">
-                Today Accepted Intake — Gross Liters
+              <p className="text-xs font-bold text-[#166534] uppercase tracking-wider">
+                Today Accepted Intake
               </p>
               <h2 className="text-xl font-black font-mono text-[#111311] mt-1">
                 {todayAcceptedIntakeLiters != null ? `${todayAcceptedIntakeLiters.toLocaleString()} L` : '—'}
               </h2>
-              <span className="text-[10px] font-bold text-[#166534]">
-                Authoritative Accepted Physical Liters
-              </span>
             </div>
-            <div className="p-2.5 rounded-xl bg-[#FFFFFF] border border-[#BBF7D0] text-[#166534]">
+            <div className="p-2.5 rounded-xl bg-white border border-[#BBF7D0] text-[#166534]">
               <CheckCircle2 className="w-5 h-5" />
             </div>
           </div>
@@ -224,19 +205,14 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
           {/* Card 3: Today Dispatch to Plant */}
           <div className="p-4 rounded-xl bg-[#F8FAFC] border border-[#CBD5E1] shadow-xs flex items-center justify-between">
             <div>
-              <p className="text-[10.5px] font-extrabold text-[#334155] uppercase tracking-wider">
-                {dateRange === 'TODAY'
-                  ? 'Today Dispatches to Plant'
-                  : 'Dispatches to Plant'}
+              <p className="text-xs font-bold text-[#334155] uppercase tracking-wider">
+                Dispatches to Plant
               </p>
               <h2 className="text-xl font-black font-mono text-[#111311] mt-1">
                 {summary?.totalVisits != null ? summary.totalVisits : '—'}
               </h2>
-              <span className="text-[10px] font-bold text-[#475569]">
-                Visits in selected period
-              </span>
             </div>
-            <div className="p-2.5 rounded-xl bg-[#FFFFFF] border border-[#CBD5E1] text-[#334155]">
+            <div className="p-2.5 rounded-xl bg-white border border-[#CBD5E1] text-[#334155]">
               <Truck className="w-5 h-5" />
             </div>
           </div>
@@ -244,17 +220,14 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
           {/* Card 4: Vehicles Inside ZMCC */}
           <div className="p-4 rounded-xl bg-[#FFFBEB] border border-[#FDE68A] shadow-xs flex items-center justify-between">
             <div>
-              <p className="text-[10.5px] font-extrabold text-[#92400E] uppercase tracking-wider">
+              <p className="text-xs font-bold text-[#92400E] uppercase tracking-wider">
                 Vehicles Inside ZMCC
               </p>
               <h2 className="text-xl font-black font-mono text-[#111311] mt-1">
                 {vehiclesInsideZmccCount != null ? vehiclesInsideZmccCount : '—'}
               </h2>
-              <span className="text-[10px] font-bold text-[#92400E]">
-                Yard / Intake / Lab
-              </span>
             </div>
-            <div className="p-2.5 rounded-xl bg-[#FFFFFF] border border-[#FDE68A] text-[#92400E]">
+            <div className="p-2.5 rounded-xl bg-white border border-[#FDE68A] text-[#92400E]">
               <Clock className="w-5 h-5" />
             </div>
           </div>
@@ -262,17 +235,14 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
           {/* Card 5: Active Plant-Bound Vehicles */}
           <div className="p-4 rounded-xl bg-[#FAF5FF] border border-[#E9D5FF] shadow-xs flex items-center justify-between">
             <div>
-              <p className="text-[10.5px] font-extrabold text-[#6B21A8] uppercase tracking-wider">
+              <p className="text-xs font-bold text-[#6B21A8] uppercase tracking-wider">
                 Active Plant-Bound
               </p>
               <h2 className="text-xl font-black font-mono text-[#111311] mt-1">
                 {liveActiveInPlantCount != null ? liveActiveInPlantCount : '—'}
               </h2>
-              <span className="text-[10px] font-bold text-[#6B21A8]">
-                Live Active Tankers
-              </span>
             </div>
-            <div className="p-2.5 rounded-xl bg-[#FFFFFF] border border-[#E9D5FF] text-[#6B21A8]">
+            <div className="p-2.5 rounded-xl bg-white border border-[#E9D5FF] text-[#6B21A8]">
               <Factory className="w-5 h-5" />
             </div>
           </div>
@@ -280,42 +250,32 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
           {/* Card 6: Needs Attention */}
           <div className="p-4 rounded-xl bg-[#FEF2F2] border border-[#FECACA] shadow-xs flex items-center justify-between">
             <div>
-              <p className="text-[10.5px] font-extrabold text-[#991B1B] uppercase tracking-wider">
+              <p className="text-xs font-bold text-[#991B1B] uppercase tracking-wider">
                 Needs Attention
               </p>
               <h2 className="text-xl font-black font-mono text-[#991B1B] mt-1">
                 {attentionItems.length}
               </h2>
-              <span className="text-[10px] font-bold text-[#991B1B]">
-                {pagination && pagination.totalPages > 1
-                  ? 'Current Page Exceptions'
-                  : 'Actionable Exceptions'}
-              </span>
             </div>
-            <div className="p-2.5 rounded-xl bg-[#FFFFFF] border border-[#FECACA] text-[#991B1B]">
+            <div className="p-2.5 rounded-xl bg-white border border-[#FECACA] text-[#991B1B]">
               <AlertTriangle className="w-5 h-5" />
             </div>
           </div>
         </div>
 
-        {/* 3. Secondary Quantity & Volume Summary (Missing != Zero) */}
+        {/* 3. Secondary Quantity & Volume Summary */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 pt-2 border-t border-[#EAE4D5]/80 font-mono">
-          {/* Physical Milk Truth — Gross Liters */}
+          {/* Gross Liters Summary */}
           <div className="p-4 rounded-xl bg-[#FDFBF9] border border-[#EAE4D5] space-y-2">
             <div className="flex items-center justify-between font-sans">
-              <span className="text-xs font-black text-[#111311] flex items-center gap-1.5">
+              <span className="text-xs font-extrabold text-[#111311] flex items-center gap-1.5">
                 <Scale className="w-4 h-4 text-[#1E3A8A]" />
-                <span>Physical Milk Truth — Gross Liters ({pagination && pagination.totalPages > 1 ? 'Current Page' : dateRange})</span>
-              </span>
-              <span className="text-[10px] font-bold text-slate-500">
-                {pagination && pagination.totalPages > 1
-                  ? `Page Gross vs Received (Page ${pagination.page} of ${pagination.totalPages})`
-                  : 'Gross Liters vs Physical Received'}
+                <span>Gross Volume (Liters)</span>
               </span>
             </div>
             <div className="grid grid-cols-3 gap-2 text-xs pt-1">
               <div>
-                <span className="text-[9.5px] text-slate-500 font-sans block">Dispatch Gross:</span>
+                <span className="text-xs text-slate-500 font-sans block">Dispatch Gross:</span>
                 <span className="font-black text-[#111311]">
                   {metrics.totalDispatchGrossLiters != null
                     ? `${metrics.totalDispatchGrossLiters.toLocaleString()} L`
@@ -323,7 +283,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
                 </span>
               </div>
               <div>
-                <span className="text-[9.5px] text-slate-500 font-sans block">Physical Received:</span>
+                <span className="text-xs text-slate-500 font-sans block">Physical Received:</span>
                 <span className="font-black text-[#166534]">
                   {metrics.totalPhysicalReceivedLiters != null
                     ? `${metrics.totalPhysicalReceivedLiters.toLocaleString()} L`
@@ -331,7 +291,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
                 </span>
               </div>
               <div>
-                <span className="text-[9.5px] text-slate-500 font-sans block">Difference:</span>
+                <span className="text-xs text-slate-500 font-sans block">Difference:</span>
                 <span
                   className={`font-black ${
                     metrics.quantityDifferenceLiters == null
@@ -351,22 +311,17 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
             </div>
           </div>
 
-          {/* Commercial Milk Truth — @13TS Liters */}
+          {/* @13TS Liters Summary */}
           <div className="p-4 rounded-xl bg-[#FDFBF9] border border-[#EAE4D5] space-y-2">
             <div className="flex items-center justify-between font-sans">
-              <span className="text-xs font-black text-[#111311] flex items-center gap-1.5">
+              <span className="text-xs font-extrabold text-[#111311] flex items-center gap-1.5">
                 <FlaskConical className="w-4 h-4 text-[#6B21A8]" />
-                <span>Commercial Milk Truth — @13TS Liters ({pagination && pagination.totalPages > 1 ? 'Current Page' : dateRange})</span>
-              </span>
-              <span className="text-[10px] font-bold text-slate-500">
-                {pagination && pagination.totalPages > 1
-                  ? `Normalized Solids (Page ${pagination.page} of ${pagination.totalPages})`
-                  : 'Normalized Solids Metric'}
+                <span>Commercial Volume (13% TS)</span>
               </span>
             </div>
             <div className="grid grid-cols-3 gap-2 text-xs pt-1">
               <div>
-                <span className="text-[9.5px] text-slate-500 font-sans block">Dispatch @13TS:</span>
+                <span className="text-xs text-slate-500 font-sans block">Dispatch @13TS:</span>
                 <span className="font-black text-[#111311]">
                   {metrics.totalDispatch13TsLiters != null
                     ? `${metrics.totalDispatch13TsLiters.toLocaleString()} L`
@@ -374,7 +329,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
                 </span>
               </div>
               <div>
-                <span className="text-[9.5px] text-slate-500 font-sans block">Plant @13TS:</span>
+                <span className="text-xs text-slate-500 font-sans block">Plant @13TS:</span>
                 <span className="font-black text-[#6B21A8]">
                   {metrics.totalPlant13TsLiters != null
                     ? `${metrics.totalPlant13TsLiters.toLocaleString()} L`
@@ -382,7 +337,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
                 </span>
               </div>
               <div>
-                <span className="text-[9.5px] text-slate-500 font-sans block">TS Variance:</span>
+                <span className="text-xs text-slate-500 font-sans block">TS Variance:</span>
                 <span
                   className={`font-black ${
                     metrics.tsDifferenceLiters == null

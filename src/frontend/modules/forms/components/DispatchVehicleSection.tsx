@@ -47,6 +47,8 @@ export interface DispatchVehicleSectionProps {
   onVehicleLrChange?: (value: string) => void;
   vehicleFat?: string;
   onVehicleFatChange?: (value: string) => void;
+  isVehicleQualityAuto?: boolean;
+  onResetVehicleQualityAuto?: () => void;
   rawMilkDispatchNoteNumber?: string;
   onRawMilkDispatchNoteNumberChange?: (value: string) => void;
 }
@@ -75,6 +77,8 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
   onVehicleLrChange,
   vehicleFat,
   onVehicleFatChange,
+  isVehicleQualityAuto = false,
+  onResetVehicleQualityAuto,
   rawMilkDispatchNoteNumber,
   onRawMilkDispatchNoteNumberChange,
 }) => {
@@ -198,9 +202,6 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
           <label className="text-xs font-extrabold uppercase tracking-wider text-[#111311]">
             {sourceType === 'ZMCC' ? 'Measured Tank / Vehicle Issue' : 'Measured Whole-Vehicle Dispatch Quantity'} *
           </label>
-          <span className="text-[10px] font-bold text-slate-500">
-            Authoritative measured issue from bulk tank / weighbridge
-          </span>
         </div>
 
         {!isPolicyReady ? (
@@ -269,12 +270,22 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
                 <div className="flex items-center space-x-1.5">
                   <Activity className="w-4 h-4 text-amber-900" />
                   <span className="text-xs font-black uppercase tracking-wider text-amber-950">
-                    Whole-Vehicle / Composite Quality {sourceType === 'ZMCC' ? '(Required)' : '(Optional)'}
+                    Whole-Vehicle Quality {sourceType === 'ZMCC' ? '(Required)' : '(Optional)'}
                   </span>
                 </div>
-                <span className="text-[10px] font-semibold text-amber-800">
-                  Authoritative whole-vehicle sample • Independent of portion tests
-                </span>
+                {isVehicleQualityAuto ? (
+                  <span className="text-xs font-bold text-blue-700 bg-blue-100 px-2.5 py-0.5 rounded-full border border-blue-200">
+                    Auto-calculated from Portions
+                  </span>
+                ) : onResetVehicleQualityAuto ? (
+                  <button
+                    type="button"
+                    onClick={onResetVehicleQualityAuto}
+                    className="text-xs font-bold text-[#1E40AF] hover:underline"
+                  >
+                    Reset to Auto-Calculate
+                  </button>
+                ) : null}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -293,9 +304,6 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
                     placeholder="e.g. 28.00"
                     className="w-full h-11 px-3.5 text-sm font-mono font-bold rounded-xl border border-amber-300 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#1E40AF]"
                   />
-                  <span className="text-[10px] text-amber-800 block">
-                    Density = 1 + (LR / 1000)
-                  </span>
                 </div>
 
                 <div className="space-y-1">
@@ -313,54 +321,39 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
                     placeholder="e.g. 3.80"
                     className="w-full h-11 px-3.5 text-sm font-mono font-bold rounded-xl border border-amber-300 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#1E40AF]"
                   />
-                  <span className="text-[10px] text-amber-800 block">
-                    TS = Fat + SNF • Commercial Solids Truth
-                  </span>
                 </div>
               </div>
 
-              {/* Derived Read-Only Canonical Preview Badges */}
+              {/* Derived Read-Only Preview Badges */}
               {(previewGrossLiters !== null || previewDensity !== null || previewAt13ts !== null) && (
                 <div className="pt-3 border-t border-amber-200/70 space-y-2">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    {/* PHYSICAL TRUTH BLOCK */}
-                    <div className="p-3 rounded-xl bg-white border border-blue-200 shadow-xs space-y-1.5">
+                    <div className="p-3 rounded-xl bg-white border border-blue-200 shadow-xs space-y-1">
                       <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-black uppercase tracking-wider text-blue-900 font-sans">
-                          Physical Truth
-                        </span>
-                        <span className="text-[10px] font-bold text-slate-600 font-mono">
+                        <span className="text-xs font-bold text-slate-600 font-sans">Gross Liters</span>
+                        <span className="text-xs font-bold text-slate-500 font-mono">
                           Density: {previewDensity !== null ? previewDensity.toFixed(4) : '—'}
                         </span>
                       </div>
-                      <div className="flex items-baseline justify-between">
-                        <span className="text-xs font-bold text-slate-600 font-sans">Gross Liters</span>
-                        <span className="text-base font-black text-blue-950 font-mono">
-                          {previewGrossLiters !== null
-                            ? `${previewGrossLiters.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L`
-                            : '—'}
-                        </span>
-                      </div>
+                      <span className="text-base font-black text-blue-950 font-mono block">
+                        {previewGrossLiters !== null
+                          ? `${previewGrossLiters.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L`
+                          : '—'}
+                      </span>
                     </div>
 
-                    {/* COMMERCIAL TRUTH BLOCK */}
-                    <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-300 shadow-xs space-y-1.5">
+                    <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-300 shadow-xs space-y-1">
                       <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-black uppercase tracking-wider text-emerald-900 font-sans">
-                          Commercial Truth
-                        </span>
-                        <span className="text-[10px] font-bold text-emerald-800 font-mono">
+                        <span className="text-xs font-bold text-emerald-900 font-sans">Liters @ 13% TS</span>
+                        <span className="text-xs font-bold text-emerald-800 font-mono">
                           SNF: {previewSnf !== null ? `${previewSnf.toFixed(2)}%` : '—'} • TS: {previewTs !== null ? `${previewTs.toFixed(2)}%` : '—'}
                         </span>
                       </div>
-                      <div className="flex items-baseline justify-between">
-                        <span className="text-xs font-bold text-emerald-900 font-sans">@13TS Liters</span>
-                        <span className="text-base font-black text-emerald-950 font-mono">
-                          {previewAt13ts !== null
-                            ? `${previewAt13ts.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L`
-                            : '—'}
-                        </span>
-                      </div>
+                      <span className="text-base font-black text-emerald-950 font-mono block">
+                        {previewAt13ts !== null
+                          ? `${previewAt13ts.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L`
+                          : '—'}
+                      </span>
                     </div>
                   </div>
                 </div>

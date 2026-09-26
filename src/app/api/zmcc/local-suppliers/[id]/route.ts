@@ -16,7 +16,7 @@ export async function GET(req: Request, context: RouteContext) {
       return NextResponse.json({ error: result.error }, { status: result.status });
     }
     return NextResponse.json({ supplier: result.data });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('GET /api/zmcc/local-suppliers/[id] error:', err);
     return NextResponse.json(
       { error: 'An unexpected error occurred while fetching local supplier.' },
@@ -39,7 +39,7 @@ export async function PATCH(req: Request, context: RouteContext) {
     }
 
     return NextResponse.json({ supplier: result.data }, { status: result.status });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('PATCH /api/zmcc/local-suppliers/[id] error:', err);
     return NextResponse.json(
       { error: 'An unexpected error occurred while updating local supplier.' },

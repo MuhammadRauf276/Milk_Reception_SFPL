@@ -15,6 +15,7 @@ import { getPakistanCalendarDate } from '@/backend/core/business-day';
 import { getTankPhysicalStock } from '@/backend/services/zmccTankService';
 import { PaperReferenceService, PaperValidationError } from '@/backend/services/paperReferenceService';
 import { PaperReferenceType } from '@prisma/client';
+import { paperLinkedIdentity } from '@/backend/modules/paper-references';
 
 function serializeDispatch(visit: any) {
   const portions = visit.portions || [];
@@ -65,6 +66,10 @@ function serializeDispatch(visit: any) {
     vehicle_number: visit.vehicle_number,
     token_number: visit.token_number || null,
     raw_milk_dispatch_note_number: visit.raw_milk_dispatch_note_number || null,
+    identifiers: paperLinkedIdentity(
+      { entity: 'vehicle_visit', id: visit.id.toString(), number: visit.visit_number },
+      [{ type: 'RAW_MILK_DISPATCH_NOTE', value: visit.raw_milk_dispatch_note_number || null }]
+    ),
     dispatch_timestamp: dispatchTimestamp,
     dispatch_date: dispatchDate,
     operational_date: visit.operational_date ? visit.operational_date.toISOString().split('T')[0] : null,

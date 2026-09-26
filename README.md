@@ -203,28 +203,16 @@ local build/cache files
 
 These are excluded through `.gitignore`.
 
-## Testing
+## Project Verification
 
-The project includes regression and integrity test scripts covering areas such as:
-
-* workflow status transitions
-* QA chronology
-* business-date handling
-* dispatch validation
-* source relationships
-* silo receipt
-* formula consistency
-* authentication
-* operational audit timestamps
-
-Common checks:
+Common validation commands:
 
 ```bash
-npx tsx scripts/run_all_regressions.ts
 npx prisma validate
 npx prisma generate
 npm run lint
-npx next build
+npm run typecheck
+npm run build
 ```
 
 ## Deployment

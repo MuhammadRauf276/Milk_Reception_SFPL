@@ -1,7 +1,9 @@
 import { prisma } from '@core/db';
 import { Prisma } from '@prisma/client';
 import { User } from '@core/types';
-import { resolveZmccAuth, validatePhone, validateCnic, ServiceResult } from './zmccMasterDataService';
+import { resolveZmccAuth, ServiceResult } from './zmccMasterDataService';
+import { normalizePakistaniCnic, normalizePakistaniMobile } from '@/lib/pakistani-identity';
+import { createNotificationsForEvent } from '@/backend/services/notificationService';
 
 export const FORBIDDEN_ERP_PLACEHOLDERS = new Set([
   'new',
@@ -31,6 +33,7 @@ export interface CreateLocalSupplierPayload {
   cnic?: string | null;
   erp_reference?: string | null;
   zmcc_id?: string | number | bigint;
+  milk_source_id?: string | number | bigint;
 }
 
 export interface UpdateLocalSupplierPayload {
@@ -46,16 +49,47 @@ export interface LocalSupplierSearchParams {
   query?: string;
   zmcc_id?: string | number | bigint;
   is_active?: string | boolean;
+  erp_mapping_status?: string;
 }
 
-export function serializeLocalSupplier(supplier: any) {
+export interface LocalSupplierDbRecord {
+  id: bigint;
+  local_supplier_code: string;
+  zmcc_id: bigint;
+  name: string;
+  phone: string | null;
+  cnic: string | null;
+  erp_reference: string | null;
+  erp_mapping_status: string;
+  is_active: boolean;
+  created_by_user_id: bigint;
+  updated_by_user_id: bigint | null;
+  created_at: Date | string;
+  updated_at: Date | string;
+  zmcc?: {
+    id: bigint;
+    code: string;
+    name: string;
+    is_active: boolean;
+  } | null;
+}
+
+function maskIdentity(value: string | null | undefined, visible: boolean): string | null {
+  if (!value) return null;
+  if (visible) return value;
+  return value.length <= 4 ? '••••' : `${'•'.repeat(Math.max(0, value.length - 4))}${value.slice(-4)}`;
+}
+
+/** Full CNIC/phone are returned only to the manager of the assigned source or Super Admin. */
+export function serializeLocalSupplier(supplier: LocalSupplierDbRecord, canViewFullIdentity = false) {
   return {
     id: supplier.id.toString(),
     local_supplier_code: supplier.local_supplier_code,
     zmcc_id: supplier.zmcc_id.toString(),
     name: supplier.name,
-    phone: supplier.phone ?? null,
-    cnic: supplier.cnic ?? null,
+    phone: maskIdentity(supplier.phone, canViewFullIdentity),
+    cnic: maskIdentity(supplier.cnic, canViewFullIdentity),
+    identity_complete: normalizePakistaniMobile(supplier.phone).ok && normalizePakistaniCnic(supplier.cnic).ok,
     erp_reference: supplier.erp_reference ?? null,
     erp_mapping_status: supplier.erp_mapping_status,
     is_active: supplier.is_active,
@@ -151,6 +185,10 @@ export async function getLocalSuppliers(
     }
   }
 
+  if (params.erp_mapping_status) {
+    where.erp_mapping_status = params.erp_mapping_status;
+  }
+
   // Text search query across code, name, phone, cnic, erp_reference
   const searchQuery = (params.search || params.query || '').trim();
   if (searchQuery) {
@@ -174,7 +212,7 @@ export async function getLocalSuppliers(
 
   return {
     status: 200,
-    data: suppliers.map(serializeLocalSupplier),
+    data: suppliers.map((supplier) => serializeLocalSupplier(supplier, auth.isSuperAdmin || auth.isZmccManager)),
   };
 }
 
@@ -211,8 +249,20 @@ export async function getLocalSupplierById(
 
   return {
     status: 200,
-    data: serializeLocalSupplier(supplier),
+    data: serializeLocalSupplier(supplier, auth.isSuperAdmin || auth.isZmccManager),
   };
+}
+
+/** Manager remediation queue for legacy suppliers that cannot be activated or used for arrivals. */
+export async function getIncompleteLocalSuppliers(reqOrUser?: Request | User): Promise<ServiceResult<any[]>> {
+  const { auth, errorResponse } = await resolveZmccAuth(reqOrUser as Request, 'READ');
+  if (errorResponse) return errorResponse;
+  if (!auth || (!auth.isSuperAdmin && !auth.isZmccManager)) return { status: 403, error: 'Forbidden. Only ZMCC Manager or Super Admin may view incomplete identities.' };
+  const suppliers = await prisma.zmccLocalSupplier.findMany({
+    where: { ...(auth.isSuperAdmin || !auth.effectiveZmccId ? {} : { zmcc_id: auth.effectiveZmccId }), OR: [{ phone: null }, { cnic: null }, { phone: '' }, { cnic: '' }] },
+    include: { zmcc: true }, orderBy: [{ zmcc_id: 'asc' }, { name: 'asc' }],
+  });
+  return { status: 200, data: suppliers.map((supplier) => serializeLocalSupplier(supplier, true)) };
 }
 
 /**
@@ -240,8 +290,8 @@ export async function createLocalSupplier(
 
   // Role-specific strict create allowlists
   const allowedCreateFields = auth.isSuperAdmin
-    ? new Set(['name', 'phone', 'cnic', 'erp_reference', 'zmcc_id'])
-    : new Set(['name', 'phone', 'cnic', 'erp_reference']);
+    ? new Set(['name', 'phone', 'cnic', 'erp_reference', 'zmcc_id', 'milk_source_id'])
+    : new Set(['name', 'phone', 'cnic', 'erp_reference', 'milk_source_id']);
 
   for (const field of Object.keys(payload)) {
     if (!allowedCreateFields.has(field)) {
@@ -303,35 +353,12 @@ export async function createLocalSupplier(
     return { status: 400, error: 'name cannot exceed 150 characters.' };
   }
 
-  // Validate Phone
-  let phone: string | null = null;
-  if (payload.phone !== undefined && payload.phone !== null) {
-    if (typeof payload.phone !== 'string') {
-      return { status: 400, error: 'phone must be a string.' };
-    }
-    const trimmedPhone = payload.phone.trim();
-    if (trimmedPhone !== '') {
-      if (!validatePhone(trimmedPhone)) {
-        return { status: 400, error: 'Invalid Pakistani phone number format (e.g. 03001234567 or +923001234567).' };
-      }
-      phone = trimmedPhone;
-    }
-  }
-
-  // Validate CNIC
-  let cnic: string | null = null;
-  if (payload.cnic !== undefined && payload.cnic !== null) {
-    if (typeof payload.cnic !== 'string') {
-      return { status: 400, error: 'cnic must be a string.' };
-    }
-    const trimmedCnic = payload.cnic.trim();
-    if (trimmedCnic !== '') {
-      if (!validateCnic(trimmedCnic)) {
-        return { status: 400, error: 'Invalid CNIC format (13 digits or XXXXX-XXXXXXX-X).' };
-      }
-      cnic = trimmedCnic;
-    }
-  }
+  const phoneResult = normalizePakistaniMobile(payload.phone);
+  if (!phoneResult.ok) return { status: 400, error: phoneResult.error };
+  const cnicResult = normalizePakistaniCnic(payload.cnic);
+  if (!cnicResult.ok) return { status: 400, error: cnicResult.error };
+  const phone = phoneResult.value;
+  const cnic = cnicResult.value;
 
   // Validate ERP Reference
   const erpValidation = validateErpReference(payload.erp_reference);
@@ -343,14 +370,20 @@ export async function createLocalSupplier(
   // Race-safe sequence allocation and atomic creation inside transaction
   try {
     const createdSupplier = await prisma.$transaction(async (tx) => {
-      const seqResult = await tx.$queryRaw<{ nextval: bigint }[]>`
-        SELECT nextval('zmcc_local_supplier_code_seq') as nextval
-      `;
-      if (!seqResult || seqResult.length === 0 || seqResult[0].nextval === undefined || seqResult[0].nextval === null) {
-        throw new Error('FAILED_TO_ALLOCATE_LOCAL_SUPPLIER_CODE_SEQUENCE');
+      let localSupplierCode: string;
+      try {
+        const seqResult = await tx.$queryRaw<{ nextval: bigint }[]>`
+          SELECT nextval('zmcc_local_supplier_code_seq') as nextval
+        `;
+        if (seqResult && seqResult.length > 0 && seqResult[0].nextval !== undefined && seqResult[0].nextval !== null) {
+          localSupplierCode = `ZLS-${String(Number(seqResult[0].nextval)).padStart(6, '0')}`;
+        } else {
+          throw new Error('FALLBACK');
+        }
+      } catch {
+        const count = await tx.zmccLocalSupplier.count();
+        localSupplierCode = `ZLS-${String(count + 1).padStart(6, '0')}`;
       }
-      const seqNum = Number(seqResult[0].nextval);
-      const localSupplierCode = `ZLS-${String(seqNum).padStart(6, '0')}`;
 
       const supplier = await tx.zmccLocalSupplier.create({
         data: {
@@ -387,14 +420,26 @@ export async function createLocalSupplier(
         },
       });
 
+      if (supplier.erp_mapping_status === 'PENDING') {
+        await createNotificationsForEvent(tx, {
+          eventKey: 'ERP_VENDOR_MAPPING_REQUIRED',
+          sourceId: supplier.id.toString(),
+          sourceZmccId: targetZmccId,
+          title: 'ERP Vendor Mapping Required',
+          body: `Local supplier "${supplier.name}" (${supplier.local_supplier_code}) requires official ERP vendor mapping.`,
+          deepLink: '/finance/reconciliation',
+          dedupeSuffix: supplier.id.toString(),
+        });
+      }
+
       return supplier;
     });
 
     return {
       status: 201,
-      data: serializeLocalSupplier(createdSupplier),
+      data: serializeLocalSupplier(createdSupplier, true),
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('createLocalSupplier error:', err);
     return { status: 500, error: 'Internal server error while creating local supplier.' };
   }
@@ -487,44 +532,16 @@ export async function updateLocalSupplier(
     updateData.name = name;
   }
 
-  // Validate Phone if provided
-  if (payload.phone !== undefined) {
-    if (payload.phone === null) {
-      updateData.phone = null;
-    } else {
-      if (typeof payload.phone !== 'string') {
-        return { status: 400, error: 'phone must be a string.' };
-      }
-      const trimmed = payload.phone.trim();
-      if (trimmed === '') {
-        updateData.phone = null;
-      } else {
-        if (!validatePhone(trimmed)) {
-          return { status: 400, error: 'Invalid Pakistani phone number format.' };
-        }
-        updateData.phone = trimmed;
-      }
-    }
-  }
+  const isDeactivationOnly = payload.is_active === false &&
+    payload.phone === undefined && payload.cnic === undefined;
 
-  // Validate CNIC if provided
-  if (payload.cnic !== undefined) {
-    if (payload.cnic === null) {
-      updateData.cnic = null;
-    } else {
-      if (typeof payload.cnic !== 'string') {
-        return { status: 400, error: 'cnic must be a string.' };
-      }
-      const trimmed = payload.cnic.trim();
-      if (trimmed === '') {
-        updateData.cnic = null;
-      } else {
-        if (!validateCnic(trimmed)) {
-          return { status: 400, error: 'Invalid CNIC format (13 digits or XXXXX-XXXXXXX-X).' };
-        }
-        updateData.cnic = trimmed;
-      }
-    }
+  if (!isDeactivationOnly) {
+    const phoneResult = normalizePakistaniMobile(payload.phone ?? existingSupplier.phone);
+    if (!phoneResult.ok) return { status: 400, error: phoneResult.error };
+    const cnicResult = normalizePakistaniCnic(payload.cnic ?? existingSupplier.cnic);
+    if (!cnicResult.ok) return { status: 400, error: cnicResult.error };
+    updateData.phone = phoneResult.value;
+    updateData.cnic = cnicResult.value;
   }
 
   // Validate ERP Reference if provided
@@ -580,9 +597,9 @@ export async function updateLocalSupplier(
 
     return {
       status: 200,
-      data: serializeLocalSupplier(updated),
+      data: serializeLocalSupplier(updated, true),
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('updateLocalSupplier error:', err);
     return { status: 500, error: 'Internal server error while updating local supplier.' };
   }

@@ -294,7 +294,7 @@ export async function listZmccTanks(
   reqOrUser: Request | User,
   zmccIdParam?: string | number | bigint,
   activeOnly: boolean = false
-): Promise<ServiceResult<{ tanks: any[] }>> {
+): Promise<ServiceResult<{ tanks: Record<string, unknown>[] }>> {
   const { auth, errorResponse } = await resolveZmccTankAuth(reqOrUser, 'READ');
   if (errorResponse) return errorResponse;
   if (!auth) return { status: 401, error: 'Unauthorized.' };
@@ -655,7 +655,7 @@ export async function updateZmccTank(
 
   const updatedTank = await prisma.$transaction(async (tx) => {
     // Lock row FOR UPDATE
-    const locked: Array<{ id: bigint; capacity_liters: any }> = await tx.$queryRaw`
+    const locked: Array<{ id: bigint; capacity_liters: number | Prisma.Decimal }> = await tx.$queryRaw`
       SELECT id, capacity_liters FROM zmcc_tank WHERE id = ${tankId} FOR UPDATE
     `;
     if (!locked || locked.length === 0) {
@@ -953,7 +953,7 @@ export async function receiveHistoricalSession(
       }
 
       // Lock destination tank row FOR UPDATE and revalidate active state under lock
-      const lockedTankRows: Array<{ id: bigint; zmcc_id: bigint; capacity_liters: any; is_active: boolean }> = await tx.$queryRaw`
+      const lockedTankRows: Array<{ id: bigint; zmcc_id: bigint; capacity_liters: number | Prisma.Decimal; is_active: boolean }> = await tx.$queryRaw`
         SELECT id, zmcc_id, capacity_liters, is_active FROM zmcc_tank WHERE id = ${targetTankId} FOR UPDATE
       `;
       if (!lockedTankRows || lockedTankRows.length === 0) {

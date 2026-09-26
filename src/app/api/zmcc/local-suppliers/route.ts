@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import {
   getLocalSuppliers,
   createLocalSupplier,
+  getIncompleteLocalSuppliers,
 } from '@/backend/services/zmccLocalSupplierService';
 
 export async function GET(req: Request) {
@@ -10,11 +11,14 @@ export async function GET(req: Request) {
     const search = searchParams.get('search') || searchParams.get('query') || undefined;
     const zmcc_id = searchParams.get('zmcc_id') || undefined;
     const is_active = searchParams.get('is_active') ?? undefined;
+    const erp_mapping_status = searchParams.get('erp_mapping_status') || undefined;
 
-    const result = await getLocalSuppliers(req, {
+    const incompleteOnly = searchParams.get('incomplete') === 'true';
+    const result = incompleteOnly ? await getIncompleteLocalSuppliers(req) : await getLocalSuppliers(req, {
       search,
       zmcc_id,
       is_active,
+      erp_mapping_status,
     });
 
     if (result.error) {
@@ -22,7 +26,7 @@ export async function GET(req: Request) {
     }
 
     return NextResponse.json({ suppliers: result.data });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('GET /api/zmcc/local-suppliers error:', err);
     return NextResponse.json(
       { error: 'An unexpected error occurred while fetching local suppliers.' },
@@ -44,7 +48,7 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ supplier: result.data }, { status: result.status });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('POST /api/zmcc/local-suppliers error:', err);
     return NextResponse.json(
       { error: 'An unexpected error occurred while creating local supplier.' },

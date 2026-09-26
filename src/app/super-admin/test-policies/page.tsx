@@ -18,7 +18,7 @@ export default function SuperAdminTestPoliciesPage() {
         const data = await res.json();
         if (res.ok && data.user) {
           const role = data.user.role;
-          if (role === 'SUPER_ADMIN') {
+          if (['SUPER_ADMIN', 'SYSTEM_ADMIN', 'EXECUTIVE_MANAGEMENT', 'DATA_EXECUTIVE', 'DATA_ANALYST', 'ADMIN_HEAD', 'PRODUCTION_HEAD', 'FINANCE_ACCOUNTS', 'Admin', 'Management'].includes(role)) {
             setCurrentUser(data.user);
             setIsAuthorized(true);
           } else {

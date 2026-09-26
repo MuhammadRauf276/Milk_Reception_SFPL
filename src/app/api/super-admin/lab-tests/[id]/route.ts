@@ -1,15 +1,16 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
-import { resultOptionsArraySchema, validatePlantQAResultOptions } from '@/lib/validations/labTest';
+import { Prisma } from '@prisma/client';
+import { LabTestResultOption, resultOptionsArraySchema, validatePlantQAResultOptions } from '@/lib/validations/labTest';
 
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const authUser = await getCurrentUser(req);
-  if (!authUser || authUser.role !== 'SUPER_ADMIN') {
-    return NextResponse.json({ error: 'Unauthorized. Super Admin authorization required.' }, { status: 403 });
+  if (!authUser || (authUser.role !== 'SUPER_ADMIN' && authUser.role !== 'DATA_EXECUTIVE')) {
+    return NextResponse.json({ error: 'Unauthorized. Super Admin or Data Executive authorization required.' }, { status: 403 });
   }
 
   const { id: testIdStr } = await params;
@@ -40,7 +41,8 @@ export async function PATCH(
     }
 
     // Validate resultOptions if provided
-    let parsedResultOptions = targetTest.resultOptions;
+    let parsedResultOptions: LabTestResultOption[] | null | undefined =
+      (targetTest.resultOptions as unknown as LabTestResultOption[] | null) ?? undefined;
     const effectiveType = body.resultType || targetTest.resultType;
     const effectiveScope = body.testScope || targetTest.testScope;
     const effectiveRequired = body.isRequired !== undefined ? Boolean(body.isRequired) : targetTest.isRequired;
@@ -52,7 +54,7 @@ export async function PATCH(
           if (!parseRes.success) {
             return NextResponse.json({ error: parseRes.error.issues[0]?.message || 'Invalid result options' }, { status: 400 });
           }
-          parsedResultOptions = parseRes.data as any;
+          parsedResultOptions = parseRes.data;
         } else {
           parsedResultOptions = null;
         }
@@ -69,7 +71,7 @@ export async function PATCH(
       effectiveScope,
       effectiveRequired,
       effectiveType,
-      parsedResultOptions as any
+      parsedResultOptions
     );
     if (!plantValidation.isValid) {
       return NextResponse.json({ error: plantValidation.error }, { status: 400 });
@@ -86,7 +88,9 @@ export async function PATCH(
           testScope: body.testScope !== undefined ? body.testScope : targetTest.testScope,
           displayOrder: body.displayOrder !== undefined ? Number(body.displayOrder) : targetTest.displayOrder,
           isActive: body.isActive !== undefined ? Boolean(body.isActive) : targetTest.isActive,
-          resultOptions: parsedResultOptions !== undefined ? (parsedResultOptions as any) : undefined,
+          resultOptions: parsedResultOptions !== undefined
+            ? (parsedResultOptions === null ? Prisma.DbNull : (parsedResultOptions as unknown as Prisma.InputJsonValue))
+            : undefined,
         },
       });
 
@@ -128,8 +132,9 @@ export async function PATCH(
         resultOptions: updatedTest.resultOptions || null,
       },
     });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Internal Server Error';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 

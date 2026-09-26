@@ -13,7 +13,9 @@ export default function WorkspaceUnavailablePage() {
     } catch (_err) {
       // Ignore network errors on logout
     }
-    router.push('/login');
+    // Clear cookie client-side as well
+    document.cookie = 'auth_token=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+    window.location.href = '/login';
   };
 
   return (
@@ -28,7 +30,7 @@ export default function WorkspaceUnavailablePage() {
             <h1 className="font-extrabold text-lg tracking-tight leading-none text-[#111311]">
               MilkReception
             </h1>
-            <p className="text-[10px] font-bold text-[#1E40AF] uppercase tracking-widest mt-0.5">
+            <p className="text-xs font-bold text-[#1E40AF] uppercase tracking-widest mt-0.5">
               Shakarganj Milk Reception Management System
             </p>
           </div>
@@ -49,15 +51,15 @@ export default function WorkspaceUnavailablePage() {
             <p className="text-xs text-[#334155] font-semibold leading-relaxed">
               Your assigned user role does not currently have an active workspace available in this environment.
             </p>
-            <p className="text-[11px] text-slate-500 font-medium">
-              If you believe this is an error, please contact your system administrator to verify your account permissions.
+            <p className="text-xs text-slate-500 font-medium">
+              Please return to the login screen and select an authorized role account.
             </p>
           </div>
 
           <div className="pt-2">
             <button
               onClick={handleLogout}
-              className="inline-flex items-center justify-center space-x-2 px-5 py-2.5 rounded-xl bg-[#1E3A8A] hover:bg-[#1E40AF] text-white text-xs font-extrabold shadow transition-all"
+              className="inline-flex items-center justify-center space-x-2 px-5 py-2.5 rounded-xl bg-[#1E3A8A] hover:bg-[#1E40AF] text-white text-xs font-extrabold shadow transition-all cursor-pointer"
             >
               <LogOut className="w-4 h-4" />
               <span>Sign Out & Return to Login</span>

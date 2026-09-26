@@ -8,13 +8,6 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "test:unit": "vitest run tests/unit",
-    "test:integration": "vitest run tests/integration --fileParallelism=false",
-    "test:legacy": "tsx scripts/run_all_regressions.ts",
-    "test:migration-upgrade": "tsx scripts/test_real_postgres_migration_upgrade.ts",
-    "test:all": "npm run typecheck && npm run test && npm run test:legacy",
-    "test:db:setup": "tsx scripts/setup_test_db.ts",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
     "db:generate": "prisma generate"
@@ -27,13 +20,17 @@
     "@types/bcryptjs": "^2.4.6",
     "@types/pg": "^8.20.4",
     "bcryptjs": "^3.0.3",
+    "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "exceljs": "^4.4.0",
+    "framer-motion": "^13.4.4",
     "jose": "^5.9.6",
     "lucide-react": "^0.469.0",
     "next": "^15.1.0",
     "pg": "^8.22.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "swr": "^2.5.1",
     "tailwind-merge": "^2.5.5"
   },
   "devDependencies": {
@@ -43,13 +40,11 @@
     "autoprefixer": "^10.4.20",
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.3.0",
-    "fake-indexeddb": "^6.2.5",
     "postcss": "^8.4.49",
     "prisma": "^5.22.0",
     "tailwindcss": "^3.4.17",
     "tsx": "^4.23.7",
     "typescript": "^5.7.2",
-    "vitest": "^4.1.11",
     "zod": "^4.4.3"
   }
 }

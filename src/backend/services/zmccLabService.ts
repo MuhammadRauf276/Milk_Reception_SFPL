@@ -2,7 +2,7 @@ import { prisma } from '@core/db';
 import { Prisma } from '@prisma/client';
 import { getCurrentUser } from '@core/auth';
 import { User, Role } from '@core/types';
-import { evaluateLabResult, validateCategoricalOption } from '@/lib/lab-rules';
+import { validateCategoricalOption } from '@/lib/lab-rules';
 import { isValidDateOnly } from '@/lib/datetime-utils';
 import { computeCanonicalMilkMetrics } from '@/backend/utils/milkFormulas';
 import { resolveCoreMilkTestResults, validateCoreMilkTestCandidates } from '@/backend/utils/milkTestResolvers';
@@ -10,6 +10,7 @@ import { MilkTestPolicyService } from '@/backend/services/milkTestPolicyService'
 import { QualityRuleService } from '@/backend/services/qualityRuleService';
 import { TestingPoint } from '@/types/milk-test-policy';
 import { getTankPhysicalStock, serializeTankReceipt } from '@/backend/services/zmccTankService';
+import { createNotificationsForEvent } from '@/backend/services/notificationService';
 
 export interface ZmccLabAuthContext {
   user: User;
@@ -17,6 +18,7 @@ export interface ZmccLabAuthContext {
   role: Role;
   isSuperAdmin: boolean;
   isZmccManager: boolean;
+  isMpdHead: boolean;
   isZmccLabAttendant: boolean;
   effectiveZmccId: bigint | null;
 }
@@ -26,7 +28,8 @@ export type ZmccLabAction =
   | 'START_OR_RESUME_SESSION'
   | 'UPDATE_DRAFT'
   | 'COMPLETE_SESSION'
-  | 'CORRECT_SESSION';
+  | 'CORRECT_SESSION'
+  | 'ISSUE_LOCAL_SUPPLIER_RMR';
 
 export interface ServiceResult<T> {
   status: number;
@@ -70,10 +73,15 @@ export async function resolveZmccLabAuth(
   const role = dbUser.role as Role;
   const isSuperAdmin = role === 'SUPER_ADMIN';
   const isZmccManager = role === 'ZMCC_MANAGER';
+  const isMpdHead = role === 'HEAD_OF_MPD';
   const isZmccLabAttendant = role === 'ZMCC_LAB_ATTENDANT';
 
   // Permission checks by action
-  if (action === 'START_OR_RESUME_SESSION' || action === 'UPDATE_DRAFT' || action === 'COMPLETE_SESSION') {
+  if (action === 'ISSUE_LOCAL_SUPPLIER_RMR') {
+    if (!isZmccLabAttendant && !isSuperAdmin) {
+      return { errorResponse: { error: 'Forbidden. Only ZMCC Lab Attendants or Super Admins may issue Local Supplier RMRs.', status: 403 } };
+    }
+  } else if (action === 'START_OR_RESUME_SESSION' || action === 'UPDATE_DRAFT' || action === 'COMPLETE_SESSION') {
     if (!isZmccLabAttendant) {
       return {
         errorResponse: {
@@ -83,16 +91,16 @@ export async function resolveZmccLabAuth(
       };
     }
   } else if (action === 'CORRECT_SESSION') {
-    if (!isZmccManager && !isSuperAdmin) {
+    if (!isZmccManager && !isMpdHead && !isSuperAdmin) {
       return {
         errorResponse: {
-          error: 'Forbidden. Only ZMCC Managers or Super Admins may correct finalized lab records.',
+          error: 'Forbidden. Only ZMCC Managers, MPD Head, or Super Admin may correct finalized lab records.',
           status: 403,
         },
       };
     }
   } else if (action === 'READ_LAB') {
-    if (!isSuperAdmin && !isZmccManager && !isZmccLabAttendant) {
+    if (!isSuperAdmin && !isMpdHead && !isZmccManager && !isZmccLabAttendant) {
       return {
         errorResponse: {
           error: 'Forbidden. You do not have permission to access ZMCC laboratory data.',
@@ -103,7 +111,7 @@ export async function resolveZmccLabAuth(
   }
 
   let effectiveZmccId: bigint | null = null;
-  if (!isSuperAdmin) {
+  if (!isSuperAdmin && !isMpdHead) {
     if (!dbUser.procurement_source_id || !dbUser.procurement_source) {
       return {
         errorResponse: {
@@ -155,10 +163,91 @@ export async function resolveZmccLabAuth(
       role,
       isSuperAdmin,
       isZmccManager,
+      isMpdHead,
       isZmccLabAttendant,
       effectiveZmccId,
     },
   };
+}
+
+export interface IssueLocalSupplierRmrPayload {
+  series: string;
+  book_number: string;
+  receipt_number: string;
+  idempotency_key: string;
+}
+
+function serializeLocalSupplierRmr(issuance: any) {
+  return {
+    id: issuance.id.toString(), local_supplier_arrival_id: issuance.local_supplier_arrival_id.toString(),
+    final_lab_session_id: issuance.final_lab_session_id.toString(), tank_receipt_id: issuance.tank_receipt_id.toString(),
+    zmcc_id: issuance.zmcc_id.toString(), local_supplier_id: issuance.local_supplier_id.toString(), year: issuance.rmr_year,
+    series: issuance.series, book_number: issuance.book_number, receipt_number: issuance.receipt_number,
+    printable_reference: `${issuance.series}-${issuance.rmr_year}-${issuance.book_number}-${issuance.receipt_number}`,
+    accepted_quantity_value: Number(issuance.accepted_quantity_value), accepted_quantity_unit: issuance.accepted_quantity_unit,
+    status: issuance.status, issued_at: issuance.issued_at instanceof Date ? issuance.issued_at.toISOString() : issuance.issued_at,
+  };
+}
+
+export async function issueLocalSupplierRmr(
+  reqOrUser: Request | User, arrivalIdParam: string | number | bigint, payload: IssueLocalSupplierRmrPayload
+): Promise<ServiceResult<any>> {
+  const { auth, errorResponse } = await resolveZmccLabAuth(reqOrUser, 'ISSUE_LOCAL_SUPPLIER_RMR');
+  if (errorResponse) return errorResponse;
+  if (!auth) return { status: 401, error: 'Unauthorized.' };
+  let arrivalId: bigint;
+  try { arrivalId = BigInt(String(arrivalIdParam).trim()); } catch { return { status: 400, error: 'Invalid Local Supplier arrival ID.' }; }
+  const normal = (value: unknown, label: string, max: number) => {
+    const result = typeof value === 'string' ? value.trim().toUpperCase() : '';
+    if (!result || result.length > max || !/^[A-Z0-9][A-Z0-9/_-]*$/.test(result)) throw new Error(`${label} has an invalid format.`);
+    return result;
+  };
+  let series: string, bookNumber: string, receiptNumber: string, idempotencyKey: string;
+  try {
+    series = normal(payload?.series, 'Series', 30); bookNumber = normal(payload?.book_number, 'Book number', 50);
+    receiptNumber = normal(payload?.receipt_number, 'Receipt number', 50); idempotencyKey = normal(payload?.idempotency_key, 'Idempotency key', 255);
+  } catch (error: any) { return { status: 400, error: error.message }; }
+  try {
+    const issuance = await prisma.$transaction(async (tx) => {
+      const arrival = await tx.zmccLocalSupplierArrival.findUnique({
+        where: { id: arrivalId }, include: { lab_session: { include: { tank_receipt: true } }, rmr_issuance: true },
+      });
+      if (!arrival) throw new Error('ARRIVAL_NOT_FOUND');
+      if (!auth.isSuperAdmin && arrival.zmcc_id !== auth.effectiveZmccId!) throw new Error('FORBIDDEN_SOURCE');
+      const session = arrival.lab_session;
+      if (!session || (session.final_decision || session.decision) !== 'ACCEPTED' || !session.tank_receipt || !session.quantity_value || !session.quantity_unit) throw new Error('NOT_FINALLY_ACCEPTED');
+      const byKey = await tx.localSupplierRmrIssuance.findUnique({ where: { idempotency_key: idempotencyKey } });
+      if (byKey) {
+        if (byKey.local_supplier_arrival_id === arrivalId && byKey.series === series && byKey.book_number === bookNumber && byKey.receipt_number === receiptNumber) return byKey;
+        throw new Error('IDEMPOTENCY_CONFLICT');
+      }
+      if (arrival.rmr_issuance) throw new Error('RMR_ALREADY_ISSUED');
+      const rmrYear = new Date().getFullYear();
+      const lockKey = `LOCAL_SUPPLIER_RMR:${arrival.zmcc_id}:${rmrYear}:${series}:${bookNumber}:${receiptNumber}`;
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`;
+      const duplicate = await tx.localSupplierRmrIssuance.findFirst({ where: { zmcc_id: arrival.zmcc_id, rmr_year: rmrYear, series, book_number: bookNumber, receipt_number: receiptNumber } });
+      if (duplicate) throw new Error('PAPER_NUMBER_CONFLICT');
+      const created = await tx.localSupplierRmrIssuance.create({ data: {
+        local_supplier_arrival_id: arrivalId, final_lab_session_id: session.id, tank_receipt_id: session.tank_receipt.id,
+        zmcc_id: arrival.zmcc_id, local_supplier_id: arrival.local_supplier_id, rmr_year: rmrYear, series,
+        book_number: bookNumber, receipt_number: receiptNumber, accepted_quantity_value: session.quantity_value,
+        accepted_quantity_unit: session.quantity_unit, issued_by_user_id: auth.actorUserId, idempotency_key: idempotencyKey,
+      }});
+      await tx.auditLog.create({ data: { table_name: 'local_supplier_rmr_issuance', record_id: created.id, action: 'LOCAL_SUPPLIER_RMR_ISSUED', old_values: Prisma.DbNull,
+        new_values: { local_supplier_arrival_id: arrivalId.toString(), final_lab_session_id: session.id.toString(), tank_receipt_id: session.tank_receipt.id.toString(), year: rmrYear, series, book_number: bookNumber, receipt_number: receiptNumber, accepted_quantity_value: Number(session.quantity_value), accepted_quantity_unit: session.quantity_unit }, user_id: auth.actorUserId }});
+      return created;
+    });
+    return { status: 201, data: serializeLocalSupplierRmr(issuance) };
+  } catch (error: any) {
+    const messages: Record<string, [number, string]> = {
+      ARRIVAL_NOT_FOUND: [404, 'Local Supplier arrival not found.'], FORBIDDEN_SOURCE: [403, 'Forbidden. Arrival belongs to another ZMCC.'],
+      NOT_FINALLY_ACCEPTED: [400, 'RMR can only be issued after final acceptance and successful tank receipt.'], RMR_ALREADY_ISSUED: [409, 'A Local Supplier RMR is already issued for this arrival.'],
+      IDEMPOTENCY_CONFLICT: [409, 'Idempotency key was already used for a different RMR command.'], PAPER_NUMBER_CONFLICT: [409, 'This RMR paper number is already used in this ZMCC annual series.'],
+    };
+    if (messages[error.message]) return { status: messages[error.message][0], error: messages[error.message][1] };
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') return { status: 409, error: 'RMR issuance conflicted with an existing paper identity or arrival.' };
+    console.error('issueLocalSupplierRmr error:', error); return { status: 500, error: 'Failed to issue Local Supplier RMR.' };
+  }
 }
 
 export function serializeLabResult(res: any) {
@@ -337,6 +426,13 @@ export function serializeLabSession(session: any) {
     completed_by_user_id: session.completed_by_user_id ? session.completed_by_user_id.toString() : null,
     completed_at: session.completed_at instanceof Date ? session.completed_at.toISOString() : session.completed_at,
     decision: session.decision,
+    attendant_recommendation: session.attendant_recommendation || null,
+    attendant_recommended_by_user_id: session.attendant_recommended_by_user_id ? session.attendant_recommended_by_user_id.toString() : null,
+    attendant_recommended_at: session.attendant_recommended_at instanceof Date ? session.attendant_recommended_at.toISOString() : session.attendant_recommended_at,
+    final_decision: session.final_decision || null,
+    final_decided_by_user_id: session.final_decided_by_user_id ? session.final_decided_by_user_id.toString() : null,
+    final_decided_at: session.final_decided_at instanceof Date ? session.final_decided_at.toISOString() : session.final_decided_at,
+    final_decision_reason: session.final_decision_reason || null,
     system_quality_outcome: session.system_quality_outcome || null,
     manager_review_status: session.manager_review_status || null,
     manager_requested_decision: session.manager_requested_decision || null,
@@ -803,14 +899,32 @@ export async function startOrResumeSession(
     testingPoint = 'ZMCC_LAB_CONTRACTOR';
   }
   let effectiveTests = await MilkTestPolicyService.getEffectivePolicy(testingPoint);
+  let effectiveRulePoint = testingPoint;
 
   // Local Supplier reuses ZMCC_LAB_CONTRACTOR policy if no dedicated ZMCC_LAB_LOCAL_SUPPLIER policy is configured
   if (arrival_type === 'LOCAL_SUPPLIER' && (!effectiveTests || effectiveTests.length === 0)) {
     effectiveTests = await MilkTestPolicyService.getEffectivePolicy('ZMCC_LAB_CONTRACTOR');
+    effectiveRulePoint = 'ZMCC_LAB_CONTRACTOR';
   }
 
   if (!effectiveTests || effectiveTests.length === 0) {
     return { status: 400, error: `No active milk test policy is configured for ${testingPoint}.` };
+  }
+
+  // A required test without exactly one effective RELEASE rule must never enter
+  // an operational session. This avoids collecting evidence that cannot later
+  // receive a valid final decision.
+  const activeRules = await QualityRuleService.resolveActiveRulesForTestingPoint(effectiveRulePoint);
+  const invalidRequiredTest = effectiveTests.find((test) => {
+    if (!test.isRequired || test.resultType === 'CALCULATED') return false;
+    const rule = activeRules.get(test.id);
+    return !rule || rule.isConfigurationError || rule.rule_category !== 'RELEASE';
+  });
+  if (invalidRequiredTest) {
+    return {
+      status: 422,
+      error: `Required test ${invalidRequiredTest.testCode} has no valid active RELEASE rule for ${effectiveRulePoint}. QA Head configuration is required.`,
+    };
   }
 
   // Pre-flight validate that policy contains exactly one LR and one Fat candidate
@@ -992,7 +1106,7 @@ export async function getSessionById(
     return { status: 404, error: 'ZMCC Lab session not found.' };
   }
 
-  if (!auth.isSuperAdmin && session.zmcc_id !== auth.effectiveZmccId!) {
+  if (!auth.isSuperAdmin && !auth.isMpdHead && session.zmcc_id !== auth.effectiveZmccId!) {
     return { status: 403, error: 'Forbidden. Lab session belongs to another ZMCC.' };
   }
 
@@ -1040,7 +1154,7 @@ export async function updateDraftResults(
     return { status: 404, error: 'ZMCC Lab session not found.' };
   }
 
-  if (!auth.isSuperAdmin && session.zmcc_id !== auth.effectiveZmccId!) {
+  if (!auth.isSuperAdmin && !auth.isMpdHead && session.zmcc_id !== auth.effectiveZmccId!) {
     return { status: 403, error: 'Forbidden. Lab session belongs to another ZMCC.' };
   }
 
@@ -1117,6 +1231,11 @@ export async function updateDraftResults(
   // Update records
   await prisma.$transaction(async (tx) => {
     const updatedDraftResultsMap = new Map(session.results.map((r) => [r.test_id.toString(), { ...r }]));
+    const testingPoint = session.arrival_type === 'MOT'
+      ? 'ZMCC_LAB_MOT'
+      : session.arrival_type === 'LOCAL_SUPPLIER'
+        ? 'ZMCC_LAB_LOCAL_SUPPLIER'
+        : 'ZMCC_LAB_CONTRACTOR';
 
     for (const item of resultsToProcess) {
       const testIdStr = String(item.test_id).trim();
@@ -1135,15 +1254,15 @@ export async function updateDraftResults(
         if (item.numeric_value !== undefined && item.numeric_value !== null) {
           const num = Number(item.numeric_value);
           numVal = new Prisma.Decimal(num.toFixed(4));
-          const evaluation = evaluateLabResult(
-            existing.test_code_snapshot,
-            num,
-            null,
-            existing.result_type_snapshot,
-            existing.result_options_snapshot as any
-          );
+          const rule = await QualityRuleService.resolveActiveRule(existing.test_id, testingPoint, session.started_at || new Date(), tx);
+          const evaluation = QualityRuleService.evaluateQualityResult({
+            rule,
+            numericValue: num,
+            resultType: existing.result_type_snapshot,
+            resultOptions: existing.result_options_snapshot,
+          });
           isPassed = evaluation.isPassed;
-          evalStatus = evaluation.status;
+          evalStatus = evaluation.evaluationStatus;
         }
       } else if (resType === 'TEXT') {
         if (item.text_value !== undefined && item.text_value !== null && item.text_value.trim()) {
@@ -1154,15 +1273,15 @@ export async function updateDraftResults(
       } else {
         if (item.text_value !== undefined && item.text_value !== null && item.text_value.trim()) {
           txtVal = item.text_value.trim();
-          const evaluation = evaluateLabResult(
-            existing.test_code_snapshot,
-            null,
-            txtVal,
-            existing.result_type_snapshot,
-            existing.result_options_snapshot as any
-          );
+          const rule = await QualityRuleService.resolveActiveRule(existing.test_id, testingPoint, session.started_at || new Date(), tx);
+          const evaluation = QualityRuleService.evaluateQualityResult({
+            rule,
+            textValue: txtVal,
+            resultType: existing.result_type_snapshot,
+            resultOptions: existing.result_options_snapshot,
+          });
           isPassed = evaluation.isPassed;
-          evalStatus = evaluation.status;
+          evalStatus = evaluation.evaluationStatus;
         }
       }
 
@@ -1253,6 +1372,8 @@ export interface CompleteSessionPayload {
   quantity_unit: 'KG' | 'LITER' | string;
   decision: 'ACCEPTED' | 'REJECTED';
   rejection_reason?: string | null;
+  exceptionReason?: string | null;
+  exception_reason?: string | null;
   remarks?: string | null;
   tank_id?: string | number | bigint | null;
   results: Array<{
@@ -1273,7 +1394,8 @@ function matchesPersistedSessionCompletion(
   }
 
   // 2. Decision
-  if (persistedSession.decision !== payload.decision) {
+  const persistedAttendantDecision = persistedSession.attendant_recommendation || persistedSession.decision;
+  if (persistedAttendantDecision !== payload.decision) {
     return false;
   }
 
@@ -1499,7 +1621,7 @@ export async function completeSession(
     return { status: 404, error: 'ZMCC Lab session not found.' };
   }
 
-  if (!auth.isSuperAdmin && session.zmcc_id !== auth.effectiveZmccId!) {
+  if (!auth.isSuperAdmin && !auth.isMpdHead && session.zmcc_id !== auth.effectiveZmccId!) {
     return { status: 403, error: 'Forbidden. Lab session belongs to another ZMCC.' };
   }
 
@@ -1508,13 +1630,10 @@ export async function completeSession(
   }
 
   if (!decision || !['ACCEPTED', 'REJECTED'].includes(decision)) {
-    return { status: 400, error: 'decision must be either ACCEPTED or REJECTED.' };
+    return { status: 400, error: 'Lab Attendant decision must be ACCEPTED or REJECTED.' };
   }
 
-  const rejectionReasonTrimmed = rejection_reason ? rejection_reason.trim() : '';
-  if (decision === 'REJECTED' && !rejectionReasonTrimmed) {
-    return { status: 400, error: 'rejection_reason is required when decision is REJECTED.' };
-  }
+  const rejectionReasonTrimmed = (payload.exceptionReason || payload.exception_reason || rejection_reason || '').trim();
 
   if (!Array.isArray(results) || results.length === 0) {
     return { status: 400, error: 'results array is required to complete testing.' };
@@ -1633,7 +1752,8 @@ export async function completeSession(
     return { status: 400, error: err.message || 'Failed to compute canonical milk metrics.' };
   }
 
-  // Resolve destination ZMCC tank for ACCEPTED completion
+  // An acceptance needs the one active destination tank. An exception is still
+  // checked now, but stock is not posted until the manager approves it.
   let targetTankId: bigint | null = null;
   if (decision === 'ACCEPTED') {
     const activeTanks = await prisma.zmccTank.findMany({
@@ -1777,7 +1897,6 @@ export async function completeSession(
 
       // Fail closed on RULE_CONFIGURATION_ERROR or NO_ACTIVE_RULE: Acceptance, receipt creation, and stock movement are strictly blocked
       if (
-        decision === 'ACCEPTED' &&
         (systemQualityOutcome === 'RULE_CONFIGURATION_ERROR' ||
           evaluations.some((e: any) => e.evaluationStatus === 'RULE_CONFIGURATION_ERROR'))
       ) {
@@ -1785,46 +1904,52 @@ export async function completeSession(
           'RULE_CONFIGURATION_ERROR:Laboratory rule configuration error detected. QA completion cannot accept milk under invalid rule configuration.'
         );
       }
-      if (decision === 'ACCEPTED' && systemQualityOutcome === 'NO_ACTIVE_RULE') {
+      if (systemQualityOutcome === 'NO_ACTIVE_RULE') {
         throw new Error(
           'NO_ACTIVE_RULE:Cannot accept milk: required laboratory release rule is missing. QA Head configuration required.'
         );
       }
 
-      let effectiveDecision: string | null = decision;
-      let effectiveManagerReviewStatus: string = 'NONE';
-      let effectiveManagerRequestedDecision: string | null = null;
-      let effectiveReviewRequestedBy: bigint | null = null;
-      let effectiveReviewRequestedAt: Date | null = null;
-
-      // Authoritative OUT_OF_SPEC flow: Attendant does NOT make the final accept/reject decision when system outcome is OUT_OF_SPEC.
-      if (decision === 'ACCEPTED' && systemQualityOutcome === 'OUT_OF_SPEC') {
-        effectiveDecision = null;
-        effectiveManagerReviewStatus = 'PENDING';
-        effectiveManagerRequestedDecision = 'SYSTEM_OUT_OF_SPEC';
-        effectiveReviewRequestedBy = auth.actorUserId;
-        effectiveReviewRequestedAt = new Date();
-      } else if (decision === 'ACCEPTED') {
-        effectiveDecision = 'ACCEPTED';
-        effectiveManagerReviewStatus = 'NONE';
-      } else {
-        effectiveDecision = 'REJECTED';
-        effectiveManagerReviewStatus = 'NONE';
+      const systemRecommendation = ['PASS', 'WARNING', 'NEUTRAL'].includes(systemQualityOutcome)
+        ? 'ACCEPTED'
+        : 'REJECTED';
+      const isAttendantException = decision !== systemRecommendation;
+      if (isAttendantException && !rejectionReasonTrimmed) {
+        throw new Error('ATTENDANT_EXCEPTION_REASON_REQUIRED:A reason is required when the Lab Attendant decision differs from the system result.');
       }
+
+      // The attendant decides normal cases. Only a disagreement is held for
+      // ZMCC Manager review, preserving both the system evidence and human choice.
+      const effectiveDecision: string | null = isAttendantException ? 'PENDING' : decision;
+      const effectiveFinalDecision: string | null = isAttendantException ? null : decision;
+      const effectiveManagerReviewStatus = isAttendantException ? 'PENDING' : 'NONE';
+      const effectiveManagerRequestedDecision = isAttendantException ? decision : null;
+      const effectiveReviewRequestedBy: bigint | null = isAttendantException ? auth.actorUserId : null;
+      const effectiveReviewRequestedAt: Date | null = isAttendantException ? new Date() : null;
+      const completedAt = new Date();
 
       const updated = await tx.zmccLabSession.update({
         where: { id: sessionId },
         data: {
           status: 'COMPLETED',
           completed_by_user_id: auth.actorUserId,
-          completed_at: new Date(),
+          completed_at: completedAt,
           decision: effectiveDecision,
+          attendant_recommendation: decision,
+          attendant_recommended_by_user_id: auth.actorUserId,
+          attendant_recommended_at: completedAt,
+          final_decision: effectiveFinalDecision,
+          final_decided_by_user_id: effectiveFinalDecision ? auth.actorUserId : null,
+          final_decided_at: effectiveFinalDecision ? completedAt : null,
+          final_decision_reason: isAttendantException ? null : (decision === 'REJECTED' ? rejectionReasonTrimmed || null : null),
           system_quality_outcome: systemQualityOutcome,
           manager_review_status: effectiveManagerReviewStatus,
           manager_requested_decision: effectiveManagerRequestedDecision,
           manager_review_requested_by_user_id: effectiveReviewRequestedBy,
           manager_review_requested_at: effectiveReviewRequestedAt,
-          rejection_reason: effectiveDecision === 'REJECTED' ? rejectionReasonTrimmed : null,
+          // Retains the attendant's exception rationale even when their chosen
+          // outcome is ACCEPTED and manager review is pending.
+          rejection_reason: rejectionReasonTrimmed || null,
           remarks: remarks ? remarks.trim() : null,
           completion_client_event_id: clientEventId,
           quantity_value: new Prisma.Decimal(quantityNum.toFixed(2)),
@@ -1875,7 +2000,7 @@ export async function completeSession(
         },
       });
 
-      if (effectiveDecision === 'ACCEPTED' && targetTankId) {
+      if (effectiveFinalDecision === 'ACCEPTED' && targetTankId) {
         const tankReceipt = await createCanonicalTankReceiptTx(tx, {
           sessionId,
           zmccId: session.zmcc_id,
@@ -1902,8 +2027,12 @@ export async function completeSession(
             status: 'COMPLETED',
             arrival_type: session.arrival_type,
             arrival_id: (session.arrival_type === 'MOT' ? session.mot_arrival_id : session.arrival_type === 'CONTRACTOR' ? session.contractor_arrival_id : session.local_supplier_arrival_id)?.toString(),
-            decision,
-            rejection_reason: decision === 'REJECTED' ? rejectionReasonTrimmed : null,
+            attendant_decision: decision,
+            system_quality_outcome: systemQualityOutcome,
+            final_decision: effectiveFinalDecision,
+            manager_review_status: effectiveManagerReviewStatus,
+            exception_reason: isAttendantException ? rejectionReasonTrimmed : null,
+            rejection_reason: decision === 'REJECTED' ? rejectionReasonTrimmed || null : null,
             completion_client_event_id: clientEventId,
             quantity_value: quantityNum.toFixed(2),
             quantity_unit: quantityUnitNorm,
@@ -1924,6 +2053,15 @@ export async function completeSession(
         },
       });
 
+      if (isAttendantException) {
+        await createNotificationsForEvent(tx, {
+          eventKey: 'ZMCC_LAB_EXCEPTION_PENDING', sourceId: sessionId.toString(), sourceZmccId: session.zmcc_id,
+          title: 'ZMCC lab exception needs review',
+          body: `A ${session.arrival_type.toLowerCase()} milk decision differs from the system recommendation.`,
+          deepLink: '/mpd/zmcc-manager?tab=HISTORY&view=LAB_CORRECTIONS', dedupeSuffix: `${sessionId}:${clientEventId}`,
+        });
+      }
+
       return updated;
     });
 
@@ -1932,6 +2070,9 @@ export async function completeSession(
       data: serializeLabSession(completedSession),
     };
   } catch (err: any) {
+    if (err.message && err.message.startsWith('ATTENDANT_EXCEPTION_REASON_REQUIRED:')) {
+      return { status: 400, error: err.message.replace('ATTENDANT_EXCEPTION_REASON_REQUIRED:', '') };
+    }
     if (err.message && err.message.startsWith('RULE_CONFIGURATION_ERROR:')) {
       const msg = err.message.replace('RULE_CONFIGURATION_ERROR:', '');
       return { status: 400, error: msg };
@@ -2146,7 +2287,7 @@ export async function correctCompletedSession(
     return { status: 404, error: 'ZMCC Lab session not found.' };
   }
 
-  if (!auth.isSuperAdmin && session.zmcc_id !== auth.effectiveZmccId!) {
+  if (!auth.isSuperAdmin && !auth.isMpdHead && session.zmcc_id !== auth.effectiveZmccId!) {
     return { status: 403, error: 'Forbidden. Lab session belongs to another ZMCC.' };
   }
 
@@ -2173,12 +2314,12 @@ export async function correctCompletedSession(
   const isPendingReview = session.decision === 'PENDING' || session.manager_review_status === 'PENDING';
   const isRejectedSession = session.decision === 'REJECTED';
 
-  if (!isPendingReview && !auth.isSuperAdmin && (session.manager_correction_count ?? 0) >= 5) {
+  if (!isPendingReview && !auth.isSuperAdmin && !auth.isMpdHead && (session.manager_correction_count ?? 0) >= 5) {
     return { status: 400, error: 'Maximum correction limit (5) reached for this lab session.' };
   }
 
   // Quality exception decisions for OUT_OF_SPEC must be resolved by the ZMCC Manager for this ZMCC, not Super Admin.
-  if (isPendingReview && !auth.isZmccManager) {
+  if (isPendingReview && !auth.isZmccManager && !auth.isMpdHead && !auth.isSuperAdmin) {
     return {
       status: 403,
       error: 'Forbidden. OUT_OF_SPEC quality exception review must be resolved by the ZMCC Manager for this ZMCC, not Super Admin.',
@@ -2369,14 +2510,6 @@ export async function correctCompletedSession(
     }
   }
 
-  // Reject invalid transition from REJECTED to ACCEPTED in standard correction
-  if (decision === 'ACCEPTED' && session.decision === 'REJECTED' && !isPendingReview) {
-    return {
-      status: 400,
-      error: 'Decision cannot be changed from REJECTED to ACCEPTED in correction.',
-    };
-  }
-
   let effectiveDecision = decision || session.decision;
   if (effectiveDecision && !['ACCEPTED', 'REJECTED'].includes(effectiveDecision)) {
     return { status: 400, error: 'decision must be either ACCEPTED or REJECTED.' };
@@ -2524,7 +2657,7 @@ export async function correctCompletedSession(
       const currentTotalCount = lockedRows[0].correction_count;
       const currentManagerCount = lockedRows[0].manager_correction_count ?? 0;
 
-      if (!isPendingReview && !auth.isSuperAdmin && currentManagerCount >= 5) {
+      if (!isPendingReview && !auth.isSuperAdmin && !auth.isMpdHead && currentManagerCount >= 5) {
         throw new Error('MAX_CORRECTIONS_REACHED');
       }
 
@@ -2555,7 +2688,7 @@ export async function correctCompletedSession(
       };
 
       const newTotalCount = isPendingReview ? currentTotalCount : currentTotalCount + 1;
-      const newManagerCount = isPendingReview ? currentManagerCount : (auth.isSuperAdmin ? currentManagerCount : currentManagerCount + 1);
+      const newManagerCount = isPendingReview ? currentManagerCount : ((auth.isSuperAdmin || auth.isMpdHead) ? currentManagerCount : currentManagerCount + 1);
       const correctionTimestamp = new Date();
 
       // Compute effective quantity and unit
@@ -2900,6 +3033,7 @@ export async function correctCompletedSession(
         correction_reason: reasonTrimmed,
         actor_user_id: auth.actorUserId.toString(),
         is_super_admin: auth.isSuperAdmin,
+        is_mpd_head: auth.isMpdHead,
         ...(idempotencyKey ? { idempotency_key: idempotencyKey } : {}),
       };
 
@@ -2907,6 +3041,10 @@ export async function correctCompletedSession(
         where: { id: sessionId },
         data: {
           decision: effectiveDecision,
+          final_decision: effectiveDecision,
+          final_decided_by_user_id: isExceptionReview ? auth.actorUserId : session.final_decided_by_user_id,
+          final_decided_at: isExceptionReview ? correctionTimestamp : session.final_decided_at,
+          final_decision_reason: isExceptionReview ? reasonTrimmed : session.final_decision_reason,
           system_quality_outcome: recomputedSystemQualityOutcome,
           manager_review_status: finalManagerReviewStatus,
           manager_reviewed_by_user_id: isExceptionReview ? auth.actorUserId : session.manager_reviewed_by_user_id,
@@ -3158,3 +3296,6 @@ export async function getLabHistory(
     },
   };
 }
+
+export const completeLabSession = completeSession;
+export const correctLabSession = correctCompletedSession;

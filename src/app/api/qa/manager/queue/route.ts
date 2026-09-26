@@ -18,10 +18,10 @@ export async function GET(req: Request) {
     },
   });
 
-  const allowedRoles = ['QA_MANAGER', 'SUPER_ADMIN'];
+  const allowedRoles = ['QA_MANAGER', 'QA_HEAD', 'SUPER_ADMIN'];
   if (!dbUser || !allowedRoles.includes(dbUser.role)) {
     return NextResponse.json(
-      { error: 'Unauthorized. QA Manager or Super Admin role required.' },
+      { error: 'Unauthorized. QA Manager, QA Head, or Super Admin role required.' },
       { status: 403 }
     );
   }

@@ -20,7 +20,7 @@ export async function PATCH(
   const { id } = await params;
 
   try {
-    let body: any;
+    let body: Record<string, unknown>;
     try {
       body = await req.json();
     } catch {
@@ -40,7 +40,7 @@ export async function PATCH(
     });
 
     return NextResponse.json({ policy: updated }, { status: 200 });
-  } catch (err: any) {
+  } catch (err: unknown) {
     if (err instanceof ValidationError) {
       return NextResponse.json({ error: err.message }, { status: 400 });
     }
@@ -54,6 +54,7 @@ export async function PATCH(
       return NextResponse.json({ error: err.message }, { status: 409 });
     }
     console.error('[API_MILK_TEST_POLICIES_PATCH_ERROR]', err);
-    return NextResponse.json({ error: err.message || 'Failed to update milk test policy.' }, { status: 500 });
+    const message = err instanceof Error ? err.message : 'Failed to update milk test policy.';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

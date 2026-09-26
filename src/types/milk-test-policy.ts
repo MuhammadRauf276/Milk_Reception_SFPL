@@ -66,7 +66,7 @@ export interface SerializedPolicyAssignment {
     isRequired: boolean;
     isActive: boolean;
     displayOrder: number;
-    resultOptions: any;
+    resultOptions?: unknown;
   };
   creator?: {
     id: string;
@@ -87,7 +87,7 @@ export interface EffectivePolicyTest {
   testName: string;
   resultType: string;
   unit: string | null;
-  resultOptions: any;
+  resultOptions?: unknown;
   isRequired: boolean;
   displayOrder: number;
   isActive: boolean;

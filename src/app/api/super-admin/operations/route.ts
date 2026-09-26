@@ -3,6 +3,7 @@ import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
 import { calculatePhysicalLiters } from '@/backend/utils/milkFormulas';
 import { isPlantLrTest } from '@/backend/services/vehicleQuantityService';
+import { vehicleVisitPaperIdentity } from '@/backend/modules/paper-references';
 
 export async function GET(req: Request) {
   const authUser = await getCurrentUser(req);
@@ -57,6 +58,7 @@ export async function GET(req: Request) {
       visitNumber: v.visit_number,
       vehicleNumber: v.vehicle_number,
       tokenNumber: v.token_number,
+      identifiers: vehicleVisitPaperIdentity(v),
       procurementSource: v.procurement_source?.name || 'Source unavailable',
       currentStatus: v.current_status,
       createdAt: v.created_at.toISOString(),

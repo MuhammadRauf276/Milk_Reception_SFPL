@@ -67,6 +67,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
   const [vehicleQuantityError, setVehicleQuantityError] = useState<string | null>(null);
   const [vehicleLr, setVehicleLr] = useState<string>('');
   const [vehicleFat, setVehicleFat] = useState<string>('');
+  const [isVehicleQualityAuto, setIsVehicleQualityAuto] = useState<boolean>(true);
 
   // Portions Draft State
   const [portions, setPortions] = useState<PortionFormState[]>([]);
@@ -331,6 +332,92 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
       basis: 'MEASURED',
     }));
   };
+
+  const handleVehicleLrChange = (val: string) => {
+    setIsVehicleQualityAuto(false);
+    setVehicleLr(val);
+  };
+
+  const handleVehicleFatChange = (val: string) => {
+    setIsVehicleQualityAuto(false);
+    setVehicleFat(val);
+  };
+
+  const handleResetVehicleQualityAuto = () => {
+    setIsVehicleQualityAuto(true);
+  };
+
+  // Automated Vehicle LR & Fat Calculation from Portions (Weighted Average)
+  useEffect(() => {
+    if (!isVehicleQualityAuto) return;
+
+    const lrTest = labTests.find(
+      (t) => t.testName.toLowerCase().includes('lactometer') || t.testName.toLowerCase().includes('lr')
+    );
+    const fatTest = labTests.find(
+      (t) =>
+        t.testName.toLowerCase().includes('fat') &&
+        !t.testName.toLowerCase().includes('ratio') &&
+        !t.testName.toLowerCase().includes('snf')
+    );
+
+    let totalQty = 0;
+    let weightedLrSum = 0;
+    let weightedFatSum = 0;
+    let simpleLrSum = 0;
+    let simpleFatSum = 0;
+    let validLrCount = 0;
+    let validFatCount = 0;
+
+    portions.forEach((p) => {
+      const qty = parseFloat(p.quantity.value) || 0;
+      const lrRes = lrTest ? p.results[lrTest.testId] : null;
+      const fatRes = fatTest ? p.results[fatTest.testId] : null;
+
+      const lrVal = lrRes && lrRes.performanceStatus === 'PERFORMED' && lrRes.numericValue !== ''
+        ? parseFloat(lrRes.numericValue)
+        : null;
+      const fatVal = fatRes && fatRes.performanceStatus === 'PERFORMED' && fatRes.numericValue !== ''
+        ? parseFloat(fatRes.numericValue)
+        : null;
+
+      if (lrVal !== null && !isNaN(lrVal)) {
+        simpleLrSum += lrVal;
+        validLrCount++;
+        if (qty > 0) {
+          weightedLrSum += qty * lrVal;
+        }
+      }
+
+      if (fatVal !== null && !isNaN(fatVal)) {
+        simpleFatSum += fatVal;
+        validFatCount++;
+        if (qty > 0) {
+          weightedFatSum += qty * fatVal;
+        }
+      }
+
+      if (qty > 0) {
+        totalQty += qty;
+      }
+    });
+
+    if (totalQty > 0 && weightedLrSum > 0) {
+      setVehicleLr((weightedLrSum / totalQty).toFixed(2));
+    } else if (validLrCount > 0) {
+      setVehicleLr((simpleLrSum / validLrCount).toFixed(2));
+    } else {
+      setVehicleLr('');
+    }
+
+    if (totalQty > 0 && weightedFatSum > 0) {
+      setVehicleFat((weightedFatSum / totalQty).toFixed(2));
+    } else if (validFatCount > 0) {
+      setVehicleFat((simpleFatSum / validFatCount).toFixed(2));
+    } else {
+      setVehicleFat('');
+    }
+  }, [portions, labTests, isVehicleQualityAuto]);
 
   // --- Handlers for Portions ---
   const handlePortionQuantityValueChange = (index: number, val: string) => {
@@ -763,19 +850,46 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
         return;
       }
 
-      if (effectiveSource?.source_type === 'ZMCC') {
-        // Multi-portion vehicle requires explicit whole-vehicle LR and Fat
-        if (payloadPortions.length > 1) {
-          if (!vehicleLr || isNaN(Number(vehicleLr)) || Number(vehicleLr) <= 0) {
-            toast.showError('Authoritative whole-vehicle/composite LR is required for multi-portion ZMCC dispatch.', 'Validation Error');
-            setIsSubmitting(false);
-            return;
+      let finalVehicleLr = vehicleLr;
+      let finalVehicleFat = vehicleFat;
+
+      if (!finalVehicleLr || !finalVehicleFat) {
+        const lrTest = labTests.find(
+          (t) => t.testName.toLowerCase().includes('lactometer') || t.testName.toLowerCase().includes('lr')
+        );
+        const fatTest = labTests.find(
+          (t) =>
+            t.testName.toLowerCase().includes('fat') &&
+            !t.testName.toLowerCase().includes('ratio') &&
+            !t.testName.toLowerCase().includes('snf')
+        );
+
+        let sumLr = 0;
+        let sumFat = 0;
+        let validLrCount = 0;
+        let validFatCount = 0;
+
+        portions.forEach((p) => {
+          const lrRes = lrTest ? p.results[lrTest.testId] : null;
+          const fatRes = fatTest ? p.results[fatTest.testId] : null;
+          const lrVal = lrRes && lrRes.performanceStatus === 'PERFORMED' ? parseFloat(lrRes.numericValue) : NaN;
+          const fatVal = fatRes && fatRes.performanceStatus === 'PERFORMED' ? parseFloat(fatRes.numericValue) : NaN;
+
+          if (!isNaN(lrVal)) {
+            sumLr += lrVal;
+            validLrCount++;
           }
-          if (!vehicleFat || isNaN(Number(vehicleFat)) || Number(vehicleFat) < 0) {
-            toast.showError('Authoritative whole-vehicle/composite Fat is required for multi-portion ZMCC dispatch.', 'Validation Error');
-            setIsSubmitting(false);
-            return;
+          if (!isNaN(fatVal)) {
+            sumFat += fatVal;
+            validFatCount++;
           }
+        });
+
+        if (!finalVehicleLr && validLrCount > 0) {
+          finalVehicleLr = (sumLr / validLrCount).toFixed(2);
+        }
+        if (!finalVehicleFat && validFatCount > 0) {
+          finalVehicleFat = (sumFat / validFatCount).toFixed(2);
         }
       }
 
@@ -796,11 +910,11 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
             value: Number(vehicleQuantity.value),
             unit: vehicleQuantity.unit,
             basis: vehicleQuantity.basis,
-            lr: vehicleLr && !isNaN(Number(vehicleLr)) ? Number(vehicleLr) : undefined,
-            fat: vehicleFat && !isNaN(Number(vehicleFat)) ? Number(vehicleFat) : undefined,
+            lr: finalVehicleLr && !isNaN(Number(finalVehicleLr)) ? Number(finalVehicleLr) : undefined,
+            fat: finalVehicleFat && !isNaN(Number(finalVehicleFat)) ? Number(finalVehicleFat) : undefined,
           },
-          vehicleLr: vehicleLr && !isNaN(Number(vehicleLr)) ? Number(vehicleLr) : undefined,
-          vehicleFat: vehicleFat && !isNaN(Number(vehicleFat)) ? Number(vehicleFat) : undefined,
+          vehicleLr: finalVehicleLr && !isNaN(Number(finalVehicleLr)) ? Number(finalVehicleLr) : undefined,
+          vehicleFat: finalVehicleFat && !isNaN(Number(finalVehicleFat)) ? Number(finalVehicleFat) : undefined,
           rawMilkDispatchNoteNumber: rawMilkDispatchNoteNumber.trim() || undefined,
           portions: payloadPortions,
         }),
@@ -883,11 +997,11 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
             <div className="flex items-center space-x-2">
               <h2 className="font-black text-base text-[#111311]">Field Milk Dispatch</h2>
               {draftVisitId ? (
-                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
                   Draft Restored
                 </span>
               ) : (
-                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-blue-100 text-[#1E40AF] border border-blue-200">
+                <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-blue-100 text-[#1E40AF] border border-blue-200">
                   New Work Item
                 </span>
               )}
@@ -910,11 +1024,11 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
           )}
 
           <div className="flex items-center space-x-2 bg-[#F4EFE3] px-3 py-1.5 rounded-xl border border-[#C4B9A3]">
-            <span className="text-[10px] uppercase font-bold text-slate-500">Source:</span>
+            <span className="text-xs uppercase font-bold text-slate-500">Source:</span>
             <span className="text-xs font-black text-[#1E40AF] font-mono">
               {effectiveSource ? effectiveSource.name : (isSourceBound ? 'Loading source...' : 'None Selected')}
             </span>
-            <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-blue-100 text-blue-900 border border-blue-200">
+            <span className="text-xs font-black uppercase px-2 py-0.5 rounded bg-blue-100 text-blue-900 border border-blue-200">
               {effectiveSource?.source_type || '—'}
             </span>
           </div>
@@ -960,9 +1074,11 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
             vehicleQuantityError={vehicleQuantityError}
             sourceType={effectiveSource?.source_type}
             vehicleLr={vehicleLr}
-            onVehicleLrChange={setVehicleLr}
+            onVehicleLrChange={handleVehicleLrChange}
             vehicleFat={vehicleFat}
-            onVehicleFatChange={setVehicleFat}
+            onVehicleFatChange={handleVehicleFatChange}
+            isVehicleQualityAuto={isVehicleQualityAuto}
+            onResetVehicleQualityAuto={handleResetVehicleQualityAuto}
             rawMilkDispatchNoteNumber={rawMilkDispatchNoteNumber}
             onRawMilkDispatchNoteNumberChange={setRawMilkDispatchNoteNumber}
           />

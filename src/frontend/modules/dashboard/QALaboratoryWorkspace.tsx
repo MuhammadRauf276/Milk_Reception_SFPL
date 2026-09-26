@@ -400,6 +400,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           decision: 'ACCEPTED',
+          completionClientEventId: `plant-qa-${currentPortion.id}-${crypto.randomUUID()}`,
           results: resultsPayload,
           operationalTimestamp: datetimeLocalToIso(qaOpTimestamp) || undefined,
         }),
@@ -458,6 +459,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           decision: 'REJECTED',
+          completionClientEventId: `plant-qa-${currentPortion.id}-${crypto.randomUUID()}`,
           rejectionReason: rejectionReason.trim(),
           rejectionRemarks: rejectionRemarks.trim(),
           results: resultsPayload,

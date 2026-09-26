@@ -1,3 +1,5 @@
+import type { PaperLinkedIdentityContract } from './paperReferenceContracts';
+
 export type CanonicalRole =
   | 'SUPER_ADMIN'
   | 'EXECUTIVE_MANAGEMENT'
@@ -349,6 +351,8 @@ export interface MilkProcessLog {
   vehicle_number: string;
   portion_number: string;
   token_number?: string | null;
+  raw_milk_dispatch_note_number?: string | null;
+  identifiers?: PaperLinkedIdentityContract;
   zonal_contractor_name: string;
   status: ProcessStatus;
 

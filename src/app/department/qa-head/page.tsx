@@ -118,10 +118,6 @@ export default function QAHeadDepartmentPage() {
       setFormError('A substantive governance reason of at least 3 characters is required.');
       return;
     }
-    if (['MOT_SHOP', 'DISPATCH'].includes(formTestingPoint) && formCategory === 'RELEASE') {
-      setFormError(`Release consequence semantics for testing point '${formTestingPoint}' are pending operational workflow approval. Only MONITORING rules may be configured.`);
-      return;
-    }
 
     setSubmitting(true);
     try {

@@ -12,16 +12,17 @@ import {
   Search,
   ShieldCheck,
   Building,
-  Truck,
   Store,
   Factory,
+  Sliders,
+  AlertTriangle,
 } from 'lucide-react';
 import {
-  CANONICAL_TESTING_POINTS,
-  MPD_TESTING_POINTS,
   TestingPoint,
   SerializedPolicyAssignment,
 } from '@/types/milk-test-policy';
+
+export type StationKey = 'PLANT_QA' | 'DISPATCH' | 'ZMCC_LAB' | 'MOT_SHOP';
 
 interface LabTestOption {
   id: string;
@@ -31,87 +32,150 @@ interface LabTestOption {
   unit: string | null;
   displayOrder: number;
   isActive: boolean;
+  resultOptions?: Array<{ value: string; label: string; isPassing?: boolean | null }> | null;
+}
+
+interface SopRuleItem {
+  id: string;
+  labTestId: string;
+  testCode: string;
+  testName: string;
+  resultType: string;
+  testingPoint: string;
+  version: number;
+  ruleCategory: string;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  minValue: number | null;
+  maxValue: number | null;
+  acceptableOption: string | null;
+  warningTrigger: string | null;
+  decisionConsequence: string | null;
+  isActive: boolean;
 }
 
 interface MilkTestPolicyWorkspaceProps {
   currentUser: User | null;
 }
 
-const TESTING_POINT_METADATA: Record<
-  TestingPoint,
-  { label: string; description: string; icon: React.ComponentType<{ className?: string }> }
+export const STATION_METADATA: Record<
+  StationKey,
+  {
+    label: string;
+    icon: React.ComponentType<{ className?: string }>;
+    testingPoints: readonly TestingPoint[];
+  }
 > = {
-  MOT_SHOP: {
-    label: 'MOT Shop Collection',
-    description: 'Required & optional tests performed by MOT drivers when collecting milk at village shops.',
-    icon: Store,
-  },
-  ZMCC_LAB_MOT: {
-    label: 'ZMCC Lab (MOT Arrivals)',
-    description: 'Mandatory tests evaluated by ZMCC Lab Attendants on arriving MOT collection vehicles.',
-    icon: Truck,
-  },
-  ZMCC_LAB_CONTRACTOR: {
-    label: 'ZMCC Lab (Contractor Arrivals)',
-    description: 'Mandatory tests evaluated by ZMCC Lab Attendants on arriving direct contractor vehicles.',
-    icon: Building,
-  },
-  ZMCC_LAB_LOCAL_SUPPLIER: {
-    label: 'ZMCC Lab (Local Supplier Arrivals)',
-    description: 'Mandatory tests evaluated by ZMCC Lab Attendants on arriving local supplier vehicles.',
-    icon: Building,
+  PLANT_QA: {
+    label: 'Plant QA Reception',
+    icon: ShieldCheck,
+    testingPoints: ['PLANT_QA'],
   },
   DISPATCH: {
     label: 'ZMCC Dispatch to Factory',
-    description: 'Tests required before tanker departs ZMCC / Contractor source for the processing plant.',
     icon: Factory,
+    testingPoints: ['DISPATCH'],
   },
-  PLANT_QA: {
-    label: 'Plant QA Reception',
-    description: 'Reception testing executed by factory QA Chemists before milk unloading into silos.',
-    icon: ShieldCheck,
+  ZMCC_LAB: {
+    label: 'ZMCC Lab Reception',
+    icon: Building,
+    testingPoints: ['ZMCC_LAB_MOT', 'ZMCC_LAB_LOCAL_SUPPLIER'],
+  },
+  MOT_SHOP: {
+    label: 'MOT Shop Collection',
+    icon: Store,
+    testingPoints: ['MOT_SHOP'],
   },
 };
 
 export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = ({ currentUser }) => {
   const toast = useToast();
-  const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
+  const isSuperAdminOrDataExec =
+    currentUser?.role === 'SUPER_ADMIN' || currentUser?.role === 'DATA_EXECUTIVE';
 
-  const allowedTestingPoints: TestingPoint[] = isSuperAdmin
-    ? [...CANONICAL_TESTING_POINTS]
-    : [...MPD_TESTING_POINTS];
+  const allowedStations: StationKey[] = isSuperAdminOrDataExec
+    ? ['PLANT_QA', 'DISPATCH', 'ZMCC_LAB', 'MOT_SHOP']
+    : ['DISPATCH', 'ZMCC_LAB', 'MOT_SHOP'];
 
-  const [activeTab, setActiveTab] = useState<TestingPoint>(allowedTestingPoints[0] || 'MOT_SHOP');
+  const [activeStation, setActiveStation] = useState<StationKey>(allowedStations[0] || 'PLANT_QA');
   const [policies, setPolicies] = useState<SerializedPolicyAssignment[]>([]);
+  const [activeRules, setActiveRules] = useState<Record<string, SopRuleItem>>({});
   const [labTests, setLabTests] = useState<LabTestOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showActiveOnly, setShowActiveOnly] = useState(false);
 
-  // Modal State for adding a test
+  // Assign Test Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedLabTestId, setSelectedLabTestId] = useState('');
   const [modalIsRequired, setModalIsRequired] = useState(true);
   const [modalDisplayOrder, setModalDisplayOrder] = useState<number>(10);
+  const [modalMinValue, setModalMinValue] = useState<string>('');
+  const [modalMaxValue, setModalMaxValue] = useState<string>('');
+  const [modalAcceptableOption, setModalAcceptableOption] = useState<string>('');
+  const [modalReason, setModalReason] = useState<string>('Authoritative acceptance criteria set by Data Executive');
   const [submitting, setSubmitting] = useState(false);
 
-  // Fetch policies for current testing point
-  const fetchPolicies = useCallback(async () => {
+  // Edit Acceptance Criteria Modal State
+  const [isCriteriaModalOpen, setIsCriteriaModalOpen] = useState(false);
+  const [criteriaTargetPolicy, setCriteriaTargetPolicy] = useState<SerializedPolicyAssignment | null>(null);
+  const [criteriaMinValue, setCriteriaMinValue] = useState<string>('');
+  const [criteriaMaxValue, setCriteriaMaxValue] = useState<string>('');
+  const [criteriaAcceptableOption, setCriteriaAcceptableOption] = useState<string>('');
+  const [criteriaReason, setCriteriaReason] = useState<string>('Authoritative acceptance criteria updated by Data Executive');
+  const [criteriaSubmitting, setCriteriaSubmitting] = useState(false);
+
+  // Fetch policies and active SOP rules for current station
+  const fetchPoliciesAndRules = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/milk-test-policies?testingPoint=${activeTab}`);
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Failed to fetch policies');
+      const targetPoints = STATION_METADATA[activeStation].testingPoints;
+
+      // 1. Fetch policies
+      const policyPromises = targetPoints.map((pt) =>
+        fetch(`/api/milk-test-policies?testingPoint=${pt}`)
+          .then((res) => (res.ok ? res.json() : { policies: [] }))
+          .catch(() => ({ policies: [] }))
+      );
+      const policyResults = await Promise.all(policyPromises);
+
+      // Deduplicate assignments across synchronized testing points
+      const combinedPolicies: SerializedPolicyAssignment[] = [];
+      const seenTestIds = new Set<string>();
+      for (const res of policyResults) {
+        for (const pol of (res.policies || []) as SerializedPolicyAssignment[]) {
+          if (!seenTestIds.has(pol.labTestId)) {
+            seenTestIds.add(pol.labTestId);
+            combinedPolicies.push(pol);
+          }
+        }
       }
-      const data = await res.json();
-      setPolicies(data.policies || []);
-    } catch (err: any) {
-      toast.showError(err.message || 'Error loading policies');
+      setPolicies(combinedPolicies.sort((a, b) => a.displayOrder - b.displayOrder || Number(a.id) - Number(b.id)));
+
+      // 2. Fetch active SOP rules for criteria display
+      const rulePromises = targetPoints.map((pt) =>
+        fetch(`/api/qa-head/sop-rules?testingPoint=${pt}&isActive=true`)
+          .then((res) => (res.ok ? res.json() : { rules: [] }))
+          .catch(() => ({ rules: [] }))
+      );
+      const ruleResults = await Promise.all(rulePromises);
+
+      const rulesMap: Record<string, SopRuleItem> = {};
+      for (const res of ruleResults) {
+        for (const rule of (res.rules || []) as SopRuleItem[]) {
+          if (!rulesMap[rule.labTestId]) {
+            rulesMap[rule.labTestId] = rule;
+          }
+        }
+      }
+      setActiveRules(rulesMap);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error loading policies and acceptance rules';
+      toast.showError(msg);
     } finally {
       setLoading(false);
     }
-  }, [activeTab, toast]);
+  }, [activeStation, toast]);
 
   // Fetch all active lab tests for selection
   const fetchLabTests = useCallback(async () => {
@@ -119,8 +183,8 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
       const res = await fetch('/api/lab-tests?activeOnly=true');
       if (res.ok) {
         const data = await res.json();
-        const tests = Array.isArray(data) ? data : data.tests || [];
-        setLabTests(tests.filter((t: any) => t.isActive));
+        const tests: LabTestOption[] = Array.isArray(data) ? data : data.tests || [];
+        setLabTests(tests.filter((t) => t.isActive));
       }
     } catch (err) {
       console.error('Error fetching lab tests catalogue', err);
@@ -128,8 +192,8 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
   }, []);
 
   useEffect(() => {
-    fetchPolicies();
-  }, [fetchPolicies]);
+    fetchPoliciesAndRules();
+  }, [fetchPoliciesAndRules]);
 
   useEffect(() => {
     fetchLabTests();
@@ -150,15 +214,79 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
       const updated = await res.json();
       setPolicies((prev) => prev.map((p) => (p.id === policy.id ? updated.policy : p)));
       toast.showSuccess(
-        `Test "${policy.labTest?.testName || policy.labTestId}" ${newStatus ? 'activated' : 'deactivated'} for ${TESTING_POINT_METADATA[policy.testingPoint].label}.`
+        `Test "${policy.labTest?.testName || policy.labTestId}" ${newStatus ? 'activated' : 'deactivated'} for ${STATION_METADATA[activeStation].label}.`
       );
-    } catch (err: any) {
-      toast.showError(err.message || 'Failed to update status');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to update status';
+      toast.showError(msg);
+    }
+  };
+
+  const handleOpenCriteriaModal = (policy: SerializedPolicyAssignment) => {
+    setCriteriaTargetPolicy(policy);
+    const existingRule = activeRules[policy.labTestId];
+    if (existingRule) {
+      setCriteriaMinValue(existingRule.minValue !== null ? String(existingRule.minValue) : '');
+      setCriteriaMaxValue(existingRule.maxValue !== null ? String(existingRule.maxValue) : '');
+      setCriteriaAcceptableOption(existingRule.acceptableOption || '');
+    } else {
+      setCriteriaMinValue('');
+      setCriteriaMaxValue('');
+      setCriteriaAcceptableOption('');
+    }
+    setCriteriaReason('Authoritative acceptance criteria updated by Data Executive');
+    setIsCriteriaModalOpen(true);
+  };
+
+  const handleSaveCriteria = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!criteriaTargetPolicy) return;
+    setCriteriaSubmitting(true);
+    try {
+      const targetPoints = STATION_METADATA[activeStation].testingPoints;
+      for (const pt of targetPoints) {
+        const res = await fetch('/api/qa-head/sop-rules', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            labTestId: criteriaTargetPolicy.labTestId,
+            testingPoint: pt,
+            ruleCategory: 'RELEASE',
+            minValue: criteriaMinValue !== '' ? parseFloat(criteriaMinValue) : null,
+            maxValue: criteriaMaxValue !== '' ? parseFloat(criteriaMaxValue) : null,
+            acceptableOption: criteriaAcceptableOption.trim() || null,
+            reason: criteriaReason.trim() || 'Authoritative acceptance criteria updated by Data Executive',
+          }),
+        });
+        if (!res.ok) {
+          const errData = await res.json();
+          throw new Error(errData.error || `Failed to configure criteria for ${pt}`);
+        }
+      }
+
+      toast.showSuccess(
+        `Acceptance criteria updated for "${criteriaTargetPolicy.labTest?.testName || criteriaTargetPolicy.labTestId}" across ${STATION_METADATA[activeStation].label}.`
+      );
+      setIsCriteriaModalOpen(false);
+      await fetchPoliciesAndRules();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to save acceptance criteria';
+      toast.showError(msg);
+    } finally {
+      setCriteriaSubmitting(false);
     }
   };
 
   const handleToggleRequired = async (policy: SerializedPolicyAssignment) => {
     const newRequired = !policy.isRequired;
+
+    // If making required, ensure an active RELEASE rule exists first
+    if (newRequired && !activeRules[policy.labTestId]) {
+      toast.showError(`A valid acceptance criteria rule is required before activating "${policy.labTest?.testName}". Please configure criteria first.`);
+      handleOpenCriteriaModal(policy);
+      return;
+    }
+
     try {
       const res = await fetch(`/api/milk-test-policies/${policy.id}`, {
         method: 'PATCH',
@@ -174,8 +302,9 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
       toast.showSuccess(
         `Test "${policy.labTest?.testName || policy.labTestId}" is now ${newRequired ? 'Required' : 'Optional'}.`
       );
-    } catch (err: any) {
-      toast.showError(err.message || 'Failed to update requirement');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to update requirement';
+      toast.showError(msg);
     }
   };
 
@@ -198,8 +327,9 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
           .sort((a, b) => a.displayOrder - b.displayOrder || Number(a.id) - Number(b.id))
       );
       toast.showSuccess(`Display order updated for "${policy.labTest?.testName || policy.labTestId}".`);
-    } catch (err: any) {
-      toast.showError(err.message || 'Failed to update display order');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to update display order';
+      toast.showError(msg);
     }
   };
 
@@ -209,43 +339,80 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
       toast.showError('Please select a test from the catalogue.');
       return;
     }
+
     setSubmitting(true);
     try {
-      const res = await fetch('/api/milk-test-policies', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          labTestId: selectedLabTestId,
-          testingPoint: activeTab,
-          isRequired: modalIsRequired,
-          displayOrder: modalDisplayOrder,
-        }),
-      });
+      const targetPoints = STATION_METADATA[activeStation].testingPoints;
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Failed to assign test policy');
+      // 1. If test is required or criteria provided, create/supersede RELEASE rule across all target points
+      const hasCriteria =
+        modalMinValue !== '' || modalMaxValue !== '' || modalAcceptableOption.trim() !== '';
+
+      if (modalIsRequired || hasCriteria) {
+        for (const pt of targetPoints) {
+          const ruleRes = await fetch('/api/qa-head/sop-rules', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              labTestId: selectedLabTestId,
+              testingPoint: pt,
+              ruleCategory: 'RELEASE',
+              minValue: modalMinValue !== '' ? parseFloat(modalMinValue) : null,
+              maxValue: modalMaxValue !== '' ? parseFloat(modalMaxValue) : null,
+              acceptableOption: modalAcceptableOption.trim() || null,
+              reason: modalReason.trim() || 'Authoritative acceptance criteria set by Data Executive',
+            }),
+          });
+          if (!ruleRes.ok) {
+            const errData = await ruleRes.json();
+            throw new Error(errData.error || `Failed to create acceptance rule for ${pt}`);
+          }
+        }
       }
 
-      const created = await res.json();
-      setPolicies((prev) =>
-        [...prev, created.policy].sort((a, b) => a.displayOrder - b.displayOrder || Number(a.id) - Number(b.id))
-      );
+      // 2. Assign policy across all target points
+      for (const pt of targetPoints) {
+        const res = await fetch('/api/milk-test-policies', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            labTestId: selectedLabTestId,
+            testingPoint: pt,
+            isRequired: modalIsRequired,
+            displayOrder: modalDisplayOrder,
+          }),
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          // If conflict (already assigned in counterpart point), continue gracefully
+          if (res.status !== 409) {
+            throw new Error(err.error || `Failed to assign test policy to ${pt}`);
+          }
+        }
+      }
+
       toast.showSuccess(
-        `Assigned "${created.policy.labTest?.testName || selectedLabTestId}" to ${TESTING_POINT_METADATA[activeTab].label}.`
+        `Assigned test to ${STATION_METADATA[activeStation].label} with quality acceptance criteria.`
       );
       setIsAddModalOpen(false);
       setSelectedLabTestId('');
-    } catch (err: any) {
-      toast.showError(err.message || 'Failed to add test policy');
+      setModalMinValue('');
+      setModalMaxValue('');
+      setModalAcceptableOption('');
+      await fetchPoliciesAndRules();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to assign test policy';
+      toast.showError(msg);
     } finally {
       setSubmitting(false);
     }
   };
 
-  // Filter out tests already assigned in current testing point
+  // Filter out tests already assigned in current station
   const assignedTestIds = new Set(policies.map((p) => p.labTestId));
   const availableLabTests = labTests.filter((t) => !assignedTestIds.has(t.id));
+  const selectedTestObj = labTests.find((t) => t.id === selectedLabTestId);
 
   const filteredPolicies = policies.filter((p) => {
     if (showActiveOnly && !p.isActive) return false;
@@ -258,33 +425,29 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
     );
   });
 
-  const activeMetadata = TESTING_POINT_METADATA[activeTab];
+  const activeMetadata = STATION_METADATA[activeStation];
   const ActiveIcon = activeMetadata.icon;
+
+  const isNumericTestType = (type?: string) =>
+    ['NUMERIC', 'INTEGER', 'DECIMAL'].includes(type || '');
 
   return (
     <div className="space-y-6">
       {/* HEADER BANNER */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-[#EAE4D5] shadow-xs">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-[#1E3A8A] text-white rounded-xl">
-              <FlaskConical className="w-5 h-5" />
-            </div>
-            <div>
-              <h1 className="text-lg sm:text-xl font-black tracking-tight text-[#111311]">
-                {isSuperAdmin ? 'Central Milk Test Policy Administration' : 'Milk Procurement Test Policy'}
-              </h1>
-              <p className="text-xs text-slate-600 font-medium">
-                {isSuperAdmin
-                  ? 'System-wide policy authority: Configure required & optional tests across all testing stages'
-                  : 'Head of MPD Authority: Configure authoritative tests for procurement testing points'}
-              </p>
-            </div>
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 bg-[#1E3A8A] text-white rounded-xl">
+            <FlaskConical className="w-5 h-5" />
+          </div>
+          <div>
+            <h1 className="text-lg sm:text-xl font-black tracking-tight text-[#111311]">
+              Milk Test Policies & Acceptance Criteria
+            </h1>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <button
-            onClick={fetchPolicies}
+            onClick={fetchPoliciesAndRules}
             disabled={loading}
             className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl border border-[#EAE4D5] bg-[#FDFBF9] text-slate-700 hover:bg-[#F4F0E6] transition"
           >
@@ -295,6 +458,10 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
             onClick={() => {
               const maxOrder = policies.reduce((max, p) => Math.max(max, p.displayOrder), 0);
               setModalDisplayOrder(maxOrder + 10);
+              setSelectedLabTestId('');
+              setModalMinValue('');
+              setModalMaxValue('');
+              setModalAcceptableOption('');
               setIsAddModalOpen(true);
             }}
             className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl bg-[#1E3A8A] text-white hover:bg-blue-900 transition shadow-xs"
@@ -305,30 +472,30 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
         </div>
       </div>
 
-      {/* TESTING POINT TABS */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-        {allowedTestingPoints.map((point) => {
-          const meta = TESTING_POINT_METADATA[point];
+      {/* 4 RECEPTION STATION TABS */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {allowedStations.map((station) => {
+          const meta = STATION_METADATA[station];
           const Icon = meta.icon;
-          const isSelected = activeTab === point;
+          const isSelected = activeStation === station;
           return (
             <button
-              key={point}
-              onClick={() => setActiveTab(point)}
-              className={`flex flex-col p-3 rounded-xl border text-left transition ${
+              key={station}
+              onClick={() => setActiveStation(station)}
+              className={`flex flex-col p-3.5 rounded-xl border text-left transition ${
                 isSelected
                   ? 'bg-[#1E3A8A] text-white border-[#1E3A8A] shadow-sm'
                   : 'bg-white text-slate-800 border-[#EAE4D5] hover:bg-[#FDFBF9]'
               }`}
             >
-              <div className="flex items-center justify-between w-full mb-1">
+              <div className="flex items-center justify-between w-full mb-1.5">
                 <Icon className={`w-4 h-4 ${isSelected ? 'text-white' : 'text-[#1E3A8A]'}`} />
                 <span
-                  className={`text-[10px] font-mono px-1.5 py-0.5 rounded font-black ${
+                  className={`text-[10px] font-mono px-2 py-0.5 rounded font-black ${
                     isSelected ? 'bg-blue-800 text-white' : 'bg-slate-100 text-slate-700'
                   }`}
                 >
-                  {point === activeTab ? policies.length : '-'}
+                  {station === activeStation ? policies.length : '-'}
                 </span>
               </div>
               <span className="text-xs font-black truncate">{meta.label}</span>
@@ -337,25 +504,11 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
                   isSelected ? 'text-blue-100' : 'text-slate-600'
                 }`}
               >
-                {point}
+                {station}
               </span>
             </button>
           );
         })}
-      </div>
-
-      {/* CURRENT TAB DESCRIPTION */}
-      <div className="bg-white p-4 rounded-xl border border-[#EAE4D5] flex items-start gap-3">
-        <ActiveIcon className="w-5 h-5 text-[#1E3A8A] shrink-0 mt-0.5" />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <h2 className="text-sm font-black text-[#111311]">{activeMetadata.label}</h2>
-            <span className="text-[10px] font-mono font-extrabold px-2 py-0.5 rounded bg-blue-50 text-[#1E3A8A] border border-blue-200">
-              {activeTab}
-            </span>
-          </div>
-          <p className="text-xs text-slate-600 mt-0.5">{activeMetadata.description}</p>
-        </div>
       </div>
 
       {/* SEARCH AND FILTER BAR */}
@@ -383,19 +536,19 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
         </div>
       </div>
 
-      {/* POLICY ASSIGNMENT TABLE */}
+      {/* POLICY ASSIGNMENT & CRITERIA TABLE */}
       <div className="bg-white rounded-2xl border border-[#EAE4D5] overflow-hidden shadow-xs">
         {loading ? (
           <div className="p-12 text-center text-xs font-bold text-slate-600">
             <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-[#1E3A8A]" />
-            Loading test policies...
+            Loading test policies & acceptance criteria...
           </div>
         ) : filteredPolicies.length === 0 ? (
           <div className="p-12 text-center">
             <FlaskConical className="w-8 h-8 mx-auto text-slate-300 mb-2" />
             <h3 className="text-sm font-bold text-slate-700">No Policy Assignments</h3>
             <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-              No tests are currently assigned to {activeMetadata.label}. Click "Assign Test" above to configure testing requirements.
+              No tests are currently assigned to {activeMetadata.label}. Click "Assign Test" above to configure testing requirements and acceptance criteria.
             </p>
           </div>
         ) : (
@@ -407,14 +560,17 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
                   <th className="py-3 px-4">Test Code & Name</th>
                   <th className="py-3 px-4">Type / Unit</th>
                   <th className="py-3 px-4">Requirement</th>
+                  <th className="py-3 px-4">Quality Acceptance Criteria</th>
                   <th className="py-3 px-4">Policy Status</th>
-                  <th className="py-3 px-4">Created / Updated By</th>
                   <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#EAE4D5]">
                 {filteredPolicies.map((policy) => {
                   const isRowActive = policy.isActive;
+                  const rule = activeRules[policy.labTestId];
+                  const isNumeric = isNumericTestType(policy.labTest?.resultType);
+
                   return (
                     <tr
                       key={policy.id}
@@ -473,6 +629,44 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
                         </button>
                       </td>
 
+                      {/* Quality Acceptance Criteria Badge & Edit Button */}
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-2">
+                          {rule ? (
+                            isNumeric ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-50 border border-blue-200 text-blue-900 font-mono text-[11px] font-bold">
+                                {rule.minValue !== null || rule.maxValue !== null ? (
+                                  <>
+                                    Range: {rule.minValue ?? '-'} to {rule.maxValue ?? '-'}{' '}
+                                    {policy.labTest?.unit || ''}
+                                  </>
+                                ) : (
+                                  'Unspecified Range'
+                                )}
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-900 font-mono text-[11px] font-bold">
+                                Accept: {rule.acceptableOption || 'Any'}
+                              </span>
+                            )
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-rose-50 border border-rose-200 text-rose-800 text-[11px] font-medium">
+                              <AlertTriangle className="w-3 h-3 text-rose-500 shrink-0" />
+                              Not Configured
+                            </span>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => handleOpenCriteriaModal(policy)}
+                            className="p-1 rounded-md text-slate-500 hover:text-[#1E3A8A] hover:bg-slate-100 transition"
+                            title="Edit Quality Acceptance Criteria"
+                          >
+                            <Sliders className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+
                       {/* Policy Status */}
                       <td className="py-3 px-4">
                         <span
@@ -492,18 +686,6 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
                             </>
                           )}
                         </span>
-                      </td>
-
-                      {/* Creator / Updater */}
-                      <td className="py-3 px-4 text-[10px] text-slate-500 font-mono">
-                        <div>
-                          By: <span className="font-bold text-slate-700">{policy.creator?.username || policy.createdByUserId}</span>
-                        </div>
-                        {policy.updater && (
-                          <div>
-                            Edit: <span className="font-bold text-slate-700">{policy.updater.username}</span>
-                          </div>
-                        )}
                       </td>
 
                       {/* Actions */}
@@ -529,15 +711,15 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
         )}
       </div>
 
-      {/* ASSIGN TEST MODAL */}
+      {/* UNIFIED ASSIGN TEST MODAL WITH ACCEPTANCE CRITERIA */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl border border-[#EAE4D5] shadow-2xl max-w-md w-full p-6 space-y-4">
+          <div className="bg-white rounded-2xl border border-[#EAE4D5] shadow-2xl max-w-lg w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-[#EAE4D5]">
               <div className="flex items-center gap-2">
                 <FlaskConical className="w-5 h-5 text-[#1E3A8A]" />
                 <h3 className="font-black text-base text-[#111311]">
-                  Assign Test to {activeMetadata.label}
+                  Assign Test & Define Criteria — {activeMetadata.label}
                 </h3>
               </div>
               <button
@@ -550,31 +732,40 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
             </div>
 
             <form onSubmit={handleAddPolicy} className="space-y-4 text-xs">
+              {/* Select Lab Test */}
               <div>
                 <label className="block font-bold text-slate-700 mb-1">
                   Select Laboratory Test <span className="text-rose-600">*</span>
                 </label>
                 {availableLabTests.length === 0 ? (
                   <p className="text-xs text-amber-700 bg-amber-50 p-2.5 rounded-lg border border-amber-200 font-medium">
-                    All active tests in the master catalogue are already assigned to this testing point.
+                    All active tests in the master catalogue are already assigned to this station.
                   </p>
                 ) : (
                   <select
                     value={selectedLabTestId}
-                    onChange={(e) => setSelectedLabTestId(e.target.value)}
+                    onChange={(e) => {
+                      const newId = e.target.value;
+                      setSelectedLabTestId(newId);
+                      const tObj = labTests.find((t) => t.id === newId);
+                      if (tObj && isNumericTestType(tObj.resultType)) {
+                        setModalAcceptableOption('');
+                      }
+                    }}
                     required
                     className="w-full p-2.5 rounded-xl border border-[#EAE4D5] bg-white text-xs font-bold focus:ring-2 focus:ring-[#1E3A8A]"
                   >
                     <option value="">-- Choose a test from catalogue --</option>
                     {availableLabTests.map((t) => (
                       <option key={t.id} value={t.id}>
-                        {t.testName} ({t.testCode}) — {t.resultType}
+                        {t.testName} ({t.testCode}) — {t.resultType} {t.unit ? `[${t.unit}]` : ''}
                       </option>
                     ))}
                   </select>
                 )}
               </div>
 
+              {/* Requirement & Display Order */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">Display Order</label>
@@ -600,6 +791,82 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
                 </div>
               </div>
 
+              {/* Quality Acceptance Criteria Definition */}
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Sliders className="w-4 h-4 text-[#1E3A8A]" />
+                  <span className="font-black text-slate-800">Direct Quality Acceptance Criteria</span>
+                </div>
+
+                {selectedTestObj && isNumericTestType(selectedTestObj.resultType) ? (
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      Acceptable Range ({selectedTestObj.unit || 'Numeric'})
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <span className="text-[10px] text-slate-500 block mb-0.5">Min Value</span>
+                        <input
+                          type="number"
+                          step="any"
+                          placeholder="e.g. 3.5"
+                          value={modalMinValue}
+                          onChange={(e) => setModalMinValue(e.target.value)}
+                          className="w-full p-2 rounded-lg border border-slate-300 font-mono text-xs"
+                        />
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-500 block mb-0.5">Max Value</span>
+                        <input
+                          type="number"
+                          step="any"
+                          placeholder="e.g. 5.0"
+                          value={modalMaxValue}
+                          onChange={(e) => setModalMaxValue(e.target.value)}
+                          className="w-full p-2 rounded-lg border border-slate-300 font-mono text-xs"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      Acceptable Option (Qualitative / Sensory)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. NEGATIVE, NORMAL, CLEAN, SWEET"
+                      value={modalAcceptableOption}
+                      onChange={(e) => setModalAcceptableOption(e.target.value)}
+                      className="w-full p-2 rounded-lg border border-slate-300 font-mono text-xs uppercase"
+                    />
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {['NEGATIVE', 'POSITIVE', 'NORMAL', 'CLEAN', 'SWEET', 'PASS', 'OK'].map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => setModalAcceptableOption(preset)}
+                          className="px-2 py-0.5 text-[10px] font-mono font-bold bg-white border border-slate-300 rounded hover:bg-slate-100"
+                        >
+                          {preset}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Governance Audit Reason</label>
+                  <input
+                    type="text"
+                    value={modalReason}
+                    onChange={(e) => setModalReason(e.target.value)}
+                    required
+                    className="w-full p-2 rounded-lg border border-slate-300 text-xs"
+                  />
+                </div>
+              </div>
+
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#EAE4D5]">
                 <button
                   type="button"
@@ -613,7 +880,130 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
                   disabled={submitting || availableLabTests.length === 0}
                   className="px-4 py-2 text-xs font-bold rounded-xl bg-[#1E3A8A] text-white hover:bg-blue-900 transition disabled:opacity-50"
                 >
-                  {submitting ? 'Assigning...' : 'Assign to Policy'}
+                  {submitting ? 'Assigning...' : 'Assign to Policy & Save Criteria'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* DEDICATED EDIT CRITERIA MODAL */}
+      {isCriteriaModalOpen && criteriaTargetPolicy && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl border border-[#EAE4D5] shadow-2xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-[#EAE4D5]">
+              <div className="flex items-center gap-2">
+                <Sliders className="w-5 h-5 text-[#1E3A8A]" />
+                <h3 className="font-black text-base text-[#111311]">
+                  Configure Acceptance Criteria
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCriteriaModalOpen(false)}
+                className="text-slate-400 hover:text-slate-700 text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="bg-blue-50/50 p-3 rounded-xl border border-blue-200/60 space-y-1">
+              <div className="text-xs font-black text-blue-950">
+                {criteriaTargetPolicy.labTest?.testName} ({criteriaTargetPolicy.labTest?.testCode})
+              </div>
+              <div className="text-[11px] text-blue-800">
+                Station: <span className="font-bold">{activeMetadata.label}</span>
+              </div>
+              <div className="text-[11px] text-blue-700 font-mono">
+                Type: {criteriaTargetPolicy.labTest?.resultType}{' '}
+                {criteriaTargetPolicy.labTest?.unit ? `[${criteriaTargetPolicy.labTest.unit}]` : ''}
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveCriteria} className="space-y-4 text-xs">
+              {isNumericTestType(criteriaTargetPolicy.labTest?.resultType) ? (
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    Acceptable Range ({criteriaTargetPolicy.labTest?.unit || 'Numeric'})
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <span className="text-[10px] text-slate-500 block mb-0.5">Min Value</span>
+                      <input
+                        type="number"
+                        step="any"
+                        placeholder="e.g. 3.5"
+                        value={criteriaMinValue}
+                        onChange={(e) => setCriteriaMinValue(e.target.value)}
+                        className="w-full p-2.5 rounded-xl border border-[#EAE4D5] font-mono text-xs"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-500 block mb-0.5">Max Value</span>
+                      <input
+                        type="number"
+                        step="any"
+                        placeholder="e.g. 5.0"
+                        value={criteriaMaxValue}
+                        onChange={(e) => setCriteriaMaxValue(e.target.value)}
+                        className="w-full p-2.5 rounded-xl border border-[#EAE4D5] font-mono text-xs"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    Acceptable Option (Qualitative / Sensory)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. NEGATIVE, NORMAL, CLEAN, SWEET"
+                    value={criteriaAcceptableOption}
+                    onChange={(e) => setCriteriaAcceptableOption(e.target.value)}
+                    className="w-full p-2.5 rounded-xl border border-[#EAE4D5] font-mono text-xs uppercase"
+                  />
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {['NEGATIVE', 'POSITIVE', 'NORMAL', 'CLEAN', 'SWEET', 'PASS', 'OK'].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setCriteriaAcceptableOption(preset)}
+                        className="px-2 py-0.5 text-[10px] font-mono font-bold bg-slate-50 border border-slate-300 rounded hover:bg-slate-100"
+                      >
+                        {preset}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Governance Audit Reason</label>
+                <input
+                  type="text"
+                  value={criteriaReason}
+                  onChange={(e) => setCriteriaReason(e.target.value)}
+                  required
+                  className="w-full p-2.5 rounded-xl border border-[#EAE4D5] text-xs"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#EAE4D5]">
+                <button
+                  type="button"
+                  onClick={() => setIsCriteriaModalOpen(false)}
+                  className="px-4 py-2 text-xs font-bold rounded-xl border border-[#EAE4D5] bg-[#FDFBF9] hover:bg-[#F4F0E6] text-slate-700 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={criteriaSubmitting}
+                  className="px-4 py-2 text-xs font-bold rounded-xl bg-[#1E3A8A] text-white hover:bg-blue-900 transition disabled:opacity-50"
+                >
+                  {criteriaSubmitting ? 'Saving Criteria...' : 'Save Acceptance Criteria'}
                 </button>
               </div>
             </form>

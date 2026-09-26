@@ -3,6 +3,8 @@
 import React from 'react';
 import { ShieldCheck, LogOut, Milk, Menu } from 'lucide-react';
 import { User } from '@core/types';
+import { logoutUser } from '@/frontend/modules/auth/logout';
+import { NotificationBell } from '@/frontend/modules/notifications/NotificationBell';
 
 interface HeaderProps {
   currentUser: User | null;
@@ -25,12 +27,7 @@ export const Header: React.FC<HeaderProps> = ({
   menuButtonRef,
 }) => {
   const handleLogout = async () => {
-    try {
-      await fetch('/api/auth/logout', { method: 'POST' });
-    } catch (_err) {
-      // Ignore network errors on logout redirect
-    }
-    window.location.href = '/login';
+    await logoutUser();
   };
 
   const shouldShowMenu = Boolean(onMenuClick || showMenuButton);
@@ -66,7 +63,7 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="font-extrabold text-xs sm:text-sm leading-none block text-[#111311]">
                 Shakarganj
               </span>
-              <span className="text-[8px] sm:text-[9px] uppercase font-bold text-slate-500 tracking-wider hidden sm:block">
+              <span className="text-xs uppercase font-bold text-slate-500 tracking-wider hidden sm:block">
                 Food Products Ltd
               </span>
             </div>
@@ -78,7 +75,7 @@ export const Header: React.FC<HeaderProps> = ({
             {title}
           </h1>
           {resolvedSourceName && resolvedSourceName !== title && (
-            <span className="hidden md:inline-flex items-center text-[11px] font-bold text-slate-600 bg-[#F4F0E6] px-2 py-0.5 rounded-md border border-[#EAE4D5] truncate max-w-[200px]">
+            <span className="hidden md:inline-flex items-center text-xs font-bold text-slate-600 bg-[#F4F0E6] px-2 py-0.5 rounded-md border border-[#EAE4D5] truncate max-w-[200px]">
               {resolvedSourceName}
             </span>
           )}
@@ -91,22 +88,25 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex items-center space-x-1.5 sm:space-x-2 px-2 py-1 sm:px-3 sm:py-1.5 rounded-xl bg-[#FDFBF9] border border-[#EAE4D5] shadow-xs max-w-[130px] sm:max-w-none">
           <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#1E3A8A] shrink-0" />
           <div className="text-left min-w-0">
-            <p className="text-[11px] sm:text-xs font-bold leading-tight text-[#111311] truncate">
+            <p className="text-xs font-bold leading-tight text-[#111311] truncate">
               {currentUser?.name || 'Operator'}
             </p>
             {currentUser?.username && (
-              <p className="hidden sm:block text-[9.5px] leading-tight truncate font-mono text-slate-500">
+              <p className="hidden sm:block text-xs leading-tight truncate font-mono text-slate-500">
                 @{currentUser.username}
               </p>
             )}
           </div>
         </div>
 
+        {/* Notification Bell */}
+        <NotificationBell currentUser={currentUser} />
+
         {/* Sign Out Button */}
         <button
           onClick={handleLogout}
           type="button"
-          className="min-h-[44px] min-w-[44px] px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#FEF2F2] text-[#991B1B] border border-[#FECACA] hover:bg-rose-100 transition flex items-center justify-center gap-1.5 font-bold text-xs shadow-xs focus:outline-none focus:ring-2 focus:ring-rose-500"
+          className="min-h-[44px] min-w-[44px] px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#FEF2F2] text-[#991B1B] border border-[#FECACA] hover:bg-rose-100 transition flex items-center justify-center gap-1.5 font-bold text-xs shadow-xs focus:outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer"
           title="Sign Out of Console"
           aria-label="Sign Out"
         >

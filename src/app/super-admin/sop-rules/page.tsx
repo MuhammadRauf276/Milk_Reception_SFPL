@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { BookOpen, ShieldAlert, AlertCircle } from 'lucide-react';
+import { ShieldAlert } from 'lucide-react';
 
 interface Rule {
   id: string;
@@ -33,8 +33,8 @@ export default function SuperAdminSopRulesPage() {
         const data = await res.json();
         if (res.ok) setRules(data.rules || []);
         else setError(data.error);
-      } catch (err: any) {
-        setError(err.message);
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Failed to load rules.');
       } finally {
         setLoading(false);
       }
@@ -48,7 +48,7 @@ export default function SuperAdminSopRulesPage() {
       <div>
         <h1 className="text-xl font-black text-[#111311]">SOP Laboratory Rules & Thresholds</h1>
         <p className="text-xs font-medium text-slate-500 mt-1">
-          Versioned SOP rule foundation (RELEASE vs MONITORING). SOP rules strictly require approved company document configuration.
+          Configure quality acceptance rules and parameter limits.
         </p>
       </div>
 
@@ -58,13 +58,6 @@ export default function SuperAdminSopRulesPage() {
           <span>{error}</span>
         </div>
       )}
-
-      <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl text-blue-900 text-xs font-bold flex items-center space-x-2">
-        <AlertCircle className="w-4 h-4 text-blue-700 shrink-0" />
-        <span>
-          BUSINESS RULE PROTECTION: Monitoring rules do NOT perform automatic vehicle rejection or hold. Active release decision remains chemist-authoritative.
-        </span>
-      </div>
 
       {/* SOP RULES TABLE */}
       <div className="bg-white rounded-xl border border-[#EAE4D5]/80 shadow-sm overflow-hidden">
@@ -91,7 +84,7 @@ export default function SuperAdminSopRulesPage() {
               ) : rules.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="p-6 text-center text-slate-400 font-mono">
-                    No active SOP rules configured yet. (BUSINESS RULE REQUIRED)
+                    No active SOP rules configured yet.
                   </td>
                 </tr>
               ) : (
@@ -99,10 +92,10 @@ export default function SuperAdminSopRulesPage() {
                   <tr key={r.id} className="hover:bg-slate-50">
                     <td className="p-3">
                       <div className="font-bold text-[#111311]">{r.testName}</div>
-                      <div className="font-mono text-[10px] text-slate-500">{r.testCode}</div>
+                      <div className="font-mono text-xs text-slate-500">{r.testCode}</div>
                     </td>
                     <td className="p-3">
-                      <span className={`px-2 py-0.5 rounded font-mono text-[10px] font-bold ${
+                      <span className={`px-2 py-0.5 rounded font-mono text-xs font-bold ${
                         r.ruleCategory === 'RELEASE' ? 'bg-emerald-100 text-emerald-900' : 'bg-blue-100 text-blue-900'
                       }`}>
                         {r.ruleCategory}
@@ -120,11 +113,11 @@ export default function SuperAdminSopRulesPage() {
                     <td className="p-3 font-mono text-slate-700">{r.decisionConsequence || '-'}</td>
                     <td className="p-3">
                       {r.isActive ? (
-                        <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                        <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-xs font-bold">
                           Active
                         </span>
                       ) : (
-                        <span className="px-2 py-0.5 rounded bg-rose-100 text-rose-800 text-[10px] font-bold">
+                        <span className="px-2 py-0.5 rounded bg-rose-100 text-rose-800 text-xs font-bold">
                           Inactive
                         </span>
                       )}

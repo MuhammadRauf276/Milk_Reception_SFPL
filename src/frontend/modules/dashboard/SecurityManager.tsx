@@ -102,18 +102,6 @@ export const SecurityManager: React.FC = () => {
         triggerButtonRef={hamburgerButtonRef}
       />
 
-      {/* Compact Breadcrumb Header */}
-      <div className="bg-white border-b border-[#EAE4D5] px-4 sm:px-6 py-2 shrink-0 shadow-xs flex items-center justify-between">
-        <nav aria-label="Breadcrumb" className="flex items-center space-x-2 text-xs font-bold text-slate-500">
-          <span>Security Manager</span>
-          <span className="text-slate-300">/</span>
-          <span className="text-[#1E3A8A] font-black">Security Manager Station</span>
-        </nav>
-        <span className="text-[11px] font-mono text-slate-400">
-          Audit & Performance
-        </span>
-      </div>
-
       <main className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-6 w-full max-w-full">
           {/* Top Header Panel */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-2xl bg-white border border-[#C4B9A3] shadow-sm">

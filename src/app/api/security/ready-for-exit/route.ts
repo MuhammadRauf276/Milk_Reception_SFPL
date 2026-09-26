@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
+import { requireCapability } from '@/backend/modules/access-control/serverGuard';
+import { paperLinkedIdentity } from '@/backend/modules/paper-references';
+
+const SECURITY_SCOPE = { kind: 'DEPARTMENT', departmentId: 'Security' } as const;
 
 export async function GET(req: Request) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const access = await requireCapability('VIEW', SECURITY_SCOPE, { request: req });
+  if (!access.allowed) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: access.status });
   }
 
   const { searchParams } = new URL(req.url);
@@ -55,6 +58,10 @@ export async function GET(req: Request) {
         reception_number: v.reception_number || null,
         vehicle_number: v.vehicle_number,
         token_number: v.token_number || null,
+        identifiers: paperLinkedIdentity(
+          { entity: 'vehicle_visit', id: v.id.toString(), number: v.visit_number },
+          [{ type: 'PLANT_GATE_TOKEN', value: v.token_number || null }]
+        ),
         entry_timestamp: v.gate_log?.entry_timestamp ? v.gate_log.entry_timestamp.toISOString() : null,
         portion_count: portions.length,
         current_status: v.current_status,

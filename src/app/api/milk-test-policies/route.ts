@@ -51,7 +51,7 @@ export async function GET(req: Request) {
     });
 
     return NextResponse.json({ policies: assignments });
-  } catch (err: any) {
+  } catch (err: unknown) {
     if (err instanceof ValidationError) {
       return NextResponse.json({ error: err.message }, { status: 400 });
     }
@@ -62,7 +62,8 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: err.message }, { status: 404 });
     }
     console.error('[API_MILK_TEST_POLICIES_GET_ERROR]', err);
-    return NextResponse.json({ error: err.message || 'Failed to retrieve milk test policies.' }, { status: 500 });
+    const message = err instanceof Error ? err.message : 'Failed to retrieve milk test policies.';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -73,7 +74,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    let body: any;
+    let body: Record<string, unknown>;
     try {
       body = await req.json();
     } catch {
@@ -95,14 +96,14 @@ export async function POST(req: Request) {
     }
 
     const created = await MilkTestPolicyService.createPolicyAssignment(authUser, {
-      labTestId,
+      labTestId: String(labTestId),
       testingPoint: testingPoint.trim(),
       isRequired: isRequired !== undefined ? Boolean(isRequired) : undefined,
       displayOrder: displayOrder !== undefined ? displayOrder : undefined,
     });
 
     return NextResponse.json({ policy: created }, { status: 201 });
-  } catch (err: any) {
+  } catch (err: unknown) {
     if (err instanceof ValidationError) {
       return NextResponse.json({ error: err.message }, { status: 400 });
     }
@@ -116,6 +117,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: err.message }, { status: 409 });
     }
     console.error('[API_MILK_TEST_POLICIES_POST_ERROR]', err);
-    return NextResponse.json({ error: err.message || 'Failed to create milk test policy.' }, { status: 500 });
+    const message = err instanceof Error ? err.message : 'Failed to create milk test policy.';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
