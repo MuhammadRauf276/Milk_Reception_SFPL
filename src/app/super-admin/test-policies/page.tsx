@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { User } from '@core/types';
-import { MilkTestPolicyWorkspace } from '@/frontend/modules/mpd/policy/MilkTestPolicyWorkspace';
+import { UnifiedStagePoliciesRulesWorkspace } from '@/frontend/modules/super-admin/UnifiedStagePoliciesRulesWorkspace';
 
 export default function SuperAdminTestPoliciesPage() {
   const router = useRouter();
@@ -18,7 +18,16 @@ export default function SuperAdminTestPoliciesPage() {
         const data = await res.json();
         if (res.ok && data.user) {
           const role = data.user.role;
-          if (['SUPER_ADMIN', 'SYSTEM_ADMIN', 'EXECUTIVE_MANAGEMENT', 'DATA_EXECUTIVE', 'DATA_ANALYST', 'ADMIN_HEAD', 'PRODUCTION_HEAD', 'FINANCE_ACCOUNTS', 'Admin', 'Management'].includes(role)) {
+          if (
+            [
+              'SUPER_ADMIN',
+              'DATA_EXECUTIVE',
+              'DATA_ANALYST',
+              'HEAD_OF_MPD',
+              'QA_HEAD',
+              'QA_MANAGER',
+            ].includes(role)
+          ) {
             setCurrentUser(data.user);
             setIsAuthorized(true);
           } else {
@@ -40,7 +49,7 @@ export default function SuperAdminTestPoliciesPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center p-12 tabular-nums text-xs font-semibold text-slate-600">
-        Loading Test Policy Administration...
+        Loading Stage Test Policies &amp; Rules…
       </div>
     );
   }
@@ -49,5 +58,5 @@ export default function SuperAdminTestPoliciesPage() {
     return null;
   }
 
-  return <MilkTestPolicyWorkspace currentUser={currentUser} />;
+  return <UnifiedStagePoliciesRulesWorkspace currentUser={currentUser} />;
 }

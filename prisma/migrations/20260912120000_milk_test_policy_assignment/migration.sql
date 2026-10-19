@@ -113,9 +113,9 @@ UPDATE users
 SET is_active = false, updated_at = CURRENT_TIMESTAMP
 WHERE role IN ('General_Plant_Manager', 'Correction_Officer', 'Management', 'Security_Weight');
 
--- O. Wasim Sahib canonicalization: only when linked to a CONTRACTOR ProcurementSource
+-- O. Contractor Operator (Al Khair) canonicalization: only when linked to a CONTRACTOR ProcurementSource
 UPDATE users u
-SET full_name = 'Wasim Sahib', role = 'CONTRACTOR_OPERATOR', updated_at = CURRENT_TIMESTAMP
+SET full_name = 'Contractor Operator (Al Khair)', role = 'CONTRACTOR_OPERATOR', updated_at = CURRENT_TIMESTAMP
 FROM procurement_source ps
 WHERE u.username = 'contractor.operator.alkhair'
   AND u.procurement_source_id = ps.id

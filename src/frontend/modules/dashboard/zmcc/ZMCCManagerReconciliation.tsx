@@ -10,7 +10,6 @@ import { SupplyChainLossCard } from '@/frontend/modules/dashboard/components/Sup
 import {
   ArrowRightLeft,
   Search,
-  RefreshCw,
   AlertTriangle,
   FlaskConical,
   ExternalLink,
@@ -135,12 +134,6 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
               <h2 className="text-sm font-semibold text-foreground">
                 Reconciliation Ledger: {assignedSourceName}
               </h2>
-              <p className="text-xs text-slate-600">
-                Vehicle-level comparison of declared ZMCC dispatches against official factory received quantities, 13% TS solids, and QA decisions.
-              </p>
-              <p className="text-[11px] text-slate-500 italic mt-0.5">
-                Metrics, filters, and search below apply to the current bounded server page. Use the server pagination controls below to review additional records.
-              </p>
             </div>
           </div>
 
@@ -152,14 +145,12 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                 disabled={isLoading}
                 className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-subtle border border-border/80 text-xs font-semibold text-foreground hover:bg-muted/60 transition-all disabled:opacity-50"
               >
-                <RefreshCw className={`w-3.5 h-3.5 text-primary ${isLoading ? 'animate-spin' : ''}`} />
-                <span>{isLoading ? 'Syncing...' : 'Refresh'}</span>
+                <span>{isLoading ? 'Syncing…' : 'Refresh'}</span>
               </button>
             )}
           </div>
         </div>
 
-        {/* Bounded Page Notice */}
         {pagination && pagination.totalPages > 1 && (
           <div className="flex items-center justify-between p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800">
             <div className="flex items-center space-x-2">
@@ -172,7 +163,6 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
           </div>
         )}
 
-        {/* KPI Summary Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 tabular-nums">
           <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
             <span className="text-xs font-sans text-slate-500 block uppercase font-semibold">Visits on Page</span>
@@ -192,15 +182,15 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
               {showKpiPlaceholders ? '—' : summary.pendingReceipt}
             </span>
           </div>
-          <div className="p-3 rounded-lg bg-pink-50 border border-pink-200">
-            <span className="text-xs font-sans text-pink-700 block uppercase font-semibold">Qty Delta on Page</span>
-            <span className="text-lg font-semibold text-pink-900">
+          <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
+            <span className="text-xs font-sans text-slate-700 block uppercase font-semibold">Qty Delta on Page</span>
+            <span className="text-lg font-semibold text-slate-900">
               {showKpiPlaceholders ? '—' : summary.qtyDiffCount}
             </span>
           </div>
-          <div className="p-3 rounded-lg bg-purple-50 border border-purple-200">
-            <span className="text-xs font-sans text-purple-700 block uppercase font-semibold">13% TS Delta on Page</span>
-            <span className="text-lg font-semibold text-purple-900">
+          <div className="p-3 rounded-lg bg-blue-50 border border-blue-200">
+            <span className="text-xs font-sans text-blue-700 block uppercase font-semibold">13% TS Delta on Page</span>
+            <span className="text-lg font-semibold text-blue-900">
               {showKpiPlaceholders ? '—' : summary.tsDiffCount}
             </span>
           </div>
@@ -240,7 +230,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search current page vehicle or token..."
+              placeholder="Search current page vehicle or token…"
               aria-label="Search current page vehicle or token"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -397,7 +387,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                         {/* 7. Plant @13TS */}
                         <td className="py-3 px-3 text-right font-semibold">
                           {item.plant13TsLiters != null ? (
-                            <span className="text-purple-800">{item.plant13TsLiters.toLocaleString()} L</span>
+                            <span className="text-slate-900">{item.plant13TsLiters.toLocaleString()} L</span>
                           ) : item.isHistoricalReceiptWithoutCommercialSnapshot ? (
                             <span className="text-slate-500 font-sans text-[11px] font-semibold">Unavailable</span>
                           ) : item.isReceiptPending ? (
@@ -532,10 +522,9 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                                 </div>
                               </div>
 
-                              {/* Portion QA Decisions */}
                               <div className="p-3 bg-white rounded-lg border border-border space-y-2">
                                 <div className="flex items-center space-x-2 font-sans font-semibold text-slate-800 pb-1 border-b border-slate-100">
-                                  <FlaskConical className="w-3.5 h-3.5 text-purple-700" />
+                                  <FlaskConical className="w-3.5 h-3.5 text-primary" />
                                   <span>Portion QA Breakdown ({item.portions.length} Portions)</span>
                                 </div>
                                 <div className="space-y-1 max-h-32 overflow-y-auto">

@@ -11,7 +11,6 @@ import {
   History,
   Calendar,
   Search,
-  RefreshCw,
   Scale,
   ArrowRightLeft,
   Truck,
@@ -19,6 +18,7 @@ import {
   AlertCircle,
   CheckCircle2,
   ShieldCheck,
+  Loader2,
 } from 'lucide-react';
 import { getErrorMessage } from '@/lib/errors';
 
@@ -129,7 +129,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
           </div>
           <div>
             <h2 className="text-base font-semibold text-slate-900 leading-tight">
-              {assignedSourceName} — History & Operational Reports
+              {assignedSourceName}: History & Operational Reports
             </h2>
             <p className="text-xs text-slate-500 font-medium mt-0.5">
               Historical ledger evaluated by Reporting Date (Final Receipt date for completed receipts; Dispatch date for pending).
@@ -183,7 +183,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search..."
+                placeholder="Search…"
                 className="w-full pl-9 pr-3 py-2 min-h-[40px] text-xs tabular-nums font-semibold bg-slate-50 border border-border-strong rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-900"
               />
             </div>
@@ -321,8 +321,8 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
 
         {loading ? (
           <div className="py-12 text-center text-xs font-semibold text-slate-500 flex flex-col items-center justify-center space-y-2">
-            <RefreshCw className="w-5 h-5 text-blue-700 animate-spin" />
-            <span>Loading historical records...</span>
+            <Loader2 className="w-5 h-5 text-blue-700 animate-spin" />
+            <span>Loading historical records…</span>
           </div>
         ) : filteredVisits.length === 0 ? (
           <div className="py-12 px-4 rounded-xl bg-slate-50 border border-dashed border-slate-200 text-center space-y-2">
@@ -389,7 +389,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
                             Final Receipt
                           </span>
                         ) : v.secondWeightTimestamp ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-purple-100 text-purple-800 border border-purple-200">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 border border-amber-200">
                             Receipt Pending
                           </span>
                         ) : (

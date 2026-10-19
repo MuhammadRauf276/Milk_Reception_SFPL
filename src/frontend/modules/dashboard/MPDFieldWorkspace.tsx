@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { User } from '@core/types';
-import { ChevronLeft, ChevronRight, RefreshCw, Truck } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Truck, Loader2 } from 'lucide-react';
 import { DynamicDispatchForm } from '@modules/forms/DynamicDispatchForm';
 import { SegmentedTabs } from '@/components/ui/segmented-tabs';
 import { getErrorMessage } from '@/lib/errors';
@@ -50,10 +50,12 @@ interface PaginationMeta {
 interface MPDFieldWorkspaceProps {
   currentUser: User | null;
   onRefresh?: () => void;
+  hideTabBar?: boolean;
 }
 
 export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
   currentUser,
+  hideTabBar = true,
 }) => {
   // The URL's ?tab= picks the initial view until the user chooses one.
   const urlTab = useUrlSearchParam('tab')?.toLowerCase();
@@ -154,21 +156,23 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
   return (
     <div className="max-w-7xl mx-auto space-y-6 w-full overflow-x-hidden">
       {/* Top-Level Dispatch Workspace Tabs */}
-      <SegmentedTabs
-        label="Dispatch views"
-        value={activeTab}
-        onValueChange={setActiveTab}
-        tabs={[
-          { value: 'new', label: 'New dispatch', id: 'tab-new-dispatch', panelId: 'panel-new-dispatch' },
-          {
-            value: 'recent',
-            label: 'Recent dispatches',
-            id: 'tab-recent-dispatches',
-            panelId: 'panel-recent-dispatches',
-            count: pagination.totalRecords > 0 ? pagination.totalRecords : undefined,
-          },
-        ]}
-      />
+      {!hideTabBar && (
+        <SegmentedTabs
+          label="Dispatch views"
+          value={activeTab}
+          onValueChange={setActiveTab}
+          tabs={[
+            { value: 'new', label: 'New dispatch', id: 'tab-new-dispatch', panelId: 'panel-new-dispatch' },
+            {
+              value: 'recent',
+              label: 'Recent dispatches',
+              id: 'tab-recent-dispatches',
+              panelId: 'panel-recent-dispatches',
+              count: pagination.totalRecords > 0 ? pagination.totalRecords : undefined,
+            },
+          ]}
+        />
+      )}
 
       {/* Tab Panels: New Dispatch Panel (state preserved when hidden) */}
       <div
@@ -301,8 +305,8 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
           <div className="space-y-3 max-h-[580px] overflow-y-auto pr-1">
             {isLoading ? (
               <div className="p-10 text-center border border-dashed border-border rounded-xl bg-white text-sm text-muted-foreground">
-                <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-blue-700" />
-                Loading dispatches...
+                <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-blue-700" />
+                Loading dispatches…
               </div>
             ) : dbDispatches.length === 0 ? (
               <div className="p-10 text-center border border-dashed border-border rounded-xl bg-white text-sm text-muted-foreground">

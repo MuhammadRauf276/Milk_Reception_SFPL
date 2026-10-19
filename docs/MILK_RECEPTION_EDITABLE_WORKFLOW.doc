@@ -1,0 +1,1359 @@
+<html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:w="urn:schemas-microsoft-com:office:word"
+      xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+  <meta charset="utf-8"/>
+  <title>Milk Reception Application — Editable Workflow & Decision Architecture</title>
+  <!--[if gte mso 9]>
+  <xml>
+    <w:WordDocument>
+      <w:View>Print</w:View>
+      <w:Zoom>100</w:Zoom>
+      <w:DoNotOptimizeForBrowser/>
+    </w:WordDocument>
+  </xml>
+  <![endif]-->
+  <style>
+    @page Section1 {
+      size: 21.0cm 29.7cm;
+      margin: 1.0cm 1.1cm 1.0cm 1.1cm;
+      mso-header-margin: 0cm;
+      mso-footer-margin: 0cm;
+    }
+    div.Section1 { page: Section1; }
+    body {
+      font-family: "Calibri", "Segoe UI", Arial, sans-serif;
+      color: #000000;
+      background: #FFFFFF;
+      margin: 0;
+      padding: 0;
+    }
+    table { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+  </style>
+</head>
+<body>
+  <div class="Section1">
+    
+      <div style="page-break-after:always;">
+        <table width="100%" cellspacing="0" cellpadding="6" style="border-collapse:collapse; border:2.5pt solid #000000; background:#E2E8F0; margin-bottom:8pt;">
+          <tr>
+            <td>
+              <p style="margin:0; font-size:13pt; font-weight:bold; color:#000000;">Level 1: High-Level System Architecture & Multi-Stream ERP Settlement Pipeline</p>
+              <p style="margin:3pt 0 0 0; font-size:9.5pt; font-weight:bold; color:#000000;">Authorized Actors: <span style="font-weight:normal;">Super Admin / Data Executive, Finance Team, ZMCC Manager, PHE Operator, MOT, Admin Operator, QA Lab, Weighbridge, Production</span> &nbsp;|&nbsp; Workspace: <span style="font-weight:normal;">All System Workspaces (/mot, /phe, /zmcc, /department/*, /super-admin/*)</span></p>
+            </td>
+          </tr>
+        </table>
+        
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.5pt solid #000000; background:#FFFFFF; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:11pt; font-weight:bold; color:#000000; text-transform:uppercase;">LEVEL 0: MASTER GOVERNANCE</p>
+                <p style="margin:0; font-size:10pt; color:#000000; white-space:pre-line;">• Super Admin / Data Executive: Adds Lab Tests & configures SOP Rules (RELEASE vs MONITORING)<br/>• Finance Team: Creates/Activates ERP Codes (erp_code), assigns Milk Pricing Rule (@13% TS vs Gross Liters), and sets Date-Range Milk Rates (from_date to to_date)</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:1.5pt solid #000000; background:#FFFFFF; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:10.5pt; font-weight:bold; color:#000000;">LEVEL 1: UPSTREAM MOT COLLECTION & SHOP ERP SETTLEMENT (STREAM 1)</p>
+                <p style="margin:0; font-size:10pt; color:#000000;">1. ZMCC Manager / Super Admin registers MOT Vehicle & MOT Profile.<br/>2. PHE Operator / ZMCC Manager assigns & dispatches MOT Journey (MJ-YYYYMMDD-XXXX).<br/>3. MOT visits Village Shops and submits milk collection (Quantity, LR, Fat -> @13% TS Liters).</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:3pt solid #000000; background:#F8FAFC; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:11pt; font-weight:bold; color:#000000; text-transform:uppercase;">STREAM 1 — IMMEDIATE SHOP ERP LEDGER CREDIT</p>
+                <p style="margin:0; font-size:10pt; color:#000000; white-space:pre-line;">Upon each MOT shop collection submission, system immediately credits ErpSettlementLedger against that Shop's erp_code (@13% TS Liters × Active Date Rate).</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:1.5pt solid #000000; background:#FFFFFF; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:10.5pt; font-weight:bold; color:#000000;">LEVEL 2 TO 4: ZMCC GATE ENTRY, LAB TESTING & LOCAL SUPPLIER SETTLEMENT (STREAM 2)</p>
+                <p style="margin:0; font-size:10pt; color:#000000;">1. MOT Vehicle or Local Supplier (with erp_code) arrives at ZMCC PHE Gate -> Token issued.<br/>2. ZMCC QA Lab tests milk against Active SOP Rules set by Super Admin / Data Executive.</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.25pt solid #000000; background:#F1F5F9; margin:0 auto;">
+            <tr>
+              <td colspan="2" style="border-bottom:1.5pt solid #000000; background:#E2E8F0;">
+                <p style="margin:0; font-size:10.5pt; font-weight:bold; color:#000000;">&#9670; DECISION: What is the ZMCC QA Lab Outcome?</p>
+              </td>
+            </tr>
+            <tr>
+              <td width="50%" valign="top" style="border-right:1.5pt solid #000000; background:#FFFFFF; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10004; IF ACCEPTED (Pass or Manager Approval)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Post receipt to Sole Active ZMCC Tank Stock.<br/>• STREAM 2 (If Local Supplier): Immediately credit ErpSettlementLedger against Local Supplier's erp_code (Accepted @13% TS Liters × Active Date Rate).<br/>• Proceed to ZMCC Gate Exit (Restores MOT Vehicle availability).</p>
+              </td>
+              <td width="50%" valign="top" style="background:#F8FAFC; border:1.5pt dashed #000000; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10006; IF REJECTED</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Quarantine / Return Rejected Milk.<br/>• Zero Tank Stock posted & Zero ERP Ledger posted.<br/>• Proceed to ZMCC Gate Exit.</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:1.5pt solid #000000; background:#FFFFFF; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:10.5pt; font-weight:bold; color:#000000;">LEVEL 5 TO 7: BULK DISPATCH, ADMIN GATE ENTRY & PLANT QA LAB</p>
+                <p style="margin:0; font-size:10pt; color:#000000;">1. Bulk Tanker Dispatched (Independent Measured Vehicle Quantity + Average of Portion Lab Tests LR/Fat -> Whole-Vehicle Canonical Formulas).<br/>2. Admin Operator (ADMIN_OPERATOR) records Plant Gate Entry & issues physical Plant Token.<br/>3. Plant QA Lab samples and tests each compartment against Active SOP Rules.</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.25pt solid #000000; background:#F1F5F9; margin:0 auto;">
+            <tr>
+              <td colspan="2" style="border-bottom:1.5pt solid #000000; background:#E2E8F0;">
+                <p style="margin:0; font-size:10.5pt; font-weight:bold; color:#000000;">&#9670; DECISION: Are at least 1 Portion(s) ACCEPTED at Plant QA?</p>
+              </td>
+            </tr>
+            <tr>
+              <td width="50%" valign="top" style="border-right:1.5pt solid #000000; background:#FFFFFF; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10004; IF YES (At least 1 Portion ACCEPTED)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Advance VehicleVisit to Weighbridge for 1st Weight (Gross Weight).</p>
+              </td>
+              <td width="50%" valign="top" style="background:#F8FAFC; border:1.5pt dashed #000000; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10006; IF NO (0 Portions Accepted / All Rejected)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Entire Cargo Rejected!<br/>• Bypass Weighbridge Gross & Silo Unloading -> Route directly to Plant Admin Gate Exit.</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:1.5pt solid #000000; background:#FFFFFF; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:10.5pt; font-weight:bold; color:#000000;">LEVEL 8: WEIGHBRIDGE 1ST WEIGHT (GROSS) & BUSINESS DATE CUTOFF</p>
+                <p style="margin:0; font-size:10pt; color:#000000;">Weighbridge Operator records Loaded Vehicle First Weight (gross_weight_kg) and captures gross_timestamp (PKT).</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.25pt solid #000000; background:#F1F5F9; margin:0 auto;">
+            <tr>
+              <td colspan="2" style="border-bottom:1.5pt solid #000000; background:#E2E8F0;">
+                <p style="margin:0; font-size:10.5pt; font-weight:bold; color:#000000;">&#9670; AUTHORITATIVE BUSINESS DATE CUTOFF: Is 1st Weight Time (gross_timestamp) < 08:00:00 AM PKT?</p>
+              </td>
+            </tr>
+            <tr>
+              <td width="50%" valign="top" style="border-right:1.5pt solid #000000; background:#FFFFFF; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10004; IF YES (Before 08:00 AM PKT)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Lock Assigned Business Date (operational_date) = PREVIOUS Calendar Day (e.g. 22-Aug).</p>
+              </td>
+              <td width="50%" valign="top" style="background:#F8FAFC; border:1.5pt dashed #000000; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10006; IF NO (08:00 AM PKT or Later)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Lock Assigned Business Date (operational_date) = CURRENT Calendar Day (e.g. 23-Aug).</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:1.5pt solid #000000; background:#FFFFFF; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:10.5pt; font-weight:bold; color:#000000;">LEVEL 9 TO 11: SILO UNLOADING, 2ND WEIGHT (TARE) & CONDITIONAL SETTLEMENT</p>
+                <p style="margin:0; font-size:10pt; color:#000000;">1. Production unloads accepted portions into Raw Milk Silo.<br/>2. Weighbridge records 2nd Weight (Tare) -> Net Milk Weight KG = First Weight - Second Weight.<br/>3. Dual Reconciliation Engine computes Received Gross Liters & Received @13% TS Liters.</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.25pt solid #000000; background:#F1F5F9; margin:0 auto;">
+            <tr>
+              <td colspan="2" style="border-bottom:1.5pt solid #000000; background:#E2E8F0;">
+                <p style="margin:0; font-size:10.5pt; font-weight:bold; color:#000000;">&#9670; DECISION: Is Procurement Source a Company ZMCC or Direct Contractor?</p>
+              </td>
+            </tr>
+            <tr>
+              <td width="50%" valign="top" style="border-right:1.5pt solid #000000; background:#FFFFFF; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10004; IF DIRECT CONTRACTOR (Stream 3)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Credit ErpSettlementLedger against Contractor's erp_code (Received @13% TS Liters from Net Weight KG × Active ERP Rate for the Business Date locked at 1st Weight).<br/>• Admin Operator collects token & records Plant Gate Exit.</p>
+              </td>
+              <td width="50%" valign="top" style="background:#F8FAFC; border:1.5pt dashed #000000; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10006; IF COMPANY ZMCC</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Internal Company Stock Transfer & Dual Variance Only (Zero Vendor Payment at Plant, since Shops & Local Suppliers were settled at ZMCC).<br/>• Admin Operator collects token & records Plant Gate Exit.</p>
+              </td>
+            </tr>
+          </table>
+          
+      </div>
+
+      <div style="page-break-after:always;">
+        <table width="100%" cellspacing="0" cellpadding="6" style="border-collapse:collapse; border:2.5pt solid #000000; background:#E2E8F0; margin-bottom:8pt;">
+          <tr>
+            <td>
+              <p style="margin:0; font-size:13pt; font-weight:bold; color:#000000;">Level 0A: Master Lab Test & SOP Quality Rule Governance</p>
+              <p style="margin:3pt 0 0 0; font-size:9.5pt; font-weight:bold; color:#000000;">Authorized Actors: <span style="font-weight:normal;">SUPER_ADMIN, DATA_EXECUTIVE (Strictly NOT QA Head or Lab Attendants)</span> &nbsp;|&nbsp; Workspace: <span style="font-weight:normal;">/super-admin/lab-tests & /super-admin/quality-rules</span></p>
+            </td>
+          </tr>
+        </table>
+        
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.5pt solid #000000; background:#FFFFFF; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:11pt; font-weight:bold; color:#000000; text-transform:uppercase;">START: MASTER LAB TEST & SOP RULE CONFIGURATION</p>
+                <p style="margin:0; font-size:10pt; color:#000000; white-space:pre-line;">Actor opens Lab Test Catalog or Quality SOP Rule Management.</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.25pt solid #000000; background:#F1F5F9; margin:0 auto;">
+            <tr>
+              <td colspan="2" style="border-bottom:1.5pt solid #000000; background:#E2E8F0;">
+                <p style="margin:0; font-size:10.5pt; font-weight:bold; color:#000000;">&#9670; SECURITY CHECK: Is Actor Role == SUPER_ADMIN or DATA_EXECUTIVE?</p>
+              </td>
+            </tr>
+            <tr>
+              <td width="50%" valign="top" style="border-right:1.5pt solid #000000; background:#FFFFFF; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10004; IF YES (Authorized)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Allow creation/editing of Lab Tests and SOP Rules.</p>
+              </td>
+              <td width="50%" valign="top" style="background:#F8FAFC; border:1.5pt dashed #000000; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10006; IF NO (e.g. QA Head / QA Manager / Lab Attendant)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• FAIL CLOSED (HTTP 403 Forbidden): Only Super Admin or Data Executive can add Lab Tests or set SOP Rules.</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:1.5pt solid #000000; background:#FFFFFF; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:10.5pt; font-weight:bold; color:#000000;">DEFINE LAB TEST & CONFIGURE SOP THRESHOLDS</p>
+                <p style="margin:0; font-size:10pt; color:#000000;">1. Add/Update LabTest: Code (e.g. LT-000008 LR, LT-000026 Fat), Result Type (NUMERIC, PASS_FAIL, ENUM), Unit, Required Flag.<br/>2. Configure LabTestRule: Select Workflow Scope (ZMCC_LAB_MOT, ZMCC_LAB_LOCAL_SUPPLIER, DISPATCH, PLANT_QA).<br/>3. Select Category: RELEASE (Mandatory Gatekeeper) vs MONITORING (Warning Only).<br/>4. Set Pass Thresholds (MIN, MAX, RANGE, or EXACT_MATCH).</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.25pt solid #000000; background:#F1F5F9; margin:0 auto;">
+            <tr>
+              <td colspan="2" style="border-bottom:1.5pt solid #000000; background:#E2E8F0;">
+                <p style="margin:0; font-size:10.5pt; font-weight:bold; color:#000000;">&#9670; VALIDATION: Are Thresholds Valid (min <= max) & Non-Conflicting?</p>
+              </td>
+            </tr>
+            <tr>
+              <td width="50%" valign="top" style="border-right:1.5pt solid #000000; background:#FFFFFF; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10004; IF YES (Valid Rule)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Deactivate previous rule version for same (Test, Scope, Category).<br/>• Activate new LabTestRule version & write AuditLog (LAB_TEST_RULE_CONFIGURED).</p>
+              </td>
+              <td width="50%" valign="top" style="background:#F8FAFC; border:1.5pt dashed #000000; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10006; IF NO (Invalid Threshold)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Return Error 400: Invalid Rule Threshold Configuration.</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:3pt solid #000000; background:#F8FAFC; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:11pt; font-weight:bold; color:#000000; text-transform:uppercase;">ACTIVE RULES LIVE IN ZMCC & PLANT LABS</p>
+                <p style="margin:0; font-size:10pt; color:#000000; white-space:pre-line;">New SOP rules are immediately enforced in ZMCC Lab and Plant QA Lab sessions.</p>
+              </td>
+            </tr>
+          </table>
+          
+      </div>
+
+      <div style="page-break-after:always;">
+        <table width="100%" cellspacing="0" cellpadding="6" style="border-collapse:collapse; border:2.5pt solid #000000; background:#E2E8F0; margin-bottom:8pt;">
+          <tr>
+            <td>
+              <p style="margin:0; font-size:13pt; font-weight:bold; color:#000000;">Level 0B: Finance Role — ERP Code Master Governance & Date-Range Rate Card (from_date to to_date)</p>
+              <p style="margin:3pt 0 0 0; font-size:9.5pt; font-weight:bold; color:#000000;">Authorized Actors: <span style="font-weight:normal;">FINANCE_TEAM (FINANCE_MANAGER / FINANCE_OPERATOR), SUPER_ADMIN</span> &nbsp;|&nbsp; Workspace: <span style="font-weight:normal;">/department/finance/erp-codes & /department/finance/erp-rates</span></p>
+            </td>
+          </tr>
+        </table>
+        
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.5pt solid #000000; background:#FFFFFF; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:11pt; font-weight:bold; color:#000000; text-transform:uppercase;">START: FINANCE ERP CODE & RATE SCHEDULE GOVERNANCE</p>
+                <p style="margin:0; font-size:10pt; color:#000000; white-space:pre-line;">Finance Team manages ERP Code master lifecycle, Milk Pricing Rules, and effective date-range milk rates.</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.25pt solid #000000; background:#F1F5F9; margin:0 auto;">
+            <tr>
+              <td colspan="2" style="border-bottom:1.5pt solid #000000; background:#E2E8F0;">
+                <p style="margin:0; font-size:10.5pt; font-weight:bold; color:#000000;">&#9670; AUTHORIZATION CHECK: Is Actor in FINANCE_TEAM or SUPER_ADMIN?</p>
+              </td>
+            </tr>
+            <tr>
+              <td width="50%" valign="top" style="border-right:1.5pt solid #000000; background:#FFFFFF; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10004; IF YES (Finance Team / Super Admin)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Proceed to ERP Code Master & Rate Card Management.</p>
+              </td>
+              <td width="50%" valign="top" style="background:#F8FAFC; border:1.5pt dashed #000000; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10006; IF NO (e.g. ZMCC Manager / PHE Operator)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• FAIL CLOSED (HTTP 403 Forbidden): ZMCC Manager & PHE cannot create, edit, or deactivate ERP Codes.</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:1.5pt solid #000000; background:#FFFFFF; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:10.5pt; font-weight:bold; color:#000000;">STEP 1: CREATE / EDIT / ACTIVATE / DEACTIVATE ERP CODE (erp_code)</p>
+                <p style="margin:0; font-size:10pt; color:#000000;">• Enter Unique erp_code (e.g. ERP-10045), Account Name, and Entity Category (Village Shop / Local Supplier / Direct Contractor).<br/>• If Deactivating (is_active = false): System verifies no active Shop, Local Supplier, or Contractor is currently linked (otherwise returns Error 409 Conflict).</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:1.5pt solid #000000; background:#FFFFFF; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:10.5pt; font-weight:bold; color:#000000;">STEP 2: ASSIGN MILK PRICING RULE & DATE-RANGE RATE (from_date -> to_date)</p>
+                <p style="margin:0; font-size:10pt; color:#000000;">• Select Commercial Settlement Basis against erp_code: '@13% TS Liters' (Default) OR 'Gross Liters'.<br/>• Enter Milk Rate per Liter (e.g. PKR 202.50 / L).<br/>• Enter Effective Start Date (from_date) and Effective End Date (to_date) to handle rate fluctuations.</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.25pt solid #000000; background:#F1F5F9; margin:0 auto;">
+            <tr>
+              <td colspan="2" style="border-bottom:1.5pt solid #000000; background:#E2E8F0;">
+                <p style="margin:0; font-size:10.5pt; font-weight:bold; color:#000000;">&#9670; DATE VALIDATION: Is from_date <= to_date AND No Overlapping Window for this erp_code?</p>
+              </td>
+            </tr>
+            <tr>
+              <td width="50%" valign="top" style="border-right:1.5pt solid #000000; background:#FFFFFF; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10004; IF YES (Clean or Auto-Closed Previous Period)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• If 'Auto-Close Previous Period' selected, set previous rate's to_date = (new from_date - 1 day).<br/>• Save ErpMilkRateSchedule & log ERP_MILK_RATE_SCHEDULED in AuditLog.</p>
+              </td>
+              <td width="50%" valign="top" style="background:#F8FAFC; border:1.5pt dashed #000000; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10006; IF NO (Invalid or Unresolved Overlap)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Return Error 400 / 409 Conflict: Overlapping rate period exists for this ERP Code.</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:3pt solid #000000; background:#F8FAFC; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:11pt; font-weight:bold; color:#000000; text-transform:uppercase;">AUTOMATED SETTLEMENT RATE LOOKUP</p>
+                <p style="margin:0; font-size:10pt; color:#000000; white-space:pre-line;">At transaction settlement, system resolves active rate where: from_date <= operational_date <= to_date for that entity's erp_code.</p>
+              </td>
+            </tr>
+          </table>
+          
+      </div>
+
+      <div style="page-break-after:always;">
+        <table width="100%" cellspacing="0" cellpadding="6" style="border-collapse:collapse; border:2.5pt solid #000000; background:#E2E8F0; margin-bottom:8pt;">
+          <tr>
+            <td>
+              <p style="margin:0; font-size:13pt; font-weight:bold; color:#000000;">Level 0C: Editing Shop (ZmccShop) or Local Supplier (ZmccLocalSupplier) ERP Code — 100% Historical Preservation</p>
+              <p style="margin:3pt 0 0 0; font-size:9.5pt; font-weight:bold; color:#000000;">Authorized Actors: <span style="font-weight:normal;">FINANCE_TEAM, ZMCC_MANAGER, SUPER_ADMIN</span> &nbsp;|&nbsp; Workspace: <span style="font-weight:normal;">/department/finance/erp-codes & /zmcc/master-data</span></p>
+            </td>
+          </tr>
+        </table>
+        
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.5pt solid #000000; background:#FFFFFF; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:11pt; font-weight:bold; color:#000000; text-transform:uppercase;">START: SHOP OR LOCAL SUPPLIER REQUESTS TO WORK UNDER A NEW ERP CODE</p>
+                <p style="margin:0; font-size:10pt; color:#000000; white-space:pre-line;">ARCHITECTURAL RULE: DO NOT create a duplicate Shop (keep SHP-xxx) or duplicate Local Supplier (keep ZLS-xxxxxx).</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.25pt solid #000000; background:#F1F5F9; margin:0 auto;">
+            <tr>
+              <td colspan="2" style="border-bottom:1.5pt solid #000000; background:#E2E8F0;">
+                <p style="margin:0; font-size:10.5pt; font-weight:bold; color:#000000;">&#9670; CHECK 1: Does New Target ERP Code (e.g. ERP-NEW-202) exist & is_active == true?</p>
+              </td>
+            </tr>
+            <tr>
+              <td width="50%" valign="top" style="border-right:1.5pt solid #000000; background:#FFFFFF; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10004; IF YES (Active in Finance Master)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Proceed to In-Flight Transaction Check.</p>
+              </td>
+              <td width="50%" valign="top" style="background:#F8FAFC; border:1.5pt dashed #000000; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10006; IF NO (Missing or Inactive)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Finance Team first creates & activates ERP-NEW-202 and sets its Milk Rule & Date-Range Rate (Level 0B).</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.25pt solid #000000; background:#F1F5F9; margin:0 auto;">
+            <tr>
+              <td colspan="2" style="border-bottom:1.5pt solid #000000; background:#E2E8F0;">
+                <p style="margin:0; font-size:10.5pt; font-weight:bold; color:#000000;">&#9670; CHECK 2: Does Shop or Local Supplier have an unaccepted in-flight ZMCC Lab Session right now?</p>
+              </td>
+            </tr>
+            <tr>
+              <td width="50%" valign="top" style="border-right:1.5pt solid #000000; background:#FFFFFF; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10004; IF NO (Safe to Switch)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Proceed with Atomic ERP Code Reassignment.</p>
+              </td>
+              <td width="50%" valign="top" style="background:#F8FAFC; border:1.5pt dashed #000000; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10006; IF YES (In-Flight Session Active)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Return Error 409 Conflict: Complete the current in-progress ZMCC Lab Session first so its settlement locks cleanly.</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:1.5pt solid #000000; background:#FFFFFF; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:10.5pt; font-weight:bold; color:#000000;">ATOMIC 'REASSIGN ERP CODE' TRANSACTION</p>
+                <p style="margin:0; font-size:10pt; color:#000000;">1. Close Current History Row in ErpAssignmentHistory: erp_code = 'ERP-OLD-101', effective_to = now (PKT), is_current = false.<br/>2. Insert New History Row in ErpAssignmentHistory: erp_code = 'ERP-NEW-202', effective_from = now (PKT), effective_to = null, is_current = true.<br/>3. Update ZmccShop.milk_source_id (or ZmccLocalSupplier.erp_code_id) = 'ERP-NEW-202'.<br/>4. Write AuditLog (ENTITY_ERP_CODE_SWITCHED with mandatory reason).</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:3pt solid #000000; background:#F8FAFC; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:11pt; font-weight:bold; color:#000000; text-transform:uppercase;">100% HISTORICAL PRESERVATION & FUTURE ROUTING</p>
+                <p style="margin:0; font-size:10pt; color:#000000; white-space:pre-line;">• PAST DATA (Before Switch): Every historical MotShopCollection & ZmccTankReceipt retains immutable erp_code_snapshot = 'ERP-OLD-101'. Past ERP Ledger balances for ERP-OLD-101 are 100% untouched.<br/>• FUTURE DATA (After Switch): Every new collection/receipt automatically snapshots 'ERP-NEW-202' and credits ERP-NEW-202 Ledger.</p>
+              </td>
+            </tr>
+          </table>
+          
+      </div>
+
+      <div style="page-break-after:always;">
+        <table width="100%" cellspacing="0" cellpadding="6" style="border-collapse:collapse; border:2.5pt solid #000000; background:#E2E8F0; margin-bottom:8pt;">
+          <tr>
+            <td>
+              <p style="margin:0; font-size:13pt; font-weight:bold; color:#000000;">Level 1A: MOT Master Fleet Registration & Journey Assignment / Dispatch</p>
+              <p style="margin:3pt 0 0 0; font-size:9.5pt; font-weight:bold; color:#000000;">Authorized Actors: <span style="font-weight:normal;">Fleet/Profile Creation: ZMCC_MANAGER or SUPER_ADMIN only | Journey Dispatch: PHE_OPERATOR, ZMCC_MANAGER, or SUPER_ADMIN</span> &nbsp;|&nbsp; Workspace: <span style="font-weight:normal;">/super-admin/mot-operations, /zmcc/mot, /phe</span></p>
+            </td>
+          </tr>
+        </table>
+        
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.5pt solid #000000; background:#FFFFFF; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:11pt; font-weight:bold; color:#000000; text-transform:uppercase;">START: MOT PRE-JOURNEY SETUP & DISPATCH</p>
+                <p style="margin:0; font-size:10pt; color:#000000; white-space:pre-line;">Determine if a new MOT Vehicle / MOT Profile needs to be registered before dispatching a journey.</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.25pt solid #000000; background:#F1F5F9; margin:0 auto;">
+            <tr>
+              <td colspan="2" style="border-bottom:1.5pt solid #000000; background:#E2E8F0;">
+                <p style="margin:0; font-size:10.5pt; font-weight:bold; color:#000000;">&#9670; FLEET REGISTRATION: Who is registering a New MOT Vehicle or New MOT Profile?</p>
+              </td>
+            </tr>
+            <tr>
+              <td width="50%" valign="top" style="border-right:1.5pt solid #000000; background:#FFFFFF; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10004; IF ZMCC_MANAGER or SUPER_ADMIN</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Add MOT Vehicle (POST /api/zmcc/mot/vehicles): Enter unique vehicle_number, Target ZMCC, Capacity, Category (STANDARD or EMERGENCY_SUBSTITUTE).<br/>• Add MOT Profile (POST /api/zmcc/mot/profiles): Enter mot_code, Name, Phone, 13-digit CNIC, and link User (role = 'MOT', same ZMCC).</p>
+              </td>
+              <td width="50%" valign="top" style="background:#F8FAFC; border:1.5pt dashed #000000; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10006; IF PHE_OPERATOR</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• FAIL CLOSED (Error 403 Forbidden): PHE Operators cannot create or update MOT Vehicles or MOT Profiles.</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:1.5pt solid #000000; background:#FFFFFF; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:10.5pt; font-weight:bold; color:#000000;">INITIATE 'ASSIGN & DISPATCH MOT JOURNEY'</p>
+                <p style="margin:0; font-size:10pt; color:#000000;">Actor (PHE_OPERATOR, ZMCC_MANAGER, or SUPER_ADMIN) selects:<br/>1. Active ZmccRoute (with >= 1 active ZmccShop)<br/>2. Active MotProfile (same ZMCC)<br/>3. Active MotVehicle (same ZMCC)<br/>4. Dispatcher GPS coordinates & idempotency_key</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.25pt solid #000000; background:#F1F5F9; margin:0 auto;">
+            <tr>
+              <td colspan="2" style="border-bottom:1.5pt solid #000000; background:#E2E8F0;">
+                <p style="margin:0; font-size:10.5pt; font-weight:bold; color:#000000;">&#9670; AVAILABILITY CHECK: Is MOT Profile/Vehicle free AND Vehicle NOT inside ZMCC Gate?</p>
+              </td>
+            </tr>
+            <tr>
+              <td width="50%" valign="top" style="border-right:1.5pt solid #000000; background:#FFFFFF; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10004; IF YES (Available & Outside ZMCC Gate)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Allocate Sequence MJ-YYYYMMDD-XXXX.<br/>• Insert MotJourney (status = 'COLLECTING', operational_date = Today PKT).<br/>• Deterministically snapshot Route Shops into MotJourneyStop rows (with each Shop's current erp_code_snapshot).</p>
+              </td>
+              <td width="50%" valign="top" style="background:#F8FAFC; border:1.5pt dashed #000000; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10006; IF NO (On Active Journey OR Inside ZMCC Gate)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Return Error 409 Conflict: Vehicle/Profile is already on a COLLECTING journey, or Vehicle is still inside ZMCC awaiting PHE Gate Exit.</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:3pt solid #000000; background:#F8FAFC; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:11pt; font-weight:bold; color:#000000; text-transform:uppercase;">JOURNEY LIVE ON MOT APP (/mot)</p>
+                <p style="margin:0; font-size:10pt; color:#000000; white-space:pre-line;">Dispatched journey appears immediately on the assigned MOT's mobile device.</p>
+              </td>
+            </tr>
+          </table>
+          
+      </div>
+
+      <div style="page-break-after:always;">
+        <table width="100%" cellspacing="0" cellpadding="6" style="border-collapse:collapse; border:2.5pt solid #000000; background:#E2E8F0; margin-bottom:8pt;">
+          <tr>
+            <td>
+              <p style="margin:0; font-size:13pt; font-weight:bold; color:#000000;">Level 1B: Upstream Mobile Milk Collection (MOT) & Stream 1 Shop ERP Settlement</p>
+              <p style="margin:3pt 0 0 0; font-size:9.5pt; font-weight:bold; color:#000000;">Authorized Actors: <span style="font-weight:normal;">MOT (Mobile Milk Collection User)</span> &nbsp;|&nbsp; Workspace: <span style="font-weight:normal;">/mot</span></p>
+            </td>
+          </tr>
+        </table>
+        
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.5pt solid #000000; background:#FFFFFF; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:11pt; font-weight:bold; color:#000000; text-transform:uppercase;">START: MOT OPENS ACTIVE ASSIGNED JOURNEY</p>
+                <p style="margin:0; font-size:10pt; color:#000000; white-space:pre-line;">Downloads ordered MotJourneyStop list (with Shop erp_code) into local IndexedDB / Dexie offline store.</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.25pt solid #000000; background:#F1F5F9; margin:0 auto;">
+            <tr>
+              <td colspan="2" style="border-bottom:1.5pt solid #000000; background:#E2E8F0;">
+                <p style="margin:0; font-size:10.5pt; font-weight:bold; color:#000000;">&#9670; SHOP STOP ACTION: Collect Milk or Skip Village Shop?</p>
+              </td>
+            </tr>
+            <tr>
+              <td width="50%" valign="top" style="border-right:1.5pt solid #000000; background:#FFFFFF; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10004; IF COLLECT MILK</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Enter Shop RMR Number (Paper), Quantity (Liters/KG), Measured LR & Fat, Temp, Acidity, Alcohol + Live GPS.<br/>• If offline: Queue in IndexedDB with device_collected_at timestamp -> Auto-sync when online.</p>
+              </td>
+              <td width="50%" valign="top" style="background:#F8FAFC; border:1.5pt dashed #000000; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10006; IF SKIP STOP</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Select Skip Reason & submit.<br/>• Mark MotJourneyStop status = 'SKIPPED' (Zero ERP Ledger posted).</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.25pt solid #000000; background:#F1F5F9; margin:0 auto;">
+            <tr>
+              <td colspan="2" style="border-bottom:1.5pt solid #000000; background:#E2E8F0;">
+                <p style="margin:0; font-size:10.5pt; font-weight:bold; color:#000000;">&#9670; TIMELINE CHECK: Is device_collected_at <= journey.ended_at?</p>
+              </td>
+            </tr>
+            <tr>
+              <td width="50%" valign="top" style="border-right:1.5pt solid #000000; background:#FFFFFF; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10004; IF YES (Valid Collection Timestamp)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Compute Canonical Metrics: Density = 1 + LR/1000, Gross Liters, SNF, TS, @13% TS Liters.<br/>• Recompute MotJourneySummary (weighted averages) & queue Shop Owner SMS.</p>
+              </td>
+              <td width="50%" valign="top" style="background:#F8FAFC; border:1.5pt dashed #000000; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10006; IF NO (Late Collection After ZMCC Arrival)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Reject Collection (Error 400): Cannot record shop collection after journey arrival at ZMCC.</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:3pt solid #000000; background:#F8FAFC; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:11pt; font-weight:bold; color:#000000; text-transform:uppercase;">STREAM 1 — IMMEDIATE SHOP ERP SETTLEMENT LEDGER POSTING</p>
+                <p style="margin:0; font-size:10pt; color:#000000; white-space:pre-line;">• Freeze Shop's current erp_code as erp_code_snapshot on MotShopCollection.<br/>• Lookup Finance ERP Rate where from_date <= operational_date <= to_date.<br/>• Credit ErpSettlementLedger against Shop's erp_code (@13% TS Liters × Active ERP Rate).</p>
+              </td>
+            </tr>
+          </table>
+          
+      </div>
+
+      <div style="page-break-after:always;">
+        <table width="100%" cellspacing="0" cellpadding="6" style="border-collapse:collapse; border:2.5pt solid #000000; background:#E2E8F0; margin-bottom:8pt;">
+          <tr>
+            <td>
+              <p style="margin:0; font-size:13pt; font-weight:bold; color:#000000;">Level 2: ZMCC Intake & Gate Reception (PHE Gate Workflow)</p>
+              <p style="margin:3pt 0 0 0; font-size:9.5pt; font-weight:bold; color:#000000;">Authorized Actors: <span style="font-weight:normal;">PHE_OPERATOR (Public Health Engineer / Receptionist)</span> &nbsp;|&nbsp; Workspace: <span style="font-weight:normal;">/phe</span></p>
+            </td>
+          </tr>
+        </table>
+        
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.5pt solid #000000; background:#FFFFFF; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:11pt; font-weight:bold; color:#000000; text-transform:uppercase;">START: VEHICLE ARRIVES AT ZMCC GATE</p>
+                <p style="margin:0; font-size:10pt; color:#000000; white-space:pre-line;">PHE Operator selects Arrival Stream: (A) MOT Milk Route OR (B) Local Farmer / Supplier.</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.25pt solid #000000; background:#F1F5F9; margin:0 auto;">
+            <tr>
+              <td colspan="2" style="border-bottom:1.5pt solid #000000; background:#E2E8F0;">
+                <p style="margin:0; font-size:10.5pt; font-weight:bold; color:#000000;">&#9670; IF LOCAL SUPPLIER: Does Supplier already exist in ZMCC Directory?</p>
+              </td>
+            </tr>
+            <tr>
+              <td width="50%" valign="top" style="border-right:1.5pt solid #000000; background:#FFFFFF; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10004; IF YES (Existing Local Supplier)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Load Supplier profile and linked active erp_code.<br/>• Enter Vehicle Number & slip details.</p>
+              </td>
+              <td width="50%" valign="top" style="background:#F8FAFC; border:1.5pt dashed #000000; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10006; IF NO (New Local Supplier)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Fast-create Local Supplier (Name, Phone, 13-digit CNIC).<br/>• Link active ERP Code (created by Finance Team) & allocate code ZLS-000001.</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:1.5pt solid #000000; background:#FFFFFF; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:10.5pt; font-weight:bold; color:#000000;">ENTER PHYSICAL PAPER TOKEN (raw_milk_token_number)</p>
+                <p style="margin:0; font-size:10pt; color:#000000;">Acquire PostgreSQL Advisory Lock (RAW_MILK_TOKEN:zmccId:tokenValue) and verify paper token uniqueness for today.</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.25pt solid #000000; background:#F1F5F9; margin:0 auto;">
+            <tr>
+              <td colspan="2" style="border-bottom:1.5pt solid #000000; background:#E2E8F0;">
+                <p style="margin:0; font-size:10.5pt; font-weight:bold; color:#000000;">&#9670; TOKEN CHECK: Is raw_milk_token_number unique in this ZMCC today?</p>
+              </td>
+            </tr>
+            <tr>
+              <td width="50%" valign="top" style="border-right:1.5pt solid #000000; background:#FFFFFF; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10004; IF YES (Unique Paper Token)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Generate immutable ZMCC Token (ZT-MOT-YYYYMMDD-XXXX or ZT-LS-YYYYMMDD-XXXX).<br/>• Save Arrival (gate_exit_required = true, exit_timestamp = null, freeze supplier erp_code_snapshot).<br/>• If MOT: Mark journey.status = 'COMPLETED' & ended_at = now.</p>
+              </td>
+              <td width="50%" valign="top" style="background:#F8FAFC; border:1.5pt dashed #000000; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10006; IF NO (Duplicate Paper Token)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Return Error 400: Duplicate raw_milk_token_number already active in this facility.</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:3pt solid #000000; background:#F8FAFC; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:11pt; font-weight:bold; color:#000000; text-transform:uppercase;">VEHICLE QUEUED FOR ZMCC QA LAB</p>
+                <p style="margin:0; font-size:10pt; color:#000000; white-space:pre-line;">Vehicle is now Inside ZMCC and appears in the ZMCC QA Lab Testing Queue.</p>
+              </td>
+            </tr>
+          </table>
+          
+      </div>
+
+      <div style="page-break-after:always;">
+        <table width="100%" cellspacing="0" cellpadding="6" style="border-collapse:collapse; border:2.5pt solid #000000; background:#E2E8F0; margin-bottom:8pt;">
+          <tr>
+            <td>
+              <p style="margin:0; font-size:13pt; font-weight:bold; color:#000000;">Level 3: ZMCC Laboratory Testing, Tank Receipt & Stream 2 Local Supplier ERP Settlement</p>
+              <p style="margin:3pt 0 0 0; font-size:9.5pt; font-weight:bold; color:#000000;">Authorized Actors: <span style="font-weight:normal;">ZMCC_LAB_ATTENDANT (Testing) & ZMCC_MANAGER (Supervisory Review)</span> &nbsp;|&nbsp; Workspace: <span style="font-weight:normal;">/zmcc/lab</span></p>
+            </td>
+          </tr>
+        </table>
+        
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.5pt solid #000000; background:#FFFFFF; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:11pt; font-weight:bold; color:#000000; text-transform:uppercase;">START: ZMCC LAB TESTING SESSION</p>
+                <p style="margin:0; font-size:10pt; color:#000000; white-space:pre-line;">Freeze active Lab Tests snapshot (configured by SUPER_ADMIN / DATA_EXECUTIVE). Enter Quantity, Measured LR, Fat, Temp, Acidity, Alcohol 68%, MBRT, Adulterants.</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:1.5pt solid #000000; background:#FFFFFF; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:10.5pt; font-weight:bold; color:#000000;">EXECUTE CANONICAL FORMULAS & SOP RULE EVALUATION</p>
+                <p style="margin:0; font-size:10pt; color:#000000;">• Density = 1 + LR/1000 | Gross Liters | SNF = LR/4 + 0.22*Fat + 0.72 | TS = Fat + SNF | @13% TS Liters = Gross Liters * TS / 13.<br/>• Evaluate against Active SOP Rules configured by SUPER_ADMIN / DATA_EXECUTIVE (Fail closed if any rule config error).</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.25pt solid #000000; background:#F1F5F9; margin:0 auto;">
+            <tr>
+              <td colspan="2" style="border-bottom:1.5pt solid #000000; background:#E2E8F0;">
+                <p style="margin:0; font-size:10.5pt; font-weight:bold; color:#000000;">&#9670; SOP RULE EVALUATION: Do all RELEASE rules PASS?</p>
+              </td>
+            </tr>
+            <tr>
+              <td width="50%" valign="top" style="border-right:1.5pt solid #000000; background:#FFFFFF; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10004; IF YES (All Release Rules PASS)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Lab Attendant selects ACCEPTED (or REJECTED with reason).<br/>• If ACCEPTED: Proceed to Sole Active ZMCC Tank Receipt.</p>
+              </td>
+              <td width="50%" valign="top" style="background:#F8FAFC; border:1.5pt dashed #000000; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10006; IF NO (OUT_OF_SPEC -> Auto-Hold for ZMCC Manager)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Lab Attendant cannot Accept.<br/>• Escalates to ZMCC Manager Supervisory Review:<br/>  - Manager selects ACCEPTED (with mandatory reason) -> Proceed to Tank Receipt.<br/>  - OR Manager selects REJECTED (Zero Tank Receipt, Zero ERP Ledger).</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:1.5pt solid #000000; background:#FFFFFF; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:10.5pt; font-weight:bold; color:#000000;">SOLE ACTIVE ZMCC TANK CAPACITY CHECK & RECEIPT</p>
+                <p style="margin:0; font-size:10pt; color:#000000;">Lock Sole Active ZMCC Tank (SELECT FOR UPDATE). Verify Gross Liters <= (Capacity - Current Dynamic Stock). Create ZmccTankReceipt & ZmccTankInventoryTransaction ('RECEIPT').</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.25pt solid #000000; background:#F1F5F9; margin:0 auto;">
+            <tr>
+              <td colspan="2" style="border-bottom:1.5pt solid #000000; background:#E2E8F0;">
+                <p style="margin:0; font-size:10.5pt; font-weight:bold; color:#000000;">&#9670; SETTLEMENT CHECK: Is Accepted Milk from a LOCAL SUPPLIER or MOT Journey?</p>
+              </td>
+            </tr>
+            <tr>
+              <td width="50%" valign="top" style="border-right:1.5pt solid #000000; background:#FFFFFF; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10004; IF LOCAL SUPPLIER ARRIVAL (Stream 2)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Read Local Supplier's erp_code_snapshot.<br/>• Lookup Finance ERP Rate where from_date <= operational_date <= to_date.<br/>• Immediately credit ErpSettlementLedger against Local Supplier's erp_code (Accepted @13% TS Liters × Active ERP Rate).</p>
+              </td>
+              <td width="50%" valign="top" style="background:#F8FAFC; border:1.5pt dashed #000000; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10006; IF MOT JOURNEY ARRIVAL</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• No new vendor payment here (Individual Village Shops were already settled in ERP Ledger at Level 1B during MOT Collection).</p>
+              </td>
+            </tr>
+          </table>
+          
+      </div>
+
+      <div style="page-break-after:always;">
+        <table width="100%" cellspacing="0" cellpadding="6" style="border-collapse:collapse; border:2.5pt solid #000000; background:#E2E8F0; margin-bottom:8pt;">
+          <tr>
+            <td>
+              <p style="margin:0; font-size:13pt; font-weight:bold; color:#000000;">Level 4: ZMCC Gate Exit & Fleet Availability Restoration</p>
+              <p style="margin:3pt 0 0 0; font-size:9.5pt; font-weight:bold; color:#000000;">Authorized Actors: <span style="font-weight:normal;">PHE_OPERATOR</span> &nbsp;|&nbsp; Workspace: <span style="font-weight:normal;">/phe</span></p>
+            </td>
+          </tr>
+        </table>
+        
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.5pt solid #000000; background:#FFFFFF; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:11pt; font-weight:bold; color:#000000; text-transform:uppercase;">START: VEHICLE REQUESTS ZMCC GATE EXIT</p>
+                <p style="margin:0; font-size:10pt; color:#000000; white-space:pre-line;">PHE Operator selects vehicle from 'Vehicles Inside ZMCC' (gate_exit_required = true AND exit_timestamp IS NULL).</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.25pt solid #000000; background:#F1F5F9; margin:0 auto;">
+            <tr>
+              <td colspan="2" style="border-bottom:1.5pt solid #000000; background:#E2E8F0;">
+                <p style="margin:0; font-size:10.5pt; font-weight:bold; color:#000000;">&#9670; EXIT CLEARANCE CHECK: Is ZMCC Lab COMPLETED (and ZmccTankReceipt posted if ACCEPTED)?</p>
+              </td>
+            </tr>
+            <tr>
+              <td width="50%" valign="top" style="border-right:1.5pt solid #000000; background:#FFFFFF; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10004; IF YES (Lab Completed & Receipt Posted / or Rejected)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Record exit_timestamp = now (PKT) & exit_recorded_by_user_id.<br/>• Write AuditLog (ZMCC_GATE_EXIT_RECORDED).<br/>• If MOT Vehicle: Restore MOT Vehicle availability for new journey dispatch.</p>
+              </td>
+              <td width="50%" valign="top" style="background:#F8FAFC; border:1.5pt dashed #000000; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10006; IF NO (Lab In-Progress or Accepted Without Tank Receipt)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Block Exit (Error 409 Conflict: LAB_NOT_COMPLETED or CANNOT_EXIT_ACCEPTED_WITHOUT_RECEIPT).</p>
+              </td>
+            </tr>
+          </table>
+          
+      </div>
+
+      <div style="page-break-after:always;">
+        <table width="100%" cellspacing="0" cellpadding="6" style="border-collapse:collapse; border:2.5pt solid #000000; background:#E2E8F0; margin-bottom:8pt;">
+          <tr>
+            <td>
+              <p style="margin:0; font-size:13pt; font-weight:bold; color:#000000;">Level 5: Upstream Bulk Milk Dispatch (Independent Vehicle Quantity + Portion-Averaged Quality Formulas)</p>
+              <p style="margin:3pt 0 0 0; font-size:9.5pt; font-weight:bold; color:#000000;">Authorized Actors: <span style="font-weight:normal;">ZMCC_LAB_ATTENDANT, CONTRACTOR_OPERATOR, SUPER_ADMIN</span> &nbsp;|&nbsp; Workspace: <span style="font-weight:normal;">/zmcc/dispatch or /contractor/manager</span></p>
+            </td>
+          </tr>
+        </table>
+        
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.5pt solid #000000; background:#FFFFFF; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:11pt; font-weight:bold; color:#000000; text-transform:uppercase;">START: INITIATE BULK TANKER DISPATCH TO PLANT</p>
+                <p style="margin:0; font-size:10pt; color:#000000; white-space:pre-line;">Select or auto-bind Operating ProcurementSource (Company ZMCC or Direct Contractor with erp_code).</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:1.5pt solid #000000; background:#FFFFFF; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:10.5pt; font-weight:bold; color:#000000;">1. ENTER INDEPENDENT WHOLE-VEHICLE DISPATCH QUANTITY</p>
+                <p style="margin:0; font-size:10pt; color:#000000;">• Enter Whole-Vehicle Quantity Value (KG or LITER) with Basis = 'MEASURED' (from Tank Dipstick / Flowmeter).<br/>• Entered independently as a physical measurement (never auto-summed from portion quantities).</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:1.5pt solid #000000; background:#FFFFFF; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:10.5pt; font-weight:bold; color:#000000;">2. ENTER PORTION QUANTITIES & PORTION LAB TESTS (COMPARTMENTS 1..N)</p>
+                <p style="margin:0; font-size:10pt; color:#000000;">• Enter compartment breakdown quantities (Informational difference = Vehicle Qty - Portion Total).<br/>• Enter Portion Lab Tests per compartment: Measured LR, Fat, Temperature, Acidity, Clot-on-Boil.</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.25pt solid #000000; background:#F1F5F9; margin:0 auto;">
+            <tr>
+              <td colspan="2" style="border-bottom:1.5pt solid #000000; background:#E2E8F0;">
+                <p style="margin:0; font-size:10.5pt; font-weight:bold; color:#000000;">&#9670; PORTION QUALITY AGGREGATION: How many Portions (Compartments) are on the Vehicle?</p>
+              </td>
+            </tr>
+            <tr>
+              <td width="50%" valign="top" style="border-right:1.5pt solid #000000; background:#FFFFFF; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10004; IF 2 OR MORE PORTIONS (N >= 2)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Derive Whole-Vehicle LR = Arithmetic Average of Portion LRs (Sum LR_i / N).<br/>• Derive Whole-Vehicle Fat = Arithmetic Average of Portion Fats (Sum Fat_i / N).</p>
+              </td>
+              <td width="50%" valign="top" style="background:#F8FAFC; border:1.5pt dashed #000000; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10006; IF 1 SINGLE PORTION (N == 1)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Whole-Vehicle LR = Portion 1 LR.<br/>• Whole-Vehicle Fat = Portion 1 Fat.</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:3pt solid #000000; background:#F8FAFC; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:11pt; font-weight:bold; color:#000000; text-transform:uppercase;">3. COMPUTE WHOLE-VEHICLE CANONICAL FORMULAS & COMMIT DISPATCH</p>
+                <p style="margin:0; font-size:10pt; color:#000000; white-space:pre-line;">• Using Independent Vehicle Quantity + Portion-Averaged Vehicle LR & Fat:<br/>  - Vehicle Density = 1 + (Vehicle Average LR / 1000)<br/>  - Vehicle Gross Liters = (Vehicle KG / Vehicle Density) or Declared Liters<br/>  - Vehicle SNF = (Vehicle Average LR / 4) + (0.22 * Vehicle Average Fat) + 0.72<br/>  - Vehicle TS = Vehicle Average Fat + Vehicle SNF<br/>  - Vehicle @13% TS Liters = (Vehicle Gross Liters * Vehicle TS) / 13<br/>• Verify unique raw_milk_dispatch_note_number, create VehicleVisit ('DISPATCHED'), and if ZMCC source, post ZmccTankInventoryTransaction ('ISSUE').</p>
+              </td>
+            </tr>
+          </table>
+          
+      </div>
+
+      <div style="page-break-after:always;">
+        <table width="100%" cellspacing="0" cellpadding="6" style="border-collapse:collapse; border:2.5pt solid #000000; background:#E2E8F0; margin-bottom:8pt;">
+          <tr>
+            <td>
+              <p style="margin:0; font-size:13pt; font-weight:bold; color:#000000;">Level 6: Plant Admin & Gate Entry (ADMIN_OPERATOR)</p>
+              <p style="margin:3pt 0 0 0; font-size:9.5pt; font-weight:bold; color:#000000;">Authorized Actors: <span style="font-weight:normal;">ADMIN_OPERATOR (Renamed from Security Operator)</span> &nbsp;|&nbsp; Workspace: <span style="font-weight:normal;">/department/admin-gate</span></p>
+            </td>
+          </tr>
+        </table>
+        
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.5pt solid #000000; background:#FFFFFF; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:11pt; font-weight:bold; color:#000000; text-transform:uppercase;">START: TANKER ARRIVES AT PLANT OUTER GATE</p>
+                <p style="margin:0; font-size:10pt; color:#000000; white-space:pre-line;">Admin Operator views 'Incoming Dispatched Vehicles' queue and matches vehicle number.</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:1.5pt solid #000000; background:#FFFFFF; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:10.5pt; font-weight:bold; color:#000000;">ENTER ADMIN GATE ENTRY DETAILS</p>
+                <p style="margin:0; font-size:10pt; color:#000000;">Enter physical Plant Gate Token (token_number), verify Driver Name / CNIC, and capture Entry Timestamp (PKT).</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.25pt solid #000000; background:#F1F5F9; margin:0 auto;">
+            <tr>
+              <td colspan="2" style="border-bottom:1.5pt solid #000000; background:#E2E8F0;">
+                <p style="margin:0; font-size:10.5pt; font-weight:bold; color:#000000;">&#9670; VALIDATION: Is VehicleVisit == 'DISPATCHED' AND Plant Token Not Currently Active?</p>
+              </td>
+            </tr>
+            <tr>
+              <td width="50%" valign="top" style="border-right:1.5pt solid #000000; background:#FFFFFF; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10004; IF YES (Valid State & Available Token)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Insert GateLog (entry_timestamp = now, entry_guard_id = Admin Operator).<br/>• Update VehicleVisit.current_status = 'PLANT_QA' & VisitPortion.current_status = 'QA_PENDING'.<br/>• Notify Plant QA Reception Lab.</p>
+              </td>
+              <td width="50%" valign="top" style="background:#F8FAFC; border:1.5pt dashed #000000; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10006; IF NO (Invalid Status or Duplicate Active Token)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Return Error 400: Invalid vehicle state or Plant token already in use inside plant.</p>
+              </td>
+            </tr>
+          </table>
+          
+      </div>
+
+      <div style="page-break-after:always;">
+        <table width="100%" cellspacing="0" cellpadding="6" style="border-collapse:collapse; border:2.5pt solid #000000; background:#E2E8F0; margin-bottom:8pt;">
+          <tr>
+            <td>
+              <p style="margin:0; font-size:13pt; font-weight:bold; color:#000000;">Level 7: Plant QA Laboratory Testing & Portions Decision Engine</p>
+              <p style="margin:3pt 0 0 0; font-size:9.5pt; font-weight:bold; color:#000000;">Authorized Actors: <span style="font-weight:normal;">QA_LAB_ATTENDANT (Testing) & QA_MANAGER (Supervisory Review)</span> &nbsp;|&nbsp; Workspace: <span style="font-weight:normal;">/department/qa & /department/qa-manager</span></p>
+            </td>
+          </tr>
+        </table>
+        
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.5pt solid #000000; background:#FFFFFF; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:11pt; font-weight:bold; color:#000000; text-transform:uppercase;">START: PLANT QA COMPARTMENT SAMPLING & TESTING</p>
+                <p style="margin:0; font-size:10pt; color:#000000; white-space:pre-line;">QA Attendant draws samples from each compartment and enters Portion-wise Lab Results (Corrected LR, Gerber Fat %, Temp, Acidity, Alcohol 68%, MBRT, Adulterants).</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:1.5pt solid #000000; background:#FFFFFF; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:10.5pt; font-weight:bold; color:#000000;">EVALUATE AGAINST ACTIVE SOP RULES (SET BY SUPER_ADMIN / DATA_EXECUTIVE)</p>
+                <p style="margin:0; font-size:10pt; color:#000000;">System evaluates each portion against active RELEASE and MONITORING rules for scope 'PLANT_QA'.</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.25pt solid #000000; background:#F1F5F9; margin:0 auto;">
+            <tr>
+              <td colspan="2" style="border-bottom:1.5pt solid #000000; background:#E2E8F0;">
+                <p style="margin:0; font-size:10.5pt; font-weight:bold; color:#000000;">&#9670; PER-PORTION DECISION: Do all RELEASE rules PASS for the Portion?</p>
+              </td>
+            </tr>
+            <tr>
+              <td width="50%" valign="top" style="border-right:1.5pt solid #000000; background:#FFFFFF; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10004; IF ALL RELEASE RULES PASS</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• QA Attendant marks Portion status = 'ACCEPTED' (or 'REJECTED' with reason).</p>
+              </td>
+              <td width="50%" valign="top" style="background:#F8FAFC; border:1.5pt dashed #000000; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10006; IF ANY RELEASE RULE IS OUT_OF_SPEC</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Auto-escalates to QA Manager Review Queue (HOLD).<br/>• QA Manager reviews and marks Portion status = 'ACCEPTED' (with mandatory reason) OR 'REJECTED'.</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.25pt solid #000000; background:#F1F5F9; margin:0 auto;">
+            <tr>
+              <td colspan="2" style="border-bottom:1.5pt solid #000000; background:#E2E8F0;">
+                <p style="margin:0; font-size:10.5pt; font-weight:bold; color:#000000;">&#9670; WHOLE-VEHICLE QA AGGREGATION: How many Portions are ACCEPTED across the Vehicle?</p>
+              </td>
+            </tr>
+            <tr>
+              <td width="50%" valign="top" style="border-right:1.5pt solid #000000; background:#FFFFFF; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10004; IF AT LEAST 1 PORTION ACCEPTED</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Update VehicleVisit.current_status = 'READY_FOR_GROSS'.<br/>• Route Tanker to Plant Weighbridge for First Weight (Gross).</p>
+              </td>
+              <td width="50%" valign="top" style="background:#F8FAFC; border:1.5pt dashed #000000; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10006; IF 0 PORTIONS ACCEPTED (All Portions REJECTED)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Update VehicleVisit.current_status = 'READY_FOR_GATE_EXIT'.<br/>• Bypass Weighbridge Gross & Silo Unloading -> Route directly to Plant Admin Gate Exit.</p>
+              </td>
+            </tr>
+          </table>
+          
+      </div>
+
+      <div style="page-break-after:always;">
+        <table width="100%" cellspacing="0" cellpadding="6" style="border-collapse:collapse; border:2.5pt solid #000000; background:#E2E8F0; margin-bottom:8pt;">
+          <tr>
+            <td>
+              <p style="margin:0; font-size:13pt; font-weight:bold; color:#000000;">Level 8: Plant Weighbridge — First Weight (Gross) & Authoritative Business Date Cutoff</p>
+              <p style="margin:3pt 0 0 0; font-size:9.5pt; font-weight:bold; color:#000000;">Authorized Actors: <span style="font-weight:normal;">WEIGHBRIDGE_OPERATOR</span> &nbsp;|&nbsp; Workspace: <span style="font-weight:normal;">/department/weighbridge</span></p>
+            </td>
+          </tr>
+        </table>
+        
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.5pt solid #000000; background:#FFFFFF; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:11pt; font-weight:bold; color:#000000; text-transform:uppercase;">START: LOADED TANKER DRIVES ONTO WEIGHBRIDGE (1ST WEIGHT)</p>
+                <p style="margin:0; font-size:10pt; color:#000000; white-space:pre-line;">Weighbridge Operator selects vehicle (status == 'READY_FOR_GROSS'), reads calibrated scale, and enters First Weight (gross_weight_kg, e.g. 24,850 KG) at gross_timestamp (PKT).</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.25pt solid #000000; background:#F1F5F9; margin:0 auto;">
+            <tr>
+              <td colspan="2" style="border-bottom:1.5pt solid #000000; background:#E2E8F0;">
+                <p style="margin:0; font-size:10.5pt; font-weight:bold; color:#000000;">&#9670; AUTHORITATIVE BUSINESS DATE CUTOFF: Is 1st Weight Time (gross_timestamp) < 08:00:00 AM PKT?</p>
+              </td>
+            </tr>
+            <tr>
+              <td width="50%" valign="top" style="border-right:1.5pt solid #000000; background:#FFFFFF; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10004; IF YES (Before 08:00:00 AM PKT — e.g. 23-Aug 07:30 AM)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Assigned Business Date (operational_date) = PREVIOUS Calendar Day (22-Aug).</p>
+              </td>
+              <td width="50%" valign="top" style="background:#F8FAFC; border:1.5pt dashed #000000; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10006; IF NO (08:00:00 AM PKT or Later — e.g. 23-Aug 08:15 AM)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Assigned Business Date (operational_date) = CURRENT Calendar Day (23-Aug).</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:3pt solid #000000; background:#F8FAFC; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:11pt; font-weight:bold; color:#000000; text-transform:uppercase;">ATOMIC 1ST WEIGHT & BUSINESS DATE LOCK TRANSACTION</p>
+                <p style="margin:0; font-size:10pt; color:#000000; white-space:pre-line;">1. Save WeightTicket (gross_weight_kg, gross_timestamp = now).<br/>2. Lock VehicleVisit.operational_date = Assigned Business Date (This date governs Contractor ERP Rate Settlement after 2nd Weight!).<br/>3. Advance VehicleVisit.current_status = 'READY_FOR_UNLOADING'.</p>
+              </td>
+            </tr>
+          </table>
+          
+      </div>
+
+      <div style="page-break-after:always;">
+        <table width="100%" cellspacing="0" cellpadding="6" style="border-collapse:collapse; border:2.5pt solid #000000; background:#E2E8F0; margin-bottom:8pt;">
+          <tr>
+            <td>
+              <p style="margin:0; font-size:13pt; font-weight:bold; color:#000000;">Level 9: Plant Silo Offloading & Production Reception</p>
+              <p style="margin:3pt 0 0 0; font-size:9.5pt; font-weight:bold; color:#000000;">Authorized Actors: <span style="font-weight:normal;">PRODUCTION_RECEPTION_OPERATOR</span> &nbsp;|&nbsp; Workspace: <span style="font-weight:normal;">/department/production</span></p>
+            </td>
+          </tr>
+        </table>
+        
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.5pt solid #000000; background:#FFFFFF; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:11pt; font-weight:bold; color:#000000; text-transform:uppercase;">START: TANKER PARKS IN PRODUCTION SILO RECEPTION BAY</p>
+                <p style="margin:0; font-size:10pt; color:#000000; white-space:pre-line;">Operator selects vehicle (status == 'READY_FOR_UNLOADING'), inspects portion clearances, and maps Destination Raw Milk Silo for each ACCEPTED portion.</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.25pt solid #000000; background:#F1F5F9; margin:0 auto;">
+            <tr>
+              <td colspan="2" style="border-bottom:1.5pt solid #000000; background:#E2E8F0;">
+                <p style="margin:0; font-size:10.5pt; font-weight:bold; color:#000000;">&#9670; SAFETY VALVE GUARD: Are any Portions on this Tanker REJECTED?</p>
+              </td>
+            </tr>
+            <tr>
+              <td width="50%" valign="top" style="border-right:1.5pt solid #000000; background:#FFFFFF; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10004; IF YES (Partial Rejection Present)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Keep rejected compartment valves strictly locked!<br/>• Connect unloading hoses ONLY to ACCEPTED compartments.</p>
+              </td>
+              <td width="50%" valign="top" style="background:#F8FAFC; border:1.5pt dashed #000000; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10006; IF NO (All Portions Accepted)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Connect unloading hoses for all compartments.</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:3pt solid #000000; background:#F8FAFC; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:11pt; font-weight:bold; color:#000000; text-transform:uppercase;">START & COMPLETE SILO OFFLOADING</p>
+                <p style="margin:0; font-size:10pt; color:#000000; white-space:pre-line;">1. Click 'Start Unloading' -> Record unloading_start_timestamp.<br/>2. Pump milk through de-aerator & plate chiller into Silo.<br/>3. Click 'Complete Unloading' -> Record unloading_end_timestamp & advance VehicleVisit.current_status = 'READY_FOR_TARE'.</p>
+              </td>
+            </tr>
+          </table>
+          
+      </div>
+
+      <div style="page-break-after:always;">
+        <table width="100%" cellspacing="0" cellpadding="6" style="border-collapse:collapse; border:2.5pt solid #000000; background:#E2E8F0; margin-bottom:8pt;">
+          <tr>
+            <td>
+              <p style="margin:0; font-size:13pt; font-weight:bold; color:#000000;">Level 10: Plant Weighbridge — Second Weight (Post-Unloading / Tare)</p>
+              <p style="margin:3pt 0 0 0; font-size:9.5pt; font-weight:bold; color:#000000;">Authorized Actors: <span style="font-weight:normal;">WEIGHBRIDGE_OPERATOR</span> &nbsp;|&nbsp; Workspace: <span style="font-weight:normal;">/department/weighbridge</span></p>
+            </td>
+          </tr>
+        </table>
+        
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.5pt solid #000000; background:#FFFFFF; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:11pt; font-weight:bold; color:#000000; text-transform:uppercase;">START: UNLOADED TANKER DRIVES ONTO WEIGHBRIDGE (2ND WEIGHT)</p>
+                <p style="margin:0; font-size:10pt; color:#000000; white-space:pre-line;">Operator selects vehicle (status == 'READY_FOR_TARE') and enters Second Weight (tare_weight_kg, e.g. 10,850 KG).</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.25pt solid #000000; background:#F1F5F9; margin:0 auto;">
+            <tr>
+              <td colspan="2" style="border-bottom:1.5pt solid #000000; background:#E2E8F0;">
+                <p style="margin:0; font-size:10.5pt; font-weight:bold; color:#000000;">&#9670; SCALE LOGIC VALIDATION: Is Second Weight (Tare) < First Weight (Gross)?</p>
+              </td>
+            </tr>
+            <tr>
+              <td width="50%" valign="top" style="border-right:1.5pt solid #000000; background:#FFFFFF; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10004; IF YES (Valid Tare Weight)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Compute Net Milk Weight KG = First Weight - Second Weight (e.g. 24,850 - 10,850 = 14,000 KG).<br/>• Update WeightTicket (tare_weight_kg, tare_timestamp, net_weight_kg).<br/>• Advance VehicleVisit.current_status = 'READY_FOR_GATE_EXIT'.</p>
+              </td>
+              <td width="50%" valign="top" style="background:#F8FAFC; border:1.5pt dashed #000000; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10006; IF NO (Second Weight >= First Weight)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Return Error 400: Second Weight (Tare) cannot be greater than or equal to First Weight (Gross).</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:3pt solid #000000; background:#F8FAFC; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:11pt; font-weight:bold; color:#000000; text-transform:uppercase;">TRIGGER PLANT FINAL DUAL RECEIPT & ERP SETTLEMENT ENGINE</p>
+                <p style="margin:0; font-size:10pt; color:#000000; white-space:pre-line;">Passes Net Milk Weight KG and the 1st-Weight Locked Business Date (operational_date) to Level 11.</p>
+              </td>
+            </tr>
+          </table>
+          
+      </div>
+
+      <div style="page-break-after:always;">
+        <table width="100%" cellspacing="0" cellpadding="6" style="border-collapse:collapse; border:2.5pt solid #000000; background:#E2E8F0; margin-bottom:8pt;">
+          <tr>
+            <td>
+              <p style="margin:0; font-size:13pt; font-weight:bold; color:#000000;">Level 11: Plant Final Dual Reconciliation, Silo Inventory & Stream 3 Direct Contractor ERP Settlement</p>
+              <p style="margin:3pt 0 0 0; font-size:9.5pt; font-weight:bold; color:#000000;">Authorized Actors: <span style="font-weight:normal;">Automated Transactional Engine (reconciliationService, siloInventoryService, financeSettlementService)</span> &nbsp;|&nbsp; Workspace: <span style="font-weight:normal;">Backend Transactional Engine</span></p>
+            </td>
+          </tr>
+        </table>
+        
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.5pt solid #000000; background:#FFFFFF; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:11pt; font-weight:bold; color:#000000; text-transform:uppercase;">START: PROCESS NET MILK WEIGHT KG FROM 2ND WEIGHT</p>
+                <p style="margin:0; font-size:10pt; color:#000000; white-space:pre-line;">Verify accepted portions map to a single destination Silo (if > 1 Silo, fail closed with MULTI_SILO_ALLOCATION_REQUIRED) and lock Silo row (SELECT FOR UPDATE).</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:1.5pt solid #000000; background:#FFFFFF; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:10.5pt; font-weight:bold; color:#000000;">COMPUTE PLANT PHYSICAL, COMMERCIAL & DUAL VARIANCE METRICS</p>
+                <p style="margin:0; font-size:10pt; color:#000000;">1. Plant Composite LR & Fat = Arithmetic Average of Accepted Portions.<br/>2. Plant Density = 1 + (Plant Composite LR / 1000) -> Received Gross Liters = Net KG / Plant Density.<br/>3. Plant SNF & TS -> Received @13% TS Liters = (Received Gross Liters * Plant TS) / 13.<br/>4. Compute Dual Variance (Received vs Dispatched Gross Liters & @13% TS Liters) and post SiloInventoryTransaction ('RECEIPT', REC-YYYYMMDD-XXXX).</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.25pt solid #000000; background:#F1F5F9; margin:0 auto;">
+            <tr>
+              <td colspan="2" style="border-bottom:1.5pt solid #000000; background:#E2E8F0;">
+                <p style="margin:0; font-size:10.5pt; font-weight:bold; color:#000000;">&#9670; ERP SETTLEMENT ROUTING: What is ProcurementSource.source_type?</p>
+              </td>
+            </tr>
+            <tr>
+              <td width="50%" valign="top" style="border-right:1.5pt solid #000000; background:#FFFFFF; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10004; IF DIRECT CONTRACTOR (source_type == 'CONTRACTOR' — Stream 3)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Read Contractor ProcurementSource.erp_code (freeze as erp_code_snapshot).<br/>• Read Locked Business Date (operational_date locked at 1st Weight < 08:00 AM PKT).<br/>• Lookup Finance ERP Rate where: from_date <= operational_date <= to_date.<br/>• Payable Amount (PKR) = Received @13% TS Liters (from Net Weight KG) × Active ERP Rate.<br/>• Insert ErpSettlementLedger row against Contractor's erp_code!</p>
+              </td>
+              <td width="50%" valign="top" style="background:#F8FAFC; border:1.5pt dashed #000000; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10006; IF COMPANY ZMCC (source_type == 'ZMCC')</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Internal Company Stock Transfer & Dual Variance Only.<br/>• Zero Vendor ERP Payment at Plant Level (Upstream Village Shops were settled at Level 1B and Local Suppliers at Level 3).</p>
+              </td>
+            </tr>
+          </table>
+          
+      </div>
+
+      <div style="page-break-after:always;">
+        <table width="100%" cellspacing="0" cellpadding="6" style="border-collapse:collapse; border:2.5pt solid #000000; background:#E2E8F0; margin-bottom:8pt;">
+          <tr>
+            <td>
+              <p style="margin:0; font-size:13pt; font-weight:bold; color:#000000;">Level 12: Plant Admin Gate Exit & Visit Closure (ADMIN_OPERATOR)</p>
+              <p style="margin:3pt 0 0 0; font-size:9.5pt; font-weight:bold; color:#000000;">Authorized Actors: <span style="font-weight:normal;">ADMIN_OPERATOR (Renamed from Security Operator)</span> &nbsp;|&nbsp; Workspace: <span style="font-weight:normal;">/department/admin-gate</span></p>
+            </td>
+          </tr>
+        </table>
+        
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.5pt solid #000000; background:#FFFFFF; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:11pt; font-weight:bold; color:#000000; text-transform:uppercase;">START: TANKER ARRIVES AT PLANT EXIT GATE</p>
+                <p style="margin:0; font-size:10pt; color:#000000; white-space:pre-line;">Admin Operator opens 'Vehicles Ready for Exit' queue.</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.25pt solid #000000; background:#F1F5F9; margin:0 auto;">
+            <tr>
+              <td colspan="2" style="border-bottom:1.5pt solid #000000; background:#E2E8F0;">
+                <p style="margin:0; font-size:10.5pt; font-weight:bold; color:#000000;">&#9670; EXIT CHECK: Is VehicleVisit.current_status == 'READY_FOR_GATE_EXIT'?</p>
+              </td>
+            </tr>
+            <tr>
+              <td width="50%" valign="top" style="border-right:1.5pt solid #000000; background:#FFFFFF; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10004; IF YES (Tare Weighed or 100% QA Rejected)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Admin Operator collects physical Plant Gate Token (returns token to pool).<br/>• Record exit_timestamp = now (PKT) in GateLog.<br/>• Preserve operational_date locked at 1st Weight (or fallback to exit timestamp if 100% QA rejected truck bypassed scale).<br/>• Mark VehicleVisit.current_status = 'COMPLETED'.</p>
+              </td>
+              <td width="50%" valign="top" style="background:#F8FAFC; border:1.5pt dashed #000000; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10006; IF NO (Tare Weighing Incomplete)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Block Gate Exit (Error 400): Vehicle has not completed 2nd Weight (Tare).</p>
+              </td>
+            </tr>
+          </table>
+          
+      </div>
+
+      <div style="page-break-after:always;">
+        <table width="100%" cellspacing="0" cellpadding="6" style="border-collapse:collapse; border:2.5pt solid #000000; background:#E2E8F0; margin-bottom:8pt;">
+          <tr>
+            <td>
+              <p style="margin:0; font-size:13pt; font-weight:bold; color:#000000;">Level 13: Governance, Audited Corrections & Supervisory Overrides</p>
+              <p style="margin:3pt 0 0 0; font-size:9.5pt; font-weight:bold; color:#000000;">Authorized Actors: <span style="font-weight:normal;">ZMCC_MANAGER, QA_MANAGER (Up to 5 saves), SUPER_ADMIN (Unlimited)</span> &nbsp;|&nbsp; Workspace: <span style="font-weight:normal;">Supervisory Correction Modals</span></p>
+            </td>
+          </tr>
+        </table>
+        
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.5pt solid #000000; background:#FFFFFF; margin:0 auto;">
+            <tr>
+              <td>
+                <p style="margin:0 0 3pt 0; font-size:11pt; font-weight:bold; color:#000000; text-transform:uppercase;">START: SUPERVISORY CORRECTION REQUESTED ON COMPLETED RECORD</p>
+                <p style="margin:0; font-size:10pt; color:#000000; white-space:pre-line;">Operational users (PHE, Lab Attendant, Admin Operator, Weighbridge) are strictly blocked (403 Forbidden) from editing completed forms.</p>
+              </td>
+            </tr>
+          </table>
+          <p style="text-align:center; margin:3pt 0; font-size:14pt; font-weight:bold; color:#000000;">&#9660;</p>
+
+          <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse; border:2.25pt solid #000000; background:#F1F5F9; margin:0 auto;">
+            <tr>
+              <td colspan="2" style="border-bottom:1.5pt solid #000000; background:#E2E8F0;">
+                <p style="margin:0; font-size:10.5pt; font-weight:bold; color:#000000;">&#9670; AUTHORITY & LIMIT CHECK: Is Actor Super Admin OR Manager with manager_correction_count < 5?</p>
+              </td>
+            </tr>
+            <tr>
+              <td width="50%" valign="top" style="border-right:1.5pt solid #000000; background:#FFFFFF; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10004; IF YES (Authorized & Within 5-Save Limit) + Valid Reason (>= 5 chars)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Verify actual field values changed (reject no-op saves).<br/>• If vehicle has NOT exited: Adjust Tank stock delta (+ADJUSTMENT_IN / -ADJUSTMENT_OUT) and sync ErpSettlementLedger delta under original erp_code_snapshot.<br/>• If vehicle ALREADY exited: Apply audit-only update without fabricating physical inventory movements.<br/>• Increment correction_count & write exactly ONE AuditLog row with before/after state.</p>
+              </td>
+              <td width="50%" valign="top" style="background:#F8FAFC; border:1.5pt dashed #000000; padding:7pt;">
+                <p style="margin:0 0 3pt 0; font-size:10pt; font-weight:bold; color:#000000; text-decoration:underline;">&#10006; IF NO (>= 5 Manager Saves Used or Missing Reason)</p>
+                <p style="margin:0; font-size:9.5pt; color:#000000;">• Fail Closed (HTTP 400): Maximum 5 manager corrections exceeded (must escalate to Super Admin) or mandatory reason missing.</p>
+              </td>
+            </tr>
+          </table>
+          
+      </div>
+    <div>
+      <table width="100%" cellspacing="0" cellpadding="6" style="border-collapse:collapse; border:2.5pt solid #000000; background:#E2E8F0; margin-bottom:8pt;">
+        <tr>
+          <td>
+            <p style="margin:0; font-size:13pt; font-weight:bold; color:#000000;">Summary Matrix: Key Decision Points &amp; Strict Business Invariants (Editable Table)</p>
+          </td>
+        </tr>
+      </table>
+      <table width="100%" cellspacing="0" cellpadding="5" style="border-collapse:collapse; border:2pt solid #000000;">
+        <thead>
+          <tr style="background:#E2E8F0;">
+            <th style="border:1.5pt solid #000000; padding:6pt; text-align:left; font-size:10pt;">Level</th>
+            <th style="border:1.5pt solid #000000; padding:6pt; text-align:left; font-size:10pt;">Decision / Condition</th>
+            <th style="border:1.5pt solid #000000; padding:6pt; text-align:left; font-size:10pt;">IF YES (True)</th>
+            <th style="border:1.5pt solid #000000; padding:6pt; text-align:left; font-size:10pt;">IF NO (False)</th>
+            <th style="border:1.5pt solid #000000; padding:6pt; text-align:left; font-size:10pt;">Authoritative Invariant</th>
+          </tr>
+        </thead>
+        <tbody>
+          
+    <tr>
+      <td style="border:1pt solid #000000; padding:5pt; font-weight:bold; font-size:9.5pt;">Level 0A (Tests & SOP Rules)</td>
+      <td style="border:1pt solid #000000; padding:5pt; font-size:9.5pt;">Actor is SUPER_ADMIN or DATA_EXECUTIVE</td>
+      <td style="border:1pt solid #000000; padding:5pt; font-size:9.5pt;">Adds LabTest & sets LabTestRule (RELEASE / MONITORING)</td>
+      <td style="border:1pt solid #000000; padding:5pt; font-size:9.5pt;">403 Forbidden (QA Head cannot add tests/rules)</td>
+      <td style="border:1pt solid #000000; padding:5pt; font-weight:bold; font-size:9.5pt;">Only Super Admin / Data Executive governs test catalog & rules</td>
+    </tr>
+
+    <tr>
+      <td style="border:1pt solid #000000; padding:5pt; font-weight:bold; font-size:9.5pt;">Level 0B (Finance ERP Master)</td>
+      <td style="border:1pt solid #000000; padding:5pt; font-size:9.5pt;">Actor is FINANCE_TEAM or SUPER_ADMIN</td>
+      <td style="border:1pt solid #000000; padding:5pt; font-size:9.5pt;">Creates/activates erp_code, sets Milk Rule & Date-Range Rate (from_date -> to_date)</td>
+      <td style="border:1pt solid #000000; padding:5pt; font-size:9.5pt;">403 Forbidden for ZMCC Manager / PHE Operator</td>
+      <td style="border:1pt solid #000000; padding:5pt; font-weight:bold; font-size:9.5pt;">Finance Team owns ERP Code lifecycle & date-range rates</td>
+    </tr>
+
+    <tr>
+      <td style="border:1pt solid #000000; padding:5pt; font-weight:bold; font-size:9.5pt;">Level 0C (Shop/Supplier ERP Switch)</td>
+      <td style="border:1pt solid #000000; padding:5pt; font-size:9.5pt;">Shop or Local Supplier switches to new erp_code</td>
+      <td style="border:1pt solid #000000; padding:5pt; font-size:9.5pt;">Closes old ErpAssignmentHistory row, opens new erp_code row</td>
+      <td style="border:1pt solid #000000; padding:5pt; font-size:9.5pt;">Never creates duplicate Shop or Supplier</td>
+      <td style="border:1pt solid #000000; padding:5pt; font-weight:bold; font-size:9.5pt;">Past records keep old erp_code_snapshot; new records use new erp_code</td>
+    </tr>
+
+    <tr>
+      <td style="border:1pt solid #000000; padding:5pt; font-weight:bold; font-size:9.5pt;">Level 1A (MOT Fleet & Journey)</td>
+      <td style="border:1pt solid #000000; padding:5pt; font-size:9.5pt;">ZMCC Manager/Super Admin adds fleet; PHE/Manager dispatches</td>
+      <td style="border:1pt solid #000000; padding:5pt; font-size:9.5pt;">Allocates MJ-YYYYMMDD-XXXX & snapshots MotJourneyStop rows</td>
+      <td style="border:1pt solid #000000; padding:5pt; font-size:9.5pt;">409 Conflict if vehicle active or inside ZMCC gate</td>
+      <td style="border:1pt solid #000000; padding:5pt; font-weight:bold; font-size:9.5pt;">PHE cannot add vehicles/profiles (403), only dispatch journeys</td>
+    </tr>
+
+    <tr>
+      <td style="border:1pt solid #000000; padding:5pt; font-weight:bold; font-size:9.5pt;">Level 1B (Stream 1: Shop ERP)</td>
+      <td style="border:1pt solid #000000; padding:5pt; font-size:9.5pt;">MOT submits shop collection (<= journey.ended_at)</td>
+      <td style="border:1pt solid #000000; padding:5pt; font-size:9.5pt;">Computes @13% TS & immediately credits Shop erp_code Ledger</td>
+      <td style="border:1pt solid #000000; padding:5pt; font-size:9.5pt;">400 Bad Request if submitted after journey arrival</td>
+      <td style="border:1pt solid #000000; padding:5pt; font-weight:bold; font-size:9.5pt;">Every village shop collection accumulates in Shop ERP Ledger</td>
+    </tr>
+
+    <tr>
+      <td style="border:1pt solid #000000; padding:5pt; font-weight:bold; font-size:9.5pt;">Level 3 (Stream 2: Local Supplier ERP)</td>
+      <td style="border:1pt solid #000000; padding:5pt; font-size:9.5pt;">ZMCC Lab decision is ACCEPTED for Local Supplier</td>
+      <td style="border:1pt solid #000000; padding:5pt; font-size:9.5pt;">Posts Tank Receipt & immediately credits Local Supplier erp_code Ledger</td>
+      <td style="border:1pt solid #000000; padding:5pt; font-size:9.5pt;">Zero ledger if REJECTED (MOT already settled at 1B)</td>
+      <td style="border:1pt solid #000000; padding:5pt; font-weight:bold; font-size:9.5pt;">Local Supplier settled at ZMCC Lab acceptance on @13% TS</td>
+    </tr>
+
+    <tr>
+      <td style="border:1pt solid #000000; padding:5pt; font-weight:bold; font-size:9.5pt;">Level 5 (Dispatch Formulas)</td>
+      <td style="border:1pt solid #000000; padding:5pt; font-size:9.5pt;">Vehicle has >= 2 Portions (Compartments)</td>
+      <td style="border:1pt solid #000000; padding:5pt; font-size:9.5pt;">Independent Vehicle Qty + Average of Portion LRs & Fats</td>
+      <td style="border:1pt solid #000000; padding:5pt; font-size:9.5pt;">1 Portion uses Portion 1 LR & Fat</td>
+      <td style="border:1pt solid #000000; padding:5pt; font-weight:bold; font-size:9.5pt;">Vehicle Canonical Formulas use Independent Qty + Avg Portion Tests</td>
+    </tr>
+
+    <tr>
+      <td style="border:1pt solid #000000; padding:5pt; font-weight:bold; font-size:9.5pt;">Level 6 & 12 (Plant Admin Gate)</td>
+      <td style="border:1pt solid #000000; padding:5pt; font-size:9.5pt;">ADMIN_OPERATOR manages Plant Entry & Exit</td>
+      <td style="border:1pt solid #000000; padding:5pt; font-size:9.5pt;">Issues token at Entry; collects token & closes visit at Exit</td>
+      <td style="border:1pt solid #000000; padding:5pt; font-size:9.5pt;">400 Bad Request if invalid state or active token</td>
+      <td style="border:1pt solid #000000; padding:5pt; font-weight:bold; font-size:9.5pt;">Security Operator renamed to Admin Operator (ADMIN_OPERATOR)</td>
+    </tr>
+
+    <tr>
+      <td style="border:1pt solid #000000; padding:5pt; font-weight:bold; font-size:9.5pt;">Level 8 (1st Weight Cutoff)</td>
+      <td style="border:1pt solid #000000; padding:5pt; font-size:9.5pt;">gross_timestamp < 08:00:00 AM PKT</td>
+      <td style="border:1pt solid #000000; padding:5pt; font-size:9.5pt;">Business Date (operational_date) = Previous Calendar Day</td>
+      <td style="border:1pt solid #000000; padding:5pt; font-size:9.5pt;">Business Date = Current Calendar Day</td>
+      <td style="border:1pt solid #000000; padding:5pt; font-weight:bold; font-size:9.5pt;">08:00 AM PKT cutoff is locked immediately after 1st Weight</td>
+    </tr>
+
+    <tr>
+      <td style="border:1pt solid #000000; padding:5pt; font-weight:bold; font-size:9.5pt;">Level 11 (Stream 3: Contractor ERP)</td>
+      <td style="border:1pt solid #000000; padding:5pt; font-size:9.5pt;">ProcurementSource.source_type == 'CONTRACTOR'</td>
+      <td style="border:1pt solid #000000; padding:5pt; font-size:9.5pt;">Credits Contractor erp_code Ledger after 2nd Weight (Net KG -> @13% TS)</td>
+      <td style="border:1pt solid #000000; padding:5pt; font-size:9.5pt;">If ZMCC: Internal transfer & variance only (no vendor pay)</td>
+      <td style="border:1pt solid #000000; padding:5pt; font-weight:bold; font-size:9.5pt;">Contractor paid after 2nd Weight using 1st-Weight Business Date rate</td>
+    </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</body>
+</html>

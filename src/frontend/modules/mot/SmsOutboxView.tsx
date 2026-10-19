@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { User } from '@core/types';
-import { Phone, RotateCw, AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
+import { Phone, AlertTriangle, CheckCircle2, Clock, Send, MessageSquare, Copy, Check, QrCode } from 'lucide-react';
 import { getErrorMessage } from '@/lib/errors';
 import { fetchJson } from '@/lib/fetch-json';
 
@@ -34,6 +35,18 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
   const [items, setItems] = useState<SmsOutboxItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [isDispatching, setIsDispatching] = useState(false);
+  const [dispatchFeedback, setDispatchFeedback] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleCopy = (id: string, text: string) => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(text).then(() => {
+        setCopiedId(id);
+        setTimeout(() => setCopiedId(null), 2000);
+      }).catch(() => {});
+    }
+  };
 
   const loadOutbox = useCallback(() => {
     const url = statusFilter === 'ALL'
@@ -56,27 +69,47 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
     return loadOutbox();
   };
 
+  const handleDispatchAll = async () => {
+    setIsDispatching(true);
+    setDispatchFeedback(null);
+    setError(null);
+    try {
+      const res = await fetch('/api/cron/process-sms', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        setDispatchFeedback(
+          data.processed > 0
+            ? `Dispatched ${data.processed} pending SMS record(s).`
+            : 'No pending SMS records needed dispatching.'
+        );
+        fetchOutbox();
+      } else {
+        setError(data.error || 'Failed to dispatch SMS queue.');
+      }
+    } catch (err) {
+      setError(getErrorMessage(err) || 'Error triggering SMS dispatch.');
+    } finally {
+      setIsDispatching(false);
+    }
+  };
+
   useEffect(() => {
     loadOutbox();
   }, [loadOutbox]);
 
   return (
     <div className="space-y-4 animate-panel-in">
-      {/* Header & Controls */}
       <div className="p-4 bg-white rounded-xl border border-border shadow-2xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-center space-x-3">
-          <div className="p-2.5 bg-blue-50 text-primary rounded-xl">
-            <Phone className="w-5 h-5" />
+          <div className="p-2.5 bg-emerald-50 text-emerald-700 rounded-xl">
+            <MessageSquare className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-base font-semibold text-foreground">Collection SMS Outbox</h2>
-            <p className="text-xs text-slate-500">
-              Real-time audit log of shopkeeper collection notification SMS messages
-            </p>
+            <h2 className="text-base font-semibold text-foreground">WhatsApp Collection Receipts</h2>
           </div>
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2 flex-wrap gap-y-2">
           <select
             value={statusFilter}
             onChange={(e) => {
@@ -85,8 +118,8 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
             }}
             className="px-3 py-1.5 rounded-xl border border-border text-xs font-semibold text-slate-700 bg-white"
           >
-            <option value="ALL">All Statuses</option>
-            <option value="PENDING">Pending Delivery</option>
+            <option value="ALL">All statuses</option>
+            <option value="PENDING">Pending</option>
             <option value="SENT">Sent</option>
             <option value="FAILED">Failed</option>
           </select>
@@ -95,11 +128,34 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
             onClick={fetchOutbox}
             className="flex items-center space-x-1 px-3 py-1.5 rounded-xl border border-border text-xs font-semibold text-slate-700 hover:bg-muted"
           >
-            <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             <span>Refresh</span>
+          </button>
+          <Link
+            href="/whatsapp-gateway"
+            className="flex items-center space-x-1 px-3 py-1.5 rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-800 text-xs font-semibold hover:bg-emerald-100 shadow-2xs transition"
+            title="Scan QR Code to link WhatsApp for automated sending"
+          >
+            <QrCode className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Link WhatsApp (QR Code)</span>
+          </Link>
+          <button
+            type="button"
+            disabled={isDispatching}
+            onClick={handleDispatchAll}
+            className="flex items-center space-x-1 px-3 py-1.5 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-primary-hover shadow-2xs transition disabled:opacity-50"
+          >
+            <Send className={`w-3.5 h-3.5 ${isDispatching ? 'animate-pulse' : ''}`} />
+            <span>{isDispatching ? 'Dispatching…' : 'Dispatch Queue'}</span>
           </button>
         </div>
       </div>
+
+      {dispatchFeedback && (
+        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-semibold flex items-center space-x-2 animate-panel-in">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+          <span>{dispatchFeedback}</span>
+        </div>
+      )}
 
       {error && (
         <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs font-semibold flex items-center space-x-2 animate-panel-in">
@@ -108,30 +164,30 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
         </div>
       )}
 
-      {/* Outbox Table */}
       <div className="bg-white rounded-xl border border-border shadow-2xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-border bg-subtle text-[10px] font-semibold uppercase text-slate-500 tracking-wider">
-                <th className="p-3">Recipient & Shop</th>
-                <th className="p-3">SMS Message Content</th>
-                <th className="p-3">Collection Details</th>
+                <th className="p-3">Shop & Recipient</th>
+                <th className="p-3">WhatsApp Receipt Message</th>
+                <th className="p-3">Milk Details</th>
                 <th className="p-3">Status</th>
-                <th className="p-3">Created At</th>
+                <th className="p-3">Logged At</th>
+                <th className="p-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border text-xs">
               {loading && items.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-8 text-center text-slate-500 font-semibold">
-                    Loading SMS queue...
+                  <td colSpan={6} className="p-8 text-center text-slate-500 font-semibold">
+                    Loading receipts queue…
                   </td>
                 </tr>
               ) : items.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-8 text-center text-slate-500">
-                    No SMS outbox records found.
+                  <td colSpan={6} className="p-8 text-center text-slate-500">
+                    No WhatsApp receipt records found.
                   </td>
                 </tr>
               ) : (
@@ -144,7 +200,7 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
                       </div>
                     </td>
                     <td className="p-3 max-w-xs">
-                      <div className="p-2 rounded-lg bg-slate-50 border border-slate-200 text-[11px] tabular-nums text-slate-700 whitespace-pre-line wrap-break-word">
+                      <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-[11px] tabular-nums text-slate-800 whitespace-pre-line wrap-break-word font-mono">
                         {item.message_body}
                       </div>
                     </td>
@@ -173,6 +229,38 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
                     </td>
                     <td className="p-3 text-slate-500 text-[11px]">
                       {new Date(item.created_at).toLocaleString()}
+                    </td>
+                    <td className="p-3 text-right">
+                      <div className="inline-flex items-center justify-end space-x-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(item.id, item.message_body)}
+                          className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-border text-slate-700 hover:bg-slate-100 transition"
+                          title="Copy receipt to clipboard"
+                        >
+                          {copiedId === item.id ? (
+                            <>
+                              <Check className="w-3.5 h-3.5 text-emerald-600" />
+                              <span className="text-emerald-700">Copied</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3.5 h-3.5 text-slate-500" />
+                              <span>Copy</span>
+                            </>
+                          )}
+                        </button>
+                        <a
+                          href={`https://wa.me/${item.recipient_phone.replace(/\D/g, '').replace(/^0/, '92')}?text=${encodeURIComponent(item.message_body)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs transition"
+                          title={`Send WhatsApp message to ${item.recipient_phone}`}
+                        >
+                          <MessageSquare className="w-3.5 h-3.5" />
+                          <span>WhatsApp</span>
+                        </a>
+                      </div>
                     </td>
                   </tr>
                 ))

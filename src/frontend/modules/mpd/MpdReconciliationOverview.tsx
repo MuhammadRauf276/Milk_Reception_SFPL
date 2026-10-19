@@ -33,7 +33,7 @@ export function MpdReconciliationOverview() {
         </section>
       ) : !report || !vehicles ? (
         <section className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">
-          Loading MPD operational exceptions...
+          Loading MPD operational exceptions…
         </section>
       ) : (
         <section className="space-y-3" aria-label="MPD reconciliation overview">

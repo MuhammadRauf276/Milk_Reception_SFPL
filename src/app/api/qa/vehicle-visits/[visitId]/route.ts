@@ -99,6 +99,15 @@ export async function GET(
         : null,
       vehicle_dispatch_quantity_unit: visit.vehicle_dispatch_quantity_unit || null,
       vehicle_dispatch_quantity_basis: visit.vehicle_dispatch_quantity_basis || null,
+      vehicle_dispatch_lr: visit.vehicle_dispatch_lr !== null && visit.vehicle_dispatch_lr !== undefined
+        ? Number(visit.vehicle_dispatch_lr)
+        : null,
+      vehicle_dispatch_fat: visit.vehicle_dispatch_fat !== null && visit.vehicle_dispatch_fat !== undefined
+        ? Number(visit.vehicle_dispatch_fat)
+        : null,
+      vehicle_dispatch_snf: visit.vehicle_dispatch_snf !== null && visit.vehicle_dispatch_snf !== undefined
+        ? Number(visit.vehicle_dispatch_snf)
+        : null,
       portions: portions.map((p) => ({
         id: p.id.toString(),
         visit_id: p.visit_id.toString(),

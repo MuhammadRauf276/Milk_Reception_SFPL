@@ -8,7 +8,6 @@ import {
   XCircle,
   AlertCircle,
   Clock,
-  RefreshCw,
   Search,
   FileText,
   Edit3,
@@ -28,10 +27,13 @@ import { AnimatePresence } from 'framer-motion';
 import { getErrorMessage } from '@/lib/errors';
 import type { LabTestResultOption } from '@/lib/validations/labTest';
 import { useUrlSearchParam } from '@/frontend/hooks/useUrlSearchParam';
+import { LiveCameraCapture } from '@/components/camera/LiveCameraCapture';
 import type { serializeLabSession } from '@/backend/services/zmccLabService';
+import { RequestCorrectionModal, type EditableFieldOption } from '@/frontend/modules/governance/RequestCorrectionModal';
 
 interface ZmccLabWorkspaceProps {
   currentUser: User | null;
+  hideTabBar?: boolean;
 }
 
 type MainTab = 'QUEUE' | 'TESTING' | 'HISTORY';
@@ -71,14 +73,49 @@ type LabQueueItem = {
   rmr_number?: string | null;
 };
 
-export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser }) => {
+export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser, hideTabBar = true }) => {
   const toast = useToast();
   const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
+  const isDataExecutive = currentUser?.role === 'DATA_EXECUTIVE';
   const isZmccManager = currentUser?.role === 'ZMCC_MANAGER';
   const isZmccLabAttendant = currentUser?.role === 'ZMCC_LAB_ATTENDANT';
   const canTest = isZmccLabAttendant || isSuperAdmin;
-  const canCorrect = isZmccManager || isSuperAdmin;
+  const canDirectCorrect = isDataExecutive || isSuperAdmin;
+  const canCorrect = canDirectCorrect;
   const canReceiveHistorical = isZmccLabAttendant || isSuperAdmin;
+
+  const [requestCorrectionModal, setRequestCorrectionModal] = useState<{
+    isOpen: boolean;
+    session: LabSession | null;
+    fields: EditableFieldOption[];
+  }>({
+    isOpen: false,
+    session: null,
+    fields: [],
+  });
+
+  const openRequestCorrection = (session: LabSession) => {
+    const fields: EditableFieldOption[] = [
+      { field: 'quantity_value', label: 'Quantity Value', currentValue: session.quantity_value, type: 'number' },
+      { field: 'quantity_unit', label: 'Quantity Unit', currentValue: session.quantity_unit, type: 'select', options: [{ value: 'KG', label: 'KG' }, { value: 'LITER', label: 'LITER' }] },
+      { field: 'remarks', label: 'Remarks / Notes', currentValue: session.remarks, type: 'text' },
+    ];
+    if (session.results) {
+      for (const r of session.results) {
+        fields.push({
+          field: `result_${r.test_id}`,
+          label: `${r.test_name_snapshot || 'Test'} Result`,
+          currentValue: r.numeric_value !== null ? r.numeric_value : r.text_value,
+          type: r.numeric_value !== null ? 'number' : 'text',
+        });
+      }
+    }
+    setRequestCorrectionModal({
+      isOpen: true,
+      session,
+      fields,
+    });
+  };
 
   // The URL's ?tab= picks the initial view until the user chooses one.
   const urlTab = useUrlSearchParam('tab')?.toLowerCase();
@@ -106,6 +143,8 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
 
   const [draftQuantityValue, setDraftQuantityValue] = useState<string>('');
   const [draftQuantityUnit, setDraftQuantityUnit] = useState<'KG' | 'LITER'>('KG');
+  const [photosByTest, setPhotosByTest] = useState<Record<string, string>>({});
+  const [queuePage, setQueuePage] = useState<number>(1);
 
   // Completion Modal State
   const [showCompleteModal, setShowCompleteModal] = useState(false);
@@ -677,23 +716,29 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
     );
   });
 
+  const QUEUE_PAGE_SIZE = 6;
+  const totalQueuePages = Math.max(1, Math.ceil(filteredQueue.length / QUEUE_PAGE_SIZE));
+  const paginatedQueue = filteredQueue.slice((queuePage - 1) * QUEUE_PAGE_SIZE, queuePage * QUEUE_PAGE_SIZE);
+
   return (
     <div className="space-y-4 max-w-7xl mx-auto pb-12 w-full">
-      {/* Tabs */}
-      <SegmentedTabs
-        label="Laboratory views"
-        value={activeTab}
-        onValueChange={setActiveTab}
-        tabs={[
-          ...(canTest ? [{ value: 'QUEUE' as const, label: 'Arrivals queue', icon: Clock, count: queueItems.length }] : []),
-          ...(canTest && activeSession
-            ? [{ value: 'TESTING' as const, label: 'Active session', icon: FlaskConical, badge: 'In progress' }]
-            : []),
-          { value: 'HISTORY' as const, label: 'History & corrections', icon: FileText },
-        ]}
-      />
+      
+      {!hideTabBar && (
+        <SegmentedTabs
+          label="Laboratory views"
+          value={activeTab}
+          onValueChange={setActiveTab}
+          tabs={[
+            ...(canTest ? [{ value: 'QUEUE' as const, label: 'Arrivals queue', icon: Clock, count: queueItems.length }] : []),
+            ...(canTest && activeSession
+              ? [{ value: 'TESTING' as const, label: 'Active session', icon: FlaskConical, badge: 'In progress' }]
+              : []),
+            { value: 'HISTORY' as const, label: 'History & corrections', icon: FileText },
+          ]}
+        />
+      )}
 
-      {/* TAB 1: ARRIVALS QUEUE */}
+      
       {activeTab === 'QUEUE' && canTest && (
         <div className="space-y-4 animate-panel-in">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
@@ -703,7 +748,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                 type="text"
                 value={queueSearch}
                 onChange={(e) => setQueueSearch(e.target.value)}
-                placeholder="Search token, vehicle, supplier..."
+                placeholder="Search token, vehicle, supplier…"
                 className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-xl text-sm focus:outline-hidden focus:ring-2 focus:ring-primary"
               />
             </div>
@@ -712,14 +757,13 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
               disabled={loadingQueue}
               className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 text-slate-700 text-sm font-medium rounded-xl hover:bg-slate-50"
             >
-              <RefreshCw className={`w-4 h-4 ${loadingQueue ? 'animate-spin' : ''}`} />
               Refresh
             </button>
           </div>
 
           {loadingQueue ? (
             <div className="p-12 text-center text-slate-500 bg-white rounded-xl border border-slate-200">
-              Loading pending arrivals...
+              Loading pending arrivals…
             </div>
           ) : filteredQueue.length === 0 ? (
             <div className="p-12 text-center text-slate-500 bg-white rounded-xl border border-slate-200">
@@ -728,8 +772,9 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
               <p className="text-xs text-slate-500 mt-1">All recorded arrivals have been tested or none have arrived yet.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {filteredQueue.map((item) => (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {paginatedQueue.map((item) => (
                 <div
                   key={`${item.queue_type}-${item.arrival_id}`}
                   className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between hover:border-primary transition-colors"
@@ -742,7 +787,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                             ? 'bg-blue-100 text-blue-800'
                             : item.queue_type === 'LOCAL_SUPPLIER'
                             ? 'bg-emerald-100 text-emerald-800'
-                            : 'bg-purple-100 text-purple-800'
+                            : 'bg-slate-100 text-slate-800 border border-slate-200'
                         }`}
                       >
                         {item.queue_type === 'MOT'
@@ -767,7 +812,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                       </div>
                       <div className="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
                         <span>Vehicle: <strong className="text-slate-700">{item.vehicle_number || 'N/A'}</strong></span>
-                        <span>•</span>
+                        <span>·</span>
                         <span>Token: <strong className="text-slate-700 tabular-nums">{item.zmcc_token}</strong></span>
                       </div>
                     </div>
@@ -775,7 +820,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                     {item.queue_type === 'MOT' && (
                       <div className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-100 space-y-1">
                         <div>Journey: <strong>{item.journey_number}</strong></div>
-                        <div>MOT Officer: <strong>{item.mot_name || 'N/A'}</strong> ({item.mot_code || 'N/A'})</div>
+                        <div>Mobile Tester: <strong>{item.mot_name || 'N/A'}</strong> ({item.mot_code || 'N/A'})</div>
                       </div>
                     )}
 
@@ -820,15 +865,42 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                   </div>
                 </div>
               ))}
+              </div>
+
+              {totalQueuePages > 1 && (
+                <div className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-200">
+                  <span className="text-xs text-slate-600 font-semibold">
+                    Page {queuePage} of {totalQueuePages} ({filteredQueue.length} pending arrivals)
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={queuePage <= 1}
+                      onClick={() => setQueuePage((p) => Math.max(1, p - 1))}
+                      className="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+                    >
+                      Previous
+                    </button>
+                    <button
+                      type="button"
+                      disabled={queuePage >= totalQueuePages}
+                      onClick={() => setQueuePage((p) => Math.min(totalQueuePages, p + 1))}
+                      className="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
       )}
 
-      {/* TAB 2: ACTIVE TESTING SESSION */}
+      
       {activeTab === 'TESTING' && canTest && activeSession && (
         <div className="space-y-6 animate-panel-in">
-          {/* Active Session Card */}
+          
           <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs space-y-4">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-100 pb-4">
               <div>
@@ -856,7 +928,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
               </div>
             </div>
 
-            {/* 6G-C: Actual Reception Milk Quantity & Final Milk Metrics Panel */}
+            
             {(() => {
               const draftPreview = calculatePreview(
                 draftQuantityValue,
@@ -870,9 +942,6 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div>
                       <h3 className="text-sm font-semibold text-slate-800">Actual Reception Milk Quantity</h3>
-                      <p className="text-xs text-slate-500">
-                        Authoritative intake milk quantity physically received and verified at ZMCC
-                      </p>
                     </div>
                     <div className="flex items-center gap-3 w-full sm:w-auto">
                       <div className="flex-1 sm:w-44">
@@ -905,7 +974,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                     </div>
                   </div>
 
-                  {/* Calculated Final Milk Metrics (Read-Only) */}
+                  
                   <div className="border-t border-slate-200 pt-3">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
@@ -952,7 +1021,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                     </div>
                   </div>
 
-                  {/* MOT Journey Summary */}
+                  
                   {activeSession.arrival_type === 'MOT' && activeSession.mot_arrival?.journey?.summary && (
                     <div className="bg-blue-50/60 border border-blue-200 rounded-xl p-3 mt-3">
                       <div className="flex items-center justify-between mb-2">
@@ -997,7 +1066,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
               );
             })()}
 
-            {/* Test Matrix */}
+            
             <div className="space-y-3">
               <h3 className="text-sm font-semibold text-slate-800 flex items-center justify-between">
                 <span>Intake Quality Parameters</span>
@@ -1006,16 +1075,17 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                 </span>
               </h3>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
+              <div className="overflow-x-auto rounded-xl border border-border">
+                <table className="w-full text-left text-xs border-collapse min-w-[700px]">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
-                      <th className="py-2.5 px-3">Test Code</th>
+                      <th className="py-2.5 px-3 whitespace-nowrap">Test Code</th>
                       <th className="py-2.5 px-3">Parameter Name</th>
-                      <th className="py-2.5 px-3">Required</th>
-                      <th className="py-2.5 px-3">Value / Observation</th>
-                      <th className="py-2.5 px-3">Unit</th>
-                      <th className="py-2.5 px-3">Rule Status</th>
+                      <th className="py-2.5 px-3 whitespace-nowrap">Required</th>
+                      <th className="py-2.5 px-3 min-w-[150px]">Value / Observation</th>
+                      <th className="py-2.5 px-3 min-w-[140px]">Photo (LR/FAT)</th>
+                      <th className="py-2.5 px-3 whitespace-nowrap">Unit</th>
+                      <th className="py-2.5 px-3 whitespace-nowrap">Rule Status</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -1025,16 +1095,21 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                       const isCalculated = res.result_type_snapshot === 'CALCULATED';
                       const isNumeric = res.result_type_snapshot === 'NUMERIC';
                       const options = res.result_options_snapshot as LabTestResultOption[] | null;
+                      const testCode = String(res.test_code_snapshot || '').toUpperCase();
+                      const testName = String(res.test_name_snapshot || '').toUpperCase();
+                      const isLR = testCode.includes('LR') || testName.includes('LR') || testName.includes('LACTOMETER');
+                      const isFAT = testCode.includes('FAT') || testName.includes('FAT') || testName.includes('GERBER');
+                      const isPhotoEligible = isLR || isFAT;
 
                       return (
                         <tr key={testId} className="hover:bg-slate-50/60">
-                          <td className="py-3 px-3 tabular-nums font-semibold text-slate-700">
+                          <td className="py-3 px-3 tabular-nums font-semibold text-slate-700 whitespace-nowrap">
                             {res.test_code_snapshot}
                           </td>
-                          <td className="py-3 px-3 font-medium text-slate-800">
+                          <td className="py-3 px-3 font-medium text-slate-800 break-words max-w-[200px]">
                             {res.test_name_snapshot}
                           </td>
-                          <td className="py-3 px-3">
+                          <td className="py-3 px-3 whitespace-nowrap">
                             {res.is_required_snapshot ? (
                               <span className="text-xs font-semibold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded">
                                 REQUIRED
@@ -1043,14 +1118,14 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                               <span className="text-xs text-slate-400">OPTIONAL</span>
                             )}
                           </td>
-                          <td className="py-3 px-3">
+                          <td className="py-3 px-3 min-w-[150px]">
                             {isCalculated ? (
                               <input
                                 type="text"
                                 value="Unsupported (Calculated)"
                                 disabled
                                 readOnly
-                                className="w-44 px-2.5 py-1.5 border border-amber-200 bg-amber-50 text-amber-700 rounded-lg text-xs cursor-not-allowed italic select-none"
+                                className="w-full max-w-[180px] px-2.5 py-1.5 border border-amber-200 bg-amber-50 text-amber-700 rounded-lg text-xs cursor-not-allowed italic select-none truncate"
                               />
                             ) : isNumeric ? (
                               <input
@@ -1066,7 +1141,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                                   queueLiveEvaluation(next);
                                 }}
                                 placeholder="Enter value"
-                                className="w-32 px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs tabular-nums focus:outline-hidden focus:ring-1 focus:ring-primary"
+                                className="w-full max-w-[140px] px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs tabular-nums focus:outline-hidden focus:ring-1 focus:ring-primary min-w-0"
                               />
                             ) : options && options.length > 0 ? (
                               <select
@@ -1079,9 +1154,9 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                                   setDraftValues(next);
                                   queueLiveEvaluation(next);
                                 }}
-                                className="w-36 px-2 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-hidden focus:ring-1 focus:ring-primary"
+                                className="w-full max-w-[140px] px-2 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-hidden focus:ring-1 focus:ring-primary min-w-0"
                               >
-                                <option value="">-- Select --</option>
+                                <option value="">Select</option>
                                 {options.map((opt) => (
                                   <option key={opt.value} value={opt.value}>
                                     {opt.label || opt.value}
@@ -1101,8 +1176,37 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                                   queueLiveEvaluation(next);
                                 }}
                                 placeholder="Result text"
-                                className="w-36 px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-hidden focus:ring-1 focus:ring-primary"
+                                className="w-full max-w-[140px] px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-hidden focus:ring-1 focus:ring-primary min-w-0"
                               />
+                            )}
+                          </td>
+                          <td className="py-3 px-3">
+                            {isPhotoEligible ? (
+                              <LiveCameraCapture
+                                testType={isFAT ? 'FAT' : 'LR'}
+                                stageName="ZMCC Intake Lab"
+                                tokenNo={
+                                  activeSession.mot_arrival?.zmcc_token ||
+                                  activeSession.local_supplier_arrival?.zmcc_token ||
+                                  activeSession.contractor_arrival?.zmcc_token
+                                }
+                                vehicleNo={
+                                  activeSession.mot_arrival?.journey?.mot_vehicle?.vehicle_number ||
+                                  activeSession.local_supplier_arrival?.vehicle_number ||
+                                  activeSession.contractor_arrival?.vehicle_number ||
+                                  null
+                                }
+                                currentPhotoUrl={photosByTest[testId] || null}
+                                onPhotoCaptured={(url) => setPhotosByTest((prev) => ({ ...prev, [testId]: url }))}
+                                onPhotoCleared={() => setPhotosByTest((prev) => {
+                                  const next = { ...prev };
+                                  delete next[testId];
+                                  return next;
+                                })}
+                                isRequired={res.is_required_snapshot}
+                              />
+                            ) : (
+                              <span className="text-slate-400 text-xs">—</span>
                             )}
                           </td>
                           <td className="py-3 px-3 text-slate-500 tabular-nums">
@@ -1131,7 +1235,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
               </div>
             </div>
 
-            {/* Remarks */}
+            
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Lab Remarks (Optional)
@@ -1140,12 +1244,12 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                 value={draftRemarks}
                 onChange={(e) => setDraftRemarks(e.target.value)}
                 rows={2}
-                placeholder="Any observations, organoleptic notes, or smell/taste checks..."
-                className="w-full p-2.5 border border-slate-300 rounded-xl text-xs focus:outline-hidden focus:ring-2 focus:ring-primary"
+                placeholder="Any observations, organoleptic notes, or smell/taste checks…"
+                className="w-full p-2.5 border border-slate-300 rounded-xl text-xs focus:outline-hidden focus:ring-2 focus:ring-primary min-w-0 resize-y break-words"
               />
             </div>
 
-            {/* Actions */}
+            
             <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-4 border-t border-slate-100">
               <button
                 type="button"
@@ -1154,7 +1258,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                 className="flex items-center gap-1.5 px-4 py-2 border border-slate-300 text-slate-700 text-xs font-semibold rounded-xl hover:bg-slate-50 transition-colors"
               >
                 <Save className="w-3.5 h-3.5" />
-                {savingDraft ? 'Saving Draft...' : 'Save Draft Values'}
+                {savingDraft ? 'Saving Draft…' : 'Save Draft Values'}
               </button>
 
               <div className="flex items-center gap-3 w-full sm:w-auto">
@@ -1180,10 +1284,10 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
         </div>
       )}
 
-      {/* TAB 3: TEST HISTORY & CORRECTIONS */}
+      
       {activeTab === 'HISTORY' && (
         <div className="space-y-4 animate-panel-in">
-          {/* Filters */}
+          
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-white p-4 rounded-xl border border-slate-200">
             <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
               <div className="relative">
@@ -1192,7 +1296,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                   type="text"
                   value={historySearch}
                   onChange={(e) => { setHistorySearch(e.target.value); setHistoryPage(1); }}
-                  placeholder="Search token, vehicle..."
+                  placeholder="Search token, vehicle…"
                   className="pl-9 pr-4 py-2 border border-slate-300 rounded-xl text-xs focus:outline-hidden focus:ring-1 focus:ring-primary"
                 />
               </div>
@@ -1209,7 +1313,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                 onChange={(e) => { setHistoryDecision(e.target.value); setHistoryPage(1); }}
                 className="px-3 py-2 border border-slate-300 rounded-xl text-xs focus:outline-hidden focus:ring-1 focus:ring-primary"
               >
-                <option value="ALL">All Decisions</option>
+                <option value="ALL">All decisions</option>
                 <option value="ACCEPTED">Accepted</option>
                 <option value="REJECTED">Rejected</option>
               </select>
@@ -1220,15 +1324,14 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
               disabled={loadingHistory}
               className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${loadingHistory ? 'animate-spin' : ''}`} />
               Filter
             </button>
           </div>
 
-          {/* History List */}
+          
           {loadingHistory ? (
             <div className="p-12 text-center text-slate-500 bg-white rounded-xl border border-slate-200">
-              Loading test history...
+              Loading test history…
             </div>
           ) : historyItems.length === 0 ? (
             <div className="p-12 text-center text-slate-500 bg-white rounded-xl border border-slate-200">
@@ -1268,7 +1371,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                               ? 'bg-blue-100 text-blue-800'
                               : item.arrival_type === 'LOCAL_SUPPLIER'
                               ? 'bg-emerald-100 text-emerald-800'
-                              : 'bg-purple-100 text-purple-800'
+                              : 'bg-slate-100 text-slate-800 border border-slate-200'
                           }`}
                         >
                           {item.arrival_type === 'CONTRACTOR' ? 'CONTRACTOR (historical)' : item.arrival_type}
@@ -1401,18 +1504,25 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                             Issue RMR
                           </button>
                         )}
-                        {canCorrect && (isSuperAdmin || (item.manager_correction_count ?? 0) < 5) ? (
+                        {canDirectCorrect ? (
+                          (isSuperAdmin || (item.manager_correction_count ?? 0) < 5) ? (
+                            <button
+                              onClick={() => openCorrection(item)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-primary bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors cursor-pointer"
+                            >
+                              <Edit3 className="w-3 h-3" />
+                              Correct
+                            </button>
+                          ) : (
+                            <span className="text-xs text-slate-400">—</span>
+                          )
+                        ) : isZmccManager ? (
                           <button
-                            onClick={() => openCorrection(item)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-primary bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                            onClick={() => openRequestCorrection(item)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg border border-amber-200 transition-colors cursor-pointer"
                           >
-                            <Edit3 className="w-3 h-3" />
-                            Correct
+                            Request Correction
                           </button>
-                        ) : isZmccManager && (item.manager_correction_count ?? 0) >= 5 ? (
-                          <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200">
-                            Manager correction limit reached (5/5)
-                          </span>
                         ) : (
                           <span className="text-xs text-slate-400">—</span>
                         )}
@@ -1423,7 +1533,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
               </table>
             </div>
 
-            {/* Pagination Controls */}
+            
             {historyTotalPages > 1 && (
               <div className="flex items-center justify-between p-3 border-t border-slate-200 bg-slate-50 text-xs font-semibold text-slate-700">
                 <div>
@@ -1455,7 +1565,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
       </div>
     )}
 
-      {/* COMPLETION MODAL */}
+      
       <AnimatePresence>{showCompleteModal && (
         <Modal key="modal-0" onClose={() => setShowCompleteModal(false)} title="Complete lab session" className="max-w-lg p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -1481,7 +1591,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
               <div className="space-y-2 pt-1">
                 {loadingTanks ? (
                   <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-500">
-                    Loading active tank...
+                    Loading active tank…
                   </div>
                 ) : tanks.length === 0 ? (
                   <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 font-semibold flex items-center gap-2">
@@ -1494,81 +1604,130 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                     <span>Configuration error: Multiple active tanks found. Only one active tank is permitted per ZMCC.</span>
                   </div>
                 ) : (
-                  <div className="space-y-1">
-                    <label className="block text-xs font-semibold text-slate-700">Destination Tank (Sole Active Tank)</label>
-                    <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-semibold">
-                      {tanks[0].tank_name} ({tanks[0].tank_code}) — Available: {Number(tanks[0].available_capacity).toFixed(2)} L / {Number(tanks[0].capacity_liters).toFixed(2)} L
+                  <div className="space-y-1 min-w-0">
+                    <label className="block text-xs font-semibold text-slate-700 truncate">Destination Tank (Sole Active Tank)</label>
+                    <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-semibold break-words min-w-0">
+                      <span className="block font-semibold">{tanks[0].tank_name} ({tanks[0].tank_code})</span>
+                      <span className="text-[11px] text-slate-600 block mt-0.5">
+                        Available: {Number(tanks[0].available_capacity).toFixed(2)} L / {Number(tanks[0].capacity_liters).toFixed(2)} L
+                      </span>
                     </div>
                   </div>
                 )}
               </div>
             )}
 
-            <div className="space-y-1">
-              <label className="block text-xs font-semibold text-slate-700">
-                Decision Note {completionDecision === 'ACCEPTED' ? '(required only if the system reports a failure)' : '(optional)'}
-              </label>
-              <textarea
-                rows={2}
-                value={rejectionReason}
-                onChange={(e) => setRejectionReason(e.target.value)}
-                placeholder="Explain an exception to the system result, or add an optional rejection note..."
-                className="w-full p-2.5 border border-slate-300 rounded-xl text-xs focus:outline-hidden focus:ring-2 focus:ring-primary"
-              />
-            </div>
+            {(() => {
+              const hasFailedTests = activeSession?.results?.some((r) => r.is_passed === false) ?? false;
+              const hasMissingPhotos = (activeSession?.results || []).some((r) => {
+                const testCode = String(r.test_code_snapshot || '').toUpperCase();
+                const testName = String(r.test_name_snapshot || '').toUpperCase();
+                const isPhotoEligible =
+                  testCode.includes('LR') ||
+                  testName.includes('LR') ||
+                  testName.includes('LACTOMETER') ||
+                  testCode.includes('FAT') ||
+                  testName.includes('FAT') ||
+                  testName.includes('GERBER');
+                return isPhotoEligible && Boolean(r.is_required_snapshot) && !photosByTest[String(r.test_id)];
+              });
+              const isAttendantException =
+                (completionDecision === 'ACCEPTED' && (hasFailedTests || hasMissingPhotos)) ||
+                (completionDecision === 'REJECTED' && !hasFailedTests && (activeSession?.results?.length ?? 0) > 0);
+              return (
+                <>
+                  {isAttendantException && (
+                    <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-semibold space-y-1">
+                      <div className="flex items-start gap-2">
+                        <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-semibold text-sm text-amber-950">Are you sure with your decision?</p>
+                          <p className="mt-1 font-normal text-amber-900">
+                            {completionDecision === 'ACCEPTED'
+                              ? 'One or more tests failed SOP rules (FAIL) or test picture is missing. Your decision will be sent to MPD Head for final decision.'
+                              : 'All tested parameters passed SOP rules (PASS). Your manual rejection will be sent to MPD Head for final decision.'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Final Remarks
-              </label>
-              <textarea
-                rows={2}
-                value={completionRemarks}
-                onChange={(e) => setCompletionRemarks(e.target.value)}
-                placeholder="Optional final remarks..."
-                className="w-full p-2.5 border border-slate-300 rounded-xl text-xs focus:outline-hidden focus:ring-2 focus:ring-primary"
-              />
-            </div>
+                  <div className="space-y-1 min-w-0">
+                    <label className="block text-xs font-semibold text-slate-700">
+                      {isAttendantException ? (
+                        <>Reason for Exception (Required) <span className="text-rose-600">*</span></>
+                      ) : (
+                        <>Decision Note (Optional)</>
+                      )}
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={rejectionReason}
+                      onChange={(e) => setRejectionReason(e.target.value)}
+                      placeholder={isAttendantException ? "Specify reason for requesting exception against SOP rules…" : "Optional decision note…"}
+                      className={`w-full p-2.5 border rounded-xl text-xs focus:outline-hidden focus:ring-2 focus:ring-primary min-w-0 resize-y break-words ${
+                        isAttendantException ? 'border-amber-300 bg-white' : 'border-slate-300'
+                      }`}
+                      required={isAttendantException}
+                    />
+                  </div>
 
+                  {!isAttendantException && (
+                    <div className="min-w-0">
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Final Remarks
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={completionRemarks}
+                        onChange={(e) => setCompletionRemarks(e.target.value)}
+                        placeholder="Optional final remarks…"
+                        className="w-full p-2.5 border border-slate-300 rounded-xl text-xs focus:outline-hidden focus:ring-2 focus:ring-primary min-w-0 resize-y break-words"
+                      />
+                    </div>
+                  )}
 
-
-
-
-
-
-            <div className="flex items-center justify-end gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowCompleteModal(false)}
-                disabled={completingSession}
-                className="px-4 py-2 border border-slate-300 text-slate-700 text-xs font-semibold rounded-xl hover:bg-slate-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleCompleteSession}
-                disabled={
-                  completingSession ||
-                  (completionDecision === 'ACCEPTED' && (loadingTanks || tanks.length === 0 || (!selectedTankId && tanks.length > 1)))
-                }
-                className={`px-5 py-2 text-white text-xs font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                  completionDecision === 'ACCEPTED'
-                    ? 'bg-emerald-600 hover:bg-emerald-700'
-                    : 'bg-rose-600 hover:bg-rose-700'
-                }`}
-              >
-                {completingSession
-                  ? 'Submitting...'
-                  : completionDecision === 'ACCEPTED'
-                  ? 'Accept & Receive'
-                  : 'Finalize REJECTED'}
-              </button>
-            </div>
+                  <div className="flex items-center justify-end gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowCompleteModal(false)}
+                      disabled={completingSession}
+                      className="px-4 py-2 border border-slate-300 text-slate-700 text-xs font-semibold rounded-xl hover:bg-slate-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCompleteSession}
+                      disabled={
+                        completingSession ||
+                        (isAttendantException && !rejectionReason.trim()) ||
+                        (completionDecision === 'ACCEPTED' && (loadingTanks || tanks.length === 0 || (!selectedTankId && tanks.length > 1)))
+                      }
+                      className={`px-5 py-2 text-white text-xs font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                        isAttendantException
+                          ? 'bg-amber-600 hover:bg-amber-700'
+                          : completionDecision === 'ACCEPTED'
+                          ? 'bg-emerald-600 hover:bg-emerald-700'
+                          : 'bg-rose-600 hover:bg-rose-700'
+                      }`}
+                    >
+                      {completingSession
+                        ? 'Submitting…'
+                        : isAttendantException
+                        ? 'Confirm & Send to MPD Head'
+                        : completionDecision === 'ACCEPTED'
+                        ? 'Accept & Receive'
+                        : 'Finalize REJECTED'}
+                    </button>
+                  </div>
+                </>
+              );
+            })()}
           </Modal>
       )}</AnimatePresence>
 
-      {/* CORRECTION MODAL (ZMCC MANAGER / SUPER ADMIN) */}
+      
       <AnimatePresence>{showCorrectionModal && selectedHistorySession && (
         <Modal key="modal-1" onClose={() => setShowCorrectionModal(false)} title="Correct lab record" className="max-w-2xl p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -1593,7 +1752,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                 : 'Manager corrections are limited to 5 successful saves per session. All changes are permanently recorded in the immutable audit log.'}
             </div>
 
-            {/* Reason */}
+            
             <div>
               <label className="block text-xs font-semibold text-slate-800 mb-1">
                 Correction Reason *
@@ -1603,12 +1762,12 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                 required
                 value={correctionReason}
                 onChange={(e) => setCorrectionReason(e.target.value)}
-                placeholder="Reason for changing lab results or decision..."
+                placeholder="Reason for changing lab results or decision…"
                 className="w-full p-2.5 border border-slate-300 rounded-xl text-xs focus:outline-hidden focus:ring-2 focus:ring-primary"
               />
             </div>
 
-            {/* Decision Toggle */}
+            
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -1634,14 +1793,14 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                     required
                     value={correctionRejectionReason}
                     onChange={(e) => setCorrectionRejectionReason(e.target.value)}
-                    placeholder="Reason for rejection..."
+                    placeholder="Reason for rejection…"
                     className="w-full p-2.5 border border-rose-300 rounded-xl text-xs focus:outline-hidden focus:ring-1 focus:ring-rose-500"
                   />
                 </div>
               )}
             </div>
 
-            {/* Quantity and Unit Override */}
+            
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-3 rounded-xl border border-slate-200">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -1688,7 +1847,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
               </div>
             </div>
 
-            {/* Recomputed Preview Metrics */}
+            
             {(() => {
               const corrPreview = calculatePreview(
                 correctionQuantityValue,
@@ -1705,7 +1864,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                       Recomputed Final Metrics Preview
                     </span>
                     <span className="text-xs text-slate-500 tabular-nums">
-                      {corrPreview ? 'Live Recomputed' : 'Awaiting valid inputs'}
+                      {corrPreview ? 'Recomputed' : 'Awaiting valid inputs'}
                     </span>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
@@ -1744,7 +1903,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
               );
             })()}
 
-            {/* Test Results Override */}
+            
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-2">
                 Override Parameter Values
@@ -1818,7 +1977,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                 disabled={savingCorrection}
                 className="px-5 py-2 bg-primary text-white text-xs font-semibold rounded-xl hover:bg-primary-hover transition-colors"
               >
-                {savingCorrection ? 'Saving...' : 'Apply Correction'}
+                {savingCorrection ? 'Saving…' : 'Apply Correction'}
               </button>
             </div>
           </Modal>
@@ -1831,11 +1990,11 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
             <input value={rmrSeries} onChange={(e) => setRmrSeries(e.target.value)} placeholder="Series (for example LSR)" className="w-full p-2 border rounded-lg text-sm" />
             <input value={rmrBookNumber} onChange={(e) => setRmrBookNumber(e.target.value)} placeholder="Book number" className="w-full p-2 border rounded-lg text-sm" />
             <input value={rmrReceiptNumber} onChange={(e) => setRmrReceiptNumber(e.target.value)} placeholder="Receipt number" className="w-full p-2 border rounded-lg text-sm" />
-            <div className="flex justify-end gap-2"><button onClick={() => setRmrSession(null)} className="px-3 py-2 text-xs border rounded-lg">Cancel</button><button disabled={issuingRmr} onClick={issueLocalSupplierRmr} className="px-3 py-2 text-xs font-semibold text-white bg-emerald-600 rounded-lg disabled:opacity-50">{issuingRmr ? 'Issuing...' : 'Issue RMR'}</button></div>
+            <div className="flex justify-end gap-2"><button onClick={() => setRmrSession(null)} className="px-3 py-2 text-xs border rounded-lg">Cancel</button><button disabled={issuingRmr} onClick={issueLocalSupplierRmr} className="px-3 py-2 text-xs font-semibold text-white bg-emerald-600 rounded-lg disabled:opacity-50">{issuingRmr ? 'Issuing…' : 'Issue RMR'}</button></div>
           </Modal>
       )}</AnimatePresence>
 
-      {/* HISTORICAL RECEIPT MODAL */}
+      
       <AnimatePresence>{showHistoricalReceiveModal && historicalSession && (
         <Modal key="modal-3" onClose={() => setShowHistoricalReceiveModal(false)} title="Receive historical session" className="max-w-lg p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -1878,7 +2037,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                 <div className="space-y-1">
                   <label className="block text-xs font-semibold text-slate-700">Destination Tank (Sole Active Tank)</label>
                   <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-semibold">
-                    {historicalTanks[0].tank_name} ({historicalTanks[0].tank_code}) — Available: {Number(historicalTanks[0].available_capacity).toFixed(2)} L / {Number(historicalTanks[0].capacity_liters).toFixed(2)} L
+                    {historicalTanks[0].tank_name} ({historicalTanks[0].tank_code}) · Available: {Number(historicalTanks[0].available_capacity).toFixed(2)} L / {Number(historicalTanks[0].capacity_liters).toFixed(2)} L
                   </div>
                 </div>
               )}
@@ -1902,11 +2061,26 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser 
                 }
                 className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {submittingHistoricalReceive ? 'Receiving...' : 'Confirm Tank Receipt'}
+                {submittingHistoricalReceive ? 'Receiving…' : 'Confirm Tank Receipt'}
               </button>
             </div>
           </Modal>
       )}</AnimatePresence>
+
+      {requestCorrectionModal.session && (
+        <RequestCorrectionModal
+          isOpen={requestCorrectionModal.isOpen}
+          onClose={() => setRequestCorrectionModal((prev) => ({ ...prev, isOpen: false }))}
+          module="ZMCC_LAB_SESSION"
+          recordId={requestCorrectionModal.session.id}
+          recordIdentifierLabel={`Lab Session #${requestCorrectionModal.session.id}`}
+          availableFields={requestCorrectionModal.fields}
+          onSuccess={() => {
+            toast.showSuccess('Correction request submitted to Data Executive desk.');
+            fetchHistory();
+          }}
+        />
+      )}
     </div>
   );
 };

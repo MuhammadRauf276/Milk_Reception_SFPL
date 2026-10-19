@@ -37,7 +37,7 @@ export default function SuperAdminZmccMasterDataPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen bg-subtle text-foreground tabular-nums text-xs font-semibold">
-        Verifying Super Admin Authorization...
+        Verifying Super Admin Authorization…
       </div>
     );
   }

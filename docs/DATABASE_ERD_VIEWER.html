@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Milk Reception App - Database ERD Viewer</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #0f172a;
+      color: #f8fafc;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    header {
+      background: #1e293b;
+      border-bottom: 1px solid #334155;
+      padding: 12px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      z-index: 10;
+    }
+    .header-left h1 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #38bdf8;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .header-left p {
+      font-size: 0.8rem;
+      color: #94a3b8;
+    }
+    .tabs {
+      display: flex;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 4px;
+      gap: 4px;
+      overflow-x: auto;
+    }
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      padding: 6px 14px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s ease;
+    }
+    .tab-btn:hover {
+      color: #f8fafc;
+      background: #1e293b;
+    }
+    .tab-btn.active {
+      color: #ffffff;
+      background: #0284c7;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+    .controls {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .btn {
+      background: #334155;
+      color: #f8fafc;
+      border: 1px solid #475569;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn:hover {
+      background: #475569;
+    }
+    #viewer-container {
+      flex: 1;
+      position: relative;
+      background: #090d16;
+      overflow: hidden;
+    }
+    .diagram-panel {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: none;
+    }
+    .diagram-panel.active {
+      display: block;
+    }
+    .mermaid-wrapper {
+      width: 100%;
+      height: 100%;
+    }
+    .mermaid-wrapper svg {
+      width: 100% !important;
+      height: 100% !important;
+    }
+    .hint-banner {
+      position: absolute;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(30, 41, 59, 0.85);
+      border: 1px solid #475569;
+      backdrop-filter: blur(4px);
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      color: #94a3b8;
+      pointer-events: none;
+      z-index: 5;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-left">
+      <h1>🥛 Milk Reception App - Database ERD</h1>
+      <p>Interactive Schema Visualizer (56 Models, 170 Relationships)</p>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('reception')">1. Reception & Weighbridge</button>
+      <button class="tab-btn" onclick="switchTab('qa')">2. Lab QA & Testing</button>
+      <button class="tab-btn" onclick="switchTab('zmcc')">3. ZMCC & Sources</button>
+      <button class="tab-btn" onclick="switchTab('mot')">4. MOT Truck Logistics</button>
+      <button class="tab-btn" onclick="switchTab('suppliers')">5. Local Suppliers & RMR</button>
+      <button class="tab-btn" onclick="switchTab('security')">6. Security & Audits</button>
+    </div>
+
+    <div class="controls">
+      <button class="btn" onclick="zoomIn()">➕ Zoom In</button>
+      <button class="btn" onclick="zoomOut()">➖ Zoom Out</button>
+      <button class="btn" onclick="resetZoom()">↺ Reset</button>
+    </div>
+  </header>
+
+  <div id="viewer-container">
+    <div class="hint-banner">💡 Tip: Use mouse scroll to zoom in/out, and click & drag to pan around.</div>
+
+    <!-- PANEL 1: Plant Reception & Weighbridge -->
+    <div id="panel-reception" class="diagram-panel active">
+      <div class="mermaid-wrapper">
+        <pre class="mermaid">
+erDiagram
+    ProcurementSource ||--o{ VehicleVisit : "dispatches_to"
+    User ||--o{ VehicleVisit : "created_by"
+
+    VehicleVisit ||--o{ VisitPortion : "has_portions"
+    VehicleVisit ||--|o GateLog : "gate_entry_exit"
+    VehicleVisit ||--|o WeightTicket : "weighbridge_ticket"
+    VehicleVisit ||--|o DispatchQuantityPolicySnapshot : "policy_snapshot"
+    VehicleVisit ||--|o PlantFinalDualReconciliation : "final_reconciliation"
+
+    VisitPortion ||--|o DispatchInfo : "portion_dispatch"
+    VisitPortion ||--|o UnloadingLog : "unloaded_into"
+    VisitPortion ||--o{ PlantLabResult : "lab_evaluations"
+    VisitPortion ||--o{ SiloInventoryTransaction : "silo_inflow"
+
+    Silo ||--o{ UnloadingLog : "destination_silo"
+    Silo ||--o{ SiloInventoryTransaction : "tracks_inventory"
+    SiloInventoryTransaction ||--|o PlantFinalDualReconciliation : "reconciles_against"
+
+    VehicleVisit {
+        bigint id PK
+        string visit_number UK
+        string vehicle_number
+        string token_number
+        datetime operational_date
+        string current_status
+        decimal vehicle_dispatch_gross_liters
+        decimal vehicle_dispatch_fat
+        decimal vehicle_dispatch_snf
+        decimal vehicle_dispatch_at_13ts_liters
+        bigint procurement_source_id FK
+        bigint created_by FK
+    }
+
+    VisitPortion {
+        bigint id PK
+        bigint visit_id FK
+        int portion_number
+        string current_status
+        decimal dispatch_quantity_value
+        string plant_decision
+        string manager_review_status
+        datetime plant_decided_at
+    }
+
+    GateLog {
+        bigint id PK
+        bigint visit_id FK
+        datetime inward_time
+        datetime outward_time
+        string seal_numbers
+        string driver_name
+    }
+
+    WeightTicket {
+        bigint id PK
+        bigint visit_id FK
+        string ticket_number UK
+        decimal gross_weight
+        datetime gross_weight_time
+        decimal tare_weight
+        datetime tare_weight_time
+        decimal net_weight
+    }
+
+    UnloadingLog {
+        bigint id PK
+        bigint portion_id FK
+        bigint silo_id FK
+        datetime start_time
+        datetime end_time
+        decimal dip_reading_before
+        decimal dip_reading_after
+        decimal calculated_volume
+    }
+
+    Silo {
+        bigint id PK
+        string silo_code UK
+        string name
+        decimal capacity_liters
+        decimal current_volume_liters
+        string current_status
+    }
+
+    PlantFinalDualReconciliation {
+        bigint id PK
+        bigint visit_id FK
+        decimal total_dispatch_liters
+        decimal total_weighbridge_net_kg
+        decimal total_unloaded_volume_liters
+        decimal total_shrinkage_loss_liters
+        decimal final_recorded_liters
+        decimal final_recorded_at_13ts_liters
+    }
+        </pre>
+      </div>
+    </div>
+
+    <!-- PANEL 2: Lab QA & Testing -->
+    <div id="panel-qa" class="diagram-panel">
+      <div class="mermaid-wrapper">
+        <pre class="mermaid">
+erDiagram
+    VehicleVisit ||--|o QATestingSession : "undergoes_qa"
+    VehicleVisit ||--o{ PlantLabResult : "results"
+    VehicleVisit ||--o{ DispatchLabResult : "source_results"
+    VehicleVisit ||--o{ LabTestAssignment : "assigned_tests"
+    VehicleVisit ||--o{ QAWarning : "triggers_warnings"
+
+    VisitPortion ||--o{ PlantLabResult : "portion_results"
+    VisitPortion ||--o{ DispatchLabResult : "portion_source_results"
+
+    QATestingSession ||--o{ QATestingSessionEvent : "events"
+
+    LabTest ||--o{ LabTestRule : "defines_criteria"
+    LabTest ||--o{ PlantLabResult : "tested_against"
+    LabTest ||--o{ DispatchLabResult : "tested_at_source"
+    LabTest ||--o{ LabTestAssignment : "assignment_def"
+    LabTest ||--o{ MilkTestPolicyAssignment : "policy_def"
+
+    LabTestRule ||--o{ PlantLabResult : "evaluates"
+
+    LabTest {
+        bigint id PK
+        string test_code UK
+        string test_name
+        string test_group
+        string data_type
+        string unit_of_measure
+        boolean is_quick_test
+        boolean is_mandatory
+    }
+
+    LabTestRule {
+        bigint id PK
+        bigint lab_test_id FK
+        decimal min_value
+        decimal max_value
+        string expected_text_value
+        string formula_expression
+        string severity
+        string action_on_fail
+    }
+
+    PlantLabResult {
+        bigint id PK
+        bigint visit_id FK
+        bigint portion_id FK
+        bigint lab_test_id FK
+        decimal numeric_value
+        string text_value
+        string pass_fail_status
+        bigint applied_rule_id FK
+        bigint tested_by FK
+    }
+
+    DispatchLabResult {
+        bigint id PK
+        bigint visit_id FK
+        bigint portion_id FK
+        bigint lab_test_id FK
+        decimal numeric_value
+        boolean is_accepted
+        bigint tested_by FK
+    }
+
+    QATestingSession {
+        bigint id PK
+        bigint visit_id FK
+        string session_token UK
+        datetime start_time
+        datetime end_time
+        string status
+        bigint started_by FK
+    }
+
+    QAWarning {
+        bigint id PK
+        bigint visit_id FK
+        bigint portion_id FK
+        bigint lab_test_id FK
+        string warning_code
+        string severity
+        string message
+        boolean is_acknowledged
+    }
+        </pre>
+      </div>
+    </div>
+
+    <!-- PANEL 3: ZMCC & Sourcing -->
+    <div id="panel-zmcc" class="diagram-panel">
+      <div class="mermaid-wrapper">
+        <pre class="mermaid">
+erDiagram
+    ProcurementSource ||--o{ ZmccRoute : "routes"
+    ProcurementSource ||--o{ ZmccMilkSource : "sources"
+    ProcurementSource ||--o{ ZmccTank : "tanks"
+    ProcurementSource ||--o{ MilkSourceZmccVisibility : "source_visibility"
+
+    ZmccRoute ||--o{ ZmccArea : "subdivided_into"
+    ZmccRoute ||--o{ ZmccShop : "route_shops"
+
+    ZmccArea ||--o{ ZmccShop : "area_shops"
+    ZmccMilkSource ||--o{ ZmccShop : "milk_type"
+    ChillerOwnership ||--o{ ZmccShop : "chiller_contract"
+
+    ZmccTank ||--o{ ZmccTankReceipt : "stores_receipt"
+    ZmccTank ||--o{ ZmccTankInventoryTransaction : "inventory_transactions"
+    ZmccTankReceipt ||--o{ ZmccTankInventoryTransaction : "transaction_source"
+
+    ProcurementSource {
+        bigint id PK
+        string source_code UK
+        string source_name
+        string source_type
+        string location
+        string vehicle_quantity_policy
+    }
+
+    ZmccRoute {
+        bigint id PK
+        bigint zmcc_id FK
+        string route_code
+        string route_name
+        boolean is_active
+    }
+
+    ZmccArea {
+        bigint id PK
+        bigint zmcc_id FK
+        bigint route_id FK
+        string area_code
+        string area_name
+    }
+
+    ZmccShop {
+        bigint id PK
+        bigint zmcc_id FK
+        bigint route_id FK
+        bigint area_id FK
+        string shop_code
+        string shop_name
+        bigint milk_source_id FK
+        bigint chiller_ownership_id FK
+    }
+
+    ZmccTank {
+        bigint id PK
+        bigint zmcc_id FK
+        string tank_code
+        string tank_name
+        decimal capacity_liters
+        decimal current_volume_liters
+    }
+
+    ZmccTankReceipt {
+        bigint id PK
+        bigint zmcc_id FK
+        bigint tank_id FK
+        bigint lab_session_id FK
+        string receipt_number UK
+        decimal received_volume_liters
+    }
+        </pre>
+      </div>
+    </div>
+
+    <!-- PANEL 4: MOT Truck Logistics -->
+    <div id="panel-mot" class="diagram-panel">
+      <div class="mermaid-wrapper">
+        <pre class="mermaid">
+erDiagram
+    ProcurementSource ||--o{ MotProfile : "chiller_collectors"
+    ProcurementSource ||--o{ MotVehicle : "collection_fleet"
+    ProcurementSource ||--o{ MotJourney : "scheduled_trips"
+
+    MotProfile ||--o{ MotJourney : "assigned_driver"
+    MotVehicle ||--o{ MotJourney : "assigned_truck"
+    ZmccRoute ||--o{ MotJourney : "journey_route"
+
+    MotJourney ||--o{ MotJourneyStop : "stops"
+    MotJourney ||--o{ MotJourneyLocation : "gps_pings"
+    MotJourney ||--o{ MotShopCollection : "shop_collections"
+    MotJourney ||--|o MotJourneySummary : "journey_summary"
+    MotJourney ||--|o ZmccMotArrival : "arrives_at_chiller"
+
+    ZmccShop ||--o{ MotJourneyStop : "stop_location"
+    ZmccShop ||--o{ MotShopCollection : "origin_shop"
+    MotJourneyStop ||--|o MotShopCollection : "collection_at_stop"
+    MotShopCollection ||--|o MotCollectionSmsOutbox : "sms_receipt"
+
+    MotJourney {
+        bigint id PK
+        bigint zmcc_id FK
+        bigint route_id FK
+        bigint mot_profile_id FK
+        bigint mot_vehicle_id FK
+        string journey_code UK
+        datetime scheduled_date
+        datetime start_time
+        datetime end_time
+        string status
+    }
+
+    MotJourneyStop {
+        bigint id PK
+        bigint journey_id FK
+        bigint shop_id FK
+        int stop_order
+        datetime arrived_at
+        datetime departed_at
+        string status
+    }
+
+    MotShopCollection {
+        bigint id PK
+        bigint journey_id FK
+        bigint shop_id FK
+        string collection_ticket_number UK
+        decimal quantity_liters
+        decimal temperature
+        decimal lr
+        decimal fat
+        decimal snf
+        decimal at_13ts_liters
+        string plant_decision
+    }
+
+    ZmccMotArrival {
+        bigint id PK
+        bigint journey_id FK
+        bigint zmcc_id FK
+        string arrival_ticket_number UK
+        datetime arrival_time
+        datetime exit_time
+        decimal dip_reading_liters
+    }
+
+    MotJourneySummary {
+        bigint id PK
+        bigint journey_id FK
+        int total_shops_visited
+        decimal total_collected_quantity_liters
+        decimal weighted_average_fat
+        decimal total_shrinkage_loss_liters
+    }
+        </pre>
+      </div>
+    </div>
+
+    <!-- PANEL 5: Local Suppliers & RMR -->
+    <div id="panel-suppliers" class="diagram-panel">
+      <div class="mermaid-wrapper">
+        <pre class="mermaid">
+erDiagram
+    ProcurementSource ||--o{ ZmccLocalSupplier : "registered_farmers"
+    ProcurementSource ||--o{ ZmccLocalSupplierArrival : "farmer_deliveries"
+    ProcurementSource ||--o{ ZmccContractorArrival : "contractor_deliveries"
+
+    ZmccLocalSupplier ||--o{ ZmccLocalSupplierArrival : "delivers_milk"
+
+    ZmccLocalSupplierArrival ||--|o ZmccLabSession : "lab_testing"
+    ZmccMotArrival ||--|o ZmccLabSession : "chiller_mot_testing"
+    ZmccContractorArrival ||--|o ZmccLabSession : "contractor_testing"
+
+    ZmccLabSession ||--o{ ZmccLabResult : "results"
+    ZmccLabSession ||--|o ZmccTankReceipt : "decided_into_tank"
+
+    ZmccLocalSupplierArrival ||--|o LocalSupplierRmrIssuance : "rmr_payment_slip"
+    ZmccLabSession ||--|o LocalSupplierRmrIssuance : "verified_quality"
+    ZmccTankReceipt ||--|o LocalSupplierRmrIssuance : "verified_quantity"
+
+    ZmccLocalSupplierArrival ||--|o LocalSupplierRmrLegacyClassification : "legacy_classification"
+
+    ZmccLocalSupplier {
+        bigint id PK
+        bigint zmcc_id FK
+        string supplier_code
+        string supplier_name
+        string phone_number
+        string cnic
+        boolean is_active
+    }
+
+    ZmccLocalSupplierArrival {
+        bigint id PK
+        bigint zmcc_id FK
+        bigint local_supplier_id FK
+        string arrival_ticket_number UK
+        datetime arrival_time
+        datetime exit_time
+        decimal gross_quantity_liters
+    }
+
+    ZmccLabSession {
+        bigint id PK
+        bigint zmcc_id FK
+        string session_number UK
+        datetime start_time
+        string status
+        string attendant_recommended_decision
+        string final_decision
+    }
+
+    LocalSupplierRmrIssuance {
+        bigint id PK
+        bigint zmcc_id FK
+        bigint local_supplier_arrival_id FK
+        string rmr_number UK
+        decimal net_accepted_quantity_liters
+        decimal accepted_fat
+        decimal accepted_snf
+        decimal accepted_at_13ts_liters
+        string status
+    }
+        </pre>
+      </div>
+    </div>
+
+    <!-- PANEL 6: Security, Auditing & Integrations -->
+    <div id="panel-security" class="diagram-panel">
+      <div class="mermaid-wrapper">
+        <pre class="mermaid">
+erDiagram
+    User ||--o{ AuditLog : "performed_actions"
+    User ||--o{ CorrectionRequest : "requested_corrections"
+    User ||--o{ Notification : "received_alerts"
+    User ||--|o NotificationPreference : "notification_settings"
+    User ||--o{ PushSubscription : "web_push_tokens"
+    User ||--o{ ErpCodeRequest : "erp_sync_requests"
+
+    Notification ||--o{ NotificationDelivery : "delivery_channels"
+
+    User {
+        bigint id PK
+        string full_name
+        string username UK
+        string email
+        string role
+        string department
+        string scope_type
+        bigint procurement_source_id FK
+        boolean is_active
+    }
+
+    AuditLog {
+        bigint id PK
+        bigint user_id FK
+        string action
+        string entity_name
+        string record_id
+        json old_values
+        json new_values
+        string ip_address
+        datetime created_at
+    }
+
+    CorrectionRequest {
+        bigint id PK
+        string entity_name
+        string record_id
+        string reason
+        string status
+        json requested_changes
+        bigint requested_by_user_id FK
+        bigint reviewed_by_user_id FK
+    }
+
+    Notification {
+        bigint id PK
+        bigint recipient_user_id FK
+        string title
+        string message
+        string category
+        string priority
+        boolean is_read
+    }
+
+    ErpCodeRequest {
+        bigint id PK
+        bigint zmcc_id FK
+        string entity_type
+        string entity_name
+        string requested_code
+        string status
+        bigint requested_by_user_id FK
+    }
+        </pre>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'dark',
+      themeVariables: {
+        darkMode: true,
+        background: '#090d16',
+        primaryColor: '#1e293b',
+        primaryTextColor: '#f8fafc',
+        primaryBorderColor: '#38bdf8',
+        lineColor: '#64748b',
+        secondaryColor: '#0f172a',
+        tertiaryColor: '#1e293b',
+        attributeBackgroundColorOdd: '#1e293b',
+        attributeBackgroundColorEven: '#0f172a'
+      },
+      er: {
+        useMaxWidth: false,
+        layoutDirection: 'TB',
+        minEntityWidth: 160,
+        entityPadding: 15,
+        fontSize: 14
+      }
+    });
+
+    const panZoomInstances = {};
+
+    function initPanZoomForPanel(panelId) {
+      setTimeout(() => {
+        const svg = document.querySelector(`#panel-${panelId} svg`);
+        if (svg && !panZoomInstances[panelId]) {
+          panZoomInstances[panelId] = svgPanZoom(svg, {
+            zoomEnabled: true,
+            controlIconsEnabled: false,
+            fit: true,
+            center: true,
+            minZoom: 0.2,
+            maxZoom: 10
+          });
+        }
+      }, 350);
+    }
+
+    window.addEventListener('load', () => {
+      initPanZoomForPanel('reception');
+    });
+
+    let currentTab = 'reception';
+
+    function switchTab(tabId) {
+      currentTab = tabId;
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.diagram-panel').forEach(p => p.classList.remove('active'));
+
+      event.target.classList.add('active');
+      const panel = document.getElementById(`panel-${tabId}`);
+      if (panel) {
+        panel.classList.add('active');
+        initPanZoomForPanel(tabId);
+        if (panZoomInstances[tabId]) {
+          panZoomInstances[tabId].resize();
+          panZoomInstances[tabId].fit();
+          panZoomInstances[tabId].center();
+        }
+      }
+    }
+
+    function zoomIn() {
+      if (panZoomInstances[currentTab]) panZoomInstances[currentTab].zoomIn();
+    }
+
+    function zoomOut() {
+      if (panZoomInstances[currentTab]) panZoomInstances[currentTab].zoomOut();
+    }
+
+    function resetZoom() {
+      if (panZoomInstances[currentTab]) {
+        panZoomInstances[currentTab].reset();
+        panZoomInstances[currentTab].fit();
+        panZoomInstances[currentTab].center();
+      }
+    }
+  </script>
+</body>
+</html>

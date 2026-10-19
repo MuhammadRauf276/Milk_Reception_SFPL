@@ -3,6 +3,8 @@
  * Single source of truth for Role-Guided User Assignment (UI and APIs).
  */
 
+import { ROLE_LABELS } from '@/backend/core/roles/labels';
+
 export const CREATABLE_ROLES = [
   'SUPER_ADMIN',
   'EXECUTIVE_MANAGEMENT',
@@ -15,6 +17,7 @@ export const CREATABLE_ROLES = [
   'ZMCC_MANAGER',
   'CONTRACTOR_MANAGER',
   'PHE_OPERATOR',
+  'MDO',
   'ZMCC_LAB_ATTENDANT',
   'MOT',
   'CONTRACTOR_OPERATOR',
@@ -43,7 +46,7 @@ export interface RoleAssignmentPolicy {
 export const ROLE_ASSIGNMENT_POLICIES: Record<CreatableRole, RoleAssignmentPolicy> = {
   SUPER_ADMIN: {
     role: 'SUPER_ADMIN',
-    label: 'Super Admin',
+    label: ROLE_LABELS.SUPER_ADMIN,
     scopeType: 'SYSTEM',
     department: 'System Administration',
     requiresSource: false,
@@ -52,7 +55,7 @@ export const ROLE_ASSIGNMENT_POLICIES: Record<CreatableRole, RoleAssignmentPolic
   },
   EXECUTIVE_MANAGEMENT: {
     role: 'EXECUTIVE_MANAGEMENT',
-    label: 'Senior Executive Management',
+    label: ROLE_LABELS.EXECUTIVE_MANAGEMENT,
     scopeType: 'SYSTEM',
     department: 'Executive Management',
     requiresSource: false,
@@ -61,7 +64,7 @@ export const ROLE_ASSIGNMENT_POLICIES: Record<CreatableRole, RoleAssignmentPolic
   },
   DATA_EXECUTIVE: {
     role: 'DATA_EXECUTIVE',
-    label: 'Data Executive',
+    label: ROLE_LABELS.DATA_EXECUTIVE,
     scopeType: 'SYSTEM',
     department: 'Data & Analytics',
     requiresSource: false,
@@ -70,7 +73,7 @@ export const ROLE_ASSIGNMENT_POLICIES: Record<CreatableRole, RoleAssignmentPolic
   },
   HEAD_OF_MPD: {
     role: 'HEAD_OF_MPD',
-    label: 'MPD Head',
+    label: ROLE_LABELS.HEAD_OF_MPD,
     scopeType: 'SYSTEM',
     department: 'Milk Procurement',
     requiresSource: false,
@@ -79,7 +82,7 @@ export const ROLE_ASSIGNMENT_POLICIES: Record<CreatableRole, RoleAssignmentPolic
   },
   ADMIN_HEAD: {
     role: 'ADMIN_HEAD',
-    label: 'Admin Head',
+    label: ROLE_LABELS.ADMIN_HEAD,
     scopeType: 'DEPARTMENT',
     department: 'Administration',
     requiresSource: false,
@@ -88,7 +91,7 @@ export const ROLE_ASSIGNMENT_POLICIES: Record<CreatableRole, RoleAssignmentPolic
   },
   QA_HEAD: {
     role: 'QA_HEAD',
-    label: 'QA Head',
+    label: ROLE_LABELS.QA_HEAD,
     scopeType: 'DEPARTMENT',
     department: 'Quality Assurance',
     requiresSource: false,
@@ -97,7 +100,7 @@ export const ROLE_ASSIGNMENT_POLICIES: Record<CreatableRole, RoleAssignmentPolic
   },
   PRODUCTION_HEAD: {
     role: 'PRODUCTION_HEAD',
-    label: 'Production Head',
+    label: ROLE_LABELS.PRODUCTION_HEAD,
     scopeType: 'DEPARTMENT',
     department: 'Production',
     requiresSource: false,
@@ -106,7 +109,7 @@ export const ROLE_ASSIGNMENT_POLICIES: Record<CreatableRole, RoleAssignmentPolic
   },
   FINANCE_ACCOUNTS: {
     role: 'FINANCE_ACCOUNTS',
-    label: 'Finance and Accounts',
+    label: ROLE_LABELS.FINANCE_ACCOUNTS,
     scopeType: 'DEPARTMENT',
     department: 'Finance & Accounts',
     requiresSource: false,
@@ -115,7 +118,7 @@ export const ROLE_ASSIGNMENT_POLICIES: Record<CreatableRole, RoleAssignmentPolic
   },
   ZMCC_MANAGER: {
     role: 'ZMCC_MANAGER',
-    label: 'ZMCC Manager',
+    label: ROLE_LABELS.ZMCC_MANAGER,
     scopeType: 'SOURCE',
     department: 'Milk Procurement',
     requiresSource: true,
@@ -124,7 +127,7 @@ export const ROLE_ASSIGNMENT_POLICIES: Record<CreatableRole, RoleAssignmentPolic
   },
   CONTRACTOR_MANAGER: {
     role: 'CONTRACTOR_MANAGER',
-    label: 'Contractor Manager',
+    label: ROLE_LABELS.CONTRACTOR_MANAGER,
     scopeType: 'SOURCE',
     department: 'Milk Procurement',
     requiresSource: true,
@@ -133,7 +136,16 @@ export const ROLE_ASSIGNMENT_POLICIES: Record<CreatableRole, RoleAssignmentPolic
   },
   PHE_OPERATOR: {
     role: 'PHE_OPERATOR',
-    label: 'PHE Operator',
+    label: ROLE_LABELS.PHE_OPERATOR,
+    scopeType: 'SOURCE',
+    department: 'Milk Procurement',
+    requiresSource: true,
+    allowedSourceType: 'ZMCC',
+    summaryLabel: 'Milk Procurement (Source-bound: ZMCC)',
+  },
+  MDO: {
+    role: 'MDO',
+    label: ROLE_LABELS.MDO,
     scopeType: 'SOURCE',
     department: 'Milk Procurement',
     requiresSource: true,
@@ -142,7 +154,7 @@ export const ROLE_ASSIGNMENT_POLICIES: Record<CreatableRole, RoleAssignmentPolic
   },
   ZMCC_LAB_ATTENDANT: {
     role: 'ZMCC_LAB_ATTENDANT',
-    label: 'ZMCC Lab Attendant',
+    label: ROLE_LABELS.ZMCC_LAB_ATTENDANT,
     scopeType: 'SOURCE',
     department: 'Milk Procurement',
     requiresSource: true,
@@ -151,7 +163,7 @@ export const ROLE_ASSIGNMENT_POLICIES: Record<CreatableRole, RoleAssignmentPolic
   },
   MOT: {
     role: 'MOT',
-    label: 'MOT',
+    label: ROLE_LABELS.MOT,
     scopeType: 'SOURCE',
     department: 'Milk Procurement',
     requiresSource: true,
@@ -160,7 +172,7 @@ export const ROLE_ASSIGNMENT_POLICIES: Record<CreatableRole, RoleAssignmentPolic
   },
   CONTRACTOR_OPERATOR: {
     role: 'CONTRACTOR_OPERATOR',
-    label: 'Contractor Operator',
+    label: ROLE_LABELS.CONTRACTOR_OPERATOR,
     scopeType: 'SOURCE',
     department: 'Milk Procurement',
     requiresSource: true,
@@ -169,7 +181,7 @@ export const ROLE_ASSIGNMENT_POLICIES: Record<CreatableRole, RoleAssignmentPolic
   },
   SECURITY_OPERATOR: {
     role: 'SECURITY_OPERATOR',
-    label: 'Security Operator',
+    label: ROLE_LABELS.SECURITY_OPERATOR,
     scopeType: 'DEPARTMENT',
     department: 'Security',
     requiresSource: false,
@@ -178,7 +190,7 @@ export const ROLE_ASSIGNMENT_POLICIES: Record<CreatableRole, RoleAssignmentPolic
   },
   QA_MANAGER: {
     role: 'QA_MANAGER',
-    label: 'QA Manager',
+    label: ROLE_LABELS.QA_MANAGER,
     scopeType: 'DEPARTMENT',
     department: 'Quality Assurance',
     requiresSource: false,
@@ -187,7 +199,7 @@ export const ROLE_ASSIGNMENT_POLICIES: Record<CreatableRole, RoleAssignmentPolic
   },
   QA_LAB_ATTENDANT: {
     role: 'QA_LAB_ATTENDANT',
-    label: 'QA Lab Attendant',
+    label: ROLE_LABELS.QA_LAB_ATTENDANT,
     scopeType: 'DEPARTMENT',
     department: 'Quality Assurance',
     requiresSource: false,
@@ -196,7 +208,7 @@ export const ROLE_ASSIGNMENT_POLICIES: Record<CreatableRole, RoleAssignmentPolic
   },
   WEIGHBRIDGE_OPERATOR: {
     role: 'WEIGHBRIDGE_OPERATOR',
-    label: 'Weighbridge Operator',
+    label: ROLE_LABELS.WEIGHBRIDGE_OPERATOR,
     scopeType: 'DEPARTMENT',
     department: 'Production & Weighbridge',
     requiresSource: false,
@@ -205,7 +217,7 @@ export const ROLE_ASSIGNMENT_POLICIES: Record<CreatableRole, RoleAssignmentPolic
   },
   PRODUCTION_RECEPTION_OPERATOR: {
     role: 'PRODUCTION_RECEPTION_OPERATOR',
-    label: 'Production Reception Operator',
+    label: ROLE_LABELS.PRODUCTION_RECEPTION_OPERATOR,
     scopeType: 'DEPARTMENT',
     department: 'Production',
     requiresSource: false,

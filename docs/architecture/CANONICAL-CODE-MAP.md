@@ -51,7 +51,7 @@ Being located under `src/app` does **NOT** mean code is current. Every route, AP
 | `/weighbridge` | **COMPATIBILITY** | `WEIGHBRIDGE_OPERATOR` | `WeighbridgeWorkspace.tsx` | COMPATIBILITY | Redirects to `/department/weighbridge` (which renders `WeighbridgeWorkspace`). |
 | `/admin/lab-tests` | **COMPATIBILITY** | None | `src/app/admin/lab-tests/page.tsx` | COMPATIBILITY | Client-side compatibility redirect to `/super-admin/lab-tests`. |
 | `/fleet-tracking` | **RETIRED (4E-E)** | None | N/A | RETIRED | Unowned legacy monitoring board retired in Stage 4E-E. |
-| `/tv-board` | **BUSINESS DECISION**| Plant Displays | `src/app/tv-board/page.tsx` | BUSINESS DECISION | Read-only wall-board screen for factory reception lanes. |
+| `/tv-board` | **BUSINESS DECISION**| Plant Displays | `src/app/tv-board/page.tsx` | BUSINESS DECISION | Read-only wall-board screen for plant reception lanes. |
 
 ---
 
@@ -71,7 +71,7 @@ Being located under `src/app` does **NOT** mean code is current. Every route, AP
 | `ZMCC_MANAGER` | **CANONICAL** | `/mpd/zmcc-manager` | ZMCC Source Manager Workspace |
 | `CONTRACTOR_MANAGER` | **CANONICAL** | `/contractor/manager` | Plant Contractor Manager Workspace (Direct-to-Plant) |
 | `ZMCC_LAB_ATTENDANT` | **CANONICAL** | `/zmcc/lab` | ZMCC Lab Arrival & Dispatch Testing Workspace (also operational on `/department/mpd` for ZMCC dispatch) |
-| `CONTRACTOR_OPERATOR` | **CANONICAL (UNREADY WORKSPACE)** | `/workspace-unavailable` | Operational Contractor Dispatch Person (Wasim Sahib; routes to `/workspace-unavailable` until dedicated workspace is built) |
+| `CONTRACTOR_OPERATOR` | **CANONICAL (UNREADY WORKSPACE)** | `/workspace-unavailable` | Operational Contractor Dispatch Person (Contractor Operator - Al Khair; routes to `/workspace-unavailable` until dedicated workspace is built) |
 | `PHE_OPERATOR` | **CANONICAL** | `/phe` | ZMCC PHE Operator Station |
 | `MOT` | **CANONICAL** | `/mot` | Mobile Operator Team Station |
 | `SECURITY_OPERATOR` | **CANONICAL** | `/department/security` | Gate Security Station |
@@ -279,7 +279,7 @@ SUPER_ADMIN
 |    |
 |    +-- CONTRACTOR_MANAGER (Contractor Manager)
 |          |
-|          +-- CONTRACTOR_OPERATOR (Contractor Operator - e.g., Wasim Sahib)
+|          +-- CONTRACTOR_OPERATOR (Contractor Operator - Contractor Operator Al Khair)
 |
 +-- ADMIN_HEAD (Admin Head)
 |    |
@@ -305,7 +305,7 @@ SUPER_ADMIN
 - **Contractor Manager (`CONTRACTOR_MANAGER`)**: Reports to MPD Head. Source-scoped to an assigned Contractor (`requiresSource: true, allowedSourceType: CONTRACTOR`).
 - **ZMCC Lab Attendant (`ZMCC_LAB_ATTENDANT`)**: Single operational laboratory role at ZMCC. Performs MOT vehicle arrival testing, Contractor vehicle arrival testing, and ZMCC dispatch testing. Completely replaces old `MPD_Operator` with zero parallel operational roles. Source-scoped to an assigned ZMCC (`requiresSource: true, allowedSourceType: ZMCC`). Effective test policy: `ZMCC_LAB_MOT`, `ZMCC_LAB_CONTRACTOR`, `DISPATCH`.
 - **Contractor Operator (`CONTRACTOR_OPERATOR`)**: Operational dispatch preparation and testing person at Contractor source. Source-scoped to assigned Contractor (`requiresSource: true, allowedSourceType: CONTRACTOR`). Effective test policy: `DISPATCH` only. Cannot access ZMCC or other Contractor sources.
-- **Contractor Operator Fixture**: `Wasim Sahib` (`contractor.operator.alkhair`), role `CONTRACTOR_OPERATOR`, source `CONT-ALKHAIR`, reporting under `contractor.manager.alkhair`.
+- **Contractor Operator Fixture**: `Contractor Operator (Al Khair)` (`contractor.operator.alkhair`), role `CONTRACTOR_OPERATOR`, source `CONT-ALKHAIR`, reporting under `contractor.manager.alkhair`.
 - **QA Lab Attendant (`QA_LAB_ATTENDANT`)**: Single operational plant laboratory role performing Plant QA testing. Reports to `QA_MANAGER` under `QA_HEAD`. Effective test policy: `PLANT_QA` only. Cannot mutate test policies or access ZMCC/MOT/Contractor testing.
 - **Retired Legacy Roles**: `Admin`, `MPD`, `MPD_Operator`, `MPD_Zone_Manager`, `QA`, `QA_Operator`, `Security_Weight`, `Security_Manager`, `Weighbridge_Operator`, `Production`, `Production_Operator`, `Production_Manager`, `General_Plant_Manager`, `Correction_Officer`, `Management`. All retired roles have **ZERO LIVE AUTHORITY** and fail closed to `/workspace-unavailable` and HTTP 403 on protected APIs.
 - **Historical Attribution & Database Upgrade**: Deterministic in-place role migration updates active users to canonical equivalents where unambiguous (`MPD_Operator` -> `ZMCC_LAB_ATTENDANT` or `CONTRACTOR_OPERATOR`, `QA_Operator`/`QA` -> `QA_LAB_ATTENDANT`, etc.) while deactivating ambiguous legacy users safely. Historical `AuditLog` actor records and foreign keys are never deleted or modified.

@@ -8,12 +8,12 @@ import {
   AlertCircle,
   Clock,
   MapPin,
-  RefreshCw,
   Search,
   X,
   Users,
   UserPlus,
   Plus,
+  Loader2,
 } from 'lucide-react';
 
 import { useToast } from '@/frontend/context/ToastContext';
@@ -23,6 +23,8 @@ import { onActivateKey } from '@/lib/a11y';
 import { SegmentedTabs } from '@/components/ui/segmented-tabs';
 import { AnimatePresence } from 'framer-motion';
 import { getErrorMessage } from '@/lib/errors';
+import { acquireRobustGps } from '@/lib/gps';
+import { RequestCorrectionModal, EditableFieldOption } from '@/frontend/modules/governance/RequestCorrectionModal';
 import type {
   InsideVehicle,
   serializeContractorArrival,
@@ -54,8 +56,26 @@ type ArrivingJourney = {
   zmcc: { id: string; code: string; name: string } | null;
   total_stops: number;
   visited_stops: number;
+  skipped_stops?: number;
+  pending_stops?: number;
   total_gross_liters: number;
   total_at_13ts_liters: number;
+  stops?: Array<{
+    id: string;
+    planned_sequence: number;
+    status: string;
+    skip_reason?: string | null;
+    shop?: {
+      id: string;
+      shop_code: string;
+      shop_name: string;
+      owner_name: string;
+    } | null;
+    collection?: {
+      gross_liters: number;
+      at_13ts_liters?: number;
+    } | null;
+  }>;
 };
 
 interface ZmccArrivalsWorkspaceProps {
@@ -75,14 +95,63 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
   currentUser,
   activeTab: controlledTab,
   onTabChange,
-  hideTabBar = false,
+  hideTabBar = true,
 }) => {
   const toast = useToast();
   const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
+  const isDataExecutive = currentUser?.role === 'DATA_EXECUTIVE';
   const isZmccManager = currentUser?.role === 'ZMCC_MANAGER';
   const isPheOperator = currentUser?.role === 'PHE_OPERATOR';
   const canSubmit = isPheOperator || isSuperAdmin;
-  const canCorrect = isZmccManager || isSuperAdmin;
+  const canDirectCorrect = isDataExecutive || isSuperAdmin;
+  const canCorrect = canDirectCorrect;
+
+  const [requestModalState, setRequestModalState] = useState<{
+    isOpen: boolean;
+    module: string;
+    recordId: string;
+    label: string;
+    fields: EditableFieldOption[];
+  }>({
+    isOpen: false,
+    module: '',
+    recordId: '',
+    label: '',
+    fields: [],
+  });
+
+  const openRequestCorrection = (type: 'MOT' | 'CONTRACTOR' | 'LOCAL_SUPPLIER', record: MotArrivalRow | ContractorArrivalRow | LocalSupplierArrivalRow) => {
+    const fields: EditableFieldOption[] = [];
+    let moduleName = 'ZMCC_MOT_ARRIVAL';
+    let label = `Arrival #${record.id}`;
+
+    if (type === 'MOT') {
+      const r = record as MotArrivalRow;
+      moduleName = 'ZMCC_MOT_ARRIVAL';
+      label = `MOT Arrival (Token: ${r.zmcc_token || r.id})`;
+      fields.push({ field: 'raw_milk_token_number', label: 'Token Number', currentValue: r.raw_milk_token_number, type: 'text' });
+    } else if (type === 'CONTRACTOR') {
+      const r = record as ContractorArrivalRow;
+      moduleName = 'ZMCC_CONTRACTOR_ARRIVAL';
+      label = `Contractor Arrival (Token: ${r.zmcc_token || r.id})`;
+      fields.push({ field: 'rmr_number', label: 'RMR Number', currentValue: r.rmr_number, type: 'text' });
+      fields.push({ field: 'vehicle_number', label: 'Vehicle Number', currentValue: r.vehicle_number, type: 'text' });
+    } else {
+      const r = record as LocalSupplierArrivalRow;
+      moduleName = 'ZMCC_LOCAL_SUPPLIER_ARRIVAL';
+      label = `Local Supplier Arrival (Token: ${r.zmcc_token || r.id})`;
+      fields.push({ field: 'raw_milk_token_number', label: 'Token Number', currentValue: r.raw_milk_token_number, type: 'text' });
+      fields.push({ field: 'rmr_number', label: 'RMR Number', currentValue: r.rmr_number, type: 'text' });
+    }
+
+    setRequestModalState({
+      isOpen: true,
+      module: moduleName,
+      recordId: String(record.id),
+      label,
+      fields,
+    });
+  };
 
   const [internalTab, setInternalTab] = useState<MainTab>(canSubmit ? 'MOT_ARRIVAL' : 'HISTORY');
   const activeTab = controlledTab || internalTab;
@@ -111,9 +180,11 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
   const [motSuccessResult, setMotSuccessResult] = useState<MotArrivalRow | null>(null);
   const [motError, setMotError] = useState<string | null>(null);
 
-  // Local Supplier Arrival Form State
+  // HC Supplier Arrival Form State
   const [localSuppliers, setLocalSuppliers] = useState<LocalSupplierRow[]>([]);
   const [loadingLocalSuppliers, setLoadingLocalSuppliers] = useState(canSubmit);
+  const [availableSources, setAvailableSources] = useState<Array<{ id: string; erp_code: string; name: string }>>([]);
+  const [selectedMilkSourceId, setSelectedMilkSourceId] = useState('');
   const [supplierSearchTerm, setSupplierSearchTerm] = useState('');
   const [selectedLocalSupplierId, setSelectedLocalSupplierId] = useState('');
   const [localSupplierRawMilkTokenNumber, setLocalSupplierRawMilkTokenNumber] = useState('');
@@ -136,6 +207,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
   const [insideHasMore, setInsideHasMore] = useState(false);
   const [insideTotalCount, setInsideTotalCount] = useState(0);
   const [loadingInside, setLoadingInside] = useState(true);
+  const [insidePage, setInsidePage] = useState(1);
   const [exitModalTarget, setExitModalTarget] = useState<InsideVehicle | null>(null);
   const [exitEventId, setExitEventId] = useState<string>('');
   const [exitTimestamp, setExitTimestamp] = useState(() => toDatetimeLocalInput(new Date()));
@@ -171,6 +243,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
   const [corrRmr, setCorrRmr] = useState('');
   const [corrVehicle, setCorrVehicle] = useState('');
   const [corrLocalSupplierId, setCorrLocalSupplierId] = useState('');
+  const [corrMilkSourceId, setCorrMilkSourceId] = useState('');
   const [corrTimestamp, setCorrTimestamp] = useState('');
   const [corrLat, setCorrLat] = useState<string>('');
   const [corrLng, setCorrLng] = useState<string>('');
@@ -190,6 +263,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
 
   const initLocalSupplierForm = useCallback(() => {
     setSelectedLocalSupplierId('');
+    setSelectedMilkSourceId('');
     setSupplierSearchTerm('');
     setLocalSupplierRawMilkTokenNumber('');
     setLocalSupplierVehicleNumber('');
@@ -241,6 +315,22 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
         }),
     []
   );
+
+  // Fetch available milk sources for ZMCC
+  const loadAvailableSources = useCallback(() => {
+    const zmccId = currentUser?.procurement_source?.id;
+    if (!zmccId) return;
+    fetch(`/api/sources/available?zmcc_id=${zmccId}`)
+      .then(async (res) => {
+        if (res.ok) {
+          const data = await res.json();
+          setAvailableSources(data.sources || []);
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to fetch available sources', err);
+      });
+  }, [currentUser?.procurement_source?.id]);
 
   // Fetch inside vehicles
   const loadInsideVehicles = useCallback(
@@ -351,8 +441,9 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
     if (canSubmit) {
       loadArrivingJourneys();
       loadLocalSuppliers();
+      loadAvailableSources();
     }
-  }, [canSubmit, loadPolicies, loadArrivingJourneys, loadLocalSuppliers]);
+  }, [canSubmit, loadPolicies, loadArrivingJourneys, loadLocalSuppliers, loadAvailableSources]);
 
   // Initial load; the history list also reloads whenever its filters change.
   useEffect(() => {
@@ -435,36 +526,38 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
     }
   };
 
-  // GPS capture handler
-  const captureGps = (target: 'MOT' | 'LOCAL_SUPPLIER') => {
-    if (typeof window === 'undefined' || !navigator.geolocation) {
-      toast.showWarning('Geolocation is not supported by your browser. Arrival can proceed without GPS.');
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
+  // GPS capture handler with progressive offline fallback
+  const captureGps = async (target: 'MOT' | 'LOCAL_SUPPLIER') => {
+    try {
+      const res = await acquireRobustGps({
+        facilityCode: currentUser?.procurement_source?.code,
+        allowFacilityFallback: true,
+      });
+
+      if (res.location) {
         const coords = {
-          lat: Number(pos.coords.latitude.toFixed(7)),
-          lng: Number(pos.coords.longitude.toFixed(7)),
-          acc: Number(pos.coords.accuracy.toFixed(2)),
+          lat: Number(res.location.latitude.toFixed(7)),
+          lng: Number(res.location.longitude.toFixed(7)),
+          acc: res.location.accuracy != null ? Number(res.location.accuracy.toFixed(2)) : null,
         };
         if (target === 'MOT') setMotGps(coords);
         else setLocalSupplierGps(coords);
-        toast.showSuccess('GPS coordinates captured successfully.');
-      },
-      (err) => {
-        let msg = 'Failed to capture GPS location.';
-        if (err.code === 1) msg = 'Location permission was denied. Arrival can proceed without GPS.';
-        else if (err.code === 2) msg = 'Location position unavailable. Arrival can proceed without GPS.';
-        else if (err.code === 3) msg = 'Location request timed out. Arrival can proceed without GPS.';
-        else if (err.message) msg = `GPS error: ${err.message}. Arrival can proceed without GPS.`;
 
-        toast.showWarning(msg);
+        if (res.status === 'FALLBACK') {
+          toast.showInfo(`Using ${res.location.label || 'offline fallback'} coordinates.`);
+        } else {
+          toast.showSuccess('GPS coordinates captured successfully.');
+        }
+      } else {
+        toast.showWarning(res.errorMsg || 'Failed to capture GPS. Arrival can proceed without GPS.');
         if (target === 'MOT') setMotGps({ lat: null, lng: null, acc: null });
         else setLocalSupplierGps({ lat: null, lng: null, acc: null });
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    );
+      }
+    } catch {
+      toast.showWarning('GPS unavailable. Arrival can proceed without GPS.');
+      if (target === 'MOT') setMotGps({ lat: null, lng: null, acc: null });
+      else setLocalSupplierGps({ lat: null, lng: null, acc: null });
+    }
   };
 
   // Submit MOT Arrival
@@ -556,11 +649,11 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
     }
   };
 
-  // Submit Local Supplier Arrival
+  // Submit HC Supplier Arrival
   const handleLocalSupplierSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedLocalSupplierId) {
-      setLocalSupplierError('Please select a local supplier.');
+      setLocalSupplierError('Please select an HC supplier.');
       return;
     }
     if (!localSupplierRawMilkTokenNumber.trim()) {
@@ -579,6 +672,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           local_supplier_id: selectedLocalSupplierId,
+          milk_source_id: selectedMilkSourceId ? selectedMilkSourceId : null,
           raw_milk_token_number: localSupplierRawMilkTokenNumber.trim(),
           vehicle_number: localSupplierVehicleNumber.trim().toUpperCase(),
           arrival_timestamp: datetimeLocalToIso(localSupplierArrivalTimestamp) || new Date(localSupplierArrivalTimestamp).toISOString(),
@@ -590,7 +684,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
       });
       const data = await res.json();
       if (!res.ok) {
-        setLocalSupplierError(data.error || 'Failed to record local supplier arrival.');
+        setLocalSupplierError(data.error || 'Failed to record HC supplier arrival.');
       } else {
         setLocalSupplierSuccessResult(data);
         fetchInsideVehicles();
@@ -621,6 +715,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
       setCorrVehicle(target.record.vehicle_number || '');
     } else if (target.type === 'LOCAL_SUPPLIER') {
       setCorrLocalSupplierId(target.record.local_supplier_id ? String(target.record.local_supplier_id) : '');
+      setCorrMilkSourceId(target.record.milk_source_id ? String(target.record.milk_source_id) : '');
       setCorrToken(target.record.raw_milk_token_number || '');
       setCorrRmr('');
       setCorrVehicle(target.record.vehicle_number || '');
@@ -661,6 +756,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
         payload.vehicle_number = corrVehicle.trim().toUpperCase();
       } else if (correctionTarget.type === 'LOCAL_SUPPLIER') {
         payload.local_supplier_id = corrLocalSupplierId || undefined;
+        payload.milk_source_id = corrMilkSourceId ? corrMilkSourceId : null;
         payload.raw_milk_token_number = corrToken.trim();
         payload.vehicle_number = corrVehicle.trim().toUpperCase();
       }
@@ -694,7 +790,6 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Tab Navigation */}
       {!hideTabBar && (
         <SegmentedTabs
           label="Arrival views"
@@ -704,7 +799,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
             ...(canSubmit
               ? [
                   { value: 'MOT_ARRIVAL' as const, label: 'MOT arrival', icon: Truck },
-                  { value: 'LOCAL_SUPPLIER_ARRIVAL' as const, label: 'Local supplier arrival', icon: Users },
+                  { value: 'LOCAL_SUPPLIER_ARRIVAL' as const, label: 'HC supplier arrival', icon: Users },
                   {
                     value: 'INSIDE_ZMCC' as const,
                     label: 'Inside ZMCC',
@@ -718,7 +813,6 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
         />
       )}
 
-      {/* 1. MOT ARRIVAL SUB-TAB */}
       {activeTab === 'MOT_ARRIVAL' && canSubmit && (
         <div className="space-y-6 animate-panel-in">
           {motSuccessResult ? (
@@ -727,9 +821,6 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                 <CheckCircle2 className="w-8 h-8 text-emerald-600 shrink-0" />
                 <div>
                   <h3 className="text-base font-semibold">MOT Arrival Recorded & Journey Completed!</h3>
-                  <p className="text-xs text-emerald-700">
-                    The MOT journey has been completed. Tokens generated below:
-                  </p>
                 </div>
               </div>
 
@@ -772,7 +863,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                 <div className="p-4 rounded-xl bg-white border border-emerald-200 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold uppercase tracking-wider text-slate-700">
-                      MOT Journey Final Summary (v{motSuccessResult.journey.summary.summary_version} — Rev #{motSuccessResult.journey.summary.revision})
+                      MOT Journey Final Summary (v{motSuccessResult.journey.summary.summary_version}, Rev #{motSuccessResult.journey.summary.revision})
                     </span>
                     <span className="text-xs font-semibold text-slate-500">
                       Ended: {new Date(motSuccessResult.journey.summary.journey_ended_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} PKT
@@ -861,7 +952,6 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
             </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              {/* Arriving Journeys Selector */}
               <div className="lg:col-span-6 space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-semibold text-slate-900">
@@ -870,10 +960,10 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                   <button
                     type="button"
                     onClick={fetchArrivingJourneys}
-                    className="p-1.5 text-slate-500 hover:text-slate-800 rounded-lg hover:bg-slate-100"
-                    title="Refresh"
+                    className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100"
                   >
-                    <RefreshCw className={`w-4 h-4 ${loadingJourneys ? 'animate-spin' : ''}`} />
+                    {loadingJourneys && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                    Refresh
                   </button>
                 </div>
 
@@ -907,15 +997,21 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                             </span>
                           </div>
                           <div className="text-xs font-semibold text-slate-800">
-                            {j.route?.route_code} — {j.route?.name}
+                            {j.route?.route_code} · {j.route?.name}
                           </div>
                           <div className="text-xs text-slate-600 mt-1 flex flex-wrap gap-x-4">
                             <span>Vehicle: <strong>{j.mot_vehicle?.vehicle_number}</strong></span>
-                            <span>Driver: <strong>{j.mot_profile?.name}</strong></span>
+                            <span>MOT: <strong>{j.mot_profile?.name}</strong></span>
                           </div>
-                          <div className="text-xs text-slate-500 mt-2 flex justify-between border-t border-slate-100 pt-2">
-                            <span>Visited: <strong>{j.visited_stops}/{j.total_stops} stops</strong></span>
-                            <span>Gross: <strong>{j.total_gross_liters} L</strong></span>
+                          <div className="text-xs text-slate-500 mt-2 flex flex-wrap items-center justify-between gap-1 border-t border-slate-100 pt-2">
+                            <div className="flex items-center space-x-2 text-[11px]">
+                              <span>Assigned: <strong>{j.total_stops}</strong></span>
+                              <span>·</span>
+                              <span className="text-emerald-700">Collected: <strong>{j.visited_stops}</strong></span>
+                              <span>·</span>
+                              <span className="text-amber-700">Skipped: <strong>{j.skipped_stops || 0}</strong></span>
+                            </div>
+                            <span className="font-semibold text-slate-800">{j.total_gross_liters} L</span>
                           </div>
                         </div>
                       );
@@ -924,7 +1020,6 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                 )}
               </div>
 
-              {/* Arrival Form */}
               <div className="lg:col-span-6 bg-white rounded-xl border border-border p-6 shadow-2xs space-y-4">
                 <h3 className="text-sm font-semibold text-slate-900 border-b pb-2">
                   Record MOT Arrival at ZMCC
@@ -943,10 +1038,86 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                   </div>
                 ) : (
                   <form onSubmit={handleMotSubmit} className="space-y-4">
-                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1">
-                      <div>Selected Journey: <strong className="tabular-nums">{selectedJourney.journey_number}</strong></div>
-                      <div>Vehicle: <strong>{selectedJourney.mot_vehicle?.vehicle_number}</strong></div>
-                      <div>Driver: <strong>{selectedJourney.mot_profile?.name}</strong></div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-slate-800 tabular-nums">
+                          Journey #{selectedJourney.journey_number}
+                        </span>
+                        <span className="text-[11px] font-semibold text-slate-600">
+                          {selectedJourney.route?.route_code} · {selectedJourney.route?.name}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-600">
+                        <div>Vehicle: <strong className="text-slate-900">{selectedJourney.mot_vehicle?.vehicle_number}</strong></div>
+                        <div>MOT: <strong className="text-slate-900">{selectedJourney.mot_profile?.name}</strong></div>
+                      </div>
+
+                      <div className="grid grid-cols-4 gap-2 text-center pt-1 border-t border-slate-200">
+                        <div className="p-2 bg-white rounded-lg border border-border">
+                          <div className="text-[10px] uppercase font-semibold text-slate-500">Assigned</div>
+                          <div className="text-xs font-semibold text-slate-900">{selectedJourney.total_stops}</div>
+                        </div>
+                        <div className="p-2 bg-white rounded-lg border border-border">
+                          <div className="text-[10px] uppercase font-semibold text-emerald-700">Collected</div>
+                          <div className="text-xs font-semibold text-emerald-800">{selectedJourney.visited_stops}</div>
+                        </div>
+                        <div className="p-2 bg-white rounded-lg border border-border">
+                          <div className="text-[10px] uppercase font-semibold text-amber-700">Skipped</div>
+                          <div className="text-xs font-semibold text-amber-800">{selectedJourney.skipped_stops || 0}</div>
+                        </div>
+                        <div className="p-2 bg-white rounded-lg border border-border">
+                          <div className="text-[10px] uppercase font-semibold text-blue-700">Pending</div>
+                          <div className="text-xs font-semibold text-blue-800">
+                            {selectedJourney.pending_stops ?? Math.max(0, selectedJourney.total_stops - selectedJourney.visited_stops - (selectedJourney.skipped_stops || 0))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {selectedJourney.stops && selectedJourney.stops.length > 0 && (
+                        <div className="space-y-1.5 pt-2 border-t border-slate-200">
+                          <div className="text-[11px] font-semibold text-slate-700">
+                            Journey Stops ({selectedJourney.stops.length})
+                          </div>
+                          <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                            {selectedJourney.stops.map((stop) => (
+                              <div
+                                key={stop.id}
+                                className="flex items-center justify-between p-2 rounded-lg bg-white border border-border text-xs"
+                              >
+                                <div className="flex items-center space-x-2">
+                                  <span className="w-5 h-5 rounded-full bg-primary text-white text-[10px] font-semibold flex items-center justify-center shrink-0">
+                                    {stop.planned_sequence}
+                                  </span>
+                                  <div>
+                                    <div className="font-semibold text-slate-900 text-xs">
+                                      {stop.shop?.shop_name || `Shop #${stop.planned_sequence}`}
+                                    </div>
+                                    <div className="text-[10px] text-slate-500">
+                                      {stop.shop?.shop_code ? `${stop.shop.shop_code} · ` : ''}{stop.shop?.owner_name || '—'}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div>
+                                  {stop.status === 'VISITED' ? (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                      {stop.collection?.gross_liters != null ? `${Number(stop.collection.gross_liters).toFixed(1)} L` : 'Visited'}
+                                    </span>
+                                  ) : stop.status === 'SKIPPED' ? (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-900 border border-amber-300">
+                                      SKIPPED {stop.skip_reason ? `· ${stop.skip_reason}` : ''}
+                                    </span>
+                                  ) : (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase bg-slate-100 text-slate-700 border border-slate-300">
+                                      Pending
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <div>
@@ -966,7 +1137,6 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                         placeholder={rawMilkTokenPolicyMode === 'DISABLED' ? 'Disabled by operational policy' : 'e.g. 001924'}
                         className="w-full text-xs font-semibold px-3 py-2 border rounded-xl focus:ring-2 focus:ring-primary outline-hidden tabular-nums disabled:bg-slate-100 disabled:text-slate-400"
                       />
-                      <p className="text-xs text-slate-500 mt-1">Manual paper token serial (digits only, leading zeros preserved)</p>
                     </div>
 
                     <div>
@@ -1008,7 +1178,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                       disabled={motSubmitting}
                       className="w-full py-2.5 bg-primary hover:bg-primary-hover text-white rounded-xl text-xs font-semibold transition-all disabled:opacity-50"
                     >
-                      {motSubmitting ? 'Recording Arrival...' : 'Confirm Arrival & Generate ZMCC Token'}
+                      {motSubmitting ? 'Recording Arrival…' : 'Confirm Arrival & Generate ZMCC Token'}
                     </button>
                   </form>
                 )}
@@ -1018,7 +1188,6 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
         </div>
       )}
 
-      {/* 2. VEHICLES INSIDE ZMCC SUB-TAB */}
       {activeTab === 'INSIDE_ZMCC' && (
         <div className="space-y-4 animate-panel-in">
           <div className="flex items-center justify-between">
@@ -1026,16 +1195,13 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
               <h3 className="text-sm font-semibold text-slate-900">
                 Vehicles Currently Inside ZMCC ({insideTotalCount > insideVehicles.length ? `${insideVehicles.length} of ${insideTotalCount}` : insideVehicles.length})
               </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Vehicles that have completed Gate Entry and are in testing or awaiting Gate Exit
-              </p>
             </div>
             <button
               type="button"
               onClick={fetchInsideVehicles}
               className="flex items-center space-x-1.5 px-3 py-1.5 bg-white border border-border rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-all cursor-pointer"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${loadingInside ? 'animate-spin' : ''}`} />
+              {loadingInside && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
               <span>Refresh</span>
             </button>
           </div>
@@ -1055,90 +1221,125 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
               <span>No vehicles currently inside ZMCC. All gate-tracked vehicles have exited.</span>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {insideVehicles.map((v) => (
-                <div
-                  key={`${v.arrival_type}-${v.id}`}
-                  className="bg-white rounded-xl border border-border p-5 shadow-2xs flex flex-col justify-between space-y-4 hover:border-slate-300 transition-all"
-                >
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider ${
-                        v.arrival_type === 'MOT'
-                          ? 'bg-blue-100 text-blue-800'
-                          : 'bg-emerald-100 text-emerald-800'
-                      }`}>
-                        {v.arrival_type === 'MOT' ? 'MOT Vehicle' : 'Local Supplier'}
-                      </span>
-                      <span className="tabular-nums text-xs font-semibold text-slate-900">
-                        {v.vehicle_number}
-                      </span>
-                    </div>
+            (() => {
+              const INSIDE_PAGE_SIZE = 6;
+              const totalInsidePages = Math.ceil(insideVehicles.length / INSIDE_PAGE_SIZE) || 1;
+              const currentInsideVehicles = insideVehicles.slice((insidePage - 1) * INSIDE_PAGE_SIZE, insidePage * INSIDE_PAGE_SIZE);
 
-                    <div className="text-xs space-y-1">
-                      <div className="font-semibold text-slate-800">
-                        {v.source_name}
-                      </div>
-                      <div className="flex items-center space-x-2 text-xs text-slate-500 tabular-nums">
-                        <span>Token: <strong>{v.zmcc_token}</strong></span>
-                      </div>
-                      <div className="text-xs text-slate-500 flex items-center space-x-1">
-                        <Clock className="w-3 h-3 text-slate-400" />
-                        <span>Entered: {new Date(v.arrival_timestamp).toLocaleString('en-GB', { timeZone: 'Asia/Karachi' })} PKT</span>
-                      </div>
-                    </div>
-
-                    <div className="pt-2 border-t border-slate-100 flex flex-wrap gap-1.5 items-center">
-                      <span className={`px-2 py-0.5 rounded-md text-xs font-semibold ${
-                        v.lab_status === 'COMPLETED'
-                          ? 'bg-slate-100 text-slate-800'
-                          : 'bg-amber-100 text-amber-800'
-                      }`}>
-                        Lab: {v.lab_status}
-                      </span>
-                      {v.lab_decision && (
-                        <span className={`px-2 py-0.5 rounded-md text-xs font-semibold ${
-                          v.lab_decision === 'ACCEPTED'
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : 'bg-rose-100 text-rose-800'
-                        }`}>
-                          {v.lab_decision}
-                        </span>
-                      )}
-                      {v.has_tank_receipt && (
-                        <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-blue-100 text-blue-800">
-                          Tank Received
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div>
-                    {v.can_exit ? (
-                      <button
-                        type="button"
-                        onClick={() => openExitModal(v)}
-                        className="w-full py-2 bg-indigo-700 hover:bg-indigo-800 text-white rounded-xl text-xs font-semibold transition-all shadow-2xs cursor-pointer flex items-center justify-center space-x-1.5"
+              return (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {currentInsideVehicles.map((v) => (
+                      <div
+                        key={`${v.arrival_type}-${v.id}`}
+                        className="bg-white rounded-xl border border-border p-5 shadow-2xs flex flex-col justify-between space-y-4 hover:border-slate-300 transition-all"
                       >
-                        <MapPin className="w-3.5 h-3.5" />
-                        <span>Record Gate Exit</span>
-                      </button>
-                    ) : (
-                      <div className="p-2 bg-slate-50 rounded-xl border border-slate-200 text-center">
-                        <span className="text-xs font-semibold text-slate-500">
-                          {v.exit_ineligibility_reason || 'Gate Exit Ineligible'}
-                        </span>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider ${
+                              v.arrival_type === 'MOT'
+                                ? 'bg-blue-100 text-blue-800'
+                                : 'bg-emerald-100 text-emerald-800'
+                            }`}>
+                              {v.arrival_type === 'MOT' ? 'MOT Vehicle' : 'HC Supplier'}
+                            </span>
+                            <span className="tabular-nums text-xs font-semibold text-slate-900">
+                              {v.vehicle_number}
+                            </span>
+                          </div>
+
+                          <div className="text-xs space-y-1">
+                            <div className="font-semibold text-slate-800">
+                              {v.source_name}
+                            </div>
+                            <div className="flex items-center space-x-2 text-xs text-slate-500 tabular-nums">
+                              <span>Token: <strong>{v.zmcc_token}</strong></span>
+                            </div>
+                            <div className="text-xs text-slate-500 flex items-center space-x-1">
+                              <Clock className="w-3 h-3 text-slate-400" />
+                              <span>Entered: {new Date(v.arrival_timestamp).toLocaleString('en-GB', { timeZone: 'Asia/Karachi' })} PKT</span>
+                            </div>
+                          </div>
+
+                          <div className="pt-2 border-t border-slate-100 flex flex-wrap gap-1.5 items-center">
+                            <span className={`px-2 py-0.5 rounded-md text-xs font-semibold ${
+                              v.lab_status === 'COMPLETED'
+                                ? 'bg-slate-100 text-slate-800'
+                                : 'bg-amber-100 text-amber-800'
+                            }`}>
+                              Lab: {v.lab_status}
+                            </span>
+                            {v.lab_decision && (
+                              <span className={`px-2 py-0.5 rounded-md text-xs font-semibold ${
+                                v.lab_decision === 'ACCEPTED'
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : 'bg-rose-100 text-rose-800'
+                              }`}>
+                                {v.lab_decision}
+                              </span>
+                            )}
+                            {v.has_tank_receipt && (
+                              <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-blue-100 text-blue-800">
+                                Tank Received
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div>
+                          {v.can_exit ? (
+                            <button
+                              type="button"
+                              onClick={() => openExitModal(v)}
+                              className="w-full py-2 bg-primary hover:bg-primary-hover text-white rounded-xl text-xs font-semibold transition-all shadow-2xs cursor-pointer flex items-center justify-center space-x-1.5"
+                            >
+                              <MapPin className="w-3.5 h-3.5" />
+                              <span>Record Gate Exit</span>
+                            </button>
+                          ) : (
+                            <div className="p-2 bg-slate-50 rounded-xl border border-slate-200 text-center">
+                              <span className="text-xs font-semibold text-slate-500">
+                                {v.exit_ineligibility_reason || 'Gate Exit Ineligible'}
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    )}
+                    ))}
                   </div>
+
+                  {totalInsidePages > 1 && (
+                    <div className="flex items-center justify-between pt-3 border-t border-border">
+                      <span className="text-xs text-slate-500">
+                        Page {insidePage} of {totalInsidePages}
+                      </span>
+                      <div className="flex items-center space-x-2">
+                        <button
+                          type="button"
+                          disabled={insidePage <= 1}
+                          onClick={() => setInsidePage((p) => Math.max(1, p - 1))}
+                          className="px-3 py-1.5 rounded-xl border border-border text-xs font-semibold text-slate-700 disabled:opacity-40 hover:bg-slate-50 cursor-pointer"
+                        >
+                          Previous
+                        </button>
+                        <button
+                          type="button"
+                          disabled={insidePage >= totalInsidePages}
+                          onClick={() => setInsidePage((p) => Math.min(totalInsidePages, p + 1))}
+                          className="px-3 py-1.5 rounded-xl border border-border text-xs font-semibold text-slate-700 disabled:opacity-40 hover:bg-slate-50 cursor-pointer"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              ))}
-            </div>
+              );
+            })()
           )}
         </div>
       )}
 
-      {/* 2.5 LOCAL SUPPLIER ARRIVAL SUB-TAB */}
       {activeTab === 'LOCAL_SUPPLIER_ARRIVAL' && canSubmit && (
         <div className="max-w-xl mx-auto bg-white rounded-xl border border-emerald-200 p-6 shadow-2xs space-y-4 animate-panel-in">
           <div className="flex items-center justify-between border-b border-emerald-100 pb-3">
@@ -1146,12 +1347,9 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
               <div className="flex items-center space-x-2">
                 <Users className="w-5 h-5 text-emerald-700" />
                 <h3 className="text-sm font-semibold text-slate-900">
-                  Record Local Supplier Arrival at ZMCC
+                  Record HC Supplier Arrival at ZMCC
                 </h3>
               </div>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Fast onboarding & intake for direct local suppliers within this ZMCC
-              </p>
             </div>
             <button
               type="button"
@@ -1162,7 +1360,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
               className="flex items-center space-x-1 px-3 py-1.5 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-300 rounded-xl text-xs font-semibold transition-all cursor-pointer"
             >
               <UserPlus className="w-3.5 h-3.5 text-emerald-700" />
-              <span>+ Add Local Supplier</span>
+              <span>+ Add HC Supplier</span>
             </button>
           </div>
 
@@ -1171,8 +1369,8 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
               <div className="flex items-center space-x-3 text-emerald-800">
                 <CheckCircle2 className="w-6 h-6 text-emerald-600" />
                 <div>
-                  <h4 className="text-sm font-semibold">Local Supplier Arrival Recorded!</h4>
-                  <span className="text-xs text-emerald-700">Local Supplier Arrival Recorded</span>
+                  <h4 className="text-sm font-semibold">HC Supplier Arrival Recorded!</h4>
+                  <span className="text-xs text-emerald-700">HC Supplier Arrival Recorded</span>
                 </div>
               </div>
 
@@ -1195,6 +1393,14 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                   Supplier: <strong className="text-slate-900">{localSupplierSuccessResult.local_supplier?.name}</strong>{' '}
                   <span className="text-slate-500 tabular-nums text-xs">({localSupplierSuccessResult.local_supplier?.local_supplier_code})</span>
                 </div>
+                {localSupplierSuccessResult.milk_source_code_snapshot && (
+                  <div className="py-1.5">
+                    Milk Source / ERP:{' '}
+                    <span className="font-semibold text-slate-900">
+                      [{localSupplierSuccessResult.milk_source_code_snapshot}] {localSupplierSuccessResult.milk_source_name_snapshot || ''}
+                    </span>
+                  </div>
+                )}
                 <div className="py-1.5">
                   Candidate ERP Reference:{' '}
                   {localSupplierSuccessResult.local_supplier?.erp_reference ? (
@@ -1218,7 +1424,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                 }}
                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition-all cursor-pointer"
               >
-                Record Another Local Supplier
+                Record Another HC Supplier
               </button>
             </div>
           ) : (
@@ -1233,7 +1439,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-xs font-semibold text-slate-700">
-                    Local Supplier <span className="text-rose-500">*</span>
+                    HC Supplier <span className="text-rose-500">*</span>
                   </label>
                   <button
                     type="button"
@@ -1253,7 +1459,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                     type="text"
                     value={supplierSearchTerm}
                     onChange={(e) => setSupplierSearchTerm(e.target.value)}
-                    placeholder="Search by code, name, phone, CNIC, ERP ref..."
+                    placeholder="Search by code, name, phone, CNIC, ERP ref…"
                     className="w-full text-xs pl-8 pr-3 py-1.5 border rounded-xl focus:ring-2 focus:ring-emerald-600 outline-hidden bg-slate-50"
                   />
                 </div>
@@ -1278,19 +1484,17 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                         required
                         className="w-full text-xs font-semibold px-3 py-2 border rounded-xl focus:ring-2 focus:ring-emerald-600 outline-hidden bg-white"
                       >
-                        <option value="">
-                          -- Select Local Supplier Directory Entry ({filteredSuppliers.length} available) --
-                        </option>
+                        <option value="">Select supplier</option>
                         {filteredSuppliers.map((s) => (
                           <option key={s.id} value={s.id}>
-                            {s.local_supplier_code} — {s.name} {s.phone ? `(${s.phone})` : ''} {s.erp_reference ? `[ERP: ${s.erp_reference}]` : ''}
+                            {s.local_supplier_code} · {s.name}
                           </option>
                         ))}
                         {selectedLocalSupplierId && !filteredSuppliers.some((s) => s.id === selectedLocalSupplierId) && (() => {
                           const sel = localSuppliers.find((s) => s.id === selectedLocalSupplierId);
                           return sel ? (
                             <option key={sel.id} value={sel.id}>
-                              {sel.local_supplier_code} — {sel.name} {sel.phone ? `(${sel.phone})` : ''} {sel.erp_reference ? `[ERP: ${sel.erp_reference}]` : ''} (Selected)
+                              {sel.local_supplier_code} · {sel.name}
                             </option>
                           ) : null;
                         })()}
@@ -1312,6 +1516,24 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Milk Source / ERP Code
+                </label>
+                <select
+                  value={selectedMilkSourceId}
+                  onChange={(e) => setSelectedMilkSourceId(e.target.value)}
+                  className="w-full text-xs font-semibold px-3 py-2 border rounded-xl focus:ring-2 focus:ring-emerald-600 outline-hidden bg-white"
+                >
+                  <option value="">Unassigned</option>
+                  {availableSources.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Raw Milk Token No. <span className="text-rose-500">*</span>
                 </label>
                 <input
@@ -1325,7 +1547,6 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                   required
                   className="w-full text-xs font-semibold px-3 py-2 border rounded-xl focus:ring-2 focus:ring-emerald-600 outline-hidden tabular-nums"
                 />
-                <p className="text-xs text-slate-500 mt-1">Manual paper token serial (digits only, leading zeros preserved)</p>
               </div>
 
               <div>
@@ -1381,17 +1602,15 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                 disabled={localSupplierSubmitting}
                 className="w-full py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-semibold transition-all disabled:opacity-50 cursor-pointer"
               >
-                {localSupplierSubmitting ? 'Recording Arrival...' : 'Record Local Supplier Arrival & Generate Token'}
+                {localSupplierSubmitting ? 'Recording Arrival…' : 'Record HC Supplier Arrival & Generate Token'}
               </button>
             </form>
           )}
         </div>
       )}
 
-      {/* 3. ARRIVAL HISTORY SUB-TAB */}
       {activeTab === 'HISTORY' && (
         <div className="space-y-4 animate-panel-in">
-          {/* Filters */}
           <div className="bg-white rounded-xl border border-border p-4 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex rounded-xl border border-slate-200 overflow-hidden text-xs font-semibold">
@@ -1421,7 +1640,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                   onClick={() => { setHistoryType('LOCAL_SUPPLIER'); setHistoryPage(1); }}
                   className={`px-3 py-1.5 ${historyType === 'LOCAL_SUPPLIER' ? 'bg-emerald-700 text-white' : 'bg-white text-slate-700'}`}
                 >
-                  Local Suppliers
+                  HC Suppliers
                 </button>
               </div>
 
@@ -1438,7 +1657,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                   type="text"
                   value={historySearch}
                   onChange={(e) => { setHistorySearch(e.target.value); setHistoryPage(1); }}
-                  placeholder="Search tokens, vehicle..."
+                  placeholder="Search tokens, vehicle…"
                   className="text-xs pl-8 pr-3 py-1.5 border rounded-xl bg-white w-48"
                 />
               </div>
@@ -1449,12 +1668,10 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
               onClick={fetchHistory}
               className="flex items-center space-x-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${loadingHistory ? 'animate-spin' : ''}`} />
               <span>Refresh</span>
             </button>
           </div>
 
-          {/* Table */}
           <div className="bg-white rounded-xl border border-border overflow-hidden shadow-2xs">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
@@ -1467,11 +1684,10 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                     <th className="p-3">Arrival Time (PKT)</th>
                     <th className="p-3">Recorded By</th>
                     <th className="p-3">Corrections</th>
-                    {canCorrect && <th className="p-3 text-right">Action</th>}
+                    {(canDirectCorrect || isZmccManager) && <th className="p-3 text-right">Action</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {/* MOT Arrivals */}
                   {(historyType === 'ALL' || historyType === 'MOT') &&
                     motArrivals.map((arr) => (
                       <tr key={`mot-${arr.id}`} className="hover:bg-slate-50/60 transition-colors">
@@ -1520,17 +1736,27 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                             );
                           })()}
                         </td>
-                        {canCorrect && (
+                        {(canDirectCorrect || isZmccManager) && (
                           <td className="p-3 text-right">
-                            {(!isSuperAdmin && (arr.manager_correction_count ?? 0) >= 5) ? (
-                              <span className="text-slate-400 text-xs">Locked</span>
+                            {canDirectCorrect ? (
+                              (!isSuperAdmin && (arr.manager_correction_count ?? 0) >= 5) ? (
+                                <span className="text-slate-400 text-xs">Locked</span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => openCorrectionModal({ type: 'MOT', record: arr })}
+                                  className="px-2.5 py-1 text-xs font-semibold text-primary hover:bg-blue-50 rounded-lg cursor-pointer"
+                                >
+                                  Correct
+                                </button>
+                              )
                             ) : (
                               <button
                                 type="button"
-                                onClick={() => openCorrectionModal({ type: 'MOT', record: arr })}
-                                className="px-2.5 py-1 text-xs font-semibold text-primary hover:bg-blue-50 rounded-lg"
+                                onClick={() => openRequestCorrection('MOT', arr)}
+                                className="px-2.5 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-50 rounded-lg border border-amber-200 cursor-pointer"
                               >
-                                Correct
+                                Request Correction
                               </button>
                             )}
                           </td>
@@ -1538,7 +1764,6 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                       </tr>
                     ))}
 
-                  {/* Contractor Arrivals */}
                   {(historyType === 'ALL' || historyType === 'CONTRACTOR') &&
                     contractorArrivals.map((arr) => (
                       <tr key={`con-${arr.id}`} className="hover:bg-slate-50/60 transition-colors">
@@ -1578,17 +1803,27 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                             );
                           })()}
                         </td>
-                        {canCorrect && (
+                        {(canDirectCorrect || isZmccManager) && (
                           <td className="p-3 text-right">
-                            {(!isSuperAdmin && (arr.correction_count ?? 0) >= 5) ? (
-                              <span className="text-slate-400 text-xs">Locked</span>
+                            {canDirectCorrect ? (
+                              (!isSuperAdmin && (arr.correction_count ?? 0) >= 5) ? (
+                                <span className="text-slate-400 text-xs">Locked</span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => openCorrectionModal({ type: 'CONTRACTOR', record: arr })}
+                                  className="px-2.5 py-1 text-xs font-semibold text-primary hover:bg-blue-50 rounded-lg cursor-pointer"
+                                >
+                                  Correct
+                                </button>
+                              )
                             ) : (
                               <button
                                 type="button"
-                                onClick={() => openCorrectionModal({ type: 'CONTRACTOR', record: arr })}
-                                className="px-2.5 py-1 text-xs font-semibold text-primary hover:bg-blue-50 rounded-lg"
+                                onClick={() => openRequestCorrection('CONTRACTOR', arr)}
+                                className="px-2.5 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-50 rounded-lg border border-amber-200 cursor-pointer"
                               >
-                                Correct
+                                Request Correction
                               </button>
                             )}
                           </td>
@@ -1596,13 +1831,12 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                       </tr>
                     ))}
 
-                  {/* Local Supplier Arrivals */}
                   {(historyType === 'ALL' || historyType === 'LOCAL_SUPPLIER') &&
                     localSupplierArrivals.map((arr) => (
                       <tr key={`ls-${arr.id}`} className="hover:bg-slate-50/60 transition-colors">
                         <td className="p-3">
                           <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
-                            LOCAL_SUPPLIER
+                            HC_SUPPLIER
                           </span>
                         </td>
                         <td className="p-3 tabular-nums font-semibold text-slate-900">{arr.zmcc_token}</td>
@@ -1620,11 +1854,15 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                             {arr.local_supplier?.name}{' '}
                             <span className="tabular-nums text-slate-400">({arr.local_supplier?.local_supplier_code})</span>
                           </div>
-                          {arr.local_supplier?.erp_reference && (
+                          {arr.milk_source_code_snapshot ? (
+                            <div className="text-xs font-semibold text-emerald-800">
+                              [{arr.milk_source_code_snapshot}] {arr.milk_source_name_snapshot || ''}
+                            </div>
+                          ) : arr.local_supplier?.erp_reference ? (
                             <div className="text-xs text-amber-700 font-semibold">
                               ERP: {arr.local_supplier.erp_reference} (Pending Verification)
                             </div>
-                          )}
+                          ) : null}
                         </td>
                         <td className="p-3 text-slate-700 font-medium">
                           {new Date(arr.arrival_timestamp).toLocaleString('en-GB', { timeZone: 'Asia/Karachi' })}
@@ -1649,17 +1887,27 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                             );
                           })()}
                         </td>
-                        {canCorrect && (
+                        {(canDirectCorrect || isZmccManager) && (
                           <td className="p-3 text-right">
-                            {(!isSuperAdmin && (arr.manager_correction_count ?? 0) >= 5) ? (
-                              <span className="text-slate-400 text-xs">Locked</span>
+                            {canDirectCorrect ? (
+                              (!isSuperAdmin && (arr.manager_correction_count ?? 0) >= 5) ? (
+                                <span className="text-slate-400 text-xs">Locked</span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => openCorrectionModal({ type: 'LOCAL_SUPPLIER', record: arr })}
+                                  className="px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 rounded-lg cursor-pointer"
+                                >
+                                  Correct
+                                </button>
+                              )
                             ) : (
                               <button
                                 type="button"
-                                onClick={() => openCorrectionModal({ type: 'LOCAL_SUPPLIER', record: arr })}
-                                className="px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 rounded-lg cursor-pointer"
+                                onClick={() => openRequestCorrection('LOCAL_SUPPLIER', arr)}
+                                className="px-2.5 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-50 rounded-lg border border-amber-200 cursor-pointer"
                               >
-                                Correct
+                                Request Correction
                               </button>
                             )}
                           </td>
@@ -1669,7 +1917,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
 
                   {motArrivals.length === 0 && contractorArrivals.length === 0 && localSupplierArrivals.length === 0 && (
                     <tr>
-                      <td colSpan={canCorrect ? 8 : 7} className="p-8 text-center text-xs text-slate-400">
+                      <td colSpan={(canDirectCorrect || isZmccManager) ? 8 : 7} className="p-8 text-center text-xs text-slate-400">
                         No arrival records found matching current criteria.
                       </td>
                     </tr>
@@ -1678,7 +1926,6 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
               </table>
             </div>
 
-            {/* Pagination Controls */}
             {historyTotalPages > 1 && (
               <div className="flex items-center justify-between p-3 border-t border-border bg-slate-50 text-xs font-semibold text-slate-700">
                 <div>
@@ -1709,7 +1956,6 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
         </div>
       )}
 
-      {/* 4. CORRECTION MODAL (ZMCC MANAGER / SUPER ADMIN) */}
       <AnimatePresence>{correctionTarget && (
         <Modal key="modal-0" onClose={() => setCorrectionTarget(null)} title="Correct arrival record" className="max-w-lg p-6 space-y-4">
             <div className="flex items-center justify-between border-b pb-3">
@@ -1797,17 +2043,32 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
               ) : (
                 <>
                   <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Local Supplier (Same ZMCC)</label>
+                    <label className="block font-semibold text-slate-700 mb-1">HC Supplier (Same ZMCC)</label>
                     <select
                       value={corrLocalSupplierId}
                       onChange={(e) => setCorrLocalSupplierId(e.target.value)}
                       required
                       className="w-full px-3 py-2 border rounded-xl bg-white font-semibold"
                     >
-                      <option value="">-- Select Local Supplier --</option>
+                      <option value="">Select supplier</option>
                       {localSuppliers.map((s) => (
                         <option key={s.id} value={s.id}>
-                          {s.local_supplier_code} — {s.name}
+                          {s.local_supplier_code} · {s.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Milk Source / ERP Code</label>
+                    <select
+                      value={corrMilkSourceId}
+                      onChange={(e) => setCorrMilkSourceId(e.target.value)}
+                      className="w-full px-3 py-2 border rounded-xl bg-white font-semibold text-xs"
+                    >
+                      <option value="">Unassigned</option>
+                      {availableSources.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
                         </option>
                       ))}
                     </select>
@@ -1884,7 +2145,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                 <textarea
                   value={corrReason}
                   onChange={(e) => setCorrReason(e.target.value)}
-                  placeholder="Explain why this correction is being made (Audit logged)..."
+                  placeholder="Explain why this correction is being made (Audit logged)…"
                   required
                   rows={3}
                   className="w-full px-3 py-2 border rounded-xl"
@@ -1904,21 +2165,20 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                   disabled={corrSubmitting}
                   className="px-4 py-2 bg-primary text-white rounded-xl font-semibold hover:bg-primary-hover disabled:opacity-50 cursor-pointer"
                 >
-                  {corrSubmitting ? 'Saving...' : 'Apply Correction'}
+                  {corrSubmitting ? 'Saving…' : 'Apply Correction'}
                 </button>
               </div>
             </form>
           </Modal>
       )}</AnimatePresence>
 
-      {/* 5. INLINE ADD LOCAL SUPPLIER MODAL */}
       <AnimatePresence>{showAddSupplierModal && (
-        <Modal key="modal-1" onClose={() => setShowAddSupplierModal(false)} title="Add local supplier" className="max-w-md p-6 space-y-4 border-emerald-200">
+        <Modal key="modal-1" onClose={() => setShowAddSupplierModal(false)} title="Add HC supplier" className="max-w-md p-6 space-y-4 border-emerald-200">
             <div className="flex items-center justify-between border-b border-emerald-100 pb-3">
               <div className="flex items-center space-x-2">
                 <UserPlus className="w-5 h-5 text-emerald-700" />
                 <h3 className="text-sm font-semibold text-slate-900">
-                  Quick Onboard Local Supplier
+                  Quick Onboard HC Supplier
                 </h3>
               </div>
               <button
@@ -1929,10 +2189,6 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                 <X className="w-5 h-5" />
               </button>
             </div>
-
-            <p className="text-xs text-slate-500 bg-slate-50 p-2.5 rounded-xl border">
-              Creates a local supplier directory entry for this ZMCC. Candidate ERP reference is optional and remains strictly <strong className="text-amber-700">Pending Verification</strong>.
-            </p>
 
             {addSupplierError && (
               <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl flex items-center space-x-2">
@@ -2017,19 +2273,18 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                   disabled={addSupplierSubmitting}
                   className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-semibold transition-all disabled:opacity-50 cursor-pointer"
                 >
-                  {addSupplierSubmitting ? 'Saving...' : 'Save & Select Supplier'}
+                  {addSupplierSubmitting ? 'Saving…' : 'Save & Select Supplier'}
                 </button>
               </div>
             </form>
           </Modal>
       )}</AnimatePresence>
 
-      {/* Gate Exit Modal */}
       <AnimatePresence>{exitModalTarget && (
         <Modal key="modal-2" onClose={closeExitModal} title="Record gate exit" className="max-w-md p-6 space-y-4">
             <div className="flex items-center justify-between border-b pb-3">
               <div className="flex items-center space-x-2">
-                <MapPin className="w-5 h-5 text-indigo-700" />
+                <MapPin className="w-5 h-5 text-primary" />
                 <h3 className="text-sm font-semibold text-slate-900">Record Gate Exit</h3>
               </div>
               <button
@@ -2043,7 +2298,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
 
             <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1">
               <div>Vehicle: <strong className="tabular-nums text-slate-900">{exitModalTarget.vehicle_number}</strong></div>
-              <div>Type: <strong className="font-semibold text-slate-800">{exitModalTarget.arrival_type === 'MOT' ? 'MOT Arrival' : 'Local Supplier Arrival'}</strong></div>
+              <div>Type: <strong className="font-semibold text-slate-800">{exitModalTarget.arrival_type === 'MOT' ? 'MOT Arrival' : 'HC Supplier Arrival'}</strong></div>
               <div>Token: <strong className="tabular-nums text-slate-800">{exitModalTarget.zmcc_token}</strong></div>
               <div>Entered At: <strong>{new Date(exitModalTarget.arrival_timestamp).toLocaleString('en-GB', { timeZone: 'Asia/Karachi' })} PKT</strong></div>
             </div>
@@ -2065,7 +2320,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                   value={exitTimestamp}
                   onChange={(e) => setExitTimestamp(e.target.value)}
                   required
-                  className="w-full text-xs font-semibold px-3 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-700 outline-hidden"
+                  className="w-full text-xs font-semibold px-3 py-2 border rounded-xl focus:ring-2 focus:ring-primary outline-hidden"
                 />
               </div>
 
@@ -2080,14 +2335,28 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                 <button
                   type="submit"
                   disabled={exitSubmitting}
-                  className="px-4 py-2 bg-indigo-700 hover:bg-indigo-800 text-white rounded-xl text-xs font-semibold transition-all disabled:opacity-50 cursor-pointer"
+                  className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-xl text-xs font-semibold transition-all disabled:opacity-50 cursor-pointer"
                 >
-                  {exitSubmitting ? 'Recording...' : 'Confirm Gate Exit'}
+                  {exitSubmitting ? 'Recording…' : 'Confirm Gate Exit'}
                 </button>
               </div>
             </form>
           </Modal>
       )}</AnimatePresence>
+
+      <RequestCorrectionModal
+        isOpen={requestModalState.isOpen}
+        onClose={() => setRequestModalState((prev) => ({ ...prev, isOpen: false }))}
+        module={requestModalState.module}
+        recordId={requestModalState.recordId}
+        recordIdentifierLabel={requestModalState.label}
+        availableFields={requestModalState.fields}
+        onSuccess={() => {
+          toast.showSuccess('Correction request submitted to Data Executive desk.');
+          fetchHistory();
+        }}
+      />
     </div>
   );
 };
+

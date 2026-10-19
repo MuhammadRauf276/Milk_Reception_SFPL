@@ -128,8 +128,8 @@ export async function getOrAssignPlantQATests(
   // Sort by display order
   testsToAssign.sort((a, b) => a.displayOrder - b.displayOrder || a.testName.localeCompare(b.testName));
 
-  // Atomically persist snapshot
-  for (const t of testsToAssign) {
+  // Atomically persist snapshot using batch insert
+  const plantRows = testsToAssign.map((t) => {
     const defaultOptions = t.resultOptions || (
       t.resultType === 'OK_NOT_OK'
         ? [{ value: 'OK', label: 'OK', isPassing: true }, { value: 'NOT_OK', label: 'Not OK', isPassing: false }]
@@ -138,28 +138,25 @@ export async function getOrAssignPlantQATests(
         : null
     );
 
-    await db.labTestAssignment.upsert({
-      where: {
-        visit_id_workflow_test_id: {
-          visit_id: visitId,
-          workflow: 'PLANT_QA',
-          test_id: t.id,
-        },
-      },
-      update: {},
-      create: {
-        visit_id: visitId,
-        workflow: 'PLANT_QA',
-        test_id: t.id,
-        test_code_snapshot: t.testCode,
-        test_name_snapshot: t.testName,
-        result_type_snapshot: t.resultType,
-        unit_snapshot: t.unit,
-        test_scope_snapshot: t.testScope,
-        is_required_snapshot: t.isRequired,
-        display_order_snapshot: t.displayOrder,
-        result_options_snapshot: defaultOptions != null ? toJsonInput(defaultOptions) : undefined,
-      },
+    return {
+      visit_id: visitId,
+      workflow: 'PLANT_QA',
+      test_id: t.id,
+      test_code_snapshot: t.testCode,
+      test_name_snapshot: t.testName,
+      result_type_snapshot: t.resultType,
+      unit_snapshot: t.unit,
+      test_scope_snapshot: t.testScope,
+      is_required_snapshot: t.isRequired,
+      display_order_snapshot: t.displayOrder,
+      result_options_snapshot: defaultOptions != null ? toJsonInput(defaultOptions) : undefined,
+    };
+  });
+
+  if (plantRows.length > 0) {
+    await db.labTestAssignment.createMany({
+      data: plantRows,
+      skipDuplicates: true,
     });
   }
 
@@ -214,8 +211,8 @@ export async function getOrAssignDispatchTests(
   // Sort by display order
   testsToAssign.sort((a, b) => a.displayOrder - b.displayOrder || a.testName.localeCompare(b.testName));
 
-  // Atomically persist snapshot
-  for (const t of testsToAssign) {
+  // Atomically persist snapshot using batch insert
+  const assignmentRows = testsToAssign.map((t) => {
     const defaultOptions = t.resultOptions || (
       t.resultType === 'OK_NOT_OK'
         ? [{ value: 'OK', label: 'OK', isPassing: true }, { value: 'NOT_OK', label: 'Not OK', isPassing: false }]
@@ -224,28 +221,25 @@ export async function getOrAssignDispatchTests(
         : null
     );
 
-    await db.labTestAssignment.upsert({
-      where: {
-        visit_id_workflow_test_id: {
-          visit_id: visitId,
-          workflow: 'DISPATCH',
-          test_id: t.id,
-        },
-      },
-      update: {},
-      create: {
-        visit_id: visitId,
-        workflow: 'DISPATCH',
-        test_id: t.id,
-        test_code_snapshot: t.testCode,
-        test_name_snapshot: t.testName,
-        result_type_snapshot: t.resultType,
-        unit_snapshot: t.unit,
-        test_scope_snapshot: t.testScope,
-        is_required_snapshot: t.isRequired,
-        display_order_snapshot: t.displayOrder,
-        result_options_snapshot: defaultOptions != null ? toJsonInput(defaultOptions) : undefined,
-      },
+    return {
+      visit_id: visitId,
+      workflow: 'DISPATCH',
+      test_id: t.id,
+      test_code_snapshot: t.testCode,
+      test_name_snapshot: t.testName,
+      result_type_snapshot: t.resultType,
+      unit_snapshot: t.unit,
+      test_scope_snapshot: t.testScope,
+      is_required_snapshot: t.isRequired,
+      display_order_snapshot: t.displayOrder,
+      result_options_snapshot: defaultOptions != null ? toJsonInput(defaultOptions) : undefined,
+    };
+  });
+
+  if (assignmentRows.length > 0) {
+    await db.labTestAssignment.createMany({
+      data: assignmentRows,
+      skipDuplicates: true,
     });
   }
 

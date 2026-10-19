@@ -10,6 +10,7 @@ import { MotOperationsWorkspace, MotWorkspaceTab } from '@/frontend/modules/mot/
 import { ZmccArrivalsWorkspace, MainTab as ArrivalsTab } from '@/frontend/modules/zmcc/arrivals/ZmccArrivalsWorkspace';
 import { PageLoader } from '@/components/ui/spinner';
 import { PageTransition } from '@/components/motion/page-transition';
+import { isZmccFieldOfficer } from '@core/roles/hierarchy';
 
 function PheContent() {
   const router = useRouter();
@@ -31,7 +32,7 @@ function PheContent() {
           }
           const user = data.user;
           if (
-            user.role !== 'PHE_OPERATOR' ||
+            !isZmccFieldOfficer(user.role) ||
             user.is_active === false ||
             !user.procurement_source_id ||
             !user.procurement_source ||
@@ -75,9 +76,10 @@ function PheContent() {
   const { resolvedArrivalsTab, resolvedMasterDataTab, resolvedMotTab } = useMemo(() => {
     if (section === 'suppliers') {
       const isShop = rawView === 'shop-details';
+      const isApprovals = rawView === 'approvals';
       return {
         resolvedArrivalsTab: 'MOT_ARRIVAL' as ArrivalsTab,
-        resolvedMasterDataTab: (isShop ? 'SHOPS' : 'LOCAL_SUPPLIERS') as MasterDataTab,
+        resolvedMasterDataTab: (isApprovals ? 'APPROVALS' : isShop ? 'SHOPS' : 'LOCAL_SUPPLIERS') as MasterDataTab,
         resolvedMotTab: 'DISPATCH' as MotWorkspaceTab,
       };
     }
@@ -92,6 +94,8 @@ function PheContent() {
         motTab = 'JOURNEY_MAP';
       } else if (rawView === 'sms') {
         motTab = 'SMS_OUTBOX';
+      } else if (rawView === 'approvals') {
+        motTab = 'APPROVALS';
       }
       return {
         resolvedArrivalsTab: 'MOT_ARRIVAL' as ArrivalsTab,
@@ -115,6 +119,14 @@ function PheContent() {
       resolvedMotTab: 'DISPATCH' as MotWorkspaceTab,
     };
   }, [section, rawView]);
+
+  // MDO uses the PHE station with the same tools as PHE (phase 1).
+  // The shared workspaces still check for 'PHE_OPERATOR', so they get a PHE view of the user.
+  // Header and menu keep the real user so the real role name is shown.
+  const workspaceUser = useMemo<User | null>(
+    () => (currentUser && currentUser.role === 'MDO' ? { ...currentUser, role: 'PHE_OPERATOR' } : currentUser),
+    [currentUser]
+  );
 
   if (loading) {
     return (
@@ -153,7 +165,7 @@ function PheContent() {
           <PageTransition>
           {section === 'arrivals' && (
             <ZmccArrivalsWorkspace
-              currentUser={currentUser}
+              currentUser={workspaceUser}
               activeTab={resolvedArrivalsTab}
               hideTabBar={true}
               onTabChange={(tab) => {
@@ -170,7 +182,7 @@ function PheContent() {
 
           {section === 'suppliers' && (
             <ZmccMasterDataWorkspace
-              currentUser={currentUser}
+              currentUser={workspaceUser}
               activeTab={resolvedMasterDataTab}
               hideTabBar={true}
               onTabChange={(tab) => {
@@ -185,7 +197,7 @@ function PheContent() {
 
           {section === 'mot' && (
             <MotOperationsWorkspace
-              currentUser={currentUser}
+              currentUser={workspaceUser}
               activeTab={resolvedMotTab}
               hideTabBar={true}
               onTabChange={(tab) => {

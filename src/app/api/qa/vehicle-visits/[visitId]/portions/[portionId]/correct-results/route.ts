@@ -40,10 +40,10 @@ export async function POST(
     },
   });
 
-  const allowedRoles = ['QA_MANAGER', 'SUPER_ADMIN'];
+  const allowedRoles = ['DATA_EXECUTIVE', 'SUPER_ADMIN'];
   if (!dbUser || !allowedRoles.includes(dbUser.role)) {
     return NextResponse.json(
-      { error: 'Unauthorized. QA Manager or Super Admin role required for QA measurement corrections.' },
+      { error: 'Unauthorized. Data Executive or Super Admin role required for QA measurement corrections.' },
       { status: 403 }
     );
   }

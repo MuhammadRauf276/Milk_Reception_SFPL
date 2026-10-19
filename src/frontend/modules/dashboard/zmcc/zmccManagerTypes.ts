@@ -5,7 +5,8 @@ export type ZMCCManagerTab =
   | 'LIVE'
   | 'RECONCILIATION'
   | 'HISTORY'
-  | 'MASTER_DATA';
+  | 'MASTER_DATA'
+  | 'APPROVALS';
 
 export type OverviewDateRange = 'TODAY' | 'YESTERDAY' | 'LAST_7' | 'LAST_15' | 'ALL';
 

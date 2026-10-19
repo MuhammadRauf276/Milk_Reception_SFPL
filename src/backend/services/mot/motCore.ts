@@ -15,6 +15,7 @@ import {
 import type { SourceRef, UserRef } from '@/backend/core/serializable';
 import { getCurrentUser } from '@core/auth';
 import { User, Role } from '@core/types';
+import { isZmccFieldOfficer } from '@core/roles/hierarchy';
 import { getPakistanCalendarDate } from '@core/business-day';
 import { validatePhone, validateCnic } from '../zmccMasterDataService';
 import { computeCanonicalMilkMetrics, formatCollectionSmsMessage } from '@backend/utils/milkFormulas';
@@ -37,6 +38,7 @@ export interface MotAuthContext {
   actorUserId: bigint;
   role: Role;
   isSuperAdmin: boolean;
+  isDataExecutive: boolean;
   isZmccManager: boolean;
   isPheOperator: boolean;
   isMot: boolean;
@@ -47,6 +49,7 @@ export type MotAction =
   | 'READ'
   | 'WRITE_PROFILE'
   | 'WRITE_VEHICLE'
+  | 'TRANSFER_VEHICLE'
   | 'ASSIGN_DISPATCH'
   | 'CANCEL_JOURNEY'
   | 'READ_CURRENT_JOURNEY'
@@ -55,7 +58,8 @@ export type MotAction =
   | 'READ_MAP'
   | 'READ_SMS_OUTBOX'
   | 'READ_COLLECTIONS'
-  | 'CORRECT_COLLECTION';
+  | 'CORRECT_COLLECTION'
+  | 'SKIP_STOP';
 
 export interface ServiceResult<T> {
   status: number;
@@ -94,8 +98,10 @@ export async function resolveMotAuth(
 
   const role = dbUser.role as Role;
   const isSuperAdmin = role === 'SUPER_ADMIN';
+  const isDataExecutive = role === 'DATA_EXECUTIVE';
   const isZmccManager = role === 'ZMCC_MANAGER';
-  const isPheOperator = role === 'PHE_OPERATOR';
+  // PHE_OPERATOR or MDO: MDO has the same PHE station rights until phase 4.
+  const isPheOperator = isZmccFieldOfficer(role);
   const isMot = role === 'MOT';
 
   // Role validation based on required action
@@ -120,7 +126,7 @@ export async function resolveMotAuth(
     }
   } else if (action === 'READ_MAP' || action === 'READ_SMS_OUTBOX') {
     // Management tracking and SMS view
-    if (!isSuperAdmin && !isZmccManager && !isPheOperator) {
+    if (!isSuperAdmin && !isZmccManager && !isPheOperator && !isDataExecutive) {
       return {
         errorResponse: {
           error: 'Forbidden. Access restricted to management roles.',
@@ -129,9 +135,9 @@ export async function resolveMotAuth(
       };
     }
   } else if (action === 'READ_COLLECTIONS') {
-    // Exact canonical authorization: SUPER_ADMIN, ZMCC_MANAGER, PHE_OPERATOR, MOT
+    // Exact canonical authorization: SUPER_ADMIN, DATA_EXECUTIVE, ZMCC_MANAGER, PHE_OPERATOR, MOT
     // Every other role (or legacy role) returns 403
-    if (!isSuperAdmin && !isZmccManager && !isPheOperator && !isMot) {
+    if (!isSuperAdmin && !isZmccManager && !isPheOperator && !isMot && !isDataExecutive) {
       return {
         errorResponse: {
           error: 'Forbidden. Role not permitted to read journey collections.',
@@ -140,17 +146,35 @@ export async function resolveMotAuth(
       };
     }
   } else if (action === 'CORRECT_COLLECTION') {
-    if (!isSuperAdmin && !isZmccManager) {
+    if (!isSuperAdmin && !isDataExecutive) {
       return {
         errorResponse: {
-          error: 'Forbidden. Only ZMCC Manager or Super Admin may correct collections.',
+          error: 'Forbidden. Only Data Executive or Super Admin may correct collections.',
+          status: 403,
+        },
+      };
+    }
+  } else if (action === 'TRANSFER_VEHICLE') {
+    if (!isSuperAdmin && !isDataExecutive) {
+      return {
+        errorResponse: {
+          error: 'Forbidden. Cross-ZMCC vehicle transfer is restricted to Super Admin and Data Executive.',
+          status: 403,
+        },
+      };
+    }
+  } else if (action === 'SKIP_STOP') {
+    if (!isMot && !isSuperAdmin && !isZmccManager) {
+      return {
+        errorResponse: {
+          error: 'Forbidden. Only MOT operators or ZMCC Managers may skip journey stops.',
           status: 403,
         },
       };
     }
   } else {
     // Normal MOT management / dispatch actions
-    if (!isSuperAdmin && !isZmccManager && !isPheOperator) {
+    if (!isSuperAdmin && !isZmccManager && !isPheOperator && !isDataExecutive) {
       return {
         errorResponse: {
           error: 'Forbidden. You do not have permission to access MOT Operations.',
@@ -162,7 +186,7 @@ export async function resolveMotAuth(
 
   // Validate source assignment for scoped roles (ZMCC_MANAGER, PHE_OPERATOR, MOT)
   let effectiveZmccId: bigint | null = null;
-  if (!isSuperAdmin) {
+  if (!isSuperAdmin && !isDataExecutive) {
     if (!dbUser.procurement_source_id || !dbUser.procurement_source) {
       return {
         errorResponse: {
@@ -236,6 +260,7 @@ export async function resolveMotAuth(
       actorUserId,
       role,
       isSuperAdmin,
+      isDataExecutive,
       isZmccManager,
       isPheOperator,
       isMot,
@@ -254,7 +279,7 @@ export async function listMotProfiles(
 ) {
   const where: Prisma.MotProfileWhereInput = {};
 
-  if (auth.isSuperAdmin) {
+  if (auth.isSuperAdmin || auth.isDataExecutive) {
     if (filters?.zmcc_id) {
       where.zmcc_id = BigInt(filters.zmcc_id);
     }
@@ -831,7 +856,7 @@ export async function listMotVehicles(
 ) {
   const where: Prisma.MotVehicleWhereInput = {};
 
-  if (auth.isSuperAdmin) {
+  if (auth.isSuperAdmin || auth.isDataExecutive) {
     if (filters?.zmcc_id) {
       where.zmcc_id = BigInt(filters.zmcc_id);
     }
@@ -1216,6 +1241,143 @@ export async function updateMotVehicle(
   };
 }
 
+export async function transferMotVehicle(
+  auth: MotAuthContext,
+  vehicleId: string,
+  targetZmccId: string
+): Promise<ServiceResult<Record<string, unknown>>> {
+  // Authorize strictly for SUPER_ADMIN and DATA_EXECUTIVE.
+  // Reject ZMCC_MANAGER, PHE_OPERATOR, and all other non-central roles with 403 Forbidden.
+  if (auth.role !== 'SUPER_ADMIN' && auth.role !== 'DATA_EXECUTIVE') {
+    return {
+      status: 403,
+      error: 'Forbidden. Cross-ZMCC vehicle transfer is restricted to Super Admin and Data Executive.',
+    };
+  }
+
+  let id: bigint;
+  try {
+    id = BigInt(vehicleId);
+  } catch {
+    return { status: 400, error: 'Invalid MOT Vehicle ID format.' };
+  }
+
+  let targetId: bigint;
+  try {
+    targetId = BigInt(targetZmccId);
+  } catch {
+    return { status: 400, error: 'Invalid target ZMCC ID format.' };
+  }
+
+  const existing = await prisma.motVehicle.findUnique({
+    where: { id },
+    include: {
+      zmcc: { select: { id: true, code: true, name: true, is_active: true } },
+      journeys: {
+        where: { status: 'COLLECTING' },
+        select: { id: true, journey_number: true },
+      },
+    },
+  });
+
+  if (!existing) {
+    return { status: 404, error: 'MOT Vehicle not found.' };
+  }
+
+  if (existing.zmcc_id === targetId) {
+    return { status: 400, error: 'Vehicle is already assigned to the target ZMCC.' };
+  }
+
+  const targetZmcc = await prisma.procurementSource.findUnique({
+    where: { id: targetId },
+  });
+  if (!targetZmcc || !targetZmcc.is_active || targetZmcc.source_type !== 'ZMCC') {
+    return { status: 400, error: 'Target ZMCC does not exist or is inactive.' };
+  }
+
+  // Check that vehicle has no active journey in COLLECTING status
+  if (existing.journeys.length > 0) {
+    return {
+      status: 409,
+      error: `Cannot transfer MOT Vehicle '${existing.vehicle_number}': active COLLECTING journey #${existing.journeys[0].journey_number} is currently in progress.`,
+    };
+  }
+
+  // Check that vehicle has no un-exited ZMCC arrival
+  const insideZmccArrival = await prisma.zmccMotArrival.findFirst({
+    where: {
+      journey: { mot_vehicle_id: id },
+      gate_exit_required: true,
+      exit_timestamp: null,
+    },
+    include: {
+      journey: true,
+    },
+  });
+  if (insideZmccArrival) {
+    return {
+      status: 409,
+      error: `Cannot transfer MOT Vehicle '${existing.vehicle_number}': vehicle is physically inside ZMCC (Arrival Token: ${insideZmccArrival.zmcc_token}). Gate exit must be recorded before transferring.`,
+    };
+  }
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const v = await tx.motVehicle.update({
+      where: { id },
+      data: {
+        zmcc_id: targetId,
+        updated_by: auth.actorUserId,
+      },
+      include: {
+        zmcc: { select: { id: true, code: true, name: true, is_active: true } },
+        creator: { select: { id: true, username: true, full_name: true } },
+        updater: { select: { id: true, username: true, full_name: true } },
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        table_name: 'mot_vehicle',
+        record_id: v.id,
+        action: 'MOT_VEHICLE_TRANSFERRED',
+        old_values: {
+          zmcc_id: existing.zmcc_id.toString(),
+          zmcc_code: existing.zmcc?.code,
+          zmcc_name: existing.zmcc?.name,
+        },
+        new_values: {
+          zmcc_id: v.zmcc_id.toString(),
+          zmcc_code: targetZmcc.code,
+          zmcc_name: targetZmcc.name,
+        },
+        user_id: auth.actorUserId,
+      },
+    });
+
+    return v;
+  });
+
+  return {
+    status: 200,
+    data: {
+      id: updated.id.toString(),
+      vehicle_number: updated.vehicle_number,
+      zmcc_id: updated.zmcc_id.toString(),
+      zmcc: {
+        id: updated.zmcc.id.toString(),
+        code: updated.zmcc.code,
+        name: updated.zmcc.name,
+        is_active: updated.zmcc.is_active,
+      },
+      is_active: updated.is_active,
+      updated_by: updated.updated_by ? updated.updated_by.toString() : null,
+      updater_name: updated.updater ? updated.updater.full_name || updated.updater.username : null,
+      created_at: updated.created_at.toISOString(),
+      updated_at: updated.updated_at.toISOString(),
+    },
+  };
+}
+
 // =============================================================
 // ASSIGN & DISPATCH (ATOMIC JOURNEY CREATION)
 // =============================================================
@@ -1224,7 +1386,8 @@ export interface AssignAndDispatchPayload {
   zmcc_id?: string;
   route_id: string;
   mot_profile_id: string;
-  mot_vehicle_id: string;
+  mot_vehicle_id?: string;
+  vehicle_number?: string;
   operational_date?: string;
   latitude: number;
   longitude: number;
@@ -1305,17 +1468,81 @@ export async function assignAndDispatchJourney(
     }
   }
 
-  // 6. Parse and validate IDs
+  // 6. Parse and validate IDs & vehicle resolution
   let routeId: bigint;
   let profileId: bigint;
-  let vehicleId: bigint;
   try {
     routeId = BigInt(payload.route_id);
     profileId = BigInt(payload.mot_profile_id);
-    vehicleId = BigInt(payload.mot_vehicle_id);
   } catch {
-    return { status: 400, error: 'Invalid ID format for Route, MOT Profile, or Vehicle.' };
+    return { status: 400, error: 'Invalid ID format for Route or Mobile Tester Profile.' };
   }
+
+  const rawVehicle = (payload.vehicle_number || payload.mot_vehicle_id || '').trim();
+  if (!rawVehicle) {
+    return { status: 400, error: 'Vehicle ID or vehicle number is required for dispatch.' };
+  }
+
+  // Support either vehicle ID or vehicle number string
+  let vehicle = null;
+  try {
+    const parsedId = BigInt(rawVehicle);
+    vehicle = await prisma.motVehicle.findUnique({
+      where: { id: parsedId },
+    });
+  } catch {
+    // Not a numeric ID, search by vehicle number
+  }
+
+  const vNumberUpper = rawVehicle.toUpperCase();
+  if (!vehicle) {
+    vehicle = await prisma.motVehicle.findUnique({
+      where: { vehicle_number: vNumberUpper },
+    });
+  }
+
+  // If a vehicle number is provided and does not exist in MotVehicle for that ZMCC, auto-create it with is_active: true and created_by: auth.actorUserId
+  if (!vehicle) {
+    // Permission checks: PHE Operator is permitted to auto-create vehicles for their assigned ZMCC during dispatch
+    if (auth.isPheOperator && auth.effectiveZmccId !== targetZmccId) {
+      return { status: 403, error: 'Forbidden. PHE Operators can only register vehicles for their assigned ZMCC.' };
+    }
+
+    vehicle = await prisma.$transaction(async (tx) => {
+      const v = await tx.motVehicle.create({
+        data: {
+          vehicle_number: vNumberUpper,
+          zmcc_id: targetZmccId,
+          is_active: true,
+          created_by: auth.actorUserId,
+        },
+        include: {
+          zmcc: { select: { id: true, code: true, name: true, is_active: true } },
+          creator: { select: { id: true, username: true, full_name: true } },
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          table_name: 'mot_vehicle',
+          record_id: v.id,
+          action: 'MOT_VEHICLE_AUTO_CREATED_ON_DISPATCH',
+          old_values: Prisma.DbNull,
+          new_values: {
+            vehicle_number: v.vehicle_number,
+            zmcc_id: v.zmcc_id.toString(),
+            is_active: v.is_active,
+            dispatched_by: auth.actorUserId.toString(),
+          },
+          user_id: auth.actorUserId,
+        },
+      });
+
+      return v;
+    });
+  }
+
+  const vehicleId = vehicle.id;
 
   // Helpers for idempotent journey lookup and validation
   const findFullJourneyByIdempotencyKey = async (key: string) => {
@@ -1419,17 +1646,11 @@ export async function assignAndDispatchJourney(
   }
 
   // 10. Verify MOT Vehicle: must belong to same ZMCC, must be active
-  const vehicle = await prisma.motVehicle.findUnique({
-    where: { id: vehicleId },
-  });
-  if (!vehicle) {
-    return { status: 404, error: 'Selected MOT Vehicle not found.' };
-  }
   if (vehicle.zmcc_id !== targetZmccId) {
-    return { status: 400, error: 'Selected MOT Vehicle does not belong to the target ZMCC.' };
+    return { status: 400, error: `Selected MOT Vehicle '${vehicle.vehicle_number}' does not belong to the target ZMCC.` };
   }
   if (!vehicle.is_active) {
-    return { status: 400, error: 'Selected MOT Vehicle is inactive.' };
+    return { status: 400, error: `Selected MOT Vehicle '${vehicle.vehicle_number}' is inactive.` };
   }
 
   // 11. Check active COLLECTING journeys for profile and vehicle
@@ -1960,6 +2181,7 @@ export async function getMotJourneyById(
       stops: {
         include: {
           shop: { select: { id: true, shop_code: true, shop_name: true, owner_name: true, phone_number: true } },
+          collection: true,
         },
         orderBy: { planned_sequence: 'asc' },
       },
@@ -2042,10 +2264,42 @@ export async function getCurrentMotJourney(auth: MotAuthContext): Promise<Servic
 /** A collection plus its SMS outbox row when included. */
 export type SerializableCollection = MotShopCollection & { sms_outbox?: MotCollectionSmsOutbox | null };
 
-type SerializableStop = MotJourneyStop & {
+export type SerializableStop = MotJourneyStop & {
   shop?: Partial<Pick<ZmccShop, 'shop_code' | 'shop_name' | 'owner_name' | 'phone_number'>> | null;
   collection?: SerializableCollection | null;
 };
+
+export function serializeJourneyStop(s: SerializableStop) {
+  return {
+    id: s.id.toString(),
+    journey_id: s.journey_id.toString(),
+    shop_id: s.shop_id.toString(),
+    planned_sequence: s.planned_sequence,
+    status: s.status,
+    shop_code_snapshot: s.shop_code_snapshot || s.shop?.shop_code || '',
+    shop_name_snapshot: s.shop_name_snapshot || s.shop?.shop_name || '',
+    owner_name_snapshot: s.owner_name_snapshot || s.shop?.owner_name || '',
+    phone_number_snapshot: s.phone_number_snapshot || s.shop?.phone_number || '',
+    area_code_snapshot: s.area_code_snapshot || '',
+    area_name_snapshot: s.area_name_snapshot || '',
+    planned_latitude_snapshot: s.planned_latitude_snapshot != null ? Number(s.planned_latitude_snapshot) : null,
+    planned_longitude_snapshot: s.planned_longitude_snapshot != null ? Number(s.planned_longitude_snapshot) : null,
+    arrived_at: s.arrived_at ? (s.arrived_at instanceof Date ? s.arrived_at.toISOString() : String(s.arrived_at)) : null,
+    completed_at: s.completed_at ? (s.completed_at instanceof Date ? s.completed_at.toISOString() : String(s.completed_at)) : null,
+    skipped_at: s.skipped_at ? (s.skipped_at instanceof Date ? s.skipped_at.toISOString() : String(s.skipped_at)) : null,
+    skip_reason: s.skip_reason,
+    // Built from snapshot data for historical preservation (no mutable shop dependency)
+    shop: {
+      id: s.shop_id.toString(),
+      shop_code: s.shop_code_snapshot || s.shop?.shop_code || '',
+      shop_name: s.shop_name_snapshot || s.shop?.shop_name || '',
+      owner_name: s.owner_name_snapshot || s.shop?.owner_name || '',
+      phone_number: s.phone_number_snapshot || s.shop?.phone_number || '',
+      contact_number: s.phone_number_snapshot || s.shop?.phone_number || '',
+    },
+    collection: s.collection ? serializeCollection(s.collection) : null,
+  };
+}
 
 /** A journey plus whichever relations the query included (all optional). */
 export type SerializableJourney = MotJourney & {
@@ -2117,35 +2371,7 @@ export function serializeJourney(j: SerializableJourney) {
     cancelled_by_name: j.canceller ? j.canceller.full_name || j.canceller.username : null,
     cancelled_at: j.cancelled_at ? j.cancelled_at.toISOString() : null,
     cancellation_reason: j.cancellation_reason,
-    stops: (j.stops || []).map((s) => ({
-      id: s.id.toString(),
-      journey_id: s.journey_id.toString(),
-      shop_id: s.shop_id.toString(),
-      planned_sequence: s.planned_sequence,
-      status: s.status,
-      shop_code_snapshot: s.shop_code_snapshot || s.shop?.shop_code || '',
-      shop_name_snapshot: s.shop_name_snapshot || s.shop?.shop_name || '',
-      owner_name_snapshot: s.owner_name_snapshot || s.shop?.owner_name || '',
-      phone_number_snapshot: s.phone_number_snapshot || s.shop?.phone_number || '',
-      area_code_snapshot: s.area_code_snapshot || '',
-      area_name_snapshot: s.area_name_snapshot || '',
-      planned_latitude_snapshot: s.planned_latitude_snapshot != null ? Number(s.planned_latitude_snapshot) : null,
-      planned_longitude_snapshot: s.planned_longitude_snapshot != null ? Number(s.planned_longitude_snapshot) : null,
-      arrived_at: s.arrived_at ? s.arrived_at.toISOString() : null,
-      completed_at: s.completed_at ? s.completed_at.toISOString() : null,
-      skipped_at: s.skipped_at ? s.skipped_at.toISOString() : null,
-      skip_reason: s.skip_reason,
-      // Built from snapshot data for historical preservation (no mutable shop dependency)
-      shop: {
-        id: s.shop_id.toString(),
-        shop_code: s.shop_code_snapshot || s.shop?.shop_code || '',
-        shop_name: s.shop_name_snapshot || s.shop?.shop_name || '',
-        owner_name: s.owner_name_snapshot || s.shop?.owner_name || '',
-        phone_number: s.phone_number_snapshot || s.shop?.phone_number || '',
-        contact_number: s.phone_number_snapshot || s.shop?.phone_number || '',
-      },
-      collection: s.collection ? serializeCollection(s.collection) : null,
-    })),
+    stops: (j.stops || []).map(serializeJourneyStop),
     locations: (j.locations || []).map((l) => ({
       id: l.id.toString(),
       journey_id: l.journey_id.toString(),
@@ -2197,6 +2423,9 @@ export function serializeCollection(c: SerializableCollection) {
     collection_notes: c.collection_notes || null,
     notes: c.collection_notes || null,
     shop_rmr_number: c.shop_rmr_number || null,
+    milk_source_id: c.milk_source_id ? c.milk_source_id.toString() : null,
+    milk_source_code_snapshot: c.milk_source_code_snapshot || null,
+    milk_source_name_snapshot: c.milk_source_name_snapshot || null,
     identifiers: paperLinkedIdentity(
       { entity: 'mot_shop_collection', id: c.id.toString(), number: c.collection_number },
       [{ type: 'SHOP_RMR', value: c.shop_rmr_number || null }]
@@ -2234,6 +2463,7 @@ export interface SubmitCollectionPayload {
   collection_notes?: string | null;
   notes?: string | null;
   shop_rmr_number?: string | null;
+  milk_source_id?: string | number | bigint | null;
   request_exception?: boolean;
   requestException?: boolean;
   exception_reason?: string | null;
@@ -2451,6 +2681,7 @@ export async function submitShopCollection(
         },
       },
       collection: true,
+      shop: true,
     },
   });
 
@@ -2663,6 +2894,39 @@ export async function submitShopCollection(
         );
       }
 
+      // Resolve Dynamic Milk Source & snapshot
+      let selectedMilkSourceId: bigint | null = null;
+      let milkSourceCodeSnapshot: string | null = null;
+      let milkSourceNameSnapshot: string | null = null;
+
+      if (payload.milk_source_id) {
+        const msId = BigInt(payload.milk_source_id);
+        const source = await tx.zmccMilkSource.findUnique({
+          where: { id: msId },
+          include: {
+            visibilities: {
+              where: { zmcc_id: stop.journey.zmcc_id, is_active: true },
+            },
+          },
+        });
+        if (source && (source.visibilities.length > 0 || source.zmcc_id === stop.journey.zmcc_id)) {
+          selectedMilkSourceId = source.id;
+          milkSourceCodeSnapshot = source.erp_code;
+          milkSourceNameSnapshot = source.name;
+        }
+      }
+
+      if (!selectedMilkSourceId && stop.shop.milk_source_id) {
+        const defaultSource = await tx.zmccMilkSource.findUnique({
+          where: { id: stop.shop.milk_source_id },
+        });
+        if (defaultSource) {
+          selectedMilkSourceId = defaultSource.id;
+          milkSourceCodeSnapshot = defaultSource.erp_code;
+          milkSourceNameSnapshot = defaultSource.name;
+        }
+      }
+
       // Create MotShopCollection
       const collection = await tx.motShopCollection.create({
         data: {
@@ -2693,6 +2957,9 @@ export async function submitShopCollection(
           device_collected_at: deviceCollectedAt,
           server_received_at: now,
           submitted_by_user_id: auth.actorUserId,
+          milk_source_id: selectedMilkSourceId,
+          milk_source_code_snapshot: milkSourceCodeSnapshot,
+          milk_source_name_snapshot: milkSourceNameSnapshot,
           collection_notes: notes
             ? (qualityFailed && requestException ? `${notes} | Exception: ${exceptionReason}` : notes)
             : (qualityFailed && requestException ? `Exception: ${exceptionReason}` : null),
@@ -2819,13 +3086,48 @@ export async function submitShopCollection(
         },
       });
 
+      // First-Visit Auto-Geotagging
+      const shopToGeotag = await tx.zmccShop.findUnique({
+        where: { id: stop.shop_id },
+        select: { id: true, latitude: true, longitude: true, geotag_status: true },
+      });
+      if (shopToGeotag && (shopToGeotag.latitude == null || shopToGeotag.geotag_status === 'PENDING_FIRST_VISIT')) {
+        await tx.zmccShop.update({
+          where: { id: shopToGeotag.id },
+          data: {
+            latitude: new Prisma.Decimal(lat.toFixed(7)),
+            longitude: new Prisma.Decimal(lng.toFixed(7)),
+            geotag_status: 'VERIFIED',
+            updated_by: auth.actorUserId,
+          },
+        });
+        await tx.auditLog.create({
+          data: {
+            table_name: 'zmcc_shop',
+            record_id: shopToGeotag.id,
+            action: 'SHOP_AUTO_GEOTAGGED_ON_FIRST_VISIT',
+            old_values: {
+              latitude: shopToGeotag.latitude ? Number(shopToGeotag.latitude) : null,
+              longitude: shopToGeotag.longitude ? Number(shopToGeotag.longitude) : null,
+              geotag_status: shopToGeotag.geotag_status,
+            },
+            new_values: {
+              latitude: lat,
+              longitude: lng,
+              geotag_status: 'VERIFIED',
+            },
+            user_id: auth.actorUserId,
+          },
+        });
+      }
+
       if (qualityFailed && requestException) {
         await createNotificationsForEvent(tx, {
           eventKey: 'MOT_SHOP_EXCEPTION_PENDING',
           sourceId: collection.id.toString(),
           sourceZmccId: stop.journey.zmcc_id,
           title: 'MOT shop quality exception requested',
-          body: `Shop ${stop.shop_name_snapshot} (${stop.shop_code_snapshot}) milk quality out of spec (${failureReasons.join(', ')}). Reason: ${exceptionReason}`,
+          body: `Shop ${stop.shop_name_snapshot} (${stop.shop_code_snapshot}) milk quality failed (${failureReasons.join(', ')}). Reason: ${exceptionReason}`,
           deepLink: `/mpd/zmcc-manager?tab=RECONCILIATION&journeyId=${stop.journey_id.toString()}`,
           dedupeSuffix: `${collection.id}:${clientEventId}`,
         });
@@ -3525,6 +3827,7 @@ export interface CorrectShopCollectionPayload {
   quantity_unit?: 'LITER' | 'KG' | string;
   lr?: number;
   fat?: number;
+  milk_source_id?: string | number | bigint | null;
   notes?: string | null;
   reason: string;
 }
@@ -3567,15 +3870,15 @@ export async function correctShopCollection(
     return { status: 404, error: 'Shop collection not found.' };
   }
 
-  // ZMCC Scoping: ZMCC Manager can only correct their own ZMCC
-  if (!auth.isSuperAdmin && collection.zmcc_id !== auth.effectiveZmccId!) {
+  // ZMCC Scoping: Scoped users can only correct their own ZMCC
+  if (!auth.isSuperAdmin && !auth.isDataExecutive && collection.zmcc_id !== auth.effectiveZmccId!) {
     return { status: 403, error: 'Forbidden. Collection belongs to another ZMCC.' };
   }
 
-  if (!auth.isSuperAdmin && (collection.manager_correction_count ?? 0) >= 5) {
+  if (!auth.isSuperAdmin && !auth.isDataExecutive && (collection.manager_correction_count ?? 0) >= 5) {
     return {
       status: 400,
-      error: 'Maximum correction limit (5) reached for ZMCC Manager.',
+      error: 'Maximum correction limit (5) reached.',
     };
   }
 
@@ -3715,6 +4018,28 @@ export async function correctShopCollection(
       if (isNotesChanged) {
         updateData.collection_notes = newNotes;
       }
+      if (payload.milk_source_id !== undefined) {
+        if (payload.milk_source_id) {
+          const msId = BigInt(payload.milk_source_id);
+          const source = await tx.zmccMilkSource.findUnique({
+            where: { id: msId },
+            include: {
+              visibilities: {
+                where: { zmcc_id: collection.zmcc_id, is_active: true },
+              },
+            },
+          });
+          if (source && (source.visibilities.length > 0 || source.zmcc_id === collection.zmcc_id)) {
+            updateData.milk_source_id = source.id;
+            updateData.milk_source_code_snapshot = source.erp_code;
+            updateData.milk_source_name_snapshot = source.name;
+          }
+        } else {
+          updateData.milk_source_id = null;
+          updateData.milk_source_code_snapshot = null;
+          updateData.milk_source_name_snapshot = null;
+        }
+      }
 
       const updated = await tx.motShopCollection.update({
         where: { id: collection.id },
@@ -3794,6 +4119,126 @@ export async function correctShopCollection(
       return { status: 404, error: 'Shop collection not found.' };
     }
     return { status: 500, error: getErrorMessage(err) || 'Failed to correct shop collection.' };
+  }
+}
+
+/**
+ * Authoritatively skip a planned journey stop with a mandatory reason.
+ * Validates stop belongs to an active COLLECTING journey in the caller's ZMCC.
+ * Updates stop status to SKIPPED, records skipped_at, and writes an AuditLog entry.
+ */
+export async function skipJourneyStop(
+  auth: MotAuthContext,
+  stopId: string | bigint,
+  skipReason: string
+): Promise<ServiceResult<Record<string, unknown>>> {
+  let parsedStopId: bigint;
+  try {
+    parsedStopId = BigInt(String(stopId).trim());
+  } catch {
+    return { status: 400, error: 'Invalid journey stop ID format.' };
+  }
+
+  const cleanReason = (skipReason || '').trim();
+  if (!cleanReason) {
+    return { status: 400, error: 'A valid skip reason is required.' };
+  }
+
+  const stop = await prisma.motJourneyStop.findUnique({
+    where: { id: parsedStopId },
+    include: {
+      journey: true,
+      collection: true,
+      shop: { select: { id: true, shop_code: true, shop_name: true, owner_name: true, phone_number: true } },
+    },
+  });
+
+  if (!stop) {
+    return { status: 404, error: 'Journey stop not found.' };
+  }
+
+  // Validates journey belongs to the caller's ZMCC
+  if (!auth.isSuperAdmin && auth.effectiveZmccId && stop.journey.zmcc_id !== auth.effectiveZmccId) {
+    return { status: 403, error: 'Forbidden. Journey does not belong to your ZMCC.' };
+  }
+
+  // If MOT user, also verify profile matches the journey
+  if (auth.isMot && !auth.isSuperAdmin) {
+    const linkedProfile = await prisma.motProfile.findFirst({
+      where: {
+        user_id: auth.actorUserId,
+        is_active: true,
+        zmcc_id: auth.effectiveZmccId!,
+      },
+    });
+    if (!linkedProfile || stop.journey.mot_profile_id !== linkedProfile.id) {
+      return { status: 403, error: 'Forbidden. Journey does not belong to your MOT profile.' };
+    }
+  }
+
+  // Validates that the journey is in COLLECTING status
+  if (stop.journey.status !== 'COLLECTING') {
+    return {
+      status: 400,
+      error: `Cannot skip stop for journey in '${stop.journey.status}' status. Only active COLLECTING journeys allow skipping stops.`,
+    };
+  }
+
+  // Validates stop not already collected
+  if (stop.collection || stop.status === 'VISITED' || stop.status === 'COMPLETED') {
+    return {
+      status: 400,
+      error: 'Stop has already been collected and cannot be skipped.',
+    };
+  }
+
+  // Idempotency: if already skipped with same reason
+  if (stop.status === 'SKIPPED' && stop.skip_reason === cleanReason) {
+    return { status: 200, data: serializeJourneyStop(stop) };
+  }
+
+  const now = new Date();
+
+  try {
+    const updated = await prisma.$transaction(async (tx) => {
+      const updatedStop = await tx.motJourneyStop.update({
+        where: { id: parsedStopId },
+        data: {
+          status: 'SKIPPED',
+          skipped_at: now,
+          skip_reason: cleanReason,
+        },
+        include: {
+          shop: { select: { id: true, shop_code: true, shop_name: true, owner_name: true, phone_number: true } },
+          collection: true,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          table_name: 'mot_journey_stop',
+          record_id: parsedStopId,
+          action: 'MOT_JOURNEY_STOP_SKIPPED',
+          old_values: toJsonInput({
+            status: stop.status,
+            skipped_at: stop.skipped_at ? stop.skipped_at.toISOString() : null,
+            skip_reason: stop.skip_reason,
+          }),
+          new_values: toJsonInput({
+            status: 'SKIPPED',
+            skipped_at: now.toISOString(),
+            skip_reason: cleanReason,
+          }),
+          user_id: auth.actorUserId,
+        },
+      });
+
+      return updatedStop;
+    });
+
+    return { status: 200, data: serializeJourneyStop(updated) };
+  } catch (err) {
+    return { status: 500, error: getErrorMessage(err) || 'Failed to skip journey stop.' };
   }
 }
 

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Download, RefreshCw, ShieldAlert, WifiOff } from 'lucide-react';
+import { Download, ShieldAlert, WifiOff, Loader2 } from 'lucide-react';
 import { useIsClient, useOnlineStatus } from '@/frontend/hooks/useOnlineStatus';
 
 function fromBase64Url(value: string): Uint8Array<ArrayBuffer> {
@@ -129,7 +129,7 @@ export function PwaShell() {
     banners.push({
       id: 'sync',
       tone: 'border-blue-200 bg-blue-50 text-blue-900',
-      icon: <RefreshCw className="h-4 w-4 animate-spin text-blue-600" />,
+      icon: <Loader2 className="h-4 w-4 animate-spin text-blue-600" />,
       message: 'Synchronizing saved offline work…',
     });
   }

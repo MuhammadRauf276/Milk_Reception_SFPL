@@ -21,6 +21,7 @@ import type { RetrievalMode } from '@backend/services/operationalReadModelServic
 import { ZmccMasterDataWorkspace, type MasterDataTab } from '@/frontend/modules/zmcc/ZmccMasterDataWorkspace';
 import { ZmccArrivalsWorkspace } from '@/frontend/modules/zmcc/arrivals/ZmccArrivalsWorkspace';
 import { ZmccLabWorkspace } from '@/frontend/modules/zmcc/lab/ZmccLabWorkspace';
+import { PendingApprovalsPanel } from '@/frontend/modules/zmcc/approvals/PendingApprovalsPanel';
 import { AnimatePresence } from 'framer-motion';
 import { PageTransition } from '@/components/motion/page-transition';
 import { getErrorMessage } from '@/lib/errors';
@@ -35,8 +36,8 @@ type ManagerHistoryView =
   | 'ARRIVAL_CORRECTIONS'
   | 'LAB_CORRECTIONS';
 
-const MANAGER_TABS: readonly ZMCCManagerTab[] = ['OVERVIEW', 'LIVE', 'RECONCILIATION', 'HISTORY', 'MASTER_DATA'];
-const HISTORY_VIEWS: readonly ManagerHistoryView[] = ['PLANT_HISTORY', 'ARRIVAL_CORRECTIONS', 'LAB_CORRECTIONS'];
+const MANAGER_TABS: readonly ZMCCManagerTab[] = ['OVERVIEW', 'LIVE', 'RECONCILIATION', 'HISTORY', 'MASTER_DATA', 'APPROVALS'];
+const HISTORY_VIEWS: readonly ManagerHistoryView[] = ['PLANT_HISTORY', 'QUALITY_REJECTIONS', 'ARRIVAL_CORRECTIONS', 'LAB_CORRECTIONS'];
 
 function parseManagerTab(raw: string | null | undefined): ZMCCManagerTab | null {
   const value = raw?.toUpperCase();
@@ -139,7 +140,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
 
   const { sectionTitle, subpageTitle } = useMemo(() => {
     if (activeTab === 'OVERVIEW') return { sectionTitle: 'Overview', subpageTitle: null };
-    if (activeTab === 'LIVE') return { sectionTitle: 'Live Operations', subpageTitle: null };
+    if (activeTab === 'LIVE') return { sectionTitle: 'Operations', subpageTitle: null };
     if (activeTab === 'RECONCILIATION') return { sectionTitle: 'Reconciliation', subpageTitle: null };
     if (activeTab === 'HISTORY') {
       const hTitle =
@@ -147,6 +148,8 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
           ? 'Arrival Corrections'
           : historyView === 'LAB_CORRECTIONS'
           ? 'Lab Corrections'
+          : historyView === 'QUALITY_REJECTIONS'
+          ? 'Quality & Rejections Review'
           : 'Plant History';
       return { sectionTitle: 'History & Reports', subpageTitle: hTitle };
     }
@@ -393,7 +396,6 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
 
   return (
     <div className="w-full max-w-full flex flex-col h-screen bg-background text-foreground overflow-hidden">
-      {/* Header with Hamburger Trigger */}
       <Header
         currentUser={currentUser}
         title={subpageTitle ? `${sectionTitle} · ${subpageTitle}` : sectionTitle}
@@ -404,7 +406,6 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
         menuButtonRef={hamburgerButtonRef}
       />
 
-      {/* Accessible Hierarchical Navigation Drawer */}
       <HierarchicalNavDrawer
         currentUser={currentUser}
         isOpen={isDrawerOpen}
@@ -412,10 +413,8 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
         triggerButtonRef={hamburgerButtonRef}
       />
 
-      {/* Main Content Area */}
       <main className="flex-1 p-3 sm:p-6 overflow-y-auto space-y-5 sm:space-y-6 w-full max-w-full">
         <PageTransition>
-        {/* TAB 1: OVERVIEW */}
         {activeTab === 'OVERVIEW' && (
           <div id="tabpanel-OVERVIEW" role="tabpanel" aria-labelledby="tab-OVERVIEW" className="space-y-6 animate-panel-in">
             <ZMCCManagerOverview
@@ -452,7 +451,6 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
           </div>
         )}
 
-        {/* TAB 2: LIVE OPERATIONS */}
         {activeTab === 'LIVE' && (
           <div id="tabpanel-LIVE" role="tabpanel" aria-labelledby="tab-LIVE" className="space-y-6 animate-panel-in">
             <ZMCCManagerLiveDispatches
@@ -466,7 +464,6 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
           </div>
         )}
 
-        {/* TAB 3: RECONCILIATION */}
         {activeTab === 'RECONCILIATION' && (
           <div id="tabpanel-RECONCILIATION" role="tabpanel" aria-labelledby="tab-RECONCILIATION" className="space-y-6 animate-panel-in">
             <ZMCCManagerReconciliation
@@ -487,57 +484,8 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
           </div>
         )}
 
-        {/* TAB 4: HISTORY & REPORTS */}
         {activeTab === 'HISTORY' && (
           <div id="tabpanel-HISTORY" role="tabpanel" aria-labelledby="tab-HISTORY" className="space-y-6 animate-panel-in">
-            {/* Secondary Sub-Navigation for History View */}
-            <div className="flex items-center gap-2 p-1.5 bg-card border border-border rounded-xl shadow-2xs w-fit">
-              <button
-                type="button"
-                onClick={() => setHistoryView('PLANT_HISTORY')}
-                className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                  historyView === 'PLANT_HISTORY'
-                    ? 'bg-primary text-white shadow-2xs'
-                    : 'text-slate-700 hover:bg-muted'
-                }`}
-              >
-                Plant / Dispatch History
-              </button>
-              <button
-                type="button"
-                onClick={() => setHistoryView('QUALITY_REJECTIONS')}
-                className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                  historyView === 'QUALITY_REJECTIONS'
-                    ? 'bg-primary text-white shadow-2xs'
-                    : 'text-slate-700 hover:bg-muted'
-                }`}
-              >
-                Quality & Rejections Review
-              </button>
-              <button
-                type="button"
-                onClick={() => setHistoryView('ARRIVAL_CORRECTIONS')}
-                className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                  historyView === 'ARRIVAL_CORRECTIONS'
-                    ? 'bg-primary text-white shadow-2xs'
-                    : 'text-slate-700 hover:bg-muted'
-                }`}
-              >
-                Arrival Corrections
-              </button>
-              <button
-                type="button"
-                onClick={() => setHistoryView('LAB_CORRECTIONS')}
-                className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                  historyView === 'LAB_CORRECTIONS'
-                    ? 'bg-primary text-white shadow-2xs'
-                    : 'text-slate-700 hover:bg-muted'
-                }`}
-              >
-                Lab Corrections
-              </button>
-            </div>
-
             {historyView === 'PLANT_HISTORY' && (
               <div className="space-y-6">
                 <ZMCCManagerHistoryReports
@@ -585,7 +533,6 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
           </div>
         )}
 
-        {/* TAB 5: MASTER DATA */}
         {activeTab === 'MASTER_DATA' && (
           <div id="tabpanel-MASTER_DATA" role="tabpanel" aria-labelledby="tab-MASTER_DATA" className="space-y-6 animate-panel-in">
             <ZmccMasterDataWorkspace
@@ -597,7 +544,16 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
           </div>
         )}
 
-          {/* Detail Inspection Modal */}
+        {activeTab === 'APPROVALS' && (
+          <div id="tabpanel-APPROVALS" role="tabpanel" aria-labelledby="tab-APPROVALS" className="space-y-6 animate-panel-in">
+            <PendingApprovalsPanel
+              currentUser={currentUser}
+              showRoutes={true}
+              showShops={true}
+            />
+          </div>
+        )}
+
           <AnimatePresence>
             {selectedLog && (
               <ZMCCManagerVisitDetailModal

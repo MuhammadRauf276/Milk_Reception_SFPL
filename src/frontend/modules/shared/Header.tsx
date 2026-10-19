@@ -37,7 +37,7 @@ export const Header: React.FC<HeaderProps> = ({
     null;
 
   return (
-    <header className="sticky top-0 z-header flex h-14 w-full max-w-full shrink-0 items-center gap-3 border-b bg-card/95 px-3 backdrop-blur-sm supports-backdrop-filter:bg-card/80 sm:px-6">
+    <header className="sticky top-0 z-header flex h-16 w-full max-w-full shrink-0 items-center gap-3 border-b bg-card/95 px-3 backdrop-blur-sm supports-backdrop-filter:bg-card/80 sm:px-6">
       {shouldShowMenu && (
         <Button
           ref={menuButtonRef}

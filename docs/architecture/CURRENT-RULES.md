@@ -275,8 +275,8 @@ This document records the authoritative business rules approved for the Milk Rec
   1. `MOT_SHOP`: Tests for milk collected by MOT drivers at village shops.
   2. `ZMCC_LAB_MOT`: Tests evaluated at ZMCC Lab for MOT milk arrivals.
   3. `ZMCC_LAB_CONTRACTOR`: Tests evaluated at ZMCC Lab for Contractor milk arrivals.
-  4. `DISPATCH`: Tests evaluated at dispatch time before departing for factory.
-  5. `PLANT_QA`: Tests evaluated at factory QA reception laboratory.
+  4. `DISPATCH`: Tests evaluated at dispatch time before departing for Plant.
+  5. `PLANT_QA`: Tests evaluated at Plant QA reception laboratory.
 - **Uniqueness**: Unique constraint on `[lab_test_id, testing_point]`.
 - **Independent Policy Properties**: Each policy assignment owns its own `is_required`, `display_order`, and `is_active`. Changing policy does not mutate `LabTest.isRequired` or `LabTest.testScope`.
 - **Soft-Deactivation Only**: `is_active = false`. Physical row deletion is not permitted in normal policy API.
@@ -320,7 +320,7 @@ SUPER ADMIN (SUPER_ADMIN)
 |    +-- Contractor Manager (CONTRACTOR_MANAGER)
 |          |
 |          +-- Contractor Operator (CONTRACTOR_OPERATOR)
-|              Example dummy fixture: Wasim Sahib
+|              Role fixture: Contractor Operator (Al Khair)
 |
 +-- Admin Head (ADMIN_HEAD)
 |    |
@@ -352,7 +352,7 @@ SUPER ADMIN (SUPER_ADMIN)
 - **PHE Operator (`PHE_OPERATOR`)**: Role Home is `/phe`.
 - **MOT (`MOT`)**: Role Home is `/mot`.
 - **Contractor Operator (`CONTRACTOR_OPERATOR`)**: Operational role at contractor source performing dispatch prep/testing.
-  - Fixture: `Wasim Sahib` (`contractor.operator.alkhair`), bound to `CONT-ALKHAIR`. Restricted to assigned Contractor source. Role Home is `/workspace-unavailable` for now (until dedicated workspace is built).
+  - Fixture: `Contractor Operator (Al Khair)` (`contractor.operator.alkhair`), bound to `CONT-ALKHAIR`. Restricted to assigned Contractor source. Role Home is `/workspace-unavailable` for now (until dedicated workspace is built).
 - **QA Lab Attendant (`QA_LAB_ATTENDANT`)**: Operational role performing Plant laboratory testing (`PLANT_QA` testing point only). Role Home is `/department/qa`.
 - **Security Operator (`SECURITY_OPERATOR`)**: Plant security gate execution. Role Home is `/department/security`.
 - **Weighbridge Operator (`WEIGHBRIDGE_OPERATOR`)**: Plant weighbridge scale recording. Role Home is `/department/weighbridge`.

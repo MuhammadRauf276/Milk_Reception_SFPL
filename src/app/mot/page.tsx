@@ -8,7 +8,6 @@ import { HierarchicalNavDrawer } from '@modules/shared/navigation/HierarchicalNa
 import {
   Truck,
   Store,
-  RotateCw,
   AlertCircle,
   Navigation,
   Wifi,
@@ -16,6 +15,14 @@ import {
   Save,
   Send,
   X,
+  Search,
+  Plus,
+  CheckCircle2,
+  MessageSquare,
+  AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
 } from 'lucide-react';
 import {
   saveCachedJourney,
@@ -29,6 +36,13 @@ import {
   queueGpsLocation,
   getUnsyncedSummary,
   syncAll,
+  markStopSkippedInCachedJourney,
+  queueStopSkip,
+  queueShopRequest,
+  syncPendingShopRequests,
+  cacheAvailableSources,
+  getCachedAvailableSources,
+  type CachedAvailableSource,
 } from '@/frontend/modules/mot/offlineStore';
 import { computeCanonicalMilkMetrics } from '@/backend/utils/milkFormulas';
 import { PageLoader } from '@/components/ui/spinner';
@@ -37,6 +51,9 @@ import { Modal } from '@/components/ui/modal';
 import { AnimatePresence } from 'framer-motion';
 import { getErrorMessage } from '@/lib/errors';
 import { useOnlineStatus } from '@/frontend/hooks/useOnlineStatus';
+import { acquireRobustGps } from '@/lib/gps';
+import { getFixAgeLabel, shouldRecordPoint, type TrackedPoint } from '@/lib/gpsTracker';
+import { LiveCameraCapture } from '@/components/camera/LiveCameraCapture';
 
 interface StopDetail {
   id: string;
@@ -48,6 +65,14 @@ interface StopDetail {
   phone_number?: string;
   area_code?: string;
   area_name?: string;
+  planned_latitude_snapshot?: number | null;
+  planned_longitude_snapshot?: number | null;
+  planned_latitude?: number | null;
+  planned_longitude?: number | null;
+  skipped_at?: string | null;
+  skip_reason?: string | null;
+  distanceKm?: number | null;
+  hasCoordinates?: boolean;
   shop?: {
     id: string;
     shop_code: string;
@@ -67,10 +92,33 @@ interface StopDetail {
   } | null;
 }
 
+function computeHaversineDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function formatDistance(distKm: number): string {
+  if (distKm < 1) {
+    const meters = Math.round(distKm * 1000);
+    return `${meters}m away`;
+  }
+  return `${distKm.toFixed(1)}km away`;
+}
+
 interface CurrentJourney {
   id: string;
   journey_number: string;
   operational_date: string;
+  zmcc?: { id: string; code?: string; name?: string } | null;
   route: { id: string; route_code: string; name: string } | null;
   mot_vehicle: { id: string; vehicle_number: string } | null;
   status: string;
@@ -86,11 +134,19 @@ function toCurrentJourney(cached: CachedJourney): CurrentJourney {
     journey_number: cached.journey_number,
     operational_date: cached.operational_date,
     status: cached.status,
+    zmcc: cached.zmcc ?? null,
     route: cached.route ?? null,
     mot_vehicle: cached.mot_vehicle ?? null,
     assigned_by_name: null,
     assigned_at: cached.cached_at,
-    stops: cached.stops.map((stop) => ({ ...stop, collection: stop.collection ?? null })),
+    stops: cached.stops.map((stop) => ({
+      ...stop,
+      collection: stop.collection ?? null,
+      planned_latitude_snapshot: stop.planned_latitude_snapshot ?? stop.planned_latitude ?? null,
+      planned_longitude_snapshot: stop.planned_longitude_snapshot ?? stop.planned_longitude ?? null,
+      skipped_at: stop.skipped_at ?? null,
+      skip_reason: stop.skip_reason ?? null,
+    })),
   };
 }
 
@@ -145,7 +201,7 @@ async function resolveCurrentJourney(): Promise<{ journey?: CurrentJourney | nul
   }
 }
 
-export default function MotDriverPage() {
+export default function MotPage() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loadingUser, setLoadingUser] = useState(true);
@@ -167,10 +223,22 @@ export default function MotDriverPage() {
   // Collection Modal States
   const [activeStop, setActiveStop] = useState<StopDetail | null>(null);
   const [shopRmrNumber, setShopRmrNumber] = useState<string>('');
+  const [availableSources, setAvailableSources] = useState<CachedAvailableSource[]>([]);
+  const [selectedSourceId, setSelectedSourceId] = useState<string>('');
+  const [showRequestErpModal, setShowRequestErpModal] = useState<boolean>(false);
+  const [requestErpForm, setRequestErpForm] = useState({
+    proposedName: '',
+    proposedCode: '',
+    notes: '',
+  });
+  const [requestErpSubmitting, setRequestErpSubmitting] = useState(false);
+  const [requestErpFeedback, setRequestErpFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [quantity, setQuantity] = useState<string>('');
   const [unit, setUnit] = useState<'LITER' | 'KG'>('LITER');
   const [lr, setLr] = useState<string>('');
   const [fat, setFat] = useState<string>('');
+  const [lrPhotoUrl, setLrPhotoUrl] = useState<string | null>(null);
+  const [fatPhotoUrl, setFatPhotoUrl] = useState<string | null>(null);
   const [notes, setNotes] = useState<string>('');
   const [requestException, setRequestException] = useState<boolean>(false);
   const [exceptionReason, setExceptionReason] = useState<string>('');
@@ -178,10 +246,80 @@ export default function MotDriverPage() {
     latitude: number | null;
     longitude: number | null;
     accuracy: number | null;
-    status: 'ACQUIRING' | 'CAPTURED' | 'UNAVAILABLE';
+    status: 'ACQUIRING' | 'CAPTURED' | 'APPROXIMATE' | 'UNAVAILABLE';
   }>({ latitude: null, longitude: null, accuracy: null, status: 'ACQUIRING' });
   const [formError, setFormError] = useState<string | null>(null);
   const [submittingCollection, setSubmittingCollection] = useState(false);
+
+  // Skip Modal States
+  const [skipModalStop, setSkipModalStop] = useState<StopDetail | null>(null);
+  const [skipReason, setSkipReason] = useState<string>('');
+  const [skipError, setSkipError] = useState<string | null>(null);
+  const [submittingSkip, setSubmittingSkip] = useState(false);
+
+  // Stops Pagination (Max 6 per screen)
+  const [stopsPage, setStopsPage] = useState<number>(1);
+  const stopsPerPage = 6;
+
+  // Shop Request Modal State
+  const [isShopRequestModalOpen, setIsShopRequestModalOpen] = useState(false);
+  const [shopRequestForm, setShopRequestForm] = useState({
+    shop_name: '',
+    owner_name: '',
+    phone_number: '',
+    cnic: '',
+  });
+  const [submittingShopRequest, setSubmittingShopRequest] = useState(false);
+  const [shopRequestError, setShopRequestError] = useState<string | null>(null);
+  const [shopRequestSuccess, setShopRequestSuccess] = useState<string | null>(null);
+
+  // Immediate Post-Collection WhatsApp Receipt Modal
+  const [completedReceiptModal, setCompletedReceiptModal] = useState<{
+    shopName: string;
+    phone: string;
+    whatsappUrl: string;
+    grossLiters: number;
+    at13tsLiters: number;
+    lr: number;
+    fat: number;
+  } | null>(null);
+
+  // Device GPS State for Distance Calculation & Auto-Sort
+  const [deviceGps, setDeviceGps] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [lastFixAt, setLastFixAt] = useState<number | null>(null);
+  const [gpsClock, setGpsClock] = useState<number>(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setGpsClock(Date.now()), 15000);
+    return () => clearInterval(t);
+  }, []);
+  const gpsFixAgeMs = lastFixAt === null ? null : Math.max(0, gpsClock - lastFixAt);
+  const gpsBadge = (
+    <span
+      className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+        gpsFixAgeMs !== null && gpsFixAgeMs <= 5 * 60 * 1000
+          ? 'bg-emerald-100 text-emerald-800'
+          : 'bg-slate-200 text-slate-500'
+      }`}
+    >
+      GPS: {gpsFixAgeMs === null ? 'Waiting' : getFixAgeLabel(gpsFixAgeMs)}
+    </span>
+  );
+
+  // Searchable Shop Selector State
+  const [shopSearchQuery, setShopSearchQuery] = useState('');
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const searchDropdownRef = useRef<HTMLDivElement | null>(null);
+
+  // Close search dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchDropdownRef.current && !searchDropdownRef.current.contains(e.target as Node)) {
+        setIsSearchOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Refresh unsynced count
   const refreshUnsynced = useCallback(
@@ -205,7 +343,7 @@ export default function MotDriverPage() {
     setSyncFeedback(null);
     try {
       const result = await syncAll();
-      const totalSynced = result.collections.synced + result.gps.synced;
+      const totalSynced = result.collections.synced + result.gps.synced + (result.skips?.synced || 0);
       if (totalSynced > 0) {
         setSyncFeedback(`Successfully synced ${totalSynced} pending item(s).`);
       }
@@ -217,6 +355,121 @@ export default function MotDriverPage() {
       setSyncing(false);
     }
   }, [syncing, refreshUnsynced]);
+
+  const handleOpenSkipModal = (stop: StopDetail) => {
+    setSkipModalStop(stop);
+    setSkipReason('');
+    setSkipError(null);
+  };
+
+  const handleConfirmSkip = async () => {
+    if (!skipModalStop || !journey) return;
+    const cleanReason = skipReason.trim();
+    if (!cleanReason) {
+      setSkipError('Please enter a reason for skipping this shop.');
+      return;
+    }
+
+    setSubmittingSkip(true);
+    setSkipError(null);
+
+    try {
+      const stopId = skipModalStop.id;
+      const nowIso = new Date().toISOString();
+
+      // 1. Update in-memory state
+      setJourney((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          stops: prev.stops.map((s) =>
+            s.id === stopId
+              ? { ...s, status: 'SKIPPED', skipped_at: nowIso, skip_reason: cleanReason }
+              : s
+          ),
+        };
+      });
+
+      // 2. Save locally in IndexedDB active_journey (100% offline support)
+      await markStopSkippedInCachedJourney(stopId, cleanReason);
+
+      // 3. Queue skip event to be synced via the new skip API route
+      await queueStopSkip({
+        stop_id: stopId,
+        journey_id: journey.id,
+        skip_reason: cleanReason,
+      });
+
+      await refreshUnsynced();
+
+      // 4. If online, trigger sync immediately
+      if (navigator.onLine) {
+        triggerSync();
+      }
+
+      setSkipModalStop(null);
+      setSkipReason('');
+    } catch (err) {
+      setSkipError(getErrorMessage(err) || 'Failed to skip shop.');
+    } finally {
+      setSubmittingSkip(false);
+    }
+  };
+
+  const handleSubmitShopRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!shopRequestForm.shop_name.trim()) {
+      setShopRequestError('Shop name is required.');
+      return;
+    }
+    if (!shopRequestForm.owner_name.trim()) {
+      setShopRequestError('Owner name is required.');
+      return;
+    }
+    if (!shopRequestForm.phone_number.trim()) {
+      setShopRequestError('Phone number is required.');
+      return;
+    }
+    if (!shopRequestForm.cnic.trim()) {
+      setShopRequestError('CNIC is required.');
+      return;
+    }
+
+    setSubmittingShopRequest(true);
+    setShopRequestError(null);
+
+    try {
+      await queueShopRequest({
+        shop_name: shopRequestForm.shop_name.trim(),
+        owner_name: shopRequestForm.owner_name.trim(),
+        phone_number: shopRequestForm.phone_number.trim(),
+        cnic: shopRequestForm.cnic.trim(),
+        route_id: journey?.route?.id,
+        latitude: deviceGps?.latitude ?? null,
+        longitude: deviceGps?.longitude ?? null,
+      });
+
+      if (typeof navigator !== 'undefined' && navigator.onLine) {
+        syncPendingShopRequests().catch(() => {});
+      }
+
+      setShopRequestSuccess('Shop request queued successfully. It will be added to your journey once approved.');
+      setShopRequestForm({
+        shop_name: '',
+        owner_name: '',
+        phone_number: '',
+        cnic: '',
+      });
+      setTimeout(() => {
+        setIsShopRequestModalOpen(false);
+        setShopRequestSuccess(null);
+      }, 1500);
+    } catch (err) {
+      setShopRequestError(getErrorMessage(err) || 'Failed to submit shop request.');
+    } finally {
+      setSubmittingShopRequest(false);
+    }
+  };
 
   // Sync as soon as connectivity returns
   useEffect(() => {
@@ -237,36 +490,76 @@ export default function MotDriverPage() {
     return () => clearInterval(interval);
   }, [triggerSync]);
 
-  // Periodic GPS recording (every 60s when journey is active)
+  // One GPS stream: proximity sorting always, route recording while COLLECTING.
+  const journeyIdForGps = journey?.id ?? null;
+  const isCollectingForGps = journey?.status === 'COLLECTING';
+  const lastSavedPointRef = useRef<TrackedPoint | null>(null);
+  const lastSavedJourneyRef = useRef<string | null>(null);
+  const latestFixRef = useRef<TrackedPoint | null>(null);
+  const refreshUnsyncedRef = useRef(refreshUnsynced);
+  const triggerSyncRef = useRef(triggerSync);
   useEffect(() => {
-    if (!journey || journey.status !== 'COLLECTING') return;
+    refreshUnsyncedRef.current = refreshUnsynced;
+    triggerSyncRef.current = triggerSync;
+  }, [refreshUnsynced, triggerSync]);
 
-    const interval = setInterval(() => {
-      if ('geolocation' in navigator && journey?.id) {
-        navigator.geolocation.getCurrentPosition(
-          async (pos) => {
-            await queueGpsLocation({
-              journey_id: journey.id,
-              latitude: pos.coords.latitude,
-              longitude: pos.coords.longitude,
-              gps_accuracy: pos.coords.accuracy,
-              device_recorded_at: new Date().toISOString(),
-            });
-            refreshUnsynced();
-            if (navigator.onLine) {
-              triggerSync();
-            }
-          },
-          () => {
-            // Geolocation error ignored for background queue
-          },
-          { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
-        );
-      }
-    }, 60000);
+  useEffect(() => {
+    if (typeof window === 'undefined' || !navigator.geolocation) return;
 
-    return () => clearInterval(interval);
-  }, [journey, refreshUnsynced, triggerSync]);
+    const journeyKey = journeyIdForGps === null ? null : String(journeyIdForGps);
+    if (lastSavedJourneyRef.current !== journeyKey) {
+      lastSavedJourneyRef.current = journeyKey;
+      lastSavedPointRef.current = null;
+    }
+
+    const onPosition = (pos: GeolocationPosition) => {
+      const point: TrackedPoint = {
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude,
+        accuracy: pos.coords.accuracy,
+        timestamp: pos.timestamp,
+        speed: pos.coords.speed,
+        heading: pos.coords.heading,
+      };
+      latestFixRef.current = point;
+      setDeviceGps({ latitude: point.latitude, longitude: point.longitude });
+      setLastFixAt(pos.timestamp);
+
+      if (!isCollectingForGps || !journeyIdForGps) return;
+
+      const decision = shouldRecordPoint(lastSavedPointRef.current, point, Date.now());
+      if (!decision.record) return;
+      lastSavedPointRef.current = point;
+
+      void (async () => {
+        try {
+          await queueGpsLocation({
+            journey_id: journeyIdForGps,
+            latitude: point.latitude,
+            longitude: point.longitude,
+            gps_accuracy: point.accuracy,
+            device_recorded_at: new Date(point.timestamp).toISOString(),
+          });
+          refreshUnsyncedRef.current();
+          if (navigator.onLine) {
+            void triggerSyncRef.current();
+          }
+        } catch {
+          // Geolocation/queue error ignored for background queue
+        }
+      })();
+    };
+
+    const watchId = navigator.geolocation.watchPosition(onPosition, () => {}, {
+      enableHighAccuracy: true,
+      maximumAge: 0,
+      timeout: 20000,
+    });
+
+    return () => {
+      navigator.geolocation.clearWatch(watchId);
+    };
+  }, [isCollectingForGps, journeyIdForGps]);
 
   // Authenticate and guard
   useEffect(() => {
@@ -323,40 +616,67 @@ export default function MotDriverPage() {
     }
   }, [currentUser, loadCurrentJourney]);
 
+  // Refresh available ERP milk sources from server or offline cache
+  const refreshAvailableSources = useCallback(async (zmccId?: string) => {
+    const zId = zmccId || journey?.zmcc?.id || currentUser?.procurement_source?.id;
+    if (!zId) return;
+    try {
+      const res = await fetch(`/api/sources/available?zmcc_id=${zId}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.sources && Array.isArray(data.sources)) {
+          setAvailableSources(data.sources);
+          await cacheAvailableSources(data.sources);
+          return;
+        }
+      }
+    } catch {
+      // Offline fallback
+    }
+    const cached = await getCachedAvailableSources();
+    setAvailableSources(cached);
+  }, [journey?.zmcc?.id, currentUser?.procurement_source?.id]);
+
   // Handle open collection modal
   const handleOpenCollectionModal = async (stop: StopDetail) => {
     setActiveStop(stop);
     setFormError(null);
+    void refreshAvailableSources(journey?.zmcc?.id);
 
-    // Acquire GPS for collection event
+    // Acquire GPS for collection event with offline fallback
     setCollectionGps({ latitude: null, longitude: null, accuracy: null, status: 'ACQUIRING' });
-    if ('geolocation' in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
+    try {
+      const fix = latestFixRef.current;
+      if (fix && Date.now() - fix.timestamp <= 30_000 && fix.accuracy <= 100) {
+        setCollectionGps({
+          latitude: fix.latitude,
+          longitude: fix.longitude,
+          accuracy: fix.accuracy,
+          status: 'CAPTURED',
+        });
+      } else {
+        const res = await acquireRobustGps({
+          facilityCode: currentUser?.procurement_source?.code,
+          allowFacilityFallback: true,
+          maxCacheAgeMs: 30_000,
+        });
+
+        // Fallback (saved or facility position) is not a real fix: keep the coordinates
+        // (the server requires them, otherwise the collection can never sync) but label
+        // them APPROXIMATE so nobody mistakes them for a fresh GPS fix.
+        if (res.location) {
           setCollectionGps({
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-            accuracy: pos.coords.accuracy,
-            status: 'CAPTURED',
+            latitude: res.location.latitude,
+            longitude: res.location.longitude,
+            accuracy: res.location.accuracy,
+            status: res.status === 'SUCCESS' ? 'CAPTURED' : 'APPROXIMATE',
           });
-        },
-        () => {
-          setCollectionGps({
-            latitude: null,
-            longitude: null,
-            accuracy: null,
-            status: 'UNAVAILABLE',
-          });
-        },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 15000 }
-      );
-    } else {
-      setCollectionGps({
-        latitude: null,
-        longitude: null,
-        accuracy: null,
-        status: 'UNAVAILABLE',
-      });
+        } else {
+          setCollectionGps({ latitude: null, longitude: null, accuracy: null, status: 'UNAVAILABLE' });
+        }
+      }
+    } catch {
+      setCollectionGps({ latitude: null, longitude: null, accuracy: null, status: 'UNAVAILABLE' });
     }
 
     // Reset exception states
@@ -368,6 +688,7 @@ export default function MotDriverPage() {
       const draft = await getDraft(stop.id);
       if (draft) {
         setShopRmrNumber(draft.shop_rmr_number || '');
+        setSelectedSourceId(draft.milk_source_id || '');
         setQuantity(draft.quantity || '');
         setUnit(draft.unit || 'LITER');
         setLr(draft.lr || '');
@@ -375,18 +696,24 @@ export default function MotDriverPage() {
         setNotes(draft.notes || '');
       } else {
         setShopRmrNumber('');
+        setSelectedSourceId('');
         setQuantity('');
         setUnit('LITER');
         setLr('');
         setFat('');
+        setLrPhotoUrl(null);
+        setFatPhotoUrl(null);
         setNotes('');
       }
     } catch {
       setShopRmrNumber('');
+      setSelectedSourceId('');
       setQuantity('');
       setUnit('LITER');
       setLr('');
       setFat('');
+      setLrPhotoUrl(null);
+      setFatPhotoUrl(null);
       setNotes('');
     }
   };
@@ -408,12 +735,51 @@ export default function MotDriverPage() {
     }
   }, [quantity, unit, lr, fat]);
 
+  // Handle Request ERP Code from Finance
+  const handleRequestErpSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const zId = journey?.zmcc?.id || currentUser?.procurement_source?.id;
+    if (!zId || !requestErpForm.proposedName.trim()) return;
+
+    setRequestErpSubmitting(true);
+    setRequestErpFeedback(null);
+    try {
+      const res = await fetch('/api/sources/requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          zmcc_id: zId,
+          proposed_name: requestErpForm.proposedName.trim(),
+          proposed_code: requestErpForm.proposedCode.trim() || undefined,
+          request_context: 'MOT_COLLECTION',
+          notes: requestErpForm.notes.trim() || undefined,
+        }),
+      });
+      if (res.ok) {
+        setRequestErpFeedback({ type: 'success', message: 'Request submitted to Finance.' });
+        setTimeout(() => {
+          setShowRequestErpModal(false);
+          setRequestErpForm({ proposedName: '', proposedCode: '', notes: '' });
+          setRequestErpFeedback(null);
+        }, 1500);
+      } else {
+        const d = await res.json();
+        setRequestErpFeedback({ type: 'error', message: d.error || 'Failed to submit request.' });
+      }
+    } catch {
+      setRequestErpFeedback({ type: 'error', message: 'Network error. Failed to submit request.' });
+    } finally {
+      setRequestErpSubmitting(false);
+    }
+  };
+
   // Save Draft Action
   const handleSaveDraft = async () => {
     if (!activeStop) return;
     try {
       await saveDraft(activeStop.id, {
         shop_rmr_number: shopRmrNumber.trim() || null,
+        milk_source_id: selectedSourceId || null,
         quantity,
         unit,
         lr,
@@ -470,6 +836,7 @@ export default function MotDriverPage() {
         journey_id: journey.id,
         stop_id: activeStop.id,
         shop_rmr_number: shopRmrNumber.trim() || null,
+        milk_source_id: selectedSourceId || null,
         quantity: qNum,
         unit,
         lr: lrNum,
@@ -508,6 +875,29 @@ export default function MotDriverPage() {
         };
       });
 
+      const shopDisplayName = activeStop.shop_name || activeStop.shop?.shop_name || 'Shop';
+      const rawPhone = activeStop.phone_number || activeStop.shop?.contact_number || '';
+      const digits = rawPhone.replace(/\D/g, '');
+      const intlPhone = digits
+        ? digits.startsWith('92')
+          ? digits
+          : digits.startsWith('0')
+            ? `92${digits.slice(1)}`
+            : `92${digits}`
+        : '';
+
+      const receiptMsg = `*SFPL Milk Collection Receipt*\nShop: ${shopDisplayName}\nJourney: #${journey.journey_number}\nVehicle: ${journey.mot_vehicle?.vehicle_number || 'SFPL-MOT'}\nGross: ${preview.grossLiters.toFixed(2)} L\nLR: ${lrNum.toFixed(1)} | Fat: ${fatNum.toFixed(1)}%\nSNF: ${preview.snf.toFixed(2)}% | Total Solids: ${preview.totalSolids.toFixed(2)}%\n@13TS: ${preview.at13TsLiters.toFixed(2)} L\nStatus: Verified\nTime: ${new Date().toLocaleTimeString()} PKT`;
+
+      setCompletedReceiptModal({
+        shopName: shopDisplayName,
+        phone: rawPhone,
+        whatsappUrl: intlPhone ? `https://wa.me/${intlPhone}?text=${encodeURIComponent(receiptMsg)}` : '',
+        grossLiters: preview.grossLiters,
+        at13tsLiters: preview.at13TsLiters,
+        lr: lrNum,
+        fat: fatNum,
+      });
+
       setActiveStop(null);
       await refreshUnsynced();
 
@@ -532,7 +922,7 @@ export default function MotDriverPage() {
 
   if (loadingUser) {
     return (
-      <PageLoader label="Loading MOT Driver Station…" className="min-h-screen" />
+      <PageLoader label="Loading MOT…" className="min-h-screen" />
     );
   }
 
@@ -540,17 +930,15 @@ export default function MotDriverPage() {
 
   return (
     <div className="w-full max-w-full flex flex-col h-screen bg-background text-foreground overflow-hidden">
-      {/* Header */}
       <Header
         currentUser={currentUser}
-        title="MOT Driver Station"
+        title="MOT"
         showBranding={true}
         showMenuButton={true}
         onMenuClick={openDrawer}
         menuButtonRef={hamburgerButtonRef}
       />
 
-      {/* Accessible Hierarchical Navigation Drawer */}
       <HierarchicalNavDrawer
         currentUser={currentUser}
         isOpen={isDrawerOpen}
@@ -559,10 +947,8 @@ export default function MotDriverPage() {
       />
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Main Content Area */}
         <main className="flex-1 overflow-y-auto p-3 sm:p-5 lg:p-6 w-full max-w-5xl mx-auto space-y-4">
           <PageTransition>
-          {/* Online/Offline Status & Sync Control Bar */}
           <div className="flex items-center justify-between gap-2 px-3 py-2 sm:px-4 sm:py-2.5 bg-white rounded-xl border border-border shadow-2xs">
             <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
               <span
@@ -608,16 +994,15 @@ export default function MotDriverPage() {
                 disabled={syncing || !isOnline}
                 className="min-h-[44px] px-3.5 py-2 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed shadow-2xs flex items-center space-x-1.5 focus:outline-hidden focus:ring-2 focus:ring-primary"
               >
-                <RotateCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
-                <span>{syncing ? 'Syncing...' : 'Sync Now'}</span>
+                <span>{syncing ? 'Syncing…' : 'Sync Now'}</span>
               </button>
             </div>
           </div>
 
           {loadingJourney ? (
             <div className="p-12 text-center text-xs font-semibold text-slate-500 bg-white rounded-xl border border-border">
-              <RotateCw className="w-5 h-5 animate-spin mx-auto mb-2 text-primary" />
-              Checking assigned route...
+              <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-primary" />
+              Checking assigned route…
             </div>
           ) : journeyError ? (
             <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs font-semibold flex items-center space-x-2">
@@ -637,7 +1022,8 @@ export default function MotDriverPage() {
           ) : (
             (() => {
               const visitedStops = journey.stops.filter((s) => s.status === 'VISITED');
-              const pendingStops = journey.stops.filter((s) => s.status !== 'VISITED');
+              const skippedStops = journey.stops.filter((s) => s.status === 'SKIPPED');
+              const pendingStops = journey.stops.filter((s) => s.status !== 'VISITED' && s.status !== 'SKIPPED');
               const nextPendingStop = pendingStops[0] || null;
               const totalGross = visitedStops.reduce(
                 (sum, s) => sum + (s.collection?.gross_liters || 0),
@@ -648,9 +1034,48 @@ export default function MotDriverPage() {
                 0
               );
 
+              const computedStops = journey.stops.map((s) => {
+                const lat = s.planned_latitude_snapshot ?? s.planned_latitude ?? null;
+                const lng = s.planned_longitude_snapshot ?? s.planned_longitude ?? null;
+                const hasCoordinates = lat != null && lng != null && !(Number(lat) === 0 && Number(lng) === 0);
+                const distanceKm =
+                  deviceGps && hasCoordinates
+                    ? computeHaversineDistanceKm(deviceGps.latitude, deviceGps.longitude, Number(lat), Number(lng))
+                    : null;
+                return {
+                  ...s,
+                  hasCoordinates,
+                  distanceKm,
+                };
+              });
+
+              const sortedStops = [...computedStops].sort((a, b) => {
+                if (a.distanceKm != null && b.distanceKm != null) {
+                  return a.distanceKm - b.distanceKm;
+                }
+                if (a.distanceKm != null && b.distanceKm == null) return -1;
+                if (a.distanceKm == null && b.distanceKm != null) return 1;
+                if (a.hasCoordinates && !b.hasCoordinates) return -1;
+                if (!a.hasCoordinates && b.hasCoordinates) return 1;
+                return a.planned_sequence - b.planned_sequence;
+              });
+
+              const totalStopsPages = Math.ceil(sortedStops.length / stopsPerPage) || 1;
+              const pagedStops = sortedStops.slice((stopsPage - 1) * stopsPerPage, stopsPage * stopsPerPage);
+
+              const matchingSearchStops = shopSearchQuery.trim()
+                ? journey.stops.filter((s) => {
+                    const q = shopSearchQuery.toLowerCase().trim();
+                    const sName = (s.shop_name || s.shop?.shop_name || '').toLowerCase();
+                    const sCode = (s.shop_code || s.shop?.shop_code || '').toLowerCase();
+                    const oName = (s.owner_name || s.shop?.owner_name || '').toLowerCase();
+                    const aName = (s.area_name || s.area_code || '').toLowerCase();
+                    return sName.includes(q) || sCode.includes(q) || oName.includes(q) || aName.includes(q);
+                  })
+                : journey.stops;
+
               return (
                 <div className="space-y-4">
-                  {/* Active Journey Hero Card */}
                   <div className="p-4 sm:p-5 bg-white rounded-xl border border-border shadow-2xs space-y-3">
                     <div className="flex items-center justify-between border-b border-border pb-3">
                       <div>
@@ -675,29 +1100,39 @@ export default function MotDriverPage() {
                       </div>
                     </div>
 
-                    {/* Operational Metrics Cards (Physical vs Commercial Truth) */}
-                    <div className="grid grid-cols-3 gap-2 sm:gap-3 text-center">
+                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-3 text-center">
                       <div className="p-2 sm:p-2.5 rounded-xl bg-subtle border border-border">
-                        <span className="text-[10px] font-semibold text-slate-500 uppercase block">Stops Done</span>
+                        <span className="text-[10px] font-semibold text-slate-500 uppercase block">Assigned</span>
                         <span className="font-semibold text-xs sm:text-sm text-slate-900 tabular-nums">
-                          {visitedStops.length} / {journey.stops.length}
+                          {journey.stops.length}
+                        </span>
+                      </div>
+                      <div className="p-2 sm:p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-300">
+                        <span className="text-[10px] font-semibold text-emerald-800 uppercase block">Collected</span>
+                        <span className="font-semibold text-xs sm:text-sm text-emerald-950 tabular-nums">
+                          {visitedStops.length}
+                        </span>
+                      </div>
+                      <div className="p-2 sm:p-2.5 rounded-xl bg-rose-50/70 border border-rose-300">
+                        <span className="text-[10px] font-semibold text-rose-800 uppercase block">Skipped</span>
+                        <span className="font-semibold text-xs sm:text-sm text-rose-950 tabular-nums">
+                          {skippedStops.length}
                         </span>
                       </div>
                       <div className="p-2 sm:p-2.5 rounded-xl bg-blue-50/70 border border-blue-200">
                         <span className="text-[10px] font-semibold text-blue-800 uppercase block">Physical</span>
                         <span className="font-semibold text-xs sm:text-sm text-blue-950 tabular-nums">
-                          {totalGross.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 })} L Gross
+                          {totalGross.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 })} L
                         </span>
                       </div>
                       <div className="p-2 sm:p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-300">
                         <span className="text-[10px] font-semibold text-emerald-800 uppercase block">Commercial</span>
                         <span className="font-semibold text-xs sm:text-sm text-emerald-950 tabular-nums">
-                          {totalAt13ts.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 })} L @13TS
+                          {totalAt13ts.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 })} L
                         </span>
                       </div>
                     </div>
 
-                    {/* Next Stop Highlight Callout */}
                     {nextPendingStop && (
                       <div className="mt-2 p-3 sm:p-3.5 bg-muted/70 border border-border rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                         <div className="flex items-center space-x-2.5">
@@ -714,89 +1149,256 @@ export default function MotDriverPage() {
                           </div>
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={() => handleOpenCollectionModal(nextPendingStop)}
-                          className="min-h-[44px] w-full sm:w-auto px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-xl font-semibold text-xs shadow-2xs transition flex items-center justify-center space-x-1.5 focus:outline-hidden focus:ring-2 focus:ring-primary"
-                        >
-                          <span>Record Collection</span>
-                        </button>
+                        <div className="flex items-center space-x-2 w-full sm:w-auto">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenSkipModal(nextPendingStop)}
+                            className="min-h-[44px] flex-1 sm:flex-none px-3.5 py-2 border border-rose-300 bg-rose-50/60 hover:bg-rose-100 text-rose-800 rounded-xl font-semibold text-xs shadow-2xs transition focus:outline-hidden focus:ring-2 focus:ring-rose-500"
+                          >
+                            Skip Shop
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenCollectionModal(nextPendingStop)}
+                            className="min-h-[44px] flex-1 sm:flex-none px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-xl font-semibold text-xs shadow-2xs transition flex items-center justify-center space-x-1.5 focus:outline-hidden focus:ring-2 focus:ring-primary"
+                          >
+                            <span>Record Collection</span>
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
 
-                  {/* Stops Timeline / List */}
                   <div className="bg-white rounded-xl border border-border shadow-2xs overflow-hidden">
-                    <div className="p-3 sm:p-4 border-b border-border flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <Store className="w-4 h-4 text-primary" />
-                        <h3 className="text-xs sm:text-sm font-semibold text-foreground">
-                          Planned Stops ({journey.stops.length})
-                        </h3>
+                    <div className="p-3 sm:p-4 border-b border-border space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <Store className="w-4 h-4 text-primary" />
+                          <h3 className="text-xs sm:text-sm font-semibold text-foreground">
+                            Planned Stops ({journey.stops.length})
+                          </h3>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-[11px] font-medium text-slate-500">
+                            {visitedStops.length} of {journey.stops.length} completed
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsShopRequestModalOpen(true);
+                              setShopRequestError(null);
+                              setShopRequestSuccess(null);
+                            }}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-primary text-white hover:bg-primary/90 transition shadow-2xs"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Request Shop</span>
+                          </button>
+                        </div>
                       </div>
-                      <span className="text-[11px] font-medium text-slate-500">
-                        {visitedStops.length} of {journey.stops.length} completed
-                      </span>
+
+                      <div ref={searchDropdownRef} className="relative">
+                        <div className="relative">
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                            <Search className="w-4 h-4" />
+                          </div>
+                          <input
+                            type="text"
+                            value={shopSearchQuery}
+                            onChange={(e) => {
+                              setShopSearchQuery(e.target.value);
+                              setIsSearchOpen(true);
+                            }}
+                            onFocus={() => setIsSearchOpen(true)}
+                            placeholder="Type to search or select shop…"
+                            className="w-full text-xs font-semibold pl-9 pr-8 py-2.5 bg-subtle border border-border rounded-xl text-foreground focus:ring-2 focus:ring-primary focus:bg-white outline-hidden"
+                          />
+                          {shopSearchQuery && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShopSearchQuery('');
+                                setIsSearchOpen(false);
+                              }}
+                              className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+
+                        {isSearchOpen && (
+                          <div className="absolute z-30 left-0 right-0 mt-1 max-h-60 overflow-y-auto bg-card border border-border rounded-xl shadow-lg divide-y divide-border">
+                            {matchingSearchStops.length === 0 ? (
+                              <div className="p-3 text-center text-xs text-slate-400">
+                                No matching shops found
+                              </div>
+                            ) : (
+                              matchingSearchStops.map((stop) => {
+                                const sName = stop.shop_name || stop.shop?.shop_name || 'Shop';
+                                const sCode = stop.shop_code || stop.shop?.shop_code || '—';
+                                const isVisited = stop.status === 'VISITED';
+                                const isSkipped = stop.status === 'SKIPPED';
+                                return (
+                                  <button
+                                    key={stop.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setIsSearchOpen(false);
+                                      setShopSearchQuery('');
+                                      handleOpenCollectionModal(stop);
+                                    }}
+                                    className="w-full p-2.5 text-left flex items-center justify-between hover:bg-subtle transition"
+                                  >
+                                    <div className="flex items-center space-x-2">
+                                      <span className="w-6 h-6 rounded-md bg-muted text-slate-700 text-xs font-semibold flex items-center justify-center shrink-0">
+                                        {stop.planned_sequence}
+                                      </span>
+                                      <div>
+                                        <div className="text-xs font-semibold text-foreground">
+                                          {sName} <span className="text-[10px] text-slate-500 font-normal">({sCode})</span>
+                                        </div>
+                                        <div className="text-[10px] text-slate-500">
+                                          {stop.area_name || stop.area_code || 'No area'}
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center space-x-1.5">
+                                      {isVisited ? (
+                                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800">
+                                          Completed
+                                        </span>
+                                      ) : isSkipped ? (
+                                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-rose-100 text-rose-800">
+                                          Skipped
+                                        </span>
+                                      ) : (
+                                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-primary text-white">
+                                          Select
+                                        </span>
+                                      )}
+                                    </div>
+                                  </button>
+                                );
+                              })
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     <div className="divide-y divide-border">
-                      {journey.stops.map((stop) => {
+                      {pagedStops.map((stop) => {
                         const shopName = stop.shop_name || stop.shop?.shop_name || 'Shop';
                         const shopCode = stop.shop_code || stop.shop?.shop_code || '—';
                         const ownerName = stop.owner_name || stop.shop?.owner_name || '—';
+                        const areaName = stop.area_name || stop.area_code || '';
                         const isVisited = stop.status === 'VISITED';
+                        const isSkipped = stop.status === 'SKIPPED';
+                        const isPending = !isVisited && !isSkipped;
 
                         return (
                           <div
                             key={stop.id}
                             className="p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 hover:bg-subtle transition"
                           >
-                            <div className="flex items-start space-x-3">
+                            <div className="flex items-start space-x-3 min-w-0">
                               <span
                                 className={`w-7 h-7 rounded-lg text-xs tabular-nums font-semibold flex items-center justify-center shrink-0 mt-0.5 ${
                                   isVisited
                                     ? 'bg-emerald-600 text-white'
+                                    : isSkipped
+                                    ? 'bg-rose-100 text-rose-800 border border-rose-300'
                                     : 'bg-muted text-slate-700 border border-border-strong'
                                 }`}
                               >
                                 {stop.planned_sequence}
                               </span>
-                              <div className="space-y-1">
-                                <div className="flex items-center space-x-2">
+                              <div className="space-y-1 min-w-0">
+                                <div className="flex items-center space-x-2 flex-wrap gap-y-1">
                                   <span className="text-xs font-semibold text-foreground">
                                     {shopName}
                                   </span>
                                   <span className="text-[10px] tabular-nums text-slate-500">
                                     ({shopCode})
                                   </span>
-                                  <span
-                                    className={`px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase ${
-                                      isVisited
-                                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                                        : 'bg-amber-100 text-amber-800 border border-amber-300'
-                                    }`}
-                                  >
-                                    {isVisited ? 'Completed' : 'Pending'}
-                                  </span>
+                                  {isVisited ? (
+                                    <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                      Completed ({Number(stop.collection?.gross_liters || 0).toFixed(1)} L)
+                                    </span>
+                                  ) : isSkipped ? (
+                                    <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-rose-100 text-rose-900 border border-rose-300">
+                                      SKIPPED {stop.skip_reason ? `· ${stop.skip_reason}` : ''}
+                                    </span>
+                                  ) : (
+                                    <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase bg-slate-100 text-slate-700 border border-slate-300">
+                                      Pending
+                                    </span>
+                                  )}
+                                  {stop.distanceKm != null && (
+                                    <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-blue-50 text-blue-800 border border-blue-200">
+                                      {formatDistance(stop.distanceKm)}
+                                    </span>
+                                  )}
                                 </div>
 
                                 <p className="text-[11px] text-slate-500">
                                   Owner: {ownerName}
                                 </p>
 
+                                <div className="text-[11px] text-slate-500 flex items-center space-x-2 flex-wrap gap-y-1">
+                                  {areaName && <span>Area: {areaName}</span>}
+                                  {!stop.hasCoordinates && (
+                                    <span className="px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                                      Geotag on 1st Visit
+                                    </span>
+                                  )}
+                                </div>
+
                                 {isVisited && stop.collection && (
-                                  <div className="mt-1 p-2 rounded-lg bg-emerald-50/70 border border-emerald-200 text-[11px] tabular-nums font-semibold text-emerald-950 flex flex-wrap gap-x-3 gap-y-1">
-                                    <span>Gross: {Number(stop.collection.gross_liters).toFixed(2)} L</span>
-                                    <span>@13TS: {Number(stop.collection.at_13ts_liters).toFixed(2)} L</span>
-                                    <span>LR: {stop.collection.lr}</span>
-                                    <span>Fat: {stop.collection.fat}%</span>
+                                  <div className="mt-2 space-y-2">
+                                    <div className="p-2 rounded-lg bg-emerald-50/70 border border-emerald-200 text-[11px] tabular-nums font-semibold text-emerald-950 flex flex-wrap gap-x-3 gap-y-1">
+                                      <span>Gross: {Number(stop.collection.gross_liters).toFixed(2)} L</span>
+                                      <span>@13TS: {Number(stop.collection.at_13ts_liters).toFixed(2)} L</span>
+                                      <span>LR: {stop.collection.lr}</span>
+                                      <span>Fat: {stop.collection.fat}%</span>
+                                    </div>
+                                    {(() => {
+                                      const rawPhone = stop.phone_number || stop.shop?.contact_number || '';
+                                      if (!rawPhone) return null;
+                                      const digits = rawPhone.replace(/\D/g, '');
+                                      const intlPhone = digits.startsWith('92')
+                                        ? digits
+                                        : digits.startsWith('0')
+                                          ? `92${digits.slice(1)}`
+                                          : `92${digits}`;
+                                      const msg = `*SFPL Milk Collection Receipt*\nShop: ${shopName}\nJourney: #${journey?.journey_number || '101'}\nVehicle: ${journey?.mot_vehicle?.vehicle_number || 'SFPL-MOT'}\nGross: ${Number(stop.collection.gross_liters).toFixed(2)} L\nLR: ${stop.collection.lr} | Fat: ${stop.collection.fat}%\n@13TS: ${Number(stop.collection.at_13ts_liters).toFixed(2)} L\nStatus: Verified`;
+                                      return (
+                                        <a
+                                          href={`https://wa.me/${intlPhone}?text=${encodeURIComponent(msg)}`}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition shadow-2xs focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                                        >
+                                          <MessageSquare className="w-3.5 h-3.5" />
+                                          <span>WhatsApp Receipt ({rawPhone})</span>
+                                        </a>
+                                      );
+                                    })()}
                                   </div>
                                 )}
                               </div>
                             </div>
 
-                            {!isVisited && (
-                              <div className="self-end sm:self-center">
+                            {isPending && (
+                              <div className="flex items-center space-x-2 self-end sm:self-center">
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenSkipModal(stop)}
+                                  className="min-h-[44px] px-3.5 py-2 rounded-xl border border-rose-300 bg-rose-50/60 hover:bg-rose-100 text-rose-800 text-xs font-semibold transition shadow-2xs focus:outline-hidden focus:ring-2 focus:ring-rose-500"
+                                >
+                                  Skip Shop
+                                </button>
                                 <button
                                   type="button"
                                   onClick={() => handleOpenCollectionModal(stop)}
@@ -809,6 +1411,35 @@ export default function MotDriverPage() {
                           </div>
                         );
                       })}
+
+                      {totalStopsPages > 1 && (
+                        <div className="flex items-center justify-between p-3.5 bg-subtle border-t border-border">
+                          <span className="text-xs text-slate-500 font-medium">
+                            Showing {(stopsPage - 1) * stopsPerPage + 1}–{Math.min(stopsPage * stopsPerPage, sortedStops.length)} of {sortedStops.length} shops
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              disabled={stopsPage === 1}
+                              onClick={() => setStopsPage((p) => Math.max(1, p - 1))}
+                              className="p-1.5 rounded-lg border border-border text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              <ChevronLeft className="w-4 h-4" />
+                            </button>
+                            <span className="text-xs font-semibold text-foreground">
+                              {stopsPage} / {totalStopsPages}
+                            </span>
+                            <button
+                              type="button"
+                              disabled={stopsPage >= totalStopsPages}
+                              onClick={() => setStopsPage((p) => Math.min(totalStopsPages, p + 1))}
+                              className="p-1.5 rounded-lg border border-border text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              <ChevronRight className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -816,10 +1447,8 @@ export default function MotDriverPage() {
             })()
           )}
 
-          {/* Collection Entry Modal / Drawer */}
           <AnimatePresence>{activeStop && (
             <Modal key="modal-0" onClose={() => setActiveStop(null)} title="Collection stop" className="max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
-                {/* Modal Header */}
                 <div className="p-4 border-b border-border flex items-center justify-between bg-subtle">
                   <div className="flex items-center space-x-2">
                     <span className="w-6 h-6 rounded-full bg-primary text-white text-xs font-semibold flex items-center justify-center">
@@ -841,18 +1470,21 @@ export default function MotDriverPage() {
                   </button>
                 </div>
 
-                {/* GPS Status Indicator */}
                 <div className="px-4 py-2 bg-slate-50 border-b border-border text-[11px] flex items-center justify-between">
                   <div className="flex items-center space-x-1.5">
                     <Navigation className="w-3.5 h-3.5 text-blue-700" />
+                    {gpsBadge}
                     <span className="text-slate-600 font-semibold">GPS Location:</span>
                     {collectionGps.status === 'ACQUIRING' && (
-                      <span className="text-amber-700 font-semibold animate-pulse">Acquiring coordinates...</span>
+                      <span className="text-amber-700 font-semibold animate-pulse">Acquiring coordinates…</span>
                     )}
                     {collectionGps.status === 'CAPTURED' && (
                       <span className="text-emerald-700 font-semibold">
                         Captured (±{Math.round(collectionGps.accuracy || 0)}m)
                       </span>
+                    )}
+                    {collectionGps.status === 'APPROXIMATE' && (
+                      <span className="text-amber-700 font-semibold">Approximate location (no fresh GPS)</span>
                     )}
                     {collectionGps.status === 'UNAVAILABLE' && (
                       <span className="text-slate-500 font-medium">GPS Unavailable</span>
@@ -860,7 +1492,6 @@ export default function MotDriverPage() {
                   </div>
                 </div>
 
-                {/* Modal Form */}
                 <form onSubmit={handleRecordCollection} className="p-4 overflow-y-auto space-y-4">
                   {formError && (
                     <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs font-semibold animate-panel-in">
@@ -868,7 +1499,6 @@ export default function MotDriverPage() {
                     </div>
                   )}
 
-                  {/* Manual Shop RMR Serial # */}
                   <div>
                     <label className="block text-xs font-semibold text-foreground mb-1">
                       Shop RMR / Raw Milk Receipt No.
@@ -885,7 +1515,37 @@ export default function MotDriverPage() {
                     <p className="text-[10px] text-slate-500 mt-1">Manual paper receipt serial (digits only, leading zeros preserved)</p>
                   </div>
 
-                  {/* Quantity & Unit Toggle */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-semibold text-foreground">
+                        Milk Source / ERP Code
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRequestErpFeedback(null);
+                          setRequestErpForm({ proposedName: '', proposedCode: '', notes: '' });
+                          setShowRequestErpModal(true);
+                        }}
+                        className="text-[11px] font-semibold text-primary hover:underline"
+                      >
+                        + Request New ERP Code
+                      </button>
+                    </div>
+                    <select
+                      value={selectedSourceId}
+                      onChange={(e) => setSelectedSourceId(e.target.value)}
+                      className="w-full text-xs font-semibold border border-border rounded-xl p-2.5 bg-subtle focus:ring-2 focus:ring-primary"
+                    >
+                      <option value="">Unassigned</option>
+                      {availableSources.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.erp_code ? `[${s.erp_code}] ${s.name}` : s.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
                   <div>
                     <label className="block text-xs font-semibold text-foreground mb-1">
                       Intake Milk Quantity <span className="text-rose-600">*</span>
@@ -899,10 +1559,10 @@ export default function MotDriverPage() {
                         value={quantity}
                         onChange={(e) => setQuantity(e.target.value)}
                         placeholder="e.g. 150.0"
-                        className="flex-1 text-xs font-semibold border border-border rounded-xl p-2.5 bg-subtle focus:ring-2 focus:ring-primary"
+                        className="flex-1 min-w-0 text-xs font-semibold border border-border rounded-xl p-2.5 bg-subtle focus:ring-2 focus:ring-primary"
                         required
                       />
-                      <div className="flex rounded-xl border border-border overflow-hidden bg-subtle">
+                      <div className="flex rounded-xl border border-border overflow-hidden bg-subtle shrink-0">
                         <button
                           type="button"
                           onClick={() => setUnit('LITER')}
@@ -925,9 +1585,8 @@ export default function MotDriverPage() {
                     </div>
                   </div>
 
-                  {/* LR and Fat Inputs */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
+                  <div className="grid grid-cols-2 gap-3 min-w-0">
+                    <div className="min-w-0">
                       <label className="block text-xs font-semibold text-foreground mb-1">
                         LR Reading (20-35) <span className="text-rose-600">*</span>
                       </label>
@@ -939,11 +1598,11 @@ export default function MotDriverPage() {
                         value={lr}
                         onChange={(e) => setLr(e.target.value)}
                         placeholder="e.g. 28.5"
-                        className="w-full text-xs font-semibold border border-border rounded-xl p-2.5 bg-subtle focus:ring-2 focus:ring-primary"
+                        className="w-full min-w-0 text-xs font-semibold border border-border rounded-xl p-2.5 bg-subtle focus:ring-2 focus:ring-primary"
                         required
                       />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <label className="block text-xs font-semibold text-foreground mb-1">
                         Fat % (1.5-12.0) <span className="text-rose-600">*</span>
                       </label>
@@ -955,26 +1614,57 @@ export default function MotDriverPage() {
                         value={fat}
                         onChange={(e) => setFat(e.target.value)}
                         placeholder="e.g. 4.2"
-                        className="w-full text-xs font-semibold border border-border rounded-xl p-2.5 bg-subtle focus:ring-2 focus:ring-primary"
+                        className="w-full min-w-0 text-xs font-semibold border border-border rounded-xl p-2.5 bg-subtle focus:ring-2 focus:ring-primary"
                         required
                       />
                     </div>
                   </div>
 
-                  {/* Live Calculated Canonical Milk Preview */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                        LR reading photo *
+                      </label>
+                      <LiveCameraCapture
+                        testType="LR"
+                        stageName="MOT Village Collection"
+                        tokenNo={shopRmrNumber || activeStop.shop_code}
+                        vehicleNo={journey?.mot_vehicle?.vehicle_number || null}
+                        currentPhotoUrl={lrPhotoUrl}
+                        onPhotoCaptured={(url) => setLrPhotoUrl(url)}
+                        onPhotoCleared={() => setLrPhotoUrl(null)}
+                        isRequired={true}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                        Fat reading photo *
+                      </label>
+                      <LiveCameraCapture
+                        testType="FAT"
+                        stageName="MOT Village Collection"
+                        tokenNo={shopRmrNumber || activeStop.shop_code}
+                        vehicleNo={journey?.mot_vehicle?.vehicle_number || null}
+                        currentPhotoUrl={fatPhotoUrl}
+                        onPhotoCaptured={(url) => setFatPhotoUrl(url)}
+                        onPhotoCleared={() => setFatPhotoUrl(null)}
+                        isRequired={true}
+                      />
+                    </div>
+                  </div>
+
                   {livePreview && (
                     <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-semibold uppercase tracking-wider text-primary">
-                          Live Dual-Truth Preview (Canonical)
+                          Milk summary
                         </span>
                         <span className="text-[10px] font-semibold text-slate-500 bg-white/80 px-2 py-0.5 rounded border border-blue-100">
-                          v1.0 Rules
+                          Auto Calculated
                         </span>
                       </div>
                       
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {/* Physical Milk Truth */}
                         <div className="p-2.5 bg-white/90 rounded-lg border border-blue-100">
                           <span className="text-[10px] font-semibold uppercase text-slate-500 block mb-1">
                             Physical Milk Truth
@@ -989,7 +1679,6 @@ export default function MotDriverPage() {
                           </div>
                         </div>
 
-                        {/* Commercial Milk Truth */}
                         <div className="p-2.5 bg-emerald-50/70 rounded-lg border border-emerald-200">
                           <span className="text-[10px] font-semibold uppercase text-emerald-800 block mb-1">
                             Commercial Milk Truth
@@ -1007,21 +1696,19 @@ export default function MotDriverPage() {
                     </div>
                   )}
 
-                  {/* Notes (Optional) */}
                   <div>
                     <label className="block text-xs font-semibold text-foreground mb-1">
-                      Driver Notes (Optional)
+                      Collection Notes (Optional)
                     </label>
                     <textarea
                       rows={2}
                       value={notes}
                       onChange={(e) => setNotes(e.target.value)}
                       placeholder="e.g. Clean container, verified supplier seal"
-                      className="w-full text-xs border border-border rounded-xl p-2.5 bg-subtle focus:ring-2 focus:ring-primary"
+                      className="w-full min-w-0 resize-y break-words text-xs border border-border rounded-xl p-2.5 bg-subtle focus:ring-2 focus:ring-primary"
                     />
                   </div>
 
-                  {/* Quality Exception (Optional Authorization) */}
                   <div className="pt-2 border-t border-border space-y-2">
                     <label className="flex items-center space-x-2 cursor-pointer">
                       <input
@@ -1033,23 +1720,33 @@ export default function MotDriverPage() {
                       <span className="text-xs font-semibold text-slate-700">Request Quality Exception</span>
                     </label>
                     {requestException && (
-                      <div>
-                        <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                          Exception Reason <span className="text-rose-600">*</span>
-                        </label>
-                        <textarea
-                          rows={2}
-                          value={exceptionReason}
-                          onChange={(e) => setExceptionReason(e.target.value)}
-                          placeholder="State rationale for supervisor authorization..."
-                          className="w-full text-xs border border-border rounded-xl p-2.5 bg-subtle focus:ring-2 focus:ring-primary"
-                          required={requestException}
-                        />
+                      <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl space-y-2">
+                        <div className="flex items-start gap-2">
+                          <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                          <div className="text-xs text-amber-900">
+                            <p className="font-semibold text-sm text-amber-950">Are you sure with your decision?</p>
+                            <p className="mt-1 font-normal text-amber-900">
+                              This test is against SOP rules (FAIL) or test picture is missing. Your decision will be sent to <strong>ZMCC Manager</strong> for final decision.
+                            </p>
+                          </div>
+                        </div>
+                        <div className="pt-1">
+                          <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                            Reason for Exception (Required) <span className="text-rose-600">*</span>
+                          </label>
+                          <textarea
+                            rows={2}
+                            value={exceptionReason}
+                            onChange={(e) => setExceptionReason(e.target.value)}
+                            placeholder="Specify reason for requesting exception against SOP rules…"
+                            className="w-full min-w-0 resize-y break-words text-xs border border-amber-300 rounded-xl p-2.5 bg-white focus:ring-2 focus:ring-primary"
+                            required={requestException}
+                          />
+                        </div>
                       </div>
                     )}
                   </div>
 
-                  {/* Modal Action Buttons */}
                   <div className="flex items-center space-x-2 pt-3 border-t border-border">
                     <button
                       type="button"
@@ -1061,16 +1758,383 @@ export default function MotDriverPage() {
                     </button>
                     <button
                       type="submit"
-                      disabled={submittingCollection}
-                      className="flex-2 flex items-center justify-center space-x-1.5 px-4 py-3 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition shadow-xs disabled:opacity-50 min-h-[44px]"
+                      disabled={submittingCollection || (requestException && !exceptionReason.trim())}
+                      className={`flex-2 flex items-center justify-center space-x-1.5 px-4 py-3 rounded-xl text-white text-xs font-semibold transition shadow-xs disabled:opacity-50 min-h-[44px] ${
+                        requestException
+                          ? 'bg-amber-600 hover:bg-amber-700'
+                          : 'bg-primary hover:bg-primary/90'
+                      }`}
                     >
                       <Send className="w-4 h-4" />
-                      <span>{submittingCollection ? 'Queueing...' : 'Record & Queue'}</span>
+                      <span>
+                        {submittingCollection
+                          ? 'Queueing…'
+                          : requestException
+                          ? 'Confirm & Send to ZMCC Manager'
+                          : 'Record & Queue'}
+                      </span>
                     </button>
                   </div>
                 </form>
               </Modal>
           )}</AnimatePresence>
+
+          <AnimatePresence>
+            {skipModalStop && (
+              <Modal
+                key="modal-skip-shop"
+                onClose={() => setSkipModalStop(null)}
+                title="Skip Shop"
+                className="max-w-md overflow-hidden flex flex-col"
+              >
+                <div className="p-4 border-b border-border flex items-center justify-between bg-subtle">
+                  <div className="flex items-center space-x-2">
+                    <span className="w-6 h-6 rounded-full bg-rose-600 text-white text-xs font-semibold flex items-center justify-center shrink-0">
+                      {skipModalStop.planned_sequence}
+                    </span>
+                    <div>
+                      <h3 className="text-sm font-semibold text-foreground">
+                        {skipModalStop.shop_name || skipModalStop.shop?.shop_name} ({skipModalStop.shop_code || skipModalStop.shop?.shop_code})
+                      </h3>
+                      <p className="text-[11px] text-slate-500">Record Skip Reason</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSkipModalStop(null)}
+                    className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="p-4 space-y-3">
+                  {skipError && (
+                    <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center space-x-2">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      <span>{skipError}</span>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Reason for Skipping <span className="text-rose-500">*</span>
+                    </label>
+                    <textarea
+                      rows={4}
+                      value={skipReason}
+                      onChange={(e) => setSkipReason(e.target.value)}
+                      placeholder="Enter reason for skipping shop (e.g. Shop closed, Owner unavailable, Insufficient milk)…"
+                      className="w-full min-w-0 resize-y break-words text-xs font-medium border border-border rounded-xl p-3 bg-white text-foreground focus:ring-2 focus:ring-rose-500 outline-hidden"
+                    />
+                  </div>
+                </div>
+
+                <div className="p-4 border-t border-border bg-subtle flex items-center justify-end space-x-2">
+                  <button
+                    type="button"
+                    onClick={() => setSkipModalStop(null)}
+                    className="px-4 py-2 rounded-xl border border-border text-slate-700 text-xs font-semibold hover:bg-slate-100"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={submittingSkip}
+                    onClick={handleConfirmSkip}
+                    className="px-4 py-2 rounded-xl bg-rose-700 hover:bg-rose-800 text-white text-xs font-semibold shadow-2xs transition disabled:opacity-50"
+                  >
+                    {submittingSkip ? 'Skipping…' : 'Confirm Skip'}
+                  </button>
+                </div>
+              </Modal>
+            )}
+          </AnimatePresence>
+
+          <AnimatePresence>
+            {isShopRequestModalOpen && (
+              <Modal
+                key="modal-request-shop"
+                onClose={() => setIsShopRequestModalOpen(false)}
+                title="Request New Shop in Field"
+                className="max-w-md overflow-hidden flex flex-col"
+              >
+                <div className="p-4 border-b border-border flex items-center justify-between bg-subtle">
+                  <div className="flex items-center space-x-2">
+                    <Store className="w-5 h-5 text-primary shrink-0" />
+                    <div>
+                      <h3 className="text-sm font-semibold text-foreground">
+                        Field Shop Registration
+                      </h3>
+                      <p className="text-[11px] text-slate-500">Route: {journey?.route?.name || 'Current Route'}</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsShopRequestModalOpen(false)}
+                    className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <form onSubmit={handleSubmitShopRequest} className="p-4 space-y-3">
+                  {shopRequestError && (
+                    <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center space-x-2">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      <span>{shopRequestError}</span>
+                    </div>
+                  )}
+
+                  {shopRequestSuccess && (
+                    <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center space-x-2">
+                      <CheckCircle2 className="w-4 h-4 shrink-0" />
+                      <span>{shopRequestSuccess}</span>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Shop Name <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={shopRequestForm.shop_name}
+                      onChange={(e) => setShopRequestForm({ ...shopRequestForm, shop_name: e.target.value })}
+                      placeholder="e.g. Al-Madina Dairy"
+                      className="w-full text-xs font-medium border border-border rounded-xl p-2.5 bg-white text-foreground focus:ring-2 focus:ring-primary outline-hidden"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Owner Name <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={shopRequestForm.owner_name}
+                      onChange={(e) => setShopRequestForm({ ...shopRequestForm, owner_name: e.target.value })}
+                      placeholder="e.g. Shop Owner"
+                      className="w-full text-xs font-medium border border-border rounded-xl p-2.5 bg-white text-foreground focus:ring-2 focus:ring-primary outline-hidden"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Mobile Phone <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={shopRequestForm.phone_number}
+                        onChange={(e) => setShopRequestForm({ ...shopRequestForm, phone_number: e.target.value })}
+                        placeholder="03XXXXXXXXX"
+                        className="w-full text-xs font-medium border border-border rounded-xl p-2.5 bg-white text-foreground focus:ring-2 focus:ring-primary outline-hidden"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        CNIC <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={shopRequestForm.cnic}
+                        onChange={(e) => setShopRequestForm({ ...shopRequestForm, cnic: e.target.value })}
+                        placeholder="35201-1234567-1"
+                        className="w-full text-xs font-medium border border-border rounded-xl p-2.5 bg-white text-foreground focus:ring-2 focus:ring-primary outline-hidden"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-subtle border border-border text-[11px] text-slate-600 flex items-center justify-between">
+                    <span className="font-medium flex items-center gap-2">
+                      Device GPS: {gpsBadge}
+                    </span>
+                    <span className="font-semibold text-foreground">
+                      {deviceGps ? `${deviceGps.latitude.toFixed(6)}, ${deviceGps.longitude.toFixed(6)}` : 'Waiting for GPS…'}
+                    </span>
+                  </div>
+
+                  <div className="pt-2 border-t border-border flex items-center justify-end space-x-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsShopRequestModalOpen(false)}
+                      className="px-4 py-2 rounded-xl border border-border text-slate-700 text-xs font-semibold hover:bg-slate-100"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={submittingShopRequest}
+                      className="px-4 py-2 rounded-xl bg-primary hover:bg-primary/90 text-white text-xs font-semibold shadow-2xs transition disabled:opacity-50"
+                    >
+                      {submittingShopRequest ? 'Submitting…' : 'Submit Request'}
+                    </button>
+                  </div>
+                </form>
+              </Modal>
+            )}
+
+            {completedReceiptModal && (
+              <Modal
+                key="completed-receipt-modal"
+                onClose={() => setCompletedReceiptModal(null)}
+                title="Collection Saved & WhatsApp Receipt"
+                className="max-w-md overflow-hidden"
+              >
+                <div className="p-4 space-y-4">
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-950 flex items-start space-x-3">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-900">Collection Recorded Successfully</h4>
+                      <p className="text-xs text-emerald-800 mt-0.5">
+                        {completedReceiptModal.shopName} · {completedReceiptModal.grossLiters.toFixed(1)} L (@13TS: {completedReceiptModal.at13tsLiters.toFixed(1)} L)
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs space-y-1">
+                    <div className="flex justify-between text-slate-600">
+                      <span>Shop / Recipient:</span>
+                      <strong className="text-foreground">{completedReceiptModal.shopName}</strong>
+                    </div>
+                    <div className="flex justify-between text-slate-600">
+                      <span>WhatsApp Number:</span>
+                      <strong className="text-foreground font-mono">{completedReceiptModal.phone}</strong>
+                    </div>
+                    <div className="flex justify-between text-slate-600">
+                      <span>LR / Fat:</span>
+                      <strong className="text-foreground">{completedReceiptModal.lr} / {completedReceiptModal.fat}%</strong>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <a
+                      href={completedReceiptModal.whatsappUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => setCompletedReceiptModal(null)}
+                      className="w-full flex items-center justify-center space-x-2 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-md transition"
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                      <span>Send WhatsApp Receipt ({completedReceiptModal.phone})</span>
+                    </a>
+
+                    <button
+                      type="button"
+                      onClick={() => setCompletedReceiptModal(null)}
+                      className="w-full py-2.5 px-4 rounded-xl border border-border text-slate-700 hover:bg-subtle text-xs font-semibold transition"
+                    >
+                      Done / Proceed to Next Shop
+                    </button>
+                  </div>
+                </div>
+              </Modal>
+            )}
+
+            {showRequestErpModal && (
+              <Modal
+                key="modal-request-erp"
+                onClose={() => setShowRequestErpModal(false)}
+                title="Request New ERP Code"
+                className="max-w-md overflow-hidden flex flex-col"
+              >
+                <div className="p-4 border-b border-border flex items-center justify-between bg-subtle">
+                  <h3 className="text-sm font-semibold text-foreground">
+                    Request New ERP Code
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setShowRequestErpModal(false)}
+                    className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <form onSubmit={handleRequestErpSubmit} className="p-4 space-y-3">
+                  {requestErpFeedback && (
+                    <div
+                      className={`p-3 rounded-xl text-xs font-semibold ${
+                        requestErpFeedback.type === 'success'
+                          ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                          : 'bg-rose-50 text-rose-800 border border-rose-200'
+                      }`}
+                    >
+                      {requestErpFeedback.message}
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-xs font-semibold text-foreground mb-1">
+                      Proposed Source Name <span className="text-rose-600">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={requestErpForm.proposedName}
+                      onChange={(e) =>
+                        setRequestErpForm((prev) => ({ ...prev, proposedName: e.target.value }))
+                      }
+                      placeholder="e.g. Bhalwal Dairy Hub"
+                      className="w-full text-xs font-semibold border border-border rounded-xl p-2.5 bg-subtle focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-foreground mb-1">
+                      Proposed ERP Code (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={requestErpForm.proposedCode}
+                      onChange={(e) =>
+                        setRequestErpForm((prev) => ({ ...prev, proposedCode: e.target.value }))
+                      }
+                      placeholder="e.g. 1045"
+                      className="w-full text-xs font-semibold border border-border rounded-xl p-2.5 bg-subtle focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-foreground mb-1">
+                      Notes / Rationale (Optional)
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={requestErpForm.notes}
+                      onChange={(e) =>
+                        setRequestErpForm((prev) => ({ ...prev, notes: e.target.value }))
+                      }
+                      placeholder="Enter context or shop details…"
+                      className="w-full min-w-0 resize-y break-words text-xs border border-border rounded-xl p-2.5 bg-subtle focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-end space-x-2 pt-2 border-t border-border">
+                    <button
+                      type="button"
+                      onClick={() => setShowRequestErpModal(false)}
+                      className="px-4 py-2 rounded-xl border border-border text-xs font-semibold text-slate-700 hover:bg-slate-100 min-h-[40px]"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={requestErpSubmitting || !requestErpForm.proposedName.trim()}
+                      className="px-4 py-2 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-primary-hover transition disabled:opacity-50 min-h-[40px]"
+                    >
+                      {requestErpSubmitting ? 'Submitting…' : 'Submit Request'}
+                    </button>
+                  </div>
+                </form>
+              </Modal>
+            )}
+          </AnimatePresence>
           </PageTransition>
         </main>
       </div>

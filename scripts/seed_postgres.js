@@ -61,7 +61,7 @@ async function seedDatabase() {
         (9, 'Senior Executive Management', 'executive.management', 'exec123', 'EXECUTIVE_MANAGEMENT', true, NOW(), NOW()),
         (10, 'Dedicated Data Correction Officer (Retired)', 'correction.officer', 'correct123', 'SUPER_ADMIN', false, NOW(), NOW()),
         (11, 'Super Admin', 'admin.superuser', 'admin123', 'SUPER_ADMIN', true, NOW(), NOW()),
-        (12, 'Wasim Sahib', 'contractor.operator.alkhair', 'mpd123', 'CONTRACTOR_OPERATOR', true, NOW(), NOW());
+        (12, 'Contractor Operator (Al Khair)', 'contractor.operator.alkhair', 'mpd123', 'CONTRACTOR_OPERATOR', true, NOW(), NOW());
     `;
     await client.query(userInsertQuery);
 
@@ -241,7 +241,7 @@ async function seedDatabase() {
         ('weight_ticket', 12, 'UPDATE', '{"gross_weight_kg": 28400}'::jsonb, '{"gross_weight_kg": 28450}'::jsonb, 7, NOW() - INTERVAL '1 day');
     `);
 
-    console.log('✅ DATABASE SUCCESSFULLY SEEDED WITH COMPLETE ERD DUMMY DATA!');
+    console.log('✅ DATABASE SUCCESSFULLY SEEDED WITH COMPLETE ERD OPERATIONAL DATA!');
   } catch (err) {
     console.error('Error seeding database:', err);
   } finally {

@@ -1,0 +1,25 @@
+import { NextResponse } from 'next/server';
+import { getCurrentUser } from '@/backend/core/auth';
+import { getAvailableSourcesForZmcc } from '@/backend/services/milkSourceService';
+
+export async function GET(req: Request) {
+  const user = await getCurrentUser(req);
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
+  }
+
+  const { searchParams } = new URL(req.url);
+  const zmccIdParam = searchParams.get('zmcc_id') || user.procurement_source_id;
+
+  if (!zmccIdParam) {
+    return NextResponse.json({ error: 'zmcc_id is required.' }, { status: 400 });
+  }
+
+  try {
+    const sources = await getAvailableSourcesForZmcc(zmccIdParam);
+    return NextResponse.json({ sources }, { headers: { 'Cache-Control': 'private, no-store' } });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to fetch available sources.';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}

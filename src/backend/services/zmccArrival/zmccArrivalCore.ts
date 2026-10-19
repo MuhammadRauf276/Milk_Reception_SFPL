@@ -17,6 +17,7 @@ import {
 import type { NumericLike, SourceRef, UserRef } from '@/backend/core/serializable';
 import { getCurrentUser } from '@core/auth';
 import { User, Role } from '@core/types';
+import { isZmccFieldOfficer } from '@core/roles/hierarchy';
 import { getPakistanCalendarDate } from '@core/business-day';
 import {
   createInitialMotJourneySummaryTx,
@@ -98,6 +99,7 @@ export interface CorrectContractorArrivalPayload {
 
 export interface SubmitLocalSupplierArrivalPayload {
   local_supplier_id: string | number | bigint;
+  milk_source_id?: string | number | bigint | null;
   rmr_number?: string | null;
   raw_milk_token_number?: string | null;
   vehicle_number: string;
@@ -113,6 +115,7 @@ export interface SubmitLocalSupplierArrivalPayload {
 export interface CorrectLocalSupplierArrivalPayload {
   reason: string;
   local_supplier_id?: string | number | bigint;
+  milk_source_id?: string | number | bigint | null;
   rmr_number?: string | null;
   raw_milk_token_number?: string | null;
   vehicle_number?: string;
@@ -170,7 +173,8 @@ export async function resolveZmccArrivalAuth(
   const role = dbUser.role as Role;
   const isSuperAdmin = role === 'SUPER_ADMIN';
   const isZmccManager = role === 'ZMCC_MANAGER';
-  const isPheOperator = role === 'PHE_OPERATOR';
+  // PHE_OPERATOR or MDO: MDO has the same PHE station rights until phase 4.
+  const isPheOperator = isZmccFieldOfficer(role);
 
   if (action === 'SUBMIT_ARRIVAL') {
     if (!isPheOperator && !isSuperAdmin) {
@@ -632,6 +636,9 @@ export function serializeLocalSupplierArrival(arrival: SerializableLocalSupplier
     id: arrival.id.toString(),
     zmcc_id: arrival.zmcc_id.toString(),
     local_supplier_id: arrival.local_supplier_id.toString(),
+    milk_source_id: arrival.milk_source_id ? arrival.milk_source_id.toString() : null,
+    milk_source_code_snapshot: arrival.milk_source_code_snapshot ?? null,
+    milk_source_name_snapshot: arrival.milk_source_name_snapshot ?? null,
     rmr_number: arrival.rmr_number ?? null,
     raw_milk_token_number: arrival.raw_milk_token_number ?? null,
     identifiers: paperLinkedIdentity(
@@ -1907,6 +1914,9 @@ export async function getArrivingMotJourneys(
         select: {
           id: true,
           status: true,
+          skip_reason: true,
+          planned_sequence: true,
+          shop: { select: { id: true, shop_code: true, shop_name: true, owner_name: true } },
           collection: {
             select: {
               gross_liters: true,
@@ -1914,6 +1924,7 @@ export async function getArrivingMotJourneys(
             },
           },
         },
+        orderBy: { planned_sequence: 'asc' },
       },
     },
     orderBy: { started_at: 'desc' },
@@ -1921,11 +1932,13 @@ export async function getArrivingMotJourneys(
 
   const serialized = journeys.map((j) => {
     let visitedCount = 0;
+    let skippedCount = 0;
     let totalGrossLiters = 0;
     let totalAt13TsLiters = 0;
 
     for (const s of j.stops) {
       if (s.status === 'VISITED') visitedCount++;
+      else if (s.status === 'SKIPPED') skippedCount++;
       if (s.collection) {
         totalGrossLiters += Number(s.collection.gross_liters);
         totalAt13TsLiters += Number(s.collection.at_13ts_liters);
@@ -1943,8 +1956,30 @@ export async function getArrivingMotJourneys(
       zmcc: j.zmcc ? { id: j.zmcc.id.toString(), code: j.zmcc.code, name: j.zmcc.name } : null,
       total_stops: j.stops.length,
       visited_stops: visitedCount,
+      skipped_stops: skippedCount,
+      pending_stops: Math.max(0, j.stops.length - visitedCount - skippedCount),
       total_gross_liters: Number(totalGrossLiters.toFixed(2)),
       total_at_13ts_liters: Number(totalAt13TsLiters.toFixed(2)),
+      stops: j.stops.map((s) => ({
+        id: s.id.toString(),
+        planned_sequence: s.planned_sequence,
+        status: s.status,
+        skip_reason: s.skip_reason,
+        shop: s.shop
+          ? {
+              id: s.shop.id.toString(),
+              shop_code: s.shop.shop_code,
+              shop_name: s.shop.shop_name,
+              owner_name: s.shop.owner_name,
+            }
+          : null,
+        collection: s.collection
+          ? {
+              gross_liters: Number(s.collection.gross_liters),
+              at_13ts_liters: Number(s.collection.at_13ts_liters),
+            }
+          : null,
+      })),
     };
   });
 
@@ -2177,10 +2212,34 @@ export async function submitLocalSupplierArrival(
         }
       );
 
+      // Resolve Dynamic Milk Source & snapshot
+      let resolvedMilkSourceId: bigint | null = null;
+      let milkSourceCodeSnapshot: string | null = null;
+      let milkSourceNameSnapshot: string | null = null;
+
+      if (payload.milk_source_id) {
+        const source = await tx.zmccMilkSource.findUnique({
+          where: { id: BigInt(payload.milk_source_id) },
+          include: {
+            visibilities: {
+              where: { zmcc_id: targetZmccId!, is_active: true },
+            },
+          },
+        });
+        if (source && (source.visibilities.length > 0 || source.zmcc_id === targetZmccId)) {
+          resolvedMilkSourceId = source.id;
+          milkSourceCodeSnapshot = source.erp_code;
+          milkSourceNameSnapshot = source.name;
+        }
+      }
+
       const arrival = await tx.zmccLocalSupplierArrival.create({
         data: {
           zmcc_id: targetZmccId!,
           local_supplier_id: localSupplierId,
+          milk_source_id: resolvedMilkSourceId,
+          milk_source_code_snapshot: milkSourceCodeSnapshot,
+          milk_source_name_snapshot: milkSourceNameSnapshot,
           rmr_number: rmrNumber,
           raw_milk_token_number: cleanRawMilkToken,
           vehicle_number: vehicleNumber,
@@ -2362,6 +2421,31 @@ export async function correctLocalSupplierArrival(
       status: 400,
       error: 'rmr_number is a legacy field and cannot be modified through operational corrections. Use raw_milk_token_number instead.',
     };
+  }
+
+  if (payload.milk_source_id !== undefined) {
+    if (payload.milk_source_id) {
+      const msId = BigInt(payload.milk_source_id);
+      const source = await prisma.zmccMilkSource.findUnique({
+        where: { id: msId },
+        include: {
+          visibilities: {
+            where: { zmcc_id: arrival.zmcc_id, is_active: true },
+          },
+        },
+      });
+      if (source && (source.visibilities.length > 0 || source.zmcc_id === arrival.zmcc_id)) {
+        updateData.milk_source_id = source.id;
+        updateData.milk_source_code_snapshot = source.erp_code;
+        updateData.milk_source_name_snapshot = source.name;
+        newValues.milk_source_id = source.id.toString();
+      }
+    } else {
+      updateData.milk_source_id = null;
+      updateData.milk_source_code_snapshot = null;
+      updateData.milk_source_name_snapshot = null;
+      newValues.milk_source_id = null;
+    }
   }
 
   const rawMilkTokenCandidate = payload.raw_milk_token_number;
@@ -3397,7 +3481,7 @@ export async function getVehiclesInsideZmcc(
       : lab.status !== 'COMPLETED'
       ? 'Lab In Progress'
       : lab.decision === 'ACCEPTED' && !lab.tank_receipt
-      ? 'Accepted — Waiting for Tank Receipt'
+      ? 'Accepted: Waiting for Tank Receipt'
       : null;
 
     vehicles.push({
@@ -3440,7 +3524,7 @@ export async function getVehiclesInsideZmcc(
       : lab.status !== 'COMPLETED'
       ? 'Lab In Progress'
       : lab.decision === 'ACCEPTED' && !lab.tank_receipt
-      ? 'Accepted — Waiting for Tank Receipt'
+      ? 'Accepted: Waiting for Tank Receipt'
       : null;
 
     vehicles.push({

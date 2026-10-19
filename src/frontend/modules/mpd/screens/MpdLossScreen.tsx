@@ -14,7 +14,7 @@ export const MpdLossScreen: React.FC<MpdLossScreenProps> = ({ lossTiers }) => {
     {
       tier: 'Tier 1',
       name: 'Field Collection Route Loss',
-      scope: 'Village Shops → MOT Van → ZMCC Reception',
+      scope: 'Village Shops → MOT Vehicle → ZMCC Reception',
       loss: lossTiers?.tier1RouteLoss ?? null,
       details: 'Shop collection volume vs MOT arrival volume received at the ZMCC.',
     },
@@ -30,7 +30,7 @@ export const MpdLossScreen: React.FC<MpdLossScreenProps> = ({ lossTiers }) => {
       name: 'Inter-Facility Transit Loss',
       scope: 'ZMCC Dispatch → Plant Reception Weighbridge',
       loss: lossTiers?.tier3TransitLoss ?? null,
-      details: 'Dispatched tanker volume vs volume accepted at plant reception.',
+      details: 'Dispatched tanker volume vs volume accepted at Plant Reception.',
     },
     {
       tier: 'Tier 4',
@@ -43,7 +43,6 @@ export const MpdLossScreen: React.FC<MpdLossScreenProps> = ({ lossTiers }) => {
 
   return (
     <div className="space-y-6">
-      {/* Overview & Pricing Context Banner */}
       <div className="bg-white border border-border rounded-xl p-4 shadow-xs">
         <div className="flex items-start gap-3">
           <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center text-primary shrink-0">
@@ -53,14 +52,10 @@ export const MpdLossScreen: React.FC<MpdLossScreenProps> = ({ lossTiers }) => {
             <h2 className="text-xs font-semibold text-foreground">
               4-Tier Physical Supply Chain Loss Diagnostics
             </h2>
-            <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-              Tracking physical volumetric shrinkage and TS variance at each transfer stage. Financial evaluations are applied dynamically per supplier-specific pricing agreements (e.g., standard TS formulas, bulk flat incentives, or contractor contracts) rather than uniform static rates.
-            </p>
           </div>
         </div>
       </div>
 
-      {/* 4-Tier Diagnostics Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {tiers.map((t, idx) => (
           <div

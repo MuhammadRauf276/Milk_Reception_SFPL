@@ -23,6 +23,7 @@ interface LabTest {
   testScope: string;
   isRequired: boolean;
   isActive: boolean;
+  isPhotoRequired?: boolean;
   displayOrder: number;
   historicalResultsCount: number;
   resultOptions: LabTestResultOption[] | null;
@@ -58,6 +59,7 @@ export default function SuperAdminLabTestsPage() {
   const [createScopePlantQA, setCreateScopePlantQA] = useState(true);
   const [createScopeZmcc, setCreateScopeZmcc] = useState(false);
   const [createScopeMotShop, setCreateScopeMotShop] = useState(false);
+  const [createPhotoRequired, setCreatePhotoRequired] = useState(false);
   const [createDisplayOrder, setCreateDisplayOrder] = useState(10);
   const [createOptions, setCreateOptions] = useState<LabTestResultOption[]>([
     { value: 'PASS', label: 'Pass', isPassing: true },
@@ -72,6 +74,7 @@ export default function SuperAdminLabTestsPage() {
   const [editScopePlantQA, setEditScopePlantQA] = useState(true);
   const [editScopeZmcc, setEditScopeZmcc] = useState(false);
   const [editScopeMotShop, setEditScopeMotShop] = useState(false);
+  const [editPhotoRequired, setEditPhotoRequired] = useState(false);
   const [editDisplayOrder, setEditDisplayOrder] = useState(0);
   const [editOptions, setEditOptions] = useState<LabTestResultOption[]>([]);
 
@@ -103,6 +106,7 @@ export default function SuperAdminLabTestsPage() {
     setCreateScopePlantQA(true);
     setCreateScopeZmcc(false);
     setCreateScopeMotShop(false);
+    setCreatePhotoRequired(false);
     setCreateDisplayOrder(labTests.length > 0 ? Math.max(...labTests.map((t) => t.displayOrder)) + 1 : 1);
     setCreateOptions([
       { value: 'PASS', label: 'Pass', isPassing: true },
@@ -162,6 +166,7 @@ export default function SuperAdminLabTestsPage() {
         unit: createUnit ? createUnit.trim() : null,
         testScope,
         displayOrder: Number(createDisplayOrder),
+        isPhotoRequired: createPhotoRequired,
       };
 
       if (isCategorical) {
@@ -221,6 +226,7 @@ export default function SuperAdminLabTestsPage() {
         unit: editUnit ? editUnit.trim() : null,
         testScope,
         displayOrder: Number(editDisplayOrder),
+        isPhotoRequired: editPhotoRequired,
       };
 
       if (isCategorical) {
@@ -292,7 +298,6 @@ export default function SuperAdminLabTestsPage() {
         </div>
       )}
 
-      {/* LAB TESTS TABLE */}
       <div className="bg-white rounded-xl border border-border/80 shadow-xs overflow-hidden w-full max-w-full">
         <div className="p-3 sm:px-4 sm:py-3 border-b border-border flex items-center justify-between">
           <div className="flex items-center space-x-2">
@@ -326,6 +331,7 @@ export default function SuperAdminLabTestsPage() {
                 <th className="p-3 font-semibold">Result Type & Options</th>
                 <th className="p-3 font-semibold">Unit</th>
                 <th className="p-3 font-semibold">Scope</th>
+                <th className="p-3 font-semibold">Photo Req</th>
                 <th className="p-3 font-semibold">Historical Results</th>
                 <th className="p-3 font-semibold">Status</th>
                 <th className="p-3 font-semibold text-right">Actions</th>
@@ -334,13 +340,13 @@ export default function SuperAdminLabTestsPage() {
             <tbody className="divide-y divide-border/60 font-medium">
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="p-6 text-center text-slate-400 tabular-nums">
-                    Loading laboratory test catalog...
+                  <td colSpan={10} className="p-6 text-center text-slate-400 tabular-nums">
+                    Loading laboratory test catalog…
                   </td>
                 </tr>
               ) : labTests.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="p-6 text-center text-slate-400">
+                  <td colSpan={10} className="p-6 text-center text-slate-400">
                     No lab tests found.
                   </td>
                 </tr>
@@ -359,10 +365,10 @@ export default function SuperAdminLabTestsPage() {
                               : t.resultType === 'POSITIVE_NEGATIVE'
                               ? 'bg-emerald-100 text-emerald-900'
                               : t.resultType === 'OK_NOT_OK'
-                              ? 'bg-purple-100 text-purple-900'
+                              ? 'bg-slate-100 text-slate-800 border border-slate-200'
                               : t.resultType === 'QUALITATIVE'
-                              ? 'bg-indigo-100 text-indigo-900'
-                              : 'bg-amber-100 text-amber-900'
+                              ? 'bg-amber-100 text-amber-900'
+                              : 'bg-slate-100 text-slate-700'
                           }`}
                         >
                           <span>{t.resultType}</span>
@@ -414,6 +420,15 @@ export default function SuperAdminLabTestsPage() {
                         )}
                       </div>
                     </td>
+                    <td className="p-3">
+                      {t.isPhotoRequired ? (
+                        <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-800 text-xs font-semibold">
+                          Photo Req
+                        </span>
+                      ) : (
+                        <span className="text-slate-400">—</span>
+                      )}
+                    </td>
                     <td className="p-3 tabular-nums font-semibold text-slate-700">{t.historicalResultsCount} records</td>
                     <td className="p-3">
                       {t.isActive ? (
@@ -438,6 +453,7 @@ export default function SuperAdminLabTestsPage() {
                           setEditScopePlantQA(t.testScope === 'PLANT' || t.testScope === 'BOTH' || t.testScope === 'ALL');
                           setEditScopeZmcc(t.testScope === 'ZMCC' || t.testScope === 'ALL');
                           setEditScopeMotShop(t.testScope === 'MOT_SHOP' || t.testScope === 'MOT' || t.testScope === 'ALL');
+                          setEditPhotoRequired(Boolean(t.isPhotoRequired));
                           setEditDisplayOrder(t.displayOrder);
                           setEditOptions(t.resultOptions ? JSON.parse(JSON.stringify(t.resultOptions)) : []);
                         }}
@@ -472,7 +488,6 @@ export default function SuperAdminLabTestsPage() {
         </div>
       </div>
 
-      {/* CREATE LAB TEST MODAL */}
       <AnimatePresence>{showCreateModal && (
         <Modal key="modal-0" onClose={closeCreateModal} title="Create laboratory test" preventClose={isSubmittingCreate} className="p-6 max-w-lg space-y-4">
             <div className="flex items-center justify-between">
@@ -502,7 +517,13 @@ export default function SuperAdminLabTestsPage() {
                   type="text"
                   required
                   value={createName}
-                  onChange={(e) => setCreateName(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setCreateName(val);
+                    if (/(lr|fat)/i.test(val)) {
+                      setCreatePhotoRequired(true);
+                    }
+                  }}
                   placeholder="e.g. Alcohol Stability Test"
                   className="w-full p-2.5 rounded-lg border border-border-strong focus:outline-hidden focus:border-primary"
                 />
@@ -525,12 +546,12 @@ export default function SuperAdminLabTestsPage() {
                     }}
                     className="w-full p-2.5 rounded-lg border border-border-strong focus:outline-hidden focus:border-primary"
                   >
-                    <option value="QUALITATIVE">QUALITATIVE (Configurable Choices)</option>
-                    <option value="NUMERIC">NUMERIC (Decimal / Float)</option>
-                    <option value="TEXT">TEXT (Free text)</option>
-                    <option value="OK_NOT_OK">OK_NOT_OK</option>
-                    <option value="POSITIVE_NEGATIVE">POSITIVE_NEGATIVE</option>
-                    <option value="CALCULATED">CALCULATED (SNF / Ratio)</option>
+                    <option value="QUALITATIVE">Choice list</option>
+                    <option value="NUMERIC">Number</option>
+                    <option value="TEXT">Text</option>
+                    <option value="OK_NOT_OK">OK / Not OK</option>
+                    <option value="POSITIVE_NEGATIVE">Positive / Negative</option>
+                    <option value="CALCULATED">Calculated</option>
                   </select>
                 </div>
 
@@ -601,7 +622,18 @@ export default function SuperAdminLabTestsPage() {
                 </div>
               </div>
 
-              {/* OPTION CONFIGURATOR FOR CATEGORICAL TESTS */}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                <label className="flex items-center space-x-2 cursor-pointer select-none text-xs font-semibold text-slate-800 min-h-[36px]">
+                  <input
+                    type="checkbox"
+                    checked={createPhotoRequired}
+                    onChange={(e) => setCreatePhotoRequired(e.target.checked)}
+                    className="w-4 h-4 text-primary rounded border-slate-300 focus:ring-primary"
+                  />
+                  <span>Require camera photo evidence (LR and FAT)</span>
+                </label>
+              </div>
+
               {['QUALITATIVE', 'OK_NOT_OK', 'POSITIVE_NEGATIVE'].includes(createResultType) && (
                 <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
                   <div className="flex items-center justify-between">
@@ -666,7 +698,7 @@ export default function SuperAdminLabTestsPage() {
                         >
                           <option value="PASS">Pass</option>
                           <option value="FAIL">Fail</option>
-                          <option value="NEUTRAL">Neutral / Info</option>
+                          <option value="NEUTRAL">Neutral</option>
                         </select>
                         <button
                           type="button"
@@ -698,14 +730,13 @@ export default function SuperAdminLabTestsPage() {
                   disabled={isSubmittingCreate}
                   className="px-5 py-2 min-h-[44px] rounded-xl bg-primary text-white font-semibold hover:bg-primary-hover transition shadow-xs disabled:opacity-50"
                 >
-                  {isSubmittingCreate ? 'Creating...' : 'Create Lab Test'}
+                  {isSubmittingCreate ? 'Creating…' : 'Create Lab Test'}
                 </button>
               </div>
             </form>
           </Modal>
       )}</AnimatePresence>
 
-      {/* EDIT LAB TEST METADATA MODAL */}
       <AnimatePresence>{showEditModal && (
         <Modal key="modal-1" onClose={closeEditModal} title="Edit test metadata" preventClose={isSubmittingEdit} className="p-6 max-w-lg space-y-4">
             <div className="flex items-center justify-between">
@@ -817,7 +848,18 @@ export default function SuperAdminLabTestsPage() {
                 </div>
               </div>
 
-              {/* EDIT OPTIONS FOR CATEGORICAL TESTS */}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                <label className="flex items-center space-x-2 cursor-pointer select-none text-xs font-semibold text-slate-800 min-h-[36px]">
+                  <input
+                    type="checkbox"
+                    checked={editPhotoRequired}
+                    onChange={(e) => setEditPhotoRequired(e.target.checked)}
+                    className="w-4 h-4 text-primary rounded border-slate-300 focus:ring-primary"
+                  />
+                  <span>Require camera photo evidence (LR and FAT)</span>
+                </label>
+              </div>
+
               {['QUALITATIVE', 'OK_NOT_OK', 'POSITIVE_NEGATIVE'].includes(showEditModal.resultType) && (
                 <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
                   <div className="flex items-center justify-between">
@@ -880,7 +922,7 @@ export default function SuperAdminLabTestsPage() {
                         >
                           <option value="PASS">Pass</option>
                           <option value="FAIL">Fail</option>
-                          <option value="NEUTRAL">Neutral / Info</option>
+                          <option value="NEUTRAL">Neutral</option>
                         </select>
                         <button
                           type="button"
@@ -912,14 +954,13 @@ export default function SuperAdminLabTestsPage() {
                   disabled={isSubmittingEdit}
                   className="px-5 py-2 min-h-[44px] rounded-xl bg-primary text-white font-semibold hover:bg-primary-hover transition shadow-xs disabled:opacity-50"
                 >
-                  {isSubmittingEdit ? 'Updating...' : 'Update Metadata'}
+                  {isSubmittingEdit ? 'Updating…' : 'Update Metadata'}
                 </button>
               </div>
             </form>
           </Modal>
       )}</AnimatePresence>
 
-      {/* ACTIVATION / DEACTIVATION CONFIRMATION MODAL */}
       <AnimatePresence>{showConfirmModal && (
         <Modal key="modal-2" onClose={closeConfirmModal} title="Confirm test status change" preventClose={isSubmittingToggle} className="p-6 max-w-md space-y-4">
             <div className="flex items-center justify-between">
@@ -996,7 +1037,7 @@ export default function SuperAdminLabTestsPage() {
                 }`}
               >
                 {isSubmittingToggle
-                  ? 'Updating...'
+                  ? 'Updating…'
                   : showConfirmModal.action === 'DEACTIVATE'
                   ? 'Confirm Deactivation'
                   : 'Confirm Activation'}

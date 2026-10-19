@@ -57,7 +57,7 @@ export default function SuperAdminOverviewPage() {
   }, []);
 
   if (loading) {
-    return <div className="p-8 text-xs tabular-nums font-semibold text-slate-600">Loading Super Admin Overview...</div>;
+    return <div className="p-8 text-xs tabular-nums font-semibold text-slate-600">Loading Super Admin Overview…</div>;
   }
 
   if (error) {
@@ -73,7 +73,6 @@ export default function SuperAdminOverviewPage() {
     <div className="space-y-6">
       <PageHeader
         title="Administration overview"
-        description="Accounts, procurement sources, storage and quality configuration at a glance."
       />
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 stagger-children">

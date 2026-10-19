@@ -18,7 +18,7 @@ import {
   ShieldCheck,
   FileSpreadsheet,
   AlertCircle,
-  Factory,
+  Building2,
 } from 'lucide-react';
 
 interface ContractorReceiptsReconciliationProps {
@@ -93,11 +93,11 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
           </div>
           <div>
             <h2 className="text-base font-semibold text-slate-900 leading-tight">
-              {assignedSourceName} — Receipts & Reconciliation
+              {assignedSourceName}: Receipts & Reconciliation
             </h2>
             <p className="text-xs text-slate-500 font-medium mt-0.5">
-              Authoritative Silo receipts and volumetric reconciliation for Business Date:{' '}
-              <strong className="text-slate-700 tabular-nums">{serverBusinessDate || 'Live'}</strong>
+              Business date:{' '}
+              <strong className="text-slate-700 tabular-nums">{serverBusinessDate || '—'}</strong>
             </p>
           </div>
         </div>
@@ -124,16 +124,15 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
           </p>
         </div>
 
-        {/* Receipt Pending */}
         <div className="p-5 rounded-xl bg-white border border-border shadow-xs space-y-2">
-          <div className="flex items-center justify-between text-purple-700 text-xs font-semibold">
+          <div className="flex items-center justify-between text-amber-700 text-xs font-semibold">
             <span>Receipt Pending</span>
-            <Clock className="w-4 h-4 text-purple-600" />
+            <Clock className="w-4 h-4 text-amber-600" />
           </div>
-          <p className="text-3xl font-semibold text-purple-950 tabular-nums">
+          <p className="text-3xl font-semibold text-amber-950 tabular-nums">
             {metrics.receiptPendingCount}
           </p>
-          <p className="text-[11px] text-purple-700 font-medium">
+          <p className="text-[11px] text-amber-700 font-medium">
             2nd weight done · Awaiting Silo
           </p>
         </div>
@@ -188,7 +187,7 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search vehicle, token, reception..."
+            placeholder="Search vehicle, token, reception…"
             className="w-full pl-9 pr-4 py-2.5 min-h-[44px] text-xs tabular-nums font-semibold bg-slate-50 border border-border-strong rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-900"
           />
         </div>
@@ -229,8 +228,8 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
             onClick={() => setReceiptFilter('RECEIPT_PENDING')}
             className={`px-3 py-1.5 min-h-[38px] rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
               receiptFilter === 'RECEIPT_PENDING'
-                ? 'bg-purple-900 text-white shadow-xs'
-                : 'bg-purple-50 text-purple-800 hover:bg-purple-100 border border-purple-200'
+                ? 'bg-amber-900 text-white shadow-xs'
+                : 'bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200'
             }`}
           >
             Receipt Pending ({metrics.receiptPendingCount})
@@ -264,7 +263,7 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
 
         {isLoading ? (
           <div className="py-12 text-center text-xs font-semibold text-slate-500">
-            Loading receipt records...
+            Loading receipt records…
           </div>
         ) : filteredVisits.length === 0 ? (
           <div className="py-12 px-4 rounded-xl bg-slate-50 border border-dashed border-slate-200 text-center space-y-2">
@@ -368,7 +367,7 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
                     </td>
                     <td className="py-3.5 px-3 text-right tabular-nums font-semibold">
                       {v.plantFinalAt13TsLiters != null ? (
-                        <span className="text-purple-800">
+                        <span className="text-slate-900">
                           {v.plantFinalAt13TsLiters.toLocaleString()} L
                         </span>
                       ) : v.isHistoricalReceiptWithoutCommercialSnapshot ? (
@@ -414,7 +413,7 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
                     <td className="py-3.5 px-3 tabular-nums text-slate-700 text-[11px]">
                       {v.siloStorageId ? (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-50 text-blue-900 border border-blue-200 font-semibold">
-                          <Factory className="w-3 h-3 text-blue-700" />
+                          <Building2 className="w-3 h-3 text-blue-700" />
                           <span>{v.siloStorageId}</span>
                         </span>
                       ) : (
@@ -434,7 +433,7 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
                           )}
                         </div>
                       ) : v.secondWeightTimestamp ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-purple-100 text-purple-800 border border-purple-200">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 border border-amber-200">
                           Receipt Pending
                         </span>
                       ) : (

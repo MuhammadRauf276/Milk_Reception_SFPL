@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Play, CheckCircle2, PauseCircle, XCircle } from 'lucide-react';
+import { Play, CheckCircle2, PauseCircle, XCircle, AlertTriangle } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 import { Modal } from '@/components/ui/modal';
 import type { OnHoldVisit, WaitingVisit } from './QAQueuePanel';
@@ -21,6 +21,9 @@ export interface QADecisionModalsProps {
   onRejectionReasonChange: (val: string) => void;
   rejectionRemarks: string;
   onRejectionRemarksChange: (val: string) => void;
+  exceptionReason?: string;
+  onExceptionReasonChange?: (val: string) => void;
+  hasFailingTests?: boolean;
   onStartTestingConfirm: (e: React.FormEvent) => void;
   onResumeTestingConfirm: (e: React.FormEvent) => void;
   onAcceptPortionConfirm: (e: React.FormEvent) => void;
@@ -45,6 +48,9 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
   onRejectionReasonChange,
   rejectionRemarks,
   onRejectionRemarksChange,
+  exceptionReason = '',
+  onExceptionReasonChange,
+  hasFailingTests = false,
   onStartTestingConfirm,
   onResumeTestingConfirm,
   onAcceptPortionConfirm,
@@ -57,12 +63,12 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
   const currentPortion = visitDetail?.portions?.[activePortionIndex] || null;
   const targetWaitingVisit = waitingVisits.find((v) => v.id === actionVisitId) || null;
   const targetHeldVisit = onHoldVisits.find((v) => v.id === actionVisitId) || null;
+  const hasFailedTests = hasFailingTests || Boolean(currentPortion?.plant_results?.some((r) => r.isPassed === false));
 
   return (
     <AnimatePresence>
       {activeActionModal && (
         <Modal key="qa-decision" onClose={onCloseModal} title="QA decision" preventClose={isSubmitting} className="p-5 sm:p-6 max-w-md max-h-[90dvh] overflow-y-auto space-y-5 text-foreground">
-            {/* START TESTING MODAL */}
             {activeActionModal === 'START' && (
               <form onSubmit={onStartTestingConfirm} className="space-y-4">
                 <div className="flex items-center space-x-2.5 pb-2 border-b border-border-strong">
@@ -107,13 +113,12 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                     disabled={isSubmitting}
                     className="min-h-[44px] px-5 py-2.5 bg-primary hover:bg-primary-hover text-white font-semibold text-xs rounded-xl shadow-md transition"
                   >
-                    {isSubmitting ? 'Starting...' : 'Confirm & Start Testing'}
+                    {isSubmitting ? 'Starting…' : 'Confirm & Start Testing'}
                   </button>
                 </div>
               </form>
             )}
 
-            {/* RESUME TESTING MODAL */}
             {activeActionModal === 'RESUME' && (
               <form onSubmit={onResumeTestingConfirm} className="space-y-4">
                 <div className="flex items-center space-x-2.5 pb-2 border-b border-border-strong">
@@ -155,32 +160,66 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                     disabled={isSubmitting}
                     className="min-h-[44px] px-5 py-2.5 bg-amber-700 hover:bg-amber-800 text-white font-semibold text-xs rounded-xl shadow-md transition"
                   >
-                    {isSubmitting ? 'Resuming...' : 'Confirm & Resume Session'}
+                    {isSubmitting ? 'Resuming…' : 'Confirm & Resume Session'}
                   </button>
                 </div>
               </form>
             )}
 
-            {/* ACCEPT PORTION MODAL */}
             {activeActionModal === 'ACCEPT' && (
               <form onSubmit={onAcceptPortionConfirm} className="space-y-4">
                 <div className="flex items-center space-x-2.5 pb-2 border-b border-border-strong">
-                  <div className="p-2 bg-emerald-700 text-white rounded-xl">
-                    <CheckCircle2 className="w-5 h-5" />
+                  <div className={`p-2 rounded-xl text-white ${hasFailedTests ? 'bg-amber-600' : 'bg-emerald-700'}`}>
+                    {hasFailedTests ? <AlertTriangle className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
                   </div>
                   <div>
-                    <h3 className="font-semibold text-base text-foreground">Accept Portion for Reception</h3>
+                    <h3 className="font-semibold text-base text-foreground">
+                      {hasFailedTests ? 'Confirm Exception Decision' : 'Accept Portion for Reception'}
+                    </h3>
                     <p className="text-xs text-slate-700 font-semibold">
                       Portion #{currentPortion?.portion_number} of {visitDetail?.vehicle_number}
                     </p>
                   </div>
                 </div>
 
-                <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs font-semibold space-y-1">
-                  <p>
-                    Confirming that Portion #{currentPortion?.portion_number} meets plant quality standards and is approved for weighbridge and unloading.
-                  </p>
-                </div>
+                {hasFailedTests ? (
+                  <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-semibold space-y-2">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-semibold text-sm text-amber-950">Are you sure with your decision?</p>
+                        <p className="mt-1 font-normal text-amber-900">
+                          One or more tests failed SOP rules (FAIL) or test picture is missing. Your decision will be sent to <strong>Manager, QA Reception Lab</strong> for final decision.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs font-semibold space-y-1">
+                    <p>
+                      Confirming that Portion #{currentPortion?.portion_number} meets plant quality standards and is approved for weighbridge and unloading.
+                    </p>
+                  </div>
+                )}
+
+                {hasFailedTests && (
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-semibold text-foreground">
+                      Reason for Exception (Required) *
+                    </label>
+                    <textarea
+                      value={exceptionReason || rejectionReason}
+                      onChange={(e) => {
+                        if (onExceptionReasonChange) onExceptionReasonChange(e.target.value);
+                        onRejectionReasonChange(e.target.value);
+                      }}
+                      placeholder="Specify reason for accepting portion that failed SOP rules…"
+                      rows={2}
+                      className="w-full min-w-0 resize-y break-words p-2.5 text-xs font-semibold rounded-xl border border-amber-300 bg-white text-foreground focus:outline-hidden focus:ring-2 focus:ring-amber-600"
+                      required
+                    />
+                  </div>
+                )}
 
                 <div className="space-y-1.5">
                   <label className="block text-xs font-semibold text-foreground">
@@ -206,16 +245,23 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                   </button>
                   <button
                     type="submit"
-                    disabled={isSubmitting}
-                    className="min-h-[44px] px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs rounded-xl shadow-md transition"
+                    disabled={isSubmitting || (hasFailedTests && !(exceptionReason || rejectionReason || '').trim())}
+                    className={`min-h-[44px] px-5 py-2.5 text-white font-semibold text-xs rounded-xl shadow-md transition disabled:opacity-50 ${
+                      hasFailedTests
+                        ? 'bg-amber-600 hover:bg-amber-700'
+                        : 'bg-emerald-700 hover:bg-emerald-800'
+                    }`}
                   >
-                    {isSubmitting ? 'Accepting...' : 'Confirm Portion Acceptance'}
+                    {isSubmitting
+                      ? 'Submitting…'
+                      : hasFailedTests
+                      ? 'Confirm & Send to Manager, QA Reception Lab'
+                      : 'Confirm Portion Acceptance'}
                   </button>
                 </div>
               </form>
             )}
 
-            {/* HOLD PORTION MODAL */}
             {activeActionModal === 'HOLD' && (
               <form onSubmit={onHoldPortionConfirm} className="space-y-4">
                 <div className="flex items-center space-x-2.5 pb-2 border-b border-border-strong">
@@ -237,9 +283,9 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                   <textarea
                     value={holdReason}
                     onChange={(e) => onHoldReasonChange(e.target.value)}
-                    placeholder="Describe why this portion is being put on hold (e.g. pending supervisor review, re-sampling needed)..."
+                    placeholder="Describe why this portion is being put on hold (e.g. pending supervisor review, re-sampling needed)…"
                     rows={3}
-                    className="w-full p-3 text-xs font-semibold rounded-xl border border-border-strong bg-white text-foreground focus:outline-hidden focus:ring-2 focus:ring-amber-600"
+                    className="w-full min-w-0 resize-y break-words p-3 text-xs font-semibold rounded-xl border border-border-strong bg-white text-foreground focus:outline-hidden focus:ring-2 focus:ring-amber-600"
                     required
                   />
                 </div>
@@ -271,13 +317,12 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                     disabled={isSubmitting || !holdReason.trim()}
                     className="min-h-[44px] px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs rounded-xl shadow-md transition disabled:opacity-50"
                   >
-                    {isSubmitting ? 'Placing On Hold...' : 'Confirm Hold Decision'}
+                    {isSubmitting ? 'Placing On Hold…' : 'Confirm Hold Decision'}
                   </button>
                 </div>
               </form>
             )}
 
-            {/* REJECT PORTION MODAL */}
             {activeActionModal === 'REJECT' && (
               <form onSubmit={onRejectPortionConfirm} className="space-y-4">
                 <div className="flex items-center space-x-2.5 pb-2 border-b border-border-strong">
@@ -292,6 +337,20 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                   </div>
                 </div>
 
+                {!hasFailedTests && (
+                  <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-semibold space-y-1">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-semibold text-sm text-amber-950">Are you sure with your decision?</p>
+                        <p className="mt-1 font-normal text-amber-900">
+                          All tested parameters passed SOP rules (PASS). Your manual rejection will be sent to <strong>Manager, QA Reception Lab</strong> for final decision.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-1.5">
                   <label className="block text-xs font-semibold text-foreground">
                     Rejection Reason *
@@ -302,14 +361,14 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                     className="w-full min-h-[44px] px-3.5 py-2 text-xs font-semibold rounded-xl border border-border-strong bg-white text-foreground focus:outline-hidden focus:ring-2 focus:ring-rose-700"
                     required
                   >
-                    <option value="">-- Select Rejection Reason --</option>
-                    <option value="SOP Violation / Quality Out of Range">SOP Violation / Quality Out of Range</option>
-                    <option value="Adulteration Suspected / Positive">Adulteration Suspected / Positive</option>
-                    <option value="Temperature / Acidity Out of Bounds">Temperature / Acidity Out of Bounds</option>
-                    <option value="Organoleptic / Visual Defect">Organoleptic / Visual Defect</option>
-                    <option value="Antibiotics / Toxin Positive">Antibiotics / Toxin Positive</option>
-                    <option value="Contractor / Transporter Breach">Contractor / Transporter Breach</option>
-                    <option value="Other / Lab Supervisor Override">Other / Lab Supervisor Override</option>
+                    <option value="">Select rejection reason</option>
+                    <option value="SOP Violation / Quality Out of Range">SOP violation</option>
+                    <option value="Adulteration Suspected / Positive">Adulteration</option>
+                    <option value="Temperature / Acidity Out of Bounds">Temperature or acidity</option>
+                    <option value="Organoleptic / Visual Defect">Visual defect</option>
+                    <option value="Antibiotics / Toxin Positive">Antibiotics or toxin</option>
+                    <option value="Contractor / Transporter Breach">Transporter breach</option>
+                    <option value="Other / Lab Supervisor Override">Other</option>
                   </select>
                 </div>
 
@@ -320,9 +379,9 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                   <textarea
                     value={rejectionRemarks}
                     onChange={(e) => onRejectionRemarksChange(e.target.value)}
-                    placeholder="Detailed chemist lab observations, sample retest notes..."
+                    placeholder="Detailed chemist lab observations, sample retest notes…"
                     rows={2}
-                    className="w-full p-3 text-xs font-semibold rounded-xl border border-border-strong bg-white text-foreground focus:outline-hidden focus:ring-2 focus:ring-rose-700"
+                    className="w-full min-w-0 resize-y break-words p-3 text-xs font-semibold rounded-xl border border-border-strong bg-white text-foreground focus:outline-hidden focus:ring-2 focus:ring-rose-700"
                     required
                   />
                 </div>
@@ -354,7 +413,11 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                     disabled={isSubmitting || !rejectionReason.trim() || !rejectionRemarks.trim()}
                     className="min-h-[44px] px-5 py-2.5 bg-rose-700 hover:bg-rose-800 text-white font-semibold text-xs rounded-xl shadow-md transition disabled:opacity-50"
                   >
-                    {isSubmitting ? 'Rejecting...' : 'Confirm Portion Rejection'}
+                    {isSubmitting
+                      ? 'Rejecting…'
+                      : !hasFailedTests
+                      ? 'Confirm & Send to Manager, QA Reception Lab'
+                      : 'Confirm Portion Rejection'}
                   </button>
                 </div>
               </form>

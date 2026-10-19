@@ -6,11 +6,12 @@ import { createNotificationsForEvent } from '@/backend/services/notificationServ
 export async function GET(req: Request) {
   const user = await getCurrentUser(req);
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  if (user.role !== 'ZMCC_MANAGER' && user.role !== 'SUPER_ADMIN') return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-  const sourceId = user.role === 'SUPER_ADMIN' ? new URL(req.url).searchParams.get('sourceId') : user.procurement_source_id;
-  if (!sourceId) return NextResponse.json({ error: 'ZMCC source is required.' }, { status: 400 });
+  if (user.role !== 'ZMCC_MANAGER' && user.role !== 'SUPER_ADMIN' && user.role !== 'DATA_EXECUTIVE') return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+  const isGlobal = user.role === 'SUPER_ADMIN' || user.role === 'DATA_EXECUTIVE';
+  const sourceId = isGlobal ? new URL(req.url).searchParams.get('sourceId') : user.procurement_source_id;
+  if (!sourceId && !isGlobal) return NextResponse.json({ error: 'ZMCC source is required.' }, { status: 400 });
   const requests = await prisma.correctionRequest.findMany({
-    where: { source_id: BigInt(sourceId), status: 'REQUESTED' },
+    where: { ...(sourceId ? { source_id: BigInt(sourceId) } : {}), status: 'REQUESTED' },
     include: { requester: { select: { username: true, full_name: true } } },
     orderBy: { requested_at: 'asc' },
     take: 50,
@@ -21,7 +22,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const user = await getCurrentUser(req);
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  if (user.role !== 'ZMCC_MANAGER' && user.role !== 'SUPER_ADMIN') return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+  if (user.role !== 'ZMCC_MANAGER' && user.role !== 'SUPER_ADMIN' && user.role !== 'DATA_EXECUTIVE') return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   try {
     const body = await req.json();
     const requestId = body?.requestId;

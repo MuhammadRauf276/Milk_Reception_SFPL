@@ -17,12 +17,12 @@ import { formatOperationalDatetime } from '@/lib/datetime-utils';
 import {
   History,
   Search,
-  RefreshCw,
   AlertTriangle,
   Download,
   Printer,
   ExternalLink,
   FileSpreadsheet,
+  Loader2,
 } from 'lucide-react';
 
 interface ZMCCManagerHistoryReportsProps {
@@ -108,9 +108,6 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
               <h2 className="text-sm font-semibold text-foreground">
                 Historical Dispatch & Milestone Archive: {assignedSourceName}
               </h2>
-              <p className="text-xs text-slate-600">
-                Complete audit trail of all dispatches, weighbridge transactions, and silo receipts for your assigned ZMCC.
-              </p>
             </div>
           </div>
 
@@ -139,8 +136,7 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
                 disabled={isLoading}
                 className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-subtle border border-border/80 text-xs font-semibold text-foreground hover:bg-muted/60 transition-all disabled:opacity-50"
               >
-                <RefreshCw className={`w-3.5 h-3.5 text-primary ${isLoading ? 'animate-spin' : ''}`} />
-                <span>{isLoading ? 'Syncing...' : 'Refresh'}</span>
+                <span>{isLoading ? 'Syncing…' : 'Refresh'}</span>
               </button>
             )}
           </div>
@@ -175,7 +171,7 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search vehicle #, token #, silo, date..."
+              placeholder="Search vehicle #, token #, silo, date…"
               className="w-full pl-9 pr-3 py-1.5 text-xs font-semibold rounded-lg bg-subtle border border-border/80 text-foreground focus:ring-2 focus:ring-primary outline-hidden"
             />
           </div>
@@ -219,12 +215,12 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
               onChange={(e) => setLifecycleFilter(e.target.value as HistoryLifecycleFilter)}
               className="px-2 py-1 text-xs font-semibold rounded bg-slate-50 border border-slate-200 text-slate-700 outline-hidden"
             >
-              <option value="ALL">All Stages</option>
-              <option value="IN_TRANSIT">In Transit</option>
-              <option value="IN_PLANT">In Plant</option>
+              <option value="ALL">All stages</option>
+              <option value="IN_TRANSIT">In transit</option>
+              <option value="IN_PLANT">In plant</option>
               <option value="COMPLETED">Completed</option>
-              <option value="REJECTED">Has Rejection</option>
-              <option value="HOLD">Has Hold</option>
+              <option value="REJECTED">Rejected</option>
+              <option value="HOLD">On hold</option>
             </select>
           </div>
 
@@ -252,9 +248,9 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
               onChange={(e) => setReceiptFilter(e.target.value as HistoryReceiptFilter)}
               className="px-2 py-1 text-xs font-semibold rounded bg-slate-50 border border-slate-200 text-slate-700 outline-hidden"
             >
-              <option value="ALL">All Receipts</option>
-              <option value="FINAL_RECEIPT_EXISTS">Final Receipt Exists</option>
-              <option value="RECEIPT_PENDING">Receipt Pending</option>
+              <option value="ALL">All receipts</option>
+              <option value="FINAL_RECEIPT_EXISTS">Receipt done</option>
+              <option value="RECEIPT_PENDING">Receipt pending</option>
             </select>
           </div>
         </div>
@@ -278,8 +274,8 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
       {/* 4. Loading State */}
       {isLoading && (
         <div className="p-8 text-center bg-card rounded-xl border border-border/80 text-xs text-slate-500 font-semibold flex items-center justify-center gap-2">
-          <RefreshCw className="w-4 h-4 animate-spin text-primary" />
-          <span>Loading historical transactions...</span>
+          <Loader2 className="w-4 h-4 animate-spin text-primary" />
+          <span>Loading historical transactions…</span>
         </div>
       )}
 

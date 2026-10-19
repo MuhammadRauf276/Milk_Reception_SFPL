@@ -17,13 +17,12 @@ import {
   Truck,
   FlaskConical,
   Scale,
-  Factory,
+  Building2,
   Calendar,
   Layers,
   History,
   ChevronRight,
   AlertTriangle,
-  RefreshCw,
   Milk,
   Clock,
   CheckCircle2,
@@ -105,7 +104,6 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
             onClick={onRetry}
             className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-red-800 text-white text-xs font-semibold hover:bg-red-800 transition"
           >
-            <RefreshCw className="w-3.5 h-3.5" />
             <span>Retry Loading</span>
           </button>
         )}
@@ -131,7 +129,6 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
 
   return (
     <div className="space-y-6" role="region" aria-label="ZMCC Manager Overview">
-      {/* 1. Date Range & Scope Header */}
       <div className="p-5 rounded-xl bg-card border border-border/80 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-border/80">
           <div className="flex items-center space-x-2">
@@ -160,12 +157,11 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
               <option value="YESTERDAY">Yesterday</option>
               <option value="LAST_7">Last 7 Days</option>
               <option value="LAST_15">Last 15 Days</option>
-              <option value="ALL">All Time</option>
+              <option value="ALL">All time</option>
             </select>
           </div>
         </div>
 
-        {/* 2. Primary operational KPIs */}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 stagger-children">
           <StatCard
             label="Current tank stock"
@@ -192,7 +188,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
           />
           <StatCard
             label="Active plant-bound"
-            icon={Factory}
+            icon={Building2}
             value={liveActiveInPlantCount != null ? liveActiveInPlantCount : '—'}
           />
           <StatCard
@@ -203,9 +199,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
           />
         </div>
 
-        {/* 3. Secondary Quantity & Volume Summary */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 pt-2 border-t border-border/80 tabular-nums">
-          {/* Gross Liters Summary */}
           <div className="p-4 rounded-xl bg-subtle border border-border space-y-2">
             <div className="flex items-center justify-between font-sans">
               <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
@@ -251,7 +245,6 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
             </div>
           </div>
 
-          {/* @13TS Liters Summary */}
           <div className="p-4 rounded-xl bg-subtle border border-border space-y-2">
             <div className="flex items-center justify-between font-sans">
               <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
@@ -299,10 +292,8 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
         </div>
       </div>
 
-      {/* 4. Needs Attention Panel */}
       <ManagerAttentionPanel items={attentionItems} onInspectDetails={onInspectDetails} />
 
-      {/* 5. Quick Recent Dispatches Preview */}
       <div className="p-5 rounded-xl bg-card border border-border/80 shadow-xs space-y-4">
         <div className="flex items-center justify-between pb-3 border-b border-border/80">
           <div className="flex items-center space-x-2">

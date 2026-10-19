@@ -4,13 +4,13 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   TrendingDown,
   Download,
-  RefreshCw,
   AlertTriangle,
   Layers,
   Truck,
   Building2,
   Route,
   CheckCircle2,
+  Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { fetchJson } from '@/lib/fetch-json';
@@ -153,10 +153,10 @@ export const SupplyChainLossCard: React.FC<SupplyChainLossCardProps> = ({
             type="button"
             onClick={refresh}
             disabled={isLoading}
-            className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50"
-            title="Refresh metrics"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50"
           >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            {isLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            Refresh
           </button>
 
           {/* Export Excel Button */}
@@ -168,7 +168,7 @@ export const SupplyChainLossCard: React.FC<SupplyChainLossCardProps> = ({
               className="flex items-center space-x-1 px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold transition-colors disabled:opacity-50"
             >
               <Download className={`w-3.5 h-3.5 ${isExporting ? 'animate-pulse' : ''}`} />
-              <span>{isExporting ? 'Exporting...' : 'Export Excel'}</span>
+              <span>{isExporting ? 'Exporting…' : 'Export Excel'}</span>
             </button>
           )}
         </div>
@@ -194,7 +194,6 @@ export const SupplyChainLossCard: React.FC<SupplyChainLossCardProps> = ({
       {/* Metrics Grid */}
       {summary && (
         <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {/* Tier 1: MOT Route / Area Loss */}
           <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-200/60">
@@ -237,12 +236,11 @@ export const SupplyChainLossCard: React.FC<SupplyChainLossCardProps> = ({
             </div>
           </div>
 
-          {/* Tier 2: ZMCC Process & Chilling Loss */}
           <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-200/60">
                 <div className="flex items-center space-x-1.5 text-xs font-semibold text-slate-700">
-                  <Building2 className="w-3.5 h-3.5 text-purple-700" />
+                  <Building2 className="w-3.5 h-3.5 text-primary" />
                   <span>Tier 2: ZMCC Process Loss</span>
                 </div>
                 {summary.tier2ZmccLoss.lossLiters > 0 ? (
@@ -280,7 +278,6 @@ export const SupplyChainLossCard: React.FC<SupplyChainLossCardProps> = ({
             </div>
           </div>
 
-          {/* Tier 3: Road Transit Loss */}
           <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-200/60">
@@ -332,7 +329,6 @@ export const SupplyChainLossCard: React.FC<SupplyChainLossCardProps> = ({
             </div>
           </div>
 
-          {/* Tier 4: Total MPD Loss */}
           <div className="p-3.5 rounded-xl border border-blue-200 bg-blue-50/40 flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between pb-2 mb-2 border-b border-blue-200/60">

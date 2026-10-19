@@ -280,7 +280,7 @@ export default function SuperAdminProcurementSourcesPage() {
               {loading ? (
                 <tr>
                   <td colSpan={5} className="p-6 text-center text-slate-400 tabular-nums">
-                    Loading procurement sources...
+                    Loading procurement sources…
                   </td>
                 </tr>
               ) : sources.length === 0 ? (
@@ -297,7 +297,7 @@ export default function SuperAdminProcurementSourcesPage() {
                     <td className="p-3">
                       <span
                         className={`px-2 py-0.5 rounded tabular-nums text-[10px] font-semibold ${
-                          s.sourceType === 'ZMCC' ? 'bg-blue-100 text-blue-900' : 'bg-purple-100 text-purple-900'
+                          s.sourceType === 'ZMCC' ? 'bg-blue-100 text-blue-900' : 'bg-slate-100 text-slate-800 border border-slate-200'
                         }`}
                       >
                         {s.sourceType}
@@ -406,8 +406,8 @@ export default function SuperAdminProcurementSourcesPage() {
                   disabled={isSubmittingCreate}
                   className="w-full p-2.5 rounded-lg border border-border-strong focus:outline-hidden focus:border-primary"
                 >
-                  <option value="ZMCC">ZMCC (Direct Procurement Center)</option>
-                  <option value="CONTRACTOR">CONTRACTOR (Third-Party Supplier)</option>
+                  <option value="ZMCC">ZMCC</option>
+                  <option value="CONTRACTOR">Contractor</option>
                 </select>
                 <p className="text-[10px] text-slate-400 mt-1">Source type is immutable once created.</p>
               </div>
@@ -426,7 +426,7 @@ export default function SuperAdminProcurementSourcesPage() {
                   disabled={isSubmittingCreate}
                   className="px-4 py-2 min-h-[44px] rounded-lg bg-primary text-white font-semibold hover:bg-primary-hover transition disabled:opacity-50"
                 >
-                  {isSubmittingCreate ? 'Saving...' : 'Save Source'}
+                  {isSubmittingCreate ? 'Saving…' : 'Save Source'}
                 </button>
               </div>
             </form>
@@ -506,7 +506,7 @@ export default function SuperAdminProcurementSourcesPage() {
                   disabled={isSubmittingEdit}
                   className="px-4 py-2 min-h-[44px] rounded-lg bg-primary text-white font-semibold hover:bg-primary-hover transition disabled:opacity-50"
                 >
-                  {isSubmittingEdit ? 'Saving...' : 'Save Changes'}
+                  {isSubmittingEdit ? 'Saving…' : 'Save Changes'}
                 </button>
               </div>
             </form>
@@ -584,7 +584,7 @@ export default function SuperAdminProcurementSourcesPage() {
                 }`}
               >
                 {isSubmittingConfirm
-                  ? 'Processing...'
+                  ? 'Processing…'
                   : showConfirmModal.targetStatus
                   ? 'Activate Source'
                   : 'Deactivate Source'}

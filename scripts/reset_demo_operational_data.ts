@@ -58,32 +58,63 @@ export async function resetOperationalData() {
     monthlyReceptionCounters: (await prisma.monthlyReceptionCounter.deleteMany({})).count,
     auditLogs: (await prisma.auditLog.deleteMany({})).count,
 
-    // Demo-Owned Master Data Deletions ONLY (Preserves all non-demo master data)
-    zmccDemoLocalSuppliers: (await prisma.zmccLocalSupplier.deleteMany({
+    // Seed-Owned Master Data Deletions ONLY (Preserves all non-seed master data)
+    zmccSeedLocalSuppliers: (await prisma.zmccLocalSupplier.deleteMany({
       where: {
         OR: [
           { erp_reference: { startsWith: 'DEMO-' } },
           { name: { startsWith: 'DEMO -' } },
+          { erp_reference: { startsWith: 'LS-HAS-' } },
         ],
       },
     })).count,
-    motDemoVehicles: (await prisma.motVehicle.deleteMany({
-      where: { vehicle_number: { startsWith: 'DEMO-' } },
+    motSeedVehicles: (await prisma.motVehicle.deleteMany({
+      where: {
+        OR: [
+          { vehicle_number: { startsWith: 'DEMO-' } },
+          { vehicle_number: 'BWP-5522' },
+        ],
+      },
     })).count,
-    motDemoProfiles: (await prisma.motProfile.deleteMany({
-      where: { mot_code: { startsWith: 'DEMO-' } },
+    motSeedProfiles: (await prisma.motProfile.deleteMany({
+      where: {
+        OR: [
+          { mot_code: { startsWith: 'DEMO-' } },
+          { mot_code: 'MOT-HAS-001' },
+        ],
+      },
     })).count,
-    zmccDemoShops: (await prisma.zmccShop.deleteMany({
-      where: { shop_code: { startsWith: 'DEMO-' } },
+    zmccSeedShops: (await prisma.zmccShop.deleteMany({
+      where: {
+        OR: [
+          { shop_code: { startsWith: 'DEMO-' } },
+          { shop_code: 'SHP-000001' },
+        ],
+      },
     })).count,
-    zmccDemoAreas: (await prisma.zmccArea.deleteMany({
-      where: { area_code: { startsWith: 'DEMO-' } },
+    zmccSeedAreas: (await prisma.zmccArea.deleteMany({
+      where: {
+        OR: [
+          { area_code: { startsWith: 'DEMO-' } },
+          { area_code: 'AR-HAS-01' },
+        ],
+      },
     })).count,
-    zmccDemoMilkSources: (await prisma.zmccMilkSource.deleteMany({
-      where: { erp_code: { startsWith: 'DEMO-' } },
+    zmccSeedMilkSources: (await prisma.zmccMilkSource.deleteMany({
+      where: {
+        OR: [
+          { erp_code: { startsWith: 'DEMO-' } },
+          { erp_code: 'MS-HAS-01' },
+        ],
+      },
     })).count,
-    zmccDemoRoutes: (await prisma.zmccRoute.deleteMany({
-      where: { route_code: { startsWith: 'DEMO-' } },
+    zmccSeedRoutes: (await prisma.zmccRoute.deleteMany({
+      where: {
+        OR: [
+          { route_code: { startsWith: 'DEMO-' } },
+          { route_code: 'RT-HAS-001' },
+        ],
+      },
     })).count,
   };
 

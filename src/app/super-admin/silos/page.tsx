@@ -215,9 +215,6 @@ export default function SuperAdminSilosPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-foreground">Silo Storage</h1>
-          <p className="text-xs font-medium text-slate-500 mt-1">
-            Plant silo capacity and active status. Stock is ledger-derived from recorded receipts and issues.
-          </p>
         </div>
         <button
           type="button"
@@ -265,7 +262,7 @@ export default function SuperAdminSilosPage() {
               {loading ? (
                 <tr>
                   <td colSpan={7} className="p-6 text-center text-slate-400 tabular-nums">
-                    Loading silo storage records...
+                    Loading silo storage records…
                   </td>
                 </tr>
               ) : silos.length === 0 ? (
@@ -433,7 +430,7 @@ export default function SuperAdminSilosPage() {
                   disabled={isSubmitting}
                   className="min-h-[44px] px-5 py-2 rounded-xl bg-primary text-white font-semibold hover:bg-primary-hover transition shadow-xs disabled:opacity-50"
                 >
-                  {isSubmitting ? 'Saving...' : 'Save Silo'}
+                  {isSubmitting ? 'Saving…' : 'Save Silo'}
                 </button>
               </div>
             </form>
@@ -527,7 +524,7 @@ export default function SuperAdminSilosPage() {
                   disabled={isSubmitting}
                   className="min-h-[44px] px-5 py-2 rounded-xl bg-primary text-white font-semibold hover:bg-primary-hover transition shadow-xs disabled:opacity-50"
                 >
-                  {isSubmitting ? 'Updating...' : 'Update Silo'}
+                  {isSubmitting ? 'Updating…' : 'Update Silo'}
                 </button>
               </div>
             </form>
@@ -549,10 +546,10 @@ export default function SuperAdminSilosPage() {
               <strong className="text-foreground tabular-nums">{deactivatingSilo.siloCode}</strong> ({deactivatingSilo.siloName})?
             </p>
 
-            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs space-y-1">
-              <div>• The silo will be removed from operational selection immediately.</div>
-              <div>• Deactivation is blocked if the silo contains milk stock or active unloadings.</div>
-            </div>
+            <ul className="list-disc space-y-1 rounded-xl border border-amber-200 bg-amber-50 p-3 pl-7 text-xs text-amber-900">
+              <li>The silo will be removed from operational selection immediately.</li>
+              <li>Deactivation is blocked if the silo contains milk stock or active unloadings.</li>
+            </ul>
 
             {modalError && (
               <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs font-semibold flex items-center space-x-2">
@@ -576,7 +573,7 @@ export default function SuperAdminSilosPage() {
                 disabled={isSubmitting}
                 className="min-h-[44px] px-5 py-2 rounded-xl bg-rose-600 text-white font-semibold hover:bg-rose-700 transition shadow-xs disabled:opacity-50"
               >
-                {isSubmitting ? 'Deactivating...' : 'Confirm Deactivate'}
+                {isSubmitting ? 'Deactivating…' : 'Confirm Deactivate'}
               </button>
             </div>
           </Modal>

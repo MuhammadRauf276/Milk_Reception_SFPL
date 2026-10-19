@@ -73,9 +73,6 @@ export default function SuperAdminAuditPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold text-foreground">System Audit & Immutable History Log</h1>
-          <p className="text-xs font-medium text-slate-500 mt-1">
-            Complete immutable audit trail of system configurations, user changes, and data updates in PostgreSQL.
-          </p>
         </div>
 
         {/* TABLE FILTER */}
@@ -86,7 +83,7 @@ export default function SuperAdminAuditPage() {
             onChange={(e) => handleFilterChange(e.target.value)}
             className="p-2 rounded-xl border border-border-strong bg-white font-semibold focus:outline-hidden focus:border-primary"
           >
-            <option value="">All Entities</option>
+            <option value="">All entities</option>
             <option value="users">users</option>
             <option value="procurement_source">procurement_source</option>
             <option value="silo">silo</option>
@@ -122,7 +119,7 @@ export default function SuperAdminAuditPage() {
               {loading ? (
                 <tr>
                   <td colSpan={6} className="p-6 text-center text-slate-400 tabular-nums">
-                    Loading audit trail...
+                    Loading audit trail…
                   </td>
                 </tr>
               ) : logs.length === 0 ? (

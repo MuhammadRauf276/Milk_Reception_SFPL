@@ -1,18 +1,11 @@
 'use client';
 
 import React from 'react';
-import { Clock, Truck, Activity } from 'lucide-react';
+import { Clock, Truck } from 'lucide-react';
 import {
   QuantityUnit,
   MeasurementBasis,
 } from '@/backend/modules/dispatch/quantity-policy/types';
-import {
-  calculateDensity,
-  calculateGrossLiters,
-  calculateSNF,
-  calculateTS,
-  calculateAt13TSLiters,
-} from '@/backend/utils/milkFormulas';
 
 export type QuantityUnitType = QuantityUnit;
 export type MeasurementBasisType = MeasurementBasis;
@@ -80,27 +73,8 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
   rawMilkDispatchNoteNumber,
   onRawMilkDispatchNoteNumberChange,
 }) => {
-  const numQty = parseFloat(vehicleQuantity.value);
-  const numLr = vehicleLr ? parseFloat(vehicleLr) : NaN;
-  const numFat = vehicleFat ? parseFloat(vehicleFat) : NaN;
-
-  const previewDensity = !isNaN(numLr) && numLr > 0 ? calculateDensity(numLr) : null;
-  const previewGrossLiters = !isNaN(numQty) && numQty > 0
-    ? calculateGrossLiters(numQty, vehicleQuantity.unit, !isNaN(numLr) ? numLr : null)
-    : null;
-  const previewSnf = !isNaN(numLr) && !isNaN(numFat) && numLr > 0 && numFat >= 0
-    ? calculateSNF(numLr, numFat)
-    : null;
-  const previewTs = previewSnf !== null && !isNaN(numFat) && numFat >= 0
-    ? calculateTS(numFat, previewSnf)
-    : null;
-  const previewAt13ts = previewGrossLiters !== null && previewTs !== null
-    ? calculateAt13TSLiters(previewGrossLiters, previewTs)
-    : null;
-
   return (
     <div className="space-y-4">
-      {/* Global Source Selector if user is NOT source-bound (e.g. Admin) */}
       {!isSourceBound && availableSources.length > 0 && (
         <div className="p-4 rounded-xl bg-amber-50/70 border border-amber-300/80 text-xs space-y-1.5 shadow-xs">
           <label className="block font-semibold text-amber-950">
@@ -109,36 +83,34 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
           <select
             value={selectedSourceId}
             onChange={(e) => onSelectSourceId(e.target.value)}
-            className="w-full h-11 px-3.5 font-semibold rounded-xl border border-amber-300 bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-primary-hover"
+            className="w-full h-11 px-3.5 font-semibold rounded-xl border border-amber-300 bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-primary"
           >
-            <option value="">-- Select Procurement Source --</option>
+            <option value="">Select procurement source</option>
             {availableSources.map((s) => (
               <option key={s.id} value={s.id}>
-                {s.name} ({s.source_type})
+                {s.name} · {s.source_type}
               </option>
             ))}
           </select>
         </div>
       )}
 
-      {/* Notice when unbound admin has not yet selected a source */}
       {!isSourceBound && !selectedSourceId && (
         <div className="p-4 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 text-xs font-semibold">
           Please select an operating procurement source from the dropdown above to initialize the dispatch draft.
         </div>
       )}
 
-      {/* Vehicle Registration & Timestamp Card */}
       <div className="p-4 sm:p-5 rounded-xl bg-white border border-border-strong shadow-xs space-y-4">
         <div className="flex items-center space-x-2 border-b border-slate-100 pb-2">
-          <Truck className="w-4 h-4 text-primary-hover" />
+          <Truck className="w-4 h-4 text-primary" />
           <h3 className="text-xs font-semibold text-foreground">
             Vehicle & Dispatch Time
           </h3>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-          <div className="space-y-1">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 min-w-0">
+          <div className="space-y-1 min-w-0">
             <label htmlFor="vehicle-number-input" className="block text-xs font-semibold text-foreground">
               Vehicle No. *
             </label>
@@ -148,19 +120,19 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
               value={vehicleNumber}
               onChange={(e) => onVehicleNumberChange(e.target.value)}
               placeholder="e.g. KBL-8492"
-              className={`w-full h-11 px-3.5 text-sm tabular-nums font-semibold rounded-xl border bg-white text-foreground focus:ring-2 focus:ring-primary-hover outline-hidden transition ${
+              className={`w-full min-w-0 h-11 px-3.5 text-sm tabular-nums font-semibold rounded-xl border bg-white text-foreground focus:ring-2 focus:ring-primary outline-hidden transition ${
                 vehicleNumberError ? 'border-rose-500 bg-rose-50/20 ring-1 ring-rose-500' : 'border-border-strong'
               }`}
               required
             />
             {vehicleNumberError && (
-              <p className="text-xs font-semibold text-rose-600 mt-1" id="vehicle-number-error">
+              <p className="text-xs font-semibold text-rose-600 mt-1 break-words" id="vehicle-number-error">
                 {vehicleNumberError}
               </p>
             )}
           </div>
 
-          <div className="space-y-1">
+          <div className="space-y-1 min-w-0">
             <label htmlFor="dispatch-note-input" className="block text-xs font-semibold text-foreground">
               Raw Milk Dispatch Note No.
             </label>
@@ -172,14 +144,14 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
               value={rawMilkDispatchNoteNumber || ''}
               onChange={(e) => onRawMilkDispatchNoteNumberChange?.(e.target.value.replace(/[^0-9]/g, ''))}
               placeholder="e.g. 008124"
-              className="w-full h-11 px-3.5 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-white text-foreground focus:ring-2 focus:ring-primary-hover outline-hidden transition"
+              className="w-full min-w-0 h-11 px-3.5 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-white text-foreground focus:ring-2 focus:ring-primary outline-hidden transition"
             />
           </div>
 
-          <div className="space-y-1">
+          <div className="space-y-1 min-w-0">
             <label htmlFor="dispatch-time-input" className="block text-xs font-semibold text-foreground flex items-center justify-between">
               <span>Dispatch Time *</span>
-              <Clock className="w-3.5 h-3.5 text-primary-hover" />
+              <Clock className="w-3.5 h-3.5 text-primary shrink-0" />
             </label>
             <input
               id="dispatch-time-input"
@@ -187,185 +159,23 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
               value={dispatchOpDatetime}
               max={maxDatetime}
               onChange={(e) => onDispatchOpDatetimeChange(e.target.value)}
-              className="w-full h-11 px-3.5 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-white text-foreground focus:ring-2 focus:ring-primary-hover outline-hidden transition"
+              className="w-full min-w-0 h-11 px-3.5 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-white text-foreground focus:ring-2 focus:ring-primary outline-hidden transition"
               required
             />
           </div>
         </div>
       </div>
 
-      {/* Whole-Vehicle Dispatch Quantity Section */}
-      <div className="p-4 sm:p-5 rounded-xl bg-white border border-border-strong shadow-xs space-y-3.5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-2 gap-1">
-          <label className="text-xs font-semibold text-foreground">
-            {sourceType === 'ZMCC' ? 'Measured Tank / Vehicle Issue' : 'Measured Whole-Vehicle Dispatch Quantity'} *
-          </label>
-        </div>
-
-        {!isPolicyReady ? (
-          <div className="p-4 text-center rounded-xl bg-slate-50 border border-dashed border-border text-sm text-muted-foreground">
-            Loading frozen quantity policy snapshot...
-          </div>
-        ) : (
-          <>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="space-y-1">
-                <label htmlFor="vehicle-quantity-input" className="block text-xs font-semibold text-foreground">
-                  Value *
-                </label>
-                <input
-                  id="vehicle-quantity-input"
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  value={vehicleQuantity.value}
-                  onChange={(e) => onVehicleQuantityValueChange(e.target.value)}
-                  placeholder="e.g. 19500"
-                  className={`w-full h-11 px-3.5 text-sm tabular-nums font-semibold rounded-xl border bg-white text-foreground focus:ring-2 focus:ring-primary-hover outline-hidden transition ${
-                    vehicleQuantityError ? 'border-rose-500 bg-rose-50/20 ring-1 ring-rose-500' : 'border-border-strong'
-                  }`}
-                  required
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label htmlFor="vehicle-unit-select" className="block text-xs font-semibold text-foreground">
-                  Unit *
-                </label>
-                <select
-                  id="vehicle-unit-select"
-                  value={vehicleQuantity.unit}
-                  onChange={(e) => onVehicleUnitChange(e.target.value as QuantityUnitType)}
-                  className="w-full h-11 px-3 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-white text-foreground focus:ring-2 focus:ring-primary-hover outline-hidden transition"
-                >
-                  {vehicleAllowedUnits.map((u) => (
-                    <option key={u} value={u}>
-                      {u}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label htmlFor="vehicle-basis-select" className="block text-xs font-semibold text-foreground">
-                  Basis *
-                </label>
-                <div className="w-full h-11 px-3 flex items-center justify-between rounded-xl border border-emerald-300 bg-emerald-50/60 text-foreground">
-                  <span className="text-xs tabular-nums font-semibold text-emerald-900 tracking-wider">
-                    {vehicleQuantity.basis || 'MEASURED'}
-                  </span>
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-800 bg-emerald-200/70 px-2 py-0.5 rounded-md">
-                    Authoritative
-                  </span>
-                </div>
-                <input type="hidden" id="vehicle-basis-select" value={vehicleQuantity.basis || 'MEASURED'} />
-              </div>
-            </div>
-
-            {/* Whole-Vehicle / Composite Quality Section */}
-            <div className="p-4 rounded-xl bg-amber-50/60 border border-amber-200/90 space-y-3 shadow-2xs">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-amber-200/70 pb-2">
-                <div className="flex items-center space-x-1.5">
-                  <Activity className="w-4 h-4 text-amber-900" />
-                  <span className="text-xs font-semibold uppercase tracking-wider text-amber-950">
-                    Whole-Vehicle Quality {sourceType === 'ZMCC' ? '(Required)' : '(Optional)'}
-                  </span>
-                </div>
-                {isVehicleQualityAuto ? (
-                  <span className="text-xs font-semibold text-blue-700 bg-blue-100 px-2.5 py-0.5 rounded-full border border-blue-200">
-                    Auto-calculated from Portions
-                  </span>
-                ) : onResetVehicleQualityAuto ? (
-                  <button
-                    type="button"
-                    onClick={onResetVehicleQualityAuto}
-                    className="text-xs font-semibold text-primary-hover hover:underline"
-                  >
-                    Reset to Auto-Calculate
-                  </button>
-                ) : null}
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label htmlFor="vehicle-lr-input" className="block text-xs font-semibold text-amber-950">
-                    Vehicle Composite LR {sourceType === 'ZMCC' ? '*' : (vehicleQuantity.unit === 'KG' ? '*' : '(Optional)')}
-                  </label>
-                  <input
-                    id="vehicle-lr-input"
-                    type="number"
-                    step="0.01"
-                    min="10"
-                    max="40"
-                    value={vehicleLr || ''}
-                    onChange={(e) => onVehicleLrChange && onVehicleLrChange(e.target.value)}
-                    placeholder="e.g. 28.00"
-                    className="w-full h-11 px-3.5 text-sm tabular-nums font-semibold rounded-xl border border-amber-300 bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-primary-hover"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label htmlFor="vehicle-fat-input" className="block text-xs font-semibold text-amber-950">
-                    Vehicle Composite Fat % {sourceType === 'ZMCC' ? '*' : '(Optional)'}
-                  </label>
-                  <input
-                    id="vehicle-fat-input"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max="15"
-                    value={vehicleFat || ''}
-                    onChange={(e) => onVehicleFatChange && onVehicleFatChange(e.target.value)}
-                    placeholder="e.g. 3.80"
-                    className="w-full h-11 px-3.5 text-sm tabular-nums font-semibold rounded-xl border border-amber-300 bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-primary-hover"
-                  />
-                </div>
-              </div>
-
-              {/* Derived Read-Only Preview Badges */}
-              {(previewGrossLiters !== null || previewDensity !== null || previewAt13ts !== null) && (
-                <div className="pt-3 border-t border-amber-200/70 space-y-2">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    <div className="p-3 rounded-xl bg-white border border-blue-200 shadow-2xs space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-slate-600 font-sans">Gross Liters</span>
-                        <span className="text-xs font-semibold text-slate-500 tabular-nums">
-                          Density: {previewDensity !== null ? previewDensity.toFixed(4) : '—'}
-                        </span>
-                      </div>
-                      <span className="text-base font-semibold text-blue-950 tabular-nums block">
-                        {previewGrossLiters !== null
-                          ? `${previewGrossLiters.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L`
-                          : '—'}
-                      </span>
-                    </div>
-
-                    <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-300 shadow-2xs space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-emerald-900 font-sans">Liters @ 13% TS</span>
-                        <span className="text-xs font-semibold text-emerald-800 tabular-nums">
-                          SNF: {previewSnf !== null ? `${previewSnf.toFixed(2)}%` : '—'} • TS: {previewTs !== null ? `${previewTs.toFixed(2)}%` : '—'}
-                        </span>
-                      </div>
-                      <span className="text-base font-semibold text-emerald-950 tabular-nums block">
-                        {previewAt13ts !== null
-                          ? `${previewAt13ts.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L`
-                          : '—'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {vehicleQuantityError && (
-              <p className="text-xs font-semibold text-rose-600 mt-1" id="vehicle-quantity-error">
-                {vehicleQuantityError}
-              </p>
-            )}
-          </>
-        )}
-      </div>
+      <input type="hidden" id="vehicle-quantity-input" value={vehicleQuantity.value} />
+      <input type="hidden" id="vehicle-unit-select" value="KG" />
+      <input type="hidden" id="vehicle-basis-select" value="MEASURED" />
+      <input type="hidden" id="vehicle-lr-input" value={vehicleLr || ''} />
+      <input type="hidden" id="vehicle-fat-input" value={vehicleFat || ''} />
+      {vehicleQuantityError && (
+        <p className="text-xs font-semibold text-rose-600 mt-1 break-words" id="vehicle-quantity-error">
+          {vehicleQuantityError}
+        </p>
+      )}
     </div>
   );
 };

@@ -14,10 +14,18 @@ export const metadata: Metadata = {
   },
   description: 'Milk reception, quality and supply-chain operations for Shakarganj Food Products Ltd.',
   manifest: '/manifest.webmanifest',
+  icons: {
+    icon: [
+      { url: '/images/shakarganj-favicon.png?v=red', type: 'image/png' },
+      { url: '/favicon.ico?v=red' },
+    ],
+    shortcut: '/images/shakarganj-favicon.png?v=red',
+    apple: '/images/shakarganj-favicon.png?v=red',
+  },
 };
 
 export const viewport: Viewport = {
-  themeColor: '#1E3A8A',
+  themeColor: '#ED1C24',
 };
 
 export default function RootLayout({

@@ -71,6 +71,8 @@ export const HierarchicalNavDrawer: React.FC<HierarchicalNavDrawerProps> = ({
             // default tab
           } else if (leafPath === '/mpd/zmcc-manager' && key === 'tab' && val === 'OVERVIEW') {
             // default tab
+          } else if (leafPath === '/mpd/zmcc-manager' && key === 'view' && val === 'PLANT_HISTORY') {
+            // default view for history tab
           } else {
             allMatch = false;
           }

@@ -7,6 +7,7 @@ import {
   MeasurementBasis,
 } from '@/backend/modules/dispatch/quantity-policy/types';
 import { DispatchSafeSummaryTotals } from '@/backend/modules/dispatch/quantity/dispatchQuantityService';
+import { calculateDensity, calculateSNF } from '@/backend/utils/milkFormulas';
 
 export interface LabTestDef {
   id: string;
@@ -153,9 +154,15 @@ export const DispatchSummaryPanel: React.FC<DispatchSummaryPanelProps> = ({
     ? (simpleFatSum / validFatCount).toFixed(2)
     : null;
 
+  const numAvgLr = avgLr ? parseFloat(avgLr) : NaN;
+  const numAvgFat = avgFat ? parseFloat(avgFat) : NaN;
+  const weightedDensity = !isNaN(numAvgLr) && numAvgLr > 0 ? calculateDensity(numAvgLr) : null;
+  const weightedSnf = !isNaN(numAvgLr) && !isNaN(numAvgFat) && numAvgLr > 0 && numAvgFat >= 0
+    ? calculateSNF(numAvgLr, numAvgFat)
+    : null;
+
   return (
     <div className="space-y-4">
-      {/* Mobile Accordion Toggle Header */}
       {isCollapsible && (
         <div className="block lg:hidden">
           <button
@@ -166,20 +173,22 @@ export const DispatchSummaryPanel: React.FC<DispatchSummaryPanelProps> = ({
             className="w-full flex items-center justify-between p-4 rounded-xl bg-white border border-border-strong shadow-xs text-left transition hover:bg-slate-50"
           >
             <div className="flex items-center space-x-2.5">
-              <div className="p-2 rounded-xl bg-primary-hover text-white">
+              <div className="p-2 rounded-xl bg-primary text-white">
                 <Calculator className="w-4 h-4" />
               </div>
               <div>
                 <span className="font-semibold text-xs text-foreground uppercase tracking-wider block">
                   Dispatch Summary
                 </span>
-                <span className="text-xs tabular-nums font-semibold text-primary-hover">
-                  {safeTotals.formattedTotalGrossLiters ? `${safeTotals.formattedTotalGrossLiters} • Gross` : 'Calculations active'}
+                <span className="text-xs tabular-nums font-semibold text-primary">
+                  {vehicleQuantity.value && Number(vehicleQuantity.value) > 0 ? `${Number(vehicleQuantity.value).toLocaleString()} KG` : 'Calculations active'}
+                  {avgLr ? ` · LR ${avgLr}` : ''}
+                  {avgFat ? ` · Fat ${avgFat}%` : ''}
                 </span>
               </div>
             </div>
 
-            <div className="flex items-center space-x-1.5 text-xs font-semibold text-primary-hover">
+            <div className="flex items-center space-x-1.5 text-xs font-semibold text-primary">
               <span>{isMobileExpanded ? 'Hide Details' : 'View Details'}</span>
               <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isMobileExpanded ? 'rotate-180' : ''}`} />
             </div>
@@ -187,14 +196,12 @@ export const DispatchSummaryPanel: React.FC<DispatchSummaryPanelProps> = ({
         </div>
       )}
 
-      {/* Summary Content Body */}
       <div className={`space-y-4 ${isCollapsible ? (isMobileExpanded ? 'block max-lg:animate-panel-in' : 'hidden lg:block') : 'block'}`}>
-        {/* Single Unified Dispatch Summary Card */}
         <div className="p-4 sm:p-5 rounded-xl bg-white border border-border-strong shadow-xs space-y-4">
           <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
             <div className="flex items-center space-x-2">
-              <Calculator className="w-4 h-4 text-primary-hover" />
-              <h3 className="text-xs font-semibold text-foreground">
+              <Calculator className="w-4 h-4 text-primary" />
+              <h3 className="text-xs font-semibold text-foreground uppercase tracking-wider">
                 Dispatch Summary
               </h3>
             </div>
@@ -203,67 +210,71 @@ export const DispatchSummaryPanel: React.FC<DispatchSummaryPanelProps> = ({
             </span>
           </div>
 
-          {/* Measured Vehicle Quantity & Average Quality */}
-          <div className="grid grid-cols-2 gap-2.5 text-xs tabular-nums font-semibold">
-            <div className="p-3 rounded-xl bg-subtle border border-border">
-              <span className="text-xs font-sans text-slate-500 block font-semibold">Vehicle Issue</span>
-              <span className="text-slate-900 text-sm font-semibold block mt-0.5">
-                {vehicleQuantity.value ? `${Number(vehicleQuantity.value).toLocaleString()} ${vehicleQuantity.unit}` : '—'}
-              </span>
-              <span className="text-xs font-sans text-emerald-700 block font-semibold mt-0.5">
-                {vehicleQuantity.basis || 'MEASURED'}
+          <div className="p-3.5 rounded-xl bg-slate-50 border border-border-strong space-y-1">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-semibold text-slate-600 uppercase text-[11px]">Dispatched Net Weight</span>
+              <span className="text-[10px] font-bold text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded">
+                AUTO-SUM
               </span>
             </div>
-
-            <div className="p-3 rounded-xl bg-subtle border border-border">
-              <span className="text-xs font-sans text-slate-500 block font-semibold">Portions Total</span>
-              <span className="text-slate-900 text-sm font-semibold block mt-0.5">
-                {portionSummary.complete && portionSummary.formattedTotal
-                  ? portionSummary.formattedTotal
-                  : '—'}
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-2xl font-extrabold text-slate-900 tabular-nums">
+                {vehicleQuantity.value && Number(vehicleQuantity.value) > 0
+                  ? Number(vehicleQuantity.value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                  : '0.00'}
               </span>
-              <span className="text-xs font-sans text-slate-500 block font-medium mt-0.5">
-                {portions.length > 0 ? `${portions.length} sub-lots` : '—'}
-              </span>
+              <span className="text-xs font-bold text-slate-500">KG (Measured)</span>
             </div>
+            <span className="text-[11px] font-semibold text-emerald-700 block">
+              Standard Net Weight
+            </span>
           </div>
 
-          {/* Average Quality: LR & Fat */}
-          <div className="grid grid-cols-2 gap-2.5 text-xs tabular-nums font-semibold">
-            <div className="p-3 rounded-xl bg-blue-50/70 border border-blue-200">
-              <span className="text-xs font-sans text-blue-900 font-semibold block">Average LR</span>
-              <span className="text-blue-950 text-sm font-semibold block mt-0.5">
+          <div className="grid grid-cols-2 gap-2.5 text-xs tabular-nums font-semibold min-w-0">
+            <div className="p-3 rounded-xl bg-slate-50 border border-border-strong space-y-0.5 min-w-0">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-slate-500 uppercase truncate">Weighted LR</span>
+                <span className="text-[9px] font-bold text-slate-500 bg-slate-200/80 px-1 py-0.5 rounded">@20°C</span>
+              </div>
+              <span className="text-lg font-extrabold text-slate-900 tabular-nums block">
                 {avgLr ? avgLr : '—'}
               </span>
+              <span className="text-[10px] text-slate-400 font-medium block truncate">
+                Density: {weightedDensity !== null ? weightedDensity.toFixed(4) : '—'}
+              </span>
             </div>
 
-            <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200">
-              <span className="text-xs font-sans text-amber-900 font-semibold block">Average Fat</span>
-              <span className="text-amber-950 text-sm font-semibold block mt-0.5">
+            <div className="p-3 rounded-xl bg-slate-50 border border-border-strong space-y-0.5 min-w-0">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-slate-500 uppercase truncate">Weighted Fat</span>
+                <span className="text-[9px] font-bold text-emerald-800 bg-emerald-100 px-1 py-0.5 rounded">GERBER</span>
+              </div>
+              <span className="text-lg font-extrabold text-slate-900 tabular-nums block">
                 {avgFat ? `${avgFat}%` : '—'}
+              </span>
+              <span className="text-[10px] text-slate-400 font-medium block truncate">
+                SNF: {weightedSnf !== null ? `${weightedSnf.toFixed(2)}%` : '—'}
               </span>
             </div>
           </div>
 
-          {/* Safe Calculated Totals (Gross Liters & Liters @ 13% TS) */}
-          <div className="grid grid-cols-2 gap-2.5 text-xs tabular-nums font-semibold pt-2 border-t border-slate-100">
-            <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-300">
-              <span className="text-xs font-sans text-emerald-950 font-semibold block uppercase">Gross Liters</span>
-              <span className="text-emerald-900 text-sm font-semibold block mt-0.5">
+          <div className="grid grid-cols-2 gap-2.5 text-xs tabular-nums font-semibold min-w-0">
+            <div className="p-3 rounded-xl bg-slate-50 border border-border-strong space-y-0.5 min-w-0">
+              <span className="text-[10px] font-bold text-slate-500 uppercase block truncate">Gross Liters</span>
+              <span className="text-base font-extrabold text-slate-900 tabular-nums block truncate">
                 {safeTotals.formattedTotalGrossLiters || '—'}
               </span>
             </div>
 
-            <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-300">
-              <span className="text-xs font-sans text-emerald-950 font-semibold block uppercase">Liters @ 13% TS</span>
-              <span className="text-emerald-900 text-sm font-semibold block mt-0.5">
+            <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-300 space-y-0.5 min-w-0">
+              <span className="text-[10px] font-bold text-emerald-950 uppercase block truncate">Liters @ 13% TS</span>
+              <span className="text-base font-extrabold text-emerald-900 tabular-nums block truncate">
                 {safeTotals.formattedTotalLitersAt13TS || '—'}
               </span>
             </div>
           </div>
         </div>
 
-        {/* Compact Portion Breakdown List */}
         <div className="p-4 sm:p-5 rounded-xl bg-white border border-border-strong shadow-xs space-y-3">
           <h4 className="text-xs font-semibold text-foreground">
             Portion Details
@@ -285,31 +296,31 @@ export const DispatchSummaryPanel: React.FC<DispatchSummaryPanelProps> = ({
               return (
                 <div
                   key={`portion-breakdown-${idx}`}
-                  className="p-3 rounded-xl bg-subtle border border-border space-y-1.5"
+                  className="p-3 rounded-xl bg-subtle border border-border space-y-1.5 min-w-0"
                 >
-                  <div className="flex items-center justify-between text-xs tabular-nums font-semibold">
-                    <span className="font-sans font-semibold text-foreground">
+                  <div className="flex items-center justify-between text-xs tabular-nums font-semibold gap-2 min-w-0">
+                    <span className="font-sans font-semibold text-foreground truncate">
                       Portion {idx + 1}
                     </span>
-                    <span className="text-slate-900">
+                    <span className="text-slate-900 shrink-0">
                       {p.quantity.value ? `${Number(p.quantity.value).toLocaleString()} ${p.quantity.unit}` : '—'}
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2 text-xs tabular-nums">
-                    <div className="text-slate-600">
-                      <span className="font-sans text-slate-400 block">LR / Fat</span>
-                      <span className="font-semibold text-foreground">{pLr} / {pFat}</span>
+                  <div className="grid grid-cols-3 gap-2 text-xs tabular-nums min-w-0">
+                    <div className="text-slate-600 min-w-0">
+                      <span className="font-sans text-slate-400 block truncate">LR / Fat</span>
+                      <span className="font-semibold text-foreground block truncate">{pLr} / {pFat}</span>
                     </div>
-                    <div className="text-slate-600">
-                      <span className="font-sans text-slate-400 block">Gross L</span>
-                      <span className="font-semibold text-emerald-800">
+                    <div className="text-slate-600 min-w-0">
+                      <span className="font-sans text-slate-400 block truncate">Gross L</span>
+                      <span className="font-semibold text-emerald-800 block truncate">
                         {calc?.grossLiters != null ? `${calc.grossLiters.toFixed(1)} L` : '—'}
                       </span>
                     </div>
-                    <div className="text-slate-600">
-                      <span className="font-sans text-slate-400 block">@13TS</span>
-                      <span className="font-semibold text-emerald-800">
+                    <div className="text-slate-600 min-w-0">
+                      <span className="font-sans text-slate-400 block truncate">@13TS</span>
+                      <span className="font-semibold text-emerald-800 block truncate">
                         {calc?.at13TsLiters != null ? `${calc.at13TsLiters.toFixed(1)} L` : '—'}
                       </span>
                     </div>

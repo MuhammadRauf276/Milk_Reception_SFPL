@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback, useSyncExternalStore } from 'react';
-import { Tv, Radio, Truck, LogIn } from 'lucide-react';
+import { Tv, Truck, LogIn } from 'lucide-react';
 import { Header } from '@/frontend/modules/shared/Header';
 import { HierarchicalNavDrawer } from '@/frontend/modules/shared/navigation/HierarchicalNavDrawer';
 import { SuperAdminSidebar } from '@/frontend/modules/super-admin/SuperAdminSidebar';
 import { User } from '@core/types';
 import Link from 'next/link';
 import { PageTransition } from '@/components/motion/page-transition';
+import { ShakarganjLogo, ShakarganjIcon } from '@/components/brand/ShakarganjLogo';
 
 function subscribeToClock(onTick: () => void) {
   const id = window.setInterval(onTick, 1000);
@@ -81,7 +82,6 @@ export default function PublicYardTVBoardPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col w-full max-w-full overflow-x-hidden">
-      {/* Top Navbar: Full Application Header when logged in, or Clean Broadcast Header when public */}
       {user ? (
         <>
           <Header
@@ -111,14 +111,10 @@ export default function PublicYardTVBoardPage() {
       ) : (
         <header className="w-full max-w-full flex items-center justify-between px-4 sm:px-6 py-3 border-b border-border bg-card text-foreground shadow-2xs shrink-0">
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-primary rounded-xl text-white shadow-2xs">
-              <Tv className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="font-semibold text-sm sm:text-base leading-none block text-foreground">
-                Shakarganj Food Products Ltd
-              </span>
-              <span className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider block mt-0.5">
+            <ShakarganjIcon className="h-10 w-10 sm:h-11 sm:w-11" />
+            <div className="flex flex-col items-start justify-center">
+              <ShakarganjLogo className="h-8 sm:h-9 w-auto text-primary" />
+              <span className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider block mt-0.5">
                 Physical Plant Queue Display
               </span>
             </div>
@@ -136,11 +132,9 @@ export default function PublicYardTVBoardPage() {
         </header>
       )}
 
-      {/* Main Content Area */}
       <main className="flex-1 p-4 sm:p-6 flex flex-col justify-between max-w-7xl w-full mx-auto">
         <PageTransition>
         <div>
-          {/* TV Sub-Header Banner */}
           <div className="bg-white border border-border rounded-xl p-4 sm:p-5 shadow-2xs mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center space-x-3.5">
               <div className="p-2.5 bg-primary text-white rounded-xl shadow-2xs shrink-0">
@@ -148,28 +142,20 @@ export default function PublicYardTVBoardPage() {
               </div>
               <div>
                 <h1 className="text-base sm:text-lg font-semibold tracking-tight text-foreground">
-                  PARKING YARD VEHICLE STATUS BOARD
+                  Yard status board
                 </h1>
-                <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mt-0.5">
-                  Live Queue Positioning for Tanker Drivers & Plant Security
-                </p>
               </div>
             </div>
 
             <div className="flex items-center space-x-3 shrink-0">
-              <div className="flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-semibold shadow-2xs">
-                <Radio className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
-                <span>LIVE YARD FEED</span>
-              </div>
               <div className="px-3.5 py-1.5 rounded-xl bg-muted border border-border tabular-nums text-xs sm:text-sm font-semibold text-foreground">
                 {currentMinute === null
-                  ? '--:--'
+                  ? '—'
                   : new Date(currentMinute * 60000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </div>
             </div>
           </div>
 
-          {/* Vehicle Queue Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {activeVehicles.length === 0 ? (
               <div className="col-span-full p-16 text-center border-2 border-dashed border-border rounded-xl bg-white text-muted-foreground text-sm shadow-2xs">
@@ -218,9 +204,6 @@ export default function PublicYardTVBoardPage() {
                       <h2 className="text-2xl sm:text-3xl font-semibold tabular-nums tracking-tight text-foreground">
                         {vehicle.vehicleNumber}
                       </h2>
-                      <p className="text-xs font-semibold text-slate-500 truncate mt-1">
-                        Current operational stage
-                      </p>
                     </div>
 
                     <div className="flex items-center justify-between pt-3 border-t border-border text-xs font-semibold">
@@ -242,9 +225,7 @@ export default function PublicYardTVBoardPage() {
           </div>
         </div>
 
-        {/* TV Footer Notice */}
         <div className="mt-8 pt-4 border-t border-border flex flex-col sm:flex-row items-center justify-between text-xs font-semibold text-slate-500 gap-2">
-          <span>Public Yard Display Board • Protected Privacy Layout</span>
           <span>Automatic Sync Interval: 60s</span>
         </div>
         </PageTransition>

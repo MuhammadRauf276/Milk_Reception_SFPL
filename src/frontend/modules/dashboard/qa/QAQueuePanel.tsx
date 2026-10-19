@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Search, RefreshCw, Play } from 'lucide-react';
+import { Search, Play, Loader2 } from 'lucide-react';
 import { formatOperationalTime } from '@/lib/datetime-utils';
 import { onActivateKey } from '@/lib/a11y';
 
@@ -95,24 +95,22 @@ export const QAQueuePanel: React.FC<QAQueuePanelProps> = ({
         </span>
       </div>
 
-      {/* Search Box */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
         <input
           type="text"
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Search vehicle or token..."
+          placeholder="Search vehicle or token…"
           className="w-full min-h-[44px] pl-9 pr-3 py-2 text-xs tabular-nums font-semibold rounded-xl border border-input bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-ring/30 focus:border-primary"
         />
       </div>
 
-      {/* Queue Content (keyed per queue so switching queues replays the staggered entrance) */}
       <div key={activeTab} className="space-y-2.5 max-h-[520px] overflow-y-auto pr-1 stagger-children">
         {isLoadingQueues ? (
           <div className="p-8 text-center border border-dashed border-border rounded-xl text-sm text-muted-foreground">
-            <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-blue-700" />
-            Loading QA queues...
+            <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-blue-700" />
+            Loading QA queues…
           </div>
         ) : activeTab === 'WAITING' ? (
           waitingVisits.length === 0 ? (

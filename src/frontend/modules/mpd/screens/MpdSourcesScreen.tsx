@@ -24,13 +24,12 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({ zmccs, contr
 
   return (
     <div className="space-y-6">
-      {/* Search and Tabs Header */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-border">
         <div className="relative flex-1">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="Search ZMCC chilling center or Plant contractor..."
+            placeholder="Search ZMCC chilling center or Plant contractor…"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-border focus:outline-hidden focus:border-primary bg-subtle"
@@ -64,7 +63,6 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({ zmccs, contr
         </div>
       </div>
 
-      {/* 1. ZMCC Chilling Centers Grid */}
       {(sourceFilter === 'ALL' || sourceFilter === 'ZMCC') && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
@@ -111,7 +109,6 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({ zmccs, contr
                     </div>
                   </div>
 
-                  {/* Silo Storage Level */}
                   <div className="mt-3">
                     <div className="flex items-center justify-between text-xs mb-1">
                       <span className="text-slate-600 font-medium">Tank stock</span>
@@ -146,7 +143,6 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({ zmccs, contr
         </div>
       )}
 
-      {/* 2. Direct Plant Contractors Table */}
       {(sourceFilter === 'ALL' || sourceFilter === 'CONTRACTORS') && (
         <div className="bg-white border border-border rounded-xl overflow-hidden shadow-xs">
           <div className="p-4 border-b border-border flex items-center justify-between">

@@ -16,12 +16,12 @@ import { formatOperationalDatetime } from '@/lib/datetime-utils';
 import {
   Receipt,
   Search,
-  RefreshCw,
   AlertTriangle,
   Scale,
   Warehouse,
   ExternalLink,
   FileSpreadsheet,
+  Loader2,
 } from 'lucide-react';
 
 interface ZMCCManagerReceiptsPerformanceProps {
@@ -94,9 +94,6 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
               <h2 className="text-sm font-semibold text-foreground">
                 Receipts & Physical Performance: {assignedSourceName}
               </h2>
-              <p className="text-xs text-slate-600">
-                Authoritative Silo intake records, scale weighbridge reconciliation, and paired quantity performance.
-              </p>
             </div>
           </div>
 
@@ -107,8 +104,7 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
                 disabled={isLoading}
                 className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-subtle border border-border/80 text-xs font-semibold text-foreground hover:bg-muted/60 transition-all disabled:opacity-50"
               >
-                <RefreshCw className={`w-3.5 h-3.5 text-primary ${isLoading ? 'animate-spin' : ''}`} />
-                <span>{isLoading ? 'Syncing...' : 'Refresh'}</span>
+                <span>{isLoading ? 'Syncing…' : 'Refresh'}</span>
               </button>
             )}
           </div>
@@ -142,8 +138,8 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
                 : '—'}
             </span>
           </div>
-          <div className="p-3 rounded-lg bg-purple-50 border border-purple-200">
-            <span className="text-xs font-sans text-purple-700 block uppercase font-semibold">Quantity Difference</span>
+          <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
+            <span className="text-xs font-sans text-slate-700 block uppercase font-semibold">Quantity Difference</span>
             <span
               className={`text-lg font-semibold ${
                 showKpiPlaceholders || summary.pairedComparison.differenceLiters == null
@@ -160,9 +156,9 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
                 : '—'}
             </span>
           </div>
-          <div className="p-3 rounded-lg bg-fuchsia-50 border border-fuchsia-200">
-            <span className="text-xs font-sans text-fuchsia-700 block uppercase font-semibold">Final Liters @ 13% TS</span>
-            <span className="text-lg font-semibold text-fuchsia-800">
+          <div className="p-3 rounded-lg bg-blue-50 border border-blue-200">
+            <span className="text-xs font-sans text-blue-700 block uppercase font-semibold">Final Liters @ 13% TS</span>
+            <span className="text-lg font-semibold text-blue-900">
               {showKpiPlaceholders
                 ? '—'
                 : summary.pairedComparison.plant13TsLiters != null
@@ -189,7 +185,7 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search vehicle #, token #, silo, tx #..."
+              placeholder="Search vehicle #, token #, silo, tx #…"
               className="w-full pl-9 pr-3 py-1.5 text-xs font-semibold rounded-lg bg-subtle border border-border/80 text-foreground focus:ring-2 focus:ring-primary outline-hidden"
             />
           </div>
@@ -268,8 +264,8 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
       {/* 4. Loading State */}
       {isLoading && (
         <div className="p-8 text-center bg-card rounded-xl border border-border/80 text-xs text-slate-500 font-semibold flex items-center justify-center gap-2">
-          <RefreshCw className="w-4 h-4 animate-spin text-primary" />
-          <span>Loading receipt records...</span>
+          <Loader2 className="w-4 h-4 animate-spin text-primary" />
+          <span>Loading receipt records…</span>
         </div>
       )}
 
@@ -392,7 +388,7 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
                     </div>
                     <div>
                       <span className="text-xs font-sans text-slate-500 block">Final Liters @ 13% TS:</span>
-                      <span className="font-semibold text-purple-800">
+                      <span className="font-semibold text-slate-800">
                         {item.plant13TsLiters != null ? `${item.plant13TsLiters.toLocaleString()} L` : '—'}
                       </span>
                     </div>

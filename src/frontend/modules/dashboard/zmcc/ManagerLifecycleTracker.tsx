@@ -7,7 +7,7 @@ import {
   Circle,
   FlaskConical,
   Scale,
-  Factory,
+  Building2,
   Truck,
   ShieldCheck,
 } from 'lucide-react';
@@ -22,7 +22,7 @@ const STAGE_ICONS: Record<string, React.ElementType> = {
   GATE_ENTRY: ShieldCheck,
   PLANT_QA: FlaskConical,
   FIRST_WEIGHT: Scale,
-  UNLOADING: Factory,
+  UNLOADING: Building2,
   SECOND_WEIGHT: Scale,
   FINAL_RECEIPT: CheckCircle2,
 };

@@ -14,7 +14,6 @@ import { formatOperationalDatetime } from '@/lib/datetime-utils';
 import {
   FlaskConical,
   Search,
-  RefreshCw,
   AlertTriangle,
   ExternalLink,
   FileSpreadsheet,
@@ -22,6 +21,7 @@ import {
   XCircle,
   ShieldCheck,
   X,
+  Loader2,
 } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { AnimatePresence } from 'framer-motion';
@@ -304,16 +304,13 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
       <div className="p-5 rounded-xl bg-card border border-border/80 shadow-xs space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-border/80">
           <div className="flex items-center space-x-2.5">
-            <div className="p-2 rounded-lg bg-purple-800/10 text-purple-800">
+            <div className="p-2 rounded-lg bg-primary/10 text-primary">
               <FlaskConical className="w-5 h-5" />
             </div>
             <div>
               <h2 className="text-sm font-semibold text-foreground">
                 Quality Analysis & Rejections Governance: {assignedSourceName}
               </h2>
-              <p className="text-xs text-slate-600">
-                ZMCC intake quality evaluation, SOP rules, and manager review of rejected and pending milk arrivals.
-              </p>
             </div>
           </div>
 
@@ -349,8 +346,7 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
               disabled={labLoading || isLoading}
               className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-subtle border border-border/80 text-xs font-semibold text-foreground hover:bg-muted/60 transition-all disabled:opacity-50"
             >
-              <RefreshCw className={`w-3.5 h-3.5 text-primary ${labLoading || isLoading ? 'animate-spin' : ''}`} />
-              <span>{labLoading || isLoading ? 'Syncing...' : 'Refresh'}</span>
+              <span>{labLoading || isLoading ? 'Syncing…' : 'Refresh'}</span>
             </button>
           </div>
         </div>
@@ -361,8 +357,8 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
               <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
               <span>{reviewSuccessMsg}</span>
             </div>
-            <button onClick={() => setReviewSuccessMsg(null)} className="text-emerald-900 font-semibold">
-              ×
+            <button onClick={() => setReviewSuccessMsg(null)} aria-label="Dismiss" className="text-emerald-900">
+              <X className="h-4 w-4" />
             </button>
           </div>
         )}
@@ -402,9 +398,9 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
                     ).length}
               </span>
             </div>
-            <div className="p-3 rounded-lg bg-purple-50 border border-purple-200">
-              <span className="text-xs font-sans text-purple-700 block uppercase font-semibold">Reviewed Exited</span>
-              <span className="text-lg font-semibold text-purple-800">
+            <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
+              <span className="text-xs font-sans text-slate-700 block uppercase font-semibold">Reviewed Exited</span>
+              <span className="text-lg font-semibold text-slate-800">
                 {labLoading ? '—' : labSessions.filter((s) => s.manager_review_status === 'REVIEWED_EXITED').length}
               </span>
             </div>
@@ -431,9 +427,9 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
               <span className="text-xs font-sans text-slate-600 block uppercase font-semibold">Pending</span>
               <span className="text-lg font-semibold text-slate-800">{plantSummary.pendingCount}</span>
             </div>
-            <div className="p-3 rounded-lg bg-purple-50 border border-purple-200">
-              <span className="text-xs font-sans text-purple-700 block uppercase font-semibold">Quality Diff</span>
-              <span className="text-lg font-semibold text-purple-800">{plantSummary.qualityDiffCount}</span>
+            <div className="p-3 rounded-lg bg-amber-50 border border-amber-200">
+              <span className="text-xs font-sans text-amber-700 block uppercase font-semibold">Quality Diff</span>
+              <span className="text-lg font-semibold text-amber-800">{plantSummary.qualityDiffCount}</span>
             </div>
           </div>
         )}
@@ -448,7 +444,7 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search vehicle #, token #, supplier..."
+              placeholder="Search vehicle #, token #, supplier…"
               className="w-full pl-9 pr-3 py-1.5 text-xs font-semibold rounded-lg bg-subtle border border-border/80 text-foreground focus:ring-2 focus:ring-primary outline-hidden"
             />
           </div>
@@ -534,8 +530,8 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
       {/* 4. Loading */}
       {(labLoading || isLoading) && (
         <div className="p-8 text-center bg-card rounded-xl border border-border/80 text-xs text-slate-500 font-semibold flex items-center justify-center gap-2">
-          <RefreshCw className="w-4 h-4 animate-spin text-primary" />
-          <span>Loading quality records...</span>
+          <Loader2 className="w-4 h-4 animate-spin text-primary" />
+          <span>Loading quality records…</span>
         </div>
       )}
 
@@ -646,7 +642,7 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
                         : 'bg-slate-100 text-slate-700'
                     }`}
                   >
-                    System: {session.system_quality_outcome || 'EVALUATED'}
+                    System: {session.system_quality_outcome === 'OUT_OF_SPEC' ? 'FAIL' : session.system_quality_outcome === 'IN_SPEC' ? 'PASS' : session.system_quality_outcome || 'EVALUATED'}
                   </span>
 
                   {/* Decision */}
@@ -669,7 +665,7 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
                         session.manager_review_status === 'APPROVED'
                           ? 'bg-emerald-200 text-emerald-900'
                           : session.manager_review_status === 'REVIEWED_EXITED'
-                          ? 'bg-purple-100 text-purple-900 border border-purple-300'
+                          ? 'bg-slate-100 text-slate-800 border border-slate-300'
                           : session.manager_review_status === 'REJECTED'
                           ? 'bg-red-200 text-red-900'
                           : 'bg-amber-200 text-amber-900'
@@ -714,8 +710,8 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
                 )}
 
                 {session.manager_review_reason && (
-                  <div className="p-2.5 rounded-lg text-xs font-semibold flex items-start gap-2 bg-purple-50 border border-purple-200 text-purple-900">
-                    <ShieldCheck className="w-3.5 h-3.5 shrink-0 mt-0.5 text-purple-700" />
+                  <div className="p-2.5 rounded-lg text-xs font-semibold flex items-start gap-2 bg-slate-50 border border-slate-200 text-slate-800">
+                    <ShieldCheck className="w-3.5 h-3.5 shrink-0 mt-0.5 text-slate-700" />
                     <div>
                       <span className="font-semibold uppercase text-xs block">
                         Manager Review Justification ({session.manager_review_status}):
@@ -1058,7 +1054,7 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
                 <textarea
                   value={reviewReason}
                   onChange={(e) => setReviewReason(e.target.value)}
-                  placeholder="Enter substantive managerial justification for this decision (minimum 3 characters)..."
+                  placeholder="Enter substantive managerial justification for this decision (minimum 3 characters)…"
                   rows={3}
                   required
                   className="w-full p-2.5 text-xs font-medium rounded-xl bg-subtle border border-border text-foreground focus:ring-2 focus:ring-primary outline-hidden"
@@ -1082,8 +1078,8 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
                   disabled={reviewSubmitting || reviewReason.trim().length < 3}
                   className="px-4 py-2 text-xs font-semibold bg-primary text-white rounded-xl hover:bg-primary/90 transition-all disabled:opacity-50 shadow-2xs flex items-center gap-1.5"
                 >
-                  {reviewSubmitting && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
-                  <span>{reviewSubmitting ? 'Recording...' : 'Submit Decision'}</span>
+                  {reviewSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>{reviewSubmitting ? 'Recording…' : 'Submit Decision'}</span>
                 </button>
               </div>
             </form>

@@ -643,7 +643,7 @@ export function computeManagerOverview(
   );
   const dispatchedCount = dispatchPeriodGroups.length;
 
-  // B. Currently in plant (all active visits currently inside factory)
+  // B. Currently in plant (all active visits currently inside plant)
   const currentlyInPlantCount = allGroups.filter((g) => g.lifecycle.isInPlant).length;
 
   // C. Completed in period: authoritative Final Receipt whose Final Receipt calendar date falls in period
@@ -785,7 +785,7 @@ export function deriveManagerAttention(logs: MilkProcessLog[]): ZMCCAttentionIte
             id: `qual-diff-${g.visitId}-${p.portion_id || p.portion_number}`,
             type: 'QUALITY_DIFFERENCE',
             title: `Quality Difference (Portion P-0${p.portion_number})`,
-            description: `Quality variance between ZMCC dispatch and factory QA laboratory results.`,
+            description: `Quality variance between ZMCC dispatch and plant QA laboratory results.`,
             vehicleNumber: g.vehicleNumber,
             visitId: g.visitId,
             portionNumber: p.portion_number,
@@ -814,7 +814,7 @@ export function deriveManagerAttention(logs: MilkProcessLog[]): ZMCCAttentionIte
         metrics: [
           { label: 'Current Stage', value: g.lifecycle.currentStageLabel },
           { label: 'Token Issued', value: g.tokenNumber || '—' },
-          { label: 'Time in Factory', value: g.lifecycle.elapsedInPlant },
+          { label: 'Time in Plant', value: g.lifecycle.elapsedInPlant },
         ],
       });
     }

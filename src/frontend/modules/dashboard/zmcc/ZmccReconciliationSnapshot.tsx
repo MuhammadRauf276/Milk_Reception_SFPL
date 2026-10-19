@@ -18,7 +18,7 @@ export function ZmccReconciliationSnapshot() {
       .then(setReport).catch((cause) => setError(cause instanceof Error ? cause.message : 'Unable to load reconciliation.'));
   }, []);
   if (error) return <section className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">Reconciliation unavailable: {error}</section>;
-  if (!report) return <section className="rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-500">Loading MOT-to-ZMCC reconciliation...</section>;
+  if (!report) return <section className="rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-500">Loading MOT-to-ZMCC reconciliation…</section>;
   const s = report.summary;
   return <section className="rounded-xl border border-slate-200 bg-white p-4 text-xs" aria-label="MOT to ZMCC reconciliation">
     <div className="flex items-baseline justify-between gap-3"><div><p className="font-semibold text-slate-900">MOT to ZMCC reconciliation</p><p className="mt-1 text-slate-500">Finalized 13TS loss and gain exclude unresolved journeys.</p></div><span className="font-semibold text-slate-600">{s.finalizedJourneys} finalized / {s.unresolvedJourneys} unresolved</span></div>

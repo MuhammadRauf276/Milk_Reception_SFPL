@@ -61,9 +61,6 @@ export default function SuperAdminQaWarningsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-semibold text-foreground">QA Warnings & Supplier Escalation Foundation</h1>
-        <p className="text-xs font-medium text-slate-500 mt-1">
-          Individual immutable warning events linked to Procurement Sources. Monthly warning counts are derived dynamically.
-        </p>
       </div>
 
       {error && (
@@ -95,7 +92,7 @@ export default function SuperAdminQaWarningsPage() {
       <div className="bg-white rounded-xl border border-border/80 shadow-xs overflow-hidden space-y-2 p-4">
         <h2 className="text-sm font-semibold text-foreground flex items-center space-x-2">
           <AlertTriangle className="w-4 h-4 text-amber-600" />
-          <span>Individual Immutable Warning Log</span>
+          <span>Warning log</span>
         </h2>
 
         <div className="overflow-x-auto">
@@ -114,7 +111,7 @@ export default function SuperAdminQaWarningsPage() {
               {loading ? (
                 <tr>
                   <td colSpan={6} className="p-6 text-center text-slate-400 tabular-nums">
-                    Loading warning events...
+                    Loading warning events…
                   </td>
                 </tr>
               ) : warnings.length === 0 ? (

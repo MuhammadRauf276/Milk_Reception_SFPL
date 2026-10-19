@@ -186,6 +186,7 @@ const ROLE_ALLOWED_FIELDS: Record<string, string[]> = {
   ZMCC_MANAGER: [],
   CONTRACTOR_MANAGER: [],
   PHE_OPERATOR: [],
+  MDO: [], // mirrors PHE_OPERATOR
   MOT: [],
   QA_MANAGER: [],
   ZMCC_LAB_ATTENDANT: [

@@ -3,10 +3,12 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ChevronRight, Milk, X } from 'lucide-react';
+import { ChevronRight, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SheetClose } from '@/components/ui/sheet';
+import { ShakarganjLogo, ShakarganjIcon } from '@/components/brand/ShakarganjLogo';
 import type { RoleNavSection } from './roleNavConfig';
+import { getRoleLabel } from '@core/roles/labels';
 
 export interface NavPanelProps {
   sections: RoleNavSection[];
@@ -22,24 +24,31 @@ export interface NavPanelProps {
   defaultExpanded?: string[];
 }
 
+/** Display name for a role code (uses ROLE_LABELS; unknown codes become readable words). */
 export function formatRoleLabel(role?: string | null) {
-  if (!role) return 'Workspace';
-  return role
-    .toLowerCase()
-    .split('_')
-    .map((part) => (part === 'qa' || part === 'mpd' || part === 'zmcc' || part === 'phe' || part === 'mot' ? part.toUpperCase() : part.charAt(0).toUpperCase() + part.slice(1)))
-    .join(' ');
+  return getRoleLabel(role, 'Workspace');
 }
 
-export function BrandMark({ className }: { className?: string }) {
+export function BrandMark({
+  className,
+  size = 'default',
+}: {
+  className?: string;
+  size?: 'default' | 'lg';
+}) {
   return (
-    <div className={cn('flex items-center gap-2.5 min-w-0', className)}>
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-        <Milk className="h-4 w-4" />
-      </div>
-      <div className="min-w-0 leading-tight">
-        <span className="block truncate text-sm font-semibold text-foreground">Shakarganj</span>
-        <span className="block truncate text-xs text-muted-foreground">Milk Reception</span>
+    <div className={cn('flex items-center gap-3 min-w-0', className)}>
+      <ShakarganjIcon className={size === 'lg' ? 'h-10 w-10' : 'h-9 w-9'} />
+      <div className="min-w-0 flex flex-col items-start justify-center">
+        <ShakarganjLogo
+          className={cn(
+            'w-auto text-primary',
+            size === 'lg' ? 'h-8 sm:h-9' : 'h-7'
+          )}
+        />
+        <span className="block truncate text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mt-0.5 leading-none">
+          Milk Reception
+        </span>
       </div>
     </div>
   );
@@ -63,7 +72,7 @@ export function NavPanel({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b px-4">
+      <div className="flex h-16 shrink-0 items-center justify-between gap-2 border-b px-4">
         <BrandMark />
         {showClose ? (
           <SheetClose

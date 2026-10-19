@@ -165,17 +165,21 @@ export async function POST(req: Request) {
 
     // 3. Create persistent DRAFT_DISPATCH work item with frozen assignment and quantity policy
     const result = await prisma.$transaction(async (tx) => {
-      const countToday = await tx.vehicleVisit.count({
+      const latestToday = await tx.vehicleVisit.findFirst({
         where: {
           visit_number: { startsWith: `VV-${dateCode}` },
         },
+        orderBy: { visit_number: 'desc' },
+        select: { visit_number: true },
       });
-      let seq = countToday + 1;
-      let visitNumber = `VV-${dateCode}-${String(seq).padStart(4, '0')}`;
-      while (await tx.vehicleVisit.findUnique({ where: { visit_number: visitNumber } })) {
-        seq++;
-        visitNumber = `VV-${dateCode}-${String(seq).padStart(4, '0')}`;
+
+      let seq = 1;
+      if (latestToday?.visit_number) {
+        const parts = latestToday.visit_number.split('-');
+        const lastSeq = parseInt(parts[parts.length - 1], 10);
+        if (!isNaN(lastSeq)) seq = lastSeq + 1;
       }
+      const visitNumber = `VV-${dateCode}-${String(seq).padStart(4, '0')}`;
 
       const visit = await tx.vehicleVisit.create({
         data: {

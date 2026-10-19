@@ -42,6 +42,10 @@ export function resolveRoleHome(role?: string | null | unknown): string {
     case 'PHE_OPERATOR':
       return '/phe';
 
+    // MDO uses the PHE station for now: route, shop and MOT dispatch tools live there.
+    case 'MDO':
+      return '/phe';
+
     case 'MOT':
       return '/mot';
 

@@ -596,7 +596,7 @@
             "Assign Test",
             "-MOT Shop CollectionMOT_SHOP",
             "2ZMCC Lab (MOT Arrivals)ZMCC_LAB_MOT",
-            "-ZMCC Dispatch to FactoryDISPATCH",
+            "-ZMCC Dispatch to PlantDISPATCH",
             "Required",
             "Deactivate"
           ]

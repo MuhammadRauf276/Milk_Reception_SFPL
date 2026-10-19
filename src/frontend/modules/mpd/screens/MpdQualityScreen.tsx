@@ -17,7 +17,6 @@ function IncidentDot({ count }: { count: number }) {
 export const MpdQualityScreen: React.FC<MpdQualityScreenProps> = ({ qualityFunnel }) => {
   return (
     <div className="space-y-6">
-      {/* 3-Station Rejection Funnel Cards */}
       <div>
         <div className="flex items-center gap-2 mb-3">
           <Filter className="w-4 h-4 text-primary" />
@@ -27,10 +26,9 @@ export const MpdQualityScreen: React.FC<MpdQualityScreenProps> = ({ qualityFunne
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Station 1: Village Shops */}
           <div className="bg-white border border-border rounded-xl p-4 shadow-xs">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-500 uppercase">Station 1 • Village Shops</span>
+              <span className="text-xs font-semibold text-slate-500 uppercase">Station 1 · Village Shops</span>
               <span className="tabular-nums text-xs font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
                 MOT / Shop Test
               </span>
@@ -51,10 +49,9 @@ export const MpdQualityScreen: React.FC<MpdQualityScreenProps> = ({ qualityFunne
             </div>
           </div>
 
-          {/* Station 2: ZMCC Gate */}
           <div className="bg-white border border-border rounded-xl p-4 shadow-xs">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-500 uppercase">Station 2 • ZMCC Reception</span>
+              <span className="text-xs font-semibold text-slate-500 uppercase">Station 2 · ZMCC Reception</span>
               <span className="tabular-nums text-xs font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
                 Lab Attendant
               </span>
@@ -75,10 +72,9 @@ export const MpdQualityScreen: React.FC<MpdQualityScreenProps> = ({ qualityFunne
             </div>
           </div>
 
-          {/* Station 3: Plant Reception */}
           <div className="bg-white border border-border rounded-xl p-4 shadow-xs">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-500 uppercase">Station 3 • Plant Reception</span>
+              <span className="text-xs font-semibold text-slate-500 uppercase">Station 3 · Plant Reception</span>
               <span className="tabular-nums text-xs font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
                 Plant QA Lab
               </span>
@@ -101,7 +97,6 @@ export const MpdQualityScreen: React.FC<MpdQualityScreenProps> = ({ qualityFunne
         </div>
       </div>
 
-      {/* Live Adulterant & Contaminant Incident Board */}
       <div className="bg-white border border-border rounded-xl p-5 shadow-xs">
         <div className="flex items-center justify-between mb-4 pb-3 border-b border-border">
           <div className="flex items-center gap-2">

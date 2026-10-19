@@ -4,10 +4,10 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { User } from '@core/types';
 import {
   MapPin,
-  RotateCw,
   AlertTriangle,
   CheckCircle2,
   X,
+  Loader2,
 } from 'lucide-react';
 import { onActivateKey } from '@/lib/a11y';
 import { getErrorMessage } from '@/lib/errors';
@@ -255,8 +255,8 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
   if (isLoading) {
     return (
       <div className="p-16 bg-white rounded-xl border border-border text-center space-y-3">
-        <RotateCw className="w-8 h-8 text-primary animate-spin mx-auto" />
-        <p className="text-xs font-semibold text-slate-600">Loading live journey tracking data...</p>
+        <Loader2 className="w-8 h-8 text-primary animate-spin mx-auto" />
+        <p className="text-xs font-semibold text-slate-600">Loading live journey tracking data…</p>
       </div>
     );
   }
@@ -310,11 +310,10 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* Schematic Vector Mode Banner */}
       <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-medium flex items-center justify-between">
         <div className="flex items-center space-x-2">
           <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-          <span>GPS Route Trail Active (Schematic Vector Mode) • 100% of waypoints safely saved in DB</span>
+          <span>GPS Route Trail Active · All waypoints recorded</span>
         </div>
         <div className="flex items-center space-x-2">
           <button
@@ -322,7 +321,6 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
             onClick={() => fetchMapData(journeyId)}
             className="flex items-center space-x-1 px-2.5 py-1 bg-white border border-emerald-300 rounded-lg text-[11px] font-semibold text-emerald-900 hover:bg-emerald-100"
           >
-            <RotateCw className="w-3 h-3" />
             <span>Refresh Map</span>
           </button>
           {onClose && (
@@ -337,7 +335,6 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
         </div>
       </div>
 
-      {/* Journey Header & Summary Metric Cards */}
       <div className="p-5 bg-white rounded-xl border border-border shadow-2xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-border pb-3">
           <div>
@@ -394,9 +391,7 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
         </div>
       </div>
 
-      {/* Interactive Map Visual (Schematic Canvas) */}
       <div className="relative bg-slate-900 rounded-xl border border-slate-800 overflow-hidden shadow-md">
-        {/* Map Canvas / SVG */}
         <div className="w-full h-[480px] relative overflow-hidden flex items-center justify-center">
           {projection ? (
             <svg
@@ -404,7 +399,6 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
               className="w-full h-full"
               preserveAspectRatio="xMidYMid meet"
             >
-              {/* Background Grid Lines */}
               <defs>
                 <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
                   <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255, 255, 255, 0.05)" strokeWidth="1" />
@@ -412,7 +406,6 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
               </defs>
               <rect width="100%" height="100%" fill="url(#grid)" />
 
-              {/* GPS Trail Polyline */}
               {gpsPath && (
                 <path
                   d={gpsPath}
@@ -425,7 +418,6 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
                 />
               )}
 
-              {/* Start Point Marker */}
               {startCoord && (
                 <g transform={`translate(${startCoord.x}, ${startCoord.y})`}>
                   <circle r="8" fill="#2563EB" stroke="#FFFFFF" strokeWidth="2" />
@@ -441,14 +433,13 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
                 </g>
               )}
 
-              {/* First MOT Point Marker */}
               {firstMotCoord && (
                 <g transform={`translate(${firstMotCoord.x}, ${firstMotCoord.y})`}>
-                  <circle r="7" fill="#8B5CF6" stroke="#FFFFFF" strokeWidth="2" />
+                  <circle r="7" fill="#0284C7" stroke="#FFFFFF" strokeWidth="2" />
                   <text
                     y="18"
                     textAnchor="middle"
-                    fill="#C4B5FD"
+                    fill="#BAE6FD"
                     fontSize="9"
                     fontWeight="bold"
                   >
@@ -457,7 +448,6 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
                 </g>
               )}
 
-              {/* Latest Recorded Point Marker (Pulsing Vehicle) */}
               {latestCoord && (
                 <g transform={`translate(${latestCoord.x}, ${latestCoord.y})`}>
                   <circle r="12" fill="#EF4444" opacity="0.3" className="animate-ping" />
@@ -474,7 +464,6 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
                 </g>
               )}
 
-              {/* Shop Stop Nodes */}
               {stops.map((stop) => {
                 if (stop.planned_latitude == null || stop.planned_longitude == null) return null;
                 const pos = projection.project(stop.planned_latitude, stop.planned_longitude);
@@ -511,7 +500,6 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
             <div className="text-slate-400 text-xs">No coordinate trail points to project.</div>
           )}
 
-          {/* Map Legend Overlay */}
           <div className="absolute bottom-3 left-3 bg-slate-800/90 backdrop-blur-xs border border-slate-700 p-2.5 rounded-xl text-[11px] text-slate-300 space-y-1.5 pointer-events-none">
             <div className="flex items-center space-x-2">
               <span className="w-2.5 h-2.5 rounded-full bg-blue-600 border border-white shrink-0" />
@@ -535,14 +523,12 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
             </div>
           </div>
 
-          {/* Endpoint Placeholder Status Badge */}
           <div className="absolute top-3 right-3 bg-slate-800/90 backdrop-blur-xs border border-slate-700 px-3 py-1.5 rounded-xl text-[11px] font-semibold text-slate-300">
             <span className="text-slate-400">Endpoint: </span>
             <span className="text-amber-400">{journey.endpoint_status}</span>
           </div>
         </div>
 
-        {/* Stop Detail Drawer / Card when a Stop is clicked */}
         {selectedStop && (
           <div className="p-4 bg-slate-800 border-t border-slate-700 text-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="space-y-1">
@@ -584,7 +570,6 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
         )}
       </div>
 
-      {/* Stops List */}
       <div className="p-4 bg-white rounded-xl border border-border shadow-2xs space-y-3">
         <h3 className="text-xs font-semibold text-slate-500">
           Journey Stops & Collections ({stops.length})
@@ -616,7 +601,7 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
                     {s.shop_name} <span className="tabular-nums text-slate-500">({s.shop_code})</span>
                   </p>
                   <p className="text-[11px] text-slate-500">
-                    {s.owner_name} &bull; {s.phone_number} &bull; {s.area_name}
+                    {s.owner_name} · {s.phone_number} · {s.area_name}
                   </p>
                 </div>
               </div>
@@ -626,7 +611,7 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
                   <div className="text-xs">
                     <span className="font-semibold text-emerald-800">{s.collection.gross_liters} L</span>
                     <span className="text-[10px] text-slate-500 block">
-                      Fat {s.collection.fat}% &bull; LR {s.collection.lr}
+                      Fat {s.collection.fat}% · LR {s.collection.lr}
                     </span>
                   </div>
                 ) : (

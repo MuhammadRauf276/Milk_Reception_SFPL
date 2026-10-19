@@ -105,9 +105,6 @@ export default function SuperAdminOperationsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold text-foreground">Plant Operations Journey Explorer</h1>
-          <p className="text-xs font-medium text-slate-500 mt-1">
-            Complete end-to-end multi-portion vehicle milestone inspection. (Read-Only Visibility)
-          </p>
         </div>
 
         {/* SEARCH FORM */}
@@ -118,7 +115,7 @@ export default function SuperAdminOperationsPage() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search Vehicle / Visit #..."
+              placeholder="Search Vehicle / Visit #…"
               className="pl-9 pr-3 py-1.5 rounded-xl border border-border-strong text-xs bg-white focus:outline-hidden focus:border-primary w-64"
             />
           </div>
@@ -142,7 +139,7 @@ export default function SuperAdminOperationsPage() {
       <div className="space-y-4">
         {loading ? (
           <div className="p-8 text-center text-xs tabular-nums font-semibold text-slate-400">
-            Loading vehicle operation records...
+            Loading vehicle operation records…
           </div>
         ) : visits.length === 0 ? (
           <div className="p-8 bg-white rounded-xl border border-border text-center text-slate-400 text-xs font-medium">
@@ -207,7 +204,7 @@ export default function SuperAdminOperationsPage() {
 
               {/* PORTIONS BREAKDOWN */}
               <div className="space-y-2">
-                <h4 className="text-xs font-semibold text-slate-700">Chamber Portions ({v.portions.length})</h4>
+                <h4 className="text-xs font-semibold text-slate-700">Milk Portions ({v.portions.length})</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
                   {v.portions.map((p) => (
                     <div key={p.id} className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-1">

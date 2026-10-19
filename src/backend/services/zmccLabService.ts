@@ -37,6 +37,7 @@ export interface ZmccLabAuthContext {
   actorUserId: bigint;
   role: Role;
   isSuperAdmin: boolean;
+  isDataExecutive: boolean;
   isZmccManager: boolean;
   isMpdHead: boolean;
   isZmccLabAttendant: boolean;
@@ -92,6 +93,7 @@ export async function resolveZmccLabAuth(
 
   const role = dbUser.role as Role;
   const isSuperAdmin = role === 'SUPER_ADMIN';
+  const isDataExecutive = role === 'DATA_EXECUTIVE';
   const isZmccManager = role === 'ZMCC_MANAGER';
   const isMpdHead = role === 'HEAD_OF_MPD';
   const isZmccLabAttendant = role === 'ZMCC_LAB_ATTENDANT';
@@ -111,16 +113,16 @@ export async function resolveZmccLabAuth(
       };
     }
   } else if (action === 'CORRECT_SESSION') {
-    if (!isZmccManager && !isMpdHead && !isSuperAdmin) {
+    if (!isDataExecutive && !isSuperAdmin) {
       return {
         errorResponse: {
-          error: 'Forbidden. Only ZMCC Managers, MPD Head, or Super Admin may correct finalized lab records.',
+          error: 'Forbidden. Only Data Executive or Super Admin may correct finalized lab records.',
           status: 403,
         },
       };
     }
   } else if (action === 'READ_LAB') {
-    if (!isSuperAdmin && !isMpdHead && !isZmccManager && !isZmccLabAttendant) {
+    if (!isSuperAdmin && !isMpdHead && !isZmccManager && !isZmccLabAttendant && !isDataExecutive) {
       return {
         errorResponse: {
           error: 'Forbidden. You do not have permission to access ZMCC laboratory data.',
@@ -131,7 +133,7 @@ export async function resolveZmccLabAuth(
   }
 
   let effectiveZmccId: bigint | null = null;
-  if (!isSuperAdmin && !isMpdHead) {
+  if (!isSuperAdmin && !isMpdHead && !isDataExecutive) {
     if (!dbUser.procurement_source_id || !dbUser.procurement_source) {
       return {
         errorResponse: {
@@ -182,6 +184,7 @@ export async function resolveZmccLabAuth(
       actorUserId,
       role,
       isSuperAdmin,
+      isDataExecutive,
       isZmccManager,
       isMpdHead,
       isZmccLabAttendant,
@@ -2289,14 +2292,16 @@ export async function correctCompletedSession(
 
   const { reason, correction_reason, quantity_value, quantity_unit, decision, rejection_reason, remarks, results } = payload || {};
 
-  const rawReason = (reason !== undefined && reason !== null && String(reason).trim() !== '')
-    ? String(reason).trim()
-    : ((correction_reason !== undefined && correction_reason !== null && String(correction_reason).trim() !== '')
-      ? String(correction_reason).trim()
-      : '');
+  const rawReason = (remarks !== undefined && remarks !== null && String(remarks).trim() !== '')
+    ? String(remarks).trim()
+    : ((reason !== undefined && reason !== null && String(reason).trim() !== '')
+      ? String(reason).trim()
+      : ((correction_reason !== undefined && correction_reason !== null && String(correction_reason).trim() !== '')
+        ? String(correction_reason).trim()
+        : ''));
 
   if (!rawReason) {
-    return { status: 400, error: 'Audit correction reason is required.' };
+    return { status: 400, error: 'Substantive remarks / reason are required.' };
   }
   const reasonTrimmed = rawReason;
 
@@ -2335,7 +2340,7 @@ export async function correctCompletedSession(
     return { status: 404, error: 'ZMCC Lab session not found.' };
   }
 
-  if (!auth.isSuperAdmin && !auth.isMpdHead && session.zmcc_id !== auth.effectiveZmccId!) {
+  if (!auth.isSuperAdmin && !auth.isMpdHead && !auth.isDataExecutive && session.zmcc_id !== auth.effectiveZmccId!) {
     return { status: 403, error: 'Forbidden. Lab session belongs to another ZMCC.' };
   }
 
@@ -2362,7 +2367,7 @@ export async function correctCompletedSession(
   const isPendingReview = session.decision === 'PENDING' || session.manager_review_status === 'PENDING';
   const isRejectedSession = session.decision === 'REJECTED';
 
-  if (!isPendingReview && !auth.isSuperAdmin && !auth.isMpdHead && (session.manager_correction_count ?? 0) >= 5) {
+  if (!isPendingReview && !auth.isSuperAdmin && !auth.isDataExecutive && (session.manager_correction_count ?? 0) >= 5) {
     return { status: 400, error: 'Maximum correction limit (5) reached for this lab session.' };
   }
 

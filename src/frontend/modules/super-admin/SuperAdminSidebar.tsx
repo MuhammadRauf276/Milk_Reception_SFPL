@@ -12,12 +12,12 @@ import {
   AlertTriangle,
   Activity,
   History,
-  FolderTree,
   Store,
   Navigation,
-  Settings,
   Tv,
   TestTubes,
+  MessageSquare,
+  ShieldCheck,
 } from 'lucide-react';
 import { User } from '@core/types';
 import { Sheet } from '@/components/ui/sheet';
@@ -37,20 +37,19 @@ export interface SuperAdminSidebarProps {
 
 export const SUPER_ADMIN_NAV_ITEMS = [
   { href: '/super-admin', label: 'Overview', icon: LayoutDashboard },
+  { href: '/super-admin/corrections', label: 'Correction Governance Desk', icon: ShieldCheck },
   { href: '/super-admin/users', label: 'Users', icon: Users },
   { href: '/super-admin/procurement-sources', label: 'Procurement Sources', icon: Truck },
   { href: '/super-admin/silos', label: 'Silos', icon: Database },
   { href: '/super-admin/lab-tests', label: 'Lab Test Master', icon: FlaskConical },
-  { href: '/super-admin/test-policies', label: 'Milk Test Policies', icon: TestTubes },
-  { href: '/super-admin/sop-rules', label: 'SOP Rules', icon: BookOpen },
+  { href: '/super-admin/test-policies', label: 'Stage Policies & Rules', icon: TestTubes },
   { href: '/super-admin/qa-warnings', label: 'QA Warnings', icon: AlertTriangle },
   { href: '/super-admin/operations', label: 'Operations', icon: Activity },
   { href: '/super-admin/audit', label: 'Audit & Corrections', icon: History },
   { href: '/super-admin/zmcc-master-data', label: 'ZMCC Master Data', icon: Store },
   { href: '/super-admin/mot-operations', label: 'MOT Operations', icon: Navigation },
-  { href: '/super-admin/master-data', label: 'Master Data', icon: FolderTree },
+  { href: '/super-admin/whatsapp', label: 'WhatsApp Gateway', icon: MessageSquare },
   { href: '/tv-board', label: 'Yard Status Board', icon: Tv },
-  { href: '/super-admin/settings', label: 'System Settings', icon: Settings },
 ];
 
 const SECTIONS: RoleNavSection[] = SUPER_ADMIN_NAV_ITEMS.map((item) => ({

@@ -23,7 +23,12 @@ interface DevGroup {
   items: DevItem[];
 }
 
-const STATIC_DEV_PROFILES: DevGroup[] = [
+// Development-only quick-login cards. Fail closed: the profile list (and its passwords) is
+// empty unless this is a non-production build AND NEXT_PUBLIC_ENABLE_DEV_LOGIN_PROFILES === 'true'.
+const DEV_LOGIN_PROFILES_ENABLED =
+  process.env.NODE_ENV !== 'production' && process.env.NEXT_PUBLIC_ENABLE_DEV_LOGIN_PROFILES === 'true';
+
+const STATIC_DEV_PROFILES: DevGroup[] = !DEV_LOGIN_PROFILES_ENABLED ? [] : [
   {
     group: 'DIRECTORATE & GOVERNANCE',
     items: [
@@ -37,25 +42,28 @@ const STATIC_DEV_PROFILES: DevGroup[] = [
     group: 'MANAGERS & HEADS',
     items: [
       { label: 'MPD Head', department: 'Milk Procurement Directorate', username: 'mpd.head', password: 'mpdhead123' },
-      { label: 'ZMCC / MPD Manager', department: 'Milk Procurement (Zone A - Hasilpur)', username: 'zmcc.manager.north', password: 'zone123' },
-      { label: 'QA Head', department: 'Quality Assurance Directorate', username: 'qa.head', password: 'qahead123' },
-      { label: 'QA Manager', department: 'Quality Assurance Management', username: 'qa.manager', password: 'qamgr123' },
+      { label: 'ZMCC Manager (Hasilpur)', department: 'Milk Procurement (Hasilpur)', username: 'zmcc.manager.hasilpur', password: 'zone123' },
+      { label: 'ZMCC Manager (Jhang)', department: 'Milk Procurement (Jhang)', username: 'zmcc.manager.jhang', password: 'zone123' },
+      { label: 'AVP, QA Reception Lab', department: 'Quality Assurance Directorate', username: 'qa.head', password: 'qahead123' },
+      { label: 'Manager, QA Reception Lab', department: 'Quality Assurance Management', username: 'qa.manager', password: 'qamgr123' },
       { label: 'Production Head', department: 'Production Directorate', username: 'production.head', password: 'prodhead123' },
       { label: 'Admin Head', department: 'Administration Directorate', username: 'admin.head', password: 'adminhead123' },
-      { label: 'Plant Contractor Manager — Al Khair', department: 'Milk Procurement (Al Khair)', username: 'contractor.manager.alkhair', password: 'contractor123' },
+      { label: 'Plant Contractor Manager (Al Khair)', department: 'Milk Procurement (Al Khair)', username: 'contractor.manager.alkhair', password: 'contractor123' },
     ],
   },
   {
     group: 'FIELD & PLANT OPERATORS',
     items: [
-      { label: 'PHE Operator — Hasilpur', department: 'Milk Procurement (Hasilpur)', username: 'phe.operator', password: 'phe123' },
-      { label: 'ZMCC Lab Attendant — Hasilpur', department: 'Milk Procurement (Hasilpur)', username: 'zmcc.operator', password: 'mpd123' },
-      { label: 'ZMCC Lab Attendant — Jhang', department: 'Milk Procurement (Jhang)', username: 'zmcc.operator.jhang', password: 'mpd123' },
-      { label: 'ZMCC Lab Attendant — Kabirwala', department: 'Milk Procurement (Kabirwala)', username: 'zmcc.operator.kabirwala', password: 'mpd123' },
-      { label: 'MOT Field Operator', department: 'Milk Procurement (Hasilpur)', username: 'mot.driver', password: 'mot123' },
-      { label: 'QA Lab Chemist', department: 'Quality Assurance Lab', username: 'qa.chemist', password: 'qa123' },
-      { label: 'Weighbridge Operator — Shift 1', department: 'Production & Weighbridge', username: 'weighbridge.operator', password: 'weighbridge123' },
-      { label: 'Weighbridge Operator — Shift 2', department: 'Production & Weighbridge', username: 'weighbridge.02', password: 'weighbridge123' },
+      { label: 'PHE Operator (Hasilpur)', department: 'Milk Procurement (Hasilpur)', username: 'phe.operator', password: 'phe123' },
+      { label: 'MDO (Hasilpur)', department: 'Milk Procurement (Hasilpur)', username: 'mdo.hasilpur', password: 'mdo123' },
+      { label: 'MDO (Jhang)', department: 'Milk Procurement (Jhang)', username: 'mdo.jhang', password: 'mdo123' },
+      { label: 'ZMCC Lab Attendant (Hasilpur)', department: 'Milk Procurement (Hasilpur)', username: 'zmcc.operator', password: 'mpd123' },
+      { label: 'ZMCC Lab Attendant (Jhang)', department: 'Milk Procurement (Jhang)', username: 'zmcc.operator.jhang', password: 'mpd123' },
+      { label: 'ZMCC Lab Attendant (Kabirwala)', department: 'Milk Procurement (Kabirwala)', username: 'zmcc.operator.kabirwala', password: 'mpd123' },
+      { label: 'Mobile Tester (MOT), Hasilpur', department: 'Milk Procurement (Hasilpur)', username: 'mot.driver', password: 'mot123' },
+      { label: 'QAE, Reception Lab', department: 'Quality Assurance Lab', username: 'qa.chemist', password: 'qa123' },
+      { label: 'Weighbridge Operator (Shift 1)', department: 'Production & Weighbridge', username: 'weighbridge.operator', password: 'weighbridge123' },
+      { label: 'Weighbridge Operator (Shift 2)', department: 'Production & Weighbridge', username: 'weighbridge.02', password: 'weighbridge123' },
       { label: 'Production Reception Operator', department: 'Plant Production & Silos', username: 'production.operator', password: 'production123' },
       { label: 'Security Gate Operator', department: 'Security', username: 'security.gate', password: 'security123' },
     ],
@@ -63,7 +71,7 @@ const STATIC_DEV_PROFILES: DevGroup[] = [
   {
     group: 'CONTRACTORS',
     items: [
-      { label: 'Wasim Sahib (Contractor Operator)', department: 'Milk Procurement - Contractor Operations', username: 'contractor.operator.alkhair', password: 'mpd123' },
+      { label: 'Contractor Operator (Al Khair)', department: 'Milk Procurement - Contractor Operations', username: 'contractor.operator.alkhair', password: 'mpd123' },
       { label: 'Contractor Operator (Al Mehmood)', department: 'Milk Procurement - Contractor Operations', username: 'contractor.operator.almehmood', password: 'mpd123' },
     ],
   },
@@ -156,8 +164,8 @@ export const LoginPage: React.FC = () => {
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-background text-foreground">
-      <header className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4 sm:px-6">
-        <BrandMark />
+      <header className="mx-auto flex h-20 w-full max-w-6xl items-center justify-between px-4 sm:px-6">
+        <BrandMark size="lg" />
         <span className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:inline-flex">
           <ShieldCheck className="h-3.5 w-3.5" />
           Secure operator access
@@ -167,17 +175,16 @@ export const LoginPage: React.FC = () => {
       <main className="mx-auto flex w-full max-w-6xl flex-1 items-start justify-center px-4 py-8 sm:px-6 lg:items-center">
         <div className="grid w-full items-start gap-8 lg:grid-cols-[400px_1fr] lg:gap-12">
           <motion.section
-            initial={{ opacity: 0, y: 12 }}
+            initial={false}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
             className="mx-auto w-full max-w-[400px] rounded-xl border bg-card p-6 shadow-xs sm:p-8"
             aria-labelledby="sign-in-heading"
           >
-            <div className="space-y-1.5">
+            <div>
               <h1 id="sign-in-heading" className="text-xl font-semibold tracking-tight">
                 Sign in
               </h1>
-              <p className="text-sm text-muted-foreground">Milk Reception &amp; Processing — Shakarganj Food Products</p>
             </div>
 
             <AnimatePresence initial={false}>
@@ -260,19 +267,19 @@ export const LoginPage: React.FC = () => {
             </form>
           </motion.section>
 
+          {devGroups.length > 0 ? (
           <motion.section
-            initial={{ opacity: 0, y: 12 }}
+            initial={false}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.08, ease: [0.25, 0.1, 0.25, 1] }}
             className="mx-auto w-full max-w-[640px] lg:mx-0"
-            aria-labelledby="demo-accounts-heading"
+            aria-labelledby="station-accounts-heading"
           >
             <div className="mb-3 flex items-end justify-between gap-4">
               <div>
-                <h2 id="demo-accounts-heading" className="text-sm font-semibold">
-                  Demo accounts
+                <h2 id="station-accounts-heading" className="text-sm font-semibold">
+                  Station accounts
                 </h2>
-                <p className="text-sm text-muted-foreground">Select a role to sign in instantly.</p>
               </div>
             </div>
 
@@ -316,6 +323,7 @@ export const LoginPage: React.FC = () => {
               ))}
             </div>
           </motion.section>
+          ) : null}
         </div>
       </main>
 

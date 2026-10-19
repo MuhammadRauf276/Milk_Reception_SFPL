@@ -59,7 +59,7 @@ import {
   EffectivePolicyTest,
 } from '@/types/milk-test-policy';
 
-export function assertCanMutateTestingPoint(userRole: string | undefined | null, testingPoint: TestingPoint): void {
+export function assertCanMutateTestingPoint(userRole: string | undefined | null, _testingPoint: TestingPoint): void {
   if (!userRole) {
     throw new ForbiddenError('Unauthorized. Missing user role.');
   }
@@ -70,19 +70,10 @@ export function assertCanMutateTestingPoint(userRole: string | undefined | null,
     return;
   }
 
-  if (normalized === 'HEAD_OF_MPD') {
-    if (testingPoint === 'PLANT_QA') {
-      throw new ForbiddenError('Head of MPD is strictly forbidden from managing Plant QA test policy.');
-    }
-    if ((MPD_TESTING_POINTS as readonly string[]).includes(testingPoint)) {
-      return;
-    }
-    throw new ForbiddenError(`Head of MPD is not authorized to manage testing point "${testingPoint}".`);
-  }
-
-  // All other operational, source-bound, legacy, or unauthorized roles
-  // (Admin, ZMCC_MANAGER, MPD_Zone_Manager, ZMCC_LAB_ATTENDANT, MOT, PHE_OPERATOR, QA_Operator, CONTRACTOR_MANAGER, etc.)
-  throw new ForbiddenError(`Role "${normalized}" is not authorized to modify milk test policy.`);
+  // Configuration is strictly centralized to Super Admin & Data Executive
+  throw new ForbiddenError(
+    `Role "${normalized}" is not authorized to modify stage test policies. Only Super Admin and Data Executive can configure test policies and rules.`
+  );
 }
 
 export function assertCanReadAdminPolicies(userRole: string | undefined | null): void {
@@ -90,7 +81,14 @@ export function assertCanReadAdminPolicies(userRole: string | undefined | null):
     throw new ForbiddenError('Unauthorized. Missing user role.');
   }
   const normalized = userRole.trim();
-  if (normalized === 'SUPER_ADMIN' || normalized === 'HEAD_OF_MPD' || normalized === 'DATA_EXECUTIVE') {
+  if (
+    normalized === 'SUPER_ADMIN' ||
+    normalized === 'DATA_EXECUTIVE' ||
+    normalized === 'DATA_ANALYST' ||
+    normalized === 'HEAD_OF_MPD' ||
+    normalized === 'QA_HEAD' ||
+    normalized === 'QA_MANAGER'
+  ) {
     return;
   }
   throw new ForbiddenError(`Role "${normalized}" is not authorized to access policy administrative view.`);
@@ -99,12 +97,15 @@ export function assertCanReadAdminPolicies(userRole: string | undefined | null):
 const ROLE_EFFECTIVE_POINTS: Record<string, readonly TestingPoint[]> = {
   SUPER_ADMIN: ['MOT_SHOP', 'ZMCC_LAB_MOT', 'ZMCC_LAB_LOCAL_SUPPLIER', 'ZMCC_LAB_CONTRACTOR', 'DISPATCH', 'PLANT_QA'],
   DATA_EXECUTIVE: ['MOT_SHOP', 'ZMCC_LAB_MOT', 'ZMCC_LAB_LOCAL_SUPPLIER', 'ZMCC_LAB_CONTRACTOR', 'DISPATCH', 'PLANT_QA'],
+  DATA_ANALYST: ['MOT_SHOP', 'ZMCC_LAB_MOT', 'ZMCC_LAB_LOCAL_SUPPLIER', 'ZMCC_LAB_CONTRACTOR', 'DISPATCH', 'PLANT_QA'],
   HEAD_OF_MPD: ['MOT_SHOP', 'ZMCC_LAB_MOT', 'ZMCC_LAB_LOCAL_SUPPLIER', 'ZMCC_LAB_CONTRACTOR', 'DISPATCH'],
   ZMCC_MANAGER: ['MOT_SHOP', 'ZMCC_LAB_MOT', 'ZMCC_LAB_LOCAL_SUPPLIER', 'ZMCC_LAB_CONTRACTOR', 'DISPATCH'],
   MOT: ['MOT_SHOP'],
   ZMCC_LAB_ATTENDANT: ['ZMCC_LAB_MOT', 'ZMCC_LAB_LOCAL_SUPPLIER', 'ZMCC_LAB_CONTRACTOR', 'DISPATCH'],
   CONTRACTOR_OPERATOR: ['DISPATCH'],
   CONTRACTOR_MANAGER: ['DISPATCH'],
+  QA_HEAD: ['PLANT_QA'],
+  QA_MANAGER: ['PLANT_QA'],
   QA_LAB_ATTENDANT: ['PLANT_QA'],
 };
 
@@ -139,9 +140,9 @@ async function assertRequiredAssignmentHasReleaseRule(
 ): Promise<void> {
   const rules = await QualityRuleService.resolveActiveRulesForTestingPoint(testingPoint, new Date(), tx);
   const rule = rules.get(labTestId.toString());
-  if (!rule || rule.isConfigurationError || rule.rule_category !== 'RELEASE') {
+  if (!rule || rule.isConfigurationError || (rule.rule_category !== 'RELEASE' && rule.rule_category !== 'MONITORING')) {
     throw new ValidationError(
-      `Required test activation is blocked: exactly one valid active RELEASE rule is required for this test at ${testingPoint}. Configure the QA rule first.`
+      `Required test activation requires a valid active rule (Must Pass or Warning Only) for this test at ${testingPoint}.`
     );
   }
 }
@@ -200,6 +201,7 @@ interface AssignmentDbRow {
   lab_test_id: bigint;
   testing_point: string;
   is_required: boolean;
+  is_photo_required?: boolean | null;
   display_order: number;
   is_active: boolean;
   created_by_user_id: bigint;
@@ -214,6 +216,7 @@ interface AssignmentDbRow {
     unit: string | null;
     testScope: string;
     isRequired: boolean;
+    isPhotoRequired?: boolean | null;
     isActive: boolean;
     displayOrder: number;
     resultOptions?: unknown;
@@ -236,6 +239,7 @@ function serializeAssignment(row: AssignmentDbRow): SerializedPolicyAssignment {
     labTestId: row.lab_test_id.toString(),
     testingPoint: row.testing_point as TestingPoint,
     isRequired: row.is_required,
+    isPhotoRequired: row.is_photo_required ?? row.lab_test?.isPhotoRequired ?? false,
     displayOrder: row.display_order,
     isActive: row.is_active,
     createdByUserId: row.created_by_user_id.toString(),
@@ -251,6 +255,7 @@ function serializeAssignment(row: AssignmentDbRow): SerializedPolicyAssignment {
           unit: row.lab_test.unit,
           testScope: row.lab_test.testScope,
           isRequired: row.lab_test.isRequired,
+          isPhotoRequired: row.lab_test.isPhotoRequired ?? false,
           isActive: row.lab_test.isActive,
           displayOrder: row.lab_test.displayOrder,
           resultOptions: row.lab_test.resultOptions,
@@ -312,6 +317,7 @@ export class MilkTestPolicyService {
       unit: a.lab_test.unit,
       resultOptions: a.lab_test.resultOptions,
       isRequired: a.is_required,
+      isPhotoRequired: a.is_photo_required ?? a.lab_test.isPhotoRequired ?? false,
       displayOrder: a.display_order,
       isActive: a.is_active,
       testingPoint: a.testing_point as TestingPoint,
@@ -429,6 +435,7 @@ export class MilkTestPolicyService {
           lab_test_id: labTestIdBig,
           testing_point: testingPoint,
           is_required: isRequired,
+          is_photo_required: input.isPhotoRequired !== undefined ? Boolean(input.isPhotoRequired) : (labTest.isPhotoRequired ?? false),
           display_order: finalDisplayOrder,
           is_active: true,
           created_by_user_id: resolvedActor.id,
@@ -453,6 +460,7 @@ export class MilkTestPolicyService {
             test_name: created.lab_test.testName,
             testing_point: created.testing_point,
             is_required: created.is_required,
+            is_photo_required: created.is_photo_required,
             display_order: created.display_order,
             is_active: created.is_active,
           },
@@ -509,6 +517,11 @@ export class MilkTestPolicyService {
 
     if (input.isRequired !== undefined && input.isRequired !== existing.is_required) {
       dataToUpdate.is_required = Boolean(input.isRequired);
+      hasChanges = true;
+    }
+
+    if (input.isPhotoRequired !== undefined && input.isPhotoRequired !== existing.is_photo_required) {
+      dataToUpdate.is_photo_required = Boolean(input.isPhotoRequired);
       hasChanges = true;
     }
 

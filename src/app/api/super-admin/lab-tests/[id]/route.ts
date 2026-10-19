@@ -88,6 +88,7 @@ export async function PATCH(
           testScope: body.testScope !== undefined ? body.testScope : targetTest.testScope,
           displayOrder: body.displayOrder !== undefined ? Number(body.displayOrder) : targetTest.displayOrder,
           isActive: body.isActive !== undefined ? Boolean(body.isActive) : targetTest.isActive,
+          isPhotoRequired: body.isPhotoRequired !== undefined ? Boolean(body.isPhotoRequired) : targetTest.isPhotoRequired,
           resultOptions: parsedResultOptions !== undefined
             ? (parsedResultOptions === null ? Prisma.DbNull : (parsedResultOptions as unknown as Prisma.InputJsonValue))
             : undefined,
@@ -103,12 +104,14 @@ export async function PATCH(
             testName: targetTest.testName,
             displayOrder: targetTest.displayOrder,
             isActive: targetTest.isActive,
+            isPhotoRequired: targetTest.isPhotoRequired,
             resultOptions: targetTest.resultOptions,
           },
           new_values: {
             testName: updated.testName,
             displayOrder: updated.displayOrder,
             isActive: updated.isActive,
+            isPhotoRequired: updated.isPhotoRequired,
             resultOptions: updated.resultOptions,
           },
           user_id: adminUser?.id || null,
@@ -129,6 +132,7 @@ export async function PATCH(
         testScope: updatedTest.testScope,
         displayOrder: updatedTest.displayOrder,
         isActive: updatedTest.isActive,
+        isPhotoRequired: updatedTest.isPhotoRequired,
         resultOptions: updatedTest.resultOptions || null,
       },
     });

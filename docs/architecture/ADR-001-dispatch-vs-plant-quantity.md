@@ -4,7 +4,7 @@
 Accepted
 
 ## Context
-Milk intake involves two distinct testing and measurement phases: Dispatch (at ZMCC or Contractor origin) and Plant Reception (at Factory Weighbridge and Laboratory). Physical receiving mass is measured at the factory weighbridge after accepted portions are unloaded.
+Milk intake involves two distinct testing and measurement phases: Dispatch (at ZMCC or Contractor origin) and Plant Reception (at Plant Weighbridge and Laboratory). Physical receiving mass is measured at the plant weighbridge after accepted portions are unloaded.
 
 ## Decision
 1. **Portion-Wise Testing & Authoritative Plant Decisions**:

@@ -36,7 +36,7 @@ export interface CacheableJourney {
   stops?: Array<{
     id?: IdLike | null;
     planned_sequence: number;
-    status: 'PENDING' | 'VISITED';
+    status: 'PENDING' | 'VISITED' | 'SKIPPED' | string;
     shop_code?: string;
     shop_name?: string;
     owner_name?: string;
@@ -46,7 +46,11 @@ export interface CacheableJourney {
     shop?: Partial<Record<'shop_code' | 'shop_name' | 'owner_name' | 'phone_number' | 'area_code' | 'area_name', string>> | null;
     planned_latitude?: number | string | null;
     planned_longitude?: number | string | null;
+    planned_latitude_snapshot?: number | string | null;
+    planned_longitude_snapshot?: number | string | null;
     collection?: CachedCollection | null;
+    skipped_at?: string | null;
+    skip_reason?: string | null;
   }>;
 }
 
@@ -62,7 +66,7 @@ export interface CachedJourney {
   stops: Array<{
     id: string;
     planned_sequence: number;
-    status: 'PENDING' | 'VISITED';
+    status: 'PENDING' | 'VISITED' | 'SKIPPED' | string;
     shop_code: string;
     shop_name: string;
     owner_name: string;
@@ -71,7 +75,11 @@ export interface CachedJourney {
     area_name: string;
     planned_latitude: number | null;
     planned_longitude: number | null;
+    planned_latitude_snapshot?: number | null;
+    planned_longitude_snapshot?: number | null;
     collection?: CachedCollection | null;
+    skipped_at?: string | null;
+    skip_reason?: string | null;
   }>;
   cached_at: string;
 }
@@ -83,6 +91,7 @@ export interface MotOfflinePreparation {
 export interface CollectionDraft {
   stop_id: string;
   shop_rmr_number?: string | null;
+  milk_source_id?: string | null;
   quantity: string;
   unit: 'LITER' | 'KG';
   lr: string;
@@ -96,6 +105,7 @@ export interface QueuedCollection {
   journey_id: string;
   stop_id: string;
   shop_rmr_number?: string | null;
+  milk_source_id?: string | null;
   quantity: number;
   unit: 'LITER' | 'KG';
   lr: number;
@@ -106,6 +116,19 @@ export interface QueuedCollection {
   notes?: string;
   request_exception?: boolean;
   exception_reason?: string | null;
+  offline_created_at: string;
+  status: 'QUEUED' | 'SYNCING' | 'SYNCED' | 'CONFLICT' | 'FAILED_FATAL' | 'FAILED_RETRYABLE';
+  last_error?: string;
+  attempts?: number;
+  synced_at?: string;
+  sync_started_at?: string | null;
+}
+
+export interface QueuedSkip {
+  client_event_id: string;
+  stop_id: string;
+  journey_id: string;
+  skip_reason: string;
   offline_created_at: string;
   status: 'QUEUED' | 'SYNCING' | 'SYNCED' | 'CONFLICT' | 'FAILED_FATAL' | 'FAILED_RETRYABLE';
   last_error?: string;
@@ -128,15 +151,33 @@ export interface QueuedGpsPoint {
   last_error?: string | null;
 }
 
+export interface QueuedShopRequest {
+  client_event_id: string;
+  shop_name: string;
+  owner_name: string;
+  phone_number: string;
+  cnic: string;
+  route_id?: string;
+  area_id?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  offline_created_at: string;
+  status: 'QUEUED' | 'SYNCING' | 'SYNCED' | 'CONFLICT' | 'FAILED_FATAL' | 'FAILED_RETRYABLE';
+  last_error?: string;
+  attempts?: number;
+  synced_at?: string;
+  sync_started_at?: string | null;
+}
+
 const DB_NAME = 'milk_reception_mot_db';
-const DB_VERSION = 4;
+const DB_VERSION = 6;
 
 function isIndexedDbSupported(): boolean {
   const idb = typeof window !== 'undefined' ? window.indexedDB : typeof globalThis !== 'undefined' ? globalThis.indexedDB : undefined;
   return typeof idb !== 'undefined';
 }
 
-function getIdb(): IDBFactory {
+function getIdb(): typeof indexedDB {
   return typeof window !== 'undefined' ? window.indexedDB : globalThis.indexedDB;
 }
 
@@ -164,6 +205,19 @@ export function openMotDb(): Promise<IDBDatabase> {
         const store = db.createObjectStore('collection_queue', { keyPath: 'client_event_id' });
         store.createIndex('status', 'status', { unique: false });
         store.createIndex('journey_id', 'journey_id', { unique: false });
+        store.createIndex('created_at', 'offline_created_at', { unique: false });
+      }
+
+      if (!db.objectStoreNames.contains('skip_queue')) {
+        const store = db.createObjectStore('skip_queue', { keyPath: 'client_event_id' });
+        store.createIndex('status', 'status', { unique: false });
+        store.createIndex('stop_id', 'stop_id', { unique: false });
+        store.createIndex('journey_id', 'journey_id', { unique: false });
+      }
+
+      if (!db.objectStoreNames.contains('shop_request_queue')) {
+        const store = db.createObjectStore('shop_request_queue', { keyPath: 'client_event_id' });
+        store.createIndex('status', 'status', { unique: false });
         store.createIndex('created_at', 'offline_created_at', { unique: false });
       }
 
@@ -230,9 +284,13 @@ export async function saveCachedJourney(journey: CacheableJourney): Promise<void
         phone_number: s.phone_number || s.shop?.phone_number || '',
         area_code: s.area_code || s.shop?.area_code || '',
         area_name: s.area_name || s.shop?.area_name || '',
-        planned_latitude: s.planned_latitude != null ? Number(s.planned_latitude) : null,
-        planned_longitude: s.planned_longitude != null ? Number(s.planned_longitude) : null,
+        planned_latitude: s.planned_latitude != null ? Number(s.planned_latitude) : s.planned_latitude_snapshot != null ? Number(s.planned_latitude_snapshot) : null,
+        planned_longitude: s.planned_longitude != null ? Number(s.planned_longitude) : s.planned_longitude_snapshot != null ? Number(s.planned_longitude_snapshot) : null,
+        planned_latitude_snapshot: s.planned_latitude_snapshot != null ? Number(s.planned_latitude_snapshot) : s.planned_latitude != null ? Number(s.planned_latitude) : null,
+        planned_longitude_snapshot: s.planned_longitude_snapshot != null ? Number(s.planned_longitude_snapshot) : s.planned_longitude != null ? Number(s.planned_longitude) : null,
         collection: s.collection || null,
+        skipped_at: s.skipped_at || null,
+        skip_reason: s.skip_reason || null,
       })),
       cached_at: new Date().toISOString(),
     };
@@ -270,15 +328,139 @@ export async function clearCachedJourney(): Promise<void> {
   });
 }
 
-/** Online logout is the only shared-device cleanup path: drafts, queued collections, GPS, journey, and preparation receipt are removed together. */
-export async function clearMotOfflineWorkspace(): Promise<void> {
-  if (!isIndexedDbSupported()) return;
-  const db = await openMotDb();
-  return new Promise((resolve, reject) => {
-    const names = ['active_journey', 'offline_preparation', 'collection_drafts', 'collection_queue', 'gps_queue'].filter((name) => db.objectStoreNames.contains(name));
-    const tx = db.transaction(names, 'readwrite'); names.forEach((name) => tx.objectStore(name).clear());
-    tx.oncomplete = () => resolve(); tx.onerror = () => reject(tx.error || new Error('Unable to clear offline workspace.'));
+export interface UnsentWorkSummary {
+  collections: number;
+  gpsPoints: number;
+  skips: number;
+  shopRequests: number;
+  drafts: number;
+  /** Items that can still be sent (plus drafts). */
+  total: number;
+  /** Items that will never sync by themselves (CONFLICT / FAILED_FATAL). They are kept, never deleted. */
+  needsAttention: number;
+}
+
+type CountableItem = { status?: string; synced?: number };
+
+function isSynced(item: CountableItem): boolean {
+  return item.status === 'SYNCED' || item.synced === 1;
+}
+
+function isStuck(item: CountableItem): boolean {
+  return item.status === 'CONFLICT' || item.status === 'FAILED_FATAL';
+}
+
+/** Pure helper: counts unsent items from raw store contents. */
+export function summariseUnsentWork(input: {
+  collections?: CountableItem[];
+  gpsPoints?: CountableItem[];
+  skips?: CountableItem[];
+  shopRequests?: CountableItem[];
+  drafts?: unknown[];
+}): UnsentWorkSummary {
+  let needsAttention = 0;
+  const waiting = (items: CountableItem[] | undefined): number => {
+    let n = 0;
+    for (const item of items ?? []) {
+      if (isSynced(item)) continue;
+      if (isStuck(item)) needsAttention++;
+      else n++;
+    }
+    return n;
+  };
+  const collections = waiting(input.collections);
+  const gpsPoints = waiting(input.gpsPoints);
+  const skips = waiting(input.skips);
+  const shopRequests = waiting(input.shopRequests);
+  const drafts = (input.drafts ?? []).length;
+  return { collections, gpsPoints, skips, shopRequests, drafts, total: collections + gpsPoints + skips + shopRequests + drafts, needsAttention };
+}
+
+function readAllIfExists<T>(db: IDBDatabase, name: string): Promise<T[]> {
+  return new Promise((resolve) => {
+    if (!db.objectStoreNames.contains(name)) return resolve([]);
+    try {
+      const req = db.transaction(name, 'readonly').objectStore(name).getAll();
+      req.onsuccess = () => resolve((req.result as T[]) || []);
+      req.onerror = () => resolve([]);
+    } catch {
+      resolve([]);
+    }
   });
+}
+
+/**
+ * True if the MOT database already exists. When the browser cannot list databases,
+ * returns `whenUnknown` so callers decide (only MOT devices should create it just to look).
+ */
+async function motDbExists(whenUnknown: boolean): Promise<boolean> {
+  try {
+    const idb = getIdb();
+    if (typeof idb.databases !== 'function') return whenUnknown;
+    const list = await idb.databases();
+    return list.some((d) => d.name === DB_NAME);
+  } catch {
+    return whenUnknown;
+  }
+}
+
+/**
+ * Counts work saved on this phone that the server has not confirmed yet. Never throws.
+ * Does not create the MOT database on devices that never used it (pass `isMot: true` for MOT users).
+ */
+export async function getUnsentWorkSummary(options?: { isMot?: boolean }): Promise<UnsentWorkSummary> {
+  const empty = summariseUnsentWork({});
+  if (!isIndexedDbSupported()) return empty;
+  try {
+    if (!(await motDbExists(options?.isMot === true))) return empty;
+    const db = await openMotDb();
+    try {
+      const [collections, gpsPoints, skips, shopRequests, drafts] = await Promise.all([
+        readAllIfExists<QueuedCollection>(db, 'collection_queue'),
+        readAllIfExists<QueuedGpsPoint>(db, 'gps_queue'),
+        readAllIfExists<QueuedSkip>(db, 'skip_queue'),
+        readAllIfExists<QueuedShopRequest>(db, 'shop_request_queue'),
+        readAllIfExists<CollectionDraft>(db, 'collection_drafts'),
+      ]);
+      return summariseUnsentWork({ collections, gpsPoints, skips, shopRequests, drafts });
+    } finally {
+      db.close();
+    }
+  } catch {
+    return empty;
+  }
+}
+
+/**
+ * Clears only the journey copy and offline preparation receipt, so the next user never sees them.
+ * Never touches collection_queue, gps_queue, skip_queue, shop_request_queue or collection_drafts
+ * (sync reads only the queue items, which carry their own journey_id).
+ */
+export async function clearMotSessionCache(): Promise<void> {
+  if (!isIndexedDbSupported()) return;
+  if (!(await motDbExists(true))) return;
+  const db = await openMotDb();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const names = ['active_journey', 'offline_preparation'].filter((name) => db.objectStoreNames.contains(name));
+      if (names.length === 0) return resolve();
+      const tx = db.transaction(names, 'readwrite');
+      names.forEach((name) => tx.objectStore(name).clear());
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error || new Error('Unable to clear session cache.'));
+      tx.onabort = () => reject(tx.error || new Error('Clearing session cache was aborted.'));
+    });
+  } finally {
+    db.close();
+  }
+}
+
+/**
+ * @deprecated Kept for backward compatibility. It no longer deletes queued work:
+ * it only clears the journey cache and offline preparation.
+ */
+export async function clearMotOfflineWorkspace(): Promise<void> {
+  await clearMotSessionCache();
 }
 
 export async function saveMotOfflinePreparation(value: Omit<MotOfflinePreparation, 'id' | 'preparedAt'>): Promise<void> {
@@ -429,6 +611,226 @@ export async function updateCollectionQueueStatus(
 }
 
 // -------------------------------------------------------------
+// Stop Skip Queue Operations
+// -------------------------------------------------------------
+
+export async function markStopSkippedInCachedJourney(
+  stopId: string,
+  skipReason: string
+): Promise<void> {
+  if (!isIndexedDbSupported()) return;
+  const db = await openMotDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('active_journey', 'readwrite');
+    const store = tx.objectStore('active_journey');
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error || new Error('Transaction failed'));
+    tx.onabort = () => reject(tx.error || new Error('Transaction aborted'));
+
+    const req = store.getAll();
+    req.onsuccess = () => {
+      const items = req.result;
+      if (items && items.length > 0) {
+        const journey: CachedJourney = items[0];
+        const now = new Date().toISOString();
+        let changed = false;
+        journey.stops = journey.stops.map((s) => {
+          if (s.id === stopId) {
+            changed = true;
+            return {
+              ...s,
+              status: 'SKIPPED' as const,
+              skipped_at: now,
+              skip_reason: skipReason,
+            };
+          }
+          return s;
+        });
+        if (changed) {
+          store.put(journey);
+        }
+      }
+    };
+  });
+}
+
+export async function queueStopSkip(item: {
+  stop_id: string;
+  journey_id: string;
+  skip_reason: string;
+  client_event_id?: string;
+}): Promise<QueuedSkip> {
+  if (!isIndexedDbSupported()) throw new Error('Offline storage unavailable');
+  const db = await openMotDb();
+  const clientEventId =
+    (item.client_event_id || '').trim() ||
+    (typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `skip-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`);
+
+  const queuedItem: QueuedSkip = {
+    client_event_id: clientEventId,
+    stop_id: item.stop_id,
+    journey_id: item.journey_id,
+    skip_reason: item.skip_reason,
+    offline_created_at: new Date().toISOString(),
+    status: 'QUEUED',
+    attempts: 0,
+    sync_started_at: null,
+  };
+
+  await markStopSkippedInCachedJourney(item.stop_id, item.skip_reason);
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('skip_queue', 'readwrite');
+    const store = tx.objectStore('skip_queue');
+
+    store.put(queuedItem);
+
+    tx.oncomplete = () => resolve(queuedItem);
+    tx.onerror = () => reject(tx.error || new Error('Transaction failed'));
+    tx.onabort = () => reject(tx.error || new Error('Transaction aborted'));
+  });
+}
+
+export async function getQueuedSkips(): Promise<QueuedSkip[]> {
+  if (!isIndexedDbSupported()) return [];
+  const db = await openMotDb();
+  if (!db.objectStoreNames.contains('skip_queue')) return [];
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('skip_queue', 'readonly');
+    const store = tx.objectStore('skip_queue');
+    const req = store.getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function updateSkipQueueStatus(
+  clientEventId: string,
+  status: QueuedSkip['status'],
+  errorMsg?: string
+): Promise<void> {
+  if (!isIndexedDbSupported()) return;
+  const db = await openMotDb();
+  if (!db.objectStoreNames.contains('skip_queue')) return;
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('skip_queue', 'readwrite');
+    const store = tx.objectStore('skip_queue');
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error || new Error('Transaction failed'));
+    tx.onabort = () => reject(tx.error || new Error('Transaction aborted'));
+
+    const req = store.get(clientEventId);
+    req.onsuccess = () => {
+      const item: QueuedSkip = req.result;
+      if (item) {
+        item.status = status;
+        if (status === 'SYNCING') {
+          item.sync_started_at = new Date().toISOString();
+        } else if (status === 'SYNCED') {
+          item.synced_at = new Date().toISOString();
+          item.sync_started_at = null;
+        } else {
+          item.sync_started_at = null;
+        }
+        if (errorMsg !== undefined) item.last_error = errorMsg;
+        if (status !== 'SYNCING') {
+          item.attempts = (item.attempts || 0) + 1;
+        }
+        store.put(item);
+      }
+    };
+  });
+}
+
+export async function syncPendingSkips(): Promise<{
+  synced: number;
+  conflicts: number;
+  failed: number;
+}> {
+  const STALE_TIMEOUT_MS = 5 * 60 * 1000;
+  const now = Date.now();
+
+  const all = await getQueuedSkips();
+
+  for (const item of all) {
+    if (item.status === 'SYNCING') {
+      const startedAt = item.sync_started_at ? new Date(item.sync_started_at).getTime() : 0;
+      if (!startedAt || now - startedAt > STALE_TIMEOUT_MS) {
+        await updateSkipQueueStatus(
+          item.client_event_id,
+          'FAILED_RETRYABLE',
+          'Sync timed out or crashed; recovered from stale SYNCING state'
+        );
+        item.status = 'FAILED_RETRYABLE';
+        item.sync_started_at = null;
+      }
+    }
+  }
+
+  const toSync = all.filter(
+    (s) => s.status === 'QUEUED' || s.status === 'FAILED_RETRYABLE'
+  );
+
+  let synced = 0;
+  let conflicts = 0;
+  let failed = 0;
+
+  for (const item of toSync) {
+    await updateSkipQueueStatus(item.client_event_id, 'SYNCING');
+    try {
+      const res = await fetch(`/api/zmcc/mot/journeys/stops/${item.stop_id}/skip`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          skip_reason: item.skip_reason,
+        }),
+      });
+
+      if (res.ok) {
+        await updateSkipQueueStatus(item.client_event_id, 'SYNCED');
+        synced++;
+      } else if (res.status === 409) {
+        const errJson = await res.json().catch(() => ({}));
+        await updateSkipQueueStatus(
+          item.client_event_id,
+          'CONFLICT',
+          errJson.error || 'Conflict detected upon sync'
+        );
+        conflicts++;
+      } else if (res.status >= 400 && res.status < 500) {
+        const errJson = await res.json().catch(() => ({}));
+        await updateSkipQueueStatus(
+          item.client_event_id,
+          'FAILED_FATAL',
+          errJson.error || `Client error (${res.status})`
+        );
+        failed++;
+      } else {
+        await updateSkipQueueStatus(
+          item.client_event_id,
+          'FAILED_RETRYABLE',
+          `Server error (${res.status})`
+        );
+        failed++;
+      }
+    } catch (err) {
+      await updateSkipQueueStatus(
+        item.client_event_id,
+        'FAILED_RETRYABLE',
+        getErrorMessage(err) || 'Network unreachable'
+      );
+      failed++;
+    }
+  }
+
+  return { synced, conflicts, failed };
+}
+
+// -------------------------------------------------------------
 // GPS Queue Operations
 // -------------------------------------------------------------
 
@@ -571,6 +973,10 @@ export async function getUnsyncedSummary(): Promise<{
   pendingGps: number;
   conflictGps: number;
   fatalGps: number;
+  pendingSkips: number;
+  conflictSkips: number;
+  fatalSkips: number;
+  pendingShopRequests?: number;
   totalUnsynced: number;
 }> {
   if (!isIndexedDbSupported()) {
@@ -581,6 +987,10 @@ export async function getUnsyncedSummary(): Promise<{
       pendingGps: 0,
       conflictGps: 0,
       fatalGps: 0,
+      pendingSkips: 0,
+      conflictSkips: 0,
+      fatalSkips: 0,
+      pendingShopRequests: 0,
       totalUnsynced: 0,
     };
   }
@@ -591,6 +1001,13 @@ export async function getUnsyncedSummary(): Promise<{
   ).length;
   const conflictColl = collections.filter((c) => c.status === 'CONFLICT').length;
   const fatalColl = collections.filter((c) => c.status === 'FAILED_FATAL').length;
+
+  const skips = await getQueuedSkips();
+  const pendingSk = skips.filter(
+    (s) => s.status === 'QUEUED' || s.status === 'FAILED_RETRYABLE' || s.status === 'SYNCING'
+  ).length;
+  const conflictSk = skips.filter((s) => s.status === 'CONFLICT').length;
+  const fatalSk = skips.filter((s) => s.status === 'FAILED_FATAL').length;
 
   const db = await openMotDb();
   const gpsCounts = await new Promise<{ pending: number; conflict: number; fatal: number }>((resolve) => {
@@ -617,6 +1034,11 @@ export async function getUnsyncedSummary(): Promise<{
     req.onerror = () => resolve({ pending: 0, conflict: 0, fatal: 0 });
   });
 
+  const shopRequests = await getQueuedShopRequests();
+  const pendingShopReq = shopRequests.filter(
+    (s) => s.status === 'QUEUED' || s.status === 'FAILED_RETRYABLE' || s.status === 'SYNCING'
+  ).length;
+
   return {
     pendingCollections: pendingColl,
     conflictCollections: conflictColl,
@@ -624,8 +1046,120 @@ export async function getUnsyncedSummary(): Promise<{
     pendingGps: gpsCounts.pending,
     conflictGps: gpsCounts.conflict,
     fatalGps: gpsCounts.fatal,
-    totalUnsynced: pendingColl + gpsCounts.pending,
+    pendingSkips: pendingSk,
+    conflictSkips: conflictSk,
+    fatalSkips: fatalSk,
+    pendingShopRequests: pendingShopReq,
+    totalUnsynced: pendingColl + gpsCounts.pending + pendingSk + pendingShopReq,
   };
+}
+
+export async function queueShopRequest(request: {
+  shop_name: string;
+  owner_name: string;
+  phone_number: string;
+  cnic: string;
+  route_id?: string;
+  area_id?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+}): Promise<QueuedShopRequest> {
+  const db = await openMotDb();
+  const queuedItem: QueuedShopRequest = {
+    client_event_id: `shp-req-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+    ...request,
+    offline_created_at: new Date().toISOString(),
+    status: 'QUEUED',
+    attempts: 0,
+  };
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('shop_request_queue', 'readwrite');
+    const store = tx.objectStore('shop_request_queue');
+    const req = store.put(queuedItem);
+    req.onsuccess = () => resolve(queuedItem);
+    req.onerror = () => reject(req.error || new Error('Failed to queue shop request'));
+  });
+}
+
+export async function getQueuedShopRequests(): Promise<QueuedShopRequest[]> {
+  if (!isIndexedDbSupported()) return [];
+  const db = await openMotDb();
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction('shop_request_queue', 'readonly');
+      const store = tx.objectStore('shop_request_queue');
+      const req = store.getAll();
+      req.onsuccess = () => {
+        resolve((req.result as QueuedShopRequest[]) || []);
+      };
+      req.onerror = () => resolve([]);
+    } catch {
+      resolve([]);
+    }
+  });
+}
+
+export async function syncPendingShopRequests(): Promise<{ synced: number; failed: number }> {
+  if (!isIndexedDbSupported()) return { synced: 0, failed: 0 };
+  const all = await getQueuedShopRequests();
+  const pending = all.filter((r) => r.status === 'QUEUED' || r.status === 'FAILED_RETRYABLE');
+  if (pending.length === 0) return { synced: 0, failed: 0 };
+
+  let synced = 0;
+  let failed = 0;
+  const db = await openMotDb();
+
+  for (const item of pending) {
+    try {
+      const res = await fetch('/api/zmcc/shops/requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          shop_name: item.shop_name,
+          owner_name: item.owner_name,
+          phone_number: item.phone_number,
+          cnic: item.cnic,
+          route_id: item.route_id,
+          area_id: item.area_id,
+          latitude: item.latitude,
+          longitude: item.longitude,
+        }),
+      });
+
+      const tx = db.transaction('shop_request_queue', 'readwrite');
+      const store = tx.objectStore('shop_request_queue');
+
+      if (res.ok || res.status === 409) {
+        item.status = 'SYNCED';
+        item.synced_at = new Date().toISOString();
+        store.put(item);
+        synced++;
+      } else if (res.status >= 400 && res.status < 500) {
+        item.status = 'FAILED_FATAL';
+        const errJson = await res.json().catch(() => ({}));
+        item.last_error = errJson.error || `Validation error (${res.status})`;
+        store.put(item);
+        failed++;
+      } else {
+        item.status = 'FAILED_RETRYABLE';
+        item.attempts = (item.attempts || 0) + 1;
+        item.last_error = `Server error (${res.status})`;
+        store.put(item);
+        failed++;
+      }
+    } catch (err) {
+      const tx = db.transaction('shop_request_queue', 'readwrite');
+      const store = tx.objectStore('shop_request_queue');
+      item.status = 'FAILED_RETRYABLE';
+      item.attempts = (item.attempts || 0) + 1;
+      item.last_error = getErrorMessage(err) || 'Network error';
+      store.put(item);
+      failed++;
+    }
+  }
+
+  return { synced, failed };
 }
 
 // -------------------------------------------------------------
@@ -679,6 +1213,7 @@ export async function syncPendingCollections(): Promise<{
           journey_id: item.journey_id,
           stop_id: item.stop_id,
           shop_rmr_number: item.shop_rmr_number || null,
+          milk_source_id: item.milk_source_id || null,
           quantity: item.quantity,
           unit: item.unit,
           lr: item.lr,
@@ -907,8 +1442,42 @@ export async function syncPendingGps(): Promise<{
 export async function syncAll(): Promise<{
   collections: { synced: number; conflicts: number; failed: number };
   gps: { synced: number; conflicts?: number; fatal?: number; retryable?: number; failed: number };
+  skips: { synced: number; conflicts: number; failed: number };
+  shopRequests?: { synced: number; failed: number };
 }> {
   const collRes = await syncPendingCollections();
   const gpsRes = await syncPendingGps();
-  return { collections: collRes, gps: gpsRes };
+  const skipRes = await syncPendingSkips();
+  const shopRes = await syncPendingShopRequests();
+  return { collections: collRes, gps: gpsRes, skips: skipRes, shopRequests: shopRes };
 }
+
+export interface CachedAvailableSource {
+  id: string;
+  erp_code: string;
+  name: string;
+  displayLabel: string;
+}
+
+const SOURCES_CACHE_KEY = 'mot_cached_available_sources';
+
+export async function cacheAvailableSources(sources: CachedAvailableSource[]): Promise<void> {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(SOURCES_CACHE_KEY, JSON.stringify(sources));
+  } catch {
+    // Non-fatal cache write failure
+  }
+}
+
+export async function getCachedAvailableSources(): Promise<CachedAvailableSource[]> {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(SOURCES_CACHE_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw) as CachedAvailableSource[];
+  } catch {
+    return [];
+  }
+}
+

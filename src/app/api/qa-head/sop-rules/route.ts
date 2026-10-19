@@ -7,16 +7,18 @@ import { QualityRuleService } from '@/backend/services/qualityRuleService';
 const createRuleSchema = z.object({
   labTestId: z.union([z.string(), z.number()]),
   testingPoint: z.enum([
+    'GLOBAL_DEFAULT',
     'PLANT_QA',
     'ZMCC_LAB_MOT',
     'ZMCC_LAB_CONTRACTOR',
     'ZMCC_LAB_LOCAL_SUPPLIER',
     'MOT_SHOP',
     'DISPATCH',
-  ]),
+  ]).nullable().optional(),
   ruleCategory: z.enum(['RELEASE', 'MONITORING']).default('RELEASE'),
   minValue: z.union([z.number(), z.string()]).nullable().optional(),
   maxValue: z.union([z.number(), z.string()]).nullable().optional(),
+  warningOffset: z.union([z.number(), z.string()]).nullable().optional(),
   acceptableOption: z.string().nullable().optional(),
   warningTrigger: z.string().nullable().optional(),
   decisionConsequence: z.string().nullable().optional(),
@@ -40,9 +42,9 @@ export async function GET(req: Request) {
     },
   });
 
-  const allowedRoles = ['QA_HEAD', 'QA_MANAGER', 'SUPER_ADMIN', 'DATA_EXECUTIVE'];
+  const allowedRoles = ['QA_HEAD', 'QA_MANAGER', 'HEAD_OF_MPD', 'SUPER_ADMIN', 'DATA_EXECUTIVE', 'DATA_ANALYST'];
   if (!dbUser || !allowedRoles.includes(dbUser.role)) {
-    return NextResponse.json({ error: 'Unauthorized. QA Head, QA Manager, Super Admin or Data Executive role required.' }, { status: 403 });
+    return NextResponse.json({ error: 'Unauthorized. Executive or Admin role required.' }, { status: 403 });
   }
 
   const { searchParams } = new URL(req.url);
@@ -111,10 +113,10 @@ export async function POST(req: Request) {
     },
   });
 
-  const allowedRoles = ['QA_HEAD', 'QA_MANAGER', 'SUPER_ADMIN', 'DATA_EXECUTIVE'];
+  const allowedRoles = ['SUPER_ADMIN', 'DATA_EXECUTIVE'];
   if (!dbUser || !allowedRoles.includes(dbUser.role)) {
     return NextResponse.json(
-      { error: 'Unauthorized. QA Head, QA Manager, Super Admin, or Data Executive role is required to configure SOP rules.' },
+      { error: 'Unauthorized. Only Super Admin and Data Executive are authorized to configure stage test rules.' },
       { status: 403 }
     );
   }
@@ -134,10 +136,11 @@ export async function POST(req: Request) {
 
     const newRule = await QualityRuleService.createOrSupersedeRule({
       labTestId: validated.labTestId,
-      testingPoint: validated.testingPoint,
+      testingPoint: validated.testingPoint ?? null,
       ruleCategory: validated.ruleCategory,
       minValue: validated.minValue,
       maxValue: validated.maxValue,
+      warningOffset: validated.warningOffset,
       acceptableOption: validated.acceptableOption,
       warningTrigger: validated.warningTrigger,
       decisionConsequence: validated.decisionConsequence,

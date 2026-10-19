@@ -9,7 +9,7 @@ export async function GET(req: Request) {
   }
 
   try {
-    if (auth!.isSuperAdmin) {
+    if (auth!.isSuperAdmin || auth!.isDataExecutive || auth!.isFinanceAccounts) {
       const zmccs = await prisma.procurementSource.findMany({
         where: { source_type: 'ZMCC', is_active: true },
         orderBy: { name: 'asc' },

@@ -1,0 +1,1127 @@
+erDiagram
+    ProcurementSource ||--o{ User : "procurement_source"
+    ProcurementSource ||--o{ VehicleVisit : "procurement_source"
+    User ||--o{ VehicleVisit : "created_by"
+    User ||--o{ VehicleVisit : "last_corrected_by_user"
+    VehicleVisit ||--o{ VisitPortion : "visit"
+    User ||--o{ VisitPortion : "plant_decided_by"
+    User ||--o{ VisitPortion : "plant_corrected_by"
+    User ||--o{ VisitPortion : "manager_reviewed_by_user"
+    User ||--o{ VisitPortion : "manager_review_requested_by_user"
+    VisitPortion ||--|o DispatchInfo : "portion"
+    User ||--o{ DispatchInfo : "recorded_by"
+    VehicleVisit ||--|o GateLog : "visit"
+    User ||--o{ GateLog : "entry_guard"
+    User ||--o{ GateLog : "exit_guard"
+    LabTest ||--o{ LabTestRule : "lab_test"
+    VehicleVisit ||--|o DispatchQuantityPolicySnapshot : "visit"
+    ProcurementSource ||--o{ DispatchQuantityPolicySnapshot : "source"
+    VehicleVisit ||--o{ DispatchLabResult : "visit"
+    VisitPortion ||--o{ DispatchLabResult : "portion"
+    LabTest ||--o{ DispatchLabResult : "test"
+    User ||--o{ DispatchLabResult : "tested_by"
+    VehicleVisit ||--o{ PlantLabResult : "visit"
+    VisitPortion ||--o{ PlantLabResult : "portion"
+    LabTest ||--o{ PlantLabResult : "test"
+    User ||--o{ PlantLabResult : "tested_by"
+    LabTestRule ||--o{ PlantLabResult : "applied_rule"
+    VehicleVisit ||--|o WeightTicket : "visit"
+    User ||--o{ WeightTicket : "gross_recorded_by"
+    User ||--o{ WeightTicket : "tare_recorded_by"
+    VisitPortion ||--|o UnloadingLog : "portion"
+    Silo ||--o{ UnloadingLog : "silo"
+    User ||--o{ UnloadingLog : "started_by"
+    User ||--o{ UnloadingLog : "completed_by"
+    User ||--o{ AuditLog : "user"
+    VehicleVisit ||--|o QATestingSession : "visit"
+    User ||--o{ QATestingSession : "started_by"
+    User ||--o{ QATestingSession : "completed_by"
+    QATestingSession ||--o{ QATestingSessionEvent : "session"
+    User ||--o{ QATestingSessionEvent : "user"
+    User ||--o{ Silo : "created_by"
+    User ||--o{ Silo : "updated_by"
+    Silo ||--o{ SiloInventoryTransaction : "silo"
+    VehicleVisit ||--o{ SiloInventoryTransaction : "visit"
+    VisitPortion ||--o{ SiloInventoryTransaction : "portion"
+    User ||--o{ SiloInventoryTransaction : "performed_by"
+    VehicleVisit ||--|o PlantFinalDualReconciliation : "visit"
+    SiloInventoryTransaction ||--|o PlantFinalDualReconciliation : "final_receipt_transaction"
+    ProcurementSource ||--o{ QAWarning : "procurement_source"
+    VehicleVisit ||--o{ QAWarning : "visit"
+    VisitPortion ||--o{ QAWarning : "portion"
+    LabTest ||--o{ QAWarning : "lab_test"
+    LabTestRule ||--o{ QAWarning : "lab_test_rule"
+    User ||--o{ QAWarning : "created_by"
+    User ||--o{ QAWarning : "acknowledged_by"
+    User ||--o{ PaperReferencePolicy : "updated_by_user"
+    VehicleVisit ||--o{ LabTestAssignment : "visit"
+    LabTest ||--o{ LabTestAssignment : "test"
+    ProcurementSource ||--o{ ZmccRoute : "zmcc"
+    User ||--o{ ZmccRoute : "created_by"
+    User ||--o{ ZmccRoute : "updated_by"
+    ZmccRoute ||--o{ ZmccArea : "route_id__zmcc"
+    User ||--o{ ZmccArea : "created_by"
+    User ||--o{ ZmccArea : "updated_by"
+    ProcurementSource ||--o{ ZmccMilkSource : "zmcc"
+    User ||--o{ ZmccMilkSource : "created_by"
+    User ||--o{ ZmccMilkSource : "updated_by"
+    User ||--o{ ChillerOwnership : "created_by"
+    User ||--o{ ChillerOwnership : "updated_by"
+    ZmccArea ||--o{ ZmccShop : "area_id__route_id__zmcc"
+    ZmccMilkSource ||--o{ ZmccShop : "milk_source"
+    ChillerOwnership ||--o{ ZmccShop : "chiller_ownership"
+    User ||--o{ ZmccShop : "created_by"
+    User ||--o{ ZmccShop : "updated_by"
+    ProcurementSource ||--o{ MotProfile : "zmcc"
+    User ||--|o MotProfile : "user"
+    User ||--o{ MotProfile : "created_by"
+    User ||--o{ MotProfile : "updated_by"
+    ProcurementSource ||--o{ MotVehicle : "zmcc"
+    User ||--o{ MotVehicle : "created_by"
+    User ||--o{ MotVehicle : "updated_by"
+    ProcurementSource ||--o{ MotJourney : "zmcc"
+    ZmccRoute ||--o{ MotJourney : "route_id__zmcc"
+    MotProfile ||--o{ MotJourney : "mot_profile_id__zmcc"
+    MotVehicle ||--o{ MotJourney : "mot_vehicle_id__zmcc"
+    User ||--o{ MotJourney : "assigned_by"
+    User ||--o{ MotJourney : "cancelled_by"
+    MotJourney ||--o{ MotJourneyStop : "journey"
+    ZmccShop ||--o{ MotJourneyStop : "shop"
+    MotJourney ||--o{ MotJourneyLocation : "journey"
+    User ||--o{ MotJourneyLocation : "recorded_by_user"
+    MotJourney ||--o{ MotShopCollection : "journey"
+    MotJourneyStop ||--|o MotShopCollection : "journey_stop"
+    ZmccShop ||--o{ MotShopCollection : "shop"
+    ProcurementSource ||--o{ MotShopCollection : "zmcc"
+    ZmccRoute ||--o{ MotShopCollection : "route"
+    MotProfile ||--o{ MotShopCollection : "mot_profile"
+    MotVehicle ||--o{ MotShopCollection : "mot_vehicle"
+    User ||--o{ MotShopCollection : "submitted_by_user"
+    User ||--o{ MotShopCollection : "last_corrected_by_user"
+    ZmccMilkSource ||--o{ MotShopCollection : "milk_source"
+    MotShopCollection ||--|o MotCollectionSmsOutbox : "collection"
+    MotJourney ||--|o ZmccMotArrival : "journey"
+    ProcurementSource ||--o{ ZmccMotArrival : "zmcc"
+    User ||--o{ ZmccMotArrival : "recorded_by_user"
+    User ||--o{ ZmccMotArrival : "last_corrected_by_user"
+    User ||--o{ ZmccMotArrival : "exit_recorded_by_user"
+    User ||--o{ ZmccMotArrival : "exit_last_corrected_by_user"
+    ProcurementSource ||--o{ ZmccContractorArrival : "zmcc"
+    ProcurementSource ||--o{ ZmccContractorArrival : "contractor_source"
+    User ||--o{ ZmccContractorArrival : "recorded_by_user"
+    ProcurementSource ||--o{ ZmccLocalSupplier : "zmcc"
+    User ||--o{ ZmccLocalSupplier : "created_by_user"
+    User ||--o{ ZmccLocalSupplier : "updated_by_user"
+    ProcurementSource ||--o{ ZmccLocalSupplierArrival : "zmcc"
+    ZmccLocalSupplier ||--o{ ZmccLocalSupplierArrival : "local_supplier"
+    ZmccMilkSource ||--o{ ZmccLocalSupplierArrival : "milk_source"
+    User ||--o{ ZmccLocalSupplierArrival : "recorded_by_user"
+    User ||--o{ ZmccLocalSupplierArrival : "last_corrected_by_user"
+    User ||--o{ ZmccLocalSupplierArrival : "exit_recorded_by_user"
+    User ||--o{ ZmccLocalSupplierArrival : "exit_last_corrected_by_user"
+    User ||--o{ Notification : "recipient_user"
+    Notification ||--o{ NotificationDelivery : "notification"
+    User ||--|o NotificationPreference : "user"
+    User ||--o{ PushSubscription : "user"
+    User ||--o{ CorrectionRequest : "requested_by_user"
+    User ||--o{ CorrectionRequest : "reviewed_by_user"
+    ZmccLocalSupplierArrival ||--|o LocalSupplierRmrIssuance : "local_supplier_arrival"
+    ZmccLabSession ||--|o LocalSupplierRmrIssuance : "final_lab_session"
+    ZmccTankReceipt ||--|o LocalSupplierRmrIssuance : "tank_receipt"
+    ProcurementSource ||--o{ LocalSupplierRmrIssuance : "zmcc"
+    ZmccLocalSupplier ||--o{ LocalSupplierRmrIssuance : "local_supplier"
+    User ||--o{ LocalSupplierRmrIssuance : "issued_by_user"
+    User ||--o{ LocalSupplierRmrIssuance : "cancelled_by_user"
+    ZmccLocalSupplierArrival ||--|o LocalSupplierRmrLegacyClassification : "local_supplier_arrival"
+    User ||--o{ LocalSupplierRmrLegacyClassification : "reviewed_by_user"
+    ProcurementSource ||--o{ ZmccLabSession : "zmcc"
+    ZmccMotArrival ||--|o ZmccLabSession : "mot_arrival"
+    ZmccContractorArrival ||--|o ZmccLabSession : "contractor_arrival"
+    ZmccLocalSupplierArrival ||--|o ZmccLabSession : "local_supplier_arrival"
+    User ||--o{ ZmccLabSession : "started_by_user"
+    User ||--o{ ZmccLabSession : "completed_by_user"
+    User ||--o{ ZmccLabSession : "last_corrected_by_user"
+    User ||--o{ ZmccLabSession : "attendant_recommended_by_user"
+    User ||--o{ ZmccLabSession : "final_decided_by_user"
+    User ||--o{ ZmccLabSession : "manager_reviewed_by_user"
+    User ||--o{ ZmccLabSession : "manager_review_requested_by_user"
+    ZmccLabSession ||--o{ ZmccLabResult : "session"
+    LabTest ||--o{ ZmccLabResult : "test"
+    LabTestRule ||--o{ ZmccLabResult : "applied_rule"
+    LabTest ||--o{ MilkTestPolicyAssignment : "lab_test"
+    User ||--o{ MilkTestPolicyAssignment : "created_by_user"
+    User ||--o{ MilkTestPolicyAssignment : "updated_by_user"
+    MotJourney ||--|o MotJourneySummary : "journey"
+    ProcurementSource ||--o{ ZmccTank : "zmcc"
+    User ||--o{ ZmccTank : "created_by_user"
+    User ||--o{ ZmccTank : "updated_by_user"
+    ZmccLabSession ||--|o ZmccTankReceipt : "lab_session"
+    ProcurementSource ||--o{ ZmccTankReceipt : "zmcc"
+    ZmccTank ||--o{ ZmccTankReceipt : "tank"
+    User ||--o{ ZmccTankReceipt : "received_by_user"
+    User ||--o{ ZmccTankReceipt : "last_corrected_by_user"
+    ZmccTank ||--o{ ZmccTankInventoryTransaction : "tank"
+    ProcurementSource ||--o{ ZmccTankInventoryTransaction : "zmcc"
+    ZmccTankReceipt ||--o{ ZmccTankInventoryTransaction : "tank_receipt"
+    User ||--o{ ZmccTankInventoryTransaction : "performed_by_user"
+    ZmccMilkSource ||--o{ MilkSourceZmccVisibility : "milk_source"
+    ProcurementSource ||--o{ MilkSourceZmccVisibility : "zmcc"
+    User ||--o{ ErpCodeRequest : "requested_by"
+    User ||--o{ ErpCodeRequest : "reviewed_by"
+    ProcurementSource ||--o{ ErpCodeRequest : "zmcc"
+    User {
+        bigint id PK
+        string full_name
+        string username UK
+        string email
+        string password_hash
+        string role
+        string department
+        string scope_type
+        bigint procurement_source_id FK
+        boolean is_active
+        datetime last_login_at
+        datetime created_at
+        datetime updated_at
+    }
+    VehicleVisit {
+        bigint id PK
+        string visit_number UK
+        string reception_number UK
+        string vehicle_number
+        string token_number
+        datetime operational_date
+        string current_status
+        bigint created_by FK
+        bigint procurement_source_id FK
+        datetime created_at
+        datetime updated_at
+        decimal vehicle_dispatch_quantity_value
+        string vehicle_dispatch_quantity_unit
+        string vehicle_dispatch_quantity_basis
+        decimal vehicle_dispatch_lr
+        decimal vehicle_dispatch_fat
+        decimal vehicle_dispatch_density
+        decimal vehicle_dispatch_gross_liters
+        decimal vehicle_dispatch_snf
+        decimal vehicle_dispatch_ts
+        decimal vehicle_dispatch_at_13ts_liters
+        string vehicle_dispatch_calculation_version
+        string raw_milk_dispatch_note_number
+        int correction_count
+        int manager_correction_count
+        bigint last_corrected_by_user_id FK
+        datetime last_corrected_at
+    }
+    VisitPortion {
+        bigint id PK
+        bigint visit_id FK
+        int portion_number
+        string current_status
+        decimal dispatch_quantity_value
+        string dispatch_quantity_unit
+        string dispatch_quantity_basis
+        string plant_decision
+        string plant_rejection_reason
+        bigint plant_decided_by FK
+        datetime plant_decided_at
+        string completion_client_event_id FK
+        string system_quality_outcome
+        string manager_review_status
+        string manager_requested_decision
+        bigint manager_review_requested_by_user_id FK
+        datetime manager_review_requested_at
+        bigint manager_reviewed_by_user_id FK
+        datetime manager_reviewed_at
+        string manager_review_reason
+        string original_plant_decision
+        string corrected_plant_decision
+        string plant_correction_reason
+        bigint plant_corrected_by FK
+        datetime plant_corrected_at
+        int correction_count
+        int manager_correction_count
+        datetime created_at
+        datetime updated_at
+    }
+    DispatchInfo {
+        bigint id PK
+        bigint portion_id FK
+        string dispatch_number
+        datetime dispatch_timestamp
+        string dispatch_testing_mode
+        string dispatch_testing_reason
+        string dispatch_testing_remarks
+        bigint recorded_by FK
+        datetime created_at
+        datetime updated_at
+    }
+    GateLog {
+        bigint id PK
+        bigint visit_id FK
+        datetime entry_timestamp
+        datetime exit_timestamp
+        bigint entry_guard_id FK
+        datetime entry_submitted_at
+        bigint exit_guard_id FK
+        datetime exit_submitted_at
+        datetime created_at
+        datetime updated_at
+    }
+    LabTest {
+        bigint id PK
+        string testCode UK
+        string testName
+        string resultType
+        string unit
+        string testScope
+        boolean isRequired
+        boolean isActive
+        int displayOrder
+        json resultOptions
+        boolean isPhotoRequired
+        datetime createdAt
+        datetime updatedAt
+    }
+    LabTestRule {
+        bigint id PK
+        bigint lab_test_id FK
+        string testing_point
+        int version
+        string rule_category
+        datetime effective_from
+        datetime effective_to
+        decimal min_value
+        decimal max_value
+        decimal warning_offset
+        string acceptable_option
+        string warning_trigger
+        string decision_consequence
+        boolean is_active
+        bigint created_by
+        datetime created_at
+    }
+    ProcurementSource {
+        bigint id PK
+        string code UK
+        string name
+        string source_type
+        string erp_code
+        json dispatch_quantity_policy
+        boolean is_active
+        datetime created_at
+        datetime updated_at
+    }
+    DispatchQuantityPolicySnapshot {
+        bigint id PK
+        bigint visit_id FK
+        bigint source_id FK
+        int policy_version
+        json policy_snapshot
+        datetime created_at
+    }
+    DispatchLabResult {
+        bigint id PK
+        bigint visit_id FK
+        bigint portion_id FK
+        bigint test_id FK
+        datetime sample_timestamp
+        datetime result_timestamp
+        decimal numeric_value
+        string text_value
+        string performance_status
+        string not_performed_reason
+        boolean is_passed
+        bigint tested_by FK
+        datetime created_at
+        datetime updated_at
+    }
+    PlantLabResult {
+        bigint id PK
+        bigint visit_id FK
+        bigint portion_id FK
+        bigint test_id FK
+        datetime sample_timestamp
+        datetime result_timestamp
+        decimal numeric_value
+        string text_value
+        string performance_status
+        string not_performed_reason
+        boolean is_passed
+        bigint tested_by FK
+        bigint applied_rule_id FK
+        int applied_rule_version
+        string evaluation_status
+        json evaluation_snapshot
+        datetime created_at
+        datetime updated_at
+    }
+    WeightTicket {
+        bigint id PK
+        bigint visit_id FK
+        string ticket_number UK
+        decimal gross_weight_kg
+        datetime gross_timestamp
+        bigint gross_recorded_by FK
+        datetime gross_submitted_at
+        decimal tare_weight_kg
+        datetime tare_timestamp
+        bigint tare_recorded_by FK
+        datetime tare_submitted_at
+        decimal net_weight_kg
+        datetime created_at
+        datetime updated_at
+    }
+    UnloadingLog {
+        bigint id PK
+        bigint portion_id FK
+        string silo_number
+        bigint silo_id FK
+        datetime pump_start_timestamp
+        datetime start_submitted_at
+        datetime pump_end_timestamp
+        datetime complete_submitted_at
+        bigint started_by FK
+        bigint completed_by FK
+        datetime created_at
+        datetime updated_at
+    }
+    AuditLog {
+        bigint id PK
+        string table_name
+        bigint record_id FK
+        string action
+        json old_values
+        json new_values
+        bigint user_id FK
+        datetime created_at
+    }
+    QATestingSession {
+        bigint id PK
+        bigint visit_id FK
+        bigint started_by FK
+        datetime started_at
+        bigint completed_by FK
+        datetime completed_at
+        string status
+        datetime created_at
+        datetime updated_at
+    }
+    QATestingSessionEvent {
+        bigint id PK
+        bigint session_id FK
+        string event_type
+        datetime timestamp
+        bigint user_id FK
+        string note
+        datetime created_at
+    }
+    MonthlyReceptionCounter {
+        string year_month PK
+        int last_seq
+        datetime updated_at
+    }
+    Silo {
+        bigint id PK
+        string silo_code UK
+        string silo_name
+        decimal capacity_liters
+        boolean is_active
+        bigint created_by FK
+        bigint updated_by FK
+        datetime created_at
+        datetime updated_at
+    }
+    SiloInventoryTransaction {
+        bigint id PK
+        bigint silo_id FK
+        string transaction_type
+        decimal quantity_kg
+        decimal quantity_liters
+        datetime operational_timestamp
+        bigint visit_id FK
+        bigint portion_id FK
+        string reference_type
+        string reference_id FK
+        string idempotency_key UK
+        bigint performed_by FK
+        string notes
+        datetime created_at
+        decimal plant_composite_lr
+        decimal plant_composite_fat
+        decimal plant_density
+        decimal plant_snf
+        decimal plant_ts
+        decimal plant_final_at_13ts_liters
+        string plant_calculation_version
+    }
+    PlantFinalDualReconciliation {
+        bigint id PK
+        bigint visit_id FK
+        bigint final_receipt_transaction_id FK
+        decimal sent_gross_liters
+        decimal received_gross_liters
+        decimal gross_variance_liters
+        decimal gross_variance_percent
+        decimal sent_at_13ts_liters
+        decimal received_at_13ts_liters
+        decimal at_13ts_variance_liters
+        decimal at_13ts_variance_percent
+        string reconciliation_calculation_version
+        datetime reconciled_at
+        datetime created_at
+        datetime updated_at
+    }
+    QAWarning {
+        bigint id PK
+        bigint procurement_source_id FK
+        bigint visit_id FK
+        bigint portion_id FK
+        bigint lab_test_id FK
+        bigint lab_test_rule_id FK
+        string reason
+        datetime operational_timestamp
+        string status
+        bigint created_by FK
+        bigint acknowledged_by FK
+        datetime created_at
+        datetime acknowledged_at
+        string resolution_notes
+    }
+    PaperReferencePolicy {
+        bigint id PK
+        string reference_type UK
+        string policy_mode
+        boolean allow_duplicates
+        string duplicate_scope
+        bigint updated_by_user_id FK
+        datetime updated_at
+        datetime created_at
+    }
+    LabTestAssignment {
+        bigint id PK
+        bigint visit_id FK
+        string workflow
+        bigint test_id FK
+        string test_code_snapshot
+        string test_name_snapshot
+        string result_type_snapshot
+        string unit_snapshot
+        string test_scope_snapshot
+        boolean is_required_snapshot
+        int display_order_snapshot
+        json result_options_snapshot
+        datetime assigned_at
+    }
+    ZmccRoute {
+        bigint id PK
+        string route_code UK
+        string name
+        string origin
+        string destination
+        bigint zmcc_id FK
+        boolean is_active
+        string approval_status
+        string rejection_reason
+        bigint approved_by
+        datetime approved_at
+        bigint created_by FK
+        bigint updated_by FK
+        datetime created_at
+        datetime updated_at
+    }
+    ZmccArea {
+        bigint id PK
+        string area_code UK
+        string name
+        bigint route_id FK
+        bigint zmcc_id FK
+        boolean is_active
+        string approval_status
+        string rejection_reason
+        bigint approved_by
+        datetime approved_at
+        bigint created_by FK
+        bigint updated_by FK
+        datetime created_at
+        datetime updated_at
+    }
+    ZmccMilkSource {
+        bigint id PK
+        string erp_code UK
+        string name
+        bigint zmcc_id FK
+        boolean is_active
+        bigint created_by FK
+        bigint updated_by FK
+        datetime created_at
+        datetime updated_at
+    }
+    ChillerOwnership {
+        bigint id PK
+        string ownership_code UK
+        string name UK
+        boolean is_active
+        bigint created_by FK
+        bigint updated_by FK
+        datetime created_at
+        datetime updated_at
+    }
+    ZmccShop {
+        bigint id PK
+        string shop_code UK
+        string shop_name
+        string owner_name
+        string phone_number
+        string cnic
+        bigint area_id FK
+        bigint route_id FK
+        bigint zmcc_id FK
+        bigint milk_source_id FK
+        bigint chiller_ownership_id FK
+        decimal latitude
+        decimal longitude
+        boolean is_active
+        string approval_status
+        string rejection_reason
+        bigint approved_by
+        datetime approved_at
+        string geotag_status
+        bigint created_by FK
+        bigint updated_by FK
+        datetime created_at
+        datetime updated_at
+    }
+    MotProfile {
+        bigint id PK
+        string mot_code UK
+        string name
+        string phone_number
+        string cnic
+        bigint zmcc_id FK
+        bigint user_id FK
+        boolean is_active
+        bigint created_by FK
+        bigint updated_by FK
+        datetime created_at
+        datetime updated_at
+    }
+    MotVehicle {
+        bigint id PK
+        string vehicle_number UK
+        bigint zmcc_id FK
+        boolean is_active
+        bigint created_by FK
+        bigint updated_by FK
+        datetime created_at
+        datetime updated_at
+    }
+    MotJourney {
+        bigint id PK
+        string journey_number UK
+        datetime operational_date
+        bigint zmcc_id FK
+        bigint route_id FK
+        bigint mot_profile_id FK
+        bigint mot_vehicle_id FK
+        string status
+        bigint assigned_by FK
+        datetime assigned_at
+        decimal assignment_latitude
+        decimal assignment_longitude
+        decimal assignment_gps_accuracy
+        datetime started_at
+        decimal start_latitude
+        decimal start_longitude
+        datetime first_mot_gps_at
+        decimal first_mot_latitude
+        decimal first_mot_longitude
+        decimal first_mot_gps_accuracy
+        datetime final_mot_gps_at
+        decimal final_mot_latitude
+        decimal final_mot_longitude
+        decimal final_mot_gps_accuracy
+        string idempotency_key UK
+        datetime ended_at
+        bigint cancelled_by FK
+        datetime cancelled_at
+        string cancellation_reason
+        datetime created_at
+        datetime updated_at
+        int version
+    }
+    MotJourneyStop {
+        bigint id PK
+        bigint journey_id FK
+        bigint shop_id FK
+        int planned_sequence
+        string status
+        string shop_code_snapshot
+        string shop_name_snapshot
+        string owner_name_snapshot
+        string phone_number_snapshot
+        string area_code_snapshot
+        string area_name_snapshot
+        decimal planned_latitude_snapshot
+        decimal planned_longitude_snapshot
+        datetime arrived_at
+        datetime completed_at
+        datetime skipped_at
+        string skip_reason
+        datetime created_at
+        datetime updated_at
+    }
+    MotJourneyLocation {
+        bigint id PK
+        bigint journey_id FK
+        bigint recorded_by_user_id FK
+        string source_type
+        decimal latitude
+        decimal longitude
+        decimal gps_accuracy
+        datetime device_recorded_at
+        datetime server_received_at
+        string idempotency_key UK
+        datetime created_at
+    }
+    MotShopCollection {
+        bigint id PK
+        string collection_number UK
+        bigint journey_id FK
+        bigint journey_stop_id FK
+        bigint shop_id FK
+        bigint zmcc_id FK
+        bigint route_id FK
+        bigint mot_profile_id FK
+        bigint mot_vehicle_id FK
+        datetime operational_date
+        string client_event_id FK
+        decimal quantity_value
+        string quantity_unit
+        decimal gross_liters
+        decimal density
+        decimal lr
+        decimal fat
+        decimal snf
+        decimal ts
+        decimal at_13ts_liters
+        string calculation_version
+        decimal collection_latitude
+        decimal collection_longitude
+        decimal collection_gps_accuracy
+        datetime device_collected_at
+        datetime server_received_at
+        bigint submitted_by_user_id FK
+        string collection_notes
+        string shop_rmr_number
+        bigint milk_source_id FK
+        string milk_source_code_snapshot
+        string milk_source_name_snapshot
+        int correction_count
+        int manager_correction_count
+        bigint last_corrected_by_user_id FK
+        datetime last_corrected_at
+        datetime created_at
+        datetime updated_at
+        int version
+    }
+    MotCollectionSmsOutbox {
+        bigint id PK
+        bigint collection_id FK
+        string recipient_phone
+        string message_body
+        string status
+        int attempt_count
+        string provider_message_id FK
+        string last_error
+        datetime created_at
+        datetime sent_at
+        datetime updated_at
+    }
+    ZmccMotArrival {
+        bigint id PK
+        bigint journey_id FK
+        bigint zmcc_id FK
+        string route_milk_token
+        string raw_milk_token_number
+        string zmcc_token UK
+        datetime arrival_timestamp
+        datetime arrival_date
+        decimal phe_latitude
+        decimal phe_longitude
+        decimal phe_gps_accuracy
+        string client_event_id FK
+        bigint recorded_by_user_id FK
+        datetime submitted_at
+        int correction_count
+        int manager_correction_count
+        bigint last_corrected_by_user_id FK
+        datetime last_corrected_at
+        boolean gate_exit_required
+        datetime exit_timestamp
+        bigint exit_recorded_by_user_id FK
+        string exit_client_event_id FK
+        datetime exit_submitted_at
+        int exit_correction_count
+        int exit_manager_correction_count
+        bigint exit_last_corrected_by_user_id FK
+        datetime exit_last_corrected_at
+        datetime created_at
+        datetime updated_at
+    }
+    ZmccContractorArrival {
+        bigint id PK
+        bigint zmcc_id FK
+        bigint contractor_source_id FK
+        string rmr_number
+        string vehicle_number
+        datetime arrival_timestamp
+        datetime arrival_date
+        string zmcc_token UK
+        decimal phe_latitude
+        decimal phe_longitude
+        decimal phe_gps_accuracy
+        string client_event_id FK
+        bigint recorded_by_user_id FK
+        datetime submitted_at
+        int correction_count
+        datetime created_at
+        datetime updated_at
+    }
+    ZmccLocalSupplier {
+        bigint id PK
+        string local_supplier_code UK
+        bigint zmcc_id FK
+        string name
+        string phone
+        string cnic
+        string erp_reference
+        string erp_mapping_status
+        boolean is_active
+        bigint created_by_user_id FK
+        bigint updated_by_user_id FK
+        datetime created_at
+        datetime updated_at
+    }
+    ZmccLocalSupplierArrival {
+        bigint id PK
+        bigint zmcc_id FK
+        bigint local_supplier_id FK
+        string rmr_number
+        string raw_milk_token_number
+        string vehicle_number
+        datetime arrival_timestamp
+        datetime arrival_date
+        string zmcc_token UK
+        bigint milk_source_id FK
+        string milk_source_code_snapshot
+        string milk_source_name_snapshot
+        decimal phe_latitude
+        decimal phe_longitude
+        decimal phe_gps_accuracy
+        string client_event_id FK
+        bigint recorded_by_user_id FK
+        datetime submitted_at
+        int correction_count
+        int manager_correction_count
+        bigint last_corrected_by_user_id FK
+        datetime last_corrected_at
+        boolean gate_exit_required
+        datetime exit_timestamp
+        bigint exit_recorded_by_user_id FK
+        string exit_client_event_id FK
+        datetime exit_submitted_at
+        int exit_correction_count
+        int exit_manager_correction_count
+        bigint exit_last_corrected_by_user_id FK
+        datetime exit_last_corrected_at
+        datetime created_at
+        datetime updated_at
+    }
+    Notification {
+        bigint id PK
+        bigint recipient_user_id FK
+        string event_key
+        string priority
+        string title
+        string body
+        string deep_link
+        string source_type
+        string source_id FK
+        string dedupe_key UK
+        datetime read_at
+        datetime expires_at
+        datetime created_at
+    }
+    NotificationDelivery {
+        bigint id PK
+        bigint notification_id FK
+        string channel
+        string status
+        int attempt_count
+        string failure_reason
+        string provider_message_id FK
+        datetime sent_at
+        datetime created_at
+    }
+    NotificationPreference {
+        bigint user_id PK
+        boolean push_enabled
+        string delivery_mode
+        string quiet_hours_start
+        string quiet_hours_end
+        datetime updated_at
+    }
+    PushSubscription {
+        bigint id PK
+        bigint user_id FK
+        string endpoint UK
+        string p256dh
+        string auth
+        string device_label
+        datetime revoked_at
+        datetime created_at
+        datetime updated_at
+    }
+    CorrectionRequest {
+        bigint id PK
+        string correlation_id FK
+        string module
+        string record_id FK
+        bigint source_id FK
+        string impact
+        string status
+        string reason
+        json requested_changes
+        bigint requested_by_user_id FK
+        datetime requested_at
+        bigint reviewed_by_user_id FK
+        datetime reviewed_at
+        string review_reason
+    }
+    LocalSupplierRmrIssuance {
+        bigint id PK
+        bigint local_supplier_arrival_id FK
+        bigint final_lab_session_id FK
+        bigint tank_receipt_id FK
+        bigint zmcc_id FK
+        bigint local_supplier_id FK
+        int rmr_year
+        string series
+        string book_number
+        string receipt_number
+        decimal accepted_quantity_value
+        string accepted_quantity_unit
+        bigint issued_by_user_id FK
+        datetime issued_at
+        string idempotency_key UK
+        string status
+        bigint cancelled_by_user_id FK
+        datetime cancelled_at
+        string cancellation_reason
+        int reprint_count
+        datetime created_at
+        datetime updated_at
+    }
+    LocalSupplierRmrLegacyClassification {
+        bigint id PK
+        bigint local_supplier_arrival_id FK
+        string legacy_value
+        string classification
+        string classification_reason
+        bigint reviewed_by_user_id FK
+        datetime reviewed_at
+        datetime created_at
+        datetime updated_at
+    }
+    ZmccLabSession {
+        bigint id PK
+        bigint zmcc_id FK
+        string arrival_type
+        bigint mot_arrival_id FK
+        bigint contractor_arrival_id FK
+        bigint local_supplier_arrival_id FK
+        string status
+        bigint started_by_user_id FK
+        datetime started_at
+        bigint completed_by_user_id FK
+        datetime completed_at
+        string decision
+        string attendant_recommendation
+        bigint attendant_recommended_by_user_id FK
+        datetime attendant_recommended_at
+        string final_decision
+        bigint final_decided_by_user_id FK
+        datetime final_decided_at
+        string final_decision_reason
+        string rejection_reason
+        string remarks
+        string completion_client_event_id FK
+        decimal quantity_value
+        string quantity_unit
+        decimal density
+        decimal gross_liters
+        decimal snf
+        decimal ts
+        decimal at_13ts_liters
+        string calculation_version
+        int correction_count
+        int manager_correction_count
+        bigint last_corrected_by_user_id FK
+        datetime last_corrected_at
+        string system_quality_outcome
+        string manager_review_status
+        string manager_requested_decision
+        bigint manager_review_requested_by_user_id FK
+        datetime manager_review_requested_at
+        bigint manager_reviewed_by_user_id FK
+        datetime manager_reviewed_at
+        string manager_review_reason
+        string original_decision
+        string corrected_decision
+        string correction_reason
+        datetime created_at
+        datetime updated_at
+    }
+    ZmccLabResult {
+        bigint id PK
+        bigint session_id FK
+        bigint test_id FK
+        string test_code_snapshot
+        string test_name_snapshot
+        string result_type_snapshot
+        string unit_snapshot
+        boolean is_required_snapshot
+        int display_order_snapshot
+        json result_options_snapshot
+        decimal numeric_value
+        string text_value
+        bigint applied_rule_id FK
+        int applied_rule_version
+        string evaluation_status
+        boolean is_passed
+        json evaluation_snapshot
+        datetime recorded_at
+        datetime created_at
+        datetime updated_at
+    }
+    MilkTestPolicyAssignment {
+        bigint id PK
+        bigint lab_test_id FK
+        string testing_point
+        json source_applicability
+        boolean is_required
+        int display_order
+        boolean is_active
+        boolean is_photo_required
+        bigint created_by_user_id FK
+        bigint updated_by_user_id FK
+        datetime created_at
+        datetime updated_at
+    }
+    MotJourneySummary {
+        bigint id PK
+        bigint journey_id FK
+        datetime journey_ended_at
+        int assigned_shop_count
+        int collected_shop_count
+        int skipped_shop_count
+        int pending_shop_count
+        decimal total_gross_liters
+        decimal total_at_13ts_liters
+        decimal weighted_avg_lr
+        decimal weighted_avg_fat
+        decimal weighted_avg_snf
+        decimal weighted_avg_ts
+        string summary_version
+        json source_calculation_versions
+        int revision
+        datetime generated_at
+        datetime last_recomputed_at
+    }
+    FinanceLossTarget {
+        bigint id PK
+        string metric
+        decimal target_percent
+        datetime effective_from
+        datetime effective_to
+        bigint activated_by_user_id FK
+        string reason
+        datetime created_at
+    }
+    ZmccTank {
+        bigint id PK
+        bigint zmcc_id FK
+        string tank_code
+        string tank_name
+        decimal capacity_liters
+        boolean is_active
+        bigint created_by_user_id FK
+        bigint updated_by_user_id FK
+        datetime created_at
+        datetime updated_at
+        int version
+    }
+    ZmccTankReceipt {
+        bigint id PK
+        bigint lab_session_id FK
+        bigint zmcc_id FK
+        bigint tank_id FK
+        string arrival_type
+        decimal quantity_value
+        string quantity_unit
+        decimal density
+        decimal gross_liters
+        decimal lr
+        decimal fat
+        decimal snf
+        decimal ts
+        decimal at_13ts_liters
+        string calculation_version
+        datetime received_at
+        bigint received_by_user_id FK
+        int correction_count
+        int manager_correction_count
+        bigint last_corrected_by_user_id FK
+        datetime last_corrected_at
+        datetime created_at
+        datetime updated_at
+    }
+    ZmccTankInventoryTransaction {
+        bigint id PK
+        bigint tank_id FK
+        bigint zmcc_id FK
+        string transaction_type
+        decimal quantity_liters
+        decimal at_13ts_liters
+        bigint tank_receipt_id FK
+        bigint dispatch_id FK
+        string reference_type
+        string reference_id FK
+        string idempotency_key UK
+        datetime operational_timestamp
+        bigint performed_by_user_id FK
+        string notes
+        datetime created_at
+    }
+    MilkSourceZmccVisibility {
+        bigint id PK
+        bigint milk_source_id FK
+        bigint zmcc_id FK
+        boolean is_active
+        datetime created_at
+    }
+    ErpCodeRequest {
+        bigint id PK
+        bigint requested_by_id FK
+        bigint zmcc_id FK
+        string proposed_name
+        string proposed_code
+        string request_context
+        string notes
+        string status
+        bigint reviewed_by_id FK
+        datetime reviewed_at
+        datetime created_at
+        datetime updated_at
+    }

@@ -52,17 +52,18 @@ export async function resolveZmccTankAuth(
 
   const role = dbUser.role as Role;
   const isSuperAdmin = role === 'SUPER_ADMIN';
+  const isDataExecutive = role === 'DATA_EXECUTIVE';
   const isZmccManager = role === 'ZMCC_MANAGER';
   const isZmccLabAttendant = role === 'ZMCC_LAB_ATTENDANT';
 
-  // Only SUPER_ADMIN, ZMCC_MANAGER, and ZMCC_LAB_ATTENDANT have ZMCC tank access
-  if (!isSuperAdmin && !isZmccManager && !isZmccLabAttendant) {
+  // Only SUPER_ADMIN, DATA_EXECUTIVE, ZMCC_MANAGER, and ZMCC_LAB_ATTENDANT have ZMCC tank access
+  if (!isSuperAdmin && !isDataExecutive && !isZmccManager && !isZmccLabAttendant) {
     return { errorResponse: { status: 403, error: 'Forbidden. Insufficient permissions for ZMCC Tank operations.' } };
   }
 
-  // Master mutation is strictly SUPER_ADMIN only
-  if (action === 'MUTATE_MASTER' && !isSuperAdmin) {
-    return { errorResponse: { status: 403, error: 'Forbidden. Only Super Admin can modify ZMCC Tank Master configuration.' } };
+  // Master mutation is strictly SUPER_ADMIN or DATA_EXECUTIVE only
+  if (action === 'MUTATE_MASTER' && !isSuperAdmin && !isDataExecutive) {
+    return { errorResponse: { status: 403, error: 'Forbidden. Only Super Admin or Data Executive can modify ZMCC Tank Master configuration.' } };
   }
 
   // Historical receipt is restricted to ZMCC_LAB_ATTENDANT (own ZMCC) or SUPER_ADMIN (global)
@@ -72,7 +73,7 @@ export async function resolveZmccTankAuth(
 
   // Scoped roles must be attached to an active ZMCC source
   let effectiveZmccId: bigint | null = null;
-  if (!isSuperAdmin) {
+  if (!isSuperAdmin && !isDataExecutive) {
     if (!dbUser.procurement_source_id || !dbUser.procurement_source) {
       return { errorResponse: { status: 403, error: 'Forbidden. User is not assigned to a procurement source.' } };
     }

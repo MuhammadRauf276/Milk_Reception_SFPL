@@ -5,11 +5,20 @@ import { z } from 'zod';
 import { getErrorIssues, getErrorMessage, getErrorName } from '@/lib/errors';
 import { jsonRecord } from '@/lib/json';
 
-const correctDecisionSchema = z.object({
-  decision: z.enum(['APPROVE', 'REJECT'] as const),
-  reason: z.string().trim().min(3, 'A substantive managerial reason of at least 3 characters is required.'),
-  idempotency_key: z.string().trim().optional(),
-});
+const correctDecisionSchema = z
+  .object({
+    decision: z.enum(['APPROVE', 'REJECT'] as const),
+    reason: z.string().trim().optional(),
+    remarks: z.string().trim().optional(),
+    idempotency_key: z.string().trim().optional(),
+  })
+  .refine((data) => {
+    const text = (data.remarks || data.reason || '').trim();
+    return text.length >= 3;
+  }, {
+    message: 'Substantive manager remarks of at least 3 characters are required.',
+    path: ['remarks'],
+  });
 
 export async function POST(
   req: Request,
@@ -49,6 +58,7 @@ export async function POST(
 
     const body = await req.json();
     const validated = correctDecisionSchema.parse(body);
+    const managerRemarks = (validated.remarks || validated.reason || '').trim();
     const now = new Date();
 
     const result = await prisma.$transaction(async (tx) => {
@@ -90,7 +100,7 @@ export async function POST(
             manager_review_status: 'REVIEWED_EXITED',
             manager_reviewed_by_user_id: userIdBigInt,
             manager_reviewed_at: now,
-            manager_review_reason: validated.reason,
+            manager_review_reason: managerRemarks,
             manager_requested_decision: validated.decision,
           },
         });
@@ -117,7 +127,8 @@ export async function POST(
               effective_decision: portion.plant_decision,
               exception_classification: portion.corrected_plant_decision,
               manager_review_status: 'REVIEWED_EXITED',
-              reason: validated.reason,
+              reason: managerRemarks,
+              remarks: managerRemarks,
               review_only: true,
               physical_exit_state: 'EXITED',
               exit_timestamp: visit.gate_log.exit_timestamp.toISOString(),
@@ -160,8 +171,8 @@ export async function POST(
 
         if (priorAudit && jsonRecord(priorAudit.new_values).idempotency_key === validated.idempotency_key) {
           const priorDecision = jsonRecord(priorAudit.new_values).decision;
-          const priorReason = jsonRecord(priorAudit.new_values).reason;
-          if (priorDecision !== validated.decision || priorReason !== validated.reason) {
+          const priorReason = jsonRecord(priorAudit.new_values).remarks || jsonRecord(priorAudit.new_values).reason;
+          if (priorDecision !== validated.decision || priorReason !== managerRemarks) {
             throw new Error('IDEMPOTENCY_CONFLICT:Conflict: Idempotency key reused with different decision or reason.');
           }
           return {
@@ -176,8 +187,8 @@ export async function POST(
       // Check if already reviewed with expectedStatus
       const expectedStatus = validated.decision === 'APPROVE' ? 'APPROVED' : 'REJECTED';
       if (portion.manager_review_status === expectedStatus) {
-        if (portion.manager_review_reason && portion.manager_review_reason !== validated.reason) {
-          throw new Error('IDEMPOTENCY_CONFLICT:Conflict: Manager decision was already recorded with a different reason.');
+        if (portion.manager_review_reason && portion.manager_review_reason !== managerRemarks) {
+          throw new Error('IDEMPOTENCY_CONFLICT:Conflict: Manager decision was already recorded with different remarks.');
         }
         return {
           idempotent: true,
@@ -226,14 +237,14 @@ export async function POST(
           current_status: newPlantDecision,
           original_plant_decision: originalPlantDecision,
           corrected_plant_decision: newCorrectedPlantDecision,
-          plant_correction_reason: isFirstDecision ? null : validated.reason,
+          plant_correction_reason: isFirstDecision ? null : managerRemarks,
           plant_corrected_by: isFirstDecision ? null : userIdBigInt,
           plant_corrected_at: isFirstDecision ? null : now,
           manager_review_status: newManagerReviewStatus,
           manager_reviewed_by_user_id: userIdBigInt,
           manager_reviewed_at: now,
-          manager_review_reason: validated.reason,
-          plant_rejection_reason: validated.decision === 'REJECT' ? validated.reason : portion.plant_rejection_reason,
+          manager_review_reason: managerRemarks,
+          plant_rejection_reason: validated.decision === 'REJECT' ? managerRemarks : portion.plant_rejection_reason,
           plant_decided_by: userIdBigInt,
           plant_decided_at: now,
         },
@@ -277,7 +288,7 @@ export async function POST(
             event_type: validated.decision === 'APPROVE' ? 'PORTION_ACCEPTED' : 'PORTION_REJECTED',
             timestamp: now,
             user_id: userIdBigInt,
-            note: `QA Manager decided ${validated.decision} for Portion #${portion.portion_number}. Reason: ${validated.reason}`,
+            note: `QA Manager decided ${validated.decision} for Portion #${portion.portion_number}. Remarks: ${managerRemarks}`,
           },
         });
 
@@ -326,7 +337,8 @@ export async function POST(
             effective_decision: newPlantDecision,
             exception_classification: newCorrectedPlantDecision,
             manager_review_status: newManagerReviewStatus,
-            reason: validated.reason,
+            reason: managerRemarks,
+            remarks: managerRemarks,
             review_only: false,
             physical_exit_state: 'ON_SITE',
             exit_timestamp: null,

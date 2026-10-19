@@ -31,10 +31,11 @@ export async function PATCH(
       return NextResponse.json({ error: 'Request body must be a plain object.' }, { status: 400 });
     }
 
-    const { isRequired, displayOrder, isActive } = body;
+    const { isRequired, isPhotoRequired, displayOrder, isActive } = body;
 
     const updated = await MilkTestPolicyService.updatePolicyAssignment(authUser, id, {
       isRequired: isRequired !== undefined ? Boolean(isRequired) : undefined,
+      isPhotoRequired: isPhotoRequired !== undefined ? Boolean(isPhotoRequired) : undefined,
       displayOrder: displayOrder !== undefined ? displayOrder : undefined,
       isActive: isActive !== undefined ? Boolean(isActive) : undefined,
     });

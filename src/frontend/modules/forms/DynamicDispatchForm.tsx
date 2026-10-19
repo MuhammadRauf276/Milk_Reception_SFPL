@@ -190,6 +190,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
   const [manualVehicleLr, setVehicleLr] = useState<string>('');
   const [manualVehicleFat, setVehicleFat] = useState<string>('');
   const [isVehicleQualityAuto, setIsVehicleQualityAuto] = useState<boolean>(true);
+  const [dispatchTestingRemarks, setDispatchTestingRemarks] = useState<string>('');
 
   // Portions Draft State
   const [portions, setPortions] = useState<PortionFormState[]>([]);
@@ -451,11 +452,30 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     setVehicleFat(val);
   };
 
+  // Automated Whole-Vehicle Net Weight = Sum of all portion quantities
+  const totalPortionNetWeightKg = React.useMemo(() => {
+    const sum = portions.reduce((acc, p) => acc + (parseFloat(p.quantity.value) || 0), 0);
+    return sum > 0 ? sum.toFixed(2) : '';
+  }, [portions]);
+
+  // Keep vehicleQuantity in sync with portion sum and locked to KG
+  useEffect(() => {
+    setVehicleQuantity((prev) => ({
+      ...prev,
+      value: totalPortionNetWeightKg,
+      unit: 'KG',
+      basis: 'MEASURED',
+    }));
+    if (vehicleQuantityError && Number(totalPortionNetWeightKg) > 0) {
+      setVehicleQuantityError(null);
+    }
+  }, [totalPortionNetWeightKg, vehicleQuantityError]);
+
   const handleResetVehicleQualityAuto = () => {
     setIsVehicleQualityAuto(true);
   };
 
-  // Automated Vehicle LR & Fat Calculation from Portions (Weighted Average) unless overridden manually.
+  // Automated Vehicle LR & Fat Calculation from Portions (Volume-Weighted Average)
   const autoVehicleQuality = isVehicleQualityAuto ? computeAutoVehicleQuality(portions, labTests) : null;
   const vehicleLr = autoVehicleQuality ? autoVehicleQuality.lr : manualVehicleLr;
   const vehicleFat = autoVehicleQuality ? autoVehicleQuality.fat : manualVehicleFat;
@@ -895,42 +915,12 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
       let finalVehicleFat = vehicleFat;
 
       if (!finalVehicleLr || !finalVehicleFat) {
-        const lrTest = labTests.find(
-          (t) => t.testName.toLowerCase().includes('lactometer') || t.testName.toLowerCase().includes('lr')
-        );
-        const fatTest = labTests.find(
-          (t) =>
-            t.testName.toLowerCase().includes('fat') &&
-            !t.testName.toLowerCase().includes('ratio') &&
-            !t.testName.toLowerCase().includes('snf')
-        );
-
-        let sumLr = 0;
-        let sumFat = 0;
-        let validLrCount = 0;
-        let validFatCount = 0;
-
-        portions.forEach((p) => {
-          const lrRes = lrTest ? p.results[lrTest.testId] : null;
-          const fatRes = fatTest ? p.results[fatTest.testId] : null;
-          const lrVal = lrRes && lrRes.performanceStatus === 'PERFORMED' ? parseFloat(lrRes.numericValue) : NaN;
-          const fatVal = fatRes && fatRes.performanceStatus === 'PERFORMED' ? parseFloat(fatRes.numericValue) : NaN;
-
-          if (!isNaN(lrVal)) {
-            sumLr += lrVal;
-            validLrCount++;
-          }
-          if (!isNaN(fatVal)) {
-            sumFat += fatVal;
-            validFatCount++;
-          }
-        });
-
-        if (!finalVehicleLr && validLrCount > 0) {
-          finalVehicleLr = (sumLr / validLrCount).toFixed(2);
+        const auto = computeAutoVehicleQuality(portions, labTests);
+        if (!finalVehicleLr && auto.lr) {
+          finalVehicleLr = auto.lr;
         }
-        if (!finalVehicleFat && validFatCount > 0) {
-          finalVehicleFat = (sumFat / validFatCount).toFixed(2);
+        if (!finalVehicleFat && auto.fat) {
+          finalVehicleFat = auto.fat;
         }
       }
 
@@ -947,6 +937,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
           zonalContractorName: effectiveSource.name,
           dispatchTestingMode,
           dispatchTestingReason: isContractorSource && allNotPerformed ? 'Contract Vehicle' : null,
+          dispatchTestingRemarks: dispatchTestingRemarks.trim() || undefined,
           vehicleQuantity: {
             value: Number(vehicleQuantity.value),
             unit: vehicleQuantity.unit,
@@ -984,6 +975,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
       setVehicleQuantity((prev) => ({ ...prev, value: '' }));
       setVehicleLr('');
       setVehicleFat('');
+      setDispatchTestingRemarks('');
       setPortions([]);
       setEditingPortionIndex(null);
 
@@ -1011,9 +1003,10 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     setVehicleNumber('');
     setVehicleQuantity((prev) => ({ ...prev, value: '' }));
     setVehicleLr('');
+    setDispatchTestingRemarks('');
     setEditingPortionIndex(0);
 
-    toast.showInfo('Draft cleared. Initializing fresh dispatch work item...');
+    toast.showInfo('Draft cleared. Initializing fresh dispatch work item…');
     if (effectiveSourceId) {
       restartDispatchWorkItem(effectiveSourceId);
     }
@@ -1028,7 +1021,6 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
 
   return (
     <form onSubmit={handleSubmitDispatch} className="space-y-6">
-      {/* Top Header Card with Operating Source & Draft Badge */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 p-4 sm:p-5 rounded-xl bg-white border border-border-strong shadow-xs">
         <div className="flex items-center space-x-3">
           <div className="p-2.5 rounded-xl bg-primary-hover text-white">
@@ -1067,7 +1059,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
           <div className="flex items-center space-x-2 bg-muted px-3 py-1.5 rounded-xl border border-border-strong">
             <span className="text-xs uppercase font-semibold text-slate-500">Source:</span>
             <span className="text-xs font-semibold text-primary-hover tabular-nums">
-              {effectiveSource ? effectiveSource.name : (isSourceBound ? 'Loading source...' : 'None Selected')}
+              {effectiveSource ? effectiveSource.name : (isSourceBound ? 'Loading source…' : 'None Selected')}
             </span>
             <span className="text-xs font-semibold uppercase px-2 py-0.5 rounded bg-blue-100 text-blue-900 border border-blue-200">
               {effectiveSource?.source_type || '—'}
@@ -1076,9 +1068,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
         </div>
       </div>
 
-      {/* Main 2-Column Responsive Workspace */}
       <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 items-start">
-        {/* DESKTOP LEFT COLUMN (5/12): STICKY DISPATCH & PORTIONS SUMMARY (hidden on mobile, rendered inline on mobile) */}
         <div className="hidden lg:block lg:col-span-5 space-y-4 lg:sticky lg:top-4 self-start order-2 lg:order-1">
           <DispatchSummaryPanel
             isCollapsible={false}
@@ -1092,7 +1082,6 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
           />
         </div>
 
-        {/* WORKING FORM COLUMN (7/12 on Desktop, Full-width on Mobile) */}
         <div className="w-full lg:col-span-7 space-y-5 order-1 lg:order-2">
           <DispatchVehicleSection
             isSourceBound={isSourceBound}
@@ -1146,7 +1135,6 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
             computeCalculatedMilkValues={computeCalculatedMilkValues}
           />
 
-          {/* Mobile Collapsible Summary Panel (Rendered here below portions on mobile/tablet) */}
           <div className="block lg:hidden">
             <DispatchSummaryPanel
               isCollapsible={true}
@@ -1160,7 +1148,6 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
             />
           </div>
 
-          {/* Final Dispatch Summary & Submission Footer */}
           <div className="p-4 sm:p-5 rounded-xl bg-white border border-border-strong shadow-xs space-y-3.5">
             <div className="flex items-center justify-between text-xs font-semibold text-foreground">
               <span>
@@ -1174,6 +1161,19 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
               </span>
             </div>
 
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Dispatch Remarks / Exception Note (Routes to MPD Head)
+              </label>
+              <textarea
+                rows={2}
+                value={dispatchTestingRemarks}
+                onChange={(e) => setDispatchTestingRemarks(e.target.value)}
+                placeholder="Specify remarks or reason if required tests/information are missing (will be sent to MPD Head for authorization)…"
+                className="w-full p-2.5 border border-slate-300 rounded-xl text-xs focus:outline-hidden focus:ring-2 focus:ring-primary min-w-0 resize-y break-words"
+              />
+            </div>
+
             <button
               type="submit"
               disabled={
@@ -1184,10 +1184,10 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                 !vehicleQuantity.value ||
                 Number(vehicleQuantity.value) <= 0
               }
-              className="w-full h-12 flex items-center justify-center py-3 px-4 rounded-xl bg-primary-hover text-white font-semibold text-sm shadow-md hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              className="w-full h-12 flex items-center justify-center py-3 px-4 rounded-xl bg-primary-hover text-white font-semibold text-sm shadow-md hover:bg-primary disabled:opacity-50 disabled:cursor-not-allowed transition"
             >
               {isSubmitting
-                ? 'Submitting Dispatch...'
+                ? 'Submitting Dispatch…'
                 : `Submit Dispatch (${
                     vehicleQuantity.value ? `${vehicleQuantity.value} ${vehicleQuantity.unit}` : '—'
                   })`}

@@ -4,6 +4,8 @@ import { validatePositiveDecimal } from '@/lib/validation-helpers';
 import { validateOperationalTimestamp } from '@/backend/services/chronology-validator';
 import { requireCapability } from '@/backend/modules/access-control/serverGuard';
 import { getErrorIssues, getErrorMessage, getErrorName } from '@/lib/errors';
+import { getOperationalBusinessDate } from '@/backend/core/business-day';
+import { parseStrictDateOnly } from '@/lib/datetime-utils';
 
 const WEIGHBRIDGE_SCOPE = {
   kind: 'DEPARTMENT',
@@ -218,9 +220,16 @@ export async function POST(req: Request) {
       });
 
       // 8. Advance VehicleVisit status from GROSS_WEIGHED -> READY_FOR_UNLOADING
+      // and assign authoritative Business Date (8:00 AM cutoff) at First Weight
+      const grossBusinessDateStr = getOperationalBusinessDate(opTimestamp);
+      const grossBusinessDate = parseStrictDateOnly(grossBusinessDateStr);
+
       await tx.vehicleVisit.update({
         where: { id: visitId },
-        data: { current_status: 'READY_FOR_UNLOADING' },
+        data: {
+          current_status: 'READY_FOR_UNLOADING',
+          operational_date: grossBusinessDate,
+        },
       });
 
       return { visit, ticket };

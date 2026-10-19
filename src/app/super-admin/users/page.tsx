@@ -457,7 +457,7 @@ export default function SuperAdminUsersPage() {
               {loading ? (
                 <tr>
                   <td colSpan={8} className="p-6 text-center text-slate-400 tabular-nums">
-                    Loading users...
+                    Loading users…
                   </td>
                 </tr>
               ) : users.length === 0 ? (
@@ -670,7 +670,7 @@ export default function SuperAdminUsersPage() {
                 >
                   {CREATABLE_ROLES.map((r) => (
                     <option key={r} value={r}>
-                      {ROLE_ASSIGNMENT_POLICIES[r].label} ({r})
+                      {ROLE_ASSIGNMENT_POLICIES[r].label}
                     </option>
                   ))}
                 </select>
@@ -689,10 +689,10 @@ export default function SuperAdminUsersPage() {
                     className="w-full p-2.5 rounded-lg border border-border-strong focus:outline-hidden focus:border-primary"
                     disabled={isSubmittingCreate}
                   >
-                    <option value="">Select Assigned Source...</option>
+                    <option value="">Select source</option>
                     {createCompatibleSources.map((s) => (
                       <option key={s.id} value={s.id}>
-                        {s.name} ({s.sourceType} - {s.code})
+                        {s.name} · {s.code}
                       </option>
                     ))}
                   </select>
@@ -707,7 +707,7 @@ export default function SuperAdminUsersPage() {
                       href="/super-admin/procurement-sources"
                       className="text-primary font-semibold hover:underline shrink-0"
                     >
-                      Add it in Procurement Sources →
+                      Add it in Procurement Sources
                     </Link>
                   </p>
                 </div>
@@ -744,7 +744,7 @@ export default function SuperAdminUsersPage() {
                   disabled={isSubmittingCreate}
                   className="px-4 py-2 rounded-lg bg-primary text-white font-semibold hover:bg-primary-hover transition disabled:opacity-50"
                 >
-                  {isSubmittingCreate ? 'Creating...' : 'Create User'}
+                  {isSubmittingCreate ? 'Creating…' : 'Create User'}
                 </button>
               </div>
             </form>
@@ -834,7 +834,7 @@ export default function SuperAdminUsersPage() {
                 >
                   {CREATABLE_ROLES.map((r) => (
                     <option key={r} value={r}>
-                      {ROLE_ASSIGNMENT_POLICIES[r].label} ({r})
+                      {ROLE_ASSIGNMENT_POLICIES[r].label}
                     </option>
                   ))}
                 </select>
@@ -853,10 +853,10 @@ export default function SuperAdminUsersPage() {
                     className="w-full p-2.5 rounded-lg border border-border-strong focus:outline-hidden focus:border-primary"
                     disabled={isSubmittingEdit}
                   >
-                    <option value="">Select Assigned Source...</option>
+                    <option value="">Select source</option>
                     {editCompatibleSources.map((s) => (
                       <option key={s.id} value={s.id}>
-                        {s.name} ({s.sourceType} - {s.code})
+                        {s.name} · {s.code}
                       </option>
                     ))}
                   </select>
@@ -871,7 +871,7 @@ export default function SuperAdminUsersPage() {
                       href="/super-admin/procurement-sources"
                       className="text-primary font-semibold hover:underline shrink-0"
                     >
-                      Add it in Procurement Sources →
+                      Add it in Procurement Sources
                     </Link>
                   </p>
                 </div>
@@ -906,7 +906,7 @@ export default function SuperAdminUsersPage() {
                   disabled={isSubmittingEdit}
                   className="px-4 py-2 rounded-lg bg-primary text-white font-semibold hover:bg-primary-hover transition disabled:opacity-50"
                 >
-                  {isSubmittingEdit ? 'Saving...' : 'Save Changes'}
+                  {isSubmittingEdit ? 'Saving…' : 'Save Changes'}
                 </button>
               </div>
             </form>
@@ -1005,7 +1005,7 @@ export default function SuperAdminUsersPage() {
                 }`}
               >
                 {isSubmittingConfirm
-                  ? 'Updating...'
+                  ? 'Updating…'
                   : showConfirmModal.targetStatus
                   ? 'Confirm Activation'
                   : 'Confirm Deactivation'}
@@ -1022,9 +1022,6 @@ export default function SuperAdminUsersPage() {
                 <h3 className="text-base font-semibold text-foreground">
                   Reset Password: <span className="tabular-nums text-primary">@{showResetModal.username}</span>
                 </h3>
-                <p className="text-[11px] text-slate-500 mt-0.5">
-                  Password will be hashed with bcrypt. Password will NOT be stored in AuditLog.
-                </p>
               </div>
               <button
                 type="button"
@@ -1097,7 +1094,7 @@ export default function SuperAdminUsersPage() {
                   disabled={isSubmittingReset}
                   className="px-4 py-2 rounded-lg bg-rose-700 text-white font-semibold hover:bg-rose-800 transition disabled:opacity-50"
                 >
-                  {isSubmittingReset ? 'Resetting...' : 'Reset Password'}
+                  {isSubmittingReset ? 'Resetting…' : 'Reset Password'}
                 </button>
               </div>
             </form>

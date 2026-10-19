@@ -1,5 +1,6 @@
 import React from 'react';
 import { User } from '@core/types';
+import { isZmccFieldOfficer } from '@core/roles/hierarchy';
 import {
   ClipboardList,
   FlaskConical,
@@ -10,7 +11,6 @@ import {
   Users,
   Send,
   MapPin,
-  Phone,
   LayoutDashboard,
   ArrowRightLeft,
   Route as RouteIcon,
@@ -18,13 +18,13 @@ import {
   Milk,
   ShieldCheck,
   Scale,
-  Factory,
   Tv,
   Receipt,
   PauseCircle,
   Play,
   Database,
   CheckCircle2,
+  MessageSquare,
 } from 'lucide-react';
 
 export interface RoleNavLeaf {
@@ -52,8 +52,8 @@ export function getRoleNavSections(currentUser: User | null): RoleNavSection[] {
 
   const role = currentUser.role || '';
 
-  // 1. PHE Operator
-  if (role === 'PHE_OPERATOR') {
+  // 1. PHE Operator and MDO (MDO shares the PHE station for now)
+  if (isZmccFieldOfficer(role)) {
     return [
       {
         id: 'arrivals',
@@ -131,15 +131,21 @@ export function getRoleNavSections(currentUser: User | null): RoleNavSection[] {
           },
           {
             id: 'map',
-            label: 'Live Journey Map',
+            label: 'Journey map',
             href: '/phe?section=mot&view=map',
             icon: MapPin,
           },
           {
             id: 'sms',
-            label: 'SMS Outbox',
+            label: 'WhatsApp Receipts',
             href: '/phe?section=mot&view=sms',
-            icon: Phone,
+            icon: MessageSquare,
+          },
+          {
+            id: 'mot-approvals',
+            label: 'Approvals',
+            href: '/phe?section=mot&view=approvals',
+            icon: ShieldCheck,
           },
         ],
       },
@@ -219,7 +225,7 @@ export function getRoleNavSections(currentUser: User | null): RoleNavSection[] {
       },
       {
         id: 'LIVE',
-        label: 'Live Operations',
+        label: 'Operations',
         icon: Truck,
         href: '/mpd/zmcc-manager?tab=LIVE',
       },
@@ -239,6 +245,12 @@ export function getRoleNavSections(currentUser: User | null): RoleNavSection[] {
             label: 'Plant History',
             href: '/mpd/zmcc-manager?tab=HISTORY&view=PLANT_HISTORY',
             icon: History,
+          },
+          {
+            id: 'quality_rej',
+            label: 'Quality & Rejections Review',
+            href: '/mpd/zmcc-manager?tab=HISTORY&view=QUALITY_REJECTIONS',
+            icon: FlaskConical,
           },
           {
             id: 'arrival_corr',
@@ -295,6 +307,12 @@ export function getRoleNavSections(currentUser: User | null): RoleNavSection[] {
             href: '/mpd/zmcc-manager?tab=MASTER_DATA&view=TANKS',
             icon: Building2,
           },
+          {
+            id: 'md-approvals',
+            label: 'Pending Approvals',
+            href: '/mpd/zmcc-manager?tab=MASTER_DATA&view=APPROVALS',
+            icon: ShieldCheck,
+          },
         ],
       },
       {
@@ -306,12 +324,12 @@ export function getRoleNavSections(currentUser: User | null): RoleNavSection[] {
     ];
   }
 
-  // 4. MOT Driver
+  // 4. Mobile Tester
   if (role === 'MOT') {
     return [
       {
         id: 'mot',
-        label: 'MOT Driver',
+        label: 'Mobile Tester',
         icon: Truck,
         children: [
           {
@@ -442,7 +460,7 @@ export function getRoleNavSections(currentUser: User | null): RoleNavSection[] {
       {
         id: 'production',
         label: 'Silo Offloading Station',
-        icon: Factory,
+        icon: Building2,
         children: [
           {
             id: 'ready',
@@ -489,7 +507,7 @@ export function getRoleNavSections(currentUser: User | null): RoleNavSection[] {
           },
           {
             id: 'live',
-            label: 'Live Pipeline',
+            label: 'Pipeline',
             href: '/contractor/manager?tab=LIVE',
             icon: Truck,
           },
@@ -522,20 +540,42 @@ export function getRoleNavSections(currentUser: User | null): RoleNavSection[] {
     ];
   }
 
-  // 10. Super Admin
-  if (role === 'SUPER_ADMIN') {
+  // 10. Super Admin & Data Executive
+  if (role === 'SUPER_ADMIN' || role === 'DATA_EXECUTIVE') {
     return [
       {
-        id: 'admin-center',
-        label: 'Admin Control Center',
-        icon: LayoutDashboard,
-        href: '/super-admin',
+        id: 'corrections',
+        label: 'Correction Governance Desk',
+        icon: ShieldCheck,
+        href: '/super-admin/corrections',
       },
+      ...(role === 'SUPER_ADMIN'
+        ? [
+            {
+              id: 'admin-center',
+              label: 'Admin Control Center',
+              icon: LayoutDashboard,
+              href: '/super-admin',
+            },
+          ]
+        : []),
       {
         id: 'lab-tests',
-        label: 'Lab Tests',
+        label: 'Lab Test Master',
         icon: FlaskConical,
         href: '/super-admin/lab-tests',
+      },
+      {
+        id: 'stage-policies-rules',
+        label: 'Stage Policies & Rules',
+        icon: ClipboardList,
+        href: '/super-admin/test-policies',
+      },
+      {
+        id: 'whatsapp-gateway',
+        label: 'WhatsApp Gateway',
+        icon: MessageSquare,
+        href: '/super-admin/whatsapp',
       },
       {
         id: 'tv-board',

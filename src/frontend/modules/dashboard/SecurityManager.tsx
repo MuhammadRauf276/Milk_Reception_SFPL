@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { MilkProcessLog, User } from '@core/types';
 import { Header } from '@modules/shared/Header';
 import { HierarchicalNavDrawer } from '@modules/shared/navigation/HierarchicalNavDrawer';
-import { ShieldCheck, Search, AlertTriangle, Lock, RefreshCw } from 'lucide-react';
+import { ShieldCheck, Search, AlertTriangle } from 'lucide-react';
 
 export const SecurityManager: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -114,13 +114,7 @@ export const SecurityManager: React.FC = () => {
                 <h1 className="text-xl font-semibold tracking-tight text-foreground">
                   Security Time Audit & Gate Performance
                 </h1>
-                <span className="px-2.5 py-1 rounded-lg text-[10px] font-semibold uppercase tracking-wider bg-primary text-white flex items-center gap-1">
-                  <Lock className="w-3 h-3" /> Read-Only Audit Console
-                </span>
               </div>
-              <p className="text-xs text-slate-600 font-semibold mt-1">
-                Read-only monitoring dashboard tracking Gate 2 entry tokens, weighbridge timestamps, and plant transit bottlenecks.
-              </p>
             </div>
 
             <button
@@ -129,8 +123,7 @@ export const SecurityManager: React.FC = () => {
               disabled={isLoading}
               className="flex items-center justify-center space-x-2 px-4 py-2.5 min-h-[44px] rounded-xl bg-subtle border border-border-strong text-xs font-semibold text-foreground hover:bg-muted/60 active:scale-95 transition-all shadow-xs disabled:opacity-50 self-start md:self-auto"
             >
-              <RefreshCw className={`w-4 h-4 text-primary ${isLoading ? 'animate-spin' : ''}`} />
-              <span>{isLoading ? 'Syncing...' : 'Refresh Audit Log'}</span>
+              <span>{isLoading ? 'Syncing…' : 'Refresh Audit Log'}</span>
             </button>
           </div>
 
@@ -179,7 +172,7 @@ export const SecurityManager: React.FC = () => {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search vehicle #, token #..."
+                placeholder="Search vehicle #, token #…"
                 className="w-full pl-10 pr-4 py-2.5 min-h-[44px] text-xs font-semibold rounded-xl bg-subtle border border-border-strong text-foreground focus:ring-2 focus:ring-primary outline-hidden shadow-2xs"
               />
             </div>
@@ -283,7 +276,7 @@ export const SecurityManager: React.FC = () => {
                             {hasTransitDelayAlert ? (
                               <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-semibold uppercase bg-red-50 text-red-800 border border-red-200 animate-pulse">
                                 <AlertTriangle className="w-3.5 h-3.5 text-red-800" />
-                                ⚠ Gate-to-Lab Delay ({transitMins}m)
+                                Gate-to-Lab Delay ({transitMins}m)
                               </span>
                             ) : (
                               <span className="text-[10px] text-slate-400 font-sans font-semibold">Normal</span>

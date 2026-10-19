@@ -70,15 +70,15 @@ export const ManagerAttentionPanel: React.FC<ManagerAttentionPanelProps> = ({
             badgeText = 'QA Rejection';
             badgeStyle = 'bg-red-50 text-red-800 border border-red-200';
           } else if (item.type === 'RECEIPT_PENDING') {
-            cardBg = 'bg-purple-50/60 border-purple-200';
-            iconColor = 'text-purple-800 bg-purple-100 border-purple-300';
+            cardBg = 'bg-amber-50/60 border-amber-200';
+            iconColor = 'text-amber-800 bg-amber-100 border-amber-300';
             badgeText = 'Receipt Pending';
-            badgeStyle = 'bg-purple-50 text-purple-800 border border-purple-200';
+            badgeStyle = 'bg-amber-50 text-amber-800 border border-amber-200';
           } else if (item.type === 'QUANTITY_DIFFERENCE') {
             cardBg = 'bg-blue-50/60 border-blue-200';
-            iconColor = 'text-primary-hover bg-blue-100 border-blue-300';
+            iconColor = 'text-blue-800 bg-blue-100 border-blue-300';
             badgeText = 'Quantity Difference';
-            badgeStyle = 'bg-blue-50 text-primary-hover border border-blue-200';
+            badgeStyle = 'bg-blue-50 text-blue-800 border border-blue-200';
           } else if (item.type === 'QUALITY_DIFFERENCE') {
             cardBg = 'bg-amber-50/60 border-amber-200';
             iconColor = 'text-amber-700 bg-amber-100 border-amber-300';

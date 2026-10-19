@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/frontend/context/ToastContext';
 import { User } from '@core/types';
-import { Search, RefreshCw, CheckCircle2, Clock } from 'lucide-react';
+import { Search, CheckCircle2, Clock, Loader2 } from 'lucide-react';
 
 import { formatAcceptedQuantitySummary } from '@/backend/modules/dispatch/quantity/dispatchQuantityService';
 
@@ -68,7 +68,6 @@ interface SecondWeightVisit {
 
 import { toDatetimeLocalInput, datetimeLocalToIso } from '@/lib/datetime-utils';
 import { PageHeader } from '@/components/ui/page-header';
-import { SegmentedTabs } from '@/components/ui/segmented-tabs';
 import { onActivateKey } from '@/lib/a11y';
 import { getErrorMessage } from '@/lib/errors';
 
@@ -367,7 +366,7 @@ export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({
       }
 
       if (data.pendingInventoryReceipt) {
-        const warnText = 'Second weight recorded. Plant LR missing — Silo Receipt pending.';
+        const warnText = 'Second weight recorded. Plant LR missing. Silo Receipt pending.';
         toast.showWarning(warnText, 'Silo Receipt Pending');
       } else {
         const successText = `Second weight (${tareVal.toLocaleString()} kg) recorded & Final Silo Receipt posted!`;
@@ -392,27 +391,13 @@ export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({
 
   return (
     <div className="w-full max-w-7xl mx-auto space-y-6 text-foreground">
-      {/* Top Header & Page-Level Navigation Tabs */}
       <PageHeader
         title="Weighbridge"
         description="Record first (loaded) and second (empty) weighments."
-        actions={
-          <SegmentedTabs
-            label="Weighment queues"
-            value={activeTab}
-            onValueChange={(tab) => { setActiveTab(tab); setStatusMsg(null); }}
-            tabs={[
-            { value: 'FIRST_WEIGHT', label: 'First weight (loaded)', count: firstWeightVisits.length },
-            { value: 'SECOND_WEIGHT', label: 'Second weight (empty)', count: secondWeightVisits.length },
-            ]}
-          />
-        }
       />
 
-      {/* TAB 1: FIRST WEIGHT (GROSS) */}
       {activeTab === 'FIRST_WEIGHT' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start animate-panel-in">
-          {/* LEFT (5/12): FIRST WEIGHT QUEUE */}
           <div className="lg:col-span-5 space-y-3">
             <div className="flex items-center justify-between px-1">
               <h3 className="text-sm font-semibold text-foreground">Ready for First Weight</h3>
@@ -421,7 +406,6 @@ export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({
               </span>
             </div>
 
-            {/* Search Input */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
@@ -431,17 +415,16 @@ export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({
                   setFirstSearchQuery(e.target.value);
                   fetchFirstWeightQueue(e.target.value);
                 }}
-                placeholder="Search vehicle or token..."
+                placeholder="Search vehicle or token…"
                 className="w-full min-h-[44px] pl-9 pr-3 py-2 text-xs tabular-nums font-semibold rounded-xl border border-input bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-ring/30 focus:border-primary"
               />
             </div>
 
-            {/* Queue Cards */}
             <div className="space-y-2.5 max-h-[520px] overflow-y-auto pr-1">
               {isLoading ? (
                 <div className="p-8 text-center border border-dashed border-border rounded-xl text-sm text-muted-foreground">
-                  <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-blue-700" />
-                  Loading weighbridge queue...
+                  <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-blue-700" />
+                  Loading weighbridge queue…
                 </div>
               ) : firstWeightVisits.length === 0 ? (
                 <div className="p-8 text-center border border-dashed border-border rounded-xl text-sm text-muted-foreground">
@@ -451,7 +434,7 @@ export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({
                 firstWeightVisits.map((v) => {
                   const isSelected = selectedFirstVisitId === v.id;
                   const portionSummaryStr = v.portion_count > 1
-                    ? `${v.portion_count} Portions • ${v.accepted_portion_count} Accepted`
+                    ? `${v.portion_count} Portions · ${v.accepted_portion_count} Accepted`
                     : `${v.accepted_portion_count} Accepted Portion`;
 
                   return (
@@ -499,7 +482,6 @@ export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({
             </div>
           </div>
 
-          {/* RIGHT (7/12): FIRST WEIGHT RECORDING PANEL */}
           <div className="lg:col-span-7">
             {!selectedFirstVisit ? (
               <div className="p-12 text-center border border-dashed border-border rounded-xl text-sm text-muted-foreground">
@@ -533,7 +515,6 @@ export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({
                   </div>
                 </div>
 
-                {/* Inputs */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
                   <div className="space-y-1.5">
                     <label className="block text-xs font-semibold text-foreground">
@@ -577,7 +558,7 @@ export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({
                   className="w-full min-h-[44px] py-3.5 px-4 rounded-xl bg-primary hover:bg-primary-hover disabled:opacity-50 text-white font-semibold text-xs transition shadow-md flex items-center justify-center space-x-2"
                 >
                   {isSubmitting ? (
-                    <span>Recording First Weight...</span>
+                    <span>Recording First Weight…</span>
                   ) : (
                     <>
                       <CheckCircle2 className="w-4 h-4" />
@@ -591,10 +572,8 @@ export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({
         </div>
       )}
 
-      {/* TAB 2: SECOND WEIGHT (TARE) */}
       {activeTab === 'SECOND_WEIGHT' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start animate-panel-in">
-          {/* LEFT (5/12): SECOND WEIGHT QUEUE */}
           <div className="lg:col-span-5 space-y-3">
             <div className="flex items-center justify-between px-1">
               <h3 className="text-sm font-semibold text-foreground">Ready for Second Weight</h3>
@@ -603,7 +582,6 @@ export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({
               </span>
             </div>
 
-            {/* Search Input */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
@@ -613,17 +591,16 @@ export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({
                   setSecondSearchQuery(e.target.value);
                   fetchSecondWeightQueue(e.target.value);
                 }}
-                placeholder="Search vehicle or token..."
+                placeholder="Search vehicle or token…"
                 className="w-full min-h-[44px] pl-9 pr-3 py-2 text-xs tabular-nums font-semibold rounded-xl border border-input bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-ring/30 focus:border-primary"
               />
             </div>
 
-            {/* Queue Cards */}
             <div className="space-y-2.5 max-h-[520px] overflow-y-auto pr-1">
               {isLoading ? (
                 <div className="p-8 text-center border border-dashed border-border rounded-xl text-sm text-muted-foreground">
-                  <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-blue-700" />
-                  Loading weighbridge queue...
+                  <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-blue-700" />
+                  Loading weighbridge queue…
                 </div>
               ) : secondWeightVisits.length === 0 ? (
                 <div className="p-8 text-center border border-dashed border-border rounded-xl text-sm text-muted-foreground">
@@ -676,7 +653,6 @@ export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({
             </div>
           </div>
 
-          {/* RIGHT (7/12): SECOND WEIGHT RECORDING PANEL */}
           <div className="lg:col-span-7">
             {!selectedSecondVisit ? (
               <div className="p-12 text-center border border-dashed border-border rounded-xl text-sm text-muted-foreground">
@@ -710,7 +686,6 @@ export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({
                   </div>
                 </div>
 
-                {/* Inputs */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
                   <div className="space-y-1.5">
                     <label className="block text-xs font-semibold text-foreground">
@@ -747,7 +722,6 @@ export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({
                   </div>
                 </div>
 
-                {/* Calculated Net Weight */}
                 {previewNetKg !== null && (
                   <div className="space-y-2 pt-1">
                     <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-300 flex items-center justify-between text-emerald-900 tabular-nums font-semibold text-xs">
@@ -773,7 +747,7 @@ export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({
                   className="w-full min-h-[44px] py-3.5 px-4 rounded-xl bg-primary hover:bg-primary-hover disabled:opacity-50 text-white font-semibold text-xs transition shadow-md flex items-center justify-center space-x-2"
                 >
                   {isSubmitting ? (
-                    <span>Recording Second Weight...</span>
+                    <span>Recording Second Weight…</span>
                   ) : (
                     <>
                       <CheckCircle2 className="w-4 h-4" />

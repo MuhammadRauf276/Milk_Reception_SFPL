@@ -85,7 +85,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Request body must be a plain object.' }, { status: 400 });
     }
 
-    const { labTestId, testingPoint, isRequired, displayOrder } = body;
+    const { labTestId, testingPoint, isRequired, isPhotoRequired, displayOrder } = body;
 
     if (labTestId === undefined || labTestId === null || String(labTestId).trim() === '') {
       return NextResponse.json({ error: 'labTestId is required.' }, { status: 400 });
@@ -99,6 +99,7 @@ export async function POST(req: Request) {
       labTestId: String(labTestId),
       testingPoint: testingPoint.trim(),
       isRequired: isRequired !== undefined ? Boolean(isRequired) : undefined,
+      isPhotoRequired: isPhotoRequired !== undefined ? Boolean(isPhotoRequired) : undefined,
       displayOrder: displayOrder !== undefined ? displayOrder : undefined,
     });
 

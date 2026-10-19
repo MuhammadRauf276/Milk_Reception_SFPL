@@ -68,7 +68,6 @@ export const ContractorOverview: React.FC<ContractorOverviewProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* 1. Header Scope Banner */}
       <div className="p-5 rounded-xl bg-white border border-border shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center space-x-3">
           <div className="p-2.5 bg-blue-900 text-white rounded-xl shadow-xs">
@@ -76,11 +75,11 @@ export const ContractorOverview: React.FC<ContractorOverviewProps> = ({
           </div>
           <div>
             <h2 className="text-base font-semibold text-slate-900 leading-tight">
-              {assignedSourceName} — Pipeline Overview
+              {assignedSourceName}: Pipeline Overview
             </h2>
             <p className="text-xs text-slate-500 font-medium mt-0.5">
-              Direct-to-Plant supply supervision for Business Date:{' '}
-              <strong className="text-slate-700 tabular-nums">{serverBusinessDate || 'Live'}</strong>
+              Business date:{' '}
+              <strong className="text-slate-700 tabular-nums">{serverBusinessDate || '—'}</strong>
             </p>
           </div>
         </div>
@@ -91,7 +90,6 @@ export const ContractorOverview: React.FC<ContractorOverviewProps> = ({
         </div>
       </div>
 
-      {/* Bounded Window Notification */}
       {pagination && pagination.totalPages > 1 && (
         <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-center justify-between">
           <div className="flex items-center space-x-2">
@@ -104,7 +102,6 @@ export const ContractorOverview: React.FC<ContractorOverviewProps> = ({
         </div>
       )}
 
-      {/* 2. Summary KPIs */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 stagger-children">
         <StatCard
           label="Total dispatches"
@@ -137,7 +134,6 @@ export const ContractorOverview: React.FC<ContractorOverviewProps> = ({
         />
       </div>
 
-      {/* 3. Recent Dispatches / Activity Table */}
       <div className="p-5 sm:p-6 rounded-xl bg-white border border-border shadow-xs space-y-4">
         <div className="flex items-center justify-between border-b border-muted pb-3">
           <div className="flex items-center space-x-2">
@@ -151,7 +147,7 @@ export const ContractorOverview: React.FC<ContractorOverviewProps> = ({
 
         {isLoading ? (
           <div className="py-12 text-center text-xs font-semibold text-slate-500">
-            Loading recent records...
+            Loading recent records…
           </div>
         ) : visits.length === 0 ? (
           <div className="py-12 px-4 rounded-xl bg-slate-50 border border-dashed border-slate-200 text-center space-y-2">
@@ -196,15 +192,15 @@ export const ContractorOverview: React.FC<ContractorOverviewProps> = ({
                           v.journeyStage === 'COMPLETED'
                             ? 'bg-emerald-100 text-emerald-800'
                             : v.journeyStage === 'RECEIPT_PENDING'
-                            ? 'bg-purple-100 text-purple-800'
+                            ? 'bg-amber-100 text-amber-800'
                             : v.journeyStage === 'UNLOADING'
                             ? 'bg-blue-100 text-blue-800'
                             : v.journeyStage === 'WEIGHBRIDGE_GROSS'
-                            ? 'bg-indigo-100 text-indigo-800'
+                            ? 'bg-blue-100 text-blue-800'
                             : v.journeyStage === 'PLANT_QA'
                             ? 'bg-amber-100 text-amber-800'
                             : v.journeyStage === 'GATE_ENTRY'
-                            ? 'bg-cyan-100 text-cyan-800'
+                            ? 'bg-blue-50 text-blue-800'
                             : 'bg-slate-100 text-slate-700'
                         }`}
                       >

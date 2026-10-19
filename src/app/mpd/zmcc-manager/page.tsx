@@ -48,7 +48,7 @@ export default function ZMCCManagerPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-subtle flex items-center justify-center p-8 text-center text-xs font-semibold text-slate-500">
-        Loading ZMCC Manager Station...
+        Loading ZMCC Manager Station…
       </div>
     );
   }
@@ -58,7 +58,7 @@ export default function ZMCCManagerPage() {
   }
 
   return (
-    <React.Suspense fallback={<div className="min-h-screen bg-subtle flex items-center justify-center p-8 text-center text-xs font-semibold text-slate-500">Loading ZMCC Manager Station...</div>}>
+    <React.Suspense fallback={<div className="min-h-screen bg-subtle flex items-center justify-center p-8 text-center text-xs font-semibold text-slate-500">Loading ZMCC Manager Station…</div>}>
       <ZMCCManagerWorkspace currentUser={user} />
     </React.Suspense>
   );

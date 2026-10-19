@@ -111,11 +111,11 @@ export const ContractorQualityRejections: React.FC<ContractorQualityRejectionsPr
           </div>
           <div>
             <h2 className="text-base font-semibold text-slate-900 leading-tight">
-              {assignedSourceName} — Quality & Rejections Supervision
+              {assignedSourceName}: Quality & rejections
             </h2>
             <p className="text-xs text-slate-500 font-medium mt-0.5">
-              Portion-wise laboratory testing & acceptance status for Business Date:{' '}
-              <strong className="text-slate-700 tabular-nums">{serverBusinessDate || 'Live'}</strong>
+              Business date:{' '}
+              <strong className="text-slate-700 tabular-nums">{serverBusinessDate || '—'}</strong>
             </p>
           </div>
         </div>
@@ -194,7 +194,7 @@ export const ContractorQualityRejections: React.FC<ContractorQualityRejectionsPr
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search vehicle, token, reception..."
+            placeholder="Search vehicle, token, reception…"
             className="w-full pl-9 pr-4 py-2.5 min-h-[44px] text-xs tabular-nums font-semibold bg-slate-50 border border-border-strong rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-900"
           />
         </div>
@@ -272,7 +272,7 @@ export const ContractorQualityRejections: React.FC<ContractorQualityRejectionsPr
       <div className="space-y-4">
         {isLoading ? (
           <div className="py-16 text-center text-xs font-semibold text-slate-500 bg-white rounded-xl border border-border shadow-xs">
-            Loading quality records...
+            Loading quality records…
           </div>
         ) : filteredVisits.length === 0 ? (
           <div className="py-16 px-4 rounded-xl bg-white border border-dashed border-slate-200 text-center space-y-2 shadow-xs">

@@ -10,7 +10,7 @@ import {
   ShieldCheck,
   Scale,
   FlaskConical,
-  Factory,
+  Building2,
   Receipt,
   AlertCircle,
 } from 'lucide-react';
@@ -69,7 +69,7 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
     return (
       <div className="p-6 rounded-xl bg-rose-50 border border-rose-200 text-center space-y-2">
         <AlertCircle className="w-8 h-8 text-rose-600 mx-auto" />
-        <h4 className="text-sm font-semibold text-rose-900">Failed to Load Live Pipeline</h4>
+        <h4 className="text-sm font-semibold text-rose-900">Failed to load pipeline</h4>
         <p className="text-xs text-rose-700">{error}</p>
       </div>
     );
@@ -77,21 +77,18 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* 1. Filter & Search Controls */}
       <div className="p-5 rounded-xl bg-white border border-border shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-        {/* Search */}
         <div className="relative w-full md:w-80">
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search vehicle, token, reception..."
+            placeholder="Search vehicle, token, reception…"
             className="w-full pl-9 pr-4 py-2.5 min-h-[44px] text-xs tabular-nums font-semibold bg-slate-50 border border-border-strong rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-900"
           />
         </div>
 
-        {/* Stage Filter Chips */}
         <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-thin pb-1">
           <span className="text-[11px] font-semibold text-slate-500 flex items-center gap-1 mr-1 shrink-0">
             <Filter className="w-3.5 h-3.5" />
@@ -163,8 +160,8 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
             onClick={() => setStageFilter('RECEIPT_PENDING')}
             className={`px-3 py-1.5 min-h-[38px] rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
               stageFilter === 'RECEIPT_PENDING'
-                ? 'bg-purple-900 text-white shadow-xs'
-                : 'bg-purple-50 text-purple-800 hover:bg-purple-100 border border-purple-200'
+                ? 'bg-amber-900 text-white shadow-xs'
+                : 'bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200'
             }`}
           >
             Receipt Pending ({activeVisits.filter((v) => v.journeyStage === 'RECEIPT_PENDING').length})
@@ -172,11 +169,10 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
         </div>
       </div>
 
-      {/* 2. Active Tanker Cards List */}
       <div className="space-y-4">
         {isLoading ? (
           <div className="py-16 text-center text-xs font-semibold text-slate-500 bg-white rounded-xl border border-border shadow-xs">
-            Loading active pipeline visits...
+            Loading active pipeline visits…
           </div>
         ) : filteredVisits.length === 0 ? (
           <div className="py-16 px-4 rounded-xl bg-white border border-dashed border-slate-200 text-center space-y-2 shadow-xs">
@@ -192,7 +188,6 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
               key={v.visitId}
               className="p-5 sm:p-6 rounded-xl bg-white border border-border shadow-xs space-y-4 hover:border-blue-300 transition"
             >
-              {/* Card Header */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
                 <div className="flex items-center space-x-3">
                   <div className="p-2.5 bg-blue-50 text-blue-900 rounded-xl">
@@ -221,15 +216,15 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
                   <span
                     className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold ${
                       v.journeyStage === 'RECEIPT_PENDING'
-                        ? 'bg-purple-100 text-purple-900 border border-purple-300'
+                        ? 'bg-amber-100 text-amber-900 border border-amber-300'
                         : v.journeyStage === 'UNLOADING'
                         ? 'bg-blue-100 text-blue-900 border border-blue-300'
                         : v.journeyStage === 'WEIGHBRIDGE_GROSS'
-                        ? 'bg-indigo-100 text-indigo-900 border border-indigo-300'
+                        ? 'bg-blue-100 text-blue-900 border border-blue-300'
                         : v.journeyStage === 'PLANT_QA'
                         ? 'bg-amber-100 text-amber-900 border border-amber-300'
                         : v.journeyStage === 'GATE_ENTRY'
-                        ? 'bg-cyan-100 text-cyan-900 border border-cyan-300'
+                        ? 'bg-blue-50 text-blue-900 border border-blue-200'
                         : 'bg-slate-100 text-slate-800'
                     }`}
                   >
@@ -238,9 +233,7 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
                 </div>
               </div>
 
-              {/* Journey Milestones Tracker Strip */}
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-1 text-center text-[11px]">
-                {/* 1. Gate */}
                 <div
                   className={`p-2.5 rounded-xl border ${
                     v.gateEntryTimestamp
@@ -255,7 +248,6 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
                   </span>
                 </div>
 
-                {/* 2. QA */}
                 <div
                   className={`p-2.5 rounded-xl border ${
                     v.qaSummary.totalPortions > 0 && v.qaSummary.badgeType !== 'ALL_PENDING'
@@ -272,7 +264,6 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
                   </span>
                 </div>
 
-                {/* 3. Scale (Gross) */}
                 <div
                   className={`p-2.5 rounded-xl border ${
                     v.firstWeightTimestamp
@@ -287,7 +278,6 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
                   </span>
                 </div>
 
-                {/* 4. Silo Unloading */}
                 <div
                   className={`p-2.5 rounded-xl border ${
                     v.unloadingEndTimestamp
@@ -297,20 +287,19 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
                       : 'bg-slate-50 border-slate-200 text-slate-400'
                   }`}
                 >
-                  <Factory className="w-4 h-4 mx-auto mb-1 text-inherit" />
+                  <Building2 className="w-4 h-4 mx-auto mb-1 text-inherit" />
                   <span className="font-semibold block">4. Silo Unload</span>
                   <span className="text-[10px] tabular-nums">
                     {v.unloadingEndTimestamp ? 'Completed' : 'In Progress'}
                   </span>
                 </div>
 
-                {/* 5. Final Receipt */}
                 <div
                   className={`p-2.5 rounded-xl border col-span-2 sm:col-span-1 ${
                     v.finalReceiptExists
                       ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900'
                       : v.journeyStage === 'RECEIPT_PENDING'
-                      ? 'bg-purple-50/70 border-purple-200 text-purple-900'
+                      ? 'bg-amber-50/70 border-amber-200 text-amber-900'
                       : 'bg-slate-50 border-slate-200 text-slate-400'
                   }`}
                 >
@@ -326,7 +315,6 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
                 </div>
               </div>
 
-              {/* Quantity Summary Row */}
               <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
                 <div className="flex items-center space-x-2">
                   <span className="text-slate-500 font-semibold">Whole Vehicle Gross:</span>
@@ -350,7 +338,7 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
                     className={`tabular-nums font-semibold ${
                       v.finalReceiptExists && v.authoritativeFinalLiters != null
                         ? 'text-emerald-700'
-                        : 'text-purple-700'
+                        : 'text-amber-700'
                     }`}
                   >
                     {v.finalReceiptExists && v.authoritativeFinalLiters != null

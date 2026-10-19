@@ -457,7 +457,7 @@ export function canUseMeasuredPortionTotalForVehicle(
 
 /**
  * Pure production helper: Computes the same-unit Difference between Vehicle Dispatch Quantity and Portion Quantity Total.
- * - If units differ, returns comparison message "Different units — no direct comparison" and null difference.
+ * - If units differ, returns comparison message "Different units: no direct comparison" and null difference.
  * - If units match and both vehicle & portion total are valid, returns exact arithmetic difference (Vehicle - Portions).
  */
 export function computeVehiclePortionDifference(
@@ -508,7 +508,7 @@ export function computeVehiclePortionDifference(
       difference: null,
       formattedDifference: null,
       isDifferentUnits: true,
-      message: 'Different units — no direct comparison',
+      message: 'Different units: no direct comparison',
     };
   }
 

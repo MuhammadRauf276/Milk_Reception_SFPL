@@ -59,7 +59,7 @@ This hierarchy describes organizational responsibility. The application must imp
 ### 3.1 What is already good
 
 - The application covers a substantial end-to-end flow: MOT collection, ZMCC arrival and laboratory processing, tank stock, dispatch, plant gate, weighbridge, QA, production reception, and reporting.
-- Prisma models and migrations represent many real factory concepts rather than a generic CRUD application.
+- Prisma models and migrations represent many real plant concepts rather than a generic CRUD application.
 - MOT journey summaries already preserve total gross liters, total liters at 13% total solids, weighted test values, and shop counts.
 - The ZMCC arrival workspace already shows an MOT journey summary during reception.
 - The ZMCC Manager workspace already has useful sections for overview, live operations, reconciliation, history, reports, and master data.
@@ -371,7 +371,7 @@ Current gaps to address:
 
 Use **MapLibre GL JS** as the browser map renderer and **PMTiles** as the offline vector-map archive format. Both are suitable for TypeScript and allow the application to avoid a paid per-request map SDK. MapLibre renders the GPS trail and map data; it does not improve GPS hardware accuracy. Accuracy continues to come from the device and is stored on each point.
 
-Use OpenStreetMap-derived data with visible attribution, but do not bulk-download or build offline packs from the public `tile.openstreetmap.org` service. Its usage policy prohibits offline downloads. Generate or obtain a permitted vector dataset, produce controlled PMTiles packs, and host those packs and all required style, glyph, and sprite assets through the factory system.
+Use OpenStreetMap-derived data with visible attribution, but do not bulk-download or build offline packs from the public `tile.openstreetmap.org` service. Its usage policy prohibits offline downloads. Generate or obtain a permitted vector dataset, produce controlled PMTiles packs, and host those packs and all required style, glyph, and sprite assets through the plant system.
 
 Do not package all zoom levels for all of Pakistan on every device. Prepare manageable packs by assigned ZMCC/route region and approved zoom range. The application downloads the required pack while online, verifies its version/checksum, and keeps it for offline journeys. The schematic map remains as a fallback when a device lacks a usable map pack.
 

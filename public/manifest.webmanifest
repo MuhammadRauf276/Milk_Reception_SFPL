@@ -5,7 +5,18 @@
   "start_url": "/",
   "display": "standalone",
   "background_color": "#FDFBF9",
-  "theme_color": "#1E3A8A",
+  "theme_color": "#ED1C24",
   "lang": "en-PK",
-  "icons": []
+  "icons": [
+    {
+      "src": "/images/shakarganj-favicon.png?v=red",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/images/shakarganj-logo.png?v=red",
+      "sizes": "145x49",
+      "type": "image/png"
+    }
+  ]
 }

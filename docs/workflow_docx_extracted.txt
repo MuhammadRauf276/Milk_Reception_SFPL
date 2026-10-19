@@ -1,0 +1,408 @@
+Level 1: High-Level System Architecture & Multi-Stream ERP Settlement Pipeline
+Authorized Actors: Super Admin / Data Executive, Finance Team, ZMCC Manager, PHE Operator, MOT, Admin Operator, QA Lab, Weighbridge, ProductionWorkspace: All System Workspaces (/mot, /phe, /zmcc, /department/*, /super-admin/*)
+▼
+LEVEL 0: MASTER GOVERNANCE
+• Super Admin / Data Executive: Adds Lab Tests & configures SOP Rules (RELEASE vs MONITORING)• Finance Team: Creates/Activates ERP Codes (erp_code), assigns Milk Pricing Rule (@13% TS vs Gross Liters), and sets Date-Range Milk Rates (from_date to to_date)
+▼
+LEVEL 1: UPSTREAM MOT COLLECTION & SHOP ERP SETTLEMENT (STREAM 1)
+1. ZMCC Manager / Super Admin registers MOT Vehicle & MOT Profile.2. PHE Operator / ZMCC Manager assigns & dispatches MOT Journey (MJ-YYYYMMDD-XXXX).3. MOT visits Village Shops and submits milk collection (Quantity, LR, Fat -> @13% TS Liters).
+▼
+STREAM 1 — IMMEDIATE SHOP ERP LEDGER CREDIT
+Upon each MOT shop collection submission, system immediately credits ErpSettlementLedger against that Shop's erp_code (@13% TS Liters × Active Date Rate).
+▼
+LEVEL 2 TO 4: ZMCC GATE ENTRY, LAB TESTING & LOCAL SUPPLIER SETTLEMENT (STREAM 2)
+1. MOT Vehicle or Local Supplier (with erp_code) arrives at ZMCC PHE Gate -> Token issued.2. ZMCC QA Lab tests milk against Active SOP Rules set by Super Admin / Data Executive.
+▼
+◆ DECISION: What is the ZMCC QA Lab Outcome?
+✔ IF ACCEPTED (Pass or Manager Approval)
+• Post receipt to Sole Active ZMCC Tank Stock.• STREAM 2 (If Local Supplier): Immediately credit ErpSettlementLedger against Local Supplier's erp_code (Accepted @13% TS Liters × Active Date Rate).• Proceed to ZMCC Gate Exit (Restores MOT Vehicle availability).
+✖ IF REJECTED
+• Quarantine / Return Rejected Milk.• Zero Tank Stock posted & Zero ERP Ledger posted.• Proceed to ZMCC Gate Exit.
+▼
+LEVEL 5 TO 7: BULK DISPATCH, ADMIN GATE ENTRY & PLANT QA LAB
+1. Bulk Tanker Dispatched (Independent Measured Vehicle Quantity + Average of Portion Lab Tests LR/Fat -> Whole-Vehicle Canonical Formulas).2. Admin Operator (ADMIN_OPERATOR) records Plant Gate Entry & issues physical Plant Token.3. Plant QA Lab samples and tests each compartment against Active SOP Rules.
+▼
+◆ DECISION: Are at least 1 Portion(s) ACCEPTED at Plant QA?
+✔ IF YES (At least 1 Portion ACCEPTED)
+• Advance VehicleVisit to Weighbridge for 1st Weight (Gross Weight).
+✖ IF NO (0 Portions Accepted / All Rejected)
+• Entire Cargo Rejected!• Bypass Weighbridge Gross & Silo Unloading -> Route directly to Plant Admin Gate Exit.
+▼
+LEVEL 8: WEIGHBRIDGE 1ST WEIGHT (GROSS) & BUSINESS DATE CUTOFF
+Weighbridge Operator records Loaded Vehicle First Weight (gross_weight_kg) and captures gross_timestamp (PKT).
+▼
+◆ AUTHORITATIVE BUSINESS DATE CUTOFF: Is 1st Weight Time (gross_timestamp) < 08:00:00 AM PKT?
+✔ IF YES (Before 08:00 AM PKT)
+• Lock Assigned Business Date (operational_date) = PREVIOUS Calendar Day (e.g. 22-Aug).
+✖ IF NO (08:00 AM PKT or Later)
+• Lock Assigned Business Date (operational_date) = CURRENT Calendar Day (e.g. 23-Aug).
+▼
+LEVEL 9 TO 11: SILO UNLOADING, 2ND WEIGHT (TARE) & CONDITIONAL SETTLEMENT
+1. Production unloads accepted portions into Raw Milk Silo.2. Weighbridge records 2nd Weight (Tare) -> Net Milk Weight KG = First Weight - Second Weight.3. Dual Reconciliation Engine computes Received Gross Liters & Received @13% TS Liters.
+▼
+◆ DECISION: Is Procurement Source a Company ZMCC or Direct Contractor?
+✔ IF DIRECT CONTRACTOR (Stream 3)
+• Credit ErpSettlementLedger against Contractor's erp_code (Received @13% TS Liters from Net Weight KG × Active ERP Rate for the Business Date locked at 1st Weight).• Admin Operator collects token & records Plant Gate Exit.
+✖ IF COMPANY ZMCC
+• Internal Company Stock Transfer & Dual Variance Only (Zero Vendor Payment at Plant, since Shops & Local Suppliers were settled at ZMCC).• Admin Operator collects token & records Plant Gate Exit.
+Level 0A: Master Lab Test & SOP Quality Rule Governance
+Authorized Actors: SUPER_ADMIN, DATA_EXECUTIVE (Strictly NOT QA Head or Lab Attendants)Workspace: /super-admin/lab-tests & /super-admin/quality-rules
+▼
+START: MASTER LAB TEST & SOP RULE CONFIGURATION
+Actor opens Lab Test Catalog or Quality SOP Rule Management.
+▼
+◆ SECURITY CHECK: Is Actor Role == SUPER_ADMIN or DATA_EXECUTIVE?
+✔ IF YES (Authorized)
+• Allow creation/editing of Lab Tests and SOP Rules.
+✖ IF NO (e.g. QA Head / QA Manager / Lab Attendant)
+• FAIL CLOSED (HTTP 403 Forbidden): Only Super Admin or Data Executive can add Lab Tests or set SOP Rules.
+▼
+DEFINE LAB TEST & CONFIGURE SOP THRESHOLDS
+1. Add/Update LabTest: Code (e.g. LT-000008 LR, LT-000026 Fat), Result Type (NUMERIC, PASS_FAIL, ENUM), Unit, Required Flag.2. Configure LabTestRule: Select Workflow Scope (ZMCC_LAB_MOT, ZMCC_LAB_LOCAL_SUPPLIER, DISPATCH, PLANT_QA).3. Select Category: RELEASE (Mandatory Gatekeeper) vs MONITORING (Warning Only).4. Set Pass Thresholds (MIN, MAX, RANGE, or EXACT_MATCH).
+▼
+◆ VALIDATION: Are Thresholds Valid (min <= max) & Non-Conflicting?
+✔ IF YES (Valid Rule)
+• Deactivate previous rule version for same (Test, Scope, Category).• Activate new LabTestRule version & write AuditLog (LAB_TEST_RULE_CONFIGURED).
+✖ IF NO (Invalid Threshold)
+• Return Error 400: Invalid Rule Threshold Configuration.
+▼
+ACTIVE RULES LIVE IN ZMCC & PLANT LABS
+New SOP rules are immediately enforced in ZMCC Lab and Plant QA Lab sessions.
+Level 0B: Finance Role — ERP Code Master Governance & Date-Range Rate Card (from_date to to_date)
+Authorized Actors: FINANCE_TEAM (FINANCE_MANAGER / FINANCE_OPERATOR), SUPER_ADMINWorkspace: /department/finance/erp-codes & /department/finance/erp-rates
+▼
+START: FINANCE ERP CODE & RATE SCHEDULE GOVERNANCE
+Finance Team manages ERP Code master lifecycle, Milk Pricing Rules, and effective date-range milk rates.
+▼
+◆ AUTHORIZATION CHECK: Is Actor in FINANCE_TEAM or SUPER_ADMIN?
+✔ IF YES (Finance Team / Super Admin)
+• Proceed to ERP Code Master & Rate Card Management.
+✖ IF NO (e.g. ZMCC Manager / PHE Operator)
+• FAIL CLOSED (HTTP 403 Forbidden): ZMCC Manager & PHE cannot create, edit, or deactivate ERP Codes.
+▼
+STEP 1: CREATE / EDIT / ACTIVATE / DEACTIVATE ERP CODE (erp_code)
+• Enter Unique erp_code (e.g. ERP-10045), Account Name, and Entity Category (Village Shop / Local Supplier / Direct Contractor).• If Deactivating (is_active = false): System verifies no active Shop, Local Supplier, or Contractor is currently linked (otherwise returns Error 409 Conflict).
+▼
+STEP 2: ASSIGN MILK PRICING RULE & DATE-RANGE RATE (from_date -> to_date)
+• Select Commercial Settlement Basis against erp_code: '@13% TS Liters' (Default) OR 'Gross Liters'.• Enter Milk Rate per Liter (e.g. PKR 202.50 / L).• Enter Effective Start Date (from_date) and Effective End Date (to_date) to handle rate fluctuations.
+▼
+◆ DATE VALIDATION: Is from_date <= to_date AND No Overlapping Window for this erp_code?
+✔ IF YES (Clean or Auto-Closed Previous Period)
+• If 'Auto-Close Previous Period' selected, set previous rate's to_date = (new from_date - 1 day).• Save ErpMilkRateSchedule & log ERP_MILK_RATE_SCHEDULED in AuditLog.
+✖ IF NO (Invalid or Unresolved Overlap)
+• Return Error 400 / 409 Conflict: Overlapping rate period exists for this ERP Code.
+▼
+AUTOMATED SETTLEMENT RATE LOOKUP
+At transaction settlement, system resolves active rate where: from_date <= operational_date <= to_date for that entity's erp_code.
+Level 0C: Editing Shop (ZmccShop) or Local Supplier (ZmccLocalSupplier) ERP Code — 100% Historical Preservation
+Authorized Actors: FINANCE_TEAM, ZMCC_MANAGER, SUPER_ADMINWorkspace: /department/finance/erp-codes & /zmcc/master-data
+▼
+START: SHOP OR LOCAL SUPPLIER REQUESTS TO WORK UNDER A NEW ERP CODE
+ARCHITECTURAL RULE: DO NOT create a duplicate Shop (keep SHP-xxx) or duplicate Local Supplier (keep ZLS-xxxxxx).
+▼
+◆ CHECK 1: Does New Target ERP Code (e.g. ERP-NEW-202) exist & is_active == true?
+✔ IF YES (Active in Finance Master)
+• Proceed to In-Flight Transaction Check.
+✖ IF NO (Missing or Inactive)
+• Finance Team first creates & activates ERP-NEW-202 and sets its Milk Rule & Date-Range Rate (Level 0B).
+▼
+◆ CHECK 2: Does Shop or Local Supplier have an unaccepted in-flight ZMCC Lab Session right now?
+✔ IF NO (Safe to Switch)
+• Proceed with Atomic ERP Code Reassignment.
+✖ IF YES (In-Flight Session Active)
+• Return Error 409 Conflict: Complete the current in-progress ZMCC Lab Session first so its settlement locks cleanly.
+▼
+ATOMIC 'REASSIGN ERP CODE' TRANSACTION
+1. Close Current History Row in ErpAssignmentHistory: erp_code = 'ERP-OLD-101', effective_to = now (PKT), is_current = false.2. Insert New History Row in ErpAssignmentHistory: erp_code = 'ERP-NEW-202', effective_from = now (PKT), effective_to = null, is_current = true.3. Update ZmccShop.milk_source_id (or ZmccLocalSupplier.erp_code_id) = 'ERP-NEW-202'.4. Write AuditLog (ENTITY_ERP_CODE_SWITCHED with mandatory reason).
+▼
+100% HISTORICAL PRESERVATION & FUTURE ROUTING
+• PAST DATA (Before Switch): Every historical MotShopCollection & ZmccTankReceipt retains immutable erp_code_snapshot = 'ERP-OLD-101'. Past ERP Ledger balances for ERP-OLD-101 are 100% untouched.• FUTURE DATA (After Switch): Every new collection/receipt automatically snapshots 'ERP-NEW-202' and credits ERP-NEW-202 Ledger.
+Level 1A: MOT Master Fleet Registration & Journey Assignment / Dispatch
+Authorized Actors: Fleet/Profile Creation: ZMCC_MANAGER or SUPER_ADMIN only | Journey Dispatch: PHE_OPERATOR, ZMCC_MANAGER, or SUPER_ADMINWorkspace: /super-admin/mot-operations, /zmcc/mot, /phe
+▼
+START: MOT PRE-JOURNEY SETUP & DISPATCH
+Determine if a new MOT Vehicle / MOT Profile needs to be registered before dispatching a journey.
+▼
+◆ FLEET REGISTRATION: Who is registering a New MOT Vehicle or New MOT Profile?
+✔ IF ZMCC_MANAGER or SUPER_ADMIN
+• Add MOT Vehicle (POST /api/zmcc/mot/vehicles): Enter unique vehicle_number, Target ZMCC, Capacity, Category (STANDARD or EMERGENCY_SUBSTITUTE).• Add MOT Profile (POST /api/zmcc/mot/profiles): Enter mot_code, Name, Phone, 13-digit CNIC, and link User (role = 'MOT', same ZMCC).
+✖ IF PHE_OPERATOR
+• FAIL CLOSED (Error 403 Forbidden): PHE Operators cannot create or update MOT Vehicles or MOT Profiles.
+▼
+INITIATE 'ASSIGN & DISPATCH MOT JOURNEY'
+Actor (PHE_OPERATOR, ZMCC_MANAGER, or SUPER_ADMIN) selects:1. Active ZmccRoute (with >= 1 active ZmccShop)2. Active MotProfile (same ZMCC)3. Active MotVehicle (same ZMCC)4. Dispatcher GPS coordinates & idempotency_key
+▼
+◆ AVAILABILITY CHECK: Is MOT Profile/Vehicle free AND Vehicle NOT inside ZMCC Gate?
+✔ IF YES (Available & Outside ZMCC Gate)
+• Allocate Sequence MJ-YYYYMMDD-XXXX.• Insert MotJourney (status = 'COLLECTING', operational_date = Today PKT).• Deterministically snapshot Route Shops into MotJourneyStop rows (with each Shop's current erp_code_snapshot).
+✖ IF NO (On Active Journey OR Inside ZMCC Gate)
+• Return Error 409 Conflict: Vehicle/Profile is already on a COLLECTING journey, or Vehicle is still inside ZMCC awaiting PHE Gate Exit.
+▼
+JOURNEY LIVE ON MOT APP (/mot)
+Dispatched journey appears immediately on the assigned MOT's mobile device.
+Level 1B: Upstream Mobile Milk Collection (MOT) & Stream 1 Shop ERP Settlement
+Authorized Actors: MOT (Mobile Milk Collection User)Workspace: /mot
+▼
+START: MOT OPENS ACTIVE ASSIGNED JOURNEY
+Downloads ordered MotJourneyStop list (with Shop erp_code) into local IndexedDB / Dexie offline store.
+▼
+◆ SHOP STOP ACTION: Collect Milk or Skip Village Shop?
+✔ IF COLLECT MILK
+• Enter Shop RMR Number (Paper), Quantity (Liters/KG), Measured LR & Fat, Temp, Acidity, Alcohol + Live GPS.• If offline: Queue in IndexedDB with device_collected_at timestamp -> Auto-sync when online.
+✖ IF SKIP STOP
+• Select Skip Reason & submit.• Mark MotJourneyStop status = 'SKIPPED' (Zero ERP Ledger posted).
+▼
+◆ TIMELINE CHECK: Is device_collected_at <= journey.ended_at?
+✔ IF YES (Valid Collection Timestamp)
+• Compute Canonical Metrics: Density = 1 + LR/1000, Gross Liters, SNF, TS, @13% TS Liters.• Recompute MotJourneySummary (weighted averages) & queue Shop Owner SMS.
+✖ IF NO (Late Collection After ZMCC Arrival)
+• Reject Collection (Error 400): Cannot record shop collection after journey arrival at ZMCC.
+▼
+STREAM 1 — IMMEDIATE SHOP ERP SETTLEMENT LEDGER POSTING
+• Freeze Shop's current erp_code as erp_code_snapshot on MotShopCollection.• Lookup Finance ERP Rate where from_date <= operational_date <= to_date.• Credit ErpSettlementLedger against Shop's erp_code (@13% TS Liters × Active ERP Rate).
+Level 2: ZMCC Intake & Gate Reception (PHE Gate Workflow)
+Authorized Actors: PHE_OPERATOR (Public Health Engineer / Receptionist)Workspace: /phe
+▼
+START: VEHICLE ARRIVES AT ZMCC GATE
+PHE Operator selects Arrival Stream: (A) MOT Milk Route OR (B) Local Farmer / Supplier.
+▼
+◆ IF LOCAL SUPPLIER: Does Supplier already exist in ZMCC Directory?
+✔ IF YES (Existing Local Supplier)
+• Load Supplier profile and linked active erp_code.• Enter Vehicle Number & slip details.
+✖ IF NO (New Local Supplier)
+• Fast-create Local Supplier (Name, Phone, 13-digit CNIC).• Link active ERP Code (created by Finance Team) & allocate code ZLS-000001.
+▼
+ENTER PHYSICAL PAPER TOKEN (raw_milk_token_number)
+Acquire PostgreSQL Advisory Lock (RAW_MILK_TOKEN:zmccId:tokenValue) and verify paper token uniqueness for today.
+▼
+◆ TOKEN CHECK: Is raw_milk_token_number unique in this ZMCC today?
+✔ IF YES (Unique Paper Token)
+• Generate immutable ZMCC Token (ZT-MOT-YYYYMMDD-XXXX or ZT-LS-YYYYMMDD-XXXX).• Save Arrival (gate_exit_required = true, exit_timestamp = null, freeze supplier erp_code_snapshot).• If MOT: Mark journey.status = 'COMPLETED' & ended_at = now.
+✖ IF NO (Duplicate Paper Token)
+• Return Error 400: Duplicate raw_milk_token_number already active in this facility.
+▼
+VEHICLE QUEUED FOR ZMCC QA LAB
+Vehicle is now Inside ZMCC and appears in the ZMCC QA Lab Testing Queue.
+Level 3: ZMCC Laboratory Testing, Tank Receipt & Stream 2 Local Supplier ERP Settlement
+Authorized Actors: ZMCC_LAB_ATTENDANT (Testing) & ZMCC_MANAGER (Supervisory Review)Workspace: /zmcc/lab
+▼
+START: ZMCC LAB TESTING SESSION
+Freeze active Lab Tests snapshot (configured by SUPER_ADMIN / DATA_EXECUTIVE). Enter Quantity, Measured LR, Fat, Temp, Acidity, Alcohol 68%, MBRT, Adulterants.
+▼
+EXECUTE CANONICAL FORMULAS & SOP RULE EVALUATION
+• Density = 1 + LR/1000 | Gross Liters | SNF = LR/4 + 0.22*Fat + 0.72 | TS = Fat + SNF | @13% TS Liters = Gross Liters * TS / 13.• Evaluate against Active SOP Rules configured by SUPER_ADMIN / DATA_EXECUTIVE (Fail closed if any rule config error).
+▼
+◆ SOP RULE EVALUATION: Do all RELEASE rules PASS?
+✔ IF YES (All Release Rules PASS)
+• Lab Attendant selects ACCEPTED (or REJECTED with reason).• If ACCEPTED: Proceed to Sole Active ZMCC Tank Receipt.
+✖ IF NO (OUT_OF_SPEC -> Auto-Hold for ZMCC Manager)
+• Lab Attendant cannot Accept.• Escalates to ZMCC Manager Supervisory Review:  - Manager selects ACCEPTED (with mandatory reason) -> Proceed to Tank Receipt.  - OR Manager selects REJECTED (Zero Tank Receipt, Zero ERP Ledger).
+▼
+SOLE ACTIVE ZMCC TANK CAPACITY CHECK & RECEIPT
+Lock Sole Active ZMCC Tank (SELECT FOR UPDATE). Verify Gross Liters <= (Capacity - Current Dynamic Stock). Create ZmccTankReceipt & ZmccTankInventoryTransaction ('RECEIPT').
+▼
+◆ SETTLEMENT CHECK: Is Accepted Milk from a LOCAL SUPPLIER or MOT Journey?
+✔ IF LOCAL SUPPLIER ARRIVAL (Stream 2)
+• Read Local Supplier's erp_code_snapshot.• Lookup Finance ERP Rate where from_date <= operational_date <= to_date.• Immediately credit ErpSettlementLedger against Local Supplier's erp_code (Accepted @13% TS Liters × Active ERP Rate).
+✖ IF MOT JOURNEY ARRIVAL
+• No new vendor payment here (Individual Village Shops were already settled in ERP Ledger at Level 1B during MOT Collection).
+Level 4: ZMCC Gate Exit & Fleet Availability Restoration
+Authorized Actors: PHE_OPERATORWorkspace: /phe
+▼
+START: VEHICLE REQUESTS ZMCC GATE EXIT
+PHE Operator selects vehicle from 'Vehicles Inside ZMCC' (gate_exit_required = true AND exit_timestamp IS NULL).
+▼
+◆ EXIT CLEARANCE CHECK: Is ZMCC Lab COMPLETED (and ZmccTankReceipt posted if ACCEPTED)?
+✔ IF YES (Lab Completed & Receipt Posted / or Rejected)
+• Record exit_timestamp = now (PKT) & exit_recorded_by_user_id.• Write AuditLog (ZMCC_GATE_EXIT_RECORDED).• If MOT Vehicle: Restore MOT Vehicle availability for new journey dispatch.
+✖ IF NO (Lab In-Progress or Accepted Without Tank Receipt)
+• Block Exit (Error 409 Conflict: LAB_NOT_COMPLETED or CANNOT_EXIT_ACCEPTED_WITHOUT_RECEIPT).
+Level 5: Upstream Bulk Milk Dispatch (Independent Vehicle Quantity + Portion-Averaged Quality Formulas)
+Authorized Actors: ZMCC_LAB_ATTENDANT, CONTRACTOR_OPERATOR, SUPER_ADMINWorkspace: /zmcc/dispatch or /contractor/manager
+▼
+START: INITIATE BULK TANKER DISPATCH TO PLANT
+Select or auto-bind Operating ProcurementSource (Company ZMCC or Direct Contractor with erp_code).
+▼
+1. ENTER INDEPENDENT WHOLE-VEHICLE DISPATCH QUANTITY
+• Enter Whole-Vehicle Quantity Value (KG or LITER) with Basis = 'MEASURED' (from Tank Dipstick / Flowmeter).• Entered independently as a physical measurement (never auto-summed from portion quantities).
+▼
+2. ENTER PORTION QUANTITIES & PORTION LAB TESTS (COMPARTMENTS 1..N)
+• Enter compartment breakdown quantities (Informational difference = Vehicle Qty - Portion Total).• Enter Portion Lab Tests per compartment: Measured LR, Fat, Temperature, Acidity, Clot-on-Boil.
+▼
+◆ PORTION QUALITY AGGREGATION: How many Portions (Compartments) are on the Vehicle?
+✔ IF 2 OR MORE PORTIONS (N >= 2)
+• Derive Whole-Vehicle LR = Arithmetic Average of Portion LRs (Sum LR_i / N).• Derive Whole-Vehicle Fat = Arithmetic Average of Portion Fats (Sum Fat_i / N).
+✖ IF 1 SINGLE PORTION (N == 1)
+• Whole-Vehicle LR = Portion 1 LR.• Whole-Vehicle Fat = Portion 1 Fat.
+▼
+3. COMPUTE WHOLE-VEHICLE CANONICAL FORMULAS & COMMIT DISPATCH
+• Using Independent Vehicle Quantity + Portion-Averaged Vehicle LR & Fat:  - Vehicle Density = 1 + (Vehicle Average LR / 1000)  - Vehicle Gross Liters = (Vehicle KG / Vehicle Density) or Declared Liters  - Vehicle SNF = (Vehicle Average LR / 4) + (0.22 * Vehicle Average Fat) + 0.72  - Vehicle TS = Vehicle Average Fat + Vehicle SNF  - Vehicle @13% TS Liters = (Vehicle Gross Liters * Vehicle TS) / 13• Verify unique raw_milk_dispatch_note_number, create VehicleVisit ('DISPATCHED'), and if ZMCC source, post ZmccTankInventoryTransaction ('ISSUE').
+Level 6: Plant Factory Admin & Gate Entry (ADMIN_OPERATOR)
+Authorized Actors: ADMIN_OPERATOR (Renamed from Security Operator)Workspace: /department/admin-gate
+▼
+START: TANKER ARRIVES AT PLANT OUTER GATE
+Admin Operator views 'Incoming Dispatched Vehicles' queue and matches vehicle number.
+▼
+ENTER ADMIN GATE ENTRY DETAILS
+Enter physical Plant Gate Token (token_number), verify Driver Name / CNIC, and capture Entry Timestamp (PKT).
+▼
+◆ VALIDATION: Is VehicleVisit == 'DISPATCHED' AND Plant Token Not Currently Active?
+✔ IF YES (Valid State & Available Token)
+• Insert GateLog (entry_timestamp = now, entry_guard_id = Admin Operator).• Update VehicleVisit.current_status = 'PLANT_QA' & VisitPortion.current_status = 'QA_PENDING'.• Notify Plant QA Reception Lab.
+✖ IF NO (Invalid Status or Duplicate Active Token)
+• Return Error 400: Invalid vehicle state or Plant token already in use inside plant.
+Level 7: Plant QA Laboratory Testing & Portions Decision Engine
+Authorized Actors: QA_LAB_ATTENDANT (Testing) & QA_MANAGER (Supervisory Review)Workspace: /department/qa & /department/qa-manager
+▼
+START: PLANT QA COMPARTMENT SAMPLING & TESTING
+QA Attendant draws samples from each compartment and enters Portion-wise Lab Results (Corrected LR, Gerber Fat %, Temp, Acidity, Alcohol 68%, MBRT, Adulterants).
+▼
+EVALUATE AGAINST ACTIVE SOP RULES (SET BY SUPER_ADMIN / DATA_EXECUTIVE)
+System evaluates each portion against active RELEASE and MONITORING rules for scope 'PLANT_QA'.
+▼
+◆ PER-PORTION DECISION: Do all RELEASE rules PASS for the Portion?
+✔ IF ALL RELEASE RULES PASS
+• QA Attendant marks Portion status = 'ACCEPTED' (or 'REJECTED' with reason).
+✖ IF ANY RELEASE RULE IS OUT_OF_SPEC
+• Auto-escalates to QA Manager Review Queue (HOLD).• QA Manager reviews and marks Portion status = 'ACCEPTED' (with mandatory reason) OR 'REJECTED'.
+▼
+◆ WHOLE-VEHICLE QA AGGREGATION: How many Portions are ACCEPTED across the Vehicle?
+✔ IF AT LEAST 1 PORTION ACCEPTED
+• Update VehicleVisit.current_status = 'READY_FOR_GROSS'.• Route Tanker to Plant Weighbridge for First Weight (Gross).
+✖ IF 0 PORTIONS ACCEPTED (All Portions REJECTED)
+• Update VehicleVisit.current_status = 'READY_FOR_GATE_EXIT'.• Bypass Weighbridge Gross & Silo Unloading -> Route directly to Plant Admin Gate Exit.
+Level 8: Plant Weighbridge — First Weight (Gross) & Authoritative Business Date Cutoff
+Authorized Actors: WEIGHBRIDGE_OPERATORWorkspace: /department/weighbridge
+▼
+START: LOADED TANKER DRIVES ONTO WEIGHBRIDGE (1ST WEIGHT)
+Weighbridge Operator selects vehicle (status == 'READY_FOR_GROSS'), reads calibrated scale, and enters First Weight (gross_weight_kg, e.g. 24,850 KG) at gross_timestamp (PKT).
+▼
+◆ AUTHORITATIVE BUSINESS DATE CUTOFF: Is 1st Weight Time (gross_timestamp) < 08:00:00 AM PKT?
+✔ IF YES (Before 08:00:00 AM PKT — e.g. 23-Aug 07:30 AM)
+• Assigned Business Date (operational_date) = PREVIOUS Calendar Day (22-Aug).
+✖ IF NO (08:00:00 AM PKT or Later — e.g. 23-Aug 08:15 AM)
+• Assigned Business Date (operational_date) = CURRENT Calendar Day (23-Aug).
+▼
+ATOMIC 1ST WEIGHT & BUSINESS DATE LOCK TRANSACTION
+1. Save WeightTicket (gross_weight_kg, gross_timestamp = now).2. Lock VehicleVisit.operational_date = Assigned Business Date (This date governs Contractor ERP Rate Settlement after 2nd Weight!).3. Advance VehicleVisit.current_status = 'READY_FOR_UNLOADING'.
+Level 9: Plant Silo Offloading & Production Reception
+Authorized Actors: PRODUCTION_RECEPTION_OPERATORWorkspace: /department/production
+▼
+START: TANKER PARKS IN PRODUCTION SILO RECEPTION BAY
+Operator selects vehicle (status == 'READY_FOR_UNLOADING'), inspects portion clearances, and maps Destination Raw Milk Silo for each ACCEPTED portion.
+▼
+◆ SAFETY VALVE GUARD: Are any Portions on this Tanker REJECTED?
+✔ IF YES (Partial Rejection Present)
+• Keep rejected compartment valves strictly locked!• Connect unloading hoses ONLY to ACCEPTED compartments.
+✖ IF NO (All Portions Accepted)
+• Connect unloading hoses for all compartments.
+▼
+START & COMPLETE SILO OFFLOADING
+1. Click 'Start Unloading' -> Record unloading_start_timestamp.2. Pump milk through de-aerator & plate chiller into Silo.3. Click 'Complete Unloading' -> Record unloading_end_timestamp & advance VehicleVisit.current_status = 'READY_FOR_TARE'.
+Level 10: Plant Weighbridge — Second Weight (Post-Unloading / Tare)
+Authorized Actors: WEIGHBRIDGE_OPERATORWorkspace: /department/weighbridge
+▼
+START: UNLOADED TANKER DRIVES ONTO WEIGHBRIDGE (2ND WEIGHT)
+Operator selects vehicle (status == 'READY_FOR_TARE') and enters Second Weight (tare_weight_kg, e.g. 10,850 KG).
+▼
+◆ SCALE LOGIC VALIDATION: Is Second Weight (Tare) < First Weight (Gross)?
+✔ IF YES (Valid Tare Weight)
+• Compute Net Milk Weight KG = First Weight - Second Weight (e.g. 24,850 - 10,850 = 14,000 KG).• Update WeightTicket (tare_weight_kg, tare_timestamp, net_weight_kg).• Advance VehicleVisit.current_status = 'READY_FOR_GATE_EXIT'.
+✖ IF NO (Second Weight >= First Weight)
+• Return Error 400: Second Weight (Tare) cannot be greater than or equal to First Weight (Gross).
+▼
+TRIGGER PLANT FINAL DUAL RECEIPT & ERP SETTLEMENT ENGINE
+Passes Net Milk Weight KG and the 1st-Weight Locked Business Date (operational_date) to Level 11.
+Level 11: Plant Final Dual Reconciliation, Silo Inventory & Stream 3 Direct Contractor ERP Settlement
+Authorized Actors: Automated Transactional Engine (reconciliationService, siloInventoryService, financeSettlementService)Workspace: Backend Transactional Engine
+▼
+START: PROCESS NET MILK WEIGHT KG FROM 2ND WEIGHT
+Verify accepted portions map to a single destination Silo (if > 1 Silo, fail closed with MULTI_SILO_ALLOCATION_REQUIRED) and lock Silo row (SELECT FOR UPDATE).
+▼
+COMPUTE PLANT PHYSICAL, COMMERCIAL & DUAL VARIANCE METRICS
+1. Plant Composite LR & Fat = Arithmetic Average of Accepted Portions.2. Plant Density = 1 + (Plant Composite LR / 1000) -> Received Gross Liters = Net KG / Plant Density.3. Plant SNF & TS -> Received @13% TS Liters = (Received Gross Liters * Plant TS) / 13.4. Compute Dual Variance (Received vs Dispatched Gross Liters & @13% TS Liters) and post SiloInventoryTransaction ('RECEIPT', REC-YYYYMMDD-XXXX).
+▼
+◆ ERP SETTLEMENT ROUTING: What is ProcurementSource.source_type?
+✔ IF DIRECT CONTRACTOR (source_type == 'CONTRACTOR' — Stream 3)
+• Read Contractor ProcurementSource.erp_code (freeze as erp_code_snapshot).• Read Locked Business Date (operational_date locked at 1st Weight < 08:00 AM PKT).• Lookup Finance ERP Rate where: from_date <= operational_date <= to_date.• Payable Amount (PKR) = Received @13% TS Liters (from Net Weight KG) × Active ERP Rate.• Insert ErpSettlementLedger row against Contractor's erp_code!
+✖ IF COMPANY ZMCC (source_type == 'ZMCC')
+• Internal Company Stock Transfer & Dual Variance Only.• Zero Vendor ERP Payment at Plant Level (Upstream Village Shops were settled at Level 1B and Local Suppliers at Level 3).
+Level 12: Plant Admin Gate Exit & Visit Closure (ADMIN_OPERATOR)
+Authorized Actors: ADMIN_OPERATOR (Renamed from Security Operator)Workspace: /department/admin-gate
+▼
+START: TANKER ARRIVES AT PLANT EXIT GATE
+Admin Operator opens 'Vehicles Ready for Exit' queue.
+▼
+◆ EXIT CHECK: Is VehicleVisit.current_status == 'READY_FOR_GATE_EXIT'?
+✔ IF YES (Tare Weighed or 100% QA Rejected)
+• Admin Operator collects physical Plant Gate Token (returns token to pool).• Record exit_timestamp = now (PKT) in GateLog.• Preserve operational_date locked at 1st Weight (or fallback to exit timestamp if 100% QA rejected truck bypassed scale).• Mark VehicleVisit.current_status = 'COMPLETED'.
+✖ IF NO (Tare Weighing Incomplete)
+• Block Gate Exit (Error 400): Vehicle has not completed 2nd Weight (Tare).
+Level 13: Governance, Audited Corrections & Supervisory Overrides
+Authorized Actors: ZMCC_MANAGER, QA_MANAGER (Up to 5 saves), SUPER_ADMIN (Unlimited)Workspace: Supervisory Correction Modals
+▼
+START: SUPERVISORY CORRECTION REQUESTED ON COMPLETED RECORD
+Operational users (PHE, Lab Attendant, Admin Operator, Weighbridge) are strictly blocked (403 Forbidden) from editing completed forms.
+▼
+◆ AUTHORITY & LIMIT CHECK: Is Actor Super Admin OR Manager with manager_correction_count < 5?
+✔ IF YES (Authorized & Within 5-Save Limit) + Valid Reason (>= 5 chars)
+• Verify actual field values changed (reject no-op saves).• If vehicle has NOT exited: Adjust Tank stock delta (+ADJUSTMENT_IN / -ADJUSTMENT_OUT) and sync ErpSettlementLedger delta under original erp_code_snapshot.• If vehicle ALREADY exited: Apply audit-only update without fabricating physical inventory movements.• Increment correction_count & write exactly ONE AuditLog row with before/after state.
+✖ IF NO (>= 5 Manager Saves Used or Missing Reason)
+• Fail Closed (HTTP 400): Maximum 5 manager corrections exceeded (must escalate to Super Admin) or mandatory reason missing.
+Summary Matrix: Key Decision Points & Strict Business Invariants
+Click inside any cell below in Microsoft Word to edit any condition, outcome, or business invariant.
+Level
+Decision / Condition
+IF YES (True)
+IF NO (False)
+Authoritative Invariant
+Level 0A (Tests & SOP Rules)
+Actor is SUPER_ADMIN or DATA_EXECUTIVE
+Adds LabTest & sets LabTestRule (RELEASE / MONITORING)
+403 Forbidden (QA Head cannot add tests/rules)
+Only Super Admin / Data Executive governs test catalog & rules
+Level 0B (Finance ERP Master)
+Actor is FINANCE_TEAM or SUPER_ADMIN
+Creates/activates erp_code, sets Milk Rule & Date-Range Rate (from_date -> to_date)
+403 Forbidden for ZMCC Manager / PHE Operator
+Finance Team owns ERP Code lifecycle & date-range rates
+Level 0C (Shop/Supplier ERP Switch)
+Shop or Local Supplier switches to new erp_code
+Closes old ErpAssignmentHistory row, opens new erp_code row
+Never creates duplicate Shop or Supplier
+Past records keep old erp_code_snapshot; new records use new erp_code
+Level 1A (MOT Fleet & Journey)
+ZMCC Manager/Super Admin adds fleet; PHE/Manager dispatches
+Allocates MJ-YYYYMMDD-XXXX & snapshots MotJourneyStop rows
+409 Conflict if vehicle active or inside ZMCC gate
+PHE cannot add vehicles/profiles (403), only dispatch journeys
+Level 1B (Stream 1: Shop ERP)
+MOT submits shop collection (<= journey.ended_at)
+Computes @13% TS & immediately credits Shop erp_code Ledger
+400 Bad Request if submitted after journey arrival
+Every village shop collection accumulates in Shop ERP Ledger
+Level 3 (Stream 2: Local Supplier ERP)
+ZMCC Lab decision is ACCEPTED for Local Supplier
+Posts Tank Receipt & immediately credits Local Supplier erp_code Ledger
+Zero ledger if REJECTED (MOT already settled at 1B)
+Local Supplier settled at ZMCC Lab acceptance on @13% TS
+Level 5 (Dispatch Formulas)
+Vehicle has >= 2 Portions (Compartments)
+Independent Vehicle Qty + Average of Portion LRs & Fats
+1 Portion uses Portion 1 LR & Fat
+Vehicle Canonical Formulas use Independent Qty + Avg Portion Tests
+Level 6 & 12 (Plant Admin Gate)
+ADMIN_OPERATOR manages Plant Entry & Exit
+Issues token at Entry; collects token & closes visit at Exit
+400 Bad Request if invalid state or active token
+Security Operator renamed to Admin Operator (ADMIN_OPERATOR)
+Level 8 (1st Weight Cutoff)
+gross_timestamp < 08:00:00 AM PKT
+Business Date (operational_date) = Previous Calendar Day
+Business Date = Current Calendar Day
+08:00 AM PKT cutoff is locked immediately after 1st Weight
+Level 11 (Stream 3: Contractor ERP)
+ProcurementSource.source_type == 'CONTRACTOR'
+Credits Contractor erp_code Ledger after 2nd Weight (Net KG -> @13% TS)
+If ZMCC: Internal transfer & variance only (no vendor pay)
+Contractor paid after 2nd Weight using 1st-Weight Business Date rate

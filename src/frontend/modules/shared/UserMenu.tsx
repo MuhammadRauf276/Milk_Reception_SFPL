@@ -4,7 +4,8 @@ import React from 'react';
 import Link from 'next/link';
 import { Bell, ChevronDown, LogOut } from 'lucide-react';
 import { User } from '@core/types';
-import { logoutUser } from '@/frontend/modules/auth/logout';
+import { getLogoutSafety, logoutUser } from '@/frontend/modules/auth/logout';
+import { UnsentWorkLogoutDialog } from '@/frontend/modules/auth/UnsentWorkLogoutDialog';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   DropdownMenu,
@@ -22,10 +23,25 @@ function initials(name?: string | null) {
   return ((parts[0]?.[0] ?? 'U') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
 }
 
+// Field roles do not see Logout (plan section 17). Plain strings on purpose.
+const FIELD_ROLES_WITHOUT_LOGOUT = ['MOT', 'PHE_OPERATOR', 'MDO', 'ZMCC_LAB_ATTENDANT'];
+
 export function UserMenu({ currentUser }: { currentUser: User | null }) {
   const displayName = currentUser?.name || currentUser?.username || 'Operator';
+  const [unsent, setUnsent] = React.useState<{ count: number; needsAttention: number } | null>(null);
+  const hideLogout = FIELD_ROLES_WITHOUT_LOGOUT.includes(String(currentUser?.role ?? ''));
+
+  const handleLogoutClick = async () => {
+    const safety = await getLogoutSafety({ isMot: currentUser?.role === 'MOT' }).catch(() => null);
+    if (safety && safety.total > 0) {
+      setUnsent({ count: safety.total, needsAttention: safety.needsAttention });
+      return;
+    }
+    await logoutUser();
+  };
 
   return (
+    <>
     <DropdownMenu>
       <DropdownMenuTrigger
         className="flex h-9 items-center gap-2 rounded-md pl-1 pr-1.5 text-left transition-colors hover:bg-muted focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted sm:pr-2"
@@ -56,12 +72,33 @@ export function UserMenu({ currentUser }: { currentUser: User | null }) {
             Notification settings
           </Link>
         </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem destructive onSelect={() => void logoutUser()}>
-          <LogOut />
-          Sign out
-        </DropdownMenuItem>
+        {hideLogout ? null : (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem destructive onSelect={() => void handleLogoutClick()}>
+              <LogOut />
+              Sign out
+            </DropdownMenuItem>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
+    {unsent !== null ? (
+      <UnsentWorkLogoutDialog
+        count={unsent.count}
+        needsAttention={unsent.needsAttention}
+        isMot={currentUser?.role === 'MOT'}
+        onClose={() => setUnsent(null)}
+        onAllSent={() => {
+          setUnsent(null);
+          void logoutUser();
+        }}
+        onKeepAndLogout={() => {
+          setUnsent(null);
+          void logoutUser({ keepUnsentWork: true });
+        }}
+      />
+    ) : null}
+    </>
   );
 }

@@ -50,7 +50,7 @@ function PlantContractorManagerContent() {
   const subpageTitle = useMemo(() => {
     switch (resolvedTab) {
       case 'LIVE':
-        return 'Live Pipeline';
+        return 'Pipeline';
       case 'QUALITY':
         return 'Quality & Rejections';
       case 'RECEIPTS':

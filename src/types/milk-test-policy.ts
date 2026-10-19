@@ -36,11 +36,13 @@ export interface CreatePolicyAssignmentInput {
   labTestId: string | bigint | number;
   testingPoint: string;
   isRequired?: boolean;
+  isPhotoRequired?: boolean;
   displayOrder?: unknown;
 }
 
 export interface UpdatePolicyAssignmentInput {
   isRequired?: boolean;
+  isPhotoRequired?: boolean;
   displayOrder?: unknown;
   isActive?: boolean;
 }
@@ -50,6 +52,7 @@ export interface SerializedPolicyAssignment {
   labTestId: string;
   testingPoint: TestingPoint;
   isRequired: boolean;
+  isPhotoRequired?: boolean;
   displayOrder: number;
   isActive: boolean;
   createdByUserId: string;
@@ -64,6 +67,7 @@ export interface SerializedPolicyAssignment {
     unit: string | null;
     testScope: string;
     isRequired: boolean;
+    isPhotoRequired?: boolean;
     isActive: boolean;
     displayOrder: number;
     resultOptions?: unknown;
@@ -89,6 +93,7 @@ export interface EffectivePolicyTest {
   unit: string | null;
   resultOptions?: unknown;
   isRequired: boolean;
+  isPhotoRequired?: boolean;
   displayOrder: number;
   isActive: boolean;
   testingPoint: TestingPoint;

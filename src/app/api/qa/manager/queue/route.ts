@@ -69,6 +69,7 @@ export async function GET(req: Request) {
       managerReviewStatus: p.manager_review_status,
       managerRequestedDecision: p.manager_requested_decision,
       managerReviewRequestedAt: p.manager_review_requested_at?.toISOString() || null,
+      managerReviewReason: p.manager_review_reason,
       requesterName: p.manager_requester?.full_name || p.manager_requester?.username || 'Unknown',
       vehicleExited: !!p.visit.gate_log?.exit_timestamp,
       results: p.plant_lab_results.map((r) => {

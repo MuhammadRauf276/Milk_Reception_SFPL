@@ -1,8 +1,7 @@
 'use client';
 
 import React from 'react';
-import { MilkTestPolicyWorkspace } from '../policy/MilkTestPolicyWorkspace';
-import { Sliders } from 'lucide-react';
+import { UnifiedStagePoliciesRulesWorkspace } from '@/frontend/modules/super-admin/UnifiedStagePoliciesRulesWorkspace';
 import type { User } from '@core/types';
 
 interface MpdPolicyScreenProps {
@@ -10,29 +9,15 @@ interface MpdPolicyScreenProps {
 }
 
 export const MpdPolicyScreen: React.FC<MpdPolicyScreenProps> = ({ currentUser }) => {
+  const isEditor = ['SUPER_ADMIN', 'DATA_EXECUTIVE', 'DATA_ANALYST'].includes(currentUser?.role || '');
+
   return (
     <div className="space-y-6">
-      {/* Policy Workspace Wrapper */}
-      <div className="bg-white border border-border rounded-xl p-4 shadow-xs">
-        <div className="flex items-start gap-3">
-          <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center text-primary shrink-0">
-            <Sliders className="w-4 h-4" />
-          </div>
-          <div>
-            <h2 className="text-xs font-semibold text-foreground">
-              Upstream Milk Quality & Testing Policies Configuration
-            </h2>
-            <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-              Define and review mandatory test parameters, tolerance thresholds, and sampling frequencies for Local Suppliers (at ZMCC gate), MOT Routes (at village shops), ZMCC Bulk Silos, and Direct Plant Contractors.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Embedded MilkTestPolicyWorkspace */}
-      <div className="bg-white border border-border rounded-xl p-4 shadow-xs">
-        <MilkTestPolicyWorkspace currentUser={currentUser ?? null} />
-      </div>
+      <UnifiedStagePoliciesRulesWorkspace
+        currentUser={currentUser ?? null}
+        defaultTestingPoint="MOT_SHOP"
+        forceReadOnly={!isEditor}
+      />
     </div>
   );
 };

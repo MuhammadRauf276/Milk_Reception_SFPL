@@ -192,11 +192,15 @@ export function formatCollectionSmsMessage(params: {
   }).format(params.collectedAt);
 
   return [
-    `Milk Collection Confirmed: ${params.shopName}`,
-    `RMR No: ${params.shopRmrNumber || 'N/A'} | Journey: ${params.journeyNumber}`,
-    `Vehicle: ${params.vehicleNumber} | MOT: ${params.motName}`,
-    `Gross Qty: ${params.grossLiters.toFixed(2)} L | LR: ${params.lr.toFixed(1)} | Fat: ${params.fat.toFixed(1)}%`,
-    `SNF: ${params.snf.toFixed(2)}% | TS: ${params.ts.toFixed(2)}% | @13 TS: ${params.at13tsLiters.toFixed(2)} L`,
-    `Date/Time: ${pktTimeStr} PKT`,
+    `*Shakarganj Milk Reception Receipt*`,
+    `*Shop:* ${params.shopName}`,
+    `*RMR No:* ${params.shopRmrNumber || 'N/A'} | *Journey:* #${params.journeyNumber}`,
+    `*Vehicle:* ${params.vehicleNumber} | *MOT:* ${params.motName}`,
+    `*Gross Qty:* ${params.grossLiters.toFixed(2)} L`,
+    `*LR:* ${params.lr.toFixed(1)} | *Fat:* ${params.fat.toFixed(1)}%`,
+    `*SNF:* ${params.snf.toFixed(2)}% | *Total Solids:* ${params.ts.toFixed(2)}%`,
+    `*@13% TS:* ${params.at13tsLiters.toFixed(2)} L`,
+    `*Date/Time:* ${pktTimeStr} PKT`,
+    `_Shakarganj Food Products Ltd, Field Reception_`,
   ].join('\n');
 }

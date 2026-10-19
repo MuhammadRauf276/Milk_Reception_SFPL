@@ -1,13 +1,21 @@
-import { clearMotOfflineWorkspace } from '@/frontend/modules/mot/offlineStore';
+import { clearMotSessionCache, getUnsentWorkSummary, type UnsentWorkSummary } from '@/frontend/modules/mot/offlineStore';
+
+/** Tells the UI whether anything saved on this phone is still waiting to be sent. */
+export async function getLogoutSafety(options?: { isMot?: boolean }): Promise<UnsentWorkSummary> {
+  return getUnsentWorkSummary(options);
+}
 
 /**
  * Gracefully logs out the user:
  * 1. Unsubscribes browser push subscription from PushManager for this device.
  * 2. Calls /api/auth/logout with endpoint for backend DB revocation.
- * 3. Clears offline workspace caches.
+ * 3. Always clears the journey cache and offline preparation (so the next user does not see them). Unsent work (collections, GPS, skips, shop requests, drafts)
+ *    is NEVER deleted here; it stays on the phone until the server confirms it.
  * 4. Redirects to /login.
+ *
+ * `keepUnsentWork` is accepted for clarity at call sites. Unsent work is always kept.
  */
-export async function logoutUser(): Promise<void> {
+export async function logoutUser(_options?: { keepUnsentWork?: boolean }): Promise<void> {
   let endpoint: string | null = null;
 
   try {
@@ -36,7 +44,7 @@ export async function logoutUser(): Promise<void> {
   }
 
   try {
-    await clearMotOfflineWorkspace();
+    await clearMotSessionCache();
   } catch (_e) {
     // Ignore cache clearing errors
   }

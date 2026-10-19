@@ -8,7 +8,6 @@ import {
   Layers,
   ShieldAlert,
   Sliders,
-  RefreshCw,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { MpdTabId, MpdExecutiveTelemetryData } from './types';
@@ -37,7 +36,6 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
   const [loading, setLoading] = useState(!initialData);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lastRefreshedAt, setLastRefreshedAt] = useState<Date>(new Date());
 
   const loadTelemetry = useCallback(
     (isManual = false) =>
@@ -46,7 +44,6 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
           const json = await res.json();
           if (res.ok && json.success) {
             setTelemetry(json.data);
-            setLastRefreshedAt(new Date());
             setError(null);
           } else {
             setError(json.error || 'Failed to load MPD Executive Telemetry.');
@@ -110,7 +107,7 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
   const tabs: Array<{ id: MpdTabId; label: string; icon: React.ReactNode; count?: number }> = [
     {
       id: 'FLEET_RADAR',
-      label: 'Live Fleet Radar',
+      label: 'Fleet radar',
       icon: <Truck className="w-4 h-4" />,
       count: telemetry ? telemetry.inTransitTankers.length + telemetry.motRoutes.length : undefined,
     },
@@ -157,11 +154,7 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
         }
         actions={
           <>
-            <span className="hidden text-xs text-muted-foreground sm:inline tabular-nums">
-              Updated {lastRefreshedAt.toLocaleTimeString()}
-            </span>
             <Button variant="outline" size="sm" onClick={() => fetchTelemetry(true)} disabled={isRefreshing}>
-              <RefreshCw className={isRefreshing ? 'animate-spin' : ''} />
               {isRefreshing ? 'Refreshing…' : 'Refresh'}
             </Button>
           </>
@@ -218,7 +211,7 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
           </>
         ) : (
           <div className="bg-white border border-border rounded-xl p-12 text-center text-slate-500 text-xs">
-            Loading MPD Executive Telemetry...
+            Loading MPD Executive Telemetry…
           </div>
         )}
       </div>

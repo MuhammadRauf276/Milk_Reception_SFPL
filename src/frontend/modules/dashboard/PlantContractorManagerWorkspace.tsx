@@ -9,17 +9,10 @@ import { ContractorReceiptsReconciliation } from './contractor/ContractorReceipt
 import { ContractorHistoryReports } from './contractor/ContractorHistoryReports';
 import { PlantContractorTab } from './contractor/contractorManagerTypes';
 import {
-  LayoutDashboard,
-  Truck,
-  FlaskConical,
-  Receipt,
-  History,
-  RefreshCw,
   Building2,
   Calendar,
   AlertCircle,
 } from 'lucide-react';
-import { SegmentedTabs } from '@/components/ui/segmented-tabs';
 import { getErrorMessage } from '@/lib/errors';
 
 interface PlantContractorManagerWorkspaceProps {
@@ -27,14 +20,6 @@ interface PlantContractorManagerWorkspaceProps {
   activeTab?: PlantContractorTab;
   onTabChange?: (tab: PlantContractorTab) => void;
 }
-
-const TABS: { id: PlantContractorTab; label: string; icon: React.FC<{ className?: string }> }[] = [
-  { id: 'OVERVIEW', label: 'Overview', icon: LayoutDashboard },
-  { id: 'LIVE', label: 'Live Pipeline', icon: Truck },
-  { id: 'QUALITY', label: 'Quality & Rejections', icon: FlaskConical },
-  { id: 'RECEIPTS', label: 'Receipts & Reconciliation', icon: Receipt },
-  { id: 'HISTORY', label: 'History & Reports', icon: History },
-];
 
 export const PlantContractorManagerWorkspace: React.FC<PlantContractorManagerWorkspaceProps> = ({
   currentUser,
@@ -123,7 +108,6 @@ export const PlantContractorManagerWorkspace: React.FC<PlantContractorManagerWor
 
   return (
     <div className="flex-1 flex flex-col min-w-0 overflow-hidden w-full max-w-full">
-      {/* Workspace Toolbar */}
       <div className="bg-card border-b px-4 sm:px-6 py-4 shrink-0">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
@@ -131,7 +115,7 @@ export const PlantContractorManagerWorkspace: React.FC<PlantContractorManagerWor
                 <span className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-primary/10 text-primary">
                   Direct-to-plant supplier
                 </span>
-                <span className="text-xs text-slate-400 font-semibold">•</span>
+                <span className="text-xs text-slate-400 font-semibold">·</span>
                 <span className="text-xs font-semibold text-slate-700 flex items-center space-x-1">
                   <Building2 className="w-3.5 h-3.5 text-primary shrink-0" />
                   <span>{assignedSourceName}</span>
@@ -155,26 +139,13 @@ export const PlantContractorManagerWorkspace: React.FC<PlantContractorManagerWor
                 disabled={loading}
                 className="flex items-center space-x-1.5 px-3.5 py-2 min-h-[44px] bg-subtle hover:bg-muted/60 border border-border-strong rounded-xl text-xs font-semibold text-foreground shadow-2xs transition active:scale-95 disabled:opacity-50"
               >
-                <RefreshCw className={`w-3.5 h-3.5 text-primary ${loading ? 'animate-spin' : ''}`} />
                 <span>Refresh</span>
               </button>
             </div>
           </div>
 
-          {/* Navigation Tab Strip */}
-          <SegmentedTabs
-            className="mt-4"
-            label="Contractor views"
-            value={activeTab}
-            onValueChange={(tab) => {
-              setActiveTab(tab);
-              setPage(1);
-            }}
-            tabs={TABS.map((tab) => ({ value: tab.id, label: tab.label, icon: tab.icon }))}
-          />
         </div>
 
-        {/* Tab Content Body */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
           {error && (
             <div className="p-4 mb-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center space-x-2 shadow-xs animate-panel-in">
@@ -239,7 +210,6 @@ export const PlantContractorManagerWorkspace: React.FC<PlantContractorManagerWor
             )}
           </div>
 
-          {/* Pagination bar for non-history tabs */}
           {activeTab !== 'HISTORY' && totalRecords > 0 && (
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 bg-white border border-border-strong rounded-xl text-xs shadow-2xs mt-4">
               <div className="text-slate-600 font-medium">
@@ -248,7 +218,7 @@ export const PlantContractorManagerWorkspace: React.FC<PlantContractorManagerWor
                 (<span className="font-semibold text-slate-900">{totalRecords}</span> total visits)
                 {totalPages > 1 && (
                   <span className="ml-2 text-[11px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                    Bounded view • navigate pages for older records
+                    Bounded view · navigate pages for older records
                   </span>
                 )}
               </div>

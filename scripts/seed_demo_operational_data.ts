@@ -994,13 +994,13 @@ export async function seedOperationalData() {
 
   // Ensure MOT Route, Profile, and Vehicle exist for Hasilpur
   let zmccRoute = await prisma.zmccRoute.findFirst({
-    where: { zmcc_id: hasilpurSource.id, route_code: 'DEMO-R-HAS-01' },
+    where: { zmcc_id: hasilpurSource.id, route_code: 'RT-HAS-001' },
   });
   if (!zmccRoute) {
     zmccRoute = await prisma.zmccRoute.create({
       data: {
         zmcc_id: hasilpurSource.id,
-        route_code: 'DEMO-R-HAS-01',
+        route_code: 'RT-HAS-001',
         name: 'Hasilpur Rural Route 01',
         origin: 'Hasilpur Sub-Div',
         destination: 'ZMCC Hasilpur',
@@ -1011,15 +1011,15 @@ export async function seedOperationalData() {
   }
 
   let motProfile = await prisma.motProfile.findFirst({
-    where: { zmcc_id: hasilpurSource.id, mot_code: 'DEMO-MOT-HAS-01' },
+    where: { zmcc_id: hasilpurSource.id, mot_code: 'MOT-HAS-001' },
   });
   if (!motProfile) {
     motProfile = await prisma.motProfile.create({
       data: {
         zmcc_id: hasilpurSource.id,
-        mot_code: 'DEMO-MOT-HAS-01',
-        name: 'Muhammad Tariq (MOT Officer)',
-        phone_number: '03001234568',
+        mot_code: 'MOT-HAS-001',
+        name: 'Muhammad Tariq',
+        phone_number: '03176826604',
         cnic: '31202-1234568-1',
         is_active: true,
         created_by: zmccManager.id,
@@ -1028,13 +1028,13 @@ export async function seedOperationalData() {
   }
 
   let motVehicle = await prisma.motVehicle.findFirst({
-    where: { zmcc_id: hasilpurSource.id, vehicle_number: 'DEMO-BWP-5522' },
+    where: { zmcc_id: hasilpurSource.id, vehicle_number: 'BWP-5522' },
   });
   if (!motVehicle) {
     motVehicle = await prisma.motVehicle.create({
       data: {
         zmcc_id: hasilpurSource.id,
-        vehicle_number: 'DEMO-BWP-5522',
+        vehicle_number: 'BWP-5522',
         is_active: true,
         created_by: zmccManager.id,
       },
@@ -1056,10 +1056,10 @@ export async function seedOperationalData() {
     data: {
       local_supplier_code: await allocateSupplierCode(),
       zmcc_id: hasilpurSource.id,
-      name: 'DEMO - Bashir Milk Collection Center',
-      phone: '03001234501',
+      name: 'Bashir Milk Collection Center',
+      phone: '03176826604',
       cnic: '31202-1234567-1',
-      erp_reference: 'DEMO-ERP-LS-HAS-001',
+      erp_reference: 'LS-HAS-001',
       erp_mapping_status: 'PENDING',
       is_active: true,
       created_by_user_id: pheUser.id,
@@ -1071,10 +1071,10 @@ export async function seedOperationalData() {
     data: {
       local_supplier_code: await allocateSupplierCode(),
       zmcc_id: hasilpurSource.id,
-      name: 'DEMO - Chaudhry Dairy & Cattle Farm',
-      phone: '03017654321',
+      name: 'Chaudhry Dairy & Cattle Farm',
+      phone: '03176826604',
       cnic: '31202-7654321-2',
-      erp_reference: 'DEMO-ERP-LS-HAS-002',
+      erp_reference: 'LS-HAS-002',
       erp_mapping_status: 'PENDING',
       is_active: true,
       created_by_user_id: zmccManager.id,
@@ -1086,10 +1086,10 @@ export async function seedOperationalData() {
     data: {
       local_supplier_code: await allocateSupplierCode(),
       zmcc_id: hasilpurSource.id,
-      name: 'DEMO - Rehman Dairy Supplies (Inactive)',
-      phone: '03029876543',
+      name: 'Rehman Dairy Supplies',
+      phone: '03176826604',
       cnic: '31202-9876543-3',
-      erp_reference: 'DEMO-ERP-LS-INACT-03',
+      erp_reference: 'LS-HAS-003',
       erp_mapping_status: 'PENDING',
       is_active: true,
       created_by_user_id: zmccManager.id,
@@ -1163,14 +1163,14 @@ export async function seedOperationalData() {
     },
   });
 
-  // Ensure Demo Shop Area & Milk Source exist
+  // Ensure Shop Area & Milk Source exist
   let demoArea = await prisma.zmccArea.findFirst({
-    where: { zmcc_id: hasilpurSource.id, area_code: 'DEMO-AREA-HAS-01' },
+    where: { zmcc_id: hasilpurSource.id, area_code: 'AR-HAS-01' },
   });
   if (!demoArea) {
     demoArea = await prisma.zmccArea.create({
       data: {
-        area_code: 'DEMO-AREA-HAS-01',
+        area_code: 'AR-HAS-01',
         name: 'Hasilpur East Rural Area',
         route_id: zmccRoute.id,
         zmcc_id: hasilpurSource.id,
@@ -1180,12 +1180,12 @@ export async function seedOperationalData() {
   }
 
   let demoMilkSource = await prisma.zmccMilkSource.findFirst({
-    where: { zmcc_id: hasilpurSource.id, erp_code: 'DEMO-MS-HAS-01' },
+    where: { zmcc_id: hasilpurSource.id, erp_code: 'MS-HAS-01' },
   });
   if (!demoMilkSource) {
     demoMilkSource = await prisma.zmccMilkSource.create({
       data: {
-        erp_code: 'DEMO-MS-HAS-01',
+        erp_code: 'MS-HAS-01',
         name: 'Direct Farm Collection Source',
         zmcc_id: hasilpurSource.id,
         is_active: true,
@@ -1199,15 +1199,15 @@ export async function seedOperationalData() {
   });
 
   let demoShop = await prisma.zmccShop.findFirst({
-    where: { shop_code: 'DEMO-SH-HAS-01' },
+    where: { shop_code: 'SHP-000001' },
   });
   if (!demoShop) {
     demoShop = await prisma.zmccShop.create({
       data: {
-        shop_code: 'DEMO-SH-HAS-01',
-        shop_name: 'DEMO - Al-Madina Milk Center',
+        shop_code: 'SHP-000001',
+        shop_name: 'Al-Madina Milk Center',
         owner_name: 'Haji Ghulam Rasool',
-        phone_number: '03009876543',
+        phone_number: '03176826604',
         cnic: '31202-9876543-1',
         area_id: demoArea.id,
         route_id: zmccRoute.id,
@@ -1274,7 +1274,7 @@ export async function seedOperationalData() {
       device_collected_at: new Date(timeTodayArr2.getTime() - 3600000),
       submitted_by_user_id: mpdUser.id,
       shop_rmr_number: '004821', // Stage 6G-G: Digits-only string with leading zeros preserved
-      collection_notes: 'Demo Stage 6G-G Shop RMR operational record',
+      collection_notes: 'Stage 6G-G Shop RMR operational record',
     },
   });
 
@@ -1475,7 +1475,7 @@ export async function seedOperationalData() {
       idempotency_key: `ZMCC_TANK_RECEIPT:LAB_SESSION:${session3.id}`,
       operational_timestamp: new Date(timeTodayArr3.getTime() + 2100000),
       performed_by_user_id: zmccLabUser.id,
-      notes: 'Demo Local Supplier Tank Receipt - Hasilpur',
+      notes: 'Local Supplier Tank Receipt - Hasilpur',
     },
   });
 
@@ -1722,11 +1722,11 @@ export async function seedOperationalData() {
       idempotency_key: `ZMCC_TANK_RECEIPT:LAB_SESSION:${session5.id}`,
       operational_timestamp: new Date(timeYestArr5.getTime() + 2700000),
       performed_by_user_id: zmccLabUser.id,
-      notes: 'Demo MOT Tank Receipt - Hasilpur',
+      notes: 'MOT Tank Receipt - Hasilpur',
     },
   });
 
-  console.log('✅ ZMCC Hasilpur Demo Records successfully created:');
+  console.log('✅ ZMCC Hasilpur Operational Records successfully created:');
   console.log('  - Local Suppliers: 3 created (2 Active, 1 Inactive)');
   console.log('  - Arrivals: 5 created (2 Inside ZMCC, 3 Exited)');
   console.log('  - Lab Sessions: 4 created (1 In-Progress, 2 Accepted, 1 Rejected)');

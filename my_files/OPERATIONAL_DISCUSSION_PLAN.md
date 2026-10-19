@@ -4,4 +4,4 @@
 3. **The 3-Tier Operational Access Matrix**:
    - **Operators**: Input fields for their assigned station only.
    - **Department Managers**: View specialized progress logs, filter regional data, and hold data-correction key overrides.
-   - **Factory Head (Main Admin)**: Oversees cross-department timelines and retains global data rollback controls.
+   - **Plant Head (Main Admin)**: Oversees cross-department timelines and retains global data rollback controls.

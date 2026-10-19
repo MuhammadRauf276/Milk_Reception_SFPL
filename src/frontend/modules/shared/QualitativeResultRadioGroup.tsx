@@ -13,6 +13,7 @@ export interface QualitativeResultRadioGroupProps {
   value: string | null;
   options: ResultOption[];
   disabled?: boolean;
+  compact?: boolean;
   onChange: (value: string) => void;
   error?: string;
   className?: string;
@@ -25,6 +26,7 @@ export const QualitativeResultRadioGroup: React.FC<QualitativeResultRadioGroupPr
   value,
   options,
   disabled = false,
+  compact = false,
   onChange,
   error,
   className = '',
@@ -39,12 +41,12 @@ export const QualitativeResultRadioGroup: React.FC<QualitativeResultRadioGroupPr
   const accessibleGroupLabel = ariaLabel || (ariaLabelledBy ? undefined : 'Qualitative test result');
 
   return (
-    <div className={`space-y-1.5 ${className}`}>
+    <div className={`space-y-1 ${className}`}>
       <div
         role="radiogroup"
         {...(ariaLabelledBy ? { 'aria-labelledby': ariaLabelledBy } : { 'aria-label': accessibleGroupLabel })}
         {...(errorId ? { 'aria-describedby': errorId } : {})}
-        className="flex flex-wrap items-center gap-2"
+        className="flex flex-wrap items-center gap-1.5"
       >
         {options.map((opt, idx) => {
           const isChecked = value === opt.value;
@@ -55,11 +57,13 @@ export const QualitativeResultRadioGroup: React.FC<QualitativeResultRadioGroupPr
             <label
               key={opt.value}
               htmlFor={inputId}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold tabular-nums cursor-pointer transition select-none ${
+              className={`inline-flex items-center cursor-pointer transition select-none font-semibold tabular-nums ${
+                compact ? 'gap-1 px-2 py-0.5 rounded-md text-[11px]' : 'gap-1.5 px-3 py-1.5 rounded-lg text-xs'
+              } border ${
                 disabled
                   ? 'opacity-50 cursor-not-allowed bg-slate-100 border-slate-300 text-slate-500'
                   : isChecked
-                  ? 'bg-blue-50 border-blue-600 text-primary ring-1 ring-blue-600 shadow-xs'
+                  ? 'bg-primary/10 border-primary text-primary ring-1 ring-primary shadow-xs'
                   : 'bg-white border-border-strong text-foreground hover:bg-slate-50 hover:border-slate-400'
               }`}
             >
@@ -72,7 +76,7 @@ export const QualitativeResultRadioGroup: React.FC<QualitativeResultRadioGroupPr
                 disabled={disabled}
                 onChange={() => onChange(opt.value)}
                 aria-describedby={errorId}
-                className="w-3.5 h-3.5 text-primary border-slate-300 focus:ring-2 focus:ring-primary cursor-pointer"
+                className={`${compact ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-primary border-slate-300 focus:ring-2 focus:ring-primary cursor-pointer`}
               />
               <span className="leading-tight">{opt.label || opt.value}</span>
             </label>

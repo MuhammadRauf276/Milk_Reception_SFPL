@@ -12,6 +12,7 @@ export type CanonicalRole =
   | 'ZMCC_MANAGER'
   | 'CONTRACTOR_MANAGER'
   | 'PHE_OPERATOR'
+  | 'MDO'
   | 'ZMCC_LAB_ATTENDANT'
   | 'MOT'
   | 'CONTRACTOR_OPERATOR'
@@ -114,7 +115,7 @@ export const FIXTURE_USER_PROFILES: Record<string, User> = {
   'qa.head': {
     id: 'usr_qa_head',
     username: 'qa.head',
-    name: 'QA Head',
+    name: 'AVP, QA Reception Lab',
     role: 'QA_HEAD',
     department: 'Quality Assurance',
     scope_type: 'DEPARTMENT',
@@ -134,6 +135,24 @@ export const FIXTURE_USER_PROFILES: Record<string, User> = {
     role: 'FINANCE_ACCOUNTS',
     department: 'Finance & Accounts',
     scope_type: 'DEPARTMENT',
+  },
+  'zmcc.manager.hasilpur': {
+    id: 'usr_mpd_zm_has',
+    username: 'zmcc.manager.hasilpur',
+    name: 'ZMCC Manager - Hasilpur',
+    role: 'ZMCC_MANAGER',
+    department: 'Milk Procurement (Hasilpur)',
+    scope_type: 'SOURCE',
+    zone: 'ZMCC Hasilpur',
+  },
+  'zmcc.manager.jhang': {
+    id: 'usr_mpd_zm_jhg',
+    username: 'zmcc.manager.jhang',
+    name: 'ZMCC Manager - Jhang',
+    role: 'ZMCC_MANAGER',
+    department: 'Milk Procurement (Jhang)',
+    scope_type: 'SOURCE',
+    zone: 'ZMCC Jhang',
   },
   'zmcc.manager.north': {
     id: 'usr_mpd_zm_n',
@@ -207,7 +226,7 @@ export const FIXTURE_USER_PROFILES: Record<string, User> = {
   'contractor.operator.alkhair': {
     id: 'usr_cont_op_ak',
     username: 'contractor.operator.alkhair',
-    name: 'Wasim Sahib',
+    name: 'Contractor Operator (Al Khair)',
     role: 'CONTRACTOR_OPERATOR',
     department: 'Milk Procurement - Contractor Operations',
     scope_type: 'SOURCE',
@@ -230,7 +249,7 @@ export const FIXTURE_USER_PROFILES: Record<string, User> = {
   'qa.manager': {
     id: 'usr_qa_mgr',
     username: 'qa.manager',
-    name: 'QA Manager',
+    name: 'Manager, QA Reception Lab',
     role: 'QA_MANAGER',
     department: 'Quality Assurance',
     scope_type: 'DEPARTMENT',
@@ -238,7 +257,7 @@ export const FIXTURE_USER_PROFILES: Record<string, User> = {
   'qa.chemist': {
     id: 'usr_qa_op',
     username: 'qa.chemist',
-    name: 'QA Lab Attendant',
+    name: 'QAE, Reception Lab',
     role: 'QA_LAB_ATTENDANT',
     department: 'Quality Assurance',
     scope_type: 'DEPARTMENT',
@@ -279,6 +298,8 @@ export const AUTHENTICATED_USERS: Record<string, { user: User }> = {
   'qa.head': { user: FIXTURE_USER_PROFILES['qa.head'] },
   'production.head': { user: FIXTURE_USER_PROFILES['production.head'] },
   'finance.accounts': { user: FIXTURE_USER_PROFILES['finance.accounts'] },
+  'zmcc.manager.hasilpur': { user: FIXTURE_USER_PROFILES['zmcc.manager.hasilpur'] },
+  'zmcc.manager.jhang': { user: FIXTURE_USER_PROFILES['zmcc.manager.jhang'] },
   'zmcc.manager.north': { user: FIXTURE_USER_PROFILES['zmcc.manager.north'] },
   'contractor.manager.alkhair': { user: FIXTURE_USER_PROFILES['contractor.manager.alkhair'] },
   'phe.operator': { user: FIXTURE_USER_PROFILES['phe.operator'] },

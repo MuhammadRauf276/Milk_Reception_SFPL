@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { PlusCircle, Check, Calculator, Edit3, Trash2 } from 'lucide-react';
+import { PlusCircle, Check, Calculator, Edit3, Trash2, X } from 'lucide-react';
 import { QualitativeResultRadioGroup } from '@/frontend/modules/shared/QualitativeResultRadioGroup';
 import {
   QuantityUnit,
@@ -124,7 +124,6 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
         )}
       </div>
 
-      {/* Render Saved Portion Summary Cards & Active Expanded Editor */}
       <div className="space-y-3.5">
         {portions.map((portion, index) => {
           const isEditing = editingPortionIndex === index;
@@ -186,7 +185,6 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
                   </div>
                 </div>
 
-                {/* Calculated Milk Summary Strip */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-slate-100 text-xs tabular-nums font-semibold text-slate-700">
                   <div className="p-2 rounded-xl bg-subtle border border-border">
                     <span className="text-[10px] font-sans text-slate-500 block">SNF %</span>
@@ -231,15 +229,33 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
                 className="p-4 sm:p-5 rounded-xl bg-white border-2 border-primary-hover shadow-md space-y-4"
               >
                 <div className="flex items-center justify-between border-b pb-2.5">
-                  <span className="font-semibold text-sm text-primary-hover">
-                    Portion {portion.portionNumber}
-                  </span>
-                  <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
-                    {progress.label}
-                  </span>
+                  <div className="flex items-center space-x-2">
+                    <span className="font-semibold text-sm text-primary">
+                      Portion {portion.portionNumber}
+                    </span>
+                    {portions.length > 1 && (
+                      <span className="text-[10px] text-slate-500 font-medium">
+                        (Sub-lot)
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
+                      {progress.label}
+                    </span>
+                    {portions.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => onRemovePortion(index)}
+                        title={`Remove Portion ${portion.portionNumber}`}
+                        className="p-1 rounded-lg text-slate-400 hover:text-rose-700 hover:bg-rose-50 transition border border-transparent hover:border-rose-200 cursor-pointer"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
                 </div>
 
-                {/* Portion Quantity & Controls */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <label className="block text-xs font-semibold text-foreground">
@@ -271,29 +287,15 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
                       <label htmlFor={`portion-unit-select-${index}`} className="block text-xs font-semibold text-slate-600">
                         Unit * {index > 0 && <span className="text-[10px] font-normal text-slate-500">(Shared from P1)</span>}
                       </label>
-                      {index === 0 ? (
-                        <select
-                          id={`portion-unit-select-${index}`}
-                          value={portion.quantity.unit}
-                          onChange={(e) => onPortionUnitChange(index, e.target.value as QuantityUnitType)}
-                          className="w-full h-11 px-3 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-white text-foreground focus:ring-2 focus:ring-primary-hover outline-hidden transition"
-                        >
-                          {portionAllowedUnits.map((u) => (
-                            <option key={u} value={u}>
-                              {u}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <input
-                          id={`portion-unit-select-${index}`}
-                          type="text"
-                          readOnly
-                          disabled
-                          value={portion.quantity.unit}
-                          className="w-full h-11 px-3.5 text-xs tabular-nums font-semibold rounded-xl border border-slate-200 bg-slate-100 text-slate-500 cursor-not-allowed outline-hidden select-none"
-                        />
-                      )}
+                      <div className="w-full h-11 px-3.5 flex items-center justify-between rounded-xl border border-border-strong bg-slate-50 text-foreground">
+                        <span className="text-xs font-bold tabular-nums text-slate-900 tracking-wider">
+                          KG
+                        </span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-md">
+                          Standard
+                        </span>
+                      </div>
+                      <input type="hidden" id={`portion-unit-select-${index}`} value="KG" />
                     </div>
 
                     <div className="space-y-1">
@@ -333,9 +335,8 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
                   )}
                 </div>
 
-                {/* Contractor Dispatch Tests Grid (Explicit Performance Status) */}
                 {isContractorSource ? (
-                  <div className="space-y-3 pt-2 border-t border-slate-100">
+                  <div className="space-y-2 pt-2 border-t border-slate-100">
                     <div className="flex items-center justify-between">
                       <label className="block text-xs font-semibold text-foreground">
                         Contractor Dispatch Tests ({manualLabTests.length} Tests)
@@ -345,150 +346,8 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
-                      {manualLabTests.map((test) => {
-                        const resultState = portion.results[test.testId] || {
-                          numericValue: '',
-                          textValue: '',
-                          performanceStatus: 'PERFORMED',
-                          notPerformedReason: '',
-                        };
-                        const testError = portionErrors[index]?.tests?.[test.testId];
-                        const isPerformed = resultState.performanceStatus === 'PERFORMED';
-
-                        return (
-                          <div
-                            key={`contractor-test-${portion.clientId}-${test.id}`}
-                            className={`p-3 rounded-xl border space-y-2 transition ${
-                              testError
-                                ? 'border-rose-500 bg-rose-50/30 ring-1 ring-rose-400'
-                                : isPerformed
-                                ? 'border-border-strong bg-muted'
-                                : 'border-slate-300 bg-slate-100/70'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between text-xs font-semibold">
-                              <span className="text-foreground font-semibold">
-                                {test.testName}
-                              </span>
-                              {test.unit && (
-                                <span className="text-[10px] tabular-nums text-slate-500">({test.unit})</span>
-                              )}
-                            </div>
-
-                            {/* Performance Status Toggle */}
-                            <div className="flex items-center space-x-1.5">
-                              <button
-                                type="button"
-                                onClick={() => onPerformanceStatusChange(index, test.testId, 'PERFORMED')}
-                                className={`h-8 px-3 rounded-lg text-xs font-semibold transition ${
-                                  isPerformed
-                                    ? 'bg-primary-hover text-white shadow-xs'
-                                    : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
-                                }`}
-                              >
-                                PERFORMED
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => onPerformanceStatusChange(index, test.testId, 'NOT_PERFORMED')}
-                                className={`h-8 px-3 rounded-lg text-xs font-semibold transition ${
-                                  !isPerformed
-                                    ? 'bg-rose-700 text-white shadow-xs'
-                                    : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
-                                }`}
-                              >
-                                NOT PERFORMED
-                              </button>
-                            </div>
-
-                            {/* Dynamic Input Control: Result when PERFORMED, Reason when NOT_PERFORMED */}
-                            {isPerformed ? (
-                              <div className="space-y-1">
-                                {test.resultType === 'NUMERIC' ? (
-                                  <input
-                                    id={`test-input-field-${index}-${test.id}`}
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    value={resultState.numericValue}
-                                    onChange={(e) =>
-                                      onTestResultChange(index, test.testId, 'numericValue', e.target.value)
-                                    }
-                                    placeholder="Enter numeric value"
-                                    className={`w-full h-10 px-3 text-xs tabular-nums font-semibold rounded-lg border bg-white text-foreground focus:ring-2 focus:ring-primary-hover outline-hidden transition ${
-                                      testError ? 'border-rose-500' : 'border-border-strong'
-                                    }`}
-                                  />
-                                ) : Array.isArray(test.resultOptions) && test.resultOptions.length > 0 ? (
-                                  <QualitativeResultRadioGroup
-                                    name={`dispatch-contractor-${portion.clientId}-${test.id}`}
-                                    value={resultState.textValue || null}
-                                    options={test.resultOptions}
-                                    onChange={(val) =>
-                                      onTestResultChange(index, test.testId, 'textValue', val)
-                                    }
-                                    error={testError}
-                                    ariaLabel={`${test.testName} result for Portion ${portion.portionNumber}`}
-                                  />
-                                ) : (
-                                  <input
-                                    id={`test-input-field-${index}-${test.id}`}
-                                    type="text"
-                                    value={resultState.textValue}
-                                    onChange={(e) =>
-                                      onTestResultChange(index, test.testId, 'textValue', e.target.value)
-                                    }
-                                    placeholder="Enter result"
-                                    className={`w-full h-10 px-3 text-xs tabular-nums font-semibold rounded-lg border bg-white text-foreground focus:ring-2 focus:ring-primary-hover outline-hidden transition ${
-                                      testError ? 'border-rose-500' : 'border-border-strong'
-                                    }`}
-                                  />
-                                )}
-                              </div>
-                            ) : (
-                              <div className="space-y-1">
-                                <input
-                                  id={`test-reason-field-${index}-${test.id}`}
-                                  type="text"
-                                  value={resultState.notPerformedReason}
-                                  onChange={(e) =>
-                                    onTestResultChange(index, test.testId, 'notPerformedReason', e.target.value)
-                                  }
-                                  placeholder="Reason (e.g. Contract Vehicle)"
-                                  className={`w-full h-10 px-3 text-xs tabular-nums font-semibold rounded-lg border bg-rose-50/40 text-rose-900 border-rose-300 focus:ring-2 focus:ring-rose-500 outline-hidden transition ${
-                                    testError ? 'border-rose-500' : ''
-                                  }`}
-                                />
-                              </div>
-                            )}
-
-                            {testError && (
-                              <p className="text-[11px] font-semibold text-rose-600 mt-0.5" id={`test-error-${index}-${test.id}`}>
-                                {testError}
-                              </p>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ) : (
-                  /* ZMCC Full Manual Lab Tests Input Grid */
-                  <div className="space-y-2.5 pt-2 border-t border-slate-100">
-                    <div className="flex items-center justify-between pb-1">
-                      <label className="block text-xs font-semibold text-foreground">
-                        Lab Tests ({manualLabTests.length} Manual Observations)
-                      </label>
-                      <span className="text-[10px] font-semibold text-slate-500">
-                        ZMCC Strict Mode Testing
-                      </span>
-                    </div>
-
-                    {isLoadingTests ? (
-                      <p className="text-xs text-slate-500">Loading lab tests...</p>
-                    ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                    <div className="max-h-[380px] overflow-y-auto pr-1.5 scrollbar-thin scrollbar-thumb-slate-300 hover:scrollbar-thumb-slate-400 p-2 bg-slate-50/70 rounded-xl border border-slate-200">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 min-w-0">
                         {manualLabTests.map((test) => {
                           const resultState = portion.results[test.testId] || {
                             numericValue: '',
@@ -497,111 +356,76 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
                             notPerformedReason: '',
                           };
                           const testError = portionErrors[index]?.tests?.[test.testId];
+                          const isPerformed = resultState.performanceStatus === 'PERFORMED';
 
                           return (
                             <div
-                              key={`test-input-${portion.clientId}-${test.id}`}
-                              className={`p-3 rounded-xl bg-muted border space-y-2 ${
-                                testError ? 'border-rose-500 bg-rose-50/20' : 'border-border-strong'
+                              key={`contractor-test-${portion.clientId}-${test.id}`}
+                              className={`p-2.5 rounded-lg border space-y-1.5 min-w-0 transition ${
+                                testError
+                                  ? 'border-rose-500 bg-rose-50/30 ring-1 ring-rose-400'
+                                  : isPerformed
+                                  ? 'border-border-strong bg-muted'
+                                  : 'border-slate-300 bg-slate-100/70'
                               }`}
                             >
-                              <div className="flex items-center justify-between text-xs font-semibold">
-                                <span>
-                                  {test.testName} {test.isRequired && <span className="text-rose-600">*</span>}
+                              <div className="flex items-center justify-between text-xs font-semibold gap-1.5 min-w-0">
+                                <span className="text-foreground font-semibold truncate" title={test.testName}>
+                                  {test.testName}
                                 </span>
                                 {test.unit && (
-                                  <span className="text-[10px] tabular-nums text-slate-500">({test.unit})</span>
+                                  <span className="text-[10px] tabular-nums text-slate-500 shrink-0 font-medium">({test.unit})</span>
                                 )}
                               </div>
 
-                              {test.resultType === 'NUMERIC' ? (
-                                <div className="space-y-1.5">
-                                  <div className="flex items-center space-x-1">
-                                    <button
-                                      type="button"
-                                      onClick={() => onPerformanceStatusChange(index, test.testId, 'PERFORMED')}
-                                      className={`h-7 px-2.5 rounded text-[11px] font-semibold transition ${
-                                        resultState.performanceStatus === 'PERFORMED'
-                                          ? 'bg-blue-700 text-white shadow-xs'
-                                          : 'bg-slate-200 text-slate-700'
-                                      }`}
-                                    >
-                                      PERFORMED
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => onPerformanceStatusChange(index, test.testId, 'NOT_PERFORMED')}
-                                      className={`h-7 px-2.5 rounded text-[11px] font-semibold transition ${
-                                        resultState.performanceStatus === 'NOT_PERFORMED'
-                                          ? 'bg-rose-700 text-white shadow-xs'
-                                          : 'bg-slate-200 text-slate-700'
-                                      }`}
-                                    >
-                                      NOT PERFORMED
-                                    </button>
-                                  </div>
+                              <div className="grid grid-cols-2 gap-1 w-full p-0.5 bg-slate-200/80 rounded-md">
+                                <button
+                                  type="button"
+                                  onClick={() => onPerformanceStatusChange(index, test.testId, 'PERFORMED')}
+                                  className={`h-6.5 px-1.5 rounded text-[10px] sm:text-[11px] font-bold transition whitespace-nowrap flex items-center justify-center ${
+                                    isPerformed
+                                      ? 'bg-primary text-white shadow-xs'
+                                      : 'text-slate-700 hover:bg-slate-300/80'
+                                  }`}
+                                >
+                                  PERFORMED
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => onPerformanceStatusChange(index, test.testId, 'NOT_PERFORMED')}
+                                  className={`h-6.5 px-1.5 rounded text-[10px] sm:text-[11px] font-bold transition whitespace-nowrap flex items-center justify-center ${
+                                    !isPerformed
+                                      ? 'bg-rose-700 text-white shadow-xs'
+                                      : 'text-slate-700 hover:bg-slate-300/80'
+                                  }`}
+                                >
+                                  NOT PERFORMED
+                                </button>
+                              </div>
 
-                                  {resultState.performanceStatus === 'PERFORMED' ? (
+                              {isPerformed ? (
+                                <div className="space-y-1 min-w-0">
+                                  {test.resultType === 'NUMERIC' ? (
                                     <input
                                       id={`test-input-field-${index}-${test.id}`}
                                       type="number"
                                       step="0.01"
+                                      min="0"
                                       value={resultState.numericValue}
                                       onChange={(e) =>
                                         onTestResultChange(index, test.testId, 'numericValue', e.target.value)
                                       }
-                                      placeholder="Enter value"
-                                      className={`w-full h-10 px-3 text-xs tabular-nums font-semibold rounded-lg border bg-white text-foreground outline-hidden transition ${
-                                        testError ? 'border-rose-500 focus:ring-2 focus:ring-rose-500' : 'border-border-strong focus:ring-2 focus:ring-primary-hover'
+                                      placeholder="Enter numeric value"
+                                      className={`w-full min-w-0 h-8 px-2.5 text-xs tabular-nums font-semibold rounded-md border bg-white text-foreground focus:ring-2 focus:ring-primary outline-hidden transition ${
+                                        testError ? 'border-rose-500' : 'border-border-strong'
                                       }`}
                                     />
-                                  ) : (
-                                    <input
-                                      id={`test-input-field-${index}-${test.id}`}
-                                      type="text"
-                                      value={resultState.notPerformedReason}
-                                      onChange={(e) =>
-                                        onTestResultChange(index, test.testId, 'notPerformedReason', e.target.value)
-                                      }
-                                      placeholder="Enter reason for not performing"
-                                      className={`w-full h-10 px-3 text-xs tabular-nums font-semibold rounded-lg border bg-rose-50 text-rose-900 border-rose-300 outline-hidden transition ${
-                                        testError ? 'border-rose-500 focus:ring-2 focus:ring-rose-500' : ''
-                                      }`}
-                                    />
-                                  )}
-                                </div>
-                              ) : Array.isArray(test.resultOptions) && test.resultOptions.length > 0 ? (
-                                <div className="space-y-1.5">
-                                  <div className="flex items-center space-x-1">
-                                    <button
-                                      type="button"
-                                      onClick={() => onPerformanceStatusChange(index, test.testId, 'PERFORMED')}
-                                      className={`h-7 px-2.5 rounded text-[11px] font-semibold transition ${
-                                        resultState.performanceStatus === 'PERFORMED'
-                                          ? 'bg-blue-700 text-white shadow-xs'
-                                          : 'bg-slate-200 text-slate-700'
-                                      }`}
-                                    >
-                                      PERFORMED
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => onPerformanceStatusChange(index, test.testId, 'NOT_PERFORMED')}
-                                      className={`h-7 px-2.5 rounded text-[11px] font-semibold transition ${
-                                        resultState.performanceStatus === 'NOT_PERFORMED'
-                                          ? 'bg-rose-700 text-white shadow-xs'
-                                          : 'bg-slate-200 text-slate-700'
-                                      }`}
-                                    >
-                                      NOT PERFORMED
-                                    </button>
-                                  </div>
-
-                                  {resultState.performanceStatus === 'PERFORMED' ? (
+                                  ) : Array.isArray(test.resultOptions) && test.resultOptions.length > 0 ? (
                                     <QualitativeResultRadioGroup
-                                      name={`dispatch-zmcc-${portion.clientId}-${test.id}`}
+                                      name={`dispatch-contractor-${portion.clientId}-${test.id}`}
                                       value={resultState.textValue || null}
                                       options={test.resultOptions}
+                                      compact={true}
                                       onChange={(val) =>
                                         onTestResultChange(index, test.testId, 'textValue', val)
                                       }
@@ -612,34 +436,36 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
                                     <input
                                       id={`test-input-field-${index}-${test.id}`}
                                       type="text"
-                                      value={resultState.notPerformedReason}
+                                      value={resultState.textValue}
                                       onChange={(e) =>
-                                        onTestResultChange(index, test.testId, 'notPerformedReason', e.target.value)
+                                        onTestResultChange(index, test.testId, 'textValue', e.target.value)
                                       }
-                                      placeholder="Enter reason for not performing"
-                                      className={`w-full h-10 px-3 text-xs tabular-nums font-semibold rounded-lg border bg-rose-50 text-rose-900 border-rose-300 outline-hidden transition ${
-                                        testError ? 'border-rose-500 focus:ring-2 focus:ring-rose-500' : ''
+                                      placeholder="Enter result"
+                                      className={`w-full min-w-0 h-8 px-2.5 text-xs tabular-nums font-semibold rounded-md border bg-white text-foreground focus:ring-2 focus:ring-primary outline-hidden transition ${
+                                        testError ? 'border-rose-500' : 'border-border-strong'
                                       }`}
                                     />
                                   )}
                                 </div>
                               ) : (
-                                <input
-                                  id={`test-input-field-${index}-${test.id}`}
-                                  type="text"
-                                  value={resultState.textValue}
-                                  onChange={(e) =>
-                                    onTestResultChange(index, test.testId, 'textValue', e.target.value)
-                                  }
-                                  placeholder="Enter result"
-                                  className={`w-full h-10 px-3 text-xs tabular-nums font-semibold rounded-lg border bg-white text-foreground outline-hidden transition ${
-                                    testError ? 'border-rose-500 focus:ring-2 focus:ring-rose-500' : 'border-border-strong focus:ring-2 focus:ring-primary-hover'
-                                  }`}
-                                />
+                                <div className="space-y-1 min-w-0">
+                                  <input
+                                    id={`test-reason-field-${index}-${test.id}`}
+                                    type="text"
+                                    value={resultState.notPerformedReason}
+                                    onChange={(e) =>
+                                      onTestResultChange(index, test.testId, 'notPerformedReason', e.target.value)
+                                    }
+                                    placeholder="Reason (e.g. Contract Vehicle)"
+                                    className={`w-full min-w-0 h-8 px-2.5 text-xs tabular-nums font-semibold rounded-md border bg-rose-50/40 text-rose-900 border-rose-300 focus:ring-2 focus:ring-rose-500 outline-hidden transition ${
+                                      testError ? 'border-rose-500' : ''
+                                    }`}
+                                  />
+                                </div>
                               )}
 
                               {testError && (
-                                <p className="text-[11px] font-semibold text-rose-600 mt-1" id={`test-error-${index}-${test.id}`}>
+                                <p className="text-[10.5px] font-semibold text-rose-600 mt-0.5 break-words" id={`test-error-${index}-${test.id}`}>
                                   {testError}
                                 </p>
                               )}
@@ -647,17 +473,194 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
                           );
                         })}
                       </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2 pt-2 border-t border-slate-100">
+                    <div className="flex items-center justify-between pb-1">
+                      <label className="block text-xs font-semibold text-foreground">
+                        Lab Tests ({manualLabTests.length} Manual Observations)
+                      </label>
+                      <span className="text-[10px] font-semibold text-slate-500">
+                        ZMCC Strict Mode Testing
+                      </span>
+                    </div>
+
+                    {isLoadingTests ? (
+                      <p className="text-xs text-slate-500">Loading lab tests…</p>
+                    ) : (
+                      <div className="max-h-[380px] overflow-y-auto pr-1.5 scrollbar-thin scrollbar-thumb-slate-300 hover:scrollbar-thumb-slate-400 p-2 bg-slate-50/70 rounded-xl border border-slate-200">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 min-w-0">
+                          {manualLabTests.map((test) => {
+                            const resultState = portion.results[test.testId] || {
+                              numericValue: '',
+                              textValue: '',
+                              performanceStatus: 'PERFORMED',
+                              notPerformedReason: '',
+                            };
+                            const testError = portionErrors[index]?.tests?.[test.testId];
+                            const isPerformed = resultState.performanceStatus === 'PERFORMED';
+
+                            return (
+                              <div
+                                key={`test-input-${portion.clientId}-${test.id}`}
+                                className={`p-2.5 rounded-lg bg-muted border space-y-1.5 min-w-0 transition ${
+                                  testError ? 'border-rose-500 bg-rose-50/20' : 'border-border-strong'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between text-xs font-semibold gap-1.5 min-w-0">
+                                  <span className="truncate" title={test.testName}>
+                                    {test.testName} {test.isRequired && <span className="text-rose-600 font-semibold">*</span>}
+                                  </span>
+                                  {test.unit && (
+                                    <span className="text-[10px] tabular-nums text-slate-500 shrink-0 font-medium">({test.unit})</span>
+                                  )}
+                                </div>
+
+                                {test.resultType === 'NUMERIC' ? (
+                                  <div className="space-y-1.5 min-w-0">
+                                    <div className="grid grid-cols-2 gap-1 w-full p-0.5 bg-slate-200/80 rounded-md">
+                                      <button
+                                        type="button"
+                                        onClick={() => onPerformanceStatusChange(index, test.testId, 'PERFORMED')}
+                                        className={`h-6.5 px-1.5 rounded text-[10px] sm:text-[11px] font-bold transition whitespace-nowrap flex items-center justify-center ${
+                                          resultState.performanceStatus === 'PERFORMED'
+                                            ? 'bg-primary text-white shadow-xs'
+                                            : 'text-slate-700 hover:bg-slate-300/80'
+                                        }`}
+                                      >
+                                        PERFORMED
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => onPerformanceStatusChange(index, test.testId, 'NOT_PERFORMED')}
+                                        className={`h-6.5 px-1.5 rounded text-[10px] sm:text-[11px] font-bold transition whitespace-nowrap flex items-center justify-center ${
+                                          resultState.performanceStatus === 'NOT_PERFORMED'
+                                            ? 'bg-rose-700 text-white shadow-xs'
+                                            : 'text-slate-700 hover:bg-slate-300/80'
+                                        }`}
+                                      >
+                                        NOT PERFORMED
+                                      </button>
+                                    </div>
+
+                                    {resultState.performanceStatus === 'PERFORMED' ? (
+                                      <input
+                                        id={`test-input-field-${index}-${test.id}`}
+                                        type="number"
+                                        step="0.01"
+                                        value={resultState.numericValue}
+                                        onChange={(e) =>
+                                          onTestResultChange(index, test.testId, 'numericValue', e.target.value)
+                                        }
+                                        placeholder="Enter value"
+                                        className={`w-full min-w-0 h-8 px-2.5 text-xs tabular-nums font-semibold rounded-md border bg-white text-foreground outline-hidden transition ${
+                                          testError ? 'border-rose-500 focus:ring-2 focus:ring-rose-500' : 'border-border-strong focus:ring-2 focus:ring-primary'
+                                        }`}
+                                      />
+                                    ) : (
+                                      <input
+                                        id={`test-input-field-${index}-${test.id}`}
+                                        type="text"
+                                        value={resultState.notPerformedReason}
+                                        onChange={(e) =>
+                                          onTestResultChange(index, test.testId, 'notPerformedReason', e.target.value)
+                                        }
+                                        placeholder="Enter reason for not performing"
+                                        className={`w-full min-w-0 h-8 px-2.5 text-xs tabular-nums font-semibold rounded-md border bg-rose-50 text-rose-900 border-rose-300 outline-hidden transition ${
+                                          testError ? 'border-rose-500 focus:ring-2 focus:ring-rose-500' : ''
+                                        }`}
+                                      />
+                                    )}
+                                  </div>
+                                ) : Array.isArray(test.resultOptions) && test.resultOptions.length > 0 ? (
+                                  <div className="space-y-1.5 min-w-0">
+                                    <div className="grid grid-cols-2 gap-1 w-full p-0.5 bg-slate-200/80 rounded-md">
+                                      <button
+                                        type="button"
+                                        onClick={() => onPerformanceStatusChange(index, test.testId, 'PERFORMED')}
+                                        className={`h-6.5 px-1.5 rounded text-[10px] sm:text-[11px] font-bold transition whitespace-nowrap flex items-center justify-center ${
+                                          resultState.performanceStatus === 'PERFORMED'
+                                            ? 'bg-primary text-white shadow-xs'
+                                            : 'text-slate-700 hover:bg-slate-300/80'
+                                        }`}
+                                      >
+                                        PERFORMED
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => onPerformanceStatusChange(index, test.testId, 'NOT_PERFORMED')}
+                                        className={`h-6.5 px-1.5 rounded text-[10px] sm:text-[11px] font-bold transition whitespace-nowrap flex items-center justify-center ${
+                                          resultState.performanceStatus === 'NOT_PERFORMED'
+                                            ? 'bg-rose-700 text-white shadow-xs'
+                                            : 'text-slate-700 hover:bg-slate-300/80'
+                                        }`}
+                                      >
+                                        NOT PERFORMED
+                                      </button>
+                                    </div>
+
+                                    {resultState.performanceStatus === 'PERFORMED' ? (
+                                      <QualitativeResultRadioGroup
+                                        name={`dispatch-zmcc-${portion.clientId}-${test.id}`}
+                                        value={resultState.textValue || null}
+                                        options={test.resultOptions}
+                                        compact={true}
+                                        onChange={(val) =>
+                                          onTestResultChange(index, test.testId, 'textValue', val)
+                                        }
+                                        error={testError}
+                                        ariaLabel={`${test.testName} result for Portion ${portion.portionNumber}`}
+                                      />
+                                    ) : (
+                                      <input
+                                        id={`test-input-field-${index}-${test.id}`}
+                                        type="text"
+                                        value={resultState.notPerformedReason}
+                                        onChange={(e) =>
+                                          onTestResultChange(index, test.testId, 'notPerformedReason', e.target.value)
+                                        }
+                                        placeholder="Enter reason for not performing"
+                                        className={`w-full min-w-0 h-8 px-2.5 text-xs tabular-nums font-semibold rounded-md border bg-rose-50 text-rose-900 border-rose-300 outline-hidden transition ${
+                                          testError ? 'border-rose-500 focus:ring-2 focus:ring-rose-500' : ''
+                                        }`}
+                                      />
+                                    )}
+                                  </div>
+                                ) : (
+                                  <input
+                                    id={`test-input-field-${index}-${test.id}`}
+                                    type="text"
+                                    value={resultState.textValue}
+                                    onChange={(e) =>
+                                      onTestResultChange(index, test.testId, 'textValue', e.target.value)
+                                    }
+                                    placeholder="Enter result"
+                                    className={`w-full min-w-0 h-8 px-2.5 text-xs tabular-nums font-semibold rounded-md border bg-white text-foreground outline-hidden transition ${
+                                      testError ? 'border-rose-500 focus:ring-2 focus:ring-rose-500' : 'border-border-strong focus:ring-2 focus:ring-primary'
+                                    }`}
+                                  />
+                                )}
+
+                                {testError && (
+                                  <p className="text-[10.5px] font-semibold text-rose-600 mt-0.5 break-words" id={`test-error-${index}-${test.id}`}>
+                                    {testError}
+                                  </p>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
                     )}
                   </div>
                 )}
 
-                {/* Calculation summary notice */}
                 <div className="flex items-center space-x-2 text-xs font-medium text-slate-600 bg-subtle p-2.5 rounded-xl border border-border">
-                  <Calculator className="w-4 h-4 text-primary-hover shrink-0" />
+                  <Calculator className="w-4 h-4 text-primary shrink-0" />
                   <span>Canonical milk values update live in the summary panel.</span>
                 </div>
 
-                {/* Save Portion Action Controls */}
                 <div className="flex items-center justify-end space-x-2.5 pt-3 border-t">
                   {portions.length > 1 && (
                     <button
@@ -684,18 +687,6 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
           return null;
         })}
       </div>
-
-      {/* Add Portion Button when all saved */}
-      {editingPortionIndex === null && (
-        <button
-          type="button"
-          onClick={onAddPortionClick}
-          className="w-full h-12 rounded-xl border-2 border-dashed border-primary-hover text-primary-hover font-semibold text-xs bg-blue-50/40 hover:bg-blue-100/50 transition flex items-center justify-center space-x-2"
-        >
-          <PlusCircle className="w-4 h-4" />
-          <span>+ Add Portion</span>
-        </button>
-      )}
     </div>
   );
 };

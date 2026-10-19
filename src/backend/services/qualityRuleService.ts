@@ -26,6 +26,7 @@ export interface QualityEvaluationSnapshot {
     category: string;
     minValue: number | null;
     maxValue: number | null;
+    warningOffset?: number | null;
     acceptableOption: string | null;
     evaluationStatus: QualityEvaluationStatus;
   } | null;
@@ -51,10 +52,11 @@ export interface QualityResultEvaluation {
 
 export interface CreateRuleInput {
   labTestId: bigint | number | string;
-  testingPoint: string;
+  testingPoint?: string | null;
   ruleCategory?: 'RELEASE' | 'MONITORING';
   minValue?: number | string | null;
   maxValue?: number | string | null;
+  warningOffset?: number | string | null;
   acceptableOption?: string | null;
   warningTrigger?: string | null;
   decisionConsequence?: string | null;
@@ -84,15 +86,29 @@ export class QualityRuleService {
     eventTimestamp: Date = new Date(),
     tx: Prisma.TransactionClient | typeof prisma = prisma
   ): Promise<Map<string, ResolvedRuleWithGovernance>> {
+    const isGlobalQuery = testingPoint === 'GLOBAL_DEFAULT' || testingPoint === 'GLOBAL';
     const rules = await tx.labTestRule.findMany({
-      where: {
-        testing_point: testingPoint,
-        effective_from: { lte: eventTimestamp },
-        OR: [
-          { effective_to: null, is_active: true },
-          { effective_to: { gt: eventTimestamp } },
-        ],
-      },
+      where: isGlobalQuery
+        ? {
+            OR: [{ testing_point: null }, { testing_point: 'GLOBAL_DEFAULT' }],
+            effective_from: { lte: eventTimestamp },
+            AND: [
+              {
+                OR: [
+                  { effective_to: null, is_active: true },
+                  { effective_to: { gt: eventTimestamp } },
+                ],
+              },
+            ],
+          }
+        : {
+            testing_point: testingPoint,
+            effective_from: { lte: eventTimestamp },
+            OR: [
+              { effective_to: null, is_active: true },
+              { effective_to: { gt: eventTimestamp } },
+            ],
+          },
       orderBy: { version: 'desc' },
     });
 
@@ -125,7 +141,6 @@ export class QualityRuleService {
           monitoringRule: activeMonitoring,
         });
       } else {
-        // 0 RELEASE rules: MONITORING rules never hide/replace RELEASE rules
         if (activeMonitoring) {
           ruleMap.set(key, {
             ...activeMonitoring,
@@ -136,6 +151,7 @@ export class QualityRuleService {
       }
     });
 
+    // 1. Stage-level fallback before global default
     if (testingPoint === 'ZMCC_LAB_LOCAL_SUPPLIER') {
       const contractorRules = await this.resolveActiveRulesForTestingPoint('ZMCC_LAB_CONTRACTOR', eventTimestamp, tx);
       contractorRules.forEach((rule, k) => {
@@ -154,12 +170,70 @@ export class QualityRuleService {
       });
     }
 
+    // 2. Fallback: Global Master Default (level 0) if stage-specific override (level 1) not configured
+    if (!isGlobalQuery) {
+      const globalRules = await tx.labTestRule.findMany({
+        where: {
+          OR: [{ testing_point: null }, { testing_point: 'GLOBAL_DEFAULT' }],
+          effective_from: { lte: eventTimestamp },
+          AND: [
+            {
+              OR: [
+                { effective_to: null, is_active: true },
+                { effective_to: { gt: eventTimestamp } },
+              ],
+            },
+          ],
+        },
+        orderBy: { version: 'desc' },
+      });
+
+      const globalGrouped = new Map<string, LabTestRule[]>();
+      for (const rule of globalRules) {
+        const key = String(rule.lab_test_id);
+        if (!globalGrouped.has(key)) {
+          globalGrouped.set(key, []);
+        }
+        globalGrouped.get(key)!.push(rule);
+      }
+
+      globalGrouped.forEach((testRules, key) => {
+        if (!ruleMap.has(key)) {
+          const releaseRules = testRules.filter((r) => r.rule_category === 'RELEASE');
+          const monitoringRules = testRules.filter((r) => r.rule_category === 'MONITORING');
+          const activeMonitoring = monitoringRules.length > 0 ? monitoringRules[0] : null;
+
+          if (releaseRules.length > 1) {
+            ruleMap.set(key, {
+              ...releaseRules[0],
+              isConfigurationError: true,
+              configurationErrorReason: `Multiple overlapping active global RELEASE rules (${releaseRules.length}) found`,
+              monitoringRule: activeMonitoring,
+            });
+          } else if (releaseRules.length === 1) {
+            ruleMap.set(key, {
+              ...releaseRules[0],
+              isConfigurationError: false,
+              monitoringRule: activeMonitoring,
+            });
+          } else if (activeMonitoring) {
+            ruleMap.set(key, {
+              ...activeMonitoring,
+              isConfigurationError: false,
+              monitoringRule: activeMonitoring,
+            });
+          }
+        }
+      });
+    }
+
     return ruleMap;
   }
 
   /**
    * Resolves active LabTestRule(s) for a specific test and testing point at an authoritative event timestamp.
    * Resolves RELEASE & MONITORING independently.
+   * Hierarchical fallback: Stage-Specific Override -> Global Master Default -> null.
    */
   static async resolveActiveRule(
     labTestId: bigint | number | string,
@@ -168,16 +242,31 @@ export class QualityRuleService {
     tx: Prisma.TransactionClient | typeof prisma = prisma
   ): Promise<ResolvedRuleWithGovernance | null> {
     const testIdBigInt = BigInt(String(labTestId));
+    const isGlobalQuery = testingPoint === 'GLOBAL_DEFAULT' || testingPoint === 'GLOBAL';
     const rules = await tx.labTestRule.findMany({
-      where: {
-        lab_test_id: testIdBigInt,
-        testing_point: testingPoint,
-        effective_from: { lte: eventTimestamp },
-        OR: [
-          { effective_to: null, is_active: true },
-          { effective_to: { gt: eventTimestamp } },
-        ],
-      },
+      where: isGlobalQuery
+        ? {
+            lab_test_id: testIdBigInt,
+            OR: [{ testing_point: null }, { testing_point: 'GLOBAL_DEFAULT' }],
+            effective_from: { lte: eventTimestamp },
+            AND: [
+              {
+                OR: [
+                  { effective_to: null, is_active: true },
+                  { effective_to: { gt: eventTimestamp } },
+                ],
+              },
+            ],
+          }
+        : {
+            lab_test_id: testIdBigInt,
+            testing_point: testingPoint,
+            effective_from: { lte: eventTimestamp },
+            OR: [
+              { effective_to: null, is_active: true },
+              { effective_to: { gt: eventTimestamp } },
+            ],
+          },
       orderBy: { version: 'desc' },
     });
 
@@ -202,7 +291,6 @@ export class QualityRuleService {
       };
     }
 
-    // 0 RELEASE rules
     if (activeMonitoring) {
       return {
         ...activeMonitoring,
@@ -211,8 +299,62 @@ export class QualityRuleService {
       };
     }
 
+    // Stage fallback for local supplier & MOT before global default
     if (testingPoint === 'ZMCC_LAB_LOCAL_SUPPLIER') {
-      return this.resolveActiveRule(labTestId, 'ZMCC_LAB_CONTRACTOR', eventTimestamp, tx);
+      const stageFallback = await this.resolveActiveRule(labTestId, 'ZMCC_LAB_CONTRACTOR', eventTimestamp, tx);
+      if (stageFallback) return stageFallback;
+    }
+
+    if (testingPoint === 'MOT_SHOP') {
+      const stageFallback = await this.resolveActiveRule(labTestId, 'ZMCC_LAB_MOT', eventTimestamp, tx);
+      if (stageFallback) return stageFallback;
+    }
+
+    // Fallback: Global Master Default (level 0) if stage-specific override not found
+    if (!isGlobalQuery) {
+      const globalRules = await tx.labTestRule.findMany({
+        where: {
+          lab_test_id: testIdBigInt,
+          OR: [{ testing_point: null }, { testing_point: 'GLOBAL_DEFAULT' }],
+          effective_from: { lte: eventTimestamp },
+          AND: [
+            {
+              OR: [
+                { effective_to: null, is_active: true },
+                { effective_to: { gt: eventTimestamp } },
+              ],
+            },
+          ],
+        },
+        orderBy: { version: 'desc' },
+      });
+
+      const globalRelease = globalRules.filter((r) => r.rule_category === 'RELEASE');
+      const globalMonitoring = globalRules.filter((r) => r.rule_category === 'MONITORING');
+      const activeGlobalMonitoring = globalMonitoring.length > 0 ? globalMonitoring[0] : null;
+
+      if (globalRelease.length > 1) {
+        return {
+          ...globalRelease[0],
+          isConfigurationError: true,
+          configurationErrorReason: `Multiple overlapping active global RELEASE rules (${globalRelease.length}) found`,
+          monitoringRule: activeGlobalMonitoring,
+        };
+      }
+      if (globalRelease.length === 1) {
+        return {
+          ...globalRelease[0],
+          isConfigurationError: false,
+          monitoringRule: activeGlobalMonitoring,
+        };
+      }
+      if (activeGlobalMonitoring) {
+        return {
+          ...activeGlobalMonitoring,
+          isConfigurationError: false,
+          monitoringRule: activeGlobalMonitoring,
+        };
+      }
     }
 
     return null;
@@ -253,6 +395,7 @@ export class QualityRuleService {
           category: releaseRule.rule_category,
           minValue: releaseRule.min_value !== null ? Number(releaseRule.min_value) : null,
           maxValue: releaseRule.max_value !== null ? Number(releaseRule.max_value) : null,
+          warningOffset: releaseRule.warning_offset !== null && releaseRule.warning_offset !== undefined ? Number(releaseRule.warning_offset) : null,
           acceptableOption: releaseRule.acceptable_option,
           evaluationStatus: releaseStatus || status,
         }
@@ -449,16 +592,57 @@ export class QualityRuleService {
           };
         }
 
-        const minPass = effectiveReleaseRule.min_value === null || numVal >= Number(effectiveReleaseRule.min_value);
-        const maxPass = effectiveReleaseRule.max_value === null || numVal <= Number(effectiveReleaseRule.max_value);
+        const minVal = effectiveReleaseRule.min_value !== null ? Number(effectiveReleaseRule.min_value) : null;
+        const maxVal = effectiveReleaseRule.max_value !== null ? Number(effectiveReleaseRule.max_value) : null;
+        const offset = effectiveReleaseRule.warning_offset !== null && effectiveReleaseRule.warning_offset !== undefined
+          ? Number(effectiveReleaseRule.warning_offset)
+          : 0;
+
+        const minPass = minVal === null || numVal >= minVal;
+        const maxPass = maxVal === null || numVal <= maxVal;
 
         if (!minPass || !maxPass) {
+          // 3-Zone Quantitative Tolerance Engine:
+          // Check if observed value falls in Warning Band: [min - offset, min) or (max, max + offset]
+          if (offset > 0) {
+            const isWarningBelow = minVal !== null && numVal >= (minVal - offset) && numVal < minVal;
+            const isWarningAbove = maxVal !== null && numVal > maxVal && numVal <= (maxVal + offset);
+
+            if (isWarningBelow && minVal !== null) {
+              return {
+                appliedRuleId,
+                appliedRuleVersion,
+                evaluationStatus: 'WARNING',
+                isPassed: null,
+                reason: `Tolerance Warning: observed ${numVal} is within warning margin [${(minVal - offset).toFixed(2)}, ${minVal}] below minimum limit ${minVal}`,
+              };
+            }
+
+            if (isWarningAbove && maxVal !== null) {
+              return {
+                appliedRuleId,
+                appliedRuleVersion,
+                evaluationStatus: 'WARNING',
+                isPassed: null,
+                reason: `Tolerance Warning: observed ${numVal} is within warning margin [${maxVal}, ${(maxVal + offset).toFixed(2)}] above maximum limit ${maxVal}`,
+              };
+            }
+
+            return {
+              appliedRuleId,
+              appliedRuleVersion,
+              evaluationStatus: 'OUT_OF_SPEC',
+              isPassed: false,
+              reason: `Fail: observed ${numVal}, outside tolerance limits [${minVal !== null ? (minVal - offset).toFixed(2) : '-∞'}, ${maxVal !== null ? (maxVal + offset).toFixed(2) : '+∞'}]`,
+            };
+          }
+
           return {
             appliedRuleId,
             appliedRuleVersion,
             evaluationStatus: 'OUT_OF_SPEC',
             isPassed: false,
-            reason: `Out of specification: observed ${numVal}, allowable range [${effectiveReleaseRule.min_value ?? '-∞'}, ${effectiveReleaseRule.max_value ?? '+∞'}]`,
+            reason: `Fail: observed ${numVal}, allowable range [${effectiveReleaseRule.min_value ?? '-∞'}, ${effectiveReleaseRule.max_value ?? '+∞'}]`,
           };
         }
 
@@ -472,7 +656,7 @@ export class QualityRuleService {
               appliedRuleVersion,
               evaluationStatus: 'WARNING',
               isPassed: null,
-              reason: `Monitoring threshold exceeded: observed ${numVal}, bounds [${effectiveMonitoringRule.min_value ?? '-∞'}, ${effectiveMonitoringRule.max_value ?? '+∞'}]`,
+              reason: `Warning: observed ${numVal}, bounds [${effectiveMonitoringRule.min_value ?? '-∞'}, ${effectiveMonitoringRule.max_value ?? '+∞'}]`,
             };
           }
         }
@@ -505,7 +689,7 @@ export class QualityRuleService {
             appliedRuleVersion,
             evaluationStatus: 'OUT_OF_SPEC',
             isPassed: false,
-            reason: `Out of specification: observed "${textValue}", acceptable option is "${effectiveReleaseRule.acceptable_option}"`,
+            reason: `Fail: observed "${textValue}", acceptable option is "${effectiveReleaseRule.acceptable_option}"`,
           };
         }
 
@@ -772,6 +956,7 @@ export class QualityRuleService {
       ruleCategory = 'RELEASE',
       minValue,
       maxValue,
+      warningOffset,
       acceptableOption,
       warningTrigger,
       decisionConsequence,
@@ -797,9 +982,13 @@ export class QualityRuleService {
     const execute = async (tx: Prisma.TransactionClient) => {
       const testIdBigInt = BigInt(String(labTestId));
       const userIdBigInt = BigInt(String(createdByUserId));
+      const normalizedTestingPoint =
+        !testingPoint || testingPoint === 'GLOBAL_DEFAULT' || testingPoint === 'GLOBAL'
+          ? null
+          : testingPoint;
 
       // Advisory transaction lock to serialize mutations for this specific rule family
-      const lockKey = `lab_test_rule:${testIdBigInt}:${testingPoint}:${ruleCategory}`;
+      const lockKey = `lab_test_rule:${testIdBigInt}:${normalizedTestingPoint || 'GLOBAL'}:${ruleCategory}`;
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`;
 
       // 1. Check if lab test exists
@@ -810,12 +999,11 @@ export class QualityRuleService {
         throw new Error(`LabTest with id ${labTestId} not found.`);
       }
 
-      // 2. Find existing active rule under lock
+      // 2. Find existing active rule under lock (any category for this test + stage)
       const existingActive = await tx.labTestRule.findFirst({
         where: {
           lab_test_id: testIdBigInt,
-          testing_point: testingPoint,
-          rule_category: ruleCategory,
+          testing_point: normalizedTestingPoint,
           is_active: true,
         },
         orderBy: { version: 'desc' },
@@ -825,7 +1013,7 @@ export class QualityRuleService {
       const highestVersionRule = await tx.labTestRule.findFirst({
         where: {
           lab_test_id: testIdBigInt,
-          testing_point: testingPoint,
+          testing_point: normalizedTestingPoint,
           rule_category: ruleCategory,
         },
         orderBy: { version: 'desc' },
@@ -833,22 +1021,24 @@ export class QualityRuleService {
 
       const nextVersion = highestVersionRule ? highestVersionRule.version + 1 : 1;
 
-      if (existingActive) {
-        // Close previous active rule
-        await tx.labTestRule.update({
-          where: { id: existingActive.id },
-          data: {
-            is_active: false,
-            effective_to: effectiveFrom,
-          },
-        });
-      }
+      // Close all previously active rules for this test and stage (whether RELEASE or MONITORING)
+      await tx.labTestRule.updateMany({
+        where: {
+          lab_test_id: testIdBigInt,
+          testing_point: normalizedTestingPoint,
+          is_active: true,
+        },
+        data: {
+          is_active: false,
+          effective_to: effectiveFrom,
+        },
+      });
 
       // 3. Create new rule
       const newRule = await tx.labTestRule.create({
         data: {
           lab_test_id: testIdBigInt,
-          testing_point: testingPoint,
+          testing_point: normalizedTestingPoint,
           version: nextVersion,
           rule_category: ruleCategory,
           effective_from: effectiveFrom,
@@ -860,6 +1050,10 @@ export class QualityRuleService {
           max_value:
             maxValue !== null && maxValue !== undefined && maxValue !== ''
               ? new Prisma.Decimal(String(maxValue))
+              : null,
+          warning_offset:
+            warningOffset !== null && warningOffset !== undefined && warningOffset !== ''
+              ? new Prisma.Decimal(String(warningOffset))
               : null,
           acceptable_option: acceptableOption || null,
           warning_trigger: warningTrigger || null,
@@ -883,6 +1077,7 @@ export class QualityRuleService {
                 rule_category: existingActive.rule_category,
                 min_value: existingActive.min_value !== null ? String(existingActive.min_value) : null,
                 max_value: existingActive.max_value !== null ? String(existingActive.max_value) : null,
+                warning_offset: existingActive.warning_offset !== null ? String(existingActive.warning_offset) : null,
                 acceptable_option: existingActive.acceptable_option,
                 warning_trigger: existingActive.warning_trigger,
                 decision_consequence: existingActive.decision_consequence,
@@ -893,11 +1088,12 @@ export class QualityRuleService {
           new_values: {
             test_id: String(testIdBigInt),
             test_code: test.testCode,
-            testing_point: testingPoint,
+            testing_point: normalizedTestingPoint,
             rule_category: ruleCategory,
             version: nextVersion,
             min_value: minValue !== undefined && minValue !== null && minValue !== '' ? String(minValue) : null,
             max_value: maxValue !== undefined && maxValue !== null && maxValue !== '' ? String(maxValue) : null,
+            warning_offset: warningOffset !== undefined && warningOffset !== null && warningOffset !== '' ? String(warningOffset) : null,
             acceptable_option: acceptableOption || null,
             warning_trigger: warningTrigger || null,
             decision_consequence: decisionConsequence || null,

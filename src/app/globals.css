@@ -181,17 +181,17 @@
     /* Inner surface inside cards (table headers, input wells, list rows) */
     --subtle: 210 25% 98.5%;
 
-    /* ── Brand ────────────────────────────────────────────── */
-    --primary: 224 64% 33%;
-    --primary-hover: 224 71% 40%;
+    /* ── Brand (Shakarganj Corporate Red) ────────────────── */
+    --primary: 358 82% 46%;
+    --primary-hover: 358 85% 38%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 210 20% 96%;
     --secondary-foreground: 215 25% 27%;
     --muted: 210 20% 96%;
     --muted-foreground: 215 16% 47%;
-    --accent: 214 25% 93%;
-    --accent-foreground: 222 47% 11%;
+    --accent: 355 60% 96%;
+    --accent-foreground: 358 82% 35%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
@@ -199,7 +199,7 @@
     --border: 214 32% 91%;
     --border-strong: 214 22% 83%;
     --input: 214 22% 83%;
-    --ring: 224 64% 33%;
+    --ring: 358 82% 46%;
 
     --radius: 0.5rem;
     --sidebar-width: 15rem;
@@ -273,6 +273,9 @@
 
   select {
     background-color: hsl(var(--card));
+    max-width: 100%;
+    min-width: 0;
+    text-overflow: ellipsis;
   }
 
   @media (prefers-reduced-motion: reduce) {

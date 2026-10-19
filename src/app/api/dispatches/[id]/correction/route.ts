@@ -39,10 +39,10 @@ export async function PATCH(
     include: { procurement_source: true },
   });
 
-  const allowedRoles = ['ZMCC_MANAGER', 'SUPER_ADMIN'];
+  const allowedRoles = ['DATA_EXECUTIVE', 'SUPER_ADMIN'];
   if (!dbUser || !allowedRoles.includes(dbUser.role)) {
     return NextResponse.json(
-      { error: 'Unauthorized. ZMCC Manager or Super Admin role required for dispatch corrections.' },
+      { error: 'Unauthorized. Data Executive or Super Admin role required for dispatch corrections.' },
       { status: 403 }
     );
   }

@@ -202,13 +202,21 @@ export function mapVisitToLogs(
     dateStr = `${y}-${m}-${d}`;
   }
 
-  // Authoritative Plant-Exit Business Date
+  // Authoritative Business Date: Determined at First Weight (Scale Gross Timestamp) with 8:00 AM cutoff
   let finalizedBusinessDate: string | null = null;
-  const hasPlantExit = Boolean(visit.gate_log?.exit_timestamp);
-
-  if (hasPlantExit && visit.gate_log?.exit_timestamp) {
+  if (visit.weight_ticket?.gross_timestamp) {
+    finalizedBusinessDate = getOperationalBusinessDate(visit.weight_ticket.gross_timestamp);
+  } else if (visit.operational_date) {
+    const opD = new Date(visit.operational_date);
+    if (!isNaN(opD.getTime())) {
+      const y = opD.getUTCFullYear();
+      const m = (opD.getUTCMonth() + 1).toString().padStart(2, '0');
+      const d = opD.getUTCDate().toString().padStart(2, '0');
+      finalizedBusinessDate = `${y}-${m}-${d}`;
+    }
+  } else if (visit.gate_log?.exit_timestamp) {
     finalizedBusinessDate = getOperationalBusinessDate(visit.gate_log.exit_timestamp);
-  } else if (hasPlantExit && dateStr) {
+  } else if (dateStr) {
     finalizedBusinessDate = dateStr;
   }
 

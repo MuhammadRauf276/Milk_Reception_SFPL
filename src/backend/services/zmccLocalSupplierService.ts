@@ -468,10 +468,10 @@ export async function updateLocalSupplier(
     };
   }
 
-  if (!auth.isZmccManager && !auth.isSuperAdmin) {
+  if (!auth.isDataExecutive && !auth.isSuperAdmin) {
     return {
       status: 403,
-      error: 'Forbidden. Only ZMCC Managers or Super Admins may update local suppliers.',
+      error: 'Forbidden. Only Data Executive or Super Admin may update local suppliers.',
     };
   }
 

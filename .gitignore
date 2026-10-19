@@ -7,3 +7,5 @@ node_modules/
 scratch/
 tsconfig.tsbuildinfo
 
+# WhatsApp (Baileys) session credentials - equivalent to being logged in as the account
+data/

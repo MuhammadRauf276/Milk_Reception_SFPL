@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useEffectEvent } from 'react';
-import { FlaskConical, Clock, PauseCircle } from 'lucide-react';
 import { useToast } from '@/frontend/context/ToastContext';
 import { toDatetimeLocalInput, datetimeLocalToIso } from '@/lib/datetime-utils';
 import { User } from '@core/types';
@@ -23,7 +22,6 @@ import {
 } from './qa/QATestingSection';
 import { QADecisionModals } from './qa/QADecisionModals';
 import { PageHeader } from '@/components/ui/page-header';
-import { SegmentedTabs } from '@/components/ui/segmented-tabs';
 import { getErrorMessage } from '@/lib/errors';
 
 export type {
@@ -80,6 +78,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
   // Action Inputs for Reject / Hold / Datetime
   const [rejectionReason, setRejectionReason] = useState('');
   const [rejectionRemarks, setRejectionRemarks] = useState('');
+  const [exceptionReason, setExceptionReason] = useState('');
   const [holdReason, setHoldReason] = useState('');
   const [qaOpTimestamp, setQaOpTimestamp] = useState<string>(toDatetimeLocalInput(new Date()));
   const [activeActionModal, setActiveActionModal] = useState<'START' | 'RESUME' | 'ACCEPT' | 'HOLD' | 'REJECT' | null>(null);
@@ -91,6 +90,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
     setHoldReason('');
     setRejectionReason('');
     setRejectionRemarks('');
+    setExceptionReason('');
     setQaOpTimestamp(toDatetimeLocalInput(new Date()));
   };
 
@@ -382,6 +382,8 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
           completionClientEventId: `plant-qa-${currentPortion.id}-${crypto.randomUUID()}`,
           results: resultsPayload,
           operationalTimestamp: datetimeLocalToIso(qaOpTimestamp) || undefined,
+          exceptionReason: (exceptionReason || rejectionReason).trim() || undefined,
+          rejectionReason: (exceptionReason || rejectionReason).trim() || undefined,
         }),
       });
 
@@ -501,6 +503,84 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
     }
   };
 
+  const [isAddingPortion, setIsAddingPortion] = useState(false);
+
+  const handleAddPortion = async () => {
+    if (!visitDetail) return;
+    setIsAddingPortion(true);
+    setMsg(null);
+    try {
+      const res = await fetch(`/api/qa/vehicle-visits/${visitDetail.id}/portions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to add test portion');
+
+      toast.showSuccess(`Portion ${data.portion.portion_number} added for independent testing.`, 'Portion Added');
+
+      const detailRes = await fetch(`/api/qa/vehicle-visits/${visitDetail.id}`);
+      const detailData = await detailRes.json();
+      if (detailRes.ok && detailData.visit) {
+        setVisitDetail(detailData.visit);
+        const newIndex = detailData.visit.portions.length - 1;
+        setActivePortionIndex(newIndex);
+        populateInputsForPortion(detailData.visit.portions[newIndex], detailData.visit.active_plant_tests || []);
+      }
+      await fetchQueues();
+    } catch (err) {
+      toast.showError(getErrorMessage(err), 'Failed to Add Portion');
+      setMsg({ text: getErrorMessage(err), isError: true });
+    } finally {
+      setIsAddingPortion(false);
+    }
+  };
+
+  const [isRemovingPortion, setIsRemovingPortion] = useState(false);
+
+  const handleRemovePortion = async (portionId: string, portionNumber: number) => {
+    if (!visitDetail) return;
+    if (visitDetail.portions.length <= 1) {
+      toast.showError('A vehicle visit must have at least one test portion.', 'Cannot Remove');
+      return;
+    }
+
+    const confirmRemove = window.confirm(
+      `Remove Portion #${portionNumber}? Any unsaved observations for this portion will be discarded.`
+    );
+    if (!confirmRemove) return;
+
+    setIsRemovingPortion(true);
+    setMsg(null);
+    try {
+      const res = await fetch(`/api/qa/vehicle-visits/${visitDetail.id}/portions/${portionId}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to remove test portion');
+
+      toast.showSuccess(`Portion #${portionNumber} removed.`, 'Portion Removed');
+
+      // Refresh visit detail and adjust active tab
+      const detailRes = await fetch(`/api/qa/vehicle-visits/${visitDetail.id}`);
+      const detailData = await detailRes.json();
+      if (detailRes.ok && detailData.visit) {
+        setVisitDetail(detailData.visit);
+        const fallbackIndex = Math.max(0, Math.min(activePortionIndex, detailData.visit.portions.length - 1));
+        setActivePortionIndex(fallbackIndex);
+        if (detailData.visit.portions[fallbackIndex]) {
+          populateInputsForPortion(detailData.visit.portions[fallbackIndex], detailData.visit.active_plant_tests || []);
+        }
+      }
+      await fetchQueues();
+    } catch (err) {
+      toast.showError(getErrorMessage(err), 'Failed to Remove Portion');
+      setMsg({ text: getErrorMessage(err), isError: true });
+    } finally {
+      setIsRemovingPortion(false);
+    }
+  };
+
   // ─── Derived accountability metrics ────────────────────────────────────────
   const requiredManualPlantTests = useMemo(
     () => (visitDetail?.active_plant_tests || []).filter((t) => t.isRequired && t.resultType !== 'CALCULATED'),
@@ -538,6 +618,22 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
 
   const canAccept = performedCount === requiredManualPlantTests.length && notPerformedCount === 0 && unresolvedCount === 0;
 
+  const hasFailingTests = useMemo(() => {
+    const currentPortion = visitDetail?.portions?.[activePortionIndex];
+    if (!currentPortion) return false;
+    if (currentPortion.plant_results?.some((r) => r.isPassed === false)) return true;
+    for (const test of requiredManualPlantTests) {
+      const input = testInputs[test.id];
+      if (!input) continue;
+      if (test.isRequired && input.performanceStatus === 'NOT_PERFORMED') return true;
+      if (input.performanceStatus === 'PERFORMED' && test.resultOptions) {
+        const opt = test.resultOptions.find((o) => o.value === input.textValue);
+        if (opt && opt.isPassing === false) return true;
+      }
+    }
+    return false;
+  }, [visitDetail, activePortionIndex, requiredManualPlantTests, testInputs]);
+
   // Format dispatch quantity display — never crash on null
   const formatDispatchQty = (portion: VisitDetailPortion | null): string => {
     if (!portion) return '—';
@@ -549,27 +645,11 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
 
   return (
     <div className="w-full max-w-7xl mx-auto space-y-6 text-foreground">
-      {/* QA Header & Queue Tabs */}
       <PageHeader
         title="QA laboratory"
-        description="Test arriving vehicles, record results and release or hold portions."
-        actions={
-          <SegmentedTabs
-            label="QA queues"
-            value={activeTab}
-            onValueChange={(tab) => { setActiveTab(tab); fetchQueues(); }}
-            tabs={[
-            { value: 'WAITING', label: 'Waiting for testing', icon: Clock, count: waitingVisits.length },
-            { value: 'IN_TESTING', label: 'In testing', icon: FlaskConical, count: inTestingVisits.length },
-            { value: 'ON_HOLD', label: 'On hold', icon: PauseCircle, count: onHoldVisits.length },
-            ]}
-          />
-        }
       />
 
-      {/* Workspace Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* LEFT COLUMN (5/12): QUEUE LIST */}
         <div className="lg:col-span-5">
           <QAQueuePanel
             activeTab={activeTab}
@@ -593,7 +673,6 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
           />
         </div>
 
-        {/* RIGHT COLUMN (7/12): TAB-SPECIFIC WORKSPACE PANEL */}
         <div key={activeTab} className="lg:col-span-7 animate-panel-in">
           <QATestingSection
             activeTab={activeTab}
@@ -617,11 +696,14 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
             canAccept={canAccept}
             isSubmitting={isSubmitting}
             formatDispatchQty={formatDispatchQty}
+            onAddPortion={handleAddPortion}
+            isAddingPortion={isAddingPortion}
+            onRemovePortion={handleRemovePortion}
+            isRemovingPortion={isRemovingPortion}
           />
         </div>
       </div>
 
-      {/* Decision Action Modals */}
       <QADecisionModals
         activeActionModal={activeActionModal}
         onCloseModal={() => setActiveActionModal(null)}
@@ -636,6 +718,9 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
         onRejectionReasonChange={(val) => setRejectionReason(val)}
         rejectionRemarks={rejectionRemarks}
         onRejectionRemarksChange={(val) => setRejectionRemarks(val)}
+        exceptionReason={exceptionReason}
+        onExceptionReasonChange={(val) => setExceptionReason(val)}
+        hasFailingTests={hasFailingTests}
         onStartTestingConfirm={handleStartTesting}
         onResumeTestingConfirm={handleResumeTesting}
         onAcceptPortionConfirm={handleAcceptPortionConfirm}

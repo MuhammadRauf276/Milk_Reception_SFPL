@@ -16,6 +16,8 @@ async function resetDevLoginPasswords() {
     { username: 'mpd.head', pass: 'mpdhead123' },
 
     // Managers
+    { username: 'zmcc.manager.hasilpur', pass: 'zone123' },
+    { username: 'zmcc.manager.jhang', pass: 'zone123' },
     { username: 'zmcc.manager.north', pass: 'zone123' },
     { username: 'contractor.manager.alkhair', pass: 'contractor123' },
 

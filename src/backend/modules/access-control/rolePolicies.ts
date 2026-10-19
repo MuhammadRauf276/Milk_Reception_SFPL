@@ -20,7 +20,6 @@ const OPERATOR_CAPABILITIES = [
 const MANAGER_CAPABILITIES = [
   'VIEW',
   'REQUEST_CORRECTION',
-  'CORRECT',
   'APPROVE',
   'CLOSE',
   'VIEW_AUDIT',
@@ -35,7 +34,7 @@ const MANAGER_CAPABILITIES = [
  */
 export const ROLE_ACCESS_POLICIES = {
   SUPER_ADMIN: {
-    capabilities: [],
+    capabilities: ['VIEW', 'CREATE', 'EDIT_DRAFT', 'SUBMIT', 'REQUEST_CORRECTION', 'CORRECT', 'APPROVE', 'CLOSE', 'POST', 'ADMINISTER', 'VIEW_AUDIT'],
     scopeKind: 'SYSTEM',
   },
   EXECUTIVE_MANAGEMENT: {
@@ -43,11 +42,11 @@ export const ROLE_ACCESS_POLICIES = {
     scopeKind: 'SYSTEM',
   },
   DATA_EXECUTIVE: {
-    capabilities: ['VIEW', 'CREATE', 'EDIT_DRAFT', 'SUBMIT', 'APPROVE', 'ADMINISTER'],
+    capabilities: ['VIEW', 'CREATE', 'EDIT_DRAFT', 'SUBMIT', 'REQUEST_CORRECTION', 'CORRECT', 'APPROVE', 'ADMINISTER', 'VIEW_AUDIT'],
     scopeKind: 'SYSTEM',
   },
   HEAD_OF_MPD: {
-    capabilities: ['VIEW', 'REQUEST_CORRECTION', 'CORRECT', 'APPROVE', 'CLOSE', 'ADMINISTER', 'VIEW_AUDIT'],
+    capabilities: ['VIEW', 'REQUEST_CORRECTION', 'APPROVE', 'CLOSE', 'ADMINISTER', 'VIEW_AUDIT'],
     scopeKind: 'SYSTEM',
   },
   ADMIN_HEAD: {
@@ -55,7 +54,7 @@ export const ROLE_ACCESS_POLICIES = {
     scopeKind: 'DEPARTMENT',
   },
   QA_HEAD: {
-    capabilities: ['VIEW', 'REQUEST_CORRECTION', 'CORRECT', 'APPROVE', 'ADMINISTER', 'VIEW_AUDIT'],
+    capabilities: ['VIEW', 'REQUEST_CORRECTION', 'APPROVE', 'ADMINISTER', 'VIEW_AUDIT'],
     scopeKind: 'DEPARTMENT',
   },
   PRODUCTION_HEAD: {
@@ -76,6 +75,11 @@ export const ROLE_ACCESS_POLICIES = {
   },
   PHE_OPERATOR: {
     capabilities: OPERATOR_CAPABILITIES,
+    scopeKind: 'SOURCE',
+  },
+  // MDO approves MOT new-shop requests in its own ZMCC (plan §1, §2.2-6).
+  MDO: {
+    capabilities: [...OPERATOR_CAPABILITIES, 'APPROVE'],
     scopeKind: 'SOURCE',
   },
   ZMCC_LAB_ATTENDANT: {

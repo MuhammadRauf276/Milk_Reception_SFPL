@@ -24,13 +24,12 @@ export const MpdFleetRadarScreen: React.FC<MpdFleetRadarScreenProps> = ({ tanker
 
   return (
     <div className="space-y-6">
-      {/* Search and Filters Header */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-border">
         <div className="relative flex-1">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="Search vehicle number, MOT, route, or ZMCC source..."
+            placeholder="Search vehicle number, MOT, route, or ZMCC source…"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-border focus:outline-hidden focus:border-primary bg-subtle"
@@ -49,14 +48,13 @@ export const MpdFleetRadarScreen: React.FC<MpdFleetRadarScreenProps> = ({ tanker
             >
               {filter === 'ALL' && `All Fleet (${tankers.length + routes.length})`}
               {filter === 'TANKERS' && `Plant Tankers (${tankers.length})`}
-              {filter === 'MOT_ROUTES' && `MOT Vans (${routes.length})`}
+              {filter === 'MOT_ROUTES' && `MOT Vehicles (${routes.length})`}
               {filter === 'SUBSTITUTES' && `Substitutes (${substitutes.length})`}
             </button>
           ))}
         </div>
       </div>
 
-      {/* 1. Heavy In-Transit Tankers (ZMCC to Plant) */}
       {(activeFilter === 'ALL' || activeFilter === 'TANKERS') && (
         <div className="bg-white border border-border rounded-xl overflow-hidden shadow-xs">
           <div className="p-4 border-b border-border flex items-center justify-between">
@@ -150,7 +148,6 @@ export const MpdFleetRadarScreen: React.FC<MpdFleetRadarScreenProps> = ({ tanker
         </div>
       )}
 
-      {/* 2. MOT Route Vans (Village Pickups to ZMCC) */}
       {(activeFilter === 'ALL' || activeFilter === 'MOT_ROUTES') && (
         <div className="bg-white border border-border rounded-xl overflow-hidden shadow-xs">
           <div className="p-4 border-b border-border flex items-center justify-between">
@@ -191,7 +188,7 @@ export const MpdFleetRadarScreen: React.FC<MpdFleetRadarScreenProps> = ({ tanker
                       <td className="py-3 px-4">
                         <div className="font-semibold text-foreground">{r.routeName ?? NO_DATA}</div>
                         <div className="text-slate-500 text-xs">
-                          <span className="tabular-nums">{r.routeCode ?? NO_DATA}</span> • MOT: <strong className="text-slate-700">{r.motName ?? NO_DATA}</strong>
+                          <span className="tabular-nums">{r.routeCode ?? NO_DATA}</span> · MOT: <strong className="text-slate-700">{r.motName ?? NO_DATA}</strong>
                         </div>
                       </td>
                       <td className="py-3 px-4 tabular-nums font-semibold text-slate-800">
@@ -241,7 +238,6 @@ export const MpdFleetRadarScreen: React.FC<MpdFleetRadarScreenProps> = ({ tanker
         </div>
       )}
 
-      {/* 3. Emergency Vehicle Substitutions */}
       {(activeFilter === 'ALL' || activeFilter === 'SUBSTITUTES') && (
         <div className="bg-white border border-border rounded-xl overflow-hidden shadow-xs">
           <div className="p-4 border-b border-border flex items-center justify-between">

@@ -1,14 +1,13 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { ShieldCheck, Truck, Clock, Search, LogOut, CheckCircle2, ShieldAlert } from 'lucide-react';
+import { ShieldCheck, Truck, Clock, Search, CheckCircle2, ShieldAlert } from 'lucide-react';
 import { useToast } from '@/frontend/context/ToastContext';
 import { toDatetimeLocalInput, datetimeLocalToIso } from '@/lib/datetime-utils';
 import { User } from '@core/types';
 
 import { formatDispatchQuantity } from '@/backend/modules/dispatch/quantity/dispatchQuantityService';
 import { PageHeader } from '@/components/ui/page-header';
-import { SegmentedTabs } from '@/components/ui/segmented-tabs';
 import { onActivateKey } from '@/lib/a11y';
 import { getErrorMessage } from '@/lib/errors';
 
@@ -266,42 +265,26 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
 
   return (
     <div className="w-full max-w-7xl mx-auto space-y-6 text-foreground">
-      {/* Header & Status */}
       <PageHeader
         title="Gate entry & exit"
-        description="Issue tokens for arriving vehicles and clear completed vehicles out of the plant."
-        actions={
-          <SegmentedTabs
-            label="Gate queues"
-            value={activeTab}
-            onValueChange={setActiveTab}
-            tabs={[
-            { value: 'WAITING_ENTRY', label: 'Waiting for entry', icon: Truck, count: dispatchedVisits.length },
-            { value: 'INSIDE_PLANT', label: 'Inside plant', icon: ShieldCheck, count: activeVisits.length },
-            { value: 'READY_EXIT', label: 'Ready for exit', icon: LogOut, count: readyExitVisits.length },
-            ]}
-          />
-        }
+        description="Log vehicle gate entry, security checks and gate exit passes."
       />
 
-      {/* TAB 1: WAITING FOR ENTRY */}
       {activeTab === 'WAITING_ENTRY' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start animate-panel-in">
-          {/* LEFT (5/12): WAITING FOR ENTRY QUEUE */}
           <div className="lg:col-span-5 space-y-3">
             <div className="flex items-center justify-between px-1">
               <h3 className="text-sm font-semibold text-foreground">Waiting for Entry</h3>
               <span className="text-xs tabular-nums font-semibold text-slate-500">{dispatchedVisits.length} vehicles</span>
             </div>
 
-            {/* Search Box */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
                 type="text"
                 value={entrySearchQuery}
                 onChange={(e) => handleEntrySearch(e.target.value)}
-                placeholder="Search vehicle number..."
+                placeholder="Search vehicle number…"
                 className="w-full min-h-[44px] pl-9 pr-3 py-2 text-xs tabular-nums font-semibold rounded-xl border border-input bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-ring/30 focus:border-primary"
               />
             </div>
@@ -309,7 +292,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
             <div className="space-y-2.5 max-h-[520px] overflow-y-auto pr-1">
               {isLoading ? (
                 <div className="p-8 text-center border border-dashed border-border rounded-xl text-sm text-muted-foreground">
-                  Loading vehicles...
+                  Loading vehicles…
                 </div>
               ) : dispatchedVisits.length === 0 ? (
                 <div className="p-8 text-center border border-dashed border-border rounded-xl text-sm text-muted-foreground">
@@ -351,7 +334,6 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
             </div>
           </div>
 
-          {/* RIGHT (7/12): GATE ENTRY PANEL */}
           <div className="lg:col-span-7">
             {!selectedEntryVisit ? (
               <div className="p-12 text-center border border-dashed border-border rounded-xl text-sm text-muted-foreground">
@@ -414,7 +396,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                     className="w-full min-h-[44px] flex items-center justify-center space-x-2 py-3 px-4 rounded-xl bg-primary hover:bg-primary-hover text-white font-semibold text-xs shadow-md transition disabled:opacity-50 mt-2"
                   >
                     <CheckCircle2 className="w-4 h-4 text-white" />
-                    <span>{isSubmitting ? 'Confirming Entry...' : 'Confirm Gate Entry'}</span>
+                    <span>{isSubmitting ? 'Confirming Entry…' : 'Confirm Gate Entry'}</span>
                   </button>
                 </form>
               </div>
@@ -423,16 +405,12 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
         </div>
       )}
 
-      {/* TAB 2: INSIDE PLANT */}
       {activeTab === 'INSIDE_PLANT' && (
         <div className="p-6 rounded-xl bg-card border border-border shadow-xs space-y-4 animate-panel-in">
           <div className="flex items-center justify-between pb-2 border-b border-border-strong">
             <h3 className="text-sm font-semibold text-foreground">
               Vehicles Inside Plant ({activeVisits.length})
             </h3>
-            <span className="text-xs tabular-nums font-semibold text-slate-500">
-              Physically inside security perimeter
-            </span>
           </div>
 
           {activeVisits.length === 0 ? (
@@ -480,24 +458,21 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
         </div>
       )}
 
-      {/* TAB 3: READY FOR EXIT */}
       {activeTab === 'READY_EXIT' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start animate-panel-in">
-          {/* LEFT (5/12): READY FOR EXIT QUEUE */}
           <div className="lg:col-span-5 space-y-3">
             <div className="flex items-center justify-between px-1">
               <h3 className="text-sm font-semibold text-foreground">Ready for Exit</h3>
               <span className="text-xs tabular-nums font-semibold text-slate-500">{readyExitVisits.length} ready</span>
             </div>
 
-            {/* Search Box */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
                 type="text"
                 value={exitSearchQuery}
                 onChange={(e) => handleExitSearch(e.target.value)}
-                placeholder="Search token or vehicle number..."
+                placeholder="Search token or vehicle number…"
                 className="w-full min-h-[44px] pl-9 pr-3 py-2 text-xs tabular-nums font-semibold rounded-xl border border-input bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-ring/30 focus:border-primary"
               />
             </div>
@@ -550,7 +525,6 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
             </div>
           </div>
 
-          {/* RIGHT (7/12): PROCESS EXIT PANEL */}
           <div className="lg:col-span-7">
             {!selectedExitVisit ? (
               <div className="p-12 text-center border border-dashed border-border rounded-xl text-sm text-muted-foreground">
@@ -621,7 +595,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                     className="w-full min-h-[44px] flex items-center justify-center space-x-2 py-3 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs shadow-md transition disabled:opacity-50"
                   >
                     <CheckCircle2 className="w-4 h-4 text-white" />
-                    <span>{isSubmitting ? 'Confirming Exit...' : 'Confirm Gate Exit Clearance'}</span>
+                    <span>{isSubmitting ? 'Confirming Exit…' : 'Confirm Gate Exit Clearance'}</span>
                   </button>
                 </form>
               </div>

@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Milk Reception Workflow Diagrams</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+  <style>
+    /* Suppress browser header & footer (URL, Date, Title, Page #) on print */
+    @page {
+      size: A4 portrait;
+      margin: 7mm 8mm 7mm 8mm;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    body {
+      font-family: 'Segoe UI', Arial, Helvetica, sans-serif;
+      background: #f1f5f9;
+      color: #000000;
+      margin: 0;
+      padding: 16px;
+    }
+
+    /* Screen-only floating toolbar (completely removed when printing) */
+    .screen-toolbar {
+      max-width: 210mm;
+      margin: 0 auto 16px auto;
+      background: #ffffff;
+      border: 2px solid #000000;
+      border-radius: 8px;
+      padding: 14px 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+
+    .toolbar-title {
+      font-size: 16px;
+      font-weight: 800;
+      color: #000000;
+      margin: 0;
+    }
+
+    .toolbar-sub {
+      font-size: 12px;
+      color: #334155;
+      margin: 3px 0 0 0;
+    }
+
+    .btn {
+      background: #000000;
+      color: #ffffff;
+      border: 2px solid #000000;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 13px;
+    }
+    .btn:hover {
+      background: #333333;
+    }
+    .btn-outline {
+      background: #ffffff;
+      color: #000000;
+    }
+    .btn-outline:hover {
+      background: #f1f5f9;
+    }
+
+    /* Legend for Black & White Visual Hierarchy */
+    .bw-legend {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      font-size: 12px;
+      font-weight: 700;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid #cbd5e1;
+      width: 100%;
+    }
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .swatch {
+      width: 22px;
+      height: 14px;
+      display: inline-block;
+    }
+    .sw-proc { background: #ffffff; border: 2px solid #000000; }
+    .sw-dec  { background: #f1f5f9; border: 2.5px solid #000000; }
+    .sw-err  { background: #e2e8f0; border: 2.5px dashed #000000; }
+    .sw-ok   { background: #f8fafc; border: 3.5px solid #000000; }
+
+    /* Each Page Sheet represents a physical A4 Paper Sheet */
+    .paper-sheet {
+      width: 210mm;
+      min-height: 278mm;
+      margin: 0 auto 20px auto;
+      background: #ffffff;
+      border: 1px solid #94a3b8;
+      padding: 6mm 8mm;
+      page-break-after: always;
+      break-after: page;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+    }
+
+    .paper-sheet:last-child {
+      page-break-after: auto;
+      break-after: auto;
+    }
+
+    .sheet-title-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      border-bottom: 2.5px solid #000000;
+      padding-bottom: 4px;
+      margin-bottom: 8px;
+    }
+
+    .sheet-title {
+      font-size: 15px;
+      font-weight: 800;
+      color: #000000;
+      margin: 0;
+      letter-spacing: -0.2px;
+    }
+
+    .sheet-part-tag {
+      font-size: 12px;
+      font-weight: 800;
+      color: #000000;
+      border: 1.5px solid #000000;
+      padding: 1px 8px;
+      border-radius: 4px;
+      white-space: nowrap;
+      margin-left: 8px;
+    }
+
+    .diagram-slice-container {
+      width: 100%;
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      overflow: hidden;
+    }
+
+    .diagram-slice-container svg {
+      width: 100% !important;
+      height: auto !important;
+      max-height: 258mm !important;
+      display: block;
+    }
+
+    /* Enforce ultra-crisp Black & White contrast inside Mermaid SVGs */
+    .diagram-slice-container svg text,
+    .diagram-slice-container svg span,
+    .diagram-slice-container svg div,
+    .diagram-slice-container svg p,
+    .diagram-slice-container svg .nodeLabel,
+    .diagram-slice-container svg .edgeLabel {
+      color: #000000 !important;
+      fill: #000000 !important;
+      font-weight: 700 !important;
+      font-family: 'Segoe UI', Arial, sans-serif !important;
+    }
+
+    .diagram-slice-container svg .edgeLabel rect,
+    .diagram-slice-container svg .labelBkg {
+      fill: #ffffff !important;
+      background-color: #ffffff !important;
+      opacity: 1 !important;
+      stroke: #000000 !important;
+      stroke-width: 1px !important;
+    }
+
+    .diagram-slice-container svg .edgePath .path,
+    .diagram-slice-container svg .flowchart-link {
+      stroke: #000000 !important;
+      stroke-width: 2px !important;
+    }
+
+    .diagram-slice-container svg marker path {
+      fill: #000000 !important;
+      stroke: #000000 !important;
+    }
+
+    .diagram-slice-container svg .cluster rect {
+      fill: #ffffff !important;
+      stroke: #000000 !important;
+      stroke-width: 1.5px !important;
+      stroke-dasharray: 5 4 !important;
+    }
+
+    .diagram-slice-container svg .cluster-label span,
+    .diagram-slice-container svg .cluster-label text {
+      font-weight: 800 !important;
+      font-size: 14px !important;
+      color: #000000 !important;
+      fill: #000000 !important;
+    }
+
+    @media print {
+      body {
+        background: #ffffff !important;
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+      .screen-toolbar {
+        display: none !important;
+      }
+      .paper-sheet {
+        width: 100% !important;
+        min-height: 0 !important;
+        height: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+        box-shadow: none !important;
+        page-break-after: always;
+        break-after: page;
+      }
+      .diagram-slice-container svg {
+        max-height: 266mm !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="screen-toolbar">
+    <div>
+      <h1 class="toolbar-title">Black &amp; White Paper Print Edition — Milk Reception Workflow Diagrams</h1>
+      <p class="toolbar-sub">Engineered for Black &amp; White printers: Pure White backgrounds, Bold Black text, Solid vs. Dashed borders, zero headers/footers, and automatic 2-page division for tall charts so every text label is large &amp; readable.</p>
+    </div>
+    <div>
+      <button class="btn" onclick="window.print()">Print / Save PDF (No Header/Footer)</button>
+    </div>
+    <div class="bw-legend">
+      <span>B&amp;W Hierarchy Key:</span>
+      <span class="legend-item"><span class="swatch sw-proc"></span> Process Step (White + Solid Border)</span>
+      <span class="legend-item"><span class="swatch sw-dec"></span> Decision Point (Light Gray + Thick Border)</span>
+      <span class="legend-item"><span class="swatch sw-err"></span> Reject / Error Block (Shaded + Dashed Border)</span>
+      <span class="legend-item"><span class="swatch sw-ok"></span> Final Commit / Ledger Stock (Extra-Thick Border)</span>
+    </div>
+  </div>
+
+  <!-- Hidden staging container for initial Mermaid rendering -->
+  <div id="staging" style="position:absolute; left:-9999px; top:0; width:1100px;"></div>
+
+  <!-- Printable A4 Paper Sheets Container -->
+  <div id="sheets-root"></div>
+
+  <script>
+    const DIAGRAMS = [{"title":"Visual Architecture Infographics","code":"flowchart TD\n    subgraph S0[\"Level 0: Master Governance (Data Executive & Finance Team)\"]\n        SA_DE[\"Super Admin / Data Executive:<br/>Add Lab Tests & Set SOP Rules (Release / Monitoring)\"]\n        FIN_ERP[\"Finance Team:<br/>1. Create / Edit / Activate ERP Codes (erp_code)<br/>2. Set Milk Pricing Rule & Date-Range Rate (from_date → to_date)\"]\n    end\n\n    subgraph S1[\"Level 1: Upstream MOT Operations & Shop ERP Settlement (Stream 1)\"]\n        FLEET_REG[\"ZMCC Manager / Super Admin:<br/>Register MOT Vehicle & MOT Profile\"] --> J_ASSIGN[\"PHE Operator / ZMCC Manager:<br/>Assign & Dispatch MOT Journey\"]\n        J_ASSIGN --> MOT[\"MOT:<br/>Collect Milk at Village Shop (Shop has erp_code)\"]\n        MOT -->|Immediate Shop Settlement| SHOP_LEDGER[(\"ERP Settlement Ledger:<br/>Credit Shop erp_code<br/>(@13% TS Liters x Active Date Rate)\")]\n        MOT --> ZMCC_IN[\"ZMCC Chiller Intake\"]\n    end\n\n    subgraph S2[\"Level 2 to 4: ZMCC Reception, Lab & Local Supplier ERP Settlement (Stream 2)\"]\n        LS[\"Local Supplier Direct Arrival<br/>(Linked to Local Supplier erp_code)\"] --> ZMCC_IN\n        ZMCC_IN --> PHE_GATE[\"PHE Gate Entry & Token\"]\n        SA_DE -.->|Active ZMCC Rules| ZMCC_LAB\n        PHE_GATE --> ZMCC_LAB{\"ZMCC QA Lab Testing\"}\n        ZMCC_LAB -->|ACCEPTED| ZMCC_TANK[(\"Sole Active ZMCC Tank Stock\")]\n        ZMCC_TANK -->|If Local Supplier Milk Accepted| LS_LEDGER[(\"ERP Settlement Ledger:<br/>Credit Local Supplier erp_code<br/>(Accepted @13% TS Liters x Active Date Rate)\")]\n        ZMCC_LAB -->|REJECTED| ZMCC_REJ[\"Quarantine / Rejection Return (Zero Ledger)\"]\n        ZMCC_TANK --> ZMCC_EXIT[\"ZMCC Gate Exit<br/>(Restores MOT Vehicle Availability)\"]\n        ZMCC_REJ --> ZMCC_EXIT\n    end\n\n    subgraph S3[\"Level 5: Bulk Milk Dispatch (Company ZMCC or Direct Contractor)\"]\n        ZMCC_EXIT --> DISPATCH[\"Bulk Tanker Dispatch:<br/>• Independent Whole-Vehicle Quantity<br/>• Avg of Portion Tests (LR, Fat) → Vehicle Canonical Formulas\"]\n    end\n\n    subgraph S4[\"Level 6 to 8: Plant Admin Gate, QA & 1st Weight Business Date Cutoff\"]\n        DISPATCH --> PLANT_GATE[\"Plant Admin Gate Entry<br/>(Admin Operator Issues Token)\"]\n        SA_DE -.->|Active Plant QA Rules| PLANT_QA\n        PLANT_GATE --> PLANT_QA{\"Plant QA Lab Sampling & Testing\"}\n        \n        PLANT_QA -->|Accepted Portions at least 1| SCALE_GROSS[\"Weighbridge: 1st Weight (Gross)\"]\n        PLANT_QA -->|All Portions Rejected| PLANT_EXIT_REJ[\"Direct Admin Gate Exit (No Unloading)\"]\n        \n        SCALE_GROSS --> BIZ_DATE{\"1st Weight Time (gross_timestamp)<br/> under  08:00 AM PKT?\"}\n        BIZ_DATE -->|YES| PREV_DATE[\"Lock Assigned Business Date = Previous Day\"]\n        BIZ_DATE -->|NO| CURR_DATE[\"Lock Assigned Business Date = Current Day\"]\n    end\n\n    subgraph S5[\"Level 9 to 12: Unloading, 2nd Weight & Conditional Contractor ERP Settlement (Stream 3)\"]\n        PREV_DATE --> SILO_UNLOAD[\"Production: Silo Unloading\"]\n        CURR_DATE --> SILO_UNLOAD\n        SILO_UNLOAD --> SCALE_TARE[\"Weighbridge: 2nd Weight (Tare)<br/>Net Weight KG = 1st Weight - 2nd Weight\"]\n        SCALE_TARE --> FINAL_REC[(\"Plant Final Receipt & Dual Variance\")]\n        FINAL_REC --> SRC_CHECK{\"Source Type?\"}\n        SRC_CHECK -->|Company ZMCC| INT_TRANSFER[\"Internal Stock Transfer & Variance Only<br/>(Upstream Shops/LS Already Settled at ZMCC)\"]\n        SRC_CHECK -->|Direct Contractor| CONT_LEDGER[(\"ERP Settlement Ledger:<br/>Credit Contractor Source erp_code<br/>(Net KG → @13% TS x Rate on 1st-Weight Business Date)\")]\n        INT_TRANSFER --> PLANT_EXIT[\"Plant Admin Gate Exit<br/>(Admin Operator Collects Token)\"]\n        CONT_LEDGER --> PLANT_EXIT\n    end\n\n    classDef primary fill:#ffffff,stroke:#000000,color:#000000,stroke-width:2px;\n    classDef success fill:#f8fafc,stroke:#000000,color:#000000,stroke-width:3.5px;\n    classDef warning fill:#f1f5f9,stroke:#000000,color:#000000,stroke-width:2.5px;\n    classDef danger fill:#e2e8f0,stroke:#000000,color:#000000,stroke-width:3px,stroke-dasharray: 6 3;\n    classDef storage fill:#f8fafc,stroke:#000000,color:#000000,stroke-width:3.5px;\n\n    class SA_DE,FIN_ERP,FLEET_REG,J_ASSIGN,MOT,LS,PHE_GATE,DISPATCH,PLANT_GATE,SCALE_GROSS,SILO_UNLOAD,SCALE_TARE,PLANT_EXIT primary;\n    class ZMCC_TANK,FINAL_REC,INT_TRANSFER storage;\n    class ZMCC_LAB,PLANT_QA,BIZ_DATE,SRC_CHECK warning;\n    class ZMCC_REJ,PLANT_EXIT_REJ danger;\n    class SHOP_LEDGER,LS_LEDGER,CONT_LEDGER,PREV_DATE,CURR_DATE success;"},{"title":"2. Level 0A: Master Lab Test & SOP Quality Rule Governance (`SUPER_ADMIN` / `DATA_EXECUTIVE` Only)","code":"flowchart TD\n    START_GOV([\"Master Lab Test & SOP Rule Configuration\"]) --> CHK_GOV_ROLE{\"Is Actor SUPER_ADMIN<br/>or DATA_EXECUTIVE?\"}\n\n    CHK_GOV_ROLE -->|NO: e.g. QA Head / QA Manager / Lab Attendant| ERR_403_GOV[\"Fail Closed (HTTP 403 Forbidden):<br/>Only SUPER_ADMIN or DATA_EXECUTIVE can add Lab Tests<br/>or configure SOP Quality Rules.\"]\n\n    CHK_GOV_ROLE -->|YES| GOV_ACTION{\"Select Governance Action\"}\n\n    %% Add Lab Test\n    GOV_ACTION -->|Add / Update Lab Test| CREATE_TEST[\"Define Master LabTest:<br/>1. Test Code (e.g. LT-000008 LR, LT-000026 Fat)<br/>2. Result Type (NUMERIC, PASS_FAIL, ENUM)<br/>3. Unit (°C, %, LA, hrs) & Required Flag\"]\n\n    %% Set Rules for Test\n    GOV_ACTION -->|Set SOP Rules for Lab Test| SET_RULE[\"Configure LabTestRule for Selected Test:<br/>1. Select Workflow Scope (ZMCC_LAB_MOT, ZMCC_LAB_LOCAL_SUPPLIER, DISPATCH, PLANT_QA)<br/>2. Select Rule Category: RELEASE (Gatekeeper) vs MONITORING (Warning only)<br/>3. Set Pass Thresholds (MIN, MAX, RANGE, or EXACT_MATCH)\"]\n\n    CREATE_TEST --> VALIDATE_RULE\n    SET_RULE --> VALIDATE_RULE\n\n    VALIDATE_RULE{\"Are Thresholds & Scope Valid<br/>(min ≤ max, non-conflicting active rule)?\"}\n\n    VALIDATE_RULE -->|NO| ERR_RULE_CFG[\"Error 400: Invalid Rule Threshold Configuration\"]\n    VALIDATE_RULE -->|YES| COMMIT_RULE[\"Atomic Versioned Commit:<br/>1. Deactivate previous rule version for same (Test, Scope, Category)<br/>2. Activate new LabTestRule version<br/>3. Write AuditLog (LAB_TEST_RULE_CONFIGURED by Super Admin / Data Executive)\"]\n\n    COMMIT_RULE --> ACTIVE_ENGINES([\"Active Rules Immediately Enforced in ZMCC Lab & Plant QA Lab\"])\n\n    classDef proc fill:#ffffff,stroke:#000000,color:#000000,stroke-width:2px;\n    classDef decision fill:#f1f5f9,stroke:#000000,color:#000000,stroke-width:2.5px;\n    classDef danger fill:#e2e8f0,stroke:#000000,color:#000000,stroke-width:3px,stroke-dasharray: 6 3;\n    classDef success fill:#f8fafc,stroke:#000000,color:#000000,stroke-width:3.5px;\n\n    class CREATE_TEST,SET_RULE,COMMIT_RULE,ACTIVE_ENGINES proc;\n    class CHK_GOV_ROLE,GOV_ACTION,VALIDATE_RULE decision;\n    class ERR_403_GOV,ERR_RULE_CFG danger;\n    class COMMIT_RULE,ACTIVE_ENGINES success;"},{"title":"3. Level 0B: Finance Role — ERP Code Master Governance (`Add / Edit / Activate`) & Date-Range Rate Card (`from_date` to `to_date`)","code":"flowchart TD\n    START_FIN([\"Finance ERP Code & Rate Card Governance\"]) --> CHK_FIN_ROLE{\"Is Actor in FINANCE_TEAM<br/>or SUPER_ADMIN?\"}\n\n    CHK_FIN_ROLE -->|NO: e.g. ZMCC Manager / PHE Operator| ERR_403_FIN[\"Fail Closed (HTTP 403 Forbidden):<br/>ZMCC Manager & PHE cannot create, edit, or deactivate ERP Codes.<br/>Only Finance Team / Super Admin owns ERP Code Master Data.\"]\n\n    CHK_FIN_ROLE -->|YES| FIN_OP_TYPE{\"Select Finance Action\"}\n\n    %% Action 1: Create / Edit / Activate / Deactivate ERP Code\n    FIN_OP_TYPE -->|Create / Edit / Activate ERP Code| ERP_MASTER_FORM[\"Manage ERP Code Master Record:<br/>1. Enter Unique erp_code (e.g. ERP-10045)<br/>2. Enter Account / Milk Source Name & Entity Type:<br/>   • VILLAGE_SHOP_SOURCE (for MOT Shops)<br/>   • LOCAL_SUPPLIER_SOURCE (for ZMCC Direct Suppliers)<br/>   • CONTRACTOR_SOURCE (for Plant Direct Contractors)<br/>3. Set Status: is_active = true / false\"]\n\n    ERP_MASTER_FORM --> CHK_DEACTIVATE{\"If Deactivating (is_active = false):<br/>Are any Active Shops, Suppliers, or<br/>Contractors still mapped to this erp_code?\"}\n\n    CHK_DEACTIVATE -->|YES: Still Linked| ERR_IN_USE[\"Error 409 Conflict:<br/>Cannot deactivate ERP Code while linked to active Shops/Suppliers.<br/>Reassign them to a new ERP Code first.\"]\n    CHK_DEACTIVATE -->|NO / Activating or Editing| SAVE_ERP_MASTER[\"Save ERP Code Master & Emit AuditLog (ERP_CODE_MASTER_SAVED)\"]\n\n    SAVE_ERP_MASTER --> SELECT_MILK_RULE\n\n    %% Action 2: Set Milk Rule & Date-Range Rate\n    FIN_OP_TYPE -->|Set Milk Rule & Date-Range Rate| SELECT_MILK_RULE[\"1. Select Milk Pricing Rule against erp_code:<br/>• Settlement Basis: '@13% TS Liters' (Default) OR 'Gross Liters'<br/>• Standard TS Factor (13.0% TS)\"]\n\n    SELECT_MILK_RULE --> SET_RATE_WINDOW[\"2. Set Effective Date-Range Milk Rate against erp_code:<br/>• Rate in PKR per Liter (e.g. PKR 202.50)<br/>• Effective Start Date: from_date (YYYY-MM-DD)<br/>• Effective End Date: to_date (YYYY-MM-DD)\"]\n\n    SET_RATE_WINDOW --> CHK_DATE_VALID{\"Is from_date ≤ to_date?\"}\n    CHK_DATE_VALID -->|NO| ERR_DATE_ORDER[\"Error 400: from_date cannot be after to_date.\"]\n\n    CHK_DATE_VALID -->|YES| CHK_OVERLAP{\"Does [from_date, to_date] overlap an existing<br/>rate window for this SAME erp_code?\"}\n\n    CHK_OVERLAP -->|YES| AUTO_SPLIT{\"Did Finance select 'Auto-Close Previous Period'?\"}\n    AUTO_SPLIT -->|NO| ERR_OVERLAP[\"Error 409 Conflict: Overlapping rate dates for this ERP Code.\"]\n    AUTO_SPLIT -->|YES| CLOSE_OLD_RATE[\"Update previous rate row: to_date = (new from_date - 1 day)\"]\n\n    CLOSE_OLD_RATE --> SAVE_RATE_TX\n    CHK_OVERLAP -->|NO: Clean Window| SAVE_RATE_TX\n\n    SAVE_RATE_TX[\"Atomic Finance Rate Commit:<br/>• Insert ErpMilkRateSchedule (erp_code, rate_pkr, from_date, to_date)<br/>• Write AuditLog (ERP_MILK_RATE_SCHEDULED)\"]\n\n    classDef proc fill:#ffffff,stroke:#000000,color:#000000,stroke-width:2px;\n    classDef decision fill:#f1f5f9,stroke:#000000,color:#000000,stroke-width:2.5px;\n    classDef danger fill:#e2e8f0,stroke:#000000,color:#000000,stroke-width:3px,stroke-dasharray: 6 3;\n    classDef success fill:#f8fafc,stroke:#000000,color:#000000,stroke-width:3.5px;\n\n    class ERP_MASTER_FORM,SAVE_ERP_MASTER,SELECT_MILK_RULE,SET_RATE_WINDOW,CLOSE_OLD_RATE,SAVE_RATE_TX proc;\n    class CHK_FIN_ROLE,FIN_OP_TYPE,CHK_DEACTIVATE,CHK_DATE_VALID,CHK_OVERLAP,AUTO_SPLIT decision;\n    class ERR_403_FIN,ERR_IN_USE,ERR_DATE_ORDER,ERR_OVERLAP danger;\n    class SAVE_ERP_MASTER,SAVE_RATE_TX success;"},{"title":"4. Level 0C: How to Edit Shop (`ZmccShop`) or Local Supplier (`ZmccLocalSupplier`) When Switching to a New ERP Code (100% Historical Preservation Workflow)","code":"flowchart TD\n    REQ_SWITCH([\"Shop Owner (ZmccShop) or Local Supplier (ZmccLocalSupplier)<br/>Requests to Work Under a New ERP Code\"]) --> DO_NOT_DUP[\"Architectural Invariant:<br/>DO NOT create a duplicate Shop or duplicate Local Supplier!<br/>Keep existing Shop Code (SHP-xxx) / Supplier Code (ZLS-xxxxxx).\"]\n\n    DO_NOT_DUP --> CHK_NEW_ERP{\"Does the New Target ERP Code (ERP-NEW-202)<br/>exist and is_active == true in Finance Master?\"}\n\n    CHK_NEW_ERP -->|NO| FIN_CREATE_FIRST[\"Finance Team first creates & activates 'ERP-NEW-202'<br/>and sets its Milk Rule & Date-Range Rate (Level 0B)\"]\n    FIN_CREATE_FIRST --> CHK_IN_FLIGHT\n\n    CHK_NEW_ERP -->|YES| CHK_IN_FLIGHT{\"Does this Shop / Local Supplier have an<br/>uncompleted in-flight transaction right now?<br/>(e.g. Unaccepted ZMCC Lab Session in progress)\"}\n\n    CHK_IN_FLIGHT -->|YES| BLOCK_IN_FLIGHT[\"Error 409 Conflict:<br/>Complete the current in-progress ZMCC Lab Session first<br/>so its settlement locks cleanly before switching ERP Code.\"]\n\n    CHK_IN_FLIGHT -->|NO: Safe to Switch| ATOMIC_ERP_SWITCH[\"Execute Atomic 'Reassign ERP Code' Transaction:<br/>1. Close Current History Row in ErpAssignmentHistory:<br/>   • erp_code = 'ERP-OLD-101'<br/>   • effective_to = now (PKT), is_current = false<br/>2. Insert New History Row in ErpAssignmentHistory:<br/>   • erp_code = 'ERP-NEW-202'<br/>   • effective_from = now (PKT), effective_to = null, is_current = true<br/>3. Update ZmccShop.milk_source_id (or ZmccLocalSupplier.erp_code_id) = 'ERP-NEW-202'<br/>4. Insert AuditLog (ENTITY_ERP_CODE_SWITCHED with mandatory reason)\"]\n\n    ATOMIC_ERP_SWITCH --> PRESERVE_PAST[\"How Past vs. Future Data is Handled Automatically:\"]\n\n    PRESERVE_PAST --> PAST_DATA[\"Historical Transactions (Before Switch):<br/>• Every past MotShopCollection & ZmccTankReceipt holds<br/>  immutable 'erp_code_snapshot = ERP-OLD-101'<br/>• Past ERP Settlement Ledger rows for 'ERP-OLD-101' are 100% untouched!\"]\n\n    PRESERVE_PAST --> FUTURE_DATA[\"Future Transactions (After Switch):<br/>• Next MOT Shop Collection or Local Supplier Acceptance reads<br/>  current 'ERP-NEW-202'<br/>• Freezes 'erp_code_snapshot = ERP-NEW-202' & credits 'ERP-NEW-202' Ledger!\"]\n\n    classDef proc fill:#ffffff,stroke:#000000,color:#000000,stroke-width:2px;\n    classDef decision fill:#f1f5f9,stroke:#000000,color:#000000,stroke-width:2.5px;\n    classDef danger fill:#e2e8f0,stroke:#000000,color:#000000,stroke-width:3px,stroke-dasharray: 6 3;\n    classDef success fill:#f8fafc,stroke:#000000,color:#000000,stroke-width:3.5px;\n\n    class DO_NOT_DUP,FIN_CREATE_FIRST,ATOMIC_ERP_SWITCH,PRESERVE_PAST proc;\n    class CHK_NEW_ERP,CHK_IN_FLIGHT decision;\n    class BLOCK_IN_FLIGHT danger;\n    class PAST_DATA,FUTURE_DATA,ATOMIC_ERP_SWITCH success;"},{"title":"5A. Level 1A: MOT Master Fleet Registration & Journey Assignment / Dispatch","code":"flowchart TD\n    START_ADMIN([\"MOT Pre-Journey Setup & Dispatch\"]) --> NEED_FLEET{\"Need to Register New MOT Vehicle<br/>or New MOT Profile?\"}\n\n    %% Fleet & Profile Registration Branch\n    NEED_FLEET -->|YES: Register Vehicle / Profile| CHK_FLEET_ROLE{\"Is Actor ZMCC_MANAGER<br/>or SUPER_ADMIN?\"}\n    \n    CHK_FLEET_ROLE -->|NO: e.g. PHE_OPERATOR| ERR_403_FLEET[\"Error 403 Forbidden:<br/>PHE Operators cannot create/update<br/>MOT Vehicles or MOT Profiles.\"]\n    \n    CHK_FLEET_ROLE -->|YES| FLEET_TYPE{\"Select Registration Type\"}\n\n    %% Add Vehicle\n    FLEET_TYPE -->|Add New MOT Vehicle| VEH_FORM[\"POST /api/zmcc/mot/vehicles:<br/>1. Enter vehicle_number (Normalized Uppercase)<br/>2. Select Target ZMCC (Auto-bound for ZMCC Manager)<br/>3. Optional: Vehicle Type, Capacity (L), Driver Name/Phone<br/>4. Category: STANDARD or EMERGENCY_SUBSTITUTE\"]\n    \n    VEH_FORM --> CHK_VEH_DUP{\"Is vehicle_number globally unique?\"}\n    CHK_VEH_DUP -->|NO| ERR_VEH_DUP[\"Error 409 Conflict:<br/>MOT Vehicle number already exists.\"]\n    CHK_VEH_DUP -->|YES| SAVE_VEH[\"Atomic DB Transaction:<br/>• Insert MotVehicle (is_active = true)<br/>• Insert AuditLog (MOT_VEHICLE_CREATED or<br/>  EMERGENCY_SUBSTITUTE_VEHICLE_REGISTERED)\"]\n\n    %% Add Profile\n    FLEET_TYPE -->|Add New MOT Profile| PROF_FORM[\"POST /api/zmcc/mot/profiles:<br/>1. Enter mot_code, Full Name, Phone, 13-digit CNIC<br/>2. Link User Account (role = 'MOT', scope = 'SOURCE', same ZMCC)\"]\n    \n    PROF_FORM --> CHK_PROF_VALID{\"Are mot_code & linked MOT User<br/>unique and valid for this ZMCC?\"}\n    CHK_PROF_VALID -->|NO| ERR_PROF[\"Error 400 / 409:<br/>Invalid user role/ZMCC or duplicate MOT code/user link.\"]\n    CHK_PROF_VALID -->|YES| SAVE_PROF[\"Atomic DB Transaction:<br/>• Insert MotProfile (is_active = true)<br/>• Insert AuditLog (MOT_PROFILE_CREATED)\"]\n\n    SAVE_VEH --> DISPATCH_ENTRY\n    SAVE_PROF --> DISPATCH_ENTRY\n    NEED_FLEET -->|NO: Fleet & Profile Already Exist| DISPATCH_ENTRY\n\n    %% Journey Assignment & Dispatch Branch\n    DISPATCH_ENTRY[\"Initiate 'Assign & Dispatch MOT Journey'<br/>POST /api/zmcc/mot/journeys/assign-and-dispatch\"] --> CHK_DISP_ROLE{\"Is Actor PHE_OPERATOR,<br/>ZMCC_MANAGER, or SUPER_ADMIN?\"}\n\n    CHK_DISP_ROLE -->|NO| ERR_403_DISP[\"Error 403 Forbidden:<br/>Unauthorized to assign & dispatch MOT journeys.\"]\n\n    CHK_DISP_ROLE -->|YES| SELECT_PARAMS[\"Select Dispatch Parameters:<br/>1. Active ZmccRoute (with ≥ 1 active ZmccShop)<br/>2. Active MotProfile (same ZMCC)<br/>3. Active MotVehicle (same ZMCC)<br/>4. Dispatcher GPS (lat, lng, accuracy) & idempotency_key\"]\n\n    SELECT_PARAMS --> CHK_ACTIVE_J{\"Does MOT Profile OR MOT Vehicle<br/>already have an active 'COLLECTING' journey?\"}\n    CHK_ACTIVE_J -->|YES| ERR_BUSY[\"Error 409 Conflict:<br/>MOT Profile or Vehicle is already on an active journey.\"]\n\n    CHK_ACTIVE_J -->|NO| CHK_INSIDE_ZMCC{\"Is MOT Vehicle physically inside ZMCC?<br/>(ZmccMotArrival: gate_exit_required = true<br/>AND exit_timestamp IS NULL)\"}\n\n    CHK_INSIDE_ZMCC -->|YES| ERR_INSIDE[\"Error 409 Conflict:<br/>Vehicle is still inside ZMCC.<br/>PHE Gate Exit must be recorded first.\"]\n\n    CHK_INSIDE_ZMCC -->|NO: Vehicle Available| CREATE_JOURNEY_TX[\"Atomic Journey Creation Transaction:<br/>1. Allocate Sequence: MJ-YYYYMMDD-XXXX<br/>2. Insert MotJourney (status = 'COLLECTING', operational_date = Today PKT)<br/>3. Insert Initial MotJourneyLocation (source = 'ASSIGNING_USER')<br/>4. Deterministically Snapshot Active Route Shops into<br/>   MotJourneyStop rows (including each Shop's current erp_code_snapshot)<br/>5. Insert AuditLog\"]\n\n    CREATE_JOURNEY_TX --> READY_FOR_MOT([\"Journey Dispatched → Appears Live on MOT App (/mot)\"])\n\n    classDef proc fill:#ffffff,stroke:#000000,color:#000000,stroke-width:2px;\n    classDef decision fill:#f1f5f9,stroke:#000000,color:#000000,stroke-width:2.5px;\n    classDef danger fill:#e2e8f0,stroke:#000000,color:#000000,stroke-width:3px,stroke-dasharray: 6 3;\n    classDef success fill:#f8fafc,stroke:#000000,color:#000000,stroke-width:3.5px;\n\n    class VEH_FORM,SAVE_VEH,PROF_FORM,SAVE_PROF,DISPATCH_ENTRY,SELECT_PARAMS,CREATE_JOURNEY_TX,READY_FOR_MOT proc;\n    class NEED_FLEET,CHK_FLEET_ROLE,FLEET_TYPE,CHK_VEH_DUP,CHK_PROF_VALID,CHK_DISP_ROLE,CHK_ACTIVE_J,CHK_INSIDE_ZMCC decision;\n    class ERR_403_FLEET,ERR_VEH_DUP,ERR_PROF,ERR_403_DISP,ERR_BUSY,ERR_INSIDE danger;\n    class CREATE_JOURNEY_TX,READY_FOR_MOT success;"},{"title":"5B. Level 1B: Upstream Mobile Milk Collection & Stream 1 Shop ERP Ledger Posting","code":"flowchart TD\n    START([\"MOT Opens Active Assigned Journey<br/>(GET /api/zmcc/mot/journeys/current)\"]) --> PREP_OFFLINE[\"Download Offline Journey Snapshot<br/>(Ordered MotJourneyStop list with Shop erp_code cached in IndexedDB)\"]\n\n    PREP_OFFLINE --> STOP_LOOP[\"Arrive at Next Planned Village Shop Stop\"]\n    STOP_LOOP --> ACTION{\"Shop Action Decision\"}\n\n    ACTION -->|Skip Stop| SKIP_REASON[\"Select Skip Reason & Submit\"]\n    SKIP_REASON --> MARK_SKIP[\"Stop status = 'SKIPPED' (Zero Ledger Posted)\"]\n    MARK_SKIP --> NEXT_STOP{\"More Shops to visit?\"}\n\n    ACTION -->|Collect Milk| COLL_FORM[\"Enter Shop Collection Details:<br/>1. Shop RMR Number (Paper)<br/>2. Quantity (Liters / KG)<br/>3. QA: LR & Fat<br/>4. Temp, Acidity, Alcohol + Live GPS\"]\n    \n    COLL_FORM --> VAL_SHOP{\"Is device online?\"}\n    \n    VAL_SHOP -->|NO / Offline| PWA_QUEUE[\"Store in Local IndexedDB / Dexie Queue<br/>(device_collected_at = PKT timestamp)\"]\n    VAL_SHOP -->|YES / Online| POST_COLL[\"POST /api/zmcc/mot/journeys/current/collections\"]\n\n    PWA_QUEUE --> RETRY_SYNC[\"Network Restored → Replay Queue\"]\n    RETRY_SYNC --> POST_COLL\n\n    POST_COLL --> CHK_LOCK{\"Acquire Row Lock on Journey<br/>(SELECT FOR UPDATE)\"}\n    CHK_LOCK --> CHK_ENDED{\"Is device_collected_at ≤ journey.ended_at?\"}\n    \n    CHK_ENDED -->|NO| REJ_LATE[\"Reject Late Collection (HTTP 400)<br/>(Cannot record after journey arrival at ZMCC)\"]\n    \n    CHK_ENDED -->|YES| CALC_SHOP_METRICS[\"1. Compute Canonical Shop Metrics:<br/>• Density = 1 + (LR / 1000)<br/>• Gross Liters = (KG / Density) or Declared Liters<br/>• SNF = (LR / 4) + (0.22 * Fat) + 0.72<br/>• TS = Fat + SNF<br/>• @13% TS Liters = (Gross Liters * TS) / 13\"]\n\n    CALC_SHOP_METRICS --> POST_SHOP_ERP_LEDGER[\"2. Stream 1 — Immediate Shop ERP Settlement Ledger Posting:<br/>• Read Shop's Active erp_code (freeze as erp_code_snapshot)<br/>• Lookup Finance ERP Rate where: from_date ≤ operational_date ≤ to_date<br/>• Payable Liters = @13% TS Liters (or Gross Liters per ERP Rule)<br/>• Payable Amount (PKR) = Payable Liters × Active ERP Rate<br/>• Insert ErpSettlementLedger row against Shop's erp_code<br/>  (Accumulates balance across every shop visited!)\"]\n\n    POST_SHOP_ERP_LEDGER --> RECOMP_SUMM[\"3. Atomically Recompute MotJourneySummary & Queue Shop SMS:<br/>(Sum Liters, Weighted LR/Fat/TS, Bump revision)\"]\n    RECOMP_SUMM --> NEXT_STOP\n\n    NEXT_STOP -->|YES: Go to Next Shop| STOP_LOOP\n    NEXT_STOP -->|NO: All Stops Done| ARRIVE_ZMCC([\"Drive MOT Vehicle to ZMCC Chiller Facility\"])\n\n    classDef proc fill:#ffffff,stroke:#000000,color:#000000,stroke-width:2px;\n    classDef decision fill:#f1f5f9,stroke:#000000,color:#000000,stroke-width:2.5px;\n    classDef danger fill:#e2e8f0,stroke:#000000,color:#000000,stroke-width:3px,stroke-dasharray: 6 3;\n    classDef success fill:#f8fafc,stroke:#000000,color:#000000,stroke-width:3.5px;\n\n    class PREP_OFFLINE,STOP_LOOP,SKIP_REASON,MARK_SKIP,COLL_FORM,PWA_QUEUE,POST_COLL,RETRY_SYNC,CALC_SHOP_METRICS,RECOMP_SUMM,ARRIVE_ZMCC proc;\n    class ACTION,VAL_SHOP,CHK_LOCK,CHK_ENDED,NEXT_STOP decision;\n    class REJ_LATE danger;\n    class POST_SHOP_ERP_LEDGER,RECOMP_SUMM success;"},{"title":"6. Level 2: ZMCC Intake & Gate Reception (PHE Gate Workflow & Local Supplier ERP Code Binding)","code":"flowchart TD\n    ARRIVE([\"Vehicle Arrives at ZMCC Gate\"]) --> STREAM_TYPE{\"Select Arrival Type\"}\n\n    STREAM_TYPE -->|MOT Milk Route| MOT_GATE[\"Select Active MOT Journey\"]\n    STREAM_TYPE -->|Local Farmer / Supplier| LS_GATE[\"Search / Select Local Supplier Directory\"]\n\n    LS_GATE --> LS_EXISTS{\"Does Local Supplier already exist in ZMCC?\"}\n    \n    LS_EXISTS -->|NO: New Local Supplier| FAST_CREATE[\"Register New Local Supplier:<br/>1. Enter Name, Phone, 13-digit CNIC<br/>2. Select Active ERP Code (erp_code created by Finance Team)<br/>3. Initialize ErpAssignmentHistory (effective_from = now)\"]\n    FAST_CREATE --> ASSIGN_CODE[\"Sequence allocates: ZLS-000001<br/>(Bound to selected erp_code)\"]\n    ASSIGN_CODE --> ENTER_LS_DATA\n    \n    LS_EXISTS -->|YES: Existing Supplier| ENTER_LS_DATA[\"Load Existing Supplier Info & Linked Active erp_code<br/>Enter Vehicle Number & Slip Details\"]\n\n    MOT_GATE --> FORM_ENTRY[\"Enter Physical Paper Token:<br/>raw_milk_token_number (digits only)\"]\n    ENTER_LS_DATA --> FORM_ENTRY\n\n    FORM_ENTRY --> ADVISORY_LOCK[\"Acquire PostgreSQL Advisory Lock:<br/>RAW_MILK_TOKEN:zmccId:tokenValue\"]\n    \n    ADVISORY_LOCK --> CHK_DUP_TOKEN{\"Is Paper Token already active<br/>in this ZMCC today?\"}\n    CHK_DUP_TOKEN -->|YES| ERR_DUP[\"Error 400: Duplicate raw_milk_token_number.<br/>Paper token already used in this facility.\"]\n    \n    CHK_DUP_TOKEN -->|NO| GEN_TOKEN[\"Generate Immutable System ZMCC Token:<br/>MOT: ZT-MOT-YYYYMMDD-XXXX<br/>LS:  ZT-LS-YYYYMMDD-XXXX\"]\n\n    GEN_TOKEN --> SAVE_ARRIVAL[\"Save Arrival Record in DB Transaction:<br/>• arrival_timestamp = now (PKT)<br/>• gate_exit_required = true, exit_timestamp = null<br/>• If Local Supplier: Freeze supplier erp_code_snapshot on arrival<br/>• If MOT: journey.status = 'COMPLETED' & ended_at = now\"]\n\n    SAVE_ARRIVAL --> QUEUE_LAB[\"Vehicle is Inside ZMCC → Displayed in QA Lab Queue\"]\n\n    classDef proc fill:#ffffff,stroke:#000000,color:#000000,stroke-width:2px;\n    classDef decision fill:#f1f5f9,stroke:#000000,color:#000000,stroke-width:2.5px;\n    classDef danger fill:#e2e8f0,stroke:#000000,color:#000000,stroke-width:3px,stroke-dasharray: 6 3;\n    classDef success fill:#f8fafc,stroke:#000000,color:#000000,stroke-width:3.5px;\n\n    class MOT_GATE,LS_GATE,FAST_CREATE,ASSIGN_CODE,ENTER_LS_DATA,FORM_ENTRY,ADVISORY_LOCK,GEN_TOKEN,SAVE_ARRIVAL,QUEUE_LAB proc;\n    class STREAM_TYPE,LS_EXISTS,CHK_DUP_TOKEN decision;\n    class ERR_DUP danger;"},{"title":"7. Level 3: ZMCC Laboratory Testing, Tank Receipt & Stream 2 Local Supplier ERP Settlement","code":"flowchart TD\n    START_LAB([\"Start ZMCC Lab Testing Session\"]) --> SNAPSHOT[\"Freeze Active Lab Tests Snapshot<br/>(Configured by SUPER_ADMIN / DATA_EXECUTIVE for ZMCC Scope)\"]\n    \n    SNAPSHOT --> ENTER_RES[\"Enter Lab Observations:<br/>1. Milk Quantity (Value & Unit: KG/Liters)<br/>2. Measured LR & Fat<br/>3. Temperature, Acidity, Alcohol 68%, MBRT, Adulterants\"]\n\n    ENTER_RES --> FORMULA_ENGINE[\"Canonical Formula Execution:<br/>• Density = 1 + LR / 1000<br/>• Gross Liters = (KG / Density) or Declared Liters<br/>• SNF = LR / 4 + 0.22 * Fat + 0.72<br/>• TS = Fat + SNF<br/>• @13% TS Liters = Gross Liters * TS / 13\"]\n\n    FORMULA_ENGINE --> EVAL_RULES[\"System QA SOP Rules Evaluation<br/>(Evaluated against Active Rules set by SUPER_ADMIN / DATA_EXECUTIVE)\"]\n\n    EVAL_RULES --> CHK_CONFIG{\"Any Rule Configuration Error<br/>or Missing Release Rule?\"}\n    \n    CHK_CONFIG -->|YES| FAIL_CLOSED[\"Fail Closed (HTTP 400):<br/>RULE_CONFIGURATION_ERROR / NO_ACTIVE_RULE.<br/>Manager Override is strictly blocked!\"]\n    \n    CHK_CONFIG -->|NO| CHK_RELEASE{\"Do all RELEASE rules PASS?\"}\n\n    %% Branch 1: Normal Pass\n    CHK_RELEASE -->|YES: All Rules PASS| LAB_DECISION{\"Lab Attendant Decision\"}\n    \n    LAB_DECISION -->|REJECTED| REJ_REASON[\"Enter Mandatory Rejection Reason\"]\n    REJ_REASON --> MARK_REJ[\"Status = 'COMPLETED', Decision = 'REJECTED'<br/>Zero Tank Receipt  /  Zero Stock  /  Zero ERP Ledger Posted\"]\n\n    LAB_DECISION -->|ACCEPTED| ACCEPT_RECEIVE[\"Initiate 'Accept & Receive' DB Transaction\"]\n\n    %% Branch 2: Out of Spec Escalation\n    CHK_RELEASE -->|NO: OUT_OF_SPEC| AUTO_HOLD[\"System Outcome = 'OUT_OF_SPEC'<br/>Lab Attendant cannot Accept.<br/>Auto-Escalate to ZMCC Manager Review Queue (HOLD)\"]\n\n    AUTO_HOLD --> MGR_REVIEW{\"ZMCC Manager Supervisory Review\"}\n\n    MGR_REVIEW -->|REJECTED| MGR_REJ[\"Decision = 'REJECTED'<br/>Mandatory Manager Reason Logged to AuditLog\"]\n    \n    MGR_REVIEW -->|ACCEPTED| MGR_EXC[\"Decision = 'ACCEPTED'<br/>Mandatory Manager Reason (min 5 chars) Logged\"]\n    MGR_EXC --> ACCEPT_RECEIVE\n\n    %% Tank Receipt & Stock Posting\n    ACCEPT_RECEIVE --> LOCK_TANK[\"Lock Sole Active ZMCC Tank (SELECT FOR UPDATE)\"]\n    LOCK_TANK --> CHK_TANK_EXISTS{\"Does exactly 1 active Tank exist<br/>for this ZMCC?\"}\n    \n    CHK_TANK_EXISTS -->|NO 0 or gt 1 tanks| ERR_TANK[\"Error 400: Active tank configuration error\"]\n    CHK_TANK_EXISTS -->|YES| CHK_CAP[\"Compute Dynamic Stock = Sum(RECEIPTS) - Sum(ISSUES)\"]\n    \n    CHK_CAP --> HAS_SPACE{\"Is Gross Liters ≤ (Capacity - Current Stock)?\"}\n    \n    HAS_SPACE -->|NO| ERR_CAP[\"Error 400: Insufficient Tank Capacity\"]\n    HAS_SPACE -->|YES| POST_STOCK[\"1. Atomic ZMCC Tank Stock Mutation:<br/>• Create ZmccTankReceipt (1:1 Snapshot)<br/>• Insert ZmccTankInventoryTransaction ('RECEIPT')<br/>• Session status = 'COMPLETED'\"]\n\n    POST_STOCK --> CHK_ARRIVAL_STREAM{\"Is Accepted Milk from<br/>LOCAL_SUPPLIER or MOT?\"}\n\n    CHK_ARRIVAL_STREAM -->|MOT Journey Arrival| MOT_ALREADY_SETTLED[\"No New Vendor ERP Payment Here:<br/>(Individual Village Shops were already settled<br/>in ERP Ledger at Level 1B during MOT Collection)\"]\n\n    CHK_ARRIVAL_STREAM -->|Local Supplier Arrival| POST_LS_ERP_LEDGER[\"2. Stream 2 — Immediate Local Supplier ERP Settlement Ledger Posting:<br/>• Read Local Supplier's erp_code (frozen as erp_code_snapshot)<br/>• Lookup Finance ERP Rate where: from_date ≤ operational_date ≤ to_date<br/>• Payable Liters = Accepted @13% TS Liters (per ERP Rule)<br/>• Payable Amount (PKR) = Accepted @13% TS Liters × Active ERP Rate<br/>• Insert ErpSettlementLedger row against Local Supplier's erp_code!\"]\n\n    classDef proc fill:#ffffff,stroke:#000000,color:#000000,stroke-width:2px;\n    classDef decision fill:#f1f5f9,stroke:#000000,color:#000000,stroke-width:2.5px;\n    classDef danger fill:#e2e8f0,stroke:#000000,color:#000000,stroke-width:3px,stroke-dasharray: 6 3;\n    classDef success fill:#f8fafc,stroke:#000000,color:#000000,stroke-width:3.5px;\n\n    class SNAPSHOT,ENTER_RES,FORMULA_ENGINE,EVAL_RULES,REJ_REASON,MARK_REJ,ACCEPT_RECEIVE,AUTO_HOLD,MGR_REJ,MGR_EXC,LOCK_TANK,POST_STOCK,MOT_ALREADY_SETTLED proc;\n    class CHK_CONFIG,CHK_RELEASE,LAB_DECISION,MGR_REVIEW,CHK_TANK_EXISTS,HAS_SPACE,CHK_ARRIVAL_STREAM decision;\n    class FAIL_CLOSED,ERR_TANK,ERR_CAP danger;\n    class POST_STOCK,POST_LS_ERP_LEDGER success;"},{"title":"8. Level 4: ZMCC Gate Exit & Fleet Availability Restoration","code":"flowchart TD\n    PHE_OUT([\"Vehicle Requests ZMCC Gate Exit\"]) --> QUEUE_INSIDE[\"Fetch 'Vehicles Inside ZMCC'<br/>(gate_exit_required = true AND exit_timestamp IS NULL)\"]\n\n    QUEUE_INSIDE --> CHK_LAB_STATUS{\"Is ZMCC Lab Session COMPLETED?\"}\n    \n    CHK_LAB_STATUS -->|NO / In-Progress| BLOCK_NO_LAB[\"Error 409: LAB_NOT_COMPLETED.<br/>Cannot exit without completed lab testing.\"]\n    \n    CHK_LAB_STATUS -->|YES| CHK_DECISION{\"What was the Lab Decision?\"}\n\n    CHK_DECISION -->|ACCEPTED| CHK_RECEIPT{\"Does ZmccTankReceipt exist in DB?\"}\n    CHK_RECEIPT -->|NO| BLOCK_NO_REC[\"Error 409: CANNOT_EXIT_ACCEPTED_WITHOUT_RECEIPT.<br/>Accepted milk must be received in tank first.\"]\n    CHK_RECEIPT -->|YES| RECORD_EXIT[\"Record Gate Exit Timestamp (PKT)<br/>exit_timestamp = now\"]\n\n    CHK_DECISION -->|REJECTED| RECORD_EXIT\n\n    RECORD_EXIT --> ATOMIC_EXIT[\"Atomic Exit Commit:<br/>1. Update exit_timestamp & exit_recorded_by_user_id<br/>2. Insert AuditLog (ZMCC_GATE_EXIT_RECORDED)<br/>3. If MOT: Restore MOT Vehicle Availability for New Journey Dispatch\"]\n\n    ATOMIC_EXIT --> EXIT_DONE([\"Vehicle Exits ZMCC Grounds\"])\n\n    classDef proc fill:#ffffff,stroke:#000000,color:#000000,stroke-width:2px;\n    classDef decision fill:#f1f5f9,stroke:#000000,color:#000000,stroke-width:2.5px;\n    classDef danger fill:#e2e8f0,stroke:#000000,color:#000000,stroke-width:3px,stroke-dasharray: 6 3;\n    classDef success fill:#f8fafc,stroke:#000000,color:#000000,stroke-width:3.5px;\n\n    class QUEUE_INSIDE,RECORD_EXIT,ATOMIC_EXIT,EXIT_DONE proc;\n    class CHK_LAB_STATUS,CHK_DECISION,CHK_RECEIPT decision;\n    class BLOCK_NO_LAB,BLOCK_NO_REC danger;\n    class ATOMIC_EXIT success;"},{"title":"9. Level 5: Upstream Bulk Milk Dispatch (Independent Vehicle Quantity + Portion-Averaged Quality Formulas)","code":"flowchart TD\n    START_DISP([\"Initiate New Milk Dispatch\"]) --> SRC_BIND{\"Is Operator Source-Bound?\"}\n    \n    SRC_BIND -->|YES| LOCK_SRC[\"Auto-set assigned ProcurementSource<br/>(Company ZMCC or Direct Contractor with erp_code)\"]\n    SRC_BIND -->|NO / Admin| CHOOSE_SRC[\"Select Operating Procurement Source<br/>(Company ZMCC or Direct Contractor with erp_code)\"]\n\n    LOCK_SRC --> INP_VEH[\"1. Enter Independent Whole-Vehicle Dispatch Quantity:<br/>• Value (e.g. 10,000)<br/>• Unit: KG or LITER<br/>• Basis: Strictly 'MEASURED' (from Tank Flowmeter / Dipstick)<br/>• Entered independently (NOT summed from portion quantities)\"]\n    CHOOSE_SRC --> INP_VEH\n\n    INP_VEH --> INP_PORT[\"2. Enter Portion / Compartment Quantities (Portion 1 to N):<br/>• Portion 1 sets shared Unit & Basis ('MEASURED' or 'ESTIMATED')<br/>• Subsequent portions inherit shared Unit/Basis<br/>• Informational comparison: Difference = (Vehicle Quantity - Sum of Portions)\"]\n\n    INP_PORT --> INP_PORT_QA[\"3. Enter Portion-Level Dispatch Quality Tests (Per Compartment 1..N):<br/>• Measured LR & Fat per Portion<br/>• Temperature, Acidity, Clot-on-Boil per Portion\"]\n\n    INP_PORT_QA --> PORT_COUNT{\"How many Portions (Compartments)<br/>are on the Vehicle?\"}\n\n    PORT_COUNT -->|1 Single Portion| SINGLE_PORT_QA[\"Whole-Vehicle LR = Portion 1 LR<br/>Whole-Vehicle Fat = Portion 1 Fat\"]\n\n    PORT_COUNT -->|2 or More Portions N at least 2| AVG_PORT_QA[\"Derive Whole-Vehicle Quality from Average of Portion Tests:<br/>• Vehicle Composite LR = Arithmetic Average of Portion LRs (Sum LR_i / N)<br/>• Vehicle Composite Fat = Arithmetic Average of Portion Fats (Sum Fat_i / N)\"]\n\n    SINGLE_PORT_QA --> VEH_CANONICAL\n    AVG_PORT_QA --> VEH_CANONICAL\n\n    VEH_CANONICAL[\"4. Compute Whole-Vehicle Canonical Formulas<br/>(Using Independent Vehicle Quantity + Portion-Averaged Vehicle LR & Fat):<br/>• Vehicle Density = 1 + (Vehicle Average LR / 1000)<br/>• Vehicle Gross Liters = (Vehicle KG / Vehicle Density) or Declared Vehicle Liters<br/>• Vehicle SNF = (Vehicle Average LR / 4) + (0.22 * Vehicle Average Fat) + 0.72<br/>• Vehicle TS = Vehicle Average Fat + Vehicle SNF<br/>• Vehicle @13% TS Liters = (Vehicle Gross Liters * Vehicle TS) / 13\"]\n\n    VEH_CANONICAL --> INP_PAPER[\"5. Enter Paper Reference:<br/>raw_milk_dispatch_note_number (digits only)\"]\n\n    INP_PAPER --> CHECK_DISP_NOTE{\"Is raw_milk_dispatch_note_number<br/>unique for this Source?\"}\n    \n    CHECK_DISP_NOTE -->|NO| ERR_DISP_NOTE[\"Error 400: Duplicate dispatch note for this source.\"]\n    CHECK_DISP_NOTE -->|YES| CREATE_VISIT[\"Create Database Records:<br/>1. VehicleVisit (current_status = 'DISPATCHED', stores Independent Vehicle Qty + Derived Vehicle LR, Fat, SNF, TS, @13TS)<br/>2. DispatchInfo (dispatch_timestamp = PKT)<br/>3. VisitPortion rows (status = 'DISPATCHED')<br/>4. DispatchLabResult rows (frozen per portion)\"]\n\n    CREATE_VISIT --> TANK_ISSUE[\"If ZMCC Source: Mutate ZMCC Tank Ledger Stock<br/>Insert ZmccTankInventoryTransaction ('ISSUE' using Vehicle Gross Liters)\"]\n    TANK_ISSUE --> TRANSIT([\"Tanker in Transit to Plant\"])\n\n    classDef proc fill:#ffffff,stroke:#000000,color:#000000,stroke-width:2px;\n    classDef decision fill:#f1f5f9,stroke:#000000,color:#000000,stroke-width:2.5px;\n    classDef danger fill:#e2e8f0,stroke:#000000,color:#000000,stroke-width:3px,stroke-dasharray: 6 3;\n    classDef success fill:#f8fafc,stroke:#000000,color:#000000,stroke-width:3.5px;\n\n    class LOCK_SRC,CHOOSE_SRC,INP_VEH,INP_PORT,INP_PORT_QA,SINGLE_PORT_QA,AVG_PORT_QA,VEH_CANONICAL,INP_PAPER,CREATE_VISIT,TANK_ISSUE,TRANSIT proc;\n    class SRC_BIND,PORT_COUNT,CHECK_DISP_NOTE decision;\n    class ERR_DISP_NOTE danger;\n    class VEH_CANONICAL,CREATE_VISIT success;"},{"title":"10. Level 6: Plant Factory Admin & Gate Entry (`ADMIN_OPERATOR`)","code":"flowchart TD\n    ARRIVE_PLANT([\"Tanker Arrives at Plant Outer Gate\"]) --> ADMIN_QUEUE[\"Admin Operator Views 'Incoming Dispatched Vehicles'\"]\n\n    ADMIN_QUEUE --> MATCH_VEH[\"Match Dispatched Vehicle Number\"]\n    MATCH_VEH --> ADMIN_ENTRY[\"Enter Gate Entry Form:<br/>1. Plant Gate Token (token_number from physical token box)<br/>2. Driver Name / CNIC Verification<br/>3. Entry Timestamp (PKT)\"]\n\n    ADMIN_ENTRY --> CHK_STATUS{\"Is VehicleVisit status == 'DISPATCHED'?\"}\n    \n    CHK_STATUS -->|NO| ERR_NOT_DISP[\"Error 400: Invalid vehicle state for gate entry\"]\n    CHK_STATUS -->|YES| CHK_TOKEN_DUP{\"Is token_number currently active<br/>inside plant?\"}\n\n    CHK_TOKEN_DUP -->|YES| ERR_TOK[\"Error 400: Plant token already in use\"]\n    CHK_TOKEN_DUP -->|NO| SAVE_GATE[\"Save Admin Gate Entry Transaction:<br/>1. Insert GateLog (entry_timestamp = now, entry_guard_id = Admin Operator)<br/>2. Update VehicleVisit.current_status = 'TOKEN_ISSUED' → 'PLANT_QA'<br/>3. Update VisitPortion.current_status = 'QA_PENDING'\"]\n\n    SAVE_GATE --> NOTIFY_QA[\"Send Notification to Plant QA Reception Lab\"]\n    NOTIFY_QA --> IN_QA_QUEUE([\"Vehicle in Plant QA Lab Queue\"])\n\n    classDef proc fill:#ffffff,stroke:#000000,color:#000000,stroke-width:2px;\n    classDef decision fill:#f1f5f9,stroke:#000000,color:#000000,stroke-width:2.5px;\n    classDef danger fill:#e2e8f0,stroke:#000000,color:#000000,stroke-width:3px,stroke-dasharray: 6 3;\n    classDef success fill:#f8fafc,stroke:#000000,color:#000000,stroke-width:3.5px;\n\n    class ADMIN_QUEUE,MATCH_VEH,ADMIN_ENTRY,SAVE_GATE,NOTIFY_QA,IN_QA_QUEUE proc;\n    class CHK_STATUS,CHK_TOKEN_DUP decision;\n    class ERR_NOT_DISP,ERR_TOK danger;\n    class SAVE_GATE success;"},{"title":"11. Level 7: Plant QA Laboratory Testing & Portions Decision Engine","code":"flowchart TD\n    START_PLANT_QA([\"Vehicle Arrives at QA Sampling Bay\"]) --> SAMPLE[\"QA Attendant draws milk samples from each compartment\"]\n    \n    SAMPLE --> TEST_INPUT[\"Enter Portion-wise Laboratory Results:<br/>• LT-000008: Corrected LR (Lactometer Reading)<br/>• LT-000026: Gerber Fat %<br/>• Temperature (°C), Acidity (% LA), Alcohol 68%<br/>• MBRT (hrs), Adulterants: Urea, Starch, Detergent, Salt, Sugar, H2O2\"]\n\n    TEST_INPUT --> EVAL_PLANT[\"System Evaluates Results against Active Rules configured by SUPER_ADMIN / DATA_EXECUTIVE:<br/>(Scope: 'PLANT_QA', Categories: 'RELEASE' & 'MONITORING')\"]\n\n    EVAL_PLANT --> CHK_PORTION_RES{\"Per Portion Evaluation Outcome\"}\n\n    %% All Pass\n    CHK_PORTION_RES -->|All RELEASE Rules PASS| QA_DECIDE{\"QA Attendant Decision\"}\n    \n    QA_DECIDE -->|ACCEPTED| MARK_PORT_ACC[\"Portion status = 'ACCEPTED'\"]\n    QA_DECIDE -->|REJECTED| REJ_PORT_REASON[\"Enter Rejection Reason\"]\n    REJ_PORT_REASON --> MARK_PORT_REJ[\"Portion status = 'REJECTED'\"]\n\n    %% Out of spec\n    CHK_PORTION_RES -->|Any RELEASE Rule OUT_OF_SPEC| ESCALATE_QA_MGR[\"Portion Auto-Escalates to QA Manager Review Queue<br/>(Status = 'HOLD' / 'PENDING_MANAGER_REVIEW')\"]\n\n    ESCALATE_QA_MGR --> QA_MGR_DECIDE{\"QA Manager Decision\"}\n    \n    QA_MGR_DECIDE -->|ACCEPTED| QA_MGR_ACC[\"Portion status = 'ACCEPTED'<br/>Mandatory Reason Logged in AuditLog\"]\n    \n    QA_MGR_DECIDE -->|REJECTED| QA_MGR_REJ[\"Portion status = 'REJECTED'<br/>Rejection Reason Logged in AuditLog\"]\n\n    MARK_PORT_ACC --> WHOLE_VEH_CHECK\n    MARK_PORT_REJ --> WHOLE_VEH_CHECK\n    QA_MGR_ACC --> WHOLE_VEH_CHECK\n    QA_MGR_REJ --> WHOLE_VEH_CHECK\n\n    WHOLE_VEH_CHECK{\"Whole-Vehicle QA Aggregation:<br/>How many portions are ACCEPTED?\"}\n\n    %% Whole vehicle routing\n    WHOLE_VEH_CHECK -->|at least 1 Portion ACCEPTED| ADVANCE_GROSS[\"VehicleVisit.current_status = 'READY_FOR_GROSS'<br/>Advance to Weighbridge (1st Weight)\"]\n\n    WHOLE_VEH_CHECK -->|0 Portions ACCEPTED - All Portions REJECTED| ALL_REJ_ROUTE[\"Entire Cargo Rejected!<br/>VehicleVisit.current_status = 'READY_FOR_GATE_EXIT'<br/>(Bypass Weighbridge Gross & Silo Unloading)\"]\n\n    classDef proc fill:#ffffff,stroke:#000000,color:#000000,stroke-width:2px;\n    classDef decision fill:#f1f5f9,stroke:#000000,color:#000000,stroke-width:2.5px;\n    classDef danger fill:#e2e8f0,stroke:#000000,color:#000000,stroke-width:3px,stroke-dasharray: 6 3;\n    classDef success fill:#f8fafc,stroke:#000000,color:#000000,stroke-width:3.5px;\n\n    class SAMPLE,TEST_INPUT,EVAL_PLANT,MARK_PORT_ACC,REJ_PORT_REASON,MARK_PORT_REJ,ESCALATE_QA_MGR,QA_MGR_ACC,QA_MGR_REJ,ADVANCE_GROSS proc;\n    class CHK_PORTION_RES,QA_DECIDE,QA_MGR_DECIDE,WHOLE_VEH_CHECK decision;\n    class ALL_REJ_ROUTE danger;\n    class ADVANCE_GROSS success;"},{"title":"12. Level 8: Plant Weighbridge — First Weight (Loaded / Gross) & Authoritative Business Date Cutoff","code":"flowchart TD\n    SCALE_1([\"Loaded Tanker Drives onto Weighbridge Scale\"]) --> WB_QUEUE[\"Operator Selects Vehicle from 'Ready for First Weight' Queue\"]\n\n    WB_QUEUE --> CHK_STATUS_1{\"Is VehicleVisit status == 'READY_FOR_GROSS'?\"}\n    \n    CHK_STATUS_1 -->|NO| ERR_NOT_READY_1[\"Error 400: Vehicle not cleared by QA for weighing\"]\n    CHK_STATUS_1 -->|YES| READ_SCALE_1[\"Read Calibrated Weighbridge Display\"]\n\n    READ_SCALE_1 --> ENTER_GROSS[\"Enter 'First Weight (Loaded Vehicle)' in KG<br/>(e.g. 24,850 KG)\"]\n\n    ENTER_GROSS --> VAL_GROSS{\"Is First Weight  above  0 AND plausible?\"}\n    \n    VAL_GROSS -->|NO| ERR_INVALID_GROSS[\"Error 400: Invalid scale reading\"]\n    VAL_GROSS -->|YES| RECORD_GROSS_TS[\"Capture First Weight Timestamp<br/>(gross_timestamp = now PKT)\"]\n\n    RECORD_GROSS_TS --> EVAL_BIZ_CUTOFF{\"Authoritative Business Date Cutoff:<br/>Is gross_timestamp  under  08:00:00 AM PKT?\"}\n\n    %% 08:00 AM Rollover Rule at First Weight\n    EVAL_BIZ_CUTOFF -->|YES: e.g. 23-Aug 07:30 AM PKT| BIZ_PREV[\"Assigned Business Date = 22-Aug<br/>(Previous Calendar Day)\"]\n    \n    EVAL_BIZ_CUTOFF -->|NO: e.g. 23-Aug 08:15 AM PKT| BIZ_CURR[\"Assigned Business Date = 23-Aug<br/>(Current Calendar Day)\"]\n\n    BIZ_PREV --> SAVE_GROSS_TX\n    BIZ_CURR --> SAVE_GROSS_TX\n\n    SAVE_GROSS_TX[\"Atomic Database Transaction:<br/>1. Insert / Update WeightTicket (gross_weight_kg = 24850, gross_timestamp = now)<br/>2. Lock VehicleVisit.operational_date = Assigned Business Date<br/>   (Used for Contractor ERP Rate Settlement after 2nd Weight!)<br/>3. Update VehicleVisit.current_status = 'GROSS_WEIGHED' → 'READY_FOR_UNLOADING'\"]\n\n    SAVE_GROSS_TX --> PROD_QUEUE([\"Vehicle Transferred to Production Silo Intake Bay\"])\n\n    classDef proc fill:#ffffff,stroke:#000000,color:#000000,stroke-width:2px;\n    classDef decision fill:#f1f5f9,stroke:#000000,color:#000000,stroke-width:2.5px;\n    classDef danger fill:#e2e8f0,stroke:#000000,color:#000000,stroke-width:3px,stroke-dasharray: 6 3;\n    classDef success fill:#f8fafc,stroke:#000000,color:#000000,stroke-width:3.5px;\n\n    class WB_QUEUE,READ_SCALE_1,ENTER_GROSS,RECORD_GROSS_TS,BIZ_PREV,BIZ_CURR,SAVE_GROSS_TX,PROD_QUEUE proc;\n    class CHK_STATUS_1,VAL_GROSS,EVAL_BIZ_CUTOFF decision;\n    class ERR_NOT_READY_1,ERR_INVALID_GROSS danger;\n    class SAVE_GROSS_TX success;"},{"title":"13. Level 9: Plant Silo Offloading & Production Reception","code":"flowchart TD\n    BAY_IN([\"Tanker Parks in Production Reception Bay\"]) --> PROD_LIST[\"Operator Opens 'Unloading Queue'\"]\n\n    PROD_LIST --> SELECT_VEH[\"Select Vehicle (Status: 'READY_FOR_UNLOADING')\"]\n    \n    SELECT_VEH --> CHK_PORTIONS[\"Inspect Portion Clearances\"]\n\n    CHK_PORTIONS --> MAP_SILO[\"For Each ACCEPTED Portion:<br/>Select Destination Raw Milk Silo (e.g. Silo 1, Silo 2)\"]\n\n    MAP_SILO --> REJ_GUARD{\"Are any portions REJECTED?\"}\n    \n    REJ_GUARD -->|YES| LOCK_VALVE[\"Safety Guard: Keep rejected compartment valves locked!<br/>Do NOT connect hoses to rejected milk.\"]\n    REJ_GUARD -->|NO| CONNECT_ALL[\"Connect hoses for all compartments\"]\n\n    LOCK_VALVE --> START_UNLOAD[\"Connect hoses for ACCEPTED compartments only\"]\n    CONNECT_ALL --> START_UNLOAD\n\n    START_UNLOAD --> RECORD_START[\"Click 'Start Unloading':<br/>• VehicleVisit.current_status = 'UNLOADING'<br/>• Insert UnloadingLog (unloading_start_timestamp = now)\"]\n\n    RECORD_START --> PUMP_MILK[\"Milk pumped through de-aerator & plate chiller into Silo\"]\n\n    PUMP_MILK --> FINISH_UNLOAD[\"Click 'Complete Unloading':<br/>• Record unloading_end_timestamp = now<br/>• Verify all accepted compartments are empty / blown down<br/>• VehicleVisit.current_status = 'READY_FOR_TARE'\"]\n\n    FINISH_UNLOAD --> WB_2_QUEUE([\"Vehicle Dispatched to Weighbridge for 2nd Weight\"])\n\n    classDef proc fill:#ffffff,stroke:#000000,color:#000000,stroke-width:2px;\n    classDef decision fill:#f1f5f9,stroke:#000000,color:#000000,stroke-width:2.5px;\n    classDef danger fill:#e2e8f0,stroke:#000000,color:#000000,stroke-width:3px,stroke-dasharray: 6 3;\n    classDef success fill:#f8fafc,stroke:#000000,color:#000000,stroke-width:3.5px;\n\n    class PROD_LIST,SELECT_VEH,CHK_PORTIONS,MAP_SILO,LOCK_VALVE,CONNECT_ALL,START_UNLOAD,RECORD_START,PUMP_MILK,FINISH_UNLOAD,WB_2_QUEUE proc;\n    class REJ_GUARD decision;\n    class FINISH_UNLOAD success;"},{"title":"14. Level 10: Plant Weighbridge — Second Weight (Post-Unloading / Tare)","code":"flowchart TD\n    SCALE_2([\"Empty / Partially Unloaded Tanker Drives onto Scale\"]) --> WB_2_LIST[\"Operator Selects Vehicle from 'Ready for Second Weight' Queue\"]\n\n    WB_2_LIST --> CHK_STATUS_2{\"Is VehicleVisit status == 'READY_FOR_TARE'?\"}\n    \n    CHK_STATUS_2 -->|NO| ERR_NOT_READY_2[\"Error 400: Unloading not marked completed\"]\n    CHK_STATUS_2 -->|YES| READ_SCALE_2[\"Read Calibrated Weighbridge Display\"]\n\n    READ_SCALE_2 --> ENTER_TARE[\"Enter 'Second Weight (After Unloading)' in KG<br/>(e.g. 10,850 KG)\"]\n\n    ENTER_TARE --> VAL_WEIGHTS{\"Is Second Weight  under  First Weight?\"}\n    \n    VAL_WEIGHTS -->|NO| ERR_WEIGHT_LOGIC[\"Error 400: Second Weight cannot be ≥ First Weight!\"]\n    \n    VAL_WEIGHTS -->|YES| CALC_NET[\"Compute Net Milk Weight:<br/>Net Milk Weight KG = First Weight - Second Weight<br/>(e.g. 24,850 - 10,850 = 14,000 KG)\"]\n\n    CALC_NET --> SAVE_TARE_TX[\"Database Transaction:<br/>1. Update WeightTicket (tare_weight_kg = 10850, tare_timestamp = now, net_weight_kg = 14000)<br/>2. VehicleVisit.current_status = 'TARE_WEIGHED' → 'READY_FOR_GATE_EXIT'\"]\n\n    SAVE_TARE_TX --> TRIGGER_FINAL_REC[\"Trigger Plant Final Dual Receipt & Contractor ERP Settlement Engine<br/>(Uses Net Weight KG + Business Date locked at 1st Weight)\"]\n\n    classDef proc fill:#ffffff,stroke:#000000,color:#000000,stroke-width:2px;\n    classDef decision fill:#f1f5f9,stroke:#000000,color:#000000,stroke-width:2.5px;\n    classDef danger fill:#e2e8f0,stroke:#000000,color:#000000,stroke-width:3px,stroke-dasharray: 6 3;\n    classDef success fill:#f8fafc,stroke:#000000,color:#000000,stroke-width:3.5px;\n\n    class WB_2_LIST,READ_SCALE_2,ENTER_TARE,CALC_NET,SAVE_TARE_TX,TRIGGER_FINAL_REC proc;\n    class CHK_STATUS_2,VAL_WEIGHTS decision;\n    class ERR_NOT_READY_2,ERR_WEIGHT_LOGIC danger;\n    class SAVE_TARE_TX success;"},{"title":"15. Level 11: Plant Final Dual Reconciliation, Silo Inventory Posting & Stream 3 Direct Contractor ERP Settlement","code":"flowchart TD\n    TRIGGER([\"Weighbridge 2nd Weight Completed (Net Weight KG Known)\"]) --> CHK_MULTI_SILO{\"Did accepted portions map to<br/>more than 1 destination Silo?\"}\n\n    %% Multi silo guard\n    CHK_MULTI_SILO -->|YES: gt 1 Silos| BLOCK_MULTI[\"Error: MULTI_SILO_ALLOCATION_REQUIRED.<br/>Net KG exists only at vehicle scale level.<br/>Multi-silo split cannot be invented.\"]\n\n    %% Single Silo Processing\n    CHK_MULTI_SILO -->|NO: Exactly 1 Silo| LOCK_SILO[\"Acquire PostgreSQL Row Lock on Silo<br/>(SELECT FOR UPDATE)\"]\n\n    LOCK_SILO --> POST_LOCK_IDEMP{\"Has receipt already been posted<br/>for this visit?\"}\n    \n    POST_LOCK_IDEMP -->|YES| RETURN_EXISTING[\"Return Existing Final Receipt (Idempotent 200 OK)\"]\n\n    POST_LOCK_IDEMP -->|NO| CALC_PHYSICAL[\"1. Physical Calculation Chain (From Net Weight KG):<br/>• Plant Composite LR = Arithmetic Average of Accepted Portions<br/>• Plant Composite Fat = Arithmetic Average of Accepted Portions<br/>• Plant Density = 1 + (Plant Composite LR / 1000)<br/>• Received Gross Liters = Net KG / Plant Density\"]\n\n    CALC_PHYSICAL --> CALC_COMMERCIAL[\"2. Commercial Calculation Chain:<br/>• Plant SNF = (LR / 4) + (0.22 * Fat) + 0.72<br/>• Plant TS = Fat + SNF<br/>• Received @13% TS Liters = Received Gross Liters * TS / 13\"]\n\n    CALC_COMMERCIAL --> CALC_VARIANCE[\"3. Dual Variance Calculation:<br/>• Gross Vol Variance (L) = Received Gross Liters - Sent Gross Liters<br/>• Solids @13TS Variance (L) = Received @13TS - Sent @13TS\"]\n\n    CALC_VARIANCE --> POST_SILO_LEDGER[\"4. Post Silo Inventory & Dual Reconciliation:<br/>• Insert SiloInventoryTransaction (type = 'RECEIPT', quantity_liters = Gross Liters, quantity_kg = Net KG)<br/>• Insert PlantFinalDualReconciliation record<br/>• Generate Reception Number: REC-YYYYMMDD-XXXX\"]\n\n    POST_SILO_LEDGER --> CHK_SOURCE_TYPE{\"5. Check ProcurementSource.source_type<br/>for ERP Settlement\"}\n\n    %% Branch A: Company ZMCC\n    CHK_SOURCE_TYPE -->|source_type is ZMCC - Company-Owned Chiller| ZMCC_NO_PAY[\"Internal Company Stock Transfer Only:<br/>• Zero Vendor Payment at Plant Level<br/>• Upstream MOT Shops were already settled at Level 1B<br/>• Upstream Local Suppliers were already settled at Level 3\"]\n\n    %% Branch B: Direct Contractor\n    CHK_SOURCE_TYPE -->|source_type is CONTRACTOR - External Direct Bulk Vendor| CONT_SETTLEMENT[\"Stream 3 — Direct Contractor ERP Settlement Ledger Posting:<br/>• Read Contractor ProcurementSource.erp_code (freeze as erp_code_snapshot)<br/>• Read Locked Business Date (operational_date from 1st Weight  under  08:00 AM PKT)<br/>• Lookup Finance ERP Rate where: from_date ≤ operational_date ≤ to_date<br/>• Payable Liters = Received @13% TS Liters (from Net Weight KG)<br/>• Payable Amount (PKR) = Received @13% TS Liters × Active ERP Rate<br/>• Insert ErpSettlementLedger row against Contractor's erp_code!\"]\n\n    ZMCC_NO_PAY --> READY_EXIT([\"Vehicle Cleared for Plant Admin Gate Exit\"])\n    CONT_SETTLEMENT --> READY_EXIT\n\n    classDef proc fill:#ffffff,stroke:#000000,color:#000000,stroke-width:2px;\n    classDef decision fill:#f1f5f9,stroke:#000000,color:#000000,stroke-width:2.5px;\n    classDef danger fill:#e2e8f0,stroke:#000000,color:#000000,stroke-width:3px,stroke-dasharray: 6 3;\n    classDef success fill:#f8fafc,stroke:#000000,color:#000000,stroke-width:3.5px;\n\n    class LOCK_SILO,RETURN_EXISTING,CALC_PHYSICAL,CALC_COMMERCIAL,CALC_VARIANCE,POST_SILO_LEDGER,ZMCC_NO_PAY,READY_EXIT proc;\n    class CHK_MULTI_SILO,POST_LOCK_IDEMP,CHK_SOURCE_TYPE decision;\n    class BLOCK_MULTI danger;\n    class POST_SILO_LEDGER,CONT_SETTLEMENT success;"},{"title":"16. Level 12: Plant Admin Gate Exit & Visit Closure (`ADMIN_OPERATOR`)","code":"flowchart TD\n    EXIT_REQ([\"Tanker Arrives at Plant Exit Gate\"]) --> ADMIN_EXIT_QUEUE[\"Admin Operator Opens 'Vehicles Ready for Exit'\"]\n\n    ADMIN_EXIT_QUEUE --> CHK_TARE_DONE{\"Is Tare Weighed or All Portions Rejected?<br/>(Status == 'READY_FOR_GATE_EXIT')\"}\n    \n    CHK_TARE_DONE -->|NO| BLOCK_EXIT[\"Error 400: Vehicle has not completed tare weighing\"]\n    \n    CHK_TARE_DONE -->|YES| COLLECT_TOKEN[\"Admin Operator Collects Physical Plant Gate Token<br/>(Return token back to active pool)\"]\n\n    COLLECT_TOKEN --> RECORD_EXIT_TS[\"Record Gate Exit Timestamp (exit_timestamp = now PKT)\"]\n\n    RECORD_EXIT_TS --> CHK_REJ_FALLBACK{\"Was operational_date already locked<br/>at 1st Weight (Gross)?\"}\n\n    CHK_REJ_FALLBACK -->|YES: Normal Weighed Visit| KEEP_BIZ_DATE[\"Preserve operational_date locked after 1st Weight\"]\n    CHK_REJ_FALLBACK -->|NO: 100 percent QA Rejected Truck - Bypassed 1st Weight| FALLBACK_BIZ_DATE[\"Assign operational_date using 08:00 AM PKT rule<br/>on Exit Timestamp\"]\n\n    KEEP_BIZ_DATE --> ATOMIC_VISIT_COMPLETE\n    FALLBACK_BIZ_DATE --> ATOMIC_VISIT_COMPLETE\n\n    ATOMIC_VISIT_COMPLETE[\"Atomic Database Transaction:<br/>1. Update GateLog (exit_timestamp = now, exit_guard_id = Admin Operator)<br/>2. Update VehicleVisit (current_status = 'COMPLETED')\"]\n\n    ATOMIC_VISIT_COMPLETE --> VISIT_CLOSED([\"Visit Successfully Completed & Closed\"])\n\n    classDef proc fill:#ffffff,stroke:#000000,color:#000000,stroke-width:2px;\n    classDef decision fill:#f1f5f9,stroke:#000000,color:#000000,stroke-width:2.5px;\n    classDef danger fill:#e2e8f0,stroke:#000000,color:#000000,stroke-width:3px,stroke-dasharray: 6 3;\n    classDef success fill:#f8fafc,stroke:#000000,color:#000000,stroke-width:3.5px;\n\n    class ADMIN_EXIT_QUEUE,COLLECT_TOKEN,RECORD_EXIT_TS,KEEP_BIZ_DATE,FALLBACK_BIZ_DATE,ATOMIC_VISIT_COMPLETE,VISIT_CLOSED proc;\n    class CHK_TARE_DONE,CHK_REJ_FALLBACK decision;\n    class BLOCK_EXIT danger;\n    class ATOMIC_VISIT_COMPLETE success;"},{"title":"17. Level 13: Governance, Audited Corrections & Supervisory Overrides","code":"flowchart TD\n    CORR_REQ([\"Supervisory Correction Requested on Completed Form\"]) --> CHK_ACTOR{\"Who is the Actor?\"}\n\n    %% Operational user rejection\n    CHK_ACTOR -->|Operational User - PHE, Lab Attendant, Admin Operator, Scale| FAIL_OP_AUTH[\"Fail Closed (HTTP 403):<br/>Operational users have 0 edit authority<br/>after form completion.\"]\n\n    %% Manager Branch\n    CHK_ACTOR -->|ZMCC Manager / QA Manager| CHK_MGR_COUNT{\"Has Manager reached the 5-Save Limit?<br/>(manager_correction_count  under  5)\"}\n    \n    CHK_MGR_COUNT -->|NO: at least 5 saves already used| FAIL_LIMIT[\"Fail Closed (HTTP 400):<br/>Maximum 5 manager corrections exceeded.<br/>Escalate to Super Admin.\"]\n    \n    CHK_MGR_COUNT -->|YES: lt 5 saves used| VALIDATE_MGR_PAYLOAD[\"Validate Correction Payload\"]\n\n    %% Super Admin Branch\n    CHK_ACTOR -->|SUPER_ADMIN| VALIDATE_MGR_PAYLOAD\n\n    VALIDATE_MGR_PAYLOAD --> CHK_REASON{\"Is Reason provided and ≥ 5 characters?\"}\n    \n    CHK_REASON -->|NO| FAIL_REASON[\"Fail Closed (HTTP 400): Mandatory reason required\"]\n    \n    CHK_REASON -->|YES| CHK_DIFF{\"Are any approved values actually modified?\"}\n    \n    CHK_DIFF -->|NO: No changes detected| FAIL_NOOP[\"Fail Closed (HTTP 400): No changes detected.<br/>(Zero counter bump, Zero AuditLog created)\"]\n\n    CHK_DIFF -->|YES| PHYS_GUARD{\"Has Milk/Vehicle Physically Exited<br/>or irreversibly commingled?\"}\n\n    PHYS_GUARD -->|YES: Already Exited| AUDIT_ONLY_UPDATE[\"Apply Metric/Decision update strictly in Audit Trail.<br/>Strictly PROHIBITED from fabricating physical inventory movements!\"]\n\n    PHYS_GUARD -->|NO: Still on site| REC_DELTA{\"Did Quantity Change on an Accepted Tank Receipt?\"}\n\n    REC_DELTA -->|Delta gt 0| TANK_ADJ_IN[\"Create ADJUSTMENT_IN transaction on Tank (+delta L)<br/>Verify remaining capacity under lock\"]\n    REC_DELTA -->|Delta lt 0| TANK_ADJ_OUT[\"Create ADJUSTMENT_OUT transaction on Tank (-delta L)<br/>Verify current_stock ≥  / delta /  to prevent negative stock\"]\n    REC_DELTA -->|Delta is 0 / Quality Only| SYNC_RECEIPT[\"Synchronize snapshot metrics on Tank Receipt\"]\n\n    TANK_ADJ_IN --> EMIT_AUDIT\n    TANK_ADJ_OUT --> EMIT_AUDIT\n    SYNC_RECEIPT --> EMIT_AUDIT\n    AUDIT_ONLY_UPDATE --> EMIT_AUDIT\n\n    EMIT_AUDIT[\"Atomically Commit Correction:<br/>• Update main record with latest operational values<br/>• Synchronize corresponding ErpSettlementLedger delta using original erp_code_snapshot<br/>• Increment correction_count (and manager_correction_count if Manager)<br/>• Insert exactly ONE AuditLog row with before/after state\"]\n\n    EMIT_AUDIT --> CORR_COMPLETE([\"Correction Successfully Recorded & Audited\"])\n\n    classDef proc fill:#ffffff,stroke:#000000,color:#000000,stroke-width:2px;\n    classDef decision fill:#f1f5f9,stroke:#000000,color:#000000,stroke-width:2.5px;\n    classDef danger fill:#e2e8f0,stroke:#000000,color:#000000,stroke-width:3px,stroke-dasharray: 6 3;\n    classDef success fill:#f8fafc,stroke:#000000,color:#000000,stroke-width:3.5px;\n\n    class VALIDATE_MGR_PAYLOAD,AUDIT_ONLY_UPDATE,TANK_ADJ_IN,TANK_ADJ_OUT,SYNC_RECEIPT,EMIT_AUDIT,CORR_COMPLETE proc;\n    class CHK_ACTOR,CHK_MGR_COUNT,CHK_REASON,CHK_DIFF,PHYS_GUARD,REC_DELTA decision;\n    class FAIL_OP_AUTH,FAIL_LIMIT,FAIL_REASON,FAIL_NOOP danger;\n    class EMIT_AUDIT success;"}];
+
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: 'base',
+      securityLevel: 'loose',
+      themeVariables: {
+        background: '#ffffff',
+        primaryColor: '#ffffff',
+        primaryTextColor: '#000000',
+        primaryBorderColor: '#000000',
+        lineColor: '#000000',
+        secondaryColor: '#f1f5f9',
+        tertiaryColor: '#ffffff',
+        fontFamily: 'Segoe UI, Arial, sans-serif',
+        fontSize: '15px',
+        edgeLabelBackground: '#ffffff'
+      },
+      flowchart: {
+        htmlLabels: true,
+        curve: 'linear',
+        nodeSpacing: 28,
+        rankSpacing: 34,
+        padding: 12
+      }
+    });
+
+    function createSheet(title, partText, svgElement) {
+      const sheet = document.createElement('div');
+      sheet.className = 'paper-sheet';
+
+      const titleBar = document.createElement('div');
+      titleBar.className = 'sheet-title-bar';
+
+      const h2 = document.createElement('h2');
+      h2.className = 'sheet-title';
+      h2.textContent = title;
+      titleBar.appendChild(h2);
+
+      if (partText) {
+        const tag = document.createElement('span');
+        tag.className = 'sheet-part-tag';
+        tag.textContent = partText;
+        titleBar.appendChild(tag);
+      }
+
+      const box = document.createElement('div');
+      box.className = 'diagram-slice-container';
+      box.appendChild(svgElement);
+
+      sheet.appendChild(titleBar);
+      sheet.appendChild(box);
+      return sheet;
+    }
+
+    async function renderAndSliceForPaper() {
+      const staging = document.getElementById('staging');
+      const root = document.getElementById('sheets-root');
+      root.innerHTML = '';
+
+      for (let i = 0; i < DIAGRAMS.length; i++) {
+        const item = DIAGRAMS[i];
+        try {
+          const { svg } = await mermaid.render('bw-svg-' + i, item.code);
+          staging.innerHTML = svg;
+          const svgEl = staging.querySelector('svg');
+
+          // Determine natural viewBox dimensions
+          let vb = svgEl.getAttribute('viewBox');
+          let vx = 0, vy = 0, vw = 1000, vh = 1000;
+          if (vb) {
+            const parts = vb.trim().split(/[\s,]+/).map(Number);
+            if (parts.length === 4) {
+              [vx, vy, vw, vh] = parts;
+            }
+          } else {
+            const rect = svgEl.getBoundingClientRect();
+            vw = rect.width || 1000;
+            vh = rect.height || 1000;
+          }
+
+          const aspectRatio = vh / vw;
+
+          // If the flowchart is tall (aspect ratio > 1.32), divide it across 2 full-width A4 sheets
+          // so that the width stays 100% large and every text label is big and crystal clear!
+          if (aspectRatio > 1.32) {
+            const overlap = Math.min(vh * 0.045, 48); // small visual overlap so no box is cut without context
+            const midH = vh / 2;
+
+            // Sheet 1: Top Half (Part 1 of 2)
+            const svgTop = svgEl.cloneNode(true);
+            svgTop.removeAttribute('height');
+            svgTop.setAttribute('viewBox', `${vx} ${vy} ${vw} ${midH + overlap}`);
+            root.appendChild(createSheet(item.title, 'Paper 1 of 2 (Top Section)', svgTop));
+
+            // Sheet 2: Bottom Half (Part 2 of 2)
+            const svgBot = svgEl.cloneNode(true);
+            svgBot.removeAttribute('height');
+            svgBot.setAttribute('viewBox', `${vx} ${vy + midH - overlap} ${vw} ${midH + overlap}`);
+            root.appendChild(createSheet(item.title, 'Paper 2 of 2 (Bottom Section)', svgBot));
+          } else {
+            // Fits comfortably on 1 full A4 sheet at large readable scale
+            const svgSingle = svgEl.cloneNode(true);
+            svgSingle.removeAttribute('height');
+            svgSingle.setAttribute('viewBox', `${vx} ${vy} ${vw} ${vh}`);
+            root.appendChild(createSheet(item.title, '1 Paper Sheet', svgSingle));
+          }
+        } catch (err) {
+          console.error('Error rendering diagram ' + i, err);
+        }
+      }
+      staging.innerHTML = '';
+    }
+
+    renderAndSliceForPaper();
+  </script>
+</body>
+</html>

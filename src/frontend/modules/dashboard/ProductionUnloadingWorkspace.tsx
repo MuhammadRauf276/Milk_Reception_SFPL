@@ -1,12 +1,11 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Search, Clock, Play, CheckCheck, RefreshCw, MinusCircle } from 'lucide-react';
+import { Search, Clock, Play, CheckCheck, MinusCircle, Loader2 } from 'lucide-react';
 import { useToast } from '@/frontend/context/ToastContext';
 import { toDatetimeLocalInput, datetimeLocalToIso } from '@/lib/datetime-utils';
 import { User } from '@core/types';
 import { PageHeader } from '@/components/ui/page-header';
-import { SegmentedTabs } from '@/components/ui/segmented-tabs';
 import { onActivateKey } from '@/lib/a11y';
 
 interface SiloOption {
@@ -472,18 +471,6 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
       <PageHeader
         title="Production & silo unloading"
         description="Assign unloading bays, record silo receipts and issue stock."
-        actions={
-          <SegmentedTabs
-            label="Production queues"
-            value={activeTab}
-            onValueChange={(tab) => { setActiveTab(tab); setErrorMsg(null); setSuccessMsg(null); }}
-            tabs={[
-            { value: 'READY', label: 'Ready for unloading', icon: Clock, count: readyVisits.length },
-            { value: 'UNLOADING', label: 'Unloading', icon: Play, count: unloadingVisits.length },
-            { value: 'SILO_ISSUE', label: 'Silo issue', icon: MinusCircle, count: activeSilos.filter((s) => s.current_stock_liters > 0).length },
-            ]}
-          />
-        }
       />
 
       {/* Workspace Split Layout */}
@@ -504,7 +491,7 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               type="text"
-              placeholder={activeTab === 'SILO_ISSUE' ? 'Search silo code or name...' : 'Search vehicle or token...'}
+              placeholder={activeTab === 'SILO_ISSUE' ? 'Search silo code or name…' : 'Search vehicle or token…'}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full min-h-[44px] pl-9 pr-3 py-2 text-xs tabular-nums font-semibold rounded-xl border border-input bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-ring/30 focus:border-primary"
@@ -514,8 +501,8 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
           <div key={activeTab} className="space-y-2.5 max-h-[520px] overflow-y-auto pr-1 stagger-children">
             {isLoading ? (
               <div className="p-8 text-center border border-dashed border-border rounded-xl text-sm text-muted-foreground">
-                <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-blue-700" />
-                Loading production queue...
+                <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-blue-700" />
+                Loading production queue…
               </div>
             ) : activeTab === 'READY' ? (
               readyVisits.length === 0 ? (
@@ -722,10 +709,10 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
                           onChange={(e) => setPortionSiloMap((prev) => ({ ...prev, [p.id]: e.target.value }))}
                           className="w-full min-h-[44px] px-3.5 py-2 text-xs font-semibold rounded-xl border border-border-strong bg-white text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
                         >
-                          <option value="">Select Target Silo...</option>
+                          <option value="">Select target silo</option>
                           {activeSilos.filter((s) => s.is_active).map((s) => (
                             <option key={s.id} value={s.id}>
-                              {s.silo_code} — {s.silo_name} (Avail: {s.provisional_available_liters.toLocaleString()} L)
+                              {s.silo_code} · {s.silo_name} · {s.provisional_available_liters.toLocaleString()} L free
                             </option>
                           ))}
                         </select>
@@ -756,7 +743,7 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
                   onClick={handleStartUnloading}
                   className="w-full min-h-[44px] py-3.5 px-4 bg-primary hover:bg-primary-hover disabled:opacity-50 text-white font-semibold text-xs rounded-xl transition shadow-md flex items-center justify-center space-x-2"
                 >
-                  {actionLoading ? <span>Starting Unloading...</span> : <> <Play className="w-4 h-4" /> <span>Start Silo Unloading</span> </>}
+                  {actionLoading ? <span>Starting Unloading…</span> : <> <Play className="w-4 h-4" /> <span>Start Silo Unloading</span> </>}
                 </button>
               </div>
             )
@@ -825,7 +812,7 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
                   onClick={handleCompleteUnloading}
                   className="w-full min-h-[44px] py-3.5 px-4 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white font-semibold text-xs rounded-xl transition shadow-md flex items-center justify-center space-x-2"
                 >
-                  {actionLoading ? <span>Completing Unloading...</span> : <> <CheckCheck className="w-4 h-4" /> <span>Confirm Unloading Completion</span> </>}
+                  {actionLoading ? <span>Completing Unloading…</span> : <> <CheckCheck className="w-4 h-4" /> <span>Confirm Unloading Completion</span> </>}
                 </button>
               </div>
             )
@@ -931,7 +918,7 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
                     onClick={handleRecordSiloIssue}
                     className="w-full min-h-[44px] py-3.5 px-4 bg-primary hover:bg-primary-hover disabled:opacity-50 text-white font-semibold text-xs rounded-xl transition shadow-md flex items-center justify-center space-x-2"
                   >
-                    {actionLoading ? <span>Recording Issue...</span> : <> <MinusCircle className="w-4 h-4" /> <span>Record Silo Issue</span> </>}
+                    {actionLoading ? <span>Recording Issue…</span> : <> <MinusCircle className="w-4 h-4" /> <span>Record Silo Issue</span> </>}
                   </button>
                 </div>
 
@@ -939,13 +926,13 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
                 <div className="p-5 rounded-xl bg-card border border-border shadow-xs space-y-3 text-foreground">
                   <div className="flex items-center justify-between border-b border-border-strong pb-2">
                     <h4 className="text-xs font-semibold text-foreground">
-                      Recent Issues — {selectedIssueSilo.silo_code}
+                      Recent Issues: {selectedIssueSilo.silo_code}
                     </h4>
                     <span className="text-[11px] text-slate-500 tabular-nums font-semibold">Last 10 Records</span>
                   </div>
 
                   {historyLoading ? (
-                    <div className="p-4 text-center text-xs text-slate-500 tabular-nums font-semibold">Loading issue history...</div>
+                    <div className="p-4 text-center text-xs text-slate-500 tabular-nums font-semibold">Loading issue history…</div>
                   ) : issueHistory.length === 0 ? (
                     <div className="p-4 text-center text-xs text-slate-500 font-semibold">No recent milk issues recorded for this silo.</div>
                   ) : (
