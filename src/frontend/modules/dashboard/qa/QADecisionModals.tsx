@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Play, CheckCircle2, PauseCircle, XCircle, AlertTriangle } from 'lucide-react';
+import { Play, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 import { Modal } from '@/components/ui/modal';
 import type { OnHoldVisit, WaitingVisit } from './QAQueuePanel';
@@ -15,8 +15,8 @@ export interface QADecisionModalsProps {
   activePortionIndex: number;
   qaOpTimestamp: string;
   onQaOpTimestampChange: (val: string) => void;
-  holdReason: string;
-  onHoldReasonChange: (val: string) => void;
+  holdReason?: string;
+  onHoldReasonChange?: (val: string) => void;
   rejectionReason: string;
   onRejectionReasonChange: (val: string) => void;
   rejectionRemarks: string;
@@ -27,7 +27,7 @@ export interface QADecisionModalsProps {
   onStartTestingConfirm: (e: React.FormEvent) => void;
   onResumeTestingConfirm: (e: React.FormEvent) => void;
   onAcceptPortionConfirm: (e: React.FormEvent) => void;
-  onHoldPortionConfirm: (e: React.FormEvent) => void;
+  onHoldPortionConfirm?: (e: React.FormEvent) => void;
   onRejectPortionConfirm: (e: React.FormEvent) => void;
   isSubmitting: boolean;
   waitingVisits: WaitingVisit[];
@@ -189,7 +189,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                       <div>
                         <p className="font-semibold text-sm text-amber-950">Are you sure with your decision?</p>
                         <p className="mt-1 font-normal text-amber-900">
-                          One or more tests failed SOP rules (FAIL) or test picture is missing. Your decision will be sent to <strong>Manager, QA Reception Lab</strong> for final decision.
+                          One or more tests failed SOP rules (FAIL), picture is missing, or seal mismatch detected. Your decision will be sent to <strong>AVP, Quality Assurance (QA Head)</strong> for final decision.
                         </p>
                       </div>
                     </div>
@@ -255,69 +255,8 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                     {isSubmitting
                       ? 'Submitting…'
                       : hasFailedTests
-                      ? 'Confirm & Send to Manager, QA Reception Lab'
+                      ? 'Confirm & Send to AVP-QA (QA Head)'
                       : 'Confirm Portion Acceptance'}
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {activeActionModal === 'HOLD' && (
-              <form onSubmit={onHoldPortionConfirm} className="space-y-4">
-                <div className="flex items-center space-x-2.5 pb-2 border-b border-border-strong">
-                  <div className="p-2 bg-amber-600 text-white rounded-xl">
-                    <PauseCircle className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-base text-foreground">Place Portion On Hold</h3>
-                    <p className="text-xs text-slate-700 font-semibold">
-                      Portion #{currentPortion?.portion_number} of {visitDetail?.vehicle_number}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-semibold text-foreground">
-                    Hold Reason / Explanation *
-                  </label>
-                  <textarea
-                    value={holdReason}
-                    onChange={(e) => onHoldReasonChange(e.target.value)}
-                    placeholder="Describe why this portion is being put on hold (e.g. pending supervisor review, re-sampling needed)…"
-                    rows={3}
-                    className="w-full min-w-0 resize-y break-words p-3 text-xs font-semibold rounded-xl border border-border-strong bg-white text-foreground focus:outline-hidden focus:ring-2 focus:ring-amber-600"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-semibold text-foreground">
-                    Hold Operational Timestamp *
-                  </label>
-                  <input
-                    type="datetime-local"
-                    value={qaOpTimestamp}
-                    onChange={(e) => onQaOpTimestampChange(e.target.value)}
-                    className="w-full min-h-[44px] px-3.5 py-2 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-white text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
-                    required
-                  />
-                </div>
-
-                <div className="flex items-center justify-end space-x-2 pt-3 border-t border-border-strong">
-                  <button
-                    type="button"
-                    disabled={isSubmitting}
-                    onClick={onCloseModal}
-                    className="min-h-[44px] px-4 py-2 text-xs font-semibold text-slate-700 hover:text-foreground"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting || !holdReason.trim()}
-                    className="min-h-[44px] px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs rounded-xl shadow-md transition disabled:opacity-50"
-                  >
-                    {isSubmitting ? 'Placing On Hold…' : 'Confirm Hold Decision'}
                   </button>
                 </div>
               </form>
@@ -344,7 +283,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                       <div>
                         <p className="font-semibold text-sm text-amber-950">Are you sure with your decision?</p>
                         <p className="mt-1 font-normal text-amber-900">
-                          All tested parameters passed SOP rules (PASS). Your manual rejection will be sent to <strong>Manager, QA Reception Lab</strong> for final decision.
+                          All tested parameters passed SOP rules (PASS). Your manual rejection will be sent to <strong>AVP, Quality Assurance (QA Head)</strong> for final decision.
                         </p>
                       </div>
                     </div>
@@ -416,7 +355,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                     {isSubmitting
                       ? 'Rejecting…'
                       : !hasFailedTests
-                      ? 'Confirm & Send to Manager, QA Reception Lab'
+                      ? 'Confirm & Send to AVP-QA (QA Head)'
                       : 'Confirm Portion Rejection'}
                   </button>
                 </div>

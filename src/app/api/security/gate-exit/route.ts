@@ -13,6 +13,8 @@ const SECURITY_SCOPE = { kind: 'DEPARTMENT', departmentId: 'Security' } as const
 const gateExitSchema = z.object({
   visitId: z.string().min(1, 'Visit ID is required'),
   exitTimestamp: z.string().optional(),
+  tanker_washed: z.boolean().optional(),
+  tankerWashed: z.boolean().optional(),
 });
 
 export async function POST(req: Request) {
@@ -20,7 +22,7 @@ export async function POST(req: Request) {
   if (!access.allowed) {
     const error = access.status === 401
       ? 'Unauthorized. Authentication required.'
-      : 'Unauthorized. Security Operator or Admin Head role required.';
+      : 'Unauthorized. Admin Operator or Admin Head role required.';
     return NextResponse.json({ error }, { status: access.status });
   }
   const authUser = access.user;
@@ -37,7 +39,7 @@ export async function POST(req: Request) {
 
   if (!dbUser) {
     return NextResponse.json(
-      { error: 'Unauthorized. Security Operator or Admin Head role required.' },
+      { error: 'Unauthorized. Admin Operator or Admin Head role required.' },
       { status: 403 }
     );
   }
@@ -96,6 +98,14 @@ export async function POST(req: Request) {
         throw new Error('Gate exit record already recorded for this vehicle.');
       }
 
+      // 3b. Mandatory Tanker Wash Check (Phase 4d Stage 4)
+      const washedInput = validated.tanker_washed !== undefined ? validated.tanker_washed : validated.tankerWashed;
+      const isWashed = washedInput !== undefined ? washedInput : visit.gate_log?.tanker_washed;
+
+      if (!isWashed) {
+        throw new Error('Vehicle tanker wash verification required by Admin Operator prior to gate exit.');
+      }
+
       // 4. Strict Chronology Checks against DB predecessor
       const isAllRejected = visit.portions.length > 0 && visit.portions.every((p) => p.plant_decision === 'REJECTED');
       const predTs = isAllRejected
@@ -108,7 +118,7 @@ export async function POST(req: Request) {
         throw new Error(chronoVal.error);
       }
 
-      const opTimestamp = chronoVal.date || serverNow;
+      const verifiedOpTimestamp = chronoVal.date || serverNow;
 
       // For normal accepted vehicles, verify Tare weighment completion & chronology
       if (!isAllRejected) {
@@ -117,26 +127,33 @@ export async function POST(req: Request) {
         }
       }
 
-      // 5. Update GateLog with exit timestamp and exit guard ID
+      // 5. Update GateLog with exit timestamp, exit guard ID, and tanker wash check
       const updatedGateLog = await tx.gateLog.update({
         where: { id: visit.gate_log.id },
         data: {
-          exit_timestamp: opTimestamp,
+          exit_timestamp: verifiedOpTimestamp,
           exit_guard_id: userIdBigInt,
           exit_submitted_at: new Date(),
+          tanker_washed: true,
+          wash_checked_by: userIdBigInt,
+          wash_checked_at: new Date(),
+          washed_checked_by: userIdBigInt,
+          washed_checked_at: new Date(),
         },
       });
 
-      // 5b. Calculate and assign authoritative Plant-Exit Business Date
-      const exitBusinessDateStr = getOperationalBusinessDate(opTimestamp);
-      const exitBusinessDate = parseStrictDateOnly(exitBusinessDateStr);
-
-      await tx.vehicleVisit.update({
-        where: { id: visitId },
-        data: {
-          operational_date: exitBusinessDate,
-        },
-      });
+      // 5b. Authoritative Business Date: LOCKED once at 1st weight (08:00 AM PKT cutoff rule).
+      // NEVER overwrite at gate exit. Fully rejected vehicle date was set at final QA rejection.
+      if (!visit.operational_date) {
+        const exitBusinessDateStr = getOperationalBusinessDate(verifiedOpTimestamp);
+        const exitBusinessDate = parseStrictDateOnly(exitBusinessDateStr);
+        await tx.vehicleVisit.update({
+          where: { id: visitId },
+          data: {
+            operational_date: exitBusinessDate,
+          },
+        });
+      }
 
       // 6. Log Immutable Audit Record for Gate Exit
       await writeAuditLog(tx, {
@@ -147,30 +164,29 @@ export async function POST(req: Request) {
           visit_id: visitId.toString(),
           vehicle_number: visit.vehicle_number,
           token_number: visit.token_number,
-          op_timestamp: opTimestamp.toISOString(),
-          submitted_at: serverNow.toISOString(),
-          exited_by: dbUser.username,
-          exit_reason: isAllRejected ? 'QA Rejected' : 'Processing Complete',
-          previous_status: 'READY_FOR_GATE_EXIT',
-          new_status: 'COMPLETED',
+          op_timestamp: verifiedOpTimestamp.toISOString(),
+          tanker_washed: true,
         },
         actor: auditActorFromUser(dbUser),
       });
 
-      return { updatedVisit: visit, updatedGateLog, isAllRejected };
+      return {
+        success: true,
+        visit_id: visitId.toString(),
+        exit_timestamp: verifiedOpTimestamp.toISOString(),
+      };
     });
 
-    return NextResponse.json({
-      success: true,
-      visitId: result.updatedVisit.id.toString(),
-      vehicleNumber: result.updatedVisit.vehicle_number,
-      isAllRejected: result.isAllRejected,
-      message: `Gate exit confirmed for Vehicle ${result.updatedVisit.vehicle_number} (${result.isAllRejected ? 'QA Rejected Load' : 'Processing Complete'}). Vehicle status: COMPLETED.`,
-    });
+    return NextResponse.json(result);
   } catch (error) {
-    if (getErrorName(error) === 'ZodError') {
-      return NextResponse.json({ error: getErrorIssues(error)?.[0]?.message || 'Validation failed' }, { status: 400 });
-    }
-    return NextResponse.json({ error: getErrorMessage(error) || 'Failed to record gate exit' }, { status: 400 });
+    const errorDetails = {
+      issues: getErrorIssues(error),
+      message: getErrorMessage(error),
+      name: getErrorName(error),
+    };
+    return NextResponse.json(
+      { error: errorDetails.message || 'Failed to record gate exit' },
+      { status: 400 }
+    );
   }
 }

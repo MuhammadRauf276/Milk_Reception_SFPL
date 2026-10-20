@@ -104,7 +104,12 @@ export const RejectedMilkRemarksQueue: React.FC<RejectedMilkRemarksQueueProps> =
         <div className="divide-y divide-border">
           {items.map((item) => (
             <div key={item.entity_id} className="p-4 space-y-3">
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-700">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-700">
+                <span className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider ${
+                  item.entity_type === 'PLANT_PORTION' ? 'bg-purple-100 text-purple-800 border border-purple-200' : 'bg-blue-100 text-blue-800 border border-blue-200'
+                }`}>
+                  {item.entity_type === 'PLANT_PORTION' ? 'Plant Reception' : 'ZMCC'}
+                </span>
                 <strong className="text-foreground">{item.zmcc_name}</strong>
                 {item.zmcc_token && <span className="font-mono">{item.zmcc_token}</span>}
                 <span>Portion {item.portion_number}</span>

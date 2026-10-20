@@ -37,7 +37,7 @@ export async function GET(req: Request) {
           include: {
             procurement_source: true,
             gate_log: true,
-            weight_ticket: true,
+            weight_tickets: true,
           },
         },
         plant_lab_results: {
@@ -70,6 +70,10 @@ export async function GET(req: Request) {
       managerRequestedDecision: p.manager_requested_decision,
       managerReviewRequestedAt: p.manager_review_requested_at?.toISOString() || null,
       managerReviewReason: p.manager_review_reason,
+      sealNumber: p.seal_number || null,
+      plantSealNumberEntered: p.plant_seal_number_entered || null,
+      sealMatch: p.seal_match,
+      exceptionReasons: p.exception_reasons || null,
       requesterName: p.manager_requester?.full_name || p.manager_requester?.username || 'Unknown',
       vehicleExited: !!p.visit.gate_log?.exit_timestamp,
       results: p.plant_lab_results.map((r) => {

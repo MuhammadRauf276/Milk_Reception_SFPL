@@ -1,5 +1,5 @@
-// MPD Head remarks on milk rejected at the ZMCC (rejected_milk_disposition).
-// Queue = rejected ZMCC lab portions that have no remarks yet.
+// MPD Head remarks on milk rejected at the ZMCC (rejected_milk_disposition) or Plant (visit_portion).
+// Queue = rejected ZMCC lab portions and Plant visit portions that have no remarks yet.
 import { prisma } from '@/backend/core/db';
 import { writeAuditLog, type AuditActor } from '@/backend/core/audit';
 import { requireRoles } from '@/backend/core/route-guards';
@@ -7,8 +7,7 @@ import type { ActingContext } from '@/types/acting';
 import { Prisma } from '@prisma/client';
 import { NextResponse } from 'next/server';
 
-export type RejectedMilkEntityType = 'ZMCC_LAB_PORTION';
-const ENTITY_TYPE: RejectedMilkEntityType = 'ZMCC_LAB_PORTION';
+export type RejectedMilkEntityType = 'ZMCC_LAB_PORTION' | 'PLANT_PORTION';
 const MAX_REMARKS = 2000;
 const MIN_REMARKS = 3;
 const QUEUE_LIMIT = 200;
@@ -16,25 +15,27 @@ const QUEUE_LIMIT = 200;
 type Db = Prisma.TransactionClient;
 
 export interface RecordRejectedMilkInput {
-  /** ZmccLabPortion.id of the rejected portion (composite sessions have one portion). */
+  /** ZmccLabPortion.id or VisitPortion.id of the rejected portion. */
   portionId: bigint;
-  zmccId: bigint;
-  /** Short text for the notification, e.g. "ZT-MOT-... / 1200 L". */
+  zmccId?: bigint;
+  sourceId?: bigint;
+  entityType?: RejectedMilkEntityType;
+  /** Short text for the notification, e.g. "TK-1025 / 1200 L". */
   summary?: string;
   actor: AuditActor | ActingContext;
 }
 
 /**
- * Hook for the ZMCC lab code: call inside the same transaction when a portion
- * becomes finally REJECTED. Tells every active MPD Head that remarks are needed
- * and writes an audit row. Safe to call twice (the notification is de-duplicated).
+ * Hook for ZMCC lab code: call inside transaction when a ZMCC lab portion becomes REJECTED.
  */
 export async function recordRejectedMilkForDisposition(tx: Db, input: RecordRejectedMilkInput): Promise<void> {
+  const entityType = input.entityType || 'ZMCC_LAB_PORTION';
   const heads = await tx.user.findMany({ where: { is_active: true, role: 'HEAD_OF_MPD' }, select: { id: true } });
   const detail = input.summary ? ` (${input.summary})` : '';
-  const body = `Milk was rejected at the ZMCC${detail}. Please add your remarks.`.slice(0, 500);
+  const body = `Milk was rejected at the ${entityType === 'PLANT_PORTION' ? 'Plant' : 'ZMCC'}${detail}. Please add your remarks.`.slice(0, 500);
+
   for (const head of heads) {
-    const dedupeKey = `REJECTED_MILK_REMARKS:${ENTITY_TYPE}:${input.portionId}:${head.id}`;
+    const dedupeKey = `REJECTED_MILK_REMARKS:${entityType}:${input.portionId}:${head.id}`;
     await tx.notification.upsert({
       where: { dedupe_key: dedupeKey },
       create: {
@@ -44,19 +45,20 @@ export async function recordRejectedMilkForDisposition(tx: Db, input: RecordReje
         title: 'Rejected milk needs your remarks',
         body,
         deep_link: '/mpd/head',
-        source_type: ENTITY_TYPE,
+        source_type: entityType,
         source_id: input.portionId.toString(),
         dedupe_key: dedupeKey,
       },
       update: {},
     });
   }
+
   await writeAuditLog(tx, {
-    tableName: 'zmcc_lab_portion',
+    tableName: entityType === 'PLANT_PORTION' ? 'visit_portion' : 'zmcc_lab_portion',
     recordId: input.portionId,
     action: 'REJECTED_MILK_FLAGGED_FOR_MPD',
     oldValues: null,
-    newValues: { zmcc_id: input.zmccId.toString(), notified_heads: heads.length },
+    newValues: { entity_type: entityType, source_id: input.sourceId?.toString() || null, notified_heads: heads.length },
     actor: input.actor,
   });
 }
@@ -83,21 +85,22 @@ function toIso(d: Date | null | undefined) {
 }
 
 async function loadQueue(status: 'PENDING' | 'DONE' | 'ALL'): Promise<RejectedMilkQueueItem[]> {
-  const dispositions = await prisma.rejectedMilkDisposition.findMany({
-    where: { entity_type: ENTITY_TYPE },
+  // 1. ZMCC Lab Portions
+  const zmccDispositions = await prisma.rejectedMilkDisposition.findMany({
+    where: { entity_type: 'ZMCC_LAB_PORTION' },
     include: { decided_by: { select: { full_name: true, username: true } } },
   });
-  const byEntity = new Map(dispositions.map((d) => [d.entity_id.toString(), d]));
-  const decidedIds = dispositions.map((d) => d.entity_id);
+  const zmccByEntity = new Map(zmccDispositions.map((d) => [d.entity_id.toString(), d]));
+  const zmccDecidedIds = zmccDispositions.map((d) => d.entity_id);
 
-  const where: Prisma.ZmccLabPortionWhereInput = {
+  const zmccWhere: Prisma.ZmccLabPortionWhereInput = {
     OR: [{ final_decision: 'REJECTED' }, { status: 'REJECTED' }],
-    ...(status === 'PENDING' ? { id: { notIn: decidedIds } } : {}),
-    ...(status === 'DONE' ? { id: { in: decidedIds } } : {}),
+    ...(status === 'PENDING' ? { id: { notIn: zmccDecidedIds } } : {}),
+    ...(status === 'DONE' ? { id: { in: zmccDecidedIds } } : {}),
   };
 
-  const portions = await prisma.zmccLabPortion.findMany({
-    where,
+  const zmccPortions = await prisma.zmccLabPortion.findMany({
+    where: zmccWhere,
     orderBy: { updated_at: 'desc' },
     take: QUEUE_LIMIT,
     include: {
@@ -111,11 +114,11 @@ async function loadQueue(status: 'PENDING' | 'DONE' | 'ALL'): Promise<RejectedMi
     },
   });
 
-  return portions.map((p) => {
-    const d = byEntity.get(p.id.toString());
+  const zmccItems: RejectedMilkQueueItem[] = zmccPortions.map((p) => {
+    const d = zmccByEntity.get(p.id.toString());
     const session = p.lab_session;
     return {
-      entity_type: ENTITY_TYPE,
+      entity_type: 'ZMCC_LAB_PORTION',
       entity_id: p.id.toString(),
       portion_number: p.portion_number,
       session_id: session.id.toString(),
@@ -131,11 +134,57 @@ async function loadQueue(status: 'PENDING' | 'DONE' | 'ALL'): Promise<RejectedMi
       remarks_at: toIso(d?.decided_at),
     };
   });
+
+  // 2. Plant Visit Portions (Phase 4d Stage 4)
+  const plantPortions = await prisma.visitPortion.findMany({
+    where: {
+      plant_decision: 'REJECTED',
+      ...(status === 'PENDING' ? { mpd_disposition_remarks: null } : {}),
+      ...(status === 'DONE' ? { mpd_disposition_remarks: { not: null } } : {}),
+    },
+    take: QUEUE_LIMIT,
+    orderBy: { updated_at: 'desc' },
+    include: {
+      visit: {
+        include: {
+          procurement_source: { select: { id: true, name: true } },
+          gate_log: { select: { entry_timestamp: true } },
+        },
+      },
+      mpd_disposition_user: { select: { full_name: true, username: true } },
+    },
+  });
+
+  const plantItems: RejectedMilkQueueItem[] = plantPortions.map((p) => ({
+    entity_type: 'PLANT_PORTION',
+    entity_id: p.id.toString(),
+    portion_number: p.portion_number,
+    session_id: p.visit_id.toString(),
+    zmcc_id: p.visit.procurement_source_id ? p.visit.procurement_source_id.toString() : '',
+    zmcc_name: p.visit.procurement_source?.name || `Vehicle ${p.visit.vehicle_number}`,
+    arrival_type: 'PLANT_VEHICLE',
+    zmcc_token: p.visit.token_number || null,
+    gross_liters: p.dispatch_quantity_value ? p.dispatch_quantity_value.toString() : null,
+    reject_reason: p.plant_rejection_reason || 'Plant QA Rejection',
+    rejected_at: toIso(p.plant_decided_at ?? p.updated_at),
+    remarks: p.mpd_disposition_remarks ?? null,
+    remarks_by: p.mpd_disposition_user ? p.mpd_disposition_user.full_name || p.mpd_disposition_user.username : null,
+    remarks_at: toIso(p.mpd_disposition_at),
+  }));
+
+  const allItems = [...zmccItems, ...plantItems];
+  allItems.sort((a, b) => {
+    const timeA = a.rejected_at ? new Date(a.rejected_at).getTime() : 0;
+    const timeB = b.rejected_at ? new Date(b.rejected_at).getTime() : 0;
+    return timeB - timeA;
+  });
+
+  return allItems;
 }
 
 /** GET queue. MPD Head and Super Admin; Data Executive may read. */
 export async function getRejectedMilkQueue(req: Request): Promise<NextResponse> {
-  const guard = await requireRoles(req, ['HEAD_OF_MPD', 'DATA_EXECUTIVE'], { delegation: 'none', requestedAs: null });
+  const guard = await requireRoles(req, ['HEAD_OF_MPD', 'DATA_EXECUTIVE', 'SUPER_ADMIN'], { delegation: 'none', requestedAs: null });
   if ('response' in guard) return guard.response;
   const raw = (new URL(req.url).searchParams.get('status') || 'pending').toUpperCase();
   const status = raw === 'DONE' || raw === 'ALL' ? raw : 'PENDING';
@@ -150,15 +199,17 @@ export async function getRejectedMilkQueue(req: Request): Promise<NextResponse> 
 
 /** POST remarks. MPD Head and Super Admin only. One remark per rejected portion. */
 export async function addRejectedMilkRemarks(req: Request): Promise<NextResponse> {
-  const guard = await requireRoles(req, ['HEAD_OF_MPD'], { delegation: 'none', requestedAs: null });
+  const guard = await requireRoles(req, ['HEAD_OF_MPD', 'SUPER_ADMIN'], { delegation: 'none', requestedAs: null });
   if ('response' in guard) return guard.response;
   const acting = guard.acting;
 
   const body = (await req.json().catch(() => null)) as { entity_type?: unknown; entity_id?: unknown; remarks?: unknown } | null;
-  const entityType = typeof body?.entity_type === 'string' ? body.entity_type : ENTITY_TYPE;
-  if (entityType !== ENTITY_TYPE) {
+  const rawType = typeof body?.entity_type === 'string' ? body.entity_type : 'ZMCC_LAB_PORTION';
+  if (rawType !== 'ZMCC_LAB_PORTION' && rawType !== 'PLANT_PORTION') {
     return NextResponse.json({ error: 'This kind of rejected milk is not supported here.' }, { status: 400 });
   }
+  const entityType = rawType as RejectedMilkEntityType;
+
   if (typeof body?.entity_id !== 'string' && typeof body?.entity_id !== 'number') {
     return NextResponse.json({ error: 'Rejected milk id is required.' }, { status: 400 });
   }
@@ -175,6 +226,71 @@ export async function addRejectedMilkRemarks(req: Request): Promise<NextResponse
     return NextResponse.json({ error: `Remarks are too long (max ${MAX_REMARKS} letters).` }, { status: 400 });
   }
 
+  if (entityType === 'PLANT_PORTION') {
+    const portion = await prisma.visitPortion.findUnique({
+      where: { id: entityId },
+      select: { id: true, plant_decision: true, mpd_disposition_remarks: true },
+    });
+    if (!portion) return NextResponse.json({ error: 'Plant rejected milk portion not found.' }, { status: 404 });
+    if (portion.plant_decision !== 'REJECTED') {
+      return NextResponse.json({ error: 'This plant milk portion was not rejected.' }, { status: 409 });
+    }
+    if (portion.mpd_disposition_remarks) {
+      return NextResponse.json({ error: 'Remarks were already saved for this plant milk portion.' }, { status: 409 });
+    }
+
+    try {
+      const now = new Date();
+      await prisma.$transaction(async (tx) => {
+        await tx.visitPortion.update({
+          where: { id: entityId },
+          data: {
+            mpd_disposition_remarks: remarks,
+            mpd_disposition_by: acting.userId,
+            mpd_disposition_at: now,
+          },
+        });
+
+        // Also upsert a RejectedMilkDisposition row for unified reporting
+        await tx.rejectedMilkDisposition.upsert({
+          where: { entity_type_entity_id: { entity_type: 'PLANT_PORTION', entity_id: entityId } },
+          create: {
+            stage: 'PLANT',
+            entity_type: 'PLANT_PORTION',
+            entity_id: entityId,
+            remarks,
+            decided_by_user_id: acting.userId,
+            decided_as_role: acting.actingAs,
+            decided_is_delegated: acting.isDelegated,
+            decided_at: now,
+          },
+          update: {
+            remarks,
+            decided_by_user_id: acting.userId,
+            decided_as_role: acting.actingAs,
+            decided_is_delegated: acting.isDelegated,
+            decided_at: now,
+          },
+        });
+
+        await writeAuditLog(tx, {
+          tableName: 'visit_portion',
+          recordId: entityId,
+          action: 'PLANT_REJECTED_MILK_MPD_REMARKS_ADDED',
+          oldValues: null,
+          newValues: { entity_type: 'PLANT_PORTION', portion_id: entityId.toString(), remarks },
+          actor: acting,
+        });
+      });
+
+      return NextResponse.json({ ok: true, id: entityId.toString() }, { status: 201 });
+    } catch (err) {
+      console.error('addRejectedMilkRemarks plant error:', err);
+      return NextResponse.json({ error: 'Could not save remarks for plant portion.' }, { status: 500 });
+    }
+  }
+
+  // ZMCC_LAB_PORTION
   const portion = await prisma.zmccLabPortion.findUnique({
     where: { id: entityId },
     select: { id: true, status: true, final_decision: true },
@@ -187,14 +303,14 @@ export async function addRejectedMilkRemarks(req: Request): Promise<NextResponse
   try {
     const saved = await prisma.$transaction(async (tx) => {
       const existing = await tx.rejectedMilkDisposition.findUnique({
-        where: { entity_type_entity_id: { entity_type: ENTITY_TYPE, entity_id: entityId } },
+        where: { entity_type_entity_id: { entity_type: 'ZMCC_LAB_PORTION', entity_id: entityId } },
         select: { id: true },
       });
       if (existing) return null;
       const row = await tx.rejectedMilkDisposition.create({
         data: {
           stage: 'ZMCC',
-          entity_type: ENTITY_TYPE,
+          entity_type: 'ZMCC_LAB_PORTION',
           entity_id: entityId,
           remarks,
           decided_by_user_id: acting.userId,
@@ -207,7 +323,7 @@ export async function addRejectedMilkRemarks(req: Request): Promise<NextResponse
         recordId: row.id,
         action: 'REJECTED_MILK_REMARKS_ADDED',
         oldValues: null,
-        newValues: { stage: 'ZMCC', entity_type: ENTITY_TYPE, entity_id: entityId.toString(), remarks },
+        newValues: { stage: 'ZMCC', entity_type: 'ZMCC_LAB_PORTION', entity_id: entityId.toString(), remarks },
         actor: acting,
       });
       return row;

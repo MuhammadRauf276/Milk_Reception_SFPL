@@ -1,10 +1,27 @@
 'use client';
 
 import React from 'react';
-import { Play, CheckCircle2, XCircle, PlusCircle, X, Loader2 } from 'lucide-react';
+import {
+  Play,
+  CheckCircle2,
+  XCircle,
+  PlusCircle,
+  X,
+  Loader2,
+  ShieldCheck,
+  AlertTriangle,
+  AlertCircle,
+} from 'lucide-react';
 import { QualitativeResultRadioGroup } from '@/frontend/modules/shared/QualitativeResultRadioGroup';
 import { formatOperationalTime } from '@/lib/datetime-utils';
 import { LiveCameraCapture } from '@/components/camera/LiveCameraCapture';
+import {
+  DecisionRulePanel,
+  type DecisionRuleTestRow,
+  type DecisionTestOutcome,
+} from '@/frontend/modules/shared/decision/DecisionRulePanel';
+import { evaluateDecision } from '@/backend/services/decision/decisionRule';
+import type { DecisionResult, ExceptionReason, PersonDecision } from '@/types/stage1-decision';
 import type { OnHoldVisit, WaitingVisit } from './QAQueuePanel';
 
 export type TestPerformanceStatus = 'PERFORMED' | 'NOT_PERFORMED';
@@ -47,6 +64,10 @@ export interface VisitDetailPortion {
   plant_rejection_reason: string | null;
   dispatch_results: unknown[];
   plant_results: SavedPlantResult[];
+  seal_number?: string | null;
+  plant_seal_number_entered?: string | null;
+  seal_match?: boolean | null;
+  exception_reasons?: string[] | null;
 }
 
 export interface VisitDetail {
@@ -58,6 +79,7 @@ export interface VisitDetail {
   operational_date: string | null;
   entry_timestamp: string | null;
   current_status: string;
+  test_mode?: string | null;
   visit_decision_summary: string;
   vehicle_dispatch_quantity_value?: number | null;
   vehicle_dispatch_quantity_unit?: string | null;
@@ -89,7 +111,7 @@ export interface QATestingSectionProps {
   onTestNumericChange: (testId: string, value: string) => void;
   onTestTextChange: (testId: string, value: string) => void;
   onTestReasonChange: (testId: string, value: string) => void;
-  onOpenActionModal: (action: 'START' | 'RESUME' | 'ACCEPT' | 'HOLD' | 'REJECT', visitId?: string) => void;
+  onOpenActionModal: (action: 'START' | 'RESUME' | 'ACCEPT' | 'REJECT', visitId?: string) => void;
   requiredManualPlantTests: LabTestDef[];
   performedCount: number;
   notPerformedCount: number;
@@ -101,6 +123,17 @@ export interface QATestingSectionProps {
   isAddingPortion?: boolean;
   onRemovePortion?: (portionId: string, portionNumber: number) => void;
   isRemovingPortion?: boolean;
+
+  // Phase 4d additions:
+  enteredSeal?: string;
+  onSealChange?: (val: string) => void;
+  photoStates?: Record<string, string>;
+  onPhotoChange?: (testId: string, url: string | null) => void;
+  personDecision?: PersonDecision | null;
+  onPersonDecisionChange?: (d: PersonDecision) => void;
+  decisionRemarks?: string;
+  onDecisionRemarksChange?: (val: string) => void;
+  isSuperior?: boolean;
 }
 
 export const QATestingSection: React.FC<QATestingSectionProps> = ({
@@ -124,17 +157,206 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
   unresolvedCount,
   canAccept,
   isSubmitting,
-  formatDispatchQty,
   onAddPortion,
   isAddingPortion = false,
   onRemovePortion,
-  isRemovingPortion = false,
+  enteredSeal = '',
+  onSealChange,
+  photoStates = {},
+  onPhotoChange,
+  personDecision = null,
+  onPersonDecisionChange,
+  decisionRemarks = '',
+  onDecisionRemarksChange,
+  isSuperior = false,
 }) => {
-  const [photoStates, setPhotoStates] = React.useState<Record<string, string>>({});
+  const [localPhotoStates, setLocalPhotoStates] = React.useState<Record<string, string>>({});
+  const activePhotos = onPhotoChange ? photoStates : localPhotoStates;
+
+  const handleCapturePhoto = (testId: string, url: string) => {
+    if (onPhotoChange) {
+      onPhotoChange(testId, url);
+    } else {
+      setLocalPhotoStates((prev) => ({ ...prev, [testId]: url }));
+    }
+  };
+
+  const handleClearPhoto = (testId: string) => {
+    if (onPhotoChange) {
+      onPhotoChange(testId, null);
+    } else {
+      setLocalPhotoStates((prev) => {
+        const next = { ...prev };
+        delete next[testId];
+        return next;
+      });
+    }
+  };
 
   const displayableTests = React.useMemo(() => {
     return (visitDetail?.active_plant_tests || []).filter((t) => t.resultType !== 'CALCULATED');
   }, [visitDetail?.active_plant_tests]);
+
+  const currentPortion = visitDetail?.portions[activePortionIndex] || null;
+
+  // Seal evaluation
+  const dispatchSeal = currentPortion?.seal_number?.trim() || '';
+  const currentEnteredSeal = (enteredSeal || currentPortion?.plant_seal_number_entered || '').trim();
+  const hasDispatchSeal = Boolean(dispatchSeal);
+  const isSealMatched = hasDispatchSeal && currentEnteredSeal.toUpperCase() === dispatchSeal.toUpperCase();
+  const isSealMismatch = hasDispatchSeal && Boolean(currentEnteredSeal) && !isSealMatched;
+  const isSealMissing = hasDispatchSeal && !currentEnteredSeal;
+
+  // Decision rows calculation
+  const decisionRows: DecisionRuleTestRow[] = React.useMemo(() => {
+    if (!currentPortion) return [];
+    const rows: DecisionRuleTestRow[] = [];
+
+    // Seal row
+    if (hasDispatchSeal) {
+      let outcome: DecisionTestOutcome = 'NOT_TESTED';
+      let note: string | null = 'Seal verification required';
+      if (isSealMatched) {
+        outcome = 'PASS';
+        note = 'Matches dispatch seal';
+      } else if (isSealMismatch) {
+        outcome = 'FAIL';
+        note = 'Mismatch with dispatch seal';
+      } else if (isSealMissing) {
+        outcome = 'WARN';
+        note = 'Seal number pending entry';
+      }
+      rows.push({
+        key: 'seal-verification',
+        name: 'Tanker Seal Check',
+        outcome,
+        valueText: currentEnteredSeal ? `Entered: ${currentEnteredSeal}` : `Dispatch: ${dispatchSeal}`,
+        note,
+      });
+    }
+
+    // Test rows
+    for (const test of displayableTests) {
+      const state = testInputs[test.id];
+      const codeUpper = (test.testCode || '').toUpperCase();
+      const nameUpper = (test.testName || '').toUpperCase();
+      const isLR = codeUpper.includes('LR') || nameUpper.includes('LR') || nameUpper.includes('LACTOMETER');
+      const isFAT = codeUpper.includes('FAT') || nameUpper.includes('FAT') || nameUpper.includes('GERBER');
+      const photoRequired = isLR || isFAT || Boolean(test.isPhotoRequired);
+      const hasPhoto = Boolean(activePhotos[test.id]);
+
+      if (!state || (state.performanceStatus === 'PERFORMED' && !state.numericValue && !state.textValue)) {
+        rows.push({
+          key: test.id,
+          name: test.testName,
+          outcome: test.isRequired ? 'WARN' : 'NOT_TESTED',
+          valueText: null,
+          note: test.isRequired ? 'Mandatory test pending' : null,
+        });
+        continue;
+      }
+
+      if (state.performanceStatus === 'NOT_PERFORMED') {
+        rows.push({
+          key: test.id,
+          name: test.testName,
+          outcome: test.isRequired ? 'FAIL' : 'NOT_TESTED',
+          valueText: 'Omitted',
+          note: state.notPerformedReason || (test.isRequired ? 'Compulsory test omitted' : 'Not performed'),
+        });
+        continue;
+      }
+
+      // Performed
+      let outcome: DecisionTestOutcome = 'PASS';
+      let note: string | null = null;
+      let valueText: string | null = null;
+
+      if (test.resultType === 'NUMERIC') {
+        valueText = `${state.numericValue} ${test.unit || ''}`.trim();
+        if (photoRequired && !hasPhoto) {
+          outcome = 'WARN';
+          note = 'Verification photo missing';
+        }
+      } else if (test.resultOptions && test.resultOptions.length > 0) {
+        valueText = state.textValue || '—';
+        const opt = test.resultOptions.find((o) => o.value === state.textValue);
+        if (opt && opt.isPassing === false) {
+          outcome = 'FAIL';
+          note = 'Out of acceptable specification';
+        }
+      } else {
+        valueText = state.textValue || '—';
+      }
+
+      rows.push({
+        key: test.id,
+        name: test.testName,
+        outcome,
+        valueText,
+        note,
+      });
+    }
+
+    return rows;
+  }, [currentPortion, hasDispatchSeal, isSealMatched, isSealMismatch, isSealMissing, currentEnteredSeal, dispatchSeal, displayableTests, testInputs, activePhotos]);
+
+  // Live decision calculation
+  const liveDecision = React.useMemo<DecisionResult | null>(() => {
+    if (!currentPortion) return null;
+    const ruleFailures: string[] = [];
+    const missingCompulsory: string[] = [];
+    const missingPhotos: string[] = [];
+    const extraReasons: ExceptionReason[] = [];
+
+    // Check seal
+    if (hasDispatchSeal && !isSealMatched) {
+      ruleFailures.push('SEAL');
+      extraReasons.push('MISMATCH');
+    }
+
+    // Check tests
+    for (const test of requiredManualPlantTests) {
+      const state = testInputs[test.id];
+      if (!state) {
+        missingCompulsory.push(test.testCode);
+        continue;
+      }
+      if (state.performanceStatus === 'NOT_PERFORMED') {
+        ruleFailures.push(test.testCode);
+        missingCompulsory.push(test.testCode);
+      } else if (state.performanceStatus === 'PERFORMED') {
+        if (test.resultType === 'NUMERIC' && (!state.numericValue || isNaN(Number(state.numericValue)))) {
+          missingCompulsory.push(test.testCode);
+        } else if (test.resultType !== 'NUMERIC' && !state.textValue) {
+          missingCompulsory.push(test.testCode);
+        }
+        if (test.resultOptions) {
+          const opt = test.resultOptions.find((o) => o.value === state.textValue);
+          if (opt && opt.isPassing === false) {
+            ruleFailures.push(test.testCode);
+          }
+        }
+        const codeUpper = (test.testCode || '').toUpperCase();
+        const isLR = codeUpper.includes('LR');
+        const isFAT = codeUpper.includes('FAT');
+        if ((isLR || isFAT || test.isPhotoRequired) && !activePhotos[test.id]) {
+          missingPhotos.push(test.testCode);
+        }
+      }
+    }
+
+    const effectiveDecision: PersonDecision = personDecision || 'ACCEPT';
+    return evaluateDecision({
+      ruleFailures,
+      missingCompulsory,
+      missingPhotos,
+      extraReasons,
+      personDecision: effectiveDecision,
+      remarks: decisionRemarks || '',
+      deciderCanApprove: Boolean(isSuperior),
+    });
+  }, [currentPortion, hasDispatchSeal, isSealMatched, requiredManualPlantTests, testInputs, activePhotos, personDecision, decisionRemarks, isSuperior]);
 
   if (activeTab === 'WAITING') {
     if (!selectedWaitingVisit) {
@@ -251,19 +473,26 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
     );
   }
 
-  const currentPortion = visitDetail.portions[activePortionIndex] || null;
-
   return (
     <div className="p-6 rounded-xl bg-card border border-border shadow-xs space-y-6 text-foreground">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-border-strong">
         <div>
-          <div className="flex items-center space-x-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <span className="tabular-nums font-semibold text-lg text-foreground">{visitDetail.vehicle_number}</span>
             <span className="px-2 py-0.5 rounded-lg text-xs tabular-nums font-semibold bg-primary text-white">
               {visitDetail.token_number || 'NO-TOKEN'}
             </span>
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase bg-sky-50 text-sky-800 border border-sky-200">
               IN_TESTING
+            </span>
+            <span
+              className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase border ${
+                visitDetail.test_mode === 'COMPOSITE'
+                  ? 'bg-purple-100 text-purple-900 border-purple-300'
+                  : 'bg-indigo-100 text-indigo-900 border-indigo-300'
+              }`}
+            >
+              {visitDetail.test_mode === 'COMPOSITE' ? 'Composite Mode' : 'Portion-Wise Mode'}
             </span>
           </div>
           <p className="text-xs text-slate-700 font-semibold mt-1">
@@ -355,6 +584,67 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
 
       {currentPortion ? (
         <div className="space-y-4">
+          {visitDetail.test_mode === 'COMPOSITE' && (
+            <div className="p-3 bg-purple-50 border border-purple-200 rounded-xl text-purple-950 text-xs font-medium flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-purple-600 shrink-0" />
+              <span>
+                <strong>Composite Testing Mode:</strong> 1 portion represents the entire tanker load. A rejection here rejects the entire vehicle.
+              </span>
+            </div>
+          )}
+
+          {/* Portion Seal Verification Card */}
+          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <ShieldCheck className="w-4 h-4 text-primary" />
+                <span className="text-xs font-semibold text-foreground">Portion Seal Verification</span>
+              </div>
+              {hasDispatchSeal ? (
+                isSealMatched ? (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" /> Seal Match
+                  </span>
+                ) : currentEnteredSeal ? (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-100 text-rose-800 border border-rose-300 flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3" /> Seal Mismatch
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-800 border border-amber-300">
+                    Verification Required
+                  </span>
+                )
+              ) : (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-600">
+                  No Dispatch Seal
+                </span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div>
+                <label className="text-[10px] font-semibold text-slate-500 block uppercase">
+                  Dispatch Recorded Seal
+                </label>
+                <div className="p-2 bg-white rounded-lg border border-slate-200 font-mono font-semibold text-foreground">
+                  {currentPortion.seal_number || 'None (No seal recorded)'}
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold text-slate-500 block uppercase">
+                  Received Seal Number (Chemist Check) *
+                </label>
+                <input
+                  type="text"
+                  value={enteredSeal}
+                  onChange={(e) => onSealChange?.(e.target.value)}
+                  placeholder="Enter physical seal number…"
+                  className="w-full h-[38px] px-3 font-mono font-semibold text-xs rounded-lg border border-border-strong bg-white text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
+                />
+              </div>
+            </div>
+          </div>
+
           {currentPortion.plant_decision === 'REJECTED' && currentPortion.plant_rejection_reason && (
             <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-300 text-rose-800 text-xs font-semibold space-y-1">
               <span className="uppercase text-[10px] tracking-wider block text-rose-900">
@@ -486,15 +776,9 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
                             stageName="Plant QA Reception"
                             tokenNo={visitDetail.token_number}
                             vehicleNo={visitDetail.vehicle_number}
-                            currentPhotoUrl={photoStates[test.id] || null}
-                            onPhotoCaptured={(url) => setPhotoStates((p) => ({ ...p, [test.id]: url }))}
-                            onPhotoCleared={() =>
-                              setPhotoStates((p) => {
-                                const next = { ...p };
-                                delete next[test.id];
-                                return next;
-                              })
-                            }
+                            currentPhotoUrl={activePhotos[test.id] || null}
+                            onPhotoCaptured={(url) => handleCapturePhoto(test.id, url)}
+                            onPhotoCleared={() => handleClearPhoto(test.id)}
                             isRequired={test.isRequired}
                           />
                         </div>
@@ -520,28 +804,39 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
             )}
           </div>
 
+          {/* Decision Rule Panel */}
+          <DecisionRulePanel
+            tests={decisionRows}
+            decision={liveDecision}
+            personDecision={personDecision}
+            onPersonDecisionChange={(d) => onPersonDecisionChange?.(d)}
+            remarks={decisionRemarks}
+            onRemarksChange={(r) => onDecisionRemarksChange?.(r)}
+            approverLabel="AVP-QA (QA Head)"
+            routeLabels={{
+              PROCEED: 'Accept Portion',
+              REJECT: 'Reject Portion',
+              SEND_TO_APPROVER: 'Send Exception to AVP-QA (QA Head)',
+              DECIDE_NOW: 'Decide Now (Override / Authorize)',
+            }}
+            onSubmit={() => onOpenActionModal(personDecision === 'REJECT' ? 'REJECT' : 'ACCEPT')}
+            submitting={isSubmitting}
+            disabled={isSubmitting || !currentPortion || currentPortion.plant_decision !== 'PENDING'}
+          />
+
           <div className="flex flex-wrap items-center justify-end gap-2.5 pt-3 border-t border-border-strong">
             <button
               type="button"
-              disabled={isSubmitting}
-              onClick={() => onOpenActionModal('HOLD')}
-              className="min-h-[44px] py-2.5 px-4 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold transition shadow-xs"
-            >
-              Place on Hold
-            </button>
-
-            <button
-              type="button"
-              disabled={isSubmitting}
+              disabled={isSubmitting || currentPortion.plant_decision !== 'PENDING'}
               onClick={() => onOpenActionModal('REJECT')}
-              className="min-h-[44px] py-2.5 px-4 rounded-xl bg-rose-700 hover:bg-rose-800 text-white text-xs font-semibold transition shadow-xs"
+              className="min-h-[44px] py-2.5 px-4 rounded-xl bg-rose-700 hover:bg-rose-800 text-white text-xs font-semibold transition shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Reject Portion
             </button>
 
             <button
               type="button"
-              disabled={!canAccept || isSubmitting}
+              disabled={!canAccept || isSubmitting || currentPortion.plant_decision !== 'PENDING'}
               onClick={() => onOpenActionModal('ACCEPT')}
               className="min-h-[44px] py-2.5 px-5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
             >

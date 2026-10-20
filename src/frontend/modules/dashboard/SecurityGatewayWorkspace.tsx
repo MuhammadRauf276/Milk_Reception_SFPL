@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { ShieldCheck, Truck, Clock, Search, CheckCircle2, ShieldAlert } from 'lucide-react';
+import { ShieldCheck, Truck, Clock, Search, CheckCircle2, ShieldAlert, XCircle } from 'lucide-react';
 import { useToast } from '@/frontend/context/ToastContext';
 import { toDatetimeLocalInput, datetimeLocalToIso } from '@/lib/datetime-utils';
 import { User } from '@core/types';
@@ -94,6 +94,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
   // Selected visit for Entry or Exit panel
   const [selectedEntryVisitId, setSelectedEntryVisitId] = useState<string | null>(null);
   const [selectedExitVisitId, setSelectedExitVisitId] = useState<string | null>(null);
+  const [tankerWashed, setTankerWashed] = useState<boolean | null>(null);
 
   // Entry & Exit Form state
   const [tokenNumber, setTokenNumber] = useState(suggestTokenNumber);
@@ -223,6 +224,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
         body: JSON.stringify({
           visitId: selectedExitVisit.id,
           exitTimestamp: datetimeLocalToIso(exitOpTimestamp) || undefined,
+          tanker_washed: tankerWashed,
         }),
       });
 
@@ -232,6 +234,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
       const successMsgText = `Gate Exit completed successfully for vehicle ${selectedExitVisit.vehicle_number}.`;
       toast.showSuccess(successMsgText, 'Gate Exit Completed');
       setSelectedExitVisitId(null);
+      setTankerWashed(null);
       setExitOpTimestamp(toDatetimeLocalInput(new Date()));
       fetchSecurityData();
     } catch (err) {
@@ -362,7 +365,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                 <form onSubmit={handleConfirmEntry} className="space-y-4">
                   <div className="space-y-1.5">
                     <label className="block text-xs font-semibold text-foreground">
-                      Assign Security Token # *
+                      Assign Gate Token # *
                     </label>
                     <input
                       type="text"
@@ -491,7 +494,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                       tabIndex={0}
                       onKeyDown={onActivateKey}
                       key={`ready-exit-${String(v.id)}`}
-                      onClick={() => setSelectedExitVisitId(v.id)}
+                      onClick={() => { setSelectedExitVisitId(v.id); setTankerWashed(null); }}
                       className={`p-4 rounded-xl border transition cursor-pointer space-y-2 ${
                         isSelected
                           ? 'bg-primary/4 text-foreground border-primary ring-1 ring-primary shadow-xs'
@@ -573,6 +576,60 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                   </div>
                 )}
 
+                {/* Tanker Washed Check (Phase 4d Stage 4) */}
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-foreground">Tanker Wash Verification *</span>
+                    {tankerWashed === true ? (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                        Clean &amp; Washed
+                      </span>
+                    ) : tankerWashed === false ? (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-100 text-rose-800 border border-rose-300">
+                        Sent to Wash Bay
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-800 border border-amber-300">
+                        Inspection Required
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setTankerWashed(true)}
+                      className={`min-h-[40px] px-3 py-2 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5 border ${
+                        tankerWashed === true
+                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                          : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                      }`}
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Tanker Clean &amp; Washed</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setTankerWashed(false)}
+                      className={`min-h-[40px] px-3 py-2 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5 border ${
+                        tankerWashed === false
+                          ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
+                          : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                      }`}
+                    >
+                      <XCircle className="w-4 h-4" />
+                      <span>Send to Wash</span>
+                    </button>
+                  </div>
+
+                  {tankerWashed === false && (
+                    <p className="text-[11px] font-semibold text-rose-700">
+                      Vehicle cannot exit the plant until tanker wash is completed and verified clean.
+                    </p>
+                  )}
+                </div>
+
                 <form onSubmit={handleConfirmExit} className="space-y-4">
                   <div className="space-y-1.5">
                     <label className="block text-xs font-semibold text-foreground flex items-center justify-between">
@@ -591,8 +648,8 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
 
                   <button
                     type="submit"
-                    disabled={isSubmitting}
-                    className="w-full min-h-[44px] flex items-center justify-center space-x-2 py-3 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs shadow-md transition disabled:opacity-50"
+                    disabled={isSubmitting || tankerWashed !== true}
+                    className="w-full min-h-[44px] flex items-center justify-center space-x-2 py-3 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs shadow-md transition disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <CheckCircle2 className="w-4 h-4 text-white" />
                     <span>{isSubmitting ? 'Confirming Exit…' : 'Confirm Gate Exit Clearance'}</span>

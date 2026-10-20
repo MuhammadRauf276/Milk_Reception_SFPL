@@ -133,6 +133,8 @@ model User {
   vehicle_visit_approval_decisions VehicleVisit[]            @relation("VehicleVisitApprovalDecidedBy")
   seal_checked_portions            VisitPortion[]            @relation("PortionSealCheckedBy")
   gate_wash_checks                 GateLog[]                 @relation("GateWashCheckedBy")
+  mpd_dispositioned_portions       VisitPortion[]            @relation("VisitPortionMpdDispositionBy")
+  gate_wash_checked_by             GateLog[]                 @relation("GateWashedCheckedBy")
 
   @@map("users")
 }
@@ -268,6 +270,11 @@ model VisitPortion {
   seal_checked_at               DateTime? @map("seal_checked_at") @db.Timestamp(6)
   // Phase 2: decision-rule extras (plan §14); existing plant_decision / system_quality_outcome / manager_review_* reused
   exception_reasons             Json?     @map("exception_reasons") @db.JsonB // ["SEAL_MISMATCH","RULE_FAIL:FAT",...]
+  // Phase 4d: MPD disposition remarks
+  mpd_disposition_remarks       String?   @map("mpd_disposition_remarks") @db.Text
+  mpd_disposition_by            BigInt?   @map("mpd_disposition_by")
+  mpd_disposition_at            DateTime? @map("mpd_disposition_at") @db.Timestamp(6)
+  mpd_disposition_user          User?     @relation("VisitPortionMpdDispositionBy", fields: [mpd_disposition_by], references: [id], onDelete: SetNull)
   plant_decided_as_role         String?   @map("plant_decided_as_role") @db.VarChar(64)
   plant_decided_is_delegated    Boolean   @default(false) @map("plant_decided_is_delegated")
   manager_reviewed_as_role      String?   @map("manager_reviewed_as_role") @db.VarChar(64)
@@ -342,6 +349,9 @@ model GateLog {
   wash_checked_at           DateTime? @map("wash_checked_at") @db.Timestamp(6)
   wash_attempts             Int       @default(0) @map("wash_attempts")
   wash_remarks              String?   @map("wash_remarks") @db.Text
+  washed_checked_by         BigInt?   @map("washed_checked_by")
+  washed_checked_at         DateTime? @map("washed_checked_at") @db.Timestamp(6)
+  washed_checker            User?     @relation("GateWashedCheckedBy", fields: [washed_checked_by], references: [id], onDelete: SetNull)
   created_at                DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
   updated_at                DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
 
@@ -480,6 +490,8 @@ model DispatchLabResult {
   performance_status   String    @default("PERFORMED") @map("performance_status") @db.VarChar(50)
   not_performed_reason String?   @map("not_performed_reason") @db.Text
   is_passed            Boolean?  @map("is_passed")
+  photo_url            String?   @map("photo_url") @db.Text
+  seal_verified        Boolean?  @map("seal_verified")
   tested_by            BigInt?   @map("tested_by")
   created_at           DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
   updated_at           DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
@@ -543,7 +555,7 @@ model WeightTicket {
   net_weight_kg      Decimal?  @map("net_weight_kg") @db.Decimal(10, 2)
 
   // Phase 2: per-portion weighing (nullable now; unique change deferred) + role attribution
-  portion_id                  BigInt?  @map("portion_id")
+  portion_id                  BigInt?  @unique @map("portion_id")
   gross_recorded_as_role      String?  @map("gross_recorded_as_role") @db.VarChar(64)
   gross_recorded_is_delegated Boolean  @default(false) @map("gross_recorded_is_delegated")
   tare_recorded_as_role       String?  @map("tare_recorded_as_role") @db.VarChar(64)
@@ -2147,7 +2159,7 @@ model ZmccTankReceipt {
   last_corrected_at         DateTime?    @map("last_corrected_at") @db.Timestamp(6)
   created_at                DateTime     @default(now()) @map("created_at") @db.Timestamp(6)
   updated_at                DateTime     @updatedAt @map("updated_at") @db.Timestamp(6)
-  portion_id                BigInt?      @map("portion_id") // Phase 2; lab_session_id @unique -> @@unique([portion_id]) deferred
+  portion_id                BigInt?      @unique @map("portion_id") // Phase 2; lab_session_id @unique -> @@unique([portion_id]) deferred
 
   // Relations
   lab_session        ZmccLabSession                 @relation("ZmccLabSessionReceipt", fields: [lab_session_id], references: [id], onDelete: Restrict)

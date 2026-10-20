@@ -37,6 +37,7 @@ export interface VehicleCalculationPortion {
   portionId?: string | bigint;
   portionNumber?: number;
   plantDecision?: string | null;
+  netWeightKg?: number | null;
   plantLabResults: VehicleCalculationPortionLabResult[];
 }
 
@@ -262,13 +263,27 @@ export function calculateVehicleReceivedQuantity(input: VehicleCalculationInput)
     validFatValues.push(fatVal);
   }
 
-  // 7. Calculate Simple Arithmetic Means Across Accepted Portions
+  // 7. Calculate Weighted or Arithmetic Means Across Accepted Portions (Phase 4d)
   const acceptedCount = acceptedPortions.length;
-  const sumLr = validLrValues.reduce((acc, val) => acc + val, 0);
-  const sumFat = validFatValues.reduce((acc, val) => acc + val, 0);
+  const portionsWithWeights = acceptedPortions.filter(
+    (p) => typeof p.netWeightKg === 'number' && p.netWeightKg > 0
+  );
 
-  const averagePlantLr = sumLr / acceptedCount;
-  const averagePlantFat = sumFat / acceptedCount;
+  let averagePlantLr: number;
+  let averagePlantFat: number;
+
+  if (portionsWithWeights.length === acceptedCount && acceptedCount > 0) {
+    const totalPortionWeight = portionsWithWeights.reduce((acc, p) => acc + (p.netWeightKg || 0), 0);
+    const weightedSumLr = acceptedPortions.reduce((acc, p, idx) => acc + validLrValues[idx] * (p.netWeightKg || 0), 0);
+    const weightedSumFat = acceptedPortions.reduce((acc, p, idx) => acc + validFatValues[idx] * (p.netWeightKg || 0), 0);
+    averagePlantLr = totalPortionWeight > 0 ? weightedSumLr / totalPortionWeight : validLrValues[0];
+    averagePlantFat = totalPortionWeight > 0 ? weightedSumFat / totalPortionWeight : validFatValues[0];
+  } else {
+    const sumLr = validLrValues.reduce((acc, val) => acc + val, 0);
+    const sumFat = validFatValues.reduce((acc, val) => acc + val, 0);
+    averagePlantLr = sumLr / acceptedCount;
+    averagePlantFat = sumFat / acceptedCount;
+  }
 
   if (isNaN(averagePlantLr) || !isFinite(averagePlantLr) || averagePlantLr <= 0) {
     return {

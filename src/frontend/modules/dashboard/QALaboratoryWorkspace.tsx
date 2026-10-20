@@ -23,6 +23,7 @@ import {
 import { QADecisionModals } from './qa/QADecisionModals';
 import { PageHeader } from '@/components/ui/page-header';
 import { getErrorMessage } from '@/lib/errors';
+import type { PersonDecision } from '@/types/stage1-decision';
 
 export type {
   WaitingVisit,
@@ -45,6 +46,7 @@ interface QALaboratoryWorkspaceProps {
 }
 
 export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
+  currentUser,
   activeTab: controlledTab,
   onTabChange,
 }) => {
@@ -83,6 +85,11 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
   const [qaOpTimestamp, setQaOpTimestamp] = useState<string>(toDatetimeLocalInput(new Date()));
   const [activeActionModal, setActiveActionModal] = useState<'START' | 'RESUME' | 'ACCEPT' | 'HOLD' | 'REJECT' | null>(null);
   const [actionVisitId, setActionVisitId] = useState<string | null>(null);
+  const isSuperior = ['QA_HEAD', 'SUPER_ADMIN'].includes(currentUser?.role || '');
+  const [enteredSealMap, setEnteredSealMap] = useState<Record<string, string>>({});
+  const [photoStatesMap, setPhotoStatesMap] = useState<Record<string, Record<string, string>>>({});
+  const [personDecisionMap, setPersonDecisionMap] = useState<Record<string, PersonDecision | null>>({});
+  const [decisionRemarksMap, setDecisionRemarksMap] = useState<Record<string, string>>({});
 
   const openActionModal = (action: 'START' | 'RESUME' | 'ACCEPT' | 'HOLD' | 'REJECT', targetVisitId?: string) => {
     setActiveActionModal(action);
@@ -210,6 +217,17 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
     });
 
     setTestInputs(inputs);
+    if (portion.plant_seal_number_entered) {
+      setEnteredSealMap((prev) => ({ ...prev, [portion.id]: portion.plant_seal_number_entered! }));
+    }
+    const portionPhotos: Record<string, string> = {};
+    portion.plant_results?.forEach((pr: SavedPlantResult & { photo_url?: string; photoUrl?: string }) => {
+      const pUrl = pr.photoUrl || pr.photo_url;
+      if (pUrl) portionPhotos[pr.testId] = pUrl;
+    });
+    if (Object.keys(portionPhotos).length > 0) {
+      setPhotoStatesMap((prev) => ({ ...prev, [portion.id]: portionPhotos }));
+    }
   };
 
   const applyLoadedVisit = useEffectEvent((visit: VisitDetail | null | undefined) => {
@@ -366,12 +384,19 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
     setMsg(null);
 
     try {
+      const portionId = currentPortion.id;
+      const enteredSeal = enteredSealMap[portionId] || currentPortion.plant_seal_number_entered || '';
+      const portionPhotos = photoStatesMap[portionId] || {};
+      const primaryPhotoUrl = Object.values(portionPhotos)[0] || undefined;
+      const portionRemarks = decisionRemarksMap[portionId] || '';
+
       const resultsPayload = Object.entries(testInputs).map(([testId, state]) => ({
         testId,
         performanceStatus: state.performanceStatus,
         notPerformedReason: state.performanceStatus === 'NOT_PERFORMED' ? state.notPerformedReason : null,
         numericValue: state.performanceStatus === 'PERFORMED' && state.numericValue !== '' ? Number(state.numericValue) : null,
         textValue: state.performanceStatus === 'PERFORMED' && state.textValue !== '' ? state.textValue : null,
+        photoUrl: portionPhotos[testId] || undefined,
       }));
 
       const res = await fetch(`/api/qa/vehicle-visits/${visitDetail.id}/portions/${currentPortion.id}/complete`, {
@@ -381,9 +406,11 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
           decision: 'ACCEPTED',
           completionClientEventId: `plant-qa-${currentPortion.id}-${crypto.randomUUID()}`,
           results: resultsPayload,
+          sealNumber: enteredSeal || undefined,
+          photoUrl: primaryPhotoUrl,
           operationalTimestamp: datetimeLocalToIso(qaOpTimestamp) || undefined,
-          exceptionReason: (exceptionReason || rejectionReason).trim() || undefined,
-          rejectionReason: (exceptionReason || rejectionReason).trim() || undefined,
+          exceptionReason: (portionRemarks || exceptionReason || rejectionReason).trim() || undefined,
+          rejectionReason: (portionRemarks || exceptionReason || rejectionReason).trim() || undefined,
         }),
       });
 
@@ -403,9 +430,18 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
 
   const handleRejectPortionConfirm = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!visitDetail || !rejectionReason.trim()) return;
+    if (!visitDetail) return;
     const currentPortion = visitDetail.portions[activePortionIndex];
     if (!currentPortion) return;
+
+    const portionId = currentPortion.id;
+    const enteredSeal = enteredSealMap[portionId] || currentPortion.plant_seal_number_entered || '';
+    const portionPhotos = photoStatesMap[portionId] || {};
+    const primaryPhotoUrl = Object.values(portionPhotos)[0] || undefined;
+    const portionRemarks = decisionRemarksMap[portionId] || '';
+
+    const effectiveReason = rejectionReason.trim() || portionRemarks.trim() || 'Quality Specification Breach';
+    const effectiveRemarks = rejectionRemarks.trim() || portionRemarks.trim() || effectiveReason;
 
     const resultsPayload = Object.entries(testInputs).map(([testId, state]) => ({
       testId,
@@ -413,19 +449,14 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
       notPerformedReason: state.performanceStatus === 'NOT_PERFORMED' ? state.notPerformedReason : null,
       numericValue: state.performanceStatus === 'PERFORMED' && state.numericValue !== '' ? Number(state.numericValue) : null,
       textValue: state.performanceStatus === 'PERFORMED' && state.textValue !== '' ? state.textValue : null,
+      photoUrl: portionPhotos[testId] || undefined,
     }));
 
-    // At least one PERFORMED result is required to reject
+    // At least one PERFORMED result is required to reject (unless seal mismatch)
     const performedResults = resultsPayload.filter((r) => r.performanceStatus === 'PERFORMED');
-    if (performedResults.length === 0) {
+    const sealMismatch = currentPortion.seal_number && enteredSeal && enteredSeal.toUpperCase() !== currentPortion.seal_number.toUpperCase();
+    if (performedResults.length === 0 && !sealMismatch) {
       const errText = 'At least one PERFORMED Plant QA test result must be recorded before rejecting. NOT_PERFORMED alone is not sufficient rejection evidence.';
-      setMsg({ text: errText, isError: true });
-      toast.showError(errText, 'Validation Error');
-      return;
-    }
-
-    if (!rejectionRemarks.trim()) {
-      const errText = 'Rejection remarks are required.';
       setMsg({ text: errText, isError: true });
       toast.showError(errText, 'Validation Error');
       return;
@@ -441,9 +472,11 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
         body: JSON.stringify({
           decision: 'REJECTED',
           completionClientEventId: `plant-qa-${currentPortion.id}-${crypto.randomUUID()}`,
-          rejectionReason: rejectionReason.trim(),
-          rejectionRemarks: rejectionRemarks.trim(),
+          rejectionReason: effectiveReason,
+          rejectionRemarks: effectiveRemarks,
           results: resultsPayload,
+          sealNumber: enteredSeal || undefined,
+          photoUrl: primaryPhotoUrl,
           operationalTimestamp: datetimeLocalToIso(qaOpTimestamp) || undefined,
         }),
       });
@@ -700,6 +733,59 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
             isAddingPortion={isAddingPortion}
             onRemovePortion={handleRemovePortion}
             isRemovingPortion={isRemovingPortion}
+            enteredSeal={
+              visitDetail?.portions?.[activePortionIndex]
+                ? enteredSealMap[visitDetail.portions[activePortionIndex].id] ?? (visitDetail.portions[activePortionIndex].plant_seal_number_entered || '')
+                : ''
+            }
+            onSealChange={(val) => {
+              const cp = visitDetail?.portions?.[activePortionIndex];
+              if (cp) {
+                setEnteredSealMap((prev) => ({ ...prev, [cp.id]: val }));
+              }
+            }}
+            photoStates={
+              visitDetail?.portions?.[activePortionIndex]
+                ? photoStatesMap[visitDetail.portions[activePortionIndex].id] || {}
+                : {}
+            }
+            onPhotoChange={(testId, url) => {
+              const cp = visitDetail?.portions?.[activePortionIndex];
+              if (cp) {
+                setPhotoStatesMap((prev) => {
+                  const portionMap = { ...(prev[cp.id] || {}) };
+                  if (url) {
+                    portionMap[testId] = url;
+                  } else {
+                    delete portionMap[testId];
+                  }
+                  return { ...prev, [cp.id]: portionMap };
+                });
+              }
+            }}
+            personDecision={
+              visitDetail?.portions?.[activePortionIndex]
+                ? personDecisionMap[visitDetail.portions[activePortionIndex].id] || null
+                : null
+            }
+            onPersonDecisionChange={(d) => {
+              const cp = visitDetail?.portions?.[activePortionIndex];
+              if (cp) {
+                setPersonDecisionMap((prev) => ({ ...prev, [cp.id]: d }));
+              }
+            }}
+            decisionRemarks={
+              visitDetail?.portions?.[activePortionIndex]
+                ? decisionRemarksMap[visitDetail.portions[activePortionIndex].id] || ''
+                : ''
+            }
+            onDecisionRemarksChange={(r) => {
+              const cp = visitDetail?.portions?.[activePortionIndex];
+              if (cp) {
+                setDecisionRemarksMap((prev) => ({ ...prev, [cp.id]: r }));
+              }
+            }}
+            isSuperior={isSuperior}
           />
         </div>
       </div>
@@ -712,8 +798,6 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
         activePortionIndex={activePortionIndex}
         qaOpTimestamp={qaOpTimestamp}
         onQaOpTimestampChange={(val) => setQaOpTimestamp(val)}
-        holdReason={holdReason}
-        onHoldReasonChange={(val) => setHoldReason(val)}
         rejectionReason={rejectionReason}
         onRejectionReasonChange={(val) => setRejectionReason(val)}
         rejectionRemarks={rejectionRemarks}
@@ -724,7 +808,6 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
         onStartTestingConfirm={handleStartTesting}
         onResumeTestingConfirm={handleResumeTesting}
         onAcceptPortionConfirm={handleAcceptPortionConfirm}
-        onHoldPortionConfirm={handleHoldPortionConfirm}
         onRejectPortionConfirm={handleRejectPortionConfirm}
         isSubmitting={isSubmitting}
         waitingVisits={waitingVisits}

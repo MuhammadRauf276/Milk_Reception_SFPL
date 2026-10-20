@@ -93,6 +93,7 @@ export async function GET(
       operational_date: visit.operational_date ? visit.operational_date.toISOString().split('T')[0] : null,
       entry_timestamp: visit.gate_log?.entry_timestamp ? visit.gate_log.entry_timestamp.toISOString() : null,
       current_status: visit.current_status,
+      test_mode: visit.test_mode || 'PORTION_WISE',
       visit_decision_summary: visitDecisionSummary,
       vehicle_dispatch_quantity_value: visit.vehicle_dispatch_quantity_value !== null && visit.vehicle_dispatch_quantity_value !== undefined
         ? Number(visit.vehicle_dispatch_quantity_value)
@@ -121,6 +122,10 @@ export async function GET(
         plant_decision: p.plant_decision || 'PENDING',
         plant_rejection_reason: p.plant_rejection_reason || null,
         plant_decided_at: p.plant_decided_at ? p.plant_decided_at.toISOString() : null,
+        seal_number: p.seal_number || null,
+        plant_seal_number_entered: p.plant_seal_number_entered || null,
+        seal_match: p.seal_match !== null && p.seal_match !== undefined ? p.seal_match : null,
+        exception_reasons: p.exception_reasons || [],
         dispatch_results: p.dispatch_lab_results.map((dr) => ({
           testId: dr.test_id.toString(),
           testCode: dr.lab_test.testCode,
