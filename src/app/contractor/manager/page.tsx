@@ -7,6 +7,7 @@ import { PlantContractorTab } from '@modules/dashboard/contractor/contractorMana
 import { Header } from '@modules/shared/Header';
 import { HierarchicalNavDrawer } from '@modules/shared/navigation/HierarchicalNavDrawer';
 import { User } from '@core/types';
+import { DispatchApprovalQueue } from '@/frontend/modules/dispatch/DispatchApprovalQueue';
 import { PageLoader } from '@/components/ui/spinner';
 import { PageTransition } from '@/components/motion/page-transition';
 
@@ -16,6 +17,7 @@ function PlantContractorManagerContent() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [dispatchWaiting, setDispatchWaiting] = useState<number | null>(null);
   const hamburgerButtonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
@@ -89,6 +91,22 @@ function PlantContractorManagerContent() {
 
       <main className="flex-1 overflow-y-auto w-full max-w-full flex flex-col">
         <PageTransition>
+        <section id="dispatch-requests" aria-label="Dispatch requests" className="p-3 sm:p-6 pb-0 sm:pb-0">
+          <h2 className="mb-3 flex items-center gap-2 text-lg font-bold text-slate-900">
+            Dispatch requests
+            {dispatchWaiting !== null && (
+              <span className="rounded-full bg-violet-100 px-2.5 py-0.5 text-sm font-semibold text-violet-800">
+                {dispatchWaiting} waiting
+              </span>
+            )}
+          </h2>
+          <DispatchApprovalQueue
+            sourceType="CONTRACTOR"
+            canDecide={user?.role !== 'DATA_EXECUTIVE'}
+            currentUserId={user?.id ?? null}
+            onCountChange={setDispatchWaiting}
+          />
+        </section>
         <PlantContractorManagerWorkspace
           currentUser={user}
           activeTab={resolvedTab}

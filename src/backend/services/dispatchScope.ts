@@ -8,7 +8,7 @@
 import type { User } from '../core/types';
 import type { ActingContext, ActingScope, ScopeFailure } from '../../types/acting';
 import { resolveActingContext, targetSourceTypeFor, type ActingContextResult } from '../core/acting-context';
-import { isCanonicalRole } from '../core/roles/hierarchy';
+import { canActAs, isCanonicalRole } from '../core/roles/hierarchy';
 
 /** Roles whose work is starting / submitting a dispatch. Roles above them pass through delegation. */
 export const DISPATCH_WRITE_ROLES = ['ZMCC_LAB_ATTENDANT', 'CONTRACTOR_OPERATOR'] as const;
@@ -172,4 +172,30 @@ export function operationalReadScopeForUser(
     return { kind: 'SOURCE', sourceId, sourceType };
   }
   return { kind: 'ALL' };
+}
+
+/** Phase 4c: dispatch test point for a source type (matrix column). */
+export type DispatchPoint = 'ZMCC_DISPATCH' | 'CONTRACTOR_DISPATCH';
+
+export function dispatchPointFor(sourceType: 'ZMCC' | 'CONTRACTOR'): DispatchPoint {
+  return sourceType === 'CONTRACTOR' ? 'CONTRACTOR_DISPATCH' : 'ZMCC_DISPATCH';
+}
+
+/** Who answers a dispatch "Send request": Zonal Manager for ZMCC, Contractor Manager for contractor (superiors too). */
+export type DispatchApproverRole = 'ZMCC_MANAGER' | 'CONTRACTOR_MANAGER';
+
+export function dispatchApproverRoleFor(sourceType: 'ZMCC' | 'CONTRACTOR'): DispatchApproverRole {
+  return sourceType === 'CONTRACTOR' ? 'CONTRACTOR_MANAGER' : 'ZMCC_MANAGER';
+}
+
+/** Roles that may open the dispatch approval queue (approvers + their superiors; Data Executive read-only). */
+export const DISPATCH_APPROVAL_READ_ROLES = ['ZMCC_MANAGER', 'CONTRACTOR_MANAGER', 'DATA_EXECUTIVE'] as const;
+
+/**
+ * "If you can approve it, you can decide it": the actor may answer a dispatch request of this
+ * source type. Data Executive never decides.
+ */
+export function canDecideDispatch(actorRole: string, sourceType: 'ZMCC' | 'CONTRACTOR'): boolean {
+  if (actorRole === 'DATA_EXECUTIVE') return false;
+  return canActAs(actorRole, dispatchApproverRoleFor(sourceType));
 }

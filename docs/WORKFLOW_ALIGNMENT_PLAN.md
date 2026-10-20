@@ -228,7 +228,7 @@ Super Admin ─┬─ Senior Exec Mgmt
 |---|---|---|---|
 | PHE issues Raw Milk Token (MC or HC) | ✅ | Allow superiors via delegation | `zmccArrivalCore.submitMotArrival` / `submitLocalSupplierArrival` |
 | New HC needs Zonal Manager approval | ❌ (an HC is active immediately) | **ADD** `approval_status`, `approved_by` and `approved_at` on `ZmccLocalSupplier`, plus approve/reject endpoints. Block arrivals from unapproved HCs. **ADD** an HC tab to the approvals panel | `zmccLocalSupplierService.ts`, `PendingApprovalsPanel.tsx` |
-| Composite vs portion-wise test with picture | ❌ | **ADD** a `ZmccLabPortion` model. Results become per portion: `@@unique([portion_id,test_id])`. Composite = 1 portion. Server-side photo enforcement | `zmccLabService.ts`, `schema.prisma`, `ZmccLabWorkspace.tsx` |
+| Composite vs portion-wise test with picture | ❌ | **ADD** a `ZmccLabPortion` model. Results become per portion: `@@unique([portion_id,test_id])`. Composite: run all tests on a single blended sample recorded under 1 portion; Portion-wise: run tests separately per compartment/batch recorded under separate portions. Server-side photo enforcement | `zmccLabService.ts`, `schema.prisma`, `ZmccLabWorkspace.tsx` |
 | RMR token to HC and source name | Partial | Move source selection into the lab flow. Add a "request new source" button for the lab attendant | `zmccLabService.issueLocalSupplierRmr` |
 | Per-portion rules, Zonal Manager exceptions | Partial / conflicts | **ADD** `reviewPortionException` for the Zonal Manager, separate from corrections. **CHANGE** UI text "Send to MPD Head" to "Send to Zonal Manager" (`ZmccLabWorkspace.tsx` L1647, L1648, L1718). **REMOVE** MPD Head from the review path | `zmccLabService.ts` |
 | All portions rejected → vehicle rejected and journey closed | ❌ | **ADD** auto-close | `zmccLabService.completeSession` |
@@ -241,7 +241,7 @@ Super Admin ─┬─ Senior Exec Mgmt
 | Step | Status | Change | Where |
 |---|---|---|---|
 | Vehicle number + Raw Milk Dispatch Token | ✅ | Keep | `api/dispatches/start`, `DispatchVehicleSection.tsx` |
-| Composite vs portion-wise | Partial | **ADD** an explicit `testMode`. COMPOSITE means exactly one portion | `lib/validations/dispatch.ts`, `DynamicDispatchForm.tsx` |
+| Composite vs portion-wise | Partial | **ADD** an explicit `testMode`. COMPOSITE records all tests on a single blended sample under 1 portion; PORTION_WISE records tests separately for each compartment under separate portions | `lib/validations/dispatch.ts`, `DynamicDispatchForm.tsx` |
 | Seal number per portion | ❌ | **ADD** `seal_number`, required and unique per visit | schema, `DispatchPortionEditor.tsx`, `api/dispatches` POST |
 | Test picture and lab report picture | ❌ | **ADD** persisted URLs. Required for the Zonal Lab Attendant; optional for the Contractor | `DispatchLabResult`, portion |
 | Submit vs **Send Request to Zonal Manager** | ❌ (always goes straight to `DISPATCHED`) | **ADD** status `PENDING_ZM_APPROVAL`, ZM decision fields and the endpoints `/api/dispatches/[id]/request-approval` and `/zm-decision`. "NO" reopens the form. **CHANGE** Submit to return 409 if any rule is violated or any field is missing. **CHANGE** the remarks label "Routes to MPD Head" (L1166) | `api/dispatches/**`, ZM dashboard |
@@ -253,7 +253,7 @@ Super Admin ─┬─ Senior Exec Mgmt
 | Step | Status | Change | Where |
 |---|---|---|---|
 | Admin Operator gate token | ✅ | Relabel only | `api/security/gate-entry`, `SecurityGatewayWorkspace.tsx` |
-| QAE composite or portion-wise | Partial | Read `testMode` from the dispatch | `QATestingSection.tsx` |
+| QAE composite or portion-wise | Partial | Read `testMode` from the dispatch (Composite: tests recorded under 1 portion; Portion-wise: tests recorded under separate portions; QAE can also add test portions if compartments require independent testing) | `QATestingSection.tsx` |
 | QAE picture stored | ❌ | **ADD** `photo_url` on `PlantLabResult` | schema, `api/qa/**` |
 | **Seal verification** | ❌ | **ADD** a per-portion seal input on the QA screen and a comparison on the server. A mismatch goes to the exception path | `QATestingSection.tsx`, QA complete route |
 | Exception → **AVP-QA** | Conflicts (goes to QA Manager today) | **CHANGE** the queue and decision to `QA_HEAD`, `PLANT_QA_EXCEPTION_PENDING → ['QA_HEAD']`, and `QA_MANAGER_REVIEW → AVP_QA_REVIEW`. **REMOVE** `app/department/qa-manager` and the HOLD path | `api/qa/manager/queue`, `eventCatalog.ts`, `QADecisionModals.tsx` |
@@ -952,3 +952,24 @@ Phone and user control is powerful, so it stays at the top only.
 - Zonal Manager and other managers keep only their normal work screens and approval inbox.
 - If a field user has a phone problem, they tell their manager, who contacts the Super Admin / Data Executive (or later: a "Report problem" button that goes straight to them).
 - Every device action (register, release, block, diary opened) is itself recorded in the audit log.
+
+
+---
+
+## 19. Shift handover & universal safe logout (round 9, owner decision -- overrides Section 17.1 logout line)
+
+**Problem:** Multiple operators share the same physical computer or mobile device across shifts (e.g. morning, evening, and night shifts at ZMCC lab, gate, weighbridge, or MOT collection). Hiding logout locks the machine to one person and forces the incoming operator to work under the previous person's account, compromising audit trails, personal accountability, and shift handovers.
+
+**Owner Rule:** **The Logout / Sign Out option is ALWAYS available to EVERY user (including all field operators).**
+
+### 19.1 Two-path safe shift handover
+
+| Station State | When Operator clicks 'Sign Out' | System Action |
+|---|---|---|
+| **Clean state** (0 unsent items) | Normal logout | Session is terminated immediately, journey cache is cleared, and screen redirects to /login or /station-login for the incoming shift operator. |
+| **Unsent state** (>0 unsent items) | Shift handover with pending sync | UnsentWorkLogoutDialog modal appears: explains how many items are waiting. Gives two safe paths:<br>1. **[Send now & Log out]**: attempts immediate sync; on server ACK, cleanly logs out.<br>2. **[Keep on device & Log out for next shift]**: outgoing operator's records stay safely preserved in IndexedDB, stamped with their owner_user_id and timestamp. The station is released immediately for the incoming operator to log in. Background sync engine sends the previous operator's work under their own attribution whenever connection is active. |
+
+### 19.2 Zero data loss & cross-user isolation
+- There is **no delete button** anywhere on logout; offline work is never discarded.
+- clearMotSessionCache() and setActiveOwnerUserId(null) ensure the next shift operator starts with a clean slate and never sees or modifies the outgoing operator's active drafts.
+- Audit attribution (performed_as_role, uthor_id) strictly reflects the operator who actually performed the work.

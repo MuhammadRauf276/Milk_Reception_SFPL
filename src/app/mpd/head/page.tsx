@@ -7,6 +7,7 @@ import { Header } from '@/frontend/modules/shared/Header';
 import { HierarchicalNavDrawer } from '@/frontend/modules/shared/navigation/HierarchicalNavDrawer';
 import { MpdExecutiveWorkspace } from '@/frontend/modules/mpd/MpdExecutiveWorkspace';
 import { RejectedMilkRemarksQueue } from '@/frontend/modules/mpd/RejectedMilkRemarksQueue';
+import { DispatchApprovalQueue } from '@/frontend/modules/dispatch/DispatchApprovalQueue';
 import { PageLoader } from '@/components/ui/spinner';
 import { PageTransition } from '@/components/motion/page-transition';
 
@@ -97,6 +98,22 @@ function HeadOfMpdContent() {
         <PageTransition>
         {currentUser && ['HEAD_OF_MPD', 'SUPER_ADMIN', 'DATA_EXECUTIVE'].includes(currentUser.role) && (
           <RejectedMilkRemarksQueue canWrite={currentUser.role !== 'DATA_EXECUTIVE'} />
+        )}
+        {currentUser && ['HEAD_OF_MPD', 'SUPER_ADMIN', 'DATA_EXECUTIVE'].includes(currentUser.role) && (
+          <div className="mb-6 space-y-6">
+            <section aria-label="Contractor dispatch requests">
+              <h2 className="mb-3 text-lg font-bold text-slate-900">Contractor dispatch requests</h2>
+              <DispatchApprovalQueue
+                sourceType="CONTRACTOR"
+                canDecide={currentUser.role === 'HEAD_OF_MPD'}
+                currentUserId={currentUser.id}
+              />
+            </section>
+            <section aria-label="ZMCC dispatch requests (view only)">
+              <h2 className="mb-3 text-lg font-bold text-slate-900">ZMCC dispatch requests (view only)</h2>
+              <DispatchApprovalQueue sourceType="ZMCC" canDecide={false} currentUserId={currentUser.id} />
+            </section>
+          </div>
         )}
         <MpdExecutiveWorkspace currentUser={currentUser} />
         </PageTransition>

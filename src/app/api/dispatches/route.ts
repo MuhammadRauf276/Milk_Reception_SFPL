@@ -13,7 +13,7 @@ import { getOrAssignDispatchTests } from '@/backend/services/labTestAssignmentSe
 import { getOrFreezeDispatchQuantityPolicy } from '@/backend/modules/dispatch/quantity-policy/quantityPolicyService';
 import { validateDispatchQuantities, QuantityMeasurementError } from '@/backend/modules/dispatch/quantity/dispatchQuantityService';
 import { getPakistanCalendarDate } from '@/backend/core/business-day';
-import { getTankPhysicalStock } from '@/backend/services/zmccTankService';
+
 import { PaperReferenceService, PaperValidationError } from '@/backend/services/paperReferenceService';
 import { PaperReferenceType } from '@prisma/client';
 import { paperLinkedIdentity } from '@/backend/modules/paper-references';
@@ -29,8 +29,24 @@ import {
   dispatchSourceIdToLoad,
   isScopeFailure,
   resolveDispatchActing,
+  dispatchPointFor,
+  dispatchApproverRoleFor,
+  canDecideDispatch,
   type DispatchSourceFailure,
 } from '@/backend/services/dispatchScope';
+import { writeAuditLog } from '@/backend/core/audit';
+import {
+  buildDispatchDecision,
+  loadDispatchPolicy,
+  issueDispatchFromZmccTankTx,
+  zmccTankRemainingLiters,
+  notifyDispatchApproversTx,
+  auditActorOf,
+  DISPATCH_STATUS,
+  DispatchFlowError,
+  type DispatchTestMode,
+  type DispatchPortionInput,
+} from '@/backend/services/dispatch/dispatchDecisionService';
 
 function dispatchSourceFailureResponse(code: DispatchSourceFailure) {
   if (isScopeFailure(code)) return scopeFailureResponse(code);
@@ -339,15 +355,13 @@ export async function POST(req: Request) {
     }
 
     // Validate Operational Timestamp
-    const firstPortionTs = validated.portions[0]?.dispatchTimestamp || new Date().toISOString();
+    const firstPortionTs = validated.portions[0]?.dispatchTimestamp || validated.operationalDate || new Date().toISOString();
     const chronoVal = validateOperationalTimestamp(firstPortionTs, null, 'Dispatch', 'Baseline');
     if (!chronoVal.isValid) {
       return NextResponse.json({ error: chronoVal.error }, { status: 400 });
     }
 
     // SOURCE AUTHORIZATION & DERIVATION (acting scope, never the stored role):
-    // SOURCE scope -> forced to the bound source; SYSTEM scope -> procurementSourceId required.
-    // The source must exist, be active and match the acting role's source type (Super Admin too).
     const rawSourceId: unknown = body && typeof body === 'object' ? (body as Record<string, unknown>).procurementSourceId : undefined;
     const requestedSourceId = typeof rawSourceId === 'string' ? rawSourceId : typeof rawSourceId === 'number' ? String(rawSourceId) : null;
     const sourceToLoad = dispatchSourceIdToLoad(guard.acting.scope, requestedSourceId);
@@ -357,7 +371,6 @@ export async function POST(req: Request) {
       where: { id: sourceToLoad.sourceId },
     });
 
-    // Acting role for this source: the requested one, or (for a superior) the dispatch role of this source type.
     const actingResult = resolveDispatchActing(guard.user, requestedAs, sourceRecord?.source_type);
     if (!actingResult.ok) {
       return actingResult.code === 'FORBIDDEN'
@@ -369,6 +382,7 @@ export async function POST(req: Request) {
     const sourceCheck = checkDispatchSource(acting, requestedSourceId, sourceRecord);
     if (!sourceCheck.ok) return dispatchSourceFailureResponse(sourceCheck.code);
     const resolvedSourceId: bigint = sourceCheck.sourceId;
+    const sourceType = sourceCheck.sourceType;
 
     // Validate Raw Milk Dispatch Note against operational policy
     const rawDispatchNoteInput = validated.rawMilkDispatchNoteNumber || validated.raw_milk_dispatch_note_number || jsonString(body, 'rawMilkDispatchNoteNumber') || jsonString(body, 'raw_milk_dispatch_note_number');
@@ -386,17 +400,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: getErrorMessage(err) || 'Invalid Raw Milk Dispatch Note number.' }, { status: 400 });
     }
 
-    // Equals the acting role's target source type (checked above).
-    const sourceType = sourceCheck.sourceType;
-
-    // 1. Resolve visit assignments and FROZEN quantity policy snapshot from draft
+    // 1. Resolve visit assignments and check status
     const existingVisit = await prisma.vehicleVisit.findUnique({
       where: { id: BigInt(validated.visitId) },
     });
     if (!existingVisit) {
       return NextResponse.json({ error: 'Referenced dispatch draft visit not found.', code: 'DRAFT_NOT_FOUND' }, { status: 404 });
     }
-    if (existingVisit.current_status !== 'DRAFT_DISPATCH') {
+    if (existingVisit.current_status !== 'DRAFT_DISPATCH' && existingVisit.current_status !== 'REOPENED') {
       return NextResponse.json(
         { error: `Cannot submit dispatch for vehicle in status ${existingVisit.current_status}.`, code: 'DRAFT_ALREADY_PROGRESSED' },
         { status: 400 }
@@ -417,221 +428,165 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
-    const assignedDispatchTests = await getOrAssignDispatchTests(prisma, existingVisit.id);
-    const frozenPolicySnapshot = await getOrFreezeDispatchQuantityPolicy(prisma, existingVisit.id, resolvedSourceId);
 
-    // 2. Validate Vehicle and Portion Quantity Facts against the visit's FROZEN policy snapshot
-    const validatedQuantities = validateDispatchQuantities(
-      frozenPolicySnapshot,
-      validated.vehicleQuantity,
-      validated.portions
-    );
-
-    const manualAssignedTests = assignedDispatchTests.filter((t) => t.result_type_snapshot !== 'CALCULATED');
-
-    // Validate Portion Tests strictly against the visit's assigned snapshot
+    // Validate Seal Numbers: required per portion, unique within vehicle
     for (const portion of validated.portions) {
-      const submittedTestMap = new Map(portion.results.map((r) => [r.testId, r]));
-
-      for (const reqTest of manualAssignedTests) {
-        const reqId = reqTest.test_id.toString();
-        const submitted = submittedTestMap.get(reqId);
-
-        if (!submitted) {
-          return NextResponse.json(
-            { error: `Test "${reqTest.test_name_snapshot}" must be accounted for in Portion ${portion.portionNumber}.` },
-            { status: 400 }
-          );
-        }
-
-        if (submitted.performanceStatus === 'NOT_PERFORMED') {
-          // Reason is mandatory for NOT_PERFORMED
-          if (!submitted.notPerformedReason || !submitted.notPerformedReason.trim()) {
-            return NextResponse.json(
-              { error: `Reason required for unperformed test "${reqTest.test_name_snapshot}" in Portion ${portion.portionNumber}.` },
-              { status: 400 }
-            );
-          }
-
-          // Contradiction Check: NOT_PERFORMED must not have active numeric result
-          if (submitted.numericValue !== null && submitted.numericValue !== undefined) {
-            return NextResponse.json(
-              { error: `Contradictory test result: NOT_PERFORMED test "${reqTest.test_name_snapshot}" cannot have a numeric value.` },
-              { status: 400 }
-            );
-          }
-
-          // Contradiction Check: NOT_PERFORMED must not have active text result
-          if (submitted.textValue !== null && submitted.textValue !== undefined && submitted.textValue !== '') {
-            return NextResponse.json(
-              { error: `Contradictory test result: NOT_PERFORMED test "${reqTest.test_name_snapshot}" cannot have a text value.` },
-              { status: 400 }
-            );
-          }
-        } else if (submitted.performanceStatus === 'PERFORMED') {
-          // Contradiction Check: PERFORMED must not have notPerformedReason
-          if (submitted.notPerformedReason && submitted.notPerformedReason.trim() !== '') {
-            return NextResponse.json(
-              { error: `Contradictory test result: PERFORMED test "${reqTest.test_name_snapshot}" cannot have a not_performed_reason.` },
-              { status: 400 }
-            );
-          }
-
-          // Genuine Result Validation
-          const snapshotOptions = (reqTest.result_options_snapshot as LabTestResultOption[] | null) || null;
-          if (Array.isArray(snapshotOptions) && snapshotOptions.length > 0) {
-            const val = (submitted.textValue || '').trim().toUpperCase();
-            const match = snapshotOptions.find((opt) => opt.value.trim().toUpperCase() === val);
-            if (!match) {
-              return NextResponse.json(
-                { error: `Invalid option "${submitted.textValue}" for "${reqTest.test_name_snapshot}" in Portion ${portion.portionNumber}. Allowed options: ${snapshotOptions.map((o) => o.label || o.value).join(', ')}.` },
-                { status: 400 }
-              );
-            }
-          } else if (reqTest.result_type_snapshot === 'NUMERIC') {
-            if (submitted.numericValue === null || submitted.numericValue === undefined || isNaN(submitted.numericValue) || submitted.numericValue < 0) {
-              return NextResponse.json(
-                { error: `Valid numeric result required for PERFORMED test "${reqTest.test_name_snapshot}" in Portion ${portion.portionNumber}.` },
-                { status: 400 }
-              );
-            }
-          } else if (reqTest.result_type_snapshot === 'OK_NOT_OK') {
-            const val = (submitted.textValue || '').trim().toUpperCase();
-            if (!val || !['OK', 'NOT_OK'].includes(val)) {
-              return NextResponse.json(
-                { error: `Option must be OK or NOT_OK for "${reqTest.test_name_snapshot}" in Portion ${portion.portionNumber}.` },
-                { status: 400 }
-              );
-            }
-          } else if (reqTest.result_type_snapshot === 'POSITIVE_NEGATIVE') {
-            const val = (submitted.textValue || '').trim().toUpperCase();
-            if (!val || !['POSITIVE', 'NEGATIVE'].includes(val)) {
-              return NextResponse.json(
-                { error: `Option must be POSITIVE or NEGATIVE for "${reqTest.test_name_snapshot}" in Portion ${portion.portionNumber}.` },
-                { status: 400 }
-              );
-            }
-          } else {
-            if (!submitted.textValue || !submitted.textValue.trim()) {
-              return NextResponse.json(
-                { error: `Valid result text required for PERFORMED test "${reqTest.test_name_snapshot}" in Portion ${portion.portionNumber}.` },
-                { status: 400 }
-              );
-            }
-          }
-        }
+      if (!portion.seal_number || !portion.seal_number.trim()) {
+        return NextResponse.json(
+          { error: `Seal number is required for Portion ${portion.portionNumber}.`, code: 'SEAL_REQUIRED' },
+          { status: 400 }
+        );
       }
     }
-
-    // Determine testing mode
-    let allPerformed = true;
-    let allNotPerformed = true;
-    for (const portion of validated.portions) {
-      for (const res of portion.results) {
-        if (res.performanceStatus === 'PERFORMED') {
-          allNotPerformed = false;
-        } else {
-          allPerformed = false;
-        }
-      }
-    }
-
-    let testingMode: 'FULL' | 'PARTIAL' | 'NOT_PERFORMED' = 'PARTIAL';
-    if (sourceType === 'ZMCC') {
-      testingMode = 'FULL';
-    } else if (allNotPerformed) {
-      testingMode = 'NOT_PERFORMED';
-    } else if (allPerformed) {
-      testingMode = 'FULL';
-    }
-
-    let testingReason = validated.dispatchTestingReason ? validated.dispatchTestingReason.trim() : null;
-    const testingRemarks = validated.dispatchTestingRemarks ? validated.dispatchTestingRemarks.trim() : null;
-
-    if (testingMode === 'NOT_PERFORMED' && !testingReason) {
-      testingReason = sourceType === 'CONTRACTOR' ? 'Contract Vehicle' : 'No dispatch testing provided';
+    const submittedSeals = validated.portions.map((p) => p.seal_number!.trim().toUpperCase());
+    const duplicateSeal = submittedSeals.find((s, idx) => submittedSeals.indexOf(s) !== idx);
+    if (duplicateSeal) {
+      return NextResponse.json(
+        {
+          error: `Seal number ${duplicateSeal} is duplicated within this vehicle.`,
+          code: 'SEAL_DUPLICATE',
+          sealNumber: duplicateSeal,
+        },
+        { status: 409 }
+      );
     }
 
     // Calendar date derived in Pakistan local timezone (PKT) for month prefix
     const effectiveDispatchDate = chronoVal.date || new Date(firstPortionTs);
     const dispatchCalendarDateStr = getPakistanCalendarDate(effectiveDispatchDate);
 
-    // Resolve authoritative vehicle LR:
-    // 1. Explicit vehicleLr in payload
-    // 2. Explicit lr in vehicleQuantity
-    // 3. If portions.length === 1, from single portion's performed Lactometer/LR test
+    // 2. Load Dispatch Policy & Evaluate Decision Rule (Phase 4c Stage 3)
+    const policyPoint = dispatchPointFor(sourceType);
+    const dispatchPolicy = await loadDispatchPolicy(policyPoint, effectiveDispatchDate);
+
+    const testMode: DispatchTestMode = validated.testMode || (validated.portions.length === 1 ? 'COMPOSITE' : 'PORTION_WISE');
+
+    const portionInputs: DispatchPortionInput[] = validated.portions.map((portion) => {
+      const tests: Array<{ labTestId: string; value?: number | null; textValue?: string | null }> = [];
+      if (portion.test_results && portion.test_results.length > 0) {
+        for (const tr of portion.test_results) {
+          tests.push({ labTestId: tr.lab_test_id, value: tr.value, textValue: tr.text_value });
+        }
+      } else if (portion.results && portion.results.length > 0) {
+        for (const r of portion.results) {
+          tests.push({ labTestId: r.testId, value: r.numericValue, textValue: r.textValue });
+        }
+      }
+      const photos: Array<{ labTestId: string; captureId: string }> = (portion.photos || []).map((ph) => ({
+        labTestId: ph.lab_test_id,
+        captureId: ph.capture_id,
+      }));
+      return {
+        portionNumber: portion.portionNumber,
+        sealNumber: portion.seal_number!.trim(),
+        quantityValue: Number(portion.quantity.value),
+        quantityUnit: portion.quantity.unit,
+        tests,
+        photos,
+      };
+    });
+
+    const deciderCanApprove = canDecideDispatch(acting.actorRole, sourceType);
+
+    const { decision, details, totals } = buildDispatchDecision(dispatchPolicy, {
+      testMode,
+      portions: portionInputs,
+      labReportCaptureId: validated.labReportCaptureId || null,
+      personDecision: validated.personDecision ?? 'ACCEPT',
+      remarks: validated.decisionRemarks || null,
+      deciderCanApprove,
+    });
+
+    // If action === 'SUBMIT' and there is any exception: return HTTP 409 EXCEPTION_NEEDS_REQUEST
+    const hasExceptions =
+      details.ruleFailures.length > 0 ||
+      details.missingCompulsory.length > 0 ||
+      details.missingPhotos.length > 0;
+
+    if (validated.action === 'SUBMIT' && hasExceptions) {
+      return NextResponse.json(
+        {
+          error: 'This cannot be submitted normally due to exceptions. Please send a request to the approver.',
+          code: 'EXCEPTION_NEEDS_REQUEST',
+          decision,
+        },
+        { status: 409 }
+      );
+    }
+
+    // 3. Resolve visit assignments and FROZEN quantity policy snapshot from draft
+    const assignedDispatchTests = await getOrAssignDispatchTests(prisma, existingVisit.id);
+    const frozenPolicySnapshot = await getOrFreezeDispatchQuantityPolicy(prisma, existingVisit.id, resolvedSourceId);
+
+    // Validate Vehicle and Portion Quantity Facts against FROZEN policy snapshot
+    const validatedQuantities = validateDispatchQuantities(
+      frozenPolicySnapshot,
+      validated.vehicleQuantity,
+      validated.portions
+    );
+
+    // 4. Resolve Authoritative Quality & Milk Metrics (Server Calculated)
     let authoritativeVehicleLr: number | null = null;
     if (validated.vehicleLr !== undefined && validated.vehicleLr !== null && !isNaN(validated.vehicleLr) && validated.vehicleLr > 0) {
       authoritativeVehicleLr = Number(validated.vehicleLr);
-    } else if (validated.vehicleQuantity.lr !== undefined && validated.vehicleQuantity.lr !== null && !isNaN(validated.vehicleQuantity.lr) && validated.vehicleQuantity.lr > 0) {
+    } else if (validated.vehicleQuantity?.lr !== undefined && validated.vehicleQuantity?.lr !== null && !isNaN(validated.vehicleQuantity.lr) && validated.vehicleQuantity.lr > 0) {
       authoritativeVehicleLr = Number(validated.vehicleQuantity.lr);
+    } else if (totals.weightedLr > 0) {
+      authoritativeVehicleLr = totals.weightedLr;
     } else if (validated.portions.length === 1) {
-      const p1Results = validated.portions[0].results || [];
-      for (const r of p1Results) {
-        const assigned = assignedDispatchTests.find((t) => t.test_id.toString() === r.testId);
-        if (assigned) {
-          const tName = assigned.test_name_snapshot.toLowerCase();
-          if ((tName.includes('lactometer') || tName.includes('lr')) && r.performanceStatus === 'PERFORMED' && r.numericValue !== null && r.numericValue !== undefined && !isNaN(r.numericValue) && r.numericValue > 0) {
-            authoritativeVehicleLr = Number(r.numericValue);
-            break;
-          }
-        }
+      const p1 = details.portions[0];
+      if (p1 && p1.lr !== null && p1.lr > 0) {
+        authoritativeVehicleLr = p1.lr;
       }
     }
 
-    // Resolve authoritative vehicle Fat:
-    // 1. Explicit vehicleFat in payload
-    // 2. Explicit fat in vehicleQuantity
-    // 3. If portions.length === 1, from single portion's performed Fat test
     let authoritativeVehicleFat: number | null = null;
     if (validated.vehicleFat !== undefined && validated.vehicleFat !== null && !isNaN(validated.vehicleFat) && validated.vehicleFat >= 0) {
       authoritativeVehicleFat = Number(validated.vehicleFat);
-    } else if (validated.vehicleQuantity.fat !== undefined && validated.vehicleQuantity.fat !== null && !isNaN(validated.vehicleQuantity.fat) && validated.vehicleQuantity.fat >= 0) {
+    } else if (validated.vehicleQuantity?.fat !== undefined && validated.vehicleQuantity?.fat !== null && !isNaN(validated.vehicleQuantity.fat) && validated.vehicleQuantity.fat >= 0) {
       authoritativeVehicleFat = Number(validated.vehicleQuantity.fat);
+    } else if (totals.weightedFat > 0) {
+      authoritativeVehicleFat = totals.weightedFat;
     } else if (validated.portions.length === 1) {
-      const p1Results = validated.portions[0].results || [];
-      for (const r of p1Results) {
-        const assigned = assignedDispatchTests.find((t) => t.test_id.toString() === r.testId);
-        if (assigned) {
-          const tName = assigned.test_name_snapshot.toLowerCase().trim();
-          if (tName.includes('fat') && !tName.includes('snf') && !tName.includes('ratio') && r.performanceStatus === 'PERFORMED' && r.numericValue !== null && r.numericValue !== undefined && !isNaN(r.numericValue) && r.numericValue >= 0) {
-            authoritativeVehicleFat = Number(r.numericValue);
-            break;
-          }
-        }
+      const p1 = details.portions[0];
+      if (p1 && p1.fat !== null && p1.fat >= 0) {
+        authoritativeVehicleFat = p1.fat;
       }
     }
 
     const vehicleQtyVal = Number(validatedQuantities.vehicleQuantity.value);
     const vehicleQtyUnit = validatedQuantities.vehicleQuantity.unit;
+    const vehicleQtyBasis = validatedQuantities.vehicleQuantity.basis;
 
-    let vehicleDensity: number | null = null;
-    let vehicleGrossLiters: number | null = null;
-    let vehicleSnf: number | null = null;
-    let vehicleTs: number | null = null;
-    let vehicleAt13tsLiters: number | null = null;
-    let vehicleCalculationVersion: string | null = null;
+    let vehicleDensity: number | null = totals.density;
+    let vehicleGrossLiters: number | null = totals.grossLiters > 0 ? totals.grossLiters : null;
+    let vehicleSnf: number | null = totals.snf;
+    let vehicleTs: number | null = totals.weightedTs > 0 ? totals.weightedTs : null;
+    let vehicleAt13tsLiters: number | null = totals.weightedTs13 > 0 ? totals.weightedTs13 : null;
+    let vehicleCalculationVersion: string | null = totals.calculationVersion;
 
-    if (vehicleQtyUnit === 'LITER') {
-      vehicleGrossLiters = Number(vehicleQtyVal.toFixed(2));
-      if (authoritativeVehicleLr !== null) {
-        vehicleDensity = Number(calculateDensity(authoritativeVehicleLr).toFixed(4));
-      }
-    } else if (vehicleQtyUnit === 'KG') {
-      if (authoritativeVehicleLr !== null) {
-        vehicleDensity = Number(calculateDensity(authoritativeVehicleLr).toFixed(4));
-        const rawGross = calculateGrossLiters(vehicleQtyVal, 'KG', authoritativeVehicleLr);
-        if (rawGross !== null) {
-          vehicleGrossLiters = Number(rawGross.toFixed(2));
+    if (vehicleGrossLiters === null) {
+      if (vehicleQtyUnit === 'LITER') {
+        vehicleGrossLiters = Number(vehicleQtyVal.toFixed(2));
+        if (authoritativeVehicleLr !== null) {
+          vehicleDensity = Number(calculateDensity(authoritativeVehicleLr).toFixed(4));
+        }
+      } else if (vehicleQtyUnit === 'KG') {
+        if (authoritativeVehicleLr !== null) {
+          vehicleDensity = Number(calculateDensity(authoritativeVehicleLr).toFixed(4));
+          const rawGross = calculateGrossLiters(vehicleQtyVal, 'KG', authoritativeVehicleLr);
+          if (rawGross !== null) {
+            vehicleGrossLiters = Number(rawGross.toFixed(2));
+          }
         }
       }
     }
 
-    // When both authoritative LR and Fat are available, compute complete canonical commercial metrics
+    // Server-side canonical commercial metrics calculation
     if (authoritativeVehicleLr !== null && authoritativeVehicleFat !== null && vehicleGrossLiters !== null && vehicleGrossLiters > 0) {
       const canonicalMetrics = computeCanonicalMilkMetrics(
-        vehicleQtyVal,
-        vehicleQtyUnit,
+        vehicleGrossLiters,
+        'LITER',
         authoritativeVehicleLr,
         authoritativeVehicleFat
       );
@@ -639,12 +594,12 @@ export async function POST(req: Request) {
       vehicleGrossLiters = canonicalMetrics.grossLiters;
       vehicleSnf = canonicalMetrics.snf;
       vehicleTs = canonicalMetrics.ts;
-      vehicleAt13tsLiters = canonicalMetrics.at13tsLiters;
+      // Weighted 13% TS (proportional to portion net weights). Never trust client-sent 13% TS totals.
+      vehicleAt13tsLiters = totals.weightedTs13 > 0 ? totals.weightedTs13 : canonicalMetrics.at13tsLiters;
       vehicleCalculationVersion = canonicalMetrics.calculationVersion;
     }
 
     // For ZMCC source: BOTH authoritative LR and Fat are required fail-closed (HTTP 400)
-    // because both physical Gross L and commercial @13TS must be frozen at dispatch
     if (sourceType === 'ZMCC') {
       if (authoritativeVehicleLr === null || authoritativeVehicleFat === null) {
         return NextResponse.json(
@@ -675,10 +630,55 @@ export async function POST(req: Request) {
       }
     }
 
-    // Execute Prisma Transaction for atomic creation or draft finalization
+    const isSendRequest = validated.action === 'SEND_REQUEST';
+    const approverRole = dispatchApproverRoleFor(sourceType);
+    let nextStatus: string;
+    let approvalStatus: string;
+
+    if (isSendRequest) {
+      nextStatus = DISPATCH_STATUS.PENDING_APPROVAL;
+      approvalStatus = 'PENDING';
+    } else {
+      nextStatus = validated.personDecision === 'REJECT' ? DISPATCH_STATUS.REJECTED : DISPATCH_STATUS.DISPATCHED;
+      approvalStatus = 'NONE';
+    }
+
+    // Determine testing mode
+    let anyTested = false;
+    let allTested = true;
+    for (const p of portionInputs) {
+      if (p.tests.length > 0) anyTested = true;
+      else allTested = false;
+    }
+    let testingMode: 'FULL' | 'PARTIAL' | 'NOT_PERFORMED' = 'PARTIAL';
+    if (sourceType === 'ZMCC') {
+      testingMode = 'FULL';
+    } else if (!anyTested) {
+      testingMode = 'NOT_PERFORMED';
+    } else if (allTested) {
+      testingMode = 'FULL';
+    }
+    if (validated.dispatchTestingMode) {
+      testingMode = validated.dispatchTestingMode;
+    }
+    let testingReason = validated.dispatchTestingReason ? validated.dispatchTestingReason.trim() : null;
+    const testingRemarks = validated.dispatchTestingRemarks ? validated.dispatchTestingRemarks.trim() : null;
+    if (testingMode === 'NOT_PERFORMED' && !testingReason) {
+      testingReason = sourceType === 'CONTRACTOR' ? 'Contract Vehicle' : 'No dispatch testing provided';
+    }
+
+    // 5. Atomic Transaction: Persist Dispatch & Issue Tank if ZMCC
     const result = await prisma.$transaction(async (tx) => {
       const now = new Date();
-      const receptionNumber = await generateReceptionNumber(tx, dispatchCalendarDateStr);
+      const receptionNumber = existingVisit.reception_number || (await generateReceptionNumber(tx, dispatchCalendarDateStr));
+
+      // Clean up previous portions/results if resubmitting a REOPENED visit
+      await tx.dispatchLabResult.deleteMany({ where: { visit_id: existingVisit.id } });
+      const oldPortions = await tx.visitPortion.findMany({ where: { visit_id: existingVisit.id }, select: { id: true } });
+      if (oldPortions.length > 0) {
+        await tx.dispatchInfo.deleteMany({ where: { portion_id: { in: oldPortions.map((p) => p.id) } } });
+        await tx.visitPortion.deleteMany({ where: { visit_id: existingVisit.id } });
+      }
 
       const visitNumber = existingVisit.visit_number;
       const visit = await tx.vehicleVisit.update({
@@ -688,11 +688,11 @@ export async function POST(req: Request) {
           reception_number: receptionNumber,
           raw_milk_dispatch_note_number: validatedDispatchNote,
           operational_date: null,
-          current_status: 'DISPATCHED',
+          current_status: nextStatus,
           procurement_source_id: resolvedSourceId,
-          vehicle_dispatch_quantity_value: new Prisma.Decimal(validatedQuantities.vehicleQuantity.value),
-          vehicle_dispatch_quantity_unit: validatedQuantities.vehicleQuantity.unit,
-          vehicle_dispatch_quantity_basis: validatedQuantities.vehicleQuantity.basis,
+          vehicle_dispatch_quantity_value: new Prisma.Decimal(vehicleQtyVal.toFixed(2)),
+          vehicle_dispatch_quantity_unit: vehicleQtyUnit,
+          vehicle_dispatch_quantity_basis: vehicleQtyBasis,
           vehicle_dispatch_lr: authoritativeVehicleLr !== null ? new Prisma.Decimal(authoritativeVehicleLr.toFixed(2)) : null,
           vehicle_dispatch_fat: authoritativeVehicleFat !== null ? new Prisma.Decimal(authoritativeVehicleFat.toFixed(2)) : null,
           vehicle_dispatch_density: vehicleDensity !== null ? new Prisma.Decimal(vehicleDensity.toFixed(4)) : null,
@@ -701,6 +701,27 @@ export async function POST(req: Request) {
           vehicle_dispatch_ts: vehicleTs !== null ? new Prisma.Decimal(vehicleTs.toFixed(2)) : null,
           vehicle_dispatch_at_13ts_liters: vehicleAt13tsLiters !== null ? new Prisma.Decimal(vehicleAt13tsLiters.toFixed(2)) : null,
           vehicle_dispatch_calculation_version: vehicleCalculationVersion,
+
+          // Phase 4c Stage 3 decision and approval fields
+          test_mode: testMode,
+          approval_status: approvalStatus,
+          approver_role: isSendRequest ? approverRole : null,
+          approval_requested_by: isSendRequest ? userIdBigInt : null,
+          approval_requested_at: isSendRequest ? now : null,
+          approval_requested_as_role: isSendRequest ? acting.actingAs : null,
+          approval_requested_is_delegated: isSendRequest ? acting.isDelegated : false,
+          approval_request_remarks: isSendRequest ? (validated.decisionRemarks || null) : null,
+          dispatch_person_decision: validated.personDecision ?? 'ACCEPT',
+          dispatch_decision_remarks: validated.decisionRemarks || null,
+          dispatch_system_outcome: decision.systemOutcome,
+          dispatch_exception_reasons: decision.exceptionReasons as unknown as Prisma.InputJsonValue,
+          dispatch_decision_details: details as unknown as Prisma.InputJsonValue,
+          dispatch_lab_report_capture_id: validated.labReportCaptureId || null,
+          dispatch_policy_version: dispatchPolicy.version,
+          dispatch_submitted_by: userIdBigInt,
+          dispatch_submitted_as_role: acting.actingAs,
+          dispatch_submitted_is_delegated: acting.isDelegated,
+          dispatch_submitted_at: now,
         },
       });
 
@@ -708,79 +729,40 @@ export async function POST(req: Request) {
       await getOrAssignDispatchTests(tx, visit.id);
       await getOrFreezeDispatchQuantityPolicy(tx, visit.id, resolvedSourceId!);
 
-      // ZMCC TANK ISSUE:
-      // If dispatching from a ZMCC source, atomically deduct whole-vehicle measured quantity (Gross Liters)
-      // and commercial standardized quantity (@13TS Liters) from the active ZMCC tank in the same immutable transaction.
+      // ZMCC TANK ISSUE: atomically deduct if ZMCC and DISPATCHED
+      let tankRemainingLiters: number | null = null;
       if (sourceType === 'ZMCC') {
-        const issueLiters = vehicleGrossLiters!;
-        const issueAt13ts = vehicleAt13tsLiters!;
-        if (isNaN(issueLiters) || issueLiters <= 0) {
-          throw new Error('INVALID_DISPATCH_QUANTITY: Authoritative Gross Liters must be greater than zero for ZMCC tank issue.');
-        }
-        if (isNaN(issueAt13ts) || issueAt13ts <= 0) {
-          throw new Error('INVALID_DISPATCH_QUANTITY: Authoritative @13TS Liters must be greater than zero for ZMCC tank issue.');
-        }
-
-        const activeTanks = await tx.zmccTank.findMany({
-          where: { zmcc_id: resolvedSourceId!, is_active: true },
-          orderBy: { id: 'asc' },
-        });
-
-        if (activeTanks.length === 0) {
-          throw new Error('ZMCC_TANK_CONFIGURATION_ERROR: No active ZMCC tank configured for this procurement source.');
-        }
-        if (activeTanks.length > 1) {
-          throw new Error('ZMCC_TANK_CONFIGURATION_ERROR: Multiple active tanks exist for this ZMCC. Exactly one active tank is permitted.');
-        }
-
-        const targetTankId = activeTanks[0].id;
-
-        // Row lock FOR UPDATE and revalidate active state under lock
-        const lockedTankRows: Array<{ id: bigint; zmcc_id: bigint; capacity_liters: Prisma.Decimal; is_active: boolean }> = await tx.$queryRaw`
-          SELECT id, zmcc_id, capacity_liters, is_active FROM zmcc_tank WHERE id = ${targetTankId} FOR UPDATE
-        `;
-        if (!lockedTankRows || lockedTankRows.length === 0) {
-          throw new Error('ZMCC_TANK_NOT_FOUND: Active ZMCC tank could not be found.');
-        }
-        if (!lockedTankRows[0].is_active) {
-          throw new Error('ZMCC_TANK_INACTIVE: Active ZMCC tank is inactive or unavailable.');
-        }
-
-        // Check physical stock from immutable ledger
-        const currentStock = await getTankPhysicalStock(targetTankId, tx);
-        if (issueLiters > currentStock) {
-          const availStr = currentStock.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-          const reqStr = issueLiters.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-          throw new Error(`INSUFFICIENT_TANK_STOCK: Insufficient physical tank stock (${availStr} L available, ${reqStr} L required).`);
-        }
-
-        // Idempotent ledger entry carrying BOTH Gross Liters and @13TS Liters
-        const idempotencyKey = `ZMCC_TANK_ISSUE:DISPATCH:${visit.id}`;
-        const existingIssue = await tx.zmccTankInventoryTransaction.findUnique({
-          where: { idempotency_key: idempotencyKey },
-        });
-
-        if (!existingIssue) {
-          await tx.zmccTankInventoryTransaction.create({
-            data: {
-              tank_id: targetTankId,
-              zmcc_id: resolvedSourceId!,
-              transaction_type: 'ISSUE',
-              quantity_liters: new Prisma.Decimal(issueLiters.toFixed(2)),
-              at_13ts_liters: new Prisma.Decimal(issueAt13ts.toFixed(2)),
-              dispatch_id: visit.id,
-              reference_type: 'DISPATCH',
-              reference_id: visit.id.toString(),
-              idempotency_key: idempotencyKey,
-              operational_timestamp: effectiveDispatchDate,
-              performed_by_user_id: userIdBigInt,
-              notes: `Whole-vehicle dispatch issue for visit ${visitNumber} (${validated.vehicleNumber})`,
-            },
+        if (nextStatus === DISPATCH_STATUS.DISPATCHED) {
+          tankRemainingLiters = await issueDispatchFromZmccTankTx(tx, {
+            zmccId: resolvedSourceId,
+            visitId: visit.id,
+            visitNumber: visit.visit_number,
+            vehicleNumber: visit.vehicle_number,
+            grossLiters: vehicleGrossLiters!,
+            at13tsLiters: vehicleAt13tsLiters!,
+            at: effectiveDispatchDate,
+            userId: userIdBigInt,
           });
+        } else {
+          tankRemainingLiters = await zmccTankRemainingLiters(resolvedSourceId, tx);
         }
       }
 
-      // 2. Create VisitPortion, DispatchInfo, and DispatchLabResult rows for each portion
+      // Notify approvers if SEND_REQUEST
+      if (isSendRequest) {
+        await notifyDispatchApproversTx(tx, {
+          visitId: visit.id,
+          version: visit.dispatch_version,
+          sourceId: resolvedSourceId,
+          approverRole,
+          dispatchNumber: receptionNumber,
+          vehicleNumber: visit.vehicle_number,
+          sourceName: sourceRecord?.name || 'Procurement Source',
+        });
+      }
+
+      // Create portions, dispatchInfo, and lab results
+      const createdPortions = [];
       for (const portionInput of validated.portions) {
         const portionQty = validatedQuantities.portionQuantities.find(
           (p) => p.portionNumber === portionInput.portionNumber
@@ -793,12 +775,13 @@ export async function POST(req: Request) {
             dispatch_quantity_value: new Prisma.Decimal(portionQty.value),
             dispatch_quantity_unit: portionQty.unit,
             dispatch_quantity_basis: portionQty.basis,
-            current_status: 'DISPATCHED',
+            seal_number: portionInput.seal_number ? portionInput.seal_number.trim() : null,
+            current_status: nextStatus,
             plant_decision: 'PENDING',
           },
         });
+        createdPortions.push(portion);
 
-        // Create DispatchInfo with testing mode & reasons (portion-level)
         const portionChrono = validateOperationalTimestamp(portionInput.dispatchTimestamp || validated.operationalDate, null, 'Dispatch', 'Baseline');
         await tx.dispatchInfo.create({
           data: {
@@ -813,29 +796,33 @@ export async function POST(req: Request) {
           },
         });
 
-        // Extract raw Fat and LR values submitted for this portion
-        const submittedResultsMap = new Map<string, typeof portionInput.results[0]>();
-        portionInput.results.forEach((r) => {
-          submittedResultsMap.set(r.testId, r);
-        });
-
-        let submittedFat: number | null = null;
-        let submittedLr: number | null = null;
-
-        assignedDispatchTests.forEach((t) => {
-          const idStr = t.test_id.toString();
-          const tName = t.test_name_snapshot.toLowerCase();
-          const res = submittedResultsMap.get(idStr);
-          if (res && res.numericValue !== null && res.numericValue !== undefined && !isNaN(res.numericValue) && res.performanceStatus === 'PERFORMED') {
-            if (tName.includes('fat') && !tName.includes('ratio') && !tName.includes('snf')) {
-              submittedFat = res.numericValue;
-            } else if (tName.includes('lactometer') || tName.includes('lr')) {
-              submittedLr = res.numericValue;
-            }
+        const submittedResultsMap = new Map<string, { numericValue?: number | null; textValue?: string | null; performanceStatus?: string; notPerformedReason?: string | null }>();
+        if (portionInput.test_results && portionInput.test_results.length > 0) {
+          for (const tr of portionInput.test_results) {
+            const hasVal = tr.value !== null && tr.value !== undefined && !isNaN(tr.value);
+            const hasText = tr.text_value !== null && tr.text_value !== undefined && tr.text_value.trim().length > 0;
+            submittedResultsMap.set(tr.lab_test_id, {
+              numericValue: hasVal ? tr.value : null,
+              textValue: hasText ? tr.text_value : null,
+              performanceStatus: (hasVal || hasText) ? 'PERFORMED' : 'NOT_PERFORMED',
+            });
           }
-        });
+        }
+        if (portionInput.results && portionInput.results.length > 0) {
+          for (const r of portionInput.results) {
+            submittedResultsMap.set(r.testId, {
+              numericValue: r.numericValue,
+              textValue: r.textValue,
+              performanceStatus: r.performanceStatus,
+              notPerformedReason: r.notPerformedReason,
+            });
+          }
+        }
 
-        // Create DispatchLabResult for every assigned test (manual + server-calculated)
+        const pDetail = details.portions.find((p) => p.portionNumber === portionInput.portionNumber);
+        const submittedFat = pDetail?.fat ?? null;
+        const submittedLr = pDetail?.lr ?? null;
+
         for (const testDef of assignedDispatchTests) {
           const testIdStr = testDef.test_id.toString();
           const submittedRes = submittedResultsMap.get(testIdStr);
@@ -846,7 +833,6 @@ export async function POST(req: Request) {
           let notPerfReason: string | null = null;
 
           if (testDef.result_type_snapshot === 'CALCULATED') {
-            // Server-side authoritative derivation for CALCULATED tests
             if (submittedFat !== null && submittedLr !== null) {
               const snf = calculateSNF(submittedLr, submittedFat);
               const ratio = calculateRatio(snf, submittedFat);
@@ -861,11 +847,15 @@ export async function POST(req: Request) {
               notPerfReason = 'Prerequisite tests (Fat / LR) not performed';
             }
           } else {
-            if (!submittedRes) continue;
-            perfStatus = submittedRes.performanceStatus || 'PERFORMED';
-            notPerfReason = perfStatus === 'NOT_PERFORMED' ? (submittedRes.notPerformedReason?.trim() || 'Contract Vehicle') : null;
-            numVal = perfStatus === 'PERFORMED' ? submittedRes.numericValue ?? null : null;
-            textVal = perfStatus === 'PERFORMED' ? submittedRes.textValue ?? null : null;
+            if (!submittedRes) {
+              perfStatus = 'NOT_PERFORMED';
+              notPerfReason = sourceType === 'CONTRACTOR' ? 'Contract Vehicle' : 'Not performed at dispatch';
+            } else {
+              perfStatus = submittedRes.performanceStatus || 'PERFORMED';
+              notPerfReason = perfStatus === 'NOT_PERFORMED' ? (submittedRes.notPerformedReason?.trim() || 'Not performed') : null;
+              numVal = perfStatus === 'PERFORMED' ? submittedRes.numericValue ?? null : null;
+              textVal = perfStatus === 'PERFORMED' ? submittedRes.textValue ?? null : null;
+            }
           }
 
           const testSnapshotOptions = (testDef.result_options_snapshot as LabTestResultOption[] | null) || null;
@@ -891,11 +881,64 @@ export async function POST(req: Request) {
         }
       }
 
-      return visit;
+      await writeAuditLog(tx, {
+        tableName: 'vehicle_visit',
+        recordId: visit.id,
+        action: isSendRequest ? 'DISPATCH_REQUEST_SENT' : 'DISPATCH_SUBMITTED',
+        oldValues: { current_status: existingVisit.current_status },
+        newValues: {
+          current_status: nextStatus,
+          action: validated.action,
+          person_decision: validated.personDecision,
+          system_outcome: decision.systemOutcome,
+          gross_liters: vehicleGrossLiters,
+          at13ts_liters: vehicleAt13tsLiters,
+        },
+        actor: auditActorOf(acting),
+      });
+
+      return { visit, createdPortions, tankRemainingLiters };
     });
 
-    return NextResponse.json({ success: true, visitId: result.id.toString(), visitNumber: result.visit_number }, { status: 201 });
+    return NextResponse.json(
+      {
+        success: true,
+        visitId: result.visit.id.toString(),
+        visitNumber: result.visit.visit_number,
+        dispatch: {
+          id: result.visit.id.toString(),
+          visitId: result.visit.id.toString(),
+          visitNumber: result.visit.visit_number,
+          visit_number: result.visit.visit_number,
+          receptionNumber: result.visit.reception_number,
+          reception_number: result.visit.reception_number,
+          vehicleNumber: result.visit.vehicle_number,
+          vehicle_number: result.visit.vehicle_number,
+          status: result.visit.current_status,
+          current_status: result.visit.current_status,
+          portions: result.createdPortions.map((p) => ({
+            id: p.id.toString(),
+            portionNumber: p.portion_number,
+            portion_number: p.portion_number,
+            sealNumber: p.seal_number,
+            seal_number: p.seal_number,
+          })),
+        },
+        decision,
+        totals: {
+          grossLiters: totals.grossLiters,
+          weightedLr: totals.weightedLr,
+          weightedFat: totals.weightedFat,
+          weightedTs13: totals.weightedTs13,
+        },
+        tankRemainingLiters: result.tankRemainingLiters,
+      },
+      { status: 201 }
+    );
   } catch (error) {
+    if (error instanceof DispatchFlowError) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: error.status });
+    }
     if (error instanceof PaperValidationError || getErrorName(error) === 'PaperValidationError') {
       return NextResponse.json({ error: getErrorMessage(error) }, { status: 400 });
     }

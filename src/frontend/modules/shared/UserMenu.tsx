@@ -23,13 +23,9 @@ function initials(name?: string | null) {
   return ((parts[0]?.[0] ?? 'U') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
 }
 
-// Field roles do not see Logout (plan section 17). Plain strings on purpose.
-const FIELD_ROLES_WITHOUT_LOGOUT = ['MOT', 'PHE_OPERATOR', 'MDO', 'ZMCC_LAB_ATTENDANT'];
-
 export function UserMenu({ currentUser }: { currentUser: User | null }) {
   const displayName = currentUser?.name || currentUser?.username || 'Operator';
   const [unsent, setUnsent] = React.useState<{ count: number; needsAttention: number } | null>(null);
-  const hideLogout = FIELD_ROLES_WITHOUT_LOGOUT.includes(String(currentUser?.role ?? ''));
 
   const handleLogoutClick = async () => {
     const safety = await getLogoutSafety({ isMot: currentUser?.role === 'MOT' }).catch(() => null);
@@ -72,15 +68,11 @@ export function UserMenu({ currentUser }: { currentUser: User | null }) {
             Notification settings
           </Link>
         </DropdownMenuItem>
-        {hideLogout ? null : (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem destructive onSelect={() => void handleLogoutClick()}>
-              <LogOut />
-              Sign out
-            </DropdownMenuItem>
-          </>
-        )}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem destructive onSelect={() => void handleLogoutClick()}>
+          <LogOut />
+          Sign out
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
     {unsent !== null ? (

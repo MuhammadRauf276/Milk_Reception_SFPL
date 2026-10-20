@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Milk Reception App - Database ERD Viewer</title>
+  <title>Milk Reception App - Multi-Level Database ERD Viewer</title>
   <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
   <style>
@@ -14,7 +14,7 @@
     }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background: #0f172a;
+      background: #090d16;
       color: #f8fafc;
       height: 100vh;
       display: flex;
@@ -22,18 +22,18 @@
       overflow: hidden;
     }
     header {
-      background: #1e293b;
-      border-bottom: 1px solid #334155;
-      padding: 12px 24px;
+      background: #0f172a;
+      border-bottom: 1px solid #1e293b;
+      padding: 10px 20px;
       display: flex;
       justify-content: space-between;
       align-items: center;
       flex-wrap: wrap;
-      gap: 12px;
+      gap: 10px;
       z-index: 10;
     }
     .header-left h1 {
-      font-size: 1.15rem;
+      font-size: 1.1rem;
       font-weight: 700;
       color: #38bdf8;
       display: flex;
@@ -41,24 +41,25 @@
       gap: 8px;
     }
     .header-left p {
-      font-size: 0.8rem;
+      font-size: 0.75rem;
       color: #94a3b8;
     }
     .tabs {
       display: flex;
-      background: #0f172a;
-      border: 1px solid #334155;
+      background: #020617;
+      border: 1px solid #1e293b;
       border-radius: 8px;
-      padding: 4px;
+      padding: 3px;
       gap: 4px;
       overflow-x: auto;
+      max-width: 65vw;
     }
     .tab-btn {
       background: transparent;
       border: none;
       color: #94a3b8;
-      padding: 6px 14px;
-      font-size: 0.82rem;
+      padding: 6px 12px;
+      font-size: 0.78rem;
       font-weight: 600;
       border-radius: 6px;
       cursor: pointer;
@@ -80,23 +81,23 @@
       align-items: center;
     }
     .btn {
-      background: #334155;
+      background: #1e293b;
       color: #f8fafc;
-      border: 1px solid #475569;
-      padding: 6px 12px;
+      border: 1px solid #334155;
+      padding: 5px 10px;
       border-radius: 6px;
-      font-size: 0.82rem;
+      font-size: 0.78rem;
       font-weight: 500;
       cursor: pointer;
       transition: background 0.15s;
     }
     .btn:hover {
-      background: #475569;
+      background: #334155;
     }
     #viewer-container {
       flex: 1;
       position: relative;
-      background: #090d16;
+      background: #060911;
       overflow: hidden;
     }
     .diagram-panel {
@@ -123,15 +124,24 @@
       bottom: 12px;
       left: 50%;
       transform: translateX(-50%);
-      background: rgba(30, 41, 59, 0.85);
-      border: 1px solid #475569;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid #334155;
       backdrop-filter: blur(4px);
-      padding: 6px 16px;
+      padding: 5px 14px;
       border-radius: 20px;
-      font-size: 0.75rem;
+      font-size: 0.72rem;
       color: #94a3b8;
       pointer-events: none;
       z-index: 5;
+    }
+    .level-badge {
+      display: inline-block;
+      font-size: 0.68rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: #0369a1;
+      color: #fff;
+      margin-right: 4px;
     }
   </style>
 </head>
@@ -139,17 +149,19 @@
 
   <header>
     <div class="header-left">
-      <h1>🥛 Milk Reception App - Database ERD</h1>
-      <p>Interactive Schema Visualizer (56 Models, 170 Relationships)</p>
+      <h1>🥛 Milk Reception App - Multi-Level ERD</h1>
+      <p>Interactive Schema Visualizer across 8 Operational Levels (63 Models)</p>
     </div>
 
     <div class="tabs">
-      <button class="tab-btn active" onclick="switchTab('reception')">1. Reception & Weighbridge</button>
-      <button class="tab-btn" onclick="switchTab('qa')">2. Lab QA & Testing</button>
-      <button class="tab-btn" onclick="switchTab('zmcc')">3. ZMCC & Sources</button>
-      <button class="tab-btn" onclick="switchTab('mot')">4. MOT Truck Logistics</button>
-      <button class="tab-btn" onclick="switchTab('suppliers')">5. Local Suppliers & RMR</button>
-      <button class="tab-btn" onclick="switchTab('security')">6. Security & Audits</button>
+      <button class="tab-btn active" onclick="switchTab('master')">0. Master Lineage</button>
+      <button class="tab-btn" onclick="switchTab('gov')">1. Governance & Policy</button>
+      <button class="tab-btn" onclick="switchTab('mot')">2. MOT Village Logistics</button>
+      <button class="tab-btn" onclick="switchTab('zmcc')">3. ZMCC Intake & Lab</button>
+      <button class="tab-btn" onclick="switchTab('dispatch')">4. Bulk Dispatch</button>
+      <button class="tab-btn" onclick="switchTab('plant_qa')">5. Plant Gate & QAE Lab</button>
+      <button class="tab-btn" onclick="switchTab('weighbridge')">6. Weighbridge (08:00 AM)</button>
+      <button class="tab-btn" onclick="switchTab('silo')">7. Silo Intake & Dual Rec</button>
     </div>
 
     <div class="controls">
@@ -162,132 +174,142 @@
   <div id="viewer-container">
     <div class="hint-banner">💡 Tip: Use mouse scroll to zoom in/out, and click & drag to pan around.</div>
 
-    <!-- PANEL 1: Plant Reception & Weighbridge -->
-    <div id="panel-reception" class="diagram-panel active">
+    <!-- PANEL 0: Master End-to-End Lineage -->
+    <div id="panel-master" class="diagram-panel active">
       <div class="mermaid-wrapper">
         <pre class="mermaid">
 erDiagram
-    ProcurementSource ||--o{ VehicleVisit : "dispatches_to"
-    User ||--o{ VehicleVisit : "created_by"
+    ProcurementSource ||--o{ ZmccShop : "1. Registers Village Shop"
+    ZmccShop ||--o{ MotShopCollection : "2. MOT Collects Milk"
+    MotShopCollection }o--|| MotJourney : "3. Grouped in Trip"
+    MotJourney ||--|| ZmccMotArrival : "4. Arrives at Chiller"
+    ZmccMotArrival ||--|| ZmccLabSession : "5. QA Testing Session"
+    ZmccLabSession ||--o{ ZmccLabPortion : "6. Evaluated Portions"
+    ZmccLabPortion ||--o{ ZmccTankReceipt : "7. Pumped into Tank"
+    ZmccTankReceipt }o--|| ZmccTank : "8. Stored in Silo"
 
-    VehicleVisit ||--o{ VisitPortion : "has_portions"
-    VehicleVisit ||--|o GateLog : "gate_entry_exit"
-    VehicleVisit ||--|o WeightTicket : "weighbridge_ticket"
-    VehicleVisit ||--|o DispatchQuantityPolicySnapshot : "policy_snapshot"
-    VehicleVisit ||--|o PlantFinalDualReconciliation : "final_reconciliation"
-
-    VisitPortion ||--|o DispatchInfo : "portion_dispatch"
-    VisitPortion ||--|o UnloadingLog : "unloaded_into"
-    VisitPortion ||--o{ PlantLabResult : "lab_evaluations"
-    VisitPortion ||--o{ SiloInventoryTransaction : "silo_inflow"
-
-    Silo ||--o{ UnloadingLog : "destination_silo"
-    Silo ||--o{ SiloInventoryTransaction : "tracks_inventory"
-    SiloInventoryTransaction ||--|o PlantFinalDualReconciliation : "reconciles_against"
-
-    VehicleVisit {
-        bigint id PK
-        string visit_number UK
-        string vehicle_number
-        string token_number
-        datetime operational_date
-        string current_status
-        decimal vehicle_dispatch_gross_liters
-        decimal vehicle_dispatch_fat
-        decimal vehicle_dispatch_snf
-        decimal vehicle_dispatch_at_13ts_liters
-        bigint procurement_source_id FK
-        bigint created_by FK
-    }
-
-    VisitPortion {
-        bigint id PK
-        bigint visit_id FK
-        int portion_number
-        string current_status
-        decimal dispatch_quantity_value
-        string plant_decision
-        string manager_review_status
-        datetime plant_decided_at
-    }
-
-    GateLog {
-        bigint id PK
-        bigint visit_id FK
-        datetime inward_time
-        datetime outward_time
-        string seal_numbers
-        string driver_name
-    }
-
-    WeightTicket {
-        bigint id PK
-        bigint visit_id FK
-        string ticket_number UK
-        decimal gross_weight
-        datetime gross_weight_time
-        decimal tare_weight
-        datetime tare_weight_time
-        decimal net_weight
-    }
-
-    UnloadingLog {
-        bigint id PK
-        bigint portion_id FK
-        bigint silo_id FK
-        datetime start_time
-        datetime end_time
-        decimal dip_reading_before
-        decimal dip_reading_after
-        decimal calculated_volume
-    }
-
-    Silo {
-        bigint id PK
-        string silo_code UK
-        string name
-        decimal capacity_liters
-        decimal current_volume_liters
-        string current_status
-    }
-
-    PlantFinalDualReconciliation {
-        bigint id PK
-        bigint visit_id FK
-        decimal total_dispatch_liters
-        decimal total_weighbridge_net_kg
-        decimal total_unloaded_volume_liters
-        decimal total_shrinkage_loss_liters
-        decimal final_recorded_liters
-        decimal final_recorded_at_13ts_liters
-    }
+    ZmccTank ||--o{ VehicleVisit : "9. Dispatched in Road Tanker"
+    VehicleVisit ||--o{ VisitPortion : "10. Compartments & Seals"
+    VisitPortion ||--o{ PlantLabResult : "11. Plant QA Evaluated"
+    VehicleVisit ||--|| WeightTicket : "12. 1st & 2nd Weight"
+    VisitPortion ||--|| UnloadingLog : "13. Pumped into Plant Silo"
+    UnloadingLog }o--|| Silo : "14. Factory Storage Silo"
+    VehicleVisit ||--|| PlantFinalDualReconciliation : "15. Dual Physical & Solids Reconciled"
         </pre>
       </div>
     </div>
 
-    <!-- PANEL 2: Lab QA & Testing -->
-    <div id="panel-qa" class="diagram-panel">
+    <!-- PANEL 1: Governance, Devices, Policies & Security -->
+    <div id="panel-gov" class="diagram-panel">
       <div class="mermaid-wrapper">
         <pre class="mermaid">
 erDiagram
-    VehicleVisit ||--|o QATestingSession : "undergoes_qa"
-    VehicleVisit ||--o{ PlantLabResult : "results"
-    VehicleVisit ||--o{ DispatchLabResult : "source_results"
-    VehicleVisit ||--o{ LabTestAssignment : "assigned_tests"
-    VehicleVisit ||--o{ QAWarning : "triggers_warnings"
+    ProcurementSource ||--o{ User : "scoped_to"
+    ProcurementSource ||--o{ Device : "assigned_source"
+    
+    User ||--o{ Device : "assigned_user"
+    User ||--o{ StationPin : "station_pins"
+    Device ||--o{ StationPin : "device_pins"
+    Device ||--o{ DeviceActivityEvent : "device_events"
+    User ||--o{ AuditLog : "performed_actions"
+    Device ||--o{ AuditLog : "device_actions"
+    User ||--o{ CorrectionRequest : "requested_by"
+    User ||--o{ CorrectionRequest : "reviewed_by"
+    User ||--o{ ConfigChangeLog : "changed_by"
+    User ||--o{ ConfigChangeLog : "approved_by"
 
-    VisitPortion ||--o{ PlantLabResult : "portion_results"
-    VisitPortion ||--o{ DispatchLabResult : "portion_source_results"
+    LabTest ||--o{ LabTestRule : "rules"
+    LabTest ||--o{ TestPointPolicy : "point_policies"
+    User ||--o{ TestPointPolicy : "created_by"
+    User ||--o{ CapturedPhoto : "captured_by"
+    LabTest ||--o{ CapturedPhoto : "lab_test_photos"
 
-    QATestingSession ||--o{ QATestingSessionEvent : "events"
+    ProcurementSource {
+        bigint id PK
+        string source_code UK
+        string source_name
+        string source_type
+        string location
+        boolean is_active
+    }
 
-    LabTest ||--o{ LabTestRule : "defines_criteria"
-    LabTest ||--o{ PlantLabResult : "tested_against"
-    LabTest ||--o{ DispatchLabResult : "tested_at_source"
-    LabTest ||--o{ LabTestAssignment : "assignment_def"
-    LabTest ||--o{ MilkTestPolicyAssignment : "policy_def"
+    User {
+        bigint id PK
+        string employee_code UK
+        string full_name
+        string username UK
+        string email
+        string role
+        string department
+        string scope_type
+        bigint procurement_source_id FK
+        boolean must_change_password
+        boolean is_active
+    }
 
-    LabTestRule ||--o{ PlantLabResult : "evaluates"
+    Device {
+        bigint id PK
+        string device_uid UK
+        string sync_key_hash
+        string platform
+        string status
+        boolean is_shared_station
+        bigint assigned_user_id FK
+        bigint assigned_source_id FK
+        datetime last_heartbeat_at
+    }
+
+    StationPin {
+        bigint id PK
+        bigint user_id FK
+        bigint device_id FK
+        string pin_hash
+        int failed_attempts
+        datetime locked_until
+    }
+
+    DeviceActivityEvent {
+        bigint id PK
+        bigint device_id FK
+        string client_event_id UK
+        string event_type
+        jsonb payload
+        datetime recorded_at
+    }
+
+    AuditLog {
+        bigint id PK
+        bigint user_id FK
+        string actor_role
+        string performed_as_role
+        boolean is_delegated
+        bigint device_id FK
+        string action
+        string entity_name
+        string record_id
+        datetime created_at
+    }
+
+    CorrectionRequest {
+        bigint id PK
+        string entity_name
+        string record_id
+        string reason
+        string status
+        jsonb requested_changes
+        bigint requested_by_user_id FK
+        bigint reviewed_by_user_id FK
+    }
+
+    ConfigChangeLog {
+        bigint id PK
+        string module
+        string config_key
+        string reason
+        string status
+        bigint changed_by_user_id FK
+        bigint approved_by_user_id FK
+    }
 
     LabTest {
         bigint id PK
@@ -296,7 +318,6 @@ erDiagram
         string test_group
         string data_type
         string unit_of_measure
-        boolean is_quick_test
         boolean is_mandatory
     }
 
@@ -306,93 +327,77 @@ erDiagram
         decimal min_value
         decimal max_value
         string expected_text_value
-        string formula_expression
         string severity
         string action_on_fail
     }
 
-    PlantLabResult {
+    TestPointPolicy {
         bigint id PK
-        bigint visit_id FK
-        bigint portion_id FK
         bigint lab_test_id FK
-        decimal numeric_value
-        string text_value
-        string pass_fail_status
-        bigint applied_rule_id FK
-        bigint tested_by FK
+        string testing_point
+        string test_mode
+        string rule_mode
+        string photo_mode
+        int version
+        boolean is_active
+        bigint created_by_user_id FK
     }
 
-    DispatchLabResult {
+    CapturedPhoto {
         bigint id PK
-        bigint visit_id FK
-        bigint portion_id FK
+        string capture_id UK
+        string sha256_hash
+        string file_path
+        string entity_type
+        bigint entity_id
         bigint lab_test_id FK
-        decimal numeric_value
-        boolean is_accepted
-        bigint tested_by FK
-    }
-
-    QATestingSession {
-        bigint id PK
-        bigint visit_id FK
-        string session_token UK
-        datetime start_time
-        datetime end_time
-        string status
-        bigint started_by FK
-    }
-
-    QAWarning {
-        bigint id PK
-        bigint visit_id FK
-        bigint portion_id FK
-        bigint lab_test_id FK
-        string warning_code
-        string severity
-        string message
-        boolean is_acknowledged
+        datetime device_captured_at
+        decimal latitude
+        decimal longitude
+        bigint captured_by_user_id FK
     }
         </pre>
       </div>
     </div>
 
-    <!-- PANEL 3: ZMCC & Sourcing -->
-    <div id="panel-zmcc" class="diagram-panel">
+    <!-- PANEL 2: Level 1 (Stage 1) Upstream Village MOT Logistics -->
+    <div id="panel-mot" class="diagram-panel">
       <div class="mermaid-wrapper">
         <pre class="mermaid">
 erDiagram
     ProcurementSource ||--o{ ZmccRoute : "routes"
-    ProcurementSource ||--o{ ZmccMilkSource : "sources"
-    ProcurementSource ||--o{ ZmccTank : "tanks"
-    ProcurementSource ||--o{ MilkSourceZmccVisibility : "source_visibility"
+    ProcurementSource ||--o{ MotProfile : "mot_profiles"
+    ProcurementSource ||--o{ MotVehicle : "collection_fleet"
+    ProcurementSource ||--o{ MotJourney : "trips"
 
-    ZmccRoute ||--o{ ZmccArea : "subdivided_into"
-    ZmccRoute ||--o{ ZmccShop : "route_shops"
-
+    ZmccRoute ||--o{ ZmccArea : "areas"
+    ZmccRoute ||--o{ ZmccShop : "shops"
     ZmccArea ||--o{ ZmccShop : "area_shops"
-    ZmccMilkSource ||--o{ ZmccShop : "milk_type"
-    ChillerOwnership ||--o{ ZmccShop : "chiller_contract"
 
-    ZmccTank ||--o{ ZmccTankReceipt : "stores_receipt"
-    ZmccTank ||--o{ ZmccTankInventoryTransaction : "inventory_transactions"
-    ZmccTankReceipt ||--o{ ZmccTankInventoryTransaction : "transaction_source"
+    MotProfile ||--o{ MotJourney : "assigned_collector"
+    MotVehicle ||--o{ MotJourney : "assigned_truck"
+    ZmccRoute ||--o{ MotJourney : "scheduled_route"
 
-    ProcurementSource {
-        bigint id PK
-        string source_code UK
-        string source_name
-        string source_type
-        string location
-        string vehicle_quantity_policy
-    }
+    MotJourney ||--o{ MotJourneyStop : "stops"
+    MotJourney ||--o{ MotJourneyLocation : "gps_track"
+    MotJourney ||--o{ MotShopCollection : "collections"
+    MotJourney ||--|o MotJourneySummary : "summary"
+    MotJourney ||--|o ZmccMotArrival : "gate_arrival"
+
+    ZmccShop ||--o{ MotJourneyStop : "stop_shop"
+    ZmccShop ||--o{ MotShopCollection : "shop_collections"
+    MotJourneyStop ||--|o MotShopCollection : "collection_at_stop"
+    MotShopCollection ||--|o MotCollectionSmsOutbox : "sms_outbox"
 
     ZmccRoute {
         bigint id PK
         bigint zmcc_id FK
         string route_code
         string route_name
+        string status
         boolean is_active
+        bigint created_by FK
+        bigint approved_by FK
     }
 
     ZmccArea {
@@ -408,56 +413,33 @@ erDiagram
         bigint zmcc_id FK
         bigint route_id FK
         bigint area_id FK
-        string shop_code
+        string shop_code UK
         string shop_name
-        bigint milk_source_id FK
-        bigint chiller_ownership_id FK
+        string erp_code
+        decimal latitude
+        decimal longitude
+        decimal geofence_radius_m
+        string geotag_status
+        boolean is_active
     }
 
-    ZmccTank {
+    MotProfile {
         bigint id PK
         bigint zmcc_id FK
-        string tank_code
-        string tank_name
+        bigint user_id FK
+        string profile_code UK
+        string license_number
+        boolean is_active
+    }
+
+    MotVehicle {
+        bigint id PK
+        bigint zmcc_id FK
+        string vehicle_number UK
+        string registration_number
         decimal capacity_liters
-        decimal current_volume_liters
+        boolean is_active
     }
-
-    ZmccTankReceipt {
-        bigint id PK
-        bigint zmcc_id FK
-        bigint tank_id FK
-        bigint lab_session_id FK
-        string receipt_number UK
-        decimal received_volume_liters
-    }
-        </pre>
-      </div>
-    </div>
-
-    <!-- PANEL 4: MOT Truck Logistics -->
-    <div id="panel-mot" class="diagram-panel">
-      <div class="mermaid-wrapper">
-        <pre class="mermaid">
-erDiagram
-    ProcurementSource ||--o{ MotProfile : "chiller_collectors"
-    ProcurementSource ||--o{ MotVehicle : "collection_fleet"
-    ProcurementSource ||--o{ MotJourney : "scheduled_trips"
-
-    MotProfile ||--o{ MotJourney : "assigned_driver"
-    MotVehicle ||--o{ MotJourney : "assigned_truck"
-    ZmccRoute ||--o{ MotJourney : "journey_route"
-
-    MotJourney ||--o{ MotJourneyStop : "stops"
-    MotJourney ||--o{ MotJourneyLocation : "gps_pings"
-    MotJourney ||--o{ MotShopCollection : "shop_collections"
-    MotJourney ||--|o MotJourneySummary : "journey_summary"
-    MotJourney ||--|o ZmccMotArrival : "arrives_at_chiller"
-
-    ZmccShop ||--o{ MotJourneyStop : "stop_location"
-    ZmccShop ||--o{ MotShopCollection : "origin_shop"
-    MotJourneyStop ||--|o MotShopCollection : "collection_at_stop"
-    MotShopCollection ||--|o MotCollectionSmsOutbox : "sms_receipt"
 
     MotJourney {
         bigint id PK
@@ -470,6 +452,7 @@ erDiagram
         datetime start_time
         datetime end_time
         string status
+        decimal area_computed_gain_loss_liters
     }
 
     MotJourneyStop {
@@ -482,9 +465,22 @@ erDiagram
         string status
     }
 
+    MotJourneyLocation {
+        bigint id PK
+        bigint journey_id FK
+        decimal latitude
+        decimal longitude
+        decimal speed_mps
+        decimal heading_deg
+        decimal battery_pct
+        boolean is_mock
+        datetime recorded_at
+    }
+
     MotShopCollection {
         bigint id PK
         bigint journey_id FK
+        bigint journey_stop_id FK
         bigint shop_id FK
         string collection_ticket_number UK
         decimal quantity_liters
@@ -493,7 +489,81 @@ erDiagram
         decimal fat
         decimal snf
         decimal at_13ts_liters
-        string plant_decision
+        string system_outcome
+        string person_decision
+        string final_decision
+        string review_status
+        bigint reviewed_by_user_id FK
+        bigint submitted_by_user_id FK
+    }
+
+    MotJourneySummary {
+        bigint id PK
+        bigint journey_id FK
+        int total_shops_visited
+        int rejected_shop_count
+        decimal total_collected_quantity_liters
+        decimal weighted_average_fat
+        decimal weighted_average_lr
+        decimal total_shrinkage_loss_liters
+    }
+        </pre>
+      </div>
+    </div>
+
+    <!-- PANEL 3: Level 2 & 3 (Stage 2) ZMCC Intake, Lab & Tanks -->
+    <div id="panel-zmcc" class="diagram-panel">
+      <div class="mermaid-wrapper">
+        <pre class="mermaid">
+erDiagram
+    ProcurementSource ||--o{ ZmccLocalSupplier : "registered_farmers"
+    ProcurementSource ||--o{ ZmccLocalSupplierArrival : "farmer_arrivals"
+    ProcurementSource ||--o{ ZmccContractorArrival : "contractor_arrivals"
+    ProcurementSource ||--o{ ZmccMotArrival : "mot_arrivals"
+    ProcurementSource ||--o{ ZmccTank : "chiller_tanks"
+
+    ZmccLocalSupplier ||--o{ ZmccLocalSupplierArrival : "delivers"
+
+    ZmccMotArrival ||--|o ZmccLabSession : "mot_testing"
+    ZmccLocalSupplierArrival ||--|o ZmccLabSession : "farmer_testing"
+    ZmccContractorArrival ||--|o ZmccLabSession : "contractor_testing"
+
+    ZmccLabSession ||--o{ ZmccLabPortion : "tested_portions"
+    ZmccLabPortion ||--o{ ZmccLabResult : "portion_test_results"
+    LabTest ||--o{ ZmccLabResult : "test_definitions"
+
+    ZmccLabPortion ||--o{ ZmccTankReceipt : "accepted_into_tank"
+    ZmccTank ||--o{ ZmccTankReceipt : "stores_in"
+    ZmccTank ||--o{ ZmccTankInventoryTransaction : "tank_ledger"
+    ZmccTankReceipt ||--o{ ZmccTankInventoryTransaction : "source_receipt"
+
+    ZmccLocalSupplierArrival ||--|o LocalSupplierRmrIssuance : "rmr_payment_slip"
+    ZmccLabSession ||--|o LocalSupplierRmrIssuance : "lab_quality"
+    ZmccTankReceipt ||--|o LocalSupplierRmrIssuance : "intake_quantity"
+
+    ZmccLabPortion ||--|o RejectedMilkDisposition : "rejected_portion_disposition"
+
+    ZmccLocalSupplier {
+        bigint id PK
+        bigint zmcc_id FK
+        string supplier_code UK
+        string supplier_name
+        string phone_number
+        string cnic
+        string erp_code
+        string approval_status
+        bigint approved_by_user_id FK
+        boolean is_active
+    }
+
+    ZmccLocalSupplierArrival {
+        bigint id PK
+        bigint zmcc_id FK
+        bigint local_supplier_id FK
+        string arrival_ticket_number UK
+        datetime arrival_time
+        decimal gross_quantity_liters
+        string performed_as_role
     }
 
     ZmccMotArrival {
@@ -506,70 +576,61 @@ erDiagram
         decimal dip_reading_liters
     }
 
-    MotJourneySummary {
-        bigint id PK
-        bigint journey_id FK
-        int total_shops_visited
-        decimal total_collected_quantity_liters
-        decimal weighted_average_fat
-        decimal total_shrinkage_loss_liters
-    }
-        </pre>
-      </div>
-    </div>
-
-    <!-- PANEL 5: Local Suppliers & RMR -->
-    <div id="panel-suppliers" class="diagram-panel">
-      <div class="mermaid-wrapper">
-        <pre class="mermaid">
-erDiagram
-    ProcurementSource ||--o{ ZmccLocalSupplier : "registered_farmers"
-    ProcurementSource ||--o{ ZmccLocalSupplierArrival : "farmer_deliveries"
-    ProcurementSource ||--o{ ZmccContractorArrival : "contractor_deliveries"
-
-    ZmccLocalSupplier ||--o{ ZmccLocalSupplierArrival : "delivers_milk"
-
-    ZmccLocalSupplierArrival ||--|o ZmccLabSession : "lab_testing"
-    ZmccMotArrival ||--|o ZmccLabSession : "chiller_mot_testing"
-    ZmccContractorArrival ||--|o ZmccLabSession : "contractor_testing"
-
-    ZmccLabSession ||--o{ ZmccLabResult : "results"
-    ZmccLabSession ||--|o ZmccTankReceipt : "decided_into_tank"
-
-    ZmccLocalSupplierArrival ||--|o LocalSupplierRmrIssuance : "rmr_payment_slip"
-    ZmccLabSession ||--|o LocalSupplierRmrIssuance : "verified_quality"
-    ZmccTankReceipt ||--|o LocalSupplierRmrIssuance : "verified_quantity"
-
-    ZmccLocalSupplierArrival ||--|o LocalSupplierRmrLegacyClassification : "legacy_classification"
-
-    ZmccLocalSupplier {
-        bigint id PK
-        bigint zmcc_id FK
-        string supplier_code
-        string supplier_name
-        string phone_number
-        string cnic
-        boolean is_active
-    }
-
-    ZmccLocalSupplierArrival {
-        bigint id PK
-        bigint zmcc_id FK
-        bigint local_supplier_id FK
-        string arrival_ticket_number UK
-        datetime arrival_time
-        datetime exit_time
-        decimal gross_quantity_liters
-    }
-
     ZmccLabSession {
         bigint id PK
         bigint zmcc_id FK
         string session_number UK
-        datetime start_time
+        string test_mode
         string status
-        string attendant_recommended_decision
         string final_decision
+        datetime journey_closed_at
+        string closed_reason
+    }
+
+    ZmccLabPortion {
+        bigint id PK
+        bigint session_id FK
+        int portion_number
+        string status
+        decimal quantity_liters
+        decimal gross_weight_kg
+        decimal tare_weight_kg
+        decimal net_weight_kg
+        string system_outcome
+        string person_decision
+        string final_decision
+        bigint tank_id FK
+    }
+
+    ZmccLabResult {
+        bigint id PK
+        bigint session_id FK
+        bigint portion_id FK
+        bigint lab_test_id FK
+        decimal numeric_value
+        string text_value
+        string pass_fail_status
+        bigint tested_by FK
+    }
+
+    ZmccTank {
+        bigint id PK
+        bigint zmcc_id FK
+        string tank_code UK
+        string tank_name
+        decimal capacity_liters
+        decimal current_volume_liters
+        boolean is_active
+    }
+
+    ZmccTankReceipt {
+        bigint id PK
+        bigint zmcc_id FK
+        bigint tank_id FK
+        bigint lab_session_id FK
+        bigint portion_id FK
+        string receipt_number UK
+        decimal received_volume_liters
     }
 
     LocalSupplierRmrIssuance {
@@ -581,79 +642,300 @@ erDiagram
         decimal accepted_fat
         decimal accepted_snf
         decimal accepted_at_13ts_liters
+        decimal rate_applied_pkr
+        decimal payable_amount_pkr
         string status
+    }
+
+    RejectedMilkDisposition {
+        bigint id PK
+        string stage
+        string entity_type
+        bigint entity_id
+        string remarks
+        bigint decided_by_user_id FK
+        datetime decided_at
     }
         </pre>
       </div>
     </div>
 
-    <!-- PANEL 6: Security, Auditing & Integrations -->
-    <div id="panel-security" class="diagram-panel">
+    <!-- PANEL 4: Level 4 (Stage 3) Bulk Dispatch -->
+    <div id="panel-dispatch" class="diagram-panel">
       <div class="mermaid-wrapper">
         <pre class="mermaid">
 erDiagram
-    User ||--o{ AuditLog : "performed_actions"
-    User ||--o{ CorrectionRequest : "requested_corrections"
-    User ||--o{ Notification : "received_alerts"
-    User ||--|o NotificationPreference : "notification_settings"
-    User ||--o{ PushSubscription : "web_push_tokens"
-    User ||--o{ ErpCodeRequest : "erp_sync_requests"
+    ProcurementSource ||--o{ VehicleVisit : "dispatches"
+    User ||--o{ VehicleVisit : "created_by"
+    User ||--o{ VehicleVisit : "approved_by"
 
-    Notification ||--o{ NotificationDelivery : "delivery_channels"
+    VehicleVisit ||--o{ VisitPortion : "tanker_compartments"
+    VehicleVisit ||--|o DispatchQuantityPolicySnapshot : "policy_snapshot"
+    VehicleVisit ||--o{ DispatchLabResult : "dispatch_lab_tests"
 
-    User {
+    VisitPortion ||--|o DispatchInfo : "portion_quantity_info"
+    VisitPortion ||--o{ DispatchLabResult : "portion_lab_results"
+    LabTest ||--o{ DispatchLabResult : "test_definitions"
+
+    VehicleVisit {
         bigint id PK
-        string full_name
-        string username UK
-        string email
-        string role
-        string department
-        string scope_type
+        string visit_number UK
+        string vehicle_number
+        string driver_name
+        string driver_phone
+        string token_number
+        datetime operational_date
+        string current_status
+        string test_mode
+        string approval_status
+        string approver_role
+        bigint approval_requested_by_user_id FK
+        bigint approval_decided_by_user_id FK
         bigint procurement_source_id FK
-        boolean is_active
+        bigint created_by FK
     }
 
-    AuditLog {
+    VisitPortion {
         bigint id PK
-        bigint user_id FK
-        string action
-        string entity_name
-        string record_id
-        json old_values
-        json new_values
-        string ip_address
+        bigint visit_id FK
+        int portion_number
+        string seal_number
+        string current_status
+        decimal dispatch_quantity_value
+        string plant_seal_number_entered
+        boolean seal_match
+        bigint seal_checked_by_user_id FK
+    }
+
+    DispatchInfo {
+        bigint id PK
+        bigint portion_id FK
+        decimal dispatch_gross_liters
+        decimal dip_reading
+        decimal calibration_factor
+        string recorded_as_role
+        bigint recorded_by FK
+    }
+
+    DispatchQuantityPolicySnapshot {
+        bigint id PK
+        bigint visit_id FK
+        bigint source_id FK
+        string measurement_method
+        decimal density_factor
+        datetime snapshot_taken_at
+    }
+
+    DispatchLabResult {
+        bigint id PK
+        bigint visit_id FK
+        bigint portion_id FK
+        bigint lab_test_id FK
+        decimal numeric_value
+        string text_value
+        boolean is_accepted
+        bigint tested_by FK
+    }
+        </pre>
+      </div>
+    </div>
+
+    <!-- PANEL 5: Level 5 (Stage 4A) Plant Gate & QAE Lab -->
+    <div id="panel-plant_qa" class="diagram-panel">
+      <div class="mermaid-wrapper">
+        <pre class="mermaid">
+erDiagram
+    VehicleVisit ||--|o GateLog : "plant_security_log"
+    VehicleVisit ||--|o QATestingSession : "qa_testing_session"
+    VehicleVisit ||--o{ PlantLabResult : "vehicle_lab_results"
+    VehicleVisit ||--o{ QAWarning : "triggered_warnings"
+
+    VisitPortion ||--o{ PlantLabResult : "portion_lab_results"
+    VisitPortion ||--o{ QAWarning : "portion_warnings"
+
+    QATestingSession ||--o{ QATestingSessionEvent : "session_events"
+
+    LabTest ||--o{ PlantLabResult : "evaluated_test"
+    LabTestRule ||--o{ PlantLabResult : "applied_rule"
+    LabTest ||--o{ QAWarning : "warning_test"
+
+    GateLog {
+        bigint id PK
+        bigint visit_id FK
+        datetime inward_time
+        datetime outward_time
+        string token_number
+        string driver_cnic
+        boolean tanker_washed
+        datetime wash_checked_at
+        bigint wash_checked_by_user_id FK
+        bigint entry_guard FK
+        bigint exit_guard FK
+    }
+
+    QATestingSession {
+        bigint id PK
+        bigint visit_id FK
+        string session_token UK
+        datetime start_time
+        datetime end_time
+        string status
+        bigint started_by FK
+        bigint completed_by FK
+    }
+
+    QATestingSessionEvent {
+        bigint id PK
+        bigint session_id FK
+        string event_type
+        jsonb metadata
         datetime created_at
+        bigint user_id FK
     }
 
-    CorrectionRequest {
+    PlantLabResult {
         bigint id PK
-        string entity_name
-        string record_id
-        string reason
-        string status
-        json requested_changes
-        bigint requested_by_user_id FK
-        bigint reviewed_by_user_id FK
+        bigint visit_id FK
+        bigint portion_id FK
+        bigint lab_test_id FK
+        decimal numeric_value
+        string text_value
+        string pass_fail_status
+        bigint applied_rule_id FK
+        bigint tested_by FK
     }
 
-    Notification {
+    QAWarning {
         bigint id PK
-        bigint recipient_user_id FK
-        string title
+        bigint visit_id FK
+        bigint portion_id FK
+        bigint lab_test_id FK
+        string warning_code
+        string severity
         string message
-        string category
-        string priority
-        boolean is_read
+        boolean is_acknowledged
+        bigint acknowledged_by FK
+    }
+        </pre>
+      </div>
+    </div>
+
+    <!-- PANEL 6: Level 6 (Stage 4B) Weighbridge & 08:00 AM Cutoff -->
+    <div id="panel-weighbridge" class="diagram-panel">
+      <div class="mermaid-wrapper">
+        <pre class="mermaid">
+erDiagram
+    VehicleVisit ||--|o WeightTicket : "vehicle_weight_ticket"
+    VisitPortion ||--o{ WeightTicket : "portion_weight_ticket"
+    User ||--o{ WeightTicket : "gross_recorded_by"
+    User ||--o{ WeightTicket : "tare_recorded_by"
+
+    VehicleVisit {
+        bigint id PK
+        string visit_number UK
+        datetime operational_date
+        string business_date_source
+        datetime business_date_set_at
+        string current_status
     }
 
-    ErpCodeRequest {
+    WeightTicket {
         bigint id PK
-        bigint zmcc_id FK
+        bigint visit_id FK
+        bigint portion_id FK
+        string ticket_number UK
+        decimal gross_weight
+        datetime gross_weight_time
+        string gross_recorded_as_role
+        bigint gross_recorded_by FK
+        decimal tare_weight
+        datetime tare_weight_time
+        string tare_recorded_as_role
+        bigint tare_recorded_by FK
+        decimal net_weight
+        boolean is_manual
+        string remarks
+    }
+        </pre>
+      </div>
+    </div>
+
+    <!-- PANEL 7: Level 7 (Stage 4C) Silo Intake & Dual Rec -->
+    <div id="panel-silo" class="diagram-panel">
+      <div class="mermaid-wrapper">
+        <pre class="mermaid">
+erDiagram
+    VisitPortion ||--|o UnloadingLog : "unloaded_via"
+    VisitPortion ||--o{ SiloInventoryTransaction : "silo_receipt_transactions"
+    
+    Silo ||--o{ UnloadingLog : "destination_silo"
+    Silo ||--o{ SiloInventoryTransaction : "silo_inventory_ledger"
+
+    VehicleVisit ||--|o PlantFinalDualReconciliation : "final_dual_reconciliation"
+    SiloInventoryTransaction ||--|o PlantFinalDualReconciliation : "reconciles_against"
+
+    VisitPortion ||--|o RejectedMilkDisposition : "plant_rejection_disposition"
+
+    UnloadingLog {
+        bigint id PK
+        bigint portion_id FK
+        bigint silo_id FK
+        datetime start_time
+        datetime end_time
+        decimal dip_reading_before
+        decimal dip_reading_after
+        decimal calculated_volume
+        bigint started_by FK
+        bigint completed_by FK
+    }
+
+    Silo {
+        bigint id PK
+        string silo_code UK
+        string name
+        decimal capacity_liters
+        decimal current_volume_liters
+        string current_status
+        datetime last_cip_at
+    }
+
+    SiloInventoryTransaction {
+        bigint id PK
+        bigint silo_id FK
+        bigint visit_id FK
+        bigint portion_id FK
+        string transaction_type
+        decimal quantity_liters
+        decimal fat_percentage
+        decimal snf_percentage
+        decimal at_13ts_liters
+        datetime transaction_time
+        bigint performed_by FK
+    }
+
+    PlantFinalDualReconciliation {
+        bigint id PK
+        bigint visit_id FK
+        bigint final_receipt_transaction_id FK
+        decimal total_dispatch_liters
+        decimal total_weighbridge_net_kg
+        decimal total_unloaded_volume_liters
+        decimal total_shrinkage_loss_liters
+        decimal shrinkage_percentage
+        decimal final_recorded_liters
+        decimal final_recorded_at_13ts_liters
+        string reconciliation_status
+        datetime completed_at
+    }
+
+    RejectedMilkDisposition {
+        bigint id PK
+        string stage
         string entity_type
-        string entity_name
-        string requested_code
-        string status
-        bigint requested_by_user_id FK
+        bigint entity_id
+        string remarks
+        bigint decided_by_user_id FK
+        datetime decided_at
     }
         </pre>
       </div>
@@ -667,22 +949,22 @@ erDiagram
       theme: 'dark',
       themeVariables: {
         darkMode: true,
-        background: '#090d16',
-        primaryColor: '#1e293b',
+        background: '#060911',
+        primaryColor: '#0f172a',
         primaryTextColor: '#f8fafc',
         primaryBorderColor: '#38bdf8',
         lineColor: '#64748b',
-        secondaryColor: '#0f172a',
+        secondaryColor: '#020617',
         tertiaryColor: '#1e293b',
-        attributeBackgroundColorOdd: '#1e293b',
-        attributeBackgroundColorEven: '#0f172a'
+        attributeBackgroundColorOdd: '#0f172a',
+        attributeBackgroundColorEven: '#020617'
       },
       er: {
         useMaxWidth: false,
         layoutDirection: 'TB',
-        minEntityWidth: 160,
-        entityPadding: 15,
-        fontSize: 14
+        minEntityWidth: 150,
+        entityPadding: 14,
+        fontSize: 13
       }
     });
 
@@ -701,14 +983,14 @@ erDiagram
             maxZoom: 10
           });
         }
-      }, 350);
+      }, 300);
     }
 
     window.addEventListener('load', () => {
-      initPanZoomForPanel('reception');
+      initPanZoomForPanel('master');
     });
 
-    let currentTab = 'reception';
+    let currentTab = 'master';
 
     function switchTab(tabId) {
       currentTab = tabId;

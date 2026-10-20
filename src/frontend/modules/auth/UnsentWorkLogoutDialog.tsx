@@ -59,11 +59,11 @@ export function UnsentWorkLogoutDialog({
       setMessage('Sent');
       onAllSent();
     } else {
-      setMessage('Could not send. Your work is still safe on this phone.');
+      setMessage('Could not send. Your work is still safe on this device.');
     }
   };
 
-  const body = `${waiting} ${waiting === 1 ? 'item is' : 'items are'} saved on this phone but not sent. They will stay safe on this phone.`;
+  const body = `${waiting} ${waiting === 1 ? 'item is' : 'items are'} saved locally on this device but not sent to the server yet.`;
 
   return (
     <Modal onClose={onClose} title="Work not sent yet" description={body} size="sm" closeOnOutsideClick={!sending} preventClose={sending}>
@@ -84,10 +84,10 @@ export function UnsentWorkLogoutDialog({
         </div>
         <div className="flex flex-col gap-3">
           <Button type="button" className="h-14 min-h-[44px] w-full text-base font-semibold" disabled={sending} onClick={() => void handleSendNow()}>
-            {sending ? 'Sending...' : 'Send now'}
+            {sending ? 'Sending...' : 'Send now & Log out'}
           </Button>
           <Button type="button" variant="outline" className="h-12 min-h-[44px] w-full text-base" disabled={sending} onClick={onKeepAndLogout}>
-            Keep on phone and logout
+            Keep on device & Log out for next shift
           </Button>
         </div>
       </div>

@@ -53,7 +53,7 @@ export function resolveRoleHome(role?: string | null | unknown): string {
       return '/contractor/manager';
 
     case 'CONTRACTOR_OPERATOR':
-      return '/contractor/manager';
+      return '/contractor/dispatch';
 
     case 'SECURITY_OPERATOR':
       return '/department/security';

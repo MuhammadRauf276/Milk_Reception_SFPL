@@ -31,7 +31,7 @@ export interface DispatchQuantitiesValidationResult {
 }
 
 export interface ValidateDispatchQuantitiesInput {
-  vehicleQuantity: unknown;
+  vehicleQuantity?: unknown;
   portions: Array<{ portionNumber: number; quantity: unknown }>;
   policy?: DispatchQuantityPolicySnapshotDTO | DispatchQuantityPolicyConfig | null;
   frozenPolicy?: DispatchQuantityPolicySnapshotDTO | DispatchQuantityPolicyConfig | null;
@@ -81,21 +81,7 @@ export function validateDispatchQuantities(
     );
   }
 
-  // 1. Validate Vehicle Dispatch Quantity against frozen policy
-  const vehicleQuantity = validateQuantityAgainstPolicy(
-    vehicleQtyRaw,
-    policy.vehicleRules.allowedMeasurements,
-    'Vehicle'
-  );
-
-  if (vehicleQuantity.basis !== 'MEASURED') {
-    throw new QuantityMeasurementError(
-      'Whole-vehicle dispatch quantity must be an authoritative measured value.',
-      'VEHICLE_BASIS_MUST_BE_MEASURED'
-    );
-  }
-
-  // 2. Validate Each Portion Dispatch Quantity independently against frozen policy
+  // 1. Validate Each Portion Dispatch Quantity independently against frozen policy
   const validatedPortions = portionsRaw.map((portion) => {
     const validatedPortionQty = validateQuantityAgainstPolicy(
       portion.quantity,
@@ -109,6 +95,29 @@ export function validateDispatchQuantities(
       portionNumber: portion.portionNumber,
     };
   });
+
+  // 2. Validate Vehicle Dispatch Quantity against frozen policy (or derive from portions when omitted)
+  let vehicleQuantity: ValidatedQuantityMeasurement;
+  if (vehicleQtyRaw !== undefined && vehicleQtyRaw !== null) {
+    vehicleQuantity = validateQuantityAgainstPolicy(
+      vehicleQtyRaw,
+      policy.vehicleRules.allowedMeasurements,
+      'Vehicle'
+    );
+    if (vehicleQuantity.basis !== 'MEASURED') {
+      throw new QuantityMeasurementError(
+        'Whole-vehicle dispatch quantity must be an authoritative measured value.',
+        'VEHICLE_BASIS_MUST_BE_MEASURED'
+      );
+    }
+  } else {
+    const totalPortionValue = validatedPortions.reduce((acc, p) => acc + Number(p.value), 0);
+    vehicleQuantity = {
+      value: totalPortionValue.toFixed(2),
+      unit: validatedPortions[0].unit,
+      basis: 'MEASURED',
+    };
+  }
 
   // 3. Enforce shared portion Unit and Basis across all portions (matching Portion 1)
   if (validatedPortions.length > 1) {

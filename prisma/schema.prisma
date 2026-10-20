@@ -185,6 +185,19 @@ model VehicleVisit {
   // Phase 2: business date provenance (plan §3 Stage 4, §8)
   business_date_source            String?   @map("business_date_source") @db.VarChar(30) // FIRST_WEIGHT | LAST_QA_REJECTION
   business_date_set_at            DateTime? @map("business_date_set_at") @db.Timestamp(6)
+  // Phase 4c: Stage 3 dispatch decision (person vs system) + optimistic version for the approver queue
+  dispatch_person_decision        String?   @map("dispatch_person_decision") @db.VarChar(10) // ACCEPT | REJECT
+  dispatch_decision_remarks       String?   @map("dispatch_decision_remarks") @db.Text
+  dispatch_system_outcome         String?   @map("dispatch_system_outcome") @db.VarChar(10) // PASS | FAIL
+  dispatch_exception_reasons      Json?     @map("dispatch_exception_reasons") @db.JsonB
+  dispatch_decision_details       Json?     @map("dispatch_decision_details") @db.JsonB
+  dispatch_lab_report_capture_id  String?   @map("dispatch_lab_report_capture_id") @db.VarChar(64)
+  dispatch_policy_version         Int?      @map("dispatch_policy_version")
+  dispatch_submitted_by           BigInt?   @map("dispatch_submitted_by")
+  dispatch_submitted_as_role      String?   @map("dispatch_submitted_as_role") @db.VarChar(64)
+  dispatch_submitted_is_delegated Boolean   @default(false) @map("dispatch_submitted_is_delegated")
+  dispatch_submitted_at           DateTime? @map("dispatch_submitted_at") @db.Timestamp(6)
+  dispatch_version                Int       @default(0) @map("dispatch_version")
 
   // Relations
   procurement_source       ProcurementSource?              @relation("VisitSource", fields: [procurement_source_id], references: [id], onDelete: SetNull)
