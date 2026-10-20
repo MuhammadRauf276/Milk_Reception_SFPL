@@ -1,6 +1,7 @@
 import type { CanonicalRole, User } from '@/backend/core/types';
 import type { Capability } from './capabilities';
 import type { AccessActor } from './policy';
+import { departmentsForRole } from '@/backend/core/acting-context';
 
 export type ActorScopeKind = 'SYSTEM' | 'DEPARTMENT' | 'SOURCE';
 
@@ -46,7 +47,7 @@ export const ROLE_ACCESS_POLICIES = {
     scopeKind: 'SYSTEM',
   },
   HEAD_OF_MPD: {
-    capabilities: ['VIEW', 'REQUEST_CORRECTION', 'APPROVE', 'CLOSE', 'ADMINISTER', 'VIEW_AUDIT'],
+    capabilities: ['VIEW', 'REQUEST_CORRECTION', 'APPROVE', 'CLOSE', 'VIEW_AUDIT'],
     scopeKind: 'SYSTEM',
   },
   ADMIN_HEAD: {
@@ -54,7 +55,7 @@ export const ROLE_ACCESS_POLICIES = {
     scopeKind: 'DEPARTMENT',
   },
   QA_HEAD: {
-    capabilities: ['VIEW', 'REQUEST_CORRECTION', 'APPROVE', 'ADMINISTER', 'VIEW_AUDIT'],
+    capabilities: ['VIEW', 'REQUEST_CORRECTION', 'APPROVE', 'VIEW_AUDIT'],
     scopeKind: 'DEPARTMENT',
   },
   PRODUCTION_HEAD: {
@@ -145,10 +146,8 @@ export function createAccessActor(
   if (policy.scopeKind === 'SYSTEM') {
     scope.systemWide = true;
   } else if (policy.scopeKind === 'DEPARTMENT') {
-    scope.departmentIds = user.department ? [user.department] : [];
-    if (user.role === 'ADMIN_HEAD') {
-      scope.departmentIds = Array.from(new Set([...scope.departmentIds, 'Security']));
-    }
+    // Own department plus the home department of every role below (e.g. Admin Head covers Security).
+    scope.departmentIds = departmentsForRole(user.role, user.department);
   } else {
     scope.sourceIds = user.procurement_source_id ? [user.procurement_source_id] : [];
   }

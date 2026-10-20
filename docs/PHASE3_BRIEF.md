@@ -133,3 +133,9 @@ Adjust a type only if the real schema forces it (e.g. field names/enum values in
 - Known trap: POST /api/dispatches validates source only inside `if (role === 'ZMCC_LAB_ATTENDANT')` → switch on ctx.actingAs + ctx.scope; SYSTEM scope requires procurementSourceId whose type matches targetSourceTypeFor(ctx.actingAs) (T9).
 - Stage resolvers (resolveMotAuth, resolveZmccLabAuth, resolveZmccArrivalAuth, resolveZmccTankAuth, resolveZmccAuth) are NOT widened in P3 (P4).
 - LiveCameraCapture.tsx has <input type=file> (L186); used in app/mot/page.tsx, QATestingSection.tsx, ZmccLabWorkspace.tsx → becomes thin wrapper over new LiveCamera with same props (T4).
+
+## Notes from finished tasks
+- Prisma client: `import { prisma } from '@core/db'` (file src/backend/core/db.ts), NOT src/lib/db.ts. For testable code use a lazy `await import('@core/db')` default or an injected db.
+- tsconfig target < ES2020: do NOT use bigint literals like `5n` (TS2737); use `BigInt(5)`.
+- CanonicalRole is in src/backend/core/types.
+- T2 audit.ts: WriteAuditLogInput has optional `deviceId`. Also exports touchDeviceLastSeen, DeviceDb types in device-auth.ts.
