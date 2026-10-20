@@ -18,3 +18,8 @@ Owner rule (20 Oct 2026): no tests are written or updated during Phases 3 fixes 
 - Photo upload owner rule (device + session), entity whitelist + scope check, row+audit in one transaction, P2002 race does not overwrite the winner's file.
 - SyncStatusSign blocked state; PwaShell public paths (/station-login, /device-setup).
 - Cron SMS route uses exact roles (no ancestor expansion).
+
+## Phase 4a (later)
+- resolveZmccAuth: HEAD_OF_MPD without a ZMCC source is still refused (system-scope superiors should be allowed with explicit zmcc id).
+- UserMenu and ZmccArrivalsWorkspace still check PHE_OPERATOR directly.
+- Pre-existing lint set-state-in-effect in MotOperationsWorkspace, ZmccMasterDataWorkspace, PendingApprovalsPanel.

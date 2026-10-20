@@ -3,7 +3,10 @@ import { writeAuditLog } from '@/backend/core/audit';
 import { normalizePakistaniCnic, normalizePakistaniMobile } from '@/lib/pakistani-identity';
 import { getCurrentUser } from '@core/auth';
 import { User, Role } from '@core/types';
-import { isZmccFieldOfficer } from '@core/roles/hierarchy';
+import { isZmccFieldOfficer, canActAs } from '@core/roles/hierarchy';
+import { resolveActingContext } from '@core/acting-context';
+import { ACTING_AS_HEADER } from '@core/route-guards';
+import type { ActingContext } from '@/types/acting';
 import { createNotificationsForEvent } from '@/backend/services/notificationService';
 import { Prisma } from '@prisma/client';
 import { requireZmccScope } from '@/backend/core/scope';
@@ -15,20 +18,60 @@ export interface ZmccAuthContext {
   isSuperAdmin: boolean;
   isDataExecutive?: boolean;
   isZmccManager: boolean;
+  /**
+   * PHE Operator or MDO. Kept ONLY for Stage 2 / area / milk-source lists, which
+   * both roles still read the same way. Do not use it for Stage 1 decisions:
+   * use `acting`, `isMdo` and `canApproveStage1` instead.
+   */
   isPheOperator: boolean;
   isFinanceAccounts?: boolean;
   isMot?: boolean;
   effectiveZmccId: bigint | null;
+  /** Who is acting as which role (the server validates any `x-acting-as` request). */
+  acting: ActingContext;
+  /** The signed-in user is an MDO. */
+  isMdo: boolean;
+  /** Zonal Manager or above (not Data Executive): may approve routes, shops and exceptions. */
+  canApproveStage1: boolean;
+  /** Acting scope is the whole system (Super Admin, Data Executive, Head of MPD, ...). */
+  isSystemScope: boolean;
 }
 
 export type RequiredMasterDataAction =
   | 'READ'
   | 'WRITE_ROUTE'
+  | 'APPROVE_ROUTE'
   | 'WRITE_AREA'
   | 'WRITE_MILK_SOURCE'
   | 'WRITE_CHILLER_OWNERSHIP'
   | 'WRITE_SHOP'
+  | 'APPROVE_SHOP'
   | 'REQUEST_SHOP';
+
+/** Roles allowed per action. Every role above an allowed role is allowed too (delegation). */
+export const ZMCC_ACTION_ROLES: Record<RequiredMasterDataAction, readonly string[]> = {
+  READ: ['SUPER_ADMIN', 'DATA_EXECUTIVE', 'ZMCC_MANAGER', 'PHE_OPERATOR', 'MDO', 'FINANCE_ACCOUNTS', 'MOT'],
+  WRITE_ROUTE: ['MDO', 'DATA_EXECUTIVE'],
+  APPROVE_ROUTE: ['ZMCC_MANAGER'],
+  WRITE_AREA: ['ZMCC_MANAGER', 'DATA_EXECUTIVE'],
+  WRITE_MILK_SOURCE: ['ZMCC_MANAGER', 'DATA_EXECUTIVE'],
+  WRITE_CHILLER_OWNERSHIP: ['SUPER_ADMIN'],
+  WRITE_SHOP: ['MDO', 'PHE_OPERATOR', 'DATA_EXECUTIVE'],
+  APPROVE_SHOP: ['MDO'],
+  REQUEST_SHOP: ['MOT', 'MDO'],
+};
+
+const FORBIDDEN_MESSAGES: Record<RequiredMasterDataAction, string> = {
+  READ: 'Forbidden. You do not have permission to access ZMCC Master Data.',
+  WRITE_ROUTE: 'Forbidden. Only the MDO (or a Zonal Manager or above) can add routes.',
+  APPROVE_ROUTE: 'Forbidden. Only the Zonal Manager (or above) can approve routes.',
+  WRITE_AREA: 'Forbidden. Only the Zonal Manager, Data Executive or Super Admin can change areas.',
+  WRITE_MILK_SOURCE: 'Forbidden. Only the Zonal Manager, Data Executive or Super Admin can change milk sources.',
+  WRITE_CHILLER_OWNERSHIP: 'Forbidden. Only Super Admin may manage global Chiller Ownership.',
+  WRITE_SHOP: 'Forbidden. Only the MDO or PHE Operator (or a superior) can change shops.',
+  APPROVE_SHOP: 'Forbidden. Only the MDO (or a Zonal Manager or above) can approve shops.',
+  REQUEST_SHOP: 'Forbidden. Only MOT or MDO (or a superior) can send new shop requests.',
+};
 
 export interface ServiceResult<T> {
   status: number;
@@ -36,12 +79,23 @@ export interface ServiceResult<T> {
   error?: string;
 }
 
+/** Audit actor for a ZMCC auth context: real user plus the role the work was done as. */
+function auditActorFor(auth: ZmccAuthContext) {
+  return {
+    userId: auth.actorUserId,
+    actorRole: auth.role,
+    performedAsRole: auth.acting.actingAs,
+    isDelegated: auth.acting.isDelegated,
+  };
+}
+
 /**
  * Server-side Authorization & Scope Resolver for ZMCC Master Data
  */
 export async function resolveZmccAuth(
   reqOrUser?: Request | User,
-  requiredAction: RequiredMasterDataAction = 'READ'
+  requiredAction: RequiredMasterDataAction = 'READ',
+  opts?: { requestedAs?: string | null }
 ): Promise<{ auth?: ZmccAuthContext; errorResponse?: { error: string; status: number } }> {
   let authUser: User | null = null;
   if (reqOrUser && 'role' in reqOrUser && 'id' in reqOrUser) {
@@ -69,22 +123,47 @@ export async function resolveZmccAuth(
   const isSuperAdmin = role === 'SUPER_ADMIN';
   const isDataExecutive = role === 'DATA_EXECUTIVE';
   const isZmccManager = role === 'ZMCC_MANAGER';
-  // PHE_OPERATOR or MDO: MDO has the same PHE station rights until phase 4.
+  const isMdo = role === 'MDO';
+  // PHE_OPERATOR or MDO: same station rights for Stage 2 / area / milk-source lists only.
   const isPheOperator = isZmccFieldOfficer(role);
   const isFinanceAccounts = role === 'FINANCE_ACCOUNTS';
   const isMot = role === 'MOT';
 
-  // 1. Validate permitted roles
-  if (!isSuperAdmin && !isDataExecutive && !isZmccManager && !isPheOperator && !isFinanceAccounts && !isMot) {
-    return {
-      errorResponse: {
-        error: 'Forbidden. You do not have permission to access ZMCC Master Data.',
-        status: 403,
-      },
-    };
+  const user: User = {
+    id: dbUser.id.toString(),
+    username: dbUser.username,
+    name: dbUser.full_name || dbUser.username,
+    role: dbUser.role as Role,
+    department: dbUser.department || '',
+    scope_type: dbUser.scope_type,
+    procurement_source_id: dbUser.procurement_source_id ? dbUser.procurement_source_id.toString() : null,
+    procurement_source: dbUser.procurement_source
+      ? {
+          id: dbUser.procurement_source.id.toString(),
+          code: dbUser.procurement_source.code,
+          name: dbUser.procurement_source.name,
+          source_type: dbUser.procurement_source.source_type,
+          is_active: dbUser.procurement_source.is_active,
+        }
+      : null,
+  };
+
+  // 1. Who may do this action (own role or any role above it), and as which role.
+  const requestedAs =
+    opts?.requestedAs !== undefined
+      ? opts.requestedAs
+      : reqOrUser && 'headers' in reqOrUser
+        ? (reqOrUser as Request).headers.get(ACTING_AS_HEADER)
+        : null;
+  const resolved = resolveActingContext(user, ZMCC_ACTION_ROLES[requiredAction], { requestedAs });
+  if (!resolved.ok && resolved.code === 'FORBIDDEN') {
+    return { errorResponse: { error: FORBIDDEN_MESSAGES[requiredAction], status: 403 } };
+  }
+  if (!resolved.ok && resolved.code === 'CANNOT_ACT_AS') {
+    return { errorResponse: { error: 'Forbidden. You cannot work as this role.', status: 403 } };
   }
 
-  // 2. Validate source assignment for scoped roles (ZMCC_MANAGER, PHE_OPERATOR, MOT)
+  // 2. Validate source assignment for scoped roles (ZMCC_MANAGER, PHE_OPERATOR, MDO, MOT)
   let effectiveZmccId: bigint | null = null;
   if (!isSuperAdmin && !isFinanceAccounts && !isDataExecutive) {
     if (!dbUser.procurement_source_id || !dbUser.procurement_source) {
@@ -113,68 +192,16 @@ export async function resolveZmccAuth(
     }
     effectiveZmccId = dbUser.procurement_source_id;
   }
-
-  // 3. Validate specific permissions
-  if (isMot && requiredAction !== 'READ' && requiredAction !== 'REQUEST_SHOP') {
+  if (!resolved.ok) {
     return {
-      errorResponse: {
-        error: 'Forbidden. MOT testers may only read routes/areas and submit shop requests.',
-        status: 403,
-      },
+      errorResponse: { error: 'Forbidden. Your account is not bound to a work area for this action.', status: 403 },
     };
   }
-
-  if (isFinanceAccounts && requiredAction !== 'READ') {
-    return {
-      errorResponse: {
-        error: 'Forbidden. Finance Accounts may only view master data and map ERP codes.',
-        status: 403,
-      },
-    };
-  }
-
-  if (requiredAction === 'WRITE_CHILLER_OWNERSHIP' && !isSuperAdmin) {
-    return {
-      errorResponse: {
-        error: 'Forbidden. Only Super Admin may manage global Chiller Ownership.',
-        status: 403,
-      },
-    };
-  }
-
-  if (
-    isPheOperator &&
-    (requiredAction === 'WRITE_AREA' ||
-      requiredAction === 'WRITE_MILK_SOURCE')
-  ) {
-    return {
-      errorResponse: {
-        error: 'Forbidden. PHE Operator may only manage shops and request routes in their assigned ZMCC.',
-        status: 403,
-      },
-    };
-  }
+  const acting = resolved.ctx;
 
   return {
     auth: {
-      user: {
-        id: dbUser.id.toString(),
-        username: dbUser.username,
-        name: dbUser.full_name || dbUser.username,
-        role: dbUser.role as Role,
-        department: dbUser.department || '',
-        scope_type: dbUser.scope_type,
-        procurement_source_id: dbUser.procurement_source_id ? dbUser.procurement_source_id.toString() : null,
-        procurement_source: dbUser.procurement_source
-          ? {
-              id: dbUser.procurement_source.id.toString(),
-              code: dbUser.procurement_source.code,
-              name: dbUser.procurement_source.name,
-              source_type: dbUser.procurement_source.source_type,
-              is_active: dbUser.procurement_source.is_active,
-            }
-          : null,
-      },
+      user,
       actorUserId,
       role,
       isSuperAdmin,
@@ -184,8 +211,20 @@ export async function resolveZmccAuth(
       isFinanceAccounts,
       isMot,
       effectiveZmccId,
+      acting,
+      isMdo,
+      canApproveStage1: !isDataExecutive && canActAs(role, 'ZMCC_MANAGER'),
+      isSystemScope: acting.scope.kind === 'SYSTEM',
     },
   };
+}
+
+/** True when a ZMCC is inside the caller's acting scope (own ZMCC, or the whole system). */
+function inZmccScope(auth: ZmccAuthContext, zmccId: bigint): boolean {
+  const scope = auth.acting.scope;
+  if (scope.kind === 'SYSTEM') return true;
+  if (scope.kind === 'SOURCE') return scope.sourceId === zmccId;
+  return false;
 }
 
 // -------------------------------------------------------------
@@ -236,10 +275,16 @@ export async function listRoutes(
     where.zmcc_id = requireZmccScope(auth);
   }
 
-  // PHE or Dispatch requires routes only as active and approved
-  if (auth.isPheOperator || filters?.for_dispatch === 'true') {
+  // PHE or Dispatch requires routes only as active and approved.
+  // An MDO also sees the pending routes of their own ZMCC (the ZMCC filter above already applies).
+  const andFilters: Prisma.ZmccRouteWhereInput[] = [];
+  if (filters?.for_dispatch === 'true' || (auth.isPheOperator && !auth.isMdo)) {
     where.is_active = true;
     where.approval_status = 'ACTIVE';
+  } else if (auth.isMdo) {
+    andFilters.push({
+      OR: [{ is_active: true, approval_status: 'ACTIVE' }, { approval_status: 'PENDING_APPROVAL' }],
+    });
   } else {
     if (filters?.is_active !== undefined && filters.is_active !== 'all') {
       where.is_active = filters.is_active === 'true';
@@ -260,6 +305,7 @@ export async function listRoutes(
       { destination: { contains: s, mode: 'insensitive' } },
     ];
   }
+  if (andFilters.length > 0) where.AND = andFilters;
 
   const routes = await prisma.zmccRoute.findMany({
     where,
@@ -318,8 +364,9 @@ export async function getRouteById(auth: ZmccAuthContext, routeId: bigint) {
     return null;
   }
 
-  // PHE Operator cannot view inactive routes directly
-  if (auth.isPheOperator && (!route.is_active || route.approval_status !== 'ACTIVE')) {
+  // PHE Operator cannot view inactive routes directly; an MDO may also open their own ZMCC's pending routes
+  const mdoMaySeePending = auth.isMdo && route.approval_status === 'PENDING_APPROVAL';
+  if (auth.isPheOperator && !mdoMaySeePending && (!route.is_active || route.approval_status !== 'ACTIVE')) {
     return null;
   }
 
@@ -412,9 +459,14 @@ export async function createRoute(
     return { status: 409, error: `Route name "${name}" already exists in this ZMCC.` };
   }
 
-  const isPhe = auth.isPheOperator;
-  const initialApprovalStatus = isPhe ? 'PENDING_APPROVAL' : 'ACTIVE';
-  const initialIsActive = !isPhe;
+  // A route stays pending until a Zonal Manager (or above) approves it.
+  const needsApproval = !canActAs(auth.role, 'ZMCC_MANAGER');
+  const initialApprovalStatus = needsApproval ? 'PENDING_APPROVAL' : 'ACTIVE';
+  const initialIsActive = !needsApproval;
+  const creatorAsRole = {
+    created_as_role: auth.acting.actingAs,
+    created_is_delegated: auth.acting.isDelegated,
+  };
 
   return await prisma.$transaction(async (tx) => {
     const created = await tx.zmccRoute.create({
@@ -427,6 +479,7 @@ export async function createRoute(
         is_active: initialIsActive,
         approval_status: initialApprovalStatus,
         created_by: auth.actorUserId,
+        ...creatorAsRole,
       },
     });
 
@@ -442,6 +495,7 @@ export async function createRoute(
           is_active: initialIsActive,
           approval_status: initialApprovalStatus,
           created_by: auth.actorUserId,
+          ...creatorAsRole,
         },
       });
     }
@@ -449,7 +503,7 @@ export async function createRoute(
     await writeAuditLog(tx, {
       tableName: 'zmcc_route',
       recordId: created.id,
-      action: isPhe ? 'ZMCC_ROUTE_REQUESTED' : 'ZMCC_ROUTE_CREATED',
+      action: needsApproval ? 'ZMCC_ROUTE_REQUESTED' : 'ZMCC_ROUTE_CREATED',
       oldValues: undefined,
       newValues: {
         id: created.id.toString(),
@@ -462,7 +516,7 @@ export async function createRoute(
         approval_status: initialApprovalStatus,
         initial_area: createdArea?.name,
       },
-      actor: { userId: auth.actorUserId, actorRole: auth.role },
+      actor: auditActorFor(auth),
     });
 
     return {
@@ -483,8 +537,8 @@ export async function createRoute(
 }
 
 export async function approveRoute(auth: ZmccAuthContext, routeId: bigint): Promise<ServiceResult<unknown>> {
-  if (!auth.isZmccManager && !auth.isSuperAdmin) {
-    return { status: 403, error: 'Forbidden. Only ZMCC Manager or Super Admin can approve routes.' };
+  if (!auth.canApproveStage1) {
+    return { status: 403, error: 'Forbidden. Only the Zonal Manager (or above) can approve routes.' };
   }
 
   const existing = await prisma.zmccRoute.findUnique({
@@ -495,7 +549,7 @@ export async function approveRoute(auth: ZmccAuthContext, routeId: bigint): Prom
     return { status: 404, error: 'Route not found.' };
   }
 
-  if (!auth.isSuperAdmin && existing.zmcc_id !== auth.effectiveZmccId) {
+  if (!auth.isSuperAdmin && !inZmccScope(auth, existing.zmcc_id)) {
     return { status: 403, error: 'Forbidden. You cannot approve routes outside your assigned ZMCC.' };
   }
 
@@ -511,6 +565,8 @@ export async function approveRoute(auth: ZmccAuthContext, routeId: bigint): Prom
         is_active: true,
         approved_by: auth.actorUserId,
         approved_at: new Date(),
+        approved_as_role: auth.acting.actingAs,
+        approved_is_delegated: auth.acting.isDelegated,
         rejection_reason: null,
         updated_by: auth.actorUserId,
       },
@@ -524,6 +580,8 @@ export async function approveRoute(auth: ZmccAuthContext, routeId: bigint): Prom
         is_active: true,
         approved_by: auth.actorUserId,
         approved_at: new Date(),
+        approved_as_role: auth.acting.actingAs,
+        approved_is_delegated: auth.acting.isDelegated,
         rejection_reason: null,
         updated_by: auth.actorUserId,
       },
@@ -542,7 +600,7 @@ export async function approveRoute(auth: ZmccAuthContext, routeId: bigint): Prom
         is_active: true,
         approved_by: auth.actorUserId.toString(),
       },
-      actor: { userId: auth.actorUserId, actorRole: auth.role },
+      actor: auditActorFor(auth),
     });
 
     return {
@@ -560,8 +618,8 @@ export async function approveRoute(auth: ZmccAuthContext, routeId: bigint): Prom
 }
 
 export async function rejectRoute(auth: ZmccAuthContext, routeId: bigint, reason: string): Promise<ServiceResult<unknown>> {
-  if (!auth.isZmccManager && !auth.isSuperAdmin) {
-    return { status: 403, error: 'Forbidden. Only ZMCC Manager or Super Admin can reject routes.' };
+  if (!auth.canApproveStage1) {
+    return { status: 403, error: 'Forbidden. Only the Zonal Manager (or above) can reject routes.' };
   }
 
   const cleanReason = reason?.trim();
@@ -576,7 +634,7 @@ export async function rejectRoute(auth: ZmccAuthContext, routeId: bigint, reason
     return { status: 404, error: 'Route not found.' };
   }
 
-  if (!auth.isSuperAdmin && existing.zmcc_id !== auth.effectiveZmccId) {
+  if (!auth.isSuperAdmin && !inZmccScope(auth, existing.zmcc_id)) {
     return { status: 403, error: 'Forbidden. You cannot reject routes outside your assigned ZMCC.' };
   }
 
@@ -589,6 +647,8 @@ export async function rejectRoute(auth: ZmccAuthContext, routeId: bigint, reason
         rejection_reason: cleanReason,
         approved_by: auth.actorUserId,
         approved_at: new Date(),
+        approved_as_role: auth.acting.actingAs,
+        approved_is_delegated: auth.acting.isDelegated,
         updated_by: auth.actorUserId,
       },
     });
@@ -601,6 +661,8 @@ export async function rejectRoute(auth: ZmccAuthContext, routeId: bigint, reason
         rejection_reason: cleanReason,
         approved_by: auth.actorUserId,
         approved_at: new Date(),
+        approved_as_role: auth.acting.actingAs,
+        approved_is_delegated: auth.acting.isDelegated,
         updated_by: auth.actorUserId,
       },
     });
@@ -619,7 +681,7 @@ export async function rejectRoute(auth: ZmccAuthContext, routeId: bigint, reason
         rejection_reason: cleanReason,
         rejected_by: auth.actorUserId.toString(),
       },
-      actor: { userId: auth.actorUserId, actorRole: auth.role },
+      actor: auditActorFor(auth),
     });
 
     return {
@@ -2489,6 +2551,8 @@ export async function requestNewShop(
         approval_status: 'PENDING_APPROVAL',
         geotag_status,
         created_by: auth.actorUserId,
+        created_as_role: auth.acting.actingAs,
+        created_is_delegated: auth.acting.isDelegated,
       },
     });
 
@@ -2509,7 +2573,7 @@ export async function requestNewShop(
         zmcc_id: effectiveZmccId!.toString(),
         geotag_status,
       },
-      actor: { userId: auth.actorUserId, actorRole: auth.role },
+      actor: auditActorFor(auth),
     });
 
     return {
@@ -2530,9 +2594,9 @@ export async function requestNewShop(
 }
 
 export async function approveShop(auth: ZmccAuthContext, shopId: bigint): Promise<ServiceResult<unknown>> {
-  // Authorized for BOTH PHE_OPERATOR and ZMCC_MANAGER (and SUPER_ADMIN)
-  if (!auth.isPheOperator && !auth.isZmccManager && !auth.isSuperAdmin) {
-    return { status: 403, error: 'Forbidden. Only PHE Operator, ZMCC Manager, or Super Admin can approve shops.' };
+  // MDO and above (PHE Operator no longer approves shops)
+  if (!canActAs(auth.role, 'MDO')) {
+    return { status: 403, error: 'Forbidden. Only the MDO (or a Zonal Manager or above) can approve shops.' };
   }
 
   const existing = await prisma.zmccShop.findUnique({
@@ -2547,7 +2611,7 @@ export async function approveShop(auth: ZmccAuthContext, shopId: bigint): Promis
     return { status: 404, error: 'Shop not found.' };
   }
 
-  if (!auth.isSuperAdmin && existing.zmcc_id !== auth.effectiveZmccId) {
+  if (!auth.isSuperAdmin && !inZmccScope(auth, existing.zmcc_id)) {
     return { status: 403, error: 'Forbidden. You cannot approve shops outside your assigned ZMCC.' };
   }
 
@@ -2581,6 +2645,8 @@ export async function approveShop(auth: ZmccAuthContext, shopId: bigint): Promis
         is_active: true,
         approved_by: auth.actorUserId,
         approved_at: new Date(),
+        approved_as_role: auth.acting.actingAs,
+        approved_is_delegated: auth.acting.isDelegated,
         rejection_reason: null,
         updated_by: auth.actorUserId,
       },
@@ -2645,7 +2711,7 @@ export async function approveShop(auth: ZmccAuthContext, shopId: bigint): Promis
         is_active: true,
         approved_by: auth.actorUserId.toString(),
       },
-      actor: { userId: auth.actorUserId, actorRole: auth.role },
+      actor: auditActorFor(auth),
     });
 
     return {
@@ -2663,8 +2729,8 @@ export async function approveShop(auth: ZmccAuthContext, shopId: bigint): Promis
 }
 
 export async function rejectShop(auth: ZmccAuthContext, shopId: bigint, reason: string): Promise<ServiceResult<unknown>> {
-  if (!auth.isPheOperator && !auth.isZmccManager && !auth.isSuperAdmin) {
-    return { status: 403, error: 'Forbidden. Only PHE Operator, ZMCC Manager, or Super Admin can reject shops.' };
+  if (!canActAs(auth.role, 'MDO')) {
+    return { status: 403, error: 'Forbidden. Only the MDO (or a Zonal Manager or above) can reject shops.' };
   }
 
   const cleanReason = reason?.trim();
@@ -2679,7 +2745,7 @@ export async function rejectShop(auth: ZmccAuthContext, shopId: bigint, reason: 
     return { status: 404, error: 'Shop not found.' };
   }
 
-  if (!auth.isSuperAdmin && existing.zmcc_id !== auth.effectiveZmccId) {
+  if (!auth.isSuperAdmin && !inZmccScope(auth, existing.zmcc_id)) {
     return { status: 403, error: 'Forbidden. You cannot reject shops outside your assigned ZMCC.' };
   }
 
@@ -2692,6 +2758,8 @@ export async function rejectShop(auth: ZmccAuthContext, shopId: bigint, reason: 
         rejection_reason: cleanReason,
         approved_by: auth.actorUserId,
         approved_at: new Date(),
+        approved_as_role: auth.acting.actingAs,
+        approved_is_delegated: auth.acting.isDelegated,
         updated_by: auth.actorUserId,
       },
     });
@@ -2710,7 +2778,7 @@ export async function rejectShop(auth: ZmccAuthContext, shopId: bigint, reason: 
         rejection_reason: cleanReason,
         rejected_by: auth.actorUserId.toString(),
       },
-      actor: { userId: auth.actorUserId, actorRole: auth.role },
+      actor: auditActorFor(auth),
     });
 
     return {

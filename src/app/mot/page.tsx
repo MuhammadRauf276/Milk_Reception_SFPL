@@ -13,16 +13,15 @@ import {
   Wifi,
   WifiOff,
   Save,
-  Send,
   X,
   Search,
   Plus,
   CheckCircle2,
   MessageSquare,
-  AlertTriangle,
   ChevronLeft,
   ChevronRight,
   Loader2,
+  UserCog,
 } from 'lucide-react';
 import {
   saveCachedJourney,
@@ -32,7 +31,9 @@ import {
   getMotOfflinePreparation,
   saveDraft,
   getDraft,
-  queueCollection,
+  enqueueMotCollection,
+  cacheMotShopPolicy,
+  getCachedMotShopPolicy,
   queueGpsLocation,
   getUnsyncedSummary,
   syncAll,
@@ -53,7 +54,20 @@ import { getErrorMessage } from '@/lib/errors';
 import { useOnlineStatus } from '@/frontend/hooks/useOnlineStatus';
 import { acquireRobustGps } from '@/lib/gps';
 import { getFixAgeLabel, shouldRecordPoint, type TrackedPoint } from '@/lib/gpsTracker';
-import { LiveCameraCapture } from '@/components/camera/LiveCameraCapture';
+import { MotShopTestsStep, type MotTestPhoto, type MotTestValue } from '@/frontend/modules/mot/MotShopTestsStep';
+import { DecisionRulePanel, type DecisionRuleTestRow } from '@/frontend/modules/shared/decision/DecisionRulePanel';
+import { DecisionStatusBadge } from '@/frontend/modules/shared/decision/DecisionStatusBadge';
+import { canCoverMotWork, canDecideMotException } from '@/frontend/modules/zmcc/stage1Capabilities';
+import { buildMotShopDecision } from '@/backend/services/mot/motShopDecision';
+import { evaluateGeofence, DEFAULT_SHOP_GEOFENCE_M } from '@/backend/services/mot/geofence';
+import { getRoleLabel } from '@/backend/core/roles/labels';
+import { saveCapturedPhoto } from '@/lib/offline/photoStore';
+import type { PendingPhotoMeta } from '@/frontend/modules/pwa/syncQueueCore';
+import type { GeofenceResult, MotShopPolicySnapshot, MotShopPolicyTest, PersonDecision } from '@/types/stage1-decision';
+import type { LiveCameraResult } from '@/types/captured-photo';
+
+/** Header a superior sends to cover MOT work (the server checks it). */
+const COVER_HEADERS: Record<string, string> = { 'x-acting-as': 'MOT' };
 
 interface StopDetail {
   id: string;
@@ -73,12 +87,14 @@ interface StopDetail {
   skip_reason?: string | null;
   distanceKm?: number | null;
   hasCoordinates?: boolean;
+  geofence_radius_m?: number | null;
   shop?: {
     id: string;
     shop_code: string;
     shop_name: string;
     owner_name: string;
     contact_number: string;
+    geofence_radius_m?: number | null;
   } | null;
   collection?: {
     id?: string;
@@ -89,7 +105,23 @@ interface StopDetail {
     fat: number;
     at_13ts_liters: number;
     created_at?: string;
+    final_decision?: string | null;
   } | null;
+}
+
+interface CoverJourneyOption {
+  id: string;
+  journey_number: string;
+  route?: { name?: string; route_code?: string } | null;
+  mot_profile?: { name?: string; mot_code?: string } | null;
+  mot_vehicle?: { vehicle_number?: string } | null;
+}
+
+/** Final decision text for receipts. */
+function decisionWord(finalDecision: string | null | undefined): string {
+  if (finalDecision === 'REJECTED') return 'Rejected';
+  if (finalDecision === 'PENDING') return 'Waiting for Zonal Manager';
+  return 'Accepted';
 }
 
 function computeHaversineDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -164,7 +196,23 @@ async function getPreparedCachedJourney(): Promise<CurrentJourney | null> {
  * Loads the MOT's current journey online (refreshing the offline cache) or from the offline cache.
  * `journey: undefined` means "keep whatever is shown"; `error` is the message to display, if any.
  */
-async function resolveCurrentJourney(): Promise<{ journey?: CurrentJourney | null; error: string | null }> {
+async function resolveCurrentJourney(
+  cover?: { journeyId: string | null }
+): Promise<{ journey?: CurrentJourney | null; error: string | null }> {
+  // A superior covering MOT work: online only, the chosen journey, nothing cached.
+  if (cover) {
+    if (!cover.journeyId) return { journey: null, error: null };
+    try {
+      const res = await fetch(`/api/zmcc/mot/journeys/current?journeyId=${encodeURIComponent(cover.journeyId)}`, {
+        headers: COVER_HEADERS,
+      });
+      const data = await res.json();
+      if (!res.ok) return { journey: null, error: data.error || 'Could not open this journey.' };
+      return { journey: data.journey ?? null, error: data.journey ? null : data.message || null };
+    } catch (err) {
+      return { journey: null, error: getErrorMessage(err) || 'You must be online to cover MOT work.' };
+    }
+  }
   // Shown even if caching it for offline use fails below.
   let onlineJourney: CurrentJourney | undefined;
   try {
@@ -237,11 +285,17 @@ export default function MotPage() {
   const [unit, setUnit] = useState<'LITER' | 'KG'>('LITER');
   const [lr, setLr] = useState<string>('');
   const [fat, setFat] = useState<string>('');
-  const [lrPhotoUrl, setLrPhotoUrl] = useState<string | null>(null);
-  const [fatPhotoUrl, setFatPhotoUrl] = useState<string | null>(null);
   const [notes, setNotes] = useState<string>('');
-  const [requestException, setRequestException] = useState<boolean>(false);
-  const [exceptionReason, setExceptionReason] = useState<string>('');
+  // Stage 1 decision (Phase 4a)
+  const [shopPolicy, setShopPolicy] = useState<MotShopPolicySnapshot | null>(null);
+  const [testValues, setTestValues] = useState<Record<string, MotTestValue>>({});
+  const [testPhotos, setTestPhotos] = useState<Record<string, MotTestPhoto>>({});
+  const [personDecision, setPersonDecision] = useState<PersonDecision | null>(null);
+  const [decisionRemarks, setDecisionRemarks] = useState<string>('');
+  // A superior covering MOT work (online only)
+  const [coverJourneys, setCoverJourneys] = useState<CoverJourneyOption[]>([]);
+  const [coverJourneyId, setCoverJourneyId] = useState<string | null>(null);
+  const [coverListError, setCoverListError] = useState<string | null>(null);
   const [collectionGps, setCollectionGps] = useState<{
     latitude: number | null;
     longitude: number | null;
@@ -492,7 +546,8 @@ export default function MotPage() {
 
   // One GPS stream: proximity sorting always, route recording while COLLECTING.
   const journeyIdForGps = journey?.id ?? null;
-  const isCollectingForGps = journey?.status === 'COLLECTING';
+  // Route GPS is recorded for the MOT only; a superior covering MOT work does not send route points.
+  const isCollectingForGps = journey?.status === 'COLLECTING' && currentUser?.role === 'MOT';
   const lastSavedPointRef = useRef<TrackedPoint | null>(null);
   const lastSavedJourneyRef = useRef<string | null>(null);
   const latestFixRef = useRef<TrackedPoint | null>(null);
@@ -573,13 +628,16 @@ export default function MotPage() {
             return;
           }
           const user = data.user;
+          const isMotUser = user.role === 'MOT';
+          // MOT: must be linked to an active ZMCC. A superior covering MOT work: the server checks scope.
           if (
-            user.role !== 'MOT' ||
             user.is_active === false ||
-            !user.procurement_source_id ||
-            !user.procurement_source ||
-            user.procurement_source.is_active === false ||
-            user.procurement_source.source_type !== 'ZMCC'
+            (!isMotUser && !canCoverMotWork(user.role)) ||
+            (isMotUser &&
+              (!user.procurement_source_id ||
+                !user.procurement_source ||
+                user.procurement_source.is_active === false ||
+                user.procurement_source.source_type !== 'ZMCC'))
           ) {
             router.push('/workspace-unavailable');
             return;
@@ -598,16 +656,18 @@ export default function MotPage() {
     loadUser();
   }, [router]);
 
-  // Fetch current journey with offline fallback
+  const isCovering = Boolean(currentUser && currentUser.role !== 'MOT');
+
+  // Fetch current journey with offline fallback (covering: the chosen journey, online only)
   const loadCurrentJourney = useCallback(
     () =>
-      resolveCurrentJourney()
+      resolveCurrentJourney(isCovering ? { journeyId: coverJourneyId } : undefined)
         .then((result) => {
           if (result.journey !== undefined) setJourney(result.journey);
           setJourneyError(result.error);
         })
         .finally(() => setLoadingJourney(false)),
-    []
+    [isCovering, coverJourneyId]
   );
 
   useEffect(() => {
@@ -615,6 +675,55 @@ export default function MotPage() {
       loadCurrentJourney();
     }
   }, [currentUser, loadCurrentJourney]);
+
+  // Journeys a superior can cover (collecting, own ZMCC; the server applies scope).
+  useEffect(() => {
+    if (!currentUser || !isCovering || !isOnline) return;
+    let alive = true;
+    fetch('/api/zmcc/mot/journeys?status=COLLECTING')
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (!alive) return;
+        if (!res.ok) {
+          setCoverListError(data.error || 'Could not load journeys.');
+          return;
+        }
+        setCoverListError(null);
+        setCoverJourneys(Array.isArray(data.journeys) ? data.journeys : []);
+      })
+      .catch(() => {
+        if (alive) setCoverListError('Could not load journeys.');
+      });
+    return () => {
+      alive = false;
+    };
+  }, [currentUser, isCovering, isOnline]);
+
+  // MOT_SHOP test rules: from the server when online (cached for offline use), else the cached copy.
+  useEffect(() => {
+    if (!currentUser) return;
+    let alive = true;
+    (async () => {
+      try {
+        if (navigator.onLine) {
+          const res = await fetch('/api/zmcc/mot/shop-policy', { headers: isCovering ? COVER_HEADERS : undefined });
+          if (res.ok) {
+            const policy = (await res.json()) as MotShopPolicySnapshot;
+            await cacheMotShopPolicy(policy);
+            if (alive) setShopPolicy(policy);
+            return;
+          }
+        }
+      } catch {
+        // Offline fallback below
+      }
+      const cached = await getCachedMotShopPolicy();
+      if (alive) setShopPolicy(cached);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [currentUser, isCovering, isOnline]);
 
   // Refresh available ERP milk sources from server or offline cache
   const refreshAvailableSources = useCallback(async (zmccId?: string) => {
@@ -679,9 +788,14 @@ export default function MotPage() {
       setCollectionGps({ latitude: null, longitude: null, accuracy: null, status: 'UNAVAILABLE' });
     }
 
-    // Reset exception states
-    setRequestException(false);
-    setExceptionReason('');
+    // Reset decision states
+    setTestValues({});
+    setTestPhotos((prev) => {
+      Object.values(prev).forEach((p) => URL.revokeObjectURL(p.previewUrl));
+      return {};
+    });
+    setPersonDecision(null);
+    setDecisionRemarks('');
 
     // Check for existing draft
     try {
@@ -701,8 +815,6 @@ export default function MotPage() {
         setUnit('LITER');
         setLr('');
         setFat('');
-        setLrPhotoUrl(null);
-        setFatPhotoUrl(null);
         setNotes('');
       }
     } catch {
@@ -712,10 +824,101 @@ export default function MotPage() {
       setUnit('LITER');
       setLr('');
       setFat('');
-      setLrPhotoUrl(null);
-      setFatPhotoUrl(null);
       setNotes('');
     }
+  };
+
+  // Shop geofence preview (the server checks again with the saved shop location).
+  const geofencePreview = React.useMemo((): (GeofenceResult & { accuracyM: number | null; approximate: boolean }) | null => {
+    if (!activeStop || collectionGps.latitude == null || collectionGps.longitude == null) return null;
+    const shopLat = activeStop.planned_latitude_snapshot ?? activeStop.planned_latitude ?? null;
+    const shopLng = activeStop.planned_longitude_snapshot ?? activeStop.planned_longitude ?? null;
+    const approximate = collectionGps.status === 'APPROXIMATE';
+    const g = evaluateGeofence({
+      shopLat: shopLat != null && !(Number(shopLat) === 0 && Number(shopLng) === 0) ? Number(shopLat) : null,
+      shopLng: shopLng != null ? Number(shopLng) : null,
+      radiusM: activeStop.geofence_radius_m ?? activeStop.shop?.geofence_radius_m ?? DEFAULT_SHOP_GEOFENCE_M,
+      lat: collectionGps.latitude,
+      lng: collectionGps.longitude,
+      accuracyM: collectionGps.accuracy,
+      approximate,
+    });
+    return { ...g, accuracyM: collectionGps.accuracy, approximate };
+  }, [activeStop, collectionGps]);
+
+  // Live decision preview (same pure rule the server runs).
+  const decisionPreview = React.useMemo(() => {
+    if (!shopPolicy || !currentUser) return null;
+    const lrNum = parseFloat(lr);
+    const fatNum = parseFloat(fat);
+    const tests = Object.entries(testValues).map(([labTestId, v]) => ({
+      labTestId,
+      value: v.value.trim() !== '' && Number.isFinite(Number(v.value)) ? Number(v.value) : null,
+      textValue: v.text.trim() || null,
+    }));
+    return buildMotShopDecision(shopPolicy, {
+      lr: Number.isFinite(lrNum) ? lrNum : NaN,
+      fat: Number.isFinite(fatNum) ? fatNum : NaN,
+      tests,
+      photos: Object.entries(testPhotos).map(([labTestId, p]) => ({ labTestId, captureId: p.captureId })),
+      personDecision: personDecision ?? 'ACCEPT',
+      remarks: decisionRemarks,
+      geofence: geofencePreview ?? { status: 'NO_SHOP_GPS', distanceM: null, radiusM: DEFAULT_SHOP_GEOFENCE_M, accuracyM: null, approximate: false },
+      deciderCanApprove: canDecideMotException(currentUser.role),
+    });
+  }, [shopPolicy, currentUser, lr, fat, testValues, testPhotos, personDecision, decisionRemarks, geofencePreview]);
+
+  const decisionRows = React.useMemo((): DecisionRuleTestRow[] => {
+    if (!decisionPreview) return [];
+    return decisionPreview.details.tests.map((t) => ({
+      key: t.labTestId,
+      name: t.testName,
+      outcome: t.outcome,
+      valueText: t.value != null ? String(t.value) : t.textValue,
+      note:
+        t.photoMode === 'REQUIRED' && t.outcome !== 'NOT_TESTED' && !t.photoCaptureId
+          ? 'Picture missing'
+          : t.testMode === 'COMPULSORY' && t.outcome === 'NOT_TESTED'
+            ? 'Must be tested'
+            : null,
+    }));
+  }, [decisionPreview]);
+
+  const handlePhotoTaken = async (test: MotShopPolicyTest, result: LiveCameraResult) => {
+    try {
+      // Kept on the phone until the server confirms the upload.
+      await saveCapturedPhoto({ captureId: result.captureId, blob: result.blob, testType: test.testCode });
+    } catch (err) {
+      setFormError('Could not save the picture on this phone: ' + (getErrorMessage(err) || 'storage error'));
+      return;
+    }
+    const previewUrl = URL.createObjectURL(result.blob);
+    setTestPhotos((prev) => {
+      const old = prev[test.labTestId];
+      if (old) URL.revokeObjectURL(old.previewUrl);
+      return {
+        ...prev,
+        [test.labTestId]: {
+          captureId: result.captureId,
+          previewUrl,
+          sha256: result.sha256,
+          width: result.width,
+          height: result.height,
+          capturedAt: result.capturedAt,
+          gps: result.gps,
+        },
+      };
+    });
+  };
+
+  const handlePhotoRemoved = (labTestId: string) => {
+    setTestPhotos((prev) => {
+      const next = { ...prev };
+      const old = next[labTestId];
+      if (old) URL.revokeObjectURL(old.previewUrl);
+      delete next[labTestId];
+      return next;
+    });
   };
 
   // Live calculated milk metrics preview
@@ -794,9 +997,9 @@ export default function MotPage() {
   };
 
   // Record & Queue Collection Action
-  const handleRecordCollection = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!activeStop || !journey) return;
+  const handleRecordCollection = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!activeStop || !journey || !currentUser) return;
     setFormError(null);
 
     const qNum = parseFloat(quantity);
@@ -808,16 +1011,26 @@ export default function MotPage() {
       return;
     }
     if (isNaN(lrNum) || lrNum <= 0) {
-      setFormError('Lactometer reading (LR) must be greater than zero.');
+      setFormError('LR reading must be more than zero.');
       return;
     }
     if (isNaN(fatNum) || fatNum < 0) {
-      setFormError('Fat percentage must be non-negative.');
+      setFormError('Fat % cannot be below zero.');
       return;
     }
-
-    if (requestException && (!exceptionReason || exceptionReason.trim().length < 3)) {
-      setFormError('Please enter a valid exception reason (at least 3 characters) to request authorization.');
+    if (!personDecision) {
+      setFormError('Tap ✓ ACCEPT or ✗ REJECT.');
+      return;
+    }
+    const decision = decisionPreview?.decision ?? null;
+    const remarksText = decisionRemarks.trim();
+    const remarksNeeded = decision ? decision.remarksRequired : personDecision === 'REJECT';
+    if (remarksNeeded && remarksText.length < 3) {
+      setFormError('Please write a short reason (at least 3 letters).');
+      return;
+    }
+    if (isCovering && !navigator.onLine) {
+      setFormError('You must be online to cover MOT work.');
       return;
     }
 
@@ -829,26 +1042,75 @@ export default function MotPage() {
           : `evt-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
       const offlineCreatedAt = new Date().toISOString();
+      const requestedAs = isCovering ? 'MOT' : null;
 
-      // Queue into IndexedDB
-      await queueCollection({
-        client_event_id: clientEventId,
-        journey_id: journey.id,
-        stop_id: activeStop.id,
-        shop_rmr_number: shopRmrNumber.trim() || null,
-        milk_source_id: selectedSourceId || null,
-        quantity: qNum,
-        unit,
-        lr: lrNum,
-        fat: fatNum,
-        recorded_latitude: collectionGps.latitude,
-        recorded_longitude: collectionGps.longitude,
-        recorded_gps_accuracy: collectionGps.accuracy,
-        notes: notes.trim() || undefined,
-        request_exception: requestException,
-        exception_reason: requestException ? exceptionReason.trim() : undefined,
-        offline_created_at: offlineCreatedAt,
-      });
+      const testResults: Array<{ lab_test_id: string; value?: number | null; text_value?: string | null }> = [];
+      for (const t of shopPolicy?.tests ?? []) {
+        if (t.testMode === 'OFF') continue;
+        if (t.isLr) testResults.push({ lab_test_id: t.labTestId, value: lrNum });
+        else if (t.isFat) testResults.push({ lab_test_id: t.labTestId, value: fatNum });
+        else {
+          const v = testValues[t.labTestId];
+          if (!v) continue;
+          const num = v.value.trim() !== '' && Number.isFinite(Number(v.value)) ? Number(v.value) : null;
+          const text = v.text.trim() || null;
+          if (num !== null || text !== null) testResults.push({ lab_test_id: t.labTestId, value: num, text_value: text });
+        }
+      }
+
+      const photoEntries = Object.entries(testPhotos);
+      const photoMeta: Array<{ captureId: string; meta: PendingPhotoMeta }> = photoEntries.map(([labTestId, p]) => ({
+        captureId: p.captureId,
+        meta: {
+          captureId: p.captureId,
+          sha256: p.sha256,
+          testingPoint: 'MOT_SHOP',
+          entityType: 'mot_shop_collection',
+          entityId: null,
+          labTestId,
+          photoKind: 'TEST_RESULT',
+          deviceCapturedAt: p.capturedAt,
+          latitude: p.gps?.lat ?? null,
+          longitude: p.gps?.lng ?? null,
+          gpsAccuracyM: p.gps?.accuracyM ?? null,
+          wasOffline: typeof navigator !== 'undefined' ? !navigator.onLine : false,
+          width: p.width,
+          height: p.height,
+          policyVersion: shopPolicy?.version ?? null,
+          requestedAs,
+        },
+      }));
+
+      const queued = await enqueueMotCollection(
+        {
+          client_event_id: clientEventId,
+          journey_id: journey.id,
+          stop_id: activeStop.id,
+          shop_rmr_number: shopRmrNumber.trim() || null,
+          milk_source_id: selectedSourceId || null,
+          quantity: qNum,
+          unit,
+          lr: lrNum,
+          fat: fatNum,
+          recorded_latitude: collectionGps.latitude,
+          recorded_longitude: collectionGps.longitude,
+          recorded_gps_accuracy: collectionGps.accuracy,
+          notes: notes.trim() || undefined,
+          person_decision: personDecision,
+          decision_remarks: remarksText || null,
+          gps_approximate: collectionGps.status === 'APPROXIMATE',
+          test_results: testResults,
+          photos: photoEntries.map(([labTestId, p]) => ({ lab_test_id: labTestId, capture_id: p.captureId })),
+          policy_version: shopPolicy?.version ?? null,
+          requested_as: requestedAs,
+          offline_created_at: offlineCreatedAt,
+        },
+        photoMeta
+      );
+      const picturesWait = queued.mode === 'OLD_QUEUE' && queued.photosWaitForSetup;
+
+      const finalDecision = decision?.finalDecision ?? (personDecision === 'REJECT' ? 'REJECTED' : 'ACCEPTED');
+      const stopStatus = personDecision === 'REJECT' ? 'REJECTED' : 'VISITED';
 
       // Update local stop state immediately for instant UI feedback
       const preview = computeCanonicalMilkMetrics(qNum, unit, lrNum, fatNum);
@@ -860,7 +1122,7 @@ export default function MotPage() {
             s.id === activeStop.id
               ? {
                   ...s,
-                  status: 'VISITED',
+                  status: stopStatus,
                   collection: {
                     gross_liters: preview.grossLiters,
                     unit,
@@ -868,6 +1130,7 @@ export default function MotPage() {
                     fat: fatNum,
                     at_13ts_liters: preview.at13TsLiters,
                     created_at: offlineCreatedAt,
+                    final_decision: finalDecision,
                   },
                 }
               : s
@@ -875,28 +1138,37 @@ export default function MotPage() {
         };
       });
 
-      const shopDisplayName = activeStop.shop_name || activeStop.shop?.shop_name || 'Shop';
-      const rawPhone = activeStop.phone_number || activeStop.shop?.contact_number || '';
-      const digits = rawPhone.replace(/\D/g, '');
-      const intlPhone = digits
-        ? digits.startsWith('92')
-          ? digits
-          : digits.startsWith('0')
-            ? `92${digits.slice(1)}`
-            : `92${digits}`
-        : '';
+      // Pictures are now owned by the queue; only the screen previews are released.
+      Object.values(testPhotos).forEach((p) => URL.revokeObjectURL(p.previewUrl));
+      setTestPhotos({});
 
-      const receiptMsg = `*SFPL Milk Collection Receipt*\nShop: ${shopDisplayName}\nJourney: #${journey.journey_number}\nVehicle: ${journey.mot_vehicle?.vehicle_number || 'SFPL-MOT'}\nGross: ${preview.grossLiters.toFixed(2)} L\nLR: ${lrNum.toFixed(1)} | Fat: ${fatNum.toFixed(1)}%\nSNF: ${preview.snf.toFixed(2)}% | Total Solids: ${preview.totalSolids.toFixed(2)}%\n@13TS: ${preview.at13TsLiters.toFixed(2)} L\nStatus: Verified\nTime: ${new Date().toLocaleTimeString()} PKT`;
+      if (personDecision === 'REJECT') {
+        setSyncFeedback(picturesWait ? 'Shop rejected. Pictures will send after the phone is set up.' : 'Shop rejected and saved.');
+      } else {
+        const shopDisplayName = activeStop.shop_name || activeStop.shop?.shop_name || 'Shop';
+        const rawPhone = activeStop.phone_number || activeStop.shop?.contact_number || '';
+        const digits = rawPhone.replace(/\D/g, '');
+        const intlPhone = digits
+          ? digits.startsWith('92')
+            ? digits
+            : digits.startsWith('0')
+              ? `92${digits.slice(1)}`
+              : `92${digits}`
+          : '';
 
-      setCompletedReceiptModal({
-        shopName: shopDisplayName,
-        phone: rawPhone,
-        whatsappUrl: intlPhone ? `https://wa.me/${intlPhone}?text=${encodeURIComponent(receiptMsg)}` : '',
-        grossLiters: preview.grossLiters,
-        at13tsLiters: preview.at13TsLiters,
-        lr: lrNum,
-        fat: fatNum,
-      });
+        const receiptMsg = `*SFPL Milk Collection Receipt*\nShop: ${shopDisplayName}\nJourney: #${journey.journey_number}\nVehicle: ${journey.mot_vehicle?.vehicle_number || 'SFPL-MOT'}\nGross: ${preview.grossLiters.toFixed(2)} L\nLR: ${lrNum.toFixed(1)} | Fat: ${fatNum.toFixed(1)}%\nSNF: ${preview.snf.toFixed(2)}% | Total Solids: ${preview.totalSolids.toFixed(2)}%\n@13TS: ${preview.at13TsLiters.toFixed(2)} L\nStatus: ${decisionWord(finalDecision)}\nTime: ${new Date().toLocaleTimeString()} PKT`;
+
+        setCompletedReceiptModal({
+          shopName: shopDisplayName,
+          phone: rawPhone,
+          whatsappUrl: intlPhone ? `https://wa.me/${intlPhone}?text=${encodeURIComponent(receiptMsg)}` : '',
+          grossLiters: preview.grossLiters,
+          at13tsLiters: preview.at13TsLiters,
+          lr: lrNum,
+          fat: fatNum,
+        });
+        if (picturesWait) setSyncFeedback('Pictures will send after the phone is set up.');
+      }
 
       setActiveStop(null);
       await refreshUnsynced();
@@ -906,7 +1178,7 @@ export default function MotPage() {
         triggerSync();
       }
     } catch (err) {
-      setFormError(getErrorMessage(err) || 'Failed to queue collection event.');
+      setFormError(getErrorMessage(err) || 'Could not save this collection on the phone.');
     } finally {
       setSubmittingCollection(false);
     }
@@ -999,7 +1271,56 @@ export default function MotPage() {
             </div>
           </div>
 
-          {loadingJourney ? (
+          {isCovering && (
+            <div className="p-3 sm:p-4 rounded-xl border-2 border-violet-300 bg-violet-50 text-violet-900 space-y-3">
+              <div className="flex items-start gap-2">
+                <UserCog className="w-5 h-5 shrink-0 mt-0.5" aria-hidden="true" />
+                <div>
+                  <p className="text-sm font-bold">Covering MOT work</p>
+                  <p className="text-xs">
+                    You are doing MOT work as {getRoleLabel(currentUser.role)}. This needs the internet.
+                  </p>
+                </div>
+              </div>
+              {!isOnline ? (
+                <p className="text-xs font-semibold flex items-center gap-1.5">
+                  <WifiOff className="w-4 h-4" aria-hidden="true" />
+                  You are offline. Connect to the internet to cover MOT work.
+                </p>
+              ) : (
+                <div>
+                  <label htmlFor="cover-journey" className="block text-xs font-semibold mb-1">
+                    Choose a journey
+                  </label>
+                  <select
+                    id="cover-journey"
+                    value={coverJourneyId ?? ''}
+                    onChange={(e) => {
+                      setLoadingJourney(true);
+                      setJourney(null);
+                      setCoverJourneyId(e.target.value || null);
+                    }}
+                    className="w-full min-h-[48px] text-sm font-semibold border border-violet-300 rounded-xl p-2.5 bg-white focus:ring-2 focus:ring-violet-500"
+                  >
+                    <option value="">Choose…</option>
+                    {coverJourneys.map((j) => (
+                      <option key={j.id} value={j.id}>
+                        #{j.journey_number} · {j.mot_profile?.name || j.mot_profile?.mot_code || 'MOT'} ·{' '}
+                        {j.route?.name || j.route?.route_code || 'Route'}
+                        {j.mot_vehicle?.vehicle_number ? ` · ${j.mot_vehicle.vehicle_number}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  {coverListError && <p className="mt-1 text-xs font-semibold text-red-700">{coverListError}</p>}
+                  {!coverListError && coverJourneys.length === 0 && (
+                    <p className="mt-1 text-xs">No journey is collecting milk right now.</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {isCovering && (!isOnline || !coverJourneyId) ? null : loadingJourney ? (
             <div className="p-12 text-center text-xs font-semibold text-slate-500 bg-white rounded-xl border border-border">
               <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-primary" />
               Checking assigned route…
@@ -1023,13 +1344,20 @@ export default function MotPage() {
             (() => {
               const visitedStops = journey.stops.filter((s) => s.status === 'VISITED');
               const skippedStops = journey.stops.filter((s) => s.status === 'SKIPPED');
-              const pendingStops = journey.stops.filter((s) => s.status !== 'VISITED' && s.status !== 'SKIPPED');
+              const rejectedStops = journey.stops.filter((s) => s.status === 'REJECTED');
+              const pendingStops = journey.stops.filter(
+                (s) => s.status !== 'VISITED' && s.status !== 'SKIPPED' && s.status !== 'REJECTED'
+              );
               const nextPendingStop = pendingStops[0] || null;
-              const totalGross = visitedStops.reduce(
+              // Totals count accepted milk only (waiting for the Zonal Manager is left out until decided).
+              const acceptedStops = visitedStops.filter(
+                (s) => s.collection?.final_decision !== 'PENDING' && s.collection?.final_decision !== 'REJECTED'
+              );
+              const totalGross = acceptedStops.reduce(
                 (sum, s) => sum + (s.collection?.gross_liters || 0),
                 0
               );
-              const totalAt13ts = visitedStops.reduce(
+              const totalAt13ts = acceptedStops.reduce(
                 (sum, s) => sum + (s.collection?.at_13ts_liters || 0),
                 0
               );
@@ -1114,19 +1442,19 @@ export default function MotPage() {
                         </span>
                       </div>
                       <div className="p-2 sm:p-2.5 rounded-xl bg-rose-50/70 border border-rose-300">
-                        <span className="text-[10px] font-semibold text-rose-800 uppercase block">Skipped</span>
+                        <span className="text-[10px] font-semibold text-rose-800 uppercase block">Skipped / Rejected</span>
                         <span className="font-semibold text-xs sm:text-sm text-rose-950 tabular-nums">
-                          {skippedStops.length}
+                          {skippedStops.length} / {rejectedStops.length}
                         </span>
                       </div>
                       <div className="p-2 sm:p-2.5 rounded-xl bg-blue-50/70 border border-blue-200">
-                        <span className="text-[10px] font-semibold text-blue-800 uppercase block">Physical</span>
+                        <span className="text-[10px] font-semibold text-blue-800 uppercase block">Milk (L)</span>
                         <span className="font-semibold text-xs sm:text-sm text-blue-950 tabular-nums">
                           {totalGross.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 })} L
                         </span>
                       </div>
                       <div className="p-2 sm:p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-300">
-                        <span className="text-[10px] font-semibold text-emerald-800 uppercase block">Commercial</span>
+                        <span className="text-[10px] font-semibold text-emerald-800 uppercase block">@13TS (L)</span>
                         <span className="font-semibold text-xs sm:text-sm text-emerald-950 tabular-nums">
                           {totalAt13ts.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 })} L
                         </span>
@@ -1239,6 +1567,7 @@ export default function MotPage() {
                                 const sCode = stop.shop_code || stop.shop?.shop_code || '—';
                                 const isVisited = stop.status === 'VISITED';
                                 const isSkipped = stop.status === 'SKIPPED';
+                                const isRejected = stop.status === 'REJECTED';
                                 return (
                                   <button
                                     key={stop.id}
@@ -1246,7 +1575,7 @@ export default function MotPage() {
                                     onClick={() => {
                                       setIsSearchOpen(false);
                                       setShopSearchQuery('');
-                                      handleOpenCollectionModal(stop);
+                                      if (!isVisited && !isSkipped && !isRejected) handleOpenCollectionModal(stop);
                                     }}
                                     className="w-full p-2.5 text-left flex items-center justify-between hover:bg-subtle transition"
                                   >
@@ -1272,6 +1601,10 @@ export default function MotPage() {
                                         <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-rose-100 text-rose-800">
                                           Skipped
                                         </span>
+                                      ) : isRejected ? (
+                                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-100 text-red-800">
+                                          ✗ Rejected
+                                        </span>
                                       ) : (
                                         <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-primary text-white">
                                           Select
@@ -1295,7 +1628,9 @@ export default function MotPage() {
                         const areaName = stop.area_name || stop.area_code || '';
                         const isVisited = stop.status === 'VISITED';
                         const isSkipped = stop.status === 'SKIPPED';
-                        const isPending = !isVisited && !isSkipped;
+                        const isRejected = stop.status === 'REJECTED';
+                        const isPending = !isVisited && !isSkipped && !isRejected;
+                        const waitingDecision = isVisited && stop.collection?.final_decision === 'PENDING';
 
                         return (
                           <div
@@ -1307,6 +1642,8 @@ export default function MotPage() {
                                 className={`w-7 h-7 rounded-lg text-xs tabular-nums font-semibold flex items-center justify-center shrink-0 mt-0.5 ${
                                   isVisited
                                     ? 'bg-emerald-600 text-white'
+                                    : isRejected
+                                    ? 'bg-red-100 text-red-800 border border-red-300'
                                     : isSkipped
                                     ? 'bg-rose-100 text-rose-800 border border-rose-300'
                                     : 'bg-muted text-slate-700 border border-border-strong'
@@ -1322,10 +1659,14 @@ export default function MotPage() {
                                   <span className="text-[10px] tabular-nums text-slate-500">
                                     ({shopCode})
                                   </span>
-                                  {isVisited ? (
+                                  {waitingDecision ? (
+                                    <DecisionStatusBadge status="PENDING" />
+                                  ) : isVisited ? (
                                     <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300">
-                                      Completed ({Number(stop.collection?.gross_liters || 0).toFixed(1)} L)
+                                      ✓ Completed ({Number(stop.collection?.gross_liters || 0).toFixed(1)} L)
                                     </span>
+                                  ) : isRejected ? (
+                                    <DecisionStatusBadge status="REJECTED" />
                                   ) : isSkipped ? (
                                     <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-rose-100 text-rose-900 border border-rose-300">
                                       SKIPPED {stop.skip_reason ? `· ${stop.skip_reason}` : ''}
@@ -1372,7 +1713,7 @@ export default function MotPage() {
                                         : digits.startsWith('0')
                                           ? `92${digits.slice(1)}`
                                           : `92${digits}`;
-                                      const msg = `*SFPL Milk Collection Receipt*\nShop: ${shopName}\nJourney: #${journey?.journey_number || '101'}\nVehicle: ${journey?.mot_vehicle?.vehicle_number || 'SFPL-MOT'}\nGross: ${Number(stop.collection.gross_liters).toFixed(2)} L\nLR: ${stop.collection.lr} | Fat: ${stop.collection.fat}%\n@13TS: ${Number(stop.collection.at_13ts_liters).toFixed(2)} L\nStatus: Verified`;
+                                      const msg = `*SFPL Milk Collection Receipt*\nShop: ${shopName}\nJourney: #${journey?.journey_number || '101'}\nVehicle: ${journey?.mot_vehicle?.vehicle_number || 'SFPL-MOT'}\nGross: ${Number(stop.collection.gross_liters).toFixed(2)} L\nLR: ${stop.collection.lr} | Fat: ${stop.collection.fat}%\n@13TS: ${Number(stop.collection.at_13ts_liters).toFixed(2)} L\nStatus: ${decisionWord(stop.collection.final_decision)}`;
                                       return (
                                         <a
                                           href={`https://wa.me/${intlPhone}?text=${encodeURIComponent(msg)}`}
@@ -1585,73 +1926,31 @@ export default function MotPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 min-w-0">
-                    <div className="min-w-0">
-                      <label className="block text-xs font-semibold text-foreground mb-1">
-                        LR Reading (20-35) <span className="text-rose-600">*</span>
-                      </label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        min="20"
-                        max="35"
-                        value={lr}
-                        onChange={(e) => setLr(e.target.value)}
-                        placeholder="e.g. 28.5"
-                        className="w-full min-w-0 text-xs font-semibold border border-border rounded-xl p-2.5 bg-subtle focus:ring-2 focus:ring-primary"
-                        required
-                      />
-                    </div>
-                    <div className="min-w-0">
-                      <label className="block text-xs font-semibold text-foreground mb-1">
-                        Fat % (1.5-12.0) <span className="text-rose-600">*</span>
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="1.5"
-                        max="12"
-                        value={fat}
-                        onChange={(e) => setFat(e.target.value)}
-                        placeholder="e.g. 4.2"
-                        className="w-full min-w-0 text-xs font-semibold border border-border rounded-xl p-2.5 bg-subtle focus:ring-2 focus:ring-primary"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                        LR reading photo *
-                      </label>
-                      <LiveCameraCapture
-                        testType="LR"
-                        stageName="MOT Village Collection"
-                        tokenNo={shopRmrNumber || activeStop.shop_code}
-                        vehicleNo={journey?.mot_vehicle?.vehicle_number || null}
-                        currentPhotoUrl={lrPhotoUrl}
-                        onPhotoCaptured={(url) => setLrPhotoUrl(url)}
-                        onPhotoCleared={() => setLrPhotoUrl(null)}
-                        isRequired={true}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                        Fat reading photo *
-                      </label>
-                      <LiveCameraCapture
-                        testType="FAT"
-                        stageName="MOT Village Collection"
-                        tokenNo={shopRmrNumber || activeStop.shop_code}
-                        vehicleNo={journey?.mot_vehicle?.vehicle_number || null}
-                        currentPhotoUrl={fatPhotoUrl}
-                        onPhotoCaptured={(url) => setFatPhotoUrl(url)}
-                        onPhotoCleared={() => setFatPhotoUrl(null)}
-                        isRequired={true}
-                      />
-                    </div>
-                  </div>
+                  <MotShopTestsStep
+                    policy={shopPolicy}
+                    lr={lr}
+                    fat={fat}
+                    onLrChange={setLr}
+                    onFatChange={setFat}
+                    values={testValues}
+                    onValueChange={(labTestId, patch) =>
+                      setTestValues((prev) => ({
+                        ...prev,
+                        [labTestId]: { ...(prev[labTestId] ?? { value: '', text: '' }), ...patch },
+                      }))
+                    }
+                    photos={testPhotos}
+                    onPhotoTaken={(test, result) => void handlePhotoTaken(test, result)}
+                    onPhotoRemoved={handlePhotoRemoved}
+                    stamp={{
+                      employeeCode: currentUser.username,
+                      roleLabel: getRoleLabel(currentUser.role),
+                      actingAsLabel: isCovering ? getRoleLabel('MOT') : null,
+                      vehicleNo: journey?.mot_vehicle?.vehicle_number || null,
+                      tokenNo: shopRmrNumber || null,
+                    }}
+                    disabled={submittingCollection}
+                  />
 
                   {livePreview && (
                     <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl space-y-2">
@@ -1667,7 +1966,7 @@ export default function MotPage() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <div className="p-2.5 bg-white/90 rounded-lg border border-blue-100">
                           <span className="text-[10px] font-semibold uppercase text-slate-500 block mb-1">
-                            Physical Milk Truth
+                            Milk
                           </span>
                           <div className="flex items-baseline justify-between">
                             <span className="text-xs text-slate-600 font-semibold">Gross Liters:</span>
@@ -1681,7 +1980,7 @@ export default function MotPage() {
 
                         <div className="p-2.5 bg-emerald-50/70 rounded-lg border border-emerald-200">
                           <span className="text-[10px] font-semibold uppercase text-emerald-800 block mb-1">
-                            Commercial Milk Truth
+                            Milk at 13 TS
                           </span>
                           <div className="flex items-baseline justify-between">
                             <span className="text-xs text-emerald-900 font-semibold">@13TS Liters:</span>
@@ -1709,72 +2008,28 @@ export default function MotPage() {
                     />
                   </div>
 
-                  <div className="pt-2 border-t border-border space-y-2">
-                    <label className="flex items-center space-x-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={requestException}
-                        onChange={(e) => setRequestException(e.target.checked)}
-                        className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary"
-                      />
-                      <span className="text-xs font-semibold text-slate-700">Request Quality Exception</span>
-                    </label>
-                    {requestException && (
-                      <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl space-y-2">
-                        <div className="flex items-start gap-2">
-                          <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                          <div className="text-xs text-amber-900">
-                            <p className="font-semibold text-sm text-amber-950">Are you sure with your decision?</p>
-                            <p className="mt-1 font-normal text-amber-900">
-                              This test is against SOP rules (FAIL) or test picture is missing. Your decision will be sent to <strong>ZMCC Manager</strong> for final decision.
-                            </p>
-                          </div>
-                        </div>
-                        <div className="pt-1">
-                          <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                            Reason for Exception (Required) <span className="text-rose-600">*</span>
-                          </label>
-                          <textarea
-                            rows={2}
-                            value={exceptionReason}
-                            onChange={(e) => setExceptionReason(e.target.value)}
-                            placeholder="Specify reason for requesting exception against SOP rules…"
-                            className="w-full min-w-0 resize-y break-words text-xs border border-amber-300 rounded-xl p-2.5 bg-white focus:ring-2 focus:ring-primary"
-                            required={requestException}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                  <DecisionRulePanel
+                    tests={decisionRows}
+                    decision={decisionPreview?.decision ?? null}
+                    personDecision={personDecision}
+                    onPersonDecisionChange={setPersonDecision}
+                    remarks={decisionRemarks}
+                    onRemarksChange={setDecisionRemarks}
+                    warnings={decisionPreview?.details.warnings ?? []}
+                    approverLabel="Zonal Manager"
+                    routeLabels={{ PROCEED: 'Submit', REJECT: 'Reject shop', SEND_TO_APPROVER: 'Send to Zonal Manager', DECIDE_NOW: 'Decide now' }}
+                    onSubmit={() => void handleRecordCollection()}
+                    submitting={submittingCollection}
+                  />
 
-                  <div className="flex items-center space-x-2 pt-3 border-t border-border">
-                    <button
-                      type="button"
-                      onClick={handleSaveDraft}
-                      className="flex-1 flex items-center justify-center space-x-1.5 px-3 py-3 rounded-xl border border-border text-xs font-semibold text-slate-700 hover:bg-muted min-h-[44px] transition"
-                    >
-                      <Save className="w-4 h-4" />
-                      <span>Save Draft</span>
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={submittingCollection || (requestException && !exceptionReason.trim())}
-                      className={`flex-2 flex items-center justify-center space-x-1.5 px-4 py-3 rounded-xl text-white text-xs font-semibold transition shadow-xs disabled:opacity-50 min-h-[44px] ${
-                        requestException
-                          ? 'bg-amber-600 hover:bg-amber-700'
-                          : 'bg-primary hover:bg-primary/90'
-                      }`}
-                    >
-                      <Send className="w-4 h-4" />
-                      <span>
-                        {submittingCollection
-                          ? 'Queueing…'
-                          : requestException
-                          ? 'Confirm & Send to ZMCC Manager'
-                          : 'Record & Queue'}
-                      </span>
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSaveDraft}
+                    className="w-full flex items-center justify-center space-x-1.5 px-3 py-3 rounded-xl border border-border text-sm font-semibold text-slate-700 hover:bg-muted min-h-[48px] transition"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>Save for later</span>
+                  </button>
                 </form>
               </Modal>
           )}</AnimatePresence>

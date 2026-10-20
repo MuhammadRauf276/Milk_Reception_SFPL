@@ -26,6 +26,7 @@ import { SegmentedTabs } from '@/components/ui/segmented-tabs';
 import { AnimatePresence } from 'framer-motion';
 import { getErrorMessage } from '@/lib/errors';
 import { PendingApprovalsPanel } from './approvals/PendingApprovalsPanel';
+import { canCreateRoute, isFieldStationRole } from './stage1Capabilities';
 
 export type MasterDataTab = 'LOCAL_SUPPLIERS' | 'ROUTES' | 'AREAS' | 'MILK_SOURCES' | 'SHOPS' | 'CHILLER_OWNERSHIP' | 'TANKS' | 'APPROVALS';
 
@@ -248,12 +249,13 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
   const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
   const isDataExecutive = currentUser?.role === 'DATA_EXECUTIVE';
   const isZmccManager = currentUser?.role === 'ZMCC_MANAGER';
-  const isPheOperator = currentUser?.role === 'PHE_OPERATOR';
+  // PHE Operator, MDO and other field-station roles get the shop-station view.
+  const isFieldStation = isFieldStationRole(currentUser?.role ?? '');
   const canEditMaster = isDataExecutive || isSuperAdmin;
 
   // Tabs permitted
   const permittedTabs: { id: MasterDataTab; label: string; icon: LucideIcon }[] = React.useMemo(() => {
-    if (isPheOperator) {
+    if (isFieldStation) {
       return [
         { id: 'LOCAL_SUPPLIERS', label: 'Local Suppliers', icon: Users },
         { id: 'SHOPS', label: 'Shop Details (Reference)', icon: Store },
@@ -275,7 +277,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
     }
     tabs.push({ id: 'APPROVALS', label: 'Approvals', icon: ShieldCheck });
     return tabs;
-  }, [isSuperAdmin, isDataExecutive, isZmccManager, isPheOperator]);
+  }, [isSuperAdmin, isDataExecutive, isZmccManager, isFieldStation]);
 
   const [internalTab, setInternalTab] = useState<MasterDataTab>(
     controlledTab || initialTab || 'LOCAL_SUPPLIERS'
@@ -719,10 +721,10 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
             </div>
             <div>
               <h1 className="text-lg sm:text-xl font-semibold text-foreground">
-                {isPheOperator ? 'PHE Shop Station' : 'ZMCC master data'}
+                {isFieldStation ? (currentUser?.role === 'MDO' ? 'MDO Shop Station' : 'PHE Shop Station') : 'ZMCC master data'}
               </h1>
               <p className="text-xs font-medium text-slate-500">
-                {isPheOperator
+                {isFieldStation
                   ? 'Manage and maintain collection shops within your assigned ZMCC.'
                   : 'Manage routes, collection areas, milk sources, shops, and chiller ownership.'}
               </p>
@@ -794,7 +796,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
         <div id="tabpanel-APPROVALS" role="tabpanel" aria-labelledby="tab-APPROVALS" className="space-y-6 animate-panel-in">
           <PendingApprovalsPanel
             currentUser={currentUser}
-            showRoutes={isSuperAdmin || isZmccManager}
+            showRoutes={canCreateRoute(currentUser?.role ?? '')}
             showShops={true}
             onRefreshParent={loadData}
           />
@@ -886,7 +888,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
         {/* Action Button: Add Entity */}
         {((isSuperAdmin || isDataExecutive) ||
           (isZmccManager && activeTab !== 'CHILLER_OWNERSHIP' && activeTab !== 'TANKS') ||
-          (isPheOperator && (activeTab === 'SHOPS' || activeTab === 'LOCAL_SUPPLIERS'))) && (
+          (isFieldStation && (activeTab === 'SHOPS' || activeTab === 'LOCAL_SUPPLIERS'))) && (
           <button
             type="button"
             onClick={handleOpenCreateModal}

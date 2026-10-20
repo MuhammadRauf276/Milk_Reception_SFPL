@@ -5,7 +5,7 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { auth, errorResponse } = await resolveZmccAuth(req, 'WRITE_ROUTE');
+  const { auth, errorResponse } = await resolveZmccAuth(req, 'APPROVE_ROUTE');
   if (errorResponse) {
     return NextResponse.json({ error: errorResponse.error }, { status: errorResponse.status });
   }

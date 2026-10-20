@@ -6,7 +6,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   // Dual approval: authorized for BOTH PHE_OPERATOR and ZMCC_MANAGER (and SUPER_ADMIN)
-  const { auth, errorResponse } = await resolveZmccAuth(req, 'WRITE_SHOP');
+  const { auth, errorResponse } = await resolveZmccAuth(req, 'APPROVE_SHOP');
   if (errorResponse) {
     return NextResponse.json({ error: errorResponse.error }, { status: errorResponse.status });
   }

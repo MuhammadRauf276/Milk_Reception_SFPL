@@ -22,6 +22,7 @@ import { ZmccMasterDataWorkspace, type MasterDataTab } from '@/frontend/modules/
 import { ZmccArrivalsWorkspace } from '@/frontend/modules/zmcc/arrivals/ZmccArrivalsWorkspace';
 import { ZmccLabWorkspace } from '@/frontend/modules/zmcc/lab/ZmccLabWorkspace';
 import { PendingApprovalsPanel } from '@/frontend/modules/zmcc/approvals/PendingApprovalsPanel';
+import { MotShopExceptionQueue } from '@/frontend/modules/zmcc/approvals/MotShopExceptionQueue';
 import { AnimatePresence } from 'framer-motion';
 import { PageTransition } from '@/components/motion/page-transition';
 import { getErrorMessage } from '@/lib/errors';
@@ -54,7 +55,8 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
 }) => {
   const searchParams = useSearchParams();
   // ?tab= and ?view= select the tab/history view; later URL changes win over manual choices.
-  const urlTab = parseManagerTab(searchParams?.get('tab'));
+  const urlView = searchParams?.get('view')?.toUpperCase();
+  const urlTab = parseManagerTab(searchParams?.get('tab')) ?? (urlView === 'MOT_EXCEPTIONS' ? 'APPROVALS' : null);
   const urlHistoryView = parseHistoryView(searchParams?.get('view'));
   const [activeTab, setActiveTab] = useState<ZMCCManagerTab>(urlTab ?? 'OVERVIEW');
   const [historyView, setHistoryView] = useState<ManagerHistoryView>(urlHistoryView ?? 'PLANT_HISTORY');
@@ -64,6 +66,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
     if (urlTab) setActiveTab(urlTab);
     if (urlHistoryView) setHistoryView(urlHistoryView);
   }
+  const [motWaitingCount, setMotWaitingCount] = useState<number | null>(null);
   const [summaryDateRange, setSummaryDateRange] = useState<OverviewDateRange>('TODAY');
   const [serverBusinessDate, setServerBusinessDate] = useState<string>('');
   const [serverCalendarDate, setServerCalendarDate] = useState<string>('');
@@ -546,6 +549,17 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
 
         {activeTab === 'APPROVALS' && (
           <div id="tabpanel-APPROVALS" role="tabpanel" aria-labelledby="tab-APPROVALS" className="space-y-6 animate-panel-in">
+            <section id="mot-exceptions" aria-label="Shop exceptions" className={urlView === 'MOT_EXCEPTIONS' ? 'rounded-2xl ring-2 ring-violet-300 p-2' : ''}>
+              <h2 className="mb-3 flex items-center gap-2 text-lg font-bold text-slate-900">
+                Shop exceptions
+                {motWaitingCount !== null && (
+                  <span className="rounded-full bg-violet-100 px-2.5 py-0.5 text-sm font-semibold text-violet-800">
+                    {motWaitingCount} waiting
+                  </span>
+                )}
+              </h2>
+              <MotShopExceptionQueue canDecide={currentUser?.role !== 'DATA_EXECUTIVE'} onCountChange={setMotWaitingCount} />
+            </section>
             <PendingApprovalsPanel
               currentUser={currentUser}
               showRoutes={true}

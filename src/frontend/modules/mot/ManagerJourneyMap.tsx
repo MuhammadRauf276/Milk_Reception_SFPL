@@ -115,7 +115,8 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
   const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
   const isZmccManager = currentUser?.role === 'ZMCC_MANAGER';
   const isPheOperator = currentUser?.role === 'PHE_OPERATOR';
-  const isAuthorized = isSuperAdmin || isZmccManager || isPheOperator;
+  const isMdo = currentUser?.role === 'MDO';
+  const isAuthorized = isSuperAdmin || isZmccManager || isPheOperator || isMdo;
 
   // Fetch journey map data
   // Journey whose request last settled; a different journeyId means its map is still loading.
@@ -234,7 +235,7 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
         <AlertTriangle className="w-8 h-8 text-rose-600 mx-auto" />
         <h3 className="text-base font-semibold">Access Denied</h3>
         <p className="text-xs">
-          Only Super Admins, ZMCC Managers, and PHE Operators are permitted to view the Manager Journey Map.
+          Your role cannot open the journey map. Please ask your Zonal Manager.
         </p>
       </div>
     );

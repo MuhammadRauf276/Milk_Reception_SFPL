@@ -17,7 +17,10 @@ import {
 import type { SourceRef, UserRef } from '@/backend/core/serializable';
 import { getCurrentUser } from '@core/auth';
 import { User, Role } from '@core/types';
-import { isZmccFieldOfficer } from '@core/roles/hierarchy';
+import { canActAs } from '@core/roles/hierarchy';
+import { resolveActingContext, primaryActorFields, asRoleFields } from '@/backend/core/acting-context';
+import { ACTING_AS_HEADER } from '@/backend/core/route-guards';
+import type { ActingContext, DelegationMode } from '@/types/acting';
 import { getPakistanCalendarDate } from '@core/business-day';
 import { validatePhone, validateCnic } from '../zmccMasterDataService';
 import { computeCanonicalMilkMetrics, formatCollectionSmsMessage } from '@backend/utils/milkFormulas';
@@ -28,8 +31,10 @@ import {
 import { PaperReferenceService } from '@/backend/services/paperReferenceService';
 import { PaperReferenceType } from '@prisma/client';
 import { paperLinkedIdentity } from '@/backend/modules/paper-references';
-import { QualityRuleService } from '@/backend/services/qualityRuleService';
-import { isLrTestCandidate, isFatTestCandidate } from '@/backend/utils/milkTestResolvers';
+import { loadMotShopPolicy } from '@/backend/services/mot/motShopPolicy';
+import { buildMotShopDecision } from '@/backend/services/mot/motShopDecision';
+import { evaluateGeofence, DEFAULT_SHOP_GEOFENCE_M } from '@/backend/services/mot/geofence';
+import type { PersonDecision } from '@/types/stage1-decision';
 import { createNotificationsForEvent } from '@/backend/services/notificationService';
 import { getErrorCode, getErrorMessage, getErrorMetaTarget } from '@/lib/errors';
 import { requireZmccScope } from '@/backend/core/scope';
@@ -38,13 +43,23 @@ import { toJsonInput } from '@/lib/json';
 export interface MotAuthContext {
   user: User;
   actorUserId: bigint;
+  /** The real user's role (never the acting-as role). */
   role: Role;
   isSuperAdmin: boolean;
   isDataExecutive: boolean;
   isZmccManager: boolean;
+  /** Acting as PHE Operator (read-only on Stage 1 since phase 4a). */
   isPheOperator: boolean;
+  /** The real user is an MOT (a superior covering MOT work is not). */
   isMot: boolean;
+  /** Own ZMCC for SOURCE scope; null for SYSTEM scope. */
   effectiveZmccId: bigint | null;
+  acting: ActingContext;
+  /** SYSTEM scope (Super Admin, Data Executive, Head of MPD, ...): every ZMCC. */
+  isSystemScope: boolean;
+  /** Can decide a Stage 1 exception on the spot (Zonal Manager or above, not Data Executive). */
+  canDecideStage1: boolean;
+  isMdoOrAbove: boolean;
 }
 
 export type MotAction =
@@ -69,12 +84,67 @@ export interface ServiceResult<T> {
   error?: string;
 }
 
+const MOT_READ_ROLES = ['MDO', 'PHE_OPERATOR', 'DATA_EXECUTIVE'] as const;
+
 /**
- * Server-side Authorization & Scope Resolver for MOT Operations
+ * Who may do each MOT action. 'ancestors' (default) lets every role above an
+ * allowed role do the work too (own scope only).
+ */
+export const MOT_ACTION_ROLES: Record<MotAction, { roles: readonly string[]; delegation: DelegationMode }> = {
+  READ: { roles: MOT_READ_ROLES, delegation: 'ancestors' },
+  READ_MAP: { roles: MOT_READ_ROLES, delegation: 'ancestors' },
+  READ_SMS_OUTBOX: { roles: MOT_READ_ROLES, delegation: 'ancestors' },
+  READ_COLLECTIONS: { roles: [...MOT_READ_ROLES, 'MOT'], delegation: 'ancestors' },
+  ASSIGN_DISPATCH: { roles: ['MDO'], delegation: 'ancestors' },
+  CANCEL_JOURNEY: { roles: ['ZMCC_MANAGER'], delegation: 'ancestors' },
+  WRITE_PROFILE: { roles: ['ZMCC_MANAGER', 'DATA_EXECUTIVE'], delegation: 'ancestors' },
+  WRITE_VEHICLE: { roles: ['ZMCC_MANAGER', 'DATA_EXECUTIVE'], delegation: 'ancestors' },
+  SUBMIT_COLLECTION: { roles: ['MOT'], delegation: 'ancestors' },
+  SKIP_STOP: { roles: ['MOT'], delegation: 'ancestors' },
+  READ_CURRENT_JOURNEY: { roles: ['MOT'], delegation: 'ancestors' },
+  UPLOAD_GPS: { roles: ['MOT'], delegation: 'none' },
+  TRANSFER_VEHICLE: { roles: ['DATA_EXECUTIVE'], delegation: 'none' },
+  // CORRECT is non-delegable: Data Executive + Super Admin only (isCorrectionAuthority).
+  CORRECT_COLLECTION: { roles: ['DATA_EXECUTIVE'], delegation: 'none' },
+};
+
+const MOT_FORBIDDEN_MESSAGE: Record<MotAction, string> = {
+  READ: 'Forbidden. You do not have permission to see MOT work.',
+  READ_MAP: 'Forbidden. You do not have permission to see MOT tracking.',
+  READ_SMS_OUTBOX: 'Forbidden. You do not have permission to see MOT messages.',
+  READ_COLLECTIONS: 'Forbidden. You do not have permission to see journey collections.',
+  ASSIGN_DISPATCH: 'Forbidden. Only an MDO or a Zonal Manager can send out an MOT.',
+  CANCEL_JOURNEY: 'Forbidden. Only a Zonal Manager can cancel a journey.',
+  WRITE_PROFILE: 'Forbidden. Only a Zonal Manager can change MOT profiles.',
+  WRITE_VEHICLE: 'Forbidden. Only a Zonal Manager can change MOT vehicles.',
+  SUBMIT_COLLECTION: 'Forbidden. Only an MOT (or a manager covering MOT work) can save shop milk.',
+  SKIP_STOP: 'Forbidden. Only an MOT (or a manager covering MOT work) can skip a shop.',
+  READ_CURRENT_JOURNEY: 'Forbidden. This screen is for MOT work.',
+  UPLOAD_GPS: 'Forbidden. Only the MOT on the journey can send GPS.',
+  TRANSFER_VEHICLE: 'Forbidden. Only Data Executive or Super Admin can move a vehicle to another ZMCC.',
+  CORRECT_COLLECTION: 'Forbidden. Only Data Executive or Super Admin may correct collections.',
+};
+
+function readActingAsHeader(reqOrUser?: Request | User): string | null {
+  if (!reqOrUser || !(reqOrUser instanceof Request)) return null;
+  return reqOrUser.headers.get(ACTING_AS_HEADER);
+}
+
+/** True when the record's ZMCC is inside the caller's scope (SYSTEM scope = every ZMCC). */
+export function isInMotScope(auth: MotAuthContext, zmccId: bigint | null | undefined): boolean {
+  if (auth.isSystemScope) return true;
+  if (zmccId === null || zmccId === undefined || auth.effectiveZmccId === null) return false;
+  return zmccId === auth.effectiveZmccId;
+}
+
+/**
+ * Server-side Authorization & Scope Resolver for MOT Operations.
+ * Uses the acting context: a superior can do the work of any role below them, own ZMCC only.
  */
 export async function resolveMotAuth(
   reqOrUser?: Request | User,
-  action: MotAction = 'READ'
+  action: MotAction = 'READ',
+  opts: { requestedAs?: string | null } = {}
 ): Promise<{ auth?: MotAuthContext; errorResponse?: { error: string; status: number } }> {
   let authUser: User | null = null;
   if (reqOrUser && 'role' in reqOrUser && 'id' in reqOrUser) {
@@ -99,175 +169,67 @@ export async function resolveMotAuth(
   }
 
   const role = dbUser.role as Role;
-  const isSuperAdmin = role === 'SUPER_ADMIN';
-  const isDataExecutive = role === 'DATA_EXECUTIVE';
-  const isZmccManager = role === 'ZMCC_MANAGER';
-  // PHE_OPERATOR or MDO: MDO has the same PHE station rights until phase 4.
-  const isPheOperator = isZmccFieldOfficer(role);
-  const isMot = role === 'MOT';
+  const user: User = {
+    id: dbUser.id.toString(),
+    username: dbUser.username,
+    name: dbUser.full_name || dbUser.username,
+    role,
+    department: dbUser.department || '',
+    scope_type: dbUser.scope_type,
+    procurement_source_id: dbUser.procurement_source_id ? dbUser.procurement_source_id.toString() : null,
+    procurement_source: dbUser.procurement_source
+      ? {
+          id: dbUser.procurement_source.id.toString(),
+          code: dbUser.procurement_source.code,
+          name: dbUser.procurement_source.name,
+          source_type: dbUser.procurement_source.source_type,
+          is_active: dbUser.procurement_source.is_active,
+        }
+      : null,
+  };
 
-  // Role validation based on required action
-  if (action === 'READ_CURRENT_JOURNEY') {
-    if (!isMot && !isSuperAdmin) {
+  const rule = MOT_ACTION_ROLES[action];
+  const requestedAs = opts.requestedAs !== undefined ? opts.requestedAs : readActingAsHeader(reqOrUser);
+  const resolved = resolveActingContext(user, rule.roles, { delegation: rule.delegation, requestedAs });
+  if (!resolved.ok) {
+    if (resolved.code === 'NO_SCOPE_BOUND') {
       return {
-        errorResponse: {
-          error: 'Forbidden. Current journey endpoint is dedicated for MOT operators.',
-          status: 403,
-        },
+        errorResponse: { error: 'Forbidden. Your account must be linked to an active ZMCC.', status: 403 },
       };
     }
-  } else if (action === 'SUBMIT_COLLECTION' || action === 'UPLOAD_GPS') {
-    // Only exact canonical linked MOT role is authorized to submit collections or upload live GPS
-    if (!isMot) {
-      return {
-        errorResponse: {
-          error: 'Forbidden. Only canonical linked MOT operators may perform this action.',
-          status: 403,
-        },
-      };
+    if (resolved.code === 'CANNOT_ACT_AS') {
+      return { errorResponse: { error: 'Forbidden. You cannot do the work of that role.', status: 403 } };
     }
-  } else if (action === 'READ_MAP' || action === 'READ_SMS_OUTBOX') {
-    // Management tracking and SMS view
-    if (!isSuperAdmin && !isZmccManager && !isPheOperator && !isDataExecutive) {
-      return {
-        errorResponse: {
-          error: 'Forbidden. Access restricted to management roles.',
-          status: 403,
-        },
-      };
-    }
-  } else if (action === 'READ_COLLECTIONS') {
-    // Exact canonical authorization: SUPER_ADMIN, DATA_EXECUTIVE, ZMCC_MANAGER, PHE_OPERATOR, MOT
-    // Every other role (or legacy role) returns 403
-    if (!isSuperAdmin && !isZmccManager && !isPheOperator && !isMot && !isDataExecutive) {
-      return {
-        errorResponse: {
-          error: 'Forbidden. Role not permitted to read journey collections.',
-          status: 403,
-        },
-      };
-    }
-  } else if (action === 'CORRECT_COLLECTION') {
-    // CORRECT is non-delegable: Data Executive and Super Admin only.
-    if (!isCorrectionAuthority(role)) {
-      return {
-        errorResponse: {
-          error: 'Forbidden. Only Data Executive or Super Admin may correct collections.',
-          status: 403,
-        },
-      };
-    }
-  } else if (action === 'TRANSFER_VEHICLE') {
-    if (!isSuperAdmin && !isDataExecutive) {
-      return {
-        errorResponse: {
-          error: 'Forbidden. Cross-ZMCC vehicle transfer is restricted to Super Admin and Data Executive.',
-          status: 403,
-        },
-      };
-    }
-  } else if (action === 'SKIP_STOP') {
-    if (!isMot && !isSuperAdmin && !isZmccManager) {
-      return {
-        errorResponse: {
-          error: 'Forbidden. Only MOT operators or ZMCC Managers may skip journey stops.',
-          status: 403,
-        },
-      };
-    }
-  } else {
-    // Normal MOT management / dispatch actions
-    if (!isSuperAdmin && !isZmccManager && !isPheOperator && !isDataExecutive) {
-      return {
-        errorResponse: {
-          error: 'Forbidden. You do not have permission to access MOT Operations.',
-          status: 403,
-        },
-      };
-    }
+    return { errorResponse: { error: MOT_FORBIDDEN_MESSAGE[action], status: 403 } };
   }
 
-  // Validate source assignment for scoped roles (ZMCC_MANAGER, PHE_OPERATOR, MOT)
-  let effectiveZmccId: bigint | null = null;
-  if (!isSuperAdmin && !isDataExecutive) {
-    if (!dbUser.procurement_source_id || !dbUser.procurement_source) {
-      return {
-        errorResponse: {
-          error: 'Forbidden. Scoped user must be assigned to an active ZMCC procurement source.',
-          status: 403,
-        },
-      };
-    }
-    if (!dbUser.procurement_source.is_active) {
-      return {
-        errorResponse: {
-          error: 'Forbidden. Assigned procurement source is inactive.',
-          status: 403,
-        },
-      };
-    }
-    if (dbUser.procurement_source.source_type !== 'ZMCC') {
-      return {
-        errorResponse: {
-          error: 'Forbidden. Assigned procurement source is not a ZMCC.',
-          status: 403,
-        },
-      };
-    }
-    effectiveZmccId = dbUser.procurement_source_id;
+  const acting = resolved.ctx;
+  // CORRECT is non-delegable (Phase 3 rule), double check with the capability helper.
+  if (action === 'CORRECT_COLLECTION' && !isCorrectionAuthority(role)) {
+    return { errorResponse: { error: MOT_FORBIDDEN_MESSAGE.CORRECT_COLLECTION, status: 403 } };
   }
 
-  // Action-specific permissions
-  if (action === 'WRITE_PROFILE' || action === 'WRITE_VEHICLE') {
-    if (isPheOperator) {
-      return {
-        errorResponse: {
-          error: 'Forbidden. PHE Operators cannot manage MOT Profiles or Vehicles.',
-          status: 403,
-        },
-      };
-    }
+  const isSystemScope = acting.scope.kind === 'SYSTEM';
+  if (!isSystemScope && (acting.scope.kind !== 'SOURCE' || acting.scope.sourceType !== 'ZMCC')) {
+    return { errorResponse: { error: 'Forbidden. Your account must be linked to an active ZMCC.', status: 403 } };
   }
-
-  if (action === 'CANCEL_JOURNEY') {
-    if (!isSuperAdmin && !isZmccManager) {
-      return {
-        errorResponse: {
-          error: 'Forbidden. Only Super Admin or the assigned ZMCC Manager can cancel journeys.',
-          status: 403,
-        },
-      };
-    }
-  }
+  const effectiveZmccId = acting.scope.kind === 'SOURCE' ? acting.scope.sourceId : null;
 
   return {
     auth: {
-      user: {
-        id: dbUser.id.toString(),
-        username: dbUser.username,
-        name: dbUser.full_name || dbUser.username,
-        role: dbUser.role as Role,
-        department: dbUser.department || '',
-        scope_type: dbUser.scope_type,
-        procurement_source_id: dbUser.procurement_source_id ? dbUser.procurement_source_id.toString() : null,
-        procurement_source: dbUser.procurement_source
-          ? {
-              id: dbUser.procurement_source.id.toString(),
-              code: dbUser.procurement_source.code,
-              name: dbUser.procurement_source.name,
-              source_type: dbUser.procurement_source.source_type,
-              is_active: dbUser.procurement_source.is_active,
-            }
-          : null,
-      },
+      user,
       actorUserId,
       role,
-      isSuperAdmin,
-      isDataExecutive,
-      isZmccManager,
-      isPheOperator,
-      isMot,
+      isSuperAdmin: role === 'SUPER_ADMIN',
+      isDataExecutive: role === 'DATA_EXECUTIVE',
+      isZmccManager: role === 'ZMCC_MANAGER',
+      isPheOperator: acting.actingAs === 'PHE_OPERATOR',
+      isMot: role === 'MOT',
       effectiveZmccId,
+      acting,
+      isSystemScope,
+      canDecideStage1: role !== 'DATA_EXECUTIVE' && canActAs(role, 'ZMCC_MANAGER'),
+      isMdoOrAbove: canActAs(role, 'MDO'),
     },
   };
 }
@@ -282,7 +244,7 @@ export async function listMotProfiles(
 ) {
   const where: Prisma.MotProfileWhereInput = {};
 
-  if (auth.isSuperAdmin || auth.isDataExecutive) {
+  if (auth.isSystemScope) {
     if (filters?.zmcc_id) {
       where.zmcc_id = BigInt(filters.zmcc_id);
     }
@@ -390,7 +352,7 @@ export async function getMotProfileById(
     return { status: 404, error: 'MOT Profile not found.' };
   }
 
-  if (!auth.isSuperAdmin && profile.zmcc_id !== auth.effectiveZmccId) {
+  if (!isInMotScope(auth, profile.zmcc_id)) {
     return { status: 403, error: 'Forbidden. You cannot access an MOT profile from another ZMCC.' };
   }
 
@@ -496,7 +458,7 @@ export async function createMotProfile(
   }
 ): Promise<ServiceResult<unknown>> {
   if (auth.isPheOperator) {
-    return { status: 403, error: 'Forbidden. PHE Operators cannot create MOT profiles.' };
+    return { status: 403, error: 'Forbidden. You cannot create MOT profiles.' };
   }
 
   const mot_code = (payload.mot_code || '').trim().toUpperCase();
@@ -512,9 +474,9 @@ export async function createMotProfile(
   if (!validateCnic(cnic)) return { status: 400, error: 'Invalid CNIC format (13 digits or XXXXX-XXXXXXX-X).' };
 
   let targetZmccId: bigint;
-  if (auth.isSuperAdmin) {
+  if (auth.isSystemScope) {
     if (!payload.zmcc_id) {
-      return { status: 400, error: 'ZMCC ID is required for Super Admin.' };
+      return { status: 400, error: 'Please choose a ZMCC.' };
     }
     try {
       targetZmccId = BigInt(payload.zmcc_id);
@@ -638,7 +600,7 @@ export async function updateMotProfile(
   }
 ): Promise<ServiceResult<unknown>> {
   if (auth.isPheOperator) {
-    return { status: 403, error: 'Forbidden. PHE Operators cannot update MOT profiles.' };
+    return { status: 403, error: 'Forbidden. You cannot change MOT profiles.' };
   }
 
   let id: bigint;
@@ -661,7 +623,7 @@ export async function updateMotProfile(
     return { status: 404, error: 'MOT Profile not found.' };
   }
 
-  if (!auth.isSuperAdmin && existing.zmcc_id !== auth.effectiveZmccId) {
+  if (!isInMotScope(auth, existing.zmcc_id)) {
     return { status: 403, error: 'Forbidden. You cannot edit an MOT profile from another ZMCC.' };
   }
 
@@ -855,7 +817,7 @@ export async function listMotVehicles(
 ) {
   const where: Prisma.MotVehicleWhereInput = {};
 
-  if (auth.isSuperAdmin || auth.isDataExecutive) {
+  if (auth.isSystemScope) {
     if (filters?.zmcc_id) {
       where.zmcc_id = BigInt(filters.zmcc_id);
     }
@@ -944,7 +906,7 @@ export async function getMotVehicleById(
     return { status: 404, error: 'MOT Vehicle not found.' };
   }
 
-  if (!auth.isSuperAdmin && vehicle.zmcc_id !== auth.effectiveZmccId) {
+  if (!isInMotScope(auth, vehicle.zmcc_id)) {
     return { status: 403, error: 'Forbidden. You cannot access an MOT vehicle from another ZMCC.' };
   }
 
@@ -994,16 +956,16 @@ export async function createMotVehicle(
   payload: CreateMotVehiclePayload
 ): Promise<ServiceResult<Record<string, unknown>>> {
   if (auth.isPheOperator) {
-    return { status: 403, error: 'Forbidden. PHE Operators cannot create MOT vehicles.' };
+    return { status: 403, error: 'Forbidden. You cannot add MOT vehicles.' };
   }
 
   const vehicle_number = (payload.vehicle_number || '').trim().toUpperCase();
   if (!vehicle_number) return { status: 400, error: 'Vehicle number is required.' };
 
   let targetZmccId: bigint;
-  if (auth.isSuperAdmin) {
+  if (auth.isSystemScope) {
     if (!payload.zmcc_id) {
-      return { status: 400, error: 'ZMCC ID is required for Super Admin.' };
+      return { status: 400, error: 'Please choose a ZMCC.' };
     }
     try {
       targetZmccId = BigInt(payload.zmcc_id);
@@ -1099,7 +1061,7 @@ export async function updateMotVehicle(
   }
 ): Promise<ServiceResult<unknown>> {
   if (auth.isPheOperator) {
-    return { status: 403, error: 'Forbidden. PHE Operators cannot update MOT vehicles.' };
+    return { status: 403, error: 'Forbidden. You cannot change MOT vehicles.' };
   }
 
   let id: bigint;
@@ -1122,7 +1084,7 @@ export async function updateMotVehicle(
     return { status: 404, error: 'MOT Vehicle not found.' };
   }
 
-  if (!auth.isSuperAdmin && existing.zmcc_id !== auth.effectiveZmccId) {
+  if (!isInMotScope(auth, existing.zmcc_id)) {
     return { status: 403, error: 'Forbidden. You cannot edit an MOT vehicle from another ZMCC.' };
   }
 
@@ -1392,9 +1354,9 @@ export async function assignAndDispatchJourney(
   auth: MotAuthContext,
   payload: AssignAndDispatchPayload
 ): Promise<ServiceResult<unknown>> {
-  // 1. Authorize: Only SUPER_ADMIN, ZMCC_MANAGER, PHE_OPERATOR
-  if (!auth.isSuperAdmin && !auth.isZmccManager && !auth.isPheOperator) {
-    return { status: 403, error: 'Forbidden. You do not have permission to assign & dispatch MOT journeys.' };
+  // 1. Authorize: MDO or above (own ZMCC). PHE Operators lost Stage 1 writes in phase 4a.
+  if (!auth.isMdoOrAbove) {
+    return { status: 403, error: 'Forbidden. Only an MDO or a Zonal Manager can send out an MOT.' };
   }
 
   // 2. Validate client-provided idempotency_key early (required, non-empty)
@@ -1420,9 +1382,9 @@ export async function assignAndDispatchJourney(
 
   // 4. Validate ZMCC scope
   let targetZmccId: bigint;
-  if (auth.isSuperAdmin) {
+  if (auth.isSystemScope) {
     if (!payload.zmcc_id) {
-      return { status: 400, error: 'ZMCC ID is required.' };
+      return { status: 400, error: 'Please choose a ZMCC.' };
     }
     try {
       targetZmccId = BigInt(payload.zmcc_id);
@@ -1496,9 +1458,9 @@ export async function assignAndDispatchJourney(
 
   // If a vehicle number is provided and does not exist in MotVehicle for that ZMCC, auto-create it with is_active: true and created_by: auth.actorUserId
   if (!vehicle) {
-    // Permission checks: PHE Operator is permitted to auto-create vehicles for their assigned ZMCC during dispatch
-    if (auth.isPheOperator && auth.effectiveZmccId !== targetZmccId) {
-      return { status: 403, error: 'Forbidden. PHE Operators can only register vehicles for their assigned ZMCC.' };
+    // A new vehicle number may be registered during dispatch, own ZMCC only.
+    if (!isInMotScope(auth, targetZmccId)) {
+      return { status: 403, error: 'Forbidden. You can only add vehicles for your own ZMCC.' };
     }
 
     vehicle = await prisma.$transaction(async (tx) => {
@@ -1729,6 +1691,7 @@ export async function assignAndDispatchJourney(
           mot_vehicle_id: vehicleId,
           status: 'COLLECTING',
           assigned_by: auth.actorUserId,
+          ...asRoleFields(auth.acting, 'assigned'),
           assigned_at: now,
           assignment_latitude: lat,
           assignment_longitude: lng,
@@ -1909,11 +1872,11 @@ export async function cancelMotJourney(
   journeyIdStr: string,
   reason: string
 ): Promise<ServiceResult<unknown>> {
-  // Only SUPER_ADMIN and same-ZMCC ZMCC_MANAGER can cancel
-  if (!auth.isSuperAdmin && !auth.isZmccManager) {
+  // Zonal Manager (own ZMCC) or above can cancel
+  if (!canActAs(auth.role, 'ZMCC_MANAGER')) {
     return {
       status: 403,
-      error: 'Forbidden. Only Super Admin or the assigned ZMCC Manager can cancel an MOT journey.',
+      error: 'Forbidden. Only a Zonal Manager can cancel a journey.',
     };
   }
 
@@ -1945,7 +1908,7 @@ export async function cancelMotJourney(
     return { status: 404, error: 'Journey not found.' };
   }
 
-  if (!auth.isSuperAdmin && journey.zmcc_id !== auth.effectiveZmccId) {
+  if (!isInMotScope(auth, journey.zmcc_id)) {
     return {
       status: 403,
       error: 'Forbidden. You cannot cancel a journey from another ZMCC.',
@@ -1971,6 +1934,7 @@ export async function cancelMotJourney(
           status: 'CANCELLED',
           cancelled_at: now,
           cancelled_by: auth.actorUserId,
+          ...asRoleFields(auth.acting, 'cancelled'),
           cancellation_reason: cleanReason,
         },
       });
@@ -2049,7 +2013,7 @@ export async function listMotJourneys(
 ) {
   const where: Prisma.MotJourneyWhereInput = {};
 
-  if (auth.isSuperAdmin) {
+  if (auth.isSystemScope) {
     if (filters?.zmcc_id) {
       where.zmcc_id = BigInt(filters.zmcc_id);
     }
@@ -2183,7 +2147,7 @@ export async function getMotJourneyById(
     return { status: 404, error: 'Journey not found.' };
   }
 
-  if (!auth.isSuperAdmin && journey.zmcc_id !== auth.effectiveZmccId) {
+  if (!isInMotScope(auth, journey.zmcc_id)) {
     return { status: 403, error: 'Forbidden. You cannot access a journey from another ZMCC.' };
   }
 
@@ -2194,7 +2158,48 @@ export async function getMotJourneyById(
 // MOT CURRENT ACTIVE JOURNEY (FOR MOT DRIVER)
 // =============================================================
 
-export async function getCurrentMotJourney(auth: MotAuthContext): Promise<ServiceResult<{ journey: ReturnType<typeof serializeJourney> | null; message?: string }>> {
+export async function getCurrentMotJourney(
+  auth: MotAuthContext,
+  opts: { journeyId?: bigint } = {}
+): Promise<ServiceResult<{ journey: ReturnType<typeof serializeJourney> | null; message?: string }>> {
+  const include = {
+    zmcc: { select: { id: true, code: true, name: true } },
+    route: { select: { id: true, route_code: true, name: true } },
+    mot_profile: { select: { id: true, mot_code: true, name: true, phone_number: true } },
+    mot_vehicle: { select: { id: true, vehicle_number: true } },
+    assigner: { select: { id: true, username: true, full_name: true } },
+    stops: {
+      include: {
+        shop: {
+          select: { id: true, shop_code: true, shop_name: true, owner_name: true, phone_number: true, geofence_radius_m: true },
+        },
+        collection: {
+          include: { sms_outbox: true },
+        },
+      },
+      orderBy: { planned_sequence: 'asc' as const },
+    },
+  } satisfies Prisma.MotJourneyInclude;
+
+  // A superior covering MOT work opens a chosen journey (own ZMCC only).
+  if (opts.journeyId !== undefined) {
+    const journey = await prisma.motJourney.findUnique({ where: { id: opts.journeyId }, include });
+    if (!journey) return { status: 404, error: 'Journey not found.' };
+    if (!isInMotScope(auth, journey.zmcc_id)) {
+      return { status: 403, error: 'Forbidden. This journey belongs to another ZMCC.' };
+    }
+    if (auth.isMot) {
+      const ownProfile = await prisma.motProfile.findUnique({ where: { user_id: auth.actorUserId }, select: { id: true } });
+      if (!ownProfile || ownProfile.id !== journey.mot_profile_id) {
+        return { status: 403, error: 'Forbidden. This journey is not assigned to you.' };
+      }
+    }
+    if (journey.status !== 'COLLECTING') {
+      return { status: 200, data: { journey: null, message: 'This journey is not collecting milk any more.' } };
+    }
+    return { status: 200, data: { journey: serializeJourney(journey) } };
+  }
+
   // Find MOT Profile linked to this user
   const motProfile = await prisma.motProfile.findUnique({
     where: { user_id: auth.actorUserId },
@@ -2205,7 +2210,9 @@ export async function getCurrentMotJourney(auth: MotAuthContext): Promise<Servic
       status: 200,
       data: {
         journey: null,
-        message: 'No MOT Profile is linked to your user account.',
+        message: auth.isMot
+          ? 'No MOT Profile is linked to your user account.'
+          : 'Choose a journey to cover MOT work.',
       },
     };
   }
@@ -2216,22 +2223,7 @@ export async function getCurrentMotJourney(auth: MotAuthContext): Promise<Servic
       mot_profile_id: motProfile.id,
       status: 'COLLECTING',
     },
-    include: {
-      zmcc: { select: { id: true, code: true, name: true } },
-      route: { select: { id: true, route_code: true, name: true } },
-      mot_profile: { select: { id: true, mot_code: true, name: true, phone_number: true } },
-      mot_vehicle: { select: { id: true, vehicle_number: true } },
-      assigner: { select: { id: true, username: true, full_name: true } },
-      stops: {
-        include: {
-          shop: { select: { id: true, shop_code: true, shop_name: true, owner_name: true, phone_number: true } },
-          collection: {
-            include: { sms_outbox: true },
-          },
-        },
-        orderBy: { planned_sequence: 'asc' },
-      },
-    },
+    include,
   });
 
   if (!activeJourney) {
@@ -2252,7 +2244,7 @@ export async function getCurrentMotJourney(auth: MotAuthContext): Promise<Servic
 export type SerializableCollection = MotShopCollection & { sms_outbox?: MotCollectionSmsOutbox | null };
 
 export type SerializableStop = MotJourneyStop & {
-  shop?: Partial<Pick<ZmccShop, 'shop_code' | 'shop_name' | 'owner_name' | 'phone_number'>> | null;
+  shop?: Partial<Pick<ZmccShop, 'shop_code' | 'shop_name' | 'owner_name' | 'phone_number' | 'geofence_radius_m'>> | null;
   collection?: SerializableCollection | null;
 };
 
@@ -2283,6 +2275,7 @@ export function serializeJourneyStop(s: SerializableStop) {
       owner_name: s.owner_name_snapshot || s.shop?.owner_name || '',
       phone_number: s.phone_number_snapshot || s.shop?.phone_number || '',
       contact_number: s.phone_number_snapshot || s.shop?.phone_number || '',
+      geofence_radius_m: s.shop?.geofence_radius_m ?? null,
     },
     collection: s.collection ? serializeCollection(s.collection) : null,
   };
@@ -2422,6 +2415,11 @@ export function serializeCollection(c: SerializableCollection) {
     last_corrected_by_user_id: c.last_corrected_by_user_id ? c.last_corrected_by_user_id.toString() : null,
     last_corrected_at: c.last_corrected_at ? (c.last_corrected_at instanceof Date ? c.last_corrected_at.toISOString() : c.last_corrected_at) : null,
     created_at: c.created_at.toISOString(),
+    system_outcome: c.system_outcome ?? null,
+    person_decision: c.person_decision ?? null,
+    final_decision: c.final_decision ?? 'ACCEPTED',
+    review_status: c.review_status ?? 'NONE',
+    exception_reasons: Array.isArray(c.exception_reasons) ? c.exception_reasons : [],
     sms_outbox: c.sms_outbox
       ? {
           id: c.sms_outbox.id.toString(),
@@ -2455,6 +2453,13 @@ export interface SubmitCollectionPayload {
   requestException?: boolean;
   exception_reason?: string | null;
   exceptionReason?: string | null;
+  // Phase 4a: Stage 1 decision (old phones send none of these -> ACCEPT, exception_reason as remarks).
+  person_decision?: PersonDecision;
+  decision_remarks?: string | null;
+  gps_approximate?: boolean;
+  test_results?: Array<{ lab_test_id: string; value?: number | null; text_value?: string | null }>;
+  photos?: Array<{ lab_test_id: string; capture_id: string }>;
+  policy_version?: number | null;
   // Legacy field names still sent by older offline clients.
   stop_id?: string | number | bigint;
   quantity?: number;
@@ -2526,7 +2531,8 @@ function matchesCollectionIdempotency(
 function resolveCollectionIdempotencyMatch(
   existingCollection: SerializableCollection,
   auth: MotAuthContext,
-  linkedProfile: Pick<MotProfile, 'id'>,
+  // null when a superior covers MOT work (no own MOT profile).
+  linkedProfile: Pick<MotProfile, 'id'> | null,
   params: {
     stopId: bigint;
     quantityValue: number;
@@ -2543,7 +2549,7 @@ function resolveCollectionIdempotencyMatch(
   }
 ): ServiceResult<Record<string, unknown>> {
   // Cross-ZMCC: Never return another ZMCC's collection
-  if (existingCollection.zmcc_id !== auth.effectiveZmccId!) {
+  if (!isInMotScope(auth, existingCollection.zmcc_id)) {
     return {
       status: 409,
       error: 'The provided client event ID is already in use for another ZMCC.',
@@ -2551,7 +2557,7 @@ function resolveCollectionIdempotencyMatch(
   }
 
   // Cross-MOT: Collection must belong to the same MOT profile
-  if (existingCollection.mot_profile_id !== linkedProfile.id) {
+  if (linkedProfile && existingCollection.mot_profile_id !== linkedProfile.id) {
     return {
       status: 403,
       error: 'Forbidden. Collection does not belong to your MOT profile.',
@@ -2570,25 +2576,33 @@ function resolveCollectionIdempotencyMatch(
 
 export async function submitShopCollection(
   reqOrUser: Request | User,
-  payload: SubmitCollectionPayload
+  payload: SubmitCollectionPayload,
+  opts: { requestedAs?: string | null } = {}
 ): Promise<ServiceResult<Record<string, unknown>>> {
-  const { auth, errorResponse } = await resolveMotAuth(reqOrUser, 'SUBMIT_COLLECTION');
+  const { auth, errorResponse } = await resolveMotAuth(reqOrUser, 'SUBMIT_COLLECTION', opts);
   if (errorResponse) return errorResponse;
   if (!auth) return { status: 401, error: 'Unauthorized.' };
 
+  // A superior covering MOT work (acting as MOT, not an MOT) has no own MOT profile:
+  // the journey only has to be in scope and still collecting.
+  const isCoveringMot = auth.acting.actingAs === 'MOT' && !auth.isMot;
+
   // 1. Verify MOT linked to an active MOT Profile in the same ZMCC
-  const linkedProfile = await prisma.motProfile.findFirst({
-    where: {
-      user_id: auth.actorUserId,
-      is_active: true,
-      zmcc_id: auth.effectiveZmccId!,
-    },
-  });
-  if (!linkedProfile) {
-    return {
-      status: 403,
-      error: 'Forbidden. MOT user is not linked to an active MOT Profile in their assigned ZMCC.',
-    };
+  let linkedProfile: MotProfile | null = null;
+  if (!isCoveringMot) {
+    linkedProfile = await prisma.motProfile.findFirst({
+      where: {
+        user_id: auth.actorUserId,
+        is_active: true,
+        zmcc_id: auth.effectiveZmccId!,
+      },
+    });
+    if (!linkedProfile) {
+      return {
+        status: 403,
+        error: 'Forbidden. MOT user is not linked to an active MOT Profile in their assigned ZMCC.',
+      };
+    }
   }
 
   // 2. Validate client_event_id early
@@ -2676,11 +2690,11 @@ export async function submitShopCollection(
     return { status: 404, error: 'Journey stop not found.' };
   }
 
-  if (stop.journey.zmcc_id !== auth.effectiveZmccId!) {
+  if (!isInMotScope(auth, stop.journey.zmcc_id)) {
     return { status: 403, error: 'Forbidden. Journey does not belong to your ZMCC.' };
   }
 
-  if (stop.journey.mot_profile_id !== linkedProfile.id) {
+  if (linkedProfile && stop.journey.mot_profile_id !== linkedProfile.id) {
     return { status: 403, error: 'Forbidden. Journey does not belong to your MOT profile.' };
   }
 
@@ -2718,6 +2732,10 @@ export async function submitShopCollection(
       shopRmrNumber: validatedShopRmrForReplay,
       hasExplicitTimestamp: !!(payload.device_collected_at || payload.offline_created_at),
     });
+  }
+
+  if (isCoveringMot && stop.journey.status !== 'COLLECTING') {
+    return { status: 409, error: 'This journey is not collecting milk any more.' };
   }
 
   // Time Validations against Journey Lifespan (for new collections)
@@ -2761,65 +2779,80 @@ export async function submitShopCollection(
     return { status: 400, error: getErrorMessage(err) || 'Failed to compute milk quality metrics.' };
   }
 
-  // 6b. Evaluate Quality Acceptance Rules for MOT_SHOP
-  const requestException = Boolean(payload.request_exception || payload.requestException);
-  const rawExceptionReason = payload.exception_reason || payload.exceptionReason || '';
-  const exceptionReason = typeof rawExceptionReason === 'string' ? rawExceptionReason.trim() : '';
+  // 6b. Stage 1 decision: policy snapshot at collection time + the person's decision + shop geofence.
+  const isLegacyPayload = payload.person_decision === undefined || payload.person_decision === null;
+  if (!isLegacyPayload && payload.person_decision !== 'ACCEPT' && payload.person_decision !== 'REJECT') {
+    return { status: 400, error: 'person_decision must be ACCEPT or REJECT.' };
+  }
+  const personDecision: PersonDecision = payload.person_decision === 'REJECT' ? 'REJECT' : 'ACCEPT';
+  const rawLegacyReason = payload.exception_reason || payload.exceptionReason || '';
+  const rawRemarks = isLegacyPayload ? rawLegacyReason : payload.decision_remarks ?? '';
+  const decisionRemarks = typeof rawRemarks === 'string' && rawRemarks.trim() ? rawRemarks.trim() : null;
+  const gpsApproximate = payload.gps_approximate === true;
 
-  const activeRulesMap = await QualityRuleService.resolveActiveRulesForTestingPoint('MOT_SHOP', deviceCollectedAt);
-  let qualityFailed = false;
-  const failureReasons: string[] = [];
-
-  if (activeRulesMap.size > 0) {
-    const ruleTestIds = Array.from(activeRulesMap.keys()).map((k) => BigInt(k));
-    const labTests = await prisma.labTest.findMany({
-      where: { id: { in: ruleTestIds } },
-      select: { id: true, testCode: true, testName: true, resultType: true },
-    });
-
-    for (const lt of labTests) {
-      const activeRule = activeRulesMap.get(lt.id.toString());
-      if (!activeRule) continue;
-
-      const isLr = isLrTestCandidate(lt.testCode, lt.testName, lt.resultType);
-      const isFat = isFatTestCandidate(lt.testCode, lt.testName, lt.resultType);
-      if (!isLr && !isFat) continue;
-
-      const testVal = isLr ? lr : fat;
-      const testName = lt.testName || (isLr ? 'LR' : 'Fat');
-
-      const evalRes = QualityRuleService.evaluateQualityResult({
-        rule: activeRule,
-        numericValue: testVal,
-        resultType: lt.resultType || 'NUMERIC',
-        testingPoint: 'MOT_SHOP',
-      });
-
-      if (evalRes.isPassed === false || evalRes.evaluationStatus === 'OUT_OF_SPEC') {
-        qualityFailed = true;
-        const minStr = activeRule.min_value !== null ? activeRule.min_value.toString() : 'any';
-        const maxStr = activeRule.max_value !== null ? activeRule.max_value.toString() : 'any';
-        failureReasons.push(`${testName} (${testVal}) outside [${minStr} - ${maxStr}]`);
-      }
-    }
+  let policy;
+  try {
+    policy = await loadMotShopPolicy(deviceCollectedAt);
+  } catch (err) {
+    return { status: 500, error: getErrorMessage(err) || 'Could not load the shop test rules.' };
   }
 
-  // If shop milk fails acceptance rules:
-  if (qualityFailed) {
-    if (!requestException) {
-      return {
-        status: 422,
-        error: `QUALITY_REJECTED: Milk quality is outside accepted specifications: ${failureReasons.join(', ')}. Request an exception to submit for ZMCC Manager authorization.`,
-      };
-    }
+  const shopLat = stop.shop.latitude != null ? Number(stop.shop.latitude) : null;
+  const shopLng = stop.shop.longitude != null ? Number(stop.shop.longitude) : null;
+  const geofenceResult = evaluateGeofence({
+    shopLat,
+    shopLng,
+    radiusM: stop.shop.geofence_radius_m ?? DEFAULT_SHOP_GEOFENCE_M,
+    lat,
+    lng,
+    accuracyM: accuracy,
+    approximate: gpsApproximate,
+  });
 
-    if (!exceptionReason || exceptionReason.length < 3) {
-      return {
-        status: 400,
-        error: 'EXCEPTION_REASON_REQUIRED: An exception reason (at least 3 characters) is required when requesting authorization for out-of-spec milk.',
-      };
-    }
+  const testInputs = Array.isArray(payload.test_results)
+    ? payload.test_results
+        .filter((t) => t && typeof t.lab_test_id === 'string' && t.lab_test_id.trim())
+        .map((t) => ({
+          labTestId: String(t.lab_test_id).trim(),
+          value: t.value != null && Number.isFinite(Number(t.value)) ? Number(t.value) : null,
+          textValue: typeof t.text_value === 'string' ? t.text_value : null,
+        }))
+    : [];
+  const photoInputs = Array.isArray(payload.photos)
+    ? payload.photos
+        .filter((ph) => ph && typeof ph.lab_test_id === 'string' && typeof ph.capture_id === 'string' && ph.capture_id.trim())
+        .map((ph) => ({ labTestId: ph.lab_test_id.trim(), captureId: ph.capture_id.trim() }))
+    : [];
+
+  const { decision, details: decisionDetails } = buildMotShopDecision(policy, {
+    lr,
+    fat,
+    tests: testInputs,
+    photos: photoInputs,
+    personDecision,
+    remarks: decisionRemarks,
+    geofence: { ...geofenceResult, accuracyM: accuracy, approximate: gpsApproximate },
+    deciderCanApprove: auth.canDecideStage1,
+  });
+
+  // Remarks are checked on the phone. The server only insists for a REJECT (the phone always knows
+  // that needs a reason): an exception the phone could not foresee (e.g. shop GPS known only here)
+  // must not leave offline work stuck. Old phones send no decision and are never blocked.
+  if (!isLegacyPayload && personDecision === 'REJECT' && !decision.remarksOk) {
+    return {
+      status: 400,
+      error: 'REMARKS_REQUIRED: Please write a short reason (at least 3 letters).',
+    };
   }
+
+  // Deciding on the spot is done with Zonal Manager authority ("if you can approve it, you can decide it").
+  const reviewerCtx: ActingContext = {
+    ...auth.acting,
+    actingAs: 'ZMCC_MANAGER',
+    isDelegated: !auth.isSuperAdmin && !auth.isDataExecutive && auth.role !== 'ZMCC_MANAGER',
+  };
+  const decidedNow = decision.route === 'DECIDE_NOW';
+  const stopStatusAfter = personDecision === 'REJECT' ? 'REJECTED' : 'VISITED';
 
   const now = new Date();
   const dateCode = stop.journey.operational_date.toISOString().split('T')[0].replace(/-/g, '');
@@ -2857,7 +2890,7 @@ export async function submitShopCollection(
           status: 'PENDING',
         },
         data: {
-          status: 'VISITED',
+          status: stopStatusAfter,
           arrived_at: deviceCollectedAt,
           completed_at: now,
         },
@@ -2947,11 +2980,25 @@ export async function submitShopCollection(
           milk_source_id: selectedMilkSourceId,
           milk_source_code_snapshot: milkSourceCodeSnapshot,
           milk_source_name_snapshot: milkSourceNameSnapshot,
-          collection_notes: notes
-            ? (qualityFailed && requestException ? `${notes} | Exception: ${exceptionReason}` : notes)
-            : (qualityFailed && requestException ? `Exception: ${exceptionReason}` : null),
+          collection_notes: notes || null,
           correction_count: 0,
           manager_correction_count: 0,
+          system_outcome: decision.systemOutcome,
+          person_decision: personDecision,
+          decision_remarks: decisionRemarks,
+          exception_reasons: toJsonInput(decision.exceptionReasons),
+          review_status: decision.reviewStatus,
+          final_decision: decision.finalDecision,
+          decision_details: toJsonInput(decisionDetails),
+          ...primaryActorFields(auth.acting),
+          ...(decidedNow
+            ? {
+                reviewed_by_user_id: auth.actorUserId,
+                reviewed_at: now,
+                review_remarks: decisionRemarks,
+                ...asRoleFields(reviewerCtx, 'reviewed'),
+              }
+            : {}),
         },
       });
 
@@ -3063,19 +3110,29 @@ export async function submitShopCollection(
           collection_notes: notes || null,
           shop_rmr_number: validatedShopRmr,
           sms_outbox_id: smsOutbox.id.toString(),
-          quality_status: qualityFailed ? 'OUT_OF_SPEC' : 'PASS',
-          exception_requested: qualityFailed && requestException,
-          exception_reason: qualityFailed && requestException ? exceptionReason : null,
-          failure_reasons: failureReasons.length > 0 ? failureReasons : null,
+          system_outcome: decision.systemOutcome,
+          person_decision: personDecision,
+          decision_route: decision.route,
+          decision_remarks: decisionRemarks,
+          exception_reasons: decision.exceptionReasons,
+          final_decision: decision.finalDecision,
+          review_status: decision.reviewStatus,
+          policy_version: policy.version,
+          client_policy_version: payload.policy_version ?? null,
+          geofence_status: geofenceResult.status,
+          stop_status: stopStatusAfter,
         },
-        actor: { userId: auth.actorUserId, actorRole: auth.role },
+        actor: auth.acting,
       });
 
-      // First-Visit Auto-Geotagging
-      const shopToGeotag = await tx.zmccShop.findUnique({
-        where: { id: stop.shop_id },
-        select: { id: true, latitude: true, longitude: true, geotag_status: true },
-      });
+      // First-Visit Auto-Geotagging: only with a good, exact GPS fix (<= 50 m).
+      const goodFix = accuracy != null && accuracy <= 50 && !gpsApproximate;
+      const shopToGeotag = goodFix
+        ? await tx.zmccShop.findUnique({
+            where: { id: stop.shop_id },
+            select: { id: true, latitude: true, longitude: true, geotag_status: true },
+          })
+        : null;
       if (shopToGeotag && (shopToGeotag.latitude == null || shopToGeotag.geotag_status === 'PENDING_FIRST_VISIT')) {
         await tx.zmccShop.update({
           where: { id: shopToGeotag.id },
@@ -3100,18 +3157,18 @@ export async function submitShopCollection(
             longitude: lng,
             geotag_status: 'VERIFIED',
           },
-          actor: { userId: auth.actorUserId, actorRole: auth.role },
+          actor: auth.acting,
         });
       }
 
-      if (qualityFailed && requestException) {
+      if (decision.route === 'SEND_TO_APPROVER') {
         await createNotificationsForEvent(tx, {
           eventKey: 'MOT_SHOP_EXCEPTION_PENDING',
           sourceId: collection.id.toString(),
           sourceZmccId: stop.journey.zmcc_id,
-          title: 'MOT shop quality exception requested',
-          body: `Shop ${stop.shop_name_snapshot} (${stop.shop_code_snapshot}) milk quality failed (${failureReasons.join(', ')}). Reason: ${exceptionReason}`,
-          deepLink: `/mpd/zmcc-manager?tab=RECONCILIATION&journeyId=${stop.journey_id.toString()}`,
+          title: 'Shop milk needs your decision',
+          body: `Shop ${stop.shop_name_snapshot} (${stop.shop_code_snapshot}): ${decision.exceptionReasons.join(', ')}. MOT said ${personDecision === 'ACCEPT' ? 'accept' : 'reject'}.${decisionRemarks ? ` Reason: ${decisionRemarks}` : ''}`,
+          deepLink: '/mpd/zmcc-manager?tab=APPROVALS&view=MOT_EXCEPTIONS',
           dedupeSuffix: `${collection.id}:${clientEventId}`,
         });
       }
@@ -3281,7 +3338,7 @@ export async function recordGpsBatch(
     return { status: 403, error: 'Forbidden. Journey does not belong to your MOT profile.' };
   }
 
-  if (journey.zmcc_id !== auth.effectiveZmccId!) {
+  if (!isInMotScope(auth, journey.zmcc_id)) {
     return { status: 403, error: 'Forbidden. Journey does not belong to your assigned ZMCC.' };
   }
 
@@ -3468,7 +3525,7 @@ export async function recordGpsBatch(
 
 /**
  * Reads manager tracking map and journey history data.
- * Authorized for SUPER_ADMIN, ZMCC_MANAGER (own ZMCC), and PHE_OPERATOR (own ZMCC read-only).
+ * Authorized for MDO, PHE Operator (read-only), Data Executive and every role above them (own ZMCC; SYSTEM scope sees all).
  * MOT drivers are strictly forbidden.
  */
 export async function getJourneyMapData(
@@ -3519,10 +3576,8 @@ export async function getJourneyMapData(
   }
 
   // Scoped authorization check
-  if (!auth.isSuperAdmin) {
-    if (journey.zmcc_id !== auth.effectiveZmccId!) {
-      return { status: 403, error: 'Forbidden. Journey belongs to another ZMCC.' };
-    }
+  if (!isInMotScope(auth, journey.zmcc_id)) {
+    return { status: 403, error: 'Forbidden. Journey belongs to another ZMCC.' };
   }
 
   // Calculate totals from collections
@@ -3683,13 +3738,11 @@ export async function getJourneyCollections(
     if (!linkedProfile || linkedProfile.id !== journey.mot_profile_id) {
       return { status: 403, error: 'Forbidden. You can only view collections for your own journey.' };
     }
-    if (journey.zmcc_id !== auth.effectiveZmccId!) {
+    if (!isInMotScope(auth, journey.zmcc_id)) {
       return { status: 403, error: 'Forbidden. Journey belongs to another ZMCC.' };
     }
-  } else if (!auth.isSuperAdmin) {
-    if (journey.zmcc_id !== auth.effectiveZmccId!) {
-      return { status: 403, error: 'Forbidden. Journey belongs to another ZMCC.' };
-    }
+  } else if (!isInMotScope(auth, journey.zmcc_id)) {
+    return { status: 403, error: 'Forbidden. Journey belongs to another ZMCC.' };
   }
 
   const collections = await prisma.motShopCollection.findMany({
@@ -3719,8 +3772,8 @@ export async function getSmsOutbox(
 
   const where: Prisma.MotCollectionSmsOutboxWhereInput = {};
 
-  if (!auth.isSuperAdmin) {
-    where.collection = { zmcc_id: auth.effectiveZmccId! };
+  if (!auth.isSystemScope) {
+    where.collection = { zmcc_id: requireZmccScope(auth) };
   }
 
   if (filterParams?.journey_id) {
@@ -3854,7 +3907,7 @@ export async function correctShopCollection(
   }
 
   // ZMCC Scoping: Scoped users can only correct their own ZMCC
-  if (!auth.isSuperAdmin && !auth.isDataExecutive && collection.zmcc_id !== auth.effectiveZmccId!) {
+  if (!isInMotScope(auth, collection.zmcc_id)) {
     return { status: 403, error: 'Forbidden. Collection belongs to another ZMCC.' };
   }
 
@@ -4139,7 +4192,7 @@ export async function skipJourneyStop(
   }
 
   // Validates journey belongs to the caller's ZMCC
-  if (!auth.isSuperAdmin && auth.effectiveZmccId && stop.journey.zmcc_id !== auth.effectiveZmccId) {
+  if (!isInMotScope(auth, stop.journey.zmcc_id)) {
     return { status: 403, error: 'Forbidden. Journey does not belong to your ZMCC.' };
   }
 

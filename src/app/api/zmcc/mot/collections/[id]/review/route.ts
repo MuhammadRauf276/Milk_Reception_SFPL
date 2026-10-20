@@ -1,0 +1,43 @@
+import { NextResponse } from 'next/server';
+import { requireRoles } from '@/backend/core/route-guards';
+import { reviewMotShopException } from '@/backend/services/mot/motShopReviewService';
+
+export async function POST(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const guard = await requireRoles(req, ['ZMCC_MANAGER']);
+    if ('response' in guard) return guard.response;
+    // Data Executive is outside approval rules.
+    if (guard.acting.actorRole === 'DATA_EXECUTIVE') {
+      return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
+    }
+
+    const { id } = await params;
+    if (!/^\d+$/.test(id)) return NextResponse.json({ error: 'Invalid collection id.' }, { status: 400 });
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 });
+    }
+    const verdict = body.verdict;
+    if (verdict !== 'OKAY' && verdict !== 'NO') {
+      return NextResponse.json({ error: 'Choose OKAY or NO.' }, { status: 400 });
+    }
+    const version = Number(body.version);
+    if (!Number.isInteger(version)) {
+      return NextResponse.json({ error: 'Version is required.' }, { status: 400 });
+    }
+
+    const result = await reviewMotShopException(guard.acting, BigInt(id), {
+      verdict,
+      remarks: typeof body.remarks === 'string' ? body.remarks : null,
+      version,
+    });
+    if (result.error) return NextResponse.json({ error: result.error }, { status: result.status });
+    return NextResponse.json(result.data, { status: result.status });
+  } catch (err) {
+    console.error('POST /api/zmcc/mot/collections/[id]/review error:', err);
+    return NextResponse.json({ error: 'Failed to save the decision.' }, { status: 500 });
+  }
+}

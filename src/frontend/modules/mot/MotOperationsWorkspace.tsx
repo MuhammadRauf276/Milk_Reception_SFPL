@@ -27,6 +27,14 @@ import { AnimatePresence } from 'framer-motion';
 import { getErrorMessage } from '@/lib/errors';
 import { acquireRobustGps } from '@/lib/gps';
 import { PendingApprovalsPanel } from '@/frontend/modules/zmcc/approvals/PendingApprovalsPanel';
+import {
+  canApproveRoute,
+  canAssignJourney,
+  canCreateRoute,
+  isFieldStationRole,
+  routeNeedsApproval,
+} from '@/frontend/modules/zmcc/stage1Capabilities';
+import { DecisionStatusBadge } from '@/frontend/modules/shared/decision/DecisionStatusBadge';
 
 export type MotWorkspaceTab =
   | 'DISPATCH'
@@ -221,8 +229,14 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
   const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
   const isDataExecutive = currentUser?.role === 'DATA_EXECUTIVE';
   const isCentralRole = isSuperAdmin || isDataExecutive;
-  const isZmccManager = currentUser?.role === 'ZMCC_MANAGER';
-  const isPheOperator = currentUser?.role === 'PHE_OPERATOR';
+  const role = currentUser?.role ?? '';
+  const canCreateRoutes = canCreateRoute(role);
+  const routeNeedsZonalApproval = routeNeedsApproval(role);
+  // Zonal Manager and above (not Data Executive) approve routes and cancel journeys.
+  const canApproveRoutes = canApproveRoute(role);
+  const canAssignAndDispatch = canAssignJourney(role);
+  // MDO and PHE Operator work from the station: they do not manage testers or vehicles.
+  const isStationRole = isFieldStationRole(role);
   const canTransferVehicle = isCentralRole;
 
   // Permitted tabs
@@ -234,7 +248,7 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
       { id: 'JOURNEY_MAP', label: 'Journey map', icon: MapPin },
       { id: 'SMS_OUTBOX', label: 'WhatsApp Receipts', icon: MessageSquare },
     ];
-    if (!isPheOperator) {
+    if (!isStationRole) {
       tabs.push(
         { id: 'PROFILES', label: 'Mobile Testers', icon: UserIcon },
         { id: 'VEHICLES', label: 'MOT Vehicles', icon: Navigation }
@@ -242,7 +256,7 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
     }
     tabs.push({ id: 'APPROVALS', label: 'Approvals', icon: ShieldCheck });
     return tabs;
-  }, [isPheOperator]);
+  }, [isStationRole]);
 
   const [internalTab, setInternalTab] = useState<MotWorkspaceTab>(
     controlledTab || initialTab
@@ -375,6 +389,7 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
       const res = await acquireRobustGps({
         facilityCode,
         allowFacilityFallback: allowFallback || (typeof window !== 'undefined' && window.isSecureContext === false),
+        maxCacheAgeMs: 30_000,
       });
 
       if (res.location) {
@@ -787,8 +802,8 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
       }
 
       setSuccessMessage(
-        isPheOperator
-          ? 'Route requested successfully and submitted for manager approval.'
+        routeNeedsZonalApproval
+          ? 'Route sent to Zonal Manager. It can be used after it is approved.'
           : 'Route created successfully.'
       );
       setRouteRequestModalOpen(false);
@@ -898,6 +913,11 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
             </span>
           </div>
 
+          {!canAssignAndDispatch && (
+            <p className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm font-semibold text-amber-900">
+              Only the MDO or a Zonal Manager can send a tester out. You can watch journeys here.
+            </p>
+          )}
           <form onSubmit={handleAssignAndDispatch} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
               <div className="space-y-1.5 min-w-0">
@@ -905,14 +925,16 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
                   <label className="block text-xs font-semibold text-foreground truncate">
                     Assigned Route <span className="text-rose-600">*</span>
                   </label>
-                  <button
-                    type="button"
-                    onClick={() => setRouteRequestModalOpen(true)}
-                    className="inline-flex items-center text-[11px] font-semibold text-primary hover:underline shrink-0 ml-1"
-                  >
-                    <Plus className="w-3 h-3 mr-0.5" />
-                    Request New Route
-                  </button>
+                  {canCreateRoutes && (
+                    <button
+                      type="button"
+                      onClick={() => setRouteRequestModalOpen(true)}
+                      className="inline-flex items-center min-h-[44px] text-xs font-semibold text-primary hover:underline shrink-0 ml-1"
+                    >
+                      <Plus className="w-3.5 h-3.5 mr-0.5" />
+                      {routeNeedsZonalApproval ? 'Send new route to Zonal Manager' : 'Add new route'}
+                    </button>
+                  )}
                 </div>
                 <select
                   value={dispatchRouteId}
@@ -927,9 +949,15 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
                     </option>
                   ))}
                 </select>
+                {dispatchRouteId && (
+                  <div className="mt-1">
+                    <DecisionStatusBadge status="APPROVED" label="Route approved" />
+                  </div>
+                )}
                 {routes.length === 0 && (
                   <p className="text-[11px] text-amber-700 font-semibold mt-1">
-                    No active routes found for this ZMCC.
+                    No approved routes found for this ZMCC.
+                    {routeNeedsZonalApproval ? ' Routes waiting for the Zonal Manager are listed under Approvals.' : ''}
                   </p>
                 )}
               </div>
@@ -1104,7 +1132,7 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
 
             <button
               type="submit"
-              disabled={actionLoading || !gpsLocation || !dispatchRouteId || !dispatchProfileId || !dispatchVehicleId}
+              disabled={!canAssignAndDispatch || actionLoading || !gpsLocation || !dispatchRouteId || !dispatchProfileId || !dispatchVehicleId}
               className="w-full h-11 flex items-center justify-center space-x-2 px-4 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Send className="w-3.5 h-3.5" />
@@ -1190,7 +1218,7 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
                         >
                           View Stops
                         </button>
-                        {(isSuperAdmin || isZmccManager) && (
+                        {canApproveRoutes && (
                           <button
                             type="button"
                             onClick={() => {
@@ -1361,7 +1389,7 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
         <SmsOutboxView currentUser={currentUser} />
       )}
 
-      {activeTab === 'PROFILES' && !isPheOperator && (
+      {activeTab === 'PROFILES' && !isStationRole && (
         <div className="bg-white rounded-xl border border-border shadow-2xs overflow-hidden space-y-3 animate-panel-in">
           <div className="p-4 border-b border-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
@@ -1456,7 +1484,7 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
         </div>
       )}
 
-      {activeTab === 'VEHICLES' && !isPheOperator && (
+      {activeTab === 'VEHICLES' && !isStationRole && (
         <div className="bg-white rounded-xl border border-border shadow-2xs overflow-hidden space-y-3 animate-panel-in">
           <div className="p-4 border-b border-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
@@ -1558,7 +1586,7 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
         <div id="tabpanel-APPROVALS" role="tabpanel" aria-labelledby="tab-APPROVALS" className="space-y-6 animate-panel-in">
           <PendingApprovalsPanel
             currentUser={currentUser}
-            showRoutes={isSuperAdmin || isZmccManager}
+            showRoutes={canCreateRoutes}
             showShops={true}
             onRefreshParent={loadData}
           />
@@ -1998,7 +2026,7 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
       <AnimatePresence>{routeRequestModalOpen && (
         <Modal key="modal-route-request" onClose={() => setRouteRequestModalOpen(false)} title="Route Request" className="max-w-md p-5 space-y-4">
           <h3 className="text-sm font-semibold text-foreground">
-            {isPheOperator ? 'Request New Collection Route' : 'Create New Collection Route'}
+            {routeNeedsZonalApproval ? 'Send route to Zonal Manager' : 'Create New Collection Route'}
           </h3>
 
           <form onSubmit={handleRequestRoute} className="space-y-3">
@@ -2072,7 +2100,7 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
                 disabled={actionLoading}
                 className="px-4 py-2 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-primary/90 disabled:opacity-50"
               >
-                {actionLoading ? 'Submitting…' : isPheOperator ? 'Submit Route Request' : 'Create Route'}
+                {actionLoading ? 'Sending…' : routeNeedsZonalApproval ? 'Send route to Zonal Manager' : 'Create Route'}
               </button>
             </div>
           </form>

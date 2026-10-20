@@ -2,6 +2,9 @@ import { getErrorMessage } from '@/lib/errors';
 import type { SyncItem, SyncItemKind } from '@/types/sync';
 import { getActiveOwnerUserId, getDeviceKey } from '@/frontend/modules/pwa/deviceIdentity';
 import { enqueueSyncItem, listSyncQueueRecords, runSyncOnce } from '@/frontend/modules/pwa/syncEngine';
+import type { PendingPhotoMeta } from '@/frontend/modules/pwa/syncQueueCore';
+import { linkPhotoToQueueItem } from '@/lib/offline/photoStore';
+import type { MotShopPolicySnapshot, PersonDecision } from '@/types/stage1-decision';
 /**
  * MOT Offline Storage & Sync Engine
  * Uses IndexedDB for reliable offline collection queuing, draft saving, and GPS buffering.
@@ -22,6 +25,8 @@ export interface CachedCollection {
   fat: number;
   at_13ts_liters: number;
   created_at?: string;
+  /** Stage 1 decision (server copy, or the phone's preview while waiting to send). */
+  final_decision?: 'ACCEPTED' | 'REJECTED' | 'PENDING' | string | null;
 }
 
 type IdLike = string | number | bigint;
@@ -46,7 +51,9 @@ export interface CacheableJourney {
     phone_number?: string;
     area_code?: string;
     area_name?: string;
-    shop?: Partial<Record<'shop_code' | 'shop_name' | 'owner_name' | 'phone_number' | 'area_code' | 'area_name', string>> | null;
+    shop?: (Partial<Record<'shop_code' | 'shop_name' | 'owner_name' | 'phone_number' | 'area_code' | 'area_name', string>> & {
+      geofence_radius_m?: number | null;
+    }) | null;
     planned_latitude?: number | string | null;
     planned_longitude?: number | string | null;
     planned_latitude_snapshot?: number | string | null;
@@ -83,6 +90,8 @@ export interface CachedJourney {
     collection?: CachedCollection | null;
     skipped_at?: string | null;
     skip_reason?: string | null;
+    /** Shop geofence radius (null = default 100 m). */
+    geofence_radius_m?: number | null;
   }>;
   cached_at: string;
 }
@@ -117,8 +126,20 @@ export interface QueuedCollection {
   recorded_longitude?: number | null;
   recorded_gps_accuracy?: number | null;
   notes?: string;
+  /** Old app versions only (Phase 4a sends person_decision instead). */
   request_exception?: boolean;
   exception_reason?: string | null;
+  // Phase 4a: Stage 1 decision
+  person_decision?: PersonDecision;
+  decision_remarks?: string | null;
+  gps_approximate?: boolean;
+  test_results?: Array<{ lab_test_id: string; value?: number | null; text_value?: string | null }>;
+  photos?: Array<{ lab_test_id: string; capture_id: string }>;
+  policy_version?: number | null;
+  /** Photo upload meta, kept so the pictures can go once the phone is set up (sync key). */
+  photo_meta?: Array<{ captureId: string; meta: PendingPhotoMeta }>;
+  /** 'MOT' when a superior covers MOT work (sent as x-acting-as / sync requestedAs). */
+  requested_as?: string | null;
   offline_created_at: string;
   /** Signed-in user who created the item (Phase 3 sync attribution). */
   owner_user_id?: string | null;
@@ -301,6 +322,7 @@ export async function saveCachedJourney(journey: CacheableJourney): Promise<void
         collection: s.collection || null,
         skipped_at: s.skipped_at || null,
         skip_reason: s.skip_reason || null,
+        geofence_radius_m: s.shop?.geofence_radius_m ?? null,
       })),
       cached_at: new Date().toISOString(),
     };
@@ -546,6 +568,78 @@ export async function deleteDraft(stopId: string): Promise<void> {
 // -------------------------------------------------------------
 // Collection Queue Operations
 // -------------------------------------------------------------
+
+/** Request body for POST /api/zmcc/mot/journeys/current/collections and the MOT_COLLECTION sync item. */
+export function motCollectionRequestBody(item: Omit<QueuedCollection, 'status' | 'attempts'>): Record<string, unknown> {
+  const body: Record<string, unknown> = {
+    client_event_id: item.client_event_id,
+    journey_id: item.journey_id,
+    stop_id: item.stop_id,
+    shop_rmr_number: item.shop_rmr_number || null,
+    milk_source_id: item.milk_source_id || null,
+    quantity: item.quantity,
+    unit: item.unit,
+    lr: item.lr,
+    fat: item.fat,
+    recorded_latitude: item.recorded_latitude,
+    recorded_longitude: item.recorded_longitude,
+    recorded_gps_accuracy: item.recorded_gps_accuracy,
+    notes: item.notes,
+    collection_notes: item.notes,
+    offline_created_at: item.offline_created_at,
+  };
+  if (item.person_decision) {
+    body.person_decision = item.person_decision;
+    body.decision_remarks = item.decision_remarks ?? null;
+    body.gps_approximate = item.gps_approximate === true;
+    body.test_results = item.test_results ?? [];
+    body.photos = item.photos ?? [];
+    body.policy_version = item.policy_version ?? null;
+  } else {
+    // Items queued by an older app version.
+    body.request_exception = item.request_exception;
+    body.exception_reason = item.exception_reason;
+  }
+  return body;
+}
+
+export type EnqueueMotCollectionResult = { mode: 'SYNC_QUEUE'; clientUuid: string } | { mode: 'OLD_QUEUE'; photosWaitForSetup: boolean };
+
+/**
+ * Stores a shop collection for sending. With a device sync key it goes into the offline sync queue
+ * (kind MOT_COLLECTION) with its photos attached; the engine uploads them after the server ACK.
+ * Without a key it goes into the old MOT queue: photos stay on the phone (photo_meta kept) and are
+ * attached when the phone is set up and the queue is moved. Nothing is deleted before the server ACK.
+ */
+export async function enqueueMotCollection(
+  item: Omit<QueuedCollection, 'status' | 'attempts' | 'photo_meta'>,
+  photos: Array<{ captureId: string; meta: PendingPhotoMeta }> = []
+): Promise<EnqueueMotCollectionResult> {
+  const owner = item.owner_user_id ?? getActiveOwnerUserId();
+  if (owner && (await deviceHasSyncKey())) {
+    const clientUuid = await syncClientUuidFor('mot-collection', item.client_event_id);
+    if (clientUuid) {
+      await enqueueSyncItem(
+        {
+          clientUuid,
+          kind: 'MOT_COLLECTION',
+          ownerUserId: owner,
+          requestedAs: item.requested_as ?? null,
+          capturedAt: item.offline_created_at,
+          payload: motCollectionRequestBody(item),
+        },
+        { photos }
+      );
+      for (const p of photos) {
+        await linkPhotoToQueueItem(p.captureId, clientUuid).catch(() => false);
+      }
+      await deleteDraft(item.stop_id).catch(() => undefined);
+      return { mode: 'SYNC_QUEUE', clientUuid };
+    }
+  }
+  await queueCollection({ ...item, owner_user_id: owner, photo_meta: photos });
+  return { mode: 'OLD_QUEUE', photosWaitForSetup: photos.length > 0 };
+}
 
 export async function queueCollection(
   item: Omit<QueuedCollection, 'status' | 'attempts'>
@@ -1229,28 +1323,12 @@ export async function syncPendingCollections(): Promise<{
   for (const item of toSync) {
     await updateCollectionQueueStatus(item.client_event_id, 'SYNCING');
     try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (item.requested_as) headers['x-acting-as'] = item.requested_as;
       const res = await fetch('/api/zmcc/mot/journeys/current/collections', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          client_event_id: item.client_event_id,
-          journey_id: item.journey_id,
-          stop_id: item.stop_id,
-          shop_rmr_number: item.shop_rmr_number || null,
-          milk_source_id: item.milk_source_id || null,
-          quantity: item.quantity,
-          unit: item.unit,
-          lr: item.lr,
-          fat: item.fat,
-          recorded_latitude: item.recorded_latitude,
-          recorded_longitude: item.recorded_longitude,
-          recorded_gps_accuracy: item.recorded_gps_accuracy,
-          notes: item.notes,
-          collection_notes: item.notes,
-          request_exception: item.request_exception,
-          exception_reason: item.exception_reason,
-          offline_created_at: item.offline_created_at,
-        }),
+        headers,
+        body: JSON.stringify(motCollectionRequestBody(item)),
       });
 
       if (res.ok) {
@@ -1623,9 +1701,16 @@ export async function drainMotQueuesToSyncQueue(opts: { fallbackOwnerUserId?: st
   const now = Date.now();
   const fallback = opts.fallbackOwnerUserId ?? null;
 
-  const move = async (item: SyncItem, enqueuedAt: number, store: string, keys: readonly IDBValidKey[]) => {
+  const move = async (
+    item: SyncItem,
+    enqueuedAt: number,
+    store: string,
+    keys: readonly IDBValidKey[],
+    photos?: Array<{ captureId: string; meta: PendingPhotoMeta }>
+  ) => {
     try {
-      await enqueueSyncItem(item, { now: enqueuedAt });
+      await enqueueSyncItem(item, { now: enqueuedAt, photos });
+      for (const p of photos ?? []) await linkPhotoToQueueItem(p.captureId, item.clientUuid).catch(() => false);
     } catch {
       kept += keys.length;
       return;
@@ -1640,7 +1725,9 @@ export async function drainMotQueuesToSyncQueue(opts: { fallbackOwnerUserId?: st
   };
 
   const collections = (await getQueuedCollections().catch(() => [] as QueuedCollection[]))
-    .filter((c) => isDrainable(c, now))
+    // Saved earlier without a key but pictures still on the phone: resend (server answers DUPLICATE
+    // with the record id) so the engine can upload the pictures.
+    .filter((c) => isDrainable(c, now) || (c.status === 'SYNCED' && (c.photo_meta?.length ?? 0) > 0))
     .sort((a, b) => timeOr(a.offline_created_at, now) - timeOr(b.offline_created_at, now));
   for (const c of collections) {
     const owner = c.owner_user_id || fallback;
@@ -1655,30 +1742,14 @@ export async function drainMotQueuesToSyncQueue(opts: { fallbackOwnerUserId?: st
         clientUuid,
         kind: 'MOT_COLLECTION',
         ownerUserId: owner,
+        requestedAs: c.requested_as ?? null,
         capturedAt: c.offline_created_at,
-        payload: {
-          client_event_id: c.client_event_id,
-          journey_id: c.journey_id,
-          stop_id: c.stop_id,
-          shop_rmr_number: c.shop_rmr_number || null,
-          milk_source_id: c.milk_source_id || null,
-          quantity: c.quantity,
-          unit: c.unit,
-          lr: c.lr,
-          fat: c.fat,
-          recorded_latitude: c.recorded_latitude,
-          recorded_longitude: c.recorded_longitude,
-          recorded_gps_accuracy: c.recorded_gps_accuracy,
-          notes: c.notes,
-          collection_notes: c.notes,
-          request_exception: c.request_exception,
-          exception_reason: c.exception_reason,
-          offline_created_at: c.offline_created_at,
-        },
+        payload: motCollectionRequestBody(c),
       },
       timeOr(c.offline_created_at, now),
       'collection_queue',
-      [c.client_event_id]
+      [c.client_event_id],
+      c.photo_meta
     );
   }
 
@@ -1796,3 +1867,29 @@ export async function getCachedAvailableSources(): Promise<CachedAvailableSource
   }
 }
 
+// -------------------------------------------------------------
+// Phase 4a: MOT_SHOP test policy cache (so the decision preview works offline)
+// -------------------------------------------------------------
+
+const SHOP_POLICY_CACHE_KEY = 'mot_cached_shop_policy';
+
+export async function cacheMotShopPolicy(policy: MotShopPolicySnapshot): Promise<void> {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(SHOP_POLICY_CACHE_KEY, JSON.stringify(policy));
+  } catch {
+    // Non-fatal cache write failure
+  }
+}
+
+export async function getCachedMotShopPolicy(): Promise<MotShopPolicySnapshot | null> {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(SHOP_POLICY_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as MotShopPolicySnapshot;
+    return parsed && parsed.point === 'MOT_SHOP' && Array.isArray(parsed.tests) ? parsed : null;
+  } catch {
+    return null;
+  }
+}

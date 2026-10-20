@@ -52,8 +52,10 @@ export function getRoleNavSections(currentUser: User | null): RoleNavSection[] {
 
   const role = currentUser.role || '';
 
-  // 1. PHE Operator and MDO (MDO shares the PHE station for now)
+  // 1. PHE Operator and MDO (same station). The MDO also does Stage 1 work:
+  //    routes, dispatch to MOT and new shop requests. PHE can only watch Stage 1.
   if (isZmccFieldOfficer(role)) {
+    const isMdo = role === 'MDO';
     return [
       {
         id: 'arrivals',
@@ -104,19 +106,39 @@ export function getRoleNavSections(currentUser: User | null): RoleNavSection[] {
             icon: Store,
             isReference: true,
           },
+          ...(isMdo
+            ? [
+                {
+                  id: 'new-shop-requests',
+                  label: 'New shop requests',
+                  href: '/phe?section=suppliers&view=approvals',
+                  icon: ShieldCheck,
+                },
+              ]
+            : []),
         ],
       },
       {
         id: 'mot',
-        label: 'MOT Dispatch & Journeys',
+        label: isMdo ? 'MOT Dispatch & Journeys' : 'MOT Journeys',
         icon: Truck,
         children: [
-          {
-            id: 'dispatch',
-            label: 'Assign & Dispatch',
-            href: '/phe?section=mot&view=dispatch',
-            icon: Send,
-          },
+          ...(isMdo
+            ? [
+                {
+                  id: 'routes',
+                  label: 'Routes',
+                  href: '/phe?section=mot&view=approvals',
+                  icon: RouteIcon,
+                },
+                {
+                  id: 'dispatch',
+                  label: 'Dispatch to MOT',
+                  href: '/phe?section=mot&view=dispatch',
+                  icon: Send,
+                },
+              ]
+            : []),
           {
             id: 'active',
             label: 'Active Journeys',
@@ -140,12 +162,6 @@ export function getRoleNavSections(currentUser: User | null): RoleNavSection[] {
             label: 'WhatsApp Receipts',
             href: '/phe?section=mot&view=sms',
             icon: MessageSquare,
-          },
-          {
-            id: 'mot-approvals',
-            label: 'Approvals',
-            href: '/phe?section=mot&view=approvals',
-            icon: ShieldCheck,
           },
         ],
       },

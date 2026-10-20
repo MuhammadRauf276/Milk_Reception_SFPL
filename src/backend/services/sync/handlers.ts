@@ -111,11 +111,13 @@ export { handleDeviceEvent, handleHeartbeat };
  *   quantity | quantity_value, unit | quantity_unit ('LITER'|'KG'), lr, fat,
  *   recorded_latitude | latitude, recorded_longitude | longitude, recorded_gps_accuracy | gps_accuracy,
  *   notes | collection_notes, request_exception?, exception_reason?, offline_created_at | device_collected_at }
+ * Phase 4a adds person_decision, decision_remarks, gps_approximate, test_results, photos, policy_version;
+ * a superior covering MOT work sends requestedAs 'MOT' (validated server side).
  * Replay of the same client_event_id returns 200 (new = 201) -> DUPLICATE.
  */
 export const handleMotCollection: SyncHandler = async (ctx) => {
   const body = withClientEventId(ctx) as unknown as SubmitCollectionPayload;
-  const res = await submitShopCollection(requireOwner(ctx), body);
+  const res = await submitShopCollection(requireOwner(ctx), body, { requestedAs: ctx.item.requestedAs ?? null });
   return mapServiceResult(res, {
     entityType: 'mot_shop_collection',
     receiptField: 'collection_number',
@@ -173,7 +175,9 @@ export const handleMotStopSkip: SyncHandler = async (ctx) => {
   }
   const reason = typeof payload.skip_reason === 'string' ? payload.skip_reason : typeof payload.reason === 'string' ? payload.reason : '';
 
-  const { auth, errorResponse } = await resolveMotAuth(requireOwner(ctx), 'SKIP_STOP');
+  const { auth, errorResponse } = await resolveMotAuth(requireOwner(ctx), 'SKIP_STOP', {
+    requestedAs: ctx.item.requestedAs ?? null,
+  });
   if (errorResponse) return failureOutcome(errorResponse);
   if (!auth) return { status: 'REJECTED', code: 'FORBIDDEN', message: 'Unauthorized.' };
 

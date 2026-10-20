@@ -12,6 +12,7 @@ export interface SerializedMotJourneySummary {
   collected_shop_count: number;
   skipped_shop_count: number;
   pending_shop_count: number;
+  rejected_shop_count: number;
   total_gross_liters: number;
   total_at_13ts_liters: number;
   weighted_avg_lr: number | null;
@@ -30,6 +31,7 @@ export interface SummaryCalculationMetrics {
   collected_shop_count: number;
   skipped_shop_count: number;
   pending_shop_count: number;
+  rejected_shop_count: number;
   total_gross_liters: Prisma.Decimal;
   total_at_13ts_liters: Prisma.Decimal;
   weighted_avg_lr: Prisma.Decimal | null;
@@ -39,8 +41,18 @@ export interface SummaryCalculationMetrics {
   source_calculation_versions: string[];
 }
 
+/** Stage 1 decision of a collection: null/legacy rows count as accepted. */
+export function collectionFinalDecision(c: { final_decision?: string | null }): 'ACCEPTED' | 'REJECTED' | 'PENDING' {
+  const d = (c.final_decision ?? '').trim().toUpperCase();
+  if (d === 'REJECTED') return 'REJECTED';
+  if (d === 'PENDING') return 'PENDING';
+  return 'ACCEPTED';
+}
+
 /**
  * Pure aggregation calculation from persisted collection and stop models.
+ * Only ACCEPTED collections count as collected (null/legacy = accepted); REJECTED fill
+ * rejected_shop_count; PENDING (waiting for the Zonal Manager) stay out of totals until decided.
  * Quality weighting is FROZEN on gross_liters:
  * Weighted M = SUM(collection.gross_liters * collection.M) / SUM(collection.gross_liters)
  */
@@ -56,16 +68,26 @@ export function calculateJourneySummaryMetrics(
     snf: Prisma.Decimal | number | string;
     ts: Prisma.Decimal | number | string;
     calculation_version?: string | null;
+    final_decision?: string | null;
   }>
 ): SummaryCalculationMetrics {
   const assigned_shop_count = stops.length;
 
-  // Unique qualifying collected stops
+  // Unique qualifying collected (accepted) and rejected stops
   const collectedStopIds = new Set<string>();
+  const rejectedStopIds = new Set<string>();
+  const accepted: typeof collections = [];
   for (const col of collections) {
-    collectedStopIds.add(col.journey_stop_id.toString());
+    const decision = collectionFinalDecision(col);
+    if (decision === 'ACCEPTED') {
+      collectedStopIds.add(col.journey_stop_id.toString());
+      accepted.push(col);
+    } else if (decision === 'REJECTED') {
+      rejectedStopIds.add(col.journey_stop_id.toString());
+    }
   }
   const collected_shop_count = collectedStopIds.size;
+  const rejected_shop_count = rejectedStopIds.size;
 
   // Stops explicitly skipped
   let skipped_shop_count = 0;
@@ -75,14 +97,15 @@ export function calculateJourneySummaryMetrics(
     }
   }
 
-  const pending_shop_count = Math.max(0, assigned_shop_count - collected_shop_count - skipped_shop_count);
+  const pending_shop_count = Math.max(0, assigned_shop_count - collected_shop_count - skipped_shop_count - rejected_shop_count);
 
-  if (collections.length === 0) {
+  if (accepted.length === 0) {
     return {
       assigned_shop_count,
       collected_shop_count: 0,
       skipped_shop_count,
       pending_shop_count,
+      rejected_shop_count,
       total_gross_liters: new Prisma.Decimal('0.00'),
       total_at_13ts_liters: new Prisma.Decimal('0.00'),
       weighted_avg_lr: null,
@@ -102,7 +125,7 @@ export function calculateJourneySummaryMetrics(
 
   const versionSet = new Set<string>();
 
-  for (const col of collections) {
+  for (const col of accepted) {
     const gross = new Prisma.Decimal(col.gross_liters);
     const at13 = new Prisma.Decimal(col.at_13ts_liters);
     const lr = new Prisma.Decimal(col.lr);
@@ -131,6 +154,7 @@ export function calculateJourneySummaryMetrics(
       collected_shop_count,
       skipped_shop_count,
       pending_shop_count,
+      rejected_shop_count,
       total_gross_liters: new Prisma.Decimal('0.00'),
       total_at_13ts_liters: new Prisma.Decimal('0.00'),
       weighted_avg_lr: null,
@@ -155,6 +179,7 @@ export function calculateJourneySummaryMetrics(
     collected_shop_count,
     skipped_shop_count,
     pending_shop_count,
+    rejected_shop_count,
     total_gross_liters,
     total_at_13ts_liters,
     weighted_avg_lr,
@@ -173,6 +198,7 @@ function serializeSummaryAuditValues(summary: MotJourneySummary): Prisma.InputJs
     collected_shop_count: summary.collected_shop_count,
     skipped_shop_count: summary.skipped_shop_count,
     pending_shop_count: summary.pending_shop_count,
+    rejected_shop_count: summary.rejected_shop_count ?? 0,
     total_gross_liters: Number(summary.total_gross_liters).toFixed(2),
     total_at_13ts_liters: Number(summary.total_at_13ts_liters).toFixed(2),
     weighted_avg_lr: summary.weighted_avg_lr != null ? Number(summary.weighted_avg_lr).toFixed(2) : null,
@@ -230,6 +256,7 @@ export async function createInitialMotJourneySummaryTx(
       snf: true,
       ts: true,
       calculation_version: true,
+      final_decision: true,
     },
   });
 
@@ -244,6 +271,7 @@ export async function createInitialMotJourneySummaryTx(
       collected_shop_count: metrics.collected_shop_count,
       skipped_shop_count: metrics.skipped_shop_count,
       pending_shop_count: metrics.pending_shop_count,
+      rejected_shop_count: metrics.rejected_shop_count,
       total_gross_liters: metrics.total_gross_liters,
       total_at_13ts_liters: metrics.total_at_13ts_liters,
       weighted_avg_lr: metrics.weighted_avg_lr,
@@ -310,6 +338,7 @@ export async function recomputeMotJourneySummaryTx(
       snf: true,
       ts: true,
       calculation_version: true,
+      final_decision: true,
     },
   });
 
@@ -329,6 +358,7 @@ export async function recomputeMotJourneySummaryTx(
     existing.collected_shop_count !== metrics.collected_shop_count ||
     existing.skipped_shop_count !== metrics.skipped_shop_count ||
     existing.pending_shop_count !== metrics.pending_shop_count ||
+    (existing.rejected_shop_count ?? 0) !== metrics.rejected_shop_count ||
     isDecimalDifferent(existing.total_gross_liters, metrics.total_gross_liters) ||
     isDecimalDifferent(existing.total_at_13ts_liters, metrics.total_at_13ts_liters) ||
     isDecimalDifferent(existing.weighted_avg_lr, metrics.weighted_avg_lr) ||
@@ -352,6 +382,7 @@ export async function recomputeMotJourneySummaryTx(
       collected_shop_count: metrics.collected_shop_count,
       skipped_shop_count: metrics.skipped_shop_count,
       pending_shop_count: metrics.pending_shop_count,
+      rejected_shop_count: metrics.rejected_shop_count,
       total_gross_liters: metrics.total_gross_liters,
       total_at_13ts_liters: metrics.total_at_13ts_liters,
       weighted_avg_lr: metrics.weighted_avg_lr,
@@ -392,6 +423,7 @@ export function serializeMotJourneySummary(
     collected_shop_count: summary.collected_shop_count,
     skipped_shop_count: summary.skipped_shop_count,
     pending_shop_count: summary.pending_shop_count,
+    rejected_shop_count: summary.rejected_shop_count ?? 0,
     total_gross_liters: summary.total_gross_liters != null ? Number(Number(summary.total_gross_liters).toFixed(2)) : 0,
     total_at_13ts_liters: summary.total_at_13ts_liters != null ? Number(Number(summary.total_at_13ts_liters).toFixed(2)) : 0,
     weighted_avg_lr: summary.weighted_avg_lr != null ? Number(Number(summary.weighted_avg_lr).toFixed(2)) : null,
