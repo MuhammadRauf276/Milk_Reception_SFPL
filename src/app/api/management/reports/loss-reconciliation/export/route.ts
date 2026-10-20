@@ -22,7 +22,6 @@ export async function GET(req: Request) {
     'FINANCE_ACCOUNTS',
     'ZMCC_MANAGER',
     'DATA_EXECUTIVE',
-    'QA_MANAGER',
     'QA_HEAD',
     'ADMIN',
   ];

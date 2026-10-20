@@ -99,10 +99,6 @@ export const ROLE_ACCESS_POLICIES = {
     capabilities: [...OPERATOR_CAPABILITIES, 'CLOSE'],
     scopeKind: 'DEPARTMENT',
   },
-  QA_MANAGER: {
-    capabilities: MANAGER_CAPABILITIES,
-    scopeKind: 'DEPARTMENT',
-  },
   QA_LAB_ATTENDANT: {
     capabilities: OPERATOR_CAPABILITIES,
     scopeKind: 'DEPARTMENT',

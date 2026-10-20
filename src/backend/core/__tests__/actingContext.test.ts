@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import type { CanonicalRole, User } from '../types';
+import type { Role, User } from '../types';
 import type { ActingContext } from '../../../types/acting';
 import { CANONICAL_ROLES, canActAs } from '../roles/hierarchy';
 import {
@@ -16,14 +16,14 @@ import {
 const ZMCC_SOURCE = { id: '11', code: 'ZM-HAS', name: 'Hasilpur', source_type: 'ZMCC', is_active: true };
 const CONTRACTOR_SOURCE = { id: '22', code: 'CT-1', name: 'Contractor 1', source_type: 'CONTRACTOR', is_active: true };
 
-function userFor(role: CanonicalRole, extra: Partial<User> = {}): User {
+function userFor(role: Role, extra: Partial<User> = {}): User {
   const source = targetSourceTypeFor(role) === 'ZMCC' ? ZMCC_SOURCE : targetSourceTypeFor(role) === 'CONTRACTOR' ? CONTRACTOR_SOURCE : null;
   return {
     id: '7',
     username: role.toLowerCase(),
     name: role,
     role,
-    department: ROLE_HOME_DEPARTMENT[role] ?? 'Head Office',
+    department: (ROLE_HOME_DEPARTMENT as Record<string, string | undefined>)[role] ?? 'Head Office',
     procurement_source_id: source?.id ?? null,
     procurement_source: source,
     ...extra,
@@ -44,7 +44,7 @@ function resolveCode(...args: Parameters<typeof resolveActingContext>): string {
 
 // ---------- canActAs table ----------
 
-const CAN_ACT_AS_TABLE: Array<[CanonicalRole, CanonicalRole, boolean]> = [
+const CAN_ACT_AS_TABLE: Array<[string, string, boolean]> = [
   ['ZMCC_MANAGER', 'PHE_OPERATOR', true],
   ['ZMCC_MANAGER', 'MDO', true],
   ['ZMCC_MANAGER', 'ZMCC_LAB_ATTENDANT', true],
@@ -63,7 +63,7 @@ const CAN_ACT_AS_TABLE: Array<[CanonicalRole, CanonicalRole, boolean]> = [
   ['ADMIN_HEAD', 'QA_MANAGER', false],
   ['ADMIN_HEAD', 'ZMCC_LAB_ATTENDANT', false],
   ['QA_HEAD', 'QA_LAB_ATTENDANT', true],
-  ['QA_HEAD', 'QA_MANAGER', true],
+  ['QA_HEAD', 'QA_MANAGER', false],
   ['QA_HEAD', 'SECURITY_OPERATOR', false],
   ['PRODUCTION_HEAD', 'WEIGHBRIDGE_OPERATOR', true],
   ['PRODUCTION_HEAD', 'PRODUCTION_RECEPTION_OPERATOR', true],
@@ -185,13 +185,14 @@ test("delegation 'none': exact role only, plus Super Admin", () => {
   assert.equal(resolveCode(userFor('HEAD_OF_MPD'), ['ZMCC_LAB_ATTENDANT'], { delegation: 'none' }), 'FORBIDDEN');
 });
 
-test('QA_MANAGER keeps working as its own role and QA_HEAD can act as it', () => {
-  const qm = resolveOk(userFor('QA_MANAGER'), ['QA_MANAGER']);
-  assert.equal(qm.actingAs, 'QA_MANAGER');
-  assert.equal(qm.scope.kind, 'DEPARTMENT');
-  const head = resolveOk(userFor('QA_HEAD'), ['QA_MANAGER']);
-  assert.equal(head.actingAs, 'QA_MANAGER');
-  assert.equal(head.isDelegated, true);
+test('retired QA_MANAGER cannot act and QA_HEAD cannot act as QA_MANAGER', () => {
+  assert.equal(canActAs('QA_HEAD', 'QA_MANAGER'), false);
+  assert.equal(canActAs('QA_MANAGER', 'QA_MANAGER'), false);
+  assert.deepEqual(resolveActingContext(userFor('QA_MANAGER'), ['QA_MANAGER']), { ok: false, code: 'FORBIDDEN' });
+  assert.deepEqual(resolveActingContext(userFor('QA_HEAD'), ['QA_LAB_ATTENDANT'], { requestedAs: 'QA_MANAGER' }), {
+    ok: false,
+    code: 'CANNOT_ACT_AS',
+  });
 });
 
 // ---------- scope ----------

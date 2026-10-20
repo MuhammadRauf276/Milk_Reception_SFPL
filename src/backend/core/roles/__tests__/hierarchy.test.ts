@@ -38,7 +38,6 @@ const ALL_ROLES_RECORD: Record<CanonicalRole, true> = {
   MOT: true,
   CONTRACTOR_OPERATOR: true,
   SECURITY_OPERATOR: true,
-  QA_MANAGER: true,
   QA_LAB_ATTENDANT: true,
   WEIGHBRIDGE_OPERATOR: true,
   PRODUCTION_RECEPTION_OPERATOR: true,
@@ -79,7 +78,9 @@ test('tree matches the plan', () => {
   assert.equal(ROLE_PARENT.MDO, 'ZMCC_MANAGER');
   assert.equal(ROLE_PARENT.CONTRACTOR_MANAGER, 'HEAD_OF_MPD');
   assert.equal(ROLE_PARENT.CONTRACTOR_OPERATOR, 'CONTRACTOR_MANAGER');
-  assert.equal(ROLE_PARENT.QA_MANAGER, 'QA_HEAD');
+  assert.equal(ROLE_PARENT.QA_LAB_ATTENDANT, 'QA_HEAD');
+  assert.equal(isCanonicalRole('QA_MANAGER'), false);
+  assert.equal(ROLE_LABELS.QA_MANAGER, 'QA Manager (retired)');
   assert.deepEqual(getChildRoles('ZMCC_MANAGER'), ['PHE_OPERATOR', 'MDO', 'ZMCC_LAB_ATTENDANT', 'MOT']);
   assert.deepEqual(getChildRoles('PRODUCTION_HEAD'), ['WEIGHBRIDGE_OPERATOR', 'PRODUCTION_RECEPTION_OPERATOR']);
   assert.deepEqual(getAncestorRoles('MOT'), ['ZMCC_MANAGER', 'HEAD_OF_MPD', 'SUPER_ADMIN']);

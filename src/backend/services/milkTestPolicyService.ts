@@ -50,7 +50,6 @@ export type {
 } from '@/types/milk-test-policy';
 import {
   CANONICAL_TESTING_POINTS,
-  MPD_TESTING_POINTS,
   isValidTestingPoint,
   TestingPoint,
   ActorUser,
@@ -87,8 +86,7 @@ export function assertCanReadAdminPolicies(userRole: string | undefined | null):
     normalized === 'DATA_EXECUTIVE' ||
     normalized === 'DATA_ANALYST' ||
     normalized === 'HEAD_OF_MPD' ||
-    normalized === 'QA_HEAD' ||
-    normalized === 'QA_MANAGER'
+    normalized === 'QA_HEAD'
   ) {
     return;
   }
@@ -106,7 +104,6 @@ const ROLE_EFFECTIVE_POINTS: Record<string, readonly TestingPoint[]> = {
   CONTRACTOR_OPERATOR: ['DISPATCH'],
   CONTRACTOR_MANAGER: ['DISPATCH'],
   QA_HEAD: ['PLANT_QA'],
-  QA_MANAGER: ['PLANT_QA'],
   QA_LAB_ATTENDANT: ['PLANT_QA'],
 };
 
