@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
 import bcrypt from 'bcryptjs';
+import { writeAuditLog, auditActorFromUser } from '@core/audit';
 
 export async function POST(
   req: Request,
@@ -60,17 +61,21 @@ export async function POST(
       });
 
       // Record AuditLog WITHOUT storing plaintext password or password hash!
-      await tx.auditLog.create({
-        data: {
-          table_name: 'users',
-          record_id: targetUserId,
-          action: 'PASSWORD_RESET',
-          new_values: { username: targetUser.username, reset_timestamp: new Date().toISOString() },
-          user_id: adminUser?.id || null,
-        },
+      await writeAuditLog(tx, {
+        tableName: 'users',
+        recordId: targetUserId,
+        action: 'PASSWORD_RESET',
+        newValues: { username: targetUser.username, reset_timestamp: new Date().toISOString() },
+        actor: { ...auditActorFromUser(authUser), userId: adminUser?.id ?? null },
       });
       const revoked = await tx.pushSubscription.updateMany({ where: { user_id: targetUserId, revoked_at: null }, data: { revoked_at: new Date() } });
-      if (revoked.count) await tx.auditLog.create({ data: { table_name: 'push_subscription', record_id: targetUserId, action: 'PUSH_SUBSCRIPTIONS_REVOKED_ON_PASSWORD_RESET', new_values: { revoked_count: revoked.count }, user_id: adminUser?.id || null } });
+      if (revoked.count) await writeAuditLog(tx, {
+        tableName: 'push_subscription',
+        recordId: targetUserId,
+        action: 'PUSH_SUBSCRIPTIONS_REVOKED_ON_PASSWORD_RESET',
+        newValues: { revoked_count: revoked.count },
+        actor: { ...auditActorFromUser(authUser), userId: adminUser?.id ?? null },
+      });
     });
 
     return NextResponse.json({ success: true, message: `Password reset successfully for user "${targetUser.username}".` });

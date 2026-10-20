@@ -6,6 +6,7 @@ import { requireCapability } from '@/backend/modules/access-control/serverGuard'
 import { getErrorIssues, getErrorMessage, getErrorName } from '@/lib/errors';
 import { getOperationalBusinessDate } from '@/backend/core/business-day';
 import { parseStrictDateOnly } from '@/lib/datetime-utils';
+import { writeAuditLog, auditActorFromUser } from '@core/audit';
 
 const WEIGHBRIDGE_SCOPE = {
   kind: 'DEPARTMENT',
@@ -200,23 +201,21 @@ export async function POST(req: Request) {
       }
 
       // 8. Log Immutable Server Audit Record for Gross Weighting
-      await tx.auditLog.create({
-        data: {
-          table_name: 'weight_ticket',
-          record_id: ticket.id,
-          action: 'GROSS_WEIGHT_RECORDED',
-          user_id: userIdBigInt,
-          new_values: {
-            visit_id: visitId.toString(),
-            vehicle_number: visit.vehicle_number,
-            token_number: visit.token_number,
-            ticket_number: ticketNumber,
-            gross_weight_kg: grossWeightKg,
-            gross_timestamp: opTimestamp.toISOString(),
-            submitted_at: serverNow.toISOString(),
-            recorded_by: authUser.username,
-          },
+      await writeAuditLog(tx, {
+        tableName: 'weight_ticket',
+        recordId: ticket.id,
+        action: 'GROSS_WEIGHT_RECORDED',
+        newValues: {
+          visit_id: visitId.toString(),
+          vehicle_number: visit.vehicle_number,
+          token_number: visit.token_number,
+          ticket_number: ticketNumber,
+          gross_weight_kg: grossWeightKg,
+          gross_timestamp: opTimestamp.toISOString(),
+          submitted_at: serverNow.toISOString(),
+          recorded_by: authUser.username,
         },
+        actor: auditActorFromUser(dbUser),
       });
 
       // 8. Advance VehicleVisit status from GROSS_WEIGHED -> READY_FOR_UNLOADING

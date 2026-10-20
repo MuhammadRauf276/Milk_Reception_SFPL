@@ -1,4 +1,5 @@
 import { prisma } from '@core/db';
+import { writeAuditLog } from '@/backend/core/audit';
 import { normalizePakistaniCnic, normalizePakistaniMobile } from '@/lib/pakistani-identity';
 import { getCurrentUser } from '@core/auth';
 import { User, Role } from '@core/types';
@@ -445,25 +446,23 @@ export async function createRoute(
       });
     }
 
-    await tx.auditLog.create({
-      data: {
-        table_name: 'zmcc_route',
-        record_id: created.id,
-        action: isPhe ? 'ZMCC_ROUTE_REQUESTED' : 'ZMCC_ROUTE_CREATED',
-        old_values: undefined,
-        new_values: {
-          id: created.id.toString(),
-          route_code: created.route_code,
-          name: created.name,
-          origin: created.origin,
-          destination: created.destination,
-          zmcc_id: created.zmcc_id.toString(),
-          is_active: initialIsActive,
-          approval_status: initialApprovalStatus,
-          initial_area: createdArea?.name,
-        },
-        user_id: auth.actorUserId,
+    await writeAuditLog(tx, {
+      tableName: 'zmcc_route',
+      recordId: created.id,
+      action: isPhe ? 'ZMCC_ROUTE_REQUESTED' : 'ZMCC_ROUTE_CREATED',
+      oldValues: undefined,
+      newValues: {
+        id: created.id.toString(),
+        route_code: created.route_code,
+        name: created.name,
+        origin: created.origin,
+        destination: created.destination,
+        zmcc_id: created.zmcc_id.toString(),
+        is_active: initialIsActive,
+        approval_status: initialApprovalStatus,
+        initial_area: createdArea?.name,
       },
+      actor: { userId: auth.actorUserId, actorRole: auth.role },
     });
 
     return {
@@ -530,22 +529,20 @@ export async function approveRoute(auth: ZmccAuthContext, routeId: bigint): Prom
       },
     });
 
-    await tx.auditLog.create({
-      data: {
-        table_name: 'zmcc_route',
-        record_id: routeId,
-        action: 'ZMCC_ROUTE_APPROVED',
-        old_values: {
-          approval_status: existing.approval_status,
-          is_active: existing.is_active,
-        },
-        new_values: {
-          approval_status: 'ACTIVE',
-          is_active: true,
-          approved_by: auth.actorUserId.toString(),
-        },
-        user_id: auth.actorUserId,
+    await writeAuditLog(tx, {
+      tableName: 'zmcc_route',
+      recordId: routeId,
+      action: 'ZMCC_ROUTE_APPROVED',
+      oldValues: {
+        approval_status: existing.approval_status,
+        is_active: existing.is_active,
       },
+      newValues: {
+        approval_status: 'ACTIVE',
+        is_active: true,
+        approved_by: auth.actorUserId.toString(),
+      },
+      actor: { userId: auth.actorUserId, actorRole: auth.role },
     });
 
     return {
@@ -608,23 +605,21 @@ export async function rejectRoute(auth: ZmccAuthContext, routeId: bigint, reason
       },
     });
 
-    await tx.auditLog.create({
-      data: {
-        table_name: 'zmcc_route',
-        record_id: routeId,
-        action: 'ZMCC_ROUTE_REJECTED',
-        old_values: {
-          approval_status: existing.approval_status,
-          is_active: existing.is_active,
-        },
-        new_values: {
-          approval_status: 'REJECTED',
-          is_active: false,
-          rejection_reason: cleanReason,
-          rejected_by: auth.actorUserId.toString(),
-        },
-        user_id: auth.actorUserId,
+    await writeAuditLog(tx, {
+      tableName: 'zmcc_route',
+      recordId: routeId,
+      action: 'ZMCC_ROUTE_REJECTED',
+      oldValues: {
+        approval_status: existing.approval_status,
+        is_active: existing.is_active,
       },
+      newValues: {
+        approval_status: 'REJECTED',
+        is_active: false,
+        rejection_reason: cleanReason,
+        rejected_by: auth.actorUserId.toString(),
+      },
+      actor: { userId: auth.actorUserId, actorRole: auth.role },
     });
 
     return {
@@ -768,25 +763,23 @@ export async function updateRoute(
       },
     });
 
-    await tx.auditLog.create({
-      data: {
-        table_name: 'zmcc_route',
-        record_id: routeId,
-        action,
-        old_values: {
-          name: existing.name,
-          origin: existing.origin,
-          destination: existing.destination,
-          is_active: existing.is_active,
-        },
-        new_values: {
-          name: updated.name,
-          origin: updated.origin,
-          destination: updated.destination,
-          is_active: updated.is_active,
-        },
-        user_id: auth.actorUserId,
+    await writeAuditLog(tx, {
+      tableName: 'zmcc_route',
+      recordId: routeId,
+      action,
+      oldValues: {
+        name: existing.name,
+        origin: existing.origin,
+        destination: existing.destination,
+        is_active: existing.is_active,
       },
+      newValues: {
+        name: updated.name,
+        origin: updated.origin,
+        destination: updated.destination,
+        is_active: updated.is_active,
+      },
+      actor: { userId: auth.actorUserId, actorRole: auth.role },
     });
 
     return {
@@ -1004,22 +997,20 @@ export async function createArea(
       },
     });
 
-    await tx.auditLog.create({
-      data: {
-        table_name: 'zmcc_area',
-        record_id: created.id,
-        action: 'ZMCC_AREA_CREATED',
-        old_values: undefined,
-        new_values: {
-          id: created.id.toString(),
-          area_code: created.area_code,
-          name: created.name,
-          route_id: created.route_id.toString(),
-          zmcc_id: created.zmcc_id.toString(),
-          is_active: true,
-        },
-        user_id: auth.actorUserId,
+    await writeAuditLog(tx, {
+      tableName: 'zmcc_area',
+      recordId: created.id,
+      action: 'ZMCC_AREA_CREATED',
+      oldValues: undefined,
+      newValues: {
+        id: created.id.toString(),
+        area_code: created.area_code,
+        name: created.name,
+        route_id: created.route_id.toString(),
+        zmcc_id: created.zmcc_id.toString(),
+        is_active: true,
       },
+      actor: { userId: auth.actorUserId, actorRole: auth.role },
     });
 
     return {
@@ -1110,21 +1101,19 @@ export async function updateArea(
       },
     });
 
-    await tx.auditLog.create({
-      data: {
-        table_name: 'zmcc_area',
-        record_id: areaId,
-        action,
-        old_values: {
-          name: existing.name,
-          is_active: existing.is_active,
-        },
-        new_values: {
-          name: updated.name,
-          is_active: updated.is_active,
-        },
-        user_id: auth.actorUserId,
+    await writeAuditLog(tx, {
+      tableName: 'zmcc_area',
+      recordId: areaId,
+      action,
+      oldValues: {
+        name: existing.name,
+        is_active: existing.is_active,
       },
+      newValues: {
+        name: updated.name,
+        is_active: updated.is_active,
+      },
+      actor: { userId: auth.actorUserId, actorRole: auth.role },
     });
 
     return {
@@ -1337,21 +1326,19 @@ export async function createMilkSource(
       },
     });
 
-    await tx.auditLog.create({
-      data: {
-        table_name: 'zmcc_milk_source',
-        record_id: created.id,
-        action: 'ZMCC_MILK_SOURCE_CREATED',
-        old_values: undefined,
-        new_values: {
-          id: created.id.toString(),
-          erp_code: created.erp_code,
-          name: created.name,
-          zmcc_id: created.zmcc_id ? created.zmcc_id.toString() : zmccId.toString(),
-          is_active: true,
-        },
-        user_id: auth.actorUserId,
+    await writeAuditLog(tx, {
+      tableName: 'zmcc_milk_source',
+      recordId: created.id,
+      action: 'ZMCC_MILK_SOURCE_CREATED',
+      oldValues: undefined,
+      newValues: {
+        id: created.id.toString(),
+        erp_code: created.erp_code,
+        name: created.name,
+        zmcc_id: created.zmcc_id ? created.zmcc_id.toString() : zmccId.toString(),
+        is_active: true,
       },
+      actor: { userId: auth.actorUserId, actorRole: auth.role },
     });
 
     return {
@@ -1437,21 +1424,19 @@ export async function updateMilkSource(
       },
     });
 
-    await tx.auditLog.create({
-      data: {
-        table_name: 'zmcc_milk_source',
-        record_id: sourceId,
-        action,
-        old_values: {
-          name: existing.name,
-          is_active: existing.is_active,
-        },
-        new_values: {
-          name: updated.name,
-          is_active: updated.is_active,
-        },
-        user_id: auth.actorUserId,
+    await writeAuditLog(tx, {
+      tableName: 'zmcc_milk_source',
+      recordId: sourceId,
+      action,
+      oldValues: {
+        name: existing.name,
+        is_active: existing.is_active,
       },
+      newValues: {
+        name: updated.name,
+        is_active: updated.is_active,
+      },
+      actor: { userId: auth.actorUserId, actorRole: auth.role },
     });
 
     return {
@@ -1584,20 +1569,18 @@ export async function createChillerOwnership(
       },
     });
 
-    await tx.auditLog.create({
-      data: {
-        table_name: 'chiller_ownership',
-        record_id: created.id,
-        action: 'CHILLER_OWNERSHIP_CREATED',
-        old_values: undefined,
-        new_values: {
-          id: created.id.toString(),
-          ownership_code: created.ownership_code,
-          name: created.name,
-          is_active: true,
-        },
-        user_id: auth.actorUserId,
+    await writeAuditLog(tx, {
+      tableName: 'chiller_ownership',
+      recordId: created.id,
+      action: 'CHILLER_OWNERSHIP_CREATED',
+      oldValues: undefined,
+      newValues: {
+        id: created.id.toString(),
+        ownership_code: created.ownership_code,
+        name: created.name,
+        is_active: true,
       },
+      actor: { userId: auth.actorUserId, actorRole: auth.role },
     });
 
     return {
@@ -1670,21 +1653,19 @@ export async function updateChillerOwnership(
       },
     });
 
-    await tx.auditLog.create({
-      data: {
-        table_name: 'chiller_ownership',
-        record_id: id,
-        action,
-        old_values: {
-          name: existing.name,
-          is_active: existing.is_active,
-        },
-        new_values: {
-          name: updated.name,
-          is_active: updated.is_active,
-        },
-        user_id: auth.actorUserId,
+    await writeAuditLog(tx, {
+      tableName: 'chiller_ownership',
+      recordId: id,
+      action,
+      oldValues: {
+        name: existing.name,
+        is_active: existing.is_active,
       },
+      newValues: {
+        name: updated.name,
+        is_active: updated.is_active,
+      },
+      actor: { userId: auth.actorUserId, actorRole: auth.role },
     });
 
     return {
@@ -2049,30 +2030,28 @@ export async function createShop(
       },
     });
 
-    await tx.auditLog.create({
-      data: {
-        table_name: 'zmcc_shop',
-        record_id: created.id,
-        action: 'ZMCC_SHOP_CREATED',
-        old_values: undefined,
-        new_values: {
-          id: created.id.toString(),
-          shop_code: created.shop_code,
-          shop_name: created.shop_name,
-          owner_name: created.owner_name,
-          phone_number: created.phone_number,
-          cnic: created.cnic,
-          area_id: created.area_id.toString(),
-          route_id: created.route_id.toString(),
-          zmcc_id: created.zmcc_id.toString(),
-          milk_source_id: created.milk_source_id ? created.milk_source_id.toString() : null,
-          chiller_ownership_id: created.chiller_ownership_id.toString(),
-          is_active: true,
-          approval_status: 'ACTIVE',
-          geotag_status: created.geotag_status,
-        },
-        user_id: auth.actorUserId,
+    await writeAuditLog(tx, {
+      tableName: 'zmcc_shop',
+      recordId: created.id,
+      action: 'ZMCC_SHOP_CREATED',
+      oldValues: undefined,
+      newValues: {
+        id: created.id.toString(),
+        shop_code: created.shop_code,
+        shop_name: created.shop_name,
+        owner_name: created.owner_name,
+        phone_number: created.phone_number,
+        cnic: created.cnic,
+        area_id: created.area_id.toString(),
+        route_id: created.route_id.toString(),
+        zmcc_id: created.zmcc_id.toString(),
+        milk_source_id: created.milk_source_id ? created.milk_source_id.toString() : null,
+        chiller_ownership_id: created.chiller_ownership_id.toString(),
+        is_active: true,
+        approval_status: 'ACTIVE',
+        geotag_status: created.geotag_status,
       },
+      actor: { userId: auth.actorUserId, actorRole: auth.role },
     });
 
     await createNotificationsForEvent(tx, {
@@ -2299,37 +2278,35 @@ export async function updateShop(
       },
     });
 
-    await tx.auditLog.create({
-      data: {
-        table_name: 'zmcc_shop',
-        record_id: shopId,
-        action,
-        old_values: {
-          shop_name: existing.shop_name,
-          owner_name: existing.owner_name,
-          phone_number: existing.phone_number,
-          cnic: existing.cnic,
-          area_id: existing.area_id.toString(),
-          route_id: existing.route_id.toString(),
-          milk_source_id: existing.milk_source_id ? existing.milk_source_id.toString() : null,
-          chiller_ownership_id: existing.chiller_ownership_id.toString(),
-          is_active: existing.is_active,
-          geotag_status: existing.geotag_status,
-        },
-        new_values: {
-          shop_name: updated.shop_name,
-          owner_name: updated.owner_name,
-          phone_number: updated.phone_number,
-          cnic: updated.cnic,
-          area_id: updated.area_id.toString(),
-          route_id: updated.route_id.toString(),
-          milk_source_id: updated.milk_source_id ? updated.milk_source_id.toString() : null,
-          chiller_ownership_id: updated.chiller_ownership_id.toString(),
-          is_active: updated.is_active,
-          geotag_status: updated.geotag_status,
-        },
-        user_id: auth.actorUserId,
+    await writeAuditLog(tx, {
+      tableName: 'zmcc_shop',
+      recordId: shopId,
+      action,
+      oldValues: {
+        shop_name: existing.shop_name,
+        owner_name: existing.owner_name,
+        phone_number: existing.phone_number,
+        cnic: existing.cnic,
+        area_id: existing.area_id.toString(),
+        route_id: existing.route_id.toString(),
+        milk_source_id: existing.milk_source_id ? existing.milk_source_id.toString() : null,
+        chiller_ownership_id: existing.chiller_ownership_id.toString(),
+        is_active: existing.is_active,
+        geotag_status: existing.geotag_status,
       },
+      newValues: {
+        shop_name: updated.shop_name,
+        owner_name: updated.owner_name,
+        phone_number: updated.phone_number,
+        cnic: updated.cnic,
+        area_id: updated.area_id.toString(),
+        route_id: updated.route_id.toString(),
+        milk_source_id: updated.milk_source_id ? updated.milk_source_id.toString() : null,
+        chiller_ownership_id: updated.chiller_ownership_id.toString(),
+        is_active: updated.is_active,
+        geotag_status: updated.geotag_status,
+      },
+      actor: { userId: auth.actorUserId, actorRole: auth.role },
     });
 
     return {
@@ -2515,26 +2492,24 @@ export async function requestNewShop(
       },
     });
 
-    await tx.auditLog.create({
-      data: {
-        table_name: 'zmcc_shop',
-        record_id: created.id,
-        action: 'ZMCC_SHOP_REQUESTED',
-        old_values: undefined,
-        new_values: {
-          id: created.id.toString(),
-          temp_shop_code: tempShopCode,
-          shop_name,
-          owner_name,
-          phone_number,
-          cnic,
-          area_id: targetAreaId!.toString(),
-          route_id: targetRouteId!.toString(),
-          zmcc_id: effectiveZmccId!.toString(),
-          geotag_status,
-        },
-        user_id: auth.actorUserId,
+    await writeAuditLog(tx, {
+      tableName: 'zmcc_shop',
+      recordId: created.id,
+      action: 'ZMCC_SHOP_REQUESTED',
+      oldValues: undefined,
+      newValues: {
+        id: created.id.toString(),
+        temp_shop_code: tempShopCode,
+        shop_name,
+        owner_name,
+        phone_number,
+        cnic,
+        area_id: targetAreaId!.toString(),
+        route_id: targetRouteId!.toString(),
+        zmcc_id: effectiveZmccId!.toString(),
+        geotag_status,
       },
+      actor: { userId: auth.actorUserId, actorRole: auth.role },
     });
 
     return {
@@ -2655,24 +2630,22 @@ export async function approveShop(auth: ZmccAuthContext, shopId: bigint): Promis
       }
     }
 
-    await tx.auditLog.create({
-      data: {
-        table_name: 'zmcc_shop',
-        record_id: shopId,
-        action: 'ZMCC_SHOP_APPROVED',
-        old_values: {
-          shop_code: existing.shop_code,
-          approval_status: existing.approval_status,
-          is_active: existing.is_active,
-        },
-        new_values: {
-          shop_code: allocatedCode,
-          approval_status: 'ACTIVE',
-          is_active: true,
-          approved_by: auth.actorUserId.toString(),
-        },
-        user_id: auth.actorUserId,
+    await writeAuditLog(tx, {
+      tableName: 'zmcc_shop',
+      recordId: shopId,
+      action: 'ZMCC_SHOP_APPROVED',
+      oldValues: {
+        shop_code: existing.shop_code,
+        approval_status: existing.approval_status,
+        is_active: existing.is_active,
       },
+      newValues: {
+        shop_code: allocatedCode,
+        approval_status: 'ACTIVE',
+        is_active: true,
+        approved_by: auth.actorUserId.toString(),
+      },
+      actor: { userId: auth.actorUserId, actorRole: auth.role },
     });
 
     return {
@@ -2723,23 +2696,21 @@ export async function rejectShop(auth: ZmccAuthContext, shopId: bigint, reason: 
       },
     });
 
-    await tx.auditLog.create({
-      data: {
-        table_name: 'zmcc_shop',
-        record_id: shopId,
-        action: 'ZMCC_SHOP_REJECTED',
-        old_values: {
-          approval_status: existing.approval_status,
-          is_active: existing.is_active,
-        },
-        new_values: {
-          approval_status: 'REJECTED',
-          is_active: false,
-          rejection_reason: cleanReason,
-          rejected_by: auth.actorUserId.toString(),
-        },
-        user_id: auth.actorUserId,
+    await writeAuditLog(tx, {
+      tableName: 'zmcc_shop',
+      recordId: shopId,
+      action: 'ZMCC_SHOP_REJECTED',
+      oldValues: {
+        approval_status: existing.approval_status,
+        is_active: existing.is_active,
       },
+      newValues: {
+        approval_status: 'REJECTED',
+        is_active: false,
+        rejection_reason: cleanReason,
+        rejected_by: auth.actorUserId.toString(),
+      },
+      actor: { userId: auth.actorUserId, actorRole: auth.role },
     });
 
     return {

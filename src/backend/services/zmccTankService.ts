@@ -1,4 +1,5 @@
 import { prisma } from '@core/db';
+import { writeAuditLog } from '@/backend/core/audit';
 import { getCurrentUser } from '@core/auth';
 import { User, Role } from '@core/types';
 import { Prisma, type ZmccTank, type ZmccTankReceipt, type ZmccTankInventoryTransaction } from '@prisma/client';
@@ -547,21 +548,19 @@ export async function createZmccTank(
         },
       });
 
-      await tx.auditLog.create({
-        data: {
-          table_name: 'zmcc_tank',
-          record_id: tank.id,
-          action: 'ZMCC_TANK_CREATED',
-          new_values: {
-            tank_code: tank.tank_code,
-            tank_name: tank.tank_name,
-            capacity_liters: capNum,
-            is_active: tank.is_active,
-            zmcc_id: targetZmccId.toString(),
-            created_by_user_id: auth.actorUserId.toString(),
-          },
-          user_id: auth.actorUserId,
+      await writeAuditLog(tx, {
+        tableName: 'zmcc_tank',
+        recordId: tank.id,
+        action: 'ZMCC_TANK_CREATED',
+        newValues: {
+          tank_code: tank.tank_code,
+          tank_name: tank.tank_name,
+          capacity_liters: capNum,
+          is_active: tank.is_active,
+          zmcc_id: targetZmccId.toString(),
+          created_by_user_id: auth.actorUserId.toString(),
         },
+        actor: { userId: auth.actorUserId, actorRole: auth.role },
       });
 
       return tank;
@@ -711,15 +710,13 @@ export async function updateZmccTank(
       updated_by_user_id: auth.actorUserId.toString(),
     };
 
-    await tx.auditLog.create({
-      data: {
-        table_name: 'zmcc_tank',
-        record_id: tankId,
-        action: 'ZMCC_TANK_UPDATED',
-        old_values: oldValues,
-        new_values: newValues,
-        user_id: auth.actorUserId,
-      },
+    await writeAuditLog(tx, {
+      tableName: 'zmcc_tank',
+      recordId: tankId,
+      action: 'ZMCC_TANK_UPDATED',
+      oldValues: oldValues,
+      newValues: newValues,
+      actor: { userId: auth.actorUserId, actorRole: auth.role },
     });
 
     return updated;
@@ -791,15 +788,13 @@ export async function toggleZmccTankActive(
         },
       });
 
-      await tx.auditLog.create({
-        data: {
-          table_name: 'zmcc_tank',
-          record_id: tankId,
-          action: isActive ? 'ZMCC_TANK_ACTIVATED' : 'ZMCC_TANK_DEACTIVATED',
-          old_values: { is_active: existing.is_active },
-          new_values: { is_active: isActive, updated_by_user_id: auth.actorUserId.toString() },
-          user_id: auth.actorUserId,
-        },
+      await writeAuditLog(tx, {
+        tableName: 'zmcc_tank',
+        recordId: tankId,
+        action: isActive ? 'ZMCC_TANK_ACTIVATED' : 'ZMCC_TANK_DEACTIVATED',
+        oldValues: { is_active: existing.is_active },
+        newValues: { is_active: isActive, updated_by_user_id: auth.actorUserId.toString() },
+        actor: { userId: auth.actorUserId, actorRole: auth.role },
       });
 
       return updated;
@@ -1035,31 +1030,29 @@ export async function receiveHistoricalSession(
         },
       });
 
-      await tx.auditLog.create({
-        data: {
-          table_name: 'zmcc_tank_receipt',
-          record_id: newReceipt.id,
-          action: 'ZMCC_TANK_RECEIPT_CREATED',
-          new_values: {
-            lab_session_id: sessionId.toString(),
-            arrival_type: session.arrival_type,
-            zmcc_id: session.zmcc_id.toString(),
-            tank_id: targetTankId.toString(),
-            quantity_value: session.quantity_value ? Number(session.quantity_value) : null,
-            quantity_unit: session.quantity_unit,
-            gross_liters: grossLiters,
-            lr: Number(coreLr),
-            fat: Number(coreFat),
-            density: session.density ? Number(session.density) : null,
-            snf: session.snf ? Number(session.snf) : null,
-            ts: session.ts ? Number(session.ts) : null,
-            at_13ts_liters: session.at_13ts_liters ? Number(session.at_13ts_liters) : null,
-            calculation_version: session.calculation_version,
-            received_at: now.toISOString(),
-            actor: auth.actorUserId.toString(),
-          },
-          user_id: auth.actorUserId,
+      await writeAuditLog(tx, {
+        tableName: 'zmcc_tank_receipt',
+        recordId: newReceipt.id,
+        action: 'ZMCC_TANK_RECEIPT_CREATED',
+        newValues: {
+          lab_session_id: sessionId.toString(),
+          arrival_type: session.arrival_type,
+          zmcc_id: session.zmcc_id.toString(),
+          tank_id: targetTankId.toString(),
+          quantity_value: session.quantity_value ? Number(session.quantity_value) : null,
+          quantity_unit: session.quantity_unit,
+          gross_liters: grossLiters,
+          lr: Number(coreLr),
+          fat: Number(coreFat),
+          density: session.density ? Number(session.density) : null,
+          snf: session.snf ? Number(session.snf) : null,
+          ts: session.ts ? Number(session.ts) : null,
+          at_13ts_liters: session.at_13ts_liters ? Number(session.at_13ts_liters) : null,
+          calculation_version: session.calculation_version,
+          received_at: now.toISOString(),
+          actor: auth.actorUserId.toString(),
         },
+        actor: { userId: auth.actorUserId, actorRole: auth.role },
       });
 
       return newReceipt;

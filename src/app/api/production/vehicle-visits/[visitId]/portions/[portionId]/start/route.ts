@@ -6,6 +6,7 @@ import { calculatePhysicalLiters } from '@/backend/utils/milkFormulas';
 import { isPlantLrTest } from '@/backend/services/vehicleQuantityService';
 import { validateOperationalTimestamp } from '@/backend/services/chronology-validator';
 import { getErrorMessage } from '@/lib/errors';
+import { writeAuditLog, auditActorFromUser } from '@core/audit';
 
 export async function POST(
   req: NextRequest,
@@ -220,27 +221,24 @@ export async function POST(
       }
 
       // 8. Immutable AuditLog creation
-      await tx.auditLog.create({
-        data: {
-          table_name: 'vehicle_visit',
-          record_id: visitId,
-          action: 'UNLOADING_STARTED',
-          new_values: {
-            visit_id: visitId.toString(),
-            vehicle_number: visit.vehicle_number,
-            token_number: visit.token_number,
-            op_timestamp: opTimestamp.toISOString(),
-            submitted_at: serverNow.toISOString(),
-            user_id: userIdBigInt.toString(),
-            user_name: dbUser.full_name || dbUser.username,
-            assignments: assignmentsToProcess.map((a) => ({
-              portion_id: a.portion_id.toString(),
-              silo_id: a.silo_id.toString(),
-            })),
-          },
-          user_id: userIdBigInt,
-          created_at: serverNow,
+      await writeAuditLog(tx, {
+        tableName: 'vehicle_visit',
+        recordId: visitId,
+        action: 'UNLOADING_STARTED',
+        newValues: {
+          visit_id: visitId.toString(),
+          vehicle_number: visit.vehicle_number,
+          token_number: visit.token_number,
+          op_timestamp: opTimestamp.toISOString(),
+          submitted_at: serverNow.toISOString(),
+          user_id: userIdBigInt.toString(),
+          user_name: dbUser.full_name || dbUser.username,
+          assignments: assignmentsToProcess.map((a) => ({
+            portion_id: a.portion_id.toString(),
+            silo_id: a.silo_id.toString(),
+          })),
         },
+        actor: auditActorFromUser(dbUser),
       });
 
       return logsCreated;

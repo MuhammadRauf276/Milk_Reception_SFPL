@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/backend/core/auth';
 import { prisma } from '@/backend/core/db';
 import { createNotificationsForEvent } from '@/backend/services/notificationService';
+import { writeAuditLog, auditActorFromUser } from '@/backend/core/audit';
 
 function serialize(row: { id: bigint; metric: string; target_percent: unknown; effective_from: Date; effective_to: Date | null; reason: string }) {
   return { id: row.id.toString(), metric: row.metric, targetPercent: Number(row.target_percent), effectiveFrom: row.effective_from.toISOString(), effectiveTo: row.effective_to?.toISOString() || null, reason: row.reason };
@@ -29,7 +30,13 @@ export async function POST(req: Request) {
   const created = await prisma.$transaction(async (tx) => {
     await tx.financeLossTarget.updateMany({ where: { metric: 'MTD_13TS_LOSS_PERCENT', effective_to: null }, data: { effective_to: now } });
     const row = await tx.financeLossTarget.create({ data: { metric: 'MTD_13TS_LOSS_PERCENT', target_percent: target, effective_from: now, activated_by_user_id: actorId, reason } });
-    await tx.auditLog.create({ data: { table_name: 'finance_loss_target', record_id: row.id, action: 'FINANCE_LOSS_TARGET_ACTIVATED', new_values: { metric: row.metric, target_percent: target, effective_from: now.toISOString(), reason }, user_id: actorId } });
+    await writeAuditLog(tx, {
+      tableName: 'finance_loss_target',
+      recordId: row.id,
+      action: 'FINANCE_LOSS_TARGET_ACTIVATED',
+      newValues: { metric: row.metric, target_percent: target, effective_from: now.toISOString(), reason },
+      actor: auditActorFromUser(current),
+    });
     await createNotificationsForEvent(tx, { eventKey: 'FINANCE_TARGET_CHANGED', sourceId: row.id.toString(), title: 'MTD 13TS loss target changed', body: `The active target is now ${target}%.`, deepLink: '/finance/reconciliation', dedupeSuffix: row.id.toString() });
     return row;
   });

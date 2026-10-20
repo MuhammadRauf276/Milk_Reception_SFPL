@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@/backend/core/auth';
+import { requireCorrectionAuthority } from '@/backend/core/route-guards';
 import { applyCorrectionRequest } from '@/backend/services/correctionGovernanceService';
 import { getErrorMessage } from '@/lib/errors';
 
@@ -7,18 +7,9 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const user = await getCurrentUser(req);
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
-  }
-
-  const allowedRoles = ['DATA_EXECUTIVE', 'SUPER_ADMIN'];
-  if (!allowedRoles.includes(user.role)) {
-    return NextResponse.json(
-      { error: 'Forbidden. Only Data Executive or Super Admin may apply system corrections.' },
-      { status: 403 }
-    );
-  }
+  const guard = await requireCorrectionAuthority(req);
+  if ('response' in guard) return guard.response;
+  const { user } = guard;
 
   const { id } = await params;
   if (!id || !/^\d+$/.test(id)) {

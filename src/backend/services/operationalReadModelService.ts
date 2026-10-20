@@ -16,6 +16,7 @@ import {
   VehicleCalculationPortion,
 } from './vehicleQuantityService';
 import { Prisma } from '@prisma/client';
+import { operationalReadScopeForUser, type OperationalReadScope } from './dispatchScope';
 
 export type RetrievalMode = 'live' | 'recent' | 'search' | 'report';
 
@@ -715,44 +716,30 @@ export function mapVisitToLogs(
  */
 export async function getPaginatedOperationalLogs(
   filters?: OperationalLogFilters,
-  currentUser?: User | null
+  currentUser?: User | null,
+  readScope?: OperationalReadScope
 ): Promise<PaginatedOperationalLogs> {
   const mode: RetrievalMode = filters?.mode || 'recent';
   const conditions: Prisma.VehicleVisitWhereInput[] = [];
 
-  // 1. Role-based scoping (Fail closed for source-scoped roles)
-  if (currentUser?.role === 'CONTRACTOR_MANAGER' || currentUser?.role === 'CONTRACTOR_OPERATOR') {
-    if (currentUser.procurement_source_id) {
-      conditions.push({
-        procurement_source: {
-          id: BigInt(currentUser.procurement_source_id),
-          source_type: 'CONTRACTOR',
-        },
-      });
-    } else {
-      conditions.push({ procurement_source_id: BigInt(-1) });
-    }
-  } else if (currentUser?.role === 'ZMCC_MANAGER' || currentUser?.role === 'ZMCC_LAB_ATTENDANT') {
-    if (currentUser.procurement_source_id) {
-      conditions.push({
-        procurement_source: {
-          id: BigInt(currentUser.procurement_source_id),
-          source_type: 'ZMCC',
-        },
-      });
-    } else {
-      conditions.push({ procurement_source_id: BigInt(-1) });
-    }
+  // 1. Scope (fail closed): an explicit read scope (e.g. from an acting context) wins; otherwise
+  // computed from the user. Source-scoped roles see only their own source; no user / unknown
+  // roles see nothing.
+  const scope = readScope ?? operationalReadScopeForUser(currentUser);
+  if (scope.kind === 'SOURCE') {
+    conditions.push({
+      procurement_source: {
+        id: scope.sourceId,
+        source_type: scope.sourceType,
+      },
+    });
+  } else if (scope.kind === 'NONE') {
+    conditions.push({ procurement_source_id: BigInt(-1) });
   }
 
-  // 2. Contractor filter for non-scoped roles (e.g. Super Admin)
+  // 2. Contractor filter for unscoped readers (e.g. Super Admin)
   if (filters?.contractor && filters.contractor !== 'ALL') {
-    const isScoped =
-      currentUser?.role === 'CONTRACTOR_MANAGER' ||
-      currentUser?.role === 'CONTRACTOR_OPERATOR' ||
-      currentUser?.role === 'ZMCC_MANAGER' ||
-      currentUser?.role === 'ZMCC_LAB_ATTENDANT';
-    if (!isScoped) {
+    if (scope.kind === 'ALL') {
       conditions.push({
         procurement_source: {
           OR: [
@@ -968,9 +955,10 @@ export async function getPaginatedOperationalLogs(
  */
 export async function getOperationalLogs(
   filters?: OperationalLogFilters,
-  currentUser?: User | null
+  currentUser?: User | null,
+  readScope?: OperationalReadScope
 ): Promise<MilkProcessLog[]> {
-  const result = await getPaginatedOperationalLogs(filters, currentUser);
+  const result = await getPaginatedOperationalLogs(filters, currentUser, readScope);
   return result.items;
 }
 
@@ -980,7 +968,8 @@ export async function getOperationalLogs(
  */
 export async function getOperationalLogById(
   id: number | string | bigint,
-  currentUser?: User | null
+  currentUser?: User | null,
+  readScope?: OperationalReadScope
 ): Promise<MilkProcessLog | null> {
   let visitId: bigint;
   try {
@@ -996,16 +985,10 @@ export async function getOperationalLogById(
 
   if (!visit) return null;
 
-  // Enforce source scoping for source-scoped roles
-  if (currentUser?.role === 'CONTRACTOR_MANAGER' || currentUser?.role === 'CONTRACTOR_OPERATOR') {
-    if (!currentUser.procurement_source_id || visit.procurement_source_id !== BigInt(currentUser.procurement_source_id)) {
-      return null;
-    }
-  } else if (currentUser?.role === 'ZMCC_MANAGER' || currentUser?.role === 'ZMCC_LAB_ATTENDANT') {
-    if (!currentUser.procurement_source_id || visit.procurement_source_id !== BigInt(currentUser.procurement_source_id)) {
-      return null;
-    }
-  }
+  // Enforce scope (fail closed): source-scoped readers see only their own source; no user / unknown roles see nothing.
+  const scope = readScope ?? operationalReadScopeForUser(currentUser);
+  if (scope.kind === 'NONE') return null;
+  if (scope.kind === 'SOURCE' && visit.procurement_source_id !== scope.sourceId) return null;
 
   const masterLabTests = await prisma.labTest.findMany({
     orderBy: [{ displayOrder: 'asc' }, { id: 'asc' }],

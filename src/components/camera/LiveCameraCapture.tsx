@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Camera, Check, Eye, X, Loader2 } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
+import { LiveCamera } from '@/components/camera/LiveCamera';
+import type { LiveCameraResult } from '@/types/captured-photo';
 
 export interface LiveCameraCaptureProps {
   testType: 'LR' | 'FAT' | string;
@@ -17,25 +19,6 @@ export interface LiveCameraCaptureProps {
   className?: string;
 }
 
-function formatPktTimestamp(date: Date = new Date()): string {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Karachi',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  }).formatToParts(date);
-
-  const map: Record<string, string> = {};
-  for (const p of parts) {
-    map[p.type] = p.value;
-  }
-  return `${map.year}-${map.month}-${map.day} ${map.hour}:${map.minute}:${map.second}`;
-}
-
 export const LiveCameraCapture: React.FC<LiveCameraCaptureProps> = ({
   testType,
   stageName,
@@ -48,123 +31,44 @@ export const LiveCameraCapture: React.FC<LiveCameraCaptureProps> = ({
   isRequired = false,
   className = '',
 }) => {
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [processing, setProcessing] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [processing, setProcessing] = useState(false);
+  const [me, setMe] = useState<{ code: string; role: string }>({ code: 'unknown', role: 'unknown' });
 
   const testLabel = testType.toUpperCase().includes('FAT') ? 'FAT' : 'LR';
 
+  // The stamp needs the signed-in person; the server remains the source of truth for permissions.
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/auth/me')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        const u = d?.user;
+        if (alive && u) setMe({ code: u.employee_code || u.username || 'unknown', role: u.role || 'unknown' });
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   const handleCaptureClick = () => {
     if (disabled || processing) return;
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-      fileInputRef.current.click();
-    }
+    setCameraOpen(true);
   };
 
-  const getGpsCoords = (): Promise<{ lat: number; lng: number } | null> => {
-    return new Promise((resolve) => {
-      if (typeof window === 'undefined' || !navigator.geolocation) {
-        return resolve(null);
-      }
-      const timeout = setTimeout(() => resolve(null), 2500);
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          clearTimeout(timeout);
-          resolve({
-            lat: Number(pos.coords.latitude.toFixed(6)),
-            lng: Number(pos.coords.longitude.toFixed(6)),
-          });
-        },
-        () => {
-          clearTimeout(timeout);
-          resolve(null);
-        },
-        { enableHighAccuracy: true, timeout: 2500, maximumAge: 10000 }
-      );
-    });
-  };
-
-  const processImageFile = async (file: File) => {
+  const handleResult = async (res: LiveCameraResult) => {
+    setCameraOpen(false);
     setProcessing(true);
     try {
-      const gps = await getGpsCoords();
-      const gpsText = gps ? `${gps.lat}, ${gps.lng}` : 'N/A';
-      const timestampText = formatPktTimestamp();
-
-      const imageBitmap = await new Promise<HTMLImageElement>((resolve, reject) => {
-        const img = new Image();
+      const dataUrl = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = (e) => {
-          img.onload = () => resolve(img);
-          img.onerror = reject;
-          img.src = e.target?.result as string;
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(res.blob);
       });
-
-      const maxDim = 1280;
-      let width = imageBitmap.width;
-      let height = imageBitmap.height;
-
-      if (width > maxDim || height > maxDim) {
-        if (width > height) {
-          height = Math.round((height * maxDim) / width);
-          width = maxDim;
-        } else {
-          width = Math.round((width * maxDim) / height);
-          height = maxDim;
-        }
-      }
-
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Canvas context not available');
-
-      ctx.drawImage(imageBitmap, 0, 0, width, height);
-
-      const headerHeight = Math.max(54, Math.round(height * 0.085));
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.82)';
-      ctx.fillRect(0, 0, width, headerHeight);
-
-      const headerTitleSize = Math.max(14, Math.round(headerHeight * 0.32));
-      const headerSubSize = Math.max(11, Math.round(headerHeight * 0.24));
-
-      ctx.fillStyle = '#ffffff';
-      ctx.font = `bold ${headerTitleSize}px ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-      ctx.textBaseline = 'top';
-      const cleanStage = (stageName || 'PLANT QA').trim().toUpperCase();
-      ctx.fillText(`SHAKARGANJ · ${cleanStage}`, 16, Math.round(headerHeight * 0.16));
-
-      ctx.fillStyle = '#cbd5e1';
-      ctx.font = `600 ${headerSubSize}px ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-      const cleanVehicle = (vehicleNo || 'N/A').trim();
-      const cleanToken = (tokenNo || 'N/A').trim();
-      ctx.fillText(
-        `Test: ${testLabel} · Vehicle: ${cleanVehicle} · Token: ${cleanToken}`,
-        16,
-        Math.round(headerHeight * 0.54)
-      );
-
-      const footerHeight = Math.max(38, Math.round(height * 0.055));
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.82)';
-      ctx.fillRect(0, height - footerHeight, width, footerHeight);
-
-      const footerFontSize = Math.max(11, Math.round(footerHeight * 0.38));
-      ctx.fillStyle = '#e2e8f0';
-      ctx.font = `600 ${footerFontSize}px ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-      ctx.textBaseline = 'middle';
-      ctx.fillText(
-        `TIMESTAMP: ${timestampText} PKT  |  GPS: ${gpsText}`,
-        16,
-        height - Math.round(footerHeight / 2)
-      );
-
-      const watermarked = canvas.toDataURL('image/jpeg', 0.82);
-      onPhotoCaptured(watermarked);
+      onPhotoCaptured(dataUrl);
     } catch (err) {
       console.error('[LiveCameraCapture] Processing error:', err);
     } finally {
@@ -172,24 +76,8 @@ export const LiveCameraCapture: React.FC<LiveCameraCaptureProps> = ({
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      void processImageFile(file);
-    }
-  };
-
   return (
     <div className={`inline-flex items-center gap-2 ${className}`}>
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        onChange={handleFileChange}
-        className="hidden"
-      />
-
       {currentPhotoUrl ? (
         <div className="flex items-center gap-2">
           <button
@@ -198,6 +86,7 @@ export const LiveCameraCapture: React.FC<LiveCameraCaptureProps> = ({
             className="group relative h-9 w-9 overflow-hidden rounded-lg border border-border bg-slate-100 transition hover:border-slate-400"
             title={`View ${testLabel} photo`}
           >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={currentPhotoUrl}
               alt={`${testLabel} observation live capture`}
@@ -260,6 +149,20 @@ export const LiveCameraCapture: React.FC<LiveCameraCaptureProps> = ({
         </button>
       )}
 
+      {cameraOpen && (
+        <LiveCamera
+          stamp={{
+            employeeCode: me.code,
+            roleLabel: me.role,
+            pointLabel: `${stageName} - ${testLabel}`,
+            vehicleNo,
+            tokenNo,
+          }}
+          onCapture={(res) => void handleResult(res)}
+          onCancel={() => setCameraOpen(false)}
+        />
+      )}
+
       {previewOpen && currentPhotoUrl && (
         <Modal
           onClose={() => setPreviewOpen(false)}
@@ -279,6 +182,7 @@ export const LiveCameraCapture: React.FC<LiveCameraCaptureProps> = ({
             </button>
           </div>
           <div className="relative overflow-hidden rounded-lg bg-black flex items-center justify-center max-h-[70vh]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={currentPhotoUrl}
               alt={`${testLabel} verification`}

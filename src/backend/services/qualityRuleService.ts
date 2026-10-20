@@ -1,4 +1,5 @@
 import { prisma } from '@core/db';
+import { writeAuditLog } from '@/backend/core/audit';
 import { Prisma, LabTestRule } from '@prisma/client';
 import type { LabTestResultOption } from '@/lib/validations/labTest';
 
@@ -1064,46 +1065,44 @@ export class QualityRuleService {
       });
 
       // 4. Record Audit Log preserving old/new version, testing point, category, threshold/option, effective date, actor, and reason
-      await tx.auditLog.create({
-        data: {
-          table_name: 'lab_test_rule',
-          record_id: newRule.id,
-          action: existingActive ? 'SOP_LAB_RULE_SUPERSEDED' : 'SOP_LAB_RULE_CREATED',
-          old_values: existingActive
-            ? {
-                old_rule_id: String(existingActive.id),
-                old_version: existingActive.version,
-                testing_point: existingActive.testing_point,
-                rule_category: existingActive.rule_category,
-                min_value: existingActive.min_value !== null ? String(existingActive.min_value) : null,
-                max_value: existingActive.max_value !== null ? String(existingActive.max_value) : null,
-                warning_offset: existingActive.warning_offset !== null ? String(existingActive.warning_offset) : null,
-                acceptable_option: existingActive.acceptable_option,
-                warning_trigger: existingActive.warning_trigger,
-                decision_consequence: existingActive.decision_consequence,
-                effective_from: existingActive.effective_from?.toISOString(),
-                effective_to: existingActive.effective_to?.toISOString(),
-              }
-            : undefined,
-          new_values: {
-            test_id: String(testIdBigInt),
-            test_code: test.testCode,
-            testing_point: normalizedTestingPoint,
-            rule_category: ruleCategory,
-            version: nextVersion,
-            min_value: minValue !== undefined && minValue !== null && minValue !== '' ? String(minValue) : null,
-            max_value: maxValue !== undefined && maxValue !== null && maxValue !== '' ? String(maxValue) : null,
-            warning_offset: warningOffset !== undefined && warningOffset !== null && warningOffset !== '' ? String(warningOffset) : null,
-            acceptable_option: acceptableOption || null,
-            warning_trigger: warningTrigger || null,
-            decision_consequence: decisionConsequence || null,
-            effective_from: effectiveFrom.toISOString(),
-            effective_to: null,
-            reason: reason.trim(),
-            actor_user_id: String(userIdBigInt),
-          },
-          user_id: userIdBigInt,
+      await writeAuditLog(tx, {
+        tableName: 'lab_test_rule',
+        recordId: newRule.id,
+        action: existingActive ? 'SOP_LAB_RULE_SUPERSEDED' : 'SOP_LAB_RULE_CREATED',
+        oldValues: existingActive
+          ? {
+              old_rule_id: String(existingActive.id),
+              old_version: existingActive.version,
+              testing_point: existingActive.testing_point,
+              rule_category: existingActive.rule_category,
+              min_value: existingActive.min_value !== null ? String(existingActive.min_value) : null,
+              max_value: existingActive.max_value !== null ? String(existingActive.max_value) : null,
+              warning_offset: existingActive.warning_offset !== null ? String(existingActive.warning_offset) : null,
+              acceptable_option: existingActive.acceptable_option,
+              warning_trigger: existingActive.warning_trigger,
+              decision_consequence: existingActive.decision_consequence,
+              effective_from: existingActive.effective_from?.toISOString(),
+              effective_to: existingActive.effective_to?.toISOString(),
+            }
+          : undefined,
+        newValues: {
+          test_id: String(testIdBigInt),
+          test_code: test.testCode,
+          testing_point: normalizedTestingPoint,
+          rule_category: ruleCategory,
+          version: nextVersion,
+          min_value: minValue !== undefined && minValue !== null && minValue !== '' ? String(minValue) : null,
+          max_value: maxValue !== undefined && maxValue !== null && maxValue !== '' ? String(maxValue) : null,
+          warning_offset: warningOffset !== undefined && warningOffset !== null && warningOffset !== '' ? String(warningOffset) : null,
+          acceptable_option: acceptableOption || null,
+          warning_trigger: warningTrigger || null,
+          decision_consequence: decisionConsequence || null,
+          effective_from: effectiveFrom.toISOString(),
+          effective_to: null,
+          reason: reason.trim(),
+          actor_user_id: String(userIdBigInt),
         },
+        actor: { userId: userIdBigInt, actorRole: null },
       });
 
       return newRule;

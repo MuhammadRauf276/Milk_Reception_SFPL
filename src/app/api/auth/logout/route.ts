@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/backend/core/auth';
 import { prisma } from '@/backend/core/db';
+import { writeAuditLog, auditActorFromUser } from '@/backend/core/audit';
 
 export async function POST(req: Request) {
   const current = await getCurrentUser(req);
@@ -29,17 +30,15 @@ export async function POST(req: Request) {
         data: { revoked_at: new Date() },
       });
       if (revoked.count) {
-        await tx.auditLog.create({
-          data: {
-            table_name: 'push_subscription',
-            record_id: userId,
-            action: 'PUSH_SUBSCRIPTIONS_REVOKED_ON_LOGOUT',
-            new_values: {
-              count: revoked.count,
-              endpoint: endpoint || 'ALL_DEVICE_SUBSCRIPTIONS',
-            },
-            user_id: userId,
+        await writeAuditLog(tx, {
+          tableName: 'push_subscription',
+          recordId: userId,
+          action: 'PUSH_SUBSCRIPTIONS_REVOKED_ON_LOGOUT',
+          newValues: {
+            count: revoked.count,
+            endpoint: endpoint || 'ALL_DEVICE_SUBSCRIPTIONS',
           },
+          actor: auditActorFromUser(current),
         });
       }
     });

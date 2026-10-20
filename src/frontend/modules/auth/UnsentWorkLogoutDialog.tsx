@@ -5,6 +5,8 @@ import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
 import { syncAll } from '@/frontend/modules/mot/offlineStore';
 import { getLogoutSafety } from '@/frontend/modules/auth/logout';
+import { runSyncOnce } from '@/frontend/modules/pwa/syncEngine';
+import { logDeviceEvent } from '@/frontend/modules/pwa/diary';
 
 export interface UnsentWorkLogoutDialogProps {
   /** Items waiting to be sent. */
@@ -32,11 +34,20 @@ export function UnsentWorkLogoutDialog({
   const [sending, setSending] = React.useState(false);
   const [message, setMessage] = React.useState<string | null>(null);
 
+  React.useEffect(() => {
+    // Black box: someone tried to log out while work was still on the phone.
+    void logDeviceEvent('LOGOUT_ATTEMPT', { waiting: count, needsAttention });
+    // Only on open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleSendNow = async () => {
     setSending(true);
     setMessage(null);
     try {
+      // Both queues: old MOT queues, then the new offline sync queue (record + photos).
       await syncAll();
+      await runSyncOnce();
     } catch {
       // Result is judged by re-checking what is left.
     }

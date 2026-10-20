@@ -1,4 +1,6 @@
 import { prisma } from '@/backend/core/db';
+import { auditActorFromUser, writeAuditLog } from '@/backend/core/audit';
+import { isCorrectionAuthority } from '@/backend/core/roles/capabilities';
 import { User } from '@/backend/core/types';
 import { Prisma } from '@prisma/client';
 import { toJsonInput } from '@/lib/json';
@@ -7,6 +9,7 @@ import { correctShopCollection } from '@/backend/services/mot/motCore';
 
 export interface CreateCorrectionRequestInput {
   userId: bigint;
+  actorRole?: string | null;
   module: string;
   recordId: string;
   sourceId?: bigint | null;
@@ -63,21 +66,19 @@ export async function createCorrectionRequest(input: CreateCorrectionRequestInpu
 
   // Notify Data Executive & Super Admin
   try {
-    await prisma.auditLog.create({
-      data: {
-        table_name: 'correction_request',
-        record_id: req.id,
-        action: 'CORRECTION_REQUESTED',
-        old_values: Prisma.DbNull,
-        new_values: toJsonInput({
-          correlation_id: correlationId,
-          module: input.module,
-          record_id: input.recordId,
-          reason: input.reason,
-          changes: input.requestedChanges,
-        }),
-        user_id: input.userId,
-      },
+    await writeAuditLog(prisma, {
+      tableName: 'correction_request',
+      recordId: req.id,
+      action: 'CORRECTION_REQUESTED',
+      oldValues: null,
+      newValues: toJsonInput({
+        correlation_id: correlationId,
+        module: input.module,
+        record_id: input.recordId,
+        reason: input.reason,
+        changes: input.requestedChanges,
+      }),
+      actor: { userId: input.userId, actorRole: input.actorRole ?? null },
     });
   } catch (err) {
     console.error('AuditLog creation failed for correction request:', err);
@@ -146,6 +147,11 @@ export async function rejectCorrectionRequest(
   reviewerUser: User,
   reviewReason: string
 ) {
+  // Reviewing a correction is non-delegable: Data Executive and Super Admin only.
+  if (!isCorrectionAuthority(reviewerUser.role)) {
+    throw new Error('Forbidden. Only Data Executive or Super Admin may review correction requests.');
+  }
+
   const req = await prisma.correctionRequest.findUnique({
     where: { id: requestId },
   });
@@ -171,15 +177,13 @@ export async function rejectCorrectionRequest(
     },
   });
 
-  await prisma.auditLog.create({
-    data: {
-      table_name: 'correction_request',
-      record_id: req.id,
-      action: 'CORRECTION_REQUEST_REJECTED',
-      old_values: { status: req.status },
-      new_values: { status: 'REJECTED', review_reason: reviewReason },
-      user_id: reviewerId,
-    },
+  await writeAuditLog(prisma, {
+    tableName: 'correction_request',
+    recordId: req.id,
+    action: 'CORRECTION_REQUEST_REJECTED',
+    oldValues: { status: req.status },
+    newValues: { status: 'REJECTED', review_reason: reviewReason },
+    actor: auditActorFromUser(reviewerUser),
   });
 
   return updated;
@@ -189,6 +193,11 @@ export async function applyCorrectionRequest(
   requestId: bigint,
   reviewerUser: User
 ) {
+  // Applying a correction is non-delegable: Data Executive and Super Admin only.
+  if (!isCorrectionAuthority(reviewerUser.role)) {
+    throw new Error('Forbidden. Only Data Executive or Super Admin may apply corrections.');
+  }
+
   const req = await prisma.correctionRequest.findUnique({
     where: { id: requestId },
   });
@@ -246,15 +255,13 @@ export async function applyCorrectionRequest(
     },
   });
 
-  await prisma.auditLog.create({
-    data: {
-      table_name: 'correction_request',
-      record_id: req.id,
-      action: 'CORRECTION_REQUEST_APPLIED',
-      old_values: { status: req.status },
-      new_values: { status: 'APPLIED', application_result: applicationResult ? 'SUCCESS' : 'MANUAL_APPLY' },
-      user_id: reviewerId,
-    },
+  await writeAuditLog(prisma, {
+    tableName: 'correction_request',
+    recordId: req.id,
+    action: 'CORRECTION_REQUEST_APPLIED',
+    oldValues: { status: req.status },
+    newValues: { status: 'APPLIED', application_result: applicationResult ? 'SUCCESS' : 'MANUAL_APPLY' },
+    actor: auditActorFromUser(reviewerUser),
   });
 
   return { request: updated, result: applicationResult };

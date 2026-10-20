@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
 import { getErrorMessage } from '@/lib/errors';
+import { writeAuditLog, auditActorFromUser } from '@core/audit';
 
 export async function DELETE(
   req: Request,
@@ -100,17 +101,15 @@ export async function DELETE(
         });
       }
 
-      await tx.auditLog.create({
-        data: {
-          table_name: 'visit_portion',
-          record_id: portionId,
-          action: 'PLANT_QA_PORTION_REMOVED',
-          old_values: {
-            visit_id: visitId.toString(),
-            portion_number: portion.portion_number,
-          },
-          user_id: dbUser.id,
+      await writeAuditLog(tx, {
+        tableName: 'visit_portion',
+        recordId: portionId,
+        action: 'PLANT_QA_PORTION_REMOVED',
+        oldValues: {
+          visit_id: visitId.toString(),
+          portion_number: portion.portion_number,
         },
+        actor: auditActorFromUser(dbUser),
       });
     });
 

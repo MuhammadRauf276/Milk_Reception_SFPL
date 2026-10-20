@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@core/auth';
+import { requireCorrectionAuthority } from '@core/route-guards';
 import { prisma } from '@core/db';
 import { Prisma, PaperReferenceType } from '@prisma/client';
 import { z } from 'zod';
@@ -9,6 +9,8 @@ import { calculateDualReconciliation } from '@/backend/services/reconciliationSe
 import { getTankPhysicalStock } from '@/backend/services/zmccTankService';
 import { getErrorCode, getErrorIssues, getErrorMessage, getErrorName } from '@/lib/errors';
 import { jsonRecord, toJsonInput } from '@/lib/json';
+import { isCorrectionAuthority } from '@core/roles/capabilities';
+import { writeAuditLog, auditActorFromUser } from '@core/audit';
 
 const correctDispatchSchema = z.object({
   reason: z.string().trim().min(3, 'A substantive correction reason of at least 3 characters is required.'),
@@ -26,10 +28,10 @@ export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authUser = await getCurrentUser(req);
-  if (!authUser) {
-    return NextResponse.json({ error: 'Unauthorized. Authentication required.' }, { status: 401 });
-  }
+  // Correcting a saved record is a CORRECT action: Data Executive and Super Admin only (never delegated).
+  const guard = await requireCorrectionAuthority(req);
+  if ('response' in guard) return guard.response;
+  const authUser = guard.user;
 
   const dbUser = await prisma.user.findFirst({
     where: {
@@ -39,8 +41,7 @@ export async function PATCH(
     include: { procurement_source: true },
   });
 
-  const allowedRoles = ['DATA_EXECUTIVE', 'SUPER_ADMIN'];
-  if (!dbUser || !allowedRoles.includes(dbUser.role)) {
+  if (!dbUser || !isCorrectionAuthority(dbUser.role)) {
     return NextResponse.json(
       { error: 'Unauthorized. Data Executive or Super Admin role required for dispatch corrections.' },
       { status: 403 }
@@ -133,12 +134,6 @@ export async function PATCH(
 
       if (!visit) {
         throw new Error('NOT_FOUND:Dispatch visit not found.');
-      }
-
-      if (dbUser.role === 'ZMCC_MANAGER') {
-        if (!dbUser.procurement_source_id || dbUser.procurement_source_id !== visit.procurement_source_id) {
-          throw new Error('FORBIDDEN:ZMCC Manager can only correct dispatches for their own ZMCC.');
-        }
       }
 
       const noteInput = validated.raw_milk_dispatch_note_number !== undefined
@@ -419,15 +414,13 @@ export async function PATCH(
         newAuditValues.at_13ts_liters = vehicleAt13tsLiters;
       }
 
-      await tx.auditLog.create({
-        data: {
-          table_name: 'vehicle_visit',
-          record_id: visit.id,
-          action: 'VEHICLE_DISPATCH_CORRECTED',
-          old_values: toJsonInput(oldAuditValues),
-          new_values: toJsonInput(newAuditValues),
-          user_id: dbUser.id,
-        },
+      await writeAuditLog(tx, {
+        tableName: 'vehicle_visit',
+        recordId: visit.id,
+        action: 'VEHICLE_DISPATCH_CORRECTED',
+        oldValues: toJsonInput(oldAuditValues),
+        newValues: toJsonInput(newAuditValues),
+        actor: auditActorFromUser(dbUser),
       });
 
       return { success: true };

@@ -1,4 +1,5 @@
 import { prisma } from '@core/db';
+import { auditActorFromUser, writeAuditLog } from '@/backend/core/audit';
 import { Prisma } from '@prisma/client';
 import { QualityRuleService } from '@/backend/services/qualityRuleService';
 
@@ -447,23 +448,21 @@ export class MilkTestPolicyService {
         },
       });
 
-      await tx.auditLog.create({
-        data: {
-          table_name: 'milk_test_policy_assignment',
-          record_id: created.id,
-          action: 'MILK_TEST_POLICY_CREATED',
-          user_id: resolvedActor.id,
-          new_values: {
-            id: created.id.toString(),
-            lab_test_id: created.lab_test_id.toString(),
-            test_code: created.lab_test.testCode,
-            test_name: created.lab_test.testName,
-            testing_point: created.testing_point,
-            is_required: created.is_required,
-            is_photo_required: created.is_photo_required,
-            display_order: created.display_order,
-            is_active: created.is_active,
-          },
+      await writeAuditLog(tx, {
+        tableName: 'milk_test_policy_assignment',
+        recordId: created.id,
+        action: 'MILK_TEST_POLICY_CREATED',
+        actor: auditActorFromUser(resolvedActor),
+        newValues: {
+          id: created.id.toString(),
+          lab_test_id: created.lab_test_id.toString(),
+          test_code: created.lab_test.testCode,
+          test_name: created.lab_test.testName,
+          testing_point: created.testing_point,
+          is_required: created.is_required,
+          is_photo_required: created.is_photo_required,
+          display_order: created.display_order,
+          is_active: created.is_active,
         },
       });
 
@@ -582,28 +581,26 @@ export class MilkTestPolicyService {
         },
       });
 
-      await tx.auditLog.create({
-        data: {
-          table_name: 'milk_test_policy_assignment',
-          record_id: updated.id,
-          action: auditAction,
-          user_id: resolvedActor.id,
-          old_values: {
-            id: existing.id.toString(),
-            lab_test_id: existing.lab_test_id.toString(),
-            testing_point: existing.testing_point,
-            is_required: existing.is_required,
-            display_order: existing.display_order,
-            is_active: existing.is_active,
-          },
-          new_values: {
-            id: updated.id.toString(),
-            lab_test_id: updated.lab_test_id.toString(),
-            testing_point: updated.testing_point,
-            is_required: updated.is_required,
-            display_order: updated.display_order,
-            is_active: updated.is_active,
-          },
+      await writeAuditLog(tx, {
+        tableName: 'milk_test_policy_assignment',
+        recordId: updated.id,
+        action: auditAction,
+        actor: auditActorFromUser(resolvedActor),
+        oldValues: {
+          id: existing.id.toString(),
+          lab_test_id: existing.lab_test_id.toString(),
+          testing_point: existing.testing_point,
+          is_required: existing.is_required,
+          display_order: existing.display_order,
+          is_active: existing.is_active,
+        },
+        newValues: {
+          id: updated.id.toString(),
+          lab_test_id: updated.lab_test_id.toString(),
+          testing_point: updated.testing_point,
+          is_required: updated.is_required,
+          display_order: updated.display_order,
+          is_active: updated.is_active,
         },
       });
 

@@ -1,4 +1,5 @@
 import { Prisma, type MotJourneySummary } from '@prisma/client';
+import { writeAuditLog } from '@/backend/core/audit';
 import { toJsonInput } from '@/lib/json';
 
 export const MOT_JOURNEY_SUMMARY_VERSION = '1.0';
@@ -256,15 +257,13 @@ export async function createInitialMotJourneySummaryTx(
     },
   });
 
-  await tx.auditLog.create({
-    data: {
-      table_name: 'mot_journey_summary',
-      record_id: summary.id,
-      action: 'MOT_JOURNEY_SUMMARY_CREATED',
-      old_values: Prisma.DbNull,
-      new_values: serializeSummaryAuditValues(summary),
-      user_id: actorUserId,
-    },
+  await writeAuditLog(tx, {
+    tableName: 'mot_journey_summary',
+    recordId: summary.id,
+    action: 'MOT_JOURNEY_SUMMARY_CREATED',
+    oldValues: null,
+    newValues: serializeSummaryAuditValues(summary),
+    actor: { userId: actorUserId, actorRole: null },
   });
 
   return summary;
@@ -363,15 +362,13 @@ export async function recomputeMotJourneySummaryTx(
     },
   });
 
-  await tx.auditLog.create({
-    data: {
-      table_name: 'mot_journey_summary',
-      record_id: existing.id,
-      action: 'MOT_JOURNEY_SUMMARY_REFRESHED_LATE_SYNC',
-      old_values: serializeSummaryAuditValues(existing),
-      new_values: serializeSummaryAuditValues(updated),
-      user_id: actorUserId,
-    },
+  await writeAuditLog(tx, {
+    tableName: 'mot_journey_summary',
+    recordId: existing.id,
+    action: 'MOT_JOURNEY_SUMMARY_REFRESHED_LATE_SYNC',
+    oldValues: serializeSummaryAuditValues(existing),
+    newValues: serializeSummaryAuditValues(updated),
+    actor: { userId: actorUserId, actorRole: null },
   });
 
   return updated;

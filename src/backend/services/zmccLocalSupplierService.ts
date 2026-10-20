@@ -1,4 +1,5 @@
 import { prisma } from '@core/db';
+import { writeAuditLog } from '@/backend/core/audit';
 import { Prisma } from '@prisma/client';
 import { User } from '@core/types';
 import { resolveZmccAuth, ServiceResult } from './zmccMasterDataService';
@@ -402,24 +403,22 @@ export async function createLocalSupplier(
         include: { zmcc: true },
       });
 
-      await tx.auditLog.create({
-        data: {
-          table_name: 'zmcc_local_supplier',
-          record_id: supplier.id,
-          action: 'ZMCC_LOCAL_SUPPLIER_CREATED',
-          old_values: Prisma.DbNull,
-          new_values: {
-            local_supplier_code: supplier.local_supplier_code,
-            zmcc_id: targetZmccId.toString(),
-            name: supplier.name,
-            phone: supplier.phone,
-            cnic: supplier.cnic,
-            erp_reference: supplier.erp_reference,
-            erp_mapping_status: supplier.erp_mapping_status,
-            is_active: supplier.is_active,
-          },
-          user_id: auth.actorUserId,
+      await writeAuditLog(tx, {
+        tableName: 'zmcc_local_supplier',
+        recordId: supplier.id,
+        action: 'ZMCC_LOCAL_SUPPLIER_CREATED',
+        oldValues: null,
+        newValues: {
+          local_supplier_code: supplier.local_supplier_code,
+          zmcc_id: targetZmccId.toString(),
+          name: supplier.name,
+          phone: supplier.phone,
+          cnic: supplier.cnic,
+          erp_reference: supplier.erp_reference,
+          erp_mapping_status: supplier.erp_mapping_status,
+          is_active: supplier.is_active,
         },
+        actor: { userId: auth.actorUserId, actorRole: auth.role },
       });
 
       if (supplier.erp_mapping_status === 'PENDING') {
@@ -571,27 +570,25 @@ export async function updateLocalSupplier(
         include: { zmcc: true },
       });
 
-      await tx.auditLog.create({
-        data: {
-          table_name: 'zmcc_local_supplier',
-          record_id: supplierId,
-          action: 'ZMCC_LOCAL_SUPPLIER_UPDATED',
-          old_values: {
-            name: existingSupplier.name,
-            phone: existingSupplier.phone,
-            cnic: existingSupplier.cnic,
-            erp_reference: existingSupplier.erp_reference,
-            is_active: existingSupplier.is_active,
-          },
-          new_values: {
-            name: result.name,
-            phone: result.phone,
-            cnic: result.cnic,
-            erp_reference: result.erp_reference,
-            is_active: result.is_active,
-          },
-          user_id: auth.actorUserId,
+      await writeAuditLog(tx, {
+        tableName: 'zmcc_local_supplier',
+        recordId: supplierId,
+        action: 'ZMCC_LOCAL_SUPPLIER_UPDATED',
+        oldValues: {
+          name: existingSupplier.name,
+          phone: existingSupplier.phone,
+          cnic: existingSupplier.cnic,
+          erp_reference: existingSupplier.erp_reference,
+          is_active: existingSupplier.is_active,
         },
+        newValues: {
+          name: result.name,
+          phone: result.phone,
+          cnic: result.cnic,
+          erp_reference: result.erp_reference,
+          is_active: result.is_active,
+        },
+        actor: { userId: auth.actorUserId, actorRole: auth.role },
       });
 
       return result;

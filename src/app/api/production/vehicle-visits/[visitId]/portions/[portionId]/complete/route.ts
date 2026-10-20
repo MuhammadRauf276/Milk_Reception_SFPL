@@ -3,6 +3,7 @@ import { prisma } from '@core/db';
 import { getCurrentUser } from '@core/auth';
 import { validateOperationalTimestamp } from '@/backend/services/chronology-validator';
 import { getErrorMessage } from '@/lib/errors';
+import { writeAuditLog, auditActorFromUser } from '@core/audit';
 
 export async function POST(
   req: NextRequest,
@@ -113,24 +114,21 @@ export async function POST(
       });
 
       // 6. Immutable AuditLog creation
-      await tx.auditLog.create({
-        data: {
-          table_name: 'vehicle_visit',
-          record_id: visitId,
-          action: 'UNLOADING_COMPLETED',
-          new_values: {
-            visit_id: visitId.toString(),
-            vehicle_number: visit.vehicle_number,
-            token_number: visit.token_number,
-            op_timestamp: opTimestamp.toISOString(),
-            submitted_at: serverNow.toISOString(),
-            user_id: userIdBigInt.toString(),
-            user_name: dbUser.full_name || dbUser.username,
-            new_status: 'READY_FOR_TARE',
-          },
-          user_id: userIdBigInt,
-          created_at: serverNow,
+      await writeAuditLog(tx, {
+        tableName: 'vehicle_visit',
+        recordId: visitId,
+        action: 'UNLOADING_COMPLETED',
+        newValues: {
+          visit_id: visitId.toString(),
+          vehicle_number: visit.vehicle_number,
+          token_number: visit.token_number,
+          op_timestamp: opTimestamp.toISOString(),
+          submitted_at: serverNow.toISOString(),
+          user_id: userIdBigInt.toString(),
+          user_name: dbUser.full_name || dbUser.username,
+          new_status: 'READY_FOR_TARE',
         },
+        actor: auditActorFromUser(dbUser),
       });
 
       return { visitId, newStatus: 'READY_FOR_TARE' };

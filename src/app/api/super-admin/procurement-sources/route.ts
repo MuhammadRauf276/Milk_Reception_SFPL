@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
+import { writeAuditLog, auditActorFromUser } from '@core/audit';
 
 const NO_STORE_HEADERS = {
   'Cache-Control': 'private, no-store, max-age=0',
@@ -86,14 +87,12 @@ export async function POST(req: Request) {
         },
       });
 
-      await tx.auditLog.create({
-        data: {
-          table_name: 'procurement_source',
-          record_id: createdSource.id,
-          action: 'PROCUREMENT_SOURCE_CREATED',
-          new_values: { code, name, source_type: sourceType },
-          user_id: adminUser?.id || null,
-        },
+      await writeAuditLog(tx, {
+        tableName: 'procurement_source',
+        recordId: createdSource.id,
+        action: 'PROCUREMENT_SOURCE_CREATED',
+        newValues: { code, name, source_type: sourceType },
+        actor: { ...auditActorFromUser(authUser), userId: adminUser?.id ?? null },
       });
 
       return createdSource;

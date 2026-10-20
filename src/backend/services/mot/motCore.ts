@@ -1,4 +1,6 @@
 import { prisma } from '@core/db';
+import { writeAuditLog } from '@/backend/core/audit';
+import { isCorrectionAuthority } from '@/backend/core/roles/capabilities';
 import {
   Prisma,
   type MotCollectionSmsOutbox,
@@ -146,7 +148,8 @@ export async function resolveMotAuth(
       };
     }
   } else if (action === 'CORRECT_COLLECTION') {
-    if (!isSuperAdmin && !isDataExecutive) {
+    // CORRECT is non-delegable: Data Executive and Super Admin only.
+    if (!isCorrectionAuthority(role)) {
       return {
         errorResponse: {
           error: 'Forbidden. Only Data Executive or Super Admin may correct collections.',
@@ -570,23 +573,21 @@ export async function createMotProfile(
       },
     });
 
-    await tx.auditLog.create({
-      data: {
-        table_name: 'mot_profile',
-        record_id: p.id,
-        action: 'MOT_PROFILE_CREATED',
-        old_values: Prisma.DbNull,
-        new_values: {
-          mot_code: p.mot_code,
-          name: p.name,
-          phone_number: p.phone_number,
-          cnic: p.cnic,
-          zmcc_id: p.zmcc_id.toString(),
-          user_id: p.user_id ? p.user_id.toString() : null,
-          is_active: p.is_active,
-        },
-        user_id: auth.actorUserId,
+    await writeAuditLog(tx, {
+      tableName: 'mot_profile',
+      recordId: p.id,
+      action: 'MOT_PROFILE_CREATED',
+      oldValues: null,
+      newValues: {
+        mot_code: p.mot_code,
+        name: p.name,
+        phone_number: p.phone_number,
+        cnic: p.cnic,
+        zmcc_id: p.zmcc_id.toString(),
+        user_id: p.user_id ? p.user_id.toString() : null,
+        is_active: p.is_active,
       },
+      actor: { userId: auth.actorUserId, actorRole: auth.role },
     });
 
     return p;
@@ -784,31 +785,29 @@ export async function updateMotProfile(
       actionName = 'MOT_PROFILE_USER_LINKED';
     }
 
-    await tx.auditLog.create({
-      data: {
-        table_name: 'mot_profile',
-        record_id: p.id,
-        action: actionName,
-        old_values: {
-          mot_code: existing.mot_code,
-          name: existing.name,
-          phone_number: existing.phone_number,
-          cnic: existing.cnic,
-          zmcc_id: existing.zmcc_id.toString(),
-          user_id: existing.user_id ? existing.user_id.toString() : null,
-          is_active: existing.is_active,
-        },
-        new_values: {
-          mot_code: p.mot_code,
-          name: p.name,
-          phone_number: p.phone_number,
-          cnic: p.cnic,
-          zmcc_id: p.zmcc_id.toString(),
-          user_id: p.user_id ? p.user_id.toString() : null,
-          is_active: p.is_active,
-        },
-        user_id: auth.actorUserId,
+    await writeAuditLog(tx, {
+      tableName: 'mot_profile',
+      recordId: p.id,
+      action: actionName,
+      oldValues: {
+        mot_code: existing.mot_code,
+        name: existing.name,
+        phone_number: existing.phone_number,
+        cnic: existing.cnic,
+        zmcc_id: existing.zmcc_id.toString(),
+        user_id: existing.user_id ? existing.user_id.toString() : null,
+        is_active: existing.is_active,
       },
+      newValues: {
+        mot_code: p.mot_code,
+        name: p.name,
+        phone_number: p.phone_number,
+        cnic: p.cnic,
+        zmcc_id: p.zmcc_id.toString(),
+        user_id: p.user_id ? p.user_id.toString() : null,
+        is_active: p.is_active,
+      },
+      actor: { userId: auth.actorUserId, actorRole: auth.role },
     });
 
     return p;
@@ -1043,24 +1042,22 @@ export async function createMotVehicle(
       },
     });
 
-    await tx.auditLog.create({
-      data: {
-        table_name: 'mot_vehicle',
-        record_id: v.id,
-        action: isSubstitute ? 'EMERGENCY_SUBSTITUTE_VEHICLE_REGISTERED' : 'MOT_VEHICLE_CREATED',
-        old_values: Prisma.DbNull,
-        new_values: {
-          vehicle_number: v.vehicle_number,
-          zmcc_id: v.zmcc_id.toString(),
-          is_active: v.is_active,
-          ...(payload.vehicle_type ? { vehicle_type: payload.vehicle_type } : {}),
-          ...(payload.capacity_liters !== undefined ? { capacity_liters: payload.capacity_liters } : {}),
-          ...(payload.driver_name ? { driver_name: payload.driver_name } : {}),
-          ...(payload.driver_phone ? { driver_phone: payload.driver_phone } : {}),
-          ...(payload.category ? { category: payload.category } : {}),
-        },
-        user_id: auth.actorUserId,
+    await writeAuditLog(tx, {
+      tableName: 'mot_vehicle',
+      recordId: v.id,
+      action: isSubstitute ? 'EMERGENCY_SUBSTITUTE_VEHICLE_REGISTERED' : 'MOT_VEHICLE_CREATED',
+      oldValues: null,
+      newValues: {
+        vehicle_number: v.vehicle_number,
+        zmcc_id: v.zmcc_id.toString(),
+        is_active: v.is_active,
+        ...(payload.vehicle_type ? { vehicle_type: payload.vehicle_type } : {}),
+        ...(payload.capacity_liters !== undefined ? { capacity_liters: payload.capacity_liters } : {}),
+        ...(payload.driver_name ? { driver_name: payload.driver_name } : {}),
+        ...(payload.driver_phone ? { driver_phone: payload.driver_phone } : {}),
+        ...(payload.category ? { category: payload.category } : {}),
       },
+      actor: { userId: auth.actorUserId, actorRole: auth.role },
     });
 
     return v;
@@ -1198,23 +1195,21 @@ export async function updateMotVehicle(
       actionName = 'MOT_VEHICLE_TRANSFERRED';
     }
 
-    await tx.auditLog.create({
-      data: {
-        table_name: 'mot_vehicle',
-        record_id: v.id,
-        action: actionName,
-        old_values: {
-          vehicle_number: existing.vehicle_number,
-          zmcc_id: existing.zmcc_id.toString(),
-          is_active: existing.is_active,
-        },
-        new_values: {
-          vehicle_number: v.vehicle_number,
-          zmcc_id: v.zmcc_id.toString(),
-          is_active: v.is_active,
-        },
-        user_id: auth.actorUserId,
+    await writeAuditLog(tx, {
+      tableName: 'mot_vehicle',
+      recordId: v.id,
+      action: actionName,
+      oldValues: {
+        vehicle_number: existing.vehicle_number,
+        zmcc_id: existing.zmcc_id.toString(),
+        is_active: existing.is_active,
       },
+      newValues: {
+        vehicle_number: v.vehicle_number,
+        zmcc_id: v.zmcc_id.toString(),
+        is_active: v.is_active,
+      },
+      actor: { userId: auth.actorUserId, actorRole: auth.role },
     });
 
     return v;
@@ -1335,23 +1330,21 @@ export async function transferMotVehicle(
       },
     });
 
-    await tx.auditLog.create({
-      data: {
-        table_name: 'mot_vehicle',
-        record_id: v.id,
-        action: 'MOT_VEHICLE_TRANSFERRED',
-        old_values: {
-          zmcc_id: existing.zmcc_id.toString(),
-          zmcc_code: existing.zmcc?.code,
-          zmcc_name: existing.zmcc?.name,
-        },
-        new_values: {
-          zmcc_id: v.zmcc_id.toString(),
-          zmcc_code: targetZmcc.code,
-          zmcc_name: targetZmcc.name,
-        },
-        user_id: auth.actorUserId,
+    await writeAuditLog(tx, {
+      tableName: 'mot_vehicle',
+      recordId: v.id,
+      action: 'MOT_VEHICLE_TRANSFERRED',
+      oldValues: {
+        zmcc_id: existing.zmcc_id.toString(),
+        zmcc_code: existing.zmcc?.code,
+        zmcc_name: existing.zmcc?.name,
       },
+      newValues: {
+        zmcc_id: v.zmcc_id.toString(),
+        zmcc_code: targetZmcc.code,
+        zmcc_name: targetZmcc.name,
+      },
+      actor: { userId: auth.actorUserId, actorRole: auth.role },
     });
 
     return v;
@@ -1522,20 +1515,18 @@ export async function assignAndDispatchJourney(
         },
       });
 
-      await tx.auditLog.create({
-        data: {
-          table_name: 'mot_vehicle',
-          record_id: v.id,
-          action: 'MOT_VEHICLE_AUTO_CREATED_ON_DISPATCH',
-          old_values: Prisma.DbNull,
-          new_values: {
-            vehicle_number: v.vehicle_number,
-            zmcc_id: v.zmcc_id.toString(),
-            is_active: v.is_active,
-            dispatched_by: auth.actorUserId.toString(),
-          },
-          user_id: auth.actorUserId,
+      await writeAuditLog(tx, {
+        tableName: 'mot_vehicle',
+        recordId: v.id,
+        action: 'MOT_VEHICLE_AUTO_CREATED_ON_DISPATCH',
+        oldValues: null,
+        newValues: {
+          vehicle_number: v.vehicle_number,
+          zmcc_id: v.zmcc_id.toString(),
+          is_active: v.is_active,
+          dispatched_by: auth.actorUserId.toString(),
         },
+        actor: { userId: auth.actorUserId, actorRole: auth.role },
       });
 
       return v;
@@ -1785,33 +1776,31 @@ export async function assignAndDispatchJourney(
       });
 
       // Create AuditLog entry atomically
-      await tx.auditLog.create({
-        data: {
-          table_name: 'mot_journey',
-          record_id: journey.id,
-          action: 'MOT_JOURNEY_ASSIGN_AND_DISPATCH',
-          old_values: Prisma.DbNull,
-          new_values: {
-            journey_number: journey.journey_number,
-            operational_date: todayPktStr,
-            zmcc_id: targetZmccId.toString(),
-            route_id: routeId.toString(),
-            mot_profile_id: profileId.toString(),
-            mot_vehicle_id: vehicleId.toString(),
-            status: 'COLLECTING',
-            assigned_by: auth.actorUserId.toString(),
-            assigned_at: now.toISOString(),
-            assignment_latitude: lat,
-            assignment_longitude: lng,
-            assignment_gps_accuracy: accuracy,
-            started_at: now.toISOString(),
-            start_latitude: lat,
-            start_longitude: lng,
-            idempotency_key: idempotencyKey,
-            total_stops: stopsData.length,
-          },
-          user_id: auth.actorUserId,
+      await writeAuditLog(tx, {
+        tableName: 'mot_journey',
+        recordId: journey.id,
+        action: 'MOT_JOURNEY_ASSIGN_AND_DISPATCH',
+        oldValues: null,
+        newValues: {
+          journey_number: journey.journey_number,
+          operational_date: todayPktStr,
+          zmcc_id: targetZmccId.toString(),
+          route_id: routeId.toString(),
+          mot_profile_id: profileId.toString(),
+          mot_vehicle_id: vehicleId.toString(),
+          status: 'COLLECTING',
+          assigned_by: auth.actorUserId.toString(),
+          assigned_at: now.toISOString(),
+          assignment_latitude: lat,
+          assignment_longitude: lng,
+          assignment_gps_accuracy: accuracy,
+          started_at: now.toISOString(),
+          start_latitude: lat,
+          start_longitude: lng,
+          idempotency_key: idempotencyKey,
+          total_stops: stopsData.length,
         },
+        actor: { userId: auth.actorUserId, actorRole: auth.role },
       });
 
       return journey;
@@ -1996,22 +1985,20 @@ export async function cancelMotJourney(
         );
       }
 
-      await tx.auditLog.create({
-        data: {
-          table_name: 'mot_journey',
-          record_id: journeyId,
-          action: 'MOT_JOURNEY_CANCEL',
-          old_values: {
-            status: 'COLLECTING',
-          },
-          new_values: {
-            status: 'CANCELLED',
-            cancelled_by: auth.actorUserId.toString(),
-            cancelled_at: now.toISOString(),
-            cancellation_reason: cleanReason,
-          },
-          user_id: auth.actorUserId,
+      await writeAuditLog(tx, {
+        tableName: 'mot_journey',
+        recordId: journeyId,
+        action: 'MOT_JOURNEY_CANCEL',
+        oldValues: {
+          status: 'COLLECTING',
         },
+        newValues: {
+          status: 'CANCELLED',
+          cancelled_by: auth.actorUserId.toString(),
+          cancelled_at: now.toISOString(),
+          cancellation_reason: cleanReason,
+        },
+        actor: { userId: auth.actorUserId, actorRole: auth.role },
       });
 
       return tx.motJourney.findUnique({
@@ -3046,44 +3033,42 @@ export async function submitShopCollection(
       });
 
       // Create immutable AuditLog entry
-      await tx.auditLog.create({
-        data: {
-          table_name: 'mot_shop_collection',
-          record_id: collection.id,
-          action: 'MOT_SHOP_COLLECTION_SUBMITTED',
-          old_values: Prisma.DbNull,
-          new_values: {
-            collection_number: collection.collection_number,
-            journey_id: stop.journey_id.toString(),
-            journey_stop_id: stop.id.toString(),
-            shop_id: stop.shop_id.toString(),
-            shop_code: stop.shop_code_snapshot,
-            shop_name: stop.shop_name_snapshot,
-            quantity_value: quantityValue,
-            quantity_unit: quantityUnit,
-            gross_liters: metrics.grossLiters,
-            density: metrics.density,
-            lr,
-            fat,
-            snf: metrics.snf,
-            ts: metrics.ts,
-            at_13ts_liters: metrics.at13tsLiters,
-            calculation_version: metrics.calculationVersion,
-            device_collected_at: deviceCollectedAt.toISOString(),
-            server_received_at: now.toISOString(),
-            latitude: lat,
-            longitude: lng,
-            gps_accuracy: accuracy,
-            collection_notes: notes || null,
-            shop_rmr_number: validatedShopRmr,
-            sms_outbox_id: smsOutbox.id.toString(),
-            quality_status: qualityFailed ? 'OUT_OF_SPEC' : 'PASS',
-            exception_requested: qualityFailed && requestException,
-            exception_reason: qualityFailed && requestException ? exceptionReason : null,
-            failure_reasons: failureReasons.length > 0 ? failureReasons : null,
-          },
-          user_id: auth.actorUserId,
+      await writeAuditLog(tx, {
+        tableName: 'mot_shop_collection',
+        recordId: collection.id,
+        action: 'MOT_SHOP_COLLECTION_SUBMITTED',
+        oldValues: null,
+        newValues: {
+          collection_number: collection.collection_number,
+          journey_id: stop.journey_id.toString(),
+          journey_stop_id: stop.id.toString(),
+          shop_id: stop.shop_id.toString(),
+          shop_code: stop.shop_code_snapshot,
+          shop_name: stop.shop_name_snapshot,
+          quantity_value: quantityValue,
+          quantity_unit: quantityUnit,
+          gross_liters: metrics.grossLiters,
+          density: metrics.density,
+          lr,
+          fat,
+          snf: metrics.snf,
+          ts: metrics.ts,
+          at_13ts_liters: metrics.at13tsLiters,
+          calculation_version: metrics.calculationVersion,
+          device_collected_at: deviceCollectedAt.toISOString(),
+          server_received_at: now.toISOString(),
+          latitude: lat,
+          longitude: lng,
+          gps_accuracy: accuracy,
+          collection_notes: notes || null,
+          shop_rmr_number: validatedShopRmr,
+          sms_outbox_id: smsOutbox.id.toString(),
+          quality_status: qualityFailed ? 'OUT_OF_SPEC' : 'PASS',
+          exception_requested: qualityFailed && requestException,
+          exception_reason: qualityFailed && requestException ? exceptionReason : null,
+          failure_reasons: failureReasons.length > 0 ? failureReasons : null,
         },
+        actor: { userId: auth.actorUserId, actorRole: auth.role },
       });
 
       // First-Visit Auto-Geotagging
@@ -3101,23 +3086,21 @@ export async function submitShopCollection(
             updated_by: auth.actorUserId,
           },
         });
-        await tx.auditLog.create({
-          data: {
-            table_name: 'zmcc_shop',
-            record_id: shopToGeotag.id,
-            action: 'SHOP_AUTO_GEOTAGGED_ON_FIRST_VISIT',
-            old_values: {
-              latitude: shopToGeotag.latitude ? Number(shopToGeotag.latitude) : null,
-              longitude: shopToGeotag.longitude ? Number(shopToGeotag.longitude) : null,
-              geotag_status: shopToGeotag.geotag_status,
-            },
-            new_values: {
-              latitude: lat,
-              longitude: lng,
-              geotag_status: 'VERIFIED',
-            },
-            user_id: auth.actorUserId,
+        await writeAuditLog(tx, {
+          tableName: 'zmcc_shop',
+          recordId: shopToGeotag.id,
+          action: 'SHOP_AUTO_GEOTAGGED_ON_FIRST_VISIT',
+          oldValues: {
+            latitude: shopToGeotag.latitude ? Number(shopToGeotag.latitude) : null,
+            longitude: shopToGeotag.longitude ? Number(shopToGeotag.longitude) : null,
+            geotag_status: shopToGeotag.geotag_status,
           },
+          newValues: {
+            latitude: lat,
+            longitude: lng,
+            geotag_status: 'VERIFIED',
+          },
+          actor: { userId: auth.actorUserId, actorRole: auth.role },
         });
       }
 
@@ -4088,15 +4071,13 @@ export async function correctShopCollection(
         newAuditValues.collection_notes = newNotes;
       }
 
-      await tx.auditLog.create({
-        data: {
-          table_name: 'mot_shop_collection',
-          record_id: collection.id,
-          action: 'MOT_SHOP_COLLECTION_CORRECTED',
-          old_values: toJsonInput(oldAuditValues),
-          new_values: toJsonInput(newAuditValues),
-          user_id: auth.actorUserId,
-        },
+      await writeAuditLog(tx, {
+        tableName: 'mot_shop_collection',
+        recordId: collection.id,
+        action: 'MOT_SHOP_COLLECTION_CORRECTED',
+        oldValues: toJsonInput(oldAuditValues),
+        newValues: toJsonInput(newAuditValues),
+        actor: { userId: auth.actorUserId, actorRole: auth.role },
       });
 
       if (isMeasurementChanged && metrics) {
@@ -4214,23 +4195,21 @@ export async function skipJourneyStop(
         },
       });
 
-      await tx.auditLog.create({
-        data: {
-          table_name: 'mot_journey_stop',
-          record_id: parsedStopId,
-          action: 'MOT_JOURNEY_STOP_SKIPPED',
-          old_values: toJsonInput({
-            status: stop.status,
-            skipped_at: stop.skipped_at ? stop.skipped_at.toISOString() : null,
-            skip_reason: stop.skip_reason,
-          }),
-          new_values: toJsonInput({
-            status: 'SKIPPED',
-            skipped_at: now.toISOString(),
-            skip_reason: cleanReason,
-          }),
-          user_id: auth.actorUserId,
-        },
+      await writeAuditLog(tx, {
+        tableName: 'mot_journey_stop',
+        recordId: parsedStopId,
+        action: 'MOT_JOURNEY_STOP_SKIPPED',
+        oldValues: toJsonInput({
+          status: stop.status,
+          skipped_at: stop.skipped_at ? stop.skipped_at.toISOString() : null,
+          skip_reason: stop.skip_reason,
+        }),
+        newValues: toJsonInput({
+          status: 'SKIPPED',
+          skipped_at: now.toISOString(),
+          skip_reason: cleanReason,
+        }),
+        actor: { userId: auth.actorUserId, actorRole: auth.role },
       });
 
       return updatedStop;

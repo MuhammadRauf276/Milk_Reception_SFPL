@@ -4,6 +4,7 @@ import { prisma } from '@core/db';
 import { getRoleAssignmentPolicy, isCreatableRole } from '@/lib/user-assignment-policy';
 import { validateAndNormalizeEmail, classifyUniqueError } from '@/lib/email-validator';
 import { getErrorCode, getErrorMessage } from '@/lib/errors';
+import { writeAuditLog, auditActorFromUser } from '@core/audit';
 
 // Fixed documented PostgreSQL transaction-level advisory lock key used across
 // all user creation (POST) and mutation (PATCH) transactions to serialize
@@ -251,31 +252,29 @@ export async function PATCH(
           },
         });
 
-        await tx.auditLog.create({
-          data: {
-            table_name: 'users',
-            record_id: targetUserId,
-            action: actionName,
-            old_values: {
-              username: targetUser.username,
-              email: targetUser.email,
-              role: targetUser.role,
-              department: targetUser.department,
-              scope_type: targetUser.scope_type,
-              procurement_source_id: targetUser.procurement_source_id ? targetUser.procurement_source_id.toString() : null,
-              is_active: targetUser.is_active,
-            },
-            new_values: {
-              username: user.username,
-              email: user.email,
-              role: user.role,
-              department: user.department,
-              scope_type: user.scope_type,
-              procurement_source_id: user.procurement_source_id ? user.procurement_source_id.toString() : null,
-              is_active: user.is_active,
-            },
-            user_id: adminUser?.id || null,
+        await writeAuditLog(tx, {
+          tableName: 'users',
+          recordId: targetUserId,
+          action: actionName,
+          oldValues: {
+            username: targetUser.username,
+            email: targetUser.email,
+            role: targetUser.role,
+            department: targetUser.department,
+            scope_type: targetUser.scope_type,
+            procurement_source_id: targetUser.procurement_source_id ? targetUser.procurement_source_id.toString() : null,
+            is_active: targetUser.is_active,
           },
+          newValues: {
+            username: user.username,
+            email: user.email,
+            role: user.role,
+            department: user.department,
+            scope_type: user.scope_type,
+            procurement_source_id: user.procurement_source_id ? user.procurement_source_id.toString() : null,
+            is_active: user.is_active,
+          },
+          actor: { ...auditActorFromUser(authUser), userId: adminUser?.id ?? null },
         });
 
         return user;
@@ -379,37 +378,42 @@ export async function PATCH(
         },
       });
 
-      await tx.auditLog.create({
-        data: {
-          table_name: 'users',
-          record_id: targetUserId,
-          action: actionName,
-          old_values: {
-            username: targetUser.username,
-            email: targetUser.email,
-            role: targetUser.role,
-            department: targetUser.department,
-            scope_type: targetUser.scope_type,
-            procurement_source_id: targetUser.procurement_source_id ? targetUser.procurement_source_id.toString() : null,
-            is_active: targetUser.is_active,
-          },
-          new_values: {
-            username: user.username,
-            email: user.email,
-            role: user.role,
-            department: user.department,
-            scope_type: user.scope_type,
-            procurement_source_id: user.procurement_source_id ? user.procurement_source_id.toString() : null,
-            is_active: user.is_active,
-          },
-          user_id: adminUser?.id || null,
+      await writeAuditLog(tx, {
+        tableName: 'users',
+        recordId: targetUserId,
+        action: actionName,
+        oldValues: {
+          username: targetUser.username,
+          email: targetUser.email,
+          role: targetUser.role,
+          department: targetUser.department,
+          scope_type: targetUser.scope_type,
+          procurement_source_id: targetUser.procurement_source_id ? targetUser.procurement_source_id.toString() : null,
+          is_active: targetUser.is_active,
         },
+        newValues: {
+          username: user.username,
+          email: user.email,
+          role: user.role,
+          department: user.department,
+          scope_type: user.scope_type,
+          procurement_source_id: user.procurement_source_id ? user.procurement_source_id.toString() : null,
+          is_active: user.is_active,
+        },
+        actor: { ...auditActorFromUser(authUser), userId: adminUser?.id ?? null },
       });
 
       const authorizationChanged = !user.is_active || user.role !== targetUser.role || user.scope_type !== targetUser.scope_type || user.procurement_source_id !== targetUser.procurement_source_id;
       if (authorizationChanged) {
         const revoked = await tx.pushSubscription.updateMany({ where: { user_id: targetUserId, revoked_at: null }, data: { revoked_at: new Date() } });
-        if (revoked.count) await tx.auditLog.create({ data: { table_name: 'push_subscription', record_id: targetUserId, action: 'PUSH_SUBSCRIPTIONS_REVOKED_ON_AUTHORITY_CHANGE', old_values: { role: targetUser.role, scope_type: targetUser.scope_type, procurement_source_id: targetUser.procurement_source_id?.toString() || null, is_active: targetUser.is_active }, new_values: { role: user.role, scope_type: user.scope_type, procurement_source_id: user.procurement_source_id?.toString() || null, is_active: user.is_active, revoked_count: revoked.count }, user_id: adminUser?.id || null } });
+        if (revoked.count) await writeAuditLog(tx, {
+          tableName: 'push_subscription',
+          recordId: targetUserId,
+          action: 'PUSH_SUBSCRIPTIONS_REVOKED_ON_AUTHORITY_CHANGE',
+          oldValues: { role: targetUser.role, scope_type: targetUser.scope_type, procurement_source_id: targetUser.procurement_source_id?.toString() || null, is_active: targetUser.is_active },
+          newValues: { role: user.role, scope_type: user.scope_type, procurement_source_id: user.procurement_source_id?.toString() || null, is_active: user.is_active, revoked_count: revoked.count },
+          actor: { ...auditActorFromUser(authUser), userId: adminUser?.id ?? null },
+        });
       }
 
       return user;

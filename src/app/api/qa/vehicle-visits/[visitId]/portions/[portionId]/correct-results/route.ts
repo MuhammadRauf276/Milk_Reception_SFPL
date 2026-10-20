@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@core/auth';
+import { requireCorrectionAuthority } from '@core/route-guards';
 import { prisma } from '@core/db';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
@@ -7,6 +7,8 @@ import { QualityRuleService } from '@/backend/services/qualityRuleService';
 import { getOrAssignPlantQATests } from '@/backend/services/labTestAssignmentService';
 import { getErrorIssues, getErrorMessage, getErrorName } from '@/lib/errors';
 import { toJsonInput } from '@/lib/json';
+import { isCorrectionAuthority } from '@core/roles/capabilities';
+import { writeAuditLog, auditActorFromUser } from '@core/audit';
 
 const correctResultItemSchema = z.object({
   test_id: z.string().or(z.number()),
@@ -25,10 +27,10 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ visitId: string; portionId: string }> }
 ) {
-  const authUser = await getCurrentUser(req);
-  if (!authUser) {
-    return NextResponse.json({ error: 'Unauthorized. Authentication required.' }, { status: 401 });
-  }
+  // Correcting a saved record is a CORRECT action: Data Executive and Super Admin only (never delegated).
+  const guard = await requireCorrectionAuthority(req);
+  if ('response' in guard) return guard.response;
+  const authUser = guard.user;
 
   const dbUser = await prisma.user.findFirst({
     where: {
@@ -40,8 +42,7 @@ export async function POST(
     },
   });
 
-  const allowedRoles = ['DATA_EXECUTIVE', 'SUPER_ADMIN'];
-  if (!dbUser || !allowedRoles.includes(dbUser.role)) {
+  if (!dbUser || !isCorrectionAuthority(dbUser.role)) {
     return NextResponse.json(
       { error: 'Unauthorized. Data Executive or Super Admin role required for QA measurement corrections.' },
       { status: 403 }
@@ -102,12 +103,8 @@ export async function POST(
         throw new Error('NOT_FOUND:Portion not found for this vehicle visit.');
       }
 
-      // 5-save limit check for QA Manager
-      const isManager = dbUser.role === 'QA_MANAGER';
+      // Only Data Executive / Super Admin reach this route, so the manager correction count is carried over unchanged.
       const currentManagerCount = portion.manager_correction_count ?? 0;
-      if (isManager && currentManagerCount >= 5) {
-        throw new Error('MAX_CORRECTIONS_EXCEEDED:Maximum 5 manager corrections exceeded for this portion.');
-      }
 
       const existingResults = await tx.plantLabResult.findMany({
         where: { portion_id: portion.id },
@@ -254,7 +251,7 @@ export async function POST(
 
       const now = new Date();
       const newTotalCount = (portion.correction_count ?? 0) + 1;
-      const newManagerCount = isManager ? currentManagerCount + 1 : currentManagerCount;
+      const newManagerCount = currentManagerCount;
 
       await tx.visitPortion.update({
         where: { id: portion.id },
@@ -271,33 +268,31 @@ export async function POST(
         },
       });
 
-      await tx.auditLog.create({
-        data: {
-          table_name: 'visit_portion',
-          record_id: portion.id,
-          action: 'PLANT_QA_MEASUREMENT_CORRECTED',
-          old_values: {
-            portion_id: portion.id.toString(),
-            plant_decision: portion.plant_decision,
-            system_quality_outcome: portion.system_quality_outcome,
-            correction_count: portion.correction_count ?? 0,
-            manager_correction_count: portion.manager_correction_count ?? 0,
-            results: oldResultsEvidence,
-          },
-          new_values: {
-            portion_id: portion.id.toString(),
-            plant_decision: newPlantDecision,
-            system_quality_outcome: newSystemQualityOutcome,
-            reason: validated.reason,
-            results: correctionsMade,
-            actor: dbUser.id.toString(),
-            role: dbUser.role,
-            correction_count: newTotalCount,
-            manager_correction_count: newManagerCount,
-            timestamp: now.toISOString(),
-          },
-          user_id: dbUser.id,
+      await writeAuditLog(tx, {
+        tableName: 'visit_portion',
+        recordId: portion.id,
+        action: 'PLANT_QA_MEASUREMENT_CORRECTED',
+        oldValues: {
+          portion_id: portion.id.toString(),
+          plant_decision: portion.plant_decision,
+          system_quality_outcome: portion.system_quality_outcome,
+          correction_count: portion.correction_count ?? 0,
+          manager_correction_count: portion.manager_correction_count ?? 0,
+          results: oldResultsEvidence,
         },
+        newValues: {
+          portion_id: portion.id.toString(),
+          plant_decision: newPlantDecision,
+          system_quality_outcome: newSystemQualityOutcome,
+          reason: validated.reason,
+          results: correctionsMade,
+          actor: dbUser.id.toString(),
+          role: dbUser.role,
+          correction_count: newTotalCount,
+          manager_correction_count: newManagerCount,
+          timestamp: now.toISOString(),
+        },
+        actor: auditActorFromUser(dbUser),
       });
 
       return {

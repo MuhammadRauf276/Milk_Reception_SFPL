@@ -12,6 +12,7 @@ import type { LabTestResultOption } from '@/lib/validations/labTest';
 import type { VisitPortion } from '@prisma/client';
 import type { QualityEvaluationSnapshot } from '@/backend/services/qualityRuleService';
 import { toJsonInput } from '@/lib/json';
+import { writeAuditLog, auditActorFromUser } from '@core/audit';
 
 class RouteError extends Error {
   statusCode: number;
@@ -465,24 +466,22 @@ export async function POST(
           });
         }
 
-        await tx.auditLog.create({
-          data: {
-            table_name: 'visit_portion',
-            record_id: portionId,
-            action: 'PLANT_QA_OPERATOR_MANUAL_REJECTION',
-            old_values: {
-              portion_id: portionId.toString(),
-              plant_decision: lockedPortion.plant_decision,
-            },
-            new_values: {
-              portion_id: portionId.toString(),
-              plant_decision: 'REJECTED',
-              rejection_reason: rejectionReasonInput,
-              rejection_remarks: rejectionRemarksInput,
-              system_quality_outcome: systemQualityOutcome,
-            },
-            user_id: userIdBigInt,
+        await writeAuditLog(tx, {
+          tableName: 'visit_portion',
+          recordId: portionId,
+          action: 'PLANT_QA_OPERATOR_MANUAL_REJECTION',
+          oldValues: {
+            portion_id: portionId.toString(),
+            plant_decision: lockedPortion.plant_decision,
           },
+          newValues: {
+            portion_id: portionId.toString(),
+            plant_decision: 'REJECTED',
+            rejection_reason: rejectionReasonInput,
+            rejection_remarks: rejectionRemarksInput,
+            system_quality_outcome: systemQualityOutcome,
+          },
+          actor: auditActorFromUser(dbUser),
         });
       } else {
         // Operator requested ACCEPTED

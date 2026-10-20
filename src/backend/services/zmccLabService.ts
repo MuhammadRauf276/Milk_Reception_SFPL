@@ -1,4 +1,6 @@
 import { prisma } from '@core/db';
+import { writeAuditLog } from '@/backend/core/audit';
+import { isCorrectionAuthority } from '@/backend/core/roles/capabilities';
 import {
   Prisma,
   QuantityUnit,
@@ -113,7 +115,8 @@ export async function resolveZmccLabAuth(
       };
     }
   } else if (action === 'CORRECT_SESSION') {
-    if (!isDataExecutive && !isSuperAdmin) {
+    // CORRECT is non-delegable: Data Executive and Super Admin only.
+    if (!isCorrectionAuthority(role)) {
       return {
         errorResponse: {
           error: 'Forbidden. Only Data Executive or Super Admin may correct finalized lab records.',
@@ -256,8 +259,8 @@ export async function issueLocalSupplierRmr(
         book_number: bookNumber, receipt_number: receiptNumber, accepted_quantity_value: session.quantity_value,
         accepted_quantity_unit: session.quantity_unit, issued_by_user_id: auth.actorUserId, idempotency_key: idempotencyKey,
       }});
-      await tx.auditLog.create({ data: { table_name: 'local_supplier_rmr_issuance', record_id: created.id, action: 'LOCAL_SUPPLIER_RMR_ISSUED', old_values: Prisma.DbNull,
-        new_values: { local_supplier_arrival_id: arrivalId.toString(), final_lab_session_id: session.id.toString(), tank_receipt_id: session.tank_receipt.id.toString(), year: rmrYear, series, book_number: bookNumber, receipt_number: receiptNumber, accepted_quantity_value: Number(session.quantity_value), accepted_quantity_unit: session.quantity_unit }, user_id: auth.actorUserId }});
+      await writeAuditLog(tx, { tableName: 'local_supplier_rmr_issuance', recordId: created.id, action: 'LOCAL_SUPPLIER_RMR_ISSUED', oldValues: null,
+        newValues: { local_supplier_arrival_id: arrivalId.toString(), final_lab_session_id: session.id.toString(), tank_receipt_id: session.tank_receipt.id.toString(), year: rmrYear, series, book_number: bookNumber, receipt_number: receiptNumber, accepted_quantity_value: Number(session.quantity_value), accepted_quantity_unit: session.quantity_unit }, actor: { userId: auth.actorUserId, actorRole: auth.role } });
       return created;
     });
     return { status: 201, data: serializeLocalSupplierRmr(issuance) };
@@ -317,6 +320,7 @@ export async function createCanonicalTankReceiptTx(
     lr: number;
     fat: number;
     actorUserId: bigint;
+    actorRole?: string | null;
     receivedAt: Date;
   }
 ) {
@@ -331,6 +335,7 @@ export async function createCanonicalTankReceiptTx(
     lr,
     fat,
     actorUserId,
+    actorRole,
     receivedAt,
   } = params;
 
@@ -409,27 +414,25 @@ export async function createCanonicalTankReceiptTx(
     },
   });
 
-  await tx.auditLog.create({
-    data: {
-      table_name: 'zmcc_tank_receipt',
-      record_id: tankReceipt.id,
-      action: 'ZMCC_TANK_RECEIPT_CREATED',
-      old_values: Prisma.DbNull,
-      new_values: {
-        lab_session_id: sessionId.toString(),
-        arrival_type: arrivalType,
-        zmcc_id: zmccId.toString(),
-        tank_id: targetTankId.toString(),
-        quantity_value: quantityNum.toFixed(2),
-        quantity_unit: quantityUnitNorm,
-        gross_liters: metrics.grossLiters,
-        lr,
-        fat,
-        at_13ts_liters: metrics.at13tsLiters,
-        calculation_version: metrics.calculationVersion,
-      },
-      user_id: actorUserId,
+  await writeAuditLog(tx, {
+    tableName: 'zmcc_tank_receipt',
+    recordId: tankReceipt.id,
+    action: 'ZMCC_TANK_RECEIPT_CREATED',
+    oldValues: null,
+    newValues: {
+      lab_session_id: sessionId.toString(),
+      arrival_type: arrivalType,
+      zmcc_id: zmccId.toString(),
+      tank_id: targetTankId.toString(),
+      quantity_value: quantityNum.toFixed(2),
+      quantity_unit: quantityUnitNorm,
+      gross_liters: metrics.grossLiters,
+      lr,
+      fat,
+      at_13ts_liters: metrics.at13tsLiters,
+      calculation_version: metrics.calculationVersion,
     },
+    actor: { userId: actorUserId, actorRole: actorRole ?? null },
   });
 
   return tankReceipt;
@@ -2062,45 +2065,44 @@ export async function completeSession(
           lr: resolvedCore.lr,
           fat: resolvedCore.fat,
           actorUserId: auth.actorUserId,
+          actorRole: auth.role,
           receivedAt: updated.completed_at || new Date(),
         });
         completedWithReceipt = { ...updated, tank_receipt: tankReceipt };
       }
 
-      await tx.auditLog.create({
-        data: {
-          table_name: 'zmcc_lab_session',
-          record_id: sessionId,
-          action: 'ZMCC_LAB_SESSION_COMPLETED',
-          old_values: { status: 'IN_PROGRESS' },
-          new_values: {
-            status: 'COMPLETED',
-            arrival_type: session.arrival_type,
-            arrival_id: (session.arrival_type === 'MOT' ? session.mot_arrival_id : session.arrival_type === 'CONTRACTOR' ? session.contractor_arrival_id : session.local_supplier_arrival_id)?.toString(),
-            attendant_decision: decision,
-            system_quality_outcome: systemQualityOutcome,
-            final_decision: effectiveFinalDecision,
-            manager_review_status: effectiveManagerReviewStatus,
-            exception_reason: isAttendantException ? rejectionReasonTrimmed : null,
-            rejection_reason: decision === 'REJECTED' ? rejectionReasonTrimmed || null : null,
-            completion_client_event_id: clientEventId,
-            quantity_value: quantityNum.toFixed(2),
-            quantity_unit: quantityUnitNorm,
-            actual_lr: resolvedCore.lr,
-            actual_lr_test_code: resolvedCore.lrTest.test_code_snapshot,
-            actual_fat: resolvedCore.fat,
-            actual_fat_test_code: resolvedCore.fatTest.test_code_snapshot,
-            density: metrics.density,
-            gross_liters: metrics.grossLiters,
-            snf: metrics.snf,
-            ts: metrics.ts,
-            at_13ts_liters: metrics.at13tsLiters,
-            calculation_version: metrics.calculationVersion,
-            completed_by_user_id: auth.actorUserId.toString(),
-            completed_at: updated.completed_at?.toISOString(),
-          },
-          user_id: auth.actorUserId,
+      await writeAuditLog(tx, {
+        tableName: 'zmcc_lab_session',
+        recordId: sessionId,
+        action: 'ZMCC_LAB_SESSION_COMPLETED',
+        oldValues: { status: 'IN_PROGRESS' },
+        newValues: {
+          status: 'COMPLETED',
+          arrival_type: session.arrival_type,
+          arrival_id: (session.arrival_type === 'MOT' ? session.mot_arrival_id : session.arrival_type === 'CONTRACTOR' ? session.contractor_arrival_id : session.local_supplier_arrival_id)?.toString(),
+          attendant_decision: decision,
+          system_quality_outcome: systemQualityOutcome,
+          final_decision: effectiveFinalDecision,
+          manager_review_status: effectiveManagerReviewStatus,
+          exception_reason: isAttendantException ? rejectionReasonTrimmed : null,
+          rejection_reason: decision === 'REJECTED' ? rejectionReasonTrimmed || null : null,
+          completion_client_event_id: clientEventId,
+          quantity_value: quantityNum.toFixed(2),
+          quantity_unit: quantityUnitNorm,
+          actual_lr: resolvedCore.lr,
+          actual_lr_test_code: resolvedCore.lrTest.test_code_snapshot,
+          actual_fat: resolvedCore.fat,
+          actual_fat_test_code: resolvedCore.fatTest.test_code_snapshot,
+          density: metrics.density,
+          gross_liters: metrics.grossLiters,
+          snf: metrics.snf,
+          ts: metrics.ts,
+          at_13ts_liters: metrics.at13tsLiters,
+          calculation_version: metrics.calculationVersion,
+          completed_by_user_id: auth.actorUserId.toString(),
+          completed_at: updated.completed_at?.toISOString(),
         },
+        actor: { userId: auth.actorUserId, actorRole: auth.role },
       });
 
       if (isAttendantException) {
@@ -2510,40 +2512,38 @@ export async function correctCompletedSession(
           },
         });
 
-        await tx.auditLog.create({
-          data: {
-            table_name: 'zmcc_lab_session',
-            record_id: sessionId,
-            action: 'ZMCC_MANAGER_REVIEW_AFTER_EXIT',
-            old_values: {
-              session_id: sessionId.toString(),
-              effective_decision: session.decision,
-              original_decision: session.original_decision || session.decision,
-              exception_classification: session.corrected_decision,
-              manager_review_status: session.manager_review_status,
-              current_status: session.status,
-              system_quality_outcome: session.system_quality_outcome,
-              physical_exit_state: true,
-              exit_timestamp: exitTimestamp ? exitTimestamp.toISOString() : null,
-              existing_receipt_or_stock_linkage: session.tank_receipt ? session.tank_receipt.id.toString() : null,
-            },
-            new_values: {
-              session_id: sessionId.toString(),
-              review_only: true,
-              requested_manager_decision: 'ACCEPTED',
-              effective_decision: session.decision,
-              exception_classification: session.corrected_decision,
-              review_status: 'REVIEWED_EXITED',
-              reason: reasonTrimmed,
-              actor: auth.actorUserId.toString(),
-              timestamp: now.toISOString(),
-              physical_mutation_performed: false,
-              arrival_type: session.arrival_type,
-              arrival_exited: true,
-              exit_timestamp: exitTimestamp ? exitTimestamp.toISOString() : null,
-            },
-            user_id: auth.actorUserId,
+        await writeAuditLog(tx, {
+          tableName: 'zmcc_lab_session',
+          recordId: sessionId,
+          action: 'ZMCC_MANAGER_REVIEW_AFTER_EXIT',
+          oldValues: {
+            session_id: sessionId.toString(),
+            effective_decision: session.decision,
+            original_decision: session.original_decision || session.decision,
+            exception_classification: session.corrected_decision,
+            manager_review_status: session.manager_review_status,
+            current_status: session.status,
+            system_quality_outcome: session.system_quality_outcome,
+            physical_exit_state: true,
+            exit_timestamp: exitTimestamp ? exitTimestamp.toISOString() : null,
+            existing_receipt_or_stock_linkage: session.tank_receipt ? session.tank_receipt.id.toString() : null,
           },
+          newValues: {
+            session_id: sessionId.toString(),
+            review_only: true,
+            requested_manager_decision: 'ACCEPTED',
+            effective_decision: session.decision,
+            exception_classification: session.corrected_decision,
+            review_status: 'REVIEWED_EXITED',
+            reason: reasonTrimmed,
+            actor: auth.actorUserId.toString(),
+            timestamp: now.toISOString(),
+            physical_mutation_performed: false,
+            arrival_type: session.arrival_type,
+            arrival_exited: true,
+            exit_timestamp: exitTimestamp ? exitTimestamp.toISOString() : null,
+          },
+          actor: { userId: auth.actorUserId, actorRole: auth.role },
         });
 
         return sessionAfter;
@@ -2965,24 +2965,22 @@ export async function correctCompletedSession(
             },
           });
 
-          await tx.auditLog.create({
-            data: {
-              table_name: 'zmcc_tank_inventory_transaction',
-              record_id: invTx.id,
-              action: `ZMCC_TANK_INVENTORY_${txType}`,
-              old_values: Prisma.DbNull,
-              new_values: {
-                tank_id: receiptRow.tank_id.toString(),
-                zmcc_id: session.zmcc_id.toString(),
-                transaction_type: txType,
-                quantity_liters: Math.abs(deltaGross).toFixed(2),
-                at_13ts_liters: hasCommercialDelta ? Math.abs(deltaAt13).toFixed(2) : '0.00',
-                tank_receipt_id: receiptRow.id.toString(),
-                lab_session_id: sessionId.toString(),
-                correction_count: newTotalCount,
-              },
-              user_id: auth.actorUserId,
+          await writeAuditLog(tx, {
+            tableName: 'zmcc_tank_inventory_transaction',
+            recordId: invTx.id,
+            action: `ZMCC_TANK_INVENTORY_${txType}`,
+            oldValues: null,
+            newValues: {
+              tank_id: receiptRow.tank_id.toString(),
+              zmcc_id: session.zmcc_id.toString(),
+              transaction_type: txType,
+              quantity_liters: Math.abs(deltaGross).toFixed(2),
+              at_13ts_liters: hasCommercialDelta ? Math.abs(deltaAt13).toFixed(2) : '0.00',
+              tank_receipt_id: receiptRow.id.toString(),
+              lab_session_id: sessionId.toString(),
+              correction_count: newTotalCount,
             },
+            actor: { userId: auth.actorUserId, actorRole: auth.role },
           });
         }
 
@@ -3046,6 +3044,7 @@ export async function correctCompletedSession(
           lr: resolvedCorePending.lr,
           fat: resolvedCorePending.fat,
           actorUserId: auth.actorUserId,
+          actorRole: auth.role,
           receivedAt: correctionTimestamp,
         });
         physicalMutationPerformed = true;
@@ -3164,15 +3163,13 @@ export async function correctCompletedSession(
         ? (effectiveDecision === 'ACCEPTED' ? 'ZMCC_MANAGER_EXCEPTION_APPROVED' : 'ZMCC_MANAGER_EXCEPTION_REJECTED')
         : 'ZMCC_LAB_SESSION_CORRECTED';
 
-      await tx.auditLog.create({
-        data: {
-          table_name: 'zmcc_lab_session',
-          record_id: sessionId,
-          action: auditAction,
-          old_values: toJsonInput(oldValues),
-          new_values: toJsonInput(newValues),
-          user_id: auth.actorUserId,
-        },
+      await writeAuditLog(tx, {
+        tableName: 'zmcc_lab_session',
+        recordId: sessionId,
+        action: auditAction,
+        oldValues: toJsonInput(oldValues),
+        newValues: toJsonInput(newValues),
+        actor: { userId: auth.actorUserId, actorRole: auth.role },
       });
 
       return updated;

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/backend/core/auth';
 import { prisma } from '@/backend/core/db';
+import { writeAuditLog, auditActorFromUser } from '@/backend/core/audit';
 
 export async function GET(req: Request) {
   const current = await getCurrentUser(req); if (!current) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
@@ -23,7 +24,14 @@ export async function DELETE(req: Request) {
     const subscription = await tx.pushSubscription.findFirst({ where: { id: BigInt(id!), user_id: userId, revoked_at: null } });
     if (!subscription) return false;
     await tx.pushSubscription.update({ where: { id: subscription.id }, data: { revoked_at: new Date() } });
-    await tx.auditLog.create({ data: { table_name: 'push_subscription', record_id: subscription.id, action: 'PUSH_SUBSCRIPTION_REVOKED_BY_USER', old_values: { device_label: subscription.device_label }, new_values: { revoked: true }, user_id: userId } });
+    await writeAuditLog(tx, {
+      tableName: 'push_subscription',
+      recordId: subscription.id,
+      action: 'PUSH_SUBSCRIPTION_REVOKED_BY_USER',
+      oldValues: { device_label: subscription.device_label },
+      newValues: { revoked: true },
+      actor: auditActorFromUser(current),
+    });
     return true;
   });
   return changed ? NextResponse.json({ ok: true }) : NextResponse.json({ error: 'Active subscription not found.' }, { status: 404 });

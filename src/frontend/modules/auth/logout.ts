@@ -1,22 +1,55 @@
 import { clearMotSessionCache, getUnsentWorkSummary, type UnsentWorkSummary } from '@/frontend/modules/mot/offlineStore';
+import { getSyncQueueCounts } from '@/frontend/modules/pwa/syncEngine';
+import { setActiveOwnerUserId } from '@/frontend/modules/pwa/deviceIdentity';
+import { logDeviceEvent } from '@/frontend/modules/pwa/diary';
 
-/** Tells the UI whether anything saved on this phone is still waiting to be sent. */
-export async function getLogoutSafety(options?: { isMot?: boolean }): Promise<UnsentWorkSummary> {
-  return getUnsentWorkSummary(options);
+/** Unsent work from BOTH queues: the old MOT queues and the new offline sync queue. */
+export interface LogoutSafety extends UnsentWorkSummary {
+  /** New sync queue items not yet confirmed by the server (included in total). */
+  syncWaiting: number;
+  /** New sync queue items the server refused (included in needsAttention). Kept, never deleted. */
+  syncNeedsAttention: number;
+}
+
+/** Pure: adds the new sync queue counts to the MOT summary. */
+export function combineUnsentWork(mot: UnsentWorkSummary, sync: { waiting: number; needsAttention: number }): LogoutSafety {
+  const syncWaiting = Math.max(0, sync.waiting | 0);
+  const syncNeedsAttention = Math.max(0, sync.needsAttention | 0);
+  return {
+    ...mot,
+    syncWaiting,
+    syncNeedsAttention,
+    total: mot.total + syncWaiting,
+    needsAttention: mot.needsAttention + syncNeedsAttention,
+  };
+}
+
+/** Pure guard: true when the user should see the "work not sent yet" dialog before logout. */
+export function hasUnsentWork(s: Pick<UnsentWorkSummary, 'total' | 'needsAttention'>): boolean {
+  return s.total > 0 || s.needsAttention > 0;
+}
+
+/** Tells the UI whether anything saved on this phone is still waiting to be sent (both queues). */
+export async function getLogoutSafety(options?: { isMot?: boolean }): Promise<LogoutSafety> {
+  const [mot, sync] = await Promise.all([getUnsentWorkSummary(options), getSyncQueueCounts()]);
+  return combineUnsentWork(mot, sync);
 }
 
 /**
  * Gracefully logs out the user:
  * 1. Unsubscribes browser push subscription from PushManager for this device.
  * 2. Calls /api/auth/logout with endpoint for backend DB revocation.
- * 3. Always clears the journey cache and offline preparation (so the next user does not see them). Unsent work (collections, GPS, skips, shop requests, drafts)
- *    is NEVER deleted here; it stays on the phone until the server confirms it.
+ * 3. Always clears the journey cache and offline preparation (so the next user does not see them). Unsent work (collections, GPS, skips, shop requests, drafts,
+ *    and everything in the new 'milk_sync' queue incl. photos) is NEVER deleted here; it stays on the phone until the server confirms it.
  * 4. Redirects to /login.
  *
  * `keepUnsentWork` is accepted for clarity at call sites. Unsent work is always kept.
  */
 export async function logoutUser(_options?: { keepUnsentWork?: boolean }): Promise<void> {
   let endpoint: string | null = null;
+
+  // Diary entry is queued (kept on the phone) like any other item; it never blocks logout.
+  await logDeviceEvent('LOGOUT', { keptUnsentWork: _options?.keepUnsentWork === true }).catch(() => null);
 
   try {
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
@@ -48,6 +81,8 @@ export async function logoutUser(_options?: { keepUnsentWork?: boolean }): Promi
   } catch (_e) {
     // Ignore cache clearing errors
   }
+  // The new sync queue ('milk_sync') and photos are never cleared here; only the "who is signed in" marker.
+  setActiveOwnerUserId(null);
 
   // Trigger custom event so any in-app notification listeners or state stop immediately
   if (typeof window !== 'undefined') {

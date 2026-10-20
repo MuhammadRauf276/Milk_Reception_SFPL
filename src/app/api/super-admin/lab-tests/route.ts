@@ -3,6 +3,7 @@ import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
 import { Prisma } from '@prisma/client';
 import { createLabTestSchema, validatePlantQAResultOptions } from '@/lib/validations/labTest';
+import { writeAuditLog, auditActorFromUser } from '@core/audit';
 
 export async function GET(req: Request) {
   const authUser = await getCurrentUser(req);
@@ -124,20 +125,18 @@ export async function POST(req: Request) {
         },
       });
 
-      await tx.auditLog.create({
-        data: {
-          table_name: 'lab_test',
-          record_id: newTest.id,
-          action: 'LAB_TEST_CREATED',
-          new_values: {
-            testCode: newTest.testCode,
-            testName: newTest.testName,
-            resultType: newTest.resultType,
-            isPhotoRequired: newTest.isPhotoRequired,
-            resultOptions: newTest.resultOptions as Prisma.InputJsonValue,
-          },
-          user_id: adminUser?.id || null,
+      await writeAuditLog(tx, {
+        tableName: 'lab_test',
+        recordId: newTest.id,
+        action: 'LAB_TEST_CREATED',
+        newValues: {
+          testCode: newTest.testCode,
+          testName: newTest.testName,
+          resultType: newTest.resultType,
+          isPhotoRequired: newTest.isPhotoRequired,
+          resultOptions: newTest.resultOptions as Prisma.InputJsonValue,
         },
+        actor: { ...auditActorFromUser(authUser), userId: adminUser?.id ?? null },
       });
 
       return newTest;

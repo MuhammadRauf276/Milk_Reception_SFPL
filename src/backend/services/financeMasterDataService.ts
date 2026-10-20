@@ -1,4 +1,5 @@
 import { prisma } from '@core/db';
+import { writeAuditLog } from '@/backend/core/audit';
 import { Prisma } from '@prisma/client';
 
 export interface ErpSourceListItem {
@@ -164,19 +165,17 @@ export async function createErpSource(
       });
     }
 
-    await tx.auditLog.create({
-      data: {
-        table_name: 'zmcc_milk_source',
-        record_id: created.id,
-        action: 'FINANCE_ERP_SOURCE_CREATED',
-        new_values: {
-          id: created.id.toString(),
-          erp_code: created.erp_code,
-          name: created.name,
-          zmcc_ids: zmccBigInts.map((id) => id.toString()),
-        },
-        user_id: actorUserId,
+    await writeAuditLog(tx, {
+      tableName: 'zmcc_milk_source',
+      recordId: created.id,
+      action: 'FINANCE_ERP_SOURCE_CREATED',
+      newValues: {
+        id: created.id.toString(),
+        erp_code: created.erp_code,
+        name: created.name,
+        zmcc_ids: zmccBigInts.map((id) => id.toString()),
       },
+      actor: { userId: actorUserId, actorRole: null },
     });
 
     return created;
@@ -258,23 +257,21 @@ export async function updateErpSource(
       }
     }
 
-    await tx.auditLog.create({
-      data: {
-        table_name: 'zmcc_milk_source',
-        record_id: sourceId,
-        action: 'FINANCE_ERP_SOURCE_UPDATED',
-        old_values: {
-          name: existing.name,
-          is_active: existing.is_active,
-          zmcc_ids: existing.visibilities.map((v) => v.zmcc_id.toString()),
-        },
-        new_values: {
-          name: updated.name,
-          is_active: updated.is_active,
-          zmcc_ids: data.zmcc_ids ? data.zmcc_ids.map((z) => z.toString()) : undefined,
-        },
-        user_id: actorUserId,
+    await writeAuditLog(tx, {
+      tableName: 'zmcc_milk_source',
+      recordId: sourceId,
+      action: 'FINANCE_ERP_SOURCE_UPDATED',
+      oldValues: {
+        name: existing.name,
+        is_active: existing.is_active,
+        zmcc_ids: existing.visibilities.map((v) => v.zmcc_id.toString()),
       },
+      newValues: {
+        name: updated.name,
+        is_active: updated.is_active,
+        zmcc_ids: data.zmcc_ids ? data.zmcc_ids.map((z) => z.toString()) : undefined,
+      },
+      actor: { userId: actorUserId, actorRole: null },
     });
 
     return updated;
@@ -326,15 +323,13 @@ export async function updateContractorErpCode(
       data: { erp_code: trimmedCode || null },
     });
 
-    await tx.auditLog.create({
-      data: {
-        table_name: 'procurement_source',
-        record_id: contractorId,
-        action: 'CONTRACTOR_ERP_CODE_UPDATED',
-        old_values: { erp_code: contractor.erp_code },
-        new_values: { erp_code: updated.erp_code },
-        user_id: actorUserId,
-      },
+    await writeAuditLog(tx, {
+      tableName: 'procurement_source',
+      recordId: contractorId,
+      action: 'CONTRACTOR_ERP_CODE_UPDATED',
+      oldValues: { erp_code: contractor.erp_code },
+      newValues: { erp_code: updated.erp_code },
+      actor: { userId: actorUserId, actorRole: null },
     });
 
     return {
@@ -468,18 +463,16 @@ export async function reviewErpCodeRequest(
         },
       });
 
-      await tx.auditLog.create({
-        data: {
-          table_name: 'erp_code_request',
-          record_id: reqId,
-          action: 'ERP_CODE_REQUEST_APPROVED',
-          new_values: {
-            source_id: newSource.id.toString(),
-            erp_code: finalErpCode,
-            name: newSource.name,
-          },
-          user_id: actorUserId,
+      await writeAuditLog(tx, {
+        tableName: 'erp_code_request',
+        recordId: reqId,
+        action: 'ERP_CODE_REQUEST_APPROVED',
+        newValues: {
+          source_id: newSource.id.toString(),
+          erp_code: finalErpCode,
+          name: newSource.name,
         },
+        actor: { userId: actorUserId, actorRole: null },
       });
 
       return { request: updatedRequest, created_source: newSource };
@@ -494,14 +487,12 @@ export async function reviewErpCodeRequest(
         },
       });
 
-      await tx.auditLog.create({
-        data: {
-          table_name: 'erp_code_request',
-          record_id: reqId,
-          action: 'ERP_CODE_REQUEST_REJECTED',
-          new_values: { status: 'REJECTED', notes: data.notes },
-          user_id: actorUserId,
-        },
+      await writeAuditLog(tx, {
+        tableName: 'erp_code_request',
+        recordId: reqId,
+        action: 'ERP_CODE_REQUEST_REJECTED',
+        newValues: { status: 'REJECTED', notes: data.notes },
+        actor: { userId: actorUserId, actorRole: null },
       });
 
       return { request: updatedRequest };

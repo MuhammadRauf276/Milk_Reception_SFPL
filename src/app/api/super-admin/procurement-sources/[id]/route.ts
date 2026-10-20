@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
 import { getErrorMessage } from '@/lib/errors';
+import { writeAuditLog, auditActorFromUser } from '@core/audit';
 
 class DeactivationConflictError extends Error {
   statusCode = 409;
@@ -181,15 +182,13 @@ export async function PATCH(
       });
 
       // 7. Create the audit record
-      await tx.auditLog.create({
-        data: {
-          table_name: 'procurement_source',
-          record_id: sourceId,
-          action: actionName,
-          old_values: { name: targetSource.name, is_active: targetSource.is_active },
-          new_values: { name: source.name, is_active: source.is_active },
-          user_id: adminUser?.id || null,
-        },
+      await writeAuditLog(tx, {
+        tableName: 'procurement_source',
+        recordId: sourceId,
+        action: actionName,
+        oldValues: { name: targetSource.name, is_active: targetSource.is_active },
+        newValues: { name: source.name, is_active: source.is_active },
+        actor: { ...auditActorFromUser(authUser), userId: adminUser?.id ?? null },
       });
 
       // 8. Return for atomic commit

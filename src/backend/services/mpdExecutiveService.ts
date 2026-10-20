@@ -1,4 +1,5 @@
 import type { Prisma } from '@prisma/client';
+import { writeAuditLog } from '@/backend/core/audit';
 import { prisma } from '@core/db';
 import { getSupplyChainLossHierarchy } from './lossCalculationService';
 import { getTankPhysicalStock } from './zmccTankService';
@@ -356,6 +357,7 @@ export async function recordGovernanceAudit(params: {
   action: 'APPROVED' | 'FLAGGED';
   remarks: string | null;
   userId: bigint;
+  actorRole?: string | null;
 }): Promise<{ status: number; error?: string; auditedAt?: string }> {
   const parsed = parseGovernanceOverrideId(params.overrideId);
   if (!parsed) return { status: 400, error: 'Invalid override id.' };
@@ -370,16 +372,15 @@ export async function recordGovernanceAudit(params: {
         });
   if (!exists) return { status: 404, error: 'Override record not found.' };
 
-  const audit = await prisma.auditLog.create({
-    data: {
-      table_name: parsed.tableName,
-      record_id: parsed.recordId,
-      action: GOVERNANCE_AUDIT_ACTIONS[params.action],
-      new_values: { decision: params.action, remarks: params.remarks },
-      user_id: params.userId,
-    },
+  const audit = await writeAuditLog(prisma, {
+    tableName: parsed.tableName,
+    recordId: parsed.recordId,
+    action: GOVERNANCE_AUDIT_ACTIONS[params.action],
+    newValues: { decision: params.action, remarks: params.remarks },
+    actor: { userId: params.userId, actorRole: params.actorRole ?? null },
   });
-  return { status: 200, auditedAt: audit.created_at.toISOString() };
+  const stored = await prisma.auditLog.findUniqueOrThrow({ where: { id: audit.id }, select: { created_at: true } });
+  return { status: 200, auditedAt: stored.created_at.toISOString() };
 }
 
 export async function getMpdExecutiveTelemetry(): Promise<MpdExecutiveTelemetry> {

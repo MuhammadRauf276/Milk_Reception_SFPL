@@ -9,3 +9,6 @@ tsconfig.tsbuildinfo
 
 # WhatsApp (Baileys) session credentials - equivalent to being logged in as the account
 data/
+
+# Captured photo storage (outside public/)
+storage/

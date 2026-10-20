@@ -6,6 +6,7 @@ import { validatePositiveDecimal } from '@/lib/validation-helpers';
 import { validateOperationalTimestamp } from '@/backend/services/chronology-validator';
 import { requireCapability } from '@/backend/modules/access-control/serverGuard';
 import { getErrorMessage } from '@/lib/errors';
+import { writeAuditLog, auditActorFromUser } from '@core/audit';
 
 const WEIGHBRIDGE_SCOPE = {
   kind: 'DEPARTMENT',
@@ -160,26 +161,24 @@ export async function POST(req: Request) {
       });
 
       // 6. Log Immutable Audit Record for Tare Weighing
-      await tx.auditLog.create({
-        data: {
-          table_name: 'weight_ticket',
-          record_id: updatedTicket.id,
-          action: 'TARE_WEIGHT_RECORDED',
-          user_id: userIdBigInt,
-          new_values: {
-            visit_id: visitId.toString(),
-            vehicle_number: visit.vehicle_number,
-            token_number: visit.token_number,
-            ticket_number: visit.weight_ticket.ticket_number,
-            gross_weight_kg: grossWeightKg,
-            tare_weight_kg: tareWeightKg,
-            net_weight_kg: netWeightKg,
-            gross_timestamp: visit.weight_ticket.gross_timestamp ? new Date(visit.weight_ticket.gross_timestamp).toISOString() : null,
-            tare_timestamp: opTimestamp.toISOString(),
-            submitted_at: serverNow.toISOString(),
-            recorded_by: authUser.username,
-          },
+      await writeAuditLog(tx, {
+        tableName: 'weight_ticket',
+        recordId: updatedTicket.id,
+        action: 'TARE_WEIGHT_RECORDED',
+        newValues: {
+          visit_id: visitId.toString(),
+          vehicle_number: visit.vehicle_number,
+          token_number: visit.token_number,
+          ticket_number: visit.weight_ticket.ticket_number,
+          gross_weight_kg: grossWeightKg,
+          tare_weight_kg: tareWeightKg,
+          net_weight_kg: netWeightKg,
+          gross_timestamp: visit.weight_ticket.gross_timestamp ? new Date(visit.weight_ticket.gross_timestamp).toISOString() : null,
+          tare_timestamp: opTimestamp.toISOString(),
+          submitted_at: serverNow.toISOString(),
+          recorded_by: authUser.username,
         },
+        actor: auditActorFromUser(dbUser),
       });
 
       // 7. Invoke Reusable Finalization Service (Requires Authoritative Plant LR)
@@ -187,21 +186,19 @@ export async function POST(req: Request) {
 
       if (!finalizeRes.success) {
         // Log Pending Audit Event (Vehicle remains in TARE_WEIGHED status)
-        await tx.auditLog.create({
-          data: {
-            table_name: 'vehicle_visit',
-            record_id: visitId,
-            action: 'SILO_RECEIPT_PENDING_PREREQUISITES',
-            user_id: userIdBigInt,
-            new_values: {
-              visit_id: visitId.toString(),
-              vehicle_number: visit.vehicle_number,
-              net_weight_kg: netWeightKg,
-              op_timestamp: opTimestamp.toISOString(),
-              reason: finalizeRes.reason || 'Prerequisites incomplete',
-              message: finalizeRes.message,
-            },
+        await writeAuditLog(tx, {
+          tableName: 'vehicle_visit',
+          recordId: visitId,
+          action: 'SILO_RECEIPT_PENDING_PREREQUISITES',
+          newValues: {
+            visit_id: visitId.toString(),
+            vehicle_number: visit.vehicle_number,
+            net_weight_kg: netWeightKg,
+            op_timestamp: opTimestamp.toISOString(),
+            reason: finalizeRes.reason || 'Prerequisites incomplete',
+            message: finalizeRes.message,
           },
+          actor: auditActorFromUser(dbUser),
         });
       }
 

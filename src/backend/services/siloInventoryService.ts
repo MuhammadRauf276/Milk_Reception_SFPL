@@ -1,4 +1,5 @@
 import { prisma } from '../core/db';
+import { writeAuditLog } from '@/backend/core/audit';
 import { Prisma, SiloTransactionType } from '@prisma/client';
 import { calculatePhysicalLiters } from '../utils/milkFormulas';
 import {
@@ -585,30 +586,28 @@ async function executeFinalizeSiloReceiptForVisit(
   }
 
   // 8. Log Immutable Audit Record for Final Silo Receipt
-  await db.auditLog.create({
-    data: {
-      table_name: 'silo_inventory_transaction',
-      record_id: visitId,
-      action: 'SILO_RECEIPT_FINALIZED',
-      user_id: performedByUserId,
-      new_values: {
-        visit_id: visitId.toString(),
-        vehicle_number: visit.vehicle_number,
-        silo_id: targetSiloId.toString(),
-        silo_code: silo.silo_code,
-        net_weight_kg: calcResult.netWeightKg,
-        final_physical_liters: calcResult.finalPhysicalLiters,
-        final_at13_ts_liters: calcResult.finalAt13TSLiters,
-        plant_composite_lr: calcResult.internalCalculationBasis.averagePlantLr,
-        plant_composite_fat: calcResult.internalCalculationBasis.averagePlantFat,
-        plant_density: calcResult.vehicleDensity,
-        plant_snf: calcResult.vehicleSnf,
-        plant_ts: calcResult.vehicleTs,
-        plant_calculation_version: calcResult.plantCalculationVersion,
-        reconciliation_version: dualRecon.reconciliationCalculationVersion,
-        op_timestamp: opTimestamp.toISOString(),
-        submitted_at: new Date().toISOString(),
-      },
+  await writeAuditLog(db, {
+    tableName: 'silo_inventory_transaction',
+    recordId: visitId,
+    action: 'SILO_RECEIPT_FINALIZED',
+    actor: { userId: performedByUserId, actorRole: null },
+    newValues: {
+      visit_id: visitId.toString(),
+      vehicle_number: visit.vehicle_number,
+      silo_id: targetSiloId.toString(),
+      silo_code: silo.silo_code,
+      net_weight_kg: calcResult.netWeightKg,
+      final_physical_liters: calcResult.finalPhysicalLiters,
+      final_at13_ts_liters: calcResult.finalAt13TSLiters,
+      plant_composite_lr: calcResult.internalCalculationBasis.averagePlantLr,
+      plant_composite_fat: calcResult.internalCalculationBasis.averagePlantFat,
+      plant_density: calcResult.vehicleDensity,
+      plant_snf: calcResult.vehicleSnf,
+      plant_ts: calcResult.vehicleTs,
+      plant_calculation_version: calcResult.plantCalculationVersion,
+      reconciliation_version: dualRecon.reconciliationCalculationVersion,
+      op_timestamp: opTimestamp.toISOString(),
+      submitted_at: new Date().toISOString(),
     },
   });
 
@@ -891,24 +890,22 @@ export async function recordSiloIssueTransaction(params: RecordSiloIssueParams) 
     });
 
     // Log Immutable Audit Record
-    await tx.auditLog.create({
-      data: {
-        table_name: 'silo_inventory_transaction',
-        record_id: transaction.id,
-        action: 'SILO_MILK_ISSUED',
-        user_id: performedBy,
-        new_values: {
-          silo_id: siloId.toString(),
-          silo_code: silo.silo_code,
-          silo_name: silo.silo_name,
-          issue_liters: params.quantity_liters,
-          stock_before_liters: currentStockLiters,
-          stock_after_liters: stockAfterLiters,
-          op_timestamp: params.operational_timestamp.toISOString(),
-          submitted_at: serverNow.toISOString(),
-          purpose: params.purpose?.trim() || 'Production Issue',
-          flow_meter_reference: params.flow_meter_reference?.trim() || null,
-        },
+    await writeAuditLog(tx, {
+      tableName: 'silo_inventory_transaction',
+      recordId: transaction.id,
+      action: 'SILO_MILK_ISSUED',
+      actor: { userId: performedBy, actorRole: null },
+      newValues: {
+        silo_id: siloId.toString(),
+        silo_code: silo.silo_code,
+        silo_name: silo.silo_name,
+        issue_liters: params.quantity_liters,
+        stock_before_liters: currentStockLiters,
+        stock_after_liters: stockAfterLiters,
+        op_timestamp: params.operational_timestamp.toISOString(),
+        submitted_at: serverNow.toISOString(),
+        purpose: params.purpose?.trim() || 'Production Issue',
+        flow_meter_reference: params.flow_meter_reference?.trim() || null,
       },
     });
 

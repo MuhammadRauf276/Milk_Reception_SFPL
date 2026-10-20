@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
 import { getSiloActiveReservedLiters, getSiloStockVolumeState } from '@/backend/services/siloInventoryService';
+import { writeAuditLog, auditActorFromUser } from '@core/audit';
 
 export async function PATCH(
   req: Request,
@@ -217,23 +218,21 @@ export async function PATCH(
       });
 
       // 7. Create Atomic Audit Record
-      await tx.auditLog.create({
-        data: {
-          table_name: 'silo',
-          record_id: siloId,
-          action,
-          old_values: {
-            silo_name: targetSilo.silo_name,
-            capacity_liters: Number(targetSilo.capacity_liters),
-            is_active: targetSilo.is_active,
-          },
-          new_values: {
-            silo_name: updatedSilo.silo_name,
-            capacity_liters: Number(updatedSilo.capacity_liters),
-            is_active: updatedSilo.is_active,
-          },
-          user_id: actorUser.id,
+      await writeAuditLog(tx, {
+        tableName: 'silo',
+        recordId: siloId,
+        action,
+        oldValues: {
+          silo_name: targetSilo.silo_name,
+          capacity_liters: Number(targetSilo.capacity_liters),
+          is_active: targetSilo.is_active,
         },
+        newValues: {
+          silo_name: updatedSilo.silo_name,
+          capacity_liters: Number(updatedSilo.capacity_liters),
+          is_active: updatedSilo.is_active,
+        },
+        actor: auditActorFromUser(actorUser),
       });
 
       return {

@@ -3,6 +3,7 @@ import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
 import { getSiloCurrentStockLiters, getSiloActiveReservedLiters } from '@/backend/services/siloInventoryService';
 import { getErrorCode, getErrorName } from '@/lib/errors';
+import { writeAuditLog, auditActorFromUser } from '@core/audit';
 
 export async function GET(req: Request) {
   const authUser = await getCurrentUser(req);
@@ -137,19 +138,17 @@ export async function POST(req: Request) {
         },
       });
 
-      await tx.auditLog.create({
-        data: {
-          table_name: 'silo',
-          record_id: createdSilo.id,
-          action: 'SILO_CREATED',
-          new_values: {
-            silo_code: siloCode,
-            silo_name: siloName,
-            capacity_liters: capacityLiters,
-            is_active: true,
-          },
-          user_id: actorUser.id,
+      await writeAuditLog(tx, {
+        tableName: 'silo',
+        recordId: createdSilo.id,
+        action: 'SILO_CREATED',
+        newValues: {
+          silo_code: siloCode,
+          silo_name: siloName,
+          capacity_liters: capacityLiters,
+          is_active: true,
         },
+        actor: auditActorFromUser(actorUser),
       });
 
       return createdSilo;

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@core/auth';
+import { ACTING_AS_HEADER, requireRoles, scopeFailureResponse } from '@core/route-guards';
+import { asRoleFields } from '@core/acting-context';
 import { prisma } from '@core/db';
 import { Prisma } from '@prisma/client';
 import { createDispatchSchema } from '@/lib/validations/dispatch';
@@ -19,6 +20,22 @@ import { paperLinkedIdentity } from '@/backend/modules/paper-references';
 import { getErrorCode, getErrorIssues, getErrorMessage, getErrorName } from '@/lib/errors';
 import type { LabTestResultOption } from '@/lib/validations/labTest';
 import { jsonString } from '@/lib/json';
+import {
+  DISPATCH_READ_ROLES,
+  DISPATCH_SOURCE_FAILURE_MESSAGES,
+  DISPATCH_WRITE_ROLES,
+  checkDispatchSource,
+  dispatchListFilter,
+  dispatchSourceIdToLoad,
+  isScopeFailure,
+  resolveDispatchActing,
+  type DispatchSourceFailure,
+} from '@/backend/services/dispatchScope';
+
+function dispatchSourceFailureResponse(code: DispatchSourceFailure) {
+  if (isScopeFailure(code)) return scopeFailureResponse(code);
+  return NextResponse.json({ error: DISPATCH_SOURCE_FAILURE_MESSAGES[code], code }, { status: 400 });
+}
 
 const dispatchListInclude = {
   creator: true,
@@ -137,22 +154,8 @@ function shiftPakistanCalendarDate(dateStr: string, daysOffset: number): string 
 }
 
 export async function GET(req: Request) {
-  const authUser = await getCurrentUser(req);
-  if (!authUser) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  const dbUser = await prisma.user.findFirst({
-    where: {
-      OR: [{ username: authUser.username }, { id: BigInt(authUser.id) }],
-      is_active: true,
-    },
-    include: { procurement_source: true },
-  });
-
-  if (!dbUser) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const guard = await requireRoles(req, DISPATCH_READ_ROLES);
+  if ('response' in guard) return guard.response;
 
   const searchParams = new URL(req.url).searchParams;
   const range = searchParams.get('range') || '7d';
@@ -194,28 +197,14 @@ export async function GET(req: Request) {
     current_status: statusFilter ? statusFilter : { notIn: ['CANCELLED', 'DRAFT_DISPATCH'] },
   };
 
-  // SOURCE AUTHORIZATION FILTERING:
-  // For ordinary MPD operators and source-scoped managers (ZMCC_MANAGER, CONTRACTOR_MANAGER),
-  // strictly scope dispatches to their assigned procurement source at DB level (fail-closed if unbound).
-  const isSourceScoped =
-    dbUser.role === 'ZMCC_LAB_ATTENDANT' ||
-    dbUser.role === 'CONTRACTOR_OPERATOR' ||
-    dbUser.role === 'ZMCC_MANAGER' ||
-    dbUser.role === 'CONTRACTOR_MANAGER';
+  // SOURCE AUTHORIZATION FILTERING (from the acting scope, fail closed):
+  // SOURCE scope -> only the bound source; SYSTEM scope -> all, or the optional
+  // procurementSourceId query param; anything else -> nothing.
+  const listFilter = dispatchListFilter(guard.acting.scope, searchParams.get('procurementSourceId'));
+  const listSourceId = listFilter.kind === 'SOURCE' ? listFilter.sourceId : listFilter.kind === 'NONE' ? BigInt(-1) : null;
 
-  if (isSourceScoped) {
-    if (dbUser.procurement_source_id) {
-      whereClause.procurement_source_id = dbUser.procurement_source_id;
-    } else {
-      // Unbound source-scoped role gets zero dispatches (fail closed)
-      whereClause.procurement_source_id = -1;
-    }
-  } else {
-    // Privileged/Global roles may specify optional procurementSourceId query param
-    const sourceParam = searchParams.get('procurementSourceId');
-    if (sourceParam) {
-      whereClause.procurement_source_id = BigInt(sourceParam);
-    }
+  if (listSourceId !== null) {
+    whereClause.procurement_source_id = listSourceId;
   }
 
   if (gteDate || lteDate) {
@@ -244,17 +233,8 @@ export async function GET(req: Request) {
       conditions.push(Prisma.sql`vv.current_status NOT IN ('CANCELLED', 'DRAFT_DISPATCH')`);
     }
 
-    if (isSourceScoped) {
-      if (dbUser.procurement_source_id) {
-        conditions.push(Prisma.sql`vv.procurement_source_id = ${dbUser.procurement_source_id}`);
-      } else {
-        conditions.push(Prisma.sql`vv.procurement_source_id = -1`);
-      }
-    } else {
-      const sourceParam = searchParams.get('procurementSourceId');
-      if (sourceParam) {
-        conditions.push(Prisma.sql`vv.procurement_source_id = ${BigInt(sourceParam)}`);
-      }
+    if (listSourceId !== null) {
+      conditions.push(Prisma.sql`vv.procurement_source_id = ${listSourceId}`);
     }
 
     if (gteDate && lteDate) {
@@ -332,40 +312,14 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  // 1. Read authenticated user from session
-  const authUser = await getCurrentUser(req);
-  if (!authUser) {
-    return NextResponse.json({ error: 'Unauthorized. Authentication required.' }, { status: 401 });
-  }
+  // 1. Authenticated, active dispatch role (ZMCC Lab Attendant / Contractor Operator, or a superior
+  // doing their work). Source binding is checked against the acting scope below.
+  const guard = await requireRoles(req, DISPATCH_WRITE_ROLES);
+  if ('response' in guard) return guard.response;
+  const requestedAs = req.headers.get(ACTING_AS_HEADER);
 
-  // 2. Find corresponding User row in PostgreSQL database
-  const dbUser = await prisma.user.findFirst({
-    where: {
-      OR: [{ username: authUser.username }, { id: BigInt(authUser.id) }],
-      is_active: true,
-    },
-    include: { procurement_source: true },
-  });
-
-  const allowedRoles = ['ZMCC_LAB_ATTENDANT', 'CONTRACTOR_OPERATOR', 'SUPER_ADMIN'];
-  if (!dbUser || !allowedRoles.includes(dbUser.role)) {
-    return NextResponse.json(
-      { error: 'Unauthorized. Authorized active ZMCC Lab Attendant or Contractor Operator required.' },
-      { status: 403 }
-    );
-  }
-
-  if (dbUser.role === 'ZMCC_LAB_ATTENDANT') {
-    if (!dbUser.procurement_source_id || dbUser.procurement_source?.source_type !== 'ZMCC') {
-      return NextResponse.json({ error: 'Unauthorized. ZMCC Lab Attendant must be bound to a ZMCC source.' }, { status: 403 });
-    }
-  } else if (dbUser.role === 'CONTRACTOR_OPERATOR') {
-    if (!dbUser.procurement_source_id || dbUser.procurement_source?.source_type !== 'CONTRACTOR') {
-      return NextResponse.json({ error: 'Unauthorized. Contractor Operator must be bound to a Contractor source.' }, { status: 403 });
-    }
-  }
-
-  const userIdBigInt = dbUser.id;
+  // Real user is always stored; the acting role and delegation flag are stamped beside it.
+  const userIdBigInt = guard.acting.userId;
 
   try {
     const body = await req.json();
@@ -391,52 +345,30 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: chronoVal.error }, { status: 400 });
     }
 
-    // SOURCE AUTHORIZATION & DERIVATION:
-    let resolvedSourceId: bigint | null = null;
-    const isSourceBound = !!dbUser.procurement_source_id;
-
-    if (isSourceBound) {
-      if (dbUser.procurement_source && !dbUser.procurement_source.is_active) {
-        return NextResponse.json(
-          { error: 'Bound procurement source is inactive or unavailable.', code: 'PROCUREMENT_SOURCE_INACTIVE' },
-          { status: 400 }
-        );
-      }
-      resolvedSourceId = dbUser.procurement_source_id!;
-      if (body.procurementSourceId && body.procurementSourceId !== dbUser.procurement_source_id!.toString()) {
-        return NextResponse.json(
-          { error: 'Unauthorized. Source-bound user cannot create visits for another procurement source.', code: 'FORBIDDEN_SOURCE' },
-          { status: 403 }
-        );
-      }
-    } else if (body.procurementSourceId) {
-      const targetSrc = await prisma.procurementSource.findUnique({
-        where: { id: BigInt(body.procurementSourceId) },
-      });
-      if (!targetSrc || !targetSrc.is_active) {
-        return NextResponse.json(
-          { error: 'Selected procurement source is inactive or does not exist.', code: 'PROCUREMENT_SOURCE_INVALID' },
-          { status: 400 }
-        );
-      }
-      resolvedSourceId = targetSrc.id;
-    } else {
-      return NextResponse.json(
-        { error: 'Procurement source is required for dispatch creation.', code: 'PROCUREMENT_SOURCE_REQUIRED' },
-        { status: 400 }
-      );
-    }
+    // SOURCE AUTHORIZATION & DERIVATION (acting scope, never the stored role):
+    // SOURCE scope -> forced to the bound source; SYSTEM scope -> procurementSourceId required.
+    // The source must exist, be active and match the acting role's source type (Super Admin too).
+    const rawSourceId: unknown = body && typeof body === 'object' ? (body as Record<string, unknown>).procurementSourceId : undefined;
+    const requestedSourceId = typeof rawSourceId === 'string' ? rawSourceId : typeof rawSourceId === 'number' ? String(rawSourceId) : null;
+    const sourceToLoad = dispatchSourceIdToLoad(guard.acting.scope, requestedSourceId);
+    if (!sourceToLoad.ok) return dispatchSourceFailureResponse(sourceToLoad.code);
 
     const sourceRecord = await prisma.procurementSource.findUnique({
-      where: { id: resolvedSourceId, is_active: true },
+      where: { id: sourceToLoad.sourceId },
     });
 
-    if (!sourceRecord) {
-      return NextResponse.json(
-        { error: 'Invalid or inactive procurement source.', code: 'PROCUREMENT_SOURCE_INVALID' },
-        { status: 400 }
-      );
+    // Acting role for this source: the requested one, or (for a superior) the dispatch role of this source type.
+    const actingResult = resolveDispatchActing(guard.user, requestedAs, sourceRecord?.source_type);
+    if (!actingResult.ok) {
+      return actingResult.code === 'FORBIDDEN'
+        ? NextResponse.json({ error: 'Forbidden.' }, { status: 403 })
+        : scopeFailureResponse(actingResult.code);
     }
+    const acting = actingResult.ctx;
+
+    const sourceCheck = checkDispatchSource(acting, requestedSourceId, sourceRecord);
+    if (!sourceCheck.ok) return dispatchSourceFailureResponse(sourceCheck.code);
+    const resolvedSourceId: bigint = sourceCheck.sourceId;
 
     // Validate Raw Milk Dispatch Note against operational policy
     const rawDispatchNoteInput = validated.rawMilkDispatchNoteNumber || validated.raw_milk_dispatch_note_number || jsonString(body, 'rawMilkDispatchNoteNumber') || jsonString(body, 'raw_milk_dispatch_note_number');
@@ -454,14 +386,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: getErrorMessage(err) || 'Invalid Raw Milk Dispatch Note number.' }, { status: 400 });
     }
 
-    const sourceType = sourceRecord.source_type || 'ZMCC';
-
-    if (dbUser.role === 'ZMCC_LAB_ATTENDANT' && sourceType !== 'ZMCC') {
-      return NextResponse.json({ error: 'Unauthorized. ZMCC Lab Attendant cannot dispatch for Contractor source.' }, { status: 403 });
-    }
-    if (dbUser.role === 'CONTRACTOR_OPERATOR' && sourceType !== 'CONTRACTOR') {
-      return NextResponse.json({ error: 'Unauthorized. Contractor Operator cannot dispatch for ZMCC source.' }, { status: 403 });
-    }
+    // Equals the acting role's target source type (checked above).
+    const sourceType = sourceCheck.sourceType;
 
     // 1. Resolve visit assignments and FROZEN quantity policy snapshot from draft
     const existingVisit = await prisma.vehicleVisit.findUnique({
@@ -477,7 +403,7 @@ export async function POST(req: Request) {
       );
     }
     // Validate draft ownership
-    if (existingVisit.created_by?.toString() !== dbUser.id.toString()) {
+    if (existingVisit.created_by?.toString() !== userIdBigInt.toString()) {
       return NextResponse.json(
         { error: 'Unauthorized. Draft visit belongs to another user.', code: 'DRAFT_OWNER_MISMATCH' },
         { status: 403 }
@@ -883,6 +809,7 @@ export async function POST(req: Request) {
             dispatch_testing_reason: testingReason,
             dispatch_testing_remarks: testingRemarks,
             recorded_by: userIdBigInt,
+            ...asRoleFields(acting, 'recorded'),
           },
         });
 

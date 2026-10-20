@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/backend/core/auth';
+import { requireCorrectionAuthority } from '@/backend/core/route-guards';
 import { prisma } from '@/backend/core/db';
 import { createNotificationsForEvent } from '@/backend/services/notificationService';
+import { writeAuditLog, auditActorFromUser } from '@/backend/core/audit';
 
 export async function GET(req: Request) {
   const user = await getCurrentUser(req);
@@ -20,9 +22,10 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const user = await getCurrentUser(req);
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  if (user.role !== 'ZMCC_MANAGER' && user.role !== 'SUPER_ADMIN' && user.role !== 'DATA_EXECUTIVE') return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+  // Reviewing (approving/rejecting/escalating) a correction is a CORRECT action: Data Executive and Super Admin only.
+  const guard = await requireCorrectionAuthority(req);
+  if ('response' in guard) return guard.response;
+  const { user } = guard;
   try {
     const body = await req.json();
     const requestId = body?.requestId;
@@ -34,19 +37,18 @@ export async function POST(req: Request) {
     const result = await prisma.$transaction(async (tx) => {
       const item = await tx.correctionRequest.findUnique({ where: { id: BigInt(requestId) } });
       if (!item || item.status !== 'REQUESTED') throw new Error('REQUEST_NOT_AVAILABLE');
-      if (user.role !== 'SUPER_ADMIN' && item.source_id?.toString() !== user.procurement_source_id) throw new Error('OUTSIDE_SCOPE');
       const status = decision === 'APPROVE' ? 'APPROVED' : decision === 'REJECT' ? 'REJECTED' : 'ESCALATED';
       const updated = await tx.correctionRequest.update({
         where: { id: item.id },
         data: { status, reviewed_by_user_id: BigInt(user.id), reviewed_at: new Date(), review_reason: reason },
       });
-      await tx.auditLog.create({
-        data: {
-          table_name: 'correction_request', record_id: item.id, action: `CORRECTION_REQUEST_${status}`,
-          old_values: { status: item.status },
-          new_values: { status, reason, correlation_id: item.correlation_id, module: item.module, target_record_id: item.record_id },
-          user_id: BigInt(user.id),
-        },
+      await writeAuditLog(tx, {
+        tableName: 'correction_request',
+        recordId: item.id,
+        action: `CORRECTION_REQUEST_${status}`,
+        oldValues: { status: item.status },
+        newValues: { status, reason, correlation_id: item.correlation_id, module: item.module, target_record_id: item.record_id },
+        actor: auditActorFromUser(user),
       });
       if (status === 'ESCALATED') {
         await createNotificationsForEvent(tx, {

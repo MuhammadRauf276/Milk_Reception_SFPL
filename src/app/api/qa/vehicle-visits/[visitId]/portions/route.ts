@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
 import { getErrorMessage } from '@/lib/errors';
+import { writeAuditLog, auditActorFromUser } from '@core/audit';
 
 export async function POST(
   req: Request,
@@ -77,18 +78,16 @@ export async function POST(
         });
       }
 
-      await tx.auditLog.create({
-        data: {
-          table_name: 'visit_portion',
-          record_id: portion.id,
-          action: 'PLANT_QA_PORTION_ADDED',
-          new_values: {
-            visit_id: visitId.toString(),
-            portion_number: nextPortionNumber,
-            added_by: dbUser.username,
-          },
-          user_id: dbUser.id,
+      await writeAuditLog(tx, {
+        tableName: 'visit_portion',
+        recordId: portion.id,
+        action: 'PLANT_QA_PORTION_ADDED',
+        newValues: {
+          visit_id: visitId.toString(),
+          portion_number: nextPortionNumber,
+          added_by: dbUser.username,
         },
+        actor: auditActorFromUser(dbUser),
       });
 
       return portion;

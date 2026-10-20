@@ -6,6 +6,7 @@ import { getOperationalBusinessDate } from '@/backend/core/business-day';
 import { parseStrictDateOnly } from '@/lib/datetime-utils';
 import { requireCapability } from '@/backend/modules/access-control/serverGuard';
 import { getErrorIssues, getErrorMessage, getErrorName } from '@/lib/errors';
+import { writeAuditLog, auditActorFromUser } from '@core/audit';
 
 const SECURITY_SCOPE = { kind: 'DEPARTMENT', departmentId: 'Security' } as const;
 
@@ -138,24 +139,22 @@ export async function POST(req: Request) {
       });
 
       // 6. Log Immutable Audit Record for Gate Exit
-      await tx.auditLog.create({
-        data: {
-          table_name: 'gate_log',
-          record_id: updatedGateLog.id,
-          action: 'GATE_EXIT_RECORDED',
-          user_id: userIdBigInt,
-          new_values: {
-            visit_id: visitId.toString(),
-            vehicle_number: visit.vehicle_number,
-            token_number: visit.token_number,
-            op_timestamp: opTimestamp.toISOString(),
-            submitted_at: serverNow.toISOString(),
-            exited_by: dbUser.username,
-            exit_reason: isAllRejected ? 'QA Rejected' : 'Processing Complete',
-            previous_status: 'READY_FOR_GATE_EXIT',
-            new_status: 'COMPLETED',
-          },
+      await writeAuditLog(tx, {
+        tableName: 'gate_log',
+        recordId: updatedGateLog.id,
+        action: 'GATE_EXIT_RECORDED',
+        newValues: {
+          visit_id: visitId.toString(),
+          vehicle_number: visit.vehicle_number,
+          token_number: visit.token_number,
+          op_timestamp: opTimestamp.toISOString(),
+          submitted_at: serverNow.toISOString(),
+          exited_by: dbUser.username,
+          exit_reason: isAllRejected ? 'QA Rejected' : 'Processing Complete',
+          previous_status: 'READY_FOR_GATE_EXIT',
+          new_status: 'COMPLETED',
         },
+        actor: auditActorFromUser(dbUser),
       });
 
       return { updatedVisit: visit, updatedGateLog, isAllRejected };

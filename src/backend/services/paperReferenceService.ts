@@ -1,4 +1,5 @@
 import { prisma } from '@core/db';
+import { writeAuditLog } from '@/backend/core/audit';
 import { Prisma, PaperReferenceType, PaperPolicyMode, PaperReferencePolicy } from '@prisma/client';
 
 export class PaperValidationError extends Error {
@@ -399,28 +400,26 @@ export class PaperReferenceService {
       });
 
       // Audit Log entry
-      await tx.auditLog.create({
-        data: {
-          table_name: 'paper_reference_policy',
-          record_id: policy.id,
-          action: 'PAPER_REFERENCE_POLICY_UPDATED',
-          old_values: existing
-            ? {
-                reference_type: existing.reference_type,
-                policy_mode: existing.policy_mode,
-                allow_duplicates: existing.allow_duplicates,
-                duplicate_scope: existing.duplicate_scope,
-              }
-            : Prisma.DbNull,
-          new_values: {
-            reference_type: referenceType,
-            policy_mode: policyMode,
-            allow_duplicates: allowDuplicates,
-            duplicate_scope: scopeToSet,
-            reason: reason || 'Super Admin policy update',
-          },
-          user_id: userIdBigInt,
+      await writeAuditLog(tx, {
+        tableName: 'paper_reference_policy',
+        recordId: policy.id,
+        action: 'PAPER_REFERENCE_POLICY_UPDATED',
+        oldValues: existing
+          ? {
+              reference_type: existing.reference_type,
+              policy_mode: existing.policy_mode,
+              allow_duplicates: existing.allow_duplicates,
+              duplicate_scope: existing.duplicate_scope,
+            }
+          : null,
+        newValues: {
+          reference_type: referenceType,
+          policy_mode: policyMode,
+          allow_duplicates: allowDuplicates,
+          duplicate_scope: scopeToSet,
+          reason: reason || 'Super Admin policy update',
         },
+        actor: { userId: userIdBigInt, actorRole: null },
       });
 
       return policy;

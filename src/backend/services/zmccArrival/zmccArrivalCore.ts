@@ -1,4 +1,6 @@
 import { toJsonInput } from '@/lib/json';
+import { writeAuditLog } from '@/backend/core/audit';
+import { isCorrectionAuthority } from '@/backend/core/roles/capabilities';
 import { prisma } from '@core/db';
 import {
   Prisma,
@@ -186,10 +188,11 @@ export async function resolveZmccArrivalAuth(
       };
     }
   } else if (action === 'CORRECT_ARRIVAL') {
-    if (!isZmccManager && !isSuperAdmin) {
+    // CORRECT is non-delegable: Data Executive and Super Admin only.
+    if (!isCorrectionAuthority(role)) {
       return {
         errorResponse: {
-          error: 'Forbidden. Only ZMCC Managers or Super Admins may correct arrival records.',
+          error: 'Forbidden. Only Data Executive or Super Admin may correct arrival records.',
           status: 403,
         },
       };
@@ -213,18 +216,22 @@ export async function resolveZmccArrivalAuth(
       };
     }
   } else if (action === 'CORRECT_EXIT') {
-    if (!isZmccManager && !isSuperAdmin) {
+    // CORRECT is non-delegable: Data Executive and Super Admin only.
+    if (!isCorrectionAuthority(role)) {
       return {
         errorResponse: {
-          error: 'Forbidden. Only ZMCC Managers or Super Admins may correct gate exit records.',
+          error: 'Forbidden. Only Data Executive or Super Admin may correct gate exit records.',
           status: 403,
         },
       };
     }
   }
 
+  // Correction authorities (SA, DE) work across all ZMCCs.
+  const isUnscopedCorrector = (action === 'CORRECT_ARRIVAL' || action === 'CORRECT_EXIT') && isCorrectionAuthority(role);
+
   let effectiveZmccId: bigint | null = null;
-  if (!isSuperAdmin) {
+  if (!isSuperAdmin && !isUnscopedCorrector) {
     if (!dbUser.procurement_source_id || !dbUser.procurement_source) {
       return {
         errorResponse: {
@@ -1009,41 +1016,37 @@ export async function submitMotArrival(
 
       const summary = await createInitialMotJourneySummaryTx(tx, journey.id, arrivalDate, auth.actorUserId);
 
-      await tx.auditLog.create({
-        data: {
-          table_name: 'zmcc_mot_arrival',
-          record_id: arrival.id,
-          action: 'ZMCC_MOT_ARRIVAL_SUBMITTED',
-          old_values: Prisma.DbNull,
-          new_values: {
-            journey_id: journey.id.toString(),
-            journey_number: journey.journey_number,
-            route_milk_token: routeMilkToken || null,
-            raw_milk_token_number: cleanRawMilkToken,
-            zmcc_token: zmccToken,
-            arrival_timestamp: arrivalDate.toISOString(),
-            arrival_date: pktDateStr,
-            client_event_id: clientEventId,
-          },
-          user_id: auth.actorUserId,
+      await writeAuditLog(tx, {
+        tableName: 'zmcc_mot_arrival',
+        recordId: arrival.id,
+        action: 'ZMCC_MOT_ARRIVAL_SUBMITTED',
+        oldValues: null,
+        newValues: {
+          journey_id: journey.id.toString(),
+          journey_number: journey.journey_number,
+          route_milk_token: routeMilkToken || null,
+          raw_milk_token_number: cleanRawMilkToken,
+          zmcc_token: zmccToken,
+          arrival_timestamp: arrivalDate.toISOString(),
+          arrival_date: pktDateStr,
+          client_event_id: clientEventId,
         },
+        actor: { userId: auth.actorUserId, actorRole: auth.role },
       });
 
-      await tx.auditLog.create({
-        data: {
-          table_name: 'mot_journey',
-          record_id: journey.id,
-          action: 'MOT_JOURNEY_COMPLETED_AT_ZMCC',
-          old_values: { status: 'COLLECTING' },
-          new_values: {
-            journey_number: journey.journey_number,
-            status: 'COMPLETED',
-            ended_at: arrivalDate.toISOString(),
-            zmcc_token: zmccToken,
-            arrival_id: arrival.id.toString(),
-          },
-          user_id: auth.actorUserId,
+      await writeAuditLog(tx, {
+        tableName: 'mot_journey',
+        recordId: journey.id,
+        action: 'MOT_JOURNEY_COMPLETED_AT_ZMCC',
+        oldValues: { status: 'COLLECTING' },
+        newValues: {
+          journey_number: journey.journey_number,
+          status: 'COMPLETED',
+          ended_at: arrivalDate.toISOString(),
+          zmcc_token: zmccToken,
+          arrival_id: arrival.id.toString(),
         },
+        actor: { userId: auth.actorUserId, actorRole: auth.role },
       });
 
       return {
@@ -1161,11 +1164,11 @@ export async function correctMotArrival(
     return { status: 404, error: 'MOT Arrival record not found.' };
   }
 
-  if (!auth.isSuperAdmin && arrival.zmcc_id !== auth.effectiveZmccId!) {
+  if (!isCorrectionAuthority(auth.role) && arrival.zmcc_id !== auth.effectiveZmccId!) {
     return { status: 403, error: 'Forbidden. Arrival record belongs to another ZMCC.' };
   }
 
-  if (!auth.isSuperAdmin && (arrival.manager_correction_count ?? 0) >= 5) {
+  if (!isCorrectionAuthority(auth.role) && (arrival.manager_correction_count ?? 0) >= 5) {
     return {
       status: 400,
       error: 'Maximum correction limit (5) reached for ZMCC Manager.',
@@ -1296,7 +1299,7 @@ export async function correctMotArrival(
       }
       const currentTotalCount = lockedRows[0].correction_count;
       const currentManagerCount = lockedRows[0].manager_correction_count ?? 0;
-      if (!auth.isSuperAdmin && currentManagerCount >= 5) {
+      if (!isCorrectionAuthority(auth.role) && currentManagerCount >= 5) {
         throw new Error('MAX_CORRECTIONS_REACHED');
       }
 
@@ -1319,7 +1322,7 @@ export async function correctMotArrival(
       }
 
       const nextCorrectionCount = currentTotalCount + 1;
-      const nextManagerCount = auth.isSuperAdmin ? currentManagerCount : currentManagerCount + 1;
+      const nextManagerCount = isCorrectionAuthority(auth.role) ? currentManagerCount : currentManagerCount + 1;
       const nowTs = new Date();
 
       const updatedRecord = await tx.zmccMotArrival.update({
@@ -1366,24 +1369,22 @@ export async function correctMotArrival(
         });
       }
 
-      await tx.auditLog.create({
-        data: {
-          table_name: 'zmcc_mot_arrival',
-          record_id: arrivalId,
-          action: 'ZMCC_MOT_ARRIVAL_CORRECTED',
-          old_values: {
-            ...oldValues,
-            correction_count: currentTotalCount,
-            manager_correction_count: currentManagerCount,
-          },
-          new_values: {
-            ...newValues,
-            correction_reason: reason,
-            correction_count: nextCorrectionCount,
-            manager_correction_count: nextManagerCount,
-          },
-          user_id: auth.actorUserId,
+      await writeAuditLog(tx, {
+        tableName: 'zmcc_mot_arrival',
+        recordId: arrivalId,
+        action: 'ZMCC_MOT_ARRIVAL_CORRECTED',
+        oldValues: {
+          ...oldValues,
+          correction_count: currentTotalCount,
+          manager_correction_count: currentManagerCount,
         },
+        newValues: {
+          ...newValues,
+          correction_reason: reason,
+          correction_count: nextCorrectionCount,
+          manager_correction_count: nextManagerCount,
+        },
+        actor: { userId: auth.actorUserId, actorRole: auth.role },
       });
 
       return updatedRecord;
@@ -1460,7 +1461,7 @@ export async function correctContractorArrival(
     return { status: 404, error: 'Contractor Arrival record not found.' };
   }
 
-  if (!auth.isSuperAdmin && arrival.zmcc_id !== auth.effectiveZmccId!) {
+  if (!isCorrectionAuthority(auth.role) && arrival.zmcc_id !== auth.effectiveZmccId!) {
     return { status: 403, error: 'Forbidden. Arrival record belongs to another ZMCC.' };
   }
 
@@ -1570,19 +1571,17 @@ export async function correctContractorArrival(
         },
       });
 
-      await tx.auditLog.create({
-        data: {
-          table_name: 'zmcc_contractor_arrival',
-          record_id: arrivalId,
-          action: 'ZMCC_CONTRACTOR_ARRIVAL_CORRECTED',
-          old_values: toJsonInput(oldValues),
-          new_values: toJsonInput({
-            ...newValues,
-            correction_reason: reason,
-            correction_count: nextCorrectionCount,
-          }),
-          user_id: auth.actorUserId,
-        },
+      await writeAuditLog(tx, {
+        tableName: 'zmcc_contractor_arrival',
+        recordId: arrivalId,
+        action: 'ZMCC_CONTRACTOR_ARRIVAL_CORRECTED',
+        oldValues: toJsonInput(oldValues),
+        newValues: toJsonInput({
+          ...newValues,
+          correction_reason: reason,
+          correction_count: nextCorrectionCount,
+        }),
+        actor: { userId: auth.actorUserId, actorRole: auth.role },
       });
 
       return updatedRecord;
@@ -2262,26 +2261,24 @@ export async function submitLocalSupplierArrival(
         },
       });
 
-      await tx.auditLog.create({
-        data: {
-          table_name: 'zmcc_local_supplier_arrival',
-          record_id: arrival.id,
-          action: 'ZMCC_LOCAL_SUPPLIER_ARRIVAL_SUBMITTED',
-          old_values: Prisma.DbNull,
-          new_values: {
-            local_supplier_id: localSupplierId.toString(),
-            local_supplier_code: localSupplier.local_supplier_code,
-            supplier_name: localSupplier.name,
-            rmr_number: rmrNumber,
-            raw_milk_token_number: cleanRawMilkToken,
-            vehicle_number: vehicleNumber,
-            zmcc_token: zmccToken,
-            arrival_timestamp: arrivalDate.toISOString(),
-            arrival_date: pktDateStr,
-            client_event_id: clientEventId,
-          },
-          user_id: auth.actorUserId,
+      await writeAuditLog(tx, {
+        tableName: 'zmcc_local_supplier_arrival',
+        recordId: arrival.id,
+        action: 'ZMCC_LOCAL_SUPPLIER_ARRIVAL_SUBMITTED',
+        oldValues: null,
+        newValues: {
+          local_supplier_id: localSupplierId.toString(),
+          local_supplier_code: localSupplier.local_supplier_code,
+          supplier_name: localSupplier.name,
+          rmr_number: rmrNumber,
+          raw_milk_token_number: cleanRawMilkToken,
+          vehicle_number: vehicleNumber,
+          zmcc_token: zmccToken,
+          arrival_timestamp: arrivalDate.toISOString(),
+          arrival_date: pktDateStr,
+          client_event_id: clientEventId,
         },
+        actor: { userId: auth.actorUserId, actorRole: auth.role },
       });
 
       return arrival;
@@ -2373,11 +2370,11 @@ export async function correctLocalSupplierArrival(
     return { status: 404, error: 'Local Supplier Arrival record not found.' };
   }
 
-  if (!auth.isSuperAdmin && arrival.zmcc_id !== auth.effectiveZmccId!) {
+  if (!isCorrectionAuthority(auth.role) && arrival.zmcc_id !== auth.effectiveZmccId!) {
     return { status: 403, error: 'Forbidden. Arrival record belongs to another ZMCC.' };
   }
 
-  if (!auth.isSuperAdmin && (arrival.manager_correction_count ?? 0) >= 5) {
+  if (!isCorrectionAuthority(auth.role) && (arrival.manager_correction_count ?? 0) >= 5) {
     return {
       status: 400,
       error: 'Maximum correction limit (5) reached for ZMCC Manager.',
@@ -2547,7 +2544,7 @@ export async function correctLocalSupplierArrival(
       }
       const currentTotalCount = lockedRows[0].correction_count;
       const currentManagerCount = lockedRows[0].manager_correction_count ?? 0;
-      if (!auth.isSuperAdmin && currentManagerCount >= 5) {
+      if (!isCorrectionAuthority(auth.role) && currentManagerCount >= 5) {
         throw new Error('MAX_CORRECTIONS_REACHED');
       }
 
@@ -2570,7 +2567,7 @@ export async function correctLocalSupplierArrival(
       }
 
       const nextCorrectionCount = currentTotalCount + 1;
-      const nextManagerCount = auth.isSuperAdmin ? currentManagerCount : currentManagerCount + 1;
+      const nextManagerCount = isCorrectionAuthority(auth.role) ? currentManagerCount : currentManagerCount + 1;
       const nowTs = new Date();
 
       const updatedRecord = await tx.zmccLocalSupplierArrival.update({
@@ -2589,24 +2586,22 @@ export async function correctLocalSupplierArrival(
         },
       });
 
-      await tx.auditLog.create({
-        data: {
-          table_name: 'zmcc_local_supplier_arrival',
-          record_id: arrivalId,
-          action: 'ZMCC_LOCAL_SUPPLIER_ARRIVAL_CORRECTED',
-          old_values: {
-            ...oldValues,
-            correction_count: currentTotalCount,
-            manager_correction_count: currentManagerCount,
-          },
-          new_values: {
-            ...newValues,
-            correction_reason: reason,
-            correction_count: nextCorrectionCount,
-            manager_correction_count: nextManagerCount,
-          },
-          user_id: auth.actorUserId,
+      await writeAuditLog(tx, {
+        tableName: 'zmcc_local_supplier_arrival',
+        recordId: arrivalId,
+        action: 'ZMCC_LOCAL_SUPPLIER_ARRIVAL_CORRECTED',
+        oldValues: {
+          ...oldValues,
+          correction_count: currentTotalCount,
+          manager_correction_count: currentManagerCount,
         },
+        newValues: {
+          ...newValues,
+          correction_reason: reason,
+          correction_count: nextCorrectionCount,
+          manager_correction_count: nextManagerCount,
+        },
+        actor: { userId: auth.actorUserId, actorRole: auth.role },
       });
 
       return updatedRecord;
@@ -2960,23 +2955,21 @@ export async function recordGateExit(
           },
         });
 
-        await tx.auditLog.create({
-          data: {
-            table_name: 'zmcc_mot_arrival',
-            record_id: arrivalId,
-            action: 'ZMCC_MOT_GATE_EXIT_RECORDED',
-            old_values: {
-              gate_exit_required: arrival.gate_exit_required,
-              exit_timestamp: null,
-            },
-            new_values: {
-              gate_exit_required: true,
-              exit_timestamp: exitDate.toISOString(),
-              exit_recorded_by_user_id: auth.actorUserId.toString(),
-              exit_client_event_id: clientEventId,
-            },
-            user_id: auth.actorUserId,
+        await writeAuditLog(tx, {
+          tableName: 'zmcc_mot_arrival',
+          recordId: arrivalId,
+          action: 'ZMCC_MOT_GATE_EXIT_RECORDED',
+          oldValues: {
+            gate_exit_required: arrival.gate_exit_required,
+            exit_timestamp: null,
           },
+          newValues: {
+            gate_exit_required: true,
+            exit_timestamp: exitDate.toISOString(),
+            exit_recorded_by_user_id: auth.actorUserId.toString(),
+            exit_client_event_id: clientEventId,
+          },
+          actor: { userId: auth.actorUserId, actorRole: auth.role },
         });
 
         return {
@@ -3007,23 +3000,21 @@ export async function recordGateExit(
           },
         });
 
-        await tx.auditLog.create({
-          data: {
-            table_name: 'zmcc_local_supplier_arrival',
-            record_id: arrivalId,
-            action: 'ZMCC_LOCAL_SUPPLIER_GATE_EXIT_RECORDED',
-            old_values: {
-              gate_exit_required: arrival.gate_exit_required,
-              exit_timestamp: null,
-            },
-            new_values: {
-              gate_exit_required: true,
-              exit_timestamp: exitDate.toISOString(),
-              exit_recorded_by_user_id: auth.actorUserId.toString(),
-              exit_client_event_id: clientEventId,
-            },
-            user_id: auth.actorUserId,
+        await writeAuditLog(tx, {
+          tableName: 'zmcc_local_supplier_arrival',
+          recordId: arrivalId,
+          action: 'ZMCC_LOCAL_SUPPLIER_GATE_EXIT_RECORDED',
+          oldValues: {
+            gate_exit_required: arrival.gate_exit_required,
+            exit_timestamp: null,
           },
+          newValues: {
+            gate_exit_required: true,
+            exit_timestamp: exitDate.toISOString(),
+            exit_recorded_by_user_id: auth.actorUserId.toString(),
+            exit_client_event_id: clientEventId,
+          },
+          actor: { userId: auth.actorUserId, actorRole: auth.role },
         });
 
         return {
@@ -3197,7 +3188,7 @@ export async function correctGateExit(
       }
 
       // 3. Multi-tenant scope check under lock
-      if (!auth.isSuperAdmin && currentArrival.zmcc_id !== auth.effectiveZmccId!) {
+      if (!isCorrectionAuthority(auth.role) && currentArrival.zmcc_id !== auth.effectiveZmccId!) {
         throw new ExitCorrectionError(403, 'Forbidden. Arrival record belongs to another ZMCC.');
       }
 
@@ -3214,7 +3205,7 @@ export async function correctGateExit(
       // 6. Check current correction count under lock
       const currentTotalCount = currentArrival.exit_correction_count ?? 0;
       const currentManagerCount = currentArrival.exit_manager_correction_count ?? 0;
-      if (!auth.isSuperAdmin && currentManagerCount >= 5) {
+      if (!isCorrectionAuthority(auth.role) && currentManagerCount >= 5) {
         throw new ExitCorrectionError(409, 'MAX_EXIT_CORRECTIONS_EXCEEDED', 'Maximum correction limit (5) reached for ZMCC Manager.');
       }
 
@@ -3238,7 +3229,7 @@ export async function correctGateExit(
 
       // 9. Use the CURRENT locked exit timestamp as old_values.exit_timestamp
       const nextTotalCount = currentTotalCount + 1;
-      const nextManagerCount = auth.isSuperAdmin ? currentManagerCount : currentManagerCount + 1;
+      const nextManagerCount = isCorrectionAuthority(auth.role) ? currentManagerCount : currentManagerCount + 1;
       const nowTs = new Date();
       const oldExitTs = currentArrival.exit_timestamp instanceof Date
         ? currentArrival.exit_timestamp.toISOString()
@@ -3276,24 +3267,22 @@ export async function correctGateExit(
             exit_recorded_by: true,
           },
         });
-        await tx.auditLog.create({
-          data: {
-            table_name: 'zmcc_mot_arrival',
-            record_id: arrivalId,
-            action: 'ZMCC_MOT_GATE_EXIT_CORRECTED',
-            old_values: {
-              exit_timestamp: oldExitTs,
-              exit_correction_count: currentTotalCount,
-              exit_manager_correction_count: currentManagerCount,
-            },
-            new_values: {
-              exit_timestamp: newExitTs,
-              exit_correction_count: nextTotalCount,
-              exit_manager_correction_count: nextManagerCount,
-              correction_reason: reason,
-            },
-            user_id: auth.actorUserId,
+        await writeAuditLog(tx, {
+          tableName: 'zmcc_mot_arrival',
+          recordId: arrivalId,
+          action: 'ZMCC_MOT_GATE_EXIT_CORRECTED',
+          oldValues: {
+            exit_timestamp: oldExitTs,
+            exit_correction_count: currentTotalCount,
+            exit_manager_correction_count: currentManagerCount,
           },
+          newValues: {
+            exit_timestamp: newExitTs,
+            exit_correction_count: nextTotalCount,
+            exit_manager_correction_count: nextManagerCount,
+            correction_reason: reason,
+          },
+          actor: { userId: auth.actorUserId, actorRole: auth.role },
         });
       } else {
         updatedRecord = await tx.zmccLocalSupplierArrival.update({
@@ -3312,24 +3301,22 @@ export async function correctGateExit(
             exit_recorded_by: true,
           },
         });
-        await tx.auditLog.create({
-          data: {
-            table_name: 'zmcc_local_supplier_arrival',
-            record_id: arrivalId,
-            action: 'ZMCC_LOCAL_SUPPLIER_GATE_EXIT_CORRECTED',
-            old_values: {
-              exit_timestamp: oldExitTs,
-              exit_correction_count: currentTotalCount,
-              exit_manager_correction_count: currentManagerCount,
-            },
-            new_values: {
-              exit_timestamp: newExitTs,
-              exit_correction_count: nextTotalCount,
-              exit_manager_correction_count: nextManagerCount,
-              correction_reason: reason,
-            },
-            user_id: auth.actorUserId,
+        await writeAuditLog(tx, {
+          tableName: 'zmcc_local_supplier_arrival',
+          recordId: arrivalId,
+          action: 'ZMCC_LOCAL_SUPPLIER_GATE_EXIT_CORRECTED',
+          oldValues: {
+            exit_timestamp: oldExitTs,
+            exit_correction_count: currentTotalCount,
+            exit_manager_correction_count: currentManagerCount,
           },
+          newValues: {
+            exit_timestamp: newExitTs,
+            exit_correction_count: nextTotalCount,
+            exit_manager_correction_count: nextManagerCount,
+            correction_reason: reason,
+          },
+          actor: { userId: auth.actorUserId, actorRole: auth.role },
         });
       }
 

@@ -3,6 +3,7 @@ import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
 import { Prisma } from '@prisma/client';
 import { LabTestResultOption, resultOptionsArraySchema, validatePlantQAResultOptions } from '@/lib/validations/labTest';
+import { writeAuditLog, auditActorFromUser } from '@core/audit';
 
 export async function PATCH(
   req: Request,
@@ -95,27 +96,25 @@ export async function PATCH(
         },
       });
 
-      await tx.auditLog.create({
-        data: {
-          table_name: 'lab_test',
-          record_id: testId,
-          action: 'LAB_TEST_UPDATED',
-          old_values: {
-            testName: targetTest.testName,
-            displayOrder: targetTest.displayOrder,
-            isActive: targetTest.isActive,
-            isPhotoRequired: targetTest.isPhotoRequired,
-            resultOptions: targetTest.resultOptions,
-          },
-          new_values: {
-            testName: updated.testName,
-            displayOrder: updated.displayOrder,
-            isActive: updated.isActive,
-            isPhotoRequired: updated.isPhotoRequired,
-            resultOptions: updated.resultOptions,
-          },
-          user_id: adminUser?.id || null,
+      await writeAuditLog(tx, {
+        tableName: 'lab_test',
+        recordId: testId,
+        action: 'LAB_TEST_UPDATED',
+        oldValues: {
+          testName: targetTest.testName,
+          displayOrder: targetTest.displayOrder,
+          isActive: targetTest.isActive,
+          isPhotoRequired: targetTest.isPhotoRequired,
+          resultOptions: targetTest.resultOptions,
         },
+        newValues: {
+          testName: updated.testName,
+          displayOrder: updated.displayOrder,
+          isActive: updated.isActive,
+          isPhotoRequired: updated.isPhotoRequired,
+          resultOptions: updated.resultOptions,
+        },
+        actor: { ...auditActorFromUser(authUser), userId: adminUser?.id ?? null },
       });
 
       return updated;

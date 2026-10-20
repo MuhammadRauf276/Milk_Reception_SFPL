@@ -1,4 +1,7 @@
 import { getErrorMessage } from '@/lib/errors';
+import type { SyncItem, SyncItemKind } from '@/types/sync';
+import { getActiveOwnerUserId, getDeviceKey } from '@/frontend/modules/pwa/deviceIdentity';
+import { enqueueSyncItem, listSyncQueueRecords, runSyncOnce } from '@/frontend/modules/pwa/syncEngine';
 /**
  * MOT Offline Storage & Sync Engine
  * Uses IndexedDB for reliable offline collection queuing, draft saving, and GPS buffering.
@@ -117,6 +120,8 @@ export interface QueuedCollection {
   request_exception?: boolean;
   exception_reason?: string | null;
   offline_created_at: string;
+  /** Signed-in user who created the item (Phase 3 sync attribution). */
+  owner_user_id?: string | null;
   status: 'QUEUED' | 'SYNCING' | 'SYNCED' | 'CONFLICT' | 'FAILED_FATAL' | 'FAILED_RETRYABLE';
   last_error?: string;
   attempts?: number;
@@ -130,6 +135,8 @@ export interface QueuedSkip {
   journey_id: string;
   skip_reason: string;
   offline_created_at: string;
+  /** Signed-in user who created the item (Phase 3 sync attribution). */
+  owner_user_id?: string | null;
   status: 'QUEUED' | 'SYNCING' | 'SYNCED' | 'CONFLICT' | 'FAILED_FATAL' | 'FAILED_RETRYABLE';
   last_error?: string;
   attempts?: number;
@@ -146,6 +153,7 @@ export interface QueuedGpsPoint {
   gps_accuracy?: number | null;
   device_recorded_at: string;
   synced: number; // 0 for false, 1 for true (IndexedDB boolean index friendly)
+  owner_user_id?: string | null;
   status?: 'QUEUED' | 'SYNCED' | 'CONFLICT' | 'FAILED_FATAL' | 'FAILED_RETRYABLE';
   attempts?: number;
   last_error?: string | null;
@@ -162,6 +170,8 @@ export interface QueuedShopRequest {
   latitude?: number | null;
   longitude?: number | null;
   offline_created_at: string;
+  /** Signed-in user who created the item (Phase 3 sync attribution). */
+  owner_user_id?: string | null;
   status: 'QUEUED' | 'SYNCING' | 'SYNCED' | 'CONFLICT' | 'FAILED_FATAL' | 'FAILED_RETRYABLE';
   last_error?: string;
   attempts?: number;
@@ -436,13 +446,16 @@ export async function getUnsentWorkSummary(options?: { isMot?: boolean }): Promi
  * Never touches collection_queue, gps_queue, skip_queue, shop_request_queue or collection_drafts
  * (sync reads only the queue items, which carry their own journey_id).
  */
+/** The only MOT stores logout may clear. Queues and drafts are never in this list. */
+export const MOT_SESSION_CACHE_STORES: readonly string[] = ['active_journey', 'offline_preparation'];
+
 export async function clearMotSessionCache(): Promise<void> {
   if (!isIndexedDbSupported()) return;
   if (!(await motDbExists(true))) return;
   const db = await openMotDb();
   try {
     await new Promise<void>((resolve, reject) => {
-      const names = ['active_journey', 'offline_preparation'].filter((name) => db.objectStoreNames.contains(name));
+      const names = MOT_SESSION_CACHE_STORES.filter((name) => db.objectStoreNames.contains(name));
       if (names.length === 0) return resolve();
       const tx = db.transaction(names, 'readwrite');
       names.forEach((name) => tx.objectStore(name).clear());
@@ -541,6 +554,7 @@ export async function queueCollection(
   const db = await openMotDb();
   const queuedItem: QueuedCollection = {
     ...item,
+    owner_user_id: item.owner_user_id ?? getActiveOwnerUserId(),
     status: 'QUEUED',
     attempts: 0,
     sync_started_at: null,
@@ -660,6 +674,7 @@ export async function queueStopSkip(item: {
   journey_id: string;
   skip_reason: string;
   client_event_id?: string;
+  owner_user_id?: string | null;
 }): Promise<QueuedSkip> {
   if (!isIndexedDbSupported()) throw new Error('Offline storage unavailable');
   const db = await openMotDb();
@@ -675,6 +690,7 @@ export async function queueStopSkip(item: {
     journey_id: item.journey_id,
     skip_reason: item.skip_reason,
     offline_created_at: new Date().toISOString(),
+    owner_user_id: item.owner_user_id ?? getActiveOwnerUserId(),
     status: 'QUEUED',
     attempts: 0,
     sync_started_at: null,
@@ -841,6 +857,7 @@ export async function queueGpsLocation(location: {
   longitude: number;
   gps_accuracy?: number | null;
   device_recorded_at?: string;
+  owner_user_id?: string | null;
 }): Promise<string> {
   if (!isIndexedDbSupported()) return '';
   const db = await openMotDb();
@@ -866,6 +883,7 @@ export async function queueGpsLocation(location: {
       gps_accuracy: location.gps_accuracy != null ? location.gps_accuracy : null,
       device_recorded_at: location.device_recorded_at || new Date().toISOString(),
       synced: 0,
+      owner_user_id: location.owner_user_id ?? getActiveOwnerUserId(),
       status: 'QUEUED',
       attempts: 0,
       last_error: null,
@@ -1039,18 +1057,23 @@ export async function getUnsyncedSummary(): Promise<{
     (s) => s.status === 'QUEUED' || s.status === 'FAILED_RETRYABLE' || s.status === 'SYNCING'
   ).length;
 
+  // Items already moved into the new sync queue (device key path) still count as unsynced.
+  const moved = await countMovedMotItems();
+
   return {
-    pendingCollections: pendingColl,
+    pendingCollections: pendingColl + moved.MOT_COLLECTION.pending,
     conflictCollections: conflictColl,
-    fatalCollections: fatalColl,
-    pendingGps: gpsCounts.pending,
+    fatalCollections: fatalColl + moved.MOT_COLLECTION.stuck,
+    pendingGps: gpsCounts.pending + moved.MOT_GPS_BATCH.pending,
     conflictGps: gpsCounts.conflict,
-    fatalGps: gpsCounts.fatal,
-    pendingSkips: pendingSk,
+    fatalGps: gpsCounts.fatal + moved.MOT_GPS_BATCH.stuck,
+    pendingSkips: pendingSk + moved.MOT_STOP_SKIP.pending,
     conflictSkips: conflictSk,
-    fatalSkips: fatalSk,
+    fatalSkips: fatalSk + moved.MOT_STOP_SKIP.stuck,
     pendingShopRequests: pendingShopReq,
-    totalUnsynced: pendingColl + gpsCounts.pending + pendingSk + pendingShopReq,
+    totalUnsynced:
+      pendingColl + gpsCounts.pending + pendingSk + pendingShopReq +
+      moved.MOT_COLLECTION.pending + moved.MOT_GPS_BATCH.pending + moved.MOT_STOP_SKIP.pending,
   };
 }
 
@@ -1069,6 +1092,7 @@ export async function queueShopRequest(request: {
     client_event_id: `shp-req-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
     ...request,
     offline_created_at: new Date().toISOString(),
+    owner_user_id: getActiveOwnerUserId(),
     status: 'QUEUED',
     attempts: 0,
   };
@@ -1445,11 +1469,219 @@ export async function syncAll(): Promise<{
   skips: { synced: number; conflicts: number; failed: number };
   shopRequests?: { synced: number; failed: number };
 }> {
+  // Device key present: collections / GPS / skips go through the new sync queue.
+  // Shop requests (no sync kind yet) always keep the old path.
+  if (await deviceHasSyncKey()) {
+    await drainMotQueuesToSyncQueue({ fallbackOwnerUserId: getActiveOwnerUserId() });
+    const run = await runSyncOnce();
+    const shopRes = await syncPendingShopRequests();
+    const by = run.savedByKind;
+    return {
+      collections: { synced: by.MOT_COLLECTION ?? 0, conflicts: 0, failed: 0 },
+      gps: { synced: by.MOT_GPS_BATCH ?? 0, failed: 0 },
+      skips: { synced: by.MOT_STOP_SKIP ?? 0, conflicts: 0, failed: 0 },
+      shopRequests: shopRes,
+    };
+  }
   const collRes = await syncPendingCollections();
   const gpsRes = await syncPendingGps();
   const skipRes = await syncPendingSkips();
   const shopRes = await syncPendingShopRequests();
   return { collections: collRes, gps: gpsRes, skips: skipRes, shopRequests: shopRes };
+}
+
+// -------------------------------------------------------------
+// Phase 3 adapter: old MOT queues -> new offline sync queue (only when the device has a key)
+// -------------------------------------------------------------
+
+const DRAIN_STALE_SYNCING_MS = 5 * 60 * 1000;
+
+async function deviceHasSyncKey(): Promise<boolean> {
+  try {
+    return Boolean(await getDeviceKey());
+  } catch {
+    return false;
+  }
+}
+
+async function deleteFromMotStore(name: string, key: IDBValidKey): Promise<void> {
+  const db = await openMotDb();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(name, 'readwrite');
+    tx.objectStore(name).delete(key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error || new Error('Transaction failed'));
+    tx.onabort = () => reject(tx.error || new Error('Transaction aborted'));
+  });
+}
+
+function isDrainable(item: { status?: string; sync_started_at?: string | null }, now: number): boolean {
+  if (item.status === 'QUEUED' || item.status === 'FAILED_RETRYABLE' || item.status === undefined) return true;
+  if (item.status === 'SYNCING') {
+    const startedAt = item.sync_started_at ? new Date(item.sync_started_at).getTime() : 0;
+    return !startedAt || now - startedAt > DRAIN_STALE_SYNCING_MS;
+  }
+  return false; // SYNCED, CONFLICT, FAILED_FATAL stay where they are
+}
+
+function timeOr(iso: string | undefined, fallback: number): number {
+  const t = iso ? Date.parse(iso) : NaN;
+  return Number.isFinite(t) ? t : fallback;
+}
+
+/**
+ * Moves waiting MOT collections, GPS points and stop skips into the new sync queue.
+ * clientUuid = the item's existing client id, so server idempotency matches the old path.
+ * An item is removed from the old queue ONLY after the new queue durably stored it;
+ * if anything fails the item simply stays in the old queue. Items with no known owner stay too.
+ * Does nothing when the device has no sync key (old path untouched).
+ */
+export async function drainMotQueuesToSyncQueue(opts: { fallbackOwnerUserId?: string | null } = {}): Promise<{ moved: number; kept: number }> {
+  let moved = 0;
+  let kept = 0;
+  if (!isIndexedDbSupported()) return { moved, kept };
+  if (!(await deviceHasSyncKey())) return { moved, kept };
+  if (!(await motDbExists(false))) return { moved, kept };
+  const now = Date.now();
+  const fallback = opts.fallbackOwnerUserId ?? null;
+
+  const move = async (item: SyncItem, enqueuedAt: number, store: string, key: IDBValidKey | undefined) => {
+    try {
+      await enqueueSyncItem(item, { now: enqueuedAt });
+    } catch {
+      kept++;
+      return;
+    }
+    if (key === undefined) return;
+    try {
+      await deleteFromMotStore(store, key);
+      moved++;
+    } catch {
+      // Already in the new queue; the old copy is resent with the same id (server deduplicates).
+      kept++;
+    }
+  };
+
+  const collections = (await getQueuedCollections().catch(() => [] as QueuedCollection[]))
+    .filter((c) => isDrainable(c, now))
+    .sort((a, b) => timeOr(a.offline_created_at, now) - timeOr(b.offline_created_at, now));
+  for (const c of collections) {
+    const owner = c.owner_user_id || fallback;
+    if (!owner) {
+      kept++;
+      continue;
+    }
+    await move(
+      {
+        clientUuid: c.client_event_id,
+        kind: 'MOT_COLLECTION',
+        ownerUserId: owner,
+        capturedAt: c.offline_created_at,
+        payload: {
+          client_event_id: c.client_event_id,
+          journey_id: c.journey_id,
+          stop_id: c.stop_id,
+          shop_rmr_number: c.shop_rmr_number || null,
+          milk_source_id: c.milk_source_id || null,
+          quantity: c.quantity,
+          unit: c.unit,
+          lr: c.lr,
+          fat: c.fat,
+          recorded_latitude: c.recorded_latitude,
+          recorded_longitude: c.recorded_longitude,
+          recorded_gps_accuracy: c.recorded_gps_accuracy,
+          notes: c.notes,
+          collection_notes: c.notes,
+          request_exception: c.request_exception,
+          exception_reason: c.exception_reason,
+          offline_created_at: c.offline_created_at,
+        },
+      },
+      timeOr(c.offline_created_at, now),
+      'collection_queue',
+      c.client_event_id
+    );
+  }
+
+  const points = await getEligibleGpsPoints().catch(() => [] as QueuedGpsPoint[]);
+  for (const p of points) {
+    const owner = p.owner_user_id || fallback;
+    if (!owner || !p.client_location_id) {
+      kept++;
+      continue;
+    }
+    await move(
+      {
+        clientUuid: p.client_location_id,
+        kind: 'MOT_GPS_BATCH',
+        ownerUserId: owner,
+        capturedAt: p.device_recorded_at,
+        payload: {
+          journey_id: p.journey_id,
+          locations: [
+            {
+              client_location_id: p.client_location_id,
+              journey_id: p.journey_id,
+              latitude: p.latitude,
+              longitude: p.longitude,
+              gps_accuracy: p.gps_accuracy,
+              device_recorded_at: p.device_recorded_at,
+            },
+          ],
+        },
+      },
+      timeOr(p.device_recorded_at, now),
+      'gps_queue',
+      p.id
+    );
+  }
+
+  const skips = (await getQueuedSkips().catch(() => [] as QueuedSkip[])).filter((k) => isDrainable(k, now));
+  for (const k of skips) {
+    const owner = k.owner_user_id || fallback;
+    if (!owner) {
+      kept++;
+      continue;
+    }
+    await move(
+      {
+        clientUuid: k.client_event_id,
+        kind: 'MOT_STOP_SKIP',
+        ownerUserId: owner,
+        capturedAt: k.offline_created_at,
+        payload: {
+          client_event_id: k.client_event_id,
+          stop_id: k.stop_id,
+          journey_id: k.journey_id,
+          skip_reason: k.skip_reason,
+          offline_created_at: k.offline_created_at,
+        },
+      },
+      timeOr(k.offline_created_at, now),
+      'skip_queue',
+      k.client_event_id
+    );
+  }
+
+  return { moved, kept };
+}
+
+type MovedCounts = Record<'MOT_COLLECTION' | 'MOT_GPS_BATCH' | 'MOT_STOP_SKIP', { pending: number; stuck: number }>;
+
+async function countMovedMotItems(): Promise<MovedCounts> {
+  const out: MovedCounts = {
+    MOT_COLLECTION: { pending: 0, stuck: 0 },
+    MOT_GPS_BATCH: { pending: 0, stuck: 0 },
+    MOT_STOP_SKIP: { pending: 0, stuck: 0 },
+  };
+  const records = await listSyncQueueRecords();
+  for (const r of records) {
+    const kind = r.item.kind as SyncItemKind;
+    if (kind !== 'MOT_COLLECTION' && kind !== 'MOT_GPS_BATCH' && kind !== 'MOT_STOP_SKIP') continue;
+    if (r.state === 'NEEDS_ATTENTION') out[kind].stuck++;
+    else out[kind].pending++;
+  }
+  return out;
 }
 
 export interface CachedAvailableSource {

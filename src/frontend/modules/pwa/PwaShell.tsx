@@ -4,6 +4,17 @@ import React, { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Download, ShieldAlert, WifiOff, Loader2 } from 'lucide-react';
 import { useIsClient, useOnlineStatus } from '@/frontend/hooks/useOnlineStatus';
+import { SyncStatusSign } from './SyncStatusSign';
+import { startSyncEngine } from './syncEngine';
+import { getActiveOwnerUserId, getDeviceUid, requestPersistentStorage, setActiveOwnerUserId } from './deviceIdentity';
+import { logDeviceEvent, startDeviceDiary } from './diary';
+
+// Once per page load (React StrictMode runs effects twice in development).
+let appOpenLogged = false;
+
+function isPublicPath(pathname: string): boolean {
+  return pathname === '/login' || pathname === '/workspace-unavailable';
+}
 
 function fromBase64Url(value: string): Uint8Array<ArrayBuffer> {
   const padded = value.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(value.length / 4) * 4, '=');
@@ -19,6 +30,64 @@ export function PwaShell() {
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [authExpired, setAuthExpired] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+
+  // Who is signed in: /api/auth/me when reachable, else the last known user on this phone.
+  useEffect(() => {
+    if (isPublicPath(window.location.pathname)) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/auth/me', { credentials: 'same-origin' });
+        if (cancelled) return;
+        if (res.status === 401) {
+          setActiveOwnerUserId(null);
+          setUserId(null);
+          return;
+        }
+        const data = (await res.json().catch(() => null)) as { user?: { id?: string | number } | null } | null;
+        if (cancelled) return;
+        const id = data?.user?.id != null ? String(data.user.id) : null;
+        if (id) {
+          const previous = getActiveOwnerUserId();
+          setActiveOwnerUserId(id);
+          if (previous !== id) void logDeviceEvent('LOGIN', null, { ownerUserId: id });
+          setUserId(id);
+        } else if (res.ok) {
+          setUserId(null);
+        } else {
+          setUserId(getActiveOwnerUserId());
+        }
+      } catch {
+        // Offline: keep sending as the last signed-in user (cleared on logout).
+        if (!cancelled) setUserId(getActiveOwnerUserId());
+      }
+    })();
+    const onLoggedOut = () => setUserId(null);
+    window.addEventListener('milk-user-logged-out', onLoggedOut);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('milk-user-logged-out', onLoggedOut);
+    };
+  }, []);
+
+  // Offline sync loop + device diary, only while someone is signed in.
+  useEffect(() => {
+    if (!userId) return;
+    const owner = userId;
+    const stopEngine = startSyncEngine({ getOwnerUserId: () => owner });
+    const stopDiary = startDeviceDiary();
+    void getDeviceUid().catch(() => null);
+    void requestPersistentStorage();
+    if (!appOpenLogged) {
+      appOpenLogged = true;
+      void logDeviceEvent('APP_OPEN', { path: window.location.pathname }, { ownerUserId: owner });
+    }
+    return () => {
+      stopDiary();
+      stopEngine();
+    };
+  }, [userId]);
 
   useEffect(() => {
     const sync = (event: Event) =>
@@ -152,9 +221,11 @@ export function PwaShell() {
   }
 
   return (
+    <>
+    {userId ? <SyncStatusSign /> : null}
     <div
       id="pwa-shell-root"
-      className="pointer-events-none fixed inset-x-0 bottom-0 z-banner flex flex-col items-center gap-2 p-3 sm:p-4"
+      className={`pointer-events-none fixed inset-x-0 bottom-0 z-banner flex flex-col items-center gap-2 p-3 sm:p-4 ${userId ? 'pb-16 sm:pb-16' : ''}`}
     >
       <AnimatePresence initial={false}>
         {banners.map((banner) => (
@@ -175,5 +246,6 @@ export function PwaShell() {
         ))}
       </AnimatePresence>
     </div>
+    </>
   );
 }

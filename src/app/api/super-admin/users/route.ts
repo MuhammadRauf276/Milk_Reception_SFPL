@@ -5,6 +5,7 @@ import bcrypt from 'bcryptjs';
 import { getRoleAssignmentPolicy } from '@/lib/user-assignment-policy';
 import { validateAndNormalizeEmail, classifyUniqueError } from '@/lib/email-validator';
 import { getErrorCode, getErrorMessage } from '@/lib/errors';
+import { writeAuditLog, auditActorFromUser } from '@core/audit';
 
 // Fixed documented PostgreSQL transaction-level advisory lock key used across
 // all user creation (POST) and mutation (PATCH) transactions to serialize
@@ -254,21 +255,19 @@ export async function POST(req: Request) {
       });
 
       // 5. Create AuditLog entry without password
-      await tx.auditLog.create({
-        data: {
-          table_name: 'users',
-          record_id: createdUser.id,
-          action: 'USER_CREATED',
-          new_values: {
-            username,
-            email: normalizedEmail,
-            role: policy.role,
-            department: policy.department,
-            scope_type: policy.scopeType,
-            procurement_source_id: policy.requiresSource && candidatePsId ? candidatePsId.toString() : null,
-          },
-          user_id: adminUser?.id || null,
+      await writeAuditLog(tx, {
+        tableName: 'users',
+        recordId: createdUser.id,
+        action: 'USER_CREATED',
+        newValues: {
+          username,
+          email: normalizedEmail,
+          role: policy.role,
+          department: policy.department,
+          scope_type: policy.scopeType,
+          procurement_source_id: policy.requiresSource && candidatePsId ? candidatePsId.toString() : null,
         },
+        actor: { ...auditActorFromUser(authUser), userId: adminUser?.id ?? null },
       });
 
       return createdUser;
