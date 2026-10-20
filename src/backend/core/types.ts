@@ -22,6 +22,8 @@ export type CanonicalRole =
   | 'WEIGHBRIDGE_OPERATOR'
   | 'PRODUCTION_RECEPTION_OPERATOR';
 
+export type RetiredRole = 'QA_MANAGER';
+
 export type LegacyRole =
   | 'MPD_Operator'
   | 'MPD_Zone_Manager'
@@ -41,7 +43,7 @@ export type LegacyRole =
   | 'Production'
   | 'Management';
 
-export type Role = CanonicalRole | LegacyRole;
+export type Role = CanonicalRole | RetiredRole | LegacyRole;
 
 export interface User {
   id: string;
@@ -246,11 +248,21 @@ export const FIXTURE_USER_PROFILES: Record<string, User> = {
     department: 'Security',
     scope_type: 'DEPARTMENT',
   },
-  'qa.manager': {
-    id: 'usr_qa_mgr',
-    username: 'qa.manager',
-    name: 'Manager, QA Reception Lab',
-    role: 'QA_MANAGER',
+  'qa.head@shakarganj.com.pk': {
+    id: 'usr_qa_head_shakarganj',
+    username: 'qa.head@shakarganj.com.pk',
+    name: 'AVP-QA / Head of Quality',
+    email: 'qa.head@shakarganj.com.pk',
+    role: 'QA_HEAD',
+    department: 'Quality Assurance',
+    scope_type: 'DEPARTMENT',
+  },
+  'qa.reception@shakarganj.com.pk': {
+    id: 'usr_qa_reception_shakarganj',
+    username: 'qa.reception@shakarganj.com.pk',
+    name: 'QAE Reception Lab',
+    email: 'qa.reception@shakarganj.com.pk',
+    role: 'QA_LAB_ATTENDANT',
     department: 'Quality Assurance',
     scope_type: 'DEPARTMENT',
   },
@@ -307,7 +319,8 @@ export const AUTHENTICATED_USERS: Record<string, { user: User }> = {
   'mot.driver': { user: FIXTURE_USER_PROFILES['mot.driver'] },
   'contractor.operator.alkhair': { user: FIXTURE_USER_PROFILES['contractor.operator.alkhair'] },
   'security.gate': { user: FIXTURE_USER_PROFILES['security.gate'] },
-  'qa.manager': { user: FIXTURE_USER_PROFILES['qa.manager'] },
+  'qa.head@shakarganj.com.pk': { user: FIXTURE_USER_PROFILES['qa.head@shakarganj.com.pk'] },
+  'qa.reception@shakarganj.com.pk': { user: FIXTURE_USER_PROFILES['qa.reception@shakarganj.com.pk'] },
   'qa.chemist': { user: FIXTURE_USER_PROFILES['qa.chemist'] },
   'weighbridge.operator': { user: FIXTURE_USER_PROFILES['weighbridge.operator'] },
   'weighbridge.02': { user: FIXTURE_USER_PROFILES['weighbridge.02'] },
@@ -330,7 +343,6 @@ export const DEFAULT_USERS: Record<string, User> = {
   MOT: FIXTURE_USER_PROFILES['mot.driver'],
   CONTRACTOR_OPERATOR: FIXTURE_USER_PROFILES['contractor.operator.alkhair'],
   SECURITY_OPERATOR: FIXTURE_USER_PROFILES['security.gate'],
-  QA_MANAGER: FIXTURE_USER_PROFILES['qa.manager'],
   QA_LAB_ATTENDANT: FIXTURE_USER_PROFILES['qa.chemist'],
   WEIGHBRIDGE_OPERATOR: FIXTURE_USER_PROFILES['weighbridge.operator'],
   PRODUCTION_RECEPTION_OPERATOR: FIXTURE_USER_PROFILES['production.operator'],

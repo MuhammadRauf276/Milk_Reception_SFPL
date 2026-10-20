@@ -7,9 +7,10 @@ import { PlantContractorTab } from '@modules/dashboard/contractor/contractorMana
 import { Header } from '@modules/shared/Header';
 import { HierarchicalNavDrawer } from '@modules/shared/navigation/HierarchicalNavDrawer';
 import { User } from '@core/types';
-import { DispatchApprovalQueue } from '@/frontend/modules/dispatch/DispatchApprovalQueue';
+import { ApprovalInbox } from '@/frontend/modules/approvals/ApprovalInbox';
 import { PageLoader } from '@/components/ui/spinner';
 import { PageTransition } from '@/components/motion/page-transition';
+import { ShieldAlert, Building2 } from 'lucide-react';
 
 function PlantContractorManagerContent() {
   const router = useRouter();
@@ -17,7 +18,7 @@ function PlantContractorManagerContent() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [dispatchWaiting, setDispatchWaiting] = useState<number | null>(null);
+  const [pendingCount, setPendingCount] = useState<number | null>(null);
   const hamburgerButtonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
@@ -43,13 +44,15 @@ function PlantContractorManagerContent() {
     setTimeout(() => hamburgerButtonRef.current?.focus(), 0);
   }, []);
 
-  const tabParam = searchParams?.get('tab')?.toUpperCase() || 'OVERVIEW';
+  const rawTab = searchParams?.get('tab')?.toUpperCase();
+  const isApprovals = rawTab === 'APPROVALS' || !rawTab;
   const resolvedTab: PlantContractorTab =
-    tabParam === 'LIVE' || tabParam === 'QUALITY' || tabParam === 'RECEIPTS' || tabParam === 'HISTORY'
-      ? (tabParam as PlantContractorTab)
+    rawTab === 'LIVE' || rawTab === 'QUALITY' || rawTab === 'RECEIPTS' || rawTab === 'HISTORY'
+      ? (rawTab as PlantContractorTab)
       : 'OVERVIEW';
 
   const subpageTitle = useMemo(() => {
+    if (isApprovals) return 'Approval Inbox';
     switch (resolvedTab) {
       case 'LIVE':
         return 'Pipeline';
@@ -63,7 +66,7 @@ function PlantContractorManagerContent() {
       default:
         return 'Overview';
     }
-  }, [resolvedTab]);
+  }, [isApprovals, resolvedTab]);
 
   if (loading) {
     return (
@@ -89,31 +92,62 @@ function PlantContractorManagerContent() {
         triggerButtonRef={hamburgerButtonRef}
       />
 
-      <main className="flex-1 overflow-y-auto w-full max-w-full flex flex-col">
+      <main className="flex-1 overflow-y-auto w-full max-w-full flex flex-col p-3 sm:p-6 space-y-6">
         <PageTransition>
-        <section id="dispatch-requests" aria-label="Dispatch requests" className="p-3 sm:p-6 pb-0 sm:pb-0">
-          <h2 className="mb-3 flex items-center gap-2 text-lg font-bold text-slate-900">
-            Dispatch requests
-            {dispatchWaiting !== null && (
-              <span className="rounded-full bg-violet-100 px-2.5 py-0.5 text-sm font-semibold text-violet-800">
-                {dispatchWaiting} waiting
-              </span>
-            )}
-          </h2>
-          <DispatchApprovalQueue
-            sourceType="CONTRACTOR"
-            canDecide={user?.role !== 'DATA_EXECUTIVE'}
-            currentUserId={user?.id ?? null}
-            onCountChange={setDispatchWaiting}
-          />
-        </section>
-        <PlantContractorManagerWorkspace
-          currentUser={user}
-          activeTab={resolvedTab}
-          onTabChange={(tab) => {
-            router.push(`/contractor/manager?tab=${tab}`);
-          }}
-        />
+          {/* Top-Level Mode Tabs */}
+          <div className="flex flex-wrap items-center gap-2 bg-white p-3 rounded-xl border border-border shadow-2xs">
+            <button
+              type="button"
+              onClick={() => router.push('/contractor/manager?tab=APPROVALS')}
+              className={`px-4 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-2 ${
+                isApprovals
+                  ? 'bg-amber-600 text-white shadow-xs'
+                  : 'text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              <ShieldAlert className="w-4 h-4" />
+              <span>Approval Inbox</span>
+              {pendingCount !== null && pendingCount > 0 && (
+                <span
+                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                    isApprovals ? 'bg-white text-amber-700' : 'bg-amber-100 text-amber-800'
+                  }`}
+                >
+                  {pendingCount}
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => router.push('/contractor/manager?tab=OVERVIEW')}
+              className={`px-4 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-2 ${
+                !isApprovals
+                  ? 'bg-primary text-white shadow-xs'
+                  : 'text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              <Building2 className="w-4 h-4" />
+              <span>Contractor Operations</span>
+            </button>
+          </div>
+
+          {isApprovals ? (
+            <ApprovalInbox
+              currentUser={user}
+              fixedStage="STAGE_3"
+              sourceType="CONTRACTOR"
+              onCountChange={(c) => setPendingCount(c.stage3)}
+            />
+          ) : (
+            <PlantContractorManagerWorkspace
+              currentUser={user}
+              activeTab={resolvedTab}
+              onTabChange={(tab) => {
+                router.push(`/contractor/manager?tab=${tab}`);
+              }}
+            />
+          )}
         </PageTransition>
       </main>
     </div>

@@ -1,13 +1,35 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { LogOut, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { StatusScreen } from '@/components/ui/status-screen';
+import { isRetiredRole } from '@/backend/core/roles/hierarchy';
+import { getRoleLabel } from '@/backend/core/roles/labels';
 
-export default function WorkspaceUnavailablePage() {
+function WorkspaceUnavailableContent() {
   const [signingOut, setSigningOut] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    async function checkUser() {
+      try {
+        const res = await fetch('/api/auth/me');
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.user?.role) {
+            setUserRole(data.user.role);
+          }
+        }
+      } catch (_err) {
+        // Ignore fetch errors
+      }
+    }
+    checkUser();
+  }, []);
 
   const handleLogout = async () => {
     setSigningOut(true);
@@ -22,17 +44,43 @@ export default function WorkspaceUnavailablePage() {
     window.location.replace('/login');
   };
 
+  const paramRole = searchParams?.get('role');
+  const reason = searchParams?.get('reason');
+  const effectiveRole = paramRole || userRole;
+  const isRetired = reason === 'retired' || (effectiveRole ? isRetiredRole(effectiveRole) : false);
+
+  // Exact required phrasing: "Your role (QA Manager) has been retired. Please contact your administrator."
+  const roleDisplay = effectiveRole === 'QA_MANAGER' ? 'QA Manager' : (effectiveRole ? getRoleLabel(effectiveRole) : 'QA Manager');
+
   return (
     <StatusScreen
       tone="warning"
       icon={<ShieldAlert />}
-      title="Workspace not available"
-      description="Your role doesn't have an active workspace in this environment. Sign in with an authorized account or contact your administrator."
+      title={isRetired ? 'Role Retired' : 'Workspace not available'}
+      description={
+        isRetired
+          ? `Your role (${roleDisplay}) has been retired. Please contact your administrator.`
+          : "Your role doesn't have an active workspace in this environment. Sign in with an authorized account or contact your administrator."
+      }
     >
       <Button onClick={handleLogout} disabled={signingOut}>
         {signingOut ? <Spinner className="text-primary-foreground" /> : <LogOut />}
         Sign out
       </Button>
     </StatusScreen>
+  );
+}
+
+export default function WorkspaceUnavailablePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center">
+          <Spinner />
+        </div>
+      }
+    >
+      <WorkspaceUnavailableContent />
+    </Suspense>
   );
 }

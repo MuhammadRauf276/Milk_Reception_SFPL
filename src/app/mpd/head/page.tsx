@@ -1,22 +1,25 @@
 'use client';
 
 import React, { useEffect, useState, useCallback, useRef, Suspense } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { User } from '@core/types';
 import { Header } from '@/frontend/modules/shared/Header';
 import { HierarchicalNavDrawer } from '@/frontend/modules/shared/navigation/HierarchicalNavDrawer';
 import { MpdExecutiveWorkspace } from '@/frontend/modules/mpd/MpdExecutiveWorkspace';
 import { RejectedMilkRemarksQueue } from '@/frontend/modules/mpd/RejectedMilkRemarksQueue';
-import { DispatchApprovalQueue } from '@/frontend/modules/dispatch/DispatchApprovalQueue';
+import { ApprovalInbox } from '@/frontend/modules/approvals/ApprovalInbox';
 import { PageLoader } from '@/components/ui/spinner';
 import { PageTransition } from '@/components/motion/page-transition';
+import { ShieldAlert, LayoutDashboard } from 'lucide-react';
 
 function HeadOfMpdContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [pendingCount, setPendingCount] = useState<number | null>(null);
   const hamburgerButtonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
@@ -66,6 +69,9 @@ function HeadOfMpdContent() {
     }, 0);
   }, []);
 
+  const rawTab = searchParams?.get('tab')?.toUpperCase();
+  const isApprovals = rawTab === 'APPROVALS' || !rawTab;
+
   if (loading) {
     return (
       <PageLoader label="Verifying Authorization…" className="min-h-screen" />
@@ -80,7 +86,7 @@ function HeadOfMpdContent() {
     <div className="min-h-screen bg-background text-foreground flex flex-col w-full max-w-full overflow-x-hidden">
       <Header
         currentUser={currentUser}
-        title="MPD Head Command Center"
+        title={isApprovals ? 'Universal Approval Inbox' : 'MPD Head Command Center'}
         showBranding={true}
         showMenuButton={true}
         onMenuClick={openDrawer}
@@ -96,26 +102,61 @@ function HeadOfMpdContent() {
 
       <main className="flex-1 overflow-y-auto p-4 sm:p-6 w-full max-w-full">
         <PageTransition>
-        {currentUser && ['HEAD_OF_MPD', 'SUPER_ADMIN', 'DATA_EXECUTIVE'].includes(currentUser.role) && (
-          <RejectedMilkRemarksQueue canWrite={currentUser.role !== 'DATA_EXECUTIVE'} />
-        )}
-        {currentUser && ['HEAD_OF_MPD', 'SUPER_ADMIN', 'DATA_EXECUTIVE'].includes(currentUser.role) && (
-          <div className="mb-6 space-y-6">
-            <section aria-label="Contractor dispatch requests">
-              <h2 className="mb-3 text-lg font-bold text-slate-900">Contractor dispatch requests</h2>
-              <DispatchApprovalQueue
-                sourceType="CONTRACTOR"
-                canDecide={currentUser.role === 'HEAD_OF_MPD'}
-                currentUserId={currentUser.id}
-              />
-            </section>
-            <section aria-label="ZMCC dispatch requests (view only)">
-              <h2 className="mb-3 text-lg font-bold text-slate-900">ZMCC dispatch requests (view only)</h2>
-              <DispatchApprovalQueue sourceType="ZMCC" canDecide={false} currentUserId={currentUser.id} />
-            </section>
+          {/* Top-Level Mode Tabs */}
+          <div className="flex flex-wrap items-center gap-2 bg-white p-3 rounded-xl border border-border shadow-2xs mb-6">
+            <button
+              type="button"
+              onClick={() => router.push('/mpd/head?tab=APPROVALS')}
+              className={`px-4 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-2 ${
+                isApprovals
+                  ? 'bg-amber-600 text-white shadow-xs'
+                  : 'text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              <ShieldAlert className="w-4 h-4" />
+              <span>Universal Approval Inbox</span>
+              {pendingCount !== null && pendingCount > 0 && (
+                <span
+                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                    isApprovals ? 'bg-white text-amber-700' : 'bg-amber-100 text-amber-800'
+                  }`}
+                >
+                  {pendingCount}
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => router.push('/mpd/head?tab=COMMAND')}
+              className={`px-4 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-2 ${
+                !isApprovals
+                  ? 'bg-primary text-white shadow-xs'
+                  : 'text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              <LayoutDashboard className="w-4 h-4" />
+              <span>Fleet Radar & Command Center</span>
+            </button>
           </div>
-        )}
-        <MpdExecutiveWorkspace currentUser={currentUser} />
+
+          {isApprovals ? (
+            <div className="space-y-6">
+              <ApprovalInbox
+                currentUser={currentUser}
+                initialStage="ALL"
+                onCountChange={(c) => setPendingCount(c.totalPending)}
+              />
+              {currentUser && ['HEAD_OF_MPD', 'SUPER_ADMIN', 'DATA_EXECUTIVE'].includes(currentUser.role) && (
+                <div className="mt-8 border-t border-slate-200 pt-6">
+                  <h3 className="text-sm font-bold text-slate-700 mb-3">Rejected Milk Remarks Queue</h3>
+                  <RejectedMilkRemarksQueue canWrite={currentUser.role !== 'DATA_EXECUTIVE'} />
+                </div>
+              )}
+            </div>
+          ) : (
+            <MpdExecutiveWorkspace currentUser={currentUser} />
+          )}
         </PageTransition>
       </main>
     </div>

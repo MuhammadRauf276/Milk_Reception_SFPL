@@ -63,11 +63,15 @@ export const HierarchicalNavDrawer: React.FC<HierarchicalNavDrawerProps> = ({
             // default tab
           } else if (leafPath === '/department/qa' && key === 'tab' && val === 'WAITING') {
             // default tab
+          } else if (leafPath === '/department/qa-head' && key === 'tab' && val === 'EXCEPTIONS') {
+            // default tab
           } else if (leafPath === '/department/weighbridge' && key === 'tab' && val === 'FIRST_WEIGHT') {
             // default tab
           } else if (leafPath === '/department/production' && key === 'tab' && val === 'READY') {
             // default tab
-          } else if (leafPath === '/contractor/manager' && key === 'tab' && val === 'OVERVIEW') {
+          } else if (leafPath === '/contractor/manager' && key === 'tab' && (val === 'APPROVALS' || val === 'OVERVIEW')) {
+            // default tab
+          } else if (leafPath === '/mpd/head' && key === 'tab' && val === 'APPROVALS') {
             // default tab
           } else if (leafPath === '/mpd/zmcc-manager' && key === 'tab' && val === 'OVERVIEW') {
             // default tab

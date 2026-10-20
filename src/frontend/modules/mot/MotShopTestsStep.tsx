@@ -1,13 +1,15 @@
 'use client';
 
 /**
- * MOT shop tests (Phase 4a): LR + Fat and every COMPULSORY test of the MOT_SHOP policy are shown;
- * OPTIONAL tests sit under "More tests". A picture per test when the policy asks for one
- * (REQUIRED or OPTIONAL), taken with the live camera only. The parent stores the picture blobs.
+ * MOT shop tests: every active test of the MOT_SHOP policy is drawn from `policy.tests` (no test
+ * names in code). COMPULSORY tests (and the LR / Fat tests the formulas need) are always shown;
+ * OPTIONAL tests sit under "More tests". Each card shows the SOP range from the policy rule and,
+ * when the policy asks for one, a live-camera picture slot. The parent stores the picture blobs.
  */
 import React, { useState } from 'react';
-import { Camera, CheckCircle2, ChevronDown, ChevronUp, RefreshCw, Trash2 } from 'lucide-react';
+import { AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
 import { LiveCamera } from '@/components/camera/LiveCamera';
+import { PhotoEvidenceSlot } from '@/frontend/modules/shared/photo/PhotoEvidenceSlot';
 import { cn } from '@/lib/utils';
 import type { LiveCameraResult } from '@/types/captured-photo';
 import type { MotShopPolicySnapshot, MotShopPolicyTest } from '@/types/stage1-decision';
@@ -29,7 +31,9 @@ export interface MotTestValue {
 
 export interface MotShopTestsStepProps {
   policy: MotShopPolicySnapshot | null;
+  /** Value of the policy test flagged `isLr` (kept apart because the milk formulas need it). */
   lr: string;
+  /** Value of the policy test flagged `isFat`. */
   fat: string;
   onLrChange: (v: string) => void;
   onFatChange: (v: string) => void;
@@ -44,11 +48,42 @@ export interface MotShopTestsStepProps {
 }
 
 const INPUT_CLASS =
-  'w-full min-w-0 min-h-[48px] rounded-xl border border-border bg-subtle p-2.5 text-base font-semibold focus:ring-2 focus:ring-primary';
+  'h-14 w-full min-w-0 rounded-xl border-2 bg-white px-3 text-xl font-semibold tabular-nums text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900 disabled:opacity-60';
 
 function isNumeric(t: MotShopPolicyTest): boolean {
   const rt = (t.resultType || '').toUpperCase();
   return rt === '' || rt === 'NUMERIC' || rt === 'NUMBER' || rt === 'DECIMAL';
+}
+
+function fmt(n: number): string {
+  return Number.isInteger(n) ? n.toFixed(1) : String(n);
+}
+
+/** SOP range text from the policy rule, e.g. "26.0 – 32.0", "≥ 3.5". */
+export function sopRangeText(t: MotShopPolicyTest): string | null {
+  const min = t.rule?.min ?? null;
+  const max = t.rule?.max ?? null;
+  if (min != null && max != null) return `${fmt(min)} – ${fmt(max)}`;
+  if (min != null) return `≥ ${fmt(min)}`;
+  if (max != null) return `≤ ${fmt(max)}`;
+  return null;
+}
+
+function outsideRange(t: MotShopPolicyTest, raw: string): boolean {
+  if (raw.trim() === '') return false;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return false;
+  const min = t.rule?.min ?? null;
+  const max = t.rule?.max ?? null;
+  return (min != null && n < min) || (max != null && n > max);
+}
+
+/** Tests always on screen: compulsory ones plus the LR / Fat tests. The rest go under "More tests". */
+export function splitMotShopTests(policy: MotShopPolicySnapshot | null) {
+  const active = (policy?.tests ?? []).filter((t) => t.testMode !== 'OFF');
+  const main = active.filter((t) => t.isLr || t.isFat || t.testMode === 'COMPULSORY');
+  const more = active.filter((t) => !main.includes(t));
+  return { active, main, more };
 }
 
 export function MotShopTestsStep({
@@ -67,192 +102,161 @@ export function MotShopTestsStep({
 }: MotShopTestsStepProps) {
   const [cameraFor, setCameraFor] = useState<MotShopPolicyTest | null>(null);
   const [showMore, setShowMore] = useState(false);
+  const { active, main, more } = splitMotShopTests(policy);
 
-  const active = (policy?.tests ?? []).filter((t) => t.testMode !== 'OFF');
-  const lrTest = active.find((t) => t.isLr) ?? null;
-  const fatTest = active.find((t) => t.isFat) ?? null;
-  const others = active.filter((t) => !t.isLr && !t.isFat);
-  const compulsory = others.filter((t) => t.testMode === 'COMPULSORY');
-  const optional = others.filter((t) => t.testMode === 'OPTIONAL');
-
-  const photoBlock = (t: MotShopPolicyTest | null) => {
-    if (!t || t.photoMode === 'NONE') return null;
-    const photo = photos[t.labTestId];
-    const required = t.photoMode === 'REQUIRED';
-    if (photo) {
-      return (
-        <div className="mt-2 flex items-center gap-2">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={photo.previewUrl} alt={`${t.testName} picture`} className="h-12 w-12 rounded-lg border border-border object-cover" />
-          <span className="inline-flex items-center gap-1 rounded-full border border-green-300 bg-green-50 px-2.5 py-1 text-xs font-semibold text-green-800">
-            <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-            Picture taken
-          </span>
-          <button
-            type="button"
-            onClick={() => setCameraFor(t)}
-            disabled={disabled}
-            className="inline-flex min-h-[44px] items-center gap-1 rounded-xl border border-border px-3 text-sm font-semibold text-slate-700 hover:bg-muted disabled:opacity-50"
-          >
-            <RefreshCw className="h-4 w-4" aria-hidden="true" />
-            Again
-          </button>
-          <button
-            type="button"
-            onClick={() => onPhotoRemoved(t.labTestId)}
-            disabled={disabled}
-            aria-label={`Remove ${t.testName} picture`}
-            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-border text-slate-500 hover:bg-red-50 hover:text-red-700 disabled:opacity-50"
-          >
-            <Trash2 className="h-4 w-4" aria-hidden="true" />
-          </button>
-        </div>
-      );
-    }
-    return (
-      <button
-        type="button"
-        onClick={() => setCameraFor(t)}
-        disabled={disabled}
-        className={cn(
-          'mt-2 inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold transition disabled:opacity-50',
-          required ? 'bg-primary text-white hover:bg-primary-hover' : 'border border-border bg-white text-slate-700 hover:bg-muted'
-        )}
-      >
-        <Camera className="h-5 w-5" aria-hidden="true" />
-        {required ? `Take ${t.testName} picture *` : `Take ${t.testName} picture (optional)`}
-      </button>
-    );
+  const valueOf = (t: MotShopPolicyTest): string =>
+    t.isLr ? lr : t.isFat ? fat : (values[t.labTestId]?.value ?? '');
+  const setValue = (t: MotShopPolicyTest, v: string) => {
+    if (t.isLr) onLrChange(v);
+    else if (t.isFat) onFatChange(v);
+    else onValueChange(t.labTestId, { value: v });
   };
 
-  const testInput = (t: MotShopPolicyTest) => {
-    const v = values[t.labTestId] ?? { value: '', text: '' };
-    const label = (
-      <label className="mb-1 block text-sm font-semibold text-foreground">
-        {t.testName}
-        {t.testMode === 'COMPULSORY' && <span className="text-red-700"> *</span>}
-      </label>
-    );
-    if (isNumeric(t)) {
-      return (
-        <div key={t.labTestId} className="rounded-xl border border-border p-2.5">
-          {label}
+  const testCard = (t: MotShopPolicyTest) => {
+    const required = t.testMode === 'COMPULSORY' || t.isLr || t.isFat;
+    const range = sopRangeText(t);
+    const text = values[t.labTestId]?.text ?? '';
+    const numeric = isNumeric(t);
+    const out = numeric && outsideRange(t, valueOf(t));
+    const inputId = `mot-test-${t.labTestId}`;
+
+    return (
+      <div key={t.labTestId} className="space-y-2.5 rounded-2xl border border-slate-200 bg-white p-3 shadow-xs">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <label htmlFor={inputId} className="text-base font-semibold text-slate-900">
+            {t.testName}
+            <span
+              className={cn(
+                'ml-2 rounded-full px-2 py-0.5 align-middle text-[11px] font-semibold uppercase tracking-wide',
+                required ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'
+              )}
+            >
+              {required ? 'Required' : 'Optional'}
+            </span>
+          </label>
+          {range && (
+            <span
+              className={cn(
+                'rounded-full border px-2.5 py-1 text-xs font-semibold tabular-nums',
+                out ? 'border-rose-300 bg-rose-50 text-rose-800' : 'border-slate-300 bg-slate-50 text-slate-700'
+              )}
+            >
+              SOP {range}
+            </span>
+          )}
+        </div>
+
+        {numeric ? (
           <input
+            id={inputId}
             type="number"
             inputMode="decimal"
             step="any"
-            value={v.value}
-            onChange={(e) => onValueChange(t.labTestId, { value: e.target.value })}
+            value={valueOf(t)}
+            onChange={(e) => setValue(t, e.target.value)}
             disabled={disabled}
-            className={INPUT_CLASS}
+            aria-invalid={out || undefined}
+            className={cn(INPUT_CLASS, out ? 'border-rose-400 bg-rose-50/40' : 'border-slate-300')}
           />
-          {photoBlock(t)}
-        </div>
-      );
-    }
-    if (t.options && t.options.length > 0) {
-      return (
-        <div key={t.labTestId} className="rounded-xl border border-border p-2.5">
-          {label}
-          <div className="flex flex-wrap gap-2">
+        ) : t.options && t.options.length > 0 ? (
+          <div id={inputId} role="radiogroup" aria-label={t.testName} className="flex flex-wrap gap-2">
             {t.options.map((o) => (
               <button
                 key={o}
                 type="button"
-                onClick={() => onValueChange(t.labTestId, { text: v.text === o ? '' : o })}
+                role="radio"
+                aria-checked={text === o}
+                onClick={() => onValueChange(t.labTestId, { text: text === o ? '' : o })}
                 disabled={disabled}
-                aria-pressed={v.text === o}
                 className={cn(
-                  'min-h-[48px] rounded-xl border-2 px-4 text-sm font-semibold transition',
-                  v.text === o ? 'border-primary bg-primary text-white' : 'border-border bg-white text-slate-700 hover:bg-muted'
+                  'min-h-12 rounded-xl border-2 px-4 text-base font-semibold transition disabled:opacity-60',
+                  text === o ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
                 )}
               >
                 {o}
               </button>
             ))}
           </div>
-          {photoBlock(t)}
-        </div>
-      );
-    }
-    return (
-      <div key={t.labTestId} className="rounded-xl border border-border p-2.5">
-        {label}
-        <input
-          type="text"
-          value={v.text}
-          onChange={(e) => onValueChange(t.labTestId, { text: e.target.value })}
-          disabled={disabled}
-          className={INPUT_CLASS}
-        />
-        {photoBlock(t)}
+        ) : (
+          <input
+            id={inputId}
+            type="text"
+            value={text}
+            onChange={(e) => onValueChange(t.labTestId, { text: e.target.value })}
+            disabled={disabled}
+            className={cn(INPUT_CLASS, 'border-slate-300 text-base')}
+          />
+        )}
+
+        {out && (
+          <p className="flex items-center gap-1.5 text-sm font-semibold text-rose-700">
+            <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+            Outside SOP range
+          </p>
+        )}
+
+        {t.photoMode !== 'NONE' && (
+          <PhotoEvidenceSlot
+            testName={t.testName}
+            required={t.photoMode === 'REQUIRED'}
+            photo={photos[t.labTestId]}
+            employeeCode={stamp.employeeCode}
+            onTake={() => setCameraFor(t)}
+            onRemove={() => onPhotoRemoved(t.labTestId)}
+            disabled={disabled}
+          />
+        )}
       </div>
     );
   };
 
+  const fallbackField = (id: string, label: string, value: string, onChange: (v: string) => void) => (
+    <div className="space-y-2.5 rounded-2xl border border-slate-200 bg-white p-3 shadow-xs">
+      <label htmlFor={id} className="text-base font-semibold text-slate-900">
+        {label}
+        <span className="ml-2 rounded-full bg-slate-900 px-2 py-0.5 align-middle text-[11px] font-semibold uppercase tracking-wide text-white">
+          Required
+        </span>
+      </label>
+      <input
+        id={id}
+        type="number"
+        inputMode="decimal"
+        step="any"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+        className={cn(INPUT_CLASS, 'border-slate-300')}
+      />
+    </div>
+  );
+
   return (
     <div className="space-y-3">
-      {!policy && (
-        <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">
+      {active.length === 0 && (
+        <p className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm font-semibold text-amber-900">
           Test rules are not on this phone yet. Connect to the internet once so they can load.
         </p>
       )}
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="rounded-xl border border-border p-2.5">
-          <label className="mb-1 block text-sm font-semibold text-foreground">
-            LR reading <span className="text-red-700">*</span>
-          </label>
-          <input
-            type="number"
-            inputMode="decimal"
-            step="0.1"
-            min="20"
-            max="35"
-            value={lr}
-            onChange={(e) => onLrChange(e.target.value)}
-            placeholder="e.g. 28.5"
-            disabled={disabled}
-            className={INPUT_CLASS}
-            required
-          />
-          {photoBlock(lrTest)}
-        </div>
-        <div className="rounded-xl border border-border p-2.5">
-          <label className="mb-1 block text-sm font-semibold text-foreground">
-            Fat % <span className="text-red-700">*</span>
-          </label>
-          <input
-            type="number"
-            inputMode="decimal"
-            step="0.01"
-            min="1.5"
-            max="12"
-            value={fat}
-            onChange={(e) => onFatChange(e.target.value)}
-            placeholder="e.g. 4.2"
-            disabled={disabled}
-            className={INPUT_CLASS}
-            required
-          />
-          {photoBlock(fatTest)}
-        </div>
-      </div>
+      {main.map(testCard)}
 
-      {compulsory.length > 0 && <div className="space-y-3">{compulsory.map(testInput)}</div>}
+      {/* Rules not cached yet: the milk formulas still need LR and Fat, so ask for just those. */}
+      {!active.some((t) => t.isLr) && fallbackField('mot-fallback-lr', 'LR reading', lr, onLrChange)}
+      {!active.some((t) => t.isFat) && fallbackField('mot-fallback-fat', 'Fat %', fat, onFatChange)}
 
-      {optional.length > 0 && (
-        <div className="rounded-xl border border-border">
+      {more.length > 0 && (
+        <div className="rounded-2xl border border-slate-200 bg-white">
           <button
             type="button"
             onClick={() => setShowMore((s) => !s)}
             aria-expanded={showMore}
-            className="flex min-h-[48px] w-full items-center justify-between px-3 text-sm font-semibold text-foreground"
+            className="flex min-h-12 w-full items-center justify-between px-3 text-base font-semibold text-slate-900"
           >
-            <span>More tests ({optional.length})</span>
+            <span>More tests ({more.length})</span>
             {showMore ? <ChevronUp className="h-5 w-5" aria-hidden="true" /> : <ChevronDown className="h-5 w-5" aria-hidden="true" />}
           </button>
-          {showMore && <div className="space-y-3 border-t border-border p-2.5">{optional.map(testInput)}</div>}
+          {showMore && <div className="space-y-3 border-t border-slate-200 p-2.5">{more.map(testCard)}</div>}
         </div>
       )}
 

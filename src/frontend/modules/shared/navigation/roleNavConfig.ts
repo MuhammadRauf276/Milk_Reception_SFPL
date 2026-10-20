@@ -17,6 +17,7 @@ import {
   Building2,
   Milk,
   ShieldCheck,
+  ShieldAlert,
   Scale,
   Tv,
   Receipt,
@@ -233,6 +234,12 @@ export function getRoleNavSections(currentUser: User | null): RoleNavSection[] {
   // 3. ZMCC Manager
   if (role === 'ZMCC_MANAGER') {
     return [
+      {
+        id: 'APPROVALS',
+        label: 'Approval Inbox',
+        icon: ShieldAlert,
+        href: '/mpd/zmcc-manager?tab=APPROVALS',
+      },
       {
         id: 'OVERVIEW',
         label: 'Overview',
@@ -516,6 +523,12 @@ export function getRoleNavSections(currentUser: User | null): RoleNavSection[] {
         icon: Building2,
         children: [
           {
+            id: 'approvals',
+            label: 'Approval Inbox',
+            href: '/contractor/manager?tab=APPROVALS',
+            icon: ShieldAlert,
+          },
+          {
             id: 'overview',
             label: 'Overview',
             href: '/contractor/manager?tab=OVERVIEW',
@@ -606,10 +619,16 @@ export function getRoleNavSections(currentUser: User | null): RoleNavSection[] {
   if (role === 'HEAD_OF_MPD') {
     return [
       {
+        id: 'mpd-approvals',
+        label: 'Approval Inbox',
+        icon: ShieldAlert,
+        href: '/mpd/head?tab=APPROVALS',
+      },
+      {
         id: 'mpd-head',
-        label: 'Head of MPD Station',
+        label: 'Command Center',
         icon: LayoutDashboard,
-        href: '/mpd/head',
+        href: '/mpd/head?tab=COMMAND',
       },
       {
         id: 'tv-board',
@@ -628,6 +647,30 @@ export function getRoleNavSections(currentUser: User | null): RoleNavSection[] {
         label: 'Security Manager Station',
         icon: ShieldCheck,
         href: '/department/security',
+      },
+      {
+        id: 'tv-board',
+        label: 'Yard Status Board',
+        icon: Tv,
+        href: '/tv-board',
+      },
+    ];
+  }
+
+  // 13. AVP-QA / QA Head (Stage 4 Exceptions & Lab Supervision)
+  if (role === 'QA_HEAD') {
+    return [
+      {
+        id: 'qa-head-station',
+        label: 'AVP-QA Executive Station',
+        icon: ShieldAlert,
+        href: '/department/qa-head',
+      },
+      {
+        id: 'qa-lab',
+        label: 'Plant Reception Lab',
+        icon: FlaskConical,
+        href: '/department/qa',
       },
       {
         id: 'tv-board',

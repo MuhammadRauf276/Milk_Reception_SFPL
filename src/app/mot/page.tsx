@@ -9,10 +9,8 @@ import {
   Truck,
   Store,
   AlertCircle,
-  Navigation,
   Wifi,
   WifiOff,
-  Save,
   X,
   Search,
   Plus,
@@ -54,8 +52,9 @@ import { getErrorMessage } from '@/lib/errors';
 import { useOnlineStatus } from '@/frontend/hooks/useOnlineStatus';
 import { acquireRobustGps } from '@/lib/gps';
 import { getFixAgeLabel, shouldRecordPoint, type TrackedPoint } from '@/lib/gpsTracker';
-import { MotShopTestsStep, type MotTestPhoto, type MotTestValue } from '@/frontend/modules/mot/MotShopTestsStep';
-import { DecisionRulePanel, type DecisionRuleTestRow } from '@/frontend/modules/shared/decision/DecisionRulePanel';
+import type { MotTestPhoto, MotTestValue } from '@/frontend/modules/mot/MotShopTestsStep';
+import { ShopCollectionWizard } from '@/frontend/modules/mot/ShopCollectionWizard';
+import type { DecisionRuleTestRow } from '@/frontend/modules/shared/decision/DecisionRulePanel';
 import { DecisionStatusBadge } from '@/frontend/modules/shared/decision/DecisionStatusBadge';
 import { canCoverMotWork, canDecideMotException } from '@/frontend/modules/zmcc/stage1Capabilities';
 import { buildMotShopDecision } from '@/backend/services/mot/motShopDecision';
@@ -997,8 +996,7 @@ export default function MotPage() {
   };
 
   // Record & Queue Collection Action
-  const handleRecordCollection = async (e?: React.FormEvent) => {
-    e?.preventDefault();
+  const handleRecordCollection = async () => {
     if (!activeStop || !journey || !currentUser) return;
     setFormError(null);
 
@@ -1019,7 +1017,7 @@ export default function MotPage() {
       return;
     }
     if (!personDecision) {
-      setFormError('Tap ✓ ACCEPT or ✗ REJECT.');
+      setFormError('Choose Accept milk or Reject milk.');
       return;
     }
     const decision = decisionPreview?.decision ?? null;
@@ -1603,7 +1601,7 @@ export default function MotPage() {
                                         </span>
                                       ) : isRejected ? (
                                         <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-100 text-red-800">
-                                          ✗ Rejected
+                                          Rejected
                                         </span>
                                       ) : (
                                         <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-primary text-white">
@@ -1663,7 +1661,7 @@ export default function MotPage() {
                                     <DecisionStatusBadge status="PENDING" />
                                   ) : isVisited ? (
                                     <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300">
-                                      ✓ Completed ({Number(stop.collection?.gross_liters || 0).toFixed(1)} L)
+                                      Completed ({Number(stop.collection?.gross_liters || 0).toFixed(1)} L)
                                     </span>
                                   ) : isRejected ? (
                                     <DecisionStatusBadge status="REJECTED" />
@@ -1789,249 +1787,84 @@ export default function MotPage() {
           )}
 
           <AnimatePresence>{activeStop && (
-            <Modal key="modal-0" onClose={() => setActiveStop(null)} title="Collection stop" className="max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
-                <div className="p-4 border-b border-border flex items-center justify-between bg-subtle">
-                  <div className="flex items-center space-x-2">
-                    <span className="w-6 h-6 rounded-full bg-primary text-white text-xs font-semibold flex items-center justify-center">
-                      {activeStop.planned_sequence}
-                    </span>
-                    <div>
-                      <h3 className="text-sm font-semibold text-foreground">
-                        {activeStop.shop_name || activeStop.shop?.shop_name} ({activeStop.shop_code || activeStop.shop?.shop_code})
-                      </h3>
-                      <p className="text-[11px] text-slate-500">Record Shop Milk Intake</p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setActiveStop(null)}
-                    className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <div className="px-4 py-2 bg-slate-50 border-b border-border text-[11px] flex items-center justify-between">
-                  <div className="flex items-center space-x-1.5">
-                    <Navigation className="w-3.5 h-3.5 text-blue-700" />
-                    {gpsBadge}
-                    <span className="text-slate-600 font-semibold">GPS Location:</span>
-                    {collectionGps.status === 'ACQUIRING' && (
-                      <span className="text-amber-700 font-semibold animate-pulse">Acquiring coordinates…</span>
-                    )}
-                    {collectionGps.status === 'CAPTURED' && (
-                      <span className="text-emerald-700 font-semibold">
-                        Captured (±{Math.round(collectionGps.accuracy || 0)}m)
-                      </span>
-                    )}
-                    {collectionGps.status === 'APPROXIMATE' && (
-                      <span className="text-amber-700 font-semibold">Approximate location (no fresh GPS)</span>
-                    )}
-                    {collectionGps.status === 'UNAVAILABLE' && (
-                      <span className="text-slate-500 font-medium">GPS Unavailable</span>
-                    )}
-                  </div>
-                </div>
-
-                <form onSubmit={handleRecordCollection} className="p-4 overflow-y-auto space-y-4">
-                  {formError && (
-                    <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs font-semibold animate-panel-in">
-                      {formError}
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="block text-xs font-semibold text-foreground mb-1">
-                      Shop RMR / Raw Milk Receipt No.
-                    </label>
-                    <input
-                      type="text"
-                      pattern="[0-9]*"
-                      inputMode="numeric"
-                      value={shopRmrNumber}
-                      onChange={(e) => setShopRmrNumber(e.target.value.replace(/[^0-9]/g, ''))}
-                      placeholder="e.g. 004821"
-                      className="w-full text-xs font-semibold border border-border rounded-xl p-2.5 bg-subtle focus:ring-2 focus:ring-primary"
-                    />
-                    <p className="text-[10px] text-slate-500 mt-1">Manual paper receipt serial (digits only, leading zeros preserved)</p>
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-xs font-semibold text-foreground">
-                        Milk Source / ERP Code
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setRequestErpFeedback(null);
-                          setRequestErpForm({ proposedName: '', proposedCode: '', notes: '' });
-                          setShowRequestErpModal(true);
-                        }}
-                        className="text-[11px] font-semibold text-primary hover:underline"
-                      >
-                        + Request New ERP Code
-                      </button>
-                    </div>
-                    <select
-                      value={selectedSourceId}
-                      onChange={(e) => setSelectedSourceId(e.target.value)}
-                      className="w-full text-xs font-semibold border border-border rounded-xl p-2.5 bg-subtle focus:ring-2 focus:ring-primary"
-                    >
-                      <option value="">Unassigned</option>
-                      {availableSources.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.erp_code ? `[${s.erp_code}] ${s.name}` : s.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-foreground mb-1">
-                      Intake Milk Quantity <span className="text-rose-600">*</span>
-                    </label>
-                    <div className="flex space-x-2">
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0.1"
-                        max="10000"
-                        value={quantity}
-                        onChange={(e) => setQuantity(e.target.value)}
-                        placeholder="e.g. 150.0"
-                        className="flex-1 min-w-0 text-xs font-semibold border border-border rounded-xl p-2.5 bg-subtle focus:ring-2 focus:ring-primary"
-                        required
-                      />
-                      <div className="flex rounded-xl border border-border overflow-hidden bg-subtle shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => setUnit('LITER')}
-                          className={`px-3 py-2 text-xs font-semibold transition ${
-                            unit === 'LITER' ? 'bg-primary text-white' : 'text-slate-600'
-                          }`}
-                        >
-                          LITER
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setUnit('KG')}
-                          className={`px-3 py-2 text-xs font-semibold transition ${
-                            unit === 'KG' ? 'bg-primary text-white' : 'text-slate-600'
-                          }`}
-                        >
-                          KG
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <MotShopTestsStep
-                    policy={shopPolicy}
-                    lr={lr}
-                    fat={fat}
-                    onLrChange={setLr}
-                    onFatChange={setFat}
-                    values={testValues}
-                    onValueChange={(labTestId, patch) =>
-                      setTestValues((prev) => ({
-                        ...prev,
-                        [labTestId]: { ...(prev[labTestId] ?? { value: '', text: '' }), ...patch },
-                      }))
-                    }
-                    photos={testPhotos}
-                    onPhotoTaken={(test, result) => void handlePhotoTaken(test, result)}
-                    onPhotoRemoved={handlePhotoRemoved}
-                    stamp={{
-                      employeeCode: currentUser.username,
-                      roleLabel: getRoleLabel(currentUser.role),
-                      actingAsLabel: isCovering ? getRoleLabel('MOT') : null,
-                      vehicleNo: journey?.mot_vehicle?.vehicle_number || null,
-                      tokenNo: shopRmrNumber || null,
-                    }}
-                    disabled={submittingCollection}
-                  />
-
-                  {livePreview && (
-                    <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-semibold uppercase tracking-wider text-primary">
-                          Milk summary
-                        </span>
-                        <span className="text-[10px] font-semibold text-slate-500 bg-white/80 px-2 py-0.5 rounded border border-blue-100">
-                          Auto Calculated
-                        </span>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        <div className="p-2.5 bg-white/90 rounded-lg border border-blue-100">
-                          <span className="text-[10px] font-semibold uppercase text-slate-500 block mb-1">
-                            Milk
-                          </span>
-                          <div className="flex items-baseline justify-between">
-                            <span className="text-xs text-slate-600 font-semibold">Gross Liters:</span>
-                            <span className="text-sm font-semibold text-slate-900">{livePreview.grossLiters} L</span>
-                          </div>
-                          <div className="flex items-baseline justify-between mt-0.5 text-xs">
-                            <span className="text-[11px] text-slate-500">Density:</span>
-                            <span className="text-[11px] font-semibold text-slate-700">{livePreview.density}</span>
-                          </div>
-                        </div>
-
-                        <div className="p-2.5 bg-emerald-50/70 rounded-lg border border-emerald-200">
-                          <span className="text-[10px] font-semibold uppercase text-emerald-800 block mb-1">
-                            Milk at 13 TS
-                          </span>
-                          <div className="flex items-baseline justify-between">
-                            <span className="text-xs text-emerald-900 font-semibold">@13TS Liters:</span>
-                            <span className="text-sm font-semibold text-emerald-700">{livePreview.at13TsLiters} L</span>
-                          </div>
-                          <div className="flex items-baseline justify-between mt-0.5 text-[11px] text-emerald-800">
-                            <span>SNF: <strong className="font-semibold">{livePreview.snf}%</strong></span>
-                            <span>TS: <strong className="font-semibold">{livePreview.totalSolids}%</strong></span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="block text-xs font-semibold text-foreground mb-1">
-                      Collection Notes (Optional)
-                    </label>
-                    <textarea
-                      rows={2}
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      placeholder="e.g. Clean container, verified supplier seal"
-                      className="w-full min-w-0 resize-y break-words text-xs border border-border rounded-xl p-2.5 bg-subtle focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-
-                  <DecisionRulePanel
-                    tests={decisionRows}
-                    decision={decisionPreview?.decision ?? null}
-                    personDecision={personDecision}
-                    onPersonDecisionChange={setPersonDecision}
-                    remarks={decisionRemarks}
-                    onRemarksChange={setDecisionRemarks}
-                    warnings={decisionPreview?.details.warnings ?? []}
-                    approverLabel="Zonal Manager"
-                    routeLabels={{ PROCEED: 'Submit', REJECT: 'Reject shop', SEND_TO_APPROVER: 'Send to Zonal Manager', DECIDE_NOW: 'Decide now' }}
-                    onSubmit={() => void handleRecordCollection()}
-                    submitting={submittingCollection}
-                  />
-
-                  <button
-                    type="button"
-                    onClick={handleSaveDraft}
-                    className="w-full flex items-center justify-center space-x-1.5 px-3 py-3 rounded-xl border border-border text-sm font-semibold text-slate-700 hover:bg-muted min-h-[48px] transition"
-                  >
-                    <Save className="w-4 h-4" />
-                    <span>Save for later</span>
-                  </button>
-                </form>
-              </Modal>
+            <Modal
+              key="modal-0"
+              onClose={() => setActiveStop(null)}
+              title="Collection stop"
+              preventClose={submittingCollection}
+              className="max-w-lg overflow-hidden"
+            >
+              <ShopCollectionWizard
+                key={activeStop.id}
+                shopLabel={`${activeStop.shop_name || activeStop.shop?.shop_name || 'Shop'} (${activeStop.shop_code || activeStop.shop?.shop_code || ''})`}
+                sequence={activeStop.planned_sequence}
+                gpsStatus={collectionGps.status}
+                gpsAccuracy={collectionGps.accuracy}
+                gpsBadge={gpsBadge}
+                formError={formError}
+                rmrNumber={shopRmrNumber}
+                onRmrNumberChange={setShopRmrNumber}
+                sources={availableSources}
+                selectedSourceId={selectedSourceId}
+                onSourceChange={setSelectedSourceId}
+                onRequestErpCode={() => {
+                  setRequestErpFeedback(null);
+                  setRequestErpForm({ proposedName: '', proposedCode: '', notes: '' });
+                  setShowRequestErpModal(true);
+                }}
+                quantity={quantity}
+                onQuantityChange={setQuantity}
+                unit={unit}
+                onUnitChange={setUnit}
+                tests={{
+                  policy: shopPolicy,
+                  lr,
+                  fat,
+                  onLrChange: setLr,
+                  onFatChange: setFat,
+                  values: testValues,
+                  onValueChange: (labTestId, patch) =>
+                    setTestValues((prev) => ({
+                      ...prev,
+                      [labTestId]: { ...(prev[labTestId] ?? { value: '', text: '' }), ...patch },
+                    })),
+                  photos: testPhotos,
+                  onPhotoTaken: (test, result) => void handlePhotoTaken(test, result),
+                  onPhotoRemoved: handlePhotoRemoved,
+                  stamp: {
+                    employeeCode: currentUser.username,
+                    roleLabel: getRoleLabel(currentUser.role),
+                    actingAsLabel: isCovering ? getRoleLabel('MOT') : null,
+                    vehicleNo: journey?.mot_vehicle?.vehicle_number || null,
+                    tokenNo: shopRmrNumber || null,
+                  },
+                  disabled: submittingCollection,
+                }}
+                livePreview={livePreview}
+                notes={notes}
+                onNotesChange={setNotes}
+                decision={{
+                  tests: decisionRows,
+                  decision: decisionPreview?.decision ?? null,
+                  personDecision,
+                  onPersonDecisionChange: setPersonDecision,
+                  remarks: decisionRemarks,
+                  onRemarksChange: setDecisionRemarks,
+                  warnings: decisionPreview?.details.warnings ?? [],
+                  approverLabel: 'Zonal Manager',
+                  routeLabels: {
+                    PROCEED: 'Submit & complete shop',
+                    REJECT: 'Reject & complete shop',
+                    SEND_TO_APPROVER: 'Send request to Zonal Manager',
+                    DECIDE_NOW: 'Decide now',
+                  },
+                  onSubmit: () => void handleRecordCollection(),
+                  submitting: submittingCollection,
+                }}
+                onSaveDraft={handleSaveDraft}
+                onClose={() => setActiveStop(null)}
+              />
+            </Modal>
           )}</AnimatePresence>
 
           <AnimatePresence>

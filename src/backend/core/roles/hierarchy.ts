@@ -12,7 +12,13 @@
  * `canActAs` into guards is phase 3. Scope checks (own ZMCC, own contractor,
  * own department) are NOT part of this module — callers must still apply them.
  */
-import type { CanonicalRole } from '../types';
+import type { CanonicalRole, RetiredRole } from '../types';
+
+export const RETIRED_ROLES = ['QA_MANAGER'] as const satisfies readonly RetiredRole[];
+
+export function isRetiredRole(role: unknown): role is RetiredRole {
+  return typeof role === 'string' && (RETIRED_ROLES as readonly string[]).includes(role as RetiredRole);
+}
 
 /**
  * Parent of each canonical role. `null` marks the root (Super Admin).
@@ -55,10 +61,6 @@ export const ROLE_PARENT = {
   SECURITY_OPERATOR: 'ADMIN_HEAD',
 
   QA_LAB_ATTENDANT: 'QA_HEAD',
-  // TODO(phase 6): QA_MANAGER is retired in phase 6. It stays canonical until
-  // then; remove this entry when the code moves to `RetiredRole`.
-  QA_MANAGER: 'QA_HEAD',
-
   WEIGHBRIDGE_OPERATOR: 'PRODUCTION_HEAD',
   PRODUCTION_RECEPTION_OPERATOR: 'PRODUCTION_HEAD',
 } as const satisfies Record<CanonicalRole, CanonicalRole | null>;

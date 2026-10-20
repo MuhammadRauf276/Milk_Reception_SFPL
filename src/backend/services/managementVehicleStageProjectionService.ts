@@ -32,7 +32,7 @@ export async function getCurrentVehicleStages(scope: ManagementScope, filters: M
       source: visit.procurement_source ? { id: visit.procurement_source.id.toString(), code: visit.procurement_source.code, name: visit.procurement_source.name } : { id: '', code: 'UNKNOWN', name: 'Unknown source' },
       route: null, stage: toManagementVehicleStage(visit.current_status),
       stageChangedAt: visit.updated_at.toISOString(), enteredPlantAt: visit.gate_log?.entry_timestamp?.toISOString() || null,
-      exception: exception ? { kind: 'QA_MANAGER_REVIEW', raisedAt: exception.manager_review_requested_at?.toISOString() || visit.updated_at.toISOString() } : null,
+      exception: exception ? { kind: 'AVP_QA_REVIEW', raisedAt: exception.manager_review_requested_at?.toISOString() || visit.updated_at.toISOString() } : null,
     };
   });
   return { items, page, pageSize, total, totalPages: Math.ceil(total / pageSize) };

@@ -22,7 +22,6 @@ export const CREATABLE_ROLES = [
   'MOT',
   'CONTRACTOR_OPERATOR',
   'SECURITY_OPERATOR',
-  'QA_MANAGER',
   'QA_LAB_ATTENDANT',
   'WEIGHBRIDGE_OPERATOR',
   'PRODUCTION_RECEPTION_OPERATOR',
@@ -187,15 +186,6 @@ export const ROLE_ASSIGNMENT_POLICIES: Record<CreatableRole, RoleAssignmentPolic
     requiresSource: false,
     allowedSourceType: null,
     summaryLabel: 'Security (Department-restricted)',
-  },
-  QA_MANAGER: {
-    role: 'QA_MANAGER',
-    label: ROLE_LABELS.QA_MANAGER,
-    scopeType: 'DEPARTMENT',
-    department: 'Quality Assurance',
-    requiresSource: false,
-    allowedSourceType: null,
-    summaryLabel: 'Quality Assurance (Department-restricted)',
   },
   QA_LAB_ATTENDANT: {
     role: 'QA_LAB_ATTENDANT',

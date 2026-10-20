@@ -23,7 +23,7 @@ export async function POST(
     },
   });
 
-  const allowedRoles = ['QA_LAB_ATTENDANT', 'QA_MANAGER', 'ADMIN', 'SUPER_ADMIN'];
+  const allowedRoles = ['QA_LAB_ATTENDANT', 'QA_HEAD', 'ADMIN', 'SUPER_ADMIN'];
   if (!dbUser || !allowedRoles.includes(dbUser.role)) {
     return NextResponse.json(
       { error: 'Unauthorized. QA role required for adding test portions.' },

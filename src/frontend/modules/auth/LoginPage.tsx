@@ -45,7 +45,6 @@ const STATIC_DEV_PROFILES: DevGroup[] = !DEV_LOGIN_PROFILES_ENABLED ? [] : [
       { label: 'ZMCC Manager (Hasilpur)', department: 'Milk Procurement (Hasilpur)', username: 'zmcc.manager.hasilpur', password: 'zone123' },
       { label: 'ZMCC Manager (Jhang)', department: 'Milk Procurement (Jhang)', username: 'zmcc.manager.jhang', password: 'zone123' },
       { label: 'AVP, QA Reception Lab', department: 'Quality Assurance Directorate', username: 'qa.head', password: 'qahead123' },
-      { label: 'Manager, QA Reception Lab', department: 'Quality Assurance Management', username: 'qa.manager', password: 'qamgr123' },
       { label: 'Production Head', department: 'Production Directorate', username: 'production.head', password: 'prodhead123' },
       { label: 'Admin Head', department: 'Administration Directorate', username: 'admin.head', password: 'adminhead123' },
       { label: 'Plant Contractor Manager (Al Khair)', department: 'Milk Procurement (Al Khair)', username: 'contractor.manager.alkhair', password: 'contractor123' },

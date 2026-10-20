@@ -25,7 +25,6 @@ const PHOTO_CAPTURE_ROLES = [
   'ZMCC_LAB_ATTENDANT',
   'CONTRACTOR_OPERATOR',
   'QA_LAB_ATTENDANT',
-  'QA_MANAGER',
 ] as const;
 
 function bad(error: string, status = 400, code?: string) {

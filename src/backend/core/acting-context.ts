@@ -54,7 +54,6 @@ export const ROLE_HOME_DEPARTMENT: Partial<Record<CanonicalRole, string>> = {
   ADMIN_HEAD: 'Administration',
   SECURITY_OPERATOR: 'Security',
   QA_HEAD: 'Quality Assurance',
-  QA_MANAGER: 'Quality Assurance',
   QA_LAB_ATTENDANT: 'Quality Assurance',
   PRODUCTION_HEAD: 'Production',
   WEIGHBRIDGE_OPERATOR: 'Production & Weighbridge',

@@ -71,7 +71,7 @@ export function resolveRoleHome(role?: string | null | unknown): string {
       return '/department/qa-head';
 
     case 'QA_MANAGER':
-      return '/department/qa-manager';
+      return '/workspace-unavailable?reason=retired&role=QA_MANAGER';
 
     case 'SYSTEM_ADMIN':
     case 'Admin':

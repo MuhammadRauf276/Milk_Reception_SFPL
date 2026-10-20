@@ -25,7 +25,6 @@ export default function SuperAdminSopRulesPage() {
               'DATA_ANALYST',
               'HEAD_OF_MPD',
               'QA_HEAD',
-              'QA_MANAGER',
             ].includes(role)
           ) {
             setCurrentUser(data.user);

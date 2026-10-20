@@ -55,7 +55,7 @@ async function seedDatabase() {
         (3, 'Security Operator', 'security.gate', 'security123', 'SECURITY_OPERATOR', true, NOW(), NOW()),
         (4, 'Admin Head', 'admin.head', 'adminhead123', 'ADMIN_HEAD', true, NOW(), NOW()),
         (5, 'QA Lab Attendant', 'qa.chemist', 'qa123', 'QA_LAB_ATTENDANT', true, NOW(), NOW()),
-        (6, 'QA Manager', 'qa.manager', 'qamgr123', 'QA_MANAGER', true, NOW(), NOW()),
+        (6, 'AVP-QA / Head of Quality', 'qa.head@shakarganj.com.pk', 'qahead123', 'QA_HEAD', true, NOW(), NOW()),
         (7, 'Production Reception Operator', 'production.operator', 'production123', 'PRODUCTION_RECEPTION_OPERATOR', true, NOW(), NOW()),
         (8, 'Production Head', 'production.head', 'prodhead123', 'PRODUCTION_HEAD', true, NOW(), NOW()),
         (9, 'Senior Executive Management', 'executive.management', 'exec123', 'EXECUTIVE_MANAGEMENT', true, NOW(), NOW()),

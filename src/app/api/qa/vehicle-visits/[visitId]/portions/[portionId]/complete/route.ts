@@ -46,7 +46,7 @@ export async function POST(
     },
   });
 
-  const allowedRoles = ['QA_LAB_ATTENDANT', 'QA_HEAD', 'SUPER_ADMIN', 'QA_MANAGER'];
+  const allowedRoles = ['QA_LAB_ATTENDANT', 'QA_HEAD', 'SUPER_ADMIN'];
   if (!dbUser || !allowedRoles.includes(dbUser.role)) {
     return NextResponse.json(
       { error: 'Unauthorized. QAE Reception Lab, QA Head (AVP-QA), or Super Admin role required.' },

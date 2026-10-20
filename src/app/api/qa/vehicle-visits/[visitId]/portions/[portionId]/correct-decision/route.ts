@@ -40,10 +40,10 @@ export async function POST(
     },
   });
 
-  const allowedRoles = ['QA_MANAGER', 'QA_HEAD', 'SUPER_ADMIN'];
+  const allowedRoles = ['QA_HEAD', 'SUPER_ADMIN'];
   if (!dbUser || !allowedRoles.includes(dbUser.role)) {
     return NextResponse.json(
-      { error: 'Unauthorized. QA Manager, QA Head, or Super Admin role is required for QA exception decisions.' },
+      { error: 'Unauthorized. QA Head (AVP-QA) or Super Admin role is required for QA exception decisions.' },
       { status: 403 }
     );
   }

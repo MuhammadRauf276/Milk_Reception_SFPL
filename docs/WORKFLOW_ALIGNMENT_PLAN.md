@@ -973,3 +973,15 @@ Phone and user control is powerful, so it stays at the top only.
 - There is **no delete button** anywhere on logout; offline work is never discarded.
 - clearMotSessionCache() and setActiveOwnerUserId(null) ensure the next shift operator starts with a clean slate and never sees or modifies the outgoing operator's active drafts.
 - Audit attribution (performed_as_role, uthor_id) strictly reflects the operator who actually performed the work.
+
+---
+
+## 19. Covered-work exceptions — owner decision (round 9, 20 Oct 2026)
+
+Confirms §14 and adds tracking.
+
+- A superior doing subordinate work (e.g. Zonal Manager doing the ZMCC lab test) decides his own exception on the same screen. **Nothing is sent to the MPD Head** — the superior is responsible.
+- When that decision **accepts milk against an SOP rule** (rule failed but accepted, missing compulsory test/photo accepted, seal mismatch accepted), the record is tagged automatically **"Accepted against SOP"** with who decided and as which role.
+- Tagged records are listed (read-only, filterable) for the MPD Head / Super Admin in the inbox "Decided" view and reports. No action or approval is needed — it is for tracking only.
+- Rejecting milk that fails the rule is not an exception and is not tagged.
+- Super Admin and Data Executive stay outside these rules (§14).

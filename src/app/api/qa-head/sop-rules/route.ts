@@ -42,7 +42,7 @@ export async function GET(req: Request) {
     },
   });
 
-  const allowedRoles = ['QA_HEAD', 'QA_MANAGER', 'HEAD_OF_MPD', 'SUPER_ADMIN', 'DATA_EXECUTIVE', 'DATA_ANALYST'];
+  const allowedRoles = ['QA_HEAD', 'HEAD_OF_MPD', 'SUPER_ADMIN', 'DATA_EXECUTIVE', 'DATA_ANALYST'];
   if (!dbUser || !allowedRoles.includes(dbUser.role)) {
     return NextResponse.json({ error: 'Unauthorized. Executive or Admin role required.' }, { status: 403 });
   }

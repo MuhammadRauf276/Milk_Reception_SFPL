@@ -38,9 +38,10 @@ async function resetDevLoginPasswords() {
     { username: 'data.executive', pass: 'data123' },
     { username: 'admin.head', pass: 'adminhead123' },
     { username: 'qa.head', pass: 'qahead123' },
+    { username: 'qa.head@shakarganj.com.pk', pass: 'qahead123' },
+    { username: 'qa.reception@shakarganj.com.pk', pass: 'qa123' },
     { username: 'production.head', pass: 'prodhead123' },
     { username: 'finance.accounts', pass: 'finance123' },
-    { username: 'qa.manager', pass: 'qamgr123' },
     { username: 'contractor.operator.alkhair', pass: 'mpd123' },
     { username: 'contractor.operator.almehmood', pass: 'mpd123' },
   ];

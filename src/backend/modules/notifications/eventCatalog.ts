@@ -1,6 +1,36 @@
-export type NotificationEventKey = 'ZMCC_LAB_EXCEPTION_PENDING' | 'PLANT_QA_EXCEPTION_PENDING' | 'CORRECTION_ESCALATED' | 'FINANCE_TARGET_CHANGED' | 'SYSTEM_ALERT' | 'ERP_VENDOR_MAPPING_REQUIRED' | 'MOT_SHOP_EXCEPTION_PENDING' | 'HIGH_TRANSIT_LOSS_ALERT';
-export type NotificationRecipientRole = 'ZMCC_MANAGER' | 'QA_MANAGER' | 'QA_HEAD' | 'HEAD_OF_MPD' | 'FINANCE_ACCOUNTS' | 'SUPER_ADMIN' | 'DATA_EXECUTIVE';
-export interface NotificationEventDefinition { recipients: NotificationRecipientRole[]; priority: 'NORMAL' | 'HIGH' | 'CRITICAL'; sourceType: string; }
+export type NotificationEventKey =
+  | 'ZMCC_LAB_EXCEPTION_PENDING'
+  | 'PLANT_QA_EXCEPTION_PENDING'
+  | 'CORRECTION_ESCALATED'
+  | 'FINANCE_TARGET_CHANGED'
+  | 'SYSTEM_ALERT'
+  | 'ERP_VENDOR_MAPPING_REQUIRED'
+  | 'MOT_SHOP_EXCEPTION_PENDING'
+  | 'HIGH_TRANSIT_LOSS_ALERT'
+  | 'DISPATCH_APPROVAL_PENDING'
+  | 'REJECTED_MILK_REMARKS_PENDING'
+  | 'SELF_APPROVAL_REVIEW'
+  | 'NEW_ROUTE_PENDING'
+  | 'NEW_SHOP_PENDING'
+  | 'NEW_HC_PENDING'
+  | 'NEW_SOURCE_PENDING';
+
+export type NotificationRecipientRole =
+  | 'ZMCC_MANAGER'
+  | 'CONTRACTOR_MANAGER'
+  | 'MDO'
+  | 'QA_HEAD'
+  | 'HEAD_OF_MPD'
+  | 'FINANCE_ACCOUNTS'
+  | 'SUPER_ADMIN'
+  | 'DATA_EXECUTIVE';
+
+export interface NotificationEventDefinition {
+  recipients: NotificationRecipientRole[];
+  priority: 'NORMAL' | 'HIGH' | 'CRITICAL';
+  sourceType: string;
+}
+
 export const notificationEventCatalog: Record<NotificationEventKey, NotificationEventDefinition> = {
   ZMCC_LAB_EXCEPTION_PENDING: { recipients: ['ZMCC_MANAGER'], priority: 'HIGH', sourceType: 'ZMCC_LAB_SESSION' },
   PLANT_QA_EXCEPTION_PENDING: { recipients: ['QA_HEAD'], priority: 'HIGH', sourceType: 'PLANT_QA_PORTION' },
@@ -10,4 +40,11 @@ export const notificationEventCatalog: Record<NotificationEventKey, Notification
   ERP_VENDOR_MAPPING_REQUIRED: { recipients: ['FINANCE_ACCOUNTS', 'ZMCC_MANAGER', 'DATA_EXECUTIVE'], priority: 'HIGH', sourceType: 'LOCAL_SUPPLIER' },
   MOT_SHOP_EXCEPTION_PENDING: { recipients: ['ZMCC_MANAGER'], priority: 'HIGH', sourceType: 'MOT_SHOP_COLLECTION' },
   HIGH_TRANSIT_LOSS_ALERT: { recipients: ['ZMCC_MANAGER', 'SUPER_ADMIN', 'HEAD_OF_MPD'], priority: 'HIGH', sourceType: 'ROAD_TRANSIT' },
+  DISPATCH_APPROVAL_PENDING: { recipients: ['ZMCC_MANAGER', 'CONTRACTOR_MANAGER', 'HEAD_OF_MPD'], priority: 'HIGH', sourceType: 'VEHICLE_VISIT' },
+  REJECTED_MILK_REMARKS_PENDING: { recipients: ['HEAD_OF_MPD'], priority: 'HIGH', sourceType: 'REJECTED_MILK' },
+  SELF_APPROVAL_REVIEW: { recipients: ['DATA_EXECUTIVE', 'SUPER_ADMIN'], priority: 'HIGH', sourceType: 'APPROVAL_DECISION' },
+  NEW_ROUTE_PENDING: { recipients: ['ZMCC_MANAGER'], priority: 'NORMAL', sourceType: 'ZMCC_ROUTE' },
+  NEW_SHOP_PENDING: { recipients: ['MDO', 'ZMCC_MANAGER'], priority: 'NORMAL', sourceType: 'ZMCC_SHOP' },
+  NEW_HC_PENDING: { recipients: ['ZMCC_MANAGER'], priority: 'NORMAL', sourceType: 'ZMCC_LOCAL_SUPPLIER' },
+  NEW_SOURCE_PENDING: { recipients: ['HEAD_OF_MPD'], priority: 'HIGH', sourceType: 'PROCUREMENT_SOURCE' },
 };

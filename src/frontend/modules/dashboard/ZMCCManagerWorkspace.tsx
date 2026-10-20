@@ -21,10 +21,7 @@ import type { RetrievalMode } from '@backend/services/operationalReadModelServic
 import { ZmccMasterDataWorkspace, type MasterDataTab } from '@/frontend/modules/zmcc/ZmccMasterDataWorkspace';
 import { ZmccArrivalsWorkspace } from '@/frontend/modules/zmcc/arrivals/ZmccArrivalsWorkspace';
 import { ZmccLabWorkspace } from '@/frontend/modules/zmcc/lab/ZmccLabWorkspace';
-import { PendingApprovalsPanel } from '@/frontend/modules/zmcc/approvals/PendingApprovalsPanel';
-import { MotShopExceptionQueue } from '@/frontend/modules/zmcc/approvals/MotShopExceptionQueue';
-import { LabPortionExceptionQueue } from '@/frontend/modules/zmcc/approvals/LabPortionExceptionQueue';
-import { DispatchApprovalQueue } from '@/frontend/modules/dispatch/DispatchApprovalQueue';
+import { ApprovalInbox } from '@/frontend/modules/approvals/ApprovalInbox';
 import { AnimatePresence } from 'framer-motion';
 import { PageTransition } from '@/components/motion/page-transition';
 import { getErrorMessage } from '@/lib/errors';
@@ -68,9 +65,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
     if (urlTab) setActiveTab(urlTab);
     if (urlHistoryView) setHistoryView(urlHistoryView);
   }
-  const [motWaitingCount, setMotWaitingCount] = useState<number | null>(null);
-  const [labWaitingCount, setLabWaitingCount] = useState<number | null>(null);
-  const [dispatchWaitingCount, setDispatchWaitingCount] = useState<number | null>(null);
+
   const [summaryDateRange, setSummaryDateRange] = useState<OverviewDateRange>('TODAY');
   const [serverBusinessDate, setServerBusinessDate] = useState<string>('');
   const [serverCalendarDate, setServerCalendarDate] = useState<string>('');
@@ -175,6 +170,9 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
           ? 'Tanks'
           : 'Local Suppliers';
       return { sectionTitle: 'Master Data', subpageTitle: mTitle };
+    }
+    if (activeTab === 'APPROVALS') {
+      return { sectionTitle: 'Approval Inbox', subpageTitle: null };
     }
     return { sectionTitle: 'Overview', subpageTitle: null };
   }, [activeTab, historyView, searchParams]);
@@ -553,43 +551,9 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
 
         {activeTab === 'APPROVALS' && (
           <div id="tabpanel-APPROVALS" role="tabpanel" aria-labelledby="tab-APPROVALS" className="space-y-6 animate-panel-in">
-            <section id="mot-exceptions" aria-label="Shop exceptions" className={urlView === 'MOT_EXCEPTIONS' ? 'rounded-2xl ring-2 ring-violet-300 p-2' : ''}>
-              <h2 className="mb-3 flex items-center gap-2 text-lg font-bold text-slate-900">
-                Shop exceptions
-                {motWaitingCount !== null && (
-                  <span className="rounded-full bg-violet-100 px-2.5 py-0.5 text-sm font-semibold text-violet-800">
-                    {motWaitingCount} waiting
-                  </span>
-                )}
-              </h2>
-              <MotShopExceptionQueue canDecide={currentUser?.role !== 'DATA_EXECUTIVE'} onCountChange={setMotWaitingCount} />
-            </section>
-            <section id="lab-exceptions" aria-label="Lab exceptions" className={urlView === 'LAB_EXCEPTIONS' ? 'rounded-2xl ring-2 ring-violet-300 p-2' : ''}>
-              <h2 className="mb-3 flex items-center gap-2 text-lg font-bold text-slate-900">
-                Lab exceptions
-                {labWaitingCount !== null && (
-                  <span className="rounded-full bg-violet-100 px-2.5 py-0.5 text-sm font-semibold text-violet-800">
-                    {labWaitingCount} waiting
-                  </span>
-                )}
-              </h2>
-              <LabPortionExceptionQueue canDecide={currentUser?.role !== 'DATA_EXECUTIVE'} currentUserId={currentUser?.id ?? null} onCountChange={setLabWaitingCount} />
-            </section>
-            <section id="dispatch-requests" aria-label="Dispatch requests" className={urlView === 'DISPATCH_REQUESTS' ? 'rounded-2xl ring-2 ring-violet-300 p-2' : ''}>
-              <h2 className="mb-3 flex items-center gap-2 text-lg font-bold text-slate-900">
-                Dispatch requests
-                {dispatchWaitingCount !== null && (
-                  <span className="rounded-full bg-violet-100 px-2.5 py-0.5 text-sm font-semibold text-violet-800">
-                    {dispatchWaitingCount} waiting
-                  </span>
-                )}
-              </h2>
-              <DispatchApprovalQueue sourceType="ZMCC" canDecide={currentUser?.role !== 'DATA_EXECUTIVE'} currentUserId={currentUser?.id ?? null} onCountChange={setDispatchWaitingCount} />
-            </section>
-            <PendingApprovalsPanel
+            <ApprovalInbox
               currentUser={currentUser}
-              showRoutes={true}
-              showShops={true}
+              initialStage="ALL"
             />
           </div>
         )}

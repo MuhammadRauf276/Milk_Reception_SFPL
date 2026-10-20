@@ -45,6 +45,20 @@ const nextConfig = {
     ...localIps,
     ...localIps.map((ip) => `${ip}:3000`),
   ],
+  async redirects() {
+    return [
+      {
+        source: '/department/qa-manager',
+        destination: '/department/qa-head',
+        permanent: true,
+      },
+      {
+        source: '/department/qa-manager/:path*',
+        destination: '/department/qa-head',
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {

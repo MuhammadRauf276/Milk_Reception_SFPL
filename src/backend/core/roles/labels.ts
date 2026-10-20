@@ -4,7 +4,11 @@
  *
  * Pure TypeScript — safe to import on the client.
  */
-import type { CanonicalRole } from '../types';
+import type { CanonicalRole, RetiredRole } from '../types';
+
+export const RETIRED_ROLE_LABELS: Record<RetiredRole, string> = {
+  QA_MANAGER: 'QA Manager (retired)',
+};
 
 export const ROLE_LABELS = {
   SUPER_ADMIN: 'Super Admin',
@@ -23,12 +27,11 @@ export const ROLE_LABELS = {
   SECURITY_OPERATOR: 'Admin Operator',
   QA_HEAD: 'AVP – Quality Assurance',
   QA_LAB_ATTENDANT: 'QAE – Reception Lab',
-  // TODO(phase 6): mark as "(retired)" when QA_MANAGER moves to RetiredRole.
-  QA_MANAGER: 'QA Manager',
+  QA_MANAGER: 'QA Manager (retired)',
   PRODUCTION_HEAD: 'Production Head',
   WEIGHBRIDGE_OPERATOR: 'Weighbridge Operator',
   PRODUCTION_RECEPTION_OPERATOR: 'Production Reception Operator',
-} as const satisfies Record<CanonicalRole, string>;
+} as const satisfies Record<CanonicalRole | RetiredRole, string>;
 
 const UPPERCASE_WORDS = new Set(['qa', 'mpd', 'zmcc', 'phe', 'mot', 'mdo']);
 
@@ -50,7 +53,7 @@ export function getRoleLabel(role: string | null | undefined, fallback = 'Worksp
   if (typeof role !== 'string' || !role.trim()) return fallback;
   const code = role.trim();
   if (Object.prototype.hasOwnProperty.call(ROLE_LABELS, code)) {
-    return ROLE_LABELS[code as CanonicalRole];
+    return ROLE_LABELS[code as CanonicalRole | RetiredRole];
   }
   return humanizeRoleCode(code) || fallback;
 }

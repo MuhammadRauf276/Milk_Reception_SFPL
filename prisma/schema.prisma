@@ -615,6 +615,7 @@ model AuditLog {
   actor_role        String? @map("actor_role") @db.VarChar(64) // real login role of the person
   performed_as_role String? @map("performed_as_role") @db.VarChar(64) // role whose duty was performed
   is_delegated      Boolean @default(false) @map("is_delegated")
+  self_approved     Boolean @default(false) @map("self_approved")
   device_id         BigInt? @map("device_id")
 
   // Relations

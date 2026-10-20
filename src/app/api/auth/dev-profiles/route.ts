@@ -44,7 +44,6 @@ export async function GET() {
         { label: 'Plant Contractor Manager (Al Khair)', department: 'Milk Procurement (Al Khair)', username: 'contractor.manager.alkhair', password: 'contractor123' },
         { label: 'MPD Head', department: 'Milk Procurement Directorate', username: 'mpd.head', password: 'mpdhead123' },
         { label: 'AVP, QA Reception Lab', department: 'Quality Assurance Directorate', username: 'qa.head', password: 'qahead123' },
-        { label: 'Manager, QA Reception Lab', department: 'Quality Assurance Management', username: 'qa.manager', password: 'qamgr123' },
         { label: 'Production Head', department: 'Production Directorate', username: 'production.head', password: 'prodhead123' },
         { label: 'Admin Head', department: 'Administration Directorate', username: 'admin.head', password: 'adminhead123' },
       ],

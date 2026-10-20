@@ -7,6 +7,7 @@ export interface AuditActor {
   actorRole: string | null;
   performedAsRole?: string | null;
   isDelegated?: boolean;
+  selfApproved?: boolean;
   deviceId?: bigint | null;
 }
 
@@ -17,6 +18,7 @@ export interface WriteAuditLogInput {
   oldValues?: Prisma.InputJsonValue | null;
   newValues?: Prisma.InputJsonValue | null;
   actor: AuditActor | ActingContext;
+  selfApproved?: boolean;
   // Optional device that produced the action (ActingContext does not carry one).
   deviceId?: bigint | null;
 }
@@ -57,6 +59,7 @@ export function buildAuditLogData(i: WriteAuditLogInput): Prisma.AuditLogUncheck
     actor_role: actorRole,
     performed_as_role: performedAs,
     is_delegated: delegated,
+    self_approved: ('selfApproved' in a && Boolean(a.selfApproved)) || Boolean(i.selfApproved),
     device_id: deviceId,
   };
   const oldValues = toJson(i.oldValues);
