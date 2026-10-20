@@ -7,6 +7,7 @@ import {
   Clock,
   Route as RouteIcon,
   Store,
+  Milk,
   MapPin,
   AlertCircle,
   Loader2,
@@ -18,6 +19,8 @@ import {
 import { Modal } from '@/components/ui/modal';
 import { User } from '@core/types';
 import { getErrorMessage } from '@/lib/errors';
+import { canApproveRoute, canApproveShop, canCreateRoute } from '@/frontend/modules/zmcc/stage1Capabilities';
+import { DecisionStatusBadge } from '@/frontend/modules/shared/decision/DecisionStatusBadge';
 
 export interface PendingRouteItem {
   id: string;
@@ -60,10 +63,22 @@ export interface PendingShopItem {
   created_at: string;
 }
 
+export interface PendingHcItem {
+  id: string;
+  local_supplier_code: string;
+  name: string;
+  phone: string | null;
+  cnic: string | null;
+  created_at: string;
+  created_as_role: string | null;
+  zmcc?: { id: string; code: string; name: string };
+}
+
 interface PendingApprovalsPanelProps {
   currentUser: User | null;
   showRoutes?: boolean;
   showShops?: boolean;
+  showHcs?: boolean;
   onRefreshParent?: () => void;
 }
 
@@ -71,28 +86,34 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
   currentUser,
   showRoutes = true,
   showShops = true,
+  showHcs = true,
   onRefreshParent,
 }) => {
-  const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
-  const isZmccManager = currentUser?.role === 'ZMCC_MANAGER';
-  const isPheOperator = currentUser?.role === 'PHE_OPERATOR';
+  const role = currentUser?.role ?? '';
 
-  const canApproveRoutes = isSuperAdmin || isZmccManager;
-  const canApproveShops = isSuperAdmin || isZmccManager || isPheOperator;
+  // Zonal Manager and above approve routes; MDO and above approve shops (server decides again).
+  const canApproveRoutes = canApproveRoute(role);
+  const canApproveShops = canApproveShop(role);
+  // An MDO can see their own routes waiting for the Zonal Manager, but cannot decide them.
+  const canSeeRoutes = canCreateRoute(role);
+  // New HCs (local suppliers) need the Zonal Manager (or above), like routes.
+  const canDecideHcs = canApproveRoute(role);
 
   const [routes, setRoutes] = useState<PendingRouteItem[]>([]);
   const [shops, setShops] = useState<PendingShopItem[]>([]);
+  const [hcs, setHcs] = useState<PendingHcItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
   const [routesPage, setRoutesPage] = useState(1);
   const [shopsPage, setShopsPage] = useState(1);
+  const [hcsPage, setHcsPage] = useState(1);
   const PAGE_SIZE = 6;
 
   // Rejection modal state
   const [rejectingItem, setRejectingItem] = useState<{
-    type: 'ROUTE' | 'SHOP';
+    type: 'ROUTE' | 'SHOP' | 'HC';
     id: string;
     name: string;
   } | null>(null);
@@ -105,7 +126,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
     try {
       const promises: Promise<unknown>[] = [];
 
-      if (showRoutes && canApproveRoutes) {
+      if (showRoutes && canSeeRoutes) {
         promises.push(
           fetch('/api/zmcc/routes/pending')
             .then((r) => r.json())
@@ -121,27 +142,36 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
         );
       }
 
+      if (showHcs && canDecideHcs) {
+        promises.push(
+          fetch('/api/zmcc/local-suppliers/pending')
+            .then((r) => r.json())
+            .then((d) => setHcs(d.suppliers || []))
+        );
+      }
+
       await Promise.all(promises);
     } catch (err) {
       setError(getErrorMessage(err) || 'Failed to load pending requests.');
     } finally {
       setLoading(false);
     }
-  }, [showRoutes, showShops, canApproveRoutes, canApproveShops]);
+  }, [showRoutes, showShops, showHcs, canSeeRoutes, canApproveShops, canDecideHcs]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
-  const handleApprove = async (type: 'ROUTE' | 'SHOP', id: string) => {
+  const typeLabel = (type: 'ROUTE' | 'SHOP' | 'HC') => (type === 'ROUTE' ? 'Route' : type === 'SHOP' ? 'Shop' : 'HC');
+  const typeUrl = (type: 'ROUTE' | 'SHOP' | 'HC') =>
+    type === 'ROUTE' ? '/api/zmcc/routes' : type === 'SHOP' ? '/api/zmcc/shops' : '/api/zmcc/local-suppliers';
+
+  const handleApprove = async (type: 'ROUTE' | 'SHOP' | 'HC', id: string) => {
     setSubmittingAction(true);
     setActionSuccess(null);
     setError(null);
     try {
-      const url =
-        type === 'ROUTE'
-          ? `/api/zmcc/routes/${id}/approve`
-          : `/api/zmcc/shops/${id}/approve`;
+      const url = `${typeUrl(type)}/${id}/approve`;
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -150,7 +180,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
       if (!res.ok) {
         throw new Error(data.error || `Failed to approve ${type.toLowerCase()}.`);
       }
-      setActionSuccess(`${type === 'ROUTE' ? 'Route' : 'Shop'} approved successfully.`);
+      setActionSuccess(`${typeLabel(type)} approved.`);
       await loadData();
       if (onRefreshParent) onRefreshParent();
     } catch (err) {
@@ -170,10 +200,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
     setActionSuccess(null);
     setError(null);
     try {
-      const url =
-        rejectingItem.type === 'ROUTE'
-          ? `/api/zmcc/routes/${rejectingItem.id}/reject`
-          : `/api/zmcc/shops/${rejectingItem.id}/reject`;
+      const url = `${typeUrl(rejectingItem.type)}/${rejectingItem.id}/reject`;
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -183,9 +210,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
       if (!res.ok) {
         throw new Error(data.error || 'Failed to reject request.');
       }
-      setActionSuccess(
-        `${rejectingItem.type === 'ROUTE' ? 'Route' : 'Shop'} request rejected.`
-      );
+      setActionSuccess(`${typeLabel(rejectingItem.type)} request rejected.`);
       setRejectingItem(null);
       setRejectReason('');
       await loadData();
@@ -211,7 +236,14 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
 
   const totalShopPages = Math.max(1, Math.ceil(shops.length / PAGE_SIZE));
 
-  if (!canApproveRoutes && !canApproveShops) {
+  const paginatedHcs = useMemo(() => {
+    const start = (hcsPage - 1) * PAGE_SIZE;
+    return hcs.slice(start, start + PAGE_SIZE);
+  }, [hcs, hcsPage]);
+
+  const totalHcPages = Math.max(1, Math.ceil(hcs.length / PAGE_SIZE));
+
+  if (!canSeeRoutes && !canApproveShops && !canDecideHcs) {
     return null;
   }
 
@@ -251,14 +283,14 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
         </div>
       )}
 
-      {showRoutes && canApproveRoutes && (
+      {showRoutes && canSeeRoutes && (
         <div className="bg-card border border-border rounded-xl shadow-2xs overflow-hidden">
           <div className="p-4 border-b border-border flex items-center justify-between bg-muted/30">
             <div className="flex items-center space-x-2">
               <RouteIcon className="w-4 h-4 text-primary shrink-0" />
-              <h3 className="text-sm font-semibold text-foreground">Route Approvals</h3>
+              <h3 className="text-sm font-semibold text-foreground">Routes waiting for approval</h3>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                {routes.length} Pending
+                {routes.length} waiting
               </span>
             </div>
             {loading && <Loader2 className="w-4 h-4 animate-spin text-slate-400" />}
@@ -266,7 +298,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
 
           {routes.length === 0 && !loading ? (
             <div className="p-6 text-center text-xs font-medium text-slate-500">
-              No routes awaiting approval.
+              No routes are waiting.
             </div>
           ) : (
             <div className="divide-y divide-border">
@@ -281,6 +313,10 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                       <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-subtle border border-border text-slate-700">
                         {r.route_code}
                       </span>
+                      <DecisionStatusBadge
+                        status={canApproveRoutes ? 'EXCEPTION' : 'PENDING'}
+                        label={canApproveRoutes ? 'Needs your decision' : 'Waiting for Zonal Manager'}
+                      />
                     </div>
                     <div className="text-xs text-slate-600 flex flex-wrap items-center gap-x-3 gap-y-1">
                       <span>Origin: <strong className="text-foreground">{r.origin}</strong></span>
@@ -299,15 +335,16 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                     </div>
                   </div>
 
+                  {canApproveRoutes && (
                   <div className="flex items-center space-x-2 shrink-0">
                     <button
                       type="button"
                       disabled={submittingAction}
                       onClick={() => handleApprove('ROUTE', r.id)}
-                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50 inline-flex items-center space-x-1"
+                      className="px-4 min-h-[44px] rounded-lg text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50 inline-flex items-center space-x-1"
                     >
                       <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Approve</span>
+                      <span>Approve route</span>
                     </button>
                     <button
                       type="button"
@@ -315,12 +352,13 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                       onClick={() =>
                         setRejectingItem({ type: 'ROUTE', id: r.id, name: r.name })
                       }
-                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white transition-colors disabled:opacity-50 inline-flex items-center space-x-1"
+                      className="px-4 min-h-[44px] rounded-lg text-sm font-semibold bg-rose-600 hover:bg-rose-700 text-white transition-colors disabled:opacity-50 inline-flex items-center space-x-1"
                     >
                       <XCircle className="w-3.5 h-3.5" />
-                      <span>Reject</span>
+                      <span>Reject route</span>
                     </button>
                   </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -359,9 +397,9 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
           <div className="p-4 border-b border-border flex items-center justify-between bg-muted/30">
             <div className="flex items-center space-x-2">
               <Store className="w-4 h-4 text-primary shrink-0" />
-              <h3 className="text-sm font-semibold text-foreground">Pending Shop Requests</h3>
+              <h3 className="text-sm font-semibold text-foreground">New shop requests</h3>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                {shops.length} Pending
+                {shops.length} waiting
               </span>
             </div>
             {loading && <Loader2 className="w-4 h-4 animate-spin text-slate-400" />}
@@ -369,7 +407,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
 
           {shops.length === 0 && !loading ? (
             <div className="p-6 text-center text-xs font-medium text-slate-500">
-              No shop requests awaiting approval.
+              No new shop requests are waiting.
             </div>
           ) : (
             <div className="divide-y divide-border">
@@ -415,10 +453,10 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                       type="button"
                       disabled={submittingAction}
                       onClick={() => handleApprove('SHOP', s.id)}
-                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50 inline-flex items-center space-x-1"
+                      className="px-4 min-h-[44px] rounded-lg text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50 inline-flex items-center space-x-1"
                     >
                       <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Approve</span>
+                      <span>Approve shop</span>
                     </button>
                     <button
                       type="button"
@@ -426,10 +464,10 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                       onClick={() =>
                         setRejectingItem({ type: 'SHOP', id: s.id, name: s.shop_name })
                       }
-                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white transition-colors disabled:opacity-50 inline-flex items-center space-x-1"
+                      className="px-4 min-h-[44px] rounded-lg text-sm font-semibold bg-rose-600 hover:bg-rose-700 text-white transition-colors disabled:opacity-50 inline-flex items-center space-x-1"
                     >
                       <XCircle className="w-3.5 h-3.5" />
-                      <span>Reject</span>
+                      <span>Reject shop</span>
                     </button>
                   </div>
                 </div>
@@ -465,13 +503,106 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
         </div>
       )}
 
+      {showHcs && canDecideHcs && (
+        <div className="bg-card border border-border rounded-xl shadow-2xs overflow-hidden">
+          <div className="p-4 border-b border-border flex items-center justify-between bg-muted/30">
+            <div className="flex items-center space-x-2">
+              <Milk className="w-4 h-4 text-primary shrink-0" />
+              <h3 className="text-sm font-semibold text-foreground">New HCs waiting for approval</h3>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                {hcs.length} waiting
+              </span>
+            </div>
+            {loading && <Loader2 className="w-4 h-4 animate-spin text-slate-400" />}
+          </div>
+
+          {hcs.length === 0 && !loading ? (
+            <div className="p-6 text-center text-xs font-medium text-slate-500">No new HCs are waiting.</div>
+          ) : (
+            <div className="divide-y divide-border">
+              {paginatedHcs.map((h) => (
+                <div
+                  key={h.id}
+                  className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 hover:bg-muted/20 transition-colors"
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs font-bold text-foreground">{h.name}</span>
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-subtle border border-border text-slate-700">
+                        {h.local_supplier_code}
+                      </span>
+                      <DecisionStatusBadge status="EXCEPTION" label="Needs your decision" />
+                    </div>
+                    <div className="text-xs text-slate-600 flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <span>Phone: <strong className="text-foreground">{h.phone ?? '-'}</strong></span>
+                      <span>CNIC: <strong className="text-foreground font-mono">{h.cnic ?? '-'}</strong></span>
+                      {h.zmcc && <span>ZMCC: <strong className="text-foreground">{h.zmcc.name}</strong></span>}
+                    </div>
+                    <div className="text-[11px] text-slate-400">
+                      Added {new Date(h.created_at).toLocaleDateString()}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-2 shrink-0">
+                    <button
+                      type="button"
+                      disabled={submittingAction}
+                      onClick={() => handleApprove('HC', h.id)}
+                      className="px-4 min-h-[44px] rounded-lg text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50 inline-flex items-center space-x-1"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Approve HC</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={submittingAction}
+                      onClick={() => setRejectingItem({ type: 'HC', id: h.id, name: h.name })}
+                      className="px-4 min-h-[44px] rounded-lg text-sm font-semibold bg-rose-600 hover:bg-rose-700 text-white transition-colors disabled:opacity-50 inline-flex items-center space-x-1"
+                    >
+                      <XCircle className="w-3.5 h-3.5" />
+                      <span>Reject HC</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {totalHcPages > 1 && (
+            <div className="p-3 border-t border-border flex items-center justify-between text-xs text-slate-600 bg-muted/10">
+              <span>
+                Page {hcsPage} of {totalHcPages}
+              </span>
+              <div className="flex items-center space-x-1">
+                <button
+                  type="button"
+                  disabled={hcsPage <= 1}
+                  onClick={() => setHcsPage((p) => p - 1)}
+                  className="p-1 rounded border border-border disabled:opacity-30 hover:bg-muted"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  disabled={hcsPage >= totalHcPages}
+                  onClick={() => setHcsPage((p) => p + 1)}
+                  className="p-1 rounded border border-border disabled:opacity-30 hover:bg-muted"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {rejectingItem && (
         <Modal
           onClose={() => {
             setRejectingItem(null);
             setRejectReason('');
           }}
-          title={`Reject ${rejectingItem.type === 'ROUTE' ? 'Route' : 'Shop'} Request`}
+          title={`Reject ${typeLabel(rejectingItem.type)} Request`}
         >
           <div className="space-y-4">
             <div className="text-xs font-medium text-foreground">

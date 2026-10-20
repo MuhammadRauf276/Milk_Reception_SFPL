@@ -8,6 +8,7 @@ import { HierarchicalNavDrawer } from '@modules/shared/navigation/HierarchicalNa
 import { ZmccMasterDataWorkspace, MasterDataTab } from '@/frontend/modules/zmcc/ZmccMasterDataWorkspace';
 import { MotOperationsWorkspace, MotWorkspaceTab } from '@/frontend/modules/mot/MotOperationsWorkspace';
 import { ZmccArrivalsWorkspace, MainTab as ArrivalsTab } from '@/frontend/modules/zmcc/arrivals/ZmccArrivalsWorkspace';
+import { ZmccWeighingWorkspace } from '@/frontend/modules/zmcc/weighing/ZmccWeighingWorkspace';
 import { PageLoader } from '@/components/ui/spinner';
 import { PageTransition } from '@/components/motion/page-transition';
 import { isZmccFieldOfficer } from '@core/roles/hierarchy';
@@ -69,7 +70,7 @@ function PheContent() {
 
   // Canonical query parameters
   const rawSection = searchParams?.get('section') || 'arrivals';
-  const section = rawSection === 'suppliers' || rawSection === 'mot' ? rawSection : 'arrivals';
+  const section = rawSection === 'suppliers' || rawSection === 'mot' || rawSection === 'weighing' ? rawSection : 'arrivals';
 
   const rawView = searchParams?.get('view') || '';
 
@@ -120,14 +121,6 @@ function PheContent() {
     };
   }, [section, rawView]);
 
-  // MDO uses the PHE station with the same tools as PHE (phase 1).
-  // The shared workspaces still check for 'PHE_OPERATOR', so they get a PHE view of the user.
-  // Header and menu keep the real user so the real role name is shown.
-  const workspaceUser = useMemo<User | null>(
-    () => (currentUser && currentUser.role === 'MDO' ? { ...currentUser, role: 'PHE_OPERATOR' } : currentUser),
-    [currentUser]
-  );
-
   if (loading) {
     return (
       <PageLoader label="Loading PHE Station…" className="min-h-screen" />
@@ -143,7 +136,7 @@ function PheContent() {
       {/* Header with Accessible Hamburger Trigger */}
       <Header
         currentUser={currentUser}
-        title="PHE Station"
+        title={currentUser.role === 'MDO' ? 'MDO Station' : 'PHE Station'}
         showBranding={true}
         showMenuButton={true}
         onMenuClick={openDrawer}
@@ -165,7 +158,7 @@ function PheContent() {
           <PageTransition>
           {section === 'arrivals' && (
             <ZmccArrivalsWorkspace
-              currentUser={workspaceUser}
+              currentUser={currentUser}
               activeTab={resolvedArrivalsTab}
               hideTabBar={true}
               onTabChange={(tab) => {
@@ -180,9 +173,11 @@ function PheContent() {
             />
           )}
 
+          {section === 'weighing' && <ZmccWeighingWorkspace />}
+
           {section === 'suppliers' && (
             <ZmccMasterDataWorkspace
-              currentUser={workspaceUser}
+              currentUser={currentUser}
               activeTab={resolvedMasterDataTab}
               hideTabBar={true}
               onTabChange={(tab) => {
@@ -197,7 +192,7 @@ function PheContent() {
 
           {section === 'mot' && (
             <MotOperationsWorkspace
-              currentUser={workspaceUser}
+              currentUser={currentUser}
               activeTab={resolvedMotTab}
               hideTabBar={true}
               onTabChange={(tab) => {

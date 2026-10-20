@@ -6,6 +6,7 @@ import { User } from '@core/types';
 import { Header } from '@/frontend/modules/shared/Header';
 import { HierarchicalNavDrawer } from '@/frontend/modules/shared/navigation/HierarchicalNavDrawer';
 import { MpdExecutiveWorkspace } from '@/frontend/modules/mpd/MpdExecutiveWorkspace';
+import { RejectedMilkRemarksQueue } from '@/frontend/modules/mpd/RejectedMilkRemarksQueue';
 import { PageLoader } from '@/components/ui/spinner';
 import { PageTransition } from '@/components/motion/page-transition';
 
@@ -94,6 +95,9 @@ function HeadOfMpdContent() {
 
       <main className="flex-1 overflow-y-auto p-4 sm:p-6 w-full max-w-full">
         <PageTransition>
+        {currentUser && ['HEAD_OF_MPD', 'SUPER_ADMIN', 'DATA_EXECUTIVE'].includes(currentUser.role) && (
+          <RejectedMilkRemarksQueue canWrite={currentUser.role !== 'DATA_EXECUTIVE'} />
+        )}
         <MpdExecutiveWorkspace currentUser={currentUser} />
         </PageTransition>
       </main>

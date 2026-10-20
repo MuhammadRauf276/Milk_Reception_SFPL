@@ -23,3 +23,9 @@ Owner rule (20 Oct 2026): no tests are written or updated during Phases 3 fixes 
 - resolveZmccAuth: HEAD_OF_MPD without a ZMCC source is still refused (system-scope superiors should be allowed with explicit zmcc id).
 - UserMenu and ZmccArrivalsWorkspace still check PHE_OPERATOR directly.
 - Pre-existing lint set-state-in-effect in MotOperationsWorkspace, ZmccMasterDataWorkspace, PendingApprovalsPanel.
+
+## Phase 4b (later)
+- Auto-close on all portions rejected closes the lab session, not MotJourney.status.
+- Lab source requests use ZMCC_LAB_EXCEPTION_PENDING key; add REJECTED_MILK_REMARKS_PENDING catalog key (rejected milk notifies HEAD_OF_MPD directly).
+- ZmccLocalSupplierArrival recorded_as_role columns exist but arrival code does not write them yet.
+- Tank receipt still one per lab session (unique) until P4d migration.

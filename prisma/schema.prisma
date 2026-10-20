@@ -1175,6 +1175,11 @@ model MotJourney {
   cancelled_by            BigInt?   @map("cancelled_by")
   cancelled_at            DateTime? @map("cancelled_at") @db.Timestamp(6)
   cancellation_reason     String?   @map("cancellation_reason") @db.Text
+  // Phase 4a: who the actor was acting as (delegation record)
+  assigned_as_role         String?   @map("assigned_as_role") @db.VarChar(64)
+  assigned_is_delegated    Boolean   @default(false) @map("assigned_is_delegated")
+  cancelled_as_role        String?   @map("cancelled_as_role") @db.VarChar(64)
+  cancelled_is_delegated   Boolean   @default(false) @map("cancelled_is_delegated")
   created_at              DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
   updated_at              DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
 
@@ -1332,6 +1337,9 @@ model MotShopCollection {
   performed_as_role     String?   @map("performed_as_role") @db.VarChar(64) // role the submitter acted as
   is_delegated          Boolean   @default(false) @map("is_delegated")
 
+  // Phase 4a: Stage 1 decision snapshot (policy version, per-test outcomes, geofence, warnings)
+  decision_details Json? @map("decision_details") @db.JsonB
+
   // Relations
   journey           MotJourney              @relation(fields: [journey_id], references: [id], onDelete: Restrict)
   stop              MotJourneyStop          @relation(fields: [journey_stop_id], references: [id], onDelete: Restrict)
@@ -1357,6 +1365,7 @@ model MotShopCollection {
   @@index([shop_rmr_number])
   @@index([review_status])
   @@index([final_decision])
+  @@index([zmcc_id, review_status])
   @@map("mot_shop_collection")
 }
 
@@ -1534,6 +1543,9 @@ model ZmccLocalSupplierArrival {
   exit_manager_correction_count Int  @default(0) @map("exit_manager_correction_count")
   exit_last_corrected_by_user_id BigInt? @map("exit_last_corrected_by_user_id")
   exit_last_corrected_at   DateTime? @map("exit_last_corrected_at") @db.Timestamp(6)
+  // Phase 4b: who the recorder was acting as (delegation record)
+  recorded_as_role         String?   @map("recorded_as_role") @db.VarChar(64)
+  recorded_is_delegated    Boolean   @default(false) @map("recorded_is_delegated")
   created_at               DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
   updated_at               DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
 
@@ -1863,6 +1875,9 @@ model ZmccLabPortion {
   created_by_user_id    BigInt?   @map("created_by_user_id")
   performed_as_role     String?   @map("performed_as_role") @db.VarChar(64)
   is_delegated          Boolean   @default(false) @map("is_delegated")
+  // Phase 4b: per-portion decision snapshot (policy version, per-test outcomes, photos) and decision time
+  decision_details      Json?     @map("decision_details") @db.JsonB
+  decided_at            DateTime? @map("decided_at") @db.Timestamp(6)
 
   // Weighing (MDO / PHE Operator and superiors)
   first_weight_kg            Decimal?  @map("first_weight_kg") @db.Decimal(12, 3)

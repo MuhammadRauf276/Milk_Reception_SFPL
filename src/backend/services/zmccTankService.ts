@@ -6,6 +6,15 @@ import { Prisma, type ZmccTank, type ZmccTankReceipt, type ZmccTankInventoryTran
 import type { NumericLike, SourceRef, UserRef } from '@/backend/core/serializable';
 import { resolveCoreMilkTestResults } from '@/backend/utils/milkTestResolvers';
 import { getErrorCode, getErrorMessage, getErrorMeta } from '@/lib/errors';
+import type { ActingContext } from '@/types/acting';
+import { assertResourceInScope, primaryActorFields, asRoleFields } from '@/backend/core/acting-context';
+import { isZmccFieldOfficer } from '@/backend/core/roles/hierarchy';
+import { MOT_CALCULATION_VERSION } from '@/backend/utils/milkFormulas';
+import {
+  calculatePortionReceived,
+  computeAndStoreAreaLossTx,
+  weightedAverageByNetWeight,
+} from '@/backend/services/lossCalculationService';
 
 export interface ServiceResult<T> {
   status: number;
@@ -56,9 +65,11 @@ export async function resolveZmccTankAuth(
   const isDataExecutive = role === 'DATA_EXECUTIVE';
   const isZmccManager = role === 'ZMCC_MANAGER';
   const isZmccLabAttendant = role === 'ZMCC_LAB_ATTENDANT';
+  // MDO and PHE Operator may read tanks (they do the weighing); they cannot change tank settings.
+  const isFieldOfficerReader = action === 'READ' && isZmccFieldOfficer(role);
 
   // Only SUPER_ADMIN, DATA_EXECUTIVE, ZMCC_MANAGER, and ZMCC_LAB_ATTENDANT have ZMCC tank access
-  if (!isSuperAdmin && !isDataExecutive && !isZmccManager && !isZmccLabAttendant) {
+  if (!isSuperAdmin && !isDataExecutive && !isZmccManager && !isZmccLabAttendant && !isFieldOfficerReader) {
     return { errorResponse: { status: 403, error: 'Forbidden. Insufficient permissions for ZMCC Tank operations.' } };
   }
 
@@ -1086,4 +1097,582 @@ export async function receiveHistoricalSession(
     console.error('receiveHistoricalSession error:', err);
     return { status: 500, error: 'Failed to receive milk into ZMCC tank.' };
   }
+}
+
+// ============================================================================
+// Phase 4b: ZMCC weighing per accepted lab portion
+// First Weight -> Tank -> Second Weight. Done by MDO / PHE Operator (and superiors).
+// ============================================================================
+
+export const WEIGHING_ROLES = ['MDO', 'PHE_OPERATOR'] as const;
+
+export type WeighingStep = 'FIRST_WEIGHT' | 'TANK' | 'SECOND_WEIGHT' | 'DONE';
+
+class WeighingError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
+type PortionForWeighing = Prisma.ZmccLabPortionGetPayload<{
+  include: {
+    tank: true;
+    lab_session: {
+      include: {
+        mot_arrival: { include: { journey: { include: { mot_vehicle: true; route: true } } } };
+        local_supplier_arrival: { include: { local_supplier: true } };
+      };
+    };
+  };
+}>;
+
+const WEIGHING_INCLUDE = {
+  tank: true,
+  lab_session: {
+    include: {
+      mot_arrival: { include: { journey: { include: { mot_vehicle: true, route: true } } } },
+      local_supplier_arrival: { include: { local_supplier: true } },
+    },
+  },
+} as const;
+
+export function getWeighingStep(p: {
+  first_weight_kg: Prisma.Decimal | null;
+  tank_id: bigint | null;
+  second_weight_kg: Prisma.Decimal | null;
+}): WeighingStep {
+  if (p.first_weight_kg === null) return 'FIRST_WEIGHT';
+  if (p.tank_id === null) return 'TANK';
+  if (p.second_weight_kg === null) return 'SECOND_WEIGHT';
+  return 'DONE';
+}
+
+function scopeError(acting: ActingContext, zmccId: bigint): WeighingError | null {
+  const check = assertResourceInScope(acting, { sourceId: zmccId, sourceType: 'ZMCC' });
+  if (!check.ok) return new WeighingError(403, 'This portion belongs to another ZMCC.');
+  return null;
+}
+
+function parseId(value: string | number | bigint, label: string): bigint {
+  try {
+    return BigInt(String(value).trim());
+  } catch {
+    throw new WeighingError(400, `Invalid ${label}.`);
+  }
+}
+
+function parseWeightKg(value: unknown): number {
+  const n = typeof value === 'string' ? Number(value.trim()) : Number(value);
+  if (value === null || value === undefined || value === '' || !Number.isFinite(n) || n <= 0) {
+    throw new WeighingError(400, 'Enter the weight in kg. It must be more than 0.');
+  }
+  if (n > 200000) throw new WeighingError(400, 'This weight looks too big. Please check it.');
+  return Number(n.toFixed(3));
+}
+
+function toServiceError(err: unknown, fallback: string, label: string): ServiceResult<never> {
+  if (err instanceof WeighingError) return { status: err.status, error: err.message };
+  const msg = getErrorMessage(err) || '';
+  if (msg.startsWith('INSUFFICIENT_CAPACITY:')) return { status: 400, error: msg.replace('INSUFFICIENT_CAPACITY:', '') };
+  console.error(`${label} error:`, err);
+  return { status: 500, error: fallback };
+}
+
+async function lockAndLoadPortion(
+  tx: Prisma.TransactionClient,
+  portionId: bigint,
+  acting: ActingContext
+): Promise<PortionForWeighing> {
+  await tx.$queryRaw`SELECT id FROM zmcc_lab_portion WHERE id = ${portionId} FOR UPDATE`;
+  const portion = await tx.zmccLabPortion.findUnique({ where: { id: portionId }, include: WEIGHING_INCLUDE });
+  if (!portion) throw new WeighingError(404, 'Portion not found.');
+  const sErr = scopeError(acting, portion.lab_session.zmcc_id);
+  if (sErr) throw sErr;
+  if (portion.final_decision !== 'ACCEPTED') {
+    throw new WeighingError(400, 'Only accepted milk can be weighed.');
+  }
+  return portion;
+}
+
+function num(v: Prisma.Decimal | number | null | undefined): number | null {
+  return v === null || v === undefined ? null : Number(v);
+}
+
+export function serializeWeighingPortion(p: PortionForWeighing) {
+  const session = p.lab_session;
+  const journey = session.mot_arrival?.journey ?? null;
+  const supplier = session.local_supplier_arrival;
+  return {
+    id: p.id.toString(),
+    lab_session_id: p.lab_session_id.toString(),
+    portion_number: p.portion_number,
+    zmcc_id: session.zmcc_id.toString(),
+    source_type: session.arrival_type,
+    vehicle_number: journey?.mot_vehicle?.vehicle_number ?? supplier?.vehicle_number ?? null,
+    source_name: journey?.route?.route_code ?? supplier?.local_supplier?.name ?? null,
+    zmcc_token: session.mot_arrival?.zmcc_token ?? supplier?.zmcc_token ?? null,
+    step: getWeighingStep(p),
+    status: p.status,
+    lab_gross_liters: num(p.gross_liters),
+    first_weight_kg: num(p.first_weight_kg),
+    first_weight_at: p.first_weight_at ? p.first_weight_at.toISOString() : null,
+    second_weight_kg: num(p.second_weight_kg),
+    second_weight_at: p.second_weight_at ? p.second_weight_at.toISOString() : null,
+    net_weight_kg: num(p.net_weight_kg),
+    tank_id: p.tank_id ? p.tank_id.toString() : null,
+    tank_code: p.tank?.tank_code ?? null,
+    first_weight_is_delegated: p.first_weight_is_delegated,
+    second_weight_is_delegated: p.second_weight_is_delegated,
+  };
+}
+
+export type WeighingPortionView = ReturnType<typeof serializeWeighingPortion>;
+export type WeighingTankView = {
+  id: string;
+  zmcc_id: string;
+  tank_code: string;
+  tank_name: string;
+  capacity_liters: number;
+  available_capacity: number;
+};
+
+/** Accepted portions waiting for weighing (and ones weighed in the last 24 hours). */
+export async function listWeighingQueue(
+  acting: ActingContext
+): Promise<ServiceResult<{ items: WeighingPortionView[]; tanks: WeighingTankView[] }>> {
+  const zmccFilter = acting.scope.kind === 'SOURCE' ? { zmcc_id: acting.scope.sourceId } : {};
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const portions = await prisma.zmccLabPortion.findMany({
+    where: {
+      final_decision: 'ACCEPTED',
+      lab_session: zmccFilter,
+      OR: [{ status: 'ACCEPTED' }, { status: 'WEIGHED', second_weight_at: { gte: since } }],
+    },
+    include: WEIGHING_INCLUDE,
+    orderBy: [{ created_at: 'asc' }, { portion_number: 'asc' }],
+    take: 200,
+  });
+  const tankRows = await prisma.zmccTank.findMany({
+    where: { is_active: true, ...zmccFilter },
+    orderBy: { tank_code: 'asc' },
+  });
+  const tanks = await Promise.all(
+    tankRows.map(async (t) => {
+      const stock = await getTankPhysicalStock(t.id);
+      const cap = Number(t.capacity_liters);
+      return {
+        id: t.id.toString(),
+        zmcc_id: t.zmcc_id.toString(),
+        tank_code: t.tank_code,
+        tank_name: t.tank_name,
+        capacity_liters: cap,
+        available_capacity: Number(Math.max(0, cap - stock).toFixed(2)),
+      };
+    })
+  );
+  return { status: 200, data: { items: portions.map(serializeWeighingPortion), tanks } };
+}
+
+/** Step 1: weight of the full vehicle (kg). */
+export async function recordFirstWeight(
+  acting: ActingContext,
+  portionIdParam: string | number | bigint,
+  payload: { weight_kg?: unknown }
+): Promise<ServiceResult<{ portion: WeighingPortionView }>> {
+  try {
+    const portionId = parseId(portionIdParam, 'portion id');
+    const weight = parseWeightKg(payload?.weight_kg);
+    const updated = await prisma.$transaction(async (tx) => {
+      const portion = await lockAndLoadPortion(tx, portionId, acting);
+      if (portion.first_weight_kg !== null) {
+        throw new WeighingError(409, 'The first weight is already saved for this portion.');
+      }
+      await tx.zmccLabPortion.update({
+        where: { id: portionId },
+        data: {
+          first_weight_kg: new Prisma.Decimal(weight.toFixed(3)),
+          first_weight_at: new Date(),
+          first_weight_by_user_id: acting.userId,
+          ...asRoleFields(acting, 'first_weight'),
+        },
+      });
+      await writeAuditLog(tx, {
+        tableName: 'zmcc_lab_portion',
+        recordId: portionId,
+        action: 'ZMCC_PORTION_FIRST_WEIGHT',
+        oldValues: null,
+        newValues: {
+          lab_session_id: portion.lab_session_id.toString(),
+          portion_number: portion.portion_number,
+          first_weight_kg: weight,
+        },
+        actor: acting,
+      });
+      return tx.zmccLabPortion.findUniqueOrThrow({ where: { id: portionId }, include: WEIGHING_INCLUDE });
+    });
+    return { status: 200, data: { portion: serializeWeighingPortion(updated) } };
+  } catch (err) {
+    return toServiceError(err, 'Could not save the first weight.', 'recordFirstWeight');
+  }
+}
+
+/** Step 2: choose the tank the milk goes into. Stock is booked at the second weight. */
+export async function assignPortionTank(
+  acting: ActingContext,
+  portionIdParam: string | number | bigint,
+  payload: { tank_id?: string | number | bigint | null }
+): Promise<ServiceResult<{ portion: WeighingPortionView }>> {
+  try {
+    const portionId = parseId(portionIdParam, 'portion id');
+    const updated = await prisma.$transaction(async (tx) => {
+      const portion = await lockAndLoadPortion(tx, portionId, acting);
+      const step = getWeighingStep(portion);
+      if (step === 'FIRST_WEIGHT') throw new WeighingError(400, 'Save the first weight before choosing the tank.');
+      if (step !== 'TANK') throw new WeighingError(409, 'The tank is already chosen for this portion.');
+
+      const zmccId = portion.lab_session.zmcc_id;
+      const activeTanks = await tx.zmccTank.findMany({
+        where: { zmcc_id: zmccId, is_active: true },
+        orderBy: { id: 'asc' },
+      });
+      if (activeTanks.length === 0) throw new WeighingError(400, 'No active tank is set up for this ZMCC.');
+      let tank = activeTanks[0];
+      const supplied = payload?.tank_id;
+      if (supplied !== undefined && supplied !== null && String(supplied).trim() !== '') {
+        const suppliedId = parseId(supplied, 'tank id');
+        const found = activeTanks.find((t) => t.id === suppliedId);
+        if (!found) throw new WeighingError(400, 'This tank is not active in your ZMCC.');
+        tank = found;
+      } else if (activeTanks.length > 1) {
+        throw new WeighingError(400, 'Choose a tank.');
+      }
+
+      const stock = await getTankPhysicalStock(tank.id, tx);
+      const available = Math.max(0, Number(tank.capacity_liters) - stock);
+      const expected = num(portion.gross_liters) ?? 0;
+      if (expected > available) {
+        throw new WeighingError(
+          400,
+          `Tank is too full. ${available.toFixed(0)} L free; about ${expected.toFixed(0)} L needed.`
+        );
+      }
+
+      await tx.zmccLabPortion.update({ where: { id: portionId }, data: { tank_id: tank.id } });
+      await writeAuditLog(tx, {
+        tableName: 'zmcc_lab_portion',
+        recordId: portionId,
+        action: 'ZMCC_PORTION_TANK_ASSIGNED',
+        oldValues: null,
+        newValues: {
+          lab_session_id: portion.lab_session_id.toString(),
+          portion_number: portion.portion_number,
+          tank_id: tank.id.toString(),
+          tank_code: tank.tank_code,
+        },
+        actor: acting,
+      });
+      return tx.zmccLabPortion.findUniqueOrThrow({ where: { id: portionId }, include: WEIGHING_INCLUDE });
+    });
+    return { status: 200, data: { portion: serializeWeighingPortion(updated) } };
+  } catch (err) {
+    return toServiceError(err, 'Could not save the tank.', 'assignPortionTank');
+  }
+}
+
+/**
+ * Step 3: weight of the empty vehicle (kg). Net = first - second.
+ * Books the tank receipt, then closes the journey when every portion is done.
+ */
+export async function recordSecondWeight(
+  acting: ActingContext,
+  portionIdParam: string | number | bigint,
+  payload: { weight_kg?: unknown }
+): Promise<ServiceResult<{ portion: WeighingPortionView; journey_closed: boolean }>> {
+  try {
+    const portionId = parseId(portionIdParam, 'portion id');
+    const weight = parseWeightKg(payload?.weight_kg);
+    const result = await prisma.$transaction(async (tx) => {
+      const portion = await lockAndLoadPortion(tx, portionId, acting);
+      const step = getWeighingStep(portion);
+      if (step === 'FIRST_WEIGHT') throw new WeighingError(400, 'Save the first weight first.');
+      if (step === 'TANK') throw new WeighingError(400, 'Choose the tank before the second weight.');
+      if (step === 'DONE') throw new WeighingError(409, 'The second weight is already saved for this portion.');
+
+      const first = Number(portion.first_weight_kg);
+      if (weight >= first) {
+        throw new WeighingError(400, 'The second weight must be less than the first weight (empty vehicle).');
+      }
+      const net = Number((first - weight).toFixed(3));
+      const received = calculatePortionReceived({
+        netWeightKg: net,
+        density: num(portion.density),
+        lr: num(portion.lr),
+        ts: Number(portion.ts ?? 0),
+      });
+      if (received.grossLiters <= 0) throw new WeighingError(400, 'Net weight is too small. Please check the weights.');
+
+      const session = portion.lab_session;
+      const zmccId = session.zmcc_id;
+      const tankId = portion.tank_id!;
+      const now = new Date();
+
+      // Lock the tank and check room for the real (weighed) quantity.
+      const lockedTank: Array<{ id: bigint; zmcc_id: bigint; capacity_liters: Prisma.Decimal; is_active: boolean }> =
+        await tx.$queryRaw`SELECT id, zmcc_id, capacity_liters, is_active FROM zmcc_tank WHERE id = ${tankId} FOR UPDATE`;
+      if (!lockedTank.length || lockedTank[0].zmcc_id !== zmccId) throw new WeighingError(404, 'Tank not found.');
+      if (!lockedTank[0].is_active) throw new WeighingError(400, 'This tank is not active.');
+      const stock = await getTankPhysicalStock(tankId, tx);
+      const available = Math.max(0, Number(lockedTank[0].capacity_liters) - stock);
+      if (received.grossLiters > available) {
+        throw new WeighingError(
+          400,
+          `Tank is too full. ${available.toFixed(0)} L free; ${received.grossLiters.toFixed(0)} L needed.`
+        );
+      }
+
+      await tx.zmccLabPortion.update({
+        where: { id: portionId },
+        data: {
+          second_weight_kg: new Prisma.Decimal(weight.toFixed(3)),
+          second_weight_at: now,
+          second_weight_by_user_id: acting.userId,
+          ...asRoleFields(acting, 'second_weight'),
+          net_weight_kg: new Prisma.Decimal(net.toFixed(3)),
+          status: 'WEIGHED',
+        },
+      });
+      await writeAuditLog(tx, {
+        tableName: 'zmcc_lab_portion',
+        recordId: portionId,
+        action: 'ZMCC_PORTION_SECOND_WEIGHT',
+        oldValues: null,
+        newValues: {
+          lab_session_id: session.id.toString(),
+          portion_number: portion.portion_number,
+          first_weight_kg: first,
+          second_weight_kg: weight,
+          net_weight_kg: net,
+          gross_liters: received.grossLiters,
+          at_13ts_liters: received.at13tsLiters,
+          tank_id: tankId.toString(),
+        },
+        actor: acting,
+      });
+
+      await upsertSessionTankReceiptTx(tx, {
+        acting,
+        sessionId: session.id,
+        zmccId,
+        tankId,
+        arrivalType: session.arrival_type,
+        portionId,
+        portionGrossLiters: received.grossLiters,
+        portionAt13tsLiters: received.at13tsLiters,
+        now,
+      });
+
+      const journeyClosed = await closeJourneyIfDoneTx(tx, session.id, acting);
+      const fresh = await tx.zmccLabPortion.findUniqueOrThrow({ where: { id: portionId }, include: WEIGHING_INCLUDE });
+      return { fresh, journeyClosed };
+    });
+    return {
+      status: 200,
+      data: { portion: serializeWeighingPortion(result.fresh), journey_closed: result.journeyClosed },
+    };
+  } catch (err) {
+    return toServiceError(err, 'Could not save the second weight.', 'recordSecondWeight');
+  }
+}
+
+/**
+ * One tank receipt row per lab session (the unique key is still lab_session_id; per-portion
+ * uniqueness is deferred to P4d). Each weighed portion adds its own stock transaction
+ * (idempotency key per portion) and the receipt totals are rebuilt from all weighed portions:
+ * net kg, gross litres, @13 TS litres, and LR / Fat / SNF / TS weighted by net weight.
+ */
+async function upsertSessionTankReceiptTx(
+  tx: Prisma.TransactionClient,
+  p: {
+    acting: ActingContext;
+    sessionId: bigint;
+    zmccId: bigint;
+    tankId: bigint;
+    arrivalType: string;
+    portionId: bigint;
+    portionGrossLiters: number;
+    portionAt13tsLiters: number;
+    now: Date;
+  }
+): Promise<void> {
+  const weighed = await tx.zmccLabPortion.findMany({
+    where: { lab_session_id: p.sessionId, final_decision: 'ACCEPTED', net_weight_kg: { not: null } },
+    orderBy: { portion_number: 'asc' },
+  });
+  const rows = weighed.map((w) => {
+    const net = Number(w.net_weight_kg);
+    const m = calculatePortionReceived({
+      netWeightKg: net,
+      density: num(w.density),
+      lr: num(w.lr),
+      ts: Number(w.ts ?? 0),
+    });
+    return {
+      net,
+      gross: m.grossLiters,
+      at13: m.at13tsLiters,
+      density: m.density,
+      lr: Number(w.lr ?? 0),
+      fat: Number(w.fat ?? 0),
+      snf: Number(w.snf ?? 0),
+      ts: Number(w.ts ?? 0),
+    };
+  });
+  const totalNet = rows.reduce((a, r) => a + r.net, 0);
+  const wavg = (pick: (r: (typeof rows)[number]) => number) =>
+    weightedAverageByNetWeight(rows.map((r) => ({ netWeightKg: r.net, value: pick(r) })));
+  const totals = {
+    quantity_value: new Prisma.Decimal(totalNet.toFixed(2)),
+    density: new Prisma.Decimal(wavg((r) => r.density).toFixed(4)),
+    gross_liters: new Prisma.Decimal(rows.reduce((a, r) => a + r.gross, 0).toFixed(2)),
+    lr: new Prisma.Decimal(wavg((r) => r.lr).toFixed(2)),
+    fat: new Prisma.Decimal(wavg((r) => r.fat).toFixed(2)),
+    snf: new Prisma.Decimal(wavg((r) => r.snf).toFixed(2)),
+    // 13 TS: weighted by net weight (server side)
+    ts: new Prisma.Decimal(wavg((r) => r.ts).toFixed(2)),
+    at_13ts_liters: new Prisma.Decimal(rows.reduce((a, r) => a + r.at13, 0).toFixed(2)),
+  };
+
+  const existing = await tx.zmccTankReceipt.findUnique({ where: { lab_session_id: p.sessionId } });
+  // A session-level receipt booked earlier (older flow) already holds the stock: do not book it twice.
+  const legacyBooking = existing
+    ? await tx.zmccTankInventoryTransaction.findUnique({
+        where: { idempotency_key: `ZMCC_TANK_RECEIPT:LAB_SESSION:${p.sessionId}` },
+        select: { id: true },
+      })
+    : null;
+
+  let receiptId: bigint;
+  if (!existing) {
+    const created = await tx.zmccTankReceipt.create({
+      data: {
+        lab_session_id: p.sessionId,
+        zmcc_id: p.zmccId,
+        tank_id: p.tankId,
+        arrival_type: p.arrivalType,
+        quantity_unit: 'KG',
+        calculation_version: MOT_CALCULATION_VERSION,
+        received_at: p.now,
+        received_by_user_id: p.acting.userId,
+        portion_id: weighed.length === 1 ? p.portionId : null,
+        ...totals,
+      },
+    });
+    receiptId = created.id;
+    await writeAuditLog(tx, {
+      tableName: 'zmcc_tank_receipt',
+      recordId: created.id,
+      action: 'ZMCC_TANK_RECEIPT_CREATED',
+      oldValues: null,
+      newValues: {
+        lab_session_id: p.sessionId.toString(),
+        tank_id: p.tankId.toString(),
+        portions: weighed.length,
+        net_weight_kg: totalNet,
+        gross_liters: Number(totals.gross_liters),
+        at_13ts_liters: Number(totals.at_13ts_liters),
+        ts: Number(totals.ts),
+        ...primaryActorFields(p.acting),
+      },
+      actor: p.acting,
+    });
+  } else {
+    receiptId = existing.id;
+    if (!legacyBooking) {
+      await tx.zmccTankReceipt.update({
+        where: { id: existing.id },
+        data: { ...totals, portion_id: weighed.length === 1 ? p.portionId : null },
+      });
+      await writeAuditLog(tx, {
+        tableName: 'zmcc_tank_receipt',
+        recordId: existing.id,
+        action: 'ZMCC_TANK_RECEIPT_PORTION_ADDED',
+        oldValues: {
+          gross_liters: Number(existing.gross_liters),
+          at_13ts_liters: Number(existing.at_13ts_liters),
+          ts: Number(existing.ts),
+        },
+        newValues: {
+          portion_id: p.portionId.toString(),
+          portions: weighed.length,
+          net_weight_kg: totalNet,
+          gross_liters: Number(totals.gross_liters),
+          at_13ts_liters: Number(totals.at_13ts_liters),
+          ts: Number(totals.ts),
+        },
+        actor: p.acting,
+      });
+    }
+  }
+
+  if (legacyBooking) return;
+
+  await tx.zmccTankInventoryTransaction.create({
+    data: {
+      tank_id: p.tankId,
+      zmcc_id: p.zmccId,
+      transaction_type: 'RECEIPT',
+      quantity_liters: new Prisma.Decimal(p.portionGrossLiters.toFixed(2)),
+      at_13ts_liters: new Prisma.Decimal(p.portionAt13tsLiters.toFixed(2)),
+      tank_receipt_id: receiptId,
+      reference_type: 'ZMCC_LAB_PORTION',
+      reference_id: p.portionId.toString(),
+      idempotency_key: `ZMCC_TANK_RECEIPT:PORTION:${p.portionId}`,
+      operational_timestamp: p.now,
+      performed_by_user_id: p.acting.userId,
+      notes: `Tank receipt for ${p.arrivalType} portion (Session #${p.sessionId}, portion #${p.portionId})`,
+    },
+  });
+}
+
+/**
+ * Closes the journey when the lab is finished and every portion is either rejected or weighed.
+ * Stores Area (MOT) loss / gain from accepted portions only. Safe to call more than once.
+ */
+export async function closeJourneyIfDoneTx(
+  tx: Prisma.TransactionClient,
+  sessionId: bigint,
+  acting: ActingContext
+): Promise<boolean> {
+  const session = await tx.zmccLabSession.findUnique({
+    where: { id: sessionId },
+    include: { portions: true, mot_arrival: { select: { journey_id: true } } },
+  });
+  if (!session || session.journey_closed_at || session.status !== 'COMPLETED') return false;
+
+  const portions = session.portions;
+  const weighedCount = portions.filter((x) => x.final_decision === 'ACCEPTED' && x.status === 'WEIGHED').length;
+  const allDone = portions.every(
+    (x) => x.final_decision === 'REJECTED' || (x.final_decision === 'ACCEPTED' && x.status === 'WEIGHED')
+  );
+  if (portions.length === 0 || weighedCount === 0 || !allDone) return false;
+
+  await tx.zmccLabSession.update({
+    where: { id: sessionId },
+    data: { journey_closed_at: new Date(), closed_reason: 'ALL_PORTIONS_WEIGHED' },
+  });
+  await writeAuditLog(tx, {
+    tableName: 'zmcc_lab_session',
+    recordId: sessionId,
+    action: 'ZMCC_JOURNEY_CLOSED',
+    oldValues: null,
+    newValues: { closed_reason: 'ALL_PORTIONS_WEIGHED', weighed_portions: weighedCount },
+    actor: acting,
+  });
+
+  if (session.mot_arrival?.journey_id) {
+    await computeAndStoreAreaLossTx(tx, { journeyId: session.mot_arrival.journey_id, sessionId, actor: acting });
+  }
+  return true;
 }

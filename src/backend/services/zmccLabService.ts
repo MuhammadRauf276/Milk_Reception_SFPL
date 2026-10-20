@@ -1,6 +1,30 @@
 import { prisma } from '@core/db';
 import { writeAuditLog } from '@/backend/core/audit';
 import { isCorrectionAuthority } from '@/backend/core/roles/capabilities';
+import { canActAs } from '@/backend/core/roles/hierarchy';
+import { asRoleFields, primaryActorFields, resolveActingContext } from '@/backend/core/acting-context';
+import {
+  MAX_LAB_PORTIONS,
+  buildLabPortionDecision,
+  summarizePortions,
+  type LabPoint,
+  type LabPolicySnapshot,
+  type LabPortionView,
+  type LabTestMode,
+} from '@/backend/services/zmcc/labPortionDecision';
+import {
+  auditActorOf,
+  labPointForArrival,
+  loadLabPolicy,
+  loadPortionPhotos,
+  rollUpLabSessionTx,
+  toPortionView,
+  type LabSessionRollUp,
+} from '@/backend/services/zmcc/labPortionReviewService';
+import type { PersonDecision } from '@/types/stage1-decision';
+import { recordRejectedMilkForDisposition } from '@/backend/services/rejectedMilkDispositionService';
+import { ACTING_AS_HEADER } from '@/backend/core/route-guards';
+import type { ActingContext } from '@/types/acting';
 import {
   Prisma,
   QuantityUnit,
@@ -43,7 +67,12 @@ export interface ZmccLabAuthContext {
   isZmccManager: boolean;
   isMpdHead: boolean;
   isZmccLabAttendant: boolean;
+  /** Own ZMCC for source-scoped actors; null = whole system (Super Admin, Data Executive, MPD Head). */
   effectiveZmccId: bigint | null;
+  /** Who is acting as which role (delegation record for *_as_role / *_is_delegated). */
+  acting: ActingContext;
+  /** "If you can approve it, you can decide it": Zonal Manager or above, never Data Executive. */
+  deciderCanApprove: boolean;
 }
 
 export type ZmccLabAction =
@@ -52,7 +81,10 @@ export type ZmccLabAction =
   | 'UPDATE_DRAFT'
   | 'COMPLETE_SESSION'
   | 'CORRECT_SESSION'
-  | 'ISSUE_LOCAL_SUPPLIER_RMR';
+  | 'ISSUE_LOCAL_SUPPLIER_RMR'
+  | 'SETUP_PORTIONS'
+  | 'DECIDE_PORTION'
+  | 'REQUEST_SOURCE';
 
 export interface ServiceResult<T> {
   status: number;
@@ -60,12 +92,24 @@ export interface ServiceResult<T> {
   error?: string;
 }
 
+// Lab work is the Lab Attendant's; every role above it (Zonal Manager, MPD Head, Super Admin) may do it by delegation.
+const LAB_WORK_ROLES = ['ZMCC_LAB_ATTENDANT'] as const;
+const LAB_READ_ROLES = ['ZMCC_LAB_ATTENDANT', 'DATA_EXECUTIVE'] as const;
+
+const SCOPE_MESSAGES: Record<string, string> = {
+  OUTSIDE_SCOPE: 'Forbidden. This record is outside your area.',
+  SOURCE_TYPE_MISMATCH: 'Forbidden. This record is for a different kind of source.',
+  NO_SCOPE_BOUND: 'Forbidden. User must be assigned to an active ZMCC procurement source.',
+  CANNOT_ACT_AS: 'Forbidden. You cannot work as this role.',
+};
+
 export async function resolveZmccLabAuth(
   reqOrUser?: Request | User,
   action: ZmccLabAction = 'READ_LAB'
 ): Promise<{ auth?: ZmccLabAuthContext; errorResponse?: { error: string; status: number } }> {
   let authUser: User | null = null;
-  if (reqOrUser && 'role' in reqOrUser && 'id' in reqOrUser) {
+  const isRequest = typeof Request !== 'undefined' && reqOrUser instanceof Request;
+  if (reqOrUser && !isRequest && 'role' in reqOrUser && 'id' in reqOrUser) {
     authUser = reqOrUser as User;
   } else {
     authUser = await getCurrentUser(reqOrUser as Request);
@@ -100,90 +144,69 @@ export async function resolveZmccLabAuth(
   const isMpdHead = role === 'HEAD_OF_MPD';
   const isZmccLabAttendant = role === 'ZMCC_LAB_ATTENDANT';
 
-  // Permission checks by action
-  if (action === 'ISSUE_LOCAL_SUPPLIER_RMR') {
-    if (!isZmccLabAttendant && !isSuperAdmin) {
-      return { errorResponse: { error: 'Forbidden. Only ZMCC Lab Attendants or Super Admins may issue Local Supplier RMRs.', status: 403 } };
-    }
-  } else if (action === 'START_OR_RESUME_SESSION' || action === 'UPDATE_DRAFT' || action === 'COMPLETE_SESSION') {
-    if (!isZmccLabAttendant) {
-      return {
-        errorResponse: {
-          error: 'Forbidden. Only ZMCC Lab Attendants may perform testing sessions.',
-          status: 403,
-        },
-      };
-    }
-  } else if (action === 'CORRECT_SESSION') {
+  const user: User = {
+    id: dbUser.id.toString(),
+    username: dbUser.username,
+    name: dbUser.full_name || dbUser.username,
+    role: dbUser.role as Role,
+    department: dbUser.department || '',
+    scope_type: dbUser.scope_type,
+    procurement_source_id: dbUser.procurement_source_id ? dbUser.procurement_source_id.toString() : null,
+    procurement_source: dbUser.procurement_source
+      ? {
+          id: dbUser.procurement_source.id.toString(),
+          code: dbUser.procurement_source.code,
+          name: dbUser.procurement_source.name,
+          source_type: dbUser.procurement_source.source_type,
+          is_active: dbUser.procurement_source.is_active,
+        }
+      : null,
+  };
+
+  // Permission checks by action, through the acting context (delegation to ancestors, own ZMCC scope).
+  const requestedAs = isRequest ? (reqOrUser as Request).headers.get(ACTING_AS_HEADER) : null;
+  let allowed: readonly string[];
+  let delegation: 'ancestors' | 'none' = 'ancestors';
+  let forbiddenMessage: string;
+  if (action === 'CORRECT_SESSION') {
     // CORRECT is non-delegable: Data Executive and Super Admin only.
-    if (!isCorrectionAuthority(role)) {
-      return {
-        errorResponse: {
-          error: 'Forbidden. Only Data Executive or Super Admin may correct finalized lab records.',
-          status: 403,
-        },
-      };
-    }
+    allowed = ['DATA_EXECUTIVE'];
+    delegation = 'none';
+    forbiddenMessage = 'Forbidden. Only Data Executive or Super Admin may correct finalized lab records.';
   } else if (action === 'READ_LAB') {
-    if (!isSuperAdmin && !isMpdHead && !isZmccManager && !isZmccLabAttendant && !isDataExecutive) {
-      return {
-        errorResponse: {
-          error: 'Forbidden. You do not have permission to access ZMCC laboratory data.',
-          status: 403,
-        },
-      };
-    }
+    allowed = LAB_READ_ROLES;
+    forbiddenMessage = 'Forbidden. You do not have permission to access ZMCC laboratory data.';
+  } else if (action === 'ISSUE_LOCAL_SUPPLIER_RMR') {
+    allowed = LAB_WORK_ROLES;
+    forbiddenMessage = 'Forbidden. Only the ZMCC Lab Attendant (or a superior) may issue Local Supplier RMRs.';
+  } else {
+    allowed = LAB_WORK_ROLES;
+    forbiddenMessage = 'Forbidden. Only the ZMCC Lab Attendant (or a superior) may do laboratory testing.';
+  }
+
+  const resolved = resolveActingContext(user, allowed, { delegation, requestedAs });
+  if (!resolved.ok) {
+    if (resolved.code === 'FORBIDDEN') return { errorResponse: { error: forbiddenMessage, status: 403 } };
+    return { errorResponse: { error: SCOPE_MESSAGES[resolved.code] ?? forbiddenMessage, status: 403 } };
+  }
+  const acting = resolved.ctx;
+  if (action === 'CORRECT_SESSION' && !isCorrectionAuthority(role)) {
+    return { errorResponse: { error: forbiddenMessage, status: 403 } };
   }
 
   let effectiveZmccId: bigint | null = null;
-  if (!isSuperAdmin && !isMpdHead && !isDataExecutive) {
-    if (!dbUser.procurement_source_id || !dbUser.procurement_source) {
-      return {
-        errorResponse: {
-          error: 'Forbidden. User must be assigned to an active ZMCC procurement source.',
-          status: 403,
-        },
-      };
+  if (acting.scope.kind === 'SOURCE') {
+    if (acting.scope.sourceType !== 'ZMCC') {
+      return { errorResponse: { error: 'Forbidden. Assigned procurement source is not a ZMCC.', status: 403 } };
     }
-    if (!dbUser.procurement_source.is_active) {
-      return {
-        errorResponse: {
-          error: 'Forbidden. Assigned procurement source is inactive.',
-          status: 403,
-        },
-      };
-    }
-    if (dbUser.procurement_source.source_type !== 'ZMCC') {
-      return {
-        errorResponse: {
-          error: 'Forbidden. Assigned procurement source is not a ZMCC.',
-          status: 403,
-        },
-      };
-    }
-    effectiveZmccId = dbUser.procurement_source_id;
+    effectiveZmccId = acting.scope.sourceId;
+  } else if (acting.scope.kind !== 'SYSTEM') {
+    return { errorResponse: { error: forbiddenMessage, status: 403 } };
   }
 
   return {
     auth: {
-      user: {
-        id: dbUser.id.toString(),
-        username: dbUser.username,
-        name: dbUser.full_name || dbUser.username,
-        role: dbUser.role as Role,
-        department: dbUser.department || '',
-        scope_type: dbUser.scope_type,
-        procurement_source_id: dbUser.procurement_source_id ? dbUser.procurement_source_id.toString() : null,
-        procurement_source: dbUser.procurement_source
-          ? {
-              id: dbUser.procurement_source.id.toString(),
-              code: dbUser.procurement_source.code,
-              name: dbUser.procurement_source.name,
-              source_type: dbUser.procurement_source.source_type,
-              is_active: dbUser.procurement_source.is_active,
-            }
-          : null,
-      },
+      user,
       actorUserId,
       role,
       isSuperAdmin,
@@ -192,6 +215,8 @@ export async function resolveZmccLabAuth(
       isMpdHead,
       isZmccLabAttendant,
       effectiveZmccId,
+      acting,
+      deciderCanApprove: role !== 'DATA_EXECUTIVE' && canActAs(role, 'ZMCC_MANAGER'),
     },
   };
 }
@@ -239,7 +264,7 @@ export async function issueLocalSupplierRmr(
         where: { id: arrivalId }, include: { lab_session: { include: { tank_receipt: true } }, rmr_issuance: true },
       });
       if (!arrival) throw new Error('ARRIVAL_NOT_FOUND');
-      if (!auth.isSuperAdmin && arrival.zmcc_id !== auth.effectiveZmccId!) throw new Error('FORBIDDEN_SOURCE');
+      if (auth.effectiveZmccId !== null && arrival.zmcc_id !== auth.effectiveZmccId) throw new Error('FORBIDDEN_SOURCE');
       const session = arrival.lab_session;
       if (!session || (session.final_decision || session.decision) !== 'ACCEPTED' || !session.tank_receipt || !session.quantity_value || !session.quantity_unit) throw new Error('NOT_FINALLY_ACCEPTED');
       const byKey = await tx.localSupplierRmrIssuance.findUnique({ where: { idempotency_key: idempotencyKey } });
@@ -847,7 +872,7 @@ export async function startOrResumeSession(
       return { status: 404, error: 'MOT Arrival not found.' };
     }
 
-    if (!auth.isSuperAdmin && arrival.zmcc_id !== auth.effectiveZmccId!) {
+    if (auth.effectiveZmccId !== null && arrival.zmcc_id !== auth.effectiveZmccId) {
       return { status: 403, error: 'Forbidden. Arrival record belongs to another ZMCC.' };
     }
 
@@ -886,7 +911,7 @@ export async function startOrResumeSession(
       return { status: 404, error: 'Contractor Arrival not found.' };
     }
 
-    if (!auth.isSuperAdmin && arrival.zmcc_id !== auth.effectiveZmccId!) {
+    if (auth.effectiveZmccId !== null && arrival.zmcc_id !== auth.effectiveZmccId) {
       return { status: 403, error: 'Forbidden. Arrival record belongs to another ZMCC.' };
     }
 
@@ -925,7 +950,7 @@ export async function startOrResumeSession(
       return { status: 404, error: 'Local Supplier Arrival not found.' };
     }
 
-    if (!auth.isSuperAdmin && arrival.zmcc_id !== auth.effectiveZmccId!) {
+    if (auth.effectiveZmccId !== null && arrival.zmcc_id !== auth.effectiveZmccId) {
       return { status: 403, error: 'Forbidden. Arrival record belongs to another ZMCC.' };
     }
 
@@ -1157,7 +1182,7 @@ export async function getSessionById(
     return { status: 404, error: 'ZMCC Lab session not found.' };
   }
 
-  if (!auth.isSuperAdmin && !auth.isMpdHead && session.zmcc_id !== auth.effectiveZmccId!) {
+  if (auth.effectiveZmccId !== null && session.zmcc_id !== auth.effectiveZmccId) {
     return { status: 403, error: 'Forbidden. Lab session belongs to another ZMCC.' };
   }
 
@@ -1205,7 +1230,7 @@ export async function updateDraftResults(
     return { status: 404, error: 'ZMCC Lab session not found.' };
   }
 
-  if (!auth.isSuperAdmin && !auth.isMpdHead && session.zmcc_id !== auth.effectiveZmccId!) {
+  if (auth.effectiveZmccId !== null && session.zmcc_id !== auth.effectiveZmccId) {
     return { status: 403, error: 'Forbidden. Lab session belongs to another ZMCC.' };
   }
 
@@ -1673,7 +1698,7 @@ export async function completeSession(
     return { status: 404, error: 'ZMCC Lab session not found.' };
   }
 
-  if (!auth.isSuperAdmin && !auth.isMpdHead && session.zmcc_id !== auth.effectiveZmccId!) {
+  if (auth.effectiveZmccId !== null && session.zmcc_id !== auth.effectiveZmccId) {
     return { status: 403, error: 'Forbidden. Lab session belongs to another ZMCC.' };
   }
 
@@ -2342,7 +2367,7 @@ export async function correctCompletedSession(
     return { status: 404, error: 'ZMCC Lab session not found.' };
   }
 
-  if (!auth.isSuperAdmin && !auth.isMpdHead && !auth.isDataExecutive && session.zmcc_id !== auth.effectiveZmccId!) {
+  if (auth.effectiveZmccId !== null && session.zmcc_id !== auth.effectiveZmccId) {
     return { status: 403, error: 'Forbidden. Lab session belongs to another ZMCC.' };
   }
 
@@ -3349,3 +3374,402 @@ export async function getLabHistory(
 
 export const completeLabSession = completeSession;
 export const correctLabSession = correctCompletedSession;
+
+// ---------------------------------------------------------------------------------------------
+// Phase 4b Stage 2: portions (composite = 1 portion, portion-wise = N portions) and per-portion decisions
+// ---------------------------------------------------------------------------------------------
+
+export interface LabPortionsState {
+  sessionId: string;
+  sessionStatus: string;
+  arrivalType: string;
+  testMode: LabTestMode;
+  point: LabPoint;
+  policy: LabPolicySnapshot;
+  portions: LabPortionView[];
+  canDecideNow: boolean;
+  actorUserId: string;
+  rollUp: ReturnType<typeof summarizePortions>;
+  journeyClosed: boolean;
+  closedReason: string | null;
+}
+
+function parseId(value: unknown): bigint | null {
+  const s = String(value ?? '').trim();
+  return /^\d{1,18}$/.test(s) ? BigInt(s) : null;
+}
+
+async function buildPortionsState(auth: ZmccLabAuthContext, sessionId: bigint): Promise<ServiceResult<LabPortionsState>> {
+  const session = await prisma.zmccLabSession.findUnique({
+    where: { id: sessionId },
+    include: { portions: { orderBy: { portion_number: 'asc' } } },
+  });
+  if (!session) return { status: 404, error: 'ZMCC Lab session not found.' };
+  if (auth.effectiveZmccId !== null && session.zmcc_id !== auth.effectiveZmccId) {
+    return { status: 403, error: 'Forbidden. Lab session belongs to another ZMCC.' };
+  }
+  const point = labPointForArrival(session.arrival_type);
+  const policy = await loadLabPolicy(point);
+  const photos = await loadPortionPhotos(prisma, session.portions.map((p) => p.id));
+  const portions = session.portions.map((p) => toPortionView(p, photos.get(p.id.toString()) ?? []));
+  return {
+    status: 200,
+    data: {
+      sessionId: session.id.toString(),
+      sessionStatus: session.status,
+      arrivalType: session.arrival_type,
+      testMode: session.test_mode === 'PORTION_WISE' ? 'PORTION_WISE' : 'COMPOSITE',
+      point,
+      policy,
+      portions,
+      canDecideNow: auth.deciderCanApprove,
+      actorUserId: auth.actorUserId.toString(),
+      rollUp: summarizePortions(portions),
+      journeyClosed: !!session.journey_closed_at,
+      closedReason: session.closed_reason,
+    },
+  };
+}
+
+export async function getLabPortions(
+  reqOrUser: Request | User,
+  sessionIdParam: string | number | bigint
+): Promise<ServiceResult<LabPortionsState>> {
+  const { auth, errorResponse } = await resolveZmccLabAuth(reqOrUser, 'READ_LAB');
+  if (errorResponse) return errorResponse;
+  if (!auth) return { status: 401, error: 'Unauthorized.' };
+  const sessionId = parseId(sessionIdParam);
+  if (sessionId === null) return { status: 400, error: 'Invalid session ID format.' };
+  return buildPortionsState(auth, sessionId);
+}
+
+export interface SetupPortionsPayload {
+  test_mode: LabTestMode | string;
+  portion_count?: number | string | null;
+}
+
+/** Chooses composite (1 portion) or portion-wise (N portions). Allowed only while no portion has a decision. */
+export async function setupLabPortions(
+  reqOrUser: Request | User,
+  sessionIdParam: string | number | bigint,
+  payload: SetupPortionsPayload
+): Promise<ServiceResult<LabPortionsState>> {
+  const { auth, errorResponse } = await resolveZmccLabAuth(reqOrUser, 'SETUP_PORTIONS');
+  if (errorResponse) return errorResponse;
+  if (!auth) return { status: 401, error: 'Unauthorized.' };
+  const sessionId = parseId(sessionIdParam);
+  if (sessionId === null) return { status: 400, error: 'Invalid session ID format.' };
+
+  const mode = String(payload?.test_mode ?? '').trim().toUpperCase();
+  if (mode !== 'COMPOSITE' && mode !== 'PORTION_WISE') {
+    return { status: 400, error: 'Choose Composite or Portion-wise.' };
+  }
+  const count = mode === 'COMPOSITE' ? 1 : Number(payload?.portion_count);
+  if (!Number.isInteger(count) || count < 1 || count > MAX_LAB_PORTIONS) {
+    return { status: 400, error: `Number of portions must be 1 to ${MAX_LAB_PORTIONS}.` };
+  }
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const locked: Array<{ id: bigint; status: string; zmcc_id: bigint; test_mode: string }> = await tx.$queryRaw`
+        SELECT id, status, zmcc_id, test_mode FROM zmcc_lab_session WHERE id = ${sessionId} FOR UPDATE
+      `;
+      if (locked.length === 0) throw new Error('SESSION_NOT_FOUND');
+      const s = locked[0];
+      if (auth.effectiveZmccId !== null && s.zmcc_id !== auth.effectiveZmccId) throw new Error('FORBIDDEN_SOURCE');
+      if (s.status !== 'IN_PROGRESS') throw new Error('SESSION_CLOSED');
+
+      const existing = await tx.zmccLabPortion.findMany({ where: { lab_session_id: sessionId }, orderBy: { portion_number: 'asc' } });
+      if (existing.some((p) => p.person_decision !== null || p.final_decision !== 'PENDING')) throw new Error('ALREADY_DECIDED');
+
+      const keep = existing.filter((p) => p.portion_number <= count);
+      const drop = existing.filter((p) => p.portion_number > count);
+      if (drop.length > 0) await tx.zmccLabPortion.deleteMany({ where: { id: { in: drop.map((p) => p.id) } } });
+      const have = new Set(keep.map((p) => p.portion_number));
+      for (let n = 1; n <= count; n++) {
+        if (have.has(n)) continue;
+        await tx.zmccLabPortion.create({
+          data: {
+            lab_session_id: sessionId,
+            portion_number: n,
+            status: 'TESTING',
+            final_decision: 'PENDING',
+            created_by_user_id: auth.actorUserId,
+            ...primaryActorFields(auth.acting),
+          },
+        });
+      }
+      await tx.zmccLabSession.update({ where: { id: sessionId }, data: { test_mode: mode } });
+
+      await writeAuditLog(tx, {
+        tableName: 'zmcc_lab_session',
+        recordId: sessionId,
+        action: 'ZMCC_LAB_PORTIONS_SET',
+        oldValues: { test_mode: s.test_mode, portions: existing.length },
+        newValues: { test_mode: mode, portions: count, removed_portion_numbers: drop.map((p) => p.portion_number) },
+        actor: auditActorOf(auth.acting),
+      });
+    });
+  } catch (err) {
+    const msg = getErrorMessage(err);
+    const known: Record<string, [number, string]> = {
+      SESSION_NOT_FOUND: [404, 'ZMCC Lab session not found.'],
+      FORBIDDEN_SOURCE: [403, 'Forbidden. Lab session belongs to another ZMCC.'],
+      SESSION_CLOSED: [409, 'This lab session is already finished.'],
+      ALREADY_DECIDED: [409, 'A portion already has a decision. Portions cannot be changed now.'],
+    };
+    if (known[msg]) return { status: known[msg][0], error: known[msg][1] };
+    console.error('setupLabPortions error:', err);
+    return { status: 500, error: 'Failed to set up portions.' };
+  }
+
+  return buildPortionsState(auth, sessionId);
+}
+
+export interface PortionDecisionPayload {
+  version: number;
+  person_decision: 'ACCEPT' | 'REJECT' | string;
+  remarks?: string | null;
+  quantity_value?: number | string | null;
+  quantity_unit?: 'KG' | 'LITER' | string | null;
+  tests: Array<{ lab_test_id: string; value?: number | string | null; text_value?: string | null }>;
+}
+
+/**
+ * Saves the tests of one portion and the person's ACCEPT / REJECT, then applies the decision rule:
+ * PROCEED / REJECT finish the portion; an exception goes to the Zonal Manager, or is decided now
+ * when the person may approve it (Zonal Manager or above).
+ */
+export async function submitPortionDecision(
+  reqOrUser: Request | User,
+  sessionIdParam: string | number | bigint,
+  portionIdParam: string | number | bigint,
+  payload: PortionDecisionPayload
+): Promise<ServiceResult<{ portion: LabPortionView; route: string; rollUp: LabSessionRollUp }>> {
+  const { auth, errorResponse } = await resolveZmccLabAuth(reqOrUser, 'DECIDE_PORTION');
+  if (errorResponse) return errorResponse;
+  if (!auth) return { status: 401, error: 'Unauthorized.' };
+  const sessionId = parseId(sessionIdParam);
+  const portionId = parseId(portionIdParam);
+  if (sessionId === null || portionId === null) return { status: 400, error: 'Invalid session or portion ID.' };
+
+  const personDecision = String(payload?.person_decision ?? '').toUpperCase();
+  if (personDecision !== 'ACCEPT' && personDecision !== 'REJECT') return { status: 400, error: 'Choose Accept or Reject.' };
+  const version = Number(payload?.version);
+  if (!Number.isInteger(version)) return { status: 400, error: 'Version is required.' };
+  if (!Array.isArray(payload?.tests)) return { status: 400, error: 'Test results are required.' };
+
+  let quantity: number | null = null;
+  let unit: 'KG' | 'LITER' | null = null;
+  if (payload.quantity_value !== undefined && payload.quantity_value !== null && String(payload.quantity_value).trim() !== '') {
+    quantity = Number(payload.quantity_value);
+    if (!Number.isFinite(quantity) || quantity <= 0) return { status: 400, error: 'Quantity must be more than 0.' };
+    const u = String(payload.quantity_unit ?? '').trim().toUpperCase();
+    if (u !== 'KG' && u !== 'LITER') return { status: 400, error: 'Quantity unit must be KG or LITER.' };
+    unit = u;
+  }
+
+  const portion = await prisma.zmccLabPortion.findUnique({
+    where: { id: portionId },
+    include: { lab_session: { select: { id: true, zmcc_id: true, status: true, arrival_type: true } } },
+  });
+  if (!portion || portion.lab_session_id !== sessionId) return { status: 404, error: 'Portion not found.' };
+  if (auth.effectiveZmccId !== null && portion.lab_session.zmcc_id !== auth.effectiveZmccId) {
+    return { status: 403, error: 'Forbidden. Lab session belongs to another ZMCC.' };
+  }
+  if (portion.lab_session.status !== 'IN_PROGRESS') return { status: 409, error: 'This lab session is already finished.' };
+  if (portion.status !== 'TESTING' || portion.final_decision !== 'PENDING' || portion.review_status === 'PENDING') {
+    return { status: 409, error: 'This portion already has a decision. Reload.' };
+  }
+  if (portion.version !== version) return { status: 409, error: 'This portion was changed by someone else. Reload.' };
+
+  const point = labPointForArrival(portion.lab_session.arrival_type);
+  const policy = await loadLabPolicy(point);
+  const allowedTests = new Set(policy.tests.map((t) => t.labTestId));
+  for (const t of payload.tests) {
+    if (!t || !allowedTests.has(String(t.lab_test_id))) return { status: 400, error: 'A test does not belong to this lab point.' };
+    const pt = policy.tests.find((x) => x.labTestId === String(t.lab_test_id))!;
+    if (pt.resultType === 'NUMERIC' && t.value !== undefined && t.value !== null && String(t.value).trim() !== '') {
+      const n = Number(t.value);
+      if (!Number.isFinite(n) || n < 0) return { status: 400, error: `${pt.testName}: enter a number of 0 or more.` };
+    }
+    const text = (t.text_value ?? '').trim();
+    if (pt.resultType !== 'NUMERIC' && text && pt.options && !pt.options.some((o) => o.toUpperCase() === text.toUpperCase())) {
+      return { status: 400, error: `${pt.testName}: choose one of the options.` };
+    }
+  }
+
+  // Server-side photo enforcement: only photos saved for this portion count.
+  const photoMap = await loadPortionPhotos(prisma, [portionId]);
+  const savedPhotos = (photoMap.get(portionId.toString()) ?? []).map((p) => ({
+    labTestId: p.lab_test_id?.toString() ?? null,
+    captureId: p.capture_id,
+  }));
+
+  const remarks = (payload.remarks ?? '').trim();
+  const { decision, details } = buildLabPortionDecision(policy, {
+    tests: payload.tests.map((t) => ({
+      labTestId: String(t.lab_test_id),
+      value: t.value === undefined || t.value === null || String(t.value).trim() === '' ? null : Number(t.value),
+      textValue: t.text_value ?? null,
+    })),
+    photos: savedPhotos,
+    personDecision: personDecision as PersonDecision,
+    remarks,
+    deciderCanApprove: auth.deciderCanApprove,
+  });
+  if (!decision.remarksOk) return { status: 400, error: 'Please write remarks (at least 3 letters).' };
+
+  let metrics: ReturnType<typeof computeCanonicalMilkMetrics> | null = null;
+  if (quantity !== null && unit !== null && details.lr !== null && details.fat !== null) {
+    try {
+      metrics = computeCanonicalMilkMetrics(quantity, unit, details.lr, details.fat);
+    } catch (err) {
+      return { status: 400, error: getErrorMessage(err) || 'Could not calculate litres from these values.' };
+    }
+  }
+
+  const now = new Date();
+  const portionStatus = decision.finalDecision === 'PENDING' ? 'PENDING_REVIEW' : decision.finalDecision;
+
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const upd = await tx.zmccLabPortion.updateMany({
+        where: { id: portionId, version, status: 'TESTING', final_decision: 'PENDING' },
+        data: {
+          status: portionStatus,
+          system_outcome: decision.systemOutcome,
+          person_decision: personDecision,
+          decision_remarks: remarks || null,
+          exception_reasons: toJsonInput(decision.exceptionReasons),
+          review_status: decision.reviewStatus,
+          final_decision: decision.finalDecision,
+          decision_details: toJsonInput(details),
+          decided_at: now,
+          created_by_user_id: auth.actorUserId,
+          ...primaryActorFields(auth.acting),
+          lr: details.lr !== null ? new Prisma.Decimal(details.lr.toFixed(2)) : null,
+          fat: details.fat !== null ? new Prisma.Decimal(details.fat.toFixed(2)) : null,
+          quantity_value: quantity !== null ? new Prisma.Decimal(quantity.toFixed(2)) : null,
+          quantity_unit: unit as QuantityUnit | null,
+          density: metrics ? new Prisma.Decimal(metrics.density.toFixed(4)) : null,
+          gross_liters: metrics ? new Prisma.Decimal(metrics.grossLiters.toFixed(2)) : null,
+          snf: metrics ? new Prisma.Decimal(metrics.snf.toFixed(2)) : null,
+          ts: metrics ? new Prisma.Decimal(metrics.ts.toFixed(2)) : null,
+          at_13ts_liters: metrics ? new Prisma.Decimal(metrics.at13tsLiters.toFixed(2)) : null,
+          calculation_version: metrics ? metrics.calculationVersion : null,
+          // DECIDE_NOW: the superior's own exception is decided on the same screen.
+          ...(decision.route === 'DECIDE_NOW'
+            ? {
+                reviewed_by_user_id: auth.actorUserId,
+                reviewed_at: now,
+                review_remarks: remarks || null,
+                ...asRoleFields(auth.acting, 'reviewed'),
+              }
+            : {}),
+          version: { increment: 1 },
+        },
+      });
+      if (upd.count !== 1) throw new Error('VERSION_CONFLICT');
+
+      await writeAuditLog(tx, {
+        tableName: 'zmcc_lab_portion',
+        recordId: portionId,
+        action: decision.route === 'SEND_TO_APPROVER' ? 'ZMCC_LAB_PORTION_SENT_TO_ZM' : 'ZMCC_LAB_PORTION_DECIDED',
+        oldValues: { status: portion.status, final_decision: portion.final_decision, version: portion.version },
+        newValues: {
+          lab_session_id: sessionId.toString(),
+          portion_number: portion.portion_number,
+          point,
+          policy_version: policy.version,
+          route: decision.route,
+          system_outcome: decision.systemOutcome,
+          person_decision: personDecision,
+          exception_reasons: decision.exceptionReasons,
+          review_status: decision.reviewStatus,
+          final_decision: decision.finalDecision,
+          remarks: remarks || null,
+          lr: details.lr,
+          fat: details.fat,
+          gross_liters: metrics?.grossLiters ?? null,
+          photos: savedPhotos.map((p) => p.captureId),
+        },
+        actor: auditActorOf(auth.acting),
+      });
+
+      if (decision.route === 'SEND_TO_APPROVER') {
+        await createNotificationsForEvent(tx, {
+          eventKey: 'ZMCC_LAB_EXCEPTION_PENDING',
+          sourceId: portionId.toString(),
+          sourceZmccId: portion.lab_session.zmcc_id,
+          title: 'Lab portion needs your decision',
+          body: `Portion ${portion.portion_number} (session #${sessionId}): ${decision.exceptionReasons.join(', ')}. Lab said ${personDecision === 'ACCEPT' ? 'accept' : 'reject'}.${remarks ? ` Reason: ${remarks}` : ''}`,
+          deepLink: '/mpd/zmcc-manager?tab=APPROVALS&view=LAB_EXCEPTIONS',
+          dedupeSuffix: `portion:${portionId}:v${version}`,
+        });
+      }
+
+      if (decision.finalDecision === 'REJECTED') {
+        // MPD Head adds remarks on rejected milk (queue + notification).
+        await recordRejectedMilkForDisposition(tx, {
+          portionId,
+          zmccId: portion.lab_session.zmcc_id,
+          summary: `session #${sessionId} portion ${portion.portion_number}${metrics ? ` / ${metrics.grossLiters.toFixed(0)} L` : ''}`,
+          actor: auditActorOf(auth.acting),
+        });
+      }
+      const rollUp = await rollUpLabSessionTx(tx, sessionId, auth.acting);
+      const fresh = await tx.zmccLabPortion.findUniqueOrThrow({ where: { id: portionId } });
+      return { portion: toPortionView(fresh, photoMap.get(portionId.toString()) ?? []), route: decision.route, rollUp };
+    });
+    return { status: 200, data: result };
+  } catch (err) {
+    if (getErrorMessage(err) === 'VERSION_CONFLICT') return { status: 409, error: 'This portion was changed by someone else. Reload.' };
+    console.error('submitPortionDecision error:', err);
+    return { status: 500, error: 'Failed to save the portion decision.' };
+  }
+}
+
+export interface RequestSourcePayload {
+  source_name: string;
+  phone?: string | null;
+  notes?: string | null;
+  arrival_id?: string | null;
+}
+
+/** Lab attendant asks the Zonal Manager to add a new milk source (HC) that is not in the list yet. */
+export async function requestNewLabSource(
+  reqOrUser: Request | User,
+  payload: RequestSourcePayload
+): Promise<ServiceResult<{ requested: true }>> {
+  const { auth, errorResponse } = await resolveZmccLabAuth(reqOrUser, 'REQUEST_SOURCE');
+  if (errorResponse) return errorResponse;
+  if (!auth) return { status: 401, error: 'Unauthorized.' };
+  const name = String(payload?.source_name ?? '').trim();
+  if (name.length < 3 || name.length > 150) return { status: 400, error: 'Write the source name (3 to 150 letters).' };
+  const phone = String(payload?.phone ?? '').trim().slice(0, 30) || null;
+  const notes = String(payload?.notes ?? '').trim().slice(0, 500) || null;
+  const zmccId = auth.effectiveZmccId;
+  if (zmccId === null) return { status: 400, error: 'Only ZMCC staff can request a new source.' };
+
+  await prisma.$transaction(async (tx) => {
+    await writeAuditLog(tx, {
+      tableName: 'procurement_source',
+      recordId: zmccId,
+      action: 'ZMCC_LAB_NEW_SOURCE_REQUESTED',
+      oldValues: null,
+      newValues: { source_name: name, phone, notes, arrival_id: payload?.arrival_id ?? null },
+      actor: auditActorOf(auth.acting),
+    });
+    await createNotificationsForEvent(tx, {
+      eventKey: 'ZMCC_LAB_EXCEPTION_PENDING',
+      sourceId: zmccId.toString(),
+      sourceZmccId: zmccId,
+      title: 'New milk source requested',
+      body: `Lab asks to add a new source: ${name}${phone ? ` (${phone})` : ''}.${notes ? ` ${notes}` : ''}`,
+      deepLink: '/mpd/zmcc-manager?tab=APPROVALS',
+      dedupeSuffix: `source-request:${auth.actorUserId}:${Date.now()}`,
+    });
+  });
+  return { status: 201, data: { requested: true } };
+}

@@ -75,10 +75,10 @@ export function getRoleNavSections(currentUser: User | null): RoleNavSection[] {
             icon: Users,
           },
           {
-            id: 'inside',
-            label: 'Vehicles Inside ZMCC',
-            href: '/phe?section=arrivals&view=inside',
-            icon: Clock,
+            id: 'weighing',
+            label: 'Weighing & Tank',
+            href: '/phe?section=weighing',
+            icon: Scale,
           },
           {
             id: 'history',

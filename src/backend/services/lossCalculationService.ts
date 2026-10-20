@@ -2,6 +2,9 @@ import { prisma } from '@core/db';
 import { Prisma } from '@prisma/client';
 import ExcelJS from 'exceljs';
 import { createNotificationsForEvent } from '@/backend/services/notificationService';
+import { writeAuditLog } from '@/backend/core/audit';
+import type { ActingContext } from '@/types/acting';
+import { calculateAt13TSLiters, calculateDensity } from '@/backend/utils/milkFormulas';
 
 export interface LossMetricResult {
   lossLiters: number;
@@ -141,6 +144,118 @@ export function calculateTier1RouteLoss(params: {
     signedVarianceAt13tsLiters: signed13tsVar,
     isLoss: lossLiters > 0,
   };
+}
+
+/**
+ * Milk received at ZMCC for one weighed portion (pure).
+ * Net weight (kg) is the truth: litres = net kg / density. @13 TS litres use the portion TS.
+ */
+export function calculatePortionReceived(params: {
+  netWeightKg: number;
+  density?: number | null;
+  lr?: number | null;
+  ts: number;
+}): { grossLiters: number; at13tsLiters: number; density: number } {
+  const density =
+    params.density != null && Number(params.density) > 0
+      ? Number(params.density)
+      : calculateDensity(Number(params.lr ?? 0));
+  const net = Math.max(0, Number(params.netWeightKg));
+  const grossLiters = density > 0 ? Number((net / density).toFixed(2)) : 0;
+  const at13tsLiters = Number(calculateAt13TSLiters(grossLiters, Number(params.ts)).toFixed(2));
+  return { grossLiters, at13tsLiters, density };
+}
+
+/** Net-weight weighted average (pure). Returns 0 when there is no weight. */
+export function weightedAverageByNetWeight(rows: Array<{ netWeightKg: number; value: number }>): number {
+  const total = rows.reduce((a, r) => a + r.netWeightKg, 0);
+  if (total <= 0) return 0;
+  return rows.reduce((a, r) => a + r.value * r.netWeightKg, 0) / total;
+}
+
+/**
+ * Stores Area (MOT) loss / gain on the journey at journey close.
+ * Received = ACCEPTED and weighed portions only. Declared = MOT journey summary totals.
+ * Signed: received - declared (negative = loss). Writes an audit row.
+ */
+export async function computeAndStoreAreaLossTx(
+  tx: Prisma.TransactionClient,
+  params: { journeyId: bigint; sessionId: bigint; actor: ActingContext }
+): Promise<{ lossGainLiters: number; lossGainPct: number } | null> {
+  const [summary, portions] = await Promise.all([
+    tx.motJourneySummary.findUnique({ where: { journey_id: params.journeyId } }),
+    tx.zmccLabPortion.findMany({
+      where: {
+        lab_session_id: params.sessionId,
+        final_decision: 'ACCEPTED',
+        net_weight_kg: { not: null },
+      },
+    }),
+  ]);
+  if (!summary || portions.length === 0) return null;
+
+  let netKg = 0;
+  let liters = 0;
+  let at13 = 0;
+  for (const p of portions) {
+    const net = Number(p.net_weight_kg);
+    const m = calculatePortionReceived({
+      netWeightKg: net,
+      density: p.density != null ? Number(p.density) : null,
+      lr: p.lr != null ? Number(p.lr) : null,
+      ts: Number(p.ts ?? 0),
+    });
+    netKg += net;
+    liters += m.grossLiters;
+    at13 += m.at13tsLiters;
+  }
+  netKg = Number(netKg.toFixed(3));
+  liters = Number(liters.toFixed(2));
+  at13 = Number(at13.toFixed(2));
+
+  const declared = Number(summary.total_gross_liters);
+  const declared13 = Number(summary.total_at_13ts_liters);
+  const tier1 = calculateTier1RouteLoss({
+    shopGrossLiters: declared,
+    zmccArrivalGrossLiters: liters,
+    shopAt13tsLiters: declared13,
+    zmccArrivalAt13tsLiters: at13,
+  });
+  const signedPct = declared > 0 ? Number(((tier1.signedVarianceLiters / declared) * 100).toFixed(4)) : 0;
+  const now = new Date();
+
+  await tx.motJourney.update({
+    where: { id: params.journeyId },
+    data: {
+      area_received_net_kg: new Prisma.Decimal(netKg.toFixed(3)),
+      area_received_liters: new Prisma.Decimal(liters.toFixed(2)),
+      area_received_at_13ts_liters: new Prisma.Decimal(at13.toFixed(2)),
+      area_mot_declared_liters: new Prisma.Decimal(declared.toFixed(2)),
+      area_mot_declared_at_13ts_liters: new Prisma.Decimal(declared13.toFixed(2)),
+      area_loss_gain_liters: new Prisma.Decimal(tier1.signedVarianceLiters.toFixed(2)),
+      area_loss_gain_at_13ts_liters: new Prisma.Decimal(tier1.signedVarianceAt13tsLiters.toFixed(2)),
+      area_loss_gain_pct: new Prisma.Decimal(signedPct.toFixed(4)),
+      area_computed_at: now,
+    },
+  });
+
+  await writeAuditLog(tx, {
+    tableName: 'mot_journey',
+    recordId: params.journeyId,
+    action: 'MOT_AREA_LOSS_GAIN_STORED',
+    newValues: {
+      lab_session_id: params.sessionId.toString(),
+      accepted_portions: portions.length,
+      received_net_kg: netKg,
+      received_liters: liters,
+      declared_liters: declared,
+      loss_gain_liters: tier1.signedVarianceLiters,
+      loss_gain_pct: signedPct,
+    },
+    actor: params.actor,
+  });
+
+  return { lossGainLiters: tier1.signedVarianceLiters, lossGainPct: signedPct };
 }
 
 /**
@@ -409,8 +524,13 @@ export async function getSupplyChainLossHierarchy(filters: {
     const shopGross = summary ? Number(summary.total_gross_liters) : 0;
     const shop13ts = summary ? Number(summary.total_at_13ts_liters) : 0;
 
-    const zmccGross = labSession && labSession.gross_liters != null ? Number(labSession.gross_liters) : 0;
-    const zmcc13ts = labSession && labSession.at_13ts_liters != null ? Number(labSession.at_13ts_liters) : 0;
+    // Prefer the stored Area figure (accepted portions only, weighed); fall back to the lab session.
+    const zmccGross = j.area_received_liters != null
+      ? Number(j.area_received_liters)
+      : labSession && labSession.gross_liters != null ? Number(labSession.gross_liters) : 0;
+    const zmcc13ts = j.area_received_at_13ts_liters != null
+      ? Number(j.area_received_at_13ts_liters)
+      : labSession && labSession.at_13ts_liters != null ? Number(labSession.at_13ts_liters) : 0;
 
     totalShopGrossLiters += shopGross;
     totalShopAt13tsLiters += shop13ts;

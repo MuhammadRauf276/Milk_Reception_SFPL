@@ -24,6 +24,7 @@ import { SegmentedTabs } from '@/components/ui/segmented-tabs';
 import { AnimatePresence } from 'framer-motion';
 import { getErrorMessage } from '@/lib/errors';
 import { acquireRobustGps } from '@/lib/gps';
+import { canActAs } from '@/backend/core/roles/hierarchy';
 import { RequestCorrectionModal, EditableFieldOption } from '@/frontend/modules/governance/RequestCorrectionModal';
 import type {
   InsideVehicle,
@@ -101,8 +102,8 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
   const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
   const isDataExecutive = currentUser?.role === 'DATA_EXECUTIVE';
   const isZmccManager = currentUser?.role === 'ZMCC_MANAGER';
-  const isPheOperator = currentUser?.role === 'PHE_OPERATOR';
-  const canSubmit = isPheOperator || isSuperAdmin;
+  // PHE Operator, MDO and every role above them can record arrivals (server checks again).
+  const canSubmit = !!currentUser && canActAs(currentUser.role, 'PHE_OPERATOR');
   const canDirectCorrect = isDataExecutive || isSuperAdmin;
   const canCorrect = canDirectCorrect;
 
@@ -208,11 +209,6 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
   const [insideTotalCount, setInsideTotalCount] = useState(0);
   const [loadingInside, setLoadingInside] = useState(true);
   const [insidePage, setInsidePage] = useState(1);
-  const [exitModalTarget, setExitModalTarget] = useState<InsideVehicle | null>(null);
-  const [exitEventId, setExitEventId] = useState<string>('');
-  const [exitTimestamp, setExitTimestamp] = useState(() => toDatetimeLocalInput(new Date()));
-  const [exitSubmitting, setExitSubmitting] = useState(false);
-  const [exitError, setExitError] = useState<string | null>(null);
 
   // Inline "Add Local Supplier" Modal State
   const [showAddSupplierModal, setShowAddSupplierModal] = useState(false);
@@ -471,67 +467,13 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
     refreshTabData(activeTab);
   }, [activeTab]);
 
-  // Gate Exit Modal Controls
-  const openExitModal = (arrival: InsideVehicle) => {
-    setExitModalTarget(arrival);
-    setExitTimestamp(toDatetimeLocalInput(new Date()));
-    setExitEventId(generateClientEventId('exit'));
-    setExitError(null);
-  };
-
-  const closeExitModal = () => {
-    setExitModalTarget(null);
-    setExitEventId('');
-    setExitError(null);
-  };
-
-  // Submit Gate Exit
-  const handleGateExitSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!exitModalTarget) return;
-    setExitSubmitting(true);
-    setExitError(null);
-    try {
-      const endpoint = exitModalTarget.arrival_type === 'MOT'
-        ? `/api/zmcc/arrivals/mot/${exitModalTarget.id}/exit`
-        : `/api/zmcc/arrivals/local-supplier/${exitModalTarget.id}/exit`;
-
-      // Reuse the same exitEventId for retries while this modal attempt remains active
-      const eventId = exitEventId || generateClientEventId('exit');
-      if (!exitEventId) {
-        setExitEventId(eventId);
-      }
-
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          exit_timestamp: datetimeLocalToIso(exitTimestamp) || new Date(exitTimestamp).toISOString(),
-          client_event_id: eventId,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setExitError(data.error || 'Failed to record gate exit.');
-        return;
-      }
-      toast.showSuccess(`Gate exit recorded successfully for ${exitModalTarget.vehicle_number}.`);
-      closeExitModal();
-      fetchInsideVehicles();
-      fetchHistory();
-    } catch (err) {
-      setExitError(getErrorMessage(err) || 'An unexpected error occurred while recording gate exit.');
-    } finally {
-      setExitSubmitting(false);
-    }
-  };
-
   // GPS capture handler with progressive offline fallback
   const captureGps = async (target: 'MOT' | 'LOCAL_SUPPLIER') => {
     try {
       const res = await acquireRobustGps({
         facilityCode: currentUser?.procurement_source?.code,
         allowFacilityFallback: true,
+        maxCacheAgeMs: 30_000,
       });
 
       if (res.location) {
@@ -632,7 +574,11 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
         setAddSupplierError(data.error || 'Failed to create local supplier.');
       } else {
         const supplier = data.supplier;
-        toast.showSuccess(`Local supplier "${supplier.name}" onboarded (${supplier.local_supplier_code})`);
+        if (supplier.approval_status === 'PENDING_APPROVAL') {
+          toast.showInfo(`HC "${supplier.name}" saved. It is waiting for Zonal Manager approval.`);
+        } else {
+          toast.showSuccess(`Local supplier "${supplier.name}" onboarded (${supplier.local_supplier_code})`);
+        }
         setShowAddSupplierModal(false);
         setNewSupplierName('');
         setNewSupplierPhone('');
@@ -640,7 +586,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
         setNewSupplierErpRef('');
         setSupplierSearchTerm('');
         setLocalSuppliers((prev) => [supplier, ...prev]);
-        setSelectedLocalSupplierId(supplier.id);
+        if (supplier.approval_status === 'ACTIVE') setSelectedLocalSupplierId(supplier.id);
       }
     } catch (err) {
       setAddSupplierError(getErrorMessage(err) || 'An unexpected error occurred.');
@@ -800,12 +746,6 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
               ? [
                   { value: 'MOT_ARRIVAL' as const, label: 'MOT arrival', icon: Truck },
                   { value: 'LOCAL_SUPPLIER_ARRIVAL' as const, label: 'HC supplier arrival', icon: Users },
-                  {
-                    value: 'INSIDE_ZMCC' as const,
-                    label: 'Inside ZMCC',
-                    icon: MapPin,
-                    count: insideVehicles.length > 0 ? insideVehicles.length : undefined,
-                  },
                 ]
               : []),
             { value: 'HISTORY' as const, label: 'History & corrections', icon: Clock },
@@ -1210,7 +1150,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
             <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center space-x-2 text-amber-800 text-xs">
               <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
               <span>
-                <strong>Warning:</strong> Display capped at {insideVehicles.length} of {insideTotalCount} active vehicles inside ZMCC. Please record gate exits for departed vehicles.
+                <strong>Warning:</strong> Display capped at {insideVehicles.length} of {insideTotalCount} active vehicles inside ZMCC.
               </span>
             </div>
           )}
@@ -1286,23 +1226,8 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                           </div>
                         </div>
 
-                        <div>
-                          {v.can_exit ? (
-                            <button
-                              type="button"
-                              onClick={() => openExitModal(v)}
-                              className="w-full py-2 bg-primary hover:bg-primary-hover text-white rounded-xl text-xs font-semibold transition-all shadow-2xs cursor-pointer flex items-center justify-center space-x-1.5"
-                            >
-                              <MapPin className="w-3.5 h-3.5" />
-                              <span>Record Gate Exit</span>
-                            </button>
-                          ) : (
-                            <div className="p-2 bg-slate-50 rounded-xl border border-slate-200 text-center">
-                              <span className="text-xs font-semibold text-slate-500">
-                                {v.exit_ineligibility_reason || 'Gate Exit Ineligible'}
-                              </span>
-                            </div>
-                          )}
+                        <div className="p-2 bg-slate-50 rounded-xl border border-slate-200 text-center">
+                          <span className="text-xs font-semibold text-slate-500">Old record. Gate exit is no longer used.</span>
                         </div>
                       </div>
                     ))}
@@ -1486,8 +1411,9 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                       >
                         <option value="">Select supplier</option>
                         {filteredSuppliers.map((s) => (
-                          <option key={s.id} value={s.id}>
+                          <option key={s.id} value={s.id} disabled={s.approval_status !== 'ACTIVE'}>
                             {s.local_supplier_code} · {s.name}
+                            {s.approval_status === 'PENDING_APPROVAL' ? ' (waiting for Zonal Manager approval)' : ''}
                           </option>
                         ))}
                         {selectedLocalSupplierId && !filteredSuppliers.some((s) => s.id === selectedLocalSupplierId) && (() => {
@@ -1499,6 +1425,11 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                           ) : null;
                         })()}
                       </select>
+                      {localSuppliers.some((s) => s.approval_status === 'PENDING_APPROVAL') && (
+                        <p className="text-xs text-amber-700 mt-1">
+                          This HC is waiting for Zonal Manager approval. You cannot receive milk from it yet.
+                        </p>
+                      )}
                       {localSuppliers.length === 0 && !loadingLocalSuppliers && (
                         <p className="text-xs text-amber-700 mt-1">
                           No suppliers in directory yet. Click &quot;+ Quick Add Supplier&quot; above to onboard the first one.
@@ -2274,70 +2205,6 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
                   className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-semibold transition-all disabled:opacity-50 cursor-pointer"
                 >
                   {addSupplierSubmitting ? 'Saving…' : 'Save & Select Supplier'}
-                </button>
-              </div>
-            </form>
-          </Modal>
-      )}</AnimatePresence>
-
-      <AnimatePresence>{exitModalTarget && (
-        <Modal key="modal-2" onClose={closeExitModal} title="Record gate exit" className="max-w-md p-6 space-y-4">
-            <div className="flex items-center justify-between border-b pb-3">
-              <div className="flex items-center space-x-2">
-                <MapPin className="w-5 h-5 text-primary" />
-                <h3 className="text-sm font-semibold text-slate-900">Record Gate Exit</h3>
-              </div>
-              <button
-                type="button"
-                onClick={closeExitModal}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1">
-              <div>Vehicle: <strong className="tabular-nums text-slate-900">{exitModalTarget.vehicle_number}</strong></div>
-              <div>Type: <strong className="font-semibold text-slate-800">{exitModalTarget.arrival_type === 'MOT' ? 'MOT Arrival' : 'HC Supplier Arrival'}</strong></div>
-              <div>Token: <strong className="tabular-nums text-slate-800">{exitModalTarget.zmcc_token}</strong></div>
-              <div>Entered At: <strong>{new Date(exitModalTarget.arrival_timestamp).toLocaleString('en-GB', { timeZone: 'Asia/Karachi' })} PKT</strong></div>
-            </div>
-
-            {exitError && (
-              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl flex items-center space-x-2">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{exitError}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleGateExitSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Exit Timestamp (PKT) <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="datetime-local"
-                  value={exitTimestamp}
-                  onChange={(e) => setExitTimestamp(e.target.value)}
-                  required
-                  className="w-full text-xs font-semibold px-3 py-2 border rounded-xl focus:ring-2 focus:ring-primary outline-hidden"
-                />
-              </div>
-
-              <div className="flex items-center justify-end space-x-2 pt-2 border-t">
-                <button
-                  type="button"
-                  onClick={closeExitModal}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={exitSubmitting}
-                  className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-xl text-xs font-semibold transition-all disabled:opacity-50 cursor-pointer"
-                >
-                  {exitSubmitting ? 'Recording…' : 'Confirm Gate Exit'}
                 </button>
               </div>
             </form>

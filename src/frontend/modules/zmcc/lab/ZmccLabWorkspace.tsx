@@ -1,11 +1,10 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { User } from '@backend/core/types';
 import {
   FlaskConical,
   CheckCircle2,
-  XCircle,
   AlertCircle,
   Clock,
   Search,
@@ -14,7 +13,6 @@ import {
   X,
   ShieldAlert,
   ArrowRight,
-  Save,
   Calculator,
 } from 'lucide-react';
 
@@ -25,9 +23,8 @@ import { Modal } from '@/components/ui/modal';
 import { SegmentedTabs } from '@/components/ui/segmented-tabs';
 import { AnimatePresence } from 'framer-motion';
 import { getErrorMessage } from '@/lib/errors';
-import type { LabTestResultOption } from '@/lib/validations/labTest';
 import { useUrlSearchParam } from '@/frontend/hooks/useUrlSearchParam';
-import { LiveCameraCapture } from '@/components/camera/LiveCameraCapture';
+import { LabPortionsPanel } from '@/frontend/modules/zmcc/lab/LabPortionsPanel';
 import type { serializeLabSession } from '@/backend/services/zmccLabService';
 import { RequestCorrectionModal, type EditableFieldOption } from '@/frontend/modules/governance/RequestCorrectionModal';
 
@@ -79,9 +76,9 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
   const isDataExecutive = currentUser?.role === 'DATA_EXECUTIVE';
   const isZmccManager = currentUser?.role === 'ZMCC_MANAGER';
   const isZmccLabAttendant = currentUser?.role === 'ZMCC_LAB_ATTENDANT';
-  const canTest = isZmccLabAttendant || isSuperAdmin;
+  // Superiors may do lab work in their own ZMCC (delegation).
+  const canTest = isZmccLabAttendant || isZmccManager || currentUser?.role === 'HEAD_OF_MPD' || isSuperAdmin;
   const canDirectCorrect = isDataExecutive || isSuperAdmin;
-  const canCorrect = canDirectCorrect;
   const canReceiveHistorical = isZmccLabAttendant || isSuperAdmin;
 
   const [requestCorrectionModal, setRequestCorrectionModal] = useState<{
@@ -136,26 +133,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
   // Active Session State
   const [activeSession, setActiveSession] = useState<LabSession | null>(null);
   const [loadingSession, setLoadingSession] = useState(false);
-  const [draftValues, setDraftValues] = useState<ResultDrafts>({});
-  const [draftRemarks, setDraftRemarks] = useState('');
-  const [savingDraft, setSavingDraft] = useState(false);
-  const liveEvaluationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const [draftQuantityValue, setDraftQuantityValue] = useState<string>('');
-  const [draftQuantityUnit, setDraftQuantityUnit] = useState<'KG' | 'LITER'>('KG');
-  const [photosByTest, setPhotosByTest] = useState<Record<string, string>>({});
   const [queuePage, setQueuePage] = useState<number>(1);
-
-  // Completion Modal State
-  const [showCompleteModal, setShowCompleteModal] = useState(false);
-  const [completionDecision, setCompletionDecision] = useState<'ACCEPTED' | 'REJECTED'>('ACCEPTED');
-  const [rejectionReason, setRejectionReason] = useState('');
-  const [completionRemarks, setCompletionRemarks] = useState('');
-  const [completingSession, setCompletingSession] = useState(false);
-  const [completionEventId, setCompletionEventId] = useState('');
-  const [tanks, setTanks] = useState<ActiveTank[]>([]);
-  const [loadingTanks, setLoadingTanks] = useState(false);
-  const [selectedTankId, setSelectedTankId] = useState('');
 
   // Historical Receive Modal State
   const [showHistoricalReceiveModal, setShowHistoricalReceiveModal] = useState(false);
@@ -225,11 +203,6 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
     } catch {
       return null;
     }
-  }, []);
-
-  // Generate unique completion client event id
-  const generateCompletionEventId = useCallback(() => {
-    return `zmcc-lab-comp-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
   }, []);
 
   // Fetch Queue
@@ -340,202 +313,6 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
 
   const loadSessionIntoState = (session: LabSession) => {
     setActiveSession(session);
-    setDraftRemarks(session.remarks || '');
-    setDraftQuantityValue(session.quantity_value !== null && session.quantity_value !== undefined ? String(session.quantity_value) : '');
-    setDraftQuantityUnit((session.quantity_unit as 'KG' | 'LITER') || 'KG');
-    const initialVals: ResultDrafts = {};
-    if (session.results) {
-      for (const r of session.results) {
-        initialVals[r.test_id] = {
-          numeric_value: r.numeric_value !== null && r.numeric_value !== undefined ? r.numeric_value : '',
-          text_value: r.text_value || '',
-        };
-      }
-    }
-    setDraftValues(initialVals);
-  };
-
-  // Save draft values
-  const handleSaveDraft = async () => {
-    if (!activeSession) return;
-    setSavingDraft(true);
-    try {
-      const payloadResults = Object.keys(draftValues).map((testId) => ({
-        test_id: testId,
-        numeric_value: draftValues[testId].numeric_value !== '' && draftValues[testId].numeric_value !== null ? Number(draftValues[testId].numeric_value) : null,
-        text_value: draftValues[testId].text_value ? String(draftValues[testId].text_value).trim() : null,
-      }));
-
-      const res = await fetch(`/api/zmcc/lab/sessions/${activeSession.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          quantity_value: draftQuantityValue !== '' ? Number(draftQuantityValue) : null,
-          quantity_unit: draftQuantityUnit,
-          results: payloadResults,
-          remarks: draftRemarks,
-        }),
-      });
-
-      if (res.ok) {
-        const updated = await res.json();
-        loadSessionIntoState(updated);
-        toast.showSuccess('Draft test values saved successfully.');
-      } else {
-        const err = await res.json().catch(() => ({}));
-        toast.showError(err.error || 'Failed to save draft results');
-      }
-    } catch {
-      toast.showError('Network error saving draft');
-    } finally {
-      setSavingDraft(false);
-    }
-  };
-
-  // Save a short-lived draft after input pauses so the server evaluates each
-  // result using the same active QA rule that completion will use.
-  const queueLiveEvaluation = (nextValues: ResultDrafts) => {
-    if (!activeSession) return;
-    if (liveEvaluationTimer.current) clearTimeout(liveEvaluationTimer.current);
-    liveEvaluationTimer.current = setTimeout(async () => {
-      const payloadResults = Object.keys(nextValues).map((testId) => ({
-        test_id: testId,
-        numeric_value: nextValues[testId].numeric_value !== '' && nextValues[testId].numeric_value !== null
-          ? Number(nextValues[testId].numeric_value)
-          : null,
-        text_value: nextValues[testId].text_value ? String(nextValues[testId].text_value).trim() : null,
-      }));
-      try {
-        const res = await fetch(`/api/zmcc/lab/sessions/${activeSession.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ results: payloadResults }),
-        });
-        if (res.ok) {
-          const updated: LabSession = await res.json();
-          setActiveSession((current) => current && current.id === updated.id
-            ? { ...current, results: updated.results }
-            : current);
-        }
-      } catch {
-        // Keep the typed value locally; the normal Save button remains available.
-      }
-    }, 450);
-  };
-
-  useEffect(() => () => {
-    if (liveEvaluationTimer.current) clearTimeout(liveEvaluationTimer.current);
-  }, []);
-
-  // Open completion modal
-  const openCompleteModal = async (decision: 'ACCEPTED' | 'REJECTED') => {
-    if (!draftQuantityValue || Number(draftQuantityValue) <= 0) {
-      toast.showError('Actual milk quantity is required and must be greater than 0.');
-      return;
-    }
-    setCompletionDecision(decision);
-    setRejectionReason('');
-    setCompletionRemarks(draftRemarks);
-    setCompletionEventId(generateCompletionEventId());
-    setSelectedTankId('');
-
-    if (decision === 'ACCEPTED') {
-      setLoadingTanks(true);
-      try {
-        const zmccQuery = activeSession?.zmcc_id ? `&zmcc_id=${activeSession.zmcc_id}` : '';
-        const res = await fetch(`/api/zmcc/tanks?active_only=true${zmccQuery}`);
-        if (res.ok) {
-          const data = await res.json();
-          const activeList = data.tanks || [];
-          setTanks(activeList);
-          if (activeList.length === 1) {
-            setSelectedTankId(activeList[0].id);
-          }
-        } else {
-          setTanks([]);
-        }
-      } catch {
-        setTanks([]);
-      } finally {
-        setLoadingTanks(false);
-      }
-    }
-    setShowCompleteModal(true);
-  };
-
-  // Submit completion
-  const handleCompleteSession = async () => {
-    if (!activeSession) return;
-    if (!draftQuantityValue || Number(draftQuantityValue) <= 0) {
-      toast.showError('Actual milk quantity is required and must be greater than 0.');
-      return;
-    }
-    if (completionDecision === 'ACCEPTED') {
-      if (tanks.length === 0) {
-        toast.showError('No active ZMCC tank configured. Please contact administrator before accepting milk.');
-        return;
-      }
-      if (tanks.length > 1) {
-        toast.showError('Configuration error: Multiple active tanks found for this ZMCC. Only one active tank is permitted.');
-        return;
-      }
-    }
-
-    setCompletingSession(true);
-    try {
-      const payloadResults = (activeSession.results || []).map((r) => {
-        const testId = String(r.test_id);
-        const dv = draftValues[testId] || { numeric_value: '', text_value: '' };
-        if (r.result_type_snapshot === 'CALCULATED') {
-          return {
-            test_id: testId,
-            numeric_value: null,
-            text_value: null,
-          };
-        }
-        return {
-          test_id: testId,
-          numeric_value: r.result_type_snapshot === 'NUMERIC' && dv.numeric_value !== '' && dv.numeric_value !== null ? Number(dv.numeric_value) : null,
-          text_value: r.result_type_snapshot !== 'NUMERIC' && dv.text_value ? String(dv.text_value).trim() : null,
-        };
-      });
-
-      const chosenTankId = completionDecision === 'ACCEPTED'
-        ? (tanks.length === 1 ? tanks[0].id : (selectedTankId || undefined))
-        : undefined;
-
-      const res = await fetch(`/api/zmcc/lab/sessions/${activeSession.id}/complete`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          completion_client_event_id: completionEventId,
-          quantity_value: Number(draftQuantityValue),
-          quantity_unit: draftQuantityUnit,
-          decision: completionDecision,
-          tank_id: chosenTankId,
-          // The server requires this only when the attendant decision differs
-          // from the evaluated system result; it remains an optional note otherwise.
-          rejection_reason: rejectionReason.trim() || null,
-          remarks: completionRemarks.trim() || null,
-          results: payloadResults,
-        }),
-      });
-
-      if (res.ok) {
-        await res.json();
-        setShowCompleteModal(false);
-        setActiveSession(null);
-        toast.showSuccess(`Session finalized: ${completionDecision}`);
-        setActiveTab('HISTORY');
-      } else {
-        const err = await res.json().catch(() => ({}));
-        toast.showError(err.error || 'Failed to complete lab session');
-      }
-    } catch {
-      toast.showError('Network error completing lab session');
-    } finally {
-      setCompletingSession(false);
-    }
   };
 
   // Historical Receive Handlers
@@ -929,357 +706,29 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
             </div>
 
             
-            {(() => {
-              const draftPreview = calculatePreview(
-                draftQuantityValue,
-                draftQuantityUnit,
-                draftValues,
-                activeSession.results
-              );
-
-              return (
-                <div className="bg-slate-50/80 border border-slate-200 rounded-xl p-4 space-y-4">
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <div>
-                      <h3 className="text-sm font-semibold text-slate-800">Actual Reception Milk Quantity</h3>
-                    </div>
-                    <div className="flex items-center gap-3 w-full sm:w-auto">
-                      <div className="flex-1 sm:w-44">
-                        <label className="block text-xs font-semibold text-slate-700 mb-1">
-                          Quantity *
-                        </label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0.01"
-                          value={draftQuantityValue}
-                          onChange={(e) => setDraftQuantityValue(e.target.value)}
-                          placeholder="e.g. 5000"
-                          className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs tabular-nums focus:outline-hidden focus:ring-1 focus:ring-primary"
-                        />
-                      </div>
-                      <div className="w-28">
-                        <label className="block text-xs font-semibold text-slate-700 mb-1">
-                          Unit *
-                        </label>
-                        <select
-                          value={draftQuantityUnit}
-                          onChange={(e) => setDraftQuantityUnit(e.target.value as 'KG' | 'LITER')}
-                          className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-semibold focus:outline-hidden focus:ring-1 focus:ring-primary"
-                        >
-                          <option value="KG">KG</option>
-                          <option value="LITER">Liters</option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-
-                  
-                  <div className="border-t border-slate-200 pt-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                        Final Milk Metrics
-                      </span>
-                      {!draftPreview && (
-                        <span className="text-xs text-slate-400 italic">
-                          Enter Quantity, Unit, LR, and Fat to calculate
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                      <div className="bg-white p-2.5 rounded-lg border border-slate-200">
-                        <span className="text-xs text-slate-500 uppercase font-semibold">Density</span>
-                        <p className="text-sm font-semibold tabular-nums text-slate-800">
-                          {draftPreview ? draftPreview.density.toFixed(4) : (activeSession.density != null ? Number(activeSession.density).toFixed(4) : '—')}
-                        </p>
-                      </div>
-                      <div className="bg-white p-2.5 rounded-lg border border-slate-200">
-                        <span className="text-xs text-slate-500 uppercase font-semibold">Gross Liters</span>
-                        <p className="text-sm font-semibold tabular-nums text-primary">
-                          {draftPreview ? `${draftPreview.grossLiters.toFixed(2)} L` : (activeSession.gross_liters != null ? `${Number(activeSession.gross_liters).toFixed(2)} L` : '—')}
-                        </p>
-                      </div>
-                      <div className="bg-white p-2.5 rounded-lg border border-slate-200">
-                        <span className="text-xs text-slate-500 uppercase font-semibold">SNF %</span>
-                        <p className="text-sm font-semibold tabular-nums text-slate-800">
-                          {draftPreview ? `${draftPreview.snf.toFixed(2)}%` : (activeSession.snf != null ? `${Number(activeSession.snf).toFixed(2)}%` : '—')}
-                        </p>
-                      </div>
-                      <div className="bg-white p-2.5 rounded-lg border border-slate-200">
-                        <span className="text-xs text-slate-500 uppercase font-semibold">TS %</span>
-                        <p className="text-sm font-semibold tabular-nums text-slate-800">
-                          {draftPreview ? `${draftPreview.ts.toFixed(2)}%` : (activeSession.ts != null ? `${Number(activeSession.ts).toFixed(2)}%` : '—')}
-                        </p>
-                      </div>
-                      <div className="bg-white p-2.5 rounded-lg border border-slate-200">
-                        <span className="text-xs text-slate-500 uppercase font-semibold">@13TS Liters</span>
-                        <p className="text-sm font-semibold tabular-nums text-emerald-700">
-                          {draftPreview ? `${draftPreview.at13tsLiters.toFixed(2)} L` : (activeSession.at_13ts_liters != null ? `${Number(activeSession.at_13ts_liters).toFixed(2)} L` : '—')}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  
-                  {activeSession.arrival_type === 'MOT' && activeSession.mot_arrival?.journey?.summary && (
-                    <div className="bg-blue-50/60 border border-blue-200 rounded-xl p-3 mt-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-semibold text-blue-900 flex items-center gap-1.5">
-                          <FileText className="w-3.5 h-3.5 text-blue-700" />
-                          Upstream MOT Journey Summary
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-                        <div>
-                          <span className="text-xs text-blue-600 block">Gross Liters</span>
-                          <span className="font-semibold tabular-nums text-blue-950">
-                            {Number(activeSession.mot_arrival.journey.summary.total_gross_liters).toFixed(2)} L
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-xs text-blue-600 block">Weighted LR</span>
-                          <span className="font-semibold tabular-nums text-blue-950">
-                            {activeSession.mot_arrival.journey.summary.weighted_avg_lr != null
-                              ? Number(activeSession.mot_arrival.journey.summary.weighted_avg_lr).toFixed(1)
-                              : '—'}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-xs text-blue-600 block">Weighted Fat</span>
-                          <span className="font-semibold tabular-nums text-blue-950">
-                            {activeSession.mot_arrival.journey.summary.weighted_avg_fat != null
-                              ? `${Number(activeSession.mot_arrival.journey.summary.weighted_avg_fat).toFixed(1)}%`
-                              : '—'}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-xs text-blue-600 block">@13TS Liters</span>
-                          <span className="font-semibold tabular-nums text-blue-950">
-                            {Number(activeSession.mot_arrival.journey.summary.total_at_13ts_liters).toFixed(2)} L
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-
-            
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-slate-800 flex items-center justify-between">
-                <span>Intake Quality Parameters</span>
-                <span className="text-xs font-normal text-slate-500">
-                  {activeSession.results?.length || 0} configured parameters
-                </span>
-              </h3>
-
-              <div className="overflow-x-auto rounded-xl border border-border">
-                <table className="w-full text-left text-xs border-collapse min-w-[700px]">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
-                      <th className="py-2.5 px-3 whitespace-nowrap">Test Code</th>
-                      <th className="py-2.5 px-3">Parameter Name</th>
-                      <th className="py-2.5 px-3 whitespace-nowrap">Required</th>
-                      <th className="py-2.5 px-3 min-w-[150px]">Value / Observation</th>
-                      <th className="py-2.5 px-3 min-w-[140px]">Photo (LR/FAT)</th>
-                      <th className="py-2.5 px-3 whitespace-nowrap">Unit</th>
-                      <th className="py-2.5 px-3 whitespace-nowrap">Rule Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {activeSession.results?.map((res) => {
-                      const testId = res.test_id;
-                      const current = draftValues[testId] || { numeric_value: '', text_value: '' };
-                      const isCalculated = res.result_type_snapshot === 'CALCULATED';
-                      const isNumeric = res.result_type_snapshot === 'NUMERIC';
-                      const options = res.result_options_snapshot as LabTestResultOption[] | null;
-                      const testCode = String(res.test_code_snapshot || '').toUpperCase();
-                      const testName = String(res.test_name_snapshot || '').toUpperCase();
-                      const isLR = testCode.includes('LR') || testName.includes('LR') || testName.includes('LACTOMETER');
-                      const isFAT = testCode.includes('FAT') || testName.includes('FAT') || testName.includes('GERBER');
-                      const isPhotoEligible = isLR || isFAT;
-
-                      return (
-                        <tr key={testId} className="hover:bg-slate-50/60">
-                          <td className="py-3 px-3 tabular-nums font-semibold text-slate-700 whitespace-nowrap">
-                            {res.test_code_snapshot}
-                          </td>
-                          <td className="py-3 px-3 font-medium text-slate-800 break-words max-w-[200px]">
-                            {res.test_name_snapshot}
-                          </td>
-                          <td className="py-3 px-3 whitespace-nowrap">
-                            {res.is_required_snapshot ? (
-                              <span className="text-xs font-semibold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded">
-                                REQUIRED
-                              </span>
-                            ) : (
-                              <span className="text-xs text-slate-400">OPTIONAL</span>
-                            )}
-                          </td>
-                          <td className="py-3 px-3 min-w-[150px]">
-                            {isCalculated ? (
-                              <input
-                                type="text"
-                                value="Unsupported (Calculated)"
-                                disabled
-                                readOnly
-                                className="w-full max-w-[180px] px-2.5 py-1.5 border border-amber-200 bg-amber-50 text-amber-700 rounded-lg text-xs cursor-not-allowed italic select-none truncate"
-                              />
-                            ) : isNumeric ? (
-                              <input
-                                type="number"
-                                step="any"
-                                value={current.numeric_value}
-                                onChange={(e) => {
-                                  const next = {
-                                    ...draftValues,
-                                    [testId]: { ...current, numeric_value: e.target.value },
-                                  };
-                                  setDraftValues(next);
-                                  queueLiveEvaluation(next);
-                                }}
-                                placeholder="Enter value"
-                                className="w-full max-w-[140px] px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs tabular-nums focus:outline-hidden focus:ring-1 focus:ring-primary min-w-0"
-                              />
-                            ) : options && options.length > 0 ? (
-                              <select
-                                value={current.text_value}
-                                onChange={(e) => {
-                                  const next = {
-                                    ...draftValues,
-                                    [testId]: { ...current, text_value: e.target.value },
-                                  };
-                                  setDraftValues(next);
-                                  queueLiveEvaluation(next);
-                                }}
-                                className="w-full max-w-[140px] px-2 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-hidden focus:ring-1 focus:ring-primary min-w-0"
-                              >
-                                <option value="">Select</option>
-                                {options.map((opt) => (
-                                  <option key={opt.value} value={opt.value}>
-                                    {opt.label || opt.value}
-                                  </option>
-                                ))}
-                              </select>
-                            ) : (
-                              <input
-                                type="text"
-                                value={current.text_value}
-                                onChange={(e) => {
-                                  const next = {
-                                    ...draftValues,
-                                    [testId]: { ...current, text_value: e.target.value },
-                                  };
-                                  setDraftValues(next);
-                                  queueLiveEvaluation(next);
-                                }}
-                                placeholder="Result text"
-                                className="w-full max-w-[140px] px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-hidden focus:ring-1 focus:ring-primary min-w-0"
-                              />
-                            )}
-                          </td>
-                          <td className="py-3 px-3">
-                            {isPhotoEligible ? (
-                              <LiveCameraCapture
-                                testType={isFAT ? 'FAT' : 'LR'}
-                                stageName="ZMCC Intake Lab"
-                                tokenNo={
-                                  activeSession.mot_arrival?.zmcc_token ||
-                                  activeSession.local_supplier_arrival?.zmcc_token ||
-                                  activeSession.contractor_arrival?.zmcc_token
-                                }
-                                vehicleNo={
-                                  activeSession.mot_arrival?.journey?.mot_vehicle?.vehicle_number ||
-                                  activeSession.local_supplier_arrival?.vehicle_number ||
-                                  activeSession.contractor_arrival?.vehicle_number ||
-                                  null
-                                }
-                                currentPhotoUrl={photosByTest[testId] || null}
-                                onPhotoCaptured={(url) => setPhotosByTest((prev) => ({ ...prev, [testId]: url }))}
-                                onPhotoCleared={() => setPhotosByTest((prev) => {
-                                  const next = { ...prev };
-                                  delete next[testId];
-                                  return next;
-                                })}
-                                isRequired={res.is_required_snapshot}
-                              />
-                            ) : (
-                              <span className="text-slate-400 text-xs">—</span>
-                            )}
-                          </td>
-                          <td className="py-3 px-3 text-slate-500 tabular-nums">
-                            {res.unit_snapshot || '—'}
-                          </td>
-                          <td className="py-3 px-3">
-                            {res.is_passed === true && (
-                              <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded flex items-center gap-1 w-max">
-                                <CheckCircle2 className="w-3 h-3" /> PASS
-                              </span>
-                            )}
-                            {res.is_passed === false && (
-                              <span className="text-xs font-semibold text-rose-700 bg-rose-50 px-2 py-0.5 rounded flex items-center gap-1 w-max">
-                                <XCircle className="w-3 h-3" /> FAIL
-                              </span>
-                            )}
-                            {res.is_passed === null && (
-                              <span className="text-xs text-slate-400 italic">Pending</span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Lab Remarks (Optional)
-              </label>
-              <textarea
-                value={draftRemarks}
-                onChange={(e) => setDraftRemarks(e.target.value)}
-                rows={2}
-                placeholder="Any observations, organoleptic notes, or smell/taste checks…"
-                className="w-full p-2.5 border border-slate-300 rounded-xl text-xs focus:outline-hidden focus:ring-2 focus:ring-primary min-w-0 resize-y break-words"
-              />
-            </div>
-
-            
-            <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-4 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={handleSaveDraft}
-                disabled={savingDraft}
-                className="flex items-center gap-1.5 px-4 py-2 border border-slate-300 text-slate-700 text-xs font-semibold rounded-xl hover:bg-slate-50 transition-colors"
-              >
-                <Save className="w-3.5 h-3.5" />
-                {savingDraft ? 'Saving Draft…' : 'Save Draft Values'}
-              </button>
-
-              <div className="flex items-center gap-3 w-full sm:w-auto">
-                <button
-                  type="button"
-                  onClick={() => openCompleteModal('REJECTED')}
-                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-5 py-2.5 bg-rose-600 text-white text-xs font-semibold rounded-xl hover:bg-rose-700 transition-colors shadow-xs"
-                >
-                  <XCircle className="w-4 h-4" />
-                  Reject Milk
-                </button>
-                <button
-                  type="button"
-                  onClick={() => openCompleteModal('ACCEPTED')}
-                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-5 py-2.5 bg-emerald-600 text-white text-xs font-semibold rounded-xl hover:bg-emerald-700 transition-colors shadow-xs"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  Accept Milk
-                </button>
-              </div>
-            </div>
+            <LabPortionsPanel
+              key={activeSession.id}
+              sessionId={activeSession.id}
+              arrivalType={activeSession.arrival_type}
+              arrivalId={activeSession.local_supplier_arrival?.id ?? activeSession.mot_arrival?.id ?? null}
+              tokenNo={
+                activeSession.mot_arrival?.zmcc_token ||
+                activeSession.local_supplier_arrival?.zmcc_token ||
+                activeSession.contractor_arrival?.zmcc_token ||
+                null
+              }
+              vehicleNo={
+                activeSession.mot_arrival?.journey?.mot_vehicle?.vehicle_number ||
+                activeSession.local_supplier_arrival?.vehicle_number ||
+                activeSession.contractor_arrival?.vehicle_number ||
+                null
+              }
+              onFinished={() => {
+                setActiveSession(null);
+                setActiveTab('QUEUE');
+                fetchQueue();
+              }}
+            />
           </div>
         </div>
       )}
@@ -1564,168 +1013,6 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
         )}
       </div>
     )}
-
-      
-      <AnimatePresence>{showCompleteModal && (
-        <Modal key="modal-0" onClose={() => setShowCompleteModal(false)} title="Complete lab session" className="max-w-lg p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2">
-                {completionDecision === 'ACCEPTED' ? (
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                ) : (
-                  <XCircle className="w-5 h-5 text-rose-600" />
-                )}
-                <h3 className="font-semibold text-slate-800 text-base">
-                  Confirm Milk Decision: {completionDecision}
-                </h3>
-              </div>
-              <button
-                onClick={() => setShowCompleteModal(false)}
-                className="text-slate-400 hover:text-slate-600 p-1"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {completionDecision === 'ACCEPTED' && (
-              <div className="space-y-2 pt-1">
-                {loadingTanks ? (
-                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-500">
-                    Loading active tank…
-                  </div>
-                ) : tanks.length === 0 ? (
-                  <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 font-semibold flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-                    <span>No active ZMCC tank configured. Please contact administrator before accepting milk.</span>
-                  </div>
-                ) : tanks.length > 1 ? (
-                  <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 font-semibold flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-                    <span>Configuration error: Multiple active tanks found. Only one active tank is permitted per ZMCC.</span>
-                  </div>
-                ) : (
-                  <div className="space-y-1 min-w-0">
-                    <label className="block text-xs font-semibold text-slate-700 truncate">Destination Tank (Sole Active Tank)</label>
-                    <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-semibold break-words min-w-0">
-                      <span className="block font-semibold">{tanks[0].tank_name} ({tanks[0].tank_code})</span>
-                      <span className="text-[11px] text-slate-600 block mt-0.5">
-                        Available: {Number(tanks[0].available_capacity).toFixed(2)} L / {Number(tanks[0].capacity_liters).toFixed(2)} L
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {(() => {
-              const hasFailedTests = activeSession?.results?.some((r) => r.is_passed === false) ?? false;
-              const hasMissingPhotos = (activeSession?.results || []).some((r) => {
-                const testCode = String(r.test_code_snapshot || '').toUpperCase();
-                const testName = String(r.test_name_snapshot || '').toUpperCase();
-                const isPhotoEligible =
-                  testCode.includes('LR') ||
-                  testName.includes('LR') ||
-                  testName.includes('LACTOMETER') ||
-                  testCode.includes('FAT') ||
-                  testName.includes('FAT') ||
-                  testName.includes('GERBER');
-                return isPhotoEligible && Boolean(r.is_required_snapshot) && !photosByTest[String(r.test_id)];
-              });
-              const isAttendantException =
-                (completionDecision === 'ACCEPTED' && (hasFailedTests || hasMissingPhotos)) ||
-                (completionDecision === 'REJECTED' && !hasFailedTests && (activeSession?.results?.length ?? 0) > 0);
-              return (
-                <>
-                  {isAttendantException && (
-                    <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-semibold space-y-1">
-                      <div className="flex items-start gap-2">
-                        <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                        <div>
-                          <p className="font-semibold text-sm text-amber-950">Are you sure with your decision?</p>
-                          <p className="mt-1 font-normal text-amber-900">
-                            {completionDecision === 'ACCEPTED'
-                              ? 'One or more tests failed SOP rules (FAIL) or test picture is missing. Your decision will be sent to MPD Head for final decision.'
-                              : 'All tested parameters passed SOP rules (PASS). Your manual rejection will be sent to MPD Head for final decision.'}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="space-y-1 min-w-0">
-                    <label className="block text-xs font-semibold text-slate-700">
-                      {isAttendantException ? (
-                        <>Reason for Exception (Required) <span className="text-rose-600">*</span></>
-                      ) : (
-                        <>Decision Note (Optional)</>
-                      )}
-                    </label>
-                    <textarea
-                      rows={2}
-                      value={rejectionReason}
-                      onChange={(e) => setRejectionReason(e.target.value)}
-                      placeholder={isAttendantException ? "Specify reason for requesting exception against SOP rules…" : "Optional decision note…"}
-                      className={`w-full p-2.5 border rounded-xl text-xs focus:outline-hidden focus:ring-2 focus:ring-primary min-w-0 resize-y break-words ${
-                        isAttendantException ? 'border-amber-300 bg-white' : 'border-slate-300'
-                      }`}
-                      required={isAttendantException}
-                    />
-                  </div>
-
-                  {!isAttendantException && (
-                    <div className="min-w-0">
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">
-                        Final Remarks
-                      </label>
-                      <textarea
-                        rows={2}
-                        value={completionRemarks}
-                        onChange={(e) => setCompletionRemarks(e.target.value)}
-                        placeholder="Optional final remarks…"
-                        className="w-full p-2.5 border border-slate-300 rounded-xl text-xs focus:outline-hidden focus:ring-2 focus:ring-primary min-w-0 resize-y break-words"
-                      />
-                    </div>
-                  )}
-
-                  <div className="flex items-center justify-end gap-3 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowCompleteModal(false)}
-                      disabled={completingSession}
-                      className="px-4 py-2 border border-slate-300 text-slate-700 text-xs font-semibold rounded-xl hover:bg-slate-50"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleCompleteSession}
-                      disabled={
-                        completingSession ||
-                        (isAttendantException && !rejectionReason.trim()) ||
-                        (completionDecision === 'ACCEPTED' && (loadingTanks || tanks.length === 0 || (!selectedTankId && tanks.length > 1)))
-                      }
-                      className={`px-5 py-2 text-white text-xs font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                        isAttendantException
-                          ? 'bg-amber-600 hover:bg-amber-700'
-                          : completionDecision === 'ACCEPTED'
-                          ? 'bg-emerald-600 hover:bg-emerald-700'
-                          : 'bg-rose-600 hover:bg-rose-700'
-                      }`}
-                    >
-                      {completingSession
-                        ? 'Submitting…'
-                        : isAttendantException
-                        ? 'Confirm & Send to MPD Head'
-                        : completionDecision === 'ACCEPTED'
-                        ? 'Accept & Receive'
-                        : 'Finalize REJECTED'}
-                    </button>
-                  </div>
-                </>
-              );
-            })()}
-          </Modal>
-      )}</AnimatePresence>
 
       
       <AnimatePresence>{showCorrectionModal && selectedHistorySession && (

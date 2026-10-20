@@ -19,7 +19,9 @@ import {
 import type { NumericLike, SourceRef, UserRef } from '@/backend/core/serializable';
 import { getCurrentUser } from '@core/auth';
 import { User, Role } from '@core/types';
-import { isZmccFieldOfficer } from '@core/roles/hierarchy';
+import { resolveActingContext, asRoleFields } from '@/backend/core/acting-context';
+import { ACTING_AS_HEADER } from '@/backend/core/route-guards';
+import type { ActingContext } from '@/types/acting';
 import { getPakistanCalendarDate } from '@core/business-day';
 import {
   createInitialMotJourneySummaryTx,
@@ -38,6 +40,8 @@ export interface ZmccArrivalAuthContext {
   isZmccManager: boolean;
   isPheOperator: boolean;
   effectiveZmccId: bigint | null;
+  /** Who acts as which role (delegation-aware). Absent only for correction authorities. */
+  acting?: ActingContext;
 }
 
 export type ZmccArrivalAction =
@@ -139,6 +143,9 @@ export interface CorrectGateExitPayload {
   supervisor_reason?: string;
 }
 
+/** Stage 2 ends with "journey closed": new gate exits are blocked, old records stay readable. */
+const ZMCC_GATE_EXIT_RETIRED = true;
+
 export async function resolveZmccArrivalAuth(
   reqOrUser?: Request | User,
   action: ZmccArrivalAction = 'READ_ARRIVAL'
@@ -175,57 +182,57 @@ export async function resolveZmccArrivalAuth(
   const role = dbUser.role as Role;
   const isSuperAdmin = role === 'SUPER_ADMIN';
   const isZmccManager = role === 'ZMCC_MANAGER';
-  // PHE_OPERATOR or MDO: MDO has the same PHE station rights until phase 4.
-  const isPheOperator = isZmccFieldOfficer(role);
 
-  if (action === 'SUBMIT_ARRIVAL') {
-    if (!isPheOperator && !isSuperAdmin) {
-      return {
-        errorResponse: {
-          error: 'Forbidden. Only PHE Operators or Super Admins may record arrivals.',
-          status: 403,
-        },
-      };
-    }
-  } else if (action === 'CORRECT_ARRIVAL') {
+  const forbid = (error: string) => ({ errorResponse: { error, status: 403 } });
+
+  if (action === 'CORRECT_ARRIVAL' || action === 'CORRECT_EXIT') {
     // CORRECT is non-delegable: Data Executive and Super Admin only.
     if (!isCorrectionAuthority(role)) {
-      return {
-        errorResponse: {
-          error: 'Forbidden. Only Data Executive or Super Admin may correct arrival records.',
-          status: 403,
-        },
-      };
-    }
-  } else if (action === 'READ_ARRIVAL') {
-    if (!isSuperAdmin && !isZmccManager && !isPheOperator) {
-      return {
-        errorResponse: {
-          error: 'Forbidden. You do not have permission to view ZMCC arrivals.',
-          status: 403,
-        },
-      };
-    }
-  } else if (action === 'RECORD_EXIT') {
-    if (!isPheOperator && !isSuperAdmin) {
-      return {
-        errorResponse: {
-          error: 'Forbidden. Only PHE Operators or Super Admins may record gate exit.',
-          status: 403,
-        },
-      };
-    }
-  } else if (action === 'CORRECT_EXIT') {
-    // CORRECT is non-delegable: Data Executive and Super Admin only.
-    if (!isCorrectionAuthority(role)) {
-      return {
-        errorResponse: {
-          error: 'Forbidden. Only Data Executive or Super Admin may correct gate exit records.',
-          status: 403,
-        },
-      };
+      return forbid(
+        action === 'CORRECT_ARRIVAL'
+          ? 'Forbidden. Only Data Executive or Super Admin may correct arrival records.'
+          : 'Forbidden. Only Data Executive or Super Admin may correct gate exit records.'
+      );
     }
   }
+
+  // PHE Operator / MDO and every role above them (own ZMCC scope).
+  let acting: ActingContext | undefined;
+  if (action === 'SUBMIT_ARRIVAL' || action === 'READ_ARRIVAL' || action === 'RECORD_EXIT') {
+    const actingUser: User = {
+      id: dbUser.id.toString(),
+      username: dbUser.username,
+      name: dbUser.full_name || dbUser.username,
+      role,
+      department: dbUser.department || '',
+      scope_type: dbUser.scope_type,
+      procurement_source_id: dbUser.procurement_source_id ? dbUser.procurement_source_id.toString() : null,
+      procurement_source: dbUser.procurement_source
+        ? {
+            id: dbUser.procurement_source.id.toString(),
+            code: dbUser.procurement_source.code,
+            name: dbUser.procurement_source.name,
+            source_type: dbUser.procurement_source.source_type,
+            is_active: dbUser.procurement_source.is_active,
+          }
+        : null,
+    };
+    const requestedAs =
+      reqOrUser && 'headers' in reqOrUser ? (reqOrUser as Request).headers.get(ACTING_AS_HEADER) : null;
+    const resolved = resolveActingContext(actingUser, ['PHE_OPERATOR', 'MDO'], { requestedAs });
+    if (!resolved.ok) {
+      if (resolved.code === 'NO_SCOPE_BOUND') {
+        return forbid('Forbidden. Scoped user must be assigned to an active ZMCC procurement source.');
+      }
+      return forbid(
+        action === 'READ_ARRIVAL'
+          ? 'Forbidden. You do not have permission to view ZMCC arrivals.'
+          : 'Forbidden. Only PHE Operators, MDOs or their superiors may record arrivals.'
+      );
+    }
+    acting = resolved.ctx;
+  }
+  const isPheOperator = !!acting && !isSuperAdmin;
 
   // Correction authorities (SA, DE) work across all ZMCCs.
   const isUnscopedCorrector = (action === 'CORRECT_ARRIVAL' || action === 'CORRECT_EXIT') && isCorrectionAuthority(role);
@@ -285,6 +292,7 @@ export async function resolveZmccArrivalAuth(
       isZmccManager,
       isPheOperator,
       effectiveZmccId,
+      acting,
     },
   };
 }
@@ -985,6 +993,7 @@ export async function submitMotArrival(
           phe_gps_accuracy: gpsValidation.acc != null ? new Prisma.Decimal(gpsValidation.acc.toFixed(2)) : null,
           client_event_id: clientEventId,
           recorded_by_user_id: auth.actorUserId,
+          ...(auth.acting ? asRoleFields(auth.acting, 'recorded') : {}),
           submitted_at: now,
           correction_count: 0,
           manager_correction_count: 0,
@@ -1419,7 +1428,7 @@ export async function submitContractorArrival(
   return {
     status: 410,
     error: 'CONTRACTOR_ARRIVAL_RETIRED',
-    message: 'ZMCC Contractor Arrival is retired for new intake. Record direct-to-ZMCC suppliers through Local Supplier Arrival.',
+    message: 'Contractor arrival at the ZMCC is no longer used. Use HC arrival instead.',
   };
 }
 
@@ -2102,6 +2111,14 @@ export async function submitLocalSupplierArrival(
   if (!localSupplier.is_active) {
     return { status: 400, error: 'Selected local supplier is inactive and cannot receive new milk arrivals.' };
   }
+  if (localSupplier.approval_status !== 'ACTIVE') {
+    return {
+      status: 400,
+      error: localSupplier.approval_status === 'REJECTED'
+        ? 'This HC was rejected by the Zonal Manager.'
+        : 'This HC is waiting for Zonal Manager approval.',
+    };
+  }
   if (!normalizePakistaniMobile(localSupplier.phone).ok || !normalizePakistaniCnic(localSupplier.cnic).ok) {
     return { status: 400, error: 'Selected local supplier has incomplete phone/CNIC identity and cannot receive new milk arrivals until a ZMCC Manager corrects the record.' };
   }
@@ -2757,6 +2774,13 @@ export async function recordGateExit(
   const { auth, errorResponse } = await resolveZmccArrivalAuth(reqOrUser, 'RECORD_EXIT');
   if (errorResponse) return errorResponse;
   if (!auth) return { status: 401, error: 'Unauthorized.' };
+  if (ZMCC_GATE_EXIT_RETIRED) {
+    return {
+      status: 410,
+      error: 'GATE_EXIT_RETIRED',
+      message: 'Gate exit at the ZMCC is no longer used. The journey ends when the milk is received.',
+    };
+  }
 
   let arrivalId: bigint;
   try {
