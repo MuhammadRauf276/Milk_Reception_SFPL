@@ -6,6 +6,7 @@ import {
   mapLegacyTestPoint,
   updatePolicyCells,
   PolicyValidationError,
+  PolicyConflictError,
   type PolicyDb,
   type PolicyRow,
 } from '../testPointPolicyService';
@@ -192,4 +193,34 @@ test('reason is required', async () => {
   await assert.rejects(updatePolicyCells(ctx, change, '', db), PolicyValidationError);
   await assert.rejects(updatePolicyCells(ctx, change, '  abc ', db), PolicyValidationError);
   assert.equal(rows.length, 0);
+});
+
+test('legacy DISPATCH row applies to both dispatch points', async () => {
+  const { db } = makeDb([row({ testing_point: 'DISPATCH', test_mode: 'OFF' })]);
+  for (const p of ['ZMCC_DISPATCH', 'CONTRACTOR_DISPATCH'] as const) {
+    const c = (await getEffectivePolicy(p, new Date(), db)).cells.find((x) => x.testCode === 'LT-000010');
+    assert.equal(c?.testMode, 'OFF');
+    assert.equal(c?.source, 'DB');
+  }
+});
+
+test('updating one dispatch point keeps legacy DISPATCH row for the other', async () => {
+  const { db, rows } = makeDb([row({ id: BigInt(1), testing_point: 'DISPATCH', test_mode: 'OFF' })]);
+  await updatePolicyCells(ctx, [{ labTestId: '3', point: 'ZMCC_DISPATCH', testMode: 'COMPULSORY', ruleMode: 'APPLY', photoMode: 'NONE' }], 'Change zmcc only', db);
+  assert.equal(rows[0].effective_to, null);
+  const z = (await getEffectivePolicy('ZMCC_DISPATCH', new Date(), db)).cells.find((x) => x.testCode === 'LT-000010');
+  const k = (await getEffectivePolicy('CONTRACTOR_DISPATCH', new Date(), db)).cells.find((x) => x.testCode === 'LT-000010');
+  assert.equal(z?.testMode, 'COMPULSORY');
+  assert.equal(k?.testMode, 'OFF');
+});
+
+test('unique violation becomes PolicyConflictError', async () => {
+  const { db } = makeDb();
+  db.testPointPolicy.create = async () => {
+    throw Object.assign(new Error('unique'), { code: 'P2002' });
+  };
+  await assert.rejects(
+    updatePolicyCells(ctx, [{ labTestId: '3', point: 'PLANT_QA', testMode: 'OFF', ruleMode: 'APPLY', photoMode: 'NONE' }], 'Some reason', db),
+    PolicyConflictError
+  );
 });

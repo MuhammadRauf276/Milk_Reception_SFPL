@@ -120,7 +120,8 @@ export async function createErpSource(
     erp_code: string;
     name: string;
     zmcc_ids: (string | number | bigint)[];
-  }
+  },
+  actorRole?: string | null
 ) {
   const erp_code = data.erp_code?.trim();
   const name = data.name?.trim();
@@ -175,7 +176,7 @@ export async function createErpSource(
         name: created.name,
         zmcc_ids: zmccBigInts.map((id) => id.toString()),
       },
-      actor: { userId: actorUserId, actorRole: null },
+      actor: { userId: actorUserId, actorRole: actorRole ?? null },
     });
 
     return created;
@@ -192,7 +193,8 @@ export async function updateErpSource(
     name?: string;
     is_active?: boolean;
     zmcc_ids?: (string | number | bigint)[];
-  }
+  },
+  actorRole?: string | null
 ) {
   const sourceId = BigInt(id);
   const existing = await prisma.zmccMilkSource.findUnique({
@@ -271,7 +273,7 @@ export async function updateErpSource(
         is_active: updated.is_active,
         zmcc_ids: data.zmcc_ids ? data.zmcc_ids.map((z) => z.toString()) : undefined,
       },
-      actor: { userId: actorUserId, actorRole: null },
+      actor: { userId: actorUserId, actorRole: actorRole ?? null },
     });
 
     return updated;
@@ -304,7 +306,8 @@ export async function listContractors(): Promise<ContractorListItem[]> {
 export async function updateContractorErpCode(
   actorUserId: bigint,
   contractorSourceId: string | number | bigint,
-  erp_code: string
+  erp_code: string,
+  actorRole?: string | null
 ) {
   const contractorId = BigInt(contractorSourceId);
   const contractor = await prisma.procurementSource.findUnique({
@@ -329,7 +332,7 @@ export async function updateContractorErpCode(
       action: 'CONTRACTOR_ERP_CODE_UPDATED',
       oldValues: { erp_code: contractor.erp_code },
       newValues: { erp_code: updated.erp_code },
-      actor: { userId: actorUserId, actorRole: null },
+      actor: { userId: actorUserId, actorRole: actorRole ?? null },
     });
 
     return {
@@ -399,7 +402,8 @@ export async function reviewErpCodeRequest(
     notes?: string;
     erp_code?: string;
     zmcc_ids?: (string | number | bigint)[];
-  }
+  },
+  actorRole?: string | null
 ) {
   const reqId = BigInt(requestId);
   const request = await prisma.erpCodeRequest.findUnique({
@@ -472,7 +476,7 @@ export async function reviewErpCodeRequest(
           erp_code: finalErpCode,
           name: newSource.name,
         },
-        actor: { userId: actorUserId, actorRole: null },
+        actor: { userId: actorUserId, actorRole: actorRole ?? null },
       });
 
       return { request: updatedRequest, created_source: newSource };
@@ -492,7 +496,7 @@ export async function reviewErpCodeRequest(
         recordId: reqId,
         action: 'ERP_CODE_REQUEST_REJECTED',
         newValues: { status: 'REJECTED', notes: data.notes },
-        actor: { userId: actorUserId, actorRole: null },
+        actor: { userId: actorUserId, actorRole: actorRole ?? null },
       });
 
       return { request: updatedRequest };

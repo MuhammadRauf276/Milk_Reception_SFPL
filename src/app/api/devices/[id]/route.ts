@@ -20,7 +20,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   const id = BigInt(rawId);
   const body = parsed.data;
   try {
-    if (body.action === 'assign') return NextResponse.json({ device: await assignDevice(guard.acting, id, BigInt(body.userId)) });
+    if (body.action === 'assign') return NextResponse.json(await assignDevice(guard.acting, id, BigInt(body.userId)));
     if (body.action === 'release') return NextResponse.json({ device: await releaseDevice(guard.acting, id) });
     if (body.action === 'block') return NextResponse.json({ device: await blockDevice(guard.acting, id, body.reason) });
     const { device, syncKey } = await rotateKey(guard.acting, id);

@@ -17,6 +17,12 @@
  * The acting role is always re-resolved on the server from the owner's DB
  * user; a role sent by the client is only a request (requestedAs).
  *
+ * Device housekeeping (DEVICE_EVENT / HEARTBEAT) on device auth may come
+ * with an empty ownerUserId (no user signed in on the phone) or an owner
+ * this device cannot vouch for: it is then attributed to the device and its
+ * assigned user (never delegated) instead of being refused, because a
+ * refused diary item would only sit on the phone as a false alarm.
+ *
  * Pure orchestration: every DB access goes through injected deps, so this
  * module never imports the Prisma client at load time.
  */
@@ -36,6 +42,8 @@ import { touchDeviceLastSeen, type DeviceHeartbeat, type DeviceHeartbeatDb } fro
 import { getErrorCode, getErrorMessage, getErrorName } from '../../../lib/errors';
 
 export const SYNC_LEDGER_PREFIX = 'sync:';
+/** Default ledger event_type for a synced item: 'SYNC_' + kind. */
+export const SYNC_LEDGER_EVENT_PREFIX = 'SYNC_';
 
 export const SYNC_ITEM_KINDS: readonly SyncItemKind[] = [
   'DEVICE_EVENT',
@@ -62,7 +70,12 @@ export const SYNC_KIND_ALLOWED_ROLES: Record<SyncItemKind, readonly string[] | n
   ZMCC_LOCAL_SUPPLIER_ARRIVAL: ['PHE_OPERATOR', 'MDO'],
 };
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** Device housekeeping kinds: no acting role, may be attributed to the device itself. */
+export function isHousekeepingKind(kind: SyncItemKind): boolean {
+  return SYNC_KIND_ALLOWED_ROLES[kind] === null;
+}
+
+const UUID_RE =/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const NUMERIC_ID_RE = /^\d+$/;
 
 // ---------------------------------------------------------------------------
@@ -98,11 +111,7 @@ export interface SyncDb extends DeviceHeartbeatDb {
     findUnique(args: {
       where: { device_id_client_event_id: { device_id: bigint; client_event_id: string } };
     }): Promise<SyncLedgerRow | null>;
-    findFirst(args: { where: { device_id: bigint; user_id: bigint }; select: { id: true } }): Promise<{ id: bigint } | null>;
     create(args: { data: SyncLedgerCreateData }): Promise<{ id: bigint }>;
-  };
-  stationPin: {
-    findFirst(args: { where: { device_id: bigint; user_id: bigint }; select: { id: true } }): Promise<{ id: bigint } | null>;
   };
 }
 
@@ -116,6 +125,10 @@ export interface SyncHandlerSuccess {
   eventType?: string;
   /** Extra data kept in the ledger row's payload (diary details). */
   diary?: Record<string, unknown>;
+  /** Extra top-level fields kept in the ledger row's payload (e.g. online flag of a diary event). */
+  ledgerExtra?: Record<string, unknown>;
+  /** When the event happened on the device (default: the item's capturedAt). */
+  occurredAt?: Date;
   /** Non-fatal note returned to the client (e.g. some GPS points dropped). */
   code?: string;
   message?: string;
@@ -135,7 +148,11 @@ function isFailure(outcome: SyncHandlerOutcome): outcome is SyncHandlerFailure {
 
 export interface SyncHandlerContext {
   item: SyncItem;
-  owner: User;
+  /**
+   * The owner's DB user. Always set for business kinds; null only for device
+   * housekeeping attributed to the device (no known / allowed owner).
+   */
+  owner: User | null;
   /** Server-resolved acting context; null for device housekeeping kinds. */
   acting: ActingContext | null;
   /** Authenticated device; null only for a session-auth batch from an unregistered device. */
@@ -155,7 +172,11 @@ export interface SyncBatchDeps {
 }
 
 export type SyncAuth =
-  | { mode: 'DEVICE'; device: AuthenticatedDevice }
+  /**
+   * sessionUser: the user of a valid session cookie sent with the device headers (or null).
+   * Business items are accepted for the device's assigned user or for this signed-in user only.
+   */
+  | { mode: 'DEVICE'; device: AuthenticatedDevice; sessionUser?: User | null }
   | { mode: 'SESSION'; user: User; device: AuthenticatedDevice | null };
 
 export type SyncBatchOutcome =
@@ -225,7 +246,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-type ValidItem = { ok: true; item: SyncItem; ownerId: bigint; capturedAt: Date } | { ok: false; result: SyncItemResult };
+/** ownerId is null only for a housekeeping kind sent with an empty ownerUserId. */
+type ValidItem = { ok: true; item: SyncItem; ownerId: bigint | null; capturedAt: Date } | { ok: false; result: SyncItemResult };
 
 function validateItem(raw: unknown): ValidItem {
   const rec = isRecord(raw) ? raw : {};
@@ -242,7 +264,10 @@ function validateItem(raw: unknown): ValidItem {
     return reject('UNKNOWN_KIND', `Unknown item kind '${String(kind)}'.`);
   }
   const ownerRaw = typeof rec.ownerUserId === 'string' ? rec.ownerUserId.trim() : '';
-  if (!NUMERIC_ID_RE.test(ownerRaw)) return reject('INVALID_OWNER', 'ownerUserId must be a numeric user id.');
+  const ownerless = ownerRaw === '' && (rec.ownerUserId === '' || rec.ownerUserId === undefined || rec.ownerUserId === null);
+  if (!(ownerless && isHousekeepingKind(kind as SyncItemKind)) && !NUMERIC_ID_RE.test(ownerRaw)) {
+    return reject('INVALID_OWNER', 'ownerUserId must be a numeric user id.');
+  }
   const capturedAt = typeof rec.capturedAt === 'string' ? new Date(rec.capturedAt) : new Date(NaN);
   if (Number.isNaN(capturedAt.getTime())) return reject('INVALID_CAPTURED_AT', 'capturedAt must be an ISO date-time.');
   if (rec.requestedAs !== undefined && rec.requestedAs !== null && typeof rec.requestedAs !== 'string') {
@@ -251,7 +276,7 @@ function validateItem(raw: unknown): ValidItem {
 
   return {
     ok: true,
-    ownerId: BigInt(ownerRaw),
+    ownerId: ownerRaw ? BigInt(ownerRaw) : null,
     capturedAt,
     item: {
       clientUuid: clientUuid.toLowerCase(),
@@ -297,7 +322,8 @@ function resultFromLedger(clientUuid: string, kind: SyncItemKind, row: SyncLedge
 // Owner check
 // ---------------------------------------------------------------------------
 
-type OwnerCheck = { ok: true; user: User } | { ok: false; code: string; message: string };
+/** retry: the owner may become valid later (signs in on this phone) -> RETRY, never parked as REJECTED. */
+type OwnerCheck = { ok: true; user: User } | { ok: false; code: string; message: string; retry?: boolean };
 
 async function checkOwner(auth: SyncAuth, ownerId: bigint, deps: SyncBatchDeps): Promise<OwnerCheck> {
   if (auth.mode === 'SESSION') {
@@ -305,21 +331,19 @@ async function checkOwner(auth: SyncAuth, ownerId: bigint, deps: SyncBatchDeps):
       return { ok: false, code: 'OWNER_NOT_ALLOWED', message: 'Items must belong to the signed-in user.' };
     }
   } else {
+    // Device mode: the assigned user, or the user signed in on this phone right now (same request
+    // carries the session cookie; a station PIN login creates that session). Earlier diary rows or a
+    // station PIN alone never authorise an owner: the key alone must not let anyone submit as anyone.
     const device = auth.device;
-    let allowed = device.assignedUserId !== null && device.assignedUserId === ownerId;
-    if (!allowed) {
-      const pin = await deps.db.stationPin.findFirst({ where: { device_id: device.id, user_id: ownerId }, select: { id: true } });
-      allowed = pin !== null;
-    }
-    if (!allowed) {
-      const prior = await deps.db.deviceActivityEvent.findFirst({
-        where: { device_id: device.id, user_id: ownerId },
-        select: { id: true },
-      });
-      allowed = prior !== null;
-    }
-    if (!allowed) {
-      return { ok: false, code: 'OWNER_NOT_ALLOWED', message: 'This user has never worked on this device.' };
+    const assigned = device.assignedUserId !== null && device.assignedUserId === ownerId;
+    const signedIn = auth.sessionUser != null && String(auth.sessionUser.id).trim() === ownerId.toString();
+    if (!assigned && !signedIn) {
+      return {
+        ok: false,
+        code: 'OWNER_SESSION_REQUIRED',
+        message: 'This work is sent when its owner is signed in on this phone.',
+        retry: true,
+      };
     }
   }
 
@@ -410,7 +434,7 @@ export async function processSyncBatch(request: unknown, auth: SyncAuth, deps: S
 
 async function processItem(
   item: SyncItem,
-  ownerId: bigint,
+  ownerId: bigint | null,
   capturedAt: Date,
   auth: SyncAuth,
   deps: SyncBatchDeps,
@@ -429,19 +453,50 @@ async function processItem(
   }
 
   // 2. Owner must be allowed on this device (or be the session user).
-  const cacheKey = ownerId.toString();
-  let owner = ownerCache.get(cacheKey);
-  if (!owner) {
-    owner = await checkOwner(auth, ownerId, deps);
-    ownerCache.set(cacheKey, owner);
+  //    Housekeeping on device auth falls back to the device's assigned user.
+  const housekeeping = isHousekeepingKind(kind);
+  let ownerUser: User | null = null;
+  let ledgerUserId: bigint | null = null;
+  let claimedOwnerUserId: string | null = null;
+  if (ownerId !== null) {
+    const cacheKey = ownerId.toString();
+    let owner = ownerCache.get(cacheKey);
+    if (!owner) {
+      owner = await checkOwner(auth, ownerId, deps);
+      ownerCache.set(cacheKey, owner);
+    }
+    if (owner.ok) {
+      ownerUser = owner.user;
+      ledgerUserId = ownerId;
+    } else if (housekeeping && auth.mode === 'DEVICE') {
+      // Kept as a claim only; never used as user_id (that would vouch for this owner on the device).
+      claimedOwnerUserId = cacheKey;
+    } else {
+      return { clientUuid, status: owner.retry ? 'RETRY' : 'REJECTED', code: owner.code, message: owner.message };
+    }
+  } else if (auth.mode !== 'DEVICE') {
+    return { clientUuid, status: 'REJECTED', code: 'INVALID_OWNER', message: 'ownerUserId must be a numeric user id.' };
   }
-  if (!owner.ok) return { clientUuid, status: 'REJECTED', code: owner.code, message: owner.message };
+  const attributedToDevice = ledgerUserId === null;
+  if (attributedToDevice && auth.mode === 'DEVICE' && auth.device.assignedUserId !== null) {
+    const assignedId = auth.device.assignedUserId;
+    const cacheKey = `assigned:${assignedId.toString()}`;
+    let assigned = ownerCache.get(cacheKey);
+    if (!assigned) {
+      const user = await deps.loadUser(assignedId);
+      assigned = user ? { ok: true, user } : { ok: false, code: 'OWNER_NOT_FOUND', message: 'User not found or not active.' };
+      ownerCache.set(cacheKey, assigned);
+    }
+    ledgerUserId = assignedId;
+    ownerUser = assigned.ok ? assigned.user : null;
+  }
 
   // 3. Acting role, re-resolved on the server from the owner's DB user.
   const allowed = SYNC_KIND_ALLOWED_ROLES[kind];
   let acting: ActingContext | null = null;
   if (allowed) {
-    const resolved = resolveActingContext(owner.user, allowed, { requestedAs: item.requestedAs ?? null });
+    if (!ownerUser) return { clientUuid, status: 'REJECTED', code: 'INVALID_OWNER', message: 'ownerUserId must be a numeric user id.' };
+    const resolved = resolveActingContext(ownerUser, allowed, { requestedAs: item.requestedAs ?? null });
     if (!resolved.ok) {
       return { clientUuid, status: 'REJECTED', code: resolved.code, message: 'This user may not do this work.' };
     }
@@ -452,7 +507,7 @@ async function processItem(
   if (!handler) return { clientUuid, status: 'REJECTED', code: 'NOT_SUPPORTED_YET', message: `${kind} is not supported yet.` };
 
   // 4. Run the domain handler.
-  const handled = await handler({ item, owner: owner.user, acting, device, db: deps.db });
+  const handled = await handler({ item, owner: ownerUser, acting, device, db: deps.db });
   if (isFailure(handled)) {
     return { clientUuid, status: handled.status, code: handled.code, message: handled.message };
   }
@@ -469,10 +524,11 @@ async function processItem(
   if (!device) return result;
 
   // 5. Ledger row (also the diary entry for this item).
-  const actor = acting
+  const actor: { performed_as_role: string | null; is_delegated: boolean } = acting
     ? primaryActorFields(acting)
-    : { performed_as_role: String(owner.user.role), is_delegated: false };
+    : { performed_as_role: ownerUser ? String(ownerUser.role) : null, is_delegated: false };
   const payload: SyncLedgerPayload = {
+    ...(outcome.ledgerExtra ?? {}),
     kind,
     result: {
       status: outcome.status,
@@ -482,20 +538,22 @@ async function processItem(
     },
   };
   if (outcome.diary) payload.data = outcome.diary;
+  if (attributedToDevice) payload.attributedTo = 'DEVICE';
+  if (claimedOwnerUserId) payload.claimedOwnerUserId = claimedOwnerUserId;
 
   try {
     const row = await deps.db.deviceActivityEvent.create({
       data: {
         device_id: device.id,
-        user_id: ownerId,
+        user_id: ledgerUserId,
         performed_as_role: actor.performed_as_role,
         is_delegated: actor.is_delegated,
-        event_type: (outcome.eventType ?? `SYNC_${kind}`).slice(0, 50),
+        event_type: (outcome.eventType ?? SYNC_LEDGER_EVENT_PREFIX + kind).slice(0, 50),
         entity_type: outcome.entityType ? outcome.entityType.slice(0, 50) : null,
         entity_id: parseEntityId(outcome.entityId),
         client_event_id: ledgerId,
         payload,
-        device_occurred_at: capturedAt,
+        device_occurred_at: outcome.occurredAt ?? capturedAt,
       },
     });
     if (!result.entityType) {
@@ -516,6 +574,154 @@ async function processItem(
   }
   return result;
 }
+
+// ---------------------------------------------------------------------------
+// Device housekeeping handlers (no Prisma import: testable with an injected db)
+// ---------------------------------------------------------------------------
+
+function payloadRecord(ctx: SyncHandlerContext): Record<string, unknown> {
+  if (!isRecord(ctx.item.payload)) throw new SyncValidationError('payload must be an object.');
+  return ctx.item.payload;
+}
+
+function requireDevice(ctx: SyncHandlerContext) {
+  if (!ctx.device) throw new SyncValidationError('This item needs a registered device.', 'DEVICE_REQUIRED');
+  return ctx.device;
+}
+
+function optionalNumber(value: unknown, field: string): number | null {
+  if (value === undefined || value === null) return null;
+  const n = Number(value);
+  if (!Number.isFinite(n)) throw new SyncValidationError(`${field} must be a number.`);
+  return n;
+}
+
+function optionalDate(value: unknown, field: string): Date | null {
+  if (value === undefined || value === null || value === '') return null;
+  const d = new Date(String(value));
+  if (Number.isNaN(d.getTime())) throw new SyncValidationError(`${field} must be an ISO date-time.`);
+  return d;
+}
+
+function optionalString(value: unknown, max: number): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim().slice(0, max) : null;
+}
+
+/**
+ * Diary event types the server writes itself (login routes, deviceService, stationPinService,
+ * this service's own ledger rows). A client-sent DEVICE_EVENT never uses them as is.
+ */
+export const SERVER_ONLY_EVENT_TYPES: readonly string[] = [
+  'LOGIN',
+  'HEARTBEAT',
+  'REGISTERED',
+  'ASSIGNED',
+  'RELEASED',
+  'BLOCKED',
+  'KEY_ROTATED',
+  'DEVICE_REGISTERED',
+  'DEVICE_ASSIGNED',
+  'DEVICE_RELEASED',
+  'DEVICE_BLOCKED',
+  'DEVICE_KEY_ROTATED',
+  ...SYNC_ITEM_KINDS.map((k) => SYNC_LEDGER_EVENT_PREFIX + k),
+];
+const SERVER_ONLY_EVENT_PREFIXES: readonly string[] = ['STATION_PIN_'];
+
+/** Reserved (server-only) types are kept with a CLIENT_ prefix (e.g. LOGIN -> CLIENT_LOGIN), not refused. */
+export function clientDiaryEventType(eventType: string): string {
+  const reserved = SERVER_ONLY_EVENT_TYPES.includes(eventType) || SERVER_ONLY_EVENT_PREFIXES.some((p) => eventType.startsWith(p));
+  return reserved ? ('CLIENT_' + eventType).slice(0, 50) : eventType;
+}
+
+/**
+ * DEVICE_EVENT: one activity-diary entry. The ledger row written by the
+ * batch service IS the diary event (event_type = payload.eventType; server-only types get a
+ * CLIENT_ prefix, see clientDiaryEventType).
+ * payload: { eventType: string (A-Z, 0-9, _; <= 50), entityType?: string,
+ *            entityId?: string (numeric), details?: object | null (<= 8 KB JSON),
+ *            occurredAt?: ISO string (device time; becomes device_occurred_at),
+ *            online?: boolean | null (navigator.onLine when logged) }
+ * The client (pwa/diary.ts) sends { eventType, details, occurredAt, online }.
+ */
+export const handleDeviceEvent: SyncHandler = async (ctx) => {
+  requireDevice(ctx);
+  const payload = payloadRecord(ctx);
+  const eventType = typeof payload.eventType === 'string' ? payload.eventType.trim().toUpperCase() : '';
+  if (!/^[A-Z][A-Z0-9_]{1,49}$/.test(eventType)) {
+    throw new SyncValidationError('eventType must be 2-50 letters, digits or underscores.');
+  }
+  const details = payload.details === undefined || payload.details === null ? undefined : payload.details;
+  if (details !== undefined && !isRecord(details)) throw new SyncValidationError('details must be an object.');
+  if (details !== undefined && JSON.stringify(details).length > 8192) {
+    throw new SyncValidationError('details is too large (max 8 KB).');
+  }
+  const entityType = optionalString(payload.entityType, 50);
+  const entityId = typeof payload.entityId === 'string' && /^\d+$/.test(payload.entityId.trim()) ? payload.entityId.trim() : null;
+
+  const occurredAt = optionalDate(payload.occurredAt, 'occurredAt');
+  const online = typeof payload.online === 'boolean' ? payload.online : null;
+
+  const outcome: SyncHandlerSuccess = {
+    status: 'SAVED',
+    eventType: clientDiaryEventType(eventType),
+    diary: details ?? {},
+    ledgerExtra: { occurredAt: occurredAt ? occurredAt.toISOString() : null, online },
+  };
+  if (occurredAt) outcome.occurredAt = occurredAt;
+  if (entityType && entityId) {
+    outcome.entityType = entityType;
+    outcome.entityId = entityId;
+  }
+  return outcome;
+};
+
+/**
+ * HEARTBEAT: device health into Device.last_* columns.
+ * payload: { appVersion?: string, unsentCount?: number, oldestUnsentAt?: ISO string | null,
+ *            freeStorageMb?: number, batteryPercent?: number, charging?: boolean,
+ *            latitude?: number, longitude?: number, gpsAccuracyM?: number }
+ * Device has no battery/GPS columns (prisma/schema.prisma), so those are
+ * kept only in the diary row's payload.
+ */
+export const handleHeartbeat: SyncHandler = async (ctx) => {
+  const device = requireDevice(ctx);
+  const payload = payloadRecord(ctx);
+
+  const update: DeviceHeartbeat = {};
+  const appVersion = optionalString(payload.appVersion, 30);
+  if (appVersion) update.last_app_version = appVersion;
+  const unsent = optionalNumber(payload.unsentCount, 'unsentCount');
+  if (unsent !== null) update.last_unsent_count = Math.max(0, Math.round(unsent));
+  if ('oldestUnsentAt' in payload) update.last_oldest_unsent_at = optionalDate(payload.oldestUnsentAt, 'oldestUnsentAt');
+  const freeMb = optionalNumber(payload.freeStorageMb, 'freeStorageMb');
+  if (freeMb !== null) update.last_free_storage_mb = Math.max(0, Math.round(freeMb));
+
+  const battery = optionalNumber(payload.batteryPercent, 'batteryPercent');
+  const latitude = optionalNumber(payload.latitude, 'latitude');
+  const longitude = optionalNumber(payload.longitude, 'longitude');
+  const gpsAccuracyM = optionalNumber(payload.gpsAccuracyM, 'gpsAccuracyM');
+  if (latitude !== null && (latitude < -90 || latitude > 90)) throw new SyncValidationError('latitude out of range.');
+  if (longitude !== null && (longitude < -180 || longitude > 180)) throw new SyncValidationError('longitude out of range.');
+
+  await touchDeviceLastSeen(ctx.db, device.id, update);
+
+  return {
+    status: 'SAVED',
+    eventType: 'HEARTBEAT',
+    diary: {
+      appVersion,
+      unsentCount: update.last_unsent_count ?? null,
+      oldestUnsentAt: update.last_oldest_unsent_at ? update.last_oldest_unsent_at.toISOString() : null,
+      freeStorageMb: update.last_free_storage_mb ?? null,
+      batteryPercent: battery,
+      charging: typeof payload.charging === 'boolean' ? payload.charging : null,
+      latitude,
+      longitude,
+      gpsAccuracyM,
+    },
+  };
+};
 
 /**
  * Default dependencies for the API route (lazy Prisma import so tests that

@@ -197,7 +197,8 @@ export async function createInitialMotJourneySummaryTx(
   tx: Prisma.TransactionClient,
   journeyId: bigint,
   journeyEndedAt: Date,
-  actorUserId: bigint
+  actorUserId: bigint,
+  actorRole?: string | null
 ) {
   // Idempotency check: if summary already exists, return existing
   const existing = await tx.motJourneySummary.findUnique({
@@ -263,7 +264,7 @@ export async function createInitialMotJourneySummaryTx(
     action: 'MOT_JOURNEY_SUMMARY_CREATED',
     oldValues: null,
     newValues: serializeSummaryAuditValues(summary),
-    actor: { userId: actorUserId, actorRole: null },
+    actor: { userId: actorUserId, actorRole: actorRole ?? null },
   });
 
   return summary;
@@ -276,7 +277,8 @@ export async function createInitialMotJourneySummaryTx(
 export async function recomputeMotJourneySummaryTx(
   tx: Prisma.TransactionClient,
   journeyId: bigint,
-  actorUserId: bigint
+  actorUserId: bigint,
+  actorRole?: string | null
 ) {
   const existing = await tx.motJourneySummary.findUnique({
     where: { journey_id: journeyId },
@@ -368,7 +370,7 @@ export async function recomputeMotJourneySummaryTx(
     action: 'MOT_JOURNEY_SUMMARY_REFRESHED_LATE_SYNC',
     oldValues: serializeSummaryAuditValues(existing),
     newValues: serializeSummaryAuditValues(updated),
-    actor: { userId: actorUserId, actorRole: null },
+    actor: { userId: actorUserId, actorRole: actorRole ?? null },
   });
 
   return updated;

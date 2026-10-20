@@ -30,3 +30,16 @@
 - Plan + shared interfaces + owner decisions: docs/PHASE3_BRIEF.md. Tasks T0..T11 (see brief).
 - Done: T0 shared types in src/types (acting, sync, device, captured-photo, test-point-policy). Note: CanonicalRole lives in src/backend/core/types; schema comment for testing_point is stale (use ZMCC_LAB_MC/ZMCC_LAB_HC, map legacy codes in T3).
 - Next: T1 (guards/acting context) + T2 (audit/device auth), then T3..T10 in parallel, then T11 station PIN.
+
+## Phase 3 — done (20 Oct 2026), branch feature/phase-3
+- Guards: requireRoles expands to ancestors with acting context (SYSTEM / SOURCE / DEPARTMENT scope). x-acting-as validated server-side. CORRECT + ADMINISTER only Super Admin + Data Executive (rolePolicies, correction routes, arrival/lab/MOT corrections, corrections desk). SMS cron keeps exact roles.
+- writeAuditLog helper (src/backend/core/audit.ts) replaces all direct auditLog.create (only the helper writes now). Stores real user, actor_role, performed_as_role, is_delegated, device_id.
+- Dispatch trap fixed: dispatch source checked by acting scope for every role incl. Super Admin (src/backend/services/dispatchScope.ts). Dispatch GET and operational read models fail closed for unknown roles.
+- Devices: /super-admin/devices "Phones" (register, give to user [rotates key], release, block, rotate key with QR, diary). Device key = sha256 stored. Login with deviceUid gives field users a 30-day session on their own phone. /device-setup screen on the phone (scan QR or type key).
+- Station PCs: /station-login name cards + 4-digit PIN (set by SA/DE on the Phones screen; 5 wrong tries lock; not allowed for SA/DE accounts).
+- Sync: POST /api/sync/batch (idempotent by client UUID, per-item SAVED/DUPLICATE/REJECTED/RETRY; owner must be the assigned user or the signed-in user). Client engine src/frontend/modules/pwa (IndexedDB milk_sync, backoff to 15 min, never deletes before ACK, photos after record ACK). MOT queues drain into it only when the phone has a device key; otherwise the old path is unchanged. Status sign: All sent / N waiting / N need help / Phone blocked.
+- Photos: LiveCamera (camera only, stamp band below the photo); LiveCameraCapture is a wrapper (file input removed). POST /api/photos checks JPEG, hash, owner, record whitelist + scope; GET /api/photos/[captureId]. Files in PHOTO_STORAGE_DIR (default storage/photos, git-ignored).
+- Test & picture policy matrix: /super-admin/test-point-policies (6 points MOT_SHOP, ZMCC_LAB_MC, ZMCC_LAB_HC, ZMCC_DISPATCH, CONTRACTOR_DISPATCH, PLANT_QA; versioned; change log). Seed script scripts/seed-test-point-policy.ts (dry-run unless --apply; NOT run).
+- Owner rule from now: no tests written/updated until all phases are done; backlog in docs/TEST_BACKLOG.md.
+- Known follow-ups: src/lib/rate-limit.ts clientIp trusts x-forwarded-for (normal login); plant QA photos have no department scope check; stage screens (MOT/lab/arrival/tank) not yet widened for superiors (Phase 4).
+- YOU MUST TEST BY HAND: Phones screen (register a phone, scan QR on /device-setup, MOT sync works offline->online), station login on a shared PC, Test Matrix save, live camera on MOT/QA/ZMCC lab screens, Zonal Manager can no longer apply corrections, Data Executive can.

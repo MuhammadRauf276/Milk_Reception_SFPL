@@ -15,6 +15,8 @@ export type DeviceEventType =
   | 'GPS_ON'
   | 'LOW_BATTERY'
   | 'SYNC_ERROR'
+  | 'DEVICE_SETUP'
+  | 'DEVICE_KEY_REMOVED'
   | (string & {});
 
 const SYNC_ERROR_THROTTLE_MS = 30 * 60 * 1000;
@@ -28,6 +30,12 @@ function newUuid(): string {
 /**
  * Queues one diary event. Returns the clientUuid, or null when it was not stored
  * (no signed-in user and no device key: the server could not attribute it).
+ * With a device key and nobody signed in, ownerUserId is '' and the server attributes the
+ * event to the device and its assigned user. If the server refuses a diary event, the phone
+ * drops it (syncQueueCore.applyResults): it is never shown as 'needs office help'.
+ * Payload (server handleDeviceEvent): { eventType, details, occurredAt, online }.
+ * Types the server writes itself (e.g. LOGIN, STATION_PIN_*) are stored as CLIENT_<type>
+ * (CLIENT_LOGIN), so the phone's own record never looks like the server's.
  */
 export async function logDeviceEvent(
   type: DeviceEventType,

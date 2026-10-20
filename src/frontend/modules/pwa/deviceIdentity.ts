@@ -4,7 +4,7 @@
  * - device sync key: given once by the office (QR / registration screen) via saveDeviceKey(key).
  * - active owner: the signed-in user id, so queued work records who did it even if saved offline.
  */
-import { DEVICE_KEY_HEADER, DEVICE_UID_HEADER } from '@/types/device';
+import { DEVICE_KEY_HEADER, DEVICE_UID_HEADER, type DeviceStatus } from '@/types/device';
 
 const DB_NAME = 'milk_device_identity';
 const DB_VERSION = 1;
@@ -120,6 +120,7 @@ export async function saveDeviceKey(key: string): Promise<void> {
   if (!clean || clean.length > KEY_MAX_LENGTH || /\s/.test(clean)) throw new Error('Invalid device key');
   lsSet(LS_KEY, clean);
   await idbSet(LS_KEY, clean);
+  setDeviceSyncState(null);
   if (hasWindow()) window.dispatchEvent(new CustomEvent('milk-device-key-changed'));
 }
 
@@ -144,6 +145,7 @@ export async function hasDeviceKey(): Promise<boolean> {
 export async function clearDeviceKey(): Promise<void> {
   lsSet(LS_KEY, null);
   await idbSet(LS_KEY, null);
+  setDeviceSyncState(null);
   if (hasWindow()) window.dispatchEvent(new CustomEvent('milk-device-key-changed'));
 }
 
@@ -163,6 +165,42 @@ export async function requestPersistentStorage(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+// -------------------------------------------------------------
+// Last known server answer about this phone's key
+// -------------------------------------------------------------
+
+const LS_DEVICE_STATE = 'milk_device_sync_state';
+/** Fired on window with detail DeviceSyncState whenever the state changes. */
+export const DEVICE_SYNC_STATE_EVENT = 'milk-device-sync-state';
+
+export interface DeviceSyncState {
+  /** OK = server accepted the key; BLOCKED = 403 DEVICE_NOT_ACTIVE; KEY_REJECTED = 401. */
+  state: 'OK' | 'BLOCKED' | 'KEY_REJECTED';
+  deviceStatus: DeviceStatus | null;
+  message: string | null;
+  /** Epoch ms of the answer. */
+  at: number;
+}
+
+export function getDeviceSyncState(): DeviceSyncState | null {
+  const raw = lsGet(LS_DEVICE_STATE);
+  if (!raw) return null;
+  try {
+    const v = JSON.parse(raw) as Partial<DeviceSyncState>;
+    if (v.state !== 'OK' && v.state !== 'BLOCKED' && v.state !== 'KEY_REJECTED') return null;
+    return { state: v.state, deviceStatus: v.deviceStatus ?? null, message: v.message ?? null, at: Number(v.at) || 0 };
+  } catch {
+    return null;
+  }
+}
+
+export function setDeviceSyncState(next: DeviceSyncState | null): void {
+  const prev = getDeviceSyncState();
+  lsSet(LS_DEVICE_STATE, next ? JSON.stringify(next) : null);
+  const changed = (prev?.state ?? null) !== (next?.state ?? null) || (prev?.deviceStatus ?? null) !== (next?.deviceStatus ?? null);
+  if (changed && hasWindow()) window.dispatchEvent(new CustomEvent(DEVICE_SYNC_STATE_EVENT, { detail: next }));
 }
 
 /** The signed-in user id work is attributed to (set by PwaShell after /api/auth/me). */

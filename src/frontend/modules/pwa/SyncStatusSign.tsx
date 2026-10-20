@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { AlertCircle, CheckCircle2, RefreshCw, X } from 'lucide-react';
 import { getUnsentWorkSummary } from '@/frontend/modules/mot/offlineStore';
 import {
@@ -10,6 +10,7 @@ import {
   SYNC_QUEUE_CHANGED_EVENT,
 } from './syncEngine';
 import { isBackgroundKind, type QueueRecord } from './syncQueueCore';
+import { DEVICE_SYNC_STATE_EVENT, getDeviceSyncState, type DeviceSyncState } from './deviceIdentity';
 
 const REFRESH_MS = 15_000;
 
@@ -44,12 +45,25 @@ function timeLabel(iso: string): string {
   return d.toLocaleString([], { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
+function subscribeDeviceState(onChange: () => void): () => void {
+  window.addEventListener(DEVICE_SYNC_STATE_EVENT, onChange);
+  return () => window.removeEventListener(DEVICE_SYNC_STATE_EVENT, onChange);
+}
+
+function readDeviceStateRaw(): string {
+  const state = getDeviceSyncState();
+  return state ? JSON.stringify(state) : '';
+}
+
 /** Always-visible sign: green "All sent" / amber "N waiting" / red "N need help from office". */
 export function SyncStatusSign() {
   const [counts, setCounts] = useState<SignState>(EMPTY);
   const [open, setOpen] = useState(false);
   const [records, setRecords] = useState<QueueRecord[]>([]);
   const [sending, setSending] = useState(false);
+  // Snapshot is a string so React can compare it; parsed below.
+  const deviceRaw = useSyncExternalStore(subscribeDeviceState, readDeviceStateRaw, () => '');
+  const device = useMemo<DeviceSyncState | null>(() => (deviceRaw ? (JSON.parse(deviceRaw) as DeviceSyncState) : null), [deviceRaw]);
 
   const refresh = useCallback(async () => {
     const [sync, old] = await Promise.all([getSyncQueueCounts(), getUnsentWorkSummary()]);
@@ -95,7 +109,12 @@ export function SyncStatusSign() {
   let tone = 'border-emerald-300 bg-emerald-50 text-emerald-900';
   let icon = <CheckCircle2 className="h-5 w-5 text-emerald-600" aria-hidden />;
   let label = 'All sent';
-  if (help > 0) {
+  if (device?.state === 'BLOCKED') {
+    // Work stays saved on the phone; nothing is sent until the office unblocks it.
+    tone = 'border-red-300 bg-red-50 text-red-900';
+    icon = <AlertCircle className="h-5 w-5 text-red-600" aria-hidden />;
+    label = device.message || 'This phone is blocked. Ask the office.';
+  } else if (help > 0) {
     tone = 'border-red-300 bg-red-50 text-red-900';
     icon = <AlertCircle className="h-5 w-5 text-red-600" aria-hidden />;
     label = `${help} need help from office`;

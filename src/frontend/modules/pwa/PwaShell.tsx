@@ -13,7 +13,8 @@ import { logDeviceEvent, startDeviceDiary } from './diary';
 let appOpenLogged = false;
 
 function isPublicPath(pathname: string): boolean {
-  return pathname === '/login' || pathname === '/workspace-unavailable';
+  return pathname === '/login' || pathname === '/workspace-unavailable'
+    || pathname === '/station-login' || pathname === '/device-setup';
 }
 
 function fromBase64Url(value: string): Uint8Array<ArrayBuffer> {
@@ -98,7 +99,7 @@ export function PwaShell() {
     window.addEventListener('milk-auth-expired', expired);
 
     const key = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-    const isLoginPage = typeof window !== 'undefined' && (window.location.pathname === '/login' || window.location.pathname === '/workspace-unavailable');
+    const isLoginPage = typeof window !== 'undefined' && isPublicPath(window.location.pathname);
 
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker

@@ -90,8 +90,10 @@ test('assign then release clears the assignment and key', async () => {
   const { db, devices, audits, diary } = makeDb();
   const { device, syncKey } = await registerDevice(ctx, { deviceUid: 'uid-1', label: 'A', isSharedStation: false }, db);
   const id = BigInt(device.id);
-  const assigned = await assignDevice(ctx, id, BigInt(7), db);
-  assert.equal(assigned.assignedUserId, '7');
+  const first = await assignDevice(ctx, id, BigInt(7), db);
+  assert.equal(first.device.assignedUserId, '7');
+  assert.equal(first.syncKey, undefined);
+  assert.equal(devices[0].sync_key_hash, hashDeviceKey(syncKey));
   const released = await releaseDevice(ctx, id, db);
   assert.equal(released.status, 'RELEASED');
   assert.equal(released.assignedUserId, null);
@@ -147,4 +149,18 @@ test('diary returns newest first with a cursor', async () => {
   assert.equal(page.entries.length, 1);
   assert.equal(page.entries[0].eventType, 'ASSIGNED');
   assert.ok(page.nextCursor);
+});
+
+test('assigning a different user rotates the key and returns it once', async () => {
+  const { db, devices } = makeDb();
+  const { device, syncKey } = await registerDevice(ctx, { deviceUid: 'uid-1', label: 'A', isSharedStation: false }, db);
+  const id = BigInt(device.id);
+  await assignDevice(ctx, id, BigInt(7), db);
+  const same = await assignDevice(ctx, id, BigInt(7), db);
+  assert.equal(same.syncKey, undefined);
+  const changed = await assignDevice(ctx, id, BigInt(8), db);
+  assert.ok(changed.syncKey);
+  assert.notEqual(changed.syncKey, syncKey);
+  assert.equal(devices[0].sync_key_hash, hashDeviceKey(changed.syncKey!));
+  assert.equal(JSON.stringify(changed.device).includes(changed.syncKey!), false);
 });

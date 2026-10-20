@@ -302,7 +302,8 @@ async function executeFinalizeSiloReceiptForVisit(
   visitIdInput: bigint | string,
   performedByUserIdInput: bigint | string,
   opTimestampInput?: Date,
-  txPrisma?: Prisma.TransactionClient
+  txPrisma?: Prisma.TransactionClient,
+  actorRole?: string | null
 ): Promise<FinalizeReceiptResult> {
   const db = txPrisma || prisma;
   const visitId = typeof visitIdInput === 'string' ? BigInt(visitIdInput) : visitIdInput;
@@ -590,7 +591,7 @@ async function executeFinalizeSiloReceiptForVisit(
     tableName: 'silo_inventory_transaction',
     recordId: visitId,
     action: 'SILO_RECEIPT_FINALIZED',
-    actor: { userId: performedByUserId, actorRole: null },
+    actor: { userId: performedByUserId, actorRole: actorRole ?? null },
     newValues: {
       visit_id: visitId.toString(),
       vehicle_number: visit.vehicle_number,
@@ -638,13 +639,14 @@ export async function finalizeSiloReceiptForVisit(
   visitIdInput: bigint | string,
   performedByUserIdInput: bigint | string,
   opTimestampInput?: Date,
-  txPrisma?: Prisma.TransactionClient
+  txPrisma?: Prisma.TransactionClient,
+  actorRole?: string | null
 ): Promise<FinalizeReceiptResult> {
   if (txPrisma) {
-    return await executeFinalizeSiloReceiptForVisit(visitIdInput, performedByUserIdInput, opTimestampInput, txPrisma);
+    return await executeFinalizeSiloReceiptForVisit(visitIdInput, performedByUserIdInput, opTimestampInput, txPrisma, actorRole);
   }
   return await prisma.$transaction(async (tx) => {
-    return await executeFinalizeSiloReceiptForVisit(visitIdInput, performedByUserIdInput, opTimestampInput, tx);
+    return await executeFinalizeSiloReceiptForVisit(visitIdInput, performedByUserIdInput, opTimestampInput, tx, actorRole);
   });
 }
 
@@ -792,6 +794,7 @@ export async function recordSiloTransaction(params: RecordTransactionParams) {
 }
 
 export interface RecordSiloIssueParams {
+  actor_role?: string | null;
   silo_id: bigint | string;
   quantity_liters: number;
   operational_timestamp: Date;
@@ -894,7 +897,7 @@ export async function recordSiloIssueTransaction(params: RecordSiloIssueParams) 
       tableName: 'silo_inventory_transaction',
       recordId: transaction.id,
       action: 'SILO_MILK_ISSUED',
-      actor: { userId: performedBy, actorRole: null },
+      actor: { userId: performedBy, actorRole: params.actor_role ?? null },
       newValues: {
         silo_id: siloId.toString(),
         silo_code: silo.silo_code,

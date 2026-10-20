@@ -84,6 +84,21 @@ export function mapLegacyTestPoint(code: string, sourceType?: string | null): Te
   }
 }
 
+/** Points a stored row applies to. Legacy DISPATCH rows had no source distinction, so they apply to both dispatch points. */
+export function pointsForStoredCode(code: string): TestPointCode[] {
+  if ((code || '').trim().toUpperCase() === 'DISPATCH') return ['ZMCC_DISPATCH', 'CONTRACTOR_DISPATCH'];
+  const p = mapLegacyTestPoint(code);
+  return p ? [p] : [];
+}
+
+export class PolicyConflictError extends Error {
+  readonly status = 409;
+  constructor() {
+    super('Someone else just changed this cell. Reload and try again.');
+    this.name = 'PolicyConflictError';
+  }
+}
+
 function isCurrentCode(code: string): boolean {
   return (TEST_POINT_CODES as readonly string[]).includes(code);
 }
@@ -133,11 +148,12 @@ async function loadMatrix(db: PolicyDb, at: Date, onlyPoint?: TestPointCode) {
   const best = new Map<string, PolicyRow>();
   for (const row of rows) {
     if (!isEffective(row, at)) continue;
-    const point = mapLegacyTestPoint(row.testing_point);
-    if (!point || (onlyPoint && point !== onlyPoint)) continue;
-    const key = `${row.lab_test_id}|${point}`;
-    const cur = best.get(key);
-    if (!cur || isBetter(row, cur)) best.set(key, row);
+    for (const point of pointsForStoredCode(row.testing_point)) {
+      if (onlyPoint && point !== onlyPoint) continue;
+      const key = `${row.lab_test_id}|${point}`;
+      const cur = best.get(key);
+      if (!cur || isBetter(row, cur)) best.set(key, row);
+    }
   }
   const points = onlyPoint ? [onlyPoint] : [...TEST_POINT_CODES];
   const cells: TestPointPolicyCell[] = [];
@@ -211,6 +227,15 @@ export async function updatePolicyCells(
   }
 
   const database = db ?? (await defaultDb());
+  try {
+    return await runUpdate(database, ctx, changes, cleanReason);
+  } catch (e) {
+    if ((e as { code?: string } | null)?.code === 'P2002') throw new PolicyConflictError();
+    throw e;
+  }
+}
+
+async function runUpdate(database: PolicyDb, ctx: ActingContext, changes: PolicyChange[], cleanReason: string): Promise<{ applied: number }> {
   return database.$transaction(async (tx) => {
     const now = new Date();
     const { cells } = await loadMatrix(tx, now);
@@ -225,9 +250,10 @@ export async function updatePolicyCells(
       if (current.testMode === ch.testMode && current.ruleMode === ch.ruleMode && current.photoMode === ch.photoMode) continue;
 
       const labTestId = BigInt(ch.labTestId);
-      const related = allRows.filter((r) => r.lab_test_id === labTestId && mapLegacyTestPoint(r.testing_point) === ch.point);
+      const related = allRows.filter((r) => r.lab_test_id === labTestId && pointsForStoredCode(r.testing_point).includes(ch.point));
       const maxVersion = related.reduce((m, r) => Math.max(m, r.version), 0);
-      const openIds = related.filter((r) => r.effective_to === null).map((r) => r.id);
+      // Legacy DISPATCH rows serve two points; leave them open (the new higher-version row wins for this point).
+      const openIds = related.filter((r) => r.effective_to === null && pointsForStoredCode(r.testing_point).length === 1).map((r) => r.id);
       if (openIds.length > 0) {
         await tx.testPointPolicy.updateMany({
           where: { id: { in: openIds } },

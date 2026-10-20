@@ -1504,11 +1504,12 @@ async function deviceHasSyncKey(): Promise<boolean> {
   }
 }
 
-async function deleteFromMotStore(name: string, key: IDBValidKey): Promise<void> {
+async function deleteFromMotStore(name: string, keys: readonly IDBValidKey[]): Promise<void> {
   const db = await openMotDb();
   return new Promise<void>((resolve, reject) => {
     const tx = db.transaction(name, 'readwrite');
-    tx.objectStore(name).delete(key);
+    const store = tx.objectStore(name);
+    for (const key of keys) store.delete(key);
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error || new Error('Transaction failed'));
     tx.onabort = () => reject(tx.error || new Error('Transaction aborted'));
@@ -1529,9 +1530,86 @@ function timeOr(iso: string | undefined, fallback: number): number {
   return Number.isFinite(t) ? t : fallback;
 }
 
+/** Max GPS points per MOT_GPS_BATCH sync item. */
+export const GPS_POINTS_PER_SYNC_ITEM = 200;
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Pure: true for a canonical 8-4-4-4-12 hex UUID. */
+export function isUuid(value: unknown): value is string {
+  return typeof value === 'string' && UUID_RE.test(value);
+}
+
+/**
+ * Deterministic UUID (v5-style: SHA-256 of "namespace:name", version/variant bits set).
+ * Same input always gives the same UUID, so a re-drain produces the same sync clientUuid.
+ * Returns null when Web Crypto is unavailable (caller then leaves the item on the old path).
+ */
+export async function deterministicUuid(namespace: string, name: string): Promise<string | null> {
+  try {
+    const subtle = typeof crypto !== 'undefined' ? crypto.subtle : undefined;
+    if (!subtle) return null;
+    const digest = new Uint8Array(await subtle.digest('SHA-256', new TextEncoder().encode(`${namespace}:${name}`)));
+    const b = digest.slice(0, 16);
+    b[6] = (b[6] & 0x0f) | 0x50;
+    b[8] = (b[8] & 0x3f) | 0x80;
+    const hex = Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  } catch {
+    return null;
+  }
+}
+
+/** Sync clientUuid for an old queue id: the id itself when it is a UUID, else a deterministic UUID. */
+export async function syncClientUuidFor(namespace: string, oldId: string | null | undefined): Promise<string | null> {
+  const id = (oldId ?? '').trim();
+  if (!id) return null;
+  if (isUuid(id)) return id;
+  return deterministicUuid(namespace, id);
+}
+
+/**
+ * Pure: groups GPS points by journey + owner and splits them into chunks of at most `max`,
+ * oldest first. Points without a client_location_id are left out (stay on the old path).
+ */
+export function chunkGpsPoints<P extends { journey_id: string; client_location_id: string; device_recorded_at: string }>(
+  points: readonly P[],
+  ownerOf: (p: P) => string | null,
+  max: number = GPS_POINTS_PER_SYNC_ITEM
+): Array<{ journeyId: string; ownerUserId: string; points: P[] }> {
+  const size = Math.max(1, Math.floor(max));
+  const groups = new Map<string, { journeyId: string; ownerUserId: string; points: P[] }>();
+  const sorted = points
+    .filter((p) => Boolean(p.client_location_id) && Boolean(ownerOf(p)))
+    .slice()
+    .sort((a, b) => timeOr(a.device_recorded_at, 0) - timeOr(b.device_recorded_at, 0));
+  for (const p of sorted) {
+    const owner = ownerOf(p) as string;
+    const key = `${String(p.journey_id)}|${owner}`;
+    let g = groups.get(key);
+    if (!g) {
+      g = { journeyId: String(p.journey_id), ownerUserId: owner, points: [] };
+      groups.set(key, g);
+    }
+    g.points.push(p);
+  }
+  const chunks: Array<{ journeyId: string; ownerUserId: string; points: P[] }> = [];
+  for (const g of groups.values()) {
+    for (let i = 0; i < g.points.length; i += size) chunks.push({ ...g, points: g.points.slice(i, i + size) });
+  }
+  return chunks;
+}
+
+/** Deterministic clientUuid of a GPS chunk: from its sorted client_location_ids. */
+export function gpsChunkClientUuid(clientLocationIds: readonly string[]): Promise<string | null> {
+  return deterministicUuid('mot-gps-batch', clientLocationIds.slice().sort().join('\n'));
+}
+
 /**
  * Moves waiting MOT collections, GPS points and stop skips into the new sync queue.
- * clientUuid = the item's existing client id, so server idempotency matches the old path.
+ * clientUuid = the item's existing client id when it is a UUID, else a deterministic UUID derived
+ * from it; the old id is always kept in the payload so server domain idempotency still matches.
+ * GPS points go in chunks of up to 200 per journey (one MOT_GPS_BATCH item per chunk).
  * An item is removed from the old queue ONLY after the new queue durably stored it;
  * if anything fails the item simply stays in the old queue. Items with no known owner stay too.
  * Does nothing when the device has no sync key (old path untouched).
@@ -1545,20 +1623,19 @@ export async function drainMotQueuesToSyncQueue(opts: { fallbackOwnerUserId?: st
   const now = Date.now();
   const fallback = opts.fallbackOwnerUserId ?? null;
 
-  const move = async (item: SyncItem, enqueuedAt: number, store: string, key: IDBValidKey | undefined) => {
+  const move = async (item: SyncItem, enqueuedAt: number, store: string, keys: readonly IDBValidKey[]) => {
     try {
       await enqueueSyncItem(item, { now: enqueuedAt });
     } catch {
-      kept++;
+      kept += keys.length;
       return;
     }
-    if (key === undefined) return;
     try {
-      await deleteFromMotStore(store, key);
-      moved++;
+      await deleteFromMotStore(store, keys);
+      moved += keys.length;
     } catch {
-      // Already in the new queue; the old copy is resent with the same id (server deduplicates).
-      kept++;
+      // Already in the new queue; the old copy is resent with the same ids (server deduplicates).
+      kept += keys.length;
     }
   };
 
@@ -1567,13 +1644,15 @@ export async function drainMotQueuesToSyncQueue(opts: { fallbackOwnerUserId?: st
     .sort((a, b) => timeOr(a.offline_created_at, now) - timeOr(b.offline_created_at, now));
   for (const c of collections) {
     const owner = c.owner_user_id || fallback;
-    if (!owner) {
+    // Old id stays in payload.client_event_id (domain idempotency); sync id must be a UUID.
+    const clientUuid = owner ? await syncClientUuidFor('mot-collection', c.client_event_id) : null;
+    if (!owner || !clientUuid) {
       kept++;
       continue;
     }
     await move(
       {
-        clientUuid: c.client_event_id,
+        clientUuid,
         kind: 'MOT_COLLECTION',
         ownerUserId: owner,
         capturedAt: c.offline_created_at,
@@ -1599,53 +1678,57 @@ export async function drainMotQueuesToSyncQueue(opts: { fallbackOwnerUserId?: st
       },
       timeOr(c.offline_created_at, now),
       'collection_queue',
-      c.client_event_id
+      [c.client_event_id]
     );
   }
 
   const points = await getEligibleGpsPoints().catch(() => [] as QueuedGpsPoint[]);
-  for (const p of points) {
-    const owner = p.owner_user_id || fallback;
-    if (!owner || !p.client_location_id) {
-      kept++;
+  const ownerOf = (p: QueuedGpsPoint) => p.owner_user_id || fallback;
+  const chunks = chunkGpsPoints(points, ownerOf);
+  kept += points.length - chunks.reduce((n, c) => n + c.points.length, 0);
+  for (const chunk of chunks) {
+    const keys = chunk.points.map((p) => p.id).filter((id): id is number => typeof id === 'number');
+    const clientUuid = await gpsChunkClientUuid(chunk.points.map((p) => p.client_location_id));
+    if (!clientUuid || keys.length !== chunk.points.length) {
+      kept += chunk.points.length;
       continue;
     }
+    const first = chunk.points[0];
     await move(
       {
-        clientUuid: p.client_location_id,
+        clientUuid,
         kind: 'MOT_GPS_BATCH',
-        ownerUserId: owner,
-        capturedAt: p.device_recorded_at,
+        ownerUserId: chunk.ownerUserId,
+        capturedAt: first.device_recorded_at,
         payload: {
-          journey_id: p.journey_id,
-          locations: [
-            {
-              client_location_id: p.client_location_id,
-              journey_id: p.journey_id,
-              latitude: p.latitude,
-              longitude: p.longitude,
-              gps_accuracy: p.gps_accuracy,
-              device_recorded_at: p.device_recorded_at,
-            },
-          ],
+          journey_id: chunk.journeyId,
+          locations: chunk.points.map((p) => ({
+            client_location_id: p.client_location_id,
+            journey_id: p.journey_id,
+            latitude: p.latitude,
+            longitude: p.longitude,
+            gps_accuracy: p.gps_accuracy,
+            device_recorded_at: p.device_recorded_at,
+          })),
         },
       },
-      timeOr(p.device_recorded_at, now),
+      timeOr(first.device_recorded_at, now),
       'gps_queue',
-      p.id
+      keys
     );
   }
 
   const skips = (await getQueuedSkips().catch(() => [] as QueuedSkip[])).filter((k) => isDrainable(k, now));
   for (const k of skips) {
     const owner = k.owner_user_id || fallback;
-    if (!owner) {
+    const clientUuid = owner ? await syncClientUuidFor('mot-stop-skip', k.client_event_id) : null;
+    if (!owner || !clientUuid) {
       kept++;
       continue;
     }
     await move(
       {
-        clientUuid: k.client_event_id,
+        clientUuid,
         kind: 'MOT_STOP_SKIP',
         ownerUserId: owner,
         capturedAt: k.offline_created_at,
@@ -1659,7 +1742,7 @@ export async function drainMotQueuesToSyncQueue(opts: { fallbackOwnerUserId?: st
       },
       timeOr(k.offline_created_at, now),
       'skip_queue',
-      k.client_event_id
+      [k.client_event_id]
     );
   }
 

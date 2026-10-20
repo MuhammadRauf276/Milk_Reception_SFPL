@@ -15,8 +15,10 @@ import { recordGpsBatch, resolveMotAuth, skipJourneyStop, submitShopCollection }
 import type { GpsLocationItem, ServiceResult, SubmitCollectionPayload } from '../mot/motCore';
 import { submitLocalSupplierArrival, submitMotArrival } from '../zmccArrival/zmccArrivalCore';
 import type { SubmitLocalSupplierArrivalPayload, SubmitMotArrivalPayload } from '../zmccArrival/zmccArrivalCore';
-import { touchDeviceLastSeen, type DeviceHeartbeat } from '../../core/device-auth';
+import type { User } from '../../core/types';
 import {
+  handleDeviceEvent,
+  handleHeartbeat,
   SyncValidationError,
   type SyncHandler,
   type SyncHandlerContext,
@@ -43,27 +45,10 @@ function withClientEventId(ctx: SyncHandlerContext): Json {
   return { ...payload, client_event_id: given || ctx.item.clientUuid };
 }
 
-function requireDevice(ctx: SyncHandlerContext) {
-  if (!ctx.device) throw new SyncValidationError('This item needs a registered device.', 'DEVICE_REQUIRED');
-  return ctx.device;
-}
-
-function optionalNumber(value: unknown, field: string): number | null {
-  if (value === undefined || value === null) return null;
-  const n = Number(value);
-  if (!Number.isFinite(n)) throw new SyncValidationError(`${field} must be a number.`);
-  return n;
-}
-
-function optionalDate(value: unknown, field: string): Date | null {
-  if (value === undefined || value === null || value === '') return null;
-  const d = new Date(String(value));
-  if (Number.isNaN(d.getTime())) throw new SyncValidationError(`${field} must be an ISO date-time.`);
-  return d;
-}
-
-function optionalString(value: unknown, max: number): string | null {
-  return typeof value === 'string' && value.trim() ? value.trim().slice(0, max) : null;
+/** Business kinds always have a server-checked owner (processSyncBatch guarantees it). */
+function requireOwner(ctx: SyncHandlerContext): User {
+  if (!ctx.owner) throw new SyncValidationError('ownerUserId must be a numeric user id.', 'INVALID_OWNER');
+  return ctx.owner;
 }
 
 // ---------------------------------------------------------------------------
@@ -116,81 +101,8 @@ export function mapServiceResult(res: ServiceResult<unknown>, mapping: SuccessMa
 // Handlers
 // ---------------------------------------------------------------------------
 
-/**
- * DEVICE_EVENT: one activity-diary entry. The ledger row written by the
- * batch service IS the diary event (event_type = payload.eventType).
- * payload: { eventType: string (A-Z, 0-9, _; <= 50), entityType?: string,
- *            entityId?: string (numeric), details?: object (<= 8 KB JSON) }
- */
-export const handleDeviceEvent: SyncHandler = async (ctx) => {
-  requireDevice(ctx);
-  const payload = payloadObject(ctx);
-  const eventType = typeof payload.eventType === 'string' ? payload.eventType.trim().toUpperCase() : '';
-  if (!/^[A-Z][A-Z0-9_]{1,49}$/.test(eventType)) {
-    throw new SyncValidationError('eventType must be 2-50 letters, digits or underscores.');
-  }
-  const details = payload.details === undefined || payload.details === null ? undefined : payload.details;
-  if (details !== undefined && !isRecord(details)) throw new SyncValidationError('details must be an object.');
-  if (details !== undefined && JSON.stringify(details).length > 8192) {
-    throw new SyncValidationError('details is too large (max 8 KB).');
-  }
-  const entityType = optionalString(payload.entityType, 50);
-  const entityId = typeof payload.entityId === 'string' && /^\d+$/.test(payload.entityId.trim()) ? payload.entityId.trim() : null;
-
-  const outcome: SyncHandlerSuccess = { status: 'SAVED', eventType, diary: details ?? {} };
-  if (entityType && entityId) {
-    outcome.entityType = entityType;
-    outcome.entityId = entityId;
-  }
-  return outcome;
-};
-
-/**
- * HEARTBEAT: device health into Device.last_* columns.
- * payload: { appVersion?: string, unsentCount?: number, oldestUnsentAt?: ISO string | null,
- *            freeStorageMb?: number, batteryPercent?: number, charging?: boolean,
- *            latitude?: number, longitude?: number, gpsAccuracyM?: number }
- * Device has no battery/GPS columns (prisma/schema.prisma), so those are
- * kept only in the diary row's payload.
- */
-export const handleHeartbeat: SyncHandler = async (ctx) => {
-  const device = requireDevice(ctx);
-  const payload = payloadObject(ctx);
-
-  const update: DeviceHeartbeat = {};
-  const appVersion = optionalString(payload.appVersion, 30);
-  if (appVersion) update.last_app_version = appVersion;
-  const unsent = optionalNumber(payload.unsentCount, 'unsentCount');
-  if (unsent !== null) update.last_unsent_count = Math.max(0, Math.round(unsent));
-  if ('oldestUnsentAt' in payload) update.last_oldest_unsent_at = optionalDate(payload.oldestUnsentAt, 'oldestUnsentAt');
-  const freeMb = optionalNumber(payload.freeStorageMb, 'freeStorageMb');
-  if (freeMb !== null) update.last_free_storage_mb = Math.max(0, Math.round(freeMb));
-
-  const battery = optionalNumber(payload.batteryPercent, 'batteryPercent');
-  const latitude = optionalNumber(payload.latitude, 'latitude');
-  const longitude = optionalNumber(payload.longitude, 'longitude');
-  const gpsAccuracyM = optionalNumber(payload.gpsAccuracyM, 'gpsAccuracyM');
-  if (latitude !== null && (latitude < -90 || latitude > 90)) throw new SyncValidationError('latitude out of range.');
-  if (longitude !== null && (longitude < -180 || longitude > 180)) throw new SyncValidationError('longitude out of range.');
-
-  await touchDeviceLastSeen(ctx.db, device.id, update);
-
-  return {
-    status: 'SAVED',
-    eventType: 'HEARTBEAT',
-    diary: {
-      appVersion,
-      unsentCount: update.last_unsent_count ?? null,
-      oldestUnsentAt: update.last_oldest_unsent_at ? update.last_oldest_unsent_at.toISOString() : null,
-      freeStorageMb: update.last_free_storage_mb ?? null,
-      batteryPercent: battery,
-      charging: typeof payload.charging === 'boolean' ? payload.charging : null,
-      latitude,
-      longitude,
-      gpsAccuracyM,
-    },
-  };
-};
+// DEVICE_EVENT / HEARTBEAT live in syncBatchService.ts (no Prisma import, unit-tested).
+export { handleDeviceEvent, handleHeartbeat };
 
 /**
  * MOT_COLLECTION -> submitShopCollection. Same body as
@@ -203,7 +115,7 @@ export const handleHeartbeat: SyncHandler = async (ctx) => {
  */
 export const handleMotCollection: SyncHandler = async (ctx) => {
   const body = withClientEventId(ctx) as unknown as SubmitCollectionPayload;
-  const res = await submitShopCollection(ctx.owner, body);
+  const res = await submitShopCollection(requireOwner(ctx), body);
   return mapServiceResult(res, {
     entityType: 'mot_shop_collection',
     receiptField: 'collection_number',
@@ -220,7 +132,7 @@ export const handleMotCollection: SyncHandler = async (ctx) => {
  */
 export const handleMotGpsBatch: SyncHandler = async (ctx) => {
   const body = payloadObject(ctx) as unknown as { locations: GpsLocationItem[]; journey_id?: string | number | bigint };
-  const res = await recordGpsBatch(ctx.owner, body);
+  const res = await recordGpsBatch(requireOwner(ctx), body);
   if (res.error || res.status < 200 || res.status >= 300) return failureOutcome(res);
 
   const data = isRecord(res.data) ? res.data : {};
@@ -261,7 +173,7 @@ export const handleMotStopSkip: SyncHandler = async (ctx) => {
   }
   const reason = typeof payload.skip_reason === 'string' ? payload.skip_reason : typeof payload.reason === 'string' ? payload.reason : '';
 
-  const { auth, errorResponse } = await resolveMotAuth(ctx.owner, 'SKIP_STOP');
+  const { auth, errorResponse } = await resolveMotAuth(requireOwner(ctx), 'SKIP_STOP');
   if (errorResponse) return failureOutcome(errorResponse);
   if (!auth) return { status: 'REJECTED', code: 'FORBIDDEN', message: 'Unauthorized.' };
 
@@ -277,7 +189,7 @@ export const handleMotStopSkip: SyncHandler = async (ctx) => {
  */
 export const handleZmccMotArrival: SyncHandler = async (ctx) => {
   const body = withClientEventId(ctx) as unknown as SubmitMotArrivalPayload;
-  const res = await submitMotArrival(ctx.owner, body);
+  const res = await submitMotArrival(requireOwner(ctx), body);
   return mapServiceResult(res, {
     entityType: 'zmcc_mot_arrival',
     receiptField: 'zmcc_token',
@@ -295,7 +207,7 @@ export const handleZmccMotArrival: SyncHandler = async (ctx) => {
  */
 export const handleZmccLocalSupplierArrival: SyncHandler = async (ctx) => {
   const body = withClientEventId(ctx) as unknown as SubmitLocalSupplierArrivalPayload;
-  const res = await submitLocalSupplierArrival(ctx.owner, body);
+  const res = await submitLocalSupplierArrival(requireOwner(ctx), body);
   return mapServiceResult(res, {
     entityType: 'zmcc_local_supplier_arrival',
     receiptField: 'zmcc_token',

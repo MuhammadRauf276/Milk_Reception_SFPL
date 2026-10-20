@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireRoles } from '@/backend/core/route-guards';
-import { getPolicyMatrix, updatePolicyCells, PolicyValidationError } from '@/backend/services/testPointPolicyService';
+import { getPolicyMatrix, updatePolicyCells, PolicyValidationError, PolicyConflictError } from '@/backend/services/testPointPolicyService';
 import type { PolicyChange } from '@/backend/services/testPointPolicyService';
 import { TEST_POINT_LABELS } from '@/types/test-point-policy';
 
@@ -43,6 +43,9 @@ export async function PUT(req: Request) {
   } catch (error) {
     if (error instanceof PolicyValidationError) {
       return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+    if (error instanceof PolicyConflictError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
     }
     console.error('[test-point-policies] PUT failed', error);
     return NextResponse.json({ error: 'Could not save the test matrix.' }, { status: 500 });

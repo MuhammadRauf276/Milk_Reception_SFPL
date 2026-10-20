@@ -256,7 +256,16 @@ export async function registerDevice(
   return { device: toDeviceView(created), syncKey };
 }
 
-export async function assignDevice(ctx: ActingContext, id: bigint, userId: bigint, db?: DeviceServiceDb): Promise<DeviceView> {
+/**
+ * When the user changes, the key is rotated and returned once (so the old user's phone key stops working).
+ * A fresh ACTIVE phone with nobody yet keeps the key it was registered with.
+ */
+export async function assignDevice(
+  ctx: ActingContext,
+  id: bigint,
+  userId: bigint,
+  db?: DeviceServiceDb
+): Promise<{ device: DeviceView; syncKey?: string }> {
   const client = await resolveDb(db);
   const device = await getDeviceOrThrow(client, id);
   if (device.status === 'BLOCKED') throw new DeviceServiceError('CONFLICT', 'This phone is blocked.');
@@ -264,14 +273,17 @@ export async function assignDevice(ctx: ActingContext, id: bigint, userId: bigin
     const user = await client.user.findUnique({ where: { id: userId } });
     if (!user || !user.is_active) throw new DeviceServiceError('INVALID', 'User not found or not active.');
   }
+  const changed = device.assigned_user_id !== userId;
+  const rotate = changed && (device.assigned_user_id !== null || device.status !== 'ACTIVE');
+  const syncKey = rotate ? generateDeviceKey() : undefined;
   const updated = await client.device.update({
     where: { id },
-    data: { assigned_user_id: userId, status: 'ACTIVE' },
+    data: { assigned_user_id: userId, status: 'ACTIVE', ...(syncKey ? { sync_key_hash: hashDeviceKey(syncKey) } : {}) },
   });
   await record(client, ctx, updated, 'ASSIGNED', 'DEVICE_ASSIGNED',
     { assigned_user_id: device.assigned_user_id === null ? null : device.assigned_user_id.toString(), status: device.status },
-    { assigned_user_id: userId.toString(), status: 'ACTIVE' });
-  return toDeviceView(updated);
+    { assigned_user_id: userId.toString(), status: 'ACTIVE', key_rotated: rotate });
+  return { device: toDeviceView(updated), syncKey };
 }
 
 /** Phone goes back to the office: no user, status RELEASED, and its key is replaced by one nobody knows. */

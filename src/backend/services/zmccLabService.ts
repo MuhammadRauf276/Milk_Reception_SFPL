@@ -2369,15 +2369,15 @@ export async function correctCompletedSession(
   const isPendingReview = session.decision === 'PENDING' || session.manager_review_status === 'PENDING';
   const isRejectedSession = session.decision === 'REJECTED';
 
-  if (!isPendingReview && !auth.isSuperAdmin && !auth.isDataExecutive && (session.manager_correction_count ?? 0) >= 5) {
+  if (!isPendingReview && !isCorrectionAuthority(auth.role) && (session.manager_correction_count ?? 0) >= 5) {
     return { status: 400, error: 'Maximum correction limit (5) reached for this lab session.' };
   }
 
   // Quality exception decisions for OUT_OF_SPEC must be resolved by the ZMCC Manager for this ZMCC, not Super Admin.
-  if (isPendingReview && !auth.isZmccManager && !auth.isMpdHead && !auth.isSuperAdmin) {
+  if (isPendingReview && !isCorrectionAuthority(auth.role)) {
     return {
       status: 403,
-      error: 'Forbidden. OUT_OF_SPEC quality exception review must be resolved by the ZMCC Manager for this ZMCC, not Super Admin.',
+      error: 'Forbidden. OUT_OF_SPEC quality exception review must be resolved by a Data Executive or Super Admin.',
     };
   }
 
@@ -2710,7 +2710,7 @@ export async function correctCompletedSession(
       const currentTotalCount = lockedRows[0].correction_count;
       const currentManagerCount = lockedRows[0].manager_correction_count ?? 0;
 
-      if (!isPendingReview && !auth.isSuperAdmin && !auth.isMpdHead && currentManagerCount >= 5) {
+      if (!isPendingReview && !isCorrectionAuthority(auth.role) && currentManagerCount >= 5) {
         throw new Error('MAX_CORRECTIONS_REACHED');
       }
 
@@ -2741,7 +2741,7 @@ export async function correctCompletedSession(
       };
 
       const newTotalCount = isPendingReview ? currentTotalCount : currentTotalCount + 1;
-      const newManagerCount = isPendingReview ? currentManagerCount : ((auth.isSuperAdmin || auth.isMpdHead) ? currentManagerCount : currentManagerCount + 1);
+      const newManagerCount = isPendingReview ? currentManagerCount : (isCorrectionAuthority(auth.role) ? currentManagerCount : currentManagerCount + 1);
       const correctionTimestamp = new Date();
 
       // Compute effective quantity and unit

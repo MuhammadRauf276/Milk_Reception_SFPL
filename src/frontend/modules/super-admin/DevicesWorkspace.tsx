@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import QRCode from 'qrcode';
-import { AlertTriangle, Ban, CheckCircle2, Clock, KeyRound, Plus, ScrollText, Smartphone, Undo2, UserPlus } from 'lucide-react';
+import { AlertTriangle, Ban, CheckCircle2, Clock, KeyRound, Plus, ScrollText, Smartphone, Trash2, Undo2, UserPlus, Users } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/ui/page-header';
@@ -27,6 +27,7 @@ interface DeviceItem {
 
 interface UserOption { id: string; name: string; role: string }
 interface SourceOption { id: string; name: string; sourceType: string }
+interface StationUserItem { userId: string; name: string; role: string; locked: boolean }
 interface DiaryItem { id: string; eventType: string; performedAsRole: string | null; occurredAt: string; payload: unknown }
 
 const STATUS_VIEW: Record<Status, { word: string; icon: React.ReactNode; cls: string }> = {
@@ -41,6 +42,10 @@ const EVENT_WORDS: Record<string, string> = {
   ASSIGNED: 'Given to a user',
   RELEASED: 'Phone released',
   BLOCKED: 'Phone blocked',
+  STATION_PIN_SET: 'Station PIN set',
+  STATION_PIN_RESET: 'Station PIN changed',
+  STATION_PIN_REMOVED: 'Station user removed',
+  STATION_PIN_LOCKED: 'Station PIN locked',
   KEY_ROTATED: 'New key made',
   LOGIN: 'User logged in',
 };
@@ -94,6 +99,7 @@ type Dialog =
   | { kind: 'block'; device: DeviceItem }
   | { kind: 'key'; device: DeviceItem }
   | { kind: 'diary'; device: DeviceItem }
+  | { kind: 'station'; device: DeviceItem }
   | { kind: 'shown-key'; deviceUid: string; syncKey: string };
 
 const DIALOG_TITLES: Record<Dialog['kind'], string> = {
@@ -103,6 +109,7 @@ const DIALOG_TITLES: Record<Dialog['kind'], string> = {
   block: 'Block phone',
   key: 'Make a new key',
   diary: 'Phone diary',
+  station: 'Station users',
   'shown-key': 'Phone key',
 };
 
@@ -116,6 +123,8 @@ export function DevicesWorkspace() {
   const [dialogError, setDialogError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [diary, setDiary] = useState<DiaryItem[]>([]);
+  const [stationUsers, setStationUsers] = useState<StationUserItem[]>([]);
+  const [formPin, setFormPin] = useState('');
 
   const [formUid, setFormUid] = useState('');
   const [formLabel, setFormLabel] = useState('');
@@ -147,6 +156,7 @@ export function DevicesWorkspace() {
     setDialogError(null);
     setFormReason('');
     setFormUser('');
+    setFormPin('');
     if (next.kind === 'register') {
       setFormUid(typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : '');
       setFormLabel('');
@@ -159,6 +169,31 @@ export function DevicesWorkspace() {
       fetchJson<{ entries: DiaryItem[] }>(`/api/devices/${next.device.id}/diary?limit=100`)
         .then((d) => setDiary(d.entries))
         .catch((err) => setDialogError(getErrorMessage(err)));
+    }
+    if (next.kind === 'station') {
+      setStationUsers([]);
+      fetchJson<{ users: StationUserItem[] }>(`/api/devices/${next.device.id}/station-users`)
+        .then((d) => setStationUsers(d.users))
+        .catch((err) => setDialogError(getErrorMessage(err)));
+    }
+  }
+
+  async function changeStationUsers(deviceId: string, method: 'PUT' | 'DELETE', body: Record<string, string>) {
+    setBusy(true);
+    setDialogError(null);
+    try {
+      const d = await fetchJson<{ users: StationUserItem[] }>(`/api/devices/${deviceId}/station-users`, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      setStationUsers(d.users);
+      setFormUser('');
+      setFormPin('');
+    } catch (err) {
+      setDialogError(getErrorMessage(err));
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -242,6 +277,11 @@ export function DevicesWorkspace() {
                 <Button variant="outline" className={BTN} disabled={d.status === 'BLOCKED'} onClick={() => open({ kind: 'key', device: d })}>
                   <KeyRound aria-hidden /> Show key again
                 </Button>
+                {d.isSharedStation ? (
+                  <Button variant="outline" className={BTN} disabled={d.status !== 'ACTIVE'} onClick={() => open({ kind: 'station', device: d })}>
+                    <Users aria-hidden /> Station users
+                  </Button>
+                ) : null}
                 <Button variant="outline" className={BTN} onClick={() => open({ kind: 'diary', device: d })}>
                   <ScrollText aria-hidden /> Diary
                 </Button>
@@ -316,7 +356,7 @@ export function DevicesWorkspace() {
                     {users.map((u) => <option key={u.id} value={u.id}>{u.name} ({u.role.replace(/_/g, ' ').toLowerCase()})</option>)}
                   </select>
                 </label>
-                <Button className={BTN} disabled={busy || !formUser} onClick={() => run(() => patch(dialog.device.id, { action: 'assign', userId: formUser }))}>
+                <Button className={BTN} disabled={busy || !formUser} onClick={() => run(() => patch(dialog.device.id, { action: 'assign', userId: formUser }), dialog.device.deviceUid)}>
                   Give phone
                 </Button>
               </>
@@ -349,6 +389,62 @@ export function DevicesWorkspace() {
             ) : null}
 
             {dialog.kind === 'shown-key' ? <KeyQr deviceUid={dialog.deviceUid} syncKey={dialog.syncKey} /> : null}
+
+            {dialog.kind === 'station' ? (
+              <>
+                <p className="text-sm text-muted-foreground">These people can log in on this computer with a name card and a 4-digit PIN. After 5 wrong tries the PIN locks. Set a new PIN to unlock it.</p>
+                {stationUsers.length === 0 && !dialogError ? (
+                  <p className="text-sm text-muted-foreground">No users yet.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {stationUsers.map((u) => (
+                      <li key={u.userId} className="flex items-center justify-between gap-2 rounded-md border p-2 text-sm">
+                        <div className="min-w-0">
+                          <div className="truncate font-medium">{u.name}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {u.role.replace(/_/g, ' ').toLowerCase()}{u.locked ? ' - PIN locked' : ''}
+                          </div>
+                        </div>
+                        <Button
+                          variant="outline"
+                          className={BTN}
+                          disabled={busy}
+                          aria-label={`Remove ${u.name}`}
+                          onClick={() => changeStationUsers(dialog.device.id, 'DELETE', { userId: u.userId })}
+                        >
+                          <Trash2 aria-hidden /> Remove
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="space-y-3 border-t pt-3">
+                  <label className="block space-y-1 text-sm font-medium">User
+                    <select className={FIELD} value={formUser} onChange={(e) => setFormUser(e.target.value)}>
+                      <option value="">Choose a user</option>
+                      {users.map((u) => <option key={u.id} value={u.id}>{u.name} ({u.role.replace(/_/g, ' ').toLowerCase()})</option>)}
+                    </select>
+                  </label>
+                  <label className="block space-y-1 text-sm font-medium">4-digit PIN
+                    <input
+                      className={FIELD}
+                      inputMode="numeric"
+                      autoComplete="off"
+                      maxLength={4}
+                      value={formPin}
+                      onChange={(e) => setFormPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                    />
+                  </label>
+                  <Button
+                    className={BTN}
+                    disabled={busy || !formUser || formPin.length !== 4}
+                    onClick={() => changeStationUsers(dialog.device.id, 'PUT', { userId: formUser, pin: formPin })}
+                  >
+                    Save PIN
+                  </Button>
+                </div>
+              </>
+            ) : null}
 
             {dialog.kind === 'diary' ? (
               diary.length === 0 && !dialogError ? (

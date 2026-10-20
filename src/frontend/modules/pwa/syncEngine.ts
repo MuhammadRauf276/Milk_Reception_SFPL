@@ -4,29 +4,48 @@
  *
  * - Runs on: start, 'online', tab becoming visible, every 20s, and right after something is queued.
  * - Single flight: one run at a time in this tab, and across tabs via navigator.locks when available.
- * - Auth: device headers (x-device-uid / x-device-key) when a key is stored; otherwise the session
- *   cookie, sending only the signed-in user's own items (server rule).
+ * - Auth: device headers (x-device-uid / x-device-key) when a key is stored, plus the session cookie;
+ *   the server takes business items only for the phone's assigned user or the user signed in now,
+ *   so device mode sends the signed-in user's business items plus all diary/heartbeat items (other
+ *   owners' work waits on the phone). Without a key: the session cookie, signed-in user's items only.
  * - Nothing is deleted until the server confirms (logic in syncQueueCore.ts).
+ * - 403 DEVICE_NOT_ACTIVE (phone blocked): nothing is touched, no cookie fallback, state BLOCKED
+ *   ("This phone is blocked. Ask the office."). 401 on the key: nothing is touched, state
+ *   KEY_REJECTED, the signed-in user's own items go with the session cookie instead.
  *
  * Safe to import in Node tests: no window/indexedDB access at module load.
  */
-import { SYNC_BATCH_MAX_ITEMS, type SyncBatchRequest, type SyncBatchResponse, type SyncItem, type SyncItemKind } from '@/types/sync';
+import type { SyncBatchRequest, SyncItem, SyncItemKind } from '@/types/sync';
+import { DEVICE_KEY_HEADER } from '@/types/device';
 import type { CapturedPhotoUploadResult } from '@/types/captured-photo';
 import {
-  applyBatchFailure,
   applyPhotoResult,
-  applyResults,
+  classifyBatchHttp,
+  classifyPhotoHttp,
   countRecords,
+  deviceBlockedMessage,
   enqueue,
   getCounts,
   nextBatch,
   pendingPhotoUploads,
+  purgeRejectedBackground,
+  sendQueuedBatches,
+  type BatchTransportResult,
   type EnqueueOptions,
   type QueueRecord,
   type SyncCounts,
+  type SendQueuedBatchesResult,
+  type SyncAuthMode,
   type SyncQueueStore,
 } from './syncQueueCore';
-import { getActiveOwnerUserId, getDeviceAuthHeaders, getDeviceKey, getDeviceUid } from './deviceIdentity';
+import {
+  getActiveOwnerUserId,
+  getDeviceAuthHeaders,
+  getDeviceKey,
+  getDeviceSyncState,
+  getDeviceUid,
+  setDeviceSyncState,
+} from './deviceIdentity';
 
 const DB_NAME = 'milk_sync';
 const DB_VERSION = 1;
@@ -207,11 +226,16 @@ export interface SyncRunSummary {
   savedByKind: Partial<Record<SyncItemKind, number>>;
   rejected: number;
   retrying: number;
+  /** Refused diary/heartbeat items that were deleted (not business work). */
+  dropped: number;
   photosUploaded: number;
+  /** Device-key answer seen in this run (undefined = no device-mode request was made). */
+  deviceState?: 'OK' | 'BLOCKED' | 'KEY_REJECTED';
+  deviceMessage?: string | null;
 }
 
 function emptySummary(skipped?: SyncRunSummary['skipped']): SyncRunSummary {
-  return { skipped, sent: 0, saved: 0, savedByKind: {}, rejected: 0, retrying: 0, photosUploaded: 0 };
+  return { skipped, sent: 0, saved: 0, savedByKind: {}, rejected: 0, retrying: 0, dropped: 0, photosUploaded: 0 };
 }
 
 let ownerGetter: () => string | null = () => null;
@@ -225,70 +249,141 @@ function isOnline(): boolean {
   return typeof navigator === 'undefined' || navigator.onLine !== false;
 }
 
-async function sendBatches(summary: SyncRunSummary, hasKey: boolean, owner: string | null): Promise<void> {
-  const s = store();
-  const authHeaders = await getDeviceAuthHeaders();
-  const deviceUid = await getDeviceUid();
-  for (let i = 0; i < MAX_BATCHES_PER_RUN; i++) {
-    const batch = await nextBatch(s, { limit: SYNC_BATCH_MAX_ITEMS, ownerUserId: hasKey ? null : owner });
-    if (batch.length === 0) return;
-    const ids = batch.map((r) => r.clientUuid);
-    const body: SyncBatchRequest = {
-      deviceUid,
-      appVersion: appVersion(),
-      deviceSentAt: new Date().toISOString(),
-      items: batch.map((r) => r.item),
-    };
-    summary.sent += batch.length;
-    let res: Response;
+/** After a 401 on the device key, use the session cookie for this long before trying the key again. */
+const KEY_REJECTED_RETRY_MS = 10 * 60 * 1000;
+/** A blocked phone asks the server again at most this often (the office may unblock it). */
+const BLOCKED_RECHECK_MS = 2 * 60 * 1000;
+
+function postBatch(authHeaders: Record<string, string>) {
+  return async (body: SyncBatchRequest): Promise<BatchTransportResult> => {
     try {
-      res = await fetch('/api/sync/batch', {
+      const res = await fetch('/api/sync/batch', {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json', ...authHeaders },
         body: JSON.stringify(body),
       });
+      return { ok: true, httpStatus: res.status, body: await res.json().catch(() => null) };
     } catch (err) {
-      await applyBatchFailure(s, ids, err instanceof Error ? err.message : 'Network error');
-      summary.retrying += ids.length;
-      if (isOnline()) emitSyncError({ stage: 'batch', message: 'Network error while online' });
-      return;
+      return { ok: false, networkError: err instanceof Error ? err.message : 'Network error' };
     }
+  };
+}
 
-    if (!res.ok) {
-      await applyBatchFailure(s, ids, `Server error (${res.status})`);
-      summary.retrying += ids.length;
-      if (res.status === 401 && !hasKey && typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('milk-auth-expired'));
-      emitSyncError({ stage: 'batch', status: res.status, message: `HTTP ${res.status}` });
-      return;
-    }
-
-    const data = (await res.json().catch(() => null)) as Partial<SyncBatchResponse> | null;
-    const results = Array.isArray(data?.results) ? data!.results : [];
-    if (data?.deviceStatus && data.deviceStatus !== 'ACTIVE' && typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('milk-device-status', { detail: { status: data.deviceStatus } }));
-    }
-    const outcome = await applyResults(s, ids, results);
-    const savedIds = new Set([...outcome.removed, ...outcome.photosPending]);
-    for (const r of batch) {
-      if (!savedIds.has(r.clientUuid)) continue;
-      summary.saved++;
-      summary.savedByKind[r.item.kind] = (summary.savedByKind[r.item.kind] ?? 0) + 1;
-    }
-    summary.rejected += outcome.needsAttention.length;
-    summary.retrying += outcome.retrying.length;
-    notifyChanged();
-    // Server asked to retry everything: stop for this run.
-    if (outcome.retrying.length === ids.length) return;
+/** Records the server's answer about the key and tells the UI. */
+function noteDeviceAnswer(result: SendQueuedBatchesResult): void {
+  if (result.stop === 'DEVICE_BLOCKED') {
+    const status = result.deviceStatus ?? null;
+    setDeviceSyncState({ state: 'BLOCKED', deviceStatus: status, message: deviceBlockedMessage(status), at: Date.now() });
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('milk-device-status', { detail: { status } }));
+  } else if (result.stop === 'DEVICE_KEY_REJECTED') {
+    setDeviceSyncState({ state: 'KEY_REJECTED', deviceStatus: null, message: result.stopMessage ?? null, at: Date.now() });
+  } else if (result.deviceStatus === 'ACTIVE') {
+    setDeviceSyncState({ state: 'OK', deviceStatus: 'ACTIVE', message: null, at: Date.now() });
   }
 }
 
-async function uploadPhotos(summary: SyncRunSummary): Promise<void> {
+function addToSummary(summary: SyncRunSummary, r: SendQueuedBatchesResult): void {
+  summary.sent += r.sent;
+  summary.saved += r.saved;
+  summary.rejected += r.rejected;
+  summary.retrying += r.retrying;
+  summary.dropped += r.dropped;
+  for (const [kind, n] of Object.entries(r.savedByKind) as Array<[SyncItemKind, number]>) {
+    summary.savedByKind[kind] = (summary.savedByKind[kind] ?? 0) + n;
+  }
+}
+
+function reportStop(r: SendQueuedBatchesResult, mode: SyncAuthMode): void {
+  if (r.stop === 'NETWORK') {
+    if (isOnline()) emitSyncError({ stage: 'batch', message: 'Network error while online' });
+  } else if (r.stop === 'RETRY') {
+    emitSyncError({ stage: 'batch', status: r.httpStatus, message: `HTTP ${r.httpStatus}` });
+  } else if (r.stop === 'SESSION_EXPIRED' && mode === 'SESSION' && typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('milk-auth-expired'));
+  }
+}
+
+async function sendBatches(summary: SyncRunSummary, hasKey: boolean, owner: string | null): Promise<void> {
   const s = store();
-  const tasks = await pendingPhotoUploads(s, Date.now(), MAX_PHOTOS_PER_RUN);
+  const deviceUid = await getDeviceUid();
+  const base = { deviceUid, appVersion: appVersion(), maxBatches: MAX_BATCHES_PER_RUN };
+
+  if (hasKey) {
+    const known = getDeviceSyncState();
+    const age = known ? Date.now() - known.at : Infinity;
+    const skipDevice =
+      (known?.state === 'BLOCKED' && age < BLOCKED_RECHECK_MS) || (known?.state === 'KEY_REJECTED' && age < KEY_REJECTED_RETRY_MS);
+    if (known?.state === 'BLOCKED' && skipDevice) {
+      // Blocked phone: keep everything, do not fall back to the cookie.
+      summary.deviceState = 'BLOCKED';
+      summary.deviceMessage = known.message;
+      return;
+    }
+    if (!skipDevice) {
+      const r = await sendQueuedBatches(s, { ...base, mode: 'DEVICE', ownerUserId: owner, send: postBatch(await getDeviceAuthHeaders()) });
+      addToSummary(summary, r);
+      noteDeviceAnswer(r);
+      reportStop(r, 'DEVICE');
+      if (r.stop === 'DEVICE_BLOCKED') {
+        summary.deviceState = 'BLOCKED';
+        summary.deviceMessage = deviceBlockedMessage(r.deviceStatus ?? null);
+        return;
+      }
+      if (r.stop !== 'DEVICE_KEY_REJECTED') {
+        if (r.deviceStatus === 'ACTIVE') summary.deviceState = 'OK';
+        return;
+      }
+    }
+    // Key not recognised: keep the items and send the signed-in user's own work with the cookie.
+    summary.deviceState = 'KEY_REJECTED';
+    summary.deviceMessage = getDeviceSyncState()?.message ?? null;
+  }
+
+  if (!owner) return;
+  const r = await sendQueuedBatches(s, { ...base, mode: 'SESSION', ownerUserId: owner, send: postBatch({}) });
+  addToSummary(summary, r);
+  reportStop(r, 'SESSION');
+}
+
+/**
+ * Asks the server whether this phone's key works, with an empty batch (nothing is sent or deleted).
+ * Used by the device setup screen right after a key is saved.
+ */
+export async function checkDeviceConnection(): Promise<
+  { ok: true } | { ok: false; reason: 'NO_KEY' | 'OFFLINE' | 'BLOCKED' | 'KEY_REJECTED' | 'SERVER'; message: string }
+> {
+  const headers = await getDeviceAuthHeaders();
+  if (!headers[DEVICE_KEY_HEADER]) return { ok: false, reason: 'NO_KEY', message: 'No key on this phone.' };
+  const res = await postBatch(headers)({ deviceUid: await getDeviceUid(), appVersion: appVersion(), deviceSentAt: new Date().toISOString(), items: [] });
+  if (!res.ok) return { ok: false, reason: 'OFFLINE', message: 'No internet. Try again when online.' };
+  const verdict = classifyBatchHttp(res.httpStatus, res.body, 'DEVICE');
+  if (verdict.kind === 'OK') {
+    setDeviceSyncState({ state: 'OK', deviceStatus: 'ACTIVE', message: null, at: Date.now() });
+    return { ok: true };
+  }
+  if (verdict.kind === 'DEVICE_BLOCKED') {
+    setDeviceSyncState({ state: 'BLOCKED', deviceStatus: verdict.deviceStatus, message: verdict.message, at: Date.now() });
+    return { ok: false, reason: 'BLOCKED', message: verdict.message };
+  }
+  if (verdict.kind === 'DEVICE_KEY_REJECTED') {
+    setDeviceSyncState({ state: 'KEY_REJECTED', deviceStatus: null, message: verdict.message, at: Date.now() });
+    return { ok: false, reason: 'KEY_REJECTED', message: 'The key is wrong or old. Ask the office for a new key.' };
+  }
+  return { ok: false, reason: 'SERVER', message: 'Server problem. Try again in a minute.' };
+}
+
+/**
+ * useDeviceKey false = session cookie: only the signed-in owner's photos are tried (the server
+ * refuses everyone else's); with no signed-in owner nothing is uploaded.
+ */
+async function uploadPhotos(summary: SyncRunSummary, useDeviceKey: boolean, owner: string | null): Promise<void> {
+  const s = store();
+  if (!useDeviceKey && !owner) return;
+  const tasks = await pendingPhotoUploads(s, Date.now(), MAX_PHOTOS_PER_RUN, useDeviceKey ? null : owner);
   if (tasks.length === 0) return;
   const { getCapturedPhotoBlob, deleteCapturedPhoto } = await import('@/lib/offline/photoStore');
-  const authHeaders = await getDeviceAuthHeaders();
+  const authHeaders = useDeviceKey ? await getDeviceAuthHeaders() : {};
   for (const task of tasks) {
     const blob = await getCapturedPhotoBlob(task.captureId);
     if (!blob) {
@@ -317,19 +412,22 @@ async function uploadPhotos(summary: SyncRunSummary): Promise<void> {
       }
       continue;
     }
-    // Retryable: auth/session, timeouts, rate limits, server errors. Others are the server refusing this photo.
-    const retryable = res.status === 401 || res.status === 403 || res.status === 408 || res.status === 429 || res.status >= 500;
     const err = (await res.json().catch(() => ({}))) as { error?: string; code?: string };
     emitSyncError({ stage: 'photo', status: res.status, message: err.error || `HTTP ${res.status}` });
-    if (retryable) {
-      await applyPhotoResult(s, task.clientUuid, task.captureId, { kind: 'RETRY', message: err.error || `Server error (${res.status})` });
+    const verdict = classifyPhotoHttp(res.status, err);
+    if (verdict.kind === 'BLOCKED') {
+      // Phone blocked: photo untouched (no backoff), stop uploading.
+      setDeviceSyncState({ state: 'BLOCKED', deviceStatus: verdict.deviceStatus, message: verdict.message, at: Date.now() });
+      summary.deviceState = 'BLOCKED';
+      summary.deviceMessage = verdict.message;
       return;
     }
-    await applyPhotoResult(s, task.clientUuid, task.captureId, {
-      kind: 'REJECTED',
-      code: err.code || `HTTP_${res.status}`,
-      message: err.error || 'Photo refused by server',
-    });
+    if (verdict.kind === 'RETRY') {
+      await applyPhotoResult(s, task.clientUuid, task.captureId, { kind: 'RETRY', message: verdict.message });
+      return;
+    }
+    // Refused (e.g. outside scope): only this photo needs office help; the others keep going.
+    await applyPhotoResult(s, task.clientUuid, task.captureId, { kind: 'REJECTED', code: verdict.code, message: verdict.message });
   }
 }
 
@@ -354,13 +452,16 @@ async function runUnlocked(): Promise<SyncRunSummary> {
   if (!(await syncDbExists())) return summary;
   let announced = false;
   try {
-    const pending = await nextBatch(store(), { limit: 1, ownerUserId: hasKey ? null : owner });
+    // Old app versions kept refused diary items as 'needs office help': clear them.
+    if ((await purgeRejectedBackground(store())) > 0) notifyChanged();
+    const pending = await nextBatch(store(), { limit: 1, mode: hasKey ? 'DEVICE' : 'SESSION', ownerUserId: owner });
     if (pending.length > 0 && typeof window !== 'undefined') {
       announced = true;
       window.dispatchEvent(new CustomEvent('milk-sync-state', { detail: { syncing: true } }));
     }
     await sendBatches(summary, hasKey, owner);
-    await uploadPhotos(summary);
+    // Blocked phone: photos wait too. Key not recognised: photos go with the session cookie.
+    if (summary.deviceState !== 'BLOCKED') await uploadPhotos(summary, hasKey && summary.deviceState !== 'KEY_REJECTED', owner);
   } finally {
     if (announced && typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('milk-sync-state', { detail: { syncing: false } }));
     notifyChanged();
@@ -368,13 +469,21 @@ async function runUnlocked(): Promise<SyncRunSummary> {
   return summary;
 }
 
-/** One sync pass. Concurrent callers share the same run; other tabs holding the lock → 'busy'. */
-export function runSyncOnce(): Promise<SyncRunSummary> {
+/**
+ * One sync pass. Concurrent callers share the same run; other tabs holding the lock → 'busy'.
+ * fresh: wait for any running pass (and the other tabs' lock) and then start a new one, so the
+ * result reflects state saved just before the call (device setup screen).
+ */
+export function runSyncOnce(opts: { fresh?: boolean } = {}): Promise<SyncRunSummary> {
+  if (inFlight && opts.fresh) {
+    const previous = inFlight;
+    return previous.then(() => runSyncOnce(opts));
+  }
   if (inFlight) return inFlight;
   const run = async (): Promise<SyncRunSummary> => {
     const locks = typeof navigator !== 'undefined' ? (navigator as Navigator & { locks?: LockManager }).locks : undefined;
     if (locks?.request) {
-      return (await locks.request(LOCK_NAME, { ifAvailable: true }, async (lock) => {
+      return (await locks.request(LOCK_NAME, { ifAvailable: !opts.fresh }, async (lock) => {
         if (!lock) return emptySummary('busy');
         return runUnlocked();
       })) as SyncRunSummary;

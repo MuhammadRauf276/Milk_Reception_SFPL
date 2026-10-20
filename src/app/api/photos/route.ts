@@ -1,13 +1,23 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@core/db';
-import { requireRoles } from '@/backend/core/route-guards';
+import { getCurrentUser } from '@/backend/core/auth';
 import { authenticateDevice } from '@/backend/core/device-auth';
-import { canActAs, isOutsideDelegationRules } from '@/backend/core/roles/hierarchy';
-import { MAX_PHOTO_BYTES, PhotoError, saveCapturedPhoto } from '@/backend/services/photo/capturedPhotoService';
+import { ACTING_AS_HEADER, scopeFailureResponse } from '@/backend/core/route-guards';
+import { assertResourceInScope, resolveActingContext } from '@/backend/core/acting-context';
+import type { Role, User } from '@/backend/core/types';
+import {
+  MAX_PHOTO_BYTES,
+  PhotoError,
+  decidePhotoOwner,
+  normalizeEntityType,
+  resolveEntityRef,
+  saveCapturedPhoto,
+  type EntityDb,
+} from '@/backend/services/photo/capturedPhotoService';
 import type { CapturedPhotoMeta } from '@/types/captured-photo';
 import type { AuditActor } from '@/backend/core/audit';
 
-// Field roles that take photos; roles above them are added by requireRoles (delegation 'ancestors').
+// Field roles that take photos; roles above them are added by resolveActingContext (delegation 'ancestors').
 const PHOTO_CAPTURE_ROLES = [
   'MOT',
   'MDO',
@@ -20,6 +30,29 @@ const PHOTO_CAPTURE_ROLES = [
 
 function bad(error: string, status = 400, code?: string) {
   return NextResponse.json(code ? { error, code } : { error }, { status });
+}
+
+async function loadUserById(id: bigint): Promise<User | null> {
+  const row = await prisma.user.findUnique({ where: { id }, include: { procurement_source: true } });
+  if (!row || !row.is_active) return null;
+  return {
+    id: row.id.toString(),
+    username: row.username,
+    name: row.full_name || row.username,
+    role: row.role as Role,
+    department: row.department || '',
+    scope_type: row.scope_type,
+    procurement_source_id: row.procurement_source_id ? row.procurement_source_id.toString() : null,
+    procurement_source: row.procurement_source
+      ? {
+          id: row.procurement_source.id.toString(),
+          code: row.procurement_source.code,
+          name: row.procurement_source.name,
+          source_type: row.procurement_source.source_type,
+          is_active: row.procurement_source.is_active,
+        }
+      : null,
+  };
 }
 
 export async function POST(req: Request) {
@@ -41,38 +74,51 @@ export async function POST(req: Request) {
     return bad('Photo details are not valid.', 400, 'INVALID_META');
   }
 
-  // 1) Device identity (phones and station PCs), 2) fallback: signed-in session.
-  let actor: AuditActor & { userId: bigint };
-  const device = await authenticateDevice(req);
-  if (device) {
-    let ownerId = device.assignedUserId;
-    if (device.isSharedStation) {
-      const owner = form.get('ownerUserId');
-      ownerId = typeof owner === 'string' && /^\d{1,18}$/.test(owner) ? BigInt(owner) : null;
-    }
-    if (!ownerId) return bad('This device is not linked to a user.', 403, 'NO_OWNER');
-    const owner = await prisma.user.findUnique({ where: { id: ownerId }, select: { id: true, role: true, is_active: true } });
-    if (!owner || !owner.is_active) return bad('User not found or not active.', 403, 'NO_OWNER');
-    // The client only requests an acting-as role; accept it only when the role tree allows it.
-    const asked = meta.requestedAs?.trim() || null;
-    const delegated = !!asked && asked !== owner.role && !isOutsideDelegationRules(owner.role) && canActAs(owner.role, asked);
-    actor = {
-      userId: owner.id,
-      actorRole: owner.role,
-      performedAsRole: delegated ? asked : owner.role,
-      isDelegated: delegated,
-      deviceId: device.id,
-    };
-  } else {
-    const guard = await requireRoles(req, PHOTO_CAPTURE_ROLES, { requestedAs: meta.requestedAs ?? null });
-    if ('response' in guard) return guard.response;
-    actor = {
-      userId: BigInt(guard.user.id),
-      actorRole: guard.acting.actorRole,
-      performedAsRole: guard.acting.actingAs,
-      isDelegated: guard.acting.isDelegated,
-    };
+  const entityType = normalizeEntityType(meta?.entityType);
+  if (!entityType) return bad('This kind of record cannot have photos.', 400, 'UNKNOWN_ENTITY');
+  if (typeof meta.entityId !== 'string' || !/^\d{1,18}$/.test(meta.entityId)) {
+    return bad('Record ID is not valid.', 400, 'INVALID_META');
   }
+
+  const ownerRaw = form.get('ownerUserId');
+  const formOwner = typeof ownerRaw === 'string' && /^\d{1,18}$/.test(ownerRaw.trim()) ? ownerRaw.trim() : null;
+
+  // Who is the owner of this photo? Device first, then session.
+  const session = await getCurrentUser(req);
+  const device = await authenticateDevice(req);
+  let deviceId: bigint | null = null;
+
+  const decision = decidePhotoOwner({
+    hasDevice: !!device,
+    assignedUserId: device?.assignedUserId != null ? device.assignedUserId.toString() : null,
+    formOwnerId: formOwner,
+    sessionUserId: session?.id ?? null,
+  });
+  if (!decision.ok) return bad(decision.message, decision.status, decision.code);
+  if (device) deviceId = device.id;
+  const user: User | null = decision.useSession && session ? session : await loadUserById(BigInt(decision.ownerId));
+  if (!user) return bad('User not found or not active.', 403, 'NO_OWNER');
+
+  const requestedAs = meta.requestedAs ?? req.headers.get(ACTING_AS_HEADER);
+  const resolved = resolveActingContext(user, PHOTO_CAPTURE_ROLES, { requestedAs });
+  if (!resolved.ok) {
+    return resolved.code === 'FORBIDDEN' ? bad('Forbidden.', 403) : scopeFailureResponse(resolved.code);
+  }
+  const acting = resolved.ctx;
+
+  // The record must exist and be inside the actor's area.
+  const ref = await resolveEntityRef(entityType, BigInt(meta.entityId), prisma as unknown as EntityDb);
+  if (!ref) return bad('The record for this photo was not found.', 404, 'ENTITY_NOT_FOUND');
+  const scope = assertResourceInScope(acting, ref);
+  if (!scope.ok) return scopeFailureResponse(scope.code);
+
+  const actor: AuditActor & { userId: bigint } = {
+    userId: acting.userId,
+    actorRole: acting.actorRole,
+    performedAsRole: acting.actingAs,
+    isDelegated: acting.isDelegated,
+    deviceId,
+  };
 
   try {
     const bytes = Buffer.from(await file.arrayBuffer());

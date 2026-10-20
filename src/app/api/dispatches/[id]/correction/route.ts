@@ -120,8 +120,8 @@ export async function PATCH(
       const currentTotalCount = lockedRows[0].correction_count ?? 0;
       const currentManagerCount = lockedRows[0].manager_correction_count ?? 0;
 
-      if (dbUser.role !== 'SUPER_ADMIN' && currentManagerCount >= 5) {
-        throw new Error('MAX_CORRECTIONS_REACHED:Maximum correction limit (5) reached for ZMCC Manager.');
+      if (!isCorrectionAuthority(dbUser.role) && currentManagerCount >= 5) {
+        throw new Error('MAX_CORRECTIONS_REACHED:Maximum correction limit (5) reached for this record.');
       }
 
       const visit = await tx.vehicleVisit.findUnique({
@@ -349,7 +349,7 @@ export async function PATCH(
       }
 
       const nextCorrectionCount = currentTotalCount + 1;
-      const nextManagerCount = dbUser.role === 'SUPER_ADMIN' ? currentManagerCount : currentManagerCount + 1;
+      const nextManagerCount = isCorrectionAuthority(dbUser.role) ? currentManagerCount : currentManagerCount + 1;
       const nowTs = new Date();
 
       const visitUpdateData: Prisma.VehicleVisitUncheckedUpdateInput = {

@@ -30,6 +30,7 @@ export async function POST(req: Request) {
 
     const request = await createCorrectionRequest({
       userId: BigInt(user.id),
+      actorRole: user.role,
       module: validated.module,
       recordId: validated.recordId,
       sourceId,

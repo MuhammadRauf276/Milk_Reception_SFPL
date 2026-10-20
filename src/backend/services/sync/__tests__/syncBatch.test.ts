@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import {
+  handleDeviceEvent,
+  handleHeartbeat,
   processSyncBatch,
   type SyncAuth,
   type SyncBatchDeps,
@@ -26,12 +28,14 @@ const OWNER: User = {
 };
 const STRANGER: User = { ...OWNER, id: '77', username: 'other' };
 
-function device(status: DeviceStatus = 'ACTIVE'): AuthenticatedDevice {
-  return { id: BigInt(1), deviceUid: 'dev-1', status, assignedUserId: BigInt(5), procurementSourceId: BigInt(9), isSharedStation: false };
+function device(status: DeviceStatus = 'ACTIVE', assignedUserId: bigint | null = BigInt(5)): AuthenticatedDevice {
+  return { id: BigInt(1), deviceUid: 'dev-1', status, assignedUserId, procurementSourceId: BigInt(9), isSharedStation: false };
 }
 
 interface FakeDb extends SyncDb {
   ledger: Map<string, SyncLedgerRow>;
+  /** Every ledger insert as sent (incl. performed_as_role / device_occurred_at). */
+  creates: SyncLedgerCreateData[];
   deviceUpdates: unknown[];
   /** When set, the next ledger insert loses a race: a competing row appears and P2002 is thrown. */
   raceNextInsert: boolean;
@@ -52,8 +56,10 @@ function fakeDb(): FakeDb {
     client_event_id: data.client_event_id,
     payload: JSON.parse(JSON.stringify(data.payload)),
   });
+  const creates: SyncLedgerCreateData[] = [];
   const db: FakeDb = {
     ledger,
+    creates,
     deviceUpdates,
     raceNextInsert: false,
     deviceActivityEvent: {
@@ -68,6 +74,7 @@ function fakeDb(): FakeDb {
         return null;
       },
       async create({ data }) {
+        creates.push(data);
         const k = key(data.device_id, data.client_event_id);
         if (db.raceNextInsert) {
           db.raceNextInsert = false;
@@ -223,7 +230,7 @@ test('more than 50 items -> 400', async () => {
 test('owner not allowed on this device -> REJECTED OWNER_NOT_ALLOWED', async () => {
   const db = fakeDb();
   const h = counting({ status: 'SAVED' });
-  const body = okBody(await run(db, { DEVICE_EVENT: h.handler }, [item({ ownerUserId: '77' })]));
+  const body = okBody(await run(db, { MOT_COLLECTION: h.handler }, [item({ kind: 'MOT_COLLECTION', ownerUserId: '77' })]));
   assert.equal(body.results[0].status, 'REJECTED');
   assert.equal(body.results[0].code, 'OWNER_NOT_ALLOWED');
   assert.equal(h.calls(), 0);
@@ -275,4 +282,91 @@ test('reusing a clientUuid for a different kind is REJECTED', async () => {
   const body = okBody(await run(db, handlers, [{ ...it, kind: 'MOT_COLLECTION' }]));
   assert.equal(body.results[0].status, 'REJECTED');
   assert.equal(body.results[0].code, 'CLIENT_UUID_REUSED');
+});
+
+// ---------------------------------------------------------------------------
+// Device housekeeping without a known owner (client sends ownerUserId '')
+// ---------------------------------------------------------------------------
+
+const REAL_HOUSEKEEPING: SyncHandlerRegistry = { DEVICE_EVENT: handleDeviceEvent, HEARTBEAT: handleHeartbeat };
+
+/** Exactly what pwa/diary.ts logDeviceEvent queues. */
+function clientDiaryItem(ownerUserId: string, occurredAt = '2026-10-20T07:59:30.000Z'): SyncItem {
+  return item({
+    ownerUserId,
+    capturedAt: occurredAt,
+    payload: { eventType: 'APP_OPEN', details: null, occurredAt, online: false },
+  });
+}
+
+test('diary event with empty owner on device auth: SAVED, attributed to device + assigned user, never delegated', async () => {
+  const db = fakeDb();
+  const body = okBody(await run(db, REAL_HOUSEKEEPING, [clientDiaryItem('')]));
+  assert.equal(body.results[0].status, 'SAVED');
+  assert.equal(body.results[0].entityType, 'device_activity_event');
+  const data = db.creates[0];
+  assert.equal(data.user_id, BigInt(5));
+  assert.equal(data.performed_as_role, 'MOT');
+  assert.equal(data.is_delegated, false);
+  assert.equal(data.event_type, 'APP_OPEN');
+  assert.equal(data.device_occurred_at.toISOString(), '2026-10-20T07:59:30.000Z');
+  assert.equal(data.payload.online, false);
+  assert.equal(data.payload.occurredAt, '2026-10-20T07:59:30.000Z');
+  assert.equal(data.payload.attributedTo, 'DEVICE');
+  assert.deepEqual(data.payload.data, {});
+});
+
+test('diary event with empty owner on an unassigned device: user_id and role are null', async () => {
+  const db = fakeDb();
+  const auth: SyncAuth = { mode: 'DEVICE', device: device('ACTIVE', null) };
+  const body = okBody(await run(db, REAL_HOUSEKEEPING, [clientDiaryItem('')], auth));
+  assert.equal(body.results[0].status, 'SAVED');
+  assert.equal(db.creates[0].user_id, null);
+  assert.equal(db.creates[0].performed_as_role, null);
+  assert.equal(db.creates[0].is_delegated, false);
+});
+
+test('heartbeat with empty owner on device auth is SAVED and updates the device', async () => {
+  const db = fakeDb();
+  const hb = item({ kind: 'HEARTBEAT', ownerUserId: '', payload: { appVersion: '3.1.0', unsentCount: 2, batteryPercent: 40 } });
+  const body = okBody(await run(db, REAL_HOUSEKEEPING, [hb]));
+  assert.equal(body.results[0].status, 'SAVED');
+  assert.equal(db.creates[0].event_type, 'HEARTBEAT');
+  // One update from the heartbeat itself, one from the batch's last_seen touch.
+  assert.equal(db.deviceUpdates.length, 2);
+});
+
+test('diary event from an owner the device cannot vouch for: SAVED on the device, claim kept, owner not vouched for', async () => {
+  const db = fakeDb();
+  const mot = counting({ status: 'SAVED', entityType: 'mot_shop_collection', entityId: '1' });
+  const handlers: SyncHandlerRegistry = { ...REAL_HOUSEKEEPING, MOT_COLLECTION: mot.handler };
+  const body = okBody(await run(db, handlers, [clientDiaryItem('77'), item({ kind: 'MOT_COLLECTION', ownerUserId: '77' })]));
+  assert.deepEqual(body.results.map((r) => r.status), ['SAVED', 'REJECTED']);
+  assert.equal(body.results[1].code, 'OWNER_NOT_ALLOWED');
+  assert.equal(db.creates[0].user_id, BigInt(5));
+  assert.equal(db.creates[0].payload.claimedOwnerUserId, '77');
+  assert.equal(mot.calls(), 0);
+});
+
+test('empty owner is refused for business kinds and for session auth', async () => {
+  const db = fakeDb();
+  const mot = counting({ status: 'SAVED' });
+  const handlers: SyncHandlerRegistry = { ...REAL_HOUSEKEEPING, MOT_COLLECTION: mot.handler };
+  const onDevice = okBody(await run(db, handlers, [item({ kind: 'MOT_COLLECTION', ownerUserId: '' })]));
+  assert.equal(onDevice.results[0].status, 'REJECTED');
+  assert.equal(onDevice.results[0].code, 'INVALID_OWNER');
+  const session: SyncAuth = { mode: 'SESSION', user: OWNER, device: null };
+  const onSession = okBody(await run(db, handlers, [clientDiaryItem('')], session));
+  assert.equal(onSession.results[0].status, 'REJECTED');
+  assert.equal(onSession.results[0].code, 'INVALID_OWNER');
+  assert.equal(mot.calls(), 0);
+});
+
+test('diary payload: bad occurredAt or eventType is REJECTED (client drops it)', async () => {
+  const db = fakeDb();
+  const bad = item({ ownerUserId: '', payload: { eventType: 'APP_OPEN', details: null, occurredAt: 'yesterday', online: true } });
+  const badType = item({ ownerUserId: '', payload: { eventType: 'x', details: null } });
+  const body = okBody(await run(db, REAL_HOUSEKEEPING, [bad, badType]));
+  assert.deepEqual(body.results.map((r) => r.status), ['REJECTED', 'REJECTED']);
+  assert.equal(body.results[0].code, 'INVALID_PAYLOAD');
 });

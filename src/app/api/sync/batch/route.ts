@@ -31,8 +31,9 @@ async function findInactiveDevice(req: Request): Promise<AuthenticatedDevice | n
 
 /**
  * POST /api/sync/batch — offline queue upload (SyncBatchRequest -> SyncBatchResponse).
- * Auth: device headers (x-device-uid + x-device-key). Without them, the
- * session cookie; then every item's ownerUserId must be the session user.
+ * Auth: device headers (x-device-uid + x-device-key), plus the session cookie when someone is
+ * signed in (business items: owner = assigned user or that signed-in user). Without device
+ * headers, the session cookie; then every item's ownerUserId must be the session user.
  */
 export async function POST(req: Request) {
   const serverTime = () => new Date().toISOString();
@@ -44,7 +45,10 @@ export async function POST(req: Request) {
       if (!device) {
         return NextResponse.json({ error: 'Device not recognised.', code: 'DEVICE_UNAUTHORIZED', serverTime: serverTime() }, { status: 401 });
       }
-      auth = { mode: 'DEVICE', device };
+      // The session cookie (if any) says who is signed in on this phone now: business items are
+      // accepted only for the device's assigned user or that signed-in user.
+      const sessionUser = await getCurrentUser(req).catch(() => null);
+      auth = { mode: 'DEVICE', device, sessionUser };
     } else {
       const user = await getCurrentUser(req);
       if (!user) {

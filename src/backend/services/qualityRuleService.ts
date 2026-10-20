@@ -63,6 +63,7 @@ export interface CreateRuleInput {
   decisionConsequence?: string | null;
   effectiveFrom?: Date;
   createdByUserId: bigint | number | string;
+  actorRole?: string | null;
   reason: string;
 }
 
@@ -963,6 +964,7 @@ export class QualityRuleService {
       decisionConsequence,
       effectiveFrom = new Date(),
       createdByUserId,
+      actorRole,
       reason,
     } = input;
 
@@ -1102,7 +1104,7 @@ export class QualityRuleService {
           reason: reason.trim(),
           actor_user_id: String(userIdBigInt),
         },
-        actor: { userId: userIdBigInt, actorRole: null },
+        actor: { userId: userIdBigInt, actorRole: actorRole ?? null },
       });
 
       return newRule;

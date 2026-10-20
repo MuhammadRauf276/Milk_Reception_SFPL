@@ -8,7 +8,6 @@ import {
   Truck,
   Database,
   FlaskConical,
-  BookOpen,
   AlertTriangle,
   Activity,
   History,
@@ -18,6 +17,8 @@ import {
   TestTubes,
   MessageSquare,
   ShieldCheck,
+  Grid3x3,
+  Smartphone,
 } from 'lucide-react';
 import { User } from '@core/types';
 import { Sheet } from '@/components/ui/sheet';
@@ -43,6 +44,8 @@ export const SUPER_ADMIN_NAV_ITEMS = [
   { href: '/super-admin/silos', label: 'Silos', icon: Database },
   { href: '/super-admin/lab-tests', label: 'Lab Test Master', icon: FlaskConical },
   { href: '/super-admin/test-policies', label: 'Stage Policies & Rules', icon: TestTubes },
+  { href: '/super-admin/test-point-policies', label: 'Test Matrix', icon: Grid3x3 },
+  { href: '/super-admin/devices', label: 'Phones', icon: Smartphone },
   { href: '/super-admin/qa-warnings', label: 'QA Warnings', icon: AlertTriangle },
   { href: '/super-admin/operations', label: 'Operations', icon: Activity },
   { href: '/super-admin/audit', label: 'Audit & Corrections', icon: History },

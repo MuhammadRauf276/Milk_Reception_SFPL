@@ -61,6 +61,7 @@ export async function POST(req: Request) {
       action,
       remarks: trimmedRemarks,
       userId: user.id,
+      actorRole: user.role,
     });
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: result.status });

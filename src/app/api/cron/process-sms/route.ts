@@ -14,7 +14,7 @@ export async function POST(req: Request) {
 export async function GET(req: Request) {
   // Scheduler (CRON_SECRET bearer) or a logged-in user with an allowed role.
   if (!hasValidBearerSecret(req, 'CRON_SECRET')) {
-    const guard = await requireRoles(req, SMS_DISPATCH_ROLES);
+    const guard = await requireRoles(req, SMS_DISPATCH_ROLES, { delegation: 'none' });
     if ('response' in guard) return guard.response;
   }
 

@@ -22,6 +22,7 @@ export interface UpdatePolicyInput {
   allowDuplicates: boolean;
   duplicateScope?: string;
   updatedByUserId: bigint | number | string;
+  actorRole?: string | null;
   reason: string;
 }
 
@@ -325,7 +326,7 @@ export class PaperReferenceService {
     input: UpdatePolicyInput,
     txOrPrisma: Prisma.TransactionClient | typeof prisma = prisma
   ): Promise<PaperReferencePolicy> {
-    const { referenceType, policyMode, allowDuplicates, duplicateScope, updatedByUserId, reason } = input;
+    const { referenceType, policyMode, allowDuplicates, duplicateScope, updatedByUserId, actorRole, reason } = input;
     const userIdBigInt = BigInt(String(updatedByUserId));
 
     const scopeToSet = duplicateScope || (referenceType === PaperReferenceType.SHOP_RMR ? 'GLOBAL' : 'PER_SOURCE');
@@ -419,7 +420,7 @@ export class PaperReferenceService {
           duplicate_scope: scopeToSet,
           reason: reason || 'Super Admin policy update',
         },
-        actor: { userId: userIdBigInt, actorRole: null },
+        actor: { userId: userIdBigInt, actorRole: actorRole ?? null },
       });
 
       return policy;
