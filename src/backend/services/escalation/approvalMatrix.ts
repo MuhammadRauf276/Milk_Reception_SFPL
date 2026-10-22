@@ -12,7 +12,6 @@
 import type { CanonicalRole } from '@/backend/core/types';
 import {
   canActAs,
-  getParentRole,
   isCanonicalRole,
 } from '@/backend/core/roles/hierarchy';
 import { getRoleLabel } from '@/backend/core/roles/labels';
@@ -128,18 +127,17 @@ export const APPROVAL_TYPE_DEFINITIONS: Record<ApprovalType, ApprovalTypeDefinit
 /**
  * Resolves the authoritative approver role for an item.
  *
- * Supervisor Auto-Escalation Rule:
- * If a superior performed the subordinate work (e.g., Zonal Manager performed lab/dispatch
- * work and triggered an exception), route the exception ONE LEVEL UP in the hierarchy.
+ * Covered-work rule (owner decision, WORKFLOW_ALIGNMENT_PLAN §19): the person responsible for the
+ * work decides its exception. A superior doing subordinate work (e.g. a Zonal Manager doing the
+ * lab test) is already the approver at that point, so the exception is NOT sent up the tree:
  *
  * - Normal MOT exception: submitter is MOT -> approver is ZMCC_MANAGER.
- * - Zonal Manager performed lab work: submitter is ZMCC_MANAGER
- *   -> routes one level up: ROLE_PARENT['ZMCC_MANAGER'] = 'HEAD_OF_MPD'.
- * - Contractor Manager performed dispatch work: submitter is CONTRACTOR_MANAGER
- *   -> routes one level up: ROLE_PARENT['CONTRACTOR_MANAGER'] = 'HEAD_OF_MPD'.
- * - AVP-QA performed QAE work: submitter is QA_HEAD
- *   -> routes one level up: ROLE_PARENT['QA_HEAD'] = 'SUPER_ADMIN'.
- * - MPD Head performed work -> routes to 'SUPER_ADMIN'.
+ * - Zonal Manager performed lab work -> the Zonal Manager decides it.
+ * - Contractor Manager performed dispatch work -> the Contractor Manager decides it.
+ * - AVP-QA performed QAE work -> the AVP-QA decides it.
+ * - Zonal Manager or Contractor Manager requesting a new source -> MPD Head (not at their level).
+ *
+ * Accepting milk against an SOP rule while covering is tagged for tracking by the stage services.
  */
 export function resolveAuthoritativeApproverRole(
   approvalType: ApprovalType,
@@ -152,14 +150,11 @@ export function resolveAuthoritativeApproverRole(
     return { approverRole: originalApproverRole, isEscalated: false, originalApproverRole };
   }
 
-  // If submitter can act as (is at or above) the default approver role,
-  // they cannot approve their own level, so escalate one level up from submitter's role.
+  // The submitter is at or above the default approver: they are the responsible approver.
   if (canActAs(submitterRole, originalApproverRole)) {
-    const parent = getParentRole(submitterRole);
-    const escalatedRole: CanonicalRole = parent ?? 'SUPER_ADMIN';
     return {
-      approverRole: escalatedRole,
-      isEscalated: escalatedRole !== originalApproverRole,
+      approverRole: submitterRole,
+      isEscalated: false,
       originalApproverRole,
     };
   }
@@ -294,6 +289,15 @@ export function canDecideApproval(
     item.submittedByUserId &&
       String(actor.userId) === String(item.submittedByUserId)
   );
+
+  // Covered work: a superior who did the subordinate work decides that stage exception himself.
+  const isStageException = item.approvalType.startsWith('STAGE_') && item.approvalType.endsWith('_EXCEPTION');
+  const isCoveredWork = Boolean(
+    item.submitterRole && isCanonicalRole(item.submitterRole) && canActAs(item.submitterRole, def.defaultApproverRole)
+  );
+  if (isSelf && isStageException && isCoveredWork && actor.role !== 'SUPER_ADMIN') {
+    return { allowed: true, isSelfApproval: true, isEscalated: false, targetApproverRole };
+  }
 
   if (isSelf) {
     // Super Admin self-approval exception:

@@ -82,8 +82,7 @@ export interface DispatchSummaryPanelProps {
 export const DispatchSummaryPanel: React.FC<DispatchSummaryPanelProps> = ({
   isCollapsible = false,
   portions,
-  vehicleQuantity,
-  portionSummary,
+  vehicleQuantity,
   safeTotals,
   calculatedPortionsList,
   labTests,

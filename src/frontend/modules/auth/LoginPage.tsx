@@ -64,7 +64,7 @@ const STATIC_DEV_PROFILES: DevGroup[] = !DEV_LOGIN_PROFILES_ENABLED ? [] : [
       { label: 'Weighbridge Operator (Shift 1)', department: 'Production & Weighbridge', username: 'weighbridge.operator', password: 'weighbridge123' },
       { label: 'Weighbridge Operator (Shift 2)', department: 'Production & Weighbridge', username: 'weighbridge.02', password: 'weighbridge123' },
       { label: 'Production Reception Operator', department: 'Plant Production & Silos', username: 'production.operator', password: 'production123' },
-      { label: 'Security Gate Operator', department: 'Security', username: 'security.gate', password: 'security123' },
+      { label: 'Admin Operator (Gate)', department: 'Administration', username: 'security.gate', password: 'security123' },
     ],
   },
   {
@@ -195,8 +195,8 @@ export const LoginPage: React.FC = () => {
                   exit={{ opacity: 0, height: 0 }}
                   className="overflow-hidden"
                 >
-                  <div className="mt-5 flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-800">
-                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+                  <div className="mt-5 flex items-start gap-2 rounded-md border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-800">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
                     <span>{errorMsg}</span>
                   </div>
                 </motion.div>

@@ -149,6 +149,8 @@ export async function GET(
           numericValue: pr.numeric_value ? Number(pr.numeric_value) : null,
           textValue: pr.text_value || null,
           isPassed: pr.is_passed,
+          photo_url: pr.photo_url || null,
+          seal_verified: pr.seal_verified ?? null,
         })),
       })),
       active_plant_tests: activePlantTests,

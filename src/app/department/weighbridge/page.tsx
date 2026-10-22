@@ -1,16 +1,16 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef, Suspense, useMemo } from 'react';
+import React, { useCallback, useRef, Suspense, useMemo, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { WeighbridgeWorkspace, WeighbridgeTab } from '@modules/dashboard/WeighbridgeWorkspace';
 import { Header } from '@modules/shared/Header';
 import { HierarchicalNavDrawer } from '@modules/shared/navigation/HierarchicalNavDrawer';
-import { User } from '@core/types';
+import { canActAs } from '@/backend/core/roles/hierarchy';
 import { can } from '@/backend/modules/access-control/policy';
 import { createAccessActor } from '@/backend/modules/access-control/rolePolicies';
-import { resolveRoleHome } from '@/lib/role-routing';
 import { PageLoader } from '@/components/ui/spinner';
 import { PageTransition } from '@/components/motion/page-transition';
+import { useCurrentUser } from '@/frontend/hooks/useCurrentUser';
 
 const WEIGHBRIDGE_SCOPE = {
   kind: 'DEPARTMENT',
@@ -20,27 +20,9 @@ const WEIGHBRIDGE_SCOPE = {
 function WeighbridgeDepartmentContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const { currentUser: user, loadingUser: loading } = useCurrentUser();
+  const [isDrawerOpen, setIsDrawerOpen] = React.useState(false);
   const hamburgerButtonRef = useRef<HTMLButtonElement | null>(null);
-
-  useEffect(() => {
-    async function loadUser() {
-      try {
-        const res = await fetch('/api/auth/me');
-        if (res.ok) {
-          const data = await res.json();
-          setUser(data.user);
-        }
-      } catch (err) {
-        console.error('Failed to load user', err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadUser();
-  }, []);
 
   const openDrawer = useCallback(() => setIsDrawerOpen(true), []);
   const closeDrawer = useCallback(() => {
@@ -54,13 +36,14 @@ function WeighbridgeDepartmentContent() {
 
   const hasAccess = useMemo(() => {
     if (!user) return false;
+    if (canActAs(user.role, 'WEIGHBRIDGE_OPERATOR')) return true;
     const actor = createAccessActor(user);
     return actor ? can(actor, 'SUBMIT', WEIGHBRIDGE_SCOPE) : false;
   }, [user]);
 
   useEffect(() => {
     if (loading || hasAccess) return;
-    router.replace(user ? resolveRoleHome(user.role) : '/login');
+    router.replace(user ? '/workspace-unavailable' : '/login');
   }, [hasAccess, loading, router, user]);
 
   if (loading || !hasAccess) {

@@ -63,7 +63,9 @@ export const QualitativeResultRadioGroup: React.FC<QualitativeResultRadioGroupPr
                 disabled
                   ? 'opacity-50 cursor-not-allowed bg-slate-100 border-slate-300 text-slate-500'
                   : isChecked
-                  ? 'bg-primary/10 border-primary text-primary ring-1 ring-primary shadow-xs'
+                  ? opt.isPassing === false
+                    ? 'bg-rose-100 border-rose-500 text-rose-900 ring-1 ring-rose-500'
+                    : 'bg-primary/10 border-primary text-primary ring-1 ring-primary shadow-xs'
                   : 'bg-white border-border-strong text-foreground hover:bg-slate-50 hover:border-slate-400'
               }`}
             >

@@ -1,38 +1,32 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
+import React, { useCallback, useRef, Suspense, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { QALaboratoryWorkspace, QATab } from '@modules/dashboard/QALaboratoryWorkspace';
 import { Header } from '@modules/shared/Header';
 import { HierarchicalNavDrawer } from '@modules/shared/navigation/HierarchicalNavDrawer';
-import { User } from '@core/types';
+import { canActAs } from '@/backend/core/roles/hierarchy';
 import { PageLoader } from '@/components/ui/spinner';
 import { PageTransition } from '@/components/motion/page-transition';
+import { useCurrentUser } from '@/frontend/hooks/useCurrentUser';
 
 function QADepartmentContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const { currentUser: user, loadingUser: loading } = useCurrentUser();
+  const [isDrawerOpen, setIsDrawerOpen] = React.useState(false);
   const hamburgerButtonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
-    async function loadUser() {
-      try {
-        const res = await fetch('/api/auth/me');
-        if (res.ok) {
-          const data = await res.json();
-          setUser(data.user);
-        }
-      } catch (err) {
-        console.error('Failed to load user', err);
-      } finally {
-        setLoading(false);
-      }
+    if (loading) return;
+    if (!user) {
+      router.push('/login');
+      return;
     }
-    loadUser();
-  }, []);
+    if (!canActAs(user.role, 'QA_LAB_ATTENDANT')) {
+      router.push('/workspace-unavailable');
+    }
+  }, [loading, user, router]);
 
   const openDrawer = useCallback(() => setIsDrawerOpen(true), []);
   const closeDrawer = useCallback(() => {

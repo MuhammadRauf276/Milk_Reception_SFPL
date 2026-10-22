@@ -23,6 +23,9 @@ async function resetDevLoginPasswords() {
 
     // Operators
     { username: 'phe.operator', pass: 'phe123' },
+    { username: 'mdo', pass: 'mdo123' },
+    { username: 'mdo.hasilpur', pass: 'mdo123' },
+    { username: 'mdo.jhang', pass: 'mdo123' },
     { username: 'zmcc.operator', pass: 'mpd123' },
     { username: 'zmcc.operator.jhang', pass: 'mpd123' },
     { username: 'zmcc.operator.kabirwala', pass: 'mpd123' },

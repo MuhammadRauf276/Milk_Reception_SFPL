@@ -61,6 +61,8 @@ export interface SupplyChainLossSummary {
   tier2ZmccLoss: Tier2ZmccLossResult & { label: string };
   tier3TransitLoss: Tier3TransitLossResult & { label: string; highLossCount: number };
   tier4TotalLoss: Tier4TotalLossResult & { label: string };
+  /** Accepted milk that left/closed without unloading; excluded from every loss figure above. */
+  acceptedNotReceivedLiters: number;
 }
 
 export interface LossReconciliationDetailRow {
@@ -76,6 +78,8 @@ export interface LossReconciliationDetailRow {
   zmccLiters?: number;
   routeLossLiters?: number;
   routeLossPercent?: number;
+  /** Accepted by lab but never unloaded into the tank (not counted in loss). */
+  acceptedNotReceivedLiters?: number;
   // Tier 2
   motInwardLiters?: number;
   localInwardLiters?: number;
@@ -188,6 +192,7 @@ export async function computeAndStoreAreaLossTx(
       where: {
         lab_session_id: params.sessionId,
         final_decision: 'ACCEPTED',
+        status: 'WEIGHED', // received (unloaded) milk only
         net_weight_kg: { not: null },
       },
     }),
@@ -260,7 +265,7 @@ export async function computeAndStoreAreaLossTx(
 
 /**
  * Calculates Tier 2 (ZMCC Process & Chilling Loss):
- * ZMCC Loss = (Total MOT Inward + Total Local Supplier Inward) - Dispatched Tankers - Delta Tank Stock
+ * ZMCC Loss = (Total MOT Inward + Total HC Inward) - Dispatched Tankers - Delta Tank Stock
  */
 export function calculateTier2ZmccLoss(params: {
   motInwardGrossLiters: number;
@@ -503,7 +508,12 @@ export async function getSupplyChainLossHierarchy(filters: {
       summary: true,
       mot_arrival: {
         include: {
-          lab_session: true,
+          lab_session: {
+            include: {
+              tank_receipt: { select: { gross_liters: true, at_13ts_liters: true } },
+              portions: { select: { status: true, final_decision: true, gross_liters: true, at_13ts_liters: true } },
+            },
+          },
         },
       },
     },
@@ -514,6 +524,7 @@ export async function getSupplyChainLossHierarchy(filters: {
   let totalShopAt13tsLiters = 0;
   let totalZmccArrivalGrossLiters = 0;
   let totalZmccArrivalAt13tsLiters = 0;
+  let totalAcceptedNotReceivedLiters = 0;
 
   const detailRows: LossReconciliationDetailRow[] = [];
 
@@ -524,13 +535,19 @@ export async function getSupplyChainLossHierarchy(filters: {
     const shopGross = summary ? Number(summary.total_gross_liters) : 0;
     const shop13ts = summary ? Number(summary.total_at_13ts_liters) : 0;
 
-    // Prefer the stored Area figure (accepted portions only, weighed); fall back to the lab session.
+    // Loss uses RECEIVED milk only (unloaded into the tank). Prefer the stored Area figure; fall back to the
+    // tank receipt. Accepted-but-not-received milk is reported separately and never counted as received.
     const zmccGross = j.area_received_liters != null
       ? Number(j.area_received_liters)
-      : labSession && labSession.gross_liters != null ? Number(labSession.gross_liters) : 0;
+      : labSession?.tank_receipt ? Number(labSession.tank_receipt.gross_liters) : 0;
     const zmcc13ts = j.area_received_at_13ts_liters != null
       ? Number(j.area_received_at_13ts_liters)
-      : labSession && labSession.at_13ts_liters != null ? Number(labSession.at_13ts_liters) : 0;
+      : labSession?.tank_receipt ? Number(labSession.tank_receipt.at_13ts_liters) : 0;
+    const notReceivedPortions = (labSession?.portions ?? []).filter(
+      (p) => p.final_decision === 'ACCEPTED' && p.status !== 'WEIGHED' && p.status !== 'LOADED',
+    );
+    const acceptedNotReceived = Number(notReceivedPortions.reduce((t, p) => t + Number(p.gross_liters ?? 0), 0).toFixed(2));
+    totalAcceptedNotReceivedLiters += acceptedNotReceived;
 
     totalShopGrossLiters += shopGross;
     totalShopAt13tsLiters += shop13ts;
@@ -552,6 +569,7 @@ export async function getSupplyChainLossHierarchy(filters: {
       zmccLiters: zmccGross,
       routeLossLiters: routeLossL,
       routeLossPercent: routeLossPct,
+      acceptedNotReceivedLiters: acceptedNotReceived,
     });
   }
 
@@ -563,19 +581,29 @@ export async function getSupplyChainLossHierarchy(filters: {
   });
 
   // 2. Query Tier 2 (ZMCC Inward vs Outward Dispatches vs Stock Delta)
-  const [localSupplierSessions, dispatchedVisits] = await Promise.all([
-    prisma.zmccLabSession.findMany({
+  const [localSupplierSessions, hcNotReceivedPortions, dispatchedVisits] = await Promise.all([
+    prisma.zmccTankReceipt.findMany({
       where: {
-        arrival_type: 'LOCAL_SUPPLIER',
-        created_at: { gte: startDate, lte: endDate },
+        arrival_type: 'HC',
+        received_at: { gte: startDate, lte: endDate },
         ...(zmccIdBigInt ? { zmcc_id: zmccIdBigInt } : {}),
-        status: 'COMPLETED',
-        decision: 'ACCEPTED',
       },
       select: {
         gross_liters: true,
         at_13ts_liters: true,
       },
+    }),
+    prisma.zmccLabPortion.findMany({
+      where: {
+        final_decision: 'ACCEPTED',
+        status: { notIn: ['WEIGHED', 'LOADED'] },
+        lab_session: {
+          arrival_type: 'HC',
+          created_at: { gte: startDate, lte: endDate },
+          ...(zmccIdBigInt ? { zmcc_id: zmccIdBigInt } : {}),
+        },
+      },
+      select: { gross_liters: true },
     }),
     prisma.vehicleVisit.findMany({
       where: {
@@ -598,6 +626,11 @@ export async function getSupplyChainLossHierarchy(filters: {
     localInwardGross += s.gross_liters ? Number(s.gross_liters) : 0;
     localInward13ts += s.at_13ts_liters ? Number(s.at_13ts_liters) : 0;
   }
+
+  for (const p of hcNotReceivedPortions) {
+    totalAcceptedNotReceivedLiters += Number(p.gross_liters ?? 0);
+  }
+  totalAcceptedNotReceivedLiters = Number(totalAcceptedNotReceivedLiters.toFixed(2));
 
   let totalDispatchedGrossLiters = 0;
   let totalDispatchedAt13tsLiters = 0;
@@ -640,6 +673,8 @@ export async function getSupplyChainLossHierarchy(filters: {
       dispatchedGrossLiters: dispGross,
       plantNetKg: netKg,
       plantAcceptedLiters: plantGross,
+      zmccLossLiters: transitLossL,
+      zmccLossPercent: transitLossPct,
       transitLossLiters: transitLossL,
       transitLossPercent: transitLossPct,
       isHighTransitLoss: isHigh,
@@ -749,10 +784,11 @@ export async function getSupplyChainLossHierarchy(filters: {
       period: filters.period || 'today',
       startDate: startDate.toISOString().split('T')[0],
       endDate: endDate.toISOString().split('T')[0],
-      tier1RouteLoss: { ...tier1Calc, label: 'MOT Route / Area Loss' },
-      tier2ZmccLoss: { ...tier2Calc, label: 'ZMCC Process & Chilling Loss' },
-      tier3TransitLoss: { ...tier3Calc, label: 'Road Transit Loss', highLossCount },
-      tier4TotalLoss: { ...tier4Calc, label: 'Total MPD Loss' },
+      tier1RouteLoss: { ...tier1Calc, label: 'Area Loss / Gain (MOT vs ZMCC)' },
+      tier2ZmccLoss: { ...tier2Calc, label: 'ZMCC Tank & Processing Loss / Gain' },
+      tier3TransitLoss: { ...tier3Calc, label: 'ZMCC Loss / Gain (Dispatch vs Plant Received)', highLossCount },
+      tier4TotalLoss: { ...tier4Calc, label: 'Transit Loss / Gain (Total Purchased vs Plant Received)' },
+      acceptedNotReceivedLiters: totalAcceptedNotReceivedLiters,
     },
     details: detailRows,
   };
@@ -926,6 +962,8 @@ export async function generateLossReconciliationExcel(data: {
     { header: 'Dispatched (L)', key: 'dispatchedGrossLiters', width: 16 },
     { header: 'Plant Net (Kg)', key: 'plantNetKg', width: 16 },
     { header: 'Plant Net (L)', key: 'plantAcceptedLiters', width: 16 },
+    { header: 'ZMCC Loss (L)', key: 'zmccLossLiters', width: 16 },
+    { header: 'ZMCC Loss %', key: 'zmccLossPercent', width: 14 },
     { header: 'Transit Loss (L)', key: 'transitLossLiters', width: 16 },
     { header: 'Transit Loss %', key: 'transitLossPercent', width: 14 },
     { header: 'High Loss Alert', key: 'isHighTransitLoss', width: 16 },
@@ -954,6 +992,8 @@ export async function generateLossReconciliationExcel(data: {
       dispatchedGrossLiters: d.dispatchedGrossLiters ?? null,
       plantNetKg: d.plantNetKg ?? null,
       plantAcceptedLiters: d.plantAcceptedLiters ?? null,
+      zmccLossLiters: d.zmccLossLiters ?? null,
+      zmccLossPercent: d.zmccLossPercent !== undefined ? d.zmccLossPercent / 100 : null,
       transitLossLiters: d.transitLossLiters ?? null,
       transitLossPercent: d.transitLossPercent !== undefined ? d.transitLossPercent / 100 : null,
       isHighTransitLoss: d.isHighTransitLoss ? 'HIGH LOSS (>1%)' : 'NORMAL',
@@ -968,6 +1008,8 @@ export async function generateLossReconciliationExcel(data: {
     row.getCell('dispatchedGrossLiters').numFmt = '#,##0.00';
     row.getCell('plantNetKg').numFmt = '#,##0.00';
     row.getCell('plantAcceptedLiters').numFmt = '#,##0.00';
+    row.getCell('zmccLossLiters').numFmt = '#,##0.00';
+    row.getCell('zmccLossPercent').numFmt = '0.00%';
     row.getCell('transitLossLiters').numFmt = '#,##0.00';
     row.getCell('transitLossPercent').numFmt = '0.00%';
     row.getCell('financialImpactEstimatedRs').numFmt = 'Rs. #,##0.00';

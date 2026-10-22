@@ -1,49 +1,32 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
+import React, { useCallback, useRef, Suspense, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ProductionUnloadingWorkspace, ProductionTab } from '@modules/dashboard/ProductionUnloadingWorkspace';
 import { Header } from '@modules/shared/Header';
 import { HierarchicalNavDrawer } from '@modules/shared/navigation/HierarchicalNavDrawer';
-import { User } from '@core/types';
+import { canActAs } from '@/backend/core/roles/hierarchy';
 import { PageLoader } from '@/components/ui/spinner';
 import { PageTransition } from '@/components/motion/page-transition';
+import { useCurrentUser } from '@/frontend/hooks/useCurrentUser';
 
 function ProductionDepartmentContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [isAuthorized, setIsAuthorized] = useState(false);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const { currentUser: user, loadingUser: loading } = useCurrentUser();
+  const [isDrawerOpen, setIsDrawerOpen] = React.useState(false);
   const hamburgerButtonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
-    async function loadUser() {
-      try {
-        const res = await fetch('/api/auth/me');
-        if (res.ok) {
-          const data = await res.json();
-          const roleStr = data.user?.role as string;
-          const allowedRoles = ['PRODUCTION_RECEPTION_OPERATOR', 'PRODUCTION_HEAD', 'SUPER_ADMIN'];
-          if (data.user && allowedRoles.includes(roleStr)) {
-            setUser(data.user);
-            setIsAuthorized(true);
-          } else {
-            router.push('/login');
-          }
-        } else {
-          router.push('/login');
-        }
-      } catch (err) {
-        console.error('Failed to load user', err);
-        router.push('/login');
-      } finally {
-        setLoading(false);
-      }
+    if (loading) return;
+    if (!user) {
+      router.push('/login');
+      return;
     }
-    loadUser();
-  }, [router]);
+    if (!canActAs(user.role, 'PRODUCTION_RECEPTION_OPERATOR')) {
+      router.push('/workspace-unavailable');
+    }
+  }, [loading, user, router]);
 
   const openDrawer = useCallback(() => setIsDrawerOpen(true), []);
   const closeDrawer = useCallback(() => {
@@ -59,19 +42,17 @@ function ProductionDepartmentContent() {
 
   if (loading) {
     return (
-      <PageLoader label="Loading Production Workstation…" className="min-h-screen" />
+      <PageLoader label="Loading Production Silo Station…" className="min-h-screen" />
     );
   }
 
-  if (!isAuthorized || !user) {
-    return null;
-  }
+  if (!user) return null;
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col w-full max-w-full overflow-x-hidden">
       <Header
         currentUser={user}
-        title="Production"
+        title="Silo Unloading"
         showBranding={true}
         showMenuButton={true}
         onMenuClick={openDrawer}
@@ -104,7 +85,7 @@ export default function ProductionDepartmentPage() {
   return (
     <Suspense
       fallback={
-        <PageLoader label="Loading Production Workstation…" className="min-h-screen" />
+        <PageLoader label="Loading Production Silo Station…" className="min-h-screen" />
       }
     >
       <ProductionDepartmentContent />

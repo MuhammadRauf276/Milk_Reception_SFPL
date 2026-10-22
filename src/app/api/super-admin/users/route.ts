@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
 import bcrypt from 'bcryptjs';
+import { Prisma } from '@prisma/client';
 import { getRoleAssignmentPolicy } from '@/lib/user-assignment-policy';
 import { validateAndNormalizeEmail, classifyUniqueError } from '@/lib/email-validator';
 import { getErrorCode, getErrorMessage } from '@/lib/errors';
@@ -19,14 +20,50 @@ export async function GET(req: Request) {
   }
 
   try {
-    const users = await prisma.user.findMany({
-      orderBy: { created_at: 'desc' },
-      include: {
-        procurement_source: {
-          select: { id: true, code: true, name: true, source_type: true },
+    const { searchParams } = new URL(req.url);
+    const paged = searchParams.has('page') || searchParams.has('pageSize');
+    const page = Math.max(1, Number(searchParams.get('page')) || 1);
+    const pageSize = Math.min(100, Math.max(1, Number(searchParams.get('pageSize')) || 25));
+    const q = (searchParams.get('q') || '').trim();
+    const roleFilter = searchParams.get('role');
+    const status = searchParams.get('status');
+
+    const where: Prisma.UserWhereInput = {};
+    if (q) {
+      where.OR = [
+        { username: { contains: q, mode: 'insensitive' } },
+        { full_name: { contains: q, mode: 'insensitive' } },
+        { email: { contains: q, mode: 'insensitive' } },
+      ];
+    }
+    if (roleFilter) where.role = roleFilter as Prisma.UserWhereInput['role'];
+    if (status === 'active') where.is_active = true;
+    if (status === 'inactive') where.is_active = false;
+
+    const [totalRecords, users] = await Promise.all([
+      paged ? prisma.user.count({ where }) : Promise.resolve(0),
+      prisma.user.findMany({
+        where,
+        orderBy: { created_at: 'desc' },
+        ...(paged ? { skip: (page - 1) * pageSize, take: pageSize } : {}),
+        select: {
+          id: true,
+          username: true,
+          full_name: true,
+          email: true,
+          role: true,
+          department: true,
+          scope_type: true,
+          procurement_source_id: true,
+          is_active: true,
+          last_login_at: true,
+          created_at: true,
+          procurement_source: {
+            select: { id: true, code: true, name: true, source_type: true },
+          },
         },
-      },
-    });
+      }),
+    ]);
 
     const serialized = users.map((u) => ({
       id: u.id.toString(),
@@ -50,7 +87,19 @@ export async function GET(req: Request) {
       createdAt: u.created_at.toISOString(),
     }));
 
-    return NextResponse.json({ users: serialized });
+    return NextResponse.json({
+      users: serialized,
+      ...(paged
+        ? {
+            pagination: {
+              page,
+              pageSize,
+              totalRecords,
+              totalPages: totalRecords === 0 ? 1 : Math.ceil(totalRecords / pageSize),
+            },
+          }
+        : {}),
+    });
   } catch (err) {
     console.error('[API_SUPER_ADMIN_USERS_GET_ERROR]', err);
     return NextResponse.json({ error: 'Failed to retrieve users.' }, { status: 500 });

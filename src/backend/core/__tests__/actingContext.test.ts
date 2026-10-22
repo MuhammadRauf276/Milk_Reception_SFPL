@@ -78,9 +78,13 @@ test('canActAs table', () => {
   }
 });
 
-test('Data Executive cannot act as any other role; Super Admin can act as all', () => {
+test('Data Executive can act as all roles below it but not Super Admin; Super Admin can act as all', () => {
   for (const role of CANONICAL_ROLES) {
-    assert.equal(canActAs('DATA_EXECUTIVE', role), role === 'DATA_EXECUTIVE', `DE -> ${role}`);
+    if (role === 'SUPER_ADMIN') {
+      assert.equal(canActAs('DATA_EXECUTIVE', role), false, 'DE -> SA');
+    } else {
+      assert.equal(canActAs('DATA_EXECUTIVE', role), true, `DE -> ${role}`);
+    }
     assert.equal(canActAs('SUPER_ADMIN', role), true, `SA -> ${role}`);
   }
 });
@@ -149,9 +153,10 @@ test('Super Admin and Data Executive are never delegated', () => {
   assert.deepEqual(de.scope, { kind: 'SYSTEM' });
 });
 
-test('Data Executive cannot act as a role below and is not an ancestor of anything', () => {
-  assert.equal(resolveCode(userFor('DATA_EXECUTIVE'), ['MOT'], { requestedAs: 'MOT' }), 'CANNOT_ACT_AS');
-  assert.equal(resolveCode(userFor('DATA_EXECUTIVE'), ['MOT']), 'FORBIDDEN');
+test('Data Executive can act as a role below (e.g. MOT) but cannot act as Super Admin', () => {
+  const deAsMot = resolveOk(userFor('DATA_EXECUTIVE'), ['MOT'], { requestedAs: 'MOT' });
+  assert.equal(deAsMot.actingAs, 'MOT');
+  assert.equal(resolveCode(userFor('DATA_EXECUTIVE'), ['SUPER_ADMIN'], { requestedAs: 'SUPER_ADMIN' }), 'CANNOT_ACT_AS');
 });
 
 test('requestedAs above the actor or on another branch: CANNOT_ACT_AS', () => {

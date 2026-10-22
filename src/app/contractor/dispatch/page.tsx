@@ -9,60 +9,43 @@ import { DynamicDispatchForm } from '@modules/forms/DynamicDispatchForm';
 import { PageLoader } from '@/components/ui/spinner';
 import { PageTransition } from '@/components/motion/page-transition';
 
+import { canActAs } from '@/backend/core/roles/hierarchy';
+import { useCurrentUser } from '@/frontend/hooks/useCurrentUser';
+
 function ContractorDispatchContent() {
   const router = useRouter();
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { currentUser, loadingUser: loading } = useCurrentUser();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const hamburgerButtonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
-    async function loadUser() {
-      try {
-        const res = await fetch('/api/auth/me');
-        if (res.ok) {
-          const data = await res.json();
-          if (!data.user) {
-            router.push('/login');
-            return;
-          }
-          const user = data.user;
-          const isSuperAdmin = user.role === 'SUPER_ADMIN';
-          const isMpdHead = user.role === 'HEAD_OF_MPD';
-          const isContractorOperator = user.role === 'CONTRACTOR_OPERATOR';
-          const isContractorManager = user.role === 'CONTRACTOR_MANAGER';
+    if (loading) return;
+    if (!currentUser) {
+      router.push('/login');
+      return;
+    }
+    if (!canActAs(currentUser.role, 'CONTRACTOR_OPERATOR')) {
+      router.push('/workspace-unavailable');
+      return;
+    }
 
-          if (!isSuperAdmin && !isMpdHead && !isContractorOperator && !isContractorManager) {
-            router.push('/workspace-unavailable');
-            return;
-          }
+    const isSystemScope =
+      currentUser.role === 'SUPER_ADMIN' ||
+      currentUser.role === 'DATA_EXECUTIVE' ||
+      currentUser.role === 'HEAD_OF_MPD' ||
+      currentUser.role === 'EXECUTIVE_MANAGEMENT';
 
-          if (!isSuperAdmin && !isMpdHead) {
-            if (
-              user.is_active === false ||
-              !user.procurement_source_id ||
-              !user.procurement_source ||
-              user.procurement_source.is_active === false ||
-              user.procurement_source.source_type !== 'CONTRACTOR'
-            ) {
-              router.push('/workspace-unavailable');
-              return;
-            }
-          }
-
-          setCurrentUser(user);
-        } else {
-          router.push('/login');
-        }
-      } catch (err) {
-        console.error('Failed to load user', err);
-        router.push('/login');
-      } finally {
-        setLoading(false);
+    if (!isSystemScope) {
+      if (
+        !currentUser.procurement_source_id ||
+        !currentUser.procurement_source ||
+        currentUser.procurement_source.is_active === false ||
+        currentUser.procurement_source.source_type !== 'CONTRACTOR'
+      ) {
+        router.push('/workspace-unavailable');
       }
     }
-    loadUser();
-  }, [router]);
+  }, [loading, currentUser, router]);
 
   const openDrawer = useCallback(() => {
     setIsDrawerOpen(true);

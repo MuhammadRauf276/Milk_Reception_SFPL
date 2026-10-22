@@ -1,43 +1,26 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef, Suspense, useMemo } from 'react';
+import React, { useCallback, useRef, Suspense, useMemo, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { SecurityGatewayWorkspace, SecurityTab } from '@modules/dashboard/SecurityGatewayWorkspace';
 import { Header } from '@modules/shared/Header';
 import { HierarchicalNavDrawer } from '@modules/shared/navigation/HierarchicalNavDrawer';
-import { User } from '@core/types';
 import { can } from '@/backend/modules/access-control/policy';
 import { createAccessActor } from '@/backend/modules/access-control/rolePolicies';
+import { canActAs } from '@/backend/core/roles/hierarchy';
 import { resolveRoleHome } from '@/lib/role-routing';
 import { PageLoader } from '@/components/ui/spinner';
 import { PageTransition } from '@/components/motion/page-transition';
+import { useCurrentUser } from '@/frontend/hooks/useCurrentUser';
 
 const SECURITY_SCOPE = { kind: 'DEPARTMENT', departmentId: 'Security' } as const;
 
 function SecurityDepartmentContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const { currentUser: user, loadingUser: loading } = useCurrentUser();
+  const [isDrawerOpen, setIsDrawerOpen] = React.useState(false);
   const hamburgerButtonRef = useRef<HTMLButtonElement | null>(null);
-
-  useEffect(() => {
-    async function loadUser() {
-      try {
-        const res = await fetch('/api/auth/me');
-        if (res.ok) {
-          const data = await res.json();
-          setUser(data.user);
-        }
-      } catch (err) {
-        console.error('Failed to load user', err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadUser();
-  }, []);
 
   const openDrawer = useCallback(() => setIsDrawerOpen(true), []);
   const closeDrawer = useCallback(() => {
@@ -53,6 +36,7 @@ function SecurityDepartmentContent() {
 
   const hasAccess = useMemo(() => {
     if (!user) return false;
+    if (canActAs(user.role, 'SECURITY_OPERATOR')) return true;
     const actor = createAccessActor(user);
     return actor ? can(actor, 'VIEW', SECURITY_SCOPE) : false;
   }, [user]);
@@ -64,7 +48,7 @@ function SecurityDepartmentContent() {
 
   if (loading || !hasAccess) {
     return (
-      <PageLoader label="Loading Security Gate…" className="min-h-screen" />
+      <PageLoader label="Loading Gate Entry & Exit…" className="min-h-screen" />
     );
   }
 
@@ -72,7 +56,7 @@ function SecurityDepartmentContent() {
     <div className="min-h-screen bg-background text-foreground flex flex-col w-full max-w-full overflow-x-hidden">
       <Header
         currentUser={user}
-        title="Security Gate"
+        title="Gate Entry & Exit"
         showBranding={true}
         showMenuButton={true}
         onMenuClick={openDrawer}
@@ -103,7 +87,11 @@ function SecurityDepartmentContent() {
 
 export default function SecurityDepartmentPage() {
   return (
-    <Suspense fallback={<PageLoader label="Loading Security Gate…" className="min-h-screen" />}>
+    <Suspense
+      fallback={
+        <PageLoader label="Loading Gate Entry & Exit…" className="min-h-screen" />
+      }
+    >
       <SecurityDepartmentContent />
     </Suspense>
   );

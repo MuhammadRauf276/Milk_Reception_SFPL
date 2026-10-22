@@ -50,10 +50,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error }, { status: 401 });
     };
 
-    // 1. Check PostgreSQL users table
-    const dbUser = await prisma.user.findFirst({
-      where: { username },
+    // 1. Check PostgreSQL users table (case-insensitive for resilient login)
+    let dbUser = await prisma.user.findFirst({
+      where: {
+        username: { equals: username, mode: 'insensitive' },
+      },
     });
+
+    // If generic 'mdo' username requested and not found as exact match, fallback to primary MDO account
+    if (!dbUser && username.trim().toLowerCase() === 'mdo') {
+      dbUser = await prisma.user.findFirst({
+        where: {
+          username: { equals: 'mdo.hasilpur', mode: 'insensitive' },
+        },
+      });
+    }
 
     if (!dbUser) {
       return fail('Invalid username or password');

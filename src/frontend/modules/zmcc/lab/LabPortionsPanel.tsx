@@ -1,11 +1,32 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Camera, CheckCircle2, Layers, Loader2, Plus, Send, XCircle } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { motion, AnimatePresence } from 'framer-motion';
+import { fetchJson } from '@/lib/query/fetchJson';
+import {
+  AlertTriangle,
+  Camera,
+  CheckCircle2,
+  ChevronRight,
+  FlaskConical,
+  Gavel,
+  Layers,
+  Loader2,
+  Send,
+  Sparkles,
+  X,
+  XCircle,
+} from 'lucide-react';
 import { LiveCamera } from '@/components/camera/LiveCamera';
-import { Modal } from '@/components/ui/modal';
+import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import { DecisionStatusBadge } from '@/frontend/modules/shared/decision/DecisionStatusBadge';
-import { buildLabPortionDecision, MAX_LAB_PORTIONS, type LabPolicyTest, type LabPortionView } from '@/backend/services/zmcc/labPortionDecision';
+import {
+  buildLabPortionDecision,
+  MAX_LAB_PORTIONS,
+  type LabPolicyTest,
+  type LabPortionView,
+} from '@/backend/services/zmcc/labPortionDecision';
 import type { LabPortionsState } from '@/backend/services/zmccLabService';
 import type { LiveCameraResult } from '@/types/captured-photo';
 import type { PersonDecision } from '@/types/stage1-decision';
@@ -30,7 +51,13 @@ type Draft = {
   remarks: string;
 };
 
-const emptyDraft = (): Draft => ({ quantity: '', unit: 'KG', values: {}, person: null, remarks: '' });
+const emptyDraft = (): Draft => ({
+  quantity: '',
+  unit: 'KG',
+  values: {},
+  person: null,
+  remarks: '',
+});
 
 function reasonText(reason: string): string {
   if (reason === 'MISMATCH') return 'Your decision differs from the test result';
@@ -47,7 +74,44 @@ function portionBadge(p: LabPortionView) {
   return <DecisionStatusBadge status="EXCEPTION" label="Testing" />;
 }
 
-export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({ sessionId, arrivalType, tokenNo, vehicleNo, arrivalId, onFinished }) => {
+function fmt(n: number): string {
+  return Number.isInteger(n) ? n.toFixed(1) : String(n);
+}
+
+function labSopRangeText(t: LabPolicyTest): string | null {
+  const min = t.rule?.min ?? null;
+  const max = t.rule?.max ?? null;
+  if (min != null && max != null) return `${fmt(min)} – ${fmt(max)}`;
+  if (min != null) return `≥ ${fmt(min)}`;
+  if (max != null) return `≤ ${fmt(max)}`;
+  return null;
+}
+
+function outsideLabRange(t: LabPolicyTest, raw: string): boolean {
+  if (!raw || raw.trim() === '') return false;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return false;
+  const min = t.rule?.min ?? null;
+  const max = t.rule?.max ?? null;
+  return (min != null && n < min) || (max != null && n > max);
+}
+
+function isDisallowedLabOption(t: LabPolicyTest, val: string): boolean {
+  if (!val || !val.trim()) return false;
+  const allowed = t.rule?.allowed;
+  if (!allowed || allowed.length === 0) return false;
+  const upper = val.trim().toUpperCase();
+  return !allowed.some((a) => a.trim().toUpperCase() === upper);
+}
+
+export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
+  sessionId,
+  arrivalType,
+  tokenNo,
+  vehicleNo,
+  arrivalId,
+  onFinished,
+}) => {
   const [state, setState] = useState<LabPortionsState | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -59,20 +123,19 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({ sessionId, a
   const [itemError, setItemError] = useState<Record<string, string>>({});
   const [photos, setPhotos] = useState<Record<string, Record<string, string>>>({}); // portionId -> labTestId -> captureId
   const [camera, setCamera] = useState<{ portion: LabPortionView; test: LabPolicyTest } | null>(null);
+  const [activePortionModal, setActivePortionModal] = useState<LabPortionView | null>(null);
   const [me, setMe] = useState<{ code: string; role: string }>({ code: 'unknown', role: 'unknown' });
-  const [sourceOpen, setSourceOpen] = useState(false);
-  const [sourceName, setSourceName] = useState('');
-  const [sourcePhone, setSourcePhone] = useState('');
-  const [sourceNotes, setSourceNotes] = useState('');
-  const [sourceMsg, setSourceMsg] = useState<string | null>(null);
+
+  const queryClient = useQueryClient();
 
   const load = useCallback(async () => {
     setError(null);
     try {
-      const res = await fetch(`/api/zmcc/lab/sessions/${sessionId}/portions`, { cache: 'no-store' });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Could not load portions.');
-      const s = data as LabPortionsState;
+      const s = await queryClient.fetchQuery({
+        queryKey: ['zmcc', 'lab', 'portions', sessionId],
+        queryFn: ({ signal }) => fetchJson<LabPortionsState>(`/api/zmcc/lab/sessions/${sessionId}/portions`, { signal }),
+        staleTime: 0,
+      });
       setState(s);
       setMode(s.testMode);
       if (s.portions.length > 1) setCount(String(s.portions.length));
@@ -87,28 +150,69 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({ sessionId, a
     } finally {
       setLoading(false);
     }
-  }, [sessionId]);
+  }, [sessionId, queryClient]);
 
   useEffect(() => {
     load();
   }, [load]);
 
+  const meQuery = useQuery({
+    queryKey: ['auth', 'me'],
+    queryFn: ({ signal }) => fetchJson<{ user?: { employee_code?: string; username?: string; role?: string } }>('/api/auth/me', { signal }),
+    staleTime: 5 * 60_000,
+    retry: false,
+  });
   useEffect(() => {
-    let alive = true;
-    fetch('/api/auth/me')
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        const u = d?.user;
-        if (alive && u) setMe({ code: u.employee_code || u.username || 'unknown', role: u.role || 'unknown' });
-      })
-      .catch(() => undefined);
-    return () => {
-      alive = false;
-    };
-  }, []);
+    const u = meQuery.data?.user;
+    if (u) setMe({ code: u.employee_code || u.username || 'unknown', role: u.role || 'unknown' });
+  }, [meQuery.data]);
 
   const anyDecided = !!state?.portions.some((p) => p.personDecision !== null || p.finalDecision !== 'PENDING');
-  const showSetup = !!state && state.sessionStatus === 'IN_PROGRESS' && (state.portions.length === 0 || editingSetup) && !anyDecided;
+  const showSetup = !!state && state.sessionStatus === 'IN_PROGRESS' && editingSetup && !anyDecided;
+
+  const handleModeSwitch = async (newMode: 'COMPOSITE' | 'PORTION_WISE') => {
+    if (newMode === mode) return;
+    if (anyDecided) return;
+    setBusy('setup');
+    setError(null);
+    try {
+      const portionCount = newMode === 'COMPOSITE' ? 1 : Number(count) || 2;
+      const res = await fetch(`/api/zmcc/lab/sessions/${sessionId}/portions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ test_mode: newMode, portion_count: portionCount }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not update testing mode.');
+      setState(data as LabPortionsState);
+      setMode(newMode);
+    } catch (err) {
+      setError(getErrorMessage(err) || 'Could not update testing mode.');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handlePortionCountChange = async (newCountStr: string) => {
+    if (anyDecided) return;
+    setCount(newCountStr);
+    setBusy('setup');
+    setError(null);
+    try {
+      const res = await fetch(`/api/zmcc/lab/sessions/${sessionId}/portions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ test_mode: 'PORTION_WISE', portion_count: Number(newCountStr) }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not update portion count.');
+      setState(data as LabPortionsState);
+    } catch (err) {
+      setError(getErrorMessage(err) || 'Could not update portion count.');
+    } finally {
+      setBusy(null);
+    }
+  };
 
   const saveSetup = async () => {
     setBusy('setup');
@@ -131,14 +235,15 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({ sessionId, a
   };
 
   const draftOf = (id: string) => drafts[id] ?? emptyDraft();
-  const setDraft = (id: string, patch: Partial<Draft>) => setDrafts((d) => ({ ...d, [id]: { ...(d[id] ?? emptyDraft()), ...patch } }));
+  const setDraft = (id: string, patch: Partial<Draft>) =>
+    setDrafts((d) => ({ ...d, [id]: { ...(d[id] ?? emptyDraft()), ...patch } }));
 
   const preview = useCallback(
     (p: LabPortionView) => {
       if (!state) return null;
       const d = drafts[p.id] ?? emptyDraft();
-      if (!d.person) return null;
       const ph = photos[p.id] ?? {};
+      const personDecision = d.person || 'ACCEPT';
       return buildLabPortionDecision(state.policy, {
         tests: state.policy.tests.map((t) => ({
           labTestId: t.labTestId,
@@ -146,7 +251,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({ sessionId, a
           textValue: t.resultType !== 'NUMERIC' ? d.values[t.labTestId] || null : null,
         })),
         photos: Object.entries(ph).map(([labTestId, captureId]) => ({ labTestId, captureId })),
-        personDecision: d.person,
+        personDecision,
         remarks: d.remarks,
         deciderCanApprove: state.canDecideNow,
       }).decision;
@@ -216,8 +321,8 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({ sessionId, a
           version: p.version,
           person_decision: d.person,
           remarks: d.remarks.trim() || null,
-          quantity_value: d.quantity.trim() ? Number(d.quantity) : null,
-          quantity_unit: d.unit,
+          quantity_value: null,
+          quantity_unit: 'KG',
           tests: state.policy.tests.map((t) => ({
             lab_test_id: t.labTestId,
             value: t.resultType === 'NUMERIC' ? d.values[t.labTestId] ?? null : null,
@@ -232,6 +337,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({ sessionId, a
         return;
       }
       await load();
+      setActivePortionModal(null);
     } catch (err) {
       setItemError((e) => ({ ...e, [p.id]: getErrorMessage(err) || 'Could not save.' }));
     } finally {
@@ -239,354 +345,585 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({ sessionId, a
     }
   };
 
-  const sendSourceRequest = async () => {
-    setBusy('source');
-    setSourceMsg(null);
-    try {
-      const res = await fetch('/api/zmcc/lab/source-requests', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source_name: sourceName, phone: sourcePhone || null, notes: sourceNotes || null, arrival_id: arrivalId ?? null }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'Could not send.');
-      setSourceOpen(false);
-      setSourceName('');
-      setSourcePhone('');
-      setSourceNotes('');
-      setSourceMsg('Request sent to the Zonal Manager.');
-    } catch (err) {
-      setSourceMsg(getErrorMessage(err) || 'Could not send.');
-    } finally {
-      setBusy(null);
-    }
-  };
+  const sortedTests = useMemo(
+    () =>
+      [...(state?.policy.tests ?? [])].sort((a, b) => {
+        if (a.testMode === 'COMPULSORY' && b.testMode !== 'COMPULSORY') return -1;
+        if (a.testMode !== 'COMPULSORY' && b.testMode === 'COMPULSORY') return 1;
+        return a.testName.localeCompare(b.testName);
+      }),
+    [state?.policy.tests]
+  );
 
-  const finished = state?.sessionStatus === 'COMPLETED';
-  const pointLabel = state?.point === 'ZMCC_LAB_MC' ? 'MC (MOT milk)' : 'HC (local supplier)';
-  const sortedTests = useMemo(() => state?.policy.tests ?? [], [state]);
+  const finished = Boolean(state && state.portions.length > 0 && state.portions.every((p) => p.finalDecision !== 'PENDING'));
+
+  useEffect(() => {
+    if (finished && onFinished) {
+      // Notification handled in UI
+    }
+  }, [finished, onFinished]);
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 py-6 text-slate-600">
-        <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> Loading portions...
+      <div className="flex items-center justify-center p-12 text-xs font-semibold text-slate-500">
+        <Loader2 className="mr-2 h-5 w-5 animate-spin text-primary" /> Loading vehicle testing session…
       </div>
     );
   }
 
+  // Active portion currently open in modal
+  const modalPortion = activePortionModal
+    ? state?.portions.find((p) => p.id === activePortionModal.id) ?? activePortionModal
+    : null;
+  const modalDraft = modalPortion ? draftOf(modalPortion.id) : null;
+  const modalOpen =
+    modalPortion &&
+    modalPortion.finalDecision === 'PENDING' &&
+    modalPortion.reviewStatus !== 'PENDING' &&
+    !finished;
+  const modalPreview = modalPortion && modalOpen ? preview(modalPortion) : null;
+  const modalPhotos = modalPortion ? photos[modalPortion.id] ?? {} : {};
+
   return (
-    <section className="space-y-4" aria-label="Lab portions">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+    <section className="space-y-4" aria-label="Laboratory tests">
+      {/* Session Header Card */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-white p-4 shadow-2xs">
         <div>
-          <h3 className="flex items-center gap-2 text-base font-semibold text-slate-800">
-            <Layers className="h-5 w-5" aria-hidden="true" /> Tests for {pointLabel}
-          </h3>
-          {state && (
-            <p className="text-sm text-slate-600">
-              {state.testMode === 'PORTION_WISE' ? `Portion-wise: ${state.portions.length} portions` : 'Composite: 1 portion'} · rules version {state.policy.version}
-            </p>
-          )}
+          <div className="flex items-center space-x-2">
+            <FlaskConical className="h-5 w-5 text-primary" />
+            <h3 className="text-base font-bold text-slate-900">
+              {arrivalType === 'MOT' ? 'MC Arrival Testing' : 'HC Arrival Testing'}
+            </h3>
+            <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-primary">
+              {state?.testMode === 'COMPOSITE' ? 'Composite' : 'Portion-wise'}
+            </span>
+          </div>
+          <p className="mt-0.5 text-xs text-slate-500">
+            Token: <strong className="text-slate-800 tabular-nums">{tokenNo || '—'}</strong> · Vehicle:{' '}
+            <strong className="text-slate-800">{vehicleNo || '—'}</strong>
+          </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {state && !anyDecided && state.portions.length > 0 && !editingSetup && !finished && (
-            <button type="button" onClick={() => setEditingSetup(true)} className="min-h-[44px] rounded-xl border border-border bg-white px-4 text-sm font-semibold text-slate-700">
-              Change portions
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => setSourceOpen(true)}
-            className="flex min-h-[44px] items-center gap-1.5 rounded-xl border border-border bg-white px-4 text-sm font-semibold text-slate-700"
-          >
-            <Plus className="h-4 w-4" aria-hidden="true" /> Request new source
-          </button>
-        </div>
+
       </div>
-      {sourceMsg && <p className="rounded-xl border border-border bg-slate-50 p-3 text-sm">{sourceMsg}</p>}
 
       {error && (
-        <div className="flex items-center gap-2 rounded-xl border border-red-300 bg-red-50 p-3 text-red-800">
-          <AlertTriangle className="h-5 w-5" aria-hidden="true" /> {error}
-          <button type="button" onClick={load} className="ml-auto min-h-[44px] px-3 font-semibold underline">Try again</button>
+        <div className="flex items-center gap-2 rounded-xl border border-rose-300 bg-rose-50 p-3 text-xs text-rose-800">
+          <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>{error}</span>
+          <button type="button" onClick={load} className="ml-auto font-semibold underline">
+            Try again
+          </button>
         </div>
       )}
 
-      {state && state.policy.tests.length === 0 && (
-        <div className="flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 p-3 text-amber-900">
-          <AlertTriangle className="h-5 w-5" aria-hidden="true" /> No tests are switched on for this lab point. Ask the Super Admin to set the test matrix.
-        </div>
-      )}
-
-      {showSetup && (
-        <div className="space-y-3 rounded-2xl border border-border bg-white p-4">
-          <p className="font-semibold text-slate-800">How will you test this vehicle?</p>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {(['COMPOSITE', 'PORTION_WISE'] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => setMode(m)}
-                className={cn(
-                  'min-h-[56px] rounded-xl border px-4 text-left text-base font-semibold',
-                  mode === m ? 'border-primary bg-primary text-white' : 'border-border bg-white text-slate-700'
-                )}
-              >
-                {m === 'COMPOSITE' ? 'Composite (one sample for the whole vehicle)' : 'Portion-wise (test each portion)'}
-              </button>
-            ))}
-          </div>
-          {mode === 'PORTION_WISE' && (
-            <label className="block text-sm font-semibold text-slate-700">
-              Number of portions
-              <input
-                type="number"
-                min={2}
-                max={MAX_LAB_PORTIONS}
-                value={count}
-                onChange={(e) => setCount(e.target.value)}
-                className="mt-1 block h-12 w-32 rounded-xl border border-border-strong px-3 text-base"
-              />
-            </label>
-          )}
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={saveSetup}
-              disabled={busy === 'setup'}
-              className="flex h-14 flex-1 items-center justify-center gap-2 rounded-xl bg-primary text-lg font-bold text-white disabled:opacity-50 sm:flex-none sm:px-8"
-            >
-              {busy === 'setup' && <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />} Start tests
-            </button>
-            {editingSetup && (
-              <button type="button" onClick={() => setEditingSetup(false)} className="h-14 rounded-xl border border-border px-6 font-semibold">
-                Cancel
-              </button>
+      {/* Testing Method Selector: Composite vs Portion-wise (available for all arrivals) */}
+      {!finished && state && (
+        <div className="space-y-2.5 rounded-xl border border-border bg-white p-4 shadow-2xs">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+              Testing Method
+            </p>
+            {mode === 'PORTION_WISE' && !anyDecided && (
+              <div className="flex items-center space-x-2">
+                <span className="text-xs font-semibold text-slate-600">Portions:</span>
+                <select
+                  value={count}
+                  onChange={(e) => handlePortionCountChange(e.target.value)}
+                  disabled={Boolean(busy)}
+                  className="h-8 rounded-lg border border-border px-2 text-xs font-bold bg-white text-slate-900"
+                >
+                  {[2, 3, 4, 5, 6].map((n) => (
+                    <option key={n} value={n}>{n} Portions</option>
+                  ))}
+                </select>
+              </div>
             )}
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => handleModeSwitch('COMPOSITE')}
+              disabled={anyDecided || Boolean(busy)}
+              className={cn(
+                'min-h-[48px] rounded-xl border px-3 text-left text-xs font-semibold transition flex flex-col justify-center',
+                mode === 'COMPOSITE'
+                  ? 'border-primary bg-primary text-white shadow-2xs'
+                  : 'border-border bg-white text-slate-700 hover:bg-slate-50',
+                anyDecided && 'opacity-60 cursor-not-allowed'
+              )}
+            >
+              <div className="font-bold">Composite</div>
+              <div className={cn('text-[10px] font-normal', mode === 'COMPOSITE' ? 'text-white/80' : 'text-slate-500')}>
+                1 single sample for vehicle
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleModeSwitch('PORTION_WISE')}
+              disabled={anyDecided || Boolean(busy)}
+              className={cn(
+                'min-h-[48px] rounded-xl border px-3 text-left text-xs font-semibold transition flex flex-col justify-center',
+                mode === 'PORTION_WISE'
+                  ? 'border-primary bg-primary text-white shadow-2xs'
+                  : 'border-border bg-white text-slate-700 hover:bg-slate-50',
+                anyDecided && 'opacity-60 cursor-not-allowed'
+              )}
+            >
+              <div className="font-bold">Portion-wise</div>
+              <div className={cn('text-[10px] font-normal', mode === 'PORTION_WISE' ? 'text-white/80' : 'text-slate-500')}>
+                Separate portions ({state.portions.length})
+              </div>
+            </button>
+          </div>
         </div>
       )}
 
+      {/* Finished Banner */}
       {finished && state && (
         <div
           className={cn(
-            'flex flex-wrap items-center gap-3 rounded-2xl border p-4',
-            state.rollUp.allRejected ? 'border-red-300 bg-red-50 text-red-900' : 'border-green-300 bg-green-50 text-green-900'
+            'flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4 shadow-2xs',
+            state.rollUp.allRejected
+              ? 'border-rose-300 bg-rose-50 text-rose-900'
+              : 'border-emerald-300 bg-emerald-50 text-emerald-900'
           )}
         >
-          {state.rollUp.allRejected ? <XCircle className="h-6 w-6" aria-hidden="true" /> : <CheckCircle2 className="h-6 w-6" aria-hidden="true" />}
-          <p className="flex-1 font-semibold">
-            {state.rollUp.allRejected
-              ? `All portions rejected. Vehicle rejected${state.journeyClosed && arrivalType === 'MOT' ? ' and journey closed' : ''}.`
-              : `${state.rollUp.accepted} portion(s) accepted, ${state.rollUp.rejected} rejected. Next: weighing and tank.`}
-          </p>
+          <div className="flex items-center space-x-2">
+            {state.rollUp.allRejected ? (
+              <XCircle className="h-5 w-5 text-rose-700" aria-hidden="true" />
+            ) : (
+              <CheckCircle2 className="h-5 w-5 text-emerald-700" aria-hidden="true" />
+            )}
+            <p className="text-xs font-semibold">
+              {state.rollUp.allRejected
+                ? `All portions rejected. Vehicle rejected${state.journeyClosed && arrivalType === 'MOT' ? ' and journey closed' : ''}.`
+                : `${state.rollUp.accepted} portion(s) accepted, ${state.rollUp.rejected} rejected. Ready for weighing & tank unloading.`}
+            </p>
+          </div>
           {onFinished && (
-            <button type="button" onClick={onFinished} className="min-h-[44px] rounded-xl border border-current px-4 font-semibold">
-              Back to queue
+            <button
+              type="button"
+              onClick={onFinished}
+              className="min-h-[38px] rounded-lg border border-current bg-white px-3 text-xs font-semibold shadow-2xs"
+            >
+              Back to Queue
             </button>
           )}
         </div>
       )}
 
-      {state && !showSetup &&
-        state.portions.map((p) => {
-          const d = draftOf(p.id);
-          const open = p.status === 'TESTING' && p.finalDecision === 'PENDING' && p.reviewStatus !== 'PENDING' && !finished;
-          const pv = open ? preview(p) : null;
-          const ph = photos[p.id] ?? {};
-          return (
-            <article key={p.id} className="space-y-3 rounded-2xl border border-border bg-white p-4 shadow-2xs">
-              <header className="flex flex-wrap items-center justify-between gap-2">
-                <h4 className="text-lg font-bold text-slate-900">
-                  {state.testMode === 'COMPOSITE' ? 'Composite sample' : `Portion ${p.portionNumber}`}
-                </h4>
-                {portionBadge(p)}
-              </header>
+      {/* Minimalist Portions Grid Overview */}
+      {state && !showSetup && (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {state.portions.map((p) => {
+            const isCompleted = p.finalDecision !== 'PENDING';
+            const isPendingReview = p.reviewStatus === 'PENDING';
 
-              {!open && (
-                <div className="space-y-1 text-sm text-slate-700">
-                  <p>
-                    Person said: <strong>{p.personDecision === 'REJECT' ? 'Reject' : p.personDecision === 'ACCEPT' ? 'Accept' : '-'}</strong>
-                    {p.decisionRemarks ? ` - "${p.decisionRemarks}"` : ''}
-                  </p>
-                  {p.exceptionReasons.length > 0 && <p>Reasons: {p.exceptionReasons.map(reasonText).join(', ')}</p>}
-                  {p.reviewStatus === 'PENDING' && <p className="font-semibold text-violet-800">Sent to Zonal Manager. Waiting for decision.</p>}
-                  {p.reviewedAt && <p>Decided by Zonal Manager {new Date(p.reviewedAt).toLocaleString()}{p.reviewRemarks ? `: ${p.reviewRemarks}` : ''}</p>}
-                  {(p.lr !== null || p.fat !== null) && <p>LR {p.lr ?? '-'} · Fat {p.fat ?? '-'}{p.grossLiters !== null ? ` · ${p.grossLiters} L` : ''}</p>}
-                </div>
-              )}
+            return (
+              <article
+                key={p.id}
+                className="flex flex-col justify-between rounded-xl border border-border bg-white p-4 shadow-2xs transition hover:border-slate-300"
+              >
+                <div className="space-y-2.5">
+                  <header className="flex items-center justify-between gap-2 border-b border-border pb-2">
+                    <h4 className="text-sm font-bold text-slate-900">
+                      {state.testMode === 'COMPOSITE' ? 'Composite Sample' : `Portion #${p.portionNumber}`}
+                    </h4>
+                    {portionBadge(p)}
+                  </header>
 
-              {open && (
-                <>
-                  <div className="flex flex-wrap items-end gap-3">
-                    <label className="text-sm font-semibold text-slate-700">
-                      Quantity (optional)
-                      <input
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        value={d.quantity}
-                        onChange={(e) => setDraft(p.id, { quantity: e.target.value })}
-                        className="mt-1 block h-12 w-40 rounded-xl border border-border-strong px-3 text-base tabular-nums"
-                      />
-                    </label>
-                    <label className="text-sm font-semibold text-slate-700">
-                      Unit
-                      <select
-                        value={d.unit}
-                        onChange={(e) => setDraft(p.id, { unit: e.target.value as 'KG' | 'LITER' })}
-                        className="mt-1 block h-12 w-28 rounded-xl border border-border-strong px-2 text-base"
-                      >
-                        <option value="KG">KG</option>
-                        <option value="LITER">Litres</option>
-                      </select>
-                    </label>
-                  </div>
-
-                  <div className="divide-y divide-border rounded-xl border border-border">
-                    {sortedTests.map((t) => {
-                      const v = d.values[t.labTestId] ?? '';
-                      const photoBusy = busy === `photo:${p.id}:${t.labTestId}`;
-                      return (
-                        <div key={t.labTestId} className="flex flex-wrap items-center gap-3 p-3">
-                          <div className="min-w-[10rem] flex-1">
-                            <div className="font-semibold text-slate-800">{t.testName}</div>
-                            <div className="text-xs text-slate-500">
-                              {t.testMode === 'COMPULSORY' ? 'Must do' : 'Optional'}
-                              {t.unit ? ` · ${t.unit}` : ''}
-                              {t.rule && (t.rule.min !== null || t.rule.max !== null) ? ` · allowed ${t.rule.min ?? '…'} to ${t.rule.max ?? '…'}` : ''}
-                              {t.ruleMode === 'WARN' ? ' · warning only' : ''}
-                            </div>
-                          </div>
-                          {t.resultType === 'NUMERIC' ? (
-                            <input
-                              type="number"
-                              step="any"
-                              value={v}
-                              aria-label={t.testName}
-                              onChange={(e) => setDraft(p.id, { values: { ...d.values, [t.labTestId]: e.target.value } })}
-                              className="h-12 w-32 rounded-xl border border-border-strong px-3 text-base tabular-nums"
-                            />
-                          ) : t.options ? (
-                            <select
-                              value={v}
-                              aria-label={t.testName}
-                              onChange={(e) => setDraft(p.id, { values: { ...d.values, [t.labTestId]: e.target.value } })}
-                              className="h-12 w-40 rounded-xl border border-border-strong px-2 text-base"
-                            >
-                              <option value="">Choose</option>
-                              {t.options.map((o) => <option key={o} value={o}>{o}</option>)}
-                            </select>
-                          ) : (
-                            <input
-                              type="text"
-                              value={v}
-                              aria-label={t.testName}
-                              onChange={(e) => setDraft(p.id, { values: { ...d.values, [t.labTestId]: e.target.value } })}
-                              className="h-12 w-40 rounded-xl border border-border-strong px-3 text-base"
-                            />
-                          )}
-                          {t.photoMode !== 'NONE' && (
-                            <button
-                              type="button"
-                              disabled={photoBusy}
-                              onClick={() => setCamera({ portion: p, test: t })}
-                              className={cn(
-                                'flex min-h-[44px] items-center gap-1.5 rounded-xl border px-3 text-sm font-semibold',
-                                ph[t.labTestId]
-                                  ? 'border-green-300 bg-green-50 text-green-800'
-                                  : t.photoMode === 'REQUIRED'
-                                    ? 'border-amber-300 bg-amber-50 text-amber-900'
-                                    : 'border-border bg-white text-slate-700'
-                              )}
-                            >
-                              {photoBusy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : ph[t.labTestId] ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> : <Camera className="h-4 w-4" aria-hidden="true" />}
-                              {ph[t.labTestId] ? 'Photo saved (retake)' : t.photoMode === 'REQUIRED' ? 'Take photo (needed)' : 'Take photo'}
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setDraft(p.id, { person: 'REJECT' })}
-                      className={cn(
-                        'flex h-14 items-center justify-center gap-2 rounded-xl border text-lg font-bold',
-                        d.person === 'REJECT' ? 'border-red-600 bg-red-600 text-white' : 'border-red-300 bg-white text-red-700'
-                      )}
-                    >
-                      <XCircle className="h-6 w-6" aria-hidden="true" /> Reject
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDraft(p.id, { person: 'ACCEPT' })}
-                      className={cn(
-                        'flex h-14 items-center justify-center gap-2 rounded-xl border text-lg font-bold',
-                        d.person === 'ACCEPT' ? 'border-green-600 bg-green-600 text-white' : 'border-green-300 bg-white text-green-700'
-                      )}
-                    >
-                      <CheckCircle2 className="h-6 w-6" aria-hidden="true" /> Accept
-                    </button>
-                  </div>
-
-                  {pv && (
-                    <div
-                      className={cn(
-                        'rounded-xl border p-3 text-sm',
-                        pv.route === 'PROCEED' ? 'border-green-300 bg-green-50 text-green-900'
-                          : pv.route === 'REJECT' ? 'border-red-300 bg-red-50 text-red-900'
-                            : 'border-amber-300 bg-amber-50 text-amber-900'
-                      )}
-                    >
-                      <p className="font-semibold">
-                        Test result: {pv.systemOutcome === 'PASS' ? '✓ Passed' : '✗ Failed'}
-                        {pv.route === 'SEND_TO_APPROVER' && ' · This will be sent to the Zonal Manager.'}
-                        {pv.route === 'DECIDE_NOW' && ' · Exception: you can decide it now.'}
-                      </p>
-                      {pv.exceptionReasons.length > 0 && (
-                        <ul className="mt-1 list-disc pl-5">
-                          {pv.exceptionReasons.map((r) => <li key={r}>{reasonText(r)}</li>)}
-                        </ul>
-                      )}
+                  <div className="space-y-1 text-xs text-slate-600">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">Quantity:</span>
+                      <strong className="text-slate-900 tabular-nums">
+                        {p.quantityValue ? `${p.quantityValue} KG` : p.grossLiters ? `${p.grossLiters} KG` : '—'}
+                      </strong>
                     </div>
-                  )}
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">Quality:</span>
+                      <span className="tabular-nums font-semibold text-slate-800">
+                        {p.lr !== null || p.fat !== null ? `LR ${p.lr ?? '—'} · Fat ${p.fat ?? '—'}%` : 'Not recorded'}
+                      </span>
+                    </div>
+                    {isPendingReview && (
+                      <p className="font-semibold text-violet-800 text-[11px] pt-1">
+                        Sent to Zonal Manager. Waiting for decision.
+                      </p>
+                    )}
+                    {p.reviewedAt && (
+                      <p className="text-[11px] text-slate-500 pt-1">
+                        Decided by Zonal Manager {new Date(p.reviewedAt).toLocaleDateString()}
+                        {p.reviewRemarks ? `: "${p.reviewRemarks}"` : ''}
+                      </p>
+                    )}
+                  </div>
+                </div>
 
-                  <textarea
-                    value={d.remarks}
-                    onChange={(e) => setDraft(p.id, { remarks: e.target.value })}
-                    rows={2}
-                    placeholder={pv?.remarksRequired ? 'Remarks (needed)' : 'Remarks (optional)'}
-                    className="w-full rounded-xl border border-border-strong p-2 text-base"
-                  />
-                  {itemError[p.id] && <p className="text-sm font-semibold text-red-700">{itemError[p.id]}</p>}
-
+                <div className="mt-4 pt-3 border-t border-border">
                   <button
                     type="button"
-                    disabled={!d.person || busy === `submit:${p.id}`}
-                    onClick={() => submit(p)}
+                    onClick={() => setActivePortionModal(p)}
                     className={cn(
-                      'flex h-14 w-full items-center justify-center gap-2 rounded-xl text-lg font-bold text-white disabled:opacity-50',
-                      pv?.route === 'SEND_TO_APPROVER' ? 'bg-violet-600' : d.person === 'REJECT' ? 'bg-red-600' : 'bg-green-600'
+                      'flex min-h-[40px] w-full items-center justify-center gap-1.5 rounded-lg text-xs font-semibold shadow-2xs transition',
+                      !isCompleted && !isPendingReview
+                        ? 'bg-primary text-white hover:bg-primary-hover'
+                        : 'border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
                     )}
                   >
-                    {busy === `submit:${p.id}` ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> : pv?.route === 'SEND_TO_APPROVER' ? <Send className="h-5 w-5" aria-hidden="true" /> : null}
-                    {pv?.route === 'SEND_TO_APPROVER'
-                      ? 'Send to Zonal Manager'
-                      : pv?.route === 'DECIDE_NOW'
-                        ? `Decide now: ${d.person === 'REJECT' ? 'Reject' : 'Accept'}`
-                        : d.person === 'REJECT'
-                          ? 'Save: Reject'
-                          : 'Save: Accept'}
+                    {!isCompleted && !isPendingReview ? (
+                      <>
+                        <Sparkles className="h-3.5 w-3.5" />
+                        <span>Enter Tests & Decide</span>
+                      </>
+                    ) : (
+                      <>
+                        <ChevronRight className="h-3.5 w-3.5" />
+                        <span>View Observation Details</span>
+                      </>
+                    )}
                   </button>
-                </>
-              )}
-              {!open && itemError[p.id] && <p className="text-sm font-semibold text-red-700">{itemError[p.id]}</p>}
-            </article>
-          );
-        })}
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
 
+      {/* Portion Decision Modal: Dialog on desktop, Drawer on mobile */}
+      <Drawer
+        open={Boolean(activePortionModal)}
+        onOpenChange={(open) => {
+          if (!open && !busy) setActivePortionModal(null);
+        }}
+      >
+        <DrawerContent className="max-w-2xl">
+          {modalPortion && modalDraft && (
+            <>
+              <div className="flex items-center justify-between border-b border-border px-4 py-3 sm:px-5">
+                <div>
+                  <DrawerTitle className="text-base font-bold text-slate-900">
+                    {state?.testMode === 'COMPOSITE' ? 'Composite Sample Tests & Decision' : `Portion #${modalPortion.portionNumber} Tests & Decision`}
+                  </DrawerTitle>
+                  <p className="text-xs text-slate-500 font-medium">
+                    Vehicle: <strong className="text-slate-800">{vehicleNo || '—'}</strong> · Token: <strong className="text-slate-800 tabular-nums">{tokenNo || '—'}</strong>
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActivePortionModal(null)}
+                  disabled={Boolean(busy)}
+                  aria-label="Close"
+                  className="flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="space-y-4 overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-5">
+                {/* Read-only summary if portion is already decided */}
+                {!modalOpen && (
+                  <div className="space-y-2 rounded-xl border border-border bg-slate-50 p-4 text-xs text-slate-700">
+                    <p className="font-semibold text-slate-900">
+                      Person Decision: <strong>{modalPortion.personDecision === 'REJECT' ? 'Reject' : modalPortion.personDecision === 'ACCEPT' ? 'Accept' : '—'}</strong>
+                      {modalPortion.decisionRemarks ? ` · "${modalPortion.decisionRemarks}"` : ''}
+                    </p>
+                    {modalPortion.exceptionReasons.length > 0 && (
+                      <p className="text-amber-800">Reasons: {modalPortion.exceptionReasons.map(reasonText).join(', ')}</p>
+                    )}
+                    {modalPortion.reviewStatus === 'PENDING' && (
+                      <p className="font-semibold text-violet-800">Sent to Zonal Manager. Waiting for decision.</p>
+                    )}
+                    {modalPortion.reviewedAt && (
+                      <p>
+                        Decided by Zonal Manager {new Date(modalPortion.reviewedAt).toLocaleString()}
+                        {modalPortion.reviewRemarks ? `: "${modalPortion.reviewRemarks}"` : ''}
+                      </p>
+                    )}
+                    {(modalPortion.lr !== null || modalPortion.fat !== null) && (
+                      <p className="tabular-nums font-semibold">
+                        LR {modalPortion.lr ?? '—'} · Fat {modalPortion.fat ?? '—'}%
+                        {modalPortion.quantityValue !== null ? ` · ${modalPortion.quantityValue} KG` : modalPortion.grossLiters !== null ? ` · ${modalPortion.grossLiters} KG` : ''}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Data entry fields if testing is open */}
+                {modalOpen && (
+                  <>
+                    <div className="flex items-center gap-2 p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600">
+                      <FlaskConical className="h-4 w-4 text-primary shrink-0" />
+                      <span>Record test observations and photo evidence. Weight will be recorded at the scale in KG.</span>
+                    </div>
+
+                    {/* Tests observation list */}
+                    <div className="divide-y divide-border rounded-xl border border-border overflow-hidden">
+                      {sortedTests.map((t) => {
+                        const v = modalDraft.values[t.labTestId] ?? '';
+                        const photoBusy = busy === `photo:${modalPortion.id}:${t.labTestId}`;
+                        const range = labSopRangeText(t);
+                        const isNumeric = t.resultType === 'NUMERIC';
+                        const isOut = isNumeric ? outsideLabRange(t, v) : isDisallowedLabOption(t, v);
+                        const isRequired = t.testMode === 'COMPULSORY';
+
+                        return (
+                          <div
+                            key={t.labTestId}
+                            className={cn(
+                              'p-3 space-y-1.5 transition',
+                              isOut ? 'bg-rose-50/30' : 'bg-white'
+                            )}
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                              <div className="min-w-[9rem] flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-semibold text-slate-800">{t.testName}</span>
+                                  <span
+                                    className={cn(
+                                      'rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
+                                      isRequired ? 'bg-primary text-white shadow-2xs' : 'bg-slate-100 text-slate-600'
+                                    )}
+                                  >
+                                    {isRequired ? 'Required *' : 'Optional'}
+                                  </span>
+                                  {range && (
+                                    <span
+                                      className={cn(
+                                        'rounded-full border px-2 py-0.5 text-[10px] font-semibold tabular-nums',
+                                        isOut ? 'border-rose-300 bg-rose-50 text-rose-800' : 'border-slate-300 bg-slate-50 text-slate-700'
+                                      )}
+                                    >
+                                      SOP {range}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-[11px] text-slate-500 mt-0.5">
+                                  {t.unit ? `Unit: ${t.unit}` : ''}
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                {isNumeric ? (
+                                  <input
+                                    type="number"
+                                    step="any"
+                                    value={v}
+                                    aria-label={t.testName}
+                                    placeholder="0.00"
+                                    onChange={(e) =>
+                                      setDraft(modalPortion.id, {
+                                        values: { ...modalDraft.values, [t.labTestId]: e.target.value },
+                                      })
+                                    }
+                                    aria-invalid={isOut || undefined}
+                                    className={cn(
+                                      'h-10 w-28 rounded-lg border px-2 text-sm font-semibold tabular-nums focus:outline-none focus:ring-2',
+                                      isOut
+                                        ? 'border-rose-400 bg-rose-50/40 text-rose-950 focus:border-rose-500 focus:ring-rose-500'
+                                        : 'border-border focus:ring-primary'
+                                    )}
+                                  />
+                                ) : t.options ? (
+                                  <select
+                                    value={v}
+                                    aria-label={t.testName}
+                                    onChange={(e) =>
+                                      setDraft(modalPortion.id, {
+                                        values: { ...modalDraft.values, [t.labTestId]: e.target.value },
+                                      })
+                                    }
+                                    aria-invalid={isOut || undefined}
+                                    className={cn(
+                                      'h-10 w-32 rounded-lg border px-2 text-xs font-semibold focus:outline-none focus:ring-2',
+                                      isOut
+                                        ? 'border-rose-400 bg-rose-50/40 text-rose-950 focus:border-rose-500 focus:ring-rose-500'
+                                        : 'border-border focus:ring-primary'
+                                    )}
+                                  >
+                                    <option value="">Select</option>
+                                    {t.options.map((o) => (
+                                      <option key={o} value={o}>
+                                        {o}
+                                      </option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  <input
+                                    type="text"
+                                    value={v}
+                                    aria-label={t.testName}
+                                    placeholder="Observation"
+                                    onChange={(e) =>
+                                      setDraft(modalPortion.id, {
+                                        values: { ...modalDraft.values, [t.labTestId]: e.target.value },
+                                      })
+                                    }
+                                    aria-invalid={isOut || undefined}
+                                    className={cn(
+                                      'h-10 w-32 rounded-lg border px-2 text-xs font-semibold focus:outline-none focus:ring-2',
+                                      isOut
+                                        ? 'border-rose-400 bg-rose-50/40 text-rose-950 focus:border-rose-500 focus:ring-rose-500'
+                                        : 'border-border focus:ring-primary'
+                                    )}
+                                  />
+                                )}
+
+                                {t.photoMode !== 'NONE' && (
+                                  <button
+                                    type="button"
+                                    disabled={photoBusy}
+                                    onClick={() => setCamera({ portion: modalPortion, test: t })}
+                                    className={cn(
+                                      'flex min-h-[38px] items-center gap-1 rounded-lg border px-2.5 text-xs font-semibold transition',
+                                      modalPhotos[t.labTestId]
+                                        ? 'border-emerald-300 bg-emerald-50 text-emerald-800'
+                                        : t.photoMode === 'REQUIRED'
+                                          ? 'border-amber-300 bg-amber-50 text-amber-900'
+                                          : 'border-border bg-white text-slate-700 hover:bg-slate-50'
+                                    )}
+                                  >
+                                    {photoBusy ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    ) : modalPhotos[t.labTestId] ? (
+                                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                                    ) : (
+                                      <Camera className="h-3.5 w-3.5" />
+                                    )}
+                                    <span>{modalPhotos[t.labTestId] ? 'Photo saved' : 'Take photo'}</span>
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+
+                            {isOut && (
+                              <p className="flex items-center gap-1 text-[11px] font-semibold text-rose-700">
+                                <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                                Outside SOP range {range ? `(${range})` : ''}
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Decision Choice */}
+                    <div>
+                      <p className="mb-1 text-xs font-semibold text-slate-900">Your Decision</p>
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <button
+                          type="button"
+                          onClick={() => setDraft(modalPortion.id, { person: 'REJECT' })}
+                          className={cn(
+                            'flex min-h-[48px] items-center justify-center gap-1.5 rounded-xl border text-xs font-bold transition',
+                            modalDraft.person === 'REJECT'
+                              ? 'border-rose-600 bg-rose-600 text-white shadow-2xs'
+                              : 'border-rose-300 bg-white text-rose-700 hover:bg-rose-50'
+                          )}
+                        >
+                          <XCircle className="h-4 w-4" aria-hidden="true" />
+                          <span>Reject Portion</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDraft(modalPortion.id, { person: 'ACCEPT' })}
+                          className={cn(
+                            'flex min-h-[48px] items-center justify-center gap-1.5 rounded-xl border text-xs font-bold transition',
+                            modalDraft.person === 'ACCEPT'
+                              ? 'border-emerald-600 bg-emerald-600 text-white shadow-2xs'
+                              : 'border-emerald-300 bg-white text-emerald-700 hover:bg-emerald-50'
+                          )}
+                        >
+                          <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                          <span>Accept Portion</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* System Evaluation Preview */}
+                    {modalPreview && (
+                      <div
+                        className={cn(
+                          'rounded-xl border p-3 text-xs',
+                          modalPreview.route === 'PROCEED'
+                            ? 'border-emerald-300 bg-emerald-50 text-emerald-900'
+                            : modalPreview.route === 'REJECT'
+                              ? 'border-rose-300 bg-rose-50 text-rose-900'
+                              : 'border-amber-300 bg-amber-50 text-amber-900'
+                        )}
+                      >
+                        <p className="font-bold">
+                          System result: {modalPreview.systemOutcome === 'PASS' ? 'Passed' : 'Failed'}
+                          {modalPreview.route === 'SEND_TO_APPROVER' && ' · Will be sent to Zonal Manager.'}
+                          {modalPreview.route === 'DECIDE_NOW' && ' · Exception: You can decide now.'}
+                        </p>
+                        {modalPreview.exceptionReasons.length > 0 && (
+                          <ul className="mt-1 list-disc pl-5 space-y-0.5">
+                            {modalPreview.exceptionReasons.map((r) => (
+                              <li key={r}>{reasonText(r)}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    )}
+
+                    <div>
+                      <label htmlFor="portion-remarks" className="mb-1 block text-xs font-semibold text-slate-700">
+                        {modalPreview?.remarksRequired ? 'Remarks / Justification (Required)' : 'Remarks (Optional)'}
+                      </label>
+                      <textarea
+                        id="portion-remarks"
+                        value={modalDraft.remarks}
+                        onChange={(e) => setDraft(modalPortion.id, { remarks: e.target.value })}
+                        rows={2}
+                        placeholder={modalPreview?.remarksRequired ? 'Write reason for exception or rejection…' : 'Observations…'}
+                        className="w-full resize-none rounded-xl border border-border p-2.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                    </div>
+
+                    {itemError[modalPortion.id] && (
+                      <p className="text-xs font-semibold text-rose-700">{itemError[modalPortion.id]}</p>
+                    )}
+
+                    {/* Submit Button */}
+                    <div className="pt-2">
+                      <button
+                        type="button"
+                        disabled={!modalDraft.person || busy === `submit:${modalPortion.id}`}
+                        onClick={() => submit(modalPortion)}
+                        className={cn(
+                          'flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl text-xs font-bold text-white shadow-2xs transition disabled:opacity-50',
+                          modalPreview?.route === 'SEND_TO_APPROVER'
+                            ? 'bg-violet-600 hover:bg-violet-700'
+                            : modalDraft.person === 'REJECT'
+                              ? 'bg-rose-600 hover:bg-rose-700'
+                              : 'bg-emerald-700 hover:bg-emerald-800'
+                        )}
+                      >
+                        {busy === `submit:${modalPortion.id}` ? (
+                          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                        ) : modalPreview?.route === 'SEND_TO_APPROVER' ? (
+                          <Send className="h-4 w-4" aria-hidden="true" />
+                        ) : null}
+                        <span>
+                          {modalPreview?.route === 'SEND_TO_APPROVER'
+                            ? 'Send request to Zonal Manager'
+                            : modalPreview?.route === 'DECIDE_NOW'
+                              ? `Decide now: ${modalDraft.person === 'REJECT' ? 'Reject' : 'Accept'}`
+                              : modalDraft.person === 'REJECT'
+                                ? 'Save: Reject Portion'
+                                : 'Save: Accept Portion'}
+                        </span>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </>
+          )}
+        </DrawerContent>
+      </Drawer>
+
+      {/* Camera Overlay */}
       {camera && state && (
         <LiveCamera
           stamp={{
@@ -601,32 +938,6 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({ sessionId, a
         />
       )}
 
-      {sourceOpen && (
-        <Modal onClose={() => setSourceOpen(false)} title="Request new source" className="max-w-md space-y-3 p-6">
-          <p className="text-sm text-slate-600">The Zonal Manager will be asked to add this source.</p>
-          <label className="block text-sm font-semibold text-slate-700">
-            Source name
-            <input value={sourceName} onChange={(e) => setSourceName(e.target.value)} className="mt-1 block h-12 w-full rounded-xl border border-border-strong px-3 text-base" />
-          </label>
-          <label className="block text-sm font-semibold text-slate-700">
-            Phone (optional)
-            <input value={sourcePhone} onChange={(e) => setSourcePhone(e.target.value)} className="mt-1 block h-12 w-full rounded-xl border border-border-strong px-3 text-base" />
-          </label>
-          <label className="block text-sm font-semibold text-slate-700">
-            Notes (optional)
-            <textarea value={sourceNotes} onChange={(e) => setSourceNotes(e.target.value)} rows={2} className="mt-1 block w-full rounded-xl border border-border-strong p-2 text-base" />
-          </label>
-          {sourceMsg && <p className="text-sm font-semibold text-red-700">{sourceMsg}</p>}
-          <button
-            type="button"
-            disabled={busy === 'source' || sourceName.trim().length < 3}
-            onClick={sendSourceRequest}
-            className="flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-primary text-lg font-bold text-white disabled:opacity-50"
-          >
-            <Send className="h-5 w-5" aria-hidden="true" /> Send request
-          </button>
-        </Modal>
-      )}
     </section>
   );
 };

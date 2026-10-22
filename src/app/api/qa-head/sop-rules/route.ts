@@ -9,9 +9,8 @@ const createRuleSchema = z.object({
   testingPoint: z.enum([
     'GLOBAL_DEFAULT',
     'PLANT_QA',
-    'ZMCC_LAB_MOT',
-    'ZMCC_LAB_CONTRACTOR',
-    'ZMCC_LAB_LOCAL_SUPPLIER',
+    'ZMCC_LAB_MC',
+    'ZMCC_LAB_HC',
     'MOT_SHOP',
     'DISPATCH',
   ]).nullable().optional(),
@@ -124,13 +123,6 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const validated = createRuleSchema.parse(body);
-
-    if (validated.testingPoint === 'ZMCC_LAB_CONTRACTOR') {
-      return NextResponse.json(
-        { error: "Testing point 'ZMCC_LAB_CONTRACTOR' is deprecated and blocked for new rules. Use 'ZMCC_LAB_MOT' or 'ZMCC_LAB_LOCAL_SUPPLIER' instead." },
-        { status: 400 }
-      );
-    }
 
     const effectiveDate = validated.effectiveFrom ? new Date(validated.effectiveFrom) : new Date();
 

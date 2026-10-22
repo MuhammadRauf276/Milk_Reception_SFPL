@@ -2,6 +2,7 @@ import type { Prisma } from '@prisma/client';
 import { writeAuditLog } from '@/backend/core/audit';
 import { prisma } from '@core/db';
 import { getSupplyChainLossHierarchy } from './lossCalculationService';
+import { listZmccExitOutcomes } from './zmccManagerOverviewService';
 import { getTankPhysicalStock } from './zmccTankService';
 import { getPakistanCalendarDate } from '@core/business-day';
 import { isFatTestCandidate, isLrTestCandidate } from '@/backend/utils/milkTestResolvers';
@@ -82,7 +83,27 @@ export interface MpdExecutiveTelemetry {
     dispatchedLiters: number;
     dispatchedTankerCount: number;
     isActive: boolean;
+    /** Exit-outcome reporting (last 30 days): vehicles that left / were closed without full unloading. */
+    leftWithoutFullUnloadingCount: number;
+    pendingCloseRequestCount: number;
+    /** Accepted by the lab but never received into a tank; excluded from loss. */
+    acceptedNotReceivedLiters: number;
   }>;
+  /** Today's received milk grouped by milk source (name always; ERP code only for owner/reporting roles). */
+  intakeBySource: Array<{
+    sourceId: string | null;
+    sourceName: string;
+    erpCode: string | null;
+    netKg: number;
+    grossLiters: number;
+    at13tsLiters: number;
+    avgLr: number | null;
+    avgFatPercent: number | null;
+    avgSnfPercent: number | null;
+    avgTsPercent: number | null;
+  }>;
+  /** Totals of the exit-outcome counters across every ZMCC. */
+  exitOutcomes: { leftWithoutFullUnloading: number; pendingCloseRequests: number; acceptedNotReceivedLiters: number };
   plantContractors: Array<{
     id: string;
     code: string;
@@ -280,7 +301,6 @@ export async function listGovernanceOverrides(now: Date = new Date()): Promise<G
         manager_reviewer: userSelect,
         results: { where: { is_passed: false }, include: { applied_rule: true } },
         mot_arrival: { select: { zmcc_token: true } },
-        contractor_arrival: { select: { zmcc_token: true, vehicle_number: true } },
         local_supplier_arrival: { select: { zmcc_token: true, vehicle_number: true } },
       },
       orderBy: { manager_reviewed_at: 'desc' },
@@ -303,8 +323,8 @@ export async function listGovernanceOverrides(now: Date = new Date()): Promise<G
 
   const overrides: GovernanceOverride[] = [
     ...labSessions.map((s): GovernanceOverride => {
-      const arrival = s.mot_arrival ?? s.contractor_arrival ?? s.local_supplier_arrival;
-      const vehicle = s.contractor_arrival?.vehicle_number ?? s.local_supplier_arrival?.vehicle_number;
+      const arrival = s.mot_arrival ?? s.local_supplier_arrival;
+      const vehicle = s.local_supplier_arrival?.vehicle_number;
       return {
         id: `ZMCC-${s.id}`,
         reference: [arrival?.zmcc_token, vehicle].filter(Boolean).join(' · ') || `Lab session #${s.id}`,
@@ -383,7 +403,7 @@ export async function recordGovernanceAudit(params: {
   return { status: 200, auditedAt: stored.created_at.toISOString() };
 }
 
-export async function getMpdExecutiveTelemetry(): Promise<MpdExecutiveTelemetry> {
+export async function getMpdExecutiveTelemetry(options: { includeErpCode?: boolean } = {}): Promise<MpdExecutiveTelemetry> {
   const calendarDate = getPakistanCalendarDate();
   // Same day-window convention as the supply-chain loss service, so figures agree.
   const todayStart = new Date(`${calendarDate}T00:00:00.000Z`);
@@ -401,6 +421,7 @@ export async function getMpdExecutiveTelemetry(): Promise<MpdExecutiveTelemetry>
     failedResultsToday,
     substituteAudits,
     governanceOverrides,
+    exitData,
     lossData,
   ] = await Promise.all([
     // 1. Active procurement sources with today's dispatches
@@ -423,7 +444,11 @@ export async function getMpdExecutiveTelemetry(): Promise<MpdExecutiveTelemetry>
     // 2. Milk received into ZMCC tanks today
     prisma.zmccTankReceipt.findMany({
       where: { received_at: today },
-      select: { zmcc_id: true, gross_liters: true, lr: true, fat: true, snf: true, at_13ts_liters: true },
+      select: {
+        zmcc_id: true, gross_liters: true, lr: true, fat: true, snf: true, ts: true, at_13ts_liters: true,
+        quantity_value: true, quantity_unit: true, density: true, milk_source_id: true, milk_source_name_snapshot: true,
+        milk_source: { select: { erp_code: true, name: true } },
+      },
     }),
     // 3. Today's MOT journeys
     prisma.motJourney.findMany({
@@ -476,6 +501,7 @@ export async function getMpdExecutiveTelemetry(): Promise<MpdExecutiveTelemetry>
       orderBy: { created_at: 'desc' },
     }),
     listGovernanceOverrides(),
+    listZmccExitOutcomes(),
     getSupplyChainLossHierarchy({ period: 'today' }).catch(() => null),
   ]);
 
@@ -508,8 +534,39 @@ export async function getMpdExecutiveTelemetry(): Promise<MpdExecutiveTelemetry>
       dispatchedLiters: round(dispatched.reduce((sum, d) => sum + d.liters, 0)),
       dispatchedTankerCount: dispatched.length,
       isActive: zmcc.is_active,
+      leftWithoutFullUnloadingCount: exitData.left.filter((x) => x.zmccId === zmcc.id.toString()).length,
+      pendingCloseRequestCount: exitData.pending.filter((x) => x.zmccId === zmcc.id.toString()).length,
+      acceptedNotReceivedLiters: round(
+        [...exitData.left, ...exitData.pending].filter((x) => x.zmccId === zmcc.id.toString()).reduce((t, x) => t + x.acceptedNotReceivedLiters, 0)
+      ),
     };
   });
+
+  // Received milk by source (net kg from weighed portions via receipt quantity)
+  const bySource = new Map<string, {
+    sourceId: string | null; sourceName: string; erpCode: string | null; netKg: number; gross: number; at13: number;
+    lr: Array<[number | null, number]>; fat: Array<[number | null, number]>; snf: Array<[number | null, number]>; ts: Array<[number | null, number]>;
+  }>();
+  for (const r of tankReceipts) {
+    const name = r.milk_source?.name ?? r.milk_source_name_snapshot ?? (r.milk_source_id ? 'Unknown source' : 'MC collections (per shop source)');
+    const key = r.milk_source_id ? r.milk_source_id.toString() : `none:${name}`;
+    const netKg = toNumber(r.quantity_value) ?? 0;
+    const entry = bySource.get(key) ?? {
+      sourceId: r.milk_source_id ? r.milk_source_id.toString() : null, sourceName: name,
+      erpCode: options.includeErpCode ? r.milk_source?.erp_code ?? null : null, netKg: 0, gross: 0, at13: 0, lr: [], fat: [], snf: [], ts: [],
+    };
+    entry.netKg += r.quantity_unit === 'KG' ? netKg : 0;
+    entry.gross += toNumber(r.gross_liters) ?? 0;
+    entry.at13 += toNumber(r.at_13ts_liters) ?? 0;
+    const w = r.quantity_unit === 'KG' ? netKg : toNumber(r.gross_liters) ?? 0;
+    entry.lr.push([toNumber(r.lr), w]); entry.fat.push([toNumber(r.fat), w]); entry.snf.push([toNumber(r.snf), w]); entry.ts.push([toNumber(r.ts), w]);
+    bySource.set(key, entry);
+  }
+  const intakeBySource = [...bySource.values()].map((e) => ({
+    sourceId: e.sourceId, sourceName: e.sourceName, erpCode: e.erpCode,
+    netKg: round(e.netKg), grossLiters: round(e.gross), at13tsLiters: round(e.at13),
+    avgLr: weightedMean(e.lr), avgFatPercent: weightedMean(e.fat), avgSnfPercent: weightedMean(e.snf), avgTsPercent: weightedMean(e.ts),
+  }));
 
   // Plant contractors (direct to plant)
   const contractorSources = activeSources.filter((s) => s.source_type === 'CONTRACTOR');
@@ -660,6 +717,12 @@ export async function getMpdExecutiveTelemetry(): Promise<MpdExecutiveTelemetry>
     motRoutes,
     inTransitTankers,
     zmccCenters,
+    intakeBySource,
+    exitOutcomes: {
+      leftWithoutFullUnloading: exitData.left.length,
+      pendingCloseRequests: exitData.pending.length,
+      acceptedNotReceivedLiters: round([...exitData.left, ...exitData.pending].reduce((t, x) => t + x.acceptedNotReceivedLiters, 0)),
+    },
     plantContractors,
     qualityFunnel: {
       villageShopRejectedLiters: null,

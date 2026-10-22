@@ -112,9 +112,26 @@ export function defaultModes(testCode: string, point: TestPointCode): { testMode
       : { testMode: 'OFF', ruleMode: 'APPLY', photoMode: 'NONE' };
   }
   if (LR_FAT_CODES.has(code)) {
-    return { testMode: 'OPTIONAL', ruleMode: 'APPLY', photoMode: point === 'CONTRACTOR_DISPATCH' ? 'OPTIONAL' : 'REQUIRED' };
+    const isContractor = point === 'CONTRACTOR_DISPATCH';
+    return { testMode: 'OPTIONAL', ruleMode: 'APPLY', photoMode: isContractor ? 'OPTIONAL' : 'REQUIRED' };
   }
   return { testMode: 'OPTIONAL', ruleMode: 'APPLY', photoMode: 'NONE' };
+}
+
+/**
+ * The Super Admin stage-policy screen saves "required" and "photo required" on the test assignment.
+ * Use them for the cell unless a saved matrix row (source DB) already decides it.
+ */
+export function applyAssignmentToCell<T extends Pick<TestPointPolicyCell, 'testMode' | 'photoMode' | 'source'>>(
+  cell: T,
+  assignment?: { is_required: boolean; is_photo_required: boolean | null } | null
+): T {
+  if (!assignment) return cell;
+  return {
+    ...cell,
+    testMode: assignment.is_required ? 'COMPULSORY' : 'OPTIONAL',
+    photoMode: assignment.is_photo_required ? 'REQUIRED' : 'NONE',
+  };
 }
 
 function asTestMode(v: string): TestMode {

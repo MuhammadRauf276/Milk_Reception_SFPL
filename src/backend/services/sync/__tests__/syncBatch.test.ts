@@ -67,12 +67,6 @@ function fakeDb(): FakeDb {
         const w = where.device_id_client_event_id;
         return ledger.get(key(w.device_id, w.client_event_id)) ?? null;
       },
-      async findFirst({ where }) {
-        for (const row of ledger.values()) {
-          if (row.device_id === where.device_id && row.user_id === where.user_id) return { id: row.id };
-        }
-        return null;
-      },
       async create({ data }) {
         creates.push(data);
         const k = key(data.device_id, data.client_event_id);
@@ -85,11 +79,6 @@ function fakeDb(): FakeDb {
         const row = toRow(data);
         ledger.set(k, row);
         return { id: row.id };
-      },
-    },
-    stationPin: {
-      async findFirst() {
-        return null;
       },
     },
     device: {
@@ -227,12 +216,12 @@ test('more than 50 items -> 400', async () => {
   assert.equal(db.ledger.size, 0);
 });
 
-test('owner not allowed on this device -> REJECTED OWNER_NOT_ALLOWED', async () => {
+test('owner not signed in on this device -> RETRY OWNER_SESSION_REQUIRED', async () => {
   const db = fakeDb();
   const h = counting({ status: 'SAVED' });
   const body = okBody(await run(db, { MOT_COLLECTION: h.handler }, [item({ kind: 'MOT_COLLECTION', ownerUserId: '77' })]));
-  assert.equal(body.results[0].status, 'REJECTED');
-  assert.equal(body.results[0].code, 'OWNER_NOT_ALLOWED');
+  assert.equal(body.results[0].status, 'RETRY');
+  assert.equal(body.results[0].code, 'OWNER_SESSION_REQUIRED');
   assert.equal(h.calls(), 0);
 });
 
@@ -341,8 +330,8 @@ test('diary event from an owner the device cannot vouch for: SAVED on the device
   const mot = counting({ status: 'SAVED', entityType: 'mot_shop_collection', entityId: '1' });
   const handlers: SyncHandlerRegistry = { ...REAL_HOUSEKEEPING, MOT_COLLECTION: mot.handler };
   const body = okBody(await run(db, handlers, [clientDiaryItem('77'), item({ kind: 'MOT_COLLECTION', ownerUserId: '77' })]));
-  assert.deepEqual(body.results.map((r) => r.status), ['SAVED', 'REJECTED']);
-  assert.equal(body.results[1].code, 'OWNER_NOT_ALLOWED');
+  assert.deepEqual(body.results.map((r) => r.status), ['SAVED', 'RETRY']);
+  assert.equal(body.results[1].code, 'OWNER_SESSION_REQUIRED');
   assert.equal(db.creates[0].user_id, BigInt(5));
   assert.equal(db.creates[0].payload.claimedOwnerUserId, '77');
   assert.equal(mot.calls(), 0);

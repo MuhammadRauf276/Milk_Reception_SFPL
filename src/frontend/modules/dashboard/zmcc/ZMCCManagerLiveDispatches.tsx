@@ -104,16 +104,16 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
   // Error State
   if (error) {
     return (
-      <div className="p-8 rounded-xl bg-red-50 border border-red-200 text-center space-y-3" role="alert">
-        <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto border border-red-200">
+      <div className="p-8 rounded-xl bg-rose-50 border border-rose-200 text-center space-y-3" role="alert">
+        <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto border border-rose-200">
           <AlertTriangle className="w-6 h-6" />
         </div>
-        <h4 className="text-base font-semibold text-red-800">Unable to load dispatches</h4>
-        <p className="text-xs text-red-700 max-w-md mx-auto">{error}</p>
+        <h4 className="text-base font-semibold text-rose-800">Unable to load dispatches</h4>
+        <p className="text-xs text-rose-700 max-w-md mx-auto">{error}</p>
         {onRetry && (
           <button
             onClick={onRetry}
-            className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-red-800 text-white text-xs font-semibold hover:bg-red-800 transition"
+            className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-rose-700 text-white text-xs font-semibold hover:bg-rose-800 transition"
           >
             <span>Retry Loading</span>
           </button>
@@ -278,7 +278,7 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
                       </span>
                     </div>
 
-                    <span className="px-2 py-0.5 rounded bg-green-50 border border-green-200 tabular-nums text-[10px] font-semibold text-green-800">
+                    <span className="px-2 py-0.5 rounded bg-emerald-50 border border-emerald-200 tabular-nums text-[10px] font-semibold text-emerald-800">
                       {group.portions.length} Portion{group.portions.length > 1 ? 's' : ''}
                     </span>
                   </div>

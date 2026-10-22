@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
 import { z } from 'zod';
+import { canActAs } from '@/backend/core/roles/hierarchy';
 import { validateOperationalTimestamp } from '@/backend/services/chronology-validator';
 import { getErrorIssues, getErrorMessage, getErrorName } from '@/lib/errors';
 
@@ -19,7 +20,7 @@ class RouteError extends Error {
 }
 
 export async function POST(req: Request) {
-  const authUser = await getCurrentUser();
+  const authUser = await getCurrentUser(req);
   if (!authUser) {
     return NextResponse.json({ error: 'Unauthorized. Authentication required.' }, { status: 401 });
   }
@@ -34,9 +35,9 @@ export async function POST(req: Request) {
     },
   });
 
-  const allowedRoles = ['QA_LAB_ATTENDANT'];
-  if (!dbUser || !allowedRoles.includes(dbUser.role)) {
-    return NextResponse.json({ error: 'Unauthorized. QA Lab Attendant role required for testing operations.' }, { status: 403 });
+
+  if (!dbUser || !canActAs(dbUser.role, 'QA_LAB_ATTENDANT')) {
+    return NextResponse.json({ error: 'Unauthorized. QA Lab Attendant or superior hierarchy role required for testing operations.' }, { status: 403 });
   }
 
   try {

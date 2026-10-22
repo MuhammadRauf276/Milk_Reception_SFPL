@@ -11,16 +11,20 @@ interface MpdFleetRadarScreenProps {
   substitutes: EmergencySubstituteTelemetry[];
 }
 
-export const MpdFleetRadarScreen: React.FC<MpdFleetRadarScreenProps> = ({ tankers, routes, substitutes }) => {
+export const MpdFleetRadarScreen: React.FC<MpdFleetRadarScreenProps> = ({
+  tankers = [],
+  routes = [],
+  substitutes = [],
+}) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState<'ALL' | 'TANKERS' | 'MOT_ROUTES' | 'SUBSTITUTES'>('ALL');
 
   const matches = (...fields: Array<string | null>) =>
     fields.some((field) => (field ?? '').toLowerCase().includes(searchTerm.toLowerCase()));
 
-  const filteredTankers = tankers.filter((t) => matches(t.vehicleNumber, t.sourceName, t.sourceCode));
+  const filteredTankers = (tankers ?? []).filter((t) => matches(t.vehicleNumber, t.sourceName, t.sourceCode));
 
-  const filteredRoutes = routes.filter((r) => matches(r.routeCode, r.routeName, r.motName, r.vehicleNumber));
+  const filteredRoutes = (routes ?? []).filter((r) => matches(r.routeCode, r.routeName, r.motName, r.vehicleNumber));
 
   return (
     <div className="space-y-6">
@@ -46,10 +50,10 @@ export const MpdFleetRadarScreen: React.FC<MpdFleetRadarScreenProps> = ({ tanker
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
-              {filter === 'ALL' && `All Fleet (${tankers.length + routes.length})`}
-              {filter === 'TANKERS' && `Plant Tankers (${tankers.length})`}
-              {filter === 'MOT_ROUTES' && `MOT Vehicles (${routes.length})`}
-              {filter === 'SUBSTITUTES' && `Substitutes (${substitutes.length})`}
+              {filter === 'ALL' && `All Fleet (${(tankers ?? []).length + (routes ?? []).length})`}
+              {filter === 'TANKERS' && `Plant Tankers (${(tankers ?? []).length})`}
+              {filter === 'MOT_ROUTES' && `MOT Vehicles (${(routes ?? []).length})`}
+              {filter === 'SUBSTITUTES' && `Substitutes (${(substitutes ?? []).length})`}
             </button>
           ))}
         </div>
@@ -248,7 +252,7 @@ export const MpdFleetRadarScreen: React.FC<MpdFleetRadarScreenProps> = ({ tanker
               </h2>
             </div>
             <span className="text-xs tabular-nums font-medium text-slate-500">
-              {substitutes.length} record(s) · last 30 days
+              {(substitutes ?? []).length} record(s) · last 30 days
             </span>
           </div>
 
@@ -263,14 +267,14 @@ export const MpdFleetRadarScreen: React.FC<MpdFleetRadarScreenProps> = ({ tanker
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {substitutes.length === 0 ? (
+                {(substitutes ?? []).length === 0 ? (
                   <tr>
                     <td colSpan={4} className="py-6 text-center text-slate-500">
                       No emergency substitute vehicles registered in the last 30 days.
                     </td>
                   </tr>
                 ) : (
-                  substitutes.map((s) => (
+                  (substitutes ?? []).map((s) => (
                     <tr key={s.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="py-3 px-4">
                         <div className="tabular-nums font-semibold text-foreground">{s.vehicleNumber}</div>

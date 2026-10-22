@@ -6,7 +6,11 @@ export async function GET(req: Request) {
   try {
     const guard = await requireRoles(req, WEIGHING_ROLES);
     if ('response' in guard) return guard.response;
-    const result = await listWeighingQueue(guard.acting);
+    const url = new URL(req.url);
+    const donePage = Number(url.searchParams.get('done_page') || 1);
+    const result = await listWeighingQueue(guard.acting, {
+      donePage: Number.isFinite(donePage) ? donePage : 1,
+    });
     if (result.error) return NextResponse.json({ error: result.error }, { status: result.status });
     return NextResponse.json(result.data, { status: result.status });
   } catch (err) {

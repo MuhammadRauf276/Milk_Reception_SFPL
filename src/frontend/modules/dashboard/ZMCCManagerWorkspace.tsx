@@ -1,6 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
+import { fetchJson } from '@/lib/query/fetchJson';
 import { useSearchParams } from 'next/navigation';
 import { MilkProcessLog, User } from '@backend/core/types';
 import { Header } from '@modules/shared/Header';
@@ -19,8 +21,6 @@ import { getOverviewDateRangeBounds } from './zmcc/zmccManagerHelpers';
 import { getPakistanCalendarDate } from '@backend/core/business-day';
 import type { RetrievalMode } from '@backend/services/operationalReadModelService';
 import { ZmccMasterDataWorkspace, type MasterDataTab } from '@/frontend/modules/zmcc/ZmccMasterDataWorkspace';
-import { ZmccArrivalsWorkspace } from '@/frontend/modules/zmcc/arrivals/ZmccArrivalsWorkspace';
-import { ZmccLabWorkspace } from '@/frontend/modules/zmcc/lab/ZmccLabWorkspace';
 import { ApprovalInbox } from '@/frontend/modules/approvals/ApprovalInbox';
 import { AnimatePresence } from 'framer-motion';
 import { PageTransition } from '@/components/motion/page-transition';
@@ -32,12 +32,10 @@ interface ZMCCManagerWorkspaceProps {
 
 type ManagerHistoryView =
   | 'PLANT_HISTORY'
-  | 'QUALITY_REJECTIONS'
-  | 'ARRIVAL_CORRECTIONS'
-  | 'LAB_CORRECTIONS';
+  | 'QUALITY_REJECTIONS';
 
 const MANAGER_TABS: readonly ZMCCManagerTab[] = ['OVERVIEW', 'LIVE', 'RECONCILIATION', 'HISTORY', 'MASTER_DATA', 'APPROVALS'];
-const HISTORY_VIEWS: readonly ManagerHistoryView[] = ['PLANT_HISTORY', 'QUALITY_REJECTIONS', 'ARRIVAL_CORRECTIONS', 'LAB_CORRECTIONS'];
+const HISTORY_VIEWS: readonly ManagerHistoryView[] = ['PLANT_HISTORY', 'QUALITY_REJECTIONS'];
 
 function parseManagerTab(raw: string | null | undefined): ZMCCManagerTab | null {
   const value = raw?.toUpperCase();
@@ -67,36 +65,11 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
   }
 
   const [summaryDateRange, setSummaryDateRange] = useState<OverviewDateRange>('TODAY');
-  const [serverBusinessDate, setServerBusinessDate] = useState<string>('');
-  const [serverCalendarDate, setServerCalendarDate] = useState<string>('');
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
   const hamburgerButtonRef = useRef<HTMLButtonElement | null>(null);
 
 
-  // 1. Independent Live State
-  const [liveLogs, setLiveLogs] = useState<MilkProcessLog[]>([]);
-  const [liveLoading, setLiveLoading] = useState<boolean>(true);
-  const [liveError, setLiveError] = useState<string | null>(null);
-  const [liveActiveInPlantCount, setLiveActiveInPlantCount] = useState<number | null>(null);
-
-  // 2. Independent Reporting State
-  const [reportingLogs, setReportingLogs] = useState<MilkProcessLog[]>([]);
-  const [reportingLoading, setReportingLoading] = useState<boolean>(true);
-  const [reportingError, setReportingError] = useState<string | null>(null);
   const [reportingPage, setReportingPage] = useState<number>(1);
-  const [reportingTotalPages, setReportingTotalPages] = useState<number>(1);
-  const [reportingTotalRecords, setReportingTotalRecords] = useState<number>(0);
-  const [reportingHasMore, setReportingHasMore] = useState<boolean>(false);
-  const [reportingSummary, setReportingSummary] = useState<{
-    totalVisits: number;
-    completedVisits: number;
-    activeInPlantVisits: number;
-  } | null>(null);
-
-  // 3. Local ZMCC Operational Snapshot State (Tank stock, Inside yard vehicles, Today accepted intake)
-  const [zmccTankStock, setZmccTankStock] = useState<number | null>(null);
-  const [vehiclesInsideZmccCount, setVehiclesInsideZmccCount] = useState<number | null>(null);
-  const [todayAcceptedIntakeLiters, setTodayAcceptedIntakeLiters] = useState<number | null>(null);
 
   // History & Table search/filter state (isolated to historical reporting tables)
   const initialOverviewBounds = useMemo(() => getOverviewDateRangeBounds('TODAY'), []);
@@ -108,6 +81,154 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
     currentUser?.procurement_source?.name ||
     currentUser?.zone ||
     'Assigned ZMCC Source';
+
+  const openDrawer = useCallback(() => {
+    setIsDrawerOpen(true);
+  }, []);
+
+  const closeDrawer = useCallback(() => {
+    setIsDrawerOpen(false);
+    setTimeout(() => {
+      hamburgerButtonRef.current?.focus();
+    }, 0);
+  }, []);
+
+  const { sectionTitle, subpageTitle } = useMemo(() => {
+    if (activeTab === 'OVERVIEW') return { sectionTitle: 'Overview', subpageTitle: null };
+    if (activeTab === 'LIVE') return { sectionTitle: 'Operations', subpageTitle: null };
+    if (activeTab === 'RECONCILIATION') return { sectionTitle: 'Reconciliation', subpageTitle: null };
+    if (activeTab === 'HISTORY') {
+      const hTitle =
+        historyView === 'QUALITY_REJECTIONS'
+          ? 'Quality & Rejections Review'
+          : 'Plant History';
+      return { sectionTitle: 'History & Reports', subpageTitle: hTitle };
+    }
+    if (activeTab === 'MASTER_DATA') {
+      const rawView = searchParams?.get('view')?.toUpperCase();
+      const mTitle =
+        rawView === 'ROUTES'
+          ? 'Routes'
+          : rawView === 'AREAS'
+          ? 'Areas'
+          : rawView === 'MILK_SOURCES'
+          ? 'Milk Sources'
+          : rawView === 'SHOPS'
+          ? 'Shops'
+          : rawView === 'TANKS'
+          ? 'Tanks'
+          : 'HC Suppliers';
+      return { sectionTitle: 'Master Data', subpageTitle: mTitle };
+    }
+    if (activeTab === 'APPROVALS') {
+      return { sectionTitle: 'Approval Inbox', subpageTitle: null };
+    }
+    return { sectionTitle: 'Overview', subpageTitle: null };
+  }, [activeTab, historyView, searchParams]);
+
+  type LogsResponse = {
+    items?: MilkProcessLog[];
+    logs?: MilkProcessLog[];
+    pagination?: {
+      page?: number; totalPages?: number; total_pages?: number;
+      totalRecords?: number; total_count?: number; hasMore?: boolean; has_more?: boolean;
+    };
+    summary?: { totalVisits: number; completedVisits: number; activeInPlantVisits: number };
+    serverBusinessDate?: string;
+    serverCalendarDate?: string;
+  };
+  const queryClient = useQueryClient();
+
+  // A. Live flow: 30s refresh, paused while the tab is hidden.
+  const liveQuery = useQuery({
+    queryKey: ['zmcc-manager', 'live-logs'],
+    queryFn: ({ signal }) => fetchJson<LogsResponse>('/api/logs?mode=live', { signal }),
+    refetchInterval: 30_000,
+  });
+  const liveLogs = useMemo(() => liveQuery.data?.items ?? liveQuery.data?.logs ?? [], [liveQuery.data]);
+  const liveLoading = liveQuery.isPending;
+  const liveError = liveQuery.isError ? getErrorMessage(liveQuery.error) || 'Failed to load live pipeline logs' : null;
+  const liveActiveInPlantCount =
+    typeof liveQuery.data?.summary?.activeInPlantVisits === 'number' ? liveQuery.data.summary.activeInPlantVisits : null;
+  const fetchLiveLogs = () => queryClient.invalidateQueries({ queryKey: ['zmcc-manager', 'live-logs'] });
+
+  // B. Reporting flow: keyed by date range + page (previous page stays visible while loading).
+  const reportingQuery = useQuery({
+    queryKey: ['zmcc-manager', 'report-logs', { fromDate, toDate, page: reportingPage }],
+    queryFn: ({ signal }) => {
+      const params = new URLSearchParams({ mode: 'report', page: String(reportingPage), pageSize: '20' });
+      if (fromDate) params.append('fromDate', fromDate);
+      if (toDate) params.append('toDate', toDate);
+      return fetchJson<LogsResponse>(`/api/logs?${params.toString()}`, { signal });
+    },
+    placeholderData: keepPreviousData,
+  });
+  const reportingData = reportingQuery.data;
+  const reportingLogs = useMemo(() => reportingData?.items ?? reportingData?.logs ?? [], [reportingData]);
+  const reportingLoading = reportingQuery.isPending;
+  const reportingError = reportingQuery.isError ? getErrorMessage(reportingQuery.error) || 'Failed to load reporting logs' : null;
+  const reportingTotalPages = reportingData?.pagination?.totalPages || reportingData?.pagination?.total_pages || 1;
+  const reportingTotalRecords = reportingData?.pagination?.totalRecords || reportingData?.pagination?.total_count || 0;
+  const reportingHasMore = Boolean(reportingData?.pagination?.hasMore ?? reportingData?.pagination?.has_more);
+  const reportingSummary = reportingData?.summary ?? null;
+  const serverBusinessDate = reportingData?.serverBusinessDate || liveQuery.data?.serverBusinessDate || '';
+  const serverCalendarDate = reportingData?.serverCalendarDate || '';
+
+  const fetchReportingLogs = (_f?: string, _t?: string, targetPage: number = 1, _mode?: RetrievalMode) => {
+    if (targetPage === reportingPage) return queryClient.invalidateQueries({ queryKey: ['zmcc-manager', 'report-logs'] });
+    setReportingPage(targetPage);
+    return Promise.resolve();
+  };
+
+  const handleOverviewDateRangeChange = useCallback((range: OverviewDateRange) => {
+    setSummaryDateRange(range);
+    const bounds = getOverviewDateRangeBounds(range);
+    setReportingPage(1);
+    setFromDate(bounds.fromDate);
+    setToDate(bounds.toDate);
+  }, []);
+
+  // Local ZMCC operational snapshot (tank stock, yard vehicles): 30s refresh.
+  const statsQuery = useQuery({
+    queryKey: ['zmcc-manager', 'local-stats'],
+    queryFn: async ({ signal }) => {
+      const [tanksData, insideData] = await Promise.all([
+        fetchJson<unknown>('/api/zmcc/tanks?active_only=true', { signal }).catch(() => null),
+        fetchJson<{ total_count?: number }>('/api/zmcc/arrivals/inside', { signal }).catch(() => null),
+      ]);
+      let tankStock: number | null = null;
+      const td = tanksData as { tanks?: Array<{ current_stock: unknown }>; items?: Array<{ current_stock: unknown }> } | Array<{ current_stock: unknown }> | null;
+      const tanks = Array.isArray(td) ? td : td?.tanks || td?.items;
+      if (Array.isArray(tanks) && tanks.length === 1) {
+        const stock = Number(tanks[0].current_stock);
+        tankStock = Number.isFinite(stock) ? Number(stock.toFixed(2)) : null;
+      }
+      return {
+        tankStock,
+        insideCount: typeof insideData?.total_count === 'number' ? insideData.total_count : null,
+      };
+    },
+    refetchInterval: 30_000,
+  });
+  const zmccTankStock = statsQuery.data?.tankStock ?? null;
+  const vehiclesInsideZmccCount = statsQuery.data?.insideCount ?? null;
+
+  // Today's accepted intake volume (authoritative DB aggregate, non-polled)
+  const todayDate = serverCalendarDate || getPakistanCalendarDate(new Date());
+  const intakeQuery = useQuery({
+    queryKey: ['zmcc-manager', 'accepted-intake', todayDate],
+    queryFn: async ({ signal }) => {
+      const labData = await fetchJson<{ summary?: { totalGrossLiters?: unknown }; total?: number }>(
+        `/api/zmcc/lab/history?date=${todayDate}&decision=ACCEPTED&page=1&pageSize=1`,
+        { signal }
+      ).catch(() => null);
+      const totalGross = labData?.summary?.totalGrossLiters;
+      if (typeof totalGross === 'number') return Number(totalGross.toFixed(2));
+      if (labData?.total === 0) return 0;
+      return null;
+    },
+  });
+  const todayAcceptedIntakeLiters = intakeQuery.data ?? null;
 
   const selectedVisitPortions = useMemo(() => {
     if (!selectedLog) return [];
@@ -128,232 +249,6 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
     const result = Array.from(uniqueMap.values());
     return result.length > 0 ? result : [selectedLog];
   }, [selectedLog, liveLogs, reportingLogs]);
-
-  const openDrawer = useCallback(() => {
-    setIsDrawerOpen(true);
-  }, []);
-
-  const closeDrawer = useCallback(() => {
-    setIsDrawerOpen(false);
-    setTimeout(() => {
-      hamburgerButtonRef.current?.focus();
-    }, 0);
-  }, []);
-
-  const { sectionTitle, subpageTitle } = useMemo(() => {
-    if (activeTab === 'OVERVIEW') return { sectionTitle: 'Overview', subpageTitle: null };
-    if (activeTab === 'LIVE') return { sectionTitle: 'Operations', subpageTitle: null };
-    if (activeTab === 'RECONCILIATION') return { sectionTitle: 'Reconciliation', subpageTitle: null };
-    if (activeTab === 'HISTORY') {
-      const hTitle =
-        historyView === 'ARRIVAL_CORRECTIONS'
-          ? 'Arrival Corrections'
-          : historyView === 'LAB_CORRECTIONS'
-          ? 'Lab Corrections'
-          : historyView === 'QUALITY_REJECTIONS'
-          ? 'Quality & Rejections Review'
-          : 'Plant History';
-      return { sectionTitle: 'History & Reports', subpageTitle: hTitle };
-    }
-    if (activeTab === 'MASTER_DATA') {
-      const rawView = searchParams?.get('view')?.toUpperCase();
-      const mTitle =
-        rawView === 'ROUTES'
-          ? 'Routes'
-          : rawView === 'AREAS'
-          ? 'Areas'
-          : rawView === 'MILK_SOURCES'
-          ? 'Milk Sources'
-          : rawView === 'SHOPS'
-          ? 'Shops'
-          : rawView === 'TANKS'
-          ? 'Tanks'
-          : 'Local Suppliers';
-      return { sectionTitle: 'Master Data', subpageTitle: mTitle };
-    }
-    if (activeTab === 'APPROVALS') {
-      return { sectionTitle: 'Approval Inbox', subpageTitle: null };
-    }
-    return { sectionTitle: 'Overview', subpageTitle: null };
-  }, [activeTab, historyView, searchParams]);
-
-  // Fetch Live Logs: Mode 'live' active pipeline only
-  const loadLiveLogs = useCallback(
-    () =>
-      fetch('/api/logs?mode=live')
-        .then(async (res) => {
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error || 'Failed to fetch live logs');
-
-          const items = data.items || data.logs;
-          if (items) setLiveLogs(items);
-
-          if (typeof data.summary?.activeInPlantVisits === 'number') {
-            setLiveActiveInPlantCount(data.summary.activeInPlantVisits);
-          } else {
-            setLiveActiveInPlantCount(null);
-          }
-
-          if (data.serverBusinessDate) setServerBusinessDate(data.serverBusinessDate);
-          setLiveError(null);
-        })
-        .catch((err) => {
-          setLiveActiveInPlantCount(null);
-          setLiveError(getErrorMessage(err) || 'Failed to load live pipeline logs');
-        })
-        .finally(() => {
-          setLiveLoading(false);
-        }),
-    []
-  );
-
-  const fetchLiveLogs = () => {
-    setLiveLoading(true);
-    setLiveError(null);
-    return loadLiveLogs();
-  };
-
-  const lastReportingQueryRef = useRef<string>('');
-
-  // Fetch Reporting Logs: Parameterized fetch for Overview / History date queries
-  const fetchReportingLogs = useCallback(
-    async (fDate?: string, tDate?: string, targetPage: number = 1, explicitMode?: RetrievalMode) => {
-      const modeToUse = explicitMode || 'report';
-      lastReportingQueryRef.current = `${fDate || ''}|${tDate || ''}|${targetPage}|${modeToUse}`;
-      setReportingLoading(true);
-      setReportingError(null);
-      try {
-        const params = new URLSearchParams();
-        params.append('mode', modeToUse);
-        params.append('page', String(targetPage));
-        params.append('pageSize', '20');
-        if (fDate) params.append('fromDate', fDate);
-        if (tDate) params.append('toDate', tDate);
-
-        const res = await fetch(`/api/logs?${params.toString()}`);
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Failed to fetch reporting logs');
-
-        const items = data.items || data.logs;
-        if (items) setReportingLogs(items);
-        if (data.pagination) {
-          setReportingPage(data.pagination.page || targetPage);
-          setReportingTotalPages(data.pagination.totalPages || data.pagination.total_pages || 1);
-          setReportingTotalRecords(data.pagination.totalRecords || data.pagination.total_count || 0);
-          setReportingHasMore(Boolean(data.pagination.hasMore ?? data.pagination.has_more));
-        }
-        if (data.summary) {
-          setReportingSummary(data.summary);
-        }
-        if (data.serverBusinessDate) setServerBusinessDate(data.serverBusinessDate);
-        if (data.serverCalendarDate) setServerCalendarDate(data.serverCalendarDate);
-      } catch (err) {
-        setReportingError(getErrorMessage(err) || 'Failed to load reporting logs');
-      } finally {
-        setReportingLoading(false);
-      }
-    },
-    []
-  );
-
-  const handleOverviewDateRangeChange = useCallback(
-    (range: OverviewDateRange) => {
-      setSummaryDateRange(range);
-      const bounds = getOverviewDateRangeBounds(range);
-      setReportingPage(1);
-      setFromDate(bounds.fromDate);
-      setToDate(bounds.toDate);
-      fetchReportingLogs(bounds.fromDate, bounds.toDate, 1, 'report');
-    },
-    [fetchReportingLogs]
-  );
-
-  // Fetch local ZMCC operational snapshot metrics (live metrics polled every 15 seconds)
-  const fetchZmccLocalStats = useCallback(
-    () =>
-      fetch('/api/zmcc/tanks?active_only=true')
-        .then(async (tanksRes) => {
-          if (!tanksRes.ok) {
-            setZmccTankStock(null);
-            return;
-          }
-          const tanksData = await tanksRes.json();
-          const tanks = Array.isArray(tanksData) ? tanksData : tanksData.tanks || tanksData.items;
-          if (Array.isArray(tanks) && tanks.length === 1) {
-            const stock = Number(tanks[0].current_stock);
-            setZmccTankStock(Number.isFinite(stock) ? Number(stock.toFixed(2)) : null);
-          } else {
-            setZmccTankStock(null);
-          }
-        })
-        .catch(() => setZmccTankStock(null))
-        .then(() => fetch('/api/zmcc/arrivals/inside'))
-        .then(async (insideRes) => {
-          if (!insideRes.ok) {
-            setVehiclesInsideZmccCount(null);
-            return;
-          }
-          const insideData = await insideRes.json();
-          if (typeof insideData.total_count === 'number') {
-            setVehiclesInsideZmccCount(insideData.total_count);
-          } else {
-            setVehiclesInsideZmccCount(null);
-          }
-        })
-        .catch(() => setVehiclesInsideZmccCount(null)),
-    []
-  );
-
-  // Fetch today's accepted intake volume (authoritative DB aggregate, non-polled)
-  const fetchTodayAcceptedIntakeLiters = useCallback(() => {
-    const todayDate = serverCalendarDate || getPakistanCalendarDate(new Date());
-    return fetch(`/api/zmcc/lab/history?date=${todayDate}&decision=ACCEPTED&page=1&pageSize=1`)
-      .then(async (labRes) => {
-        if (!labRes.ok) {
-          setTodayAcceptedIntakeLiters(null);
-          return;
-        }
-
-        const labData = await labRes.json();
-        const totalGross = labData.summary?.totalGrossLiters;
-
-        if (typeof totalGross === 'number') {
-          setTodayAcceptedIntakeLiters(Number(totalGross.toFixed(2)));
-        } else if (labData.total === 0) {
-          setTodayAcceptedIntakeLiters(0);
-        } else {
-          setTodayAcceptedIntakeLiters(null);
-        }
-      })
-      .catch(() => {
-        setTodayAcceptedIntakeLiters(null);
-      });
-  }, [serverCalendarDate]);
-
-  // A. Live Flow: Initial mount and interval polling (LIVE ONLY)
-  useEffect(() => {
-    loadLiveLogs();
-    fetchZmccLocalStats();
-    const interval = setInterval(() => {
-      loadLiveLogs();
-      fetchZmccLocalStats();
-    }, 15000);
-    return () => clearInterval(interval);
-  }, [loadLiveLogs, fetchZmccLocalStats]);
-
-  // Separate non-polled load for accepted intake aggregate
-  useEffect(() => {
-    fetchTodayAcceptedIntakeLiters();
-  }, [fetchTodayAcceptedIntakeLiters]);
-
-  // B. Reporting Flow: Initial load and when fromDate/toDate changes (resets to page 1)
-  useEffect(() => {
-    const queryKey = `${fromDate}|${toDate}|1|report`;
-    if (lastReportingQueryRef.current !== queryKey) {
-      setReportingPage(1);
-      fetchReportingLogs(fromDate, toDate, 1, 'report');
-    }
-  }, [fetchReportingLogs, fromDate, toDate]);
 
   const renderReportingPaginationBar = () => {
     if (reportingTotalRecords === 0) return null;
@@ -526,14 +421,6 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
                   setToDate(t || '');
                 }}
               />
-            )}
-
-            {historyView === 'ARRIVAL_CORRECTIONS' && (
-              <ZmccArrivalsWorkspace currentUser={currentUser} />
-            )}
-
-            {historyView === 'LAB_CORRECTIONS' && (
-              <ZmccLabWorkspace currentUser={currentUser} />
             )}
           </div>
         )}

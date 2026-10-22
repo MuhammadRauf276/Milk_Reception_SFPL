@@ -98,11 +98,11 @@ export function StationNameCardLogin() {
       <h1 className="text-2xl font-bold text-slate-900">{selected ? `Hello, ${selected.name}` : 'Who are you?'}</h1>
 
       {notStation ? (
-        <p role="alert" className="flex items-center gap-2 rounded-xl border-2 border-red-300 bg-red-50 p-4 text-lg text-red-900">
+        <p role="alert" className="flex items-center gap-2 rounded-xl border-2 border-rose-300 bg-rose-50 p-4 text-lg text-rose-900">
           <AlertTriangle className="size-6 shrink-0" aria-hidden /> {NOT_STATION}
         </p>
       ) : cards === null ? (
-        <p className="text-lg text-slate-700">Loading names...</p>
+        <p className="text-lg text-slate-700">Loading names…</p>
       ) : !selected ? (
         <>
           {problem ? <ProblemBox problem={problem} /> : null}
@@ -117,7 +117,7 @@ export function StationNameCardLogin() {
                     onClick={() => choose(c)}
                     className="flex min-h-14 w-full items-center gap-3 rounded-xl border-2 border-slate-300 bg-white px-4 py-3 text-left active:bg-slate-200"
                   >
-                    {c.locked ? <Lock className="size-6 shrink-0 text-red-700" aria-hidden /> : <UserRound className="size-6 shrink-0 text-slate-700" aria-hidden />}
+                    {c.locked ? <Lock className="size-6 shrink-0 text-rose-700" aria-hidden /> : <UserRound className="size-6 shrink-0 text-slate-700" aria-hidden />}
                     <span className="min-w-0">
                       <span className="block truncate text-xl font-semibold text-slate-900">{c.name}</span>
                       <span className="block truncate text-sm capitalize text-slate-600">{c.locked ? 'PIN locked' : c.roleLabel}</span>
@@ -147,7 +147,7 @@ export function StationNameCardLogin() {
               <Delete className="size-7" aria-hidden />
             </button>
           </div>
-          {busy ? <p className="text-center text-slate-700">Checking...</p> : null}
+          {busy ? <p className="text-center text-slate-700">Checking…</p> : null}
           <button
             type="button"
             className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl border-2 border-slate-300 bg-white text-lg font-medium text-slate-900"
@@ -168,7 +168,7 @@ function ProblemBox({ problem }: { problem: Problem }) {
     <p
       role="alert"
       className={`flex items-center gap-2 rounded-xl border-2 p-3 text-lg font-medium ${
-        locked ? 'border-red-400 bg-red-50 text-red-900' : 'border-amber-400 bg-amber-50 text-amber-900'
+        locked ? 'border-rose-400 bg-rose-50 text-rose-900' : 'border-amber-400 bg-amber-50 text-amber-900'
       }`}
     >
       {locked ? <Lock className="size-6 shrink-0" aria-hidden /> : <AlertTriangle className="size-6 shrink-0" aria-hidden />}

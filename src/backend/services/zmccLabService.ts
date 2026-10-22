@@ -34,7 +34,6 @@ import {
   type MotProfile,
   type MotVehicle,
   type ProcurementSource,
-  type ZmccContractorArrival,
   type ZmccLabResult,
   type ZmccLabSession,
   type ZmccLocalSupplier,
@@ -83,8 +82,7 @@ export type ZmccLabAction =
   | 'CORRECT_SESSION'
   | 'ISSUE_LOCAL_SUPPLIER_RMR'
   | 'SETUP_PORTIONS'
-  | 'DECIDE_PORTION'
-  | 'REQUEST_SOURCE';
+  | 'DECIDE_PORTION';
 
 export interface ServiceResult<T> {
   status: number;
@@ -200,7 +198,32 @@ export async function resolveZmccLabAuth(
       return { errorResponse: { error: 'Forbidden. Assigned procurement source is not a ZMCC.', status: 403 } };
     }
     effectiveZmccId = acting.scope.sourceId;
-  } else if (acting.scope.kind !== 'SYSTEM') {
+  } else if (acting.scope.kind === 'SYSTEM') {
+    if (isRequest) {
+      try {
+        const req = reqOrUser as Request;
+        const url = new URL(req.url);
+        const reqZmcc =
+          url.searchParams.get('zmccId') ||
+          url.searchParams.get('zmcc_id') ||
+          req.headers.get('x-acting-source-id');
+
+        if (reqZmcc && /^\d+$/.test(reqZmcc.trim())) {
+          const validSource = await prisma.procurementSource.findFirst({
+            where: { id: BigInt(reqZmcc.trim()), is_active: true, source_type: 'ZMCC' },
+            select: { id: true },
+          });
+          if (validSource) {
+            effectiveZmccId = validSource.id;
+          } else {
+            return { errorResponse: { error: 'Invalid or inactive ZMCC source requested.', status: 400 } };
+          }
+        }
+      } catch (_err) {
+        // Graceful fallback
+      }
+    }
+  } else {
     return { errorResponse: { error: forbiddenMessage, status: 403 } };
   }
 
@@ -481,7 +504,6 @@ export type SerializableLabSession = ZmccLabSession & {
           | null;
       })
     | null;
-  contractor_arrival?: (ZmccContractorArrival & { contractor_source?: SourceRef | null }) | null;
   local_supplier_arrival?: (ZmccLocalSupplierArrival & { local_supplier?: ZmccLocalSupplier | null }) | null;
   tank_receipt?: Parameters<typeof serializeTankReceipt>[0] | null;
   results?: ZmccLabResult[];
@@ -493,7 +515,6 @@ export function serializeLabSession(session: SerializableLabSession) {
     zmcc_id: session.zmcc_id.toString(),
     arrival_type: session.arrival_type,
     mot_arrival_id: session.mot_arrival_id ? session.mot_arrival_id.toString() : null,
-    contractor_arrival_id: session.contractor_arrival_id ? session.contractor_arrival_id.toString() : null,
     local_supplier_arrival_id: session.local_supplier_arrival_id ? session.local_supplier_arrival_id.toString() : null,
     status: session.status,
     started_by_user_id: session.started_by_user_id.toString(),
@@ -618,23 +639,6 @@ export function serializeLabSession(session: SerializableLabSession) {
             : undefined,
         }
       : undefined,
-    contractor_arrival: session.contractor_arrival
-      ? {
-          id: session.contractor_arrival.id.toString(),
-          contractor_source_id: session.contractor_arrival.contractor_source_id.toString(),
-          vehicle_number: session.contractor_arrival.vehicle_number,
-          zmcc_token: session.contractor_arrival.zmcc_token,
-          arrival_timestamp: session.contractor_arrival.arrival_timestamp instanceof Date ? session.contractor_arrival.arrival_timestamp.toISOString() : session.contractor_arrival.arrival_timestamp,
-          arrival_date: session.contractor_arrival.arrival_date instanceof Date ? session.contractor_arrival.arrival_date.toISOString().split('T')[0] : session.contractor_arrival.arrival_date,
-          contractor_source: session.contractor_arrival.contractor_source
-            ? {
-                id: session.contractor_arrival.contractor_source.id.toString(),
-                code: session.contractor_arrival.contractor_source.code,
-                name: session.contractor_arrival.contractor_source.name,
-              }
-            : undefined,
-        }
-      : undefined,
     local_supplier_arrival: session.local_supplier_arrival
       ? {
           id: session.local_supplier_arrival.id.toString(),
@@ -650,8 +654,6 @@ export function serializeLabSession(session: SerializableLabSession) {
                 id: session.local_supplier_arrival.local_supplier.id.toString(),
                 local_supplier_code: session.local_supplier_arrival.local_supplier.local_supplier_code,
                 name: session.local_supplier_arrival.local_supplier.name,
-                erp_reference: session.local_supplier_arrival.local_supplier.erp_reference,
-                erp_mapping_status: session.local_supplier_arrival.local_supplier.erp_mapping_status,
               }
             : undefined,
         }
@@ -683,20 +685,7 @@ export async function getArrivalsQueue(
     ],
   };
 
-  // Contractor arrivals condition:
-  // 1. zmcc_id matches (if scoped)
-  // 2. lab_session is null OR lab_session.status = 'IN_PROGRESS'
-  // 3. contractor_source.is_active = true
-  const contractorWhere: Prisma.ZmccContractorArrivalWhereInput = {
-    ...(effectiveZmccId ? { zmcc_id: effectiveZmccId } : {}),
-    contractor_source: { is_active: true },
-    OR: [
-      { lab_session: null },
-      { lab_session: { status: 'IN_PROGRESS' } },
-    ],
-  };
-
-  // Local Supplier arrivals condition:
+  // HC arrivals condition:
   // 1. zmcc_id matches (if scoped)
   // 2. lab_session is null OR lab_session.status = 'IN_PROGRESS'
   const localSupplierWhere: Prisma.ZmccLocalSupplierArrivalWhereInput = {
@@ -707,7 +696,7 @@ export async function getArrivalsQueue(
     ],
   };
 
-  const [motArrivals, contractorArrivals, localSupplierArrivals] = await Promise.all([
+  const [motArrivals, localSupplierArrivals] = await Promise.all([
     prisma.zmccMotArrival.findMany({
       where: motWhere,
       include: {
@@ -720,16 +709,6 @@ export async function getArrivalsQueue(
             mot_profile: true,
           },
         },
-        lab_session: true,
-      },
-      orderBy: { arrival_timestamp: 'asc' },
-    }),
-    prisma.zmccContractorArrival.findMany({
-      where: contractorWhere,
-      include: {
-        zmcc: true,
-        contractor_source: true,
-        recorded_by: true,
         lab_session: true,
       },
       orderBy: { arrival_timestamp: 'asc' },
@@ -771,28 +750,9 @@ export async function getArrivalsQueue(
     });
   }
 
-  for (const c of contractorArrivals) {
-    queueItems.push({
-      queue_type: 'CONTRACTOR',
-      arrival_id: c.id.toString(),
-      zmcc_id: c.zmcc_id.toString(),
-      zmcc_code: c.zmcc.code,
-      zmcc_name: c.zmcc.name,
-      zmcc_token: c.zmcc_token,
-      contractor_source_id: c.contractor_source_id.toString(),
-      contractor_code: c.contractor_source.code,
-      contractor_name: c.contractor_source.name,
-      vehicle_number: c.vehicle_number,
-      arrival_timestamp: c.arrival_timestamp.toISOString(),
-      arrival_date: c.arrival_date.toISOString().split('T')[0],
-      lab_session_id: c.lab_session ? c.lab_session.id.toString() : null,
-      lab_session_status: c.lab_session ? c.lab_session.status : null,
-    });
-  }
-
   for (const ls of localSupplierArrivals) {
     queueItems.push({
-      queue_type: 'LOCAL_SUPPLIER',
+      queue_type: 'HC',
       arrival_id: ls.id.toString(),
       zmcc_id: ls.zmcc_id.toString(),
       zmcc_code: ls.zmcc.code,
@@ -820,7 +780,7 @@ export async function getArrivalsQueue(
 }
 
 export interface StartOrResumePayload {
-  arrival_type: 'MOT' | 'CONTRACTOR' | 'LOCAL_SUPPLIER';
+  arrival_type: 'MOT' | 'HC';
   arrival_id: string | number | bigint;
 }
 
@@ -833,8 +793,8 @@ export async function startOrResumeSession(
   if (!auth) return { status: 401, error: 'Unauthorized.' };
 
   const { arrival_type, arrival_id } = payload;
-  if (!arrival_type || !['MOT', 'CONTRACTOR', 'LOCAL_SUPPLIER'].includes(arrival_type)) {
-    return { status: 400, error: 'arrival_type must be MOT, CONTRACTOR, or LOCAL_SUPPLIER.' };
+  if (!arrival_type || !['MOT', 'HC'].includes(arrival_type)) {
+    return { status: 400, error: 'arrival_type must be MOT or HC.' };
   }
 
   if (!arrival_id) {
@@ -889,45 +849,6 @@ export async function startOrResumeSession(
         data: serializeLabSession(arrival.lab_session),
       };
     }
-  } else if (arrival_type === 'CONTRACTOR') {
-    const arrival = await prisma.zmccContractorArrival.findUnique({
-      where: { id: arrivalIdBigInt },
-      include: {
-        contractor_source: true,
-        lab_session: {
-          include: {
-            zmcc: true,
-            starter: true,
-            completer: true,
-            results: {
-              orderBy: { display_order_snapshot: 'asc' },
-            },
-          },
-        },
-      },
-    });
-
-    if (!arrival) {
-      return { status: 404, error: 'Contractor Arrival not found.' };
-    }
-
-    if (auth.effectiveZmccId !== null && arrival.zmcc_id !== auth.effectiveZmccId) {
-      return { status: 403, error: 'Forbidden. Arrival record belongs to another ZMCC.' };
-    }
-
-    if (!arrival.contractor_source.is_active) {
-      return { status: 400, error: 'Cannot start lab session for an inactive contractor.' };
-    }
-
-    arrivalZmccId = arrival.zmcc_id;
-
-    // If session already exists
-    if (arrival.lab_session) {
-      return {
-        status: 200,
-        data: serializeLabSession(arrival.lab_session),
-      };
-    }
   } else {
     const arrival = await prisma.zmccLocalSupplierArrival.findUnique({
       where: { id: arrivalIdBigInt },
@@ -947,7 +868,7 @@ export async function startOrResumeSession(
     });
 
     if (!arrival) {
-      return { status: 404, error: 'Local Supplier Arrival not found.' };
+      return { status: 404, error: 'HC Arrival not found.' };
     }
 
     if (auth.effectiveZmccId !== null && arrival.zmcc_id !== auth.effectiveZmccId) {
@@ -966,22 +887,9 @@ export async function startOrResumeSession(
   }
 
   // Canonical milk test policy by arrival type
-  let testingPoint: TestingPoint;
-  if (arrival_type === 'MOT') {
-    testingPoint = 'ZMCC_LAB_MOT';
-  } else if (arrival_type === 'LOCAL_SUPPLIER') {
-    testingPoint = 'ZMCC_LAB_LOCAL_SUPPLIER';
-  } else {
-    testingPoint = 'ZMCC_LAB_CONTRACTOR';
-  }
-  let effectiveTests = await MilkTestPolicyService.getEffectivePolicy(testingPoint);
-  let effectiveRulePoint = testingPoint;
-
-  // Local Supplier reuses ZMCC_LAB_CONTRACTOR policy if no dedicated ZMCC_LAB_LOCAL_SUPPLIER policy is configured
-  if (arrival_type === 'LOCAL_SUPPLIER' && (!effectiveTests || effectiveTests.length === 0)) {
-    effectiveTests = await MilkTestPolicyService.getEffectivePolicy('ZMCC_LAB_CONTRACTOR');
-    effectiveRulePoint = 'ZMCC_LAB_CONTRACTOR';
-  }
+  const testingPoint: TestingPoint = arrival_type === 'MOT' ? 'ZMCC_LAB_MC' : 'ZMCC_LAB_HC';
+  const effectiveTests = await MilkTestPolicyService.getEffectivePolicy(testingPoint);
+  const effectiveRulePoint = testingPoint;
 
   if (!effectiveTests || effectiveTests.length === 0) {
     return { status: 400, error: `No active milk test policy is configured for ${testingPoint}.` };
@@ -1030,8 +938,6 @@ export async function startOrResumeSession(
       const existing = await tx.zmccLabSession.findFirst({
         where: arrival_type === 'MOT'
           ? { mot_arrival_id: arrivalIdBigInt }
-          : arrival_type === 'CONTRACTOR'
-          ? { contractor_arrival_id: arrivalIdBigInt }
           : { local_supplier_arrival_id: arrivalIdBigInt },
         include: {
           zmcc: true,
@@ -1052,8 +958,7 @@ export async function startOrResumeSession(
           zmcc_id: arrivalZmccId,
           arrival_type,
           mot_arrival_id: arrival_type === 'MOT' ? arrivalIdBigInt : null,
-          contractor_arrival_id: arrival_type === 'CONTRACTOR' ? arrivalIdBigInt : null,
-          local_supplier_arrival_id: arrival_type === 'LOCAL_SUPPLIER' ? arrivalIdBigInt : null,
+          local_supplier_arrival_id: arrival_type === 'HC' ? arrivalIdBigInt : null,
           status: 'IN_PROGRESS',
           started_by_user_id: auth.actorUserId,
           results: {
@@ -1084,6 +989,18 @@ export async function startOrResumeSession(
         },
       });
 
+      // Automatically initialize Portion 1 for immediate testing
+      await tx.zmccLabPortion.create({
+        data: {
+          lab_session_id: newSession.id,
+          portion_number: 1,
+          status: 'TESTING',
+          final_decision: 'PENDING',
+          created_by_user_id: auth.actorUserId,
+          ...primaryActorFields(auth.acting),
+        },
+      });
+
       return newSession;
     });
 
@@ -1097,8 +1014,6 @@ export async function startOrResumeSession(
       const existing = await prisma.zmccLabSession.findFirst({
         where: arrival_type === 'MOT'
           ? { mot_arrival_id: arrivalIdBigInt }
-          : arrival_type === 'CONTRACTOR'
-          ? { contractor_arrival_id: arrivalIdBigInt }
           : { local_supplier_arrival_id: arrivalIdBigInt },
         include: {
           zmcc: true,
@@ -1154,11 +1069,6 @@ export async function getSessionById(
               summary: true,
             },
           },
-        },
-      },
-      contractor_arrival: {
-        include: {
-          contractor_source: true,
         },
       },
       local_supplier_arrival: {
@@ -1308,10 +1218,8 @@ export async function updateDraftResults(
   await prisma.$transaction(async (tx) => {
     const updatedDraftResultsMap = new Map(session.results.map((r) => [r.test_id.toString(), { ...r }]));
     const testingPoint = session.arrival_type === 'MOT'
-      ? 'ZMCC_LAB_MOT'
-      : session.arrival_type === 'LOCAL_SUPPLIER'
-        ? 'ZMCC_LAB_LOCAL_SUPPLIER'
-        : 'ZMCC_LAB_CONTRACTOR';
+      ? 'ZMCC_LAB_MC'
+      : 'ZMCC_LAB_HC';
 
     for (const item of resultsToProcess) {
       const testIdStr = String(item.test_id).trim();
@@ -1648,11 +1556,6 @@ export async function completeSession(
           },
         },
       },
-      contractor_arrival: {
-        include: {
-          contractor_source: true,
-        },
-      },
       local_supplier_arrival: {
         include: {
           local_supplier: true,
@@ -1689,7 +1592,6 @@ export async function completeSession(
     include: {
       results: true,
       mot_arrival: true,
-      contractor_arrival: true,
       local_supplier_arrival: true,
     },
   });
@@ -1900,10 +1802,8 @@ export async function completeSession(
 
       // Determine testing point
       const testingPoint = session.arrival_type === 'MOT'
-        ? 'ZMCC_LAB_MOT'
-        : session.arrival_type === 'LOCAL_SUPPLIER'
-        ? 'ZMCC_LAB_LOCAL_SUPPLIER'
-        : 'ZMCC_LAB_CONTRACTOR';
+        ? 'ZMCC_LAB_MC'
+      : 'ZMCC_LAB_HC';
 
       const evaluations: Array<QualityResultEvaluation & { isRequired: boolean }> = [];
 
@@ -2061,11 +1961,6 @@ export async function completeSession(
               },
             },
           },
-          contractor_arrival: {
-            include: {
-              contractor_source: true,
-            },
-          },
           local_supplier_arrival: {
             include: {
               local_supplier: true,
@@ -2104,7 +1999,7 @@ export async function completeSession(
         newValues: {
           status: 'COMPLETED',
           arrival_type: session.arrival_type,
-          arrival_id: (session.arrival_type === 'MOT' ? session.mot_arrival_id : session.arrival_type === 'CONTRACTOR' ? session.contractor_arrival_id : session.local_supplier_arrival_id)?.toString(),
+          arrival_id: (session.arrival_type === 'MOT' ? session.mot_arrival_id : session.local_supplier_arrival_id)?.toString(),
           attendant_decision: decision,
           system_quality_outcome: systemQualityOutcome,
           final_decision: effectiveFinalDecision,
@@ -2193,11 +2088,6 @@ export async function completeSession(
               },
             },
           },
-          contractor_arrival: {
-            include: {
-              contractor_source: true,
-            },
-          },
           local_supplier_arrival: {
             include: {
               local_supplier: true,
@@ -2248,11 +2138,6 @@ export async function completeSession(
                   summary: true,
                 },
               },
-            },
-          },
-          contractor_arrival: {
-            include: {
-              contractor_source: true,
             },
           },
           local_supplier_arrival: {
@@ -2394,8 +2279,8 @@ export async function correctCompletedSession(
   const isPendingReview = session.decision === 'PENDING' || session.manager_review_status === 'PENDING';
   const isRejectedSession = session.decision === 'REJECTED';
 
-  if (!isPendingReview && !isCorrectionAuthority(auth.role) && (session.manager_correction_count ?? 0) >= 5) {
-    return { status: 400, error: 'Maximum correction limit (5) reached for this lab session.' };
+  if (!isPendingReview && !isCorrectionAuthority(auth.role)) {
+    return { status: 403, error: 'Forbidden. Only Super Admin or Data Executive may edit saved records.' };
   }
 
   // Quality exception decisions for OUT_OF_SPEC must be resolved by the ZMCC Manager for this ZMCC, not Super Admin.
@@ -2476,7 +2361,7 @@ export async function correctCompletedSession(
         hasExited = true;
         exitTimestamp = arr.exit_timestamp;
       }
-    } else if (session.arrival_type === 'LOCAL_SUPPLIER' && session.local_supplier_arrival_id) {
+    } else if (session.arrival_type === 'HC' && session.local_supplier_arrival_id) {
       const arr = await prisma.zmccLocalSupplierArrival.findUnique({ where: { id: session.local_supplier_arrival_id } });
       if (arr?.exit_timestamp) {
         hasExited = true;
@@ -2519,11 +2404,6 @@ export async function correctCompletedSession(
                     summary: true,
                   },
                 },
-              },
-            },
-            contractor_arrival: {
-              include: {
-                contractor_source: true,
               },
             },
             local_supplier_arrival: {
@@ -2735,8 +2615,8 @@ export async function correctCompletedSession(
       const currentTotalCount = lockedRows[0].correction_count;
       const currentManagerCount = lockedRows[0].manager_correction_count ?? 0;
 
-      if (!isPendingReview && !isCorrectionAuthority(auth.role) && currentManagerCount >= 5) {
-        throw new Error('MAX_CORRECTIONS_REACHED');
+      if (!isPendingReview && !isCorrectionAuthority(auth.role)) {
+        throw new Error('ONLY_CORRECTION_AUTHORITY_ALLOWED');
       }
 
       const oldValues: Record<string, unknown> = {
@@ -2766,7 +2646,7 @@ export async function correctCompletedSession(
       };
 
       const newTotalCount = isPendingReview ? currentTotalCount : currentTotalCount + 1;
-      const newManagerCount = isPendingReview ? currentManagerCount : (isCorrectionAuthority(auth.role) ? currentManagerCount : currentManagerCount + 1);
+      const newManagerCount = currentManagerCount;
       const correctionTimestamp = new Date();
 
       // Compute effective quantity and unit
@@ -2779,10 +2659,8 @@ export async function correctCompletedSession(
 
       // Determine testing point and event timestamp
       const testingPoint = session.arrival_type === 'MOT'
-        ? 'ZMCC_LAB_MOT'
-        : session.arrival_type === 'LOCAL_SUPPLIER'
-        ? 'ZMCC_LAB_LOCAL_SUPPLIER'
-        : 'ZMCC_LAB_CONTRACTOR';
+        ? 'ZMCC_LAB_MC'
+      : 'ZMCC_LAB_HC';
 
       const eventTimestamp = session.started_at || session.completed_at || correctionTimestamp;
       const allEvaluations: Array<QualityResultEvaluation & { isRequired: boolean }> = [];
@@ -3168,11 +3046,6 @@ export async function correctCompletedSession(
               },
             },
           },
-          contractor_arrival: {
-            include: {
-              contractor_source: true,
-            },
-          },
           local_supplier_arrival: {
             include: {
               local_supplier: true,
@@ -3282,9 +3155,6 @@ export async function getLabHistory(
     where.OR = [
       { mot_arrival: { zmcc_token: { contains: s, mode: 'insensitive' } } },
       { mot_arrival: { route_milk_token: { contains: s, mode: 'insensitive' } } },
-      { contractor_arrival: { zmcc_token: { contains: s, mode: 'insensitive' } } },
-      { contractor_arrival: { vehicle_number: { contains: s, mode: 'insensitive' } } },
-      { contractor_arrival: { contractor_source: { name: { contains: s, mode: 'insensitive' } } } },
       { local_supplier_arrival: { zmcc_token: { contains: s, mode: 'insensitive' } } },
       { local_supplier_arrival: { vehicle_number: { contains: s, mode: 'insensitive' } } },
       { local_supplier_arrival: { rmr_number: { contains: s, mode: 'insensitive' } } },
@@ -3322,11 +3192,6 @@ export async function getLabHistory(
                 summary: true,
               },
             },
-          },
-        },
-        contractor_arrival: {
-          include: {
-            contractor_source: true,
           },
         },
         local_supplier_arrival: {
@@ -3400,13 +3265,32 @@ function parseId(value: unknown): bigint | null {
 }
 
 async function buildPortionsState(auth: ZmccLabAuthContext, sessionId: bigint): Promise<ServiceResult<LabPortionsState>> {
-  const session = await prisma.zmccLabSession.findUnique({
+  let session = await prisma.zmccLabSession.findUnique({
     where: { id: sessionId },
     include: { portions: { orderBy: { portion_number: 'asc' } } },
   });
   if (!session) return { status: 404, error: 'ZMCC Lab session not found.' };
   if (auth.effectiveZmccId !== null && session.zmcc_id !== auth.effectiveZmccId) {
     return { status: 403, error: 'Forbidden. Lab session belongs to another ZMCC.' };
+  }
+
+  // Ensure Portion 1 exists for any in-progress session
+  if (session.portions.length === 0 && session.status === 'IN_PROGRESS') {
+    await prisma.zmccLabPortion.create({
+      data: {
+        lab_session_id: session.id,
+        portion_number: 1,
+        status: 'TESTING',
+        final_decision: 'PENDING',
+        created_by_user_id: auth.actorUserId,
+        ...primaryActorFields(auth.acting),
+      },
+    });
+    session = await prisma.zmccLabSession.findUnique({
+      where: { id: sessionId },
+      include: { portions: { orderBy: { portion_number: 'asc' } } },
+    });
+    if (!session) return { status: 404, error: 'ZMCC Lab session not found.' };
   }
   const point = labPointForArrival(session.arrival_type);
   const policy = await loadLabPolicy(point);
@@ -3571,7 +3455,7 @@ export async function submitPortionDecision(
 
   const portion = await prisma.zmccLabPortion.findUnique({
     where: { id: portionId },
-    include: { lab_session: { select: { id: true, zmcc_id: true, status: true, arrival_type: true } } },
+    include: { lab_session: { select: { id: true, zmcc_id: true, status: true, arrival_type: true, local_supplier_arrival_id: true } } },
   });
   if (!portion || portion.lab_session_id !== sessionId) return { status: 404, error: 'Portion not found.' };
   if (auth.effectiveZmccId !== null && portion.lab_session.zmcc_id !== auth.effectiveZmccId) {
@@ -3728,48 +3612,4 @@ export async function submitPortionDecision(
     console.error('submitPortionDecision error:', err);
     return { status: 500, error: 'Failed to save the portion decision.' };
   }
-}
-
-export interface RequestSourcePayload {
-  source_name: string;
-  phone?: string | null;
-  notes?: string | null;
-  arrival_id?: string | null;
-}
-
-/** Lab attendant asks the Zonal Manager to add a new milk source (HC) that is not in the list yet. */
-export async function requestNewLabSource(
-  reqOrUser: Request | User,
-  payload: RequestSourcePayload
-): Promise<ServiceResult<{ requested: true }>> {
-  const { auth, errorResponse } = await resolveZmccLabAuth(reqOrUser, 'REQUEST_SOURCE');
-  if (errorResponse) return errorResponse;
-  if (!auth) return { status: 401, error: 'Unauthorized.' };
-  const name = String(payload?.source_name ?? '').trim();
-  if (name.length < 3 || name.length > 150) return { status: 400, error: 'Write the source name (3 to 150 letters).' };
-  const phone = String(payload?.phone ?? '').trim().slice(0, 30) || null;
-  const notes = String(payload?.notes ?? '').trim().slice(0, 500) || null;
-  const zmccId = auth.effectiveZmccId;
-  if (zmccId === null) return { status: 400, error: 'Only ZMCC staff can request a new source.' };
-
-  await prisma.$transaction(async (tx) => {
-    await writeAuditLog(tx, {
-      tableName: 'procurement_source',
-      recordId: zmccId,
-      action: 'ZMCC_LAB_NEW_SOURCE_REQUESTED',
-      oldValues: null,
-      newValues: { source_name: name, phone, notes, arrival_id: payload?.arrival_id ?? null },
-      actor: auditActorOf(auth.acting),
-    });
-    await createNotificationsForEvent(tx, {
-      eventKey: 'ZMCC_LAB_EXCEPTION_PENDING',
-      sourceId: zmccId.toString(),
-      sourceZmccId: zmccId,
-      title: 'New milk source requested',
-      body: `Lab asks to add a new source: ${name}${phone ? ` (${phone})` : ''}.${notes ? ` ${notes}` : ''}`,
-      deepLink: '/mpd/zmcc-manager?tab=APPROVALS',
-      dedupeSuffix: `source-request:${auth.actorUserId}:${Date.now()}`,
-    });
-  });
-  return { status: 201, data: { requested: true } };
 }

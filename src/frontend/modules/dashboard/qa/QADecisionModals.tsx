@@ -2,8 +2,7 @@
 
 import React from 'react';
 import { Play, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
-import { AnimatePresence } from 'framer-motion';
-import { Modal } from '@/components/ui/modal';
+import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import type { OnHoldVisit, WaitingVisit } from './QAQueuePanel';
 import type { VisitDetail } from './QATestingSection';
 
@@ -41,9 +40,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
   visitDetail,
   activePortionIndex,
   qaOpTimestamp,
-  onQaOpTimestampChange,
-  holdReason,
-  onHoldReasonChange,
+  onQaOpTimestampChange,
   rejectionReason,
   onRejectionReasonChange,
   rejectionRemarks,
@@ -53,8 +50,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
   hasFailingTests = false,
   onStartTestingConfirm,
   onResumeTestingConfirm,
-  onAcceptPortionConfirm,
-  onHoldPortionConfirm,
+  onAcceptPortionConfirm,
   onRejectPortionConfirm,
   isSubmitting,
   waitingVisits,
@@ -66,9 +62,12 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
   const hasFailedTests = hasFailingTests || Boolean(currentPortion?.plant_results?.some((r) => r.isPassed === false));
 
   return (
-    <AnimatePresence>
+    <>
       {activeActionModal && (
-        <Modal key="qa-decision" onClose={onCloseModal} title="QA decision" preventClose={isSubmitting} className="p-5 sm:p-6 max-w-md max-h-[90dvh] overflow-y-auto space-y-5 text-foreground">
+        <Drawer open dismissible={!isSubmitting} onOpenChange={(open) => { if (!open && !isSubmitting) onCloseModal(); }}>
+          <DrawerContent>
+          <DrawerTitle className="sr-only">QA decision</DrawerTitle>
+          <div className="p-5 sm:p-6 overflow-y-auto space-y-5 text-foreground">
             {activeActionModal === 'START' && (
               <form onSubmit={onStartTestingConfirm} className="space-y-4">
                 <div className="flex items-center space-x-2.5 pb-2 border-b border-border-strong">
@@ -361,8 +360,10 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                 </div>
               </form>
             )}
-        </Modal>
+          </div>
+          </DrawerContent>
+        </Drawer>
       )}
-    </AnimatePresence>
+    </>
   );
 };

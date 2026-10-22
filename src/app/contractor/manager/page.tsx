@@ -12,31 +12,27 @@ import { PageLoader } from '@/components/ui/spinner';
 import { PageTransition } from '@/components/motion/page-transition';
 import { ShieldAlert, Building2 } from 'lucide-react';
 
+import { canActAs } from '@/backend/core/roles/hierarchy';
+import { useCurrentUser } from '@/frontend/hooks/useCurrentUser';
+
 function PlantContractorManagerContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { currentUser: user, loadingUser: loading } = useCurrentUser();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [pendingCount, setPendingCount] = useState<number | null>(null);
   const hamburgerButtonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
-    async function loadUser() {
-      try {
-        const res = await fetch('/api/auth/me');
-        if (res.ok) {
-          const data = await res.json();
-          setUser(data.user);
-        }
-      } catch (err) {
-        console.error('Failed to load user', err);
-      } finally {
-        setLoading(false);
-      }
+    if (loading) return;
+    if (!user) {
+      router.push('/login');
+      return;
     }
-    loadUser();
-  }, []);
+    if (!canActAs(user.role, 'CONTRACTOR_MANAGER')) {
+      router.push('/workspace-unavailable');
+    }
+  }, [loading, user, router]);
 
   const openDrawer = useCallback(() => setIsDrawerOpen(true), []);
   const closeDrawer = useCallback(() => {

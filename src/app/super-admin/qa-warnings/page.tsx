@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, ShieldAlert, CheckCircle2 } from 'lucide-react';
 import { getErrorMessage } from '@/lib/errors';
+import { fetchJson } from '@/lib/query/fetchJson';
 
 interface WarningItem {
   id: string;
@@ -31,31 +33,15 @@ interface MonthlySummaryItem {
 }
 
 export default function SuperAdminQaWarningsPage() {
-  const [warnings, setWarnings] = useState<WarningItem[]>([]);
-  const [summary, setSummary] = useState<MonthlySummaryItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    async function loadWarnings() {
-      try {
-        const res = await fetch('/api/super-admin/qa-warnings');
-        const data = await res.json();
-        if (res.ok) {
-          setWarnings(data.warnings || []);
-          setSummary(data.monthlySummary || []);
-        } else {
-          setError(data.error);
-        }
-      } catch (err) {
-        setError(getErrorMessage(err));
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadWarnings();
-  }, []);
+  const query = useQuery({
+    queryKey: ['super-admin', 'qa-warnings'],
+    queryFn: ({ signal }) =>
+      fetchJson<{ warnings?: WarningItem[]; monthlySummary?: MonthlySummaryItem[] }>('/api/super-admin/qa-warnings', { signal }),
+  });
+  const warnings = query.data?.warnings ?? [];
+  const summary = query.data?.monthlySummary ?? [];
+  const loading = query.isPending;
+  const error = query.error ? getErrorMessage(query.error) : null;
 
   return (
     <div className="space-y-6">

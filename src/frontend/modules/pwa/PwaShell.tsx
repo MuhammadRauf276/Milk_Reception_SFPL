@@ -182,8 +182,8 @@ export function PwaShell() {
   if (authExpired) {
     banners.push({
       id: 'auth',
-      tone: 'border-red-200 bg-red-50 text-red-900',
-      icon: <ShieldAlert className="h-4 w-4 text-red-600" />,
+      tone: 'border-rose-200 bg-rose-50 text-rose-900',
+      icon: <ShieldAlert className="h-4 w-4 text-rose-600" />,
       message: 'Your session expired while offline. Reconnect and sign in again before saving data.',
     });
   }

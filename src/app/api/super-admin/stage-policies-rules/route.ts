@@ -29,7 +29,7 @@ export async function GET(req: Request) {
 
     const testingPoint = isGlobal ? null : (testingPointParam as TestingPoint);
 
-    const [labTests, policyAssignments, activeRules] = await Promise.all([
+    const [labTests, policyAssignments, activeRules, globalRules] = await Promise.all([
       prisma.labTest.findMany({
         orderBy: [{ displayOrder: 'asc' }, { id: 'asc' }],
       }),
@@ -46,6 +46,15 @@ export async function GET(req: Request) {
         },
         orderBy: [{ version: 'desc' }],
       }),
+      !isGlobal
+        ? prisma.labTestRule.findMany({
+            where: {
+              testing_point: null,
+              is_active: true,
+            },
+            orderBy: [{ version: 'desc' }],
+          })
+        : Promise.resolve([]),
     ]);
 
     const policyByTestId = new Map<string, (typeof policyAssignments)[number]>();
@@ -61,10 +70,21 @@ export async function GET(req: Request) {
       }
     }
 
+    const globalRuleByTestId = new Map<string, (typeof globalRules)[number]>();
+    for (const gr of globalRules) {
+      const tid = gr.lab_test_id.toString();
+      if (!globalRuleByTestId.has(tid)) {
+        globalRuleByTestId.set(tid, gr);
+      }
+    }
+
     const items = labTests.map((t) => {
       const tid = t.id.toString();
       const policy = policyByTestId.get(tid) || null;
-      const rule = ruleByTestId.get(tid) || null;
+      const stageRule = ruleByTestId.get(tid) || null;
+      const globalRule = globalRuleByTestId.get(tid) || null;
+      const effectiveRule = stageRule || globalRule;
+      const isInherited = Boolean(!isGlobal && !stageRule && globalRule);
 
       return {
         labTest: {
@@ -79,14 +99,7 @@ export async function GET(req: Request) {
           isPhotoRequired: t.isPhotoRequired ?? false,
         },
         policy: isGlobal
-          ? {
-              id: `global-${tid}`,
-              isActive: t.isActive,
-              isRequired: true,
-              isPhotoRequired: t.isPhotoRequired ?? false,
-              displayOrder: t.displayOrder ?? 1,
-              updatedAt: new Date().toISOString(),
-            }
+          ? null
           : policy
           ? {
               id: policy.id.toString(),
@@ -97,17 +110,20 @@ export async function GET(req: Request) {
               updatedAt: policy.updated_at.toISOString(),
             }
           : null,
-        rule: rule
+        rule: effectiveRule
           ? {
-              id: rule.id.toString(),
-              version: rule.version,
-              ruleCategory: rule.rule_category,
-              ruleTypeLabel: rule.rule_category === 'MONITORING' ? 'Warning Only' : 'Must Pass',
-              minValue: rule.min_value !== null ? Number(rule.min_value) : null,
-              maxValue: rule.max_value !== null ? Number(rule.max_value) : null,
-              warningOffset: rule.warning_offset !== null ? Number(rule.warning_offset) : null,
-              acceptableOption: rule.acceptable_option,
-              effectiveFrom: rule.effective_from.toISOString(),
+              id: effectiveRule.id.toString(),
+              version: effectiveRule.version,
+              ruleCategory: effectiveRule.rule_category,
+              ruleTypeLabel: effectiveRule.rule_category === 'MONITORING' ? 'Warning Only' : 'Must Pass',
+              minValue: effectiveRule.min_value !== null ? Number(effectiveRule.min_value) : null,
+              maxValue: effectiveRule.max_value !== null ? Number(effectiveRule.max_value) : null,
+              warningOffset: effectiveRule.warning_offset !== null ? Number(effectiveRule.warning_offset) : null,
+              warningTrigger: effectiveRule.warning_trigger || 'BOTH',
+              acceptableOption: effectiveRule.acceptable_option,
+              effectiveFrom: effectiveRule.effective_from.toISOString(),
+              isInherited,
+              isRecordOnly: effectiveRule.warning_trigger === 'RECORD_ONLY',
             }
           : null,
       };
@@ -123,10 +139,24 @@ export async function GET(req: Request) {
       return a.labTest.testCode.localeCompare(b.labTest.testCode);
     });
 
+    const assignedItems = isGlobal ? items : items.filter((i) => i.policy !== null);
+    const unassignedTests = isGlobal
+      ? []
+      : items
+          .filter((i) => i.policy === null)
+          .map((i) => ({
+            id: i.labTest.id,
+            testCode: i.labTest.testCode,
+            testName: i.labTest.testName,
+            resultType: i.labTest.resultType,
+            unit: i.labTest.unit,
+          }));
+
     return NextResponse.json({
       testingPoint: isGlobal ? 'GLOBAL_DEFAULT' : testingPoint,
       canEdit: WRITE_ROLES.includes(role),
-      items,
+      items: assignedItems,
+      unassignedTests,
     });
   } catch (err: unknown) {
     console.error('[API_STAGE_POLICIES_RULES_GET_ERROR]', err);
@@ -157,6 +187,325 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
+
+    // 1. Quick Reorder Action
+    if (body.action === 'reorder') {
+      const { testingPoint, orderedTestIds } = body;
+      if (!testingPoint || !isValidTestingPoint(testingPoint)) {
+        return NextResponse.json({ error: 'Valid testingPoint is required for reorder.' }, { status: 400 });
+      }
+      if (!Array.isArray(orderedTestIds) || orderedTestIds.length === 0) {
+        return NextResponse.json({ error: 'orderedTestIds array is required.' }, { status: 400 });
+      }
+
+      await prisma.$transaction(async (tx) => {
+        for (let i = 0; i < orderedTestIds.length; i++) {
+          const tid = BigInt(String(orderedTestIds[i]));
+          const seq = i + 1;
+          const existing = await tx.milkTestPolicyAssignment.findUnique({
+            where: {
+              lab_test_id_testing_point: {
+                lab_test_id: tid,
+                testing_point: testingPoint,
+              },
+            },
+          });
+          if (existing) {
+            await tx.milkTestPolicyAssignment.update({
+              where: { id: existing.id },
+              data: { display_order: seq, updated_by_user_id: dbUser.id },
+            });
+          } else {
+            await tx.milkTestPolicyAssignment.create({
+              data: {
+                lab_test_id: tid,
+                testing_point: testingPoint,
+                is_active: true,
+                is_required: true,
+                display_order: seq,
+                created_by_user_id: dbUser.id,
+                updated_by_user_id: dbUser.id,
+              },
+            });
+          }
+        }
+      });
+
+      return NextResponse.json({ success: true, message: 'Tests reordered successfully.' });
+    }
+
+    // 2. Quick Assign Test to Stage Action
+    if (body.action === 'assignTest') {
+      const { labTestId, testingPoint } = body;
+      if (!labTestId || !testingPoint || !isValidTestingPoint(testingPoint)) {
+        return NextResponse.json({ error: 'Valid labTestId and testingPoint are required.' }, { status: 400 });
+      }
+      const tid = BigInt(String(labTestId));
+
+      await prisma.$transaction(async (tx) => {
+        const existing = await tx.milkTestPolicyAssignment.findUnique({
+          where: {
+            lab_test_id_testing_point: {
+              lab_test_id: tid,
+              testing_point: testingPoint,
+            },
+          },
+        });
+        if (existing) {
+          await tx.milkTestPolicyAssignment.update({
+            where: { id: existing.id },
+            data: { is_active: true, updated_by_user_id: dbUser.id },
+          });
+        } else {
+          const maxOrderResult = await tx.milkTestPolicyAssignment.aggregate({
+            where: { testing_point: testingPoint },
+            _max: { display_order: true },
+          });
+          const nextOrder = (maxOrderResult._max.display_order ?? 0) + 1;
+          await tx.milkTestPolicyAssignment.create({
+            data: {
+              lab_test_id: tid,
+              testing_point: testingPoint,
+              is_active: true,
+              is_required: true,
+              display_order: nextOrder,
+              created_by_user_id: dbUser.id,
+              updated_by_user_id: dbUser.id,
+            },
+          });
+        }
+      });
+      return NextResponse.json({ success: true, message: 'Test assigned to stage.' });
+    }
+
+    // 3. Confirm No Rule (Record Only) Action
+    if (body.action === 'confirmNoRule') {
+      const { labTestId, testingPoint, reason = 'Confirmed record only (no pass/fail rule)' } = body;
+      if (!labTestId) {
+        return NextResponse.json({ error: 'labTestId is required.' }, { status: 400 });
+      }
+      const tid = BigInt(String(labTestId));
+      const isGlobal = testingPoint === 'GLOBAL_DEFAULT' || testingPoint === 'GLOBAL' || testingPoint === null;
+      const pt = isGlobal ? null : testingPoint;
+
+      await QualityRuleService.createOrSupersedeRule({
+        labTestId: tid,
+        testingPoint: pt,
+        ruleCategory: 'MONITORING',
+        minValue: null,
+        maxValue: null,
+        warningOffset: null,
+        acceptableOption: null,
+        warningTrigger: 'RECORD_ONLY',
+        createdByUserId: dbUser.id,
+        reason: typeof reason === 'string' && reason.trim().length >= 3 ? reason.trim() : 'Confirmed record only (no rule)',
+      });
+
+      return NextResponse.json({ success: true, message: 'Confirmed test has no pass/fail rule.' });
+    }
+
+    // 4. Quick Toggle Active Action
+    if (body.action === 'toggleActive') {
+      const { labTestId, testingPoint, isActive } = body;
+      if (!labTestId || !testingPoint || !isValidTestingPoint(testingPoint)) {
+        return NextResponse.json({ error: 'Valid labTestId and testingPoint are required.' }, { status: 400 });
+      }
+      const tid = BigInt(String(labTestId));
+      const activeBool = Boolean(isActive);
+
+      await prisma.$transaction(async (tx) => {
+        const existing = await tx.milkTestPolicyAssignment.findUnique({
+          where: {
+            lab_test_id_testing_point: {
+              lab_test_id: tid,
+              testing_point: testingPoint,
+            },
+          },
+        });
+        if (existing) {
+          await tx.milkTestPolicyAssignment.update({
+            where: { id: existing.id },
+            data: { is_active: activeBool, updated_by_user_id: dbUser.id },
+          });
+        } else {
+          const maxOrderResult = await tx.milkTestPolicyAssignment.aggregate({
+            where: { testing_point: testingPoint },
+            _max: { display_order: true },
+          });
+          const nextOrder = (maxOrderResult._max.display_order ?? 0) + 1;
+          await tx.milkTestPolicyAssignment.create({
+            data: {
+              lab_test_id: tid,
+              testing_point: testingPoint,
+              is_active: activeBool,
+              is_required: true,
+              display_order: nextOrder,
+              created_by_user_id: dbUser.id,
+              updated_by_user_id: dbUser.id,
+            },
+          });
+        }
+
+        // Sync testPointPolicy
+        const pointCodesToSync: string[] = [];
+        if (testingPoint === 'MOT_SHOP') pointCodesToSync.push('MOT_SHOP');
+        else if (testingPoint === 'ZMCC_LAB_MC') pointCodesToSync.push('ZMCC_LAB_MC');
+        else if (testingPoint === 'ZMCC_LAB_HC') pointCodesToSync.push('ZMCC_LAB_HC');
+        else if (testingPoint === 'DISPATCH') pointCodesToSync.push('DISPATCH', 'ZMCC_DISPATCH', 'CONTRACTOR_DISPATCH');
+        else if (testingPoint === 'PLANT_QA') pointCodesToSync.push('PLANT_QA');
+
+        for (const pt of pointCodesToSync) {
+          const existingTpp = await tx.testPointPolicy.findFirst({
+            where: { lab_test_id: tid, testing_point: pt },
+            orderBy: { version: 'desc' },
+          });
+          if (existingTpp) {
+            await tx.testPointPolicy.update({
+              where: { id: existingTpp.id },
+              data: {
+                test_mode: activeBool ? 'COMPULSORY' : 'OFF',
+                version: existingTpp.version + 1,
+                changed_by: dbUser.id,
+                change_reason: `Quick toggle: ${activeBool ? 'Activated' : 'Deactivated'} at ${testingPoint}`,
+              },
+            });
+          }
+        }
+      });
+
+      return NextResponse.json({ success: true, isActive: activeBool });
+    }
+
+    // 5. Quick Toggle Required (Compulsory vs Optional)
+    if (body.action === 'toggleRequired') {
+      const { labTestId, testingPoint, isRequired } = body;
+      if (!labTestId || !testingPoint || !isValidTestingPoint(testingPoint)) {
+        return NextResponse.json({ error: 'Valid labTestId and testingPoint are required.' }, { status: 400 });
+      }
+      const tid = BigInt(String(labTestId));
+      const reqBool = Boolean(isRequired);
+
+      await prisma.$transaction(async (tx) => {
+        const existing = await tx.milkTestPolicyAssignment.findUnique({
+          where: {
+            lab_test_id_testing_point: {
+              lab_test_id: tid,
+              testing_point: testingPoint,
+            },
+          },
+        });
+        if (existing) {
+          await tx.milkTestPolicyAssignment.update({
+            where: { id: existing.id },
+            data: { is_required: reqBool, updated_by_user_id: dbUser.id },
+          });
+        }
+
+        // Sync testPointPolicy
+        const pointCodesToSync: string[] = [];
+        if (testingPoint === 'MOT_SHOP') pointCodesToSync.push('MOT_SHOP');
+        else if (testingPoint === 'ZMCC_LAB_MC') pointCodesToSync.push('ZMCC_LAB_MC');
+        else if (testingPoint === 'ZMCC_LAB_HC') pointCodesToSync.push('ZMCC_LAB_HC');
+        else if (testingPoint === 'DISPATCH') pointCodesToSync.push('DISPATCH', 'ZMCC_DISPATCH', 'CONTRACTOR_DISPATCH');
+        else if (testingPoint === 'PLANT_QA') pointCodesToSync.push('PLANT_QA');
+
+        for (const pt of pointCodesToSync) {
+          const existingTpp = await tx.testPointPolicy.findFirst({
+            where: { lab_test_id: tid, testing_point: pt },
+            orderBy: { version: 'desc' },
+          });
+          if (existingTpp) {
+            await tx.testPointPolicy.update({
+              where: { id: existingTpp.id },
+              data: {
+                test_mode: reqBool ? 'COMPULSORY' : 'OPTIONAL',
+                version: existingTpp.version + 1,
+                changed_by: dbUser.id,
+                change_reason: `Quick toggle: ${reqBool ? 'Compulsory' : 'Optional'} at ${testingPoint}`,
+              },
+            });
+          }
+        }
+      });
+
+      return NextResponse.json({ success: true, isRequired: reqBool });
+    }
+
+    // 6. Quick Toggle Photo Requirement
+    if (body.action === 'togglePhoto') {
+      const { labTestId, testingPoint, isPhotoRequired } = body;
+      if (!labTestId || !testingPoint || !isValidTestingPoint(testingPoint)) {
+        return NextResponse.json({ error: 'Valid labTestId and testingPoint are required.' }, { status: 400 });
+      }
+      const tid = BigInt(String(labTestId));
+      const photoBool = Boolean(isPhotoRequired);
+
+      await prisma.$transaction(async (tx) => {
+        const existing = await tx.milkTestPolicyAssignment.findUnique({
+          where: {
+            lab_test_id_testing_point: {
+              lab_test_id: tid,
+              testing_point: testingPoint,
+            },
+          },
+        });
+        if (existing) {
+          await tx.milkTestPolicyAssignment.update({
+            where: { id: existing.id },
+            data: { is_photo_required: photoBool, updated_by_user_id: dbUser.id },
+          });
+        }
+
+        // Sync testPointPolicy
+        const pointCodesToSync: string[] = [];
+        if (testingPoint === 'MOT_SHOP') pointCodesToSync.push('MOT_SHOP');
+        else if (testingPoint === 'ZMCC_LAB_MC') pointCodesToSync.push('ZMCC_LAB_MC');
+        else if (testingPoint === 'ZMCC_LAB_HC') pointCodesToSync.push('ZMCC_LAB_HC');
+        else if (testingPoint === 'DISPATCH') pointCodesToSync.push('DISPATCH', 'ZMCC_DISPATCH', 'CONTRACTOR_DISPATCH');
+        else if (testingPoint === 'PLANT_QA') pointCodesToSync.push('PLANT_QA');
+
+        for (const pt of pointCodesToSync) {
+          const existingTpp = await tx.testPointPolicy.findFirst({
+            where: { lab_test_id: tid, testing_point: pt },
+            orderBy: { version: 'desc' },
+          });
+          if (existingTpp) {
+            await tx.testPointPolicy.update({
+              where: { id: existingTpp.id },
+              data: {
+                photo_mode: photoBool ? 'REQUIRED' : 'NONE',
+                version: existingTpp.version + 1,
+                changed_by: dbUser.id,
+                change_reason: `Quick toggle photo: ${photoBool ? 'Required' : 'None'} at ${testingPoint}`,
+              },
+            });
+          }
+        }
+      });
+
+      return NextResponse.json({ success: true, isPhotoRequired: photoBool });
+    }
+
+    // 7. Unassign / Remove Test from Stage
+    if (body.action === 'unassignTest') {
+      const { labTestId, testingPoint } = body;
+      if (!labTestId || !testingPoint || !isValidTestingPoint(testingPoint)) {
+        return NextResponse.json({ error: 'Valid labTestId and testingPoint are required.' }, { status: 400 });
+      }
+      const tid = BigInt(String(labTestId));
+
+      await prisma.$transaction(async (tx) => {
+        await tx.milkTestPolicyAssignment.deleteMany({
+          where: {
+            lab_test_id: tid,
+            testing_point: testingPoint,
+          },
+        });
+      });
+
+      return NextResponse.json({ success: true, message: 'Test removed from stage.' });
+    }
+
     const {
       labTestId,
       testingPoint,
@@ -167,6 +516,7 @@ export async function POST(req: Request) {
       minValue = null,
       maxValue = null,
       warningOffset = null,
+      warningTrigger = 'BOTH',
       isPhotoRequired = false,
       acceptableOption = null,
       reason = 'Updated stage policy and passing rule',
@@ -180,13 +530,6 @@ export async function POST(req: Request) {
 
     if (!isGlobal && (!testingPoint || !isValidTestingPoint(testingPoint))) {
       return NextResponse.json({ error: 'Valid testingPoint is required.' }, { status: 400 });
-    }
-
-    if (testingPoint === 'ZMCC_LAB_CONTRACTOR') {
-      return NextResponse.json(
-        { error: "Testing point 'ZMCC_LAB_CONTRACTOR' is historical only. Use 'ZMCC_LAB_MOT' or 'ZMCC_LAB_LOCAL_SUPPLIER'." },
-        { status: 400 }
-      );
     }
 
     const normalizedRuleCategory: 'RELEASE' | 'MONITORING' =
@@ -224,8 +567,16 @@ export async function POST(req: Request) {
         }
       }
 
-      // Update labTest.isPhotoRequired if global or provided
-      if (isGlobal || isPhotoRequired !== undefined) {
+      // A compulsory test must have a passing rule: without one the system cannot say YES or NO.
+      if (!isGlobal && isActive && isRequired && (labTest.resultType === 'NUMERIC' || labTest.resultType === 'CALCULATED')) {
+        const hasLimit = (v: unknown) => v !== null && v !== undefined && v !== '';
+        if (!hasLimit(minValue) && !hasLimit(maxValue)) {
+          throw new Error('A compulsory test needs a passing rule. Enter a minimum or maximum limit, or make the test optional.');
+        }
+      }
+
+      // Update labTest.isPhotoRequired ONLY if global
+      if (isGlobal && isPhotoRequired !== undefined) {
         await tx.labTest.update({
           where: { id: testIdBig },
           data: {
@@ -244,6 +595,7 @@ export async function POST(req: Request) {
           maxValue: labTest.resultType === 'NUMERIC' || labTest.resultType === 'CALCULATED' ? maxValue : null,
           warningOffset: labTest.resultType === 'NUMERIC' || labTest.resultType === 'CALCULATED' ? parsedWarningOffset : null,
           acceptableOption: labTest.resultType === 'QUALITATIVE' ? (acceptableOption || 'PASS') : null,
+          warningTrigger: warningTrigger || 'BOTH',
           createdByUserId: dbUser.id,
           reason: cleanReason,
         },
@@ -288,6 +640,59 @@ export async function POST(req: Request) {
             },
           });
           savedPolicyId = created.id.toString();
+        }
+
+        // Keep testPointPolicy in sync for engines reading test_point_policy
+        const pointCodesToSync: string[] = [];
+        if (testingPoint === 'MOT_SHOP') {
+          pointCodesToSync.push('MOT_SHOP');
+        } else if (testingPoint === 'ZMCC_LAB_MC') {
+          pointCodesToSync.push('ZMCC_LAB_MC');
+        } else if (testingPoint === 'ZMCC_LAB_HC') {
+          pointCodesToSync.push('ZMCC_LAB_HC');
+        } else if (testingPoint === 'DISPATCH') {
+          pointCodesToSync.push('DISPATCH', 'ZMCC_DISPATCH', 'CONTRACTOR_DISPATCH');
+        } else if (testingPoint === 'PLANT_QA') {
+          pointCodesToSync.push('PLANT_QA');
+        }
+
+        const testModeVal = Boolean(isActive) ? (Boolean(isRequired) ? 'COMPULSORY' : 'OPTIONAL') : 'OFF';
+        const photoModeVal = Boolean(isPhotoRequired) ? 'REQUIRED' : 'NONE';
+        const ruleModeVal = normalizedRuleCategory === 'MONITORING' ? 'WARN' : 'APPLY';
+
+        for (const pt of pointCodesToSync) {
+          const existingTpp = await tx.testPointPolicy.findFirst({
+            where: { lab_test_id: testIdBig, testing_point: pt },
+            orderBy: { version: 'desc' },
+          });
+
+          if (existingTpp) {
+            await tx.testPointPolicy.update({
+              where: { id: existingTpp.id },
+              data: {
+                test_mode: testModeVal,
+                rule_mode: ruleModeVal,
+                photo_mode: photoModeVal,
+                version: existingTpp.version + 1,
+                changed_by: dbUser.id,
+                change_reason: cleanReason,
+              },
+            });
+          } else {
+            await tx.testPointPolicy.create({
+              data: {
+                lab_test_id: testIdBig,
+                testing_point: pt,
+                test_mode: testModeVal,
+                rule_mode: ruleModeVal,
+                photo_mode: photoModeVal,
+                version: 1,
+                effective_from: new Date(),
+                changed_by: dbUser.id,
+                change_reason: cleanReason,
+              },
+            });
+          }
         }
       }
 

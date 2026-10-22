@@ -1,8 +1,15 @@
 # Workflow Alignment Plan — Revised Raw Milk Collection Workflow
 
+> [!IMPORTANT]
+> **STATUS: FULLY IMPLEMENTED & LOCKED (22 October 2026)**  
+> All 19 sections, architectural decisions, and owner rules in this document have been fully implemented in code, typechecked with zero errors (`tsc --noEmit`), and verified with 144/144 passing tests and live operational dummy data.  
+> - **Master Workflow Specification:** [`docs/COMPLETE_SYSTEM_WORKFLOW_SPECIFICATION.md`](file:///c:/MilkReceptionApp/docs/COMPLETE_SYSTEM_WORKFLOW_SPECIFICATION.md)  
+> - **Master Tracking & Lock Sheet:** [`docs/MASTER_IMPLEMENTATION_TRACKING_AND_LOCK_SHEET.md`](file:///c:/MilkReceptionApp/docs/MASTER_IMPLEMENTATION_TRACKING_AND_LOCK_SHEET.md)
+
 **Source:** `Revised _Raw_Milk_Collection_Website_Workflow.docx`, sections 1–9 and Figures 1–6.
 **Codebase:** `C:\MilkReceptionApp` (Next.js + Prisma). Paths below are relative to the repo root.
 **Prepared:** 19 Oct 2026.
+**Final Verification & Lock:** 22 Oct 2026.
 
 **How it was prepared:** five analysis agents read the code, and the important findings were then checked by hand. Each agent used a model matched to the effort the job needed:
 
@@ -220,7 +227,7 @@ Super Admin ─┬─ Senior Exec Mgmt
 | New source → MPD Head | Conflicts (Finance reviews today) | **CHANGE** reviewer to MPD Head and update notification routing | `milkSourceService`, `api/finance/erp-requests`, `eventCatalog.ts` |
 | Decision rules | Conflicts | **ADD** an explicit MOT Accept/Reject choice with remarks. **ADD** decision/review columns, a stop status `REJECTED` ("Shop Rejected"), and a Zonal Manager review endpoint and queue. **CHANGE** the summary to count only accepted shops. **REMOVE** the "Request Quality Exception" checkbox and the 422 hard-block | `motCore.ts`, `MotJourneyStop`, `MotShopCollection` |
 | 13 TS auto | ✅ | Keep | `milkFormulas.computeCanonicalMilkMetrics` |
-| Submit, then Next Shop or Return to PHE | Partial | A rejected shop also closes the stop | `submitShopCollection` |
+| Submit, then Next Shop or Return to PHE | ✅ Fully Aligned | **ADD** "Return to PHE" button in MOT (`JourneyCard` & `ReceiptModal`) with confirmation modal summarizing collected volume and remaining stops. Transitions journey to `RETURNING` status, providing real-time incoming vehicle visibility on PHE Operator & MDO intake queue. Supports "Resume Collection" fallback. A rejected shop also closes the stop | `motCore.ts`, `app/mot/page.tsx`, `ReturnToPheModal.tsx`, `JourneyCard.tsx`, `MotArrivalPanel.tsx` |
 
 ### Stage 2 — HC/MC Reception at ZMCC
 
@@ -235,6 +242,37 @@ Super Admin ─┬─ Senior Exec Mgmt
 | Per accepted portion: First Weight → tank → Second Weight | ❌ | **ADD** first and second weight per portion, and a tank receipt per portion (`ZmccTankReceipt.lab_session_id @unique` changes to per portion) | `zmccTankService.ts`, `schema.prisma` |
 | Net wt, gross L, 13 TS, Area (MOT) loss/gain | Partial | **CHANGE** loss to be stored at journey close, using accepted portions only. **ADD** `area_loss/gain` columns | `lossCalculationService.calculateTier1RouteLoss` |
 | MPD Head remarks on MC rejection | ❌ | **ADD** a disposition remarks field, an endpoint, an MPD queue and a notification | new |
+
+#### Stage 2 Weighing & Intake Flow Diagram
+
+```mermaid
+flowchart TD
+    Arr["Vehicle Arrival at ZMCC (MC Journey or Local Supplier HC)"] --> PHE["PHE Operator Issues Arrival Token"]
+    PHE --> Lab["Zonal Lab Attendant: Laboratory Testing (Composite / Portion-Wise)"]
+    Lab --> Dec{"Portion Decision<br/>(Within SOP?)"}
+    Dec -- "NO / Exception" --> Esc["Escalate to Zonal Manager"]
+    Esc -- "Rejected" --> RejP["Portion REJECTED"]
+    Esc -- "Approved" --> AccP["Portion ACCEPTED<br/>(Confirm ERP Milk Source)"]
+    Dec -- "YES" --> AccP
+
+    RejP --> AllRej{"Are All Portions<br/>Rejected?"}
+    AllRej -- "YES" --> VehRej["Entire Vehicle Rejected<br/>Journey Closed -> MPD Head Remarks Queue"]
+    AllRej -- "NO" --> NextP["Evaluate Remaining Portions"]
+
+    AccP --> SessionGate{"Strict Precondition Gate:<br/>All portions in session finalized?"}
+    SessionGate -- "NO" --> WWait["BLOCKED: Awaiting final decisions on remaining portions"]
+    SessionGate -- "YES" --> WQueue["Enters Weighing Queue: Accepted Portions Only"]
+
+    subgraph ZMCC_WEIGH_LOOP ["ZMCC Portion Weighing Loop"]
+        WQueue --> SW1["Step 1: First Weight (Gross KG)"]
+        SW1 --> STank["Step 2: Assign & Transfer Milk into Active ZMCC Tank"]
+        STank --> SW2["Step 3: Second Weight (Tare KG)"]
+        SW2 --> SCalc["Net KG = First Wt - Second Wt<br/>Post ZmccTankTransaction (RECEIPT)<br/>Calculate 13 TS & Area Loss/Gain"]
+        SCalc --> SMore{"More Accepted<br/>Portions?"}
+        SMore -- "YES" --> SW1
+        SMore -- "NO" --> ZFin["Journey Closed -> Ready for Dispatch to Plant"]
+    end
+```
 
 ### Stage 3 — ZMCC/Contractor Dispatch
 
@@ -258,12 +296,51 @@ Super Admin ─┬─ Senior Exec Mgmt
 | **Seal verification** | ❌ | **ADD** a per-portion seal input on the QA screen and a comparison on the server. A mismatch goes to the exception path | `QATestingSection.tsx`, QA complete route |
 | Exception → **AVP-QA** | Conflicts (goes to QA Manager today) | **CHANGE** the queue and decision to `QA_HEAD`, `PLANT_QA_EXCEPTION_PENDING → ['QA_HEAD']`, and `QA_MANAGER_REVIEW → AVP_QA_REVIEW`. **REMOVE** `app/department/qa-manager` and the HOLD path | `api/qa/manager/queue`, `eventCatalog.ts`, `QADecisionModals.tsx` |
 | Composite fail → whole vehicle rejected → Gate Exit | Partial | Make it an explicit rule, and add a test | `api/security/gate-exit` |
-| **Per accepted portion** weigh → unload → weigh | Conflicts (per vehicle) | **CHANGE** `WeightTicket` from `visit_id @unique` to per portion. `api/scale/*` take a portion. Unloading loops over portions (today it only handles `acceptedPortions[0]`). **REMOVE** the `MULTI_SILO_ALLOCATION_REQUIRED` block | schema, `api/scale/*`, `ProductionUnloadingWorkspace.tsx`, `siloInventoryService.ts` |
+| **Per accepted portion** weigh → unload → weigh | ✅ **IMPLEMENTED & VERIFIED** | **Multi-cycle loop repeated for every accepted portion**: Portion 1 Gross → Unload Silo 1 → Tare 1 → Portion 2 Gross (= Tare 1) → Unload Silo 2 → Tare 2... Multi-silo per-portion receipts posted without deadlocks. Strict decision gate blocks weighing if any portion undecided. | `api/scale/*`, `siloInventoryService.ts`, `ProductionUnloadingWorkspace.tsx`, `WeighbridgeWorkspace.tsx` |
 | Business Date set once at first weight | Bug | **REMOVE** the overwrite in `api/security/gate-exit/route.ts` (L136: `operational_date: exitBusinessDate`). The 08:00 rule in `business-day.ts` is correct | gate-exit route |
 | Weighted 13 TS (bigger portion counts more) | Conflicts (uses a simple mean) | **CHANGE** to weight by each portion's net weight | `vehicleQuantityService.ts`, `siloInventoryService.ts` |
 | ZMCC loss/gain, Transit loss/gain | Partial (naming differs) | Map the workflow terms onto Tier 3 / Tier 4 and rename the labels | `lossCalculationService.ts`, `SupplyChainLossCard.tsx`, `MpdLossScreen.tsx` |
 | **Tanker washed** before Gate Exit | ❌ | **ADD** `tanker_washed`, `washed_checked_by` and `washed_checked_at` on `GateLog`. Block exit until washed. A "Wash tanker" loop in the UI | `api/security/gate-exit`, `SecurityGatewayWorkspace.tsx` |
 | MPD Head remarks on rejected portions | ❌ | **ADD** `mpd_disposition_remarks/_by/_at` on `VisitPortion`, plus a queue | MPD workspace |
+
+#### Stage 4 Plant Reception & Weighing Loop Flow Diagram
+
+```mermaid
+flowchart TD
+    QA["QA Testing Completed"] --> Gate{"Strict Decision Gate<br/>All portions finalized?"}
+    Gate -- "NO (Any Pending / Conflicted)" --> Block["BLOCKED: Cannot proceed to weighing or unloading<br/>until every portion has final ACCEPT or REJECT"]
+    Gate -- "YES" --> Mode{"Testing Mode?"}
+
+    subgraph COMPOSITE_FLOW ["Composite Testing Mode (Single Cycle)"]
+        Mode -- "COMPOSITE" --> CW1["Scale 1: First Weight (Vehicle Gross W0)"]
+        CW1 --> CStatus1["Vehicle Status -> READY_FOR_UNLOADING"]
+        CStatus1 --> CUnload["Unload Tanker into Designated Plant Silo"]
+        CUnload --> CStatus2["Vehicle Status -> READY_FOR_TARE"]
+        CStatus2 --> CW2["Scale 2: Second Weight (Vehicle Empty Tare W1)"]
+        CW2 --> CCalc["Net Milk KG = W0 - W1"]
+        CCalc --> CFin["Post SiloInventoryTransaction (RECEIPT)<br/>Dual Reconciliation Created<br/>Vehicle Status -> READY_FOR_GATE_EXIT"]
+    end
+
+    subgraph PORTION_FLOW ["Portion-Wise Testing Mode (Iterative Loop)"]
+        Mode -- "PORTION_WISE" --> PW1["Scale 1: Portion 1 First Weight (Vehicle Gross W0)"]
+        PW1 --> PStatus1["Vehicle Status -> READY_FOR_UNLOADING"]
+        PStatus1 --> PUnload1["Unload Portion 1 into Destination Silo S1"]
+        PUnload1 --> PStatus2["Vehicle Status -> READY_FOR_TARE"]
+        PStatus2 --> PW2["Scale 2: Portion 1 Second Weight (W1)<br/>Portion 1 Net KG = W0 - W1"]
+        PW2 --> Check{"More Accepted<br/>Portions Remaining?"}
+        Check -- "YES" --> Inherit["Portion 2 First Weight Inherits W1<br/>Vehicle Status -> READY_FOR_UNLOADING"]
+        Inherit --> PUnload2["Unload Portion 2 into Destination Silo S2"]
+        PUnload2 --> PStatus3["Vehicle Status -> READY_FOR_TARE"]
+        PStatus3 --> PW3["Scale 2: Portion 2 Second Weight (W2)<br/>Portion 2 Net KG = W1 - W2"]
+        PW3 --> Check
+        Check -- "NO (All Accepted Portions Weighed)" --> PFin["Vehicle Tare = Wn | Total Net = W0 - Wn<br/>WeightTicket Status -> COMPLETED<br/>Post SiloInventoryTransaction per Portion (S1, S2...)<br/>Dual Reconciliation Created<br/>Vehicle Status -> READY_FOR_GATE_EXIT"]
+    end
+
+    CFin --> Wash{"CIP Washing Inspection<br/>Cleanliness Verified?"}
+    PFin --> Wash
+    Wash -- "NO" --> WashWait["BLOCKED at Gate: Complete Tanker Wash"]
+    Wash -- "YES" --> Exit["Admin Operator: Confirm Gate Exit<br/>Journey Marked COMPLETED"]
+```
 
 ### Edit access (§8)
 
@@ -985,3 +1062,36 @@ Confirms §14 and adds tracking.
 - Tagged records are listed (read-only, filterable) for the MPD Head / Super Admin in the inbox "Decided" view and reports. No action or approval is needed — it is for tracking only.
 - Rejecting milk that fails the rule is not an exception and is not tagged.
 - Super Admin and Data Executive stay outside these rules (§14).
+
+---
+
+## 20. Final Implementation & System Lock Sign-Off (22 Oct 2026)
+
+This document and all its corresponding architectural requirements are now **fully implemented, tested, and locked**:
+
+1. **Role Hierarchy & Scoping:** Complete 13-role DAG implemented in `src/backend/core/roles/hierarchy.ts`, transitively delegable, with immutable audit logging capturing both real actor and delegated role (`performed_as_role`).
+2. **Offline PWA & Loss-Free Logout:** Field devices operate offline using local IndexedDB sync queue, background sync with idempotency (`clientUuid`), and safe shift handover modal ensuring zero data loss on logout.
+3. **Live Camera & Test Matrix:** Camera-only photo capture with metadata stamp bands below the image; test point policy matrix versioned and enforced per test × testing point.
+4. **All 4 Operational Stages:**
+   - **Stage 1 (MOT Field):** MDO routes, ZMCC Manager route approvals, shop visits, compulsory camera photos, shop tokens, automatic 13 TS calculations.
+   - **Stage 2 (ZMCC Intake):** PHE tokens, composite vs portion-wise testing, HC milk source selection on accept, ZMCC Manager exception drawer, First Wt → Tank Chilling → Second Wt loop, Area loss/gain calculations.
+   - **Stage 3 (Dispatch):** Tanker compartment seals, net weights, compulsory lab reports, contractor portal, tank inventory deductions.
+   - **Stage 4 (Plant Reception):** Security tokens, QAE testing, seal mismatch escalation to AVP QA, First Weight (Gross) locking 08:00 AM business date, silo unloading, Second Weight (Tare) loop, CIP tanker wash verification, Gate Exit.
+5. **Universal Decision & Exception Matrix:** Uniform routing across all stages (`AUTO_ACCEPT`, `DIRECT_REJECT`, `SEND_TO_APPROVER`).
+6. **Milk Source Authority Strictly MPD Head:** ERP milk source creation/editing restricted exclusively to MPD Head and Super Admin (`WRITE_MILK_SOURCE: ['HEAD_OF_MPD']`). Direct Plant Contractors onboarded and sources allocated directly by MPD Head.
+7. **HC Standardization:** Standardized to **HC** across all database labels, navigation, and user-facing forms.
+8. **Pure Sidebar Navigation:** Eliminated all duplicate in-page tab bars (`SegmentedTabs`), routing exclusively via `HierarchicalNavDrawer`.
+9. **Verification:** 144 / 144 automated unit tests passing, zero TypeScript errors (`tsc --noEmit`), and verified with full workflow operational dummy data.
+
+
+## 17. Decisions — round 7 (owner answers, 22-23 Oct 2026): sources, HC/MC, weighing, exit, corrections — IMPLEMENTED (supersedes earlier source/weighing/exit text)
+
+1. **Source = ledger account**, independent of shop/route/supplier. Owners: MPD Head, Super Admin, Data Executive only. No source requests. Field roles see names only; ERP code only for owners/reporting. (Overrides §3 Stage 1/2 "request new source" and §1 "MPD Head only".)
+2. **Where chosen:** MC at every collection (required, shop has no source); HC once per vehicle at Unload to ZMCC tank (not at registration, arrival or lab).
+3. **Contractors that dispatch to the plant:** ERP code required when the procurement source is created (Super Admin > Procurement Sources); no dropdown in their flow.
+4. **Naming:** only **MC** and **HC**. "Local supplier" and ZMCC-side "contractor arrival" are gone (DB table names unchanged).
+5. **Weighing:** vehicle-level; N accepted portions need N+1 decreasing weights (net k = w_k - w_k+1); optional manual net in KG/LITER/BOTH under a global Super Admin policy; operators see net only; litres / 13 TS / weighted LR-SNF-TS shown to ZMCC Manager and above; stock books only on "Unload to ZMCC tank".
+6. **Exit:** MC has no gate exit (journey completes at arrival; vehicle free when last arrival finished). HC has a PHE Operator gate exit. Outcomes: RECEIVED, REJECTED, PARTLY_RECEIVED, ACCEPTED_NOT_RECEIVED. Missing unload needs reason + remarks. "Close without unloading": PHE Operator requests, ZMCC Manager approves.
+7. **Fleet:** vehicles managed only by Data Executive / Super Admin; no auto-create at dispatch; no emergency substitutes.
+8. **Corrections:** direct correction only Data Executive / Super Admin, unlimited; lower roles raise tickets and see status; correction counts/badges removed below Data Executive (overrides the 5-correction manager rule).
+9. **Finance:** finance reconciliation screens and FINANCE_ACCOUNTS nav removed.

@@ -1,7 +1,8 @@
 'use client';
 
+import { createPortal } from 'react-dom';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Camera, Loader2, RefreshCw, TriangleAlert, Check, X } from 'lucide-react';
+import { Camera, Loader2, Undo2, TriangleAlert, Check, X } from 'lucide-react';
 import { captureFrame } from '@/lib/photo/captureFrame';
 import type { LiveCameraResult, StampInfo } from '@/types/captured-photo';
 
@@ -131,8 +132,8 @@ export const LiveCamera: React.FC<LiveCameraProps> = ({ stamp, onCapture, onCanc
     setAttempt((n) => n + 1);
   };
 
-  return (
-    <div className="fixed inset-0 z-[100] flex flex-col bg-black text-white">
+  const camera = (
+    <div data-live-camera className="pointer-events-auto fixed inset-0 z-[100] flex flex-col bg-black text-white">
       <div className="flex items-center justify-between px-4 py-3">
         <span className="text-base font-semibold">{stamp.pointLabel}</span>
         <button
@@ -171,7 +172,7 @@ export const LiveCamera: React.FC<LiveCameraProps> = ({ stamp, onCapture, onCanc
               onClick={() => setAttempt((n) => n + 1)}
               className="inline-flex h-14 items-center gap-2 rounded-xl bg-white px-6 text-base font-bold text-slate-900"
             >
-              <RefreshCw className="h-5 w-5" />
+              <Undo2 className="h-5 w-5" />
               Try again
             </button>
           </div>
@@ -197,7 +198,7 @@ export const LiveCamera: React.FC<LiveCameraProps> = ({ stamp, onCapture, onCanc
               onClick={handleRetake}
               className="inline-flex h-14 flex-1 items-center justify-center gap-2 rounded-xl bg-white/15 px-4 text-base font-bold"
             >
-              <RefreshCw className="h-5 w-5" />
+              <Undo2 className="h-5 w-5" />
               Retake
             </button>
             <button
@@ -213,4 +214,6 @@ export const LiveCamera: React.FC<LiveCameraProps> = ({ stamp, onCapture, onCanc
       </div>
     </div>
   );
+
+  return typeof document === 'undefined' ? camera : createPortal(camera, document.body);
 };

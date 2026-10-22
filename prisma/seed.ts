@@ -37,13 +37,32 @@ const LAB_TESTS_SEED = [
   { displayOrder: 30, testCode: 'LT-000030', testName: 'Aflatoxin Value', resultType: 'NUMERIC', unit: 'ppt', testScope: 'BOTH', isRequired: true, isActive: true },
 ];
 
-const PROCUREMENT_SOURCES_SEED = [
+// Contractors (source_type CONTRACTOR) carry the ERP code of their ledger account. ZMCCs have none.
+const PROCUREMENT_SOURCES_SEED: Array<{ code: string; name: string; sourceType: string; erpCode?: string }> = [
   { code: 'ZMCC-HASILPUR', name: 'ZMCC Hasilpur', sourceType: 'ZMCC' },
   { code: 'ZMCC-JHANG', name: 'ZMCC Jhang', sourceType: 'ZMCC' },
   { code: 'ZMCC-KABIRWALA', name: 'ZMCC Kabirwala', sourceType: 'ZMCC' },
-  { code: 'CONT-ALKHAIR', name: 'Al Khair Dairy', sourceType: 'CONTRACTOR' },
-  { code: 'CONT-IMRAN', name: 'Imran Mehmood', sourceType: 'CONTRACTOR' },
-  { code: 'CONT-ALMEHMOOD', name: 'Al Mehmood Dairy', sourceType: 'CONTRACTOR' },
+  { code: 'CONT-ALKHAIR', name: 'Al Khair Dairy', sourceType: 'CONTRACTOR', erpCode: 'ERP-CON-0001' },
+  { code: 'CONT-IMRAN', name: 'Imran Mehmood', sourceType: 'CONTRACTOR', erpCode: 'ERP-CON-0002' },
+  { code: 'CONT-ALMEHMOOD', name: 'Al Mehmood Dairy', sourceType: 'CONTRACTOR', erpCode: 'ERP-CON-0003' },
+];
+
+// Independent milk sources: a name and an ERP code. Assigned to ZMCCs through MilkSourceZmccVisibility.
+const MILK_SOURCES_SEED = [
+  { erpCode: 'MS-0001', name: 'Chak 14 Collection Point', zmcc: ['ZMCC-HASILPUR'] },
+  { erpCode: 'MS-0002', name: 'Bahawalpur Road Farmers', zmcc: ['ZMCC-HASILPUR'] },
+  { erpCode: 'MS-0003', name: 'Haroonabad Village Group', zmcc: ['ZMCC-HASILPUR', 'ZMCC-KABIRWALA'] },
+  { erpCode: 'MS-0004', name: 'Jhang Sadar Dairy Farmers', zmcc: ['ZMCC-JHANG'] },
+  { erpCode: 'MS-0005', name: 'Shorkot Milk Group', zmcc: ['ZMCC-JHANG'] },
+  { erpCode: 'MS-0006', name: 'Kabirwala Town Suppliers', zmcc: ['ZMCC-KABIRWALA'] },
+];
+
+// Vehicles are registered by the Data Executive only.
+const MC_VEHICLES_SEED = [
+  { vehicleNumber: 'LES-1001', zmcc: 'ZMCC-HASILPUR' },
+  { vehicleNumber: 'LES-1002', zmcc: 'ZMCC-HASILPUR' },
+  { vehicleNumber: 'LES-2001', zmcc: 'ZMCC-JHANG' },
+  { vehicleNumber: 'LES-3001', zmcc: 'ZMCC-KABIRWALA' },
 ];
 
 async function main() {
@@ -101,11 +120,13 @@ async function main() {
       update: {
         name: ps.name,
         source_type: ps.sourceType,
+        ...(ps.erpCode ? { erp_code: ps.erpCode } : {}),
       },
       create: {
         code: ps.code,
         name: ps.name,
         source_type: ps.sourceType,
+        ...(ps.erpCode ? { erp_code: ps.erpCode } : {}),
       },
     });
   }
@@ -129,6 +150,7 @@ async function main() {
     { username: 'zmcc.manager.north', email: 'zmcc.manager.north@example.com', name: 'ZMCC Manager - Hasilpur', role: 'ZMCC_MANAGER', department: 'Milk Procurement', pass: 'zone123', scopeType: 'SOURCE', isActive: true, sourceCode: 'ZMCC-HASILPUR' },
     { username: 'contractor.manager.alkhair', email: 'contractor.manager.alkhair@example.com', name: 'Contractor Manager - Al Khair', role: 'CONTRACTOR_MANAGER', department: 'Milk Procurement', pass: 'contractor123', scopeType: 'SOURCE', isActive: true, sourceCode: 'CONT-ALKHAIR' },
     { username: 'phe.operator', email: 'phe.operator@example.com', name: 'PHE Operator', role: 'PHE_OPERATOR', department: 'Milk Procurement', pass: 'phe123', scopeType: 'SOURCE', isActive: true, sourceCode: 'ZMCC-HASILPUR' },
+    { username: 'mdo', email: 'mdo@example.com', name: 'MDO (Milk Development Officer)', role: 'MDO', department: 'Milk Procurement', pass: 'mdo123', scopeType: 'SOURCE', isActive: true, sourceCode: 'ZMCC-HASILPUR' },
     { username: 'mdo.hasilpur', email: 'mdo.hasilpur@example.com', name: 'MDO - Hasilpur', role: 'MDO', department: 'Milk Procurement', pass: 'mdo123', scopeType: 'SOURCE', isActive: true, sourceCode: 'ZMCC-HASILPUR' },
     { username: 'mdo.jhang', email: 'mdo.jhang@example.com', name: 'MDO - Jhang', role: 'MDO', department: 'Milk Procurement', pass: 'mdo123', scopeType: 'SOURCE', isActive: true, sourceCode: 'ZMCC-JHANG' },
     { username: 'zmcc.operator', email: 'zmcc.operator@example.com', name: 'ZMCC Lab Attendant (Hasilpur)', role: 'ZMCC_LAB_ATTENDANT', department: 'Milk Procurement', pass: 'mpd123', scopeType: 'SOURCE', isActive: true, sourceCode: 'ZMCC-HASILPUR' },
@@ -137,7 +159,7 @@ async function main() {
     { username: 'mot.driver', email: 'mot.driver@example.com', name: 'MOT Operator', role: 'MOT', department: 'Milk Procurement', pass: 'mot123', scopeType: 'SOURCE', isActive: true, sourceCode: 'ZMCC-HASILPUR' },
     { username: 'contractor.operator.alkhair', email: 'contractor.operator.alkhair@example.com', name: 'Contractor Operator (Al Khair)', role: 'CONTRACTOR_OPERATOR', department: 'Milk Procurement - Contractor Operations', pass: 'mpd123', scopeType: 'SOURCE', isActive: true, sourceCode: 'CONT-ALKHAIR' },
     { username: 'contractor.operator.almehmood', email: 'contractor.operator.almehmood@example.com', name: 'Contractor Operator (Al Mehmood)', role: 'CONTRACTOR_OPERATOR', department: 'Milk Procurement - Contractor Operations', pass: 'mpd123', scopeType: 'SOURCE', isActive: true, sourceCode: 'CONT-ALMEHMOOD' },
-    { username: 'security.gate', email: 'security.gate@example.com', name: 'Security Operator', role: 'SECURITY_OPERATOR', department: 'Security', pass: 'security123', scopeType: 'DEPARTMENT', isActive: true, sourceCode: null },
+    { username: 'security.gate', email: 'security.gate@example.com', name: 'Admin Operator', role: 'SECURITY_OPERATOR', department: 'Administration', pass: 'security123', scopeType: 'DEPARTMENT', isActive: true, sourceCode: null },
     { username: 'qa.reception@shakarganj.com.pk', email: 'qa.reception@shakarganj.com.pk', name: 'QAE Reception Lab', role: 'QA_LAB_ATTENDANT', department: 'Quality Assurance', pass: 'qa123', scopeType: 'DEPARTMENT', isActive: true, sourceCode: null },
     { username: 'qa.chemist', email: 'qa.chemist@example.com', name: 'QA Lab Attendant', role: 'QA_LAB_ATTENDANT', department: 'Quality Assurance', pass: 'qa123', scopeType: 'DEPARTMENT', isActive: true, sourceCode: null },
     { username: 'weighbridge.operator', email: 'weighbridge.operator@example.com', name: 'Weighbridge Operator', role: 'WEIGHBRIDGE_OPERATOR', department: 'Production & Weighbridge', pass: 'weighbridge123', scopeType: 'DEPARTMENT', isActive: true, sourceCode: null },
@@ -247,7 +269,44 @@ async function main() {
     });
   }
 
-  console.log('✅ Successfully seeded 30 Lab Tests, 5 Procurement Sources, System Users, and 11 Chiller Ownership records!');
+  console.log('Seeding milk sources, ZMCC assignments, MC vehicles and weighing policy...');
+  const dataExecutive = await prisma.user.findFirst({ where: { username: 'data.executive', role: 'DATA_EXECUTIVE' } });
+  if (!dataExecutive) throw new Error('Data Executive user (data.executive) not found for seeding sources and vehicles');
+
+  for (const ms of MILK_SOURCES_SEED) {
+    const source = await prisma.zmccMilkSource.upsert({
+      where: { erp_code: ms.erpCode },
+      update: { name: ms.name, is_active: true, updated_by: dataExecutive.id },
+      create: { erp_code: ms.erpCode, name: ms.name, is_active: true, created_by: dataExecutive.id },
+    });
+    for (const zmccCode of ms.zmcc) {
+      const zmcc = await prisma.procurementSource.findUnique({ where: { code: zmccCode } });
+      if (!zmcc) continue;
+      await prisma.milkSourceZmccVisibility.upsert({
+        where: { milk_source_id_zmcc_id: { milk_source_id: source.id, zmcc_id: zmcc.id } },
+        update: { is_active: true },
+        create: { milk_source_id: source.id, zmcc_id: zmcc.id, is_active: true },
+      });
+    }
+  }
+
+  for (const v of MC_VEHICLES_SEED) {
+    const zmcc = await prisma.procurementSource.findUnique({ where: { code: v.zmcc } });
+    if (!zmcc) continue;
+    await prisma.motVehicle.upsert({
+      where: { vehicle_number: v.vehicleNumber },
+      update: { is_active: true },
+      create: { vehicle_number: v.vehicleNumber, zmcc_id: zmcc.id, is_active: true, created_by: dataExecutive.id },
+    });
+  }
+
+  // Global weighing policy (single row): manual entry off, both units allowed once it is switched on.
+  const policyCount = await prisma.zmccWeighingPolicy.count();
+  if (policyCount === 0) {
+    await prisma.zmccWeighingPolicy.create({ data: { manual_entry_enabled: false, allowed_units: 'BOTH', version: 1 } });
+  }
+
+  console.log('✅ Successfully seeded 30 Lab Tests, 6 Procurement Sources (contractors with ERP codes), milk sources, MC vehicles, System Users, and 11 Chiller Ownership records!');
 }
 
 main()

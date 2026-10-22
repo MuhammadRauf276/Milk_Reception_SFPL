@@ -41,6 +41,24 @@ export interface VehicleStageRow {
   exception: { kind: string; raisedAt: string } | null;
 }
 
+/** A ZMCC vehicle that left (or was closed) without its accepted milk being fully received. */
+export interface ExitedWithoutReceiptRow {
+  sessionId: string;
+  zmccId: string;
+  arrivalLabel: 'MC' | 'HC';
+  reference: string;
+  vehicleNumber: string | null;
+  sourceName: string | null;
+  stage: 'EXITED_WITHOUT_RECEIPT';
+  exitOutcome: string | null;
+  reasonCode: string | null;
+  remarks: string | null;
+  recordedBy: string | null;
+  recordedAt: string | null;
+  acceptedNotReceivedKg: number;
+  acceptedNotReceivedLiters: number;
+}
+
 export interface ManagementDashboardQuery {
   scope: ManagementScope;
   filters: ManagementFilters;

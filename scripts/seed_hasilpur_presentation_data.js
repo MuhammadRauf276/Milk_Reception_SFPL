@@ -31,8 +31,26 @@ async function main() {
   const area2 = await prisma.zmccArea.findFirst({ where: { area_code: 'AR-HAS-02' } });
   if (!area1 || !area2) throw new Error('Areas AR-HAS-01 or AR-HAS-02 not found');
 
-  const milkSource1 = await prisma.zmccMilkSource.findFirst({ where: { erp_code: 'MS-HAS-01' } });
-  if (!milkSource1) throw new Error('Milk source MS-HAS-01 not found');
+  // Milk sources are independent (name + ERP code) and assigned to the ZMCC; shops have no source.
+  const dataExecutive =
+    (await prisma.user.findFirst({ where: { role: 'DATA_EXECUTIVE', is_active: true } })) ||
+    (await prisma.user.findFirst({ where: { role: 'SUPER_ADMIN', is_active: true } }));
+  if (!dataExecutive) throw new Error('Data Executive (or Super Admin) user not found');
+
+  const milkSource1 = await prisma.zmccMilkSource.upsert({
+    where: { erp_code: 'MS-HAS-01' },
+    update: { is_active: true },
+    create: { erp_code: 'MS-HAS-01', name: 'Hasilpur Farmers Group', is_active: true, created_by: dataExecutive.id },
+  });
+  for (const code of ['MS-HAS-01', 'MS-HAS-02', 'MS-HAS-03']) {
+    const src = await prisma.zmccMilkSource.findUnique({ where: { erp_code: code } });
+    if (!src) continue;
+    await prisma.milkSourceZmccVisibility.upsert({
+      where: { milk_source_id_zmcc_id: { milk_source_id: src.id, zmcc_id: zmcc.id } },
+      update: { is_active: true },
+      create: { milk_source_id: src.id, zmcc_id: zmcc.id, is_active: true },
+    });
+  }
 
   const chillerShakarganj = await prisma.chillerOwnership.findFirst({ where: { ownership_code: 'SHAKARGANJ' } });
   const chillerSelf = await prisma.chillerOwnership.findFirst({ where: { ownership_code: 'SELF' } });
@@ -58,7 +76,7 @@ async function main() {
       cnic: '31202-1234568-1',
     },
   });
-  console.log(`Linked MOT Profile ${motProfile.mot_code} to user ${motUser.username} (id: ${motUser.id})`);
+  console.log(`Linked MC Profile ${motProfile.mot_code} to user ${motUser.username} (id: ${motUser.id})`);
 
   // 4. Upsert Authentic Shops in Hasilpur
   const shopsToSeed = [
@@ -209,7 +227,6 @@ async function main() {
           area_id: s.area_id,
           route_id: s.route_id,
           zmcc_id: zmcc.id,
-          milk_source_id: milkSource1.id,
           chiller_ownership_id: s.chiller_id,
           latitude: s.lat,
           longitude: s.lon,
@@ -249,8 +266,12 @@ async function main() {
   });
 
   // 6. Check or create today's active journey for MOT-HAS-001 (Muhammad Tariq)
-  const vehicle = await prisma.motVehicle.findFirst({ where: { vehicle_number: 'BWP-5522' } });
-  if (!vehicle) throw new Error('Vehicle BWP-5522 not found');
+  // Vehicles are registered by the Data Executive only.
+  const vehicle =
+    (await prisma.motVehicle.findFirst({ where: { vehicle_number: 'BWP-5522' } })) ||
+    (await prisma.motVehicle.create({
+      data: { vehicle_number: 'BWP-5522', zmcc_id: zmcc.id, is_active: true, created_by: dataExecutive.id },
+    }));
 
   const todayStr = '2026-10-07';
   const journeyNumber = `MJ-20261007-0001`;
@@ -401,6 +422,9 @@ async function main() {
             collection_gps_accuracy: 3.5,
             device_collected_at: new Date(`${todayStr}T${cfg.completed}.000Z`),
             submitted_by_user_id: motUser.id,
+            milk_source_id: milkSource1.id,
+            milk_source_code_snapshot: milkSource1.erp_code,
+            milk_source_name_snapshot: milkSource1.name,
             shop_rmr_number: cfg.rmr,
             collection_notes: 'Morning collection verified and tested on portable lactometer.',
           },

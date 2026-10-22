@@ -1,6 +1,6 @@
 // Server loader for the MOT_SHOP decision policy: matrix cells + active release rules + lab test metadata.
 import type { Prisma } from '@prisma/client';
-import { getEffectivePolicy, type PolicyDb } from '@/backend/services/testPointPolicyService';
+import { applyAssignmentToCell, getEffectivePolicy, type PolicyDb } from '@/backend/services/testPointPolicyService';
 import { QualityRuleService } from '@/backend/services/qualityRuleService';
 import type { MotShopPolicySnapshot, MotShopPolicyTest } from '@/types/stage1-decision';
 
@@ -21,7 +21,35 @@ export async function loadMotShopPolicy(at: Date = new Date(), db?: unknown): Pr
   const { prisma } = await import('@core/db');
   const client = (db ?? prisma) as typeof prisma;
   const policy = await getEffectivePolicy('MOT_SHOP', at, client as unknown as PolicyDb);
-  const cells = policy.cells.filter((c) => c.testMode !== 'OFF');
+
+  // Check stage policy assignments configured by Super Admin
+  const motAssignments = await client.milkTestPolicyAssignment.findMany({
+      where: { testing_point: 'MOT_SHOP' },
+      select: { lab_test_id: true, is_active: true, is_required: true, is_photo_required: true },
+    });
+
+  const assignmentMap = new Map(motAssignments.map((a) => [a.lab_test_id.toString(), a]));
+  const hasAssignedLr = Array.from(assignmentMap.values()).some(
+    (a) => a.is_active && policy.cells.some((c) => c.labTestId === a.lab_test_id.toString() && LR_CODES.has(c.testCode.toUpperCase()))
+  );
+  const hasAssignedFat = Array.from(assignmentMap.values()).some(
+    (a) => a.is_active && policy.cells.some((c) => c.labTestId === a.lab_test_id.toString() && FAT_CODES.has(c.testCode.toUpperCase()))
+  );
+
+  // Filter cells:
+  // If Super Admin assigned tests for MOT_SHOP, respect is_active from assignments.
+  // If no assignments exist yet, fall back to testScope (MOT_SHOP, MOT, ALL, or LR/Fat).
+  // Only tests Super Admin assigned (and switched on) for this point are shown. LR and Fat stay available because the milk formulas need them.
+  const cells = policy.cells
+    .filter((c) => {
+      const code = c.testCode.toUpperCase();
+      const assignment = assignmentMap.get(c.labTestId);
+      if (assignment) return assignment.is_active;
+      if (!hasAssignedLr && LR_CODES.has(code)) return true;
+      if (!hasAssignedFat && FAT_CODES.has(code)) return true;
+      return false;
+    })
+    .map((c) => applyAssignmentToCell(c, assignmentMap.get(c.labTestId)));
 
   const ids = cells.map((c) => BigInt(c.labTestId));
   const [labTests, rules] = await Promise.all([
@@ -36,15 +64,47 @@ export async function loadMotShopPolicy(at: Date = new Date(), db?: unknown): Pr
     const lt = meta.get(c.labTestId);
     const code = c.testCode.toUpperCase();
     const r = rules.get(c.labTestId);
-    // Only RELEASE rules can fail a test; monitoring rules never reject.
+
+    const opts = (lt?.resultOptions && Array.isArray(lt.resultOptions))
+      ? (lt.resultOptions as Array<{ value: string; isPassing?: boolean | null; outcome?: string }>)
+      : [];
+    const passOpts = opts
+      .filter((o) => o.outcome === 'PASS' || o.isPassing === true)
+      .map((o) => o.value.trim().toUpperCase());
+    const warnOpts = opts
+      .filter((o) => o.outcome === 'WARNING')
+      .map((o) => o.value.trim().toUpperCase());
+
+    let allowed: string[] | null = null;
+    if (r && r.rule_category === 'RELEASE' && !r.isConfigurationError) {
+      if (r.acceptable_option && (!opts.length || opts.some((o) => o.value.trim().toUpperCase() === r.acceptable_option!.trim().toUpperCase()))) {
+        allowed = [r.acceptable_option];
+      } else if (passOpts.length > 0) {
+        allowed = passOpts;
+      } else {
+        allowed = ['OK', 'PASS', 'NEGATIVE', 'NORMAL', 'CLEAN', 'TRUE', 'YES'];
+      }
+    } else if (passOpts.length > 0) {
+      allowed = passOpts;
+    }
+
     const rule =
       r && r.rule_category === 'RELEASE' && !r.isConfigurationError
         ? {
             min: r.min_value !== null ? Number(r.min_value) : null,
             max: r.max_value !== null ? Number(r.max_value) : null,
-            allowed: r.acceptable_option ? [r.acceptable_option] : null,
+            allowed,
+            warningOptions: warnOpts.length > 0 ? warnOpts : null,
+          }
+        : allowed
+        ? {
+            min: null,
+            max: null,
+            allowed,
+            warningOptions: warnOpts.length > 0 ? warnOpts : null,
           }
         : null;
+
     return {
       ...c,
       resultType: lt?.resultType ?? 'NUMERIC',

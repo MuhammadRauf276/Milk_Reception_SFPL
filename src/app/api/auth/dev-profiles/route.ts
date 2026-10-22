@@ -29,7 +29,7 @@ export async function GET() {
         { label: 'ZMCC Lab Attendant (Jhang)', department: 'Milk Procurement (Jhang)', username: 'zmcc.operator.jhang', password: 'mpd123' },
         { label: 'ZMCC Lab Attendant (Kabirwala)', department: 'Milk Procurement (Kabirwala)', username: 'zmcc.operator.kabirwala', password: 'mpd123' },
         { label: 'Mobile Tester (MOT)', department: 'Milk Procurement (Hasilpur)', username: 'mot.driver', password: 'mot123' },
-        { label: 'Security Gate Operator', department: 'Security', username: 'security.gate', password: 'security123' },
+        { label: 'Admin Operator (Gate)', department: 'Administration', username: 'security.gate', password: 'security123' },
         { label: 'QAE, Reception Lab', department: 'Quality Assurance Lab', username: 'qa.chemist', password: 'qa123' },
         { label: 'Weighbridge Operator (Shift 1)', department: 'Production & Weighbridge', username: 'weighbridge.operator', password: 'weighbridge123' },
         { label: 'Weighbridge Operator (Shift 2)', department: 'Production & Weighbridge', username: 'weighbridge.02', password: 'weighbridge123' },

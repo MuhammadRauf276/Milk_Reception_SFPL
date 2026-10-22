@@ -1,14 +1,15 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/backend/core/auth';
-import { createCorrectionRequest } from '@/backend/services/correctionGovernanceService';
+import { CORRECTION_TICKET_MODULES, createCorrectionRequest } from '@/backend/services/correctionGovernanceService';
 import { z } from 'zod';
 
 const requestSchema = z.object({
-  module: z.string().min(2, 'Module name is required.'),
+  module: z.enum(CORRECTION_TICKET_MODULES, { message: 'Unknown record type for a correction ticket.' }),
   recordId: z.string().min(1, 'Record ID is required.'),
   sourceId: z.union([z.string(), z.number()]).optional().nullable(),
   reason: z.string().trim().min(5, 'Substantive correction reason of at least 5 characters is required.'),
   requestedChanges: z.record(z.string(), z.unknown()),
+  currentValues: z.record(z.string(), z.unknown()).optional().nullable(),
   impact: z.enum(['LOW', 'MEDIUM', 'HIGH']).optional(),
 });
 
@@ -36,12 +37,13 @@ export async function POST(req: Request) {
       sourceId,
       reason: validated.reason,
       requestedChanges: validated.requestedChanges,
+      currentValues: validated.currentValues ?? null,
       impact: validated.impact,
     });
 
     return NextResponse.json({
       success: true,
-      message: 'Correction request submitted successfully. It has been routed to the Data Executive for review.',
+      message: 'Correction request submitted successfully. The Data Executive will review it. You can follow its status under My correction requests.',
       requestId: request.id.toString(),
       correlationId: request.correlation_id,
     });

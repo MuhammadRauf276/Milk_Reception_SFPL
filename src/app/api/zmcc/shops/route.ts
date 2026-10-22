@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { resolveZmccAuth, listShops, createShop } from '@/backend/services/zmccMasterDataService';
+import { resolveZmccAuth, listShopsPage, createShop } from '@/backend/services/zmccMasterDataService';
 
 export async function GET(req: Request) {
   const { auth, errorResponse } = await resolveZmccAuth(req, 'READ');
@@ -10,23 +10,29 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const route_id = searchParams.get('route_id') || undefined;
   const area_id = searchParams.get('area_id') || undefined;
-  const milk_source_id = searchParams.get('milk_source_id') || undefined;
   const chiller_ownership_id = searchParams.get('chiller_ownership_id') || undefined;
   const is_active = searchParams.get('is_active') || undefined;
   const search = searchParams.get('search') || undefined;
   const zmcc_id = searchParams.get('zmcc_id') || undefined;
 
+  const pageParam = searchParams.get('page');
+  const pageSizeParam = searchParams.get('page_size') || searchParams.get('pageSize');
+  const page = pageParam ? Math.max(1, parseInt(pageParam, 10) || 1) : undefined;
+  const page_size = pageSizeParam ? parseInt(pageSizeParam, 10) || undefined : undefined;
+
   try {
-    const shops = await listShops(auth!, {
+    const { shops, pagination } = await listShopsPage(auth!, {
       route_id,
       area_id,
-      milk_source_id,
       chiller_ownership_id,
       is_active,
       search,
       zmcc_id,
+      page,
+      page_size,
     });
-    return NextResponse.json({ shops });
+    // Without `page` the response keeps its original shape.
+    return NextResponse.json(pagination ? { shops, pagination } : { shops });
   } catch (_err) {
     return NextResponse.json({ error: 'An unexpected error occurred while fetching shops.' }, { status: 500 });
   }

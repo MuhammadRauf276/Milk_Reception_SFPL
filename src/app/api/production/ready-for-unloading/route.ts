@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
     // Fetch visits in READY_FOR_UNLOADING status with Scale 1 gross weight recorded
     const visits = await prisma.vehicleVisit.findMany({
       where: {
-        current_status: 'READY_FOR_UNLOADING',
+        current_status: { in: ['READY_FOR_UNLOADING', 'GROSS_WEIGHED'] },
         weight_ticket: {
           gross_weight_kg: { not: null },
         },
@@ -147,6 +147,11 @@ export async function GET(req: NextRequest) {
           plant_decision: p.plant_decision || 'PENDING',
           plant_rejection_reason: p.plant_rejection_reason || null,
           current_status: p.current_status,
+          first_weight_kg: p.first_weight_kg !== null && p.first_weight_kg !== undefined ? Number(p.first_weight_kg) : null,
+          first_weight_at: p.first_weight_at ? p.first_weight_at.toISOString() : null,
+          second_weight_kg: p.second_weight_kg !== null && p.second_weight_kg !== undefined ? Number(p.second_weight_kg) : null,
+          second_weight_at: p.second_weight_at ? p.second_weight_at.toISOString() : null,
+          net_weight_kg: p.net_weight_kg !== null && p.net_weight_kg !== undefined ? Number(p.net_weight_kg) : null,
           lr: plantLrVal,
           fat: plantFatVal,
           snf: snfVal !== null ? Math.round(snfVal * 1000) / 1000 : null,
@@ -174,8 +179,20 @@ export async function GET(req: NextRequest) {
       const { totalAcceptedDispatchValue, totalAcceptedDispatchUnit } =
         aggregateAcceptedPortionQuantities(acceptedPortions);
 
+      // Portion-wise active portion resolution
+      const isPortionWise = v.test_mode === 'PORTION_WISE';
+      const sortedAccepted = [...acceptedPortions].sort((a, b) => a.portion_number - b.portion_number);
+      const activePortion = isPortionWise
+        ? sortedAccepted.find((p) => p.current_status !== 'UNLOADED' && p.current_status !== 'WEIGHED') || sortedAccepted[0]
+        : null;
+      const activeFirstWeight = (isPortionWise && activePortion?.first_weight_kg)
+        ? Number(activePortion.first_weight_kg)
+        : (v.weight_ticket?.gross_weight_kg ? Number(v.weight_ticket.gross_weight_kg) : null);
+
       // Calculate waiting minutes from Gross timestamp or Entry timestamp
-      const refTime = v.weight_ticket?.gross_timestamp || v.gate_log?.entry_timestamp || v.created_at;
+      const refTime = (isPortionWise && activePortion?.first_weight_at)
+        ? new Date(activePortion.first_weight_at)
+        : v.weight_ticket?.gross_timestamp || v.gate_log?.entry_timestamp || v.created_at;
       const waitingMinutes = Math.max(0, Math.floor((Date.now() - refTime.getTime()) / 60000));
 
       return {
@@ -185,7 +202,7 @@ export async function GET(req: NextRequest) {
         token_number: v.token_number,
         identifiers: vehicleVisitPaperIdentity(v),
         current_status: v.current_status,
-        gross_weight_kg: v.weight_ticket?.gross_weight_kg ? Number(v.weight_ticket.gross_weight_kg) : null,
+        gross_weight_kg: activeFirstWeight,
         gross_timestamp: v.weight_ticket?.gross_timestamp ? v.weight_ticket.gross_timestamp.toISOString() : null,
         portion_count: v.portions.length,
         accepted_portion_count: acceptedPortions.length,
@@ -200,6 +217,10 @@ export async function GET(req: NextRequest) {
         total_accepted_physical_liters: allAcceptedHavePhysicalLiters ? Math.round(totalAcceptedPhysicalLiters) : null,
         total_accepted_at13_ts_liters: allAcceptedHaveAt13TS ? Math.round(totalAcceptedAt13TSLiters) : null,
         waiting_minutes: waitingMinutes,
+        test_mode: v.test_mode || 'COMPOSITE',
+        is_portion_wise: isPortionWise,
+        active_portion_number: activePortion?.portion_number ?? (sortedAccepted[0]?.portion_number ?? 1),
+        active_portion_id: activePortion ? String(activePortion.id) : undefined,
         portions: formattedPortions,
       };
     });

@@ -83,7 +83,7 @@ test('tree matches the plan', () => {
   assert.equal(ROLE_LABELS.QA_MANAGER, 'QA Manager (retired)');
   assert.deepEqual(getChildRoles('ZMCC_MANAGER'), ['PHE_OPERATOR', 'MDO', 'ZMCC_LAB_ATTENDANT', 'MOT']);
   assert.deepEqual(getChildRoles('PRODUCTION_HEAD'), ['WEIGHBRIDGE_OPERATOR', 'PRODUCTION_RECEPTION_OPERATOR']);
-  assert.deepEqual(getAncestorRoles('MOT'), ['ZMCC_MANAGER', 'HEAD_OF_MPD', 'SUPER_ADMIN']);
+  assert.deepEqual(getAncestorRoles('MOT'), ['ZMCC_MANAGER', 'HEAD_OF_MPD', 'DATA_EXECUTIVE', 'SUPER_ADMIN']);
   assert.deepEqual(getAncestorRoles('SUPER_ADMIN'), []);
   assert.deepEqual(getAncestorRoles('NOT_A_ROLE'), []);
 });
@@ -101,6 +101,7 @@ test('getDescendantRoles is breadth-first, nearest first', () => {
   assert.deepEqual(getDescendantRoles('MOT'), []);
   assert.deepEqual(getDescendantRoles('NOT_A_ROLE'), []);
   assert.equal(getDescendantRoles('SUPER_ADMIN').length, ALL_ROLES.length - 1);
+  assert.equal(getDescendantRoles('DATA_EXECUTIVE').length, ALL_ROLES.length - 2);
 });
 
 const CAN_ACT_AS_CASES: Array<[string, string, boolean]> = [
@@ -123,7 +124,9 @@ const CAN_ACT_AS_CASES: Array<[string, string, boolean]> = [
   ['QA_HEAD', 'PRODUCTION_RECEPTION_OPERATOR', false],
   ['PRODUCTION_HEAD', 'WEIGHBRIDGE_OPERATOR', true],
   ['PRODUCTION_HEAD', 'PRODUCTION_RECEPTION_OPERATOR', true],
-  ['DATA_EXECUTIVE', 'MOT', false],
+  ['DATA_EXECUTIVE', 'MOT', true],
+  ['DATA_EXECUTIVE', 'HEAD_OF_MPD', true],
+  ['DATA_EXECUTIVE', 'SUPER_ADMIN', false],
   ['EXECUTIVE_MANAGEMENT', 'MOT', false],
   ['FINANCE_ACCOUNTS', 'ZMCC_MANAGER', false],
   ['MDO', 'PHE_OPERATOR', false],
@@ -162,13 +165,14 @@ test('every role can act as itself; leaves only as themselves', () => {
 test('expandToAncestors', () => {
   assert.deepEqual(
     new Set(expandToAncestors(['ZMCC_LAB_ATTENDANT'])),
-    new Set(['ZMCC_LAB_ATTENDANT', 'ZMCC_MANAGER', 'HEAD_OF_MPD', 'SUPER_ADMIN'])
+    new Set(['ZMCC_LAB_ATTENDANT', 'ZMCC_MANAGER', 'HEAD_OF_MPD', 'DATA_EXECUTIVE', 'SUPER_ADMIN'])
   );
   assert.deepEqual(expandToAncestors(['MOT', 'CONTRACTOR_OPERATOR']), [
     'MOT',
     'CONTRACTOR_OPERATOR',
     'ZMCC_MANAGER',
     'HEAD_OF_MPD',
+    'DATA_EXECUTIVE',
     'SUPER_ADMIN',
     'CONTRACTOR_MANAGER',
   ]);

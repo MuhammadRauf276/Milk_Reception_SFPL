@@ -87,7 +87,7 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
       <div className="p-5 rounded-xl bg-card border border-border/80 shadow-xs space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-border/80">
           <div className="flex items-center space-x-2.5">
-            <div className="p-2 rounded-lg bg-green-800/10 text-green-800">
+            <div className="p-2 rounded-lg bg-emerald-800/10 text-emerald-800">
               <Receipt className="w-5 h-5" />
             </div>
             <div>
@@ -118,7 +118,7 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
               {showKpiPlaceholders ? '—' : summary.completedReceiptCount}
             </span>
           </div>
-          <div className="p-3 rounded-lg bg-green-50 border border-green-200">
+          <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200">
             <span className="text-xs font-sans text-emerald-700 block uppercase font-semibold">Physical Received Liters</span>
             <span className="text-lg font-semibold text-emerald-800">
               {showKpiPlaceholders
@@ -146,7 +146,7 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
                   ? 'text-slate-900'
                   : summary.pairedComparison.differenceLiters >= 0
                   ? 'text-emerald-800'
-                  : 'text-red-800'
+                  : 'text-rose-800'
               }`}
             >
               {showKpiPlaceholders
@@ -211,7 +211,7 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
                 {(currentFromDate || currentToDate) && (
                   <button
                     onClick={() => onDateFilterChange(null, null)}
-                    className="px-2 py-1 text-[11px] font-semibold text-red-600 hover:bg-red-50 rounded"
+                    className="px-2 py-1 text-[11px] font-semibold text-rose-600 hover:bg-rose-50 rounded"
                   >
                     Clear
                   </button>
@@ -248,13 +248,13 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
 
       {/* 3. Error Banner */}
       {error && (
-        <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs font-semibold flex items-center justify-between animate-panel-in">
+        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center justify-between animate-panel-in">
           <div className="flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-red-600" />
+            <AlertTriangle className="w-4 h-4 text-rose-600" />
             <span>{error}</span>
           </div>
           {onRetry && (
-            <button onClick={onRetry} className="underline hover:text-red-950">
+            <button onClick={onRetry} className="underline hover:text-rose-950">
               Retry
             </button>
           )}
@@ -344,7 +344,7 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
                 <div className="p-3.5 rounded-lg bg-subtle border border-border space-y-2">
                   <div className="flex items-center justify-between font-sans pb-1.5 border-b border-border/60">
                     <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                      <Scale className="w-3.5 h-3.5 text-green-800" />
+                      <Scale className="w-3.5 h-3.5 text-emerald-800" />
                       <span>Intake Quantity Performance</span>
                     </span>
                     <span className="text-xs font-semibold text-slate-500">Dispatch vs Final Receipt</span>
@@ -359,7 +359,7 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
                     </div>
                     <div>
                       <span className="text-xs font-sans text-slate-500 block">Physical Received Liters:</span>
-                      <span className="font-semibold text-green-800">
+                      <span className="font-semibold text-emerald-800">
                         {item.physicalReceivedLiters != null ? `${item.physicalReceivedLiters.toLocaleString()} L` : '—'}
                       </span>
                     </div>
@@ -370,8 +370,8 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
                           item.quantityDifferenceLiters == null
                             ? 'text-slate-500'
                             : item.quantityDifferenceLiters >= 0
-                            ? 'text-green-800'
-                            : 'text-red-800'
+                            ? 'text-emerald-800'
+                            : 'text-rose-800'
                         }`}
                       >
                         {item.quantityDifferenceText}
@@ -399,8 +399,8 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
                           item.tsDifferenceLiters == null
                             ? 'text-slate-500'
                             : item.tsDifferenceLiters >= 0
-                            ? 'text-green-800'
-                            : 'text-red-800'
+                            ? 'text-emerald-800'
+                            : 'text-rose-800'
                         }`}
                       >
                         {item.tsDifferenceText}

@@ -28,7 +28,7 @@ class NotFoundError extends Error {
   }
 }
 
-const ALLOWED_PATCH_FIELDS = new Set(['name', 'isActive', 'code', 'sourceType']);
+const ALLOWED_PATCH_FIELDS = new Set(['name', 'isActive', 'code', 'sourceType', 'erpCode']);
 
 export async function PATCH(
   req: Request,
@@ -98,6 +98,14 @@ export async function PATCH(
       }
     }
 
+    let erpCodeInput: string | undefined;
+    if ('erpCode' in body) {
+      if (typeof body.erpCode !== 'string' || !body.erpCode.trim()) {
+        return NextResponse.json({ error: 'ERP code must be a non-empty text.' }, { status: 400 });
+      }
+      erpCodeInput = body.erpCode.trim().slice(0, 50);
+    }
+
     // Validated above; narrowed for use in the transaction.
     const isActiveInput = typeof body.isActive === 'boolean' ? body.isActive : undefined;
 
@@ -130,6 +138,10 @@ export async function PATCH(
         if (typeof body.sourceType !== 'string' || body.sourceType.trim().toUpperCase() !== targetSource.source_type) {
           throw new ValidationError('Source Type is immutable and cannot be changed after creation.');
         }
+      }
+
+      if (erpCodeInput !== undefined && targetSource.source_type !== 'CONTRACTOR') {
+        throw new ValidationError('ERP code applies to contractors only.');
       }
 
       const newName = trimmedName !== undefined ? trimmedName : targetSource.name;
@@ -178,6 +190,7 @@ export async function PATCH(
         data: {
           name: newName,
           is_active: newIsActive,
+          ...(erpCodeInput !== undefined ? { erp_code: erpCodeInput } : {}),
         },
       });
 
@@ -186,8 +199,8 @@ export async function PATCH(
         tableName: 'procurement_source',
         recordId: sourceId,
         action: actionName,
-        oldValues: { name: targetSource.name, is_active: targetSource.is_active },
-        newValues: { name: source.name, is_active: source.is_active },
+        oldValues: { name: targetSource.name, is_active: targetSource.is_active, erp_code: targetSource.erp_code },
+        newValues: { name: source.name, is_active: source.is_active, erp_code: source.erp_code },
         actor: { ...auditActorFromUser(authUser), userId: adminUser?.id ?? null },
       });
 
@@ -201,6 +214,7 @@ export async function PATCH(
         id: updatedSource.id.toString(),
         code: updatedSource.code,
         name: updatedSource.name,
+        erpCode: updatedSource.erp_code,
         sourceType: updatedSource.source_type,
         isActive: updatedSource.is_active,
       },

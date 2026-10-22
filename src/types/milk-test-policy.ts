@@ -5,9 +5,8 @@
 
 export const CANONICAL_TESTING_POINTS = [
   'MOT_SHOP',
-  'ZMCC_LAB_MOT',
-  'ZMCC_LAB_LOCAL_SUPPLIER',
-  'ZMCC_LAB_CONTRACTOR',
+  'ZMCC_LAB_MC',
+  'ZMCC_LAB_HC',
   'DISPATCH',
   'PLANT_QA',
 ] as const;
@@ -16,9 +15,8 @@ export type TestingPoint = (typeof CANONICAL_TESTING_POINTS)[number];
 
 export const MPD_TESTING_POINTS: readonly TestingPoint[] = [
   'MOT_SHOP',
-  'ZMCC_LAB_MOT',
-  'ZMCC_LAB_LOCAL_SUPPLIER',
-  'ZMCC_LAB_CONTRACTOR',
+  'ZMCC_LAB_MC',
+  'ZMCC_LAB_HC',
   'DISPATCH',
 ];
 

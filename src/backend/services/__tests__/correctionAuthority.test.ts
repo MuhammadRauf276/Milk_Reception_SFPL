@@ -13,9 +13,12 @@ function source(rel: string): string {
   return readFileSync(join(SERVICES_DIR, rel), 'utf8').replace(/\r\n/g, '\n');
 }
 
-/** The body of `} else if (action === '<action>') { ... }` in a stage resolver. */
+/** The body of `action === '<action>'` in a stage resolver. */
 function actionBlock(src: string, action: string): string {
-  const start = src.indexOf(`} else if (action === '${action}') {`);
+  let start = src.indexOf(`action === '${action}'`);
+  if (start < 0) {
+    start = src.indexOf(`} else if (action === '${action}') {`);
+  }
   assert.ok(start >= 0, `resolver branch for ${action} not found`);
   // The branch ends at the next closing brace at resolver indentation.
   const end = src.indexOf('\n  }', start);
@@ -43,8 +46,8 @@ test('ZMCC arrival and gate exit corrections use the correction authority', () =
 });
 
 test('ZMCC lab session and MOT collection corrections use the correction authority', () => {
-  assert.match(actionBlock(source('zmccLabService.ts'), 'CORRECT_SESSION'), /if \(!isCorrectionAuthority\(role\)\)/);
-  assert.match(actionBlock(source('mot/motCore.ts'), 'CORRECT_COLLECTION'), /if \(!isCorrectionAuthority\(role\)\)/);
+  assert.ok(source('zmccLabService.ts').includes("action === 'CORRECT_SESSION' && !isCorrectionAuthority(role)"));
+  assert.ok(source('mot/motCore.ts').includes("action === 'CORRECT_COLLECTION' && !isCorrectionAuthority(role)"));
 });
 
 test('applying or rejecting a correction request checks the correction authority', () => {

@@ -7,9 +7,10 @@ import { isZmccFieldOfficer, canActAs } from '@core/roles/hierarchy';
 import { resolveActingContext } from '@core/acting-context';
 import { ACTING_AS_HEADER } from '@core/route-guards';
 import type { ActingContext } from '@/types/acting';
-import { createNotificationsForEvent } from '@/backend/services/notificationService';
 import { Prisma } from '@prisma/client';
 import { requireZmccScope } from '@/backend/core/scope';
+import { isSourceOwnerRole, stripErpForRole } from '@/backend/services/milkSourceService';
+import { createErpSource, updateErpSource } from '@/backend/services/financeMasterDataService';
 
 export interface ZmccAuthContext {
   user: User;
@@ -54,7 +55,7 @@ export const ZMCC_ACTION_ROLES: Record<RequiredMasterDataAction, readonly string
   WRITE_ROUTE: ['MDO', 'DATA_EXECUTIVE'],
   APPROVE_ROUTE: ['ZMCC_MANAGER'],
   WRITE_AREA: ['ZMCC_MANAGER', 'DATA_EXECUTIVE'],
-  WRITE_MILK_SOURCE: ['ZMCC_MANAGER', 'DATA_EXECUTIVE'],
+  WRITE_MILK_SOURCE: ['HEAD_OF_MPD', 'DATA_EXECUTIVE'],
   WRITE_CHILLER_OWNERSHIP: ['SUPER_ADMIN'],
   WRITE_SHOP: ['MDO', 'PHE_OPERATOR', 'DATA_EXECUTIVE'],
   APPROVE_SHOP: ['MDO'],
@@ -66,17 +67,26 @@ const FORBIDDEN_MESSAGES: Record<RequiredMasterDataAction, string> = {
   WRITE_ROUTE: 'Forbidden. Only the MDO (or a Zonal Manager or above) can add routes.',
   APPROVE_ROUTE: 'Forbidden. Only the Zonal Manager (or above) can approve routes.',
   WRITE_AREA: 'Forbidden. Only the Zonal Manager, Data Executive or Super Admin can change areas.',
-  WRITE_MILK_SOURCE: 'Forbidden. Only the Zonal Manager, Data Executive or Super Admin can change milk sources.',
+  WRITE_MILK_SOURCE: 'Forbidden. Milk sources are managed only by the Head of MPD, Data Executive or Super Admin.',
   WRITE_CHILLER_OWNERSHIP: 'Forbidden. Only Super Admin may manage global Chiller Ownership.',
   WRITE_SHOP: 'Forbidden. Only the MDO or PHE Operator (or a superior) can change shops.',
   APPROVE_SHOP: 'Forbidden. Only the MDO (or a Zonal Manager or above) can approve shops.',
   REQUEST_SHOP: 'Forbidden. Only MOT or MDO (or a superior) can send new shop requests.',
 };
 
+export interface ServicePagination {
+  page: number;
+  page_size: number;
+  total: number;
+  total_pages: number;
+}
+
 export interface ServiceResult<T> {
   status: number;
   data?: T;
   error?: string;
+  /** Present only when the caller asked for a page. */
+  pagination?: ServicePagination;
 }
 
 /** Audit actor for a ZMCC auth context: real user plus the role the work was done as. */
@@ -165,7 +175,14 @@ export async function resolveZmccAuth(
 
   // 2. Validate source assignment for scoped roles (ZMCC_MANAGER, PHE_OPERATOR, MDO, MOT)
   let effectiveZmccId: bigint | null = null;
-  if (!isSuperAdmin && !isFinanceAccounts && !isDataExecutive) {
+  const isSystemScope =
+    isSuperAdmin ||
+    isFinanceAccounts ||
+    isDataExecutive ||
+    role === 'HEAD_OF_MPD' ||
+    (resolved.ok && resolved.ctx.scope.kind === 'SYSTEM');
+
+  if (!isSystemScope) {
     if (!dbUser.procurement_source_id || !dbUser.procurement_source) {
       return {
         errorResponse: {
@@ -191,6 +208,27 @@ export async function resolveZmccAuth(
       };
     }
     effectiveZmccId = dbUser.procurement_source_id;
+  } else if (reqOrUser && 'headers' in reqOrUser) {
+    try {
+      const req = reqOrUser as Request;
+      const url = new URL(req.url);
+      const reqZmcc =
+        url.searchParams.get('zmccId') ||
+        url.searchParams.get('zmcc_id') ||
+        req.headers.get('x-acting-source-id');
+
+      if (reqZmcc && /^\d+$/.test(reqZmcc.trim())) {
+        const found = await prisma.procurementSource.findFirst({
+          where: { id: BigInt(reqZmcc.trim()), is_active: true, source_type: 'ZMCC' },
+          select: { id: true },
+        });
+        if (found) {
+          effectiveZmccId = found.id;
+        }
+      }
+    } catch (_err) {
+      // Fallback
+    }
   }
   if (!resolved.ok) {
     return {
@@ -1200,21 +1238,19 @@ export async function listMilkSources(
   auth: ZmccAuthContext,
   filters?: { is_active?: string; search?: string; zmcc_id?: string }
 ) {
+  const isOwner = isSourceOwnerRole(auth.role);
   const where: Prisma.ZmccMilkSourceWhereInput = {};
 
-  const targetZmccId = auth.isSuperAdmin
-    ? (filters?.zmcc_id ? BigInt(filters.zmcc_id) : undefined)
+  const targetZmccId = isOwner
+    ? (filters?.zmcc_id && /^d+$/.test(filters.zmcc_id) ? BigInt(filters.zmcc_id) : undefined)
     : requireZmccScope(auth);
 
   if (targetZmccId) {
-    where.OR = [
-      { zmcc_id: targetZmccId },
-      { visibilities: { some: { zmcc_id: targetZmccId, is_active: true } } },
-    ];
+    where.visibilities = { some: { zmcc_id: targetZmccId, is_active: true } };
   }
 
-  // PHE requires milk sources only as active selectable dropdown options
-  if (auth.isPheOperator) {
+  // Field roles only ever pick from active sources
+  if (!isOwner) {
     where.is_active = true;
   } else if (filters?.is_active !== undefined && filters.is_active !== 'all') {
     where.is_active = filters.is_active === 'true';
@@ -1222,60 +1258,58 @@ export async function listMilkSources(
 
   if (filters?.search) {
     const s = filters.search.trim();
-    const searchFilter = [
-      { erp_code: { contains: s, mode: 'insensitive' as const } },
-      { name: { contains: s, mode: 'insensitive' as const } },
-    ];
-    if (where.OR) {
-      where.AND = [{ OR: where.OR }, { OR: searchFilter }];
-      delete where.OR;
-    } else {
-      where.OR = searchFilter;
-    }
+    // Search by ERP code works only for the owner roles (code is hidden from everyone else).
+    where.OR = isOwner
+      ? [
+          { erp_code: { contains: s, mode: 'insensitive' as const } },
+          { name: { contains: s, mode: 'insensitive' as const } },
+        ]
+      : [{ name: { contains: s, mode: 'insensitive' as const } }];
   }
 
   const sources = await prisma.zmccMilkSource.findMany({
     where,
-    orderBy: { erp_code: 'asc' },
+    orderBy: { name: 'asc' },
     include: {
-      zmcc: { select: { id: true, code: true, name: true, is_active: true } },
+      visibilities: { include: { zmcc: { select: { id: true, code: true, name: true, source_type: true } } } },
       creator: { select: { id: true, username: true, full_name: true } },
       updater: { select: { id: true, username: true, full_name: true } },
-      _count: { select: { shops: true } },
     },
   });
 
-  return sources.map((ms) => ({
-    id: ms.id.toString(),
-    erp_code: ms.erp_code,
-    name: ms.name,
-    zmcc_id: ms.zmcc_id ? ms.zmcc_id.toString() : null,
-    zmcc: ms.zmcc
-      ? {
-          id: ms.zmcc.id.toString(),
-          code: ms.zmcc.code,
-          name: ms.zmcc.name,
-          is_active: ms.zmcc.is_active,
-        }
-      : null,
-    is_active: ms.is_active,
-    created_by: ms.created_by.toString(),
-    updated_by: ms.updated_by ? ms.updated_by.toString() : null,
-    creator_name: ms.creator.full_name || ms.creator.username,
-    updater_name: ms.updater ? ms.updater.full_name || ms.updater.username : null,
-    created_at: ms.created_at.toISOString(),
-    updated_at: ms.updated_at.toISOString(),
-    shop_count: ms._count.shops,
-  }));
+  return sources.map((ms) =>
+    stripErpForRole(auth.role, {
+      id: ms.id.toString(),
+      erp_code: ms.erp_code,
+      name: ms.name,
+      is_active: ms.is_active,
+      ...(isOwner
+        ? {
+            zmcc_visibilities: ms.visibilities.map((v) => ({
+              zmcc_id: v.zmcc.id.toString(),
+              zmcc_code: v.zmcc.code,
+              zmcc_name: v.zmcc.name,
+              source_type: v.zmcc.source_type,
+              is_active: v.is_active,
+            })),
+            created_by: ms.created_by.toString(),
+            updated_by: ms.updated_by ? ms.updated_by.toString() : null,
+            creator_name: ms.creator.full_name || ms.creator.username,
+            updater_name: ms.updater ? ms.updater.full_name || ms.updater.username : null,
+            created_at: ms.created_at.toISOString(),
+            updated_at: ms.updated_at.toISOString(),
+          }
+        : {}),
+    })
+  );
 }
 
 export async function getMilkSourceById(auth: ZmccAuthContext, sourceId: bigint) {
+  const isOwner = isSourceOwnerRole(auth.role);
   const ms = await prisma.zmccMilkSource.findUnique({
     where: { id: sourceId },
     include: {
-      zmcc: { select: { id: true, code: true, name: true, is_active: true } },
-      creator: { select: { id: true, username: true, full_name: true } },
-      updater: { select: { id: true, username: true, full_name: true } },
+      visibilities: { include: { zmcc: { select: { id: true, code: true, name: true, source_type: true } } } },
     },
   });
 
@@ -1283,137 +1317,66 @@ export async function getMilkSourceById(auth: ZmccAuthContext, sourceId: bigint)
     return null;
   }
 
-  if (!auth.isSuperAdmin && ms.zmcc_id !== auth.effectiveZmccId) {
-    const isVisible = await prisma.milkSourceZmccVisibility.findFirst({
-      where: {
-        milk_source_id: ms.id,
-        zmcc_id: auth.effectiveZmccId!,
-        is_active: true,
-      },
-    });
-    if (!isVisible) {
+  if (!isOwner) {
+    const visible = ms.visibilities.some(
+      (v) => v.is_active && auth.effectiveZmccId !== null && v.zmcc_id === auth.effectiveZmccId
+    );
+    if (!visible || !ms.is_active) {
       return null;
     }
   }
 
-  // PHE Operator cannot view inactive milk sources directly
-  if (auth.isPheOperator && !ms.is_active) {
-    return null;
-  }
-
-  return {
+  return stripErpForRole(auth.role, {
     id: ms.id.toString(),
     erp_code: ms.erp_code,
     name: ms.name,
-    zmcc_id: ms.zmcc_id ? ms.zmcc_id.toString() : null,
-    zmcc: ms.zmcc
-      ? {
-          id: ms.zmcc.id.toString(),
-          code: ms.zmcc.code,
-          name: ms.zmcc.name,
-          is_active: ms.zmcc.is_active,
-        }
-      : null,
     is_active: ms.is_active,
-    created_by: ms.created_by.toString(),
-    updated_by: ms.updated_by ? ms.updated_by.toString() : null,
-    creator_name: ms.creator.full_name || ms.creator.username,
-    updater_name: ms.updater ? ms.updater.full_name || ms.updater.username : null,
-    created_at: ms.created_at.toISOString(),
-    updated_at: ms.updated_at.toISOString(),
-  };
+    ...(isOwner
+      ? {
+          zmcc_visibilities: ms.visibilities.map((v) => ({
+            zmcc_id: v.zmcc.id.toString(),
+            zmcc_code: v.zmcc.code,
+            zmcc_name: v.zmcc.name,
+            source_type: v.zmcc.source_type,
+            is_active: v.is_active,
+          })),
+          created_at: ms.created_at.toISOString(),
+          updated_at: ms.updated_at.toISOString(),
+        }
+      : {}),
+  });
 }
 
+function milkSourceErrorStatus(message: string): number {
+  return /already exists/i.test(message) ? 409 : /not found/i.test(message) ? 404 : 400;
+}
+
+/** Only HEAD_OF_MPD, SUPER_ADMIN and DATA_EXECUTIVE create milk sources (name + ERP code, assigned to ZMCCs). */
 export async function createMilkSource(
   auth: ZmccAuthContext,
   body: {
     erp_code: string;
     name: string;
-    zmcc_id?: string;
+    zmcc_ids?: Array<string | number>;
   }
 ): Promise<ServiceResult<unknown>> {
-  const erp_code = body.erp_code?.trim();
-  const name = body.name?.trim();
-
-  if (!erp_code || !name) {
-    return { status: 400, error: 'ERP code and name are required.' };
+  if (!isSourceOwnerRole(auth.role)) {
+    return { status: 403, error: FORBIDDEN_MESSAGES.WRITE_MILK_SOURCE };
   }
-
-  let zmccId: bigint;
-  if (auth.isSuperAdmin) {
-    if (!body.zmcc_id) {
-      return { status: 400, error: 'Super Admin must select a ZMCC for the new milk source.' };
-    }
-    zmccId = BigInt(body.zmcc_id);
-  } else {
-    zmccId = auth.effectiveZmccId!;
-  }
-
-  const zmcc = await prisma.procurementSource.findUnique({ where: { id: zmccId } });
-  if (!zmcc || zmcc.source_type !== 'ZMCC') {
-    return { status: 400, error: 'Target procurement source is not a valid ZMCC.' };
-  }
-  if (!zmcc.is_active) {
-    return { status: 409, error: 'Cannot create milk source under an inactive ZMCC.' };
-  }
-
-  const existingCode = await prisma.zmccMilkSource.findUnique({ where: { erp_code } });
-  if (existingCode) {
-    return { status: 409, error: `ERP code "${erp_code}" already exists.` };
-  }
-
-  const existingName = await prisma.zmccMilkSource.findFirst({
-    where: { zmcc_id: zmccId, name },
-  });
-  if (existingName) {
-    return { status: 409, error: `Milk source name "${name}" already exists in this ZMCC.` };
-  }
-
-  return await prisma.$transaction(async (tx) => {
-    const created = await tx.zmccMilkSource.create({
-      data: {
-        erp_code,
-        name,
-        zmcc_id: zmccId,
-        is_active: true,
-        created_by: auth.actorUserId,
-      },
-    });
-
-    await tx.milkSourceZmccVisibility.create({
-      data: {
-        milk_source_id: created.id,
-        zmcc_id: zmccId,
-        is_active: true,
-      },
-    });
-
-    await writeAuditLog(tx, {
-      tableName: 'zmcc_milk_source',
-      recordId: created.id,
-      action: 'ZMCC_MILK_SOURCE_CREATED',
-      oldValues: undefined,
-      newValues: {
-        id: created.id.toString(),
-        erp_code: created.erp_code,
-        name: created.name,
-        zmcc_id: created.zmcc_id ? created.zmcc_id.toString() : zmccId.toString(),
-        is_active: true,
-      },
-      actor: { userId: auth.actorUserId, actorRole: auth.role },
-    });
-
+  try {
+    const created = await createErpSource(
+      auth.actorUserId,
+      { erp_code: body.erp_code ?? '', name: body.name ?? '', zmcc_ids: Array.isArray(body.zmcc_ids) ? body.zmcc_ids : [] },
+      auth.role
+    );
     return {
       status: 201,
-      data: {
-        id: created.id.toString(),
-        erp_code: created.erp_code,
-        name: created.name,
-        zmcc_id: created.zmcc_id ? created.zmcc_id.toString() : zmccId.toString(),
-        is_active: created.is_active,
-      },
+      data: { id: created.id.toString(), erp_code: created.erp_code, name: created.name, is_active: created.is_active },
     };
-  });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Could not create the milk source.';
+    return { status: milkSourceErrorStatus(message), error: message };
+  }
 }
 
 export async function updateMilkSource(
@@ -1421,97 +1384,34 @@ export async function updateMilkSource(
   sourceId: bigint,
   body: {
     name?: string;
+    erp_code?: string;
     is_active?: boolean;
+    zmcc_ids?: Array<string | number>;
   }
 ): Promise<ServiceResult<unknown>> {
-  const existing = await prisma.zmccMilkSource.findUnique({
-    where: { id: sourceId },
-    include: { zmcc: true },
-  });
-  if (!existing) {
-    return { status: 404, error: 'Milk source not found.' };
+  if (!isSourceOwnerRole(auth.role)) {
+    return { status: 403, error: FORBIDDEN_MESSAGES.WRITE_MILK_SOURCE };
   }
-
-  if (!auth.isSuperAdmin && !auth.isDataExecutive) {
-    return { status: 403, error: 'Forbidden. Only Data Executive or Super Admin may update milk sources.' };
-  }
-
-  const name = body.name !== undefined ? body.name.trim() : existing.name;
-  if (!name) {
-    return { status: 400, error: 'Milk source name cannot be empty.' };
-  }
-
-  if (name !== existing.name && existing.zmcc_id) {
-    const dup = await prisma.zmccMilkSource.findFirst({
-      where: { zmcc_id: existing.zmcc_id, name },
-    });
-    if (dup && dup.id !== sourceId) {
-      return { status: 409, error: `Milk source name "${name}" already exists in this ZMCC.` };
-    }
-  }
-
-  let targetActive = existing.is_active;
-  let action = 'ZMCC_MILK_SOURCE_UPDATED';
-
-  if (body.is_active !== undefined) {
-    targetActive = body.is_active;
-    if (targetActive && !existing.is_active) {
-      // Activation: parent ZMCC must be active
-      if (existing.zmcc && !existing.zmcc.is_active) {
-        return { status: 409, error: 'Cannot activate milk source: parent ZMCC is inactive.' };
-      }
-      action = 'ZMCC_MILK_SOURCE_ACTIVATED';
-    } else if (!targetActive && existing.is_active) {
-      // Deactivation: block if active shops exist
-      const activeShopsCount = await prisma.zmccShop.count({
-        where: { milk_source_id: sourceId, is_active: true },
-      });
-      if (activeShopsCount > 0) {
-        return {
-          status: 409,
-          error: `Cannot deactivate milk source: ${activeShopsCount} active shop(s) depend on this source. Deactivate shops first.`,
-        };
-      }
-      action = 'ZMCC_MILK_SOURCE_DEACTIVATED';
-    }
-  }
-
-  return await prisma.$transaction(async (tx) => {
-    const updated = await tx.zmccMilkSource.update({
-      where: { id: sourceId },
-      data: {
-        name,
-        is_active: targetActive,
-        updated_by: auth.actorUserId,
+  try {
+    const updated = await updateErpSource(
+      auth.actorUserId,
+      sourceId,
+      {
+        name: body.name,
+        erp_code: typeof body.erp_code === 'string' ? body.erp_code : undefined,
+        is_active: body.is_active,
+        zmcc_ids: Array.isArray(body.zmcc_ids) ? body.zmcc_ids : undefined,
       },
-    });
-
-    await writeAuditLog(tx, {
-      tableName: 'zmcc_milk_source',
-      recordId: sourceId,
-      action,
-      oldValues: {
-        name: existing.name,
-        is_active: existing.is_active,
-      },
-      newValues: {
-        name: updated.name,
-        is_active: updated.is_active,
-      },
-      actor: { userId: auth.actorUserId, actorRole: auth.role },
-    });
-
+      auth.role
+    );
     return {
       status: 200,
-      data: {
-        id: updated.id.toString(),
-        erp_code: updated.erp_code,
-        name: updated.name,
-        zmcc_id: updated.zmcc_id ? updated.zmcc_id.toString() : null,
-        is_active: updated.is_active,
-      },
+      data: { id: updated.id.toString(), erp_code: updated.erp_code, name: updated.name, is_active: updated.is_active },
     };
-  });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Could not update the milk source.';
+    return { status: milkSourceErrorStatus(message), error: message };
+  }
 }
 
 // =============================================================
@@ -1751,14 +1651,23 @@ export async function listShops(
   filters?: {
     route_id?: string;
     area_id?: string;
-    milk_source_id?: string;
     chiller_ownership_id?: string;
     is_active?: string;
     approval_status?: string;
     geotag_status?: string;
     search?: string;
     zmcc_id?: string;
+    /** When set, the list is paginated and the caller can read the total via listShopsPage. */
+    page?: number;
+    page_size?: number;
   }
+) {
+  return (await listShopsPage(auth, filters)).shops;
+}
+
+export async function listShopsPage(
+  auth: ZmccAuthContext,
+  filters?: Parameters<typeof listShops>[1]
 ) {
   const where: Prisma.ZmccShopWhereInput = {};
 
@@ -1775,9 +1684,6 @@ export async function listShops(
   }
   if (filters?.area_id) {
     where.area_id = BigInt(filters.area_id);
-  }
-  if (filters?.milk_source_id) {
-    where.milk_source_id = BigInt(filters.milk_source_id);
   }
   if (filters?.chiller_ownership_id) {
     where.chiller_ownership_id = BigInt(filters.chiller_ownership_id);
@@ -1804,19 +1710,25 @@ export async function listShops(
     ];
   }
 
-  const shops = await prisma.zmccShop.findMany({
-    where,
-    orderBy: { shop_code: 'asc' },
-    include: {
-      area: { select: { id: true, area_code: true, name: true, is_active: true } },
-      milk_source: { select: { id: true, erp_code: true, name: true, is_active: true } },
-      chiller_ownership: { select: { id: true, ownership_code: true, name: true, is_active: true } },
-      creator: { select: { id: true, username: true, full_name: true } },
-      updater: { select: { id: true, username: true, full_name: true } },
-    },
-  });
+  const paginated = filters?.page != null;
+  const pageSize = Math.min(Math.max(filters?.page_size ?? 50, 1), 200);
+  const page = Math.max(filters?.page ?? 1, 1);
+  const [rows, total] = await Promise.all([
+    prisma.zmccShop.findMany({
+      where,
+      orderBy: { shop_code: 'asc' },
+      ...(paginated ? { skip: (page - 1) * pageSize, take: pageSize } : {}),
+      include: {
+        area: { select: { id: true, area_code: true, name: true, is_active: true } },
+        chiller_ownership: { select: { id: true, ownership_code: true, name: true, is_active: true } },
+        creator: { select: { id: true, username: true, full_name: true } },
+        updater: { select: { id: true, username: true, full_name: true } },
+      },
+    }),
+    paginated ? prisma.zmccShop.count({ where }) : Promise.resolve(0),
+  ]);
 
-  return shops.map((s) => ({
+  const shops = rows.map((s) => ({
     id: s.id.toString(),
     shop_code: s.shop_code,
     shop_name: s.shop_name,
@@ -1826,7 +1738,6 @@ export async function listShops(
     area_id: s.area_id.toString(),
     route_id: s.route_id.toString(),
     zmcc_id: s.zmcc_id.toString(),
-    milk_source_id: s.milk_source_id ? s.milk_source_id.toString() : null,
     chiller_ownership_id: s.chiller_ownership_id.toString(),
     latitude: s.latitude ? Number(s.latitude) : null,
     longitude: s.longitude ? Number(s.longitude) : null,
@@ -1842,14 +1753,6 @@ export async function listShops(
       name: s.area.name,
       is_active: s.area.is_active,
     },
-    milk_source: s.milk_source
-      ? {
-          id: s.milk_source.id.toString(),
-          erp_code: s.milk_source.erp_code,
-          name: s.milk_source.name,
-          is_active: s.milk_source.is_active,
-        }
-      : null,
     chiller_ownership: {
       id: s.chiller_ownership.id.toString(),
       ownership_code: s.chiller_ownership.ownership_code,
@@ -1863,6 +1766,13 @@ export async function listShops(
     created_at: s.created_at.toISOString(),
     updated_at: s.updated_at.toISOString(),
   }));
+
+  return {
+    shops,
+    pagination: paginated
+      ? { page, page_size: pageSize, total, total_pages: Math.max(1, Math.ceil(total / pageSize)) }
+      : null,
+  };
 }
 
 export async function getShopById(auth: ZmccAuthContext, shopId: bigint) {
@@ -1876,7 +1786,6 @@ export async function getShopById(auth: ZmccAuthContext, shopId: bigint) {
           },
         },
       },
-      milk_source: true,
       chiller_ownership: true,
       creator: { select: { id: true, username: true, full_name: true } },
       updater: { select: { id: true, username: true, full_name: true } },
@@ -1901,7 +1810,6 @@ export async function getShopById(auth: ZmccAuthContext, shopId: bigint) {
     area_id: shop.area_id.toString(),
     route_id: shop.route_id.toString(),
     zmcc_id: shop.zmcc_id.toString(),
-    milk_source_id: shop.milk_source_id ? shop.milk_source_id.toString() : null,
     chiller_ownership_id: shop.chiller_ownership_id.toString(),
     latitude: shop.latitude ? Number(shop.latitude) : null,
     longitude: shop.longitude ? Number(shop.longitude) : null,
@@ -1923,14 +1831,6 @@ export async function getShopById(auth: ZmccAuthContext, shopId: bigint) {
       name: shop.area.route.name,
       is_active: shop.area.route.is_active,
     },
-    milk_source: shop.milk_source
-      ? {
-          id: shop.milk_source.id.toString(),
-          erp_code: shop.milk_source.erp_code,
-          name: shop.milk_source.name,
-          is_active: shop.milk_source.is_active,
-        }
-      : null,
     chiller_ownership: {
       id: shop.chiller_ownership.id.toString(),
       ownership_code: shop.chiller_ownership.ownership_code,
@@ -1955,7 +1855,6 @@ export async function createShop(
     phone_number: string;
     cnic: string;
     area_id: string;
-    milk_source_id: string;
     chiller_ownership_id: string;
     latitude?: number | null;
     longitude?: number | null;
@@ -1971,8 +1870,8 @@ export async function createShop(
     return { status: 400, error: 'Shop name, owner name, phone number, and CNIC are required.' };
   }
 
-  if (!body.area_id || !body.milk_source_id || !body.chiller_ownership_id) {
-    return { status: 400, error: 'Area, Milk Source, and Chiller Ownership selections are required.' };
+  if (!body.area_id || !body.chiller_ownership_id) {
+    return { status: 400, error: 'Area and Chiller Ownership selections are required.' };
   }
 
   // Phone & CNIC validation
@@ -1990,7 +1889,6 @@ export async function createShop(
   }
 
   const areaId = BigInt(body.area_id);
-  const milkSourceId = BigInt(body.milk_source_id);
   const chillerOwnershipId = BigInt(body.chiller_ownership_id);
 
   // Validate Area and its Route + ZMCC
@@ -2024,20 +1922,6 @@ export async function createShop(
   }
   if (!area.is_active) {
     return { status: 409, error: 'Cannot create shop: parent Area is inactive.' };
-  }
-
-  // Validate Milk Source (must belong to SAME ZMCC and be active)
-  const milkSource = await prisma.zmccMilkSource.findUnique({
-    where: { id: milkSourceId },
-  });
-  if (!milkSource) {
-    return { status: 400, error: 'Selected milk source not found.' };
-  }
-  if (milkSource.zmcc_id !== effectiveZmccId) {
-    return { status: 409, error: 'Cross-ZMCC violation: selected milk source does not belong to this ZMCC.' };
-  }
-  if (!milkSource.is_active) {
-    return { status: 409, error: 'Cannot create shop: selected milk source is inactive.' };
   }
 
   // Validate Chiller Ownership (must exist and be active)
@@ -2081,7 +1965,6 @@ export async function createShop(
         area_id: areaId,
         route_id: routeId,
         zmcc_id: effectiveZmccId,
-        milk_source_id: milkSourceId,
         chiller_ownership_id: chillerOwnershipId,
         latitude: body.latitude != null ? body.latitude : null,
         longitude: body.longitude != null ? body.longitude : null,
@@ -2107,23 +1990,12 @@ export async function createShop(
         area_id: created.area_id.toString(),
         route_id: created.route_id.toString(),
         zmcc_id: created.zmcc_id.toString(),
-        milk_source_id: created.milk_source_id ? created.milk_source_id.toString() : null,
         chiller_ownership_id: created.chiller_ownership_id.toString(),
         is_active: true,
         approval_status: 'ACTIVE',
         geotag_status: created.geotag_status,
       },
       actor: { userId: auth.actorUserId, actorRole: auth.role },
-    });
-
-    await createNotificationsForEvent(tx, {
-      eventKey: 'ERP_VENDOR_MAPPING_REQUIRED',
-      sourceId: created.id.toString(),
-      sourceZmccId: effectiveZmccId,
-      title: 'ERP Vendor Mapping Required',
-      body: `Shop "${created.shop_name}" (${created.shop_code}) requires official ERP vendor mapping.`,
-      deepLink: '/finance/reconciliation',
-      dedupeSuffix: created.id.toString(),
     });
 
     return {
@@ -2149,7 +2021,6 @@ export async function updateShop(
     phone_number?: string;
     cnic?: string;
     area_id?: string;
-    milk_source_id?: string;
     chiller_ownership_id?: string;
     latitude?: number | null;
     longitude?: number | null;
@@ -2160,7 +2031,6 @@ export async function updateShop(
     where: { id: shopId },
     include: {
       area: { include: { route: { include: { zmcc: true } } } },
-      milk_source: true,
       chiller_ownership: true,
     },
   });
@@ -2239,21 +2109,6 @@ export async function updateShop(
     }
   }
 
-  let targetMilkSourceId = existing.milk_source_id;
-  if (body.milk_source_id && BigInt(body.milk_source_id) !== existing.milk_source_id) {
-    targetMilkSourceId = BigInt(body.milk_source_id);
-    const newSource = await prisma.zmccMilkSource.findUnique({ where: { id: targetMilkSourceId } });
-    if (!newSource) {
-      return { status: 400, error: 'Selected milk source not found.' };
-    }
-    if (newSource.zmcc_id !== targetZmccId) {
-      return { status: 409, error: 'Selected milk source does not belong to this ZMCC.' };
-    }
-    if (!newSource.is_active) {
-      return { status: 409, error: 'Cannot assign shop to an inactive milk source.' };
-    }
-  }
-
   let targetChillerOwnershipId = existing.chiller_ownership_id;
   if (body.chiller_ownership_id && BigInt(body.chiller_ownership_id) !== existing.chiller_ownership_id) {
     targetChillerOwnershipId = BigInt(body.chiller_ownership_id);
@@ -2300,13 +2155,6 @@ export async function updateShop(
         return { status: 409, error: 'Cannot activate shop: parent ZMCC is inactive.' };
       }
 
-      if (targetMilkSourceId) {
-        const activeMs = await prisma.zmccMilkSource.findUnique({ where: { id: targetMilkSourceId } });
-        if (!activeMs || !activeMs.is_active) {
-          return { status: 409, error: 'Cannot activate shop: assigned milk source is inactive.' };
-        }
-      }
-
       const activeCo = await prisma.chillerOwnership.findUnique({ where: { id: targetChillerOwnershipId } });
       if (!activeCo || !activeCo.is_active) {
         return { status: 409, error: 'Cannot activate shop: assigned chiller ownership is inactive.' };
@@ -2330,7 +2178,6 @@ export async function updateShop(
         cnic,
         area_id: targetAreaId,
         route_id: targetRouteId,
-        milk_source_id: targetMilkSourceId,
         chiller_ownership_id: targetChillerOwnershipId,
         latitude: targetLat,
         longitude: targetLng,
@@ -2351,7 +2198,6 @@ export async function updateShop(
         cnic: existing.cnic,
         area_id: existing.area_id.toString(),
         route_id: existing.route_id.toString(),
-        milk_source_id: existing.milk_source_id ? existing.milk_source_id.toString() : null,
         chiller_ownership_id: existing.chiller_ownership_id.toString(),
         is_active: existing.is_active,
         geotag_status: existing.geotag_status,
@@ -2363,7 +2209,6 @@ export async function updateShop(
         cnic: updated.cnic,
         area_id: updated.area_id.toString(),
         route_id: updated.route_id.toString(),
-        milk_source_id: updated.milk_source_id ? updated.milk_source_id.toString() : null,
         chiller_ownership_id: updated.chiller_ownership_id.toString(),
         is_active: updated.is_active,
         geotag_status: updated.geotag_status,
@@ -2393,7 +2238,6 @@ export async function requestNewShop(
     cnic: string;
     route_id?: string;
     area_id?: string;
-    milk_source_id?: string;
     chiller_ownership_id?: string;
     latitude?: number | null;
     longitude?: number | null;
@@ -2481,32 +2325,6 @@ export async function requestNewShop(
     targetRouteId = defaultArea.route_id;
   }
 
-  // Validate or resolve Milk Source
-  let milkSourceId: bigint;
-  if (body.milk_source_id) {
-    const ms = await prisma.zmccMilkSource.findUnique({ where: { id: BigInt(body.milk_source_id) } });
-    if (!ms || ms.zmcc_id !== effectiveZmccId) return { status: 400, error: 'Invalid milk source selected.' };
-    milkSourceId = ms.id;
-  } else {
-    const defaultMs = await prisma.zmccMilkSource.findFirst({
-      where: { zmcc_id: effectiveZmccId!, is_active: true },
-    });
-    if (!defaultMs) {
-      const fallbackMs = await prisma.zmccMilkSource.create({
-        data: {
-          erp_code: `SRC-ZMCC-${effectiveZmccId}-01`,
-          name: 'Direct Milk Supplier',
-          zmcc_id: effectiveZmccId!,
-          is_active: true,
-          created_by: auth.actorUserId,
-        },
-      });
-      milkSourceId = fallbackMs.id;
-    } else {
-      milkSourceId = defaultMs.id;
-    }
-  }
-
   // Validate or resolve Chiller Ownership
   let chillerOwnershipId: bigint;
   if (body.chiller_ownership_id) {
@@ -2543,7 +2361,6 @@ export async function requestNewShop(
         area_id: targetAreaId!,
         route_id: targetRouteId!,
         zmcc_id: effectiveZmccId!,
-        milk_source_id: milkSourceId,
         chiller_ownership_id: chillerOwnershipId,
         latitude: hasGps ? body.latitude : null,
         longitude: hasGps ? body.longitude : null,

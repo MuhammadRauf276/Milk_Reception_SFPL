@@ -640,6 +640,12 @@ export async function getApprovalInbox(
             metadata: {
               portionNumber: portion.portion_number,
               sessionId: session?.id?.toString(),
+              arrivalType: session?.arrival_type,
+              localSupplierArrivalId: session?.local_supplier_arrival?.id?.toString(),
+              sourceInfo: detailsObj.sourceInfo || null,
+              assignedMilkSourceId: session?.local_supplier_arrival?.milk_source_id?.toString() || null,
+              assignedMilkSourceName: session?.local_supplier_arrival?.milk_source_name_snapshot || null,
+              assignedMilkSourceCode: session?.local_supplier_arrival?.milk_source_code_snapshot || null,
             },
           },
           version: portion.version,
@@ -867,7 +873,7 @@ export async function getApprovalInbox(
   // Stage 4 Queries: Plant QA Reception Portions
   // ===============================================================================================
   if (
-    (!isContractorScoped && !isZmccScoped) &&
+    (actor.role === 'QA_LAB_ATTENDANT' || actor.role === 'QA_HEAD' || actor.role === 'SUPER_ADMIN' || actor.role === 'DATA_EXECUTIVE' || actor.role === 'EXECUTIVE_MANAGEMENT') &&
     (stageFilter === 'ALL' || stageFilter === 'STAGE_4')
   ) {
     if (!typeFilter || typeFilter === 'STAGE_4_PORTION_EXCEPTION') {

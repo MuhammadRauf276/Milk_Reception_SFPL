@@ -41,10 +41,12 @@ export interface CorrectionRecord {
 export type CorrectionModule =
   | 'ZMCC_LAB_SESSION'
   | 'MOT_SHOP_COLLECTION'
-  | 'ZMCC_MOT_ARRIVAL'
-  | 'ZMCC_LOCAL_SUPPLIER_ARRIVAL'
+  | 'ZMCC_MC_ARRIVAL'
+  | 'ZMCC_HC_ARRIVAL'
+  | 'ZMCC_WEIGHING'
+  | 'ZMCC_EXIT'
   | 'VEHICLE_VISIT'
-  | 'LOCAL_SUPPLIER_RMR_ISSUANCE';
+  | 'HC_RMR_ISSUANCE';
 
 export interface CorrectionChange {
   field: string;

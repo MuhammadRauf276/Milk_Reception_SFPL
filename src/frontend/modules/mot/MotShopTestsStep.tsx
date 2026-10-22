@@ -42,13 +42,13 @@ export interface MotShopTestsStepProps {
   photos: Record<string, MotTestPhoto>;
   onPhotoTaken: (test: MotShopPolicyTest, result: LiveCameraResult) => void;
   onPhotoRemoved: (labTestId: string) => void;
-  /** Stamp band text (point label is fixed to 'Shop (MOT)'). */
+  /** Stamp band text (point label is fixed to 'Shop (MC)'). */
   stamp: { employeeCode: string; roleLabel: string; actingAsLabel?: string | null; vehicleNo?: string | null; tokenNo?: string | null };
   disabled?: boolean;
 }
 
 const INPUT_CLASS =
-  'h-14 w-full min-w-0 rounded-xl border-2 bg-white px-3 text-xl font-semibold tabular-nums text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900 disabled:opacity-60';
+  'h-14 w-full min-w-0 rounded-xl border-2 bg-white px-3 text-xl font-semibold tabular-nums text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary disabled:opacity-60';
 
 function isNumeric(t: MotShopPolicyTest): boolean {
   const rt = (t.resultType || '').toUpperCase();
@@ -128,10 +128,10 @@ export function MotShopTestsStep({
             <span
               className={cn(
                 'ml-2 rounded-full px-2 py-0.5 align-middle text-[11px] font-semibold uppercase tracking-wide',
-                required ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'
+                required ? 'bg-primary text-white shadow-2xs' : 'bg-slate-100 text-slate-600'
               )}
             >
-              {required ? 'Required' : 'Optional'}
+              {required ? 'Required *' : 'Optional'}
             </span>
           </label>
           {range && (
@@ -170,7 +170,7 @@ export function MotShopTestsStep({
                 disabled={disabled}
                 className={cn(
                   'min-h-12 rounded-xl border-2 px-4 text-base font-semibold transition disabled:opacity-60',
-                  text === o ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                  text === o ? 'border-primary bg-primary text-white shadow-2xs' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
                 )}
               >
                 {o}
@@ -214,7 +214,7 @@ export function MotShopTestsStep({
     <div className="space-y-2.5 rounded-2xl border border-slate-200 bg-white p-3 shadow-xs">
       <label htmlFor={id} className="text-base font-semibold text-slate-900">
         {label}
-        <span className="ml-2 rounded-full bg-slate-900 px-2 py-0.5 align-middle text-[11px] font-semibold uppercase tracking-wide text-white">
+        <span className="ml-2 rounded-full bg-primary px-2 py-0.5 align-middle text-[11px] font-semibold uppercase tracking-wide text-white shadow-2xs">
           Required
         </span>
       </label>
@@ -266,7 +266,7 @@ export function MotShopTestsStep({
             employeeCode: stamp.employeeCode,
             roleLabel: stamp.roleLabel,
             actingAsLabel: stamp.actingAsLabel ?? null,
-            pointLabel: 'Shop (MOT)',
+            pointLabel: 'Shop (MC)',
             vehicleNo: stamp.vehicleNo ?? null,
             tokenNo: stamp.tokenNo ?? null,
           }}

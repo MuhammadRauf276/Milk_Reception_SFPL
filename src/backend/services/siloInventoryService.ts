@@ -1,12 +1,19 @@
 import { prisma } from '../core/db';
 import { writeAuditLog } from '@/backend/core/audit';
 import { Prisma, SiloTransactionType } from '@prisma/client';
-import { calculatePhysicalLiters } from '../utils/milkFormulas';
+import {
+  calculatePhysicalLiters,
+  calculateDensity,
+  calculateSNF,
+  calculateTS,
+  calculateAt13TSLiters,
+} from '../utils/milkFormulas';
 import {
   calculateVehicleReceivedQuantity,
   VehicleCalculationPortion,
   VehicleCalculationFailureReason,
   isPlantLrTest,
+  isPlantFatTest,
 } from './vehicleQuantityService';
 import { calculateDualReconciliation } from './reconciliationService';
 import { checkAndTriggerTransitLossAlertTx } from './lossCalculationService';
@@ -315,7 +322,7 @@ async function executeFinalizeSiloReceiptForVisit(
   const existingReceipt = await db.siloInventoryTransaction.findFirst({
     where: {
       OR: [
-        { idempotency_key: idempotencyKey },
+        { idempotency_key: { startsWith: idempotencyKey } },
         { visit_id: visitId, transaction_type: SiloTransactionType.RECEIPT },
       ],
     },
@@ -370,6 +377,7 @@ async function executeFinalizeSiloReceiptForVisit(
   const portionInputs: VehicleCalculationPortion[] = (visit.portions || []).map((p) => ({
     portionId: p.id,
     portionNumber: p.portion_number,
+    netWeightKg: p.net_weight_kg !== null && p.net_weight_kg !== undefined ? Number(p.net_weight_kg) : null,
     plantDecision: p.plant_decision,
     plantLabResults: (p.plant_lab_results || []).map((r) => ({
       testCode: r.lab_test?.testCode || null,
@@ -382,6 +390,7 @@ async function executeFinalizeSiloReceiptForVisit(
   const calcResult = calculateVehicleReceivedQuantity({
     grossWeightKg,
     secondWeightKg: tareWeightKg,
+    testMode: visit.test_mode || 'COMPOSITE',
     portions: portionInputs,
   });
 
@@ -413,14 +422,18 @@ async function executeFinalizeSiloReceiptForVisit(
     };
   }
 
-  if (uniqueSiloIds.length > 1) {
+  const hasPerPortionWeights = acceptedPortions.every(
+    (p) => p.net_weight_kg !== null && Number(p.net_weight_kg) > 0 && p.unloading_log?.silo_id
+  );
+
+  if (uniqueSiloIds.length > 1 && !hasPerPortionWeights) {
     // Multiple accepted portions with DIFFERENT destination silos
     // Multi-Silo Guard: Do not guess unapproved allocation rules.
     return {
       success: false,
       receiptCreated: false,
       reason: 'MULTI_SILO_ALLOCATION_REQUIRED',
-      message: 'Multiple accepted portions map to different destination silos. Automatic inventory finalization skipped.',
+      message: 'Multiple accepted portions map to different destination silos without per-portion net weights. Automatic inventory finalization skipped.',
     };
   }
 
@@ -428,13 +441,15 @@ async function executeFinalizeSiloReceiptForVisit(
   const opTimestamp = opTimestampInput || visit.weight_ticket.tare_timestamp || new Date();
 
   // 5. Lock Silo row for atomic inventory update & validate capacity
-  await db.$executeRaw`SELECT id FROM silo WHERE id = ${targetSiloId} FOR UPDATE`;
+  for (const sId of uniqueSiloIds) {
+    await db.$executeRaw`SELECT id FROM silo WHERE id = ${sId} FOR UPDATE`;
+  }
 
   // Post-lock idempotency check: Another concurrent finalization may have completed while waiting for the silo lock
   const postLockReceipt = await db.siloInventoryTransaction.findFirst({
     where: {
       OR: [
-        { idempotency_key: idempotencyKey },
+        { idempotency_key: { startsWith: idempotencyKey } },
         { visit_id: visitId, transaction_type: SiloTransactionType.RECEIPT },
       ],
     },
@@ -459,7 +474,62 @@ async function executeFinalizeSiloReceiptForVisit(
     };
   }
 
-  const silo = await db.silo.findUnique({ where: { id: targetSiloId } });
+  let receiptTx: any;
+  if (uniqueSiloIds.length > 1) {
+    for (const sId of uniqueSiloIds) {
+      const s = await db.silo.findUnique({ where: { id: sId } });
+      if (!s) throw new Error(`Target Silo (ID ${sId}) not found.`);
+      if (!s.is_active) throw new Error(`Target Silo "${s.silo_name}" (${s.silo_code}) is INACTIVE. Final milk receipt blocked.`);
+    }
+
+    const createdReceipts: any[] = [];
+    for (const p of acceptedPortions) {
+      const pSiloId = p.unloading_log!.silo_id!;
+      const pNetKg = Number(p.net_weight_kg);
+
+      const performedLr = p.plant_lab_results.find(
+        (r) => isPlantLrTest(r.lab_test?.testCode, r.lab_test?.testName) && r.performance_status === 'PERFORMED' && r.numeric_value !== null
+      );
+      const performedFat = p.plant_lab_results.find(
+        (r) => isPlantFatTest(r.lab_test?.testCode, r.lab_test?.testName) && r.performance_status === 'PERFORMED' && r.numeric_value !== null
+      );
+
+      const pLr = performedLr ? Number(performedLr.numeric_value) : calcResult.internalCalculationBasis.averagePlantLr;
+      const pFat = performedFat ? Number(performedFat.numeric_value) : calcResult.internalCalculationBasis.averagePlantFat;
+      const pDensity = calculateDensity(pLr);
+      const pLiters = calculatePhysicalLiters(pNetKg, pLr);
+      const pSnf = calculateSNF(pLr, pFat);
+      const pTs = calculateTS(pFat, pSnf);
+      const pAt13TS = calculateAt13TSLiters(pLiters, pTs);
+
+      const pReceipt = await db.siloInventoryTransaction.create({
+        data: {
+          silo_id: pSiloId,
+          transaction_type: SiloTransactionType.RECEIPT,
+          quantity_kg: new Prisma.Decimal(pNetKg),
+          quantity_liters: new Prisma.Decimal(pLiters),
+          operational_timestamp: opTimestamp,
+          visit_id: visitId,
+          portion_id: p.id,
+          reference_type: 'SCALE2_TARE_WEIGHMENT',
+          reference_id: visit.weight_ticket.ticket_number || `TK-${visitId}`,
+          idempotency_key: `${idempotencyKey}:PORTION:${p.id.toString()}`,
+          performed_by: performedByUserId,
+          notes: `Portion #${p.portion_number} milk receipt (${visit.vehicle_number}).`,
+          plant_composite_lr: new Prisma.Decimal(pLr),
+          plant_composite_fat: new Prisma.Decimal(pFat),
+          plant_density: new Prisma.Decimal(pDensity),
+          plant_snf: new Prisma.Decimal(pSnf),
+          plant_ts: new Prisma.Decimal(pTs),
+          plant_final_at_13ts_liters: new Prisma.Decimal(pAt13TS),
+          plant_calculation_version: calcResult.plantCalculationVersion,
+        },
+      });
+      createdReceipts.push(pReceipt);
+    }
+    receiptTx = createdReceipts[0];
+  } else {
+    const silo = await db.silo.findUnique({ where: { id: targetSiloId } });
   if (!silo) {
     throw new Error(`Target Silo (ID ${targetSiloId}) not found.`);
   }
@@ -494,7 +564,7 @@ async function executeFinalizeSiloReceiptForVisit(
 
   // 6. Create Database-Level Idempotent SiloInventoryTransaction RECEIPT
   // quantity_kg uses vehicle netWeightKg; quantity_liters uses vehicle finalPhysicalLiters
-  const receiptTx = await db.siloInventoryTransaction.create({
+    receiptTx = await db.siloInventoryTransaction.create({
     data: {
       silo_id: targetSiloId,
       transaction_type: SiloTransactionType.RECEIPT,
@@ -519,6 +589,8 @@ async function executeFinalizeSiloReceiptForVisit(
       plant_calculation_version: calcResult.plantCalculationVersion,
     },
   });
+
+  }
 
   // 7. Stage 6G-F: Authoritative Source-Neutral Dual Reconciliation
   const sentGrossLiters =
@@ -586,6 +658,10 @@ async function executeFinalizeSiloReceiptForVisit(
     }
   }
 
+  const destinationSiloSummaryCode = uniqueSiloIds.length === 1
+    ? (await db.silo.findUnique({ where: { id: uniqueSiloIds[0] }, select: { silo_code: true } }))?.silo_code || 'SILO'
+    : 'MULTIPLE_SILOS';
+
   // 8. Log Immutable Audit Record for Final Silo Receipt
   await writeAuditLog(db, {
     tableName: 'silo_inventory_transaction',
@@ -595,8 +671,8 @@ async function executeFinalizeSiloReceiptForVisit(
     newValues: {
       visit_id: visitId.toString(),
       vehicle_number: visit.vehicle_number,
-      silo_id: targetSiloId.toString(),
-      silo_code: silo.silo_code,
+      silo_id: uniqueSiloIds.length === 1 ? uniqueSiloIds[0].toString() : 'MULTIPLE',
+      silo_code: destinationSiloSummaryCode,
       net_weight_kg: calcResult.netWeightKg,
       final_physical_liters: calcResult.finalPhysicalLiters,
       final_at13_ts_liters: calcResult.finalAt13TSLiters,
@@ -624,8 +700,8 @@ async function executeFinalizeSiloReceiptForVisit(
     netWeightKg: calcResult.netWeightKg,
     finalPhysicalLiters: calcResult.finalPhysicalLiters,
     finalAt13TSLiters: calcResult.finalAt13TSLiters,
-    targetSiloCode: silo.silo_code,
-    message: `Final Silo Receipt created (~${Math.round(calcResult.finalPhysicalLiters).toLocaleString()} L in ${silo.silo_code}). Vehicle is ready for gate exit.`,
+    targetSiloCode: destinationSiloSummaryCode,
+    message: `Final Silo Receipt created (~${Math.round(calcResult.finalPhysicalLiters).toLocaleString()} L in ${destinationSiloSummaryCode}). Vehicle is ready for gate exit.`,
   };
 }
 

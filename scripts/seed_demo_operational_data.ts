@@ -127,26 +127,19 @@ export async function seedOperationalData() {
     { test: testTaste, point: 'PLANT_QA', min: null, max: null, acceptable: 'OK', consequence: 'REJECT', category: 'RELEASE' },
     { test: testBr, point: 'PLANT_QA', min: 39.00, max: 42.00, acceptable: null, consequence: 'NEUTRAL', category: 'MONITORING' },
 
-    // ZMCC_LAB_MOT
-    { test: testFat, point: 'ZMCC_LAB_MOT', min: 3.50, max: 5.50, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
-    { test: testLr, point: 'ZMCC_LAB_MOT', min: 26.00, max: 32.00, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
-    { test: testTemp, point: 'ZMCC_LAB_MOT', min: 0.00, max: 10.00, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
-    { test: testAcidity, point: 'ZMCC_LAB_MOT', min: 0.10, max: 0.16, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
-    { test: testCob, point: 'ZMCC_LAB_MOT', min: null, max: null, acceptable: 'NEGATIVE', consequence: 'REJECT', category: 'RELEASE' },
+    // ZMCC_LAB_MC
+    { test: testFat, point: 'ZMCC_LAB_MC', min: 3.50, max: 5.50, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
+    { test: testLr, point: 'ZMCC_LAB_MC', min: 26.00, max: 32.00, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
+    { test: testTemp, point: 'ZMCC_LAB_MC', min: 0.00, max: 10.00, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
+    { test: testAcidity, point: 'ZMCC_LAB_MC', min: 0.10, max: 0.16, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
+    { test: testCob, point: 'ZMCC_LAB_MC', min: null, max: null, acceptable: 'NEGATIVE', consequence: 'REJECT', category: 'RELEASE' },
 
-    // ZMCC_LAB_CONTRACTOR
-    { test: testFat, point: 'ZMCC_LAB_CONTRACTOR', min: 3.50, max: 5.50, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
-    { test: testLr, point: 'ZMCC_LAB_CONTRACTOR', min: 26.00, max: 32.00, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
-    { test: testTemp, point: 'ZMCC_LAB_CONTRACTOR', min: 0.00, max: 10.00, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
-    { test: testAcidity, point: 'ZMCC_LAB_CONTRACTOR', min: 0.10, max: 0.16, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
-    { test: testCob, point: 'ZMCC_LAB_CONTRACTOR', min: null, max: null, acceptable: 'NEGATIVE', consequence: 'REJECT', category: 'RELEASE' },
-
-    // ZMCC_LAB_LOCAL_SUPPLIER
-    { test: testFat, point: 'ZMCC_LAB_LOCAL_SUPPLIER', min: 3.50, max: 5.50, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
-    { test: testLr, point: 'ZMCC_LAB_LOCAL_SUPPLIER', min: 26.00, max: 32.00, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
-    { test: testTemp, point: 'ZMCC_LAB_LOCAL_SUPPLIER', min: 0.00, max: 10.00, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
-    { test: testAcidity, point: 'ZMCC_LAB_LOCAL_SUPPLIER', min: 0.10, max: 0.16, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
-    { test: testCob, point: 'ZMCC_LAB_LOCAL_SUPPLIER', min: null, max: null, acceptable: 'NEGATIVE', consequence: 'REJECT', category: 'RELEASE' },
+    // ZMCC_LAB_HC
+    { test: testFat, point: 'ZMCC_LAB_HC', min: 3.50, max: 5.50, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
+    { test: testLr, point: 'ZMCC_LAB_HC', min: 26.00, max: 32.00, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
+    { test: testTemp, point: 'ZMCC_LAB_HC', min: 0.00, max: 10.00, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
+    { test: testAcidity, point: 'ZMCC_LAB_HC', min: 0.10, max: 0.16, acceptable: null, consequence: 'REJECT', category: 'RELEASE' },
+    { test: testCob, point: 'ZMCC_LAB_HC', min: null, max: null, acceptable: 'NEGATIVE', consequence: 'REJECT', category: 'RELEASE' },
 
     // DISPATCH (MONITORING only pending release consequence workflow approval)
     { test: testFat, point: 'DISPATCH', min: 3.50, max: 5.50, acceptable: null, consequence: 'NEUTRAL', category: 'MONITORING' },
@@ -156,9 +149,8 @@ export async function seedOperationalData() {
   ];
 
   const plantRulesMap = new Map<string, LabTestRule>();
-  const zmccMotRulesMap = new Map<string, LabTestRule>();
-  const zmccLsRulesMap = new Map<string, LabTestRule>();
-  const zmccConRulesMap = new Map<string, LabTestRule>();
+  const zmccMcRulesMap = new Map<string, LabTestRule>();
+  const zmccHcRulesMap = new Map<string, LabTestRule>();
   const dispatchRulesMap = new Map<string, LabTestRule>();
 
   for (const spec of ruleSpecs) {
@@ -189,9 +181,8 @@ export async function seedOperationalData() {
     }
 
     if (spec.point === 'PLANT_QA') plantRulesMap.set(String(spec.test.id), existingRule);
-    else if (spec.point === 'ZMCC_LAB_MOT') zmccMotRulesMap.set(String(spec.test.id), existingRule);
-    else if (spec.point === 'ZMCC_LAB_LOCAL_SUPPLIER') zmccLsRulesMap.set(String(spec.test.id), existingRule);
-    else if (spec.point === 'ZMCC_LAB_CONTRACTOR') zmccConRulesMap.set(String(spec.test.id), existingRule);
+    else if (spec.point === 'ZMCC_LAB_MC') zmccMcRulesMap.set(String(spec.test.id), existingRule);
+    else if (spec.point === 'ZMCC_LAB_HC') zmccHcRulesMap.set(String(spec.test.id), existingRule);
     else if (spec.point === 'DISPATCH') dispatchRulesMap.set(String(spec.test.id), existingRule);
   }
 
@@ -945,7 +936,7 @@ export async function seedOperationalData() {
     }
   }
 
-  // Ensure active testing policies exist for ZMCC_LAB_MOT and ZMCC_LAB_CONTRACTOR
+  // Ensure active testing policies exist for the ZMCC lab testing points (MC and HC)
   const lrTest = (await prisma.labTest.findFirst({
     where: {
       testCode: { in: ['LT-000008', 'LT-000027'] },
@@ -977,7 +968,7 @@ export async function seedOperationalData() {
   }
 
   if (lrTest && fatTest) {
-    for (const point of ['ZMCC_LAB_MOT', 'ZMCC_LAB_CONTRACTOR']) {
+    for (const point of ['ZMCC_LAB_MC', 'ZMCC_LAB_HC']) {
       const existing = await prisma.milkTestPolicyAssignment.findFirst({
         where: { testing_point: point, is_active: true },
       });
@@ -992,7 +983,48 @@ export async function seedOperationalData() {
     }
   }
 
-  // Ensure MOT Route, Profile, and Vehicle exist for Hasilpur
+  // ----- New model: owners, sources, contractors, vehicles --------------------------------
+  // Data Executive registers vehicles and owns the source list (with Head of MPD and Super Admin).
+  const dataExecutive =
+    users.find((u) => u.role === 'DATA_EXECUTIVE' && u.is_active) ||
+    users.find((u) => u.role === 'SUPER_ADMIN' && u.is_active) ||
+    superAdmin;
+
+  // Contractors (source_type CONTRACTOR) carry an ERP code. Fill it when a demo contractor has none.
+  const contractorSources = await prisma.procurementSource.findMany({
+    where: { source_type: 'CONTRACTOR', erp_code: null },
+  });
+  for (const c of contractorSources) {
+    await prisma.procurementSource.update({ where: { id: c.id }, data: { erp_code: `ERP-${c.code}` } });
+  }
+
+  // Independent milk sources (name + ERP code) assigned to ZMCC Hasilpur.
+  const demoMilkSourceSpecs = [
+    { erp_code: 'MS-HAS-01', name: 'Hasilpur Farmers Group' },
+    { erp_code: 'MS-HAS-02', name: 'Chak 12 Village Collection' },
+  ];
+  const demoSources: Array<{ id: bigint; erp_code: string; name: string }> = [];
+  for (const spec of demoMilkSourceSpecs) {
+    const src = await prisma.zmccMilkSource.upsert({
+      where: { erp_code: spec.erp_code },
+      update: { name: spec.name, is_active: true, updated_by: dataExecutive.id },
+      create: { erp_code: spec.erp_code, name: spec.name, is_active: true, created_by: dataExecutive.id },
+    });
+    await prisma.milkSourceZmccVisibility.upsert({
+      where: { milk_source_id_zmcc_id: { milk_source_id: src.id, zmcc_id: hasilpurSource.id } },
+      update: { is_active: true },
+      create: { milk_source_id: src.id, zmcc_id: hasilpurSource.id, is_active: true },
+    });
+    demoSources.push({ id: src.id, erp_code: src.erp_code, name: src.name });
+  }
+  const [demoMilkSource, demoMilkSource2] = demoSources;
+
+  // Global weighing policy: one row, manual entry switched off.
+  if ((await prisma.zmccWeighingPolicy.count()) === 0) {
+    await prisma.zmccWeighingPolicy.create({ data: { manual_entry_enabled: false, allowed_units: 'BOTH', version: 1 } });
+  }
+
+  // Ensure MC Route and Profile exist for Hasilpur
   let zmccRoute = await prisma.zmccRoute.findFirst({
     where: { zmcc_id: hasilpurSource.id, route_code: 'RT-HAS-001' },
   });
@@ -1027,21 +1059,20 @@ export async function seedOperationalData() {
     });
   }
 
-  let motVehicle = await prisma.motVehicle.findFirst({
-    where: { zmcc_id: hasilpurSource.id, vehicle_number: 'BWP-5522' },
-  });
-  if (!motVehicle) {
-    motVehicle = await prisma.motVehicle.create({
-      data: {
-        zmcc_id: hasilpurSource.id,
-        vehicle_number: 'BWP-5522',
-        is_active: true,
-        created_by: zmccManager.id,
-      },
+  // Vehicles are created by the Data Executive. Three MC vehicles for the demo journeys, one stays free.
+  const ensureVehicle = async (vehicleNumber: string) => {
+    const existing = await prisma.motVehicle.findUnique({ where: { vehicle_number: vehicleNumber } });
+    if (existing) return existing;
+    return prisma.motVehicle.create({
+      data: { zmcc_id: hasilpurSource.id, vehicle_number: vehicleNumber, is_active: true, created_by: dataExecutive.id },
     });
-  }
+  };
+  const motVehicle = await ensureVehicle('BWP-5522'); // history journey, finished: Free
+  const motVehicleWaiting = await ensureVehicle('BWP-5523'); // at ZMCC waiting for lab: not available
+  const motVehicleClosing = await ensureVehicle('BWP-5524'); // close-without-unloading request pending
+  await ensureVehicle('BWP-5525'); // never used: Free
 
-  // Deterministic Local Supplier sequence code helper
+  // Deterministic Local Supplier (HC) sequence code helper
   async function allocateSupplierCode(): Promise<string> {
     const seqResult = await prisma.$queryRaw<{ nextval: bigint }[]>`
       SELECT nextval('zmcc_local_supplier_code_seq') as nextval
@@ -1050,47 +1081,58 @@ export async function seedOperationalData() {
     return `ZLS-${String(seqNum).padStart(6, '0')}`;
   }
 
-  // A. Local Supplier Master Data
-  // Supplier 1: Active, available for new arrival
+  // A. HC supplier master data (no ERP reference, no milk source)
   const supplier1 = await prisma.zmccLocalSupplier.create({
     data: {
       local_supplier_code: await allocateSupplierCode(),
       zmcc_id: hasilpurSource.id,
-      name: 'Bashir Milk Collection Center',
+      name: 'DEMO - Bashir Milk Collection Center',
       phone: '03176826604',
       cnic: '31202-1234567-1',
-      erp_reference: 'LS-HAS-001',
-      erp_mapping_status: 'PENDING',
       is_active: true,
       created_by_user_id: pheUser.id,
     },
   });
-
-  // Supplier 2: Active, for directory / search visibility
   const supplier2 = await prisma.zmccLocalSupplier.create({
     data: {
       local_supplier_code: await allocateSupplierCode(),
       zmcc_id: hasilpurSource.id,
-      name: 'Chaudhry Dairy & Cattle Farm',
+      name: 'DEMO - Chaudhry Dairy & Cattle Farm',
       phone: '03176826604',
       cnic: '31202-7654321-2',
-      erp_reference: 'LS-HAS-002',
-      erp_mapping_status: 'PENDING',
       is_active: true,
       created_by_user_id: zmccManager.id,
     },
   });
-
-  // Supplier 3: Created active initially so it can participate in historical Arrival 4, then deactivated later
   const supplier3 = await prisma.zmccLocalSupplier.create({
     data: {
       local_supplier_code: await allocateSupplierCode(),
       zmcc_id: hasilpurSource.id,
-      name: 'Rehman Dairy Supplies',
+      name: 'DEMO - Rehman Dairy Supplies',
       phone: '03176826604',
       cnic: '31202-9876543-3',
-      erp_reference: 'LS-HAS-003',
-      erp_mapping_status: 'PENDING',
+      is_active: true,
+      created_by_user_id: zmccManager.id,
+    },
+  });
+  const supplier4 = await prisma.zmccLocalSupplier.create({
+    data: {
+      local_supplier_code: await allocateSupplierCode(),
+      zmcc_id: hasilpurSource.id,
+      name: 'DEMO - Noor Milk Traders',
+      phone: '03176826604',
+      cnic: '31202-1122334-4',
+      is_active: true,
+      created_by_user_id: zmccManager.id,
+    },
+  });
+  const supplier5 = await prisma.zmccLocalSupplier.create({
+    data: {
+      local_supplier_code: await allocateSupplierCode(),
+      zmcc_id: hasilpurSource.id,
+      name: 'DEMO - Farooq Dairy Collection',
+      phone: '03176826604',
+      cnic: '31202-5566778-5',
       is_active: true,
       created_by_user_id: zmccManager.id,
     },
@@ -1112,58 +1154,18 @@ export async function seedOperationalData() {
   }
 
   // Explicit PKT (+05:00) event timestamps
-  const timeTodayArr1 = new Date(`${pktTodayDateStr}T09:15:00+05:00`); // 09:15 PKT
-  const timeTodayArr2 = new Date(`${pktTodayDateStr}T09:30:00+05:00`); // 09:30 PKT
-  const timeTodayArr3 = new Date(`${pktTodayDateStr}T07:15:00+05:00`); // 07:15 PKT
-  const timeTodayArr3Exit = new Date(`${pktTodayDateStr}T08:15:00+05:00`); // 08:15 PKT
+  const timeTodayArr1 = new Date(`${pktTodayDateStr}T07:10:00+05:00`);
+  const timeTodayArr2 = new Date(`${pktTodayDateStr}T09:30:00+05:00`);
+  const timeTodayArr3 = new Date(`${pktTodayDateStr}T07:15:00+05:00`);
+  const timeTodayArr6 = new Date(`${pktTodayDateStr}T08:05:00+05:00`);
+  const timeTodayArr7 = new Date(`${pktTodayDateStr}T08:40:00+05:00`);
+  const timeTodayMc3 = new Date(`${pktTodayDateStr}T08:20:00+05:00`);
+  const timeYestArr5 = new Date(`${yesterdayDateStr}T11:00:00+05:00`);
+  const timeYestArr5Exit = new Date(`${yesterdayDateStr}T12:30:00+05:00`);
+  const timeThreeDaysArr4 = new Date(`${threeDaysAgoDateStr}T14:00:00+05:00`);
+  const minutes = (d: Date, m: number) => new Date(d.getTime() + m * 60000);
 
-  const timeYestArr5 = new Date(`${yesterdayDateStr}T11:00:00+05:00`); // 11:00 PKT
-  const timeYestArr5Exit = new Date(`${yesterdayDateStr}T12:30:00+05:00`); // 12:30 PKT
-
-  const timeThreeDaysArr4 = new Date(`${threeDaysAgoDateStr}T14:00:00+05:00`); // 14:00 PKT
-  const timeThreeDaysArr4Exit = new Date(`${threeDaysAgoDateStr}T14:45:00+05:00`); // 14:45 PKT
-
-  // B. PHE / Arrivals View Scenarios:
-  // Arrival 1: Local Supplier arrival currently inside ZMCC and waiting for Lab
-  await prisma.zmccLocalSupplierArrival.create({
-    data: {
-      zmcc_id: hasilpurSource.id,
-      local_supplier_id: supplier1.id,
-      rmr_number: '0000101',
-      vehicle_number: 'BWP-4411',
-      arrival_timestamp: timeTodayArr1,
-      arrival_date: pktTodayDate,
-      zmcc_token: 'TK-HAS-LS-001',
-      client_event_id: `evt-arr-ls-01-${pktTodayDateStr}`,
-      recorded_by_user_id: pheUser.id,
-      gate_exit_required: true,
-      exit_timestamp: null, // Inside ZMCC
-    },
-  });
-
-  // Arrival 2: MOT arrival currently inside ZMCC and in-progress lab session
-  const journey2 = await prisma.motJourney.create({
-    data: {
-      journey_number: `J-HAS-${pktTodayDateStr.replace(/-/g, '')}-01`,
-      idempotency_key: `mot-journey-01-${pktTodayDateStr}`,
-      zmcc_id: hasilpurSource.id,
-      route_id: zmccRoute.id,
-      mot_profile_id: motProfile.id,
-      mot_vehicle_id: motVehicle.id,
-      status: 'COMPLETED',
-      operational_date: pktTodayDate,
-      assigned_by: zmccManager.id,
-      assigned_at: new Date(timeTodayArr2.getTime() - 7200000),
-      started_at: new Date(timeTodayArr2.getTime() - 5400000),
-      ended_at: new Date(timeTodayArr2.getTime() - 600000),
-      assignment_latitude: 29.6974,
-      assignment_longitude: 72.5539,
-      start_latitude: 29.6974,
-      start_longitude: 72.5539,
-    },
-  });
-
-  // Ensure Shop Area & Milk Source exist
+  // Shop area and shop (a shop has no milk source any more)
   let demoArea = await prisma.zmccArea.findFirst({
     where: { zmcc_id: hasilpurSource.id, area_code: 'AR-HAS-01' },
   });
@@ -1174,21 +1176,6 @@ export async function seedOperationalData() {
         name: 'Hasilpur East Rural Area',
         route_id: zmccRoute.id,
         zmcc_id: hasilpurSource.id,
-        created_by: zmccManager.id,
-      },
-    });
-  }
-
-  let demoMilkSource = await prisma.zmccMilkSource.findFirst({
-    where: { zmcc_id: hasilpurSource.id, erp_code: 'MS-HAS-01' },
-  });
-  if (!demoMilkSource) {
-    demoMilkSource = await prisma.zmccMilkSource.create({
-      data: {
-        erp_code: 'MS-HAS-01',
-        name: 'Direct Farm Collection Source',
-        zmcc_id: hasilpurSource.id,
-        is_active: true,
         created_by: zmccManager.id,
       },
     });
@@ -1212,7 +1199,6 @@ export async function seedOperationalData() {
         area_id: demoArea.id,
         route_id: zmccRoute.id,
         zmcc_id: hasilpurSource.id,
-        milk_source_id: demoMilkSource.id,
         chiller_ownership_id: chillerSelf ? chillerSelf.id : BigInt(1),
         is_active: true,
         created_by: zmccManager.id,
@@ -1220,517 +1206,575 @@ export async function seedOperationalData() {
     });
   }
 
-  let journey2Stop = await prisma.motJourneyStop.findFirst({
-    where: { journey_id: journey2.id, shop_id: demoShop.id },
-  });
-  if (!journey2Stop) {
-    journey2Stop = await prisma.motJourneyStop.create({
+  await prisma.$executeRawUnsafe('CREATE SEQUENCE IF NOT EXISTS "mot_collection_number_seq" START WITH 1 INCREMENT BY 1;');
+
+  // ----- Helpers ------------------------------------------------------------------------
+  type SourceRef = { id: bigint; erp_code: string; name: string };
+
+  /** MC journey with one shop stop and one collection (source is required on every collection). */
+  async function createMcJourney(opts: {
+    key: string;
+    dateStr: string;
+    dateOnly: Date;
+    vehicleId: bigint;
+    arrivedAt: Date;
+    source: SourceRef;
+    liters: number;
+    lr: number;
+    fat: number;
+  }) {
+    const journey = await prisma.motJourney.create({
       data: {
-        journey_id: journey2.id,
-        shop_id: demoShop.id,
+        journey_number: `J-HAS-${opts.dateStr.replace(/-/g, '')}-${opts.key}`,
+        idempotency_key: `mot-journey-${opts.key}-${opts.dateStr}`,
+        zmcc_id: hasilpurSource!.id,
+        route_id: zmccRoute!.id,
+        mot_profile_id: motProfile!.id,
+        mot_vehicle_id: opts.vehicleId,
+        status: 'COMPLETED',
+        operational_date: opts.dateOnly,
+        assigned_by: zmccManager!.id,
+        assigned_at: minutes(opts.arrivedAt, -120),
+        started_at: minutes(opts.arrivedAt, -90),
+        ended_at: minutes(opts.arrivedAt, -10),
+        assignment_latitude: 29.6974,
+        assignment_longitude: 72.5539,
+        start_latitude: 29.6974,
+        start_longitude: 72.5539,
+      },
+    });
+    const stop = await prisma.motJourneyStop.create({
+      data: {
+        journey_id: journey.id,
+        shop_id: demoShop!.id,
         planned_sequence: 1,
         status: 'VISITED',
-        shop_code_snapshot: demoShop.shop_code,
-        shop_name_snapshot: demoShop.shop_name,
-        owner_name_snapshot: demoShop.owner_name,
-        phone_number_snapshot: demoShop.phone_number,
-        area_code_snapshot: demoArea.area_code,
-        area_name_snapshot: demoArea.name,
-        arrived_at: new Date(timeTodayArr2.getTime() - 4500000),
-        completed_at: new Date(timeTodayArr2.getTime() - 3600000),
+        shop_code_snapshot: demoShop!.shop_code,
+        shop_name_snapshot: demoShop!.shop_name,
+        owner_name_snapshot: demoShop!.owner_name,
+        phone_number_snapshot: demoShop!.phone_number,
+        area_code_snapshot: demoArea!.area_code,
+        area_name_snapshot: demoArea!.name,
+        arrived_at: minutes(opts.arrivedAt, -75),
+        completed_at: minutes(opts.arrivedAt, -60),
+      },
+    });
+    const metrics = computeCanonicalMilkMetrics(opts.liters, 'LITER', opts.lr, opts.fat);
+    const seq = await prisma.$queryRaw<Array<{ nextval: bigint }>>`SELECT nextval('mot_collection_number_seq') as nextval`;
+    const colNum = `MC-${opts.dateStr.replace(/-/g, '')}-${String(Number(seq[0]?.nextval ?? 1)).padStart(4, '0')}`;
+    await prisma.motShopCollection.create({
+      data: {
+        collection_number: colNum,
+        journey_id: journey.id,
+        journey_stop_id: stop.id,
+        shop_id: demoShop!.id,
+        zmcc_id: hasilpurSource!.id,
+        route_id: zmccRoute!.id,
+        mot_profile_id: motProfile!.id,
+        mot_vehicle_id: opts.vehicleId,
+        operational_date: opts.dateOnly,
+        client_event_id: `evt-shop-col-${opts.key}-${opts.dateStr}`,
+        quantity_value: opts.liters,
+        quantity_unit: 'LITER',
+        gross_liters: metrics.grossLiters,
+        density: metrics.density,
+        lr: opts.lr,
+        fat: opts.fat,
+        snf: metrics.snf,
+        ts: metrics.ts,
+        at_13ts_liters: metrics.at13tsLiters,
+        calculation_version: metrics.calculationVersion,
+        collection_latitude: 29.6974,
+        collection_longitude: 72.5539,
+        device_collected_at: minutes(opts.arrivedAt, -60),
+        submitted_by_user_id: mpdUser.id,
+        milk_source_id: opts.source.id,
+        milk_source_code_snapshot: opts.source.erp_code,
+        milk_source_name_snapshot: opts.source.name,
+        shop_rmr_number: '004821',
+        collection_notes: 'Demo shop collection with an assigned milk source',
+      },
+    });
+    return journey;
+  }
+
+  async function createMcArrival(journeyId: bigint, key: string, dateStr: string, dateOnly: Date, at: Date, token: string, rawToken: string) {
+    // MC has no gate exit: the journey is finished at arrival.
+    return prisma.zmccMotArrival.create({
+      data: {
+        journey_id: journeyId,
+        zmcc_id: hasilpurSource!.id,
+        route_milk_token: `RM-HAS-${key}`,
+        raw_milk_token_number: rawToken,
+        zmcc_token: token,
+        arrival_timestamp: at,
+        arrival_date: dateOnly,
+        client_event_id: `evt-arr-mot-${key}-${dateStr}`,
+        recorded_by_user_id: pheUser!.id,
+        gate_exit_required: false,
       },
     });
   }
 
-  const shopMetrics = computeCanonicalMilkMetrics(120.0, 'LITER', 28.5, 3.9);
-  await prisma.$executeRawUnsafe('CREATE SEQUENCE IF NOT EXISTS "mot_collection_number_seq" START WITH 1 INCREMENT BY 1;');
-  const seqResult = await prisma.$queryRaw<Array<{ nextval: bigint }>>`SELECT nextval('mot_collection_number_seq') as nextval`;
-  const seqVal = seqResult[0]?.nextval ? Number(seqResult[0].nextval) : 1;
-  const colNum = `MC-${pktTodayDateStr.replace(/-/g, '')}-${String(seqVal).padStart(4, '0')}`;
-  await prisma.motShopCollection.create({
-    data: {
-      collection_number: colNum,
-      journey_id: journey2.id,
-      journey_stop_id: journey2Stop.id,
-      shop_id: demoShop.id,
-      zmcc_id: hasilpurSource.id,
-      route_id: zmccRoute.id,
-      mot_profile_id: motProfile.id,
-      mot_vehicle_id: motVehicle.id,
-      operational_date: pktTodayDate,
-      client_event_id: `evt-shop-col-01-${pktTodayDateStr}`,
-      quantity_value: 120.0,
-      quantity_unit: 'LITER',
-      gross_liters: shopMetrics.grossLiters,
-      density: shopMetrics.density,
-      lr: 28.5,
-      fat: 3.9,
-      snf: shopMetrics.snf,
-      ts: shopMetrics.ts,
-      at_13ts_liters: shopMetrics.at13tsLiters,
-      calculation_version: shopMetrics.calculationVersion,
-      collection_latitude: 29.6974,
-      collection_longitude: 72.5539,
-      device_collected_at: new Date(timeTodayArr2.getTime() - 3600000),
-      submitted_by_user_id: mpdUser.id,
-      shop_rmr_number: '004821', // Stage 6G-G: Digits-only string with leading zeros preserved
-      collection_notes: 'Stage 6G-G Shop RMR operational record',
-    },
+  /** HC arrival: no milk source here, the source is chosen once at "Unload to ZMCC tank". */
+  async function createHcArrival(opts: {
+    key: string;
+    supplierId: bigint;
+    rmr: string;
+    vehicle: string;
+    at: Date;
+    dateStr: string;
+    dateOnly: Date;
+    exitAt?: Date;
+    source?: SourceRef;
+  }) {
+    return prisma.zmccLocalSupplierArrival.create({
+      data: {
+        zmcc_id: hasilpurSource!.id,
+        local_supplier_id: opts.supplierId,
+        rmr_number: opts.rmr,
+        vehicle_number: opts.vehicle,
+        arrival_timestamp: opts.at,
+        arrival_date: opts.dateOnly,
+        zmcc_token: `TK-HAS-HC-${opts.key}`,
+        client_event_id: `evt-arr-hc-${opts.key}-${opts.dateStr}`,
+        recorded_by_user_id: pheUser!.id,
+        gate_exit_required: true,
+        exit_timestamp: opts.exitAt ?? null,
+        exit_recorded_by_user_id: opts.exitAt ? pheUser!.id : null,
+        exit_client_event_id: opts.exitAt ? `evt-exit-hc-${opts.key}-${opts.dateStr}` : null,
+        exit_submitted_at: opts.exitAt ? minutes(opts.exitAt, 2) : null,
+        // Mirrored from the tank receipt once the vehicle was unloaded
+        ...(opts.source
+          ? {
+              milk_source_id: opts.source.id,
+              milk_source_code_snapshot: opts.source.erp_code,
+              milk_source_name_snapshot: opts.source.name,
+            }
+          : {}),
+      },
+    });
+  }
+
+  async function addLabResults(sessionId: bigint, ruleMap: Map<string, LabTestRule>, lr: number, fat: number, passed: boolean, at: Date) {
+    if (!lrTest || !fatTest) return;
+    const lrRule = ruleMap.get(String(lrTest.id));
+    const fatRule = ruleMap.get(String(fatTest.id));
+    await prisma.zmccLabResult.createMany({
+      data: [
+        {
+          session_id: sessionId,
+          test_id: lrTest.id,
+          test_code_snapshot: lrTest.testCode,
+          test_name_snapshot: lrTest.testName,
+          result_type_snapshot: lrTest.resultType,
+          unit_snapshot: lrTest.unit,
+          is_required_snapshot: true,
+          display_order_snapshot: 1,
+          numeric_value: lr,
+          applied_rule_id: lrRule?.id || null,
+          applied_rule_version: lrRule?.version || null,
+          evaluation_status: passed ? 'PASS' : 'OUT_OF_SPEC',
+          is_passed: passed,
+          recorded_at: at,
+        },
+        {
+          session_id: sessionId,
+          test_id: fatTest.id,
+          test_code_snapshot: fatTest.testCode,
+          test_name_snapshot: fatTest.testName,
+          result_type_snapshot: fatTest.resultType,
+          unit_snapshot: fatTest.unit,
+          is_required_snapshot: true,
+          display_order_snapshot: 2,
+          numeric_value: fat,
+          applied_rule_id: fatRule?.id || null,
+          applied_rule_version: fatRule?.version || null,
+          evaluation_status: passed ? 'PASS' : 'OUT_OF_SPEC',
+          is_passed: passed,
+          recorded_at: at,
+        },
+      ],
+    });
+  }
+
+  type PortionSpec = {
+    qtyKg: number;
+    lr: number;
+    fat: number;
+    accepted: boolean;
+    /** Weighed (counts in the N+1 weight chain) when true; accepted portions come first. */
+    weighed?: boolean;
+  };
+
+  /**
+   * Portions of one vehicle. N accepted portions are weighed with N+1 strictly decreasing weights w0..wN:
+   * portion k gets first = w(k-1), second = w(k), net = first - second.
+   */
+  async function createPortions(sessionId: bigint, specs: PortionSpec[], chain: number[], base: Date) {
+    let acceptedIndex = 0;
+    const weighed: Array<{ netKg: number; lr: number; fat: number; metrics: ReturnType<typeof computeCanonicalMilkMetrics> }> = [];
+    let number = 1;
+    for (const spec of specs) {
+      const declared = computeCanonicalMilkMetrics(spec.qtyKg, 'KG', spec.lr, spec.fat);
+      const isWeighed = Boolean(spec.accepted && spec.weighed);
+      let first: number | null = null;
+      let second: number | null = null;
+      let net: number | null = null;
+      if (isWeighed) {
+        first = chain[acceptedIndex];
+        second = chain[acceptedIndex + 1];
+        net = Math.round((first - second) * 1000) / 1000;
+      }
+      if (spec.accepted) acceptedIndex += 1;
+      await prisma.zmccLabPortion.create({
+        data: {
+          lab_session_id: sessionId,
+          portion_number: number,
+          status: !spec.accepted ? 'REJECTED' : isWeighed ? 'WEIGHED' : 'ACCEPTED',
+          quantity_value: spec.qtyKg,
+          quantity_unit: 'KG',
+          density: declared.density,
+          gross_liters: declared.grossLiters,
+          lr: spec.lr,
+          fat: spec.fat,
+          snf: declared.snf,
+          ts: declared.ts,
+          at_13ts_liters: declared.at13tsLiters,
+          calculation_version: declared.calculationVersion,
+          system_outcome: spec.accepted ? 'PASS' : 'FAIL',
+          person_decision: spec.accepted ? 'ACCEPT' : 'REJECT',
+          decision_remarks: spec.accepted ? null : 'Sour smell and low LR',
+          review_status: 'NONE',
+          final_decision: spec.accepted ? 'ACCEPTED' : 'REJECTED',
+          created_by_user_id: zmccLabUser!.id,
+          decided_at: minutes(base, 20 + number),
+          first_weight_kg: first,
+          first_weight_at: isWeighed ? minutes(base, 40) : null,
+          first_weight_by_user_id: isWeighed ? pheUser!.id : null,
+          second_weight_kg: second,
+          second_weight_at: isWeighed ? minutes(base, 45) : null,
+          second_weight_by_user_id: isWeighed ? pheUser!.id : null,
+          net_entry_mode: isWeighed ? 'WEIGHT' : null,
+          net_weight_kg: net,
+        },
+      });
+      if (isWeighed && net !== null) {
+        weighed.push({
+          netKg: net,
+          lr: spec.lr,
+          fat: spec.fat,
+          metrics: computeCanonicalMilkMetrics(net, 'KG', spec.lr, spec.fat),
+        });
+      }
+      number += 1;
+    }
+    return weighed;
+  }
+
+  /** Unload to ZMCC tank: one receipt with totals (net kg, gross L, @13TS L, weighted LR/Fat/SNF/TS/density). */
+  async function createTankReceipt(
+    session: { id: bigint },
+    arrivalType: 'MOT' | 'HC',
+    weighed: Awaited<ReturnType<typeof createPortions>>,
+    at: Date,
+    source: SourceRef | null,
+    note: string
+  ) {
+    const netKg = weighed.reduce((s, p) => s + p.netKg, 0);
+    const weightedAvg = (pick: (p: (typeof weighed)[number]) => number) =>
+      weighed.reduce((s, p) => s + pick(p) * p.netKg, 0) / netKg;
+    const gross = weighed.reduce((s, p) => s + Number(p.metrics.grossLiters), 0);
+    const at13 = weighed.reduce((s, p) => s + Number(p.metrics.at13tsLiters), 0);
+    const receipt = await prisma.zmccTankReceipt.create({
+      data: {
+        lab_session_id: session.id,
+        zmcc_id: hasilpurSource!.id,
+        tank_id: hasilpurTank!.id,
+        arrival_type: arrivalType,
+        quantity_value: Math.round(netKg * 100) / 100,
+        quantity_unit: 'KG',
+        density: Math.round(weightedAvg((p) => Number(p.metrics.density)) * 10000) / 10000,
+        gross_liters: Math.round(gross * 100) / 100,
+        lr: Math.round(weightedAvg((p) => p.lr) * 100) / 100,
+        fat: Math.round(weightedAvg((p) => p.fat) * 100) / 100,
+        snf: Math.round(weightedAvg((p) => Number(p.metrics.snf)) * 100) / 100,
+        ts: Math.round(weightedAvg((p) => Number(p.metrics.ts)) * 100) / 100,
+        at_13ts_liters: Math.round(at13 * 100) / 100,
+        calculation_version: weighed[0].metrics.calculationVersion,
+        received_at: at,
+        received_by_user_id: pheUser!.id,
+        milk_source_id: source?.id ?? null,
+        milk_source_code_snapshot: source?.erp_code ?? null,
+        milk_source_name_snapshot: source?.name ?? null,
+      },
+    });
+    await prisma.zmccTankInventoryTransaction.create({
+      data: {
+        tank_id: hasilpurTank!.id,
+        zmcc_id: hasilpurSource!.id,
+        transaction_type: 'RECEIPT',
+        quantity_liters: Math.round(gross * 100) / 100,
+        at_13ts_liters: Math.round(at13 * 100) / 100,
+        tank_receipt_id: receipt.id,
+        reference_type: 'ZMCC_LAB_SESSION',
+        reference_id: session.id.toString(),
+        idempotency_key: `ZMCC_TANK_RECEIPT:LAB_SESSION:${session.id}`,
+        operational_timestamp: at,
+        performed_by_user_id: pheUser!.id,
+        notes: note,
+      },
+    });
+    return receipt;
+  }
+
+  const sessionBase = (arrivalType: 'MOT' | 'HC', at: Date) => ({
+    zmcc_id: hasilpurSource!.id,
+    arrival_type: arrivalType,
+    test_mode: 'PORTION_WISE',
+    status: 'COMPLETED',
+    system_quality_outcome: 'PASS',
+    started_by_user_id: zmccLabUser!.id,
+    started_at: minutes(at, 10),
+    completed_by_user_id: zmccLabUser!.id,
+    completed_at: minutes(at, 30),
   });
 
-  const arr2 = await prisma.zmccMotArrival.create({
-    data: {
-      journey_id: journey2.id,
-      zmcc_id: hasilpurSource.id,
-      route_milk_token: 'RM-HAS-0201',
-      raw_milk_token_number: '001924',
-      zmcc_token: 'TK-HAS-MOT-001',
-      arrival_timestamp: timeTodayArr2,
-      arrival_date: pktTodayDate,
-      client_event_id: `evt-arr-mot-01-${pktTodayDateStr}`,
-      recorded_by_user_id: pheUser.id,
-      gate_exit_required: true,
-      exit_timestamp: null, // Inside ZMCC
-    },
+  // ----- B. Scenarios -----------------------------------------------------------------------
+
+  // HC-1: arrival inside ZMCC, waiting for the lab (no lab session yet)
+  await createHcArrival({
+    key: '001', supplierId: supplier1.id, rmr: '0000101', vehicle: 'BWP-4411',
+    at: timeTodayArr1, dateStr: pktTodayDateStr, dateOnly: pktTodayDate,
   });
 
-  // In-progress Lab session on Arrival 2 with Manager Review Pending
+  // MC-1: arrival today, lab in progress with a manager review pending. Vehicle BWP-5523 is "At ZMCC waiting unload".
+  const journey2 = await createMcJourney({
+    key: '01', dateStr: pktTodayDateStr, dateOnly: pktTodayDate, vehicleId: motVehicleWaiting.id,
+    arrivedAt: timeTodayArr2, source: demoMilkSource, liters: 120, lr: 28.5, fat: 3.9,
+  });
+  const arr2 = await createMcArrival(journey2.id, '0201', pktTodayDateStr, pktTodayDate, timeTodayArr2, 'TK-HAS-MOT-001', '001924');
   const session2 = await prisma.zmccLabSession.create({
     data: {
       zmcc_id: hasilpurSource.id,
       arrival_type: 'MOT',
       mot_arrival_id: arr2.id,
+      test_mode: 'PORTION_WISE',
       status: 'IN_PROGRESS',
       system_quality_outcome: 'OUT_OF_SPEC',
       manager_review_status: 'PENDING',
       manager_requested_decision: 'ACCEPTED',
       manager_review_requested_by_user_id: zmccLabUser.id,
-      manager_review_requested_at: new Date(timeTodayArr2.getTime() + 900000),
+      manager_review_requested_at: minutes(timeTodayArr2, 15),
       manager_review_reason: 'LR 25.80 slightly below 26.00 threshold due to extreme ambient temperature. Requesting ZMCC Manager exception clearance.',
       started_by_user_id: zmccLabUser.id,
-      started_at: new Date(timeTodayArr2.getTime() + 600000),
+      started_at: minutes(timeTodayArr2, 10),
     },
   });
-
-  if (lrTest && fatTest) {
-    const lrRule = zmccMotRulesMap.get(String(lrTest.id));
-    const fatRule = zmccMotRulesMap.get(String(fatTest.id));
-    await prisma.zmccLabResult.createMany({
-      data: [
-        {
-          session_id: session2.id,
-          test_id: lrTest.id,
-          test_code_snapshot: lrTest.testCode,
-          test_name_snapshot: lrTest.testName,
-          result_type_snapshot: lrTest.resultType,
-          unit_snapshot: lrTest.unit,
-          is_required_snapshot: true,
-          display_order_snapshot: 1,
-          numeric_value: 25.80,
-          applied_rule_id: lrRule?.id || null,
-          applied_rule_version: lrRule?.version || null,
-          evaluation_status: 'OUT_OF_SPEC',
-          is_passed: false,
-        },
-        {
-          session_id: session2.id,
-          test_id: fatTest.id,
-          test_code_snapshot: fatTest.testCode,
-          test_name_snapshot: fatTest.testName,
-          result_type_snapshot: fatTest.resultType,
-          unit_snapshot: fatTest.unit,
-          is_required_snapshot: true,
-          display_order_snapshot: 2,
-          numeric_value: 3.80,
-          applied_rule_id: fatRule?.id || null,
-          applied_rule_version: fatRule?.version || null,
-          evaluation_status: 'PASS',
-          is_passed: true,
-        },
-      ],
-    });
-  }
-
-  // Arrival 3: Accepted Local Supplier arrival completed through Lab + tank receipt + ZMCC gate exit
-  const arr3 = await prisma.zmccLocalSupplierArrival.create({
+  await prisma.zmccLabPortion.create({
     data: {
-      zmcc_id: hasilpurSource.id,
-      local_supplier_id: supplier2.id,
-      rmr_number: '0000102',
-      vehicle_number: 'BWP-3322',
-      arrival_timestamp: timeTodayArr3,
-      arrival_date: pktTodayDate,
-      zmcc_token: 'TK-HAS-LS-002',
-      client_event_id: `evt-arr-ls-02-${pktTodayDateStr}`,
-      recorded_by_user_id: pheUser.id,
-      gate_exit_required: true,
-      exit_timestamp: timeTodayArr3Exit,
-      exit_recorded_by_user_id: pheUser.id,
-      exit_client_event_id: `evt-exit-ls-02-${pktTodayDateStr}`,
-      exit_submitted_at: new Date(timeTodayArr3Exit.getTime() + 120000),
+      lab_session_id: session2.id,
+      portion_number: 1,
+      status: 'PENDING_REVIEW',
+      quantity_value: 3000,
+      quantity_unit: 'KG',
+      lr: 25.8,
+      fat: 3.8,
+      system_outcome: 'FAIL',
+      person_decision: 'ACCEPT',
+      decision_remarks: 'Hot day, milk looks fine',
+      review_status: 'PENDING',
+      final_decision: 'PENDING',
+      created_by_user_id: zmccLabUser.id,
     },
   });
+  await addLabResults(session2.id, zmccMcRulesMap, 25.8, 3.8, false, minutes(timeTodayArr2, 12));
 
-  const arr3QtyLiters = 2400.0;
-  const arr3Lr = 28.5;
-  const arr3Fat = 3.8;
-  const arr3Metrics = computeCanonicalMilkMetrics(arr3QtyLiters, 'LITER', arr3Lr, arr3Fat);
-
+  // HC-2 = RECEIVED: accepted, weighed, unloaded to tank with a source, gate exit recorded.
+  const hc2Source = demoMilkSource;
+  const arr3 = await createHcArrival({
+    key: '002', supplierId: supplier2.id, rmr: '0000102', vehicle: 'BWP-3322',
+    at: timeTodayArr3, dateStr: pktTodayDateStr, dateOnly: pktTodayDate,
+    exitAt: minutes(timeTodayArr3, 75), source: hc2Source,
+  });
   const session3 = await prisma.zmccLabSession.create({
     data: {
-      zmcc_id: hasilpurSource.id,
-      arrival_type: 'LOCAL_SUPPLIER',
+      ...sessionBase('HC', timeTodayArr3),
       local_supplier_arrival_id: arr3.id,
-      status: 'COMPLETED',
       decision: 'ACCEPTED',
-      system_quality_outcome: 'PASS',
-      started_by_user_id: zmccLabUser.id,
-      started_at: new Date(timeTodayArr3.getTime() + 600000),
-      completed_by_user_id: zmccLabUser.id,
-      completed_at: new Date(timeTodayArr3.getTime() + 1800000),
-      completion_client_event_id: `evt-comp-ls-02-${pktTodayDateStr}`,
-      quantity_value: arr3QtyLiters,
-      quantity_unit: 'LITER',
-      density: arr3Metrics.density,
-      gross_liters: arr3Metrics.grossLiters,
-      snf: arr3Metrics.snf,
-      ts: arr3Metrics.ts,
-      at_13ts_liters: arr3Metrics.at13tsLiters,
-      calculation_version: arr3Metrics.calculationVersion,
+      final_decision: 'ACCEPTED',
+      completion_client_event_id: `evt-comp-hc-02-${pktTodayDateStr}`,
+      journey_closed_at: minutes(timeTodayArr3, 60),
+      closed_reason: 'ALL_PORTIONS_WEIGHED',
+      unloaded_at: minutes(timeTodayArr3, 60),
+      unloaded_by_user_id: pheUser.id,
+      exit_outcome: 'RECEIVED',
     },
   });
+  await addLabResults(session3.id, zmccHcRulesMap, 28.5, 3.8, true, minutes(timeTodayArr3, 20));
+  // 2 accepted portions -> 3 weights: 2600 > 1500 > 400 => nets 1100 and 1100
+  const weighed3 = await createPortions(
+    session3.id,
+    [
+      { qtyKg: 1100, lr: 28.5, fat: 3.8, accepted: true, weighed: true },
+      { qtyKg: 1100, lr: 28.5, fat: 3.8, accepted: true, weighed: true },
+    ],
+    [2600, 1500, 400],
+    timeTodayArr3
+  );
+  await createTankReceipt(session3, 'HC', weighed3, minutes(timeTodayArr3, 60), hc2Source, 'HC tank receipt - Hasilpur');
 
-  if (lrTest && fatTest) {
-    const lrRule = zmccLsRulesMap.get(String(lrTest.id));
-    const fatRule = zmccLsRulesMap.get(String(fatTest.id));
-    await prisma.zmccLabResult.createMany({
-      data: [
-        {
-          session_id: session3.id,
-          test_id: lrTest.id,
-          test_code_snapshot: lrTest.testCode,
-          test_name_snapshot: lrTest.testName,
-          result_type_snapshot: lrTest.resultType,
-          unit_snapshot: lrTest.unit,
-          is_required_snapshot: true,
-          display_order_snapshot: 1,
-          numeric_value: arr3Lr,
-          applied_rule_id: lrRule?.id || null,
-          applied_rule_version: lrRule?.version || null,
-          evaluation_status: 'PASS',
-          is_passed: true,
-          recorded_at: new Date(timeTodayArr3.getTime() + 1200000),
-        },
-        {
-          session_id: session3.id,
-          test_id: fatTest.id,
-          test_code_snapshot: fatTest.testCode,
-          test_name_snapshot: fatTest.testName,
-          result_type_snapshot: fatTest.resultType,
-          unit_snapshot: fatTest.unit,
-          is_required_snapshot: true,
-          display_order_snapshot: 2,
-          numeric_value: arr3Fat,
-          applied_rule_id: fatRule?.id || null,
-          applied_rule_version: fatRule?.version || null,
-          evaluation_status: 'PASS',
-          is_passed: true,
-          recorded_at: new Date(timeTodayArr3.getTime() + 1200000),
-        },
-      ],
-    });
-  }
-
-  const receipt3 = await prisma.zmccTankReceipt.create({
-    data: {
-      lab_session_id: session3.id,
-      zmcc_id: hasilpurSource.id,
-      tank_id: hasilpurTank.id,
-      arrival_type: 'LOCAL_SUPPLIER',
-      quantity_value: arr3QtyLiters,
-      quantity_unit: 'LITER',
-      density: arr3Metrics.density,
-      gross_liters: arr3Metrics.grossLiters,
-      lr: arr3Lr,
-      fat: arr3Fat,
-      snf: arr3Metrics.snf,
-      ts: arr3Metrics.ts,
-      at_13ts_liters: arr3Metrics.at13tsLiters,
-      calculation_version: arr3Metrics.calculationVersion,
-      received_at: new Date(timeTodayArr3.getTime() + 2100000),
-      received_by_user_id: zmccLabUser.id,
-    },
+  // HC-3 = REJECTED: every portion rejected, nothing unloaded, vehicle leaves.
+  const arr4 = await createHcArrival({
+    key: '003', supplierId: supplier3.id, rmr: '0000103', vehicle: 'BWP-8877',
+    at: timeThreeDaysArr4, dateStr: threeDaysAgoDateStr, dateOnly: threeDaysAgoDateOnly,
+    exitAt: minutes(timeThreeDaysArr4, 45),
   });
-
-  await prisma.zmccTankInventoryTransaction.create({
-    data: {
-      tank_id: hasilpurTank.id,
-      zmcc_id: hasilpurSource.id,
-      transaction_type: 'RECEIPT',
-      quantity_liters: arr3QtyLiters,
-      at_13ts_liters: arr3Metrics.at13tsLiters,
-      tank_receipt_id: receipt3.id,
-      reference_type: 'ZMCC_LAB_SESSION',
-      reference_id: session3.id.toString(),
-      idempotency_key: `ZMCC_TANK_RECEIPT:LAB_SESSION:${session3.id}`,
-      operational_timestamp: new Date(timeTodayArr3.getTime() + 2100000),
-      performed_by_user_id: zmccLabUser.id,
-      notes: 'Local Supplier Tank Receipt - Hasilpur',
-    },
-  });
-
-  // Arrival 4: Rejected Local Supplier arrival completed and exited without tank receipt (Inactive supplier continuity)
-  const arr4 = await prisma.zmccLocalSupplierArrival.create({
-    data: {
-      zmcc_id: hasilpurSource.id,
-      local_supplier_id: supplier3.id,
-      rmr_number: '0000103',
-      vehicle_number: 'BWP-8877',
-      arrival_timestamp: timeThreeDaysArr4,
-      arrival_date: threeDaysAgoDateOnly,
-      zmcc_token: 'TK-HAS-LS-003',
-      client_event_id: `evt-arr-ls-03-${threeDaysAgoDateStr}`,
-      recorded_by_user_id: pheUser.id,
-      gate_exit_required: true,
-      exit_timestamp: timeThreeDaysArr4Exit,
-      exit_recorded_by_user_id: pheUser.id,
-      exit_client_event_id: `evt-exit-ls-03-${threeDaysAgoDateStr}`,
-      exit_submitted_at: new Date(timeThreeDaysArr4Exit.getTime() + 120000),
-    },
-  });
-
-  const arr4QtyLiters = 1200.0;
-  const arr4Lr = 22.0;
-  const arr4Fat = 2.2;
-  const arr4Metrics = computeCanonicalMilkMetrics(arr4QtyLiters, 'LITER', arr4Lr, arr4Fat);
-
   const session4 = await prisma.zmccLabSession.create({
     data: {
-      zmcc_id: hasilpurSource.id,
-      arrival_type: 'LOCAL_SUPPLIER',
+      ...sessionBase('HC', timeThreeDaysArr4),
       local_supplier_arrival_id: arr4.id,
-      status: 'COMPLETED',
-      decision: 'REJECTED',
       system_quality_outcome: 'OUT_OF_SPEC',
-      rejection_reason: 'Acidity 0.21% & COB Positive. High temperature 12°C detected.',
-      remarks: 'Rejected at intake platform. Gate exit authorized without tank receipt.',
-      started_by_user_id: zmccLabUser.id,
-      started_at: new Date(timeThreeDaysArr4.getTime() + 600000),
-      completed_by_user_id: zmccLabUser.id,
-      completed_at: new Date(timeThreeDaysArr4.getTime() + 1800000),
-      completion_client_event_id: `evt-comp-ls-03-${threeDaysAgoDateStr}`,
-      quantity_value: arr4QtyLiters,
-      quantity_unit: 'LITER',
-      density: arr4Metrics.density,
-      gross_liters: arr4Metrics.grossLiters,
-      snf: arr4Metrics.snf,
-      ts: arr4Metrics.ts,
-      at_13ts_liters: arr4Metrics.at13tsLiters,
-      calculation_version: arr4Metrics.calculationVersion,
+      decision: 'REJECTED',
+      final_decision: 'REJECTED',
+      rejection_reason: 'Acidity 0.21% & COB Positive. High temperature 12 C detected.',
+      remarks: 'Rejected at intake platform.',
+      completion_client_event_id: `evt-comp-hc-03-${threeDaysAgoDateStr}`,
+      journey_closed_at: minutes(timeThreeDaysArr4, 30),
+      closed_reason: 'ALL_PORTIONS_REJECTED',
+      exit_outcome: 'REJECTED',
     },
   });
+  await addLabResults(session4.id, zmccHcRulesMap, 22.0, 2.2, false, minutes(timeThreeDaysArr4, 20));
+  await createPortions(session4.id, [{ qtyKg: 1200, lr: 22.0, fat: 2.2, accepted: false }], [], timeThreeDaysArr4);
 
-  if (lrTest && fatTest) {
-    const lrRule = zmccLsRulesMap.get(String(lrTest.id));
-    const fatRule = zmccLsRulesMap.get(String(fatTest.id));
-    await prisma.zmccLabResult.createMany({
-      data: [
-        {
-          session_id: session4.id,
-          test_id: lrTest.id,
-          test_code_snapshot: lrTest.testCode,
-          test_name_snapshot: lrTest.testName,
-          result_type_snapshot: lrTest.resultType,
-          unit_snapshot: lrTest.unit,
-          is_required_snapshot: true,
-          display_order_snapshot: 1,
-          numeric_value: arr4Lr,
-          applied_rule_id: lrRule?.id || null,
-          applied_rule_version: lrRule?.version || null,
-          evaluation_status: 'OUT_OF_SPEC',
-          is_passed: false,
-          recorded_at: new Date(timeThreeDaysArr4.getTime() + 1200000),
-        },
-        {
-          session_id: session4.id,
-          test_id: fatTest.id,
-          test_code_snapshot: fatTest.testCode,
-          test_name_snapshot: fatTest.testName,
-          result_type_snapshot: fatTest.resultType,
-          unit_snapshot: fatTest.unit,
-          is_required_snapshot: true,
-          display_order_snapshot: 2,
-          numeric_value: arr4Fat,
-          applied_rule_id: fatRule?.id || null,
-          applied_rule_version: fatRule?.version || null,
-          evaluation_status: 'OUT_OF_SPEC',
-          is_passed: false,
-          recorded_at: new Date(timeThreeDaysArr4.getTime() + 1200000),
-        },
-      ],
-    });
-  }
+  // HC-4 = PARTLY_RECEIVED: portion 1 unloaded, portion 2 accepted but the tank was full, portion 3 rejected.
+  const arr6 = await createHcArrival({
+    key: '004', supplierId: supplier4.id, rmr: '0000104', vehicle: 'BWP-6101',
+    at: timeTodayArr6, dateStr: pktTodayDateStr, dateOnly: pktTodayDate,
+    exitAt: minutes(timeTodayArr6, 90), source: demoMilkSource2,
+  });
+  const session6 = await prisma.zmccLabSession.create({
+    data: {
+      ...sessionBase('HC', timeTodayArr6),
+      local_supplier_arrival_id: arr6.id,
+      decision: 'ACCEPTED',
+      final_decision: 'ACCEPTED',
+      completion_client_event_id: `evt-comp-hc-04-${pktTodayDateStr}`,
+      journey_closed_at: minutes(timeTodayArr6, 90),
+      unloaded_at: minutes(timeTodayArr6, 70),
+      unloaded_by_user_id: pheUser.id,
+      exit_outcome: 'PARTLY_RECEIVED',
+      exit_reason_code: 'TANK_FULL',
+      exit_remarks: 'Tank was full after the first portion. Driver took the second portion back.',
+    },
+  });
+  await addLabResults(session6.id, zmccHcRulesMap, 28.0, 3.9, true, minutes(timeTodayArr6, 20));
+  // Only portion 1 is weighed: 2 weights (2000 > 700). Portion 2 stays ACCEPTED, portion 3 REJECTED.
+  const weighed6 = await createPortions(
+    session6.id,
+    [
+      { qtyKg: 1300, lr: 28.0, fat: 3.9, accepted: true, weighed: true },
+      { qtyKg: 1200, lr: 28.0, fat: 3.9, accepted: true, weighed: false },
+      { qtyKg: 900, lr: 21.0, fat: 2.5, accepted: false },
+    ],
+    [2000, 700],
+    timeTodayArr6
+  );
+  await createTankReceipt(session6, 'HC', weighed6, minutes(timeTodayArr6, 70), demoMilkSource2, 'HC partial tank receipt - Hasilpur');
 
-  // Deactivate supplier3 now that historical arrival has completed (models realistic supplier lifecycle)
+  // HC-5 = ACCEPTED_NOT_RECEIVED: accepted, vehicle left before unloading.
+  const arr7 = await createHcArrival({
+    key: '005', supplierId: supplier5.id, rmr: '0000105', vehicle: 'BWP-7202',
+    at: timeTodayArr7, dateStr: pktTodayDateStr, dateOnly: pktTodayDate,
+    exitAt: minutes(timeTodayArr7, 100),
+  });
+  const session7 = await prisma.zmccLabSession.create({
+    data: {
+      ...sessionBase('HC', timeTodayArr7),
+      local_supplier_arrival_id: arr7.id,
+      decision: 'ACCEPTED',
+      final_decision: 'ACCEPTED',
+      completion_client_event_id: `evt-comp-hc-05-${pktTodayDateStr}`,
+      journey_closed_at: minutes(timeTodayArr7, 100),
+      exit_outcome: 'ACCEPTED_NOT_RECEIVED',
+      exit_reason_code: 'LEFT_BEFORE_UNLOADING',
+      exit_remarks: 'Driver left the yard before unloading started.',
+    },
+  });
+  await addLabResults(session7.id, zmccHcRulesMap, 29.0, 4.0, true, minutes(timeTodayArr7, 20));
+  await createPortions(session7.id, [{ qtyKg: 2000, lr: 29.0, fat: 4.0, accepted: true, weighed: false }], [], timeTodayArr7);
+
+  // MC-2 = RECEIVED: completed MC arrival yesterday. 2 accepted portions, weight chain of 3 weights, unloaded.
+  // The vehicle (BWP-5522) is free again because the arrival is finished.
+  const journey5 = await createMcJourney({
+    key: '02', dateStr: yesterdayDateStr, dateOnly: yesterdayDateOnly, vehicleId: motVehicle.id,
+    arrivedAt: timeYestArr5, source: demoMilkSource, liters: 4500, lr: 29.0, fat: 4.1,
+  });
+  const arr5 = await createMcArrival(journey5.id, '0202', yesterdayDateStr, yesterdayDateOnly, timeYestArr5, 'TK-HAS-MOT-002', '001925');
+  const session5 = await prisma.zmccLabSession.create({
+    data: {
+      ...sessionBase('MOT', timeYestArr5),
+      mot_arrival_id: arr5.id,
+      decision: 'ACCEPTED',
+      final_decision: 'ACCEPTED',
+      completion_client_event_id: `evt-comp-mot-02-${yesterdayDateStr}`,
+      journey_closed_at: minutes(timeYestArr5, 55),
+      closed_reason: 'ALL_PORTIONS_WEIGHED',
+      unloaded_at: minutes(timeYestArr5, 55),
+      unloaded_by_user_id: pheUser.id,
+      exit_outcome: 'RECEIVED',
+    },
+  });
+  await addLabResults(session5.id, zmccMcRulesMap, 29.0, 4.1, true, minutes(timeYestArr5, 25));
+  // Weights 5200 > 3100 > 900 => nets 2100 and 2200
+  const weighed5 = await createPortions(
+    session5.id,
+    [
+      { qtyKg: 2100, lr: 29.0, fat: 4.1, accepted: true, weighed: true },
+      { qtyKg: 2200, lr: 29.0, fat: 4.1, accepted: true, weighed: true },
+    ],
+    [5200, 3100, 900],
+    timeYestArr5
+  );
+  await createTankReceipt(session5, 'MOT', weighed5, minutes(timeYestArr5, 55), null, 'MC tank receipt - Hasilpur');
+  void timeYestArr5Exit;
+
+  // MC-3: accepted, not unloaded, PENDING "close without unloading" request waiting for the Zonal Manager.
+  const journey8 = await createMcJourney({
+    key: '03', dateStr: pktTodayDateStr, dateOnly: pktTodayDate, vehicleId: motVehicleClosing.id,
+    arrivedAt: timeTodayMc3, source: demoMilkSource2, liters: 1800, lr: 28.2, fat: 3.9,
+  });
+  const arr8 = await createMcArrival(journey8.id, '0203', pktTodayDateStr, pktTodayDate, timeTodayMc3, 'TK-HAS-MOT-003', '001926');
+  const session8 = await prisma.zmccLabSession.create({
+    data: {
+      ...sessionBase('MOT', timeTodayMc3),
+      mot_arrival_id: arr8.id,
+      decision: 'ACCEPTED',
+      final_decision: 'ACCEPTED',
+      completion_client_event_id: `evt-comp-mot-03-${pktTodayDateStr}`,
+      // Request raised by the PHE Operator; the reason and remarks wait for the Zonal Manager's decision
+      close_requested_by_user_id: pheUser.id,
+      close_requested_at: minutes(timeTodayMc3, 90),
+      exit_reason_code: 'VEHICLE_PROBLEM',
+      exit_remarks: 'Vehicle broke down at the unloading bay. Milk will be taken back to the shop.',
+    },
+  });
+  await addLabResults(session8.id, zmccMcRulesMap, 28.2, 3.9, true, minutes(timeTodayMc3, 20));
+  await createPortions(session8.id, [{ qtyKg: 1850, lr: 28.2, fat: 3.9, accepted: true, weighed: false }], [], timeTodayMc3);
+
+  // Deactivate supplier3 now that its historical arrival has completed (realistic supplier lifecycle)
   await prisma.zmccLocalSupplier.update({
     where: { id: supplier3.id },
     data: { is_active: false, updated_by_user_id: zmccManager.id },
   });
 
-  // Arrival 5: Completed MOT arrival that can appear in recent history
-  const journey5 = await prisma.motJourney.create({
-    data: {
-      journey_number: `J-HAS-${yesterdayDateStr.replace(/-/g, '')}-02`,
-      idempotency_key: `mot-journey-02-${yesterdayDateStr}`,
-      zmcc_id: hasilpurSource.id,
-      route_id: zmccRoute.id,
-      mot_profile_id: motProfile.id,
-      mot_vehicle_id: motVehicle.id,
-      status: 'COMPLETED',
-      operational_date: yesterdayDateOnly,
-      assigned_by: zmccManager.id,
-      assigned_at: new Date(timeYestArr5.getTime() - 7200000),
-      started_at: new Date(timeYestArr5.getTime() - 5400000),
-      ended_at: new Date(timeYestArr5.getTime() - 600000),
-      assignment_latitude: 29.6974,
-      assignment_longitude: 72.5539,
-      start_latitude: 29.6974,
-      start_longitude: 72.5539,
-    },
-  });
-
-  const arr5 = await prisma.zmccMotArrival.create({
-    data: {
-      journey_id: journey5.id,
-      zmcc_id: hasilpurSource.id,
-      route_milk_token: 'RM-HAS-0202',
-      raw_milk_token_number: '001925',
-      zmcc_token: 'TK-HAS-MOT-002',
-      arrival_timestamp: timeYestArr5,
-      arrival_date: yesterdayDateOnly,
-      client_event_id: `evt-arr-mot-02-${yesterdayDateStr}`,
-      recorded_by_user_id: pheUser.id,
-      gate_exit_required: true,
-      exit_timestamp: timeYestArr5Exit,
-      exit_recorded_by_user_id: pheUser.id,
-      exit_client_event_id: `evt-exit-mot-02-${yesterdayDateStr}`,
-      exit_submitted_at: new Date(timeYestArr5Exit.getTime() + 120000),
-    },
-  });
-
-  const arr5QtyLiters = 4500.0;
-  const arr5Lr = 29.0;
-  const arr5Fat = 4.1;
-  const arr5Metrics = computeCanonicalMilkMetrics(arr5QtyLiters, 'LITER', arr5Lr, arr5Fat);
-
-  const session5 = await prisma.zmccLabSession.create({
-    data: {
-      zmcc_id: hasilpurSource.id,
-      arrival_type: 'MOT',
-      mot_arrival_id: arr5.id,
-      status: 'COMPLETED',
-      decision: 'ACCEPTED',
-      system_quality_outcome: 'PASS',
-      started_by_user_id: zmccLabUser.id,
-      started_at: new Date(timeYestArr5.getTime() + 600000),
-      completed_by_user_id: zmccLabUser.id,
-      completed_at: new Date(timeYestArr5.getTime() + 2400000),
-      completion_client_event_id: `evt-comp-mot-02-${yesterdayDateStr}`,
-      quantity_value: arr5QtyLiters,
-      quantity_unit: 'LITER',
-      density: arr5Metrics.density,
-      gross_liters: arr5Metrics.grossLiters,
-      snf: arr5Metrics.snf,
-      ts: arr5Metrics.ts,
-      at_13ts_liters: arr5Metrics.at13tsLiters,
-      calculation_version: arr5Metrics.calculationVersion,
-    },
-  });
-
-  if (lrTest && fatTest) {
-    const lrRule = zmccMotRulesMap.get(String(lrTest.id));
-    const fatRule = zmccMotRulesMap.get(String(fatTest.id));
-    await prisma.zmccLabResult.createMany({
-      data: [
-        {
-          session_id: session5.id,
-          test_id: lrTest.id,
-          test_code_snapshot: lrTest.testCode,
-          test_name_snapshot: lrTest.testName,
-          result_type_snapshot: lrTest.resultType,
-          unit_snapshot: lrTest.unit,
-          is_required_snapshot: true,
-          display_order_snapshot: 1,
-          numeric_value: arr5Lr,
-          applied_rule_id: lrRule?.id || null,
-          applied_rule_version: lrRule?.version || null,
-          evaluation_status: 'PASS',
-          is_passed: true,
-          recorded_at: new Date(timeYestArr5.getTime() + 1800000),
-        },
-        {
-          session_id: session5.id,
-          test_id: fatTest.id,
-          test_code_snapshot: fatTest.testCode,
-          test_name_snapshot: fatTest.testName,
-          result_type_snapshot: fatTest.resultType,
-          unit_snapshot: fatTest.unit,
-          is_required_snapshot: true,
-          display_order_snapshot: 2,
-          numeric_value: arr5Fat,
-          applied_rule_id: fatRule?.id || null,
-          applied_rule_version: fatRule?.version || null,
-          evaluation_status: 'PASS',
-          is_passed: true,
-          recorded_at: new Date(timeYestArr5.getTime() + 1800000),
-        },
-      ],
-    });
-  }
-
-  const receipt5 = await prisma.zmccTankReceipt.create({
-    data: {
-      lab_session_id: session5.id,
-      zmcc_id: hasilpurSource.id,
-      tank_id: hasilpurTank.id,
-      arrival_type: 'MOT',
-      quantity_value: arr5QtyLiters,
-      quantity_unit: 'LITER',
-      density: arr5Metrics.density,
-      gross_liters: arr5Metrics.grossLiters,
-      lr: arr5Lr,
-      fat: arr5Fat,
-      snf: arr5Metrics.snf,
-      ts: arr5Metrics.ts,
-      at_13ts_liters: arr5Metrics.at13tsLiters,
-      calculation_version: arr5Metrics.calculationVersion,
-      received_at: new Date(timeYestArr5.getTime() + 2700000),
-      received_by_user_id: zmccLabUser.id,
-    },
-  });
-
-  await prisma.zmccTankInventoryTransaction.create({
-    data: {
-      tank_id: hasilpurTank.id,
-      zmcc_id: hasilpurSource.id,
-      transaction_type: 'RECEIPT',
-      quantity_liters: arr5QtyLiters,
-      at_13ts_liters: arr5Metrics.at13tsLiters,
-      tank_receipt_id: receipt5.id,
-      reference_type: 'ZMCC_LAB_SESSION',
-      reference_id: session5.id.toString(),
-      idempotency_key: `ZMCC_TANK_RECEIPT:LAB_SESSION:${session5.id}`,
-      operational_timestamp: new Date(timeYestArr5.getTime() + 2700000),
-      performed_by_user_id: zmccLabUser.id,
-      notes: 'MOT Tank Receipt - Hasilpur',
-    },
-  });
-
   console.log('✅ ZMCC Hasilpur Operational Records successfully created:');
-  console.log('  - Local Suppliers: 3 created (2 Active, 1 Inactive)');
-  console.log('  - Arrivals: 5 created (2 Inside ZMCC, 3 Exited)');
-  console.log('  - Lab Sessions: 4 created (1 In-Progress, 2 Accepted, 1 Rejected)');
-  console.log('  - Tank Receipts: 2 created (Total Stock: 6,900 L into TK-HAS-01)\n');
+  console.log('  - HC suppliers: 5 created (4 Active, 1 Inactive), no ERP reference');
+  console.log('  - Milk sources: 2 demo sources assigned to ZMCC Hasilpur; MC vehicles: 4 registered by the Data Executive');
+  console.log('  - MC arrivals: 3 (1 lab in progress, 1 received, 1 with a pending close-without-unloading request)');
+  console.log('  - HC arrivals: 5 (1 waiting for lab, RECEIVED, REJECTED, PARTLY_RECEIVED, ACCEPTED_NOT_RECEIVED)');
+  console.log('  - Tank receipts: 3 with weighed portions (N+1 weights); HC receipts carry the milk source\n');
 
   console.log('==================================================');
   console.log('OPERATIONAL SEEDING COMPLETE SUMMARY:');
@@ -1780,10 +1824,10 @@ export async function seedOperationalData() {
     inProgressVisits,
     sourceStats,
     zmccDemo: {
-      hasilpurSuppliers: 3,
-      hasilpurArrivals: 5,
-      hasilpurLabSessions: 4,
-      hasilpurTankReceipts: 2,
+      hasilpurSuppliers: 5,
+      hasilpurArrivals: 8,
+      hasilpurLabSessions: 7,
+      hasilpurTankReceipts: 3,
       hasilpurTankStockLiters: physicalStock,
       hasilpurTankStockAt13ts: commercialStock.stockAt13Ts,
       hasilpurTankCommercialComplete: commercialStock.isComplete,

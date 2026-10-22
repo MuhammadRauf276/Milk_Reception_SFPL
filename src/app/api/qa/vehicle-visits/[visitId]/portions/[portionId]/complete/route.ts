@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
+import { canActAs } from '@/backend/core/roles/hierarchy';
 import { completeQATestSchema } from '@/lib/validations/qa';
 import { QualityRuleService } from '@/backend/services/qualityRuleService';
 import { validateNonNegativeDecimal } from '@/lib/validation-helpers';
@@ -46,15 +47,18 @@ export async function POST(
     },
   });
 
-  const allowedRoles = ['QA_LAB_ATTENDANT', 'QA_HEAD', 'SUPER_ADMIN'];
-  if (!dbUser || !allowedRoles.includes(dbUser.role)) {
+
+  if (!dbUser || !canActAs(dbUser.role, 'QA_LAB_ATTENDANT')) {
     return NextResponse.json(
       { error: 'Unauthorized. QAE Reception Lab, QA Head (AVP-QA), or Super Admin role required.' },
       { status: 403 }
     );
   }
 
-  const isSuperior = ['QA_HEAD', 'SUPER_ADMIN'].includes(dbUser.role);
+  const isSuperior = dbUser.role === 'SUPER_ADMIN' || canActAs(dbUser.role, 'QA_HEAD');
+  const requestedAsHeader = req.headers.get('x-acting-as')?.trim() || null;
+  const effectiveRole = requestedAsHeader && canActAs(dbUser.role, requestedAsHeader) ? requestedAsHeader : dbUser.role;
+  const isDelegated = effectiveRole !== dbUser.role && !['SUPER_ADMIN', 'DATA_EXECUTIVE'].includes(dbUser.role);
 
   const resolvedParams = await params;
   const visitIdStr = resolvedParams.visitId;
@@ -113,7 +117,6 @@ export async function POST(
 
     const explicitDecision = validated.decision;
     const rejectionReasonInput = (validated.exceptionReason || validated.exception_reason || validated.rejectionReason || validated.decisionReason || '').trim();
-    const rejectionRemarksInput = (validated.rejectionRemarks || '').trim();
 
     // Load assigned Plant QA test snapshot for this visit
     const assignedPlantTests = await getOrAssignPlantQATests(prisma, visitId);
@@ -128,6 +131,12 @@ export async function POST(
     const isOperatorRejecting = explicitDecision === 'REJECTED';
 
     if (isOperatorRejecting) {
+      if (rejectionReasonInput.length < 3) {
+        return NextResponse.json(
+          { error: 'Remarks are required when rejecting a portion (at least 3 characters).' },
+          { status: 400 }
+        );
+      }
       // QA-REJECT-ZERO-01: At least ONE PERFORMED result required to reject.
       const performedResults = validated.results.filter(
         (r) => (r.performanceStatus || 'PERFORMED') === 'PERFORMED'
@@ -330,8 +339,10 @@ export async function POST(
         throw new RouteError('Laboratory rule configuration is incomplete or invalid. QA completion is blocked.', 422);
       }
 
-      // Collect all exception reasons (Rule failure, Seal mismatch, Missing Photos for LR / Fat)
+      // Collect rule failures and true exception reasons per Workflow 06 (§3 & §7)
+      const ruleFailReasons: string[] = [];
       const exceptionReasonsList: string[] = [];
+
       if (sealMismatchException) {
         exceptionReasonsList.push('SEAL_MISMATCH');
       }
@@ -339,7 +350,7 @@ export async function POST(
       for (const entry of evaluationEntries) {
         const testDef = assignedTestMap.get(entry.testId.toString());
         if (entry.evaluationStatus === 'OUT_OF_SPEC' || entry.isPassed === false) {
-          exceptionReasonsList.push(`RULE_FAIL:${testDef?.test_code_snapshot || entry.testId}`);
+          ruleFailReasons.push(`RULE_FAIL:${testDef?.test_code_snapshot || entry.testId}`);
         }
         if (entry.performanceStatus === 'PERFORMED') {
           const photo = resPhotoMap.get(entry.testId.toString());
@@ -356,6 +367,9 @@ export async function POST(
         ? 'ACCEPTED'
         : 'REJECTED';
       const isAttendantException = explicitDecision !== systemRecommendation;
+      if (isAttendantException) {
+        exceptionReasonsList.push('MISMATCH');
+      }
 
       // 6. Upsert submitted PlantLabResult rows with rule linkages, photo_url, and seal_verified
       for (const entry of evaluationEntries) {
@@ -458,9 +472,11 @@ export async function POST(
         }
       }
 
-      // 8. Determine Portion Decision & AVP-QA Review Escalation
-      const hasException = exceptionReasonsList.length > 0 || isAttendantException;
+      // 8. Determine Portion Decision & AVP-QA Review Escalation per Workflow 06 (§3 & §7)
+      // True exceptions: Attendant Mismatch, Missing Photo, or Seal Mismatch
+      const hasException = exceptionReasonsList.length > 0;
       const isDecideNow = isSuperior || validated.action === 'DECIDE_NOW';
+      const fullExceptionReasons = [...exceptionReasonsList, ...ruleFailReasons.filter((r) => !exceptionReasonsList.includes(r))];
 
       if (hasException && !isDecideNow) {
         // Normal QAE: Exception routes directly to AVP-QA (QA_HEAD)
@@ -477,12 +493,12 @@ export async function POST(
             manager_requested_decision: explicitDecision,
             manager_review_requested_by_user_id: userIdBigInt,
             manager_review_requested_at: targetOpTs,
-            manager_review_reason: rejectionReasonInput || exceptionReasonsList.join(', '),
+            manager_review_reason: rejectionReasonInput || fullExceptionReasons.join(', '),
             plant_seal_number_entered: enteredSeal || null,
             seal_match: sealMatch,
             seal_checked_by: userIdBigInt,
             seal_checked_at: targetOpTs,
-            exception_reasons: exceptionReasonsList.length > 0 ? exceptionReasonsList : Prisma.DbNull,
+            exception_reasons: fullExceptionReasons.length > 0 ? fullExceptionReasons : Prisma.DbNull,
             completion_client_event_id: completionEventId,
           },
         });
@@ -494,7 +510,7 @@ export async function POST(
               event_type: 'HOLD',
               timestamp: targetOpTs,
               user_id: userIdBigInt,
-              note: `Portion #${lockedPortion.portion_number} exception (${exceptionReasonsList.join(', ') || 'attendant disagreement'}); escalated to AVP-QA review.`,
+              note: `Portion #${lockedPortion.portion_number} exception (${exceptionReasonsList.join(', ')}); escalated to AVP-QA review.`,
             },
           });
         }
@@ -503,12 +519,12 @@ export async function POST(
           eventKey: 'PLANT_QA_EXCEPTION_PENDING',
           sourceId: portionId.toString(),
           title: 'Plant QA exception needs review',
-          body: `Vehicle visit ${lockedPortion.visit_id.toString()} portion ${lockedPortion.portion_number} has an exception (${exceptionReasonsList.join(', ') || 'Attendant Disagreement'}) and requires AVP-QA review.`,
+          body: `Vehicle visit ${lockedPortion.visit_id.toString()} portion ${lockedPortion.portion_number} has an exception (${exceptionReasonsList.join(', ')}) and requires AVP-QA review.`,
           deepLink: '/department/qa-head',
           dedupeSuffix: `${portionId}:${completionEventId}`,
         });
       } else {
-        // Decide Now (Superior or Normal Non-Exception Case)
+        // Direct Decision (YES+YES -> ACCEPTED, NO+NO -> REJECTED directly, or Decide Now by Superior)
         finalPlantDecision = explicitDecision || (systemRecommendation === 'ACCEPTED' && !sealMismatchException ? 'ACCEPTED' : 'REJECTED');
         finalManagerReviewStatus = 'NONE';
 
@@ -519,15 +535,16 @@ export async function POST(
             current_status: finalPlantDecision,
             system_quality_outcome: systemQualityOutcome,
             manager_review_status: 'NONE',
-            plant_rejection_reason: finalPlantDecision === 'REJECTED' ? (rejectionReasonInput || exceptionReasonsList.join(', ')) : null,
+            plant_rejection_reason: finalPlantDecision === 'REJECTED' ? (rejectionReasonInput || ruleFailReasons.join(', ')) : null,
             plant_decided_by: userIdBigInt,
             plant_decided_at: targetOpTs,
-            plant_decided_as_role: dbUser.role,
+            plant_decided_as_role: effectiveRole,
+            plant_decided_is_delegated: isDelegated,
             plant_seal_number_entered: enteredSeal || null,
             seal_match: sealMatch,
             seal_checked_by: userIdBigInt,
             seal_checked_at: targetOpTs,
-            exception_reasons: exceptionReasonsList.length > 0 ? exceptionReasonsList : Prisma.DbNull,
+            exception_reasons: ruleFailReasons.length > 0 ? ruleFailReasons : Prisma.DbNull,
             completion_client_event_id: completionEventId,
           },
         });
@@ -575,8 +592,8 @@ export async function POST(
         }
       }
 
-      // 8b. Composite rejection rule:
-      // If testMode is COMPOSITE and portion was rejected, reject ALL portions on this vehicle.
+      // 8b. Composite decision propagation rule:
+      // In COMPOSITE mode, the single composite sample decides the fate of all compartments on the vehicle.
       const isComposite = portion.visit.test_mode === 'COMPOSITE';
       if (isComposite && finalPlantDecision === 'REJECTED') {
         await tx.visitPortion.updateMany({
@@ -587,7 +604,20 @@ export async function POST(
             plant_rejection_reason: rejectionReasonInput || 'Composite testing failed - entire vehicle load rejected',
             plant_decided_by: userIdBigInt,
             plant_decided_at: targetOpTs,
-            plant_decided_as_role: dbUser.role,
+            plant_decided_as_role: effectiveRole,
+            plant_decided_is_delegated: isDelegated,
+          },
+        });
+      } else if (isComposite && finalPlantDecision === 'ACCEPTED') {
+        await tx.visitPortion.updateMany({
+          where: { visit_id: visitId, plant_decision: { not: 'ACCEPTED' } },
+          data: {
+            plant_decision: 'ACCEPTED',
+            current_status: 'ACCEPTED',
+            plant_decided_by: userIdBigInt,
+            plant_decided_at: targetOpTs,
+            plant_decided_as_role: effectiveRole,
+            plant_decided_is_delegated: isDelegated,
           },
         });
       }

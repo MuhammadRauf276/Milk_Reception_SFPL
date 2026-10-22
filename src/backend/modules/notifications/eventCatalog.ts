@@ -1,10 +1,11 @@
 export type NotificationEventKey =
   | 'ZMCC_LAB_EXCEPTION_PENDING'
+  | 'ZMCC_EXIT_WITHOUT_UNLOADING'
+  | 'ZMCC_CLOSE_REQUEST_PENDING'
   | 'PLANT_QA_EXCEPTION_PENDING'
   | 'CORRECTION_ESCALATED'
   | 'FINANCE_TARGET_CHANGED'
   | 'SYSTEM_ALERT'
-  | 'ERP_VENDOR_MAPPING_REQUIRED'
   | 'MOT_SHOP_EXCEPTION_PENDING'
   | 'HIGH_TRANSIT_LOSS_ALERT'
   | 'DISPATCH_APPROVAL_PENDING'
@@ -12,8 +13,7 @@ export type NotificationEventKey =
   | 'SELF_APPROVAL_REVIEW'
   | 'NEW_ROUTE_PENDING'
   | 'NEW_SHOP_PENDING'
-  | 'NEW_HC_PENDING'
-  | 'NEW_SOURCE_PENDING';
+  | 'NEW_HC_PENDING';
 
 export type NotificationRecipientRole =
   | 'ZMCC_MANAGER'
@@ -33,11 +33,12 @@ export interface NotificationEventDefinition {
 
 export const notificationEventCatalog: Record<NotificationEventKey, NotificationEventDefinition> = {
   ZMCC_LAB_EXCEPTION_PENDING: { recipients: ['ZMCC_MANAGER'], priority: 'HIGH', sourceType: 'ZMCC_LAB_SESSION' },
+  ZMCC_EXIT_WITHOUT_UNLOADING: { recipients: ['ZMCC_MANAGER'], priority: 'HIGH', sourceType: 'ZMCC_LAB_SESSION' },
+  ZMCC_CLOSE_REQUEST_PENDING: { recipients: ['ZMCC_MANAGER'], priority: 'HIGH', sourceType: 'ZMCC_LAB_SESSION' },
   PLANT_QA_EXCEPTION_PENDING: { recipients: ['QA_HEAD'], priority: 'HIGH', sourceType: 'PLANT_QA_PORTION' },
   CORRECTION_ESCALATED: { recipients: ['HEAD_OF_MPD'], priority: 'HIGH', sourceType: 'CORRECTION_REQUEST' },
   FINANCE_TARGET_CHANGED: { recipients: ['HEAD_OF_MPD', 'FINANCE_ACCOUNTS'], priority: 'NORMAL', sourceType: 'FINANCE_LOSS_TARGET' },
   SYSTEM_ALERT: { recipients: ['SUPER_ADMIN'], priority: 'CRITICAL', sourceType: 'SYSTEM' },
-  ERP_VENDOR_MAPPING_REQUIRED: { recipients: ['FINANCE_ACCOUNTS', 'ZMCC_MANAGER', 'DATA_EXECUTIVE'], priority: 'HIGH', sourceType: 'LOCAL_SUPPLIER' },
   MOT_SHOP_EXCEPTION_PENDING: { recipients: ['ZMCC_MANAGER'], priority: 'HIGH', sourceType: 'MOT_SHOP_COLLECTION' },
   HIGH_TRANSIT_LOSS_ALERT: { recipients: ['ZMCC_MANAGER', 'SUPER_ADMIN', 'HEAD_OF_MPD'], priority: 'HIGH', sourceType: 'ROAD_TRANSIT' },
   DISPATCH_APPROVAL_PENDING: { recipients: ['ZMCC_MANAGER', 'CONTRACTOR_MANAGER', 'HEAD_OF_MPD'], priority: 'HIGH', sourceType: 'VEHICLE_VISIT' },
@@ -46,5 +47,4 @@ export const notificationEventCatalog: Record<NotificationEventKey, Notification
   NEW_ROUTE_PENDING: { recipients: ['ZMCC_MANAGER'], priority: 'NORMAL', sourceType: 'ZMCC_ROUTE' },
   NEW_SHOP_PENDING: { recipients: ['MDO', 'ZMCC_MANAGER'], priority: 'NORMAL', sourceType: 'ZMCC_SHOP' },
   NEW_HC_PENDING: { recipients: ['ZMCC_MANAGER'], priority: 'NORMAL', sourceType: 'ZMCC_LOCAL_SUPPLIER' },
-  NEW_SOURCE_PENDING: { recipients: ['HEAD_OF_MPD'], priority: 'HIGH', sourceType: 'PROCUREMENT_SOURCE' },
 };

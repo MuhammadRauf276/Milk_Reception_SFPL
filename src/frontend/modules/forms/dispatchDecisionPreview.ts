@@ -109,17 +109,16 @@ export function buildDispatchPreview(input: {
     rows.push({ key: 'lab-report', name: 'Hand-written lab report', outcome: 'PASS', valueText: 'Picture taken' });
   }
 
-  const decision = input.personDecision
-    ? evaluateDecision({
-        ruleFailures,
-        missingCompulsory,
-        missingPhotos,
-        extraReasons: [] as ExceptionReason[],
-        personDecision: input.personDecision,
-        remarks: input.remarks,
-        deciderCanApprove: input.deciderCanApprove,
-      })
-    : null;
+  const effectivePerson: PersonDecision = input.personDecision ?? 'ACCEPT';
+  const decision = evaluateDecision({
+    ruleFailures,
+    missingCompulsory,
+    missingPhotos,
+    extraReasons: [] as ExceptionReason[],
+    personDecision: effectivePerson,
+    remarks: input.remarks,
+    deciderCanApprove: input.deciderCanApprove,
+  });
 
   return { rows, warnings, decision };
 }

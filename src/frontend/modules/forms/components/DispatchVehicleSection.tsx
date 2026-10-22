@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Clock, Truck } from 'lucide-react';
+import { Combobox } from '@/components/ui/combobox';
 import {
   QuantityUnit,
   MeasurementBasis,
@@ -56,20 +57,11 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
   vehicleNumberError,
   dispatchOpDatetime,
   onDispatchOpDatetimeChange,
-  maxDatetime,
-  isPolicyReady,
-  vehicleQuantity,
-  onVehicleQuantityValueChange,
-  onVehicleUnitChange,
-  vehicleAllowedUnits,
-  vehicleQuantityError,
-  sourceType,
-  vehicleLr,
-  onVehicleLrChange,
-  vehicleFat,
-  onVehicleFatChange,
-  isVehicleQualityAuto = false,
-  onResetVehicleQualityAuto,
+  maxDatetime,
+  vehicleQuantity,
+  vehicleQuantityError,
+  vehicleLr,
+  vehicleFat,
   rawMilkDispatchNoteNumber,
   onRawMilkDispatchNoteNumberChange,
 }) => {
@@ -80,18 +72,13 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
           <label className="block font-semibold text-amber-950">
             Select Operating Procurement Source (Admin Override):
           </label>
-          <select
+          <Combobox
+            options={availableSources.map((x) => ({ value: x.id, label: `${x.name} · ${x.source_type}` }))}
             value={selectedSourceId}
-            onChange={(e) => onSelectSourceId(e.target.value)}
-            className="w-full h-11 px-3.5 font-semibold rounded-xl border border-amber-300 bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-primary"
-          >
-            <option value="">Select procurement source</option>
-            {availableSources.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name} · {s.source_type}
-              </option>
-            ))}
-          </select>
+            onValueChange={onSelectSourceId}
+            placeholder="Select procurement source"
+            searchPlaceholder="Search source"
+          />
         </div>
       )}
 

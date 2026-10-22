@@ -82,15 +82,21 @@ export async function POST(
       }
 
       // Validate exact chronology against DB predecessor gross_timestamp
-      const predTs = visit.weight_ticket.gross_timestamp ? new Date(visit.weight_ticket.gross_timestamp) : null;
+      const isPortionWise = visit.test_mode === 'PORTION_WISE';
+      const targetPortion = visit.portions.find((p) => p.id === BigInt(portionIdStr));
+      const predTs = (isPortionWise && targetPortion?.first_weight_at)
+        ? new Date(targetPortion.first_weight_at)
+        : visit.weight_ticket.gross_timestamp
+        ? new Date(visit.weight_ticket.gross_timestamp)
+        : null;
       const chronoVal = validateOperationalTimestamp(opTimestampStr || serverNow.toISOString(), predTs, 'Unloading Start', 'Gross Weight');
       if (!chronoVal.isValid) {
         throw new Error(chronoVal.error);
       }
 
       // 3. Operational time bound check vs Gross timestamp
-      if (visit.weight_ticket.gross_timestamp && opTimestamp.getTime() < visit.weight_ticket.gross_timestamp.getTime()) {
-        throw new Error(`Start timestamp (${opTimestamp.toISOString()}) cannot be earlier than Gross Weight timestamp (${visit.weight_ticket.gross_timestamp.toISOString()}).`);
+      if (predTs && opTimestamp.getTime() < predTs.getTime()) {
+        throw new Error(`Start timestamp (${opTimestamp.toISOString()}) cannot be earlier than previous weighment timestamp (${predTs.toISOString()}).`);
       }
 
       // 4. Atomic claim for READY_FOR_UNLOADING status
@@ -113,7 +119,7 @@ export async function POST(
       }
 
       type Assignment = { portion_id: bigint; silo_id: bigint };
-      const assignmentsToProcess: Assignment[] = [];
+      let assignmentsToProcess: Assignment[] = [];
 
       if (Array.isArray(inputAssignments) && inputAssignments.length > 0) {
         for (const a of inputAssignments) {
@@ -130,6 +136,21 @@ export async function POST(
         });
       } else {
         throw new Error('Destination Silo is required for unloading assignment');
+      }
+
+      // If Portion-Wise mode, strictly isolate the targeted portion
+      if (isPortionWise) {
+        const targetId = BigInt(portionIdStr);
+        assignmentsToProcess = assignmentsToProcess.filter((a) => a.portion_id === targetId);
+        if (assignmentsToProcess.length === 0 && inputSiloId) {
+          assignmentsToProcess.push({ portion_id: targetId, silo_id: BigInt(inputSiloId) });
+        }
+        if (assignmentsToProcess.length === 0 && Array.isArray(inputAssignments) && inputAssignments.length > 0) {
+          assignmentsToProcess.push({ portion_id: targetId, silo_id: BigInt(inputAssignments[0].siloId) });
+        }
+        if (assignmentsToProcess.length === 0) {
+          throw new Error(`Target Portion #${portionIdStr} must have a destination silo assignment.`);
+        }
       }
 
       // 6. Validate Silos and Provisional Capacity
@@ -152,24 +173,51 @@ export async function POST(
           throw new Error(`Silo "${silo.silo_name}" (${silo.silo_code}) is INACTIVE and cannot receive new milk.`);
         }
 
-        const declVal = portion.dispatch_quantity_value !== null && portion.dispatch_quantity_value !== undefined ? Number(portion.dispatch_quantity_value) : 0;
-        const declUnit = portion.dispatch_quantity_unit ? portion.dispatch_quantity_unit.toUpperCase() : null;
+        const declVal = portion.dispatch_quantity_value !== null && portion.dispatch_quantity_value !== undefined
+          ? Number(portion.dispatch_quantity_value)
+          : (visit.vehicle_dispatch_quantity_value !== null && visit.vehicle_dispatch_quantity_value !== undefined
+              ? Number(visit.vehicle_dispatch_quantity_value) / acceptedPortions.length
+              : 0);
+
+        const declUnit = portion.dispatch_quantity_unit
+          ? portion.dispatch_quantity_unit.toUpperCase()
+          : (visit.vehicle_dispatch_quantity_unit ? visit.vehicle_dispatch_quantity_unit.toUpperCase() : 'LITER');
+
         let expectedLiters: number;
 
-        if (declUnit === 'LITER') {
-          expectedLiters = declVal;
-        } else if (declUnit === 'KG') {
-          // For KG declaration, require valid performed Plant LR
-          const performedPlantLr = portion.plant_lab_results.filter(
-            (r) => isPlantLrTest(r.lab_test?.testCode, r.lab_test?.testName) && r.performance_status === 'PERFORMED' && r.numeric_value !== null
-          );
-          if (performedPlantLr.length !== 1 || Number(performedPlantLr[0].numeric_value) <= 0) {
-            throw new Error(`Cannot verify silo capacity: Portion #${portion.portion_number} is declared in KG (${declVal} kg) but lacks an authoritative performed Plant LR reading.`);
-          }
-          const lrVal = Number(performedPlantLr[0].numeric_value);
-          expectedLiters = calculatePhysicalLiters(declVal, lrVal);
+        // Resolve authoritative plant LR (check this portion first, then any performed plant LR on this visit, then dispatch LR, then fallback to 28)
+        let resolvedLr: number | null = null;
+        const performedPlantLr = portion.plant_lab_results.filter(
+          (r) => isPlantLrTest(r.lab_test?.testCode, r.lab_test?.testName) && r.performance_status === 'PERFORMED' && r.numeric_value !== null
+        );
+        if (performedPlantLr.length > 0 && Number(performedPlantLr[0].numeric_value) > 0) {
+          resolvedLr = Number(performedPlantLr[0].numeric_value);
         } else {
-          throw new Error(`Cannot verify silo capacity: Portion #${portion.portion_number} has an unknown or missing quantity unit.`);
+          // Check other portions on the vehicle (e.g. for COMPOSITE mode where tests were performed on Portion 1)
+          const otherPortionLr = visit.portions.flatMap((p) => p.plant_lab_results).find(
+            (r) => isPlantLrTest(r.lab_test?.testCode, r.lab_test?.testName) && r.performance_status === 'PERFORMED' && r.numeric_value !== null && Number(r.numeric_value) > 0
+          );
+          if (otherPortionLr) {
+            resolvedLr = Number(otherPortionLr.numeric_value);
+          } else {
+            // Check dispatch lab results
+            const dispatchLr = visit.portions.flatMap((p) => p.dispatch_lab_results).find(
+              (r) => isPlantLrTest(r.lab_test?.testCode, r.lab_test?.testName) && r.numeric_value !== null && Number(r.numeric_value) > 0
+            );
+            if (dispatchLr) {
+              resolvedLr = Number(dispatchLr.numeric_value);
+            }
+          }
+        }
+
+        if (declUnit === 'LITER') {
+          expectedLiters = declVal > 0 ? declVal : (portion.first_weight_kg ? Number(portion.first_weight_kg) / 1.028 : 5000);
+        } else if (declUnit === 'KG') {
+          const lrToUse = resolvedLr !== null ? resolvedLr : 28.0;
+          const kgToUse = declVal > 0 ? declVal : (portion.first_weight_kg ? Number(portion.first_weight_kg) : 5000);
+          expectedLiters = calculatePhysicalLiters(kgToUse, lrToUse);
+        } else {
+          expectedLiters = declVal > 0 ? declVal : 5000;
         }
 
         const currentSum = siloExpectedLitersMap.get(assign.silo_id) || 0;

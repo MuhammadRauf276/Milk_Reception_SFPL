@@ -23,30 +23,30 @@ export function isRetiredRole(role: unknown): role is RetiredRole {
 /**
  * Parent of each canonical role. `null` marks the root (Super Admin).
  *
- * Super Admin ─┬─ Senior Exec Mgmt
- *              ├─ Data Executive
- *              ├─ Finance & Accounts
- *              ├─ MPD Head ─┬─ Contractor Manager ── Contractor Operator
- *              │            └─ Zonal Manager ─┬─ PHE Operator
- *              │                              ├─ MDO
- *              │                              ├─ Zonal Lab Attendant
- *              │                              └─ Mobile Tester
- *              ├─ Admin Head ── Admin Operator
- *              ├─ AVP-QA ─┬─ QAE Reception Lab
- *              │          └─ QA Manager (retiring, see TODO)
- *              └─ Production Head ─┬─ Weighbridge Operator
- *                                  └─ Production Reception Operator
+ * Super Admin ── Data Executive ─┬─ Senior Exec Mgmt
+ *                                ├─ Finance & Accounts
+ *                                ├─ MPD Head ─┬─ Contractor Manager ── Contractor Operator
+ *                                │            └─ Zonal Manager ─┬─ PHE Operator
+ *                                │                              ├─ MDO
+ *                                │                              ├─ Zonal Lab Attendant
+ *                                │                              └─ Mobile Tester
+ *                                ├─ Admin Head ── Admin Operator
+ *                                ├─ AVP-QA ─┬─ QAE Reception Lab
+ *                                │          └─ QA Manager (retiring, see TODO)
+ *                                └─ Production Head ─┬─ Weighbridge Operator
+ *                                                    └─ Production Reception Operator
  */
 export const ROLE_PARENT = {
   SUPER_ADMIN: null,
 
-  EXECUTIVE_MANAGEMENT: 'SUPER_ADMIN',
   DATA_EXECUTIVE: 'SUPER_ADMIN',
-  FINANCE_ACCOUNTS: 'SUPER_ADMIN',
-  HEAD_OF_MPD: 'SUPER_ADMIN',
-  ADMIN_HEAD: 'SUPER_ADMIN',
-  QA_HEAD: 'SUPER_ADMIN',
-  PRODUCTION_HEAD: 'SUPER_ADMIN',
+
+  EXECUTIVE_MANAGEMENT: 'DATA_EXECUTIVE',
+  FINANCE_ACCOUNTS: 'DATA_EXECUTIVE',
+  HEAD_OF_MPD: 'DATA_EXECUTIVE',
+  ADMIN_HEAD: 'DATA_EXECUTIVE',
+  QA_HEAD: 'DATA_EXECUTIVE',
+  PRODUCTION_HEAD: 'DATA_EXECUTIVE',
 
   CONTRACTOR_MANAGER: 'HEAD_OF_MPD',
   ZMCC_MANAGER: 'HEAD_OF_MPD',

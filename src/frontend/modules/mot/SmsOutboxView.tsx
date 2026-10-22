@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { User } from '@core/types';
-import { Phone, AlertTriangle, CheckCircle2, Clock, Send, MessageSquare, Copy, Check, QrCode } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Clock, Send, MessageSquare, Copy, Check, QrCode } from 'lucide-react';
 import { getErrorMessage } from '@/lib/errors';
-import { fetchJson } from '@/lib/fetch-json';
+import { useQuery } from '@tanstack/react-query';
+import { fetchJson } from '@/lib/query/fetchJson';
 
 interface SmsOutboxViewProps {
   currentUser: User | null;
@@ -31,8 +32,6 @@ interface SmsOutboxItem {
 }
 
 export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
-  const [loading, setLoading] = useState(true);
-  const [items, setItems] = useState<SmsOutboxItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [isDispatching, setIsDispatching] = useState(false);
@@ -48,25 +47,28 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
     }
   };
 
-  const loadOutbox = useCallback(() => {
-    const url = statusFilter === 'ALL'
-      ? '/api/zmcc/mot/sms-outbox'
-      : `/api/zmcc/mot/sms-outbox?status=${statusFilter}`;
-    return fetchJson<{ items?: SmsOutboxItem[] }>(url, undefined, 'Failed to fetch SMS outbox.')
-      .then(
-        (json) => {
-          setItems(json.items || []);
-          setError(null);
-        },
-        (err) => setError(getErrorMessage(err) || 'Error loading SMS outbox.')
-      )
-      .finally(() => setLoading(false));
-  }, [statusFilter]);
+  const outboxQuery = useQuery({
+    queryKey: ['mot', 'sms-outbox', statusFilter],
+    queryFn: ({ signal }) =>
+      fetchJson<{ items?: SmsOutboxItem[] }>(
+        statusFilter === 'ALL' ? '/api/zmcc/mot/sms-outbox' : `/api/zmcc/mot/sms-outbox?status=${statusFilter}`,
+        { signal }
+      ),
+    placeholderData: (prev) => prev,
+    // Pending receipts get sent in the background: poll gently, only while visible and online.
+    refetchInterval: () =>
+      typeof document !== 'undefined' && (document.hidden || !navigator.onLine) ? false : 60_000,
+  });
+  const items: SmsOutboxItem[] = outboxQuery.data?.items ?? [];
+  const loading = outboxQuery.isFetching;
+  const queryError = outboxQuery.error;
+  useEffect(() => {
+    if (queryError) setError(getErrorMessage(queryError) || 'Error loading SMS outbox.');
+  }, [queryError]);
 
   const fetchOutbox = () => {
-    setLoading(true);
     setError(null);
-    return loadOutbox();
+    return outboxQuery.refetch();
   };
 
   const handleDispatchAll = async () => {
@@ -93,10 +95,6 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
     }
   };
 
-  useEffect(() => {
-    loadOutbox();
-  }, [loadOutbox]);
-
   return (
     <div className="space-y-4 animate-panel-in">
       <div className="p-4 bg-white rounded-xl border border-border shadow-2xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -110,19 +108,26 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
         </div>
 
         <div className="flex items-center space-x-2 flex-wrap gap-y-2">
-          <select
-            value={statusFilter}
-            onChange={(e) => {
-              setLoading(true);
-              setStatusFilter(e.target.value);
-            }}
-            className="px-3 py-1.5 rounded-xl border border-border text-xs font-semibold text-slate-700 bg-white"
-          >
-            <option value="ALL">All statuses</option>
-            <option value="PENDING">Pending</option>
-            <option value="SENT">Sent</option>
-            <option value="FAILED">Failed</option>
-          </select>
+          <div className="inline-flex rounded-xl border border-border bg-subtle p-0.5" role="group" aria-label="Status filter">
+            {[
+              ['ALL', 'All'],
+              ['PENDING', 'Pending'],
+              ['SENT', 'Sent'],
+              ['FAILED', 'Failed'],
+            ].map(([v, l]) => (
+              <button
+                key={v}
+                type="button"
+                aria-pressed={statusFilter === v}
+                onClick={() => setStatusFilter(v)}
+                className={`min-h-[44px] px-3 rounded-lg text-xs font-semibold ${
+                  statusFilter === v ? 'bg-primary text-white' : 'text-slate-700'
+                }`}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
           <button
             type="button"
             onClick={fetchOutbox}

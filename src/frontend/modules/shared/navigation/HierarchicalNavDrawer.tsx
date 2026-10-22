@@ -6,6 +6,7 @@ import { User } from '@core/types';
 import { Sheet } from '@/components/ui/sheet';
 import { resolveRoleHome } from '@/lib/role-routing';
 import { LayoutDashboard } from 'lucide-react';
+import { resolveDelegationContext } from '../delegation/stations';
 import { getRoleNavSections, RoleNavSection } from './roleNavConfig';
 import { NavPanel, formatRoleLabel } from './NavPanel';
 
@@ -29,13 +30,34 @@ export const HierarchicalNavDrawer: React.FC<HierarchicalNavDrawerProps> = ({
 }) => {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const zmccId = searchParams?.get('zmccId') || searchParams?.get('zmcc_id') || searchParams?.get('sourceId');
+
+  const delegationContext = useMemo(
+    () => resolveDelegationContext(currentUser, pathname, searchParams),
+    [currentUser, pathname, searchParams]
+  );
 
   const sections = useMemo<RoleNavSection[]>(() => {
-    const roleSections = getRoleNavSections(currentUser);
-    if (roleSections.length > 0 || !currentUser) return roleSections;
+    if (!currentUser) return [];
+
+    if (delegationContext.isDelegated && delegationContext.actingAs) {
+      // Station-aware mode: render the active station's full operational navigation
+      const stationSections = getRoleNavSections({ ...currentUser, role: delegationContext.actingAs }, zmccId);
+      // Add a prominent return-to-hub link at the top
+      const returnSection: RoleNavSection = {
+        id: 'return-home',
+        label: `← Return to ${formatRoleLabel(currentUser.role)}`,
+        icon: LayoutDashboard,
+        href: delegationContext.homeRoute,
+      };
+      return [returnSection, ...stationSections];
+    }
+
+    const roleSections = getRoleNavSections(currentUser, zmccId);
+    if (roleSections.length > 0) return roleSections;
     // Roles without a curated tree still get a way back to their home workspace.
     return [{ id: 'home', label: 'Home', icon: LayoutDashboard, href: resolveRoleHome(currentUser.role) }];
-  }, [currentUser]);
+  }, [currentUser, zmccId, delegationContext]);
 
   // Determine if a leaf is currently active based on current path and search params
   const isLeafActive = useCallback(
@@ -48,6 +70,10 @@ export const HierarchicalNavDrawer: React.FC<HierarchicalNavDrawerProps> = ({
       // Check each leaf query parameter against current search params
       let allMatch = true;
       leafParams.forEach((val, key) => {
+        // Source selection params (zmccId, sourceId) should not affect active tab matching
+        if (key === 'zmccId' || key === 'zmcc_id' || key === 'sourceId') {
+          return;
+        }
         const curVal = searchParams?.get(key);
         if (!curVal) {
           // Check default fallback if query parameter omitted in URL
@@ -77,6 +103,8 @@ export const HierarchicalNavDrawer: React.FC<HierarchicalNavDrawerProps> = ({
             // default tab
           } else if (leafPath === '/mpd/zmcc-manager' && key === 'view' && val === 'PLANT_HISTORY') {
             // default view for history tab
+          } else if (leafPath === '/mpd/zmcc-manager' && key === 'view' && val === 'LOCAL_SUPPLIERS') {
+            // default view for master data tab
           } else {
             allMatch = false;
           }
@@ -115,7 +143,9 @@ export const HierarchicalNavDrawer: React.FC<HierarchicalNavDrawerProps> = ({
 
   if (!currentUser) return null;
 
-  const caption = formatRoleLabel(currentUser.role);
+  const caption = delegationContext.isDelegated
+    ? `${delegationContext.subordinateRoleLabel} (Team Station)`
+    : formatRoleLabel(currentUser.role);
   const footer = (
     <div className="min-w-0 text-xs">
       <p className="truncate font-medium text-foreground">{currentUser.name || 'Operator'}</p>
@@ -130,7 +160,13 @@ export const HierarchicalNavDrawer: React.FC<HierarchicalNavDrawerProps> = ({
           data-app-sidebar
           className="fixed inset-y-0 left-0 z-sidebar hidden w-(--sidebar-width) border-r bg-card lg:block"
         >
-          <NavPanel sections={sections} isActive={isActive} caption={caption} footer={footer} />
+          <NavPanel
+            sections={sections}
+            isActive={isActive}
+            caption={caption}
+            footer={footer}
+            defaultExpanded={['team-stations', 'HISTORY', 'MASTER_DATA', 'arrivals', 'suppliers', 'mot']}
+          />
         </aside>
       ) : null}
 
@@ -140,6 +176,7 @@ export const HierarchicalNavDrawer: React.FC<HierarchicalNavDrawerProps> = ({
           isActive={isActive}
           caption={caption}
           footer={footer}
+          defaultExpanded={['team-stations', 'HISTORY', 'MASTER_DATA', 'arrivals', 'suppliers', 'mot']}
           showClose
           onNavigate={() => handleOpenChange(false)}
         />

@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { fetchJson } from '@/lib/query/fetchJson';
 import { SupplyChainLossCard } from '@/frontend/modules/dashboard/components/SupplyChainLossCard';
 
 type Reconciliation = { summary: { finalizedJourneys: number; unresolvedJourneys: number; grossLossLiters: number; grossGainLiters: number; at13tsLossLiters: number; at13tsGainLiters: number; unresolvedOriginAt13tsLiters: number }; items: Array<{ journeyId: string; journeyNumber: string; source: { code: string; name: string }; route: { code: string }; vehicleNumber: string; isResolved: boolean }> };
@@ -9,18 +10,19 @@ type VehicleStages = { total: number; items: Array<{ visitId: string; vehicleNum
 const number = (value: number) => value.toLocaleString(undefined, { maximumFractionDigits: 2 });
 
 export function MpdReconciliationOverview() {
-  const [report, setReport] = useState<Reconciliation | null>(null);
-  const [vehicles, setVehicles] = useState<VehicleStages | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  useEffect(() => {
-    Promise.all([fetch('/api/management/zmcc-reconciliation?pageSize=8'), fetch('/api/management/vehicle-stages?exceptionOnly=true&pageSize=8')])
-      .then(async ([reconciliationResponse, vehicleResponse]) => {
-        const [reconciliation, stages] = await Promise.all([reconciliationResponse.json(), vehicleResponse.json()]);
-        if (!reconciliationResponse.ok) throw new Error(reconciliation.error || 'Unable to load MPD reconciliation.');
-        if (!vehicleResponse.ok) throw new Error(stages.error || 'Unable to load MPD operational exceptions.');
-        setReport(reconciliation); setVehicles(stages);
-      }).catch((cause) => setError(cause instanceof Error ? cause.message : 'Unable to load MPD overview.'));
-  }, []);
+  const query = useQuery({
+    queryKey: ['mpd', 'reconciliation-overview'],
+    queryFn: async ({ signal }) => {
+      const [reconciliation, stages] = await Promise.all([
+        fetchJson<Reconciliation>('/api/management/zmcc-reconciliation?pageSize=8', { signal }),
+        fetchJson<VehicleStages>('/api/management/vehicle-stages?exceptionOnly=true&pageSize=8', { signal }),
+      ]);
+      return { reconciliation, stages };
+    },
+  });
+  const report = query.data?.reconciliation ?? null;
+  const vehicles = query.data?.stages ?? null;
+  const error = query.error ? (query.error instanceof Error ? query.error.message : 'Unable to load MPD overview.') : null;
 
   return (
     <div className="space-y-6">

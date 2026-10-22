@@ -17,6 +17,7 @@ export async function GET(req: Request) {
 
   try {
     const visits = await prisma.vehicleVisit.findMany({
+      take: 100, // live queue: bounded page
       where: {
         current_status: 'READY_FOR_TARE',
         ...(query
@@ -64,26 +65,9 @@ export async function GET(req: Request) {
       const grossTimeMs = grossTime ? new Date(grossTime).getTime() : now.getTime();
       const firstDispatchInfo = v.portions.find((p) => p.dispatch_info)?.dispatch_info;
       const dispatchTimeMs = firstDispatchInfo?.dispatch_timestamp ? new Date(firstDispatchInfo.dispatch_timestamp).getTime() : null;
-      const firstUnloading = v.portions.find((p) => p.unloading_log)?.unloading_log;
-      const unloadingCompletedTimeMs = firstUnloading?.pump_end_timestamp ? new Date(firstUnloading.pump_end_timestamp).getTime() : null;
-
-      const timestampsToCompare: number[] = [grossTimeMs];
-      if (dispatchTimeMs) timestampsToCompare.push(dispatchTimeMs);
-      if (unloadingCompletedTimeMs) timestampsToCompare.push(unloadingCompletedTimeMs);
-
-      const minAllowedTimestampMs = Math.max(...timestampsToCompare);
-      const minAllowedTimestampIso = new Date(minAllowedTimestampMs).toISOString();
-
-      const waitingMinutes = grossTime
-        ? Math.max(0, Math.floor((now.getTime() - new Date(grossTime).getTime()) / 60000))
-        : 0;
-
-      const opDateStr = v.operational_date
-        ? new Date(v.operational_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-        : new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
       // Destination Silo Summary
-      const acceptedPortions = v.portions.filter((p) => p.plant_decision === 'ACCEPTED');
+      const acceptedPortions = v.portions.filter((p) => (p.plant_decision || '').toUpperCase() === 'ACCEPTED');
       const siloCodesSet = new Set<string>();
       for (const p of acceptedPortions) {
         if (p.unloading_log?.silo_number) {
@@ -102,6 +86,33 @@ export async function GET(req: Request) {
         isMultiSiloDifferent = true;
       }
 
+      const isPortionWise = v.test_mode === 'PORTION_WISE';
+      const sortedAccepted = [...acceptedPortions].sort((a, b) => a.portion_number - b.portion_number);
+      const activePortion = sortedAccepted.find((p) => p.first_weight_kg !== null && p.second_weight_kg === null) || sortedAccepted[0];
+      const activeFirstWeight = (isPortionWise && activePortion?.first_weight_kg) ? Number(activePortion.first_weight_kg) : grossKg;
+      const activeSilo = activePortion?.unloading_log?.silo_number || destinationSiloText;
+
+      // Operational Chronology Bounds
+      const activePortionFirstWeightMs = activePortion?.first_weight_at ? new Date(activePortion.first_weight_at).getTime() : grossTimeMs;
+      const activeUnloadingEndMs = activePortion?.unloading_log?.pump_end_timestamp
+        ? new Date(activePortion.unloading_log.pump_end_timestamp).getTime()
+        : null;
+
+      const timestampsToCompare: number[] = [grossTimeMs, activePortionFirstWeightMs];
+      if (dispatchTimeMs) timestampsToCompare.push(dispatchTimeMs);
+      if (activeUnloadingEndMs) timestampsToCompare.push(activeUnloadingEndMs);
+
+      const minAllowedTimestampMs = Math.max(...timestampsToCompare);
+      const minAllowedTimestampIso = new Date(minAllowedTimestampMs).toISOString();
+
+      const waitingMinutes = grossTime
+        ? Math.max(0, Math.floor((now.getTime() - new Date(grossTime).getTime()) / 60000))
+        : 0;
+
+      const opDateStr = v.operational_date
+        ? new Date(v.operational_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+        : new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+
       return {
         id: v.id.toString(),
         vehicle_number: v.vehicle_number,
@@ -111,13 +122,19 @@ export async function GET(req: Request) {
         current_status: v.current_status,
         portion_count: v.portions.length,
         ticket_number: ticket?.ticket_number || null,
-        gross_weight_kg: grossKg,
+        gross_weight_kg: activeFirstWeight,
         gross_timestamp: grossTime,
         gross_recorded_by_name: grossRecorderName,
         min_allowed_timestamp: minAllowedTimestampIso,
         waiting_minutes: waitingMinutes,
-        destination_silo_text: destinationSiloText,
+        destination_silo_text: isPortionWise ? activeSilo : destinationSiloText,
         is_multi_silo_different: isMultiSiloDifferent,
+        test_mode: v.test_mode || 'COMPOSITE',
+        is_portion_wise: isPortionWise,
+        active_portion_number: activePortion?.portion_number ?? 1,
+        active_portion_first_weight_kg: activeFirstWeight,
+        total_accepted_portions: sortedAccepted.length,
+        completed_accepted_portions: sortedAccepted.filter((p) => p.second_weight_kg !== null).length,
       };
     });
 

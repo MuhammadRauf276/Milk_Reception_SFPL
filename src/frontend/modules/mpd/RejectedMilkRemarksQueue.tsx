@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useState } from 'react';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, CheckCircle2, Loader2, XCircle } from 'lucide-react';
 import { getErrorMessage } from '@/lib/errors';
+import { fetchJson } from '@/lib/query/fetchJson';
 import type { RejectedMilkQueueItem } from '@/backend/services/rejectedMilkDispositionService';
 
 type QueueItem = RejectedMilkQueueItem;
@@ -13,55 +15,45 @@ interface RejectedMilkRemarksQueueProps {
 }
 
 export const RejectedMilkRemarksQueue: React.FC<RejectedMilkRemarksQueueProps> = ({ canWrite = true }) => {
-  const [items, setItems] = useState<QueueItem[]>([]);
-  const [allowWrite, setAllowWrite] = useState(canWrite);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
   const [showDone, setShowDone] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/mpd/rejected-milk?status=${showDone ? 'all' : 'pending'}`, { cache: 'no-store' });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Could not load rejected milk.');
-      setItems(data.items || []);
-      setAllowWrite(canWrite && data.can_add_remarks !== false);
-    } catch (err) {
-      setError(getErrorMessage(err) || 'Could not load rejected milk.');
-    } finally {
-      setLoading(false);
-    }
-  }, [showDone, canWrite]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    load();
-  }, [load]);
+  const query = useQuery({
+    queryKey: ['mpd', 'rejected-milk', showDone ? 'all' : 'pending'],
+    queryFn: ({ signal }) =>
+      fetchJson<{ items?: QueueItem[]; can_add_remarks?: boolean }>(`/api/mpd/rejected-milk?status=${showDone ? 'all' : 'pending'}`, {
+        cache: 'no-store',
+        signal,
+      }),
+    placeholderData: keepPreviousData,
+  });
+  const items = query.data?.items ?? [];
+  const allowWrite = canWrite && query.data?.can_add_remarks !== false;
+  const loading = query.isPending;
+  const error = actionError || (query.error ? getErrorMessage(query.error) || 'Could not load rejected milk.' : null);
+  const load = () => queryClient.invalidateQueries({ queryKey: ['mpd', 'rejected-milk'] });
 
   const save = async (item: QueueItem) => {
     const remarks = (drafts[item.entity_id] || '').trim();
     if (!remarks) {
-      setError('Please write your remarks first.');
+      setActionError('Please write your remarks first.');
       return;
     }
     setSavingId(item.entity_id);
-    setError(null);
+    setActionError(null);
     try {
-      const res = await fetch('/api/mpd/rejected-milk/remarks', {
+      await fetchJson('/api/mpd/rejected-milk/remarks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ entity_type: item.entity_type, entity_id: item.entity_id, remarks }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Could not save remarks.');
       setDrafts((d) => ({ ...d, [item.entity_id]: '' }));
       await load();
     } catch (err) {
-      setError(getErrorMessage(err) || 'Could not save remarks.');
+      setActionError(getErrorMessage(err) || 'Could not save remarks.');
     } finally {
       setSavingId(null);
     }

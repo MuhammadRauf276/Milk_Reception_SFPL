@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireDeviceAdmin } from '@/backend/core/route-guards';
-import { deviceErrorInfo, listDevices, listFormOptions, registerDevice } from '@/backend/services/device/deviceService';
+import { countDevices, deviceErrorInfo, listDevices, listFormOptions, registerDevice } from '@/backend/services/device/deviceService';
 import type { DeviceStatus } from '@/types/device';
 
 const STATUSES = ['PENDING', 'ACTIVE', 'BLOCKED', 'RELEASED'] as const;
@@ -17,12 +17,28 @@ export async function GET(req: Request) {
   const guard = await requireDeviceAdmin(req);
   if ('response' in guard) return guard.response;
   try {
-    const status = new URL(req.url).searchParams.get('status');
-    const [devices, options] = await Promise.all([
-      listDevices(status && (STATUSES as readonly string[]).includes(status) ? { status: status as DeviceStatus } : {}),
-      listFormOptions(),
+    const sp = new URL(req.url).searchParams;
+    const status = sp.get('status');
+    const paged = sp.has('page');
+    const page = Math.max(1, Number(sp.get('page')) || 1);
+    const pageSize = Math.min(100, Math.max(1, Number(sp.get('pageSize')) || 25));
+    const search = (sp.get('q') || '').trim();
+    const filter = {
+      ...(status && (STATUSES as readonly string[]).includes(status) ? { status: status as DeviceStatus } : {}),
+      ...(search ? { search } : {}),
+    };
+    const [devices, totalRecords, options] = await Promise.all([
+      listDevices(paged ? { ...filter, skip: (page - 1) * pageSize, take: pageSize } : filter),
+      paged ? countDevices(filter) : Promise.resolve(0),
+      sp.get('options') === '0' ? Promise.resolve({}) : listFormOptions(),
     ]);
-    return NextResponse.json({ devices, ...options });
+    return NextResponse.json({
+      devices,
+      ...options,
+      ...(paged
+        ? { pagination: { page, pageSize, totalRecords, totalPages: totalRecords === 0 ? 1 : Math.ceil(totalRecords / pageSize) } }
+        : {}),
+    });
   } catch (err) {
     const e = deviceErrorInfo(err);
     return NextResponse.json(e.body, { status: e.status });

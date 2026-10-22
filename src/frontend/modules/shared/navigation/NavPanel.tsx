@@ -106,7 +106,7 @@ export function NavPanel({
                     aria-current={active ? 'page' : undefined}
                     className={cn(
                       itemBase,
-                      'h-9',
+                      'min-h-[48px] sm:min-h-[36px] h-9',
                       active
                         ? 'bg-primary/[0.07] font-medium text-primary'
                         : 'text-slate-600 hover:bg-muted hover:text-foreground'
@@ -134,7 +134,7 @@ export function NavPanel({
                   aria-controls={panelId}
                   className={cn(
                     itemBase,
-                    'h-9 text-left',
+                    'min-h-[48px] sm:min-h-[36px] h-9 text-left cursor-pointer',
                     containsActive ? 'font-medium text-foreground' : 'text-slate-600 hover:bg-muted hover:text-foreground'
                   )}
                 >
@@ -156,30 +156,49 @@ export function NavPanel({
                       animate={{ height: 'auto', opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
                       transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
-                      className="ml-[18px] overflow-hidden border-l pl-2"
+                      className="ml-[18px] overflow-hidden border-l pl-2 space-y-0.5"
                     >
-                      {children.map((leaf) => {
+                      {children.map((leaf, index) => {
                         const active = isActive(leaf.href);
+                        const LeafIcon = leaf.icon;
+                        const prevLeaf = index > 0 ? children[index - 1] : null;
+                        const showGroupHeader = Boolean(leaf.group && leaf.group !== prevLeaf?.group);
+
                         return (
-                          <li key={leaf.id} className="py-px first:pt-1 last:pb-1">
-                            <Link
-                              href={leaf.href}
-                              onClick={onNavigate}
-                              aria-current={active ? 'page' : undefined}
-                              className={cn(
-                                itemBase,
-                                'relative h-8 text-[13px]',
-                                active
-                                  ? 'bg-primary/[0.07] font-medium text-primary'
-                                  : 'text-slate-600 hover:bg-muted hover:text-foreground'
-                              )}
-                            >
-                              {active ? (
-                                <span className="absolute left-[-9px] top-1.5 bottom-1.5 w-0.5 rounded-full bg-primary" />
-                              ) : null}
-                              <span className="truncate">{leaf.label}</span>
-                            </Link>
-                          </li>
+                          <React.Fragment key={leaf.id}>
+                            {showGroupHeader && (
+                              <li className="pt-2.5 pb-1 px-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80 list-none">
+                                {leaf.group}
+                              </li>
+                            )}
+                            <li className="py-px first:pt-1 last:pb-1">
+                              <Link
+                                href={leaf.href}
+                                onClick={onNavigate}
+                                aria-current={active ? 'page' : undefined}
+                                className={cn(
+                                  itemBase,
+                                  'relative min-h-[48px] sm:min-h-[32px] text-[13px] py-2 sm:py-1',
+                                  active
+                                    ? 'bg-primary/[0.07] font-medium text-primary'
+                                    : 'text-slate-600 hover:bg-muted hover:text-foreground'
+                                )}
+                              >
+                                {active ? (
+                                  <span className="absolute left-[-9px] top-1.5 bottom-1.5 w-0.5 rounded-full bg-primary" />
+                                ) : null}
+                                {LeafIcon ? (
+                                  <LeafIcon
+                                    className={cn(
+                                      'h-4 w-4 shrink-0',
+                                      active ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'
+                                    )}
+                                  />
+                                ) : null}
+                                <span className="truncate">{leaf.label}</span>
+                              </Link>
+                            </li>
+                          </React.Fragment>
                         );
                       })}
                     </motion.ul>

@@ -28,9 +28,10 @@ export async function resetOperationalData() {
     zmccTankTransactions: (await prisma.zmccTankInventoryTransaction.deleteMany({})).count,
     zmccTankReceipts: (await prisma.zmccTankReceipt.deleteMany({})).count,
     zmccLabResults: (await prisma.zmccLabResult.deleteMany({})).count,
+    // Portions carry the new weighing / net-entry columns; delete them before their sessions
+    zmccLabPortions: (await prisma.zmccLabPortion.deleteMany({})).count,
     zmccLabSessions: (await prisma.zmccLabSession.deleteMany({})).count,
     zmccLocalSupplierArrivals: (await prisma.zmccLocalSupplierArrival.deleteMany({})).count,
-    zmccContractorArrivals: (await prisma.zmccContractorArrival.deleteMany({})).count,
     zmccMotArrivals: (await prisma.zmccMotArrival.deleteMany({})).count,
     motJourneySummaries: (await prisma.motJourneySummary.deleteMany({})).count,
     motCollectionSmsOutbox: (await prisma.motCollectionSmsOutbox.deleteMany({})).count,
@@ -59,12 +60,12 @@ export async function resetOperationalData() {
     auditLogs: (await prisma.auditLog.deleteMany({})).count,
 
     // Seed-Owned Master Data Deletions ONLY (Preserves all non-seed master data)
+    // HC suppliers have no ERP reference any more: seed rows are recognised by their DEMO name prefix
     zmccSeedLocalSuppliers: (await prisma.zmccLocalSupplier.deleteMany({
       where: {
         OR: [
-          { erp_reference: { startsWith: 'DEMO-' } },
           { name: { startsWith: 'DEMO -' } },
-          { erp_reference: { startsWith: 'LS-HAS-' } },
+          { name: { in: ['Bashir Milk Collection Center', 'Chaudhry Dairy & Cattle Farm', 'Rehman Dairy Supplies'] } },
         ],
       },
     })).count,
@@ -72,7 +73,7 @@ export async function resetOperationalData() {
       where: {
         OR: [
           { vehicle_number: { startsWith: 'DEMO-' } },
-          { vehicle_number: 'BWP-5522' },
+          { vehicle_number: { in: ['BWP-5522', 'BWP-5523', 'BWP-5524', 'BWP-5525'] } },
         ],
       },
     })).count,
@@ -89,6 +90,7 @@ export async function resetOperationalData() {
         OR: [
           { shop_code: { startsWith: 'DEMO-' } },
           { shop_code: 'SHP-000001' },
+          { area: { OR: [{ area_code: { startsWith: 'DEMO-' } }, { area_code: 'AR-HAS-01' }] } },
         ],
       },
     })).count,
@@ -100,11 +102,12 @@ export async function resetOperationalData() {
         ],
       },
     })).count,
+    // Demo milk sources (their ZMCC assignments in milk_source_zmcc_visibility go with them)
     zmccSeedMilkSources: (await prisma.zmccMilkSource.deleteMany({
       where: {
         OR: [
           { erp_code: { startsWith: 'DEMO-' } },
-          { erp_code: 'MS-HAS-01' },
+          { erp_code: { startsWith: 'MS-HAS-' } },
         ],
       },
     })).count,
@@ -135,6 +138,9 @@ export async function resetOperationalData() {
     labTests: await prisma.labTest.count(),
     labTestRules: await prisma.labTestRule.count(),
     paperReferencePolicies: await prisma.paperReferencePolicy.count(),
+    milkSources: await prisma.zmccMilkSource.count(),
+    motVehicles: await prisma.motVehicle.count(),
+    weighingPolicyRows: await prisma.zmccWeighingPolicy.count(),
   };
 
   console.log('==================================================');

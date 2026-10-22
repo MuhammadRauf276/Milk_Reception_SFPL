@@ -16,7 +16,7 @@ export async function GET(req: Request) {
   }
 
   try {
-    const sources = await getAvailableSourcesForZmcc(zmccIdParam);
+    const sources = await getAvailableSourcesForZmcc(zmccIdParam, user.role);
     return NextResponse.json({ sources }, { headers: { 'Cache-Control': 'private, no-store' } });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to fetch available sources.';

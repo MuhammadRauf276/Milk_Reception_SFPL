@@ -1,6 +1,8 @@
 'use client';
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { fetchJson } from '@/lib/query/fetchJson';
 import { MilkProcessLog } from '@backend/core/types';
 import { ContractorHistoryMetrics } from './contractorManagerTypes';
 import {
@@ -37,48 +39,38 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [page, setPage] = useState<number>(1);
   const [pageSize] = useState<number>(20);
-  const [totalPages, setTotalPages] = useState<number>(1);
-  const [totalRecords, setTotalRecords] = useState<number>(0);
-  const [logs, setLogs] = useState<MilkProcessLog[]>(initialLogs);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
+  const [formError, setError] = useState<string | null>(null);
+  // Null until the user applies/resets a filter; until then the server-provided initial logs are shown.
+  const [applied, setApplied] = useState<{ fromDate: string; toDate: string; search: string } | null>(null);
 
-  const fetchHistoryLogs = useCallback(
-    async (fDate?: string, tDate?: string, pageNum: number = 1, search?: string) => {
-      setLoading(true);
-      setError(null);
-      try {
-        const params = new URLSearchParams();
-        params.set('mode', fDate || tDate ? 'report' : 'recent');
-        params.set('dateBasis', 'reporting');
-        params.set('page', String(pageNum));
-        params.set('pageSize', String(pageSize));
-        if (fDate) params.set('fromDate', fDate);
-        if (tDate) params.set('toDate', tDate);
-        if (search && search.trim()) params.set('search', search.trim());
-
-        const res = await fetch(`/api/logs?${params.toString()}`);
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data.error || 'Failed to fetch history logs');
-        }
-        const items = data.items || data.logs;
-        if (items) {
-          setLogs(items);
-        }
-        if (data.pagination) {
-          setPage(data.pagination.page);
-          setTotalPages(data.pagination.totalPages);
-          setTotalRecords(data.pagination.totalRecords);
-        }
-      } catch (err) {
-        setError(getErrorMessage(err) || 'Failed to load historical contractor records');
-      } finally {
-        setLoading(false);
-      }
+  const historyQuery = useQuery({
+    queryKey: ['contractor', 'history-logs', { ...applied, page, pageSize }],
+    enabled: applied !== null,
+    queryFn: ({ signal }) => {
+      const params = new URLSearchParams();
+      params.set('mode', applied!.fromDate || applied!.toDate ? 'report' : 'recent');
+      params.set('dateBasis', 'reporting');
+      params.set('page', String(page));
+      params.set('pageSize', String(pageSize));
+      if (applied!.fromDate) params.set('fromDate', applied!.fromDate);
+      if (applied!.toDate) params.set('toDate', applied!.toDate);
+      if (applied!.search.trim()) params.set('search', applied!.search.trim());
+      return fetchJson<{
+        items?: MilkProcessLog[];
+        logs?: MilkProcessLog[];
+        pagination?: { totalPages?: number; totalRecords?: number };
+      }>(`/api/logs?${params.toString()}`, { signal });
     },
-    [pageSize]
+    placeholderData: keepPreviousData,
+  });
+  const logs = useMemo(
+    () => historyQuery.data?.items ?? historyQuery.data?.logs ?? initialLogs,
+    [historyQuery.data, initialLogs]
   );
+  const loading = historyQuery.isFetching;
+  const totalPages = historyQuery.data?.pagination?.totalPages ?? 1;
+  const totalRecords = historyQuery.data?.pagination?.totalRecords ?? 0;
+  const error = formError ?? (historyQuery.isError ? getErrorMessage(historyQuery.error) || 'Failed to load historical contractor records' : null);
 
   const handleApplyFilter = (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,8 +78,9 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
       setError('From Date cannot be after To Date.');
       return;
     }
+    setError(null);
     setPage(1);
-    fetchHistoryLogs(fromDate || undefined, toDate || undefined, 1, searchQuery);
+    setApplied({ fromDate, toDate, search: searchQuery });
   };
 
   const handleResetFilter = () => {
@@ -96,7 +89,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
     setSearchQuery('');
     setPage(1);
     setError(null);
-    fetchHistoryLogs(undefined, undefined, 1, undefined);
+    setApplied({ fromDate: '', toDate: '', search: '' });
   };
 
   const visits = useMemo(() => {
@@ -446,7 +439,6 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
                     onClick={() => {
                       const prev = Math.max(1, page - 1);
                       setPage(prev);
-                      fetchHistoryLogs(fromDate || undefined, toDate || undefined, prev, searchQuery);
                     }}
                     className="px-3.5 py-1.5 bg-white border border-border-strong rounded-xl hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-semibold transition shadow-2xs"
                   >
@@ -461,7 +453,6 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
                     onClick={() => {
                       const next = Math.min(totalPages, page + 1);
                       setPage(next);
-                      fetchHistoryLogs(fromDate || undefined, toDate || undefined, next, searchQuery);
                     }}
                     className="px-3.5 py-1.5 bg-white border border-border-strong rounded-xl hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-semibold transition shadow-2xs"
                   >

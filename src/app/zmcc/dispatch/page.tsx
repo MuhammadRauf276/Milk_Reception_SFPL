@@ -3,64 +3,49 @@
 import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { User } from '@core/types';
+import { canActAs } from '@/backend/core/roles/hierarchy';
 import { Header } from '@modules/shared/Header';
 import { HierarchicalNavDrawer } from '@modules/shared/navigation/HierarchicalNavDrawer';
 import { MPDFieldWorkspace } from '@modules/dashboard/MPDFieldWorkspace';
 import { PageLoader } from '@/components/ui/spinner';
 import { PageTransition } from '@/components/motion/page-transition';
 
+import { useCurrentUser } from '@/frontend/hooks/useCurrentUser';
+
 function ZmccDispatchContent() {
   const router = useRouter();
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { currentUser, loadingUser: loading } = useCurrentUser();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const hamburgerButtonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
-    async function loadUser() {
-      try {
-        const res = await fetch('/api/auth/me');
-        if (res.ok) {
-          const data = await res.json();
-          if (!data.user) {
-            router.push('/login');
-            return;
-          }
-          const user = data.user;
-          const isSuperAdmin = user.role === 'SUPER_ADMIN';
-          const isLabAttendant = user.role === 'ZMCC_LAB_ATTENDANT';
+    if (loading) return;
+    if (!currentUser) {
+      router.push('/login');
+      return;
+    }
+    if (!canActAs(currentUser.role, 'ZMCC_LAB_ATTENDANT')) {
+      router.push('/workspace-unavailable');
+      return;
+    }
 
-          if (!isSuperAdmin && !isLabAttendant) {
-            router.push('/workspace-unavailable');
-            return;
-          }
+    const isSystemScope =
+      currentUser.role === 'SUPER_ADMIN' ||
+      currentUser.role === 'DATA_EXECUTIVE' ||
+      currentUser.role === 'HEAD_OF_MPD' ||
+      currentUser.role === 'EXECUTIVE_MANAGEMENT';
 
-          if (!isSuperAdmin) {
-            if (
-              user.is_active === false ||
-              !user.procurement_source_id ||
-              !user.procurement_source ||
-              user.procurement_source.is_active === false ||
-              user.procurement_source.source_type !== 'ZMCC'
-            ) {
-              router.push('/workspace-unavailable');
-              return;
-            }
-          }
-
-          setCurrentUser(user);
-        } else {
-          router.push('/login');
-        }
-      } catch (err) {
-        console.error('Failed to load user', err);
-        router.push('/login');
-      } finally {
-        setLoading(false);
+    if (!isSystemScope) {
+      if (
+        !currentUser.procurement_source_id ||
+        !currentUser.procurement_source ||
+        currentUser.procurement_source.is_active === false ||
+        currentUser.procurement_source.source_type !== 'ZMCC'
+      ) {
+        router.push('/workspace-unavailable');
       }
     }
-    loadUser();
-  }, [router]);
+  }, [loading, currentUser, router]);
 
   const openDrawer = useCallback(() => {
     setIsDrawerOpen(true);
@@ -113,7 +98,7 @@ function ZmccDispatchContent() {
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 w-full max-w-full space-y-4">
           <PageTransition>
           <Suspense fallback={<PageLoader label="Loading dispatch workspace…" />}>
-            <MPDFieldWorkspace currentUser={currentUser} />
+            <MPDFieldWorkspace currentUser={currentUser} hideTabBar={false} />
           </Suspense>
           </PageTransition>
         </main>

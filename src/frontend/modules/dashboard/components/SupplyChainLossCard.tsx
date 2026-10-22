@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import {
   TrendingDown,
   Download,
@@ -28,47 +29,32 @@ export const SupplyChainLossCard: React.FC<SupplyChainLossCardProps> = ({
   showExportButton = true,
 }) => {
   const [period, setPeriod] = useState<'today' | 'wtd' | 'mtd'>(initialPeriod);
-  const [summary, setSummary] = useState<SupplyChainLossSummary | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isExporting, setIsExporting] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const fetchLossData = useCallback(() => {
-    const url = new URL('/api/management/reports/loss-reconciliation', window.location.origin);
-    url.searchParams.set('period', period);
-    if (zmccId) {
-      url.searchParams.set('zmccId', zmccId);
-    }
-
-    return fetchJson<{ summary: SupplyChainLossSummary }>(
-      url.toString(),
-      { headers: { Accept: 'application/json' } },
-      'Failed to load supply chain loss data.'
-    )
-      .then(
-        (data) => {
-          setSummary(data.summary);
-          setError(null);
-        },
-        (err: unknown) => setError(err instanceof Error ? err.message : 'Error fetching loss metrics.')
-      )
-      .finally(() => setIsLoading(false));
-  }, [period, zmccId]);
+  const lossQuery = useQuery({
+    queryKey: ['dashboard', 'supply-chain-loss', { period, zmccId: zmccId ?? null }],
+    queryFn: ({ signal }) => {
+      const params = new URLSearchParams({ period });
+      if (zmccId) params.set('zmccId', zmccId);
+      return fetchJson<{ summary: SupplyChainLossSummary }>(
+        `/api/management/reports/loss-reconciliation?${params.toString()}`,
+        { headers: { Accept: 'application/json' }, signal },
+        'Failed to load supply chain loss data.'
+      );
+    },
+    placeholderData: keepPreviousData,
+  });
+  const summary = lossQuery.data?.summary ?? null;
+  const isLoading = lossQuery.isFetching;
+  const error = lossQuery.isError ? lossQuery.error.message || 'Error fetching loss metrics.' : null;
 
   const selectPeriod = (next: 'today' | 'wtd' | 'mtd') => {
-    if (next === period) return;
-    setIsLoading(true);
-    setPeriod(next);
+    if (next !== period) setPeriod(next);
   };
 
   const refresh = () => {
-    setIsLoading(true);
-    fetchLossData();
+    void lossQuery.refetch();
   };
-
-  useEffect(() => {
-    fetchLossData();
-  }, [fetchLossData]);
 
   const handleExportExcel = async () => {
     try {
@@ -176,8 +162,8 @@ export const SupplyChainLossCard: React.FC<SupplyChainLossCardProps> = ({
 
       {/* Error View */}
       {error && (
-        <div className="p-4 m-4 rounded-lg bg-red-50 border border-red-200 flex items-center space-x-2 text-xs text-red-800 animate-panel-in">
-          <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+        <div className="p-4 m-4 rounded-lg bg-rose-50 border border-rose-200 flex items-center space-x-2 text-xs text-rose-800 animate-panel-in">
+          <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
           <span>{error}</span>
         </div>
       )}
@@ -286,7 +272,7 @@ export const SupplyChainLossCard: React.FC<SupplyChainLossCardProps> = ({
                   <span>Tier 3: Road Transit Loss</span>
                 </div>
                 {summary.tier3TransitLoss.isHighLoss ? (
-                  <span className="flex items-center px-1.5 py-0.5 rounded bg-red-100 text-red-800 text-xs font-semibold">
+                  <span className="flex items-center px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 text-xs font-semibold">
                     <AlertTriangle className="w-3 h-3 mr-0.5" />
                     &gt; 1.0% Loss
                   </span>
@@ -308,7 +294,7 @@ export const SupplyChainLossCard: React.FC<SupplyChainLossCardProps> = ({
                   <span className="text-xs text-slate-500">Loss Volume:</span>
                   <span
                     className={`text-base font-semibold ${
-                      summary.tier3TransitLoss.isHighLoss ? 'text-red-700' : 'text-slate-900'
+                      summary.tier3TransitLoss.isHighLoss ? 'text-rose-700' : 'text-slate-900'
                     }`}
                   >
                     {summary.tier3TransitLoss.lossLiters.toLocaleString()} L

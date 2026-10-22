@@ -10,7 +10,7 @@ export async function POST(
   { params }: { params: Promise<{ visitId: string; portionId: string }> }
 ) {
   try {
-    const authUser = await getCurrentUser();
+    const authUser = await getCurrentUser(req);
     if (!authUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -20,7 +20,7 @@ export async function POST(
       return NextResponse.json({ error: 'Forbidden: Production operator role required' }, { status: 403 });
     }
 
-    const { visitId: visitIdStr } = await params;
+    const { visitId: visitIdStr, portionId: portionIdStr } = await params;
     const visitId = BigInt(visitIdStr);
 
     const body = await req.json().catch(() => ({}));
@@ -74,12 +74,21 @@ export async function POST(
       }
 
       const acceptedPortions = visit.portions.filter((p) => p.plant_decision === 'ACCEPTED');
+      const isPortionWise = visit.test_mode === 'PORTION_WISE';
+      let portionsToComplete = acceptedPortions;
+      if (isPortionWise) {
+        const targetPortion = acceptedPortions.find((p) => p.id === BigInt(portionIdStr));
+        if (!targetPortion) {
+          throw new Error(`Portion #${portionIdStr} is not an accepted portion of this visit`);
+        }
+        portionsToComplete = [targetPortion];
+      }
       if (acceptedPortions.length === 0) {
         throw new Error('Vehicle has no accepted portions to complete');
       }
 
       // 3. Operational time bound check vs Pump Start timestamp
-      for (const p of acceptedPortions) {
+      for (const p of portionsToComplete) {
         if (!p.unloading_log || !p.unloading_log.pump_start_timestamp) {
           throw new Error(`Unloading has not been started for Portion #${p.portion_number}`);
         }
@@ -91,7 +100,7 @@ export async function POST(
       }
 
       // 4. Update UnloadingLog for all accepted portions
-      for (const p of acceptedPortions) {
+      for (const p of portionsToComplete) {
         await tx.unloadingLog.update({
           where: { portion_id: p.id },
           data: {

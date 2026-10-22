@@ -141,7 +141,17 @@ export async function POST(req: Request) {
         throw new Error(`Vehicle (ID ${visitIdStr}) is either not in READY_FOR_GROSS status, or gross weight has already been recorded concurrently by another operator.`);
       }
 
-      // 4. Confirm at least one portion is ACCEPTED
+      // 4. Strict Decision Gate: confirm ALL portions are definitively decided (no pending or unresolved conflicts)
+      const unresolvedPortions = (visit.portions || []).filter((p) => {
+        const dec = (p.plant_decision || '').toUpperCase();
+        return (dec !== 'ACCEPTED' && dec !== 'REJECTED') || p.manager_review_status === 'PENDING';
+      });
+      if (unresolvedPortions.length > 0) {
+        await tx.vehicleVisit.update({ where: { id: visitId }, data: { current_status: visit.current_status } });
+        throw new Error(`Gross weighing blocked: Portion #${unresolvedPortions[0].portion_number} is still pending QA decision or exception review. Every portion must be finalized before proceeding.`);
+      }
+
+      // Confirm at least one portion is ACCEPTED
       const acceptedPortions = (visit.portions || []).filter((p) => (p.plant_decision || '').toUpperCase() === 'ACCEPTED');
       if (acceptedPortions.length === 0) {
         await tx.vehicleVisit.update({ where: { id: visitId }, data: { current_status: visit.current_status } });
@@ -176,6 +186,7 @@ export async function POST(req: Request) {
             gross_weight_kg: grossWeightKg,
             gross_timestamp: opTimestamp,
             gross_recorded_by: userIdBigInt,
+            gross_recorded_as_role: authUser.role,
             gross_submitted_at: new Date(),
             tare_weight_kg: null,
             tare_timestamp: null,
@@ -191,6 +202,7 @@ export async function POST(req: Request) {
             gross_weight_kg: grossWeightKg,
             gross_timestamp: opTimestamp,
             gross_recorded_by: userIdBigInt,
+            gross_recorded_as_role: authUser.role,
             gross_submitted_at: new Date(),
             tare_weight_kg: null,
             tare_timestamp: null,
@@ -198,6 +210,34 @@ export async function POST(req: Request) {
             net_weight_kg: null,
           },
         });
+      }
+
+      // Update accepted portions with first weight
+      const isPortionWise = visit.test_mode === 'PORTION_WISE';
+      const sortedAccepted = [...acceptedPortions].sort((a, b) => a.portion_number - b.portion_number);
+      if (isPortionWise) {
+        const firstPortion = sortedAccepted[0];
+        if (firstPortion) {
+          await tx.visitPortion.update({
+            where: { id: firstPortion.id },
+            data: {
+              first_weight_kg: grossWeightKg,
+              first_weight_at: opTimestamp,
+              first_weight_by_user_id: userIdBigInt,
+            },
+          });
+        }
+      } else {
+        for (const p of sortedAccepted) {
+          await tx.visitPortion.update({
+            where: { id: p.id },
+            data: {
+              first_weight_kg: grossWeightKg,
+              first_weight_at: opTimestamp,
+              first_weight_by_user_id: userIdBigInt,
+            },
+          });
+        }
       }
 
       // 8. Log Immutable Server Audit Record for Gross Weighting
@@ -227,7 +267,8 @@ export async function POST(req: Request) {
         where: { id: visitId },
         data: {
           current_status: 'READY_FOR_UNLOADING',
-          operational_date: grossBusinessDate,
+          // Business Date is set once, at the first weight of the visit; later portions keep it.
+          ...(visit.operational_date ? {} : { operational_date: grossBusinessDate }),
         },
       });
 
@@ -238,6 +279,7 @@ export async function POST(req: Request) {
       success: true,
       ticketNumber: result.ticket.ticket_number,
       grossWeightKg: Number(result.ticket.gross_weight_kg),
+      isPortionWise: result.visit.test_mode === 'PORTION_WISE',
       message: `First Weight (Gross: ${grossWeightKg} kg) recorded successfully. Vehicle is ready for unloading.`,
     });
   } catch (error) {

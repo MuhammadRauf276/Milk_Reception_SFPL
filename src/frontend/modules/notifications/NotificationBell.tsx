@@ -1,6 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { fetchJson } from '@/lib/query/fetchJson';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Bell, CheckCheck, Settings, ArrowUpRight, Inbox } from 'lucide-react';
 import { User } from '@core/types';
@@ -21,6 +23,8 @@ export interface NotificationItem {
   createdAt: string;
 }
 
+const EMPTY_FEED: NotificationItem[] = [];
+
 interface NotificationBellProps {
   currentUser: User | null;
 }
@@ -28,67 +32,71 @@ interface NotificationBellProps {
 export const NotificationBell: React.FC<NotificationBellProps> = ({ currentUser }) => {
   // Open state and feed are tied to the user they belong to, so switching users never shows stale data.
   const [openForUserId, setOpenForUserId] = useState<string | null>(null);
-  const [feedOwnerId, setFeedOwnerId] = useState<string | null>(null);
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const queryClient = useQueryClient();
+  const userId = currentUser?.id ?? null;
+  const feedKey = useMemo(() => ['notifications', 'feed', userId] as const, [userId]);
+  type Feed = { notifications: NotificationItem[]; unreadCount: number };
   const [loading, setLoading] = useState(false);
   // Bumped when a poll brings in more unread items than before; replays the bell swing.
   const [ringKey, setRingKey] = useState(0);
   const unreadRef = useRef<number | null>(null);
 
-  const applyUnreadCount = useCallback((next: number, { fromPoll = false } = {}) => {
-    if (fromPoll && unreadRef.current !== null && next > unreadRef.current) {
+  const feedQuery = useQuery<Feed>({
+    queryKey: feedKey,
+    enabled: Boolean(userId),
+    retry: false,
+    // Paused automatically while the tab is hidden (refetchIntervalInBackground defaults to false).
+    refetchInterval: 60_000,
+    queryFn: async ({ signal }) => {
+      try {
+        const data = await fetchJson<{ notifications?: NotificationItem[]; unreadCount?: number }>('/api/notifications', { signal });
+        return { notifications: data?.notifications || [], unreadCount: Number(data?.unreadCount || 0) };
+      } catch (err) {
+        if (signal.aborted) throw err;
+        // Ignore network/auth errors during polling; keep an empty feed.
+        return { notifications: [], unreadCount: 0 };
+      }
+    },
+  });
+  const notifications = feedQuery.data?.notifications ?? EMPTY_FEED;
+  const unreadCount = feedQuery.data?.unreadCount ?? 0;
+  const feedOwnerId = feedQuery.data ? userId : null;
+
+  const applyUnreadCount = useCallback(
+    (next: number) => {
+      unreadRef.current = next;
+      queryClient.setQueryData<Feed>(feedKey, (prev) => (prev ? { ...prev, unreadCount: next } : prev));
+    },
+    [queryClient, feedKey]
+  );
+
+  // Replay the bell swing when a poll brings in more unread items than before.
+  useEffect(() => {
+    if (!feedQuery.data) return;
+    const next = feedQuery.data.unreadCount;
+    if (unreadRef.current !== null && next > unreadRef.current) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setRingKey((key) => key + 1);
     }
     unreadRef.current = next;
-    setUnreadCount(next);
-  }, []);
-
-  const fetchNotifications = useCallback(() => {
-    if (!currentUser) return Promise.resolve();
-    const ownerId = currentUser.id;
-    return fetch('/api/notifications')
-      .then(async (res) => {
-        if (res.ok) {
-          const data = await res.json();
-          setNotifications(data?.notifications || []);
-          applyUnreadCount(Number(data?.unreadCount || 0), { fromPoll: true });
-          setFeedOwnerId(ownerId);
-        } else if (res.status === 401) {
-          setNotifications([]);
-          applyUnreadCount(0);
-        }
-      })
-      .catch(() => {
-        // Ignore network errors during polling
-      });
-  }, [currentUser, applyUnreadCount]);
+  }, [feedQuery.data]);
 
   useEffect(() => {
-    // Without a user the bell renders nothing; a later user only sees a feed fetched for them.
-    if (!currentUser) {
+    if (!userId) {
       unreadRef.current = null;
       return;
     }
-
-    fetchNotifications();
-    const interval = window.setInterval(fetchNotifications, 60000);
-
     const handleLoggedOut = () => {
-      setNotifications([]);
-      applyUnreadCount(0);
+      queryClient.setQueryData<Feed>(feedKey, { notifications: [], unreadCount: 0 });
       unreadRef.current = null;
       setOpenForUserId(null);
-      clearInterval(interval);
     };
-
     window.addEventListener('milk-user-logged-out', handleLoggedOut);
+    return () => window.removeEventListener('milk-user-logged-out', handleLoggedOut);
+  }, [userId, queryClient, feedKey]);
 
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('milk-user-logged-out', handleLoggedOut);
-    };
-  }, [currentUser, fetchNotifications, applyUnreadCount]);
+  const setNotifications = (updater: (prev: NotificationItem[]) => NotificationItem[]) =>
+    queryClient.setQueryData<Feed>(feedKey, (prev) => (prev ? { ...prev, notifications: updater(prev.notifications) } : prev));
 
   const handleMarkAllRead = async () => {
     if (unreadCount === 0 || loading) return;
@@ -169,7 +177,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ currentUser 
           {visibleUnreadCount > 0 && (
             <motion.span
               key="unread-badge"
-              className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold leading-none text-white ring-2 ring-card"
+              className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-semibold leading-none text-white ring-2 ring-card"
               initial={{ scale: 0.4, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.4, opacity: 0 }}
@@ -239,7 +247,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ currentUser 
                             {item.title}
                           </span>
                           {isHighPriority && (
-                            <span className="shrink-0 rounded bg-red-50 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-red-700">
+                            <span className="shrink-0 rounded bg-rose-50 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-rose-700">
                               {item.priority}
                             </span>
                           )}

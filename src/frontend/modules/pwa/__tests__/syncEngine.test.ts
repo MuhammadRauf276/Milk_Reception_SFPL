@@ -344,20 +344,29 @@ test('401 in session mode keeps everything (session expired)', async () => {
 });
 
 test('500 / network error: items kept with backoff', async () => {
-  const store = await seed();
-  const r = await sendQueuedBatches(store, sendOpts(fakeSend([{ ok: true, httpStatus: 500, body: { code: 'SERVER_ERROR' } }]).send));
+  const store = createMemorySyncStore();
+  await enqueue(store, item('w1'), { now: T0 });
+  await enqueue(store, item('w2'), { now: T0 + 1 });
+  await enqueue(store, item('d1', { kind: 'DEVICE_EVENT', ownerUserId: '' }), { now: T0 + 2 });
+  const r = await sendQueuedBatches(store, sendOpts(fakeSend([{ ok: true, httpStatus: 500, body: { code: 'SERVER_ERROR' } }]).send, { ownerUserId: '7' }));
   assert.equal(r.stop, 'RETRY');
   assert.equal(store.size(), 3);
   assert.ok((await store.list()).every((x) => x.attempts === 1 && x.nextAttemptAt > T0));
 
-  const store2 = await seed();
-  const r2 = await sendQueuedBatches(store2, sendOpts(fakeSend([{ ok: false, networkError: 'Failed to fetch' }]).send));
+  const store2 = createMemorySyncStore();
+  await enqueue(store2, item('w1'), { now: T0 });
+  await enqueue(store2, item('w2'), { now: T0 + 1 });
+  await enqueue(store2, item('d1', { kind: 'DEVICE_EVENT', ownerUserId: '' }), { now: T0 + 2 });
+  const r2 = await sendQueuedBatches(store2, sendOpts(fakeSend([{ ok: false, networkError: 'Failed to fetch' }]).send, { ownerUserId: '7' }));
   assert.equal(r2.stop, 'NETWORK');
   assert.equal(store2.size(), 3);
 });
 
 test('200 device mode: SAVED removed, refused diary dropped, refused work kept, device ACTIVE reported', async () => {
-  const store = await seed();
+  const store = createMemorySyncStore();
+  await enqueue(store, item('w1'), { now: T0 });
+  await enqueue(store, item('w2'), { now: T0 + 1 });
+  await enqueue(store, item('d1', { kind: 'DEVICE_EVENT', ownerUserId: '' }), { now: T0 + 2 });
   const t = fakeSend([
     {
       ok: true,
@@ -373,7 +382,7 @@ test('200 device mode: SAVED removed, refused diary dropped, refused work kept, 
       },
     },
   ]);
-  const r = await sendQueuedBatches(store, sendOpts(t.send));
+  const r = await sendQueuedBatches(store, sendOpts(t.send, { ownerUserId: '7' }));
   assert.equal(r.stop, undefined);
   assert.equal(r.deviceStatus, 'ACTIVE');
   assert.deepEqual([r.saved, r.rejected, r.dropped], [1, 1, 1]);

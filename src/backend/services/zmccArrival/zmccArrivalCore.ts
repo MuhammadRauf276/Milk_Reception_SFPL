@@ -1,4 +1,3 @@
-import { toJsonInput } from '@/lib/json';
 import { writeAuditLog } from '@/backend/core/audit';
 import { isCorrectionAuthority } from '@/backend/core/roles/capabilities';
 import { prisma } from '@core/db';
@@ -9,8 +8,6 @@ import {
   type MotJourneySummary,
   type MotProfile,
   type MotVehicle,
-  type ProcurementSource,
-  type ZmccContractorArrival,
   type ZmccLocalSupplier,
   type ZmccLocalSupplierArrival,
   type ZmccMotArrival,
@@ -80,32 +77,8 @@ export interface CorrectMotArrivalPayload {
   phe_gps_accuracy?: number | null;
 }
 
-export interface SubmitContractorArrivalPayload {
-  contractor_source_id: string | number | bigint;
-  rmr_number: string;
-  vehicle_number: string;
-  arrival_timestamp: string | Date;
-  client_event_id: string;
-  phe_latitude?: number | null;
-  phe_longitude?: number | null;
-  phe_gps_accuracy?: number | null;
-  zmcc_id?: string | number | bigint;
-  target_zmcc_id?: string | number | bigint;
-}
-
-export interface CorrectContractorArrivalPayload {
-  reason: string;
-  rmr_number?: string;
-  vehicle_number?: string;
-  arrival_timestamp?: string | Date;
-  phe_latitude?: number | null;
-  phe_longitude?: number | null;
-  phe_gps_accuracy?: number | null;
-}
-
 export interface SubmitLocalSupplierArrivalPayload {
   local_supplier_id: string | number | bigint;
-  milk_source_id?: string | number | bigint | null;
   rmr_number?: string | null;
   raw_milk_token_number?: string | null;
   vehicle_number: string;
@@ -121,7 +94,6 @@ export interface SubmitLocalSupplierArrivalPayload {
 export interface CorrectLocalSupplierArrivalPayload {
   reason: string;
   local_supplier_id?: string | number | bigint;
-  milk_source_id?: string | number | bigint | null;
   rmr_number?: string | null;
   raw_milk_token_number?: string | null;
   vehicle_number?: string;
@@ -144,7 +116,6 @@ export interface CorrectGateExitPayload {
 }
 
 /** Stage 2 ends with "journey closed": new gate exits are blocked, old records stay readable. */
-const ZMCC_GATE_EXIT_RETIRED = true;
 
 export async function resolveZmccArrivalAuth(
   reqOrUser?: Request | User,
@@ -238,7 +209,9 @@ export async function resolveZmccArrivalAuth(
   const isUnscopedCorrector = (action === 'CORRECT_ARRIVAL' || action === 'CORRECT_EXIT') && isCorrectionAuthority(role);
 
   let effectiveZmccId: bigint | null = null;
-  if (!isSuperAdmin && !isUnscopedCorrector) {
+  const isSystemScope = isSuperAdmin || isUnscopedCorrector || role === 'HEAD_OF_MPD' || (acting && acting.scope.kind === 'SYSTEM');
+
+  if (!isSystemScope) {
     if (!dbUser.procurement_source_id || !dbUser.procurement_source) {
       return {
         errorResponse: {
@@ -264,6 +237,27 @@ export async function resolveZmccArrivalAuth(
       };
     }
     effectiveZmccId = dbUser.procurement_source_id;
+  } else if (reqOrUser && 'headers' in reqOrUser) {
+    try {
+      const req = reqOrUser as Request;
+      const url = new URL(req.url);
+      const reqZmcc =
+        url.searchParams.get('zmccId') ||
+        url.searchParams.get('zmcc_id') ||
+        req.headers.get('x-acting-source-id');
+
+      if (reqZmcc && /^\d+$/.test(reqZmcc.trim())) {
+        const validSource = await prisma.procurementSource.findFirst({
+          where: { id: BigInt(reqZmcc.trim()), is_active: true, source_type: 'ZMCC' },
+          select: { id: true },
+        });
+        if (validSource) {
+          effectiveZmccId = validSource.id;
+        }
+      }
+    } catch (_err) {
+      // Fallback
+    }
   }
 
   return {
@@ -479,29 +473,6 @@ function validateRmrNumber(
   return { value: trimmed };
 }
 
-/** Arrival rows plus whichever relations the query included (all optional). */
-const journeyDetailInclude = {
-  route: true,
-  mot_vehicle: true,
-  mot_profile: true,
-  summary: true,
-} satisfies Prisma.MotJourneyInclude;
-
-const motArrivalWithLabInclude = {
-  journey: { include: journeyDetailInclude },
-  zmcc: true,
-  recorded_by: true,
-  exit_recorded_by: true,
-  lab_session: { include: { tank_receipt: true } },
-} satisfies Prisma.ZmccMotArrivalInclude;
-
-const localSupplierArrivalWithLabInclude = {
-  local_supplier: true,
-  zmcc: true,
-  recorded_by: true,
-  exit_recorded_by: true,
-  lab_session: { include: { tank_receipt: true } },
-} satisfies Prisma.ZmccLocalSupplierArrivalInclude;
 
 type ArrivalActors = { zmcc?: SourceRef | null; recorded_by?: UserRef | null; exit_recorded_by?: UserRef | null };
 
@@ -516,9 +487,6 @@ export type SerializableMotArrival = ZmccMotArrival &
         })
       | null;
   };
-
-export type SerializableContractorArrival = ZmccContractorArrival &
-  ArrivalActors & { contractor_source?: (SourceRef & Pick<ProcurementSource, 'source_type'>) | null };
 
 export type SerializableLocalSupplierArrival = ZmccLocalSupplierArrival &
   ArrivalActors & { local_supplier?: ZmccLocalSupplier | null };
@@ -602,50 +570,6 @@ export function serializeMotArrival(arrival: SerializableMotArrival) {
   };
 }
 
-export function serializeContractorArrival(arrival: SerializableContractorArrival) {
-  return {
-    id: arrival.id.toString(),
-    zmcc_id: arrival.zmcc_id.toString(),
-    contractor_source_id: arrival.contractor_source_id.toString(),
-    rmr_number: arrival.rmr_number,
-    vehicle_number: arrival.vehicle_number,
-    arrival_timestamp: arrival.arrival_timestamp instanceof Date ? arrival.arrival_timestamp.toISOString() : arrival.arrival_timestamp,
-    arrival_date: arrival.arrival_date instanceof Date ? arrival.arrival_date.toISOString().split('T')[0] : arrival.arrival_date,
-    zmcc_token: arrival.zmcc_token,
-    phe_latitude: arrival.phe_latitude != null ? Number(arrival.phe_latitude) : null,
-    phe_longitude: arrival.phe_longitude != null ? Number(arrival.phe_longitude) : null,
-    phe_gps_accuracy: arrival.phe_gps_accuracy != null ? Number(arrival.phe_gps_accuracy) : null,
-    client_event_id: arrival.client_event_id,
-    recorded_by_user_id: arrival.recorded_by_user_id.toString(),
-    recorded_by: arrival.recorded_by
-      ? {
-          id: arrival.recorded_by.id.toString(),
-          username: arrival.recorded_by.username,
-          full_name: arrival.recorded_by.full_name,
-        }
-      : undefined,
-    submitted_at: arrival.submitted_at instanceof Date ? arrival.submitted_at.toISOString() : arrival.submitted_at,
-    correction_count: arrival.correction_count,
-    created_at: arrival.created_at instanceof Date ? arrival.created_at.toISOString() : arrival.created_at,
-    updated_at: arrival.updated_at instanceof Date ? arrival.updated_at.toISOString() : arrival.updated_at,
-    contractor_source: arrival.contractor_source
-      ? {
-          id: arrival.contractor_source.id.toString(),
-          code: arrival.contractor_source.code,
-          name: arrival.contractor_source.name,
-          source_type: arrival.contractor_source.source_type,
-        }
-      : undefined,
-    zmcc: arrival.zmcc
-      ? {
-          id: arrival.zmcc.id.toString(),
-          code: arrival.zmcc.code,
-          name: arrival.zmcc.name,
-        }
-      : undefined,
-  };
-}
-
 export function serializeLocalSupplierArrival(arrival: SerializableLocalSupplierArrival) {
   return {
     id: arrival.id.toString(),
@@ -709,8 +633,6 @@ export function serializeLocalSupplierArrival(arrival: SerializableLocalSupplier
           name: arrival.local_supplier.name,
           phone: arrival.local_supplier.phone ?? null,
           cnic: arrival.local_supplier.cnic ?? null,
-          erp_reference: arrival.local_supplier.erp_reference ?? null,
-          erp_mapping_status: arrival.local_supplier.erp_mapping_status,
           is_active: arrival.local_supplier.is_active,
         }
       : undefined,
@@ -856,10 +778,10 @@ export async function submitMotArrival(
     };
   }
 
-  if (journey.status !== 'COLLECTING') {
+  if (journey.status !== 'COLLECTING' && journey.status !== 'RETURNING') {
     return {
       status: 409,
-      error: `Conflict: Journey ${journey.journey_number} is in ${journey.status} status and cannot accept arrival. Must be COLLECTING.`,
+      error: `Conflict: Journey ${journey.journey_number} is in ${journey.status} status and cannot accept arrival. Must be COLLECTING or RETURNING.`,
     };
   }
 
@@ -959,7 +881,7 @@ export async function submitMotArrival(
         where: { id: journeyId },
         select: { status: true, mot_arrival: { select: { id: true } } },
       });
-      if (!checkJourney || checkJourney.status !== 'COLLECTING' || checkJourney.mot_arrival) {
+      if (!checkJourney || (checkJourney.status !== 'COLLECTING' && checkJourney.status !== 'RETURNING') || checkJourney.mot_arrival) {
         throw new Error('JOURNEY_ALREADY_COMPLETED');
       }
 
@@ -1177,10 +1099,10 @@ export async function correctMotArrival(
     return { status: 403, error: 'Forbidden. Arrival record belongs to another ZMCC.' };
   }
 
-  if (!isCorrectionAuthority(auth.role) && (arrival.manager_correction_count ?? 0) >= 5) {
+  if (!isCorrectionAuthority(auth.role)) {
     return {
-      status: 400,
-      error: 'Maximum correction limit (5) reached for ZMCC Manager.',
+      status: 403,
+      error: 'Forbidden. Only Super Admin or Data Executive may edit saved arrival records.',
     };
   }
 
@@ -1308,8 +1230,8 @@ export async function correctMotArrival(
       }
       const currentTotalCount = lockedRows[0].correction_count;
       const currentManagerCount = lockedRows[0].manager_correction_count ?? 0;
-      if (!isCorrectionAuthority(auth.role) && currentManagerCount >= 5) {
-        throw new Error('MAX_CORRECTIONS_REACHED');
+      if (!isCorrectionAuthority(auth.role)) {
+        throw new Error('ONLY_CORRECTION_AUTHORITY_ALLOWED');
       }
 
       if (updateData.raw_milk_token_number) {
@@ -1331,7 +1253,7 @@ export async function correctMotArrival(
       }
 
       const nextCorrectionCount = currentTotalCount + 1;
-      const nextManagerCount = isCorrectionAuthority(auth.role) ? currentManagerCount : currentManagerCount + 1;
+      const nextManagerCount = currentManagerCount;
       const nowTs = new Date();
 
       const updatedRecord = await tx.zmccMotArrival.update({
@@ -1421,200 +1343,6 @@ export async function correctMotArrival(
   }
 }
 
-export async function submitContractorArrival(
-  _reqOrUser?: Request | User,
-  _payload?: SubmitContractorArrivalPayload
-): Promise<ServiceResult<unknown>> {
-  return {
-    status: 410,
-    error: 'CONTRACTOR_ARRIVAL_RETIRED',
-    message: 'Contractor arrival at the ZMCC is no longer used. Use HC arrival instead.',
-  };
-}
-
-export async function correctContractorArrival(
-  reqOrUser: Request | User,
-  arrivalIdParam: string | number | bigint,
-  payload: CorrectContractorArrivalPayload
-): Promise<ServiceResult<unknown>> {
-  const { auth, errorResponse } = await resolveZmccArrivalAuth(reqOrUser, 'CORRECT_ARRIVAL');
-  if (errorResponse) return errorResponse;
-  if (!auth) return { status: 401, error: 'Unauthorized.' };
-
-  let arrivalId: bigint;
-  try {
-    arrivalId = BigInt(String(arrivalIdParam).trim());
-  } catch {
-    return { status: 400, error: 'Invalid arrival ID format.' };
-  }
-
-  if (!payload || typeof payload !== 'object') {
-    return { status: 400, error: 'Missing correction payload.' };
-  }
-
-  const reason = typeof payload.reason === 'string' ? payload.reason.trim() : '';
-  if (!reason) {
-    return { status: 400, error: 'reason is mandatory for arrival corrections.' };
-  }
-
-  const arrival = await prisma.zmccContractorArrival.findUnique({
-    where: { id: arrivalId },
-    include: {
-      contractor_source: true,
-      zmcc: true,
-      recorded_by: true,
-    },
-  });
-
-  if (!arrival) {
-    return { status: 404, error: 'Contractor Arrival record not found.' };
-  }
-
-  if (!isCorrectionAuthority(auth.role) && arrival.zmcc_id !== auth.effectiveZmccId!) {
-    return { status: 403, error: 'Forbidden. Arrival record belongs to another ZMCC.' };
-  }
-
-  if (arrival.correction_count >= 2) {
-    return {
-      status: 400,
-      error: 'Maximum number of corrections (2) has been reached for this arrival record.',
-    };
-  }
-
-  const updateData: Prisma.ZmccContractorArrivalUpdateInput = {};
-
-  const oldValues: Record<string, unknown> = {};
-  const newValues: Record<string, unknown> = {};
-
-  if (payload.rmr_number !== undefined) {
-    const rmrValidation = validateRmrNumber(payload.rmr_number, false);
-    if (rmrValidation.error) {
-      return { status: 400, error: rmrValidation.error };
-    }
-    const trimmedRmr = rmrValidation.value!;
-    if (trimmedRmr !== arrival.rmr_number) {
-      oldValues.rmr_number = arrival.rmr_number;
-      newValues.rmr_number = trimmedRmr;
-      updateData.rmr_number = trimmedRmr;
-    }
-  }
-
-  if (payload.vehicle_number !== undefined) {
-    const trimmedVeh = String(payload.vehicle_number).trim().toUpperCase();
-    if (!trimmedVeh) {
-      return { status: 400, error: 'vehicle_number cannot be blank.' };
-    }
-    if (trimmedVeh !== arrival.vehicle_number) {
-      oldValues.vehicle_number = arrival.vehicle_number;
-      newValues.vehicle_number = trimmedVeh;
-      updateData.vehicle_number = trimmedVeh;
-    }
-  }
-
-  if (payload.arrival_timestamp !== undefined) {
-    const parsedTime = new Date(payload.arrival_timestamp);
-    if (isNaN(parsedTime.getTime())) {
-      return { status: 400, error: 'Invalid arrival_timestamp format.' };
-    }
-    const now = new Date();
-    if (parsedTime.getTime() > now.getTime() + 5 * 60 * 1000) {
-      return { status: 400, error: 'arrival_timestamp cannot be in the future.' };
-    }
-    if (parsedTime.getTime() !== arrival.arrival_timestamp.getTime()) {
-      oldValues.arrival_timestamp = arrival.arrival_timestamp.toISOString();
-      newValues.arrival_timestamp = parsedTime.toISOString();
-      updateData.arrival_timestamp = parsedTime;
-
-      const pktDateStr = getPakistanCalendarDate(parsedTime);
-      updateData.arrival_date = new Date(`${pktDateStr}T00:00:00.000Z`);
-    }
-  }
-
-  if (payload.phe_latitude !== undefined || payload.phe_longitude !== undefined) {
-    const gpsValidation = validateGpsCoords(payload.phe_latitude, payload.phe_longitude, payload.phe_gps_accuracy);
-    if (gpsValidation.error) {
-      return { status: 400, error: gpsValidation.error };
-    }
-    oldValues.phe_latitude = arrival.phe_latitude != null ? Number(arrival.phe_latitude) : null;
-    oldValues.phe_longitude = arrival.phe_longitude != null ? Number(arrival.phe_longitude) : null;
-    oldValues.phe_gps_accuracy = arrival.phe_gps_accuracy != null ? Number(arrival.phe_gps_accuracy) : null;
-
-    newValues.phe_latitude = gpsValidation.lat;
-    newValues.phe_longitude = gpsValidation.lng;
-    newValues.phe_gps_accuracy = gpsValidation.acc;
-
-    updateData.phe_latitude = gpsValidation.lat != null ? new Prisma.Decimal(gpsValidation.lat.toFixed(7)) : null;
-    updateData.phe_longitude = gpsValidation.lng != null ? new Prisma.Decimal(gpsValidation.lng.toFixed(7)) : null;
-    updateData.phe_gps_accuracy = gpsValidation.acc != null ? new Prisma.Decimal(gpsValidation.acc.toFixed(2)) : null;
-  }
-
-  if (Object.keys(newValues).length === 0) {
-    return { status: 400, error: 'No values were modified in this correction request.' };
-  }
-
-  try {
-    const updated = await prisma.$transaction(async (tx) => {
-      // Concurrency safety: acquire row-level lock on the arrival record
-      const lockedRows = await tx.$queryRaw<{ id: bigint; correction_count: number }[]>`
-        SELECT id, correction_count FROM zmcc_contractor_arrival WHERE id = ${arrivalId} FOR UPDATE
-      `;
-      if (!lockedRows || lockedRows.length === 0) {
-        throw new Error('ARRIVAL_NOT_FOUND');
-      }
-      const currentCount = lockedRows[0].correction_count;
-      if (currentCount >= 2) {
-        throw new Error('MAX_CORRECTIONS_REACHED');
-      }
-
-      const nextCorrectionCount = currentCount + 1;
-      const updatedRecord = await tx.zmccContractorArrival.update({
-        where: { id: arrivalId },
-        data: {
-          ...updateData,
-          correction_count: nextCorrectionCount,
-        },
-        include: {
-          contractor_source: true,
-          zmcc: true,
-          recorded_by: true,
-        },
-      });
-
-      await writeAuditLog(tx, {
-        tableName: 'zmcc_contractor_arrival',
-        recordId: arrivalId,
-        action: 'ZMCC_CONTRACTOR_ARRIVAL_CORRECTED',
-        oldValues: toJsonInput(oldValues),
-        newValues: toJsonInput({
-          ...newValues,
-          correction_reason: reason,
-          correction_count: nextCorrectionCount,
-        }),
-        actor: { userId: auth.actorUserId, actorRole: auth.role },
-      });
-
-      return updatedRecord;
-    });
-
-    return {
-      status: 200,
-      data: serializeContractorArrival(updated),
-    };
-  } catch (err) {
-    if (getErrorMessage(err) === 'MAX_CORRECTIONS_REACHED') {
-      return {
-        status: 409,
-        error: 'Conflict: Maximum number of corrections (2) has been reached or another correction was committed concurrently.',
-      };
-    }
-    if (getErrorMessage(err) === 'ARRIVAL_NOT_FOUND') {
-      return { status: 404, error: 'Contractor Arrival record not found.' };
-    }
-    console.error('correctContractorArrival error:', err);
-    return { status: 500, error: 'Internal server error while correcting contractor arrival.' };
-  }
-}
-
 export async function listMotArrivals(
   reqOrUser: Request | User,
   filters: {
@@ -1631,8 +1359,8 @@ export async function listMotArrivals(
 
   const where: Prisma.ZmccMotArrivalWhereInput = {};
 
-  if (!auth.isSuperAdmin) {
-    where.zmcc_id = auth.effectiveZmccId!;
+  if (auth.effectiveZmccId) {
+    where.zmcc_id = auth.effectiveZmccId;
   }
 
   if (filters.journey_id) {
@@ -1671,14 +1399,14 @@ export async function listMotArrivals(
       include: {
         journey: {
           include: {
-            route: true,
-            mot_vehicle: true,
-            mot_profile: true,
+            route: { select: { route_code: true, name: true } },
+            mot_vehicle: { select: { vehicle_number: true } },
+            mot_profile: { select: { name: true, mot_code: true } },
             summary: true,
           },
         },
-        zmcc: true,
-        recorded_by: true,
+        zmcc: { select: { id: true, code: true, name: true } },
+        recorded_by: { select: { id: true, username: true, full_name: true } },
       },
       orderBy: { arrival_timestamp: 'desc' },
       skip,
@@ -1743,158 +1471,6 @@ export async function getMotArrivalById(
   };
 }
 
-export async function listContractorArrivals(
-  reqOrUser: Request | User,
-  filters: {
-    date?: string;
-    contractor_source_id?: string | number | bigint;
-    vehicle_number?: string;
-    search?: string;
-    page?: number;
-    pageSize?: number;
-  } = {}
-): Promise<ServiceResult<unknown>> {
-  const { auth, errorResponse } = await resolveZmccArrivalAuth(reqOrUser, 'READ_ARRIVAL');
-  if (errorResponse) return errorResponse;
-  if (!auth) return { status: 401, error: 'Unauthorized.' };
-
-  const where: Prisma.ZmccContractorArrivalWhereInput = {};
-
-  if (!auth.isSuperAdmin) {
-    where.zmcc_id = auth.effectiveZmccId!;
-  }
-
-  if (filters.contractor_source_id) {
-    try {
-      where.contractor_source_id = BigInt(String(filters.contractor_source_id).trim());
-    } catch {
-      return { status: 400, error: 'Invalid contractor_source_id format.' };
-    }
-  }
-
-  if (filters.vehicle_number && filters.vehicle_number.trim()) {
-    where.vehicle_number = { contains: filters.vehicle_number.trim(), mode: 'insensitive' };
-  }
-
-  if (filters.date) {
-    const dateStr = filters.date.trim();
-    where.arrival_date = new Date(`${dateStr}T00:00:00.000Z`);
-  }
-
-  if (filters.search && filters.search.trim()) {
-    const term = filters.search.trim();
-    where.OR = [
-      { zmcc_token: { contains: term, mode: 'insensitive' } },
-      { rmr_number: { contains: term, mode: 'insensitive' } },
-      { vehicle_number: { contains: term, mode: 'insensitive' } },
-      { contractor_source: { name: { contains: term, mode: 'insensitive' } } },
-      { contractor_source: { code: { contains: term, mode: 'insensitive' } } },
-    ];
-  }
-
-  const page = Math.max(1, Number(filters.page) || 1);
-  const pageSize = Math.min(100, Math.max(1, Number(filters.pageSize) || 50));
-  const skip = (page - 1) * pageSize;
-
-  const [total, items] = await Promise.all([
-    prisma.zmccContractorArrival.count({ where }),
-    prisma.zmccContractorArrival.findMany({
-      where,
-      include: {
-        contractor_source: true,
-        zmcc: true,
-        recorded_by: true,
-      },
-      orderBy: { arrival_timestamp: 'desc' },
-      skip,
-      take: pageSize,
-    }),
-  ]);
-
-  return {
-    status: 200,
-    data: {
-      items: items.map(serializeContractorArrival),
-      total,
-      page,
-      pageSize,
-      totalPages: Math.ceil(total / pageSize),
-    },
-  };
-}
-
-export async function getContractorArrivalById(
-  reqOrUser: Request | User,
-  arrivalIdParam: string | number | bigint
-): Promise<ServiceResult<unknown>> {
-  const { auth, errorResponse } = await resolveZmccArrivalAuth(reqOrUser, 'READ_ARRIVAL');
-  if (errorResponse) return errorResponse;
-  if (!auth) return { status: 401, error: 'Unauthorized.' };
-
-  let arrivalId: bigint;
-  try {
-    arrivalId = BigInt(String(arrivalIdParam).trim());
-  } catch {
-    return { status: 400, error: 'Invalid arrival ID format.' };
-  }
-
-  const arrival = await prisma.zmccContractorArrival.findUnique({
-    where: { id: arrivalId },
-    include: {
-      contractor_source: true,
-      zmcc: true,
-      recorded_by: true,
-    },
-  });
-
-  if (!arrival) {
-    return { status: 404, error: 'Contractor Arrival not found.' };
-  }
-
-  if (!auth.isSuperAdmin && arrival.zmcc_id !== auth.effectiveZmccId!) {
-    return { status: 403, error: 'Forbidden. Arrival record belongs to another ZMCC.' };
-  }
-
-  return {
-    status: 200,
-    data: serializeContractorArrival(arrival),
-  };
-}
-
-export async function getActiveContractors(
-  reqOrUser: Request | User
-): Promise<ServiceResult<unknown>> {
-  const { auth, errorResponse } = await resolveZmccArrivalAuth(reqOrUser, 'READ_ARRIVAL');
-  if (errorResponse) return errorResponse;
-  if (!auth) return { status: 401, error: 'Unauthorized.' };
-
-  const contractors = await prisma.procurementSource.findMany({
-    where: {
-      source_type: 'CONTRACTOR',
-      is_active: true,
-    },
-    orderBy: { name: 'asc' },
-    select: {
-      id: true,
-      code: true,
-      name: true,
-      source_type: true,
-      is_active: true,
-    },
-  });
-
-  return {
-    status: 200,
-    data: contractors.map((c) => ({
-      id: c.id.toString(),
-      code: c.code,
-      name: c.name,
-      source_type: c.source_type,
-      is_active: c.is_active,
-    })),
-  };
-}
-
 export async function getArrivingMotJourneys(
   reqOrUser: Request | User
 ): Promise<ServiceResult<unknown>> {
@@ -1903,12 +1479,12 @@ export async function getArrivingMotJourneys(
   if (!auth) return { status: 401, error: 'Unauthorized.' };
 
   const where: Prisma.MotJourneyWhereInput = {
-    status: 'COLLECTING',
+    status: { in: ['COLLECTING', 'RETURNING'] },
     mot_arrival: null,
   };
 
-  if (!auth.isSuperAdmin) {
-    where.zmcc_id = auth.effectiveZmccId!;
+  if (auth.effectiveZmccId) {
+    where.zmcc_id = auth.effectiveZmccId;
   }
 
   const journeys = await prisma.motJourney.findMany({
@@ -1957,6 +1533,7 @@ export async function getArrivingMotJourneys(
       id: j.id.toString(),
       journey_number: j.journey_number,
       operational_date: j.operational_date.toISOString().split('T')[0],
+      status: j.status,
       started_at: j.started_at.toISOString(),
       route: j.route ? { id: j.route.id.toString(), route_code: j.route.route_code, name: j.route.name } : null,
       mot_vehicle: j.mot_vehicle ? { id: j.mot_vehicle.id.toString(), vehicle_number: j.mot_vehicle.vehicle_number } : null,
@@ -1991,9 +1568,10 @@ export async function getArrivingMotJourneys(
     };
   });
 
+  const sorted = [...serialized].sort((a, b) => (a.status === 'RETURNING' && b.status !== 'RETURNING' ? -1 : a.status !== 'RETURNING' && b.status === 'RETURNING' ? 1 : 0));
   return {
     status: 200,
-    data: serialized,
+    data: sorted,
   };
 }
 
@@ -2106,10 +1684,10 @@ export async function submitLocalSupplierArrival(
     return { status: 404, error: 'Local supplier not found.' };
   }
   if (localSupplier.zmcc_id !== targetZmccId) {
-    return { status: 400, error: 'Selected local supplier belongs to a different ZMCC.' };
+    return { status: 400, error: 'Selected HC belongs to a different ZMCC.' };
   }
   if (!localSupplier.is_active) {
-    return { status: 400, error: 'Selected local supplier is inactive and cannot receive new milk arrivals.' };
+    return { status: 400, error: 'Selected HC is inactive and cannot receive new milk arrivals.' };
   }
   if (localSupplier.approval_status !== 'ACTIVE') {
     return {
@@ -2120,7 +1698,7 @@ export async function submitLocalSupplierArrival(
     };
   }
   if (!normalizePakistaniMobile(localSupplier.phone).ok || !normalizePakistaniCnic(localSupplier.cnic).ok) {
-    return { status: 400, error: 'Selected local supplier has incomplete phone/CNIC identity and cannot receive new milk arrivals until a ZMCC Manager corrects the record.' };
+    return { status: 400, error: 'Selected HC has incomplete phone/CNIC identity and cannot receive new milk arrivals until the record is corrected.' };
   }
 
   const rawMilkTokenInput = payload.raw_milk_token_number;
@@ -2162,7 +1740,7 @@ export async function submitLocalSupplierArrival(
     } else {
       return {
         status: 409,
-        error: 'Conflict: Reused client_event_id with differing local supplier arrival payload.',
+        error: 'Conflict: Reused client_event_id with differing HC arrival payload.',
       };
     }
   }
@@ -2196,7 +1774,7 @@ export async function submitLocalSupplierArrival(
         } else {
           return {
             status: 409,
-            error: 'Conflict: Reused client_event_id with differing local supplier arrival payload.',
+            error: 'Conflict: Reused client_event_id with differing HC arrival payload.',
           };
         }
       }
@@ -2228,34 +1806,10 @@ export async function submitLocalSupplierArrival(
         }
       );
 
-      // Resolve Dynamic Milk Source & snapshot
-      let resolvedMilkSourceId: bigint | null = null;
-      let milkSourceCodeSnapshot: string | null = null;
-      let milkSourceNameSnapshot: string | null = null;
-
-      if (payload.milk_source_id) {
-        const source = await tx.zmccMilkSource.findUnique({
-          where: { id: BigInt(payload.milk_source_id) },
-          include: {
-            visibilities: {
-              where: { zmcc_id: targetZmccId!, is_active: true },
-            },
-          },
-        });
-        if (source && (source.visibilities.length > 0 || source.zmcc_id === targetZmccId)) {
-          resolvedMilkSourceId = source.id;
-          milkSourceCodeSnapshot = source.erp_code;
-          milkSourceNameSnapshot = source.name;
-        }
-      }
-
       const arrival = await tx.zmccLocalSupplierArrival.create({
         data: {
           zmcc_id: targetZmccId!,
           local_supplier_id: localSupplierId,
-          milk_source_id: resolvedMilkSourceId,
-          milk_source_code_snapshot: milkSourceCodeSnapshot,
-          milk_source_name_snapshot: milkSourceNameSnapshot,
           rmr_number: rmrNumber,
           raw_milk_token_number: cleanRawMilkToken,
           vehicle_number: vehicleNumber,
@@ -2327,7 +1881,7 @@ export async function submitLocalSupplierArrival(
         } else {
           return {
             status: 409,
-            error: 'Conflict: Reused client_event_id with differing local supplier arrival payload.',
+            error: 'Conflict: Reused client_event_id with differing HC arrival payload.',
           };
         }
       }
@@ -2338,11 +1892,11 @@ export async function submitLocalSupplierArrival(
     if (getErrorCode(err) === 'P2002') {
       return {
         status: 409,
-        error: 'Conflict: Duplicate client_event_id collision on local supplier arrival.',
+        error: 'Conflict: Duplicate client_event_id collision on HC arrival.',
       };
     }
     console.error('submitLocalSupplierArrival error:', err);
-    return { status: 500, error: 'Internal server error while recording local supplier arrival.' };
+    return { status: 500, error: 'Internal server error while recording HC arrival.' };
   }
 }
 
@@ -2384,17 +1938,17 @@ export async function correctLocalSupplierArrival(
   });
 
   if (!arrival) {
-    return { status: 404, error: 'Local Supplier Arrival record not found.' };
+    return { status: 404, error: 'HC Arrival record not found.' };
   }
 
   if (!isCorrectionAuthority(auth.role) && arrival.zmcc_id !== auth.effectiveZmccId!) {
     return { status: 403, error: 'Forbidden. Arrival record belongs to another ZMCC.' };
   }
 
-  if (!isCorrectionAuthority(auth.role) && (arrival.manager_correction_count ?? 0) >= 5) {
+  if (!isCorrectionAuthority(auth.role)) {
     return {
-      status: 400,
-      error: 'Maximum correction limit (5) reached for ZMCC Manager.',
+      status: 403,
+      error: 'Forbidden. Only Super Admin or Data Executive may edit saved arrival records.',
     };
   }
 
@@ -2416,10 +1970,10 @@ export async function correctLocalSupplierArrival(
         where: { id: newSupplierId },
       });
       if (!newSupplier) {
-        return { status: 404, error: 'New local supplier not found.' };
+        return { status: 404, error: 'New HC not found.' };
       }
       if (newSupplier.zmcc_id !== arrival.zmcc_id) {
-        return { status: 400, error: 'Forbidden. Supplier correction must remain in the same ZMCC.' };
+        return { status: 400, error: 'Forbidden. HC correction must remain in the same ZMCC.' };
       }
       if (!newSupplier.is_active) {
         return { status: 400, error: 'Cannot reassign arrival to an inactive supplier.' };
@@ -2435,31 +1989,6 @@ export async function correctLocalSupplierArrival(
       status: 400,
       error: 'rmr_number is a legacy field and cannot be modified through operational corrections. Use raw_milk_token_number instead.',
     };
-  }
-
-  if (payload.milk_source_id !== undefined) {
-    if (payload.milk_source_id) {
-      const msId = BigInt(payload.milk_source_id);
-      const source = await prisma.zmccMilkSource.findUnique({
-        where: { id: msId },
-        include: {
-          visibilities: {
-            where: { zmcc_id: arrival.zmcc_id, is_active: true },
-          },
-        },
-      });
-      if (source && (source.visibilities.length > 0 || source.zmcc_id === arrival.zmcc_id)) {
-        updateData.milk_source_id = source.id;
-        updateData.milk_source_code_snapshot = source.erp_code;
-        updateData.milk_source_name_snapshot = source.name;
-        newValues.milk_source_id = source.id.toString();
-      }
-    } else {
-      updateData.milk_source_id = null;
-      updateData.milk_source_code_snapshot = null;
-      updateData.milk_source_name_snapshot = null;
-      newValues.milk_source_id = null;
-    }
   }
 
   const rawMilkTokenCandidate = payload.raw_milk_token_number;
@@ -2561,8 +2090,8 @@ export async function correctLocalSupplierArrival(
       }
       const currentTotalCount = lockedRows[0].correction_count;
       const currentManagerCount = lockedRows[0].manager_correction_count ?? 0;
-      if (!isCorrectionAuthority(auth.role) && currentManagerCount >= 5) {
-        throw new Error('MAX_CORRECTIONS_REACHED');
+      if (!isCorrectionAuthority(auth.role)) {
+        throw new Error('ONLY_CORRECTION_AUTHORITY_ALLOWED');
       }
 
       if (updateData.raw_milk_token_number) {
@@ -2584,7 +2113,7 @@ export async function correctLocalSupplierArrival(
       }
 
       const nextCorrectionCount = currentTotalCount + 1;
-      const nextManagerCount = isCorrectionAuthority(auth.role) ? currentManagerCount : currentManagerCount + 1;
+      const nextManagerCount = currentManagerCount;
       const nowTs = new Date();
 
       const updatedRecord = await tx.zmccLocalSupplierArrival.update({
@@ -2639,10 +2168,10 @@ export async function correctLocalSupplierArrival(
       };
     }
     if (getErrorMessage(err) === 'ARRIVAL_NOT_FOUND') {
-      return { status: 404, error: 'Local Supplier Arrival record not found.' };
+      return { status: 404, error: 'HC Arrival record not found.' };
     }
     console.error('correctLocalSupplierArrival error:', err);
-    return { status: 500, error: 'Internal server error while correcting local supplier arrival.' };
+    return { status: 500, error: 'Internal server error while correcting HC arrival.' };
   }
 }
 
@@ -2663,8 +2192,8 @@ export async function listLocalSupplierArrivals(
 
   const where: Prisma.ZmccLocalSupplierArrivalWhereInput = {};
 
-  if (!auth.isSuperAdmin) {
-    where.zmcc_id = auth.effectiveZmccId!;
+  if (auth.effectiveZmccId) {
+    where.zmcc_id = auth.effectiveZmccId;
   }
 
   if (filters.local_supplier_id) {
@@ -2706,8 +2235,8 @@ export async function listLocalSupplierArrivals(
       where,
       include: {
         local_supplier: true,
-        zmcc: true,
-        recorded_by: true,
+        zmcc: { select: { id: true, code: true, name: true } },
+        recorded_by: { select: { id: true, username: true, full_name: true } },
       },
       orderBy: { arrival_timestamp: 'desc' },
       skip,
@@ -2752,7 +2281,7 @@ export async function getLocalSupplierArrivalById(
   });
 
   if (!arrival) {
-    return { status: 404, error: 'Local Supplier Arrival not found.' };
+    return { status: 404, error: 'HC Arrival not found.' };
   }
 
   if (!auth.isSuperAdmin && arrival.zmcc_id !== auth.effectiveZmccId!) {
@@ -2765,604 +2294,10 @@ export async function getLocalSupplierArrivalById(
   };
 }
 
-export async function recordGateExit(
-  reqOrUser: Request | User,
-  arrivalType: 'MOT' | 'LOCAL_SUPPLIER',
-  arrivalIdParam: string | number | bigint,
-  payload: RecordGateExitPayload
-): Promise<ServiceResult<Record<string, unknown>>> {
-  const { auth, errorResponse } = await resolveZmccArrivalAuth(reqOrUser, 'RECORD_EXIT');
-  if (errorResponse) return errorResponse;
-  if (!auth) return { status: 401, error: 'Unauthorized.' };
-  if (ZMCC_GATE_EXIT_RETIRED) {
-    return {
-      status: 410,
-      error: 'GATE_EXIT_RETIRED',
-      message: 'Gate exit at the ZMCC is no longer used. The journey ends when the milk is received.',
-    };
-  }
-
-  let arrivalId: bigint;
-  try {
-    arrivalId = BigInt(String(arrivalIdParam).trim());
-  } catch {
-    return { status: 400, error: 'Invalid arrival ID format.' };
-  }
-
-  if (!payload || typeof payload !== 'object') {
-    return { status: 400, error: 'Missing request payload.' };
-  }
-
-  const rawEventId = payload.client_event_id || payload.exit_client_event_id;
-  const clientEventId = typeof rawEventId === 'string' ? rawEventId.trim() : '';
-  if (!clientEventId) {
-    return { status: 400, error: 'client_event_id is required.' };
-  }
-
-  if (!payload.exit_timestamp) {
-    return { status: 400, error: 'exit_timestamp is required.' };
-  }
-  const exitDate = new Date(payload.exit_timestamp);
-  if (isNaN(exitDate.getTime())) {
-    return { status: 400, error: 'Invalid exit_timestamp format.' };
-  }
-
-  const now = new Date();
-  if (exitDate.getTime() > now.getTime() + 5 * 60 * 1000) {
-    return { status: 400, error: 'exit_timestamp cannot be in the future.' };
-  }
-
-  try {
-    const result = await prisma.$transaction(async (tx) => {
-      // 1. Lock exact arrival row with static parameterized SELECT ... FOR UPDATE
-      if (arrivalType === 'MOT') {
-        const lockedRows = await tx.$queryRaw<{ id: bigint; gate_exit_required: boolean; exit_timestamp: Date | null; exit_client_event_id: string | null; arrival_timestamp: Date; zmcc_id: bigint }[]>`
-          SELECT id, gate_exit_required, exit_timestamp, exit_client_event_id, arrival_timestamp, zmcc_id
-          FROM zmcc_mot_arrival
-          WHERE id = ${arrivalId}
-          FOR UPDATE
-        `;
-        if (!lockedRows || lockedRows.length === 0) {
-          return { status: 404, error: 'MOT Arrival record not found.' };
-        }
-      } else {
-        const lockedRows = await tx.$queryRaw<{ id: bigint; gate_exit_required: boolean; exit_timestamp: Date | null; exit_client_event_id: string | null; arrival_timestamp: Date; zmcc_id: bigint }[]>`
-          SELECT id, gate_exit_required, exit_timestamp, exit_client_event_id, arrival_timestamp, zmcc_id
-          FROM zmcc_local_supplier_arrival
-          WHERE id = ${arrivalId}
-          FOR UPDATE
-        `;
-        if (!lockedRows || lockedRows.length === 0) {
-          return { status: 404, error: 'Local Supplier Arrival record not found.' };
-        }
-      }
-
-      // 2. Authoritative re-read within locked transaction
-      let arrival:
-        | Prisma.ZmccMotArrivalGetPayload<{ include: typeof motArrivalWithLabInclude }>
-        | Prisma.ZmccLocalSupplierArrivalGetPayload<{ include: typeof localSupplierArrivalWithLabInclude }>
-        | null = null;
-      if (arrivalType === 'MOT') {
-        arrival = await tx.zmccMotArrival.findUnique({
-          where: { id: arrivalId },
-          include: motArrivalWithLabInclude,
-        });
-      } else {
-        arrival = await tx.zmccLocalSupplierArrival.findUnique({
-          where: { id: arrivalId },
-          include: localSupplierArrivalWithLabInclude,
-        });
-      }
-
-      if (!arrival) {
-        return { status: 404, error: `${arrivalType === 'MOT' ? 'MOT' : 'Local Supplier'} Arrival record not found.` };
-      }
-
-      // 3. Authorization / scope check
-      if (!auth.isSuperAdmin && arrival.zmcc_id !== auth.effectiveZmccId!) {
-        return { status: 403, error: 'Forbidden. Arrival record belongs to another ZMCC.' };
-      }
-
-      // 4. BLOCKER 3: Fail closed on historical pre-cutover rows (gate_exit_required !== true)
-      if (arrival.gate_exit_required !== true) {
-        return {
-          status: 409,
-          error: 'GATE_EXIT_NOT_TRACKED_FOR_HISTORICAL_ARRIVAL',
-          message: 'Gate exit is not tracked for historical pre-cutover arrivals.',
-        };
-      }
-
-      // 5. Existing exit / idempotency check under row lock
-      if (arrival.exit_timestamp != null) {
-        if (arrival.exit_client_event_id === clientEventId) {
-          const isSameTimestamp = Math.abs(new Date(arrival.exit_timestamp).getTime() - exitDate.getTime()) < 1000;
-          if (isSameTimestamp) {
-            return {
-              status: 200,
-              data: 'journey' in arrival
-                ? { ...serializeMotArrival(arrival), is_replay: true }
-                : { ...serializeLocalSupplierArrival(arrival), is_replay: true },
-            };
-          } else {
-            return {
-              status: 409,
-              error: 'Conflict: client_event_id already used with different exit parameters.',
-            };
-          }
-        } else {
-          return {
-            status: 409,
-            error: 'Conflict: Gate exit has already been recorded for this arrival record.',
-          };
-        }
-      }
-
-      // 6. Exit Eligibility Rule (Lab status and decision)
-      const labSession = arrival.lab_session;
-      if (!labSession || labSession.status !== 'COMPLETED') {
-        return {
-          status: 409,
-          error: 'LAB_NOT_COMPLETED',
-          message: 'Gate exit requires a completed Lab session.',
-        };
-      }
-
-      if (labSession.manager_review_status === 'PENDING' || labSession.decision === 'PENDING') {
-        return {
-          status: 409,
-          error: 'MANAGER_REVIEW_PENDING',
-          message: 'Gate exit is blocked while manager review of quality exception is pending.',
-        };
-      }
-
-      if (labSession.decision === 'ACCEPTED') {
-        if (!labSession.tank_receipt) {
-          return {
-            status: 409,
-            error: 'CANNOT_EXIT_ACCEPTED_WITHOUT_RECEIPT',
-            message: 'Gate exit for accepted milk requires a completed Tank Receipt.',
-          };
-        }
-      } else if (labSession.decision === 'REJECTED') {
-        // Eligible for exit
-      } else {
-        return {
-          status: 409,
-          error: 'INVALID_LAB_DECISION_FOR_EXIT',
-          message: 'Gate exit requires an ACCEPTED or REJECTED Lab decision.',
-        };
-      }
-
-      // 7. Chronology Rules
-      if (exitDate.getTime() < new Date(arrival.arrival_timestamp).getTime()) {
-        return {
-          status: 400,
-          error: `exit_timestamp cannot predate arrival_timestamp (${arrival.arrival_timestamp.toISOString()}).`,
-        };
-      }
-      if (labSession.completed_at && exitDate.getTime() < new Date(labSession.completed_at).getTime()) {
-        return {
-          status: 400,
-          error: `exit_timestamp cannot predate lab completion timestamp (${labSession.completed_at.toISOString()}).`,
-        };
-      }
-
-      // 8. Atomically commit exit and audit log
-      if (arrivalType === 'MOT') {
-        const updatedRecord = await tx.zmccMotArrival.update({
-          where: { id: arrivalId },
-          data: {
-            exit_timestamp: exitDate,
-            exit_recorded_by_user_id: auth.actorUserId,
-            exit_client_event_id: clientEventId,
-            exit_submitted_at: now,
-            exit_correction_count: 0,
-            exit_manager_correction_count: 0,
-          },
-          include: {
-            journey: {
-              include: {
-                route: true,
-                mot_vehicle: true,
-                mot_profile: true,
-                summary: true,
-              },
-            },
-            zmcc: true,
-            recorded_by: true,
-            exit_recorded_by: true,
-            lab_session: {
-              include: {
-                tank_receipt: true,
-              },
-            },
-          },
-        });
-
-        await writeAuditLog(tx, {
-          tableName: 'zmcc_mot_arrival',
-          recordId: arrivalId,
-          action: 'ZMCC_MOT_GATE_EXIT_RECORDED',
-          oldValues: {
-            gate_exit_required: arrival.gate_exit_required,
-            exit_timestamp: null,
-          },
-          newValues: {
-            gate_exit_required: true,
-            exit_timestamp: exitDate.toISOString(),
-            exit_recorded_by_user_id: auth.actorUserId.toString(),
-            exit_client_event_id: clientEventId,
-          },
-          actor: { userId: auth.actorUserId, actorRole: auth.role },
-        });
-
-        return {
-          status: 200,
-          data: serializeMotArrival(updatedRecord),
-        };
-      } else {
-        const updatedRecord = await tx.zmccLocalSupplierArrival.update({
-          where: { id: arrivalId },
-          data: {
-            exit_timestamp: exitDate,
-            exit_recorded_by_user_id: auth.actorUserId,
-            exit_client_event_id: clientEventId,
-            exit_submitted_at: now,
-            exit_correction_count: 0,
-            exit_manager_correction_count: 0,
-          },
-          include: {
-            local_supplier: true,
-            zmcc: true,
-            recorded_by: true,
-            exit_recorded_by: true,
-            lab_session: {
-              include: {
-                tank_receipt: true,
-              },
-            },
-          },
-        });
-
-        await writeAuditLog(tx, {
-          tableName: 'zmcc_local_supplier_arrival',
-          recordId: arrivalId,
-          action: 'ZMCC_LOCAL_SUPPLIER_GATE_EXIT_RECORDED',
-          oldValues: {
-            gate_exit_required: arrival.gate_exit_required,
-            exit_timestamp: null,
-          },
-          newValues: {
-            gate_exit_required: true,
-            exit_timestamp: exitDate.toISOString(),
-            exit_recorded_by_user_id: auth.actorUserId.toString(),
-            exit_client_event_id: clientEventId,
-          },
-          actor: { userId: auth.actorUserId, actorRole: auth.role },
-        });
-
-        return {
-          status: 200,
-          data: serializeLocalSupplierArrival(updatedRecord),
-        };
-      }
-    });
-
-    return result;
-  } catch (err) {
-    if (getErrorCode(err) === 'P2002') {
-      const isSameExit = (record: { id: bigint; exit_timestamp: Date | null } | null) =>
-        !!record &&
-        record.id === arrivalId &&
-        Math.abs(new Date(record.exit_timestamp!).getTime() - exitDate.getTime()) < 1000;
-
-      if (arrivalType === 'MOT') {
-        const conflictRecord = await prisma.zmccMotArrival.findUnique({
-          where: { exit_client_event_id: clientEventId },
-          include: {
-            journey: { include: { route: true, mot_vehicle: true, mot_profile: true, summary: true } },
-            zmcc: true,
-            recorded_by: true,
-            exit_recorded_by: true,
-            lab_session: { include: { tank_receipt: true } },
-          },
-        });
-        if (conflictRecord && isSameExit(conflictRecord)) {
-          return { status: 200, data: { ...serializeMotArrival(conflictRecord), is_replay: true } };
-        }
-      } else {
-        const conflictRecord = await prisma.zmccLocalSupplierArrival.findUnique({
-          where: { exit_client_event_id: clientEventId },
-          include: {
-            local_supplier: true,
-            zmcc: true,
-            recorded_by: true,
-            exit_recorded_by: true,
-            lab_session: { include: { tank_receipt: true } },
-          },
-        });
-        if (conflictRecord && isSameExit(conflictRecord)) {
-          return { status: 200, data: { ...serializeLocalSupplierArrival(conflictRecord), is_replay: true } };
-        }
-      }
-      return {
-        status: 409,
-        error: 'Conflict: Reused client_event_id with differing exit parameters or collision.',
-      };
-    }
-    console.error('recordGateExit error:', err);
-    return { status: 500, error: 'Internal server error while recording gate exit.' };
-  }
-}
-
-class ExitCorrectionError extends Error {
-  status: number;
-  errorPayload: { status: number; error: string; message?: string };
-  constructor(status: number, error: string, message?: string) {
-    super(error);
-    this.status = status;
-    this.errorPayload = { status, error, ...(message ? { message } : {}) };
-  }
-}
-
-export async function correctGateExit(
-  reqOrUser: Request | User,
-  arrivalType: 'MOT' | 'LOCAL_SUPPLIER',
-  arrivalIdParam: string | number | bigint,
-  payload: CorrectGateExitPayload
-): Promise<ServiceResult<Record<string, unknown>>> {
-  const { auth, errorResponse } = await resolveZmccArrivalAuth(reqOrUser, 'CORRECT_EXIT');
-  if (errorResponse) return errorResponse;
-  if (!auth) return { status: 401, error: 'Unauthorized.' };
-
-  let arrivalId: bigint;
-  try {
-    arrivalId = BigInt(String(arrivalIdParam).trim());
-  } catch {
-    return { status: 400, error: 'Invalid arrival ID format.' };
-  }
-
-  if (!payload || typeof payload !== 'object') {
-    return { status: 400, error: 'Missing correction payload.' };
-  }
-
-  const reason = typeof (payload.reason || payload.supervisor_reason) === 'string'
-    ? (payload.reason || payload.supervisor_reason || '').trim()
-    : '';
-  if (!reason || reason.length < 5) {
-    return { status: 400, error: 'Correction reason is mandatory and must be at least 5 characters.' };
-  }
-
-  if (!payload.exit_timestamp) {
-    return { status: 400, error: 'exit_timestamp is required.' };
-  }
-  const exitDate = new Date(payload.exit_timestamp);
-  if (isNaN(exitDate.getTime())) {
-    return { status: 400, error: 'Invalid exit_timestamp format.' };
-  }
-
-  const now = new Date();
-  if (exitDate.getTime() > now.getTime() + 5 * 60 * 1000) {
-    return { status: 400, error: 'exit_timestamp cannot be in the future.' };
-  }
-
-  try {
-    const updated = await prisma.$transaction(async (tx) => {
-      // 1. Static parameterized row lock branches (no $queryRawUnsafe)
-      if (arrivalType === 'MOT') {
-        const lockRows = await tx.$queryRaw<{ id: bigint }[]>`
-          SELECT id FROM zmcc_mot_arrival WHERE id = ${arrivalId} FOR UPDATE
-        `;
-        if (!lockRows || lockRows.length === 0) {
-          throw new ExitCorrectionError(404, 'MOT Arrival record not found.');
-        }
-      } else if (arrivalType === 'LOCAL_SUPPLIER') {
-        const lockRows = await tx.$queryRaw<{ id: bigint }[]>`
-          SELECT id FROM zmcc_local_supplier_arrival WHERE id = ${arrivalId} FOR UPDATE
-        `;
-        if (!lockRows || lockRows.length === 0) {
-          throw new ExitCorrectionError(404, 'Local Supplier Arrival record not found.');
-        }
-      } else {
-        throw new ExitCorrectionError(400, 'Invalid arrival_type for gate exit correction.');
-      }
-
-      // 2. Authoritative re-read under the acquired row lock
-      let currentArrival:
-        | Prisma.ZmccMotArrivalGetPayload<{
-            include: { journey: { include: typeof journeyDetailInclude }; zmcc: true; recorded_by: true; exit_recorded_by: true; lab_session: true };
-          }>
-        | Prisma.ZmccLocalSupplierArrivalGetPayload<{
-            include: { local_supplier: true; zmcc: true; recorded_by: true; exit_recorded_by: true; lab_session: true };
-          }>
-        | null = null;
-      if (arrivalType === 'MOT') {
-        currentArrival = await tx.zmccMotArrival.findUnique({
-          where: { id: arrivalId },
-          include: {
-            journey: {
-              include: {
-                route: true,
-                mot_vehicle: true,
-                mot_profile: true,
-                summary: true,
-              },
-            },
-            zmcc: true,
-            recorded_by: true,
-            exit_recorded_by: true,
-            lab_session: true,
-          },
-        });
-      } else {
-        currentArrival = await tx.zmccLocalSupplierArrival.findUnique({
-          where: { id: arrivalId },
-          include: {
-            local_supplier: true,
-            zmcc: true,
-            recorded_by: true,
-            exit_recorded_by: true,
-            lab_session: true,
-          },
-        });
-      }
-
-      if (!currentArrival) {
-        throw new ExitCorrectionError(404, `${arrivalType === 'MOT' ? 'MOT' : 'Local Supplier'} Arrival record not found.`);
-      }
-
-      // 3. Multi-tenant scope check under lock
-      if (!isCorrectionAuthority(auth.role) && currentArrival.zmcc_id !== auth.effectiveZmccId!) {
-        throw new ExitCorrectionError(403, 'Forbidden. Arrival record belongs to another ZMCC.');
-      }
-
-      // 4. Require current exit exists
-      if (!currentArrival.exit_timestamp) {
-        throw new ExitCorrectionError(400, 'Cannot correct gate exit for an arrival that has not exited.');
-      }
-
-      // 5. Require gate_exit_required === true
-      if (currentArrival.gate_exit_required !== true) {
-        throw new ExitCorrectionError(409, 'GATE_EXIT_NOT_TRACKED_FOR_HISTORICAL_ARRIVAL', 'Gate exit is not tracked for historical arrivals.');
-      }
-
-      // 6. Check current correction count under lock
-      const currentTotalCount = currentArrival.exit_correction_count ?? 0;
-      const currentManagerCount = currentArrival.exit_manager_correction_count ?? 0;
-      if (!isCorrectionAuthority(auth.role) && currentManagerCount >= 5) {
-        throw new ExitCorrectionError(409, 'MAX_EXIT_CORRECTIONS_EXCEEDED', 'Maximum correction limit (5) reached for ZMCC Manager.');
-      }
-
-      // 7. Check if requested timestamp equals current timestamp (reject as no-op)
-      const currentExitTime = new Date(currentArrival.exit_timestamp).getTime();
-      if (exitDate.getTime() === currentExitTime) {
-        throw new ExitCorrectionError(400, 'NO_OP_IDENTICAL_TIMESTAMP', 'New exit timestamp is identical to the current exit timestamp.');
-      }
-
-      // 8. Re-check chronology using current locked arrival_timestamp and lab.completed_at
-      const arrivalTime = new Date(currentArrival.arrival_timestamp).getTime();
-      if (exitDate.getTime() < arrivalTime) {
-        throw new ExitCorrectionError(400, `exit_timestamp cannot predate arrival_timestamp (${currentArrival.arrival_timestamp.toISOString()}).`);
-      }
-      if (currentArrival.lab_session?.completed_at) {
-        const labCompletedTime = new Date(currentArrival.lab_session.completed_at).getTime();
-        if (exitDate.getTime() < labCompletedTime) {
-          throw new ExitCorrectionError(400, `exit_timestamp cannot predate lab completion timestamp (${currentArrival.lab_session.completed_at.toISOString()}).`);
-        }
-      }
-
-      // 9. Use the CURRENT locked exit timestamp as old_values.exit_timestamp
-      const nextTotalCount = currentTotalCount + 1;
-      const nextManagerCount = isCorrectionAuthority(auth.role) ? currentManagerCount : currentManagerCount + 1;
-      const nowTs = new Date();
-      const oldExitTs = currentArrival.exit_timestamp instanceof Date
-        ? currentArrival.exit_timestamp.toISOString()
-        : new Date(currentArrival.exit_timestamp).toISOString();
-      const newExitTs = exitDate.toISOString();
-
-      let updatedRecord:
-        | Prisma.ZmccMotArrivalGetPayload<{
-            include: { journey: { include: typeof journeyDetailInclude }; zmcc: true; recorded_by: true; exit_recorded_by: true };
-          }>
-        | Prisma.ZmccLocalSupplierArrivalGetPayload<{
-            include: { local_supplier: true; zmcc: true; recorded_by: true; exit_recorded_by: true };
-          }>;
-      if (arrivalType === 'MOT') {
-        updatedRecord = await tx.zmccMotArrival.update({
-          where: { id: arrivalId },
-          data: {
-            exit_timestamp: exitDate,
-            exit_correction_count: nextTotalCount,
-            exit_manager_correction_count: nextManagerCount,
-            exit_last_corrected_by_user_id: auth.actorUserId,
-            exit_last_corrected_at: nowTs,
-          },
-          include: {
-            journey: {
-              include: {
-                route: true,
-                mot_vehicle: true,
-                mot_profile: true,
-                summary: true,
-              },
-            },
-            zmcc: true,
-            recorded_by: true,
-            exit_recorded_by: true,
-          },
-        });
-        await writeAuditLog(tx, {
-          tableName: 'zmcc_mot_arrival',
-          recordId: arrivalId,
-          action: 'ZMCC_MOT_GATE_EXIT_CORRECTED',
-          oldValues: {
-            exit_timestamp: oldExitTs,
-            exit_correction_count: currentTotalCount,
-            exit_manager_correction_count: currentManagerCount,
-          },
-          newValues: {
-            exit_timestamp: newExitTs,
-            exit_correction_count: nextTotalCount,
-            exit_manager_correction_count: nextManagerCount,
-            correction_reason: reason,
-          },
-          actor: { userId: auth.actorUserId, actorRole: auth.role },
-        });
-      } else {
-        updatedRecord = await tx.zmccLocalSupplierArrival.update({
-          where: { id: arrivalId },
-          data: {
-            exit_timestamp: exitDate,
-            exit_correction_count: nextTotalCount,
-            exit_manager_correction_count: nextManagerCount,
-            exit_last_corrected_by_user_id: auth.actorUserId,
-            exit_last_corrected_at: nowTs,
-          },
-          include: {
-            local_supplier: true,
-            zmcc: true,
-            recorded_by: true,
-            exit_recorded_by: true,
-          },
-        });
-        await writeAuditLog(tx, {
-          tableName: 'zmcc_local_supplier_arrival',
-          recordId: arrivalId,
-          action: 'ZMCC_LOCAL_SUPPLIER_GATE_EXIT_CORRECTED',
-          oldValues: {
-            exit_timestamp: oldExitTs,
-            exit_correction_count: currentTotalCount,
-            exit_manager_correction_count: currentManagerCount,
-          },
-          newValues: {
-            exit_timestamp: newExitTs,
-            exit_correction_count: nextTotalCount,
-            exit_manager_correction_count: nextManagerCount,
-            correction_reason: reason,
-          },
-          actor: { userId: auth.actorUserId, actorRole: auth.role },
-        });
-      }
-
-      return updatedRecord;
-    });
-
-    return {
-      status: 200,
-      data: 'journey' in updated ? serializeMotArrival(updated) : serializeLocalSupplierArrival(updated),
-    };
-  } catch (err) {
-    if (err instanceof ExitCorrectionError) {
-      return err.errorPayload;
-    }
-    console.error('correctGateExit error:', err);
-    return { status: 500, error: 'Internal server error while correcting gate exit.' };
-  }
-}
 
 export type InsideVehicle = {
   id: string;
-  arrival_type: 'MOT' | 'LOCAL_SUPPLIER';
+  arrival_type: 'MOT' | 'HC';
   vehicle_number: string;
   source_name: string;
   local_supplier_code: string | null;
@@ -3540,9 +2475,9 @@ export async function getVehiclesInsideZmcc(
 
     vehicles.push({
       id: a.id.toString(),
-      arrival_type: 'LOCAL_SUPPLIER',
+      arrival_type: 'HC',
       vehicle_number: a.vehicle_number,
-      source_name: a.local_supplier ? a.local_supplier.name : 'Local Supplier',
+      source_name: a.local_supplier ? a.local_supplier.name : 'HC',
       local_supplier_code: a.local_supplier ? a.local_supplier.local_supplier_code : null,
       zmcc_token: a.zmcc_token,
       arrival_timestamp: a.arrival_timestamp instanceof Date ? a.arrival_timestamp.toISOString() : a.arrival_timestamp,

@@ -17,10 +17,14 @@ export async function GET(req: Request) {
 
   try {
     const visits = await prisma.vehicleVisit.findMany({
+      take: 100, // live queue: bounded page
       where: {
         current_status: 'READY_FOR_GROSS',
         gate_log: { entry_timestamp: { not: null } },
-        weight_ticket: { is: null },
+        OR: [
+          { weight_ticket: { is: null } },
+          { weight_ticket: { gross_weight_kg: null } },
+        ],
         ...(query
           ? {
               OR: [
@@ -56,6 +60,13 @@ export async function GET(req: Request) {
       const allAccepted = decisions.length > 0 && decisions.every((d) => d === 'ACCEPTED');
       const hasAccepted = decisions.some((d) => d === 'ACCEPTED');
       const hasRejected = decisions.some((d) => d === 'REJECTED');
+
+      // Strict Decision Gate: every single portion must be definitively decided
+      const pendingPortions = portions.filter((p) => {
+        const d = (p.plant_decision || '').toUpperCase();
+        return (d !== 'ACCEPTED' && d !== 'REJECTED') || p.manager_review_status === 'PENDING';
+      });
+      const isFullyDecided = portions.length > 0 && pendingPortions.length === 0;
 
       let plantDecisionSummary = 'PENDING';
       if (allAccepted) plantDecisionSummary = 'ACCEPTED';
@@ -95,6 +106,8 @@ export async function GET(req: Request) {
         portion_count: portions.length,
         accepted_portion_count: acceptedPortions.length,
         rejected_portion_count: rejectedPortions.length,
+        pending_portion_count: pendingPortions.length,
+        is_fully_decided: isFullyDecided,
         vehicle_dispatch_quantity_value: v.vehicle_dispatch_quantity_value !== null && v.vehicle_dispatch_quantity_value !== undefined
           ? Number(v.vehicle_dispatch_quantity_value)
           : null,
@@ -114,8 +127,10 @@ export async function GET(req: Request) {
       };
     });
 
-    // STRICT ELIGIBILITY RULE: A vehicle must have at least 1 QA-accepted portion to be eligible for gross weighing
-    const eligibleVisits = formatted.filter((v) => v.accepted_portion_count > 0);
+    // STRICT ELIGIBILITY RULE:
+    // 1. Every portion in the vehicle must be definitively decided (no portion pending QA or AVP review).
+    // 2. At least 1 portion must be ACCEPTED.
+    const eligibleVisits = formatted.filter((v) => v.is_fully_decided && v.accepted_portion_count > 0);
 
     return NextResponse.json({ visits: eligibleVisits });
   } catch (error) {

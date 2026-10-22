@@ -154,17 +154,8 @@ export class QualityRuleService {
     });
 
     // 1. Stage-level fallback before global default
-    if (testingPoint === 'ZMCC_LAB_LOCAL_SUPPLIER') {
-      const contractorRules = await this.resolveActiveRulesForTestingPoint('ZMCC_LAB_CONTRACTOR', eventTimestamp, tx);
-      contractorRules.forEach((rule, k) => {
-        if (!ruleMap.has(k)) {
-          ruleMap.set(k, rule);
-        }
-      });
-    }
-
     if (testingPoint === 'MOT_SHOP') {
-      const motLabRules = await this.resolveActiveRulesForTestingPoint('ZMCC_LAB_MOT', eventTimestamp, tx);
+      const motLabRules = await this.resolveActiveRulesForTestingPoint('ZMCC_LAB_MC', eventTimestamp, tx);
       motLabRules.forEach((rule, k) => {
         if (!ruleMap.has(k)) {
           ruleMap.set(k, rule);
@@ -301,14 +292,9 @@ export class QualityRuleService {
       };
     }
 
-    // Stage fallback for local supplier & MOT before global default
-    if (testingPoint === 'ZMCC_LAB_LOCAL_SUPPLIER') {
-      const stageFallback = await this.resolveActiveRule(labTestId, 'ZMCC_LAB_CONTRACTOR', eventTimestamp, tx);
-      if (stageFallback) return stageFallback;
-    }
-
+    // Stage fallback for MC before global default
     if (testingPoint === 'MOT_SHOP') {
-      const stageFallback = await this.resolveActiveRule(labTestId, 'ZMCC_LAB_MOT', eventTimestamp, tx);
+      const stageFallback = await this.resolveActiveRule(labTestId, 'ZMCC_LAB_MC', eventTimestamp, tx);
       if (stageFallback) return stageFallback;
     }
 
@@ -528,17 +514,27 @@ export class QualityRuleService {
       if (Array.isArray(resultOptions) && resultOptions.length > 0 && textValue) {
         const rawText = textValue.trim().toUpperCase();
         const matched = resultOptions.find(
-          (opt: Partial<LabTestResultOption>) => opt.value && opt.value.trim().toUpperCase() === rawText
+          (opt: Partial<LabTestResultOption> & { outcome?: string }) =>
+            opt.value && opt.value.trim().toUpperCase() === rawText
         );
         if (matched) {
-          if (matched.isPassing === true) {
+          if (matched.outcome === 'WARNING') {
+            return {
+              appliedRuleId: null,
+              appliedRuleVersion: null,
+              evaluationStatus: 'WARNING',
+              isPassed: null,
+              reason: 'Tolerance Warning: observed option is acceptable on warning',
+            };
+          }
+          if (matched.outcome === 'PASS' || matched.isPassing === true) {
             return {
               appliedRuleId: null,
               appliedRuleVersion: null,
               evaluationStatus: 'PASS',
               isPassed: true,
             };
-          } else if (matched.isPassing === false) {
+          } else if (matched.outcome === 'FAIL' || matched.isPassing === false) {
             return {
               appliedRuleId: null,
               appliedRuleVersion: null,
@@ -570,6 +566,17 @@ export class QualityRuleService {
     if (effectiveReleaseRule) {
       const appliedRuleId = effectiveReleaseRule.id;
       const appliedRuleVersion = effectiveReleaseRule.version;
+
+      // Check if rule is configured as RECORD_ONLY (No Pass/Fail Enforced)
+      if (effectiveReleaseRule.warning_trigger === 'RECORD_ONLY') {
+        return {
+          appliedRuleId,
+          appliedRuleVersion,
+          evaluationStatus: 'PASS',
+          isPassed: true,
+          reason: 'Record only: test observed without pass/fail limit enforcement',
+        };
+      }
 
       // Quantitative
       if (resultType === 'NUMERIC' || resultType === 'CALCULATED') {
@@ -605,18 +612,23 @@ export class QualityRuleService {
 
         if (!minPass || !maxPass) {
           // 3-Zone Quantitative Tolerance Engine:
-          // Check if observed value falls in Warning Band: [min - offset, min) or (max, max + offset]
-          if (offset > 0) {
-            const isWarningBelow = minVal !== null && numVal >= (minVal - offset) && numVal < minVal;
-            const isWarningAbove = maxVal !== null && numVal > maxVal && numVal <= (maxVal + offset);
+          // Check if observed value falls in Warning Band:
+          if (offset > 0 && effectiveReleaseRule.warning_trigger !== 'NONE') {
+            const trigger = effectiveReleaseRule.warning_trigger || 'BOTH';
+            const allowBelow = trigger === 'BOTH' || trigger === 'BELOW_MIN';
+            const allowAbove = trigger === 'BOTH' || trigger === 'ABOVE_MAX';
 
-            if (isWarningBelow && minVal !== null) {
+            const lowerBound = minVal !== null && minVal >= 0 ? Math.max(0, minVal - offset) : (minVal !== null ? minVal - offset : null);
+            const isWarningBelow = allowBelow && minVal !== null && lowerBound !== null && numVal >= lowerBound && numVal < minVal;
+            const isWarningAbove = allowAbove && maxVal !== null && numVal > maxVal && numVal <= (maxVal + offset);
+
+            if (isWarningBelow && minVal !== null && lowerBound !== null) {
               return {
                 appliedRuleId,
                 appliedRuleVersion,
                 evaluationStatus: 'WARNING',
                 isPassed: null,
-                reason: `Tolerance Warning: observed ${numVal} is within warning margin [${(minVal - offset).toFixed(2)}, ${minVal}] below minimum limit ${minVal}`,
+                reason: `Tolerance Warning: observed ${numVal} is within warning margin [${lowerBound.toFixed(2)}, ${minVal}] below minimum limit ${minVal}`,
               };
             }
 
@@ -683,6 +695,48 @@ export class QualityRuleService {
       // Qualitative
       const rawText = (textValue || '').trim().toUpperCase();
 
+      // Check structured resultOptions metadata first (gives exact Pass/Warning/Fail outcomes)
+      if (Array.isArray(resultOptions) && resultOptions.length > 0) {
+        const matched = resultOptions.find(
+          (opt: Partial<LabTestResultOption> & { outcome?: string }) =>
+            opt.value && opt.value.trim().toUpperCase() === rawText
+        );
+        if (matched) {
+          if (matched.outcome === 'WARNING') {
+            return {
+              appliedRuleId,
+              appliedRuleVersion,
+              evaluationStatus: 'WARNING',
+              isPassed: null,
+              reason: `Tolerance Warning: observed option "${matched.label || matched.value}" is acceptable on warning`,
+            };
+          }
+          if (matched.outcome === 'PASS' || matched.isPassing === true) {
+            return {
+              appliedRuleId,
+              appliedRuleVersion,
+              evaluationStatus: 'PASS',
+              isPassed: true,
+            };
+          }
+          if (matched.outcome === 'FAIL' || matched.isPassing === false) {
+            return {
+              appliedRuleId,
+              appliedRuleVersion,
+              evaluationStatus: 'OUT_OF_SPEC',
+              isPassed: false,
+              reason: `Fail: observed failing option "${matched.label || matched.value}"`,
+            };
+          }
+          return {
+            appliedRuleId,
+            appliedRuleVersion,
+            evaluationStatus: 'NEUTRAL',
+            isPassed: null,
+          };
+        }
+      }
+
       if (effectiveReleaseRule.acceptable_option) {
         const acceptable = effectiveReleaseRule.acceptable_option.trim().toUpperCase();
         if (rawText !== acceptable) {
@@ -724,38 +778,6 @@ export class QualityRuleService {
           evaluationStatus: 'PASS',
           isPassed: true,
         };
-      }
-
-      // Structured resultOptions fallback
-      if (Array.isArray(resultOptions) && resultOptions.length > 0) {
-        const matched = resultOptions.find(
-          (opt: Partial<LabTestResultOption>) => opt.value && opt.value.trim().toUpperCase() === rawText
-        );
-        if (matched) {
-          if (matched.isPassing === true) {
-            return {
-              appliedRuleId,
-              appliedRuleVersion,
-              evaluationStatus: 'PASS',
-              isPassed: true,
-            };
-          } else if (matched.isPassing === false) {
-            return {
-              appliedRuleId,
-              appliedRuleVersion,
-              evaluationStatus: 'OUT_OF_SPEC',
-              isPassed: false,
-              reason: 'Configured failing option',
-            };
-          } else {
-            return {
-              appliedRuleId,
-              appliedRuleVersion,
-              evaluationStatus: 'NEUTRAL',
-              isPassed: null,
-            };
-          }
-        }
       }
 
       if (['OK', 'PASS', 'NEGATIVE', 'TRUE', 'YES', 'NORMAL'].includes(rawText)) {
@@ -946,7 +968,6 @@ export class QualityRuleService {
    * Concurrency-safe rule creation and supersession by QA Head.
    * Closes prior active rule for the same testing point and increments version.
    * Requires substantive governance reason.
-   * Blocks new rules for deprecated ZMCC_LAB_CONTRACTOR.
    */
   static async createOrSupersedeRule(
     input: CreateRuleInput,
@@ -972,13 +993,6 @@ export class QualityRuleService {
     if (!reason || typeof reason !== 'string' || reason.trim().length < 3) {
       throw new Error(
         'A substantive reason (at least 3 characters) is required to create or modify a quality rule.'
-      );
-    }
-
-    // Block new active ZMCC_LAB_CONTRACTOR rules (historical compatibility only)
-    if (testingPoint === 'ZMCC_LAB_CONTRACTOR') {
-      throw new Error(
-        "Testing point 'ZMCC_LAB_CONTRACTOR' is deprecated and blocked for new rules. Use 'ZMCC_LAB_MOT' or 'ZMCC_LAB_LOCAL_SUPPLIER' instead."
       );
     }
 

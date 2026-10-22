@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
-import { AlertCircle, CheckCircle2, RefreshCw, X } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Loader2, Undo2, X } from 'lucide-react';
 import { getUnsentWorkSummary } from '@/frontend/modules/mot/offlineStore';
 import {
   getSyncQueueCounts,
@@ -18,8 +18,8 @@ const KIND_LABELS: Record<string, string> = {
   MOT_COLLECTION: 'Milk collection',
   MOT_GPS_BATCH: 'GPS point',
   MOT_STOP_SKIP: 'Shop skipped',
-  ZMCC_MOT_ARRIVAL: 'MOT arrival',
-  ZMCC_LOCAL_SUPPLIER_ARRIVAL: 'Local supplier arrival',
+  ZMCC_MOT_ARRIVAL: 'MC arrival',
+  ZMCC_LOCAL_SUPPLIER_ARRIVAL: 'HC arrival',
 };
 
 interface SignState {
@@ -34,7 +34,7 @@ interface SignState {
 const EMPTY: SignState = { waiting: 0, needsAttention: 0, sentToday: 0, oldWaiting: 0, oldNeedsAttention: 0 };
 
 function stateWord(r: QueueRecord): { word: string; tone: string } {
-  if (r.state === 'NEEDS_ATTENTION') return { word: 'Needs office help', tone: 'text-red-700' };
+  if (r.state === 'NEEDS_ATTENTION') return { word: 'Needs office help', tone: 'text-rose-700' };
   if (r.state === 'PHOTOS_PENDING') return { word: 'Sending photos', tone: 'text-amber-700' };
   return { word: 'Waiting', tone: 'text-amber-700' };
 }
@@ -111,16 +111,16 @@ export function SyncStatusSign() {
   let label = 'All sent';
   if (device?.state === 'BLOCKED') {
     // Work stays saved on the phone; nothing is sent until the office unblocks it.
-    tone = 'border-red-300 bg-red-50 text-red-900';
-    icon = <AlertCircle className="h-5 w-5 text-red-600" aria-hidden />;
+    tone = 'border-rose-300 bg-rose-50 text-rose-900';
+    icon = <AlertCircle className="h-5 w-5 text-rose-600" aria-hidden />;
     label = device.message || 'This phone is blocked. Ask the office.';
   } else if (help > 0) {
-    tone = 'border-red-300 bg-red-50 text-red-900';
-    icon = <AlertCircle className="h-5 w-5 text-red-600" aria-hidden />;
+    tone = 'border-rose-300 bg-rose-50 text-rose-900';
+    icon = <AlertCircle className="h-5 w-5 text-rose-600" aria-hidden />;
     label = `${help} need help from office`;
   } else if (waiting > 0) {
     tone = 'border-amber-300 bg-amber-50 text-amber-900';
-    icon = <RefreshCw className={`h-5 w-5 text-amber-600 ${sending ? 'animate-spin' : ''}`} aria-hidden />;
+    icon = (sending ? <Loader2 className="h-5 w-5 animate-spin text-amber-600" aria-hidden /> : <Undo2 className="h-5 w-5 text-amber-600" aria-hidden />);
     label = `${waiting} waiting`;
   }
 
@@ -184,7 +184,7 @@ export function SyncStatusSign() {
             disabled={sending}
             onClick={() => void sendNow()}
           >
-            {sending ? 'Sending...' : 'Send now'}
+            {sending ? 'Sending…' : 'Send now'}
           </button>
         </div>
       ) : null}

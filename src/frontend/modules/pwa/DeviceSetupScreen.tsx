@@ -77,7 +77,7 @@ function BannerBox({ banner }: { banner: Banner }) {
   if (!banner) return null;
   const styles = {
     ok: { cls: 'border-emerald-300 bg-emerald-50 text-emerald-900', icon: <CheckCircle2 className="size-6 text-emerald-600" aria-hidden /> },
-    error: { cls: 'border-red-300 bg-red-50 text-red-900', icon: <Ban className="size-6 text-red-600" aria-hidden /> },
+    error: { cls: 'border-rose-300 bg-rose-50 text-rose-900', icon: <Ban className="size-6 text-rose-600" aria-hidden /> },
     wait: { cls: 'border-amber-300 bg-amber-50 text-amber-900', icon: <Loader2 className="size-6 animate-spin text-amber-600" aria-hidden /> },
     info: { cls: 'border-sky-300 bg-sky-50 text-sky-900', icon: <AlertCircle className="size-6 text-sky-600" aria-hidden /> },
   }[banner.tone];
@@ -140,7 +140,7 @@ export function DeviceSetupScreen() {
   useEffect(() => stopScan, [stopScan]);
 
   const verify = useCallback(async () => {
-    setBanner({ tone: 'wait', text: 'Checking with the office server...' });
+    setBanner({ tone: 'wait', text: 'Checking with the office server…' });
     const check = await checkDeviceConnection();
     if (check.ok) {
       setBanner({ tone: 'ok', text: 'Phone is set up' });
@@ -316,7 +316,7 @@ export function DeviceSetupScreen() {
             <CheckCircle2 aria-hidden /> Check again
           </Button>
           {confirmRemove ? (
-            <div className="space-y-3 rounded-md border-2 border-red-300 bg-red-50 p-3 text-red-900">
+            <div className="space-y-3 rounded-md border-2 border-rose-300 bg-rose-50 p-3 text-rose-900">
               <p className="text-base font-semibold">Remove the key from this phone?</p>
               <p className="text-base">The phone stops sending by itself until a new key is saved. Work waiting on this phone is kept.</p>
               <Button variant="destructive" className={BIG_BTN} disabled={busy} onClick={removeKey}>

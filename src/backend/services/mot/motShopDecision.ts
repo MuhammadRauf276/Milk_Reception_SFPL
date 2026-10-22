@@ -32,16 +32,21 @@ function valueOf(t: MotShopPolicyTest, input: MotShopTestInput | undefined, i: B
   return { value, textValue: text ? text : null };
 }
 
-function outcomeOf(t: MotShopPolicyTest, value: number | null, textValue: string | null): 'PASS' | 'FAIL' {
+function outcomeOf(t: MotShopPolicyTest, value: number | null, textValue: string | null): 'PASS' | 'WARN' | 'FAIL' {
   const rule = t.rule;
   if (!rule) return 'PASS';
   if (value !== null) {
     if (rule.min !== null && value < rule.min) return 'FAIL';
     if (rule.max !== null && value > rule.max) return 'FAIL';
   }
-  if (textValue !== null && rule.allowed && rule.allowed.length > 0) {
-    const v = textValue.toUpperCase();
-    if (!rule.allowed.some((a) => a.trim().toUpperCase() === v)) return 'FAIL';
+  if (textValue !== null) {
+    const v = textValue.trim().toUpperCase();
+    if (rule.warningOptions && rule.warningOptions.some((w) => w.trim().toUpperCase() === v)) {
+      return 'WARN';
+    }
+    if (rule.allowed && rule.allowed.length > 0) {
+      if (!rule.allowed.some((a) => a.trim().toUpperCase() === v)) return 'FAIL';
+    }
   }
   return 'PASS';
 }
@@ -77,6 +82,9 @@ export function buildMotShopDecision(
           outcome = 'WARN';
           warnings.push(`${t.testName} is outside the allowed range.`);
         }
+      } else if (res === 'WARN') {
+        outcome = 'WARN';
+        warnings.push(`${t.testName} is acceptable on warning.`);
       } else {
         outcome = 'PASS';
       }

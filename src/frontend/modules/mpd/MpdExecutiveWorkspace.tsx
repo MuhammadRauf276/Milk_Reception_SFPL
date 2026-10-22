@@ -1,6 +1,8 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   Truck,
   Building2,
@@ -24,6 +26,8 @@ import { PageHeader } from '@/components/ui/page-header';
 import { SegmentedTabs } from '@/components/ui/segmented-tabs';
 import { Button } from '@/components/ui/button';
 import { getErrorMessage } from '@/lib/errors';
+import { fetchJson } from '@/lib/query/fetchJson';
+import { fadeSlide } from '@/components/motion/presets';
 
 interface MpdExecutiveWorkspaceProps {
   currentUser?: User | null;
@@ -32,69 +36,51 @@ interface MpdExecutiveWorkspaceProps {
 
 export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ currentUser, initialData }) => {
   const [activeTab, setActiveTab] = useState<MpdTabId>('FLEET_RADAR');
-  const [telemetry, setTelemetry] = useState<MpdExecutiveTelemetryData | null>(initialData || null);
-  const [loading, setLoading] = useState(!initialData);
+  const queryClient = useQueryClient();
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const loadTelemetry = useCallback(
-    (isManual = false) =>
-      fetch('/api/mpd/executive-overview', { cache: 'no-store' })
-        .then(async (res) => {
-          const json = await res.json();
-          if (res.ok && json.success) {
-            setTelemetry(json.data);
-            setError(null);
-          } else {
-            setError(json.error || 'Failed to load MPD Executive Telemetry.');
-          }
-        })
-        .catch((err) => {
-          setError(getErrorMessage(err) || 'Network error fetching telemetry.');
-        })
-        .finally(() => {
-          setLoading(false);
-          if (isManual) setIsRefreshing(false);
-        }),
-    []
-  );
+  const telemetryQuery = useQuery({
+    queryKey: ['mpd', 'executive-overview'],
+    queryFn: async ({ signal }) => {
+      const json = await fetchJson<{ success?: boolean; data: MpdExecutiveTelemetryData; error?: string }>(
+        '/api/mpd/executive-overview',
+        { cache: 'no-store', signal }
+      );
+      if (!json.success) throw new Error(json.error || 'Failed to load MPD Executive Telemetry.');
+      return json.data;
+    },
+    initialData,
+    // Periodic auto-refresh every 30 seconds (only while the tab is visible).
+    refetchInterval: 30000,
+    refetchIntervalInBackground: false,
+  });
+  const telemetry = telemetryQuery.data ?? null;
+  const loading = telemetryQuery.isPending;
+  const error = telemetryQuery.error ? getErrorMessage(telemetryQuery.error) || 'Network error fetching telemetry.' : null;
 
-  const fetchTelemetry = (isManual = false) => {
+  const fetchTelemetry = async (isManual = false) => {
     if (isManual) setIsRefreshing(true);
-    setError(null);
-    return loadTelemetry(isManual);
-  };
-
-  useEffect(() => {
-    if (!initialData) {
-      loadTelemetry();
+    try {
+      await telemetryQuery.refetch();
+    } finally {
+      if (isManual) setIsRefreshing(false);
     }
-    // Periodic auto-refresh every 30 seconds
-    const interval = setInterval(() => {
-      loadTelemetry();
-    }, 30000);
-
-    return () => clearInterval(interval);
-  }, [loadTelemetry, initialData]);
+  };
 
   const handleAuditAction = async (id: string, action: 'APPROVED' | 'FLAGGED', remarks?: string) => {
     try {
-      const res = await fetch('/api/mpd/governance-exceptions', {
+      const json = await fetchJson<{ success?: boolean; error?: string }>('/api/mpd/governance-exceptions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ exceptionId: id, action, remarks }),
       });
-      const json = await res.json();
-      if (res.ok && json.success) {
-        // Update local state optimistically
-        if (telemetry) {
-          setTelemetry({
-            ...telemetry,
-            governanceOverrides: telemetry.governanceOverrides.map((o) =>
-              o.id === id ? { ...o, status: action } : o
-            ),
-          });
-        }
+      if (json.success) {
+        // Update cached telemetry optimistically (no page reload).
+        queryClient.setQueryData<MpdExecutiveTelemetryData>(['mpd', 'executive-overview'], (old) =>
+          old
+            ? { ...old, governanceOverrides: old.governanceOverrides.map((o) => (o.id === id ? { ...o, status: action } : o)) }
+            : old
+        );
         toast.success('Audit decision recorded');
       } else {
         toast.error(json.error || 'Failed to submit audit decision.');
@@ -131,7 +117,10 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
       id: 'GOVERNANCE',
       label: 'Exception Desk',
       icon: <ShieldAlert className="w-4 h-4" />,
-      count: telemetry ? telemetry.governanceOverrides.filter((o) => o.status === 'PENDING_AUDIT').length : undefined,
+      count:
+        telemetry && Array.isArray(telemetry.governanceOverrides)
+          ? telemetry.governanceOverrides.filter((o) => o.status === 'PENDING_AUDIT').length
+          : undefined,
     },
     {
       id: 'POLICIES',
@@ -181,7 +170,8 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
       )}
 
       {/* Tab Screen Content */}
-      <div key={activeTab} className="animate-panel-in">
+      <AnimatePresence mode="wait" initial={false}>
+      <motion.div key={activeTab} variants={fadeSlide} initial="initial" animate="animate" exit="exit">
         {telemetry ? (
           <>
             {activeTab === 'FLEET_RADAR' && (
@@ -195,6 +185,7 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
               <MpdSourcesScreen
                 zmccs={telemetry.zmccCenters}
                 contractors={telemetry.plantContractors}
+                intakeBySource={telemetry.intakeBySource}
               />
             )}
             {activeTab === 'QUALITY_FUNNEL' && (
@@ -204,6 +195,7 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
             {activeTab === 'GOVERNANCE' && (
               <MpdGovernanceScreen
                 overrides={telemetry.governanceOverrides}
+                zmccs={telemetry.zmccCenters}
                 onAuditAction={handleAuditAction}
               />
             )}
@@ -214,7 +206,8 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
             Loading MPD Executive Telemetry…
           </div>
         )}
-      </div>
+      </motion.div>
+      </AnimatePresence>
     </div>
   );
 };

@@ -1,6 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
+import { useQueries, useQueryClient } from '@tanstack/react-query';
+import { fetchJson } from '@/lib/query/fetchJson';
 import {
   CheckCircle2,
   XCircle,
@@ -13,7 +15,6 @@ import {
   Loader2,
   ChevronLeft,
   ChevronRight,
-  ShieldCheck,
   X,
 } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
@@ -96,14 +97,11 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
   const canApproveShops = canApproveShop(role);
   // An MDO can see their own routes waiting for the Zonal Manager, but cannot decide them.
   const canSeeRoutes = canCreateRoute(role);
-  // New HCs (local suppliers) need the Zonal Manager (or above), like routes.
+  // New HCs (direct suppliers) need the Zonal Manager (or above), like routes.
   const canDecideHcs = canApproveRoute(role);
 
-  const [routes, setRoutes] = useState<PendingRouteItem[]>([]);
-  const [shops, setShops] = useState<PendingShopItem[]>([]);
-  const [hcs, setHcs] = useState<PendingHcItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const [localError, setError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
   const [routesPage, setRoutesPage] = useState(1);
@@ -120,51 +118,41 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
   const [rejectReason, setRejectReason] = useState('');
   const [submittingAction, setSubmittingAction] = useState(false);
 
+  const [routesQ, shopsQ, hcsQ] = useQueries({
+    queries: [
+      {
+        queryKey: ['zmcc', 'approvals', 'routes'],
+        enabled: showRoutes && canSeeRoutes,
+        queryFn: ({ signal }) => fetchJson<{ routes?: PendingRouteItem[] }>('/api/zmcc/routes/pending', { signal }),
+      },
+      {
+        queryKey: ['zmcc', 'approvals', 'shops'],
+        enabled: showShops && canApproveShops,
+        queryFn: ({ signal }) =>
+          fetchJson<{ shops?: PendingShopItem[]; requests?: PendingShopItem[] }>('/api/zmcc/shops/requests', { signal }),
+      },
+      {
+        queryKey: ['zmcc', 'approvals', 'hcs'],
+        enabled: showHcs && canDecideHcs,
+        queryFn: ({ signal }) =>
+          fetchJson<{ suppliers?: PendingHcItem[] }>('/api/zmcc/hc-suppliers/pending', { signal }),
+      },
+    ],
+  });
+  const routes = useMemo(() => routesQ.data?.routes ?? [], [routesQ.data]);
+  const shops = useMemo(() => shopsQ.data?.shops ?? shopsQ.data?.requests ?? [], [shopsQ.data]);
+  const hcs = useMemo(() => hcsQ.data?.suppliers ?? [], [hcsQ.data]);
+  const loading = routesQ.isLoading || shopsQ.isLoading || hcsQ.isLoading;
+  const queryErr = routesQ.error || shopsQ.error || hcsQ.error;
+  const error = localError ?? (queryErr ? getErrorMessage(queryErr) || 'Failed to load pending requests.' : null);
   const loadData = useCallback(async () => {
-    setLoading(true);
     setError(null);
-    try {
-      const promises: Promise<unknown>[] = [];
-
-      if (showRoutes && canSeeRoutes) {
-        promises.push(
-          fetch('/api/zmcc/routes/pending')
-            .then((r) => r.json())
-            .then((d) => setRoutes(d.routes || []))
-        );
-      }
-
-      if (showShops && canApproveShops) {
-        promises.push(
-          fetch('/api/zmcc/shops/requests')
-            .then((r) => r.json())
-            .then((d) => setShops(d.shops || d.requests || []))
-        );
-      }
-
-      if (showHcs && canDecideHcs) {
-        promises.push(
-          fetch('/api/zmcc/local-suppliers/pending')
-            .then((r) => r.json())
-            .then((d) => setHcs(d.suppliers || []))
-        );
-      }
-
-      await Promise.all(promises);
-    } catch (err) {
-      setError(getErrorMessage(err) || 'Failed to load pending requests.');
-    } finally {
-      setLoading(false);
-    }
-  }, [showRoutes, showShops, showHcs, canSeeRoutes, canApproveShops, canDecideHcs]);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+    await queryClient.invalidateQueries({ queryKey: ['zmcc', 'approvals'] });
+  }, [queryClient]);
 
   const typeLabel = (type: 'ROUTE' | 'SHOP' | 'HC') => (type === 'ROUTE' ? 'Route' : type === 'SHOP' ? 'Shop' : 'HC');
   const typeUrl = (type: 'ROUTE' | 'SHOP' | 'HC') =>
-    type === 'ROUTE' ? '/api/zmcc/routes' : type === 'SHOP' ? '/api/zmcc/shops' : '/api/zmcc/local-suppliers';
+    type === 'ROUTE' ? '/api/zmcc/routes' : type === 'SHOP' ? '/api/zmcc/shops' : '/api/zmcc/hc-suppliers';
 
   const handleApprove = async (type: 'ROUTE' | 'SHOP' | 'HC', id: string) => {
     setSubmittingAction(true);

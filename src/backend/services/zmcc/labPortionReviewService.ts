@@ -3,7 +3,7 @@ import type { Prisma } from '@prisma/client';
 import { prisma } from '@core/db';
 import { assertResourceInScope, asRoleFields } from '@/backend/core/acting-context';
 import { writeAuditLog, type AuditActor } from '@/backend/core/audit';
-import { getEffectivePolicy, type PolicyDb } from '@/backend/services/testPointPolicyService';
+import { applyAssignmentToCell, getEffectivePolicy, type PolicyDb } from '@/backend/services/testPointPolicyService';
 import { QualityRuleService } from '@/backend/services/qualityRuleService';
 import { recordRejectedMilkForDisposition } from '@/backend/services/rejectedMilkDispositionService';
 import {
@@ -35,14 +35,9 @@ export function auditActorOf(ctx: ActingContext): AuditActor {
   return { userId: ctx.userId, actorRole: ctx.actorRole, performedAsRole: ctx.actingAs, isDelegated: ctx.isDelegated };
 }
 
-/** MC = MOT collection milk; HC = local supplier (old contractor arrivals are read as HC). */
+/** MC = milk collection (MOT journey) milk; HC = direct supplier milk. */
 export function labPointForArrival(arrivalType: string): LabPoint {
   return arrivalType === 'MOT' ? 'ZMCC_LAB_MC' : 'ZMCC_LAB_HC';
-}
-
-/** Release rules are still stored under the legacy testing point codes. */
-function rulePointFor(point: LabPoint): string {
-  return point === 'ZMCC_LAB_MC' ? 'ZMCC_LAB_MOT' : 'ZMCC_LAB_LOCAL_SUPPLIER';
 }
 
 function optionValues(raw: unknown): string[] | null {
@@ -66,7 +61,33 @@ function looksLikeFat(code: string, name: string) {
 /** Effective test policy for a ZMCC lab point: matrix cells (not OFF) + active RELEASE rules + lab test metadata. */
 export async function loadLabPolicy(point: LabPoint, at: Date = new Date(), db: Db = prisma): Promise<LabPolicySnapshot> {
   const policy = await getEffectivePolicy(point, at, db as unknown as PolicyDb);
-  const cells = policy.cells.filter((c) => c.testMode !== 'OFF');
+  const assignedTestingPoint: string = point;
+
+  const stageAssignments = await db.milkTestPolicyAssignment.findMany({
+      where: { testing_point: assignedTestingPoint },
+      select: { lab_test_id: true, is_active: true, is_required: true, is_photo_required: true },
+    });
+
+  const assignmentMap = new Map(stageAssignments.map((a) => [a.lab_test_id.toString(), a]));
+  const hasAssignedLr = Array.from(assignmentMap.values()).some(
+    (a) => a.is_active && policy.cells.some((c) => c.labTestId === a.lab_test_id.toString() && LR_CODES.has(c.testCode.toUpperCase()))
+  );
+  const hasAssignedFat = Array.from(assignmentMap.values()).some(
+    (a) => a.is_active && policy.cells.some((c) => c.labTestId === a.lab_test_id.toString() && FAT_CODES.has(c.testCode.toUpperCase()))
+  );
+
+  // Only tests Super Admin assigned (and switched on) for this point are shown. LR and Fat stay available because the milk formulas need them.
+  const cells = policy.cells
+    .filter((c) => {
+      const code = c.testCode.toUpperCase();
+      const assignment = assignmentMap.get(c.labTestId);
+      if (assignment) return assignment.is_active;
+      if (!hasAssignedLr && LR_CODES.has(code)) return true;
+      if (!hasAssignedFat && FAT_CODES.has(code)) return true;
+      return false;
+    })
+    .map((c) => applyAssignmentToCell(c, assignmentMap.get(c.labTestId)));
+
   const ids = cells.map((c) => BigInt(c.labTestId));
   const [labTests, rules] = await Promise.all([
     ids.length > 0
@@ -75,7 +96,7 @@ export async function loadLabPolicy(point: LabPoint, at: Date = new Date(), db: 
           select: { id: true, resultType: true, resultOptions: true, unit: true, displayOrder: true },
         })
       : Promise.resolve([]),
-    QualityRuleService.resolveActiveRulesForTestingPoint(rulePointFor(point), at, db),
+    QualityRuleService.resolveActiveRulesForTestingPoint(point, at, db),
   ]);
   const meta = new Map(labTests.map((t) => [String(t.id), t]));
 
@@ -84,15 +105,38 @@ export async function loadLabPolicy(point: LabPoint, at: Date = new Date(), db: 
     const code = c.testCode.toUpperCase();
     const name = c.testName.toUpperCase();
     const r = rules.get(c.labTestId);
-    // Only RELEASE rules can fail a test; monitoring rules never reject.
+
+    const opts = (lt?.resultOptions && Array.isArray(lt.resultOptions))
+      ? (lt.resultOptions as Array<{ value: string; isPassing?: boolean | null; outcome?: string }>)
+      : [];
+    const passOpts = opts
+      .filter((o) => o.outcome === 'PASS' || o.isPassing === true)
+      .map((o) => o.value.trim().toUpperCase());
+
+    let allowed: string[] | null = null;
+    if (r && r.rule_category === 'RELEASE' && !r.isConfigurationError) {
+      if (r.acceptable_option && (!opts.length || opts.some((o) => o.value.trim().toUpperCase() === r.acceptable_option!.trim().toUpperCase()))) {
+        allowed = [r.acceptable_option];
+      } else if (passOpts.length > 0) {
+        allowed = passOpts;
+      } else {
+        allowed = ['OK', 'PASS', 'NEGATIVE', 'NORMAL', 'CLEAN', 'TRUE', 'YES'];
+      }
+    } else if (passOpts.length > 0) {
+      allowed = passOpts;
+    }
+
     const rule =
       r && r.rule_category === 'RELEASE' && !r.isConfigurationError
         ? {
             min: r.min_value !== null ? Number(r.min_value) : null,
             max: r.max_value !== null ? Number(r.max_value) : null,
-            allowed: r.acceptable_option ? [r.acceptable_option] : null,
+            allowed,
           }
+        : allowed
+        ? { min: null, max: null, allowed }
         : null;
+
     return {
       ...c,
       resultType: lt?.resultType ?? 'NUMERIC',
@@ -293,7 +337,6 @@ const queueInclude = {
         },
       },
       local_supplier_arrival: { select: { zmcc_token: true, vehicle_number: true, local_supplier: { select: { name: true } } } },
-      contractor_arrival: { select: { zmcc_token: true, vehicle_number: true, contractor_source: { select: { name: true } } } },
     },
   },
 } satisfies Prisma.ZmccLabPortionInclude;
@@ -304,7 +347,6 @@ function toQueueItem(row: QueueRow, photos: Array<{ capture_id: string; lab_test
   const s = row.lab_session;
   const mot = s.mot_arrival;
   const ls = s.local_supplier_arrival;
-  const ca = s.contractor_arrival;
   return {
     ...toPortionView(row, photos),
     zmccId: s.zmcc_id.toString(),
@@ -313,11 +355,11 @@ function toQueueItem(row: QueueRow, photos: Array<{ capture_id: string; lab_test
     point: labPointForArrival(s.arrival_type),
     testMode: s.test_mode,
     portionCount: s._count.portions,
-    vehicleNumber: mot?.journey?.mot_vehicle?.vehicle_number ?? ls?.vehicle_number ?? ca?.vehicle_number ?? null,
-    token: mot?.zmcc_token ?? ls?.zmcc_token ?? ca?.zmcc_token ?? null,
+    vehicleNumber: mot?.journey?.mot_vehicle?.vehicle_number ?? ls?.vehicle_number ?? null,
+    token: mot?.zmcc_token ?? ls?.zmcc_token ?? null,
     sourceName: mot
       ? [mot.journey?.journey_number, mot.journey?.route?.name].filter(Boolean).join(' · ') || null
-      : ls?.local_supplier?.name ?? ca?.contractor_source?.name ?? null,
+      : ls?.local_supplier?.name ?? null,
     submittedByName: row.creator ? row.creator.full_name || row.creator.username : null,
   };
 }
@@ -348,7 +390,11 @@ export async function listLabPortionExceptions(
 export async function reviewPortionException(
   ctx: ActingContext,
   id: bigint,
-  i: { verdict: 'OKAY' | 'NO'; remarks?: string | null; version: number }
+  i: {
+    verdict: 'OKAY' | 'NO';
+    remarks?: string | null;
+    version: number;
+  }
 ): Promise<ServiceResult<{ item: LabPortionExceptionItem; rollUp: LabSessionRollUp }>> {
   if (ctx.actorRole === 'DATA_EXECUTIVE') return { status: 403, error: 'You cannot decide this.' };
   if (i.verdict !== 'OKAY' && i.verdict !== 'NO') return { status: 400, error: 'Choose OKAY or NO.' };

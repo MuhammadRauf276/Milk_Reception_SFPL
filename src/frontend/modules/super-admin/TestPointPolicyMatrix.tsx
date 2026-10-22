@@ -170,7 +170,7 @@ export function TestPointPolicyMatrix() {
       </div>
 
       {error && (
-        <div role="alert" className="flex items-center gap-2 rounded-lg border border-red-300 bg-red-50 p-3 text-sm font-semibold text-red-800">
+        <div role="alert" className="flex items-center gap-2 rounded-lg border border-rose-300 bg-rose-50 p-3 text-sm font-semibold text-rose-800">
           <AlertTriangle className="h-4 w-4" /> {error}
         </div>
       )}

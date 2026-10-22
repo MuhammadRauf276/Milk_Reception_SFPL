@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { fetchJson } from '@/lib/query/fetchJson';
 
 type Report = {
   summary: { finalizedJourneys: number; unresolvedJourneys: number; grossLossLiters: number; grossGainLiters: number; at13tsLossLiters: number; at13tsGainLiters: number; unresolvedOriginAt13tsLiters: number };
@@ -10,13 +11,11 @@ type Report = {
 const format = (value: number) => value.toLocaleString(undefined, { maximumFractionDigits: 2 });
 
 export function ZmccReconciliationSnapshot() {
-  const [report, setReport] = useState<Report | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  useEffect(() => {
-    fetch('/api/management/zmcc-reconciliation?pageSize=5')
-      .then(async (response) => { const body = await response.json(); if (!response.ok) throw new Error(body.error || 'Unable to load reconciliation.'); return body; })
-      .then(setReport).catch((cause) => setError(cause instanceof Error ? cause.message : 'Unable to load reconciliation.'));
-  }, []);
+  const { data: report, error: queryError } = useQuery({
+    queryKey: ['zmcc-manager', 'reconciliation-snapshot'],
+    queryFn: ({ signal }) => fetchJson<Report>('/api/management/zmcc-reconciliation?pageSize=5', { signal }),
+  });
+  const error = queryError ? queryError.message || 'Unable to load reconciliation.' : null;
   if (error) return <section className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">Reconciliation unavailable: {error}</section>;
   if (!report) return <section className="rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-500">Loading MOT-to-ZMCC reconciliation…</section>;
   const s = report.summary;

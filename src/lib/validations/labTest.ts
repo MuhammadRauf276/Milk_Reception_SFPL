@@ -4,12 +4,14 @@ export interface LabTestResultOption {
   value: string;
   label: string;
   isPassing: boolean | null;
+  outcome?: 'PASS' | 'WARNING' | 'FAIL';
 }
 
 export const labTestResultOptionSchema = z.object({
   value: z.string().min(1, 'Option value cannot be empty').max(50).trim(),
   label: z.string().min(1, 'Option label cannot be empty').max(100).trim(),
   isPassing: z.boolean().nullable().optional().default(null),
+  outcome: z.enum(['PASS', 'WARNING', 'FAIL']).optional(),
 });
 
 export const resultOptionsArraySchema = z.array(labTestResultOptionSchema)
@@ -28,9 +30,11 @@ export const createLabTestSchema = z.object({
     message: 'Result type must be NUMERIC, TEXT, QUALITATIVE, BOOLEAN, OK_NOT_OK, POSITIVE_NEGATIVE, or CALCULATED',
   }),
   unit: z.string().max(30).nullable().optional(),
-  testScope: z.enum(['DISPATCH', 'PLANT', 'BOTH', 'ZMCC', 'ALL', 'MOT_SHOP', 'MOT'], {
-    message: 'Test scope must be DISPATCH, PLANT, BOTH, ZMCC, MOT_SHOP, or ALL',
-  }),
+  testScope: z.enum(['DISPATCH', 'PLANT', 'BOTH', 'ZMCC', 'ALL', 'MOT_SHOP', 'MOT']).optional().default('BOTH'),
+  assignedStages: z.array(z.string()).optional(),
+  minValue: z.union([z.number(), z.string()]).nullable().optional(),
+  maxValue: z.union([z.number(), z.string()]).nullable().optional(),
+  acceptableOption: z.string().nullable().optional(),
   isRequired: z.boolean().default(true),
   isPhotoRequired: z.boolean().default(false).optional(),
   isActive: z.boolean().default(true),
@@ -44,6 +48,10 @@ export const updateLabTestSchema = z.object({
   resultType: z.enum(['NUMERIC', 'TEXT', 'QUALITATIVE', 'BOOLEAN', 'OK_NOT_OK', 'POSITIVE_NEGATIVE', 'CALCULATED']).optional(),
   unit: z.string().max(30).nullable().optional(),
   testScope: z.enum(['DISPATCH', 'PLANT', 'BOTH', 'ZMCC', 'ALL', 'MOT_SHOP', 'MOT']).optional(),
+  assignedStages: z.array(z.string()).optional(),
+  minValue: z.union([z.number(), z.string()]).nullable().optional(),
+  maxValue: z.union([z.number(), z.string()]).nullable().optional(),
+  acceptableOption: z.string().nullable().optional(),
   isRequired: z.boolean().optional(),
   isPhotoRequired: z.boolean().optional(),
   isActive: z.boolean().optional(),
@@ -68,14 +76,14 @@ export function validatePlantQAResultOptions(
   const isCategorical = ['QUALITATIVE', 'BOOLEAN', 'OK_NOT_OK', 'POSITIVE_NEGATIVE'].includes(resultType);
 
   if (isPlant && isRequired && isCategorical && Array.isArray(resultOptions) && resultOptions.length > 0) {
-    const hasPassing = resultOptions.some((o) => o.isPassing === true);
+    const hasPassing = resultOptions.some((o) => o.isPassing === true || o.outcome === 'PASS');
     if (!hasPassing) {
       return {
         isValid: false,
         error: 'Required Plant QA tests must have at least one passing option configured.',
       };
     }
-    const hasFailing = resultOptions.some((o) => o.isPassing === false);
+    const hasFailing = resultOptions.some((o) => o.isPassing === false || o.outcome === 'FAIL');
     if (!hasFailing) {
       return {
         isValid: false,

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/backend/core/auth';
 import { prisma } from '@/backend/core/db';
 import { getErrorMessage } from '@/lib/errors';
+import { listZmccExitOutcomes } from '@/backend/services/zmccManagerOverviewService';
 import { listGovernanceOverrides, recordGovernanceAudit } from '@/backend/services/mpdExecutiveService';
 
 export const dynamic = 'force-dynamic';
@@ -21,7 +22,18 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'User account inactive.' }, { status: 403 });
     }
 
-    return NextResponse.json({ success: true, items: await listGovernanceOverrides() });
+    const [items, exits] = await Promise.all([listGovernanceOverrides(), listZmccExitOutcomes()]);
+    // Exit-outcome counts per ZMCC (left without full unloading / pending close-without-unloading).
+    const exitCounts = new Map<string, { zmccId: string; left: number; pending: number; acceptedNotReceivedLiters: number }>();
+    const bump = (zmccId: string, key: 'left' | 'pending', liters: number) => {
+      const entry = exitCounts.get(zmccId) ?? { zmccId, left: 0, pending: 0, acceptedNotReceivedLiters: 0 };
+      entry[key] += 1;
+      entry.acceptedNotReceivedLiters += liters;
+      exitCounts.set(zmccId, entry);
+    };
+    exits.left.forEach((r) => bump(r.zmccId, 'left', r.acceptedNotReceivedLiters));
+    exits.pending.forEach((r) => bump(r.zmccId, 'pending', r.acceptedNotReceivedLiters));
+    return NextResponse.json({ success: true, items, exitsByZmcc: [...exitCounts.values()] });
   } catch (error) {
     return NextResponse.json(
       { error: getErrorMessage(error) || 'Failed to fetch governance exceptions.' },

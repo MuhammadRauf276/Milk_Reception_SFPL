@@ -31,6 +31,7 @@ export async function GET(req: Request) {
       'ADMIN',
       'QA_HEAD',
       'ZMCC_MANAGER',
+      'DATA_ANALYST',
     ];
 
     if (!authorizedRoles.includes(user.role)) {
@@ -40,7 +41,10 @@ export async function GET(req: Request) {
       );
     }
 
-    const telemetry = await getMpdExecutiveTelemetry();
+    const telemetry = await getMpdExecutiveTelemetry({
+      // ERP codes are visible to the owner/reporting roles only.
+      includeErpCode: ['SUPER_ADMIN', 'HEAD_OF_MPD', 'DATA_EXECUTIVE', 'DATA_ANALYST'].includes(user.role),
+    });
     const durationMs = performance.now() - startedAt;
 
     return NextResponse.json(

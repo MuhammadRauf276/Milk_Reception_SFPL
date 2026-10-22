@@ -33,7 +33,7 @@ export const ManagerAttentionPanel: React.FC<ManagerAttentionPanelProps> = ({
   if (items.length === 0) {
     return (
       <div className="p-6 rounded-xl bg-card border border-border/80 shadow-xs text-center space-y-2">
-        <div className="w-10 h-10 rounded-full bg-green-50 text-green-800 flex items-center justify-center mx-auto border border-green-200">
+        <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-800 flex items-center justify-center mx-auto border border-emerald-200">
           <CheckCircle2 className="w-5 h-5" />
         </div>
         <h4 className="text-sm font-semibold text-foreground">No Items Need Attention</h4>
@@ -65,10 +65,10 @@ export const ManagerAttentionPanel: React.FC<ManagerAttentionPanelProps> = ({
           let badgeStyle = 'bg-slate-100 text-slate-700';
 
           if (item.type === 'PLANT_QA_REJECTION') {
-            cardBg = 'bg-red-50/60 border-red-200';
-            iconColor = 'text-red-800 bg-red-100 border-red-300';
+            cardBg = 'bg-rose-50/60 border-rose-200';
+            iconColor = 'text-rose-800 bg-rose-100 border-rose-300';
             badgeText = 'QA Rejection';
-            badgeStyle = 'bg-red-50 text-red-800 border border-red-200';
+            badgeStyle = 'bg-rose-50 text-rose-800 border border-rose-200';
           } else if (item.type === 'RECEIPT_PENDING') {
             cardBg = 'bg-amber-50/60 border-amber-200';
             iconColor = 'text-amber-800 bg-amber-100 border-amber-300';

@@ -1,7 +1,8 @@
 'use client';
 
 import React from 'react';
-import { PlusCircle, Check, Calculator, Edit3, Trash2, X, Hash } from 'lucide-react';
+import { PlusCircle, Check, Calculator, Edit3, Trash2, Hash } from 'lucide-react';
+import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import type { LiveCameraResult } from '@/types/captured-photo';
 import { DispatchPolicyTests, type DispatchPhotoState } from './DispatchPolicyTests';
 import type { DispatchPolicyTest, DispatchTestMode } from '../dispatchDecisionPreview';
@@ -57,6 +58,8 @@ export interface DispatchPortionEditorProps {
   portions: PortionFormState[];
   editingPortionIndex: number | null;
   onAddPortionClick: () => void;
+  /** Closes the portion sheet without saving (typed values are kept). */
+  onCloseEditor: () => void;
   onEditPortion: (index: number) => void;
   onRemovePortion: (index: number) => void;
   onSavePortion: (index: number) => void;
@@ -103,15 +106,14 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
   portions,
   editingPortionIndex,
   onAddPortionClick,
+  onCloseEditor,
   onEditPortion,
   onRemovePortion,
   onSavePortion,
   onPortionQuantityValueChange,
-  onPortionUnitChange,
   onPortionBasisChange,
   onTestResultChange,
   portionAllowedMeasurements,
-  portionAllowedUnits,
   portionErrors,
   testMode,
   sourceType,
@@ -238,16 +240,19 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
           if (isEditing) {
             const pAllowedBases = getAllowedBases(portionAllowedMeasurements, portion.quantity.unit);
             const sealError = portionErrors[index]?.seal || getDuplicateSealMessage(portions, index);
-            const portionLabel =
-              portion.quantity.basis === 'ESTIMATED'
-                ? 'Estimated Portion Quantity'
-                : 'Measured Portion Quantity';
+            const portionLabel = 'Portion Quantity (Measured KG)';
 
             return (
-              <div
+              <Drawer
                 key={`portion-editor-${portion.clientId}`}
-                className="p-4 sm:p-5 rounded-xl bg-white border-2 border-primary-hover shadow-md space-y-4"
+                open
+                onOpenChange={(o) => {
+                  if (!o) onCloseEditor();
+                }}
               >
+                <DrawerContent>
+              <div className="space-y-4 overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-5">
+                <DrawerTitle className="sr-only">Portion {portion.portionNumber}</DrawerTitle>
                 <div className="flex items-center justify-between border-b pb-2.5">
                   <div className="flex items-center space-x-2">
                     <span className="font-semibold text-sm text-primary">
@@ -263,23 +268,13 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
                     <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
                       {progress.label}
                     </span>
-                    {portions.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => onRemovePortion(index)}
-                        title={`Remove Portion ${portion.portionNumber}`}
-                        className="p-1 rounded-lg text-slate-400 hover:text-rose-700 hover:bg-rose-50 transition border border-transparent hover:border-rose-200 cursor-pointer"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    )}
                   </div>
                 </div>
 
                 <div className="space-y-1">
                   <label htmlFor={`portion-seal-input-${index}`} className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
                     <Hash className="w-4 h-4" aria-hidden="true" />
-                    Seal number <span className="text-red-700">*</span>
+                    Seal number <span className="text-rose-600">*</span>
                   </label>
                   <input
                     id={`portion-seal-input-${index}`}
@@ -338,32 +333,18 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
                     </div>
 
                     <div className="space-y-1">
-                      <label htmlFor={`portion-basis-select-${index}`} className="block text-xs font-semibold text-slate-600">
-                        Basis * {index > 0 && <span className="text-[10px] font-normal text-slate-500">(Shared from P1)</span>}
+                      <label className="block text-xs font-semibold text-slate-600">
+                        Basis
                       </label>
-                      {index === 0 ? (
-                        <select
-                          id={`portion-basis-select-${index}`}
-                          value={portion.quantity.basis}
-                          onChange={(e) => onPortionBasisChange(index, e.target.value as MeasurementBasisType)}
-                          className="w-full h-11 px-3 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-white text-foreground focus:ring-2 focus:ring-primary-hover outline-hidden transition"
-                        >
-                          {pAllowedBases.map((b) => (
-                            <option key={b} value={b}>
-                              {b}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <input
-                          id={`portion-basis-select-${index}`}
-                          type="text"
-                          readOnly
-                          disabled
-                          value={portion.quantity.basis}
-                          className="w-full h-11 px-3.5 text-xs tabular-nums font-semibold rounded-xl border border-slate-200 bg-slate-100 text-slate-500 cursor-not-allowed outline-hidden select-none"
-                        />
-                      )}
+                      <div className="w-full h-11 px-3.5 flex items-center justify-between rounded-xl border border-border-strong bg-slate-50 text-foreground">
+                        <span className="text-xs font-bold tabular-nums text-slate-900 tracking-wider">
+                          MEASURED
+                        </span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">
+                          Verified
+                        </span>
+                      </div>
+                      <input type="hidden" id={`portion-basis-select-${index}`} value="MEASURED" />
                     </div>
                   </div>
 
@@ -425,6 +406,23 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
                   </button>
                 </div>
               </div>
+                </DrawerContent>
+              </Drawer>
+            );
+          }
+
+          // Not saved yet and sheet closed: keep a tappable placeholder so the user can reopen it.
+          if (!portion.isSaved) {
+            return (
+              <button
+                key={`portion-open-${portion.clientId}`}
+                type="button"
+                onClick={() => onEditPortion(index)}
+                className="flex w-full min-h-[56px] items-center justify-between rounded-xl border border-dashed border-primary-hover bg-blue-50 px-4 text-left text-sm font-semibold text-primary-hover"
+              >
+                <span>Portion {portion.portionNumber}: enter quantity and tests</span>
+                <Edit3 className="h-4 w-4" aria-hidden="true" />
+              </button>
             );
           }
 

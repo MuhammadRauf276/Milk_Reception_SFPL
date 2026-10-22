@@ -96,6 +96,113 @@ export async function PATCH(
         },
       });
 
+      if (body.isPhotoRequired !== undefined) {
+        const photoVal = Boolean(body.isPhotoRequired);
+        await tx.milkTestPolicyAssignment.updateMany({
+          where: {
+            lab_test_id: testId,
+          },
+          data: {
+            is_photo_required: photoVal,
+            updated_by_user_id: adminUser?.id ?? BigInt(1),
+          },
+        });
+      }
+
+      if (body.isRequired !== undefined) {
+        const reqVal = Boolean(body.isRequired);
+        await tx.milkTestPolicyAssignment.updateMany({
+          where: {
+            lab_test_id: testId,
+          },
+          data: {
+            is_required: reqVal,
+            updated_by_user_id: adminUser?.id ?? BigInt(1),
+          },
+        });
+      }
+
+      if (Array.isArray(body.assignedStages)) {
+        const ALL_POSSIBLE_STAGES = ['MOT_SHOP', 'ZMCC_LAB_MC', 'ZMCC_LAB_HC', 'DISPATCH', 'PLANT_QA'];
+        const minVal = body.minValue !== undefined && body.minValue !== '' && body.minValue !== null ? Number(body.minValue) : null;
+        const maxVal = body.maxValue !== undefined && body.maxValue !== '' && body.maxValue !== null ? Number(body.maxValue) : null;
+        const optVal = typeof body.acceptableOption === 'string' && body.acceptableOption.trim() ? body.acceptableOption.trim() : null;
+
+        for (const stage of ALL_POSSIBLE_STAGES) {
+          const shouldBeActive = body.assignedStages.includes(stage);
+          const existingAssignment = await tx.milkTestPolicyAssignment.findUnique({
+            where: {
+              lab_test_id_testing_point: {
+                lab_test_id: testId,
+                testing_point: stage,
+              },
+            },
+          });
+
+          if (existingAssignment) {
+            await tx.milkTestPolicyAssignment.update({
+              where: { id: existingAssignment.id },
+              data: {
+                is_active: shouldBeActive,
+                updated_by_user_id: adminUser?.id ?? BigInt(1),
+              },
+            });
+          } else if (shouldBeActive) {
+            const maxOrder = await tx.milkTestPolicyAssignment.aggregate({
+              where: { testing_point: stage },
+              _max: { display_order: true },
+            });
+            const nextOrder = (maxOrder._max.display_order ?? 0) + 1;
+            await tx.milkTestPolicyAssignment.create({
+              data: {
+                lab_test_id: testId,
+                testing_point: stage,
+                is_active: true,
+                is_required: true,
+                display_order: nextOrder,
+                created_by_user_id: adminUser?.id ?? BigInt(1),
+                updated_by_user_id: adminUser?.id ?? BigInt(1),
+              },
+            });
+          }
+
+          if (shouldBeActive && (minVal !== null || maxVal !== null || optVal !== null)) {
+            const existingRule = await tx.labTestRule.findFirst({
+              where: {
+                lab_test_id: testId,
+                testing_point: stage,
+                rule_category: 'RELEASE',
+              },
+            });
+            if (existingRule) {
+              await tx.labTestRule.update({
+                where: { id: existingRule.id },
+                data: {
+                  min_value: minVal,
+                  max_value: maxVal,
+                  acceptable_option: optVal,
+                  is_active: true,
+                },
+              });
+            } else {
+              await tx.labTestRule.create({
+                data: {
+                  lab_test_id: testId,
+                  testing_point: stage,
+                  rule_category: 'RELEASE',
+                  min_value: minVal,
+                  max_value: maxVal,
+                  acceptable_option: optVal,
+                  is_active: true,
+                  version: 1,
+                  created_by: adminUser?.id ?? BigInt(1),
+                },
+              });
+            }
+          }
+        }
+      }
+
       await writeAuditLog(tx, {
         tableName: 'lab_test',
         recordId: testId,

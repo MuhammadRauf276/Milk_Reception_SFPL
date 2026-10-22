@@ -11,10 +11,10 @@ interface DecisionStatusBadgeProps {
 }
 
 const STYLES: Record<DecisionBadgeStatus, { text: string; className: string; Icon: typeof CheckCircle2 }> = {
-  ACCEPTED: { text: 'Accepted', className: 'border-green-300 bg-green-50 text-green-800', Icon: CheckCircle2 },
-  APPROVED: { text: 'Approved', className: 'border-green-300 bg-green-50 text-green-800', Icon: CheckCircle2 },
-  REJECTED: { text: 'Rejected', className: 'border-red-300 bg-red-50 text-red-800', Icon: XCircle },
-  PENDING: { text: 'Waiting for Zonal Manager', className: 'border-violet-300 bg-violet-50 text-violet-800', Icon: Clock },
+  ACCEPTED: { text: 'Accepted', className: 'border-emerald-300 bg-emerald-50 text-emerald-800', Icon: CheckCircle2 },
+  APPROVED: { text: 'Approved', className: 'border-emerald-300 bg-emerald-50 text-emerald-800', Icon: CheckCircle2 },
+  REJECTED: { text: 'Rejected', className: 'border-rose-300 bg-rose-50 text-rose-800', Icon: XCircle },
+  PENDING: { text: 'Waiting for Approver', className: 'border-violet-300 bg-violet-50 text-violet-800', Icon: Clock },
   EXCEPTION: { text: 'Needs decision', className: 'border-amber-300 bg-amber-50 text-amber-900', Icon: AlertTriangle },
 };
 

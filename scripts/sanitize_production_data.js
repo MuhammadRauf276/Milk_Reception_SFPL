@@ -13,7 +13,7 @@ async function main() {
     where: { username: 'mot.driver' },
     data: { full_name: 'Muhammad Tariq' },
   });
-  console.log(`Updated MOT User: ${motUser.count}`);
+  console.log(`Updated MC User: ${motUser.count}`);
 
   // 2. Update MOT Profile
   const motProf = await prisma.motProfile.updateMany({
@@ -23,14 +23,14 @@ async function main() {
       name: 'Muhammad Tariq',
     },
   });
-  console.log(`Updated MOT Profile: ${motProf.count}`);
+  console.log(`Updated MC Profile: ${motProf.count}`);
 
   // 3. Update MOT Vehicle
   const motVeh = await prisma.motVehicle.updateMany({
     where: { vehicle_number: 'DEMO-BWP-5522' },
     data: { vehicle_number: 'BWP-5522' },
   });
-  console.log(`Updated MOT Vehicle: ${motVeh.count}`);
+  console.log(`Updated MC Vehicle: ${motVeh.count}`);
 
   // 4. Update ZMCC Routes
   await prisma.zmccRoute.updateMany({
@@ -57,7 +57,7 @@ async function main() {
   // 6. Update ZMCC Milk Source
   await prisma.zmccMilkSource.updateMany({
     where: { erp_code: 'DEMO-MS-HAS-01' },
-    data: { erp_code: 'MS-HAS-01', name: 'Direct Farm Collection Source' },
+    data: { erp_code: 'MS-HAS-01', name: 'Hasilpur Farmers Group' },
   });
   console.log('Updated Milk Source to MS-HAS-01');
 
@@ -68,7 +68,7 @@ async function main() {
   });
   console.log('Updated Shop DEMO-SH-HAS-01 to SHP-000001');
 
-  // 8. Update Local Suppliers
+  // 8. Update HC suppliers (names only: HC suppliers have no ERP reference any more)
   const suppliersMap = [
     { id: 13, name: 'Ali Hassan Milk Center', ref: 'LS-HAS-001' },
     { id: 38, name: 'Hassan Dairy Collection', ref: 'LS-HAS-002' },
@@ -87,14 +87,13 @@ async function main() {
         where: { id: BigInt(s.id) },
         data: {
           name: s.name,
-          erp_reference: s.ref,
         },
       });
     } catch {
       // ignore if id not found
     }
   }
-  console.log('Updated Local Suppliers to clean realistic names and codes');
+  console.log('Updated HC suppliers to clean realistic names');
 
   // 9. Update Snapshots in MotJourneyStop
   await prisma.motJourneyStop.updateMany({

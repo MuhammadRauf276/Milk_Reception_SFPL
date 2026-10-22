@@ -14,7 +14,7 @@ import { vehicleVisitPaperIdentity } from '@/backend/modules/paper-references';
 
 export async function GET(req: NextRequest) {
   try {
-    const user = await getCurrentUser();
+    const user = await getCurrentUser(req);
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -24,6 +24,7 @@ export async function GET(req: NextRequest) {
 
     // Fetch visits in UNLOADING status
     const visits = await prisma.vehicleVisit.findMany({
+      take: 100, // live queue: bounded page
       where: {
         current_status: 'UNLOADING',
         ...(search
@@ -148,6 +149,11 @@ export async function GET(req: NextRequest) {
           plant_decision: p.plant_decision || 'PENDING',
           plant_rejection_reason: p.plant_rejection_reason || null,
           current_status: p.current_status,
+          first_weight_kg: p.first_weight_kg !== null && p.first_weight_kg !== undefined ? Number(p.first_weight_kg) : null,
+          first_weight_at: p.first_weight_at ? p.first_weight_at.toISOString() : null,
+          second_weight_kg: p.second_weight_kg !== null && p.second_weight_kg !== undefined ? Number(p.second_weight_kg) : null,
+          second_weight_at: p.second_weight_at ? p.second_weight_at.toISOString() : null,
+          net_weight_kg: p.net_weight_kg !== null && p.net_weight_kg !== undefined ? Number(p.net_weight_kg) : null,
           lr: plantLrVal,
           fat: plantFatVal,
           snf: snfVal !== null ? Math.round(snfVal * 1000) / 1000 : null,
@@ -177,6 +183,12 @@ export async function GET(req: NextRequest) {
       const { totalAcceptedDispatchValue, totalAcceptedDispatchUnit } =
         aggregateAcceptedPortionQuantities(acceptedPortions);
 
+      const isPortionWise = v.test_mode === 'PORTION_WISE';
+      const sortedAccepted = [...acceptedPortions].sort((a, b) => a.portion_number - b.portion_number);
+      const activePortion = isPortionWise
+        ? sortedAccepted.find((p) => p.current_status === 'UNLOADING' || (p.unloading_log?.pump_start_timestamp && !p.unloading_log?.pump_end_timestamp)) || sortedAccepted[0]
+        : null;
+
       const elapsedMinutes = earliestStartTime
         ? Math.max(0, Math.floor((Date.now() - (earliestStartTime as Date).getTime()) / 60000))
         : 0;
@@ -204,6 +216,9 @@ export async function GET(req: NextRequest) {
         started_at: earliestStartTime ? (earliestStartTime as Date).toISOString() : null,
         started_by_name: starterName || 'Operator',
         elapsed_minutes: elapsedMinutes,
+        test_mode: v.test_mode || 'COMPOSITE',
+        is_portion_wise: isPortionWise,
+        active_portion_number: activePortion?.portion_number ?? (sortedAccepted[0]?.portion_number ?? 1),
         portions: formattedPortions,
       };
     });

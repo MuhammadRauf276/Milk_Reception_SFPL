@@ -16,10 +16,10 @@ export function resolveRoleHome(role?: string | null | unknown): string {
     case 'Data_Analyst':
     case 'Data_Executive':
     case 'Data Analyst':
-      return '/super-admin/lab-tests';
+      return '/super-admin/corrections';
 
     case 'FINANCE_ACCOUNTS':
-      return '/finance/reconciliation';
+      return '/mpd/head?tab=APPROVALS';
 
     case 'EXECUTIVE_MANAGEMENT':
       return '/mpd/head';

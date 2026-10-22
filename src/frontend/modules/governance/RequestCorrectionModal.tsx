@@ -2,6 +2,9 @@
 
 import React, { useState } from 'react';
 import { AlertCircle, CheckCircle2, ShieldAlert, X } from 'lucide-react';
+import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
+import { useQueryClient } from '@tanstack/react-query';
+import { fetchJson } from '@/lib/query/fetchJson';
 import { getErrorMessage } from '@/lib/errors';
 
 export interface EditableFieldOption {
@@ -15,7 +18,7 @@ export interface EditableFieldOption {
 export interface RequestCorrectionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  module: 'ZMCC_LAB_SESSION' | 'MOT_SHOP_COLLECTION' | 'VEHICLE_VISIT' | 'PLANT_QA_MEASUREMENT' | 'ZMCC_MOT_ARRIVAL' | 'ZMCC_LOCAL_SUPPLIER_ARRIVAL' | string;
+  module: 'ZMCC_LAB_SESSION' | 'MOT_SHOP_COLLECTION' | 'VEHICLE_VISIT' | 'PLANT_QA_MEASUREMENT' | 'ZMCC_MC_ARRIVAL' | 'ZMCC_HC_ARRIVAL' | 'ZMCC_WEIGHING' | 'ZMCC_EXIT';
   recordId: string | number;
   recordIdentifierLabel?: string;
   sourceId?: string | number | null;
@@ -33,6 +36,7 @@ export const RequestCorrectionModal: React.FC<RequestCorrectionModalProps> = ({
   availableFields,
   onSuccess,
 }) => {
+  const queryClient = useQueryClient();
   const [selectedField, setSelectedField] = useState<string>(availableFields[0]?.field || '');
   const [proposedValue, setProposedValue] = useState<string>('');
   const [reason, setReason] = useState<string>('');
@@ -75,22 +79,21 @@ export const RequestCorrectionModal: React.FC<RequestCorrectionModalProps> = ({
       requestedChanges: {
         [selectedField]: parsedVal,
       },
+      currentValues: currentFieldConfig?.currentValue !== undefined && currentFieldConfig.currentValue !== null
+        ? { [selectedField]: currentFieldConfig.currentValue }
+        : null,
       impact: 'MEDIUM',
     };
 
     try {
-      const res = await fetch('/api/corrections/request', {
+      const data = await fetchJson<{ message?: string; requestId?: string }>('/api/corrections/request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
+      void queryClient.invalidateQueries({ queryKey: ['corrections'] });
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to submit correction request.');
-      }
-
-      setSuccessMsg(data.message || 'Correction request successfully sent to the Data Executive.');
+      setSuccessMsg(data.message || 'Correction request sent. Follow it under My correction requests.');
       if (onSuccess && data.requestId) {
         onSuccess(data.requestId);
       }
@@ -108,8 +111,9 @@ export const RequestCorrectionModal: React.FC<RequestCorrectionModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-      <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden text-xs">
+    <Drawer open onOpenChange={(open) => { if (!open && !submitting) onClose(); }}>
+      <DrawerContent>
+      <div className="overflow-y-auto text-xs">
         {/* Header */}
         <div className="px-5 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
           <div className="flex items-center space-x-2">
@@ -117,7 +121,7 @@ export const RequestCorrectionModal: React.FC<RequestCorrectionModalProps> = ({
               <ShieldAlert className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="font-semibold text-sm text-slate-900">Request Data Correction</h3>
+              <DrawerTitle className="font-semibold text-sm text-slate-900">Request a correction</DrawerTitle>
               <p className="text-slate-500 text-[11px]">
                 {recordIdentifierLabel || `${module} #${recordId}`}
               </p>
@@ -126,7 +130,7 @@ export const RequestCorrectionModal: React.FC<RequestCorrectionModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors"
+            aria-label="Close" className="p-3 -m-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -140,13 +144,13 @@ export const RequestCorrectionModal: React.FC<RequestCorrectionModalProps> = ({
             </div>
             <p className="font-semibold text-slate-800 text-sm">{successMsg}</p>
             <p className="text-slate-500 text-xs">
-              Physical milk flow remains unimpeded. The Data Executive will review and apply this change shortly.
+              Milk work is not stopped. You will see the answer under My correction requests.
             </p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="p-5 space-y-4">
             <div className="p-3 rounded-xl bg-blue-50/70 border border-blue-100 text-blue-900 text-[11px] leading-relaxed">
-              <strong>Maker-Checker Policy:</strong> Station entries lock upon submission. To fix a mistake or typo, submit your proposed correction below. Only the <strong>Data Executive</strong> and <strong>Super Admin</strong> can apply corrections to production logs.
+              <strong>How it works:</strong> saved entries are locked. Tell us what is wrong and what it should be. The <strong>Data Executive</strong> reviews your request and fixes the record. You can follow it under <em>My correction requests</em>: Open, Approved, Rejected or Done.
             </div>
 
             {error && (
@@ -167,7 +171,7 @@ export const RequestCorrectionModal: React.FC<RequestCorrectionModalProps> = ({
                   setSelectedField(e.target.value);
                   setProposedValue('');
                 }}
-                className="w-full p-2.5 rounded-xl border border-slate-300 bg-white font-medium text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                className="w-full min-h-11 p-2.5 rounded-xl border border-slate-300 bg-white font-medium text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
               >
                 {availableFields.map((f) => (
                   <option key={f.field} value={f.field}>
@@ -180,7 +184,7 @@ export const RequestCorrectionModal: React.FC<RequestCorrectionModalProps> = ({
             {/* Current Value Display */}
             {currentFieldConfig?.currentValue !== undefined && currentFieldConfig.currentValue !== null && (
               <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-600">
-                <span className="font-medium">Currently Recorded Value:</span>
+                <span className="font-medium">Recorded now (wrong value):</span>
                 <span className="font-semibold text-slate-900 tabular-nums">
                   {String(currentFieldConfig.currentValue)}
                 </span>
@@ -196,7 +200,7 @@ export const RequestCorrectionModal: React.FC<RequestCorrectionModalProps> = ({
                 <select
                   value={proposedValue}
                   onChange={(e) => setProposedValue(e.target.value)}
-                  className="w-full p-2.5 rounded-xl border border-slate-300 bg-white font-medium text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                  className="w-full min-h-11 p-2.5 rounded-xl border border-slate-300 bg-white font-medium text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Select correct option</option>
                   {currentFieldConfig.options.map((opt) => (
@@ -212,7 +216,7 @@ export const RequestCorrectionModal: React.FC<RequestCorrectionModalProps> = ({
                   value={proposedValue}
                   onChange={(e) => setProposedValue(e.target.value)}
                   placeholder={`Enter correct ${currentFieldConfig?.label || 'value'}…`}
-                  className="w-full p-2.5 rounded-xl border border-slate-300 bg-white font-medium text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-500 tabular-nums"
+                  className="w-full min-h-11 p-2.5 rounded-xl border border-slate-300 bg-white font-medium text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-500 tabular-nums"
                 />
               )}
             </div>
@@ -227,7 +231,7 @@ export const RequestCorrectionModal: React.FC<RequestCorrectionModalProps> = ({
                 onChange={(e) => setReason(e.target.value)}
                 rows={2}
                 placeholder="Explain why this correction is needed (e.g., Typo on scale reading, physical re-test slip attached)…"
-                className="w-full p-2.5 rounded-xl border border-slate-300 bg-white font-medium text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                className="w-full min-h-11 p-2.5 rounded-xl border border-slate-300 bg-white font-medium text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
@@ -237,21 +241,22 @@ export const RequestCorrectionModal: React.FC<RequestCorrectionModalProps> = ({
                 type="button"
                 onClick={onClose}
                 disabled={submitting}
-                className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-semibold hover:bg-slate-100 transition-colors disabled:opacity-50"
+                className="min-h-11 px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-semibold hover:bg-slate-100 transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={submitting || !proposedValue.trim() || reason.trim().length < 5}
-                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-xs transition-colors disabled:opacity-50 flex items-center space-x-1.5"
+                className="min-h-11 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-xs transition-colors disabled:opacity-50 flex items-center space-x-1.5"
               >
-                {submitting ? 'Submitting…' : 'Submit to Data Executive'}
+                {submitting ? 'Sending…' : 'Send request'}
               </button>
             </div>
           </form>
         )}
       </div>
-    </div>
+      </DrawerContent>
+    </Drawer>
   );
 };

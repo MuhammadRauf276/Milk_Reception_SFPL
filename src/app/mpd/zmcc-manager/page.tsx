@@ -1,55 +1,44 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ZMCCManagerWorkspace } from '@modules/dashboard/ZMCCManagerWorkspace';
-import { User } from '@core/types';
+import { canActAs } from '@/backend/core/roles/hierarchy';
+import { useCurrentUser } from '@/frontend/hooks/useCurrentUser';
+import { PageLoader } from '@/components/ui/spinner';
 
 export default function ZMCCManagerPage() {
   const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { currentUser: user, loadingUser: loading } = useCurrentUser();
 
   useEffect(() => {
-    async function loadUser() {
-      try {
-        const res = await fetch('/api/auth/me');
-        if (res.ok) {
-          const data = await res.json();
-          if (!data.user) {
-            router.push('/login');
-            return;
-          }
-          if (
-            data.user.role !== 'ZMCC_MANAGER' ||
-            data.user.is_active === false ||
-            !data.user.procurement_source_id ||
-            !data.user.procurement_source ||
-            data.user.procurement_source.is_active === false ||
-            data.user.procurement_source.source_type !== 'ZMCC'
-          ) {
-            router.push('/workspace-unavailable');
-            return;
-          }
-          setUser(data.user);
-        } else {
-          router.push('/login');
-        }
-      } catch (err) {
-        console.error('Failed to load user', err);
-        router.push('/login');
-      } finally {
-        setLoading(false);
-      }
+    if (loading) return;
+    if (!user) {
+      router.push('/login');
+      return;
     }
-    loadUser();
-  }, [router]);
+    const isAuthorized = canActAs(user.role, 'ZMCC_MANAGER');
+    const isSystemScope =
+      user.role === 'SUPER_ADMIN' ||
+      user.role === 'DATA_EXECUTIVE' ||
+      user.role === 'HEAD_OF_MPD' ||
+      user.role === 'EXECUTIVE_MANAGEMENT';
+
+    if (
+      !isAuthorized ||
+      (!isSystemScope &&
+        (!user.procurement_source_id ||
+          !user.procurement_source ||
+          user.procurement_source.is_active === false ||
+          user.procurement_source.source_type !== 'ZMCC'))
+    ) {
+      router.push('/workspace-unavailable');
+    }
+  }, [loading, user, router]);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-subtle flex items-center justify-center p-8 text-center text-xs font-semibold text-slate-500">
-        Loading ZMCC Manager Station…
-      </div>
+      <PageLoader label="Loading ZMCC Manager Station…" className="min-h-screen" />
     );
   }
 
@@ -58,7 +47,7 @@ export default function ZMCCManagerPage() {
   }
 
   return (
-    <React.Suspense fallback={<div className="min-h-screen bg-subtle flex items-center justify-center p-8 text-center text-xs font-semibold text-slate-500">Loading ZMCC Manager Station…</div>}>
+    <React.Suspense fallback={<PageLoader label="Loading ZMCC Manager Station…" className="min-h-screen" />}>
       <ZMCCManagerWorkspace currentUser={user} />
     </React.Suspense>
   );

@@ -33,7 +33,14 @@ export async function GET(req: Request) {
         skip,
         take: pageSize,
         orderBy: { created_at: 'desc' },
-        include: {
+        select: {
+          id: true,
+          table_name: true,
+          record_id: true,
+          action: true,
+          old_values: true,
+          new_values: true,
+          created_at: true,
           user: {
             select: { username: true, full_name: true, role: true },
           },

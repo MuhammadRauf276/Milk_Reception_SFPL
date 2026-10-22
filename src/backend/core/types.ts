@@ -61,6 +61,7 @@ export interface User {
     source_type: string;
     is_active?: boolean;
   } | null;
+  is_active?: boolean;
   last_login_at?: string | null;
 }
 
@@ -194,6 +195,51 @@ export const FIXTURE_USER_PROFILES: Record<string, User> = {
       source_type: 'ZMCC',
     },
   },
+  'mdo.hasilpur': {
+    id: 'usr_mdo_has',
+    username: 'mdo.hasilpur',
+    name: 'MDO - Hasilpur',
+    role: 'MDO',
+    department: 'Milk Procurement (Hasilpur)',
+    scope_type: 'SOURCE',
+    zone: 'ZMCC Hasilpur',
+    procurement_source: {
+      id: 'src_zmcc_hasilpur',
+      code: 'ZMCC-HASILPUR',
+      name: 'ZMCC Hasilpur',
+      source_type: 'ZMCC',
+    },
+  },
+  'mdo.jhang': {
+    id: 'usr_mdo_jhg',
+    username: 'mdo.jhang',
+    name: 'MDO - Jhang',
+    role: 'MDO',
+    department: 'Milk Procurement (Jhang)',
+    scope_type: 'SOURCE',
+    zone: 'ZMCC Jhang',
+    procurement_source: {
+      id: 'src_zmcc_jhang',
+      code: 'ZMCC-JHANG',
+      name: 'ZMCC Jhang',
+      source_type: 'ZMCC',
+    },
+  },
+  'mdo': {
+    id: 'usr_mdo_default',
+    username: 'mdo',
+    name: 'MDO (Milk Development Officer)',
+    role: 'MDO',
+    department: 'Milk Procurement (Hasilpur)',
+    scope_type: 'SOURCE',
+    zone: 'ZMCC Hasilpur',
+    procurement_source: {
+      id: 'src_zmcc_hasilpur',
+      code: 'ZMCC-HASILPUR',
+      name: 'ZMCC Hasilpur',
+      source_type: 'ZMCC',
+    },
+  },
   'zmcc.operator': {
     id: 'usr_mpd_op',
     username: 'zmcc.operator',
@@ -314,6 +360,9 @@ export const AUTHENTICATED_USERS: Record<string, { user: User }> = {
   'zmcc.manager.north': { user: FIXTURE_USER_PROFILES['zmcc.manager.north'] },
   'contractor.manager.alkhair': { user: FIXTURE_USER_PROFILES['contractor.manager.alkhair'] },
   'phe.operator': { user: FIXTURE_USER_PROFILES['phe.operator'] },
+  'mdo.hasilpur': { user: FIXTURE_USER_PROFILES['mdo.hasilpur'] },
+  'mdo.jhang': { user: FIXTURE_USER_PROFILES['mdo.jhang'] },
+  'mdo': { user: FIXTURE_USER_PROFILES['mdo'] },
   'zmcc.operator': { user: FIXTURE_USER_PROFILES['zmcc.operator'] },
   'mot.driver': { user: FIXTURE_USER_PROFILES['mot.driver'] },
   'contractor.operator.alkhair': { user: FIXTURE_USER_PROFILES['contractor.operator.alkhair'] },
@@ -338,6 +387,7 @@ export const DEFAULT_USERS: Record<string, User> = {
   ZMCC_MANAGER: FIXTURE_USER_PROFILES['zmcc.manager.north'],
   CONTRACTOR_MANAGER: FIXTURE_USER_PROFILES['contractor.manager.alkhair'],
   PHE_OPERATOR: FIXTURE_USER_PROFILES['phe.operator'],
+  MDO: FIXTURE_USER_PROFILES['mdo.hasilpur'],
   ZMCC_LAB_ATTENDANT: FIXTURE_USER_PROFILES['zmcc.operator'],
   MOT: FIXTURE_USER_PROFILES['mot.driver'],
   CONTRACTOR_OPERATOR: FIXTURE_USER_PROFILES['contractor.operator.alkhair'],

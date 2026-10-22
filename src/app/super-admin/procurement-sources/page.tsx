@@ -1,338 +1,222 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { Plus, Edit2, ShieldAlert, CheckCircle2, AlertTriangle, X } from 'lucide-react';
-import { Modal } from '@/components/ui/modal';
-import { AnimatePresence } from 'framer-motion';
+import React, { useMemo, useState } from 'react';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Plus, Edit2, ShieldAlert, CheckCircle2, Search } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { fadeSlide } from '@/components/motion/presets';
 import { getErrorMessage } from '@/lib/errors';
-import { fetchJson } from '@/lib/fetch-json';
+import { fetchJson } from '@/lib/query/fetchJson';
+import { useDebouncedValue } from '@/frontend/modules/super-admin/shared/useDebouncedValue';
+import { PaginationBar } from '@/frontend/modules/super-admin/shared/PaginationBar';
+import {
+  SourceCreateDrawer,
+  SourceEditDrawer,
+  SourceStatusDrawer,
+  type Source,
+} from '@/frontend/modules/super-admin/sources/SourceDrawers';
 
-interface Source {
-  id: string;
-  code: string;
-  name: string;
-  sourceType: string;
-  isActive: boolean;
-  createdAt: string;
+const PAGE_SIZE = 25;
+const TYPE_OPTIONS = [
+  { value: '', label: 'All types' },
+  { value: 'ZMCC', label: 'ZMCC' },
+  { value: 'CONTRACTOR', label: 'Contractor' },
+];
+const STATUS_OPTIONS = [
+  { value: '', label: 'All' },
+  { value: 'active', label: 'Active' },
+  { value: 'inactive', label: 'Inactive' },
+];
+
+type Dialog =
+  | { kind: 'create' }
+  | { kind: 'edit'; source: Source }
+  | { kind: 'status'; source: Source; targetStatus: boolean }
+  | null;
+
+function Segmented({ label, options, value, onChange }: { label: string; options: Array<{ value: string; label: string }>; value: string; onChange: (v: string) => void }) {
+  return (
+    <div role="group" aria-label={label} className="flex gap-1">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          aria-pressed={value === o.value}
+          onClick={() => onChange(o.value)}
+          className={`h-11 rounded-xl border px-3 text-xs font-semibold ${
+            value === o.value ? 'border-primary bg-primary/10 text-primary' : 'border-border-strong bg-white text-slate-600 hover:bg-slate-50'
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 export default function SuperAdminProcurementSourcesPage() {
-  const [sources, setSources] = useState<Source[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const [search, setSearch] = useState('');
+  const [type, setType] = useState('');
+  const [status, setStatus] = useState('');
+  const [page, setPage] = useState(1);
+  const [dialog, setDialog] = useState<Dialog>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Modal states
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState<Source | null>(null);
-  const [showConfirmModal, setShowConfirmModal] = useState<{
-    source: Source;
-    targetStatus: boolean;
-  } | null>(null);
+  const q = useDebouncedValue(search.trim(), 300);
+  const filters = useMemo(() => ({ q, type, status, page }), [q, type, status, page]);
 
-  // Submitting states
-  const [isSubmittingCreate, setIsSubmittingCreate] = useState(false);
-  const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
-  const [isSubmittingConfirm, setIsSubmittingConfirm] = useState(false);
-
-  // Modal error states
-  const [createModalError, setCreateModalError] = useState<string | null>(null);
-  const [editModalError, setEditModalError] = useState<string | null>(null);
-  const [confirmModalError, setConfirmModalError] = useState<string | null>(null);
-
-  // Create Form states
-  const [createCode, setCreateCode] = useState('');
-  const [createName, setCreateName] = useState('');
-  const [createSourceType, setCreateSourceType] = useState('ZMCC');
-
-  // Edit Form states
-  const [editName, setEditName] = useState('');
-
-  function loadSources() {
-    return fetchJson<{ sources?: Source[] }>(
-      '/api/super-admin/procurement-sources',
-      { cache: 'no-store' },
-      'Failed to load procurement sources'
-    )
-      .then(
-        (data) => {
-          setSources(data.sources || []);
-          setError(null);
-        },
-        (err) => setError(getErrorMessage(err) || 'Network error loading procurement sources')
-      )
-      .finally(() => setLoading(false));
-  }
-
-
-  useEffect(() => {
-    loadSources();
-  }, []);
-
-  const resetCreateForm = () => {
-    setCreateCode('');
-    setCreateName('');
-    setCreateSourceType('ZMCC');
-    setCreateModalError(null);
-  };
-
-  const closeCreateModal = () => {
-    setShowCreateModal(false);
-    resetCreateForm();
-  };
-
-  const closeEditModal = () => {
-    setShowEditModal(null);
-    setEditName('');
-    setEditModalError(null);
-  };
-
-  const closeConfirmModal = () => {
-    setShowConfirmModal(null);
-    setConfirmModalError(null);
-  };
-
-
-  const handleCreateSource = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isSubmittingCreate) return;
-
-    setCreateModalError(null);
-    setError(null);
-    setSuccessMsg(null);
-
-    const normalizedCode = createCode.trim().toUpperCase();
-    const trimmedName = createName.trim();
-
-    if (!normalizedCode) {
-      setCreateModalError('Source code is required.');
-      return;
-    }
-    if (!trimmedName) {
-      setCreateModalError('Source name is required.');
-      return;
-    }
-
-    setIsSubmittingCreate(true);
-    try {
-      const res = await fetch('/api/super-admin/procurement-sources', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          code: normalizedCode,
-          name: trimmedName,
-          sourceType: createSourceType,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to create procurement source');
-      }
-
-      setSuccessMsg(`Procurement source "${trimmedName}" (${normalizedCode}) created successfully.`);
-      closeCreateModal();
-      await loadSources();
-    } catch (err) {
-      setCreateModalError(getErrorMessage(err) || 'Failed to create procurement source');
-    } finally {
-      setIsSubmittingCreate(false);
-    }
-  };
-
-  const openEditModal = (source: Source) => {
-    setShowEditModal(source);
-    setEditName(source.name);
-    setEditModalError(null);
-  };
-
-  const handleEditSource = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!showEditModal || isSubmittingEdit) return;
-
-    setEditModalError(null);
-    setError(null);
-    setSuccessMsg(null);
-
-    const trimmedName = editName.trim();
-    if (!trimmedName) {
-      setEditModalError('Source name cannot be empty.');
-      return;
-    }
-
-    setIsSubmittingEdit(true);
-    try {
-      const res = await fetch(`/api/super-admin/procurement-sources/${showEditModal.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: trimmedName }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to update procurement source');
-      }
-
-      setSuccessMsg(`Procurement source "${trimmedName}" updated successfully.`);
-      closeEditModal();
-      await loadSources();
-    } catch (err) {
-      setEditModalError(getErrorMessage(err) || 'Failed to update procurement source');
-    } finally {
-      setIsSubmittingEdit(false);
-    }
-  };
-
-  const openConfirmModal = (source: Source) => {
-    setShowConfirmModal({
-      source,
-      targetStatus: !source.isActive,
-    });
-    setConfirmModalError(null);
-  };
-
-  const handleConfirmToggle = async () => {
-    if (!showConfirmModal || isSubmittingConfirm) return;
-
-    setConfirmModalError(null);
-    setError(null);
-    setSuccessMsg(null);
-
-    const { source, targetStatus } = showConfirmModal;
-    setIsSubmittingConfirm(true);
-
-    try {
-      const res = await fetch(`/api/super-admin/procurement-sources/${source.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isActive: targetStatus }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || `Failed to ${targetStatus ? 'activate' : 'deactivate'} procurement source`);
-      }
-
-      setSuccessMsg(
-        `Source "${source.name}" (${source.code}) ${targetStatus ? 'activated' : 'deactivated'} successfully.`
+  const query = useQuery({
+    queryKey: ['super-admin', 'procurement-sources', 'list', filters],
+    queryFn: ({ signal }) => {
+      const params = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) });
+      if (q) params.set('q', q);
+      if (type) params.set('type', type);
+      if (status) params.set('status', status);
+      return fetchJson<{ sources?: Source[]; pagination?: { page: number; totalPages: number; totalRecords: number } }>(
+        `/api/super-admin/procurement-sources?${params}`,
+        { signal, cache: 'no-store' }
       );
-      closeConfirmModal();
-      await loadSources();
-    } catch (err) {
-      setConfirmModalError(getErrorMessage(err) || 'Failed to update procurement source status');
-    } finally {
-      setIsSubmittingConfirm(false);
-    }
+    },
+    placeholderData: keepPreviousData,
+  });
+
+  const sources = query.data?.sources ?? [];
+  const pagination = query.data?.pagination;
+  const error = query.error ? getErrorMessage(query.error) || 'Network error loading procurement sources' : null;
+
+  const handleSaved = (message: string) => {
+    setSuccessMsg(message);
+    setDialog(null);
+    void queryClient.invalidateQueries({ queryKey: ['super-admin', 'procurement-sources'] });
+  };
+  const withReset = (fn: () => void) => {
+    fn();
+    setPage(1);
   };
 
   return (
-    <div className="space-y-4 w-full max-w-full overflow-x-hidden">
+    <div className="w-full max-w-full space-y-4 overflow-x-hidden">
       {error && (
-        <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs font-semibold flex items-center space-x-2 animate-panel-in">
-          <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
+        <div className="flex items-center space-x-2 rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs font-semibold text-rose-800 animate-panel-in">
+          <ShieldAlert className="h-4 w-4 shrink-0 text-rose-600" />
           <span>{error}</span>
         </div>
       )}
 
-      {successMsg && (
-        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-semibold flex items-center space-x-2 animate-panel-in">
-          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-          <span>{successMsg}</span>
-        </div>
-      )}
-
-      {/* SOURCES TABLE */}
-      <div className="bg-white rounded-xl border border-border/80 shadow-xs overflow-hidden w-full max-w-full">
-        <div className="p-3 sm:px-4 sm:py-3 border-b border-border flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <h2 className="text-sm font-semibold text-foreground">Procurement Sources</h2>
-            <span className="text-[11px] tabular-nums px-2 py-0.5 bg-subtle border border-border text-slate-600 rounded-full">
-              {sources.length}
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              resetCreateForm();
-              setShowCreateModal(true);
-            }}
-            aria-label="Add procurement source"
-            title="Add procurement source"
-            className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground shadow-2xs transition-colors hover:bg-primary-hover focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      <AnimatePresence initial={false}>
+        {successMsg && (
+          <motion.div
+            key="ok"
+            variants={fadeSlide}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            role="status"
+            className="flex items-center space-x-2 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-xs font-semibold text-emerald-800"
           >
-            <Plus className="w-4 h-4" />
-            <span>Add source</span>
-          </button>
+            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+            <span>{successMsg}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="w-full max-w-full overflow-hidden rounded-xl border border-border/80 bg-white shadow-xs">
+        <div className="space-y-3 border-b border-border p-3 sm:px-4 sm:py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <h2 className="text-sm font-semibold text-foreground">Procurement Sources</h2>
+              <span className="rounded-full border border-border bg-subtle px-2 py-0.5 text-[11px] tabular-nums text-slate-600">
+                {pagination?.totalRecords ?? sources.length}
+              </span>
+            </div>
+            <Button className="h-11 px-4" aria-label="Add procurement source" onClick={() => setDialog({ kind: 'create' })}>
+              <Plus />
+              <span>Add source</span>
+            </Button>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => withReset(() => setSearch(e.target.value))}
+                placeholder="Search code or name"
+                aria-label="Search procurement sources"
+                className="h-11 w-full rounded-xl border border-border-strong bg-white pl-9 pr-3 text-sm focus:outline-hidden focus:border-primary"
+              />
+            </div>
+            <Segmented label="Source type" options={TYPE_OPTIONS} value={type} onChange={(v) => withReset(() => setType(v))} />
+            <Segmented label="Status" options={STATUS_OPTIONS} value={status} onChange={(v) => withReset(() => setStatus(v))} />
+          </div>
         </div>
 
-        <div className="overflow-x-auto w-full">
-          <table className="w-full text-left text-xs min-w-[600px]">
-            <thead className="bg-subtle text-slate-600 border-b border-border">
+        <div className="w-full overflow-x-auto">
+          <table className="w-full min-w-[600px] text-left text-xs">
+            <thead className="border-b border-border bg-subtle text-slate-600">
               <tr>
                 <th className="p-3 font-semibold">Code</th>
                 <th className="p-3 font-semibold">Name</th>
                 <th className="p-3 font-semibold">Source Type</th>
+                <th className="p-3 font-semibold">ERP Code</th>
                 <th className="p-3 font-semibold">Status</th>
-                <th className="p-3 font-semibold text-right">Actions</th>
+                <th className="p-3 text-right font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60 font-medium">
-              {loading ? (
+              {query.isPending ? (
                 <tr>
-                  <td colSpan={5} className="p-6 text-center text-slate-400 tabular-nums">
+                  <td colSpan={6} className="p-6 text-center tabular-nums text-slate-400">
                     Loading procurement sources…
                   </td>
                 </tr>
               ) : sources.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-6 text-center text-slate-400">
+                  <td colSpan={6} className="p-6 text-center text-slate-400">
                     No procurement sources configured.
                   </td>
                 </tr>
               ) : (
                 sources.map((s) => (
-                  <tr key={s.id} className="hover:bg-slate-50 transition">
-                    <td className="p-3 tabular-nums font-semibold text-foreground">{s.code}</td>
+                  <tr key={s.id} className={`transition hover:bg-slate-50 ${query.isPlaceholderData ? 'opacity-60' : ''}`}>
+                    <td className="p-3 font-semibold tabular-nums text-foreground">{s.code}</td>
                     <td className="p-3 font-semibold text-slate-800">{s.name}</td>
                     <td className="p-3">
                       <span
-                        className={`px-2 py-0.5 rounded tabular-nums text-[10px] font-semibold ${
-                          s.sourceType === 'ZMCC' ? 'bg-blue-100 text-blue-900' : 'bg-slate-100 text-slate-800 border border-slate-200'
+                        className={`rounded px-2 py-0.5 text-[10px] font-semibold tabular-nums ${
+                          s.sourceType === 'ZMCC' ? 'bg-blue-100 text-blue-900' : 'border border-slate-200 bg-slate-100 text-slate-800'
                         }`}
                       >
                         {s.sourceType}
                       </span>
                     </td>
+                    <td className="p-3 tabular-nums text-slate-700">{s.sourceType === 'CONTRACTOR' ? s.erpCode || '—' : ''}</td>
                     <td className="p-3">
                       {s.isActive ? (
-                        <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-semibold">
-                          Active
-                        </span>
+                        <span className="rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">Active</span>
                       ) : (
-                        <span className="px-2 py-0.5 rounded bg-rose-100 text-rose-800 text-[10px] font-semibold">
-                          Inactive
-                        </span>
+                        <span className="rounded bg-rose-100 px-2 py-0.5 text-[10px] font-semibold text-rose-800">Inactive</span>
                       )}
                     </td>
                     <td className="p-3 text-right">
                       <div className="flex items-center justify-end space-x-1">
                         <button
                           type="button"
-                          onClick={() => openEditModal(s)}
+                          onClick={() => setDialog({ kind: 'edit', source: s })}
                           aria-label={`Edit ${s.name}`}
                           title={`Edit ${s.name}`}
-                          className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-600 transition"
+                          className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2 text-slate-600 transition hover:bg-slate-100"
                         >
-                          <Edit2 className="w-3.5 h-3.5" />
+                          <Edit2 className="h-3.5 w-3.5" />
                         </button>
                         <button
                           type="button"
-                          onClick={() => openConfirmModal(s)}
+                          onClick={() => setDialog({ kind: 'status', source: s, targetStatus: !s.isActive })}
                           aria-label={`${s.isActive ? 'Deactivate' : 'Activate'} ${s.name}`}
-                          className={`px-2.5 py-1.5 min-h-[44px] rounded-lg text-[11px] font-semibold transition flex items-center justify-center ${
-                            s.isActive
-                              ? 'bg-rose-50 hover:bg-rose-100 text-rose-700'
-                              : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700'
+                          className={`flex min-h-[44px] items-center justify-center rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition ${
+                            s.isActive ? 'bg-rose-50 text-rose-700 hover:bg-rose-100' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
                           }`}
                         >
                           {s.isActive ? 'Deactivate' : 'Activate'}
@@ -345,253 +229,21 @@ export default function SuperAdminProcurementSourcesPage() {
             </tbody>
           </table>
         </div>
+        <PaginationBar
+          page={pagination?.page ?? page}
+          totalPages={pagination?.totalPages ?? 1}
+          totalRecords={pagination?.totalRecords ?? sources.length}
+          noun="sources"
+          disabled={query.isFetching}
+          onPageChange={setPage}
+        />
       </div>
 
-      {/* CREATE SOURCE MODAL */}
-      <AnimatePresence>{showCreateModal && (
-        <Modal key="modal-0" onClose={closeCreateModal} title="Add procurement source" preventClose={isSubmittingCreate} className="p-6 max-w-md space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-border">
-              <h3 className="text-base font-semibold text-foreground">Add Procurement Source</h3>
-              <button
-                type="button"
-                onClick={closeCreateModal}
-                disabled={isSubmittingCreate}
-                aria-label="Close add procurement source dialog"
-                className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {createModalError && (
-              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs font-semibold flex items-center space-x-2">
-                <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
-                <span>{createModalError}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleCreateSource} className="space-y-3 text-xs">
-              <div>
-                <label className="font-semibold text-slate-700 block mb-1">Source Code *</label>
-                <input
-                  type="text"
-                  required
-                  value={createCode}
-                  onChange={(e) => setCreateCode(e.target.value)}
-                  disabled={isSubmittingCreate}
-                  className="w-full p-2.5 rounded-lg border border-border-strong uppercase tabular-nums focus:outline-hidden focus:border-primary"
-                  placeholder="e.g. ZMCC-FAISALABAD"
-                />
-                <p className="text-[10px] text-slate-400 mt-1">Code is immutable once created.</p>
-              </div>
-
-              <div>
-                <label className="font-semibold text-slate-700 block mb-1">Source Name *</label>
-                <input
-                  type="text"
-                  required
-                  value={createName}
-                  onChange={(e) => setCreateName(e.target.value)}
-                  disabled={isSubmittingCreate}
-                  className="w-full p-2.5 rounded-lg border border-border-strong focus:outline-hidden focus:border-primary"
-                  placeholder="e.g. Faisalabad ZMCC Center"
-                />
-              </div>
-
-              <div>
-                <label className="font-semibold text-slate-700 block mb-1">Source Type *</label>
-                <select
-                  value={createSourceType}
-                  onChange={(e) => setCreateSourceType(e.target.value)}
-                  disabled={isSubmittingCreate}
-                  className="w-full p-2.5 rounded-lg border border-border-strong focus:outline-hidden focus:border-primary"
-                >
-                  <option value="ZMCC">ZMCC</option>
-                  <option value="CONTRACTOR">Contractor</option>
-                </select>
-                <p className="text-[10px] text-slate-400 mt-1">Source type is immutable once created.</p>
-              </div>
-
-              <div className="flex items-center justify-end space-x-2 pt-3 border-t border-border">
-                <button
-                  type="button"
-                  onClick={closeCreateModal}
-                  disabled={isSubmittingCreate}
-                  className="px-3 py-2 min-h-[44px] rounded-lg border border-slate-300 text-slate-600 font-semibold hover:bg-slate-50 transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmittingCreate}
-                  className="px-4 py-2 min-h-[44px] rounded-lg bg-primary text-white font-semibold hover:bg-primary-hover transition disabled:opacity-50"
-                >
-                  {isSubmittingCreate ? 'Saving…' : 'Save Source'}
-                </button>
-              </div>
-            </form>
-          </Modal>
-      )}</AnimatePresence>
-
-      {/* EDIT SOURCE MODAL */}
-      <AnimatePresence>{showEditModal && (
-        <Modal key="modal-1" onClose={closeEditModal} title="Edit procurement source" preventClose={isSubmittingEdit} className="p-6 max-w-md space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-border">
-              <h3 className="text-base font-semibold text-foreground">Edit Procurement Source</h3>
-              <button
-                type="button"
-                onClick={closeEditModal}
-                disabled={isSubmittingEdit}
-                aria-label="Close edit procurement source dialog"
-                className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {editModalError && (
-              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs font-semibold flex items-center space-x-2">
-                <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
-                <span>{editModalError}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleEditSource} className="space-y-3 text-xs">
-              <div>
-                <label className="font-semibold text-slate-700 block mb-1">Source Code</label>
-                <input
-                  type="text"
-                  disabled
-                  value={showEditModal.code}
-                  className="w-full p-2.5 rounded-lg border border-slate-200 bg-slate-100 tabular-nums text-slate-500 cursor-not-allowed"
-                />
-                <p className="text-[10px] text-slate-400 mt-1">Source code is immutable and cannot be modified.</p>
-              </div>
-
-              <div>
-                <label className="font-semibold text-slate-700 block mb-1">Source Type</label>
-                <input
-                  type="text"
-                  disabled
-                  value={showEditModal.sourceType}
-                  className="w-full p-2.5 rounded-lg border border-slate-200 bg-slate-100 tabular-nums text-slate-500 cursor-not-allowed"
-                />
-                <p className="text-[10px] text-slate-400 mt-1">Source type is immutable and cannot be modified.</p>
-              </div>
-
-              <div>
-                <label className="font-semibold text-slate-700 block mb-1">Source Name *</label>
-                <input
-                  type="text"
-                  required
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  disabled={isSubmittingEdit}
-                  className="w-full p-2.5 rounded-lg border border-border-strong focus:outline-hidden focus:border-primary"
-                  placeholder="e.g. Faisalabad ZMCC Center"
-                />
-              </div>
-
-              <div className="flex items-center justify-end space-x-2 pt-3 border-t border-border">
-                <button
-                  type="button"
-                  onClick={closeEditModal}
-                  disabled={isSubmittingEdit}
-                  className="px-3 py-2 min-h-[44px] rounded-lg border border-slate-300 text-slate-600 font-semibold hover:bg-slate-50 transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmittingEdit}
-                  className="px-4 py-2 min-h-[44px] rounded-lg bg-primary text-white font-semibold hover:bg-primary-hover transition disabled:opacity-50"
-                >
-                  {isSubmittingEdit ? 'Saving…' : 'Save Changes'}
-                </button>
-              </div>
-            </form>
-          </Modal>
-      )}</AnimatePresence>
-
-      {/* CONFIRM TOGGLE STATUS MODAL */}
-      <AnimatePresence>{showConfirmModal && (
-        <Modal key="modal-2" onClose={closeConfirmModal} title="Confirm source status change" preventClose={isSubmittingConfirm} closeOnOutsideClick className="p-6 max-w-md space-y-4">
-            <div className="flex items-center space-x-3">
-              <div
-                className={`p-2 rounded-xl shrink-0 ${
-                  showConfirmModal.targetStatus ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
-                }`}
-              >
-                <AlertTriangle className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-base font-semibold text-foreground">
-                  {showConfirmModal.targetStatus ? 'Activate' : 'Deactivate'} Source?
-                </h3>
-                <p className="text-xs text-slate-500 tabular-nums">{showConfirmModal.source.code}</p>
-              </div>
-            </div>
-
-            {confirmModalError && (
-              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs font-semibold flex items-center space-x-2">
-                <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
-                <span>{confirmModalError}</span>
-              </div>
-            )}
-
-            <div className="text-xs text-slate-600 space-y-2">
-              <p>
-                Are you sure you want to {showConfirmModal.targetStatus ? 'activate' : 'deactivate'}{' '}
-                <strong className="text-slate-800 font-semibold">{showConfirmModal.source.name}</strong>?
-              </p>
-              {!showConfirmModal.targetStatus ? (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-900 text-[11px] space-y-1 font-medium">
-                  <p className="font-semibold">Deactivation Effects & Guards:</p>
-                  <ul className="list-disc list-inside space-y-0.5 text-amber-800">
-                    <li>Will be excluded from active operational dispatch selectors.</li>
-                    <li>Cannot be deactivated if active users are currently assigned.</li>
-                    <li>Cannot be deactivated if incomplete vehicle visits are in progress.</li>
-                    <li>Remains visible to Super Admins with Inactive status.</li>
-                  </ul>
-                </div>
-              ) : (
-                <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-emerald-900 text-[11px] space-y-1 font-medium">
-                  <p className="font-semibold">Activation Effects:</p>
-                  <p className="text-emerald-800">
-                    Will restore availability in operational selectors and allow user assignments.
-                  </p>
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center justify-end space-x-2 pt-3 border-t border-border">
-              <button
-                type="button"
-                onClick={closeConfirmModal}
-                disabled={isSubmittingConfirm}
-                className="px-3 py-2 min-h-[44px] rounded-lg border border-slate-300 text-slate-600 font-semibold hover:bg-slate-50 transition"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmToggle}
-                disabled={isSubmittingConfirm}
-                className={`px-4 py-2 min-h-[44px] rounded-lg font-semibold text-white transition disabled:opacity-50 ${
-                  showConfirmModal.targetStatus
-                    ? 'bg-emerald-600 hover:bg-emerald-700'
-                    : 'bg-rose-600 hover:bg-rose-700'
-                }`}
-              >
-                {isSubmittingConfirm
-                  ? 'Processing…'
-                  : showConfirmModal.targetStatus
-                  ? 'Activate Source'
-                  : 'Deactivate Source'}
-              </button>
-            </div>
-          </Modal>
-      )}</AnimatePresence>
+      {dialog?.kind === 'create' && <SourceCreateDrawer onClose={() => setDialog(null)} onSaved={handleSaved} />}
+      {dialog?.kind === 'edit' && <SourceEditDrawer key={dialog.source.id} source={dialog.source} onClose={() => setDialog(null)} onSaved={handleSaved} />}
+      {dialog?.kind === 'status' && (
+        <SourceStatusDrawer key={dialog.source.id} source={dialog.source} targetStatus={dialog.targetStatus} onClose={() => setDialog(null)} onSaved={handleSaved} />
+      )}
     </div>
   );
 }

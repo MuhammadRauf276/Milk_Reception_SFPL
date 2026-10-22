@@ -2,20 +2,26 @@
 
 import React, { useState } from 'react';
 import { ShieldAlert, UserCheck, Search } from 'lucide-react';
-import type { GovernanceOverrideTelemetry } from '../types';
+import type { GovernanceOverrideTelemetry, ZmccCenterTelemetry } from '../types';
 import { NO_DATA } from '../format';
 
 interface MpdGovernanceScreenProps {
   overrides: GovernanceOverrideTelemetry[];
+  /** Per-ZMCC exit-outcome counts (left / closed without full unloading). */
+  zmccs?: ZmccCenterTelemetry[];
   onAuditAction?: (id: string, action: 'APPROVED' | 'FLAGGED', remarks?: string) => Promise<void>;
 }
 
-export const MpdGovernanceScreen: React.FC<MpdGovernanceScreenProps> = ({ overrides, onAuditAction }) => {
+export const MpdGovernanceScreen: React.FC<MpdGovernanceScreenProps> = ({
+  overrides = [],
+  zmccs = [],
+  onAuditAction,
+}) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [stageFilter, setStageFilter] = useState<'ALL' | 'ZMCC_GATE' | 'PLANT_RECEPTION'>('ALL');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  const filteredOverrides = overrides.filter((o) => {
+  const filteredOverrides = (overrides ?? []).filter((o) => {
     const matchesSearch = [o.reference, o.sourceName, o.overruledBy, o.failedParameter].some((field) =>
       (field ?? '').toLowerCase().includes(searchTerm.toLowerCase())
     );
@@ -48,6 +54,23 @@ export const MpdGovernanceScreen: React.FC<MpdGovernanceScreenProps> = ({ overri
         </div>
       </div>
 
+      {zmccs.some((z) => z.leftWithoutFullUnloadingCount > 0 || z.pendingCloseRequestCount > 0) && (
+        <div className="bg-white border border-border rounded-xl p-4 shadow-xs">
+          <h3 className="text-xs font-semibold text-foreground">Vehicles that left without full unloading (last 30 days)</h3>
+          <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {zmccs.filter((z) => z.leftWithoutFullUnloadingCount > 0 || z.pendingCloseRequestCount > 0).map((z) => (
+              <div key={z.id} className="rounded-lg border border-border bg-subtle p-2.5 text-xs">
+                <div className="font-semibold text-foreground">{z.name}</div>
+                <div className="tabular-nums text-slate-600">
+                  {z.leftWithoutFullUnloadingCount} left · {z.pendingCloseRequestCount} pending request(s)
+                </div>
+                <div className="tabular-nums text-slate-500">{z.acceptedNotReceivedLiters.toLocaleString()} L accepted, not received</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-border">
         <div className="relative flex-1">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -66,7 +89,7 @@ export const MpdGovernanceScreen: React.FC<MpdGovernanceScreenProps> = ({ overri
               stageFilter === 'ALL' ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
-            All Overrides ({overrides.length})
+            All Overrides ({(overrides ?? []).length})
           </button>
           <button
             onClick={() => setStageFilter('ZMCC_GATE')}

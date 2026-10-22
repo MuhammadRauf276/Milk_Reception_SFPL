@@ -170,7 +170,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
               {showKpiPlaceholders ? '—' : summary.total}
             </span>
           </div>
-          <div className="p-3 rounded-lg bg-green-50 border border-green-200">
+          <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200">
             <span className="text-xs font-sans text-emerald-700 block uppercase font-semibold">Completed on Page</span>
             <span className="text-lg font-semibold text-emerald-900">
               {showKpiPlaceholders ? '—' : summary.completed}
@@ -194,9 +194,9 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
               {showKpiPlaceholders ? '—' : summary.tsDiffCount}
             </span>
           </div>
-          <div className="p-3 rounded-lg bg-red-50 border border-red-200">
-            <span className="text-xs font-sans text-red-700 block uppercase font-semibold">QA Rejections on Page</span>
-            <span className="text-lg font-semibold text-red-900">
+          <div className="p-3 rounded-lg bg-rose-50 border border-rose-200">
+            <span className="text-xs font-sans text-rose-700 block uppercase font-semibold">QA Rejections on Page</span>
+            <span className="text-lg font-semibold text-rose-900">
               {showKpiPlaceholders ? '—' : summary.rejectedCount}
             </span>
           </div>
@@ -242,12 +242,12 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
 
       {/* 3. Error Alert */}
       {error && (
-        <div className="p-6 rounded-xl bg-red-50 border border-red-200 text-center space-y-2 animate-panel-in" role="alert">
-          <div className="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto">
+        <div className="p-6 rounded-xl bg-rose-50 border border-rose-200 text-center space-y-2 animate-panel-in" role="alert">
+          <div className="w-10 h-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
             <AlertTriangle className="w-5 h-5" />
           </div>
-          <h4 className="text-sm font-semibold text-red-800">Unable to Load Reconciliation Ledger</h4>
-          <p className="text-xs text-red-700 max-w-md mx-auto">{error}</p>
+          <h4 className="text-sm font-semibold text-rose-800">Unable to Load Reconciliation Ledger</h4>
+          <p className="text-xs text-rose-700 max-w-md mx-auto">{error}</p>
         </div>
       )}
 
@@ -331,7 +331,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                         {/* 3. Plant Received Gross Liters */}
                         <td className="py-3 px-3 text-right font-semibold">
                           {item.physicalReceivedLiters != null ? (
-                            <span className="text-green-800">{item.physicalReceivedLiters.toLocaleString()} L</span>
+                            <span className="text-emerald-800">{item.physicalReceivedLiters.toLocaleString()} L</span>
                           ) : item.isReceiptPending ? (
                             <span className="text-xs px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 font-sans font-semibold">
                               Receipt Pending
@@ -349,8 +349,8 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                                 item.grossVarianceLiters === 0
                                   ? 'text-slate-600'
                                   : item.grossVarianceLiters > 0
-                                  ? 'text-green-800'
-                                  : 'text-red-800'
+                                  ? 'text-emerald-800'
+                                  : 'text-rose-800'
                               }
                             >
                               {item.grossVarianceText}
@@ -368,8 +368,8 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                                 item.grossVariancePercent === 0
                                   ? 'text-slate-600'
                                   : item.grossVariancePercent > 0
-                                  ? 'text-green-800'
-                                  : 'text-red-800'
+                                  ? 'text-emerald-800'
+                                  : 'text-rose-800'
                               }
                             >
                               {item.grossVariancePercentText}
@@ -405,8 +405,8 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                                 item.at13TsVarianceLiters === 0
                                   ? 'text-slate-600'
                                   : item.at13TsVarianceLiters > 0
-                                  ? 'text-green-800'
-                                  : 'text-red-800'
+                                  ? 'text-emerald-800'
+                                  : 'text-rose-800'
                               }
                             >
                               {item.at13TsVarianceText}
@@ -424,8 +424,8 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                                 item.at13TsVariancePercent === 0
                                   ? 'text-slate-600'
                                   : item.at13TsVariancePercent > 0
-                                  ? 'text-green-800'
-                                  : 'text-red-800'
+                                  ? 'text-emerald-800'
+                                  : 'text-rose-800'
                               }
                             >
                               {item.at13TsVariancePercentText}
@@ -442,7 +442,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                               qaSummary.badgeType === 'ALL_ACCEPTED'
                                 ? 'bg-emerald-100 text-emerald-800'
                                 : qaSummary.badgeType === 'ALL_REJECTED' || qaSummary.badgeType === 'MIXED'
-                                ? 'bg-red-100 text-red-800'
+                                ? 'bg-rose-100 text-rose-800'
                                 : qaSummary.badgeType === 'HAS_HOLD'
                                 ? 'bg-amber-100 text-amber-800'
                                 : 'bg-slate-100 text-slate-700'
@@ -542,7 +542,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                                           p.qaDecision === 'ACCEPTED'
                                             ? 'bg-emerald-100 text-emerald-800'
                                             : p.qaDecision === 'REJECTED'
-                                            ? 'bg-red-100 text-red-800'
+                                            ? 'bg-rose-100 text-rose-800'
                                             : 'bg-slate-100 text-slate-700'
                                         }`}
                                       >

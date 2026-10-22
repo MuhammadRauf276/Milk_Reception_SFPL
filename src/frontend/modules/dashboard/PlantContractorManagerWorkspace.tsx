@@ -1,6 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
+import { fetchJson } from '@/lib/query/fetchJson';
 import { MilkProcessLog, User } from '@backend/core/types';
 import { ContractorOverview } from './contractor/ContractorOverview';
 import { ContractorLivePipeline } from './contractor/ContractorLivePipeline';
@@ -23,88 +25,54 @@ interface PlantContractorManagerWorkspaceProps {
 
 export const PlantContractorManagerWorkspace: React.FC<PlantContractorManagerWorkspaceProps> = ({
   currentUser,
-  activeTab: controlledTab,
-  onTabChange,
+  activeTab: controlledTab,
 }) => {
-  const [internalTab, setInternalTab] = useState<PlantContractorTab>('OVERVIEW');
+  const [internalTab] = useState<PlantContractorTab>('OVERVIEW');
   const activeTab = controlledTab !== undefined ? controlledTab : internalTab;
 
-  const setActiveTab = (tab: PlantContractorTab) => {
-    if (tab !== activeTab) setLoading(true);
-    setInternalTab(tab);
-    if (onTabChange) onTabChange(tab);
-  };
-  const [serverBusinessDate, setServerBusinessDate] = useState<string>('');
-  const [logs, setLogs] = useState<MilkProcessLog[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState<number>(1);
   const [pageSize] = useState<number>(20);
-  const [totalPages, setTotalPages] = useState<number>(1);
-  const [totalRecords, setTotalRecords] = useState<number>(0);
-  const [hasMore, setHasMore] = useState<boolean>(false);
-  const [summary, setSummary] = useState<{
-    totalVisits?: number;
-    completedVisits?: number;
-    activeInPlantVisits?: number;
-  } | null>(null);
+  const queryClient = useQueryClient();
+  type LogsResponse = {
+    items?: MilkProcessLog[];
+    logs?: MilkProcessLog[];
+    pagination?: {
+      page?: number; totalPages?: number; total_pages?: number;
+      totalRecords?: number; total_count?: number; hasMore?: boolean; has_more?: boolean;
+    };
+    summary?: { totalVisits?: number; completedVisits?: number; activeInPlantVisits?: number };
+    serverBusinessDate?: string;
+  };
+  const mode = activeTab === 'LIVE' ? 'live' : 'recent';
+  const logsQuery = useQuery({
+    queryKey: ['contractor', 'plant-logs', { mode, page, pageSize }],
+    queryFn: ({ signal }) => {
+      const params = new URLSearchParams({ mode, page: String(page), pageSize: String(pageSize) });
+      return fetchJson<LogsResponse>(`/api/logs?${params.toString()}`, { signal });
+    },
+    placeholderData: keepPreviousData,
+    refetchInterval: activeTab === 'LIVE' ? 30_000 : false,
+  });
+  const logsData = logsQuery.data;
+  const logs = useMemo(() => logsData?.items ?? logsData?.logs ?? [], [logsData]);
+  const loading = logsQuery.isPending;
+  const error = logsQuery.isError ? getErrorMessage(logsQuery.error) || 'Failed to load contractor operational logs' : null;
+  const totalPages = logsData?.pagination?.totalPages || logsData?.pagination?.total_pages || 1;
+  const totalRecords = logsData?.pagination?.totalRecords || logsData?.pagination?.total_count || 0;
+  const hasMore = Boolean(logsData?.pagination?.hasMore ?? logsData?.pagination?.has_more);
+  const summary = logsData?.summary ?? null;
+  const serverBusinessDate = logsData?.serverBusinessDate ?? '';
 
   const assignedSourceName = useMemo(() => {
     return currentUser?.zone || currentUser?.department || 'Assigned Plant Contractor';
   }, [currentUser]);
 
-  const loadLogs = useCallback(
-    (targetPage: number = 1) => {
-      const mode = activeTab === 'LIVE' ? 'live' : 'recent';
-      const params = new URLSearchParams();
-      params.append('mode', mode);
-      params.append('page', String(targetPage));
-      params.append('pageSize', String(pageSize));
-
-      return fetch(`/api/logs?${params.toString()}`)
-        .then(async (res) => {
-          const data = await res.json();
-          if (!res.ok) {
-            throw new Error(data.error || 'Failed to fetch operational logs');
-          }
-          const items = data.items || data.logs;
-          if (items) {
-            setLogs(items);
-          }
-          if (data.pagination) {
-            setPage(data.pagination.page || targetPage);
-            setTotalPages(data.pagination.totalPages || data.pagination.total_pages || 1);
-            setTotalRecords(data.pagination.totalRecords || data.pagination.total_count || 0);
-            setHasMore(Boolean(data.pagination.hasMore ?? data.pagination.has_more));
-          }
-          if (data.summary) {
-            setSummary(data.summary);
-          }
-          if (data.serverBusinessDate) {
-            setServerBusinessDate(data.serverBusinessDate);
-          }
-          setError(null);
-        })
-        .catch((err) => {
-          setError(getErrorMessage(err) || 'Failed to load contractor operational logs');
-        })
-        .finally(() => {
-          setLoading(false);
-        });
-    },
-    [activeTab, pageSize]
-  );
-
-  // User-initiated reloads show the loading state; the mount/tab effect does not need to.
+  // Page change or manual reload.
   const fetchLogs = (targetPage: number = 1) => {
-    setLoading(true);
-    setError(null);
-    return loadLogs(targetPage);
+    if (targetPage === page) return queryClient.invalidateQueries({ queryKey: ['contractor', 'plant-logs'] });
+    setPage(targetPage);
+    return Promise.resolve();
   };
-
-  useEffect(() => {
-    loadLogs(1);
-  }, [loadLogs]);
 
   return (
     <div className="flex-1 flex flex-col min-w-0 overflow-hidden w-full max-w-full">

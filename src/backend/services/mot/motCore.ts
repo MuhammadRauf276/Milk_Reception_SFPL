@@ -66,6 +66,7 @@ export type MotAction =
   | 'READ'
   | 'WRITE_PROFILE'
   | 'WRITE_VEHICLE'
+  | 'READ_FLEET'
   | 'TRANSFER_VEHICLE'
   | 'ASSIGN_DISPATCH'
   | 'CANCEL_JOURNEY'
@@ -76,7 +77,9 @@ export type MotAction =
   | 'READ_SMS_OUTBOX'
   | 'READ_COLLECTIONS'
   | 'CORRECT_COLLECTION'
-  | 'SKIP_STOP';
+  | 'SKIP_STOP'
+  | 'RETURN_TO_PHE'
+  | 'RESUME_COLLECTION';
 
 export interface ServiceResult<T> {
   status: number;
@@ -98,14 +101,17 @@ export const MOT_ACTION_ROLES: Record<MotAction, { roles: readonly string[]; del
   ASSIGN_DISPATCH: { roles: ['MDO'], delegation: 'ancestors' },
   CANCEL_JOURNEY: { roles: ['ZMCC_MANAGER'], delegation: 'ancestors' },
   WRITE_PROFILE: { roles: ['ZMCC_MANAGER', 'DATA_EXECUTIVE'], delegation: 'ancestors' },
-  WRITE_VEHICLE: { roles: ['ZMCC_MANAGER', 'DATA_EXECUTIVE'], delegation: 'ancestors' },
+  WRITE_VEHICLE: { roles: ['DATA_EXECUTIVE', 'SUPER_ADMIN'], delegation: 'none' },
+  READ_FLEET: { roles: ['DATA_EXECUTIVE', 'SUPER_ADMIN'], delegation: 'none' },
   SUBMIT_COLLECTION: { roles: ['MOT'], delegation: 'ancestors' },
   SKIP_STOP: { roles: ['MOT'], delegation: 'ancestors' },
   READ_CURRENT_JOURNEY: { roles: ['MOT'], delegation: 'ancestors' },
   UPLOAD_GPS: { roles: ['MOT'], delegation: 'none' },
   TRANSFER_VEHICLE: { roles: ['DATA_EXECUTIVE'], delegation: 'none' },
   // CORRECT is non-delegable: Data Executive + Super Admin only (isCorrectionAuthority).
-  CORRECT_COLLECTION: { roles: ['DATA_EXECUTIVE'], delegation: 'none' },
+  CORRECT_COLLECTION: { roles: ['DATA_EXECUTIVE', 'SUPER_ADMIN'], delegation: 'none' },
+  RETURN_TO_PHE: { roles: ['MOT'], delegation: 'ancestors' },
+  RESUME_COLLECTION: { roles: ['MOT'], delegation: 'ancestors' },
 };
 
 const MOT_FORBIDDEN_MESSAGE: Record<MotAction, string> = {
@@ -116,13 +122,16 @@ const MOT_FORBIDDEN_MESSAGE: Record<MotAction, string> = {
   ASSIGN_DISPATCH: 'Forbidden. Only an MDO or a Zonal Manager can send out an MOT.',
   CANCEL_JOURNEY: 'Forbidden. Only a Zonal Manager can cancel a journey.',
   WRITE_PROFILE: 'Forbidden. Only a Zonal Manager can change MOT profiles.',
-  WRITE_VEHICLE: 'Forbidden. Only a Zonal Manager can change MOT vehicles.',
+  WRITE_VEHICLE: 'Forbidden. Only the Data Executive or Super Admin can change MC vehicles.',
   SUBMIT_COLLECTION: 'Forbidden. Only an MOT (or a manager covering MOT work) can save shop milk.',
   SKIP_STOP: 'Forbidden. Only an MOT (or a manager covering MOT work) can skip a shop.',
   READ_CURRENT_JOURNEY: 'Forbidden. This screen is for MOT work.',
   UPLOAD_GPS: 'Forbidden. Only the MOT on the journey can send GPS.',
+  READ_FLEET: 'Forbidden. Only Data Executive or Super Admin can see the whole fleet.',
   TRANSFER_VEHICLE: 'Forbidden. Only Data Executive or Super Admin can move a vehicle to another ZMCC.',
   CORRECT_COLLECTION: 'Forbidden. Only Data Executive or Super Admin may correct collections.',
+  RETURN_TO_PHE: 'Forbidden. Only an MOT (or a manager covering MOT work) can return the journey to PHE.',
+  RESUME_COLLECTION: 'Forbidden. Only an MOT (or a manager covering MOT work) can resume collection.',
 };
 
 function readActingAsHeader(reqOrUser?: Request | User): string | null {
@@ -844,13 +853,15 @@ export async function listMotVehicles(
       creator: { select: { id: true, username: true, full_name: true } },
       updater: { select: { id: true, username: true, full_name: true } },
       journeys: {
-        where: { status: 'COLLECTING' },
+        where: { status: { in: ['COLLECTING', 'RETURNING'] } },
         select: { id: true, journey_number: true, status: true },
       },
     },
   });
 
-  return vehicles.map((v) => ({
+  const unfinished = await Promise.all(vehicles.map((v) => findUnfinishedArrival(prisma, v.id)));
+
+  return vehicles.map((v, idx) => ({
     id: v.id.toString(),
     vehicle_number: v.vehicle_number,
     zmcc_id: v.zmcc_id.toString(),
@@ -862,6 +873,8 @@ export async function listMotVehicles(
     },
     is_active: v.is_active,
     has_active_journey: v.journeys.length > 0,
+    at_zmcc_waiting_unload: !!unfinished[idx],
+    is_available: v.is_active && v.journeys.length === 0 && !unfinished[idx],
     active_journey: v.journeys[0]
       ? {
           id: v.journeys[0].id.toString(),
@@ -948,7 +961,6 @@ export interface CreateMotVehiclePayload {
   capacity_liters?: number | string;
   driver_name?: string;
   driver_phone?: string;
-  category?: string;
 }
 
 export async function createMotVehicle(
@@ -988,8 +1000,6 @@ export async function createMotVehicle(
     return { status: 409, error: `MOT Vehicle with number '${vehicle_number}' already exists.` };
   }
 
-  const isSubstitute = payload.category === 'EMERGENCY_SUBSTITUTE';
-
   const vehicle = await prisma.$transaction(async (tx) => {
     const v = await tx.motVehicle.create({
       data: {
@@ -1007,7 +1017,7 @@ export async function createMotVehicle(
     await writeAuditLog(tx, {
       tableName: 'mot_vehicle',
       recordId: v.id,
-      action: isSubstitute ? 'EMERGENCY_SUBSTITUTE_VEHICLE_REGISTERED' : 'MOT_VEHICLE_CREATED',
+      action: 'MOT_VEHICLE_CREATED',
       oldValues: null,
       newValues: {
         vehicle_number: v.vehicle_number,
@@ -1017,7 +1027,6 @@ export async function createMotVehicle(
         ...(payload.capacity_liters !== undefined ? { capacity_liters: payload.capacity_liters } : {}),
         ...(payload.driver_name ? { driver_name: payload.driver_name } : {}),
         ...(payload.driver_phone ? { driver_phone: payload.driver_phone } : {}),
-        ...(payload.category ? { category: payload.category } : {}),
       },
       actor: { userId: auth.actorUserId, actorRole: auth.role },
     });
@@ -1042,7 +1051,6 @@ export async function createMotVehicle(
       capacity_liters: payload.capacity_liters,
       driver_name: payload.driver_name,
       driver_phone: payload.driver_phone,
-      category: payload.category,
       created_by: vehicle.created_by.toString(),
       creator_name: vehicle.creator.full_name || vehicle.creator.username,
       created_at: vehicle.created_at.toISOString(),
@@ -1118,8 +1126,8 @@ export async function updateMotVehicle(
   }
 
   if (payload.zmcc_id !== undefined) {
-    if (!auth.isSuperAdmin) {
-      return { status: 403, error: 'Forbidden. Only Super Admin can transfer an MOT Vehicle to another ZMCC.' };
+    if (!auth.isSuperAdmin && !auth.isDataExecutive) {
+      return { status: 403, error: 'Forbidden. Only Data Executive or Super Admin can transfer an MC Vehicle to another ZMCC.' };
     }
     if (hasActiveJourney) {
       return {
@@ -1198,6 +1206,25 @@ export async function updateMotVehicle(
   };
 }
 
+/** Last arrival of a vehicle that is not finished yet (no lab session, or lab session not closed). */
+export async function findUnfinishedArrival(
+  db: Prisma.TransactionClient | typeof prisma,
+  vehicleId: bigint
+): Promise<{ zmcc_token: string; journey_number: string } | null> {
+  const last = await db.zmccMotArrival.findFirst({
+    where: { journey: { mot_vehicle_id: vehicleId } },
+    orderBy: { arrival_timestamp: 'desc' },
+    select: {
+      zmcc_token: true,
+      journey: { select: { journey_number: true } },
+      lab_session: { select: { journey_closed_at: true } },
+    },
+  });
+  if (!last) return null;
+  if (last.lab_session?.journey_closed_at) return null;
+  return { zmcc_token: last.zmcc_token, journey_number: last.journey.journey_number };
+}
+
 export async function transferMotVehicle(
   auth: MotAuthContext,
   vehicleId: string,
@@ -1260,21 +1287,12 @@ export async function transferMotVehicle(
     };
   }
 
-  // Check that vehicle has no un-exited ZMCC arrival
-  const insideZmccArrival = await prisma.zmccMotArrival.findFirst({
-    where: {
-      journey: { mot_vehicle_id: id },
-      gate_exit_required: true,
-      exit_timestamp: null,
-    },
-    include: {
-      journey: true,
-    },
-  });
-  if (insideZmccArrival) {
+  // The vehicle's last arrival must be finished before it moves to another ZMCC
+  const pendingTransfer = await findUnfinishedArrival(prisma, id);
+  if (pendingTransfer) {
     return {
       status: 409,
-      error: `Cannot transfer MOT Vehicle '${existing.vehicle_number}': vehicle is physically inside ZMCC (Arrival Token: ${insideZmccArrival.zmcc_token}). Gate exit must be recorded before transferring.`,
+      error: `Cannot transfer MC Vehicle '${existing.vehicle_number}': it is at the ZMCC waiting to be unloaded (Arrival Token: ${pendingTransfer.zmcc_token}).`,
     };
   }
 
@@ -1456,43 +1474,9 @@ export async function assignAndDispatchJourney(
     });
   }
 
-  // If a vehicle number is provided and does not exist in MotVehicle for that ZMCC, auto-create it with is_active: true and created_by: auth.actorUserId
+  // Vehicles are registered by the Data Executive only. No auto-create at dispatch.
   if (!vehicle) {
-    // A new vehicle number may be registered during dispatch, own ZMCC only.
-    if (!isInMotScope(auth, targetZmccId)) {
-      return { status: 403, error: 'Forbidden. You can only add vehicles for your own ZMCC.' };
-    }
-
-    vehicle = await prisma.$transaction(async (tx) => {
-      const v = await tx.motVehicle.create({
-        data: {
-          vehicle_number: vNumberUpper,
-          zmcc_id: targetZmccId,
-          is_active: true,
-          created_by: auth.actorUserId,
-        },
-        include: {
-          zmcc: { select: { id: true, code: true, name: true, is_active: true } },
-          creator: { select: { id: true, username: true, full_name: true } },
-        },
-      });
-
-      await writeAuditLog(tx, {
-        tableName: 'mot_vehicle',
-        recordId: v.id,
-        action: 'MOT_VEHICLE_AUTO_CREATED_ON_DISPATCH',
-        oldValues: null,
-        newValues: {
-          vehicle_number: v.vehicle_number,
-          zmcc_id: v.zmcc_id.toString(),
-          is_active: v.is_active,
-          dispatched_by: auth.actorUserId.toString(),
-        },
-        actor: { userId: auth.actorUserId, actorRole: auth.role },
-      });
-
-      return v;
-    });
+    return { status: 400, error: 'This vehicle is not registered. Choose a registered vehicle from the list.' };
   }
 
   const vehicleId = vehicle.id;
@@ -1608,7 +1592,7 @@ export async function assignAndDispatchJourney(
 
   // 11. Check active COLLECTING journeys for profile and vehicle
   const existingProfileJourney = await prisma.motJourney.findFirst({
-    where: { mot_profile_id: profileId, status: 'COLLECTING' },
+    where: { mot_profile_id: profileId, status: { in: ['COLLECTING', 'RETURNING'] } },
   });
   if (existingProfileJourney) {
     if (existingProfileJourney.idempotency_key === idempotencyKey) {
@@ -1626,7 +1610,7 @@ export async function assignAndDispatchJourney(
   }
 
   const existingVehicleJourney = await prisma.motJourney.findFirst({
-    where: { mot_vehicle_id: vehicleId, status: 'COLLECTING' },
+    where: { mot_vehicle_id: vehicleId, status: { in: ['COLLECTING', 'RETURNING'] } },
   });
   if (existingVehicleJourney) {
     if (existingVehicleJourney.idempotency_key === idempotencyKey) {
@@ -1643,21 +1627,12 @@ export async function assignAndDispatchJourney(
     };
   }
 
-  // 11B. Check if vehicle is physically inside ZMCC (gate-tracked arrival without exit)
-  const insideZmccArrival = await prisma.zmccMotArrival.findFirst({
-    where: {
-      journey: { mot_vehicle_id: vehicleId },
-      gate_exit_required: true,
-      exit_timestamp: null,
-    },
-    include: {
-      journey: true,
-    },
-  });
-  if (insideZmccArrival) {
+  // 11B. The vehicle's last arrival must be finished (all unloaded / rejected / closed without unloading).
+  const pendingArrival = await findUnfinishedArrival(prisma, vehicleId);
+  if (pendingArrival) {
     return {
       status: 409,
-      error: `MOT Vehicle '${vehicle.vehicle_number}' is physically inside ZMCC (Arrival Token: ${insideZmccArrival.zmcc_token}). Gate exit must be recorded before assigning a new journey.`,
+      error: `MC Vehicle '${vehicle.vehicle_number}' is still at the ZMCC waiting to be unloaded (Arrival Token: ${pendingArrival.zmcc_token}). It can go out again once the lab and unloading are finished.`,
     };
   }
 
@@ -2194,8 +2169,8 @@ export async function getCurrentMotJourney(
         return { status: 403, error: 'Forbidden. This journey is not assigned to you.' };
       }
     }
-    if (journey.status !== 'COLLECTING') {
-      return { status: 200, data: { journey: null, message: 'This journey is not collecting milk any more.' } };
+    if (journey.status !== 'COLLECTING' && journey.status !== 'RETURNING') {
+      return { status: 200, data: { journey: null, message: 'This journey is not active any more.' } };
     }
     return { status: 200, data: { journey: serializeJourney(journey) } };
   }
@@ -2217,11 +2192,11 @@ export async function getCurrentMotJourney(
     };
   }
 
-  // Find active COLLECTING journey
+  // Find active COLLECTING or RETURNING journey
   const activeJourney = await prisma.motJourney.findFirst({
     where: {
       mot_profile_id: motProfile.id,
-      status: 'COLLECTING',
+      status: { in: ['COLLECTING', 'RETURNING'] },
     },
     include,
   });
@@ -2238,6 +2213,280 @@ export async function getCurrentMotJourney(
 
   return { status: 200, data: { journey: serializeJourney(activeJourney) } };
 }
+
+export async function returnMotJourneyToPhe(
+  reqOrUser: Request | User,
+  opts: { journeyId?: string | bigint; requestedAs?: string | null } = {}
+): Promise<ServiceResult<{ journey: ReturnType<typeof serializeJourney>; message: string }>> {
+  const { auth, errorResponse } = await resolveMotAuth(reqOrUser, 'RETURN_TO_PHE', opts);
+  if (errorResponse) return errorResponse;
+  if (!auth) return { status: 401, error: 'Unauthorized.' };
+
+  const isCoveringMot = auth.acting.actingAs === 'MOT' && !auth.isMot;
+  let targetJourneyId: bigint | null = null;
+
+  if (opts.journeyId) {
+    try {
+      targetJourneyId = BigInt(opts.journeyId);
+    } catch {
+      return { status: 400, error: 'Invalid Journey ID format.' };
+    }
+  } else if (!isCoveringMot) {
+    const profile = await prisma.motProfile.findUnique({
+      where: { user_id: auth.actorUserId },
+      select: { id: true },
+    });
+    if (!profile) {
+      return { status: 404, error: 'No MOT Profile linked to this user.' };
+    }
+    const current = await prisma.motJourney.findFirst({
+      where: { mot_profile_id: profile.id, status: 'COLLECTING' },
+      select: { id: true },
+    });
+    if (!current) {
+      // Check if it's already RETURNING
+      const returning = await prisma.motJourney.findFirst({
+        where: { mot_profile_id: profile.id, status: 'RETURNING' },
+        include: {
+          zmcc: { select: { id: true, code: true, name: true } },
+          route: { select: { id: true, route_code: true, name: true } },
+          mot_profile: { select: { id: true, mot_code: true, name: true, phone_number: true } },
+          mot_vehicle: { select: { id: true, vehicle_number: true } },
+          assigner: { select: { id: true, username: true, full_name: true } },
+          stops: {
+            include: {
+              shop: { select: { id: true, shop_code: true, shop_name: true, owner_name: true, phone_number: true, geofence_radius_m: true } },
+              collection: { include: { sms_outbox: true } },
+            },
+            orderBy: { planned_sequence: 'asc' },
+          },
+        },
+      });
+      if (returning) {
+        return {
+          status: 200,
+          data: {
+            journey: serializeJourney(returning),
+            message: 'Journey is already returning to PHE.',
+          },
+        };
+      }
+      return { status: 404, error: 'No active collecting journey found to return to PHE.' };
+    }
+    targetJourneyId = current.id;
+  } else {
+    return { status: 400, error: 'Journey ID is required when covering MOT work.' };
+  }
+
+  const journey = await prisma.motJourney.findUnique({
+    where: { id: targetJourneyId },
+  });
+
+  if (!journey) return { status: 404, error: 'Journey not found.' };
+  if (!isInMotScope(auth, journey.zmcc_id)) {
+    return { status: 403, error: 'Forbidden. Journey belongs to another ZMCC.' };
+  }
+
+  if (journey.status === 'RETURNING') {
+    const full = await prisma.motJourney.findUnique({
+      where: { id: journey.id },
+      include: {
+        zmcc: { select: { id: true, code: true, name: true } },
+        route: { select: { id: true, route_code: true, name: true } },
+        mot_profile: { select: { id: true, mot_code: true, name: true, phone_number: true } },
+        mot_vehicle: { select: { id: true, vehicle_number: true } },
+        assigner: { select: { id: true, username: true, full_name: true } },
+        stops: {
+          include: {
+            shop: { select: { id: true, shop_code: true, shop_name: true, owner_name: true, phone_number: true, geofence_radius_m: true } },
+            collection: { include: { sms_outbox: true } },
+          },
+          orderBy: { planned_sequence: 'asc' },
+        },
+      },
+    });
+    return {
+      status: 200,
+      data: {
+        journey: serializeJourney(full!),
+        message: 'Journey is already returning to PHE.',
+      },
+    };
+  }
+
+  if (journey.status !== 'COLLECTING') {
+    return {
+      status: 409,
+      error: `Cannot return journey in '${journey.status}' status. Journey must be in COLLECTING status.`,
+    };
+  }
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const res = await tx.motJourney.update({
+      where: { id: journey.id },
+      data: {
+        status: 'RETURNING',
+      },
+      include: {
+        zmcc: { select: { id: true, code: true, name: true } },
+        route: { select: { id: true, route_code: true, name: true } },
+        mot_profile: { select: { id: true, mot_code: true, name: true, phone_number: true } },
+        mot_vehicle: { select: { id: true, vehicle_number: true } },
+        assigner: { select: { id: true, username: true, full_name: true } },
+        stops: {
+          include: {
+            shop: { select: { id: true, shop_code: true, shop_name: true, owner_name: true, phone_number: true, geofence_radius_m: true } },
+            collection: { include: { sms_outbox: true } },
+          },
+          orderBy: { planned_sequence: 'asc' },
+        },
+      },
+    });
+
+    await writeAuditLog(tx, {
+      tableName: 'mot_journey',
+      recordId: journey.id,
+      action: 'MOT_JOURNEY_RETURNED_TO_PHE',
+      oldValues: { status: 'COLLECTING' },
+      newValues: { status: 'RETURNING' },
+      actor: { userId: auth.actorUserId, actorRole: auth.role },
+    });
+
+    return res;
+  });
+
+  return {
+    status: 200,
+    data: {
+      journey: serializeJourney(updated),
+      message: 'Vehicle is now returning to PHE.',
+    },
+  };
+}
+
+export async function resumeMotJourneyCollection(
+  reqOrUser: Request | User,
+  opts: { journeyId?: string | bigint; requestedAs?: string | null } = {}
+): Promise<ServiceResult<{ journey: ReturnType<typeof serializeJourney>; message: string }>> {
+  const { auth, errorResponse } = await resolveMotAuth(reqOrUser, 'RESUME_COLLECTION', opts);
+  if (errorResponse) return errorResponse;
+  if (!auth) return { status: 401, error: 'Unauthorized.' };
+
+  const isCoveringMot = auth.acting.actingAs === 'MOT' && !auth.isMot;
+  let targetJourneyId: bigint | null = null;
+
+  if (opts.journeyId) {
+    try {
+      targetJourneyId = BigInt(opts.journeyId);
+    } catch {
+      return { status: 400, error: 'Invalid Journey ID format.' };
+    }
+  } else if (!isCoveringMot) {
+    const profile = await prisma.motProfile.findUnique({
+      where: { user_id: auth.actorUserId },
+      select: { id: true },
+    });
+    if (!profile) {
+      return { status: 404, error: 'No MOT Profile linked to this user.' };
+    }
+    const current = await prisma.motJourney.findFirst({
+      where: { mot_profile_id: profile.id, status: 'RETURNING' },
+      select: { id: true },
+    });
+    if (!current) {
+      return { status: 404, error: 'No returning journey found to resume.' };
+    }
+    targetJourneyId = current.id;
+  } else {
+    return { status: 400, error: 'Journey ID is required when covering MOT work.' };
+  }
+
+  const journey = await prisma.motJourney.findUnique({
+    where: { id: targetJourneyId },
+  });
+
+  if (!journey) return { status: 404, error: 'Journey not found.' };
+  if (!isInMotScope(auth, journey.zmcc_id)) {
+    return { status: 403, error: 'Forbidden. Journey belongs to another ZMCC.' };
+  }
+
+  if (journey.status === 'COLLECTING') {
+    const full = await prisma.motJourney.findUnique({
+      where: { id: journey.id },
+      include: {
+        zmcc: { select: { id: true, code: true, name: true } },
+        route: { select: { id: true, route_code: true, name: true } },
+        mot_profile: { select: { id: true, mot_code: true, name: true, phone_number: true } },
+        mot_vehicle: { select: { id: true, vehicle_number: true } },
+        assigner: { select: { id: true, username: true, full_name: true } },
+        stops: {
+          include: {
+            shop: { select: { id: true, shop_code: true, shop_name: true, owner_name: true, phone_number: true, geofence_radius_m: true } },
+            collection: { include: { sms_outbox: true } },
+          },
+          orderBy: { planned_sequence: 'asc' },
+        },
+      },
+    });
+    return {
+      status: 200,
+      data: {
+        journey: serializeJourney(full!),
+        message: 'Journey is already collecting milk.',
+      },
+    };
+  }
+
+  if (journey.status !== 'RETURNING') {
+    return {
+      status: 409,
+      error: `Cannot resume journey in '${journey.status}' status. Journey must be RETURNING.`,
+    };
+  }
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const res = await tx.motJourney.update({
+      where: { id: journey.id },
+      data: {
+        status: 'COLLECTING',
+      },
+      include: {
+        zmcc: { select: { id: true, code: true, name: true } },
+        route: { select: { id: true, route_code: true, name: true } },
+        mot_profile: { select: { id: true, mot_code: true, name: true, phone_number: true } },
+        mot_vehicle: { select: { id: true, vehicle_number: true } },
+        assigner: { select: { id: true, username: true, full_name: true } },
+        stops: {
+          include: {
+            shop: { select: { id: true, shop_code: true, shop_name: true, owner_name: true, phone_number: true, geofence_radius_m: true } },
+            collection: { include: { sms_outbox: true } },
+          },
+          orderBy: { planned_sequence: 'asc' },
+        },
+      },
+    });
+
+    await writeAuditLog(tx, {
+      tableName: 'mot_journey',
+      recordId: journey.id,
+      action: 'MOT_JOURNEY_COLLECTION_RESUMED',
+      oldValues: { status: 'RETURNING' },
+      newValues: { status: 'COLLECTING' },
+      actor: { userId: auth.actorUserId, actorRole: auth.role },
+    });
+
+    return res;
+  });
+
+  return {
+    status: 200,
+    data: {
+      journey: serializeJourney(updated),
+      message: 'Shop collection resumed.',
+    },
+  };
+}
+
 
 // Helper: Serializes BigInt and Decimal fields for clean JSON responses
 /** A collection plus its SMS outbox row when included. */
@@ -2771,6 +3020,29 @@ export async function submitShopCollection(
     return { status: 400, error: getErrorMessage(err) || 'Invalid Shop RMR number.' };
   }
 
+  // 5b. Milk source is REQUIRED and must be one assigned to this ZMCC (no shop default).
+  if (payload.milk_source_id === undefined || payload.milk_source_id === null || String(payload.milk_source_id).trim() === '') {
+    return { status: 400, error: 'MILK_SOURCE_REQUIRED: Please choose the milk source for this shop collection.' };
+  }
+  let selectedMilkSourceId: bigint;
+  let milkSourceCodeSnapshot: string;
+  let milkSourceNameSnapshot: string;
+  try {
+    const msId = BigInt(payload.milk_source_id);
+    const source = await prisma.zmccMilkSource.findUnique({
+      where: { id: msId },
+      include: { visibilities: { where: { zmcc_id: stop.journey.zmcc_id, is_active: true } } },
+    });
+    if (!source || !source.is_active || (source.visibilities.length === 0 && source.zmcc_id !== stop.journey.zmcc_id)) {
+      return { status: 400, error: 'MILK_SOURCE_NOT_ASSIGNED: This milk source is not assigned to this ZMCC. Choose another source.' };
+    }
+    selectedMilkSourceId = source.id;
+    milkSourceCodeSnapshot = source.erp_code;
+    milkSourceNameSnapshot = source.name;
+  } catch {
+    return { status: 400, error: 'MILK_SOURCE_REQUIRED: The milk source is not valid. Please choose it again.' };
+  }
+
   // 6. Recalculate ALL derived milk metrics on server using canonical formulas
   let metrics;
   try {
@@ -2912,39 +3184,6 @@ export async function submitShopCollection(
           validatedShopRmr,
           { tx, scopeEntityId: stop.journey.zmcc_id }
         );
-      }
-
-      // Resolve Dynamic Milk Source & snapshot
-      let selectedMilkSourceId: bigint | null = null;
-      let milkSourceCodeSnapshot: string | null = null;
-      let milkSourceNameSnapshot: string | null = null;
-
-      if (payload.milk_source_id) {
-        const msId = BigInt(payload.milk_source_id);
-        const source = await tx.zmccMilkSource.findUnique({
-          where: { id: msId },
-          include: {
-            visibilities: {
-              where: { zmcc_id: stop.journey.zmcc_id, is_active: true },
-            },
-          },
-        });
-        if (source && (source.visibilities.length > 0 || source.zmcc_id === stop.journey.zmcc_id)) {
-          selectedMilkSourceId = source.id;
-          milkSourceCodeSnapshot = source.erp_code;
-          milkSourceNameSnapshot = source.name;
-        }
-      }
-
-      if (!selectedMilkSourceId && stop.shop.milk_source_id) {
-        const defaultSource = await tx.zmccMilkSource.findUnique({
-          where: { id: stop.shop.milk_source_id },
-        });
-        if (defaultSource) {
-          selectedMilkSourceId = defaultSource.id;
-          milkSourceCodeSnapshot = defaultSource.erp_code;
-          milkSourceNameSnapshot = defaultSource.name;
-        }
       }
 
       // Create MotShopCollection
@@ -3911,13 +4150,6 @@ export async function correctShopCollection(
     return { status: 403, error: 'Forbidden. Collection belongs to another ZMCC.' };
   }
 
-  if (!auth.isSuperAdmin && !auth.isDataExecutive && (collection.manager_correction_count ?? 0) >= 5) {
-    return {
-      status: 400,
-      error: 'Maximum correction limit (5) reached.',
-    };
-  }
-
   const isRmrProvided = payload.shop_rmr_number !== undefined;
   let newShopRmr: string | null = null;
   if (isRmrProvided) {
@@ -4013,9 +4245,6 @@ export async function correctShopCollection(
       }
       const currentTotalCount = lockedRows[0].correction_count ?? 0;
       const currentManagerCount = lockedRows[0].manager_correction_count ?? 0;
-      if (!auth.isSuperAdmin && currentManagerCount >= 5) {
-        throw new Error('MAX_CORRECTIONS_REACHED');
-      }
 
       if (isRmrChanged && newShopRmr) {
         await PaperReferenceService.validateAndVerify(
@@ -4026,7 +4255,7 @@ export async function correctShopCollection(
       }
 
       const nextCorrectionCount = currentTotalCount + 1;
-      const nextManagerCount = auth.isSuperAdmin ? currentManagerCount : currentManagerCount + 1;
+      const nextManagerCount = currentManagerCount; // no limit; the old counter stays as history only
       const nowTs = new Date();
 
       const updateData: Prisma.MotShopCollectionUncheckedUpdateInput = {
@@ -4071,9 +4300,7 @@ export async function correctShopCollection(
             updateData.milk_source_name_snapshot = source.name;
           }
         } else {
-          updateData.milk_source_id = null;
-          updateData.milk_source_code_snapshot = null;
-          updateData.milk_source_name_snapshot = null;
+          throw new Error('MILK_SOURCE_REQUIRED');
         }
       }
 
@@ -4143,11 +4370,8 @@ export async function correctShopCollection(
 
     return { status: 200, data: serializeCollection(updatedCollection) };
   } catch (err) {
-    if (getErrorMessage(err) === 'MAX_CORRECTIONS_REACHED') {
-      return {
-        status: 409,
-        error: 'Conflict: Maximum number of corrections (5) has been reached or another correction was committed concurrently.',
-      };
+    if (getErrorMessage(err) === 'MILK_SOURCE_REQUIRED') {
+      return { status: 400, error: 'A shop collection must always have a milk source.' };
     }
     if (getErrorMessage(err) === 'COLLECTION_NOT_FOUND') {
       return { status: 404, error: 'Shop collection not found.' };

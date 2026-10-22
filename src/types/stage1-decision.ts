@@ -49,7 +49,7 @@ export interface MotShopPolicyTest extends TestPointPolicyCell {
   isLr: boolean;
   isFat: boolean;
   options?: string[] | null;
-  rule: { min: number | null; max: number | null; allowed?: string[] | null } | null;
+  rule: { min: number | null; max: number | null; allowed?: string[] | null; warningOptions?: string[] | null } | null;
 }
 
 export interface MotShopPolicySnapshot {

@@ -2,58 +2,47 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { User } from '@core/types';
 import { SuperAdminSidebar } from '@/frontend/modules/super-admin/SuperAdminSidebar';
 import { SuperAdminHeader } from '@/frontend/modules/super-admin/SuperAdminHeader';
 import { resolveRoleHome } from '@/lib/role-routing';
 import { PageLoader } from '@/components/ui/spinner';
 import { PageTransition } from '@/components/motion/page-transition';
+import { useCurrentUser } from '@/frontend/hooks/useCurrentUser';
 
 export default function SuperAdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [isAuthorized, setIsAuthorized] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const { currentUser, loadingUser: loading } = useCurrentUser();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const hamburgerButtonRef = useRef<HTMLButtonElement | null>(null);
 
-  useEffect(() => {
-    async function checkAuth() {
-      try {
-        const res = await fetch('/api/auth/me');
-        const data = await res.json();
-        if (res.ok && data.user) {
-          const role = data.user.role;
-          const allowedRoles = [
-            'SUPER_ADMIN',
-            'SYSTEM_ADMIN',
-            'DATA_EXECUTIVE',
-            'DATA_ANALYST',
-            'EXECUTIVE_MANAGEMENT',
-            'ADMIN_HEAD',
-            'FINANCE_ACCOUNTS',
-            'QA_HEAD',
-            'PRODUCTION_HEAD',
-            'HEAD_OF_MPD',
-          ];
-          if (allowedRoles.includes(role)) {
-            setCurrentUser(data.user);
-            setIsAuthorized(true);
-          } else {
-            router.replace(resolveRoleHome(role));
-          }
-        } else {
-          router.replace('/login');
-        }
-      } catch (_err) {
-        router.replace('/login');
-      } finally {
-        setLoading(false);
-      }
-    }
+  const isAuthorized = React.useMemo(() => {
+    if (!currentUser) return false;
+    const role = currentUser.role;
+    const allowedRoles = [
+      'SUPER_ADMIN',
+      'SYSTEM_ADMIN',
+      'DATA_EXECUTIVE',
+      'DATA_ANALYST',
+      'EXECUTIVE_MANAGEMENT',
+      'ADMIN_HEAD',
+      'FINANCE_ACCOUNTS',
+      'QA_HEAD',
+      'PRODUCTION_HEAD',
+      'HEAD_OF_MPD',
+    ];
+    return allowedRoles.includes(role);
+  }, [currentUser]);
 
-    checkAuth();
-  }, [router]);
+  useEffect(() => {
+    if (loading) return;
+    if (!currentUser) {
+      router.replace('/login');
+      return;
+    }
+    if (!isAuthorized) {
+      router.replace(resolveRoleHome(currentUser.role));
+    }
+  }, [loading, currentUser, isAuthorized, router]);
 
   if (loading) {
     return (
@@ -61,7 +50,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
     );
   }
 
-  if (!isAuthorized) {
+  if (!isAuthorized || !currentUser) {
     return null;
   }
 

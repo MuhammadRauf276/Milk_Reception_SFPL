@@ -1,11 +1,13 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Search, ShieldAlert, Truck } from 'lucide-react';
 
 import { formatDispatchQuantity } from '@/backend/modules/dispatch/quantity/dispatchQuantityService';
 import { getErrorMessage } from '@/lib/errors';
-import { fetchJson } from '@/lib/fetch-json';
+import { fetchJson } from '@/lib/query/fetchJson';
+import { useDebouncedValue } from '@/frontend/modules/super-admin/shared/useDebouncedValue';
 
 interface Portion {
   id: string;
@@ -49,56 +51,27 @@ interface Visit {
 }
 
 export default function SuperAdminOperationsPage() {
-  const [visits, setVisits] = useState<Visit[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
-  const [pageSize] = useState(20);
-  const [totalRecords, setTotalRecords] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
+  const pageSize = 20;
+  const q = useDebouncedValue(searchQuery.trim(), 300);
 
-  // The committed request; a new object re-runs the fetch even for identical values.
-  const [request, setRequest] = useState({ query: '', page: 1 });
-
-  useEffect(() => {
-    let ignore = false;
-    fetchJson<{ visits?: Visit[]; pagination?: { totalRecords: number; totalPages: number; page: number } }>(
-      `/api/super-admin/operations?q=${encodeURIComponent(request.query)}&page=${request.page}&pageSize=${pageSize}`
-    )
-      .then(
-        (data) => {
-          if (ignore) return;
-          setVisits(data.visits || []);
-          if (data.pagination) {
-            setTotalRecords(data.pagination.totalRecords);
-            setTotalPages(data.pagination.totalPages);
-            setPage(data.pagination.page);
-          }
-          setError(null);
-        },
-        (err) => {
-          if (!ignore) setError(getErrorMessage(err));
-        }
-      )
-      .finally(() => {
-        if (!ignore) setLoading(false);
-      });
-    return () => {
-      ignore = true;
-    };
-  }, [request, pageSize]);
-
-  const goToPage = (pageNum: number) => {
-    setLoading(true);
-    setRequest((current) => ({ ...current, page: pageNum }));
-  };
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setRequest({ query: searchQuery, page: 1 });
-  };
+  const query = useQuery({
+    queryKey: ['super-admin', 'operations', { q, page }],
+    queryFn: ({ signal }) =>
+      fetchJson<{ visits?: Visit[]; pagination?: { totalRecords: number; totalPages: number; page: number } }>(
+        `/api/super-admin/operations?q=${encodeURIComponent(q)}&page=${page}&pageSize=${pageSize}`,
+        { signal }
+      ),
+    placeholderData: keepPreviousData,
+  });
+  const visits = query.data?.visits ?? [];
+  const loading = query.isPending;
+  const error = query.error ? getErrorMessage(query.error) : null;
+  const totalRecords = query.data?.pagination?.totalRecords ?? 0;
+  const totalPages = query.data?.pagination?.totalPages ?? 1;
+  const currentPage = query.data?.pagination?.page ?? page;
+  const goToPage = (pageNum: number) => setPage(pageNum);
 
   return (
     <div className="space-y-6">
@@ -108,13 +81,16 @@ export default function SuperAdminOperationsPage() {
         </div>
 
         {/* SEARCH FORM */}
-        <form onSubmit={handleSearch} className="flex items-center space-x-2">
+        <form onSubmit={(e) => e.preventDefault()} className="flex items-center space-x-2">
           <div className="relative">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setPage(1);
+              }}
               placeholder="Search Vehicle / Visit #…"
               className="pl-9 pr-3 py-1.5 rounded-xl border border-border-strong text-xs bg-white focus:outline-hidden focus:border-primary w-64"
             />
@@ -241,22 +217,22 @@ export default function SuperAdminOperationsPage() {
       {totalPages > 1 && (
         <div className="flex items-center justify-between bg-white px-4 py-3 border border-border rounded-xl text-xs font-semibold text-slate-700">
           <div>
-            Showing page <span className="font-semibold text-primary">{page}</span> of{' '}
+            Showing page <span className="font-semibold text-primary">{currentPage}</span> of{' '}
             <span className="font-semibold text-primary">{totalPages}</span> ({totalRecords.toLocaleString()} total visits)
           </div>
           <div className="flex items-center space-x-2">
             <button
               type="button"
-              disabled={page <= 1 || loading}
-              onClick={() => goToPage(Math.max(1, page - 1))}
+              disabled={currentPage <= 1 || query.isFetching}
+              onClick={() => goToPage(Math.max(1, currentPage - 1))}
               className="px-3 py-1.5 rounded-lg border border-border-strong hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-semibold"
             >
               Previous
             </button>
             <button
               type="button"
-              disabled={page >= totalPages || loading}
-              onClick={() => goToPage(Math.min(totalPages, page + 1))}
+              disabled={currentPage >= totalPages || query.isFetching}
+              onClick={() => goToPage(Math.min(totalPages, currentPage + 1))}
               className="px-3 py-1.5 rounded-lg border border-border-strong hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-semibold"
             >
               Next

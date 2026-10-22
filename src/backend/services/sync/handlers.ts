@@ -107,7 +107,7 @@ export { handleDeviceEvent, handleHeartbeat };
 /**
  * MOT_COLLECTION -> submitShopCollection. Same body as
  * POST /api/zmcc/mot/journeys/current/collections (offlineStore.ts sends):
- * { client_event_id, journey_id, stop_id | journey_stop_id, shop_rmr_number?, milk_source_id?,
+ * { client_event_id, journey_id, stop_id | journey_stop_id, shop_rmr_number?, milk_source_id (REQUIRED, assigned to the ZMCC),
  *   quantity | quantity_value, unit | quantity_unit ('LITER'|'KG'), lr, fat,
  *   recorded_latitude | latitude, recorded_longitude | longitude, recorded_gps_accuracy | gps_accuracy,
  *   notes | collection_notes, request_exception?, exception_reason?, offline_created_at | device_collected_at }
@@ -117,6 +117,14 @@ export { handleDeviceEvent, handleHeartbeat };
  */
 export const handleMotCollection: SyncHandler = async (ctx) => {
   const body = withClientEventId(ctx) as unknown as SubmitCollectionPayload;
+  // A collection without a milk source can never be saved: reject it with a clear message.
+  if (body.milk_source_id === undefined || body.milk_source_id === null || String(body.milk_source_id).trim() === '') {
+    return {
+      status: 'REJECTED',
+      code: 'MILK_SOURCE_REQUIRED',
+      message: 'This shop collection has no milk source. Open the shop again, choose the milk source and save it again.',
+    };
+  }
   const res = await submitShopCollection(requireOwner(ctx), body, { requestedAs: ctx.item.requestedAs ?? null });
   return mapServiceResult(res, {
     entityType: 'mot_shop_collection',

@@ -4,65 +4,50 @@ import { Prisma } from '@prisma/client';
 import { User } from '@core/types';
 import { resolveZmccAuth, ServiceResult, type ZmccAuthContext } from './zmccMasterDataService';
 import { normalizePakistaniCnic, normalizePakistaniMobile } from '@/lib/pakistani-identity';
-import { createNotificationsForEvent } from '@/backend/services/notificationService';
-
-export const FORBIDDEN_ERP_PLACEHOLDERS = new Set([
-  'new',
-  'pending',
-  'unknown',
-  'n/a',
-  'na',
-  'tbd',
-  'none',
-  'not available',
-  'not known',
-  '-',
-]);
 
 export const FORBIDDEN_CLIENT_FIELDS = [
+  'erp_reference',
   'erp_mapping_status',
   'erpMappingStatus',
+  'milk_source_id',
   'verified',
   'is_verified',
   'erp_code',
   'canonical_supplier_id',
 ];
 
-export interface CreateLocalSupplierPayload {
+export interface CreateHcSupplierPayload {
   name: string;
   phone?: string | null;
   cnic?: string | null;
-  erp_reference?: string | null;
   zmcc_id?: string | number | bigint;
-  milk_source_id?: string | number | bigint;
 }
 
-export interface UpdateLocalSupplierPayload {
+export interface UpdateHcSupplierPayload {
   name?: string;
   phone?: string | null;
   cnic?: string | null;
-  erp_reference?: string | null;
   is_active?: boolean;
 }
 
-export interface LocalSupplierSearchParams {
+export interface HcSupplierSearchParams {
   search?: string;
   query?: string;
   zmcc_id?: string | number | bigint;
   is_active?: string | boolean;
-  erp_mapping_status?: string;
   approval_status?: string;
+  /** Optional pagination; without `page` the full list is returned. */
+  page?: number;
+  page_size?: number;
 }
 
-export interface LocalSupplierDbRecord {
+export interface HcSupplierDbRecord {
   id: bigint;
   local_supplier_code: string;
   zmcc_id: bigint;
   name: string;
   phone: string | null;
   cnic: string | null;
-  erp_reference: string | null;
-  erp_mapping_status: string;
   is_active: boolean;
   created_by_user_id: bigint;
   updated_by_user_id: bigint | null;
@@ -88,7 +73,7 @@ function maskIdentity(value: string | null | undefined, visible: boolean): strin
 }
 
 /** Full CNIC/phone are returned only to the manager of the assigned source or Super Admin. */
-export function serializeLocalSupplier(supplier: LocalSupplierDbRecord, canViewFullIdentity = false) {
+export function serializeHcSupplier(supplier: HcSupplierDbRecord, canViewFullIdentity = false) {
   return {
     id: supplier.id.toString(),
     local_supplier_code: supplier.local_supplier_code,
@@ -97,8 +82,6 @@ export function serializeLocalSupplier(supplier: LocalSupplierDbRecord, canViewF
     phone: maskIdentity(supplier.phone, canViewFullIdentity),
     cnic: maskIdentity(supplier.cnic, canViewFullIdentity),
     identity_complete: normalizePakistaniMobile(supplier.phone).ok && normalizePakistaniCnic(supplier.cnic).ok,
-    erp_reference: supplier.erp_reference ?? null,
-    erp_mapping_status: supplier.erp_mapping_status,
     is_active: supplier.is_active,
     approval_status: supplier.approval_status ?? 'ACTIVE',
     rejection_reason: supplier.rejection_reason ?? null,
@@ -117,40 +100,6 @@ export function serializeLocalSupplier(supplier: LocalSupplierDbRecord, canViewF
         }
       : undefined,
   };
-}
-
-/**
- * Validates ERP reference string according to Frozen ERP Rule:
- * - Optional / nullable
- * - Trim whitespace, preserve leading zeros and special characters
- * - Blank -> null
- * - Case-insensitive check against forbidden placeholder values
- * - Max length 100
- */
-export function validateErpReference(raw: unknown): { value: string | null; error?: string } {
-  if (raw === undefined || raw === null) {
-    return { value: null };
-  }
-  if (typeof raw !== 'string') {
-    return { value: null, error: 'erp_reference must be a text string.' };
-  }
-  const trimmed = raw.trim();
-  if (trimmed === '') {
-    return { value: null };
-  }
-  if (trimmed.length > 100) {
-    return { value: null, error: 'erp_reference cannot exceed 100 characters.' };
-  }
-
-  const lower = trimmed.toLowerCase();
-  if (FORBIDDEN_ERP_PLACEHOLDERS.has(lower)) {
-    return {
-      value: null,
-      error: `Placeholder ERP reference "${trimmed}" is forbidden. Leave blank if unknown.`,
-    };
-  }
-
-  return { value: trimmed };
 }
 
 function auditActorFor(auth: ZmccAuthContext) {
@@ -200,12 +149,12 @@ async function notifyZonalManagersHcPending(
 }
 
 /**
- * Get / Search local suppliers with scope isolation
+ * Get / Search HC suppliers with scope isolation
  */
-export async function getLocalSuppliers(
+export async function getHcSuppliers(
   reqOrUser?: Request | User,
-  params: LocalSupplierSearchParams = {}
-): Promise<ServiceResult<ReturnType<typeof serializeLocalSupplier>[]>> {
+  params: HcSupplierSearchParams = {}
+): Promise<ServiceResult<ReturnType<typeof serializeHcSupplier>[]>> {
   const { auth, errorResponse } = await resolveZmccAuth(reqOrUser as Request, 'READ');
   if (errorResponse) return errorResponse;
   if (!auth) return { status: 401, error: 'Unauthorized.' };
@@ -242,14 +191,11 @@ export async function getLocalSuppliers(
     }
   }
 
-  if (params.erp_mapping_status) {
-    where.erp_mapping_status = params.erp_mapping_status;
-  }
   if (params.approval_status) {
     where.approval_status = params.approval_status;
   }
 
-  // Text search query across code, name, phone, cnic, erp_reference
+  // Text search query across code, name, phone, cnic
   const searchQuery = (params.search || params.query || '').trim();
   if (searchQuery) {
     where.OR = [
@@ -257,29 +203,38 @@ export async function getLocalSuppliers(
       { name: { contains: searchQuery, mode: 'insensitive' } },
       { phone: { contains: searchQuery, mode: 'insensitive' } },
       { cnic: { contains: searchQuery, mode: 'insensitive' } },
-      { erp_reference: { contains: searchQuery, mode: 'insensitive' } },
     ];
   }
 
-  const suppliers = await prisma.zmccLocalSupplier.findMany({
-    where,
-    include: { zmcc: true },
-    orderBy: [
-      { is_active: 'desc' },
-      { name: 'asc' },
-    ],
-  });
+  const paginated = params.page != null;
+  const pageSize = Math.min(Math.max(params.page_size ?? 50, 1), 200);
+  const page = Math.max(params.page ?? 1, 1);
+  const [suppliers, total] = await Promise.all([
+    prisma.zmccLocalSupplier.findMany({
+      where,
+      include: { zmcc: { select: { id: true, code: true, name: true, is_active: true } } },
+      orderBy: [
+        { is_active: 'desc' },
+        { name: 'asc' },
+      ],
+      ...(paginated ? { skip: (page - 1) * pageSize, take: pageSize } : {}),
+    }),
+    paginated ? prisma.zmccLocalSupplier.count({ where }) : Promise.resolve(0),
+  ]);
 
   return {
     status: 200,
-    data: suppliers.map((supplier) => serializeLocalSupplier(supplier, auth.isSuperAdmin || auth.isZmccManager)),
+    data: suppliers.map((supplier) => serializeHcSupplier(supplier, auth.isSuperAdmin || auth.isZmccManager)),
+    ...(paginated
+      ? { pagination: { page, page_size: pageSize, total, total_pages: Math.max(1, Math.ceil(total / pageSize)) } }
+      : {}),
   };
 }
 
 /**
- * Get local supplier by ID with ZMCC authorization check
+ * Get HC supplier by ID with ZMCC authorization check
  */
-export async function getLocalSupplierById(
+export async function getHcSupplierById(
   reqOrUser: Request | User,
   idParam: string | number | bigint
 ): Promise<ServiceResult<unknown>> {
@@ -300,7 +255,7 @@ export async function getLocalSupplierById(
   });
 
   if (!supplier) {
-    return { status: 404, error: 'Local supplier not found.' };
+    return { status: 404, error: 'HC supplier not found.' };
   }
 
   if (!auth.isSuperAdmin && supplier.zmcc_id !== auth.effectiveZmccId) {
@@ -309,14 +264,14 @@ export async function getLocalSupplierById(
 
   return {
     status: 200,
-    data: serializeLocalSupplier(supplier, auth.isSuperAdmin || auth.isZmccManager),
+    data: serializeHcSupplier(supplier, auth.isSuperAdmin || auth.isZmccManager),
   };
 }
 
 /** Manager remediation queue for legacy suppliers that cannot be activated or used for arrivals. */
-export async function getIncompleteLocalSuppliers(
+export async function getIncompleteHcSuppliers(
   reqOrUser?: Request | User
-): Promise<ServiceResult<ReturnType<typeof serializeLocalSupplier>[]>> {
+): Promise<ServiceResult<ReturnType<typeof serializeHcSupplier>[]>> {
   const { auth, errorResponse } = await resolveZmccAuth(reqOrUser as Request, 'READ');
   if (errorResponse) return errorResponse;
   if (!auth || (!auth.isSuperAdmin && !auth.isZmccManager)) return { status: 403, error: 'Forbidden. Only ZMCC Manager or Super Admin may view incomplete identities.' };
@@ -324,25 +279,25 @@ export async function getIncompleteLocalSuppliers(
     where: { ...(auth.isSuperAdmin || !auth.effectiveZmccId ? {} : { zmcc_id: auth.effectiveZmccId }), OR: [{ phone: null }, { cnic: null }, { phone: '' }, { cnic: '' }] },
     include: { zmcc: true }, orderBy: [{ zmcc_id: 'asc' }, { name: 'asc' }],
   });
-  return { status: 200, data: suppliers.map((supplier) => serializeLocalSupplier(supplier, true)) };
+  return { status: 200, data: suppliers.map((supplier) => serializeHcSupplier(supplier, true)) };
 }
 
 /**
- * Create lightweight local supplier (PHE_OPERATOR, ZMCC_MANAGER, SUPER_ADMIN)
+ * Create lightweight HC supplier (PHE_OPERATOR, ZMCC_MANAGER, SUPER_ADMIN)
  */
-export async function createLocalSupplier(
+export async function createHcSupplier(
   reqOrUser: Request | User,
-  payload: CreateLocalSupplierPayload
+  payload: CreateHcSupplierPayload
 ): Promise<ServiceResult<unknown>> {
   const { auth, errorResponse } = await resolveZmccAuth(reqOrUser as Request, 'READ');
   if (errorResponse) return errorResponse;
   if (!auth) return { status: 401, error: 'Unauthorized.' };
 
-  // Role check: Only PHE_OPERATOR, ZMCC_MANAGER, SUPER_ADMIN can create local suppliers
+  // Role check: Only PHE_OPERATOR, ZMCC_MANAGER, SUPER_ADMIN can create HC suppliers
   if (!auth.isPheOperator && !auth.isZmccManager && !auth.isSuperAdmin) {
     return {
       status: 403,
-      error: 'Forbidden. Only PHE Operator, ZMCC Manager, or Super Admin can create local suppliers.',
+      error: 'Forbidden. Only PHE Operator, ZMCC Manager, or Super Admin can create HC suppliers.',
     };
   }
 
@@ -352,8 +307,8 @@ export async function createLocalSupplier(
 
   // Role-specific strict create allowlists
   const allowedCreateFields = auth.isSuperAdmin
-    ? new Set(['name', 'phone', 'cnic', 'erp_reference', 'zmcc_id', 'milk_source_id'])
-    : new Set(['name', 'phone', 'cnic', 'erp_reference', 'milk_source_id']);
+    ? new Set(['name', 'phone', 'cnic', 'zmcc_id'])
+    : new Set(['name', 'phone', 'cnic']);
 
   for (const field of Object.keys(payload)) {
     if (!allowedCreateFields.has(field)) {
@@ -363,7 +318,7 @@ export async function createLocalSupplier(
           error: `Scoped users (${auth.role}) cannot supply zmcc_id. Target ZMCC is resolved automatically from session.`,
         };
       }
-      return { status: 400, error: `Field "${field}" is not allowed on local supplier creation.` };
+      return { status: 400, error: `Field "${field}" is not allowed on HC supplier creation.` };
     }
   }
 
@@ -422,13 +377,6 @@ export async function createLocalSupplier(
   const phone = phoneResult.value;
   const cnic = cnicResult.value;
 
-  // Validate ERP Reference
-  const erpValidation = validateErpReference(payload.erp_reference);
-  if (erpValidation.error) {
-    return { status: 400, error: erpValidation.error };
-  }
-  const erpReference = erpValidation.value;
-
   // PHE / MDO create HCs as PENDING; a Zonal Manager (or above) creates them already approved.
   const needsApproval = !auth.canApproveStage1 && !auth.isSuperAdmin;
 
@@ -457,8 +405,6 @@ export async function createLocalSupplier(
           name,
           phone,
           cnic,
-          erp_reference: erpReference,
-          erp_mapping_status: 'PENDING',
           is_active: true,
           created_by_user_id: auth.actorUserId,
           created_as_role: auth.acting.actingAs,
@@ -487,8 +433,6 @@ export async function createLocalSupplier(
           name: supplier.name,
           phone: supplier.phone,
           cnic: supplier.cnic,
-          erp_reference: supplier.erp_reference,
-          erp_mapping_status: supplier.erp_mapping_status,
           is_active: supplier.is_active,
           approval_status: supplier.approval_status,
         },
@@ -497,16 +441,6 @@ export async function createLocalSupplier(
 
       if (needsApproval) {
         await notifyZonalManagersHcPending(tx, supplier, targetZmccId);
-      } else if (supplier.erp_mapping_status === 'PENDING') {
-        await createNotificationsForEvent(tx, {
-          eventKey: 'ERP_VENDOR_MAPPING_REQUIRED',
-          sourceId: supplier.id.toString(),
-          sourceZmccId: targetZmccId,
-          title: 'ERP Vendor Mapping Required',
-          body: `Local supplier "${supplier.name}" (${supplier.local_supplier_code}) requires official ERP vendor mapping.`,
-          deepLink: '/finance/reconciliation',
-          dedupeSuffix: supplier.id.toString(),
-        });
       }
 
       return supplier;
@@ -514,22 +448,22 @@ export async function createLocalSupplier(
 
     return {
       status: 201,
-      data: serializeLocalSupplier(createdSupplier, true),
+      data: serializeHcSupplier(createdSupplier, true),
     };
   } catch (err: unknown) {
-    console.error('createLocalSupplier error:', err);
-    return { status: 500, error: 'Internal server error while creating local supplier.' };
+    console.error('createHcSupplier error:', err);
+    return { status: 500, error: 'Internal server error while creating HC supplier.' };
   }
 }
 
 /**
- * Update / Deactivate local supplier (ZMCC_MANAGER, SUPER_ADMIN only)
+ * Update / Deactivate HC supplier (ZMCC_MANAGER, SUPER_ADMIN only)
  * PHE Operator is strictly forbidden from editing or deactivating existing suppliers.
  */
-export async function updateLocalSupplier(
+export async function updateHcSupplier(
   reqOrUser: Request | User,
   idParam: string | number | bigint,
-  payload: UpdateLocalSupplierPayload
+  payload: UpdateHcSupplierPayload
 ): Promise<ServiceResult<unknown>> {
   const { auth, errorResponse } = await resolveZmccAuth(reqOrUser as Request, 'READ');
   if (errorResponse) return errorResponse;
@@ -546,7 +480,7 @@ export async function updateLocalSupplier(
   if (!auth.isDataExecutive && !auth.isSuperAdmin) {
     return {
       status: 403,
-      error: 'Forbidden. Only Data Executive or Super Admin may update local suppliers.',
+      error: 'Forbidden. Only Data Executive or Super Admin may update HC suppliers.',
     };
   }
 
@@ -561,11 +495,11 @@ export async function updateLocalSupplier(
     return { status: 400, error: 'Missing request payload.' };
   }
 
-  // Strict PATCH allowlist: exactly name, phone, cnic, erp_reference, is_active
-  const allowedPatchFields = new Set(['name', 'phone', 'cnic', 'erp_reference', 'is_active']);
+  // Strict PATCH allowlist: exactly name, phone, cnic, is_active
+  const allowedPatchFields = new Set(['name', 'phone', 'cnic', 'is_active']);
   for (const field of Object.keys(payload)) {
     if (!allowedPatchFields.has(field)) {
-      return { status: 400, error: `Field "${field}" is not allowed on local supplier update.` };
+      return { status: 400, error: `Field "${field}" is not allowed on HC supplier update.` };
     }
   }
 
@@ -582,7 +516,7 @@ export async function updateLocalSupplier(
   });
 
   if (!existingSupplier) {
-    return { status: 404, error: 'Local supplier not found.' };
+    return { status: 404, error: 'HC supplier not found.' };
   }
 
   // Manager can only update suppliers in their own ZMCC
@@ -621,15 +555,6 @@ export async function updateLocalSupplier(
     updateData.cnic = cnicResult.value;
   }
 
-  // Validate ERP Reference if provided
-  if (payload.erp_reference !== undefined) {
-    const erpValidation = validateErpReference(payload.erp_reference);
-    if (erpValidation.error) {
-      return { status: 400, error: erpValidation.error };
-    }
-    updateData.erp_reference = erpValidation.value;
-  }
-
   // Validate Active status if provided
   if (payload.is_active !== undefined) {
     if (typeof payload.is_active !== 'boolean') {
@@ -654,14 +579,12 @@ export async function updateLocalSupplier(
           name: existingSupplier.name,
           phone: existingSupplier.phone,
           cnic: existingSupplier.cnic,
-          erp_reference: existingSupplier.erp_reference,
           is_active: existingSupplier.is_active,
         },
         newValues: {
           name: result.name,
           phone: result.phone,
           cnic: result.cnic,
-          erp_reference: result.erp_reference,
           is_active: result.is_active,
         },
         actor: auditActorFor(auth),
@@ -672,18 +595,18 @@ export async function updateLocalSupplier(
 
     return {
       status: 200,
-      data: serializeLocalSupplier(updated, true),
+      data: serializeHcSupplier(updated, true),
     };
   } catch (err: unknown) {
-    console.error('updateLocalSupplier error:', err);
-    return { status: 500, error: 'Internal server error while updating local supplier.' };
+    console.error('updateHcSupplier error:', err);
+    return { status: 500, error: 'Internal server error while updating HC supplier.' };
   }
 }
 
 /** HCs waiting for Zonal Manager approval (own ZMCC; Super Admin sees all). */
-export async function listPendingLocalSuppliers(
+export async function listPendingHcSuppliers(
   reqOrUser?: Request | User
-): Promise<ServiceResult<ReturnType<typeof serializeLocalSupplier>[]>> {
+): Promise<ServiceResult<ReturnType<typeof serializeHcSupplier>[]>> {
   const { auth, errorResponse } = await resolveZmccAuth(reqOrUser as Request, 'READ');
   if (errorResponse) return errorResponse;
   if (!auth) return { status: 401, error: 'Unauthorized.' };
@@ -698,10 +621,10 @@ export async function listPendingLocalSuppliers(
     include: { zmcc: true },
     orderBy: { created_at: 'asc' },
   });
-  return { status: 200, data: suppliers.map((supplier) => serializeLocalSupplier(supplier, true)) };
+  return { status: 200, data: suppliers.map((supplier) => serializeHcSupplier(supplier, true)) };
 }
 
-async function decideLocalSupplier(
+async function decideHcSupplier(
   reqOrUser: Request | User,
   idParam: string | number | bigint,
   decision: 'APPROVE' | 'REJECT',
@@ -727,7 +650,7 @@ async function decideLocalSupplier(
   }
 
   const existing = await prisma.zmccLocalSupplier.findUnique({ where: { id: supplierId }, include: { zmcc: true } });
-  if (!existing) return { status: 404, error: 'Local supplier not found.' };
+  if (!existing) return { status: 404, error: 'HC supplier not found.' };
   if (!auth.isSuperAdmin && !inScope(auth, existing.zmcc_id)) {
     return { status: 403, error: 'Forbidden. This HC belongs to another ZMCC.' };
   }
@@ -766,30 +689,22 @@ async function decideLocalSupplier(
         actor: auditActorFor(auth),
       });
 
-      if (approved && result.erp_mapping_status === 'PENDING') {
-        await createNotificationsForEvent(tx, {
-          eventKey: 'ERP_VENDOR_MAPPING_REQUIRED',
-          sourceId: result.id.toString(),
-          sourceZmccId: result.zmcc_id,
-          title: 'ERP Vendor Mapping Required',
-          body: `Local supplier "${result.name}" (${result.local_supplier_code}) requires official ERP vendor mapping.`,
-          deepLink: '/finance/reconciliation',
-          dedupeSuffix: result.id.toString(),
-        });
-      }
       return result;
     });
-    return { status: 200, data: serializeLocalSupplier(updated, true) };
+    return { status: 200, data: serializeHcSupplier(updated, true) };
   } catch (err: unknown) {
-    console.error('decideLocalSupplier error:', err);
+    console.error('decideHcSupplier error:', err);
     return { status: 500, error: 'Internal server error while saving the HC decision.' };
   }
 }
 
-export function approveLocalSupplier(reqOrUser: Request | User, idParam: string | number | bigint) {
-  return decideLocalSupplier(reqOrUser, idParam, 'APPROVE');
+export function approveHcSupplier(reqOrUser: Request | User, idParam: string | number | bigint) {
+  return decideHcSupplier(reqOrUser, idParam, 'APPROVE');
 }
 
-export function rejectLocalSupplier(reqOrUser: Request | User, idParam: string | number | bigint, reason: string) {
-  return decideLocalSupplier(reqOrUser, idParam, 'REJECT', reason);
+export function rejectHcSupplier(reqOrUser: Request | User, idParam: string | number | bigint, reason: string) {
+  return decideHcSupplier(reqOrUser, idParam, 'REJECT', reason);
 }
+
+/** Back-compat alias for older imports; prefer serializeHcSupplier. */
+export const serializeLocalSupplier = serializeHcSupplier;

@@ -9,53 +9,43 @@ import { ZmccMasterDataWorkspace, MasterDataTab } from '@/frontend/modules/zmcc/
 import { MotOperationsWorkspace, MotWorkspaceTab } from '@/frontend/modules/mot/MotOperationsWorkspace';
 import { ZmccArrivalsWorkspace, MainTab as ArrivalsTab } from '@/frontend/modules/zmcc/arrivals/ZmccArrivalsWorkspace';
 import { ZmccWeighingWorkspace } from '@/frontend/modules/zmcc/weighing/ZmccWeighingWorkspace';
+import { ZmccExitWorkspace } from '@/frontend/modules/zmcc/exit/ZmccExitWorkspace';
 import { PageLoader } from '@/components/ui/spinner';
 import { PageTransition } from '@/components/motion/page-transition';
-import { isZmccFieldOfficer } from '@core/roles/hierarchy';
+import { canActAs } from '@core/roles/hierarchy';
+import { useCurrentUser } from '@/frontend/hooks/useCurrentUser';
 
 function PheContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { currentUser, loadingUser: loading } = useCurrentUser();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const hamburgerButtonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
-    async function loadUser() {
-      try {
-        const res = await fetch('/api/auth/me');
-        if (res.ok) {
-          const data = await res.json();
-          if (!data.user) {
-            router.push('/login');
-            return;
-          }
-          const user = data.user;
-          if (
-            !isZmccFieldOfficer(user.role) ||
-            user.is_active === false ||
-            !user.procurement_source_id ||
-            !user.procurement_source ||
-            user.procurement_source.is_active === false ||
-            user.procurement_source.source_type !== 'ZMCC'
-          ) {
-            router.push('/workspace-unavailable');
-            return;
-          }
-          setCurrentUser(user);
-        } else {
-          router.push('/login');
-        }
-      } catch (err) {
-        console.error('Failed to load PHE user', err);
-        router.push('/login');
-      } finally {
-        setLoading(false);
-      }
+    if (loading) return;
+    if (!currentUser) {
+      router.push('/login');
+      return;
     }
-    loadUser();
-  }, [router]);
+    const isAuthorized = canActAs(currentUser.role, 'PHE_OPERATOR') || canActAs(currentUser.role, 'MDO');
+    const isSystemScope =
+      currentUser.role === 'SUPER_ADMIN' ||
+      currentUser.role === 'DATA_EXECUTIVE' ||
+      currentUser.role === 'HEAD_OF_MPD' ||
+      currentUser.role === 'EXECUTIVE_MANAGEMENT';
+
+    if (
+      !isAuthorized ||
+      (!isSystemScope &&
+        (!currentUser.procurement_source_id ||
+          !currentUser.procurement_source ||
+          currentUser.procurement_source.is_active === false ||
+          currentUser.procurement_source.source_type !== 'ZMCC'))
+    ) {
+      router.push('/workspace-unavailable');
+    }
+  }, [loading, currentUser, router]);
 
   const openDrawer = useCallback(() => {
     setIsDrawerOpen(true);
@@ -70,16 +60,21 @@ function PheContent() {
 
   // Canonical query parameters
   const rawSection = searchParams?.get('section') || 'arrivals';
-  const section = rawSection === 'suppliers' || rawSection === 'mot' || rawSection === 'weighing' ? rawSection : 'arrivals';
+  const canDoMot = Boolean(currentUser?.role && canActAs(currentUser.role, 'MDO'));
+  const section =
+    rawSection === 'suppliers' || (rawSection === 'mot' && canDoMot) || rawSection === 'weighing' || rawSection === 'exit'
+      ? rawSection
+      : 'arrivals';
 
   const rawView = searchParams?.get('view') || '';
+  const zmccIdParam = searchParams?.get('zmccId') || searchParams?.get('zmcc_id') || searchParams?.get('sourceId') || '';
 
   const { resolvedArrivalsTab, resolvedMasterDataTab, resolvedMotTab } = useMemo(() => {
     if (section === 'suppliers') {
       const isShop = rawView === 'shop-details';
       const isApprovals = rawView === 'approvals';
       return {
-        resolvedArrivalsTab: 'MOT_ARRIVAL' as ArrivalsTab,
+        resolvedArrivalsTab: 'MC_ARRIVAL' as ArrivalsTab,
         resolvedMasterDataTab: (isApprovals ? 'APPROVALS' : isShop ? 'SHOPS' : 'LOCAL_SUPPLIERS') as MasterDataTab,
         resolvedMotTab: 'DISPATCH' as MotWorkspaceTab,
       };
@@ -97,18 +92,22 @@ function PheContent() {
         motTab = 'SMS_OUTBOX';
       } else if (rawView === 'approvals') {
         motTab = 'APPROVALS';
+      } else if (rawView === 'profiles') {
+        motTab = 'PROFILES';
+      } else if (rawView === 'vehicles') {
+        motTab = 'VEHICLES';
       }
       return {
-        resolvedArrivalsTab: 'MOT_ARRIVAL' as ArrivalsTab,
+        resolvedArrivalsTab: 'MC_ARRIVAL' as ArrivalsTab,
         resolvedMasterDataTab: 'LOCAL_SUPPLIERS' as MasterDataTab,
         resolvedMotTab: motTab,
       };
     }
 
     // Default: arrivals
-    let arrTab: ArrivalsTab = 'MOT_ARRIVAL';
-    if (rawView === 'local-supplier-arrival') {
-      arrTab = 'LOCAL_SUPPLIER_ARRIVAL';
+    let arrTab: ArrivalsTab = 'MC_ARRIVAL';
+    if (rawView === 'hc-arrival' || rawView === 'local-supplier-arrival') {
+      arrTab = 'HC_ARRIVAL';
     } else if (rawView === 'inside') {
       arrTab = 'INSIDE_ZMCC';
     } else if (rawView === 'history') {
@@ -156,57 +155,66 @@ function PheContent() {
         {/* Center Content Pane with Full Canvas Width */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 w-full max-w-full space-y-4">
           <PageTransition>
-          {section === 'arrivals' && (
-            <ZmccArrivalsWorkspace
-              currentUser={currentUser}
-              activeTab={resolvedArrivalsTab}
-              hideTabBar={true}
-              onTabChange={(tab) => {
-                const map: Record<string, string> = {
-                  MOT_ARRIVAL: 'mot-arrival',
-                  LOCAL_SUPPLIER_ARRIVAL: 'local-supplier-arrival',
-                  INSIDE_ZMCC: 'inside',
-                  HISTORY: 'history',
-                };
-                router.push(`/phe?section=arrivals&view=${map[tab] || 'mot-arrival'}`);
-              }}
-            />
-          )}
+            {section === 'arrivals' && (
+              <ZmccArrivalsWorkspace
+                currentUser={currentUser}
+                activeTab={resolvedArrivalsTab}
+                hideTabBar={false}
+                onTabChange={(tab) => {
+                  const map: Record<string, string> = {
+                    MC_ARRIVAL: 'mot-arrival', // view ids stay as in roleNavConfig (nav highlight)
+                    HC_ARRIVAL: 'local-supplier-arrival',
+                    INSIDE_ZMCC: 'inside',
+                    HISTORY: 'history',
+                  };
+                  const extra = zmccIdParam ? `&zmccId=${encodeURIComponent(zmccIdParam)}` : '';
+                  router.push(`/phe?section=arrivals&view=${map[tab] || 'mot-arrival'}${extra}`);
+                }}
+              />
+            )}
 
-          {section === 'weighing' && <ZmccWeighingWorkspace />}
+            {section === 'weighing' && <ZmccWeighingWorkspace />}
 
-          {section === 'suppliers' && (
-            <ZmccMasterDataWorkspace
-              currentUser={currentUser}
-              activeTab={resolvedMasterDataTab}
-              hideTabBar={true}
-              onTabChange={(tab) => {
-                const map: Record<string, string> = {
-                  LOCAL_SUPPLIERS: 'local-suppliers',
-                  SHOPS: 'shop-details',
-                };
-                router.push(`/phe?section=suppliers&view=${map[tab] || 'local-suppliers'}`);
-              }}
-            />
-          )}
+            {section === 'exit' && <ZmccExitWorkspace />}
 
-          {section === 'mot' && (
-            <MotOperationsWorkspace
-              currentUser={currentUser}
-              activeTab={resolvedMotTab}
-              hideTabBar={true}
-              onTabChange={(tab) => {
-                const map: Record<string, string> = {
-                  DISPATCH: 'dispatch',
-                  ACTIVE_JOURNEYS: 'active',
-                  JOURNEY_HISTORY: 'history',
-                  JOURNEY_MAP: 'map',
-                  SMS_OUTBOX: 'sms',
-                };
-                router.push(`/phe?section=mot&view=${map[tab] || 'dispatch'}`);
-              }}
-            />
-          )}
+            {section === 'suppliers' && (
+              <ZmccMasterDataWorkspace
+                currentUser={currentUser}
+                activeTab={resolvedMasterDataTab}
+                hideTabBar={false}
+                onTabChange={(tab) => {
+                  const map: Record<string, string> = {
+                    LOCAL_SUPPLIERS: 'local-suppliers',
+                    SHOPS: 'shop-details',
+                    APPROVALS: 'approvals',
+                  };
+                  const extra = zmccIdParam ? `&zmccId=${encodeURIComponent(zmccIdParam)}` : '';
+                  router.push(`/phe?section=suppliers&view=${map[tab] || 'local-suppliers'}${extra}`);
+                }}
+              />
+            )}
+
+            {section === 'mot' && (
+              <MotOperationsWorkspace
+                currentUser={currentUser}
+                activeTab={resolvedMotTab}
+                hideTabBar={false}
+                onTabChange={(tab) => {
+                  const map: Record<string, string> = {
+                    DISPATCH: 'dispatch',
+                    ACTIVE_JOURNEYS: 'active',
+                    JOURNEY_HISTORY: 'history',
+                    JOURNEY_MAP: 'map',
+                    SMS_OUTBOX: 'sms',
+                    APPROVALS: 'approvals',
+                    PROFILES: 'profiles',
+                    VEHICLES: 'vehicles',
+                  };
+                  const extra = zmccIdParam ? `&zmccId=${encodeURIComponent(zmccIdParam)}` : '';
+                  router.push(`/phe?section=mot&view=${map[tab] || 'dispatch'}${extra}`);
+                }}
+              />
+            )}
           </PageTransition>
         </main>
       </div>

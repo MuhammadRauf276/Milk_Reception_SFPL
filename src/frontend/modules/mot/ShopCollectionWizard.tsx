@@ -1,15 +1,15 @@
 'use client';
 
 /**
- * MOT shop collection as a 3-step wizard, shown inside the collection modal:
- *   1. Quantity & source   (RMR token, milk source with ERP badge, gross quantity)
- *   2. Tests & pictures    (every active policy test, SOP range, picture slots)
- *   3. Check & decide      (milk summary, test results, Accept / Reject, reason)
- * The footer (Back / Next / route-coloured submit) is sticky and sized to the visual viewport,
- * so the on-screen keyboard never covers it. State and saving stay in the page; this only lays it out.
+ * MOT shop collection as a streamlined 2-step wizard + dedicated Decide Modal:
+ *   1. Quantity & Source   (RMR token, milk source with ERP Combobox, gross quantity, notes)
+ *   2. Tests & Pictures    (policy tests, SOP acceptable ranges, live photo evidence)
+ * Clicking "Review & Decide" opens the Decide Modal (Dialog on desktop, Drawer on mobile).
  */
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Navigation, Plus, Save, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Combobox } from '@/components/ui/combobox';
+import { ArrowLeft, ArrowRight, CheckCircle2, Navigation, Save, Sparkles, X, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MotShopTestsStep, type MotShopTestsStepProps } from '@/frontend/modules/mot/MotShopTestsStep';
 import {
@@ -17,6 +17,7 @@ import {
   DecisionSubmitButton,
   type DecisionRulePanelProps,
 } from '@/frontend/modules/shared/decision/DecisionRulePanel';
+import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import type { CachedAvailableSource } from '@/frontend/modules/mot/offlineStore';
 import type { CanonicalMilkMetrics } from '@/backend/utils/milkFormulas';
 
@@ -35,7 +36,6 @@ export interface ShopCollectionWizardProps {
   sources: CachedAvailableSource[];
   selectedSourceId: string;
   onSourceChange: (id: string) => void;
-  onRequestErpCode: () => void;
   quantity: string;
   onQuantityChange: (v: string) => void;
   unit: 'LITER' | 'KG';
@@ -51,12 +51,11 @@ export interface ShopCollectionWizardProps {
   onClose: () => void;
 }
 
-const STEPS = ['Quantity', 'Tests', 'Decide'] as const;
+const STEPS = ['Source & Tests', 'Quantity & Comments'] as const;
 
 const FIELD_CLASS =
-  'h-12 w-full min-w-0 rounded-xl border-2 border-slate-300 bg-white px-3 text-base font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900';
+  'h-12 w-full min-w-0 rounded-xl border border-border bg-white px-3 text-base font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary';
 
-/** Height of the visible area (shrinks when the on-screen keyboard opens). */
 function useVisualViewportHeight(): number | null {
   const [h, setH] = useState<number | null>(null);
   useEffect(() => {
@@ -83,7 +82,6 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
     sources,
     selectedSourceId,
     onSourceChange,
-    onRequestErpCode,
     quantity,
     onQuantityChange,
     unit,
@@ -99,6 +97,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
 
   const [step, setStep] = useState(0);
   const [stepError, setStepError] = useState<string | null>(null);
+  const [decideOpen, setDecideOpen] = useState(false);
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const vvh = useVisualViewportHeight();
   const busy = Boolean(decision.submitting);
@@ -107,47 +106,52 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
     bodyRef.current?.scrollTo({ top: 0 });
   }, [step]);
 
-  const selectedSource = sources.find((s) => s.id === selectedSourceId) ?? null;
-
   const checkStep = (i: number): string | null => {
     if (i === 0) {
-      const q = parseFloat(quantity);
-      if (!Number.isFinite(q) || q <= 0 || q > 10000) return 'Enter the milk quantity (more than 0, up to 10,000).';
-    }
-    if (i === 1) {
+      if (!selectedSourceId) return 'Choose the milk source for this shop.';
       const lr = parseFloat(tests.lr);
       const fat = parseFloat(tests.fat);
       if (!Number.isFinite(lr) || lr <= 0) return 'Enter the LR reading (more than zero).';
       if (!Number.isFinite(fat) || fat < 0) return 'Enter the Fat reading (zero or more).';
     }
+    if (i === 1) {
+      const q = parseFloat(quantity);
+      if (!Number.isFinite(q) || q <= 0 || q > 10000) return 'Enter the milk quantity (more than 0, up to 10,000).';
+    }
     return null;
+  };
+
+  const handleOpenDecide = () => {
+    const err0 = checkStep(0);
+    if (err0) {
+      setStep(0);
+      setStepError(err0);
+      return;
+    }
+    const err1 = checkStep(1);
+    if (err1) {
+      setStepError(err1);
+      return;
+    }
+    setStepError(null);
+    setDecideOpen(true);
   };
 
   const goNext = () => {
     const err = checkStep(step);
     setStepError(err);
-    if (!err) setStep((s) => Math.min(s + 1, STEPS.length - 1));
+    if (!err) {
+      if (step < STEPS.length - 1) {
+        setStep(step + 1);
+      } else {
+        handleOpenDecide();
+      }
+    }
   };
+
   const goBack = () => {
     setStepError(null);
     setStep((s) => Math.max(s - 1, 0));
-  };
-  const goTo = (i: number) => {
-    if (i <= step) {
-      setStepError(null);
-      setStep(i);
-      return;
-    }
-    for (let k = step; k < i; k++) {
-      const err = checkStep(k);
-      if (err) {
-        setStepError(err);
-        setStep(k);
-        return;
-      }
-    }
-    setStepError(null);
-    setStep(i);
   };
 
   const gpsText =
@@ -156,7 +160,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
       : gpsStatus === 'CAPTURED'
         ? `Location captured (±${Math.round(gpsAccuracy || 0)} m)`
         : gpsStatus === 'APPROXIMATE'
-          ? 'Approximate location (no fresh GPS)'
+          ? 'Approximate location'
           : 'GPS unavailable';
 
   const error = stepError ?? formError;
@@ -167,243 +171,339 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
       style={vvh ? { maxHeight: Math.min(vvh - 24, typeof window !== 'undefined' ? window.innerHeight * 0.9 : vvh) } : undefined}
     >
       {/* Header */}
-      <div className="flex-none border-b border-slate-200 bg-slate-50 px-3 pb-3 pt-3">
+      <div className="flex-none border-b border-slate-200 bg-slate-50/80 px-4 py-3">
         <div className="flex items-center gap-2">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-900 text-sm font-semibold text-white">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary text-xs font-semibold text-white shadow-2xs">
             {sequence}
           </span>
-          <h3 className="line-clamp-2 min-w-0 flex-1 text-sm font-semibold leading-tight text-slate-900 sm:text-base">{shopLabel}</h3>
+          <div className="min-w-0 flex-1">
+            <h3 className="line-clamp-1 text-sm font-semibold text-slate-900">{shopLabel}</h3>
+            <p
+              className={cn(
+                'flex items-center gap-1 text-[11px] font-medium',
+                gpsStatus === 'CAPTURED' ? 'text-emerald-700' : gpsStatus === 'UNAVAILABLE' ? 'text-slate-500' : 'text-amber-700'
+              )}
+            >
+              <Navigation className="h-3 w-3 shrink-0" aria-hidden="true" />
+              {gpsBadge}
+              <span className={gpsStatus === 'ACQUIRING' ? 'animate-pulse' : undefined}>{gpsText}</span>
+            </p>
+          </div>
           <button
             type="button"
             onClick={onSaveDraft}
             disabled={busy}
-            className="inline-flex min-h-12 shrink-0 items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+            title="Save draft for later"
+            className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50"
           >
-            <Save className="h-4 w-4" aria-hidden="true" />
-            <span className="hidden min-[400px]:inline">Save for later</span>
-            <span className="min-[400px]:hidden">Save</span>
+            <Save className="h-3.5 w-3.5" aria-hidden="true" />
+            <span className="hidden min-[420px]:inline">Draft</span>
           </button>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="inline-flex min-h-12 min-w-12 shrink-0 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-200 hover:text-slate-900"
+            className="inline-flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg text-slate-500 hover:bg-slate-200 hover:text-slate-900"
           >
-            <X className="h-5 w-5" aria-hidden="true" />
+            <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
 
-        <p
-          className={cn(
-            'mt-2 flex flex-wrap items-center gap-1.5 text-xs font-semibold',
-            gpsStatus === 'CAPTURED' ? 'text-emerald-700' : gpsStatus === 'UNAVAILABLE' ? 'text-slate-500' : 'text-amber-700'
-          )}
-        >
-          <Navigation className="h-3.5 w-3.5" aria-hidden="true" />
-          {gpsBadge}
-          <span className={gpsStatus === 'ACQUIRING' ? 'animate-pulse' : undefined}>{gpsText}</span>
-        </p>
-
-        {/* Step indicator */}
-        <ol className="mt-3 grid grid-cols-3 gap-1.5" aria-label="Steps">
+        {/* Step Tabs */}
+        <div className="mt-2.5 grid grid-cols-2 gap-2" role="tablist">
           {STEPS.map((label, i) => (
-            <li key={label}>
-              <button
-                type="button"
-                onClick={() => goTo(i)}
-                disabled={busy}
-                aria-current={i === step ? 'step' : undefined}
-                className="flex w-full flex-col items-stretch gap-1 text-left"
-              >
-                <span className={cn('h-1.5 rounded-full', i <= step ? 'bg-slate-900' : 'bg-slate-300')} />
-                <span className={cn('text-xs font-semibold', i === step ? 'text-slate-900' : 'text-slate-500')}>
-                  {i + 1}. {label}
-                </span>
-              </button>
-            </li>
+            <button
+              key={label}
+              type="button"
+              role="tab"
+              aria-selected={i === step}
+              onClick={() => {
+                const err = i > step ? checkStep(step) : null;
+                setStepError(err);
+                if (!err) setStep(i);
+              }}
+              disabled={busy}
+              className={cn(
+                'flex min-h-[38px] items-center justify-center gap-1.5 rounded-lg border text-xs font-semibold transition',
+                i === step
+                  ? 'border-primary bg-primary text-white shadow-2xs'
+                  : 'border-border bg-white text-slate-600 hover:bg-subtle'
+              )}
+            >
+              <span className={cn('h-1.5 w-1.5 rounded-full', i === step ? 'bg-white' : 'bg-slate-300')} />
+              <span>{i + 1}. {label}</span>
+            </button>
           ))}
-        </ol>
+        </div>
       </div>
 
-      {/* Body */}
+      {/* Body with subtle framer-motion transitions */}
       <form
         className="flex min-h-0 flex-1 flex-col"
         onSubmit={(e) => {
           e.preventDefault();
-          if (step < STEPS.length - 1) goNext();
+          goNext();
         }}
       >
-        <div ref={bodyRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-3">
+        <div ref={bodyRef} className="min-h-0 flex-1 space-y-3.5 overflow-y-auto overscroll-contain p-4">
           {error && (
-            <div role="alert" className="rounded-xl border border-rose-300 bg-rose-50 p-3 text-sm font-semibold text-rose-800">
+            <motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              role="alert"
+              className="rounded-xl border border-rose-300 bg-rose-50 p-3 text-xs font-semibold text-rose-800"
+            >
               {error}
-            </div>
+            </motion.div>
           )}
 
-          {step === 0 && (
-            <>
-              <div>
-                <label htmlFor="mot-rmr" className="mb-1 block text-sm font-semibold text-slate-900">
-                  RMR token (paper receipt no.)
-                </label>
-                <input
-                  id="mot-rmr"
-                  type="text"
-                  pattern="[0-9]*"
-                  inputMode="numeric"
-                  autoComplete="off"
-                  value={rmrNumber}
-                  onChange={(e) => onRmrNumberChange(e.target.value.replace(/[^0-9]/g, ''))}
-                  placeholder="e.g. 004821"
-                  className={cn(FIELD_CLASS, 'h-14 text-xl tracking-wider tabular-nums')}
-                />
-                <p className="mt-1 text-xs text-slate-500">Digits only. Leading zeros are kept.</p>
-              </div>
-
-              <div>
-                <div className="mb-1 flex items-center justify-between gap-2">
-                  <label htmlFor="mot-source" className="text-sm font-semibold text-slate-900">
-                    Milk source
+          <AnimatePresence mode="wait">
+            {step === 0 && (
+              <motion.div
+                key="step-source-tests"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.18 }}
+                className="space-y-3.5"
+              >
+                {/* 1. RMR Token */}
+                <div>
+                  <label htmlFor="mot-rmr" className="mb-1 block text-xs font-semibold text-slate-900">
+                    RMR Token (Paper Receipt No.)
                   </label>
-                  {selectedSource?.erp_code ? (
-                    <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold tabular-nums text-emerald-800">
-                      ERP {selectedSource.erp_code}
-                    </span>
-                  ) : (
-                    <span className="rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-900">
-                      No ERP code
-                    </span>
-                  )}
-                </div>
-                <select
-                  id="mot-source"
-                  value={selectedSourceId}
-                  onChange={(e) => onSourceChange(e.target.value)}
-                  className={FIELD_CLASS}
-                >
-                  <option value="">Unassigned</option>
-                  {sources.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.erp_code ? `[${s.erp_code}] ${s.name}` : s.name}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={onRequestErpCode}
-                  className="mt-2 inline-flex min-h-12 items-center gap-1.5 rounded-xl px-2 text-sm font-semibold text-slate-900 underline-offset-4 hover:underline"
-                >
-                  <Plus className="h-4 w-4" aria-hidden="true" />
-                  Request new ERP code
-                </button>
-              </div>
-
-              <div>
-                <label htmlFor="mot-qty" className="mb-1 block text-sm font-semibold text-slate-900">
-                  Gross quantity <span className="text-rose-700">(required)</span>
-                </label>
-                <div className="flex gap-2">
                   <input
-                    id="mot-qty"
-                    type="number"
-                    inputMode="decimal"
-                    step="0.01"
-                    min="0.1"
-                    max="10000"
-                    value={quantity}
-                    onChange={(e) => onQuantityChange(e.target.value)}
-                    placeholder="0.0"
-                    className={cn(FIELD_CLASS, 'h-16 flex-1 text-2xl tabular-nums')}
+                    id="mot-rmr"
+                    type="text"
+                    pattern="[0-9]*"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    value={rmrNumber}
+                    onChange={(e) => onRmrNumberChange(e.target.value.replace(/[^0-9]/g, ''))}
+                    placeholder="e.g. 004821"
+                    className={cn(FIELD_CLASS, 'h-12 text-lg tracking-wider tabular-nums')}
                   />
-                  <div className="flex shrink-0 overflow-hidden rounded-xl border-2 border-slate-300" role="radiogroup" aria-label="Unit">
-                    {(['LITER', 'KG'] as const).map((u) => (
-                      <button
-                        key={u}
-                        type="button"
-                        role="radio"
-                        aria-checked={unit === u}
-                        onClick={() => onUnitChange(u)}
-                        className={cn(
-                          'min-w-14 px-3 text-base font-semibold transition',
-                          unit === u ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'
-                        )}
-                      >
-                        {u === 'LITER' ? 'L' : 'KG'}
-                      </button>
-                    ))}
-                  </div>
+                  <p className="mt-1 text-[11px] text-slate-500">Digits only. Preserves leading zeros.</p>
                 </div>
-              </div>
-            </>
-          )}
 
-          {step === 1 && <MotShopTestsStep {...tests} />}
-
-          {step === 2 && (
-            <>
-              {livePreview && (
-                <div className="grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Gross</p>
-                    <p className="text-xl font-semibold tabular-nums text-slate-900">{livePreview.grossLiters} L</p>
-                    <p className="text-xs text-slate-600">Density {livePreview.density}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">At 13 TS</p>
-                    <p className="text-xl font-semibold tabular-nums text-emerald-700">{livePreview.at13TsLiters} L</p>
-                    <p className="text-xs text-slate-600">
-                      SNF {livePreview.snf}% · TS {livePreview.totalSolids}%
+                {/* 2. Milk Source: required, assigned to this ZMCC, name only */}
+                <div>
+                  <label htmlFor="mot-source" className="mb-1 block text-xs font-semibold text-slate-900">
+                    Milk Source <span className="text-red-600">*</span>
+                  </label>
+                  <Combobox
+                    id="mot-source"
+                    className="min-h-[48px]"
+                    value={selectedSourceId}
+                    onValueChange={onSourceChange}
+                    placeholder="Select milk source…"
+                    searchPlaceholder="Search milk source…"
+                    options={sources.map((s) => ({
+                      value: s.id,
+                      label: s.name,
+                      keywords: s.name,
+                    }))}
+                  />
+                  {sources.length === 0 ? (
+                    <p className="mt-1 text-[11px] font-semibold text-amber-800">
+                      No milk source is assigned to this ZMCC yet. Ask the Data Executive.
                     </p>
+                  ) : null}
+                </div>
+
+                {/* 3. Assigned tests from super admin to mot level user with sops */}
+                <div className="pt-1">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                      Assigned Quality Tests (SOP)
+                    </span>
+                  </div>
+                  <MotShopTestsStep {...tests} />
+                </div>
+              </motion.div>
+            )}
+
+            {step === 1 && (
+              <motion.div
+                key="step-quantity-comments"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.18 }}
+                className="space-y-3.5"
+              >
+                {/* 4. Gross Liters / Quantity */}
+                <div>
+                  <label htmlFor="mot-qty" className="mb-1 block text-xs font-semibold text-slate-900">
+                    Gross Quantity <span className="text-rose-600">*</span>
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      id="mot-qty"
+                      type="number"
+                      inputMode="decimal"
+                      step="0.01"
+                      min="0.1"
+                      max="10000"
+                      value={quantity}
+                      onChange={(e) => onQuantityChange(e.target.value)}
+                      placeholder="0.00"
+                      className={cn(FIELD_CLASS, 'h-14 flex-1 text-xl tabular-nums')}
+                    />
+                    <div className="flex shrink-0 overflow-hidden rounded-xl border border-border" role="radiogroup" aria-label="Unit">
+                      {(['LITER', 'KG'] as const).map((u) => (
+                        <button
+                          key={u}
+                          type="button"
+                          role="radio"
+                          aria-checked={unit === u}
+                          onClick={() => onUnitChange(u)}
+                          className={cn(
+                            'min-w-14 px-3 text-sm font-semibold transition',
+                            unit === u ? 'bg-primary text-white' : 'bg-white text-slate-600 hover:bg-subtle'
+                          )}
+                        >
+                          {u === 'LITER' ? 'L' : 'KG'}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              )}
 
-              <DecisionRulePanel {...decision} acceptLabel={decision.acceptLabel ?? 'Accept milk'} rejectLabel={decision.rejectLabel ?? 'Reject milk'} showSubmit={false} />
+                {/* Live Yield calculations */}
+                {livePreview && parseFloat(quantity) > 0 && (
+                  <div className="grid grid-cols-2 gap-2 rounded-xl border border-emerald-200 bg-emerald-50/60 p-2.5">
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase text-slate-500">Gross Liters</p>
+                      <p className="text-base font-bold tabular-nums text-slate-900">{livePreview.grossLiters} L</p>
+                      <p className="text-[10px] text-slate-600">Density: {livePreview.density}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase text-emerald-800">At 13 TS Liters</p>
+                      <p className="text-base font-bold tabular-nums text-emerald-700">{livePreview.at13TsLiters} L</p>
+                      <p className="text-[10px] text-slate-600">
+                        SNF {livePreview.snf}% · TS {livePreview.totalSolids}%
+                      </p>
+                    </div>
+                  </div>
+                )}
 
-              <div>
-                <label htmlFor="mot-notes" className="mb-1 block text-sm font-semibold text-slate-900">
-                  Notes (optional)
-                </label>
-                <textarea
-                  id="mot-notes"
-                  rows={2}
-                  value={notes}
-                  onChange={(e) => onNotesChange(e.target.value)}
-                  placeholder="e.g. Clean container, seal checked"
-                  className="min-h-12 w-full min-w-0 resize-y break-words rounded-xl border-2 border-slate-300 bg-white p-3 text-base focus:outline-none focus:ring-2 focus:ring-slate-900"
-                />
-              </div>
-            </>
-          )}
+                {/* 5. Comments (if any) */}
+                <div>
+                  <label htmlFor="mot-notes" className="mb-1 block text-xs font-semibold text-slate-700">
+                    Comments / Field Notes (Optional)
+                  </label>
+                  <textarea
+                    id="mot-notes"
+                    rows={3}
+                    value={notes}
+                    onChange={(e) => onNotesChange(e.target.value)}
+                    placeholder="Enter any comments or field notes (e.g. sealed can, container cleaned)…"
+                    className="w-full resize-none rounded-xl border border-border bg-white p-2.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                  />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
-        {/* Sticky footer */}
-        <div className="flex flex-none gap-2 border-t border-slate-200 bg-white p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        {/* Minimalist sticky footer */}
+        <div className="flex flex-none items-center gap-2 border-t border-slate-200 bg-white p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           {step > 0 && (
             <button
               type="button"
               onClick={goBack}
               disabled={busy}
               aria-label="Back"
-              className="inline-flex min-h-14 min-w-14 shrink-0 items-center justify-center gap-1.5 rounded-xl border-2 border-slate-300 bg-white px-3 text-base font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-50 sm:px-5"
+              className="inline-flex min-h-[48px] min-w-[48px] shrink-0 items-center justify-center gap-1 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
             >
-              <ArrowLeft className="h-5 w-5" aria-hidden="true" />
+              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
               <span className="hidden sm:inline">Back</span>
             </button>
           )}
-          {step < STEPS.length - 1 ? (
+
+          {step === 0 ? (
             <button
               type="submit"
-              className="inline-flex min-h-14 flex-1 items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 text-base font-semibold text-white hover:bg-slate-800"
+              className="inline-flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-white shadow-2xs hover:bg-primary-hover transition"
             >
-              Next: {STEPS[step + 1]}
-              <ArrowRight className="h-5 w-5" aria-hidden="true" />
+              <span>Next: Quantity & Comments</span>
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </button>
           ) : (
-            <DecisionSubmitButton {...decision} className="flex-1" />
+            <button
+              type="button"
+              onClick={handleOpenDecide}
+              disabled={busy}
+              className="inline-flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 text-sm font-semibold text-white shadow-2xs hover:bg-emerald-800 disabled:opacity-50"
+            >
+              <Sparkles className="h-4 w-4" aria-hidden="true" />
+              <span>Review & Decide</span>
+            </button>
           )}
         </div>
       </form>
+
+      {/* Decide Modal: Opens in a centered Dialog on desktop, Drawer on mobile */}
+      <Drawer open={decideOpen} onOpenChange={setDecideOpen} dismissible={!busy}>
+        <DrawerContent className="max-w-lg">
+          <div className="flex items-center justify-between border-b border-border px-4 py-3 sm:px-5">
+            <div>
+              <DrawerTitle className="text-base font-bold text-slate-900">
+                Shop Collection Decision
+              </DrawerTitle>
+              <p className="text-xs text-slate-500 font-medium">
+                {shopLabel} · RMR: <strong className="text-slate-800">{rmrNumber || 'None'}</strong>
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setDecideOpen(false)}
+              disabled={busy}
+              aria-label="Close decision"
+              className="flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          <div className="space-y-4 overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-5">
+            {livePreview && (
+              <div className="grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <div>
+                  <span className="text-[10px] font-semibold uppercase text-slate-500">Gross Quantity</span>
+                  <p className="text-lg font-bold tabular-nums text-slate-900">{livePreview.grossLiters} L</p>
+                  <p className="text-xs text-slate-600">Density: {livePreview.density}</p>
+                </div>
+                <div>
+                  <span className="text-[10px] font-semibold uppercase text-emerald-800">At 13 TS Quantity</span>
+                  <p className="text-lg font-bold tabular-nums text-emerald-700">{livePreview.at13TsLiters} L</p>
+                  <p className="text-xs text-slate-600">
+                    SNF: {livePreview.snf}% · TS: {livePreview.totalSolids}%
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <DecisionRulePanel
+              {...decision}
+              acceptLabel={decision.acceptLabel ?? 'Accept Milk'}
+              rejectLabel={decision.rejectLabel ?? 'Reject Milk'}
+              showSubmit={false}
+            />
+
+            <div className="pt-1">
+              <DecisionSubmitButton
+                {...decision}
+                onSubmit={() => {
+                  decision.onSubmit();
+                }}
+                className="w-full"
+              />
+            </div>
+          </div>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 }

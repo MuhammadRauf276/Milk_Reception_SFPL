@@ -46,8 +46,8 @@ export const ManagerLifecycleTracker: React.FC<ManagerLifecycleTrackerProps> = (
           let labelColor = 'text-slate-500';
 
           if (isCompleted) {
-            circleBg = 'bg-green-800 border-green-800 text-white shadow-xs';
-            labelColor = 'text-green-800 font-semibold';
+            circleBg = 'bg-emerald-700 border-emerald-700 text-white shadow-xs';
+            labelColor = 'text-emerald-800 font-semibold';
           } else if (isCurrent) {
             circleBg = 'bg-primary border-primary text-white ring-4 ring-blue-100 shadow-md';
             labelColor = 'text-primary font-semibold';
@@ -89,9 +89,9 @@ export const ManagerLifecycleTracker: React.FC<ManagerLifecycleTrackerProps> = (
                 <span
                   className={`mt-1 text-[10px] tabular-nums font-semibold px-1.5 py-0.5 rounded ${
                     lifecycle.portionQA.badgeType === 'ALL_ACCEPTED'
-                      ? 'bg-green-50 text-green-800'
+                      ? 'bg-emerald-50 text-emerald-800'
                       : lifecycle.portionQA.badgeType === 'ALL_REJECTED' || lifecycle.portionQA.badgeType === 'MIXED'
-                      ? 'bg-red-50 text-red-800'
+                      ? 'bg-rose-50 text-rose-800'
                       : lifecycle.portionQA.badgeType === 'HAS_HOLD'
                       ? 'bg-amber-50 text-amber-700'
                       : 'bg-slate-100 text-slate-700'

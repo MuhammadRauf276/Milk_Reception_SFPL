@@ -8,13 +8,9 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
   }
 
-  const allowedRoles = ['DATA_EXECUTIVE', 'SUPER_ADMIN', 'HEAD_OF_MPD'];
-  if (!allowedRoles.includes(user.role)) {
-    return NextResponse.json(
-      { error: 'Forbidden. Only Data Executive or Super Admin may access the Correction Governance queue.' },
-      { status: 403 }
-    );
-  }
+  // Resolvers (Data Executive, Super Admin) and the MPD Head see every ticket.
+  // Everyone else sees only the tickets they raised themselves.
+  const seesAll = ['DATA_EXECUTIVE', 'SUPER_ADMIN', 'HEAD_OF_MPD'].includes(user.role);
 
   const url = new URL(req.url);
   const status = url.searchParams.get('status') || 'ALL';
@@ -26,7 +22,8 @@ export async function GET(req: Request) {
     const items = await listCorrectionRequests({
       status,
       module: moduleName,
-      sourceId,
+      sourceId: seesAll ? sourceId : null,
+      requestedByUserId: seesAll ? null : BigInt(user.id),
     });
     return NextResponse.json({ items });
   } catch (err) {

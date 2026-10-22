@@ -271,8 +271,8 @@ async function resetAndSeedWithValidation() {
   const rules = await prisma.labTestRule.findMany({ where: { is_active: true } });
   const points = new Set(rules.map((r) => r.testing_point));
   const hasPlantRules = points.has('PLANT_QA');
-  const hasMotRules = points.has('ZMCC_LAB_MOT');
-  const hasLsRules = points.has('ZMCC_LAB_LOCAL_SUPPLIER');
+  const hasMotRules = points.has('ZMCC_LAB_MC');
+  const hasLsRules = points.has('ZMCC_LAB_HC');
   const hasDispatchRules = points.has('DISPATCH');
   assert(
     hasPlantRules && hasMotRules && hasLsRules && hasDispatchRules,
@@ -340,6 +340,44 @@ async function resetAndSeedWithValidation() {
     'ASSERT-16: QA Manager Exception Review pending state correctly established for Plant and ZMCC',
     `Pending Plant Portions: ${pendingPortions.length}, Pending ZMCC Sessions: ${pendingZmccSessions.length}`
   );
+
+  // 17. New model: MC collections always have a source, every exit outcome has one example,
+  // one pending close-without-unloading request, vehicles registered by a Data Executive.
+  const collectionsWithoutSource = await prisma.motShopCollection.count({ where: { milk_source_id: null } });
+  assert(
+    collectionsWithoutSource === 0,
+    'ASSERT-17: Every MC shop collection has a milk source',
+    `Collections without source: ${collectionsWithoutSource}`
+  );
+
+  const outcomeRows = await prisma.zmccLabSession.groupBy({
+    by: ['exit_outcome'],
+    where: { exit_outcome: { not: null } },
+    _count: { _all: true },
+  });
+  const outcomes = new Set(outcomeRows.map((r) => r.exit_outcome));
+  assert(
+    ['RECEIVED', 'REJECTED', 'PARTLY_RECEIVED', 'ACCEPTED_NOT_RECEIVED'].every((o) => outcomes.has(o)),
+    'ASSERT-18: One example of each exit outcome (RECEIVED, REJECTED, PARTLY_RECEIVED, ACCEPTED_NOT_RECEIVED)',
+    `Outcomes: ${Array.from(outcomes).join(', ')}`
+  );
+
+  const pendingClose = await prisma.zmccLabSession.count({
+    where: { close_requested_at: { not: null }, close_approved_at: null, journey_closed_at: null },
+  });
+  assert(pendingClose >= 1, 'ASSERT-19: A close-without-unloading request is pending approval', `Pending requests: ${pendingClose}`);
+
+  const hcReceiptsWithoutSource = await prisma.zmccTankReceipt.count({
+    where: { arrival_type: 'HC', milk_source_id: null },
+  });
+  assert(
+    hcReceiptsWithoutSource === 0,
+    'ASSERT-20: Every HC tank receipt carries the milk source chosen at unload',
+    `HC receipts without source: ${hcReceiptsWithoutSource}`
+  );
+
+  const vehicleCount = await prisma.motVehicle.count({ where: { creator: { role: { in: ['DATA_EXECUTIVE', 'SUPER_ADMIN'] } } } });
+  assert(vehicleCount >= 1, 'ASSERT-21: MC vehicles were registered by a Data Executive or Super Admin', `Vehicles: ${vehicleCount}`);
 
   console.log('\n==================================================');
   console.log(`COMPLETE INTEGRITY VERIFICATION SUMMARY: ${passed} PASSED, ${failed} FAILED`);

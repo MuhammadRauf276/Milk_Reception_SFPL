@@ -6,7 +6,7 @@
  * A test left empty is "not tested": it only becomes a problem when the policy says it is compulsory.
  */
 import React, { useState } from 'react';
-import { Camera, CheckCircle2, RefreshCw, Trash2 } from 'lucide-react';
+import { AlertTriangle, Camera, CheckCircle2, Undo2, Trash2 } from 'lucide-react';
 import { LiveCamera } from '@/components/camera/LiveCamera';
 import { cn } from '@/lib/utils';
 import type { LiveCameraResult } from '@/types/captured-photo';
@@ -49,7 +49,38 @@ export interface DispatchPolicyTestsProps {
 }
 
 const INPUT_CLASS =
-  'w-full min-w-0 min-h-[48px] rounded-xl border border-border bg-subtle p-2.5 text-base font-semibold focus:ring-2 focus:ring-primary';
+  'w-full min-w-0 min-h-[48px] rounded-xl border bg-subtle p-2.5 text-base font-semibold focus:ring-2 focus:ring-primary focus:outline-none';
+
+function fmt(n: number): string {
+  return Number.isInteger(n) ? n.toFixed(1) : String(n);
+}
+
+/** SOP range text from policy rule, e.g. "26.0 – 32.0", "≥ 3.5". */
+export function sopRangeText(t: DispatchPolicyTest): string | null {
+  const min = t.rule?.min ?? null;
+  const max = t.rule?.max ?? null;
+  if (min != null && max != null) return `${fmt(min)} – ${fmt(max)}`;
+  if (min != null) return `≥ ${fmt(min)}`;
+  if (max != null) return `≤ ${fmt(max)}`;
+  return null;
+}
+
+export function outsideRange(t: DispatchPolicyTest, raw: string): boolean {
+  if (!raw || raw.trim() === '') return false;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return false;
+  const min = t.rule?.min ?? null;
+  const max = t.rule?.max ?? null;
+  return (min != null && n < min) || (max != null && n > max);
+}
+
+export function isDisallowedOption(t: DispatchPolicyTest, val: string): boolean {
+  if (!val || !val.trim()) return false;
+  const allowed = t.rule?.allowed;
+  if (!allowed || allowed.length === 0) return false;
+  const upper = val.trim().toUpperCase();
+  return !allowed.some((a) => a.trim().toUpperCase() === upper);
+}
 
 export function DispatchPolicyTests({
   tests,
@@ -78,7 +109,7 @@ export function DispatchPolicyTests({
         <div className="mt-2 flex flex-wrap items-center gap-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={photo.previewUrl} alt={`${t.testName} picture`} className="h-12 w-12 rounded-lg border border-border object-cover" />
-          <span className="inline-flex items-center gap-1 rounded-full border border-green-300 bg-green-50 px-2.5 py-1 text-xs font-semibold text-green-800">
+          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800">
             <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
             Picture taken
           </span>
@@ -87,14 +118,14 @@ export function DispatchPolicyTests({
             onClick={() => setCameraFor(t)}
             className="inline-flex min-h-[44px] items-center gap-1 rounded-xl border border-border px-3 text-sm font-semibold text-slate-700 hover:bg-muted"
           >
-            <RefreshCw className="h-4 w-4" aria-hidden="true" />
+            <Undo2 className="h-4 w-4" aria-hidden="true" />
             Again
           </button>
           <button
             type="button"
             onClick={() => onPhotoRemoved(t.labTestId)}
             aria-label={`Remove ${t.testName} picture`}
-            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-border text-slate-500 hover:bg-red-50 hover:text-red-700"
+            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-border text-slate-500 hover:bg-rose-50 hover:text-rose-700"
           >
             <Trash2 className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -116,60 +147,132 @@ export function DispatchPolicyTests({
     );
   };
 
+  const hasInput = (t: DispatchPolicyTest) => {
+    const v = values[t.labTestId];
+    return Boolean(v?.numericValue || v?.textValue || photos[t.labTestId] || errors[t.labTestId]);
+  };
+  // LR, Fat and compulsory tests first; the rest sit in a collapsible list (opened when something is filled).
+  const primary = active.filter((t) => t.testMode === 'COMPULSORY' || t.isLr || t.isFat || hasInput(t));
+  const more = active.filter((t) => !primary.includes(t));
+
+  const renderTest = (t: DispatchPolicyTest) => {
+    const v = values[t.labTestId] ?? { numericValue: '', textValue: '' };
+    const err = errors[t.labTestId];
+    const inputId = `${idPrefix}-${t.labTestId}`;
+    const range = sopRangeText(t);
+    const numeric = isNumericTest(t);
+    const isOut = numeric ? outsideRange(t, v.numericValue) : isDisallowedOption(t, v.textValue);
+    const isRequired = t.testMode === 'COMPULSORY';
+
+    return (
+      <div
+        key={t.labTestId}
+        className={cn(
+          'rounded-xl border p-3 space-y-2 transition shadow-2xs',
+          err || isOut ? 'border-rose-300 bg-rose-50/20' : 'border-border bg-white'
+        )}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <label htmlFor={inputId} className="text-sm font-semibold text-foreground flex items-center">
+            {t.testName}
+            <span
+              className={cn(
+                'ml-2 rounded-full px-2 py-0.5 align-middle text-[11px] font-semibold uppercase tracking-wide',
+                isRequired ? 'bg-primary text-white shadow-2xs' : 'bg-slate-100 text-slate-600'
+              )}
+            >
+              {isRequired ? 'Required *' : 'Optional'}
+            </span>
+          </label>
+          {range && (
+            <span
+              className={cn(
+                'rounded-full border px-2.5 py-0.5 text-xs font-semibold tabular-nums',
+                isOut ? 'border-rose-300 bg-rose-50 text-rose-800' : 'border-slate-300 bg-slate-50 text-slate-700'
+              )}
+            >
+              SOP {range}
+            </span>
+          )}
+        </div>
+
+        {t.testMode === 'COMPULSORY' && !t.rule && (
+          <p className="text-xs text-slate-500">No rule set: the value is recorded only.</p>
+        )}
+
+        {numeric ? (
+          <input
+            id={inputId}
+            type="number"
+            inputMode="decimal"
+            step="any"
+            min="0"
+            value={v.numericValue}
+            onChange={(e) => onValueChange(t.labTestId, 'numericValue', e.target.value)}
+            aria-invalid={isOut || undefined}
+            className={cn(
+              INPUT_CLASS,
+              isOut ? 'border-rose-400 bg-rose-50/40 text-rose-950 focus:border-rose-500 focus:ring-rose-500' : 'border-border'
+            )}
+          />
+        ) : t.options && t.options.length > 0 ? (
+          <div className="flex flex-wrap gap-2" role="group" aria-label={t.testName}>
+            {t.options.map((o) => (
+              <button
+                key={o}
+                type="button"
+                onClick={() => onValueChange(t.labTestId, 'textValue', v.textValue === o ? '' : o)}
+                aria-pressed={v.textValue === o}
+                className={cn(
+                  'min-h-[44px] rounded-xl border-2 px-3.5 text-sm font-semibold transition',
+                  v.textValue === o
+                    ? isOut
+                      ? 'border-rose-600 bg-rose-600 text-white'
+                      : 'border-primary bg-primary text-white'
+                    : 'border-border bg-white text-slate-700 hover:bg-muted'
+                )}
+              >
+                {o}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <input
+            id={inputId}
+            type="text"
+            value={v.textValue}
+            onChange={(e) => onValueChange(t.labTestId, 'textValue', e.target.value)}
+            className={cn(
+              INPUT_CLASS,
+              isOut ? 'border-rose-400 bg-rose-50/40 text-rose-950' : 'border-border'
+            )}
+          />
+        )}
+
+        {isOut && (
+          <p className="flex items-center gap-1.5 text-xs font-semibold text-rose-700">
+            <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+            Outside SOP range {range ? `(${range})` : ''}
+          </p>
+        )}
+
+        {err && <p className="mt-1 text-xs font-semibold text-rose-700">{err}</p>}
+        {photoBlock(t)}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-3">
-      {active.map((t) => {
-        const v = values[t.labTestId] ?? { numericValue: '', textValue: '' };
-        const err = errors[t.labTestId];
-        const inputId = `${idPrefix}-${t.labTestId}`;
-        return (
-          <div key={t.labTestId} className={cn('rounded-xl border p-2.5', err ? 'border-red-400 bg-red-50/30' : 'border-border')}>
-            <label htmlFor={inputId} className="mb-1 block text-sm font-semibold text-foreground">
-              {t.testName}
-              {t.testMode === 'COMPULSORY' ? <span className="text-red-700"> *</span> : <span className="ml-1 text-xs font-normal text-slate-500">(optional)</span>}
-            </label>
-            {isNumericTest(t) ? (
-              <input
-                id={inputId}
-                type="number"
-                inputMode="decimal"
-                step="any"
-                min="0"
-                value={v.numericValue}
-                onChange={(e) => onValueChange(t.labTestId, 'numericValue', e.target.value)}
-                className={INPUT_CLASS}
-              />
-            ) : t.options && t.options.length > 0 ? (
-              <div className="flex flex-wrap gap-2" role="group" aria-label={t.testName}>
-                {t.options.map((o) => (
-                  <button
-                    key={o}
-                    type="button"
-                    onClick={() => onValueChange(t.labTestId, 'textValue', v.textValue === o ? '' : o)}
-                    aria-pressed={v.textValue === o}
-                    className={cn(
-                      'min-h-[48px] rounded-xl border-2 px-4 text-sm font-semibold transition',
-                      v.textValue === o ? 'border-primary bg-primary text-white' : 'border-border bg-white text-slate-700 hover:bg-muted'
-                    )}
-                  >
-                    {o}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <input
-                id={inputId}
-                type="text"
-                value={v.textValue}
-                onChange={(e) => onValueChange(t.labTestId, 'textValue', e.target.value)}
-                className={INPUT_CLASS}
-              />
-            )}
-            {err && <p className="mt-1 text-xs font-semibold text-red-700">{err}</p>}
-            {photoBlock(t)}
-          </div>
-        );
-      })}
+      {primary.map((t) => renderTest(t))}
+      {more.length > 0 && (
+        <details className="rounded-xl border border-dashed border-border-strong">
+          <summary className="flex min-h-[48px] cursor-pointer items-center justify-between px-3 text-sm font-semibold text-slate-700">
+            More tests ({more.length})
+          </summary>
+          <div className="space-y-3 p-2.5 pt-0">{more.map((t) => renderTest(t))}</div>
+        </details>
+      )}
 
       {cameraFor && (
         <LiveCamera

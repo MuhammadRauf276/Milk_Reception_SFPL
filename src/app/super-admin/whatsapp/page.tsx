@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useMemo, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Image from 'next/image';
 import {
   MessageSquare,
@@ -11,14 +12,14 @@ import {
   CheckCircle2,
   Store,
   QrCode,
-  Flame,
   Radio,
   FileText,
   Users,
   Loader2,
 } from 'lucide-react';
 import { getErrorMessage } from '@/lib/errors';
-import { fetchJson } from '@/lib/fetch-json';
+import { fetchJson } from '@/lib/query/fetchJson';
+import { Combobox } from '@/components/ui/combobox';
 
 interface GatewayStatus {
   status: 'OFFLINE' | 'DISCONNECTED' | 'CONNECTING' | 'SCAN_QR' | 'CONNECTED';
@@ -51,15 +52,11 @@ interface OutboxItem {
 }
 
 export default function SuperAdminWhatsAppPage() {
-  const [gateway, setGateway] = useState<GatewayStatus | null>(null);
-  const [loadingGateway, setLoadingGateway] = useState<boolean>(true);
-  const [refreshing, setRefreshing] = useState<boolean>(false);
+  const queryClient = useQueryClient();
 
   // Shop selection and compose state
-  const [shops, setShops] = useState<ShopItem[]>([]);
-  const [loadingShops, setLoadingShops] = useState<boolean>(true);
   const [targetMode, setTargetMode] = useState<'SINGLE' | 'ALL_USER'>('ALL_USER');
-  const [selectedShopId, setSelectedShopId] = useState<string>('');
+  const [pickedShopId, setPickedShopId] = useState<string>('');
 
   const [messageText, setMessageText] = useState<string>(
     '*Shakarganj Milk Reception Receipt*\n*Shop:* Bismillah Dairy Collection Center\n*RMR No:* 005102 | *Journey:* #JRN-HAS-20261007-001\n*Vehicle:* LES-19-4821 | *MOT:* Muhammad Tariq\n*Gross Qty:* 210.00 L\n*LR:* 29.0 | *Fat:* 4.1%\n*SNF:* 8.52% | *Total Solids:* 12.60%\n*@13% TS:* 203.86 L\n*Status:* Verified & Dispatched via Super Admin\n_Shakarganj Food Products Ltd, Field Reception_'
@@ -72,66 +69,48 @@ export default function SuperAdminWhatsAppPage() {
     message: string;
   } | null>(null);
 
-  // Outbox history log
-  const [outbox, setOutbox] = useState<OutboxItem[]>([]);
-  const [loadingOutbox, setLoadingOutbox] = useState<boolean>(true);
-
-  // 1. Fetch Gateway Status
-  const fetchGatewayStatus = useCallback(async (silent = false) => {
-    if (!silent) setRefreshing(true);
-    try {
-      const data: GatewayStatus = await fetchJson('/api/whatsapp/status', { cache: 'no-store' });
-      setGateway(data);
-    } catch (err) {
-      setGateway({
-        status: 'OFFLINE',
-        message: getErrorMessage(err) || 'Failed to reach WhatsApp Gateway daemon.',
-      });
-    } finally {
-      setLoadingGateway(false);
-      setRefreshing(false);
-    }
-  }, []);
-
-  // 2. Fetch Shops
-  const loadShops = useCallback(async () => {
-    try {
-      const data = await fetchJson<{ shops?: ShopItem[] }>('/api/zmcc/shops?is_active=true');
-      const list = data.shops || [];
-      setShops(list);
-      if (list.length > 0 && !selectedShopId) {
-        setSelectedShopId(list[0].id);
+  // 1. Gateway status (polled every 4s while the page is visible)
+  const gatewayQuery = useQuery({
+    queryKey: ['super-admin', 'whatsapp', 'status'],
+    queryFn: async ({ signal }): Promise<GatewayStatus> => {
+      try {
+        return await fetchJson<GatewayStatus>('/api/whatsapp/status', { cache: 'no-store', signal });
+      } catch (err) {
+        if (signal.aborted) throw err;
+        return { status: 'OFFLINE', message: getErrorMessage(err) || 'Failed to reach WhatsApp Gateway daemon.' };
       }
-    } catch (err) {
-      console.error('Failed to load shops', err);
-    } finally {
-      setLoadingShops(false);
-    }
-  }, [selectedShopId]);
+    },
+    refetchInterval: 4000,
+    refetchIntervalInBackground: false,
+  });
+  const gateway = gatewayQuery.data ?? null;
+  const refreshing = gatewayQuery.isFetching && !gatewayQuery.isPending;
+  const fetchGatewayStatus = async () => {
+    await gatewayQuery.refetch();
+  };
 
-  // 3. Fetch Outbox History
-  const loadOutbox = useCallback(async () => {
-    try {
-      const data = await fetchJson<{ items?: OutboxItem[] }>('/api/zmcc/mot/sms-outbox');
-      setOutbox(data.items || []);
-    } catch (err) {
-      console.error('Failed to load outbox', err);
-    } finally {
-      setLoadingOutbox(false);
-    }
-  }, []);
+  // 2. Shops
+  const shopsQuery = useQuery({
+    queryKey: ['super-admin', 'whatsapp', 'shops'],
+    queryFn: ({ signal }) => fetchJson<{ shops?: ShopItem[] }>('/api/zmcc/shops?is_active=true', { signal }),
+  });
+  const shops = useMemo(() => shopsQuery.data?.shops ?? [], [shopsQuery.data]);
+  const loadingShops = shopsQuery.isPending;
+  const selectedShopId = pickedShopId || shops[0]?.id || '';
+  const setSelectedShopId = setPickedShopId;
+  const shopOptions = useMemo(
+    () => shops.map((shop) => ({ value: shop.id, label: `${shop.shop_name} · ${shop.shop_code}`, keywords: `${shop.owner_name} ${shop.phone_number}` })),
+    [shops]
+  );
 
-  useEffect(() => {
-    fetchGatewayStatus();
-    loadShops();
-    loadOutbox();
-
-    const interval = setInterval(() => {
-      fetchGatewayStatus(true);
-    }, 4000);
-
-    return () => clearInterval(interval);
-  }, [fetchGatewayStatus, loadShops, loadOutbox]);
+  // 3. Outbox history log
+  const outboxQuery = useQuery({
+    queryKey: ['super-admin', 'whatsapp', 'outbox'],
+    queryFn: ({ signal }) => fetchJson<{ items?: OutboxItem[] }>('/api/zmcc/mot/sms-outbox', { signal }),
+  });
+  const outbox = outboxQuery.data?.items ?? [];
+  const loadingOutbox = outboxQuery.isPending;
+  const loadOutbox = () => queryClient.invalidateQueries({ queryKey: ['super-admin', 'whatsapp', 'outbox'] });
 
   // Handle Logout / Disconnect
   const handleDisconnect = async () => {
@@ -238,7 +217,7 @@ export default function SuperAdminWhatsAppPage() {
         <div className="flex items-center space-x-2">
           <button
             type="button"
-            onClick={() => fetchGatewayStatus(false)}
+            onClick={() => fetchGatewayStatus()}
             disabled={refreshing}
             className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border border-border bg-white text-xs font-semibold text-slate-700 hover:bg-subtle transition shadow-2xs"
           >
@@ -414,17 +393,13 @@ export default function SuperAdminWhatsAppPage() {
               </div>
 
               {targetMode === 'SINGLE' && (
-                <select
+                <Combobox
+                  options={shopOptions}
                   value={selectedShopId}
-                  onChange={(e) => setSelectedShopId(e.target.value)}
-                  className="w-full text-xs font-medium border border-border rounded-xl p-2.5 bg-white text-foreground focus:ring-2 focus:ring-emerald-500 outline-hidden"
-                >
-                  {shops.map((shop) => (
-                    <option key={shop.id} value={shop.id}>
-                      {shop.shop_name} · {shop.shop_code}
-                    </option>
-                  ))}
-                </select>
+                  onValueChange={setSelectedShopId}
+                  placeholder="Select shop"
+                  searchPlaceholder="Search shops"
+                />
               )}
             </div>
 

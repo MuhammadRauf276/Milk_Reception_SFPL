@@ -82,6 +82,12 @@ function fakes() {
     async writeFile(file) {
       written.push(file);
     },
+    async rename() {
+      return undefined;
+    },
+    async unlink() {
+      return undefined;
+    },
   };
   return { rows, audits, written, db, fs };
 }

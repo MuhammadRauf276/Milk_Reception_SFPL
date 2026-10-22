@@ -82,7 +82,7 @@ export const STATION_METADATA: Record<
   ZMCC_LAB: {
     label: 'ZMCC Lab Reception',
     icon: Building,
-    testingPoints: ['ZMCC_LAB_MOT', 'ZMCC_LAB_LOCAL_SUPPLIER'],
+    testingPoints: ['ZMCC_LAB_MC', 'ZMCC_LAB_HC'],
   },
   MOT_SHOP: {
     label: 'MOT Shop Collection',

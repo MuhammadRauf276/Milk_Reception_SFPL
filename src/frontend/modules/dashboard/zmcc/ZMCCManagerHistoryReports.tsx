@@ -196,7 +196,7 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
               {(currentFromDate || currentToDate) && (
                 <button
                   onClick={() => onDateFilterChange(null, null)}
-                  className="px-2 py-1 text-[11px] font-semibold text-red-600 hover:bg-red-50 rounded"
+                  className="px-2 py-1 text-[11px] font-semibold text-rose-600 hover:bg-rose-50 rounded"
                 >
                   Clear
                 </button>
@@ -258,13 +258,13 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
 
       {/* 3. Error Banner */}
       {error && (
-        <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs font-semibold flex items-center justify-between animate-panel-in">
+        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center justify-between animate-panel-in">
           <div className="flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-red-600" />
+            <AlertTriangle className="w-4 h-4 text-rose-600" />
             <span>{error}</span>
           </div>
           {onRetry && (
-            <button onClick={onRetry} className="underline hover:text-red-950">
+            <button onClick={onRetry} className="underline hover:text-rose-950">
               Retry
             </button>
           )}
@@ -329,7 +329,7 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
                         item.isComplete
                           ? 'bg-emerald-100 text-emerald-800'
                           : item.hasRejection
-                          ? 'bg-red-100 text-red-800'
+                          ? 'bg-rose-100 text-rose-800'
                           : item.hasHold
                           ? 'bg-amber-100 text-amber-800'
                           : 'bg-blue-100 text-blue-800'
@@ -355,7 +355,7 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
                   <td className="py-2.5 px-3 font-semibold text-primary whitespace-nowrap">
                     {item.netMilkWeightKg != null ? `${item.netMilkWeightKg.toLocaleString()} kg` : '—'}
                   </td>
-                  <td className="py-2.5 px-3 font-semibold text-green-800 whitespace-nowrap">
+                  <td className="py-2.5 px-3 font-semibold text-emerald-800 whitespace-nowrap">
                     {item.physicalReceivedLiters != null ? `${item.physicalReceivedLiters.toLocaleString()} L` : '—'}
                   </td>
                   <td className="py-2.5 px-3 font-semibold text-slate-800 whitespace-nowrap">

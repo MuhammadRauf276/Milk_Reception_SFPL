@@ -1,14 +1,16 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback, useSyncExternalStore } from 'react';
+import React, { useRef, useCallback, useSyncExternalStore, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { fetchJson } from '@/lib/query/fetchJson';
 import { Tv, Truck, LogIn } from 'lucide-react';
 import { Header } from '@/frontend/modules/shared/Header';
 import { HierarchicalNavDrawer } from '@/frontend/modules/shared/navigation/HierarchicalNavDrawer';
 import { SuperAdminSidebar } from '@/frontend/modules/super-admin/SuperAdminSidebar';
-import { User } from '@core/types';
 import Link from 'next/link';
 import { PageTransition } from '@/components/motion/page-transition';
 import { ShakarganjLogo, ShakarganjIcon } from '@/components/brand/ShakarganjLogo';
+import { useCurrentUser } from '@/frontend/hooks/useCurrentUser';
 
 function subscribeToClock(onTick: () => void) {
   const id = window.setInterval(onTick, 1000);
@@ -24,53 +26,21 @@ function useCurrentMinute(): number | null {
   );
 }
 
+const NO_VEHICLES: Array<{ visitId: string; vehicleNumber: string; stage: string }> = [];
+
 export default function PublicYardTVBoardPage() {
-  const [activeVehicles, setActiveVehicles] = useState<
-    Array<{ visitId: string; vehicleNumber: string; stage: string }>
-  >([]);
+  // 60s refresh (paused while the tab is hidden) to prevent database load.
+  const boardQuery = useQuery({
+    queryKey: ['tv-board'],
+    queryFn: ({ signal }) =>
+      fetchJson<{ vehicles?: Array<{ visitId: string; vehicleNumber: string; stage: string }> }>('/api/tv-board', { signal }),
+    refetchInterval: 60_000,
+  });
+  const activeVehicles = boardQuery.data?.vehicles ?? NO_VEHICLES;
   const currentMinute = useCurrentMinute();
-  const [user, setUser] = useState<User | null>(null);
+  const { currentUser: user } = useCurrentUser();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const hamburgerButtonRef = useRef<HTMLButtonElement | null>(null);
-
-  // Fetch logged in user to provide full navbar/drawer navigation if authenticated
-  useEffect(() => {
-    async function loadUser() {
-      try {
-        const res = await fetch('/api/auth/me');
-        if (res.ok) {
-          const data = await res.json();
-          setUser(data.user || null);
-        }
-      } catch (_err) {
-        // User not logged in (e.g. public yard monitor)
-      }
-    }
-    loadUser();
-  }, []);
-
-  const fetchLogs = useCallback(
-    () =>
-      fetch('/api/tv-board')
-        .then(async (res) => {
-          if (res.ok) {
-            const data = await res.json();
-            setActiveVehicles(data.vehicles || []);
-          }
-        })
-        .catch(() => {
-          // Handled
-        }),
-    []
-  );
-
-  useEffect(() => {
-    fetchLogs();
-    const interval = setInterval(() => {
-      fetchLogs();
-    }, 60000); // 60s polling to prevent Database load
-    return () => clearInterval(interval);
-  }, [fetchLogs]);
 
   const openDrawer = useCallback(() => setIsDrawerOpen(true), []);
   const closeDrawer = useCallback(() => {

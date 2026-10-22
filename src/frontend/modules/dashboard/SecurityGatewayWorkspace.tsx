@@ -1,7 +1,10 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { ShieldCheck, Truck, Clock, Search, CheckCircle2, ShieldAlert, XCircle } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
+import { fetchJson } from '@/lib/query/fetchJson';
+import { useDebouncedValue } from '@/lib/query/useDebouncedValue';
+import { Clock, Search, CheckCircle2, ShieldAlert, XCircle } from 'lucide-react';
 import { useToast } from '@/frontend/context/ToastContext';
 import { toDatetimeLocalInput, datetimeLocalToIso } from '@/lib/datetime-utils';
 import { User } from '@core/types';
@@ -72,24 +75,16 @@ function suggestTokenNumber() {
 
 export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> = ({
   activeTab: controlledTab,
-  onTabChange,
 }) => {
-  const [internalTab, setInternalTab] = useState<SecurityTab>('WAITING_ENTRY');
+  const [internalTab] = useState<SecurityTab>('WAITING_ENTRY');
   const activeTab = controlledTab || internalTab;
 
-  const setActiveTab = (tab: SecurityTab) => {
-    setInternalTab(tab);
-    if (onTabChange) onTabChange(tab);
-  };
 
   // Search Queries
   const [entrySearchQuery, setEntrySearchQuery] = useState('');
   const [exitSearchQuery, setExitSearchQuery] = useState('');
 
   // Data lists
-  const [dispatchedVisits, setDispatchedVisits] = useState<DispatchedVisit[]>([]);
-  const [activeVisits, setActiveVisits] = useState<ActiveInPlantVisit[]>([]);
-  const [readyExitVisits, setReadyExitVisits] = useState<ReadyForExitVisit[]>([]);
 
   // Selected visit for Entry or Exit panel
   const [selectedEntryVisitId, setSelectedEntryVisitId] = useState<string | null>(null);
@@ -101,75 +96,44 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
   const [entryOpTimestamp, setEntryOpTimestamp] = useState<string>(() => toDatetimeLocalInput(new Date()));
   const [exitOpTimestamp, setExitOpTimestamp] = useState<string>(() => toDatetimeLocalInput(new Date()));
 
-  const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [_msg, setMsg] = useState<{ text: string; isError: boolean } | null>(null);
 
-  const loadSecurityData = useCallback(
-    (entryQuery: string, exitQuery: string) =>
-      Promise.all([
-        fetch(`/api/security/dispatched-visits?q=${encodeURIComponent(entryQuery)}`),
-        fetch('/api/security/active-visits'),
-        fetch(`/api/security/ready-for-exit?q=${encodeURIComponent(exitQuery)}`),
-      ])
-        .then(async ([dispRes, actRes, exitRes]) => {
-          const dispData = await dispRes.json();
-          const actData = await actRes.json();
-          const exitData = await exitRes.json();
+  const queryClient = useQueryClient();
+  const debouncedEntry = useDebouncedValue(entrySearchQuery);
+  const debouncedExit = useDebouncedValue(exitSearchQuery);
 
-          if (dispData.visits) {
-            setDispatchedVisits(dispData.visits);
-            if (dispData.visits.length > 0) {
-              setSelectedEntryVisitId((current) => current ?? dispData.visits[0].id);
-            }
-          }
-          if (actData.visits) {
-            setActiveVisits(actData.visits);
-          }
-          if (exitData.visits) {
-            setReadyExitVisits(exitData.visits);
-            if (exitData.visits.length > 0) {
-              setSelectedExitVisitId((current) => current ?? exitData.visits[0].id);
-            }
-          }
-        })
-        .catch((err) => {
-          console.error('Failed to fetch security data', err);
-        })
-        .finally(() => {
-          setIsLoading(false);
-        }),
-    []
-  );
+  const dispatchedQuery = useQuery({
+    queryKey: ['security', 'dispatched-visits', debouncedEntry],
+    queryFn: ({ signal }) =>
+      fetchJson<{ visits?: DispatchedVisit[] }>(`/api/security/dispatched-visits?q=${encodeURIComponent(debouncedEntry)}`, { signal }),
+    placeholderData: keepPreviousData,
+    refetchInterval: 30_000,
+  });
+  const activeQuery = useQuery({
+    queryKey: ['security', 'active-visits'],
+    queryFn: ({ signal }) => fetchJson<{ visits?: ActiveInPlantVisit[] }>('/api/security/active-visits', { signal }),
+    refetchInterval: 30_000,
+  });
+  const exitQuery = useQuery({
+    queryKey: ['security', 'ready-for-exit', debouncedExit],
+    queryFn: ({ signal }) =>
+      fetchJson<{ visits?: ReadyForExitVisit[] }>(`/api/security/ready-for-exit?q=${encodeURIComponent(debouncedExit)}`, { signal }),
+    placeholderData: keepPreviousData,
+    refetchInterval: 30_000,
+  });
+  const dispatchedVisits = useMemo(() => dispatchedQuery.data?.visits ?? [], [dispatchedQuery.data]);
+  const activeVisits = useMemo(() => activeQuery.data?.visits ?? [], [activeQuery.data]);
+  const readyExitVisits = useMemo(() => exitQuery.data?.visits ?? [], [exitQuery.data]);
+  const isLoading = dispatchedQuery.isPending || activeQuery.isPending || exitQuery.isPending;
 
   const fetchSecurityData = () => {
-    setIsLoading(true);
     setMsg(null);
-    return loadSecurityData(entrySearchQuery, exitSearchQuery);
+    return queryClient.invalidateQueries({ queryKey: ['security'] });
   };
 
-  // Initial load (search boxes start empty).
-  useEffect(() => {
-    loadSecurityData('', '');
-  }, [loadSecurityData]);
-
-  const handleEntrySearch = (val: string) => {
-    setEntrySearchQuery(val);
-    fetch(`/api/security/dispatched-visits?q=${encodeURIComponent(val)}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.visits) setDispatchedVisits(data.visits);
-      });
-  };
-
-  const handleExitSearch = (val: string) => {
-    setExitSearchQuery(val);
-    fetch(`/api/security/ready-for-exit?q=${encodeURIComponent(val)}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.visits) setReadyExitVisits(data.visits);
-      });
-  };
+  const handleEntrySearch = (val: string) => setEntrySearchQuery(val);
+  const handleExitSearch = (val: string) => setExitSearchQuery(val);
 
   const selectedEntryVisit = dispatchedVisits.find((v) => v.id === selectedEntryVisitId) || dispatchedVisits[0] || null;
   const selectedExitVisit = readyExitVisits.find((v) => v.id === selectedExitVisitId) || readyExitVisits[0] || null;

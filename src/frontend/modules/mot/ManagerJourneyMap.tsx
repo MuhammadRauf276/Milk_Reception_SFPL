@@ -515,7 +515,7 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
               <span>Pending Stop</span>
             </div>
             <div className="flex items-center space-x-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-red-500 border border-white shrink-0" />
+              <span className="w-2.5 h-2.5 rounded-full bg-rose-500 border border-white shrink-0" />
               <span>Latest GPS Position</span>
             </div>
             <div className="flex items-center space-x-2">

@@ -10,6 +10,8 @@ export const MANAGEMENT_VEHICLE_STAGES = [
   'AWAITING_PLANT_EXIT',
   'COMPLETED',
   'REJECTED_OR_EXITING',
+  /** ZMCC vehicles that left / were closed with accepted milk not (fully) received. Never mixed with rejected. */
+  'EXITED_WITHOUT_RECEIPT',
   'UNKNOWN',
 ] as const;
 

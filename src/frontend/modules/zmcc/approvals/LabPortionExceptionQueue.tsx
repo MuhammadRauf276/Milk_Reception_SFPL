@@ -1,6 +1,10 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { motion } from 'framer-motion';
+import { fetchJson } from '@/lib/query/fetchJson';
+import { item as itemVariant } from '@/components/motion/presets';
 import { AlertTriangle, CheckCircle2, Clock, Loader2, XCircle } from 'lucide-react';
 import { DecisionStatusBadge } from '@/frontend/modules/shared/decision/DecisionStatusBadge';
 import { getErrorMessage } from '@/lib/errors';
@@ -36,39 +40,38 @@ function waitingInfo(iso: string | null, now: number) {
   if (!iso) return { text: '-', cls: 'text-slate-600' };
   const mins = Math.max(0, Math.floor((now - new Date(iso).getTime()) / 60000));
   const text = mins < 60 ? `${mins} min` : `${Math.floor(mins / 60)} h ${mins % 60} min`;
-  const cls = mins >= 60 ? 'text-red-700' : mins >= 15 ? 'text-amber-700' : 'text-slate-600';
+  const cls = mins >= 60 ? 'text-rose-700' : mins >= 15 ? 'text-amber-700' : 'text-slate-600';
   return { text, cls };
 }
 
 export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> = ({ canDecide = true, currentUserId = null, onCountChange }) => {
   const [tab, setTab] = useState<Tab>('PENDING');
-  const [items, setItems] = useState<LabPortionExceptionItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [remarks, setRemarks] = useState<Record<string, string>>({});
+  const queryClient = useQueryClient();
+  const listQuery = useQuery({
+    queryKey: ['zmcc', 'exceptions', 'lab', tab],
+    queryFn: ({ signal }) => fetchJson<{ items?: LabPortionExceptionItem[] }>(`/api/zmcc/lab/portions/exceptions?status=${tab}`, { signal }),
+    refetchInterval: () => (typeof document !== 'undefined' && document.hidden ? false : 60_000),
+  });
+  const items = listQuery.data?.items ?? [];
+  const loading = listQuery.isFetching && !listQuery.data;
+  const error = listQuery.error ? getErrorMessage(listQuery.error) || 'Could not load the list.' : null;
+  const load = () => queryClient.invalidateQueries({ queryKey: ['zmcc', 'exceptions'] });
+  const reviewMutation = useMutation({
+    mutationFn: ({ id, body }: { id: string; body: Record<string, unknown> }) =>
+      fetchJson(`/api/zmcc/lab/portions/${id}/review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }),
+  });
   const [busyId, setBusyId] = useState<string | null>(null);
   const [itemError, setItemError] = useState<Record<string, string>>({});
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/zmcc/lab/portions/exceptions?status=${tab}`, { cache: 'no-store' });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Could not load the list.');
-      setItems(data.items || []);
-      if (tab === 'PENDING') onCountChange?.((data.items || []).length);
-    } catch (err) {
-      setError(getErrorMessage(err) || 'Could not load the list.');
-    } finally {
-      setLoading(false);
-    }
-  }, [tab, onCountChange]);
-
   useEffect(() => {
-    load();
-  }, [load]);
+    if (tab === 'PENDING' && listQuery.data) onCountChange?.((listQuery.data.items || []).length);
+  }, [tab, listQuery.data, onCountChange]);
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 30000);
@@ -84,20 +87,11 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
     setBusyId(item.id);
     setItemError((e) => ({ ...e, [item.id]: '' }));
     try {
-      const res = await fetch(`/api/zmcc/lab/portions/${item.id}/review`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ verdict, remarks: text, version: item.version }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setItemError((e) => ({ ...e, [item.id]: data.error || 'Could not save.' }));
-        if (res.status === 409) load();
-        return;
-      }
-      load();
+      await reviewMutation.mutateAsync({ id: item.id, body: { verdict, remarks: text, version: item.version } });
+      await load();
     } catch (err) {
       setItemError((e) => ({ ...e, [item.id]: getErrorMessage(err) || 'Could not save.' }));
+      void load();
     } finally {
       setBusyId(null);
     }
@@ -123,11 +117,11 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
 
       {loading && (
         <div className="flex items-center gap-2 py-6 text-slate-600">
-          <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> Loading...
+          <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> Loading…
         </div>
       )}
       {error && (
-        <div className="flex items-center gap-2 rounded-xl border border-red-300 bg-red-50 p-3 text-red-800">
+        <div className="flex items-center gap-2 rounded-xl border border-rose-300 bg-rose-50 p-3 text-rose-800">
           <AlertTriangle className="h-5 w-5" aria-hidden="true" /> {error}
           <button type="button" onClick={load} className="ml-auto min-h-[44px] px-3 font-semibold underline">Try again</button>
         </div>
@@ -143,7 +137,7 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
         const pending = item.reviewStatus === 'PENDING';
         const own = !!currentUserId && item.createdByUserId === currentUserId;
         return (
-          <article key={item.id} className="flex flex-col rounded-2xl border border-border bg-white shadow-2xs">
+          <motion.article key={item.id} variants={itemVariant} initial="initial" animate="animate" className="flex flex-col rounded-2xl border border-border bg-white shadow-2xs">
             <div className="flex-1 space-y-4 p-4">
               <header className="space-y-1">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -153,7 +147,7 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
                   <DecisionStatusBadge status={pending ? 'PENDING' : item.finalDecision === 'REJECTED' ? 'REJECTED' : 'ACCEPTED'} />
                 </div>
                 <p className="text-sm text-slate-600">
-                  {item.point === 'ZMCC_LAB_MC' ? 'MC (MOT milk)' : 'HC (local supplier)'}
+                  {item.point === 'ZMCC_LAB_MC' ? 'MC (route milk)' : 'HC (direct supplier)'}
                   {item.sourceName ? ` · ${item.sourceName}` : ''}
                   {item.token ? ` · Token ${item.token}` : ''}
                   {item.submittedByName ? ` · by ${item.submittedByName}` : ''}
@@ -172,7 +166,7 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
               </header>
 
               <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="rounded-xl bg-slate-50 p-2"><div className="text-xs text-slate-500">Litres</div><div className="text-base font-bold">{item.grossLiters ?? '-'}</div></div>
+                <div className="rounded-xl bg-slate-50 p-2"><div className="text-xs text-slate-500">Weight (KG)</div><div className="text-base font-bold">{item.quantityValue ?? item.grossLiters ?? '-'}</div></div>
                 <div className="rounded-xl bg-slate-50 p-2"><div className="text-xs text-slate-500">LR</div><div className="text-base font-bold">{item.lr ?? '-'}</div></div>
                 <div className="rounded-xl bg-slate-50 p-2"><div className="text-xs text-slate-500">Fat</div><div className="text-base font-bold">{item.fat ?? '-'}</div></div>
               </div>
@@ -204,8 +198,8 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
                         <tr key={t.labTestId} className="border-t border-border">
                           <td className="p-2">{t.testName}</td>
                           <td className="p-2">{t.value ?? t.textValue ?? '-'}{t.unit && t.value !== null ? ` ${t.unit}` : ''}</td>
-                          <td className={cn('p-2 font-semibold', t.outcome === 'FAIL' ? 'text-red-700' : t.outcome === 'PASS' ? 'text-green-700' : 'text-amber-700')}>
-                            {t.outcome === 'PASS' ? '✓ ' : t.outcome === 'FAIL' ? '✗ ' : '⚠ '}{outcomeText(t.outcome)}
+                          <td className={cn('p-2 font-semibold', t.outcome === 'FAIL' ? 'text-rose-700' : t.outcome === 'PASS' ? 'text-emerald-700' : 'text-amber-700')}>
+                            {outcomeText(t.outcome)}
                           </td>
                         </tr>
                       ))}
@@ -238,13 +232,13 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
                   rows={2}
                   className="w-full rounded-xl border border-border-strong p-2 text-base"
                 />
-                {itemError[item.id] && <p className="text-sm font-semibold text-red-700">{itemError[item.id]}</p>}
+                {itemError[item.id] && <p className="text-sm font-semibold text-rose-700">{itemError[item.id]}</p>}
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
                     disabled={busyId === item.id}
                     onClick={() => decide(item, 'NO')}
-                    className="flex h-14 items-center justify-center gap-2 rounded-xl bg-red-600 text-lg font-bold text-white disabled:opacity-50"
+                    className="flex h-14 items-center justify-center gap-2 rounded-xl bg-rose-600 text-lg font-bold text-white disabled:opacity-50"
                   >
                     <XCircle className="h-6 w-6" aria-hidden="true" /> NO
                   </button>
@@ -252,14 +246,14 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
                     type="button"
                     disabled={busyId === item.id}
                     onClick={() => decide(item, 'OKAY')}
-                    className="flex h-14 items-center justify-center gap-2 rounded-xl bg-green-600 text-lg font-bold text-white disabled:opacity-50"
+                    className="flex h-14 items-center justify-center gap-2 rounded-xl bg-emerald-600 text-lg font-bold text-white disabled:opacity-50"
                   >
                     <CheckCircle2 className="h-6 w-6" aria-hidden="true" /> OKAY
                   </button>
                 </div>
               </div>
             )}
-          </article>
+          </motion.article>
         );
       })}
     </section>

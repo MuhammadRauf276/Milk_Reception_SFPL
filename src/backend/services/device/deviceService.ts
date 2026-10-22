@@ -66,6 +66,7 @@ export interface DiaryRecord {
 export interface DeviceServiceDb {
   device: {
     findMany(args: Record<string, unknown>): Promise<DeviceRecord[]>;
+    count?(args: Record<string, unknown>): Promise<number>;
     findUnique(args: { where: { id: bigint } | { device_uid: string } }): Promise<DeviceRecord | null>;
     create(args: { data: Record<string, unknown> }): Promise<DeviceRecord>;
     update(args: { where: { id: bigint }; data: Record<string, unknown> }): Promise<DeviceRecord>;
@@ -149,16 +150,38 @@ export interface ListDevicesFilter {
   status?: DeviceStatus;
   assignedUserId?: bigint;
   procurementSourceId?: bigint;
+  /** Case-insensitive match on label / device uid. */
+  search?: string;
+  /** Optional server-side paging (additive; omit to list everything). */
+  skip?: number;
+  take?: number;
 }
 
-export async function listDevices(filter: ListDevicesFilter = {}, db?: DeviceServiceDb): Promise<DeviceView[]> {
-  const client = await resolveDb(db);
+function buildDeviceWhere(filter: ListDevicesFilter): Record<string, unknown> {
   const where: Record<string, unknown> = {};
   if (filter.status) where.status = filter.status;
   if (filter.assignedUserId !== undefined) where.assigned_user_id = filter.assignedUserId;
   if (filter.procurementSourceId !== undefined) where.procurement_source_id = filter.procurementSourceId;
+  if (filter.search) {
+    where.OR = [
+      { label: { contains: filter.search, mode: 'insensitive' } },
+      { device_uid: { contains: filter.search, mode: 'insensitive' } },
+    ];
+  }
+  return where;
+}
+
+export async function countDevices(filter: ListDevicesFilter = {}, db?: DeviceServiceDb): Promise<number> {
+  const client = await resolveDb(db);
+  return client.device.count ? client.device.count({ where: buildDeviceWhere(filter) }) : 0;
+}
+
+export async function listDevices(filter: ListDevicesFilter = {}, db?: DeviceServiceDb): Promise<DeviceView[]> {
+  const client = await resolveDb(db);
+  const where = buildDeviceWhere(filter);
   const rows = await client.device.findMany({
     where,
+    ...(filter.take !== undefined ? { skip: filter.skip ?? 0, take: filter.take } : {}),
     orderBy: [{ registered_at: 'desc' }],
     include: {
       assigned_user: { select: { full_name: true, username: true } },

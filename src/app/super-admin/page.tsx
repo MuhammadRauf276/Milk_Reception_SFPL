@@ -1,10 +1,12 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Users, Truck, Database, FlaskConical, AlertCircle } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { StatCard } from '@/components/ui/stat-card';
 import { getErrorMessage } from '@/lib/errors';
+import { fetchJson } from '@/lib/query/fetchJson';
 
 interface OverviewMetrics {
   totalUsers: number;
@@ -30,31 +32,15 @@ interface AuditItem {
 }
 
 export default function SuperAdminOverviewPage() {
-  const [metrics, setMetrics] = useState<OverviewMetrics | null>(null);
-  const [recentAudit, setRecentAudit] = useState<AuditItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    async function fetchOverview() {
-      try {
-        const res = await fetch('/api/super-admin/overview');
-        const data = await res.json();
-        if (res.ok) {
-          setMetrics(data.metrics);
-          setRecentAudit(data.recentAudit || []);
-        } else {
-          setError(data.error || 'Failed to load overview data.');
-        }
-      } catch (err) {
-        setError(getErrorMessage(err));
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchOverview();
-  }, []);
+  const query = useQuery({
+    queryKey: ['super-admin', 'overview'],
+    queryFn: ({ signal }) =>
+      fetchJson<{ metrics: OverviewMetrics; recentAudit?: AuditItem[] }>('/api/super-admin/overview', { signal }),
+  });
+  const metrics = query.data?.metrics ?? null;
+  const recentAudit = query.data?.recentAudit ?? [];
+  const loading = query.isPending;
+  const error = query.error ? getErrorMessage(query.error) || 'Failed to load overview data.' : null;
 
   if (loading) {
     return <div className="p-8 text-xs tabular-nums font-semibold text-slate-600">Loading Super Admin Overview…</div>;

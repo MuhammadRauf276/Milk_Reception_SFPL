@@ -1,65 +1,78 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { Suspense, useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { AnimatePresence, motion } from 'framer-motion';
+import { useSearchParams } from 'next/navigation';
 import {
   CheckCircle2,
   Edit2,
   Plus,
   ShieldAlert,
   Lock,
-  X,
   Sliders,
   Camera,
+  Check,
+  Search,
+  FlaskConical,
 } from 'lucide-react';
 import { User } from '@core/types';
+import { fadeSlide } from '@/components/motion/presets';
+import { fetchJson } from '@/lib/query/fetchJson';
+import { getErrorMessage } from '@/lib/errors';
+import { useDebouncedValue } from './shared/useDebouncedValue';
+import { PaginationBar } from './shared/PaginationBar';
+import {
+  LabTestFormDrawer,
+  LabTestStatusDrawer,
+  type LabTest,
+} from './lab-tests/LabTestDrawers';
 
-export interface LabTestOption {
-  value: string;
-  label: string;
-  isPassing?: boolean | null;
-}
+const ROW_PAGE_SIZE = 25;
+const LAB_TESTS_API = '/api/super-admin/lab-tests';
+const STAGE_API = '/api/super-admin/stage-policies-rules';
 
-export interface UnifiedStageItem {
-  labTest: {
-    id: string;
-    testCode: string;
-    testName: string;
-    resultType: string;
-    unit: string | null;
-    isActive: boolean;
-    displayOrder: number;
-    isPhotoRequired?: boolean;
-    resultOptions?: LabTestOption[] | null;
-  };
-  policy: {
-    id: string;
-    isActive: boolean;
-    isRequired: boolean;
-    isPhotoRequired?: boolean;
-    displayOrder: number;
-    updatedAt: string;
-  } | null;
-  rule: {
-    id: string;
-    version: number;
-    ruleCategory: 'RELEASE' | 'MONITORING';
-    ruleTypeLabel: 'Must Pass' | 'Warning Only';
-    minValue: number | null;
-    maxValue: number | null;
-    warningOffset?: number | null;
-    acceptableOption: string | null;
-    effectiveFrom: string;
-  } | null;
-}
-
-const STAGE_TABS = [
-  { id: 'GLOBAL_DEFAULT', label: '0. Global Master Specs', subtitle: 'Universal Standard Limits (Fallback)' },
-  { id: 'MOT_SHOP', label: '1. MOT Shop', subtitle: 'Village Shop Milk Collection' },
-  { id: 'ZMCC_LAB_MOT', label: '2. ZMCC MOT', subtitle: 'ZMCC Intake: MOT Routes' },
-  { id: 'ZMCC_LAB_LOCAL_SUPPLIER', label: '3. ZMCC Local Supplier', subtitle: 'ZMCC Intake: Local Suppliers' },
-  { id: 'DISPATCH', label: '4. Dispatch', subtitle: 'Tanker Dispatch to Plant' },
-  { id: 'PLANT_QA', label: '5. Plant QA', subtitle: 'Plant Reception Laboratory' },
+export const STAGE_FILTERS = [
+  { id: 'ALL', label: 'All Tests', unit: 'Various', desc: 'Complete enterprise catalog' },
+  { id: 'MOT_SHOP', label: '1. MOT Shop', unit: 'Liters (L)', desc: 'Shop Intake · Can Rejection on Failure' },
+  { id: 'ZMCC_LAB_MC', label: '2. ZMCC MC', unit: 'kg', desc: 'Route Milk · Chilled Silo vs Rejected Tank' },
+  { id: 'ZMCC_LAB_HC', label: '3. ZMCC HC', unit: 'kg', desc: 'Direct Supplier (HC) Deliveries' },
+  { id: 'DISPATCH', label: '4. Dispatch', unit: 'kg', desc: 'Tanker Dispatch · 0–4.5°C & Seals' },
+  { id: 'PLANT_QA', label: '5. Plant QA', unit: 'kg', desc: 'Plant Reception · Zero-Tolerance Adulteration Reject' },
 ] as const;
+
+export const STAGE_NAME_MAP: Record<string, string> = {
+  MOT_SHOP: 'MOT Shop',
+  ZMCC_LAB_MC: 'ZMCC MC',
+  ZMCC_LAB_HC: 'ZMCC HC',
+  DISPATCH: 'Dispatch',
+  PLANT_QA: 'Plant QA',
+};
+
+const STATUS_FILTER_OPTIONS = [
+  { value: '', label: 'All Status' },
+  { value: 'active', label: 'Active' },
+  { value: 'inactive', label: 'Inactive' },
+];
+
+const postStage = (body: Record<string, unknown>) =>
+  fetchJson<{ ok?: boolean }>(STAGE_API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+interface LabTestsResponse {
+  labTests?: LabTest[];
+  maxDisplayOrder?: number;
+  pagination?: { page: number; totalPages: number; totalRecords: number };
+}
+
+type CatalogDrawer =
+  | { kind: 'create'; initialStage?: string }
+  | { kind: 'edit'; test: LabTest }
+  | { kind: 'status'; test: LabTest; action: 'ACTIVATE' | 'DEACTIVATE' }
+  | null;
 
 export interface UnifiedStagePoliciesRulesWorkspaceProps {
   currentUser?: User | null;
@@ -68,405 +81,542 @@ export interface UnifiedStagePoliciesRulesWorkspaceProps {
   forceReadOnly?: boolean;
 }
 
-export const UnifiedStagePoliciesRulesWorkspace: React.FC<UnifiedStagePoliciesRulesWorkspaceProps> = ({
+function WorkspaceInner({
   currentUser,
-  defaultTestingPoint = 'PLANT_QA',
-  allowedStages,
+  defaultTestingPoint = 'ALL',
   forceReadOnly = false,
-}) => {
-  const visibleTabs = allowedStages
-    ? STAGE_TABS.filter((t) => allowedStages.includes(t.id))
-    : STAGE_TABS;
+}: UnifiedStagePoliciesRulesWorkspaceProps) {
+  const queryClient = useQueryClient();
+  const searchParams = useSearchParams();
 
-  const [selectedStage, setSelectedStage] = useState<string>(
-    visibleTabs.some((t) => t.id === defaultTestingPoint)
-      ? defaultTestingPoint
-      : visibleTabs[0]?.id || 'PLANT_QA'
-  );
+  const paramStage = searchParams?.get('stage')?.toUpperCase() || searchParams?.get('tab')?.toUpperCase();
+  const initialStage = useMemo(() => {
+    if (paramStage) {
+      const match = STAGE_FILTERS.find((s) => s.id === paramStage || s.id.replace(/_/g, '-') === paramStage.replace(/_/g, '-'));
+      if (match) return match.id;
+    }
+    return defaultTestingPoint === 'CATALOG' ? 'ALL' : defaultTestingPoint;
+  }, [paramStage, defaultTestingPoint]);
 
-  const [items, setItems] = useState<UnifiedStageItem[]>([]);
-  const [canEditServer, setCanEditServer] = useState<boolean>(false);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  const [stageFilter, setStageFilter] = useState<string>(initialStage);
+  const [catalogSearch, setCatalogSearch] = useState('');
+  const [catalogStatus, setCatalogStatus] = useState('');
+  const [catalogPage, setCatalogPage] = useState(1);
+
+  // Notices
+  const [actionError, setActionError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  const [editingItem, setEditingItem] = useState<UnifiedStageItem | null>(null);
-  const [formActive, setFormActive] = useState<boolean>(true);
-  const [formRequired, setFormRequired] = useState<boolean>(true);
-  const [formPhotoRequired, setFormPhotoRequired] = useState<boolean>(false);
-  const [formOrder, setFormOrder] = useState<number>(1);
-  const [formRuleCategory, setFormRuleCategory] = useState<'RELEASE' | 'MONITORING'>('RELEASE');
-  const [formMin, setFormMin] = useState<string>('');
-  const [formMax, setFormMax] = useState<string>('');
-  const [formWarningOffset, setFormWarningOffset] = useState<string>('');
-  const [formAcceptableOption, setFormAcceptableOption] = useState<string>('PASS');
-  const [formReason, setFormReason] = useState<string>('');
-  const [modalError, setModalError] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState<boolean>(false);
+  // Drawers
+  const [catalogDrawer, setCatalogDrawer] = useState<CatalogDrawer>(null);
 
+  const debouncedCatalogSearch = useDebouncedValue(catalogSearch.trim(), 300);
+
+  // User permission
   const role = currentUser?.role?.trim() || '';
   const isRoleEditor = ['SUPER_ADMIN', 'DATA_EXECUTIVE'].includes(role);
-  const canEdit = !forceReadOnly && (canEditServer || isRoleEditor);
+  const canEdit = !forceReadOnly && isRoleEditor;
 
-  const loadStageData = useCallback(async (stage: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/super-admin/stage-policies-rules?testingPoint=${encodeURIComponent(stage)}`, {
-        cache: 'no-store',
+  // Master Catalog Query (with stage, status, search, and pagination)
+  const catalogQueryKey = useMemo(
+    () => ['super-admin', 'lab-tests', { q: debouncedCatalogSearch, status: catalogStatus, stage: stageFilter, page: catalogPage }],
+    [debouncedCatalogSearch, catalogStatus, stageFilter, catalogPage]
+  );
+
+  const catalogQuery = useQuery({
+    queryKey: catalogQueryKey,
+    queryFn: ({ signal }) => {
+      const params = new URLSearchParams({
+        page: String(catalogPage),
+        pageSize: String(ROW_PAGE_SIZE),
       });
-      const data = await res.json();
-      if (res.ok) {
-        setItems(data.items || []);
-        setCanEditServer(Boolean(data.canEdit));
-      } else {
-        setError(data.error || 'Failed to load stage test policies and rules.');
-      }
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Network error loading stage policies.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      if (debouncedCatalogSearch) params.set('q', debouncedCatalogSearch);
+      if (catalogStatus) params.set('status', catalogStatus);
+      if (stageFilter && stageFilter !== 'ALL') params.set('stage', stageFilter);
+      return fetchJson<LabTestsResponse>(`${LAB_TESTS_API}?${params}`, { signal, cache: 'no-store' });
+    },
+  });
 
-  useEffect(() => {
-    loadStageData(selectedStage);
-  }, [selectedStage, loadStageData]);
-
-  const openConfigModal = (item: UnifiedStageItem) => {
-    if (!canEdit) return;
-    setEditingItem(item);
-    setModalError(null);
-
-    const activeStageCount = items.filter((i) => i.policy?.isActive).length;
-    setFormActive(item.policy ? item.policy.isActive : true);
-    setFormRequired(item.policy ? item.policy.isRequired : true);
-    setFormPhotoRequired(Boolean(item.policy?.isPhotoRequired ?? item.labTest.isPhotoRequired));
-    setFormOrder(item.policy?.displayOrder ?? (activeStageCount + 1));
-    setFormRuleCategory(item.rule?.ruleCategory === 'MONITORING' ? 'MONITORING' : 'RELEASE');
-    setFormMin(item.rule?.minValue !== null && item.rule?.minValue !== undefined ? String(item.rule.minValue) : '');
-    setFormMax(item.rule?.maxValue !== null && item.rule?.maxValue !== undefined ? String(item.rule.maxValue) : '');
-    setFormWarningOffset(
-      item.rule?.warningOffset !== null && item.rule?.warningOffset !== undefined ? String(item.rule.warningOffset) : ''
-    );
-
-    const options = Array.isArray(item.labTest.resultOptions) ? item.labTest.resultOptions : [];
-    const defaultOpt =
-      item.rule?.acceptableOption ||
-      options.find((o) => o.isPassing === true)?.value ||
-      options[0]?.value ||
-      'PASS';
-    setFormAcceptableOption(defaultOpt);
-    setFormReason(`Updated ${item.labTest.testName} rule at ${selectedStage}`);
+  const refreshAll = async () => {
+    await queryClient.invalidateQueries({ queryKey: ['super-admin', 'lab-tests'] });
   };
 
-  const closeConfigModal = () => {
-    if (isSaving) return;
-    setEditingItem(null);
-    setModalError(null);
-  };
-
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingItem || isSaving) return;
-
-    setModalError(null);
+  const resetNotices = () => {
     setSuccessMsg(null);
+    setActionError(null);
+  };
 
-    const isNumeric =
-      editingItem.labTest.resultType === 'NUMERIC' || editingItem.labTest.resultType === 'CALCULATED';
-
-    if (isNumeric) {
-      if (formMin.trim() !== '' && formMax.trim() !== '' && Number(formMin) > Number(formMax)) {
-        setModalError('Minimum limit cannot be greater than Maximum limit.');
-        return;
+  // 1-Click Toggle Requirement (Compulsory vs Optional)
+  const toggleRequiredMutation = useMutation({
+    mutationFn: ({ test, targetRequired }: { test: LabTest; targetRequired: boolean }) => {
+      if (stageFilter && stageFilter !== 'ALL') {
+        return postStage({
+          action: 'toggleRequired',
+          testingPoint: stageFilter,
+          labTestId: test.id,
+          isRequired: targetRequired,
+        });
       }
-    }
-
-    setIsSaving(true);
-    try {
-      const res = await fetch('/api/super-admin/stage-policies-rules', {
-        method: 'POST',
+      return fetchJson(`/api/super-admin/lab-tests/${test.id}`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          labTestId: editingItem.labTest.id,
-          testingPoint: selectedStage,
-          isActive: formActive,
-          isRequired: formRequired,
-          isPhotoRequired: formPhotoRequired,
-          displayOrder: Number(formOrder) || 1,
-          ruleCategory: formRuleCategory,
-          minValue: isNumeric && formMin.trim() !== '' ? Number(formMin) : null,
-          maxValue: isNumeric && formMax.trim() !== '' ? Number(formMax) : null,
-          warningOffset: isNumeric && formWarningOffset.trim() !== '' ? Number(formWarningOffset) : null,
-          acceptableOption: !isNumeric ? formAcceptableOption : null,
-          reason: formReason.trim() || `Configured ${editingItem.labTest.testName}`,
-        }),
+        body: JSON.stringify({ isRequired: targetRequired }),
       });
+    },
+    onSuccess: async (_d, { test, targetRequired }) => {
+      setSuccessMsg(
+        `Set "${test.testName}" as ${targetRequired ? 'Compulsory' : 'Optional'}${
+          stageFilter !== 'ALL' ? ` at ${STAGE_NAME_MAP[stageFilter] || stageFilter}` : ''
+        }.`
+      );
+      await refreshAll();
+    },
+    onError: (err) => setActionError(getErrorMessage(err) || 'Failed to update requirement status.'),
+  });
 
-      const data = await res.json();
-      if (!res.ok) {
-        setModalError(data.error || 'Failed to save stage policy and rule.');
-      } else {
-        setSuccessMsg(`Saved ${editingItem.labTest.testCode} (${editingItem.labTest.testName}) for ${selectedStage}.`);
-        setEditingItem(null);
-        await loadStageData(selectedStage);
+  // 1-Click Toggle Photo Requirement
+  const togglePhotoMutation = useMutation({
+    mutationFn: ({ test, targetPhoto }: { test: LabTest; targetPhoto: boolean }) => {
+      if (stageFilter && stageFilter !== 'ALL') {
+        return postStage({
+          action: 'togglePhoto',
+          testingPoint: stageFilter,
+          labTestId: test.id,
+          isPhotoRequired: targetPhoto,
+        });
       }
-    } catch (err: unknown) {
-      setModalError(err instanceof Error ? err.message : 'Network error saving rule.');
-    } finally {
-      setIsSaving(false);
-    }
-  };
+      return fetchJson(`/api/super-admin/lab-tests/${test.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isPhotoRequired: targetPhoto }),
+      });
+    },
+    onSuccess: async (_d, { test, targetPhoto }) => {
+      setSuccessMsg(
+        targetPhoto
+          ? `Camera photo required for "${test.testName}"${stageFilter !== 'ALL' ? ` at ${STAGE_NAME_MAP[stageFilter] || stageFilter}` : ''}.`
+          : `Photo requirement disabled for "${test.testName}"${stageFilter !== 'ALL' ? ` at ${STAGE_NAME_MAP[stageFilter] || stageFilter}` : ''}.`
+      );
+      await refreshAll();
+    },
+    onError: (err) => setActionError(getErrorMessage(err) || 'Failed to update photo requirement.'),
+  });
 
-  const activeTabInfo = STAGE_TABS.find((t) => t.id === selectedStage) || STAGE_TABS[0];
+  // 1-Click Toggle Active Status
+  const toggleActiveMutation = useMutation({
+    mutationFn: ({ test, targetActive }: { test: LabTest; targetActive: boolean }) =>
+      fetchJson(`/api/super-admin/lab-tests/${test.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: targetActive }),
+      }),
+    onSuccess: async (_d, { test, targetActive }) => {
+      setSuccessMsg(`Test "${test.testName}" ${targetActive ? 'activated' : 'deactivated'}.`);
+      await refreshAll();
+    },
+    onError: (err) => setActionError(getErrorMessage(err) || 'Failed to update test status.'),
+  });
 
-  const getQualitativeOptions = (item: UnifiedStageItem): LabTestOption[] => {
-    if (Array.isArray(item.labTest.resultOptions) && item.labTest.resultOptions.length > 0) {
-      return item.labTest.resultOptions;
-    }
-    return [
-      { value: 'PASS', label: 'Pass', isPassing: true },
-      { value: 'FAIL', label: 'Fail', isPassing: false },
-      { value: 'NEGATIVE', label: 'Negative', isPassing: true },
-      { value: 'POSITIVE', label: 'Positive', isPassing: false },
-      { value: 'NORMAL', label: 'Normal', isPassing: true },
-      { value: 'ABNORMAL', label: 'Abnormal', isPassing: false },
-    ];
-  };
+  const catalogTests = catalogQuery.data?.labTests ?? [];
+  const catalogPagination = catalogQuery.data?.pagination;
+  const nextDisplayOrder = (catalogQuery.data?.maxDisplayOrder ?? 0) + 1;
+  const activeStageInfo = STAGE_FILTERS.find((s) => s.id === stageFilter) || STAGE_FILTERS[0];
+
+  const loadError = catalogQuery.error ? getErrorMessage(catalogQuery.error) || 'Failed to load laboratory tests.' : null;
+  const displayError = actionError || loadError;
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
+    <div className="w-full max-w-full space-y-4 overflow-x-hidden">
+      {/* Header Banner */}
+      <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <Sliders className="w-5 h-5 text-primary" />
-            <h1 className="text-lg font-bold text-slate-900">
-              Stage test policies
-            </h1>
+            <FlaskConical className="h-5 w-5 text-primary" />
+            <h1 className="text-lg font-bold text-slate-900">Master Laboratory Tests &amp; Stage Policies</h1>
           </div>
+          <p className="mt-1 text-xs text-slate-500">
+            One unified master catalog to manage tests, stage assignments, compulsory enforcement, photo evidence, and SOP acceptance limits.
+          </p>
         </div>
-
         {!canEdit && (
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs font-semibold">
-            <Lock className="w-3.5 h-3.5 text-amber-700" />
-            <span>Read-Only View (Super Admin &amp; Data Executive Authorized Only)</span>
+          <div className="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-900">
+            <Lock className="h-3.5 w-3.5 text-amber-700" />
+            <span>Read-Only View</span>
           </div>
         )}
       </div>
 
-      <div className="flex flex-wrap gap-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
-        {visibleTabs.map((tab) => {
-          const isSelected = tab.id === selectedStage;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => {
-                setSelectedStage(tab.id);
-                setSuccessMsg(null);
-              }}
-              className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all ${
-                isSelected
-                  ? 'bg-primary text-white shadow-xs'
-                  : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200/80'
-              }`}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {error && (
-        <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs font-semibold flex items-center gap-2">
-          <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
-          <span>{error}</span>
+      {/* Error & Success Alerts */}
+      {displayError && (
+        <div role="alert" className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3.5 text-xs font-semibold text-rose-800">
+          <ShieldAlert className="h-4 w-4 shrink-0 text-rose-600" />
+          <span>{displayError}</span>
         </div>
       )}
+      <AnimatePresence initial={false}>
+        {successMsg && (
+          <motion.div
+            key="ok"
+            variants={fadeSlide}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            role="status"
+            className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-xs font-semibold text-emerald-900"
+          >
+            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+            <span>{successMsg}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {successMsg && (
-        <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-900 text-xs font-semibold flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-          <span>{successMsg}</span>
-        </div>
-      )}
-
-      <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
-        <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-          <div>
-            <span className="text-xs font-bold text-slate-800">{activeTabInfo.label}: </span>
-            <span className="text-xs font-medium text-slate-600">{activeTabInfo.subtitle}</span>
+      {/* Unified Master Catalog Workspace */}
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">
+        {/* Stage Filter Pills Bar (Quick 1-Click Filtering Without Navigation Clutter) */}
+        <div className="border-b border-slate-200 bg-slate-100/90 p-2.5">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mr-1">Filter by Stage:</span>
+            {STAGE_FILTERS.map((s) => {
+              const isSelected = stageFilter === s.id;
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => {
+                    setStageFilter(s.id);
+                    setCatalogPage(1);
+                    resetNotices();
+                  }}
+                  className={`flex min-h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-bold transition-all ${
+                    isSelected
+                      ? 'bg-primary text-white shadow-xs'
+                      : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  <span>{s.label}</span>
+                </button>
+              );
+            })}
           </div>
-          <span className="text-xs font-semibold text-slate-500 tabular-nums">
-            Active Tests on Form: {items.filter((i) => i.policy?.isActive).length} / {items.length}
-          </span>
+
+          {/* Active Stage Context Info */}
+          {stageFilter !== 'ALL' && 'unit' in activeStageInfo && (
+            <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700">
+              <span className="font-bold text-slate-900">{activeStageInfo.label}:</span>
+              <span className="rounded bg-slate-100 px-2 py-0.5 font-bold text-slate-800">Operating Unit: {activeStageInfo.unit}</span>
+              <span className="text-slate-500">· {activeStageInfo.desc}</span>
+            </div>
+          )}
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-100/80 text-slate-700 border-b border-slate-200">
+        {/* Toolbar: Search, Status Filter & Add Lab Test */}
+        <div className="space-y-3 border-b border-slate-200 bg-slate-50 p-3 sm:px-4 sm:py-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold text-slate-900">
+                {stageFilter === 'ALL' ? 'Master Lab Tests' : `${activeStageInfo.label} Tests`}
+              </span>
+              <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs font-semibold tabular-nums text-slate-700">
+                {catalogPagination?.totalRecords ?? catalogTests.length} tests
+              </span>
+            </div>
+            {canEdit && (
+              <button
+                type="button"
+                onClick={() => setCatalogDrawer({ kind: 'create', initialStage: stageFilter !== 'ALL' ? stageFilter : undefined })}
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-primary px-4 text-xs font-bold text-white shadow-xs transition-colors hover:bg-primary-hover"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Add Lab Test</span>
+              </button>
+            )}
+          </div>
+
+          {/* Search & Status Filters */}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+              <input
+                type="search"
+                value={catalogSearch}
+                onChange={(e) => {
+                  setCatalogSearch(e.target.value);
+                  setCatalogPage(1);
+                }}
+                placeholder="Search test name or test code…"
+                aria-label="Search lab tests"
+                className="h-11 w-full rounded-xl border border-border-strong bg-white pl-9 pr-3 text-sm focus:outline-hidden focus:border-primary"
+              />
+            </div>
+            <div role="group" aria-label="Status filter" className="flex gap-1">
+              {STATUS_FILTER_OPTIONS.map((o) => (
+                <button
+                  key={o.value}
+                  type="button"
+                  aria-pressed={catalogStatus === o.value}
+                  onClick={() => {
+                    setCatalogStatus(o.value);
+                    setCatalogPage(1);
+                  }}
+                  className={`h-11 rounded-xl border px-3 text-xs font-semibold transition-colors ${
+                    catalogStatus === o.value
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border-strong bg-white text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Master Catalog Table */}
+        <div className="w-full overflow-x-auto">
+          <table className="w-full min-w-[850px] text-left text-xs">
+            <thead className="border-b border-slate-200 bg-slate-100/80 text-slate-700">
               <tr>
-                <th className="p-3 font-bold w-14">Order</th>
-                <th className="p-3 font-bold">Test Code &amp; Name</th>
-                <th className="p-3 font-bold">Type</th>
-                <th className="p-3 font-bold">Show on Form</th>
-                <th className="p-3 font-bold">Mandatory</th>
-                <th className="p-3 font-bold">Rule Type</th>
-                <th className="p-3 font-bold">Passing Limit</th>
-                <th className="p-3 font-bold">Warning Offset</th>
-                <th className="p-3 font-bold">Photo Req</th>
-                {canEdit && <th className="p-3 font-bold text-right">Action</th>}
+                <th className="w-12 p-3 text-center font-bold">#</th>
+                <th className="p-3 font-bold">Test Code</th>
+                <th className="p-3 font-bold">Test Name</th>
+                <th className="p-3 font-bold">Type &amp; Choices</th>
+                <th className="p-3 font-bold">Unit</th>
+                <th className="p-3 font-bold">Assigned Stages</th>
+                <th className="p-3 font-bold">Requirement</th>
+                <th className="p-3 font-bold">Photo Evidence</th>
+                <th className="p-3 font-bold">SOP Passing Standard</th>
+                <th className="p-3 font-bold">Status</th>
+                {canEdit && <th className="p-3 text-right font-bold">Actions</th>}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200/70">
-              {loading ? (
+            <tbody className="divide-y divide-slate-200/70 font-medium">
+              {catalogQuery.isPending ? (
                 <tr>
-                  <td colSpan={canEdit ? 10 : 9} className="p-8 text-center text-slate-400 font-semibold">
-                    Loading stage test policies and rules…
+                  <td colSpan={11} className="p-8 text-center font-semibold text-slate-400">
+                    Loading laboratory tests…
                   </td>
                 </tr>
-              ) : items.length === 0 ? (
+              ) : catalogTests.length === 0 ? (
                 <tr>
-                  <td colSpan={canEdit ? 10 : 9} className="p-8 text-center text-slate-400 font-semibold">
-                    No master lab tests found. Create tests in Lab Test Master first.
+                  <td colSpan={11} className="p-8 text-center text-slate-400">
+                    No laboratory tests match your search criteria.
                   </td>
                 </tr>
               ) : (
-                items.map((item) => {
-                  const isAssignedAndActive = Boolean(item.policy?.isActive);
-                  const isNumeric =
-                    item.labTest.resultType === 'NUMERIC' || item.labTest.resultType === 'CALCULATED';
-                  const ruleType = item.rule?.ruleCategory === 'MONITORING' ? 'Warning Only' : 'Must Pass';
-                  const hasPhotoReq = Boolean(item.policy?.isPhotoRequired ?? item.labTest.isPhotoRequired);
+                catalogTests.map((t) => {
+                  const stages = t.assignedStages || [];
+                  const isNumeric = t.resultType === 'NUMERIC' || t.resultType === 'CALCULATED';
 
-                  let limitDisplay = 'Not Set';
-                  if (item.rule) {
-                    if (isNumeric) {
-                      const minStr = item.rule.minValue !== null ? String(item.rule.minValue) : '-∞';
-                      const maxStr = item.rule.maxValue !== null ? String(item.rule.maxValue) : '+∞';
-                      const unitStr = item.labTest.unit ? ` ${item.labTest.unit}` : '';
-                      limitDisplay = `${minStr} to ${maxStr}${unitStr}`;
-                    } else {
-                      limitDisplay = item.rule.acceptableOption || 'PASS';
+                  let passingDisplay = '—';
+                  if (isNumeric) {
+                    if (t.minValue !== null && t.minValue !== undefined && t.maxValue !== null && t.maxValue !== undefined) {
+                      passingDisplay = `${t.minValue} to ${t.maxValue}${t.unit ? ` ${t.unit}` : ''}`;
+                    } else if (t.minValue !== null && t.minValue !== undefined) {
+                      passingDisplay = `≥ ${t.minValue}${t.unit ? ` ${t.unit}` : ''}`;
+                    } else if (t.maxValue !== null && t.maxValue !== undefined) {
+                      passingDisplay = `≤ ${t.maxValue}${t.unit ? ` ${t.unit}` : ''}`;
                     }
+                  } else if (t.acceptableOption) {
+                    passingDisplay = t.acceptableOption;
                   }
 
                   return (
-                    <tr
-                      key={item.labTest.id}
-                      className={isAssignedAndActive ? 'bg-white hover:bg-slate-50/80' : 'bg-slate-50/40 text-slate-400 hover:bg-slate-50'}
-                    >
-                      <td className="p-3 font-bold tabular-nums">
-                        {isAssignedAndActive ? `#${item.policy?.displayOrder ?? 1}` : '—'}
+                    <tr key={t.id} className="transition-colors hover:bg-slate-50">
+                      <td className="p-3 text-center font-semibold tabular-nums text-slate-400">
+                        {t.displayOrder}
+                      </td>
+                      <td className="p-3 font-mono font-bold text-slate-900 tabular-nums">
+                        {t.testCode}
+                      </td>
+                      <td className="p-3 font-bold text-slate-900">
+                        {t.testName}
                       </td>
                       <td className="p-3">
-                        <div className="font-bold text-slate-900">{item.labTest.testName}</div>
-                        <div className="text-[11px] font-mono text-slate-500">
-                          {item.labTest.testCode}
-                          {item.labTest.unit ? ` · Unit: ${item.labTest.unit}` : ''}
-                        </div>
-                      </td>
-                      <td className="p-3">
-                        <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold text-[11px]">
-                          {isNumeric ? 'NUMERIC' : 'QUALITATIVE'}
-                        </span>
-                      </td>
-                      <td className="p-3">
-                        {isAssignedAndActive ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 font-bold text-[11px]">
-                            Active
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 font-semibold text-[11px]">
-                            Hidden
-                          </span>
-                        )}
-                      </td>
-                      <td className="p-3">
-                        {isAssignedAndActive ? (
-                          item.policy?.isRequired ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold text-[11px]">
-                              Required
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-semibold text-[11px]">
-                              Optional
-                            </span>
-                          )
-                        ) : (
-                          <span>—</span>
-                        )}
-                      </td>
-                      <td className="p-3">
-                        {item.rule ? (
-                          ruleType === 'Must Pass' ? (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-md bg-rose-100 border border-rose-300 text-rose-900 font-bold text-[11px]">
-                              Must Pass
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-md bg-amber-100 border border-amber-300 text-amber-900 font-bold text-[11px]">
-                              Warning Only
-                            </span>
-                          )
-                        ) : (
-                          <span className="text-slate-400">No Rule</span>
-                        )}
-                      </td>
-                      <td className="p-3 font-bold text-slate-800 tabular-nums">
-                        {item.rule ? (
-                          isNumeric ? (
-                            <span>{limitDisplay}</span>
-                          ) : (
-                            <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 font-bold">
-                              [ {limitDisplay} ]
-                            </span>
-                          )
-                        ) : (
-                          <span className="text-slate-400 font-normal">—</span>
-                        )}
-                      </td>
-                      <td className="p-3 font-mono text-[11px] tabular-nums text-slate-700">
-                        {item.rule?.warningOffset !== null && item.rule?.warningOffset !== undefined ? (
-                          <span className="px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-900 font-bold">
-                            &plusmn; {item.rule.warningOffset}
-                          </span>
-                        ) : (
-                          <span className="text-slate-400">—</span>
-                        )}
-                      </td>
-                      <td className="p-3">
-                        {hasPhotoReq ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-slate-700 font-bold text-[11px]">
-                            <Camera className="w-3 h-3 text-slate-600" />
-                            <span>Photo Req</span>
-                          </span>
-                        ) : (
-                          <span className="text-slate-400">—</span>
-                        )}
-                      </td>
-                      {canEdit && (
-                        <td className="p-3 text-right">
-                          <button
-                            type="button"
-                            onClick={() => openConfigModal(item)}
-                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
-                              isAssignedAndActive
-                                ? 'bg-slate-100 text-slate-800 hover:bg-slate-200 border border-slate-300'
-                                : 'bg-primary text-white hover:bg-primary-hover'
+                        <div className="space-y-1">
+                          <span
+                            className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-semibold ${
+                              t.resultType === 'NUMERIC'
+                                ? 'bg-blue-100 text-blue-900'
+                                : t.resultType === 'POSITIVE_NEGATIVE'
+                                ? 'bg-emerald-100 text-emerald-900'
+                                : t.resultType === 'OK_NOT_OK'
+                                ? 'border border-slate-200 bg-slate-100 text-slate-800'
+                                : t.resultType === 'QUALITATIVE'
+                                ? 'bg-amber-100 text-amber-900'
+                                : 'bg-slate-100 text-slate-700'
                             }`}
                           >
-                            {isAssignedAndActive ? (
-                              <>
-                                <Edit2 className="w-3.5 h-3.5" />
-                                <span>Edit Rule</span>
-                              </>
-                            ) : (
-                              <>
-                                <Plus className="w-3.5 h-3.5" />
-                                <span>Assign &amp; Set Rule</span>
-                              </>
+                            <span>{t.resultType}</span>
+                            {t.historicalResultsCount > 0 && (
+                              <span title="Result type locked due to historical test records">
+                                <Lock className="h-3 w-3 text-slate-500" />
+                              </span>
                             )}
+                          </span>
+
+                          {Array.isArray(t.resultOptions) && t.resultOptions.length > 0 && (
+                            <div className="flex flex-wrap gap-1 pt-0.5">
+                              {t.resultOptions.map((opt) => {
+                                const isPass = opt.outcome === 'PASS' || opt.isPassing === true;
+                                const isWarn = opt.outcome === 'WARNING';
+                                const isFail = opt.outcome === 'FAIL' || opt.isPassing === false;
+                                return (
+                                  <span
+                                    key={opt.value}
+                                    className={`rounded border px-1.5 py-0.5 text-[10px] font-semibold tabular-nums ${
+                                      isPass
+                                        ? 'border-emerald-300 bg-emerald-50 text-emerald-800'
+                                        : isWarn
+                                        ? 'border-amber-300 bg-amber-50 text-amber-800'
+                                        : isFail
+                                        ? 'border-rose-300 bg-rose-50 text-rose-800'
+                                        : 'border-slate-300 bg-slate-50 text-slate-700'
+                                    }`}
+                                  >
+                                    {opt.label || opt.value} ({isPass ? 'Pass' : isWarn ? 'Warn' : isFail ? 'Fail' : 'Neutral'})
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-3 tabular-nums text-slate-600">{t.unit || '—'}</td>
+
+                      {/* Assigned Operational Stages */}
+                      <td className="p-3">
+                        {stages.length === 0 ? (
+                          <span className="text-[11px] italic text-slate-400">Unassigned (Catalog only)</span>
+                        ) : (
+                          <div className="flex flex-wrap gap-1">
+                            {stages.map((st) => (
+                              <button
+                                key={st}
+                                type="button"
+                                onClick={() => {
+                                  setStageFilter(st);
+                                  setCatalogPage(1);
+                                  resetNotices();
+                                }}
+                                className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary transition hover:bg-primary hover:text-white"
+                                title={`Click to filter by ${STAGE_NAME_MAP[st] || st}`}
+                              >
+                                <span>{STAGE_NAME_MAP[st] || st}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </td>
+
+                      {/* 1-Click Interactive Requirement Toggle */}
+                      <td className="p-3">
+                        <button
+                          type="button"
+                          disabled={!canEdit || toggleRequiredMutation.isPending}
+                          onClick={() => {
+                            resetNotices();
+                            toggleRequiredMutation.mutate({
+                              test: t,
+                              targetRequired: !t.isRequired,
+                            });
+                          }}
+                          className={`inline-flex min-h-8 items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-bold transition shadow-2xs ${
+                            t.isRequired
+                              ? 'border-blue-300 bg-blue-100 text-blue-900 hover:bg-blue-200'
+                              : 'border-slate-300 bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                          } ${!canEdit ? 'cursor-default' : 'cursor-pointer'}`}
+                          title={
+                            canEdit
+                              ? t.isRequired
+                                ? 'Compulsory test (mandatory). Click to make Optional.'
+                                : 'Optional test. Click to make Compulsory (mandatory).'
+                              : undefined
+                          }
+                        >
+                          <span className={`inline-block size-2 rounded-full ${t.isRequired ? 'bg-blue-600' : 'bg-slate-400'}`} />
+                          <span>{t.isRequired ? 'Compulsory' : 'Optional'}</span>
+                        </button>
+                      </td>
+
+                      {/* 1-Click Interactive Photo Requirement Toggle */}
+                      <td className="p-3">
+                        <button
+                          type="button"
+                          disabled={!canEdit || togglePhotoMutation.isPending}
+                          onClick={() => {
+                            resetNotices();
+                            togglePhotoMutation.mutate({
+                              test: t,
+                              targetPhoto: !t.isPhotoRequired,
+                            });
+                          }}
+                          className={`inline-flex min-h-8 items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition shadow-2xs ${
+                            t.isPhotoRequired
+                              ? 'border-sky-300 bg-sky-100 text-sky-900 hover:bg-sky-200'
+                              : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-100'
+                          } ${!canEdit ? 'cursor-default' : 'cursor-pointer'}`}
+                          title={
+                            canEdit
+                              ? t.isPhotoRequired
+                                ? 'Camera photo evidence required. Click to remove photo requirement.'
+                                : 'No photo required. Click to enforce camera photo evidence.'
+                              : undefined
+                          }
+                        >
+                          <Camera className={`h-3.5 w-3.5 ${t.isPhotoRequired ? 'text-sky-700' : 'text-slate-400'}`} />
+                          <span>{t.isPhotoRequired ? 'Photo Req' : 'No Photo'}</span>
+                        </button>
+                      </td>
+
+                      {/* SOP Passing Standard Limits */}
+                      <td className="p-3 font-bold tabular-nums text-slate-800">
+                        {passingDisplay !== '—' ? (
+                          isNumeric ? (
+                            <span>{passingDisplay}</span>
+                          ) : (
+                            <span className="rounded bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-900">
+                              [ {passingDisplay} ]
+                            </span>
+                          )
+                        ) : (
+                          <span className="text-[11px] font-normal italic text-slate-400">Record Only</span>
+                        )}
+                      </td>
+
+                      {/* Status */}
+                      <td className="p-3">
+                        <button
+                          type="button"
+                          disabled={!canEdit || toggleActiveMutation.isPending}
+                          onClick={() => {
+                            resetNotices();
+                            toggleActiveMutation.mutate({ test: t, targetActive: !t.isActive });
+                          }}
+                          className={`inline-flex min-h-8 items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-bold transition shadow-2xs ${
+                            t.isActive
+                              ? 'border-emerald-300 bg-emerald-100 text-emerald-900 hover:bg-rose-100 hover:text-rose-900'
+                              : 'border-slate-300 bg-slate-200 text-slate-600 hover:bg-emerald-100 hover:text-emerald-900'
+                          } ${!canEdit ? 'cursor-default' : 'cursor-pointer'}`}
+                          title={canEdit ? (t.isActive ? 'Active. Click to deactivate.' : 'Inactive. Click to activate.') : undefined}
+                        >
+                          <Check className="h-3 w-3" />
+                          <span>{t.isActive ? 'Active' : 'Inactive'}</span>
+                        </button>
+                      </td>
+
+                      {/* Actions */}
+                      {canEdit && (
+                        <td className="p-3 text-right whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              resetNotices();
+                              setCatalogDrawer({ kind: 'edit', test: t });
+                            }}
+                            className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-slate-300 bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-800 transition hover:bg-slate-200"
+                          >
+                            <Edit2 className="h-3.5 w-3.5" />
+                            <span>Edit Test &amp; Stages</span>
                           </button>
                         </td>
                       )}
@@ -477,265 +627,61 @@ export const UnifiedStagePoliciesRulesWorkspace: React.FC<UnifiedStagePoliciesRu
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        <PaginationBar
+          page={catalogPagination?.page ?? catalogPage}
+          totalPages={catalogPagination?.totalPages ?? 1}
+          totalRecords={catalogPagination?.totalRecords ?? catalogTests.length}
+          noun="lab tests"
+          disabled={catalogQuery.isFetching}
+          onPageChange={setCatalogPage}
+        />
       </div>
 
-      {editingItem && canEdit && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-lg w-full overflow-hidden">
-            <div className="px-5 py-4 bg-slate-900 text-white flex items-center justify-between">
-              <div>
-                <h2 className="text-sm font-bold">
-                  Rules: {activeTabInfo.label}
-                </h2>
-                <p className="text-[11px] text-slate-300 mt-0.5">
-                  {editingItem.labTest.testCode} · {editingItem.labTest.testName}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={closeConfigModal}
-                className="text-slate-300 hover:text-white p-1"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+      {/* DRAWERS */}
+      {(catalogDrawer?.kind === 'create' || catalogDrawer?.kind === 'edit') && (
+        <LabTestFormDrawer
+          key={catalogDrawer.kind === 'edit' ? catalogDrawer.test.id : 'new-test'}
+          test={catalogDrawer.kind === 'edit' ? catalogDrawer.test : null}
+          nextDisplayOrder={nextDisplayOrder}
+          initialStage={catalogDrawer.kind === 'create' ? catalogDrawer.initialStage : undefined}
+          onClose={() => setCatalogDrawer(null)}
+          onSaved={(msg) => {
+            setCatalogDrawer(null);
+            setSuccessMsg(msg);
+            void refreshAll();
+          }}
+        />
+      )}
 
-            <form onSubmit={handleSave} className="p-5 space-y-4 text-xs">
-              {modalError && (
-                <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-rose-800 font-semibold">
-                  {modalError}
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1.5">Show on Stage Form</label>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setFormActive(true)}
-                      className={`flex-1 py-1.5 px-2.5 rounded-lg font-bold border ${
-                        formActive
-                          ? 'bg-emerald-600 text-white border-emerald-600'
-                          : 'bg-white text-slate-700 border-slate-300'
-                      }`}
-                    >
-                      Active
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setFormActive(false)}
-                      className={`flex-1 py-1.5 px-2.5 rounded-lg font-bold border ${
-                        !formActive
-                          ? 'bg-slate-700 text-white border-slate-700'
-                          : 'bg-white text-slate-700 border-slate-300'
-                      }`}
-                    >
-                      Hidden
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1.5">Mandatory Entry</label>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setFormRequired(true)}
-                      className={`flex-1 py-1.5 px-2.5 rounded-lg font-bold border ${
-                        formRequired
-                          ? 'bg-primary text-white border-primary'
-                          : 'bg-white text-slate-700 border-slate-300'
-                      }`}
-                    >
-                      Required
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setFormRequired(false)}
-                      className={`flex-1 py-1.5 px-2.5 rounded-lg font-bold border ${
-                        !formRequired
-                          ? 'bg-slate-700 text-white border-slate-700'
-                          : 'bg-white text-slate-700 border-slate-300'
-                      }`}
-                    >
-                      Optional
-                    </button>
-                  </div>
-                </div>
-
-                <div className="col-span-2 pt-1 border-t border-slate-200/80 flex items-center justify-between gap-3">
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">
-                      Display Order on Screen
-                    </label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={999}
-                      value={formOrder}
-                      onChange={(e) => setFormOrder(Number(e.target.value))}
-                      className="w-24 px-3 py-1.5 rounded-lg border border-slate-300 font-bold text-slate-900"
-                    />
-                  </div>
-
-                  <div className="flex-1 text-right">
-                    <label className="block font-bold text-slate-700 mb-1">
-                      Photo Evidence Required
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setFormPhotoRequired((prev) => !prev)}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold border transition-colors ${
-                        formPhotoRequired
-                          ? 'bg-primary text-white border-primary'
-                          : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-100'
-                      }`}
-                    >
-                      <Camera className="w-3.5 h-3.5" />
-                      <span>{formPhotoRequired ? 'Photo Required' : 'No Photo'}</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
-                <label className="block font-bold text-slate-800 mb-2">
-                  Rule Type (2-Word Selection)
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setFormRuleCategory('RELEASE')}
-                    className={`p-3 rounded-xl border text-left transition-all ${
-                      formRuleCategory === 'RELEASE'
-                        ? 'bg-rose-600 text-white border-rose-700 shadow-xs'
-                        : 'bg-white text-slate-800 border-slate-300 hover:bg-rose-50/40'
-                    }`}
-                  >
-                    <div className="font-extrabold text-sm">Must Pass</div>
-                    <div className={`text-[11px] mt-0.5 ${formRuleCategory === 'RELEASE' ? 'text-rose-100' : 'text-slate-500'}`}>
-                      Blocks Chemist &amp; Sends to Manager
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setFormRuleCategory('MONITORING')}
-                    className={`p-3 rounded-xl border text-left transition-all ${
-                      formRuleCategory === 'MONITORING'
-                        ? 'bg-amber-500 text-slate-950 border-amber-600 shadow-xs'
-                        : 'bg-white text-slate-800 border-slate-300 hover:bg-amber-50/40'
-                    }`}
-                  >
-                    <div className="font-extrabold text-sm">Warning Only</div>
-                    <div className={`text-[11px] mt-0.5 ${formRuleCategory === 'MONITORING' ? 'text-slate-900' : 'text-slate-500'}`}>
-                      Shows Yellow Alert (No Block)
-                    </div>
-                  </button>
-                </div>
-              </div>
-
-              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
-                {editingItem.labTest.resultType === 'NUMERIC' ||
-                editingItem.labTest.resultType === 'CALCULATED' ? (
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block font-bold text-slate-800 mb-2">
-                        Passing Numeric Range {editingItem.labTest.unit ? `(${editingItem.labTest.unit})` : ''}
-                      </label>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <span className="block text-[11px] font-semibold text-slate-600 mb-1">
-                            Minimum Allowable Limit
-                          </span>
-                          <input
-                            type="number"
-                            step="any"
-                            placeholder="e.g. 27.0"
-                            value={formMin}
-                            onChange={(e) => setFormMin(e.target.value)}
-                            className="w-full px-3 py-2 rounded-lg border border-slate-300 font-bold text-slate-900 bg-white"
-                          />
-                        </div>
-                        <div>
-                          <span className="block text-[11px] font-semibold text-slate-600 mb-1">
-                            Maximum Allowable Limit
-                          </span>
-                          <input
-                            type="number"
-                            step="any"
-                            placeholder="e.g. 32.0"
-                            value={formMax}
-                            onChange={(e) => setFormMax(e.target.value)}
-                            className="w-full px-3 py-2 rounded-lg border border-slate-300 font-bold text-slate-900 bg-white"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="pt-2 border-t border-slate-200">
-                      <label className="block font-bold text-slate-800 mb-1">
-                        Warning Tolerance Offset (&plusmn; Margin)
-                      </label>
-                      <input
-                        type="number"
-                        step="any"
-                        placeholder="e.g. 0.20"
-                        value={formWarningOffset}
-                        onChange={(e) => setFormWarningOffset(e.target.value)}
-                        className="w-40 px-3 py-2 rounded-lg border border-slate-300 font-bold text-slate-900 bg-white"
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <div>
-                    <label className="block font-bold text-slate-800 mb-2">
-                      Select Acceptable Option Pill (Passing Result)
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      {getQualitativeOptions(editingItem).map((opt) => {
-                        const selected = formAcceptableOption.toUpperCase() === opt.value.toUpperCase();
-                        return (
-                          <button
-                            key={opt.value}
-                            type="button"
-                            onClick={() => setFormAcceptableOption(opt.value)}
-                            className={`px-3.5 py-2 rounded-lg font-bold border transition-all ${
-                              selected
-                                ? 'bg-emerald-600 text-white border-emerald-700 shadow-xs'
-                                : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
-                            }`}
-                          >
-                            {selected ? 'Check ' : ''}{opt.label} ({opt.value})
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={closeConfigModal}
-                  className="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 font-bold hover:bg-slate-100"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="px-5 py-2 rounded-lg bg-primary text-white font-bold hover:bg-primary-hover disabled:opacity-50"
-                >
-                  {isSaving ? 'Saving…' : 'Save Rule & Policy'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {catalogDrawer?.kind === 'status' && (
+        <LabTestStatusDrawer
+          key={`status-${catalogDrawer.test.id}`}
+          test={catalogDrawer.test}
+          action={catalogDrawer.action}
+          onClose={() => setCatalogDrawer(null)}
+          onSaved={(msg) => {
+            setCatalogDrawer(null);
+            setSuccessMsg(msg);
+            void refreshAll();
+          }}
+        />
       )}
     </div>
+  );
+}
+
+export const UnifiedStagePoliciesRulesWorkspace: React.FC<UnifiedStagePoliciesRulesWorkspaceProps> = (props) => {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center p-12 text-xs font-semibold text-slate-500">
+          Loading Laboratory Workspace…
+        </div>
+      }
+    >
+      <WorkspaceInner {...props} />
+    </Suspense>
   );
 };

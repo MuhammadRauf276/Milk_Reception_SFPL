@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useEffectEvent, useMemo } from 'react';
-import { AlertTriangle, Camera, CheckCircle2, Clock, Loader2, RefreshCw, Trash2, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Clock, Loader2, Send, Undo2, XCircle } from 'lucide-react';
 import { toDatetimeLocalInput, datetimeLocalToIso } from '@/lib/datetime-utils';
 import { useToast } from '@/frontend/context/ToastContext';
 import { User } from '@core/types';
@@ -40,8 +40,10 @@ import {
 } from './components/DispatchPortionEditor';
 import { DispatchSummaryPanel } from './components/DispatchSummaryPanel';
 import { toPhotoState, type DispatchPhotoState } from './components/DispatchPolicyTests';
-import { LiveCamera } from '@/components/camera/LiveCamera';
+import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
+import { LabReportPhotoCard } from './components/LabReportPhotoCard';
 import { DecisionRulePanel } from '@/frontend/modules/shared/decision/DecisionRulePanel';
+import { cn } from '@/lib/utils';
 import {
   buildDispatchPreview,
   LAB_REPORT_TEST_CODE,
@@ -232,10 +234,10 @@ function isFilled(portion: PortionFormState, t: DispatchPolicyTest): boolean {
 }
 
 const STATUS_VIEW: Record<string, { word: string; className: string; Icon: typeof CheckCircle2 }> = {
-  DISPATCHED: { word: 'Dispatched', className: 'border-green-300 bg-green-50 text-green-800', Icon: CheckCircle2 },
+  DISPATCHED: { word: 'Dispatched', className: 'border-emerald-300 bg-emerald-50 text-emerald-800', Icon: CheckCircle2 },
   PENDING_APPROVAL: { word: 'Waiting for approval', className: 'border-violet-300 bg-violet-50 text-violet-900', Icon: Clock },
   REOPENED: { word: 'Sent back to you', className: 'border-amber-300 bg-amber-50 text-amber-900', Icon: AlertTriangle },
-  REJECTED: { word: 'Rejected', className: 'border-red-300 bg-red-50 text-red-800', Icon: XCircle },
+  REJECTED: { word: 'Rejected', className: 'border-rose-300 bg-rose-50 text-rose-800', Icon: XCircle },
 };
 
 function fmtL(n: number | null | undefined): string {
@@ -252,6 +254,8 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
   const [policyLoadedFor, setPolicyLoadedFor] = useState<string | null>(null);
   const [policyError, setPolicyError] = useState<string | null>(null);
   const [testMode, setTestMode] = useState<DispatchTestMode>('COMPOSITE');
+  const [formStep, setFormStep] = useState<0 | 1>(0);
+  const [decideOpen, setDecideOpen] = useState(false);
   const [labReportPhoto, setLabReportPhoto] = useState<DispatchPhotoState | null>(null);
   const [labReportCamera, setLabReportCamera] = useState(false);
   const [personDecision, setPersonDecision] = useState<PersonDecision | null>(null);
@@ -290,7 +294,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
 
   // Portions Draft State
   const [portions, setPortions] = useState<PortionFormState[]>([]);
-  const [editingPortionIndex, setEditingPortionIndex] = useState<number | null>(0);
+  const [editingPortionIndex, setEditingPortionIndex] = useState<number | null>(null);
 
   // Per-portion inline errors state
   const [portionErrors, setPortionErrors] = useState<
@@ -754,7 +758,12 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
   };
 
   const handleTestModeChange = (mode: DispatchTestMode) => {
-    if (mode === testMode) return;
+    if (mode === testMode) {
+      // Tapping the active mode still opens the portion sheet.
+      const firstOpenNow = portions.findIndex((p) => !p.isSaved);
+      setEditingPortionIndex(firstOpenNow >= 0 ? firstOpenNow : 0);
+      return;
+    }
     if (mode === 'COMPOSITE' && portions.length > 1) {
       if (typeof window !== 'undefined' && !window.confirm('Switching to Composite mode records all tests under Portion 1. Any additional portions will be removed. Continue?')) {
         return;
@@ -764,6 +773,10 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     }
     setTestMode(mode);
     setNeedsRequest(null);
+    // Choosing a mode opens the portion sheet: first unsaved portion, else the first one.
+    const kept = mode === 'COMPOSITE' ? portions.slice(0, 1) : portions;
+    const firstOpen = kept.findIndex((p) => !p.isSaved);
+    setEditingPortionIndex(firstOpen >= 0 ? firstOpen : 0);
   };
 
   const handleSavePortion = (index: number): boolean => {
@@ -1011,16 +1024,17 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
       toast.showError('Two portions have the same seal number.', 'Seal number');
       return;
     }
-    if (!personDecision) {
-      toast.showError('Tap ACCEPT or REJECT first.', 'Your decision');
-      return;
-    }
+    const effectivePersonDecision = personDecision || 'ACCEPT';
+    const effectiveAction: 'SUBMIT' | 'SEND_REQUEST' =
+      action === 'SEND_REQUEST' || needsRequest || preview.decision?.route === 'SEND_TO_APPROVER'
+        ? 'SEND_REQUEST'
+        : 'SUBMIT';
     if (!effectiveSource?.id || !draftVisitId || !policy || !policyPoint) {
       toast.showError('The form is still loading. Please wait a moment.', 'Please wait');
       return;
     }
-    if (preview.decision && !preview.decision.remarksOk) {
-      toast.showError('Please write a short reason (at least 3 letters).', 'Reason needed');
+    if (effectiveAction === 'SEND_REQUEST' && (!decisionRemarks || decisionRemarks.trim().length < 3)) {
+      toast.showError(`Please write a short reason (at least 3 letters) to send request to ${approverLabel}.`, 'Reason needed');
       return;
     }
 
@@ -1067,8 +1081,8 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
           vehicleFat: finalVehicleFat && !isNaN(Number(finalVehicleFat)) ? Number(finalVehicleFat) : undefined,
           rawMilkDispatchNoteNumber: rawMilkDispatchNoteNumber.trim() || undefined,
           testMode,
-          action,
-          personDecision,
+          action: effectiveAction,
+          personDecision: effectivePersonDecision,
           decisionRemarks: remarks,
           labReportCaptureId: labReportPhoto?.captureId ?? null,
           portions: payloadPortions,
@@ -1212,6 +1226,26 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     startNextDispatch();
   };
 
+  const handleOpenDecide = () => {
+    // If user is currently editing a portion, validate and save it first
+    if (editingPortionIndex !== null) {
+      const ok = handleSavePortion(editingPortionIndex);
+      if (!ok) return;
+    }
+    const unsavedIdx = portions.findIndex((p) => !p.isSaved);
+    if (unsavedIdx >= 0) {
+      const ok = handleSavePortion(unsavedIdx);
+      if (!ok) {
+        setEditingPortionIndex(unsavedIdx);
+        return;
+      }
+    }
+    if (!personDecision) {
+      setPersonDecision('ACCEPT');
+    }
+    setDecideOpen(true);
+  };
+
   const handleSubmitDispatch = (e?: React.FormEvent) => {
     e?.preventDefault();
     const action = (needsRequest || preview.decision?.route === 'SEND_TO_APPROVER') ? 'SEND_REQUEST' : 'SUBMIT';
@@ -1242,6 +1276,12 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
             <h2 className="text-xl font-bold text-foreground">Dispatch #{result.dispatchNumber}</h2>
             <p className="text-xs text-slate-500 mt-1">Vehicle: {vehicleNumber.trim().toUpperCase()}</p>
           </div>
+
+          {result.status === 'PENDING_APPROVAL' && (
+            <p className="text-xs font-semibold text-violet-900 bg-violet-50 border border-violet-200 rounded-xl p-3">
+              This dispatch has out-of-spec test values or exceptions. A review request has been sent to the {result.approverLabel} for approval.
+            </p>
+          )}
 
           {result.totals && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-2 text-left">
@@ -1289,7 +1329,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
               onClick={startNextDispatch}
               className="w-full min-h-[48px] px-4 py-3 rounded-xl bg-primary-hover text-white font-semibold text-sm shadow-xs hover:bg-blue-800 transition flex items-center justify-center space-x-2"
             >
-              <RefreshCw className="w-4 h-4" />
+              <Undo2 className="w-4 h-4" />
               <span>Start Next Dispatch</span>
             </button>
           </div>
@@ -1362,6 +1402,23 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
         </div>
 
         <div className="w-full lg:col-span-7 space-y-5 order-1 lg:order-2">
+          <nav aria-label="Dispatch steps" className="grid grid-cols-2 gap-2">
+            {(['1. Vehicle', '2. Portions'] as const).map((label, i) => (
+              <button
+                key={label}
+                type="button"
+                aria-current={formStep === i ? 'step' : undefined}
+                onClick={() => setFormStep(i as 0 | 1)}
+                className={`min-h-11 rounded-xl border text-sm font-semibold transition ${
+                  formStep === i ? 'border-primary-hover bg-blue-50 text-primary-hover' : 'border-border text-slate-600 hover:bg-muted'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </nav>
+
+          <div className={formStep === 0 ? 'space-y-5 animate-in fade-in-0 slide-in-from-bottom-1 duration-200' : 'hidden'}>
           <DispatchVehicleSection
             isSourceBound={isSourceBound}
             availableSources={availableSources}
@@ -1392,6 +1449,9 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
             onRawMilkDispatchNoteNumberChange={setRawMilkDispatchNoteNumber}
           />
 
+          </div>
+
+          <div className={formStep === 1 ? 'space-y-5 animate-in fade-in-0 slide-in-from-bottom-1 duration-200' : 'hidden'}>
           {/* Test Mode Selector */}
           <div className="p-4 sm:p-5 rounded-xl bg-white border border-border-strong shadow-xs space-y-2">
             <label className="block text-xs font-semibold text-slate-700">Dispatch Test Mode</label>
@@ -1427,6 +1487,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
             portions={portions}
             editingPortionIndex={editingPortionIndex}
             onAddPortionClick={handleAddPortionClick}
+            onCloseEditor={() => setEditingPortionIndex(null)}
             onEditPortion={handleEditPortion}
             onRemovePortion={handleRemovePortion}
             onSavePortion={handleSavePortion}
@@ -1449,68 +1510,70 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
             computeCalculatedMilkValues={computeCalculatedMilkValues}
           />
 
-          {/* Hand-written Lab Report Photo */}
-          <div className="p-4 sm:p-5 rounded-xl bg-white border border-border-strong shadow-xs space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="text-xs font-semibold text-foreground">Hand-written Lab Report Photo</h4>
-                <p className="text-[11px] text-slate-500">Paper lab report photo required for dispatch record</p>
-              </div>
-              {labReportPhoto && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (labReportPhoto) URL.revokeObjectURL(labReportPhoto.previewUrl);
-                    setLabReportPhoto(null);
-                  }}
-                  className="text-xs text-rose-600 hover:text-rose-800 flex items-center space-x-1"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Retake</span>
-                </button>
-              )}
-            </div>
+          <LabReportPhotoCard
+            photo={labReportPhoto}
+            onPhotoChange={setLabReportPhoto}
+            cameraOpen={labReportCamera}
+            onCameraOpenChange={setLabReportCamera}
+            stamp={stamp}
+          />
 
-            {labReportPhoto ? (
-              <div className="flex items-center space-x-3 p-2.5 rounded-xl bg-emerald-50 border border-emerald-200">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={labReportPhoto.previewUrl}
-                  alt="Lab Report"
-                  className="w-16 h-16 object-cover rounded-lg border border-emerald-300"
-                />
-                <div className="text-xs">
-                  <div className="font-semibold text-emerald-900 flex items-center space-x-1">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Lab report photo captured</span>
-                  </div>
-                  <div className="text-[11px] text-emerald-700 mt-0.5">
-                    {new Date(labReportPhoto.capturedAt).toLocaleTimeString()}
-                  </div>
-                </div>
-              </div>
-            ) : labReportCamera ? (
-              <LiveCamera
-                stamp={{ ...stamp, pointLabel: `${stamp.pointLabel} - Lab Report` }}
-                onCapture={(c) => {
-                  setLabReportPhoto(toPhotoState(c));
-                  setLabReportCamera(false);
-                }}
-                onCancel={() => setLabReportCamera(false)}
-              />
-            ) : (
-              <button
-                type="button"
-                onClick={() => setLabReportCamera(true)}
-                className="w-full min-h-[48px] px-4 py-2.5 rounded-xl border border-dashed border-border-strong hover:border-primary-hover bg-slate-50 hover:bg-blue-50/50 text-xs font-semibold text-slate-700 flex items-center justify-center space-x-2 transition"
-              >
-                <Camera className="w-4 h-4 text-primary-hover" />
-                <span>Take Hand-written Lab Report Photo</span>
-              </button>
+          {/* Live System Rule Status Banner */}
+          <div
+            className={cn(
+              'p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs transition',
+              preview.decision?.systemOutcome === 'PASS'
+                ? 'border-emerald-200 bg-emerald-50/70 text-emerald-950'
+                : 'border-amber-300 bg-amber-50 text-amber-950'
             )}
+          >
+            <div className="flex items-center space-x-2.5">
+              {preview.decision?.systemOutcome === 'PASS' ? (
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+              ) : (
+                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+              )}
+              <div>
+                <div className="text-xs font-bold uppercase tracking-wider">
+                  {preview.decision?.systemOutcome === 'PASS' ? 'System Status: All SOP Rules Passed' : 'System Status: Exception / Out of Spec'}
+                </div>
+                <p className="text-xs font-medium text-slate-600 mt-0.5">
+                  {preview.decision?.systemOutcome === 'PASS'
+                    ? 'Values and tests meet dispatch policy. Ready for standard dispatch.'
+                    : `Values out of spec or items missing. Will be routed to ${approverLabel} for approval.`}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleOpenDecide}
+              className={cn(
+                'px-4 py-2 rounded-xl text-xs font-bold shrink-0 transition flex items-center justify-center space-x-1.5 shadow-2xs',
+                preview.decision?.systemOutcome === 'PASS'
+                  ? 'bg-primary-hover text-white hover:bg-blue-800'
+                  : 'bg-violet-700 text-white hover:bg-violet-800'
+              )}
+            >
+              {preview.decision?.systemOutcome === 'PASS' ? (
+                <span>Review & Submit</span>
+              ) : (
+                <>
+                  <Send className="w-3.5 h-3.5" />
+                  <span>Send to {approverLabel}</span>
+                </>
+              )}
+            </button>
           </div>
 
-          <div className="block lg:hidden">
+          </div>
+
+          <Drawer open={decideOpen} onOpenChange={setDecideOpen} dismissible={!isSubmitting}>
+            <DrawerContent>
+              <div className="border-b border-border px-4 pb-3 pt-2 sm:px-5">
+                <DrawerTitle>Review and decide</DrawerTitle>
+              </div>
+              <div className="space-y-4 overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-5">
+          <div>
             <DispatchSummaryPanel
               isCollapsible={true}
               portions={portions}
@@ -1553,18 +1616,6 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
 
           {/* Decision Rule Panel */}
           <div className="p-4 sm:p-5 rounded-xl bg-white border border-border-strong shadow-xs space-y-3.5">
-            <div className="flex items-center justify-between text-xs font-semibold text-foreground">
-              <span>
-                Portions: <span className="tabular-nums text-primary-hover">{portions.length}</span> ({savedCount} Saved)
-              </span>
-              <span>
-                Vehicle Quantity:{' '}
-                <span className="tabular-nums text-primary-hover">
-                  {vehicleQuantity.value ? `${vehicleQuantity.value} ${vehicleQuantity.unit}` : '—'}
-                </span>
-              </span>
-            </div>
-
             <DecisionRulePanel
               tests={preview.rows}
               decision={needsRequest ?? preview.decision}
@@ -1590,14 +1641,40 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
               submitting={isSubmitting}
               disabled={
                 isSubmitting ||
-                savedCount === 0 ||
-                editingPortionIndex !== null ||
+                portions.length === 0 ||
                 !vehicleNumber.trim() ||
                 !vehicleQuantity.value ||
                 Number(vehicleQuantity.value) <= 0
               }
             />
           </div>
+              </div>
+            </DrawerContent>
+          </Drawer>
+
+          <button
+            type="button"
+            onClick={() => (formStep === 0 ? setFormStep(1) : handleOpenDecide())}
+            className={cn(
+              'min-h-14 w-full rounded-xl text-base font-semibold text-white shadow-xs transition flex items-center justify-center gap-2',
+              formStep === 0
+                ? 'bg-primary-hover hover:bg-blue-800'
+                : preview.decision?.route === 'SEND_TO_APPROVER' || preview.decision?.systemOutcome === 'FAIL'
+                  ? 'bg-violet-700 hover:bg-violet-800'
+                  : 'bg-primary-hover hover:bg-blue-800'
+            )}
+          >
+            {formStep === 0 ? (
+              'Next: Portions'
+            ) : preview.decision?.route === 'SEND_TO_APPROVER' || preview.decision?.systemOutcome === 'FAIL' ? (
+              <>
+                <Send className="w-4 h-4" />
+                <span>Review & Send Request to {approverLabel}</span>
+              </>
+            ) : (
+              <span>Review and decide</span>
+            )}
+          </button>
         </div>
       </div>
     </form>

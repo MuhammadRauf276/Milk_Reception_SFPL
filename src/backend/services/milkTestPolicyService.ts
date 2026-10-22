@@ -94,13 +94,13 @@ export function assertCanReadAdminPolicies(userRole: string | undefined | null):
 }
 
 const ROLE_EFFECTIVE_POINTS: Record<string, readonly TestingPoint[]> = {
-  SUPER_ADMIN: ['MOT_SHOP', 'ZMCC_LAB_MOT', 'ZMCC_LAB_LOCAL_SUPPLIER', 'ZMCC_LAB_CONTRACTOR', 'DISPATCH', 'PLANT_QA'],
-  DATA_EXECUTIVE: ['MOT_SHOP', 'ZMCC_LAB_MOT', 'ZMCC_LAB_LOCAL_SUPPLIER', 'ZMCC_LAB_CONTRACTOR', 'DISPATCH', 'PLANT_QA'],
-  DATA_ANALYST: ['MOT_SHOP', 'ZMCC_LAB_MOT', 'ZMCC_LAB_LOCAL_SUPPLIER', 'ZMCC_LAB_CONTRACTOR', 'DISPATCH', 'PLANT_QA'],
-  HEAD_OF_MPD: ['MOT_SHOP', 'ZMCC_LAB_MOT', 'ZMCC_LAB_LOCAL_SUPPLIER', 'ZMCC_LAB_CONTRACTOR', 'DISPATCH'],
-  ZMCC_MANAGER: ['MOT_SHOP', 'ZMCC_LAB_MOT', 'ZMCC_LAB_LOCAL_SUPPLIER', 'ZMCC_LAB_CONTRACTOR', 'DISPATCH'],
+  SUPER_ADMIN: ['MOT_SHOP', 'ZMCC_LAB_MC', 'ZMCC_LAB_HC', 'DISPATCH', 'PLANT_QA'],
+  DATA_EXECUTIVE: ['MOT_SHOP', 'ZMCC_LAB_MC', 'ZMCC_LAB_HC', 'DISPATCH', 'PLANT_QA'],
+  DATA_ANALYST: ['MOT_SHOP', 'ZMCC_LAB_MC', 'ZMCC_LAB_HC', 'DISPATCH', 'PLANT_QA'],
+  HEAD_OF_MPD: ['MOT_SHOP', 'ZMCC_LAB_MC', 'ZMCC_LAB_HC', 'DISPATCH'],
+  ZMCC_MANAGER: ['MOT_SHOP', 'ZMCC_LAB_MC', 'ZMCC_LAB_HC', 'DISPATCH'],
   MOT: ['MOT_SHOP'],
-  ZMCC_LAB_ATTENDANT: ['ZMCC_LAB_MOT', 'ZMCC_LAB_LOCAL_SUPPLIER', 'ZMCC_LAB_CONTRACTOR', 'DISPATCH'],
+  ZMCC_LAB_ATTENDANT: ['ZMCC_LAB_MC', 'ZMCC_LAB_HC', 'DISPATCH'],
   CONTRACTOR_OPERATOR: ['DISPATCH'],
   CONTRACTOR_MANAGER: ['DISPATCH'],
   QA_HEAD: ['PLANT_QA'],
@@ -306,19 +306,59 @@ export class MilkTestPolicyService {
       ],
     });
 
-    return assignments.map((a) => ({
-      id: a.lab_test.id.toString(),
-      policyAssignmentId: a.id.toString(),
-      testCode: a.lab_test.testCode,
-      testName: a.lab_test.testName,
-      resultType: a.lab_test.resultType,
-      unit: a.lab_test.unit,
-      resultOptions: a.lab_test.resultOptions,
-      isRequired: a.is_required,
-      isPhotoRequired: a.is_photo_required ?? a.lab_test.isPhotoRequired ?? false,
-      displayOrder: a.display_order,
-      isActive: a.is_active,
-      testingPoint: a.testing_point as TestingPoint,
+    if (assignments.length > 0) {
+      return assignments.map((a) => ({
+        id: a.lab_test.id.toString(),
+        policyAssignmentId: a.id.toString(),
+        testCode: a.lab_test.testCode,
+        testName: a.lab_test.testName,
+        resultType: a.lab_test.resultType,
+        unit: a.lab_test.unit,
+        resultOptions: a.lab_test.resultOptions,
+        isRequired: a.is_required,
+        isPhotoRequired: a.is_photo_required ?? a.lab_test.isPhotoRequired ?? false,
+        displayOrder: a.display_order,
+        isActive: a.is_active,
+        testingPoint: a.testing_point as TestingPoint,
+      }));
+    }
+
+    // Fallback when Super Admin has not configured explicit assignments for this stage yet:
+    // Match active master tests based on their testScope so user screens don't render empty.
+    let scopeIn: string[] = ['ALL'];
+    if (testingPoint === 'PLANT_QA') scopeIn = ['PLANT', 'BOTH', 'ALL'];
+    else if (testingPoint === 'DISPATCH') scopeIn = ['DISPATCH', 'BOTH', 'ALL'];
+    else if (testingPoint === 'MOT_SHOP') scopeIn = ['MOT_SHOP', 'MOT', 'ALL'];
+    else if (['ZMCC_LAB_MC', 'ZMCC_LAB_HC'].includes(testingPoint)) {
+      scopeIn = ['ZMCC', 'ALL'];
+    }
+
+    const fallbackTests = await db.labTest.findMany({
+      where: {
+        isActive: true,
+        OR: [
+          { testScope: { in: scopeIn } },
+          ...(['ZMCC_LAB_MC', 'ZMCC_LAB_HC', 'MOT_SHOP'].includes(testingPoint)
+            ? [{ testCode: { in: ['LT-000008', 'LT-000026', 'LT-000027'] } }]
+            : []),
+        ],
+      },
+      orderBy: [{ displayOrder: 'asc' }, { id: 'asc' }],
+    });
+
+    return fallbackTests.map((t) => ({
+      id: t.id.toString(),
+      policyAssignmentId: `fallback-${t.id}`,
+      testCode: t.testCode,
+      testName: t.testName,
+      resultType: t.resultType,
+      unit: t.unit,
+      resultOptions: t.resultOptions,
+      isRequired: t.isRequired,
+      isPhotoRequired: t.isPhotoRequired ?? false,
+      displayOrder: t.displayOrder,
+      isActive: true,
+      testingPoint,
     }));
   }
 

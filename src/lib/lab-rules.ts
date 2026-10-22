@@ -74,9 +74,24 @@ export function evaluateLabResult(
       };
     }
 
-    // Exact three-state semantics:
-    // true -> PASS, false -> FAIL, null -> NEUTRAL / NO PASS-FAIL CLASSIFICATION
-    const isPassed = matched.isPassing !== null && matched.isPassing !== undefined ? Boolean(matched.isPassing) : null;
+    if (matched.outcome === 'WARNING') {
+      return {
+        isPassed: null,
+        status: 'NEUTRAL',
+        observedResult: observed,
+        reason: 'Tolerance Warning: observed result is acceptable on warning',
+      };
+    }
+
+    const isPassed =
+      matched.outcome === 'PASS'
+        ? true
+        : matched.outcome === 'FAIL'
+        ? false
+        : matched.isPassing !== null && matched.isPassing !== undefined
+        ? Boolean(matched.isPassing)
+        : null;
+
     return {
       isPassed,
       status: isPassed === null ? 'NEUTRAL' : 'EVALUATED',
@@ -138,4 +153,3 @@ export function evaluateLabResult(
     observedResult: observed,
   };
 }
-

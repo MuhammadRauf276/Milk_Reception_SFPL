@@ -44,6 +44,7 @@ export interface VehicleCalculationPortion {
 export interface VehicleCalculationInput {
   grossWeightKg: number;
   secondWeightKg: number;
+  testMode?: string | null;
   portions: VehicleCalculationPortion[];
 }
 
@@ -173,6 +174,23 @@ export function calculateVehicleReceivedQuantity(input: VehicleCalculationInput)
   }
 
   // 6. Extract and Validate Plant LR and Plant Fat for EVERY Accepted Portion
+  const isComposite = String(input.testMode || '').toUpperCase() === 'COMPOSITE';
+  let sharedLrResults: VehicleCalculationPortionLabResult[] = [];
+  let sharedFatResults: VehicleCalculationPortionLabResult[] = [];
+
+  if (isComposite) {
+    for (const p of acceptedPortions) {
+      const lr = (p.plantLabResults || []).filter(
+        (r) => isPlantLrTest(r.testCode, r.testName) && String(r.performanceStatus || '').toUpperCase() === 'PERFORMED' && r.numericValue !== null && Number(r.numericValue) > 0
+      );
+      const fat = (p.plantLabResults || []).filter(
+        (r) => isPlantFatTest(r.testCode, r.testName) && String(r.performanceStatus || '').toUpperCase() === 'PERFORMED' && r.numericValue !== null && Number(r.numericValue) >= 0
+      );
+      if (lr.length > 0 && sharedLrResults.length === 0) sharedLrResults = lr;
+      if (fat.length > 0 && sharedFatResults.length === 0) sharedFatResults = fat;
+    }
+  }
+
   const validLrValues: number[] = [];
   const validFatValues: number[] = [];
 
@@ -185,9 +203,13 @@ export function calculateVehicleReceivedQuantity(input: VehicleCalculationInput)
 
     // Find and Validate Unique Performed Plant LR
     const matchingLrResults = results.filter((r) => isPlantLrTest(r.testCode, r.testName));
-    const performedLrResults = matchingLrResults.filter(
+    let performedLrResults = matchingLrResults.filter(
       (r) => String(r.performanceStatus || '').toUpperCase() === 'PERFORMED'
     );
+
+    if (performedLrResults.length === 0 && isComposite && sharedLrResults.length > 0) {
+      performedLrResults = sharedLrResults;
+    }
 
     if (performedLrResults.length === 0) {
       return {
@@ -223,9 +245,13 @@ export function calculateVehicleReceivedQuantity(input: VehicleCalculationInput)
 
     // Find and Validate Unique Performed Plant Fat
     const matchingFatResults = results.filter((r) => isPlantFatTest(r.testCode, r.testName));
-    const performedFatResults = matchingFatResults.filter(
+    let performedFatResults = matchingFatResults.filter(
       (r) => String(r.performanceStatus || '').toUpperCase() === 'PERFORMED'
     );
+
+    if (performedFatResults.length === 0 && isComposite && sharedFatResults.length > 0) {
+      performedFatResults = sharedFatResults;
+    }
 
     if (performedFatResults.length === 0) {
       return {

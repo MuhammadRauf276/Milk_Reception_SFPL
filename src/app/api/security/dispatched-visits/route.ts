@@ -17,6 +17,7 @@ export async function GET(req: Request) {
 
   try {
     const visits = await prisma.vehicleVisit.findMany({
+      take: 100, // live queue: bounded page
       where: {
         current_status: { in: ['Dispatched', 'DISPATCHED'] },
         gate_log: {

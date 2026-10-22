@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
+import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { User } from '@core/types';
 import { ChevronLeft, ChevronRight, Truck, Loader2 } from 'lucide-react';
 import { DynamicDispatchForm } from '@modules/forms/DynamicDispatchForm';
@@ -55,32 +56,20 @@ interface MPDFieldWorkspaceProps {
 
 export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
   currentUser,
-  hideTabBar = true,
+  hideTabBar = false,
 }) => {
   // The URL's ?tab= picks the initial view until the user chooses one.
   const urlTab = useUrlSearchParam('tab')?.toLowerCase();
   const [selectedTab, setActiveTab] = useState<'new' | 'recent' | null>(null);
   const activeTab: 'new' | 'recent' = selectedTab ?? (urlTab === 'recent' ? 'recent' : 'new');
 
-  const [dbDispatches, setDbDispatches] = useState<DispatchRecord[]>([]);
-
   // Date Filter State
   const [dateRange, setDateRange] = useState<'today' | '7d' | '30d' | 'custom'>('7d');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
-  const [dateError, setDateError] = useState<string | null>(null);
-  // Custom dates take effect only when applied.
+  const [customDateError, setCustomDateError] = useState<string | null>(null);
   const [appliedCustomDates, setAppliedCustomDates] = useState({ from: '', to: '' });
-  const [reloadToken, setReloadToken] = useState(0);
-
-  // Server-side Pagination State
   const [page, setPage] = useState(1);
-  const [pagination, setPagination] = useState<PaginationMeta>({
-    page: 1,
-    pageSize: 20,
-    totalRecords: 0,
-    totalPages: 1,
-  });
 
   let queryUrl = `/api/dispatches?range=${dateRange}&page=${page}&pageSize=20`;
   if (dateRange === 'custom') {
@@ -88,35 +77,31 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
     if (appliedCustomDates.to) queryUrl += `&toDate=${appliedCustomDates.to}`;
   }
   const shouldLoad = activeTab === 'recent' && Boolean(currentUser);
-  const requestKey = `${queryUrl}#${reloadToken}`;
-  // Request whose response last settled; any other key means a fetch is in flight.
-  const [loadedKey, setLoadedKey] = useState<string | null>(null);
-  const isLoading = shouldLoad && loadedKey !== requestKey;
 
-  useEffect(() => {
-    if (!shouldLoad) return;
-    let ignore = false;
-    fetchJson<{ dispatches?: DispatchRecord[]; pagination?: PaginationMeta }>(queryUrl, undefined, 'Failed to fetch dispatches')
-      .then(
-        (data) => {
-          if (ignore) return;
-          if (data.dispatches) setDbDispatches(data.dispatches);
-          if (data.pagination) setPagination(data.pagination);
-          setDateError(null);
-        },
-        (err) => {
-          if (ignore) return;
-          console.error('Failed to fetch dispatches', err);
-          setDateError(getErrorMessage(err) || 'Failed to fetch dispatches');
-        }
-      )
-      .finally(() => {
-        if (!ignore) setLoadedKey(requestKey);
-      });
-    return () => {
-      ignore = true;
-    };
-  }, [shouldLoad, queryUrl, requestKey]);
+  const queryClient = useQueryClient();
+  const dispatchesQuery = useQuery({
+    queryKey: ['dispatches', dateRange, page, appliedCustomDates],
+    queryFn: ({ signal }) =>
+      fetchJson<{ dispatches?: DispatchRecord[]; pagination?: PaginationMeta }>(
+        queryUrl,
+        { signal },
+        'Failed to fetch dispatches'
+      ),
+    enabled: shouldLoad,
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+  });
+
+  const dbDispatches = dispatchesQuery.data?.dispatches ?? [];
+  const pagination = dispatchesQuery.data?.pagination ?? {
+    page: 1,
+    pageSize: 20,
+    totalRecords: 0,
+    totalPages: 1,
+  };
+  const isLoading = shouldLoad && dispatchesQuery.isFetching;
+  const dateError = customDateError || (dispatchesQuery.error ? getErrorMessage(dispatchesQuery.error) : null);
+  const setDateError = setCustomDateError;
 
   const handleRangeChange = (newRange: 'today' | '7d' | '30d' | 'custom') => {
     setDateRange(newRange);
@@ -131,7 +116,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
     setDateError(null);
     setPage(1);
     setAppliedCustomDates({ from: fromDate, to: toDate });
-    setReloadToken((token) => token + 1);
+    // trigger re-query via appliedCustomDates
   };
 
   const handleClearCustomDate = () => {
@@ -150,28 +135,30 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
 
   const reloadFirstPage = () => {
     setPage(1);
-    setReloadToken((token) => token + 1);
+    void queryClient.invalidateQueries({ queryKey: ['dispatches'] });
   };
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 w-full overflow-x-hidden">
       {/* Top-Level Dispatch Workspace Tabs */}
       {!hideTabBar && (
-        <SegmentedTabs
-          label="Dispatch views"
-          value={activeTab}
-          onValueChange={setActiveTab}
-          tabs={[
-            { value: 'new', label: 'New dispatch', id: 'tab-new-dispatch', panelId: 'panel-new-dispatch' },
-            {
-              value: 'recent',
-              label: 'Recent dispatches',
-              id: 'tab-recent-dispatches',
-              panelId: 'panel-recent-dispatches',
-              count: pagination.totalRecords > 0 ? pagination.totalRecords : undefined,
-            },
-          ]}
-        />
+        <div className="lg:hidden">
+          <SegmentedTabs
+            label="Dispatch views"
+            value={activeTab}
+            onValueChange={setActiveTab}
+            tabs={[
+              { value: 'new', label: 'New dispatch', id: 'tab-new-dispatch', panelId: 'panel-new-dispatch' },
+              {
+                value: 'recent',
+                label: 'Recent dispatches',
+                id: 'tab-recent-dispatches',
+                panelId: 'panel-recent-dispatches',
+                count: pagination.totalRecords > 0 ? pagination.totalRecords : undefined,
+              },
+            ]}
+          />
+        </div>
       )}
 
       {/* Tab Panels: New Dispatch Panel (state preserved when hidden) */}

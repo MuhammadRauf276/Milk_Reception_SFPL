@@ -1,64 +1,35 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
-import QRCode from 'qrcode';
-import { AlertTriangle, Ban, CheckCircle2, Clock, KeyRound, Plus, ScrollText, Smartphone, Trash2, Undo2, UserPlus, Users } from 'lucide-react';
-import { Modal } from '@/components/ui/modal';
+import React, { useMemo, useState } from 'react';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { AlertTriangle, Ban, CheckCircle2, Clock, KeyRound, Plus, ScrollText, Search, Smartphone, Undo2, UserPlus, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/ui/page-header';
-import { fetchJson } from '@/lib/fetch-json';
+import { fetchJson } from '@/lib/query/fetchJson';
 import { getErrorMessage } from '@/lib/errors';
+import { useDebouncedValue } from './shared/useDebouncedValue';
+import { PaginationBar } from './shared/PaginationBar';
+import { DeviceDrawer, formatTime, type DeviceDialog, type DeviceItem, type DeviceStatus } from './devices/DeviceDrawer';
 
-type Status = 'PENDING' | 'ACTIVE' | 'BLOCKED' | 'RELEASED';
-
-interface DeviceItem {
-  id: string;
-  deviceUid: string;
-  label: string | null;
-  status: Status;
-  isSharedStation: boolean;
-  assignedUserName: string | null;
-  procurementSourceName: string | null;
-  blockReason: string | null;
-  lastSeenAt: string | null;
-  lastAppVersion: string | null;
-  lastUnsentCount: number;
-}
-
-interface UserOption { id: string; name: string; role: string }
-interface SourceOption { id: string; name: string; sourceType: string }
-interface StationUserItem { userId: string; name: string; role: string; locked: boolean }
-interface DiaryItem { id: string; eventType: string; performedAsRole: string | null; occurredAt: string; payload: unknown }
-
-const STATUS_VIEW: Record<Status, { word: string; icon: React.ReactNode; cls: string }> = {
+const STATUS_VIEW: Record<DeviceStatus, { word: string; icon: React.ReactNode; cls: string }> = {
   ACTIVE: { word: 'Working', icon: <CheckCircle2 className="size-4" aria-hidden />, cls: 'bg-emerald-100 text-emerald-900 border-emerald-300' },
   PENDING: { word: 'Waiting', icon: <Clock className="size-4" aria-hidden />, cls: 'bg-amber-100 text-amber-900 border-amber-300' },
-  BLOCKED: { word: 'Blocked', icon: <Ban className="size-4" aria-hidden />, cls: 'bg-red-100 text-red-900 border-red-300' },
+  BLOCKED: { word: 'Blocked', icon: <Ban className="size-4" aria-hidden />, cls: 'bg-rose-100 text-rose-900 border-rose-300' },
   RELEASED: { word: 'Back in office', icon: <Undo2 className="size-4" aria-hidden />, cls: 'bg-slate-100 text-slate-800 border-slate-300' },
 };
 
-const EVENT_WORDS: Record<string, string> = {
-  REGISTERED: 'Phone registered',
-  ASSIGNED: 'Given to a user',
-  RELEASED: 'Phone released',
-  BLOCKED: 'Phone blocked',
-  STATION_PIN_SET: 'Station PIN set',
-  STATION_PIN_RESET: 'Station PIN changed',
-  STATION_PIN_REMOVED: 'Station user removed',
-  STATION_PIN_LOCKED: 'Station PIN locked',
-  KEY_ROTATED: 'New key made',
-  LOGIN: 'User logged in',
-};
+const STATUS_FILTERS: Array<{ value: '' | DeviceStatus; label: string }> = [
+  { value: '', label: 'All' },
+  { value: 'ACTIVE', label: 'Working' },
+  { value: 'PENDING', label: 'Waiting' },
+  { value: 'BLOCKED', label: 'Blocked' },
+  { value: 'RELEASED', label: 'Back in office' },
+];
 
 const BTN = 'min-h-11 px-4';
-const FIELD = 'min-h-11 w-full rounded-md border border-input bg-card px-3 text-sm';
+const PAGE_SIZE = 12;
 
-function formatTime(iso: string | null): string {
-  if (!iso) return 'Never';
-  return new Date(iso).toLocaleString('en-GB', { timeZone: 'Asia/Karachi', dateStyle: 'medium', timeStyle: 'short' });
-}
-
-function StatusPill({ status }: { status: Status }) {
+function StatusPill({ status }: { status: DeviceStatus }) {
   const v = STATUS_VIEW[status] ?? STATUS_VIEW.PENDING;
   return (
     <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-medium ${v.cls}`}>
@@ -68,180 +39,96 @@ function StatusPill({ status }: { status: Status }) {
   );
 }
 
-function KeyQr({ deviceUid, syncKey }: { deviceUid: string; syncKey: string }) {
-  const [src, setSrc] = useState<string | null>(null);
-  useEffect(() => {
-    let alive = true;
-    QRCode.toDataURL(JSON.stringify({ deviceUid, key: syncKey }), { width: 240, margin: 2 })
-      .then((url) => { if (alive) setSrc(url); })
-      .catch(() => { if (alive) setSrc(null); });
-    return () => { alive = false; };
-  }, [deviceUid, syncKey]);
-  return (
-    <div className="space-y-3">
-      <p className="text-sm text-muted-foreground">Scan this code with the phone. It is shown only now. Close it only after the phone is set up.</p>
-      {src ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={src} alt="QR code for phone setup" width={240} height={240} className="mx-auto rounded-md border bg-white" />
-      ) : null}
-      <div className="rounded-md border bg-muted p-3 text-xs break-all">
-        <div><strong>Phone ID:</strong> {deviceUid}</div>
-        <div><strong>Key:</strong> {syncKey}</div>
-      </div>
-    </div>
-  );
+interface DevicesResponse {
+  devices: DeviceItem[];
+  pagination?: { page: number; totalPages: number; totalRecords: number };
 }
 
-type Dialog =
-  | { kind: 'register' }
-  | { kind: 'assign'; device: DeviceItem }
-  | { kind: 'release'; device: DeviceItem }
-  | { kind: 'block'; device: DeviceItem }
-  | { kind: 'key'; device: DeviceItem }
-  | { kind: 'diary'; device: DeviceItem }
-  | { kind: 'station'; device: DeviceItem }
-  | { kind: 'shown-key'; deviceUid: string; syncKey: string };
-
-const DIALOG_TITLES: Record<Dialog['kind'], string> = {
-  register: 'Register phone',
-  assign: 'Give phone to a user',
-  release: 'Release phone',
-  block: 'Block phone',
-  key: 'Make a new key',
-  diary: 'Phone diary',
-  station: 'Station users',
-  'shown-key': 'Phone key',
-};
-
 export function DevicesWorkspace() {
-  const [devices, setDevices] = useState<DeviceItem[]>([]);
-  const [users, setUsers] = useState<UserOption[]>([]);
-  const [sources, setSources] = useState<SourceOption[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [dialog, setDialog] = useState<Dialog | null>(null);
-  const [dialogError, setDialogError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [diary, setDiary] = useState<DiaryItem[]>([]);
-  const [stationUsers, setStationUsers] = useState<StationUserItem[]>([]);
-  const [formPin, setFormPin] = useState('');
+  const [search, setSearch] = useState('');
+  const [status, setStatus] = useState<'' | DeviceStatus>('');
+  const [page, setPage] = useState(1);
+  const [dialog, setDialog] = useState<DeviceDialog | null>(null);
 
-  const [formUid, setFormUid] = useState('');
-  const [formLabel, setFormLabel] = useState('');
-  const [formShared, setFormShared] = useState(false);
-  const [formSource, setFormSource] = useState('');
-  const [formUser, setFormUser] = useState('');
-  const [formReason, setFormReason] = useState('');
+  const q = useDebouncedValue(search.trim(), 300);
+  const filters = useMemo(() => ({ q, status, page }), [q, status, page]);
 
-  const load = useCallback(async () => {
-    try {
-      const data = await fetchJson<{ devices: DeviceItem[]; users: UserOption[]; sources: SourceOption[] }>('/api/devices');
-      setDevices(data.devices);
-      setUsers(data.users);
-      setSources(data.sources);
-      setError(null);
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const query = useQuery({
+    queryKey: ['super-admin', 'devices', 'list', filters],
+    queryFn: ({ signal }) => {
+      const params = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE), options: '0' });
+      if (q) params.set('q', q);
+      if (status) params.set('status', status);
+      return fetchJson<DevicesResponse>(`/api/devices?${params}`, { signal });
+    },
+    placeholderData: keepPreviousData,
+  });
 
-  useEffect(() => {
-    const t = setTimeout(() => { void load(); }, 0);
-    return () => clearTimeout(t);
-  }, [load]);
-
-  function open(next: Dialog) {
-    setDialogError(null);
-    setFormReason('');
-    setFormUser('');
-    setFormPin('');
-    if (next.kind === 'register') {
-      setFormUid(typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : '');
-      setFormLabel('');
-      setFormShared(false);
-      setFormSource('');
-    }
-    setDialog(next);
-    if (next.kind === 'diary') {
-      setDiary([]);
-      fetchJson<{ entries: DiaryItem[] }>(`/api/devices/${next.device.id}/diary?limit=100`)
-        .then((d) => setDiary(d.entries))
-        .catch((err) => setDialogError(getErrorMessage(err)));
-    }
-    if (next.kind === 'station') {
-      setStationUsers([]);
-      fetchJson<{ users: StationUserItem[] }>(`/api/devices/${next.device.id}/station-users`)
-        .then((d) => setStationUsers(d.users))
-        .catch((err) => setDialogError(getErrorMessage(err)));
-    }
-  }
-
-  async function changeStationUsers(deviceId: string, method: 'PUT' | 'DELETE', body: Record<string, string>) {
-    setBusy(true);
-    setDialogError(null);
-    try {
-      const d = await fetchJson<{ users: StationUserItem[] }>(`/api/devices/${deviceId}/station-users`, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      setStationUsers(d.users);
-      setFormUser('');
-      setFormPin('');
-    } catch (err) {
-      setDialogError(getErrorMessage(err));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function run(request: () => Promise<{ syncKey?: string }>, deviceUid?: string) {
-    setBusy(true);
-    setDialogError(null);
-    try {
-      const result = await request();
-      await load();
-      setDialog(result.syncKey && deviceUid ? { kind: 'shown-key', deviceUid, syncKey: result.syncKey } : null);
-    } catch (err) {
-      setDialogError(getErrorMessage(err));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  const patch = (id: string, body: Record<string, unknown>) =>
-    fetchJson<{ syncKey?: string }>(`/api/devices/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
+  const devices = query.data?.devices ?? [];
+  const pagination = query.data?.pagination;
+  const error = query.error ? getErrorMessage(query.error) : null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         title="Phones"
         description="Register field phones, give them to users, and see what each phone did."
         actions={
-          <Button className={BTN} onClick={() => open({ kind: 'register' })}>
+          <Button className={BTN} onClick={() => setDialog({ kind: 'register' })}>
             <Plus aria-hidden /> Register phone
           </Button>
         }
       />
 
+      <div className="space-y-2">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" aria-hidden />
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+            placeholder="Search phone name or ID"
+            aria-label="Search phones"
+            className="h-11 w-full rounded-xl border border-border-strong bg-white pl-9 pr-3 text-sm focus:outline-hidden focus:border-primary"
+          />
+        </div>
+        <div role="group" aria-label="Status filter" className="flex flex-wrap gap-1">
+          {STATUS_FILTERS.map((f) => (
+            <button
+              key={f.value}
+              type="button"
+              aria-pressed={status === f.value}
+              onClick={() => {
+                setStatus(f.value);
+                setPage(1);
+              }}
+              className={`h-11 rounded-xl border px-4 text-xs font-semibold ${
+                status === f.value ? 'border-primary bg-primary/10 text-primary' : 'border-border-strong bg-white text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {error ? (
-        <div role="alert" className="flex items-center gap-2 rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-900">
+        <div role="alert" className="flex items-center gap-2 rounded-md border border-rose-300 bg-rose-50 p-3 text-sm text-rose-900">
           <AlertTriangle className="size-4" aria-hidden /> {error}
         </div>
       ) : null}
 
-      {loading ? (
-        <p className="text-sm text-muted-foreground">Loading phones...</p>
+      {query.isPending ? (
+        <p className="text-sm text-muted-foreground">Loading phones…</p>
       ) : devices.length === 0 ? (
-        <p className="rounded-md border p-6 text-center text-sm text-muted-foreground">No phones yet. Tap Register phone to add one.</p>
+        <p className="rounded-md border p-6 text-center text-sm text-muted-foreground">
+          {q || status ? 'No phones match.' : 'No phones yet. Tap Register phone to add one.'}
+        </p>
       ) : (
-        <ul className="grid gap-4 lg:grid-cols-2">
+        <ul className={`grid gap-4 lg:grid-cols-2 ${query.isPlaceholderData ? 'opacity-60' : ''}`}>
           {devices.map((d) => (
             <li key={d.id} className="space-y-3 rounded-lg border bg-card p-4">
               <div className="flex flex-wrap items-start justify-between gap-2">
@@ -250,7 +137,7 @@ export function DevicesWorkspace() {
                     <Smartphone className="size-4 shrink-0" aria-hidden />
                     <span className="truncate">{d.label || d.deviceUid}</span>
                   </div>
-                  <div className="text-xs text-muted-foreground break-all">{d.deviceUid}</div>
+                  <div className="break-all text-xs text-muted-foreground">{d.deviceUid}</div>
                 </div>
                 <StatusPill status={d.status} />
               </div>
@@ -266,26 +153,26 @@ export function DevicesWorkspace() {
                 <dt className="text-muted-foreground">Not sent yet</dt>
                 <dd>{d.lastUnsentCount}</dd>
               </dl>
-              {d.status === 'BLOCKED' && d.blockReason ? <p className="text-sm text-red-900">Reason: {d.blockReason}</p> : null}
+              {d.status === 'BLOCKED' && d.blockReason ? <p className="text-sm text-rose-900">Reason: {d.blockReason}</p> : null}
               <div className="flex flex-wrap gap-2">
-                <Button variant="outline" className={BTN} disabled={d.status === 'BLOCKED'} onClick={() => open({ kind: 'assign', device: d })}>
+                <Button variant="outline" className={BTN} disabled={d.status === 'BLOCKED'} onClick={() => setDialog({ kind: 'assign', device: d })}>
                   <UserPlus aria-hidden /> Give to user
                 </Button>
-                <Button variant="outline" className={BTN} onClick={() => open({ kind: 'release', device: d })}>
+                <Button variant="outline" className={BTN} onClick={() => setDialog({ kind: 'release', device: d })}>
                   <Undo2 aria-hidden /> Release phone
                 </Button>
-                <Button variant="outline" className={BTN} disabled={d.status === 'BLOCKED'} onClick={() => open({ kind: 'key', device: d })}>
+                <Button variant="outline" className={BTN} disabled={d.status === 'BLOCKED'} onClick={() => setDialog({ kind: 'key', device: d })}>
                   <KeyRound aria-hidden /> Show key again
                 </Button>
                 {d.isSharedStation ? (
-                  <Button variant="outline" className={BTN} disabled={d.status !== 'ACTIVE'} onClick={() => open({ kind: 'station', device: d })}>
+                  <Button variant="outline" className={BTN} disabled={d.status !== 'ACTIVE'} onClick={() => setDialog({ kind: 'station', device: d })}>
                     <Users aria-hidden /> Station users
                   </Button>
                 ) : null}
-                <Button variant="outline" className={BTN} onClick={() => open({ kind: 'diary', device: d })}>
+                <Button variant="outline" className={BTN} onClick={() => setDialog({ kind: 'diary', device: d })}>
                   <ScrollText aria-hidden /> Diary
                 </Button>
-                <Button variant="destructive" className={BTN} disabled={d.status === 'BLOCKED'} onClick={() => open({ kind: 'block', device: d })}>
+                <Button variant="destructive" className={BTN} disabled={d.status === 'BLOCKED'} onClick={() => setDialog({ kind: 'block', device: d })}>
                   <Ban aria-hidden /> Block
                 </Button>
               </div>
@@ -294,176 +181,24 @@ export function DevicesWorkspace() {
         </ul>
       )}
 
+      <div className="overflow-hidden rounded-xl border border-border/80 bg-white">
+        <PaginationBar
+          page={pagination?.page ?? page}
+          totalPages={pagination?.totalPages ?? 1}
+          totalRecords={pagination?.totalRecords ?? devices.length}
+          noun="phones"
+          disabled={query.isFetching}
+          onPageChange={setPage}
+        />
+      </div>
+
       {dialog ? (
-        <Modal
-          onClose={() => { if (!busy) setDialog(null); }}
-          preventClose={busy}
-          showHeader
-          size={dialog.kind === 'diary' ? 'lg' : 'md'}
-          title={DIALOG_TITLES[dialog.kind]}
-        >
-          <div className="space-y-4 p-4 pt-0">
-            {dialogError ? <p role="alert" className="rounded-md border border-red-300 bg-red-50 p-2 text-sm text-red-900">{dialogError}</p> : null}
-
-            {dialog.kind === 'register' ? (
-              <>
-                <label className="block space-y-1 text-sm font-medium">Phone ID
-                  <input className={FIELD} value={formUid} onChange={(e) => setFormUid(e.target.value)} maxLength={64} />
-                </label>
-                <label className="block space-y-1 text-sm font-medium">Name of phone
-                  <input className={FIELD} value={formLabel} onChange={(e) => setFormLabel(e.target.value)} maxLength={150} placeholder="For example: Gujrat MOT phone 1" />
-                </label>
-                <label className="block space-y-1 text-sm font-medium">ZMCC (if any)
-                  <select className={FIELD} value={formSource} onChange={(e) => setFormSource(e.target.value)}>
-                    <option value="">No ZMCC</option>
-                    {sources.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
-                </label>
-                <label className="flex min-h-11 items-center gap-2 text-sm font-medium">
-                  <input type="checkbox" className="size-5" checked={formShared} onChange={(e) => setFormShared(e.target.checked)} />
-                  Shared station computer
-                </label>
-                <Button
-                  className={BTN}
-                  disabled={busy || !formUid.trim() || !formLabel.trim()}
-                  onClick={() =>
-                    run(
-                      () =>
-                        fetchJson<{ syncKey: string }>('/api/devices', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                            deviceUid: formUid.trim(),
-                            label: formLabel.trim(),
-                            isSharedStation: formShared,
-                            procurementSourceId: formSource || null,
-                          }),
-                        }),
-                      formUid.trim()
-                    )
-                  }
-                >
-                  Register
-                </Button>
-              </>
-            ) : null}
-
-            {dialog.kind === 'assign' ? (
-              <>
-                <label className="block space-y-1 text-sm font-medium">User
-                  <select className={FIELD} value={formUser} onChange={(e) => setFormUser(e.target.value)}>
-                    <option value="">Choose a user</option>
-                    {users.map((u) => <option key={u.id} value={u.id}>{u.name} ({u.role.replace(/_/g, ' ').toLowerCase()})</option>)}
-                  </select>
-                </label>
-                <Button className={BTN} disabled={busy || !formUser} onClick={() => run(() => patch(dialog.device.id, { action: 'assign', userId: formUser }), dialog.device.deviceUid)}>
-                  Give phone
-                </Button>
-              </>
-            ) : null}
-
-            {dialog.kind === 'release' ? (
-              <>
-                <p className="text-sm">This phone will have no user and stop working until it is set up again. Continue?</p>
-                <Button className={BTN} disabled={busy} onClick={() => run(() => patch(dialog.device.id, { action: 'release' }))}>Yes, release phone</Button>
-              </>
-            ) : null}
-
-            {dialog.kind === 'block' ? (
-              <>
-                <p className="text-sm">A blocked phone cannot send or log in. Tell us why.</p>
-                <textarea className={`${FIELD} min-h-24 py-2`} value={formReason} onChange={(e) => setFormReason(e.target.value)} maxLength={500} placeholder="Reason" />
-                <Button variant="destructive" className={BTN} disabled={busy || !formReason.trim()} onClick={() => run(() => patch(dialog.device.id, { action: 'block', reason: formReason.trim() }))}>
-                  Yes, block phone
-                </Button>
-              </>
-            ) : null}
-
-            {dialog.kind === 'key' ? (
-              <>
-                <p className="text-sm">This makes a new key. The old key stops working. The new key is shown only once.</p>
-                <Button className={BTN} disabled={busy} onClick={() => run(() => patch(dialog.device.id, { action: 'rotate-key' }), dialog.device.deviceUid)}>
-                  Make new key
-                </Button>
-              </>
-            ) : null}
-
-            {dialog.kind === 'shown-key' ? <KeyQr deviceUid={dialog.deviceUid} syncKey={dialog.syncKey} /> : null}
-
-            {dialog.kind === 'station' ? (
-              <>
-                <p className="text-sm text-muted-foreground">These people can log in on this computer with a name card and a 4-digit PIN. After 5 wrong tries the PIN locks. Set a new PIN to unlock it.</p>
-                {stationUsers.length === 0 && !dialogError ? (
-                  <p className="text-sm text-muted-foreground">No users yet.</p>
-                ) : (
-                  <ul className="space-y-2">
-                    {stationUsers.map((u) => (
-                      <li key={u.userId} className="flex items-center justify-between gap-2 rounded-md border p-2 text-sm">
-                        <div className="min-w-0">
-                          <div className="truncate font-medium">{u.name}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {u.role.replace(/_/g, ' ').toLowerCase()}{u.locked ? ' - PIN locked' : ''}
-                          </div>
-                        </div>
-                        <Button
-                          variant="outline"
-                          className={BTN}
-                          disabled={busy}
-                          aria-label={`Remove ${u.name}`}
-                          onClick={() => changeStationUsers(dialog.device.id, 'DELETE', { userId: u.userId })}
-                        >
-                          <Trash2 aria-hidden /> Remove
-                        </Button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                <div className="space-y-3 border-t pt-3">
-                  <label className="block space-y-1 text-sm font-medium">User
-                    <select className={FIELD} value={formUser} onChange={(e) => setFormUser(e.target.value)}>
-                      <option value="">Choose a user</option>
-                      {users.map((u) => <option key={u.id} value={u.id}>{u.name} ({u.role.replace(/_/g, ' ').toLowerCase()})</option>)}
-                    </select>
-                  </label>
-                  <label className="block space-y-1 text-sm font-medium">4-digit PIN
-                    <input
-                      className={FIELD}
-                      inputMode="numeric"
-                      autoComplete="off"
-                      maxLength={4}
-                      value={formPin}
-                      onChange={(e) => setFormPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                    />
-                  </label>
-                  <Button
-                    className={BTN}
-                    disabled={busy || !formUser || formPin.length !== 4}
-                    onClick={() => changeStationUsers(dialog.device.id, 'PUT', { userId: formUser, pin: formPin })}
-                  >
-                    Save PIN
-                  </Button>
-                </div>
-              </>
-            ) : null}
-
-            {dialog.kind === 'diary' ? (
-              diary.length === 0 && !dialogError ? (
-                <p className="text-sm text-muted-foreground">Nothing recorded yet.</p>
-              ) : (
-                <ol className="max-h-[60vh] space-y-2 overflow-y-auto">
-                  {diary.map((e) => (
-                    <li key={e.id} className="rounded-md border p-2 text-sm">
-                      <div className="font-medium">{EVENT_WORDS[e.eventType] ?? e.eventType.replace(/_/g, ' ').toLowerCase()}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {formatTime(e.occurredAt)}{e.performedAsRole ? ` - ${e.performedAsRole.replace(/_/g, ' ').toLowerCase()}` : ''}
-                      </div>
-                    </li>
-                  ))}
-                </ol>
-              )
-            ) : null}
-          </div>
-        </Modal>
+        <DeviceDrawer
+          key={'device' in dialog ? `${dialog.kind}-${dialog.device.id}` : dialog.kind === 'shown-key' ? `key-${dialog.deviceUid}` : dialog.kind}
+          dialog={dialog}
+          onClose={() => setDialog(null)}
+          onShowKey={(deviceUid, syncKey) => setDialog({ kind: 'shown-key', deviceUid, syncKey })}
+        />
       ) : null}
     </div>
   );

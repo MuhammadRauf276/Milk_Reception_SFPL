@@ -5,7 +5,7 @@ import { writeAuditLog, auditActorFromUser } from '@/backend/core/audit';
 
 export async function GET(req: Request) {
   const current = await getCurrentUser(req); if (!current) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
-  const rows = await prisma.pushSubscription.findMany({ where: { user_id: BigInt(current.id) }, orderBy: { updated_at: 'desc' } });
+  const rows = await prisma.pushSubscription.findMany({ where: { user_id: BigInt(current.id) }, orderBy: { updated_at: 'desc' }, take: 50 });
   return NextResponse.json({ subscriptions: rows.map((row) => ({ id: row.id.toString(), deviceLabel: row.device_label, active: !row.revoked_at, createdAt: row.created_at.toISOString(), revokedAt: row.revoked_at?.toISOString() || null })) });
 }
 

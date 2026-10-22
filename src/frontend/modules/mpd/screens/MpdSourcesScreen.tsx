@@ -3,22 +3,28 @@
 import React, { useState } from 'react';
 import { Building2, Building, CheckCircle2, Search } from 'lucide-react';
 import type { ZmccCenterTelemetry, PlantContractorTelemetry } from '../types';
+import type { MpdExecutiveTelemetry } from '@/backend/services/mpdExecutiveService';
 import { formatMetric, NO_DATA } from '../format';
 
 interface MpdSourcesScreenProps {
   zmccs: ZmccCenterTelemetry[];
   contractors: PlantContractorTelemetry[];
+  intakeBySource?: MpdExecutiveTelemetry['intakeBySource'];
 }
 
-export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({ zmccs, contractors }) => {
+export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
+  zmccs = [],
+  contractors = [],
+  intakeBySource = [],
+}) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sourceFilter, setSourceFilter] = useState<'ALL' | 'ZMCC' | 'CONTRACTORS'>('ALL');
 
-  const filteredZmccs = zmccs.filter(
+  const filteredZmccs = (zmccs ?? []).filter(
     (z) => z.name.toLowerCase().includes(searchTerm.toLowerCase()) || z.code.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const filteredContractors = contractors.filter(
+  const filteredContractors = (contractors ?? []).filter(
     (c) => c.name.toLowerCase().includes(searchTerm.toLowerCase()) || c.code.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -42,7 +48,7 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({ zmccs, contr
               sourceFilter === 'ALL' ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
-            All Nodes ({zmccs.length + contractors.length})
+            All Nodes ({(zmccs ?? []).length + (contractors ?? []).length})
           </button>
           <button
             onClick={() => setSourceFilter('ZMCC')}
@@ -50,7 +56,7 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({ zmccs, contr
               sourceFilter === 'ZMCC' ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
-            ZMCC Centers ({zmccs.length})
+            ZMCC Centers ({(zmccs ?? []).length})
           </button>
           <button
             onClick={() => setSourceFilter('CONTRACTORS')}
@@ -58,7 +64,7 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({ zmccs, contr
               sourceFilter === 'CONTRACTORS' ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
-            Plant Contractors ({contractors.length})
+            Plant Contractors ({(contractors ?? []).length})
           </button>
         </div>
       </div>
@@ -137,8 +143,51 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({ zmccs, contr
                     {z.dispatchedLiters.toLocaleString()} L ({z.dispatchedTankerCount} tankers)
                   </span>
                 </div>
+                <div className="mt-2 flex items-center justify-between text-xs text-slate-600">
+                  <span>Left without full unloading (30d):</span>
+                  <span className={`tabular-nums font-semibold ${z.leftWithoutFullUnloadingCount > 0 ? 'text-amber-700' : 'text-slate-700'}`}>
+                    {z.leftWithoutFullUnloadingCount}
+                    {z.pendingCloseRequestCount > 0 ? ` · ${z.pendingCloseRequestCount} close request(s) pending` : ''}
+                    {z.acceptedNotReceivedLiters > 0 ? ` · ${z.acceptedNotReceivedLiters.toLocaleString()} L accepted, not received` : ''}
+                  </span>
+                </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {(sourceFilter === 'ALL' || sourceFilter === 'ZMCC') && intakeBySource.length > 0 && (
+        <div className="bg-white border border-border rounded-xl overflow-hidden shadow-xs">
+          <div className="p-4 border-b border-border text-xs font-semibold text-foreground">Received today by milk source</div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="bg-subtle border-b border-border text-slate-600 font-semibold">
+                  <th className="py-3 px-4">Source</th>
+                  <th className="py-3 px-4 text-right">Net kg</th>
+                  <th className="py-3 px-4 text-right">Gross L</th>
+                  <th className="py-3 px-4 text-right">@13TS L</th>
+                  <th className="py-3 px-4 text-center">LR / Fat / SNF / TS</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {intakeBySource.map((r) => (
+                  <tr key={r.sourceId ?? r.sourceName}>
+                    <td className="py-3 px-4">
+                      <div className="font-semibold text-foreground">{r.sourceName}</div>
+                      {r.erpCode ? <div className="text-slate-500 tabular-nums">{r.erpCode}</div> : null}
+                    </td>
+                    <td className="py-3 px-4 text-right tabular-nums">{r.netKg.toLocaleString()}</td>
+                    <td className="py-3 px-4 text-right tabular-nums">{r.grossLiters.toLocaleString()}</td>
+                    <td className="py-3 px-4 text-right tabular-nums">{r.at13tsLiters.toLocaleString()}</td>
+                    <td className="py-3 px-4 text-center tabular-nums">
+                      {formatMetric(r.avgLr)} | {formatMetric(r.avgFatPercent, '%')} | {formatMetric(r.avgSnfPercent, '%')} | {formatMetric(r.avgTsPercent, '%')}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
+import { canActAs } from '@/backend/core/roles/hierarchy';
 import { getErrorMessage } from '@/lib/errors';
 import { writeAuditLog, auditActorFromUser } from '@core/audit';
 
@@ -23,8 +24,8 @@ export async function DELETE(
     },
   });
 
-  const allowedRoles = ['QA_LAB_ATTENDANT', 'QA_HEAD', 'ADMIN', 'SUPER_ADMIN'];
-  if (!dbUser || !allowedRoles.includes(dbUser.role)) {
+
+  if (!dbUser || !canActAs(dbUser.role, 'QA_LAB_ATTENDANT')) {
     return NextResponse.json(
       { error: 'Unauthorized. QA role required for removing test portions.' },
       { status: 403 }

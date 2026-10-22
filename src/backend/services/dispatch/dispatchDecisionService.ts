@@ -5,7 +5,7 @@ import { assertResourceInScope, asRoleFields, resolveActingContext } from '@/bac
 import { writeAuditLog, type AuditActor } from '@/backend/core/audit';
 import type { User } from '@/backend/core/types';
 import { evaluateDecision } from '@/backend/services/decision/decisionRule';
-import { getEffectivePolicy, LAB_REPORT_TEST_CODE, LAB_REPORT_TEST_NAME, type PolicyDb } from '@/backend/services/testPointPolicyService';
+import { applyAssignmentToCell, getEffectivePolicy, LAB_REPORT_TEST_CODE, LAB_REPORT_TEST_NAME, type PolicyDb } from '@/backend/services/testPointPolicyService';
 import { QualityRuleService } from '@/backend/services/qualityRuleService';
 import { getTankPhysicalStock } from '@/backend/services/zmccTankService';
 import { calculateDensity, calculateGrossLiters, computeCanonicalMilkMetrics } from '@/backend/utils/milkFormulas';
@@ -90,7 +90,46 @@ function optionValues(raw: unknown): string[] | null {
 /** Effective dispatch policy: matrix cells (not OFF) + active RELEASE rules + lab test metadata. */
 export async function loadDispatchPolicy(point: DispatchPoint, at: Date = new Date(), db: Db = prisma): Promise<DispatchPolicySnapshot> {
   const policy = await getEffectivePolicy(point, at, db as unknown as PolicyDb);
-  const cells = policy.cells.filter((c) => c.testMode !== 'OFF');
+
+  // Check stage assignments configured by Super Admin for DISPATCH
+  const dispatchAssignments = await db.milkTestPolicyAssignment.findMany({
+      where: { testing_point: 'DISPATCH' },
+      select: { lab_test_id: true, is_active: true, is_required: true, is_photo_required: true },
+    });
+
+  const assignmentMap = new Map(dispatchAssignments.map((a) => [a.lab_test_id.toString(), a]));
+  const hasAssignedLr = Array.from(assignmentMap.values()).some(
+    (a) => a.is_active && policy.cells.some((c) => c.labTestId === a.lab_test_id.toString() && LR_CODES.has(c.testCode.toUpperCase()))
+  );
+  const hasAssignedFat = Array.from(assignmentMap.values()).some(
+    (a) => a.is_active && policy.cells.some((c) => c.labTestId === a.lab_test_id.toString() && FAT_CODES.has(c.testCode.toUpperCase()))
+  );
+
+  // Only tests Super Admin assigned (and switched on) for this point are shown. LR and Fat stay available because the milk formulas need them.
+  const cells = policy.cells
+    .filter((c) => {
+      const code = c.testCode.toUpperCase();
+      const isDoc = code === LAB_REPORT_TEST_CODE;
+      if (isDoc) return c.testMode !== 'OFF';
+      const assignment = assignmentMap.get(c.labTestId);
+      if (assignment) return assignment.is_active;
+      if (!hasAssignedLr && LR_CODES.has(code)) return true;
+      if (!hasAssignedFat && FAT_CODES.has(code)) return true;
+      return false;
+    })
+    .map((c) => applyAssignmentToCell(c, assignmentMap.get(c.labTestId)))
+    // Workflow document (Stage 3): tests are not compulsory for a Contractor, whatever Super Admin sets
+    // (the DISPATCH assignment is shared with ZMCC dispatch). Pictures and the lab report become optional too.
+    .map((c) =>
+      point === 'CONTRACTOR_DISPATCH'
+        ? {
+            ...c,
+            testMode: c.testMode === 'COMPULSORY' ? ('OPTIONAL' as const) : c.testMode,
+            photoMode: c.photoMode === 'REQUIRED' ? ('OPTIONAL' as const) : c.photoMode,
+          }
+        : c
+    );
+
   const ids = cells.map((c) => BigInt(c.labTestId));
   const [labTests, pointRules, legacyRules] = await Promise.all([
     ids.length > 0
@@ -111,15 +150,38 @@ export async function loadDispatchPolicy(point: DispatchPoint, at: Date = new Da
     const name = c.testName.toUpperCase();
     const specific = pointRules.get(c.labTestId);
     const r = specific && specific.testing_point === point ? specific : legacyRules.get(c.labTestId) ?? specific;
-    // Only RELEASE rules can fail a test; monitoring rules never reject.
+
+    const opts = (lt?.resultOptions && Array.isArray(lt.resultOptions))
+      ? (lt.resultOptions as Array<{ value: string; isPassing?: boolean | null; outcome?: string }>)
+      : [];
+    const passOpts = opts
+      .filter((o) => o.outcome === 'PASS' || o.isPassing === true)
+      .map((o) => o.value.trim().toUpperCase());
+
+    let allowed: string[] | null = null;
+    if (r && r.rule_category === 'RELEASE' && !r.isConfigurationError) {
+      if (r.acceptable_option && (!opts.length || opts.some((o) => o.value.trim().toUpperCase() === r.acceptable_option!.trim().toUpperCase()))) {
+        allowed = [r.acceptable_option];
+      } else if (passOpts.length > 0) {
+        allowed = passOpts;
+      } else {
+        allowed = ['OK', 'PASS', 'NEGATIVE', 'NORMAL', 'CLEAN', 'TRUE', 'YES'];
+      }
+    } else if (passOpts.length > 0) {
+      allowed = passOpts;
+    }
+
     const rule =
       r && r.rule_category === 'RELEASE' && !r.isConfigurationError
         ? {
             min: r.min_value !== null ? Number(r.min_value) : null,
             max: r.max_value !== null ? Number(r.max_value) : null,
-            allowed: r.acceptable_option ? [r.acceptable_option] : null,
+            allowed,
           }
+        : allowed
+        ? { min: null, max: null, allowed }
         : null;
+
     return {
       ...c,
       resultType: lt?.resultType ?? 'NUMERIC',

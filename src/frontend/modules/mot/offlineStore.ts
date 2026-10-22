@@ -1840,9 +1840,10 @@ async function countMovedMotItems(): Promise<MovedCounts> {
 
 export interface CachedAvailableSource {
   id: string;
-  erp_code: string;
+  /** Present only for owner roles; field roles see the name only. */
+  erp_code?: string | null;
   name: string;
-  displayLabel: string;
+  displayLabel?: string;
 }
 
 const SOURCES_CACHE_KEY = 'mot_cached_available_sources';

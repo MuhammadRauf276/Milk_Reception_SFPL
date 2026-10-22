@@ -1,8 +1,9 @@
 import { prisma } from '@/backend/core/db';
-import { assertManagementFiltersWithinScope, ManagementFilters, ManagementScope, normalizeManagementPage, Page, VehicleStageRow, toManagementVehicleStage } from '@/backend/modules/management-reporting';
+import { listZmccExitOutcomes } from '@/backend/services/zmccManagerOverviewService';
+import { assertManagementFiltersWithinScope, ExitedWithoutReceiptRow, ManagementFilters, ManagementScope, normalizeManagementPage, Page, VehicleStageRow, toManagementVehicleStage } from '@/backend/modules/management-reporting';
 
 /** Authoritative, read-only projection for management screens. */
-export async function getCurrentVehicleStages(scope: ManagementScope, filters: ManagementFilters = {}): Promise<Page<VehicleStageRow>> {
+export async function getCurrentVehicleStages(scope: ManagementScope, filters: ManagementFilters = {}): Promise<Page<VehicleStageRow> & { exitedWithoutReceipt: ExitedWithoutReceiptRow[] }> {
   assertManagementFiltersWithinScope(scope, filters);
   const sourceId = scope.kind === 'ZMCC' ? scope.zmccId : filters.sourceId;
   const sourceFilter = sourceId ? { procurement_source_id: BigInt(sourceId) } : {};
@@ -35,5 +36,13 @@ export async function getCurrentVehicleStages(scope: ManagementScope, filters: M
       exception: exception ? { kind: 'AVP_QA_REVIEW', raisedAt: exception.manager_review_requested_at?.toISOString() || visit.updated_at.toISOString() } : null,
     };
   });
-  return { items, page, pageSize, total, totalPages: Math.ceil(total / pageSize) };
+  // Separate category: ZMCC vehicles that exited with accepted milk not received (not counted as rejected).
+  const exits = await listZmccExitOutcomes(sourceId ? BigInt(sourceId) : undefined);
+  const exitedWithoutReceipt: ExitedWithoutReceiptRow[] = exits.left.map((row) => ({
+    sessionId: row.sessionId, zmccId: row.zmccId, arrivalLabel: row.arrivalLabel, reference: row.reference,
+    vehicleNumber: row.vehicleNumber, sourceName: row.sourceName, stage: 'EXITED_WITHOUT_RECEIPT',
+    exitOutcome: row.exitOutcome, reasonCode: row.reasonCode, remarks: row.remarks, recordedBy: row.recordedBy,
+    recordedAt: row.recordedAt, acceptedNotReceivedKg: row.acceptedNotReceivedKg, acceptedNotReceivedLiters: row.acceptedNotReceivedLiters,
+  }));
+  return { items, page, pageSize, total, totalPages: Math.ceil(total / pageSize), exitedWithoutReceipt };
 }

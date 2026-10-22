@@ -8,28 +8,13 @@ import { Spinner } from '@/components/ui/spinner';
 import { StatusScreen } from '@/components/ui/status-screen';
 import { isRetiredRole } from '@/backend/core/roles/hierarchy';
 import { getRoleLabel } from '@/backend/core/roles/labels';
+import { useCurrentUser } from '@/frontend/hooks/useCurrentUser';
 
 function WorkspaceUnavailableContent() {
   const [signingOut, setSigningOut] = useState(false);
-  const [userRole, setUserRole] = useState<string | null>(null);
   const searchParams = useSearchParams();
-
-  useEffect(() => {
-    async function checkUser() {
-      try {
-        const res = await fetch('/api/auth/me');
-        if (res.ok) {
-          const data = await res.json();
-          if (data?.user?.role) {
-            setUserRole(data.user.role);
-          }
-        }
-      } catch (_err) {
-        // Ignore fetch errors
-      }
-    }
-    checkUser();
-  }, []);
+  const { currentUser } = useCurrentUser();
+  const userRole = currentUser?.role || null;
 
   const handleLogout = async () => {
     setSigningOut(true);
