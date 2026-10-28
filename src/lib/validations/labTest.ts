@@ -102,7 +102,7 @@ export function mapScopeCheckboxes(
   scopeMotShop: boolean = false
 ): string {
   if (!scopeDispatch && !scopePlantQA && !scopeZmcc && !scopeMotShop) {
-    throw new Error('Please select at least one scope (Dispatch, Plant QA, ZMCC Lab, or MOT Shop).');
+    throw new Error('Please select at least one scope (Dispatch, Plant QA, ZMCC Lab, or Mobile Tester Shop).');
   }
   if ((scopeDispatch && scopePlantQA && scopeZmcc) || (scopeDispatch && scopePlantQA && scopeZmcc && scopeMotShop)) {
     return 'ALL';

@@ -59,7 +59,7 @@ export const LabHistoryPanel: React.FC<LabHistoryPanelProps> = ({
   return (
         <div className="space-y-4 animate-panel-in">
           
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-white p-4 rounded-xl border border-slate-200">
+          <div className="bg-card border-border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 p-4 rounded-xl border">
             <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
               <div className="relative">
                 <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
@@ -68,7 +68,7 @@ export const LabHistoryPanel: React.FC<LabHistoryPanelProps> = ({
                   value={historySearch}
                   onChange={(e) => { setHistorySearch(e.target.value); setHistoryPage(1); }}
                   placeholder="Search token, vehicle…"
-                  className="pl-9 pr-4 py-2 border border-slate-300 rounded-xl text-xs focus:outline-hidden focus:ring-1 focus:ring-primary"
+                  className="min-h-11 pl-9 pr-4 py-2 border border-slate-300 rounded-xl text-xs focus:outline-hidden focus:ring-1 focus:ring-primary"
                 />
               </div>
 
@@ -76,13 +76,13 @@ export const LabHistoryPanel: React.FC<LabHistoryPanelProps> = ({
                 type="date"
                 value={historyDate}
                 onChange={(e) => { setHistoryDate(e.target.value); setHistoryPage(1); }}
-                className="px-3 py-2 border border-slate-300 rounded-xl text-xs focus:outline-hidden focus:ring-1 focus:ring-primary"
+                className="min-h-11 px-3 py-2 border border-slate-300 rounded-xl text-xs focus:outline-hidden focus:ring-1 focus:ring-primary"
               />
 
               <select
                 value={historyDecision}
                 onChange={(e) => { setHistoryDecision(e.target.value); setHistoryPage(1); }}
-                className="px-3 py-2 border border-slate-300 rounded-xl text-xs focus:outline-hidden focus:ring-1 focus:ring-primary"
+                className="min-h-11 px-3 py-2 border border-slate-300 rounded-xl text-xs focus:outline-hidden focus:ring-1 focus:ring-primary"
               >
                 <option value="ALL">All decisions</option>
                 <option value="ACCEPTED">Accepted</option>
@@ -104,16 +104,16 @@ export const LabHistoryPanel: React.FC<LabHistoryPanelProps> = ({
 
           
           {loadingHistory ? (
-            <div className="p-12 text-center text-slate-500 bg-white rounded-xl border border-slate-200">
+            <div className="bg-card border-border p-12 text-center text-slate-500 rounded-xl border">
               Loading test history…
             </div>
           ) : historyItems.length === 0 ? (
-            <div className="p-12 text-center text-slate-500 bg-white rounded-xl border border-slate-200">
+            <div className="bg-card border-border p-12 text-center text-slate-500 rounded-xl border">
               No completed laboratory testing records found.
             </div>
           ) : (
             <>
-              <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-x-auto">
+              <div className="bg-card border-border rounded-xl border shadow-xs overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
@@ -144,7 +144,7 @@ export const LabHistoryPanel: React.FC<LabHistoryPanelProps> = ({
                             item.arrival_type === 'MOT' ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'
                           }`}
                         >
-                          {item.arrival_type === 'MOT' ? 'MC' : 'HC'}
+                          {item.arrival_type === 'MOT' ? 'Mobile Tester' : 'HC'}
                         </span>
                       </td>
                       <td className="py-3.5 px-4 tabular-nums text-slate-700">
@@ -156,7 +156,7 @@ export const LabHistoryPanel: React.FC<LabHistoryPanelProps> = ({
                         {item.arrival_type === 'MOT' ? (
                           <span>
                             {item.mot_arrival?.journey?.route?.name || 'Route Milk'} (
-                            {item.mot_arrival?.journey?.mot_vehicle?.vehicle_number || 'MC'})
+                            {item.mot_arrival?.journey?.mot_vehicle?.vehicle_number || 'Mobile Tester'})
                           </span>
                         ) : (
                           <span>
@@ -208,7 +208,7 @@ export const LabHistoryPanel: React.FC<LabHistoryPanelProps> = ({
                               <button
                                 type="button"
                                 onClick={() => openHistoricalReceiveModal(item)}
-                                className="px-2 py-0.5 text-xs font-semibold text-white bg-primary rounded hover:bg-primary-hover shadow-xs"
+                                className="min-h-11 min-w-11 px-2 py-0.5 text-xs font-semibold text-white bg-primary rounded hover:bg-primary-hover shadow-xs"
                               >
                                 Receive
                               </button>
@@ -259,7 +259,7 @@ export const LabHistoryPanel: React.FC<LabHistoryPanelProps> = ({
                         {canTest && item.arrival_type === 'HC' && item.final_decision === 'ACCEPTED' && item.tank_receipt && (
                           <button
                             onClick={() => startRmr(item)}
-                            className="mr-2 px-2.5 py-1 text-xs font-semibold text-emerald-800 bg-emerald-50 rounded-lg hover:bg-emerald-100"
+                            className="min-h-11 min-w-11 mr-2 px-2.5 py-1 text-xs font-semibold text-emerald-800 bg-emerald-50 rounded-lg hover:bg-emerald-100"
                           >
                             Issue RMR
                           </button>
@@ -299,7 +299,7 @@ export const LabHistoryPanel: React.FC<LabHistoryPanelProps> = ({
                     type="button"
                     disabled={historyPage <= 1 || loadingHistory}
                     onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
-                    className="px-3 py-1 bg-white border border-slate-300 rounded-lg hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-semibold"
+                    className="min-h-11 min-w-11 px-3 py-1 bg-white border border-slate-300 rounded-lg hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-semibold"
                   >
                     Previous
                   </button>
@@ -307,7 +307,7 @@ export const LabHistoryPanel: React.FC<LabHistoryPanelProps> = ({
                     type="button"
                     disabled={historyPage >= historyTotalPages || loadingHistory}
                     onClick={() => setHistoryPage((p) => Math.min(historyTotalPages, p + 1))}
-                    className="px-3 py-1 bg-white border border-slate-300 rounded-lg hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-semibold"
+                    className="min-h-11 min-w-11 px-3 py-1 bg-white border border-slate-300 rounded-lg hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-semibold"
                   >
                     Next
                   </button>

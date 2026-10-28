@@ -61,11 +61,11 @@ export const CANONICAL_STATIONS: readonly CanonicalStation[] = [
   },
   {
     id: 'mot-collection',
-    label: 'MOT Mobile Journey',
+    label: 'Mobile Tester Journey',
     href: '/mot',
     basePath: '/mot',
     primaryRole: 'MOT',
-    subordinateRoleLabel: 'Mobile Tester (MOT)',
+    subordinateRoleLabel: 'Mobile Tester',
     icon: Truck,
     group: 'ZMCC Operations',
     targetSourceType: 'ZMCC',
@@ -102,17 +102,6 @@ export const CANONICAL_STATIONS: readonly CanonicalStation[] = [
     icon: LayoutDashboard,
     group: 'ZMCC Operations',
     targetSourceType: 'ZMCC',
-  },
-  {
-    id: 'head-of-mpd-workspace',
-    label: 'MPD Head Operations',
-    href: '/mpd/head?tab=COMMAND',
-    basePath: '/mpd/head',
-    primaryRole: 'HEAD_OF_MPD',
-    subordinateRoleLabel: 'Head of MPD',
-    icon: LayoutDashboard,
-    group: 'ZMCC Operations',
-    targetSourceType: null,
   },
 
   // --- Contractor Operations ---

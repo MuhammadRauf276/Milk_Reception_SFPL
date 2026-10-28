@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { User } from '@core/types';
 import { ChevronLeft, ChevronRight, Truck, Loader2 } from 'lucide-react';
@@ -58,10 +59,28 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
   currentUser,
   hideTabBar = false,
 }) => {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
   // The URL's ?tab= picks the initial view until the user chooses one.
   const urlTab = useUrlSearchParam('tab')?.toLowerCase();
-  const [selectedTab, setActiveTab] = useState<'new' | 'recent' | null>(null);
+  const [selectedTab, setSelectedTab] = useState<'new' | 'recent' | null>(null);
   const activeTab: 'new' | 'recent' = selectedTab ?? (urlTab === 'recent' ? 'recent' : 'new');
+
+  useEffect(() => {
+    if (urlTab === 'recent' || urlTab === 'new') {
+      setSelectedTab(urlTab);
+    }
+  }, [urlTab]);
+
+  const handleTabChange = (tab: string) => {
+    const validTab = tab === 'recent' ? 'recent' : 'new';
+    setSelectedTab(validTab);
+    const params = new URLSearchParams(searchParams?.toString() || '');
+    params.set('tab', validTab);
+    router.replace(`${pathname}?${params.toString()}`);
+  };
 
   // Date Filter State
   const [dateRange, setDateRange] = useState<'today' | '7d' | '30d' | 'custom'>('7d');
@@ -146,7 +165,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
           <SegmentedTabs
             label="Dispatch views"
             value={activeTab}
-            onValueChange={setActiveTab}
+            onValueChange={handleTabChange}
             tabs={[
               { value: 'new', label: 'New dispatch', id: 'tab-new-dispatch', panelId: 'panel-new-dispatch' },
               {
@@ -180,7 +199,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
       >
         <div className="max-w-4xl mx-auto space-y-4">
           {/* Header & Date Controls */}
-          <div className="p-4 sm:p-5 rounded-xl bg-white border border-border-strong shadow-xs space-y-4">
+          <div className="bg-card border-border p-4 sm:p-5 rounded-xl border shadow-xs space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center space-x-2">
                 <h2 className="text-base font-semibold text-foreground">Recent Dispatches</h2>
@@ -248,7 +267,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
                       type="date"
                       value={fromDate}
                       onChange={(e) => setFromDate(e.target.value)}
-                      className="w-full h-11 px-3.5 rounded-xl border border-border-strong bg-white tabular-nums text-xs text-foreground focus:ring-2 focus:ring-primary-hover outline-hidden"
+                      className="w-full h-11 px-3.5 rounded-xl border border-border-strong bg-white tabular-nums text-xs text-foreground focus:ring-2 focus:ring-primary-hover outline-hidden min-h-11"
                     />
                   </div>
                   <div className="space-y-1">
@@ -257,7 +276,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
                       type="date"
                       value={toDate}
                       onChange={(e) => setToDate(e.target.value)}
-                      className="w-full h-11 px-3.5 rounded-xl border border-border-strong bg-white tabular-nums text-xs text-foreground focus:ring-2 focus:ring-primary-hover outline-hidden"
+                      className="w-full h-11 px-3.5 rounded-xl border border-border-strong bg-white tabular-nums text-xs text-foreground focus:ring-2 focus:ring-primary-hover outline-hidden min-h-11"
                     />
                   </div>
                 </div>
@@ -266,14 +285,14 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
                   <button
                     type="button"
                     onClick={handleClearCustomDate}
-                    className="h-10 px-3.5 text-xs font-semibold text-slate-600 hover:text-slate-900 rounded-xl hover:bg-slate-100 transition"
+                    className="px-3.5 text-xs font-semibold text-slate-600 hover:text-slate-900 rounded-xl hover:bg-slate-100 transition min-h-11"
                   >
                     Clear
                   </button>
                   <button
                     type="button"
                     onClick={handleApplyCustomDate}
-                    className="h-10 px-4 bg-primary-hover text-white font-semibold text-xs rounded-xl shadow-xs hover:bg-blue-800 transition"
+                    className="px-4 bg-primary-hover text-white font-semibold text-xs rounded-xl shadow-xs hover:bg-blue-800 transition min-h-11"
                   >
                     Apply Filter
                   </button>
@@ -282,7 +301,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
             )}
 
             {dateError && (
-              <p className="text-xs font-semibold text-rose-700 bg-rose-50 p-3 rounded-xl border border-rose-200">
+              <p className="bg-card border-border text-xs font-semibold text-rose-700 p-3 rounded-xl border">
                 {dateError}
               </p>
             )}
@@ -291,19 +310,19 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
           {/* Records List */}
           <div className="space-y-3 max-h-[580px] overflow-y-auto pr-1">
             {isLoading ? (
-              <div className="p-10 text-center border border-dashed border-border rounded-xl bg-white text-sm text-muted-foreground">
+              <div className="bg-card border-border p-10 text-center border border-dashed rounded-xl text-sm text-muted-foreground">
                 <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-blue-700" />
                 Loading dispatches…
               </div>
             ) : dbDispatches.length === 0 ? (
-              <div className="p-10 text-center border border-dashed border-border rounded-xl bg-white text-sm text-muted-foreground">
+              <div className="bg-card border-border p-10 text-center border border-dashed rounded-xl text-sm text-muted-foreground">
                 No dispatches found for this period.
               </div>
             ) : (
               dbDispatches.map((log) => (
                 <div
                   key={`mpd-dispatch-${String(log.id)}`}
-                  className="p-4 sm:p-5 rounded-xl border bg-white text-foreground border-border-strong shadow-xs space-y-3 transition"
+                  className="bg-card border-border p-4 sm:p-5 rounded-xl border text-foreground shadow-xs space-y-3 transition"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2.5">
@@ -335,7 +354,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-subtle border border-border text-xs tabular-nums font-semibold">
+                  <div className="bg-card border-border grid grid-cols-2 gap-2 p-2.5 rounded-xl border text-xs tabular-nums font-semibold">
                     <div>
                       <span className="text-slate-500 font-sans block text-xs font-semibold">Vehicle Quantity</span>
                       <span className="text-slate-900 font-semibold text-sm">
@@ -368,7 +387,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
 
           {/* Server-side Pagination Footer */}
           {pagination.totalRecords > 0 && (
-            <div className="p-3.5 rounded-xl bg-white border border-border-strong shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-semibold">
+            <div className="bg-card border-border p-3.5 rounded-xl border shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-semibold">
               <span className="text-slate-600 font-sans text-xs">
                 Showing {Math.min((pagination.page - 1) * pagination.pageSize + 1, pagination.totalRecords)}–{Math.min(pagination.page * pagination.pageSize, pagination.totalRecords)} of {pagination.totalRecords} dispatches
               </span>

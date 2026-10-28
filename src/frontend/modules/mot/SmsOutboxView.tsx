@@ -97,18 +97,15 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
 
   return (
     <div className="space-y-4 animate-panel-in">
-      <div className="p-4 bg-white rounded-xl border border-border shadow-2xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div className="p-4 bg-card rounded-xl border border-border shadow-2xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-center space-x-3">
-          <div className="p-2.5 bg-emerald-50 text-emerald-700 rounded-xl">
-            <MessageSquare className="w-5 h-5" />
-          </div>
           <div>
-            <h2 className="text-base font-semibold text-foreground">WhatsApp Collection Receipts</h2>
+            <h2 className="text-base font-semibold text-foreground">WhatsApp receipts</h2>
           </div>
         </div>
 
         <div className="flex items-center space-x-2 flex-wrap gap-y-2">
-          <div className="inline-flex rounded-xl border border-border bg-subtle p-0.5" role="group" aria-label="Status filter">
+          <div className="bg-card border-border inline-flex rounded-xl border p-0.5" role="group" aria-label="Status filter">
             {[
               ['ALL', 'All'],
               ['PENDING', 'Pending'],
@@ -131,7 +128,7 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
           <button
             type="button"
             onClick={fetchOutbox}
-            className="flex items-center space-x-1 px-3 py-1.5 rounded-xl border border-border text-xs font-semibold text-slate-700 hover:bg-muted"
+            className="min-h-11 min-w-11 flex items-center space-x-1 px-3 py-1.5 rounded-xl border border-border text-xs font-semibold text-slate-700 hover:bg-muted"
           >
             <span>Refresh</span>
           </button>
@@ -147,7 +144,7 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
             type="button"
             disabled={isDispatching}
             onClick={handleDispatchAll}
-            className="flex items-center space-x-1 px-3 py-1.5 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-primary-hover shadow-2xs transition disabled:opacity-50"
+            className="min-h-11 min-w-11 flex items-center space-x-1 px-3 py-1.5 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-primary-hover shadow-2xs transition disabled:opacity-50"
           >
             <Send className={`w-3.5 h-3.5 ${isDispatching ? 'animate-pulse' : ''}`} />
             <span>{isDispatching ? 'Dispatching…' : 'Dispatch Queue'}</span>
@@ -156,20 +153,20 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
       </div>
 
       {dispatchFeedback && (
-        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-semibold flex items-center space-x-2 animate-panel-in">
+        <div className="bg-card border-border p-3 border rounded-xl text-emerald-800 text-xs font-semibold flex items-center space-x-2 animate-panel-in">
           <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
           <span>{dispatchFeedback}</span>
         </div>
       )}
 
       {error && (
-        <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs font-semibold flex items-center space-x-2 animate-panel-in">
+        <div className="bg-card border-border p-4 border rounded-xl text-rose-800 text-xs font-semibold flex items-center space-x-2 animate-panel-in">
           <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
           <span>{error}</span>
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-border shadow-2xs overflow-hidden">
+      <div className="bg-card rounded-xl border border-border shadow-2xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -205,7 +202,7 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
                       </div>
                     </td>
                     <td className="p-3 max-w-xs">
-                      <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-[11px] tabular-nums text-slate-800 whitespace-pre-line wrap-break-word font-mono">
+                      <div className="bg-card border-border p-2.5 rounded-lg border text-[11px] tabular-nums text-slate-800 whitespace-pre-line wrap-break-word font-mono">
                         {item.message_body}
                       </div>
                     </td>
@@ -240,7 +237,7 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
                         <button
                           type="button"
                           onClick={() => handleCopy(item.id, item.message_body)}
-                          className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-border text-slate-700 hover:bg-slate-100 transition"
+                          className="min-h-11 min-w-11 inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-border text-slate-700 hover:bg-slate-100 transition"
                           title="Copy receipt to clipboard"
                         >
                           {copiedId === item.id ? (

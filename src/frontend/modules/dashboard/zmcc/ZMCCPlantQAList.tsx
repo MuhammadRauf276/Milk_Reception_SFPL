@@ -54,7 +54,7 @@ export const ZMCCPlantQAList: React.FC<{
                 </span>
                 {item.tokenNumber && (
                   <span className="px-2 py-0.5 rounded text-xs tabular-nums font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-                    Token: {item.tokenNumber}
+                    {item.tokenNumber}
                   </span>
                 )}
                 <span className="text-xs tabular-nums font-semibold text-slate-600">
@@ -87,7 +87,7 @@ export const ZMCCPlantQAList: React.FC<{
             </div>
 
             {isRejected && (
-              <div className="p-2.5 rounded-lg text-xs font-semibold flex items-start gap-2 bg-rose-100/70 border border-rose-200 text-rose-900">
+              <div className="bg-card border-border p-2.5 rounded-lg text-xs font-semibold flex items-start gap-2 border text-rose-900">
                 <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-rose-700" />
                 <div>
                   <span className="font-semibold uppercase text-xs block">Official Plant Rejection Reason:</span>

@@ -17,6 +17,9 @@ export interface LiveCameraCaptureProps {
   disabled?: boolean;
   isRequired?: boolean;
   className?: string;
+  /** 'form' matches the Dispatch to Plant picture block (full-width, big touch targets). */
+  variant?: 'compact' | 'form';
+  testName?: string;
 }
 
 export const LiveCameraCapture: React.FC<LiveCameraCaptureProps> = ({
@@ -30,6 +33,8 @@ export const LiveCameraCapture: React.FC<LiveCameraCaptureProps> = ({
   disabled = false,
   isRequired = false,
   className = '',
+  variant = 'compact',
+  testName,
 }) => {
   const [cameraOpen, setCameraOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -76,14 +81,65 @@ export const LiveCameraCapture: React.FC<LiveCameraCaptureProps> = ({
     }
   };
 
+  const isForm = variant === 'form';
+  const label = testName || testLabel;
+
   return (
-    <div className={`inline-flex items-center gap-2 ${className}`}>
-      {currentPhotoUrl ? (
+    <div className={`${isForm ? 'block' : 'inline-flex items-center gap-2'} ${className}`}>
+      {isForm ? (
+        currentPhotoUrl ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" onClick={() => setPreviewOpen(true)} title={`View ${label} picture`}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={currentPhotoUrl} alt={`${label} picture`} className="h-12 w-12 rounded-lg border border-border object-cover" />
+            </button>
+            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800">
+              <Check className="h-4 w-4" aria-hidden="true" />
+              Picture taken
+            </span>
+            {!disabled && (
+              <>
+                <button
+                  type="button"
+                  onClick={handleCaptureClick}
+                  disabled={processing}
+                  className="inline-flex min-h-[44px] items-center gap-1 rounded-xl border border-border px-3 text-sm font-semibold text-slate-700 hover:bg-muted disabled:opacity-50"
+                >
+                  {processing && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Again
+                </button>
+                {onPhotoCleared && (
+                  <button
+                    type="button"
+                    onClick={onPhotoCleared}
+                    aria-label={`Remove ${label} picture`}
+                    className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-border text-slate-500 hover:bg-rose-50 hover:text-rose-700"
+                  >
+                    <X className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={handleCaptureClick}
+            disabled={disabled || processing}
+            className={`inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold transition disabled:opacity-50 ${
+              isRequired ? 'bg-primary text-white hover:bg-primary-hover' : 'border border-border bg-white text-slate-700 hover:bg-muted'
+            }`}
+          >
+            {processing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Camera className="h-5 w-5" aria-hidden="true" />}
+            {processing ? 'Processing…' : isRequired ? `Take ${label} picture *` : `Take ${label} picture (optional)`}
+          </button>
+        )
+      ) : currentPhotoUrl ? (
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => setPreviewOpen(true)}
-            className="group relative h-9 w-9 overflow-hidden rounded-lg border border-border bg-slate-100 transition hover:border-slate-400"
+            className="group relative h-11 w-11 overflow-hidden rounded-lg border border-border bg-card transition hover:border-slate-400"
             title={`View ${testLabel} photo`}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -107,7 +163,7 @@ export const LiveCameraCapture: React.FC<LiveCameraCaptureProps> = ({
               type="button"
               onClick={handleCaptureClick}
               disabled={processing}
-              className="inline-flex h-8 items-center gap-1 rounded-md border border-border px-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition disabled:opacity-50"
+              className="inline-flex min-h-11 items-center gap-1 rounded-md border border-border px-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition disabled:opacity-50"
               title={`Retake ${testLabel} photo`}
             >
               {processing && <Loader2 className="h-3 w-3 animate-spin text-slate-600" />}
@@ -119,7 +175,7 @@ export const LiveCameraCapture: React.FC<LiveCameraCaptureProps> = ({
             <button
               type="button"
               onClick={onPhotoCleared}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition"
+              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md border border-border text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition"
               title={`Clear ${testLabel} photo`}
             >
               <X className="h-3.5 w-3.5" />
@@ -131,7 +187,7 @@ export const LiveCameraCapture: React.FC<LiveCameraCaptureProps> = ({
           type="button"
           onClick={handleCaptureClick}
           disabled={disabled || processing}
-          className={`inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-semibold transition shadow-2xs ${
+          className={`inline-flex min-h-11 items-center gap-1.5 rounded-md px-2.5 text-xs font-semibold transition shadow-2xs ${
             isRequired
               ? 'bg-primary text-white hover:bg-primary-hover border border-transparent'
               : 'border border-border bg-white text-slate-700 hover:bg-slate-50'
@@ -176,7 +232,7 @@ export const LiveCameraCapture: React.FC<LiveCameraCaptureProps> = ({
             <button
               type="button"
               onClick={() => setPreviewOpen(false)}
-              className="p-1 rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
+              className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
             >
               <X className="w-4 h-4" />
             </button>

@@ -194,7 +194,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
             onClick={onSaveDraft}
             disabled={busy}
             title="Save draft for later"
-            className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+            className="min-h-11 min-w-11 inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50"
           >
             <Save className="h-3.5 w-3.5" aria-hidden="true" />
             <span className="hidden min-[420px]:inline">Draft</span>
@@ -203,7 +203,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="inline-flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg text-slate-500 hover:bg-slate-200 hover:text-slate-900"
+            className="min-h-11 min-w-11 inline-flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg text-slate-500 hover:bg-slate-200 hover:text-slate-900"
           >
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -223,7 +223,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
                 if (!err) setStep(i);
               }}
               disabled={busy}
-              className={cn(
+              className={cn('min-h-11 min-w-11', 
                 'flex min-h-[38px] items-center justify-center gap-1.5 rounded-lg border text-xs font-semibold transition',
                 i === step
                   ? 'border-primary bg-primary text-white shadow-2xs'
@@ -283,7 +283,6 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
                     placeholder="e.g. 004821"
                     className={cn(FIELD_CLASS, 'h-12 text-lg tracking-wider tabular-nums')}
                   />
-                  <p className="mt-1 text-[11px] text-slate-500">Digits only. Preserves leading zeros.</p>
                 </div>
 
                 {/* 2. Milk Source: required, assigned to this ZMCC, name only */}
@@ -306,7 +305,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
                   />
                   {sources.length === 0 ? (
                     <p className="mt-1 text-[11px] font-semibold text-amber-800">
-                      No milk source is assigned to this ZMCC yet. Ask the Data Executive.
+                      No milk source assigned.
                     </p>
                   ) : null}
                 </div>
@@ -358,7 +357,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
                           role="radio"
                           aria-checked={unit === u}
                           onClick={() => onUnitChange(u)}
-                          className={cn(
+                          className={cn('min-h-11 min-w-11', 
                             'min-w-14 px-3 text-sm font-semibold transition',
                             unit === u ? 'bg-primary text-white' : 'bg-white text-slate-600 hover:bg-subtle'
                           )}
@@ -372,7 +371,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
 
                 {/* Live Yield calculations */}
                 {livePreview && parseFloat(quantity) > 0 && (
-                  <div className="grid grid-cols-2 gap-2 rounded-xl border border-emerald-200 bg-emerald-50/60 p-2.5">
+                  <div className="bg-card border-border grid grid-cols-2 gap-2 rounded-xl border p-2.5">
                     <div>
                       <p className="text-[10px] font-semibold uppercase text-slate-500">Gross Liters</p>
                       <p className="text-base font-bold tabular-nums text-slate-900">{livePreview.grossLiters} L</p>
@@ -398,8 +397,8 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
                     rows={3}
                     value={notes}
                     onChange={(e) => onNotesChange(e.target.value)}
-                    placeholder="Enter any comments or field notes (e.g. sealed can, container cleaned)…"
-                    className="w-full resize-none rounded-xl border border-border bg-white p-2.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                    placeholder="Notes"
+                    className="min-h-11 w-full resize-none rounded-xl border border-border bg-white p-2.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
                   />
                 </div>
               </motion.div>
@@ -461,7 +460,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
               onClick={() => setDecideOpen(false)}
               disabled={busy}
               aria-label="Close decision"
-              className="flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+              className="min-h-11 min-w-11 flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600"
             >
               <X className="h-5 w-5" />
             </button>
@@ -469,7 +468,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
 
           <div className="space-y-4 overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-5">
             {livePreview && (
-              <div className="grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <div className="bg-card border-border grid grid-cols-2 gap-2 rounded-xl border p-3">
                 <div>
                   <span className="text-[10px] font-semibold uppercase text-slate-500">Gross Quantity</span>
                   <p className="text-lg font-bold tabular-nums text-slate-900">{livePreview.grossLiters} L</p>

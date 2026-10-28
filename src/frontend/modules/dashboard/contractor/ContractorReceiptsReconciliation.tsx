@@ -75,7 +75,7 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
 
   if (error) {
     return (
-      <div className="p-6 rounded-xl bg-rose-50 border border-rose-200 text-center space-y-2">
+      <div className="bg-card border-border p-6 rounded-xl border text-center space-y-2">
         <AlertCircle className="w-8 h-8 text-rose-600 mx-auto" />
         <h4 className="text-sm font-semibold text-rose-900">Failed to Load Receipts & Reconciliation</h4>
         <p className="text-xs text-rose-700">{error}</p>
@@ -86,7 +86,7 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
   return (
     <div className="space-y-6">
       {/* 1. Header Scope Banner */}
-      <div className="p-5 rounded-xl bg-white border border-border shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="bg-card border-border p-5 rounded-xl border shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center space-x-3">
           <div className="p-2.5 bg-blue-900 text-white rounded-xl shadow-xs">
             <Receipt className="w-5 h-5" />
@@ -102,16 +102,12 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
           </div>
         </div>
 
-        <div className="flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs tabular-nums font-semibold text-slate-700 self-start sm:self-auto">
-          <ShieldCheck className="w-4 h-4 text-blue-700" />
-          <span>Silo Transaction Authority</span>
-        </div>
       </div>
 
       {/* 2. Four Summary Metrics Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Authoritative Final Receipts */}
-        <div className="p-5 rounded-xl bg-white border border-border shadow-xs space-y-2">
+        <div className="bg-card border-border p-5 rounded-xl border shadow-xs space-y-2">
           <div className="flex items-center justify-between text-emerald-700 text-xs font-semibold">
             <span>Final Receipts</span>
             <CheckCircle2 className="w-4 h-4 text-emerald-600" />
@@ -124,7 +120,7 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
           </p>
         </div>
 
-        <div className="p-5 rounded-xl bg-white border border-border shadow-xs space-y-2">
+        <div className="bg-card border-border p-5 rounded-xl border shadow-xs space-y-2">
           <div className="flex items-center justify-between text-amber-700 text-xs font-semibold">
             <span>Receipt Pending</span>
             <Clock className="w-4 h-4 text-amber-600" />
@@ -138,7 +134,7 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
         </div>
 
         {/* Received Liters */}
-        <div className="p-5 rounded-xl bg-white border border-border shadow-xs space-y-2">
+        <div className="bg-card border-border p-5 rounded-xl border shadow-xs space-y-2">
           <div className="flex items-center justify-between text-blue-800 text-xs font-semibold">
             <span>Total Received Vol</span>
             <Scale className="w-4 h-4 text-blue-700" />
@@ -152,7 +148,7 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
         </div>
 
         {/* Net Liters Variance */}
-        <div className="p-5 rounded-xl bg-white border border-border shadow-xs space-y-2">
+        <div className="bg-card border-border p-5 rounded-xl border shadow-xs space-y-2">
           <div className="flex items-center justify-between text-slate-700 text-xs font-semibold">
             <span>Net Liters Variance</span>
             <ArrowRightLeft className="w-4 h-4 text-slate-600" />
@@ -179,7 +175,7 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
       </div>
 
       {/* 3. Search & Filter Controls */}
-      <div className="p-5 rounded-xl bg-white border border-border shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-card border-border p-5 rounded-xl border shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         {/* Search */}
         <div className="relative w-full md:w-80">
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -187,7 +183,7 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search vehicle, token, reception…"
+            placeholder="Search"
             className="w-full pl-9 pr-4 py-2.5 min-h-[44px] text-xs tabular-nums font-semibold bg-slate-50 border border-border-strong rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-900"
           />
         </div>
@@ -202,7 +198,7 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
           <button
             type="button"
             onClick={() => setReceiptFilter('ALL')}
-            className={`px-3 py-1.5 min-h-[38px] rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
+            className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
               receiptFilter === 'ALL'
                 ? 'bg-blue-900 text-white shadow-xs'
                 : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
@@ -214,43 +210,43 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
           <button
             type="button"
             onClick={() => setReceiptFilter('FINAL_RECEIPT')}
-            className={`px-3 py-1.5 min-h-[38px] rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
+            className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
               receiptFilter === 'FINAL_RECEIPT'
                 ? 'bg-emerald-800 text-white shadow-xs'
                 : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200'
             }`}
           >
-            Final Receipt ({metrics.totalReceiptsCount})
+            Final ({metrics.totalReceiptsCount})
           </button>
 
           <button
             type="button"
             onClick={() => setReceiptFilter('RECEIPT_PENDING')}
-            className={`px-3 py-1.5 min-h-[38px] rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
+            className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
               receiptFilter === 'RECEIPT_PENDING'
                 ? 'bg-amber-900 text-white shadow-xs'
                 : 'bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200'
             }`}
           >
-            Receipt Pending ({metrics.receiptPendingCount})
+            Pending ({metrics.receiptPendingCount})
           </button>
 
           <button
             type="button"
             onClick={() => setReceiptFilter('BEFORE_RECEIPT')}
-            className={`px-3 py-1.5 min-h-[38px] rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
+            className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
               receiptFilter === 'BEFORE_RECEIPT'
                 ? 'bg-slate-800 text-white shadow-xs'
                 : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
-            Before Receipt ({visits.filter((v) => !v.finalReceiptExists && !v.secondWeightTimestamp).length})
+            Before ({visits.filter((v) => !v.finalReceiptExists && !v.secondWeightTimestamp).length})
           </button>
         </div>
       </div>
 
       {/* 4. Receipts & Reconciliation Table */}
-      <div className="p-5 sm:p-6 rounded-xl bg-white border border-border shadow-xs space-y-4">
+      <div className="bg-card border-border p-5 sm:p-6 rounded-xl border shadow-xs space-y-4">
         <div className="flex items-center justify-between border-b border-muted pb-3">
           <div className="flex items-center space-x-2">
             <Receipt className="w-4 h-4 text-blue-800" />
@@ -266,11 +262,11 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
             Loading receipt records…
           </div>
         ) : filteredVisits.length === 0 ? (
-          <div className="py-12 px-4 rounded-xl bg-slate-50 border border-dashed border-slate-200 text-center space-y-2">
+          <div className="bg-card border-border py-12 px-4 rounded-xl border border-dashed text-center space-y-2">
             <FileSpreadsheet className="w-8 h-8 text-slate-400 mx-auto" />
             <h4 className="text-sm font-semibold text-slate-700">No Receipt Records</h4>
             <p className="text-xs text-slate-500 max-w-md mx-auto">
-              No receipt records are available for your assigned Plant Contractor.
+              No records
             </p>
           </div>
         ) : (

@@ -1,5 +1,6 @@
 // Stage 2 (ZMCC lab) per-portion decision: pure, NO db imports, so the browser can show the same result as the server.
 import { evaluateDecision } from '@/backend/services/decision/decisionRule';
+import { evaluate3ZoneTest } from '@/lib/sop-evaluation';
 import type { DecisionResult, ExceptionReason, FinalDecision, PersonDecision, ReviewStatus } from '@/types/stage1-decision';
 import type { TestPointPolicyCell } from '@/types/test-point-policy';
 
@@ -13,7 +14,16 @@ export interface LabPolicyTest extends TestPointPolicyCell {
   isLr: boolean;
   isFat: boolean;
   options: string[] | null;
-  rule: { min: number | null; max: number | null; allowed?: string[] | null } | null;
+  resultOptions?: Array<{ value: string; label?: string; isPassing?: boolean | null; outcome?: 'PASS' | 'WARNING' | 'FAIL' }> | null;
+  rule: {
+    min: number | null;
+    max: number | null;
+    allowed?: string[] | null;
+    warningTrigger?: string | null;
+    decisionConsequence?: string | null;
+    ruleCategory?: string | null;
+    acceptableOption?: string | null;
+  } | null;
 }
 
 export interface LabPolicySnapshot {
@@ -91,18 +101,29 @@ export interface BuildLabPortionDecisionInput {
   deciderCanApprove: boolean;
 }
 
-function outcomeOf(t: LabPolicyTest, value: number | null, textValue: string | null): 'PASS' | 'FAIL' {
+function outcomeOf(t: LabPolicyTest, value: number | null, textValue: string | null): 'PASS' | 'WARN' | 'FAIL' {
   const rule = t.rule;
   if (!rule) return 'PASS';
-  if (value !== null) {
-    if (rule.min !== null && value < rule.min) return 'FAIL';
-    if (rule.max !== null && value > rule.max) return 'FAIL';
-  }
-  if (textValue !== null && rule.allowed && rule.allowed.length > 0) {
-    const v = textValue.toUpperCase();
-    if (!rule.allowed.some((a) => a.trim().toUpperCase() === v)) return 'FAIL';
-  }
-  return 'PASS';
+
+  const evalRes = evaluate3ZoneTest(
+    {
+      min: rule.min,
+      max: rule.max,
+      warningTrigger: rule.warningTrigger,
+      decisionConsequence: rule.decisionConsequence,
+      acceptableOption: rule.acceptableOption,
+      category: rule.ruleCategory,
+      ruleCategory: rule.ruleCategory,
+      testMode: t.testMode,
+      resultType: t.resultType,
+      resultOptions: t.resultOptions,
+      unit: t.unit,
+    },
+    value !== null ? value : textValue
+  );
+
+  if (evalRes.verdict === 'MONITORING' || evalRes.verdict === 'NOT_APPLIED') return 'PASS';
+  return evalRes.verdict === 'WARN' ? 'WARN' : evalRes.verdict === 'FAIL' ? 'FAIL' : 'PASS';
 }
 
 function cleanNumber(v: unknown): number | null {
@@ -146,8 +167,11 @@ export function buildLabPortionDecision(
           ruleFailures.push(t.testCode);
         } else {
           outcome = 'WARN';
-          warnings.push(`${t.testName} is outside the allowed range.`);
+          warnings.push(`${t.testName} violates specification threshold.`);
         }
+      } else if (res === 'WARN') {
+        outcome = 'WARN';
+        warnings.push(`${t.testName} is in tolerance margin.`);
       } else {
         outcome = 'PASS';
       }

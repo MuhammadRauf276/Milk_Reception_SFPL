@@ -82,7 +82,9 @@ export async function POST(
       }
 
       // Validate exact chronology against DB predecessor gross_timestamp
-      const isPortionWise = visit.test_mode === 'PORTION_WISE';
+      const acceptedPortionsList = visit.portions.filter((p) => p.plant_decision === 'ACCEPTED');
+      const isMultiPortion = acceptedPortionsList.length > 1;
+      const isPortionWise = isMultiPortion || visit.test_mode === 'PORTION_WISE';
       const targetPortion = visit.portions.find((p) => p.id === BigInt(portionIdStr));
       const predTs = (isPortionWise && targetPortion?.first_weight_at)
         ? new Date(targetPortion.first_weight_at)

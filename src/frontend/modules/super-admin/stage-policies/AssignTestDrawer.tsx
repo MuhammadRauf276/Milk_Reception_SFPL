@@ -46,14 +46,14 @@ export function AssignTestDrawer({ stage, stageLabel, tests, onClose, onAssigned
 
   return (
     <FormDrawer open onClose={onClose} busy={busy} error={error} title={`Assign Test to ${stageLabel}`}>
-      <p className="text-[11px] text-slate-500">Select a test from the master catalog to add to this stage</p>
+      
       {tests.length === 0 ? (
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center font-semibold text-slate-500">
-          All tests in the Master Catalog are already assigned to this stage.
+        <div className="rounded-xl border border-border bg-card p-4 text-center font-semibold text-slate-500">
+          All assigned
         </div>
       ) : (
         <div>
-          <label className="mb-1.5 block font-bold text-slate-700">Select Master Lab Test</label>
+          <label className="mb-1.5 block font-bold text-slate-700">Test</label>
           <Combobox
             options={options}
             value={testId}
@@ -62,9 +62,6 @@ export function AssignTestDrawer({ stage, stageLabel, tests, onClose, onAssigned
             searchPlaceholder="Search tests by name or code"
             disabled={busy}
           />
-          <span className="mt-1 block text-[11px] text-slate-500">
-            Once assigned, the test will appear in the stage sequence and you can set its acceptance limits.
-          </span>
         </div>
       )}
       <div className="flex items-center justify-end gap-2 border-t border-border pt-3">

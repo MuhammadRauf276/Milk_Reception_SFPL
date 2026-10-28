@@ -47,6 +47,10 @@ export interface DecisionRulePanelProps {
   disabled?: boolean;
   /** Hide the built-in submit button (the caller renders <DecisionSubmitButton> elsewhere). */
   showSubmit?: boolean;
+  /** Hide the System result banner (e.g. when tests show live status on inputs). */
+  hideSystemResult?: boolean;
+  /** Hide the detailed test rules list. */
+  hideTestList?: boolean;
   className?: string;
 }
 
@@ -140,6 +144,8 @@ export function DecisionRulePanel(props: DecisionRulePanelProps) {
     rejectLabel = 'Reject',
     disabled = false,
     showSubmit = true,
+    hideSystemResult = false,
+    hideTestList = false,
     className,
   } = props;
   const { route, remarksNeeded, remarksMissing } = submitState(props);
@@ -173,8 +179,8 @@ export function DecisionRulePanel(props: DecisionRulePanelProps) {
   };
 
   return (
-    <div className={cn('space-y-4 rounded-2xl border border-slate-200 bg-white p-3', className)}>
-      {decision && (
+    <div className={cn('space-y-4 rounded-2xl border border-border bg-card p-3', className)}>
+      {decision && !hideSystemResult && (
         <div
           className={cn(
             'flex items-center gap-2 rounded-xl border-2 px-3 py-3 text-base font-semibold',
@@ -192,8 +198,8 @@ export function DecisionRulePanel(props: DecisionRulePanelProps) {
         </div>
       )}
 
-      {tests.length > 0 && (
-        <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200" aria-label="Test results">
+      {tests.length > 0 && !hideTestList && (
+        <ul className="divide-y divide-slate-100 rounded-xl border border-border" aria-label="Test results">
           {tests.map((t) => {
             const s = OUTCOME_STYLE[t.outcome];
             return (
@@ -216,7 +222,7 @@ export function DecisionRulePanel(props: DecisionRulePanelProps) {
       )}
 
       {warnings.length > 0 && (
-        <ul className="space-y-1 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+        <ul className="space-y-1 rounded-xl border border-border bg-card px-3 py-2 text-sm text-amber-900">
           {warnings.map((w) => (
             <li key={w} className="flex items-start gap-1.5">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />

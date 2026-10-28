@@ -12,3 +12,7 @@ data/
 
 # Captured photo storage (outside public/)
 storage/
+
+# Temporary test screenshots and audit artifacts
+public/test-screenshots/
+artifacts/

@@ -44,7 +44,7 @@ export const ZMCCManagerReviewDrawer: React.FC<{
       const isReviewExited = data.manager_review_status === 'REVIEWED_EXITED';
       onSubmitted(
         isReviewExited
-          ? `Review recorded for session #${session.id} (vehicle already exited; review-only).`
+          ? `Review recorded for session #${session.id} (vehicle already exited).`
           : `Decision ${reviewDecision} recorded successfully for session #${session.id}.`
       );
     } catch (err) {
@@ -80,7 +80,7 @@ export const ZMCCManagerReviewDrawer: React.FC<{
 
           <form onSubmit={handleSubmitReview} className="p-5 space-y-4">
             {reviewError && (
-              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold rounded-lg flex items-center gap-2">
+              <div className="bg-card border-border p-3 border text-rose-800 text-xs font-semibold rounded-lg flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
                 <span>{reviewError}</span>
               </div>
@@ -88,7 +88,7 @@ export const ZMCCManagerReviewDrawer: React.FC<{
 
             {/* Physical Reality Warning */}
             {hasExited ? (
-              <div className="p-3 bg-amber-50 border border-amber-200 text-amber-900 text-xs rounded-xl space-y-1">
+              <div className="bg-card border-border p-3 border text-amber-900 text-xs rounded-xl space-y-1">
                 <div className="flex items-center gap-1.5 font-semibold text-amber-800">
                   <AlertTriangle className="w-4 h-4 text-amber-600" />
                   <span>Vehicle Physically Exited</span>
@@ -103,23 +103,22 @@ export const ZMCCManagerReviewDrawer: React.FC<{
                 </p>
               </div>
             ) : (
-              <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs rounded-xl space-y-1">
+              <div className="bg-card border-border p-3 border text-emerald-900 text-xs rounded-xl space-y-1">
                 <div className="flex items-center gap-1.5 font-semibold text-emerald-800">
                   <CheckCircle className="w-4 h-4 text-emerald-600" />
                   <span>Vehicle On-Site</span>
                 </div>
                 <p className="text-[11px] leading-relaxed">
-                  The vehicle is currently on-site. Approving will accept the milk, create the canonical tank
-                  receipt, and credit active tank stock.
+                  Approving accepts the milk.
                 </p>
               </div>
             )}
 
             {/* Session Meta */}
-            <div className="grid grid-cols-2 gap-2 text-xs tabular-nums bg-slate-50 p-3 rounded-xl border border-slate-200">
+            <div className="bg-card border-border grid grid-cols-2 gap-2 text-xs tabular-nums p-3 rounded-xl border">
               <div>
                 <span className="text-slate-500 text-xs block font-sans uppercase font-semibold">Arrival Type</span>
-                <span className="font-semibold text-slate-900">{session.arrival_type === 'MOT' ? 'MC' : 'HC'}</span>
+                <span className="font-semibold text-slate-900">{session.arrival_type === 'MOT' ? 'Mobile Tester' : 'HC'}</span>
               </div>
               <div>
                 <span className="text-slate-500 text-xs block font-sans uppercase font-semibold">Original Decision</span>
@@ -177,14 +176,11 @@ export const ZMCCManagerReviewDrawer: React.FC<{
               <textarea
                 value={reviewReason}
                 onChange={(e) => setReviewReason(e.target.value)}
-                placeholder="Enter substantive managerial justification for this decision (minimum 3 characters)…"
+                placeholder="Justification"
                 rows={3}
                 required
-                className="w-full p-2.5 text-xs font-medium rounded-xl bg-subtle border border-border text-foreground focus:ring-2 focus:ring-primary outline-hidden"
+                className="w-full p-2.5 text-xs font-medium rounded-xl bg-subtle border border-border text-foreground focus:ring-2 focus:ring-primary outline-hidden min-h-11"
               />
-              <span className="text-xs text-slate-400 font-sans block">
-                Mandatory audit justification recorded in the official governance log.
-              </span>
             </div>
 
             {/* Action Buttons */}

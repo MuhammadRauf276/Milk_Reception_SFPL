@@ -32,10 +32,10 @@ const EMPTY_COUNTS: InboxCounts = {
 };
 
 const ALL_STAGE_PILLS: Array<{ stage: OperationalStage; label: string; countKey: keyof InboxCounts; active: string }> = [
-  { stage: 'STAGE_1', label: 'S1 Area', countKey: 'stage1', active: 'bg-blue-700 text-white border-blue-700' },
-  { stage: 'STAGE_2', label: 'S2 ZMCC Reception', countKey: 'stage2', active: 'bg-emerald-700 text-white border-emerald-700' },
-  { stage: 'STAGE_3', label: 'S3 Dispatch', countKey: 'stage3', active: 'bg-violet-700 text-white border-violet-700' },
-  { stage: 'STAGE_4', label: 'S4 Plant QA', countKey: 'stage4', active: 'bg-amber-700 text-white border-amber-700' },
+  { stage: 'STAGE_1', label: 'Area', countKey: 'stage1', active: 'bg-primary text-white border-primary' },
+  { stage: 'STAGE_2', label: 'ZMCC', countKey: 'stage2', active: 'bg-primary text-white border-primary' },
+  { stage: 'STAGE_3', label: 'Dispatch', countKey: 'stage3', active: 'bg-primary text-white border-primary' },
+  { stage: 'STAGE_4', label: 'Plant QA', countKey: 'stage4', active: 'bg-primary text-white border-primary' },
 ];
 
 export function ApprovalInbox({
@@ -58,30 +58,37 @@ export function ApprovalInbox({
   // (SUPER_ADMIN, DATA_EXECUTIVE, EXECUTIVE_MANAGEMENT). MPD Head and ZMCC roles must NEVER see S4.
   const visibleStagePills = useMemo(() => {
     const role = currentUser?.role;
-    const canSeeStage4 =
-      role === 'QA_HEAD' ||
-      role === 'QA_LAB_ATTENDANT' ||
+    const isSuperOrAuditor =
       role === 'SUPER_ADMIN' ||
       role === 'DATA_EXECUTIVE' ||
       role === 'EXECUTIVE_MANAGEMENT';
 
     const canSeeStage1 =
-      role !== 'QA_HEAD' &&
-      role !== 'QA_LAB_ATTENDANT' &&
-      role !== 'CONTRACTOR_MANAGER' &&
-      role !== 'CONTRACTOR_OPERATOR';
+      role === 'ZMCC_MANAGER' ||
+      role === 'MDO' ||
+      isSuperOrAuditor;
 
     const canSeeStage2 =
-      role !== 'QA_HEAD' &&
-      role !== 'QA_LAB_ATTENDANT' &&
-      role !== 'CONTRACTOR_MANAGER' &&
-      role !== 'CONTRACTOR_OPERATOR';
+      role === 'ZMCC_MANAGER' ||
+      isSuperOrAuditor;
+
+    const canSeeStage3 =
+      role === 'ZMCC_MANAGER' ||
+      role === 'CONTRACTOR_MANAGER' ||
+      role === 'HEAD_OF_MPD' ||
+      isSuperOrAuditor;
+
+    const canSeeStage4 =
+      role === 'QA_HEAD' ||
+      role === 'QA_LAB_ATTENDANT' ||
+      isSuperOrAuditor;
 
     return ALL_STAGE_PILLS.filter((p) => {
       if (p.stage === 'STAGE_4') return canSeeStage4;
       if (p.stage === 'STAGE_1') return canSeeStage1;
       if (p.stage === 'STAGE_2') return canSeeStage2;
-      return true; // STAGE_3
+      if (p.stage === 'STAGE_3') return canSeeStage3;
+      return false;
     });
   }, [currentUser?.role]);
 
@@ -172,31 +179,15 @@ export function ApprovalInbox({
     );
 
   return (
-    <div className={cn('flex flex-col w-full h-full min-h-[620px] bg-slate-50/50 rounded-2xl border border-border shadow-xs overflow-hidden', className)}>
+    <div className={cn('flex flex-col w-full h-full min-h-[620px] bg-card rounded-2xl border border-border shadow-xs overflow-hidden', className)}>
       {/* Top Master Control Bar */}
       <header className="flex flex-wrap items-center justify-between gap-3 p-3.5 sm:p-4 bg-white border-b border-border">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-primary" />
             <h1 className="text-base sm:text-lg font-bold text-foreground">
-              {fixedStage ? STAGE_LABELS[fixedStage]?.label : 'Unified Approvals & Exceptions'}
+              {fixedStage ? STAGE_LABELS[fixedStage]?.label : 'Approvals'}
             </h1>
-          </div>
-
-          <div className="hidden sm:flex items-center gap-1.5 ml-2">
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
-              {counts.totalPending} Pending
-            </span>
-            {counts.breachedCount > 0 && (
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300 animate-pulse">
-                {counts.breachedCount} Breached
-              </span>
-            )}
-            {counts.warningCount > 0 && (
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
-                ⏱ {counts.warningCount} Warning
-              </span>
-            )}
           </div>
         </div>
 
@@ -211,7 +202,7 @@ export function ApprovalInbox({
               }}
               className={statusTabClass(statusFilter === 'PENDING')}
             >
-              Pending ({counts.totalPending})
+              Pending
             </button>
             <button
               type="button"
@@ -221,7 +212,7 @@ export function ApprovalInbox({
               }}
               className={statusTabClass(statusFilter === 'DECIDED')}
             >
-              Audit History
+              History
             </button>
           </div>
 
@@ -252,7 +243,7 @@ export function ApprovalInbox({
                 : 'bg-white text-slate-600 border-border hover:bg-slate-100'
             )}
           >
-            All Stages ({counts.totalPending})
+            All
           </button>
           {visibleStagePills.map((pill) => (
             <button

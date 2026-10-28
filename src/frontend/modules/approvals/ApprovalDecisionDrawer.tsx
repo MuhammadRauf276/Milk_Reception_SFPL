@@ -98,28 +98,24 @@ export function ApprovalDecisionDrawer({
             </div>
           </div>
 
-          <p className="text-xs text-slate-600">
-            {verdict === 'OKAY'
-              ? 'Approving will authorize this exception and allow the batch/reception to continue in the pipeline.'
-              : 'Rejecting will return or condemn this item. The field operator will be instructed accordingly.'}
-          </p>
+
 
           {/* Super Admin Self-Approval Warning */}
           {currentUser?.id && item.submittedBy.id === String(currentUser.id) && (
-            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-900 text-xs space-y-1">
+            <div className="bg-card border-border p-3 border rounded-lg text-amber-900 text-xs space-y-1">
               <p className="font-bold flex items-center gap-1.5">
                 <ShieldAlert className="w-4 h-4 text-amber-700" />
                 <span>Self-Approval Compliance Review</span>
               </p>
               <p>
                 As Super Admin self-approving your own submission, you must provide at least 20 characters of justification.
-                This event will be logged and dispatched to the Data Executive.
+                
               </p>
             </div>
           )}
 
           {decisionError && (
-            <div className="p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold">
+            <div className="bg-card border-border p-2.5 rounded-lg border text-rose-800 text-xs font-semibold">
               {decisionError}
             </div>
           )}
@@ -138,7 +134,7 @@ export function ApprovalDecisionDrawer({
                     ? 'Add any operational approval notes…'
                     : 'Specify reason for rejection or return instructions (minimum 5 letters)…'
                 }
-                className="w-full border border-border rounded-xl p-2.5 text-xs focus:ring-1 focus:ring-primary focus:outline-none"
+                className="w-full border border-border rounded-xl p-2.5 text-xs focus:ring-1 focus:ring-primary focus:outline-none min-h-11"
                 autoFocus
               />
               <div className="flex justify-between items-center text-[10px] text-slate-400 mt-1">

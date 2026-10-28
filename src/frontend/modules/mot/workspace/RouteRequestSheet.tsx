@@ -92,9 +92,9 @@ export function RouteRequestSheet({ zmccId, needsZonalApproval, onClose, onDone 
             id="route-description"
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
-            placeholder="Operational notes or route rationale"
+            placeholder="Notes"
             rows={2}
-            className="w-full rounded-xl border border-border bg-subtle p-3 text-sm font-semibold"
+            className="min-h-11 w-full rounded-xl border border-border bg-subtle p-3 text-sm font-semibold"
           />
         </div>
         <SheetError message={error} />

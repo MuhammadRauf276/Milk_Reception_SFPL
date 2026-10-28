@@ -166,7 +166,7 @@ export async function GET(req: Request) {
           'N/A';
         const supplierName =
           s.local_supplier_arrival?.local_supplier?.name ||
-          (s.arrival_type === 'MOT' ? 'MC Route Bulk' : 'HC Supplier');
+          (s.arrival_type === 'MOT' ? 'Mobile Tester Route Bulk' : 'HC Supplier');
         const milkSource = s.local_supplier_arrival?.milk_source?.name || null;
 
         return {
@@ -429,7 +429,7 @@ export async function PATCH(req: Request) {
 
       return NextResponse.json({
         success: true,
-        message: 'MOT Shop Collection successfully corrected and recalculated.',
+        message: 'Mobile Tester Shop Collection successfully corrected and recalculated.',
         data: res.data,
       });
     }

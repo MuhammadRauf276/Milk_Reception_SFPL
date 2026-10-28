@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Combobox } from '@/components/ui/combobox';
+import { InfoTip } from '@/components/ui/info-tip';
 import type { MasterFormProps } from './masterFormProps';
 
 export const OperationalRecordForms: React.FC<MasterFormProps> = ({
@@ -144,9 +145,7 @@ export const OperationalRecordForms: React.FC<MasterFormProps> = ({
                       />
                     </div>
                   </div>
-                  <p className="text-[11px] text-slate-500 font-medium">
-                    Note: Latitude and Longitude must both be provided, or both omitted.
-                  </p>
+                  <InfoTip text="Latitude and longitude must both be provided, or both omitted." />
                 </div>
               )}
 
@@ -202,14 +201,14 @@ export const OperationalRecordForms: React.FC<MasterFormProps> = ({
                     ?
                   </p>
                   {activeRecord?.is_active ? (
-                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 font-medium">
-                      <strong>Warning:</strong> Deactivating this entity will exclude it from operational selection.
-                      If active dependent records exist, deactivation will be strictly blocked.
+                    <div className="bg-card border-border p-3 border rounded-xl text-xs text-amber-800 font-medium">
+                      Deactivating removes it from selection.
+                      <InfoTip text="If active dependent records exist, deactivation will be blocked." />
                     </div>
                   ) : (
-                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-800 font-medium">
-                      Activating this entity will return it to active operational selection, provided all parent entities
-                      are active.
+                    <div className="bg-card border-border p-3 border rounded-xl text-xs text-blue-800 font-medium">
+                      Activating returns it to selection.
+                      <InfoTip text="Requires all parent entities to be active." />
                     </div>
                   )}
                 </div>

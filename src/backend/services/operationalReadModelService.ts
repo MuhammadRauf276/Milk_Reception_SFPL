@@ -316,12 +316,16 @@ export function mapVisitToLogs(
     if (vDeclaredUnit === 'LITER') {
       vehicleDispatchGrossLiters = vDeclaredVal;
     } else if (vDeclaredUnit === 'KG') {
-      const firstPortionWithLr = visit.portions.find((p) =>
-        extractTestNumericValue(p.dispatch_lab_results, isDispatchLrTest) != null
-      );
-      const vLr = firstPortionWithLr
-        ? extractTestNumericValue(firstPortionWithLr.dispatch_lab_results, isDispatchLrTest)
-        : null;
+      const vLr = visit.vehicle_dispatch_lr != null
+        ? Number(visit.vehicle_dispatch_lr)
+        : (() => {
+            const firstPortionWithLr = visit.portions.find((p) =>
+              extractTestNumericValue(p.dispatch_lab_results, isDispatchLrTest) != null
+            );
+            return firstPortionWithLr
+              ? extractTestNumericValue(firstPortionWithLr.dispatch_lab_results, isDispatchLrTest)
+              : null;
+          })();
       if (vLr != null) {
         const density = calculateDensity(vLr);
         vehicleDispatchGrossLiters = Number((vDeclaredVal / density).toFixed(2));

@@ -3,26 +3,33 @@
 import React, { useEffect, useState } from 'react';
 import { Clock, Loader2 } from 'lucide-react';
 import { onActivateKey } from '@/lib/a11y';
+import { useQueryClient } from '@tanstack/react-query';
+import { EmptyAction } from './components/EmptyAction';
 import { Pager, pageCount, paginate } from './components/Pager';
 import type { ProductionTab, ReadyVisitDef, SiloOption, UnloadingVisitDef } from './productionTypes';
 
 const cardClass = (selected: boolean) =>
-  `p-4 rounded-xl border transition cursor-pointer space-y-2 min-h-11 ${
+  `p-4 rounded-xl border transition cursor-pointer space-y-2.5 min-h-11 ${
     selected
-      ? 'bg-primary/4 text-foreground border-primary ring-1 ring-primary shadow-xs'
-      : 'bg-card text-foreground border-border hover:border-border-strong hover:bg-subtle'
+      ? 'bg-primary/[0.03] text-foreground border-primary ring-1 ring-primary/40 shadow-xs'
+      : 'bg-card text-foreground border-border hover:border-border-strong hover:bg-muted/30'
   }`;
 
 const statsClass = (selected: boolean) =>
-  `grid grid-cols-2 gap-2 text-xs p-2.5 rounded-lg tabular-nums font-semibold ${
-    selected ? 'bg-blue-900/60 text-slate-100 border border-blue-800' : 'bg-muted text-slate-700 border border-border-strong'
+  `grid grid-cols-2 gap-2 text-xs p-2.5 rounded-lg tabular-nums font-semibold border ${
+    selected ? 'bg-muted/70 text-foreground border-primary/20' : 'bg-muted/40 text-foreground border-border/50'
   }`;
 
-const Empty: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div className="p-8 text-center border border-dashed border-border rounded-xl text-sm text-muted-foreground md:col-span-2 lg:col-span-3">
-    {children}
-  </div>
-);
+const Empty: React.FC<{ children: string }> = ({ children }) => {
+  const queryClient = useQueryClient();
+  return (
+    <EmptyAction
+      message={children}
+      onRefresh={() => queryClient.invalidateQueries()}
+      className="md:col-span-2 lg:col-span-3"
+    />
+  );
+};
 
 /** Queue cards for the active production tab (ready / unloading / silos), 25 per page. */
 export const ProductionQueueList: React.FC<{
@@ -70,7 +77,7 @@ export const ProductionQueueList: React.FC<{
           </div>
         ) : activeTab === 'READY' ? (
           readyVisits.length === 0 ? (
-            <Empty>No vehicles currently ready for unloading.</Empty>
+            <Empty>No vehicles</Empty>
           ) : (
             paginate(readyVisits, currentPage).map((v) => {
               const isSelected = v.id === selectedReadyVisitId;
@@ -90,14 +97,14 @@ export const ProductionQueueList: React.FC<{
                         <span className="tabular-nums text-xs font-semibold text-primary">({v.token_number})</span>
                       )}
                       {v.is_portion_wise && (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-100 text-purple-800 border border-purple-200">
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-muted text-foreground border border-border">
                           Portion #{v.active_portion_number}
                         </span>
                       )}
                     </div>
                     <span className="text-[10px] tabular-nums font-semibold flex items-center space-x-1 text-slate-500">
                       <Clock className="w-3 h-3" />
-                      <span>{v.waiting_minutes}m wait</span>
+                      <span>{v.waiting_minutes}m</span>
                     </span>
                   </div>
 
@@ -119,7 +126,7 @@ export const ProductionQueueList: React.FC<{
           )
         ) : activeTab === 'UNLOADING' ? (
           unloadingVisits.length === 0 ? (
-            <Empty>No vehicles are currently unloading.</Empty>
+            <Empty>None unloading</Empty>
           ) : (
             paginate(unloadingVisits, currentPage).map((v) => {
               const isSelected = v.id === selectedUnloadingVisitId;
@@ -135,7 +142,7 @@ export const ProductionQueueList: React.FC<{
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                       <span className="tabular-nums font-semibold text-sm">{v.vehicle_number}</span>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-semibold tabular-nums bg-blue-100 text-primary border border-blue-300">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-semibold tabular-nums bg-muted text-foreground border border-border">
                         {v.is_portion_wise ? `Portion #${v.active_portion_number} Unloading` : 'Unloading Active'}
                       </span>
                     </div>
@@ -160,7 +167,7 @@ export const ProductionQueueList: React.FC<{
             })
           )
         ) : silos.length === 0 ? (
-          <Empty>No silos match query or have stock available.</Empty>
+          <Empty>No silos</Empty>
         ) : (
           paginate(silos, currentPage).map((silo) => {
             const isSelected = silo.id === selectedIssueSiloId;

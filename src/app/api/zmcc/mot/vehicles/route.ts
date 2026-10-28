@@ -16,7 +16,7 @@ export async function GET(req: Request) {
     const vehicles = await listMotVehicles(auth!, { is_active, search, zmcc_id });
     return NextResponse.json({ vehicles });
   } catch (_err) {
-    return NextResponse.json({ error: 'An unexpected error occurred while fetching MOT vehicles.' }, { status: 500 });
+    return NextResponse.json({ error: 'An unexpected error occurred while fetching Mobile Tester vehicles.' }, { status: 500 });
   }
 }
 
@@ -39,6 +39,6 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ vehicle: result.data }, { status: result.status });
   } catch (_err) {
-    return NextResponse.json({ error: 'An unexpected error occurred while creating MOT vehicle.' }, { status: 500 });
+    return NextResponse.json({ error: 'An unexpected error occurred while creating Mobile Tester vehicle.' }, { status: 500 });
   }
 }

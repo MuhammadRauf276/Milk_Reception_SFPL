@@ -97,7 +97,7 @@ export function DispatchPolicyTests({
   const active = tests.filter((t) => t.testMode !== 'OFF');
 
   if (active.length === 0) {
-    return <p className="rounded-lg border border-border bg-subtle px-3 py-2 text-sm text-slate-600">No tests are needed here.</p>;
+    return <p className="rounded-lg border border-border bg-subtle px-3 py-2 text-sm text-slate-600">No tests needed.</p>;
   }
 
   const photoBlock = (t: DispatchPolicyTest) => {
@@ -197,7 +197,7 @@ export function DispatchPolicyTests({
         </div>
 
         {t.testMode === 'COMPULSORY' && !t.rule && (
-          <p className="text-xs text-slate-500">No rule set: the value is recorded only.</p>
+          <p className="text-xs text-slate-500">No rule.</p>
         )}
 
         {numeric ? (
@@ -210,7 +210,7 @@ export function DispatchPolicyTests({
             value={v.numericValue}
             onChange={(e) => onValueChange(t.labTestId, 'numericValue', e.target.value)}
             aria-invalid={isOut || undefined}
-            className={cn(
+            className={cn('min-h-11', 
               INPUT_CLASS,
               isOut ? 'border-rose-400 bg-rose-50/40 text-rose-950 focus:border-rose-500 focus:ring-rose-500' : 'border-border'
             )}
@@ -242,7 +242,7 @@ export function DispatchPolicyTests({
             type="text"
             value={v.textValue}
             onChange={(e) => onValueChange(t.labTestId, 'textValue', e.target.value)}
-            className={cn(
+            className={cn('min-h-11', 
               INPUT_CLASS,
               isOut ? 'border-rose-400 bg-rose-50/40 text-rose-950' : 'border-border'
             )}

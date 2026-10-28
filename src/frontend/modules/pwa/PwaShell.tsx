@@ -2,9 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Download, ShieldAlert, WifiOff, Loader2 } from 'lucide-react';
+import { Download, ShieldAlert, Loader2 } from 'lucide-react';
 import { useIsClient, useOnlineStatus } from '@/frontend/hooks/useOnlineStatus';
-import { SyncStatusSign } from './SyncStatusSign';
 import { startSyncEngine } from './syncEngine';
 import { getActiveOwnerUserId, getDeviceUid, requestPersistentStorage, setActiveOwnerUserId } from './deviceIdentity';
 import { logDeviceEvent, startDeviceDiary } from './diary';
@@ -187,14 +186,6 @@ export function PwaShell() {
       message: 'Your session expired while offline. Reconnect and sign in again before saving data.',
     });
   }
-  if (!online) {
-    banners.push({
-      id: 'offline',
-      tone: 'border-amber-200 bg-amber-50 text-amber-900',
-      icon: <WifiOff className="h-4 w-4 text-amber-600" />,
-      message: 'You are offline. Approvals, administration and financial actions are unavailable.',
-    });
-  }
   if (syncing) {
     banners.push({
       id: 'sync',
@@ -212,7 +203,7 @@ export function PwaShell() {
       action: (
         <button
           type="button"
-          className="shrink-0 rounded-md bg-white/10 px-2.5 py-1 text-xs font-medium transition-colors hover:bg-white/20"
+          className="shrink-0 rounded-md bg-white/10 min-h-11 px-3 py-1 text-xs font-medium transition-colors hover:bg-white/20"
           onClick={() => window.location.reload()}
         >
           Reload
@@ -222,11 +213,9 @@ export function PwaShell() {
   }
 
   return (
-    <>
-    {userId ? <SyncStatusSign /> : null}
     <div
       id="pwa-shell-root"
-      className={`pointer-events-none fixed inset-x-0 bottom-0 z-banner flex flex-col items-center gap-2 p-3 sm:p-4 ${userId ? 'pb-16 sm:pb-16' : ''}`}
+      className="pointer-events-none fixed inset-x-0 bottom-0 z-banner flex flex-col items-center gap-2 p-3 sm:p-4"
     >
       <AnimatePresence initial={false}>
         {banners.map((banner) => (
@@ -247,6 +236,5 @@ export function PwaShell() {
         ))}
       </AnimatePresence>
     </div>
-    </>
   );
 }

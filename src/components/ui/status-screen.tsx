@@ -26,7 +26,7 @@ export function StatusScreen({ icon, tone = 'neutral', title, description, child
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.25 }}
-        className="w-full max-w-md rounded-xl border bg-card p-8 text-center shadow-xs"
+        className="w-full max-w-md rounded-xl border bg-card p-8 text-center shadow-2xs"
       >
         <div className={cn('mx-auto mb-5 flex h-11 w-11 items-center justify-center rounded-full [&_svg]:h-5 [&_svg]:w-5', TONES[tone])}>
           {icon}

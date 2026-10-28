@@ -129,18 +129,39 @@ export function useQAActions({
     }
   };
 
-  const buildResultsPayload = (portionPhotos: Record<string, string>) =>
-    Object.entries(testInputs).map(([testId, state]) => ({
-      testId,
-      performanceStatus: state.performanceStatus,
-      notPerformedReason: state.performanceStatus === 'NOT_PERFORMED' ? state.notPerformedReason : null,
-      numericValue: state.performanceStatus === 'PERFORMED' && state.numericValue !== '' ? Number(state.numericValue) : null,
-      textValue: state.performanceStatus === 'PERFORMED' && state.textValue !== '' ? state.textValue : null,
-      photoUrl: portionPhotos[testId] || undefined,
-    }));
+  const buildResultsPayload = (
+    portionPhotos: Record<string, string>,
+    isRejecting = false,
+    decisionReason = ''
+  ) =>
+    Object.entries(testInputs).map(([testId, state]) => {
+      const hasNum = state.numericValue !== '' && !isNaN(Number(state.numericValue));
+      const hasText = Boolean(state.textValue && state.textValue.trim() !== '');
+      const isPerformed = hasNum || hasText;
 
-  const handleAcceptPortionConfirm = async (e: React.FormEvent) => {
-    e.preventDefault();
+      const perfStatus: 'PERFORMED' | 'NOT_PERFORMED' = isPerformed ? 'PERFORMED' : 'NOT_PERFORMED';
+      let notPerfReason: string | null = null;
+
+      if (!isPerformed) {
+        if (isRejecting) {
+          notPerfReason = 'VEHICLE_REJECTED_BEFORE_TEST_COMPLETION';
+        } else {
+          notPerfReason = (decisionReason || state.notPerformedReason || 'Omitted with exception').trim();
+        }
+      }
+
+      return {
+        testId,
+        performanceStatus: perfStatus,
+        notPerformedReason: notPerfReason,
+        numericValue: hasNum ? Number(state.numericValue) : null,
+        textValue: hasText ? state.textValue : null,
+        photoUrl: portionPhotos[testId] || undefined,
+      };
+    });
+
+  const handleAcceptPortionConfirm = async (e?: React.FormEvent) => {
+    if (e && 'preventDefault' in e) e.preventDefault();
     if (!visitDetail) return;
     const currentPortion = visitDetail.portions[activePortionIndex];
     if (!currentPortion) return;
@@ -152,7 +173,8 @@ export function useQAActions({
       const portionPhotos = photoStatesMap[portionId] || {};
       const primaryPhotoUrl = Object.values(portionPhotos)[0] || undefined;
       const portionRemarks = decisionRemarksMap[portionId] || '';
-      const resultsPayload = buildResultsPayload(portionPhotos);
+      const effectiveReason = (portionRemarks || exceptionReason || rejectionReason).trim();
+      const resultsPayload = buildResultsPayload(portionPhotos, false, effectiveReason);
 
       const res = await fetch(`/api/qa/vehicle-visits/${visitDetail.id}/portions/${currentPortion.id}/complete`, {
         method: 'POST',
@@ -183,8 +205,8 @@ export function useQAActions({
     }
   };
 
-  const handleRejectPortionConfirm = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleRejectPortionConfirm = async (e?: React.FormEvent) => {
+    if (e && 'preventDefault' in e) e.preventDefault();
     if (!visitDetail) return;
     const currentPortion = visitDetail.portions[activePortionIndex];
     if (!currentPortion) return;
@@ -198,7 +220,7 @@ export function useQAActions({
     const effectiveReason = rejectionReason.trim() || portionRemarks.trim() || 'Quality Specification Breach';
     const effectiveRemarks = rejectionRemarks.trim() || portionRemarks.trim() || effectiveReason;
 
-    const resultsPayload = buildResultsPayload(portionPhotos);
+    const resultsPayload = buildResultsPayload(portionPhotos, true, effectiveReason);
 
     // At least one PERFORMED result is required to reject (unless seal mismatch)
     const performedResults = resultsPayload.filter((r) => r.performanceStatus === 'PERFORMED');

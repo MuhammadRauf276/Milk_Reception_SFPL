@@ -1,6 +1,52 @@
 import { formatAcceptedQuantitySummary } from '@/backend/modules/dispatch/quantity/dispatchQuantityService';
 
-export type WeighbridgeTab = 'FIRST_WEIGHT' | 'SECOND_WEIGHT';
+export type WeighbridgeTab = 'FIRST_WEIGHT' | 'SECOND_WEIGHT' | 'PROGRESSIVE';
+
+export type WeighbridgeFilter = 'SCALE_ACTION' | 'AT_SILO' | 'ALL_ACTIVE' | 'COMPLETED_TODAY';
+
+export interface ProgressiveWeighmentStep {
+  step_index: number;
+  step_number: number;
+  label: string;
+  stage_type: 'INITIAL_GROSS' | 'INTERMEDIATE_TARE' | 'FINAL_TARE';
+  portion_number: number | null;
+  destination_silo: string | null;
+  starting_weight_kg: number | null;
+  recorded_weight_kg: number | null;
+  net_weight_kg: number | null;
+  total_ticket_net_kg?: number | null;
+  timestamp: string | null;
+  recorded_by: string | null;
+  status: 'COMPLETED' | 'ACTIVE_INPUT' | 'PENDING';
+  is_locked: boolean;
+  min_allowed_timestamp: string | null;
+}
+
+export interface UnifiedWeighbridgeVisit {
+  id: string;
+  vehicle_number: string;
+  token_number: string | null;
+  identifiers?: any;
+  operational_date: string;
+  current_status: string;
+  test_mode: string;
+  portion_count: number;
+  accepted_portion_count: number;
+  rejected_portion_count: number;
+  rejected_portion_numbers: number[];
+  total_weighments: number;
+  current_weighment_index: number;
+  is_scale_action_needed: boolean;
+  active_scale_status: 'READY_FOR_GROSS' | 'READY_FOR_TARE' | 'AT_SILO' | 'COMPLETED' | 'REJECTED_EXIT';
+  current_action_label: string;
+  active_portion_number: number | null;
+  active_portion_first_weight_kg: number | null;
+  active_silo_text: string;
+  waiting_minutes: number;
+  steps: ProgressiveWeighmentStep[];
+  vehicle_dispatch_quantity_value: null;
+  vehicle_dispatch_quantity_unit: null;
+}
 
 export interface FirstWeightPortion {
   id: string;

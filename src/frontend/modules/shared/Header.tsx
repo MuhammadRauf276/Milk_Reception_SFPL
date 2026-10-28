@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { Menu, WifiOff } from 'lucide-react';
+import { Menu } from 'lucide-react';
 import { User } from '@core/types';
 import { NotificationBell } from '@/frontend/modules/notifications/NotificationBell';
+import { SyncStatusSign } from '@/frontend/modules/pwa/SyncStatusSign';
 import { Button } from '@/components/ui/button';
 import { BrandMark } from './navigation/NavPanel';
 import { UserMenu } from './UserMenu';
@@ -37,20 +38,6 @@ export const Header: React.FC<HeaderProps> = ({
   const searchParams = useSearchParams();
   const sourceTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [selectedSourceName, setSelectedSourceName] = useState<string | null>(null);
-  const [isOffline, setIsOffline] = useState(false);
-
-  // Monitor online status for offline notification (§5.7)
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const updateStatus = () => setIsOffline(!navigator.onLine);
-    updateStatus();
-    window.addEventListener('online', updateStatus);
-    window.addEventListener('offline', updateStatus);
-    return () => {
-      window.removeEventListener('online', updateStatus);
-      window.removeEventListener('offline', updateStatus);
-    };
-  }, []);
 
   const shouldShowMenu = Boolean(onMenuClick || showMenuButton);
 
@@ -72,18 +59,6 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <div className="sticky top-0 z-header flex flex-col w-full max-w-full shrink-0">
-      {/* Offline network interruption banner (§5.7) */}
-      {isOffline && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="flex w-full items-center justify-center gap-2 bg-amber-600 px-3 py-1 text-xs font-medium text-amber-50 shrink-0"
-        >
-          <WifiOff className="h-3.5 w-3.5" aria-hidden="true" />
-          <span>Offline mode: changes will sync when network is restored</span>
-        </div>
-      )}
-
       {/* Main Header Bar */}
       <header className="flex h-16 w-full max-w-full items-center gap-3 border-b bg-card/95 px-3 backdrop-blur-sm supports-backdrop-filter:bg-card/80 sm:px-6">
         {shouldShowMenu && (
@@ -124,7 +99,8 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
 
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="flex shrink-0 items-center gap-2">
+          <SyncStatusSign />
           <NotificationBell currentUser={currentUser} />
           <UserMenu currentUser={currentUser} />
         </div>

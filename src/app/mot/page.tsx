@@ -164,7 +164,7 @@ export default function MotPage() {
 
   if (loadingUser) {
     return (
-      <PageLoader label="Loading MC…" className="min-h-screen" />
+      <PageLoader label="Loading Mobile Tester…" className="min-h-screen" />
     );
   }
 
@@ -174,7 +174,7 @@ export default function MotPage() {
     <div className="w-full max-w-full flex flex-col h-screen bg-background text-foreground overflow-hidden">
       <Header
         currentUser={currentUser}
-        title="MC"
+        title="Mobile Tester"
         showBranding={true}
         showMenuButton={true}
         onMenuClick={openDrawer}
@@ -212,24 +212,28 @@ export default function MotPage() {
             )}
 
             {isCovering && (!isOnline || !coverJourneyId) ? null : loadingJourney ? (
-              <div className="p-12 text-center text-xs font-semibold text-slate-500 bg-white rounded-xl border border-border">
+              <div className="p-12 text-center text-xs font-semibold text-slate-500 bg-card rounded-xl border border-border">
                 <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-primary" />
                 Checking assigned route…
               </div>
             ) : journeyError ? (
-              <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs font-semibold flex items-center space-x-2">
+              <div className="bg-card border-border p-4 border rounded-xl text-rose-800 text-xs font-semibold flex items-center space-x-2">
                 <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
                 <span>{journeyError}</span>
               </div>
             ) : !journey ? (
-              <div className="p-10 bg-white rounded-xl border border-border shadow-2xs text-center space-y-3">
+              <div className="p-10 bg-card rounded-xl border border-border shadow-2xs text-center space-y-3">
                 <div className="w-12 h-12 rounded-full bg-blue-50 text-primary flex items-center justify-center mx-auto">
                   <Truck className="w-6 h-6" />
                 </div>
-                <h2 className="text-base font-semibold text-foreground">No Active Journey Assigned</h2>
-                <p className="text-xs text-slate-500 max-w-md mx-auto">
-                  A milk collection journey has not been dispatched to this unit yet.
-                </p>
+                <h2 className="text-base font-semibold text-foreground">No active journey</h2>
+                <button
+                  type="button"
+                  onClick={() => router.refresh()}
+                  className="min-h-11 px-4 rounded-xl border border-border text-xs font-semibold text-slate-700 hover:bg-muted"
+                >
+                  Check again
+                </button>
               </div>
             ) : (
               <div className="space-y-4">

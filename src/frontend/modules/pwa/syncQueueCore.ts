@@ -169,15 +169,9 @@ export async function enqueue(store: SyncQueueStore, item: SyncItem, opts: Enque
 export interface NextBatchOptions {
   now?: number;
   limit?: number;
-  /**
-   * Without mode (or mode SESSION): when set, only this user's items (session cookie: the server
-   * only accepts the session user's own items).
-   * mode DEVICE: diary/heartbeat items always; business items only when they belong to ownerUserId
-   * (the user signed in on the phone now; null = none). The server accepts other owners' work only
-   * while they are signed in, so it waits on the phone until they are.
-   */
   ownerUserId?: string | null;
   mode?: SyncAuthMode;
+  allowAllOwners?: boolean;
 }
 
 /** Up to 50 PENDING records, oldest first, skipping records still in backoff. */
@@ -188,7 +182,10 @@ export async function nextBatch(store: SyncQueueStore, opts: NextBatchOptions = 
   return all
     .filter((r) => r.state === 'PENDING' && r.nextAttemptAt <= now)
     .filter((r) => {
-      if (opts.mode === 'DEVICE') return isBackgroundKind(r.item.kind) || (opts.ownerUserId != null && r.item.ownerUserId === opts.ownerUserId);
+      if (opts.mode === 'DEVICE') {
+        if (opts.allowAllOwners) return true;
+        return isBackgroundKind(r.item.kind) || (opts.ownerUserId != null && r.item.ownerUserId === opts.ownerUserId);
+      }
       return opts.ownerUserId == null || r.item.ownerUserId === opts.ownerUserId;
     })
     .sort(compareOldestFirst)
@@ -356,14 +353,13 @@ export type BatchTransportResult = { ok: true; httpStatus: number; body: unknown
 
 export interface SendQueuedBatchesOptions {
   mode: SyncAuthMode;
-  /** User signed in on the phone now. Session mode: only their items. Device mode: their business items + all diary/heartbeat. */
   ownerUserId: string | null;
   deviceUid: string;
   appVersion: string;
   maxBatches: number;
-  /** Posts one batch to /api/sync/batch. Must not throw (report network errors as ok:false). */
   send(body: SyncBatchRequest): Promise<BatchTransportResult>;
   now?: () => number;
+  allowAllOwners?: boolean;
 }
 
 export interface SendQueuedBatchesResult {
@@ -390,7 +386,7 @@ export async function sendQueuedBatches(store: SyncQueueStore, opts: SendQueuedB
   const out: SendQueuedBatchesResult = { sent: 0, saved: 0, savedByKind: {}, rejected: 0, retrying: 0, dropped: 0 };
   if (opts.mode === 'SESSION' && !opts.ownerUserId) return out;
   for (let i = 0; i < opts.maxBatches; i++) {
-    const batch = await nextBatch(store, { now: now(), limit: SYNC_BATCH_MAX_ITEMS, mode: opts.mode, ownerUserId: opts.ownerUserId });
+    const batch = await nextBatch(store, { now: now(), limit: SYNC_BATCH_MAX_ITEMS, mode: opts.mode, ownerUserId: opts.ownerUserId, allowAllOwners: opts.allowAllOwners });
     if (batch.length === 0) return out;
     const ids = batch.map((r) => r.clientUuid);
     out.sent += batch.length;

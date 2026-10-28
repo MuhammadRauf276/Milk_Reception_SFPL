@@ -19,7 +19,7 @@ export const CorrectionDrawer: React.FC<Props> = ({ c, localSuppliers }) => {
     <ZmccDrawer
       open={!!t}
       onClose={close}
-      title={t ? `Correct ${t.type} Arrival Record` : 'Correct arrival record'}
+      title={t ? `Correct ${t.type}` : 'Correct arrival'}
       subtitle={
         t && (
           <>
@@ -44,10 +44,9 @@ export const CorrectionDrawer: React.FC<Props> = ({ c, localSuppliers }) => {
                   className={upper}
                 />
                 {t.record.route_milk_token && (
-                  <div className="mt-2 p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600">
-                    <span className="font-semibold text-slate-500">Legacy Route Milk Token:</span>{' '}
+                  <div className="bg-card border-border mt-2 p-2.5 border rounded-xl text-xs text-slate-600">
+                    <span className="font-semibold text-slate-500">Legacy token:</span>{' '}
                     <span className="tabular-nums font-semibold text-slate-800">{t.record.route_milk_token}</span>
-                    <span className="text-xs text-slate-400 ml-1.5">(Read-only)</span>
                   </div>
                 )}
               </div>
@@ -76,10 +75,9 @@ export const CorrectionDrawer: React.FC<Props> = ({ c, localSuppliers }) => {
                   />
                 </div>
                 {t.record.rmr_number && (
-                  <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600">
-                    <span className="font-semibold text-slate-500">Legacy RMR:</span>{' '}
+                  <div className="bg-card border-border p-2.5 border rounded-xl text-xs text-slate-600">
+                    <span className="font-semibold text-slate-500">RMR:</span>{' '}
                     <span className="tabular-nums font-semibold text-slate-800">{t.record.rmr_number}</span>
-                    <span className="text-xs text-slate-400 ml-1.5">(Read-only)</span>
                   </div>
                 )}
                 <div>
@@ -124,10 +122,10 @@ export const CorrectionDrawer: React.FC<Props> = ({ c, localSuppliers }) => {
               <textarea
                 value={c.reason}
                 onChange={(e) => c.setReason(e.target.value)}
-                placeholder="Explain why this correction is being made (Audit logged)…"
+                placeholder="Reason"
                 required
                 rows={3}
-                className="w-full px-3 py-2 text-sm border rounded-xl"
+                className="min-h-11 w-full px-3 py-2 text-sm border rounded-xl"
               />
             </div>
 

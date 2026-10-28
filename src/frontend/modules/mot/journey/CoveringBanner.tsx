@@ -18,20 +18,20 @@ interface Props {
 /** Shown to a superior covering MOT work (online only). */
 export function CoveringBanner({ role, isOnline, coverJourneyId, coverJourneys, coverListError, onSelectJourney }: Props) {
   return (
-            <div className="p-3 sm:p-4 rounded-xl border-2 border-violet-300 bg-violet-50 text-violet-900 space-y-3">
+            <div className="bg-card border-border p-3 sm:p-4 rounded-xl border-2 text-violet-900 space-y-3">
               <div className="flex items-start gap-2">
                 <UserCog className="w-5 h-5 shrink-0 mt-0.5" aria-hidden="true" />
                 <div>
-                  <p className="text-sm font-bold">Covering MC work</p>
+                  <p className="text-sm font-bold">Covering Mobile Tester work</p>
                   <p className="text-xs">
-                    You are doing MOT work as {getRoleLabel(role)}. This needs the internet.
+                    You are doing Mobile Tester work as {getRoleLabel(role)}. This needs the internet.
                   </p>
                 </div>
               </div>
               {!isOnline ? (
                 <p className="text-xs font-semibold flex items-center gap-1.5">
                   <WifiOff className="w-4 h-4" aria-hidden="true" />
-                  You are offline. Connect to the internet to cover MC work.
+                  Offline.
                 </p>
               ) : (
                 <div>
@@ -54,7 +54,7 @@ export function CoveringBanner({ role, isOnline, coverJourneyId, coverJourneys, 
                   />
                   {coverListError && <p className="mt-1 text-xs font-semibold text-rose-700">{coverListError}</p>}
                   {!coverListError && coverJourneys.length === 0 && (
-                    <p className="mt-1 text-xs">No journey is collecting milk right now.</p>
+                    <p className="mt-1 text-xs">No active journey.</p>
                   )}
                 </div>
               )}

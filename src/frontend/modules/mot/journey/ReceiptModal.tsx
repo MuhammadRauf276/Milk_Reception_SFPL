@@ -21,7 +21,7 @@ export function ReceiptModal({
   return (
     <Modal onClose={onClose} title="Collection Saved & WhatsApp Receipt" className="max-w-md overflow-hidden">
       <div className="p-4 space-y-4">
-        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-950 flex items-start space-x-3">
+        <div className="bg-card border-border p-3 border rounded-xl text-emerald-950 flex items-start space-x-3">
           <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
           <div>
             <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-900">Collection Recorded Successfully</h4>
@@ -31,7 +31,7 @@ export function ReceiptModal({
           </div>
         </div>
 
-        <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs space-y-1">
+        <div className="bg-card border-border p-3 border rounded-xl text-xs space-y-1">
           <div className="flex justify-between text-slate-600">
             <span>Shop / Recipient:</span>
             <strong className="text-foreground">{completedReceiptModal.shopName}</strong>
@@ -95,7 +95,7 @@ export function ReceiptModal({
                     onClose();
                     onReturnToPhe();
                   }}
-                  className="w-full py-1.5 text-center text-xs font-medium text-slate-500 hover:text-slate-800 transition"
+                  className="min-h-11 min-w-11 w-full py-1.5 text-center text-xs font-medium text-slate-500 hover:text-slate-800 transition"
                 >
                   Finish Route Early & Return to PHE →
                 </button>

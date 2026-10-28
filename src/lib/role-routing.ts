@@ -19,19 +19,13 @@ export function resolveRoleHome(role?: string | null | unknown): string {
       return '/super-admin/corrections';
 
     case 'FINANCE_ACCOUNTS':
-      return '/mpd/head?tab=APPROVALS';
+    case 'ADMIN_HEAD':
+    case 'PRODUCTION_HEAD':
+      return '/approvals';
 
     case 'EXECUTIVE_MANAGEMENT':
-      return '/mpd/head';
-
-    case 'ADMIN_HEAD':
-      return '/department/security';
-
-    case 'PRODUCTION_HEAD':
-      return '/department/production';
-
     case 'HEAD_OF_MPD':
-      return '/mpd/head';
+      return '/command';
 
     case 'ZMCC_MANAGER':
       return '/mpd/zmcc-manager';

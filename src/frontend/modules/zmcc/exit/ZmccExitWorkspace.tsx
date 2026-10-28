@@ -13,6 +13,7 @@ import {
   zmccLabelClass,
   zmccPrimaryBtn,
 } from '@/frontend/modules/zmcc/shared/ZmccDrawer';
+import { InfoTip } from '@/components/ui/info-tip';
 import type { ExitQueueItem } from '@/backend/services/zmccArrival/zmccExitService';
 
 const REASONS: Array<{ value: string; label: string }> = [
@@ -24,10 +25,10 @@ const REASONS: Array<{ value: string; label: string }> = [
 ];
 
 const OUTCOME_LABEL: Record<string, string> = {
-  RECEIVED: 'All milk received',
-  REJECTED: 'All milk rejected',
-  PARTLY_RECEIVED: 'Partly received',
-  ACCEPTED_NOT_RECEIVED: 'Accepted but not received',
+  RECEIVED: 'Fully Unloaded',
+  REJECTED: 'Rejected by Lab',
+  PARTLY_RECEIVED: 'Partly Unloaded',
+  ACCEPTED_NOT_RECEIVED: 'Lab Passed (Not Unloaded)',
 };
 
 type Dialog = { kind: 'exit' | 'close'; item: ExitQueueItem } | null;
@@ -130,12 +131,14 @@ const ExitDrawer: React.FC<{ kind: 'exit' | 'close'; item: ExitQueueItem; onClos
     >
       {kind === 'exit' ? (
         <p className="text-sm text-slate-700">
-          Result if the vehicle leaves now: <strong>{OUTCOME_LABEL[item.preview_outcome] ?? item.preview_outcome}</strong>.
-          {item.needs_reason && ' Milk was not fully unloaded, so a reason is needed. The ZMCC Manager will be told.'}
+          Outcome: <strong>{OUTCOME_LABEL[item.preview_outcome] ?? item.preview_outcome}</strong>
+          {item.needs_reason && (
+            <InfoTip text="Milk was not unloaded into the tank. An exit reason is required, and the ZMCC Manager will be notified." />
+          )}
         </p>
       ) : (
         <p className="text-sm text-slate-700">
-          The accepted milk will not be unloaded. The ZMCC Manager must approve before the visit is closed.
+          Manager approval needed.
         </p>
       )}
       <ReasonFields
@@ -187,7 +190,7 @@ export const ZmccExitWorkspace: React.FC = () => {
         </button>
       </div>
       {notice && (
-        <p role="status" className="flex items-center gap-2 rounded-lg bg-emerald-50 p-3 text-sm font-bold text-emerald-800">
+        <p role="status" className="flex items-center gap-2 rounded-lg border border-border bg-card p-3 text-sm font-bold text-emerald-800">
           <CheckCircle2 className="h-4 w-4" /> {notice}
         </p>
       )}
@@ -197,39 +200,86 @@ export const ZmccExitWorkspace: React.FC = () => {
           <Loader2 className="h-4 w-4 animate-spin" /> Loading…
         </p>
       )}
-      {!query.isLoading && items.length === 0 && <p className="text-sm text-slate-600">No vehicle is waiting to leave.</p>}
+      {!query.isLoading && items.length === 0 && <p className="text-sm text-slate-600">No vehicles waiting.</p>}
 
-      <div className="space-y-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {items.map((item) => (
-          <div key={item.session_id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2 text-base font-bold text-slate-900">
-                <Truck className="h-5 w-5 text-slate-600" />
-                {item.vehicle_number || 'Vehicle'}
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-700">{item.source_type}</span>
+          <div
+            key={item.session_id}
+            className="bg-card border-border rounded-2xl border p-4 shadow-2xs flex flex-col justify-between space-y-3"
+          >
+            <div>
+              {/* Header row: Vehicle with Truck icon + Source Type badge + Status badge */}
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
+                    <Truck className="h-4 w-4 text-slate-600" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-slate-900 tabular-nums leading-tight">
+                      {item.vehicle_number || 'Vehicle'}
+                    </div>
+                    <span
+                      className={`inline-block mt-0.5 px-1.5 py-0.2 rounded text-[10px] font-bold uppercase tracking-wider ${
+                        item.source_type === 'MC' ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'
+                      }`}
+                    >
+                      {item.source_type}
+                    </span>
+                  </div>
+                </div>
+
+                <span
+                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold shrink-0 ${
+                    item.unloaded
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : 'bg-slate-100 text-slate-700'
+                  }`}
+                >
+                  {item.unloaded && <CheckCircle2 className="h-3.5 w-3.5" />}
+                  {item.unloaded ? 'Unloaded' : (OUTCOME_LABEL[item.preview_outcome] ?? item.preview_outcome)}
+                </span>
               </div>
-              <span className="text-sm font-semibold text-slate-700">
-                {item.unloaded ? 'Unloaded' : 'Not unloaded'} - {OUTCOME_LABEL[item.preview_outcome] ?? item.preview_outcome}
-              </span>
+
+              {/* Source Name & Token */}
+              <div className="mt-3 space-y-1.5">
+                <div className="text-sm font-bold text-slate-900 line-clamp-1" title={item.source_name || ''}>
+                  {item.source_name || (item.source_type === 'MC' ? 'Route Milk' : 'Direct Supplier')}
+                </div>
+                {item.zmcc_token && (
+                  <span className="inline-block font-mono text-[11px] font-medium px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                    Token: {item.zmcc_token}
+                  </span>
+                )}
+              </div>
+
+              {item.close_requested && (
+                <div className="mt-2.5 flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs font-semibold text-amber-800">
+                  <Clock className="h-4 w-4 shrink-0 text-amber-700" />
+                  <span>Awaiting manager approval</span>
+                  <InfoTip text="The ZMCC Manager must approve closing this visit without unloading." />
+                </div>
+              )}
             </div>
-            <p className="mt-1 text-sm text-slate-600">
-              {item.source_name || ''}
-              {item.zmcc_token ? ` - Token ${item.zmcc_token}` : ''}
-            </p>
-            {item.close_requested && (
-              <p className="mt-2 flex items-center gap-1.5 rounded-lg bg-amber-50 p-2 text-sm font-semibold text-amber-800">
-                <Clock className="h-4 w-4" /> Waiting for the ZMCC Manager to approve closing without unloading.
-              </p>
-            )}
-            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+
+            {/* Actions at bottom of card */}
+            <div className="pt-3 border-t border-slate-100 flex flex-col gap-2">
               {item.can_exit && (
-                <button type="button" className={zmccPrimaryBtn} onClick={() => setDialog({ kind: 'exit', item })}>
+                <button
+                  type="button"
+                  className={`${zmccPrimaryBtn} w-full justify-center text-xs min-h-[44px]`}
+                  onClick={() => setDialog({ kind: 'exit', item })}
+                >
                   Record exit
                 </button>
               )}
               {item.can_request_close && (
-                <button type="button" className={zmccGhostBtn} onClick={() => setDialog({ kind: 'close', item })}>
-                  Close without unloading
+                <button
+                  type="button"
+                  className={`${zmccGhostBtn} w-full justify-center text-xs min-h-[44px]`}
+                  onClick={() => setDialog({ kind: 'close', item })}
+                >
+                  Close visit without unloading
                 </button>
               )}
             </div>

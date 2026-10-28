@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { keepPreviousData, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchJson } from '@/lib/query/fetchJson';
+import { stationQueryKeys } from '@/lib/query/stationQueryKeys';
 import { Combobox } from '@/components/ui/combobox';
 import { useDebouncedValue } from '@/frontend/modules/super-admin/shared/useDebouncedValue';
 import { User } from '@core/types';
@@ -114,8 +115,8 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
   // ZMCC Scope
   const queryClient = useQueryClient();
   const sourcesQuery = useQuery({
-    queryKey: ['zmcc', 'sources'],
-    staleTime: 5 * 60_000,
+    queryKey: stationQueryKeys.zmcc.sources(),
+    staleTime: 10 * 60_000,
     queryFn: ({ signal }) => fetchJson<{ zmccs?: ZmccSource[] }>('/api/zmcc/sources', { signal }),
   });
   const sources = useMemo(() => sourcesQuery.data?.zmccs ?? [], [sourcesQuery.data]);
@@ -180,19 +181,6 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
   const errorMsg = masterQuery.error ? getErrorMessage(masterQuery.error) || 'Error loading data.' : null;
   const loadData = () => queryClient.invalidateQueries({ queryKey: ['zmcc', 'master'] });
 
-  // Dropdown helper data for Shop and Area forms (cached, active rows only).
-  const helperZmccParam = isSuperAdmin && selectedZmccId ? `&zmcc_id=${selectedZmccId}` : '';
-  const [helperRoutesQ, helperAreasQ, helperChillersQ] = useQueries({
-    queries: [
-      { queryKey: ['zmcc', 'helper', 'routes', helperZmccParam], queryFn: ({ signal }) => fetchJson<{ routes?: RouteItem[] }>(`/api/zmcc/routes?is_active=true${helperZmccParam}`, { signal }) },
-      { queryKey: ['zmcc', 'helper', 'areas', helperZmccParam], queryFn: ({ signal }) => fetchJson<{ areas?: AreaItem[] }>(`/api/zmcc/areas?is_active=true${helperZmccParam}`, { signal }) },
-      { queryKey: ['zmcc', 'helper', 'chillers'], queryFn: ({ signal }) => fetchJson<{ chiller_ownerships?: ChillerOwnershipItem[] }>('/api/zmcc/chiller-ownerships?is_active=true', { signal }) },
-    ],
-  });
-  const helperRoutes = useMemo(() => helperRoutesQ.data?.routes ?? [], [helperRoutesQ.data]);
-  const helperAreas = useMemo(() => helperAreasQ.data?.areas ?? [], [helperAreasQ.data]);
-  const helperChillers = useMemo(() => helperChillersQ.data?.chiller_ownerships ?? [], [helperChillersQ.data]);
-
   const form = useMasterRecordForm({
     activeTab,
     isSuperAdmin,
@@ -203,6 +191,39 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
       queryClient.invalidateQueries({ queryKey: ['zmcc', 'helper'] });
     },
   });
+
+  // Dropdown helper data for Shop and Area forms (lazy loaded, active rows only).
+  const helperZmccParam = isSuperAdmin && selectedZmccId ? `&zmcc_id=${selectedZmccId}` : '';
+  const isDrawerOpen = Boolean(form.modalType);
+  const needsRoutes = activeTab === 'SHOPS' || activeTab === 'AREAS' || isDrawerOpen;
+  const needsAreas = activeTab === 'SHOPS' || isDrawerOpen;
+  const needsChillers = isDrawerOpen;
+
+  const [helperRoutesQ, helperAreasQ, helperChillersQ] = useQueries({
+    queries: [
+      {
+        queryKey: stationQueryKeys.zmcc.helpers.routes(selectedZmccId),
+        queryFn: ({ signal }) => fetchJson<{ routes?: RouteItem[] }>(`/api/zmcc/routes?is_active=true${helperZmccParam}`, { signal }),
+        enabled: needsRoutes,
+        staleTime: 5 * 60_000,
+      },
+      {
+        queryKey: stationQueryKeys.zmcc.helpers.areas(selectedZmccId),
+        queryFn: ({ signal }) => fetchJson<{ areas?: AreaItem[] }>(`/api/zmcc/areas?is_active=true${helperZmccParam}`, { signal }),
+        enabled: needsAreas,
+        staleTime: 5 * 60_000,
+      },
+      {
+        queryKey: stationQueryKeys.zmcc.helpers.chillers(),
+        queryFn: ({ signal }) => fetchJson<{ chiller_ownerships?: ChillerOwnershipItem[] }>('/api/zmcc/chiller-ownerships?is_active=true', { signal }),
+        enabled: needsChillers,
+        staleTime: 10 * 60_000,
+      },
+    ],
+  });
+  const helperRoutes = useMemo(() => helperRoutesQ.data?.routes ?? [], [helperRoutesQ.data]);
+  const helperAreas = useMemo(() => helperAreasQ.data?.areas ?? [], [helperAreasQ.data]);
+  const helperChillers = useMemo(() => helperChillersQ.data?.chiller_ownerships ?? [], [helperChillersQ.data]);
 
   // When selected ZMCC changes for Super Admin, clear dependent filters
   const handleZmccChange = (zmccId: string) => {
@@ -222,28 +243,20 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
   return (
     <div className="space-y-6 max-w-full overflow-x-hidden">
       {/* Header Banner */}
-      <div className="bg-white p-5 rounded-xl border border-border shadow-2xs flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="bg-card p-5 rounded-xl border border-border shadow-2xs flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="flex items-center gap-2.5">
-          <div className="p-2 bg-blue-50 text-primary rounded-xl border border-blue-200">
-            <Store className="w-5 h-5" />
-          </div>
           <div>
             <h1 className="text-lg sm:text-xl font-semibold text-foreground">
-              {isFieldStation ? (currentUser?.role === 'MDO' ? 'MDO Shop Station' : 'PHE Shop Station') : 'ZMCC master data'}
+              {isFieldStation ? (currentUser?.role === 'MDO' ? 'MDO Station' : 'PHE Station') : 'ZMCC master data'}
             </h1>
-            <p className="text-xs font-medium text-slate-500">
-              {isFieldStation
-                ? 'Manage and maintain collection shops within your assigned ZMCC.'
-                : 'Manage routes, collection areas, milk sources, shops, and chiller ownership.'}
-            </p>
           </div>
         </div>
 
         {/* ZMCC Context selector or Fixed Badge */}
         <div className="flex items-center gap-3">
           {isSuperAdmin ? (
-            <div className="flex items-center gap-2 bg-subtle px-3.5 py-2 rounded-xl border border-border">
-              <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Target ZMCC:</span>
+            <div className="bg-card border-border flex items-center gap-2 px-3.5 py-2 rounded-xl border">
+              <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider">ZMCC</span>
               <Combobox
                 options={sources.map((s) => ({ value: s.id, label: `${s.name} · ${s.code}`, keywords: s.code }))}
                 value={selectedZmccId}
@@ -254,8 +267,8 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
               />
             </div>
           ) : (
-            <div className="flex items-center gap-2 bg-blue-50 px-3.5 py-2 rounded-xl border border-blue-200">
-              <span className="text-xs font-semibold text-primary uppercase tracking-wider">Scope:</span>
+            <div className="bg-card border-border flex items-center gap-2 px-3.5 py-2 rounded-xl border">
+              <span className="text-xs font-semibold text-primary uppercase tracking-wider">ZMCC</span>
               <span className="text-xs font-semibold text-foreground">
                 {currentZmccName} ({currentUser?.procurement_source?.code || 'ZMCC'})
               </span>
@@ -266,13 +279,13 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
 
       {/* Success/Error Banners */}
       {form.successMsg && (
-        <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-semibold text-emerald-800 flex items-center gap-2 animate-panel-in">
+        <div className="bg-card border-border p-3.5 border rounded-xl text-xs font-semibold text-emerald-800 flex items-center gap-2 animate-panel-in">
           <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
           <span>{form.successMsg}</span>
         </div>
       )}
       {errorMsg && (
-        <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs font-semibold text-rose-800 flex items-center gap-2 animate-panel-in">
+        <div className="bg-card border-border p-3.5 border rounded-xl text-xs font-semibold text-rose-800 flex items-center gap-2 animate-panel-in">
           <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
           <span>{errorMsg}</span>
         </div>
@@ -306,7 +319,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
             </div>
           ) : (
             <>
-              <div className="bg-white p-4 rounded-xl border border-border flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-2xs">
+              <div className="bg-card p-4 rounded-xl border border-border flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-2xs">
                 <div className="flex flex-wrap items-center gap-2.5 flex-1">
                   <div className="relative flex-1 min-w-[200px] max-w-sm">
                     <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -379,7 +392,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
 
               </div>
 
-              <div className="bg-white rounded-xl border border-border shadow-2xs overflow-hidden">
+              <div className="bg-card rounded-xl border border-border shadow-2xs overflow-hidden">
                 {loading ? (
                   <div className="p-12 text-center flex flex-col items-center justify-center text-slate-500 space-y-2">
                     <Loader2 className="w-6 h-6 animate-spin text-primary" />

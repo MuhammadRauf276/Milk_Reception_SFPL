@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ShieldCheck, ArrowRight, AlertCircle, Eye, EyeOff, LogIn } from 'lucide-react';
+import { ShieldCheck, AlertCircle, Eye, EyeOff, LogIn } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,48 +30,51 @@ const DEV_LOGIN_PROFILES_ENABLED =
 
 const STATIC_DEV_PROFILES: DevGroup[] = !DEV_LOGIN_PROFILES_ENABLED ? [] : [
   {
-    group: 'DIRECTORATE & GOVERNANCE',
+    group: 'Directorate',
     items: [
       { label: 'Super Admin', department: 'System Administration', username: 'admin.superuser', password: 'admin123' },
       { label: 'Data Executive', department: 'Data & Analytics / QA Rules', username: 'data.executive', password: 'data123' },
-      { label: 'Senior Executive Management', department: 'Executive Management', username: 'executive.management', password: 'exec123' },
-      { label: 'Finance and Accounts', department: 'Finance & Accounts', username: 'finance.accounts', password: 'finance123' },
+      { label: 'Executive', department: 'Executive Management', username: 'executive.management', password: 'exec123' },
+      { label: 'Finance', department: 'Finance & Accounts', username: 'finance.accounts', password: 'finance123' },
     ],
   },
   {
-    group: 'MANAGERS & HEADS',
+    group: 'Managers',
     items: [
       { label: 'MPD Head', department: 'Milk Procurement Directorate', username: 'mpd.head', password: 'mpdhead123' },
-      { label: 'ZMCC Manager (Hasilpur)', department: 'Milk Procurement (Hasilpur)', username: 'zmcc.manager.hasilpur', password: 'zone123' },
-      { label: 'ZMCC Manager (Jhang)', department: 'Milk Procurement (Jhang)', username: 'zmcc.manager.jhang', password: 'zone123' },
-      { label: 'AVP, QA Reception Lab', department: 'Quality Assurance Directorate', username: 'qa.head', password: 'qahead123' },
+      { label: 'ZMCC Mgr, Hasilpur', department: 'Milk Procurement (Hasilpur)', username: 'zmcc.manager.hasilpur', password: 'zone123' },
+      { label: 'ZMCC Mgr, Jhang', department: 'Milk Procurement (Jhang)', username: 'zmcc.manager.jhang', password: 'zone123' },
+      { label: 'QA Head', department: 'Quality Assurance Directorate', username: 'qa.head', password: 'qahead123' },
       { label: 'Production Head', department: 'Production Directorate', username: 'production.head', password: 'prodhead123' },
       { label: 'Admin Head', department: 'Administration Directorate', username: 'admin.head', password: 'adminhead123' },
-      { label: 'Plant Contractor Manager (Al Khair)', department: 'Milk Procurement (Al Khair)', username: 'contractor.manager.alkhair', password: 'contractor123' },
+      { label: 'Contractor Mgr, Al Khair', department: 'Milk Procurement (Al Khair)', username: 'contractor.manager.alkhair', password: 'contractor123' },
     ],
   },
   {
     group: 'FIELD & PLANT OPERATORS',
     items: [
-      { label: 'PHE Operator (Hasilpur)', department: 'Milk Procurement (Hasilpur)', username: 'phe.operator', password: 'phe123' },
-      { label: 'MDO (Hasilpur)', department: 'Milk Procurement (Hasilpur)', username: 'mdo.hasilpur', password: 'mdo123' },
-      { label: 'MDO (Jhang)', department: 'Milk Procurement (Jhang)', username: 'mdo.jhang', password: 'mdo123' },
-      { label: 'ZMCC Lab Attendant (Hasilpur)', department: 'Milk Procurement (Hasilpur)', username: 'zmcc.operator', password: 'mpd123' },
-      { label: 'ZMCC Lab Attendant (Jhang)', department: 'Milk Procurement (Jhang)', username: 'zmcc.operator.jhang', password: 'mpd123' },
-      { label: 'ZMCC Lab Attendant (Kabirwala)', department: 'Milk Procurement (Kabirwala)', username: 'zmcc.operator.kabirwala', password: 'mpd123' },
-      { label: 'Mobile Tester (MOT), Hasilpur', department: 'Milk Procurement (Hasilpur)', username: 'mot.driver', password: 'mot123' },
-      { label: 'QAE, Reception Lab', department: 'Quality Assurance Lab', username: 'qa.chemist', password: 'qa123' },
-      { label: 'Weighbridge Operator (Shift 1)', department: 'Production & Weighbridge', username: 'weighbridge.operator', password: 'weighbridge123' },
-      { label: 'Weighbridge Operator (Shift 2)', department: 'Production & Weighbridge', username: 'weighbridge.02', password: 'weighbridge123' },
-      { label: 'Production Reception Operator', department: 'Plant Production & Silos', username: 'production.operator', password: 'production123' },
-      { label: 'Admin Operator (Gate)', department: 'Administration', username: 'security.gate', password: 'security123' },
+      { label: 'PHE, Hasilpur', department: 'Milk Procurement (Hasilpur)', username: 'phe.operator', password: 'phe123' },
+      { label: 'MDO, Hasilpur', department: 'Milk Procurement (Hasilpur)', username: 'mdo.hasilpur', password: 'mdo123' },
+      { label: 'MDO, Jhang', department: 'Milk Procurement (Jhang)', username: 'mdo.jhang', password: 'mdo123' },
+      { label: 'ZMCC Lab, Hasilpur', department: 'Milk Procurement (Hasilpur)', username: 'zmcc.operator', password: 'mpd123' },
+      { label: 'ZMCC Lab, Jhang', department: 'Milk Procurement (Jhang)', username: 'zmcc.operator.jhang', password: 'mpd123' },
+      { label: 'ZMCC Lab, Kabirwala', department: 'Milk Procurement (Kabirwala)', username: 'zmcc.operator.kabirwala', password: 'mpd123' },
+      { label: 'Mobile Tester · Usman Ali', department: 'Milk Procurement (Hasilpur)', username: 'mot.usman', password: 'mot123' },
+      { label: 'Mobile Tester · Kashif Raza', department: 'Milk Procurement (Hasilpur)', username: 'mot.kashif', password: 'mot123' },
+      { label: 'Mobile Tester · Bilal Ahmed', department: 'Milk Procurement (Hasilpur)', username: 'mot.bilal', password: 'mot123' },
+      { label: 'Mobile Tester · MOT Operator', department: 'Milk Procurement (Hasilpur)', username: 'mot.driver', password: 'mot123' },
+      { label: 'QAE', department: 'Quality Assurance Lab', username: 'qa.chemist', password: 'qa123' },
+      { label: 'Weighbridge 1', department: 'Production & Weighbridge', username: 'weighbridge.operator', password: 'weighbridge123' },
+      { label: 'Weighbridge 2', department: 'Production & Weighbridge', username: 'weighbridge.02', password: 'weighbridge123' },
+      { label: 'Production Operator', department: 'Plant Production & Silos', username: 'production.operator', password: 'production123' },
+      { label: 'Gate Operator', department: 'Administration', username: 'security.gate', password: 'security123' },
     ],
   },
   {
     group: 'CONTRACTORS',
     items: [
-      { label: 'Contractor Operator (Al Khair)', department: 'Milk Procurement - Contractor Operations', username: 'contractor.operator.alkhair', password: 'mpd123' },
-      { label: 'Contractor Operator (Al Mehmood)', department: 'Milk Procurement - Contractor Operations', username: 'contractor.operator.almehmood', password: 'mpd123' },
+      { label: 'Contractor, Al Khair', department: 'Milk Procurement - Contractor Operations', username: 'contractor.operator.alkhair', password: 'mpd123' },
+      { label: 'Contractor, Al Mehmood', department: 'Milk Procurement - Contractor Operations', username: 'contractor.operator.almehmood', password: 'mpd123' },
     ],
   },
 ];
@@ -84,7 +87,24 @@ export const LoginPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
-  const [devGroups] = useState<DevGroup[]>(STATIC_DEV_PROFILES);
+  const [devGroups, setDevGroups] = useState<DevGroup[]>(STATIC_DEV_PROFILES);
+
+  React.useEffect(() => {
+    if (!DEV_LOGIN_PROFILES_ENABLED) return;
+    let alive = true;
+    fetch('/api/auth/dev-profiles')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!alive || !data?.profiles?.length) return;
+        setDevGroups(data.profiles);
+      })
+      .catch(() => {
+        // Fallback to static dev profiles if fetch fails
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const handleDirectLogin = async (item: DevItem) => {
     setUsername(item.username);
@@ -177,7 +197,7 @@ export const LoginPage: React.FC = () => {
             initial={false}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
-            className="mx-auto w-full max-w-[400px] rounded-xl border bg-card p-6 shadow-xs sm:p-8"
+            className="mx-auto w-full max-w-[400px] rounded-xl border bg-card p-6 shadow-2xs sm:p-8"
             aria-labelledby="sign-in-heading"
           >
             <div>
@@ -195,7 +215,7 @@ export const LoginPage: React.FC = () => {
                   exit={{ opacity: 0, height: 0 }}
                   className="overflow-hidden"
                 >
-                  <div className="mt-5 flex items-start gap-2 rounded-md border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-800">
+                  <div className="mt-5 flex items-start gap-2 rounded-md border border-border bg-card px-3 py-2.5 text-sm text-rose-800">
                     <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
                     <span>{errorMsg}</span>
                   </div>
@@ -216,7 +236,7 @@ export const LoginPage: React.FC = () => {
                   value={username}
                   onChange={handleUsernameChange}
                   placeholder="e.g. qa.chemist"
-                  className="h-10"
+                  className="h-11"
                   aria-invalid={Boolean(errorMsg)}
                   required
                 />
@@ -232,7 +252,7 @@ export const LoginPage: React.FC = () => {
                     autoComplete="current-password"
                     value={password}
                     onChange={handlePasswordChange}
-                    className="h-10 pr-10"
+                    className="h-11 pr-11"
                     aria-invalid={Boolean(errorMsg)}
                     required
                   />
@@ -241,7 +261,7 @@ export const LoginPage: React.FC = () => {
                     onClick={() => setShowPassword(!showPassword)}
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
                     aria-pressed={showPassword}
-                    className="absolute right-1 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+                    className="absolute right-1 top-1/2 flex min-h-11 min-w-11 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -258,10 +278,10 @@ export const LoginPage: React.FC = () => {
                 Keep me signed in
               </label>
 
-              <Button type="submit" disabled={isSubmitting} className="h-10 w-full">
+              <Button type="submit" disabled={isSubmitting} className="h-11 w-full">
                 {isSubmitting ? <Spinner className="text-primary-foreground" /> : null}
                 {isSubmitting ? 'Signing in…' : 'Sign in'}
-                {!isSubmitting ? <ArrowRight /> : null}
+                
               </Button>
             </form>
           </motion.section>

@@ -1,5 +1,6 @@
 'use client';
 
+import { InfoTip } from '@/components/ui/info-tip';
 import React, { Suspense, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -9,12 +10,9 @@ import {
   Edit2,
   Plus,
   ShieldAlert,
-  Lock,
-  Sliders,
   Camera,
   Check,
   Search,
-  FlaskConical,
 } from 'lucide-react';
 import { User } from '@core/types';
 import { fadeSlide } from '@/components/motion/presets';
@@ -27,30 +25,43 @@ import {
   LabTestStatusDrawer,
   type LabTest,
 } from './lab-tests/LabTestDrawers';
+import { type TestPointCode, TEST_POINT_LABELS } from '@/types/test-point-policy';
 
-const ROW_PAGE_SIZE = 25;
+const ROW_PAGE_SIZE = 35;
 const LAB_TESTS_API = '/api/super-admin/lab-tests';
 const STAGE_API = '/api/super-admin/stage-policies-rules';
 
 export const STAGE_FILTERS = [
-  { id: 'ALL', label: 'All Tests', unit: 'Various', desc: 'Complete enterprise catalog' },
-  { id: 'MOT_SHOP', label: '1. MOT Shop', unit: 'Liters (L)', desc: 'Shop Intake · Can Rejection on Failure' },
-  { id: 'ZMCC_LAB_MC', label: '2. ZMCC MC', unit: 'kg', desc: 'Route Milk · Chilled Silo vs Rejected Tank' },
-  { id: 'ZMCC_LAB_HC', label: '3. ZMCC HC', unit: 'kg', desc: 'Direct Supplier (HC) Deliveries' },
-  { id: 'DISPATCH', label: '4. Dispatch', unit: 'kg', desc: 'Tanker Dispatch · 0–4.5°C & Seals' },
-  { id: 'PLANT_QA', label: '5. Plant QA', unit: 'kg', desc: 'Plant Reception · Zero-Tolerance Adulteration Reject' },
+  { id: 'ALL', label: 'Master Matrix (All Stages)', unit: 'All Tests', desc: 'Unified 30-Test Matrix across all 6 stages' },
+  { id: 'MOT_SHOP', label: 'MOT Shop', unit: 'Liters (L)', desc: 'Shop Intake · Can Rejection on Failure' },
+  { id: 'ZMCC_LAB_MC', label: 'ZMCC MC', unit: 'kg', desc: 'Route Milk · Chilled Silo vs Rejected Tank' },
+  { id: 'ZMCC_LAB_HC', label: 'ZMCC HC', unit: 'kg', desc: 'Direct supplier (HC) deliveries' },
+  { id: 'ZMCC_DISPATCH', label: 'ZMCC Dispatch', unit: 'kg', desc: 'ZMCC Tanker Dispatch · 0–4.5°C & Seals' },
+  { id: 'CONTRACTOR_DISPATCH', label: 'Contractor Dispatch', unit: 'kg', desc: 'Direct Contractor Tanker Dispatch' },
+  { id: 'PLANT_QA', label: 'Plant QA', unit: 'kg', desc: 'Plant Reception · Zero-Tolerance Adulteration Reject' },
 ] as const;
 
 export const STAGE_NAME_MAP: Record<string, string> = {
-  MOT_SHOP: 'MOT Shop',
-  ZMCC_LAB_MC: 'ZMCC MC',
-  ZMCC_LAB_HC: 'ZMCC HC',
+  MOT_SHOP: 'MOT Village Collection',
+  ZMCC_LAB_MC: 'ZMCC Lab for MC',
+  ZMCC_LAB_HC: 'ZMCC Lab for HC',
+  ZMCC_DISPATCH: 'ZMCC Dispatch to Plant',
+  CONTRACTOR_DISPATCH: 'Contractor Dispatch to Plant',
   DISPATCH: 'Dispatch',
-  PLANT_QA: 'Plant QA',
+  PLANT_QA: 'Plant QA Reception Lab',
 };
 
+const MATRIX_STAGES: Array<{ code: TestPointCode; shortLabel: string }> = [
+  { code: 'MOT_SHOP', shortLabel: 'MOT Shop' },
+  { code: 'ZMCC_LAB_MC', shortLabel: 'ZMCC MC' },
+  { code: 'ZMCC_LAB_HC', shortLabel: 'ZMCC HC' },
+  { code: 'ZMCC_DISPATCH', shortLabel: 'ZMCC Disp' },
+  { code: 'CONTRACTOR_DISPATCH', shortLabel: 'Contr Disp' },
+  { code: 'PLANT_QA', shortLabel: 'Plant QA' },
+];
+
 const STATUS_FILTER_OPTIONS = [
-  { value: '', label: 'All Status' },
+  { value: '', label: 'All' },
   { value: 'active', label: 'Active' },
   { value: 'inactive', label: 'Inactive' },
 ];
@@ -117,7 +128,7 @@ function WorkspaceInner({
   const isRoleEditor = ['SUPER_ADMIN', 'DATA_EXECUTIVE'].includes(role);
   const canEdit = !forceReadOnly && isRoleEditor;
 
-  // Master Catalog Query (with stage, status, search, and pagination)
+  // Master Catalog Query
   const catalogQueryKey = useMemo(
     () => ['super-admin', 'lab-tests', { q: debouncedCatalogSearch, status: catalogStatus, stage: stageFilter, page: catalogPage }],
     [debouncedCatalogSearch, catalogStatus, stageFilter, catalogPage]
@@ -146,7 +157,33 @@ function WorkspaceInner({
     setActionError(null);
   };
 
-  // 1-Click Toggle Requirement (Compulsory vs Optional)
+  // Toggle Matrix Cell Mode Mutation (CMP, APPL, OFF, AUTO)
+  const updateCellModeMutation = useMutation({
+    mutationFn: ({ testId, point, mode }: { testId: string; point: TestPointCode; mode: string }) =>
+      fetchJson('/api/super-admin/test-point-policies', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reason: `Super Admin set ${point} to ${mode}`,
+          changes: [
+            {
+              labTestId: testId,
+              point,
+              testMode: mode,
+              ruleMode: 'APPLY',
+              photoMode: 'NONE',
+            },
+          ],
+        }),
+      }),
+    onSuccess: async () => {
+      setSuccessMsg('Testing policy assignment updated.');
+      await refreshAll();
+    },
+    onError: (err) => setActionError(getErrorMessage(err) || 'Failed to update policy mode.'),
+  });
+
+  // 1-Click Toggle Requirement (Compulsory vs Optional for Single Stage)
   const toggleRequiredMutation = useMutation({
     mutationFn: ({ test, targetRequired }: { test: LabTest; targetRequired: boolean }) => {
       if (stageFilter && stageFilter !== 'ALL') {
@@ -227,28 +264,9 @@ function WorkspaceInner({
 
   return (
     <div className="w-full max-w-full space-y-4 overflow-x-hidden">
-      {/* Header Banner */}
-      <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <FlaskConical className="h-5 w-5 text-primary" />
-            <h1 className="text-lg font-bold text-slate-900">Master Laboratory Tests &amp; Stage Policies</h1>
-          </div>
-          <p className="mt-1 text-xs text-slate-500">
-            One unified master catalog to manage tests, stage assignments, compulsory enforcement, photo evidence, and SOP acceptance limits.
-          </p>
-        </div>
-        {!canEdit && (
-          <div className="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-900">
-            <Lock className="h-3.5 w-3.5 text-amber-700" />
-            <span>Read-Only View</span>
-          </div>
-        )}
-      </div>
-
       {/* Error & Success Alerts */}
       {displayError && (
-        <div role="alert" className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3.5 text-xs font-semibold text-rose-800">
+        <div role="alert" className="flex items-center gap-2 rounded-xl border border-border bg-card p-3.5 text-xs font-semibold text-rose-800">
           <ShieldAlert className="h-4 w-4 shrink-0 text-rose-600" />
           <span>{displayError}</span>
         </div>
@@ -262,7 +280,7 @@ function WorkspaceInner({
             animate="animate"
             exit="exit"
             role="status"
-            className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-xs font-semibold text-emerald-900"
+            className="flex items-center gap-2 rounded-xl border border-border bg-card p-3.5 text-xs font-semibold text-emerald-900"
           >
             <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
             <span>{successMsg}</span>
@@ -271,11 +289,11 @@ function WorkspaceInner({
       </AnimatePresence>
 
       {/* Unified Master Catalog Workspace */}
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">
-        {/* Stage Filter Pills Bar (Quick 1-Click Filtering Without Navigation Clutter) */}
+      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-2xs">
+        {/* Stage Filter Pills Bar */}
         <div className="border-b border-slate-200 bg-slate-100/90 p-2.5">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mr-1">Filter by Stage:</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mr-1">View:</span>
             {STAGE_FILTERS.map((s) => {
               const isSelected = stageFilter === s.id;
               return (
@@ -287,7 +305,7 @@ function WorkspaceInner({
                     setCatalogPage(1);
                     resetNotices();
                   }}
-                  className={`flex min-h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-bold transition-all ${
+                  className={`flex min-h-10 items-center gap-1.5 rounded-lg px-3 text-xs font-bold transition-all ${
                     isSelected
                       ? 'bg-primary text-white shadow-xs'
                       : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
@@ -301,10 +319,10 @@ function WorkspaceInner({
 
           {/* Active Stage Context Info */}
           {stageFilter !== 'ALL' && 'unit' in activeStageInfo && (
-            <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700">
+            <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-slate-700">
               <span className="font-bold text-slate-900">{activeStageInfo.label}:</span>
-              <span className="rounded bg-slate-100 px-2 py-0.5 font-bold text-slate-800">Operating Unit: {activeStageInfo.unit}</span>
-              <span className="text-slate-500">· {activeStageInfo.desc}</span>
+              <span className="text-slate-500">{activeStageInfo.unit}</span>
+              <InfoTip text={activeStageInfo.desc} />
             </div>
           )}
         </div>
@@ -314,7 +332,7 @@ function WorkspaceInner({
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
               <span className="text-sm font-bold text-slate-900">
-                {stageFilter === 'ALL' ? 'Master Lab Tests' : `${activeStageInfo.label} Tests`}
+                {stageFilter === 'ALL' ? 'Master Matrix' : `${activeStageInfo.label} Tests`}
               </span>
               <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs font-semibold tabular-nums text-slate-700">
                 {catalogPagination?.totalRecords ?? catalogTests.length} tests
@@ -324,10 +342,10 @@ function WorkspaceInner({
               <button
                 type="button"
                 onClick={() => setCatalogDrawer({ kind: 'create', initialStage: stageFilter !== 'ALL' ? stageFilter : undefined })}
-                className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-primary px-4 text-xs font-bold text-white shadow-xs transition-colors hover:bg-primary-hover"
+                className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-bold text-white shadow-2xs transition-colors hover:bg-primary-hover"
               >
                 <Plus className="h-4 w-4" />
-                <span>Add Lab Test</span>
+                <span>Add test</span>
               </button>
             )}
           </div>
@@ -343,9 +361,9 @@ function WorkspaceInner({
                   setCatalogSearch(e.target.value);
                   setCatalogPage(1);
                 }}
-                placeholder="Search test name or test code…"
+                placeholder="Search tests…"
                 aria-label="Search lab tests"
-                className="h-11 w-full rounded-xl border border-border-strong bg-white pl-9 pr-3 text-sm focus:outline-hidden focus:border-primary"
+                className="h-10 w-full rounded-xl border border-border-strong bg-card pl-9 pr-3 text-sm focus:outline-hidden focus:border-primary"
               />
             </div>
             <div role="group" aria-label="Status filter" className="flex gap-1">
@@ -358,7 +376,7 @@ function WorkspaceInner({
                     setCatalogStatus(o.value);
                     setCatalogPage(1);
                   }}
-                  className={`h-11 rounded-xl border px-3 text-xs font-semibold transition-colors ${
+                  className={`h-10 rounded-xl border px-3 text-xs font-semibold transition-colors ${
                     catalogStatus === o.value
                       ? 'border-primary bg-primary/10 text-primary'
                       : 'border-border-strong bg-white text-slate-600 hover:bg-slate-50'
@@ -371,56 +389,208 @@ function WorkspaceInner({
           </div>
         </div>
 
-        {/* Master Catalog Table */}
+        {/* Master Catalog Table: Master Matrix vs Single Stage */}
         <div className="w-full overflow-x-auto">
-          <table className="w-full min-w-[850px] text-left text-xs">
-            <thead className="border-b border-slate-200 bg-slate-100/80 text-slate-700">
-              <tr>
-                <th className="w-12 p-3 text-center font-bold">#</th>
-                <th className="p-3 font-bold">Test Code</th>
-                <th className="p-3 font-bold">Test Name</th>
-                <th className="p-3 font-bold">Type &amp; Choices</th>
-                <th className="p-3 font-bold">Unit</th>
-                <th className="p-3 font-bold">Assigned Stages</th>
-                <th className="p-3 font-bold">Requirement</th>
-                <th className="p-3 font-bold">Photo Evidence</th>
-                <th className="p-3 font-bold">SOP Passing Standard</th>
-                <th className="p-3 font-bold">Status</th>
-                {canEdit && <th className="p-3 text-right font-bold">Actions</th>}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200/70 font-medium">
-              {catalogQuery.isPending ? (
+          {stageFilter === 'ALL' ? (
+            /* MASTER MATRIX VIEW (All 6 Stages Side-by-Side) */
+            <table className="w-full min-w-[1250px] text-left text-xs">
+              <thead className="border-b border-slate-200 bg-slate-100/90 text-slate-700">
                 <tr>
-                  <td colSpan={11} className="p-8 text-center font-semibold text-slate-400">
-                    Loading laboratory tests…
-                  </td>
+                  <th className="w-10 p-2.5 text-center font-bold">#</th>
+                  <th className="p-2.5 font-bold">Code</th>
+                  <th className="p-2.5 font-bold">Test Name</th>
+                  <th className="p-2.5 font-bold">Category</th>
+                  <th className="p-2.5 font-bold text-emerald-800">Pass Range</th>
+                  <th className="p-2.5 font-bold text-amber-800">Warning Hold</th>
+                  <th className="p-2.5 font-bold text-rose-800">Fail Reject</th>
+                  {MATRIX_STAGES.map((ms) => (
+                    <th key={ms.code} className="p-2 text-center font-bold">
+                      {ms.shortLabel}
+                    </th>
+                  ))}
+                  {canEdit && <th className="sticky right-0 bg-slate-100 p-2 text-right font-bold">Actions</th>}
                 </tr>
-              ) : catalogTests.length === 0 ? (
+              </thead>
+              <tbody className="divide-y divide-slate-200/70 font-medium">
+                {catalogQuery.isPending ? (
+                  <tr>
+                    <td colSpan={14} className="p-8 text-center font-semibold text-slate-400">
+                      Loading matrix…
+                    </td>
+                  </tr>
+                ) : catalogTests.length === 0 ? (
+                  <tr>
+                    <td colSpan={14} className="p-8 text-center text-slate-400">
+                      No tests found.
+                    </td>
+                  </tr>
+                ) : (
+                  catalogTests.map((t) => {
+                    const isMonitoring = t.category === 'MONITORING';
+                    const stageModes = t.stageModes || {};
+
+                    return (
+                      <tr key={t.id} className="transition-colors hover:bg-slate-50">
+                        <td className="p-2.5 text-center font-semibold tabular-nums text-slate-400">
+                          {t.displayOrder}
+                        </td>
+                        <td className="p-2.5 font-mono font-bold text-slate-900 tabular-nums">
+                          {t.testCode}
+                        </td>
+                        <td className="p-2.5 font-bold text-slate-900 max-w-[180px]">
+                          <div>{t.testName}</div>
+                          {t.unit && <span className="text-[10px] text-slate-500 font-normal">({t.unit})</span>}
+                        </td>
+                        <td className="p-2.5">
+                          {isMonitoring ? (
+                            <span className="inline-block rounded bg-purple-50 px-2 py-0.5 text-[10px] font-bold text-purple-700 border border-purple-200" title="Monitoring Norm: Compulsory to record for yield/pricing, but never rejects milk">
+                              Monitoring Norm
+                            </span>
+                          ) : (
+                            <span className="inline-block rounded bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700 border border-blue-200">
+                              Complete SOP
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-2.5 font-semibold text-emerald-800 tabular-nums whitespace-nowrap">
+                          <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-800 border border-emerald-200 shadow-2xs">
+                            {t.passRangeText || '—'}
+                          </span>
+                        </td>
+                        <td className="p-2.5 font-semibold text-amber-800 tabular-nums whitespace-nowrap">
+                          {t.warningHoldText && t.warningHoldText !== '—' ? (
+                            <span className="inline-flex items-center rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-800 border border-amber-200 shadow-2xs">
+                              {t.warningHoldText}
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-slate-400 font-normal">None (Strict)</span>
+                          )}
+                        </td>
+                        <td className="p-2.5 font-semibold text-rose-800 tabular-nums whitespace-nowrap">
+                          {isMonitoring ? (
+                            <span className="inline-flex items-center rounded-md bg-purple-50 px-2 py-0.5 text-[10px] font-bold text-purple-700 border border-purple-200">
+                              None (Norm)
+                            </span>
+                          ) : t.failRejectText && t.failRejectText !== '—' ? (
+                            <span className="inline-flex items-center rounded-md bg-rose-50 px-2 py-0.5 text-[11px] font-bold text-rose-800 border border-rose-200 shadow-2xs">
+                              {t.failRejectText}
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-slate-400 font-normal">—</span>
+                          )}
+                        </td>
+
+                        {/* 6 Stage Matrix Columns */}
+                        {MATRIX_STAGES.map((ms) => {
+                          const currentMode = stageModes[ms.code] || 'NOT_APPLIED';
+                          const isAuto = currentMode === 'AUTO' || t.resultType === 'CALCULATED';
+                          const isCmp = currentMode === 'COMPULSORY';
+                          const isAppl = currentMode === 'APPLIED' || currentMode === 'OPTIONAL';
+
+                          return (
+                            <td key={ms.code} className="p-1.5 text-center">
+                              {canEdit ? (
+                                <select
+                                  value={currentMode}
+                                  onChange={(e) => {
+                                    resetNotices();
+                                    updateCellModeMutation.mutate({
+                                      testId: t.id,
+                                      point: ms.code,
+                                      mode: e.target.value,
+                                    });
+                                  }}
+                                  className={`rounded px-1.5 py-1 text-[10px] font-bold transition focus:outline-hidden ${
+                                    isAuto
+                                      ? 'bg-purple-100 text-purple-900 border border-purple-300'
+                                      : isCmp
+                                      ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                                      : isAppl
+                                      ? 'bg-sky-100 text-sky-900 border border-sky-300'
+                                      : 'bg-slate-100 text-slate-500 border border-slate-200'
+                                  }`}
+                                  title={`${TEST_POINT_LABELS[ms.code]}: Click to change mode`}
+                                >
+                                  <option value="COMPULSORY">CMP</option>
+                                  <option value="APPLIED">APPL</option>
+                                  <option value="NOT_APPLIED">OFF</option>
+                                  {isAuto && <option value="AUTO">AUTO</option>}
+                                </select>
+                              ) : (
+                                <span
+                                  className={`inline-block rounded px-2 py-0.5 text-[10px] font-bold ${
+                                    isAuto
+                                      ? 'bg-purple-100 text-purple-900'
+                                      : isCmp
+                                      ? 'bg-emerald-100 text-emerald-900'
+                                      : isAppl
+                                      ? 'bg-sky-100 text-sky-900'
+                                      : 'bg-slate-100 text-slate-400'
+                                  }`}
+                                >
+                                  {isAuto ? 'AUTO' : isCmp ? 'CMP' : isAppl ? 'APPL' : 'OFF'}
+                                </span>
+                              )}
+                            </td>
+                          );
+                        })}
+
+                        {/* Actions */}
+                        {canEdit && (
+                          <td className="sticky right-0 bg-white p-2.5 text-right whitespace-nowrap">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                resetNotices();
+                                setCatalogDrawer({ kind: 'edit', test: t });
+                              }}
+                              className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-slate-300 bg-slate-100 px-2 py-1 text-xs font-bold text-slate-800 transition hover:bg-slate-200"
+                            >
+                              <Edit2 className="h-3 w-3" />
+                              <span>Edit</span>
+                            </button>
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          ) : (
+            /* SINGLE STAGE FOCUSED VIEW */
+            <table className="w-full min-w-[1100px] text-left text-xs">
+              <thead className="border-b border-slate-200 bg-slate-100/80 text-slate-700">
                 <tr>
-                  <td colSpan={11} className="p-8 text-center text-slate-400">
-                    No laboratory tests match your search criteria.
-                  </td>
+                  <th className="w-12 p-3 text-center font-bold">#</th>
+                  <th className="p-3 font-bold">Code</th>
+                  <th className="p-3 font-bold">Name</th>
+                  <th className="p-3 font-bold">Type</th>
+                  <th className="p-3 font-bold">Category</th>
+                  <th className="p-3 font-bold">Pass Range</th>
+                  <th className="p-3 font-bold">Warning Hold</th>
+                  <th className="p-3 font-bold">Fail Reject</th>
+                  <th className="p-3 font-bold">Requirement</th>
+                  <th className="p-3 font-bold">Photo</th>
+                  <th className="p-3 font-bold">Status</th>
+                  {canEdit && <th className="sticky right-0 bg-slate-100 p-3 text-right font-bold">Actions</th>}
                 </tr>
-              ) : (
-                catalogTests.map((t) => {
-                  const stages = t.assignedStages || [];
-                  const isNumeric = t.resultType === 'NUMERIC' || t.resultType === 'CALCULATED';
-
-                  let passingDisplay = '—';
-                  if (isNumeric) {
-                    if (t.minValue !== null && t.minValue !== undefined && t.maxValue !== null && t.maxValue !== undefined) {
-                      passingDisplay = `${t.minValue} to ${t.maxValue}${t.unit ? ` ${t.unit}` : ''}`;
-                    } else if (t.minValue !== null && t.minValue !== undefined) {
-                      passingDisplay = `≥ ${t.minValue}${t.unit ? ` ${t.unit}` : ''}`;
-                    } else if (t.maxValue !== null && t.maxValue !== undefined) {
-                      passingDisplay = `≤ ${t.maxValue}${t.unit ? ` ${t.unit}` : ''}`;
-                    }
-                  } else if (t.acceptableOption) {
-                    passingDisplay = t.acceptableOption;
-                  }
-
-                  return (
+              </thead>
+              <tbody className="divide-y divide-slate-200/70 font-medium">
+                {catalogQuery.isPending ? (
+                  <tr>
+                    <td colSpan={12} className="p-8 text-center font-semibold text-slate-400">
+                      Loading…
+                    </td>
+                  </tr>
+                ) : catalogTests.length === 0 ? (
+                  <tr>
+                    <td colSpan={12} className="p-8 text-center text-slate-400">
+                      No tests found for this stage.
+                    </td>
+                  </tr>
+                ) : (
+                  catalogTests.map((t) => (
                     <tr key={t.id} className="transition-colors hover:bg-slate-50">
                       <td className="p-3 text-center font-semibold tabular-nums text-slate-400">
                         {t.displayOrder}
@@ -432,82 +602,48 @@ function WorkspaceInner({
                         {t.testName}
                       </td>
                       <td className="p-3">
-                        <div className="space-y-1">
-                          <span
-                            className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-semibold ${
-                              t.resultType === 'NUMERIC'
-                                ? 'bg-blue-100 text-blue-900'
-                                : t.resultType === 'POSITIVE_NEGATIVE'
-                                ? 'bg-emerald-100 text-emerald-900'
-                                : t.resultType === 'OK_NOT_OK'
-                                ? 'border border-slate-200 bg-slate-100 text-slate-800'
-                                : t.resultType === 'QUALITATIVE'
-                                ? 'bg-amber-100 text-amber-900'
-                                : 'bg-slate-100 text-slate-700'
-                            }`}
-                          >
-                            <span>{t.resultType}</span>
-                            {t.historicalResultsCount > 0 && (
-                              <span title="Result type locked due to historical test records">
-                                <Lock className="h-3 w-3 text-slate-500" />
-                              </span>
-                            )}
-                          </span>
-
-                          {Array.isArray(t.resultOptions) && t.resultOptions.length > 0 && (
-                            <div className="flex flex-wrap gap-1 pt-0.5">
-                              {t.resultOptions.map((opt) => {
-                                const isPass = opt.outcome === 'PASS' || opt.isPassing === true;
-                                const isWarn = opt.outcome === 'WARNING';
-                                const isFail = opt.outcome === 'FAIL' || opt.isPassing === false;
-                                return (
-                                  <span
-                                    key={opt.value}
-                                    className={`rounded border px-1.5 py-0.5 text-[10px] font-semibold tabular-nums ${
-                                      isPass
-                                        ? 'border-emerald-300 bg-emerald-50 text-emerald-800'
-                                        : isWarn
-                                        ? 'border-amber-300 bg-amber-50 text-amber-800'
-                                        : isFail
-                                        ? 'border-rose-300 bg-rose-50 text-rose-800'
-                                        : 'border-slate-300 bg-slate-50 text-slate-700'
-                                    }`}
-                                  >
-                                    {opt.label || opt.value} ({isPass ? 'Pass' : isWarn ? 'Warn' : isFail ? 'Fail' : 'Neutral'})
-                                  </span>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
+                        <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
+                          <span>{t.resultType}</span>
+                        </span>
                       </td>
-                      <td className="p-3 tabular-nums text-slate-600">{t.unit || '—'}</td>
-
-                      {/* Assigned Operational Stages */}
                       <td className="p-3">
-                        {stages.length === 0 ? (
-                          <span className="text-[11px] italic text-slate-400">Unassigned (Catalog only)</span>
+                        {t.category === 'MONITORING' ? (
+                          <span className="rounded bg-purple-50 px-2 py-0.5 text-[10px] font-bold text-purple-700 border border-purple-200">
+                            Monitoring Norm
+                          </span>
                         ) : (
-                          <div className="flex flex-wrap gap-1">
-                            {stages.map((st) => (
-                              <button
-                                key={st}
-                                type="button"
-                                onClick={() => {
-                                  setStageFilter(st);
-                                  setCatalogPage(1);
-                                  resetNotices();
-                                }}
-                                className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary transition hover:bg-primary hover:text-white"
-                                title={`Click to filter by ${STAGE_NAME_MAP[st] || st}`}
-                              >
-                                <span>{STAGE_NAME_MAP[st] || st}</span>
-                              </button>
-                            ))}
-                          </div>
+                          <span className="rounded bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700 border border-blue-200">
+                            Complete SOP
+                          </span>
                         )}
                       </td>
-
+                      <td className="p-3 font-bold tabular-nums text-emerald-800 whitespace-nowrap">
+                        <span className="inline-flex items-center rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-800 border border-emerald-200 shadow-2xs">
+                          {t.passRangeText || '—'}
+                        </span>
+                      </td>
+                      <td className="p-3 font-bold tabular-nums text-amber-800 whitespace-nowrap">
+                        {t.warningHoldText && t.warningHoldText !== '—' ? (
+                          <span className="inline-flex items-center rounded-md bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-800 border border-amber-200 shadow-2xs">
+                            {t.warningHoldText}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-slate-400 font-normal">None (Strict)</span>
+                        )}
+                      </td>
+                      <td className="p-3 font-bold tabular-nums text-rose-800 whitespace-nowrap">
+                        {t.category === 'MONITORING' ? (
+                          <span className="inline-flex items-center rounded-md bg-purple-50 px-2.5 py-1 text-xs font-bold text-purple-700 border border-purple-200">
+                            None (Norm)
+                          </span>
+                        ) : t.failRejectText && t.failRejectText !== '—' ? (
+                          <span className="inline-flex items-center rounded-md bg-rose-50 px-2.5 py-1 text-xs font-bold text-rose-800 border border-rose-200 shadow-2xs">
+                            {t.failRejectText}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-slate-400 font-normal">—</span>
+                        )}
+                      </td>
                       {/* 1-Click Interactive Requirement Toggle */}
                       <td className="p-3">
                         <button
@@ -520,20 +656,13 @@ function WorkspaceInner({
                               targetRequired: !t.isRequired,
                             });
                           }}
-                          className={`inline-flex min-h-8 items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-bold transition shadow-2xs ${
+                          className={`inline-flex min-h-10 items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-bold transition ${
                             t.isRequired
-                              ? 'border-blue-300 bg-blue-100 text-blue-900 hover:bg-blue-200'
-                              : 'border-slate-300 bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                              ? 'border-primary/30 bg-primary/10 text-primary hover:bg-primary/15'
+                              : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100'
                           } ${!canEdit ? 'cursor-default' : 'cursor-pointer'}`}
-                          title={
-                            canEdit
-                              ? t.isRequired
-                                ? 'Compulsory test (mandatory). Click to make Optional.'
-                                : 'Optional test. Click to make Compulsory (mandatory).'
-                              : undefined
-                          }
                         >
-                          <span className={`inline-block size-2 rounded-full ${t.isRequired ? 'bg-blue-600' : 'bg-slate-400'}`} />
+                          <span className={`inline-block size-2 rounded-full ${t.isRequired ? 'bg-primary' : 'bg-slate-400'}`} />
                           <span>{t.isRequired ? 'Compulsory' : 'Optional'}</span>
                         </button>
                       </td>
@@ -550,37 +679,15 @@ function WorkspaceInner({
                               targetPhoto: !t.isPhotoRequired,
                             });
                           }}
-                          className={`inline-flex min-h-8 items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition shadow-2xs ${
+                          className={`inline-flex min-h-10 items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition ${
                             t.isPhotoRequired
-                              ? 'border-sky-300 bg-sky-100 text-sky-900 hover:bg-sky-200'
+                              ? 'border-slate-300 bg-slate-100 text-slate-800 hover:bg-slate-200'
                               : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-100'
                           } ${!canEdit ? 'cursor-default' : 'cursor-pointer'}`}
-                          title={
-                            canEdit
-                              ? t.isPhotoRequired
-                                ? 'Camera photo evidence required. Click to remove photo requirement.'
-                                : 'No photo required. Click to enforce camera photo evidence.'
-                              : undefined
-                          }
                         >
-                          <Camera className={`h-3.5 w-3.5 ${t.isPhotoRequired ? 'text-sky-700' : 'text-slate-400'}`} />
+                          <Camera className={`h-3.5 w-3.5 ${t.isPhotoRequired ? 'text-slate-700' : 'text-slate-400'}`} />
                           <span>{t.isPhotoRequired ? 'Photo Req' : 'No Photo'}</span>
                         </button>
-                      </td>
-
-                      {/* SOP Passing Standard Limits */}
-                      <td className="p-3 font-bold tabular-nums text-slate-800">
-                        {passingDisplay !== '—' ? (
-                          isNumeric ? (
-                            <span>{passingDisplay}</span>
-                          ) : (
-                            <span className="rounded bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-900">
-                              [ {passingDisplay} ]
-                            </span>
-                          )
-                        ) : (
-                          <span className="text-[11px] font-normal italic text-slate-400">Record Only</span>
-                        )}
                       </td>
 
                       {/* Status */}
@@ -592,12 +699,11 @@ function WorkspaceInner({
                             resetNotices();
                             toggleActiveMutation.mutate({ test: t, targetActive: !t.isActive });
                           }}
-                          className={`inline-flex min-h-8 items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-bold transition shadow-2xs ${
+                          className={`inline-flex min-h-10 items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-bold transition ${
                             t.isActive
-                              ? 'border-emerald-300 bg-emerald-100 text-emerald-900 hover:bg-rose-100 hover:text-rose-900'
-                              : 'border-slate-300 bg-slate-200 text-slate-600 hover:bg-emerald-100 hover:text-emerald-900'
+                              ? 'border-slate-200 bg-white text-slate-700 hover:bg-slate-100'
+                              : 'border-slate-200 bg-slate-100 text-slate-500 hover:bg-slate-200'
                           } ${!canEdit ? 'cursor-default' : 'cursor-pointer'}`}
-                          title={canEdit ? (t.isActive ? 'Active. Click to deactivate.' : 'Inactive. Click to activate.') : undefined}
                         >
                           <Check className="h-3 w-3" />
                           <span>{t.isActive ? 'Active' : 'Inactive'}</span>
@@ -606,26 +712,26 @@ function WorkspaceInner({
 
                       {/* Actions */}
                       {canEdit && (
-                        <td className="p-3 text-right whitespace-nowrap">
+                        <td className="sticky right-0 bg-white p-3 text-right whitespace-nowrap">
                           <button
                             type="button"
                             onClick={() => {
                               resetNotices();
                               setCatalogDrawer({ kind: 'edit', test: t });
                             }}
-                            className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-slate-300 bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-800 transition hover:bg-slate-200"
+                            className="inline-flex min-h-10 items-center gap-1 rounded-lg border border-slate-300 bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-800 transition hover:bg-slate-200"
                           >
                             <Edit2 className="h-3.5 w-3.5" />
-                            <span>Edit Test &amp; Stages</span>
+                            <span>Edit</span>
                           </button>
                         </td>
                       )}
                     </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                  ))
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
 
         {/* Pagination */}

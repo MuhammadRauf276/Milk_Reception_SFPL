@@ -28,14 +28,14 @@ export const KNOWN_FACILITY_COORDINATES: Record<
   string,
   { code: string; name: string; latitude: number; longitude: number }
 > = {
-  'ZMCC-HASILPUR': { code: 'ZMCC-HASILPUR', name: 'ZMCC Hasilpur', latitude: 29.6978, longitude: 72.5539 },
+  'ZMCC-HASILPUR': { code: 'ZMCC-HASILPUR', name: 'ZMCC Hasilpur', latitude: 29.6974, longitude: 72.5539 },
   'ZMCC-JHANG': { code: 'ZMCC-JHANG', name: 'ZMCC Jhang', latitude: 31.2698, longitude: 72.3169 },
   'ZMCC-KABIRWALA': { code: 'ZMCC-KABIRWALA', name: 'ZMCC Kabirwala', latitude: 30.4042, longitude: 71.8647 },
 };
 
 // Default fallback if no specific facility is matched (Hasilpur base)
 export const DEFAULT_FALLBACK_COORDINATE: GpsCoordinate = {
-  latitude: 29.6978,
+  latitude: 29.6974,
   longitude: 72.5539,
   accuracy: 15,
   timestamp: Date.now(),
@@ -111,9 +111,9 @@ export function getFacilityOrStoredFallback(facilityCode?: string | null): GpsCo
 
 /**
  * Robust progressive GPS acquisition:
- * Stage 1: Quick device cache check (maximumAge: maxCacheAgeMs or 10 min, timeout: 2.5s)
+ * Stage 1: Quick device cache check (maximumAge: maxCacheAgeMs or 30 s, timeout: 2.5s)
  * Stage 2: High accuracy satellite request (timeout: 10s)
- * Stage 3: Coarse low-power fallback (timeout: 12s, maximumAge: maxCacheAgeMs or 15 min)
+ * Stage 3: Coarse low-power fallback (timeout: 12s, maximumAge: maxCacheAgeMs or 60 s)
  * Stage 4: LocalStorage cached position from previous session
  * Stage 5: Facility default coordinates
  */
@@ -156,7 +156,7 @@ export async function acquireRobustGps(options?: {
   try {
     const cachedPos = await tryPosition({
       enableHighAccuracy: false,
-      maximumAge: maxCacheAge ?? 10 * 60 * 1000,
+      maximumAge: maxCacheAge ?? 30 * 1000,
       timeout: 2500,
     });
     const result: GpsCoordinate = {
@@ -194,7 +194,7 @@ export async function acquireRobustGps(options?: {
     const geoErr = err as GeolocationPositionError;
     if (geoErr && geoErr.code === 1) {
       // Permission denied or blocked by insecure HTTP origin
-      let errorMsg = 'Location permission was denied. Please allow location in your browser settings.';
+      let errorMsg = 'Location is blocked.';
       if (isInsecure) {
         errorMsg = 'Browser restricts live GPS on HTTP (http://10.168.254.155). You can use offline fallback coordinates.';
       }
@@ -212,7 +212,7 @@ export async function acquireRobustGps(options?: {
   try {
     const coarsePos = await tryPosition({
       enableHighAccuracy: false,
-      maximumAge: maxCacheAge ?? 15 * 60 * 1000,
+      maximumAge: maxCacheAge ?? 60 * 1000,
       timeout: 12000,
     });
     const result: GpsCoordinate = {

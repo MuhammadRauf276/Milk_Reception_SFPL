@@ -2,6 +2,7 @@ import { prisma } from '@core/db';
 import { writeAuditLog } from '@/backend/core/audit';
 import { Prisma, LabTestRule } from '@prisma/client';
 import type { LabTestResultOption } from '@/lib/validations/labTest';
+import { parseToleranceBoundaries } from '@/lib/sop-evaluation';
 
 export type QualityEvaluationStatus =
   | 'PASS'
@@ -611,43 +612,34 @@ export class QualityRuleService {
         const maxPass = maxVal === null || numVal <= maxVal;
 
         if (!minPass || !maxPass) {
-          // 3-Zone Quantitative Tolerance Engine:
-          // Check if observed value falls in Warning Band:
-          if (offset > 0 && effectiveReleaseRule.warning_trigger !== 'NONE') {
-            const trigger = effectiveReleaseRule.warning_trigger || 'BOTH';
-            const allowBelow = trigger === 'BOTH' || trigger === 'BELOW_MIN';
-            const allowAbove = trigger === 'BOTH' || trigger === 'ABOVE_MAX';
+          // 3-Zone Quantitative Tolerance Engine (parsed from warning_trigger & decision_consequence):
+          const { warnLow, warnHigh } = parseToleranceBoundaries(
+            minVal,
+            maxVal,
+            effectiveReleaseRule.warning_trigger,
+            effectiveReleaseRule.decision_consequence
+          );
 
-            const lowerBound = minVal !== null && minVal >= 0 ? Math.max(0, minVal - offset) : (minVal !== null ? minVal - offset : null);
-            const isWarningBelow = allowBelow && minVal !== null && lowerBound !== null && numVal >= lowerBound && numVal < minVal;
-            const isWarningAbove = allowAbove && maxVal !== null && numVal > maxVal && numVal <= (maxVal + offset);
+          const inLowWarn = warnLow !== null && minVal !== null && numVal >= warnLow && numVal < minVal;
+          const inHighWarn = warnHigh !== null && maxVal !== null && numVal > maxVal && numVal <= warnHigh;
 
-            if (isWarningBelow && minVal !== null && lowerBound !== null) {
-              return {
-                appliedRuleId,
-                appliedRuleVersion,
-                evaluationStatus: 'WARNING',
-                isPassed: null,
-                reason: `Tolerance Warning: observed ${numVal} is within warning margin [${lowerBound.toFixed(2)}, ${minVal}] below minimum limit ${minVal}`,
-              };
-            }
-
-            if (isWarningAbove && maxVal !== null) {
-              return {
-                appliedRuleId,
-                appliedRuleVersion,
-                evaluationStatus: 'WARNING',
-                isPassed: null,
-                reason: `Tolerance Warning: observed ${numVal} is within warning margin [${maxVal}, ${(maxVal + offset).toFixed(2)}] above maximum limit ${maxVal}`,
-              };
-            }
-
+          if (inLowWarn && minVal !== null && warnLow !== null) {
             return {
               appliedRuleId,
               appliedRuleVersion,
-              evaluationStatus: 'OUT_OF_SPEC',
-              isPassed: false,
-              reason: `Fail: observed ${numVal}, outside tolerance limits [${minVal !== null ? (minVal - offset).toFixed(2) : '-∞'}, ${maxVal !== null ? (maxVal + offset).toFixed(2) : '+∞'}]`,
+              evaluationStatus: 'WARNING',
+              isPassed: null,
+              reason: `Tolerance Warning: observed ${numVal} is within warning margin [${warnLow}, ${minVal}] below minimum limit ${minVal}`,
+            };
+          }
+
+          if (inHighWarn && maxVal !== null && warnHigh !== null) {
+            return {
+              appliedRuleId,
+              appliedRuleVersion,
+              evaluationStatus: 'WARNING',
+              isPassed: null,
+              reason: `Tolerance Warning: observed ${numVal} is within warning margin [${maxVal}, ${warnHigh}] above maximum limit ${maxVal}`,
             };
           }
 

@@ -6,7 +6,7 @@ import { fadeSlide } from '@/components/motion/presets';
 import type { UnifiedApprovalItem } from '@/backend/services/approvals/approvalInboxService';
 import { getRoleLabel } from '@/backend/core/roles/labels';
 import { cn } from '@/lib/utils';
-import { STAGE_LABELS, formatWaitingLabel } from './approvalInboxShared';
+import { STAGE_LABELS, cleanEntityTitle, formatWaitingLabel } from './approvalInboxShared';
 import { ApprovalDetailBody } from './ApprovalDetailBody';
 
 export function ApprovalDetailPanel({
@@ -39,7 +39,7 @@ export function ApprovalDetailPanel({
             <button
               type="button"
               onClick={onBack}
-              className="flex min-h-11 items-center gap-1.5 text-xs font-bold text-slate-700 hover:text-primary"
+              className="flex min-h-11 items-center gap-1.5 text-xs font-bold text-slate-700 hover:text-primary min-w-11"
             >
               <Undo2 className="w-4 h-4" />
               <span>Back to Queue</span>
@@ -56,7 +56,7 @@ export function ApprovalDetailPanel({
                 </span>
                 <h2 className="text-base sm:text-xl font-bold text-foreground">{item.referenceNumber}</h2>
               </div>
-              <p className="text-xs sm:text-sm text-slate-600">{item.details.entityTitle}</p>
+              <p className="text-xs sm:text-sm text-slate-600">{cleanEntityTitle(item.details.entityTitle)}</p>
               <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-slate-500">
                 <span>
                   Source: <strong className="text-slate-700">{item.sourceName || 'ZMCC Area'}</strong>
@@ -111,12 +111,11 @@ export function ApprovalDetailPanel({
                   onClick={() => onOpenDecision('NO')}
                   disabled={!item.canDecide}
                   className={cn(
-                    'flex-1 sm:flex-initial flex items-center justify-center gap-2 rounded-xl font-bold transition',
-                    'min-h-[52px] sm:min-h-11 px-4 sm:px-5 text-sm sm:text-xs',
+                    'flex-1 sm:flex-initial flex items-center justify-center rounded-xl font-bold transition min-h-11',
+                    'min-h-[52px] sm:min-h-11 px-5 sm:px-6 text-sm sm:text-xs',
                     'border-2 border-rose-600 text-rose-700 hover:bg-rose-50 active:bg-rose-100 disabled:opacity-40 disabled:cursor-not-allowed'
                   )}
                 >
-                  <XCircle className="w-5 h-5 sm:w-4 h-4" />
                   <span>Reject</span>
                 </button>
 
@@ -125,12 +124,11 @@ export function ApprovalDetailPanel({
                   onClick={() => onOpenDecision('OKAY')}
                   disabled={!item.canDecide}
                   className={cn(
-                    'flex-1 sm:flex-initial flex items-center justify-center gap-2 rounded-xl font-bold transition text-white',
-                    'min-h-[52px] sm:min-h-11 px-5 sm:px-6 text-sm sm:text-xs',
+                    'flex-1 sm:flex-initial flex items-center justify-center rounded-xl font-bold transition text-white min-h-11',
+                    'min-h-[52px] sm:min-h-11 px-6 sm:px-7 text-sm sm:text-xs',
                     'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 shadow-xs disabled:opacity-40 disabled:cursor-not-allowed'
                   )}
                 >
-                  <CheckCircle2 className="w-5 h-5 sm:w-4 h-4" />
                   <span>Approve</span>
                 </button>
               </div>
@@ -140,7 +138,7 @@ export function ApprovalDetailPanel({
       ) : (
         <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-400 space-y-2">
           <Eye className="w-10 h-10 opacity-30" />
-          <p className="text-sm font-medium">Select an item from the queue to inspect details</p>
+          <p className="text-sm font-medium">Select an item</p>
         </div>
       )}
     </section>

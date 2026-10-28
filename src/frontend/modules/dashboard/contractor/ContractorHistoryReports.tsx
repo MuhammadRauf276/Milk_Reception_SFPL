@@ -115,7 +115,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
   return (
     <div className="space-y-6">
       {/* 1. Header Scope Banner */}
-      <div className="p-5 rounded-xl bg-white border border-border shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="bg-card border-border p-5 rounded-xl border shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center space-x-3">
           <div className="p-2.5 bg-blue-900 text-white rounded-xl shadow-xs">
             <History className="w-5 h-5" />
@@ -125,19 +125,15 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
               {assignedSourceName}: History & Operational Reports
             </h2>
             <p className="text-xs text-slate-500 font-medium mt-0.5">
-              Historical ledger evaluated by Reporting Date (Final Receipt date for completed receipts; Dispatch date for pending).
+              History by report date
             </p>
           </div>
         </div>
 
-        <div className="flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs tabular-nums font-semibold text-slate-700 self-start sm:self-auto">
-          <ShieldCheck className="w-4 h-4 text-blue-700" />
-          <span>Reporting Date Scoped</span>
-        </div>
       </div>
 
       {/* 2. Date Filter Toolbar */}
-      <div className="p-5 rounded-xl bg-white border border-border shadow-xs space-y-4">
+      <div className="bg-card border-border p-5 rounded-xl border shadow-xs space-y-4">
         <form onSubmit={handleApplyFilter} className="flex flex-wrap items-end gap-3">
           {/* From Date */}
           <div className="flex-1 min-w-[160px]">
@@ -148,7 +144,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
               type="date"
               value={fromDate}
               onChange={(e) => setFromDate(e.target.value)}
-              className="w-full px-3 py-2 min-h-[40px] text-xs tabular-nums font-semibold bg-slate-50 border border-border-strong rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-900"
+              className="w-full px-3 py-2 text-xs tabular-nums font-semibold bg-slate-50 border border-border-strong rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-900 min-h-11"
             />
           </div>
 
@@ -161,7 +157,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
               type="date"
               value={toDate}
               onChange={(e) => setToDate(e.target.value)}
-              className="w-full px-3 py-2 min-h-[40px] text-xs tabular-nums font-semibold bg-slate-50 border border-border-strong rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-900"
+              className="w-full px-3 py-2 text-xs tabular-nums font-semibold bg-slate-50 border border-border-strong rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-900 min-h-11"
             />
           </div>
 
@@ -177,7 +173,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search…"
-                className="w-full pl-9 pr-3 py-2 min-h-[40px] text-xs tabular-nums font-semibold bg-slate-50 border border-border-strong rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-900"
+                className="w-full pl-9 pr-3 py-2 text-xs tabular-nums font-semibold bg-slate-50 border border-border-strong rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-900 min-h-11"
               />
             </div>
           </div>
@@ -187,7 +183,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
             <button
               type="submit"
               disabled={loading}
-              className="px-4 py-2 min-h-[40px] bg-blue-900 hover:bg-blue-950 text-white rounded-xl text-xs font-semibold shadow-xs transition active:scale-95 disabled:opacity-50 flex items-center space-x-1.5"
+              className="px-4 py-2 bg-blue-900 hover:bg-blue-950 text-white rounded-xl text-xs font-semibold shadow-xs transition active:scale-95 disabled:opacity-50 flex items-center space-x-1.5 min-h-11"
             >
               <Calendar className="w-3.5 h-3.5" />
               <span>Apply Filter</span>
@@ -197,7 +193,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
               type="button"
               onClick={handleResetFilter}
               disabled={loading}
-              className="px-4 py-2 min-h-[40px] bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition active:scale-95 disabled:opacity-50"
+              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition active:scale-95 disabled:opacity-50 min-h-11"
             >
               Reset
             </button>
@@ -205,7 +201,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
         </form>
 
         {error && (
-          <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center space-x-2 animate-panel-in">
+          <div className="bg-card border-border p-3 rounded-xl border text-rose-800 text-xs font-semibold flex items-center space-x-2 animate-panel-in">
             <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
             <span>{error}</span>
           </div>
@@ -214,7 +210,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
 
       {/* Bounded Page Notice */}
       {totalPages > 1 && (
-        <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-center justify-between">
+        <div className="bg-card border-border p-3.5 rounded-xl border text-xs text-amber-800 flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
             <span>
@@ -228,7 +224,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
       {/* 3. Summary Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Historical Visits */}
-        <div className="p-5 rounded-xl bg-white border border-border shadow-xs space-y-2">
+        <div className="bg-card border-border p-5 rounded-xl border shadow-xs space-y-2">
           <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
             <span>Historical Visits</span>
             <Truck className="w-4 h-4 text-blue-700" />
@@ -246,7 +242,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
         </div>
 
         {/* Completed Receipts */}
-        <div className="p-5 rounded-xl bg-white border border-border shadow-xs space-y-2">
+        <div className="bg-card border-border p-5 rounded-xl border shadow-xs space-y-2">
           <div className="flex items-center justify-between text-emerald-700 text-xs font-semibold">
             <span>Final Receipts {totalPages > 1 ? '(Current Page)' : ''}</span>
             <CheckCircle2 className="w-4 h-4 text-emerald-600" />
@@ -260,7 +256,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
         </div>
 
         {/* Total Received Liters */}
-        <div className="p-5 rounded-xl bg-white border border-border shadow-xs space-y-2">
+        <div className="bg-card border-border p-5 rounded-xl border shadow-xs space-y-2">
           <div className="flex items-center justify-between text-blue-800 text-xs font-semibold">
             <span>Received Vol {totalPages > 1 ? '(Current Page)' : ''}</span>
             <Scale className="w-4 h-4 text-blue-700" />
@@ -274,7 +270,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
         </div>
 
         {/* Net Liters Variance */}
-        <div className="p-5 rounded-xl bg-white border border-border shadow-xs space-y-2">
+        <div className="bg-card border-border p-5 rounded-xl border shadow-xs space-y-2">
           <div className="flex items-center justify-between text-slate-700 text-xs font-semibold">
             <span>Net Variance {totalPages > 1 ? '(Current Page)' : ''}</span>
             <ArrowRightLeft className="w-4 h-4 text-slate-600" />
@@ -301,7 +297,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
       </div>
 
       {/* 4. Historical Ledger Table */}
-      <div className="p-5 sm:p-6 rounded-xl bg-white border border-border shadow-xs space-y-4">
+      <div className="bg-card border-border p-5 sm:p-6 rounded-xl border shadow-xs space-y-4">
         <div className="flex items-center justify-between border-b border-muted pb-3">
           <div className="flex items-center space-x-2">
             <History className="w-4 h-4 text-blue-800" />
@@ -318,11 +314,11 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
             <span>Loading historical records…</span>
           </div>
         ) : filteredVisits.length === 0 ? (
-          <div className="py-12 px-4 rounded-xl bg-slate-50 border border-dashed border-slate-200 text-center space-y-2">
+          <div className="bg-card border-border py-12 px-4 rounded-xl border border-dashed text-center space-y-2">
             <FileSpreadsheet className="w-8 h-8 text-slate-400 mx-auto" />
             <h4 className="text-sm font-semibold text-slate-700">No Historical Records Found</h4>
             <p className="text-xs text-slate-500 max-w-md mx-auto">
-              No historical records are available for the selected date range and assigned Plant Contractor.
+              No records
             </p>
           </div>
         ) : (
@@ -440,7 +436,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
                       const prev = Math.max(1, page - 1);
                       setPage(prev);
                     }}
-                    className="px-3.5 py-1.5 bg-white border border-border-strong rounded-xl hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-semibold transition shadow-2xs"
+                    className="px-3.5 py-1.5 min-h-11 bg-white border border-border-strong rounded-xl hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-semibold transition shadow-2xs"
                   >
                     Previous
                   </button>
@@ -454,7 +450,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
                       const next = Math.min(totalPages, page + 1);
                       setPage(next);
                     }}
-                    className="px-3.5 py-1.5 bg-white border border-border-strong rounded-xl hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-semibold transition shadow-2xs"
+                    className="px-3.5 py-1.5 min-h-11 bg-white border border-border-strong rounded-xl hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-semibold transition shadow-2xs min-h-11"
                   >
                     Next
                   </button>

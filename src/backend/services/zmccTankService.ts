@@ -16,6 +16,7 @@ import {
   weightedAverageByNetWeight,
 } from '@/backend/services/lossCalculationService';
 import { getWeighingPolicyDb, isUnitAllowed } from '@/backend/services/zmccWeighingPolicyService';
+import { getPakistanCalendarDate } from '@/backend/core/business-day';
 
 export interface ServiceResult<T> {
   status: number;
@@ -157,6 +158,39 @@ export async function getTankPhysicalStock(
   `;
 
     return Number(res[0]?.current_stock || 0);
+  }
+
+  /**
+   * Calculates current physical stock for multiple tanks in a single batch query strictly from immutable ledger transactions.
+   * Returns a Map of tankId string -> stock number.
+   */
+  export async function getBatchTankPhysicalStock(
+    tankIds: bigint[],
+    tx?: Prisma.TransactionClient
+  ): Promise<Map<string, number>> {
+    const stockMap = new Map<string, number>();
+    if (tankIds.length === 0) return stockMap;
+
+    const client = tx || prisma;
+    const rows: Array<{ tank_id: bigint | string; current_stock: string | number | null }> = await client.$queryRaw`
+      SELECT tank_id, COALESCE(
+        SUM(
+          CASE 
+            WHEN transaction_type IN ('RECEIPT', 'ADJUSTMENT_IN') THEN quantity_liters
+            WHEN transaction_type IN ('ISSUE', 'ADJUSTMENT_OUT') THEN -quantity_liters
+            ELSE 0
+          END
+        ), 0
+      ) as current_stock
+      FROM zmcc_tank_inventory_transaction
+      WHERE tank_id IN (${Prisma.join(tankIds)})
+      GROUP BY tank_id
+    `;
+
+    for (const row of rows) {
+      stockMap.set(row.tank_id.toString(), Number(row.current_stock || 0));
+    }
+    return stockMap;
   }
 
   /**
@@ -1333,17 +1367,100 @@ export type WeighingQueueData = {
   done_page_size: number;
   tanks: WeighingTankView[];
   sources: WeighingSourceView[];
+  range?: 'today' | '7days' | 'custom';
+  from_date?: string;
+  to_date?: string;
 };
 
-/** Vehicles ready to weigh/unload, plus vehicles unloaded in the last 24 hours (paged). */
+export type ListWeighingQueueOpts = {
+  donePage?: number;
+  donePageSize?: number;
+  range?: 'today' | '7days' | 'custom';
+  fromDate?: string;
+  toDate?: string;
+  search?: string;
+};
+
+/** Vehicles ready to weigh/unload, plus vehicles unloaded within the specified range (paged, max 7 days). */
 export async function listWeighingQueue(
   acting: ActingContext,
-  opts: { donePage?: number; donePageSize?: number } = {}
+  opts: ListWeighingQueueOpts = {}
 ): Promise<ServiceResult<WeighingQueueData>> {
   const zmccFilter = acting.scope.kind === 'SOURCE' ? { zmcc_id: acting.scope.sourceId } : {};
-  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const todayStr = getPakistanCalendarDate(new Date());
+  let since: Date;
+  let until: Date | undefined = undefined;
+
+  const range = opts.range ?? 'today';
+  let effectiveFrom = todayStr;
+  let effectiveTo = todayStr;
+
+  if (range === '7days') {
+    const d = new Date();
+    d.setDate(d.getDate() - 6);
+    effectiveFrom = getPakistanCalendarDate(d);
+    effectiveTo = todayStr;
+    since = new Date(`${effectiveFrom}T00:00:00.000+05:00`);
+    until = new Date(`${effectiveTo}T23:59:59.999+05:00`);
+  } else if (range === 'custom' && (opts.fromDate || opts.toDate)) {
+    effectiveFrom = opts.fromDate || todayStr;
+    effectiveTo = opts.toDate || todayStr;
+    let startD = new Date(`${effectiveFrom}T00:00:00.000+05:00`);
+    let endD = new Date(`${effectiveTo}T23:59:59.999+05:00`);
+    if (isNaN(startD.getTime())) {
+      effectiveFrom = todayStr;
+      startD = new Date(`${todayStr}T00:00:00.000+05:00`);
+    }
+    if (isNaN(endD.getTime())) {
+      effectiveTo = todayStr;
+      endD = new Date(`${todayStr}T23:59:59.999+05:00`);
+    }
+    if (endD < startD) {
+      endD = new Date(`${effectiveFrom}T23:59:59.999+05:00`);
+      effectiveTo = effectiveFrom;
+    }
+    // Enforce greater range 7 days only (max 7 calendar days)
+    const maxSpanMs = 7 * 24 * 60 * 60 * 1000;
+    if (endD.getTime() - startD.getTime() > maxSpanMs) {
+      const clampedStart = new Date(endD.getTime() - (6 * 24 * 60 * 60 * 1000));
+      effectiveFrom = getPakistanCalendarDate(clampedStart);
+      startD = new Date(`${effectiveFrom}T00:00:00.000+05:00`);
+    }
+    since = startD;
+    until = endD;
+  } else {
+    // 'today' default: full current day in PKT (from 00:00:00 to 23:59:59.999)
+    effectiveFrom = todayStr;
+    effectiveTo = todayStr;
+    since = new Date(`${todayStr}T00:00:00.000+05:00`);
+    until = new Date(`${todayStr}T23:59:59.999+05:00`);
+  }
+
   const donePageSize = Math.min(Math.max(opts.donePageSize ?? WEIGHING_DONE_PAGE_SIZE, 1), 50);
   const donePage = Math.max(opts.donePage ?? 1, 1);
+
+  const search = opts.search?.trim();
+  const searchFilter: Prisma.ZmccLabSessionWhereInput = search
+    ? {
+        OR: [
+          { mot_arrival: { zmcc_token: { contains: search, mode: 'insensitive' } } },
+          { mot_arrival: { journey: { mot_vehicle: { vehicle_number: { contains: search, mode: 'insensitive' } } } } },
+          { mot_arrival: { journey: { route: { route_code: { contains: search, mode: 'insensitive' } } } } },
+          { local_supplier_arrival: { zmcc_token: { contains: search, mode: 'insensitive' } } },
+          { local_supplier_arrival: { vehicle_number: { contains: search, mode: 'insensitive' } } },
+          { local_supplier_arrival: { local_supplier: { name: { contains: search, mode: 'insensitive' } } } },
+        ],
+      }
+    : {};
+
+  const doneWhere: Prisma.ZmccLabSessionWhereInput = {
+    ...zmccFilter,
+    unloaded_at: {
+      gte: since,
+      ...(until ? { lte: until } : {}),
+    },
+    ...searchFilter,
+  };
 
   const [readyRows, doneTotal, doneRows] = await Promise.all([
     prisma.zmccLabSession.findMany({
@@ -1358,9 +1475,9 @@ export async function listWeighingQueue(
       orderBy: { created_at: 'asc' },
       take: 200,
     }),
-    prisma.zmccLabSession.count({ where: { ...zmccFilter, unloaded_at: { gte: since } } }),
+    prisma.zmccLabSession.count({ where: doneWhere }),
     prisma.zmccLabSession.findMany({
-      where: { ...zmccFilter, unloaded_at: { gte: since } },
+      where: doneWhere,
       include: SESSION_INCLUDE,
       orderBy: { unloaded_at: 'desc' },
       skip: (donePage - 1) * donePageSize,
@@ -1372,20 +1489,19 @@ export async function listWeighingQueue(
     where: { is_active: true, ...zmccFilter },
     orderBy: { tank_code: 'asc' },
   });
-  const tanks = await Promise.all(
-    tankRows.map(async (t) => {
-      const stock = await getTankPhysicalStock(t.id);
-      const cap = Number(t.capacity_liters);
-      return {
-        id: t.id.toString(),
-        zmcc_id: t.zmcc_id.toString(),
-        tank_code: t.tank_code,
-        tank_name: t.tank_name,
-        capacity_liters: cap,
-        available_capacity: Number(Math.max(0, cap - stock).toFixed(2)),
-      };
-    })
-  );
+  const tankStocks = await getBatchTankPhysicalStock(tankRows.map((t) => t.id));
+  const tanks = tankRows.map((t) => {
+    const stock = tankStocks.get(t.id.toString()) ?? 0;
+    const cap = Number(t.capacity_liters);
+    return {
+      id: t.id.toString(),
+      zmcc_id: t.zmcc_id.toString(),
+      tank_code: t.tank_code,
+      tank_name: t.tank_name,
+      capacity_liters: cap,
+      available_capacity: Number(Math.max(0, cap - stock).toFixed(2)),
+    };
+  });
 
   const visibilities = await prisma.milkSourceZmccVisibility.findMany({
     where: { is_active: true, milk_source: { is_active: true }, ...zmccFilter },
@@ -1408,6 +1524,9 @@ export async function listWeighingQueue(
       done_page_size: donePageSize,
       tanks,
       sources,
+      range,
+      from_date: effectiveFrom,
+      to_date: effectiveTo,
     },
   };
 }

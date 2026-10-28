@@ -230,7 +230,8 @@ export function useCollection({
 
     // Check for existing draft
     try {
-      const draft = await getDraft(stop.id);
+      const currentUserId = currentUser?.id ? String(currentUser.id) : undefined;
+      const draft = await getDraft(stop.id, currentUserId);
       if (draft) {
         setShopRmrNumber(draft.shop_rmr_number || '');
         setSelectedSourceId(draft.milk_source_id || '');
@@ -374,15 +375,20 @@ export function useCollection({
   const handleSaveDraft = async () => {
     if (!activeStop) return;
     try {
-      await saveDraft(activeStop.id, {
-        shop_rmr_number: shopRmrNumber.trim() || null,
-        milk_source_id: selectedSourceId || null,
-        quantity,
-        unit,
-        lr,
-        fat,
-        notes,
-      });
+      const currentUserId = currentUser?.id ? String(currentUser.id) : undefined;
+      await saveDraft(
+        activeStop.id,
+        {
+          shop_rmr_number: shopRmrNumber.trim() || null,
+          milk_source_id: selectedSourceId || null,
+          quantity,
+          unit,
+          lr,
+          fat,
+          notes,
+        },
+        currentUserId
+      );
       setActiveStop(null);
       setSyncFeedback('Draft saved locally.');
     } catch (err) {

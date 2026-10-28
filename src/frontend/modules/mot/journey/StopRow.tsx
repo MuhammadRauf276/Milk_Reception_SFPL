@@ -87,7 +87,7 @@ export const StopRow = React.memo(function StopRow({ stop, journey, onRecord }: 
 
                                 {isVisited && stop.collection && (
                                   <div className="mt-2 space-y-2">
-                                    <div className="p-2 rounded-lg bg-emerald-50/70 border border-emerald-200 text-[11px] tabular-nums font-semibold text-emerald-950 flex flex-wrap gap-x-3 gap-y-1">
+                                    <div className="bg-card border-border p-2 rounded-lg border text-[11px] tabular-nums font-semibold text-emerald-950 flex flex-wrap gap-x-3 gap-y-1">
                                       <span>Gross: {Number(stop.collection.gross_liters).toFixed(2)} L</span>
                                       <span>@13TS: {Number(stop.collection.at_13ts_liters).toFixed(2)} L</span>
                                       <span>LR: {stop.collection.lr}</span>

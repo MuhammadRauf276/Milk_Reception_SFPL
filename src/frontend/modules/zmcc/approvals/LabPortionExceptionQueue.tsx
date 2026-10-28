@@ -121,13 +121,13 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
         </div>
       )}
       {error && (
-        <div className="flex items-center gap-2 rounded-xl border border-rose-300 bg-rose-50 p-3 text-rose-800">
+        <div className="bg-card border-border flex items-center gap-2 rounded-xl border p-3 text-rose-800">
           <AlertTriangle className="h-5 w-5" aria-hidden="true" /> {error}
           <button type="button" onClick={load} className="ml-auto min-h-[44px] px-3 font-semibold underline">Try again</button>
         </div>
       )}
       {!loading && !error && items.length === 0 && (
-        <div className="rounded-xl border border-border bg-white p-6 text-center text-slate-600">
+        <div className="rounded-xl border border-border bg-card p-6 text-center text-slate-600">
           {tab === 'PENDING' ? 'No lab portion is waiting for you.' : 'No decided lab exceptions yet.'}
         </div>
       )}
@@ -137,7 +137,7 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
         const pending = item.reviewStatus === 'PENDING';
         const own = !!currentUserId && item.createdByUserId === currentUserId;
         return (
-          <motion.article key={item.id} variants={itemVariant} initial="initial" animate="animate" className="flex flex-col rounded-2xl border border-border bg-white shadow-2xs">
+          <motion.article key={item.id} variants={itemVariant} initial="initial" animate="animate" className="flex flex-col rounded-2xl border border-border bg-card shadow-2xs">
             <div className="flex-1 space-y-4 p-4">
               <header className="space-y-1">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -147,7 +147,7 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
                   <DecisionStatusBadge status={pending ? 'PENDING' : item.finalDecision === 'REJECTED' ? 'REJECTED' : 'ACCEPTED'} />
                 </div>
                 <p className="text-sm text-slate-600">
-                  {item.point === 'ZMCC_LAB_MC' ? 'MC (route milk)' : 'HC (direct supplier)'}
+                  {item.point === 'ZMCC_LAB_MC' ? 'Mobile Tester (route milk)' : 'HC (supplier)'}
                   {item.sourceName ? ` · ${item.sourceName}` : ''}
                   {item.token ? ` · Token ${item.token}` : ''}
                   {item.submittedByName ? ` · by ${item.submittedByName}` : ''}
@@ -166,13 +166,13 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
               </header>
 
               <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="rounded-xl bg-slate-50 p-2"><div className="text-xs text-slate-500">Weight (KG)</div><div className="text-base font-bold">{item.quantityValue ?? item.grossLiters ?? '-'}</div></div>
-                <div className="rounded-xl bg-slate-50 p-2"><div className="text-xs text-slate-500">LR</div><div className="text-base font-bold">{item.lr ?? '-'}</div></div>
-                <div className="rounded-xl bg-slate-50 p-2"><div className="text-xs text-slate-500">Fat</div><div className="text-base font-bold">{item.fat ?? '-'}</div></div>
+                <div className="bg-card border-border border rounded-xl p-2"><div className="text-xs text-slate-500">Weight (KG)</div><div className="text-base font-bold">{item.quantityValue ?? item.grossLiters ?? '-'}</div></div>
+                <div className="bg-card border-border border rounded-xl p-2"><div className="text-xs text-slate-500">LR</div><div className="text-base font-bold">{item.lr ?? '-'}</div></div>
+                <div className="bg-card border-border border rounded-xl p-2"><div className="text-xs text-slate-500">Fat</div><div className="text-base font-bold">{item.fat ?? '-'}</div></div>
               </div>
 
               {item.exceptionReasons.length > 0 && (
-                <div className="rounded-xl border border-amber-300 bg-amber-50 p-3">
+                <div className="bg-card border-border rounded-xl border p-3">
                   <p className="mb-1 flex items-center gap-1.5 font-semibold text-amber-900">
                     <AlertTriangle className="h-4 w-4" aria-hidden="true" /> Why it needs a decision
                   </p>
@@ -221,7 +221,7 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
             </div>
 
             {pending && canDecide && own && (
-              <p className="border-t border-border p-3 text-sm text-slate-600">This is your own test. Another Zonal Manager (or above) must decide it.</p>
+              <p className="border-t border-border p-3 text-sm text-slate-600">Your own test.</p>
             )}
             {pending && canDecide && !own && (
               <div className="sticky bottom-0 space-y-2 rounded-b-2xl border-t border-border bg-white p-3">
@@ -230,7 +230,7 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
                   onChange={(e) => setRemarks((r) => ({ ...r, [item.id]: e.target.value }))}
                   placeholder="Reason (needed for NO)"
                   rows={2}
-                  className="w-full rounded-xl border border-border-strong p-2 text-base"
+                  className="min-h-11 w-full rounded-xl border border-border-strong p-2 text-base"
                 />
                 {itemError[item.id] && <p className="text-sm font-semibold text-rose-700">{itemError[item.id]}</p>}
                 <div className="grid grid-cols-2 gap-3">
@@ -240,7 +240,7 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
                     onClick={() => decide(item, 'NO')}
                     className="flex h-14 items-center justify-center gap-2 rounded-xl bg-rose-600 text-lg font-bold text-white disabled:opacity-50"
                   >
-                    <XCircle className="h-6 w-6" aria-hidden="true" /> NO
+                    REJECT
                   </button>
                   <button
                     type="button"
@@ -248,7 +248,7 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
                     onClick={() => decide(item, 'OKAY')}
                     className="flex h-14 items-center justify-center gap-2 rounded-xl bg-emerald-600 text-lg font-bold text-white disabled:opacity-50"
                   >
-                    <CheckCircle2 className="h-6 w-6" aria-hidden="true" /> OKAY
+                    APPROVE
                   </button>
                 </div>
               </div>

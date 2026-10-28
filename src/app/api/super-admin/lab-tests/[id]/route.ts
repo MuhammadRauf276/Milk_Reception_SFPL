@@ -122,11 +122,42 @@ export async function PATCH(
         });
       }
 
+      const minVal = body.minValue !== undefined && body.minValue !== '' && body.minValue !== null ? Number(body.minValue) : null;
+      const maxVal = body.maxValue !== undefined && body.maxValue !== '' && body.maxValue !== null ? Number(body.maxValue) : null;
+      const optVal = typeof body.acceptableOption === 'string' && body.acceptableOption.trim() ? body.acceptableOption.trim() : null;
+      const warningHoldVal = typeof body.warningHoldText === 'string'
+        ? body.warningHoldText.trim()
+        : typeof body.warningHold === 'string'
+        ? body.warningHold.trim()
+        : undefined;
+      const failRejectVal = typeof body.failRejectText === 'string'
+        ? body.failRejectText.trim()
+        : typeof body.failReject === 'string'
+        ? body.failReject.trim()
+        : undefined;
+      const ruleCategoryVal = body.category === 'MONITORING' || body.category === 'RELEASE'
+        ? body.category
+        : (targetTest.testScope === 'MONITORING' ? 'MONITORING' : 'RELEASE');
+
+      // 1. Update all existing rules for this lab test with the new limits and thresholds
+      const ruleUpdateData: Prisma.LabTestRuleUpdateInput = {};
+      if (body.minValue !== undefined) ruleUpdateData.min_value = minVal;
+      if (body.maxValue !== undefined) ruleUpdateData.max_value = maxVal;
+      if (body.acceptableOption !== undefined) ruleUpdateData.acceptable_option = optVal;
+      if (warningHoldVal !== undefined) ruleUpdateData.warning_trigger = warningHoldVal && warningHoldVal !== '—' ? warningHoldVal : null;
+      if (failRejectVal !== undefined) ruleUpdateData.decision_consequence = failRejectVal && failRejectVal !== '—' ? failRejectVal : null;
+      if (body.category !== undefined) ruleUpdateData.rule_category = ruleCategoryVal;
+
+      if (Object.keys(ruleUpdateData).length > 0) {
+        await tx.labTestRule.updateMany({
+          where: { lab_test_id: testId },
+          data: ruleUpdateData,
+        });
+      }
+
+      // 2. Synchronize stage policy assignments and stage rules
       if (Array.isArray(body.assignedStages)) {
         const ALL_POSSIBLE_STAGES = ['MOT_SHOP', 'ZMCC_LAB_MC', 'ZMCC_LAB_HC', 'DISPATCH', 'PLANT_QA'];
-        const minVal = body.minValue !== undefined && body.minValue !== '' && body.minValue !== null ? Number(body.minValue) : null;
-        const maxVal = body.maxValue !== undefined && body.maxValue !== '' && body.maxValue !== null ? Number(body.maxValue) : null;
-        const optVal = typeof body.acceptableOption === 'string' && body.acceptableOption.trim() ? body.acceptableOption.trim() : null;
 
         for (const stage of ALL_POSSIBLE_STAGES) {
           const shouldBeActive = body.assignedStages.includes(stage);
@@ -166,21 +197,23 @@ export async function PATCH(
             });
           }
 
-          if (shouldBeActive && (minVal !== null || maxVal !== null || optVal !== null)) {
+          if (shouldBeActive) {
             const existingRule = await tx.labTestRule.findFirst({
               where: {
                 lab_test_id: testId,
                 testing_point: stage,
-                rule_category: 'RELEASE',
               },
             });
             if (existingRule) {
               await tx.labTestRule.update({
                 where: { id: existingRule.id },
                 data: {
-                  min_value: minVal,
-                  max_value: maxVal,
-                  acceptable_option: optVal,
+                  min_value: minVal !== null ? minVal : existingRule.min_value,
+                  max_value: maxVal !== null ? maxVal : existingRule.max_value,
+                  acceptable_option: optVal !== null ? optVal : existingRule.acceptable_option,
+                  warning_trigger: warningHoldVal !== undefined ? (warningHoldVal && warningHoldVal !== '—' ? warningHoldVal : null) : existingRule.warning_trigger,
+                  decision_consequence: failRejectVal !== undefined ? (failRejectVal && failRejectVal !== '—' ? failRejectVal : null) : existingRule.decision_consequence,
+                  rule_category: ruleCategoryVal,
                   is_active: true,
                 },
               });
@@ -189,10 +222,12 @@ export async function PATCH(
                 data: {
                   lab_test_id: testId,
                   testing_point: stage,
-                  rule_category: 'RELEASE',
+                  rule_category: ruleCategoryVal,
                   min_value: minVal,
                   max_value: maxVal,
                   acceptable_option: optVal,
+                  warning_trigger: warningHoldVal && warningHoldVal !== '—' ? warningHoldVal : null,
+                  decision_consequence: failRejectVal && failRejectVal !== '—' ? failRejectVal : null,
                   is_active: true,
                   version: 1,
                   created_by: adminUser?.id ?? BigInt(1),

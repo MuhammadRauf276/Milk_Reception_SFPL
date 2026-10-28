@@ -4,6 +4,8 @@ import React, { useMemo, useState } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Plus, Edit2, ShieldAlert, CheckCircle2, Search } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useCurrentUser } from '@/frontend/hooks/useCurrentUser';
 import { Button } from '@/components/ui/button';
 import { fadeSlide } from '@/components/motion/presets';
 import { getErrorMessage } from '@/lib/errors';
@@ -56,9 +58,20 @@ function Segmented({ label, options, value, onChange }: { label: string; options
 }
 
 export default function SuperAdminProcurementSourcesPage() {
+  const router = useRouter();
+  const { currentUser, loadingUser } = useCurrentUser();
+  const notAllowed = !loadingUser && !!currentUser && currentUser.role !== 'SUPER_ADMIN' && currentUser.role !== 'DATA_EXECUTIVE';
+  React.useEffect(() => {
+    if (notAllowed) router.replace('/super-admin/corrections');
+  }, [notAllowed, router]);
+  if (loadingUser || notAllowed) return null;
+  return <ProcurementSourcesContent />;
+}
+
+function ProcurementSourcesContent() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
-  const [type, setType] = useState('');
+  const [type, setType] = useState('ZMCC');
   const [status, setStatus] = useState('');
   const [page, setPage] = useState(1);
   const [dialog, setDialog] = useState<Dialog>(null);
@@ -99,7 +112,7 @@ export default function SuperAdminProcurementSourcesPage() {
   return (
     <div className="w-full max-w-full space-y-4 overflow-x-hidden">
       {error && (
-        <div className="flex items-center space-x-2 rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs font-semibold text-rose-800 animate-panel-in">
+        <div className="flex items-center space-x-2 rounded-xl border border-border bg-card p-4 text-xs font-semibold text-rose-800 animate-panel-in">
           <ShieldAlert className="h-4 w-4 shrink-0 text-rose-600" />
           <span>{error}</span>
         </div>
@@ -114,7 +127,7 @@ export default function SuperAdminProcurementSourcesPage() {
             animate="animate"
             exit="exit"
             role="status"
-            className="flex items-center space-x-2 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-xs font-semibold text-emerald-800"
+            className="flex items-center space-x-2 rounded-xl border border-border bg-card p-4 text-xs font-semibold text-emerald-800"
           >
             <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
             <span>{successMsg}</span>
@@ -122,7 +135,7 @@ export default function SuperAdminProcurementSourcesPage() {
         )}
       </AnimatePresence>
 
-      <div className="w-full max-w-full overflow-hidden rounded-xl border border-border/80 bg-white shadow-xs">
+      <div className="w-full max-w-full overflow-hidden rounded-xl border border-border/80 bg-card shadow-2xs">
         <div className="space-y-3 border-b border-border p-3 sm:px-4 sm:py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
@@ -145,7 +158,7 @@ export default function SuperAdminProcurementSourcesPage() {
                 onChange={(e) => withReset(() => setSearch(e.target.value))}
                 placeholder="Search code or name"
                 aria-label="Search procurement sources"
-                className="h-11 w-full rounded-xl border border-border-strong bg-white pl-9 pr-3 text-sm focus:outline-hidden focus:border-primary"
+                className="h-11 w-full rounded-xl border border-border-strong bg-card pl-9 pr-3 text-sm focus:outline-hidden focus:border-primary"
               />
             </div>
             <Segmented label="Source type" options={TYPE_OPTIONS} value={type} onChange={(v) => withReset(() => setType(v))} />
@@ -160,7 +173,7 @@ export default function SuperAdminProcurementSourcesPage() {
                 <th className="p-3 font-semibold">Code</th>
                 <th className="p-3 font-semibold">Name</th>
                 <th className="p-3 font-semibold">Source Type</th>
-                <th className="p-3 font-semibold">ERP Code</th>
+                {type !== 'ZMCC' && <th className="p-3 font-semibold">ERP Code</th>}
                 <th className="p-3 font-semibold">Status</th>
                 <th className="p-3 text-right font-semibold">Actions</th>
               </tr>
@@ -192,7 +205,7 @@ export default function SuperAdminProcurementSourcesPage() {
                         {s.sourceType}
                       </span>
                     </td>
-                    <td className="p-3 tabular-nums text-slate-700">{s.sourceType === 'CONTRACTOR' ? s.erpCode || '—' : ''}</td>
+                    {type !== 'ZMCC' && <td className="p-3 tabular-nums text-slate-700">{s.sourceType === 'CONTRACTOR' ? s.erpCode || '—' : ''}</td>}
                     <td className="p-3">
                       {s.isActive ? (
                         <span className="rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">Active</span>

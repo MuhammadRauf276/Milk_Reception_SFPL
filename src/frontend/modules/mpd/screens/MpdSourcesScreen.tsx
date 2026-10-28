@@ -5,6 +5,7 @@ import { Building2, Building, CheckCircle2, Search } from 'lucide-react';
 import type { ZmccCenterTelemetry, PlantContractorTelemetry } from '../types';
 import type { MpdExecutiveTelemetry } from '@/backend/services/mpdExecutiveService';
 import { formatMetric, NO_DATA } from '../format';
+import { Pager, paginate, pageCount } from '@/frontend/modules/dashboard/components/Pager';
 
 interface MpdSourcesScreenProps {
   zmccs: ZmccCenterTelemetry[];
@@ -18,6 +19,8 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
   intakeBySource = [],
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [IntakePage, setIntakePage] = useState(1);
+  const [ContractorPage, setContractorPage] = useState(1);
   const [sourceFilter, setSourceFilter] = useState<'ALL' | 'ZMCC' | 'CONTRACTORS'>('ALL');
 
   const filteredZmccs = (zmccs ?? []).filter(
@@ -30,41 +33,41 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-border">
+      <div className="bg-card border-border flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3.5 rounded-xl border">
         <div className="relative flex-1">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="Search ZMCC chilling center or Plant contractor…"
+            placeholder="Search"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-border focus:outline-hidden focus:border-primary bg-subtle"
+            className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-border focus:outline-hidden focus:border-primary bg-subtle min-h-11"
           />
         </div>
         <div className="flex items-center gap-1.5">
           <button
             onClick={() => setSourceFilter('ALL')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+            className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold transition-colors ${
               sourceFilter === 'ALL' ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
-            All Nodes ({(zmccs ?? []).length + (contractors ?? []).length})
+            All ({(zmccs ?? []).length + (contractors ?? []).length})
           </button>
           <button
             onClick={() => setSourceFilter('ZMCC')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+            className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold transition-colors ${
               sourceFilter === 'ZMCC' ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
-            ZMCC Centers ({(zmccs ?? []).length})
+            ZMCC ({(zmccs ?? []).length})
           </button>
           <button
             onClick={() => setSourceFilter('CONTRACTORS')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+            className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold transition-colors ${
               sourceFilter === 'CONTRACTORS' ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
-            Plant Contractors ({(contractors ?? []).length})
+            Contractors ({(contractors ?? []).length})
           </button>
         </div>
       </div>
@@ -75,7 +78,7 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
             <div className="flex items-center gap-2">
               <Building2 className="w-4 h-4 text-primary" />
               <h2 className="text-xs font-semibold text-foreground">
-                ZMCC Chilling Centers (Intake & Silo Stocks)
+                ZMCC centers
               </h2>
             </div>
             <span className="text-xs tabular-nums font-medium text-slate-500">
@@ -87,7 +90,7 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
             {filteredZmccs.map((z) => (
               <div
                 key={z.id}
-                className="bg-white border border-border rounded-xl p-4 shadow-xs hover:border-primary/50 transition-all flex flex-col justify-between"
+                className="bg-card border border-border rounded-xl p-4 shadow-xs hover:border-primary/50 transition-all flex flex-col justify-between"
               >
                 <div>
                   <div className="flex items-center justify-between mb-2">
@@ -100,7 +103,7 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
                   </div>
                   <h3 className="text-sm font-semibold text-foreground">{z.name}</h3>
 
-                  <div className="mt-3 grid grid-cols-2 gap-2 bg-subtle p-2.5 rounded-lg border border-border">
+                  <div className="bg-card border-border mt-3 grid grid-cols-2 gap-2 p-2.5 rounded-lg border">
                     <div>
                       <div className="text-xs text-slate-500 font-medium">Received today</div>
                       <div className="tabular-nums font-semibold text-slate-800 text-xs">
@@ -144,12 +147,10 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
                   </span>
                 </div>
                 <div className="mt-2 flex items-center justify-between text-xs text-slate-600">
-                  <span>Left without full unloading (30d):</span>
+                  <span>Not unloaded</span>
                   <span className={`tabular-nums font-semibold ${z.leftWithoutFullUnloadingCount > 0 ? 'text-amber-700' : 'text-slate-700'}`}>
                     {z.leftWithoutFullUnloadingCount}
-                    {z.pendingCloseRequestCount > 0 ? ` · ${z.pendingCloseRequestCount} close request(s) pending` : ''}
-                    {z.acceptedNotReceivedLiters > 0 ? ` · ${z.acceptedNotReceivedLiters.toLocaleString()} L accepted, not received` : ''}
-                  </span>
+                                                          </span>
                 </div>
               </div>
             ))}
@@ -158,7 +159,7 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
       )}
 
       {(sourceFilter === 'ALL' || sourceFilter === 'ZMCC') && intakeBySource.length > 0 && (
-        <div className="bg-white border border-border rounded-xl overflow-hidden shadow-xs">
+        <div className="bg-card border border-border rounded-xl overflow-hidden shadow-xs">
           <div className="p-4 border-b border-border text-xs font-semibold text-foreground">Received today by milk source</div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
@@ -168,11 +169,11 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
                   <th className="py-3 px-4 text-right">Net kg</th>
                   <th className="py-3 px-4 text-right">Gross L</th>
                   <th className="py-3 px-4 text-right">@13TS L</th>
-                  <th className="py-3 px-4 text-center">LR / Fat / SNF / TS</th>
+                  <th className="py-3 px-4 text-center">Quality</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {intakeBySource.map((r) => (
+                {paginate(intakeBySource, Math.min(IntakePage, pageCount(intakeBySource.length))).map((r) => (
                   <tr key={r.sourceId ?? r.sourceName}>
                     <td className="py-3 px-4">
                       <div className="font-semibold text-foreground">{r.sourceName}</div>
@@ -188,12 +189,13 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
                 ))}
               </tbody>
             </table>
+<Pager page={Math.min(IntakePage, pageCount(intakeBySource.length))} totalPages={pageCount(intakeBySource.length)} total={intakeBySource.length} onPageChange={setIntakePage} />
           </div>
         </div>
       )}
 
       {(sourceFilter === 'ALL' || sourceFilter === 'CONTRACTORS') && (
-        <div className="bg-white border border-border rounded-xl overflow-hidden shadow-xs">
+        <div className="bg-card border border-border rounded-xl overflow-hidden shadow-xs">
           <div className="p-4 border-b border-border flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Building className="w-4 h-4 text-primary" />
@@ -212,7 +214,7 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
                 <tr className="bg-subtle border-b border-border text-slate-600 font-semibold">
                   <th className="py-3 px-4">Contractor Name / Code</th>
                   <th className="py-3 px-4 text-right">Delivered to Plant</th>
-                  <th className="py-3 px-4 text-center">Plant QA (Fat / LR)</th>
+                  <th className="py-3 px-4 text-center">Plant QA</th>
                   <th className="py-3 px-4 text-center">QA Pass Rate</th>
                 </tr>
               </thead>
@@ -224,7 +226,7 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
                     </td>
                   </tr>
                 ) : (
-                  filteredContractors.map((c) => (
+                  paginate(filteredContractors, Math.min(ContractorPage, pageCount(filteredContractors.length))).map((c) => (
                     <tr key={c.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="py-3 px-4">
                         <div className="font-semibold text-foreground">{c.name}</div>
@@ -252,6 +254,7 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
                 )}
               </tbody>
             </table>
+<Pager page={Math.min(ContractorPage, pageCount(filteredContractors.length))} totalPages={pageCount(filteredContractors.length)} total={filteredContractors.length} onPageChange={setContractorPage} />
           </div>
         </div>
       )}

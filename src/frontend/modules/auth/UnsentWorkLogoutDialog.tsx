@@ -11,6 +11,8 @@ import { logDeviceEvent } from '@/frontend/modules/pwa/diary';
 export interface UnsentWorkLogoutDialogProps {
   /** Items waiting to be sent. */
   count: number;
+  sendableCount?: number;
+  draftsCount?: number;
   /** Items that need help from the office. They are kept, never deleted. */
   needsAttention?: number;
   isMot?: boolean;
@@ -23,6 +25,8 @@ export interface UnsentWorkLogoutDialogProps {
 /** Shown on logout when work is saved on the phone but not sent. There is no delete option. */
 export function UnsentWorkLogoutDialog({
   count,
+  sendableCount = 0,
+  draftsCount = 0,
   needsAttention = 0,
   isMot = false,
   onAllSent,
@@ -55,7 +59,7 @@ export function UnsentWorkLogoutDialog({
     setSending(false);
     setWaiting(left.total);
     setHelp(left.needsAttention);
-    if (left.total === 0) {
+    if (left.sendableCount === 0) {
       setMessage('Sent');
       onAllSent();
     } else {

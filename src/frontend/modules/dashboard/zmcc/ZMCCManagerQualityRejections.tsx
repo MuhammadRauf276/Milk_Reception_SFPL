@@ -44,12 +44,12 @@ interface ZMCCManagerQualityRejectionsProps {
 }
 
 const PLANT_FILTER_OPTIONS: { id: QualityRejectionFilter; label: string }[] = [
-  { id: 'ALL', label: 'All Portions' },
+  { id: 'ALL', label: 'All' },
   { id: 'REJECTED', label: 'Rejected' },
   { id: 'HOLD', label: 'Hold' },
   { id: 'ACCEPTED', label: 'Accepted' },
   { id: 'PENDING', label: 'Pending' },
-  { id: 'HAS_QUALITY_DIFF', label: 'Quality Differences' },
+  { id: 'HAS_QUALITY_DIFF', label: 'Quality diff' },
 ];
 
 type ZmccViewMode = 'ZMCC_LAB' | 'PLANT_QA';
@@ -161,7 +161,7 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
             </div>
             <div>
               <h2 className="text-sm font-semibold text-foreground">
-                Quality Analysis & Rejections Governance: {assignedSourceName}
+                Quality review
               </h2>
             </div>
           </div>
@@ -170,7 +170,7 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
             {/* View Mode Switch */}
             <div className="flex items-center p-1 bg-slate-50 border border-slate-200 rounded-lg">
               <span className="px-3 py-1 text-xs font-semibold text-slate-800">
-                ZMCC Lab & Intake Quality Review
+                ZMCC lab
               </span>
             </div>
 
@@ -185,12 +185,12 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
         </div>
 
         {reviewSuccessMsg && (
-          <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center justify-between">
+          <div className="bg-card border-border p-3 rounded-lg border text-emerald-800 text-xs font-semibold flex items-center justify-between">
             <div className="flex items-center gap-2">
               <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
               <span>{reviewSuccessMsg}</span>
             </div>
-            <button onClick={() => setReviewSuccessMsg(null)} aria-label="Dismiss" className="text-emerald-900">
+            <button onClick={() => setReviewSuccessMsg(null)} aria-label="Dismiss" className="text-emerald-900 min-h-11 min-w-11">
               <X className="h-4 w-4" />
             </button>
           </div>
@@ -199,25 +199,25 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
         {/* Mode-Specific KPIs */}
         {viewMode === 'ZMCC_LAB' ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 tabular-nums">
-            <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
+            <div className="bg-card border-border p-3 rounded-lg border">
               <span className="text-xs font-sans text-slate-500 block uppercase font-semibold">Total Lab Sessions</span>
               <span className="text-lg font-semibold text-slate-900">
                 {labLoading ? '—' : labSessions.length}
               </span>
             </div>
-            <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200">
+            <div className="bg-card border-border p-3 rounded-lg border">
               <span className="text-xs font-sans text-emerald-700 block uppercase font-semibold">Accepted Milk</span>
               <span className="text-lg font-semibold text-emerald-800">
                 {labLoading ? '—' : labSessions.filter((s) => s.decision === 'ACCEPTED').length}
               </span>
             </div>
-            <div className="p-3 rounded-lg bg-rose-50 border border-rose-200">
+            <div className="bg-card border-border p-3 rounded-lg border">
               <span className="text-xs font-sans text-rose-700 block uppercase font-semibold">Rejected Milk</span>
               <span className="text-lg font-semibold text-rose-800">
                 {labLoading ? '—' : labSessions.filter((s) => s.decision === 'REJECTED').length}
               </span>
             </div>
-            <div className="p-3 rounded-lg bg-amber-50 border border-amber-200">
+            <div className="bg-card border-border p-3 rounded-lg border">
               <span className="text-xs font-sans text-amber-700 block uppercase font-semibold">Pending Manager Review</span>
               <span className="text-lg font-semibold text-amber-800">
                 {labLoading
@@ -231,7 +231,7 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
                     ).length}
               </span>
             </div>
-            <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
+            <div className="bg-card border-border p-3 rounded-lg border">
               <span className="text-xs font-sans text-slate-700 block uppercase font-semibold">Reviewed Exited</span>
               <span className="text-lg font-semibold text-slate-800">
                 {labLoading ? '—' : labSessions.filter((s) => s.manager_review_status === 'REVIEWED_EXITED').length}
@@ -240,27 +240,27 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 tabular-nums">
-            <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
+            <div className="bg-card border-border p-3 rounded-lg border">
               <span className="text-xs font-sans text-slate-500 block uppercase font-semibold">Total Portions</span>
               <span className="text-lg font-semibold text-slate-900">{plantSummary.totalPortions}</span>
             </div>
-            <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200">
+            <div className="bg-card border-border p-3 rounded-lg border">
               <span className="text-xs font-sans text-emerald-700 block uppercase font-semibold">Accepted</span>
               <span className="text-lg font-semibold text-emerald-800">{plantSummary.acceptedCount}</span>
             </div>
-            <div className="p-3 rounded-lg bg-rose-50 border border-rose-200">
+            <div className="bg-card border-border p-3 rounded-lg border">
               <span className="text-xs font-sans text-rose-700 block uppercase font-semibold">Rejected</span>
               <span className="text-lg font-semibold text-rose-800">{plantSummary.rejectedCount}</span>
             </div>
-            <div className="p-3 rounded-lg bg-amber-50 border border-amber-200">
+            <div className="bg-card border-border p-3 rounded-lg border">
               <span className="text-xs font-sans text-amber-700 block uppercase font-semibold">Hold</span>
               <span className="text-lg font-semibold text-amber-800">{plantSummary.holdCount}</span>
             </div>
-            <div className="p-3 rounded-lg bg-slate-100 border border-slate-300">
+            <div className="bg-card border-border p-3 rounded-lg border">
               <span className="text-xs font-sans text-slate-600 block uppercase font-semibold">Pending</span>
               <span className="text-lg font-semibold text-slate-800">{plantSummary.pendingCount}</span>
             </div>
-            <div className="p-3 rounded-lg bg-amber-50 border border-amber-200">
+            <div className="bg-card border-border p-3 rounded-lg border">
               <span className="text-xs font-sans text-amber-700 block uppercase font-semibold">Quality Diff</span>
               <span className="text-lg font-semibold text-amber-800">{plantSummary.qualityDiffCount}</span>
             </div>
@@ -277,7 +277,7 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search vehicle #, token #, supplier…"
+              placeholder="Search"
               className="w-full min-h-11 pl-9 pr-3 py-1.5 text-xs font-semibold rounded-lg bg-subtle border border-border/80 text-foreground focus:ring-2 focus:ring-primary outline-hidden"
             />
           </div>
@@ -289,12 +289,12 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
                 type="date"
                 value={currentFromDate}
                 onChange={(e) => onDateFilterChange(e.target.value || null, currentToDate || null)}
-                className="px-2.5 py-1 text-xs tabular-nums font-semibold rounded-lg bg-subtle border border-border/80 text-foreground"
+                className="px-2.5 py-1 text-xs tabular-nums font-semibold rounded-lg bg-subtle border border-border/80 text-foreground min-h-11"
               />
               {currentFromDate && (
                 <button
                   onClick={() => onDateFilterChange(null, null)}
-                  className="px-2 py-1 text-[11px] font-semibold text-rose-600 hover:bg-rose-50 rounded"
+                  className="px-2 py-1 text-[11px] font-semibold text-rose-600 hover:bg-rose-50 rounded min-h-11 min-w-11"
                 >
                   Clear
                 </button>
@@ -308,11 +308,11 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
           <div className="flex items-center gap-1.5 overflow-x-auto pt-2 border-t border-border/60 text-xs">
             <span className="text-[11px] font-semibold text-slate-500 mr-1 uppercase">Filter:</span>
             {([
-              { id: 'ALL', label: 'All ZMCC Sessions' },
-              { id: 'PENDING_REVIEW', label: 'Needs Manager Review' },
-              { id: 'REJECTED', label: 'Rejected Intake' },
-              { id: 'REVIEWED_EXITED', label: 'Reviewed After Exit' },
-              { id: 'APPROVED', label: 'Exceptions Approved' },
+              { id: 'ALL', label: 'All' },
+              { id: 'PENDING_REVIEW', label: 'To review' },
+              { id: 'REJECTED', label: 'Rejected' },
+              { id: 'REVIEWED_EXITED', label: 'After exit' },
+              { id: 'APPROVED', label: 'Approved' },
             ] as const).map((opt) => (
               <button
                 key={opt.id}
@@ -349,12 +349,12 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
 
       {/* 3. Errors */}
       {(labError || error) && (
-        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center justify-between">
+        <div className="bg-card border-border p-4 rounded-xl border text-rose-800 text-xs font-semibold flex items-center justify-between">
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
             <span>{labError || error}</span>
           </div>
-          <button onClick={viewMode === 'ZMCC_LAB' ? fetchLabSessions : onRetry} className="underline hover:text-rose-950">
+          <button onClick={viewMode === 'ZMCC_LAB' ? fetchLabSessions : onRetry} className="underline hover:text-rose-950 min-h-11 min-w-11">
             Retry
           </button>
         </div>
@@ -373,7 +373,7 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
         <div className="p-12 text-center bg-card rounded-xl border border-border/80 space-y-2">
           <FileSpreadsheet className="w-8 h-8 text-slate-400 mx-auto" />
           <h3 className="text-sm font-semibold text-slate-800">No records found</h3>
-          <p className="text-xs text-slate-500">No records found matching your selected criteria.</p>
+          <p className="text-xs text-slate-500">No records</p>
         </div>
       )}
 

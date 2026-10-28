@@ -69,7 +69,7 @@ export function SiloFormDrawer({ silo, onClose, onSaved }: FormProps) {
   return (
     <FormDrawer open onClose={onClose} busy={busy} error={error} title={isEdit ? `Edit Silo (${silo!.siloCode})` : 'Add Silo Storage'}>
       {isEdit && (
-        <div className="space-y-1 rounded-xl border border-blue-200 bg-blue-50 p-3 font-medium text-blue-950">
+        <div className="space-y-1 rounded-xl border border-border bg-card p-3 font-medium text-blue-950">
           <div className="flex justify-between">
             <span>Current Stock:</span>
             <strong>{silo!.currentStockLiters.toLocaleString()} L</strong>
@@ -163,7 +163,7 @@ export function SiloDeactivateDrawer({ silo, onClose, onSaved }: { silo: Silo; o
           Are you sure you want to deactivate silo <strong className="tabular-nums text-foreground">{silo.siloCode}</strong> ({silo.siloName})?
         </p>
       </div>
-      <ul className="list-disc space-y-1 rounded-xl border border-amber-200 bg-amber-50 p-3 pl-7 text-amber-900">
+      <ul className="list-disc space-y-1 rounded-xl border border-border bg-card p-3 pl-7 text-amber-900">
         <li>The silo will be removed from operational selection immediately.</li>
         <li>Deactivation is blocked if the silo contains milk stock or active unloadings.</li>
       </ul>

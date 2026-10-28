@@ -174,14 +174,19 @@ export async function getApprovalInbox(
   const isZmccScoped = actor.role === 'ZMCC_MANAGER' || actor.role === 'MDO';
   const isContractorScoped = actor.role === 'CONTRACTOR_MANAGER';
   const isQaScoped = actor.role === 'QA_HEAD' || actor.role === 'QA_LAB_ATTENDANT';
+  const isSuperOrAuditor =
+    actor.role === 'SUPER_ADMIN' ||
+    actor.role === 'DATA_EXECUTIVE' ||
+    actor.role === 'EXECUTIVE_MANAGEMENT';
 
   const items: UnifiedApprovalItem[] = [];
 
   // ===============================================================================================
   // Stage 1 Queries: MOT Shop Collections, New Routes, New Shops
+  // Only for ZMCC Manager / MDO or System Auditors (Super Admin, Data Executive)
   // ===============================================================================================
   if (
-    (!isContractorScoped && !isQaScoped) &&
+    (isZmccScoped || isSuperOrAuditor) &&
     (stageFilter === 'ALL' || stageFilter === 'STAGE_1')
   ) {
     // 1. MOT Shop Collections
@@ -285,7 +290,7 @@ export async function getApprovalInbox(
           zmccId: col.zmcc_id.toString(),
           submittedBy: {
             id: submitterId,
-            name: submitterUser?.full_name || submitterUser?.username || col.mot_profile?.name || 'MOT Operator',
+            name: submitterUser?.full_name || submitterUser?.username || col.mot_profile?.name || 'Mobile Tester',
             role: submitterRole,
             performedAsRole: col.performed_as_role,
             isDelegated: col.is_delegated,
@@ -506,9 +511,10 @@ export async function getApprovalInbox(
 
   // ===============================================================================================
   // Stage 2 Queries: ZMCC Lab Portions, New HCs
+  // Only for ZMCC Manager or System Auditors (Super Admin, Data Executive)
   // ===============================================================================================
   if (
-    (!isContractorScoped && !isQaScoped) &&
+    (isZmccScoped || isSuperOrAuditor) &&
     (stageFilter === 'ALL' || stageFilter === 'STAGE_2')
   ) {
     // 1. ZMCC Lab Portions
@@ -1016,9 +1022,17 @@ export async function getApprovalInbox(
     item.disabledReason = decisionCheck.disabledReason || null;
   }
 
+  // Filter out non-actionable items for operational roles in PENDING mode:
+  // An operational approver's pending queue must only show items they can actually decide.
+  // DATA_EXECUTIVE is an auditor and may review all pending items read-only.
+  const activeItems =
+    statusFilter === 'PENDING' && actor.role !== 'DATA_EXECUTIVE'
+      ? scopedItems.filter((item) => item.canDecide === true)
+      : scopedItems;
+
   // Sort: Pending items by SLA urgency (BREACHED first, then WARNING, then NORMAL; within group, oldest waiting first)
   // Decided items by decidedAt desc
-  scopedItems.sort((a, b) => {
+  activeItems.sort((a, b) => {
     if (a.status === 'PENDING' && b.status === 'PENDING') {
       const priorityWeight: Record<SlaStatus, number> = { BREACHED: 3, WARNING: 2, NORMAL: 1 };
       const weightDiff = priorityWeight[b.slaStatus] - priorityWeight[a.slaStatus];
@@ -1039,7 +1053,7 @@ export async function getApprovalInbox(
     breachedCount: 0,
   };
 
-  for (const item of scopedItems) {
+  for (const item of activeItems) {
     if (item.status === 'PENDING') {
       counts.totalPending++;
       if (item.stage === 'STAGE_1') counts.stage1++;
@@ -1052,7 +1066,7 @@ export async function getApprovalInbox(
   }
 
   return {
-    items: scopedItems,
+    items: activeItems,
     counts,
     nextCursor: null,
   };

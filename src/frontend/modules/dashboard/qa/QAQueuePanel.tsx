@@ -1,5 +1,7 @@
 'use client';
 
+import { useQueryClient } from '@tanstack/react-query';
+import { EmptyAction } from '../components/EmptyAction';
 import React from 'react';
 import { Search, Play, Loader2 } from 'lucide-react';
 import { formatOperationalTime } from '@/lib/datetime-utils';
@@ -85,15 +87,16 @@ export const QAQueuePanel: React.FC<QAQueuePanelProps> = ({
   isLoadingQueues,
   isSubmitting,
 }) => {
+  const queryClient = useQueryClient();
   return (
     <div className="space-y-3.5">
       <div className="flex items-center justify-between px-1">
         <h3 className="text-sm font-bold text-foreground">
           {activeTab === 'WAITING'
-            ? 'Waiting Queue'
+            ? 'Waiting'
             : activeTab === 'IN_TESTING'
-            ? 'In Testing Sessions'
-            : 'On Hold Queue'}
+            ? 'In testing'
+            : 'On hold'}
         </h3>
         <span className="text-xs tabular-nums font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
           {activeTab === 'WAITING'
@@ -110,22 +113,20 @@ export const QAQueuePanel: React.FC<QAQueuePanelProps> = ({
           type="text"
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Search vehicle or token…"
+          placeholder="Search token…"
           className="w-full min-h-[44px] pl-10 pr-3.5 py-2 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-2xs"
         />
       </div>
 
       <div key={activeTab} className="space-y-3 max-h-[560px] overflow-y-auto pr-1 stagger-children scrollbar-thin">
         {isLoadingQueues ? (
-          <div className="p-8 text-center border border-dashed border-border rounded-xl text-sm text-muted-foreground bg-white">
+          <div className="bg-card border-border p-8 text-center border border-dashed rounded-xl text-sm text-muted-foreground">
             <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-primary" />
-            Loading QA queues…
+            Loading queues…
           </div>
         ) : activeTab === 'WAITING' ? (
           waitingVisits.length === 0 ? (
-            <div className="p-8 text-center border border-dashed border-border rounded-xl text-sm text-muted-foreground bg-white">
-              No vehicles waiting for QA testing.
-            </div>
+            <EmptyAction message="No vehicles" onRefresh={() => queryClient.invalidateQueries()} />
           ) : (
             waitingVisits.map((v) => {
               const isSelected = selectedWaitingVisitId === v.id;
@@ -139,14 +140,14 @@ export const QAQueuePanel: React.FC<QAQueuePanelProps> = ({
                   className={cn(
                     'p-4 rounded-xl border transition cursor-pointer space-y-2.5 shadow-2xs select-none',
                     isSelected
-                      ? 'bg-blue-50/60 text-foreground border-primary-hover ring-2 ring-primary-hover/20'
+                      ? 'bg-primary/5 text-foreground border-primary ring-1 ring-primary'
                       : 'bg-white text-foreground border-border-strong hover:border-primary-hover/60 hover:bg-slate-50/50'
                   )}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                       <span className="tabular-nums font-bold text-sm text-foreground">{v.vehicle_number}</span>
-                      <span className="tabular-nums text-xs font-semibold px-2 py-0.5 rounded-md bg-blue-50 text-primary border border-blue-200">
+                      <span className="tabular-nums text-xs font-semibold px-2 py-0.5 rounded-md bg-muted text-foreground border border-border">
                         {v.token_number || 'No Token'}
                       </span>
                     </div>
@@ -158,11 +159,6 @@ export const QAQueuePanel: React.FC<QAQueuePanelProps> = ({
                   <div className="flex items-center justify-between text-xs font-medium text-slate-600">
                     <span>
                       {v.portion_count} Portion{v.portion_count > 1 ? 's' : ''}
-                      {v.vehicle_dispatch_quantity_value != null && v.vehicle_dispatch_quantity_unit
-                        ? ` (${Number(v.vehicle_dispatch_quantity_value).toLocaleString()} ${v.vehicle_dispatch_quantity_unit})`
-                        : v.total_quantity_value != null && v.total_quantity_unit
-                        ? ` (${Number(v.total_quantity_value).toLocaleString()} ${v.total_quantity_unit})`
-                        : ''}
                     </span>
                     <span className="tabular-nums">Wait: {v.waiting_minutes}m</span>
                   </div>
@@ -185,8 +181,8 @@ export const QAQueuePanel: React.FC<QAQueuePanelProps> = ({
           )
         ) : activeTab === 'IN_TESTING' ? (
           inTestingVisits.length === 0 ? (
-            <div className="p-8 text-center border border-dashed border-border rounded-xl text-sm text-muted-foreground bg-white">
-              No QA testing sessions in progress.
+            <div className="bg-card border-border p-8 text-center border border-dashed rounded-xl text-sm text-muted-foreground">
+              No active tests.
             </div>
           ) : (
             inTestingVisits.map((v) => {
@@ -201,14 +197,14 @@ export const QAQueuePanel: React.FC<QAQueuePanelProps> = ({
                   className={cn(
                     'p-4 rounded-xl border transition cursor-pointer space-y-2.5 shadow-2xs select-none',
                     isSelected
-                      ? 'bg-blue-50/60 text-foreground border-primary-hover ring-2 ring-primary-hover/20'
+                      ? 'bg-primary/5 text-foreground border-primary ring-1 ring-primary'
                       : 'bg-white text-foreground border-border-strong hover:border-primary-hover/60 hover:bg-slate-50/50'
                   )}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                       <span className="tabular-nums font-bold text-sm text-foreground">{v.vehicle_number}</span>
-                      <span className="tabular-nums text-xs font-semibold px-2 py-0.5 rounded-md bg-blue-50 text-primary border border-blue-200">
+                      <span className="tabular-nums text-xs font-semibold px-2 py-0.5 rounded-md bg-muted text-foreground border border-border">
                         {v.token_number || 'No Token'}
                       </span>
                     </div>
@@ -223,15 +219,15 @@ export const QAQueuePanel: React.FC<QAQueuePanelProps> = ({
                   </div>
 
                   <div className="text-[11px] tabular-nums font-semibold text-primary">
-                    Portions: {v.finalized_portion_count} of {v.portion_count} finalized
+                    Portions: {v.finalized_portion_count}/{v.portion_count}
                   </div>
                 </div>
               );
             })
           )
         ) : onHoldVisits.length === 0 ? (
-          <div className="p-8 text-center border border-dashed border-border rounded-xl text-sm text-muted-foreground bg-white">
-            No QA sessions currently on hold.
+          <div className="bg-card border-border p-8 text-center border border-dashed rounded-xl text-sm text-muted-foreground">
+            No held tests.
           </div>
         ) : (
           onHoldVisits.map((v) => {
@@ -246,7 +242,7 @@ export const QAQueuePanel: React.FC<QAQueuePanelProps> = ({
                 className={cn(
                   'p-4 rounded-xl border transition cursor-pointer space-y-2.5 shadow-2xs select-none',
                   isSelected
-                    ? 'bg-amber-50/80 text-foreground border-amber-500 ring-2 ring-amber-500/20'
+                    ? 'bg-primary/5 text-foreground border-primary ring-1 ring-primary'
                     : 'bg-white text-foreground border-amber-300 hover:bg-amber-50/40'
                 )}
               >
@@ -262,7 +258,7 @@ export const QAQueuePanel: React.FC<QAQueuePanelProps> = ({
                   </span>
                 </div>
 
-                <p className="text-xs font-medium p-2 rounded-lg border bg-amber-50 text-amber-900 border-amber-200">
+                <p className="bg-card border-border text-xs font-medium p-2 rounded-lg border text-amber-900">
                   <strong className="font-semibold">Reason:</strong> {v.hold_reason}
                 </p>
 

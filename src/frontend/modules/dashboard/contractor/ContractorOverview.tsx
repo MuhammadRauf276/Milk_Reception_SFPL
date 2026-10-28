@@ -58,7 +58,7 @@ export const ContractorOverview: React.FC<ContractorOverviewProps> = ({
 
   if (error) {
     return (
-      <div className="p-6 rounded-xl bg-rose-50 border border-rose-200 text-center space-y-2">
+      <div className="bg-card border-border p-6 rounded-xl border text-center space-y-2">
         <AlertCircle className="w-8 h-8 text-rose-600 mx-auto" />
         <h4 className="text-sm font-semibold text-rose-900">Failed to Load Overview Data</h4>
         <p className="text-xs text-rose-700">{error}</p>
@@ -68,30 +68,26 @@ export const ContractorOverview: React.FC<ContractorOverviewProps> = ({
 
   return (
     <div className="space-y-6">
-      <div className="p-5 rounded-xl bg-white border border-border shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="bg-card border-border p-5 rounded-xl border shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center space-x-3">
           <div className="p-2.5 bg-blue-900 text-white rounded-xl shadow-xs">
             <Building2 className="w-5 h-5" />
           </div>
           <div>
             <h2 className="text-base font-semibold text-slate-900 leading-tight">
-              {assignedSourceName}: Pipeline Overview
+              {assignedSourceName}: Overview
             </h2>
             <p className="text-xs text-slate-500 font-medium mt-0.5">
-              Business date:{' '}
+              Date:{' '}
               <strong className="text-slate-700 tabular-nums">{serverBusinessDate || '—'}</strong>
             </p>
           </div>
         </div>
 
-        <div className="flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs tabular-nums font-semibold text-slate-700 self-start sm:self-auto">
-          <ShieldCheck className="w-4 h-4 text-blue-700" />
-          <span>Server Source Scoped</span>
-        </div>
       </div>
 
       {pagination && pagination.totalPages > 1 && (
-        <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-center justify-between">
+        <div className="bg-card border-border p-3.5 rounded-xl border text-xs text-amber-800 flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
             <span>
@@ -134,7 +130,7 @@ export const ContractorOverview: React.FC<ContractorOverviewProps> = ({
         />
       </div>
 
-      <div className="p-5 sm:p-6 rounded-xl bg-white border border-border shadow-xs space-y-4">
+      <div className="bg-card border-border p-5 sm:p-6 rounded-xl border shadow-xs space-y-4">
         <div className="flex items-center justify-between border-b border-muted pb-3">
           <div className="flex items-center space-x-2">
             <Layers className="w-4 h-4 text-blue-800" />
@@ -150,11 +146,11 @@ export const ContractorOverview: React.FC<ContractorOverviewProps> = ({
             Loading recent records…
           </div>
         ) : visits.length === 0 ? (
-          <div className="py-12 px-4 rounded-xl bg-slate-50 border border-dashed border-slate-200 text-center space-y-2">
+          <div className="bg-card border-border py-12 px-4 rounded-xl border border-dashed text-center space-y-2">
             <FileSpreadsheet className="w-8 h-8 text-slate-400 mx-auto" />
             <h4 className="text-sm font-semibold text-slate-700">No Operational Records</h4>
             <p className="text-xs text-slate-500 max-w-md mx-auto">
-              No operational records are available for your assigned Plant Contractor.
+              No records
             </p>
           </div>
         ) : (

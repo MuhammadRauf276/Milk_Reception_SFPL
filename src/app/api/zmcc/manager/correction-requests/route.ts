@@ -54,7 +54,7 @@ export async function POST(req: Request) {
         await createNotificationsForEvent(tx, {
           eventKey: 'CORRECTION_ESCALATED', sourceId: item.id.toString(),
           title: 'Correction request escalated', body: `${item.module} correction ${item.record_id} needs MPD Head review.`,
-          deepLink: '/mpd/head', dedupeSuffix: item.id.toString(),
+          deepLink: '/approvals', dedupeSuffix: item.id.toString(),
         });
       }
       return updated;

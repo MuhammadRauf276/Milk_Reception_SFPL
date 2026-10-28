@@ -3,6 +3,9 @@
 import React, { useCallback, useState } from 'react';
 import { toDatetimeLocalInput, datetimeLocalToIso } from '@/lib/datetime-utils';
 import { getErrorMessage } from '@/lib/errors';
+import { isForcedOffline } from '@/frontend/hooks/useOnlineStatus';
+import { enqueueSyncItem } from '@/frontend/modules/pwa/syncEngine';
+import { getActiveOwnerUserId } from '@/frontend/modules/pwa/deviceIdentity';
 import {
   EMPTY_GPS,
   generateClientEventId,
@@ -53,30 +56,94 @@ export function useMcArrivalForm(policyMode: PolicyMode, onRecorded: () => void)
     }
     setSubmitting(true);
     setError(null);
+
+    const arrivalIso = datetimeLocalToIso(arrivalTimestamp) || new Date(arrivalTimestamp).toISOString();
+    const payload = {
+      journey_id: selectedJourney.id,
+      raw_milk_token_number: rawMilkTokenNumber.trim() || undefined,
+      arrival_timestamp: arrivalIso,
+      client_event_id: eventId,
+      phe_latitude: gps.lat,
+      phe_longitude: gps.lng,
+      phe_gps_accuracy: gps.acc,
+    };
+
+    const handleOfflineQueue = async () => {
+      const clientUuid = crypto.randomUUID();
+      const owner = getActiveOwnerUserId() || 'unknown';
+      await enqueueSyncItem({
+        clientUuid,
+        kind: 'ZMCC_MOT_ARRIVAL',
+        ownerUserId: owner,
+        capturedAt: arrivalIso,
+        payload,
+      });
+      const offlineResult: McArrivalRow = {
+        id: clientUuid,
+        journey_id: selectedJourney.id,
+        zmcc_id: '',
+        route_milk_token: null,
+        raw_milk_token_number: payload.raw_milk_token_number || null,
+        zmcc_token: 'QUEUED (OFFLINE)',
+        arrival_timestamp: arrivalIso,
+        arrival_date: arrivalIso.split('T')[0],
+        phe_latitude: gps.lat,
+        phe_longitude: gps.lng,
+        phe_gps_accuracy: gps.acc,
+        client_event_id: eventId,
+        recorded_by_user_id: owner,
+        submitted_at: new Date().toISOString(),
+        correction_count: 0,
+        manager_correction_count: 0,
+        last_corrected_by_user_id: null,
+        last_corrected_at: null,
+        gate_exit_required: false,
+        exit_timestamp: null,
+        exit_recorded_by_user_id: null,
+        exit_client_event_id: null,
+        journey: {
+          id: selectedJourney.id,
+          journey_number: selectedJourney.journey_number,
+          operational_date: selectedJourney.operational_date,
+          status: 'ARRIVED',
+        } as unknown as McArrivalRow['journey'],
+      } as unknown as McArrivalRow;
+      setSuccessResult(offlineResult);
+      setFormOpen(false);
+      onRecorded();
+    };
+
+    if (!navigator.onLine || isForcedOffline()) {
+      try {
+        await handleOfflineQueue();
+      } catch (queueErr) {
+        setError(getErrorMessage(queueErr) || 'Failed to queue offline arrival.');
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
+
     try {
       const res = await fetch('/api/zmcc/arrivals/mot', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          journey_id: selectedJourney.id,
-          raw_milk_token_number: rawMilkTokenNumber.trim() || undefined,
-          arrival_timestamp: datetimeLocalToIso(arrivalTimestamp) || new Date(arrivalTimestamp).toISOString(),
-          client_event_id: eventId,
-          phe_latitude: gps.lat,
-          phe_longitude: gps.lng,
-          phe_gps_accuracy: gps.acc,
-        }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || 'Failed to record MC arrival.');
+        setError(data.error || 'Failed to record Mobile Tester arrival.');
       } else {
         setSuccessResult(data);
         setFormOpen(false);
         onRecorded();
       }
     } catch (err) {
-      setError(getErrorMessage(err) || 'An unexpected error occurred.');
+      try {
+        await handleOfflineQueue();
+      } catch {
+        setError(getErrorMessage(err) || 'An unexpected error occurred.');
+      }
     } finally {
       setSubmitting(false);
     }

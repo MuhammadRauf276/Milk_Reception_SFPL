@@ -11,6 +11,8 @@ export interface LabTestDef {
   isPhotoRequired?: boolean;
   displayOrder: number;
   resultOptions?: Array<{ value: string; label: string; isPassing: boolean | null }> | null;
+  /** Active PLANT_QA release rule (same shape as the dispatch policy rule). */
+  rule?: { min: number | null; max: number | null; allowed?: string[] | null } | null;
 }
 
 export interface SavedPlantResult {

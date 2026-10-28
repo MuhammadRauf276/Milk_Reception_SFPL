@@ -45,6 +45,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
   // PHE Operator, MDO and every role above them can record arrivals (server checks again).
   const canSubmit = !!currentUser && (canActAs(currentUser.role, 'PHE_OPERATOR') || canActAs(currentUser.role, 'MDO'));
   const canDirectCorrect = isDataExecutive || isSuperAdmin;
+  const isManager = Boolean(currentUser && canActAs(currentUser.role, 'ZMCC_MANAGER'));
 
   const [requestModalState, setRequestModalState] = useState<{
     isOpen: boolean;
@@ -62,7 +63,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
     if (type === 'MC') {
       const r = record as McArrivalRow;
       moduleName = 'ZMCC_MC_ARRIVAL';
-      label = `MC Arrival (Token: ${r.zmcc_token || r.id})`;
+      label = `Mobile Tester Arrival (Token: ${r.zmcc_token || r.id})`;
       fields.push({ field: 'raw_milk_token_number', label: 'Token Number', currentValue: r.raw_milk_token_number, type: 'text' });
     } else {
       const r = record as HcArrivalRow;
@@ -129,7 +130,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
   const tabs = [
     ...(canSubmit
       ? [
-          { value: 'MC_ARRIVAL' as const, label: 'MC arrival', icon: Truck },
+          { value: 'MC_ARRIVAL' as const, label: 'Mobile Tester arrival', icon: Truck },
           { value: 'HC_ARRIVAL' as const, label: 'HC arrival', icon: Users },
           { value: 'INSIDE_ZMCC' as const, label: 'Inside vehicles', icon: Warehouse },
         ]
@@ -155,6 +156,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
               onRefresh={() => void data.fetchArrivingJourneys()}
               policyMode={data.rawMilkTokenPolicyMode}
               onCaptureGps={() => captureGps(mcForm.setGps)}
+              isManager={isManager}
             />
           )}
 

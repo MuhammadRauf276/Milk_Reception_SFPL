@@ -1,5 +1,6 @@
 'use client';
 
+import { InfoTip } from '@/components/ui/info-tip';
 import React, { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { AlertTriangle } from 'lucide-react';
@@ -117,7 +118,7 @@ export function SourceCreateDrawer({ onClose, onSaved }: { onClose: () => void; 
               className={`${fieldInputClass} tabular-nums`}
               placeholder="Official ERP vendor code"
             />
-            <p className="mt-1 text-[10px] text-slate-400">Required for contractors. Only the MPD Head, Data Executive and Super Admin can change it later.</p>
+            <InfoTip text="Required for contractors. Only the MPD Head, Data Executive and Super Admin can change it later." />
           </div>
         )}
         <DrawerActions busy={busy} onCancel={onClose} submitLabel="Save Source" busyLabel="Saving…" />
@@ -241,7 +242,7 @@ export function SourceStatusDrawer({
           <strong className="font-semibold text-slate-800">{source.name}</strong>?
         </p>
         {!targetStatus ? (
-          <div className="space-y-1 rounded-lg border border-amber-200 bg-amber-50 p-3 text-[11px] font-medium text-amber-900">
+          <div className="space-y-1 rounded-lg border border-border bg-card p-3 text-[11px] font-medium text-amber-900">
             <p className="font-semibold">Deactivation Effects & Guards:</p>
             <ul className="list-inside list-disc space-y-0.5 text-amber-800">
               <li>Will be excluded from active operational dispatch selectors.</li>
@@ -251,9 +252,9 @@ export function SourceStatusDrawer({
             </ul>
           </div>
         ) : (
-          <div className="space-y-1 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-[11px] font-medium text-emerald-900">
+          <div className="space-y-1 rounded-lg border border-border bg-card p-3 text-[11px] font-medium text-emerald-900">
             <p className="font-semibold">Activation Effects:</p>
-            <p className="text-emerald-800">Will restore availability in operational selectors and allow user assignments.</p>
+            
           </div>
         )}
       </div>

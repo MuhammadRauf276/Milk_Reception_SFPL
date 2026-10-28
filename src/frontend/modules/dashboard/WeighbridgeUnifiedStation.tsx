@@ -1,0 +1,767 @@
+'use client';
+
+import React, { useState } from 'react';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
+import { fetchJson } from '@/lib/query/fetchJson';
+import { useDebouncedValue } from '@/lib/query/useDebouncedValue';
+import { useToast } from '@/frontend/context/ToastContext';
+import {
+  Scale,
+  Lock,
+  CheckCircle2,
+  Clock,
+  Loader2,
+  X,
+  Search,
+  Layers,
+  ArrowRight,
+  ShieldCheck,
+  AlertCircle,
+  Building2,
+} from 'lucide-react';
+import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
+import { toDatetimeLocalInput, datetimeLocalToIso } from '@/lib/datetime-utils';
+import { onActivateKey } from '@/lib/a11y';
+import { getErrorMessage } from '@/lib/errors';
+import { Pager, pageCount, paginate } from './components/Pager';
+import { EmptyAction } from './components/EmptyAction';
+import { InfoTip } from '@/components/ui/info-tip';
+import {
+  UnifiedWeighbridgeVisit,
+  WeighbridgeFilter,
+  formatDuration,
+} from './weighbridgeTypes';
+
+export const WeighbridgeUnifiedStation: React.FC = () => {
+  const [filter, setFilter] = useState<WeighbridgeFilter>('SCALE_ACTION');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const debounced = useDebouncedValue(searchQuery);
+
+  const queryClient = useQueryClient();
+
+  const queueQuery = useQuery({
+    queryKey: ['weighbridge', 'unified-queue', debounced],
+    queryFn: ({ signal }) =>
+      fetchJson<{ visits?: UnifiedWeighbridgeVisit[] }>(
+        `/api/scale/queue?q=${encodeURIComponent(debounced)}`,
+        { signal }
+      ),
+    placeholderData: keepPreviousData,
+    refetchInterval: 15_000,
+  });
+
+  const allVisits = queueQuery.data?.visits ?? [];
+
+  // Filter lists
+  const scaleActionVisits = allVisits.filter((v) => v.is_scale_action_needed && v.accepted_portion_count > 0);
+  const atSiloVisits = allVisits.filter((v) => v.active_scale_status === 'AT_SILO');
+  const completedVisits = allVisits.filter(
+    (v) =>
+      v.active_scale_status === 'COMPLETED' ||
+      v.active_scale_status === 'REJECTED_EXIT' ||
+      v.current_status === 'READY_FOR_GATE_EXIT'
+  );
+
+  const filteredVisits =
+    filter === 'SCALE_ACTION'
+      ? scaleActionVisits
+      : filter === 'AT_SILO'
+      ? atSiloVisits
+      : filter === 'COMPLETED_TODAY'
+      ? completedVisits
+      : allVisits;
+
+  const totalPages = pageCount(filteredVisits.length);
+  const currentPage = Math.min(page, totalPages);
+  const selectedVisit = allVisits.find((v) => v.id === selectedId) || null;
+
+  return (
+    <div className="space-y-5 animate-panel-in">
+      {/* Top Controls & Filter Navigation */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-4">
+        <div className="flex items-center gap-1.5">
+          <Scale className="w-5 h-5 text-primary" />
+          <h2 className="text-lg font-bold tracking-tight text-foreground">
+            Weighbridge Station
+          </h2>
+          <InfoTip text="Progressive multi-compartment scale queue with immutable audit locks." />
+        </div>
+
+        {/* Filter Pills */}
+        <div className="flex items-center gap-1.5 p-1 bg-muted/60 rounded-xl border border-border">
+          <button
+            type="button"
+            onClick={() => {
+              setFilter('SCALE_ACTION');
+              setPage(1);
+            }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+              filter === 'SCALE_ACTION'
+                ? 'bg-primary text-primary-foreground shadow-xs'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Scale className="w-3.5 h-3.5" />
+            <span>Needs Scale</span>
+            <span
+              className={`text-[10px] tabular-nums font-bold px-1.5 py-0.2 rounded-full ${
+                filter === 'SCALE_ACTION'
+                  ? 'bg-primary-foreground/20 text-primary-foreground'
+                  : 'bg-primary/10 text-primary'
+              }`}
+            >
+              {scaleActionVisits.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setFilter('AT_SILO');
+              setPage(1);
+            }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+              filter === 'AT_SILO'
+                ? 'bg-primary text-primary-foreground shadow-xs'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Building2 className="w-3.5 h-3.5" />
+            <span>At Silos</span>
+            <span
+              className={`text-[10px] tabular-nums font-bold px-1.5 py-0.2 rounded-full ${
+                filter === 'AT_SILO'
+                  ? 'bg-primary-foreground/20 text-primary-foreground'
+                  : 'bg-muted text-foreground'
+              }`}
+            >
+              {atSiloVisits.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setFilter('ALL_ACTIVE');
+              setPage(1);
+            }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+              filter === 'ALL_ACTIVE'
+                ? 'bg-primary text-primary-foreground shadow-xs'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span>All Active</span>
+            <span
+              className={`text-[10px] tabular-nums font-bold px-1.5 py-0.2 rounded-full ${
+                filter === 'ALL_ACTIVE'
+                  ? 'bg-primary-foreground/20 text-primary-foreground'
+                  : 'bg-muted text-foreground'
+              }`}
+            >
+              {allVisits.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setFilter('COMPLETED_TODAY');
+              setPage(1);
+            }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+              filter === 'COMPLETED_TODAY'
+                ? 'bg-primary text-primary-foreground shadow-xs'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            <span>Completed</span>
+            <span
+              className={`text-[10px] tabular-nums font-bold px-1.5 py-0.2 rounded-full ${
+                filter === 'COMPLETED_TODAY'
+                  ? 'bg-primary-foreground/20 text-primary-foreground'
+                  : 'bg-muted text-foreground'
+              }`}
+            >
+              {completedVisits.length}
+            </span>
+          </button>
+        </div>
+      </div>
+
+      {/* Search Bar */}
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => {
+            setSearchQuery(e.target.value);
+            setPage(1);
+          }}
+          placeholder="Search tanker registration or token…"
+          className="w-full min-h-[44px] pl-9 pr-3 py-2 text-xs tabular-nums font-semibold rounded-xl border border-input bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-ring/30 focus:border-primary"
+        />
+      </div>
+
+      {/* Cards Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        {queueQuery.isPending ? (
+          <div className="p-8 text-center border border-dashed border-border rounded-xl text-sm text-muted-foreground md:col-span-2 lg:col-span-3">
+            <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-primary" />
+            Loading weighbridge station queue…
+          </div>
+        ) : filteredVisits.length === 0 ? (
+          <EmptyAction
+            message={
+              filter === 'SCALE_ACTION'
+                ? 'No tankers currently waiting on scale'
+                : filter === 'AT_SILO'
+                ? 'No tankers currently offloading at silos'
+                : 'No vehicles found in queue'
+            }
+            onRefresh={() => queueQuery.refetch()}
+            className="md:col-span-2 lg:col-span-3"
+          />
+        ) : (
+          paginate(filteredVisits, currentPage).map((v) => {
+            const hasScaleAction = v.is_scale_action_needed;
+            const completedCount = v.steps.filter((s) => s.status === 'COMPLETED').length;
+
+            return (
+              <div
+                role="button"
+                tabIndex={0}
+                onKeyDown={onActivateKey}
+                key={`unified-card-${v.id}`}
+                onClick={() => setSelectedId(v.id)}
+                className={`p-4 rounded-xl border transition cursor-pointer space-y-3 min-h-11 bg-card text-foreground ${
+                  hasScaleAction
+                    ? 'border-primary/50 shadow-xs hover:border-primary hover:bg-primary/[0.02]'
+                    : 'border-border hover:border-border-strong hover:bg-muted/30'
+                }`}
+              >
+                {/* Header: Reg + Token + Status Badge */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-1.5">
+                    <span className="tabular-nums font-bold text-sm tracking-tight text-foreground">{v.vehicle_number}</span>
+                    {v.token_number && (
+                      <span className="tabular-nums text-xs text-muted-foreground font-semibold">
+                        ({v.token_number})
+                      </span>
+                    )}
+                  </div>
+
+                  {v.accepted_portion_count === 0 || v.active_scale_status === 'REJECTED_EXIT' ? (
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold tabular-nums bg-rose-100 text-rose-800 border border-rose-200 dark:bg-rose-950 dark:text-rose-300">
+                      Rejected · Exit
+                    </span>
+                  ) : v.active_scale_status === 'READY_FOR_GROSS' ? (
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold tabular-nums bg-muted text-foreground border border-border">
+                      Initial Gross
+                    </span>
+                  ) : v.active_scale_status === 'READY_FOR_TARE' ? (
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold tabular-nums bg-muted text-foreground border border-border">
+                      Weighment {v.current_weighment_index}/{v.total_weighments}
+                    </span>
+                  ) : v.active_scale_status === 'AT_SILO' ? (
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold tabular-nums bg-amber-50 text-amber-800 border border-amber-200 dark:bg-amber-950 dark:text-amber-300">
+                      At {v.active_silo_text}
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold tabular-nums bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300">
+                      Completed
+                    </span>
+                  )}
+                </div>
+
+                {/* Accepted Portion Count & Formula Indicator */}
+                {v.accepted_portion_count === 0 ? (
+                  <div className="p-2 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-xs text-rose-800 dark:text-rose-300 font-semibold flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>All Portions Rejected</span>
+                    </div>
+                    <InfoTip text={`0 of ${v.portion_count} portions accepted. Direct gate exit without scale weighment.`} />
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs font-medium text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <span>{v.accepted_portion_count}/{v.portion_count} Portions</span>
+                        <InfoTip text={`${v.accepted_portion_count} accepted, ${v.rejected_portion_count} rejected. Total ${v.total_weighments} scale weighments required.`} />
+                      </div>
+                      <span className="tabular-nums font-semibold text-foreground text-xs">
+                        Step {completedCount}/{v.total_weighments}
+                      </span>
+                    </div>
+                    {/* Step indicators */}
+                    <div className="flex items-center gap-1 w-full">
+                      {v.steps.map((st, idx) => {
+                        const isDone = st.status === 'COMPLETED';
+                        const isActive = st.status === 'ACTIVE_INPUT';
+                        return (
+                          <div
+                            key={`step-dot-${v.id}-${idx}`}
+                            className={`h-1.5 flex-1 rounded-full transition-all ${
+                              isDone
+                                ? 'bg-primary'
+                                : isActive
+                                ? 'bg-primary/50 ring-1 ring-primary animate-pulse'
+                                : 'bg-muted'
+                            }`}
+                            title={`${st.label} (${st.status})`}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Current Action / Description */}
+                <div className="text-xs font-medium text-slate-700 dark:text-slate-300 bg-muted/40 p-2 rounded-lg flex items-center justify-between">
+                  <span className="truncate">{v.current_action_label}</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-primary shrink-0 ml-2" />
+                </div>
+
+                {/* Footer: Waiting time & Date */}
+                <div className="flex items-center justify-between text-[11px] tabular-nums text-muted-foreground pt-1 border-t border-border/60">
+                  <span className="flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    Waiting: {formatDuration(v.waiting_minutes)}
+                  </span>
+                  <span>{v.operational_date}</span>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      <Pager page={currentPage} totalPages={totalPages} total={filteredVisits.length} onPageChange={setPage} />
+
+      {/* Progressive Stepper Drawer */}
+      {selectedVisit && (
+        <ProgressiveWeighmentDrawer
+          key={selectedVisit.id}
+          visit={selectedVisit}
+          onClose={() => setSelectedId(null)}
+          onSuccess={async () => {
+            setSelectedId(null);
+            await queryClient.invalidateQueries({ queryKey: ['weighbridge'] });
+          }}
+        />
+      )}
+    </div>
+  );
+};
+
+// =============================================================================
+// Progressive Weighment Drawer: Anti-Tamper Non-Editable Stepper
+// =============================================================================
+interface DrawerProps {
+  visit: UnifiedWeighbridgeVisit;
+  onClose: () => void;
+  onSuccess: () => Promise<void>;
+}
+
+const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onSuccess }) => {
+  const toast = useToast();
+  const [activeInputKg, setActiveInputKg] = useState<string>('');
+  const [opDateTimeInput, setOpDateTimeInput] = useState<string>(toDatetimeLocalInput(new Date()));
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Identify currently active step
+  const activeStep = visit.steps.find((s) => s.status === 'ACTIVE_INPUT') || null;
+  const isGrossStep = activeStep?.stage_type === 'INITIAL_GROSS';
+
+  const enteredVal = Number(activeInputKg);
+  const isValidNum = !isNaN(enteredVal) && enteredVal > 0;
+
+  // Real-time Net Weight Calculation Preview
+  let previewNetKg: number | null = null;
+  if (isValidNum && activeStep?.starting_weight_kg) {
+    if (enteredVal < activeStep.starting_weight_kg) {
+      previewNetKg = activeStep.starting_weight_kg - enteredVal;
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeStep) {
+      toast.showWarning('No scale action is currently pending for this tanker.', 'Not on Scale');
+      return;
+    }
+
+    if (!isValidNum) {
+      toast.showError('Please enter a valid weight scale reading greater than 0 kg.', 'Invalid Weight');
+      return;
+    }
+
+    // Weight hierarchy check for tares
+    if (!isGrossStep && activeStep.starting_weight_kg && enteredVal >= activeStep.starting_weight_kg) {
+      toast.showError(
+        `Scale reading (${enteredVal.toLocaleString()} kg) must be strictly less than the starting loaded weight (${activeStep.starting_weight_kg.toLocaleString()} kg).`,
+        'Weight Hierarchy Error'
+      );
+      return;
+    }
+
+    const isoTimestamp = datetimeLocalToIso(opDateTimeInput);
+    if (!isoTimestamp) {
+      toast.showError('Please provide a valid operational date and time.', 'Missing Timestamp');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      if (isGrossStep) {
+        // Step 0: Record Initial Gross Weight
+        const res = await fetch('/api/scale/gross-weight', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            visitId: visit.id,
+            scaleId: 'SCALE-01',
+            grossWeightKg: enteredVal,
+            grossTimestamp: isoTimestamp,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to record gross weight');
+
+        toast.showSuccess(
+          `Initial Loaded Gross (${enteredVal.toLocaleString()} kg) recorded and locked! Vehicle routed to Silo for Compartment #1.`,
+          'Gross Weight Locked'
+        );
+      } else {
+        // Step 1..N: Record Intermediate Tare or Final Tare
+        const res = await fetch('/api/scale/tare-weight', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            visitId: visit.id,
+            scaleId: 'SCALE-01',
+            tareWeightKg: enteredVal,
+            tareTimestamp: isoTimestamp,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to record tare weight');
+
+        if (data.isPortionCycle) {
+          toast.showSuccess(
+            `Compartment #${data.completedPortionNumber} Tare recorded (${enteredVal.toLocaleString()} kg)! Vehicle ready for Compartment #${data.nextPortionNumber}.`,
+            'Intermediate Weighment Locked'
+          );
+        } else {
+          toast.showSuccess(
+            `Final Empty Tare (${enteredVal.toLocaleString()} kg) recorded! Total Net Weight: ${data.data?.ticket_net_weight_kg || 'Audited'} kg. Silo receipts finalized.`,
+            'Ticket Finalized'
+          );
+        }
+      }
+
+      await onSuccess();
+    } catch (err) {
+      toast.showError(getErrorMessage(err) || 'Failed to record weighment reading', 'Weighbridge Error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <Drawer open onOpenChange={(o) => !o && onClose()}>
+      <DrawerContent>
+        <div className="overflow-y-auto p-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:p-6 space-y-6 text-foreground max-w-4xl mx-auto w-full">
+          <DrawerTitle className="sr-only">Progressive Scale Weighing</DrawerTitle>
+
+          {/* Drawer Top Header */}
+          <div className="flex items-start justify-between gap-3 pb-3 border-b border-border">
+            <div>
+              <div className="flex items-center gap-2">
+                <Scale className="w-5 h-5 text-primary" />
+                <h3 className="text-base font-bold text-foreground">
+                  {visit.accepted_portion_count === 0
+                    ? `QA Total Rejection (Direct Gate Exit)`
+                    : `Progressive Weighment Stepper (${visit.total_weighments} Physical Weighings)`}
+                </h3>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Tanker: <strong className="tabular-nums text-foreground">{visit.vehicle_number}</strong> | Token:{' '}
+                <strong className="tabular-nums text-primary">{visit.token_number || 'NO-TOKEN'}</strong> | Portions:{' '}
+                <strong className="text-foreground">
+                  {visit.accepted_portion_count} of {visit.portion_count} Accepted
+                  {visit.rejected_portion_count > 0 ? ` (${visit.rejected_portion_count} Rejected)` : ''}
+                </strong>
+              </p>
+            </div>
+            <button
+              type="button"
+              aria-label="Close"
+              onClick={onClose}
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Mathematical Rule Banner */}
+          {visit.accepted_portion_count > 0 ? (
+            <div className="p-3 bg-blue-50 dark:bg-blue-950/40 rounded-xl border border-blue-200 dark:border-blue-900 text-xs text-blue-900 dark:text-blue-200 flex items-center justify-between">
+              <span>
+                <strong>Physical Weighment Rule:</strong> {visit.accepted_portion_count} Accepted Portion{visit.accepted_portion_count > 1 ? 's' : ''}: 
+                <strong>{visit.total_weighments} Physical Scale Weighments</strong> (1 Initial Loaded Gross W0 + {visit.accepted_portion_count} Tares).
+              </span>
+            </div>
+          ) : (
+            <div className="p-4 bg-rose-50 dark:bg-rose-950/40 rounded-xl border border-rose-300 dark:border-rose-900 text-xs text-rose-900 dark:text-rose-200 space-y-2">
+              <div className="flex items-center gap-2 font-bold text-sm text-rose-700 dark:text-rose-400">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>100% Rejected by QA Laboratory · No Scale Weighment</span>
+              </div>
+              <p>
+                All {visit.portion_count} compartments were rejected during QA testing. Under plant SOPs, fully rejected vehicles bypass physical gross/tare weighing and silo offloading completely.
+              </p>
+              <p className="font-semibold text-rose-800 dark:text-rose-300">
+                Direct vehicle to Security Gate for exit checkout.
+              </p>
+            </div>
+          )}
+
+          {/* Rejected Compartments Notice if Partial Rejection */}
+          {visit.accepted_portion_count > 0 && visit.rejected_portion_count > 0 && (
+            <div className="p-3 bg-amber-50 dark:bg-amber-950/40 rounded-xl border border-amber-200 dark:border-amber-900 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <span>
+                <strong>Partial QA Rejection Notice:</strong> Compartment #{visit.rejected_portion_numbers?.join(', #')} was <strong>REJECTED</strong> by QA. It is strictly blocked from silo offloading and scale tares. Only the {visit.accepted_portion_count} accepted compartments are weighed.
+              </span>
+            </div>
+          )}
+
+          {/* Double-Blind Security Notice */}
+          <div className="p-3 bg-muted/40 rounded-xl border border-border flex items-start gap-2.5 text-xs text-muted-foreground">
+            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+            <span>
+              <strong>Double-Blind Anti-Tamper Enforcement:</strong> All previously recorded weights are permanently
+              audit-locked and cannot be edited. Upstream dispatch quantities are strictly hidden to ensure unbiased scale entry.
+            </span>
+          </div>
+
+          {/* Stepper Timeline: All N+1 Boxes */}
+          {visit.accepted_portion_count > 0 && (
+            <div className="space-y-4">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Weighment Progression ({visit.total_weighments} Physical Scale Readings)
+              </h4>
+
+            <div className="space-y-3">
+              {visit.steps.map((step) => {
+                const isLocked = step.is_locked;
+                const isActive = step.status === 'ACTIVE_INPUT';
+
+                if (isLocked) {
+                  // ===========================================================
+                  // LOCKED / NON-CLICKABLE BOX (Audit-Frozen Past Weight)
+                  // ===========================================================
+                  return (
+                    <div
+                      key={`box-locked-${step.step_index}`}
+                      className="p-3.5 rounded-xl border border-border/80 bg-muted/20 space-y-2 select-none"
+                    >
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-1.5 font-bold text-foreground">
+                          <Lock className="w-3.5 h-3.5 text-muted-foreground" />
+                          <span>
+                            Step {step.step_number} of {visit.total_weighments} · {step.label}
+                          </span>
+                        </div>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold tabular-nums bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" />
+                          Audit Locked
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-xs">
+                        <div className="bg-background/80 p-2 rounded-lg border border-border/50">
+                          <span className="text-[10px] text-muted-foreground block font-medium">Recorded Scale Weight</span>
+                          <span className="text-sm font-bold tabular-nums text-foreground">
+                            {step.recorded_weight_kg?.toLocaleString()} kg
+                          </span>
+                        </div>
+
+                        {step.net_weight_kg !== null && (
+                          <div className="bg-background/80 p-2 rounded-lg border border-border/50">
+                            <span className="text-[10px] text-muted-foreground block font-medium">Compartment Net</span>
+                            <span className="text-sm font-bold tabular-nums text-emerald-700 dark:text-emerald-400">
+                              {step.net_weight_kg?.toLocaleString()} kg
+                            </span>
+                          </div>
+                        )}
+
+                        {step.destination_silo && (
+                          <div className="bg-background/80 p-2 rounded-lg border border-border/50">
+                            <span className="text-[10px] text-muted-foreground block font-medium">Offloaded Into</span>
+                            <span className="text-xs font-bold text-foreground">{step.destination_silo}</span>
+                          </div>
+                        )}
+
+                        <div className="bg-background/80 p-2 rounded-lg border border-border/50">
+                          <span className="text-[10px] text-muted-foreground block font-medium">Weighed At</span>
+                          <span className="text-xs tabular-nums text-foreground">
+                            {step.timestamp
+                              ? new Date(step.timestamp).toLocaleTimeString('en-GB', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })
+                              : '-'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                if (isActive) {
+                  // ===========================================================
+                  // ACTIVE INPUT BOX (Current Physical Weighment on Scale)
+                  // ===========================================================
+                  return (
+                    <form
+                      key={`box-active-${step.step_index}`}
+                      onSubmit={handleSubmit}
+                      className="p-4 rounded-xl border-2 border-primary bg-primary/[0.03] shadow-md space-y-4"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 font-bold text-primary text-sm">
+                          <Scale className="w-4 h-4" />
+                          <span>
+                            Step {step.step_number} of {visit.total_weighments} · {step.label}
+                          </span>
+                        </div>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold tabular-nums bg-primary text-primary-foreground animate-pulse">
+                          Active Scale Action
+                        </span>
+                      </div>
+
+                      {/* Reference for Tares */}
+                      {step.starting_weight_kg !== null && (
+                        <div className="p-2.5 rounded-lg bg-background border border-border text-xs flex items-center justify-between">
+                          <span className="text-muted-foreground font-medium">
+                            Starting Loaded Weight (Before Unloading):
+                          </span>
+                          <span className="text-sm font-bold tabular-nums text-foreground">
+                            {step.starting_weight_kg.toLocaleString()} kg
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Numeric Scale Input */}
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-foreground block">
+                          Current Scale Indicator Reading (kg) *
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            autoFocus
+                            step="1"
+                            min="1"
+                            value={activeInputKg}
+                            onChange={(e) => setActiveInputKg(e.target.value)}
+                            placeholder="Enter scale reading in kg…"
+                            className="w-full min-h-[48px] px-3.5 py-2 text-lg font-bold tabular-nums rounded-xl border-2 border-input bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary/40 focus:border-primary"
+                          />
+                          <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">
+                            KG
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">
+                          {isGrossStep
+                            ? 'Capture the scale indicator for the fully loaded tanker upon plant arrival.'
+                            : `Scale reading must be strictly less than ${step.starting_weight_kg?.toLocaleString()} kg.`}
+                        </p>
+                      </div>
+
+                      {/* Real-Time Net Preview */}
+                      {previewNetKg !== null && (
+                        <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-300 dark:border-emerald-800 text-xs text-emerald-900 dark:text-emerald-200 flex items-center justify-between font-medium">
+                          <span>Computed Net Weight for Compartment:</span>
+                          <span className="text-base font-extrabold tabular-nums">
+                            {previewNetKg.toLocaleString()} kg
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Operational Timestamp */}
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-bold text-muted-foreground block">
+                          Operational Date & Time
+                        </label>
+                        <input
+                          type="datetime-local"
+                          value={opDateTimeInput}
+                          onChange={(e) => setOpDateTimeInput(e.target.value)}
+                          className="w-full min-h-[40px] px-3 py-1.5 text-xs tabular-nums font-semibold rounded-lg border border-input bg-card text-foreground"
+                        />
+                      </div>
+
+                      {/* Submit Action */}
+                      <button
+                        type="submit"
+                        disabled={isSubmitting || !isValidNum}
+                        className="w-full min-h-[44px] px-4 py-2.5 rounded-xl font-bold text-sm bg-primary text-primary-foreground hover:bg-primary/90 transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Recording & Locking Weighment…
+                          </>
+                        ) : (
+                          <>
+                            <Lock className="w-4 h-4" />
+                            Commit & Lock Weighment Step {step.step_number} of {visit.total_weighments}
+                          </>
+                        )}
+                      </button>
+                    </form>
+                  );
+                }
+
+                // =============================================================
+                // PENDING FUTURE BOX (Waiting for Silo Unloading)
+                // =============================================================
+                return (
+                  <div
+                    key={`box-pending-${step.step_index}`}
+                    className="p-3.5 rounded-xl border border-dashed border-border/60 bg-muted/10 opacity-60 space-y-1 select-none"
+                  >
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <div className="flex items-center gap-1.5 font-medium">
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>
+                          Step {step.step_number} of {visit.total_weighments} · {step.label}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-semibold text-muted-foreground uppercase">
+                        Pending Silo Unload
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground pl-5">
+                      This scale weighment unlocks after Compartment #{step.portion_number} completes offloading at the silo.
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          )}
+        </div>
+      </DrawerContent>
+    </Drawer>
+  );
+};

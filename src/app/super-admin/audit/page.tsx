@@ -1,5 +1,6 @@
 'use client';
 
+import { InfoTip } from '@/components/ui/info-tip';
 import React, { useMemo, useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { ChevronDown, Search, ShieldAlert } from 'lucide-react';
@@ -57,7 +58,7 @@ export default function SuperAdminAuditPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-semibold text-foreground">System Audit & Immutable History Log</h1>
+      <div className="flex items-center gap-2"><h1 className="text-xl font-semibold text-foreground">Audit log</h1><InfoTip text="Immutable 21 CFR Part 11 compliant audit trail of data changes." /></div>
 
       <div className="grid gap-2 sm:grid-cols-[1fr_16rem]">
         <div className="relative">
@@ -69,9 +70,9 @@ export default function SuperAdminAuditPage() {
               setActionSearch(e.target.value);
               setPage(1);
             }}
-            placeholder="Search action (e.g. UPDATE)"
+            placeholder="Search action…"
             aria-label="Search audit action"
-            className="h-11 w-full rounded-xl border border-border-strong bg-white pl-9 pr-3 text-sm focus:outline-hidden focus:border-primary"
+            className="h-11 w-full rounded-xl border border-border-strong bg-card pl-9 pr-3 text-sm focus:outline-hidden focus:border-primary"
           />
         </div>
         <Combobox
@@ -86,13 +87,13 @@ export default function SuperAdminAuditPage() {
       </div>
 
       {error && (
-        <div className="flex items-center space-x-2 rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs font-semibold text-rose-800 animate-panel-in">
+        <div className="flex items-center space-x-2 rounded-xl border border-border bg-card p-4 text-xs font-semibold text-rose-800 animate-panel-in">
           <ShieldAlert className="h-4 w-4 shrink-0 text-rose-600" />
           <span>{error}</span>
         </div>
       )}
 
-      <div className="overflow-hidden rounded-xl border border-border/80 bg-white shadow-xs">
+      <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-2xs">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="border-b border-border bg-subtle text-slate-600">
@@ -100,9 +101,9 @@ export default function SuperAdminAuditPage() {
                 <th className="p-3 font-semibold">Timestamp</th>
                 <th className="p-3 font-semibold">User</th>
                 <th className="p-3 font-semibold">Action</th>
-                <th className="p-3 font-semibold">Entity Table</th>
-                <th className="p-3 font-semibold">Old Values</th>
-                <th className="p-3 font-semibold">New Values</th>
+                <th className="p-3 font-semibold">Entity</th>
+                <th className="p-3 font-semibold">Old Value</th>
+                <th className="p-3 font-semibold">New Value</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60 font-medium">
@@ -115,7 +116,7 @@ export default function SuperAdminAuditPage() {
               ) : logs.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="p-6 text-center text-slate-400">
-                    No audit log entries recorded.
+                    No audit records.
                   </td>
                 </tr>
               ) : (

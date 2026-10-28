@@ -3,6 +3,7 @@ import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
 import { getOrAssignPlantQATests } from '@/backend/services/labTestAssignmentService';
 import { vehicleVisitPaperIdentity } from '@/backend/modules/paper-references';
+import { QualityRuleService } from '@/backend/services/qualityRuleService';
 import { MilkTestPolicyService } from '@/backend/services/milkTestPolicyService';
 import { getErrorMessage } from '@/lib/errors';
 
@@ -46,7 +47,26 @@ export async function GET(
 
     // For in-progress / completed QA work: use assigned snapshot.
     // For waiting visits prior to QA start: query current active master tests.
-    const activePlantTests = visit.qa_session
+    // Same PLANT_QA release rules the complete route judges with, so the card shows the real SOP range.
+    const plantRules = await QualityRuleService.resolveActiveRulesForTestingPoint('PLANT_QA');
+    const ruleFor = (testId: string) => {
+      const r = plantRules.get(testId);
+      if (!r || r.isConfigurationError) return null;
+      const min = r.min_value !== null ? Number(r.min_value) : null;
+      const max = r.max_value !== null ? Number(r.max_value) : null;
+      const allowed = r.acceptable_option ? [r.acceptable_option] : null;
+      return {
+        min,
+        max,
+        allowed,
+        warningTrigger: r.warning_trigger ?? null,
+        decisionConsequence: r.decision_consequence ?? null,
+        ruleCategory: r.rule_category ?? 'RELEASE',
+        acceptableOption: r.acceptable_option ?? null,
+      };
+    };
+
+    const activePlantTests = (visit.qa_session
       ? (await getOrAssignPlantQATests(prisma, visitId)).map((a) => ({
           id: a.test_id.toString(),
           testCode: a.test_code_snapshot,
@@ -68,7 +88,8 @@ export async function GET(
           isRequired: t.isRequired,
           displayOrder: t.displayOrder,
           resultOptions: t.resultOptions || null,
-        }));
+        }))
+    ).map((t) => ({ ...t, rule: ruleFor(t.id) }));
 
     // Determine overall visit decision summary
     const portions = visit.portions || [];

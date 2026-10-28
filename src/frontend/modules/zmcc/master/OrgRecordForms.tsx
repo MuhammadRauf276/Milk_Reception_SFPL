@@ -10,7 +10,7 @@ export const OrgRecordForms: React.FC<MasterFormProps> = ({ modalType, formData,
               {(modalType === 'CREATE_LOCAL_SUPPLIER' || modalType === 'EDIT_LOCAL_SUPPLIER') && (
                 <div className="space-y-3">
                   {modalType === 'EDIT_LOCAL_SUPPLIER' && (
-                    <div className="bg-slate-50 p-3 rounded-xl border border-border text-xs space-y-1">
+                    <div className="bg-card border-border p-3 rounded-xl border text-xs space-y-1">
                       <div className="flex justify-between">
                         <span className="font-semibold text-slate-500">Supplier Code:</span>
                         <span className="tabular-nums font-semibold text-primary">{activeRecord?.local_supplier_code}</span>

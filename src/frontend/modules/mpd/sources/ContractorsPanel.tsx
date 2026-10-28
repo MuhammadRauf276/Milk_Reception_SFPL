@@ -110,7 +110,7 @@ export function ContractorsPanel({
       variants={fadeSlide}
       initial="initial"
       animate="animate"
-      className="bg-white rounded-xl border border-border p-4 space-y-4 shadow-2xs"
+      className="bg-card border-border rounded-xl border p-4 space-y-4 shadow-2xs"
     >
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="relative flex-1 max-w-sm">
@@ -122,7 +122,7 @@ export function ContractorsPanel({
               setSearch(e.target.value);
               setPage(1);
             }}
-            placeholder="Search by contractor code, name, or ERP code…"
+            placeholder="Search"
             className="w-full min-h-11 pl-8 pr-3 py-1.5 border border-border rounded-xl text-xs font-semibold focus:ring-2 focus:ring-primary outline-hidden"
           />
         </div>
@@ -178,7 +178,7 @@ export function ContractorsPanel({
                   <button
                     type="button"
                     onClick={() => openEdit(contractor)}
-                    className="min-h-11 px-2.5 py-1 text-xs font-semibold text-primary hover:bg-subtle rounded-lg transition"
+                    className="min-h-11 px-2.5 py-1 text-xs font-semibold text-primary hover:bg-subtle rounded-lg transition min-w-11"
                   >
                     Edit ERP code
                   </button>
@@ -216,7 +216,7 @@ export function ContractorsPanel({
               </div>
 
               <form onSubmit={handleSave} className="space-y-3 text-xs">
-                <div className="bg-subtle p-3 rounded-xl border border-border space-y-1">
+                <div className="bg-card border-border p-3 rounded-xl border space-y-1">
                   <div>
                     Contractor: <strong className="text-slate-800">{editing.name}</strong>
                   </div>
@@ -305,7 +305,6 @@ export function ContractorsPanel({
                     placeholder="e.g. CONT-001"
                     className="w-full min-h-11 px-3 py-2 border border-border rounded-xl font-mono font-semibold uppercase bg-white"
                   />
-                  <p className="text-[11px] text-slate-400 mt-1">Unique identifier used for plant gate and reception.</p>
                 </div>
 
                 <div>

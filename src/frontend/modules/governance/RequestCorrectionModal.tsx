@@ -130,7 +130,7 @@ export const RequestCorrectionModal: React.FC<RequestCorrectionModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close" className="p-3 -m-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors"
+            aria-label="Close" className="p-3 -m-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors min-h-11 min-w-11"
           >
             <X className="w-4 h-4" />
           </button>
@@ -143,18 +143,15 @@ export const RequestCorrectionModal: React.FC<RequestCorrectionModalProps> = ({
               <CheckCircle2 className="w-6 h-6" />
             </div>
             <p className="font-semibold text-slate-800 text-sm">{successMsg}</p>
-            <p className="text-slate-500 text-xs">
-              Milk work is not stopped. You will see the answer under My correction requests.
-            </p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="p-5 space-y-4">
-            <div className="p-3 rounded-xl bg-blue-50/70 border border-blue-100 text-blue-900 text-[11px] leading-relaxed">
+            <div className="bg-card border-border p-3 rounded-xl border text-blue-900 text-[11px] leading-relaxed">
               <strong>How it works:</strong> saved entries are locked. Tell us what is wrong and what it should be. The <strong>Data Executive</strong> reviews your request and fixes the record. You can follow it under <em>My correction requests</em>: Open, Approved, Rejected or Done.
             </div>
 
             {error && (
-              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 flex items-center space-x-2">
+              <div className="bg-card border-border p-3 rounded-xl border text-rose-800 flex items-center space-x-2">
                 <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
                 <span>{error}</span>
               </div>
@@ -183,7 +180,7 @@ export const RequestCorrectionModal: React.FC<RequestCorrectionModalProps> = ({
 
             {/* Current Value Display */}
             {currentFieldConfig?.currentValue !== undefined && currentFieldConfig.currentValue !== null && (
-              <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-600">
+              <div className="bg-card border-border flex items-center justify-between p-2.5 rounded-lg border text-slate-600">
                 <span className="font-medium">Recorded now (wrong value):</span>
                 <span className="font-semibold text-slate-900 tabular-nums">
                   {String(currentFieldConfig.currentValue)}
@@ -230,7 +227,7 @@ export const RequestCorrectionModal: React.FC<RequestCorrectionModalProps> = ({
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 rows={2}
-                placeholder="Explain why this correction is needed (e.g., Typo on scale reading, physical re-test slip attached)…"
+                placeholder="Reason"
                 className="w-full min-h-11 p-2.5 rounded-xl border border-slate-300 bg-white font-medium text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
               />
             </div>

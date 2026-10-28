@@ -44,7 +44,7 @@ export async function recordRejectedMilkForDisposition(tx: Db, input: RecordReje
         priority: 'HIGH',
         title: 'Rejected milk needs your remarks',
         body,
-        deep_link: '/mpd/head',
+        deep_link: '/approvals',
         source_type: entityType,
         source_id: input.portionId.toString(),
         dedupe_key: dedupeKey,

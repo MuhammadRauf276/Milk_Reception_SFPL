@@ -69,6 +69,10 @@ export async function resetOperationalData() {
         ],
       },
     })).count,
+    // Scenario seed (scripts/seed_scenarios_demo.ts) may create a Jhang demo tank; receipts/portions are already gone
+    zmccSeedTanks: (await prisma.zmccTank.deleteMany({
+      where: { tank_code: { startsWith: 'DEMO-SCN-' } },
+    })).count,
     motSeedVehicles: (await prisma.motVehicle.deleteMany({
       where: {
         OR: [

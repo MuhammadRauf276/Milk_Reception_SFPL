@@ -57,7 +57,7 @@ export const QualitativeResultRadioGroup: React.FC<QualitativeResultRadioGroupPr
             <label
               key={opt.value}
               htmlFor={inputId}
-              className={`inline-flex items-center cursor-pointer transition select-none font-semibold tabular-nums ${
+              className={`inline-flex min-h-11 min-w-11 justify-center items-center cursor-pointer transition select-none font-semibold tabular-nums ${
                 compact ? 'gap-1 px-2 py-0.5 rounded-md text-[11px]' : 'gap-1.5 px-3 py-1.5 rounded-lg text-xs'
               } border ${
                 disabled

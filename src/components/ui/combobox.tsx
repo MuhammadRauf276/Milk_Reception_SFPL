@@ -10,6 +10,10 @@ export interface ComboboxOption {
   label: string;
   /** Extra text that is searched but not shown (code, owner, area...). */
   keywords?: string;
+  /** Option is disabled / cannot be selected */
+  disabled?: boolean;
+  /** Optional reason explaining why option is disabled */
+  disabledReason?: string;
 }
 
 export interface ComboboxProps {
@@ -50,6 +54,7 @@ export function Combobox({
   const selected = options.find((o) => o.value === value);
 
   const pick = (o: ComboboxOption) => {
+    if (o.disabled) return;
     onValueChange(o.value);
     setOpen(false);
   };
@@ -63,7 +68,7 @@ export function Combobox({
       setActive((i) => Math.max(i - 1, 0));
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      if (filtered[active]) pick(filtered[active]);
+      if (filtered[active] && !filtered[active].disabled) pick(filtered[active]);
     }
   };
 
@@ -115,22 +120,49 @@ export function Combobox({
           {filtered.length === 0 ? (
             <li className="px-3 py-4 text-center text-sm text-slate-500">{emptyText}</li>
           ) : (
-            filtered.map((o, i) => (
-              <li
-                key={o.value}
-                role="option"
-                aria-selected={o.value === value}
-                onMouseEnter={() => setActive(i)}
-                onClick={() => pick(o)}
-                className={cn(
-                  'flex min-h-11 cursor-pointer items-center justify-between gap-2 rounded-lg px-3 text-sm',
-                  i === active && 'bg-muted'
-                )}
-              >
-                <span className="truncate">{o.label}</span>
-                {o.value === value && <Check className="h-4 w-4 text-primary" aria-hidden="true" />}
-              </li>
-            ))
+            filtered.map((o, i) => {
+              const isDisabled = Boolean(o.disabled);
+              return (
+                <li
+                  key={o.value}
+                  role="option"
+                  aria-selected={o.value === value}
+                  aria-disabled={isDisabled}
+                  onMouseEnter={() => {
+                    if (!isDisabled) setActive(i);
+                  }}
+                  onClick={() => {
+                    if (!isDisabled) pick(o);
+                  }}
+                  className={cn(
+                    'flex min-h-11 items-center justify-between gap-2 rounded-lg px-3 text-sm transition-colors',
+                    isDisabled
+                      ? 'cursor-not-allowed opacity-60 bg-muted/20 text-muted-foreground select-none'
+                      : 'cursor-pointer hover:bg-muted text-foreground',
+                    i === active && !isDisabled && 'bg-muted'
+                  )}
+                >
+                  <div className="flex flex-col min-w-0 pr-2">
+                    <span className={cn('truncate', isDisabled && 'text-slate-500 font-normal')}>
+                      {o.label}
+                    </span>
+                    {isDisabled && o.disabledReason && (
+                      <span className="text-[10px] text-amber-700 font-medium truncate">
+                        {o.disabledReason}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {isDisabled && (
+                      <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
+                        Busy
+                      </span>
+                    )}
+                    {o.value === value && <Check className="h-4 w-4 text-primary" aria-hidden="true" />}
+                  </div>
+                </li>
+              );
+            })
           )}
         </ul>
       </PopoverContent>

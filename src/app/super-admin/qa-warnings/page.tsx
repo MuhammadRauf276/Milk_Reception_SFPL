@@ -46,22 +46,22 @@ export default function SuperAdminQaWarningsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-foreground">QA Warnings & Supplier Escalation Foundation</h1>
+        <h1 className="text-xl font-semibold text-foreground">QA Warnings</h1>
       </div>
 
       {error && (
-        <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs font-semibold flex items-center space-x-2 animate-panel-in">
+        <div className="p-4 bg-card border border-border rounded-xl text-rose-800 text-xs font-semibold flex items-center space-x-2 animate-panel-in">
           <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
           <span>{error}</span>
         </div>
       )}
 
       {/* MONTHLY SUMMARY PER SOURCE */}
-      <div className="bg-white p-5 rounded-xl border border-border/80 shadow-xs space-y-3">
-        <h2 className="text-sm font-semibold text-foreground">Derived Monthly Active Warnings per Supplier</h2>
+      <div className="bg-card p-5 rounded-xl border border-border/80 shadow-2xs space-y-3">
+        <h2 className="text-sm font-semibold text-foreground">Monthly warnings</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs">
           {summary.map((s) => (
-            <div key={s.sourceId} className="p-3 rounded-lg bg-slate-50 border border-slate-200 flex justify-between items-center">
+            <div key={s.sourceId} className="p-3 rounded-lg bg-card border border-border flex justify-between items-center">
               <div>
                 <div className="font-semibold text-foreground">{s.sourceName}</div>
                 <div className="tabular-nums text-[10px] text-slate-500">{s.sourceCode} ({s.sourceType})</div>
@@ -75,7 +75,7 @@ export default function SuperAdminQaWarningsPage() {
       </div>
 
       {/* WARNING EVENT RECORDS TABLE */}
-      <div className="bg-white rounded-xl border border-border/80 shadow-xs overflow-hidden space-y-2 p-4">
+      <div className="bg-card rounded-xl border border-border/80 shadow-2xs overflow-hidden space-y-2 p-4">
         <h2 className="text-sm font-semibold text-foreground flex items-center space-x-2">
           <AlertTriangle className="w-4 h-4 text-amber-600" />
           <span>Warning log</span>
@@ -104,7 +104,7 @@ export default function SuperAdminQaWarningsPage() {
                 <tr>
                   <td colSpan={6} className="p-8 text-center text-slate-400 font-medium">
                     <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
-                    No active supplier warnings recorded. (Clean State)
+                    No warnings
                   </td>
                 </tr>
               ) : (

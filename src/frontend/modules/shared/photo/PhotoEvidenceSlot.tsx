@@ -70,7 +70,7 @@ export function PhotoEvidenceSlot({
   const gpsText = photo.gps ? `${photo.gps.lat.toFixed(4)}, ${photo.gps.lng.toFixed(4)}` : 'No GPS';
 
   return (
-    <div className={cn('overflow-hidden rounded-xl border-2 border-emerald-600 bg-white', className)}>
+    <div className={cn('overflow-hidden rounded-xl border-2 border-emerald-600 bg-card', className)}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={photo.previewUrl}

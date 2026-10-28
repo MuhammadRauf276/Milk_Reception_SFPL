@@ -709,7 +709,9 @@ export async function getArrivalsQueue(
             mot_profile: true,
           },
         },
-        lab_session: true,
+        lab_session: {
+          include: { portions: true },
+        },
       },
       orderBy: { arrival_timestamp: 'asc' },
     }),
@@ -719,7 +721,9 @@ export async function getArrivalsQueue(
         zmcc: true,
         local_supplier: true,
         recorded_by: true,
-        lab_session: true,
+        lab_session: {
+          include: { portions: true },
+        },
       },
       orderBy: { arrival_timestamp: 'asc' },
     }),
@@ -728,6 +732,19 @@ export async function getArrivalsQueue(
   const queueItems: Array<Record<string, unknown> & { arrival_timestamp: Date | string }> = [];
 
   for (const m of motArrivals) {
+    const lab = m.lab_session;
+    if (lab) {
+      const hasPortions = Array.isArray(lab.portions) && lab.portions.length > 0;
+      const allDecided = hasPortions && lab.portions.every((p) => p.final_decision !== 'PENDING');
+      if (lab.status === 'COMPLETED' || allDecided) {
+        if (lab.status === 'IN_PROGRESS' && allDecided) {
+          rollUpLabSessionTx(prisma, lab.id, auth.acting).catch((e) =>
+            console.error('Self-heal rollup error for session', lab.id, e)
+          );
+        }
+        continue;
+      }
+    }
     queueItems.push({
       queue_type: 'MOT',
       arrival_id: m.id.toString(),
@@ -751,6 +768,19 @@ export async function getArrivalsQueue(
   }
 
   for (const ls of localSupplierArrivals) {
+    const lab = ls.lab_session;
+    if (lab) {
+      const hasPortions = Array.isArray(lab.portions) && lab.portions.length > 0;
+      const allDecided = hasPortions && lab.portions.every((p) => p.final_decision !== 'PENDING');
+      if (lab.status === 'COMPLETED' || allDecided) {
+        if (lab.status === 'IN_PROGRESS' && allDecided) {
+          rollUpLabSessionTx(prisma, lab.id, auth.acting).catch((e) =>
+            console.error('Self-heal rollup error for session', lab.id, e)
+          );
+        }
+        continue;
+      }
+    }
     queueItems.push({
       queue_type: 'HC',
       arrival_id: ls.id.toString(),
@@ -943,6 +973,8 @@ export async function startOrResumeSession(
           zmcc: true,
           starter: true,
           completer: true,
+          mot_arrival: { include: { journey: { include: { route: true, mot_vehicle: true, mot_profile: true, summary: true } } } },
+          local_supplier_arrival: { include: { local_supplier: true } },
           results: {
             orderBy: { display_order_snapshot: 'asc' },
           },
@@ -983,6 +1015,8 @@ export async function startOrResumeSession(
           starter: true,
           completer: true,
           last_corrector: true,
+          mot_arrival: { include: { journey: { include: { route: true, mot_vehicle: true, mot_profile: true, summary: true } } } },
+          local_supplier_arrival: { include: { local_supplier: true } },
           results: {
             orderBy: { display_order_snapshot: 'asc' },
           },
@@ -1020,6 +1054,8 @@ export async function startOrResumeSession(
           starter: true,
           completer: true,
           last_corrector: true,
+          mot_arrival: { include: { journey: { include: { route: true, mot_vehicle: true, mot_profile: true, summary: true } } } },
+          local_supplier_arrival: { include: { local_supplier: true } },
           results: {
             orderBy: { display_order_snapshot: 'asc' },
           },
@@ -3327,6 +3363,113 @@ export async function getLabPortions(
   return buildPortionsState(auth, sessionId);
 }
 
+/** Adds a new virgin portion to an in-progress lab session. Upgrades COMPOSITE to PORTION_WISE if needed. */
+export async function addLabPortion(
+  reqOrUser: Request | User,
+  sessionIdParam: string | number | bigint
+): Promise<ServiceResult<LabPortionsState>> {
+  const { auth, errorResponse } = await resolveZmccLabAuth(reqOrUser, 'SETUP_PORTIONS');
+  if (errorResponse) return errorResponse;
+  if (!auth) return { status: 401, error: 'Unauthorized.' };
+
+  const sessionId = parseId(sessionIdParam);
+  if (sessionId === null) return { status: 400, error: 'Invalid session ID format.' };
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const locked: Array<{ id: bigint; status: string; zmcc_id: bigint; test_mode: string; unloaded_at: Date | null }> = await tx.$queryRaw`
+        SELECT id, status, zmcc_id, test_mode, unloaded_at FROM zmcc_lab_session WHERE id = ${sessionId} FOR UPDATE
+      `;
+      if (locked.length === 0) throw new Error('SESSION_NOT_FOUND');
+      const s = locked[0];
+      if (auth.effectiveZmccId !== null && s.zmcc_id !== auth.effectiveZmccId) throw new Error('FORBIDDEN_SOURCE');
+
+      // Ensure downstream operations have not yet commenced
+      const [rmrIssued, tankReceiptIssued] = await Promise.all([
+        tx.localSupplierRmrIssuance.findFirst({ where: { final_lab_session_id: sessionId }, select: { id: true } }),
+        tx.zmccTankReceipt.findFirst({ where: { lab_session_id: sessionId }, select: { id: true } }),
+      ]);
+      if (rmrIssued || tankReceiptIssued || s.unloaded_at !== null) {
+        throw new Error('DOWNSTREAM_ALREADY_COMMENCED');
+      }
+
+      // If session was COMPLETED, reopen it to IN_PROGRESS so new portion can be tested
+      if (s.status === 'COMPLETED') {
+        await tx.zmccLabSession.update({
+          where: { id: sessionId },
+          data: {
+            status: 'IN_PROGRESS',
+            completed_by_user_id: null,
+            completed_at: null,
+            decision: null,
+            final_decision: null,
+            final_decided_by_user_id: null,
+            final_decided_at: null,
+            final_decision_reason: null,
+          },
+        });
+      }
+
+      const existing = await tx.zmccLabPortion.findMany({
+        where: { lab_session_id: sessionId },
+        orderBy: { portion_number: 'asc' },
+      });
+
+      if (existing.length >= MAX_LAB_PORTIONS) {
+        throw new Error('MAX_PORTIONS_REACHED');
+      }
+
+      const nextPortionNumber = existing.length + 1;
+
+      // Create new portion in TESTING state
+      const newPortion = await tx.zmccLabPortion.create({
+        data: {
+          lab_session_id: sessionId,
+          portion_number: nextPortionNumber,
+          status: 'TESTING',
+          final_decision: 'PENDING',
+          created_by_user_id: auth.actorUserId,
+          ...primaryActorFields(auth.acting),
+        },
+      });
+
+      // If session was composite, upgrade to PORTION_WISE
+      const newMode = 'PORTION_WISE';
+      if (s.test_mode !== newMode) {
+        await tx.zmccLabSession.update({
+          where: { id: sessionId },
+          data: { test_mode: newMode },
+        });
+      }
+
+      await writeAuditLog(tx, {
+        tableName: 'zmcc_lab_session',
+        recordId: sessionId,
+        action: 'ZMCC_LAB_PORTION_ADDED',
+        oldValues: { test_mode: s.test_mode, portion_count: existing.length },
+        newValues: { test_mode: newMode, portion_count: nextPortionNumber, added_portion_id: newPortion.id.toString() },
+        actor: auditActorOf(auth.acting),
+      });
+    });
+  } catch (err) {
+    const msg = getErrorMessage(err);
+    const known: Record<string, [number, string]> = {
+      SESSION_NOT_FOUND: [404, 'ZMCC Lab session not found.'],
+      FORBIDDEN_SOURCE: [403, 'Forbidden. Lab session belongs to another ZMCC.'],
+      SESSION_CLOSED: [409, 'This lab session is already finished.'],
+      DOWNSTREAM_ALREADY_COMMENCED: [409, 'Cannot add portions: Downstream weighing, RMR or tank unloading has already commenced.'],
+      RMR_ALREADY_ISSUED: [409, 'Cannot add portions: RMR receipt has already been issued for this session.'],
+      MAX_PORTIONS_REACHED: [400, `Maximum limit of ${MAX_LAB_PORTIONS} portions reached.`],
+    };
+    if (known[msg]) return { status: known[msg][0], error: known[msg][1] };
+    console.error('addLabPortion error:', err);
+    return { status: 500, error: 'Failed to add portion.' };
+  }
+
+  return buildPortionsState(auth, sessionId);
+}
+
+
 export interface SetupPortionsPayload {
   test_mode: LabTestMode | string;
   portion_count?: number | string | null;
@@ -3364,11 +3507,24 @@ export async function setupLabPortions(
       if (s.status !== 'IN_PROGRESS') throw new Error('SESSION_CLOSED');
 
       const existing = await tx.zmccLabPortion.findMany({ where: { lab_session_id: sessionId }, orderBy: { portion_number: 'asc' } });
-      if (existing.some((p) => p.person_decision !== null || p.final_decision !== 'PENDING')) throw new Error('ALREADY_DECIDED');
 
       const keep = existing.filter((p) => p.portion_number <= count);
       const drop = existing.filter((p) => p.portion_number > count);
-      if (drop.length > 0) await tx.zmccLabPortion.deleteMany({ where: { id: { in: drop.map((p) => p.id) } } });
+
+      // Allow dropping extra portions IF none of the dropped portions have decisions or lab results
+      if (drop.length > 0) {
+        const dropHasDecisions = drop.some((p) => p.person_decision !== null || p.final_decision !== 'PENDING');
+        if (dropHasDecisions) throw new Error('CANNOT_DROP_DECIDED_PORTION');
+
+        const dropIds = drop.map((p) => p.id);
+        const dropResultsCount = await tx.zmccLabResult.count({
+          where: { portion_id: { in: dropIds } },
+        });
+        if (dropResultsCount > 0) throw new Error('CANNOT_DROP_PORTION_WITH_RESULTS');
+
+        await tx.zmccLabPortion.deleteMany({ where: { id: { in: dropIds } } });
+      }
+
       const have = new Set(keep.map((p) => p.portion_number));
       for (let n = 1; n <= count; n++) {
         if (have.has(n)) continue;
@@ -3393,6 +3549,9 @@ export async function setupLabPortions(
         newValues: { test_mode: mode, portions: count, removed_portion_numbers: drop.map((p) => p.portion_number) },
         actor: auditActorOf(auth.acting),
       });
+
+      // Roll up session: if all remaining portions are decided, finalize session to COMPLETED!
+      await rollUpLabSessionTx(tx, sessionId, auth.acting);
     });
   } catch (err) {
     const msg = getErrorMessage(err);
@@ -3401,10 +3560,113 @@ export async function setupLabPortions(
       FORBIDDEN_SOURCE: [403, 'Forbidden. Lab session belongs to another ZMCC.'],
       SESSION_CLOSED: [409, 'This lab session is already finished.'],
       ALREADY_DECIDED: [409, 'A portion already has a decision. Portions cannot be changed now.'],
+      CANNOT_DROP_DECIDED_PORTION: [409, 'Cannot remove portions that already have decisions.'],
+      CANNOT_DROP_PORTION_WITH_RESULTS: [409, 'Cannot remove portions that have recorded test measurements.'],
     };
     if (known[msg]) return { status: known[msg][0], error: known[msg][1] };
     console.error('setupLabPortions error:', err);
     return { status: 500, error: 'Failed to set up portions.' };
+  }
+
+  return buildPortionsState(auth, sessionId);
+}
+
+/** Discards a single untouched/empty portion from a lab session. */
+export async function discardEmptyPortion(
+  reqOrUser: Request | User,
+  sessionIdParam: string | number | bigint,
+  portionNumberParam: number | string
+): Promise<ServiceResult<LabPortionsState>> {
+  const { auth, errorResponse } = await resolveZmccLabAuth(reqOrUser, 'SETUP_PORTIONS');
+  if (errorResponse) return errorResponse;
+  if (!auth) return { status: 401, error: 'Unauthorized.' };
+
+  const sessionId = parseId(sessionIdParam);
+  if (sessionId === null) return { status: 400, error: 'Invalid session ID format.' };
+
+  const portionNumber = Number(portionNumberParam);
+  if (!Number.isInteger(portionNumber) || portionNumber < 1) {
+    return { status: 400, error: 'Invalid portion number.' };
+  }
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const locked: Array<{ id: bigint; status: string; zmcc_id: bigint; test_mode: string }> = await tx.$queryRaw`
+        SELECT id, status, zmcc_id, test_mode FROM zmcc_lab_session WHERE id = ${sessionId} FOR UPDATE
+      `;
+      if (locked.length === 0) throw new Error('SESSION_NOT_FOUND');
+      const s = locked[0];
+      if (auth.effectiveZmccId !== null && s.zmcc_id !== auth.effectiveZmccId) throw new Error('FORBIDDEN_SOURCE');
+      if (s.status !== 'IN_PROGRESS') throw new Error('SESSION_CLOSED');
+
+      const existing = await tx.zmccLabPortion.findMany({
+        where: { lab_session_id: sessionId },
+        orderBy: { portion_number: 'asc' },
+      });
+
+      if (existing.length <= 1) {
+        throw new Error('CANNOT_DELETE_LAST_PORTION');
+      }
+
+      const target = existing.find((p) => p.portion_number === portionNumber);
+      if (!target) throw new Error('PORTION_NOT_FOUND');
+
+      if (target.person_decision !== null || target.final_decision !== 'PENDING') {
+        throw new Error('CANNOT_DROP_DECIDED_PORTION');
+      }
+
+      const resultCount = await tx.zmccLabResult.count({ where: { portion_id: target.id } });
+      if (resultCount > 0) {
+        throw new Error('CANNOT_DROP_PORTION_WITH_RESULTS');
+      }
+
+      // Delete target empty portion
+      await tx.zmccLabPortion.delete({ where: { id: target.id } });
+
+      // Renumber remaining portions
+      const remaining = existing.filter((p) => p.id !== target.id);
+      for (let i = 0; i < remaining.length; i++) {
+        const correctNumber = i + 1;
+        if (remaining[i].portion_number !== correctNumber) {
+          await tx.zmccLabPortion.update({
+            where: { id: remaining[i].id },
+            data: { portion_number: correctNumber },
+          });
+        }
+      }
+
+      const newMode = remaining.length === 1 ? 'COMPOSITE' : 'PORTION_WISE';
+      await tx.zmccLabSession.update({
+        where: { id: sessionId },
+        data: { test_mode: newMode },
+      });
+
+      await writeAuditLog(tx, {
+        tableName: 'zmcc_lab_session',
+        recordId: sessionId,
+        action: 'ZMCC_LAB_PORTION_DISCARDED',
+        oldValues: { test_mode: s.test_mode, portion_number: portionNumber },
+        newValues: { test_mode: newMode, remaining_portions: remaining.length },
+        actor: auditActorOf(auth.acting),
+      });
+
+      // Roll up session: if all remaining portions are decided, finalize session to COMPLETED!
+      await rollUpLabSessionTx(tx, sessionId, auth.acting);
+    });
+  } catch (err) {
+    const msg = getErrorMessage(err);
+    const known: Record<string, [number, string]> = {
+      SESSION_NOT_FOUND: [404, 'ZMCC Lab session not found.'],
+      FORBIDDEN_SOURCE: [403, 'Forbidden. Lab session belongs to another ZMCC.'],
+      SESSION_CLOSED: [409, 'This lab session is already finished.'],
+      CANNOT_DELETE_LAST_PORTION: [400, 'Cannot discard the only portion of this session.'],
+      PORTION_NOT_FOUND: [404, 'Portion not found in this session.'],
+      CANNOT_DROP_DECIDED_PORTION: [409, 'This portion already has a decision and cannot be discarded.'],
+      CANNOT_DROP_PORTION_WITH_RESULTS: [409, 'This portion contains lab test measurements and cannot be discarded.'],
+    };
+    if (known[msg]) return { status: known[msg][0], error: known[msg][1] };
+    console.error('discardEmptyPortion error:', err);
+    return { status: 500, error: 'Failed to discard empty portion.' };
   }
 
   return buildPortionsState(auth, sessionId);
@@ -3590,6 +3852,17 @@ export async function submitPortionDecision(
           body: `Portion ${portion.portion_number} (session #${sessionId}): ${decision.exceptionReasons.join(', ')}. Lab said ${personDecision === 'ACCEPT' ? 'accept' : 'reject'}.${remarks ? ` Reason: ${remarks}` : ''}`,
           deepLink: '/mpd/zmcc-manager?tab=APPROVALS&view=LAB_EXCEPTIONS',
           dedupeSuffix: `portion:${portionId}:v${version}`,
+        });
+      } else if (details.warnings && details.warnings.length > 0) {
+        // Warning tolerance: Non-blocking advisory notification to ZMCC Manager and Head of MPD
+        await createNotificationsForEvent(tx, {
+          eventKey: 'ZMCC_LAB_WARNING_LOGGED',
+          sourceId: portionId.toString(),
+          sourceZmccId: portion.lab_session.zmcc_id,
+          title: `Lab warning accepted: Portion ${portion.portion_number}`,
+          body: `Session #${sessionId} portion ${portion.portion_number}: ${details.warnings.join('; ')}. Accepted by ${auth.acting.actingAs || auth.acting.actorRole}.${remarks ? ` Remarks: ${remarks}` : ''}`,
+          deepLink: '/zmcc/lab?tab=history',
+          dedupeSuffix: `portion-warning:${portionId}:v${version}`,
         });
       }
 

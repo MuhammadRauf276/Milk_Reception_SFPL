@@ -127,14 +127,18 @@ export async function loadLabPolicy(point: LabPoint, at: Date = new Date(), db: 
     }
 
     const rule =
-      r && r.rule_category === 'RELEASE' && !r.isConfigurationError
+      r && !r.isConfigurationError
         ? {
             min: r.min_value !== null ? Number(r.min_value) : null,
             max: r.max_value !== null ? Number(r.max_value) : null,
             allowed,
+            warningTrigger: r.warning_trigger ?? null,
+            decisionConsequence: r.decision_consequence ?? null,
+            ruleCategory: r.rule_category ?? 'RELEASE',
+            acceptableOption: r.acceptable_option ?? null,
           }
         : allowed
-        ? { min: null, max: null, allowed }
+        ? { min: null, max: null, allowed, warningTrigger: null, decisionConsequence: null, ruleCategory: 'RELEASE', acceptableOption: null }
         : null;
 
     return {
@@ -144,6 +148,7 @@ export async function loadLabPolicy(point: LabPoint, at: Date = new Date(), db: 
       isLr: looksLikeLr(code, name),
       isFat: looksLikeFat(code, name),
       options: optionValues(lt?.resultOptions),
+      resultOptions: lt?.resultOptions as any,
       rule,
     };
   });

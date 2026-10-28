@@ -30,7 +30,7 @@ export function FormDrawer({ open, onClose, title, busy, error, children }: Form
         </div>
         <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4 text-xs">
           {error && (
-            <div role="alert" className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 font-semibold text-rose-800">
+            <div role="alert" className="flex items-center gap-2 rounded-xl border border-border bg-card p-3 font-semibold text-rose-800">
               <ShieldAlert className="h-4 w-4 shrink-0 text-rose-600" />
               <span>{error}</span>
             </div>

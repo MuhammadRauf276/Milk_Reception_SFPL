@@ -225,6 +225,17 @@ test('owner not signed in on this device -> RETRY OWNER_SESSION_REQUIRED', async
   assert.equal(h.calls(), 0);
 });
 
+test('shared station device allows any active user without OWNER_SESSION_REQUIRED', async () => {
+  const db = fakeDb();
+  const h = counting({ status: 'SAVED', entityType: 'mot_shop_collection', entityId: '77' });
+  const sharedDev: AuthenticatedDevice = { ...device(), isSharedStation: true };
+  const auth: SyncAuth = { mode: 'DEVICE', device: sharedDev };
+  const body = okBody(await run(db, { MOT_COLLECTION: h.handler }, [item({ kind: 'MOT_COLLECTION', ownerUserId: '77' })], auth));
+  assert.equal(body.results[0].status, 'SAVED');
+  assert.equal(body.results[0].entityId, '77');
+  assert.equal(h.calls(), 1);
+});
+
 test('session auth: owner must be the session user', async () => {
   const db = fakeDb();
   const h = counting({ status: 'SAVED', entityType: 'mot_shop_collection', entityId: '3' });

@@ -7,6 +7,7 @@ import { Search, ShieldAlert, Truck } from 'lucide-react';
 import { formatDispatchQuantity } from '@/backend/modules/dispatch/quantity/dispatchQuantityService';
 import { getErrorMessage } from '@/lib/errors';
 import { fetchJson } from '@/lib/query/fetchJson';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useDebouncedValue } from '@/frontend/modules/super-admin/shared/useDebouncedValue';
 
 interface Portion {
@@ -77,13 +78,13 @@ export default function SuperAdminOperationsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-foreground">Plant Operations Journey Explorer</h1>
+          <h1 className="text-xl font-semibold text-foreground">Operations</h1>
         </div>
 
         {/* SEARCH FORM */}
         <form onSubmit={(e) => e.preventDefault()} className="flex items-center space-x-2">
           <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
             <input
               type="text"
               value={searchQuery}
@@ -92,12 +93,12 @@ export default function SuperAdminOperationsPage() {
                 setPage(1);
               }}
               placeholder="Search Vehicle / Visit #…"
-              className="pl-9 pr-3 py-1.5 rounded-xl border border-border-strong text-xs bg-white focus:outline-hidden focus:border-primary w-64"
+              className="pl-9 pr-3 min-h-11 rounded-xl border border-border-strong text-xs bg-card focus:outline-hidden focus:border-primary w-64"
             />
           </div>
           <button
             type="submit"
-            className="px-3 py-1.5 bg-primary text-white rounded-xl text-xs font-semibold hover:bg-primary-hover transition"
+            className="min-h-11 px-3 py-1.5 bg-primary text-white rounded-xl text-xs font-semibold hover:bg-primary-hover transition"
           >
             Search
           </button>
@@ -105,7 +106,7 @@ export default function SuperAdminOperationsPage() {
       </div>
 
       {error && (
-        <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs font-semibold flex items-center space-x-2 animate-panel-in">
+        <div className="p-4 bg-card border border-border rounded-xl text-rose-800 text-xs font-semibold flex items-center space-x-2 animate-panel-in">
           <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
           <span>{error}</span>
         </div>
@@ -114,16 +115,18 @@ export default function SuperAdminOperationsPage() {
       {/* VISITS LIST */}
       <div className="space-y-4">
         {loading ? (
-          <div className="p-8 text-center text-xs tabular-nums font-semibold text-slate-400">
-            Loading vehicle operation records…
+          <div className="space-y-3" aria-busy="true" aria-label="Loading">
+            <Skeleton className="h-28 w-full rounded-xl" />
+            <Skeleton className="h-28 w-full rounded-xl" />
+            <Skeleton className="h-28 w-full rounded-xl" />
           </div>
         ) : visits.length === 0 ? (
-          <div className="p-8 bg-white rounded-xl border border-border text-center text-slate-400 text-xs font-medium">
+          <div className="p-8 bg-card rounded-xl border border-border text-center text-slate-400 text-xs font-medium">
             No vehicle visits found.
           </div>
         ) : (
           visits.map((v) => (
-            <div key={v.id} className="bg-white rounded-xl border border-border/80 p-5 space-y-4 shadow-xs">
+            <div key={v.id} className="bg-card rounded-xl border border-border/80 p-5 space-y-4 shadow-2xs">
               <div className="flex items-center justify-between border-b border-border/60 pb-3">
                 <div className="flex items-center space-x-3">
                   <div className="p-2 bg-blue-50 text-primary rounded-lg">
@@ -149,7 +152,7 @@ export default function SuperAdminOperationsPage() {
               </div>
 
               {/* TIMELINE MILESTONE SUMMARY */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs bg-subtle p-3 rounded-lg border border-border/60">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs bg-card p-3 rounded-lg border border-border/60">
                 <div>
                   <span className="text-[10px] uppercase font-semibold text-slate-400 block">Gate Security</span>
                   <div className="font-semibold text-slate-700 mt-0.5">
@@ -183,7 +186,7 @@ export default function SuperAdminOperationsPage() {
                 <h4 className="text-xs font-semibold text-slate-700">Milk Portions ({v.portions.length})</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
                   {v.portions.map((p) => (
-                    <div key={p.id} className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-1">
+                    <div key={p.id} className="p-3 bg-card border border-border rounded-lg space-y-1">
                       <div className="flex justify-between items-center font-semibold text-slate-800">
                         <span>Portion #{p.portionNumber} ({p.contractorName})</span>
                         <span className={`px-2 py-0.5 rounded text-[10px] ${
@@ -215,7 +218,7 @@ export default function SuperAdminOperationsPage() {
 
       {/* PAGINATION CONTROLS */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between bg-white px-4 py-3 border border-border rounded-xl text-xs font-semibold text-slate-700">
+        <div className="flex items-center justify-between bg-card px-4 py-3 border border-border rounded-xl text-xs font-semibold text-slate-700">
           <div>
             Showing page <span className="font-semibold text-primary">{currentPage}</span> of{' '}
             <span className="font-semibold text-primary">{totalPages}</span> ({totalRecords.toLocaleString()} total visits)
@@ -225,7 +228,7 @@ export default function SuperAdminOperationsPage() {
               type="button"
               disabled={currentPage <= 1 || query.isFetching}
               onClick={() => goToPage(Math.max(1, currentPage - 1))}
-              className="px-3 py-1.5 rounded-lg border border-border-strong hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-semibold"
+              className="min-h-11 px-3 py-1.5 rounded-lg border border-border-strong hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-semibold"
             >
               Previous
             </button>
@@ -233,7 +236,7 @@ export default function SuperAdminOperationsPage() {
               type="button"
               disabled={currentPage >= totalPages || query.isFetching}
               onClick={() => goToPage(Math.min(totalPages, currentPage + 1))}
-              className="px-3 py-1.5 rounded-lg border border-border-strong hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-semibold"
+              className="min-h-11 px-3 py-1.5 rounded-lg border border-border-strong hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-semibold"
             >
               Next
             </button>

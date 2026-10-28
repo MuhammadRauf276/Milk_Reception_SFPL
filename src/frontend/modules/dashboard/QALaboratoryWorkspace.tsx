@@ -129,28 +129,28 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
       <PageHeader
         title={
           activeTab === 'WAITING'
-            ? 'QA Laboratory · Waiting Queue'
+            ? 'Waiting'
             : activeTab === 'IN_TESTING'
-            ? 'QA Laboratory · In Testing Sessions'
-            : 'QA Laboratory · On Hold Queue'
+            ? 'In testing'
+            : 'On hold'
         }
         description={
           activeTab === 'WAITING'
-            ? 'Vehicles awaiting sampling and testing at plant reception.'
+            ? 'Awaiting sampling'
             : activeTab === 'IN_TESTING'
-            ? 'Active testing sessions, seal verification, and portion analysis.'
-            : 'Portions on hold pending supervisor or QA decision.'
+            ? 'Active tests'
+            : 'Held portions'
         }
       />
 
-      <nav aria-label="QA Laboratory queues" className="grid grid-cols-3 gap-2">
+      <nav aria-label="QA Laboratory queues" className="grid grid-cols-3 gap-2 lg:hidden">
         <button
           type="button"
           aria-current={activeTab === 'WAITING' ? 'page' : undefined}
           onClick={() => setActiveTab('WAITING')}
           className={`min-h-11 rounded-xl border text-xs sm:text-sm font-semibold transition flex items-center justify-center gap-1.5 ${
             activeTab === 'WAITING'
-              ? 'border-primary-hover bg-blue-50 text-primary-hover shadow-2xs font-bold'
+              ? 'border-primary ring-1 ring-primary bg-primary/5 text-primary font-bold'
               : 'border-border bg-white text-slate-600 hover:bg-slate-50'
           }`}
         >
@@ -166,7 +166,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
           onClick={() => setActiveTab('IN_TESTING')}
           className={`min-h-11 rounded-xl border text-xs sm:text-sm font-semibold transition flex items-center justify-center gap-1.5 ${
             activeTab === 'IN_TESTING'
-              ? 'border-primary-hover bg-blue-50 text-primary-hover shadow-2xs font-bold'
+              ? 'border-primary ring-1 ring-primary bg-primary/5 text-primary font-bold'
               : 'border-border bg-white text-slate-600 hover:bg-slate-50'
           }`}
         >
@@ -182,7 +182,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
           onClick={() => setActiveTab('ON_HOLD')}
           className={`min-h-11 rounded-xl border text-xs sm:text-sm font-semibold transition flex items-center justify-center gap-1.5 ${
             activeTab === 'ON_HOLD'
-              ? 'border-amber-500 bg-amber-50 text-amber-900 shadow-2xs font-bold'
+              ? 'border-primary ring-1 ring-primary bg-primary/5 text-primary font-bold'
               : 'border-border bg-white text-slate-600 hover:bg-slate-50'
           }`}
         >
@@ -280,6 +280,9 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
               }
             }}
             isSuperior={isSuperior}
+            currentUser={currentUser}
+            onAcceptSubmit={() => actions.handleAcceptPortionConfirm()}
+            onRejectSubmit={() => actions.handleRejectPortionConfirm()}
           />
         </div>
       </div>

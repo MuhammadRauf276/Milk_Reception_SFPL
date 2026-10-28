@@ -16,11 +16,11 @@ export function ZmccReconciliationSnapshot() {
     queryFn: ({ signal }) => fetchJson<Report>('/api/management/zmcc-reconciliation?pageSize=5', { signal }),
   });
   const error = queryError ? queryError.message || 'Unable to load reconciliation.' : null;
-  if (error) return <section className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">Reconciliation unavailable: {error}</section>;
-  if (!report) return <section className="rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-500">Loading MOT-to-ZMCC reconciliation…</section>;
+  if (error) return <section className="bg-card border-border rounded-xl border p-3 text-xs text-amber-900">Reconciliation unavailable: {error}</section>;
+  if (!report) return <section className="bg-card border-border rounded-xl border p-4 text-xs text-slate-500">Loading Mobile Tester-to-ZMCC reconciliation…</section>;
   const s = report.summary;
-  return <section className="rounded-xl border border-slate-200 bg-white p-4 text-xs" aria-label="MOT to ZMCC reconciliation">
-    <div className="flex items-baseline justify-between gap-3"><div><p className="font-semibold text-slate-900">MOT to ZMCC reconciliation</p><p className="mt-1 text-slate-500">Finalized 13TS loss and gain exclude unresolved journeys.</p></div><span className="font-semibold text-slate-600">{s.finalizedJourneys} finalized / {s.unresolvedJourneys} unresolved</span></div>
+  return <section className="bg-card border-border rounded-xl border p-4 text-xs" aria-label="Mobile Tester to ZMCC reconciliation">
+    <div className="flex items-baseline justify-between gap-3"><div><p className="font-semibold text-slate-900">Mobile Tester to ZMCC reconciliation</p><p className="mt-1 text-slate-500">Finalized 13TS loss and gain exclude unresolved journeys.</p></div><span className="font-semibold text-slate-600">{s.finalizedJourneys} finalized / {s.unresolvedJourneys} unresolved</span></div>
     <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4"><div><p className="text-slate-500">13TS loss</p><strong>{format(s.at13tsLossLiters)} L</strong></div><div><p className="text-slate-500">13TS gain</p><strong>{format(s.at13tsGainLiters)} L</strong></div><div><p className="text-slate-500">Gross loss</p><strong>{format(s.grossLossLiters)} L</strong></div><div><p className="text-slate-500">Unresolved 13TS</p><strong>{format(s.unresolvedOriginAt13tsLiters)} L</strong></div></div>
     {report.items.length > 0 && <div className="mt-3 border-t pt-2"><p className="font-semibold text-slate-700">Latest journeys</p>{report.items.map((row) => <p key={row.journeyId} className="mt-1 text-slate-600">{row.journeyNumber} · {row.route.code} · {row.vehicleNumber} · {row.isResolved ? `${format(row.at13ts?.loss || 0)} L loss` : 'Awaiting final ZMCC decision'}</p>)}</div>}
   </section>;

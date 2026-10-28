@@ -10,7 +10,6 @@ import {
   XCircle,
   FileText,
   ShieldCheck,
-  ChevronRight,
 } from 'lucide-react';
 import type { UnifiedApprovalItem } from '@/backend/services/approvals/approvalInboxService';
 import { getRoleLabel } from '@/backend/core/roles/labels';
@@ -18,7 +17,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { cn } from '@/lib/utils';
 import { useDebouncedValue } from '@/lib/query/useDebouncedValue';
 import { Pager, pageCount, paginate } from '../dashboard/components/Pager';
-import { STAGE_LABELS, formatWaitingLabel } from './approvalInboxShared';
+import { STAGE_LABELS, cleanEntityTitle, formatWaitingLabel } from './approvalInboxShared';
 
 export function filterApprovalItems(
   items: UnifiedApprovalItem[] | null | undefined,
@@ -102,7 +101,7 @@ export function ApprovalQueueList({
                 setSearchQuery('');
                 setPage(1);
               }}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 rounded"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 rounded min-h-11 min-w-11"
             >
               <X className="w-4 h-4" />
             </button>
@@ -122,7 +121,7 @@ export function ApprovalQueueList({
             <p className="text-xs text-slate-500 font-medium">Loading approvals…</p>
           </div>
         ) : error ? (
-          <div className="p-6 max-w-md mx-auto text-center space-y-2 bg-white rounded-2xl border border-rose-200 text-rose-700 text-xs shadow-xs">
+          <div className="bg-card border-border p-6 max-w-md mx-auto text-center space-y-2 rounded-2xl border text-rose-700 text-xs shadow-xs">
             <AlertTriangle className="w-6 h-6 mx-auto text-rose-500" />
             <p className="font-bold text-sm">Failed to Load Approvals</p>
             <p className="text-slate-600">{error}</p>
@@ -135,18 +134,13 @@ export function ApprovalQueueList({
             </button>
           </div>
         ) : filteredItems.length === 0 ? (
-          <div className="p-12 max-w-md mx-auto text-center space-y-3 bg-white rounded-2xl border border-border shadow-2xs">
+          <div className="bg-card border-border p-12 max-w-md mx-auto text-center space-y-3 rounded-2xl border shadow-2xs">
             <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto border border-emerald-200">
               <CheckCircle2 className="w-6 h-6" />
             </div>
             <h3 className="text-sm font-bold text-foreground">
-              {statusFilter === 'PENDING' ? 'Approval Queue is Clear' : 'No Decided History Records'}
+              {statusFilter === 'PENDING' ? 'All clear' : 'No history'}
             </h3>
-            <p className="text-xs text-slate-500">
-              {statusFilter === 'PENDING'
-                ? 'No pending approval requests require your review right now.'
-                : 'No historical approvals match your active stage or search query.'}
-            </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -160,7 +154,7 @@ export function ApprovalQueueList({
                   key={item.id}
                   onClick={() => onSelect(item.id)}
                   className={cn(
-                    'bg-white rounded-xl border p-4 shadow-2xs hover:shadow-xs transition flex flex-col justify-between gap-3 cursor-pointer group',
+                    'bg-card rounded-xl border p-4 shadow-2xs hover:shadow-xs transition flex flex-col justify-between gap-3 cursor-pointer group',
                     isSelected ? 'border-primary ring-1 ring-primary' : 'border-border hover:border-slate-300'
                   )}
                 >
@@ -171,7 +165,7 @@ export function ApprovalQueueList({
                         <span className="font-bold text-sm text-foreground truncate group-hover:text-primary transition">
                           {item.referenceNumber}
                         </span>
-                        <span className={cn('px-2 py-0.5 rounded text-[10px] font-bold border shrink-0', stageMeta.color)}>
+                        <span className={'px-2 py-0.5 rounded text-[10px] font-bold border border-border bg-subtle text-slate-600 shrink-0'}>
                           {stageMeta.badge}
                         </span>
                       </div>
@@ -213,7 +207,7 @@ export function ApprovalQueueList({
                       )}
                     </div>
 
-                    <p className="text-xs font-semibold text-slate-800 line-clamp-1">{item.details.entityTitle}</p>
+                    <p className="text-xs font-semibold text-slate-800 line-clamp-1">{cleanEntityTitle(item.details.entityTitle)}</p>
                     <p className="text-[11px] text-slate-500">
                       Source: <strong className="text-slate-700">{item.sourceName || 'ZMCC Area'}</strong>
                     </p>
@@ -226,7 +220,7 @@ export function ApprovalQueueList({
                         <span>Submitted by: <strong className="text-slate-700">{item.submittedBy.name}</strong></span>
                         <span>({getRoleLabel(item.submittedBy.role)})</span>
                         {item.submittedBy.isDelegated && (
-                          <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-violet-100 text-violet-800 border border-violet-200">
+                          <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-subtle text-slate-600 border border-border">
                             Delegated
                           </span>
                         )}
@@ -249,7 +243,7 @@ export function ApprovalQueueList({
                         {item.reasonChips.slice(0, 3).map((chip, idx) => (
                           <span
                             key={idx}
-                            className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200"
+                            className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-subtle text-slate-600 border border-border"
                           >
                             {chip}
                           </span>
@@ -281,8 +275,8 @@ export function ApprovalQueueList({
                           : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                       )}
                     >
-                      <span>{isPending ? (item.canDecide ? 'Review & Decide' : 'Inspect Details') : 'Inspect Audit'}</span>
-                      <ChevronRight className="w-3.5 h-3.5" />
+                      <span>{isPending ? (item.canDecide ? 'Review' : 'View') : 'View'}</span>
+                      
                     </button>
                   </div>
                 </div>

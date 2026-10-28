@@ -52,7 +52,7 @@ export function SegmentedTabs<T extends string>({ tabs, value, onValueChange, la
       role="tablist"
       aria-label={label}
       className={cn(
-        'scrollbar-none inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-lg border bg-muted/60 p-0.5',
+        'scrollbar-none inline-flex lg:hidden max-w-full items-center gap-0.5 overflow-x-auto rounded-lg border bg-muted/60 p-0.5',
         className
       )}
     >
@@ -74,7 +74,7 @@ export function SegmentedTabs<T extends string>({ tabs, value, onValueChange, la
             onClick={() => onValueChange(tab.value)}
             onKeyDown={(event) => onKeyDown(event, index)}
             className={cn(
-              'relative inline-flex h-8 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring',
+              'relative inline-flex min-h-11 min-w-11 justify-center shrink-0 items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring',
               active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
             )}
           >

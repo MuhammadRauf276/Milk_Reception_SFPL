@@ -3,6 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { AlertTriangle, Ban, CheckCircle2, Clock, KeyRound, Plus, ScrollText, Search, Smartphone, Undo2, UserPlus, Users } from 'lucide-react';
+import { InfoTip } from '@/components/ui/info-tip';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/ui/page-header';
 import { fetchJson } from '@/lib/query/fetchJson';
@@ -71,8 +72,7 @@ export function DevicesWorkspace() {
   return (
     <div className="space-y-4">
       <PageHeader
-        title="Phones"
-        description="Register field phones, give them to users, and see what each phone did."
+        title={<span className="inline-flex items-center">Phones<InfoTip text="Register field phones, give them to users, and see what each phone did." /></span>}
         actions={
           <Button className={BTN} onClick={() => setDialog({ kind: 'register' })}>
             <Plus aria-hidden /> Register phone
@@ -90,9 +90,9 @@ export function DevicesWorkspace() {
               setSearch(e.target.value);
               setPage(1);
             }}
-            placeholder="Search phone name or ID"
+            placeholder="Search phones…"
             aria-label="Search phones"
-            className="h-11 w-full rounded-xl border border-border-strong bg-white pl-9 pr-3 text-sm focus:outline-hidden focus:border-primary"
+            className="h-11 w-full rounded-xl border border-border-strong bg-card pl-9 pr-3 text-sm focus:outline-hidden focus:border-primary"
           />
         </div>
         <div role="group" aria-label="Status filter" className="flex flex-wrap gap-1">
@@ -116,7 +116,7 @@ export function DevicesWorkspace() {
       </div>
 
       {error ? (
-        <div role="alert" className="flex items-center gap-2 rounded-md border border-rose-300 bg-rose-50 p-3 text-sm text-rose-900">
+        <div role="alert" className="flex items-center gap-2 rounded-md border border-border bg-card p-3 text-sm text-rose-900">
           <AlertTriangle className="size-4" aria-hidden /> {error}
         </div>
       ) : null}
@@ -125,7 +125,7 @@ export function DevicesWorkspace() {
         <p className="text-sm text-muted-foreground">Loading phones…</p>
       ) : devices.length === 0 ? (
         <p className="rounded-md border p-6 text-center text-sm text-muted-foreground">
-          {q || status ? 'No phones match.' : 'No phones yet. Tap Register phone to add one.'}
+          {q || status ? 'No phones match.' : 'No phones yet.'}
         </p>
       ) : (
         <ul className={`grid gap-4 lg:grid-cols-2 ${query.isPlaceholderData ? 'opacity-60' : ''}`}>
@@ -156,13 +156,13 @@ export function DevicesWorkspace() {
               {d.status === 'BLOCKED' && d.blockReason ? <p className="text-sm text-rose-900">Reason: {d.blockReason}</p> : null}
               <div className="flex flex-wrap gap-2">
                 <Button variant="outline" className={BTN} disabled={d.status === 'BLOCKED'} onClick={() => setDialog({ kind: 'assign', device: d })}>
-                  <UserPlus aria-hidden /> Give to user
+                  <UserPlus aria-hidden /> Assign user
                 </Button>
                 <Button variant="outline" className={BTN} onClick={() => setDialog({ kind: 'release', device: d })}>
                   <Undo2 aria-hidden /> Release phone
                 </Button>
                 <Button variant="outline" className={BTN} disabled={d.status === 'BLOCKED'} onClick={() => setDialog({ kind: 'key', device: d })}>
-                  <KeyRound aria-hidden /> Show key again
+                  <KeyRound aria-hidden /> Show key
                 </Button>
                 {d.isSharedStation ? (
                   <Button variant="outline" className={BTN} disabled={d.status !== 'ACTIVE'} onClick={() => setDialog({ kind: 'station', device: d })}>
@@ -181,7 +181,7 @@ export function DevicesWorkspace() {
         </ul>
       )}
 
-      <div className="overflow-hidden rounded-xl border border-border/80 bg-white">
+      <div className="overflow-hidden rounded-xl border border-border/80 bg-card">
         <PaginationBar
           page={pagination?.page ?? page}
           totalPages={pagination?.totalPages ?? 1}

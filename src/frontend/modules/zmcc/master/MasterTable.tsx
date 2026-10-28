@@ -45,7 +45,7 @@ export function MasterTable<T extends { id: string; is_active: boolean }>({
   onEdit,
   onToggle,
 }: Props<T>) {
-  const showActionsCol = canEdit || !hideActionsWhenReadOnly;
+  const showActionsCol = canEdit;
   const colSpan = cols.length + (showActionsCol ? 1 : 0);
   return (
     <table className="w-full text-left text-xs border-collapse">
@@ -76,9 +76,7 @@ export function MasterTable<T extends { id: string; is_active: boolean }>({
               ))}
               {showActionsCol && (
                 <td className="py-3 px-4 text-right">
-                  {!canEdit ? (
-                    <span className="text-[11px] text-slate-400 font-medium italic">Read-only</span>
-                  ) : (
+                  {canEdit && (
                     <div className="flex items-center justify-end gap-1.5">
                       <button
                         type="button"

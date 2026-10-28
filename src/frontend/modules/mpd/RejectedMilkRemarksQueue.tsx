@@ -1,5 +1,6 @@
 'use client';
 
+import { InfoTip } from '@/components/ui/info-tip';
 import React, { useState } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, CheckCircle2, Loader2, XCircle } from 'lucide-react';
@@ -84,14 +85,14 @@ export const RejectedMilkRemarksQueue: React.FC<RejectedMilkRemarksQueueProps> =
       </div>
 
       {error && (
-        <div className="m-4 p-3 bg-rose-50 border border-rose-200 text-rose-800 text-sm font-semibold rounded-xl flex items-center gap-2">
+        <div className="bg-card border-border m-4 p-3 border text-rose-800 text-sm font-semibold rounded-xl flex items-center gap-2">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>{error}</span>
         </div>
       )}
 
       {items.length === 0 && !loading ? (
-        <div className="p-6 text-center text-sm font-medium text-slate-500">No rejected milk is waiting for remarks.</div>
+        <div className="p-6 text-center text-sm font-medium text-slate-500">No pending remarks</div>
       ) : (
         <div className="divide-y divide-border">
           {items.map((item) => (
@@ -109,13 +110,14 @@ export const RejectedMilkRemarksQueue: React.FC<RejectedMilkRemarksQueueProps> =
                 {item.rejected_at && <span>{new Date(item.rejected_at).toLocaleDateString()}</span>}
               </div>
               {item.reject_reason && (
-                <div className="text-sm text-slate-600">
-                  Why it was rejected: <strong className="text-foreground">{item.reject_reason}</strong>
+                <div className="flex items-center gap-1 text-sm text-slate-600">
+                  <span>Reason</span>
+                  <InfoTip text={item.reject_reason} />
                 </div>
               )}
 
               {item.remarks ? (
-                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-sm text-emerald-900 flex gap-2">
+                <div className="bg-card border-border p-3 rounded-xl border text-sm text-emerald-900 flex gap-2">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                   <div>
                     <div className="font-semibold">Done: {item.remarks}</div>
@@ -129,16 +131,16 @@ export const RejectedMilkRemarksQueue: React.FC<RejectedMilkRemarksQueueProps> =
                   <textarea
                     value={drafts[item.entity_id] || ''}
                     onChange={(e) => setDrafts((d) => ({ ...d, [item.entity_id]: e.target.value }))}
-                    placeholder="Write what should happen to this milk…"
-                    className="w-full text-sm font-medium border border-border rounded-xl p-3 bg-subtle text-foreground focus:ring-2 focus:ring-primary min-h-[90px]"
+                    placeholder="Remarks"
+                    className="w-full text-sm font-medium border border-border rounded-xl p-3 bg-subtle text-foreground focus:ring-2 focus:ring-primary min-h-[90px] min-h-11"
                   />
                   <button
                     type="button"
                     disabled={savingId === item.entity_id || !(drafts[item.entity_id] || '').trim()}
                     onClick={() => save(item)}
-                    className="w-full sm:w-auto px-6 min-h-[56px] rounded-xl text-base font-semibold bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50 inline-flex items-center justify-center gap-2"
+                    className="w-full sm:w-auto px-6 min-h-[56px] rounded-xl text-base font-semibold bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50 inline-flex items-center justify-center gap-2 min-h-11"
                   >
-                    {savingId === item.entity_id ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                    {savingId === item.entity_id ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                     <span>Save remarks</span>
                   </button>
                 </div>

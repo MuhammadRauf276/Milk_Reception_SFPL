@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { User } from '@core/types';
 import {
   MapPin,
@@ -12,6 +12,8 @@ import {
 import { onActivateKey } from '@/lib/a11y';
 import { getErrorMessage } from '@/lib/errors';
 import { fetchJson } from '@/lib/fetch-json';
+import { LiveMap, type LiveMapVehicle } from '@/frontend/modules/shared/map/LiveMap';
+import { buildJourneyOverlays } from '@/frontend/modules/shared/map/journeyOverlays';
 
 interface ManagerJourneyMapProps {
   currentUser: User | null;
@@ -32,6 +34,7 @@ interface MapData {
     assigner: { id: string; username: string; full_name: string | null } | null;
     assigned_at: string;
     started_at: string;
+    ended_at?: string | null;
     start_point: {
       latitude: number;
       longitude: number;
@@ -77,8 +80,11 @@ interface MapData {
       snf: number;
       total_solids: number;
       at_13ts_liters: number;
-      recorded_latitude?: number | null;
-      recorded_longitude?: number | null;
+      collection_latitude?: number | null;
+      collection_longitude?: number | null;
+      device_collected_at?: string | null;
+      milk_source_name_snapshot?: string | null;
+      entered_by?: string | null;
       created_at: string;
     } | null;
   }>;
@@ -116,7 +122,10 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
   const isZmccManager = currentUser?.role === 'ZMCC_MANAGER';
   const isPheOperator = currentUser?.role === 'PHE_OPERATOR';
   const isMdo = currentUser?.role === 'MDO';
-  const isAuthorized = isSuperAdmin || isZmccManager || isPheOperator || isMdo;
+  const isHeadOfMpd = currentUser?.role === 'HEAD_OF_MPD';
+  const isExecMgmt = currentUser?.role === 'EXECUTIVE_MANAGEMENT';
+  const isDataExec = currentUser?.role === 'DATA_EXECUTIVE';
+  const isAuthorized = isSuperAdmin || isHeadOfMpd || isExecMgmt || isDataExec || isZmccManager || isPheOperator || isMdo;
 
   // Fetch journey map data
   // Journey whose request last settled; a different journeyId means its map is still loading.
@@ -153,85 +162,9 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
 
   const isLoading = loading || (Boolean(journeyId && isAuthorized) && loadedJourneyId !== journeyId);
 
-  // Project coordinates into SVG viewbox (800 x 480)
-  const projection = useMemo(() => {
-    if (!mapData) return null;
-
-    const points: Array<{ lat: number; lng: number; type: string }> = [];
-
-    // Start point
-    if (mapData.journey.start_point) {
-      points.push({
-        lat: mapData.journey.start_point.latitude,
-        lng: mapData.journey.start_point.longitude,
-        type: 'START',
-      });
-    }
-
-    // Stops
-    for (const stop of mapData.stops) {
-      if (stop.planned_latitude != null && stop.planned_longitude != null) {
-        points.push({
-          lat: stop.planned_latitude,
-          lng: stop.planned_longitude,
-          type: 'STOP',
-        });
-      }
-    }
-
-    // GPS Trail
-    for (const gps of mapData.gps_trail) {
-      points.push({
-        lat: gps.latitude,
-        lng: gps.longitude,
-        type: 'GPS',
-      });
-    }
-
-    if (points.length === 0) return null;
-
-    let minLat = Infinity;
-    let maxLat = -Infinity;
-    let minLng = Infinity;
-    let maxLng = -Infinity;
-
-    for (const p of points) {
-      if (p.lat < minLat) minLat = p.lat;
-      if (p.lat > maxLat) maxLat = p.lat;
-      if (p.lng < minLng) minLng = p.lng;
-      if (p.lng > maxLng) maxLng = p.lng;
-    }
-
-    // Add margin if points are too close
-    const latSpan = Math.max(maxLat - minLat, 0.005);
-    const lngSpan = Math.max(maxLng - minLng, 0.005);
-
-    const padLat = latSpan * 0.15;
-    const padLng = lngSpan * 0.15;
-
-    const bounds = {
-      minLat: minLat - padLat,
-      maxLat: maxLat + padLat,
-      minLng: minLng - padLng,
-      maxLng: maxLng + padLng,
-    };
-
-    const width = 800;
-    const height = 480;
-
-    const project = (lat: number, lng: number) => {
-      const x = ((lng - bounds.minLng) / (bounds.maxLng - bounds.minLng)) * width;
-      // Invert Y for latitude (higher latitude = higher up on map = lower Y)
-      const y = height - ((lat - bounds.minLat) / (bounds.maxLat - bounds.minLat)) * height;
-      return { x: Math.max(20, Math.min(width - 20, x)), y: Math.max(20, Math.min(height - 20, y)) };
-    };
-
-    return { project, width, height };
-  }, [mapData]);
-
   if (!isAuthorized) {
     return (
-      <div className="p-8 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-center space-y-2">
+      <div className="bg-card border-border p-8 border rounded-xl text-rose-800 text-center space-y-2">
         <AlertTriangle className="w-8 h-8 text-rose-600 mx-auto" />
         <h3 className="text-base font-semibold">Access Denied</h3>
         <p className="text-xs">
@@ -243,7 +176,7 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
 
   if (!journeyId) {
     return (
-      <div className="p-12 bg-white rounded-xl border border-border text-center space-y-3">
+      <div className="p-12 bg-card rounded-xl border border-border text-center space-y-3">
         <MapPin className="w-10 h-10 text-slate-400 mx-auto" />
         <h3 className="text-base font-semibold text-foreground">No Journey Selected</h3>
         <p className="text-xs text-slate-500 max-w-sm mx-auto">
@@ -255,7 +188,7 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
 
   if (isLoading) {
     return (
-      <div className="p-16 bg-white rounded-xl border border-border text-center space-y-3">
+      <div className="p-16 bg-card rounded-xl border border-border text-center space-y-3">
         <Loader2 className="w-8 h-8 text-primary animate-spin mx-auto" />
         <p className="text-xs font-semibold text-slate-600">Loading live journey tracking data…</p>
       </div>
@@ -264,7 +197,7 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
 
   if (error || !mapData) {
     return (
-      <div className="p-6 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 space-y-3">
+      <div className="bg-card border-border p-6 border rounded-xl text-rose-800 space-y-3">
         <div className="flex items-center space-x-2">
           <AlertTriangle className="w-5 h-5 text-rose-600" />
           <h3 className="text-sm font-semibold">Failed to load journey map</h3>
@@ -273,7 +206,7 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
         <button
           type="button"
           onClick={() => fetchMapData(journeyId)}
-          className="px-3 py-1.5 bg-rose-600 text-white rounded-xl text-xs font-semibold hover:bg-rose-700"
+          className="min-h-11 min-w-11 px-3 py-1.5 bg-rose-600 text-white rounded-xl text-xs font-semibold hover:bg-rose-700"
         >
           Retry
         </button>
@@ -283,35 +216,26 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
 
   const { journey, stops, gps_trail, totals } = mapData;
 
-  // Build SVG path for GPS trail
-  let gpsPath = '';
-  if (projection && gps_trail.length > 0) {
-    gpsPath = gps_trail
-      .map((pt, idx) => {
-        const { x, y } = projection.project(pt.latitude, pt.longitude);
-        return `${idx === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
-      })
-      .join(' ');
-  }
-
-  const startCoord = projection?.project(
-    journey.start_point.latitude,
-    journey.start_point.longitude
-  );
-
-  const firstMotCoord =
-    projection && journey.first_mot_gps?.latitude != null && journey.first_mot_gps?.longitude != null
-      ? projection.project(journey.first_mot_gps.latitude, journey.first_mot_gps.longitude)
-      : null;
-
-  const latestCoord =
-    projection && journey.latest_point
-      ? projection.project(journey.latest_point.latitude, journey.latest_point.longitude)
-      : null;
+  const isJourneyActive = !['COMPLETED', 'CANCELLED', 'CLOSED'].includes(journey.status);
+  const { pins, routes, markers } = buildJourneyOverlays(mapData, '#2563eb');
+  const vehicles: LiveMapVehicle[] =
+    isJourneyActive && journey.latest_point
+      ? [
+          {
+            id: 'vehicle-' + journey.id,
+            label: journey.mot_vehicle?.vehicle_number ?? 'Vehicle',
+            latitude: journey.latest_point.latitude,
+            longitude: journey.latest_point.longitude,
+            lastFixAt: journey.latest_point.timestamp,
+            journeyLabel: '#' + journey.journey_number,
+            subtitle: journey.mot_profile?.name ? 'Mobile Tester: ' + journey.mot_profile.name : null,
+          },
+        ]
+      : [];
 
   return (
     <div className="space-y-4">
-      <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-medium flex items-center justify-between">
+      <div className="bg-card border-border p-3 border rounded-xl text-emerald-800 text-xs font-medium flex items-center justify-between">
         <div className="flex items-center space-x-2">
           <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
           <span>GPS Route Trail Active · All waypoints recorded</span>
@@ -320,7 +244,7 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
           <button
             type="button"
             onClick={() => fetchMapData(journeyId)}
-            className="flex items-center space-x-1 px-2.5 py-1 bg-white border border-emerald-300 rounded-lg text-[11px] font-semibold text-emerald-900 hover:bg-emerald-100"
+            className="min-h-11 min-w-11 flex items-center space-x-1 px-2.5 py-1 bg-white border border-emerald-300 rounded-lg text-[11px] font-semibold text-emerald-900 hover:bg-emerald-100"
           >
             <span>Refresh Map</span>
           </button>
@@ -328,7 +252,7 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="p-1 rounded-lg text-emerald-700 hover:bg-emerald-200"
+              className="min-h-11 min-w-11 p-1 rounded-lg text-emerald-700 hover:bg-emerald-200"
             >
               <X className="w-4 h-4" />
             </button>
@@ -336,7 +260,7 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
         </div>
       </div>
 
-      <div className="p-5 bg-white rounded-xl border border-border shadow-2xs space-y-4">
+      <div className="p-5 bg-card rounded-xl border border-border shadow-2xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-border pb-3">
           <div>
             <span className="text-[10px] font-semibold uppercase text-slate-500 tracking-wider">
@@ -356,31 +280,31 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
               Route: <span className="font-semibold text-slate-800">{journey.route?.name}</span> ({journey.route?.route_code})
             </div>
             <div>
-              MOT: <span className="font-semibold text-slate-800">{journey.mot_profile?.name}</span> | Vehicle: <span className="font-semibold text-slate-800">{journey.mot_vehicle?.vehicle_number}</span>
+              Mobile Tester: <span className="font-semibold text-slate-800">{journey.mot_profile?.name}</span> | Vehicle: <span className="font-semibold text-slate-800">{journey.mot_vehicle?.vehicle_number}</span>
             </div>
           </div>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-          <div className="p-3 bg-subtle rounded-xl border border-border">
+          <div className="bg-card border-border p-3 rounded-xl border">
             <span className="text-[10px] font-semibold text-slate-500 uppercase block">Stops Visited</span>
             <span className="text-sm font-semibold text-foreground">
               {totals.visited_stops} / {totals.total_stops}
             </span>
           </div>
-          <div className="p-3 bg-subtle rounded-xl border border-border">
+          <div className="bg-card border-border p-3 rounded-xl border">
             <span className="text-[10px] font-semibold text-slate-500 uppercase block">Pending Stops</span>
             <span className="text-sm font-semibold text-amber-600">{totals.pending_stops}</span>
           </div>
-          <div className="p-3 bg-subtle rounded-xl border border-border">
+          <div className="bg-card border-border p-3 rounded-xl border">
             <span className="text-[10px] font-semibold text-slate-500 uppercase block">Total Gross Ltr</span>
             <span className="text-sm font-semibold text-emerald-700">{totals.total_gross_liters} L</span>
           </div>
-          <div className="p-3 bg-subtle rounded-xl border border-border">
+          <div className="bg-card border-border p-3 rounded-xl border">
             <span className="text-[10px] font-semibold text-slate-500 uppercase block">@13 TS Liters</span>
             <span className="text-sm font-semibold text-emerald-700">{totals.total_at_13ts_liters} L</span>
           </div>
-          <div className="p-3 bg-subtle rounded-xl border border-border">
+          <div className="bg-card border-border p-3 rounded-xl border">
             <span className="text-[10px] font-semibold text-slate-500 uppercase block">GPS Points / Sync</span>
             <span className="text-xs font-semibold text-slate-700">
               {totals.gps_point_count} pts
@@ -392,142 +316,19 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
         </div>
       </div>
 
-      <div className="relative bg-slate-900 rounded-xl border border-slate-800 overflow-hidden shadow-md">
-        <div className="w-full h-[480px] relative overflow-hidden flex items-center justify-center">
-          {projection ? (
-            <svg
-              viewBox={`0 0 ${projection.width} ${projection.height}`}
-              className="w-full h-full"
-              preserveAspectRatio="xMidYMid meet"
-            >
-              <defs>
-                <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                  <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255, 255, 255, 0.05)" strokeWidth="1" />
-                </pattern>
-              </defs>
-              <rect width="100%" height="100%" fill="url(#grid)" />
-
-              {gpsPath && (
-                <path
-                  d={gpsPath}
-                  fill="none"
-                  stroke="#38BDF8"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  opacity="0.8"
-                />
-              )}
-
-              {startCoord && (
-                <g transform={`translate(${startCoord.x}, ${startCoord.y})`}>
-                  <circle r="8" fill="#2563EB" stroke="#FFFFFF" strokeWidth="2" />
-                  <text
-                    y="-12"
-                    textAnchor="middle"
-                    fill="#93C5FD"
-                    fontSize="10"
-                    fontWeight="bold"
-                  >
-                    Start (Dispatch)
-                  </text>
-                </g>
-              )}
-
-              {firstMotCoord && (
-                <g transform={`translate(${firstMotCoord.x}, ${firstMotCoord.y})`}>
-                  <circle r="7" fill="#0284C7" stroke="#FFFFFF" strokeWidth="2" />
-                  <text
-                    y="18"
-                    textAnchor="middle"
-                    fill="#BAE6FD"
-                    fontSize="9"
-                    fontWeight="bold"
-                  >
-                    1st GPS
-                  </text>
-                </g>
-              )}
-
-              {latestCoord && (
-                <g transform={`translate(${latestCoord.x}, ${latestCoord.y})`}>
-                  <circle r="12" fill="#EF4444" opacity="0.3" className="animate-ping" />
-                  <circle r="8" fill="#EF4444" stroke="#FFFFFF" strokeWidth="2" />
-                  <text
-                    y="-12"
-                    textAnchor="middle"
-                    fill="#FCA5A5"
-                    fontSize="10"
-                    fontWeight="bold"
-                  >
-                    Latest Position
-                  </text>
-                </g>
-              )}
-
-              {stops.map((stop) => {
-                if (stop.planned_latitude == null || stop.planned_longitude == null) return null;
-                const pos = projection.project(stop.planned_latitude, stop.planned_longitude);
-                const isVisited = stop.status === 'VISITED';
-                const isSelected = selectedStop?.id === stop.id;
-
-                return (
-                  <g
-                    key={stop.id}
-                    transform={`translate(${pos.x}, ${pos.y})`}
-                    onClick={() => setSelectedStop(stop)}
-                    className="cursor-pointer transition-transform hover:scale-125"
-                  >
-                    <circle
-                      r={isSelected ? '14' : '10'}
-                      fill={isVisited ? '#10B981' : '#F59E0B'}
-                      stroke={isSelected ? '#FFFFFF' : 'rgba(255, 255, 255, 0.7)'}
-                      strokeWidth={isSelected ? '3' : '1.5'}
-                    />
-                    <text
-                      textAnchor="middle"
-                      dy=".35em"
-                      fill="#FFFFFF"
-                      fontSize={isSelected ? '10' : '8'}
-                      fontWeight="bold"
-                    >
-                      {stop.planned_sequence}
-                    </text>
-                  </g>
-                );
-              })}
-            </svg>
-          ) : (
-            <div className="text-slate-400 text-xs">No coordinate trail points to project.</div>
-          )}
-
-          <div className="absolute bottom-3 left-3 bg-slate-800/90 backdrop-blur-xs border border-slate-700 p-2.5 rounded-xl text-[11px] text-slate-300 space-y-1.5 pointer-events-none">
-            <div className="flex items-center space-x-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-blue-600 border border-white shrink-0" />
-              <span>Start Dispatch Point</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 border border-white shrink-0" />
-              <span>Visited Stop</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-500 border border-white shrink-0" />
-              <span>Pending Stop</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-rose-500 border border-white shrink-0" />
-              <span>Latest GPS Position</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <span className="w-4 h-0.5 bg-sky-400 shrink-0" />
-              <span>GPS Trail</span>
-            </div>
-          </div>
-
-          <div className="absolute top-3 right-3 bg-slate-800/90 backdrop-blur-xs border border-slate-700 px-3 py-1.5 rounded-xl text-[11px] font-semibold text-slate-300">
-            <span className="text-slate-400">Endpoint: </span>
-            <span className="text-amber-400">{journey.endpoint_status}</span>
-          </div>
+      <div className="relative bg-card rounded-xl border border-border overflow-hidden shadow-md">
+        <LiveMap
+          vehicles={vehicles}
+          pins={pins}
+          routes={routes}
+          markers={markers}
+          playback
+          heightClass="h-[480px]"
+          emptyMessage="No GPS trail or stop coordinates recorded for this journey yet."
+          onPinSelect={(id) => setSelectedStop(id ? stops.find((s) => s.id === id) ?? null : null)}
+        />
+        <div className="px-3 pb-2 text-[11px] font-semibold text-slate-600">
+          Endpoint: <span className="text-amber-600">{journey.endpoint_status}</span>
         </div>
 
         {selectedStop && (
@@ -563,7 +364,7 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
             <button
               type="button"
               onClick={() => setSelectedStop(null)}
-              className="self-start sm:self-center px-3 py-1 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs font-semibold text-slate-200"
+              className="min-h-11 min-w-11 self-start sm:self-center px-3 py-1 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs font-semibold text-slate-200"
             >
               Close Stop Info
             </button>
@@ -571,7 +372,7 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
         )}
       </div>
 
-      <div className="p-4 bg-white rounded-xl border border-border shadow-2xs space-y-3">
+      <div className="p-4 bg-card rounded-xl border border-border shadow-2xs space-y-3">
         <h3 className="text-xs font-semibold text-slate-500">
           Journey Stops & Collections ({stops.length})
         </h3>

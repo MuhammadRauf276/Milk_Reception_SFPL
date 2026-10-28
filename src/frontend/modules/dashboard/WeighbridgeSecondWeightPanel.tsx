@@ -1,5 +1,6 @@
 'use client';
 
+import { EmptyAction } from './components/EmptyAction';
 import React, { useState } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchJson } from '@/lib/query/fetchJson';
@@ -63,9 +64,7 @@ export const WeighbridgeSecondWeightPanel: React.FC = () => {
             Loading weighbridge queue…
           </div>
         ) : visits.length === 0 ? (
-          <div className="p-8 text-center border border-dashed border-border rounded-xl text-sm text-muted-foreground md:col-span-2 lg:col-span-3">
-            No vehicles currently waiting for second weight.
-          </div>
+          <EmptyAction message="No vehicles" onRefresh={() => secondQuery.refetch()} className="md:col-span-2 lg:col-span-3" />
         ) : (
           paginate(visits, currentPage).map((v) => (
             <div
@@ -242,7 +241,7 @@ const SecondWeightDrawer: React.FC<{
             </button>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 p-3.5 rounded-xl bg-subtle border border-border text-xs tabular-nums font-semibold">
+          <div className="bg-card border-border grid grid-cols-2 gap-3 p-3.5 rounded-xl border text-xs tabular-nums font-semibold">
             <div>
               <span className="text-slate-500 font-sans block text-[10px]">
                 {visit.is_portion_wise ? `First Weight (Before Portion #${visit.active_portion_number} Unloading)` : 'First Weight (Loaded Vehicle)'}
@@ -304,13 +303,13 @@ const SecondWeightDrawer: React.FC<{
 
           {previewNetKg !== null && (
             <div className="space-y-2 pt-1">
-              <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-300 flex items-center justify-between text-emerald-900 tabular-nums font-semibold text-xs">
+              <div className="p-3.5 rounded-xl bg-card border border-border flex items-center justify-between text-emerald-900 tabular-nums font-semibold text-xs">
                 <span>{visit.is_portion_wise ? `Portion #${visit.active_portion_number} Net Weight:` : 'Net Milk Weight:'}</span>
                 <span className="text-base font-semibold text-emerald-800">{previewNetKg.toLocaleString()} kg</span>
               </div>
 
               {visit.destination_silo_text && (
-                <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-xs tabular-nums font-semibold flex items-center justify-between text-blue-950">
+                <div className="bg-card border-border p-3 rounded-xl border text-xs tabular-nums font-semibold flex items-center justify-between text-blue-950">
                   <span className="font-sans text-[11px] text-slate-600">Destination Silo:</span>
                   <span className="px-2 py-0.5 rounded bg-blue-200 text-blue-900 font-semibold text-[10px]">
                     {visit.is_multi_silo_different ? 'Multi-Silo Allocation Required' : `Silo: ${visit.destination_silo_text}`}

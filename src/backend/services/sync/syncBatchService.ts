@@ -337,7 +337,8 @@ async function checkOwner(auth: SyncAuth, ownerId: bigint, deps: SyncBatchDeps):
     const device = auth.device;
     const assigned = device.assignedUserId !== null && device.assignedUserId === ownerId;
     const signedIn = auth.sessionUser != null && String(auth.sessionUser.id).trim() === ownerId.toString();
-    if (!assigned && !signedIn) {
+    const allowedOnDevice = assigned || signedIn || device.isSharedStation;
+    if (!allowedOnDevice) {
       return {
         ok: false,
         code: 'OWNER_SESSION_REQUIRED',

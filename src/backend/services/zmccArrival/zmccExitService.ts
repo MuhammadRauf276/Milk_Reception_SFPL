@@ -473,7 +473,7 @@ function toQueueItem(s: SessionFull): ExitQueueItem {
       (outcome === 'PARTLY_RECEIVED' || outcome === 'ACCEPTED_NOT_RECEIVED') &&
       s.closed_reason !== 'CLOSED_WITHOUT_UNLOADING',
     unloaded: !!s.unloaded_at,
-    can_exit: hc && decided && !left && s.local_supplier_arrival?.gate_exit_required === true,
+    can_exit: hc && decided && !left && s.local_supplier_arrival?.gate_exit_required === true && !s.close_requested_at,
     can_request_close: canRequestClose(s) === null,
     close_requested: !!s.close_requested_at && !s.close_approved_at,
     close_reason_code: s.exit_reason_code,

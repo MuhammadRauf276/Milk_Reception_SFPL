@@ -74,7 +74,8 @@ export async function POST(
       }
 
       const acceptedPortions = visit.portions.filter((p) => p.plant_decision === 'ACCEPTED');
-      const isPortionWise = visit.test_mode === 'PORTION_WISE';
+      const isMultiPortion = acceptedPortions.length > 1;
+      const isPortionWise = isMultiPortion || visit.test_mode === 'PORTION_WISE';
       let portionsToComplete = acceptedPortions;
       if (isPortionWise) {
         const targetPortion = acceptedPortions.find((p) => p.id === BigInt(portionIdStr));

@@ -246,6 +246,11 @@ function appVersion(): string {
 }
 
 function isOnline(): boolean {
+  if (typeof window !== 'undefined') {
+    try {
+      if (localStorage.getItem('milk_force_offline') === 'true') return false;
+    } catch {}
+  }
   return typeof navigator === 'undefined' || navigator.onLine !== false;
 }
 
@@ -321,7 +326,7 @@ async function sendBatches(summary: SyncRunSummary, hasKey: boolean, owner: stri
       return;
     }
     if (!skipDevice) {
-      const r = await sendQueuedBatches(s, { ...base, mode: 'DEVICE', ownerUserId: owner, send: postBatch(await getDeviceAuthHeaders()) });
+      const r = await sendQueuedBatches(s, { ...base, mode: 'DEVICE', ownerUserId: owner, allowAllOwners: true, send: postBatch(await getDeviceAuthHeaders()) });
       addToSummary(summary, r);
       noteDeviceAnswer(r);
       reportStop(r, 'DEVICE');

@@ -10,7 +10,7 @@ import type { SerializedCorrectionRequest } from '@/backend/services/correctionG
 export const CORRECTION_MODULE_LABELS: Record<string, string> = {
   ZMCC_LAB_SESSION: 'Lab record',
   MOT_SHOP_COLLECTION: 'Shop collection',
-  ZMCC_MC_ARRIVAL: 'MC arrival',
+  ZMCC_MC_ARRIVAL: 'Mobile Tester arrival',
   ZMCC_HC_ARRIVAL: 'HC arrival',
   ZMCC_WEIGHING: 'Weighing',
   ZMCC_EXIT: 'Exit record',
@@ -63,12 +63,11 @@ export const MyCorrectionTicketsButton: React.FC<{ className?: string }> = ({ cl
         open={open}
         onClose={() => setOpen(false)}
         title="My correction requests"
-        subtitle="Data Executive decides each request. Open means waiting, Done means the record was fixed."
         icon={<ClipboardList className="mt-0.5 h-5 w-5 shrink-0 text-slate-600" />}
       >
         {query.isLoading && <p className="text-xs text-slate-500">Loading…</p>}
         {!query.isLoading && items.length === 0 && (
-          <p className="text-xs text-slate-500">You have not raised any correction request yet.</p>
+          <p className="text-xs text-slate-500">No requests</p>
         )}
         <ul className="space-y-3">
           {items.map((t) => {

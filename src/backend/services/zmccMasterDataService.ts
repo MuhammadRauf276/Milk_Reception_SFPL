@@ -305,7 +305,7 @@ export async function listRoutes(
 ) {
   const where: Prisma.ZmccRouteWhereInput = {};
 
-  if (auth.isSuperAdmin) {
+  if (auth.isSuperAdmin || auth.isSystemScope) {
     if (filters?.zmcc_id) {
       where.zmcc_id = BigInt(filters.zmcc_id);
     }
@@ -376,7 +376,7 @@ export async function listRoutes(
     approved_at: r.approved_at ? r.approved_at.toISOString() : null,
     created_by: r.created_by.toString(),
     updated_by: r.updated_by ? r.updated_by.toString() : null,
-    creator_name: r.creator.full_name || r.creator.username,
+    creator_name: r.creator ? (r.creator.full_name || r.creator.username) : 'System',
     updater_name: r.updater ? r.updater.full_name || r.updater.username : null,
     created_at: r.created_at.toISOString(),
     updated_at: r.updated_at.toISOString(),
@@ -428,7 +428,7 @@ export async function getRouteById(auth: ZmccAuthContext, routeId: bigint) {
     approved_at: route.approved_at ? route.approved_at.toISOString() : null,
     created_by: route.created_by.toString(),
     updated_by: route.updated_by ? route.updated_by.toString() : null,
-    creator_name: route.creator.full_name || route.creator.username,
+    creator_name: route.creator ? (route.creator.full_name || route.creator.username) : 'System',
     updater_name: route.updater ? route.updater.full_name || route.updater.username : null,
     created_at: route.created_at.toISOString(),
     updated_at: route.updated_at.toISOString(),
@@ -767,7 +767,7 @@ export async function listPendingRoutes(auth: ZmccAuthContext) {
     approval_status: r.approval_status,
     rejection_reason: r.rejection_reason,
     created_by: r.created_by.toString(),
-    creator_name: r.creator.full_name || r.creator.username,
+    creator_name: r.creator ? (r.creator.full_name || r.creator.username) : 'System',
     created_at: r.created_at.toISOString(),
     areas: r.areas.map((a) => ({ id: a.id.toString(), name: a.name, area_code: a.area_code })),
   }));
@@ -907,7 +907,7 @@ export async function listAreas(
 ) {
   const where: Prisma.ZmccAreaWhereInput = {};
 
-  if (auth.isSuperAdmin) {
+  if (auth.isSuperAdmin || auth.isSystemScope) {
     if (filters?.zmcc_id) {
       where.zmcc_id = BigInt(filters.zmcc_id);
     }
@@ -1671,7 +1671,7 @@ export async function listShopsPage(
 ) {
   const where: Prisma.ZmccShopWhereInput = {};
 
-  if (auth.isSuperAdmin) {
+  if (auth.isSuperAdmin || auth.isSystemScope) {
     if (filters?.zmcc_id) {
       where.zmcc_id = BigInt(filters.zmcc_id);
     }

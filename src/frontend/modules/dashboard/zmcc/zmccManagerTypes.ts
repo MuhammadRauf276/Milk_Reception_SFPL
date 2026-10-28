@@ -2,6 +2,10 @@ import { MilkProcessLog } from '@backend/core/types';
 
 export type ZMCCManagerTab =
   | 'OVERVIEW'
+  | 'HIERARCHY'
+  | 'MOT_JOURNEYS'
+  | 'PLANT_TRANSIT'
+  | 'REPORTS'
   | 'LIVE'
   | 'RECONCILIATION'
   | 'HISTORY'

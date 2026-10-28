@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { User } from '@core/types';
 import { Combobox } from '@/components/ui/combobox';
 import { fetchJson } from '@/lib/query/fetchJson';
+import { stationQueryKeys } from '@/lib/query/stationQueryKeys';
 import { getErrorMessage } from '@/lib/errors';
 import { Pager, paginate, pageCount } from '@/frontend/modules/dashboard/components/Pager';
 import { MotSheet } from './MotSheet';
@@ -43,7 +44,7 @@ const STATUS_META: Record<FleetStatus, { label: string; tone: string }> = {
   FREE: { label: 'Free', tone: 'bg-emerald-100 text-emerald-800' },
   COLLECTING: { label: 'Collecting', tone: 'bg-amber-100 text-amber-800' },
   RETURNING: { label: 'Returning', tone: 'bg-blue-100 text-blue-800' },
-  AT_ZMCC_WAITING_UNLOAD: { label: 'At ZMCC waiting unload', tone: 'bg-violet-100 text-violet-800' },
+  AT_ZMCC_WAITING_UNLOAD: { label: 'Waiting unload', tone: 'bg-violet-100 text-violet-800' },
   INACTIVE: { label: 'Inactive', tone: 'bg-slate-200 text-slate-700' },
 };
 
@@ -64,9 +65,9 @@ export function FleetWorkspace({ currentUser }: { currentUser: User | null }) {
   const [historyRow, setHistoryRow] = useState<FleetRow | null>(null);
 
   const sourcesQuery = useQuery({
-    queryKey: ['mot', 'zmcc-sources'],
+    queryKey: stationQueryKeys.zmcc.sources(),
     queryFn: ({ signal }) => fetchJson<{ zmccs?: ZmccSource[] }>('/api/zmcc/sources', { signal }),
-    staleTime: 5 * 60_000,
+    staleTime: 10 * 60_000,
   });
   const sources = useMemo(() => (sourcesQuery.data?.zmccs || []).filter((s) => s.is_active), [sourcesQuery.data]);
 
@@ -118,14 +119,13 @@ export function FleetWorkspace({ currentUser }: { currentUser: User | null }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 rounded-xl border border-border bg-white p-4 shadow-2xs sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-2xs sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <div className="rounded-xl bg-primary p-2.5 text-white">
             <Truck className="h-5 w-5" />
           </div>
           <div>
             <h1 className="text-base font-semibold tracking-tight text-foreground sm:text-lg">Fleet</h1>
-            <p className="text-[11px] text-slate-500">All MC vehicles, where they belong and what they are doing.</p>
           </div>
         </div>
         <button
@@ -138,7 +138,7 @@ export function FleetWorkspace({ currentUser }: { currentUser: User | null }) {
         </button>
       </div>
 
-      <div className="flex flex-col gap-3 rounded-xl border border-border bg-white p-3 sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-3 sm:flex-row sm:items-center">
         <Combobox
           className="min-h-[44px] sm:min-w-[220px]"
           value={zmccFilter}
@@ -170,20 +170,20 @@ export function FleetWorkspace({ currentUser }: { currentUser: User | null }) {
       </div>
 
       {error ? (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-800">{error}</div>
+        <div className="bg-card border-border rounded-xl border p-3 text-xs font-semibold text-rose-800">{error}</div>
       ) : null}
       {message ? (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-semibold text-emerald-800">
+        <div className="bg-card border-border rounded-xl border p-3 text-xs font-semibold text-emerald-800">
           {message}
         </div>
       ) : null}
       {fleetQuery.error ? (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-800">
+        <div className="bg-card border-border rounded-xl border p-3 text-xs font-semibold text-rose-800">
           {getErrorMessage(fleetQuery.error)}
         </div>
       ) : null}
 
-      <div className="overflow-hidden rounded-xl border border-border bg-white shadow-2xs">
+      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-2xs">
         {fleetQuery.isLoading ? (
           <div className="p-8 text-center text-xs font-semibold text-slate-500">Loading fleet…</div>
         ) : rows.length === 0 ? (
@@ -220,10 +220,10 @@ export function FleetWorkspace({ currentUser }: { currentUser: User | null }) {
                       <td className="p-3 text-slate-700">
                         {r.last_journey ? (
                           <>
-                            <span className="font-semibold tabular-nums">#{r.last_journey.journey_number}</span>
-                            <span className="block text-[10px] text-slate-500">
-                              {r.last_journey.route_name ?? ''} · {fmt(r.last_journey.started_at)}
+                            <span className="font-semibold tabular-nums" title={r.last_journey.route_name ?? undefined}>
+                              #{r.last_journey.journey_number}
                             </span>
+                            <span className="block text-[10px] text-slate-500">{fmt(r.last_journey.started_at)}</span>
                           </>
                         ) : (
                           <span className="text-slate-400">No journey yet</span>
@@ -310,7 +310,7 @@ export function FleetWorkspace({ currentUser }: { currentUser: User | null }) {
           ) : (
             <ul className="space-y-2">
               {historyRow.transfers.map((t, i) => (
-                <li key={`${t.at}-${i}`} className="rounded-lg border border-border bg-subtle p-3 text-xs">
+                <li key={`${t.at}-${i}`} className="bg-card border-border rounded-lg border p-3 text-xs">
                   <p className="font-semibold text-foreground">
                     {t.from_zmcc ?? 'Unknown'} to {t.to_zmcc ?? 'Unknown'}
                   </p>

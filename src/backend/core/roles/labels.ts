@@ -22,7 +22,7 @@ export const ROLE_LABELS = {
   MDO: 'MDO (Milk Development Officer)',
   PHE_OPERATOR: 'PHE Operator',
   ZMCC_LAB_ATTENDANT: 'Zonal Lab Attendant',
-  MOT: 'Mobile Tester (MOT)',
+  MOT: 'Mobile Tester',
   ADMIN_HEAD: 'Admin Head',
   SECURITY_OPERATOR: 'Admin Operator',
   QA_HEAD: 'AVP – Quality Assurance',

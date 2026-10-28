@@ -3410,6 +3410,17 @@ export async function submitShopCollection(
           deepLink: '/mpd/zmcc-manager?tab=APPROVALS&view=MOT_EXCEPTIONS',
           dedupeSuffix: `${collection.id}:${clientEventId}`,
         });
+      } else if (decisionDetails.warnings && decisionDetails.warnings.length > 0) {
+        // Warning tolerance: Non-blocking advisory notification to ZMCC Manager and Head of MPD
+        await createNotificationsForEvent(tx, {
+          eventKey: 'MOT_SHOP_WARNING_LOGGED',
+          sourceId: collection.id.toString(),
+          sourceZmccId: stop.journey.zmcc_id,
+          title: `Shop warning accepted: ${stop.shop_name_snapshot}`,
+          body: `Shop ${stop.shop_name_snapshot} (${stop.shop_code_snapshot}): ${decisionDetails.warnings.join('; ')}. Accepted by ${stop.journey.mot_profile.name}.${decisionRemarks ? ` Remarks: ${decisionRemarks}` : ''}`,
+          deepLink: '/mpd/zmcc-manager?tab=COLLECTIONS',
+          dedupeSuffix: `${collection.id}:warning:${clientEventId}`,
+        });
       }
 
       // If journey has already completed (ended_at exists), recompute MotJourneySummary in SAME transaction
@@ -3673,6 +3684,8 @@ export async function recordGpsBatch(
             device_recorded_at: recDate,
             server_received_at: now,
             idempotency_key: locId,
+            // Uploaded long after it was recorded => the phone had no signal when the fix was taken.
+            was_offline: now.getTime() - recDate.getTime() > 2 * 60 * 1000,
           },
         });
 
@@ -3798,14 +3811,14 @@ export async function getJourneyMapData(
       stops: {
         include: {
           collection: {
-            include: { sms_outbox: true },
+            include: { sms_outbox: true, submitted_by: { select: { full_name: true, username: true } } },
           },
         },
         orderBy: { planned_sequence: 'asc' },
       },
       locations: {
         orderBy: { device_recorded_at: 'asc' },
-        take: 1000,
+        take: 3000,
       },
     },
   });
@@ -3919,7 +3932,12 @@ export async function getJourneyMapData(
         planned_longitude: s.planned_longitude_snapshot != null ? Number(s.planned_longitude_snapshot) : null,
         arrived_at: s.arrived_at ? s.arrived_at.toISOString() : null,
         completed_at: s.completed_at ? s.completed_at.toISOString() : null,
-        collection: s.collection ? serializeCollection(s.collection) : null,
+        collection: s.collection
+          ? {
+              ...serializeCollection(s.collection),
+              entered_by: s.collection.submitted_by?.full_name || s.collection.submitted_by?.username || null,
+            }
+          : null,
       })),
       gps_trail: journey.locations.map((l) => ({
         id: l.id.toString(),
@@ -3929,6 +3947,8 @@ export async function getJourneyMapData(
         gps_accuracy: l.gps_accuracy != null ? Number(l.gps_accuracy) : null,
         device_recorded_at: l.device_recorded_at.toISOString(),
         server_received_at: l.server_received_at.toISOString(),
+        speed_mps: l.speed_mps != null ? Number(l.speed_mps) : null,
+        was_offline: l.was_offline,
       })),
       totals: {
         total_stops: journey.stops.length,

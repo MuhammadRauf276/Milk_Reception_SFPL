@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { CheckCheck, X, Layers } from 'lucide-react';
+import { X, Layers } from 'lucide-react';
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import { useToast } from '@/frontend/context/ToastContext';
 import { toDatetimeLocalInput, datetimeLocalToIso } from '@/lib/datetime-utils';
@@ -17,7 +17,8 @@ export const ProductionCompleteUnloadingDrawer: React.FC<{
   const [completeOpTimestamp, setCompleteOpTimestamp] = useState<string>(() => toDatetimeLocalInput(new Date()));
   const [actionLoading, setActionLoading] = useState(false);
   const acceptedPortions = (visit.portions ?? []).filter((p) => p.plant_decision === 'ACCEPTED');
-  const isPortionWise = visit.test_mode === 'PORTION_WISE';
+  const isMultiPortion = acceptedPortions.length > 1;
+  const isPortionWise = isMultiPortion || visit.test_mode === 'PORTION_WISE';
 
   // In portion-wise mode, find the portion that is currently unloading:
   const activePortion = isPortionWise
@@ -99,7 +100,7 @@ export const ProductionCompleteUnloadingDrawer: React.FC<{
 
           {/* Portion-wise Cycle Header */}
           {isPortionWise && activePortion && (
-            <div className="p-3 bg-purple-50 rounded-xl border border-purple-200 text-xs">
+            <div className="bg-card border-border p-3 rounded-xl border text-xs">
               <div className="flex items-center justify-between font-semibold text-purple-900">
                 <span className="flex items-center space-x-1.5">
                   <Layers className="w-4 h-4 text-purple-700" />
@@ -117,17 +118,17 @@ export const ProductionCompleteUnloadingDrawer: React.FC<{
               {isPortionWise ? 'Active Unloading Portion & Destination Silo' : 'Assigned Silo Allocation'}
             </h4>
             {portionsToDisplay.map((p) => (
-              <div key={p.id} className="p-4 bg-subtle rounded-xl border border-border flex items-center justify-between text-xs tabular-nums font-semibold">
+              <div key={p.id} className="bg-card border-border p-4 rounded-xl border flex items-center justify-between text-xs tabular-nums font-semibold">
                 <div>
                   <span className="font-semibold text-foreground block">
-                    Portion #{p.portion_number} ({p.dispatch_quantity_value !== null && p.dispatch_quantity_value !== undefined ? p.dispatch_quantity_value.toLocaleString() : 'N/A'} {p.dispatch_quantity_unit === 'LITER' ? 'L' : 'kg'})
+                    Portion #{p.portion_number}
                   </span>
                   <span className="text-slate-600 font-sans text-[11px]">
-                    Destination Silo: <strong className="text-primary">{p.unloading_log?.silo_code || p.unloading_log?.silo_number || 'Silo 1'}</strong>
+                    Destination Silo: <strong className="text-primary">{p.unloading_log?.silo_code || p.unloading_log?.silo_number || 'Silo'}</strong>
                   </span>
                 </div>
-                <span className="text-emerald-800 text-sm font-semibold">
-                  {p.expected_physical_liters !== null ? `~${p.expected_physical_liters.toLocaleString()} L` : 'N/A'}
+                <span className="text-primary text-xs font-semibold px-2 py-0.5 rounded bg-subtle border border-border">
+                  Unloading in Progress
                 </span>
               </div>
             ))}
@@ -157,7 +158,7 @@ export const ProductionCompleteUnloadingDrawer: React.FC<{
               <span>Completing Unloading…</span>
             ) : (
               <>
-                <CheckCheck className="w-4 h-4" />
+                
                 <span>
                   {isPortionWise && activePortion
                     ? `Confirm Portion #${activePortion.portion_number} Unloading Completion`

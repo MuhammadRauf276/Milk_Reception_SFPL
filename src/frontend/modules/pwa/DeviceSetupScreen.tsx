@@ -23,6 +23,7 @@ import {
 } from './deviceIdentity';
 import { checkDeviceConnection, runSyncOnce } from './syncEngine';
 import { logDeviceEvent } from './diary';
+import { InfoTip } from '@/components/ui/info-tip';
 
 const BIG_BTN = 'h-14 min-h-14 w-full px-5 text-base [&_svg]:size-5';
 
@@ -76,9 +77,9 @@ function stateBanner(state: DeviceSyncState | null, hasKey: boolean): Banner {
 function BannerBox({ banner }: { banner: Banner }) {
   if (!banner) return null;
   const styles = {
-    ok: { cls: 'border-emerald-300 bg-emerald-50 text-emerald-900', icon: <CheckCircle2 className="size-6 text-emerald-600" aria-hidden /> },
-    error: { cls: 'border-rose-300 bg-rose-50 text-rose-900', icon: <Ban className="size-6 text-rose-600" aria-hidden /> },
-    wait: { cls: 'border-amber-300 bg-amber-50 text-amber-900', icon: <Loader2 className="size-6 animate-spin text-amber-600" aria-hidden /> },
+    ok: { cls: 'border-border bg-card text-emerald-900', icon: <CheckCircle2 className="size-6 text-emerald-600" aria-hidden /> },
+    error: { cls: 'border-border bg-card text-rose-900', icon: <Ban className="size-6 text-rose-600" aria-hidden /> },
+    wait: { cls: 'border-border bg-card text-amber-900', icon: <Loader2 className="size-6 animate-spin text-amber-600" aria-hidden /> },
     info: { cls: 'border-sky-300 bg-sky-50 text-sky-900', icon: <AlertCircle className="size-6 text-sky-600" aria-hidden /> },
   }[banner.tone];
   return (
@@ -255,14 +256,13 @@ export function DeviceSetupScreen() {
         <h1 className="flex items-center gap-2 text-2xl font-bold">
           <Smartphone className="size-7" aria-hidden /> Phone setup
         </h1>
-        <p className="text-base text-muted-foreground">For office staff. Set up this phone so it can send work by itself.</p>
+        <p className="flex items-center text-base text-muted-foreground">For office staff<InfoTip text="Set up this phone so it can send work by itself." /></p>
       </header>
 
       <BannerBox banner={shown} />
 
       <section className="space-y-3 rounded-lg border bg-card p-4">
-        <h2 className="text-lg font-semibold">Step 1. This phone ID</h2>
-        <p className="text-base text-muted-foreground">Add this ID on the Phones screen in the office.</p>
+        <h2 className="flex items-center text-lg font-semibold">1. Phone ID<InfoTip text="Add this ID on the Phones screen in the office." /></h2>
         <div className="break-all rounded-md border-2 border-dashed bg-muted/40 p-4 text-center font-mono text-2xl font-bold tracking-wide" aria-label="Phone ID">
           {deviceUid || '...'}
         </div>
@@ -272,12 +272,12 @@ export function DeviceSetupScreen() {
       </section>
 
       <section className="space-y-3 rounded-lg border bg-card p-4">
-        <h2 className="text-lg font-semibold">Step 2. Phone key</h2>
+        <h2 className="text-lg font-semibold">2. Phone key</h2>
         {canScan ? (
           scanning ? (
             <div className="space-y-3">
               <video ref={videoRef} className="aspect-square w-full rounded-md bg-black object-cover" muted playsInline />
-              <p className="text-base">Point the camera at the QR code on the Phones screen.</p>
+              <p className="text-base">Scan the QR code.</p>
               <Button variant="outline" className={BIG_BTN} onClick={stopScan}>
                 <X aria-hidden /> Stop camera
               </Button>
@@ -288,7 +288,7 @@ export function DeviceSetupScreen() {
             </Button>
           )
         ) : (
-          <p className="text-base text-muted-foreground">This phone cannot scan QR codes here. Type the key.</p>
+          <p className="flex items-center text-base text-muted-foreground">Type the key<InfoTip text="This phone cannot scan QR codes here." /></p>
         )}
         <label className="block space-y-2 text-base font-medium">
           Or type the key
@@ -316,7 +316,7 @@ export function DeviceSetupScreen() {
             <CheckCircle2 aria-hidden /> Check again
           </Button>
           {confirmRemove ? (
-            <div className="space-y-3 rounded-md border-2 border-rose-300 bg-rose-50 p-3 text-rose-900">
+            <div className="space-y-3 rounded-md border-2 border-border bg-card p-3 text-rose-900">
               <p className="text-base font-semibold">Remove the key from this phone?</p>
               <p className="text-base">The phone stops sending by itself until a new key is saved. Work waiting on this phone is kept.</p>
               <Button variant="destructive" className={BIG_BTN} disabled={busy} onClick={removeKey}>

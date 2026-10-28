@@ -9,6 +9,8 @@ export interface LogoutSafety extends UnsentWorkSummary {
   syncWaiting: number;
   /** New sync queue items the server refused (included in needsAttention). Kept, never deleted. */
   syncNeedsAttention: number;
+  sendableCount: number;
+  draftsCount: number;
 }
 
 /** Pure: adds the new sync queue counts to the MOT summary. */
@@ -19,6 +21,8 @@ export function combineUnsentWork(mot: UnsentWorkSummary, sync: { waiting: numbe
     ...mot,
     syncWaiting,
     syncNeedsAttention,
+    sendableCount: mot.collections + mot.gpsPoints + mot.skips + mot.shopRequests + syncWaiting,
+    draftsCount: mot.drafts,
     total: mot.total + syncWaiting,
     needsAttention: mot.needsAttention + syncNeedsAttention,
   };

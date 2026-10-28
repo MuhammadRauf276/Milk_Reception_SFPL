@@ -35,11 +35,11 @@ export function ProfileSheet({ editing, defaultZmccId, isCentralRole, onClose, o
         editing ? `/api/zmcc/mot/profiles/${editing.id}` : '/api/zmcc/mot/profiles',
         editing ? 'PATCH' : 'POST',
         { ...form, zmcc_id: isCentralRole ? form.zmcc_id || defaultZmccId : defaultZmccId },
-        'Failed to save MC Profile.'
+        'Failed to save Mobile Tester Profile.'
       ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: MOT_TAB_DATA_KEY });
-      onDone(editing ? 'MC Profile updated successfully.' : 'MC Profile created successfully.');
+      onDone(editing ? 'Mobile Tester Profile updated successfully.' : 'Mobile Tester Profile created successfully.');
     },
     onError: (err) => setError(getErrorMessage(err)),
   });
@@ -69,7 +69,7 @@ export function ProfileSheet({ editing, defaultZmccId, isCentralRole, onClose, o
         }}
         className="space-y-3"
       >
-        {!editing && field('mot_code', 'MC Code', 'e.g. MOT-001')}
+        {!editing && field('mot_code', 'Mobile Tester Code', 'e.g. MOT-001')}
         {field('name', 'Mobile Tester Full Name', 'e.g. Full Name')}
         {field('phone_number', 'Phone Number', '0300-1234567')}
         {field('cnic', 'CNIC Number', '35201-1234567-1')}

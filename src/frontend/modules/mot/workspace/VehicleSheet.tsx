@@ -33,17 +33,17 @@ export function VehicleSheet({ editing, defaultZmccId, isCentralRole, sources = 
         editing ? `/api/zmcc/mot/vehicles/${editing.id}` : '/api/zmcc/mot/vehicles',
         editing ? 'PATCH' : 'POST',
         { ...form, zmcc_id: isCentralRole ? form.zmcc_id || defaultZmccId : defaultZmccId },
-        'Failed to save MC Vehicle.'
+        'Failed to save Mobile Tester Vehicle.'
       ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: MOT_TAB_DATA_KEY });
-      onDone(editing ? 'MC Vehicle updated successfully.' : 'MC Vehicle created successfully.');
+      onDone(editing ? 'Mobile Tester Vehicle updated successfully.' : 'Mobile Tester Vehicle created successfully.');
     },
     onError: (err) => setError(getErrorMessage(err)),
   });
 
   return (
-    <MotSheet title={editing ? 'Edit MC Vehicle' : 'New MC Vehicle'} onClose={onClose}>
+    <MotSheet title={editing ? 'Edit Mobile Tester Vehicle' : 'New Mobile Tester Vehicle'} onClose={onClose}>
       <form
         onSubmit={(e) => {
           e.preventDefault();

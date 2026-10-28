@@ -85,7 +85,7 @@ export const STATION_METADATA: Record<
     testingPoints: ['ZMCC_LAB_MC', 'ZMCC_LAB_HC'],
   },
   MOT_SHOP: {
-    label: 'MOT Shop Collection',
+    label: 'Mobile Tester Shop Collection',
     icon: Store,
     testingPoints: ['MOT_SHOP'],
   },
@@ -454,14 +454,14 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
   return (
     <div className="space-y-6">
       {/* HEADER BANNER */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-border shadow-2xs">
+      <div className="bg-card border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-xl border shadow-2xs">
         <div className="flex items-center gap-2.5">
           <div className="p-2 bg-primary text-white rounded-xl">
             <FlaskConical className="w-5 h-5" />
           </div>
           <div>
             <h1 className="text-lg sm:text-xl font-semibold tracking-tight text-foreground">
-              Milk Test Policies & Acceptance Criteria
+              Test policies
             </h1>
           </div>
         </div>
@@ -469,7 +469,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
           <button
             onClick={fetchPoliciesAndRules}
             disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl border border-border bg-subtle text-slate-700 hover:bg-muted transition"
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl border border-border bg-subtle text-slate-700 hover:bg-muted transition min-h-11"
           >
             <span>Refresh</span>
           </button>
@@ -483,7 +483,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
               setModalAcceptableOption('');
               setIsAddModalOpen(true);
             }}
-            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl bg-primary text-white hover:bg-primary-hover transition shadow-2xs"
+            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl bg-primary text-white hover:bg-primary-hover transition shadow-2xs min-h-11"
           >
             <Plus className="w-4 h-4" />
             <span>Assign Test</span>
@@ -540,7 +540,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
             placeholder="Search assigned tests…"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-border bg-white focus:outline-hidden focus:ring-2 focus:ring-primary"
+            className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-border bg-white focus:outline-hidden focus:ring-2 focus:ring-primary min-h-11"
           />
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
@@ -605,7 +605,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
                             const val = parseInt(e.target.value, 10);
                             if (!isNaN(val)) handleUpdateDisplayOrder(policy, val);
                           }}
-                          className="w-14 px-1.5 py-1 text-xs border border-slate-200 rounded tabular-nums text-center focus:ring-1 focus:ring-primary"
+                          className="w-14 px-1.5 py-1 text-xs border border-slate-200 rounded tabular-nums text-center focus:ring-1 focus:ring-primary min-h-11"
                         />
                       </td>
 
@@ -673,7 +673,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
                           <button
                             type="button"
                             onClick={() => handleOpenCriteriaModal(policy)}
-                            className="p-1 rounded-md text-slate-500 hover:text-primary hover:bg-slate-100 transition"
+                            className="p-1 rounded-md text-slate-500 hover:text-primary hover:bg-slate-100 transition min-h-11 min-w-11"
                             title="Edit Quality Acceptance Criteria"
                           >
                             <Sliders className="w-3.5 h-3.5" />
@@ -736,7 +736,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
                 type="button"
                 onClick={() => setIsAddModalOpen(false)}
                 aria-label="Close"
-                className="text-slate-400 hover:text-slate-700"
+                className="text-slate-400 hover:text-slate-700 min-h-11 min-w-11"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -748,8 +748,8 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
                   Select Laboratory Test <span className="text-rose-600">*</span>
                 </label>
                 {availableLabTests.length === 0 ? (
-                  <p className="text-xs text-amber-700 bg-amber-50 p-2.5 rounded-lg border border-amber-200 font-medium">
-                    All active tests in the master catalogue are already assigned to this station.
+                  <p className="bg-card border-border text-xs text-amber-700 p-2.5 rounded-lg border font-medium">
+                    All tests assigned
                   </p>
                 ) : (
                   <select
@@ -763,7 +763,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
                       }
                     }}
                     required
-                    className="w-full p-2.5 rounded-xl border border-border bg-white text-xs font-semibold focus:ring-2 focus:ring-primary"
+                    className="w-full p-2.5 rounded-xl border border-border bg-white text-xs font-semibold focus:ring-2 focus:ring-primary min-h-11"
                   >
                     <option value="">Select test</option>
                     {availableLabTests.map((t) => (
@@ -782,7 +782,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
                     type="number"
                     value={modalDisplayOrder}
                     onChange={(e) => setModalDisplayOrder(parseInt(e.target.value, 10) || 0)}
-                    className="w-full p-2.5 rounded-xl border border-border text-xs tabular-nums font-semibold"
+                    className="w-full p-2.5 rounded-xl border border-border text-xs tabular-nums font-semibold min-h-11"
                   />
                 </div>
 
@@ -800,7 +800,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
                 </div>
               </div>
 
-              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+              <div className="bg-card border-border p-3.5 rounded-xl border space-y-3">
                 <div className="flex items-center gap-2">
                   <Sliders className="w-4 h-4 text-primary" />
                   <span className="font-semibold text-slate-800">Direct Quality Acceptance Criteria</span>
@@ -820,7 +820,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
                           placeholder="e.g. 3.5"
                           value={modalMinValue}
                           onChange={(e) => setModalMinValue(e.target.value)}
-                          className="w-full p-2 rounded-lg border border-slate-300 tabular-nums text-xs"
+                          className="bg-card border-border w-full p-2 rounded-lg border tabular-nums text-xs min-h-11"
                         />
                       </div>
                       <div>
@@ -831,7 +831,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
                           placeholder="e.g. 5.0"
                           value={modalMaxValue}
                           onChange={(e) => setModalMaxValue(e.target.value)}
-                          className="w-full p-2 rounded-lg border border-slate-300 tabular-nums text-xs"
+                          className="bg-card border-border w-full p-2 rounded-lg border tabular-nums text-xs min-h-11"
                         />
                       </div>
                     </div>
@@ -839,14 +839,14 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
                 ) : (
                   <div>
                     <label className="block font-semibold text-slate-700 mb-1">
-                      Acceptable Option (Qualitative / Sensory)
+                      Acceptable option
                     </label>
                     <input
                       type="text"
                       placeholder="e.g. NEGATIVE, NORMAL, CLEAN, SWEET"
                       value={modalAcceptableOption}
                       onChange={(e) => setModalAcceptableOption(e.target.value)}
-                      className="w-full p-2 rounded-lg border border-slate-300 tabular-nums text-xs uppercase"
+                      className="bg-card border-border w-full p-2 rounded-lg border tabular-nums text-xs uppercase min-h-11"
                     />
                     <div className="flex flex-wrap gap-1.5 mt-2">
                       {['NEGATIVE', 'POSITIVE', 'NORMAL', 'CLEAN', 'SWEET', 'PASS', 'OK'].map((preset) => (
@@ -854,7 +854,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
                           key={preset}
                           type="button"
                           onClick={() => setModalAcceptableOption(preset)}
-                          className="px-2 py-0.5 text-[10px] tabular-nums font-semibold bg-white border border-slate-300 rounded hover:bg-slate-100"
+                          className="px-2 py-0.5 text-[10px] tabular-nums font-semibold bg-white border border-slate-300 rounded hover:bg-slate-100 min-h-11 min-w-11"
                         >
                           {preset}
                         </button>
@@ -870,7 +870,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
                     value={modalReason}
                     onChange={(e) => setModalReason(e.target.value)}
                     required
-                    className="w-full p-2 rounded-lg border border-slate-300 text-xs"
+                    className="bg-card border-border w-full p-2 rounded-lg border text-xs min-h-11"
                   />
                 </div>
               </div>
@@ -879,14 +879,14 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold rounded-xl border border-border bg-subtle hover:bg-muted text-slate-700 transition"
+                  className="px-4 py-2 text-xs font-semibold rounded-xl border border-border bg-subtle hover:bg-muted text-slate-700 transition min-h-11"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting || availableLabTests.length === 0}
-                  className="px-4 py-2 text-xs font-semibold rounded-xl bg-primary text-white hover:bg-primary-hover transition disabled:opacity-50"
+                  className="px-4 py-2 text-xs font-semibold rounded-xl bg-primary text-white hover:bg-primary-hover transition disabled:opacity-50 min-h-11"
                 >
                   {submitting ? 'Assigning…' : 'Assign to Policy & Save Criteria'}
                 </button>
@@ -909,13 +909,13 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
                 type="button"
                 onClick={() => setIsCriteriaModalOpen(false)}
                 aria-label="Close"
-                className="text-slate-400 hover:text-slate-700"
+                className="text-slate-400 hover:text-slate-700 min-h-11 min-w-11"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="bg-blue-50/50 p-3 rounded-xl border border-blue-200/60 space-y-1">
+            <div className="bg-card border-border p-3 rounded-xl border space-y-1">
               <div className="text-xs font-semibold text-blue-950">
                 {criteriaTargetPolicy.labTest?.testName} ({criteriaTargetPolicy.labTest?.testCode})
               </div>
@@ -943,7 +943,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
                         placeholder="e.g. 3.5"
                         value={criteriaMinValue}
                         onChange={(e) => setCriteriaMinValue(e.target.value)}
-                        className="w-full p-2.5 rounded-xl border border-border tabular-nums text-xs"
+                        className="w-full p-2.5 rounded-xl border border-border tabular-nums text-xs min-h-11"
                       />
                     </div>
                     <div>
@@ -954,7 +954,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
                         placeholder="e.g. 5.0"
                         value={criteriaMaxValue}
                         onChange={(e) => setCriteriaMaxValue(e.target.value)}
-                        className="w-full p-2.5 rounded-xl border border-border tabular-nums text-xs"
+                        className="w-full p-2.5 rounded-xl border border-border tabular-nums text-xs min-h-11"
                       />
                     </div>
                   </div>
@@ -962,14 +962,14 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
               ) : (
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">
-                    Acceptable Option (Qualitative / Sensory)
+                    Acceptable option
                   </label>
                   <input
                     type="text"
                     placeholder="e.g. NEGATIVE, NORMAL, CLEAN, SWEET"
                     value={criteriaAcceptableOption}
                     onChange={(e) => setCriteriaAcceptableOption(e.target.value)}
-                    className="w-full p-2.5 rounded-xl border border-border tabular-nums text-xs uppercase"
+                    className="w-full p-2.5 rounded-xl border border-border tabular-nums text-xs uppercase min-h-11"
                   />
                   <div className="flex flex-wrap gap-1.5 mt-2">
                     {['NEGATIVE', 'POSITIVE', 'NORMAL', 'CLEAN', 'SWEET', 'PASS', 'OK'].map((preset) => (
@@ -977,7 +977,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
                         key={preset}
                         type="button"
                         onClick={() => setCriteriaAcceptableOption(preset)}
-                        className="px-2 py-0.5 text-[10px] tabular-nums font-semibold bg-slate-50 border border-slate-300 rounded hover:bg-slate-100"
+                        className="px-2 py-0.5 text-[10px] tabular-nums font-semibold bg-slate-50 border border-slate-300 rounded hover:bg-slate-100 min-h-11 min-w-11"
                       >
                         {preset}
                       </button>
@@ -993,7 +993,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
                   value={criteriaReason}
                   onChange={(e) => setCriteriaReason(e.target.value)}
                   required
-                  className="w-full p-2.5 rounded-xl border border-border text-xs"
+                  className="w-full p-2.5 rounded-xl border border-border text-xs min-h-11"
                 />
               </div>
 
@@ -1001,14 +1001,14 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
                 <button
                   type="button"
                   onClick={() => setIsCriteriaModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold rounded-xl border border-border bg-subtle hover:bg-muted text-slate-700 transition"
+                  className="px-4 py-2 text-xs font-semibold rounded-xl border border-border bg-subtle hover:bg-muted text-slate-700 transition min-h-11"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={criteriaSubmitting}
-                  className="px-4 py-2 text-xs font-semibold rounded-xl bg-primary text-white hover:bg-primary-hover transition disabled:opacity-50"
+                  className="px-4 py-2 text-xs font-semibold rounded-xl bg-primary text-white hover:bg-primary-hover transition disabled:opacity-50 min-h-11"
                 >
                   {criteriaSubmitting ? 'Saving Criteria…' : 'Save Acceptance Criteria'}
                 </button>

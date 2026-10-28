@@ -37,7 +37,7 @@ export default function QAHeadDepartmentPage() {
     <div className="min-h-screen bg-background text-foreground flex flex-col w-full max-w-full overflow-x-hidden">
       <Header
         currentUser={user}
-        title="AVP, Quality Assurance"
+        title="QA Head"
         showBranding={true}
         showMenuButton={true}
         onMenuClick={() => setIsDrawerOpen(true)}

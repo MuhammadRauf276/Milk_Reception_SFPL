@@ -60,7 +60,10 @@ function PheContent() {
 
   // Canonical query parameters
   const rawSection = searchParams?.get('section') || 'arrivals';
-  const canDoMot = Boolean(currentUser?.role && canActAs(currentUser.role, 'MDO'));
+  const canDoMot = Boolean(
+    currentUser?.role && (canActAs(currentUser.role, 'MDO') || canActAs(currentUser.role, 'PHE_OPERATOR'))
+  );
+  const isMdoOnly = currentUser?.role === 'MDO';
   const section =
     rawSection === 'suppliers' || (rawSection === 'mot' && canDoMot) || rawSection === 'weighing' || rawSection === 'exit'
       ? rawSection
@@ -175,7 +178,19 @@ function PheContent() {
 
             {section === 'weighing' && <ZmccWeighingWorkspace />}
 
-            {section === 'exit' && <ZmccExitWorkspace />}
+            {section === 'exit' && !isMdoOnly && <ZmccExitWorkspace />}
+            {section === 'exit' && isMdoOnly && (
+              <div className="bg-card border border-border rounded-xl p-6 text-center space-y-3">
+                <p className="text-sm font-semibold text-foreground">Vehicle exit is done by the PHE Operator.</p>
+                <button
+                  type="button"
+                  onClick={() => router.push('/phe?section=arrivals&view=history')}
+                  className="min-h-11 px-4 rounded-xl bg-primary text-white text-xs font-semibold"
+                >
+                  Arrival history
+                </button>
+              </div>
+            )}
 
             {section === 'suppliers' && (
               <ZmccMasterDataWorkspace

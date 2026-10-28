@@ -26,6 +26,26 @@ interface Args {
   historyPageSize: number;
 }
 
+const CACHE_JOURNEYS_KEY = 'zmcc_cached_arriving_journeys';
+const CACHE_SUPPLIERS_KEY = 'zmcc_cached_hc_suppliers';
+
+function readLocalCache<T>(key: string): T | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeLocalCache(key: string, data: unknown): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch {}
+}
+
 /** All TanStack queries used by the ZMCC arrivals workspace. */
 export function useArrivalsData(a: Args) {
   const queryClient = useQueryClient();
@@ -34,7 +54,18 @@ export function useArrivalsData(a: Args) {
   const journeysQuery = useQuery({
     queryKey: ['zmcc', 'arrivals', 'arriving-journeys', a.zmccSourceId],
     enabled: a.canSubmit && a.activeTab === 'MC_ARRIVAL',
-    queryFn: ({ signal }) => fetchJson<ArrivingJourney[]>(`/api/zmcc/arrivals/arriving-journeys${zmccParam}`, { signal }),
+    queryFn: async ({ signal }) => {
+      try {
+        const data = await fetchJson<ArrivingJourney[]>(`/api/zmcc/arrivals/arriving-journeys${zmccParam}`, { signal });
+        writeLocalCache(CACHE_JOURNEYS_KEY, data);
+        return data;
+      } catch (err) {
+        const cached = readLocalCache<ArrivingJourney[]>(CACHE_JOURNEYS_KEY);
+        if (cached && cached.length > 0) return cached;
+        throw err;
+      }
+    },
+    initialData: () => readLocalCache<ArrivingJourney[]>(CACHE_JOURNEYS_KEY) ?? undefined,
   });
 
   const needsSuppliers = a.canSubmit && (a.activeTab === 'HC_ARRIVAL' || a.correctionOpen);
@@ -44,7 +75,18 @@ export function useArrivalsData(a: Args) {
   const localSuppliersQuery = useQuery({
     queryKey: ['zmcc', 'hc-suppliers', 'active', a.zmccSourceId],
     enabled: needsSuppliers,
-    queryFn: ({ signal }) => fetchJson<{ suppliers?: HcSupplierRow[] }>(localSuppliersUrl, { signal }),
+    queryFn: async ({ signal }) => {
+      try {
+        const data = await fetchJson<{ suppliers?: HcSupplierRow[] }>(localSuppliersUrl, { signal });
+        writeLocalCache(CACHE_SUPPLIERS_KEY, data);
+        return data;
+      } catch (err) {
+        const cached = readLocalCache<{ suppliers?: HcSupplierRow[] }>(CACHE_SUPPLIERS_KEY);
+        if (cached && cached.suppliers?.length) return cached;
+        throw err;
+      }
+    },
+    initialData: () => readLocalCache<{ suppliers?: HcSupplierRow[] }>(CACHE_SUPPLIERS_KEY) ?? undefined,
   });
   const addLocalSupplierToCache = (supplier: HcSupplierRow) =>
     queryClient.setQueryData<{ suppliers?: HcSupplierRow[] }>(['zmcc', 'hc-suppliers', 'active', a.zmccSourceId], (prev) => ({

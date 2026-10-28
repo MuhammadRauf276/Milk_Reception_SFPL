@@ -15,15 +15,15 @@ interface Props {
 
 export function ActiveJourneysTab({ journeys, loading, canCancel, onRefresh, onViewMap, onViewStops, onCancel }: Props) {
   return (
-        <div className="bg-white rounded-xl border border-border shadow-2xs overflow-hidden animate-panel-in">
+        <div className="bg-card rounded-xl border border-border shadow-2xs overflow-hidden animate-panel-in">
           <div className="p-4 border-b border-border flex items-center justify-between">
             <div>
-              <h2 className="text-sm font-semibold text-foreground">Active Collection Journeys</h2>
+              <h2 className="text-sm font-semibold text-foreground">Active journeys</h2>
             </div>
             <button
               type="button"
               onClick={onRefresh}
-              className="flex items-center space-x-1 px-3 py-1.5 rounded-xl border border-border text-xs font-semibold text-slate-700 hover:bg-muted"
+              className="min-h-11 min-w-11 flex items-center space-x-1 px-3 py-1.5 rounded-xl border border-border text-xs font-semibold text-slate-700 hover:bg-muted"
             >
               <span>Refresh</span>
             </button>

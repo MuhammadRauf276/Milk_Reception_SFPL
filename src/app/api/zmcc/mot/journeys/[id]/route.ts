@@ -18,6 +18,6 @@ export async function GET(
     }
     return NextResponse.json({ journey: result.data });
   } catch (_err) {
-    return NextResponse.json({ error: 'An unexpected error occurred while fetching MOT journey.' }, { status: 500 });
+    return NextResponse.json({ error: 'An unexpected error occurred while fetching Mobile Tester journey.' }, { status: 500 });
   }
 }

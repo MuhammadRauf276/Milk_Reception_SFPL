@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { MilkProcessLog } from '@backend/core/types';
+import { Pager, paginate, pageCount } from '@/frontend/modules/dashboard/components/Pager';
 import {
   buildVehicleVisitGroups,
   deriveVehicleReconciliationItems,
@@ -41,11 +42,11 @@ interface ZMCCManagerReconciliationProps {
 }
 
 const FILTER_OPTIONS: { id: ReconciliationFilter; label: string }[] = [
-  { id: 'ALL', label: 'All on Page' },
-  { id: 'COMPLETED', label: 'Completed Receipts' },
-  { id: 'RECEIPT_PENDING', label: 'Receipt Pending' },
-  { id: 'HAS_QUANTITY_DIFF', label: 'Quantity Differences' },
-  { id: 'HAS_TS_DIFF', label: '13% TS Differences' },
+  { id: 'ALL', label: 'All' },
+  { id: 'COMPLETED', label: 'Completed' },
+  { id: 'RECEIPT_PENDING', label: 'Pending' },
+  { id: 'HAS_QUANTITY_DIFF', label: 'Qty diff' },
+  { id: 'HAS_TS_DIFF', label: 'TS diff' },
   { id: 'HAS_REJECTION', label: 'QA Rejected' },
 ];
 
@@ -61,6 +62,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [filterState, setFilterState] = useState<ReconciliationFilter>('ALL');
   const [expandedVisitId, setExpandedVisitId] = useState<number | null>(null);
+  const [page, setPage] = useState(1);
 
   // Build groups and derive reconciliation models
   const groups = useMemo(() => buildVehicleVisitGroups(logs), [logs]);
@@ -143,7 +145,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                 type="button"
                 onClick={onRetry}
                 disabled={isLoading}
-                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-subtle border border-border/80 text-xs font-semibold text-foreground hover:bg-muted/60 transition-all disabled:opacity-50"
+                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-subtle border border-border/80 text-xs font-semibold text-foreground hover:bg-muted/60 transition-all disabled:opacity-50 min-h-11"
               >
                 <span>{isLoading ? 'Syncing…' : 'Refresh'}</span>
               </button>
@@ -152,7 +154,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
         </div>
 
         {pagination && pagination.totalPages > 1 && (
-          <div className="flex items-center justify-between p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800">
+          <div className="bg-card border-border flex items-center justify-between p-3 rounded-xl border text-xs text-amber-800">
             <div className="flex items-center space-x-2">
               <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
               <span>
@@ -164,37 +166,37 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
         )}
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 tabular-nums">
-          <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
+          <div className="bg-card border-border p-3 rounded-lg border">
             <span className="text-xs font-sans text-slate-500 block uppercase font-semibold">Visits on Page</span>
             <span className="text-lg font-semibold text-slate-900">
               {showKpiPlaceholders ? '—' : summary.total}
             </span>
           </div>
-          <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200">
+          <div className="bg-card border-border p-3 rounded-lg border">
             <span className="text-xs font-sans text-emerald-700 block uppercase font-semibold">Completed on Page</span>
             <span className="text-lg font-semibold text-emerald-900">
               {showKpiPlaceholders ? '—' : summary.completed}
             </span>
           </div>
-          <div className="p-3 rounded-lg bg-amber-50 border border-amber-200">
+          <div className="bg-card border-border p-3 rounded-lg border">
             <span className="text-xs font-sans text-amber-700 block uppercase font-semibold">Pending on Page</span>
             <span className="text-lg font-semibold text-amber-900">
               {showKpiPlaceholders ? '—' : summary.pendingReceipt}
             </span>
           </div>
-          <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
+          <div className="bg-card border-border p-3 rounded-lg border">
             <span className="text-xs font-sans text-slate-700 block uppercase font-semibold">Qty Delta on Page</span>
             <span className="text-lg font-semibold text-slate-900">
               {showKpiPlaceholders ? '—' : summary.qtyDiffCount}
             </span>
           </div>
-          <div className="p-3 rounded-lg bg-blue-50 border border-blue-200">
+          <div className="bg-card border-border p-3 rounded-lg border">
             <span className="text-xs font-sans text-blue-700 block uppercase font-semibold">13% TS Delta on Page</span>
             <span className="text-lg font-semibold text-blue-900">
               {showKpiPlaceholders ? '—' : summary.tsDiffCount}
             </span>
           </div>
-          <div className="p-3 rounded-lg bg-rose-50 border border-rose-200">
+          <div className="bg-card border-border p-3 rounded-lg border">
             <span className="text-xs font-sans text-rose-700 block uppercase font-semibold">QA Rejections on Page</span>
             <span className="text-lg font-semibold text-rose-900">
               {showKpiPlaceholders ? '—' : summary.rejectedCount}
@@ -213,7 +215,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                   key={opt.id}
                   type="button"
                   onClick={() => setFilterState(opt.id)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold shrink-0 transition-all ${
+                  className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold shrink-0 transition-all ${
                     active
                       ? 'bg-primary text-white shadow-2xs'
                       : 'bg-subtle text-slate-700 hover:bg-muted border border-border/80'
@@ -230,11 +232,11 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search current page vehicle or token…"
+              placeholder="Search"
               aria-label="Search current page vehicle or token"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-subtle border border-border text-xs text-foreground placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-primary"
+              className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-subtle border border-border text-xs text-foreground placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-primary min-h-11"
             />
           </div>
         </div>
@@ -242,7 +244,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
 
       {/* 3. Error Alert */}
       {error && (
-        <div className="p-6 rounded-xl bg-rose-50 border border-rose-200 text-center space-y-2 animate-panel-in" role="alert">
+        <div className="bg-card border-border p-6 rounded-xl border text-center space-y-2 animate-panel-in" role="alert">
           <div className="w-10 h-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
             <AlertTriangle className="w-5 h-5" />
           </div>
@@ -269,7 +271,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
           <ArrowRightLeft className="w-8 h-8 text-slate-300 mx-auto" />
           <h4 className="text-sm font-semibold text-slate-700">No Reconciliation Records Found</h4>
           <p className="text-xs text-slate-500">
-            No vehicle records match the selected filter criteria for this reporting period.
+            No records
           </p>
         </div>
       )}
@@ -296,7 +298,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60 tabular-nums text-xs">
-                {filteredItems.map((item) => {
+                {paginate(filteredItems, Math.min(page, pageCount(filteredItems.length))).map((item) => {
                   const isExpanded = expandedVisitId === item.visitId;
                   const qaSummary = item.group.lifecycle.portionQA;
 
@@ -309,7 +311,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                             <button
                               type="button"
                               onClick={() => setExpandedVisitId(isExpanded ? null : item.visitId)}
-                              className="p-1 rounded hover:bg-slate-200 text-slate-500"
+                              className="p-1 rounded hover:bg-slate-200 text-slate-500 min-h-11 min-w-11"
                               title={isExpanded ? 'Collapse row' : 'Expand details'}
                             >
                               <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
@@ -466,7 +468,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                             {item.isCompletedReceipt
                               ? 'Final Receipt'
                               : item.isReceiptPending
-                              ? 'Receipt Pending'
+                              ? 'Pending'
                               : item.lifecycleStatus}
                           </span>
                         </td>
@@ -476,7 +478,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                           <button
                             type="button"
                             onClick={() => onInspectDetails(item.group.primaryLog)}
-                            className="inline-flex items-center space-x-1 px-2.5 py-1 rounded bg-slate-50 border border-slate-200 text-[11px] font-sans font-semibold text-primary hover:bg-blue-50 transition"
+                            className="inline-flex items-center space-x-1 px-2.5 py-1 rounded bg-slate-50 border border-slate-200 text-[11px] font-sans font-semibold text-primary hover:bg-blue-50 transition min-h-11 min-w-11"
                             title="Inspect full details"
                           >
                             <span>Inspect</span>
@@ -491,7 +493,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                           <td colSpan={12} className="p-4 border-b border-border">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs animate-panel-in">
                               {/* Scale & Silo Weights */}
-                              <div className="p-3 bg-white rounded-lg border border-border space-y-2">
+                              <div className="bg-card border-border p-3 rounded-lg border space-y-2">
                                 <div className="flex items-center space-x-2 font-sans font-semibold text-slate-800 pb-1 border-b border-slate-100">
                                   <Warehouse className="w-3.5 h-3.5 text-emerald-700" />
                                   <span>Weighbridge & Destination Silo</span>
@@ -522,7 +524,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                                 </div>
                               </div>
 
-                              <div className="p-3 bg-white rounded-lg border border-border space-y-2">
+                              <div className="bg-card border-border p-3 rounded-lg border space-y-2">
                                 <div className="flex items-center space-x-2 font-sans font-semibold text-slate-800 pb-1 border-b border-slate-100">
                                   <FlaskConical className="w-3.5 h-3.5 text-primary" />
                                   <span>Portion QA Breakdown ({item.portions.length} Portions)</span>
@@ -561,6 +563,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                 })}
               </tbody>
             </table>
+<Pager page={Math.min(page, pageCount(filteredItems.length))} totalPages={pageCount(filteredItems.length)} total={filteredItems.length} onPageChange={setPage} />
           </div>
         </div>
       )}

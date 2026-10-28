@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Plus, ShieldAlert, CheckCircle2, Edit2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { InfoTip } from '@/components/ui/info-tip';
 import { fadeSlide } from '@/components/motion/presets';
 import { getErrorMessage } from '@/lib/errors';
 import { fetchJson } from '@/lib/query/fetchJson';
@@ -49,7 +50,10 @@ export default function SuperAdminSilosPage() {
   return (
     <div className="w-full max-w-full space-y-4 overflow-x-hidden">
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-        <h1 className="text-xl font-semibold text-foreground">Silo Storage</h1>
+        <div className="flex items-center gap-1.5">
+          <h1 className="text-xl font-semibold text-foreground">Silo Storage</h1>
+          <InfoTip text="Plant raw milk storage silos with capacity, fill levels, and allocation tracking." />
+        </div>
         <Button
           className="h-11 shrink-0 px-4"
           onClick={() => {
@@ -63,7 +67,7 @@ export default function SuperAdminSilosPage() {
       </div>
 
       {error && (
-        <div className="flex items-center space-x-2 rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs font-semibold text-rose-800 animate-panel-in">
+        <div className="flex items-center space-x-2 rounded-xl border border-border bg-card p-4 text-xs font-semibold text-rose-800 animate-panel-in">
           <ShieldAlert className="h-4 w-4 shrink-0 text-rose-600" />
           <span>{error}</span>
         </div>
@@ -78,7 +82,7 @@ export default function SuperAdminSilosPage() {
             animate="animate"
             exit="exit"
             role="status"
-            className="flex items-center space-x-2 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-xs font-semibold text-emerald-800"
+            className="flex items-center space-x-2 rounded-xl border border-border bg-card p-4 text-xs font-semibold text-emerald-800"
           >
             <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
             <span>{successMsg}</span>
@@ -86,90 +90,109 @@ export default function SuperAdminSilosPage() {
         )}
       </AnimatePresence>
 
-      <div className="w-full max-w-full overflow-hidden rounded-xl border border-border/80 bg-white shadow-xs">
+      <div className="w-full max-w-full overflow-hidden rounded-xl border border-border bg-card shadow-2xs">
         <div className="w-full overflow-x-auto">
-          <table className="w-full min-w-[650px] text-left text-xs">
-            <thead className="border-b border-border bg-subtle text-slate-600">
+          <table className="w-full min-w-[700px] text-left text-xs font-sans">
+            <thead className="border-b border-border bg-muted/50 text-muted-foreground uppercase font-semibold text-[10px] tracking-wider">
               <tr>
-                <th className="p-3 font-semibold">Code</th>
-                <th className="p-3 font-semibold">Name</th>
-                <th className="p-3 font-semibold">Total Capacity</th>
-                <th className="p-3 font-semibold">Current Stock</th>
-                <th className="p-3 font-semibold">Active Reservations</th>
-                <th className="p-3 font-semibold">Status</th>
-                <th className="p-3 text-right font-semibold">Actions</th>
+                <th className="p-3">Code</th>
+                <th className="p-3">Name</th>
+                <th className="p-3">Capacity</th>
+                <th className="p-3">Stock Level</th>
+                <th className="p-3">Reserved</th>
+                <th className="p-3">Status</th>
+                <th className="p-3 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border/60 font-medium">
+            <tbody className="divide-y divide-border/60 font-semibold text-foreground">
               {query.isPending ? (
                 <tr>
-                  <td colSpan={7} className="p-6 text-center tabular-nums text-slate-400">
-                    Loading silo storage records…
+                  <td colSpan={7} className="p-6 text-center tabular-nums text-muted-foreground">
+                    Loading silos…
                   </td>
                 </tr>
               ) : silos.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-6 text-center text-slate-400">
-                    No silos configured.
+                  <td colSpan={7} className="p-6 text-center text-muted-foreground">
+                    No silos found.
                   </td>
                 </tr>
               ) : (
-                silos.map((s) => (
-                  <tr key={s.id} className="hover:bg-slate-50">
-                    <td className="p-3 font-semibold tabular-nums text-foreground">{s.siloCode}</td>
-                    <td className="p-3 font-semibold text-slate-800">{s.siloName}</td>
-                    <td className="p-3 font-semibold tabular-nums text-blue-900">{s.capacityLiters.toLocaleString()} L</td>
-                    <td className="p-3 font-semibold tabular-nums text-emerald-800">{s.currentStockLiters.toLocaleString()} L</td>
-                    <td className="p-3 font-semibold tabular-nums text-amber-800">{s.activeReservationsLiters.toLocaleString()} L</td>
-                    <td className="p-3">
-                      {s.isActive ? (
-                        <span className="rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">Active</span>
-                      ) : (
-                        <span className="rounded bg-rose-100 px-2 py-0.5 text-[10px] font-semibold text-rose-800">Inactive</span>
-                      )}
-                    </td>
-                    <td className="p-3 text-right">
-                      <div className="flex items-center justify-end space-x-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setActionError(null);
-                            setDialog({ kind: 'edit', silo: s });
-                          }}
-                          className="flex min-h-[44px] items-center space-x-1.5 rounded-lg bg-slate-100 px-3 py-2 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-200"
-                          title="Edit Silo Capacity"
-                        >
-                          <Edit2 className="h-3.5 w-3.5" />
-                          <span>Edit</span>
-                        </button>
+                silos.map((s) => {
+                  const fillPct = Math.min(100, Math.round((s.currentStockLiters / (s.capacityLiters || 1)) * 100));
+                  return (
+                    <tr key={s.id} className="hover:bg-muted/20 transition-colors">
+                      <td className="p-3 font-bold tabular-nums text-foreground">{s.siloCode}</td>
+                      <td className="p-3 font-semibold text-foreground">{s.siloName}</td>
+                      <td className="p-3 tabular-nums text-muted-foreground">{s.capacityLiters.toLocaleString()} L</td>
+                      <td className="p-3 tabular-nums">
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-xs font-bold text-foreground">
+                            <span>{s.currentStockLiters.toLocaleString()} L</span>
+                            <span className="text-[10px] text-muted-foreground">{fillPct}%</span>
+                          </div>
+                          <div className="w-28 h-1.5 rounded-full bg-muted overflow-hidden">
+                            <div
+                              className="h-full bg-primary rounded-full transition-all"
+                              style={{ width: `${fillPct}%` }}
+                            />
+                          </div>
+                        </div>
+                      </td>
+                      <td className="p-3 tabular-nums text-muted-foreground">
+                        {s.activeReservationsLiters > 0 ? `${s.activeReservationsLiters.toLocaleString()} L` : '—'}
+                      </td>
+                      <td className="p-3">
                         {s.isActive ? (
-                          <button
-                            type="button"
-                            onClick={() => setDialog({ kind: 'deactivate', silo: s })}
-                            className="min-h-[44px] rounded-lg bg-rose-50 px-3 py-2 text-[11px] font-semibold text-rose-700 transition hover:bg-rose-100"
-                            title="Deactivate Silo"
-                          >
-                            Deactivate
-                          </button>
+                          <span className="rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold">
+                            Active
+                          </span>
                         ) : (
+                          <span className="rounded-md bg-rose-50 text-rose-800 border border-rose-200 px-2 py-0.5 text-[10px] font-bold">
+                            Inactive
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-3 text-right">
+                        <div className="flex items-center justify-end space-x-1.5">
                           <button
                             type="button"
                             onClick={() => {
                               setActionError(null);
-                              setSuccessMsg(null);
-                              activate.mutate(s);
+                              setDialog({ kind: 'edit', silo: s });
                             }}
-                            disabled={activate.isPending}
-                            className="min-h-[44px] rounded-lg bg-emerald-50 px-3 py-2 text-[11px] font-semibold text-emerald-700 transition hover:bg-emerald-100"
-                            title="Reactivate Silo"
+                            className="flex min-h-[36px] items-center space-x-1 rounded-lg bg-muted px-2.5 py-1 text-xs font-semibold text-foreground transition hover:bg-muted/80 border border-border"
                           >
-                            Activate
+                            <Edit2 className="h-3 w-3" />
+                            <span>Edit</span>
                           </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                          {s.isActive ? (
+                            <button
+                              type="button"
+                              onClick={() => setDialog({ kind: 'deactivate', silo: s })}
+                              className="min-h-[36px] rounded-lg px-2.5 py-1 text-xs font-semibold text-rose-700 transition hover:bg-rose-50 border border-rose-200/60"
+                            >
+                              Deactivate
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActionError(null);
+                                setSuccessMsg(null);
+                                activate.mutate(s);
+                              }}
+                              disabled={activate.isPending}
+                              className="min-h-[36px] rounded-lg px-2.5 py-1 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-50 border border-emerald-200/60"
+                            >
+                              Activate
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

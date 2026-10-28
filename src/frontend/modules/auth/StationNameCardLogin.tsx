@@ -8,7 +8,7 @@ import { getDeviceAuthHeaders, getDeviceUid } from '@/frontend/modules/pwa/devic
 interface NameCard { id: string; name: string; roleLabel: string; locked: boolean }
 type Problem = { kind: 'wrong' | 'locked' | 'other'; text: string };
 
-const NOT_STATION = 'This computer is not set up as a station. Ask the office.';
+const NOT_STATION = 'Not a station. Ask the office.';
 const PIN_LENGTH = 4;
 const DIGITS = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
 const KEY = 'flex min-h-16 items-center justify-center rounded-xl border-2 border-slate-300 bg-white text-3xl font-semibold text-slate-900 active:bg-slate-200 disabled:opacity-50';
@@ -98,7 +98,7 @@ export function StationNameCardLogin() {
       <h1 className="text-2xl font-bold text-slate-900">{selected ? `Hello, ${selected.name}` : 'Who are you?'}</h1>
 
       {notStation ? (
-        <p role="alert" className="flex items-center gap-2 rounded-xl border-2 border-rose-300 bg-rose-50 p-4 text-lg text-rose-900">
+        <p role="alert" className="flex items-center gap-2 rounded-xl border-2 border-border bg-card p-4 text-lg text-rose-900">
           <AlertTriangle className="size-6 shrink-0" aria-hidden /> {NOT_STATION}
         </p>
       ) : cards === null ? (
@@ -107,7 +107,7 @@ export function StationNameCardLogin() {
         <>
           {problem ? <ProblemBox problem={problem} /> : null}
           {cards.length === 0 && !problem ? (
-            <p className="text-lg text-slate-700">No names are set up on this computer. Ask the office.</p>
+            <p className="text-lg text-slate-700">No names set up. Ask the office.</p>
           ) : (
             <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {cards.map((c) => (

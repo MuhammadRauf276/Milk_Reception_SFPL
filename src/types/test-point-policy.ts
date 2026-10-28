@@ -19,23 +19,38 @@ export const TEST_POINT_CODES: readonly TestPointCode[] = [
 ];
 
 export const TEST_POINT_LABELS: Record<TestPointCode, string> = {
-  MOT_SHOP: 'Shop (MOT)',
-  ZMCC_LAB_MC: 'ZMCC lab – MC',
-  ZMCC_LAB_HC: 'ZMCC lab – HC',
-  ZMCC_DISPATCH: 'ZMCC dispatch',
-  CONTRACTOR_DISPATCH: 'Contractor dispatch',
-  PLANT_QA: 'Plant QA',
+  MOT_SHOP: 'MOT Village Collection',
+  ZMCC_LAB_MC: 'ZMCC Lab for MC',
+  ZMCC_LAB_HC: 'ZMCC Lab for HC',
+  ZMCC_DISPATCH: 'ZMCC Lab Dispatch to Plant',
+  CONTRACTOR_DISPATCH: 'Contractor Dispatch to plant',
+  PLANT_QA: 'Plant QA Reception Lab',
 };
+
+export type PolicyTestMode = 'COMPULSORY' | 'OPTIONAL' | 'OFF' | 'APPLIED' | 'NOT_APPLIED' | 'AUTO';
 
 export interface TestPointPolicyCell {
   labTestId: string;
   testCode: string;
   testName: string;
   point: TestPointCode;
-  testMode: 'COMPULSORY' | 'OPTIONAL' | 'OFF';
+  testMode: PolicyTestMode;
   ruleMode: 'APPLY' | 'WARN';
   photoMode: 'REQUIRED' | 'OPTIONAL' | 'NONE';
   version: number;
   effectiveFrom: string;
   source: 'DB' | 'DEFAULT';
+}
+
+/**
+ * Normalizes test mode aliases:
+ * 'APPLIED' -> 'OPTIONAL'
+ * 'NOT_APPLIED' -> 'OFF'
+ */
+export function normalizeTestMode(mode: string): 'COMPULSORY' | 'OPTIONAL' | 'OFF' | 'AUTO' {
+  const upper = (mode || '').toUpperCase().trim();
+  if (upper === 'COMPULSORY') return 'COMPULSORY';
+  if (upper === 'AUTO') return 'AUTO';
+  if (upper === 'NOT_APPLIED' || upper === 'OFF') return 'OFF';
+  return 'OPTIONAL'; // Default or 'APPLIED'
 }

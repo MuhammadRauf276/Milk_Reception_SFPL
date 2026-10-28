@@ -6,6 +6,15 @@ import { usePathname } from 'next/navigation';
 import { Header } from '@/frontend/modules/shared/Header';
 import { SUPER_ADMIN_NAV_ITEMS } from './SuperAdminSidebar';
 
+const EXTRA_TITLES: [string, string][] = [
+  ['/super-admin/procurement-sources', 'ZMCCs'],
+  ['/super-admin/sop-rules', 'SOP rules'],
+  ['/super-admin/settings', 'Settings'],
+  ['/super-admin/notification-devices', 'Alert phones'],
+  ['/super-admin/lab-tests', 'Lab Policies'],
+  ['/super-admin/test-point-policies', 'Lab Policies'],
+];
+
 interface SuperAdminHeaderProps {
   currentUser: User | null;
   onMenuClick?: () => void;
@@ -22,7 +31,7 @@ export const SuperAdminHeader: React.FC<SuperAdminHeaderProps> = ({ currentUser,
   return (
     <Header
       currentUser={currentUser}
-      title={current?.label ?? 'Administration'}
+      title={current?.label ?? EXTRA_TITLES.find(([p]) => pathname.startsWith(p))?.[1] ?? 'Overview'}
       showBranding
       onMenuClick={onMenuClick}
       menuButtonRef={menuButtonRef}

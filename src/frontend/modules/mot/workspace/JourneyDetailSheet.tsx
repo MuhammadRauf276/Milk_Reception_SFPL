@@ -33,10 +33,10 @@ export function JourneyDetailSheet({ journey, onClose }: { journey: JourneyItem;
                 : Math.max(0, assignedCount - collectedCount - skippedCount);
 
               return (
-                <div className="p-4 rounded-xl bg-slate-50 border border-border space-y-3">
+                <div className="bg-card border-border p-4 rounded-xl border space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold uppercase tracking-wider text-slate-700">
-                      Journey Summary
+                      Summary
                     </span>
                     {journey.summary && (
                       <span className="text-[11px] font-semibold text-slate-500">
@@ -46,19 +46,19 @@ export function JourneyDetailSheet({ journey, onClose }: { journey: JourneyItem;
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
-                    <div className="p-2 bg-white rounded-lg border border-border">
+                    <div className="p-2 bg-card rounded-lg border border-border">
                       <div className="text-[10px] uppercase font-semibold text-slate-500">Assigned</div>
                       <div className="text-sm font-semibold text-slate-900">{assignedCount}</div>
                     </div>
-                    <div className="p-2 bg-white rounded-lg border border-border">
+                    <div className="p-2 bg-card rounded-lg border border-border">
                       <div className="text-[10px] uppercase font-semibold text-emerald-700">Collected</div>
                       <div className="text-sm font-semibold text-emerald-800">{collectedCount}</div>
                     </div>
-                    <div className="p-2 bg-white rounded-lg border border-border">
+                    <div className="p-2 bg-card rounded-lg border border-border">
                       <div className="text-[10px] uppercase font-semibold text-amber-700">Skipped</div>
                       <div className="text-sm font-semibold text-amber-800">{skippedCount}</div>
                     </div>
-                    <div className="p-2 bg-white rounded-lg border border-border">
+                    <div className="p-2 bg-card rounded-lg border border-border">
                       <div className="text-[10px] uppercase font-semibold text-blue-700">Pending</div>
                       <div className="text-sm font-semibold text-blue-800">{pendingCount}</div>
                     </div>
@@ -66,38 +66,38 @@ export function JourneyDetailSheet({ journey, onClose }: { journey: JourneyItem;
 
                   {journey.summary && (
                     <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 text-center">
-                      <div className="p-2 bg-white rounded-lg border border-border">
-                        <div className="text-[10px] uppercase font-semibold text-slate-500">Gross Liters</div>
+                      <div className="p-2 bg-card rounded-lg border border-border">
+                        <div className="text-[10px] uppercase font-semibold text-slate-500">Gross L</div>
                         <div className="text-xs tabular-nums font-semibold text-slate-900">
                           {journey.summary.total_gross_liters.toFixed(2)} L
                         </div>
                       </div>
-                      <div className="p-2 bg-white rounded-lg border border-border">
-                        <div className="text-[10px] uppercase font-semibold text-slate-500">@13TS Liters</div>
+                      <div className="p-2 bg-card rounded-lg border border-border">
+                        <div className="text-[10px] uppercase font-semibold text-slate-500">@13TS L</div>
                         <div className="text-xs tabular-nums font-semibold text-slate-900">
                           {journey.summary.total_at_13ts_liters.toFixed(2)} L
                         </div>
                       </div>
-                      <div className="p-2 bg-white rounded-lg border border-border">
-                        <div className="text-[10px] uppercase font-semibold text-slate-500">Weighted LR</div>
+                      <div className="p-2 bg-card rounded-lg border border-border">
+                        <div className="text-[10px] uppercase font-semibold text-slate-500">Avg LR</div>
                         <div className="text-xs tabular-nums font-semibold text-slate-800">
                           {journey.summary.weighted_avg_lr != null ? journey.summary.weighted_avg_lr.toFixed(2) : '—'}
                         </div>
                       </div>
-                      <div className="p-2 bg-white rounded-lg border border-border">
-                        <div className="text-[10px] uppercase font-semibold text-slate-500">Weighted Fat</div>
+                      <div className="p-2 bg-card rounded-lg border border-border">
+                        <div className="text-[10px] uppercase font-semibold text-slate-500">Avg Fat</div>
                         <div className="text-xs tabular-nums font-semibold text-slate-800">
                           {journey.summary.weighted_avg_fat != null ? `${journey.summary.weighted_avg_fat.toFixed(2)}%` : '—'}
                         </div>
                       </div>
-                      <div className="p-2 bg-white rounded-lg border border-border">
-                        <div className="text-[10px] uppercase font-semibold text-slate-500">Weighted SNF</div>
+                      <div className="p-2 bg-card rounded-lg border border-border">
+                        <div className="text-[10px] uppercase font-semibold text-slate-500">Avg SNF</div>
                         <div className="text-xs tabular-nums font-semibold text-slate-800">
                           {journey.summary.weighted_avg_snf != null ? `${journey.summary.weighted_avg_snf.toFixed(2)}%` : '—'}
                         </div>
                       </div>
-                      <div className="p-2 bg-white rounded-lg border border-border">
-                        <div className="text-[10px] uppercase font-semibold text-slate-500">Weighted TS</div>
+                      <div className="p-2 bg-card rounded-lg border border-border">
+                        <div className="text-[10px] uppercase font-semibold text-slate-500">Avg TS</div>
                         <div className="text-xs tabular-nums font-semibold text-slate-800">
                           {journey.summary.weighted_avg_ts != null ? `${journey.summary.weighted_avg_ts.toFixed(2)}%` : '—'}
                         </div>
@@ -106,10 +106,10 @@ export function JourneyDetailSheet({ journey, onClose }: { journey: JourneyItem;
                   )}
 
                   {journey.summary && journey.summary.pending_shop_count > 0 && (
-                    <div className="flex items-center space-x-2 text-[11px] font-semibold text-blue-800 bg-blue-50 p-2.5 rounded-lg border border-blue-200">
+                    <div className="bg-card border-border flex items-center space-x-2 text-[11px] font-semibold text-blue-800 p-2.5 rounded-lg border">
                       <Clock className="w-4 h-4 shrink-0 text-blue-600" />
                       <span>
-                        Waiting for delayed collection sync: {journey.summary.pending_shop_count} assigned shop record(s) are still unresolved.
+                        Syncing: {journey.summary.pending_shop_count} pending
                       </span>
                     </div>
                   )}
@@ -126,7 +126,7 @@ export function JourneyDetailSheet({ journey, onClose }: { journey: JourneyItem;
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <h4 className="text-xs font-semibold text-foreground">
-                      Planned Route Stops ({allStops.length} shops)
+                      Stops ({allStops.length})
                     </h4>
                     {totalStopsPages > 1 && (
                       <span className="text-[11px] text-slate-500 font-medium">
@@ -149,7 +149,7 @@ export function JourneyDetailSheet({ journey, onClose }: { journey: JourneyItem;
                               {stop.shop?.shop_name} ({stop.shop?.shop_code})
                             </p>
                             <p className="text-[11px] text-slate-500 truncate">
-                              Owner: {stop.shop?.owner_name || '—'} | Contact: {stop.shop?.contact_number || '—'}
+                              {stop.shop?.owner_name || '—'} · {stop.shop?.contact_number || '—'}
                             </p>
                           </div>
                         </div>
@@ -175,14 +175,14 @@ export function JourneyDetailSheet({ journey, onClose }: { journey: JourneyItem;
                   {totalStopsPages > 1 && (
                     <div className="flex items-center justify-between pt-2 border-t border-border">
                       <span className="text-[11px] text-slate-500 font-medium">
-                        Showing {(stopsPage - 1) * stopsPerPage + 1}–{Math.min(stopsPage * stopsPerPage, allStops.length)} of {allStops.length} stops
+                        {(stopsPage - 1) * stopsPerPage + 1}–{Math.min(stopsPage * stopsPerPage, allStops.length)} of {allStops.length}
                       </span>
                       <div className="flex items-center space-x-1.5">
                         <button
                           type="button"
                           disabled={stopsPage === 1}
                           onClick={() => setStopsPage((p) => Math.max(1, p - 1))}
-                          className="min-h-[44px] px-3 text-xs font-semibold rounded-lg border border-border bg-white text-slate-700 hover:bg-muted disabled:opacity-40"
+                          className="min-h-[44px] px-3 text-xs font-semibold rounded-lg border border-border bg-card text-slate-700 hover:bg-muted disabled:opacity-40"
                         >
                           Previous
                         </button>
@@ -193,7 +193,7 @@ export function JourneyDetailSheet({ journey, onClose }: { journey: JourneyItem;
                           type="button"
                           disabled={stopsPage >= totalStopsPages}
                           onClick={() => setStopsPage((p) => Math.min(totalStopsPages, p + 1))}
-                          className="min-h-[44px] px-3 text-xs font-semibold rounded-lg border border-border bg-white text-slate-700 hover:bg-muted disabled:opacity-40"
+                          className="min-h-[44px] px-3 text-xs font-semibold rounded-lg border border-border bg-card text-slate-700 hover:bg-muted disabled:opacity-40"
                         >
                           Next
                         </button>

@@ -1,5 +1,6 @@
 'use client';
 
+import { EmptyAction } from './components/EmptyAction';
 import React, { useState } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchJson } from '@/lib/query/fetchJson';
@@ -11,7 +12,7 @@ import { toDatetimeLocalInput, datetimeLocalToIso } from '@/lib/datetime-utils';
 import { onActivateKey } from '@/lib/a11y';
 import { getErrorMessage } from '@/lib/errors';
 import { Pager, pageCount, paginate } from './components/Pager';
-import { formatAcceptedQuantity, formatDuration, type FirstWeightVisit } from './weighbridgeTypes';
+import { formatDuration, type FirstWeightVisit } from './weighbridgeTypes';
 
 /** First (loaded) weight: queue of QA-approved vehicles plus a bottom-sheet to record the weighment. */
 export const WeighbridgeFirstWeightPanel: React.FC = () => {
@@ -64,9 +65,7 @@ export const WeighbridgeFirstWeightPanel: React.FC = () => {
             Loading weighbridge queue…
           </div>
         ) : visits.length === 0 ? (
-          <div className="p-8 text-center border border-dashed border-border rounded-xl text-sm text-muted-foreground md:col-span-2 lg:col-span-3">
-            No vehicles currently waiting for first weight.
-          </div>
+          <EmptyAction message="No vehicles" onRefresh={() => firstQuery.refetch()} className="md:col-span-2 lg:col-span-3" />
         ) : (
           paginate(visits, currentPage).map((v) => {
             const portionSummaryStr =
@@ -95,7 +94,7 @@ export const WeighbridgeFirstWeightPanel: React.FC = () => {
 
                 <div className="text-xs font-semibold text-slate-700">
                   <div>{portionSummaryStr}</div>
-                  <div className="text-[11px] tabular-nums mt-0.5">Accepted Qty: {formatAcceptedQuantity(v)}</div>
+                  <div className="text-[11px] tabular-nums mt-0.5">Initial Loaded Gross (W0)</div>
                 </div>
 
                 <div className="flex items-center justify-between text-[11px] tabular-nums text-slate-600">
@@ -221,7 +220,7 @@ const FirstWeightDrawer: React.FC<{
             </button>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 p-3.5 rounded-xl bg-subtle border border-border text-xs tabular-nums font-semibold">
+          <div className="bg-card border-border grid grid-cols-2 gap-3 p-3.5 rounded-xl border text-xs tabular-nums font-semibold">
             <div>
               <span className="text-slate-500 font-sans block text-[10px]">Operational Date</span>
               <span>{visit.operational_date}</span>
@@ -231,8 +230,8 @@ const FirstWeightDrawer: React.FC<{
               <span>{visit.portion_count} Portions ({visit.accepted_portion_count} Accepted)</span>
             </div>
             <div>
-              <span className="text-slate-500 font-sans block text-[10px]">Accepted Quantity</span>
-              <span className="text-primary">{formatAcceptedQuantity(visit)}</span>
+              <span className="text-slate-500 font-sans block text-[10px]">Weighment Type</span>
+              <span className="text-primary">Scale 1 · Loaded Gross (W0)</span>
             </div>
             <div>
               <span className="text-slate-500 font-sans block text-[10px]">Waiting Time</span>

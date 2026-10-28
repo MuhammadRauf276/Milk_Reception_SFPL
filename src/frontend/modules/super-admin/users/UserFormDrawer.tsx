@@ -153,7 +153,7 @@ export function UserFormDrawer({ user, open, onClose, onSaved }: Props) {
           <div>
             <label htmlFor={`${p}-username`} className={fieldLabelClass}>
               {isEdit ? (
-                'Username (Read-Only)'
+                'Username'
               ) : (
                 <>
                   Username <span className="text-rose-600">*</span>
@@ -270,7 +270,7 @@ export function UserFormDrawer({ user, open, onClose, onSaved }: Props) {
           </div>
         )}
 
-        <div className="space-y-1 rounded-xl border border-slate-200 bg-slate-50 p-3 text-slate-600">
+        <div className="space-y-1 rounded-xl border border-border bg-card p-3 text-slate-600">
           <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Assignment Details</div>
           <div className="flex items-center justify-between">
             <span className="font-medium text-slate-500">Department:</span>

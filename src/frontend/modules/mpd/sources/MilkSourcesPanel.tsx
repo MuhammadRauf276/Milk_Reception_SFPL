@@ -111,7 +111,7 @@ export function MilkSourcesPanel({
       variants={fadeSlide}
       initial="initial"
       animate="animate"
-      className="bg-white rounded-xl border border-border p-4 space-y-4 shadow-2xs"
+      className="bg-card border-border rounded-xl border p-4 space-y-4 shadow-2xs"
     >
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="relative flex-1 max-w-sm">
@@ -123,7 +123,7 @@ export function MilkSourcesPanel({
               setSearch(e.target.value);
               setPage(1);
             }}
-            placeholder="Search by ERP code or source name…"
+            placeholder="Search"
             className="w-full min-h-11 pl-8 pr-3 py-1.5 border border-border rounded-xl text-xs font-semibold focus:ring-2 focus:ring-primary outline-hidden"
           />
         </div>
@@ -278,7 +278,7 @@ export function MilkSourcesPanel({
 
                 <div>
                   <label className="block font-semibold text-foreground mb-1">Assigned ZMCCs</label>
-                  <div className="max-h-36 overflow-y-auto border border-border rounded-xl p-2.5 space-y-1 bg-subtle">
+                  <div className="bg-card border-border max-h-36 overflow-y-auto border rounded-xl p-2.5 space-y-1">
                     {zmccOptions.map((z) => (
                       <label key={z.id} className="flex min-h-11 items-center space-x-2 cursor-pointer text-xs">
                         <input

@@ -170,7 +170,7 @@ export const LiveCamera: React.FC<LiveCameraProps> = ({ stamp, onCapture, onCanc
             <button
               type="button"
               onClick={() => setAttempt((n) => n + 1)}
-              className="inline-flex h-14 items-center gap-2 rounded-xl bg-white px-6 text-base font-bold text-slate-900"
+              className="inline-flex h-14 items-center gap-2 rounded-xl bg-card px-6 text-base font-bold text-slate-900"
             >
               <Undo2 className="h-5 w-5" />
               Try again
@@ -196,7 +196,7 @@ export const LiveCamera: React.FC<LiveCameraProps> = ({ stamp, onCapture, onCanc
             <button
               type="button"
               onClick={handleRetake}
-              className="inline-flex h-14 flex-1 items-center justify-center gap-2 rounded-xl bg-white/15 px-4 text-base font-bold"
+              className="inline-flex h-14 flex-1 items-center justify-center gap-2 rounded-xl bg-card/15 px-4 text-base font-bold"
             >
               <Undo2 className="h-5 w-5" />
               Retake

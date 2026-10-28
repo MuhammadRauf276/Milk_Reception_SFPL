@@ -102,7 +102,7 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
               <button
                 onClick={onRetry}
                 disabled={isLoading}
-                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-subtle border border-border/80 text-xs font-semibold text-foreground hover:bg-muted/60 transition-all disabled:opacity-50"
+                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-subtle border border-border/80 text-xs font-semibold text-foreground hover:bg-muted/60 transition-all disabled:opacity-50 min-h-11"
               >
                 <span>{isLoading ? 'Syncing…' : 'Refresh'}</span>
               </button>
@@ -112,13 +112,13 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
 
         {/* Summary KPI Cards (Shows placeholder '—' during loading/error) */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 tabular-nums">
-          <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
+          <div className="bg-card border-border p-3 rounded-lg border">
             <span className="text-xs font-sans text-slate-500 block uppercase font-semibold">Completed Receipts</span>
             <span className="text-lg font-semibold text-slate-900">
               {showKpiPlaceholders ? '—' : summary.completedReceiptCount}
             </span>
           </div>
-          <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200">
+          <div className="bg-card border-border p-3 rounded-lg border">
             <span className="text-xs font-sans text-emerald-700 block uppercase font-semibold">Physical Received Liters</span>
             <span className="text-lg font-semibold text-emerald-800">
               {showKpiPlaceholders
@@ -128,7 +128,7 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
                 : '—'}
             </span>
           </div>
-          <div className="p-3 rounded-lg bg-blue-50 border border-blue-200">
+          <div className="bg-card border-border p-3 rounded-lg border">
             <span className="text-xs font-sans text-blue-700 block uppercase font-semibold">Dispatch Gross Liters</span>
             <span className="text-lg font-semibold text-blue-800">
               {showKpiPlaceholders
@@ -138,7 +138,7 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
                 : '—'}
             </span>
           </div>
-          <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
+          <div className="bg-card border-border p-3 rounded-lg border">
             <span className="text-xs font-sans text-slate-700 block uppercase font-semibold">Quantity Difference</span>
             <span
               className={`text-lg font-semibold ${
@@ -156,7 +156,7 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
                 : '—'}
             </span>
           </div>
-          <div className="p-3 rounded-lg bg-blue-50 border border-blue-200">
+          <div className="bg-card border-border p-3 rounded-lg border">
             <span className="text-xs font-sans text-blue-700 block uppercase font-semibold">Final Liters @ 13% TS</span>
             <span className="text-lg font-semibold text-blue-900">
               {showKpiPlaceholders
@@ -166,7 +166,7 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
                 : '—'}
             </span>
           </div>
-          <div className="p-3 rounded-lg bg-amber-50 border border-amber-200">
+          <div className="bg-card border-border p-3 rounded-lg border">
             <span className="text-xs font-sans text-amber-700 block uppercase font-semibold">Receipt Pending</span>
             <span className="text-lg font-semibold text-amber-800">
               {showKpiPlaceholders ? '—' : summary.receiptPendingCount}
@@ -185,8 +185,8 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search vehicle #, token #, silo, tx #…"
-              className="w-full pl-9 pr-3 py-1.5 text-xs font-semibold rounded-lg bg-subtle border border-border/80 text-foreground focus:ring-2 focus:ring-primary outline-hidden"
+              placeholder="Search"
+              className="w-full pl-9 pr-3 py-1.5 text-xs font-semibold rounded-lg bg-subtle border border-border/80 text-foreground focus:ring-2 focus:ring-primary outline-hidden min-h-11"
             />
           </div>
 
@@ -199,19 +199,19 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
                   type="date"
                   value={currentFromDate}
                   onChange={(e) => onDateFilterChange(e.target.value || null, currentToDate || null)}
-                  className="px-2.5 py-1 text-xs tabular-nums font-semibold rounded-lg bg-subtle border border-border/80 text-foreground"
+                  className="px-2.5 py-1 text-xs tabular-nums font-semibold rounded-lg bg-subtle border border-border/80 text-foreground min-h-11"
                 />
                 <span className="font-semibold text-slate-600 text-[11px]">To:</span>
                 <input
                   type="date"
                   value={currentToDate}
                   onChange={(e) => onDateFilterChange(currentFromDate || null, e.target.value || null)}
-                  className="px-2.5 py-1 text-xs tabular-nums font-semibold rounded-lg bg-subtle border border-border/80 text-foreground"
+                  className="px-2.5 py-1 text-xs tabular-nums font-semibold rounded-lg bg-subtle border border-border/80 text-foreground min-h-11"
                 />
                 {(currentFromDate || currentToDate) && (
                   <button
                     onClick={() => onDateFilterChange(null, null)}
-                    className="px-2 py-1 text-[11px] font-semibold text-rose-600 hover:bg-rose-50 rounded"
+                    className="px-2 py-1 text-[11px] font-semibold text-rose-600 hover:bg-rose-50 rounded min-h-11 min-w-11"
                   >
                     Clear
                   </button>
@@ -248,13 +248,13 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
 
       {/* 3. Error Banner */}
       {error && (
-        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center justify-between animate-panel-in">
+        <div className="bg-card border-border p-4 rounded-xl border text-rose-800 text-xs font-semibold flex items-center justify-between animate-panel-in">
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-rose-600" />
             <span>{error}</span>
           </div>
           {onRetry && (
-            <button onClick={onRetry} className="underline hover:text-rose-950">
+            <button onClick={onRetry} className="underline hover:text-rose-950 min-h-11 min-w-11">
               Retry
             </button>
           )}
@@ -275,7 +275,7 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
           <FileSpreadsheet className="w-8 h-8 text-slate-400 mx-auto" />
           <h3 className="text-sm font-semibold text-slate-800">No receipt records found</h3>
           <p className="text-xs text-slate-500">
-            No completed receipt or receipt-pending records found matching your filters.
+            No records
           </p>
         </div>
       )}
@@ -330,7 +330,7 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
                 <div>
                   <button
                     onClick={() => onInspectDetails(item.group.primaryLog)}
-                    className="flex items-center space-x-1 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-semibold text-primary hover:bg-blue-50 hover:border-blue-200 transition-all"
+                    className="flex items-center space-x-1 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-semibold text-primary hover:bg-blue-50 hover:border-blue-200 transition-all min-h-11"
                   >
                     <span>View Details</span>
                     <ExternalLink className="w-3 h-3" />
@@ -341,7 +341,7 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
               {/* Two-Column Grid: Quantity Performance vs Weighbridge & Storage */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 tabular-nums text-xs">
                 {/* Column A: Quantity & 13% TS Performance */}
-                <div className="p-3.5 rounded-lg bg-subtle border border-border space-y-2">
+                <div className="bg-card border-border p-3.5 rounded-lg border space-y-2">
                   <div className="flex items-center justify-between font-sans pb-1.5 border-b border-border/60">
                     <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
                       <Scale className="w-3.5 h-3.5 text-emerald-800" />
@@ -410,7 +410,7 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
                 </div>
 
                 {/* Column B: Weighbridge & Silo Destination */}
-                <div className="p-3.5 rounded-lg bg-subtle border border-border space-y-2">
+                <div className="bg-card border-border p-3.5 rounded-lg border space-y-2">
                   <div className="flex items-center justify-between font-sans pb-1.5 border-b border-border/60">
                     <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
                       <Warehouse className="w-3.5 h-3.5 text-primary" />

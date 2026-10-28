@@ -31,7 +31,9 @@ export function useMotGpsStream(opts: {
           : 'bg-slate-200 text-slate-500'
       }`}
     >
-      GPS: {gpsFixAgeMs === null ? 'Waiting' : getFixAgeLabel(gpsFixAgeMs)}
+      {gpsFixAgeMs === null
+        ? 'Last GPS fix: waiting…'
+        : `Last GPS fix: ${gpsFixAgeMs < 60_000 ? 'just now' : getFixAgeLabel(gpsFixAgeMs)}`}
     </span>
   );
 
@@ -98,8 +100,45 @@ export function useMotGpsStream(opts: {
       timeout: 20000,
     });
 
+    // A stationary phone may stop firing watchPosition events; force a fresh fix so the 2-min heartbeat still records.
+    const heartbeat = recordRoute && journeyId
+      ? setInterval(() => {
+          if (document.visibilityState !== 'visible') return;
+          navigator.geolocation.getCurrentPosition(onPosition, () => {}, {
+            enableHighAccuracy: true,
+            maximumAge: 0,
+            timeout: 20000,
+          });
+        }, 120_000)
+      : null;
+
+    // Keep the screen awake while recording: browsers suspend GPS when the screen turns off or the tab is hidden.
+    type WakeLockLike = { release: () => Promise<void> };
+    let wakeLock: WakeLockLike | null = null;
+    const requestWakeLock = async () => {
+      try {
+        const wl = (navigator as unknown as { wakeLock?: { request: (t: 'screen') => Promise<WakeLockLike> } }).wakeLock;
+        if (wl && document.visibilityState === 'visible') wakeLock = await wl.request('screen');
+      } catch {
+        // Not supported or denied; tracking still works while the app is open.
+      }
+    };
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      void requestWakeLock();
+      // Back in the foreground: flush anything captured while offline/backgrounded.
+      if (navigator.onLine) void triggerSyncRef.current();
+    };
+    if (recordRoute && journeyId) {
+      void requestWakeLock();
+      document.addEventListener('visibilitychange', onVisible);
+    }
+
     return () => {
       navigator.geolocation.clearWatch(watchId);
+      if (heartbeat) clearInterval(heartbeat);
+      document.removeEventListener('visibilitychange', onVisible);
+      void wakeLock?.release().catch(() => undefined);
     };
   }, [recordRoute, journeyId]);
 

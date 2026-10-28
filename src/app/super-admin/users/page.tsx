@@ -1,5 +1,6 @@
 'use client';
 
+import { InfoTip } from '@/components/ui/info-tip';
 import React, { useMemo, useState } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -83,9 +84,9 @@ export default function SuperAdminUsersPage() {
   };
 
   return (
-    <div className="w-full max-w-full space-y-4 overflow-x-hidden">
+    <div className="w-full min-w-0 max-w-full space-y-4 overflow-x-hidden">
       {error && (
-        <div className="flex items-center space-x-2 rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs font-semibold text-rose-800 animate-panel-in">
+        <div className="flex items-center space-x-2 rounded-xl border border-border bg-card p-4 text-xs font-semibold text-rose-800 animate-panel-in">
           <ShieldAlert className="h-4 w-4 shrink-0 text-rose-600" />
           <span>{error}</span>
         </div>
@@ -100,7 +101,7 @@ export default function SuperAdminUsersPage() {
             animate="animate"
             exit="exit"
             role="status"
-            className="flex items-center space-x-2 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-xs font-semibold text-emerald-800"
+            className="flex items-center space-x-2 rounded-xl border border-border bg-card p-4 text-xs font-semibold text-emerald-800"
           >
             <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
             <span>{successMsg}</span>
@@ -108,11 +109,11 @@ export default function SuperAdminUsersPage() {
         )}
       </AnimatePresence>
 
-      <div className="w-full max-w-full overflow-hidden rounded-xl border border-border/80 bg-white shadow-xs">
+      <div className="w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-border/80 bg-card shadow-2xs">
         <div className="space-y-3 border-b border-border p-3 sm:px-4 sm:py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <h2 className="text-sm font-semibold text-foreground">Users</h2>
+          <div className="flex min-w-0 items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center space-x-2">
+              <div className="flex items-center gap-1.5"><h2 className="text-sm font-semibold text-foreground">Users</h2><InfoTip text="Manage system users, access credentials, and role jurisdictions." /></div>
               <span className="rounded-full border border-border bg-subtle px-2 py-0.5 text-[11px] tabular-nums text-slate-600">
                 {pagination?.totalRecords ?? users.length}
               </span>
@@ -122,26 +123,26 @@ export default function SuperAdminUsersPage() {
               Add user
             </Button>
           </div>
-          <div className="grid gap-2 sm:grid-cols-[1fr_14rem_auto]">
-            <div className="relative">
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-2 sm:grid-cols-[minmax(0,1fr)_14rem_auto]">
+            <div className="relative min-w-0">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
               <input
                 type="search"
                 value={search}
                 onChange={(e) => updateFilter(() => setSearch(e.target.value))}
-                placeholder="Search name, username or email"
+                placeholder="Search users…"
                 aria-label="Search users"
-                className="h-11 w-full rounded-xl border border-border-strong bg-white pl-9 pr-3 text-sm focus:outline-hidden focus:border-primary"
+                className="h-11 w-full rounded-xl border border-border-strong bg-card pl-9 pr-3 text-sm focus:outline-hidden focus:border-primary"
               />
             </div>
-            <Combobox
+            <div className="min-w-0"><Combobox
               options={ROLE_FILTER_OPTIONS}
               value={roleFilter}
               onValueChange={(v) => updateFilter(() => setRoleFilter(v))}
               placeholder="All roles"
               searchPlaceholder="Search roles"
-            />
-            <div role="group" aria-label="Status filter" className="flex gap-1">
+            /></div>
+            <div role="group" aria-label="Status filter" className="flex min-w-0 gap-1">
               {STATUS_OPTIONS.map((o) => (
                 <button
                   key={o.value}
@@ -161,7 +162,7 @@ export default function SuperAdminUsersPage() {
           </div>
         </div>
 
-        <div className="w-full overflow-x-auto">
+        <div className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain">
           <table className="w-full min-w-[700px] text-left text-xs">
             <thead className="border-b border-border bg-subtle text-slate-600">
               <tr>

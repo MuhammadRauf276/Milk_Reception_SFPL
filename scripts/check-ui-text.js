@@ -13,7 +13,7 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.join(process.cwd(), 'src');
-const EMOJI_OK = new Set(['app/super-admin/whatsapp/page.tsx', 'app/whatsapp-gateway/page.tsx']);
+const EMOJI_OK = new Set(['app/super-admin/whatsapp/page.tsx', 'app/whatsapp-gateway/page.tsx', 'frontend/modules/super-admin/daily-report/SendReportModal.tsx']);
 const EMOJI = /[\u{1F300}-\u{1FAFF}☀-➿⬀-⯿]/u;
 
 const rules = [

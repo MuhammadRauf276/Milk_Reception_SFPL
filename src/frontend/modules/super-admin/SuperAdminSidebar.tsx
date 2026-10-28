@@ -21,6 +21,7 @@ import {
   FileCheck2,
   Smartphone,
   Scale,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { User } from '@core/types';
 import { Sheet } from '@/components/ui/sheet';
@@ -39,46 +40,108 @@ export interface SuperAdminSidebarProps {
   persistent?: boolean;
 }
 
-export const SUPER_ADMIN_NAV_ITEMS = [
+type AdminNavItem = {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  children?: { href: string; label: string }[];
+};
+
+const SOURCES_CHILDREN_OWNER = [
+  { href: '/sources', label: 'Milk sources' },
+  { href: '/sources?view=CONTRACTORS', label: 'Contractors' },
+];
+
+const CORRECTION_CHILDREN = [
+  { href: '/super-admin/corrections?tab=requests', label: 'Requests' },
+  { href: '/super-admin/corrections?tab=direct_edit', label: 'Direct edit' },
+  { href: '/super-admin/corrections?tab=audit', label: 'Correction audit' },
+];
+
+const MASTER_DATA_CHILDREN = [
+  { href: '/super-admin/zmcc-master-data?view=LOCAL_SUPPLIERS', label: 'HC Suppliers' },
+  { href: '/super-admin/zmcc-master-data?view=ROUTES', label: 'Routes' },
+  { href: '/super-admin/zmcc-master-data?view=AREAS', label: 'Areas' },
+  { href: '/super-admin/zmcc-master-data?view=MILK_SOURCES', label: 'Milk Sources' },
+  { href: '/super-admin/zmcc-master-data?view=SHOPS', label: 'Shops' },
+  { href: '/super-admin/zmcc-master-data?view=CHILLER_OWNERSHIP', label: 'Chillers' },
+  { href: '/super-admin/zmcc-master-data?view=TANKS', label: 'Tanks' },
+  { href: '/super-admin/zmcc-master-data?view=APPROVALS', label: 'Approvals' },
+];
+
+const MC_OPS_CHILDREN = [
+  { href: '/super-admin/mot-operations?view=DISPATCH', label: 'Dispatch' },
+  { href: '/super-admin/mot-operations?view=ACTIVE_JOURNEYS', label: 'Active' },
+  { href: '/super-admin/mot-operations?view=JOURNEY_HISTORY', label: 'History' },
+  { href: '/super-admin/mot-operations?view=JOURNEY_MAP', label: 'Map' },
+  { href: '/super-admin/mot-operations?view=SMS_OUTBOX', label: 'Receipts' },
+  { href: '/super-admin/mot-operations?view=PROFILES', label: 'Testers' },
+  { href: '/super-admin/mot-operations?view=APPROVALS', label: 'Approvals' },
+];
+
+const REPORTS_GOVERNANCE_CHILDREN = [
+  { href: '/super-admin/reports?tab=daily', label: 'Daily Quality & Ops' },
+  { href: '/super-admin/reports?tab=hierarchy', label: 'Work for Lower Roles' },
+  { href: '/super-admin/reports?tab=warnings', label: 'Warning Limits & Policy' },
+];
+
+export const SUPER_ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { href: '/super-admin', label: 'Overview', icon: LayoutDashboard },
-  { href: '/super-admin/corrections', label: 'Correction Governance Desk', icon: ShieldCheck },
-  { href: '/super-admin/corrections?tab=direct_edit', label: 'Direct Record Corrections', icon: FileCheck2 },
+  { href: '/super-admin/corrections', label: 'Corrections', icon: ShieldCheck, children: CORRECTION_CHILDREN },
   { href: '/super-admin/users', label: 'Users', icon: Users },
-  { href: '/super-admin/procurement-sources', label: 'Procurement Sources', icon: Truck },
-  { href: '/mpd/head?tab=SOURCES', label: 'Milk Sources & Contractors', icon: Milk },
+  { href: '/sources', label: 'Sources', icon: Milk, children: SOURCES_CHILDREN_OWNER },
+  { href: '/approvals', label: 'Approval Inbox', icon: ShieldCheck },
+  { href: '/command', label: 'Command Center', icon: Activity },
   { href: '/super-admin/silos', label: 'Silos', icon: Database },
-  { href: '/super-admin/weighing-policy', label: 'ZMCC Weighing', icon: Scale },
-  { href: '/super-admin/test-policies', label: 'Lab Tests & Stage Policies', icon: FlaskConical },
+  { href: '/super-admin/weighing-policy', label: 'Weighing Policy', icon: Scale },
+  { href: '/super-admin/test-policies', label: 'Lab Policies', icon: FlaskConical },
+  {
+    href: '/super-admin/reports',
+    label: 'Reports & Governance',
+    icon: FileSpreadsheet,
+    children: REPORTS_GOVERNANCE_CHILDREN,
+  },
   { href: '/super-admin/devices', label: 'Phones', icon: Smartphone },
-  { href: '/super-admin/qa-warnings', label: 'QA Warnings', icon: AlertTriangle },
   { href: '/super-admin/operations', label: 'Operations', icon: Activity },
-  { href: '/super-admin/audit', label: 'Audit & Corrections', icon: History },
-  { href: '/super-admin/zmcc-master-data', label: 'ZMCC Master Data', icon: Store },
-  { href: '/super-admin/mot-operations', label: 'MC Operations', icon: Navigation },
+  { href: '/super-admin/audit', label: 'Audit', icon: History },
+  { href: '/super-admin/procurement-sources', label: 'ZMCCs', icon: Store },
+  { href: '/super-admin/zmcc-master-data', label: 'Master Data', icon: Store, children: MASTER_DATA_CHILDREN },
+  { href: '/super-admin/mot-operations', label: 'Mobile Tester Operations', icon: Navigation, children: MC_OPS_CHILDREN },
   { href: '/super-admin/fleet', label: 'Fleet', icon: Truck },
   { href: '/super-admin/whatsapp', label: 'WhatsApp Gateway', icon: MessageSquare },
   { href: '/tv-board', label: 'Yard Status Board', icon: Tv },
 ];
 
-export const DATA_EXECUTIVE_NAV_ITEMS = [
-  { href: '/super-admin/corrections', label: 'Correction Governance Desk', icon: ShieldCheck },
-  { href: '/super-admin/corrections?tab=direct_edit', label: 'Direct Record Corrections', icon: FileCheck2 },
-  { href: '/super-admin/audit', label: 'Audit & Corrections Ledger', icon: History },
-  { href: '/super-admin/test-policies', label: 'Lab Tests & Stage Policies', icon: FlaskConical },
-  { href: '/super-admin/zmcc-master-data', label: 'ZMCC Master Data', icon: Store },
-  { href: '/super-admin/mot-operations', label: 'MC Operations', icon: Navigation },
+export const DATA_EXECUTIVE_NAV_ITEMS: AdminNavItem[] = [
+  { href: '/super-admin/corrections', label: 'Corrections', icon: ShieldCheck, children: CORRECTION_CHILDREN },
+  { href: '/super-admin/audit', label: 'Audit', icon: History },
+  { href: '/super-admin/test-policies', label: 'Lab Policies', icon: FlaskConical },
+  {
+    href: '/super-admin/reports',
+    label: 'Reports & Governance',
+    icon: FileSpreadsheet,
+    children: REPORTS_GOVERNANCE_CHILDREN,
+  },
+  { href: '/super-admin/zmcc-master-data', label: 'Master Data', icon: Store, children: MASTER_DATA_CHILDREN },
+  { href: '/super-admin/mot-operations', label: 'Mobile Tester Operations', icon: Navigation, children: MC_OPS_CHILDREN },
   { href: '/super-admin/fleet', label: 'Fleet', icon: Truck },
-  { href: '/super-admin/procurement-sources', label: 'Procurement Sources', icon: Truck },
-  { href: '/mpd/head?tab=SOURCES', label: 'Milk Sources & Contractors', icon: Milk },
+  { href: '/sources', label: 'Sources', icon: Milk, children: SOURCES_CHILDREN_OWNER },
+  { href: '/approvals', label: 'Approval Inbox', icon: ShieldCheck },
+  { href: '/command', label: 'Command Center', icon: Activity },
   { href: '/tv-board', label: 'Yard Status Board', icon: Tv },
 ];
 
-const BASE_SECTIONS: RoleNavSection[] = SUPER_ADMIN_NAV_ITEMS.map((item) => ({
-  id: item.href,
-  label: item.label,
-  icon: item.icon,
-  href: item.href,
-}));
+function toSection(item: AdminNavItem): RoleNavSection {
+  return item.children
+    ? {
+        id: item.href,
+        label: item.label,
+        icon: item.icon,
+        children: item.children.map((c) => ({ id: c.href, label: c.label, href: c.href })),
+      }
+    : { id: item.href, label: item.label, icon: item.icon, href: item.href };
+}
+
 
 export const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({
   currentUser,
@@ -100,12 +163,7 @@ export const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({
     const role = currentUser?.role;
     const isDataExec = role === 'DATA_EXECUTIVE';
     const items = isDataExec ? DATA_EXECUTIVE_NAV_ITEMS : SUPER_ADMIN_NAV_ITEMS;
-    const baseSections: RoleNavSection[] = items.map((item) => ({
-      id: item.href,
-      label: item.label,
-      icon: item.icon,
-      href: item.href,
-    }));
+    const baseSections: RoleNavSection[] = items.map(toSection);
 
     const teamStations = getTeamStationsForRole(role, currentSourceId);
     if (teamStations.length === 0) {
@@ -114,7 +172,7 @@ export const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({
 
     const teamSection: RoleNavSection = {
       id: 'team-stations',
-      label: 'Team Stations (Cover Staff)',
+      label: 'Team Stations',
       icon: Users,
       children: teamStations,
     };
@@ -147,6 +205,7 @@ export const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({
           const tab = searchParams?.get('tab');
           return !tab || tab === 'requests' || tab === 'PENDING';
         }
+        if (href === '/sources') return !searchParams?.get('view');
         return true;
       }
       const leafParams = new URLSearchParams(leafQueryStr);
@@ -154,6 +213,9 @@ export const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({
       leafParams.forEach((val, key) => {
         if (key === 'zmccId' || key === 'zmcc_id' || key === 'sourceId') return;
         const curVal = searchParams?.get(key);
+        if (!curVal && leafPath === '/super-admin/corrections' && val === 'requests') return;
+        if (!curVal && leafPath === '/super-admin/reports' && val === 'daily') return;
+        if (!curVal && key === 'view' && /LOCAL_SUPPLIERS|DISPATCH/.test(val)) return;
         if (curVal !== val) allMatch = false;
       });
       return allMatch;

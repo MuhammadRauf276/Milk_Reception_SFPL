@@ -18,7 +18,7 @@ export async function GET(
     }
     return NextResponse.json({ vehicle: result.data });
   } catch (_err) {
-    return NextResponse.json({ error: 'An unexpected error occurred while fetching MOT vehicle.' }, { status: 500 });
+    return NextResponse.json({ error: 'An unexpected error occurred while fetching Mobile Tester vehicle.' }, { status: 500 });
   }
 }
 
@@ -44,6 +44,6 @@ export async function PATCH(
     }
     return NextResponse.json({ vehicle: result.data }, { status: result.status });
   } catch (_err) {
-    return NextResponse.json({ error: 'An unexpected error occurred while updating MOT vehicle.' }, { status: 500 });
+    return NextResponse.json({ error: 'An unexpected error occurred while updating Mobile Tester vehicle.' }, { status: 500 });
   }
 }

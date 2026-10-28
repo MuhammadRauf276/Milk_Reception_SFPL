@@ -1,0 +1,45 @@
+import { NextResponse } from 'next/server';
+import { getCurrentUser } from '@/backend/core/auth';
+import { canActAs } from '@/backend/core/roles/hierarchy';
+import { getZmccTankStorageReport } from '@/backend/services/zmccReportsService';
+import { getErrorMessage } from '@/lib/errors';
+
+export async function GET(req: Request) {
+  try {
+    const user = await getCurrentUser(req);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const isSystemScope =
+      user.role === 'HEAD_OF_MPD' ||
+      user.role === 'SUPER_ADMIN' ||
+      user.role === 'DATA_EXECUTIVE' ||
+      user.role === 'EXECUTIVE_MANAGEMENT';
+
+    const isAuthorized = canActAs(user.role, 'ZMCC_MANAGER');
+    if (!isAuthorized) {
+      return NextResponse.json({ error: 'Forbidden. ZMCC Manager or executive authority required.' }, { status: 403 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const requestedSource = searchParams.get('zmccId') || searchParams.get('sourceId');
+
+    let targetZmccId: bigint | undefined = undefined;
+    if (isSystemScope) {
+      if (requestedSource && requestedSource !== 'ALL') {
+        targetZmccId = BigInt(requestedSource);
+      }
+    } else {
+      if (!user.procurement_source_id) {
+        return NextResponse.json({ error: 'Account not assigned to an active ZMCC.' }, { status: 403 });
+      }
+      targetZmccId = BigInt(user.procurement_source_id);
+    }
+
+    const result = await getZmccTankStorageReport(targetZmccId);
+    return NextResponse.json(result);
+  } catch (error) {
+    return NextResponse.json({ error: getErrorMessage(error) || 'Failed to fetch tank storage report' }, { status: 500 });
+  }
+}

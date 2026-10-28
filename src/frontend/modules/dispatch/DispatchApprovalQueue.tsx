@@ -241,7 +241,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
       )}
 
       {approvalsQuery.isError && (
-        <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3.5 text-xs text-rose-800">
+        <div className="flex items-center gap-2 rounded-xl border border-border bg-card p-3.5 text-xs text-rose-800">
           <AlertTriangle className="h-4 w-4 shrink-0 text-rose-600" />
           <span>{getErrorMessage(approvalsQuery.error) || 'Failed to load dispatch queue.'}</span>
           <button
@@ -255,7 +255,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
       )}
 
       {!approvalsQuery.isPending && !approvalsQuery.isError && items.length === 0 && (
-        <div className="rounded-xl border border-dashed border-border bg-white p-8 text-center text-xs text-slate-500">
+        <div className="rounded-xl border border-dashed border-border bg-card p-8 text-center text-xs text-slate-500">
           {tab === 'PENDING' ? 'No dispatch requests currently waiting for manager review.' : 'No decided dispatches found.'}
         </div>
       )}
@@ -275,7 +275,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
                 exit={{ opacity: 0, scale: 0.95 }}
                 transition={{ duration: 0.18 }}
                 onClick={() => handleOpenItem(item)}
-                className="flex flex-col justify-between rounded-xl border border-border bg-white p-4 shadow-2xs hover:shadow-xs hover:border-slate-300 transition cursor-pointer"
+                className="flex flex-col justify-between rounded-xl border border-border bg-card p-4 shadow-2xs hover:shadow-2xs hover:border-border transition cursor-pointer"
               >
                 <div className="space-y-3">
                   <div className="flex items-start justify-between gap-2">
@@ -303,7 +303,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
                   </div>
 
                   {/* Summary Metrics */}
-                  <div className="grid grid-cols-4 gap-1.5 bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-center">
+                  <div className="grid grid-cols-4 gap-1.5 bg-card p-2.5 rounded-xl border border-border text-center">
                     <div>
                       <span className="text-[10px] text-slate-500 uppercase font-semibold">Litres</span>
                       <p className="text-xs font-semibold tabular-nums text-slate-900 mt-0.5">
@@ -383,14 +383,14 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
 
             <div className="p-4 sm:p-6 overflow-y-auto space-y-4 max-h-[calc(85vh-8rem)]">
               {actionError && (
-                <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl flex items-start gap-2">
+                <div className="p-3 bg-card border border-border text-rose-800 text-xs rounded-xl flex items-start gap-2">
                   <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-rose-600" />
                   <span>{actionError}</span>
                 </div>
               )}
 
               {/* Quality Totals Header */}
-              <div className="grid grid-cols-4 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200 text-center">
+              <div className="grid grid-cols-4 gap-2 bg-card p-3 rounded-xl border border-border text-center">
                 <div>
                   <span className="text-[10px] text-slate-500 font-semibold uppercase">Total Litres</span>
                   <p className="text-sm font-semibold tabular-nums text-slate-900 mt-0.5">
@@ -418,7 +418,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
               </div>
 
               {/* Person Decision & Exception Reasons */}
-              <div className="p-3.5 rounded-xl border border-border bg-white space-y-2">
+              <div className="p-3.5 rounded-xl border border-border bg-card space-y-2">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-slate-600 font-semibold">Station Submitter Verdict:</span>
                   <span className={cn('px-2.5 py-0.5 rounded-full text-xs font-semibold', selectedItem.personDecision === 'ACCEPT' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-rose-100 text-rose-800 border border-rose-300')}>
@@ -426,7 +426,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
                   </span>
                 </div>
                 {selectedItem.decisionRemarks && (
-                  <p className="text-xs text-slate-700 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                  <p className="text-xs text-slate-700 bg-card p-2.5 rounded-lg border border-border">
                     <strong className="text-slate-900">Submitter Remarks:</strong> {selectedItem.decisionRemarks}
                   </p>
                 )}
@@ -448,7 +448,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
                   Portion Breakdown & Lab Tests
                 </h4>
                 {selectedItem.portions.map((p) => (
-                  <div key={p.portionNumber} className="rounded-xl border border-border bg-slate-50/50 p-3.5 space-y-2.5">
+                  <div key={p.portionNumber} className="rounded-xl border border-border bg-card p-3.5 space-y-2.5">
                     <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 pb-2">
                       <span className="text-xs font-semibold text-slate-900">
                         Portion #{p.portionNumber}
@@ -463,7 +463,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
                     {p.tests.length > 0 && (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
                         {p.tests.map((t) => (
-                          <div key={t.testCode} className="flex items-center justify-between p-2 rounded-lg bg-white border border-slate-100 text-xs">
+                          <div key={t.testCode} className="flex items-center justify-between p-2 rounded-lg bg-card border border-border text-xs">
                             <span className="text-slate-800 font-medium">
                               {t.testName} {t.value !== null ? `(${t.value})` : ''}
                             </span>
@@ -488,7 +488,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
               </div>
 
               {/* Hand-written Lab Report Photo */}
-              <div className="p-3.5 rounded-xl border border-border bg-white space-y-2">
+              <div className="p-3.5 rounded-xl border border-border bg-card space-y-2">
                 <div className="flex items-center space-x-1.5 text-xs font-semibold text-slate-800">
                   <FileText className="w-4 h-4 text-primary" />
                   <span>Official Hand-written Lab Report Sheet</span>
@@ -498,7 +498,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
                     <Photo photo={selectedItem.labReportPhoto} label="Hand-written lab report" />
                   </div>
                 ) : (
-                  <p className="text-xs text-amber-700 bg-amber-50 p-2 rounded-lg border border-amber-200">
+                  <p className="text-xs text-amber-700 bg-card p-2 rounded-lg border border-border">
                     No physical lab report photo was attached to this dispatch.
                   </p>
                 )}
@@ -525,7 +525,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
                       onClick={() => decide(selectedItem, 'NO')}
                       className="min-h-[48px] py-2.5 px-4 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 transition disabled:opacity-50 cursor-pointer"
                     >
-                      {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
+                      {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                       <span>Reject & Return (NO)</span>
                     </button>
 
@@ -535,7 +535,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
                       onClick={() => decide(selectedItem, 'OKAY')}
                       className="min-h-[48px] py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 transition disabled:opacity-50 cursor-pointer"
                     >
-                      {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                      {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                       <span>Approve Dispatch (OKAY)</span>
                     </button>
                   </div>

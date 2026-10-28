@@ -86,11 +86,14 @@ export async function GET(req: Request) {
         isMultiSiloDifferent = true;
       }
 
-      const isPortionWise = v.test_mode === 'PORTION_WISE';
       const sortedAccepted = [...acceptedPortions].sort((a, b) => a.portion_number - b.portion_number);
+      const isMultiPortion = sortedAccepted.length > 1;
+      const isPortionWise = isMultiPortion || v.test_mode === 'PORTION_WISE';
       const activePortion = sortedAccepted.find((p) => p.first_weight_kg !== null && p.second_weight_kg === null) || sortedAccepted[0];
-      const activeFirstWeight = (isPortionWise && activePortion?.first_weight_kg) ? Number(activePortion.first_weight_kg) : grossKg;
+      const activeFirstWeight = activePortion?.first_weight_kg ? Number(activePortion.first_weight_kg) : grossKg;
       const activeSilo = activePortion?.unloading_log?.silo_number || destinationSiloText;
+      const completedCount = sortedAccepted.filter((p) => p.second_weight_kg !== null).length;
+      const isFinalWeighment = completedCount === sortedAccepted.length - 1;
 
       // Operational Chronology Bounds
       const activePortionFirstWeightMs = activePortion?.first_weight_at ? new Date(activePortion.first_weight_at).getTime() : grossTimeMs;
@@ -131,10 +134,12 @@ export async function GET(req: Request) {
         is_multi_silo_different: isMultiSiloDifferent,
         test_mode: v.test_mode || 'COMPOSITE',
         is_portion_wise: isPortionWise,
+        is_multi_portion: isMultiPortion,
+        is_final_weighment: isFinalWeighment,
         active_portion_number: activePortion?.portion_number ?? 1,
         active_portion_first_weight_kg: activeFirstWeight,
         total_accepted_portions: sortedAccepted.length,
-        completed_accepted_portions: sortedAccepted.filter((p) => p.second_weight_kg !== null).length,
+        completed_accepted_portions: completedCount,
       };
     });
 

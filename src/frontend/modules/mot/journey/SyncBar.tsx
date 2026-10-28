@@ -14,7 +14,7 @@ interface Props {
 
 export function SyncBar({ isOnline, unsyncedCount, lastSyncTime, syncFeedback, syncing, onSync }: Props) {
   return (
-          <div className="flex items-center justify-between gap-2 px-3 py-2 sm:px-4 sm:py-2.5 bg-white rounded-xl border border-border shadow-2xs">
+          <div className="flex items-center justify-between gap-2 px-3 py-2 sm:px-4 sm:py-2.5 bg-card rounded-xl border border-border shadow-2xs">
             <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
               <span
                 className={`px-2.5 py-1 rounded-full text-xs font-semibold flex items-center space-x-1.5 shrink-0 ${

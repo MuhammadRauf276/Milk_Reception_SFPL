@@ -17,7 +17,8 @@ export const ProductionStartUnloadingDrawer: React.FC<{
 }> = ({ visit, silos, onClose, onStarted }) => {
   const toast = useToast();
   const acceptedPortions = (visit.portions ?? []).filter((p) => p.plant_decision === 'ACCEPTED');
-  const isPortionWise = visit.test_mode === 'PORTION_WISE';
+  const isMultiPortion = acceptedPortions.length > 1;
+  const isPortionWise = isMultiPortion || visit.test_mode === 'PORTION_WISE';
 
   // In portion-wise mode, find the portion that is ready to be unloaded
   const activePortion = isPortionWise
@@ -135,7 +136,7 @@ export const ProductionStartUnloadingDrawer: React.FC<{
 
           {/* Portion-wise Cycle Header */}
           {isPortionWise && activePortion && (
-            <div className="p-3 bg-purple-50 rounded-xl border border-purple-200 text-xs">
+            <div className="bg-card border-border p-3 rounded-xl border text-xs">
               <div className="flex items-center justify-between font-semibold text-purple-900">
                 <span className="flex items-center space-x-1.5">
                   <Layers className="w-4 h-4 text-purple-700" />
@@ -164,13 +165,13 @@ export const ProductionStartUnloadingDrawer: React.FC<{
               {isPortionWise ? 'Destination Silo Assignment' : 'Accepted Portions & Destination Silos'}
             </h4>
             {portionsToAssign.map((p) => (
-              <div key={p.id} className="p-4 bg-subtle rounded-xl border border-border space-y-3">
+              <div key={p.id} className="bg-card border-border p-4 rounded-xl border space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="tabular-nums font-semibold text-sm text-foreground">
-                    Portion #{p.portion_number} ({p.dispatch_quantity_value !== null && p.dispatch_quantity_value !== undefined ? p.dispatch_quantity_value.toLocaleString() : 'N/A'} {p.dispatch_quantity_unit === 'LITER' ? 'L' : 'kg'})
+                    Portion #{p.portion_number}
                   </span>
-                  <span className="text-xs tabular-nums font-semibold text-primary bg-white px-2 py-0.5 rounded border border-border-strong">
-                    Expected: {p.expected_physical_liters !== null ? `~${p.expected_physical_liters.toLocaleString()} L` : 'N/A'}
+                  <span className="text-xs font-semibold text-primary bg-subtle px-2 py-0.5 rounded border border-border">
+                    Ready for Unloading
                   </span>
                 </div>
 

@@ -102,7 +102,7 @@ All colors are mapped to CSS variables in `src/app/globals.css` and applied via 
 | **Contractor Direct** | `bg-amber-50/70`| `text-amber-900` | `border-amber-300` | Third-party direct plant contractor deliveries and allocation tags. |
 | **Primary / Corporate** | `bg-primary` | `text-primary` | `border-primary` | SFPL corporate brand, primary submit actions, active navigation indicator. |
 | **ZMCC Regional** | `bg-violet-50` | `text-violet-800`| `border-violet-200` | ZMCC chilling centers, regional tanks, bulk tanker dispatches. |
-| **MOT Field** | `bg-blue-50` | `text-blue-800` | `border-blue-200` | Village shop collection, route tracking, mobile tester operations. |
+| **Mobile Tester Field** | `bg-blue-50` | `text-blue-800` | `border-blue-200` | Village shop collection, route tracking, mobile tester operations. |
 | **Neutral Surface** | `bg-background` | `text-foreground`| `border-border` | Default page body, subtle dividers, cards, low-glare dark-shift surfaces. |
 
 ---
@@ -181,4 +181,4 @@ Animations are kept professional, subtle, and high-performance:
 - **Names, not codes:** source dropdowns show the source name only. ERP codes appear only for MPD Head, Super Admin, Data Executive (and reporting roles).
 - **Ready-cards + Drawer:** list only items that are ready for the user's action; tapping a card opens the entry Drawer (mobile) / modal (desktop). The weighing drawer has WEIGHT / MANUAL modes (manual only when the Super Admin policy allows it, and only in the allowed unit) and one primary action ("Unload to ZMCC tank").
 - **No correction clutter below Data Executive:** no correction counts, "n/5" badges, "Locked" labels or correct buttons. Lower roles see a "Request correction" ticket button and the status of their own tickets (Open, Approved, Rejected, Done).
-- **Labels:** MC and HC only (never "Local Supplier" / "Contractor arrival" / "MOT" in visible text).
+- **Labels:** Mobile Tester and HC only (never "Local Supplier" / "Contractor arrival" / "MOT" / "MC" in visible text; use "Mobile Tester").

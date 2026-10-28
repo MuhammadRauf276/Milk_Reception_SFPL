@@ -3,6 +3,7 @@
 import { CheckCircle2, Camera, ChevronRight, FileText, MapPin, Maximize2, ShieldAlert } from 'lucide-react';
 import type { UnifiedApprovalItem } from '@/backend/services/approvals/approvalInboxService';
 import { getRoleLabel } from '@/backend/core/roles/labels';
+import { InfoTip } from '@/components/ui/info-tip';
 import { cn } from '@/lib/utils';
 
 export function ApprovalDetailBody({
@@ -27,7 +28,7 @@ export function ApprovalDetailBody({
             failedTests.map((t, idx) => (
               <div
                 key={idx}
-                className="p-3.5 rounded-xl border border-rose-300 bg-rose-50/70 text-rose-950 flex flex-col justify-between"
+                className="bg-card border-border p-3.5 rounded-xl border text-rose-950 flex flex-col justify-between"
               >
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-xs">
@@ -41,19 +42,20 @@ export function ApprovalDetailBody({
                   <span className="text-xl sm:text-2xl font-black text-rose-700">
                     {t.value !== null && t.value !== undefined ? String(t.value) : 'N/A'}
                   </span>
-                  <span className="text-xs text-rose-800">
-                    (Required: {t.min !== undefined && t.min !== null ? `Min ${t.min}` : ''}{' '}
-                    {t.max !== undefined && t.max !== null ? `Max ${t.max}` : ''})
-                  </span>
+                  {((t.min !== undefined && t.min !== null) || (t.max !== undefined && t.max !== null)) && (
+                    <span className="text-xs text-rose-800">
+                      (Required: {t.min !== undefined && t.min !== null ? `Min ${t.min}` : ''}{' '}
+                      {t.max !== undefined && t.max !== null ? `Max ${t.max}` : ''})
+                    </span>
+                  )}
                 </div>
               </div>
             ))
           ) : (
-            <div className="p-3.5 rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-950 flex items-center gap-2">
+            <div className="bg-card border-border p-3.5 rounded-xl border text-emerald-950 flex items-center gap-2">
               <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
               <div>
                 <p className="text-xs font-bold">All Test Values In Range</p>
-                <p className="text-[11px] text-emerald-800">Physical chemistry metrics pass active policy bounds.</p>
               </div>
             </div>
           )}
@@ -93,7 +95,7 @@ export function ApprovalDetailBody({
           )}
 
           {/* Operator Initial Decision Card */}
-          <div className="p-3.5 rounded-xl border border-border bg-slate-50 flex flex-col justify-between">
+          <div className="bg-card border-border p-3.5 rounded-xl border flex flex-col justify-between">
             <div className="flex items-center justify-between">
               <span className="font-bold text-xs text-slate-700">Operator Stated Verdict</span>
               <span
@@ -107,9 +109,14 @@ export function ApprovalDetailBody({
                 {item.details.personDecision === 'REJECT' ? 'Rejected by Operator' : 'Accepted by Operator'}
               </span>
             </div>
-            <p className="mt-2 text-xs text-slate-600 italic">
-              &ldquo;{item.details.personRemarks || 'No operator remarks recorded'}&rdquo;
-            </p>
+            {item.details.personRemarks && item.details.personRemarks.trim().split(/\s+/).length > 4 ? (
+              <div className="mt-1 flex items-center gap-1 text-xs text-slate-600">
+                <span>Remarks</span>
+                <InfoTip text={item.details.personRemarks} />
+              </div>
+            ) : (
+              <p className="mt-2 text-xs text-slate-600 italic">{item.details.personRemarks || 'No remarks'}</p>
+            )}
           </div>
 
         </div>
@@ -154,11 +161,11 @@ export function ApprovalDetailBody({
       )}
 
       {/* 3. Progressive Disclosure Container: Calculation, Policy & Audit Details */}
-      <details className="group border border-border rounded-xl bg-slate-50 overflow-hidden text-xs">
+      <details className="group border border-border rounded-xl bg-card overflow-hidden text-xs">
         <summary className="min-h-11 p-3.5 font-bold text-slate-700 flex items-center justify-between cursor-pointer select-none hover:bg-slate-100/70 transition">
           <span className="flex items-center gap-2">
             <FileText className="w-4 h-4 text-primary" />
-            <span>View calculation, policy bounds & complete audit trail</span>
+            <span>Details</span>
           </span>
           <ChevronRight className="w-4 h-4 text-slate-400 transition group-open:rotate-90" />
         </summary>
@@ -210,7 +217,7 @@ export function ApprovalDetailBody({
           )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-600">
-            <div className="p-3 bg-slate-50 rounded-lg border border-border space-y-1">
+            <div className="bg-card border-border p-3 rounded-lg border space-y-1">
               <p className="font-bold text-slate-800">Audit & Attribution</p>
               <p>
                 Submitter User ID: <code className="text-[11px] font-mono">{item.submittedBy.id}</code>
@@ -229,7 +236,7 @@ export function ApprovalDetailBody({
             </div>
 
             {item.details.formulaAudit?.gpsCoordinates && (
-              <div className="p-3 bg-slate-50 rounded-lg border border-border space-y-1">
+              <div className="bg-card border-border p-3 rounded-lg border space-y-1">
                 <p className="font-bold text-slate-800 flex items-center gap-1">
                   <MapPin className="w-3.5 h-3.5 text-primary" />
                   <span>GPS Geofence Capture</span>
@@ -251,7 +258,7 @@ export function ApprovalDetailBody({
 
       {/* 4. Self-Approval Guard Banner (Segregation of Duties) */}
       {!item.canDecide && (
-        <div className="p-4 rounded-xl border border-amber-300 bg-amber-50 text-amber-950 flex items-start gap-3">
+        <div className="bg-card border-border p-4 rounded-xl border text-amber-950 flex items-start gap-3">
           <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
           <div className="space-y-1 text-xs">
             <p className="font-bold text-sm">Segregation of Duties Enforcement</p>
@@ -265,13 +272,21 @@ export function ApprovalDetailBody({
 
       {/* 5. Decided Audit Stamp (if decided) */}
       {item.decision && (
-        <div className="p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-1 text-xs">
+        <div className="bg-card border-border p-4 rounded-xl border space-y-1 text-xs">
           <p className="font-bold text-slate-800">Decision Recorded by {item.decision.decidedBy}</p>
           <p className="text-slate-600">
             Verdict: <strong>{item.decision.verdict === 'OKAY' ? 'Approved' : 'Rejected'}</strong> · Decided at{' '}
             {new Date(item.decision.decidedAt).toLocaleString()}
           </p>
-          {item.decision.remarks && <p className="text-slate-700 italic mt-1">&ldquo;{item.decision.remarks}&rdquo;</p>}
+          {item.decision.remarks &&
+            (item.decision.remarks.trim().split(/\s+/).length > 4 ? (
+              <div className="flex items-center gap-1 text-slate-700">
+                <span>Remarks</span>
+                <InfoTip text={item.decision.remarks} />
+              </div>
+            ) : (
+              <p className="text-slate-700 italic mt-1">{item.decision.remarks}</p>
+            ))}
         </div>
       )}
     </div>

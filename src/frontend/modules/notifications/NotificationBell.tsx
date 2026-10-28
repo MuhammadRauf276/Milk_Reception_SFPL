@@ -162,7 +162,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ currentUser 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger
-        className="relative inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted data-[state=open]:text-foreground"
+        className="relative inline-flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted data-[state=open]:text-foreground"
         aria-label={visibleUnreadCount > 0 ? `Notifications, ${visibleUnreadCount} unread` : 'Notifications'}
       >
         <motion.span
@@ -204,7 +204,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ currentUser 
               type="button"
               onClick={handleMarkAllRead}
               disabled={loading}
-              className="inline-flex items-center gap-1 rounded text-xs font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+              className="min-h-11 min-w-11 inline-flex items-center gap-1 rounded text-xs font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
             >
               <CheckCheck className="h-3.5 w-3.5" />
               Mark all read
@@ -218,8 +218,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ currentUser 
               <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
                 <Inbox className="h-5 w-5" />
               </div>
-              <p className="text-sm font-medium text-foreground">You&apos;re all caught up</p>
-              <p className="mt-1 text-xs text-muted-foreground">New plant events will appear here.</p>
+              <p className="text-sm font-medium text-foreground">All caught up</p>
             </div>
           ) : (
             <ul className="divide-y">
@@ -232,7 +231,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ currentUser 
                     <button
                       type="button"
                       onClick={() => handleItemClick(item)}
-                      className={cn(
+                      className={cn('min-h-11 min-w-11', 
                         'flex w-full gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-hidden',
                         isUnread && 'bg-primary/3'
                       )}

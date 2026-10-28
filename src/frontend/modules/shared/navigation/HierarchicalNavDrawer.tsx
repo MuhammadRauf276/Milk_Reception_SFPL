@@ -43,14 +43,8 @@ export const HierarchicalNavDrawer: React.FC<HierarchicalNavDrawerProps> = ({
     if (delegationContext.isDelegated && delegationContext.actingAs) {
       // Station-aware mode: render the active station's full operational navigation
       const stationSections = getRoleNavSections({ ...currentUser, role: delegationContext.actingAs }, zmccId);
-      // Add a prominent return-to-hub link at the top
-      const returnSection: RoleNavSection = {
-        id: 'return-home',
-        label: `← Return to ${formatRoleLabel(currentUser.role)}`,
-        icon: LayoutDashboard,
-        href: delegationContext.homeRoute,
-      };
-      return [returnSection, ...stationSections];
+      // The delegation banner already offers 'Return to My Work'.
+      return stationSections;
     }
 
     const roleSections = getRoleNavSections(currentUser, zmccId);
@@ -66,6 +60,8 @@ export const HierarchicalNavDrawer: React.FC<HierarchicalNavDrawerProps> = ({
       if (pathname !== leafPath) return false;
 
       const leafParams = new URLSearchParams(leafQueryStr || '');
+      // A plain leaf (no view) is not active while a sibling view of the same page is open.
+      if (leafPath === '/sources' && !leafParams.get('view') && searchParams?.get('view')) return false;
 
       // Check each leaf query parameter against current search params
       let allMatch = true;
@@ -79,8 +75,12 @@ export const HierarchicalNavDrawer: React.FC<HierarchicalNavDrawerProps> = ({
           // Check default fallback if query parameter omitted in URL
           if (leafPath === '/phe' && key === 'section' && val === 'arrivals') {
             // default section
-          } else if (leafPath === '/phe' && key === 'view' && val === 'mot-arrival') {
-            // default view
+          } else if (leafPath === '/phe' && key === 'view' && val === 'mot-arrival' && (!searchParams?.get('section') || searchParams?.get('section') === 'arrivals')) {
+            // default view for arrivals
+          } else if (leafPath === '/phe' && key === 'view' && val === 'dispatch' && searchParams?.get('section') === 'mot') {
+            // default view for mot
+          } else if (leafPath === '/phe' && key === 'view' && val === 'local-suppliers' && searchParams?.get('section') === 'suppliers') {
+            // default view for suppliers
           } else if (leafPath === '/zmcc/lab' && key === 'tab' && val === 'queue') {
             // default tab
           } else if (leafPath === '/zmcc/dispatch' && key === 'tab' && val === 'new') {
@@ -97,14 +97,22 @@ export const HierarchicalNavDrawer: React.FC<HierarchicalNavDrawerProps> = ({
             // default tab
           } else if (leafPath === '/contractor/manager' && key === 'tab' && (val === 'APPROVALS' || val === 'OVERVIEW')) {
             // default tab
-          } else if (leafPath === '/mpd/head' && key === 'tab' && val === 'APPROVALS') {
-            // default tab
           } else if (leafPath === '/mpd/zmcc-manager' && key === 'tab' && val === 'OVERVIEW') {
             // default tab
+          } else if (leafPath === '/mpd/zmcc-manager' && key === 'view' && val === 'ACTIVE' && searchParams?.get('tab') === 'MOT_JOURNEYS') {
+            // default view for mot journeys tab
+          } else if (leafPath === '/mpd/zmcc-manager' && key === 'view' && val === 'IN_TRANSIT' && searchParams?.get('tab') === 'PLANT_TRANSIT') {
+            // default view for plant transit tab
+          } else if (leafPath === '/mpd/zmcc-manager' && key === 'mode' && val === 'STUDIO' && searchParams?.get('tab') === 'REPORTS') {
+            // default view for reports tab
           } else if (leafPath === '/mpd/zmcc-manager' && key === 'view' && val === 'PLANT_HISTORY') {
             // default view for history tab
-          } else if (leafPath === '/mpd/zmcc-manager' && key === 'view' && val === 'LOCAL_SUPPLIERS') {
+          } else if (leafPath === '/mpd/zmcc-manager' && key === 'view' && val === 'LOCAL_SUPPLIERS' && (!searchParams?.get('tab') || searchParams?.get('tab') === 'MASTER_DATA')) {
             // default view for master data tab
+          } else if (leafPath === '/super-admin/corrections' && key === 'tab' && val === 'requests') {
+            // default tab
+          } else if (leafPath === '/command' && key === 'view' && val === 'FLEET_RADAR') {
+            // default view
           } else {
             allMatch = false;
           }
@@ -165,7 +173,7 @@ export const HierarchicalNavDrawer: React.FC<HierarchicalNavDrawerProps> = ({
             isActive={isActive}
             caption={caption}
             footer={footer}
-            defaultExpanded={['team-stations', 'HISTORY', 'MASTER_DATA', 'arrivals', 'suppliers', 'mot']}
+            defaultExpanded={['team-stations', 'HISTORY', 'MASTER_DATA', 'MOT_JOURNEYS', 'PLANT_TRANSIT', 'REPORTS', 'arrivals', 'suppliers', 'mot']}
           />
         </aside>
       ) : null}
@@ -176,7 +184,7 @@ export const HierarchicalNavDrawer: React.FC<HierarchicalNavDrawerProps> = ({
           isActive={isActive}
           caption={caption}
           footer={footer}
-          defaultExpanded={['team-stations', 'HISTORY', 'MASTER_DATA', 'arrivals', 'suppliers', 'mot']}
+          defaultExpanded={['team-stations', 'HISTORY', 'MASTER_DATA', 'MOT_JOURNEYS', 'PLANT_TRANSIT', 'REPORTS', 'arrivals', 'suppliers', 'mot']}
           showClose
           onNavigate={() => handleOpenChange(false)}
         />

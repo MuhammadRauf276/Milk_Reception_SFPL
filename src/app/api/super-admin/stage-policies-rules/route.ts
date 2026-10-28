@@ -4,7 +4,7 @@ import { prisma } from '@core/db';
 import { QualityRuleService } from '@/backend/services/qualityRuleService';
 import { isValidTestingPoint, TestingPoint } from '@/types/milk-test-policy';
 
-const READ_ROLES = ['SUPER_ADMIN', 'DATA_EXECUTIVE', 'DATA_ANALYST', 'HEAD_OF_MPD', 'QA_HEAD'];
+const READ_ROLES = ['SUPER_ADMIN', 'DATA_EXECUTIVE', 'DATA_ANALYST', 'HEAD_OF_MPD', 'EXECUTIVE_MANAGEMENT', 'QA_HEAD'];
 const WRITE_ROLES = ['SUPER_ADMIN', 'DATA_EXECUTIVE'];
 
 export async function GET(req: Request) {

@@ -27,11 +27,10 @@ export const HcArrivalPanel: React.FC<Props> = ({
   const selectedLocalSupplierId = form.selectedLocalSupplierId;
   const localSupplierGps = form.gps;
   return (
-    <div className="max-w-xl mx-auto bg-white rounded-xl border border-emerald-200 p-6 shadow-2xs space-y-4 animate-panel-in">
+    <div className="bg-card border-border max-w-xl mx-auto rounded-xl border p-6 shadow-2xs space-y-4 animate-panel-in">
       <div className="flex items-center justify-between gap-2 border-b border-emerald-100 pb-3">
         <div className="flex items-center space-x-2">
-          <Users className="w-5 h-5 text-emerald-700" />
-          <h3 className="text-sm font-semibold text-slate-900">HC Arrival at ZMCC</h3>
+          <h3 className="text-sm font-semibold text-slate-900">HC arrival</h3>
         </div>
         <button
           type="button"
@@ -39,23 +38,27 @@ export const HcArrivalPanel: React.FC<Props> = ({
           className="flex items-center space-x-1 min-h-[44px] px-3 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-300 rounded-xl text-xs font-semibold transition-all cursor-pointer"
         >
           <UserPlus className="w-3.5 h-3.5 text-emerald-700" />
-          <span>+ Add HC Supplier</span>
+          <span>Add supplier</span>
         </button>
       </div>
 
       {localSupplierSuccessResult ? (
-            <div className="bg-emerald-50 border border-emerald-300 rounded-xl p-6 space-y-4">
+            <div className="bg-card border-border border rounded-xl p-6 space-y-4">
               <div className="flex items-center space-x-3 text-emerald-800">
                 <CheckCircle2 className="w-6 h-6 text-emerald-600" />
                 <div>
-                  <h4 className="text-sm font-semibold">HC Arrival Recorded!</h4>
-                  <span className="text-xs text-emerald-700">The milk source is chosen later, when the milk is unloaded to the tank.</span>
+                  <h4 className="text-sm font-semibold">HC recorded</h4>
                 </div>
               </div>
 
               <div className="space-y-2 text-xs divide-y divide-emerald-200/60 pt-2">
                 <div className="pb-1.5">
                   ZMCC Token: <strong className="tabular-nums text-emerald-900 text-sm font-semibold">{localSupplierSuccessResult.zmcc_token}</strong>
+                  {localSupplierSuccessResult.zmcc_token?.includes('OFFLINE') && (
+                    <div className="mt-1 text-[11px] font-medium text-amber-700 bg-amber-50 rounded px-1.5 py-0.5 border border-amber-200">
+                      Saved offline on device. Will sync automatically once connected.
+                    </div>
+                  )}
                 </div>
                 <div className="py-1.5">
                   Raw Milk Token: <strong className="tabular-nums text-slate-800">{localSupplierSuccessResult.raw_milk_token_number || '—'}</strong>
@@ -89,13 +92,17 @@ export const HcArrivalPanel: React.FC<Props> = ({
               </button>
             </div>
       ) : (
-        <button
-          type="button"
-          onClick={() => form.setFormOpen(true)}
-          className="w-full min-h-[48px] py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-sm font-semibold cursor-pointer"
-        >
-          Record HC Arrival
-        </button>
+        <div className="space-y-3 py-4 text-center">
+          <Users className="mx-auto h-8 w-8 text-slate-300" aria-hidden="true" />
+          <p className="text-sm font-semibold text-slate-700">No HC arrival yet</p>
+          <button
+            type="button"
+            onClick={() => form.setFormOpen(true)}
+            className="w-full min-h-[48px] py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-sm font-semibold cursor-pointer"
+          >
+            Record HC Arrival
+          </button>
+        </div>
       )}
 
       <ZmccDrawer
@@ -106,7 +113,7 @@ export const HcArrivalPanel: React.FC<Props> = ({
       >
         <form onSubmit={form.submit} className="space-y-4">
               {form.error && (
-                <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl flex items-center space-x-2">
+                <div className="bg-card border-border p-3 border text-rose-800 text-xs rounded-xl flex items-center space-x-2">
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   <span>{form.error}</span>
                 </div>
@@ -143,12 +150,12 @@ export const HcArrivalPanel: React.FC<Props> = ({
                 />
                 {localSuppliers.some((s) => s.id === selectedLocalSupplierId && s.approval_status === 'PENDING_APPROVAL') && (
                   <p className="text-xs text-amber-700 mt-1">
-                    This HC is waiting for Zonal Manager approval. You cannot receive milk from it yet.
+                    Pending approval.
                   </p>
                 )}
                 {localSuppliers.length === 0 && !loadingLocalSuppliers && (
                   <p className="text-xs text-amber-700 mt-1">
-                    No suppliers in directory yet. Click &quot;+ Quick Add Supplier&quot; above to onboard the first one.
+                    No suppliers.
                   </p>
                 )}
               </div>
@@ -209,7 +216,7 @@ export const HcArrivalPanel: React.FC<Props> = ({
                     <span>Capture GPS</span>
                   </button>
                 </div>
-                <div className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border tabular-nums">
+                <div className="bg-card border-border text-xs text-slate-600 p-2.5 rounded-xl border tabular-nums">
                   {localSupplierGps.lat != null ? (
                     <span>Lat: {localSupplierGps.lat}, Lng: {localSupplierGps.lng} (±{localSupplierGps.acc}m)</span>
                   ) : (

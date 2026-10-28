@@ -2,6 +2,9 @@ import type { MpdExecutiveTelemetry } from '@/backend/services/mpdExecutiveServi
 
 export type MpdTabId =
   | 'FLEET_RADAR'
+  | 'HIERARCHY'
+  | 'MOT_JOURNEYS'
+  | 'REPORTS'
   | 'SOURCES'
   | 'QUALITY_FUNNEL'
   | 'LOSS_DIAGNOSTICS'

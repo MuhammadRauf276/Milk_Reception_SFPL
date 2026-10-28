@@ -3,6 +3,7 @@
 import React from 'react';
 import { Truck, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
+import { InfoTip } from '@/components/ui/info-tip';
 import type { CurrentJourney } from './types';
 
 interface Props {
@@ -35,32 +36,28 @@ export function ReturnToPheModal({ journey, isOpen, onClose, onConfirm, isSubmit
     <Modal onClose={onClose} title="Return to PHE (ZMCC Intake)" className="max-w-md overflow-hidden">
       <div className="p-4 space-y-4 text-xs">
         {hasPending ? (
-          <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-950 flex items-start space-x-3">
+          <div className="bg-card border-border p-3 border rounded-xl text-amber-950 flex items-start space-x-3">
             <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
             <div>
               <h4 className="font-bold uppercase tracking-wider text-amber-900 text-[11px]">
                 {pendingStops.length} Unvisited {pendingStops.length === 1 ? 'Shop' : 'Shops'} Remaining
               </h4>
-              <p className="text-amber-800 mt-0.5 leading-relaxed">
-                Confirming return to PHE will conclude active shop collection. Remaining shops will not be visited. The PHE Operator and MDO at ZMCC will be alerted that this tanker is en route.
-              </p>
+              <InfoTip text="Confirming return to PHE concludes shop collection. Remaining shops will not be visited. The PHE Operator and MDO will be alerted." />
             </div>
           </div>
         ) : (
-          <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-950 flex items-start space-x-3">
+          <div className="bg-card border-border p-3 border rounded-xl text-emerald-950 flex items-start space-x-3">
             <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
             <div>
               <h4 className="font-bold uppercase tracking-wider text-emerald-900 text-[11px]">
                 All Assigned Shops Visited
               </h4>
-              <p className="text-emerald-800 mt-0.5 leading-relaxed">
-                You have completed all planned shop visits. Confirming will notify the PHE Operator and MDO that this tanker is returning to ZMCC.
-              </p>
+              <InfoTip text="Confirming notifies the PHE Operator and MDO that this tanker is returning." />
             </div>
           </div>
         )}
 
-        <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+        <div className="bg-card border-border p-3 border rounded-xl space-y-2">
           <div className="flex justify-between items-center text-slate-600">
             <span>Route:</span>
             <strong className="text-foreground">
@@ -74,19 +71,19 @@ export function ReturnToPheModal({ journey, isOpen, onClose, onConfirm, isSubmit
             </strong>
           </div>
           <div className="grid grid-cols-4 gap-2 pt-2 border-t border-slate-200 text-center">
-            <div className="p-1.5 bg-white rounded-lg border border-border">
+            <div className="p-1.5 bg-card rounded-lg border border-border">
               <span className="text-[10px] uppercase text-slate-500 block">Assigned</span>
               <strong className="text-slate-900 tabular-nums">{journey.stops.length}</strong>
             </div>
-            <div className="p-1.5 bg-white rounded-lg border border-border">
+            <div className="p-1.5 bg-card rounded-lg border border-border">
               <span className="text-[10px] uppercase text-emerald-700 block">Collected</span>
               <strong className="text-emerald-900 tabular-nums">{visitedStops.length}</strong>
             </div>
-            <div className="p-1.5 bg-white rounded-lg border border-border">
+            <div className="p-1.5 bg-card rounded-lg border border-border">
               <span className="text-[10px] uppercase text-amber-700 block">Skipped/Rej</span>
               <strong className="text-amber-900 tabular-nums">{skippedStops.length + rejectedStops.length}</strong>
             </div>
-            <div className="p-1.5 bg-white rounded-lg border border-border">
+            <div className="p-1.5 bg-card rounded-lg border border-border">
               <span className="text-[10px] uppercase text-blue-700 block">Pending</span>
               <strong className="text-blue-900 tabular-nums">{pendingStops.length}</strong>
             </div>

@@ -38,8 +38,8 @@ export const ZMCCLabSessionList: React.FC<{
           '—';
         const arrivalSource =
           session.arrival_type === 'MOT'
-            ? `Route: ${session.mot_arrival?.journey?.route?.name || 'MC'}`
-            : `Supplier: ${session.local_supplier_arrival?.local_supplier?.name || 'HC'}${session.tank_receipt?.milk_source_name_snapshot ? ` · Source: ${session.tank_receipt.milk_source_name_snapshot}` : ''}`;
+            ? `${session.mot_arrival?.journey?.route?.name || 'Mobile Tester'}`
+            : `${session.local_supplier_arrival?.local_supplier?.name || 'HC'}`;
 
         const canReview =
           session.status === 'COMPLETED' &&
@@ -52,9 +52,9 @@ export const ZMCCLabSessionList: React.FC<{
             key={session.id}
             className={`p-4 rounded-xl bg-card border shadow-2xs space-y-3 transition-all ${
               isRejected
-                ? 'border-rose-300 bg-rose-50/20'
+                ? 'border-border bg-card'
                 : session.manager_review_status === 'APPROVED'
-                ? 'border-emerald-300 bg-emerald-50/20'
+                ? 'border-border bg-card'
                 : 'border-border/80 hover:border-primary/40'
             }`}
           >
@@ -65,10 +65,10 @@ export const ZMCCLabSessionList: React.FC<{
                   {vehicleNumber}
                 </span>
                 <span className="px-2 py-0.5 rounded text-xs font-semibold uppercase tracking-wider bg-slate-900 text-white">
-                  {session.arrival_type === 'MOT' ? 'MC' : 'HC'}
+                  {session.arrival_type === 'MOT' ? 'Mobile Tester' : 'HC'}
                 </span>
                 <span className="px-2 py-0.5 rounded text-xs tabular-nums font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-                  Token: {tokenNumber}
+                  {tokenNumber}
                 </span>
                 <span className="text-xs font-medium text-slate-600">{arrivalSource}</span>
                 {session.gross_liters != null && (
@@ -165,7 +165,7 @@ export const ZMCCLabSessionList: React.FC<{
 
             {/* Rejection / Review Reasons */}
             {session.rejection_reason && (
-              <div className="p-2.5 rounded-lg text-xs font-semibold flex items-start gap-2 bg-rose-100/70 border border-rose-200 text-rose-900">
+              <div className="bg-card border-border p-2.5 rounded-lg text-xs font-semibold flex items-start gap-2 border text-rose-900">
                 <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-rose-700" />
                 <div>
                   <span className="font-semibold uppercase text-xs block">Rejection Reason:</span>
@@ -175,7 +175,7 @@ export const ZMCCLabSessionList: React.FC<{
             )}
 
             {session.manager_review_reason && (
-              <div className="p-2.5 rounded-lg text-xs font-semibold flex items-start gap-2 bg-slate-50 border border-slate-200 text-slate-800">
+              <div className="bg-card border-border p-2.5 rounded-lg text-xs font-semibold flex items-start gap-2 border text-slate-800">
                 <ShieldCheck className="w-3.5 h-3.5 shrink-0 mt-0.5 text-slate-700" />
                 <div>
                   <span className="font-semibold uppercase text-xs block">

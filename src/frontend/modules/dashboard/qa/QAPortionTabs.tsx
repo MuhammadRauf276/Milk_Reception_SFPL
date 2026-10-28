@@ -40,7 +40,7 @@ export const QAPortionTabs: React.FC<QAPortionTabsProps> = ({
           id="qa-add-portion-tab"
           disabled={isAddingPortion || isSubmitting}
           onClick={onAddPortion}
-          className="flex items-center space-x-1.5 min-h-[40px] px-3.5 rounded-xl border border-dashed border-primary text-primary hover:bg-primary/5 transition text-xs font-bold shadow-2xs disabled:opacity-50"
+          className="flex items-center space-x-1.5 px-3.5 rounded-xl border border-dashed border-primary text-primary hover:bg-primary/5 transition text-xs font-bold shadow-2xs disabled:opacity-50 min-h-11"
           title="Add another test portion"
         >
           {isAddingPortion ? (
@@ -61,9 +61,8 @@ export const QAPortionTabs: React.FC<QAPortionTabsProps> = ({
         const isPending = !isAccepted && !isRejected;
         const canRemove = visitDetail.portions.length > 1 && isPending;
 
-        const portionQty = p.dispatch_quantity_value != null
-          ? `${Number(p.dispatch_quantity_value).toLocaleString()} ${p.dispatch_quantity_unit || 'KG'}`
-          : null;
+        // Double-Blind Entry: Do not expose dispatch quantities to QA Lab Attendant
+        const portionQty = null;
 
         return (
           <div key={`portion-tab-${p.id}`} className="inline-flex items-center shrink-0">

@@ -13,7 +13,10 @@ export type NotificationEventKey =
   | 'SELF_APPROVAL_REVIEW'
   | 'NEW_ROUTE_PENDING'
   | 'NEW_SHOP_PENDING'
-  | 'NEW_HC_PENDING';
+  | 'NEW_HC_PENDING'
+  | 'MOT_SHOP_WARNING_LOGGED'
+  | 'ZMCC_LAB_WARNING_LOGGED'
+  | 'PLANT_QA_WARNING_LOGGED';
 
 export type NotificationRecipientRole =
   | 'ZMCC_MANAGER'
@@ -47,4 +50,7 @@ export const notificationEventCatalog: Record<NotificationEventKey, Notification
   NEW_ROUTE_PENDING: { recipients: ['ZMCC_MANAGER'], priority: 'NORMAL', sourceType: 'ZMCC_ROUTE' },
   NEW_SHOP_PENDING: { recipients: ['MDO', 'ZMCC_MANAGER'], priority: 'NORMAL', sourceType: 'ZMCC_SHOP' },
   NEW_HC_PENDING: { recipients: ['ZMCC_MANAGER'], priority: 'NORMAL', sourceType: 'ZMCC_LOCAL_SUPPLIER' },
+  MOT_SHOP_WARNING_LOGGED: { recipients: ['ZMCC_MANAGER', 'HEAD_OF_MPD'], priority: 'NORMAL', sourceType: 'MOT_SHOP_COLLECTION' },
+  ZMCC_LAB_WARNING_LOGGED: { recipients: ['ZMCC_MANAGER', 'HEAD_OF_MPD'], priority: 'NORMAL', sourceType: 'ZMCC_LAB_SESSION' },
+  PLANT_QA_WARNING_LOGGED: { recipients: ['QA_HEAD'], priority: 'HIGH', sourceType: 'PLANT_QA_PORTION' },
 };

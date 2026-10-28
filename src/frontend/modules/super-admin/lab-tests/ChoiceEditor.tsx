@@ -1,5 +1,6 @@
 'use client';
 
+import { InfoTip } from '@/components/ui/info-tip';
 import React from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 
@@ -68,11 +69,11 @@ export function ChoiceEditor({ options, onChange }: { options: LabTestResultOpti
     onChange(options.map((o, i) => (i === idx ? { ...o, ...patch } : o)));
 
   return (
-    <div className="space-y-2.5 rounded-xl border border-slate-200 bg-slate-50 p-3">
+    <div className="space-y-2.5 rounded-xl border border-border bg-card p-3">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <span className="block text-xs font-semibold text-slate-800">Qualitative Result Choices &amp; Verdicts</span>
-          <span className="text-[11px] text-slate-500">Pick a preset or customize options with 3-tier verdict (Pass, Warning, Fail)</span>
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-800">Test Choices</span>
+          <InfoTip text="Pick a preset or customize options with a 3-tier verdict (Pass, Warning, Fail)." />
         </div>
         <button
           type="button"
@@ -89,8 +90,8 @@ export function ChoiceEditor({ options, onChange }: { options: LabTestResultOpti
         </button>
       </div>
 
-      <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-slate-200 bg-white p-2">
-        <span className="text-[11px] font-bold text-slate-600">Standard Presets:</span>
+      <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-border bg-card p-2">
+        <span className="text-[11px] font-semibold text-slate-600">Presets:</span>
         {QUALITATIVE_PRESETS.map((p) => (
           <button
             key={p.label}
@@ -107,7 +108,7 @@ export function ChoiceEditor({ options, onChange }: { options: LabTestResultOpti
         {options.map((opt, idx) => {
           const current = optionOutcome(opt);
           return (
-            <div key={idx} className="space-y-2 rounded-lg border border-slate-200 bg-white p-2">
+            <div key={idx} className="space-y-2 rounded-lg border border-border bg-card p-2">
               <div className="flex items-center gap-1.5">
                 <input
                   type="text"

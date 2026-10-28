@@ -35,7 +35,7 @@ test('Role Testing Matrix: HEAD_OF_MPD team stations derivation and grouping', (
   // Must include ZMCC stations and Contractor dispatch
   assert.ok(labels.includes('Zonal Lab'));
   assert.ok(labels.includes('PHE Milk Reception'));
-  assert.ok(labels.includes('MOT Mobile Journey'));
+  assert.ok(labels.includes('Mobile Tester Journey'));
   assert.ok(labels.includes('Tanker Dispatch'));
   assert.ok(labels.includes('MDO Field Operations'));
   assert.ok(labels.includes('Contractor Dispatch'));
@@ -60,7 +60,7 @@ test('Role Testing Matrix: ZMCC_MANAGER team stations derivation', () => {
   assert.ok(labels.includes('PHE Milk Reception'));
   assert.ok(labels.includes('Zonal Lab'));
   assert.ok(labels.includes('Tanker Dispatch'));
-  assert.ok(labels.includes('MOT Mobile Journey'));
+  assert.ok(labels.includes('Mobile Tester Journey'));
   assert.ok(labels.includes('MDO Field Operations'));
 
   // Must NOT include contractor or plant stations
@@ -93,7 +93,7 @@ test('Role Testing Matrix: SUPER_ADMIN global station access', () => {
 
   assert.ok(labels.includes('Zonal Lab'));
   assert.ok(labels.includes('PHE Milk Reception'));
-  assert.ok(labels.includes('MOT Mobile Journey'));
+  assert.ok(labels.includes('Mobile Tester Journey'));
   assert.ok(labels.includes('Tanker Dispatch'));
   assert.ok(labels.includes('Contractor Dispatch'));
   assert.ok(labels.includes('Weighbridge'));
@@ -109,7 +109,7 @@ test('Role Testing Matrix: DATA_EXECUTIVE 2nd top station access with logical gr
   // Must include all operational stations across ZMCC, Contractor, and Plant
   assert.ok(labels.includes('Zonal Lab'));
   assert.ok(labels.includes('PHE Milk Reception'));
-  assert.ok(labels.includes('MOT Mobile Journey'));
+  assert.ok(labels.includes('Mobile Tester Journey'));
   assert.ok(labels.includes('Tanker Dispatch'));
   assert.ok(labels.includes('Contractor Dispatch'));
   assert.ok(labels.includes('Weighbridge'));
@@ -156,14 +156,14 @@ test('resolveDelegationContext: HEAD_OF_MPD on /zmcc/lab', () => {
   assert.equal(ctx.isDelegated, true);
   assert.equal(ctx.actingAs, 'ZMCC_LAB_ATTENDANT');
   assert.equal(ctx.subordinateRoleLabel, 'Zonal Lab Attendant');
-  assert.equal(ctx.homeRoute, '/mpd/head');
+  assert.equal(ctx.homeRoute, '/command');
   assert.equal(ctx.isRegional, true);
   assert.equal(ctx.targetSourceType, 'ZMCC');
 });
 
-test('resolveDelegationContext: HEAD_OF_MPD on canonical home /mpd/head', () => {
+test('resolveDelegationContext: HEAD_OF_MPD on canonical home /command', () => {
   const user = mockUser('HEAD_OF_MPD');
-  const ctx = resolveDelegationContext(user, '/mpd/head');
+  const ctx = resolveDelegationContext(user, '/command');
 
   assert.equal(ctx.isDelegated, false);
 });
@@ -197,7 +197,7 @@ test('resolveDelegationContext: PRODUCTION_HEAD on /department/weighbridge', () 
   assert.equal(ctx.isDelegated, true);
   assert.equal(ctx.actingAs, 'WEIGHBRIDGE_OPERATOR');
   assert.equal(ctx.subordinateRoleLabel, 'Weighbridge Operator');
-  assert.equal(ctx.homeRoute, '/department/production');
+  assert.equal(ctx.homeRoute, '/approvals');
 });
 
 test('resolveDelegationContext: Field operator doing own work is NOT delegated', () => {
@@ -239,30 +239,30 @@ test('getRoleNavSections: Collapsible "Team Stations (Cover Staff)" section pres
   const saSections = getRoleNavSections(mockUser('SUPER_ADMIN'));
   const saTeamSection = saSections.find((s) => s.id === 'team-stations');
   assert.ok(saTeamSection);
-  assert.equal(saTeamSection.label, 'Team Stations (Cover Staff)');
+  assert.equal(saTeamSection.label, 'Team Stations');
 
   const deSections = getRoleNavSections(mockUser('DATA_EXECUTIVE'));
   const deTeamSection = deSections.find((s) => s.id === 'team-stations');
   assert.ok(deTeamSection);
-  assert.equal(deTeamSection.label, 'Team Stations (Cover Staff)');
+  assert.equal(deTeamSection.label, 'Team Stations');
 
   const mpdSections = getRoleNavSections(mockUser('HEAD_OF_MPD'));
   const mpdTeamSection = mpdSections.find((s) => s.id === 'team-stations');
   assert.ok(mpdTeamSection);
-  assert.equal(mpdTeamSection.label, 'Team Stations (Cover Staff)');
+  assert.equal(mpdTeamSection.label, 'Team Stations');
 
   const zmccSections = getRoleNavSections(mockUser('ZMCC_MANAGER'));
   const zmccTeamSection = zmccSections.find((s) => s.id === 'team-stations');
   assert.ok(zmccTeamSection);
-  assert.equal(zmccTeamSection.label, 'Team Stations (Cover Staff)');
+  assert.equal(zmccTeamSection.label, 'Team Stations');
 
   const qaSections = getRoleNavSections(mockUser('QA_HEAD'));
   const qaTeamSection = qaSections.find((s) => s.id === 'team-stations');
   assert.ok(qaTeamSection);
-  assert.equal(qaTeamSection.label, 'Team Stations (Cover Staff)');
+  assert.equal(qaTeamSection.label, 'Team Stations');
 
   const prodSections = getRoleNavSections(mockUser('PRODUCTION_HEAD'));
   const prodTeamSection = prodSections.find((s) => s.id === 'team-stations');
   assert.ok(prodTeamSection);
-  assert.equal(prodTeamSection.label, 'Team Stations (Cover Staff)');
+  assert.equal(prodTeamSection.label, 'Team Stations');
 });

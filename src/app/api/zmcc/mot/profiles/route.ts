@@ -16,7 +16,7 @@ export async function GET(req: Request) {
     const profiles = await listMotProfiles(auth!, { is_active, search, zmcc_id });
     return NextResponse.json({ profiles });
   } catch (_err) {
-    return NextResponse.json({ error: 'An unexpected error occurred while fetching MOT profiles.' }, { status: 500 });
+    return NextResponse.json({ error: 'An unexpected error occurred while fetching Mobile Tester profiles.' }, { status: 500 });
   }
 }
 
@@ -39,6 +39,6 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ profile: result.data }, { status: result.status });
   } catch (_err) {
-    return NextResponse.json({ error: 'An unexpected error occurred while creating MOT profile.' }, { status: 500 });
+    return NextResponse.json({ error: 'An unexpected error occurred while creating Mobile Tester profile.' }, { status: 500 });
   }
 }

@@ -19,17 +19,13 @@ export function vehicleStatusLabel(v: MotVehicleItem): { label: string; tone: st
 /** Read-only fleet of the user's own ZMCC. Vehicles are registered and moved by the Data Executive. */
 export function VehiclesTab({ vehicles, loading }: Props) {
   return (
-    <div className="bg-white rounded-xl border border-border shadow-2xs overflow-hidden space-y-3 animate-panel-in">
-      <div className="p-4 border-b border-border">
-        <h2 className="text-sm font-semibold text-foreground">Fleet</h2>
-        <p className="mt-0.5 text-[11px] text-slate-500">Vehicles are added and moved by the Data Executive.</p>
-      </div>
+    <div className="bg-card rounded-xl border border-border shadow-2xs overflow-hidden space-y-3 animate-panel-in">
 
       {loading ? (
         <div className="p-8 text-center text-xs font-semibold text-slate-500">Loading vehicles…</div>
       ) : vehicles.length === 0 ? (
         <div className="p-8 text-center text-xs font-semibold text-slate-500">
-          No MC vehicles registered for this ZMCC.
+          No Mobile Tester vehicles registered for this ZMCC.
         </div>
       ) : (
         <div className="overflow-x-auto">

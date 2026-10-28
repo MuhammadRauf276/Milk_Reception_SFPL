@@ -1,5 +1,6 @@
 'use client';
 
+import { InfoTip } from '@/components/ui/info-tip';
 import React, { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, Loader2, ShieldAlert } from 'lucide-react';
@@ -64,19 +65,19 @@ export const WeighingPolicyPanel: React.FC<{ canEdit: boolean }> = ({ canEdit })
   return (
     <div className="w-full max-w-xl space-y-4">
       {error && (
-        <div role="alert" className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs font-semibold text-rose-800">
+        <div role="alert" className="flex items-center gap-2 rounded-xl border border-border bg-card p-4 text-xs font-semibold text-rose-800">
           <ShieldAlert className="h-4 w-4 shrink-0 text-rose-600" />
           <span>{error}</span>
         </div>
       )}
       {notice && (
-        <div role="status" className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-xs font-semibold text-emerald-800">
+        <div role="status" className="flex items-center gap-2 rounded-xl border border-border bg-card p-4 text-xs font-semibold text-emerald-800">
           <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
           <span>{notice}</span>
         </div>
       )}
 
-      <div className="space-y-4 rounded-xl border border-border/80 bg-white p-4 shadow-xs sm:p-5">
+      <div className="space-y-4 rounded-xl border border-border/80 bg-card p-4 shadow-2xs sm:p-5">
         {query.isPending ? (
           <p className="flex items-center gap-2 text-sm text-slate-500">
             <Loader2 className="h-4 w-4 animate-spin" /> Loading…
@@ -92,23 +93,23 @@ export const WeighingPolicyPanel: React.FC<{ canEdit: boolean }> = ({ canEdit })
                 onChange={(e) => setEnabled(e.target.checked)}
               />
               <span>
-                <span className="block text-sm font-semibold text-foreground">Allow manual entry of net quantity</span>
-                <span className="block text-xs text-slate-500">
-                  When on, MDO and PHE Operator can type each portion&apos;s net quantity instead of using the scale weights.
+                <span className="flex items-center text-sm font-semibold text-foreground">
+                  Allow direct portion net entry
+                  <InfoTip text="When enabled, ZMCC operators can type each portion's net quantity directly. When disabled (recommended), operators are restricted to physical stepwise scale weights (N+1)." />
                 </span>
               </span>
             </label>
 
             <div>
               <label htmlFor="weighing-units" className="mb-1 block text-xs font-semibold text-slate-700">
-                Units allowed for manual entry
+                Manual units
               </label>
               <select
                 id="weighing-units"
                 value={units}
                 disabled={!canEdit || !enabled || save.isPending}
                 onChange={(e) => setUnits(e.target.value as Units)}
-                className="min-h-[44px] w-full rounded-xl border bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-hidden disabled:opacity-60"
+                className="min-h-[44px] w-full rounded-xl border bg-card px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-hidden disabled:opacity-60"
               >
                 {UNIT_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>
@@ -116,7 +117,6 @@ export const WeighingPolicyPanel: React.FC<{ canEdit: boolean }> = ({ canEdit })
                   </option>
                 ))}
               </select>
-              <p className="mt-1 text-xs text-slate-500">Litres are converted to kg with the portion density.</p>
             </div>
 
             {canEdit ? (

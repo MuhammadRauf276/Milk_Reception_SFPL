@@ -4,7 +4,7 @@ import { prisma } from '@core/db';
 
 export async function GET(req: Request) {
   const authUser = await getCurrentUser(req);
-  if (!authUser || (authUser.role !== 'SUPER_ADMIN' && authUser.role !== 'DATA_EXECUTIVE')) {
+  if (!authUser || (authUser.role !== 'SUPER_ADMIN' && authUser.role !== 'DATA_EXECUTIVE' && authUser.role !== 'HEAD_OF_MPD' && authUser.role !== 'EXECUTIVE_MANAGEMENT')) {
     return NextResponse.json({ error: 'Unauthorized. Super Admin or Data Executive authorization required.' }, { status: 403 });
   }
 

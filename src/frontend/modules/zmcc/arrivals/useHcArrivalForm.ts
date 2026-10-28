@@ -3,6 +3,9 @@
 import React, { useCallback, useState } from 'react';
 import { toDatetimeLocalInput, datetimeLocalToIso } from '@/lib/datetime-utils';
 import { getErrorMessage } from '@/lib/errors';
+import { isForcedOffline } from '@/frontend/hooks/useOnlineStatus';
+import { enqueueSyncItem } from '@/frontend/modules/pwa/syncEngine';
+import { getActiveOwnerUserId } from '@/frontend/modules/pwa/deviceIdentity';
 import { EMPTY_GPS, generateClientEventId, type GpsState, type HcArrivalRow } from './arrivalTypes';
 
 export function useHcArrivalForm(onRecorded: () => void) {
@@ -45,20 +48,78 @@ export function useHcArrivalForm(onRecorded: () => void) {
     }
     setSubmitting(true);
     setError(null);
+
+    const arrivalIso = datetimeLocalToIso(arrivalTimestamp) || new Date(arrivalTimestamp).toISOString();
+    const payload = {
+      local_supplier_id: selectedLocalSupplierId,
+      raw_milk_token_number: rawMilkTokenNumber.trim(),
+      vehicle_number: vehicleNumber.trim().toUpperCase(),
+      arrival_timestamp: arrivalIso,
+      client_event_id: eventId,
+      phe_latitude: gps.lat,
+      phe_longitude: gps.lng,
+      phe_gps_accuracy: gps.acc,
+    };
+
+    const handleOfflineQueue = async () => {
+      const clientUuid = crypto.randomUUID();
+      const owner = getActiveOwnerUserId() || 'unknown';
+      await enqueueSyncItem({
+        clientUuid,
+        kind: 'ZMCC_LOCAL_SUPPLIER_ARRIVAL',
+        ownerUserId: owner,
+        capturedAt: arrivalIso,
+        payload,
+      });
+      const offlineResult: HcArrivalRow = {
+        id: clientUuid,
+        zmcc_id: '',
+        local_supplier_id: selectedLocalSupplierId,
+        milk_source_id: null,
+        milk_source_code_snapshot: null,
+        milk_source_name_snapshot: null,
+        rmr_number: null,
+        raw_milk_token_number: payload.raw_milk_token_number,
+        vehicle_number: payload.vehicle_number,
+        arrival_timestamp: arrivalIso,
+        arrival_date: arrivalIso.split('T')[0],
+        zmcc_token: 'QUEUED (OFFLINE)',
+        phe_latitude: gps.lat,
+        phe_longitude: gps.lng,
+        phe_gps_accuracy: gps.acc,
+        client_event_id: eventId,
+        recorded_by_user_id: owner,
+        submitted_at: new Date().toISOString(),
+        correction_count: 0,
+        manager_correction_count: 0,
+        last_corrected_by_user_id: null,
+        last_corrected_at: null,
+        gate_exit_required: false,
+        exit_timestamp: null,
+        exit_recorded_by_user_id: null,
+        exit_client_event_id: null,
+      } as unknown as HcArrivalRow;
+      setSuccessResult(offlineResult);
+      setFormOpen(false);
+      onRecorded();
+    };
+
+    if (!navigator.onLine || isForcedOffline()) {
+      try {
+        await handleOfflineQueue();
+      } catch (queueErr) {
+        setError(getErrorMessage(queueErr) || 'Failed to queue offline HC arrival.');
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
+
     try {
       const res = await fetch('/api/zmcc/arrivals/hc', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          local_supplier_id: selectedLocalSupplierId,
-          raw_milk_token_number: rawMilkTokenNumber.trim(),
-          vehicle_number: vehicleNumber.trim().toUpperCase(),
-          arrival_timestamp: datetimeLocalToIso(arrivalTimestamp) || new Date(arrivalTimestamp).toISOString(),
-          client_event_id: eventId,
-          phe_latitude: gps.lat,
-          phe_longitude: gps.lng,
-          phe_gps_accuracy: gps.acc,
-        }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -69,7 +130,11 @@ export function useHcArrivalForm(onRecorded: () => void) {
         onRecorded();
       }
     } catch (err) {
-      setError(getErrorMessage(err) || 'An unexpected error occurred.');
+      try {
+        await handleOfflineQueue();
+      } catch {
+        setError(getErrorMessage(err) || 'An unexpected error occurred.');
+      }
     } finally {
       setSubmitting(false);
     }

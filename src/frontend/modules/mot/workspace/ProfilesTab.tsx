@@ -14,10 +14,10 @@ interface Props {
 
 export function ProfilesTab({ profiles, loading, onAdd, onEdit, onToggleActive }: Props) {
   return (
-        <div className="bg-white rounded-xl border border-border shadow-2xs overflow-hidden space-y-3 animate-panel-in">
+        <div className="bg-card rounded-xl border border-border shadow-2xs overflow-hidden space-y-3 animate-panel-in">
           <div className="p-4 border-b border-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <h2 className="text-sm font-semibold text-foreground">Mobile Testers & Profiles</h2>
+              <h2 className="text-sm font-semibold text-foreground">Testers</h2>
             </div>
             <button
               type="button"
@@ -25,7 +25,7 @@ export function ProfilesTab({ profiles, loading, onAdd, onEdit, onToggleActive }
               className="flex items-center space-x-1.5 px-3.5 min-h-[44px] rounded-xl bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition"
             >
               <Plus className="w-4 h-4" />
-              <span>Add Mobile Tester</span>
+              <span>Add tester</span>
             </button>
           </div>
 
@@ -40,7 +40,7 @@ export function ProfilesTab({ profiles, loading, onAdd, onEdit, onToggleActive }
               <table className="w-full text-left text-xs">
                 <thead className="bg-muted/60 text-slate-700 uppercase font-semibold tracking-wider text-[10px] border-b border-border">
                   <tr>
-                    <th className="p-3">MC Code</th>
+                    <th className="p-3">Mobile Tester Code</th>
                     <th className="p-3">Name</th>
                     <th className="p-3">Phone</th>
                     <th className="p-3">CNIC</th>

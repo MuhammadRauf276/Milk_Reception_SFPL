@@ -181,7 +181,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
   const handleRejectConfirm = async () => {
     if (!rejectingItem) return;
     if (!rejectReason.trim()) {
-      setError('Rejection reason is required.');
+      setError('Reason is required.');
       return;
     }
     setSubmittingAction(true);
@@ -232,13 +232,24 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
   const totalHcPages = Math.max(1, Math.ceil(hcs.length / PAGE_SIZE));
 
   if (!canSeeRoutes && !canApproveShops && !canDecideHcs) {
-    return null;
+    return (
+      <div className="bg-card border border-border rounded-xl p-6 text-center space-y-3">
+        <p className="text-sm font-semibold text-foreground">No requests here</p>
+        <button
+          type="button"
+          onClick={() => void loadData()}
+          className="min-h-11 px-4 rounded-xl border border-border text-xs font-semibold text-slate-700 hover:bg-muted"
+        >
+          Refresh
+        </button>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-6">
       {actionSuccess && (
-        <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold rounded-xl flex items-center justify-between">
+        <div className="bg-card border-border p-3 border text-emerald-800 text-xs font-semibold rounded-xl flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>{actionSuccess}</span>
@@ -247,7 +258,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
             type="button"
             onClick={() => setActionSuccess(null)}
             aria-label="Dismiss"
-            className="ml-2 text-emerald-700 hover:text-emerald-900"
+            className="min-h-11 min-w-11 ml-2 text-emerald-700 hover:text-emerald-900"
           >
             <X className="h-4 w-4" />
           </button>
@@ -255,7 +266,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
       )}
 
       {error && (
-        <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold rounded-xl flex items-center justify-between">
+        <div className="bg-card border-border p-3 border text-rose-800 text-xs font-semibold rounded-xl flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
             <span>{error}</span>
@@ -264,7 +275,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
             type="button"
             onClick={() => setError(null)}
             aria-label="Dismiss"
-            className="ml-2 text-rose-700 hover:text-rose-900"
+            className="min-h-11 min-w-11 ml-2 text-rose-700 hover:text-rose-900"
           >
             <X className="h-4 w-4" />
           </button>
@@ -276,7 +287,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
           <div className="p-4 border-b border-border flex items-center justify-between bg-muted/30">
             <div className="flex items-center space-x-2">
               <RouteIcon className="w-4 h-4 text-primary shrink-0" />
-              <h3 className="text-sm font-semibold text-foreground">Routes waiting for approval</h3>
+              <h3 className="text-sm font-semibold text-foreground">Route requests</h3>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
                 {routes.length} waiting
               </span>
@@ -286,7 +297,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
 
           {routes.length === 0 && !loading ? (
             <div className="p-6 text-center text-xs font-medium text-slate-500">
-              No routes are waiting.
+              No route requests.
             </div>
           ) : (
             <div className="divide-y divide-border">
@@ -303,7 +314,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                       </span>
                       <DecisionStatusBadge
                         status={canApproveRoutes ? 'EXCEPTION' : 'PENDING'}
-                        label={canApproveRoutes ? 'Needs your decision' : 'Waiting for Zonal Manager'}
+                        label={canApproveRoutes ? 'Needs your decision' : 'With Zonal Manager'}
                       />
                     </div>
                     <div className="text-xs text-slate-600 flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -331,8 +342,8 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                       onClick={() => handleApprove('ROUTE', r.id)}
                       className="px-4 min-h-[44px] rounded-lg text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50 inline-flex items-center space-x-1"
                     >
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Approve route</span>
+                      
+                      <span>Approve</span>
                     </button>
                     <button
                       type="button"
@@ -342,8 +353,8 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                       }
                       className="px-4 min-h-[44px] rounded-lg text-sm font-semibold bg-rose-600 hover:bg-rose-700 text-white transition-colors disabled:opacity-50 inline-flex items-center space-x-1"
                     >
-                      <XCircle className="w-3.5 h-3.5" />
-                      <span>Reject route</span>
+                      
+                      <span>Reject</span>
                     </button>
                   </div>
                   )}
@@ -362,7 +373,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                   type="button"
                   disabled={routesPage <= 1}
                   onClick={() => setRoutesPage((p) => p - 1)}
-                  className="p-1 rounded border border-border disabled:opacity-30 hover:bg-muted"
+                  className="min-h-11 min-w-11 p-1 rounded border border-border disabled:opacity-30 hover:bg-muted"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
@@ -370,9 +381,9 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                   type="button"
                   disabled={routesPage >= totalRoutePages}
                   onClick={() => setRoutesPage((p) => p + 1)}
-                  className="p-1 rounded border border-border disabled:opacity-30 hover:bg-muted"
+                  className="min-h-11 min-w-11 p-1 rounded border border-border disabled:opacity-30 hover:bg-muted"
                 >
-                  <ChevronRight className="w-4 h-4" />
+                  
                 </button>
               </div>
             </div>
@@ -385,7 +396,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
           <div className="p-4 border-b border-border flex items-center justify-between bg-muted/30">
             <div className="flex items-center space-x-2">
               <Store className="w-4 h-4 text-primary shrink-0" />
-              <h3 className="text-sm font-semibold text-foreground">New shop requests</h3>
+              <h3 className="text-sm font-semibold text-foreground">Shop requests</h3>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
                 {shops.length} waiting
               </span>
@@ -395,7 +406,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
 
           {shops.length === 0 && !loading ? (
             <div className="p-6 text-center text-xs font-medium text-slate-500">
-              No new shop requests are waiting.
+              No shop requests.
             </div>
           ) : (
             <div className="divide-y divide-border">
@@ -418,7 +429,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                       ) : (
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 inline-flex items-center space-x-1">
                           <Clock className="w-3 h-3 text-amber-600" />
-                          <span>Pending First Visit</span>
+                          <span>Awaiting visit</span>
                         </span>
                       )}
                     </div>
@@ -443,8 +454,8 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                       onClick={() => handleApprove('SHOP', s.id)}
                       className="px-4 min-h-[44px] rounded-lg text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50 inline-flex items-center space-x-1"
                     >
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Approve shop</span>
+                      
+                      <span>Approve</span>
                     </button>
                     <button
                       type="button"
@@ -454,8 +465,8 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                       }
                       className="px-4 min-h-[44px] rounded-lg text-sm font-semibold bg-rose-600 hover:bg-rose-700 text-white transition-colors disabled:opacity-50 inline-flex items-center space-x-1"
                     >
-                      <XCircle className="w-3.5 h-3.5" />
-                      <span>Reject shop</span>
+                      
+                      <span>Reject</span>
                     </button>
                   </div>
                 </div>
@@ -473,7 +484,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                   type="button"
                   disabled={shopsPage <= 1}
                   onClick={() => setShopsPage((p) => p - 1)}
-                  className="p-1 rounded border border-border disabled:opacity-30 hover:bg-muted"
+                  className="min-h-11 min-w-11 p-1 rounded border border-border disabled:opacity-30 hover:bg-muted"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
@@ -481,9 +492,9 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                   type="button"
                   disabled={shopsPage >= totalShopPages}
                   onClick={() => setShopsPage((p) => p + 1)}
-                  className="p-1 rounded border border-border disabled:opacity-30 hover:bg-muted"
+                  className="min-h-11 min-w-11 p-1 rounded border border-border disabled:opacity-30 hover:bg-muted"
                 >
-                  <ChevronRight className="w-4 h-4" />
+                  
                 </button>
               </div>
             </div>
@@ -496,7 +507,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
           <div className="p-4 border-b border-border flex items-center justify-between bg-muted/30">
             <div className="flex items-center space-x-2">
               <Milk className="w-4 h-4 text-primary shrink-0" />
-              <h3 className="text-sm font-semibold text-foreground">New HCs waiting for approval</h3>
+              <h3 className="text-sm font-semibold text-foreground">HC requests</h3>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
                 {hcs.length} waiting
               </span>
@@ -505,7 +516,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
           </div>
 
           {hcs.length === 0 && !loading ? (
-            <div className="p-6 text-center text-xs font-medium text-slate-500">No new HCs are waiting.</div>
+            <div className="p-6 text-center text-xs font-medium text-slate-500">No HC requests.</div>
           ) : (
             <div className="divide-y divide-border">
               {paginatedHcs.map((h) => (
@@ -538,8 +549,8 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                       onClick={() => handleApprove('HC', h.id)}
                       className="px-4 min-h-[44px] rounded-lg text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50 inline-flex items-center space-x-1"
                     >
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Approve HC</span>
+                      
+                      <span>Approve</span>
                     </button>
                     <button
                       type="button"
@@ -547,8 +558,8 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                       onClick={() => setRejectingItem({ type: 'HC', id: h.id, name: h.name })}
                       className="px-4 min-h-[44px] rounded-lg text-sm font-semibold bg-rose-600 hover:bg-rose-700 text-white transition-colors disabled:opacity-50 inline-flex items-center space-x-1"
                     >
-                      <XCircle className="w-3.5 h-3.5" />
-                      <span>Reject HC</span>
+                      
+                      <span>Reject</span>
                     </button>
                   </div>
                 </div>
@@ -566,7 +577,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                   type="button"
                   disabled={hcsPage <= 1}
                   onClick={() => setHcsPage((p) => p - 1)}
-                  className="p-1 rounded border border-border disabled:opacity-30 hover:bg-muted"
+                  className="min-h-11 min-w-11 p-1 rounded border border-border disabled:opacity-30 hover:bg-muted"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
@@ -574,9 +585,9 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                   type="button"
                   disabled={hcsPage >= totalHcPages}
                   onClick={() => setHcsPage((p) => p + 1)}
-                  className="p-1 rounded border border-border disabled:opacity-30 hover:bg-muted"
+                  className="min-h-11 min-w-11 p-1 rounded border border-border disabled:opacity-30 hover:bg-muted"
                 >
-                  <ChevronRight className="w-4 h-4" />
+                  
                 </button>
               </div>
             </div>
@@ -590,15 +601,15 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
             setRejectingItem(null);
             setRejectReason('');
           }}
-          title={`Reject ${typeLabel(rejectingItem.type)} Request`}
+          title={`Reject ${typeLabel(rejectingItem.type)}`}
         >
           <div className="space-y-4">
             <div className="text-xs font-medium text-foreground">
-              Rejecting request for <strong>{rejectingItem.name}</strong>. Please provide a reason.
+              Reject <strong>{rejectingItem.name}</strong>
             </div>
             <div>
               <label className="block text-xs font-semibold text-foreground mb-1">
-                Rejection Reason <span className="text-rose-600">*</span>
+                Reason <span className="text-rose-600">*</span>
               </label>
               <textarea
                 value={rejectReason}
@@ -616,7 +627,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                   setRejectingItem(null);
                   setRejectReason('');
                 }}
-                className="px-3.5 py-1.5 rounded-xl text-xs font-semibold border border-border bg-card text-foreground hover:bg-muted"
+                className="min-h-11 min-w-11 px-3.5 py-1.5 rounded-xl text-xs font-semibold border border-border bg-card text-foreground hover:bg-muted"
               >
                 Cancel
               </button>
@@ -624,10 +635,10 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                 type="button"
                 disabled={submittingAction || !rejectReason.trim()}
                 onClick={handleRejectConfirm}
-                className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white disabled:opacity-50 inline-flex items-center space-x-1"
+                className="min-h-11 min-w-11 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white disabled:opacity-50 inline-flex items-center space-x-1"
               >
                 {submittingAction && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                <span>Confirm Rejection</span>
+                <span>Reject</span>
               </button>
             </div>
           </div>

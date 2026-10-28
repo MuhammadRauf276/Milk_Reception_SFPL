@@ -95,19 +95,19 @@ export function JourneyCard({
       </div>
 
       <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-3 text-center">
-        <div className="p-2 sm:p-2.5 rounded-xl bg-subtle border border-border">
+        <div className="bg-card border-border p-2 sm:p-2.5 rounded-xl border">
           <span className="text-[10px] font-semibold text-slate-500 uppercase block">Assigned</span>
           <span className="font-semibold text-xs sm:text-sm text-slate-900 tabular-nums">
             {journey.stops.length}
           </span>
         </div>
-        <div className="p-2 sm:p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-300">
+        <div className="bg-card border-border p-2 sm:p-2.5 rounded-xl border">
           <span className="text-[10px] font-semibold text-emerald-800 uppercase block">Collected</span>
           <span className="font-semibold text-xs sm:text-sm text-emerald-950 tabular-nums">
             {visitedStops.length}
           </span>
         </div>
-        <div className="p-2 sm:p-2.5 rounded-xl bg-rose-50/70 border border-rose-300">
+        <div className="bg-card border-border p-2 sm:p-2.5 rounded-xl border">
           <span className="text-[10px] font-semibold text-rose-800 uppercase block">
             {skippedStops.length > 0 ? 'Skipped / Rejected' : 'Rejected'}
           </span>
@@ -117,13 +117,13 @@ export function JourneyCard({
               : rejectedStops.length}
           </span>
         </div>
-        <div className="p-2 sm:p-2.5 rounded-xl bg-blue-50/70 border border-blue-200">
+        <div className="bg-card border-border p-2 sm:p-2.5 rounded-xl border">
           <span className="text-[10px] font-semibold text-blue-800 uppercase block">Milk (L)</span>
           <span className="font-semibold text-xs sm:text-sm text-blue-950 tabular-nums">
             {totalGross.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 })} L
           </span>
         </div>
-        <div className="p-2 sm:p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-300">
+        <div className="bg-card border-border p-2 sm:p-2.5 rounded-xl border">
           <span className="text-[10px] font-semibold text-emerald-800 uppercase block">@13TS (L)</span>
           <span className="font-semibold text-xs sm:text-sm text-emerald-950 tabular-nums">
             {totalAt13ts.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 })} L
@@ -132,7 +132,7 @@ export function JourneyCard({
       </div>
 
       {isReturning ? (
-        <div className="mt-2 p-3 sm:p-3.5 bg-amber-50 border border-amber-200 rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="bg-card border-border mt-2 p-3 sm:p-3.5 border rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 rounded-lg bg-amber-600 text-white flex items-center justify-center shrink-0">
               <Truck className="w-4 h-4 animate-pulse" />
@@ -146,9 +146,6 @@ export function JourneyCard({
                   En Route to ZMCC
                 </span>
               </div>
-              <p className="text-xs text-amber-800 mt-0.5">
-                Vehicle is returning. Arrival token will be issued by the PHE Operator / MDO upon gate entry.
-              </p>
             </div>
           </div>
           {onResumeCollection && (
@@ -163,7 +160,7 @@ export function JourneyCard({
           )}
         </div>
       ) : !nextPendingStop ? (
-        <div className="mt-2 p-3 sm:p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="bg-card border-border mt-2 p-3 sm:p-3.5 border rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0">
               <CheckCircle2 className="w-4 h-4" />
@@ -190,7 +187,7 @@ export function JourneyCard({
           )}
         </div>
       ) : (
-        <div className="mt-2 p-3 sm:p-3.5 bg-muted/70 border border-border rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="bg-card border-border mt-2 p-3 sm:p-3.5 border rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-center space-x-2.5">
             <span className="w-7 h-7 rounded-lg bg-primary text-white tabular-nums font-semibold text-xs flex items-center justify-center shrink-0">
               {nextPendingStop.planned_sequence}

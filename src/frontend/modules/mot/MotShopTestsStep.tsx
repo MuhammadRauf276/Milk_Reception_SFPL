@@ -121,7 +121,7 @@ export function MotShopTestsStep({
     const inputId = `mot-test-${t.labTestId}`;
 
     return (
-      <div key={t.labTestId} className="space-y-2.5 rounded-2xl border border-slate-200 bg-white p-3 shadow-xs">
+      <div key={t.labTestId} className="bg-card border-border space-y-2.5 rounded-2xl border p-3 shadow-xs">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <label htmlFor={inputId} className="text-base font-semibold text-slate-900">
             {t.testName}
@@ -156,7 +156,7 @@ export function MotShopTestsStep({
             onChange={(e) => setValue(t, e.target.value)}
             disabled={disabled}
             aria-invalid={out || undefined}
-            className={cn(INPUT_CLASS, out ? 'border-rose-400 bg-rose-50/40' : 'border-slate-300')}
+            className={cn('min-h-11', INPUT_CLASS, out ? 'border-rose-400 bg-rose-50/40' : 'border-slate-300')}
           />
         ) : t.options && t.options.length > 0 ? (
           <div id={inputId} role="radiogroup" aria-label={t.testName} className="flex flex-wrap gap-2">
@@ -184,7 +184,7 @@ export function MotShopTestsStep({
             value={text}
             onChange={(e) => onValueChange(t.labTestId, { text: e.target.value })}
             disabled={disabled}
-            className={cn(INPUT_CLASS, 'border-slate-300 text-base')}
+            className={cn('min-h-11', INPUT_CLASS, 'border-slate-300 text-base')}
           />
         )}
 
@@ -211,7 +211,7 @@ export function MotShopTestsStep({
   };
 
   const fallbackField = (id: string, label: string, value: string, onChange: (v: string) => void) => (
-    <div className="space-y-2.5 rounded-2xl border border-slate-200 bg-white p-3 shadow-xs">
+    <div className="bg-card border-border space-y-2.5 rounded-2xl border p-3 shadow-xs">
       <label htmlFor={id} className="text-base font-semibold text-slate-900">
         {label}
         <span className="ml-2 rounded-full bg-primary px-2 py-0.5 align-middle text-[11px] font-semibold uppercase tracking-wide text-white shadow-2xs">
@@ -226,7 +226,7 @@ export function MotShopTestsStep({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
-        className={cn(INPUT_CLASS, 'border-slate-300')}
+        className={cn('min-h-11', INPUT_CLASS, 'border-slate-300')}
       />
     </div>
   );
@@ -235,7 +235,7 @@ export function MotShopTestsStep({
     <div className="space-y-3">
       {active.length === 0 && (
         <p className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm font-semibold text-amber-900">
-          Test rules are not on this phone yet. Connect to the internet once so they can load.
+          Test rules not loaded.
         </p>
       )}
 
@@ -246,7 +246,7 @@ export function MotShopTestsStep({
       {!active.some((t) => t.isFat) && fallbackField('mot-fallback-fat', 'Fat %', fat, onFatChange)}
 
       {more.length > 0 && (
-        <div className="rounded-2xl border border-slate-200 bg-white">
+        <div className="bg-card border-border rounded-2xl border">
           <button
             type="button"
             onClick={() => setShowMore((s) => !s)}
@@ -266,7 +266,7 @@ export function MotShopTestsStep({
             employeeCode: stamp.employeeCode,
             roleLabel: stamp.roleLabel,
             actingAsLabel: stamp.actingAsLabel ?? null,
-            pointLabel: 'Shop (MC)',
+            pointLabel: 'Shop (Mobile Tester)',
             vehicleNo: stamp.vehicleNo ?? null,
             tokenNo: stamp.tokenNo ?? null,
           }}

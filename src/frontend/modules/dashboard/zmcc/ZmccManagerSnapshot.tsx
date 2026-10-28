@@ -51,7 +51,7 @@ export function ZmccManagerExitPanel() {
   const { overview, queryError, decide, actionError } = useManagerOverview();
   if (queryError || !overview) return null;
   return <section className="space-y-3" aria-label="ZMCC exit outcomes">
-    {actionError ? <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-800">{actionError}</div> : null}
+    {actionError ? <div role="alert" className="bg-card border-border rounded-xl border p-3 text-xs text-red-800">{actionError}</div> : null}
     <ZmccExitOutcomes
       left={overview.exits.leftWithoutFullUnloading}
       pending={overview.exits.pendingCloseRequests}
@@ -64,15 +64,15 @@ export function ZmccManagerExitPanel() {
 
 export function ZmccManagerSnapshot() {
   const { overview, queryError, decide, actionError } = useManagerOverview();
-  if (queryError) return <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">Manager snapshot unavailable: {queryError.message || 'Unable to load manager snapshot.'}</div>;
-  if (!overview) return <div className="rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-500">Loading assigned ZMCC snapshot…</div>;
+  if (queryError) return <div className="bg-card border-border rounded-xl border p-3 text-xs text-amber-900">Manager snapshot unavailable: {queryError.message || 'Unable to load manager snapshot.'}</div>;
+  if (!overview) return <div className="bg-card border-border rounded-xl border p-4 text-xs text-slate-500">Loading assigned ZMCC snapshot…</div>;
   const cards = [
     ['Expected', overview.pipeline.expected], ['Arrived', overview.pipeline.arrived], ['Testing', overview.pipeline.testing], ['Accepted', overview.pipeline.accepted], ['Rejected', overview.pipeline.rejected], ['Dispatched', overview.pipeline.dispatched],
   ];
   return <section className="space-y-3" aria-label="Assigned ZMCC operational snapshot">
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">{cards.map(([label, value]) => <div key={String(label)} className="rounded-xl border border-slate-200 bg-white p-3"><p className="text-[10px] font-semibold uppercase text-slate-500">{label}</p><p className="mt-1 text-xl font-semibold text-slate-900">{value}</p></div>)}</div>
-    <div className="grid gap-3 lg:grid-cols-2"><div className="rounded-xl border border-slate-200 bg-white p-4 text-xs"><p className="font-semibold text-slate-900">Tank and dispatch</p><p className="mt-2">Tank stock: <strong>{overview.tank.grossLiters.toLocaleString()} L</strong> · Dispatch ready: <strong>{overview.dispatch.ready}</strong></p><p className="mt-1">Active at plant: <strong>{overview.dispatch.activeAtPlant}</strong> · Pending manager review: <strong>{overview.exceptions.pendingManagerReview}</strong></p></div><div className="rounded-xl border border-slate-200 bg-white p-4 text-xs"><p className="font-semibold text-slate-900">Active MC work</p>{overview.activeStations.length ? overview.activeStations.map((item) => <p key={item.id} className="mt-2">{item.label}: {item.station} · {item.responsibleRole} · waiting {item.waitingMinutes} min{item.journeyTotals ? ` · ${item.journeyTotals.shopsCollected} shops / ${item.journeyTotals.quantity.toLocaleString()} quantity` : ''}</p>) : <p className="mt-2 text-slate-500">No active MC journey.</p>}</div></div>
-    {actionError ? <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-800">{actionError}</div> : null}
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">{cards.map(([label, value]) => <div key={String(label)} className="bg-card border-border rounded-xl border p-3"><p className="text-[10px] font-semibold uppercase text-slate-500">{label}</p><p className="mt-1 text-xl font-semibold text-slate-900">{value}</p></div>)}</div>
+    <div className="grid gap-3 lg:grid-cols-2"><div className="bg-card border-border rounded-xl border p-4 text-xs"><p className="font-semibold text-slate-900">Tank and dispatch</p><p className="mt-2">Tank: <strong>{overview.tank.grossLiters.toLocaleString()} L</strong> · Ready: <strong>{overview.dispatch.ready}</strong></p><p className="mt-1">At plant: <strong>{overview.dispatch.activeAtPlant}</strong> · To review: <strong>{overview.exceptions.pendingManagerReview}</strong></p></div><div className="bg-card border-border rounded-xl border p-4 text-xs"><p className="font-semibold text-slate-900">Active Mobile Tester work</p>{overview.activeStations.length ? overview.activeStations.map((item) => <p key={item.id} className="mt-2">{item.label} · {item.station} · {item.waitingMinutes}m</p>) : <p className="mt-2 text-slate-500">None</p>}</div></div>
+    {actionError ? <div role="alert" className="bg-card border-border rounded-xl border p-3 text-xs text-red-800">{actionError}</div> : null}
     <ZmccExitOutcomes
       left={overview.exits.leftWithoutFullUnloading}
       pending={overview.exits.pendingCloseRequests}

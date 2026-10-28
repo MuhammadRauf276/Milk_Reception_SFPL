@@ -101,6 +101,9 @@ export interface MotOfflinePreparation {
 }
 
 export interface CollectionDraft {
+  /** Partitioned key: `${owner_user_id}:${stop_id}` */
+  id?: string;
+  owner_user_id?: string;
   stop_id: string;
   shop_rmr_number?: string | null;
   milk_source_id?: string | null;
@@ -201,7 +204,7 @@ export interface QueuedShopRequest {
 }
 
 const DB_NAME = 'milk_reception_mot_db';
-const DB_VERSION = 6;
+const DB_VERSION = 7;
 
 function isIndexedDbSupported(): boolean {
   const idb = typeof window !== 'undefined' ? window.indexedDB : typeof globalThis !== 'undefined' ? globalThis.indexedDB : undefined;
@@ -229,7 +232,18 @@ export function openMotDb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains('offline_preparation')) db.createObjectStore('offline_preparation', { keyPath: 'id' });
 
       if (!db.objectStoreNames.contains('collection_drafts')) {
-        db.createObjectStore('collection_drafts', { keyPath: 'stop_id' });
+        db.createObjectStore('collection_drafts', { keyPath: 'id' });
+      } else if (event.oldVersion < 7) {
+        try {
+          const tx = (event.target as IDBOpenDBRequest).transaction;
+          const oldStore = tx?.objectStore('collection_drafts');
+          if (oldStore && oldStore.keyPath === 'stop_id') {
+            db.deleteObjectStore('collection_drafts');
+            db.createObjectStore('collection_drafts', { keyPath: 'id' });
+          }
+        } catch {
+          // Safe fallback
+        }
       }
 
       if (!db.objectStoreNames.contains('collection_queue')) {
@@ -440,10 +454,11 @@ async function motDbExists(whenUnknown: boolean): Promise<boolean> {
  * Counts work saved on this phone that the server has not confirmed yet. Never throws.
  * Does not create the MOT database on devices that never used it (pass `isMot: true` for MOT users).
  */
-export async function getUnsentWorkSummary(options?: { isMot?: boolean }): Promise<UnsentWorkSummary> {
+export async function getUnsentWorkSummary(options?: { isMot?: boolean; ownerUserId?: string | null }): Promise<UnsentWorkSummary> {
   const empty = summariseUnsentWork({});
   if (!isIndexedDbSupported()) return empty;
   try {
+    if (options && options.isMot === false) return empty;
     if (!(await motDbExists(options?.isMot === true))) return empty;
     const db = await openMotDb();
     try {
@@ -454,7 +469,9 @@ export async function getUnsentWorkSummary(options?: { isMot?: boolean }): Promi
         readAllIfExists<QueuedShopRequest>(db, 'shop_request_queue'),
         readAllIfExists<CollectionDraft>(db, 'collection_drafts'),
       ]);
-      return summariseUnsentWork({ collections, gpsPoints, skips, shopRequests, drafts });
+      const activeOwner = (options?.ownerUserId ?? getActiveOwnerUserId())?.trim();
+      const filteredDrafts = activeOwner ? drafts.filter((d) => !d.owner_user_id || d.owner_user_id === activeOwner) : drafts;
+      return summariseUnsentWork({ collections, gpsPoints, skips, shopRequests, drafts: filteredDrafts });
     } finally {
       db.close();
     }
@@ -518,9 +535,21 @@ export async function clearMotOfflinePreparation(): Promise<void> {
 // Collection Draft Operations
 // -------------------------------------------------------------
 
-export async function saveDraft(stopId: string, draft: Omit<CollectionDraft, 'stop_id' | 'updated_at'>): Promise<void> {
+export function makeDraftId(stopId: string, ownerUserId?: string | null): string {
+  const owner = (ownerUserId || getActiveOwnerUserId() || 'unknown').trim();
+  return `${owner}:${stopId}`;
+}
+
+export async function saveDraft(
+  stopId: string,
+  draft: Omit<CollectionDraft, 'stop_id' | 'updated_at' | 'id' | 'owner_user_id'>,
+  ownerUserId?: string | null
+): Promise<void> {
   if (!isIndexedDbSupported()) return;
   const db = await openMotDb();
+  const owner = (ownerUserId || getActiveOwnerUserId() || 'unknown').trim();
+  const id = makeDraftId(stopId, owner);
+
   return new Promise((resolve, reject) => {
     const tx = db.transaction('collection_drafts', 'readwrite');
     const store = tx.objectStore('collection_drafts');
@@ -530,29 +559,56 @@ export async function saveDraft(stopId: string, draft: Omit<CollectionDraft, 'st
     tx.onabort = () => reject(tx.error || new Error('Transaction aborted'));
 
     const record: CollectionDraft = {
+      id,
+      owner_user_id: owner,
       stop_id: stopId,
       ...draft,
       updated_at: new Date().toISOString(),
     };
+    if (store.keyPath === 'stop_id') {
+      delete record.id;
+    }
     store.put(record);
   });
 }
 
-export async function getDraft(stopId: string): Promise<CollectionDraft | null> {
+export async function getDraft(stopId: string, ownerUserId?: string | null): Promise<CollectionDraft | null> {
   if (!isIndexedDbSupported()) return null;
   const db = await openMotDb();
+  const owner = (ownerUserId || getActiveOwnerUserId() || 'unknown').trim();
+  const id = makeDraftId(stopId, owner);
+
   return new Promise((resolve, reject) => {
     const tx = db.transaction('collection_drafts', 'readonly');
     const store = tx.objectStore('collection_drafts');
-    const req = store.get(stopId);
-    req.onsuccess = () => resolve(req.result || null);
+    const lookupKey = store.keyPath === 'stop_id' ? stopId : id;
+    const req = store.get(lookupKey);
+    req.onsuccess = () => {
+      const result = req.result as CollectionDraft | undefined;
+      if (result) {
+        if (result.owner_user_id && result.owner_user_id !== owner) {
+          resolve(null);
+        } else {
+          resolve(result);
+        }
+      } else if (store.keyPath === 'id') {
+        const fallbackReq = store.get(stopId);
+        fallbackReq.onsuccess = () => resolve(fallbackReq.result || null);
+        fallbackReq.onerror = () => resolve(null);
+      } else {
+        resolve(null);
+      }
+    };
     req.onerror = () => reject(req.error);
   });
 }
 
-export async function deleteDraft(stopId: string): Promise<void> {
+export async function deleteDraft(stopId: string, ownerUserId?: string | null): Promise<void> {
   if (!isIndexedDbSupported()) return;
   const db = await openMotDb();
+  const owner = (ownerUserId || getActiveOwnerUserId() || 'unknown').trim();
+  const id = makeDraftId(stopId, owner);
+
   return new Promise((resolve, reject) => {
     const tx = db.transaction('collection_drafts', 'readwrite');
     const store = tx.objectStore('collection_drafts');
@@ -561,7 +617,12 @@ export async function deleteDraft(stopId: string): Promise<void> {
     tx.onerror = () => reject(tx.error || new Error('Transaction failed'));
     tx.onabort = () => reject(tx.error || new Error('Transaction aborted'));
 
-    store.delete(stopId);
+    if (store.keyPath === 'stop_id') {
+      store.delete(stopId);
+    } else {
+      store.delete(id);
+      store.delete(stopId);
+    }
   });
 }
 
@@ -633,7 +694,7 @@ export async function enqueueMotCollection(
       for (const p of photos) {
         await linkPhotoToQueueItem(p.captureId, clientUuid).catch(() => false);
       }
-      await deleteDraft(item.stop_id).catch(() => undefined);
+      await deleteDraft(item.stop_id, owner).catch(() => undefined);
       return { mode: 'SYNC_QUEUE', clientUuid };
     }
   }
@@ -660,6 +721,8 @@ export async function queueCollection(
     const draftStore = tx.objectStore('collection_drafts');
 
     queueStore.put(queuedItem);
+    const draftKey = draftStore.keyPath === 'stop_id' ? item.stop_id : `${queuedItem.owner_user_id || 'unknown'}:${item.stop_id}`;
+    draftStore.delete(draftKey);
     draftStore.delete(item.stop_id);
 
     tx.oncomplete = () => resolve(queuedItem);

@@ -8,8 +8,17 @@ export async function GET(req: Request) {
     if ('response' in guard) return guard.response;
     const url = new URL(req.url);
     const donePage = Number(url.searchParams.get('done_page') || 1);
+    const range = (url.searchParams.get('range') as 'today' | '7days' | 'custom') || 'today';
+    const fromDate = url.searchParams.get('from_date') || undefined;
+    const toDate = url.searchParams.get('to_date') || undefined;
+    const search = url.searchParams.get('search') || undefined;
+
     const result = await listWeighingQueue(guard.acting, {
       donePage: Number.isFinite(donePage) ? donePage : 1,
+      range,
+      fromDate,
+      toDate,
+      search,
     });
     if (result.error) return NextResponse.json({ error: result.error }, { status: result.status });
     return NextResponse.json(result.data, { status: result.status });

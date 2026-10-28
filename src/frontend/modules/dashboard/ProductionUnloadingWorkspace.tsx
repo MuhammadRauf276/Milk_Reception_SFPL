@@ -4,8 +4,10 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { useDebouncedValue } from '@/lib/query/useDebouncedValue';
-import { Search, Truck, ArrowDownCircle, Database } from 'lucide-react';
-import { SegmentedTabs, type SegmentedTab } from '@/components/ui/segmented-tabs';
+import { stationQueryKeys } from '@/lib/query/stationQueryKeys';
+import { Search, Truck, ArrowDownCircle, Database, CheckCircle2 } from 'lucide-react';
+import { SegmentedTabs } from '@/components/ui/segmented-tabs';
+import { InfoTip } from '@/components/ui/info-tip';
 import { User } from '@core/types';
 import { PageHeader } from '@/components/ui/page-header';
 import type { ProductionTab, ReadyVisitDef, SiloOption, UnloadingVisitDef } from './productionTypes';
@@ -23,6 +25,7 @@ interface ProductionUnloadingWorkspaceProps {
 }
 
 export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspaceProps> = ({
+  currentUser,
   activeTab: controlledTab,
   onTabChange,
 }) => {
@@ -38,42 +41,44 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
   const [selectedReadyVisitId, setSelectedReadyVisitId] = useState<string | null>(null);
   const [selectedUnloadingVisitId, setSelectedUnloadingVisitId] = useState<string | null>(null);
   const [selectedIssueSiloId, setSelectedIssueSiloId] = useState<string | null>(null);
-  // The action sheet for the selected row; opened by tapping a queue card.
   const [sheetOpen, setSheetOpen] = useState(false);
 
   const queryClient = useQueryClient();
   const debouncedSearch = useDebouncedValue(searchQuery);
 
-  // Live boards: 30s refresh, paused while the tab is hidden.
+  const facilityId = currentUser?.procurement_source_id || currentUser?.procurement_source?.id || null;
+
   const readyQuery = useQuery({
-    queryKey: ['production', 'ready-for-unloading', debouncedSearch],
+    queryKey: stationQueryKeys.production.queue(facilityId, 'ready', debouncedSearch),
     queryFn: ({ signal }) =>
       fetchJson<{ visits?: ReadyVisitDef[]; silos?: SiloOption[] }>(
         `/api/production/ready-for-unloading?search=${encodeURIComponent(debouncedSearch)}`,
         { signal }
       ),
     placeholderData: keepPreviousData,
-    refetchInterval: 30_000,
+    enabled: activeTab === 'READY',
+    refetchInterval: activeTab === 'READY' ? 30_000 : false,
+    refetchIntervalInBackground: false,
   });
   const unloadingQuery = useQuery({
-    queryKey: ['production', 'unloading-queue', debouncedSearch],
+    queryKey: stationQueryKeys.production.queue(facilityId, 'unloading', debouncedSearch),
     queryFn: ({ signal }) =>
       fetchJson<{ visits?: UnloadingVisitDef[] }>(
         `/api/production/unloading-queue?search=${encodeURIComponent(debouncedSearch)}`,
         { signal }
       ),
     placeholderData: keepPreviousData,
-    refetchInterval: 30_000,
+    enabled: activeTab === 'UNLOADING',
+    refetchInterval: activeTab === 'UNLOADING' ? 30_000 : false,
+    refetchIntervalInBackground: false,
   });
   const readyVisits = useMemo(() => readyQuery.data?.visits ?? [], [readyQuery.data]);
   const activeSilos = useMemo(() => readyQuery.data?.silos ?? [], [readyQuery.data]);
   const unloadingVisits = useMemo(() => unloadingQuery.data?.visits ?? [], [unloadingQuery.data]);
-  const isLoading = readyQuery.isPending;
+  const isLoading = (activeTab === 'READY' && readyQuery.isPending) || (activeTab === 'UNLOADING' && unloadingQuery.isPending);
 
-  // Auto-selection repair for Ready queue and Silo Issue queue
   useEffect(() => {
     if (!readyQuery.data) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedReadyVisitId((prev) =>
       prev && readyVisits.some((v) => v.id === prev) ? prev : readyVisits.length > 0 ? readyVisits[0].id : null
     );
@@ -83,24 +88,22 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
       return eligible.length > 0 ? eligible[0].id : activeSilos.length > 0 ? activeSilos[0].id : null;
     });
   }, [readyQuery.data, readyVisits, activeSilos]);
+
   useEffect(() => {
     if (!unloadingQuery.data) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedUnloadingVisitId((prev) =>
       prev && unloadingVisits.some((v) => v.id === prev) ? prev : unloadingVisits.length > 0 ? unloadingVisits[0].id : null
     );
   }, [unloadingQuery.data, unloadingVisits]);
 
   const refreshBoards = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ['production', 'ready-for-unloading'] });
-    queryClient.invalidateQueries({ queryKey: ['production', 'unloading-queue'] });
-  }, [queryClient]);
+    queryClient.invalidateQueries({ queryKey: stationQueryKeys.production.all(facilityId) });
+  }, [queryClient, facilityId]);
 
   const selectedReadyVisit = readyVisits.find((v) => v.id === selectedReadyVisitId) || null;
   const selectedUnloadingVisit = unloadingVisits.find((v) => v.id === selectedUnloadingVisitId) || null;
   const selectedIssueSilo = activeSilos.find((s) => s.id === selectedIssueSiloId) || null;
 
-  // Filtered Silo list for Issue tab
   const siloIssueList = (activeSilos ?? []).filter((s) => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
@@ -114,85 +117,168 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
   };
 
   return (
-    <div className="w-full max-w-7xl mx-auto space-y-6 text-foreground">
-      <PageHeader
-        title={
-          activeTab === 'READY'
-            ? 'Production · Ready for Unloading'
-            : activeTab === 'UNLOADING'
-            ? 'Production · Active Unloading'
-            : 'Production · Silos & Stock Issue'
-        }
-        description={
-          activeTab === 'READY'
-            ? 'Assign unloading bays and record silo receipts for vehicles arriving from weighbridge.'
-            : activeTab === 'UNLOADING'
-            ? 'Monitor in-progress tanker offloading and confirm completion before tare weighing.'
-            : 'Inspect active plant silos, view stock levels, and log issues.'
-        }
-      />
-
-      <SegmentedTabs
-        tabs={[
-          {
-            value: 'READY',
-            label: 'Ready to Unload',
-            count: readyVisits.length,
-            icon: Truck,
-          },
-          {
-            value: 'UNLOADING',
-            label: 'In Unloading',
-            count: unloadingVisits.length,
-            icon: ArrowDownCircle,
-          },
-          {
-            value: 'SILO_ISSUE',
-            label: 'Silos / Stock',
-            count: siloIssueList.length,
-            icon: Database,
-          },
-        ]}
-        value={activeTab}
-        onValueChange={setActiveTab}
-        label="Production Unloading Stations"
-      />
-
-      <div className="space-y-3">
-        <div className="flex items-center justify-between px-1">
-          <h3 className="text-sm font-semibold text-foreground">
-            {activeTab === 'READY' ? 'Ready Queue' : activeTab === 'UNLOADING' ? 'In Unloading Queue' : 'Active Silos'}
-          </h3>
-          <span className="text-xs tabular-nums font-semibold text-slate-500">
-            {activeTab === 'READY' ? `${readyVisits.length} ready` : activeTab === 'UNLOADING' ? `${unloadingVisits.length} unloading` : `${siloIssueList.length} silos`}
+    <div className="w-full max-w-7xl mx-auto space-y-5 text-foreground animate-panel-in">
+      <div className="flex items-center justify-between border-b border-border pb-3">
+        <div className="flex items-center gap-1.5">
+          <h1 className="text-lg font-bold tracking-tight text-foreground">Silo Offloading</h1>
+          <InfoTip text="Assign unloading bays, pump raw milk into storage silos, and track real-time tank capacity." />
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold tabular-nums px-2.5 py-1 rounded-md bg-muted text-foreground border border-border">
+            {activeTab === 'READY' ? `${readyVisits.length} Ready` : activeTab === 'UNLOADING' ? `${unloadingVisits.length} Active` : `${siloIssueList.length} Silos`}
           </span>
         </div>
+      </div>
 
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder={activeTab === 'SILO_ISSUE' ? 'Search silo code or name…' : 'Search vehicle or token…'}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full min-h-[44px] pl-9 pr-3 py-2 text-xs tabular-nums font-semibold rounded-xl border border-input bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-ring/30 focus:border-primary"
-          />
-        </div>
-
-        <ProductionQueueList
-          activeTab={activeTab}
-          isLoading={isLoading}
-          readyVisits={readyVisits}
-          unloadingVisits={unloadingVisits}
-          silos={siloIssueList}
-          selectedReadyVisitId={selectedReadyVisitId}
-          selectedUnloadingVisitId={selectedUnloadingVisitId}
-          selectedIssueSiloId={selectedIssueSiloId}
-          onSelectReady={select(setSelectedReadyVisitId)}
-          onSelectUnloading={select(setSelectedUnloadingVisitId)}
-          onSelectSilo={select(setSelectedIssueSiloId)}
+      <div className="lg:hidden">
+        <SegmentedTabs
+          tabs={[
+            {
+              value: 'READY',
+              label: 'Ready',
+              count: readyVisits.length,
+              icon: Truck,
+            },
+            {
+              value: 'UNLOADING',
+              label: 'Unloading',
+              count: unloadingVisits.length,
+              icon: ArrowDownCircle,
+            },
+            {
+              value: 'SILO_ISSUE',
+              label: 'Silos',
+              count: siloIssueList.length,
+              icon: Database,
+            },
+          ]}
+          value={activeTab}
+          onValueChange={setActiveTab}
+          label="Unloading Stations"
         />
       </div>
+
+      {activeTab === 'SILO_ISSUE' ? (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1">
+              <h2 className="text-sm font-semibold text-foreground">Silo Stock</h2>
+              <InfoTip text="Select a silo to record physical issues or corrections." />
+            </div>
+          </div>
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search silo code…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full min-h-[44px] pl-9 pr-3 py-2 text-xs tabular-nums font-semibold rounded-xl border border-input bg-card text-foreground focus:ring-2 focus:ring-ring/30 focus:border-primary"
+            />
+          </div>
+          <ProductionQueueList
+            activeTab={activeTab}
+            isLoading={isLoading}
+            readyVisits={readyVisits}
+            unloadingVisits={unloadingVisits}
+            silos={siloIssueList}
+            selectedReadyVisitId={selectedReadyVisitId}
+            selectedUnloadingVisitId={selectedUnloadingVisitId}
+            selectedIssueSiloId={selectedIssueSiloId}
+            onSelectReady={select(setSelectedReadyVisitId)}
+            onSelectUnloading={select(setSelectedUnloadingVisitId)}
+            onSelectSilo={select(setSelectedIssueSiloId)}
+          />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+          {/* Left Column: Tanker Queue */}
+          <div className="lg:col-span-7 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1">
+                <h2 className="text-sm font-semibold text-foreground">
+                  {activeTab === 'READY' ? 'Ready Queue' : 'Unloading Queue'}
+                </h2>
+                <InfoTip text={activeTab === 'READY' ? 'Vehicles cleared by QA and Gross Scale awaiting bay allocation.' : 'Active tankers transferring milk into plant silos.'} />
+              </div>
+              <span className="text-xs tabular-nums font-semibold text-muted-foreground">
+                {activeTab === 'READY' ? `${readyVisits.length} waiting` : `${unloadingVisits.length} active`}
+              </span>
+            </div>
+
+            <div className="relative w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Search vehicle or token…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full min-h-[44px] pl-9 pr-3 py-2 text-xs tabular-nums font-semibold rounded-xl border border-input bg-card text-foreground focus:ring-2 focus:ring-ring/30 focus:border-primary"
+              />
+            </div>
+
+            <ProductionQueueList
+              activeTab={activeTab}
+              isLoading={isLoading}
+              readyVisits={readyVisits}
+              unloadingVisits={unloadingVisits}
+              silos={siloIssueList}
+              selectedReadyVisitId={selectedReadyVisitId}
+              selectedUnloadingVisitId={selectedUnloadingVisitId}
+              selectedIssueSiloId={selectedIssueSiloId}
+              onSelectReady={select(setSelectedReadyVisitId)}
+              onSelectUnloading={select(setSelectedUnloadingVisitId)}
+              onSelectSilo={select(setSelectedIssueSiloId)}
+            />
+          </div>
+
+          {/* Right Column: Plant Silos Level Overview */}
+          <div className="lg:col-span-5 p-4 rounded-xl border border-border bg-card space-y-3 shadow-2xs">
+            <div className="flex items-center justify-between pb-2 border-b border-border">
+              <div className="flex items-center gap-1.5">
+                <Database className="w-4 h-4 text-primary" />
+                <h2 className="text-sm font-semibold text-foreground">Plant Silos</h2>
+                <InfoTip text="Live storage levels across all plant raw milk silos." />
+              </div>
+              <span className="text-xs font-semibold tabular-nums text-muted-foreground">
+                {activeSilos.length} Silos
+              </span>
+            </div>
+
+            {activeSilos.length === 0 ? (
+              <p className="text-xs text-muted-foreground p-4 text-center">No silos found.</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2.5">
+                {activeSilos.slice(0, 6).map((silo) => {
+                  const cap = silo.capacity_liters || 200000;
+                  const stock = silo.current_stock_liters || 0;
+                  const pct = Math.min(100, Math.round((stock / cap) * 100));
+
+                  return (
+                    <div
+                      key={`sidebar-silo-${silo.id}`}
+                      className="p-2.5 rounded-lg border border-border bg-muted/30 hover:bg-muted/60 transition space-y-1.5"
+                    >
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-bold tabular-nums text-foreground">{silo.silo_code}</span>
+                        <span className="tabular-nums font-semibold text-xs text-foreground">
+                          {stock.toLocaleString()} L <span className="text-muted-foreground font-normal text-[10px]">({pct}%)</span>
+                        </span>
+                      </div>
+                      <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className="h-full bg-primary rounded-full transition-all"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {sheetOpen && activeTab === 'READY' && selectedReadyVisit && (
         <ProductionStartUnloadingDrawer
@@ -224,7 +310,10 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
           key={selectedIssueSilo.id}
           silo={selectedIssueSilo}
           onClose={closeSheet}
-          onRecorded={refreshBoards}
+          onRecorded={() => {
+            closeSheet();
+            refreshBoards();
+          }}
         />
       )}
     </div>

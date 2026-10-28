@@ -108,19 +108,19 @@ export async function GET(req: Request) {
         rejected_portion_count: rejectedPortions.length,
         pending_portion_count: pendingPortions.length,
         is_fully_decided: isFullyDecided,
-        vehicle_dispatch_quantity_value: v.vehicle_dispatch_quantity_value !== null && v.vehicle_dispatch_quantity_value !== undefined
-          ? Number(v.vehicle_dispatch_quantity_value)
-          : null,
-        vehicle_dispatch_quantity_unit: v.vehicle_dispatch_quantity_unit || null,
-        vehicle_dispatch_quantity_basis: v.vehicle_dispatch_quantity_basis || null,
+        // Double-Blind Operator Entry: Dispatch quantities are masked from Weighbridge Operator
+        vehicle_dispatch_quantity_value: null,
+        vehicle_dispatch_quantity_unit: null,
+        vehicle_dispatch_quantity_basis: null,
         waiting_minutes: waitingMinutes,
         plant_decision_summary: plantDecisionSummary,
         portions: portions.map((p) => ({
           id: p.id.toString(),
           portion_number: p.portion_number,
-          dispatch_quantity_value: p.dispatch_quantity_value !== null && p.dispatch_quantity_value !== undefined ? Number(p.dispatch_quantity_value) : null,
-          dispatch_quantity_unit: p.dispatch_quantity_unit || null,
-          dispatch_quantity_basis: p.dispatch_quantity_basis || null,
+          // Blind scale entry: do not expose upstream dispatch quantity
+          dispatch_quantity_value: null,
+          dispatch_quantity_unit: null,
+          dispatch_quantity_basis: null,
           plant_decision: p.plant_decision || 'PENDING',
           plant_rejection_reason: p.plant_rejection_reason || null,
         })),

@@ -449,20 +449,6 @@ export function computePortionQuantitySummary(
  * 5. Vehicle Basis == MEASURED
  * 6. Portion Total is within allowable positive decimal range (<= 99,999,999.99)
  */
-/**
- * @deprecated Stage 6G-E: Whole-vehicle dispatch quantity is strictly an independent measured fact.
- * It must never be derived, prefilled, or overwritten from portion totals.
- */
-export function canUseMeasuredPortionTotalForVehicle(
-  _vehicleQuantity?: {
-    value?: string | number | null;
-    unit?: QuantityUnit | string | null;
-    basis?: MeasurementBasis | string | null;
-  } | undefined | null,
-  _portionSummary?: PortionQuantitySummary
-): boolean {
-  return false;
-}
 
 /**
  * Pure production helper: Computes the same-unit Difference between Vehicle Dispatch Quantity and Portion Quantity Total.

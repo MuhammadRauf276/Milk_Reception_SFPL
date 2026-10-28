@@ -57,20 +57,20 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
   vehicleNumberError,
   dispatchOpDatetime,
   onDispatchOpDatetimeChange,
-  maxDatetime,
-  vehicleQuantity,
-  vehicleQuantityError,
-  vehicleLr,
-  vehicleFat,
+  maxDatetime,
+  vehicleQuantity,
+  vehicleQuantityError,
+  vehicleLr,
+  vehicleFat,
   rawMilkDispatchNoteNumber,
   onRawMilkDispatchNoteNumberChange,
 }) => {
   return (
     <div className="space-y-4">
       {!isSourceBound && availableSources.length > 0 && (
-        <div className="p-4 rounded-xl bg-amber-50/70 border border-amber-300/80 text-xs space-y-1.5 shadow-xs">
+        <div className="bg-card border-border p-4 rounded-xl border text-xs space-y-1.5 shadow-xs">
           <label className="block font-semibold text-amber-950">
-            Select Operating Procurement Source (Admin Override):
+            Procurement source
           </label>
           <Combobox
             options={availableSources.map((x) => ({ value: x.id, label: `${x.name} · ${x.source_type}` }))}
@@ -83,12 +83,12 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
       )}
 
       {!isSourceBound && !selectedSourceId && (
-        <div className="p-4 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 text-xs font-semibold">
-          Please select an operating procurement source from the dropdown above to initialize the dispatch draft.
+        <div className="bg-card border-border p-4 rounded-xl border text-blue-900 text-xs font-semibold">
+          Select a source.
         </div>
       )}
 
-      <div className="p-4 sm:p-5 rounded-xl bg-white border border-border-strong shadow-xs space-y-4">
+      <div className="p-4 sm:p-5 rounded-xl bg-card border border-border-strong shadow-xs space-y-4">
         <div className="flex items-center space-x-2 border-b border-slate-100 pb-2">
           <Truck className="w-4 h-4 text-primary" />
           <h3 className="text-xs font-semibold text-foreground">
@@ -121,7 +121,7 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
 
           <div className="space-y-1 min-w-0">
             <label htmlFor="dispatch-note-input" className="block text-xs font-semibold text-foreground">
-              Raw Milk Dispatch Note No.
+              Dispatch note no.
             </label>
             <input
               id="dispatch-note-input"

@@ -1,5 +1,6 @@
 'use client';
 
+import { InfoTip } from '@/components/ui/info-tip';
 import React, { useEffect, useMemo, useState } from 'react';
 import QRCode from 'qrcode';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -79,7 +80,7 @@ const EVENT_WORDS: Record<string, string> = {
   STATION_PIN_SET: 'Station PIN set',
   STATION_PIN_RESET: 'Station PIN changed',
   STATION_PIN_REMOVED: 'Station user removed',
-  STATION_PIN_LOCKED: 'Station PIN locked',
+  STATION_PIN_LOCKED: 'Station PIN blocked',
   KEY_ROTATED: 'New key made',
   LOGIN: 'User logged in',
 };
@@ -109,7 +110,7 @@ function KeyQr({ deviceUid, syncKey }: { deviceUid: string; syncKey: string }) {
   }, [deviceUid, syncKey]);
   return (
     <div className="space-y-3">
-      <p className="text-sm text-muted-foreground">Scan this code with the phone. It is shown only now. Close it only after the phone is set up.</p>
+      <p className="flex items-center text-sm text-muted-foreground">Scan with phone<InfoTip text="Shown only once. Close it only after the phone is set up." /></p>
       {src ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={src} alt="QR code for phone setup" width={240} height={240} className="mx-auto rounded-md border bg-white" />
@@ -249,7 +250,7 @@ export function DeviceDrawer({ dialog, onClose, onShowKey }: Props) {
                 value={formLabel}
                 onChange={(e) => setFormLabel(e.target.value)}
                 maxLength={150}
-                placeholder="For example: Gujrat MOT phone 1"
+                placeholder="For example: Gujrat Mobile Tester phone 1"
               />
             </label>
             <label className="block space-y-1 font-medium">
@@ -345,8 +346,9 @@ export function DeviceDrawer({ dialog, onClose, onShowKey }: Props) {
 
         {dialog.kind === 'station' ? (
           <>
-            <p className="text-muted-foreground">
-              These people can log in on this computer with a name card and a 4-digit PIN. After 5 wrong tries the PIN locks. Set a new PIN to unlock it.
+            <p className="flex items-center text-muted-foreground">
+              Station users
+              <InfoTip text="These people log in on this computer with a name card and a 4-digit PIN. After 5 wrong tries the PIN locks; set a new PIN to unlock it." />
             </p>
             {stationUsers.length === 0 && !queryError ? (
               <p className="text-muted-foreground">{stationQuery.isPending ? 'Loading…' : 'No users yet.'}</p>
@@ -358,7 +360,7 @@ export function DeviceDrawer({ dialog, onClose, onShowKey }: Props) {
                       <div className="truncate font-medium">{u.name}</div>
                       <div className="text-xs text-muted-foreground">
                         {roleWords(u.role)}
-                        {u.locked ? ' - PIN locked' : ''}
+                        {u.locked ? ' - PIN blocked' : ''}
                       </div>
                     </div>
                     <Button

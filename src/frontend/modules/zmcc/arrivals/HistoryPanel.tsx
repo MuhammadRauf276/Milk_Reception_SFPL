@@ -85,11 +85,11 @@ export const HistoryPanel: React.FC<Props> = (p) => {
 
   return (
     <div className="space-y-4 animate-panel-in">
-      <div className="bg-white rounded-xl border border-border p-4 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
+      <div className="bg-card rounded-xl border border-border p-4 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex rounded-xl border border-slate-200 overflow-hidden text-xs font-semibold">
+          <div className="bg-card border-border flex rounded-xl border overflow-hidden text-xs font-semibold">
             {typeBtn('ALL', 'All')}
-            {typeBtn('MC', 'MC only')}
+            {typeBtn('MC', 'Mobile Tester only')}
             {typeBtn('HC', 'HC only', 'bg-emerald-700 text-white')}
           </div>
 
@@ -124,7 +124,7 @@ export const HistoryPanel: React.FC<Props> = (p) => {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-border overflow-hidden shadow-2xs">
+      <div className="bg-card rounded-xl border border-border overflow-hidden shadow-2xs">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
@@ -144,7 +144,7 @@ export const HistoryPanel: React.FC<Props> = (p) => {
                 p.mcArrivals.map((arr) => (
                   <tr key={`mc-${arr.id}`} className={rowCls}>
                     <td className="p-3">
-                      <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">MC</span>
+                      <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">Mobile Tester</span>
                     </td>
                     <td className="p-3 tabular-nums font-semibold text-slate-900">{arr.zmcc_token}</td>
                     <td className="p-3 tabular-nums font-semibold text-slate-700">
@@ -203,7 +203,7 @@ export const HistoryPanel: React.FC<Props> = (p) => {
               {none && (
                 <tr>
                   <td colSpan={colCount} className="p-8 text-center text-xs text-slate-400">
-                    No arrival records found matching current criteria.
+                    No records.
                   </td>
                 </tr>
               )}

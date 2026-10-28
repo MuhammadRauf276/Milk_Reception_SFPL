@@ -181,36 +181,24 @@ export function useQAVisitDetail(selectedTestingVisitId: string | null) {
     [visitDetail]
   );
 
-  // PERFORMED: has a valid value set
+  // PERFORMED: has a valid value entered
   const performedCount = useMemo(() => {
     return requiredManualPlantTests.filter((t) => {
       const state = testInputs[t.id];
-      if (!state || state.performanceStatus !== 'PERFORMED') return false;
+      if (!state) return false;
       if (t.resultType === 'NUMERIC') return state.numericValue !== '' && !isNaN(Number(state.numericValue));
-      return state.textValue !== '';
+      return Boolean(state.textValue && state.textValue.trim() !== '');
     }).length;
   }, [requiredManualPlantTests, testInputs]);
 
-  // NOT_PERFORMED: explicitly marked
-  const notPerformedCount = useMemo(() => {
-    return requiredManualPlantTests.filter((t) => {
-      const state = testInputs[t.id];
-      return state?.performanceStatus === 'NOT_PERFORMED';
-    }).length;
-  }, [requiredManualPlantTests, testInputs]);
-
-  // UNRESOLVED: in form but neither PERFORMED with value nor NOT_PERFORMED
+  // UNRESOLVED / PENDING: required tests that are not yet entered
   const unresolvedCount = useMemo(() => {
-    return requiredManualPlantTests.filter((t) => {
-      const state = testInputs[t.id];
-      if (!state) return true; // no form entry
-      if (state.performanceStatus === 'NOT_PERFORMED') return false;
-      if (t.resultType === 'NUMERIC') return state.numericValue === '' || isNaN(Number(state.numericValue));
-      return state.textValue === '';
-    }).length;
-  }, [requiredManualPlantTests, testInputs]);
+    return Math.max(0, requiredManualPlantTests.length - performedCount);
+  }, [requiredManualPlantTests.length, performedCount]);
 
-  const canAccept = performedCount === requiredManualPlantTests.length && notPerformedCount === 0 && unresolvedCount === 0;
+  const notPerformedCount = unresolvedCount;
+
+  const canAccept = performedCount === requiredManualPlantTests.length;
 
   const hasFailingTests = useMemo(() => {
     const currentPortion = visitDetail?.portions?.[activePortionIndex];
@@ -219,8 +207,14 @@ export function useQAVisitDetail(selectedTestingVisitId: string | null) {
     for (const test of requiredManualPlantTests) {
       const input = testInputs[test.id];
       if (!input) continue;
-      if (test.isRequired && input.performanceStatus === 'NOT_PERFORMED') return true;
-      if (input.performanceStatus === 'PERFORMED' && test.resultOptions) {
+      if (test.resultType === 'NUMERIC') {
+        const num = input.numericValue !== '' && !isNaN(Number(input.numericValue)) ? Number(input.numericValue) : null;
+        if (num !== null && test.rule) {
+          if ((test.rule.min != null && num < test.rule.min) || (test.rule.max != null && num > test.rule.max)) {
+            return true;
+          }
+        }
+      } else if (input.textValue && test.resultOptions) {
         const opt = test.resultOptions.find((o) => o.value === input.textValue);
         if (opt && opt.isPassing === false) return true;
       }

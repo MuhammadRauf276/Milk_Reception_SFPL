@@ -1,5 +1,6 @@
 'use client';
 
+import { InfoTip } from '@/components/ui/info-tip';
 import React, { useMemo, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { AlertTriangle, Camera, CheckCircle2, FileCheck2, X } from 'lucide-react';
@@ -217,7 +218,7 @@ export function RuleEditorDrawer({ item, stage, stageLabel, isGlobalStage, onClo
     >
       <form onSubmit={submit} className="space-y-4">
         {!isGlobalStage && (
-          <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <div className="space-y-3 rounded-xl border border-border bg-card p-4">
             <div className="border-b border-slate-200/80 pb-2 text-xs font-bold text-slate-800">Stage Form Configuration ({stageLabel})</div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
@@ -265,7 +266,7 @@ export function RuleEditorDrawer({ item, stage, stageLabel, isGlobalStage, onClo
           </div>
         )}
 
-        <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <div className="space-y-3 rounded-xl border border-border bg-card p-4">
           <div className="flex items-center justify-between gap-2 border-b border-slate-200/80 pb-2">
             <div className="text-xs font-bold text-slate-800">Quality Acceptance Rule &amp; Limits</div>
             {!isGlobalStage && (
@@ -282,14 +283,12 @@ export function RuleEditorDrawer({ item, stage, stageLabel, isGlobalStage, onClo
           </div>
 
           {recordOnly ? (
-            <div className="space-y-1 rounded-lg bg-slate-100 p-3 text-slate-600">
+            <div className="space-y-1 rounded-lg bg-card p-3 text-slate-600">
               <div className="flex items-center gap-1.5 font-bold text-slate-900">
                 <FileCheck2 className="h-4 w-4 text-slate-600" />
-                <span>Confirmed: Record Only Test</span>
+                <span>Record only</span>
               </div>
-              <p className="text-[11px]">
-                This test is collected for recording and tracking only. No limits or pass/fail evaluation will be applied by the system.
-              </p>
+              <InfoTip text="Collected for recording only. No limits or pass/fail evaluation are applied." />
             </div>
           ) : (
             <>
@@ -371,7 +370,7 @@ export function RuleEditorDrawer({ item, stage, stageLabel, isGlobalStage, onClo
                   </div>
 
                   {preview && (
-                    <div className="space-y-1 rounded-xl border border-slate-200 bg-white p-3 text-[11px]">
+                    <div className="space-y-1 rounded-xl border border-border bg-card p-3 text-[11px]">
                       <div className="flex items-center gap-1.5 font-bold text-emerald-800">
                         <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
                         <span>Passing Range: {preview.passText}</span>

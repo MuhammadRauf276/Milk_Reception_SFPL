@@ -3,7 +3,7 @@ import { writeAuditLog } from '@/backend/core/audit';
 import { prisma } from '@core/db';
 import { getSupplyChainLossHierarchy } from './lossCalculationService';
 import { listZmccExitOutcomes } from './zmccManagerOverviewService';
-import { getTankPhysicalStock } from './zmccTankService';
+import { getTankPhysicalStock, getBatchTankPhysicalStock } from './zmccTankService';
 import { getPakistanCalendarDate } from '@core/business-day';
 import { isFatTestCandidate, isLrTestCandidate } from '@/backend/utils/milkTestResolvers';
 import { jsonRecord, jsonString } from '@/lib/json';
@@ -54,6 +54,11 @@ export interface MpdExecutiveTelemetry {
     lr: number | null;
     status: string;
     etaOrArrival: string;
+    latitude: number | null;
+    longitude: number | null;
+    lastFixAt: string | null;
+    headingDeg: number | null;
+    speedMps: number | null;
   }>;
   inTransitTankers: Array<{
     id: string;
@@ -507,10 +512,8 @@ export async function getMpdExecutiveTelemetry(options: { includeErpCode?: boole
 
   // ZMCC centers
   const zmccSources = activeSources.filter((s) => s.source_type === 'ZMCC');
-  const tankStocks = new Map<string, number>();
-  await Promise.all(
-    zmccSources.flatMap((z) => z.zmcc_tanks).map(async (t) => tankStocks.set(t.id.toString(), await getTankPhysicalStock(t.id)))
-  );
+  const allTankIds = zmccSources.flatMap((z) => z.zmcc_tanks.map((t) => t.id));
+  const tankStocks = await getBatchTankPhysicalStock(allTankIds);
 
   const zmccCenters = zmccSources.map((zmcc) => {
     const received = tankReceipts.filter((r) => r.zmcc_id === zmcc.id);
@@ -578,8 +581,8 @@ export async function getMpdExecutiveTelemetry(options: { includeErpCode?: boole
       code: c.code,
       name: c.name,
       deliveredLiters: round(c.visits.reduce((sum, v) => sum + (toNumber(v.vehicle_dispatch_gross_liters) ?? 0), 0)),
-      avgFatPercent: mean(portions.map((p) => numericResultFor(p.plant_lab_results, isFatTestCandidate))),
-      avgLr: mean(portions.map((p) => numericResultFor(p.plant_lab_results, isLrTestCandidate))),
+      avgFatPercent: weightedMean(portions.map((p) => [numericResultFor(p.plant_lab_results, isFatTestCandidate), toNumber(p.dispatch_quantity_value) ?? 1])),
+      avgLr: weightedMean(portions.map((p) => [numericResultFor(p.plant_lab_results, isLrTestCandidate), toNumber(p.dispatch_quantity_value) ?? 1])),
       qualityPassRatePercent: percentOf(decided.filter((p) => p.plant_decision === 'ACCEPTED').length, decided.length),
     };
   });
@@ -602,7 +605,20 @@ export async function getMpdExecutiveTelemetry(options: { includeErpCode?: boole
   }));
 
   // MOT routes
+  const lastFixes = activeJourneys.length
+    ? await prisma.motJourneyLocation.findMany({
+        where: { journey_id: { in: activeJourneys.map((j) => j.id) } },
+        orderBy: { device_recorded_at: 'desc' },
+        distinct: ['journey_id'],
+      })
+    : [];
+  const lastFixByJourney = new Map(lastFixes.map((f) => [f.journey_id.toString(), f]));
   const motRoutes = activeJourneys.map((j) => ({
+    latitude: toNumber(lastFixByJourney.get(j.id.toString())?.latitude),
+    longitude: toNumber(lastFixByJourney.get(j.id.toString())?.longitude),
+    lastFixAt: lastFixByJourney.get(j.id.toString())?.device_recorded_at.toISOString() ?? null,
+    headingDeg: toNumber(lastFixByJourney.get(j.id.toString())?.heading_deg),
+    speedMps: toNumber(lastFixByJourney.get(j.id.toString())?.speed_mps),
     id: j.id.toString(),
     routeCode: j.route?.route_code ?? null,
     routeName: j.route?.name ?? null,

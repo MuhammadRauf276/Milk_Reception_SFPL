@@ -108,11 +108,11 @@ export const MasterTables: React.FC<Props> = (p) => {
   const common = { canEdit: p.canEdit, onEdit: p.onEdit, onToggle: p.onToggle };
   switch (p.activeTab) {
     case 'LOCAL_SUPPLIERS':
-      return <MasterTable {...common} cols={supplierCols} rows={p.localSuppliers} entity="HC Supplier" emptyText='No HC suppliers found. Click "Add HC Supplier" to register one.' />;
+      return <MasterTable {...common} cols={supplierCols} rows={p.localSuppliers} entity="HC Supplier" emptyText="No HC suppliers." />;
     case 'ROUTES':
-      return <MasterTable {...common} cols={routeCols} rows={p.routes} entity="Route" emptyText='No routes found. Click "Add Route" to create one.' />;
+      return <MasterTable {...common} cols={routeCols} rows={p.routes} entity="Route" emptyText="No routes." />;
     case 'AREAS':
-      return <MasterTable {...common} cols={areaCols} rows={p.areas} entity="Area" emptyText='No areas found. Click "Add Area" to create one.' />;
+      return <MasterTable {...common} cols={areaCols} rows={p.areas} entity="Area" emptyText="No areas." />;
     case 'MILK_SOURCES':
       return <MasterTable
           {...common}
@@ -120,15 +120,15 @@ export const MasterTables: React.FC<Props> = (p) => {
           cols={p.canViewSourceErp ? sourceCols : sourceNameOnlyCols}
           rows={p.milkSources}
           entity="Milk Source"
-          hideActionsWhenReadOnly
-          emptyText={p.canEditSources ? 'No milk sources found. Click "Add Milk Source" to create one.' : 'No milk sources are assigned to this ZMCC yet.'}
+         
+          emptyText={"No milk sources."}
         />;
     case 'CHILLER_OWNERSHIP':
-      return <MasterTable {...common} cols={chillerCols} rows={p.chillerOwnerships} entity="Chiller Ownership" emptyText="No chiller ownerships found." />;
+      return <MasterTable {...common} cols={chillerCols} rows={p.chillerOwnerships} entity="Chiller Ownership" emptyText="No chillers." />;
     case 'SHOPS':
-      return <MasterTable {...common} cols={shopCols} rows={p.shops} entity="Shop" emptyText='No shops found. Click "Add Shop" to register a collection shop.' />;
+      return <MasterTable {...common} cols={shopCols} rows={p.shops} entity="Shop" emptyText="No shops." />;
     case 'TANKS':
-      return <MasterTable {...common} cols={tankCols} rows={p.tanks} entity="Tank" hideActionsWhenReadOnly emptyText="No ZMCC tanks found." />;
+      return <MasterTable {...common} cols={tankCols} rows={p.tanks} entity="Tank" hideActionsWhenReadOnly emptyText="No tanks." />;
     default:
       return null;
   }

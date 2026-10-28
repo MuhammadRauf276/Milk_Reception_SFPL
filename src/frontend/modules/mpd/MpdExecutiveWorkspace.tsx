@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -10,6 +11,10 @@ import {
   Layers,
   ShieldAlert,
   Sliders,
+  Network,
+  Route as RouteIcon,
+  FileSpreadsheet,
+  TrendingUp,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { MpdTabId, MpdExecutiveTelemetryData } from './types';
@@ -20,6 +25,11 @@ import { MpdQualityScreen } from './screens/MpdQualityScreen';
 import { MpdLossScreen } from './screens/MpdLossScreen';
 import { MpdGovernanceScreen } from './screens/MpdGovernanceScreen';
 import { MpdPolicyScreen } from './screens/MpdPolicyScreen';
+import { ZMCCSubordinateHierarchyScreen } from '@/frontend/modules/dashboard/zmcc/ZMCCSubordinateHierarchyScreen';
+import { ZMCCOperationalJourneysScreen } from '@/frontend/modules/dashboard/zmcc/ZMCCOperationalJourneysScreen';
+import { ZMCCComprehensiveReportsScreen } from '@/frontend/modules/dashboard/zmcc/ZMCCComprehensiveReportsScreen';
+import { ZMCCDynamicBIAnalyticsScreen } from '@/frontend/modules/dashboard/zmcc/ZMCCDynamicBIAnalyticsScreen';
+import { DynamicReportGeneratorScreen } from '@/frontend/modules/dashboard/reports/DynamicReportGeneratorScreen';
 
 import type { User } from '@core/types';
 import { PageHeader } from '@/components/ui/page-header';
@@ -35,9 +45,31 @@ interface MpdExecutiveWorkspaceProps {
 }
 
 export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ currentUser, initialData }) => {
-  const [activeTab, setActiveTab] = useState<MpdTabId>('FLEET_RADAR');
+  const searchParams = useSearchParams();
+  const rawUrlView = searchParams?.get('view')?.toUpperCase();
+  const urlView = rawUrlView === 'ANALYTICS' ? 'REPORTS' : rawUrlView;
+  const validViews: MpdTabId[] = [
+    'FLEET_RADAR',
+    'HIERARCHY',
+    'MOT_JOURNEYS',
+    'REPORTS',
+    'SOURCES',
+    'QUALITY_FUNNEL',
+    'LOSS_DIAGNOSTICS',
+    'GOVERNANCE',
+    'POLICIES',
+  ];
+  const [activeTab, setActiveTab] = useState<MpdTabId>(
+    validViews.includes(urlView as MpdTabId) ? (urlView as MpdTabId) : 'FLEET_RADAR'
+  );
+  useEffect(() => {
+    if (validViews.includes(urlView as MpdTabId)) setActiveTab(urlView as MpdTabId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlView]);
   const queryClient = useQueryClient();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [selectedZmccId, setSelectedZmccId] = useState<string>('');
+  const [mpdReportMode, setMpdReportMode] = useState<'STUDIO' | 'LEDGERS'>('STUDIO');
 
   const telemetryQuery = useQuery({
     queryKey: ['mpd', 'executive-overview'],
@@ -98,6 +130,23 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
       count: telemetry ? telemetry.inTransitTankers.length + telemetry.motRoutes.length : undefined,
     },
     {
+      id: 'HIERARCHY',
+      label: 'Hierarchy',
+      icon: <Network className="w-4 h-4" />,
+    },
+    {
+      id: 'MOT_JOURNEYS',
+      label: 'MOT Journeys',
+      icon: <RouteIcon className="w-4 h-4" />,
+      count: telemetry ? telemetry.motRoutes.length : undefined,
+    },
+    {
+      id: 'REPORTS',
+      label: 'Reports',
+      icon: <FileSpreadsheet className="w-4 h-4" />,
+    },
+
+    {
       id: 'SOURCES',
       label: 'Sources & Silos',
       icon: <Building2 className="w-4 h-4" />,
@@ -136,8 +185,6 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
         title="Executive command center"
         description={
           <span className="inline-flex flex-wrap items-center gap-x-2">
-            <span>ZMCCs, MOT routes, in-transit tankers and plant contractors</span>
-            <span aria-hidden="true">·</span>
             <span className="tabular-nums">{telemetry?.calendarDate || new Date().toISOString().split('T')[0]}</span>
           </span>
         }
@@ -151,19 +198,61 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
       />
 
       {/* Top Level KPI Ribbon */}
-      {telemetry && <MpdExecutiveKpiRibbon summary={telemetry.summary} isLoading={loading} />}
+      {telemetry && activeTab === 'FLEET_RADAR' && <MpdExecutiveKpiRibbon summary={telemetry.summary} isLoading={loading} />}
 
       {/* Segmented Sub-Screen Tabs Bar */}
-      <SegmentedTabs
-        label="Executive views"
-        value={activeTab}
-        onValueChange={setActiveTab}
-        tabs={tabs.map((tab) => ({ value: tab.id, label: tab.label, icon: tab.icon as React.ReactElement, count: tab.count }))}
-      />
+      <div className="overflow-x-auto pb-1">
+        <SegmentedTabs
+          label="Executive views"
+          value={activeTab}
+          onValueChange={(val) => {
+            setActiveTab(val);
+            if (typeof window !== 'undefined') {
+              const url = new URL(window.location.href);
+              url.searchParams.set('view', val);
+              window.history.replaceState({}, '', url.toString());
+            }
+          }}
+          className="lg:inline-flex"
+          tabs={tabs.map((tab) => ({ value: tab.id, label: tab.label, icon: tab.icon as React.ReactElement, count: tab.count }))}
+        />
+      </div>
+
+      {/* Multi-Facility ZMCC Selector for Scoped Views */}
+      {['HIERARCHY', 'MOT_JOURNEYS', 'REPORTS', 'ANALYTICS'].includes(activeTab) && (
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-card border border-border p-3 rounded-xl shadow-xs animate-panel-in">
+          <div className="flex items-center gap-2.5">
+            <Building2 className="w-4 h-4 text-primary shrink-0" />
+            <span className="text-xs font-semibold text-slate-700">ZMCC Facility Scope:</span>
+            <select
+              value={selectedZmccId}
+              onChange={(e) => setSelectedZmccId(e.target.value)}
+              className="text-xs bg-background border border-border rounded-lg px-3 py-1.5 font-medium text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-primary/20 cursor-pointer"
+            >
+              <option value="">All ZMCC Centers (Consolidated Enterprise View)</option>
+              {telemetry?.zmccCenters?.map((zmcc) => (
+                <option key={zmcc.id} value={zmcc.id}>
+                  {zmcc.code} · {zmcc.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          {selectedZmccId && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSelectedZmccId('')}
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              Reset to All Facilities
+            </Button>
+          )}
+        </div>
+      )}
 
       {/* Error state */}
       {error && (
-        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center gap-2 animate-panel-in">
+        <div className="bg-card border-border p-4 rounded-xl border text-rose-800 text-xs font-semibold flex items-center gap-2 animate-panel-in">
           <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
           <span>{error}</span>
         </div>
@@ -178,7 +267,6 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
               <MpdFleetRadarScreen
                 tankers={telemetry.inTransitTankers}
                 routes={telemetry.motRoutes}
-                substitutes={telemetry.emergencySubstitutes}
               />
             )}
             {activeTab === 'SOURCES' && (
@@ -200,9 +288,65 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
               />
             )}
             {activeTab === 'POLICIES' && <MpdPolicyScreen currentUser={currentUser} />}
+            {activeTab === 'HIERARCHY' && (
+              <ZMCCSubordinateHierarchyScreen
+                currentUser={currentUser ?? null}
+                targetZmccId={selectedZmccId || undefined}
+                onSelectFacility={(id) => setSelectedZmccId(id)}
+              />
+            )}
+            {activeTab === 'MOT_JOURNEYS' && (
+              <ZMCCOperationalJourneysScreen
+                currentUser={currentUser ?? null}
+                targetZmccId={selectedZmccId || undefined}
+              />
+            )}
+            {activeTab === 'REPORTS' && (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between border-b border-border pb-3">
+                  <div className="flex items-center gap-1.5 bg-muted/60 p-1 rounded-xl">
+                    <button
+                      type="button"
+                      onClick={() => setMpdReportMode('STUDIO')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                        mpdReportMode === 'STUDIO'
+                          ? 'bg-background text-foreground shadow-2xs font-semibold'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      Dynamic Report Studio
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMpdReportMode('LEDGERS')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                        mpdReportMode === 'LEDGERS'
+                          ? 'bg-background text-foreground shadow-2xs font-semibold'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      Standard Operational Ledgers
+                    </button>
+                  </div>
+                </div>
+
+                {mpdReportMode === 'STUDIO' ? (
+                  <DynamicReportGeneratorScreen
+                    currentUser={currentUser ?? null}
+                    targetZmccId={selectedZmccId || undefined}
+                  />
+                ) : (
+                  <ZMCCComprehensiveReportsScreen
+                    currentUser={currentUser ?? null}
+                    targetZmccId={selectedZmccId || undefined}
+                  />
+                )}
+              </div>
+            )}
+            
           </>
         ) : (
-          <div className="bg-white border border-border rounded-xl p-12 text-center text-slate-500 text-xs">
+          <div className="bg-card border-border border rounded-xl p-12 text-center text-slate-500 text-xs">
             Loading MPD Executive Telemetry…
           </div>
         )}

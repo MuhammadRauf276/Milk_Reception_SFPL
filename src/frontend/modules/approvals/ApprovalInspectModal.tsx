@@ -2,10 +2,8 @@
 
 import React, { useState } from 'react';
 import {
-  CheckCircle2,
   Clock,
   ShieldAlert,
-  XCircle,
   X,
   FileText,
   AlertTriangle,
@@ -18,7 +16,7 @@ import { Modal } from '@/components/ui/modal';
 import { Spinner } from '@/components/ui/spinner';
 import { cn } from '@/lib/utils';
 import { getErrorMessage } from '@/lib/errors';
-import { STAGE_LABELS, formatWaitingLabel } from './approvalInboxShared';
+import { STAGE_LABELS, cleanEntityTitle, formatWaitingLabel } from './approvalInboxShared';
 import { ApprovalDetailBody } from './ApprovalDetailBody';
 
 export interface ApprovalInspectModalProps {
@@ -109,7 +107,7 @@ export function ApprovalInspectModal({
                   {item.referenceNumber}
                 </DrawerTitle>
               </div>
-              <p className="text-xs text-slate-600 font-medium">{item.details.entityTitle}</p>
+              <p className="text-xs text-slate-600 font-medium">{cleanEntityTitle(item.details.entityTitle)}</p>
               <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 pt-0.5">
                 <span>
                   Source: <strong className="text-slate-700">{item.sourceName || 'ZMCC Area'}</strong>
@@ -137,7 +135,7 @@ export function ApprovalInspectModal({
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition min-h-11 min-w-11"
               aria-label="Close dialog"
             >
               <X className="w-5 h-5" />
@@ -169,7 +167,7 @@ export function ApprovalInspectModal({
                           : 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
                       )}
                     >
-                      <CheckCircle2 className="w-4 h-4" />
+                      
                       <span>Approve Request</span>
                     </button>
 
@@ -186,7 +184,7 @@ export function ApprovalInspectModal({
                           : 'border-rose-300 bg-rose-50 text-rose-800 hover:bg-rose-100'
                       )}
                     >
-                      <XCircle className="w-4 h-4" />
+                      
                       <span>Reject Request</span>
                     </button>
                   </div>
@@ -214,12 +212,12 @@ export function ApprovalInspectModal({
                               ? 'State specific technical or operational reason for rejection…'
                               : 'Optional notes for audit logs…'
                           }
-                          className="w-full p-2.5 text-xs border border-border rounded-lg bg-white resize-none focus:outline-none focus:ring-1 focus:ring-primary"
+                          className="w-full p-2.5 text-xs border border-border rounded-lg bg-white resize-none focus:outline-none focus:ring-1 focus:ring-primary min-h-11"
                         />
                       </div>
 
                       {decisionError && (
-                        <div className="p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
+                        <div className="bg-card border-border p-2.5 rounded-lg border text-rose-700 text-xs font-semibold flex items-center gap-2">
                           <AlertTriangle className="w-4 h-4 shrink-0" />
                           <span>{decisionError}</span>
                         </div>

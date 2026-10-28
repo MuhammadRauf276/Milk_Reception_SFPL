@@ -76,7 +76,7 @@ export function NavPanel({
         <BrandMark />
         {showClose ? (
           <SheetClose
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
             aria-label="Close navigation"
           >
             <X className="h-4 w-4" />
@@ -106,7 +106,7 @@ export function NavPanel({
                     aria-current={active ? 'page' : undefined}
                     className={cn(
                       itemBase,
-                      'min-h-[48px] sm:min-h-[36px] h-9',
+                      'min-h-11',
                       active
                         ? 'bg-primary/[0.07] font-medium text-primary'
                         : 'text-slate-600 hover:bg-muted hover:text-foreground'
@@ -134,7 +134,7 @@ export function NavPanel({
                   aria-controls={panelId}
                   className={cn(
                     itemBase,
-                    'min-h-[48px] sm:min-h-[36px] h-9 text-left cursor-pointer',
+                    'min-h-11 text-left cursor-pointer',
                     containsActive ? 'font-medium text-foreground' : 'text-slate-600 hover:bg-muted hover:text-foreground'
                   )}
                 >
@@ -178,7 +178,7 @@ export function NavPanel({
                                 aria-current={active ? 'page' : undefined}
                                 className={cn(
                                   itemBase,
-                                  'relative min-h-[48px] sm:min-h-[32px] text-[13px] py-2 sm:py-1',
+                                  'relative min-h-[48px] sm:min-h-11 text-[13px] py-2',
                                   active
                                     ? 'bg-primary/[0.07] font-medium text-primary'
                                     : 'text-slate-600 hover:bg-muted hover:text-foreground'

@@ -4,6 +4,7 @@ import type { ActingContext } from '@/types/acting';
 import { TEST_POINT_CODES } from '@/types/test-point-policy';
 import type { TestPointCode, TestPointPolicyCell } from '@/types/test-point-policy';
 import { writeAuditLog, type AuditDb } from '@/backend/core/audit';
+import { getMasterSpec } from '@/lib/master-lab-tests-data';
 
 type TestMode = TestPointPolicyCell['testMode'];
 type RuleMode = TestPointPolicyCell['ruleMode'];
@@ -18,7 +19,7 @@ const LR_FAT_CODES = new Set(['LT-000008', 'LT-000027', 'LT-000026', 'LR', 'FAT'
 const DISPATCH_POINTS = new Set<TestPointCode>(['ZMCC_DISPATCH', 'CONTRACTOR_DISPATCH']);
 const EPOCH_ISO = new Date(0).toISOString();
 
-const TEST_MODES: readonly TestMode[] = ['COMPULSORY', 'OPTIONAL', 'OFF'];
+const TEST_MODES: readonly TestMode[] = ['COMPULSORY', 'OPTIONAL', 'OFF', 'APPLIED', 'NOT_APPLIED', 'AUTO'];
 const RULE_MODES: readonly RuleMode[] = ['APPLY', 'WARN'];
 const PHOTO_MODES: readonly PhotoMode[] = ['REQUIRED', 'OPTIONAL', 'NONE'];
 
@@ -110,6 +111,13 @@ export function defaultModes(testCode: string, point: TestPointCode): { testMode
     return DISPATCH_POINTS.has(point)
       ? { testMode: 'COMPULSORY', ruleMode: 'APPLY', photoMode: 'REQUIRED' }
       : { testMode: 'OFF', ruleMode: 'APPLY', photoMode: 'NONE' };
+  }
+  const spec = getMasterSpec(code);
+  if (spec && spec.stages && spec.stages[point]) {
+    return { testMode: spec.stages[point], ruleMode: 'APPLY', photoMode: 'NONE' };
+  }
+  if (code === 'LT-000010' || code === 'LT-000011' || code === 'SNF' || code.includes('RATIO')) {
+    return { testMode: 'AUTO', ruleMode: 'APPLY', photoMode: 'NONE' };
   }
   if (LR_FAT_CODES.has(code)) {
     const isContractor = point === 'CONTRACTOR_DISPATCH';

@@ -2,7 +2,8 @@
 
 import React, { useMemo, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { Loader2, Scale, Warehouse } from 'lucide-react';
+import { Scale, Warehouse } from 'lucide-react';
+import { InfoTip } from '@/components/ui/info-tip';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { getErrorMessage } from '@/lib/errors';
 import {
@@ -60,7 +61,6 @@ export const WeighingEntryDrawer: React.FC<Props> = ({ session, tanks, sources, 
   const [sourceId, setSourceId] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  // Live NET per portion (the only figure shown).
   const liveNets: Array<number | null> = useMemo(() => {
     if (mode === 'MANUAL') return manual.map((m) => toNum(m.value));
     return portions.map((_p, i) => {
@@ -69,6 +69,11 @@ export const WeighingEntryDrawer: React.FC<Props> = ({ session, tanks, sources, 
       return a !== null && b !== null && a > b && b > 0 ? Number((a - b).toFixed(3)) : null;
     });
   }, [mode, manual, weights, portions]);
+
+  const totalLiveNet = useMemo(() => {
+    if (liveNets.length === 0 || liveNets.some((v) => v === null || v <= 0)) return null;
+    return Number(liveNets.reduce<number>((sum, v) => sum + (v ?? 0), 0).toFixed(3));
+  }, [liveNets]);
 
   const weightsInvalid =
     mode === 'WEIGHT' &&
@@ -127,7 +132,11 @@ export const WeighingEntryDrawer: React.FC<Props> = ({ session, tanks, sources, 
     }
   };
 
-  const weightLabel = (i: number) => (i === 0 ? 'Vehicle weight before unloading (kg)' : `Vehicle weight after ${portions[i - 1].label} (kg)`);
+  const weightLabel = (i: number) => {
+    if (i === 0) return 'Weight 1 · Initial gross weight before unloading (kg)';
+    if (i === n) return `Weight ${i + 1} · Final tare weight after ${portions[i - 1].label} (kg)`;
+    return `Weight ${i + 1} · Weight after ${portions[i - 1].label} (kg)`;
+  };
 
   return (
     <ZmccDrawer
@@ -142,7 +151,7 @@ export const WeighingEntryDrawer: React.FC<Props> = ({ session, tanks, sources, 
       }
       icon={<Scale className="mt-0.5 h-5 w-5 text-slate-600" />}
     >
-      {manualAllowed && (
+      {manualAllowed ? (
         <div role="group" aria-label="Entry mode" className="grid grid-cols-2 gap-2">
           {(['WEIGHT', 'MANUAL'] as const).map((m) => (
             <button
@@ -151,24 +160,31 @@ export const WeighingEntryDrawer: React.FC<Props> = ({ session, tanks, sources, 
               aria-pressed={mode === m}
               disabled={busy}
               onClick={() => setMode(m)}
-              className={`min-h-[44px] rounded-xl border px-3 text-sm font-semibold ${
-                mode === m ? 'border-primary bg-primary text-white' : 'bg-white text-slate-700'
+              className={`min-h-[44px] rounded-xl border px-3 text-sm font-semibold transition-colors ${
+                mode === m ? 'border-primary bg-primary text-white' : 'bg-white text-slate-700 hover:bg-slate-50'
               }`}
             >
-              {m === 'WEIGHT' ? 'Weigh on scale' : 'Type quantity'}
+              {m === 'WEIGHT' ? `Weigh on scale (${n + 1} weights)` : 'Type portion net weight'}
             </button>
           ))}
+        </div>
+      ) : (
+        <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+          <span className="font-medium">Stepwise scale weighing ({n + 1} weights)</span>
+          <span className="text-[11px] text-slate-500 font-mono">Enforced by Super Admin</span>
         </div>
       )}
 
       {mode === 'WEIGHT' ? (
         <div className="space-y-3">
-          <p className="text-xs text-slate-500">
-            Weigh the vehicle {n + 1} times: first before unloading, then after each portion. Each weight must be less
-            than the one before.
-          </p>
+          <div className="flex items-center gap-1">
+            <p className="text-sm font-semibold text-slate-700">Sequential scale weights ({n + 1} total)</p>
+            <InfoTip
+              text={`Weigh the vehicle ${n + 1} times: first before unloading, then after each portion. Each weight must be less than the one before.`}
+            />
+          </div>
           {weights.map((w, i) => (
-            <div key={i}>
+            <div key={i} className="space-y-1">
               <label className={zmccLabelClass} htmlFor={`w-${i}`}>
                 {weightLabel(i)}
               </label>
@@ -180,21 +196,45 @@ export const WeighingEntryDrawer: React.FC<Props> = ({ session, tanks, sources, 
                 step="0.001"
                 value={w}
                 disabled={busy}
+                placeholder={i === 0 ? 'e.g. 16000' : i === n ? 'e.g. 6300' : 'e.g. 12500'}
                 onChange={(e) => setWeights((prev) => prev.map((x, j) => (j === i ? e.target.value : x)))}
                 className={zmccInputClass}
               />
-              {i > 0 && (
-                <p className="mt-1 text-xs font-semibold text-emerald-800">
-                  {portions[i - 1].label} net: {liveNets[i - 1] !== null ? `${liveNets[i - 1]} kg` : '-'}
-                </p>
+              {i > 0 && liveNets[i - 1] !== null && (
+                <div className="flex items-center justify-between rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800 border border-emerald-200">
+                  <span>{portions[i - 1].label} Net Weight (W{i} - W{i + 1}):</span>
+                  <span className="font-bold">{liveNets[i - 1]?.toLocaleString()} kg</span>
+                </div>
               )}
             </div>
           ))}
           {weightsInvalid && <ZmccErrorBanner message="A weight is not less than the one before it. Please check." />}
+
+          {totalLiveNet !== null && !weightsInvalid && (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 text-xs space-y-1.5">
+              <div className="flex items-center justify-between font-semibold text-emerald-900 border-b border-emerald-200/60 pb-1">
+                <span>Net Milk Weight Summary</span>
+                <span className="text-[11px] font-normal text-emerald-700">
+                  {n + 1} weights verified
+                </span>
+              </div>
+              <div className="space-y-1 pt-0.5">
+                {portions.map((p, idx) => (
+                  <div key={p.id} className="flex items-center justify-between text-slate-700">
+                    <span>{p.label}:</span>
+                    <span className="font-medium">{liveNets[idx]?.toLocaleString()} kg</span>
+                  </div>
+                ))}
+                <div className="flex items-center justify-between pt-1 border-t border-emerald-200 font-bold text-slate-900 text-sm">
+                  <span>Total Net Milk:</span>
+                  <span className="text-emerald-800">{totalLiveNet.toLocaleString()} kg</span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <div className="space-y-3">
-          <p className="text-xs text-slate-500">Type the net milk quantity of each portion.</p>
           {portions.map((p, i) => (
             <div key={p.id}>
               <label className={zmccLabelClass} htmlFor={`m-${p.id}`}>
@@ -230,15 +270,42 @@ export const WeighingEntryDrawer: React.FC<Props> = ({ session, tanks, sources, 
               </div>
             </div>
           ))}
+
+          {totalLiveNet !== null && (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 text-xs space-y-1.5">
+              <div className="flex items-center justify-between font-semibold text-emerald-900 border-b border-emerald-200/60 pb-1">
+                <span>Direct Net Quantity Summary</span>
+                <span className="text-[11px] font-normal text-emerald-700">
+                  Direct entry
+                </span>
+              </div>
+              <div className="space-y-1 pt-0.5">
+                {portions.map((p, idx) => (
+                  <div key={p.id} className="flex items-center justify-between text-slate-700">
+                    <span>{p.label}:</span>
+                    <span className="font-medium">
+                      {liveNets[idx]?.toLocaleString()} {manual[idx]?.unit.toLowerCase()}
+                    </span>
+                  </div>
+                ))}
+                <div className="flex items-center justify-between pt-1 border-t border-emerald-200 font-bold text-slate-900 text-sm">
+                  <span>Total Net Quantity:</span>
+                  <span className="text-emerald-800">
+                    {totalLiveNet.toLocaleString()} {manual[0]?.unit.toLowerCase() || 'kg'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
       <div className="space-y-3 border-t pt-4">
-        {myTanks.length > 1 && (
-          <div>
-            <label className={zmccLabelClass} htmlFor="unload-tank">
-              Tank
-            </label>
+        <div>
+          <label className={zmccLabelClass} htmlFor="unload-tank">
+            Destination ZMCC Tank
+          </label>
+          {myTanks.length > 1 ? (
             <select
               id="unload-tank"
               value={tankId}
@@ -246,21 +313,30 @@ export const WeighingEntryDrawer: React.FC<Props> = ({ session, tanks, sources, 
               onChange={(e) => setTankId(e.target.value)}
               className={`${zmccInputClass} bg-white`}
             >
-              <option value="">Choose tank</option>
+              <option value="">Choose destination tank ({myTanks.length} available)</option>
               {myTanks.map((t) => (
                 <option key={t.id} value={t.id}>
-                  {t.tank_code} - {Math.round(t.available_capacity)} L free
+                  {t.tank_code} · {t.tank_name} ({Math.round(t.available_capacity).toLocaleString()} L available)
                 </option>
               ))}
             </select>
-          </div>
-        )}
-        {myTanks.length === 1 && (
-          <p className="flex items-center gap-1.5 text-sm font-semibold text-slate-700">
-            <Warehouse className="h-4 w-4" /> Tank {myTanks[0].tank_code}
-          </p>
-        )}
-        {myTanks.length === 0 && <ZmccErrorBanner message="No active tank is set up for this ZMCC." />}
+          ) : myTanks.length === 1 ? (
+            <div className="flex items-center justify-between p-3 rounded-xl border border-border bg-slate-50 text-sm">
+              <div className="flex items-center gap-2">
+                <Warehouse className="h-4 w-4 text-slate-600" />
+                <div>
+                  <span className="font-bold text-slate-900">{myTanks[0].tank_code}</span>
+                  <span className="text-slate-500 text-xs ml-1.5">({myTanks[0].tank_name})</span>
+                </div>
+              </div>
+              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                Active Tank
+              </span>
+            </div>
+          ) : (
+            <ZmccErrorBanner message="No active tank is set up for this ZMCC." />
+          )}
+        </div>
 
         {session.needs_source && (
           <div>
@@ -282,7 +358,7 @@ export const WeighingEntryDrawer: React.FC<Props> = ({ session, tanks, sources, 
               ))}
             </select>
             {mySources.length === 0 && (
-              <p className="mt-1 text-xs text-rose-700">No milk source is assigned to this ZMCC. Ask the MPD Head.</p>
+              <p className="mt-1 text-xs text-rose-700">No milk source assigned.</p>
             )}
           </div>
         )}
@@ -290,18 +366,35 @@ export const WeighingEntryDrawer: React.FC<Props> = ({ session, tanks, sources, 
         <ZmccErrorBanner message={error} />
 
         <div className="flex flex-col gap-2 sm:flex-row-reverse">
-          <button type="button" className={zmccPrimaryBtn} disabled={busy || !unloadReady || myTanks.length === 0} onClick={() => void onUnload()}>
-            {unloadMutation.isPending ? (
-              <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-            ) : (
-              <Warehouse className="mr-2 inline h-4 w-4" />
-            )}
-            Unload to ZMCC tank
+          <button
+            type="button"
+            className={zmccPrimaryBtn}
+            disabled={busy || !unloadReady || myTanks.length === 0}
+            onClick={() => void onUnload()}
+          >
+            {unloadMutation.isPending ? 'Unloading…' : 'Unload to ZMCC tank'}
           </button>
-          <button type="button" className={zmccGhostBtn} disabled={busy || !complete} onClick={() => void onSave()}>
-            {saveMutation.isPending && !unloadMutation.isPending ? 'Saving…' : 'Save values only'}
+          <button
+            type="button"
+            className={zmccGhostBtn}
+            disabled={busy || !complete}
+            onClick={() => void onSave()}
+            title="Save draft values without unloading yet"
+          >
+            {saveMutation.isPending && !unloadMutation.isPending ? 'Saving…' : 'Save draft only'}
           </button>
         </div>
+        {!busy && (!complete || !unloadReady) && (
+          <p className="text-xs text-slate-500">
+            {!complete
+              ? 'Enter all weights first.'
+              : myTanks.length === 0
+                ? 'No tank set up.'
+                : myTanks.length > 1 && tankId === ''
+                  ? 'Choose a tank first.'
+                  : 'Choose a milk source first.'}
+          </p>
+        )}
       </div>
     </ZmccDrawer>
   );

@@ -11,7 +11,7 @@ export const QAWaitingVisitCard: React.FC<{
   isSubmitting: boolean;
   onStart: (visitId: string) => void;
 }> = ({ visit, isSubmitting, onStart }) => (
-  <div className="p-5 sm:p-6 rounded-xl bg-white border border-border-strong shadow-xs space-y-5 text-foreground">
+  <div className="bg-card border-border p-5 sm:p-6 rounded-xl border shadow-xs space-y-5 text-foreground">
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border-strong">
       <div className="flex items-center space-x-3">
         <div className="p-2.5 rounded-xl bg-primary text-white shadow-2xs">
@@ -32,7 +32,7 @@ export const QAWaitingVisitCard: React.FC<{
       </span>
     </div>
 
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 p-3.5 rounded-xl bg-subtle border border-border text-xs tabular-nums font-semibold">
+    <div className="bg-card border-border grid grid-cols-2 sm:grid-cols-3 gap-2.5 p-3.5 rounded-xl border text-xs tabular-nums font-semibold">
       <div className="space-y-0.5">
         <span className="text-slate-500 font-sans block text-[10px] uppercase font-bold tracking-wider">
           Portions
@@ -85,7 +85,7 @@ export const QAHeldVisitCard: React.FC<{
   isSubmitting: boolean;
   onResume: (visitId: string) => void;
 }> = ({ visit, isSubmitting, onResume }) => (
-  <div className="p-5 sm:p-6 rounded-xl bg-white border border-amber-300 shadow-xs space-y-5 text-foreground">
+  <div className="bg-card border-border p-5 sm:p-6 rounded-xl border shadow-xs space-y-5 text-foreground">
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-amber-200">
       <div className="flex items-center space-x-3">
         <div className="p-2.5 rounded-xl bg-amber-600 text-white shadow-2xs">
@@ -105,14 +105,14 @@ export const QAHeldVisitCard: React.FC<{
       </span>
     </div>
 
-    <div className="p-4 rounded-xl bg-amber-50/70 border border-amber-200 space-y-1.5">
+    <div className="bg-card border-border p-4 rounded-xl border space-y-1.5">
       <span className="text-[11px] font-bold uppercase tracking-wider text-amber-900 block">
         Reason for Hold
       </span>
       <p className="text-xs font-semibold text-amber-950">{visit.hold_reason}</p>
     </div>
 
-    <div className="grid grid-cols-2 gap-3 p-3.5 rounded-xl bg-subtle border border-border text-xs tabular-nums font-semibold">
+    <div className="bg-card border-border grid grid-cols-2 gap-3 p-3.5 rounded-xl border text-xs tabular-nums font-semibold">
       <div>
         <span className="text-slate-500 font-sans block text-[10px] uppercase font-bold tracking-wider">Chemist</span>
         <span className="text-foreground">{visit.chemist_name}</span>

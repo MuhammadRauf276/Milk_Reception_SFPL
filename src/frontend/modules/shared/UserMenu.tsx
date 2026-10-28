@@ -2,7 +2,10 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Bell, ChevronDown, LogOut } from 'lucide-react';
+import { Bell, ChevronDown, LogOut, Wifi, WifiOff } from 'lucide-react';
+import { useForcedOffline } from '@/frontend/hooks/useOnlineStatus';
+import { runSyncOnce } from '@/frontend/modules/pwa/syncEngine';
+import { cn } from '@/lib/utils';
 import { User } from '@core/types';
 import { getLogoutSafety, logoutUser } from '@/frontend/modules/auth/logout';
 import { UnsentWorkLogoutDialog } from '@/frontend/modules/auth/UnsentWorkLogoutDialog';
@@ -25,12 +28,13 @@ function initials(name?: string | null) {
 
 export function UserMenu({ currentUser }: { currentUser: User | null }) {
   const displayName = currentUser?.name || currentUser?.username || 'Operator';
-  const [unsent, setUnsent] = React.useState<{ count: number; needsAttention: number } | null>(null);
+  const [forcedOffline, setForcedOffline] = useForcedOffline();
+  const [unsent, setUnsent] = React.useState<{ count: number; sendableCount: number; draftsCount: number; needsAttention: number } | null>(null);
 
   const handleLogoutClick = async () => {
     const safety = await getLogoutSafety({ isMot: currentUser?.role === 'MOT' }).catch(() => null);
     if (safety && safety.total > 0) {
-      setUnsent({ count: safety.total, needsAttention: safety.needsAttention });
+      setUnsent({ count: safety.total, sendableCount: safety.sendableCount, draftsCount: safety.draftsCount, needsAttention: safety.needsAttention });
       return;
     }
     await logoutUser();
@@ -40,7 +44,7 @@ export function UserMenu({ currentUser }: { currentUser: User | null }) {
     <>
     <DropdownMenu>
       <DropdownMenuTrigger
-        className="flex h-9 items-center gap-2 rounded-md pl-1 pr-1.5 text-left transition-colors hover:bg-muted focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted sm:pr-2"
+        className="flex min-h-11 min-w-11 items-center gap-2 rounded-md pl-1 pr-1.5 text-left transition-colors hover:bg-muted focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted sm:pr-2"
         aria-label="Account menu"
       >
         <Avatar className="h-7 w-7">
@@ -69,6 +73,35 @@ export function UserMenu({ currentUser }: { currentUser: User | null }) {
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
+        <div className="flex items-center justify-between px-2 py-1.5 text-xs select-none">
+          <span className="flex items-center gap-2 text-foreground font-medium">
+            {forcedOffline ? <WifiOff className="h-3.5 w-3.5 text-amber-600" /> : <Wifi className="h-3.5 w-3.5 text-emerald-600" />}
+            Offline Mode
+          </span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={forcedOffline}
+            onClick={(e) => {
+              e.stopPropagation();
+              const next = !forcedOffline;
+              setForcedOffline(next);
+              if (!next) void runSyncOnce();
+            }}
+            className={cn(
+              'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out',
+              forcedOffline ? 'bg-amber-600' : 'bg-slate-300'
+            )}
+          >
+            <span
+              className={cn(
+                'pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out',
+                forcedOffline ? 'translate-x-4' : 'translate-x-0'
+              )}
+            />
+          </button>
+        </div>
+        <DropdownMenuSeparator />
         <DropdownMenuItem destructive onSelect={() => void handleLogoutClick()}>
           <LogOut />
           Sign out
@@ -78,6 +111,8 @@ export function UserMenu({ currentUser }: { currentUser: User | null }) {
     {unsent !== null ? (
       <UnsentWorkLogoutDialog
         count={unsent.count}
+        sendableCount={unsent.sendableCount}
+        draftsCount={unsent.draftsCount}
         needsAttention={unsent.needsAttention}
         isMot={currentUser?.role === 'MOT'}
         onClose={() => setUnsent(null)}

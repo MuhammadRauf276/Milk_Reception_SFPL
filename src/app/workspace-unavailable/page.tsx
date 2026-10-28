@@ -41,11 +41,11 @@ function WorkspaceUnavailableContent() {
     <StatusScreen
       tone="warning"
       icon={<ShieldAlert />}
-      title={isRetired ? 'Role Retired' : 'Workspace not available'}
+      title={isRetired ? 'Role Retired' : 'No workspace'}
       description={
         isRetired
-          ? `Your role (${roleDisplay}) has been retired. Please contact your administrator.`
-          : "Your role doesn't have an active workspace in this environment. Sign in with an authorized account or contact your administrator."
+          ? `Role retired. Contact admin.`
+          : "No workspace. Contact admin."
       }
     >
       <Button onClick={handleLogout} disabled={signingOut}>

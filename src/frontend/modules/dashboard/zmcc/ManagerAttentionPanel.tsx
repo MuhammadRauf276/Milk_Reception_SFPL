@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { InfoTip } from '@/components/ui/info-tip';
 import { ZMCCAttentionItem } from './zmccManagerTypes';
 import { MilkProcessLog } from '@backend/core/types';
 import {
@@ -38,7 +39,7 @@ export const ManagerAttentionPanel: React.FC<ManagerAttentionPanelProps> = ({
         </div>
         <h4 className="text-sm font-semibold text-foreground">No Items Need Attention</h4>
         <p className="text-xs text-slate-500 max-w-md mx-auto">
-          All active dispatches from your ZMCC source are progressing normally through laboratory testing, weighbridge, and silo reception.
+          All on track
         </p>
       </div>
     );
@@ -59,33 +60,33 @@ export const ManagerAttentionPanel: React.FC<ManagerAttentionPanelProps> = ({
         {items.map((item) => {
           const Icon = TYPE_ICONS[item.type] || AlertTriangle;
 
-          let cardBg = 'bg-subtle border-border';
+          let cardBg = 'bg-card border-border';
           let iconColor = 'text-primary bg-blue-50 border-blue-200';
           let badgeText = 'Notice';
           let badgeStyle = 'bg-slate-100 text-slate-700';
 
           if (item.type === 'PLANT_QA_REJECTION') {
-            cardBg = 'bg-rose-50/60 border-rose-200';
+            cardBg = 'bg-card border-border';
             iconColor = 'text-rose-800 bg-rose-100 border-rose-300';
             badgeText = 'QA Rejection';
             badgeStyle = 'bg-rose-50 text-rose-800 border border-rose-200';
           } else if (item.type === 'RECEIPT_PENDING') {
-            cardBg = 'bg-amber-50/60 border-amber-200';
+            cardBg = 'bg-card border-border';
             iconColor = 'text-amber-800 bg-amber-100 border-amber-300';
             badgeText = 'Receipt Pending';
             badgeStyle = 'bg-amber-50 text-amber-800 border border-amber-200';
           } else if (item.type === 'QUANTITY_DIFFERENCE') {
-            cardBg = 'bg-blue-50/60 border-blue-200';
+            cardBg = 'bg-card border-border';
             iconColor = 'text-blue-800 bg-blue-100 border-blue-300';
             badgeText = 'Quantity Difference';
             badgeStyle = 'bg-blue-50 text-blue-800 border border-blue-200';
           } else if (item.type === 'QUALITY_DIFFERENCE') {
-            cardBg = 'bg-amber-50/60 border-amber-200';
+            cardBg = 'bg-card border-border';
             iconColor = 'text-amber-700 bg-amber-100 border-amber-300';
             badgeText = 'Quality Difference';
             badgeStyle = 'bg-amber-50 text-amber-700 border border-amber-200';
           } else if (item.type === 'IN_PLANT_DURATION') {
-            cardBg = 'bg-slate-50 border-slate-200';
+            cardBg = 'bg-card border-border';
             iconColor = 'text-slate-700 bg-slate-100 border-slate-300';
             badgeText = 'In Plant';
             badgeStyle = 'bg-slate-100 text-slate-700 border border-slate-200';
@@ -118,9 +119,7 @@ export const ManagerAttentionPanel: React.FC<ManagerAttentionPanelProps> = ({
 
                 <div>
                   <h4 className="text-xs font-semibold text-foreground">{item.title}</h4>
-                  <p className="text-xs text-slate-600 font-medium mt-0.5 leading-snug">
-                    {item.description}
-                  </p>
+                  {item.description ? <InfoTip text={item.description} className="-ml-2" /> : null}
                 </div>
 
                 {item.metrics && item.metrics.length > 0 && (
@@ -141,7 +140,7 @@ export const ManagerAttentionPanel: React.FC<ManagerAttentionPanelProps> = ({
                 </span>
                 <button
                   onClick={() => onInspectDetails(item.log)}
-                  className="px-2.5 py-1 rounded-lg bg-primary hover:bg-primary-hover text-white font-sans text-xs font-semibold transition flex items-center space-x-1 shadow-2xs"
+                  className="px-2.5 py-1 rounded-lg bg-primary hover:bg-primary-hover text-white font-sans text-xs font-semibold transition flex items-center space-x-1 shadow-2xs min-h-11 min-w-11"
                 >
                   <Eye className="w-3 h-3" />
                   <span>View Details</span>

@@ -20,6 +20,7 @@ import {
 import { getErrorMessage } from '@/lib/errors';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { Combobox } from '@/components/ui/combobox';
+import { InfoTip } from '@/components/ui/info-tip';
 
 interface GatewayStatus {
   status: 'OFFLINE' | 'DISCONNECTED' | 'CONNECTING' | 'SCAN_QR' | 'CONNECTED';
@@ -59,7 +60,7 @@ export default function SuperAdminWhatsAppPage() {
   const [pickedShopId, setPickedShopId] = useState<string>('');
 
   const [messageText, setMessageText] = useState<string>(
-    '*Shakarganj Milk Reception Receipt*\n*Shop:* Bismillah Dairy Collection Center\n*RMR No:* 005102 | *Journey:* #JRN-HAS-20261007-001\n*Vehicle:* LES-19-4821 | *MOT:* Muhammad Tariq\n*Gross Qty:* 210.00 L\n*LR:* 29.0 | *Fat:* 4.1%\n*SNF:* 8.52% | *Total Solids:* 12.60%\n*@13% TS:* 203.86 L\n*Status:* Verified & Dispatched via Super Admin\n_Shakarganj Food Products Ltd, Field Reception_'
+    '*Shakarganj Milk Reception Receipt*\n*Shop:* Bismillah Dairy Collection Center\n*RMR No:* 005102 | *Journey:* #JRN-HAS-20261007-001\n*Vehicle:* LES-19-4821 | *Mobile Tester:* Muhammad Tariq\n*Gross Qty:* 210.00 L\n*LR:* 29.0 | *Fat:* 4.1%\n*SNF:* 8.52% | *Total Solids:* 12.60%\n*@13% TS:* 203.86 L\n*Status:* Verified & Dispatched via Super Admin\n_Shakarganj Food Products Ltd, Field Reception_'
   );
 
   const [isSending, setIsSending] = useState<boolean>(false);
@@ -133,7 +134,7 @@ export default function SuperAdminWhatsAppPage() {
 
     if (type === 'RECEIPT') {
       setMessageText(
-        `*Shakarganj Milk Reception Receipt*\n*Shop:* ${sName}\n*RMR No:* 005102 | *Journey:* #JRN-HAS-20261007-001\n*Vehicle:* LES-19-4821 | *MOT:* Muhammad Tariq\n*Gross Qty:* 210.00 L\n*LR:* 29.0 | *Fat:* 4.1%\n*SNF:* 8.52% | *Total Solids:* 12.60%\n*@13% TS:* 203.86 L\n*Status:* Verified & Dispatched Automatically\n_Shakarganj Food Products Ltd, Field Reception_`
+        `*Shakarganj Milk Reception Receipt*\n*Shop:* ${sName}\n*RMR No:* 005102 | *Journey:* #JRN-HAS-20261007-001\n*Vehicle:* LES-19-4821 | *Mobile Tester:* Muhammad Tariq\n*Gross Qty:* 210.00 L\n*LR:* 29.0 | *Fat:* 4.1%\n*SNF:* 8.52% | *Total Solids:* 12.60%\n*@13% TS:* 203.86 L\n*Status:* Verified & Dispatched Automatically\n_Shakarganj Food Products Ltd, Field Reception_`
       );
     } else if (type === 'RATE') {
       setMessageText(
@@ -141,7 +142,7 @@ export default function SuperAdminWhatsAppPage() {
       );
     } else if (type === 'CHILLING') {
       setMessageText(
-        `*Shakarganj Milk Quality Advisory*\nDear ${oName} (${sName}),\nPlease pre-chill all collected milk below 4°C before the MOT arrives. This qualifies your shop for cold-chain quality bonuses.\n_Shakarganj Quality Assurance Desk_`
+        `*Shakarganj Milk Quality Advisory*\nDear ${oName} (${sName}),\nPlease pre-chill all collected milk below 4°C before the Mobile Tester vehicle arrives. This qualifies your shop for cold-chain quality bonuses.\n_Shakarganj Quality Assurance Desk_`
       );
     }
   };
@@ -219,14 +220,14 @@ export default function SuperAdminWhatsAppPage() {
             type="button"
             onClick={() => fetchGatewayStatus()}
             disabled={refreshing}
-            className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border border-border bg-white text-xs font-semibold text-slate-700 hover:bg-subtle transition shadow-2xs"
+            className="inline-flex items-center space-x-1.5 min-h-11 px-3 py-1.5 rounded-xl border border-border bg-card text-xs font-semibold text-slate-700 hover:bg-muted transition shadow-2xs"
           >
-            <span>Refresh Status</span>
+            <span>Refresh</span>
           </button>
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-border shadow-2xs p-5 sm:p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="bg-card rounded-2xl border border-border shadow-2xs p-5 sm:p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="flex items-center space-x-3.5">
           <div
             className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-2xs ${
@@ -252,8 +253,8 @@ export default function SuperAdminWhatsAppPage() {
                 {isConnected
                   ? 'Connected'
                   : isScanQr
-                  ? 'Scan QR Code to Link WhatsApp'
-                  : 'Gateway Service Offline'}
+                  ? 'Scan QR code'
+                  : 'Gateway offline'}
               </h2>
               <span
                 className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
@@ -267,12 +268,13 @@ export default function SuperAdminWhatsAppPage() {
                 {gateway?.status || 'UNKNOWN'}
               </span>
             </div>
-            <p className="text-xs text-slate-600 mt-0.5">
+            <p className="text-xs text-slate-600 mt-0.5 flex items-center">
               {isConnected
-                ? `Active Session: ${gateway?.user?.name || 'Shakarganj Milk Reception'} (${gateway?.user?.id || 'Connected'})`
+                ? `${gateway?.user?.name || 'Shakarganj Milk Reception'} (${gateway?.user?.id || 'Connected'})`
                 : isScanQr
-                ? 'Scan the QR code below from WhatsApp (Linked Devices) to begin automated sending.'
-                : 'Run "npm run whatsapp:gateway" to start the background WhatsApp daemon.'}
+                ? 'Scan below'
+                : 'Not running'}
+              {!isConnected && !isScanQr ? <InfoTip text={'Run "npm run whatsapp:gateway" to start the background WhatsApp daemon.'} /> : null}
             </p>
           </div>
         </div>
@@ -281,17 +283,17 @@ export default function SuperAdminWhatsAppPage() {
           <button
             type="button"
             onClick={handleDisconnect}
-            className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-800 text-xs font-semibold transition shadow-2xs self-start md:self-auto"
+            className="inline-flex items-center space-x-1.5 min-h-11 px-4 py-2 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-800 text-xs font-semibold transition shadow-2xs self-start md:self-auto"
           >
             <LogOut className="w-3.5 h-3.5" />
-            <span>Disconnect Session</span>
+            <span>Disconnect</span>
           </button>
         )}
       </div>
 
       {isScanQr && gateway?.qr && (
-        <div className="bg-white rounded-2xl border border-border shadow-2xs p-6 grid grid-cols-1 md:grid-cols-2 gap-6 items-center animate-panel-in">
-          <div className="flex flex-col items-center justify-center p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+        <div className="bg-card rounded-2xl border border-border shadow-2xs p-6 grid grid-cols-1 md:grid-cols-2 gap-6 items-center animate-panel-in">
+          <div className="flex flex-col items-center justify-center p-4 bg-card border border-border rounded-xl space-y-2">
             <div className="p-3 bg-white rounded-xl shadow-md border border-slate-200">
               <Image
                 src={gateway.qr}
@@ -304,35 +306,33 @@ export default function SuperAdminWhatsAppPage() {
             </div>
             <div className="text-[11px] font-semibold text-emerald-700 flex items-center space-x-1">
               <Loader2 className="w-3 h-3 animate-spin" />
-              <span>Listening for scan… updates automatically</span>
+              <span>Waiting for scan…</span>
             </div>
           </div>
 
           <div className="space-y-3 text-xs text-slate-700">
-            <h3 className="font-bold text-sm text-foreground">How to Connect Super Admin WhatsApp:</h3>
+            <h3 className="font-bold text-sm text-foreground">Steps</h3>
             <ol className="list-decimal list-inside space-y-2 text-slate-600 pl-1 font-medium">
               <li>Open WhatsApp on the phone with the Shakarganj logo profile.</li>
               <li>Tap Settings / ⋮ &gt; <strong>Linked Devices</strong>.</li>
               <li>Tap <strong>Link a Device</strong> and point your camera at the QR code.</li>
             </ol>
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-blue-900 text-[11px]">
-              <strong>Corporate Branding:</strong> Once linked, all dairy shops receive messages directly from this account showing your Shakarganj profile name and logo.
-            </div>
+            <div className="text-[11px] text-slate-600 flex items-center">Branding<InfoTip text="Once linked, all dairy shops receive messages from this account with your Shakarganj profile name and logo." /></div>
           </div>
         </div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <div className="lg:col-span-7 bg-white rounded-2xl border border-border shadow-2xs p-5 sm:p-6 space-y-4">
+        <div className="lg:col-span-7 bg-card rounded-2xl border border-border shadow-2xs p-5 sm:p-6 space-y-4">
           <div className="border-b border-border pb-3 flex items-center justify-between">
             <div>
               <h3 className="text-sm font-bold text-foreground flex items-center space-x-2">
                 <Send className="w-4 h-4 text-emerald-600" />
-                <span>Send WhatsApp to Shops</span>
+                <span>Send message</span>
               </h3>
             </div>
-            <span className="text-[11px] font-semibold px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg">
-              Recipient: 03176826604
+            <span className="text-[11px] font-semibold px-2.5 py-1 bg-card text-slate-700 border border-border rounded-lg">
+              03176826604
             </span>
           </div>
 
@@ -340,8 +340,8 @@ export default function SuperAdminWhatsAppPage() {
             <div
               className={`p-3.5 rounded-xl border text-xs font-semibold flex items-center space-x-2 animate-panel-in ${
                 dispatchResult.success
-                  ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                  : 'bg-rose-50 border-rose-200 text-rose-900'
+                  ? 'bg-card border-border text-emerald-900'
+                  : 'bg-card border-border text-rose-900'
               }`}
             >
               {dispatchResult.success ? (
@@ -356,7 +356,7 @@ export default function SuperAdminWhatsAppPage() {
           <form onSubmit={handleSendMessage} className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                Target Dairy Shop / Recipients
+                Send to
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
                 <button
@@ -364,14 +364,14 @@ export default function SuperAdminWhatsAppPage() {
                   onClick={() => setTargetMode('ALL_USER')}
                   className={`p-2.5 rounded-xl border text-left text-xs font-semibold transition flex items-center space-x-2 ${
                     targetMode === 'ALL_USER'
-                      ? 'border-emerald-500 bg-emerald-50 text-emerald-950 ring-1 ring-emerald-500'
+                      ? 'border-primary bg-card text-foreground ring-1 ring-primary'
                       : 'border-border bg-white text-slate-700 hover:bg-subtle'
                   }`}
                 >
                   <Radio className="w-4 h-4 text-emerald-600 shrink-0" />
                   <div>
-                    <div className="font-bold">Active Test Shops ({userShops.length || 14})</div>
-                    <div className="text-[10px] text-slate-500 font-mono">03176826604 (Your Number)</div>
+                    <div className="font-bold">Demo shops ({userShops.length || 14})</div>
+                    <div className="text-[10px] text-slate-500 font-mono">03176826604</div>
                   </div>
                 </button>
 
@@ -380,14 +380,14 @@ export default function SuperAdminWhatsAppPage() {
                   onClick={() => setTargetMode('SINGLE')}
                   className={`p-2.5 rounded-xl border text-left text-xs font-semibold transition flex items-center space-x-2 ${
                     targetMode === 'SINGLE'
-                      ? 'border-emerald-500 bg-emerald-50 text-emerald-950 ring-1 ring-emerald-500'
+                      ? 'border-primary bg-card text-foreground ring-1 ring-primary'
                       : 'border-border bg-white text-slate-700 hover:bg-subtle'
                   }`}
                 >
                   <Store className="w-4 h-4 text-emerald-600 shrink-0" />
                   <div>
-                    <div className="font-bold">Single Selected Shop</div>
-                    <div className="text-[10px] text-slate-500 font-mono">Specific Dairy Unit</div>
+                    <div className="font-bold">One shop</div>
+                    
                   </div>
                 </button>
               </div>
@@ -406,27 +406,27 @@ export default function SuperAdminWhatsAppPage() {
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-xs font-semibold text-slate-700">
-                  Quick Message Templates
+                  Templates
                 </label>
                 <div className="flex items-center space-x-1.5">
                   <button
                     type="button"
                     onClick={() => handleApplyTemplate('RECEIPT')}
-                    className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition"
+                    className="min-h-11 px-3 py-0.5 rounded-md text-[10px] font-semibold bg-card text-slate-700 border border-border hover:bg-subtle transition"
                   >
                     Collection Receipt
                   </button>
                   <button
                     type="button"
                     onClick={() => handleApplyTemplate('RATE')}
-                    className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-blue-50 text-blue-800 border border-blue-200 hover:bg-blue-100 transition"
+                    className="min-h-11 px-3 py-0.5 rounded-md text-[10px] font-semibold bg-card text-slate-700 border border-border hover:bg-subtle transition"
                   >
                     Rate Advisory
                   </button>
                   <button
                     type="button"
                     onClick={() => handleApplyTemplate('CHILLING')}
-                    className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 transition"
+                    className="min-h-11 px-3 py-0.5 rounded-md text-[10px] font-semibold bg-card text-slate-700 border border-border hover:bg-subtle transition"
                   >
                     Chilling Alert
                   </button>
@@ -439,10 +439,10 @@ export default function SuperAdminWhatsAppPage() {
                 value={messageText}
                 onChange={(e) => setMessageText(e.target.value)}
                 placeholder="Type WhatsApp message here…"
-                className="w-full text-xs font-mono border border-border rounded-xl p-3 bg-white text-foreground focus:ring-2 focus:ring-emerald-500 outline-hidden leading-relaxed shadow-2xs"
+                className="w-full text-xs font-mono border border-border rounded-xl p-3 bg-card text-foreground focus:ring-2 focus:ring-emerald-500 outline-hidden leading-relaxed shadow-2xs"
               />
               <div className="flex justify-between text-[11px] text-slate-400 mt-1">
-                <span>Supports WhatsApp formatting: *bold*, _italics_</span>
+                <span className="flex items-center">Formatting<InfoTip text="Supports WhatsApp formatting: *bold*, _italics_" /></span>
                 <span>{messageText.length} characters</span>
               </div>
             </div>
@@ -450,38 +450,36 @@ export default function SuperAdminWhatsAppPage() {
             <button
               type="submit"
               disabled={isSending || !isConnected}
-              className="w-full flex items-center justify-center space-x-2 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-md transition disabled:opacity-50"
+              className="w-full min-h-11 flex items-center justify-center space-x-2 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-md transition disabled:opacity-50"
             >
               <Send className={`w-4 h-4 ${isSending ? 'animate-pulse' : ''}`} />
               <span>
                 {isSending
-                  ? 'Dispatching via WhatsApp…'
+                  ? 'Sending…'
                   : !isConnected
-                  ? 'Connect WhatsApp to Send'
-                  : 'Send WhatsApp Message to 03176826604'}
+                  ? 'Not connected'
+                  : 'Send message'}
               </span>
             </button>
           </form>
         </div>
 
-        <div className="lg:col-span-5 bg-white rounded-2xl border border-border shadow-2xs p-5 sm:p-6 space-y-4 flex flex-col">
+        <div className="lg:col-span-5 bg-card rounded-2xl border border-border shadow-2xs p-5 sm:p-6 space-y-4 flex flex-col">
           <div className="border-b border-border pb-3 flex items-center justify-between">
             <h3 className="text-sm font-bold text-foreground flex items-center space-x-2">
               <Users className="w-4 h-4 text-primary" />
-              <span>Configured Development Shops</span>
+              <span>Shops</span>
             </h3>
-            <span className="text-[10px] font-bold uppercase text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+            <span className="text-[10px] font-bold uppercase text-slate-700 bg-card border border-border px-2 py-0.5 rounded-md">
               03176826604
             </span>
           </div>
 
-          <p className="text-xs text-slate-500">
-            All 14 active Hasilpur demonstration shops are set to your number:
-          </p>
+          <p className="text-xs text-slate-500 flex items-center">Sent to your number<InfoTip text="All active Hasilpur demonstration shops are set to this number." /></p>
 
           <div className="flex-1 overflow-y-auto max-h-[360px] divide-y divide-border border border-border rounded-xl">
             {loadingShops ? (
-              <div className="p-6 text-center text-xs text-slate-400">Loading shop roster…</div>
+              <div className="p-6 text-center text-xs text-slate-400">Loading…</div>
             ) : shops.length === 0 ? (
               <div className="p-6 text-center text-xs text-slate-400">No shops found.</div>
             ) : (
@@ -493,7 +491,7 @@ export default function SuperAdminWhatsAppPage() {
                       {shop.shop_code} · {shop.owner_name}
                     </div>
                   </div>
-                  <span className="font-mono text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                  <span className="font-mono text-[11px] font-semibold text-slate-700 bg-card px-2 py-0.5 rounded-md border border-border">
                     {shop.phone_number}
                   </span>
                 </div>
@@ -503,20 +501,20 @@ export default function SuperAdminWhatsAppPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-border shadow-2xs overflow-hidden">
+      <div className="bg-card rounded-2xl border border-border shadow-2xs overflow-hidden">
         <div className="p-4 border-b border-border flex items-center justify-between bg-subtle">
           <div className="flex items-center space-x-2">
             <FileText className="w-4 h-4 text-primary" />
             <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">
-              Recent WhatsApp Dispatch Log
+              Dispatch log
             </h3>
           </div>
           <button
             type="button"
             onClick={loadOutbox}
-            className="text-xs text-slate-600 hover:text-slate-900 flex items-center space-x-1"
+            className="min-h-11 px-3 text-xs text-slate-600 hover:text-slate-900 flex items-center space-x-1"
           >
-            <span>Reload Logs</span>
+            <span>Reload</span>
           </button>
         </div>
 
@@ -526,15 +524,15 @@ export default function SuperAdminWhatsAppPage() {
               <tr className="border-b border-border bg-slate-50 text-[10px] font-semibold uppercase text-slate-500 tracking-wider">
                 <th className="p-3">Recipient</th>
                 <th className="p-3">Shop Name</th>
-                <th className="p-3">WhatsApp Message Content</th>
+                <th className="p-3">Message</th>
                 <th className="p-3">Status</th>
-                <th className="p-3">Dispatched At</th>
+                <th className="p-3">Sent at</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {loadingOutbox && outbox.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-6 text-center text-slate-400">Loading audit log…</td>
+                  <td colSpan={5} className="p-6 text-center text-slate-400">Loading…</td>
                 </tr>
               ) : outbox.length === 0 ? (
                 <tr>
@@ -550,7 +548,7 @@ export default function SuperAdminWhatsAppPage() {
                       {row.collection?.shop_name || 'Bismillah Dairy Center'}
                     </td>
                     <td className="p-3 max-w-sm">
-                      <div className="p-2 rounded-lg bg-slate-50 border border-slate-200 text-[11px] font-mono text-slate-800 whitespace-pre-line wrap-break-word">
+                      <div className="p-2 rounded-lg bg-card border border-border text-[11px] font-mono text-slate-800 whitespace-pre-line wrap-break-word">
                         {row.message_body}
                       </div>
                     </td>

@@ -42,7 +42,7 @@ import { DispatchSummaryPanel } from './components/DispatchSummaryPanel';
 import { toPhotoState, type DispatchPhotoState } from './components/DispatchPolicyTests';
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import { LabReportPhotoCard } from './components/LabReportPhotoCard';
-import { DecisionRulePanel } from '@/frontend/modules/shared/decision/DecisionRulePanel';
+import { DecisionRulePanel, exceptionReasonText } from '@/frontend/modules/shared/decision/DecisionRulePanel';
 import { cn } from '@/lib/utils';
 import {
   buildDispatchPreview,
@@ -117,17 +117,18 @@ function computeAutoVehicleQuality(portions: PortionFormState[], labTests: LabTe
     }
   });
 
+  const isSingle = portions.length === 1;
   const lr =
     totalQty > 0 && weightedLrSum > 0
       ? (weightedLrSum / totalQty).toFixed(2)
-      : validLrCount > 0
-        ? (simpleLrSum / validLrCount).toFixed(2)
+      : isSingle && validLrCount === 1
+        ? (simpleLrSum).toFixed(2)
         : '';
   const fat =
     totalQty > 0 && weightedFatSum > 0
       ? (weightedFatSum / totalQty).toFixed(2)
-      : validFatCount > 0
-        ? (simpleFatSum / validFatCount).toFixed(2)
+      : isSingle && validFatCount === 1
+        ? (simpleFatSum).toFixed(2)
         : '';
   return { lr, fat };
 }
@@ -256,6 +257,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
   const [testMode, setTestMode] = useState<DispatchTestMode>('COMPOSITE');
   const [formStep, setFormStep] = useState<0 | 1>(0);
   const [decideOpen, setDecideOpen] = useState(false);
+  const [showWhy, setShowWhy] = useState(false);
   const [labReportPhoto, setLabReportPhoto] = useState<DispatchPhotoState | null>(null);
   const [labReportCamera, setLabReportCamera] = useState(false);
   const [personDecision, setPersonDecision] = useState<PersonDecision | null>(null);
@@ -923,6 +925,29 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     deciderCanApprove,
   });
 
+  // The banner and buttons follow the route, not just the test result: a missing picture is an exception even when every rule passed.
+  const goesToApprover = preview.decision?.route === 'SEND_TO_APPROVER';
+  // Plain reasons shown when the user taps the warning icon.
+  // Things still to finish before the form can be sent at all.
+  const incompleteLines: string[] = [
+    ...(portions.length === 0 ? ['Add at least one milk portion.'] : []),
+    ...portions
+      .map((p, i) => (p.isSaved ? null : `Portion ${i + 1}: enter quantity and tests, then save.`))
+      .filter((x): x is string => x !== null),
+    ...(!vehicleNumber.trim() ? ['Vehicle number is missing.'] : []),
+    ...(!vehicleQuantity.value || Number(vehicleQuantity.value) <= 0 ? ['Vehicle quantity is missing.'] : []),
+  ];
+  const showWarning = goesToApprover || incompleteLines.length > 0;
+  const whyLines: string[] = [
+    ...incompleteLines,
+    ...preview.rows.filter((r) => r.outcome === 'FAIL').map((r) => `${r.name}: outside the allowed range.`),
+    ...preview.rows.filter((r) => r.note === 'Must be done' || r.note?.startsWith('Must be done.')).map((r) => `${r.name}: must-do test is empty.`),
+    ...preview.rows.filter((r) => r.note?.includes('Picture missing')).map((r) => `${r.name}: picture missing.`),
+    ...(preview.decision?.exceptionReasons ?? [])
+      .filter((x) => x === 'MISMATCH' || x === 'AWAY_FROM_SHOP')
+      .map((x) => exceptionReasonText(x)),
+  ];
+
   /** Uploads the pictures that are waiting. A picture stays in the queue until its upload works. */
   const runUploads = async (queue: PendingUpload[]) => {
     if (queue.length === 0) return;
@@ -1006,7 +1031,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
       return;
     }
     if (testMode === 'COMPOSITE' && portions.length !== 1) {
-      toast.showError('Composite test mode requires all tests recorded under 1 single portion.', 'Check the form');
+      toast.showError('Composite test mode requires all tests recorded under One portion.', 'Check the form');
       return;
     }
     if (editingPortionIndex !== null) {
@@ -1264,7 +1289,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     const SvIcon = sv.Icon;
     return (
       <div className="max-w-2xl mx-auto space-y-6 py-6 px-4">
-        <div className="p-6 bg-white rounded-2xl border border-border-strong shadow-xs text-center space-y-4">
+        <div className="p-6 bg-card rounded-2xl border border-border-strong shadow-xs text-center space-y-4">
           <div className="flex justify-center">
             <div className={`inline-flex items-center space-x-2 px-3 py-1.5 rounded-full border text-sm font-semibold ${sv.className}`}>
               <SvIcon className="w-4 h-4" />
@@ -1285,34 +1310,34 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
 
           {result.totals && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-2 text-left">
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+              <div className="bg-card border-border p-3 rounded-xl border">
                 <div className="text-[11px] font-semibold text-slate-500 uppercase">Gross Litres</div>
                 <div className="text-sm font-bold text-foreground tabular-nums mt-0.5">{fmtL(result.totals.grossLiters)}</div>
               </div>
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
-                <div className="text-[11px] font-semibold text-slate-500 uppercase">Weighted LR</div>
+              <div className="bg-card border-border p-3 rounded-xl border">
+                <div className="text-[11px] font-semibold text-slate-500 uppercase">Avg LR</div>
                 <div className="text-sm font-bold text-foreground tabular-nums mt-0.5">{fmt2(result.totals.weightedLr)}</div>
               </div>
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
-                <div className="text-[11px] font-semibold text-slate-500 uppercase">Weighted Fat</div>
+              <div className="bg-card border-border p-3 rounded-xl border">
+                <div className="text-[11px] font-semibold text-slate-500 uppercase">Avg Fat</div>
                 <div className="text-sm font-bold text-foreground tabular-nums mt-0.5">{fmt2(result.totals.weightedFat)}%</div>
               </div>
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
-                <div className="text-[11px] font-semibold text-slate-500 uppercase">13% TS Litres</div>
+              <div className="bg-card border-border p-3 rounded-xl border">
+                <div className="text-[11px] font-semibold text-slate-500 uppercase">L @ 13 TS</div>
                 <div className="text-sm font-bold text-foreground tabular-nums mt-0.5">{fmtL(result.totals.weightedTs13)}</div>
               </div>
             </div>
           )}
 
           {result.tankRemainingLiters !== null && (
-            <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-left flex items-center justify-between text-xs">
-              <span className="font-semibold text-blue-900">Remaining Tank Balance:</span>
+            <div className="bg-card border-border p-3 rounded-xl border text-left flex items-center justify-between text-xs">
+              <span className="font-semibold text-blue-900">Tank left:</span>
               <span className="font-bold text-blue-950 tabular-nums">{fmtL(result.tankRemainingLiters)}</span>
             </div>
           )}
 
           {uploadQueue.length > 0 && (
-            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-left text-xs space-y-1">
+            <div className="bg-card border-border p-3 rounded-xl border text-left text-xs space-y-1">
               <div className="font-semibold text-slate-700 flex items-center space-x-1.5">
                 {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />}
                 <span>{uploading ? 'Uploading pictures…' : 'All pictures uploaded'}</span>
@@ -1330,7 +1355,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
               className="w-full min-h-[48px] px-4 py-3 rounded-xl bg-primary-hover text-white font-semibold text-sm shadow-xs hover:bg-blue-800 transition flex items-center justify-center space-x-2"
             >
               <Undo2 className="w-4 h-4" />
-              <span>Start Next Dispatch</span>
+              <span>New dispatch</span>
             </button>
           </div>
         </div>
@@ -1340,27 +1365,24 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
 
   return (
     <form onSubmit={handleSubmitDispatch} className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 p-4 sm:p-5 rounded-xl bg-white border border-border-strong shadow-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 p-4 sm:p-5 rounded-xl bg-card border border-border-strong shadow-xs">
         <div className="flex items-center space-x-3">
           <div className="p-2.5 rounded-xl bg-primary-hover text-white">
             <span className="font-semibold text-sm tabular-nums">MPD</span>
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <h2 className="font-semibold text-base text-foreground">Field Milk Dispatch</h2>
+              <h2 className="font-semibold text-base text-foreground">Milk dispatch</h2>
               {draftVisitId ? (
                 <span className="text-xs tabular-nums font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
-                  Draft Restored
+                  Draft
                 </span>
               ) : (
                 <span className="text-xs tabular-nums font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-primary-hover border border-blue-200">
-                  New Work Item
+                  New
                 </span>
               )}
             </div>
-            <p className="text-xs text-slate-600 font-medium">
-              Authoritative whole-vehicle measurement & dynamic composite portions
-            </p>
           </div>
         </div>
 
@@ -1369,16 +1391,16 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
             <button
               type="button"
               onClick={handleClearDraft}
-              className="h-9 px-3 rounded-xl border border-rose-300 bg-rose-50 text-rose-800 text-xs font-semibold hover:bg-rose-100 transition"
+              className="min-h-11 min-w-11 h-9 px-3 rounded-xl border border-rose-300 bg-rose-50 text-rose-800 text-xs font-semibold hover:bg-rose-100 transition"
             >
-              Clear Draft
+              Clear
             </button>
           )}
 
-          <div className="flex items-center space-x-2 bg-muted px-3 py-1.5 rounded-xl border border-border-strong">
+          <div className="bg-card border-border flex items-center space-x-2 px-3 py-1.5 rounded-xl border-strong">
             <span className="text-xs uppercase font-semibold text-slate-500">Source:</span>
             <span className="text-xs font-semibold text-primary-hover tabular-nums">
-              {effectiveSource ? effectiveSource.name : (isSourceBound ? 'Loading source…' : 'None Selected')}
+              {effectiveSource ? effectiveSource.name : (isSourceBound ? 'Loading source…' : 'None')}
             </span>
             <span className="text-xs font-semibold uppercase px-2 py-0.5 rounded bg-blue-100 text-blue-900 border border-blue-200">
               {effectiveSource?.source_type || '—'}
@@ -1453,8 +1475,8 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
 
           <div className={formStep === 1 ? 'space-y-5 animate-in fade-in-0 slide-in-from-bottom-1 duration-200' : 'hidden'}>
           {/* Test Mode Selector */}
-          <div className="p-4 sm:p-5 rounded-xl bg-white border border-border-strong shadow-xs space-y-2">
-            <label className="block text-xs font-semibold text-slate-700">Dispatch Test Mode</label>
+          <div className="p-4 sm:p-5 rounded-xl bg-card border border-border-strong shadow-xs space-y-2">
+            <label className="block text-xs font-semibold text-slate-700">Test mode</label>
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
@@ -1466,7 +1488,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                 }`}
               >
                 <span>Composite</span>
-                <span className="text-[10px] font-normal text-slate-500">1 single portion</span>
+                <span className="text-[10px] font-normal text-slate-500">One portion</span>
               </button>
               <button
                 type="button"
@@ -1478,7 +1500,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                 }`}
               >
                 <span>Portion-wise</span>
-                <span className="text-[10px] font-normal text-slate-500">Separate portions</span>
+                <span className="text-[10px] font-normal text-slate-500">Per portion</span>
               </button>
             </div>
           </div>
@@ -1518,52 +1540,6 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
             stamp={stamp}
           />
 
-          {/* Live System Rule Status Banner */}
-          <div
-            className={cn(
-              'p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs transition',
-              preview.decision?.systemOutcome === 'PASS'
-                ? 'border-emerald-200 bg-emerald-50/70 text-emerald-950'
-                : 'border-amber-300 bg-amber-50 text-amber-950'
-            )}
-          >
-            <div className="flex items-center space-x-2.5">
-              {preview.decision?.systemOutcome === 'PASS' ? (
-                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-              ) : (
-                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
-              )}
-              <div>
-                <div className="text-xs font-bold uppercase tracking-wider">
-                  {preview.decision?.systemOutcome === 'PASS' ? 'System Status: All SOP Rules Passed' : 'System Status: Exception / Out of Spec'}
-                </div>
-                <p className="text-xs font-medium text-slate-600 mt-0.5">
-                  {preview.decision?.systemOutcome === 'PASS'
-                    ? 'Values and tests meet dispatch policy. Ready for standard dispatch.'
-                    : `Values out of spec or items missing. Will be routed to ${approverLabel} for approval.`}
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={handleOpenDecide}
-              className={cn(
-                'px-4 py-2 rounded-xl text-xs font-bold shrink-0 transition flex items-center justify-center space-x-1.5 shadow-2xs',
-                preview.decision?.systemOutcome === 'PASS'
-                  ? 'bg-primary-hover text-white hover:bg-blue-800'
-                  : 'bg-violet-700 text-white hover:bg-violet-800'
-              )}
-            >
-              {preview.decision?.systemOutcome === 'PASS' ? (
-                <span>Review & Submit</span>
-              ) : (
-                <>
-                  <Send className="w-3.5 h-3.5" />
-                  <span>Send to {approverLabel}</span>
-                </>
-              )}
-            </button>
-          </div>
 
           </div>
 
@@ -1587,35 +1563,35 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
           </div>
 
           {submitError && (
-            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-300 text-rose-800 text-xs flex items-start space-x-2">
+            <div className="bg-card border-border p-3.5 rounded-xl border text-rose-800 text-xs flex items-start space-x-2">
               <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
               <span>{submitError}</span>
             </div>
           )}
 
           {sealServerError && (
-            <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs flex items-start space-x-2">
+            <div className="bg-card border-border p-3.5 rounded-xl border text-amber-900 text-xs flex items-start space-x-2">
               <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
               <span>{sealServerError}</span>
             </div>
           )}
 
           {reopenedNote && (
-            <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs flex items-start space-x-2">
+            <div className="bg-card border-border p-3.5 rounded-xl border text-amber-900 text-xs flex items-start space-x-2">
               <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
               <span>{reopenedNote}</span>
             </div>
           )}
 
           {policyError && (
-            <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs flex items-start space-x-2">
+            <div className="bg-card border-border p-3.5 rounded-xl border text-amber-900 text-xs flex items-start space-x-2">
               <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
               <span>{policyError}</span>
             </div>
           )}
 
           {/* Decision Rule Panel */}
-          <div className="p-4 sm:p-5 rounded-xl bg-white border border-border-strong shadow-xs space-y-3.5">
+          <div className="p-4 sm:p-5 rounded-xl bg-card border border-border-strong shadow-xs space-y-3.5">
             <DecisionRulePanel
               tests={preview.rows}
               decision={needsRequest ?? preview.decision}
@@ -1632,10 +1608,10 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
               warnings={preview.warnings}
               approverLabel={approverLabel}
               routeLabels={{
-                PROCEED: `Submit Dispatch (${vehicleQuantity.value ? `${vehicleQuantity.value} ${vehicleQuantity.unit}` : '—'})`,
-                REJECT: 'Reject Dispatch',
-                SEND_TO_APPROVER: `Send request to ${approverLabel}`,
-                DECIDE_NOW: 'Decide & Dispatch Now',
+                PROCEED: `Submit (${vehicleQuantity.value ? `${vehicleQuantity.value} ${vehicleQuantity.unit}` : '—'})`,
+                REJECT: 'Reject',
+                SEND_TO_APPROVER: `Send to ${approverLabel}`,
+                DECIDE_NOW: 'Decide now',
               }}
               onSubmit={() => handleSubmitDispatch()}
               submitting={isSubmitting}
@@ -1652,6 +1628,29 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
             </DrawerContent>
           </Drawer>
 
+          {formStep !== 0 && showWarning && showWhy && (
+            <div className="rounded-xl border border-amber-300 bg-amber-50 p-3.5 text-xs text-amber-950">
+              <div className="font-bold">{goesToApprover ? `Why this goes to ${approverLabel}` : 'Not ready yet'}</div>
+              <ul className="mt-1.5 list-disc space-y-0.5 pl-4">
+                {(whyLines.length > 0 ? whyLines : ['Something is outside the rules.']).map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div className="flex items-stretch gap-2">
+          {formStep !== 0 && showWarning && (
+            <button
+              type="button"
+              onClick={() => setShowWhy((v) => !v)}
+              aria-label="Show what needs attention"
+              aria-expanded={showWhy}
+              className="min-h-14 min-w-14 shrink-0 rounded-xl border border-amber-300 bg-amber-50 text-amber-600 flex items-center justify-center"
+            >
+              <AlertTriangle className="w-6 h-6" />
+            </button>
+          )}
           <button
             type="button"
             onClick={() => (formStep === 0 ? setFormStep(1) : handleOpenDecide())}
@@ -1659,22 +1658,26 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
               'min-h-14 w-full rounded-xl text-base font-semibold text-white shadow-xs transition flex items-center justify-center gap-2',
               formStep === 0
                 ? 'bg-primary-hover hover:bg-blue-800'
-                : preview.decision?.route === 'SEND_TO_APPROVER' || preview.decision?.systemOutcome === 'FAIL'
+                : goesToApprover
                   ? 'bg-violet-700 hover:bg-violet-800'
                   : 'bg-primary-hover hover:bg-blue-800'
             )}
           >
             {formStep === 0 ? (
               'Next: Portions'
-            ) : preview.decision?.route === 'SEND_TO_APPROVER' || preview.decision?.systemOutcome === 'FAIL' ? (
+            ) : goesToApprover ? (
               <>
                 <Send className="w-4 h-4" />
                 <span>Review & Send Request to {approverLabel}</span>
               </>
             ) : (
-              <span>Review and decide</span>
+              <>
+                <Send className="w-4 h-4" />
+                <span>Dispatch</span>
+              </>
             )}
           </button>
+          </div>
         </div>
       </div>
     </form>

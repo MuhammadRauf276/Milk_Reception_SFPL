@@ -28,6 +28,12 @@ import {
   MessageSquare,
   FileText,
   FileCheck2,
+  Network,
+  FileSpreadsheet,
+  TrendingUp,
+  Sparkles,
+  AlertTriangle,
+  UserCheck,
 } from 'lucide-react';
 import { getTeamStationsForRole } from '../delegation/stations';
 
@@ -48,6 +54,35 @@ export interface RoleNavSection {
   children?: RoleNavLeaf[];
 }
 
+const MPD_VIEW_LINKS: RoleNavLeaf[] = [
+  { id: 'mpd-v-fleet', label: 'Fleet Radar', href: '/command?view=FLEET_RADAR', icon: Truck },
+  { id: 'mpd-v-hierarchy', label: 'Subordinate Hierarchy', href: '/command?view=HIERARCHY', icon: Network },
+  { id: 'mpd-v-journeys', label: 'MOT Journeys', href: '/command?view=MOT_JOURNEYS', icon: RouteIcon },
+  { id: 'mpd-v-reports', label: 'Comprehensive Reports', href: '/command?view=REPORTS', icon: FileSpreadsheet },
+  { id: 'mpd-v-sources', label: 'Sources & Silos', href: '/command?view=SOURCES', icon: Building2 },
+  { id: 'mpd-v-quality', label: 'Quality Screening', href: '/command?view=QUALITY_FUNNEL', icon: FlaskConical },
+  { id: 'mpd-v-loss', label: 'Supply Chain Loss', href: '/command?view=LOSS_DIAGNOSTICS', icon: ArrowRightLeft },
+  { id: 'mpd-v-exceptions', label: 'Exception Desk', href: '/command?view=GOVERNANCE', icon: ShieldAlert },
+  { id: 'mpd-v-policies', label: 'Testing Policies', href: '/command?view=POLICIES', icon: FileCheck2 },
+];
+
+const SOURCE_LINKS: RoleNavLeaf[] = [
+  { id: 'src-milk', label: 'Milk sources', href: '/sources', icon: Milk },
+  { id: 'src-contractors', label: 'Contractors', href: '/sources?view=CONTRACTORS', icon: Truck },
+];
+
+const CORRECTION_LINKS: RoleNavLeaf[] = [
+  { id: 'corr-requests', label: 'Requests', href: '/super-admin/corrections?tab=requests', icon: ShieldCheck },
+  { id: 'corr-direct', label: 'Direct Edit', href: '/super-admin/corrections?tab=direct_edit', icon: FileCheck2 },
+  { id: 'corr-audit', label: 'Correction Audit', href: '/super-admin/corrections?tab=audit', icon: History },
+];
+
+const REPORT_GOVERNANCE_LINKS: RoleNavLeaf[] = [
+  { id: 'rep-daily', label: 'Daily Quality & Ops', href: '/super-admin/reports?tab=daily', icon: FileSpreadsheet },
+  { id: 'rep-hierarchy', label: 'Work for Lower Roles', href: '/super-admin/reports?tab=hierarchy', icon: UserCheck },
+  { id: 'rep-warnings', label: 'Warning Limits & Policy', href: '/super-admin/reports?tab=warnings', icon: AlertTriangle },
+];
+
 /**
  * Returns the hierarchical navigation structure for a given user role.
  * Preserves strict role authorization and source scoping.
@@ -64,12 +99,12 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
     return [
       {
         id: 'arrivals',
-        label: 'Milk Reception & Intake',
+        label: 'Reception',
         icon: ClipboardList,
         children: [
           {
             id: 'mot-arrival',
-            label: 'MC Tanker Arrival',
+            label: 'Mobile Tester Arrival',
             href: '/phe?section=arrivals&view=mot-arrival',
             icon: Truck,
           },
@@ -80,17 +115,27 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
             icon: Users,
           },
           {
+            id: 'inside-zmcc',
+            label: 'Inside ZMCC',
+            href: '/phe?section=arrivals&view=inside',
+            icon: Building2,
+          },
+          {
             id: 'weighing',
             label: 'Weighing & Tanks',
             href: '/phe?section=weighing',
             icon: Scale,
           },
-          {
-            id: 'exit',
-            label: 'Vehicle Exit',
-            href: '/phe?section=exit',
-            icon: Send,
-          },
+          ...(!isMdo
+            ? [
+                {
+                  id: 'exit',
+                  label: 'Vehicle Exit',
+                  href: '/phe?section=exit',
+                  icon: Send,
+                },
+              ]
+            : []),
           {
             id: 'history',
             label: 'Arrival History',
@@ -133,36 +178,48 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
         ? [
             {
               id: 'mot',
-              label: 'MC Operations',
+              label: 'Mobile Tester Operations',
               icon: Truck,
               children: [
                 {
                   id: 'dispatch',
-                  label: 'Dispatch to MC',
+                  label: 'Dispatch to Mobile Tester',
                   href: '/phe?section=mot&view=dispatch',
                   icon: Send,
                 },
                 {
                   id: 'active',
-                  label: 'Active Journeys & Map',
+                  label: 'Active & Map',
                   href: '/phe?section=mot&view=active',
                   icon: Truck,
                 },
                 {
                   id: 'history',
-                  label: 'Journey History & Receipts',
+                  label: 'Journey History',
                   href: '/phe?section=mot&view=history',
                   icon: Clock,
                 },
                 {
+                  id: 'map',
+                  label: 'Journey Map & Radar',
+                  href: '/phe?section=mot&view=map',
+                  icon: MapPin,
+                },
+                {
+                  id: 'sms',
+                  label: 'WhatsApp Receipts',
+                  href: '/phe?section=mot&view=sms',
+                  icon: MessageSquare,
+                },
+                {
                   id: 'fleet',
-                  label: 'Fleet',
+                  label: 'Fleet & Vehicles',
                   href: '/phe?section=mot&view=vehicles',
                   icon: Truck,
                 },
                 {
                   id: 'routes',
-                  label: 'Routes & Planning',
+                  label: 'Routes & Approvals',
                   href: '/phe?section=mot&view=approvals',
                   icon: RouteIcon,
                 },
@@ -172,7 +229,7 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
         : []),
       {
         id: 'tv-board',
-        label: 'Yard Status Board',
+        label: 'Yard Board',
         icon: Tv,
         href: '/tv-board',
       },
@@ -228,7 +285,7 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
       },
       {
         id: 'tv-board',
-        label: 'Yard Status Board',
+        label: 'Yard Board',
         icon: Tv,
         href: '/tv-board',
       },
@@ -239,44 +296,106 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
   if (role === 'ZMCC_MANAGER') {
     return [
       {
-        id: 'APPROVALS',
-        label: 'Approval Inbox',
-        icon: ShieldAlert,
-        href: '/mpd/zmcc-manager?tab=APPROVALS',
-      },
-      {
         id: 'OVERVIEW',
         label: 'Overview',
         icon: LayoutDashboard,
         href: '/mpd/zmcc-manager?tab=OVERVIEW',
       },
       {
-        id: 'LIVE',
-        label: 'Operations',
-        icon: Truck,
-        href: '/mpd/zmcc-manager?tab=LIVE',
+        id: 'APPROVALS',
+        label: 'Approval Inbox',
+        icon: ShieldAlert,
+        href: '/mpd/zmcc-manager?tab=APPROVALS',
       },
       {
-        id: 'RECONCILIATION',
-        label: 'Reconciliation',
-        icon: ArrowRightLeft,
-        href: '/mpd/zmcc-manager?tab=RECONCILIATION',
+        id: 'HIERARCHY',
+        label: 'Hierarchy Tree',
+        icon: Network,
+        href: '/mpd/zmcc-manager?tab=HIERARCHY',
       },
       {
-        id: 'HISTORY',
-        label: 'History & Reports',
-        icon: History,
+        id: 'MOT_JOURNEYS',
+        label: 'MOT Fleet & Journeys',
+        icon: RouteIcon,
         children: [
           {
-            id: 'plant',
-            label: 'Plant History',
-            href: '/mpd/zmcc-manager?tab=HISTORY&view=PLANT_HISTORY',
-            icon: History,
+            id: 'mot-dispatch',
+            label: 'Assign & Dispatch',
+            href: '/mpd/zmcc-manager?tab=MOT_JOURNEYS&view=DISPATCH',
+            icon: Send,
           },
           {
-            id: 'quality_rej',
-            label: 'Quality & Rejections Review',
-            href: '/mpd/zmcc-manager?tab=HISTORY&view=QUALITY_REJECTIONS',
+            id: 'mot-active',
+            label: 'Active Fleet Radar',
+            href: '/mpd/zmcc-manager?tab=MOT_JOURNEYS&view=ACTIVE',
+            icon: Truck,
+          },
+          {
+            id: 'mot-history',
+            label: 'Journey History & Audit',
+            href: '/mpd/zmcc-manager?tab=MOT_JOURNEYS&view=HISTORY',
+            icon: Clock,
+          },
+        ],
+      },
+      {
+        id: 'PLANT_TRANSIT',
+        label: 'Plant Transit',
+        icon: Truck,
+        children: [
+          {
+            id: 'pt-in-transit',
+            label: 'In-Transit Tankers',
+            href: '/mpd/zmcc-manager?tab=PLANT_TRANSIT&view=IN_TRANSIT',
+            icon: Truck,
+          },
+          {
+            id: 'pt-reconciliation',
+            label: 'Transit Reconciliation',
+            href: '/mpd/zmcc-manager?tab=PLANT_TRANSIT&view=RECONCILIATION',
+            icon: ArrowRightLeft,
+          },
+          {
+            id: 'pt-all-dispatches',
+            label: 'All Dispatches History',
+            href: '/mpd/zmcc-manager?tab=PLANT_TRANSIT&view=ALL_DISPATCHES',
+            icon: History,
+          },
+        ],
+      },
+      {
+        id: 'REPORTS',
+        label: 'Comprehensive Reports',
+        icon: FileSpreadsheet,
+        children: [
+          {
+            id: 'rep-studio',
+            label: 'Dynamic Report Studio',
+            href: '/mpd/zmcc-manager?tab=REPORTS&mode=STUDIO',
+            icon: Sparkles,
+          },
+          {
+            id: 'rep-routes',
+            label: 'Route Collections',
+            href: '/mpd/zmcc-manager?tab=REPORTS&view=ROUTE_COLLECTIONS',
+            icon: RouteIcon,
+          },
+          {
+            id: 'rep-hc',
+            label: 'HC Suppliers',
+            href: '/mpd/zmcc-manager?tab=REPORTS&view=HC_SUPPLIERS',
+            icon: Users,
+          },
+          {
+            id: 'rep-tanks',
+            label: 'Tank Storage',
+            href: '/mpd/zmcc-manager?tab=REPORTS&view=TANK_STORAGE',
+            icon: Building2,
+          },
+          {
+            id: 'rep-quality-rej',
+            label: 'Quality & Rejections',
+            href: '/mpd/zmcc-manager?tab=REPORTS&view=QUALITY_REJECTIONS',
             icon: FlaskConical,
           },
         ],
@@ -326,7 +445,7 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
       },
       {
         id: 'tv-board',
-        label: 'Yard Status Board',
+        label: 'Yard Board',
         icon: Tv,
         href: '/tv-board',
       },
@@ -344,7 +463,7 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
       },
       {
         id: 'tv-board',
-        label: 'Yard Status Board',
+        label: 'Yard Board',
         icon: Tv,
         href: '/tv-board',
       },
@@ -356,7 +475,7 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
     return [
       {
         id: 'security-gate',
-        label: 'Gate Entry & Exit',
+        label: 'Security Gate',
         icon: ShieldCheck,
         children: [
           {
@@ -381,7 +500,7 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
       },
       {
         id: 'tv-board',
-        label: 'Yard Status Board',
+        label: 'Yard Board',
         icon: Tv,
         href: '/tv-board',
       },
@@ -393,7 +512,7 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
     return [
       {
         id: 'qa-lab',
-        label: 'QA Testing Laboratory',
+        label: 'QA Lab',
         icon: FlaskConical,
         children: [
           {
@@ -418,7 +537,7 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
       },
       {
         id: 'tv-board',
-        label: 'Yard Status Board',
+        label: 'Yard Board',
         icon: Tv,
         href: '/tv-board',
       },
@@ -432,24 +551,11 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
         id: 'weighbridge',
         label: 'Weighbridge Station',
         icon: Scale,
-        children: [
-          {
-            id: 'first-weight',
-            label: 'First Weight (Gross)',
-            href: '/department/weighbridge?tab=FIRST_WEIGHT',
-            icon: Scale,
-          },
-          {
-            id: 'second-weight',
-            label: 'Second Weight (Tare)',
-            href: '/department/weighbridge?tab=SECOND_WEIGHT',
-            icon: CheckCircle2,
-          },
-        ],
+        href: '/department/weighbridge',
       },
       {
         id: 'tv-board',
-        label: 'Yard Status Board',
+        label: 'Yard Board',
         icon: Tv,
         href: '/tv-board',
       },
@@ -461,7 +567,7 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
     return [
       {
         id: 'production',
-        label: 'Silo Offloading Station',
+        label: 'Silo Offloading',
         icon: Building2,
         children: [
           {
@@ -478,7 +584,7 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
           },
           {
             id: 'silo-issue',
-            label: 'Silo Issues / History',
+            label: 'Silo Issues',
             href: '/department/production?tab=SILO_ISSUE',
             icon: Database,
           },
@@ -486,7 +592,7 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
       },
       {
         id: 'tv-board',
-        label: 'Yard Status Board',
+        label: 'Yard Board',
         icon: Tv,
         href: '/tv-board',
       },
@@ -498,7 +604,7 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
     return [
       {
         id: 'contractor-mgmt',
-        label: 'Plant Contractor Station',
+        label: 'Contractor',
         icon: Building2,
         children: [
           {
@@ -527,13 +633,13 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
           },
           {
             id: 'receipts',
-            label: 'Receipts & Reconciliation',
+            label: 'Receipts',
             href: '/contractor/manager?tab=RECEIPTS',
             icon: Receipt,
           },
           {
             id: 'history',
-            label: 'History & Reports',
+            label: 'History',
             href: '/contractor/manager?tab=HISTORY',
             icon: History,
           },
@@ -541,7 +647,7 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
       },
       {
         id: 'tv-board',
-        label: 'Yard Status Board',
+        label: 'Yard Board',
         icon: Tv,
         href: '/tv-board',
       },
@@ -553,13 +659,13 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
     return [
       {
         id: 'contractor-dispatch',
-        label: 'Contractor Dispatch',
+        label: 'Dispatch',
         icon: Truck,
         href: '/contractor/dispatch',
       },
       {
         id: 'tv-board',
-        label: 'Yard Status Board',
+        label: 'Yard Board',
         icon: Tv,
         href: '/tv-board',
       },
@@ -571,15 +677,9 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
     return [
       {
         id: 'corrections',
-        label: 'Correction Governance Desk',
+        label: 'Corrections',
         icon: ShieldCheck,
-        href: '/super-admin/corrections',
-      },
-      {
-        id: 'direct-corrections',
-        label: 'Direct Record Corrections',
-        icon: FileCheck2,
-        href: '/super-admin/corrections?tab=direct_edit',
+        children: CORRECTION_LINKS,
       },
       {
         id: 'audit-ledger',
@@ -587,22 +687,56 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
         icon: History,
         href: '/super-admin/audit',
       },
+      {
+        id: 'approvals-inbox',
+        label: 'Approval Inbox',
+        icon: ShieldAlert,
+        href: '/approvals',
+      },
+      {
+        id: 'command-center',
+        label: 'Command Center',
+        icon: LayoutDashboard,
+        href: '/command',
+      },
       ...(role === 'SUPER_ADMIN'
         ? [
             {
               id: 'admin-center',
-              label: 'Admin Control Center',
+              label: 'Admin Center',
               icon: LayoutDashboard,
               href: '/super-admin',
             },
           ]
         : []),
       {
-        id: 'sources-ledger',
-        label: 'Milk Sources & Contractors',
-        icon: Milk,
-        href: '/mpd/head?tab=SOURCES',
+        id: 'reports-governance',
+        label: 'Reports & Governance',
+        icon: FileSpreadsheet,
+        children: REPORT_GOVERNANCE_LINKS,
       },
+      {
+        id: 'sources-ledger',
+        label: 'Sources',
+        icon: Milk,
+        children: SOURCE_LINKS,
+      },
+      ...(role === 'SUPER_ADMIN'
+        ? [
+            {
+              id: 'zmccs',
+              label: 'ZMCCs',
+              icon: Store,
+              href: '/super-admin/procurement-sources',
+            },
+            {
+              id: 'weighing-policy',
+              label: 'Weighing policy',
+              icon: FileCheck2,
+              href: '/super-admin/weighing-policy',
+            },
+          ]
+        : []),
       {
         id: 'fleet',
         label: 'Fleet',
@@ -611,7 +745,7 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
       },
       {
         id: 'stage-policies-rules',
-        label: 'Lab Tests & Stage Policies',
+        label: 'Lab Policies',
         icon: FlaskConical,
         href: '/super-admin/test-policies',
       },
@@ -623,7 +757,7 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
       },
       {
         id: 'tv-board',
-        label: 'Yard Status Board',
+        label: 'Yard Board',
         icon: Tv,
         href: '/tv-board',
       },
@@ -637,41 +771,41 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
         id: 'mpd-approvals',
         label: 'Approval Inbox',
         icon: ShieldAlert,
-        href: '/mpd/head?tab=APPROVALS',
+        href: '/approvals',
       },
       {
         id: 'mpd-sources',
-        label: 'Milk Sources & Contractors',
+        label: 'Sources',
         icon: Milk,
-        href: '/mpd/head?tab=SOURCES',
+        children: SOURCE_LINKS,
       },
       {
         id: 'mpd-head',
         label: 'Command Center',
         icon: LayoutDashboard,
-        href: '/mpd/head?tab=COMMAND',
+        children: MPD_VIEW_LINKS,
       },
       {
         id: 'tv-board',
-        label: 'Yard Status Board',
+        label: 'Yard Board',
         icon: Tv,
         href: '/tv-board',
       },
     ];
   }
 
-  // 12. Security Manager (Admin Head)
+  // 12. Security Manager (Admin Head): own function is approvals; the security gate is a covered station
   if (role === 'ADMIN_HEAD') {
     return [
       {
-        id: 'security-mgmt',
-        label: 'Security Manager Station',
-        icon: ShieldCheck,
-        href: '/department/security',
+        id: 'admin-head-approvals',
+        label: 'Approval Inbox',
+        icon: ShieldAlert,
+        href: '/approvals',
       },
       {
         id: 'tv-board',
-        label: 'Yard Status Board',
+        label: 'Yard Board',
         icon: Tv,
         href: '/tv-board',
       },
@@ -683,43 +817,31 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
     return [
       {
         id: 'qa-head-station',
-        label: 'AVP-QA Executive Station',
+        label: 'QA Head',
         icon: ShieldAlert,
         href: '/department/qa-head',
       },
       {
         id: 'tv-board',
-        label: 'Yard Status Board',
+        label: 'Yard Board',
         icon: Tv,
         href: '/tv-board',
       },
     ];
   }
 
-  // 14. Production Head (Silo Offloading & Weighbridge Operations)
+  // 14. Production Head: own function is approvals; silo/weighbridge are covered stations (Team Stations)
   if (role === 'PRODUCTION_HEAD') {
     return [
-      {
-        id: 'production-station',
-        label: 'Production Reception & Silos',
-        icon: Database,
-        href: '/department/production',
-      },
-      {
-        id: 'weighbridge-station',
-        label: 'Weighbridge Operations',
-        icon: Scale,
-        href: '/department/weighbridge',
-      },
       {
         id: 'production-approvals',
         label: 'Approval Inbox',
         icon: ShieldAlert,
-        href: '/mpd/head?tab=APPROVALS',
+        href: '/approvals',
       },
       {
         id: 'tv-board',
-        label: 'Yard Status Board',
+        label: 'Yard Board',
         icon: Tv,
         href: '/tv-board',
       },
@@ -733,11 +855,11 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
         id: 'finance-approvals',
         label: 'Approval Inbox',
         icon: ShieldAlert,
-        href: '/mpd/head?tab=APPROVALS',
+        href: '/approvals',
       },
       {
         id: 'tv-board',
-        label: 'Yard Status Board',
+        label: 'Yard Board',
         icon: Tv,
         href: '/tv-board',
       },
@@ -749,19 +871,19 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
     return [
       {
         id: 'exec-command',
-        label: 'Executive Command Center',
+        label: 'Command Center',
         icon: LayoutDashboard,
-        href: '/mpd/head?tab=COMMAND',
+        children: MPD_VIEW_LINKS,
       },
       {
         id: 'exec-approvals',
-        label: 'Universal Approval Inbox',
+        label: 'Approval Inbox',
         icon: ShieldAlert,
-        href: '/mpd/head?tab=APPROVALS',
+        href: '/approvals',
       },
       {
         id: 'tv-board',
-        label: 'Yard Status Board',
+        label: 'Yard Board',
         icon: Tv,
         href: '/tv-board',
       },
@@ -791,7 +913,7 @@ export function getRoleNavSections(
 
   const teamSection: RoleNavSection = {
     id: 'team-stations',
-    label: 'Team Stations (Cover Staff)',
+    label: 'Team Stations',
     icon: Users,
     children: teamStations,
   };

@@ -213,31 +213,20 @@ export async function POST(req: Request) {
       }
 
       // Update accepted portions with first weight
-      const isPortionWise = visit.test_mode === 'PORTION_WISE';
+      // If multiple portions exist (N > 1), Portion 1 receives initial gross W0.
+      // Subsequent portions (P2, P3...) will inherit their starting weight from the previous portion's tare weight.
       const sortedAccepted = [...acceptedPortions].sort((a, b) => a.portion_number - b.portion_number);
-      if (isPortionWise) {
-        const firstPortion = sortedAccepted[0];
-        if (firstPortion) {
-          await tx.visitPortion.update({
-            where: { id: firstPortion.id },
-            data: {
-              first_weight_kg: grossWeightKg,
-              first_weight_at: opTimestamp,
-              first_weight_by_user_id: userIdBigInt,
-            },
-          });
-        }
-      } else {
-        for (const p of sortedAccepted) {
-          await tx.visitPortion.update({
-            where: { id: p.id },
-            data: {
-              first_weight_kg: grossWeightKg,
-              first_weight_at: opTimestamp,
-              first_weight_by_user_id: userIdBigInt,
-            },
-          });
-        }
+      const isMultiPortion = sortedAccepted.length > 1;
+      const firstPortion = sortedAccepted[0];
+      if (firstPortion) {
+        await tx.visitPortion.update({
+          where: { id: firstPortion.id },
+          data: {
+            first_weight_kg: grossWeightKg,
+            first_weight_at: opTimestamp,
+            first_weight_by_user_id: userIdBigInt,
+          },
+        });
       }
 
       // 8. Log Immutable Server Audit Record for Gross Weighting
@@ -279,7 +268,8 @@ export async function POST(req: Request) {
       success: true,
       ticketNumber: result.ticket.ticket_number,
       grossWeightKg: Number(result.ticket.gross_weight_kg),
-      isPortionWise: result.visit.test_mode === 'PORTION_WISE',
+      isPortionWise: (result.visit.portions || []).filter((p) => (p.plant_decision || '').toUpperCase() === 'ACCEPTED').length > 1,
+      isMultiPortion: (result.visit.portions || []).filter((p) => (p.plant_decision || '').toUpperCase() === 'ACCEPTED').length > 1,
       message: `First Weight (Gross: ${grossWeightKg} kg) recorded successfully. Vehicle is ready for unloading.`,
     });
   } catch (error) {

@@ -93,9 +93,6 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                     className="w-full min-h-[44px] px-3.5 py-2 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-white text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
                     required
                   />
-                  <p className="text-[10px] text-slate-700 font-medium">
-                    Records the authoritative start time of this QA session.
-                  </p>
                 </div>
 
                 <div className="flex items-center justify-end space-x-2 pt-3 border-t border-border-strong">
@@ -182,7 +179,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                 </div>
 
                 {hasFailedTests ? (
-                  <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-semibold space-y-2">
+                  <div className="bg-card border-border p-3.5 rounded-xl border text-amber-900 text-xs font-semibold space-y-2">
                     <div className="flex items-start gap-2">
                       <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                       <div>
@@ -194,7 +191,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                     </div>
                   </div>
                 ) : (
-                  <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs font-semibold space-y-1">
+                  <div className="bg-card border-border p-3.5 rounded-xl border text-emerald-900 text-xs font-semibold space-y-1">
                     <p>
                       Confirming that Portion #{currentPortion?.portion_number} meets plant quality standards and is approved for weighbridge and unloading.
                     </p>
@@ -212,9 +209,9 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                         if (onExceptionReasonChange) onExceptionReasonChange(e.target.value);
                         onRejectionReasonChange(e.target.value);
                       }}
-                      placeholder="Specify reason for accepting portion that failed SOP rules…"
+                      placeholder="Reason"
                       rows={2}
-                      className="w-full min-w-0 resize-y break-words p-2.5 text-xs font-semibold rounded-xl border border-amber-300 bg-white text-foreground focus:outline-hidden focus:ring-2 focus:ring-amber-600"
+                      className="w-full min-w-0 resize-y break-words p-2.5 text-xs font-semibold rounded-xl border border-amber-300 bg-white text-foreground focus:outline-hidden focus:ring-2 focus:ring-amber-600 min-h-11"
                       required
                     />
                   </div>
@@ -276,7 +273,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                 </div>
 
                 {!hasFailedTests && (
-                  <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-semibold space-y-1">
+                  <div className="bg-card border-border p-3.5 rounded-xl border text-amber-900 text-xs font-semibold space-y-1">
                     <div className="flex items-start gap-2">
                       <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                       <div>
@@ -317,9 +314,9 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                   <textarea
                     value={rejectionRemarks}
                     onChange={(e) => onRejectionRemarksChange(e.target.value)}
-                    placeholder="Detailed chemist lab observations, sample retest notes…"
+                    placeholder="Notes"
                     rows={2}
-                    className="w-full min-w-0 resize-y break-words p-3 text-xs font-semibold rounded-xl border border-border-strong bg-white text-foreground focus:outline-hidden focus:ring-2 focus:ring-rose-700"
+                    className="w-full min-w-0 resize-y break-words p-3 text-xs font-semibold rounded-xl border border-border-strong bg-white text-foreground focus:outline-hidden focus:ring-2 focus:ring-rose-700 min-h-11"
                     required
                   />
                 </div>

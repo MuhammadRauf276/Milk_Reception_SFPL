@@ -1,5 +1,6 @@
 'use client';
 
+import { InfoTip } from '@/components/ui/info-tip';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Camera, CheckCircle2, CircleSlash, Lock, MinusCircle, Save, ShieldCheck, X } from 'lucide-react';
 import { TEST_POINT_LABELS } from '@/types/test-point-policy';
@@ -150,8 +151,7 @@ export function TestPointPolicyMatrix() {
     <div className="space-y-4 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Test matrix by testing point</h1>
-          <p className="text-sm text-slate-600">What is tested, how rules act and which photos are needed at each point.</p>
+          <h1 className="flex items-center text-xl font-bold text-slate-900">Test Matrix<InfoTip text="What is tested, how rules act and which photos are needed at each point." /></h1>
         </div>
         {canEdit ? (
           <button
@@ -170,17 +170,17 @@ export function TestPointPolicyMatrix() {
       </div>
 
       {error && (
-        <div role="alert" className="flex items-center gap-2 rounded-lg border border-rose-300 bg-rose-50 p-3 text-sm font-semibold text-rose-800">
+        <div role="alert" className="flex items-center gap-2 rounded-lg border border-border bg-card p-3 text-sm font-semibold text-rose-800">
           <AlertTriangle className="h-4 w-4" /> {error}
         </div>
       )}
       {notice && (
-        <div role="status" className="flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm font-semibold text-emerald-800">
+        <div role="status" className="flex items-center gap-2 rounded-lg border border-border bg-card p-3 text-sm font-semibold text-emerald-800">
           <CheckCircle2 className="h-4 w-4" /> {notice}
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-xl border border-border bg-card">
         <table className="min-w-full border-collapse text-left text-xs">
           <thead>
             <tr className="bg-slate-50">
@@ -248,7 +248,7 @@ export function TestPointPolicyMatrix() {
 
       {showReason && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-label="Reason for change">
-          <div className="w-full max-w-md space-y-3 rounded-xl bg-white p-5 shadow-xl">
+          <div className="w-full max-w-md space-y-3 rounded-xl bg-card p-5 shadow-xl">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold text-slate-900">Why are you changing this?</h2>
               <button type="button" onClick={() => setShowReason(false)} aria-label="Close" className="flex h-11 w-11 items-center justify-center rounded-lg text-slate-600">

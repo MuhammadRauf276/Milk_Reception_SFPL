@@ -53,11 +53,11 @@ function PlantContractorManagerContent() {
       case 'LIVE':
         return 'Pipeline';
       case 'QUALITY':
-        return 'Quality & Rejections';
+        return 'Quality';
       case 'RECEIPTS':
-        return 'Receipts & Reconciliation';
+        return 'Receipts';
       case 'HISTORY':
-        return 'History & Reports';
+        return 'History';
       case 'OVERVIEW':
       default:
         return 'Overview';
@@ -91,13 +91,13 @@ function PlantContractorManagerContent() {
       <main className="flex-1 overflow-y-auto w-full max-w-full flex flex-col p-3 sm:p-6 space-y-6">
         <PageTransition>
           {/* Top-Level Mode Tabs */}
-          <div className="flex flex-wrap items-center gap-2 bg-white p-3 rounded-xl border border-border shadow-2xs">
+          <div className="bg-card border-border flex lg:hidden flex-wrap items-center gap-2 p-3 rounded-xl border shadow-2xs">
             <button
               type="button"
               onClick={() => router.push('/contractor/manager?tab=APPROVALS')}
-              className={`px-4 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-2 ${
+              className={`px-4 py-2 min-h-11 rounded-lg text-xs font-semibold transition flex items-center gap-2 ${
                 isApprovals
-                  ? 'bg-amber-600 text-white shadow-xs'
+                  ? 'bg-primary text-white shadow-xs'
                   : 'text-slate-700 hover:bg-slate-100'
               }`}
             >
@@ -117,14 +117,14 @@ function PlantContractorManagerContent() {
             <button
               type="button"
               onClick={() => router.push('/contractor/manager?tab=OVERVIEW')}
-              className={`px-4 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-2 ${
+              className={`px-4 py-2 min-h-11 rounded-lg text-xs font-semibold transition flex items-center gap-2 ${
                 !isApprovals
                   ? 'bg-primary text-white shadow-xs'
                   : 'text-slate-700 hover:bg-slate-100'
               }`}
             >
               <Building2 className="w-4 h-4" />
-              <span>Contractor Operations</span>
+              <span>Operations</span>
             </button>
           </div>
 

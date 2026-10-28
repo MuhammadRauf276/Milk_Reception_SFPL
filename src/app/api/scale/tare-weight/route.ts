@@ -107,7 +107,6 @@ export async function POST(req: Request) {
         throw new Error(`Tare weighing blocked: Portion #${unresolvedPortions[0].portion_number} is still pending QA decision or exception review.`);
       }
 
-      const isPortionWise = visit.test_mode === 'PORTION_WISE';
       const acceptedPortions = visit.portions
         .filter((p) => (p.plant_decision || '').toUpperCase() === 'ACCEPTED')
         .sort((a, b) => a.portion_number - b.portion_number);
@@ -117,8 +116,15 @@ export async function POST(req: Request) {
         throw new Error('Vehicle visit has no accepted portions.');
       }
 
+      // N+1 Iterative Weighing Rule:
+      // If a vehicle has N accepted portions, it MUST undergo N+1 weighings (1 initial gross + N portion tares)
+      // so that each individual compartment has an exact audited net weight (W(i-1) - W(i)).
+      // This applies REGARDLESS of whether QA used COMPOSITE or PORTION_WISE testing in the lab.
+      const isMultiPortion = acceptedPortions.length > 1;
+      const isPortionWise = isMultiPortion || visit.test_mode === 'PORTION_WISE' || acceptedPortions.length === 1;
+
       // =========================================================================
-      // BRANCH A: PORTION-WISE TESTING MODE (Multi-cycle weighing loop)
+      // BRANCH A: AUDITED PORTION WEIGHING MODE (Iterative N+1 loop)
       // =========================================================================
       if (isPortionWise) {
         const activePortion = acceptedPortions.find(

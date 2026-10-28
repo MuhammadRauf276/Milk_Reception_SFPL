@@ -25,7 +25,8 @@ interface PlantContractorManagerWorkspaceProps {
 
 export const PlantContractorManagerWorkspace: React.FC<PlantContractorManagerWorkspaceProps> = ({
   currentUser,
-  activeTab: controlledTab,
+  activeTab: controlledTab,
+
 }) => {
   const [internalTab] = useState<PlantContractorTab>('OVERVIEW');
   const activeTab = controlledTab !== undefined ? controlledTab : internalTab;
@@ -80,11 +81,7 @@ export const PlantContractorManagerWorkspace: React.FC<PlantContractorManagerWor
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <div className="flex items-center space-x-2 flex-wrap">
-                <span className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-primary/10 text-primary">
-                  Direct-to-plant supplier
-                </span>
-                <span className="text-xs text-slate-400 font-semibold">·</span>
-                <span className="text-xs font-semibold text-slate-700 flex items-center space-x-1">
+<span className="text-xs font-semibold text-slate-700 flex items-center space-x-1">
                   <Building2 className="w-3.5 h-3.5 text-primary shrink-0" />
                   <span>{assignedSourceName}</span>
                 </span>
@@ -116,7 +113,7 @@ export const PlantContractorManagerWorkspace: React.FC<PlantContractorManagerWor
 
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
           {error && (
-            <div className="p-4 mb-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center space-x-2 shadow-xs animate-panel-in">
+            <div className="bg-card border-border p-4 mb-4 rounded-xl border text-rose-800 text-xs font-semibold flex items-center space-x-2 shadow-xs animate-panel-in">
               <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
               <span>{error}</span>
             </div>
@@ -198,7 +195,7 @@ export const PlantContractorManagerWorkspace: React.FC<PlantContractorManagerWor
                     fetchLogs(prevPage);
                   }}
                   disabled={page <= 1 || loading}
-                  className="px-3.5 py-1.5 min-h-[36px] bg-subtle hover:bg-muted/60 border border-border-strong rounded-lg font-semibold text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition"
+                  className="px-3.5 py-1.5 min-h-11 bg-subtle hover:bg-muted/60 border border-border-strong rounded-lg font-semibold text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition"
                 >
                   Previous
                 </button>
@@ -209,7 +206,7 @@ export const PlantContractorManagerWorkspace: React.FC<PlantContractorManagerWor
                     fetchLogs(nextPage);
                   }}
                   disabled={page >= totalPages || !hasMore || loading}
-                  className="px-3.5 py-1.5 min-h-[36px] bg-subtle hover:bg-muted/60 border border-border-strong rounded-lg font-semibold text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition"
+                  className="px-3.5 py-1.5 bg-subtle hover:bg-muted/60 border border-border-strong rounded-lg font-semibold text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition min-h-11"
                 >
                   Next
                 </button>

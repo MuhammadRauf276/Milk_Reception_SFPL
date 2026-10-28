@@ -122,7 +122,7 @@ export const ProductionSiloIssueDrawer: React.FC<{
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 p-3.5 rounded-xl bg-subtle border border-border text-xs tabular-nums font-semibold">
+          <div className="bg-card border-border grid grid-cols-2 gap-3 p-3.5 rounded-xl border text-xs tabular-nums font-semibold">
             <div>
               <span className="text-slate-500 font-sans block text-[10px]">Physical Stock</span>
               <span className="text-base font-semibold text-primary">{silo.current_stock_liters.toLocaleString()} L</span>
@@ -207,11 +207,11 @@ export const ProductionSiloIssueDrawer: React.FC<{
               {historyLoading ? (
                 <div className="p-4 text-center text-xs text-slate-500 tabular-nums font-semibold">Loading issue history…</div>
               ) : issueHistory.length === 0 ? (
-                <div className="p-4 text-center text-xs text-slate-500 font-semibold">No recent milk issues recorded for this silo.</div>
+                <div className="p-4 text-center text-xs text-slate-500 font-semibold">No issues</div>
               ) : (
                 <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
                   {issueHistory.map((h) => (
-                    <div key={h.id} className="p-3 bg-subtle rounded-xl border border-border flex items-center justify-between text-xs">
+                    <div key={h.id} className="bg-card border-border p-3 rounded-xl border flex items-center justify-between text-xs">
                       <div>
                         <span className="font-semibold text-foreground block">{h.purpose}</span>
                         <span className="text-[11px] text-slate-500 tabular-nums font-semibold">

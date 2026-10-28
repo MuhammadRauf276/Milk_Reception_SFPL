@@ -1,7 +1,9 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
+import { stationQueryKeys } from '@/lib/query/stationQueryKeys';
 import type { User } from '@/backend/core/types';
 import { MapPin, Search, Check, ChevronDown, AlertCircle } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
@@ -38,9 +40,6 @@ export const SourceContextSelector: React.FC<SourceContextSelectorProps> = ({
 
   // User manual modal open/close override
   const [modalOverride, setModalOverride] = useState<boolean | null>(null);
-  const [sources, setSources] = useState<ProcurementSourceItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
   const delegation = resolveDelegationContext(currentUser, pathname, searchParams);
@@ -55,71 +54,60 @@ export const SourceContextSelector: React.FC<SourceContextSelectorProps> = ({
   const currentZmccIdFromUrl =
     searchParams?.get('zmccId') || searchParams?.get('zmcc_id') || searchParams?.get('sourceId');
 
+  const targetSourceType = delegation.station?.targetSourceType;
+  const endpoint =
+    targetSourceType === 'CONTRACTOR'
+      ? '/api/zmcc/arrivals/contractors'
+      : '/api/zmcc/sources';
+
+  const sourcesQuery = useQuery({
+    queryKey: stationQueryKeys.zmcc.sources(targetSourceType ?? 'ALL'),
+    queryFn: async ({ signal }) => {
+      const res = await fetch(endpoint, { signal });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || 'Failed to load facilities');
+      }
+      return res.json();
+    },
+    enabled: Boolean(shouldRender && targetSourceType),
+    staleTime: 10 * 60_000,
+    gcTime: 30 * 60_000,
+  });
+
+  const sources: ProcurementSourceItem[] = useMemo(() => {
+    const data = sourcesQuery.data;
+    if (!data) return [];
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data.zmccs)) return data.zmccs;
+    if (Array.isArray(data.sources)) return data.sources;
+    return [];
+  }, [sourcesQuery.data]);
+
+  const loading = sourcesQuery.isPending;
+  const error = sourcesQuery.error instanceof Error
+    ? sourcesQuery.error.message
+    : sourcesQuery.error
+    ? 'Failed to fetch facilities'
+    : null;
+
   // Currently selected source item
   const selectedSource = useMemo(() => {
     if (!currentZmccIdFromUrl) return null;
     return sources.find((s) => s.id === currentZmccIdFromUrl) ?? null;
   }, [sources, currentZmccIdFromUrl]);
 
-  const targetSourceType = delegation.station?.targetSourceType;
-
-  // Load available sources based on station targetSourceType
+  // Synchronize onSourceChanged safely without re-render loop
+  const lastNotifiedSourceIdRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!shouldRender || !targetSourceType) return;
-
-    let isMounted = true;
-    const endpoint =
-      targetSourceType === 'CONTRACTOR'
-        ? '/api/zmcc/arrivals/contractors'
-        : '/api/zmcc/sources';
-
-    queueMicrotask(() => {
-      if (isMounted) {
-        setLoading(true);
-        setError(null);
+    if (currentZmccIdFromUrl && sources.length > 0) {
+      const matched = sources.find((s) => s.id === currentZmccIdFromUrl);
+      if (matched && matched.id !== lastNotifiedSourceIdRef.current) {
+        lastNotifiedSourceIdRef.current = matched.id;
+        onSourceChanged?.(matched);
       }
-    });
-
-    fetch(endpoint)
-      .then(async (res) => {
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          throw new Error(body.error || 'Failed to load facilities');
-        }
-        return res.json();
-      })
-      .then((data) => {
-        if (!isMounted) return;
-        let list: ProcurementSourceItem[] = [];
-        if (Array.isArray(data)) {
-          list = data;
-        } else if (Array.isArray(data.zmccs)) {
-          list = data.zmccs;
-        } else if (Array.isArray(data.sources)) {
-          list = data.sources;
-        }
-        setSources(list);
-
-        // If URL already had a zmccId and we matched it, notify callback
-        if (currentZmccIdFromUrl) {
-          const matched = list.find((s) => s.id === currentZmccIdFromUrl);
-          if (matched && onSourceChanged) {
-            onSourceChanged(matched);
-          }
-        }
-      })
-      .catch((err) => {
-        if (!isMounted) return;
-        setError(err instanceof Error ? err.message : 'Failed to fetch facilities');
-      })
-      .finally(() => {
-        if (isMounted) setLoading(false);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [shouldRender, targetSourceType, currentZmccIdFromUrl, onSourceChanged]);
+    }
+  }, [currentZmccIdFromUrl, sources, onSourceChanged]);
 
   const handleSelectSource = useCallback(
     (source: ProcurementSourceItem) => {
@@ -169,7 +157,7 @@ export const SourceContextSelector: React.FC<SourceContextSelectorProps> = ({
         type="button"
         onClick={() => setModalOverride(true)}
         aria-label={`Current location: ${displayLabel}. Click to switch.`}
-        className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card hover:bg-muted/80 px-2.5 py-1 text-xs font-medium text-foreground transition-colors cursor-pointer shadow-2xs max-w-[200px]"
+        className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-border bg-card hover:bg-muted/80 px-2.5 py-1 text-xs font-medium text-foreground transition-colors cursor-pointer shadow-2xs max-w-[200px]"
       >
         <MapPin className="h-3.5 w-3.5 text-primary shrink-0" aria-hidden="true" />
         <span className="truncate">{displayLabel}</span>
@@ -250,7 +238,7 @@ export const SourceContextSelector: React.FC<SourceContextSelectorProps> = ({
               <button
                 type="button"
                 onClick={() => setModalOverride(false)}
-                className="rounded-md border border-border bg-card px-3.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted transition-colors cursor-pointer"
+                className="min-h-11 rounded-md border border-border bg-card px-3.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted transition-colors cursor-pointer"
               >
                 Close
               </button>

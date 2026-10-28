@@ -26,6 +26,6 @@ export async function GET(req: Request) {
     });
     return NextResponse.json({ journeys });
   } catch (_err) {
-    return NextResponse.json({ error: 'An unexpected error occurred while fetching MOT journeys.' }, { status: 500 });
+    return NextResponse.json({ error: 'An unexpected error occurred while fetching Mobile Tester journeys.' }, { status: 500 });
   }
 }

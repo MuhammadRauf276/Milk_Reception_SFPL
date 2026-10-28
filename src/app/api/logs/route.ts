@@ -94,19 +94,3 @@ export async function GET(req: NextRequest | Request) {
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Failed to fetch logs' }, { status: 500 });
   }
 }
-
-export async function POST() {
-  return NextResponse.json(
-    { error: 'Legacy POST /api/logs is deprecated. Use POST /api/dispatches for operational submissions.' },
-    { status: 405 }
-  );
-}
-
-export async function PATCH() {
-  return NextResponse.json(
-    { error: 'Legacy PATCH /api/logs is deprecated. Use departmental APIs for state transitions.' },
-    { status: 405 }
-  );
-}
-
-

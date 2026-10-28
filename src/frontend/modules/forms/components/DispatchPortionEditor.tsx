@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { PlusCircle, Check, Calculator, Edit3, Trash2, Hash } from 'lucide-react';
+import { PlusCircle, Check, Edit3, Trash2, Hash } from 'lucide-react';
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import type { LiveCameraResult } from '@/types/captured-photo';
 import { DispatchPolicyTests, type DispatchPhotoState } from './DispatchPolicyTests';
@@ -160,7 +160,7 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
               >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                   <div className="flex items-center space-x-3">
-                    <div className="p-2 rounded-xl bg-emerald-100 text-emerald-800 shrink-0">
+                    <div className="bg-card border-border border p-2 rounded-xl text-emerald-800 shrink-0">
                       <Check className="w-4 h-4 stroke-3" />
                     </div>
                     <div>
@@ -187,7 +187,7 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
                     <button
                       type="button"
                       onClick={() => onEditPortion(index)}
-                      className="flex items-center space-x-1 h-9 px-3 rounded-xl bg-white border border-border-strong text-xs font-semibold text-primary-hover hover:bg-blue-50 transition"
+                      className="min-h-11 min-w-11 flex items-center space-x-1 h-9 px-3 rounded-xl bg-white border border-border-strong text-xs font-semibold text-primary-hover hover:bg-blue-50 transition"
                     >
                       <Edit3 className="w-3.5 h-3.5" />
                       <span>Edit</span>
@@ -197,7 +197,7 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
                       <button
                         type="button"
                         onClick={() => onRemovePortion(index)}
-                        className="flex items-center space-x-1 h-9 px-3 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 text-xs font-semibold transition"
+                        className="min-h-11 min-w-11 flex items-center space-x-1 h-9 px-3 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 text-xs font-semibold transition"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                         <span>Remove</span>
@@ -207,15 +207,15 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-slate-100 text-xs tabular-nums font-semibold text-slate-700">
-                  <div className="p-2 rounded-xl bg-subtle border border-border">
+                  <div className="bg-card border-border p-2 rounded-xl border">
                     <span className="text-[10px] font-sans text-slate-500 block">SNF %</span>
                     <span className="text-foreground">{calcValues.snf !== null ? `${calcValues.snf.toFixed(2)}%` : '—'}</span>
                   </div>
-                  <div className="p-2 rounded-xl bg-subtle border border-border">
+                  <div className="bg-card border-border p-2 rounded-xl border">
                     <span className="text-[10px] font-sans text-slate-500 block">TS %</span>
                     <span className="text-foreground">{calcValues.ts !== null ? `${calcValues.ts.toFixed(2)}%` : '—'}</span>
                   </div>
-                  <div className="p-2 rounded-xl bg-subtle border border-border">
+                  <div className="bg-card border-border p-2 rounded-xl border">
                     <span className="text-[10px] font-sans text-slate-500 block">Gross Liters</span>
                     <span className="text-emerald-900 font-semibold">
                       {calcValues.grossLiters !== null
@@ -223,7 +223,7 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
                         : '—'}
                     </span>
                   </div>
-                  <div className="p-2 rounded-xl bg-subtle border border-border">
+                  <div className="bg-card border-border p-2 rounded-xl border">
                     <span className="text-[10px] font-sans text-slate-500 block">Liters @ 13% TS</span>
                     <span className="text-emerald-900 font-semibold">
                       {calcValues.at13TsLiters !== null
@@ -321,7 +321,7 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
                       <label htmlFor={`portion-unit-select-${index}`} className="block text-xs font-semibold text-slate-600">
                         Unit * {index > 0 && <span className="text-[10px] font-normal text-slate-500">(Shared from P1)</span>}
                       </label>
-                      <div className="w-full h-11 px-3.5 flex items-center justify-between rounded-xl border border-border-strong bg-slate-50 text-foreground">
+                      <div className="bg-card border-border w-full h-11 px-3.5 flex items-center justify-between rounded-xl border-strong text-foreground">
                         <span className="text-xs font-bold tabular-nums text-slate-900 tracking-wider">
                           KG
                         </span>
@@ -336,7 +336,7 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
                       <label className="block text-xs font-semibold text-slate-600">
                         Basis
                       </label>
-                      <div className="w-full h-11 px-3.5 flex items-center justify-between rounded-xl border border-border-strong bg-slate-50 text-foreground">
+                      <div className="bg-card border-border w-full h-11 px-3.5 flex items-center justify-between rounded-xl border-strong text-foreground">
                         <span className="text-xs font-bold tabular-nums text-slate-900 tracking-wider">
                           MEASURED
                         </span>
@@ -381,10 +381,6 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
                   )}
                 </div>
 
-                <div className="flex items-center space-x-2 text-xs font-medium text-slate-600 bg-subtle p-2.5 rounded-xl border border-border">
-                  <Calculator className="w-4 h-4 text-primary shrink-0" />
-                  <span>Canonical milk values update live in the summary panel.</span>
-                </div>
 
                 <div className="flex items-center justify-end space-x-2.5 pt-3 border-t">
                   {portions.length > 1 && (

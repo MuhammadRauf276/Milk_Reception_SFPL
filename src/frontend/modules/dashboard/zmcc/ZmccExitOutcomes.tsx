@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { InfoTip } from '@/components/ui/info-tip';
 
 export type ExitOutcomeRow = {
   sessionId: string;
@@ -41,13 +42,13 @@ export function ZmccExitOutcomes({ left, pending, canDecide, busy, onDecide }: {
 }) {
   const [remarks, setRemarks] = useState<Record<string, string>>({});
   return <div className="grid gap-3 lg:grid-cols-2">
-    <div className="rounded-xl border border-slate-200 bg-white p-4 text-xs">
-      <p className="font-semibold text-slate-900">Pending close-without-unloading requests ({pending.length})</p>
+    <div className="bg-card border-border rounded-xl border p-4 text-xs">
+      <p className="font-semibold text-slate-900">Close requests ({pending.length})</p>
       {pending.length ? pending.map((row) => <div key={row.sessionId} className="mt-2 space-y-1 border-t pt-2">
-        <p className="font-medium">{row.arrivalLabel} · {row.reference}{row.vehicleNumber ? ` · ${row.vehicleNumber}` : ''}</p>
-        <p className="text-slate-600">Accepted, not received: <strong>{qty(row)}</strong></p>
-        <p className="text-slate-600">Requested by {row.requestedBy ?? '—'}{row.requestedAt ? ` · ${new Date(row.requestedAt).toLocaleString()}` : ''}</p>
-        {row.reasonCode || row.remarks ? <p className="text-slate-500">{[row.reasonCode ? REASON_LABELS[row.reasonCode] ?? row.reasonCode : null, row.remarks].filter(Boolean).join(' — ')}</p> : null}
+        <p className="font-medium">{row.arrivalLabel === 'MC' ? 'Mobile Tester' : row.arrivalLabel} · {row.reference}{row.vehicleNumber ? ` · ${row.vehicleNumber}` : ''}</p>
+        <p className="text-slate-600">Not received: <strong>{qty(row)}</strong></p>
+        <div className="flex items-center gap-1 text-slate-600"><span>{row.requestedBy ?? '—'}</span>
+          <InfoTip text={[row.reasonCode ? REASON_LABELS[row.reasonCode] ?? row.reasonCode : null, row.remarks, row.requestedAt ? new Date(row.requestedAt).toLocaleString() : null].filter(Boolean).join(' · ') || 'No details'} /></div>
         {canDecide ? <div className="space-y-1">
           <input value={remarks[row.sessionId] ?? ''} onChange={(e) => setRemarks((c) => ({ ...c, [row.sessionId]: e.target.value }))} placeholder="Remarks (min 3 letters)" aria-label="Decision remarks" className="min-h-11 w-full rounded border border-slate-300 px-2" />
           <div className="flex gap-2">
@@ -55,16 +56,16 @@ export function ZmccExitOutcomes({ left, pending, canDecide, busy, onDecide }: {
             <button type="button" disabled={busy || (remarks[row.sessionId] ?? '').trim().length < 3} onClick={() => onDecide?.(row.sessionId, 'REJECT', (remarks[row.sessionId] ?? '').trim())} className="min-h-11 rounded bg-slate-700 px-3 text-white disabled:opacity-50">Reject</button>
           </div>
         </div> : null}
-      </div>) : <p className="mt-2 text-slate-500">No pending requests.</p>}
+      </div>) : <p className="mt-2 text-slate-500">None</p>}
     </div>
-    <div className="rounded-xl border border-slate-200 bg-white p-4 text-xs">
-      <p className="font-semibold text-slate-900">Left without full unloading ({left.length})</p>
+    <div className="bg-card border-border rounded-xl border p-4 text-xs">
+      <p className="font-semibold text-slate-900">Left early ({left.length})</p>
       {left.length ? left.map((row) => <div key={row.sessionId} className="mt-2 space-y-1 border-t pt-2">
-        <p className="font-medium">{row.arrivalLabel} · {row.reference}{row.vehicleNumber ? ` · ${row.vehicleNumber}` : ''}{row.sourceName ? ` · ${row.sourceName}` : ''}</p>
-        <p className="text-slate-600">{row.exitOutcome === 'PARTLY_RECEIVED' ? 'Partly received' : 'Accepted, not received'} · accepted not received <strong>{qty(row)}</strong></p>
-        <p className="text-slate-600">Reason: {row.reasonCode ? REASON_LABELS[row.reasonCode] ?? row.reasonCode : '—'}{row.remarks ? ` — ${row.remarks}` : ''}</p>
-        <p className="text-slate-500">Recorded by {row.recordedBy ?? '—'}{row.recordedAt ? ` · ${new Date(row.recordedAt).toLocaleString()}` : ''}</p>
-      </div>) : <p className="mt-2 text-slate-500">None in the last 30 days.</p>}
+        <p className="font-medium">{row.arrivalLabel === 'MC' ? 'Mobile Tester' : row.arrivalLabel} · {row.reference}{row.vehicleNumber ? ` · ${row.vehicleNumber}` : ''}{row.sourceName ? ` · ${row.sourceName}` : ''}</p>
+        <p className="text-slate-600">{row.exitOutcome === 'PARTLY_RECEIVED' ? 'Partly received' : 'Not received'}: <strong>{qty(row)}</strong></p>
+        <div className="flex items-center gap-1 text-slate-500"><span>{row.reasonCode ? REASON_LABELS[row.reasonCode] ?? row.reasonCode : '—'}</span>
+          <InfoTip text={[row.remarks, row.recordedBy, row.recordedAt ? new Date(row.recordedAt).toLocaleString() : null].filter(Boolean).join(' · ') || 'No details'} /></div>
+      </div>) : <p className="mt-2 text-slate-500">None</p>}
     </div>
   </div>;
 }

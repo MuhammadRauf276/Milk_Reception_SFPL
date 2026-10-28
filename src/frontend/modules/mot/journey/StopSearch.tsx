@@ -51,8 +51,8 @@ export function StopSearch({ stops, onSelectPending }: Props) {
                               setIsSearchOpen(true);
                             }}
                             onFocus={() => setIsSearchOpen(true)}
-                            placeholder="Type to search or select shop…"
-                            className="w-full text-xs font-semibold pl-9 pr-8 py-2.5 bg-subtle border border-border rounded-xl text-foreground focus:ring-2 focus:ring-primary focus:bg-white outline-hidden"
+                            placeholder="Search shop"
+                            className="min-h-11 w-full text-xs font-semibold pl-9 pr-8 py-2.5 bg-subtle border border-border rounded-xl text-foreground focus:ring-2 focus:ring-primary focus:bg-white outline-hidden"
                           />
                           {shopSearchQuery && (
                             <button
@@ -61,7 +61,7 @@ export function StopSearch({ stops, onSelectPending }: Props) {
                                 setShopSearchQuery('');
                                 setIsSearchOpen(false);
                               }}
-                              className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+                              className="min-h-11 min-w-11 absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
                             >
                               <X className="w-3.5 h-3.5" />
                             </button>
@@ -90,7 +90,7 @@ export function StopSearch({ stops, onSelectPending }: Props) {
                                       setShopSearchQuery('');
                                       if (!isVisited && !isSkipped && !isRejected) onSelectPending(stop);
                                     }}
-                                    className="w-full p-2.5 text-left flex items-center justify-between hover:bg-subtle transition"
+                                    className="min-h-11 min-w-11 w-full p-2.5 text-left flex items-center justify-between hover:bg-subtle transition"
                                   >
                                     <div className="flex items-center space-x-2">
                                       <span className="w-6 h-6 rounded-md bg-muted text-slate-700 text-xs font-semibold flex items-center justify-center shrink-0">

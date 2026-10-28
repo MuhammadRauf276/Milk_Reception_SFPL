@@ -24,6 +24,7 @@ import { motion } from 'framer-motion';
 import { fadeSlide } from '@/components/motion/presets';
 import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { fetchJson } from '@/lib/query/fetchJson';
+import { stationQueryKeys } from '@/lib/query/stationQueryKeys';
 import { getErrorMessage } from '@/lib/errors';
 import { PendingApprovalsPanel } from '@/frontend/modules/zmcc/approvals/PendingApprovalsPanel';
 import {
@@ -152,10 +153,10 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
 
   // ZMCC Sources for Super Admin & Data Executive
   const sourcesQuery = useQuery({
-    queryKey: ['mot', 'zmcc-sources'],
+    queryKey: stationQueryKeys.zmcc.sources(),
     queryFn: ({ signal }) => fetchJson<{ zmccs?: ZmccSource[] }>('/api/zmcc/sources', { signal }),
     enabled: isCentralRole,
-    staleTime: 5 * 60_000,
+    staleTime: 10 * 60_000,
   });
   const sources = useMemo(
     () => (sourcesQuery.data?.zmccs || []).filter((s) => s.is_active),
@@ -241,14 +242,11 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-white rounded-xl border border-border shadow-2xs">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-card rounded-xl border border-border shadow-2xs">
         <div className="flex items-center space-x-3">
-          <div className="p-2.5 bg-primary text-white rounded-xl shadow-2xs">
-            <Truck className="w-5 h-5" />
-          </div>
           <div>
             <h1 className="text-base sm:text-lg font-semibold text-foreground tracking-tight">
-              MC operations
+              Mobile Tester operations
             </h1>
           </div>
         </div>
@@ -256,7 +254,7 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
         {isCentralRole && sources.length > 0 && (
           <div className="flex items-center space-x-2">
             <label htmlFor="zmcc-select" className="text-xs font-semibold text-slate-700 whitespace-nowrap">
-              ZMCC Center:
+              ZMCC
             </label>
             <Combobox
               id="zmcc-select"
@@ -272,7 +270,7 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
       </div>
 
       {error && (
-        <div className="flex items-center justify-between p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs font-semibold animate-panel-in">
+        <div className="bg-card border-border flex items-center justify-between p-3.5 border rounded-xl text-rose-800 text-xs font-semibold animate-panel-in">
           <div className="flex items-center space-x-2">
             <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
             <span>{error}</span>
@@ -289,7 +287,7 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
       )}
 
       {successMessage && (
-        <div className="flex items-center justify-between p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-semibold">
+        <div className="bg-card border-border flex items-center justify-between p-3.5 border rounded-xl text-emerald-800 text-xs font-semibold">
           <div className="flex items-center space-x-2">
             <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
             <span>{successMessage}</span>
@@ -308,7 +306,7 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
       {!hideTabBar && (
         <div className="lg:hidden">
           <SegmentedTabs
-            label="MC operations views"
+            label="Mobile Tester operations views"
             value={activeTab}
             onValueChange={(tab) => {
               setActiveTab(tab);
@@ -370,7 +368,7 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
 
         {activeTab === 'JOURNEY_MAP' && (
           <div className="space-y-4 animate-panel-in">
-            <div className="p-3 bg-white rounded-xl border border-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="p-3 bg-card rounded-xl border border-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="flex items-center space-x-2">
                 <label className="text-xs font-semibold text-slate-700 whitespace-nowrap">
                   Select Journey:

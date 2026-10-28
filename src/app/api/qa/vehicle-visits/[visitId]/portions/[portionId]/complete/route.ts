@@ -19,6 +19,7 @@ import { isPlantLrTest, isPlantFatTest } from '@/backend/services/vehicleQuantit
 import { getOperationalBusinessDate } from '@/backend/core/business-day';
 import { parseStrictDateOnly } from '@/lib/datetime-utils';
 import { recordRejectedMilkForDisposition } from '@/backend/services/rejectedMilkDispositionService';
+import { QaWarningEscalationService } from '@/backend/services/qaWarningEscalationService';
 
 class RouteError extends Error {
   statusCode: number;
@@ -371,6 +372,27 @@ export async function POST(
         exceptionReasonsList.push('MISMATCH');
       }
 
+      // Check Month-To-Date (MTD) Warning Escalation for Procurement Source
+      const warningEntries = evaluationEntries.filter((e) => e.evaluationStatus === 'WARNING');
+      const hasWarning = warningEntries.length > 0;
+      const warningTestCodes = warningEntries.map(
+        (e) => assignedTestMap.get(e.testId.toString())?.test_code_snapshot || e.testId.toString()
+      );
+
+      if (hasWarning && explicitDecision === 'ACCEPTED') {
+        const sourceId = portion.visit.procurement_source_id;
+        const escalation = await QaWarningEscalationService.evaluateWarningEscalation(
+          sourceId,
+          hasWarning,
+          effectiveRole,
+          targetOpTs
+        );
+
+        if (escalation.requiresAvpEscalation) {
+          exceptionReasonsList.push(`MTD_WARNING_LIMIT_REACHED:${escalation.currentMtdCount}/${escalation.threshold}`);
+        }
+      }
+
       // 6. Upsert submitted PlantLabResult rows with rule linkages, photo_url, and seal_verified
       for (const entry of evaluationEntries) {
         const existing = await tx.plantLabResult.findFirst({
@@ -561,6 +583,18 @@ export async function POST(
           });
         }
 
+        if (hasWarning) {
+          // Warning notification to AVP QA Reception Lab / QA Head
+          await createNotificationsForEvent(tx, {
+            eventKey: 'PLANT_QA_WARNING_LOGGED',
+            sourceId: portionId.toString(),
+            title: `Plant QA warning accepted: ${portion.visit.vehicle_number}`,
+            body: `Vehicle ${portion.visit.vehicle_number} portion #${lockedPortion.portion_number}: ${warningTestCodes.join(', ')} in warning tolerance margin. Accepted by ${effectiveRole}.${rejectionReasonInput ? ` Remarks: ${rejectionReasonInput}` : ''}`,
+            deepLink: '/department/qa-head',
+            dedupeSuffix: `qa-warning:${portionId}:${completionEventId}`,
+          });
+        }
+
         await writeAuditLog(tx, {
           tableName: 'visit_portion',
           recordId: portionId,
@@ -579,6 +613,18 @@ export async function POST(
           },
           actor: auditActorFromUser(dbUser),
         });
+
+        // Record accepted vehicle warning if accepted with warning
+        if (finalPlantDecision === 'ACCEPTED' && hasWarning && portion.visit.procurement_source_id) {
+          await QaWarningEscalationService.recordVehicleAcceptedWarning(
+            visitId,
+            portionId,
+            portion.visit.procurement_source_id,
+            warningTestCodes,
+            userIdBigInt,
+            targetOpTs
+          );
+        }
 
         // If rejected, hook to MPD disposition remarks
         if (finalPlantDecision === 'REJECTED') {

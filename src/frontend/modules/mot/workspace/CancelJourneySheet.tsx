@@ -57,8 +57,8 @@ export function CancelJourneySheet({ journey, onClose, onDone }: Props) {
             id="cancel-reason"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            placeholder="e.g. Mechanical breakdown, road blockage, vehicle swap required…"
-            className="w-full rounded-xl border border-border bg-subtle p-3 text-sm font-medium text-foreground focus:ring-2 focus:ring-rose-500"
+            placeholder="Reason"
+            className="min-h-11 w-full rounded-xl border border-border bg-subtle p-3 text-sm font-medium text-foreground focus:ring-2 focus:ring-rose-500"
             rows={3}
             required
           />

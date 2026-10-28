@@ -258,7 +258,7 @@ export const FIXTURE_USER_PROFILES: Record<string, User> = {
   'mot.driver': {
     id: 'usr_mot_driver',
     username: 'mot.driver',
-    name: 'MOT Operator',
+    name: 'Mobile Tester',
     role: 'MOT',
     department: 'Milk Procurement',
     scope_type: 'SOURCE',

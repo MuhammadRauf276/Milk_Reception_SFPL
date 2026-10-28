@@ -20,7 +20,7 @@ export async function GET(req: Request) {
     return NextResponse.json(result.data, { status: result.status });
   } catch (err) {
     console.error('GET /api/zmcc/arrivals/mot error:', err);
-    return NextResponse.json({ error: 'Failed to fetch MOT arrivals.' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to fetch Mobile Tester arrivals.' }, { status: 500 });
   }
 }
 
@@ -38,6 +38,6 @@ export async function POST(req: Request) {
     return NextResponse.json(result.data, { status: result.status });
   } catch (err) {
     console.error('POST /api/zmcc/arrivals/mot error:', err);
-    return NextResponse.json({ error: 'Failed to submit MOT arrival.' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to submit Mobile Tester arrival.' }, { status: 500 });
   }
 }

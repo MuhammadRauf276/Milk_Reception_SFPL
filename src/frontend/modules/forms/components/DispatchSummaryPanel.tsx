@@ -82,7 +82,7 @@ export interface DispatchSummaryPanelProps {
 export const DispatchSummaryPanel: React.FC<DispatchSummaryPanelProps> = ({
   isCollapsible = false,
   portions,
-  vehicleQuantity,
+  vehicleQuantity,
   safeTotals,
   calculatedPortionsList,
   labTests,
@@ -141,16 +141,17 @@ export const DispatchSummaryPanel: React.FC<DispatchSummaryPanelProps> = ({
     }
   });
 
+  const isSingle = portions.length === 1;
   const avgLr = totalQty > 0 && weightedLrSum > 0
     ? (weightedLrSum / totalQty).toFixed(2)
-    : validLrCount > 0
-    ? (simpleLrSum / validLrCount).toFixed(2)
+    : isSingle && validLrCount === 1
+    ? (simpleLrSum).toFixed(2)
     : null;
 
   const avgFat = totalQty > 0 && weightedFatSum > 0
     ? (weightedFatSum / totalQty).toFixed(2)
-    : validFatCount > 0
-    ? (simpleFatSum / validFatCount).toFixed(2)
+    : isSingle && validFatCount === 1
+    ? (simpleFatSum).toFixed(2)
     : null;
 
   const numAvgLr = avgLr ? parseFloat(avgLr) : NaN;
@@ -169,7 +170,7 @@ export const DispatchSummaryPanel: React.FC<DispatchSummaryPanelProps> = ({
             id="btn-summary-accordion-toggle"
             aria-expanded={isMobileExpanded}
             onClick={() => setIsMobileExpanded((prev) => !prev)}
-            className="w-full flex items-center justify-between p-4 rounded-xl bg-white border border-border-strong shadow-xs text-left transition hover:bg-slate-50"
+            className="w-full flex items-center justify-between p-4 rounded-xl bg-card border border-border-strong shadow-xs text-left transition hover:bg-slate-50"
           >
             <div className="flex items-center space-x-2.5">
               <div className="p-2 rounded-xl bg-primary text-white">
@@ -180,7 +181,7 @@ export const DispatchSummaryPanel: React.FC<DispatchSummaryPanelProps> = ({
                   Dispatch Summary
                 </span>
                 <span className="text-xs tabular-nums font-semibold text-primary">
-                  {vehicleQuantity.value && Number(vehicleQuantity.value) > 0 ? `${Number(vehicleQuantity.value).toLocaleString()} KG` : 'Calculations active'}
+                  {vehicleQuantity.value && Number(vehicleQuantity.value) > 0 ? `${Number(vehicleQuantity.value).toLocaleString()} KG` : 'Calculating'}
                   {avgLr ? ` · LR ${avgLr}` : ''}
                   {avgFat ? ` · Fat ${avgFat}%` : ''}
                 </span>
@@ -188,7 +189,7 @@ export const DispatchSummaryPanel: React.FC<DispatchSummaryPanelProps> = ({
             </div>
 
             <div className="flex items-center space-x-1.5 text-xs font-semibold text-primary">
-              <span>{isMobileExpanded ? 'Hide Details' : 'View Details'}</span>
+              <span>{isMobileExpanded ? 'Hide' : 'Details'}</span>
               <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isMobileExpanded ? 'rotate-180' : ''}`} />
             </div>
           </button>
@@ -196,7 +197,7 @@ export const DispatchSummaryPanel: React.FC<DispatchSummaryPanelProps> = ({
       )}
 
       <div className={`space-y-4 ${isCollapsible ? (isMobileExpanded ? 'block max-lg:animate-panel-in' : 'hidden lg:block') : 'block'}`}>
-        <div className="p-4 sm:p-5 rounded-xl bg-white border border-border-strong shadow-xs space-y-4">
+        <div className="p-4 sm:p-5 rounded-xl bg-card border border-border-strong shadow-xs space-y-4">
           <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
             <div className="flex items-center space-x-2">
               <Calculator className="w-4 h-4 text-primary" />
@@ -209,9 +210,9 @@ export const DispatchSummaryPanel: React.FC<DispatchSummaryPanelProps> = ({
             </span>
           </div>
 
-          <div className="p-3.5 rounded-xl bg-slate-50 border border-border-strong space-y-1">
+          <div className="bg-card border-border p-3.5 rounded-xl border-strong space-y-1">
             <div className="flex items-center justify-between text-xs">
-              <span className="font-semibold text-slate-600 uppercase text-[11px]">Dispatched Net Weight</span>
+              <span className="font-semibold text-slate-600 uppercase text-[11px]">Net weight</span>
               <span className="text-[10px] font-bold text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded">
                 AUTO-SUM
               </span>
@@ -222,17 +223,17 @@ export const DispatchSummaryPanel: React.FC<DispatchSummaryPanelProps> = ({
                   ? Number(vehicleQuantity.value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                   : '0.00'}
               </span>
-              <span className="text-xs font-bold text-slate-500">KG (Measured)</span>
+              <span className="text-xs font-bold text-slate-500">KG</span>
             </div>
             <span className="text-[11px] font-semibold text-emerald-700 block">
-              Standard Net Weight
+              Net
             </span>
           </div>
 
           <div className="grid grid-cols-2 gap-2.5 text-xs tabular-nums font-semibold min-w-0">
-            <div className="p-3 rounded-xl bg-slate-50 border border-border-strong space-y-0.5 min-w-0">
+            <div className="bg-card border-border p-3 rounded-xl border-strong space-y-0.5 min-w-0">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-slate-500 uppercase truncate">Weighted LR</span>
+                <span className="text-[10px] font-bold text-slate-500 uppercase truncate">Avg LR</span>
                 <span className="text-[9px] font-bold text-slate-500 bg-slate-200/80 px-1 py-0.5 rounded">@20°C</span>
               </div>
               <span className="text-lg font-extrabold text-slate-900 tabular-nums block">
@@ -243,9 +244,9 @@ export const DispatchSummaryPanel: React.FC<DispatchSummaryPanelProps> = ({
               </span>
             </div>
 
-            <div className="p-3 rounded-xl bg-slate-50 border border-border-strong space-y-0.5 min-w-0">
+            <div className="bg-card border-border p-3 rounded-xl border-strong space-y-0.5 min-w-0">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-slate-500 uppercase truncate">Weighted Fat</span>
+                <span className="text-[10px] font-bold text-slate-500 uppercase truncate">Avg Fat</span>
                 <span className="text-[9px] font-bold text-emerald-800 bg-emerald-100 px-1 py-0.5 rounded">GERBER</span>
               </div>
               <span className="text-lg font-extrabold text-slate-900 tabular-nums block">
@@ -258,15 +259,15 @@ export const DispatchSummaryPanel: React.FC<DispatchSummaryPanelProps> = ({
           </div>
 
           <div className="grid grid-cols-2 gap-2.5 text-xs tabular-nums font-semibold min-w-0">
-            <div className="p-3 rounded-xl bg-slate-50 border border-border-strong space-y-0.5 min-w-0">
-              <span className="text-[10px] font-bold text-slate-500 uppercase block truncate">Gross Liters</span>
+            <div className="bg-card border-border p-3 rounded-xl border-strong space-y-0.5 min-w-0">
+              <span className="text-[10px] font-bold text-slate-500 uppercase block truncate">Gross L</span>
               <span className="text-base font-extrabold text-slate-900 tabular-nums block truncate">
                 {safeTotals.formattedTotalGrossLiters || '—'}
               </span>
             </div>
 
-            <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-300 space-y-0.5 min-w-0">
-              <span className="text-[10px] font-bold text-emerald-950 uppercase block truncate">Liters @ 13% TS</span>
+            <div className="bg-card border-border p-3 rounded-xl border space-y-0.5 min-w-0">
+              <span className="text-[10px] font-bold text-emerald-950 uppercase block truncate">L @ 13 TS</span>
               <span className="text-base font-extrabold text-emerald-900 tabular-nums block truncate">
                 {safeTotals.formattedTotalLitersAt13TS || '—'}
               </span>
@@ -274,9 +275,9 @@ export const DispatchSummaryPanel: React.FC<DispatchSummaryPanelProps> = ({
           </div>
         </div>
 
-        <div className="p-4 sm:p-5 rounded-xl bg-white border border-border-strong shadow-xs space-y-3">
+        <div className="p-4 sm:p-5 rounded-xl bg-card border border-border-strong shadow-xs space-y-3">
           <h4 className="text-xs font-semibold text-foreground">
-            Portion Details
+            Portions
           </h4>
 
           <div className="space-y-2">

@@ -96,7 +96,7 @@ export function ShopRequestSheet({ routeId, routeName, deviceGps, gpsBadge, onCl
       <form onSubmit={handleSubmit} className="space-y-3">
         <SheetError message={error} />
         {success && (
-          <div className="flex items-center space-x-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">
+          <div className="bg-card border-border flex items-center space-x-2 rounded-xl border p-3 text-xs text-emerald-800">
             <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />
             <span>{success}</span>
           </div>
@@ -107,7 +107,7 @@ export function ShopRequestSheet({ routeId, routeName, deviceGps, gpsBadge, onCl
           {field('phone_number', 'Mobile Phone', '03XXXXXXXXX')}
           {field('cnic', 'CNIC', '35201-1234567-1')}
         </div>
-        <div className="flex items-center justify-between rounded-xl border border-border bg-subtle p-2.5 text-[11px] text-slate-600">
+        <div className="bg-card border-border flex items-center justify-between rounded-xl border p-2.5 text-[11px] text-slate-600">
           <span className="flex items-center gap-2 font-medium">Device GPS: {gpsBadge}</span>
           <span className="font-semibold text-foreground">
             {deviceGps ? `${deviceGps.latitude.toFixed(6)}, ${deviceGps.longitude.toFixed(6)}` : 'Waiting for GPS…'}

@@ -183,7 +183,8 @@ export async function GET(req: NextRequest) {
       const { totalAcceptedDispatchValue, totalAcceptedDispatchUnit } =
         aggregateAcceptedPortionQuantities(acceptedPortions);
 
-      const isPortionWise = v.test_mode === 'PORTION_WISE';
+      const isMultiPortion = acceptedPortions.length > 1;
+      const isPortionWise = isMultiPortion || v.test_mode === 'PORTION_WISE';
       const sortedAccepted = [...acceptedPortions].sort((a, b) => a.portion_number - b.portion_number);
       const activePortion = isPortionWise
         ? sortedAccepted.find((p) => p.current_status === 'UNLOADING' || (p.unloading_log?.pump_start_timestamp && !p.unloading_log?.pump_end_timestamp)) || sortedAccepted[0]
@@ -204,22 +205,28 @@ export async function GET(req: NextRequest) {
         portion_count: v.portions.length,
         accepted_portion_count: acceptedPortions.length,
         rejected_portion_count: rejectedPortions.length,
-        vehicle_dispatch_quantity_value: v.vehicle_dispatch_quantity_value !== null && v.vehicle_dispatch_quantity_value !== undefined
-          ? Number(v.vehicle_dispatch_quantity_value)
-          : null,
-        vehicle_dispatch_quantity_unit: v.vehicle_dispatch_quantity_unit || null,
-        vehicle_dispatch_quantity_basis: v.vehicle_dispatch_quantity_basis || null,
-        total_accepted_dispatch_value: totalAcceptedDispatchValue,
-        total_accepted_dispatch_unit: totalAcceptedDispatchUnit,
-        total_accepted_physical_liters: allAcceptedHavePhysicalLiters ? Math.round(totalAcceptedPhysicalLiters) : null,
-        total_accepted_at13_ts_liters: allAcceptedHaveAt13TS ? Math.round(totalAcceptedAt13TSLiters) : null,
+        // Double-Blind Operator Entry: Mask dispatch values and expected liters from Production Operator
+        vehicle_dispatch_quantity_value: null,
+        vehicle_dispatch_quantity_unit: null,
+        vehicle_dispatch_quantity_basis: null,
+        total_accepted_dispatch_value: null,
+        total_accepted_dispatch_unit: null,
+        total_accepted_physical_liters: null,
+        total_accepted_at13_ts_liters: null,
         started_at: earliestStartTime ? (earliestStartTime as Date).toISOString() : null,
         started_by_name: starterName || 'Operator',
         elapsed_minutes: elapsedMinutes,
         test_mode: v.test_mode || 'COMPOSITE',
         is_portion_wise: isPortionWise,
         active_portion_number: activePortion?.portion_number ?? (sortedAccepted[0]?.portion_number ?? 1),
-        portions: formattedPortions,
+        portions: formattedPortions.map((p) => ({
+          ...p,
+          dispatch_quantity_value: null,
+          dispatch_quantity_unit: null,
+          provisional_physical_liters: null,
+          expected_physical_liters: null,
+          expected_at_13ts_liters: null,
+        })),
       };
     });
 

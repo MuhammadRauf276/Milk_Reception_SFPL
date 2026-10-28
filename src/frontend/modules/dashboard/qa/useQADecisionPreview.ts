@@ -5,6 +5,8 @@ import type { DecisionRuleTestRow, DecisionTestOutcome } from '@/frontend/module
 import { evaluateDecision } from '@/backend/services/decision/decisionRule';
 import type { DecisionResult, ExceptionReason, PersonDecision } from '@/types/stage1-decision';
 import type { LabTestDef, TestInputState, VisitDetail, VisitDetailPortion } from './qaTypes';
+import { evaluateAllCalculatedTests } from '@/lib/calculated-tests';
+import { evaluate3ZoneTest } from '@/lib/sop-evaluation';
 
 interface Args {
   visitDetail: VisitDetail | null;
@@ -31,8 +33,32 @@ export function useQADecisionPreview({
   isSuperior,
 }: Args) {
   const displayableTests = React.useMemo(() => {
-    return (visitDetail?.active_plant_tests || []).filter((t) => t.resultType !== 'CALCULATED');
+    return visitDetail?.active_plant_tests || [];
   }, [visitDetail?.active_plant_tests]);
+
+  // Find LR and Fat for auto-calculated tests (Richmond SNF, Total Solids, Ratio)
+  const lrTest = React.useMemo(() => {
+    return displayableTests.find((t) => {
+      const c = (t.testCode || '').toUpperCase();
+      const n = (t.testName || '').toUpperCase();
+      return c.includes('LR') || n.includes('LR') || n.includes('LACTOMETER');
+    });
+  }, [displayableTests]);
+
+  const fatTest = React.useMemo(() => {
+    return displayableTests.find((t) => {
+      const c = (t.testCode || '').toUpperCase();
+      const n = (t.testName || '').toUpperCase();
+      return c.includes('FAT') || n.includes('FAT') || n.includes('GERBER');
+    });
+  }, [displayableTests]);
+
+  const lrNum = lrTest && testInputs[lrTest.id]?.numericValue ? Number(testInputs[lrTest.id]?.numericValue) : null;
+  const fatNum = fatTest && testInputs[fatTest.id]?.numericValue ? Number(testInputs[fatTest.id]?.numericValue) : null;
+
+  const autoCalculations = React.useMemo(() => {
+    return evaluateAllCalculatedTests({ LR: lrNum, FAT: fatNum });
+  }, [lrNum, fatNum]);
 
   // Seal evaluation
   const dispatchSeal = currentPortion?.seal_number?.trim() || '';
@@ -77,8 +103,36 @@ export function useQADecisionPreview({
       const nameUpper = (test.testName || '').toUpperCase();
       const isLR = codeUpper.includes('LR') || nameUpper.includes('LR') || nameUpper.includes('LACTOMETER');
       const isFAT = codeUpper.includes('FAT') || nameUpper.includes('FAT') || nameUpper.includes('GERBER');
-      const photoRequired = isLR || isFAT || Boolean(test.isPhotoRequired);
+      const isCalculated = test.resultType === 'CALCULATED' || codeUpper === 'LT-000010' || codeUpper === 'LT-000011' || codeUpper === 'SNF' || codeUpper.includes('RATIO');
+      const photoRequired = (isLR || isFAT || Boolean(test.isPhotoRequired)) && !isCalculated;
       const hasPhoto = Boolean(activePhotos[test.id]);
+
+      // If it is an auto-calculated test:
+      if (isCalculated) {
+        let calcVal: number | null = null;
+        if (codeUpper === 'LT-000010' || codeUpper.includes('SNF')) calcVal = autoCalculations.SNF_CANONICAL;
+        else if (codeUpper === 'LT-000011' || codeUpper.includes('SOLIDS')) calcVal = autoCalculations.TOTAL_SOLIDS;
+        else if (codeUpper.includes('RATIO')) calcVal = autoCalculations.RATIO_SNF_FAT;
+
+        if (calcVal != null) {
+          rows.push({
+            key: test.id,
+            name: test.testName,
+            outcome: 'PASS',
+            valueText: `${calcVal.toFixed(2)} ${test.unit || '%'}`.trim(),
+            note: 'Auto-calculated Richmond formula',
+          });
+        } else {
+          rows.push({
+            key: test.id,
+            name: test.testName,
+            outcome: 'WARN',
+            valueText: 'Pending LR & Fat',
+            note: 'Calculates automatically once LR and Fat are entered',
+          });
+        }
+        continue;
+      }
 
       if (!state || (state.performanceStatus === 'PERFORMED' && !state.numericValue && !state.textValue)) {
         rows.push({
@@ -86,7 +140,7 @@ export function useQADecisionPreview({
           name: test.testName,
           outcome: test.isRequired ? 'WARN' : 'NOT_TESTED',
           valueText: null,
-          note: test.isRequired ? 'Mandatory test pending' : null,
+          note: test.isRequired ? 'Mandatory test pending' : 'Optional (Applied)',
         });
         continue;
       }
@@ -107,21 +161,37 @@ export function useQADecisionPreview({
       let note: string | null = null;
       let valueText: string | null = null;
 
-      if (test.resultType === 'NUMERIC') {
-        valueText = `${state.numericValue} ${test.unit || ''}`.trim();
-        if (photoRequired && !hasPhoto) {
-          outcome = 'WARN';
-          note = 'Verification photo missing';
-        }
-      } else if (test.resultOptions && test.resultOptions.length > 0) {
-        valueText = state.textValue || '—';
-        const opt = test.resultOptions.find((o) => o.value === state.textValue);
-        if (opt && opt.isPassing === false) {
-          outcome = 'FAIL';
-          note = 'Out of acceptable specification';
-        }
+      const evalRes = evaluate3ZoneTest(
+        {
+          min: test.rule?.min,
+          max: test.rule?.max,
+          warningTrigger: (test.rule as any)?.warningTrigger,
+          decisionConsequence: (test.rule as any)?.decisionConsequence,
+          acceptableOption: (test.rule as any)?.acceptableOption,
+          category: (test.rule as any)?.ruleCategory,
+          ruleCategory: (test.rule as any)?.ruleCategory,
+          testMode: test.isRequired ? 'COMPULSORY' : 'OPTIONAL',
+          resultType: test.resultType,
+          resultOptions: test.resultOptions,
+          unit: test.unit,
+        },
+        test.resultType === 'NUMERIC' ? state.numericValue : state.textValue
+      );
+
+      valueText = test.resultType === 'NUMERIC' ? `${state.numericValue} ${test.unit || ''}`.trim() : (state.textValue || '—');
+
+      if (evalRes.verdict === 'FAIL') {
+        outcome = 'FAIL';
+        note = evalRes.message;
+      } else if (evalRes.verdict === 'WARN') {
+        outcome = 'WARN';
+        note = evalRes.message;
+      } else if (photoRequired && !hasPhoto) {
+        outcome = 'WARN';
+        note = 'Verification photo missing';
       } else {
-        valueText = state.textValue || '—';
+        outcome = 'PASS';
+        note = evalRes.message;
       }
 
       rows.push({
@@ -134,7 +204,7 @@ export function useQADecisionPreview({
     }
 
     return rows;
-  }, [currentPortion, hasDispatchSeal, isSealMatched, isSealMismatch, isSealMissing, currentEnteredSeal, dispatchSeal, displayableTests, testInputs, activePhotos]);
+  }, [currentPortion, hasDispatchSeal, isSealMatched, isSealMismatch, isSealMissing, currentEnteredSeal, dispatchSeal, displayableTests, testInputs, activePhotos, autoCalculations]);
 
   // Live decision calculation
   const liveDecision = React.useMemo<DecisionResult | null>(() => {
@@ -152,6 +222,21 @@ export function useQADecisionPreview({
 
     // Check tests
     for (const test of requiredManualPlantTests) {
+      const codeUpper = (test.testCode || '').toUpperCase();
+      const isCalculated = test.resultType === 'CALCULATED' || codeUpper === 'LT-000010' || codeUpper === 'LT-000011' || codeUpper === 'SNF' || codeUpper.includes('RATIO');
+
+      if (isCalculated) {
+        let calcVal: number | null = null;
+        if (codeUpper === 'LT-000010' || codeUpper.includes('SNF')) calcVal = autoCalculations.SNF_CANONICAL;
+        else if (codeUpper === 'LT-000011' || codeUpper.includes('SOLIDS')) calcVal = autoCalculations.TOTAL_SOLIDS;
+        else if (codeUpper.includes('RATIO')) calcVal = autoCalculations.RATIO_SNF_FAT;
+
+        if (calcVal == null) {
+          missingCompulsory.push(test.testCode);
+        }
+        continue;
+      }
+
       const state = testInputs[test.id];
       if (!state) {
         missingCompulsory.push(test.testCode);
@@ -163,6 +248,26 @@ export function useQADecisionPreview({
       } else if (state.performanceStatus === 'PERFORMED') {
         if (test.resultType === 'NUMERIC' && (!state.numericValue || isNaN(Number(state.numericValue)))) {
           missingCompulsory.push(test.testCode);
+        } else if (test.resultType === 'NUMERIC' && test.rule) {
+          const evalRes = evaluate3ZoneTest(
+            {
+              min: test.rule.min,
+              max: test.rule.max,
+              warningTrigger: (test.rule as any)?.warningTrigger,
+              decisionConsequence: (test.rule as any)?.decisionConsequence,
+              acceptableOption: (test.rule as any)?.acceptableOption,
+              category: (test.rule as any)?.ruleCategory,
+              ruleCategory: (test.rule as any)?.ruleCategory,
+              testMode: test.isRequired ? 'COMPULSORY' : 'OPTIONAL',
+              resultType: test.resultType,
+              resultOptions: test.resultOptions,
+              unit: test.unit,
+            },
+            state.numericValue
+          );
+          if (evalRes.isRuleFailure) {
+            ruleFailures.push(test.testCode);
+          }
         } else if (test.resultType !== 'NUMERIC' && !state.textValue) {
           missingCompulsory.push(test.testCode);
         }
@@ -172,26 +277,46 @@ export function useQADecisionPreview({
             ruleFailures.push(test.testCode);
           }
         }
-        const codeUpper = (test.testCode || '').toUpperCase();
-        const isLR = codeUpper.includes('LR');
-        const isFAT = codeUpper.includes('FAT');
-        if ((isLR || isFAT || test.isPhotoRequired) && !activePhotos[test.id]) {
-          missingPhotos.push(test.testCode);
-        }
+      }
+
+      const nameUpper = (test.testName || '').toUpperCase();
+      const isLR = codeUpper.includes('LR') || nameUpper.includes('LR') || nameUpper.includes('LACTOMETER');
+      const isFAT = codeUpper.includes('FAT') || nameUpper.includes('FAT') || nameUpper.includes('GERBER');
+      if ((isLR || isFAT || Boolean(test.isPhotoRequired)) && !activePhotos[test.id]) {
+        missingPhotos.push(test.testCode);
       }
     }
 
-    const effectiveDecision: PersonDecision = personDecision || 'ACCEPT';
-    return evaluateDecision({
-      ruleFailures,
-      missingCompulsory,
-      missingPhotos,
-      extraReasons,
-      personDecision: effectiveDecision,
-      remarks: decisionRemarks || '',
-      deciderCanApprove: Boolean(isSuperior),
-    });
-  }, [currentPortion, hasDispatchSeal, isSealMatched, requiredManualPlantTests, testInputs, activePhotos, personDecision, decisionRemarks, isSuperior]);
+    if (missingPhotos.length > 0) {
+      extraReasons.push('PICTURE_MISSING');
+    }
+    if (missingCompulsory.length > 0) {
+      extraReasons.push('MISSING_FIELD');
+    }
+
+    return evaluateDecision(
+      {
+        ruleFailures,
+        missingCompulsory,
+        missingPhotos,
+        extraReasons,
+        personDecision: personDecision || 'ACCEPT',
+        remarks: decisionRemarks,
+        deciderCanApprove: isSuperior,
+      }
+    );
+  }, [
+    currentPortion,
+    hasDispatchSeal,
+    isSealMatched,
+    requiredManualPlantTests,
+    testInputs,
+    activePhotos,
+    personDecision,
+    decisionRemarks,
+    isSuperior,
+    autoCalculations,
+  ]);
 
   return {
     displayableTests,
@@ -200,5 +325,6 @@ export function useQADecisionPreview({
     currentEnteredSeal,
     decisionRows,
     liveDecision,
+    autoCalculations,
   };
 }

@@ -36,7 +36,7 @@ export function UserStatusDrawer({ user, targetStatus, open, onClose, onSaved }:
       <p className="text-xs text-slate-500">
         Target Account: <span className="font-semibold tabular-nums text-slate-800">@{user.username}</span>
       </p>
-      <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3.5">
+      <div className="space-y-2 rounded-xl border border-border bg-card p-3.5">
         <div className="flex justify-between">
           <span className="font-medium text-slate-500">Current Status:</span>
           <span className={`font-semibold ${user.isActive ? 'text-emerald-700' : 'text-rose-700'}`}>
@@ -51,14 +51,14 @@ export function UserStatusDrawer({ user, targetStatus, open, onClose, onSaved }:
         </div>
       </div>
       {!targetStatus ? (
-        <p className="rounded-xl border border-rose-200 bg-rose-50 p-3 font-medium text-rose-700">
-          <strong>Important:</strong> The account will lose access immediately because live database authority is enforced.
+        <p className="rounded-xl border border-border bg-card p-3 font-medium text-rose-700">
+          Access removed immediately.
         </p>
       ) : (
-        <p className="font-medium text-slate-600">The account will regain access immediately upon entering valid credentials.</p>
+        <p className="font-medium text-slate-600">Access restored.</p>
       )}
       {targetStatus && !user.email && (
-        <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-800">
+        <div className="flex items-center gap-2 rounded-xl border border-border bg-card p-3 text-amber-800">
           <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
           <span>This account has no email set. An email is required before activation. Please edit the account to provide an email first.</span>
         </div>

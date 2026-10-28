@@ -15,13 +15,13 @@ interface Props {
 
 export function JourneyHistoryTab({ journeys, loading, statusFilter, onStatusFilterChange, onRefresh, onViewMap, onViewStops }: Props) {
   return (
-        <div className="bg-white rounded-xl border border-border shadow-2xs overflow-hidden space-y-3 animate-panel-in">
+        <div className="bg-card rounded-xl border border-border shadow-2xs overflow-hidden space-y-3 animate-panel-in">
           <div className="p-4 border-b border-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <h2 className="text-sm font-semibold text-foreground">Journey Historical Ledger</h2>
+              <h2 className="text-sm font-semibold text-foreground">Journey history</h2>
             </div>
             <div className="flex items-center space-x-2">
-              <div className="inline-flex rounded-xl border border-border bg-subtle p-0.5" role="group" aria-label="Status filter">
+              <div className="bg-card border-border inline-flex rounded-xl border p-0.5" role="group" aria-label="Status filter">
                 {[
                   ['all', 'All'],
                   ['COLLECTING', 'Collecting'],
@@ -44,7 +44,7 @@ export function JourneyHistoryTab({ journeys, loading, statusFilter, onStatusFil
               <button
                 type="button"
                 onClick={onRefresh}
-                className="flex items-center space-x-1 px-3 py-1.5 rounded-xl border border-border text-xs font-semibold text-slate-700 hover:bg-muted"
+                className="min-h-11 min-w-11 flex items-center space-x-1 px-3 py-1.5 rounded-xl border border-border text-xs font-semibold text-slate-700 hover:bg-muted"
               >
                 <span>Refresh</span>
               </button>

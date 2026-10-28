@@ -3,9 +3,31 @@
 import { useEffect } from 'react';
 
 /**
+ * System endpoints that must never be decorated with station delegation headers.
+ * Auth sessions, background sync, device telemetry, captured photos, and user alerts
+ * strictly belong to the signed-in operator or physical device hardware.
+ */
+const DELEGATION_EXCLUDED_PREFIXES: readonly string[] = [
+  '/api/auth',
+  '/api/sync',
+  '/api/photos',
+  '/api/notifications',
+  '/api/devices',
+];
+
+export function shouldDecorateRequest(urlStr: string): boolean {
+  if (!urlStr.startsWith('/api/') && !urlStr.includes('/api/')) {
+    return false;
+  }
+  const urlPath = urlStr.replace(/^https?:\/\/[^/]+/, '').split('?')[0];
+  return !DELEGATION_EXCLUDED_PREFIXES.some((prefix) => urlPath.startsWith(prefix));
+}
+
+/**
  * Automatically decorates outgoing `/api/*` fetch requests with `x-acting-as` and
  * `x-acting-source-id` headers whenever operating in delegated mode (§5.6).
  *
+ * Excludes background sync, photo uploads, notifications, and auth endpoints.
  * Automatically restores the original `window.fetch` on unmount or when delegation changes.
  */
 export function useDelegationInterceptor(
@@ -29,8 +51,8 @@ export function useDelegationInterceptor(
             ? input.toString()
             : input.url;
 
-        // Only decorate relative or same-origin API requests
-        if (urlStr.startsWith('/api/') || urlStr.includes('/api/')) {
+        // Only decorate operational station API requests
+        if (shouldDecorateRequest(urlStr)) {
           const headers = new Headers(
             init.headers ||
               (typeof input === 'object' && 'headers' in input ? (input as Request).headers : {})

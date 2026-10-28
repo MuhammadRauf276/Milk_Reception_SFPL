@@ -94,7 +94,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
   // Error State Render: Never show KPI numbers or zeros on error
   if (error) {
     return (
-      <div className="p-8 rounded-xl bg-rose-50 border border-rose-200 text-center space-y-3" role="alert">
+      <div className="bg-card border-border p-8 rounded-xl border text-center space-y-3" role="alert">
         <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto border border-rose-200">
           <AlertTriangle className="w-6 h-6" />
         </div>
@@ -103,7 +103,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
         {onRetry && (
           <button
             onClick={onRetry}
-            className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-rose-700 text-white text-xs font-semibold hover:bg-rose-800 transition"
+            className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-rose-700 text-white text-xs font-semibold hover:bg-rose-800 transition min-h-11"
           >
             <span>Retry Loading</span>
           </button>
@@ -139,7 +139,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
                 {assignedSourceName} overview
               </h3>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Business date {displayCalendarDate} (PKT)
+                {displayCalendarDate}
               </p>
             </div>
           </div>
@@ -152,7 +152,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
               value={dateRange}
               onChange={(e) => onDateRangeChange(e.target.value as OverviewDateRange)}
               aria-label="Select overview period"
-              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-subtle border border-border/80 text-foreground focus:ring-2 focus:ring-primary outline-hidden shadow-xs"
+              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-subtle border border-border/80 text-foreground focus:ring-2 focus:ring-primary outline-hidden shadow-xs min-h-11"
             >
               <option value="TODAY">Today ({displayCalendarDate})</option>
               <option value="YESTERDAY">Yesterday</option>
@@ -174,7 +174,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
             label="Accepted intake today"
             icon={CheckCircle2}
             tone="success"
-            value={todayAcceptedIntakeLiters != null ? `${todayAcceptedIntakeLiters.toLocaleString()} L` : '—'}
+            value={todayAcceptedIntakeLiters != null ? `${todayAcceptedIntakeLiters.toLocaleString()} L` : '0 L'}
           />
           <StatCard
             label="Dispatches to plant"
@@ -201,11 +201,11 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 pt-2 border-t border-border/80 tabular-nums">
-          <div className="p-4 rounded-xl bg-subtle border border-border space-y-2">
+          <div className="bg-card border-border p-4 rounded-xl border space-y-2">
             <div className="flex items-center justify-between font-sans">
               <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
                 <Scale className="w-4 h-4 text-primary" />
-                <span>Gross Volume (Liters)</span>
+                <span>Gross Volume</span>
               </span>
             </div>
             <div className="grid grid-cols-3 gap-2 text-xs pt-1">
@@ -246,11 +246,11 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
             </div>
           </div>
 
-          <div className="p-4 rounded-xl bg-subtle border border-border space-y-2">
+          <div className="bg-card border-border p-4 rounded-xl border space-y-2">
             <div className="flex items-center justify-between font-sans">
               <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
                 <FlaskConical className="w-4 h-4 text-primary" />
-                <span>Commercial Volume (13% TS)</span>
+                <span>Commercial Volume</span>
               </span>
             </div>
             <div className="grid grid-cols-3 gap-2 text-xs pt-1">
@@ -300,21 +300,21 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
           <div className="flex items-center space-x-2">
             <History className="w-4 h-4 text-primary" />
             <h3 className="text-sm font-semibold text-foreground">
-              Recent Dispatches ({logs.length} Total Logs)
+              Recent dispatches
             </h3>
           </div>
           <button
             onClick={() => onNavigateToTab('HISTORY')}
-            className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
+            className="text-xs font-semibold text-primary hover:underline flex items-center gap-1 min-h-11 min-w-11"
           >
-            <span>View Full History Archive</span>
+            <span>History</span>
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>
 
         {logs.length === 0 ? (
           <div className="py-6 text-center text-xs text-slate-500 font-semibold">
-            No dispatches recorded for the selected period.
+            No dispatches
           </div>
         ) : (
           <div className="divide-y divide-border/40 text-xs">
@@ -328,13 +328,9 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
                     {log.vehicle_number}
                   </span>
                   {log.token_number && (
-                    <span className="text-[11px] tabular-nums text-slate-500">
-                      Token: {log.token_number}
-                    </span>
+                    <span className="text-[11px] tabular-nums text-slate-500">{log.token_number}</span>
                   )}
-                  <span className="text-[11px] text-slate-600">
-                    Date: {log.dispatch_date || '—'}
-                  </span>
+                  <span className="text-[11px] text-slate-600">{log.dispatch_date || '—'}</span>
                 </div>
 
                 <div className="flex items-center space-x-3">
@@ -343,7 +339,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
                   </span>
                   <button
                     onClick={() => onInspectDetails(log)}
-                    className="text-xs font-semibold text-primary hover:underline"
+                    className="text-xs font-semibold text-primary hover:underline min-h-11 min-w-11"
                   >
                     View Details
                   </button>

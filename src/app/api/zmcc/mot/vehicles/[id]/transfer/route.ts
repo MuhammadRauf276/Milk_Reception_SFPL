@@ -30,6 +30,6 @@ export async function POST(
 
     return NextResponse.json({ vehicle: result.data }, { status: result.status });
   } catch (err) {
-    return NextResponse.json({ error: getErrorMessage(err) || 'An unexpected error occurred while transferring MOT vehicle.' }, { status: 500 });
+    return NextResponse.json({ error: getErrorMessage(err) || 'An unexpected error occurred while transferring Mobile Tester vehicle.' }, { status: 500 });
   }
 }
