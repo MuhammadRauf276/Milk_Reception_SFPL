@@ -54,6 +54,7 @@ export function useQAActions({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAddingPortion, setIsAddingPortion] = useState(false);
   const [isRemovingPortion, setIsRemovingPortion] = useState(false);
+  const [isRoutingVehicle, setIsRoutingVehicle] = useState(false);
 
   const openActionModal = (action: QAActionModal, targetVisitId?: string) => {
     setActiveActionModal(action);
@@ -373,6 +374,56 @@ export function useQAActions({
     }
   };
 
+  const handleRouteVehicle = async (targetAction: 'GATE_EXIT' | 'WEIGHBRIDGE' | 'ESCALATE_AVP_QA') => {
+    if (!visitDetail) return;
+    setIsRoutingVehicle(true);
+    try {
+      const res = await fetch(`/api/qa/vehicle-visits/${visitDetail.id}/complete-session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: targetAction,
+          operationalTimestamp: datetimeLocalToIso(qaOpTimestamp) || undefined,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to route vehicle');
+
+      if (targetAction === 'GATE_EXIT') {
+        toast.showSuccess(
+          `Vehicle ${visitDetail.vehicle_number} routed to Gate Exit.`,
+          'Sent to Gate Exit'
+        );
+        setSelectedTestingVisitId(null);
+        setVisitDetail(null);
+        setActiveTab('WAITING');
+      } else if (targetAction === 'WEIGHBRIDGE') {
+        toast.showSuccess(
+          `Vehicle ${visitDetail.vehicle_number} routed to Weighbridge.`,
+          'Sent to Weighbridge'
+        );
+        setSelectedTestingVisitId(null);
+        setVisitDetail(null);
+        setActiveTab('WAITING');
+      } else {
+        toast.showSuccess(
+          `Vehicle ${visitDetail.vehicle_number} escalated to AVP QA.`,
+          'Escalated to AVP QA'
+        );
+        setSelectedTestingVisitId(null);
+        setVisitDetail(null);
+        setActiveTab('ON_HOLD');
+      }
+
+      await fetchQueues();
+    } catch (err) {
+      reportError(err, 'Routing Failed');
+    } finally {
+      setIsRoutingVehicle(false);
+    }
+  };
+
   return {
     rejectionReason,
     setRejectionReason,
@@ -398,5 +449,7 @@ export function useQAActions({
     handleHoldPortionConfirm,
     handleAddPortion,
     handleRemovePortion,
+    handleRouteVehicle,
+    isRoutingVehicle,
   };
 }

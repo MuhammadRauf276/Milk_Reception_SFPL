@@ -3,6 +3,9 @@
 import React, { useState } from 'react';
 import {
   CheckCircle2,
+  XCircle,
+  LogOut,
+  Scale,
   Loader2,
   ShieldCheck,
   AlertTriangle,
@@ -81,11 +84,13 @@ export interface QATestingSectionProps {
   currentUser?: User | null;
   onAcceptSubmit?: () => Promise<void> | void;
   onRejectSubmit?: () => Promise<void> | void;
+  onRouteVehicle?: (action: 'GATE_EXIT' | 'WEIGHBRIDGE' | 'ESCALATE_AVP_QA') => Promise<void> | void;
+  isRoutingVehicle?: boolean;
 }
 
 export const QATestingSection: React.FC<QATestingSectionProps> = ({
   activeTab,
-  searchQuery,
+  searchQuery: _searchQuery,
   selectedWaitingVisit,
   selectedHeldVisit,
   visitDetail,
@@ -120,6 +125,8 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
   currentUser,
   onAcceptSubmit,
   onRejectSubmit,
+  onRouteVehicle,
+  isRoutingVehicle = false,
 }) => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [localPhotoStates, setLocalPhotoStates] = useState<Record<string, string>>({});
@@ -217,6 +224,26 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
     );
   }
 
+  const portions = visitDetail?.portions || [];
+  const isAllDecided =
+    portions.length > 0 &&
+    portions.every(
+      (p) => p.plant_decision === 'ACCEPTED' || p.plant_decision === 'REJECTED'
+    );
+  const allRejected =
+    portions.length > 0 && portions.every((p) => p.plant_decision === 'REJECTED');
+  const hasAccepted = portions.some((p) => p.plant_decision === 'ACCEPTED');
+  const acceptedCount = portions.filter((p) => p.plant_decision === 'ACCEPTED').length;
+  const rejectedCount = portions.filter((p) => p.plant_decision === 'REJECTED').length;
+  const hasEscalation = portions.some(
+    (p) =>
+      p.manager_review_status === 'PENDING' ||
+      (p.exception_reasons && p.exception_reasons.length > 0 && p.plant_decision === 'PENDING')
+  );
+  const isAlreadyRoutedToExit = visitDetail?.current_status === 'READY_FOR_GATE_EXIT';
+  const isAlreadyRoutedToGross = visitDetail?.current_status === 'READY_FOR_GROSS';
+  const showFinishedBanner = isAllDecided || hasEscalation || isAlreadyRoutedToExit || isAlreadyRoutedToGross;
+
   return (
     <div className="space-y-5 text-foreground">
       {/* Top Context Card */}
@@ -274,6 +301,109 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
         </div>
       </div>
 
+      {/* Finished & Vehicle Routing Banner matching ZMCC Lab specification */}
+      {showFinishedBanner && (
+        <div
+          role="region"
+          aria-label="QA Session Decision Banner"
+          className={cn(
+            'flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border p-4 shadow-2xs transition animate-panel-in',
+            hasEscalation
+              ? 'border-amber-200 bg-amber-50 text-amber-950'
+              : allRejected || isAlreadyRoutedToExit
+              ? 'border-rose-200 bg-rose-50 text-rose-950'
+              : 'border-emerald-200 bg-emerald-50 text-emerald-950'
+          )}
+        >
+          <div className="flex items-center space-x-3">
+            <div
+              className={cn(
+                'p-2 rounded-lg shrink-0 shadow-2xs',
+                hasEscalation
+                  ? 'bg-amber-100 text-amber-800'
+                  : allRejected || isAlreadyRoutedToExit
+                  ? 'bg-rose-100 text-rose-800'
+                  : 'bg-emerald-100 text-emerald-800'
+              )}
+            >
+              {hasEscalation ? (
+                <AlertTriangle className="h-5 w-5" aria-hidden="true" />
+              ) : allRejected || isAlreadyRoutedToExit ? (
+                <XCircle className="h-5 w-5" aria-hidden="true" />
+              ) : (
+                <CheckCircle2 className="h-5 w-5" aria-hidden="true" />
+              )}
+            </div>
+            <div>
+              <h4 className="text-sm font-bold leading-tight">
+                {hasEscalation
+                  ? 'Rule breach detected'
+                  : allRejected || isAlreadyRoutedToExit
+                  ? 'All portions rejected'
+                  : 'Quality passed'}
+              </h4>
+              <p className="text-xs font-medium text-slate-700 mt-0.5">
+                {hasEscalation
+                  ? 'Quality exception · AVP QA review required'
+                  : allRejected || isAlreadyRoutedToExit
+                  ? 'Vehicle rejected · Ready for checkout'
+                  : `${acceptedCount} portion(s) accepted, ${rejectedCount} rejected · Ready for scale`}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 self-end sm:self-center">
+            {hasEscalation && onRouteVehicle && (
+              <button
+                type="button"
+                disabled={isRoutingVehicle}
+                onClick={() => onRouteVehicle('ESCALATE_AVP_QA')}
+                className="min-h-11 px-4 text-xs font-bold rounded-lg bg-amber-700 text-white hover:bg-amber-800 transition shadow-2xs flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {isRoutingVehicle ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <AlertTriangle className="w-4 h-4" />
+                )}
+                <span>Escalate to AVP QA</span>
+              </button>
+            )}
+
+            {(allRejected || isAlreadyRoutedToExit) && onRouteVehicle && (
+              <button
+                type="button"
+                disabled={isRoutingVehicle}
+                onClick={() => onRouteVehicle('GATE_EXIT')}
+                className="min-h-11 px-4 text-xs font-bold rounded-lg bg-rose-700 text-white hover:bg-rose-800 transition shadow-2xs flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {isRoutingVehicle ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <LogOut className="w-4 h-4" />
+                )}
+                <span>Send to Gate Exit</span>
+              </button>
+            )}
+
+            {hasAccepted && !hasEscalation && !allRejected && !isAlreadyRoutedToExit && onRouteVehicle && (
+              <button
+                type="button"
+                disabled={isRoutingVehicle}
+                onClick={() => onRouteVehicle('WEIGHBRIDGE')}
+                className="min-h-11 px-4 text-xs font-bold rounded-lg bg-emerald-700 text-white hover:bg-emerald-800 transition shadow-2xs flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {isRoutingVehicle ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Scale className="w-4 h-4" />
+                )}
+                <span>Proceed to Weighbridge</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Portions Navigation Bar & ZMCC-Style Minimalist Portions Grid */}
       <div className="bg-card border-border p-4 sm:p-5 rounded-xl border shadow-xs space-y-4">
         <QAPortionTabs
@@ -291,7 +421,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
           {visitDetail.portions.map((p, idx) => {
             const isCompleted = p.plant_decision === 'ACCEPTED' || p.plant_decision === 'REJECTED';
             const isSelected = activePortionIndex === idx;
-            const portionQty = formatDispatchQty(p);
+            const _portionQty = formatDispatchQty(p);
 
             const lrResult = p.plant_results?.find(
               (r) => r.testName?.toUpperCase().includes('LR') || r.testCode?.toUpperCase().includes('LR')
@@ -504,6 +634,103 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
                       .replace(/avp absent/gi, 'Authorized Management')
                       .replace(/override/gi, 'Authorization')}
               </p>
+            </div>
+          )}
+
+          {/* Bottom Vehicle Routing Action Card */}
+          {showFinishedBanner && onRouteVehicle && (
+            <div
+              className={cn(
+                'rounded-xl border p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs',
+                hasEscalation
+                  ? 'border-amber-200 bg-amber-50/70 text-amber-950'
+                  : allRejected || isAlreadyRoutedToExit
+                  ? 'border-rose-200 bg-rose-50/70 text-rose-950'
+                  : 'border-emerald-200 bg-emerald-50/70 text-emerald-950'
+              )}
+            >
+              <div className="flex items-center space-x-3">
+                <div
+                  className={cn(
+                    'p-2 rounded-lg shrink-0 shadow-2xs',
+                    hasEscalation
+                      ? 'bg-amber-100 text-amber-800'
+                      : allRejected || isAlreadyRoutedToExit
+                      ? 'bg-rose-100 text-rose-800'
+                      : 'bg-emerald-100 text-emerald-800'
+                  )}
+                >
+                  {hasEscalation ? (
+                    <AlertTriangle className="h-5 w-5" aria-hidden="true" />
+                  ) : allRejected || isAlreadyRoutedToExit ? (
+                    <XCircle className="h-5 w-5" aria-hidden="true" />
+                  ) : (
+                    <CheckCircle2 className="h-5 w-5" aria-hidden="true" />
+                  )}
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+                    Next Station Routing
+                  </span>
+                  <p className="text-xs font-semibold text-slate-900 mt-0.5">
+                    {hasEscalation
+                      ? 'Session requires AVP QA authorization.'
+                      : allRejected || isAlreadyRoutedToExit
+                      ? 'All portions rejected. Vehicle must clear gate exit.'
+                      : 'Quality passed. Vehicle ready for gross scale.'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 self-end sm:self-center">
+                {hasEscalation && (
+                  <button
+                    type="button"
+                    disabled={isRoutingVehicle}
+                    onClick={() => onRouteVehicle('ESCALATE_AVP_QA')}
+                    className="min-h-11 px-4 text-xs font-bold rounded-lg bg-amber-700 text-white hover:bg-amber-800 transition shadow-2xs flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    {isRoutingVehicle ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4" />
+                    )}
+                    <span>Escalate to AVP QA</span>
+                  </button>
+                )}
+
+                {(allRejected || isAlreadyRoutedToExit) && (
+                  <button
+                    type="button"
+                    disabled={isRoutingVehicle}
+                    onClick={() => onRouteVehicle('GATE_EXIT')}
+                    className="min-h-11 px-4 text-xs font-bold rounded-lg bg-rose-700 text-white hover:bg-rose-800 transition shadow-2xs flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    {isRoutingVehicle ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <LogOut className="w-4 h-4" />
+                    )}
+                    <span>Send to Gate Exit</span>
+                  </button>
+                )}
+
+                {hasAccepted && !hasEscalation && !allRejected && !isAlreadyRoutedToExit && (
+                  <button
+                    type="button"
+                    disabled={isRoutingVehicle}
+                    onClick={() => onRouteVehicle('WEIGHBRIDGE')}
+                    className="min-h-11 px-4 text-xs font-bold rounded-lg bg-emerald-700 text-white hover:bg-emerald-800 transition shadow-2xs flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    {isRoutingVehicle ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Scale className="w-4 h-4" />
+                    )}
+                    <span>Proceed to Weighbridge</span>
+                  </button>
+                )}
+              </div>
             </div>
           )}
 

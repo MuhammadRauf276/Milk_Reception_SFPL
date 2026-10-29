@@ -40,6 +40,7 @@ export interface VisitDetailPortion {
   plant_rejection_reason: string | null;
   dispatch_results: unknown[];
   plant_results: SavedPlantResult[];
+  manager_review_status?: string | null;
   seal_number?: string | null;
   plant_seal_number_entered?: string | null;
   seal_match?: boolean | null;

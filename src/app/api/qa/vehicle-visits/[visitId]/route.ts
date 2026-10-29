@@ -141,6 +141,7 @@ export async function GET(
         dispatch_quantity_unit: p.dispatch_quantity_unit || null,
         dispatch_quantity_basis: p.dispatch_quantity_basis || null,
         plant_decision: p.plant_decision || 'PENDING',
+        manager_review_status: p.manager_review_status || null,
         plant_rejection_reason: p.plant_rejection_reason || null,
         plant_decided_at: p.plant_decided_at ? p.plant_decided_at.toISOString() : null,
         seal_number: p.seal_number || null,

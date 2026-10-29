@@ -283,6 +283,8 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
             currentUser={currentUser}
             onAcceptSubmit={() => actions.handleAcceptPortionConfirm()}
             onRejectSubmit={() => actions.handleRejectPortionConfirm()}
+            onRouteVehicle={actions.handleRouteVehicle}
+            isRoutingVehicle={actions.isRoutingVehicle}
           />
         </div>
       </div>
