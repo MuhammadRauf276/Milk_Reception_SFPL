@@ -202,7 +202,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
         body: JSON.stringify({
           visitId: selectedExitVisit.id,
           exitTimestamp: datetimeLocalToIso(exitOpTimestamp) || undefined,
-          tanker_washed: tankerWashed,
+          tanker_washed: selectedExitVisit.is_all_rejected ? false : tankerWashed,
         }),
       });
 
@@ -547,7 +547,8 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                   </div>
                 )}
 
-                {/* Tanker Washed Check (Phase 4d Stage 4) */}
+                {/* Tanker Washed Check (Phase 4d Stage 4) - only for vehicles that unloaded milk */}
+                {!selectedExitVisit.is_all_rejected && (
                 <div className="bg-card border-border p-3.5 rounded-xl border space-y-2.5">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-foreground">Tanker Wash Verification *</span>
@@ -601,6 +602,8 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                   )}
                 </div>
 
+                )}
+
                 <form onSubmit={handleConfirmExit} className="space-y-4">
                   <div className="space-y-1.5">
                     <label className="block text-xs font-semibold text-foreground flex items-center justify-between">
@@ -619,7 +622,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
 
                   <button
                     type="submit"
-                    disabled={isSubmitting || tankerWashed !== true}
+                    disabled={isSubmitting || (!selectedExitVisit.is_all_rejected && tankerWashed !== true)}
                     className="w-full min-h-[44px] flex items-center justify-center space-x-2 py-3 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs shadow-md transition disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     

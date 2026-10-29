@@ -98,16 +98,20 @@ export async function POST(req: Request) {
         throw new Error('Gate exit record already recorded for this vehicle.');
       }
 
-      // 3b. Mandatory Tanker Wash Check (Phase 4d Stage 4)
-      const washedInput = validated.tanker_washed !== undefined ? validated.tanker_washed : validated.tankerWashed;
-      const isWashed = washedInput !== undefined ? washedInput : visit.gate_log?.tanker_washed;
+      // Check if vehicle was entirely rejected (no milk accepted/unloaded)
+      const isAllRejected = visit.portions.length > 0 && visit.portions.every((p) => p.plant_decision === 'REJECTED');
 
-      if (!isWashed) {
-        throw new Error('Vehicle tanker wash verification required by Admin Operator prior to gate exit.');
+      // 3b. Mandatory Tanker Wash Check (Phase 4d Stage 4) - only for vehicles unloading milk
+      if (!isAllRejected) {
+        const washedInput = validated.tanker_washed !== undefined ? validated.tanker_washed : validated.tankerWashed;
+        const isWashed = washedInput !== undefined ? washedInput : visit.gate_log?.tanker_washed;
+
+        if (!isWashed) {
+          throw new Error('Vehicle tanker wash verification required by Admin Operator prior to gate exit.');
+        }
       }
 
       // 4. Strict Chronology Checks against DB predecessor
-      const isAllRejected = visit.portions.length > 0 && visit.portions.every((p) => p.plant_decision === 'REJECTED');
       const predTs = isAllRejected
         ? (visit.gate_log?.entry_timestamp ? new Date(visit.gate_log.entry_timestamp) : null)
         : (visit.weight_ticket?.tare_timestamp ? new Date(visit.weight_ticket.tare_timestamp) : visit.gate_log?.entry_timestamp ? new Date(visit.gate_log.entry_timestamp) : null);
@@ -134,11 +138,11 @@ export async function POST(req: Request) {
           exit_timestamp: verifiedOpTimestamp,
           exit_guard_id: userIdBigInt,
           exit_submitted_at: new Date(),
-          tanker_washed: true,
-          wash_checked_by: userIdBigInt,
-          wash_checked_at: new Date(),
-          washed_checked_by: userIdBigInt,
-          washed_checked_at: new Date(),
+          tanker_washed: isAllRejected ? false : true,
+          wash_checked_by: isAllRejected ? null : userIdBigInt,
+          wash_checked_at: isAllRejected ? null : new Date(),
+          washed_checked_by: isAllRejected ? null : userIdBigInt,
+          washed_checked_at: isAllRejected ? null : new Date(),
         },
       });
 
@@ -165,7 +169,7 @@ export async function POST(req: Request) {
           vehicle_number: visit.vehicle_number,
           token_number: visit.token_number,
           op_timestamp: verifiedOpTimestamp.toISOString(),
-          tanker_washed: true,
+          tanker_washed: isAllRejected ? false : true,
         },
         actor: auditActorFromUser(dbUser),
       });
