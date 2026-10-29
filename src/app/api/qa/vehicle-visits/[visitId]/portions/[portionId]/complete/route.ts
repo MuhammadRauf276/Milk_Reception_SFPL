@@ -16,8 +16,6 @@ import type { QualityEvaluationSnapshot } from '@/backend/services/qualityRuleSe
 import { toJsonInput } from '@/lib/json';
 import { writeAuditLog, auditActorFromUser } from '@core/audit';
 import { isPlantLrTest, isPlantFatTest } from '@/backend/services/vehicleQuantityService';
-import { getOperationalBusinessDate } from '@/backend/core/business-day';
-import { parseStrictDateOnly } from '@/lib/datetime-utils';
 import { recordRejectedMilkForDisposition } from '@/backend/services/rejectedMilkDispositionService';
 import { QaWarningEscalationService } from '@/backend/services/qaWarningEscalationService';
 
@@ -666,76 +664,6 @@ export async function POST(
             plant_decided_is_delegated: isDelegated,
           },
         });
-      }
-
-      // 9. Calculate visit-level workflow status
-      const allPortions = await tx.visitPortion.findMany({
-        where: { visit_id: visitId },
-      });
-
-      const decisions = allPortions.map((p) => p.plant_decision);
-      const hasUnresolved = decisions.some(
-        (d) => !d || d === 'PENDING' || d === 'HOLD' || d === 'UNDER_TEST'
-      );
-      const allRejected = decisions.length > 0 && decisions.every((d) => d === 'REJECTED');
-      const hasAccepted = decisions.some((d) => d === 'ACCEPTED');
-
-      let newVisitStatus = 'PLANT_QA';
-      if (hasUnresolved) {
-        newVisitStatus = 'PLANT_QA';
-      } else if (allRejected || (isComposite && finalPlantDecision === 'REJECTED')) {
-        newVisitStatus = 'READY_FOR_GATE_EXIT';
-      } else if (hasAccepted) {
-        newVisitStatus = 'READY_FOR_GROSS';
-      }
-
-      // Authoritative Business Date Rule:
-      // Fully rejected vehicle business date = timestamp of final QA rejection.
-      if (allRejected || (isComposite && finalPlantDecision === 'REJECTED')) {
-        const rejectDateStr = getOperationalBusinessDate(targetOpTs);
-        const rejectDate = parseStrictDateOnly(rejectDateStr);
-        await tx.vehicleVisit.update({
-          where: { id: visitId },
-          data: {
-            current_status: newVisitStatus,
-            operational_date: rejectDate,
-            business_date_source: 'LAST_QA_REJECTION',
-            business_date_set_at: targetOpTs,
-          },
-        });
-      } else {
-        await tx.vehicleVisit.update({
-          where: { id: visitId },
-          data: { current_status: newVisitStatus },
-        });
-      }
-
-      // 10. Complete QA testing session if visit has fully departed PLANT_QA
-      if (newVisitStatus !== 'PLANT_QA') {
-        const activeSession = await tx.qATestingSession.findUnique({
-          where: { visit_id: visitId },
-        });
-
-        if (activeSession) {
-          await tx.qATestingSession.update({
-            where: { id: activeSession.id },
-            data: {
-              status: 'COMPLETED',
-              completed_by: userIdBigInt,
-              completed_at: targetOpTs,
-            },
-          });
-
-          await tx.qATestingSessionEvent.create({
-            data: {
-              session_id: activeSession.id,
-              event_type: 'COMPLETE',
-              timestamp: targetOpTs,
-              user_id: userIdBigInt,
-              note: `QA session completed with outcome: ${newVisitStatus}`,
-            },
-          });
-        }
       }
     });
 

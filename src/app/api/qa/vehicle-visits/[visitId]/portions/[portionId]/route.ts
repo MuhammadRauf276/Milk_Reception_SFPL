@@ -4,8 +4,6 @@ import { prisma } from '@core/db';
 import { canActAs } from '@/backend/core/roles/hierarchy';
 import { getErrorMessage } from '@/lib/errors';
 import { writeAuditLog, auditActorFromUser } from '@core/audit';
-import { getOperationalBusinessDate } from '@/backend/core/business-day';
-import { parseStrictDateOnly } from '@/lib/datetime-utils';
 
 export async function DELETE(
   req: Request,
@@ -114,68 +112,6 @@ export async function DELETE(
         },
         actor: auditActorFromUser(dbUser),
       });
-
-      // Recalculate visit status if all remaining portions are already finalized
-      const remainingPortions = await tx.visitPortion.findMany({
-        where: { visit_id: visitId },
-      });
-      const decisions = remainingPortions.map((p) => p.plant_decision);
-      const hasUnresolved = decisions.some(
-        (d) => !d || d === 'PENDING' || d === 'HOLD' || d === 'UNDER_TEST'
-      );
-      const allRejected = decisions.length > 0 && decisions.every((d) => d === 'REJECTED');
-      const hasAccepted = decisions.some((d) => d === 'ACCEPTED');
-
-      if (!hasUnresolved && decisions.length > 0) {
-        let newVisitStatus = 'PLANT_QA';
-        if (allRejected || (visit.test_mode === 'COMPOSITE' && decisions[0] === 'REJECTED')) {
-          newVisitStatus = 'READY_FOR_GATE_EXIT';
-        } else if (hasAccepted) {
-          newVisitStatus = 'READY_FOR_GROSS';
-        }
-
-        if (newVisitStatus !== 'PLANT_QA') {
-          const now = new Date();
-          if (newVisitStatus === 'READY_FOR_GATE_EXIT') {
-            const rejectDateStr = getOperationalBusinessDate(now);
-            const rejectDate = parseStrictDateOnly(rejectDateStr);
-            await tx.vehicleVisit.update({
-              where: { id: visitId },
-              data: {
-                current_status: newVisitStatus,
-                operational_date: rejectDate,
-                business_date_source: 'LAST_QA_REJECTION',
-                business_date_set_at: now,
-              },
-            });
-          } else {
-            await tx.vehicleVisit.update({
-              where: { id: visitId },
-              data: { current_status: newVisitStatus },
-            });
-          }
-
-          if (visit.qa_session && visit.qa_session.status === 'IN_PROGRESS') {
-            await tx.qATestingSession.update({
-              where: { id: visit.qa_session.id },
-              data: {
-                status: 'COMPLETED',
-                completed_by: dbUser.id,
-                completed_at: now,
-              },
-            });
-            await tx.qATestingSessionEvent.create({
-              data: {
-                session_id: visit.qa_session.id,
-                event_type: 'COMPLETE',
-                timestamp: now,
-                user_id: dbUser.id,
-                note: `QA session completed after portion removal. Outcome: ${newVisitStatus}`,
-              },
-            });
-          }
-        }
-      }
     });
 
     return NextResponse.json({
