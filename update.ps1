@@ -11,6 +11,9 @@ Write-Host "`n[2/4] Applying Database Migrations..." -ForegroundColor Yellow
 node node_modules/prisma/build/index.js migrate deploy
 
 Write-Host "`n[3/4] Building Next.js production app..." -ForegroundColor Yellow
+if (Test-Path ".next\dev") {
+    Remove-Item -Recurse -Force ".next\dev"
+}
 npm run build
 
 Write-Host "`n[4/4] Restarting PM2 services..." -ForegroundColor Yellow
