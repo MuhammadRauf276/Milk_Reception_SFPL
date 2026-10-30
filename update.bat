@@ -16,8 +16,9 @@ echo [3/4] Building Next.js production app...
 if exist .next\dev rmdir /s /q .next\dev
 npm run build
 
-echo [4/4] Restarting PM2 services...
-pm2 restart all
+echo [4/4] Restarting PM2 production services...
+pm2 restart ecosystem.config.js || pm2 start ecosystem.config.js
+pm2 save
 
 echo ==============================================
 echo  Update Complete! Everything is ONLINE.

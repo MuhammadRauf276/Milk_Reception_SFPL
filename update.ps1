@@ -17,8 +17,12 @@ if (Test-Path ".next\dev") {
 }
 npm run build
 
-Write-Host "`n[4/4] Restarting PM2 services..." -ForegroundColor Yellow
-pm2 restart all
+Write-Host "`n[4/4] Restarting PM2 production services..." -ForegroundColor Yellow
+pm2 restart ecosystem.config.js
+if ($LASTEXITCODE -ne 0) {
+    pm2 start ecosystem.config.js
+}
+pm2 save
 
 Write-Host "`n==============================================" -ForegroundColor Green
 Write-Host " Update Complete! Everything is ONLINE." -ForegroundColor Green
