@@ -141,7 +141,7 @@ async function runPreLiveCheck() {
         name: dbUser.full_name || dbUser.username,
         role: dbUser.role as Role,
         department: dbUser.department || 'Operations',
-        zone: dbUser.zone || null,
+        zone: (dbUser as any).zone || null,
         scope_type: dbUser.scope_type || 'ALL',
         procurement_source_id: dbUser.procurement_source_id ? String(dbUser.procurement_source_id) : null,
       });
