@@ -4,7 +4,6 @@ import type { ActingContext } from '@/types/acting';
 import { TEST_POINT_CODES } from '@/types/test-point-policy';
 import type { TestPointCode, TestPointPolicyCell } from '@/types/test-point-policy';
 import { writeAuditLog, type AuditDb } from '@/backend/core/audit';
-import { getMasterSpec } from '@/lib/master-lab-tests-data';
 
 type TestMode = TestPointPolicyCell['testMode'];
 type RuleMode = TestPointPolicyCell['ruleMode'];
@@ -111,13 +110,6 @@ export function defaultModes(testCode: string, point: TestPointCode): { testMode
     return DISPATCH_POINTS.has(point)
       ? { testMode: 'COMPULSORY', ruleMode: 'APPLY', photoMode: 'REQUIRED' }
       : { testMode: 'OFF', ruleMode: 'APPLY', photoMode: 'NONE' };
-  }
-  const spec = getMasterSpec(code);
-  if (spec && spec.stages && spec.stages[point]) {
-    return { testMode: spec.stages[point], ruleMode: 'APPLY', photoMode: 'NONE' };
-  }
-  if (code === 'LT-000010' || code === 'LT-000011' || code === 'SNF' || code.includes('RATIO')) {
-    return { testMode: 'AUTO', ruleMode: 'APPLY', photoMode: 'NONE' };
   }
   if (LR_FAT_CODES.has(code)) {
     const isContractor = point === 'CONTRACTOR_DISPATCH';

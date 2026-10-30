@@ -16,3 +16,6 @@ storage/
 # Temporary test screenshots and audit artifacts
 public/test-screenshots/
 artifacts/
+*.zip
+*.tar.gz
+

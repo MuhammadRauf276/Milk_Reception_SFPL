@@ -4,6 +4,10 @@ ALTER TABLE "zmcc_milk_source" DROP CONSTRAINT IF EXISTS "zmcc_milk_source_zmcc_
 -- DropForeignKey
 ALTER TABLE "zmcc_shop" DROP CONSTRAINT IF EXISTS "zmcc_shop_milk_source_id_zmcc_id_fkey";
 
+-- DropConstraint
+ALTER TABLE "zmcc_milk_source" DROP CONSTRAINT IF EXISTS "zmcc_milk_source_id_zmcc_id_key";
+ALTER TABLE "zmcc_milk_source" DROP CONSTRAINT IF EXISTS "zmcc_milk_source_zmcc_id_name_key";
+
 -- DropIndex
 DROP INDEX IF EXISTS "zmcc_milk_source_id_zmcc_id_key";
 
