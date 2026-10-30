@@ -293,7 +293,7 @@ export async function saveCapturedPhoto(
   const mm = String(now.getUTCMonth() + 1).padStart(2, '0');
   const relPath = `${yyyy}/${mm}/${meta.testingPoint}/${meta.captureId}.jpg`;
   const fileSystem = fs ?? (await defaultFs());
-  const fullPath = path.join(photoStorageRoot(), ...relPath.split('/'));
+  const fullPath = path.join(/*turbopackIgnore: true*/ photoStorageRoot(), ...relPath.split('/'));
   const tmpPath = `${fullPath}.${randomBytes(6).toString('hex')}.tmp`;
   await fileSystem.mkdir(path.dirname(fullPath), { recursive: true });
   await fileSystem.writeFile(tmpPath, bytes);
@@ -385,7 +385,7 @@ export async function saveCapturedPhoto(
 
 /** Absolute path of a stored photo; refuses paths that escape the storage folder. */
 export function resolvePhotoPath(relPath: string): string | null {
-  const root = path.resolve(photoStorageRoot());
+  const root = path.resolve(/*turbopackIgnore: true*/ photoStorageRoot());
   const full = path.resolve(root, relPath);
   return full.startsWith(root + path.sep) ? full : null;
 }
