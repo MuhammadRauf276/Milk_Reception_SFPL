@@ -191,13 +191,18 @@ export const LoginPage: React.FC = () => {
         </span>
       </header>
 
-      <main className="mx-auto flex w-full max-w-6xl flex-1 items-start justify-center px-4 py-8 sm:px-6 lg:items-center">
-        <div className="grid w-full items-start gap-8 lg:grid-cols-[400px_1fr] lg:gap-12">
+      <main className="mx-auto flex w-full max-w-6xl flex-1 items-center justify-center px-4 py-8 sm:px-6">
+        <div className={cn(
+          "w-full",
+          devGroups.length > 0
+            ? "grid items-start gap-8 lg:grid-cols-[400px_1fr] lg:gap-12"
+            : "flex items-center justify-center"
+        )}>
           <motion.section
             initial={false}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
-            className="mx-auto w-full max-w-[400px] rounded-xl border bg-card p-6 shadow-2xs sm:p-8"
+            className="w-full max-w-[420px] rounded-xl border bg-card p-6 shadow-sm sm:p-8"
             aria-labelledby="sign-in-heading"
           >
             <div>
@@ -235,7 +240,7 @@ export const LoginPage: React.FC = () => {
                   spellCheck={false}
                   value={username}
                   onChange={handleUsernameChange}
-                  placeholder="e.g. qa.chemist"
+                  placeholder="Enter your username"
                   className="h-11"
                   aria-invalid={Boolean(errorMsg)}
                   required
@@ -250,6 +255,7 @@ export const LoginPage: React.FC = () => {
                     type={showPassword ? 'text' : 'password'}
                     name="password"
                     autoComplete="current-password"
+                    placeholder="Enter your password"
                     value={password}
                     onChange={handlePasswordChange}
                     className="h-11 pr-11"
