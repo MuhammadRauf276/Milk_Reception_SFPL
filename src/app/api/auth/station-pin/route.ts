@@ -97,7 +97,7 @@ export async function POST(req: Request) {
     const response = NextResponse.json({ success: true, user });
     response.cookies.set('auth_token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: process.env.COOKIE_SECURE === 'true' || (req.headers.get('x-forwarded-proto') === 'https' || req.url.startsWith('https://')),
       sameSite: 'lax',
       path: '/',
       maxAge: NORMAL_SESSION_TTL,

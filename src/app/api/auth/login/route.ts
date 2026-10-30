@@ -132,10 +132,13 @@ export async function POST(req: NextRequest) {
     const sessionTtl = rememberMe ? REMEMBERED_SESSION_TTL : NORMAL_SESSION_TTL;
     const token = await createSessionToken(authenticatedUser, rememberMe);
 
+    const isHttps = req.headers.get('x-forwarded-proto') === 'https' || req.url.startsWith('https://');
+    const cookieSecure = process.env.COOKIE_SECURE === 'true' || isHttps;
+
     const response = NextResponse.json({ success: true, user: authenticatedUser });
     response.cookies.set('auth_token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: cookieSecure,
       sameSite: 'lax',
       path: '/',
       maxAge: sessionTtl,
