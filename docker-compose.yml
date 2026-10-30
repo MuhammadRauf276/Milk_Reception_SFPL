@@ -1,0 +1,70 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: milk_reception_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-milk_reception_db}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-milk_reception_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - milk_network
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: milk-reception-app:latest
+    container_name: milk_reception_app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "${APP_PORT:-3000}:3000"
+      - "${WHATSAPP_PORT:-3001}:3001"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-milk_reception_db}?schema=public
+      JWT_SECRET: ${JWT_SECRET:-ci-dummy-jwt-secret-for-testing-only-12345}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      NEXT_PUBLIC_ENABLE_DEV_LOGIN_PROFILES: ${NEXT_PUBLIC_ENABLE_DEV_LOGIN_PROFILES:-false}
+      WHATSAPP_GATEWAY_URL: http://127.0.0.1:3001
+      WHATSAPP_GATEWAY_PORT: 3001
+      WHATSAPP_GATEWAY_SECRET: ${WHATSAPP_GATEWAY_SECRET:-}
+      ENABLE_WHATSAPP_GATEWAY: ${ENABLE_WHATSAPP_GATEWAY:-true}
+      CRON_SECRET: ${CRON_SECRET:-}
+      RUN_SEED: ${RUN_SEED:-false}
+    volumes:
+      - whatsapp_data:/app/data
+      - storage_data:/app/storage
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/auth/me || exit 0"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - milk_network
+
+volumes:
+  postgres_data:
+    name: milk_reception_postgres_data
+  whatsapp_data:
+    name: milk_reception_whatsapp_data
+  storage_data:
+    name: milk_reception_storage_data
+
+networks:
+  milk_network:
+    name: milk_reception_network
+    driver: bridge
