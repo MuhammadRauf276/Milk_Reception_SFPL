@@ -7,7 +7,8 @@ Set-Location "C:\app"
 Write-Host "`n[1/4] Pulling latest code from GitHub..." -ForegroundColor Yellow
 git pull origin main
 
-Write-Host "`n[2/4] Applying Database Migrations..." -ForegroundColor Yellow
+Write-Host "`n[2/4] Syncing Database Schema and Migrations..." -ForegroundColor Yellow
+node scripts/fix_vm_db.js
 node node_modules/prisma/build/index.js migrate deploy
 
 Write-Host "`n[3/4] Building Next.js production app..." -ForegroundColor Yellow
