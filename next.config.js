@@ -39,9 +39,6 @@ const nextConfig = {
     // Ignore internal Turbopack generated type errors on Windows paths
     ignoreBuildErrors: true,
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   allowedDevOrigins: [
     'localhost',
     'localhost:3000',
