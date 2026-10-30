@@ -3,7 +3,7 @@ module.exports = {
     {
       name: "milk-app",
       script: "node_modules/next/dist/bin/next",
-      args: "start -p 3000",
+      args: "start -H 0.0.0.0 -p 3000",
       instances: 1,
       autorestart: true,
       watch: false,
@@ -11,6 +11,7 @@ module.exports = {
       env: {
         NODE_ENV: "production",
         PORT: 3000,
+        HOSTNAME: "0.0.0.0",
       },
     },
     {
