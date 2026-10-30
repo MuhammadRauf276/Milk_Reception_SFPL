@@ -6,7 +6,7 @@ echo ==============================================
 cd /d C:\app
 
 echo [1/4] Pulling latest code from GitHub...
-git pull
+git pull origin main
 
 echo [2/4] Applying Database Migrations...
 node node_modules/prisma/build/index.js migrate deploy

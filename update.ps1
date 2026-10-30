@@ -5,7 +5,7 @@ Write-Host "==============================================" -ForegroundColor Cya
 Set-Location "C:\app"
 
 Write-Host "`n[1/4] Pulling latest code from GitHub..." -ForegroundColor Yellow
-git pull
+git pull origin main
 
 Write-Host "`n[2/4] Applying Database Migrations..." -ForegroundColor Yellow
 node node_modules/prisma/build/index.js migrate deploy
