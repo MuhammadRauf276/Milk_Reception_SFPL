@@ -19,7 +19,7 @@ git commit -m "!msg!"
 echo [3/3] Pushing to GitHub (main and feature/phase-3)...
 git push origin feature/phase-3
 git branch -f main feature/phase-3
-git push origin main
+git push origin main --force
 
 echo ==============================================
 echo  Pushed to GitHub Successfully!

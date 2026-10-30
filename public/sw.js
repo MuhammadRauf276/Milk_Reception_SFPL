@@ -1,4 +1,4 @@
-const CACHE_NAME = 'milk-reception-shell-v5';
+const CACHE_NAME = 'milk-reception-shell-v6';
 const APP_SHELL = ['/offline.html', '/manifest.webmanifest'];
 self.addEventListener('install', (event) => { event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', (event) => { event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))).then(() => self.clients.claim())); });
