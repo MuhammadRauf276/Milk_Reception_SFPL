@@ -5,15 +5,15 @@ import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-quer
 import { fetchJson } from '@/lib/query/fetchJson';
 import { useDebouncedValue } from '@/lib/query/useDebouncedValue';
 import { stationQueryKeys } from '@/lib/query/stationQueryKeys';
-import { Clock, Search, CheckCircle2, ShieldAlert, XCircle, ArrowLeft } from 'lucide-react';
+import { Clock, Search, ShieldAlert, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/frontend/context/ToastContext';
 import { toDatetimeLocalInput, datetimeLocalToIso } from '@/lib/datetime-utils';
 import { User } from '@core/types';
 
 import { formatDispatchQuantity } from '@/backend/modules/dispatch/quantity/dispatchQuantityService';
 import { PageHeader } from '@/components/ui/page-header';
+import { SegmentedTabs } from '@/components/ui/segmented-tabs';
 import { EmptyAction } from './components/EmptyAction';
-import { InfoTip } from '@/components/ui/info-tip';
 import { TableWrapper } from '@/components/ui/table-wrapper';
 import { onActivateKey } from '@/lib/a11y';
 import { getErrorMessage } from '@/lib/errors';
@@ -80,9 +80,15 @@ function suggestTokenNumber() {
 export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> = ({
   currentUser,
   activeTab: controlledTab,
+  onTabChange,
 }) => {
-  const [internalTab] = useState<SecurityTab>('WAITING_ENTRY');
+  const [internalTab, setInternalTab] = useState<SecurityTab>('WAITING_ENTRY');
   const activeTab = controlledTab || internalTab;
+
+  const handleTabChange = (tab: SecurityTab) => {
+    setInternalTab(tab);
+    if (onTabChange) onTabChange(tab);
+  };
 
 
   // Search Queries
@@ -249,6 +255,17 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
     <div className="w-full max-w-7xl mx-auto space-y-6 text-foreground">
       <PageHeader
         title="Gate entry & exit"
+      />
+
+      <SegmentedTabs
+        label="Gate operations"
+        value={activeTab}
+        onValueChange={(val) => handleTabChange(val as SecurityTab)}
+        tabs={[
+          { value: 'WAITING_ENTRY', label: 'Waiting Entry', count: dispatchedVisits.length },
+          { value: 'INSIDE_PLANT', label: 'Inside Plant', count: activeVisits.length },
+          { value: 'READY_EXIT', label: 'Ready for Exit', count: readyExitVisits.length },
+        ]}
       />
 
       {activeTab === 'WAITING_ENTRY' && (

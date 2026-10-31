@@ -57,7 +57,7 @@ export const TableWrapper = React.forwardRef<HTMLDivElement, TableWrapperProps>(
           }}
           data-table-wrapper="true"
           className={cn(
-            'table-responsive scrollbar-thin touch-scroll w-full min-w-0 rounded-lg border border-border bg-card',
+            'table-responsive overflow-x-auto scrollbar-thin touch-scroll w-full min-w-0 rounded-lg border border-border bg-card',
             className
           )}
           {...props}

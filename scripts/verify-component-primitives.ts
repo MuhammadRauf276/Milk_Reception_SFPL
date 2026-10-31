@@ -179,6 +179,9 @@ async function runComponentPrimitivesTests() {
     await page.keyboard.press('Escape');
     await drawerDialog.waitFor({ state: 'hidden', timeout: 4000 });
     assert(!(await drawerDialog.isVisible()), 'Drawer must be hidden after pressing Escape');
+    await page.waitForTimeout(150);
+    const isFocusRestoredOnEscape = await openDrawerBtn.evaluate((el) => el === document.activeElement);
+    assert(isFocusRestoredOnEscape, 'Focus must be restored to trigger button after Escape dismissal');
 
     // b) Open again and close via close button
     await openDrawerBtn.click();
@@ -187,8 +190,11 @@ async function runComponentPrimitivesTests() {
     await closeBtn.click();
     await drawerDialog.waitFor({ state: 'hidden', timeout: 4000 });
     assert(!(await drawerDialog.isVisible()), 'Drawer must be hidden after clicking close button');
+    await page.waitForTimeout(150);
+    const isFocusRestoredOnClose = await openDrawerBtn.evaluate((el) => el === document.activeElement);
+    assert(isFocusRestoredOnClose, 'Focus must be restored to trigger button after close button click');
 
-    console.log('  ✓ [COMPONENT-04] Drawer (open, Escape key dismiss, close button dismiss): PASS');
+    console.log('  ✓ [COMPONENT-04] Drawer (open, Escape dismiss, close button dismiss, focus restored): PASS');
     results.push({ name: 'Drawer', status: 'PASS' });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
