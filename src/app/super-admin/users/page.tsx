@@ -20,6 +20,7 @@ import { getErrorMessage } from '@/lib/errors';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { useDebouncedValue } from '@/frontend/modules/super-admin/shared/useDebouncedValue';
 import { PaginationBar } from '@/frontend/modules/super-admin/shared/PaginationBar';
+import { TableWrapper } from '@/components/ui/table-wrapper';
 import { UserFormDrawer } from '@/frontend/modules/super-admin/users/UserFormDrawer';
 import { UserStatusDrawer } from '@/frontend/modules/super-admin/users/UserStatusDrawer';
 import { UserResetPasswordDrawer } from '@/frontend/modules/super-admin/users/UserResetPasswordDrawer';
@@ -162,7 +163,7 @@ export default function SuperAdminUsersPage() {
           </div>
         </div>
 
-        <div className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain">
+        <TableWrapper>
           <table className="w-full min-w-[700px] text-left text-xs">
             <thead className="border-b border-border bg-subtle text-slate-600">
               <tr>
@@ -276,7 +277,7 @@ export default function SuperAdminUsersPage() {
               )}
             </tbody>
           </table>
-        </div>
+        </TableWrapper>
         <PaginationBar
           page={pagination?.page ?? page}
           totalPages={pagination?.totalPages ?? 1}

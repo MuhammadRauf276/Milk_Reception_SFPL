@@ -9,6 +9,7 @@ import { getErrorMessage } from '@/lib/errors';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { useDebouncedValue } from '@/frontend/modules/super-admin/shared/useDebouncedValue';
 import { PaginationBar } from '@/frontend/modules/super-admin/shared/PaginationBar';
+import { TableWrapper } from '@/components/ui/table-wrapper';
 
 interface AuditLogItem {
   id: string;
@@ -94,7 +95,7 @@ export default function SuperAdminAuditPage() {
       )}
 
       <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-2xs">
-        <div className="overflow-x-auto">
+        <TableWrapper>
           <table className="w-full text-left text-xs">
             <thead className="border-b border-border bg-subtle text-slate-600">
               <tr>
@@ -152,7 +153,7 @@ export default function SuperAdminAuditPage() {
               )}
             </tbody>
           </table>
-        </div>
+        </TableWrapper>
         <PaginationBar
           page={pagination?.page ?? page}
           totalPages={pagination?.totalPages ?? 1}
